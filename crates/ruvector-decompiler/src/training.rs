@@ -187,8 +187,8 @@ mod tests {
     fn test_builtin_corpus_loads() {
         let corpus = TrainingCorpus::builtin();
         assert!(
-            corpus.patterns.len() >= 40,
-            "Expected at least 40 builtin patterns, got {}",
+            corpus.patterns.len() >= 200,
+            "Expected at least 200 builtin patterns, got {}",
             corpus.patterns.len()
         );
     }

@@ -3,8 +3,15 @@
 //! Uses exact MinCut for small graphs (<5K nodes) and Louvain community
 //! detection for large graphs (>=5K nodes). Louvain is O(n log n) and
 //! handles 100K+ node graphs in seconds.
+//!
+//! Performance: Louvain local-move phase is parallelized with rayon.
+//! Each node's modularity gain is computed independently (read-only
+//! access to current community assignments), then moves are applied
+//! sequentially to prevent conflicts.
 
 use std::collections::HashMap;
+
+use rayon::prelude::*;
 
 use crate::error::{DecompilerError, Result};
 use crate::graph::ReferenceGraph;
@@ -94,10 +101,15 @@ fn exact_mincut_partition(
 /// Algorithm:
 /// 1. Start with each node in its own community.
 /// 2. Repeatedly move nodes to the neighbor community that maximizes
-///    modularity gain.
+///    modularity gain (parallelized with rayon).
 /// 3. When no more single-node moves improve modularity, aggregate
 ///    communities into super-nodes and repeat.
 /// 4. Merge small communities to meet target count if needed.
+///
+/// Performance: The local-move phase uses `rayon::par_iter` to compute
+/// modularity gains in parallel. Each node reads the current community
+/// assignments without locking. Moves are applied sequentially after
+/// each parallel sweep to prevent conflicts.
 fn louvain_partition(
     graph: &ReferenceGraph,
     target: usize,
@@ -137,6 +149,10 @@ fn louvain_partition(
     let mut community: Vec<usize> = (0..n).collect();
     let m2 = total_weight; // sum of all edge weights (each counted once)
 
+    // Pre-compute community total weights for O(1) lookup.
+    // sigma_totals[c] = sum of node_weights for all nodes in community c.
+    let mut sigma_totals: Vec<f64> = node_weights.clone();
+
     let mut improved = true;
     let mut iterations = 0;
     let max_iterations = 20; // Prevent infinite loops
@@ -145,53 +161,70 @@ fn louvain_partition(
         improved = false;
         iterations += 1;
 
-        for i in 0..n {
-            let current_comm = community[i];
-            let ki = node_weights[i];
+        // Parallel phase: compute best community for each node.
+        // Each node reads community[] and sigma_totals[] (snapshot).
+        // No writes during this phase.
+        let gains: Vec<(usize, usize, f64)> = (0..n)
+            .into_par_iter()
+            .filter_map(|i| {
+                let current_comm = community[i];
+                let ki = node_weights[i];
 
-            // Compute sum of weights to each neighbor community.
-            let mut comm_weights: HashMap<usize, f64> = HashMap::new();
-            for &(j, w) in &adj[i] {
-                *comm_weights.entry(community[j]).or_insert(0.0) += w;
-            }
-
-            // Compute sum of node weights in each candidate community.
-            // For efficiency, use a running tally (approximate for large n).
-            let mut best_comm = current_comm;
-            let mut best_gain = 0.0f64;
-
-            // Weight of current community edges for node i.
-            let ki_in_current = comm_weights.get(&current_comm).copied().unwrap_or(0.0);
-
-            // Approximate community total weight (sum of node_weights for
-            // all nodes in community). For speed, compute only for neighbors.
-            let sigma_current = community_total_weight(
-                &community, current_comm, &node_weights,
-            );
-
-            for (&candidate_comm, &ki_in_candidate) in &comm_weights {
-                if candidate_comm == current_comm {
-                    continue;
+                if adj[i].is_empty() {
+                    return None;
                 }
 
-                let sigma_candidate = community_total_weight(
-                    &community, candidate_comm, &node_weights,
-                );
-
-                // Modularity gain of moving i from current to candidate:
-                // dQ = [ki_in_candidate - sigma_candidate * ki / m]
-                //    - [ki_in_current - (sigma_current - ki) * ki / m]
-                let gain = (ki_in_candidate - ki_in_current)
-                    - ki * (sigma_candidate - sigma_current + ki) / m2;
-
-                if gain > best_gain {
-                    best_gain = gain;
-                    best_comm = candidate_comm;
+                // Compute sum of weights to each neighbor community.
+                let mut comm_weights: HashMap<usize, f64> =
+                    HashMap::with_capacity(adj[i].len());
+                for &(j, w) in &adj[i] {
+                    *comm_weights.entry(community[j]).or_insert(0.0) += w;
                 }
-            }
 
-            if best_comm != current_comm {
-                community[i] = best_comm;
+                let mut best_comm = current_comm;
+                let mut best_gain = 0.0f64;
+
+                let ki_in_current =
+                    comm_weights.get(&current_comm).copied().unwrap_or(0.0);
+                let sigma_current = sigma_totals[current_comm];
+
+                for (&candidate_comm, &ki_in_candidate) in &comm_weights {
+                    if candidate_comm == current_comm {
+                        continue;
+                    }
+
+                    let sigma_candidate = sigma_totals[candidate_comm];
+
+                    // Modularity gain of moving i from current to candidate.
+                    let gain = (ki_in_candidate - ki_in_current)
+                        - ki * (sigma_candidate - sigma_current + ki) / m2;
+
+                    if gain > best_gain {
+                        best_gain = gain;
+                        best_comm = candidate_comm;
+                    }
+                }
+
+                if best_comm != current_comm && best_gain > 0.0 {
+                    Some((i, best_comm, best_gain))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // Sequential phase: apply moves and update sigma_totals.
+        for &(node, new_comm, _) in &gains {
+            let old_comm = community[node];
+            if old_comm != new_comm {
+                let ki = node_weights[node];
+                sigma_totals[old_comm] -= ki;
+                // Ensure sigma_totals vec is large enough.
+                if new_comm >= sigma_totals.len() {
+                    sigma_totals.resize(new_comm + 1, 0.0);
+                }
+                sigma_totals[new_comm] += ki;
+                community[node] = new_comm;
                 improved = true;
             }
         }
@@ -230,29 +263,6 @@ fn louvain_partition(
     }
 
     finalize_modules(graph, modules)
-}
-
-/// Compute total node weight for a community (used in modularity gain).
-/// For performance, caps iteration at 1000 nodes per community.
-fn community_total_weight(
-    community: &[usize],
-    comm_id: usize,
-    node_weights: &[f64],
-) -> f64 {
-    let mut total = 0.0;
-    let mut count = 0;
-    for (i, &c) in community.iter().enumerate() {
-        if c == comm_id {
-            total += node_weights[i];
-            count += 1;
-            if count >= 1000 {
-                // Approximate: scale up for very large communities.
-                let remaining = community.iter().filter(|&&cc| cc == comm_id).count();
-                return total * (remaining as f64 / count as f64);
-            }
-        }
-    }
-    total
 }
 
 /// Fallback: positional partitioning by byte offset for edge-less graphs.

@@ -6,14 +6,45 @@
 //! Performance: Uses a single-pass scanner with brace-depth tracking
 //! instead of per-declaration regex scanning. This reduces O(n*m) to O(n)
 //! for large files (n=file size, m=declarations).
+//!
+//! Optimization: Uses `memchr` for fast byte scanning and a pre-computed
+//! 256-entry lookup table for character classification, avoiding per-byte
+//! branching in hot loops.
 
 use std::collections::HashSet;
 
+use memchr::memchr;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
 use crate::error::{DecompilerError, Result};
 use crate::types::{DeclKind, Declaration};
+
+// Pre-computed lookup table for character classification.
+// Bit 0: is_ident_start (a-z, A-Z, _, $)
+// Bit 1: is_ident_char  (a-z, A-Z, 0-9, _, $)
+// Bit 2: is_quote       (", ', `)
+// Bit 3: is_brace_open  ({)
+// Bit 4: is_brace_close (})
+const IDENT_START: u8 = 0x01;
+const IDENT_CHAR: u8 = 0x02;
+const _QUOTE: u8 = 0x04;
+
+static CHAR_TABLE: Lazy<[u8; 256]> = Lazy::new(|| {
+    let mut t = [0u8; 256];
+    for b in b'a'..=b'z' {
+        t[b as usize] = IDENT_START | IDENT_CHAR;
+    }
+    for b in b'A'..=b'Z' {
+        t[b as usize] = IDENT_START | IDENT_CHAR;
+    }
+    t[b'_' as usize] = IDENT_START | IDENT_CHAR;
+    t[b'$' as usize] = IDENT_START | IDENT_CHAR;
+    for b in b'0'..=b'9' {
+        t[b as usize] = IDENT_CHAR;
+    }
+    t
+});
 
 // Cached compiled regexes -- compiled once, reused across all calls.
 static VAR_RE: Lazy<Regex> = Lazy::new(|| {
@@ -145,8 +176,9 @@ fn extract_declarations(source: &str) -> Vec<Declaration> {
         let (strings, props, idents) = scan_body_single_pass(body);
         decl.string_literals = strings;
 
-        // Deduplicate properties.
-        let mut seen_props: HashSet<String> = HashSet::new();
+        // Deduplicate properties using HashSet.
+        let mut seen_props = HashSet::with_capacity(props.len().min(64));
+        decl.property_accesses.reserve(props.len().min(64));
         for prop in props {
             if seen_props.insert(prop.clone()) {
                 decl.property_accesses.push(prop);
@@ -154,7 +186,7 @@ fn extract_declarations(source: &str) -> Vec<Declaration> {
         }
 
         // Cross-references: identifiers that match other declaration names.
-        let mut seen_refs: HashSet<String> = HashSet::new();
+        let mut seen_refs = HashSet::with_capacity(16);
         for ident in idents {
             if ident != decl.name
                 && all_names.contains(&ident)
@@ -175,9 +207,13 @@ fn extract_declarations(source: &str) -> Vec<Declaration> {
 ///
 /// This replaces three separate regex passes (STRING_RE, PROP_RE, IDENT_RE)
 /// with one character-level scan, reducing time from O(3*n) to O(n).
+///
+/// Performance: Uses a pre-computed lookup table for character classification
+/// and `memchr` for fast scanning past non-interesting bytes.
 fn scan_body_single_pass(body: &str) -> (Vec<String>, Vec<String>, Vec<String>) {
     let bytes = body.as_bytes();
     let len = bytes.len();
+    let table = &*CHAR_TABLE;
     let mut strings = Vec::new();
     let mut props = Vec::new();
     let mut idents = Vec::new();
@@ -191,20 +227,32 @@ fn scan_body_single_pass(body: &str) -> (Vec<String>, Vec<String>, Vec<String>) 
             let quote = ch;
             i += 1;
             let str_start = i;
+            // Use memchr to find the closing quote fast, then handle escapes.
             while i < len {
-                if bytes[i] == b'\\' {
-                    i += 2; // skip escape
-                    continue;
-                }
-                if bytes[i] == quote {
+                if let Some(pos) = memchr(quote, &bytes[i..]) {
+                    let abs = i + pos;
+                    // Check if preceded by an odd number of backslashes.
+                    let mut bs = 0;
+                    while abs > str_start + bs && bytes[abs - 1 - bs] == b'\\' {
+                        bs += 1;
+                    }
+                    if bs % 2 == 0 {
+                        // Not escaped -- found end of string.
+                        i = abs;
+                        break;
+                    }
+                    // Escaped quote -- continue past it.
+                    i = abs + 1;
+                } else {
+                    i = len;
                     break;
                 }
-                i += 1;
             }
             if i > str_start {
-                let s = String::from_utf8_lossy(&bytes[str_start..i]).to_string();
+                // All JS source string content is ASCII-safe for our purposes.
+                let s = unsafe { std::str::from_utf8_unchecked(&bytes[str_start..i]) };
                 if !s.is_empty() {
-                    strings.push(s);
+                    strings.push(s.to_string());
                 }
             }
             if i < len {
@@ -231,25 +279,30 @@ fn scan_body_single_pass(body: &str) -> (Vec<String>, Vec<String>, Vec<String>) 
         }
 
         // --- Property access (after '.') ---
-        if ch == b'.' && i + 1 < len && is_ident_start(bytes[i + 1]) {
+        if ch == b'.'
+            && i + 1 < len
+            && (table[bytes[i + 1] as usize] & IDENT_START) != 0
+        {
             i += 1;
             let prop_start = i;
-            while i < len && is_ident_char(bytes[i]) {
+            while i < len && (table[bytes[i] as usize] & IDENT_CHAR) != 0 {
                 i += 1;
             }
-            let prop = String::from_utf8_lossy(&bytes[prop_start..i]).to_string();
-            props.push(prop);
+            let prop =
+                unsafe { std::str::from_utf8_unchecked(&bytes[prop_start..i]) };
+            props.push(prop.to_string());
             continue;
         }
 
         // --- Identifier ---
-        if is_ident_start(ch) {
+        if (table[ch as usize] & IDENT_START) != 0 {
             let ident_start = i;
-            while i < len && is_ident_char(bytes[i]) {
+            while i < len && (table[bytes[i] as usize] & IDENT_CHAR) != 0 {
                 i += 1;
             }
-            let ident = String::from_utf8_lossy(&bytes[ident_start..i]).to_string();
-            idents.push(ident);
+            let ident =
+                unsafe { std::str::from_utf8_unchecked(&bytes[ident_start..i]) };
+            idents.push(ident.to_string());
             continue;
         }
 
@@ -260,74 +313,91 @@ fn scan_body_single_pass(body: &str) -> (Vec<String>, Vec<String>, Vec<String>) 
 }
 
 #[inline]
+#[allow(dead_code)]
 fn is_ident_start(b: u8) -> bool {
-    b.is_ascii_alphabetic() || b == b'_' || b == b'$'
+    (CHAR_TABLE[b as usize] & IDENT_START) != 0
 }
 
 #[inline]
+#[allow(dead_code)]
 fn is_ident_char(b: u8) -> bool {
-    b.is_ascii_alphanumeric() || b == b'_' || b == b'$'
+    (CHAR_TABLE[b as usize] & IDENT_CHAR) != 0
 }
 
 /// Find the end of a declaration body by tracking brace depth,
 /// or falling back to the next semicolon at depth 0.
+///
+/// Performance: Uses `memchr` to skip past string contents quickly
+/// instead of scanning byte-by-byte through long string literals.
 fn find_declaration_end(source: &str, start: usize) -> usize {
     let bytes = source.as_bytes();
+    let len = bytes.len();
     let mut brace_depth = 0i32;
     let mut paren_depth = 0i32;
-    let mut in_string = false;
-    let mut string_char = b'"';
     let mut found_brace = false;
 
     let mut i = start;
-    while i < bytes.len() {
+    while i < len {
         let ch = bytes[i];
-
-        // Handle string escapes.
-        if in_string {
-            if ch == b'\\' {
-                i += 2;
-                continue;
-            }
-            if ch == string_char {
-                in_string = false;
-            }
-            i += 1;
-            continue;
-        }
 
         match ch {
             b'"' | b'\'' | b'`' => {
-                in_string = true;
-                string_char = ch;
+                // Skip entire string literal using memchr for speed.
+                let quote = ch;
+                i += 1;
+                while i < len {
+                    if let Some(pos) = memchr(quote, &bytes[i..]) {
+                        let abs = i + pos;
+                        // Count preceding backslashes.
+                        let mut bs = 0;
+                        while abs > 0 && abs - 1 >= i.saturating_sub(bs + 1)
+                            && abs > bs
+                            && bytes[abs - 1 - bs] == b'\\'
+                        {
+                            bs += 1;
+                        }
+                        if bs % 2 == 0 {
+                            i = abs + 1;
+                            break;
+                        }
+                        i = abs + 1;
+                    } else {
+                        i = len;
+                        break;
+                    }
+                }
             }
             b'{' => {
                 brace_depth += 1;
                 found_brace = true;
+                i += 1;
             }
             b'}' => {
                 brace_depth -= 1;
                 if found_brace && brace_depth <= 0 {
                     // Consume trailing semicolon if present.
-                    if i + 1 < bytes.len() && bytes[i + 1] == b';' {
+                    if i + 1 < len && bytes[i + 1] == b';' {
                         return i + 2;
                     }
                     return i + 1;
                 }
+                i += 1;
             }
             b'(' => {
                 paren_depth += 1;
+                i += 1;
             }
             b')' => {
                 paren_depth -= 1;
+                i += 1;
             }
             b';' if brace_depth <= 0 && paren_depth <= 0 && i > start + 2 => {
                 return i + 1;
             }
-            _ => {}
+            _ => {
+                i += 1;
+            }
         }
-
-        i += 1;
     }
 
     source.len()
