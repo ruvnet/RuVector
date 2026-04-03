@@ -8957,7 +8957,7 @@ const decompileCmd = program
     const { parseTarget } = decompiler;
     const parsed = parseTarget(target);
     const minConfidence = parseFloat(opts.confidence);
-    const decompileOpts = { minConfidence, witness: opts.witness !== false };
+    const decompileOpts = { minConfidence, witness: opts.witness !== false, useRust: true };
     const quiet = opts.quiet || opts.json;
     let spinner = null;
 
@@ -8975,7 +8975,7 @@ const decompileCmd = program
         if (!quiet) spinner.text = `Decompiled ${result.packageInfo.name}@${result.packageInfo.version}`;
       } else if (parsed.type === 'file') {
         if (!quiet) spinner.text = `Reading ${parsed.path}...`;
-        result = decompiler.decompileFile(parsed.path, decompileOpts);
+        result = decompiler.decompileFile(parsed.path, { ...decompileOpts, filePath: parsed.path });
       } else if (parsed.type === 'url') {
         if (!quiet) spinner.text = `Fetching ${parsed.url}...`;
         result = await decompiler.decompileUrl(parsed.url, decompileOpts);
@@ -9040,7 +9040,8 @@ const decompileCmd = program
       console.log(chalk.white(`  Functions:    ${result.metrics.source.functions}`));
       console.log(chalk.white(`  Classes:      ${result.metrics.source.classes}`));
       if (result.witness) {
-        console.log(chalk.white(`  Witness root: ${result.witness.root.slice(0, 16)}...`));
+        const wRoot = result.witness.root || result.witness.chain_root || '';
+        console.log(chalk.white(`  Witness root: ${wRoot.slice(0, 16)}...`));
       }
       console.log(chalk.green(`  Output:       ${outputDir}`));
       console.log('');
