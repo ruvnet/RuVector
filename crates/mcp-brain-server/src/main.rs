@@ -13,7 +13,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|_| "8080".to_string())
         .parse()?;
 
+    // Start server IMMEDIATELY — data loads in background.
+    // This ensures health/ready endpoints respond during Firestore hydration.
     let (app, state) = routes::create_router().await;
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await?;
+    tracing::info!("mcp-brain-server listening on port {port} (data loading in background)");
 
     // ── Enhanced cognitive loop (replaces basic training loop) ──
     // Runs every 5 min: SONA + symbolic reasoning + internal voice + curiosity +
@@ -143,8 +147,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await?;
-    tracing::info!("mcp-brain-server listening on port {port}");
     tracing::info!("Endpoints: brain.ruv.io | π.ruv.io");
     tracing::info!("Cognitive loop: tick every 60s, full cycle every 5 min");
 

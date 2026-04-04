@@ -47,8 +47,13 @@ fn extract_client_ip(headers: &HeaderMap) -> String {
 /// can spawn background tasks with access to shared state.
 pub async fn create_router() -> (Router, AppState) {
     let store = Arc::new(crate::store::FirestoreClient::new());
-    // Hydrate cache from Firestore on startup (no-op if FIRESTORE_URL not set)
-    store.load_from_firestore().await;
+    // Hydrate cache from Firestore in BACKGROUND (non-blocking).
+    // Server starts immediately; data loads asynchronously.
+    let store_hydrate = store.clone();
+    tokio::spawn(async move {
+        store_hydrate.load_from_firestore().await;
+        tracing::info!("Firestore hydration complete: {} memories", store_hydrate.memory_count());
+    });
     let gcs = Arc::new(crate::gcs::GcsClient::new());
     let graph = Arc::new(parking_lot::RwLock::new(crate::graph::KnowledgeGraph::new()));
     let rate_limiter = Arc::new(crate::rate_limit::RateLimiter::default_limits());
@@ -65,20 +70,15 @@ pub async fn create_router() -> (Router, AppState) {
         crate::types::LoraFederationStore::new(2, 128),
     ));
 
-    // RuvLLM embedding engine — hydrate corpus from existing memories
+    // RuvLLM embedding engine — start empty, hydrate in background after Firestore loads
     let mut emb_engine = crate::embeddings::EmbeddingEngine::new();
-    let mut all_mems = store.all_memories();
-    for mem in &all_mems {
-        if mem.embedding.len() == crate::embeddings::EMBED_DIM {
-            emb_engine.add_to_corpus(&mem.id.to_string(), mem.embedding.clone(), None);
-        }
-    }
-    tracing::info!("Embedding engine: {} corpus entries, active={}", emb_engine.corpus_size(), emb_engine.engine_name());
+    tracing::info!("Embedding engine initialized (corpus will hydrate in background)");
 
-    // If RLM is now active, re-embed all memories for embedding space consistency.
-    // Stored embeddings may have been generated with HashEmbedder; re-embedding ensures
-    // query (QueryConditioned) and stored (CorpusConditioned) embeddings are in the same space.
-    if emb_engine.is_rlm_active() {
+    // Re-embedding deferred to first training cycle (runs 30s after startup).
+    // This ensures the server starts immediately without blocking on CPU-heavy embedding work.
+    let mut all_mems: Vec<crate::types::BrainMemory> = Vec::new();
+    if false {
+    // if emb_engine.is_rlm_active() {
         tracing::info!("RLM active — re-embedding {} memories for space consistency", all_mems.len());
         // Build a fresh engine with clean corpus to avoid duplicate entries
         let mut fresh_engine = crate::embeddings::EmbeddingEngine::new();
