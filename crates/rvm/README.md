@@ -3,7 +3,7 @@
 [![Rust](https://img.shields.io/badge/Rust-1.77+-orange.svg)](https://www.rust-lang.org)
 [![no_std](https://img.shields.io/badge/no__std-compatible-green.svg)](https://doc.rust-lang.org/reference/names/preludes.html)
 [![License](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE)
-[![ADR](https://img.shields.io/badge/ADRs-132--140-purple.svg)](../../docs/adr/)
+[![ADR](https://img.shields.io/badge/ADRs-132--141-purple.svg)](../../docs/adr/)
 [![EPIC](https://img.shields.io/badge/EPIC-ruvnet%2FRuVector%23328-brightgreen.svg)](https://github.com/ruvnet/RuVector/issues/328)
 
 ### **Agents don't fit in VMs. They need something that understands how they think.**
@@ -169,11 +169,11 @@ Layer 0: Machine Entry (assembly, <500 LoC)
 | `rvm-partition` | Partition lifecycle, split/merge, capability tables, communication edges |
 | `rvm-sched` | Coherence-weighted 2-signal scheduler (deadline urgency + cut pressure) |
 | `rvm-memory` | Guest physical address space management with tiered placement |
-| `rvm-coherence` | Real-time Phi computation and EMA-filtered coherence scoring |
+| `rvm-coherence` | Unified coherence engine: graph, mincut, scoring, pressure, adaptive, pluggable backends, edge decay |
 | `rvm-boot` | Deterministic 7-phase boot sequence with witness gating |
 | `rvm-wasm` | Optional WebAssembly guest runtime |
 | `rvm-security` | Unified security gate: capability check + proof verification + witness log |
-| `rvm-kernel` | Top-level integration crate re-exporting all subsystems |
+| `rvm-kernel` | Full integration: coherence engine, IPC→graph feeding, scheduler, split/merge, security gates, tier management |
 
 ### Dependency Graph
 
@@ -201,8 +201,8 @@ rvm-types (foundation, no deps)
 # Check (no_std by default)
 cargo check
 
-# Run all 602 tests
-cargo test
+# Run all 645 tests
+cargo test --workspace --lib
 
 # Run 21 criterion benchmarks
 cargo bench
@@ -229,7 +229,7 @@ make run      # boots at 0x4000_0000, PL011 UART output
 | DC-3 | Capabilities are unforgeable, monotonically attenuated | **Implemented** — constant-time P1, 4096-nonce ring |
 | DC-4 | 2-signal priority: `deadline_urgency + cut_pressure_boost` | **Implemented** |
 | DC-5 | Three systems cleanly separated (kernel + coherence + agents) | **Enforced** — feature-gated |
-| DC-6 | Degraded mode when coherence unavailable | **Implemented** — DegradedState with fallback |
+| DC-6 | Degraded mode when coherence unavailable | **Implemented** — enter/exit with witnesses, scheduler zeroes CutPressure |
 | DC-7 | Migration timeout enforcement (100 ms) | **Implemented** — MigrationTracker with auto-abort |
 | DC-8 | Capabilities follow objects during partition split | **Implemented** — scored region assignment |
 | DC-9 | Coherence score range [0.0, 1.0] as fixed-point | **Implemented** — u16 basis points |
@@ -265,20 +265,20 @@ Run `cargo bench` for full criterion results with HTML reports.
 |-------|-------|-------------|
 | `rvm-types` | ~40 types | 64-byte `WitnessRecord` (compile-time asserted), ~40 `ActionKind` variants, 34 error variants |
 | `rvm-hal` | 16 | AArch64 EL2: stage-2 page tables, PL011 UART, GICv2, ARM generic timer |
-| `rvm-cap` | 34 | Constant-time P1, nonce ring (4096 + watermark), derivation trees, epoch revocation |
+| `rvm-cap` | 40 | Constant-time P1, nonce ring (4096 + watermark), P3 derivation chain verification, epoch revocation |
 | `rvm-witness` | 23 | FNV-1a hash chain, 16MB ring buffer, `StrictSigner`, RLE-compressed replay |
-| `rvm-proof` | 43 | Proof engine, context builder, constant-time P2 (all 6 rules), P3 stub |
+| `rvm-proof` | 43 | Proof engine, context builder, constant-time P2 (all 6 rules) |
 | `rvm-partition` | 58 | Lifecycle state machine, IPC message queues, device leases, scored split/merge |
-| `rvm-sched` | 21 | 2-signal priority, SMP coordinator, switch hot path, degraded fallback |
+| `rvm-sched` | 49 | 2-signal priority, SMP coordinator, VMID-aware switch, `SwitchContext::init()`, degraded fallback |
 | `rvm-memory` | 103 | Buddy allocator with coalescing, 4-tier management, RLE compression, reconstruction |
-| `rvm-coherence` | 34 | Stoer-Wagner mincut, coherence graph, scoring, cut pressure, adaptive frequency |
+| `rvm-coherence` | 59 | Unified coherence engine, pluggable MinCut/Coherence backends, edge decay, bridge to ruvector |
 | `rvm-boot` | 26 | 7-phase measured boot, attestation digest, HAL init stubs, entry point |
-| `rvm-wasm` | 24 | 7-state agent lifecycle, migration with DC-7 timeout, atomic quotas |
+| `rvm-wasm` | 33 | 7-state agent lifecycle, `HostContext` trait for real IPC, migration with DC-7 timeout |
 | `rvm-security` | 43 | Unified security gate, input validation, attestation chain, DMA budget |
-| `rvm-kernel` | 13 | Kernel struct (boot/tick/create/destroy), feature-gated coherence + WASM |
-| **Integration** | 35 | 13 e2e scenarios: agent lifecycle, split pressure, memory tiers, cap chain, boot timing |
+| `rvm-kernel` | 62 | Full coherence integration: IPC→graph feeding, scheduler priority, split/merge, security gates, degraded mode, tier management |
+| **Integration** | 48 | 17 e2e scenarios: agent lifecycle, split pressure, memory tiers, cap chain, boot timing |
 | **Benchmarks** | 21 | Criterion benchmarks for all performance-critical paths |
-| **Total** | **602** | **0 failures, 0 clippy warnings** |
+| **Total** | **645** | **0 failures, 0 clippy warnings** |
 
 ### Security Audit Results
 
@@ -330,7 +330,7 @@ No existing OS uses spectral graph coherence metrics as a scheduling signal. RVM
 RVM explicitly rejects demand paging. Dormant memory is stored as `witness checkpoint + delta compression`, not raw bytes. The system can deterministically reconstruct any historical state from the witness log.
 
 ### 3. Proof-Gated Infrastructure
-Every state mutation requires a valid proof token verified through a three-tier system: P1 capability (<1µs), P2 policy (<100µs), P3 deep (<10ms, post-v1).
+Every state mutation requires a valid proof token verified through a three-tier system: P1 capability (<1µs), P2 policy (<100µs), P3 deep derivation chain verification (walks tree to root, validates ancestor integrity + epoch monotonicity).
 
 ### 4. Witness-Native OS
 Every privileged action emits a fixed 64-byte, FNV-1a hash-chained record. Tamper-evident by construction. Full deterministic replay from any checkpoint.
@@ -419,6 +419,7 @@ Capability-based isolation, proof-gated execution, and witness attestation on mi
 | ADR-138 | Seed hardware bring-up |
 | ADR-139 | Appliance deployment model |
 | ADR-140 | Agent runtime adapter |
+| ADR-141 | Coherence engine kernel integration and runtime pipeline |
 
 </details>
 
