@@ -1464,6 +1464,84 @@ const TOOLS = [
       },
       required: []
     }
+  },
+
+  // ── Decompiler Tools ───────────────────────────────────────────────────
+  {
+    name: 'decompile_package',
+    description: 'Decompile an npm package. Fetches from registry, extracts bundle, splits into modules, computes metrics and witness chain.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        package: { type: 'string', description: 'npm package name (e.g. "express", "@anthropic-ai/claude-code")' },
+        version: { type: 'string', description: 'Version (default: latest)' },
+        min_confidence: { type: 'number', description: 'Minimum confidence threshold (0-1, default: 0.3)' }
+      },
+      required: ['package']
+    }
+  },
+  {
+    name: 'decompile_file',
+    description: 'Decompile a local JavaScript file. Beautifies, splits into modules, computes metrics.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Path to .js file' },
+        min_confidence: { type: 'number', description: 'Minimum confidence threshold (0-1, default: 0.3)' }
+      },
+      required: ['path']
+    }
+  },
+  {
+    name: 'decompile_url',
+    description: 'Decompile JavaScript from a URL (unpkg, CDN, raw GitHub, etc).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'URL to fetch JavaScript from' },
+        min_confidence: { type: 'number', description: 'Minimum confidence threshold (0-1, default: 0.3)' }
+      },
+      required: ['url']
+    }
+  },
+  {
+    name: 'decompile_search',
+    description: 'Search decompiled code for patterns, function names, or string literals.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search query (regex supported)' },
+        package: { type: 'string', description: 'npm package to decompile and search' },
+        version: { type: 'string', description: 'Package version (default: latest)' },
+        path: { type: 'string', description: 'Local file path to decompile and search (alternative to package)' }
+      },
+      required: ['query']
+    }
+  },
+  {
+    name: 'decompile_diff',
+    description: 'Compare decompiled output between two versions of an npm package. Shows added/removed/changed modules.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        package: { type: 'string', description: 'npm package name' },
+        version_a: { type: 'string', description: 'First version' },
+        version_b: { type: 'string', description: 'Second version' }
+      },
+      required: ['package', 'version_a', 'version_b']
+    }
+  },
+  {
+    name: 'decompile_witness',
+    description: 'Verify the cryptographic witness chain of a decompilation. Proves output derives faithfully from input.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        witness_path: { type: 'string', description: 'Path to witness.json file' },
+        source_path: { type: 'string', description: 'Path to original bundle (optional, for source hash verification)' }
+      },
+      required: ['witness_path']
+    }
   }
 ];
 
@@ -3415,6 +3493,197 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const pseudonym = crypto.createHash('shake256', { outputLength: 16 }).update(key).digest('hex');
         const mcpToken = crypto.createHmac('sha256', key).update('mcp').digest('hex').slice(0, 32);
         return { content: [{ type: 'text', text: JSON.stringify({ success: true, pseudonym, mcp_token: mcpToken, key_prefix: key.slice(0, 8) + '...' }, null, 2) }] };
+      }
+
+      // ── Decompiler Tool Handlers ─────────────────────────────────────────
+      case 'decompile_package': {
+        const decompiler = require('../src/decompiler/index.js');
+        const result = await decompiler.decompilePackage(
+          args.package,
+          args.version || undefined,
+          { minConfidence: args.min_confidence || 0.3 }
+        );
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: true,
+              packageInfo: result.packageInfo,
+              modules: result.modules.map(m => ({
+                name: m.name, fragments: m.fragments, confidence: m.confidence,
+                contentPreview: m.content.slice(0, 500) + (m.content.length > 500 ? '...' : ''),
+              })),
+              metrics: result.metrics,
+              witness_root: result.witness ? result.witness.root : null,
+            }, null, 2)
+          }]
+        };
+      }
+
+      case 'decompile_file': {
+        const decompiler = require('../src/decompiler/index.js');
+        const safePath = validateRvfPath(args.path);
+        const result = decompiler.decompileFile(safePath, {
+          minConfidence: args.min_confidence || 0.3
+        });
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: true,
+              filePath: result.filePath,
+              modules: result.modules.map(m => ({
+                name: m.name, fragments: m.fragments, confidence: m.confidence,
+                contentPreview: m.content.slice(0, 500) + (m.content.length > 500 ? '...' : ''),
+              })),
+              metrics: result.metrics,
+              witness_root: result.witness ? result.witness.root : null,
+            }, null, 2)
+          }]
+        };
+      }
+
+      case 'decompile_url': {
+        const decompiler = require('../src/decompiler/index.js');
+        const urlStr = args.url;
+        // Basic URL validation
+        if (!urlStr.startsWith('http://') && !urlStr.startsWith('https://')) {
+          throw new Error('URL must start with http:// or https://');
+        }
+        const result = await decompiler.decompileUrl(urlStr, {
+          minConfidence: args.min_confidence || 0.3
+        });
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: true,
+              url: result.url,
+              modules: result.modules.map(m => ({
+                name: m.name, fragments: m.fragments, confidence: m.confidence,
+                contentPreview: m.content.slice(0, 500) + (m.content.length > 500 ? '...' : ''),
+              })),
+              metrics: result.metrics,
+              witness_root: result.witness ? result.witness.root : null,
+            }, null, 2)
+          }]
+        };
+      }
+
+      case 'decompile_search': {
+        const decompiler = require('../src/decompiler/index.js');
+        let result;
+        if (args.path) {
+          const safePath = validateRvfPath(args.path);
+          result = decompiler.decompileFile(safePath);
+        } else if (args.package) {
+          result = await decompiler.decompilePackage(args.package, args.version || undefined);
+        } else {
+          throw new Error('Either "package" or "path" must be provided');
+        }
+
+        const query = args.query;
+        let regex;
+        try { regex = new RegExp(query, 'gi'); } catch { regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'); }
+
+        const matches = [];
+        for (const mod of result.modules) {
+          const lines = mod.content.split('\n');
+          for (let i = 0; i < lines.length; i++) {
+            if (regex.test(lines[i])) {
+              matches.push({
+                module: mod.name,
+                line: i + 1,
+                content: lines[i].trim().slice(0, 200),
+              });
+              regex.lastIndex = 0;
+            }
+            if (matches.length >= 50) break;
+          }
+          if (matches.length >= 50) break;
+        }
+
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: true,
+              query,
+              total_matches: matches.length,
+              matches,
+            }, null, 2)
+          }]
+        };
+      }
+
+      case 'decompile_diff': {
+        const decompiler = require('../src/decompiler/index.js');
+        const [resultA, resultB] = await Promise.all([
+          decompiler.decompilePackage(args.package, args.version_a),
+          decompiler.decompilePackage(args.package, args.version_b),
+        ]);
+
+        const namesA = new Set(resultA.modules.map(m => m.name));
+        const namesB = new Set(resultB.modules.map(m => m.name));
+        const added = [...namesB].filter(n => !namesA.has(n));
+        const removed = [...namesA].filter(n => !namesB.has(n));
+        const common = [...namesA].filter(n => namesB.has(n));
+
+        // Compare declarations in common modules
+        const changedDeclarations = [];
+        for (const name of common) {
+          const modA = resultA.modules.find(m => m.name === name);
+          const modB = resultB.modules.find(m => m.name === name);
+          if (modA && modB && modA.content !== modB.content) {
+            changedDeclarations.push({
+              module: name,
+              sizeChange: modB.content.length - modA.content.length,
+              fragmentsA: modA.fragments,
+              fragmentsB: modB.fragments,
+            });
+          }
+        }
+
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: true,
+              package: args.package,
+              version_a: args.version_a,
+              version_b: args.version_b,
+              added_modules: added,
+              removed_modules: removed,
+              common_modules: common.length,
+              changed_declarations: changedDeclarations,
+              metrics_a: resultA.metrics.source,
+              metrics_b: resultB.metrics.source,
+            }, null, 2)
+          }]
+        };
+      }
+
+      case 'decompile_witness': {
+        const decompiler = require('../src/decompiler/index.js');
+        const witnessPath = validateRvfPath(args.witness_path);
+        const witnessData = JSON.parse(fs.readFileSync(witnessPath, 'utf-8'));
+
+        let sourceContent = undefined;
+        if (args.source_path) {
+          const sourcePath = validateRvfPath(args.source_path);
+          sourceContent = fs.readFileSync(sourcePath, 'utf-8');
+        }
+
+        const verification = decompiler.verifyWitnessChain(witnessData, sourceContent);
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: true,
+              ...verification,
+            }, null, 2)
+          }]
+        };
       }
 
       default:

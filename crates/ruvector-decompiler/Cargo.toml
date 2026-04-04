@@ -1,0 +1,50 @@
+[package]
+name = "ruvector-decompiler"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "SOTA JavaScript bundle decompiler using MinCut graph partitioning, self-learning name inference, and RVF witness chains"
+keywords = ["decompiler", "javascript", "mincut", "source-map", "reverse-engineering"]
+categories = ["development-tools", "algorithms"]
+
+[dependencies]
+ruvector-mincut = { path = "../ruvector-mincut", default-features = false }
+sha3 = "0.10"
+serde = { workspace = true }
+serde_json = { workspace = true }
+regex = "1"
+thiserror = { workspace = true }
+once_cell = "1"
+rayon = { workspace = true, optional = true }
+memchr = "2"
+ort = { version = "=2.0.0-rc.10", optional = true, default-features = false, features = ["ndarray", "std"] }
+ndarray = { version = "0.16", optional = true }
+
+[features]
+default = ["parallel"]
+# Parallel Louvain via rayon (not available in WASM)
+parallel = ["rayon"]
+# WASM compatibility: pass through to ruvector-mincut wasm feature
+wasm = ["ruvector-mincut/wasm"]
+# Enable neural name inference using ONNX Runtime (via `ort` crate)
+# or a GGUF/RVF model file. Adds model loading + inference capability.
+neural = ["ort", "ndarray"]
+# LLM model weight decompilation (GGUF, Safetensors). See ADR-138.
+model = []
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "bench_parser"
+harness = false
+
+[[bench]]
+name = "bench_pipeline"
+harness = false
+
+[lib]
+crate-type = ["rlib"]

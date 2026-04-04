@@ -96,7 +96,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --set-env-vars="DRAGNES_BRAIN_URL=https://pi.ruv.io" \
   --set-env-vars="DRAGNES_MODEL_VERSION=0.1.0" \
   --update-secrets="OPENAI_API_KEY=OPENROUTER_API_KEY:latest" \
-  --set-env-vars='MCP_SERVERS=[{"name":"pi-brain","url":"https://pi.ruv.io/sse"}]'
+  --set-env-vars='MCP_SERVERS=[{"name":"pi-brain","url":"https://mcp.pi.ruv.io"}]'
 
 # ---------- CDN for WASM assets -----------------------------------------------
 

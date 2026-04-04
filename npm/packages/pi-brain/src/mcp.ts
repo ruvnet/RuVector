@@ -273,10 +273,10 @@ export async function startMcpServer(
   } else {
     // SSE mode - point to hosted SSE on pi.ruv.io
     console.error(
-      `π Brain MCP Server — use hosted SSE at https://pi.ruv.io/sse`,
+      `π Brain MCP Server — use hosted SSE at https://mcp.pi.ruv.io`,
     );
     console.error(
-      `Or connect via: claude mcp add π --url https://pi.ruv.io/sse`,
+      `Or connect via: claude mcp add π --url https://mcp.pi.ruv.io`,
     );
   }
 

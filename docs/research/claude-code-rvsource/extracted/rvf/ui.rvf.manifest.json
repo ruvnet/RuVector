@@ -1,0 +1,1122 @@
+{
+  "format": "rvf-binary",
+  "version": "1.0",
+  "fileId": "5141e9704b137db768358ec2fdc63b0d",
+  "dimensions": 128,
+  "metric": "cosine",
+  "totalVectors": 149,
+  "totalSegments": 7,
+  "fileSizeBytes": 78595,
+  "epoch": 2,
+  "segments": [
+    {
+      "id": 1,
+      "type": "manifest",
+      "offset": 0,
+      "payloadLength": 98
+    },
+    {
+      "id": 2,
+      "type": "vec",
+      "offset": 162,
+      "payloadLength": 1046
+    },
+    {
+      "id": 3,
+      "type": "witness",
+      "offset": 1272,
+      "payloadLength": 67
+    },
+    {
+      "id": 4,
+      "type": "manifest",
+      "offset": 1403,
+      "payloadLength": 173
+    },
+    {
+      "id": 5,
+      "type": "vec",
+      "offset": 1640,
+      "payloadLength": 76446
+    },
+    {
+      "id": 6,
+      "type": "witness",
+      "offset": 78150,
+      "payloadLength": 69
+    },
+    {
+      "id": 7,
+      "type": "manifest",
+      "offset": 78283,
+      "payloadLength": 248
+    }
+  ],
+  "source": {
+    "package": "@anthropic-ai/claude-code",
+    "version": "2.1.91",
+    "extractedAt": "2026-04-03T03:17:18.261Z",
+    "metrics": {
+      "bundleSizeBytes": 13162543,
+      "classes": 1632,
+      "functions": 19906,
+      "asyncFunctions": 1903,
+      "arrowFunctions": 25893
+    }
+  },
+  "files": [
+    "ui/command-defs.js",
+    "ui/commands.js"
+  ],
+  "idMap": {
+    "1": {
+      "module": "command-defs",
+      "file": "ui/command-defs.js",
+      "fragmentIndex": 0,
+      "sizeBytes": 284,
+      "hash": "c1d7a51ed1f64d32"
+    },
+    "2": {
+      "module": "command-defs",
+      "file": "ui/command-defs.js",
+      "fragmentIndex": 1,
+      "sizeBytes": 8176,
+      "hash": "099f917b3be8649a"
+    },
+    "3": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 0,
+      "sizeBytes": 282,
+      "hash": "1e4f58298e1842e2"
+    },
+    "4": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 1,
+      "sizeBytes": 1759,
+      "hash": "f6521a3eb37a66c4"
+    },
+    "5": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 2,
+      "sizeBytes": 3902,
+      "hash": "e1a24060eefef678"
+    },
+    "6": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 3,
+      "sizeBytes": 2908,
+      "hash": "2c044e524dca383a"
+    },
+    "7": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 4,
+      "sizeBytes": 2040,
+      "hash": "f2c61fd5badc2a07"
+    },
+    "8": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 5,
+      "sizeBytes": 3015,
+      "hash": "1814816932e73f86"
+    },
+    "9": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 6,
+      "sizeBytes": 3366,
+      "hash": "9e38b75ebd4e26bf"
+    },
+    "10": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 7,
+      "sizeBytes": 3064,
+      "hash": "35b3b25367bae674"
+    },
+    "11": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 8,
+      "sizeBytes": 3227,
+      "hash": "d05e954ba2fe1e56"
+    },
+    "12": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 9,
+      "sizeBytes": 1838,
+      "hash": "7c1a526c31b770c5"
+    },
+    "13": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 10,
+      "sizeBytes": 1002,
+      "hash": "6a45a90347ff7e81"
+    },
+    "14": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 11,
+      "sizeBytes": 1838,
+      "hash": "a75d9ad2cffe5b11"
+    },
+    "15": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 12,
+      "sizeBytes": 2215,
+      "hash": "a09b162e4b5afbe2"
+    },
+    "16": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 13,
+      "sizeBytes": 1964,
+      "hash": "1d97b50d455a78e2"
+    },
+    "17": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 14,
+      "sizeBytes": 1980,
+      "hash": "a82ac0a096bfd26f"
+    },
+    "18": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 15,
+      "sizeBytes": 1849,
+      "hash": "7c01dd9a6f4acb2f"
+    },
+    "19": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 16,
+      "sizeBytes": 1995,
+      "hash": "b781cff93b2e40a9"
+    },
+    "20": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 17,
+      "sizeBytes": 1858,
+      "hash": "91c2bc0d44021561"
+    },
+    "21": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 18,
+      "sizeBytes": 704,
+      "hash": "6e9107bf1d2ed9f0"
+    },
+    "22": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 19,
+      "sizeBytes": 39,
+      "hash": "d7feb7ef8c199aed"
+    },
+    "23": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 20,
+      "sizeBytes": 194,
+      "hash": "e59b14ad72cfa70e"
+    },
+    "24": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 21,
+      "sizeBytes": 941,
+      "hash": "b4f4095edbdf29b7"
+    },
+    "25": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 22,
+      "sizeBytes": 2025,
+      "hash": "3e19bbd5a4c305ce"
+    },
+    "26": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 23,
+      "sizeBytes": 2030,
+      "hash": "91298453769a7014"
+    },
+    "27": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 24,
+      "sizeBytes": 69,
+      "hash": "d40742a45c5489c1"
+    },
+    "28": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 25,
+      "sizeBytes": 142,
+      "hash": "f7351a08922d4ab3"
+    },
+    "29": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 26,
+      "sizeBytes": 148,
+      "hash": "862e56bb04ff979e"
+    },
+    "30": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 27,
+      "sizeBytes": 336,
+      "hash": "16fa7cdfccd773fb"
+    },
+    "31": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 28,
+      "sizeBytes": 1304,
+      "hash": "71a45dcb835d8538"
+    },
+    "32": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 29,
+      "sizeBytes": 1968,
+      "hash": "13bb012be92011f4"
+    },
+    "33": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 30,
+      "sizeBytes": 3790,
+      "hash": "b233b9f4197d3bfd"
+    },
+    "34": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 31,
+      "sizeBytes": 3683,
+      "hash": "152e5c7d0c50b025"
+    },
+    "35": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 32,
+      "sizeBytes": 2032,
+      "hash": "74990c508ac06d98"
+    },
+    "36": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 33,
+      "sizeBytes": 2005,
+      "hash": "744a4800c56c7150"
+    },
+    "37": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 34,
+      "sizeBytes": 2045,
+      "hash": "f7cdc9a9155a1c71"
+    },
+    "38": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 35,
+      "sizeBytes": 1982,
+      "hash": "f9fb223f34d07286"
+    },
+    "39": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 36,
+      "sizeBytes": 2779,
+      "hash": "a7b4c19ad4008cb2"
+    },
+    "40": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 37,
+      "sizeBytes": 2048,
+      "hash": "c4ddb687421c244f"
+    },
+    "41": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 38,
+      "sizeBytes": 1995,
+      "hash": "026c9b9d4ca36286"
+    },
+    "42": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 39,
+      "sizeBytes": 1594,
+      "hash": "6b7dd41a2fa175d5"
+    },
+    "43": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 40,
+      "sizeBytes": 1959,
+      "hash": "d004a53ebea47582"
+    },
+    "44": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 41,
+      "sizeBytes": 2037,
+      "hash": "f27bca5e5993c532"
+    },
+    "45": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 42,
+      "sizeBytes": 2024,
+      "hash": "dd2d6382524aaca4"
+    },
+    "46": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 43,
+      "sizeBytes": 1997,
+      "hash": "6fcfc60633c7aa10"
+    },
+    "47": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 44,
+      "sizeBytes": 2027,
+      "hash": "e2c9c68aa755add3"
+    },
+    "48": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 45,
+      "sizeBytes": 2043,
+      "hash": "382575ebb65612f7"
+    },
+    "49": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 46,
+      "sizeBytes": 376,
+      "hash": "c372b96950a4f88a"
+    },
+    "50": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 47,
+      "sizeBytes": 345,
+      "hash": "b0e0efea40096568"
+    },
+    "51": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 48,
+      "sizeBytes": 94,
+      "hash": "eb265da37d4dc9d9"
+    },
+    "52": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 49,
+      "sizeBytes": 423,
+      "hash": "e2cee86f05b760c8"
+    },
+    "53": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 50,
+      "sizeBytes": 760,
+      "hash": "439d7f1f358fab68"
+    },
+    "54": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 51,
+      "sizeBytes": 35,
+      "hash": "c0388c53346106e8"
+    },
+    "55": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 52,
+      "sizeBytes": 14,
+      "hash": "07933d588e413e73"
+    },
+    "56": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 53,
+      "sizeBytes": 469,
+      "hash": "7749513a348080f0"
+    },
+    "57": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 54,
+      "sizeBytes": 75,
+      "hash": "60a00196e3815872"
+    },
+    "58": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 55,
+      "sizeBytes": 37,
+      "hash": "6d1ef992cd90d937"
+    },
+    "59": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 56,
+      "sizeBytes": 210,
+      "hash": "b6f02cf6acaca7a3"
+    },
+    "60": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 57,
+      "sizeBytes": 492,
+      "hash": "61300c17aa8749d2"
+    },
+    "61": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 58,
+      "sizeBytes": 152,
+      "hash": "4caebebea7329866"
+    },
+    "62": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 59,
+      "sizeBytes": 136,
+      "hash": "a1c73faf871dd795"
+    },
+    "63": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 60,
+      "sizeBytes": 86,
+      "hash": "d42393a62586f388"
+    },
+    "64": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 61,
+      "sizeBytes": 148,
+      "hash": "4cf61d01c33a0605"
+    },
+    "65": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 62,
+      "sizeBytes": 16,
+      "hash": "cab284aac6c2a7b8"
+    },
+    "66": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 63,
+      "sizeBytes": 869,
+      "hash": "c36b97f90805ead8"
+    },
+    "67": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 64,
+      "sizeBytes": 17,
+      "hash": "5abbe4fd351f3b6c"
+    },
+    "68": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 65,
+      "sizeBytes": 124,
+      "hash": "5a2aec71791568ea"
+    },
+    "69": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 66,
+      "sizeBytes": 29,
+      "hash": "ffcb7e98d33fb826"
+    },
+    "70": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 67,
+      "sizeBytes": 120,
+      "hash": "69d1ac70f33c0854"
+    },
+    "71": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 68,
+      "sizeBytes": 346,
+      "hash": "9462733cfb7ecaa7"
+    },
+    "72": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 69,
+      "sizeBytes": 41,
+      "hash": "3b487dedf753dd0c"
+    },
+    "73": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 70,
+      "sizeBytes": 119,
+      "hash": "95bc4ad6a8bb9145"
+    },
+    "74": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 71,
+      "sizeBytes": 22,
+      "hash": "e6446863e8e1e6b6"
+    },
+    "75": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 72,
+      "sizeBytes": 228,
+      "hash": "4424e512e72a4241"
+    },
+    "76": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 73,
+      "sizeBytes": 806,
+      "hash": "523077d4d7ccedff"
+    },
+    "77": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 74,
+      "sizeBytes": 27,
+      "hash": "3137e3417a4866a7"
+    },
+    "78": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 75,
+      "sizeBytes": 143,
+      "hash": "2d332c33a14638ed"
+    },
+    "79": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 76,
+      "sizeBytes": 279,
+      "hash": "cfe2bf99aa3611a3"
+    },
+    "80": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 77,
+      "sizeBytes": 176,
+      "hash": "d8fdfb80e6442855"
+    },
+    "81": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 78,
+      "sizeBytes": 111,
+      "hash": "8c895abcce01f791"
+    },
+    "82": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 79,
+      "sizeBytes": 25,
+      "hash": "0c2c0f7a7ffc71c4"
+    },
+    "83": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 80,
+      "sizeBytes": 90,
+      "hash": "b701728ceca9153f"
+    },
+    "84": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 81,
+      "sizeBytes": 685,
+      "hash": "14faac86b8b9cd88"
+    },
+    "85": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 82,
+      "sizeBytes": 111,
+      "hash": "eff9442b71311e59"
+    },
+    "86": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 83,
+      "sizeBytes": 2012,
+      "hash": "ce4df63b41ea78f0"
+    },
+    "87": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 84,
+      "sizeBytes": 1811,
+      "hash": "ea0c6998cf0292e5"
+    },
+    "88": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 85,
+      "sizeBytes": 2047,
+      "hash": "5e5d1d166e0b72ea"
+    },
+    "89": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 86,
+      "sizeBytes": 2010,
+      "hash": "32e79eaae41b49b3"
+    },
+    "90": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 87,
+      "sizeBytes": 2018,
+      "hash": "428206b5adb4daa2"
+    },
+    "91": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 88,
+      "sizeBytes": 2025,
+      "hash": "8c2954bff0969e21"
+    },
+    "92": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 89,
+      "sizeBytes": 1792,
+      "hash": "423adeb34a8b26c3"
+    },
+    "93": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 90,
+      "sizeBytes": 981,
+      "hash": "dd26e413ad544ece"
+    },
+    "94": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 91,
+      "sizeBytes": 919,
+      "hash": "81048f25610e036b"
+    },
+    "95": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 92,
+      "sizeBytes": 2036,
+      "hash": "11d16e0d0b6e876d"
+    },
+    "96": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 93,
+      "sizeBytes": 2051,
+      "hash": "1d4902c356e4714f"
+    },
+    "97": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 94,
+      "sizeBytes": 2008,
+      "hash": "38d7f342c18ed910"
+    },
+    "98": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 95,
+      "sizeBytes": 2037,
+      "hash": "d0d6c426f2e1d57c"
+    },
+    "99": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 96,
+      "sizeBytes": 2015,
+      "hash": "7805436e21ff8303"
+    },
+    "100": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 97,
+      "sizeBytes": 2036,
+      "hash": "13272864ebd5e35b"
+    },
+    "101": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 98,
+      "sizeBytes": 1571,
+      "hash": "c15bb70019182791"
+    },
+    "102": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 99,
+      "sizeBytes": 2018,
+      "hash": "228fda6e73ec8fd4"
+    },
+    "103": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 100,
+      "sizeBytes": 1967,
+      "hash": "beb5283b7e003c87"
+    },
+    "104": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 101,
+      "sizeBytes": 1986,
+      "hash": "c29e2a7180e3340e"
+    },
+    "105": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 102,
+      "sizeBytes": 1975,
+      "hash": "03309f14185178ba"
+    },
+    "106": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 103,
+      "sizeBytes": 1415,
+      "hash": "3c93f0037246e484"
+    },
+    "107": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 104,
+      "sizeBytes": 2030,
+      "hash": "c0de43497f62319c"
+    },
+    "108": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 105,
+      "sizeBytes": 1767,
+      "hash": "6ac9caf31b968856"
+    },
+    "109": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 106,
+      "sizeBytes": 3654,
+      "hash": "f7212e4ffebc7d1d"
+    },
+    "110": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 107,
+      "sizeBytes": 2003,
+      "hash": "a5398dc41bde7f1c"
+    },
+    "111": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 108,
+      "sizeBytes": 1949,
+      "hash": "cfde1da7bb3f956e"
+    },
+    "112": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 109,
+      "sizeBytes": 1802,
+      "hash": "b20d71411ffa3f34"
+    },
+    "113": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 110,
+      "sizeBytes": 1889,
+      "hash": "c22c5ae96995cd4f"
+    },
+    "114": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 111,
+      "sizeBytes": 2031,
+      "hash": "810cba1d96e072ac"
+    },
+    "115": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 112,
+      "sizeBytes": 2004,
+      "hash": "c47278f13d8e9006"
+    },
+    "116": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 113,
+      "sizeBytes": 2018,
+      "hash": "2e4ac5d1bb6d17f7"
+    },
+    "117": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 114,
+      "sizeBytes": 1823,
+      "hash": "c289c009180cb13d"
+    },
+    "118": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 115,
+      "sizeBytes": 1931,
+      "hash": "2c6767128ea78787"
+    },
+    "119": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 116,
+      "sizeBytes": 1978,
+      "hash": "fe26f170945fc45d"
+    },
+    "120": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 117,
+      "sizeBytes": 1958,
+      "hash": "7237280de87218eb"
+    },
+    "121": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 118,
+      "sizeBytes": 2006,
+      "hash": "7011f919cce99640"
+    },
+    "122": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 119,
+      "sizeBytes": 3432,
+      "hash": "941d0943709e4ecc"
+    },
+    "123": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 120,
+      "sizeBytes": 1098,
+      "hash": "55946d65f866ea70"
+    },
+    "124": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 121,
+      "sizeBytes": 68,
+      "hash": "eca09c8e15945954"
+    },
+    "125": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 122,
+      "sizeBytes": 402,
+      "hash": "1115333cbe0a72cf"
+    },
+    "126": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 123,
+      "sizeBytes": 11,
+      "hash": "a51f995ed5144abe"
+    },
+    "127": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 124,
+      "sizeBytes": 50,
+      "hash": "c8dbd636cfbf9ce6"
+    },
+    "128": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 125,
+      "sizeBytes": 213,
+      "hash": "934cc66e709e0daa"
+    },
+    "129": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 126,
+      "sizeBytes": 197,
+      "hash": "b90a27155da7306d"
+    },
+    "130": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 127,
+      "sizeBytes": 256,
+      "hash": "f50f29e2a6ceaacc"
+    },
+    "131": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 128,
+      "sizeBytes": 402,
+      "hash": "d0333db83ca411f4"
+    },
+    "132": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 129,
+      "sizeBytes": 215,
+      "hash": "128f12f925a298f7"
+    },
+    "133": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 130,
+      "sizeBytes": 78,
+      "hash": "fcaf56be5627b6df"
+    },
+    "134": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 131,
+      "sizeBytes": 138,
+      "hash": "0a21e51cf1d8763f"
+    },
+    "135": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 132,
+      "sizeBytes": 19,
+      "hash": "cd1f90d2b5628728"
+    },
+    "136": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 133,
+      "sizeBytes": 353,
+      "hash": "66100d577c81c453"
+    },
+    "137": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 134,
+      "sizeBytes": 139,
+      "hash": "aaf06eb332f9db47"
+    },
+    "138": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 135,
+      "sizeBytes": 320,
+      "hash": "4b76e8dd9065b329"
+    },
+    "139": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 136,
+      "sizeBytes": 14,
+      "hash": "eb8a3f3d4ee27464"
+    },
+    "140": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 137,
+      "sizeBytes": 15,
+      "hash": "ab0598ecfe3b26aa"
+    },
+    "141": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 138,
+      "sizeBytes": 297,
+      "hash": "4d1a8c1c601489ce"
+    },
+    "142": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 139,
+      "sizeBytes": 21,
+      "hash": "fc0827f5724b2b7a"
+    },
+    "143": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 140,
+      "sizeBytes": 68,
+      "hash": "ed5cb70e6a9d6639"
+    },
+    "144": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 141,
+      "sizeBytes": 118,
+      "hash": "5a7f3a7f79ef8248"
+    },
+    "145": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 142,
+      "sizeBytes": 242,
+      "hash": "7ca28c7dda346c54"
+    },
+    "146": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 143,
+      "sizeBytes": 40,
+      "hash": "997b9f398f802d0c"
+    },
+    "147": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 144,
+      "sizeBytes": 184,
+      "hash": "11cf1ab72ad1b850"
+    },
+    "148": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 145,
+      "sizeBytes": 800,
+      "hash": "e7d710274c924c8e"
+    },
+    "149": {
+      "module": "commands",
+      "file": "ui/commands.js",
+      "fragmentIndex": 146,
+      "sizeBytes": 1222,
+      "hash": "763bcfe70ace0043"
+    }
+  },
+  "meta": {
+    "version": "2.1.91",
+    "series": "",
+    "package": "@anthropic-ai/claude-code"
+  },
+  "createdAt": "2026-04-03T03:17:18.984Z"
+}

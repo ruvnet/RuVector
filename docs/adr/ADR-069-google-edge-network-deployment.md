@@ -265,7 +265,7 @@ Edge Nodes --[WS]--> Relay --[HTTPS bulk]--> pi.ruv.io/v1/batch
 The relay maintains a persistent SSE MCP session with the brain and multiplexes edge node requests over it.
 
 ```
-Edge Nodes --[WS/MCP]--> Relay --[SSE MCP]--> pi.ruv.io/sse
+Edge Nodes --[WS/MCP]--> Relay --[SSE MCP]--> mcp.pi.ruv.io
 ```
 
 - Full tool access: all 22 brain MCP tools available to edge nodes

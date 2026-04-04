@@ -39,7 +39,7 @@ spec:
                   name: OPENROUTER_API_KEY
                   key: latest
             - name: MCP_SERVERS
-              value: '[{"name":"pi-brain","url":"https://pi.ruv.io/sse"}]'
+              value: '[{"name":"pi-brain","url":"https://mcp.pi.ruv.io"}]'
             - name: DRAGNES_ENABLED
               value: "true"
             - name: DRAGNES_BRAIN_URL

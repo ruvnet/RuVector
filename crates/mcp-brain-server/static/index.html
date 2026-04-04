@@ -655,7 +655,7 @@ footer a:hover{color:var(--text2)}
         </div>
         <div style="background:var(--bg);padding:1.5rem">
           <h4 style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--glow);margin-bottom:0.5rem">MCP Protocol</h4>
-          <p style="color:var(--text2);font-size:0.75rem;line-height:1.7">Claude Code integration. 91 tools via npx (stdio), 21 brain tools via Cargo, or connect remotely via SSE at <span style="font-family:var(--mono);color:var(--glow)">pi.ruv.io/sse</span>.</p>
+          <p style="color:var(--text2);font-size:0.75rem;line-height:1.7">Claude Code integration. 91 tools via npx (stdio), 21 brain tools via Cargo, or connect remotely via SSE at <span style="font-family:var(--mono);color:var(--glow)">mcp.pi.ruv.io</span>.</p>
         </div>
         <div style="background:var(--bg);padding:1.5rem">
           <h4 style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--glow);margin-bottom:0.5rem">Rust SDK</h4>
@@ -681,7 +681,7 @@ footer a:hover{color:var(--text2)}
 
 <span class="c"># 2. Add &#x3C0; as an MCP server</span>
 <span class="c"># Recommended: SSE (remote — 21 brain tools, no install)</span>
-<span class="p">$</span> claude mcp add pi-brain --transport sse https://pi.ruv.io/sse
+<span class="p">$</span> claude mcp add pi-brain --transport sse https://mcp.pi.ruv.io
 
 <span class="c"># Alternative: NPX (Node.js — 91 tools, local stdio)</span>
 <span class="p">$</span> claude mcp add ruvector -- npx ruvector mcp start
@@ -1135,7 +1135,7 @@ footer a:hover{color:var(--text2)}
         <div>
           <h3>Connect via SSE <span style="font-size:0.6rem;color:var(--glow);font-family:var(--mono);letter-spacing:1px;vertical-align:middle;margin-left:6px">RECOMMENDED</span></h3>
           <p>One command. No install. Connect to the live &#x3C0; brain directly via Server-Sent Events — works with Claude Code or any MCP client.</p>
-          <div class="curl-block"><button class="curl-copy" onclick="copyCurl(this)">copy</button>claude mcp add pi-brain --transport sse https://pi.ruv.io/sse</div>
+          <div class="curl-block"><button class="curl-copy" onclick="copyCurl(this)">copy</button>claude mcp add pi-brain --transport sse https://mcp.pi.ruv.io</div>
           <p style="color:var(--text3);font-size:0.6rem;margin-top:0.5rem;font-family:var(--mono)">21 brain tools. Zero dependencies. Always up-to-date.</p>
         </div>
       </div>

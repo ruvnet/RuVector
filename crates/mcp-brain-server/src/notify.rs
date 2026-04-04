@@ -104,6 +104,8 @@ pub struct ResendNotifier {
     from_email: String,
     from_name: String,
     recipient: String,
+    /// Dedup: track recently welcomed emails (max 1 per 24h)
+    recent_welcomes: std::sync::Arc<parking_lot::Mutex<std::collections::HashMap<String, std::time::Instant>>>,
     /// Per-category rate limiter: category -> (last_sent, cooldown)
     rate_limits: std::sync::Arc<Mutex<HashMap<String, (Instant, Duration)>>>,
     /// Open tracking
@@ -187,6 +189,7 @@ impl ResendNotifier {
             recipient,
             rate_limits: std::sync::Arc::new(Mutex::new(HashMap::new())),
             tracker: OpenTracker::new(),
+            recent_welcomes: std::sync::Arc::new(parking_lot::Mutex::new(std::collections::HashMap::new())),
         })
     }
 
@@ -334,8 +337,21 @@ impl ResendNotifier {
 
     // ── Pre-built email templates ────────────────────────────────────
 
-    /// Welcome email for new users connecting to the brain
+    /// Welcome email for new users connecting to the brain.
+    /// Rate-limited: max 1 welcome per email per 24 hours.
     pub async fn send_welcome(&self, user_email: &str, user_name: Option<&str>) -> Result<String, String> {
+        // Dedup: check if we already welcomed this email recently
+        {
+            let mut recent = self.recent_welcomes.lock();
+            let now = std::time::Instant::now();
+            // Clean entries older than 24h
+            recent.retain(|_, t| now.duration_since(*t) < std::time::Duration::from_secs(86400));
+            if recent.contains_key(user_email) {
+                tracing::info!("Welcome dedup: skipping {} (already welcomed recently)", user_email);
+                return Ok("dedup-skipped".to_string());
+            }
+            recent.insert(user_email.to_string(), now);
+        }
         let name = user_name.unwrap_or("Explorer");
         let html = format!(
             r#"<div style="{container}">

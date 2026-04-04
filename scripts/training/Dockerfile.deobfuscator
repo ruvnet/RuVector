@@ -1,0 +1,58 @@
+FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime
+
+WORKDIR /app
+
+# Install additional Python dependencies.
+RUN pip install --no-cache-dir onnx onnxruntime numpy
+
+# Copy training and export scripts.
+COPY train-deobfuscator.py .
+COPY export-to-rvf.py .
+
+# Entrypoint: download data from GCS, train, export, upload results.
+# Environment variables: DATA_PATH, OUTPUT_DIR, GCS_BUCKET
+COPY <<'ENTRYPOINT_SH' /app/entrypoint.sh
+#!/bin/bash
+set -euo pipefail
+
+DATA_PATH="${DATA_PATH:-/tmp/data.jsonl}"
+OUTPUT_DIR="${OUTPUT_DIR:-/tmp/model}"
+GCS_BUCKET="${GCS_BUCKET:-}"
+
+echo "[entrypoint] Starting deobfuscator training pipeline"
+
+# Download data from GCS if bucket is set.
+if [ -n "$GCS_BUCKET" ] && [ ! -f "$DATA_PATH" ]; then
+    echo "[entrypoint] Downloading training data from ${GCS_BUCKET}..."
+    pip install --no-cache-dir google-cloud-storage 2>/dev/null
+    gsutil cp "${GCS_BUCKET}/deobfuscation-data.jsonl" "$DATA_PATH"
+fi
+
+# Train.
+echo "[entrypoint] Training model..."
+python train-deobfuscator.py \
+    --data "$DATA_PATH" \
+    --output "$OUTPUT_DIR" \
+    --epochs 30 \
+    --batch-size 64 \
+    --export-onnx
+
+# Export to GGUF Q4 + RVF.
+echo "[entrypoint] Exporting to GGUF Q4..."
+python export-to-rvf.py \
+    --checkpoint "${OUTPUT_DIR}/best_model.pt" \
+    --output "${OUTPUT_DIR}/deobfuscator" \
+    --quantize q4
+
+# Upload to GCS if bucket is set.
+if [ -n "$GCS_BUCKET" ]; then
+    echo "[entrypoint] Uploading results to ${GCS_BUCKET}/models/deobfuscator/..."
+    gsutil -m cp "${OUTPUT_DIR}"/* "${GCS_BUCKET}/models/deobfuscator/"
+fi
+
+echo "[entrypoint] Done."
+ENTRYPOINT_SH
+
+RUN chmod +x /app/entrypoint.sh
+
+CMD ["/app/entrypoint.sh"]

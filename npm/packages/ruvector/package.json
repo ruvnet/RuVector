@@ -1,6 +1,6 @@
 {
   "name": "ruvector",
-  "version": "0.2.19",
+  "version": "0.2.21",
   "description": "Self-learning vector database for Node.js — hybrid search, Graph RAG, FlashAttention-3, DiskANN, 50+ attention mechanisms",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -76,6 +76,7 @@
     "@ruvector/sona": "^0.1.4",
     "chalk": "^4.1.2",
     "commander": "^11.1.0",
+    "js-beautify": "^1.15.4",
     "ora": "^5.4.1"
   },
   "optionalDependencies": {
@@ -88,18 +89,26 @@
   "files": [
     "bin/",
     "dist/",
+    "src/decompiler/",
+    "wasm/",
     "README.md",
     "LICENSE"
   ],
   "peerDependencies": {
     "@ruvector/pi-brain": ">=0.1.0",
-    "@ruvector/ruvllm": ">=2.0.0",
-    "@ruvector/router": ">=0.1.0"
+    "@ruvector/router": ">=0.1.0",
+    "@ruvector/ruvllm": ">=2.0.0"
   },
   "peerDependenciesMeta": {
-    "@ruvector/pi-brain": { "optional": true },
-    "@ruvector/ruvllm": { "optional": true },
-    "@ruvector/router": { "optional": true }
+    "@ruvector/pi-brain": {
+      "optional": true
+    },
+    "@ruvector/ruvllm": {
+      "optional": true
+    },
+    "@ruvector/router": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=18.0.0"

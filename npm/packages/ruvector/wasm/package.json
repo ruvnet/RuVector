@@ -1,0 +1,27 @@
+{
+  "name": "ruvector-decompiler-wasm",
+  "collaborators": [
+    "Ruvector Team"
+  ],
+  "description": "WASM bindings for the RuVector JavaScript bundle decompiler (Louvain pipeline)",
+  "version": "2.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/ruvector"
+  },
+  "files": [
+    "ruvector_decompiler_wasm_bg.wasm",
+    "ruvector_decompiler_wasm.js",
+    "ruvector_decompiler_wasm.d.ts"
+  ],
+  "main": "ruvector_decompiler_wasm.js",
+  "types": "ruvector_decompiler_wasm.d.ts",
+  "keywords": [
+    "decompiler",
+    "javascript",
+    "wasm",
+    "mincut",
+    "louvain"
+  ]
+}

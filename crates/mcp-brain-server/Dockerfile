@@ -64,12 +64,16 @@ RUN sed -i '/ruvector-graph\s*=/d' crates/ruvector-mincut/Cargo.toml && \
     sed -i '/\[\[example\]\]/,/^$/d' crates/ruvector-sparsifier/Cargo.toml && \
     sed -i '/\[\[bench\]\]/,/^$/d' crates/ruvector-sparsifier/Cargo.toml && \
     sed -i '/\[\[bench\]\]/,/^$/d' crates/ruvector-consciousness/Cargo.toml && \
+    sed -i 's/ruvector-mincut = { version = "2.1.0"/ruvector-mincut = { version = "2.0.6"/' crates/ruvector-consciousness/Cargo.toml && \
+    sed -i 's/ruvector-solver = { version = "2.1.0"/ruvector-solver = { version = "2.0.6"/' crates/ruvector-consciousness/Cargo.toml && \
+    sed -i 's/ruvector-sparsifier = { version = "2.1.0"/ruvector-sparsifier = { version = "2.0.6"/' crates/ruvector-consciousness/Cargo.toml && \
     sed -i '/ruvector-coherence\s*=/d' crates/ruvector-consciousness/Cargo.toml && \
     sed -i '/ruvector-cognitive-container\s*=/d' crates/ruvector-consciousness/Cargo.toml && \
     sed -i '/ruvector-math\s*=/d' crates/ruvector-consciousness/Cargo.toml && \
-    sed -i 's/"coherence-accel",\s*//g' crates/ruvector-consciousness/Cargo.toml && \
-    sed -i 's/"witness",\s*//g' crates/ruvector-consciousness/Cargo.toml && \
-    sed -i 's/"math-accel",\s*//g' crates/ruvector-consciousness/Cargo.toml && \
+    sed -i '/^coherence-accel\s*=/d' crates/ruvector-consciousness/Cargo.toml && \
+    sed -i '/^witness\s*=/d' crates/ruvector-consciousness/Cargo.toml && \
+    sed -i '/^math-accel\s*=/d' crates/ruvector-consciousness/Cargo.toml && \
+    sed -i '/^full\s*=/,/]/c\full = ["parallel", "phi", "emergence", "collapse", "simd", "solver-accel", "sparsifier-accel", "mincut-accel"]' crates/ruvector-consciousness/Cargo.toml && \
     find crates/rvf -name "Cargo.toml" -exec sed -i '/\[\[example\]\]/,/^$/d' {} \; && \
     find crates/rvf -name "Cargo.toml" -exec sed -i '/\[\[bench\]\]/,/^$/d' {} \; && \
     find crates/sona -name "Cargo.toml" -exec sed -i '/\[\[example\]\]/,/^$/d' {} \; && \

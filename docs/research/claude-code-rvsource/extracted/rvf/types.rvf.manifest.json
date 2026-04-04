@@ -1,0 +1,107 @@
+{
+  "format": "rvf-binary",
+  "version": "1.0",
+  "fileId": "24637f8c4b137cc7aa288b8a2b5253d9",
+  "dimensions": 128,
+  "metric": "cosine",
+  "totalVectors": 4,
+  "totalSegments": 7,
+  "fileSizeBytes": 3193,
+  "epoch": 2,
+  "segments": [
+    {
+      "id": 1,
+      "type": "manifest",
+      "offset": 0,
+      "payloadLength": 98
+    },
+    {
+      "id": 2,
+      "type": "vec",
+      "offset": 162,
+      "payloadLength": 1046
+    },
+    {
+      "id": 3,
+      "type": "witness",
+      "offset": 1272,
+      "payloadLength": 67
+    },
+    {
+      "id": 4,
+      "type": "manifest",
+      "offset": 1403,
+      "payloadLength": 173
+    },
+    {
+      "id": 5,
+      "type": "vec",
+      "offset": 1640,
+      "payloadLength": 1046
+    },
+    {
+      "id": 6,
+      "type": "witness",
+      "offset": 2750,
+      "payloadLength": 67
+    },
+    {
+      "id": 7,
+      "type": "manifest",
+      "offset": 2881,
+      "payloadLength": 248
+    }
+  ],
+  "source": {
+    "package": "@anthropic-ai/claude-code",
+    "version": "2.1.91",
+    "extractedAt": "2026-04-03T03:17:18.261Z",
+    "metrics": {
+      "bundleSizeBytes": 13162543,
+      "classes": 1632,
+      "functions": 19906,
+      "asyncFunctions": 1903,
+      "arrowFunctions": 25893
+    }
+  },
+  "files": [
+    "types/api-endpoints.js",
+    "types/class-hierarchy.js"
+  ],
+  "idMap": {
+    "1": {
+      "module": "api-endpoints",
+      "file": "types/api-endpoints.js",
+      "fragmentIndex": 0,
+      "sizeBytes": 285,
+      "hash": "574f2287c1406b4e"
+    },
+    "2": {
+      "module": "api-endpoints",
+      "file": "types/api-endpoints.js",
+      "fragmentIndex": 1,
+      "sizeBytes": 833,
+      "hash": "c857c208875c26ee"
+    },
+    "3": {
+      "module": "class-hierarchy",
+      "file": "types/class-hierarchy.js",
+      "fragmentIndex": 0,
+      "sizeBytes": 289,
+      "hash": "fb27860ffa796b4f"
+    },
+    "4": {
+      "module": "class-hierarchy",
+      "file": "types/class-hierarchy.js",
+      "fragmentIndex": 1,
+      "sizeBytes": 23004,
+      "hash": "5aec67ab34b3e925"
+    }
+  },
+  "meta": {
+    "version": "2.1.91",
+    "series": "",
+    "package": "@anthropic-ai/claude-code"
+  },
+  "createdAt": "2026-04-03T03:17:18.973Z"
+}

@@ -1,0 +1,2657 @@
+{
+  "version": "2.1.91",
+  "total": 661,
+  "totalBytes": 663258933,
+  "parseRate": "100%",
+  "pipeline": "Louvain (981 communities)",
+  "declarations": 34759,
+  "edges": 599034,
+  "namesInferred": 32091,
+  "highConfidence": 1436,
+  "modules": [
+    {
+      "name": "react_memo_cache_sentinel.js",
+      "size": 659477384
+    },
+    {
+      "name": "env.js",
+      "size": 942315
+    },
+    {
+      "name": "none.js",
+      "size": 672016
+    },
+    {
+      "name": "3_936_0.js",
+      "size": 669848
+    },
+    {
+      "name": "ask.js",
+      "size": 211508
+    },
+    {
+      "name": "read.js",
+      "size": 157485
+    },
+    {
+      "name": "info.js",
+      "size": 100110
+    },
+    {
+      "name": "code.js",
+      "size": 76492
+    },
+    {
+      "name": "column.js",
+      "size": 50046
+    },
+    {
+      "name": "user.js",
+      "size": 46611
+    },
+    {
+      "name": "getAttr.js",
+      "size": 37957
+    },
+    {
+      "name": "organizationUuid.js",
+      "size": 32696
+    },
+    {
+      "name": "title_function.js",
+      "size": 29500
+    },
+    {
+      "name": "jetbrains.js",
+      "size": 25066
+    },
+    {
+      "name": "CLAUDE_CODE_NEW_INIT.js",
+      "size": 20485
+    },
+    {
+      "name": "id.js",
+      "size": 19328
+    },
+    {
+      "name": "module_955.js",
+      "size": 17298
+    },
+    {
+      "name": "boolean.js",
+      "size": 16660
+    },
+    {
+      "name": "string.js",
+      "size": 16144
+    },
+    {
+      "name": "__esModule.js",
+      "size": 14874
+    },
+    {
+      "name": "SHA_256.js",
+      "size": 13127
+    },
+    {
+      "name": "typescript_claude_api_files_api_md.js",
+      "size": 12575
+    },
+    {
+      "name": "security_review.js",
+      "size": 11825
+    },
+    {
+      "name": "shuffleAddressList.js",
+      "size": 11656
+    },
+    {
+      "name": "URL.js",
+      "size": 11364
+    },
+    {
+      "name": "CLAUDE_CODE_PWSH_PARSE_TIMEOUT_MS.js",
+      "size": 11239
+    },
+    {
+      "name": "NONE.js",
+      "size": 10408
+    },
+    {
+      "name": "errorCode.js",
+      "size": 10295
+    },
+    {
+      "name": "SEQUENCE.js",
+      "size": 9406
+    },
+    {
+      "name": "AbortError.js",
+      "size": 8684
+    },
+    {
+      "name": "BedrockServiceException.js",
+      "size": 8366
+    },
+    {
+      "name": "lastChild.js",
+      "size": 8244
+    },
+    {
+      "name": "document.js",
+      "size": 7417
+    },
+    {
+      "name": "TRANSIENT.js",
+      "size": 7272
+    },
+    {
+      "name": "toDer.js",
+      "size": 7016
+    },
+    {
+      "name": "policyConstraints.js",
+      "size": 6724
+    },
+    {
+      "name": "sessionId.js",
+      "size": 6639
+    },
+    {
+      "name": "system.js",
+      "size": 5995
+    },
+    {
+      "name": "blocked.js",
+      "size": 5857
+    },
+    {
+      "name": "team.js",
+      "size": 5641
+    },
+    {
+      "name": "flex_end.js",
+      "size": 5526
+    },
+    {
+      "name": "module_946.js",
+      "size": 5460
+    },
+    {
+      "name": "_claude.js",
+      "size": 4959
+    },
+    {
+      "name": "ink_text.js",
+      "size": 4879
+    },
+    {
+      "name": "protocol.js",
+      "size": 4786
+    },
+    {
+      "name": "round_robin.js",
+      "size": 4753
+    },
+    {
+      "name": "tengu_amber_prism.js",
+      "size": 4677
+    },
+    {
+      "name": "COERCEPLAIN.js",
+      "size": 4345
+    },
+    {
+      "name": "COERCE.js",
+      "size": 4340
+    },
+    {
+      "name": "getNormalBase2.js",
+      "size": 4257
+    },
+    {
+      "name": "tail.js",
+      "size": 4237
+    },
+    {
+      "name": "path.js",
+      "size": 4222
+    },
+    {
+      "name": "inboxes.js",
+      "size": 4126
+    },
+    {
+      "name": "impl.js",
+      "size": 4121
+    },
+    {
+      "name": "module_357.js",
+      "size": 4010
+    },
+    {
+      "name": "n_.js",
+      "size": 3999
+    },
+    {
+      "name": "appendQueryString.js",
+      "size": 3989
+    },
+    {
+      "name": "module_484.js",
+      "size": 3870
+    },
+    {
+      "name": "C_NUMBER_MODE.js",
+      "size": 3771
+    },
+    {
+      "name": "default.js",
+      "size": 3585
+    },
+    {
+      "name": "object.js",
+      "size": 3424
+    },
+    {
+      "name": "url.js",
+      "size": 3231
+    },
+    {
+      "name": "single.js",
+      "size": 3177
+    },
+    {
+      "name": "fromCharCode.js",
+      "size": 3103
+    },
+    {
+      "name": "module_42.js",
+      "size": 2954
+    },
+    {
+      "name": "port.js",
+      "size": 2948
+    },
+    {
+      "name": "exec.js",
+      "size": 2807
+    },
+    {
+      "name": "hex.js",
+      "size": 2753
+    },
+    {
+      "name": "mark.js",
+      "size": 2621
+    },
+    {
+      "name": "projectSettings.js",
+      "size": 2551
+    },
+    {
+      "name": "https___api_anthropic_com_.js",
+      "size": 2432
+    },
+    {
+      "name": "createRetryingTransport.js",
+      "size": 2367
+    },
+    {
+      "name": "registerResolver.js",
+      "size": 2361
+    },
+    {
+      "name": "ansi.js",
+      "size": 2262
+    },
+    {
+      "name": "getNumberFromEnv.js",
+      "size": 2237
+    },
+    {
+      "name": "_released.js",
+      "size": 2230
+    },
+    {
+      "name": "fromByteArray.js",
+      "size": 2213
+    },
+    {
+      "name": "__smithy_context.js",
+      "size": 2205
+    },
+    {
+      "name": "TRAILER.js",
+      "size": 2196
+    },
+    {
+      "name": "HEADER.js",
+      "size": 2195
+    },
+    {
+      "name": "header.js",
+      "size": 2195
+    },
+    {
+      "name": "query.js",
+      "size": 2194
+    },
+    {
+      "name": "md5.js",
+      "size": 2192
+    },
+    {
+      "name": "cloudflare_ai_gateway.js",
+      "size": 2161
+    },
+    {
+      "name": "_onTimeout.js",
+      "size": 2136
+    },
+    {
+      "name": "tengu_kairos_cron_durable.js",
+      "size": 2117
+    },
+    {
+      "name": "activeOperations.js",
+      "size": 2100
+    },
+    {
+      "name": "Unreachable.js",
+      "size": 2086
+    },
+    {
+      "name": "post.js",
+      "size": 2086
+    },
+    {
+      "name": "sha256.js",
+      "size": 2064
+    },
+    {
+      "name": "blur.js",
+      "size": 2060
+    },
+    {
+      "name": "PARSE_ERROR.js",
+      "size": 1921
+    },
+    {
+      "name": "brave.js",
+      "size": 1882
+    },
+    {
+      "name": "2_0.js",
+      "size": 1854
+    },
+    {
+      "name": "module_592.js",
+      "size": 1799
+    },
+    {
+      "name": "_data.js",
+      "size": 1739
+    },
+    {
+      "name": "getOwnPropertySymbols.js",
+      "size": 1711
+    },
+    {
+      "name": "createNoopAttributesProcessor.js",
+      "size": 1703
+    },
+    {
+      "name": "BedrockRuntimeServiceException.js",
+      "size": 1701
+    },
+    {
+      "name": "module_349.js",
+      "size": 1666
+    },
+    {
+      "name": "PrivateKeyInfo.js",
+      "size": 1652
+    },
+    {
+      "name": "_usr_libexec_PlistBuddy.js",
+      "size": 1643
+    },
+    {
+      "name": "multiple_matching_accounts.js",
+      "size": 1643
+    },
+    {
+      "name": "tool_permission.js",
+      "size": 1631
+    },
+    {
+      "name": "readwrite.js",
+      "size": 1594
+    },
+    {
+      "name": "allow.js",
+      "size": 1574
+    },
+    {
+      "name": "filter.js",
+      "size": 1569
+    },
+    {
+      "name": "isNaN.js",
+      "size": 1564
+    },
+    {
+      "name": "tengu_disable_bypass_permissions_mode.js",
+      "size": 1563
+    },
+    {
+      "name": "K_SERVICE.js",
+      "size": 1555
+    },
+    {
+      "name": "debug.js",
+      "size": 1544
+    },
+    {
+      "name": "ZodError.js",
+      "size": 1520
+    },
+    {
+      "name": "Read.js",
+      "size": 1502
+    },
+    {
+      "name": "xds.js",
+      "size": 1483
+    },
+    {
+      "name": "utf8.js",
+      "size": 1472
+    },
+    {
+      "name": "TaskStop.js",
+      "size": 1445
+    },
+    {
+      "name": "anthropic_beta.js",
+      "size": 1444
+    },
+    {
+      "name": "ghostty.js",
+      "size": 1440
+    },
+    {
+      "name": "claude.js",
+      "size": 1407
+    },
+    {
+      "name": "_azure_identity.js",
+      "size": 1387
+    },
+    {
+      "name": "abort.js",
+      "size": 1372
+    },
+    {
+      "name": "defaultServiceName.js",
+      "size": 1350
+    },
+    {
+      "name": "interactive.js",
+      "size": 1317
+    },
+    {
+      "name": "EndpointCache.js",
+      "size": 1294
+    },
+    {
+      "name": "UseFIPS.js",
+      "size": 1288
+    },
+    {
+      "name": "endsWith.js",
+      "size": 1281
+    },
+    {
+      "name": "module_97.js",
+      "size": 1273
+    },
+    {
+      "name": "tengu_awsAuthRefresh_missing_trust.js",
+      "size": 1268
+    },
+    {
+      "name": "text.js",
+      "size": 1268
+    },
+    {
+      "name": "trace.js",
+      "size": 1265
+    },
+    {
+      "name": "tengu_gcpAuthRefresh_missing_trust.js",
+      "size": 1255
+    },
+    {
+      "name": "unknown.js",
+      "size": 1254
+    },
+    {
+      "name": "from.js",
+      "size": 1249
+    },
+    {
+      "name": "application_xml.js",
+      "size": 1247
+    },
+    {
+      "name": "isTypedArray.js",
+      "size": 1235
+    },
+    {
+      "name": "shape.js",
+      "size": 1214
+    },
+    {
+      "name": "toolPermissionContext.js",
+      "size": 1198
+    },
+    {
+      "name": "UseDualStack.js",
+      "size": 1164
+    },
+    {
+      "name": "__0_9___.js",
+      "size": 1164
+    },
+    {
+      "name": "push.js",
+      "size": 1162
+    },
+    {
+      "name": "tool_name.js",
+      "size": 1155
+    },
+    {
+      "name": "contentLengthMiddleware.js",
+      "size": 1149
+    },
+    {
+      "name": "auto.js",
+      "size": 1147
+    },
+    {
+      "name": "constants.js",
+      "size": 1134
+    },
+    {
+      "name": "___.js",
+      "size": 1132
+    },
+    {
+      "name": "tool_use.js",
+      "size": 1131
+    },
+    {
+      "name": "Endpoint.js",
+      "size": 1128
+    },
+    {
+      "name": "useState.js",
+      "size": 1128
+    },
+    {
+      "name": "warn.js",
+      "size": 1126
+    },
+    {
+      "name": "claude_in_chrome.js",
+      "size": 1108
+    },
+    {
+      "name": "toString.js",
+      "size": 1107
+    },
+    {
+      "name": "policySettings.js",
+      "size": 1101
+    },
+    {
+      "name": "initialize.js",
+      "size": 1095
+    },
+    {
+      "name": "WorktreeRemove.js",
+      "size": 1090
+    },
+    {
+      "name": "file_path.js",
+      "size": 1083
+    },
+    {
+      "name": "project.js",
+      "size": 1048
+    },
+    {
+      "name": "parse.js",
+      "size": 1036
+    },
+    {
+      "name": "message.js",
+      "size": 1032
+    },
+    {
+      "name": "constructor.js",
+      "size": 1029
+    },
+    {
+      "name": "lineOffset.js",
+      "size": 1027
+    },
+    {
+      "name": "module_90.js",
+      "size": 1013
+    },
+    {
+      "name": "callee.js",
+      "size": 1009
+    },
+    {
+      "name": "auto_mode_classifier_errors.js",
+      "size": 1006
+    },
+    {
+      "name": "__ufe0e__ufe0f.js",
+      "size": 1004
+    },
+    {
+      "name": "_listeners.js",
+      "size": 1003
+    },
+    {
+      "name": "flankingWhitespace.js",
+      "size": 1002
+    },
+    {
+      "name": "lastLinesRemoved.js",
+      "size": 1001
+    },
+    {
+      "name": "WorktreeCreate.js",
+      "size": 997
+    },
+    {
+      "name": "notifyChange.js",
+      "size": 997
+    },
+    {
+      "name": "startsWith.js",
+      "size": 986
+    },
+    {
+      "name": "AZURE_CLIENT_ID.js",
+      "size": 954
+    },
+    {
+      "name": "unlink.js",
+      "size": 951
+    },
+    {
+      "name": "hasOwnProperty.js",
+      "size": 949
+    },
+    {
+      "name": "Brief.js",
+      "size": 947
+    },
+    {
+      "name": "ERR_DEPRECATED.js",
+      "size": 944
+    },
+    {
+      "name": "tengu_marketplace_updated.js",
+      "size": 941
+    },
+    {
+      "name": "costUSD.js",
+      "size": 930
+    },
+    {
+      "name": "ImageResizeError.js",
+      "size": 929
+    },
+    {
+      "name": "gh_not_authenticated.js",
+      "size": 926
+    },
+    {
+      "name": "__n.js",
+      "size": 918
+    },
+    {
+      "name": "YDK.js",
+      "size": 915
+    },
+    {
+      "name": "counts.js",
+      "size": 888
+    },
+    {
+      "name": "blurred.js",
+      "size": 864
+    },
+    {
+      "name": "executor.js",
+      "size": 848
+    },
+    {
+      "name": "toolUseId.js",
+      "size": 838
+    },
+    {
+      "name": "rmdir.js",
+      "size": 829
+    },
+    {
+      "name": "floor.js",
+      "size": 826
+    },
+    {
+      "name": "sendCommandToPane.js",
+      "size": 823
+    },
+    {
+      "name": "module_114.js",
+      "size": 816
+    },
+    {
+      "name": "_crc.js",
+      "size": 807
+    },
+    {
+      "name": "deny.js",
+      "size": 803
+    },
+    {
+      "name": "call.js",
+      "size": 796
+    },
+    {
+      "name": "setDate.js",
+      "size": 794
+    },
+    {
+      "name": "AES_CBC.js",
+      "size": 790
+    },
+    {
+      "name": "pr.js",
+      "size": 789
+    },
+    {
+      "name": "no_backup.js",
+      "size": 785
+    },
+    {
+      "name": "close.js",
+      "size": 777
+    },
+    {
+      "name": "modifiers_napi.js",
+      "size": 774
+    },
+    {
+      "name": "Glob.js",
+      "size": 773
+    },
+    {
+      "name": "agentId.js",
+      "size": 772
+    },
+    {
+      "name": "module_115.js",
+      "size": 772
+    },
+    {
+      "name": "__computer_use_mcp.js",
+      "size": 764
+    },
+    {
+      "name": "index.js",
+      "size": 760
+    },
+    {
+      "name": "autocompact.js",
+      "size": 759
+    },
+    {
+      "name": "_.js",
+      "size": 758
+    },
+    {
+      "name": "module_125.js",
+      "size": 753
+    },
+    {
+      "name": "pointer.js",
+      "size": 753
+    },
+    {
+      "name": "worktree.js",
+      "size": 746
+    },
+    {
+      "name": "_0.js",
+      "size": 744
+    },
+    {
+      "name": "source.js",
+      "size": 742
+    },
+    {
+      "name": "microsoft.js",
+      "size": 737
+    },
+    {
+      "name": "module_172.js",
+      "size": 736
+    },
+    {
+      "name": "isNonInteractive.js",
+      "size": 735
+    },
+    {
+      "name": "module_163.js",
+      "size": 722
+    },
+    {
+      "name": "additionalDirectoriesForClaudeMd.js",
+      "size": 717
+    },
+    {
+      "name": "status.js",
+      "size": 717
+    },
+    {
+      "name": "_x00PLUS_x00.js",
+      "size": 715
+    },
+    {
+      "name": "tls.js",
+      "size": 707
+    },
+    {
+      "name": "apply.js",
+      "size": 703
+    },
+    {
+      "name": "___SensitiveInformation___.js",
+      "size": 693
+    },
+    {
+      "name": "getValueSchema.js",
+      "size": 681
+    },
+    {
+      "name": "isStructSchema.js",
+      "size": 681
+    },
+    {
+      "name": "getKeySchema.js",
+      "size": 679
+    },
+    {
+      "name": "isListSchema.js",
+      "size": 679
+    },
+    {
+      "name": "timestamp.js",
+      "size": 679
+    },
+    {
+      "name": "isMapSchema.js",
+      "size": 678
+    },
+    {
+      "name": "sin.js",
+      "size": 678
+    },
+    {
+      "name": "mtimeMs.js",
+      "size": 677
+    },
+    {
+      "name": "sensitive.js",
+      "size": 676
+    },
+    {
+      "name": "DISABLE_INSTALLATION_CHECKS.js",
+      "size": 671
+    },
+    {
+      "name": "__proto__.js",
+      "size": 671
+    },
+    {
+      "name": "abortSignal.js",
+      "size": 669
+    },
+    {
+      "name": "slice.js",
+      "size": 665
+    },
+    {
+      "name": "rename.js",
+      "size": 656
+    },
+    {
+      "name": "allSettled.js",
+      "size": 655
+    },
+    {
+      "name": "ultrareview.js",
+      "size": 652
+    },
+    {
+      "name": "function.js",
+      "size": 646
+    },
+    {
+      "name": "scheme.js",
+      "size": 645
+    },
+    {
+      "name": "getAppState.js",
+      "size": 636
+    },
+    {
+      "name": "application_json.js",
+      "size": 634
+    },
+    {
+      "name": "STSServiceException.js",
+      "size": 631
+    },
+    {
+      "name": "isAutoModeCircuitBroken.js",
+      "size": 627
+    },
+    {
+      "name": "settings.js",
+      "size": 625
+    },
+    {
+      "name": "built_in.js",
+      "size": 622
+    },
+    {
+      "name": "tengu_sessions_elevated_auth_enforcement.js",
+      "size": 621
+    },
+    {
+      "name": "NOOP_METER.js",
+      "size": 609
+    },
+    {
+      "name": "app.js",
+      "size": 604
+    },
+    {
+      "name": "defineProperty.js",
+      "size": 604
+    },
+    {
+      "name": "expiresAt.js",
+      "size": 596
+    },
+    {
+      "name": "utf_8.js",
+      "size": 596
+    },
+    {
+      "name": "module_203.js",
+      "size": 595
+    },
+    {
+      "name": "includes.js",
+      "size": 594
+    },
+    {
+      "name": "pending.js",
+      "size": 592
+    },
+    {
+      "name": "startTime.js",
+      "size": 588
+    },
+    {
+      "name": "data.js",
+      "size": 587
+    },
+    {
+      "name": "global.js",
+      "size": 581
+    },
+    {
+      "name": "linux.js",
+      "size": 575
+    },
+    {
+      "name": "description.js",
+      "size": 574
+    },
+    {
+      "name": "exit.js",
+      "size": 574
+    },
+    {
+      "name": "bypassPermissions.js",
+      "size": 573
+    },
+    {
+      "name": "url_handler_node.js",
+      "size": 573
+    },
+    {
+      "name": "base64.js",
+      "size": 570
+    },
+    {
+      "name": "tengu_tree_sitter_parse_abort.js",
+      "size": 565
+    },
+    {
+      "name": "outerHTML.js",
+      "size": 564
+    },
+    {
+      "name": "some.js",
+      "size": 562
+    },
+    {
+      "name": "ERR_FR_TOO_MANY_REDIRECTS.js",
+      "size": 558
+    },
+    {
+      "name": "detail.js",
+      "size": 555
+    },
+    {
+      "name": "Ghostty.js",
+      "size": 554
+    },
+    {
+      "name": "tool_input.js",
+      "size": 554
+    },
+    {
+      "name": "success.js",
+      "size": 547
+    },
+    {
+      "name": "stopNativeRecording.js",
+      "size": 546
+    },
+    {
+      "name": "killed.js",
+      "size": 544
+    },
+    {
+      "name": "hasClipboardImage.js",
+      "size": 541
+    },
+    {
+      "name": "metricsListener.js",
+      "size": 541
+    },
+    {
+      "name": "module_210.js",
+      "size": 540
+    },
+    {
+      "name": "_vscode.js",
+      "size": 538
+    },
+    {
+      "name": "request.js",
+      "size": 537
+    },
+    {
+      "name": "formData.js",
+      "size": 534
+    },
+    {
+      "name": "sessionTimeoutMs.js",
+      "size": 534
+    },
+    {
+      "name": "_1m_.js",
+      "size": 532
+    },
+    {
+      "name": "xlink_href.js",
+      "size": 524
+    },
+    {
+      "name": "any.js",
+      "size": 519
+    },
+    {
+      "name": "replaceAll.js",
+      "size": 519
+    },
+    {
+      "name": "Auto.js",
+      "size": 517
+    },
+    {
+      "name": "CLAUDE_CODE_REMOTE_SEND_KEEPALIVES.js",
+      "size": 517
+    },
+    {
+      "name": "registerEscape.js",
+      "size": 506
+    },
+    {
+      "name": "EACCES.js",
+      "size": 504
+    },
+    {
+      "name": "_azure_core_rest_pipeline.js",
+      "size": 501
+    },
+    {
+      "name": "module_176.js",
+      "size": 499
+    },
+    {
+      "name": "fetch.js",
+      "size": 488
+    },
+    {
+      "name": "grpc.js",
+      "size": 488
+    },
+    {
+      "name": "module_336.js",
+      "size": 487
+    },
+    {
+      "name": "desktop.js",
+      "size": 478
+    },
+    {
+      "name": "module_146.js",
+      "size": 478
+    },
+    {
+      "name": "Managed.js",
+      "size": 475
+    },
+    {
+      "name": "module_244.js",
+      "size": 468
+    },
+    {
+      "name": "2050_01_01T00_00_00Z.js",
+      "size": 467
+    },
+    {
+      "name": "wrapAbortSignalLikePolicy.js",
+      "size": 464
+    },
+    {
+      "name": "start.js",
+      "size": 463
+    },
+    {
+      "name": "keybindings_json.js",
+      "size": 462
+    },
+    {
+      "name": "teamContext.js",
+      "size": 462
+    },
+    {
+      "name": "model.js",
+      "size": 461
+    },
+    {
+      "name": "CLAUDE_CODE_ENTRYPOINT.js",
+      "size": 457
+    },
+    {
+      "name": "QuotaExceededError.js",
+      "size": 456
+    },
+    {
+      "name": "tengu_kairos_brief.js",
+      "size": 456
+    },
+    {
+      "name": "DOMParser.js",
+      "size": 454
+    },
+    {
+      "name": "allow_remote_sessions.js",
+      "size": 453
+    },
+    {
+      "name": "maxRetries.js",
+      "size": 449
+    },
+    {
+      "name": "map.js",
+      "size": 447
+    },
+    {
+      "name": "module_361.js",
+      "size": 445
+    },
+    {
+      "name": "remote_control.js",
+      "size": 444
+    },
+    {
+      "name": "computer_use.js",
+      "size": 443
+    },
+    {
+      "name": "isMap.js",
+      "size": 442
+    },
+    {
+      "name": "isSet.js",
+      "size": 442
+    },
+    {
+      "name": "plugin.js",
+      "size": 440
+    },
+    {
+      "name": "module_139.js",
+      "size": 438
+    },
+    {
+      "name": "test.js",
+      "size": 437
+    },
+    {
+      "name": "toWellFormed.js",
+      "size": 436
+    },
+    {
+      "name": "trim.js",
+      "size": 436
+    },
+    {
+      "name": "valid.js",
+      "size": 433
+    },
+    {
+      "name": "SendMessageTool.js",
+      "size": 432
+    },
+    {
+      "name": "http.js",
+      "size": 432
+    },
+    {
+      "name": "true.js",
+      "size": 432
+    },
+    {
+      "name": "attachment.js",
+      "size": 430
+    },
+    {
+      "name": "module_162.js",
+      "size": 429
+    },
+    {
+      "name": "tengu_notification_method_used.js",
+      "size": 428
+    },
+    {
+      "name": "createElement.js",
+      "size": 425
+    },
+    {
+      "name": "measuredText.js",
+      "size": 424
+    },
+    {
+      "name": "toggle_memory.js",
+      "size": 423
+    },
+    {
+      "name": "RegionDisabledException.js",
+      "size": 420
+    },
+    {
+      "name": "module_194.js",
+      "size": 420
+    },
+    {
+      "name": "module_887.js",
+      "size": 415
+    },
+    {
+      "name": "Initializing___.js",
+      "size": 414
+    },
+    {
+      "name": "initialPaths.js",
+      "size": 413
+    },
+    {
+      "name": "aws_external_anthropic.js",
+      "size": 412
+    },
+    {
+      "name": "has.js",
+      "size": 412
+    },
+    {
+      "name": "_t.js",
+      "size": 411
+    },
+    {
+      "name": "rate_limit_options.js",
+      "size": 411
+    },
+    {
+      "name": "join.js",
+      "size": 410
+    },
+    {
+      "name": "tengu_bridge_client_presence_enabled.js",
+      "size": 406
+    },
+    {
+      "name": "_low_medium_high_max_auto_.js",
+      "size": 403
+    },
+    {
+      "name": "binary.js",
+      "size": 400
+    },
+    {
+      "name": "module_232.js",
+      "size": 394
+    },
+    {
+      "name": "getNextCallNumber.js",
+      "size": 393
+    },
+    {
+      "name": "OrcaLoadReport.js",
+      "size": 392
+    },
+    {
+      "name": "00000000_0000_0000_0000_000000000000.js",
+      "size": 390
+    },
+    {
+      "name": "LINK.js",
+      "size": 390
+    },
+    {
+      "name": "name.js",
+      "size": 390
+    },
+    {
+      "name": "mcp_servers_2025_12_04.js",
+      "size": 389
+    },
+    {
+      "name": "local.js",
+      "size": 388
+    },
+    {
+      "name": "thinkback_play.js",
+      "size": 388
+    },
+    {
+      "name": "add.js",
+      "size": 387
+    },
+    {
+      "name": "type.js",
+      "size": 387
+    },
+    {
+      "name": "CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR.js",
+      "size": 383
+    },
+    {
+      "name": "Content_Type.js",
+      "size": 378
+    },
+    {
+      "name": "CLAUDE_CODE_TMUX_TRUECOLOR.js",
+      "size": 376
+    },
+    {
+      "name": "oauthTokenFromFd.js",
+      "size": 376
+    },
+    {
+      "name": "flat.js",
+      "size": 375
+    },
+    {
+      "name": "onExit.js",
+      "size": 375
+    },
+    {
+      "name": "_question_.js",
+      "size": 374
+    },
+    {
+      "name": "TERM_PROGRAM.js",
+      "size": 373
+    },
+    {
+      "name": "agentName.js",
+      "size": 373
+    },
+    {
+      "name": "privacy_settings.js",
+      "size": 372
+    },
+    {
+      "name": "refs.js",
+      "size": 370
+    },
+    {
+      "name": "continue.js",
+      "size": 367
+    },
+    {
+      "name": "Verbose.js",
+      "size": 366
+    },
+    {
+      "name": "failed.js",
+      "size": 364
+    },
+    {
+      "name": "login.js",
+      "size": 363
+    },
+    {
+      "name": "module_248.js",
+      "size": 363
+    },
+    {
+      "name": "resolveTeamOnboardingDiscoveryArm.js",
+      "size": 363
+    },
+    {
+      "name": "trailing.js",
+      "size": 363
+    },
+    {
+      "name": "_color_default_.js",
+      "size": 359
+    },
+    {
+      "name": "win32.js",
+      "size": 358
+    },
+    {
+      "name": "______image_processor_node.js",
+      "size": 357
+    },
+    {
+      "name": "constructed.js",
+      "size": 356
+    },
+    {
+      "name": "VTK.js",
+      "size": 354
+    },
+    {
+      "name": "TH.js",
+      "size": 352
+    },
+    {
+      "name": "idle.js",
+      "size": 352
+    },
+    {
+      "name": "local_jsx.js",
+      "size": 352
+    },
+    {
+      "name": "module_548.js",
+      "size": 352
+    },
+    {
+      "name": "then.js",
+      "size": 351
+    },
+    {
+      "name": "datadog.js",
+      "size": 349
+    },
+    {
+      "name": "export.js",
+      "size": 346
+    },
+    {
+      "name": "stylePool.js",
+      "size": 343
+    },
+    {
+      "name": "baseUrl.js",
+      "size": 342
+    },
+    {
+      "name": "module_365.js",
+      "size": 342
+    },
+    {
+      "name": "reload_plugins.js",
+      "size": 342
+    },
+    {
+      "name": "android.js",
+      "size": 339
+    },
+    {
+      "name": "set.js",
+      "size": 339
+    },
+    {
+      "name": "isFinite.js",
+      "size": 337
+    },
+    {
+      "name": "BASE_API_URL.js",
+      "size": 336
+    },
+    {
+      "name": "Dictionary.js",
+      "size": 334
+    },
+    {
+      "name": "setState.js",
+      "size": 331
+    },
+    {
+      "name": "module_178.js",
+      "size": 330
+    },
+    {
+      "name": "createContext.js",
+      "size": 329
+    },
+    {
+      "name": "TASK_MAX_OUTPUT_LENGTH.js",
+      "size": 327
+    },
+    {
+      "name": "error.js",
+      "size": 326
+    },
+    {
+      "name": "vim.js",
+      "size": 325
+    },
+    {
+      "name": "_open_.js",
+      "size": 324
+    },
+    {
+      "name": "modelUsage.js",
+      "size": 324
+    },
+    {
+      "name": "plugins.js",
+      "size": 324
+    },
+    {
+      "name": "_etc_ssl_certs_ca_certificates_crt.js",
+      "size": 323
+    },
+    {
+      "name": "module_379.js",
+      "size": 318
+    },
+    {
+      "name": "__dangerously_load_development_channels.js",
+      "size": 316
+    },
+    {
+      "name": "module_250.js",
+      "size": 316
+    },
+    {
+      "name": "b6.js",
+      "size": 315
+    },
+    {
+      "name": "User_Agent.js",
+      "size": 314
+    },
+    {
+      "name": "module_362.js",
+      "size": 314
+    },
+    {
+      "name": "module_805.js",
+      "size": 314
+    },
+    {
+      "name": "user_intent.js",
+      "size": 314
+    },
+    {
+      "name": "vscode.js",
+      "size": 313
+    },
+    {
+      "name": "mainThreadAgentType.js",
+      "size": 311
+    },
+    {
+      "name": "module_326.js",
+      "size": 311
+    },
+    {
+      "name": "nowSeconds.js",
+      "size": 310
+    },
+    {
+      "name": "module_307.js",
+      "size": 309
+    },
+    {
+      "name": "module_392.js",
+      "size": 308
+    },
+    {
+      "name": "A.js",
+      "size": 307
+    },
+    {
+      "name": "BASH_MAX_OUTPUT_LENGTH.js",
+      "size": 307
+    },
+    {
+      "name": "afkModeHeaderLatched.js",
+      "size": 305
+    },
+    {
+      "name": "CLAUDE_CODE_USE_COWORK_PLUGINS.js",
+      "size": 304
+    },
+    {
+      "name": "beta.js",
+      "size": 302
+    },
+    {
+      "name": "random.js",
+      "size": 302
+    },
+    {
+      "name": "CLAUDE_CODE_MAX_RETRIES.js",
+      "size": 301
+    },
+    {
+      "name": "resolve.js",
+      "size": 300
+    },
+    {
+      "name": "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC.js",
+      "size": 298
+    },
+    {
+      "name": "toLowerCase.js",
+      "size": 295
+    },
+    {
+      "name": "help.js",
+      "size": 294
+    },
+    {
+      "name": "shutdown.js",
+      "size": 292
+    },
+    {
+      "name": "array.js",
+      "size": 291
+    },
+    {
+      "name": "hb7.js",
+      "size": 291
+    },
+    {
+      "name": "q.js",
+      "size": 285
+    },
+    {
+      "name": "UIEvent.js",
+      "size": 284
+    },
+    {
+      "name": "module_368.js",
+      "size": 284
+    },
+    {
+      "name": "module_388.js",
+      "size": 281
+    },
+    {
+      "name": "NotebookEdit.js",
+      "size": 280
+    },
+    {
+      "name": "config.js",
+      "size": 280
+    },
+    {
+      "name": "theme.js",
+      "size": 279
+    },
+    {
+      "name": "charCodeAt.js",
+      "size": 278
+    },
+    {
+      "name": "options.js",
+      "size": 278
+    },
+    {
+      "name": "module_631.js",
+      "size": 277
+    },
+    {
+      "name": "Asia_Urumqi.js",
+      "size": 274
+    },
+    {
+      "name": "module_395.js",
+      "size": 273
+    },
+    {
+      "name": "image_data.js",
+      "size": 271
+    },
+    {
+      "name": "inactiveBucket.js",
+      "size": 271
+    },
+    {
+      "name": "teleportedSessionInfo.js",
+      "size": 271
+    },
+    {
+      "name": "arch.js",
+      "size": 269
+    },
+    {
+      "name": "assign.js",
+      "size": 268
+    },
+    {
+      "name": "module_639.js",
+      "size": 268
+    },
+    {
+      "name": "provideLexer.js",
+      "size": 268
+    },
+    {
+      "name": "accessToken.js",
+      "size": 267
+    },
+    {
+      "name": "module_947.js",
+      "size": 265
+    },
+    {
+      "name": "tengu_kairos_cron_config.js",
+      "size": 265
+    },
+    {
+      "name": "cleanupPeriodDays.js",
+      "size": 262
+    },
+    {
+      "name": "getTime.js",
+      "size": 262
+    },
+    {
+      "name": "inlinePlugins.js",
+      "size": 262
+    },
+    {
+      "name": "OPTIONS.js",
+      "size": 260
+    },
+    {
+      "name": "module_335.js",
+      "size": 260
+    },
+    {
+      "name": "2023_06_01.js",
+      "size": 259
+    },
+    {
+      "name": "platform.js",
+      "size": 259
+    },
+    {
+      "name": "enabled.js",
+      "size": 258
+    },
+    {
+      "name": "fcoeoabgfenejglbffodgkkbkcdhcgfn.js",
+      "size": 258
+    },
+    {
+      "name": "module_620.js",
+      "size": 258
+    },
+    {
+      "name": "chromeFlagOverride.js",
+      "size": 257
+    },
+    {
+      "name": "native.js",
+      "size": 257
+    },
+    {
+      "name": "module_619.js",
+      "size": 256
+    },
+    {
+      "name": "module_719.js",
+      "size": 256
+    },
+    {
+      "name": "number.js",
+      "size": 256
+    },
+    {
+      "name": "tracerProvider.js",
+      "size": 256
+    },
+    {
+      "name": "beforeExit.js",
+      "size": 255
+    },
+    {
+      "name": "headers.js",
+      "size": 255
+    },
+    {
+      "name": "lastMainRequestId.js",
+      "size": 255
+    },
+    {
+      "name": "module_275.js",
+      "size": 255
+    },
+    {
+      "name": "saveWorktreeState.js",
+      "size": 255
+    },
+    {
+      "name": "denialTracking.js",
+      "size": 250
+    },
+    {
+      "name": "module_461.js",
+      "size": 245
+    },
+    {
+      "name": "6ba7b810_9dad_11d1_80b4_00c04fd430c8.js",
+      "size": 244
+    },
+    {
+      "name": "K.js",
+      "size": 244
+    },
+    {
+      "name": "catch.js",
+      "size": 243
+    },
+    {
+      "name": "module_436.js",
+      "size": 243
+    },
+    {
+      "name": "subarray.js",
+      "size": 243
+    },
+    {
+      "name": "weighted_round_robin.js",
+      "size": 243
+    },
+    {
+      "name": "grapheme.js",
+      "size": 241
+    },
+    {
+      "name": "resolvedPath.js",
+      "size": 239
+    },
+    {
+      "name": "size.js",
+      "size": 239
+    },
+    {
+      "name": "builtin.js",
+      "size": 237
+    },
+    {
+      "name": "module_621.js",
+      "size": 237
+    },
+    {
+      "name": "sessionPersistenceDisabled.js",
+      "size": 237
+    },
+    {
+      "name": "__data__.js",
+      "size": 236
+    },
+    {
+      "name": "module_281.js",
+      "size": 236
+    },
+    {
+      "name": "inline.js",
+      "size": 235
+    },
+    {
+      "name": "statSync.js",
+      "size": 235
+    },
+    {
+      "name": "useContext.js",
+      "size": 235
+    },
+    {
+      "name": "freeze.js",
+      "size": 233
+    },
+    {
+      "name": "module_491.js",
+      "size": 233
+    },
+    {
+      "name": "cacheEditingHeaderLatched.js",
+      "size": 231
+    },
+    {
+      "name": "filePath.js",
+      "size": 231
+    },
+    {
+      "name": "module_942.js",
+      "size": 230
+    },
+    {
+      "name": "retryDelayInMs.js",
+      "size": 230
+    },
+    {
+      "name": "anthropic_claude_code.js",
+      "size": 227
+    },
+    {
+      "name": "module_705.js",
+      "size": 225
+    },
+    {
+      "name": "delta.js",
+      "size": 224
+    },
+    {
+      "name": "func.js",
+      "size": 224
+    },
+    {
+      "name": "0123456789abcdefghijklmnopqrstuvwxyz.js",
+      "size": 223
+    },
+    {
+      "name": "module_596.js",
+      "size": 223
+    },
+    {
+      "name": "useSyncExternalStore.js",
+      "size": 223
+    },
+    {
+      "name": "module_489.js",
+      "size": 222
+    },
+    {
+      "name": "toISOString.js",
+      "size": 222
+    },
+    {
+      "name": "fillString.js",
+      "size": 221
+    },
+    {
+      "name": "module_653.js",
+      "size": 221
+    },
+    {
+      "name": "cachedClaudeMdContent.js",
+      "size": 220
+    },
+    {
+      "name": "backups.js",
+      "size": 217
+    },
+    {
+      "name": "lastEmittedDate.js",
+      "size": 217
+    },
+    {
+      "name": "_grep_.js",
+      "size": 216
+    },
+    {
+      "name": "module_327.js",
+      "size": 216
+    },
+    {
+      "name": "sessionIngressToken.js",
+      "size": 216
+    },
+    {
+      "name": "initialMainLoopModel.js",
+      "size": 215
+    },
+    {
+      "name": "module_752.js",
+      "size": 215
+    },
+    {
+      "name": "module_709.js",
+      "size": 213
+    },
+    {
+      "name": "DN6.js",
+      "size": 211
+    },
+    {
+      "name": "module_455.js",
+      "size": 211
+    },
+    {
+      "name": "module_562.js",
+      "size": 211
+    },
+    {
+      "name": "lastYogaCounters.js",
+      "size": 209
+    },
+    {
+      "name": "module_743.js",
+      "size": 209
+    },
+    {
+      "name": "fastModeHeaderLatched.js",
+      "size": 208
+    },
+    {
+      "name": "module_760.js",
+      "size": 206
+    },
+    {
+      "name": "module_779.js",
+      "size": 205
+    },
+    {
+      "name": "promptCache1hAllowlist.js",
+      "size": 205
+    },
+    {
+      "name": "cache.js",
+      "size": 204
+    },
+    {
+      "name": "display_message.js",
+      "size": 204
+    },
+    {
+      "name": "isRemoteMode.js",
+      "size": 204
+    },
+    {
+      "name": "byteLength.js",
+      "size": 203
+    },
+    {
+      "name": "clear.js",
+      "size": 203
+    },
+    {
+      "name": "g77.js",
+      "size": 203
+    },
+    {
+      "name": "module_579.js",
+      "size": 203
+    },
+    {
+      "name": "module_771.js",
+      "size": 202
+    },
+    {
+      "name": "totalCostUSD.js",
+      "size": 202
+    },
+    {
+      "name": "get.js",
+      "size": 200
+    },
+    {
+      "name": "module_410.js",
+      "size": 200
+    },
+    {
+      "name": "_smithy_core_cbor__tagSymbol.js",
+      "size": 199
+    },
+    {
+      "name": "module_883.js",
+      "size": 199
+    },
+    {
+      "name": "module_606.js",
+      "size": 198
+    },
+    {
+      "name": "module_638.js",
+      "size": 198
+    },
+    {
+      "name": "module_692.js",
+      "size": 198
+    },
+    {
+      "name": "module_713.js",
+      "size": 196
+    },
+    {
+      "name": "module_885.js",
+      "size": 195
+    },
+    {
+      "name": "nodeType.js",
+      "size": 195
+    },
+    {
+      "name": "module_609.js",
+      "size": 194
+    },
+    {
+      "name": "module_716.js",
+      "size": 194
+    },
+    {
+      "name": "module_755.js",
+      "size": 194
+    },
+    {
+      "name": "trimEnd.js",
+      "size": 194
+    },
+    {
+      "name": "module_459.js",
+      "size": 193
+    },
+    {
+      "name": "module_652.js",
+      "size": 193
+    },
+    {
+      "name": "prompt.js",
+      "size": 193
+    },
+    {
+      "name": "isInteger.js",
+      "size": 192
+    },
+    {
+      "name": "module_911.js",
+      "size": 192
+    },
+    {
+      "name": "projects.js",
+      "size": 192
+    },
+    {
+      "name": "module_604.js",
+      "size": 191
+    },
+    {
+      "name": "module_848.js",
+      "size": 191
+    },
+    {
+      "name": "initJsonSchema.js",
+      "size": 190
+    },
+    {
+      "name": "module_414.js",
+      "size": 190
+    },
+    {
+      "name": "module_409.js",
+      "size": 189
+    },
+    {
+      "name": "module_457.js",
+      "size": 189
+    },
+    {
+      "name": "module_494.js",
+      "size": 189
+    },
+    {
+      "name": "module_554.js",
+      "size": 189
+    },
+    {
+      "name": "module_917.js",
+      "size": 189
+    },
+    {
+      "name": "multipartPolicy.js",
+      "size": 187
+    },
+    {
+      "name": "parentSessionId.js",
+      "size": 187
+    },
+    {
+      "name": "module_412.js",
+      "size": 186
+    },
+    {
+      "name": "tengu_frond_boric.js",
+      "size": 186
+    },
+    {
+      "name": "exp.js",
+      "size": 184
+    },
+    {
+      "name": "module_529.js",
+      "size": 184
+    },
+    {
+      "name": "rules.js",
+      "size": 184
+    },
+    {
+      "name": "execPath.js",
+      "size": 182
+    },
+    {
+      "name": "bg.js",
+      "size": 181
+    },
+    {
+      "name": "module_451.js",
+      "size": 178
+    },
+    {
+      "name": "prototype.js",
+      "size": 178
+    },
+    {
+      "name": "asn1.js",
+      "size": 177
+    },
+    {
+      "name": "length.js",
+      "size": 177
+    },
+    {
+      "name": "module_872.js",
+      "size": 177
+    },
+    {
+      "name": "attributes.js",
+      "size": 176
+    },
+    {
+      "name": "tmux.js",
+      "size": 176
+    },
+    {
+      "name": "module_588.js",
+      "size": 175
+    },
+    {
+      "name": "module_450.js",
+      "size": 174
+    },
+    {
+      "name": "_credentials.js",
+      "size": 169
+    },
+    {
+      "name": "module_424.js",
+      "size": 169
+    },
+    {
+      "name": "module_932.js",
+      "size": 168
+    },
+    {
+      "name": "min.js",
+      "size": 166
+    },
+    {
+      "name": "module_510.js",
+      "size": 166
+    },
+    {
+      "name": "module_600.js",
+      "size": 166
+    },
+    {
+      "name": "create.js",
+      "size": 164
+    },
+    {
+      "name": "module_477.js",
+      "size": 163
+    },
+    {
+      "name": "module_778.js",
+      "size": 162
+    },
+    {
+      "name": "module_744.js",
+      "size": 160
+    },
+    {
+      "name": "installPath.js",
+      "size": 159
+    },
+    {
+      "name": "module_464.js",
+      "size": 159
+    },
+    {
+      "name": "module_668.js",
+      "size": 159
+    },
+    {
+      "name": "module_907.js",
+      "size": 156
+    },
+    {
+      "name": "module_633.js",
+      "size": 154
+    },
+    {
+      "name": "encode.js",
+      "size": 152
+    },
+    {
+      "name": "module_853.js",
+      "size": 152
+    },
+    {
+      "name": "gzip.js",
+      "size": 151
+    },
+    {
+      "name": "module_598.js",
+      "size": 149
+    },
+    {
+      "name": "mapToQueryString.js",
+      "size": 148
+    },
+    {
+      "name": "module_927.js",
+      "size": 146
+    },
+    {
+      "name": "module_656.js",
+      "size": 145
+    },
+    {
+      "name": "module_645.js",
+      "size": 141
+    },
+    {
+      "name": "TERM_PROGRAM_VERSION.js",
+      "size": 139
+    },
+    {
+      "name": "module_426.js",
+      "size": 138
+    },
+    {
+      "name": "Enum.js",
+      "size": 134
+    },
+    {
+      "name": "module_791.js",
+      "size": 134
+    },
+    {
+      "name": "module_877.js",
+      "size": 132
+    },
+    {
+      "name": "module_650.js",
+      "size": 131
+    },
+    {
+      "name": "module_822.js",
+      "size": 128
+    },
+    {
+      "name": "lookupNamespaceURI.js",
+      "size": 122
+    },
+    {
+      "name": "module_935.js",
+      "size": 112
+    },
+    {
+      "name": "module_926.js",
+      "size": 108
+    },
+    {
+      "name": "module_962.js",
+      "size": 106
+    },
+    {
+      "name": "destroy.js",
+      "size": 105
+    },
+    {
+      "name": "module_937.js",
+      "size": 104
+    },
+    {
+      "name": "module_950.js",
+      "size": 103
+    },
+    {
+      "name": "module_976.js",
+      "size": 103
+    },
+    {
+      "name": "exports.js",
+      "size": 101
+    },
+    {
+      "name": "method.js",
+      "size": 101
+    },
+    {
+      "name": "module_952.js",
+      "size": 101
+    },
+    {
+      "name": "module_979.js",
+      "size": 101
+    },
+    {
+      "name": "module_939.js",
+      "size": 100
+    },
+    {
+      "name": "now.js",
+      "size": 100
+    },
+    {
+      "name": "module_968.js",
+      "size": 98
+    },
+    {
+      "name": "consume.js",
+      "size": 97
+    },
+    {
+      "name": "_x07.js",
+      "size": 96
+    },
+    {
+      "name": "z.js",
+      "size": 96
+    },
+    {
+      "name": "tasks.js",
+      "size": 95
+    },
+    {
+      "name": "_parsed.js",
+      "size": 94
+    },
+    {
+      "name": "module_938.js",
+      "size": 92
+    },
+    {
+      "name": "module_923.js",
+      "size": 91
+    },
+    {
+      "name": "module_957.js",
+      "size": 91
+    },
+    {
+      "name": "module_967.js",
+      "size": 91
+    },
+    {
+      "name": "module_931.js",
+      "size": 90
+    },
+    {
+      "name": "JSONL.js",
+      "size": 89
+    },
+    {
+      "name": "module_928.js",
+      "size": 89
+    },
+    {
+      "name": "module_934.js",
+      "size": 89
+    },
+    {
+      "name": "module_936.js",
+      "size": 89
+    },
+    {
+      "name": "module_949.js",
+      "size": 88
+    },
+    {
+      "name": "module_954.js",
+      "size": 88
+    },
+    {
+      "name": "module_920.js",
+      "size": 87
+    },
+    {
+      "name": "module_943.js",
+      "size": 87
+    },
+    {
+      "name": "module_945.js",
+      "size": 87
+    },
+    {
+      "name": "module_966.js",
+      "size": 87
+    },
+    {
+      "name": "module_969.js",
+      "size": 87
+    },
+    {
+      "name": "module_961.js",
+      "size": 86
+    },
+    {
+      "name": "module_963.js",
+      "size": 86
+    },
+    {
+      "name": "module_965.js",
+      "size": 86
+    },
+    {
+      "name": "module_977.js",
+      "size": 86
+    },
+    {
+      "name": "module_922.js",
+      "size": 84
+    },
+    {
+      "name": "module_929.js",
+      "size": 83
+    },
+    {
+      "name": "worker_threads.js",
+      "size": 83
+    },
+    {
+      "name": "module_978.js",
+      "size": 80
+    },
+    {
+      "name": "module_944.js",
+      "size": 76
+    },
+    {
+      "name": "module_924.js",
+      "size": 60
+    },
+    {
+      "name": "module_940.js",
+      "size": 60
+    },
+    {
+      "name": "module_959.js",
+      "size": 60
+    }
+  ]
+}

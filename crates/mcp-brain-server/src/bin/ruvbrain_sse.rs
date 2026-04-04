@@ -1,11 +1,12 @@
 //! ruvbrain-sse: Thin SSE proxy for MCP transport decoupling (ADR-130).
 //!
 //! This binary has NO business logic. It:
-//! - Accepts SSE connections on GET /sse (max 200 concurrent)
+//! - Accepts SSE connections on GET /sse (generates session ID per MCP spec)
+//! - Sends initial `endpoint` event with /messages?sessionId=X
 //! - Accepts JSON-RPC on POST /messages?sessionId=X
-//! - Forwards JSON-RPC to the brain API at BRAIN_API_URL
+//! - Forwards JSON-RPC to the brain API at BRAIN_API_URL/internal/queue/push
 //! - Polls API at /internal/queue/drain?sessionId=X for responses
-//! - Streams responses back to SSE clients
+//! - Streams responses back to SSE clients as `message` events
 //! - Provides /v1/ready and /v1/health endpoints
 
 use axum::{
@@ -26,6 +27,7 @@ use std::time::Duration;
 use tokio::signal;
 use tokio::sync::broadcast;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+use uuid::Uuid;
 
 // ---------------------------------------------------------------------------
 // State
@@ -53,7 +55,7 @@ struct AppState {
 #[derive(Deserialize)]
 struct SessionQuery {
     #[serde(rename = "sessionId")]
-    session_id: String,
+    session_id: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -82,16 +84,15 @@ async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
 }
 
 // ---------------------------------------------------------------------------
-// GET /sse — SSE connection with drain polling
+// GET /sse — MCP SSE connection with drain polling
 // ---------------------------------------------------------------------------
 
 async fn sse_handler(
     State(state): State<AppState>,
-    Query(params): Query<SessionQuery>,
+    params: Option<Query<SessionQuery>>,
 ) -> impl IntoResponse {
     let current = state.active_connections.fetch_add(1, Ordering::SeqCst);
     if current >= state.max_connections {
-        // Undo the increment — we are rejecting this connection.
         state.active_connections.fetch_sub(1, Ordering::SeqCst);
         let mut headers = HeaderMap::new();
         headers.insert("Retry-After", "10".parse().unwrap());
@@ -99,28 +100,53 @@ async fn sse_handler(
             .into_response();
     }
 
+    // Generate a session ID (MCP spec: server assigns it, not the client)
+    let session_id = params
+        .and_then(|q| q.0.session_id.clone())
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
+
     tracing::info!(
-        session_id = %params.session_id,
+        session_id = %session_id,
         active = current + 1,
         "SSE connection opened"
     );
 
-    let session_id = params.session_id.clone();
+    // Register session with the brain API
+    let create_url = format!("{}/internal/session/create", state.brain_api_url);
+    if let Err(e) = state
+        .client
+        .post(&create_url)
+        .json(&serde_json::json!({ "session_id": &session_id }))
+        .send()
+        .await
+    {
+        tracing::error!(error = %e, "failed to create session on brain API");
+        state.active_connections.fetch_sub(1, Ordering::SeqCst);
+        return (StatusCode::BAD_GATEWAY, "failed to create upstream session")
+            .into_response();
+    }
+
     let active = Arc::clone(&state.active_connections);
     let client = state.client.clone();
     let api_url = state.brain_api_url.clone();
     let mut shutdown_rx = state.shutdown_tx.subscribe();
+    let sid_for_cleanup = session_id.clone();
+    let client_for_cleanup = state.client.clone();
+    let api_for_cleanup = state.brain_api_url.clone();
 
-    // Build an async SSE stream that polls the drain endpoint.
     let stream = async_stream::stream! {
+        // MCP protocol: first event is `endpoint` with the messages URL
+        yield Ok::<_, Infallible>(
+            Event::default()
+                .event("endpoint")
+                .data(format!("/messages?sessionId={session_id}"))
+        );
+
         let drain_url = format!(
             "{}/internal/queue/drain?sessionId={}",
             api_url,
             urlencoding::encode(&session_id)
         );
-
-        // Send an initial comment so the client knows the stream is live.
-        yield Ok::<_, Infallible>(Event::default().comment("connected"));
 
         let mut interval = tokio::time::interval(Duration::from_millis(100));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -147,33 +173,40 @@ async fn sse_handler(
                 continue;
             }
 
-            // The drain endpoint returns a JSON array of messages.
             let body = match resp.text().await {
                 Ok(b) => b,
                 Err(_) => continue,
             };
 
-            // Skip empty arrays.
             let trimmed = body.trim();
             if trimmed.is_empty() || trimmed == "[]" {
                 continue;
             }
 
-            // Parse as array of raw JSON values and emit each as an SSE event.
+            // Parse as array of raw JSON strings and emit each as an SSE `message` event.
             if let Ok(messages) = serde_json::from_str::<Vec<serde_json::Value>>(trimmed) {
                 for msg in messages {
-                    let data = serde_json::to_string(&msg).unwrap_or_default();
-                    yield Ok::<_, Infallible>(Event::default().data(data));
+                    // Messages are JSON-RPC response strings; emit as SSE data
+                    let data = if msg.is_string() {
+                        msg.as_str().unwrap_or_default().to_string()
+                    } else {
+                        serde_json::to_string(&msg).unwrap_or_default()
+                    };
+                    yield Ok::<_, Infallible>(Event::default().event("message").data(data));
                 }
             } else {
-                // Single object — emit as-is.
-                yield Ok::<_, Infallible>(Event::default().data(trimmed.to_owned()));
+                // Single object — emit as-is
+                yield Ok::<_, Infallible>(Event::default().event("message").data(trimmed.to_owned()));
             }
         }
 
         // Decrement connection count on stream end.
         let remaining = active.fetch_sub(1, Ordering::SeqCst) - 1;
-        tracing::info!(session_id = %session_id, active = remaining, "SSE connection closed");
+        tracing::info!(session_id = %sid_for_cleanup, active = remaining, "SSE connection closed");
+
+        // Clean up session on brain API
+        let delete_url = format!("{}/internal/session/{}", api_for_cleanup, sid_for_cleanup);
+        let _ = client_for_cleanup.delete(&delete_url).send().await;
     };
 
     Sse::new(stream)
@@ -181,15 +214,31 @@ async fn sse_handler(
         .into_response()
 }
 
+/// Alias so both `/` and `/sse` serve the SSE handler.
+async fn sse_handler_alias(
+    state: State<AppState>,
+    params: Option<Query<SessionQuery>>,
+) -> impl IntoResponse {
+    sse_handler(state, params).await
+}
+
 // ---------------------------------------------------------------------------
 // POST /messages?sessionId=X — forward JSON-RPC to brain API
 // ---------------------------------------------------------------------------
 
+#[derive(Deserialize)]
+struct MessagesQuery {
+    #[serde(rename = "sessionId")]
+    session_id: String,
+}
+
 async fn messages_handler(
     State(state): State<AppState>,
-    Query(params): Query<SessionQuery>,
+    Query(params): Query<MessagesQuery>,
     body: String,
 ) -> impl IntoResponse {
+    // Forward to brain API's /messages endpoint which processes JSON-RPC
+    // and sends the response through the session's mpsc channel → response_queues
     let forward_url = format!(
         "{}/messages?sessionId={}",
         state.brain_api_url,
@@ -223,7 +272,6 @@ async fn messages_handler(
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Logging
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
     tracing_subscriber::registry()
         .with(fmt::layer().with_writer(std::io::stderr))
@@ -248,7 +296,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let state = AppState {
         client: reqwest::Client::builder()
-            .timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30))
             .pool_max_idle_per_host(20)
             .build()?,
         brain_api_url: brain_api_url.clone(),
@@ -258,7 +306,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let app = Router::new()
-        .route("/sse", get(sse_handler))
+        .route("/", get(sse_handler))
+        .route("/sse", get(sse_handler_alias))
         .route("/messages", post(messages_handler))
         .route("/v1/ready", get(ready))
         .route("/v1/health", get(health))

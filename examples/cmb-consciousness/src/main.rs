@@ -4,7 +4,10 @@
 //! integrated information using IIT Phi, causal emergence, and MinCut analysis.
 
 mod analysis;
+mod cross_freq;
 mod data;
+mod emergence_sweep;
+mod healpix;
 mod report;
 
 fn main() {
@@ -59,6 +62,21 @@ fn main() {
     let svg = report::generate_svg(&results, &tpm, &ps);
     std::fs::write(output, &svg).expect("Failed to write SVG report");
     println!("\nSVG report saved to: {}", parse_str_arg(&args, "--output", "cmb_report.svg"));
+
+    // Step 5: Cross-frequency foreground analysis
+    println!("\n=== Step 5: Cross-Frequency Foreground Analysis ===");
+    let _cross_freq_results = cross_freq::run_cross_frequency_analysis();
+
+    // Step 6: Emergence sweep
+    println!("\n=== Step 6: Emergence Sweep ===");
+    let _sweep_results = emergence_sweep::run_emergence_sweep(&ps);
+
+    // Step 7: Spatial Phi sky map
+    println!("\n=== Step 7: Spatial Phi Sky Map ===");
+    let sky_results = healpix::run_sky_mapping(&ps);
+    let sky_svg = healpix::render_sky_map_svg(&sky_results);
+    std::fs::write("cmb_sky_map.svg", &sky_svg).expect("Failed to write sky map");
+    println!("  Sky map SVG saved to: cmb_sky_map.svg");
 
     // Final verdict
     println!("\n+==========================================================+");

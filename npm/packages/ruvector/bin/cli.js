@@ -8923,5 +8923,304 @@ routeCmd.command('info')
     console.log('');
   });
 
+// ── Decompile Command ──────────────────────────────────────────────────────
+const decompileCmd = program
+  .command('decompile [target]')
+  .description('Decompile npm packages, local JS files, or URLs into modules')
+  .option('-o, --output <dir>', 'Output directory')
+  .option('-f, --format <type>', 'Output format: modules, single, json', 'modules')
+  .option('-c, --confidence <n>', 'Minimum confidence threshold (0-1)', '0.3')
+  .option('--no-witness', 'Skip witness chain generation')
+  .option('--json', 'JSON output to stdout (for piping)')
+  .option('-q, --quiet', 'Suppress progress output')
+  .option('--version-pkg <ver>', 'Package version (alternative to @version syntax)')
+  .option('--diff <version>', 'Compare against another version')
+  .option('--model <file>', 'Decompile LLM model weight file (.gguf, .safetensors)')
+  .option('--api <model-id>', 'Probe remote LLM API to discover architecture')
+  .option('--api-key <key>', 'API key for --api mode (or use env vars)')
+  .action(async (target, opts) => {
+    // Model weight decompilation mode (ADR-138)
+    if (opts.model) {
+      try {
+        const modelDecompiler = require('../src/decompiler/model-decompiler.js');
+        const result = await modelDecompiler.decompileModelFile(opts.model);
+        if (opts.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          modelDecompiler.printModelResult(result);
+        }
+      } catch (err) {
+        console.error(chalk.red(`Model decompilation failed: ${err.message}`));
+        process.exit(1);
+      }
+      return;
+    }
+
+    // API probing mode (ADR-138)
+    if (opts.api) {
+      try {
+        const apiProber = require('../src/decompiler/api-prober.js');
+        const result = await apiProber.probeModel(opts.api, { apiKey: opts.apiKey });
+        if (opts.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          apiProber.printProbeResult(result);
+        }
+      } catch (err) {
+        console.error(chalk.red(`API probe failed: ${err.message}`));
+        process.exit(1);
+      }
+      return;
+    }
+
+    if (!target) {
+      console.log(chalk.cyan('\nUsage:'));
+      console.log(chalk.white('  ruvector decompile <package>           Decompile npm package'));
+      console.log(chalk.white('  ruvector decompile <pkg>@<ver>         Specific version'));
+      console.log(chalk.white('  ruvector decompile ./bundle.js         Local file'));
+      console.log(chalk.white('  ruvector decompile https://unpkg.com/x URL'));
+      console.log(chalk.white('  ruvector decompile --model <file.gguf> LLM weight file'));
+      console.log(chalk.white('  ruvector decompile --api <model-id>    Probe remote API'));
+      console.log(chalk.dim('\nOptions:'));
+      console.log(chalk.dim('  -o, --output <dir>     Output directory'));
+      console.log(chalk.dim('  -f, --format <type>    modules | single | json'));
+      console.log(chalk.dim('  -c, --confidence <n>   Min confidence (0-1, default: 0.3)'));
+      console.log(chalk.dim('  --no-witness           Skip witness chain'));
+      console.log(chalk.dim('  --json                 JSON to stdout'));
+      console.log(chalk.dim('  --diff <version>       Diff against another version'));
+      console.log(chalk.dim('  --model <file>         Decompile .gguf/.safetensors'));
+      console.log(chalk.dim('  --api <model-id>       Probe LLM API'));
+      console.log(chalk.dim('  --api-key <key>        API key (or set env var)'));
+      console.log('');
+      return;
+    }
+
+    const decompiler = require('../src/decompiler/index.js');
+    const { parseTarget } = decompiler;
+    const parsed = parseTarget(target);
+    const minConfidence = parseFloat(opts.confidence);
+    const decompileOpts = { minConfidence, witness: opts.witness !== false, useRust: true };
+    const quiet = opts.quiet || opts.json;
+    let spinner = null;
+
+    if (!quiet) {
+      spinner = ora('Analyzing target...').start();
+    }
+
+    try {
+      let result;
+
+      if (parsed.type === 'npm') {
+        const version = opts.versionPkg || parsed.version;
+        if (!quiet) spinner.text = `Fetching ${parsed.name}${version ? '@' + version : ''}...`;
+        result = await decompiler.decompilePackage(parsed.name, version, decompileOpts);
+        if (!quiet) spinner.text = `Decompiled ${result.packageInfo.name}@${result.packageInfo.version}`;
+      } else if (parsed.type === 'file') {
+        if (!quiet) spinner.text = `Reading ${parsed.path}...`;
+        result = decompiler.decompileFile(parsed.path, { ...decompileOpts, filePath: parsed.path });
+      } else if (parsed.type === 'url') {
+        if (!quiet) spinner.text = `Fetching ${parsed.url}...`;
+        result = await decompiler.decompileUrl(parsed.url, decompileOpts);
+      }
+
+      if (!quiet) spinner.succeed(chalk.green('Decompilation complete'));
+
+      // Handle --diff flag
+      if (opts.diff && parsed.type === 'npm') {
+        if (!quiet) {
+          const diffSpinner = ora(`Fetching ${parsed.name}@${opts.diff} for diff...`).start();
+          try {
+            const other = await decompiler.decompilePackage(parsed.name, opts.diff, decompileOpts);
+            diffSpinner.succeed('Diff complete');
+            const resultNames = new Set(result.modules.map((m) => m.name));
+            const otherNames = new Set(other.modules.map((m) => m.name));
+            const added = [...resultNames].filter((n) => !otherNames.has(n));
+            const removed = [...otherNames].filter((n) => !resultNames.has(n));
+            const common = [...resultNames].filter((n) => otherNames.has(n));
+
+            console.log(chalk.bold.cyan('\n  Version Diff'));
+            console.log(chalk.white(`  ${opts.diff} -> ${result.packageInfo.version}`));
+            if (added.length) console.log(chalk.green(`  Added:   ${added.join(', ')}`));
+            if (removed.length) console.log(chalk.red(`  Removed: ${removed.join(', ')}`));
+            console.log(chalk.dim(`  Common:  ${common.length} modules`));
+            console.log('');
+          } catch (err) {
+            diffSpinner.fail(`Diff failed: ${err.message}`);
+          }
+        }
+      }
+
+      // Output
+      if (opts.json) {
+        const jsonOut = {
+          modules: result.modules.map((m) => ({
+            name: m.name, fragments: m.fragments, confidence: m.confidence,
+            contentLength: m.content.length,
+          })),
+          metrics: result.metrics,
+          witness: result.witness ? { root: result.witness.root, chain_length: result.witness.chain.length } : null,
+          packageInfo: result.packageInfo || null,
+        };
+        console.log(JSON.stringify(jsonOut, null, 2));
+        return;
+      }
+
+      // Determine output directory
+      let outputDir = opts.output;
+      if (!outputDir) {
+        const baseName = result.packageInfo
+          ? `${result.packageInfo.name.replace('/', '-')}@${result.packageInfo.version}`
+          : path.basename(target, '.js');
+        outputDir = path.join(process.cwd(), 'decompiled', baseName);
+      }
+
+      decompiler.writeOutput(result, outputDir, opts.format);
+
+      console.log(chalk.bold.cyan('\n  Decompilation Summary'));
+      console.log(chalk.white(`  Modules:     ${result.modules.length}`));
+      console.log(chalk.white(`  Source size:  ${(result.metrics.source.sizeBytes / 1024).toFixed(1)} KB`));
+      console.log(chalk.white(`  Functions:    ${result.metrics.source.functions}`));
+      console.log(chalk.white(`  Classes:      ${result.metrics.source.classes}`));
+      if (result.witness) {
+        const wRoot = result.witness.root || result.witness.chain_root || '';
+        console.log(chalk.white(`  Witness root: ${wRoot.slice(0, 16)}...`));
+      }
+      console.log(chalk.green(`  Output:       ${outputDir}`));
+      console.log('');
+
+      if (result.modules.length > 0) {
+        console.log(chalk.dim('  Detected modules:'));
+        for (const mod of result.modules) {
+          const conf = (mod.confidence * 100).toFixed(0);
+          console.log(chalk.dim(`    ${mod.name} (${mod.fragments} fragments, ${conf}% confidence)`));
+        }
+        console.log('');
+      }
+    } catch (err) {
+      if (spinner) spinner.fail(chalk.red('Decompilation failed'));
+      console.error(chalk.red(`  ${err.message}`));
+      process.exit(1);
+    }
+  });
+
+// =============================================================================
+// Optimize Commands — Claude Code profile optimization (ADR-139)
+// =============================================================================
+
+const optimizeCmd = program.command('optimize')
+  .description('Optimize Claude Code configuration per task type (ADR-139)')
+  .option('-p, --profile <type>', 'Task profile: coding|research|quickfix|planning|background|swarm|review|ci')
+  .option('-s, --show', 'Show current optimization status')
+  .option('-l, --list', 'List all available profiles')
+  .option('--generate-settings', 'Output optimal .claude/settings.json')
+  .option('--detect <prompt>', 'Auto-detect task type from a prompt')
+  .option('--apply', 'Apply profile env vars to current process (for hooks)')
+  .option('--json', 'JSON output')
+  .action(async (opts) => {
+    let optimizerMod;
+    try {
+      optimizerMod = require('../src/optimizer/index.js');
+    } catch (e) {
+      console.error(chalk.red('Error: Failed to load optimizer module.'));
+      console.error(chalk.dim(`  ${e.message}`));
+      process.exit(1);
+    }
+
+    // --list: show all profiles
+    if (opts.list) {
+      const profiles = optimizerMod.listProfiles();
+      if (opts.json) {
+        const data = {};
+        for (const name of profiles) {
+          data[name] = optimizerMod.getProfile(name);
+        }
+        console.log(JSON.stringify(data, null, 2));
+        return;
+      }
+      console.log(chalk.bold.cyan('\n  RVAgent Optimizer Profiles (ADR-139)\n'));
+      console.log(chalk.dim('  Based on decompiled Claude Code v2.1.91 intelligence\n'));
+      for (const name of profiles) {
+        const p = optimizerMod.getProfile(name);
+        const envCount = Object.keys(p.env).length;
+        console.log(`  ${chalk.bold.white(name.padEnd(12))} ${chalk.dim(p.description)}`);
+        console.log(chalk.dim(`${''.padEnd(14)}Permission: ${p.permissionMode}, Env vars: ${envCount}`));
+      }
+      console.log('');
+      console.log(chalk.dim('  Usage: ruvector optimize --profile <type>'));
+      console.log(chalk.dim('         ruvector optimize --generate-settings --profile coding'));
+      console.log('');
+      return;
+    }
+
+    // --detect: infer task type from prompt
+    if (opts.detect) {
+      const detected = optimizerMod.detectTaskType(opts.detect);
+      if (opts.json) {
+        console.log(JSON.stringify({ prompt: opts.detect, taskType: detected }));
+        return;
+      }
+      console.log(chalk.cyan(`  Detected task type: ${chalk.bold(detected)}`));
+      return;
+    }
+
+    // Determine profile to use
+    const profileName = opts.profile || 'coding';
+    const profile = optimizerMod.getProfile(profileName);
+
+    if (!profile) {
+      console.error(chalk.red(`  Unknown profile: ${profileName}`));
+      console.error(chalk.yellow(`  Available: ${optimizerMod.listProfiles().join(', ')}`));
+      process.exit(1);
+    }
+
+    // --generate-settings: output settings.json
+    if (opts.generateSettings) {
+      const { generateSettings, formatSettings } = require('../src/optimizer/settings-generator.js');
+      const settings = generateSettings({ ...profile, taskType: profileName });
+      if (opts.json) {
+        console.log(formatSettings(settings));
+      } else {
+        console.log(chalk.bold.cyan(`\n  Generated settings.json for profile: ${profileName}\n`));
+        console.log(formatSettings(settings));
+        console.log('');
+        console.log(chalk.dim('  Save to .claude/settings.json to activate.'));
+        console.log('');
+      }
+      return;
+    }
+
+    // --show: display profile details
+    if (opts.show) {
+      if (opts.json) {
+        console.log(JSON.stringify({ profile: profileName, ...profile }, null, 2));
+        return;
+      }
+      console.log(chalk.bold.cyan(`\n  Profile: ${profileName}\n`));
+      console.log(`  ${chalk.dim('Description:')} ${profile.description}`);
+      console.log(`  ${chalk.dim('Permission:')}  ${profile.permissionMode}`);
+      console.log(`  ${chalk.dim('Env vars:')}`);
+      for (const [key, val] of Object.entries(profile.env)) {
+        console.log(`    ${chalk.white(key)}=${chalk.green(val)}`);
+      }
+      console.log('');
+      return;
+    }
+
+    // --apply or default: apply env vars
+    const result = optimizerMod.applyProfile(profileName);
+    if (opts.json) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+    console.log(chalk.bold.cyan(`\n  Applied profile: ${profileName}`));
+    console.log(chalk.dim(`  ${profile.description}\n`));
+    for (const [key, val] of Object.entries(result.applied)) {
+      console.log(`  ${chalk.green('+')} ${key}=${val}`);
+    }
+    console.log(`\n  ${chalk.dim('Permission mode:')} ${result.permissionMode}`);
+    console.log('');
+  });
+
 program.parse();
+
 

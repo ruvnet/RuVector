@@ -112,3 +112,19 @@ crates/mcp-brain-server/mcp-brain-server
 
 # Backup files
 *.bak
+
+# Large model checkpoint files (use weights.bin for runtime)
+model*/*.pt
+model*/*.onnx
+model*/*.onnx.data
+
+# Build dist artifacts for examples
+examples/*/dist/
+
+# Unrelated report SVGs
+*_report.svg
+*_sky_map.svg
+
+# Extracted code artifacts
+claude-code-extracted/
+examples/open-claude-code/

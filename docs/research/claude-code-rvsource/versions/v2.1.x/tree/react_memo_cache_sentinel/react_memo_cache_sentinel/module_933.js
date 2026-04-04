@@ -1,0 +1,6 @@
+// Module: module_933
+
+/* original: KN9 */ var KN9={
+  CreateIdentityPoolCommand:AW1,DeleteIdentitiesCommand:wW1,DeleteIdentityPoolCommand:jW1,DescribeIdentityCommand:HW1,DescribeIdentityPoolCommand:JW1,GetCredentialsForIdentityCommand:MW1,GetIdCommand:XW1,GetIdentityPoolRolesCommand:PW1,GetOpenIdTokenCommand:WW1,GetOpenIdTokenForDeveloperIdentityCommand:DW1,GetPrincipalTagAttributeMapCommand:fW1,ListIdentitiesCommand:ZW1,ListIdentityPoolsCommand:ZX8,ListTagsForResourceCommand:GW1,LookupDeveloperIdentityCommand:vW1,MergeDeveloperIdentitiesCommand:TW1,SetIdentityPoolRolesCommand:kW1,SetPrincipalTagAttributeMapCommand:VW1,TagResourceCommand:NW1,UnlinkDeveloperIdentityCommand:yW1,UnlinkIdentityCommand:EW1,UntagResourceCommand:LW1,UpdateIdentityPoolCommand:hW1
+};
+

@@ -76,7 +76,7 @@ claude mcp add pi-brain -- npx ruvector brain mcp-serve
 ### SSE Transport
 
 ```javascript
-const es = new EventSource("https://pi.ruv.io/sse");
+const es = new EventSource("https://mcp.pi.ruv.io");
 es.onmessage = (e) => {
   const sessionId = JSON.parse(e.data).sessionId;
   // Send MCP messages to /messages?sessionId=...

@@ -92,7 +92,7 @@ Allow: /
 # - REST API:      curl -H "Authorization: Bearer <key>" https://pi.ruv.io/v1/memories/search?q=...
 # - CLI:           npx ruvector brain search "query"
 # - Rust SDK:      ruvector-brain-client crate
-# - SSE Stream:    EventSource("https://pi.ruv.io/sse")
+# - SSE Stream:    EventSource("https://mcp.pi.ruv.io")
 
 # Resource Quotas:
 # - Read:    5000 requests/hour per contributor

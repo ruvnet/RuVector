@@ -1,0 +1,131 @@
+{
+  "version": "2.1.91",
+  "package": "@anthropic-ai/claude-code",
+  "extractedAt": "2026-04-03T03:17:18.261Z",
+  "bundleSizeBytes": 13162543,
+  "beautifiedSizeBytes": 13162543,
+  "capturedBytes": 13244498,
+  "coveragePercent": 100.6,
+  "lines": 16967,
+  "sizeBytes": 13162543,
+  "functions": 19906,
+  "asyncFunctions": 1903,
+  "arrowFunctions": 25893,
+  "classes": 1632,
+  "classExtensions": 852,
+  "constDeclarations": 230,
+  "letDeclarations": 33496,
+  "varDeclarations": 14837,
+  "imports": 290,
+  "exports": 50,
+  "requires": 8,
+  "awaitExpressions": 6541,
+  "promiseUsages": 1409,
+  "tryBlocks": 2790,
+  "throwStatements": 4692,
+  "regexLiterals": 16927,
+  "modules": {
+    "model-provider": {
+      "fragments": 165,
+      "sizeBytes": 339368,
+      "confidence": 0.275,
+      "directory": "config"
+    },
+    "tool-dispatch": {
+      "fragments": 531,
+      "sizeBytes": 1336174,
+      "confidence": 0.885,
+      "directory": "tools"
+    },
+    "session": {
+      "fragments": 361,
+      "sizeBytes": 741104,
+      "confidence": 0.602,
+      "directory": "core"
+    },
+    "agent-loop": {
+      "fragments": 77,
+      "sizeBytes": 147355,
+      "confidence": 0.128,
+      "directory": "core"
+    },
+    "permission-system": {
+      "fragments": 500,
+      "sizeBytes": 1098749,
+      "confidence": 0.834,
+      "directory": "permissions"
+    },
+    "context-manager": {
+      "fragments": 49,
+      "sizeBytes": 128101,
+      "confidence": 0.082,
+      "directory": "core"
+    },
+    "config": {
+      "fragments": 473,
+      "sizeBytes": 1064985,
+      "confidence": 0.789,
+      "directory": "config"
+    },
+    "streaming-handler": {
+      "fragments": 24,
+      "sizeBytes": 49353,
+      "confidence": 0.04,
+      "directory": "core"
+    },
+    "telemetry": {
+      "fragments": 524,
+      "sizeBytes": 1094436,
+      "confidence": 0.874,
+      "directory": "telemetry"
+    },
+    "mcp-client": {
+      "fragments": 51,
+      "sizeBytes": 110352,
+      "confidence": 0.085,
+      "directory": "tools/mcp"
+    },
+    "commands": {
+      "fragments": 80,
+      "sizeBytes": 174596,
+      "confidence": 0.133,
+      "directory": "ui"
+    },
+    "telemetry-events": {
+      "fragments": 861,
+      "sizeBytes": 27025,
+      "confidence": 0.5,
+      "directory": "telemetry"
+    },
+    "command-defs": {
+      "fragments": 93,
+      "sizeBytes": 8462,
+      "confidence": 0.5,
+      "directory": "ui"
+    },
+    "class-hierarchy": {
+      "fragments": 1467,
+      "sizeBytes": 23295,
+      "confidence": 0.5,
+      "directory": "types"
+    },
+    "env-vars": {
+      "fragments": 223,
+      "sizeBytes": 6908,
+      "confidence": 0.5,
+      "directory": "config"
+    },
+    "api-endpoints": {
+      "fragments": 52,
+      "sizeBytes": 1120,
+      "confidence": 0.5,
+      "directory": "types"
+    },
+    "uncategorized": {
+      "fragments": 3162,
+      "sizeBytes": 6893115,
+      "confidence": 0.1,
+      "directory": "uncategorized"
+    }
+  }
+}

@@ -1,0 +1,29 @@
+[package]
+name = "ruvector-decompiler-wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "WASM bindings for the RuVector JavaScript bundle decompiler (Louvain pipeline)"
+keywords = ["decompiler", "javascript", "wasm", "mincut", "louvain"]
+categories = ["wasm", "development-tools"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+ruvector-decompiler = { path = "../ruvector-decompiler", default-features = false, features = ["wasm"] }
+wasm-bindgen = { workspace = true }
+serde-wasm-bindgen = "0.6"
+serde_json = { workspace = true }
+console_error_panic_hook = "0.1"
+getrandom = { version = "0.2", features = ["js"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false

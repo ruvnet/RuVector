@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #12121a;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+
+  ::selection {
+    background: rgba(0, 229, 255, 0.2);
+  }
+}
+
+@layer components {
+  .glow-cyan {
+    text-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+  }
+  .glow-purple {
+    text-shadow: 0 0 10px rgba(179, 136, 255, 0.3);
+  }
+  .glow-border {
+    box-shadow: 0 0 15px rgba(0, 229, 255, 0.1);
+  }
+}
