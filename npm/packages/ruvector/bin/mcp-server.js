@@ -2373,7 +2373,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         const engine = new LearningEngine();
-        if (intel.learning) engine.import(intel.learning);
+        if (intel.data.learning) engine.import(intel.data.learning);
 
         if (args.task && args.algorithm) {
           const config = {};
@@ -2382,7 +2382,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           if (args.discountFactor !== undefined) config.discountFactor = args.discountFactor;
           if (args.epsilon !== undefined) config.epsilon = args.epsilon;
           engine.configure(args.task, config);
-          intel.learning = engine.export();
+          intel.data.learning = engine.export();
           intel.save();
         }
 
@@ -2403,7 +2403,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         const engine = new LearningEngine();
-        if (intel.learning) engine.import(intel.learning);
+        if (intel.data.learning) engine.import(intel.data.learning);
 
         const summary = engine.getStatsSummary();
         return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...summary }, null, 2) }] };
@@ -2418,7 +2418,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         const engine = new LearningEngine();
-        if (intel.learning) engine.import(intel.learning);
+        if (intel.data.learning) engine.import(intel.data.learning);
 
         const experience = {
           state: args.state,
@@ -2430,7 +2430,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
 
         const delta = engine.update(args.task, experience);
-        intel.learning = engine.export();
+        intel.data.learning = engine.export();
         intel.save();
 
         return { content: [{ type: 'text', text: JSON.stringify({
@@ -2451,7 +2451,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         const engine = new LearningEngine();
-        if (intel.learning) engine.import(intel.learning);
+        if (intel.data.learning) engine.import(intel.data.learning);
 
         const task = args.task || 'agent-routing';
         let result = { success: true };
@@ -2474,7 +2474,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           result.recommendation = best;
         }
 
-        intel.learning = engine.export();
+        intel.data.learning = engine.export();
         intel.save();
 
         return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
