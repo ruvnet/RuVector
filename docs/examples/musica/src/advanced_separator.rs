@@ -410,62 +410,69 @@ pub fn advanced_separate(
 ) -> AdvancedResult {
     let start = std::time::Instant::now();
     let n = signal.len();
-    let ws = config.window_sizes[0];
-    let hs = ws / config.hop_ratio;
+    let num_sources = config.num_sources;
 
-    // Phase 0: Single-resolution with Wiener refinement
-    let stft_result = stft::stft(signal, ws, hs, sample_rate);
-    let graph = build_audio_graph(&stft_result, &config.graph_params);
-    let mut stats = vec![(ws, graph.num_nodes)];
+    // Strategy: run multiple window sizes independently, Wiener-refine each,
+    // then pick the best result by composite quality score.
+    // This avoids lossy mask interpolation between resolutions.
+
+    let mut best_sources: Option<Vec<Vec<f64>>> = None;
+    let mut best_quality = f64::NEG_INFINITY;
+    let mut stats = Vec::new();
+
     let sep_config = SeparatorConfig {
-        num_sources: config.num_sources,
+        num_sources,
         ..SeparatorConfig::default()
     };
-    let initial = separate(&graph, &sep_config);
 
-    // Try both raw and Wiener-refined, keep whichever is better
-    let raw_sources: Vec<Vec<f64>> = initial.masks.iter()
-        .map(|mask| stft::istft(&stft_result, mask, n))
-        .collect();
-    let wiener_masks = wiener_refine(
-        &stft_result,
-        &initial.masks,
-        config.wiener_exponent,
-        config.wiener_iterations,
-    );
-    let wiener_sources: Vec<Vec<f64>> = wiener_masks.iter()
-        .map(|mask| stft::istft(&stft_result, mask, n))
-        .collect();
+    for &ws in &config.window_sizes {
+        let hs = ws / config.hop_ratio;
+        let stft_result = stft::stft(signal, ws, hs, sample_rate);
+        let graph = build_audio_graph(&stft_result, &config.graph_params);
+        stats.push((ws, graph.num_nodes));
 
-    let single_res_sources = if source_cross_correlation(&wiener_sources) < source_cross_correlation(&raw_sources) {
-        wiener_sources
-    } else {
-        raw_sources
-    };
+        let initial = separate(&graph, &sep_config);
 
-    // Phase 1: Multi-resolution fusion (only if >1 window size)
-    let mut best_sources = single_res_sources;
+        // Raw masks
+        let raw_sources: Vec<Vec<f64>> = initial.masks.iter()
+            .map(|mask| stft::istft(&stft_result, mask, n))
+            .collect();
+        let raw_quality = separation_quality(signal, &raw_sources);
 
-    if config.window_sizes.len() > 1 {
-        let (multi_sources, multi_stats) = multi_resolution_separate(signal, config, sample_rate);
-        stats.extend(multi_stats);
+        // Wiener-refined masks
+        let wiener_masks = wiener_refine(
+            &stft_result,
+            &initial.masks,
+            config.wiener_exponent,
+            config.wiener_iterations,
+        );
+        let wiener_sources: Vec<Vec<f64>> = wiener_masks.iter()
+            .map(|mask| stft::istft(&stft_result, mask, n))
+            .collect();
+        let wiener_quality = separation_quality(signal, &wiener_sources);
 
-        // Use composite quality metric: independence + reconstruction accuracy
-        let single_quality = separation_quality(signal, &best_sources);
-        let multi_quality = separation_quality(signal, &multi_sources);
+        // Pick better of raw vs Wiener for this resolution
+        let (sources, quality) = if wiener_quality > raw_quality {
+            (wiener_sources, wiener_quality)
+        } else {
+            (raw_sources, raw_quality)
+        };
 
-        if multi_quality > single_quality {
-            best_sources = multi_sources;
+        if quality > best_quality {
+            best_quality = quality;
+            best_sources = Some(sources);
         }
     }
 
-    // Phase 2: Cascaded refinement
+    let mut best_sources = best_sources.unwrap_or_else(|| vec![signal.to_vec()]);
+
+    // Phase 2: Cascaded refinement using the best resolution
     if config.cascade_iterations > 1 {
         let (mut cascade_sources, cascade_stats) = cascade_separate(signal, config, sample_rate);
         stats.extend(cascade_stats);
 
-        // Align cascade source ordering with current best by correlation
-        if config.num_sources == 2 && cascade_sources.len() == 2 && best_sources.len() == 2 {
+        // Align cascade source ordering
+        if num_sources == 2 && cascade_sources.len() == 2 && best_sources.len() == 2 {
             let n_min = best_sources[0].len().min(cascade_sources[0].len());
             let corr_id: f64 = (0..n_min)
                 .map(|i| best_sources[0][i] * cascade_sources[0][i] + best_sources[1][i] * cascade_sources[1][i])
@@ -478,17 +485,9 @@ pub fn advanced_separate(
             }
         }
 
-        // Blend cascade if it has better composite quality
-        let best_quality = separation_quality(signal, &best_sources);
         let cascade_quality = separation_quality(signal, &cascade_sources);
-
         if cascade_quality > best_quality {
-            // Blend: best is primary (0.7), cascade refines (0.3)
-            for s in 0..config.num_sources.min(best_sources.len()).min(cascade_sources.len()) {
-                for i in 0..n.min(best_sources[s].len()).min(cascade_sources[s].len()) {
-                    best_sources[s][i] = 0.7 * best_sources[s][i] + 0.3 * cascade_sources[s][i];
-                }
-            }
+            best_sources = cascade_sources;
         }
     }
 
