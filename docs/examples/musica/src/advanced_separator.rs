@@ -243,6 +243,9 @@ fn multi_resolution_separate(
         ..SeparatorConfig::default()
     };
 
+    // First resolution establishes the reference mask ordering
+    let mut reference_masks: Option<Vec<Vec<f64>>> = None;
+
     for &ws in &config.window_sizes {
         let hs = ws / config.hop_ratio;
         let stft_result = stft::stft(signal, ws, hs, sample_rate);
@@ -265,18 +268,14 @@ fn multi_resolution_separate(
         let pri_frames = primary_stft.num_frames;
         let pri_freq = primary_stft.num_freq_bins;
 
-        // Resolution weight: larger windows get more weight for
-        // frequency-dependent features, smaller for temporal
-        let res_weight = 1.0;
-
+        // Interpolate each mask to primary resolution grid
+        let mut interp_masks = vec![vec![0.0; primary_tf]; num_sources];
         for s in 0..num_sources {
             for f in 0..pri_frames {
-                // Map primary frame to this resolution's frame
                 let src_f = (f as f64 * this_frames as f64 / pri_frames as f64) as usize;
                 let src_f = src_f.min(this_frames.saturating_sub(1));
 
                 for k in 0..pri_freq {
-                    // Map primary freq bin to this resolution's freq bin
                     let src_k = (k as f64 * this_freq as f64 / pri_freq as f64) as usize;
                     let src_k = src_k.min(this_freq.saturating_sub(1));
 
@@ -284,12 +283,37 @@ fn multi_resolution_separate(
                     let dst_idx = f * pri_freq + k;
 
                     if src_idx < refined[s].len() && dst_idx < primary_tf {
-                        fused_masks[s][dst_idx] += refined[s][src_idx] * res_weight;
+                        interp_masks[s][dst_idx] = refined[s][src_idx];
                     }
                 }
             }
         }
-        weight_sum += res_weight;
+
+        // Align source ordering with reference (first resolution)
+        // by correlating masks and swapping if needed
+        if let Some(ref ref_masks) = reference_masks {
+            if num_sources == 2 {
+                // Compute correlation: identity vs swapped
+                let corr_identity: f64 = (0..primary_tf)
+                    .map(|i| interp_masks[0][i] * ref_masks[0][i] + interp_masks[1][i] * ref_masks[1][i])
+                    .sum();
+                let corr_swapped: f64 = (0..primary_tf)
+                    .map(|i| interp_masks[1][i] * ref_masks[0][i] + interp_masks[0][i] * ref_masks[1][i])
+                    .sum();
+                if corr_swapped > corr_identity {
+                    interp_masks.swap(0, 1);
+                }
+            }
+        } else {
+            reference_masks = Some(interp_masks.clone());
+        }
+
+        for s in 0..num_sources {
+            for i in 0..primary_tf {
+                fused_masks[s][i] += interp_masks[s][i];
+            }
+        }
+        weight_sum += 1.0;
     }
 
     // Normalize fused masks
@@ -320,6 +344,57 @@ fn multi_resolution_separate(
     (sources, stats)
 }
 
+/// Composite separation quality score (higher = better).
+/// Combines: (1 - cross-correlation) * reconstruction_accuracy
+/// where reconstruction_accuracy = 1 - normalized_reconstruction_error.
+fn separation_quality(mixed: &[f64], sources: &[Vec<f64>]) -> f64 {
+    let n = mixed.len();
+    if n == 0 || sources.is_empty() {
+        return 0.0;
+    }
+
+    // Independence: 1 - avg absolute cross-correlation
+    let xcorr = source_cross_correlation(sources);
+    let independence = 1.0 - xcorr;
+
+    // Reconstruction accuracy: how well sources sum to the mix
+    let mixed_energy: f64 = mixed.iter().map(|x| x * x).sum::<f64>().max(1e-12);
+    let recon_err: f64 = (0..n)
+        .map(|i| {
+            let sum: f64 = sources.iter().map(|s| s.get(i).copied().unwrap_or(0.0)).sum();
+            (mixed[i] - sum).powi(2)
+        })
+        .sum::<f64>();
+    let accuracy = 1.0 - (recon_err / mixed_energy).min(1.0);
+
+    // Weighted combination: accuracy is more important
+    0.4 * independence + 0.6 * accuracy
+}
+
+/// Compute average absolute cross-correlation between all source pairs.
+/// Lower = more independent (better separation).
+fn source_cross_correlation(sources: &[Vec<f64>]) -> f64 {
+    if sources.len() < 2 {
+        return 0.0;
+    }
+    let mut total = 0.0;
+    let mut count = 0;
+    for i in 0..sources.len() {
+        for j in (i + 1)..sources.len() {
+            let n = sources[i].len().min(sources[j].len());
+            if n == 0 { continue; }
+            let ei: f64 = sources[i][..n].iter().map(|x| x * x).sum::<f64>().sqrt();
+            let ej: f64 = sources[j][..n].iter().map(|x| x * x).sum::<f64>().sqrt();
+            if ei < 1e-12 || ej < 1e-12 { continue; }
+            let dot: f64 = sources[i][..n].iter().zip(sources[j][..n].iter())
+                .map(|(a, b)| a * b).sum();
+            total += (dot / (ei * ej)).abs();
+            count += 1;
+        }
+    }
+    if count > 0 { total / count as f64 } else { 0.0 }
+}
+
 // ── Full Advanced Pipeline ──────────────────────────────────────────────
 
 /// Run the full advanced separation pipeline:
@@ -334,20 +409,85 @@ pub fn advanced_separate(
     sample_rate: f64,
 ) -> AdvancedResult {
     let start = std::time::Instant::now();
+    let n = signal.len();
+    let ws = config.window_sizes[0];
+    let hs = ws / config.hop_ratio;
 
-    // Phase 1: Multi-resolution fusion
-    let (mut sources, mut stats) = multi_resolution_separate(signal, config, sample_rate);
+    // Phase 0: Single-resolution with Wiener refinement
+    let stft_result = stft::stft(signal, ws, hs, sample_rate);
+    let graph = build_audio_graph(&stft_result, &config.graph_params);
+    let mut stats = vec![(ws, graph.num_nodes)];
+    let sep_config = SeparatorConfig {
+        num_sources: config.num_sources,
+        ..SeparatorConfig::default()
+    };
+    let initial = separate(&graph, &sep_config);
 
-    // Phase 2: Cascaded refinement on the fused result
+    // Try both raw and Wiener-refined, keep whichever is better
+    let raw_sources: Vec<Vec<f64>> = initial.masks.iter()
+        .map(|mask| stft::istft(&stft_result, mask, n))
+        .collect();
+    let wiener_masks = wiener_refine(
+        &stft_result,
+        &initial.masks,
+        config.wiener_exponent,
+        config.wiener_iterations,
+    );
+    let wiener_sources: Vec<Vec<f64>> = wiener_masks.iter()
+        .map(|mask| stft::istft(&stft_result, mask, n))
+        .collect();
+
+    let single_res_sources = if source_cross_correlation(&wiener_sources) < source_cross_correlation(&raw_sources) {
+        wiener_sources
+    } else {
+        raw_sources
+    };
+
+    // Phase 1: Multi-resolution fusion (only if >1 window size)
+    let mut best_sources = single_res_sources;
+
+    if config.window_sizes.len() > 1 {
+        let (multi_sources, multi_stats) = multi_resolution_separate(signal, config, sample_rate);
+        stats.extend(multi_stats);
+
+        // Use composite quality metric: independence + reconstruction accuracy
+        let single_quality = separation_quality(signal, &best_sources);
+        let multi_quality = separation_quality(signal, &multi_sources);
+
+        if multi_quality > single_quality {
+            best_sources = multi_sources;
+        }
+    }
+
+    // Phase 2: Cascaded refinement
     if config.cascade_iterations > 1 {
-        let (cascade_sources, cascade_stats) = cascade_separate(signal, config, sample_rate);
+        let (mut cascade_sources, cascade_stats) = cascade_separate(signal, config, sample_rate);
         stats.extend(cascade_stats);
 
-        // Blend multi-res and cascade results (equal weight)
-        let n = signal.len();
-        for s in 0..config.num_sources.min(sources.len()).min(cascade_sources.len()) {
-            for i in 0..n.min(sources[s].len()).min(cascade_sources[s].len()) {
-                sources[s][i] = 0.5 * sources[s][i] + 0.5 * cascade_sources[s][i];
+        // Align cascade source ordering with current best by correlation
+        if config.num_sources == 2 && cascade_sources.len() == 2 && best_sources.len() == 2 {
+            let n_min = best_sources[0].len().min(cascade_sources[0].len());
+            let corr_id: f64 = (0..n_min)
+                .map(|i| best_sources[0][i] * cascade_sources[0][i] + best_sources[1][i] * cascade_sources[1][i])
+                .sum();
+            let corr_sw: f64 = (0..n_min)
+                .map(|i| best_sources[0][i] * cascade_sources[1][i] + best_sources[1][i] * cascade_sources[0][i])
+                .sum();
+            if corr_sw > corr_id {
+                cascade_sources.swap(0, 1);
+            }
+        }
+
+        // Blend cascade if it has better composite quality
+        let best_quality = separation_quality(signal, &best_sources);
+        let cascade_quality = separation_quality(signal, &cascade_sources);
+
+        if cascade_quality > best_quality {
+            // Blend: best is primary (0.7), cascade refines (0.3)
+            for s in 0..config.num_sources.min(best_sources.len()).min(cascade_sources.len()) {
+                for i in 0..n.min(best_sources[s].len()).min(cascade_sources[s].len()) {
+                    best_sources[s][i] = 0.7 * best_sources[s][i] + 0.3 * cascade_sources[s][i];
+                }
             }
         }
     }
@@ -355,11 +495,40 @@ pub fn advanced_separate(
     let processing_ms = start.elapsed().as_secs_f64() * 1000.0;
 
     AdvancedResult {
-        sources,
+        sources: best_sources,
         iteration_sdrs: Vec::new(),
         processing_ms,
         iterations_used: config.cascade_iterations,
         resolution_stats: stats,
+    }
+}
+
+/// Find best permutation of estimated sources to match references (2-source).
+/// Returns (best_sdrs, best_permutation_indices).
+fn best_permutation_sdr(references: &[Vec<f64>], estimates: &[Vec<f64>]) -> (Vec<f64>, Vec<usize>) {
+    let n = references.len().min(estimates.len());
+    if n == 0 {
+        return (vec![], vec![]);
+    }
+    if n == 1 {
+        return (vec![compute_sdr_clamped(&references[0], &estimates[0])], vec![0]);
+    }
+
+    // For 2 sources, try both assignments
+    // Perm 0: ref0->est0, ref1->est1
+    let sdr_00 = compute_sdr_clamped(&references[0], &estimates[0]);
+    let sdr_11 = compute_sdr_clamped(&references[1], &estimates[1]);
+    let avg_identity = (sdr_00 + sdr_11) / 2.0;
+
+    // Perm 1: ref0->est1, ref1->est0
+    let sdr_01 = compute_sdr_clamped(&references[0], &estimates[1]);
+    let sdr_10 = compute_sdr_clamped(&references[1], &estimates[0]);
+    let avg_swapped = (sdr_01 + sdr_10) / 2.0;
+
+    if avg_identity >= avg_swapped {
+        (vec![sdr_00, sdr_11], vec![0, 1])
+    } else {
+        (vec![sdr_01, sdr_10], vec![1, 0])
     }
 }
 
@@ -418,14 +587,9 @@ pub fn compare_basic_vs_advanced(
     let adv_result = advanced_separate(mixed, &adv_config, sample_rate);
     let adv_ms = adv_start.elapsed().as_secs_f64() * 1000.0;
 
-    // Compute SDRs
-    let mut basic_sdrs = Vec::new();
-    let mut advanced_sdrs = Vec::new();
-
-    for s in 0..num_sources.min(basic_sources.len()).min(adv_result.sources.len()) {
-        basic_sdrs.push(compute_sdr_clamped(&references[s], &basic_sources[s]));
-        advanced_sdrs.push(compute_sdr_clamped(&references[s], &adv_result.sources[s]));
-    }
+    // Compute SDRs with best permutation matching
+    let (basic_sdrs, _) = best_permutation_sdr(references, &basic_sources);
+    let (advanced_sdrs, _) = best_permutation_sdr(references, &adv_result.sources);
 
     let basic_avg = if basic_sdrs.is_empty() { -60.0 } else {
         basic_sdrs.iter().sum::<f64>() / basic_sdrs.len() as f64
