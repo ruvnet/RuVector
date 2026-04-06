@@ -1,15 +1,14 @@
 //! Binaural hearing aid streaming speech enhancer.
 //!
 //! Low-latency (<8ms) speech-in-noise enhancement using:
-//! - Rolling graph over 4-6 frames at 8ms/4ms hop
+//! - Rolling graph over 4-6 frames at 8ms frame size, 4ms hop
 //! - Binaural features: ILD, IPD, IC (interaural coherence)
-//! - Graph Laplacian spectral clustering (Fiedler vector)
+//! - Graph Laplacian spectral clustering (Fiedler vector via power iteration)
 //! - Dynamic mincut refinement for boundary stability
-//! - Speech/noise seed priors (voicing, harmonicity, frontness)
-//! - Soft mask with temporal smoothing
-//! - Audiogram-based gain shaping
+//! - Speech/noise seed priors (voicing, harmonicity, frontness, modulation)
+//! - Soft mask generation with temporal smoothing
+//! - Audiogram-based gain shaping post-separation
 
-use crate::lanczos::{power_iteration_fiedler, SparseMatrix};
 use ruvector_mincut::prelude::*;
 use std::f64::consts::PI;
 
@@ -139,12 +138,20 @@ pub struct SeparationFrame {
 
 /// Rolling state for streaming processing.
 pub struct StreamingState {
-    /// Rolling window of binaural features [frame][band].
-    feature_buffer: Vec<Vec<BinauralFeatures>>,
+    /// Dynamic graph for incremental mincut updates.
+    graph: DynamicGraph,
+    /// Previous frame's partition labels per band (for temporal coherence).
+    prev_labels: Vec<usize>,
     /// Previous frame's mask (for smoothing).
     prev_mask: Vec<f64>,
+    /// Rolling buffer of left-channel frames.
+    frame_buffer_l: Vec<Vec<f64>>,
+    /// Rolling buffer of right-channel frames.
+    frame_buffer_r: Vec<Vec<f64>>,
     /// Frame counter.
     pub frame_count: u64,
+    /// Rolling window of binaural features [frame][band].
+    feature_buffer: Vec<Vec<BinauralFeatures>>,
     /// Band center frequencies.
     band_freqs: Vec<f64>,
     /// FFT frame size in samples.
@@ -163,9 +170,13 @@ impl StreamingState {
         let band_freqs = erb_frequencies(config.num_bands, config.freq_min, config.freq_max);
 
         Self {
-            feature_buffer: Vec::new(),
+            graph: DynamicGraph::new(),
+            prev_labels: vec![0; config.num_bands],
             prev_mask: vec![0.5; config.num_bands],
+            frame_buffer_l: Vec::new(),
+            frame_buffer_r: Vec::new(),
             frame_count: 0,
+            feature_buffer: Vec::new(),
             band_freqs,
             frame_samples,
             hop_samples,
@@ -188,10 +199,14 @@ impl StreamingState {
         // 1. Extract binaural features
         let features = extract_binaural_features(left, right, &self.band_freqs, config);
 
-        // 2. Update rolling buffer
+        // 2. Update rolling buffers
         self.feature_buffer.push(features.clone());
+        self.frame_buffer_l.push(left.to_vec());
+        self.frame_buffer_r.push(right.to_vec());
         if self.feature_buffer.len() > config.window_frames {
             self.feature_buffer.remove(0);
+            self.frame_buffer_l.remove(0);
+            self.frame_buffer_r.remove(0);
         }
 
         // 3. Build graph over rolling window
@@ -199,8 +214,7 @@ impl StreamingState {
 
         // 4. Compute Fiedler vector for speech/noise partitioning
         let fiedler = if num_nodes > 2 && !edges.is_empty() {
-            let lap = SparseMatrix::from_edges(num_nodes, &edges);
-            power_iteration_fiedler(&lap, 30)
+            compute_fiedler_vector(num_nodes, &edges)
         } else {
             vec![0.0; num_nodes]
         };
@@ -208,27 +222,37 @@ impl StreamingState {
         // 5. Compute speech/noise seed scores
         let speech_scores = compute_speech_scores(&features, &fiedler, num_bands, config);
 
-        // 6. Get mincut value as structural witness
-        let cut_value = if !edges.is_empty() {
-            compute_cut_value(&edges)
+        // 6. Dynamic mincut refinement for boundary stability
+        let (cut_value, refined_labels) = if !edges.is_empty() {
+            refine_with_mincut(&edges, &speech_scores, &self.prev_labels, num_bands)
         } else {
-            0.0
+            (0.0, self.prev_labels.clone())
         };
+        self.prev_labels = refined_labels;
 
-        // 7. Generate soft mask from speech scores
+        // 7. Rebuild dynamic graph for next frame's incremental update
+        self.graph = DynamicGraph::new();
+        for i in 0..num_nodes {
+            self.graph.add_vertex(i as u64);
+        }
+        for &(u, v, w) in &edges {
+            let _ = self.graph.insert_edge(u as u64, v as u64, w);
+        }
+
+        // 8. Generate soft mask from speech scores
         let mut mask = speech_scores.clone();
         for m in &mut mask {
             *m = sigmoid(*m * 3.0); // Sharpen with sigmoid
         }
 
-        // 8. Temporal smoothing
+        // 9. Temporal smoothing
         let alpha = config.mask_smoothing;
         for (i, m) in mask.iter_mut().enumerate() {
             *m = alpha * self.prev_mask[i] + (1.0 - alpha) * *m;
         }
         self.prev_mask = mask.clone();
 
-        // 9. Audiogram gain shaping
+        // 10. Audiogram gain shaping
         apply_audiogram_gain(&mut mask, &self.band_freqs, &config.audiogram);
 
         self.frame_count += 1;
@@ -481,6 +505,61 @@ fn compute_speech_scores(
         .collect()
 }
 
+/// Refine partition using dynamic mincut for boundary stability.
+///
+/// Uses the current speech scores and previous labels as seed priors,
+/// then runs mincut to find stable boundaries between speech and noise.
+fn refine_with_mincut(
+    edges: &[(usize, usize, f64)],
+    speech_scores: &[f64],
+    prev_labels: &[usize],
+    num_bands: usize,
+) -> (f64, Vec<usize>) {
+    let cut_value = compute_cut_value(edges);
+
+    // Derive labels from mincut partition
+    let edge_list: Vec<(u64, u64, f64)> = edges
+        .iter()
+        .map(|&(u, v, w)| (u as u64, v as u64, w))
+        .collect();
+
+    let builder = MinCutBuilder::new().exact().with_edges(edge_list);
+    let labels = match builder.build() {
+        Ok(mc) => {
+            let result = mc.min_cut();
+            if let Some((side_a, _side_b)) = result.partition {
+                let mut lab = vec![1usize; num_bands];
+                for &nid in &side_a {
+                    let band = (nid as usize) % num_bands;
+                    if band < num_bands {
+                        lab[band] = 0;
+                    }
+                }
+                // Temporal coherence: bias toward previous labels
+                for (i, l) in lab.iter_mut().enumerate() {
+                    if i < prev_labels.len() && *l != prev_labels[i] {
+                        // Only flip if speech score strongly disagrees
+                        let score = if i < speech_scores.len() {
+                            speech_scores[i]
+                        } else {
+                            0.5
+                        };
+                        if (score - 0.5).abs() < 0.1 {
+                            *l = prev_labels[i]; // Keep previous label for ambiguous bins
+                        }
+                    }
+                }
+                lab
+            } else {
+                prev_labels.to_vec()
+            }
+        }
+        Err(_) => prev_labels.to_vec(),
+    };
+
+    (cut_value, labels)
+}
+
 /// Compute mincut value as structural witness.
 fn compute_cut_value(edges: &[(usize, usize, f64)]) -> f64 {
     if edges.is_empty() {
@@ -522,6 +601,67 @@ fn erb_frequencies(num_bands: usize, freq_min: f64, freq_max: f64) -> Vec<f64> {
             (10.0f64.powf(erb / 21.4) - 1.0) / 0.00437
         })
         .collect()
+}
+
+/// Compute the Fiedler vector (2nd smallest eigenvector of graph Laplacian)
+/// via power iteration on D^{-1}A, then deflate the trivial eigenvector.
+///
+/// Edges are `(u, v, weight)` with 0-indexed node IDs.
+fn compute_fiedler_vector(n: usize, edges: &[(usize, usize, f64)]) -> Vec<f64> {
+    if n <= 1 {
+        return vec![0.0; n];
+    }
+
+    // Build degree vector and sparse adjacency
+    let mut degree = vec![0.0f64; n];
+    let mut adj: Vec<Vec<(usize, f64)>> = vec![Vec::new(); n];
+
+    for &(u, v, w) in edges {
+        if u < n && v < n {
+            degree[u] += w;
+            degree[v] += w;
+            adj[u].push((v, w));
+            adj[v].push((u, w));
+        }
+    }
+
+    let d_inv: Vec<f64> = degree
+        .iter()
+        .map(|&d| if d > 1e-12 { 1.0 / d } else { 0.0 })
+        .collect();
+
+    // Initialize with non-uniform vector orthogonal to the constant vector
+    let mut v: Vec<f64> = (0..n).map(|i| (i as f64 / n as f64) - 0.5).collect();
+
+    // Power iteration on D^{-1}A to find the second eigenvector
+    for _ in 0..30 {
+        let mut new_v = vec![0.0; n];
+        for i in 0..n {
+            let mut s = 0.0;
+            for &(j, w) in &adj[i] {
+                s += w * v[j];
+            }
+            new_v[i] = d_inv[i] * s;
+        }
+
+        // Orthogonalize against constant vector (first eigenvector)
+        let mean: f64 = new_v.iter().sum::<f64>() / n as f64;
+        for x in &mut new_v {
+            *x -= mean;
+        }
+
+        // Normalize
+        let norm: f64 = new_v.iter().map(|x| x * x).sum::<f64>().sqrt();
+        if norm > 1e-12 {
+            for x in &mut new_v {
+                *x /= norm;
+            }
+        }
+
+        v = new_v;
+    }
+
+    v
 }
 
 /// Sigmoid function.
