@@ -1,0 +1,2032 @@
+[
+  {
+    "context_strings": ["protocolVersion", "serverInfo", "capabilities"],
+    "property_names": ["protocolVersion", "serverInfo", "capabilities"],
+    "inferred_name": "McpServerConfig",
+    "module_hint": "mcp",
+    "confidence": 0.95
+  },
+  {
+    "context_strings": ["protocolVersion", "clientInfo"],
+    "property_names": ["protocolVersion", "clientInfo"],
+    "inferred_name": "McpClientConfig",
+    "module_hint": "mcp",
+    "confidence": 0.92
+  },
+  {
+    "context_strings": ["Bash", "Read", "Edit", "Write"],
+    "property_names": ["description", "inputSchema"],
+    "inferred_name": "ToolDefinition",
+    "module_hint": "tools",
+    "confidence": 0.95
+  },
+  {
+    "context_strings": ["Glob", "Grep", "Search"],
+    "property_names": ["description", "inputSchema"],
+    "inferred_name": "ToolSearchDefinition",
+    "module_hint": "tools",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["Task", "TodoWrite", "Agent"],
+    "property_names": ["description", "inputSchema"],
+    "inferred_name": "ToolAgentDefinition",
+    "module_hint": "tools",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["initialize", "initialized"],
+    "property_names": ["method", "params"],
+    "inferred_name": "McpInitializeHandler",
+    "module_hint": "mcp",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["tools/list", "tools/call"],
+    "property_names": ["method", "params", "id"],
+    "inferred_name": "McpToolHandler",
+    "module_hint": "mcp",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["resources/list", "resources/read"],
+    "property_names": ["method", "params"],
+    "inferred_name": "McpResourceHandler",
+    "module_hint": "mcp",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["prompts/list", "prompts/get"],
+    "property_names": ["method", "params"],
+    "inferred_name": "McpPromptHandler",
+    "module_hint": "mcp",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["jsonrpc", "2.0"],
+    "property_names": ["jsonrpc", "method", "id", "params"],
+    "inferred_name": "JsonRpcMessage",
+    "module_hint": "protocol",
+    "confidence": 0.92
+  },
+  {
+    "context_strings": ["result"],
+    "property_names": ["jsonrpc", "id", "result"],
+    "inferred_name": "JsonRpcResponse",
+    "module_hint": "protocol",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["error"],
+    "property_names": ["jsonrpc", "id", "error", "code", "message"],
+    "inferred_name": "JsonRpcError",
+    "module_hint": "protocol",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["notification"],
+    "property_names": ["jsonrpc", "method", "params"],
+    "inferred_name": "JsonRpcNotification",
+    "module_hint": "protocol",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["stdin", "stdout", "stderr"],
+    "property_names": ["stdin", "stdout"],
+    "inferred_name": "StdioTransport",
+    "module_hint": "transport",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["SSE", "text/event-stream"],
+    "property_names": ["endpoint", "headers"],
+    "inferred_name": "SseTransport",
+    "module_hint": "transport",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["WebSocket", "ws://"],
+    "property_names": ["url", "protocols"],
+    "inferred_name": "WebSocketTransport",
+    "module_hint": "transport",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["streamable", "http"],
+    "property_names": ["sessionId", "endpoint"],
+    "inferred_name": "StreamableHttpTransport",
+    "module_hint": "transport",
+    "confidence": 0.86
+  },
+  {
+    "context_strings": ["ANTHROPIC_API_KEY", "anthropic"],
+    "property_names": ["apiKey", "model"],
+    "inferred_name": "AnthropicConfig",
+    "module_hint": "providers",
+    "confidence": 0.92
+  },
+  {
+    "context_strings": ["claude-sonnet", "claude-opus", "claude-haiku"],
+    "property_names": ["model", "maxTokens"],
+    "inferred_name": "ClaudeModelConfig",
+    "module_hint": "providers",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["OPENAI_API_KEY", "openai"],
+    "property_names": ["apiKey", "model"],
+    "inferred_name": "OpenAiConfig",
+    "module_hint": "providers",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["messages", "system", "assistant", "user"],
+    "property_names": ["role", "content"],
+    "inferred_name": "ChatMessage",
+    "module_hint": "conversation",
+    "confidence": 0.92
+  },
+  {
+    "context_strings": ["content_block", "text"],
+    "property_names": ["type", "text"],
+    "inferred_name": "TextContentBlock",
+    "module_hint": "conversation",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["tool_use"],
+    "property_names": ["type", "id", "name", "input"],
+    "inferred_name": "ToolUseBlock",
+    "module_hint": "conversation",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["tool_result"],
+    "property_names": ["type", "tool_use_id", "content"],
+    "inferred_name": "ToolResultBlock",
+    "module_hint": "conversation",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["thinking"],
+    "property_names": ["type", "thinking"],
+    "inferred_name": "ThinkingBlock",
+    "module_hint": "conversation",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["stream", "delta", "event"],
+    "property_names": ["type", "index", "delta"],
+    "inferred_name": "StreamEvent",
+    "module_hint": "streaming",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["message_start"],
+    "property_names": ["type", "message"],
+    "inferred_name": "MessageStartEvent",
+    "module_hint": "streaming",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["message_delta"],
+    "property_names": ["type", "delta", "usage"],
+    "inferred_name": "MessageDeltaEvent",
+    "module_hint": "streaming",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["message_stop"],
+    "property_names": ["type"],
+    "inferred_name": "MessageStopEvent",
+    "module_hint": "streaming",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["content_block_start"],
+    "property_names": ["type", "index", "content_block"],
+    "inferred_name": "ContentBlockStartEvent",
+    "module_hint": "streaming",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["content_block_delta"],
+    "property_names": ["type", "index", "delta"],
+    "inferred_name": "ContentBlockDeltaEvent",
+    "module_hint": "streaming",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["content_block_stop"],
+    "property_names": ["type", "index"],
+    "inferred_name": "ContentBlockStopEvent",
+    "module_hint": "streaming",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["input_tokens", "output_tokens"],
+    "property_names": ["input_tokens", "output_tokens"],
+    "inferred_name": "TokenUsage",
+    "module_hint": "usage",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["cache_creation_input_tokens", "cache_read_input_tokens"],
+    "property_names": ["cache_creation_input_tokens", "cache_read_input_tokens"],
+    "inferred_name": "CacheUsage",
+    "module_hint": "usage",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["temperature", "max_tokens", "top_p"],
+    "property_names": ["temperature", "max_tokens", "top_p"],
+    "inferred_name": "SamplingConfig",
+    "module_hint": "config",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["stop_sequences", "stop_reason"],
+    "property_names": ["stop_reason", "stop_sequence"],
+    "inferred_name": "StopConfig",
+    "module_hint": "config",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["permission", "allow", "deny"],
+    "property_names": ["permissions", "allowedTools"],
+    "inferred_name": "PermissionConfig",
+    "module_hint": "security",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["sandbox", "container"],
+    "property_names": ["sandbox", "network"],
+    "inferred_name": "SandboxConfig",
+    "module_hint": "security",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["approval", "human_in_the_loop"],
+    "property_names": ["requireApproval", "autoApprove"],
+    "inferred_name": "ApprovalConfig",
+    "module_hint": "security",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["git", "commit", "branch"],
+    "property_names": ["command", "args"],
+    "inferred_name": "GitCommand",
+    "module_hint": "vcs",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["diff", "patch", "hunk"],
+    "property_names": ["old_string", "new_string", "file_path"],
+    "inferred_name": "DiffOperation",
+    "module_hint": "vcs",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["pull_request", "merge"],
+    "property_names": ["title", "body", "base", "head"],
+    "inferred_name": "PullRequestConfig",
+    "module_hint": "vcs",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["file_path", "content"],
+    "property_names": ["file_path", "content"],
+    "inferred_name": "FileWriteOperation",
+    "module_hint": "filesystem",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["glob", "pattern"],
+    "property_names": ["pattern", "path"],
+    "inferred_name": "GlobSearchOperation",
+    "module_hint": "filesystem",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["regex", "grep", "ripgrep"],
+    "property_names": ["pattern", "path", "output_mode"],
+    "inferred_name": "GrepSearchOperation",
+    "module_hint": "filesystem",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["workspace", "project"],
+    "property_names": ["rootPath", "workspaceFolders"],
+    "inferred_name": "WorkspaceConfig",
+    "module_hint": "workspace",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["session", "conversation"],
+    "property_names": ["sessionId", "conversationId"],
+    "inferred_name": "SessionState",
+    "module_hint": "session",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["checkpoint", "restore"],
+    "property_names": ["checkpointId", "state"],
+    "inferred_name": "CheckpointState",
+    "module_hint": "session",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["memory", "context"],
+    "property_names": ["memories", "context"],
+    "inferred_name": "MemoryStore",
+    "module_hint": "memory",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["embedding", "vector"],
+    "property_names": ["embedding", "dimensions"],
+    "inferred_name": "EmbeddingVector",
+    "module_hint": "memory",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["swarm", "agent", "coordinator"],
+    "property_names": ["topology", "maxAgents"],
+    "inferred_name": "SwarmConfig",
+    "module_hint": "orchestration",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["hierarchical", "mesh", "ring"],
+    "property_names": ["type", "connections"],
+    "inferred_name": "TopologyConfig",
+    "module_hint": "orchestration",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["consensus", "raft", "byzantine"],
+    "property_names": ["algorithm", "threshold"],
+    "inferred_name": "ConsensusConfig",
+    "module_hint": "orchestration",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["task", "assignment"],
+    "property_names": ["taskId", "assignee", "status"],
+    "inferred_name": "TaskAssignment",
+    "module_hint": "orchestration",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["hook", "pre-task", "post-task"],
+    "property_names": ["event", "handler"],
+    "inferred_name": "HookDefinition",
+    "module_hint": "hooks",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["worker", "background"],
+    "property_names": ["trigger", "priority"],
+    "inferred_name": "WorkerConfig",
+    "module_hint": "hooks",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["neural", "train", "pattern"],
+    "property_names": ["epochs", "modelType"],
+    "inferred_name": "NeuralTrainingConfig",
+    "module_hint": "learning",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["reward", "trajectory"],
+    "property_names": ["reward", "success", "critique"],
+    "inferred_name": "TrajectoryRecord",
+    "module_hint": "learning",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["HNSW", "index"],
+    "property_names": ["dimensions", "efConstruction", "M"],
+    "inferred_name": "HnswIndexConfig",
+    "module_hint": "search",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["search", "query", "knn"],
+    "property_names": ["query", "k", "filter"],
+    "inferred_name": "SearchQuery",
+    "module_hint": "search",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["flash_attention"],
+    "property_names": ["blockSize", "causal"],
+    "inferred_name": "FlashAttentionConfig",
+    "module_hint": "attention",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["attention", "softmax"],
+    "property_names": ["query", "key", "value"],
+    "inferred_name": "AttentionLayer",
+    "module_hint": "attention",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["GNN", "graph_neural"],
+    "property_names": ["layers", "aggregation"],
+    "inferred_name": "GnnConfig",
+    "module_hint": "graph",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["node", "edge", "adjacency"],
+    "property_names": ["nodes", "edges"],
+    "inferred_name": "GraphStructure",
+    "module_hint": "graph",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["mincut", "partition"],
+    "property_names": ["source", "sink", "capacity"],
+    "inferred_name": "MinCutConfig",
+    "module_hint": "graph",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["sparsifier", "spectral"],
+    "property_names": ["epsilon", "samplingRate"],
+    "inferred_name": "SparsifierConfig",
+    "module_hint": "graph",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["consciousness", "phi", "IIT"],
+    "property_names": ["phi", "mechanism"],
+    "inferred_name": "ConsciousnessMetric",
+    "module_hint": "consciousness",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["qualia", "experience"],
+    "property_names": ["qualiaSpace", "dimension"],
+    "inferred_name": "QualiaDescriptor",
+    "module_hint": "consciousness",
+    "confidence": 0.82
+  },
+  {
+    "context_strings": ["webpack", "bundle"],
+    "property_names": ["entry", "output", "module"],
+    "inferred_name": "WebpackConfig",
+    "module_hint": "bundler",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["chunk", "splitChunks"],
+    "property_names": ["chunks", "minSize", "maxSize"],
+    "inferred_name": "ChunkSplitConfig",
+    "module_hint": "bundler",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["__webpack_require__"],
+    "property_names": [],
+    "inferred_name": "WebpackRuntime",
+    "module_hint": "bundler",
+    "confidence": 0.92
+  },
+  {
+    "context_strings": ["__webpack_modules__"],
+    "property_names": [],
+    "inferred_name": "WebpackModuleRegistry",
+    "module_hint": "bundler",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["rollup", "bundle"],
+    "property_names": ["input", "output", "plugins"],
+    "inferred_name": "RollupConfig",
+    "module_hint": "bundler",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["esbuild"],
+    "property_names": ["entryPoints", "bundle", "outdir"],
+    "inferred_name": "EsbuildConfig",
+    "module_hint": "bundler",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["vite"],
+    "property_names": ["root", "base", "plugins"],
+    "inferred_name": "ViteConfig",
+    "module_hint": "bundler",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["React", "createElement", "jsx"],
+    "property_names": ["type", "props", "children"],
+    "inferred_name": "ReactElement",
+    "module_hint": "react",
+    "confidence": 0.92
+  },
+  {
+    "context_strings": ["useState", "setState"],
+    "property_names": [],
+    "inferred_name": "ReactStateHook",
+    "module_hint": "react",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["useEffect"],
+    "property_names": [],
+    "inferred_name": "ReactEffectHook",
+    "module_hint": "react",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["useRef"],
+    "property_names": ["current"],
+    "inferred_name": "ReactRefHook",
+    "module_hint": "react",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["useCallback", "useMemo"],
+    "property_names": [],
+    "inferred_name": "ReactMemoHook",
+    "module_hint": "react",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["useContext", "createContext"],
+    "property_names": ["Provider", "Consumer"],
+    "inferred_name": "ReactContextHook",
+    "module_hint": "react",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["useReducer", "dispatch"],
+    "property_names": [],
+    "inferred_name": "ReactReducerHook",
+    "module_hint": "react",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["Component", "render"],
+    "property_names": ["props", "state", "render"],
+    "inferred_name": "ReactClassComponent",
+    "module_hint": "react",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["PureComponent"],
+    "property_names": ["props", "state"],
+    "inferred_name": "ReactPureComponent",
+    "module_hint": "react",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["Fragment"],
+    "property_names": ["children"],
+    "inferred_name": "ReactFragment",
+    "module_hint": "react",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["Suspense", "fallback"],
+    "property_names": ["fallback", "children"],
+    "inferred_name": "ReactSuspense",
+    "module_hint": "react",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["lazy"],
+    "property_names": [],
+    "inferred_name": "ReactLazy",
+    "module_hint": "react",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["forwardRef"],
+    "property_names": ["ref"],
+    "inferred_name": "ReactForwardRef",
+    "module_hint": "react",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["memo"],
+    "property_names": [],
+    "inferred_name": "ReactMemo",
+    "module_hint": "react",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["createPortal"],
+    "property_names": ["container"],
+    "inferred_name": "ReactPortal",
+    "module_hint": "react-dom",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["hydrateRoot", "createRoot"],
+    "property_names": ["render"],
+    "inferred_name": "ReactDomRoot",
+    "module_hint": "react-dom",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["Router", "Route", "Switch"],
+    "property_names": ["path", "component", "exact"],
+    "inferred_name": "ReactRouterConfig",
+    "module_hint": "react-router",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["useNavigate", "useLocation"],
+    "property_names": ["pathname", "search"],
+    "inferred_name": "ReactRouterHook",
+    "module_hint": "react-router",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["useParams"],
+    "property_names": [],
+    "inferred_name": "ReactRouterParams",
+    "module_hint": "react-router",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["redux", "store", "dispatch"],
+    "property_names": ["getState", "dispatch", "subscribe"],
+    "inferred_name": "ReduxStore",
+    "module_hint": "state-management",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["createSlice", "reducer"],
+    "property_names": ["name", "initialState", "reducers"],
+    "inferred_name": "ReduxSlice",
+    "module_hint": "state-management",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["useSelector", "useDispatch"],
+    "property_names": [],
+    "inferred_name": "ReduxHook",
+    "module_hint": "state-management",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["zustand", "create"],
+    "property_names": ["set", "get"],
+    "inferred_name": "ZustandStore",
+    "module_hint": "state-management",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["express", "app"],
+    "property_names": ["get", "post", "use", "listen"],
+    "inferred_name": "ExpressApp",
+    "module_hint": "server",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["middleware"],
+    "property_names": ["req", "res", "next"],
+    "inferred_name": "ExpressMiddleware",
+    "module_hint": "server",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["router"],
+    "property_names": ["get", "post", "put", "delete"],
+    "inferred_name": "ExpressRouter",
+    "module_hint": "server",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["fastify"],
+    "property_names": ["get", "post", "register", "listen"],
+    "inferred_name": "FastifyApp",
+    "module_hint": "server",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["fetch", "Request", "Response"],
+    "property_names": ["url", "method", "headers", "body"],
+    "inferred_name": "FetchRequest",
+    "module_hint": "http",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["axios"],
+    "property_names": ["get", "post", "interceptors"],
+    "inferred_name": "AxiosInstance",
+    "module_hint": "http",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["headers", "Content-Type"],
+    "property_names": ["headers", "status"],
+    "inferred_name": "HttpHeaders",
+    "module_hint": "http",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["Promise", "then", "catch"],
+    "property_names": ["then", "catch", "finally"],
+    "inferred_name": "PromiseChain",
+    "module_hint": "async",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["async", "await"],
+    "property_names": [],
+    "inferred_name": "AsyncFunction",
+    "module_hint": "async",
+    "confidence": 0.80
+  },
+  {
+    "context_strings": ["Observable", "subscribe"],
+    "property_names": ["subscribe", "pipe"],
+    "inferred_name": "RxObservable",
+    "module_hint": "async",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["EventEmitter", "emit", "on"],
+    "property_names": ["on", "emit", "off"],
+    "inferred_name": "EventEmitter",
+    "module_hint": "events",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["addEventListener"],
+    "property_names": ["addEventListener", "removeEventListener"],
+    "inferred_name": "DomEventHandler",
+    "module_hint": "dom",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["document", "querySelector"],
+    "property_names": ["querySelector", "getElementById"],
+    "inferred_name": "DomQuery",
+    "module_hint": "dom",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["createElement", "appendChild"],
+    "property_names": ["createElement", "appendChild"],
+    "inferred_name": "DomManipulation",
+    "module_hint": "dom",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["localStorage", "sessionStorage"],
+    "property_names": ["getItem", "setItem", "removeItem"],
+    "inferred_name": "WebStorage",
+    "module_hint": "storage",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["IndexedDB", "objectStore"],
+    "property_names": ["transaction", "objectStore"],
+    "inferred_name": "IndexedDbStore",
+    "module_hint": "storage",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["cookie"],
+    "property_names": ["name", "value", "expires"],
+    "inferred_name": "CookieConfig",
+    "module_hint": "storage",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["jwt", "token", "Bearer"],
+    "property_names": ["token", "expiresIn"],
+    "inferred_name": "JwtToken",
+    "module_hint": "auth",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["oauth", "authorization"],
+    "property_names": ["clientId", "clientSecret", "redirectUri"],
+    "inferred_name": "OAuthConfig",
+    "module_hint": "auth",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["passport", "authenticate"],
+    "property_names": ["strategy", "session"],
+    "inferred_name": "PassportConfig",
+    "module_hint": "auth",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["bcrypt", "hash", "salt"],
+    "property_names": ["hash", "compare"],
+    "inferred_name": "BcryptHasher",
+    "module_hint": "auth",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["prisma", "PrismaClient"],
+    "property_names": ["findMany", "create", "update", "delete"],
+    "inferred_name": "PrismaClient",
+    "module_hint": "database",
+    "confidence": 0.92
+  },
+  {
+    "context_strings": ["mongoose", "Schema"],
+    "property_names": ["model", "schema", "find"],
+    "inferred_name": "MongooseModel",
+    "module_hint": "database",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["sequelize"],
+    "property_names": ["define", "sync", "query"],
+    "inferred_name": "SequelizeModel",
+    "module_hint": "database",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["knex", "select", "from"],
+    "property_names": ["select", "from", "where", "join"],
+    "inferred_name": "KnexQueryBuilder",
+    "module_hint": "database",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["drizzle"],
+    "property_names": ["select", "from", "where"],
+    "inferred_name": "DrizzleQuery",
+    "module_hint": "database",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["migration", "up", "down"],
+    "property_names": ["up", "down"],
+    "inferred_name": "DatabaseMigration",
+    "module_hint": "database",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["describe", "it", "expect"],
+    "property_names": ["toBe", "toEqual", "toContain"],
+    "inferred_name": "TestSuite",
+    "module_hint": "testing",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["jest", "mock"],
+    "property_names": ["fn", "spyOn", "mockImplementation"],
+    "inferred_name": "JestMock",
+    "module_hint": "testing",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["vitest"],
+    "property_names": ["describe", "it", "expect"],
+    "inferred_name": "VitestSuite",
+    "module_hint": "testing",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["cypress"],
+    "property_names": ["visit", "get", "click", "type"],
+    "inferred_name": "CypressTest",
+    "module_hint": "testing",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["playwright"],
+    "property_names": ["page", "goto", "click", "fill"],
+    "inferred_name": "PlaywrightTest",
+    "module_hint": "testing",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["TypeScript", "type", "interface"],
+    "property_names": [],
+    "inferred_name": "TypeDefinition",
+    "module_hint": "types",
+    "confidence": 0.80
+  },
+  {
+    "context_strings": ["enum"],
+    "property_names": [],
+    "inferred_name": "EnumDefinition",
+    "module_hint": "types",
+    "confidence": 0.78
+  },
+  {
+    "context_strings": ["generic", "extends"],
+    "property_names": [],
+    "inferred_name": "GenericType",
+    "module_hint": "types",
+    "confidence": 0.78
+  },
+  {
+    "context_strings": ["zod", "z.object"],
+    "property_names": ["parse", "safeParse"],
+    "inferred_name": "ZodSchema",
+    "module_hint": "validation",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["yup", "schema"],
+    "property_names": ["validate", "cast"],
+    "inferred_name": "YupSchema",
+    "module_hint": "validation",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["ajv", "JSON Schema"],
+    "property_names": ["compile", "validate"],
+    "inferred_name": "AjvValidator",
+    "module_hint": "validation",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["Next.js", "getServerSideProps"],
+    "property_names": ["props"],
+    "inferred_name": "NextServerSideProps",
+    "module_hint": "framework",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["getStaticProps", "getStaticPaths"],
+    "property_names": ["props", "paths"],
+    "inferred_name": "NextStaticProps",
+    "module_hint": "framework",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["useRouter"],
+    "property_names": ["push", "replace", "query"],
+    "inferred_name": "NextRouter",
+    "module_hint": "framework",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["metadata", "generateMetadata"],
+    "property_names": ["title", "description"],
+    "inferred_name": "NextMetadata",
+    "module_hint": "framework",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["nuxt", "defineNuxtConfig"],
+    "property_names": ["modules", "plugins"],
+    "inferred_name": "NuxtConfig",
+    "module_hint": "framework",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["svelte", "$"],
+    "property_names": [],
+    "inferred_name": "SvelteComponent",
+    "module_hint": "framework",
+    "confidence": 0.82
+  },
+  {
+    "context_strings": ["tailwind", "tw"],
+    "property_names": ["content", "theme", "plugins"],
+    "inferred_name": "TailwindConfig",
+    "module_hint": "styling",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["styled", "css"],
+    "property_names": [],
+    "inferred_name": "StyledComponent",
+    "module_hint": "styling",
+    "confidence": 0.82
+  },
+  {
+    "context_strings": ["GraphQL", "query", "mutation"],
+    "property_names": ["query", "variables", "operationName"],
+    "inferred_name": "GraphQLOperation",
+    "module_hint": "api",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["resolver"],
+    "property_names": ["Query", "Mutation", "Subscription"],
+    "inferred_name": "GraphQLResolver",
+    "module_hint": "api",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["tRPC", "router"],
+    "property_names": ["query", "mutation", "subscription"],
+    "inferred_name": "TrpcRouter",
+    "module_hint": "api",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["REST", "endpoint"],
+    "property_names": ["method", "path", "handler"],
+    "inferred_name": "RestEndpoint",
+    "module_hint": "api",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["OpenAPI", "swagger"],
+    "property_names": ["paths", "components", "info"],
+    "inferred_name": "OpenApiSpec",
+    "module_hint": "api",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["socket.io", "io"],
+    "property_names": ["on", "emit", "join", "leave"],
+    "inferred_name": "SocketIoHandler",
+    "module_hint": "realtime",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["WebSocket"],
+    "property_names": ["send", "close", "onmessage"],
+    "inferred_name": "WebSocketHandler",
+    "module_hint": "realtime",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["Dockerfile", "FROM", "RUN"],
+    "property_names": [],
+    "inferred_name": "DockerConfig",
+    "module_hint": "devops",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["docker-compose", "services"],
+    "property_names": ["services", "volumes", "networks"],
+    "inferred_name": "DockerComposeConfig",
+    "module_hint": "devops",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["CI", "pipeline", "workflow"],
+    "property_names": ["jobs", "steps"],
+    "inferred_name": "CiPipelineConfig",
+    "module_hint": "devops",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["github-actions", "on", "push"],
+    "property_names": ["on", "jobs"],
+    "inferred_name": "GithubActionsWorkflow",
+    "module_hint": "devops",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["terraform", "resource"],
+    "property_names": ["provider", "resource"],
+    "inferred_name": "TerraformConfig",
+    "module_hint": "devops",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["eslint", "rules"],
+    "property_names": ["rules", "extends", "plugins"],
+    "inferred_name": "EslintConfig",
+    "module_hint": "linting",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["prettier"],
+    "property_names": ["semi", "singleQuote", "tabWidth"],
+    "inferred_name": "PrettierConfig",
+    "module_hint": "linting",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["tsconfig"],
+    "property_names": ["compilerOptions", "include", "exclude"],
+    "inferred_name": "TypeScriptConfig",
+    "module_hint": "config",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["package.json"],
+    "property_names": ["name", "version", "dependencies", "scripts"],
+    "inferred_name": "PackageJson",
+    "module_hint": "config",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["babel"],
+    "property_names": ["presets", "plugins"],
+    "inferred_name": "BabelConfig",
+    "module_hint": "config",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["logger", "log", "info", "warn", "error"],
+    "property_names": ["info", "warn", "error", "debug"],
+    "inferred_name": "Logger",
+    "module_hint": "logging",
+    "confidence": 0.90
+  },
+  {
+    "context_strings": ["winston"],
+    "property_names": ["transports", "format"],
+    "inferred_name": "WinstonLogger",
+    "module_hint": "logging",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["pino"],
+    "property_names": ["info", "error", "child"],
+    "inferred_name": "PinoLogger",
+    "module_hint": "logging",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["sentry", "captureException"],
+    "property_names": ["init", "captureException"],
+    "inferred_name": "SentryConfig",
+    "module_hint": "monitoring",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["metrics", "histogram", "counter"],
+    "property_names": ["increment", "observe"],
+    "inferred_name": "MetricsCollector",
+    "module_hint": "monitoring",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["cache", "redis"],
+    "property_names": ["get", "set", "del", "expire"],
+    "inferred_name": "CacheClient",
+    "module_hint": "caching",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["queue", "bull", "rabbitmq"],
+    "property_names": ["add", "process", "on"],
+    "inferred_name": "MessageQueue",
+    "module_hint": "messaging",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["kafka", "producer", "consumer"],
+    "property_names": ["send", "subscribe"],
+    "inferred_name": "KafkaClient",
+    "module_hint": "messaging",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["S3", "bucket"],
+    "property_names": ["putObject", "getObject", "deleteObject"],
+    "inferred_name": "S3Client",
+    "module_hint": "cloud",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["Lambda", "handler"],
+    "property_names": ["event", "context"],
+    "inferred_name": "LambdaHandler",
+    "module_hint": "cloud",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["DynamoDB"],
+    "property_names": ["put", "get", "query", "scan"],
+    "inferred_name": "DynamoDbClient",
+    "module_hint": "cloud",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["CloudFormation", "Stack"],
+    "property_names": ["Resources", "Outputs"],
+    "inferred_name": "CloudFormationTemplate",
+    "module_hint": "cloud",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["i18n", "locale", "translation"],
+    "property_names": ["t", "locale", "defaultLocale"],
+    "inferred_name": "I18nConfig",
+    "module_hint": "i18n",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["theme", "dark", "light"],
+    "property_names": ["colors", "fonts", "spacing"],
+    "inferred_name": "ThemeConfig",
+    "module_hint": "styling",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["animation", "keyframes"],
+    "property_names": ["duration", "easing", "delay"],
+    "inferred_name": "AnimationConfig",
+    "module_hint": "styling",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["crypto", "encrypt", "decrypt"],
+    "property_names": ["encrypt", "decrypt", "sign", "verify"],
+    "inferred_name": "CryptoHelper",
+    "module_hint": "security",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["CORS", "origin"],
+    "property_names": ["origin", "methods", "credentials"],
+    "inferred_name": "CorsConfig",
+    "module_hint": "security",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["helmet"],
+    "property_names": ["contentSecurityPolicy"],
+    "inferred_name": "HelmetConfig",
+    "module_hint": "security",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["rate_limit", "throttle"],
+    "property_names": ["windowMs", "max"],
+    "inferred_name": "RateLimitConfig",
+    "module_hint": "security",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["WASM", "wasm_bindgen"],
+    "property_names": [],
+    "inferred_name": "WasmBinding",
+    "module_hint": "wasm",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["WebAssembly", "instantiate"],
+    "property_names": ["instance", "module"],
+    "inferred_name": "WasmModule",
+    "module_hint": "wasm",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["Worker", "postMessage"],
+    "property_names": ["postMessage", "onmessage", "terminate"],
+    "inferred_name": "WebWorker",
+    "module_hint": "workers",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["SharedArrayBuffer", "Atomics"],
+    "property_names": [],
+    "inferred_name": "SharedMemoryBuffer",
+    "module_hint": "workers",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["ServiceWorker", "caches"],
+    "property_names": ["register", "install", "activate"],
+    "inferred_name": "ServiceWorkerConfig",
+    "module_hint": "pwa",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["manifest", "icons"],
+    "property_names": ["name", "short_name", "start_url"],
+    "inferred_name": "PwaManifest",
+    "module_hint": "pwa",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["Canvas", "2d", "getContext"],
+    "property_names": ["fillRect", "drawImage", "beginPath"],
+    "inferred_name": "CanvasRenderer",
+    "module_hint": "graphics",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["WebGL", "gl"],
+    "property_names": ["createShader", "createProgram"],
+    "inferred_name": "WebGlRenderer",
+    "module_hint": "graphics",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["THREE", "scene", "camera"],
+    "property_names": ["scene", "camera", "renderer"],
+    "inferred_name": "ThreeJsScene",
+    "module_hint": "graphics",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["tensorflow", "tf"],
+    "property_names": ["tensor", "model", "predict"],
+    "inferred_name": "TensorFlowModel",
+    "module_hint": "ml",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["onnx", "inference"],
+    "property_names": ["run", "loadModel"],
+    "inferred_name": "OnnxRuntime",
+    "module_hint": "ml",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["transformer", "tokenizer"],
+    "property_names": ["encode", "decode"],
+    "inferred_name": "Tokenizer",
+    "module_hint": "ml",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["map", "filter", "reduce"],
+    "property_names": [],
+    "inferred_name": "ArrayTransform",
+    "module_hint": "functional",
+    "confidence": 0.78
+  },
+  {
+    "context_strings": ["pipe", "compose"],
+    "property_names": [],
+    "inferred_name": "FunctionComposition",
+    "module_hint": "functional",
+    "confidence": 0.80
+  },
+  {
+    "context_strings": ["curry", "partial"],
+    "property_names": [],
+    "inferred_name": "CurriedFunction",
+    "module_hint": "functional",
+    "confidence": 0.78
+  },
+  {
+    "context_strings": ["lodash", "_"],
+    "property_names": ["map", "filter", "reduce", "debounce"],
+    "inferred_name": "LodashUtility",
+    "module_hint": "utility",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["dayjs", "moment"],
+    "property_names": ["format", "diff", "add"],
+    "inferred_name": "DateTimeHelper",
+    "module_hint": "utility",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["uuid", "nanoid"],
+    "property_names": [],
+    "inferred_name": "IdGenerator",
+    "module_hint": "utility",
+    "confidence": 0.82
+  },
+  {
+    "context_strings": ["path", "resolve", "join"],
+    "property_names": ["resolve", "join", "basename", "dirname"],
+    "inferred_name": "PathHelper",
+    "module_hint": "utility",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["fs", "readFile", "writeFile"],
+    "property_names": ["readFile", "writeFile", "mkdir"],
+    "inferred_name": "FileSystemHelper",
+    "module_hint": "utility",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["Buffer", "Uint8Array"],
+    "property_names": ["from", "toString", "slice"],
+    "inferred_name": "BufferHelper",
+    "module_hint": "utility",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["URL", "URLSearchParams"],
+    "property_names": ["hostname", "pathname", "searchParams"],
+    "inferred_name": "UrlHelper",
+    "module_hint": "utility",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["Proxy", "Reflect"],
+    "property_names": ["get", "set", "has"],
+    "inferred_name": "ProxyHandler",
+    "module_hint": "meta",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["Symbol", "iterator"],
+    "property_names": [],
+    "inferred_name": "SymbolDefinition",
+    "module_hint": "meta",
+    "confidence": 0.80
+  },
+  {
+    "context_strings": ["WeakMap", "WeakRef"],
+    "property_names": ["get", "set", "has"],
+    "inferred_name": "WeakCollection",
+    "module_hint": "meta",
+    "confidence": 0.82
+  },
+  {
+    "context_strings": ["FinalizationRegistry"],
+    "property_names": ["register"],
+    "inferred_name": "FinalizationHandler",
+    "module_hint": "meta",
+    "confidence": 0.80
+  },
+  {
+    "context_strings": ["AbortController", "AbortSignal"],
+    "property_names": ["abort", "signal"],
+    "inferred_name": "AbortController",
+    "module_hint": "async",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["ReadableStream", "WritableStream"],
+    "property_names": ["getReader", "getWriter"],
+    "inferred_name": "StreamHandler",
+    "module_hint": "async",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["TransformStream"],
+    "property_names": ["readable", "writable"],
+    "inferred_name": "TransformStreamHandler",
+    "module_hint": "async",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["Iterator", "Generator"],
+    "property_names": ["next", "return", "throw"],
+    "inferred_name": "IteratorProtocol",
+    "module_hint": "async",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["AsyncIterator"],
+    "property_names": ["next"],
+    "inferred_name": "AsyncIteratorProtocol",
+    "module_hint": "async",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["Intl", "NumberFormat", "DateTimeFormat"],
+    "property_names": ["format"],
+    "inferred_name": "IntlFormatter",
+    "module_hint": "i18n",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["TextEncoder", "TextDecoder"],
+    "property_names": ["encode", "decode"],
+    "inferred_name": "TextCodec",
+    "module_hint": "encoding",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["base64", "atob", "btoa"],
+    "property_names": [],
+    "inferred_name": "Base64Codec",
+    "module_hint": "encoding",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["Error", "TypeError", "RangeError"],
+    "property_names": ["message", "stack", "name"],
+    "inferred_name": "ErrorType",
+    "module_hint": "error-handling",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["try", "catch", "finally"],
+    "property_names": [],
+    "inferred_name": "ErrorBoundary",
+    "module_hint": "error-handling",
+    "confidence": 0.80
+  },
+  {
+    "context_strings": ["retry", "backoff"],
+    "property_names": ["maxRetries", "delay"],
+    "inferred_name": "RetryConfig",
+    "module_hint": "error-handling",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["circuit_breaker"],
+    "property_names": ["threshold", "timeout"],
+    "inferred_name": "CircuitBreakerConfig",
+    "module_hint": "resilience",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["Map", "Set"],
+    "property_names": ["get", "set", "has", "delete"],
+    "inferred_name": "CollectionHelper",
+    "module_hint": "data-structures",
+    "confidence": 0.82
+  },
+  {
+    "context_strings": ["RegExp", "match", "test"],
+    "property_names": ["test", "exec"],
+    "inferred_name": "RegexPattern",
+    "module_hint": "utility",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["JSON", "parse", "stringify"],
+    "property_names": ["parse", "stringify"],
+    "inferred_name": "JsonHelper",
+    "module_hint": "serialization",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["protobuf", "proto"],
+    "property_names": ["encode", "decode"],
+    "inferred_name": "ProtobufCodec",
+    "module_hint": "serialization",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["msgpack"],
+    "property_names": ["encode", "decode"],
+    "inferred_name": "MsgpackCodec",
+    "module_hint": "serialization",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["form", "input", "submit"],
+    "property_names": ["onSubmit", "onChange", "value"],
+    "inferred_name": "FormHandler",
+    "module_hint": "forms",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["react-hook-form", "useForm"],
+    "property_names": ["register", "handleSubmit", "errors"],
+    "inferred_name": "ReactHookFormInstance",
+    "module_hint": "forms",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["formik"],
+    "property_names": ["values", "errors", "handleSubmit"],
+    "inferred_name": "FormikInstance",
+    "module_hint": "forms",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["modal", "dialog"],
+    "property_names": ["open", "close", "isOpen"],
+    "inferred_name": "ModalController",
+    "module_hint": "ui",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["toast", "notification"],
+    "property_names": ["success", "error", "info"],
+    "inferred_name": "NotificationHelper",
+    "module_hint": "ui",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["table", "column", "row"],
+    "property_names": ["columns", "data", "pagination"],
+    "inferred_name": "TableConfig",
+    "module_hint": "ui",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["virtualized", "virtual"],
+    "property_names": ["height", "itemCount", "itemSize"],
+    "inferred_name": "VirtualListConfig",
+    "module_hint": "ui",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["drag", "drop"],
+    "property_names": ["onDragStart", "onDragEnd", "onDrop"],
+    "inferred_name": "DragDropHandler",
+    "module_hint": "ui",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["chart", "d3"],
+    "property_names": ["data", "width", "height"],
+    "inferred_name": "ChartConfig",
+    "module_hint": "visualization",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["pdf", "document"],
+    "property_names": ["addPage", "text", "save"],
+    "inferred_name": "PdfGenerator",
+    "module_hint": "documents",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["csv", "parse"],
+    "property_names": ["parse", "stringify"],
+    "inferred_name": "CsvParser",
+    "module_hint": "documents",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["xml", "parse"],
+    "property_names": ["parse", "stringify"],
+    "inferred_name": "XmlParser",
+    "module_hint": "documents",
+    "confidence": 0.82
+  },
+  {
+    "context_strings": ["yaml", "parse"],
+    "property_names": ["parse", "stringify"],
+    "inferred_name": "YamlParser",
+    "module_hint": "documents",
+    "confidence": 0.82
+  },
+  {
+    "context_strings": ["markdown", "remark"],
+    "property_names": ["parse", "stringify"],
+    "inferred_name": "MarkdownProcessor",
+    "module_hint": "documents",
+    "confidence": 0.82
+  },
+  {
+    "context_strings": ["sharp", "image"],
+    "property_names": ["resize", "toFormat", "toBuffer"],
+    "inferred_name": "ImageProcessor",
+    "module_hint": "media",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["ffmpeg", "video"],
+    "property_names": ["input", "output", "run"],
+    "inferred_name": "VideoProcessor",
+    "module_hint": "media",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["audio", "AudioContext"],
+    "property_names": ["createGain", "createOscillator"],
+    "inferred_name": "AudioProcessor",
+    "module_hint": "media",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["email", "smtp", "nodemailer"],
+    "property_names": ["sendMail", "createTransport"],
+    "inferred_name": "EmailClient",
+    "module_hint": "communication",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["twilio", "sms"],
+    "property_names": ["messages", "create"],
+    "inferred_name": "SmsClient",
+    "module_hint": "communication",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["stripe", "payment"],
+    "property_names": ["charges", "customers", "subscriptions"],
+    "inferred_name": "StripeClient",
+    "module_hint": "payments",
+    "confidence": 0.88
+  },
+  {
+    "context_strings": ["webhook"],
+    "property_names": ["url", "secret", "events"],
+    "inferred_name": "WebhookConfig",
+    "module_hint": "integrations",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["cron", "schedule"],
+    "property_names": ["expression", "timezone"],
+    "inferred_name": "CronSchedule",
+    "module_hint": "scheduling",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["cluster", "fork"],
+    "property_names": ["workers", "fork"],
+    "inferred_name": "ClusterConfig",
+    "module_hint": "scaling",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["load_balancer"],
+    "property_names": ["strategy", "targets"],
+    "inferred_name": "LoadBalancerConfig",
+    "module_hint": "scaling",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["health", "readiness", "liveness"],
+    "property_names": ["status", "checks"],
+    "inferred_name": "HealthCheck",
+    "module_hint": "monitoring",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["feature_flag", "toggle"],
+    "property_names": ["isEnabled", "getValue"],
+    "inferred_name": "FeatureFlagConfig",
+    "module_hint": "config",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["environment", "env", "dotenv"],
+    "property_names": ["NODE_ENV", "PORT"],
+    "inferred_name": "EnvConfig",
+    "module_hint": "config",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["config", "settings"],
+    "property_names": ["get", "set", "has"],
+    "inferred_name": "AppConfig",
+    "module_hint": "config",
+    "confidence": 0.82
+  },
+  {
+    "context_strings": ["dependency_injection", "inject"],
+    "property_names": ["provide", "inject"],
+    "inferred_name": "DiContainer",
+    "module_hint": "architecture",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["decorator", "@"],
+    "property_names": [],
+    "inferred_name": "Decorator",
+    "module_hint": "meta",
+    "confidence": 0.78
+  },
+  {
+    "context_strings": ["singleton"],
+    "property_names": ["getInstance"],
+    "inferred_name": "SingletonPattern",
+    "module_hint": "architecture",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["factory", "create"],
+    "property_names": ["create"],
+    "inferred_name": "FactoryPattern",
+    "module_hint": "architecture",
+    "confidence": 0.80
+  },
+  {
+    "context_strings": ["observer", "subscribe", "notify"],
+    "property_names": ["subscribe", "unsubscribe", "notify"],
+    "inferred_name": "ObserverPattern",
+    "module_hint": "architecture",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["strategy", "algorithm"],
+    "property_names": ["execute"],
+    "inferred_name": "StrategyPattern",
+    "module_hint": "architecture",
+    "confidence": 0.80
+  },
+  {
+    "context_strings": ["command", "undo", "redo"],
+    "property_names": ["execute", "undo"],
+    "inferred_name": "CommandPattern",
+    "module_hint": "architecture",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["state_machine", "transition"],
+    "property_names": ["state", "transition", "actions"],
+    "inferred_name": "StateMachine",
+    "module_hint": "architecture",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["xstate"],
+    "property_names": ["createMachine", "interpret"],
+    "inferred_name": "XStateMachine",
+    "module_hint": "architecture",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["pub", "sub", "channel"],
+    "property_names": ["publish", "subscribe"],
+    "inferred_name": "PubSubChannel",
+    "module_hint": "messaging",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["migration", "schema", "alter"],
+    "property_names": ["createTable", "addColumn"],
+    "inferred_name": "SchemaMigration",
+    "module_hint": "database",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["seed", "fixture"],
+    "property_names": ["run", "create"],
+    "inferred_name": "DatabaseSeeder",
+    "module_hint": "database",
+    "confidence": 0.82
+  },
+  {
+    "context_strings": ["transaction", "commit", "rollback"],
+    "property_names": ["begin", "commit", "rollback"],
+    "inferred_name": "DatabaseTransaction",
+    "module_hint": "database",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["pool", "connection"],
+    "property_names": ["acquire", "release", "max"],
+    "inferred_name": "ConnectionPool",
+    "module_hint": "database",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["monorepo", "workspace", "lerna"],
+    "property_names": ["packages", "workspaces"],
+    "inferred_name": "MonorepoConfig",
+    "module_hint": "tooling",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["turbo", "turborepo"],
+    "property_names": ["pipeline"],
+    "inferred_name": "TurborepoConfig",
+    "module_hint": "tooling",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["nx"],
+    "property_names": ["targets", "projects"],
+    "inferred_name": "NxConfig",
+    "module_hint": "tooling",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["storybook"],
+    "property_names": ["stories", "addons"],
+    "inferred_name": "StorybookConfig",
+    "module_hint": "tooling",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["chromatic"],
+    "property_names": ["projectToken"],
+    "inferred_name": "ChromaticConfig",
+    "module_hint": "tooling",
+    "confidence": 0.80
+  },
+  {
+    "context_strings": ["husky", "pre-commit"],
+    "property_names": [],
+    "inferred_name": "HuskyHookConfig",
+    "module_hint": "tooling",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["lint-staged"],
+    "property_names": [],
+    "inferred_name": "LintStagedConfig",
+    "module_hint": "tooling",
+    "confidence": 0.82
+  },
+  {
+    "context_strings": ["changeset", "release"],
+    "property_names": ["access", "baseBranch"],
+    "inferred_name": "ChangesetConfig",
+    "module_hint": "tooling",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["semantic-release"],
+    "property_names": ["branches", "plugins"],
+    "inferred_name": "SemanticReleaseConfig",
+    "module_hint": "tooling",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["commitlint"],
+    "property_names": ["rules", "extends"],
+    "inferred_name": "CommitLintConfig",
+    "module_hint": "tooling",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["accessibility", "a11y", "aria"],
+    "property_names": ["role", "aria-label"],
+    "inferred_name": "AccessibilityConfig",
+    "module_hint": "a11y",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["performance", "lighthouse"],
+    "property_names": ["score", "metrics"],
+    "inferred_name": "PerformanceMetrics",
+    "module_hint": "performance",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["lazy", "Suspense", "dynamic"],
+    "property_names": [],
+    "inferred_name": "LazyLoadConfig",
+    "module_hint": "performance",
+    "confidence": 0.82
+  },
+  {
+    "context_strings": ["intersection_observer"],
+    "property_names": ["threshold", "rootMargin"],
+    "inferred_name": "IntersectionObserverConfig",
+    "module_hint": "performance",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["debounce", "throttle"],
+    "property_names": ["delay", "leading", "trailing"],
+    "inferred_name": "RateLimitHelper",
+    "module_hint": "utility",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["memoize", "cache"],
+    "property_names": [],
+    "inferred_name": "MemoizeHelper",
+    "module_hint": "utility",
+    "confidence": 0.80
+  },
+  {
+    "context_strings": ["spawn", "exec", "child_process"],
+    "property_names": ["stdout", "stderr", "exitCode"],
+    "inferred_name": "ProcessSpawner",
+    "module_hint": "system",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["process", "exit"],
+    "property_names": ["env", "argv", "exit"],
+    "inferred_name": "ProcessHelper",
+    "module_hint": "system",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["os", "platform", "arch"],
+    "property_names": ["platform", "arch", "cpus"],
+    "inferred_name": "OsHelper",
+    "module_hint": "system",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["net", "createServer"],
+    "property_names": ["listen", "close"],
+    "inferred_name": "TcpServer",
+    "module_hint": "system",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["dns", "resolve"],
+    "property_names": ["lookup", "resolve"],
+    "inferred_name": "DnsHelper",
+    "module_hint": "system",
+    "confidence": 0.82
+  },
+  {
+    "context_strings": ["opentelemetry", "trace", "span"],
+    "property_names": ["startSpan", "endSpan"],
+    "inferred_name": "OpenTelemetryTracer",
+    "module_hint": "observability",
+    "confidence": 0.87
+  },
+  {
+    "context_strings": ["prometheus", "gauge", "counter"],
+    "property_names": ["inc", "dec", "set"],
+    "inferred_name": "PrometheusMetric",
+    "module_hint": "observability",
+    "confidence": 0.85
+  },
+  {
+    "context_strings": ["jaeger"],
+    "property_names": ["trace", "span"],
+    "inferred_name": "JaegerTracer",
+    "module_hint": "observability",
+    "confidence": 0.83
+  },
+  {
+    "context_strings": ["datadog"],
+    "property_names": ["metrics", "traces"],
+    "inferred_name": "DatadogClient",
+    "module_hint": "observability",
+    "confidence": 0.83
+  }
+]

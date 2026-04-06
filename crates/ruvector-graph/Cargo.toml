@@ -87,7 +87,7 @@ blake3 = { version = "1.5", optional = true }
 xxhash-rust = { version = "0.8", features = ["xxh3"], optional = true }
 
 # Metrics
-prometheus = { version = "0.13", optional = true }
+prometheus = { version = "0.14", optional = true }
 
 [dev-dependencies]
 criterion = { workspace = true }

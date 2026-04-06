@@ -479,6 +479,20 @@ impl CollectionManager {
 mod tests {
     use super::*;
 
+    // Helper to create a fresh manager in a unique temp directory
+    fn fresh_manager(suffix: &str) -> (CollectionManager, PathBuf) {
+        let temp_dir = std::env::temp_dir().join(format!("ruvector_mgr_test_{}", suffix));
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        let manager = CollectionManager::new(temp_dir.clone()).unwrap();
+        (manager, temp_dir)
+    }
+
+    fn cleanup(path: &PathBuf) {
+        let _ = std::fs::remove_dir_all(path);
+    }
+
+    // ===== Name validation tests =====
+
     #[test]
     fn test_validate_name() {
         assert!(CollectionManager::validate_name("valid-name_123").is_ok());
@@ -486,6 +500,35 @@ mod tests {
         assert!(CollectionManager::validate_name("invalid name").is_err());
         assert!(CollectionManager::validate_name("invalid/name").is_err());
     }
+
+    #[test]
+    fn test_validate_name_max_length() {
+        let long_name = "a".repeat(255);
+        assert!(CollectionManager::validate_name(&long_name).is_ok());
+
+        let too_long = "a".repeat(256);
+        assert!(CollectionManager::validate_name(&too_long).is_err());
+    }
+
+    #[test]
+    fn test_validate_name_special_characters_rejected() {
+        assert!(CollectionManager::validate_name("name.with.dots").is_err());
+        assert!(CollectionManager::validate_name("name@symbol").is_err());
+        assert!(CollectionManager::validate_name("name#hash").is_err());
+        assert!(CollectionManager::validate_name("has spaces").is_err());
+    }
+
+    #[test]
+    fn test_validate_name_valid_chars() {
+        assert!(CollectionManager::validate_name("abc").is_ok());
+        assert!(CollectionManager::validate_name("ABC").is_ok());
+        assert!(CollectionManager::validate_name("123").is_ok());
+        assert!(CollectionManager::validate_name("a-b").is_ok());
+        assert!(CollectionManager::validate_name("a_b").is_ok());
+        assert!(CollectionManager::validate_name("a-b_c-123").is_ok());
+    }
+
+    // ===== Basic collection lifecycle =====
 
     #[test]
     fn test_collection_manager() -> Result<()> {
@@ -517,6 +560,358 @@ mod tests {
         manager.delete_collection("test")?;
         let _ = std::fs::remove_dir_all(&temp_dir);
 
+        Ok(())
+    }
+
+    // ===== Create collection error paths =====
+
+    #[test]
+    fn test_create_duplicate_collection_returns_error() {
+        let (manager, temp) = fresh_manager("dup_coll");
+        let config = CollectionConfig::with_dimensions(32);
+        manager.create_collection("docs", config.clone()).unwrap();
+
+        let err = manager.create_collection("docs", config).unwrap_err();
+        match err {
+            CollectionError::CollectionAlreadyExists { name } => {
+                assert_eq!(name, "docs");
+            }
+            other => panic!("Expected CollectionAlreadyExists, got: {:?}", other),
+        }
+
+        cleanup(&temp);
+    }
+
+    #[test]
+    fn test_create_collection_with_alias_name_returns_error() {
+        let (manager, temp) = fresh_manager("coll_alias_clash");
+        let config = CollectionConfig::with_dimensions(32);
+        manager.create_collection("real", config.clone()).unwrap();
+        manager.create_alias("taken", "real").unwrap();
+
+        let err = manager.create_collection("taken", config).unwrap_err();
+        match err {
+            CollectionError::InvalidName { name, .. } => {
+                assert_eq!(name, "taken");
+            }
+            other => panic!("Expected InvalidName, got: {:?}", other),
+        }
+
+        cleanup(&temp);
+    }
+
+    // ===== Delete collection error paths =====
+
+    #[test]
+    fn test_delete_nonexistent_collection_returns_error() {
+        let (manager, temp) = fresh_manager("del_nonexist");
+
+        let err = manager.delete_collection("ghost").unwrap_err();
+        match err {
+            CollectionError::CollectionNotFound { name } => {
+                assert_eq!(name, "ghost");
+            }
+            other => panic!("Expected CollectionNotFound, got: {:?}", other),
+        }
+
+        cleanup(&temp);
+    }
+
+    #[test]
+    fn test_delete_collection_with_aliases_returns_error() {
+        let (manager, temp) = fresh_manager("del_has_alias");
+        let config = CollectionConfig::with_dimensions(32);
+        manager.create_collection("coll_a", config).unwrap();
+        manager.create_alias("alias_a", "coll_a").unwrap();
+
+        let err = manager.delete_collection("coll_a").unwrap_err();
+        match err {
+            CollectionError::CollectionHasAliases {
+                collection,
+                aliases,
+            } => {
+                assert_eq!(collection, "coll_a");
+                assert!(aliases.contains(&"alias_a".to_string()));
+            }
+            other => panic!("Expected CollectionHasAliases, got: {:?}", other),
+        }
+
+        cleanup(&temp);
+    }
+
+    // ===== Get collection tests =====
+
+    #[test]
+    fn test_get_nonexistent_collection_returns_none() {
+        let (manager, temp) = fresh_manager("get_none");
+        assert!(manager.get_collection("nope").is_none());
+        cleanup(&temp);
+    }
+
+    #[test]
+    fn test_get_collection_by_direct_name() {
+        let (manager, temp) = fresh_manager("get_direct");
+        let config = CollectionConfig::with_dimensions(64);
+        manager.create_collection("my_coll", config).unwrap();
+
+        let coll = manager.get_collection("my_coll");
+        assert!(coll.is_some());
+
+        cleanup(&temp);
+    }
+
+    // ===== Collection exists / list tests =====
+
+    #[test]
+    fn test_list_collections_empty() {
+        let (manager, temp) = fresh_manager("list_empty");
+        assert!(manager.list_collections().is_empty());
+        cleanup(&temp);
+    }
+
+    #[test]
+    fn test_list_collections_multiple() {
+        let (manager, temp) = fresh_manager("list_multi");
+        let config = CollectionConfig::with_dimensions(16);
+        manager.create_collection("alpha", config.clone()).unwrap();
+        manager.create_collection("beta", config).unwrap();
+
+        let names = manager.list_collections();
+        assert_eq!(names.len(), 2);
+        assert!(names.contains(&"alpha".to_string()));
+        assert!(names.contains(&"beta".to_string()));
+
+        cleanup(&temp);
+    }
+
+    #[test]
+    fn test_collection_exists_false_for_missing() {
+        let (manager, temp) = fresh_manager("exists_false");
+        assert!(!manager.collection_exists("nothing"));
+        cleanup(&temp);
+    }
+
+    // ===== Collection stats tests =====
+
+    #[test]
+    fn test_collection_stats_for_empty_collection() {
+        let (manager, temp) = fresh_manager("stats_empty");
+        let config = CollectionConfig::with_dimensions(16);
+        manager.create_collection("stats_c", config).unwrap();
+
+        let stats = manager.collection_stats("stats_c").unwrap();
+        assert_eq!(stats.vectors_count, 0);
+        assert!(stats.is_empty());
+
+        cleanup(&temp);
+    }
+
+    #[test]
+    fn test_collection_stats_nonexistent_returns_error() {
+        let (manager, temp) = fresh_manager("stats_noexist");
+
+        let err = manager.collection_stats("missing").unwrap_err();
+        match err {
+            CollectionError::CollectionNotFound { name } => {
+                assert_eq!(name, "missing");
+            }
+            other => panic!("Expected CollectionNotFound, got: {:?}", other),
+        }
+
+        cleanup(&temp);
+    }
+
+    // ===== Alias management tests =====
+
+    #[test]
+    fn test_create_alias_for_nonexistent_collection_returns_error() {
+        let (manager, temp) = fresh_manager("alias_noexist");
+
+        let err = manager.create_alias("my_alias", "ghost_coll").unwrap_err();
+        match err {
+            CollectionError::CollectionNotFound { name } => {
+                assert_eq!(name, "ghost_coll");
+            }
+            other => panic!("Expected CollectionNotFound, got: {:?}", other),
+        }
+
+        cleanup(&temp);
+    }
+
+    #[test]
+    fn test_create_duplicate_alias_returns_error() {
+        let (manager, temp) = fresh_manager("alias_dup");
+        let config = CollectionConfig::with_dimensions(16);
+        manager.create_collection("coll", config).unwrap();
+        manager.create_alias("alias1", "coll").unwrap();
+
+        let err = manager.create_alias("alias1", "coll").unwrap_err();
+        match err {
+            CollectionError::AliasAlreadyExists { alias } => {
+                assert_eq!(alias, "alias1");
+            }
+            other => panic!("Expected AliasAlreadyExists, got: {:?}", other),
+        }
+
+        cleanup(&temp);
+    }
+
+    #[test]
+    fn test_create_alias_with_collection_name_returns_error() {
+        let (manager, temp) = fresh_manager("alias_name_clash");
+        let config = CollectionConfig::with_dimensions(16);
+        manager.create_collection("coll", config.clone()).unwrap();
+        manager.create_collection("coll2", config).unwrap();
+
+        let err = manager.create_alias("coll", "coll2").unwrap_err();
+        match err {
+            CollectionError::InvalidName { name, .. } => {
+                assert_eq!(name, "coll");
+            }
+            other => panic!("Expected InvalidName, got: {:?}", other),
+        }
+
+        cleanup(&temp);
+    }
+
+    #[test]
+    fn test_delete_alias_nonexistent_returns_error() {
+        let (manager, temp) = fresh_manager("del_alias_none");
+
+        let err = manager.delete_alias("no_such_alias").unwrap_err();
+        match err {
+            CollectionError::AliasNotFound { alias } => {
+                assert_eq!(alias, "no_such_alias");
+            }
+            other => panic!("Expected AliasNotFound, got: {:?}", other),
+        }
+
+        cleanup(&temp);
+    }
+
+    #[test]
+    fn test_list_aliases_empty() {
+        let (manager, temp) = fresh_manager("aliases_empty");
+        assert!(manager.list_aliases().is_empty());
+        cleanup(&temp);
+    }
+
+    #[test]
+    fn test_list_aliases_returns_all() {
+        let (manager, temp) = fresh_manager("aliases_list");
+        let config = CollectionConfig::with_dimensions(16);
+        manager.create_collection("c1", config.clone()).unwrap();
+        manager.create_collection("c2", config).unwrap();
+        manager.create_alias("a1", "c1").unwrap();
+        manager.create_alias("a2", "c2").unwrap();
+
+        let aliases = manager.list_aliases();
+        assert_eq!(aliases.len(), 2);
+
+        let alias_names: Vec<&String> = aliases.iter().map(|(a, _)| a).collect();
+        assert!(alias_names.contains(&&"a1".to_string()));
+        assert!(alias_names.contains(&&"a2".to_string()));
+
+        cleanup(&temp);
+    }
+
+    #[test]
+    fn test_is_alias_returns_false_for_non_alias() {
+        let (manager, temp) = fresh_manager("is_alias_false");
+        assert!(!manager.is_alias("random"));
+        cleanup(&temp);
+    }
+
+    #[test]
+    fn test_resolve_alias_returns_none_for_non_alias() {
+        let (manager, temp) = fresh_manager("resolve_none");
+        assert!(manager.resolve_alias("not_an_alias").is_none());
+        cleanup(&temp);
+    }
+
+    // ===== Switch alias tests =====
+
+    #[test]
+    fn test_switch_alias_success() {
+        let (manager, temp) = fresh_manager("switch_ok");
+        let config = CollectionConfig::with_dimensions(16);
+        manager.create_collection("c1", config.clone()).unwrap();
+        manager.create_collection("c2", config).unwrap();
+        manager.create_alias("prod", "c1").unwrap();
+
+        assert_eq!(manager.resolve_alias("prod"), Some("c1".to_string()));
+
+        manager.switch_alias("prod", "c2").unwrap();
+        assert_eq!(manager.resolve_alias("prod"), Some("c2".to_string()));
+
+        cleanup(&temp);
+    }
+
+    #[test]
+    fn test_switch_alias_nonexistent_alias_returns_error() {
+        let (manager, temp) = fresh_manager("switch_no_alias");
+        let config = CollectionConfig::with_dimensions(16);
+        manager.create_collection("c1", config).unwrap();
+
+        let err = manager.switch_alias("ghost_alias", "c1").unwrap_err();
+        match err {
+            CollectionError::AliasNotFound { alias } => {
+                assert_eq!(alias, "ghost_alias");
+            }
+            other => panic!("Expected AliasNotFound, got: {:?}", other),
+        }
+
+        cleanup(&temp);
+    }
+
+    #[test]
+    fn test_switch_alias_nonexistent_collection_returns_error() {
+        let (manager, temp) = fresh_manager("switch_no_coll");
+        let config = CollectionConfig::with_dimensions(16);
+        manager.create_collection("c1", config).unwrap();
+        manager.create_alias("prod", "c1").unwrap();
+
+        let err = manager.switch_alias("prod", "ghost_coll").unwrap_err();
+        match err {
+            CollectionError::CollectionNotFound { name } => {
+                assert_eq!(name, "ghost_coll");
+            }
+            other => panic!("Expected CollectionNotFound, got: {:?}", other),
+        }
+
+        cleanup(&temp);
+    }
+
+    // ===== Full lifecycle: create, alias, switch, delete =====
+
+    #[test]
+    fn test_full_lifecycle() -> Result<()> {
+        let (manager, temp) = fresh_manager("lifecycle");
+        let config = CollectionConfig::with_dimensions(32);
+
+        // Create two collections
+        manager.create_collection("v1", config.clone())?;
+        manager.create_collection("v2", config)?;
+        assert_eq!(manager.list_collections().len(), 2);
+
+        // Alias to v1
+        manager.create_alias("current", "v1")?;
+        assert!(manager.get_collection("current").is_some());
+
+        // Switch alias to v2
+        manager.switch_alias("current", "v2")?;
+        assert_eq!(manager.resolve_alias("current"), Some("v2".to_string()));
+
+        // Delete the alias
+        manager.delete_alias("current")?;
+        assert!(!manager.is_alias("current"));
+
+        // Delete collections
+        manager.delete_collection("v1")?;
+        manager.delete_collection("v2")?;
+        assert!(manager.list_collections().is_empty());
+
+        cleanup(&temp);
         Ok(())
     }
 }

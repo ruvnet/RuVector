@@ -100,3 +100,123 @@ impl From<bincode::error::DecodeError> for CollectionError {
         CollectionError::SerializationError(err.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_collection_not_found_display() {
+        let err = CollectionError::CollectionNotFound {
+            name: "missing".to_string(),
+        };
+        assert_eq!(err.to_string(), "Collection not found: missing");
+    }
+
+    #[test]
+    fn test_collection_already_exists_display() {
+        let err = CollectionError::CollectionAlreadyExists {
+            name: "dup".to_string(),
+        };
+        assert_eq!(err.to_string(), "Collection already exists: dup");
+    }
+
+    #[test]
+    fn test_alias_not_found_display() {
+        let err = CollectionError::AliasNotFound {
+            alias: "no_alias".to_string(),
+        };
+        assert_eq!(err.to_string(), "Alias not found: no_alias");
+    }
+
+    #[test]
+    fn test_alias_already_exists_display() {
+        let err = CollectionError::AliasAlreadyExists {
+            alias: "dup_alias".to_string(),
+        };
+        assert_eq!(err.to_string(), "Alias already exists: dup_alias");
+    }
+
+    #[test]
+    fn test_invalid_configuration_display() {
+        let err = CollectionError::InvalidConfiguration {
+            message: "bad param".to_string(),
+        };
+        assert_eq!(err.to_string(), "Invalid configuration: bad param");
+    }
+
+    #[test]
+    fn test_invalid_alias_display() {
+        let err = CollectionError::InvalidAlias {
+            alias: "a".to_string(),
+            collection: "c".to_string(),
+        };
+        assert_eq!(
+            err.to_string(),
+            "Alias 'a' points to non-existent collection 'c'"
+        );
+    }
+
+    #[test]
+    fn test_collection_has_aliases_display() {
+        let err = CollectionError::CollectionHasAliases {
+            collection: "main".to_string(),
+            aliases: vec!["a1".to_string(), "a2".to_string()],
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("main"));
+        assert!(msg.contains("a1"));
+        assert!(msg.contains("a2"));
+    }
+
+    #[test]
+    fn test_invalid_name_display() {
+        let err = CollectionError::InvalidName {
+            name: "bad!".to_string(),
+            reason: "special chars".to_string(),
+        };
+        assert_eq!(
+            err.to_string(),
+            "Invalid collection name: bad! - special chars"
+        );
+    }
+
+    #[test]
+    fn test_serialization_error_display() {
+        let err = CollectionError::SerializationError("parse fail".to_string());
+        assert_eq!(err.to_string(), "Serialization error: parse fail");
+    }
+
+    #[test]
+    fn test_io_error_conversion() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file missing");
+        let err: CollectionError = io_err.into();
+        match err {
+            CollectionError::IoError(e) => {
+                assert_eq!(e.kind(), std::io::ErrorKind::NotFound);
+            }
+            other => panic!("Expected IoError, got: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_serde_json_error_conversion() {
+        let json_err = serde_json::from_str::<serde_json::Value>("{{bad json").unwrap_err();
+        let err: CollectionError = json_err.into();
+        match err {
+            CollectionError::SerializationError(msg) => {
+                assert!(!msg.is_empty());
+            }
+            other => panic!("Expected SerializationError, got: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_error_is_debug() {
+        let err = CollectionError::CollectionNotFound {
+            name: "test".to_string(),
+        };
+        let debug_str = format!("{:?}", err);
+        assert!(debug_str.contains("CollectionNotFound"));
+    }
+}

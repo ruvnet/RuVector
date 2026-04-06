@@ -44,7 +44,7 @@ rvm-security = { path = "crates/rvm-security" }
 rvm-kernel = { path = "crates/rvm-kernel" }
 
 # External dependencies
-lz4_flex = { version = "0.11", default-features = false }
+lz4_flex = { version = "0.11.6", default-features = false }
 hmac = { version = "0.12", default-features = false }
 sha2 = { version = "0.10", default-features = false }
 subtle = { version = "2.6", default-features = false }

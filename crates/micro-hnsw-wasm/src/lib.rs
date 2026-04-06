@@ -87,6 +87,14 @@ pub struct MicroHnsw {
 }
 
 // ============ Static Storage ============
+// SAFETY (all `static mut` in this module): This crate targets `wasm32-unknown-unknown`,
+// which is single-threaded with no preemptive interrupts. WASM execution is sequential
+// within a single linear memory, so concurrent mutable aliasing cannot occur at runtime.
+// On any multi-threaded target these `static mut` globals would be unsound; they MUST NOT
+// be compiled for native targets without replacing them with thread-safe alternatives.
+// TODO(safety): If wasm-threads (shared memory + atomics) is ever enabled for this
+// crate, all `static mut` must be migrated to `UnsafeCell`-based synchronization or
+// atomics to avoid data races.
 static mut HNSW: MicroHnsw = MicroHnsw {
     vectors: [Vector { data: [0.0; MAX_DIMS], norm: 0.0 }; MAX_VECTORS],
     nodes: [Node { neighbors: [0; MAX_NEIGHBORS], count: 0 }; MAX_VECTORS],
@@ -103,14 +111,19 @@ static mut GLOBAL: [SearchResult; 16] = [SearchResult { idx: 255, core_id: 0, di
 
 // ============ GNN/Cypher Extensions ============
 // Node types: 4 bits per node (16 types), packed 2 per byte = 16 bytes
+// SAFETY: Single-threaded WASM only; see static mut safety note above.
 static mut NODE_TYPES: [u8; MAX_VECTORS / 2] = [0; 16];
 // Edge weights: 4 bits per edge (packed), uniform per node = 32 bytes
+// SAFETY: Single-threaded WASM only; see static mut safety note above.
 static mut EDGE_WEIGHTS: [u8; MAX_VECTORS] = [255; 32];
 // Delta buffer for vector updates
+// SAFETY: Single-threaded WASM only; see static mut safety note above.
 static mut DELTA: [f32; MAX_DIMS] = [0.0; MAX_DIMS];
 
 
 // ============ Spiking Neural Network State ============
+// SAFETY: All SNN `static mut` below are safe under single-threaded WASM execution.
+// See the static mut safety note in the Static Storage section above.
 // Membrane potentials: LIF neuron states (one per vector)
 static mut MEMBRANE: [f32; MAX_VECTORS] = [0.0; MAX_VECTORS];
 // Adaptive thresholds: Dynamic firing thresholds
@@ -125,6 +138,8 @@ static mut SIM_TIME: f32 = 0.0;
 static mut SPIKES: [bool; MAX_VECTORS] = [false; MAX_VECTORS];
 
 // ============ Novel Neuromorphic State ============
+// SAFETY: All neuromorphic `static mut` below are safe under single-threaded WASM execution.
+// See the static mut safety note in the Static Storage section above.
 // Homeostatic plasticity: running average spike rate
 static mut SPIKE_RATE: [f32; MAX_VECTORS] = [0.0; MAX_VECTORS];
 // Oscillator phase: gamma rhythm for synchronization
@@ -182,6 +197,8 @@ fn dist_cos(a: &[f32], an: f32, b: &[f32], bn: f32, n: usize) -> f32 {
 
 #[inline(always)]
 fn distance(q: &[f32], qn: f32, idx: u8) -> f32 {
+    // SAFETY: Accesses HNSW static mut; single-threaded WASM guarantees no data races.
+    // Caller must ensure `idx < HNSW.count` so the vector data is initialized.
     unsafe {
         let n = HNSW.dims as usize;
         let v = &HNSW.vectors[idx as usize];
@@ -199,6 +216,7 @@ fn distance(q: &[f32], qn: f32, idx: u8) -> f32 {
 /// metric: 0=L2, 1=Cosine, 2=Dot
 #[no_mangle]
 pub extern "C" fn init(dims: u8, metric: u8, core_id: u8) {
+    // SAFETY: Mutates HNSW static mut; single-threaded WASM guarantees exclusive access.
     unsafe {
         HNSW.count = 0;
         HNSW.dims = dims.min(MAX_DIMS as u8);
@@ -208,20 +226,30 @@ pub extern "C" fn init(dims: u8, metric: u8, core_id: u8) {
 }
 
 #[no_mangle]
+// SAFETY: Returns pointer to INSERT static mut; valid for the lifetime of the WASM instance.
+// Caller (host JS) must not hold this pointer across calls that mutate INSERT.
 pub extern "C" fn get_insert_ptr() -> *mut f32 { unsafe { INSERT.as_mut_ptr() } }
 
 #[no_mangle]
+// SAFETY: Returns pointer to QUERY static mut; valid for the lifetime of the WASM instance.
+// Caller (host JS) must not hold this pointer across calls that mutate QUERY.
 pub extern "C" fn get_query_ptr() -> *mut f32 { unsafe { QUERY.as_mut_ptr() } }
 
 #[no_mangle]
+// SAFETY: Returns read-only pointer to RESULTS static mut; valid for WASM instance lifetime.
+// Caller must not read through this pointer while a search is in progress.
 pub extern "C" fn get_result_ptr() -> *const SearchResult { unsafe { RESULTS.as_ptr() } }
 
 #[no_mangle]
+// SAFETY: Returns read-only pointer to GLOBAL static mut; valid for WASM instance lifetime.
+// Caller must not read through this pointer while a merge is in progress.
 pub extern "C" fn get_global_ptr() -> *const SearchResult { unsafe { GLOBAL.as_ptr() } }
 
 /// Insert vector from INSERT buffer, returns index or 255 if full
 #[no_mangle]
 pub extern "C" fn insert() -> u8 {
+    // SAFETY: Mutates HNSW, reads INSERT static muts; single-threaded WASM guarantees
+    // exclusive access. Bounds are checked: count < MAX_VECTORS before indexing.
     unsafe {
         if HNSW.count >= MAX_VECTORS as u8 { return 255; }
 
@@ -283,6 +311,8 @@ pub extern "C" fn insert() -> u8 {
 /// Search for k nearest neighbors using beam search
 #[no_mangle]
 pub extern "C" fn search(k: u8) -> u8 {
+    // SAFETY: Reads HNSW and QUERY, mutates RESULTS static muts; single-threaded WASM
+    // guarantees exclusive access. All index accesses are bounded by HNSW.count.
     unsafe {
         if HNSW.count == 0 { return 0; }
 
@@ -367,6 +397,10 @@ pub extern "C" fn search(k: u8) -> u8 {
 /// Merge results from another core into global buffer
 #[no_mangle]
 pub extern "C" fn merge(ptr: *const SearchResult, cnt: u8) -> u8 {
+    // SAFETY: Mutates GLOBAL static mut; single-threaded WASM guarantees exclusive access.
+    // `ptr` must point to a valid array of at least `cnt` SearchResult elements; the host
+    // (JS) is responsible for providing a valid pointer from another core's result buffer.
+    // TODO(safety): No null-check or alignment validation on `ptr`; relies on host contract.
     unsafe {
         let mut gc = 0u8;
         while gc < 16 && GLOBAL[gc as usize].idx != 255 { gc += 1; }
@@ -396,6 +430,7 @@ pub extern "C" fn merge(ptr: *const SearchResult, cnt: u8) -> u8 {
 /// Clear global results
 #[no_mangle]
 pub extern "C" fn clear_global() {
+    // SAFETY: Mutates GLOBAL static mut; single-threaded WASM guarantees exclusive access.
     unsafe {
         let mut i = 0;
         while i < 16 { GLOBAL[i] = SearchResult { idx: 255, core_id: 0, distance: f32::MAX }; i += 1; }
@@ -404,15 +439,19 @@ pub extern "C" fn clear_global() {
 
 // ============ Info ============
 #[no_mangle]
+// SAFETY: Reads HNSW static mut; single-threaded WASM guarantees no concurrent mutation.
 pub extern "C" fn count() -> u8 { unsafe { HNSW.count } }
 
 #[no_mangle]
+// SAFETY: Reads HNSW static mut; single-threaded WASM guarantees no concurrent mutation.
 pub extern "C" fn get_core_id() -> u8 { unsafe { HNSW.core_id } }
 
 #[no_mangle]
+// SAFETY: Reads HNSW static mut; single-threaded WASM guarantees no concurrent mutation.
 pub extern "C" fn get_metric() -> u8 { unsafe { HNSW.metric as u8 } }
 
 #[no_mangle]
+// SAFETY: Reads HNSW static mut; single-threaded WASM guarantees no concurrent mutation.
 pub extern "C" fn get_dims() -> u8 { unsafe { HNSW.dims } }
 
 #[no_mangle]
@@ -425,6 +464,7 @@ pub extern "C" fn get_capacity() -> u8 { MAX_VECTORS as u8 }
 #[no_mangle]
 pub extern "C" fn set_node_type(idx: u8, node_type: u8) {
     if idx >= MAX_VECTORS as u8 { return; }
+    // SAFETY: Mutates NODE_TYPES static mut; bounds checked above. Single-threaded WASM.
     unsafe {
         let byte_idx = (idx / 2) as usize;
         let node_type = node_type & 0x0F; // Clamp to 4 bits
@@ -440,6 +480,7 @@ pub extern "C" fn set_node_type(idx: u8, node_type: u8) {
 #[no_mangle]
 pub extern "C" fn get_node_type(idx: u8) -> u8 {
     if idx >= MAX_VECTORS as u8 { return 0; }
+    // SAFETY: Reads NODE_TYPES static mut; bounds checked above. Single-threaded WASM.
     unsafe {
         let byte_idx = (idx / 2) as usize;
         if idx & 1 == 0 {
@@ -461,18 +502,22 @@ pub extern "C" fn type_matches(idx: u8, type_mask: u16) -> u8 {
 /// Set node edge weight (uniform for all edges from this node, 0-255)
 #[no_mangle]
 pub extern "C" fn set_edge_weight(node: u8, weight: u8) {
+    // SAFETY: Mutates EDGE_WEIGHTS static mut; bounds checked. Single-threaded WASM.
     if node < MAX_VECTORS as u8 { unsafe { EDGE_WEIGHTS[node as usize] = weight; } }
 }
 
 /// Get node edge weight
 #[no_mangle]
 pub extern "C" fn get_edge_weight(node: u8) -> u8 {
+    // SAFETY: Reads EDGE_WEIGHTS static mut; bounds checked. Single-threaded WASM.
     if node < MAX_VECTORS as u8 { unsafe { EDGE_WEIGHTS[node as usize] } } else { 0 }
 }
 
 /// Aggregate neighbors into DELTA buffer (GNN message passing)
 #[no_mangle]
 pub extern "C" fn aggregate_neighbors(idx: u8) {
+    // SAFETY: Reads HNSW/EDGE_WEIGHTS, mutates DELTA static muts; single-threaded WASM.
+    // `idx` is bounds-checked against HNSW.count before any indexed access.
     unsafe {
         if idx >= HNSW.count { return; }
         let n = HNSW.dims as usize;
@@ -497,11 +542,13 @@ pub extern "C" fn aggregate_neighbors(idx: u8) {
 
 /// Get delta buffer pointer for reading aggregated values
 #[no_mangle]
+// SAFETY: Returns read-only pointer to DELTA static mut; valid for WASM instance lifetime.
 pub extern "C" fn get_delta_ptr() -> *const f32 { unsafe { DELTA.as_ptr() } }
 
 /// Update vector: v = v + alpha * delta (in-place)
 #[no_mangle]
 pub extern "C" fn update_vector(idx: u8, alpha: f32) {
+    // SAFETY: Mutates HNSW vectors, reads DELTA; single-threaded WASM. Bounds-checked.
     unsafe {
         if idx >= HNSW.count { return; }
         let n = HNSW.dims as usize;
@@ -513,12 +560,16 @@ pub extern "C" fn update_vector(idx: u8, alpha: f32) {
 
 /// Get mutable delta buffer pointer
 #[no_mangle]
+// SAFETY: Returns mutable pointer to DELTA static mut; valid for WASM instance lifetime.
+// Caller (host JS) must not hold this pointer across calls that mutate DELTA.
 pub extern "C" fn set_delta_ptr() -> *mut f32 { unsafe { DELTA.as_mut_ptr() } }
 
 /// Combined HNSW-SNN cycle: search → convert to currents → inject
 /// Useful for linking vector similarity to neural activation
 #[no_mangle]
 pub extern "C" fn hnsw_to_snn(k: u8, gain: f32) -> u8 {
+    // SAFETY: Reads RESULTS, mutates MEMBRANE static muts; single-threaded WASM.
+    // search() populates RESULTS; we only access indices returned by search.
     unsafe {
         let found = search(k);
         if found == 0 { return 0; }
@@ -543,6 +594,8 @@ pub extern "C" fn hnsw_to_snn(k: u8, gain: f32) -> u8 {
 /// Reset SNN state for all neurons
 #[no_mangle]
 pub extern "C" fn snn_reset() {
+    // SAFETY: Mutates all SNN static muts (MEMBRANE, THRESHOLD, LAST_SPIKE, REFRAC,
+    // SPIKES, SIM_TIME); single-threaded WASM. Iterates over full MAX_VECTORS range.
     unsafe {
         let mut i = 0;
         while i < MAX_VECTORS {
@@ -560,36 +613,43 @@ pub extern "C" fn snn_reset() {
 /// Set membrane potential for a neuron
 #[no_mangle]
 pub extern "C" fn snn_set_membrane(idx: u8, v: f32) {
+    // SAFETY: Mutates MEMBRANE static mut; bounds checked. Single-threaded WASM.
     if idx < MAX_VECTORS as u8 { unsafe { MEMBRANE[idx as usize] = v; } }
 }
 
 /// Get membrane potential
 #[no_mangle]
 pub extern "C" fn snn_get_membrane(idx: u8) -> f32 {
+    // SAFETY: Reads MEMBRANE static mut; bounds checked. Single-threaded WASM.
     if idx < MAX_VECTORS as u8 { unsafe { MEMBRANE[idx as usize] } } else { 0.0 }
 }
 
 /// Set firing threshold for a neuron
 #[no_mangle]
 pub extern "C" fn snn_set_threshold(idx: u8, t: f32) {
+    // SAFETY: Mutates THRESHOLD static mut; bounds checked. Single-threaded WASM.
     if idx < MAX_VECTORS as u8 { unsafe { THRESHOLD[idx as usize] = t; } }
 }
 
 /// Inject current into a neuron (adds to membrane potential)
 #[no_mangle]
 pub extern "C" fn snn_inject(idx: u8, current: f32) {
+    // SAFETY: Mutates MEMBRANE static mut; bounds checked. Single-threaded WASM.
     if idx < MAX_VECTORS as u8 { unsafe { MEMBRANE[idx as usize] += current; } }
 }
 
 /// Get spike status (1 if spiked last step, 0 otherwise)
 #[no_mangle]
 pub extern "C" fn snn_spiked(idx: u8) -> u8 {
+    // SAFETY: Reads SPIKES static mut; bounds checked. Single-threaded WASM.
     if idx < MAX_VECTORS as u8 { unsafe { SPIKES[idx as usize] as u8 } } else { 0 }
 }
 
 /// Get spike bitset (32 neurons packed into u32)
 #[no_mangle]
 pub extern "C" fn snn_get_spikes() -> u32 {
+    // SAFETY: Reads SPIKES static mut; single-threaded WASM. MAX_VECTORS <= 32 so
+    // the bit shift `1 << i` is always valid for a u32.
     unsafe {
         let mut bits = 0u32;
         let mut i = 0;
@@ -602,6 +662,8 @@ pub extern "C" fn snn_get_spikes() -> u32 {
 /// Returns number of neurons that spiked
 #[no_mangle]
 pub extern "C" fn snn_step(dt: f32) -> u8 {
+    // SAFETY: Mutates SPIKES, REFRAC, MEMBRANE, LAST_SPIKE, SIM_TIME; reads HNSW.count
+    // and THRESHOLD. Single-threaded WASM. All indices bounded by HNSW.count.
     unsafe {
         let decay = 1.0 - dt / TAU_MEMBRANE;
         let mut spike_count = 0u8;
@@ -641,6 +703,8 @@ pub extern "C" fn snn_step(dt: f32) -> u8 {
 /// Call after snn_step to propagate activity
 #[no_mangle]
 pub extern "C" fn snn_propagate(gain: f32) {
+    // SAFETY: Reads SPIKES, HNSW graph, EDGE_WEIGHTS; mutates MEMBRANE. Single-threaded
+    // WASM. Neighbor indices stored in HNSW.nodes are bounded by HNSW.count at insert time.
     unsafe {
         let mut i = 0u8;
         while i < HNSW.count {
@@ -664,6 +728,8 @@ pub extern "C" fn snn_propagate(gain: f32) {
 /// Call after snn_step to apply plasticity
 #[no_mangle]
 pub extern "C" fn snn_stdp() {
+    // SAFETY: Reads SPIKES, HNSW graph, LAST_SPIKE, SIM_TIME; mutates EDGE_WEIGHTS.
+    // Single-threaded WASM. All neighbor indices bounded by HNSW.count.
     unsafe {
         let mut i = 0u8;
         while i < HNSW.count {
@@ -706,6 +772,7 @@ pub extern "C" fn snn_tick(dt: f32, gain: f32, learn: u8) -> u8 {
 
 /// Get current simulation time
 #[no_mangle]
+// SAFETY: Reads SIM_TIME static mut; single-threaded WASM guarantees no concurrent mutation.
 pub extern "C" fn snn_get_time() -> f32 { unsafe { SIM_TIME } }
 
 // ============================================================================
@@ -721,6 +788,8 @@ pub extern "C" fn snn_get_time() -> f32 { unsafe { SIM_TIME } }
 /// Returns encoded pattern as 32-bit bitmask
 #[no_mangle]
 pub extern "C" fn encode_vector_to_spikes(idx: u8) -> u32 {
+    // SAFETY: Reads HNSW vectors, mutates SPIKE_PATTERN; single-threaded WASM.
+    // `idx` is bounds-checked against HNSW.count before any indexed access.
     unsafe {
         if idx >= HNSW.count { return 0; }
         let n = HNSW.dims as usize;
@@ -767,6 +836,8 @@ pub extern "C" fn spike_timing_similarity(a: u32, b: u32) -> f32 {
 /// Novel: temporal code matching instead of distance
 #[no_mangle]
 pub extern "C" fn spike_search(query_pattern: u32, k: u8) -> u8 {
+    // SAFETY: Reads HNSW.count, SPIKE_PATTERN; mutates RESULTS. Single-threaded WASM.
+    // All indices bounded by HNSW.count; RESULTS indices bounded by k <= 16.
     unsafe {
         if HNSW.count == 0 { return 0; }
         let k = k.min(16).min(HNSW.count);
@@ -813,6 +884,8 @@ pub extern "C" fn spike_search(query_pattern: u32, k: u8) -> u8 {
 /// Apply homeostatic plasticity: adjust thresholds to maintain target rate
 #[no_mangle]
 pub extern "C" fn homeostatic_update(dt: f32) {
+    // SAFETY: Reads SPIKES; mutates SPIKE_RATE, THRESHOLD. Single-threaded WASM.
+    // All indices bounded by HNSW.count.
     unsafe {
         let alpha = dt / HOMEOSTATIC_TAU;
 
@@ -840,6 +913,7 @@ pub extern "C" fn homeostatic_update(dt: f32) {
 /// Get current spike rate estimate
 #[no_mangle]
 pub extern "C" fn get_spike_rate(idx: u8) -> f32 {
+    // SAFETY: Reads SPIKE_RATE static mut; bounds checked. Single-threaded WASM.
     if idx < MAX_VECTORS as u8 { unsafe { SPIKE_RATE[idx as usize] } } else { 0.0 }
 }
 
@@ -850,6 +924,7 @@ pub extern "C" fn get_spike_rate(idx: u8) -> f32 {
 /// Update oscillator phase
 #[no_mangle]
 pub extern "C" fn oscillator_step(dt: f32) {
+    // SAFETY: Mutates OSCILLATOR_PHASE static mut; single-threaded WASM.
     unsafe {
         // Phase advances with time: ω = 2πf
         let omega = 6.28318 * OSCILLATOR_FREQ / 1000.0; // Convert Hz to rad/ms
@@ -860,12 +935,15 @@ pub extern "C" fn oscillator_step(dt: f32) {
 
 /// Get current oscillator phase (0 to 2π)
 #[no_mangle]
+// SAFETY: Reads OSCILLATOR_PHASE static mut; single-threaded WASM.
 pub extern "C" fn oscillator_get_phase() -> f32 { unsafe { OSCILLATOR_PHASE } }
 
 /// Compute resonance boost for a neuron based on phase alignment
 /// Neurons in sync with gamma get amplified
 #[no_mangle]
 pub extern "C" fn compute_resonance(idx: u8) -> f32 {
+    // SAFETY: Reads OSCILLATOR_PHASE, HNSW.count; mutates RESONANCE. Single-threaded WASM.
+    // `idx` is bounds-checked against HNSW.count.
     unsafe {
         if idx >= HNSW.count { return 0.0; }
         let i = idx as usize;
@@ -885,6 +963,8 @@ pub extern "C" fn compute_resonance(idx: u8) -> f32 {
 /// Query matches are enhanced when neuron is in favorable phase
 #[no_mangle]
 pub extern "C" fn resonance_search(k: u8, phase_weight: f32) -> u8 {
+    // SAFETY: Mutates RESULTS (via search() and resonance modulation); reads RESONANCE.
+    // Single-threaded WASM. Result indices bounded by search return value.
     unsafe {
         let found = search(k);
 
@@ -924,12 +1004,15 @@ pub extern "C" fn resonance_search(k: u8, phase_weight: f32) -> u8 {
 
 /// Reset WTA state
 #[no_mangle]
+// SAFETY: Mutates WTA_INHIBIT static mut; single-threaded WASM.
 pub extern "C" fn wta_reset() { unsafe { WTA_INHIBIT = 0.0; } }
 
 /// Run WTA competition: only highest membrane potential survives
 /// Returns winner index (or 255 if no winner)
 #[no_mangle]
 pub extern "C" fn wta_compete() -> u8 {
+    // SAFETY: Reads/mutates MEMBRANE, REFRAC, WTA_INHIBIT; reads HNSW.count.
+    // Single-threaded WASM. All indices bounded by HNSW.count.
     unsafe {
         let mut max_v = 0.0f32;
         let mut winner = 255u8;
@@ -965,6 +1048,8 @@ pub extern "C" fn wta_compete() -> u8 {
 /// Soft WTA: proportional inhibition based on rank
 #[no_mangle]
 pub extern "C" fn wta_soft() {
+    // SAFETY: Reads/mutates MEMBRANE; reads HNSW.count. Single-threaded WASM.
+    // All indices bounded by HNSW.count.
     unsafe {
         // Find max membrane potential
         let mut max_v = 0.0f32;
@@ -994,6 +1079,8 @@ pub extern "C" fn wta_soft() {
 /// Reset dendritic compartments
 #[no_mangle]
 pub extern "C" fn dendrite_reset() {
+    // SAFETY: Mutates DENDRITE static mut; single-threaded WASM.
+    // Iterates over full MAX_VECTORS range to zero all compartments.
     unsafe {
         let mut i = 0;
         while i < MAX_VECTORS {
@@ -1007,6 +1094,7 @@ pub extern "C" fn dendrite_reset() {
 /// Inject input to specific dendritic compartment
 #[no_mangle]
 pub extern "C" fn dendrite_inject(neuron: u8, branch: u8, current: f32) {
+    // SAFETY: Mutates DENDRITE static mut; both indices bounds-checked. Single-threaded WASM.
     unsafe {
         if neuron < MAX_VECTORS as u8 && branch < MAX_NEIGHBORS as u8 {
             DENDRITE[neuron as usize][branch as usize] += current;
@@ -1018,6 +1106,8 @@ pub extern "C" fn dendrite_inject(neuron: u8, branch: u8, current: f32) {
 /// Multiple coincident inputs on same branch get amplified
 #[no_mangle]
 pub extern "C" fn dendrite_integrate(neuron: u8) -> f32 {
+    // SAFETY: Reads DENDRITE, HNSW.nodes; mutates MEMBRANE. Single-threaded WASM.
+    // `neuron` is bounds-checked against HNSW.count; branch count from HNSW.nodes.
     unsafe {
         if neuron >= HNSW.count { return 0.0; }
         let idx = neuron as usize;
@@ -1049,6 +1139,8 @@ pub extern "C" fn dendrite_integrate(neuron: u8) -> f32 {
 /// Propagate spikes through dendritic tree (not just soma)
 #[no_mangle]
 pub extern "C" fn dendrite_propagate(gain: f32) {
+    // SAFETY: Reads SPIKES, HNSW graph, EDGE_WEIGHTS; mutates DENDRITE. Single-threaded
+    // WASM. Neighbor indices bounded by graph connectivity set during insert().
     unsafe {
         let mut i = 0u8;
         while i < HNSW.count {
@@ -1088,6 +1180,8 @@ pub extern "C" fn dendrite_propagate(gain: f32) {
 /// Record current spike state into pattern buffer (shift register)
 #[no_mangle]
 pub extern "C" fn pattern_record() {
+    // SAFETY: Reads SPIKES; mutates SPIKE_PATTERN. Single-threaded WASM.
+    // Iterates over full MAX_VECTORS range.
     unsafe {
         let mut i = 0;
         while i < MAX_VECTORS {
@@ -1101,6 +1195,7 @@ pub extern "C" fn pattern_record() {
 /// Get temporal spike pattern for a neuron
 #[no_mangle]
 pub extern "C" fn get_pattern(idx: u8) -> u32 {
+    // SAFETY: Reads SPIKE_PATTERN static mut; bounds checked. Single-threaded WASM.
     if idx < MAX_VECTORS as u8 { unsafe { SPIKE_PATTERN[idx as usize] } } else { 0 }
 }
 
@@ -1108,6 +1203,8 @@ pub extern "C" fn get_pattern(idx: u8) -> u32 {
 /// Returns best matching neuron index
 #[no_mangle]
 pub extern "C" fn pattern_match(target: u32) -> u8 {
+    // SAFETY: Reads HNSW.count, SPIKE_PATTERN. Single-threaded WASM.
+    // All indices bounded by HNSW.count.
     unsafe {
         let mut best_idx = 255u8;
         let mut best_sim = 0u32;
@@ -1130,6 +1227,8 @@ pub extern "C" fn pattern_match(target: u32) -> u8 {
 /// Temporal correlation: find neurons with similar spike history
 #[no_mangle]
 pub extern "C" fn pattern_correlate(idx: u8, threshold: u8) -> u32 {
+    // SAFETY: Reads HNSW.count, SPIKE_PATTERN. Single-threaded WASM.
+    // `idx` bounds-checked; bit positions bounded by `i < 32` guard.
     unsafe {
         if idx >= HNSW.count { return 0; }
         let target = SPIKE_PATTERN[idx as usize];
@@ -1157,6 +1256,9 @@ pub extern "C" fn pattern_correlate(idx: u8, threshold: u8) -> u32 {
 /// Combines: HNSW graph, spike timing, oscillation, WTA
 #[no_mangle]
 pub extern "C" fn neuromorphic_search(k: u8, dt: f32, iterations: u8) -> u8 {
+    // SAFETY: Reads/mutates most static muts (HNSW, QUERY, MEMBRANE, RESULTS, SPIKE_PATTERN,
+    // RESONANCE, etc.) via called functions and directly. Single-threaded WASM guarantees
+    // exclusive access. All index accesses bounded by HNSW.count.
     unsafe {
         if HNSW.count == 0 { return 0; }
 
@@ -1246,6 +1348,8 @@ pub extern "C" fn neuromorphic_search(k: u8, dt: f32, iterations: u8) -> u8 {
 /// Get total network activity (sum of spike rates)
 #[no_mangle]
 pub extern "C" fn get_network_activity() -> f32 {
+    // SAFETY: Reads SPIKE_RATE static mut; single-threaded WASM.
+    // Iterates over full MAX_VECTORS range.
     unsafe {
         let mut total = 0.0f32;
         let mut i = 0;

@@ -213,6 +213,9 @@ fn format_bytes(bytes: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ruvector_core::types::HnswConfig;
+
+    // ===== CollectionConfig validation tests =====
 
     #[test]
     fn test_collection_config_validation() {
@@ -242,6 +245,296 @@ mod tests {
     }
 
     #[test]
+    fn test_config_validates_at_boundary_dimensions() {
+        // Exactly 1 dimension -- minimum valid
+        let config = CollectionConfig {
+            dimensions: 1,
+            distance_metric: DistanceMetric::Cosine,
+            hnsw_config: None,
+            quantization: None,
+            on_disk_payload: false,
+        };
+        assert!(config.validate().is_ok());
+
+        // Exactly 100_000 -- maximum valid
+        let config = CollectionConfig {
+            dimensions: 100_000,
+            distance_metric: DistanceMetric::Cosine,
+            hnsw_config: None,
+            quantization: None,
+            on_disk_payload: false,
+        };
+        assert!(config.validate().is_ok());
+
+        // 100_001 -- just over the limit
+        let config = CollectionConfig {
+            dimensions: 100_001,
+            distance_metric: DistanceMetric::Cosine,
+            hnsw_config: None,
+            quantization: None,
+            on_disk_payload: false,
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_config_validates_hnsw_m_zero() {
+        let config = CollectionConfig {
+            dimensions: 128,
+            distance_metric: DistanceMetric::Euclidean,
+            hnsw_config: Some(HnswConfig {
+                m: 0,
+                ef_construction: 200,
+                ef_search: 100,
+                max_elements: 1000,
+            }),
+            quantization: None,
+            on_disk_payload: false,
+        };
+        let err = config.validate().unwrap_err();
+        assert!(err.to_string().contains("M parameter"));
+    }
+
+    #[test]
+    fn test_config_validates_hnsw_ef_construction_less_than_m() {
+        let config = CollectionConfig {
+            dimensions: 128,
+            distance_metric: DistanceMetric::Cosine,
+            hnsw_config: Some(HnswConfig {
+                m: 32,
+                ef_construction: 16, // less than m
+                ef_search: 100,
+                max_elements: 1000,
+            }),
+            quantization: None,
+            on_disk_payload: false,
+        };
+        let err = config.validate().unwrap_err();
+        assert!(err.to_string().contains("ef_construction"));
+    }
+
+    #[test]
+    fn test_config_validates_hnsw_ef_search_zero() {
+        let config = CollectionConfig {
+            dimensions: 128,
+            distance_metric: DistanceMetric::Cosine,
+            hnsw_config: Some(HnswConfig {
+                m: 16,
+                ef_construction: 200,
+                ef_search: 0,
+                max_elements: 1000,
+            }),
+            quantization: None,
+            on_disk_payload: false,
+        };
+        let err = config.validate().unwrap_err();
+        assert!(err.to_string().contains("ef_search"));
+    }
+
+    #[test]
+    fn test_config_valid_hnsw_passes() {
+        let config = CollectionConfig {
+            dimensions: 64,
+            distance_metric: DistanceMetric::DotProduct,
+            hnsw_config: Some(HnswConfig {
+                m: 16,
+                ef_construction: 128,
+                ef_search: 50,
+                max_elements: 5000,
+            }),
+            quantization: None,
+            on_disk_payload: true,
+        };
+        assert!(config.validate().is_ok());
+    }
+
+    // ===== CollectionConfig::with_dimensions tests =====
+
+    #[test]
+    fn test_with_dimensions_sets_fields() {
+        let config = CollectionConfig::with_dimensions(256);
+        assert_eq!(config.dimensions, 256);
+        assert!(matches!(config.distance_metric, DistanceMetric::Cosine));
+        assert!(config.hnsw_config.is_some());
+        assert!(config.quantization.is_some());
+        assert!(config.on_disk_payload);
+    }
+
+    // ===== CollectionConfig serde tests =====
+
+    #[test]
+    fn test_config_serialization_roundtrip() {
+        let config = CollectionConfig::with_dimensions(384);
+        let json = serde_json::to_string(&config).expect("serialize");
+        let deserialized: CollectionConfig =
+            serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deserialized.dimensions, 384);
+    }
+
+    // ===== Collection creation tests =====
+
+    #[test]
+    fn test_collection_new_with_valid_config() {
+        let temp = std::env::temp_dir().join("ruvector_test_coll_new_valid");
+        let _ = std::fs::remove_dir_all(&temp);
+        std::fs::create_dir_all(&temp).unwrap();
+
+        let db_path = temp.join("vectors.db").to_string_lossy().to_string();
+        let config = CollectionConfig::with_dimensions(64);
+        let coll = Collection::new("test_coll".to_string(), config, db_path);
+        assert!(coll.is_ok());
+
+        let coll = coll.unwrap();
+        assert_eq!(coll.name, "test_coll");
+        assert_eq!(coll.config.dimensions, 64);
+        assert!(coll.created_at > 0);
+        assert_eq!(coll.created_at, coll.updated_at);
+
+        let _ = std::fs::remove_dir_all(&temp);
+    }
+
+    #[test]
+    fn test_collection_new_rejects_zero_dimensions() {
+        let temp = std::env::temp_dir().join("ruvector_test_coll_new_zero");
+        let _ = std::fs::remove_dir_all(&temp);
+        std::fs::create_dir_all(&temp).unwrap();
+
+        let db_path = temp.join("vectors.db").to_string_lossy().to_string();
+        let config = CollectionConfig {
+            dimensions: 0,
+            distance_metric: DistanceMetric::Cosine,
+            hnsw_config: None,
+            quantization: None,
+            on_disk_payload: false,
+        };
+        let result = Collection::new("bad".to_string(), config, db_path);
+        assert!(result.is_err());
+
+        let _ = std::fs::remove_dir_all(&temp);
+    }
+
+    // ===== Collection stats tests =====
+
+    #[test]
+    fn test_collection_stats_on_empty() {
+        let temp = std::env::temp_dir().join("ruvector_test_coll_stats_empty");
+        let _ = std::fs::remove_dir_all(&temp);
+        std::fs::create_dir_all(&temp).unwrap();
+
+        let db_path = temp.join("vectors.db").to_string_lossy().to_string();
+        let config = CollectionConfig::with_dimensions(32);
+        let coll = Collection::new("stats_test".to_string(), config, db_path).unwrap();
+
+        let stats = coll.stats().unwrap();
+        assert_eq!(stats.vectors_count, 0);
+        assert!(stats.is_empty());
+
+        let _ = std::fs::remove_dir_all(&temp);
+    }
+
+    // ===== Collection touch tests =====
+
+    #[test]
+    fn test_collection_touch_updates_timestamp() {
+        let temp = std::env::temp_dir().join("ruvector_test_coll_touch");
+        let _ = std::fs::remove_dir_all(&temp);
+        std::fs::create_dir_all(&temp).unwrap();
+
+        let db_path = temp.join("vectors.db").to_string_lossy().to_string();
+        let config = CollectionConfig::with_dimensions(32);
+        let mut coll = Collection::new("touch_test".to_string(), config, db_path).unwrap();
+
+        let before = coll.updated_at;
+        // Touch with a small pause to ensure timestamp can differ
+        coll.touch();
+        assert!(coll.updated_at >= before);
+
+        let _ = std::fs::remove_dir_all(&temp);
+    }
+
+    // ===== Collection Debug impl test =====
+
+    #[test]
+    fn test_collection_debug_format() {
+        let temp = std::env::temp_dir().join("ruvector_test_coll_debug");
+        let _ = std::fs::remove_dir_all(&temp);
+        std::fs::create_dir_all(&temp).unwrap();
+
+        let db_path = temp.join("vectors.db").to_string_lossy().to_string();
+        let config = CollectionConfig::with_dimensions(16);
+        let coll = Collection::new("debug_test".to_string(), config, db_path).unwrap();
+
+        let debug_str = format!("{:?}", coll);
+        assert!(debug_str.contains("debug_test"));
+        assert!(debug_str.contains("<VectorDB>"));
+
+        let _ = std::fs::remove_dir_all(&temp);
+    }
+
+    // ===== CollectionStats tests =====
+
+    #[test]
+    fn test_collection_stats_is_empty() {
+        let stats = CollectionStats {
+            vectors_count: 0,
+            segments_count: 1,
+            disk_size_bytes: 0,
+            ram_size_bytes: 0,
+        };
+        assert!(stats.is_empty());
+
+        let stats = CollectionStats {
+            vectors_count: 5,
+            segments_count: 1,
+            disk_size_bytes: 1024,
+            ram_size_bytes: 512,
+        };
+        assert!(!stats.is_empty());
+    }
+
+    #[test]
+    fn test_collection_stats_human_readable_sizes() {
+        let stats = CollectionStats {
+            vectors_count: 100,
+            segments_count: 1,
+            disk_size_bytes: 1048576, // 1 MB
+            ram_size_bytes: 2048,     // 2 KB
+        };
+        assert_eq!(stats.disk_size_human(), "1.00 MB");
+        assert_eq!(stats.ram_size_human(), "2.00 KB");
+    }
+
+    #[test]
+    fn test_collection_stats_zero_bytes_human() {
+        let stats = CollectionStats {
+            vectors_count: 0,
+            segments_count: 0,
+            disk_size_bytes: 0,
+            ram_size_bytes: 0,
+        };
+        assert_eq!(stats.disk_size_human(), "0 B");
+        assert_eq!(stats.ram_size_human(), "0 B");
+    }
+
+    #[test]
+    fn test_collection_stats_serde_roundtrip() {
+        let stats = CollectionStats {
+            vectors_count: 42,
+            segments_count: 3,
+            disk_size_bytes: 999,
+            ram_size_bytes: 888,
+        };
+        let json = serde_json::to_string(&stats).unwrap();
+        let deserialized: CollectionStats = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.vectors_count, 42);
+        assert_eq!(deserialized.segments_count, 3);
+        assert_eq!(deserialized.disk_size_bytes, 999);
+        assert_eq!(deserialized.ram_size_bytes, 888);
+    }
+
+    // ===== format_bytes tests =====
+
+    #[test]
     fn test_format_bytes() {
         assert_eq!(format_bytes(0), "0 B");
         assert_eq!(format_bytes(512), "512.00 B");
@@ -249,5 +542,37 @@ mod tests {
         assert_eq!(format_bytes(1536), "1.50 KB");
         assert_eq!(format_bytes(1048576), "1.00 MB");
         assert_eq!(format_bytes(1073741824), "1.00 GB");
+    }
+
+    #[test]
+    fn test_format_bytes_terabyte() {
+        assert_eq!(format_bytes(1099511627776), "1.00 TB");
+    }
+
+    #[test]
+    fn test_format_bytes_small_values() {
+        assert_eq!(format_bytes(1), "1.00 B");
+        assert_eq!(format_bytes(1023), "1023.00 B");
+    }
+
+    // ===== All distance metrics with valid config =====
+
+    #[test]
+    fn test_config_all_distance_metrics_validate() {
+        for metric in [
+            DistanceMetric::Cosine,
+            DistanceMetric::Euclidean,
+            DistanceMetric::DotProduct,
+            DistanceMetric::Manhattan,
+        ] {
+            let config = CollectionConfig {
+                dimensions: 128,
+                distance_metric: metric,
+                hnsw_config: None,
+                quantization: None,
+                on_disk_payload: false,
+            };
+            assert!(config.validate().is_ok(), "Failed for metric {:?}", metric);
+        }
     }
 }

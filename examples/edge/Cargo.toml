@@ -44,7 +44,7 @@ uuid = { version = "1.11", features = ["v4", "serde", "js"] }
 chrono = { version = "0.4", features = ["serde"] }
 
 # Compression (for tensor sync)
-lz4_flex = "0.11"
+lz4_flex = "0.11.6"
 
 # Cryptography (for P2P security)
 ed25519-dalek = { version = "2.1", features = ["rand_core", "serde"] }
