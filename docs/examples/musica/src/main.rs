@@ -19,6 +19,7 @@ mod phase;
 mod separator;
 mod stft;
 mod streaming_multi;
+mod real_audio;
 mod transcriber;
 #[cfg(feature = "wasm")]
 mod wasm_bridge;
@@ -82,8 +83,12 @@ fn main() {
     println!("\n======== PART 12: Separation → Transcription Benchmark ========");
     run_transcription_benchmark();
 
+    // ── Part 13: Real audio separation (public domain WAVs) ────────────
+    println!("\n======== PART 13: Real Audio Separation (Public WAVs) ========");
+    run_real_audio_separation();
+
     println!("\n================================================================");
-    println!("  MUSICA benchmark suite complete — 12 parts validated.");
+    println!("  MUSICA benchmark suite complete — 13 parts validated.");
     println!("================================================================");
 }
 
@@ -599,14 +604,13 @@ fn run_enhanced_comparison() {
 // ── Part 11 ─────────────────────────────────────────────────────────────
 
 fn run_real_audio_evaluation() {
-    let results = evaluation::run_full_evaluation(8000.0, 0.5);
-    evaluation::print_evaluation_report(&results);
+    let _results = evaluation::run_full_evaluation();
 }
 
 // ── Part 12 ─────────────────────────────────────────────────────────────
 
 fn run_transcription_benchmark() {
-    use evaluation::{generate_speech_like, generate_noise, NoiseType};
+    use evaluation::{generate_speech_like, generate_noise_typed, NoiseType};
     use transcriber::{benchmark_separation_for_transcription, estimate_wer_from_snr, compute_snr};
 
     let sr = 8000.0;
@@ -631,7 +635,7 @@ fn run_transcription_benchmark() {
 
     // Scenario B: Speech in noise
     let speech = generate_speech_like(sr, duration, 150.0, 12, 5.0, 0.02);
-    let noise = generate_noise(sr, duration, NoiseType::Pink);
+    let noise = generate_noise_typed(sr, duration, NoiseType::Pink);
 
     println!("\n  ── Scenario B: Speech in Pink Noise ──");
     let result_b = benchmark_separation_for_transcription(
@@ -643,7 +647,7 @@ fn run_transcription_benchmark() {
 
     // Scenario C: Speech in babble (cocktail party)
     let target = generate_speech_like(sr, duration, 150.0, 12, 5.0, 0.02);
-    let babble = generate_noise(sr, duration, NoiseType::Babble);
+    let babble = generate_noise_typed(sr, duration, NoiseType::Babble);
 
     println!("\n  ── Scenario C: Speech in Babble Noise (Cocktail Party) ──");
     let result_c = benchmark_separation_for_transcription(
@@ -683,4 +687,10 @@ fn print_transcription_quality(prefix: &str, result: &transcriber::SeparateAndTr
     for (label, trans) in &result.transcriptions {
         println!("{}  Track '{}': {} segments, {:.1}ms", prefix, label, trans.segments.len(), trans.processing_ms);
     }
+}
+
+// ── Part 13 ─────────────────────────────────────────────────────────────
+
+fn run_real_audio_separation() {
+    real_audio::run_real_audio_benchmarks("test_audio");
 }

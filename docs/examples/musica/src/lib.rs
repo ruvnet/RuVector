@@ -40,6 +40,7 @@ pub mod separator;
 pub mod stft;
 pub mod streaming_multi;
 pub mod evaluation;
+pub mod real_audio;
 pub mod transcriber;
 pub mod wasm_bridge;
 pub mod wav;
