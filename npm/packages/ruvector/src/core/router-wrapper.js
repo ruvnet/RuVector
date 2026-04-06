@@ -43,16 +43,39 @@ class SemanticRouter {
         this.routes = new Map();
         const router = getRouterModule();
         this.inner = new router.SemanticRouter({
-            dimensions: options.dimensions ?? 384,
+            dimension: options.dimension ?? 384,
             threshold: options.threshold ?? 0.7,
         });
     }
     /**
-     * Add a route with example utterances
+     * Set the embedder function for converting text to vectors.
+     * Required before match() can accept string input.
      */
-    addRoute(name, utterances, metadata) {
+    setEmbedder(embedder) {
+        this.inner.setEmbedder(embedder);
+    }
+    /**
+     * Add a route with example utterances (sync, requires pre-computed embedding)
+     */
+    addRoute(name, utterances, metadata, embedding) {
         this.routes.set(name, { name, utterances, metadata });
-        this.inner.addRoute(name, utterances, metadata ? JSON.stringify(metadata) : undefined);
+        this.inner.addIntent({
+            name,
+            utterances,
+            metadata,
+            embedding,
+        });
+    }
+    /**
+     * Add a route with automatic embedding computation (requires setEmbedder)
+     */
+    async addRouteAsync(name, utterances, metadata) {
+        this.routes.set(name, { name, utterances, metadata });
+        await this.inner.addIntentAsync({
+            name,
+            utterances,
+            metadata,
+        });
     }
     /**
      * Add multiple routes at once
@@ -63,27 +86,38 @@ class SemanticRouter {
         }
     }
     /**
-     * Match input to best route
+     * Match input to best route (async, accepts string if embedder is set, or Float32Array)
      */
-    match(input) {
-        const result = this.inner.match(input);
-        if (!result)
+    async match(input) {
+        const results = await this.inner.route(input, 1);
+        if (!results || results.length === 0)
             return null;
         return {
-            route: result.route,
-            score: result.score,
-            metadata: result.metadata ? JSON.parse(result.metadata) : undefined,
+            route: results[0].intent,
+            score: results[0].score,
+            metadata: results[0].metadata,
         };
     }
     /**
-     * Get top-k route matches
+     * Get top-k route matches (async)
      */
-    matchTopK(input, k = 3) {
-        const results = this.inner.matchTopK(input, k);
-        return results.map((r) => ({
-            route: r.route,
+    async matchTopK(input, k = 3) {
+        const results = await this.inner.route(input, k);
+        return (results || []).map((r) => ({
+            route: r.intent,
             score: r.score,
-            metadata: r.metadata ? JSON.parse(r.metadata) : undefined,
+            metadata: r.metadata,
+        }));
+    }
+    /**
+     * Match with a pre-computed embedding (synchronous)
+     */
+    matchWithEmbedding(embedding, k = 1) {
+        const results = this.inner.routeWithEmbedding(embedding, k);
+        return (results || []).map((r) => ({
+            route: r.intent,
+            score: r.score,
+            metadata: r.metadata,
         }));
     }
     /**
@@ -99,7 +133,7 @@ class SemanticRouter {
         if (!this.routes.has(name))
             return false;
         this.routes.delete(name);
-        return this.inner.removeRoute(name);
+        return this.inner.removeIntent(name);
     }
     /**
      * Clear all routes

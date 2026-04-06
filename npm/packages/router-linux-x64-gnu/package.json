@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/router-linux-x64-gnu",
-  "version": "0.1.27",
+  "version": "0.1.28",
   "description": "Linux x64 (glibc) native bindings for @ruvector/router",
   "main": "ruvector-router.linux-x64-gnu.node",
   "files": [

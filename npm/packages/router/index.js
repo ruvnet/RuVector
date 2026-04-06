@@ -84,9 +84,10 @@ class SemanticRouter {
       'manhattan': native.DistanceMetric.Manhattan
     };
 
+    this._metric = config.metric || 'cosine';
     this._db = new native.VectorDb({
       dimensions: config.dimension,
-      distanceMetric: metricMap[config.metric] || native.DistanceMetric.Cosine,
+      distanceMetric: metricMap[this._metric] || native.DistanceMetric.Cosine,
       hnswM: config.m || 16,
       hnswEfConstruction: config.efConstruction || 200,
       hnswEfSearch: config.efSearch || 100
@@ -160,7 +161,7 @@ class SemanticRouter {
       embedding: null
     });
 
-    // Compute embedding if we have an embedder
+    // Compute embedding if we have an embedder, otherwise require explicit embedding
     if (this._embedder && !intent.embedding) {
       // Compute centroid from all utterances
       const embeddings = await Promise.all(
@@ -183,6 +184,10 @@ class SemanticRouter {
         : new Float32Array(intent.embedding);
       this._intents.get(intent.name).embedding = vector;
       this._db.insert(intent.name, vector);
+    } else {
+      throw new Error(
+        `Intent "${intent.name}" requires either an embedder (setEmbedder) or a pre-computed embedding`
+      );
     }
   }
 
@@ -223,12 +228,24 @@ class SemanticRouter {
     const results = this._db.search(embedding, k);
 
     return results
-      .filter(r => r.score >= this._threshold)
+      .map(r => {
+        // Convert distance to similarity based on metric
+        let similarity;
+        if (this._metric === 'cosine') {
+          similarity = 1 - r.score;       // cosine distance = 1 - cosine_similarity
+        } else if (this._metric === 'dot') {
+          similarity = -r.score;           // dot distance = -dot_product
+        } else {
+          similarity = 1 / (1 + r.score);  // euclidean/manhattan: inverse distance
+        }
+        return { ...r, similarity };
+      })
+      .filter(r => r.similarity >= this._threshold)
       .map(r => {
         const intentInfo = this._intents.get(r.id);
         return {
           intent: r.id,
-          score: r.score,
+          score: r.similarity,
           metadata: intentInfo ? intentInfo.metadata : {}
         };
       });
@@ -320,6 +337,13 @@ class SemanticRouter {
     const fs = require('fs').promises;
     const content = await fs.readFile(filePath, 'utf8');
     const data = JSON.parse(content);
+
+    if (data.dimension && data.dimension !== this._dimension) {
+      throw new Error(
+        `Dimension mismatch: router has ${this._dimension} but saved state has ${data.dimension}. ` +
+        `Create a new SemanticRouter with dimension: ${data.dimension} before loading.`
+      );
+    }
 
     this.clear();
     this._threshold = data.threshold || 0.7;
