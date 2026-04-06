@@ -24,12 +24,18 @@
 //! - `wav` — WAV file I/O (16/24-bit PCM)
 //! - `benchmark` — SDR/SIR/SAR evaluation
 
+pub mod adaptive;
 pub mod audio_graph;
 pub mod benchmark;
 pub mod crowd;
 pub mod hearing_aid;
 pub mod lanczos;
+pub mod multi_res;
 pub mod multitrack;
+pub mod neural_refine;
+pub mod phase;
 pub mod separator;
 pub mod stft;
+pub mod streaming_multi;
+pub mod wasm_bridge;
 pub mod wav;

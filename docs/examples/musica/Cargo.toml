@@ -8,5 +8,8 @@ publish = false
 
 [workspace]
 
+[features]
+wasm = []
+
 [dependencies]
 ruvector-mincut = { path = "../../../crates/ruvector-mincut", features = ["monitoring", "approximate", "exact"] }
