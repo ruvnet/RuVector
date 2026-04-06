@@ -7,6 +7,11 @@ license.workspace = true
 repository.workspace = true
 description = "DiskANN/Vamana — SSD-friendly approximate nearest neighbor search with product quantization"
 
+[features]
+default = []
+gpu = []  # Feature flag for GPU acceleration (CUDA/Metal stubs)
+simd = ["simsimd"]
+
 [dependencies]
 memmap2 = { workspace = true }
 rayon = { workspace = true }
@@ -17,6 +22,7 @@ thiserror = { workspace = true }
 rand = { workspace = true }
 parking_lot = "0.12"
 bytemuck = { version = "1.14", features = ["derive"] }
+simsimd = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = "3.9"

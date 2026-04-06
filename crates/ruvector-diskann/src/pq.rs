@@ -189,9 +189,9 @@ impl ProductQuantizer {
         Ok(codes)
     }
 
-    /// Build asymmetric distance table for a query vector
-    /// Returns table[subspace][centroid_id] = distance
-    pub fn build_distance_table(&self, query: &[f32]) -> Result<Vec<Vec<f32>>> {
+    /// Build flat asymmetric distance table for a query vector
+    /// Returns flat table[subspace * 256 + centroid_id] = distance
+    pub fn build_distance_table(&self, query: &[f32]) -> Result<Vec<f32>> {
         if !self.trained {
             return Err(DiskAnnError::PqNotTrained);
         }
@@ -202,24 +202,23 @@ impl ProductQuantizer {
             });
         }
 
-        let mut table = Vec::with_capacity(self.m);
+        let k = 256;
+        let mut table = vec![0.0f32; self.m * k];
         for sub in 0..self.m {
             let offset = sub * self.dsub;
             let subquery = &query[offset..offset + self.dsub];
 
-            let dists: Vec<f32> = self.centroids[sub]
-                .iter()
-                .map(|center| l2_squared(subquery, center))
-                .collect();
-            table.push(dists);
+            for (c, center) in self.centroids[sub].iter().enumerate() {
+                table[sub * k + c] = l2_squared(subquery, center);
+            }
         }
         Ok(table)
     }
 
-    /// Compute approximate distance from query to encoded vector using precomputed table
+    /// Compute approximate distance using flat precomputed table
     #[inline]
-    pub fn distance_with_table(&self, codes: &[u8], table: &[Vec<f32>]) -> f32 {
-        crate::distance::pq_asymmetric_distance(codes, table)
+    pub fn distance_with_table(&self, codes: &[u8], table: &[f32]) -> f32 {
+        crate::distance::pq_asymmetric_distance(codes, table, 256)
     }
 }
 

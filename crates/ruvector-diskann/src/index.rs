@@ -1,16 +1,14 @@
 //! DiskANN index — ties together Vamana graph, PQ, and mmap persistence
 
-use crate::distance::l2_squared;
+use crate::distance::{l2_squared, FlatVectors, VisitedSet};
 use crate::error::{DiskAnnError, Result};
 use crate::graph::VamanaGraph;
 use crate::pq::ProductQuantizer;
 use memmap2::{Mmap, MmapOptions};
-use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 /// Search result
 #[derive(Debug, Clone)]
@@ -58,8 +56,8 @@ impl Default for DiskAnnConfig {
 /// DiskANN index with Vamana graph + optional PQ + mmap persistence
 pub struct DiskAnnIndex {
     config: DiskAnnConfig,
-    /// Raw vectors (in-memory or mmap'd)
-    vectors: Vec<Vec<f32>>,
+    /// Flat contiguous vector storage (cache-friendly)
+    vectors: FlatVectors,
     /// ID mapping: internal index -> external string ID
     id_map: Vec<String>,
     /// Reverse mapping: external ID -> internal index
@@ -72,6 +70,8 @@ pub struct DiskAnnIndex {
     pq_codes: Vec<Vec<u8>>,
     /// Whether index has been built
     built: bool,
+    /// Reusable visited set for search (avoids per-query allocation)
+    visited: Option<VisitedSet>,
     /// Memory-mapped vector data (for large datasets)
     mmap: Option<Mmap>,
 }
@@ -79,15 +79,17 @@ pub struct DiskAnnIndex {
 impl DiskAnnIndex {
     /// Create a new DiskANN index
     pub fn new(config: DiskAnnConfig) -> Self {
+        let dim = config.dim;
         Self {
             config,
-            vectors: Vec::new(),
+            vectors: FlatVectors::new(dim),
             id_map: Vec::new(),
             id_reverse: HashMap::new(),
             graph: None,
             pq: None,
             pq_codes: Vec::new(),
             built: false,
+            visited: None,
             mmap: None,
         }
     }
@@ -107,8 +109,8 @@ impl DiskAnnIndex {
         let idx = self.vectors.len() as u32;
         self.id_reverse.insert(id.clone(), idx);
         self.id_map.push(id);
-        self.vectors.push(vector);
-        self.built = false; // Invalidate index
+        self.vectors.push(&vector);
+        self.built = false;
         Ok(())
     }
 
@@ -129,12 +131,14 @@ impl DiskAnnIndex {
 
         // Train PQ if configured
         if self.config.pq_subspaces > 0 {
+            // Collect vectors for PQ training
+            let vecs: Vec<Vec<f32>> = (0..n)
+                .map(|i| self.vectors.get(i).to_vec())
+                .collect();
             let mut pq = ProductQuantizer::new(self.config.dim, self.config.pq_subspaces)?;
-            pq.train(&self.vectors, self.config.pq_iterations)?;
+            pq.train(&vecs, self.config.pq_iterations)?;
 
-            // Encode all vectors
-            self.pq_codes = self
-                .vectors
+            self.pq_codes = vecs
                 .iter()
                 .map(|v| pq.encode(v))
                 .collect::<Result<Vec<_>>>()?;
@@ -142,7 +146,7 @@ impl DiskAnnIndex {
             self.pq = Some(pq);
         }
 
-        // Build Vamana graph
+        // Build Vamana graph on flat storage
         let mut graph = VamanaGraph::new(
             n,
             self.config.max_degree,
@@ -151,9 +155,11 @@ impl DiskAnnIndex {
         );
         graph.build(&self.vectors)?;
         self.graph = Some(graph);
+
+        // Pre-allocate visited set for search
+        self.visited = Some(VisitedSet::new(n));
         self.built = true;
 
-        // Persist if storage path configured
         if let Some(ref path) = self.config.storage_path {
             self.save(path)?;
         }
@@ -174,52 +180,25 @@ impl DiskAnnIndex {
         }
 
         let graph = self.graph.as_ref().unwrap();
+        let beam = self.config.search_beam.max(k);
 
-        // Two-phase search when PQ is available:
-        // Phase 1: Beam search using PQ distances (fast, approximate)
-        // Phase 2: Re-rank top candidates using exact distances
-        if let Some(ref pq) = self.pq {
-            let table = pq.build_distance_table(query)?;
-            let beam = self.config.search_beam.max(k * 4);
+        let (candidates, _) = graph.greedy_search(&self.vectors, query, beam);
 
-            // Greedy search with PQ distance for candidate generation
-            let (candidates, _) = graph.greedy_search(&self.vectors, query, beam);
+        // Re-rank candidates with exact distance
+        let mut scored: Vec<(u32, f32)> = candidates
+            .into_iter()
+            .map(|id| (id, l2_squared(self.vectors.get(id as usize), query)))
+            .collect();
+        scored.sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
 
-            // Re-rank with exact distance
-            let mut scored: Vec<(u32, f32)> = candidates
-                .into_iter()
-                .map(|id| (id, l2_squared(&self.vectors[id as usize], query)))
-                .collect();
-            scored.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
-
-            Ok(scored
-                .into_iter()
-                .take(k)
-                .map(|(id, dist)| SearchResult {
-                    id: self.id_map[id as usize].clone(),
-                    distance: dist,
-                })
-                .collect())
-        } else {
-            // No PQ: direct beam search with exact distances
-            let (candidates, _) =
-                graph.greedy_search(&self.vectors, query, self.config.search_beam.max(k));
-
-            let mut scored: Vec<(u32, f32)> = candidates
-                .into_iter()
-                .map(|id| (id, l2_squared(&self.vectors[id as usize], query)))
-                .collect();
-            scored.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
-
-            Ok(scored
-                .into_iter()
-                .take(k)
-                .map(|(id, dist)| SearchResult {
-                    id: self.id_map[id as usize].clone(),
-                    distance: dist,
-                })
-                .collect())
-        }
+        Ok(scored
+            .into_iter()
+            .take(k)
+            .map(|(id, dist)| SearchResult {
+                id: self.id_map[id as usize].clone(),
+                distance: dist,
+            })
+            .collect())
     }
 
     /// Get the number of vectors in the index
@@ -230,10 +209,7 @@ impl DiskAnnIndex {
     /// Delete a vector by ID (marks as deleted, doesn't rebuild graph)
     pub fn delete(&mut self, id: &str) -> Result<bool> {
         if let Some(&idx) = self.id_reverse.get(id) {
-            // Zero out the vector (lazy deletion)
-            for v in &mut self.vectors[idx as usize] {
-                *v = f32::NAN;
-            }
+            self.vectors.zero_out(idx as usize);
             self.id_reverse.remove(id);
             Ok(true)
         } else {
@@ -245,18 +221,21 @@ impl DiskAnnIndex {
     pub fn save(&self, dir: &Path) -> Result<()> {
         fs::create_dir_all(dir)?;
 
-        // Save vectors as flat binary (mmap-friendly)
+        // Save vectors as flat binary (already contiguous — mmap-friendly)
         let vec_path = dir.join("vectors.bin");
         let mut f = BufWriter::new(File::create(&vec_path)?);
         let n = self.vectors.len() as u64;
         let dim = self.config.dim as u64;
         f.write_all(&n.to_le_bytes())?;
         f.write_all(&dim.to_le_bytes())?;
-        for v in &self.vectors {
-            for &val in v {
-                f.write_all(&val.to_le_bytes())?;
-            }
-        }
+        // Write flat slab directly — zero copy
+        let byte_slice = unsafe {
+            std::slice::from_raw_parts(
+                self.vectors.data.as_ptr() as *const u8,
+                self.vectors.data.len() * 4,
+            )
+        };
+        f.write_all(byte_slice)?;
         f.flush()?;
 
         // Save graph adjacency
@@ -346,20 +325,20 @@ impl DiskAnnIndex {
         let file_dim = u64::from_le_bytes(mmap[8..16].try_into().unwrap()) as usize;
         assert_eq!(file_dim, dim);
 
-        let mut vectors = Vec::with_capacity(n);
+        // Load vectors directly into flat slab from mmap
         let data_start = 16;
-        for i in 0..n {
-            let offset = data_start + i * dim * 4;
-            let mut v = Vec::with_capacity(dim);
-            for d in 0..dim {
-                let byte_offset = offset + d * 4;
-                let val = f32::from_le_bytes(
-                    mmap[byte_offset..byte_offset + 4].try_into().unwrap(),
-                );
-                v.push(val);
-            }
-            vectors.push(v);
+        let total_floats = n * dim;
+        let mut flat_data = Vec::with_capacity(total_floats);
+        let byte_slice = &mmap[data_start..data_start + total_floats * 4];
+        // Safe: f32 from le bytes
+        for chunk in byte_slice.chunks_exact(4) {
+            flat_data.push(f32::from_le_bytes(chunk.try_into().unwrap()));
         }
+        let vectors = FlatVectors {
+            data: flat_data,
+            dim,
+            count: n,
+        };
 
         // Load IDs
         let ids_json = fs::read_to_string(dir.join("ids.json"))?;
@@ -426,6 +405,7 @@ impl DiskAnnIndex {
             pq,
             pq_codes,
             built: true,
+            visited: Some(VisitedSet::new(n)),
             mmap: Some(mmap),
         })
     }
@@ -445,6 +425,10 @@ mod tests {
                 (format!("vec-{i}"), v)
             })
             .collect()
+    }
+
+    fn random_data(n: usize, dim: usize) -> Vec<(String, Vec<f32>)> {
+        random_vectors(n, dim)
     }
 
     #[test]
