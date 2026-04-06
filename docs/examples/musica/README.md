@@ -100,6 +100,7 @@ Overlap-Add Reconstruction
 | [`crowd.rs`](src/crowd.rs) | 819 | 5 | Distributed speaker identity tracking (thousands of speakers) |
 | [`wav.rs`](src/wav.rs) | 342 | 2 | 16/24-bit PCM WAV reader/writer |
 | [`benchmark.rs`](src/benchmark.rs) | 379 | 5 | SDR/SIR/SAR evaluation (BSS_EVAL style) |
+| [`hearmusica/`](src/hearmusica/) | ~1,200 | — | Hearing aid DSP pipeline (Tympan-compatible processing blocks) |
 
 ## Quick Start
 
@@ -416,7 +417,19 @@ docs/examples/musica/
     ├── multitrack.rs     # 6-stem music separator
     ├── crowd.rs          # Distributed speaker tracking
     ├── wav.rs            # WAV file I/O
-    └── benchmark.rs      # SDR/SIR/SAR evaluation
+    ├── benchmark.rs      # SDR/SIR/SAR evaluation
+    └── hearmusica/       # Hearing aid DSP pipeline
+        ├── mod.rs        # Pipeline orchestrator + AudioBlock
+        ├── block.rs      # ProcessingBlock trait
+        ├── filter.rs     # BiquadFilter (8 filter types)
+        ├── compressor.rs # WDRCompressor (multi-band WDRC)
+        ├── feedback.rs   # FeedbackCanceller (NLMS adaptive)
+        ├── gain.rs       # GainProcessor (NAL-R prescription)
+        ├── separator_block.rs # GraphSeparator (Fiedler + mincut)
+        ├── delay.rs      # DelayLine (circular buffer)
+        ├── limiter.rs    # Limiter (brick-wall protection)
+        ├── mixer.rs      # Mixer (weighted combination)
+        └── presets.rs    # 4 preset pipelines
 ```
 
 ## Dependencies
@@ -429,6 +442,77 @@ ruvector-mincut = { path = "../../../crates/ruvector-mincut", features = ["monit
 ```
 
 Everything else — FFT, filterbank, eigensolver, WAV I/O, metrics — is implemented from scratch with zero external crates.
+
+## HEARmusica — Rust Hearing Aid Framework
+
+High-fidelity Rust port of Tympan's MIT-licensed hearing aid DSP, integrated with musica's graph-based separation. HEARmusica provides a modular pipeline of processing blocks that can be composed into complete hearing aid signal chains, from microphone input to speaker output. Each block implements the `ProcessingBlock` trait for uniform pipeline orchestration.
+
+### Processing Blocks
+
+| Block | Tympan Equivalent | Key Feature |
+|-------|-------------------|-------------|
+| BiquadFilter | AudioFilterBiquad_F32 | 8 filter types (LP/HP/BP/notch/allpass/peaking/shelves) |
+| WDRCompressor | AudioEffectCompressor_F32 | Multi-band WDRC with soft knee |
+| FeedbackCanceller | AudioEffectFeedbackCancel_F32 | NLMS adaptive filter |
+| GainProcessor | AudioEffectGain_F32 | Audiogram fitting + NAL-R prescription |
+| GraphSeparator | (novel) | Fiedler vector + dynamic mincut |
+| DelayLine | AudioEffectDelay_F32 | Sample-accurate circular buffer |
+| Limiter | (custom) | Brick-wall output protection |
+| Mixer | AudioMixer_F32 | Weighted signal combination |
+
+### Architecture
+
+```
+Input -> BiquadFilter -> FeedbackCanceller -> GraphSeparator -> WDRCompressor -> GainProcessor -> Limiter -> Output
+```
+
+The pipeline processes stereo `AudioBlock` frames. Each block reads from and writes to the block's `left` and `right` sample buffers in place, minimizing allocations. The `GraphSeparator` block bridges musica's spectral clustering into the hearing aid chain, providing structure-aware noise reduction that traditional DSP pipelines lack.
+
+### Preset Pipelines
+
+Four preset configurations cover common hearing aid use cases:
+
+| Preset | Description | Key Blocks |
+|--------|-------------|------------|
+| `standard_hearing_aid` | General-purpose amplification with feedback cancellation | BiquadFilter, FeedbackCanceller, WDRCompressor, GainProcessor, Limiter |
+| `speech_in_noise` | Optimized for noisy environments with graph-based separation | BiquadFilter, FeedbackCanceller, GraphSeparator, WDRCompressor, GainProcessor, Limiter |
+| `music_mode` | Wide bandwidth, gentle compression for music listening | BiquadFilter, WDRCompressor (low ratio), GainProcessor, Limiter |
+| `maximum_clarity` | Aggressive noise reduction for severe hearing loss | BiquadFilter, FeedbackCanceller, GraphSeparator, WDRCompressor (high ratio), GainProcessor, Limiter |
+
+All presets accept an `Audiogram`, sample rate, and block size, and return a fully configured `Pipeline`.
+
+### Usage Example
+
+```rust
+use musica::hearmusica::{self, Pipeline, AudioBlock};
+use musica::hearing_aid::Audiogram;
+
+let audiogram = Audiogram::default(); // mild sloping loss
+let mut pipeline = hearmusica::presets::speech_in_noise(&audiogram, 16000.0, 128);
+pipeline.prepare();
+
+let mut block = AudioBlock::new(128, 16000.0);
+// Fill block.left and block.right with mic samples...
+pipeline.process_block(&mut block);
+// block now contains enhanced audio
+```
+
+### Comparison vs Tympan
+
+| Feature | Tympan (C++) | HEARmusica (Rust) |
+|---------|-------------|-------------------|
+| Latency | 2.9-5.7 ms | < 1 ms target |
+| Platform | Teensy only | Any (MCU/WASM/desktop) |
+| Separation | None | Graph-based (Fiedler + mincut) |
+| Memory safety | Manual | Compile-time |
+| License | MIT | MIT |
+| Audiogram fitting | Basic | NAL-R prescription |
+
+HEARmusica's primary advantage is the `GraphSeparator` block, which has no equivalent in Tympan or any other open-source hearing aid framework. By embedding musica's spectral clustering directly into the DSP pipeline, noise reduction becomes structure-aware rather than purely energy-based.
+
+### ADR Reference
+
+See [ADR-143](../../adr/ADR-143-hearmusica-hearing-aid-framework.md) for the full architecture decision record covering design rationale, block interface contracts, and preset selection criteria.
 
 ## References
 

@@ -24,6 +24,7 @@
 //! - `wav` — WAV file I/O (16/24-bit PCM)
 //! - `benchmark` — SDR/SIR/SAR evaluation
 
+pub mod hearmusica;
 pub mod adaptive;
 pub mod audio_graph;
 pub mod benchmark;
