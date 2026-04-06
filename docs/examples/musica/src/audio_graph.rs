@@ -129,6 +129,10 @@ pub fn build_audio_graph(stft: &StftResult, params: &GraphParams) -> AudioGraph 
     }
 
     // 2b. Temporal continuity — connect same freq bin across adjacent frames
+    //     Enhanced with instantaneous frequency (IF) consistency.
+    //     IF = (phase[t+1] - phase[t]) / (2π * hop_time)
+    //     Bins from the same source have consistent IF across frames.
+    let hop_time = stft.hop_size as f64 / stft.sample_rate;
     for frame in 0..stft.num_frames.saturating_sub(1) {
         let base1 = frame * stft.num_freq_bins;
         let base2 = (frame + 1) * stft.num_freq_bins;
@@ -148,8 +152,8 @@ pub fn build_audio_graph(stft: &StftResult, params: &GraphParams) -> AudioGraph 
             let mag_sim = (bin1.magnitude * bin2.magnitude).sqrt();
             let mut w = params.temporal_weight * mag_sim;
 
-            // Phase coherence bonus
             if params.use_phase {
+                // Phase coherence: wrapped phase difference
                 let phase_diff = (bin2.phase - bin1.phase).abs();
                 let wrapped = if phase_diff > PI {
                     2.0 * PI - phase_diff
@@ -159,11 +163,83 @@ pub fn build_audio_graph(stft: &StftResult, params: &GraphParams) -> AudioGraph 
                 if wrapped < params.phase_threshold {
                     w *= 1.5; // Coherent phases get 50% boost
                 }
+
+                // Instantaneous frequency consistency bonus:
+                // Expected phase advance for bin f = 2π * f * hop_time * sr / window_size
+                // IF deviation from expected = how far the true frequency is from bin center
+                let expected_phase_advance = 2.0 * PI * f as f64 * hop_time * stft.sample_rate
+                    / (stft.num_freq_bins as f64 * 2.0); // num_freq_bins = window_size/2+1
+                let if_deviation = {
+                    let mut d = (bin2.phase - bin1.phase) - expected_phase_advance;
+                    // Wrap to [-π, π]
+                    d = d % (2.0 * PI);
+                    if d > PI { d -= 2.0 * PI; }
+                    if d < -PI { d += 2.0 * PI; }
+                    d.abs()
+                };
+                // Small IF deviation = stable sinusoidal component → stronger edge
+                if if_deviation < PI / 6.0 {
+                    w *= 1.3; // Stable IF bonus
+                }
             }
 
             if w > 1e-6 {
                 let _ = graph.insert_edge(n1, n2, w);
                 edge_count += 1;
+            }
+        }
+    }
+
+    // 2b2. Cross-frequency IF edges — connect nearby freq bins across adjacent
+    //      frames when they share similar instantaneous frequency.
+    //      This helps separate close tones that smear across bins.
+    if params.use_phase && stft.num_frames >= 2 {
+        for frame in 0..stft.num_frames.saturating_sub(1) {
+            let base1 = frame * stft.num_freq_bins;
+            let base2 = (frame + 1) * stft.num_freq_bins;
+            for f1 in 0..stft.num_freq_bins {
+                let n1 = match node_map[base1 + f1] {
+                    Some(id) => id,
+                    None => continue,
+                };
+                let mag1 = stft.bins[base1 + f1].magnitude;
+                let phase1 = stft.bins[base1 + f1].phase;
+
+                // Check nearby bins in the next frame
+                let f_start = f1.saturating_sub(2);
+                let f_end = (f1 + 3).min(stft.num_freq_bins);
+                for f2 in f_start..f_end {
+                    if f2 == f1 { continue; } // Already handled above
+                    let n2 = match node_map[base2 + f2] {
+                        Some(id) => id,
+                        None => continue,
+                    };
+                    let mag2 = stft.bins[base2 + f2].magnitude;
+                    let phase2 = stft.bins[base2 + f2].phase;
+
+                    // Both bins should have similar IF (phase advance rate)
+                    let if1 = (stft.bins[base2 + f1].phase - phase1) / (2.0 * PI * hop_time);
+                    let if2 = (phase2 - stft.bins[base1 + f2].phase) / (2.0 * PI * hop_time);
+
+                    // Only check if both f2 bins exist in both frames
+                    if node_map[base2 + f1].is_none() || node_map[base1 + f2].is_none() {
+                        continue;
+                    }
+
+                    let if_diff = (if1 - if2).abs();
+                    let freq_resolution = stft.sample_rate / (stft.num_freq_bins as f64 * 2.0);
+
+                    // If IFs are within one bin width, these bins track the same component
+                    if if_diff < freq_resolution * 2.0 {
+                        let w = params.temporal_weight * 0.5
+                            * (mag1 * mag2).sqrt()
+                            / (1.0 + (f2 as f64 - f1 as f64).abs());
+                        if w > 1e-6 {
+                            let _ = graph.insert_edge(n1, n2, w);
+                            edge_count += 1;
+                        }
+                    }
+                }
             }
         }
     }
