@@ -9,8 +9,8 @@ Zero-dependency, sub-millisecond, fully interpretable audio separation via graph
 | **Latency** | 0.20 ms avg / 0.26 ms max (31x under 8ms budget) |
 | **Model size** | 0 bytes (algorithmic, no learned weights) |
 | **Dependencies** | 1 (`ruvector-mincut`) |
-| **Tests** | 34 passing |
-| **Code** | 5,433 lines across 9 modules |
+| **Tests** | 87 passing |
+| **Code** | 11,032 lines across 20 modules |
 | **License** | MIT OR Apache-2.0 |
 
 ## Why Structure-First?
@@ -510,9 +510,35 @@ pipeline.process_block(&mut block);
 
 HEARmusica's primary advantage is the `GraphSeparator` block, which has no equivalent in Tympan or any other open-source hearing aid framework. By embedding musica's spectral clustering directly into the DSP pipeline, noise reduction becomes structure-aware rather than purely energy-based.
 
+### HEARmusica Benchmark Results
+
+4 preset pipelines benchmarked at 16 kHz, 128-sample blocks, 200 blocks each:
+
+| Preset | Avg Block | Max Block | Pipeline Latency | Chain |
+|--------|-----------|-----------|-----------------|-------|
+| **Standard HA** | **0.011 ms** | 0.047 ms | 0.00 ms | Filter→WDRC→Gain→Limiter |
+| **Speech-in-Noise** | 0.539 ms | 0.705 ms | 4.00 ms | Filter→FeedbackCancel→GraphSep→WDRC→Gain→Limiter |
+| **Music Mode** | **0.010 ms** | 0.015 ms | 0.00 ms | WDRC→Gain→Limiter |
+| **Max Clarity** | 0.664 ms | 0.751 ms | 6.00 ms | Filter→FeedbackCancel→GraphSep→Delay→WDRC→Gain→Mixer→Limiter |
+
+Key findings:
+- Standard and music presets process in **<0.05 ms** — 160x under the 8ms budget
+- Speech-in-noise preset with graph separation: **0.7 ms max** — 11x under budget
+- Max clarity with all blocks including delay alignment: **0.75 ms max** — 10x under budget
+
+### Streaming 6-Stem Results
+
+Frame-by-frame multitrack separation at 44.1 kHz:
+
+| Metric | Value |
+|--------|-------|
+| Avg frame latency | 0.35 ms |
+| Max frame latency | 0.68 ms |
+| All 6 stems | Non-zero energy |
+
 ### ADR Reference
 
-See [ADR-143](../../adr/ADR-143-hearmusica-hearing-aid-framework.md) for the full architecture decision record covering design rationale, block interface contracts, and preset selection criteria.
+See [ADR-143](../../adr/ADR-143-hearmusica-tympan-rust-port.md) for the full architecture decision record.
 
 ## References
 

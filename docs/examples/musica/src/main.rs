@@ -3,14 +3,22 @@
 //! Full benchmark suite: basic separation, hearing aid streaming,
 //! multitrack 6-stem splitting, and crowd-scale identity tracking.
 
+mod adaptive;
 mod audio_graph;
 mod benchmark;
 mod crowd;
 mod hearing_aid;
+mod hearmusica;
 mod lanczos;
+mod multi_res;
 mod multitrack;
+mod neural_refine;
+mod phase;
 mod separator;
 mod stft;
+mod streaming_multi;
+#[cfg(feature = "wasm")]
+mod wasm_bridge;
 mod wav;
 
 use audio_graph::GraphParams;
@@ -47,9 +55,16 @@ fn main() {
     println!("\n======== PART 6: WAV I/O Validation ========");
     run_wav_validation();
 
+    // ── Part 7: HEARmusica pipeline ────────────────────────────────────
+    println!("\n======== PART 7: HEARmusica Pipeline Benchmark ========");
+    run_hearmusica_benchmark();
+
+    // ── Part 8: Streaming multitrack ────────────────────────────────────
+    println!("\n======== PART 8: Streaming 6-Stem Separation ========");
+    run_streaming_multitrack_benchmark();
+
     println!("\n================================================================");
-    println!("  MUSICA benchmark suite complete");
-    println!("  All modules validated.");
+    println!("  MUSICA benchmark suite complete — 8 parts validated.");
     println!("================================================================");
 }
 
@@ -361,5 +376,106 @@ fn run_wav_validation() {
             }
         }
         Err(e) => println!("  Binaural write error: {e}"),
+    }
+}
+
+// ── Part 7 ──────────────────────────────────────────────────────────────
+
+fn run_hearmusica_benchmark() {
+    use hearmusica::{AudioBlock, Pipeline};
+    use hearmusica::presets;
+    use hearing_aid::Audiogram;
+
+    let audiogram = Audiogram::default();
+    let sr = 16000.0f32;
+    let block_size = 128usize;
+    let num_blocks = 200;
+
+    let presets_list: Vec<(&str, fn(&Audiogram, f32, usize) -> Pipeline)> = vec![
+        ("Standard HA", presets::standard_hearing_aid),
+        ("Speech-in-Noise", presets::speech_in_noise),
+        ("Music Mode", presets::music_mode),
+        ("Max Clarity", presets::maximum_clarity),
+    ];
+
+    for (name, builder) in &presets_list {
+        let mut pipeline = builder(&audiogram, sr, block_size);
+
+        let start = std::time::Instant::now();
+        let mut max_block_us = 0u64;
+
+        for frame in 0..num_blocks {
+            let mut block = AudioBlock::new(block_size, sr);
+            let t_base = frame as f32 * block_size as f32 / sr;
+
+            for i in 0..block_size {
+                let t = t_base + i as f32 / sr;
+                let speech = 0.4 * (2.0 * std::f32::consts::PI * 200.0 * t).sin()
+                    + 0.15 * (2.0 * std::f32::consts::PI * 400.0 * t).sin();
+                let noise = 0.1 * (t * 1500.0).sin();
+                block.left[i] = speech + noise;
+                block.right[i] = speech * 0.9 + noise * 1.1;
+            }
+
+            let block_start = std::time::Instant::now();
+            pipeline.process_block(&mut block);
+            let block_us = block_start.elapsed().as_micros() as u64;
+            max_block_us = max_block_us.max(block_us);
+        }
+
+        let total_ms = start.elapsed().as_secs_f64() * 1000.0;
+        let avg_block_ms = total_ms / num_blocks as f64;
+        let latency_ms = pipeline.total_latency_ms();
+
+        println!("  {:<18} blocks={:>3}  avg={:.3}ms  max={:.3}ms  latency={:.2}ms  chain={}",
+            name, num_blocks, avg_block_ms,
+            max_block_us as f64 / 1000.0, latency_ms,
+            pipeline.block_names().join("→"));
+    }
+}
+
+// ── Part 8 ──────────────────────────────────────────────────────────────
+
+fn run_streaming_multitrack_benchmark() {
+    use streaming_multi::{StreamingMultiConfig, StreamingMultiState};
+
+    let config = StreamingMultiConfig {
+        window_size: 1024,
+        hop_size: 512,
+        sample_rate: 44100.0,
+        ..StreamingMultiConfig::default()
+    };
+    let mut state = StreamingMultiState::new(&config);
+
+    let sr = config.sample_rate;
+    let num_frames = 50;
+    let mut total_latency_us = 0u64;
+    let mut max_latency_us = 0u64;
+
+    for f in 0..num_frames {
+        let t_base = f as f64 * config.hop_size as f64 / sr;
+        let samples: Vec<f64> = (0..config.hop_size)
+            .map(|i| {
+                let t = t_base + i as f64 / sr;
+                0.4 * (2.0 * std::f64::consts::PI * 200.0 * t).sin()
+                    + 0.2 * (2.0 * std::f64::consts::PI * 80.0 * t).sin()
+                    + 0.15 * (2.0 * std::f64::consts::PI * 330.0 * t).sin()
+            })
+            .collect();
+
+        let result = state.process_frame(&samples, &config);
+        total_latency_us += result.latency_us;
+        max_latency_us = max_latency_us.max(result.latency_us);
+    }
+
+    let avg_latency_us = total_latency_us / num_frames as u64;
+    println!("  Frames:           {num_frames}");
+    println!("  Avg latency:      {avg_latency_us} us ({:.2} ms)", avg_latency_us as f64 / 1000.0);
+    println!("  Max latency:      {max_latency_us} us ({:.2} ms)", max_latency_us as f64 / 1000.0);
+
+    let stems = state.get_accumulated_stems();
+    for (stem, signal) in &stems {
+        let energy: f64 = signal.iter().map(|s| s * s).sum::<f64>() / signal.len().max(1) as f64;
+        println!("  {:>8}: energy={:.6}", format!("{:?}", stem), energy);
     }
 }
