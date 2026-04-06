@@ -84,7 +84,7 @@ jobs:
       - name: Build native module
         working-directory: npm/packages/router
         run: |
-          npx napi build --platform --release --manifest-path ../../../crates/ruvector-router-ffi/Cargo.toml --target ${{ matrix.settings.target }}
+          npx napi build --platform --release --cargo-cwd ../../../crates/ruvector-router-ffi --target ${{ matrix.settings.target }}
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
