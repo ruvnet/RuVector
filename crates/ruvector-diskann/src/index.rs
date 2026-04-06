@@ -521,4 +521,152 @@ mod tests {
         let results = loaded.search(&query, 3).unwrap();
         assert_eq!(results[0].id, "vec-7");
     }
+
+    #[test]
+    fn test_recall_at_10() {
+        // Measure recall@10: what fraction of true top-10 neighbors does DiskANN find?
+        use rand::prelude::*;
+        let mut rng = rand::thread_rng();
+        let n = 2000;
+        let dim = 64;
+        let k = 10;
+
+        let data: Vec<(String, Vec<f32>)> = (0..n)
+            .map(|i| {
+                let v: Vec<f32> = (0..dim).map(|_| rng.gen()).collect();
+                (format!("v{i}"), v)
+            })
+            .collect();
+
+        let mut index = DiskAnnIndex::new(DiskAnnConfig {
+            dim,
+            max_degree: 32,
+            build_beam: 64,
+            search_beam: 64,
+            alpha: 1.2,
+            ..Default::default()
+        });
+        index.insert_batch(data.clone()).unwrap();
+        index.build().unwrap();
+
+        // Test 50 random queries
+        let num_queries = 50;
+        let mut total_recall = 0.0;
+
+        for _ in 0..num_queries {
+            let qi = rng.gen_range(0..n);
+            let query = &data[qi].1;
+
+            // Brute-force ground truth
+            let mut brute: Vec<(usize, f32)> = data
+                .iter()
+                .enumerate()
+                .map(|(i, (_, v))| (i, crate::distance::l2_squared(v, query)))
+                .collect();
+            brute.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+            let gt: std::collections::HashSet<String> = brute[..k]
+                .iter()
+                .map(|(i, _)| data[*i].0.clone())
+                .collect();
+
+            // DiskANN search
+            let results = index.search(query, k).unwrap();
+            let found: std::collections::HashSet<String> =
+                results.iter().map(|r| r.id.clone()).collect();
+
+            let recall = gt.intersection(&found).count() as f64 / k as f64;
+            total_recall += recall;
+        }
+
+        let avg_recall = total_recall / num_queries as f64;
+        println!("Recall@{k} = {avg_recall:.3} (n={n}, dim={dim}, queries={num_queries})");
+        assert!(
+            avg_recall >= 0.85,
+            "Recall@{k} = {avg_recall:.3}, expected >= 0.85"
+        );
+    }
+
+    #[test]
+    fn test_dimension_mismatch() {
+        let mut index = DiskAnnIndex::new(DiskAnnConfig {
+            dim: 16,
+            ..Default::default()
+        });
+
+        // Wrong dimension on insert
+        let result = index.insert("bad".to_string(), vec![1.0; 32]);
+        assert!(result.is_err());
+
+        // Wrong dimension on search
+        index.insert("ok".to_string(), vec![1.0; 16]).unwrap();
+        index.build().unwrap();
+        let result = index.search(&[1.0; 32], 1);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_duplicate_id_rejected() {
+        let mut index = DiskAnnIndex::new(DiskAnnConfig {
+            dim: 4,
+            ..Default::default()
+        });
+        index.insert("a".to_string(), vec![1.0; 4]).unwrap();
+        let result = index.insert("a".to_string(), vec![2.0; 4]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_search_before_build_fails() {
+        let mut index = DiskAnnIndex::new(DiskAnnConfig {
+            dim: 4,
+            ..Default::default()
+        });
+        index.insert("a".to_string(), vec![1.0; 4]).unwrap();
+        let result = index.search(&[1.0; 4], 1);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_scale_5k() {
+        // 5000 vectors, 128-dim — should build in under 5 seconds
+        use std::time::Instant;
+        use rand::prelude::*;
+        let mut rng = rand::thread_rng();
+
+        let n = 5000;
+        let dim = 128;
+        let data: Vec<(String, Vec<f32>)> = (0..n)
+            .map(|i| {
+                let v: Vec<f32> = (0..dim).map(|_| rng.gen()).collect();
+                (format!("v{i}"), v)
+            })
+            .collect();
+
+        let mut index = DiskAnnIndex::new(DiskAnnConfig {
+            dim,
+            max_degree: 48,
+            build_beam: 96,
+            search_beam: 48,
+            alpha: 1.2,
+            ..Default::default()
+        });
+        index.insert_batch(data.clone()).unwrap();
+
+        let t0 = Instant::now();
+        index.build().unwrap();
+        let build_ms = t0.elapsed().as_millis();
+        println!("Build {n} vectors ({dim}d): {build_ms}ms");
+
+        // Search latency
+        let query = &data[0].1;
+        let t0 = Instant::now();
+        let iters = 100;
+        for _ in 0..iters {
+            let _ = index.search(query, 10).unwrap();
+        }
+        let search_us = t0.elapsed().as_micros() / iters;
+        println!("Search latency (k=10): {search_us}µs avg over {iters} queries");
+
+        assert!(search_us < 10_000, "Search took {search_us}µs, expected <10ms");
+    }
 }

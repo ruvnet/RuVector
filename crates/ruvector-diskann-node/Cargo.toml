@@ -1,0 +1,23 @@
+[package]
+name = "ruvector-diskann-node"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "NAPI-RS bindings for ruvector-diskann"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+ruvector-diskann = { path = "../ruvector-diskann" }
+napi = { workspace = true }
+napi-derive = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+parking_lot = "0.12"
+
+[build-dependencies]
+napi-build = "2.1"

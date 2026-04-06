@@ -1,0 +1,52 @@
+{
+  "name": "@ruvector/diskann",
+  "version": "0.1.0",
+  "description": "DiskANN/Vamana — SSD-friendly billion-scale approximate nearest neighbor search with product quantization",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "author": "ruv.io Team <info@ruv.io> (https://ruv.io)",
+  "homepage": "https://ruv.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/ruvector.git",
+    "directory": "npm/packages/diskann"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node test.js"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^2.18.0"
+  },
+  "optionalDependencies": {
+    "@ruvector/diskann-linux-x64-gnu": "0.1.0",
+    "@ruvector/diskann-linux-arm64-gnu": "0.1.0",
+    "@ruvector/diskann-darwin-x64": "0.1.0",
+    "@ruvector/diskann-darwin-arm64": "0.1.0",
+    "@ruvector/diskann-win32-x64-msvc": "0.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "diskann",
+    "vamana",
+    "ann",
+    "approximate-nearest-neighbor",
+    "vector-search",
+    "product-quantization",
+    "ssd",
+    "billion-scale",
+    "rust",
+    "napi",
+    "ruvector"
+  ]
+}

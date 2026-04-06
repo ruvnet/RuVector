@@ -1,29 +1,39 @@
 //! SIMD-friendly distance computations
 
 /// L2 (squared Euclidean) distance — no sqrt for speed
+/// Uses 4 accumulators to exploit ILP and auto-vectorization
 #[inline]
 pub fn l2_squared(a: &[f32], b: &[f32]) -> f32 {
     debug_assert_eq!(a.len(), b.len());
-    let mut sum = 0.0f32;
     let len = a.len();
+    let mut s0 = 0.0f32;
+    let mut s1 = 0.0f32;
+    let mut s2 = 0.0f32;
+    let mut s3 = 0.0f32;
     let mut i = 0;
 
-    // Process 8 elements at a time for auto-vectorization
-    while i + 8 <= len {
-        let mut block = 0.0f32;
-        for j in 0..8 {
-            let d = a[i + j] - b[i + j];
-            block += d * d;
+    // 16-wide loop with 4 accumulators for maximum ILP
+    while i + 16 <= len {
+        for j in (0..4).step_by(1) {
+            let off = i + j * 4;
+            let d0 = a[off] - b[off];
+            let d1 = a[off + 1] - b[off + 1];
+            let d2 = a[off + 2] - b[off + 2];
+            let d3 = a[off + 3] - b[off + 3];
+            s0 += d0 * d0;
+            s1 += d1 * d1;
+            s2 += d2 * d2;
+            s3 += d3 * d3;
         }
-        sum += block;
-        i += 8;
+        i += 16;
     }
+    // Handle remainder
     while i < len {
         let d = a[i] - b[i];
-        sum += d * d;
+        s0 += d * d;
         i += 1;
     }
-    sum
+    s0 + s1 + s2 + s3
 }
 
 /// Inner product distance (negated for min-heap compatibility)

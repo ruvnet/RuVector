@@ -152,6 +152,7 @@ members = [
     "crates/ruvector-decompiler-wasm",
     # DiskANN / Vamana (ADR-143)
     "crates/ruvector-diskann",
+    "crates/ruvector-diskann-node",
 ]
 resolver = "2"
 
