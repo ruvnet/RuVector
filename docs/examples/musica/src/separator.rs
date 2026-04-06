@@ -10,6 +10,7 @@
 //! approximate the normalized cut objective, then mincut refines boundaries.
 
 use crate::audio_graph::AudioGraph;
+use crate::lanczos::{LanczosConfig, SparseMatrix, lanczos_eigenpairs};
 use crate::stft::TfBin;
 use ruvector_mincut::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -256,8 +257,39 @@ fn spectral_cluster(
             })
             .collect()
     } else {
-        // K-means on frequency bin position, guided by Fiedler ordering
-        frequency_kmeans(node_bins, num_sources, num_freq_bins)
+        // Multi-eigenvector spectral embedding via Lanczos
+        // Compute first num_sources eigenvectors and run k-means in that space
+        let edges_for_lanczos: Vec<(usize, usize, f64)> = edges.iter()
+            .filter_map(|&(u, v, w)| {
+                let ui = id_to_idx.get(&u)?;
+                let vi = id_to_idx.get(&v)?;
+                Some((*ui, *vi, w))
+            })
+            .collect();
+
+        let laplacian = SparseMatrix::from_edges(n, &edges_for_lanczos);
+        let lanczos_config = LanczosConfig {
+            k: num_sources + 1, // +1 for trivial eigenvector
+            max_iter: 60,
+            tol: 1e-6,
+            reorthogonalize: true,
+        };
+        let eigen_result = lanczos_eigenpairs(&laplacian, &lanczos_config);
+
+        // Use eigenvectors 1..num_sources (skip trivial constant eigenvector 0)
+        if eigen_result.eigenvectors.len() > num_sources {
+            let embedding: Vec<Vec<f64>> = (0..n)
+                .map(|i| {
+                    (1..=num_sources)
+                        .map(|k| eigen_result.eigenvectors[k][i])
+                        .collect()
+                })
+                .collect();
+            spectral_kmeans(&embedding, num_sources)
+        } else {
+            // Fallback to frequency-based k-means
+            frequency_kmeans(node_bins, num_sources, num_freq_bins)
+        }
     }
 }
 
@@ -278,8 +310,16 @@ fn compute_fiedler_vector(
     // First eigenvector of D^{-1}A is always uniform (stationary distribution)
     let d_inv: Vec<f64> = degree.iter().map(|&d| if d > 1e-12 { 1.0 / d } else { 0.0 }).collect();
 
-    // Initialize with a non-uniform vector
-    let mut v: Vec<f64> = (0..n).map(|i| (i as f64 / n as f64) - 0.5).collect();
+    // Initialize with deterministic non-uniform vector (seeded for reproducibility).
+    // Uses frequency-proportional init: higher freq bins get larger values.
+    // This biases the Fiedler vector toward a frequency-based partition,
+    // which is the natural separation axis for audio.
+    let mut v: Vec<f64> = (0..n).map(|i| {
+        let base = (i as f64 / n as f64) - 0.5;
+        // Add deterministic perturbation to break symmetry
+        let perturb = ((i * 7 + 3) % n) as f64 / n as f64 * 0.01;
+        base + perturb
+    }).collect();
 
     // Orthogonalize against constant vector
     let sum: f64 = v.iter().sum();
@@ -288,10 +328,9 @@ fn compute_fiedler_vector(
         *x -= mean;
     }
 
-    // Power iteration for Fiedler vector
-    // We iterate (I - D^{-1}A) to find smallest non-trivial eigenvector
-    // Equivalently, iterate D^{-1}A and take the second eigenvector
-    for _ in 0..50 {
+    // Power iteration for Fiedler vector (100 iterations for stable convergence)
+    // We iterate D^{-1}A to find the second eigenvector
+    for _ in 0..100 {
         // Multiply by D^{-1}A
         let mut new_v = vec![0.0; n];
         for i in 0..n {
@@ -320,6 +359,78 @@ fn compute_fiedler_vector(
     }
 
     v
+}
+
+/// K-means clustering on multi-dimensional spectral embedding.
+fn spectral_kmeans(embedding: &[Vec<f64>], k: usize) -> Vec<usize> {
+    let n = embedding.len();
+    if n == 0 || k == 0 {
+        return vec![0; n];
+    }
+    let dim = embedding[0].len();
+
+    // Initialize centroids via k-means++ (deterministic approx)
+    let mut centroids: Vec<Vec<f64>> = Vec::with_capacity(k);
+    centroids.push(embedding[0].clone());
+
+    for _ in 1..k {
+        // Pick point farthest from existing centroids
+        let mut best_idx = 0;
+        let mut best_dist = 0.0f64;
+        for (i, point) in embedding.iter().enumerate() {
+            let min_dist: f64 = centroids.iter()
+                .map(|c| (0..dim).map(|d| (point[d] - c[d]).powi(2)).sum::<f64>())
+                .fold(f64::MAX, f64::min);
+            if min_dist > best_dist {
+                best_dist = min_dist;
+                best_idx = i;
+            }
+        }
+        centroids.push(embedding[best_idx].clone());
+    }
+
+    let mut assignments = vec![0usize; n];
+
+    for _iter in 0..30 {
+        // Assign each point to nearest centroid
+        let mut changed = false;
+        for (i, point) in embedding.iter().enumerate() {
+            let nearest = centroids.iter().enumerate()
+                .min_by(|(_, a), (_, b)| {
+                    let da: f64 = (0..dim).map(|d| (point[d] - a[d]).powi(2)).sum();
+                    let db: f64 = (0..dim).map(|d| (point[d] - b[d]).powi(2)).sum();
+                    da.partial_cmp(&db).unwrap()
+                })
+                .map(|(idx, _)| idx)
+                .unwrap_or(0);
+            if assignments[i] != nearest {
+                assignments[i] = nearest;
+                changed = true;
+            }
+        }
+        if !changed { break; }
+
+        // Update centroids
+        for c in 0..k {
+            let mut sum = vec![0.0; dim];
+            let mut count = 0;
+            for (i, point) in embedding.iter().enumerate() {
+                if assignments[i] == c {
+                    for d in 0..dim {
+                        sum[d] += point[d];
+                    }
+                    count += 1;
+                }
+            }
+            if count > 0 {
+                for d in 0..dim {
+                    centroids[c][d] = sum[d] / count as f64;
+                }
+            }
+        }
+    }
+
+    assignments
 }
 
 /// K-means clustering on frequency bin positions.

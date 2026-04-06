@@ -94,6 +94,13 @@ pub fn read_wav<P: AsRef<Path>>(path: P) -> io::Result<WavData> {
 
     // Parse samples
     let samples: Vec<f64> = match bits_per_sample {
+        8 => data_bytes
+            .iter()
+            .map(|&b| {
+                // 8-bit WAV is unsigned: 0-255, center at 128
+                (b as f64 - 128.0) / 128.0
+            })
+            .collect(),
         16 => data_bytes
             .chunks_exact(2)
             .map(|b| {
@@ -107,6 +114,13 @@ pub fn read_wav<P: AsRef<Path>>(path: P) -> io::Result<WavData> {
                 let s = ((b[0] as i32) | ((b[1] as i32) << 8) | ((b[2] as i32) << 16))
                     << 8 >> 8; // Sign extend
                 s as f64 / 8388608.0
+            })
+            .collect(),
+        32 => data_bytes
+            .chunks_exact(4)
+            .map(|b| {
+                let s = i32::from_le_bytes([b[0], b[1], b[2], b[3]]);
+                s as f64 / 2147483648.0
             })
             .collect(),
         _ => {
@@ -319,6 +333,59 @@ mod tests {
                 (orig - loaded_s).abs() < 0.001,
                 "Sample {i}: orig={orig:.4}, loaded={loaded_s:.4}"
             );
+        }
+
+        fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn test_8bit_wav_read() {
+        use std::fs;
+
+        // Write a raw 8-bit WAV manually
+        let path = "/tmp/musica_test_8bit.wav";
+        let sr = 8000u32;
+        let n = 800u32; // 100ms
+        let bits: u16 = 8;
+        let channels: u16 = 1;
+        let byte_rate = sr * channels as u32 * bits as u32 / 8;
+        let block_align = channels * bits / 8;
+        let data_size = n;
+        let file_size = 36 + data_size;
+
+        let mut buf = Vec::new();
+        buf.extend_from_slice(b"RIFF");
+        buf.extend_from_slice(&file_size.to_le_bytes());
+        buf.extend_from_slice(b"WAVE");
+        buf.extend_from_slice(b"fmt ");
+        buf.extend_from_slice(&16u32.to_le_bytes());
+        buf.extend_from_slice(&1u16.to_le_bytes()); // PCM
+        buf.extend_from_slice(&channels.to_le_bytes());
+        buf.extend_from_slice(&sr.to_le_bytes());
+        buf.extend_from_slice(&byte_rate.to_le_bytes());
+        buf.extend_from_slice(&block_align.to_le_bytes());
+        buf.extend_from_slice(&bits.to_le_bytes());
+        buf.extend_from_slice(b"data");
+        buf.extend_from_slice(&data_size.to_le_bytes());
+
+        // 8-bit unsigned samples: silence=128, max=255, min=0
+        for i in 0..n {
+            let t = i as f64 / sr as f64;
+            let s = (std::f64::consts::PI * 2.0 * 440.0 * t).sin();
+            let byte = ((s * 127.0) + 128.0).clamp(0.0, 255.0) as u8;
+            buf.push(byte);
+        }
+
+        fs::write(path, &buf).unwrap();
+        let loaded = read_wav(path).unwrap();
+
+        assert_eq!(loaded.sample_rate, sr);
+        assert_eq!(loaded.bits_per_sample, 8);
+        assert_eq!(loaded.channel_data[0].len(), n as usize);
+
+        // Verify samples are in [-1, 1] range
+        for &s in &loaded.channel_data[0] {
+            assert!(s >= -1.01 && s <= 1.01, "8-bit sample out of range: {s}");
         }
 
         fs::remove_file(path).ok();

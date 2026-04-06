@@ -13,11 +13,14 @@ mod crowd;
 mod hearing_aid;
 mod hearmusica;
 mod lanczos;
+mod learned_weights;
 mod multi_res;
 mod multitrack;
+mod musdb_compare;
 mod neural_refine;
 mod phase;
 mod separator;
+mod spatial;
 mod stft;
 mod streaming_multi;
 mod real_audio;
@@ -92,8 +95,20 @@ fn main() {
     println!("\n======== PART 14: Advanced SOTA Separation ========");
     run_advanced_sota_benchmark();
 
+    // ── Part 15: Longer signal benchmarks (2-5 second signals) ──────────
+    println!("\n======== PART 15: Longer Signal Benchmarks (2-5s) ========");
+    run_longer_benchmarks();
+
+    // ── Part 16: Spatial covariance stereo separation ──────────────────
+    println!("\n======== PART 16: Spatial Covariance Stereo Separation ========");
+    run_spatial_benchmark();
+
+    // ── Part 17: MUSDB18 SOTA comparison ──────────────────────────────
+    println!("\n======== PART 17: MUSDB18 SOTA Comparison ========");
+    run_musdb_comparison();
+
     println!("\n================================================================");
-    println!("  MUSICA benchmark suite complete — 14 parts validated.");
+    println!("  MUSICA benchmark suite complete — 17 parts validated.");
     println!("================================================================");
 }
 
@@ -775,4 +790,118 @@ fn run_advanced_sota_benchmark() {
     }
     println!("  Total time: {:.1} ms | Iterations: {}",
         adv_result.processing_ms, adv_result.iterations_used);
+}
+
+// ── Part 15 ─────────────────────────────────────────────────────────────
+
+fn run_longer_benchmarks() {
+    use advanced_separator::{compare_basic_vs_advanced, AdvancedConfig};
+    use std::f64::consts::PI;
+
+    println!("  Testing separation on longer signals (real-world duration)");
+    println!();
+
+    for &(label, duration, f1, f2) in &[
+        ("2s well-separated", 2.0, 200.0, 2000.0),
+        ("3s close tones", 3.0, 400.0, 600.0),
+        ("5s speech-like + noise", 5.0, 150.0, 3000.0),
+    ] {
+        let sr = 8000.0;
+        let n = (sr * duration) as usize;
+        let s1: Vec<f64> = (0..n).map(|i| {
+            let t = i as f64 / sr;
+            // Add harmonics and amplitude modulation for realism
+            (2.0 * PI * f1 * t).sin() * (1.0 + 0.3 * (2.0 * PI * 3.0 * t).sin())
+                + 0.3 * (2.0 * PI * f1 * 2.0 * t).sin()
+                + 0.15 * (2.0 * PI * f1 * 3.0 * t).sin()
+        }).collect();
+        let s2: Vec<f64> = (0..n).map(|i| {
+            let t = i as f64 / sr;
+            0.8 * (2.0 * PI * f2 * t).sin() * (1.0 + 0.2 * (2.0 * PI * 5.0 * t).sin())
+                + 0.2 * (2.0 * PI * f2 * 1.5 * t).sin()
+        }).collect();
+        let mixed: Vec<f64> = s1.iter().zip(s2.iter()).map(|(a, b)| a + b).collect();
+
+        let result = compare_basic_vs_advanced(&mixed, &[s1, s2], sr);
+        println!(
+            "  {:<30} basic={:>+6.1}dB  adv={:>+6.1}dB  Δ={:>+5.1}dB  ({:.0}ms/{:.0}ms)",
+            label, result.basic_avg_sdr, result.advanced_avg_sdr,
+            result.improvement_db, result.basic_ms, result.advanced_ms
+        );
+    }
+}
+
+// ── Part 16 ─────────────────────────────────────────────────────────────
+
+fn run_spatial_benchmark() {
+    use spatial::{spatial_separate, SpatialConfig};
+    use std::f64::consts::PI;
+
+    let sr = 16000.0;
+    let n = 8000; // 500ms
+    let config = SpatialConfig {
+        source_directions: vec![-30.0, 30.0],
+        sample_rate: sr,
+        window_size: 512,
+        hop_size: 256,
+        ..SpatialConfig::default()
+    };
+
+    // Generate stereo signal: speech from left, noise from right
+    let speech: Vec<f64> = (0..n).map(|i| {
+        let t = i as f64 / sr;
+        0.5 * (2.0 * PI * 200.0 * t).sin()
+            + 0.2 * (2.0 * PI * 400.0 * t).sin()
+            + 0.1 * (2.0 * PI * 600.0 * t).sin()
+    }).collect();
+
+    let noise: Vec<f64> = (0..n).map(|i| {
+        let t = i as f64 / sr;
+        0.3 * (2.0 * PI * 1200.0 * t).sin()
+            + 0.2 * (2.0 * PI * 1800.0 * t).sin()
+    }).collect();
+
+    // Apply spatial cues: ILD and ITD
+    let left: Vec<f64> = speech.iter().zip(noise.iter())
+        .map(|(s, n)| s * 1.3 + n * 0.4).collect();
+    let right: Vec<f64> = speech.iter().zip(noise.iter())
+        .map(|(s, n)| s * 0.4 + n * 1.3).collect();
+
+    let result = spatial_separate(&left, &right, &config);
+
+    println!("  Sources: {} | Signal: {}ms at {:.0}Hz", result.sources.len(), n as f64 / sr * 1000.0, sr);
+    println!("  Processing time: {:.1} ms", result.processing_ms);
+
+    for (i, source) in result.sources.iter().enumerate() {
+        let energy: f64 = source.iter().map(|x| x * x).sum::<f64>() / n as f64;
+        let dir = config.source_directions[i];
+        println!("  Source {} (dir={:+.0}°): energy={:.4}", i, dir, energy);
+    }
+
+    // Verify mask quality
+    let total = result.masks[0].len();
+    let mask_sharpness: f64 = (0..total)
+        .map(|i| {
+            let m = result.masks[0][i];
+            if m > 0.01 && m < 0.99 { 0.0 } else { 1.0 }
+        })
+        .sum::<f64>() / total as f64;
+    println!("  Mask sharpness: {:.1}% of bins are hard-assigned", mask_sharpness * 100.0);
+}
+
+// ── Part 17 ─────────────────────────────────────────────────────────────
+
+fn run_musdb_comparison() {
+    use musdb_compare::{MusicaProfile, print_comparison_table, gap_analysis};
+
+    let profile = MusicaProfile::default();
+    print_comparison_table(&profile);
+
+    let musica_avg = (profile.well_separated_sdr + profile.close_tone_sdr
+        + profile.harmonic_noise_sdr + profile.close_tone_sdr) / 4.0;
+
+    println!("  Gap analysis (SDR needed to match each method):");
+    for (method, gap) in gap_analysis(musica_avg) {
+        println!("    {:<20} {:>+6.1} dB", method, gap);
+    }
 }

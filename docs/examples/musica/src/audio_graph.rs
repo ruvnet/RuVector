@@ -29,6 +29,10 @@ pub struct GraphParams {
     pub max_harmonics: usize,
     /// Whether to enable phase coherence edges.
     pub use_phase: bool,
+    /// Weight multiplier for onset/transient edges.
+    pub onset_weight: f64,
+    /// Onset detection threshold (spectral flux ratio).
+    pub onset_threshold: f64,
 }
 
 impl Default for GraphParams {
@@ -42,6 +46,8 @@ impl Default for GraphParams {
             phase_threshold: PI / 4.0,
             max_harmonics: 4,
             use_phase: true,
+            onset_weight: 1.5,
+            onset_threshold: 2.0,
         }
     }
 }
@@ -276,6 +282,60 @@ pub fn build_audio_graph(stft: &StftResult, params: &GraphParams) -> AudioGraph 
                 if w > 1e-6 {
                     let _ = graph.insert_edge(n1, n2, w);
                     edge_count += 1;
+                }
+            }
+        }
+    }
+
+    // 2d. Onset/transient detection edges
+    // Bins that share an onset (sudden energy increase) belong together.
+    // Spectral flux = sum of positive magnitude changes across frames.
+    // Bins with simultaneous onset get strong connecting edges.
+    if params.onset_weight > 0.0 && stft.num_frames >= 2 {
+        for frame in 1..stft.num_frames {
+            let base_prev = (frame - 1) * stft.num_freq_bins;
+            let base_curr = frame * stft.num_freq_bins;
+
+            // Detect which bins have onset in this frame
+            let mut onset_bins: Vec<usize> = Vec::new();
+            for f in 0..stft.num_freq_bins {
+                let mag_prev = stft.bins[base_prev + f].magnitude;
+                let mag_curr = stft.bins[base_curr + f].magnitude;
+                // Onset = significant positive magnitude change
+                if mag_prev > 1e-6 && mag_curr / mag_prev > params.onset_threshold {
+                    if node_map[base_curr + f].is_some() {
+                        onset_bins.push(f);
+                    }
+                } else if mag_prev < 1e-6 && mag_curr > params.magnitude_floor * 2.0 {
+                    // New energy appearing from silence
+                    if node_map[base_curr + f].is_some() {
+                        onset_bins.push(f);
+                    }
+                }
+            }
+
+            // Connect onset bins within the same frame (they likely belong to same transient)
+            let max_onset_pairs = onset_bins.len().min(20); // Cap to avoid O(n^2)
+            for i in 0..max_onset_pairs {
+                for j in (i + 1)..max_onset_pairs {
+                    let f1 = onset_bins[i];
+                    let f2 = onset_bins[j];
+                    let n1 = match node_map[base_curr + f1] {
+                        Some(id) => id,
+                        None => continue,
+                    };
+                    let n2 = match node_map[base_curr + f2] {
+                        Some(id) => id,
+                        None => continue,
+                    };
+                    let mag1 = stft.bins[base_curr + f1].magnitude;
+                    let mag2 = stft.bins[base_curr + f2].magnitude;
+                    let w = params.onset_weight * (mag1 * mag2).sqrt()
+                        / (1.0 + (f2 as f64 - f1 as f64).abs() * 0.1);
+                    if w > 1e-6 {
+                        let _ = graph.insert_edge(n1, n2, w);
+                        edge_count += 1;
+                    }
                 }
             }
         }
