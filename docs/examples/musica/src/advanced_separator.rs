@@ -32,7 +32,7 @@ impl Default for AdvancedConfig {
     fn default() -> Self {
         Self {
             cascade_iterations: 3,
-            wiener_iterations: 2,
+            wiener_iterations: 3,
             num_sources: 2,
             window_sizes: vec![256, 512, 1024],
             hop_ratio: 2,
@@ -345,19 +345,18 @@ fn multi_resolution_separate(
 }
 
 /// Composite separation quality score (higher = better).
-/// Combines: (1 - cross-correlation) * reconstruction_accuracy
-/// where reconstruction_accuracy = 1 - normalized_reconstruction_error.
+/// Combines independence, reconstruction accuracy, and energy balance.
 fn separation_quality(mixed: &[f64], sources: &[Vec<f64>]) -> f64 {
     let n = mixed.len();
     if n == 0 || sources.is_empty() {
         return 0.0;
     }
 
-    // Independence: 1 - avg absolute cross-correlation
+    // 1. Independence: 1 - avg absolute cross-correlation
     let xcorr = source_cross_correlation(sources);
     let independence = 1.0 - xcorr;
 
-    // Reconstruction accuracy: how well sources sum to the mix
+    // 2. Reconstruction accuracy: how well sources sum to the mix
     let mixed_energy: f64 = mixed.iter().map(|x| x * x).sum::<f64>().max(1e-12);
     let recon_err: f64 = (0..n)
         .map(|i| {
@@ -367,8 +366,21 @@ fn separation_quality(mixed: &[f64], sources: &[Vec<f64>]) -> f64 {
         .sum::<f64>();
     let accuracy = 1.0 - (recon_err / mixed_energy).min(1.0);
 
-    // Weighted combination: accuracy is more important
-    0.4 * independence + 0.6 * accuracy
+    // 3. Energy balance: sources should have reasonable energy relative to mix
+    //    Penalize solutions where one source has near-zero energy
+    let source_energies: Vec<f64> = sources.iter()
+        .map(|s| s.iter().map(|x| x * x).sum::<f64>())
+        .collect();
+    let total_source_energy = source_energies.iter().sum::<f64>().max(1e-12);
+    let min_ratio = source_energies.iter()
+        .map(|&e| e / total_source_energy)
+        .fold(f64::MAX, f64::min);
+    // Ideal: each source has 1/N of total energy. min_ratio near 1/N is good.
+    let expected_ratio = 1.0 / sources.len() as f64;
+    let balance = (min_ratio / expected_ratio).min(1.0);
+
+    // Weighted combination
+    0.3 * independence + 0.4 * accuracy + 0.3 * balance
 }
 
 /// Compute average absolute cross-correlation between all source pairs.
@@ -439,28 +451,28 @@ pub fn advanced_separate(
             .collect();
         let raw_quality = separation_quality(signal, &raw_sources);
 
-        // Wiener-refined masks
-        let wiener_masks = wiener_refine(
-            &stft_result,
-            &initial.masks,
-            config.wiener_exponent,
-            config.wiener_iterations,
-        );
-        let wiener_sources: Vec<Vec<f64>> = wiener_masks.iter()
-            .map(|mask| stft::istft(&stft_result, mask, n))
-            .collect();
-        let wiener_quality = separation_quality(signal, &wiener_sources);
+        if raw_quality > best_quality {
+            best_quality = raw_quality;
+            best_sources = Some(raw_sources);
+        }
 
-        // Pick better of raw vs Wiener for this resolution
-        let (sources, quality) = if wiener_quality > raw_quality {
-            (wiener_sources, wiener_quality)
-        } else {
-            (raw_sources, raw_quality)
-        };
+        // Try Wiener with multiple exponents: soft (1.5), standard (2.0), sharp (3.0)
+        for &exp in &[1.5, config.wiener_exponent, 3.0] {
+            let wiener_masks = wiener_refine(
+                &stft_result,
+                &initial.masks,
+                exp,
+                config.wiener_iterations,
+            );
+            let wiener_sources: Vec<Vec<f64>> = wiener_masks.iter()
+                .map(|mask| stft::istft(&stft_result, mask, n))
+                .collect();
+            let wiener_quality = separation_quality(signal, &wiener_sources);
 
-        if quality > best_quality {
-            best_quality = quality;
-            best_sources = Some(sources);
+            if wiener_quality > best_quality {
+                best_quality = wiener_quality;
+                best_sources = Some(wiener_sources);
+            }
         }
     }
 
