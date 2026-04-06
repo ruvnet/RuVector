@@ -1,0 +1,22 @@
+[package]
+name = "ruvector-diskann"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "DiskANN/Vamana — SSD-friendly approximate nearest neighbor search with product quantization"
+
+[dependencies]
+memmap2 = { workspace = true }
+rayon = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+bincode = { workspace = true }
+thiserror = { workspace = true }
+rand = { workspace = true }
+parking_lot = "0.12"
+bytemuck = { version = "1.14", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3.9"
