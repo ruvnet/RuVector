@@ -10,7 +10,7 @@
 
 **The fastest vector database for Node.js—built in Rust, runs everywhere**
 
-Ruvector is a self-learning vector database with **enterprise-grade semantic search**, hybrid retrieval (sparse + dense), Graph RAG, FlashAttention-3, and billion-scale DiskANN — all in a single npm package. Unlike cloud-only solutions or Python-first databases, Ruvector is designed for JavaScript/TypeScript developers who need **blazing-fast vector search** without external services.
+Ruvector is a self-learning vector database with **enterprise-grade semantic search**, hybrid retrieval (sparse + dense), Graph RAG, FlashAttention-3, and DiskANN — all in a single npm package. Unlike cloud-only solutions or Python-first databases, Ruvector is designed for JavaScript/TypeScript developers who need **blazing-fast vector search** without external services.
 
 > 🚀 **Sub-millisecond queries** • 🎯 **52,000+ inserts/sec** • 💾 **~50 bytes per vector** • 🌍 **Runs anywhere** • 🧠 **859 tests passing**
 
@@ -40,7 +40,7 @@ npx ruvector hooks init --pretrain --build-agents quality
 - **FlashAttention-3** — IO-aware tiled attention, O(N) memory instead of O(N^2)
 - **Graph RAG** — Knowledge graph + community detection for multi-hop queries (30-60% improvement)
 - **Hybrid Search** — Sparse + dense vectors with RRF fusion (20-49% better retrieval)
-- **DiskANN / Vamana** — Billion-scale SSD-backed ANN with <10ms latency
+- **DiskANN / Vamana** — SSD-friendly ANN graph with PQ compression for large-scale search
 - **ColBERT Multi-Vector** — Per-token late interaction retrieval (MaxSim)
 - **Matryoshka Embeddings** — Adaptive-dimension search with funnel/cascade modes
 - **MLA** — Multi-Head Latent Attention with ~93% KV-cache compression (DeepSeek-V2/V3)

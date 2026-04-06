@@ -173,9 +173,63 @@ class ExtendedWorkerPool {
       });
 
       // Worker implementations
+
+      // Hash-based embedding: deterministic, no external deps, 128-dim
+      function hashEmbed(text, dim = 128) {
+        const embedding = new Float64Array(dim);
+        const tokens = text.split(/\\s+|[{}()\\[\\];,.<>=/+\\-*&|!~^%@#]/);
+
+        for (let t = 0; t < tokens.length; t++) {
+          const token = tokens[t];
+          if (!token) continue;
+
+          // FNV-1a hash
+          let h = 0x811c9dc5;
+          for (let i = 0; i < token.length; i++) {
+            h ^= token.charCodeAt(i);
+            h = Math.imul(h, 0x01000193);
+          }
+
+          // Positional weight (tokens near start matter more)
+          const posWeight = 1.0 / (1.0 + Math.log1p(t));
+
+          // Distribute across multiple dimensions using hash rotations
+          for (let d = 0; d < 4; d++) {
+            const idx = ((h >>> 0) + d * 37) % dim;
+            const sign = (h & (1 << d)) ? 1 : -1;
+            embedding[idx] += sign * posWeight;
+            h = (h >>> 7) | (h << 25); // rotate
+          }
+        }
+
+        // L2 normalize
+        let norm = 0;
+        for (let i = 0; i < dim; i++) norm += embedding[i] * embedding[i];
+        norm = Math.sqrt(norm) || 1;
+        const result = new Array(dim);
+        for (let i = 0; i < dim; i++) result[i] = embedding[i] / norm;
+        return result;
+      }
+
       async function speculativeEmbed(files, coEditGraph) {
-        // Pre-compute embeddings for likely next files
-        return files.map(f => ({ file: f, embedding: [], confidence: 0.5 }));
+        const fs = require('fs');
+        return files.map(file => {
+          try {
+            if (!fs.existsSync(file)) {
+              return { file, embedding: hashEmbed(file), confidence: 0.2, timestamp: Date.now() };
+            }
+            const content = fs.readFileSync(file, 'utf8');
+            const embedding = hashEmbed(content);
+
+            // Confidence based on file size (more content = higher confidence)
+            const lines = content.split('\\n').length;
+            const confidence = Math.min(0.95, 0.3 + (lines / 500) * 0.65);
+
+            return { file, embedding, confidence, timestamp: Date.now() };
+          } catch {
+            return { file, embedding: hashEmbed(file), confidence: 0.1, timestamp: Date.now() };
+          }
+        });
       }
 
       async function astAnalyze(files) {
@@ -278,26 +332,82 @@ class ExtendedWorkerPool {
         return findings;
       }
 
+      function cosineSimilarity(a, b) {
+        if (!a || !b || a.length !== b.length || a.length === 0) return 0;
+        let dot = 0, normA = 0, normB = 0;
+        for (let i = 0; i < a.length; i++) {
+          dot += a[i] * b[i];
+          normA += a[i] * a[i];
+          normB += b[i] * b[i];
+        }
+        const denom = Math.sqrt(normA) * Math.sqrt(normB);
+        return denom === 0 ? 0 : dot / denom;
+      }
+
       async function ragRetrieve(query, chunks, topK) {
-        // Simple keyword-based retrieval (would use embeddings in production)
-        const queryTerms = query.toLowerCase().split(/\\s+/);
+        // If chunks have embeddings, use cosine similarity (semantic retrieval)
+        const hasEmbeddings = chunks.some(c => c.embedding && c.embedding.length > 0);
+
+        if (hasEmbeddings) {
+          const queryEmbedding = hashEmbed(query, chunks[0].embedding.length);
+          return chunks
+            .map(chunk => {
+              const semantic = chunk.embedding && chunk.embedding.length > 0
+                ? cosineSimilarity(queryEmbedding, chunk.embedding)
+                : 0;
+              // Blend semantic + keyword for robustness
+              const queryTerms = query.toLowerCase().split(/\\s+/);
+              const content = chunk.content.toLowerCase();
+              const kwMatches = queryTerms.filter(t => content.includes(t)).length;
+              const keyword = queryTerms.length > 0 ? kwMatches / queryTerms.length : 0;
+              const relevance = semantic * 0.7 + keyword * 0.3;
+              return { ...chunk, relevance };
+            })
+            .sort((a, b) => b.relevance - a.relevance)
+            .slice(0, topK);
+        }
+
+        // Fallback: TF-IDF-weighted keyword matching
+        const queryTerms = query.toLowerCase().split(/\\s+/).filter(Boolean);
+        const allContent = chunks.map(c => c.content.toLowerCase());
+        const idf = {};
+        for (const term of queryTerms) {
+          const df = allContent.filter(c => c.includes(term)).length || 1;
+          idf[term] = Math.log(allContent.length / df);
+        }
         return chunks
           .map(chunk => {
             const content = chunk.content.toLowerCase();
-            const matches = queryTerms.filter(term => content.includes(term)).length;
-            return { ...chunk, relevance: matches / queryTerms.length };
+            const words = content.split(/\\s+/);
+            let score = 0;
+            for (const term of queryTerms) {
+              const tf = words.filter(w => w === term).length / (words.length || 1);
+              score += tf * (idf[term] || 1);
+            }
+            return { ...chunk, relevance: score };
           })
           .sort((a, b) => b.relevance - a.relevance)
           .slice(0, topK);
       }
 
       async function contextRank(context, query) {
-        const queryTerms = query.toLowerCase().split(/\\s+/);
+        const queryTerms = query.toLowerCase().split(/\\s+/).filter(Boolean);
+        const allContent = context.map(c => c.toLowerCase());
+        const idf = {};
+        for (const term of queryTerms) {
+          const df = allContent.filter(c => c.includes(term)).length || 1;
+          idf[term] = Math.log(allContent.length / df);
+        }
         return context
           .map((ctx, i) => {
             const content = ctx.toLowerCase();
-            const matches = queryTerms.filter(term => content.includes(term)).length;
-            return { index: i, content: ctx, relevance: matches / queryTerms.length };
+            const words = content.split(/\\s+/);
+            let score = 0;
+            for (const term of queryTerms) {
+              const tf = words.filter(w => w === term).length / (words.length || 1);
+              score += tf * (idf[term] || 1);
+            }
+            return { index: i, content: ctx, relevance: score };
           })
           .sort((a, b) => b.relevance - a.relevance);
       }
