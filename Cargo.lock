@@ -9102,6 +9102,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-diskann"
+version = "2.1.0"
+dependencies = [
+ "bincode 2.0.1",
+ "bytemuck",
+ "memmap2",
+ "parking_lot 0.12.5",
+ "rand 0.8.5",
+ "rayon",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "ruvector-diskann-node"
+version = "2.1.0"
+dependencies = [
+ "napi",
+ "napi-build",
+ "napi-derive",
+ "parking_lot 0.12.5",
+ "ruvector-diskann",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "ruvector-dither"
 version = "0.1.0"
 dependencies = [
