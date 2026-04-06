@@ -22,25 +22,38 @@ export declare class SemanticRouter {
     private inner;
     private routes;
     constructor(options?: {
-        dimensions?: number;
+        dimension?: number;
         threshold?: number;
     });
     /**
-     * Add a route with example utterances
+     * Set the embedder function for converting text to vectors.
+     * Required before match() can accept string input.
      */
-    addRoute(name: string, utterances: string[], metadata?: Record<string, any>): void;
+    setEmbedder(embedder: (text: string) => Promise<Float32Array>): void;
+    /**
+     * Add a route with example utterances (sync, requires pre-computed embedding)
+     */
+    addRoute(name: string, utterances: string[], metadata?: Record<string, any>, embedding?: Float32Array | number[]): void;
+    /**
+     * Add a route with automatic embedding computation (requires setEmbedder)
+     */
+    addRouteAsync(name: string, utterances: string[], metadata?: Record<string, any>): Promise<void>;
     /**
      * Add multiple routes at once
      */
     addRoutes(routes: Route[]): void;
     /**
-     * Match input to best route
+     * Match input to best route (async, accepts string if embedder is set, or Float32Array)
      */
-    match(input: string): RouteMatch | null;
+    match(input: string | Float32Array): Promise<RouteMatch | null>;
     /**
-     * Get top-k route matches
+     * Get top-k route matches (async)
      */
-    matchTopK(input: string, k?: number): RouteMatch[];
+    matchTopK(input: string | Float32Array, k?: number): Promise<RouteMatch[]>;
+    /**
+     * Match with a pre-computed embedding (synchronous)
+     */
+    matchWithEmbedding(embedding: Float32Array, k?: number): RouteMatch[];
     /**
      * Get all registered routes
      */

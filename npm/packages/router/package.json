@@ -32,11 +32,11 @@
     "@napi-rs/cli": "^2.18.0"
   },
   "optionalDependencies": {
-    "@ruvector/router-linux-x64-gnu": "0.1.27",
-    "@ruvector/router-linux-arm64-gnu": "0.1.27",
-    "@ruvector/router-darwin-x64": "0.1.27",
-    "@ruvector/router-darwin-arm64": "0.1.27",
-    "@ruvector/router-win32-x64-msvc": "0.1.27"
+    "@ruvector/router-linux-x64-gnu": "0.1.28",
+    "@ruvector/router-linux-arm64-gnu": "0.1.28",
+    "@ruvector/router-darwin-x64": "0.1.28",
+    "@ruvector/router-darwin-arm64": "0.1.28",
+    "@ruvector/router-win32-x64-msvc": "0.1.28"
   },
   "publishConfig": {
     "access": "public"

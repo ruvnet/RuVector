@@ -180,7 +180,11 @@ impl Storage {
 
         // Read from database
         let read_txn = self.db.begin_read()?;
-        let table = read_txn.open_table(VECTORS_TABLE)?;
+        let table = match read_txn.open_table(VECTORS_TABLE) {
+            Ok(t) => t,
+            Err(redb::TableError::TableDoesNotExist(_)) => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
 
         if let Some(bytes) = table.get(id)? {
             let (vector, _): (Vec<f32>, usize) =
@@ -201,7 +205,11 @@ impl Storage {
     /// Get metadata for a vector
     pub fn get_metadata(&self, id: &str) -> Result<Option<HashMap<String, serde_json::Value>>> {
         let read_txn = self.db.begin_read()?;
-        let table = read_txn.open_table(METADATA_TABLE)?;
+        let table = match read_txn.open_table(METADATA_TABLE) {
+            Ok(t) => t,
+            Err(redb::TableError::TableDoesNotExist(_)) => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
 
         if let Some(bytes) = table.get(id)? {
             let metadata: HashMap<String, serde_json::Value> =
@@ -241,7 +249,11 @@ impl Storage {
     /// Get all vector IDs
     pub fn get_all_ids(&self) -> Result<Vec<String>> {
         let read_txn = self.db.begin_read()?;
-        let table = read_txn.open_table(VECTORS_TABLE)?;
+        let table = match read_txn.open_table(VECTORS_TABLE) {
+            Ok(t) => t,
+            Err(redb::TableError::TableDoesNotExist(_)) => return Ok(Vec::new()),
+            Err(e) => return Err(e.into()),
+        };
 
         let mut ids = Vec::new();
         let iter = table.iter()?;
@@ -256,8 +268,11 @@ impl Storage {
     /// Count total vectors
     pub fn count(&self) -> Result<usize> {
         let read_txn = self.db.begin_read()?;
-        let table = read_txn.open_table(VECTORS_TABLE)?;
-        Ok(table.len()? as usize)
+        match read_txn.open_table(VECTORS_TABLE) {
+            Ok(table) => Ok(table.len()? as usize),
+            Err(redb::TableError::TableDoesNotExist(_)) => Ok(0),
+            Err(e) => Err(e.into()),
+        }
     }
 
     /// Store index data
