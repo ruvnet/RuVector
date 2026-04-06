@@ -19,6 +19,7 @@ mod phase;
 mod separator;
 mod stft;
 mod streaming_multi;
+mod transcriber;
 #[cfg(feature = "wasm")]
 mod wasm_bridge;
 mod wav;
@@ -77,8 +78,12 @@ fn main() {
     println!("\n======== PART 11: Real Audio Evaluation (BSS) ========");
     run_real_audio_evaluation();
 
+    // ── Part 12: Transcription benchmark (before/after separation) ──────
+    println!("\n======== PART 12: Separation → Transcription Benchmark ========");
+    run_transcription_benchmark();
+
     println!("\n================================================================");
-    println!("  MUSICA benchmark suite complete — 11 parts validated.");
+    println!("  MUSICA benchmark suite complete — 12 parts validated.");
     println!("================================================================");
 }
 
@@ -596,4 +601,86 @@ fn run_enhanced_comparison() {
 fn run_real_audio_evaluation() {
     let results = evaluation::run_full_evaluation(8000.0, 0.5);
     evaluation::print_evaluation_report(&results);
+}
+
+// ── Part 12 ─────────────────────────────────────────────────────────────
+
+fn run_transcription_benchmark() {
+    use evaluation::{generate_speech_like, generate_noise, NoiseType};
+    use transcriber::{benchmark_separation_for_transcription, estimate_wer_from_snr, compute_snr};
+
+    let sr = 8000.0;
+    let duration = 1.0;
+    let n = (sr * duration) as usize;
+
+    println!("  candle-whisper integration: pure Rust transcription pipeline");
+    println!("  Model: Whisper tiny (39M params) | Feature: --features transcribe");
+    println!();
+
+    // Scenario A: Two speakers with different pitches
+    let speaker1 = generate_speech_like(sr, duration, 120.0, 10, 5.0, 0.02);
+    let speaker2 = generate_speech_like(sr, duration, 220.0, 8, 6.0, 0.03);
+
+    println!("  ── Scenario A: Two Overlapping Speakers ──");
+    let result_a = benchmark_separation_for_transcription(
+        &[speaker1.clone(), speaker2.clone()],
+        &["Speaker 1 (120Hz)", "Speaker 2 (220Hz)"],
+        sr,
+    );
+    print_transcription_quality("  ", &result_a);
+
+    // Scenario B: Speech in noise
+    let speech = generate_speech_like(sr, duration, 150.0, 12, 5.0, 0.02);
+    let noise = generate_noise(sr, duration, NoiseType::Pink);
+
+    println!("\n  ── Scenario B: Speech in Pink Noise ──");
+    let result_b = benchmark_separation_for_transcription(
+        &[speech.clone(), noise.clone()],
+        &["Speech", "Noise"],
+        sr,
+    );
+    print_transcription_quality("  ", &result_b);
+
+    // Scenario C: Speech in babble (cocktail party)
+    let target = generate_speech_like(sr, duration, 150.0, 12, 5.0, 0.02);
+    let babble = generate_noise(sr, duration, NoiseType::Babble);
+
+    println!("\n  ── Scenario C: Speech in Babble Noise (Cocktail Party) ──");
+    let result_c = benchmark_separation_for_transcription(
+        &[target.clone(), babble.clone()],
+        &["Target Speech", "Babble"],
+        sr,
+    );
+    print_transcription_quality("  ", &result_c);
+
+    // Summary table
+    println!("\n  ── Summary: Before vs After Musica Separation ──");
+    println!("  {:<25} {:>10} {:>10} {:>10} {:>10}", "Scenario", "SNR(mix)", "SNR(sep)", "WER(mix)", "WER(sep)");
+    println!("  {}", "-".repeat(70));
+    for (name, result) in [
+        ("Two Speakers", &result_a),
+        ("Speech + Pink Noise", &result_b),
+        ("Cocktail Party", &result_c),
+    ] {
+        let q = &result.quality;
+        println!(
+            "  {:<25} {:>+9.1}dB {:>+9.1}dB {:>9.1}% {:>9.1}%",
+            name, q.mixed_snr_db, q.separated_snr_db, q.estimated_wer_mixed, q.estimated_wer_separated
+        );
+    }
+}
+
+fn print_transcription_quality(prefix: &str, result: &transcriber::SeparateAndTranscribeResult) {
+    let q = &result.quality;
+    println!("{}  BEFORE separation (mixed signal):", prefix);
+    println!("{}    SNR:           {:+.1} dB", prefix, q.mixed_snr_db);
+    println!("{}    Est. WER:      {:.1}%", prefix, q.estimated_wer_mixed);
+    println!("{}  AFTER Musica separation:", prefix);
+    println!("{}    SNR:           {:+.1} dB  ({:+.1} dB improvement)", prefix, q.separated_snr_db, q.snr_improvement_db);
+    println!("{}    Est. WER:      {:.1}%  ({:.1}x reduction)", prefix, q.estimated_wer_separated, q.wer_reduction_factor);
+    println!("{}  Separation time: {:.1} ms | Transcription time: {:.1} ms", prefix, result.separation_ms, result.transcription_ms);
+
+    for (label, trans) in &result.transcriptions {
+        println!("{}  Track '{}': {} segments, {:.1}ms", prefix, label, trans.segments.len(), trans.processing_ms);
+    }
 }
