@@ -286,11 +286,22 @@ pub fn lanczos_eigenpairs(laplacian: &SparseMatrix, config: &LanczosConfig) -> E
             axpy(-beta_off[j - 1], &q[j - 1], &mut w);
         }
 
-        // Reorthogonalize against all previous vectors
+        // Selective reorthogonalization: full reorth every 5 iterations,
+        // or just against last 2 vectors otherwise (O(n) instead of O(jn))
         if config.reorthogonalize {
-            for qi in &q {
-                let proj = dot(&w, qi);
-                axpy(-proj, qi, &mut w);
+            if j % 5 == 0 || j < 3 {
+                // Full reorthogonalization
+                for qi in &q {
+                    let proj = dot(&w, qi);
+                    axpy(-proj, qi, &mut w);
+                }
+            } else {
+                // Partial: reorthogonalize against last 2 vectors only
+                let start = if j >= 2 { j - 1 } else { 0 };
+                for qi in &q[start..=j] {
+                    let proj = dot(&w, qi);
+                    axpy(-proj, qi, &mut w);
+                }
             }
         }
 

@@ -340,8 +340,9 @@ fn frequency_kmeans(
 
     let mut assignments = vec![0usize; n];
 
-    for _ in 0..20 {
+    for _iter in 0..20 {
         // Assign each node to nearest centroid
+        let mut changed = false;
         for (i, bin) in node_bins.iter().enumerate() {
             let freq = bin.freq_bin as f64;
             let nearest = centroids
@@ -352,7 +353,15 @@ fn frequency_kmeans(
                 })
                 .map(|(idx, _)| idx)
                 .unwrap_or(0);
-            assignments[i] = nearest;
+            if assignments[i] != nearest {
+                assignments[i] = nearest;
+                changed = true;
+            }
+        }
+
+        // Early stopping: no assignments changed
+        if !changed {
+            break;
         }
 
         // Update centroids

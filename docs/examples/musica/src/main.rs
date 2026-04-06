@@ -604,13 +604,14 @@ fn run_enhanced_comparison() {
 // ── Part 11 ─────────────────────────────────────────────────────────────
 
 fn run_real_audio_evaluation() {
-    let _results = evaluation::run_full_evaluation();
+    let results = evaluation::run_full_evaluation(8000.0, 0.5);
+    evaluation::print_evaluation_report(&results);
 }
 
 // ── Part 12 ─────────────────────────────────────────────────────────────
 
 fn run_transcription_benchmark() {
-    use evaluation::{generate_speech_like, generate_noise_typed, NoiseType};
+    use evaluation::{generate_speech_like, generate_noise, NoiseType};
     use transcriber::{benchmark_separation_for_transcription, estimate_wer_from_snr, compute_snr};
 
     let sr = 8000.0;
@@ -635,7 +636,7 @@ fn run_transcription_benchmark() {
 
     // Scenario B: Speech in noise
     let speech = generate_speech_like(sr, duration, 150.0, 12, 5.0, 0.02);
-    let noise = generate_noise_typed(sr, duration, NoiseType::Pink);
+    let noise = generate_noise(sr, duration, NoiseType::Pink);
 
     println!("\n  ── Scenario B: Speech in Pink Noise ──");
     let result_b = benchmark_separation_for_transcription(
@@ -647,7 +648,7 @@ fn run_transcription_benchmark() {
 
     // Scenario C: Speech in babble (cocktail party)
     let target = generate_speech_like(sr, duration, 150.0, 12, 5.0, 0.02);
-    let babble = generate_noise_typed(sr, duration, NoiseType::Babble);
+    let babble = generate_noise(sr, duration, NoiseType::Babble);
 
     println!("\n  ── Scenario C: Speech in Babble Noise (Cocktail Party) ──");
     let result_c = benchmark_separation_for_transcription(

@@ -98,23 +98,22 @@ pub fn build_audio_graph(stft: &StftResult, params: &GraphParams) -> AudioGraph 
 
     // 2a. Spectral proximity — connect nearby frequency bins in the same frame
     for frame in 0..stft.num_frames {
+        let base = frame * stft.num_freq_bins;
         for f1 in 0..stft.num_freq_bins {
-            let n1 = match node_map[frame * stft.num_freq_bins + f1] {
+            let n1 = match node_map[base + f1] {
                 Some(id) => id,
                 None => continue,
             };
-            let mag1 = stft.bins[frame * stft.num_freq_bins + f1].magnitude;
+            let mag1 = stft.bins[base + f1].magnitude;
 
-            for df in 1..=params.spectral_radius {
-                let f2 = f1 + df;
-                if f2 >= stft.num_freq_bins {
-                    break;
-                }
-                let n2 = match node_map[frame * stft.num_freq_bins + f2] {
+            let f_end = (f1 + params.spectral_radius + 1).min(stft.num_freq_bins);
+            for f2 in (f1 + 1)..f_end {
+                let n2 = match node_map[base + f2] {
                     Some(id) => id,
                     None => continue,
                 };
-                let mag2 = stft.bins[frame * stft.num_freq_bins + f2].magnitude;
+                let mag2 = stft.bins[base + f2].magnitude;
+                let df = f2 - f1;
 
                 // Weight: geometric mean of magnitudes, decaying with distance
                 let w = params.spectral_weight
@@ -131,18 +130,20 @@ pub fn build_audio_graph(stft: &StftResult, params: &GraphParams) -> AudioGraph 
 
     // 2b. Temporal continuity — connect same freq bin across adjacent frames
     for frame in 0..stft.num_frames.saturating_sub(1) {
+        let base1 = frame * stft.num_freq_bins;
+        let base2 = (frame + 1) * stft.num_freq_bins;
         for f in 0..stft.num_freq_bins {
-            let n1 = match node_map[frame * stft.num_freq_bins + f] {
+            let n1 = match node_map[base1 + f] {
                 Some(id) => id,
                 None => continue,
             };
-            let n2 = match node_map[(frame + 1) * stft.num_freq_bins + f] {
+            let n2 = match node_map[base2 + f] {
                 Some(id) => id,
                 None => continue,
             };
 
-            let bin1 = &stft.bins[frame * stft.num_freq_bins + f];
-            let bin2 = &stft.bins[(frame + 1) * stft.num_freq_bins + f];
+            let bin1 = &stft.bins[base1 + f];
+            let bin2 = &stft.bins[base2 + f];
 
             let mag_sim = (bin1.magnitude * bin2.magnitude).sqrt();
             let mut w = params.temporal_weight * mag_sim;
@@ -169,23 +170,28 @@ pub fn build_audio_graph(stft: &StftResult, params: &GraphParams) -> AudioGraph 
 
     // 2c. Harmonic alignment — connect bins at integer frequency ratios
     for frame in 0..stft.num_frames {
-        for f1 in 1..stft.num_freq_bins {
-            let n1 = match node_map[frame * stft.num_freq_bins + f1] {
+        let base = frame * stft.num_freq_bins;
+        // Precompute max f1 for each harmonic to avoid inner bound checks
+        let max_f1 = if params.max_harmonics >= 2 {
+            stft.num_freq_bins / 2
+        } else {
+            stft.num_freq_bins
+        };
+        for f1 in 1..max_f1 {
+            let n1 = match node_map[base + f1] {
                 Some(id) => id,
                 None => continue,
             };
-            let mag1 = stft.bins[frame * stft.num_freq_bins + f1].magnitude;
+            let mag1 = stft.bins[base + f1].magnitude;
 
-            for h in 2..=params.max_harmonics {
+            let h_max = ((stft.num_freq_bins - 1) / f1).min(params.max_harmonics);
+            for h in 2..=h_max {
                 let f2 = f1 * h;
-                if f2 >= stft.num_freq_bins {
-                    break;
-                }
-                let n2 = match node_map[frame * stft.num_freq_bins + f2] {
+                let n2 = match node_map[base + f2] {
                     Some(id) => id,
                     None => continue,
                 };
-                let mag2 = stft.bins[frame * stft.num_freq_bins + f2].magnitude;
+                let mag2 = stft.bins[base + f2].magnitude;
 
                 let w = params.harmonic_weight
                     * (mag1 * mag2).sqrt()

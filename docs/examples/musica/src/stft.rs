@@ -104,28 +104,36 @@ pub fn stft(signal: &[f64], window_size: usize, hop_size: usize, sample_rate: f6
     assert!(window_size.is_power_of_two());
     let window = hann_window(window_size);
     let num_freq_bins = window_size / 2 + 1;
-    let mut bins = Vec::new();
+    let num_frames = if signal.len() >= window_size {
+        (signal.len() - window_size) / hop_size + 1
+    } else {
+        0
+    };
+    let mut bins = Vec::with_capacity(num_frames * num_freq_bins);
     let mut frame_idx = 0;
+
+    // Pre-allocate FFT buffers — reuse across frames
+    let mut real = vec![0.0; window_size];
+    let mut imag = vec![0.0; window_size];
 
     let mut start = 0;
     while start + window_size <= signal.len() {
-        let mut real = vec![0.0; window_size];
-        let mut imag = vec![0.0; window_size];
-
+        // Zero imag, apply window to real (reuse buffers)
         for i in 0..window_size {
             real[i] = signal[start + i] * window[i];
+            imag[i] = 0.0;
         }
 
         fft(&mut real, &mut imag);
 
         for k in 0..num_freq_bins {
-            let mag = (real[k] * real[k] + imag[k] * imag[k]).sqrt();
-            let phase = imag[k].atan2(real[k]);
+            let rk = real[k];
+            let ik = imag[k];
             bins.push(TfBin {
                 frame: frame_idx,
                 freq_bin: k,
-                magnitude: mag,
-                phase,
+                magnitude: (rk * rk + ik * ik).sqrt(),
+                phase: ik.atan2(rk),
             });
         }
 
@@ -172,12 +180,16 @@ pub fn istft(
     let mut output = vec![0.0; output_len];
     let mut window_sum = vec![0.0; output_len];
 
+    // Pre-allocate IFFT buffers — reuse across frames
+    let mut real = vec![0.0; n];
+    let mut imag = vec![0.0; n];
+
     for frame in 0..stft_result.num_frames {
         let base = frame * num_freq;
 
-        // Build full spectrum (mirror conjugate for bins > N/2)
-        let mut real = vec![0.0; n];
-        let mut imag = vec![0.0; n];
+        // Zero buffers (reuse allocation)
+        real.iter_mut().for_each(|v| *v = 0.0);
+        imag.iter_mut().for_each(|v| *v = 0.0);
 
         for k in 0..num_freq {
             let bin = &stft_result.bins[base + k];

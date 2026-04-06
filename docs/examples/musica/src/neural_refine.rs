@@ -119,19 +119,30 @@ impl TinyMLP {
     }
 
     /// Forward pass: input -> ReLU hidden -> linear output -> sigmoid.
+    #[inline]
     pub fn forward(&self, input: &[f64]) -> Vec<f64> {
         // Layer 1: z1 = W1 * x + b1, h = relu(z1)
-        let hidden: Vec<f64> = (0..self.config.hidden_dim)
-            .map(|i| {
-                let z: f64 = self.w1[i].iter().zip(input.iter()).map(|(w, x)| w * x).sum::<f64>() + self.b1[i];
-                relu(z)
-            })
-            .collect();
+        // Manual loop for better auto-vectorization
+        let hdim = self.config.hidden_dim;
+        let idim = self.config.input_dim;
+        let mut hidden = vec![0.0; hdim];
+        for i in 0..hdim {
+            let mut z = self.b1[i];
+            let w_row = &self.w1[i];
+            for j in 0..idim {
+                z += w_row[j] * input[j];
+            }
+            hidden[i] = relu(z);
+        }
 
         // Layer 2: z2 = W2 * h + b2, out = sigmoid(z2)
         let output: Vec<f64> = (0..self.config.output_dim)
             .map(|i| {
-                let z: f64 = self.w2[i].iter().zip(hidden.iter()).map(|(w, h)| w * h).sum::<f64>() + self.b2[i];
+                let mut z = self.b2[i];
+                let w_row = &self.w2[i];
+                for j in 0..hdim {
+                    z += w_row[j] * hidden[j];
+                }
                 sigmoid(z)
             })
             .collect();
