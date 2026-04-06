@@ -152,7 +152,14 @@ impl SparseMatrix {
     }
 
     /// Matrix dimension.
+    #[inline]
     pub fn dim(&self) -> usize {
+        self.n
+    }
+
+    /// Matrix dimension (alias for compatibility).
+    #[inline]
+    pub fn n(&self) -> usize {
         self.n
     }
 }
@@ -507,6 +514,10 @@ pub fn power_iteration_fiedler(laplacian: &SparseMatrix, max_iter: usize) -> Vec
 
 /// Align current eigenvectors with previous frame's eigenvectors
 /// using sign consistency (simplified Procrustes).
+///
+/// For each eigenvector pair, computes the inner product with the
+/// corresponding previous vector and flips the sign if negative.
+/// This prevents sign-flip discontinuities across STFT frames.
 pub fn align_eigenvectors(current: &mut [Vec<f64>], previous: &[Vec<f64>]) {
     let k = current.len().min(previous.len());
 
@@ -516,14 +527,49 @@ pub fn align_eigenvectors(current: &mut [Vec<f64>], previous: &[Vec<f64>]) {
             continue;
         }
 
-        // Check if flipping sign improves alignment
+        // Compute overlap with previous frame's eigenvector
         let d = dot(&current[i][..n], &previous[i][..n]);
         if d < 0.0 {
+            // Flip sign to maintain consistency across frames
             for x in &mut current[i] {
                 *x = -*x;
             }
         }
     }
+}
+
+/// Batch mode: compute eigenpairs for multiple windows (graph Laplacians),
+/// with cross-frame eigenvector alignment applied automatically.
+///
+/// Each `SparseMatrix` in `laplacians` represents one STFT window's graph.
+/// Returns one `EigenResult` per window, with eigenvectors aligned to
+/// the previous window via Procrustes sign consistency.
+pub fn batch_lanczos(
+    laplacians: &[SparseMatrix],
+    config: &LanczosConfig,
+) -> Vec<EigenResult> {
+    if laplacians.is_empty() {
+        return Vec::new();
+    }
+
+    let mut results = Vec::with_capacity(laplacians.len());
+
+    // Process first window
+    let first = lanczos_eigenpairs(&laplacians[0], config);
+    results.push(first);
+
+    // Process subsequent windows with alignment
+    for i in 1..laplacians.len() {
+        let mut result = lanczos_eigenpairs(&laplacians[i], config);
+
+        // Align to previous frame
+        let prev_vecs = &results[i - 1].eigenvectors;
+        align_eigenvectors(&mut result.eigenvectors, prev_vecs);
+
+        results.push(result);
+    }
+
+    results
 }
 
 #[cfg(test)]
