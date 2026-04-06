@@ -9,7 +9,10 @@ use ruvector_router_core::{
     VectorEntry as CoreVectorEntry,
 };
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+
+static INSTANCE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[napi]
 pub enum DistanceMetric {
@@ -74,6 +77,12 @@ impl VectorDB {
 
         if let Some(path) = options.storage_path {
             builder = builder.storage_path(path);
+        } else {
+            // Use a unique temp path per instance to avoid file lock conflicts
+            let id = INSTANCE_COUNTER.fetch_add(1, Ordering::Relaxed);
+            let pid = std::process::id();
+            let tmp = std::env::temp_dir().join(format!("ruvector-{}-{}.db", pid, id));
+            builder = builder.storage_path(tmp);
         }
 
         let db = builder
