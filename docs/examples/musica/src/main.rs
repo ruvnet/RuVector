@@ -6,6 +6,8 @@
 mod adaptive;
 mod audio_graph;
 mod benchmark;
+mod enhanced_separator;
+mod evaluation;
 mod crowd;
 mod hearing_aid;
 mod hearmusica;
@@ -63,8 +65,20 @@ fn main() {
     println!("\n======== PART 8: Streaming 6-Stem Separation ========");
     run_streaming_multitrack_benchmark();
 
+    // ── Part 9: Adaptive tuning ────────────────────────────────────────
+    println!("\n======== PART 9: Adaptive Parameter Tuning ========");
+    run_adaptive_tuning();
+
+    // ── Part 10: Enhanced separator comparison ──────────────────────────
+    println!("\n======== PART 10: Enhanced Separator Comparison ========");
+    run_enhanced_comparison();
+
+    // ── Part 11: Real audio evaluation ──────────────────────────────────
+    println!("\n======== PART 11: Real Audio Evaluation (BSS) ========");
+    run_real_audio_evaluation();
+
     println!("\n================================================================");
-    println!("  MUSICA benchmark suite complete — 8 parts validated.");
+    println!("  MUSICA benchmark suite complete — 11 parts validated.");
     println!("================================================================");
 }
 
@@ -478,4 +492,108 @@ fn run_streaming_multitrack_benchmark() {
         let energy: f64 = signal.iter().map(|s| s * s).sum::<f64>() / signal.len().max(1) as f64;
         println!("  {:>8}: energy={:.6}", format!("{:?}", stem), energy);
     }
+}
+
+// ── Part 9 ──────────────────────────────────────────────────────────────
+
+fn run_adaptive_tuning() {
+    use adaptive::{default_search_ranges, random_search};
+    use std::f64::consts::PI;
+
+    let sr = 8000.0;
+    let duration = 0.25;
+    let n = (sr * duration) as usize;
+
+    // Two-tone test signal: 200 Hz + 2000 Hz (well-separated)
+    let src1: Vec<f64> = (0..n)
+        .map(|i| (2.0 * PI * 200.0 * i as f64 / sr).sin())
+        .collect();
+    let src2: Vec<f64> = (0..n)
+        .map(|i| 0.8 * (2.0 * PI * 2000.0 * i as f64 / sr).sin())
+        .collect();
+    let mixed: Vec<f64> = src1.iter().zip(src2.iter()).map(|(a, b)| a + b).collect();
+    let references = vec![src1, src2];
+
+    println!("  Signal: {} samples ({:.2}s, 200Hz + 2000Hz)", n, duration);
+
+    // Evaluate default params
+    let config = default_search_ranges();
+    let default_params = GraphParams::default();
+
+    let stft_result = stft::stft(&mixed, config.window_size, config.hop_size, config.sample_rate);
+    let ag = audio_graph::build_audio_graph(&stft_result, &default_params);
+    let sep = separator::separate(&ag, &config.separator_config);
+
+    let default_sdr = {
+        let num_sources = sep.masks.len().min(references.len());
+        let mut total = 0.0f64;
+        for s in 0..num_sources {
+            let recovered = stft::istft(&stft_result, &sep.masks[s], mixed.len());
+            let ref_e: f64 = references[s].iter().map(|x| x * x).sum();
+            let noise_e: f64 = references[s]
+                .iter()
+                .zip(recovered.iter())
+                .map(|(r, e)| (r - e) * (r - e))
+                .sum();
+            let sdr = if noise_e < 1e-12 {
+                100.0
+            } else if ref_e < 1e-12 {
+                f64::NEG_INFINITY
+            } else {
+                10.0 * (ref_e / noise_e).log10()
+            };
+            total += sdr;
+        }
+        total / num_sources as f64
+    };
+
+    // Random search with 20 trials
+    let start = std::time::Instant::now();
+    let result = random_search(&mixed, &references, &config, 20);
+    let elapsed = start.elapsed();
+
+    let improvement = result.best_score - default_sdr;
+
+    println!("  Default SDR:      {:.2} dB", default_sdr);
+    println!("  Optimized SDR:    {:.2} dB", result.best_score);
+    println!("  Improvement:      {:+.2} dB", improvement);
+    println!("  Trials:           {}", result.trials.len());
+    println!("  Search time:      {:.1} ms", elapsed.as_secs_f64() * 1000.0);
+    println!("  Best params:");
+    println!("    spectral_weight:  {:.3}", result.best_params.spectral_weight);
+    println!("    temporal_weight:  {:.3}", result.best_params.temporal_weight);
+    println!("    harmonic_weight:  {:.3}", result.best_params.harmonic_weight);
+    println!("    phase_threshold:  {:.3}", result.best_params.phase_threshold);
+    println!("    spectral_radius:  {}", result.best_params.spectral_radius);
+    println!("    max_harmonics:    {}", result.best_params.max_harmonics);
+}
+
+// ── Part 10 ──────────────────────────────────────────────────────────────
+
+fn run_enhanced_comparison() {
+    use std::f64::consts::PI;
+
+    let sr = 8000.0;
+    let duration = 0.25;
+    let n = (sr * duration) as usize;
+
+    let src1: Vec<f64> = (0..n).map(|i| (2.0 * PI * 200.0 * i as f64 / sr).sin()).collect();
+    let src2: Vec<f64> = (0..n).map(|i| 0.8 * (2.0 * PI * 2000.0 * i as f64 / sr).sin()).collect();
+    let mixed: Vec<f64> = src1.iter().zip(src2.iter()).map(|(a, b)| a + b).collect();
+    let references = vec![src1, src2];
+
+    println!("  Signal: {} samples ({:.2}s, 200Hz + 2000Hz)", n, duration);
+
+    let report = enhanced_separator::compare_modes(&mixed, &references, sr);
+    println!("  Basic (Fiedler only):    {:+.2} dB", report.basic_sdr);
+    println!("  + Multi-Resolution:      {:+.2} dB  ({:+.2} dB)", report.multires_sdr, report.multires_sdr - report.basic_sdr);
+    println!("  + Neural Refinement:     {:+.2} dB  ({:+.2} dB)", report.neural_sdr, report.neural_sdr - report.basic_sdr);
+    println!("  + Both (full pipeline):  {:+.2} dB  ({:+.2} dB)", report.both_sdr, report.both_sdr - report.basic_sdr);
+}
+
+// ── Part 11 ─────────────────────────────────────────────────────────────
+
+fn run_real_audio_evaluation() {
+    let results = evaluation::run_full_evaluation(8000.0, 0.5);
+    evaluation::print_evaluation_report(&results);
 }
