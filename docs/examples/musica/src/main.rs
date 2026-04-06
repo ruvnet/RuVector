@@ -4,6 +4,7 @@
 //! multitrack 6-stem splitting, and crowd-scale identity tracking.
 
 mod adaptive;
+mod advanced_separator;
 mod audio_graph;
 mod benchmark;
 mod enhanced_separator;
@@ -87,8 +88,12 @@ fn main() {
     println!("\n======== PART 13: Real Audio Separation (Public WAVs) ========");
     run_real_audio_separation();
 
+    // ── Part 14: Advanced SOTA separation (Wiener + Cascade + Multi-Res) ──
+    println!("\n======== PART 14: Advanced SOTA Separation ========");
+    run_advanced_sota_benchmark();
+
     println!("\n================================================================");
-    println!("  MUSICA benchmark suite complete — 13 parts validated.");
+    println!("  MUSICA benchmark suite complete — 14 parts validated.");
     println!("================================================================");
 }
 
@@ -694,4 +699,80 @@ fn print_transcription_quality(prefix: &str, result: &transcriber::SeparateAndTr
 
 fn run_real_audio_separation() {
     real_audio::run_real_audio_benchmarks("test_audio");
+}
+
+// ── Part 14 ─────────────────────────────────────────────────────────────
+
+fn run_advanced_sota_benchmark() {
+    use advanced_separator::{advanced_separate, compare_basic_vs_advanced, AdvancedConfig};
+    use std::f64::consts::PI;
+
+    let sr = 8000.0;
+    let duration = 0.5;
+    let n = (sr * duration) as usize;
+
+    let scenarios: Vec<(&str, Vec<f64>, Vec<Vec<f64>>)> = vec![
+        {
+            // Well-separated tones
+            let s1: Vec<f64> = (0..n).map(|i| (2.0 * PI * 200.0 * i as f64 / sr).sin()).collect();
+            let s2: Vec<f64> = (0..n).map(|i| 0.8 * (2.0 * PI * 2000.0 * i as f64 / sr).sin()).collect();
+            let mix: Vec<f64> = s1.iter().zip(s2.iter()).map(|(a, b)| a + b).collect();
+            ("Well-separated (200Hz+2000Hz)", mix, vec![s1, s2])
+        },
+        {
+            // Close tones (harder)
+            let s1: Vec<f64> = (0..n).map(|i| (2.0 * PI * 400.0 * i as f64 / sr).sin()).collect();
+            let s2: Vec<f64> = (0..n).map(|i| (2.0 * PI * 600.0 * i as f64 / sr).sin()).collect();
+            let mix: Vec<f64> = s1.iter().zip(s2.iter()).map(|(a, b)| a + b).collect();
+            ("Close tones (400Hz+600Hz)", mix, vec![s1, s2])
+        },
+        {
+            // Harmonic + noise
+            let s1: Vec<f64> = (0..n).map(|i| {
+                let t = i as f64 / sr;
+                0.5 * (2.0 * PI * 300.0 * t).sin()
+                    + 0.25 * (2.0 * PI * 600.0 * t).sin()
+                    + 0.12 * (2.0 * PI * 900.0 * t).sin()
+            }).collect();
+            let s2: Vec<f64> = (0..n).map(|i| {
+                // Pseudo-noise via high-frequency sum
+                let t = i as f64 / sr;
+                0.3 * ((t * 7919.0).sin() + (t * 6271.0).sin() + (t * 3571.0).sin()) / 3.0
+            }).collect();
+            let mix: Vec<f64> = s1.iter().zip(s2.iter()).map(|(a, b)| a + b).collect();
+            ("Harmonic + broadband noise", mix, vec![s1, s2])
+        },
+    ];
+
+    println!("  Techniques: Wiener filtering + Cascaded refinement + Multi-resolution fusion");
+    println!("  Wiener exponent: 2.0 | Cascade iters: 3 | Resolutions: 256/512/1024");
+    println!();
+    println!("  {:<35} {:>10} {:>10} {:>10} {:>10} {:>10}",
+        "Scenario", "Basic", "Advanced", "Δ SDR", "Basic ms", "Adv ms");
+    println!("  {}", "-".repeat(85));
+
+    for (label, mixed, refs) in &scenarios {
+        let result = compare_basic_vs_advanced(mixed, refs, sr);
+        println!(
+            "  {:<35} {:>+9.1}dB {:>+9.1}dB {:>+9.1}dB {:>9.1} {:>9.1}",
+            label,
+            result.basic_avg_sdr,
+            result.advanced_avg_sdr,
+            result.improvement_db,
+            result.basic_ms,
+            result.advanced_ms,
+        );
+    }
+
+    // Also show resolution stats for the last scenario
+    let last = scenarios.last().unwrap();
+    let adv_config = AdvancedConfig::default();
+    let adv_result = advanced_separate(&last.1, &adv_config, sr);
+    println!();
+    println!("  Resolution breakdown (last scenario):");
+    for (ws, nodes) in &adv_result.resolution_stats {
+        println!("    Window {}: {} nodes", ws, nodes);
+    }
+    println!("  Total time: {:.1} ms | Iterations: {}",
+        adv_result.processing_ms, adv_result.iterations_used);
 }
