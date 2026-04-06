@@ -1,0 +1,21 @@
+[package]
+name = "ruvector-graph-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+ruvector-graph = { path = "..", default-features = false }
+arbitrary = { version = "1", features = ["derive"] }
+
+# Prevent this from being discovered as a workspace member
+[workspace]
+
+[[bin]]
+name = "fuzz_cypher_parser"
+path = "fuzz_targets/fuzz_cypher_parser.rs"
+doc = false

@@ -281,7 +281,8 @@ impl RaftNode {
             let last_new_entry = if req.entries.is_empty() {
                 req.prev_log_index
             } else {
-                req.entries.last().unwrap().index
+                // SAFETY: We just checked entries is not empty in the if condition
+                req.entries.last().expect("entries verified non-empty").index
             };
             volatile.update_commit_index(std::cmp::min(req.leader_commit, last_new_entry));
         }

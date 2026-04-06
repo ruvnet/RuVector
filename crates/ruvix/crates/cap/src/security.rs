@@ -409,8 +409,13 @@ impl BootVerifier {
             #[cfg(any(test, feature = "disable-boot-verify"))]
             return;
 
+            // SAFETY: This branch is unreachable in production because `enabled`
+            // can only be set to `false` via `BootVerifier::disabled()`, which is
+            // gated behind `#[cfg(any(test, feature = "disable-boot-verify"))]`.
+            // If we somehow reach this in a non-test, non-feature-flagged build,
+            // it indicates a memory corruption or logic error.
             #[cfg(not(any(test, feature = "disable-boot-verify")))]
-            panic!("Boot verification is disabled but feature flag is not set");
+            unreachable!("Boot verification is disabled but feature flag is not set");
         }
 
         verify_boot_signature_or_panic(

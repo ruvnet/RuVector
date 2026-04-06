@@ -222,7 +222,7 @@ impl DeltaHnsw {
 
         // Update entry point if needed
         let mut entry = self.entry_point.write();
-        if entry.is_none() || level > entry.as_ref().unwrap().level {
+        if entry.is_none() || level > entry.as_ref().expect("entry verified Some").level {
             *entry = Some(EntryPoint { node_idx, level });
         }
 
@@ -301,7 +301,8 @@ impl DeltaHnsw {
             return Ok(Vec::new());
         }
 
-        let entry = entry.as_ref().unwrap();
+        // SAFETY: We checked entry.is_none() above and returned early
+        let entry = entry.as_ref().expect("entry verified Some");
         let mut current_node = entry.node_idx;
 
         // Greedy search from top to layer 1
@@ -404,11 +405,10 @@ impl DeltaHnsw {
     fn connect_node(&mut self, node_idx: u32, vector: &[f32], level: usize) -> Result<()> {
         let entry = self.entry_point.read().clone();
 
-        if entry.is_none() {
-            return Ok(());
-        }
-
-        let entry = entry.unwrap();
+        let entry = match entry {
+            Some(e) => e,
+            None => return Ok(()),
+        };
         let mut current = entry.node_idx;
 
         // Navigate from top level
@@ -545,7 +545,8 @@ impl DeltaHnsw {
         while let Some(current) = candidates.pop() {
             // Check if we can stop
             if !results.is_empty() {
-                let worst = results.peek().unwrap();
+                // SAFETY: We just checked results is not empty
+                let worst = results.peek().expect("results verified non-empty");
                 if current.dist > -worst.dist {
                     break;
                 }
@@ -564,7 +565,8 @@ impl DeltaHnsw {
 
                 let dist = self.distance(query, neighbor);
 
-                let should_add = results.len() < ef || dist < -results.peek().unwrap().dist;
+                // SAFETY: If results.len() < ef is false, results is non-empty (ef >= 1)
+                let should_add = results.len() < ef || dist < -results.peek().expect("results non-empty when len >= ef").dist;
 
                 if should_add {
                     candidates.push(Candidate {
@@ -612,7 +614,7 @@ impl DeltaHnsw {
             .map(|&n| (n, self.distance(node_vec, n)))
             .collect();
 
-        with_dist.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        with_dist.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
 
         neighbors.clear();
         for (idx, _) in with_dist.into_iter().take(max) {
@@ -656,11 +658,10 @@ impl DeltaHnsw {
     fn reconnect_node(&mut self, node_idx: u32, vector: &[f32], level: usize) -> Result<()> {
         // Find new neighbors at each level
         let entry = self.entry_point.read().clone();
-        if entry.is_none() {
-            return Ok(());
-        }
-
-        let entry = entry.unwrap();
+        let entry = match entry {
+            Some(e) => e,
+            None => return Ok(()),
+        };
         let mut current = entry.node_idx;
 
         for l in (level + 1..=entry.level).rev() {

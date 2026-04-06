@@ -46,7 +46,8 @@ impl ConflictResolver<VectorDelta> for LastWriteWinsResolver {
         }
 
         // Take the last delta (assumed to be sorted by timestamp)
-        Ok(deltas.last().unwrap().clone().clone())
+        // SAFETY: We checked deltas.is_empty() above and returned early
+        Ok(deltas.last().expect("deltas verified non-empty").clone().clone())
     }
 }
 
@@ -62,7 +63,8 @@ impl ConflictResolver<VectorDelta> for FirstWriteWinsResolver {
         }
 
         // Take the first delta
-        Ok(deltas.first().unwrap().clone().clone())
+        // SAFETY: We checked deltas.is_empty() above and returned early
+        Ok(deltas.first().expect("deltas verified non-empty").clone().clone())
     }
 }
 
@@ -137,6 +139,7 @@ impl ConflictResolver<VectorDelta> for MaxMagnitudeResolver {
             ));
         }
 
+        // SAFETY: We checked deltas.is_empty() above and returned early
         let max_delta = deltas
             .iter()
             .max_by(|a, b| {
@@ -144,7 +147,7 @@ impl ConflictResolver<VectorDelta> for MaxMagnitudeResolver {
                     .partial_cmp(&b.l2_norm())
                     .unwrap_or(std::cmp::Ordering::Equal)
             })
-            .unwrap();
+            .expect("deltas verified non-empty");
 
         Ok((*max_delta).clone())
     }
@@ -161,6 +164,7 @@ impl ConflictResolver<VectorDelta> for MinMagnitudeResolver {
             ));
         }
 
+        // SAFETY: We checked deltas.is_empty() above and returned early
         let min_delta = deltas
             .iter()
             .min_by(|a, b| {
@@ -168,7 +172,7 @@ impl ConflictResolver<VectorDelta> for MinMagnitudeResolver {
                     .partial_cmp(&b.l2_norm())
                     .unwrap_or(std::cmp::Ordering::Equal)
             })
-            .unwrap();
+            .expect("deltas verified non-empty");
 
         Ok((*min_delta).clone())
     }
@@ -209,7 +213,8 @@ impl ConflictResolver<VectorDelta> for SparsityResolver {
         }
 
         // Take the sparsest delta
-        let sparsest = deltas.iter().min_by_key(|d| d.value.nnz()).unwrap();
+        // SAFETY: We checked deltas.is_empty() above and returned early
+        let sparsest = deltas.iter().min_by_key(|d| d.value.nnz()).expect("deltas verified non-empty");
 
         Ok((*sparsest).clone())
     }

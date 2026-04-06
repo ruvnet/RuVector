@@ -176,7 +176,8 @@ pub trait ConflictResolver<T: Clone>: Send + Sync {
         }
 
         if versions.len() == 1 {
-            return Ok(versions.into_iter().next().unwrap());
+            // SAFETY: We just checked versions.len() == 1
+            return Ok(versions.into_iter().next().expect("versions verified non-empty"));
         }
 
         let mut result = versions[0].clone();

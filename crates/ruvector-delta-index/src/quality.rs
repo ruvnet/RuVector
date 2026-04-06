@@ -284,7 +284,7 @@ impl DistanceStats {
         let variance = distances.iter().map(|d| (d - mean).powi(2)).sum::<f32>() / n;
 
         let mut sorted = distances.to_vec();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         Self {
             mean,

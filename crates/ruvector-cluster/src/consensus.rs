@@ -150,8 +150,8 @@ impl DagConsensus {
             return Ok(None);
         }
 
-        // Take the next transaction
-        let transaction = pending.pop_front().unwrap();
+        // Take the next transaction (we just checked pending is not empty above)
+        let transaction = pending.pop_front().expect("pending verified non-empty");
 
         // Find parent vertices (tips of the DAG)
         let parents = self.find_tips();

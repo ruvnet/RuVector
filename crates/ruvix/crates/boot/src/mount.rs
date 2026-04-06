@@ -174,6 +174,11 @@ impl RvfMount {
     }
 
     /// Sets the signature verification public key.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the public key has wrong length. Prefer using
+    /// [`SignatureVerifier::try_new`] directly for non-panicking construction.
     pub fn set_public_key(&mut self, public_key: &[u8]) {
         self.verifier = Some(SignatureVerifier::new(public_key));
     }

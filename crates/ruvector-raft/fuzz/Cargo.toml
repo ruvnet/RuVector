@@ -1,0 +1,21 @@
+[package]
+name = "ruvector-raft-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+ruvector-raft = { path = ".." }
+arbitrary = { version = "1", features = ["derive"] }
+
+# Prevent this from being discovered as a workspace member
+[workspace]
+
+[[bin]]
+name = "fuzz_raft_messages"
+path = "fuzz_targets/fuzz_raft_messages.rs"
+doc = false
