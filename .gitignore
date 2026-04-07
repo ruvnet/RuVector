@@ -125,6 +125,9 @@ examples/*/dist/
 *_report.svg
 *_sky_map.svg
 
+# Training data
+training-data*.jsonl
+
 # Extracted code artifacts
 claude-code-extracted/
 examples/open-claude-code/
