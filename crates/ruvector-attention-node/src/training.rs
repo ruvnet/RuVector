@@ -257,20 +257,38 @@ impl SGDOptimizer {
         }
     }
 
-    /// Perform an optimization step
+    /// Perform an optimization step, returning a **new** `Float32Array`.
     ///
-    /// # Arguments
-    /// * `params` - Parameter array
-    /// * `gradients` - Gradient array
+    /// The input `params` buffer is consumed and a fresh array is returned with
+    /// the updated values. Callers **must** use the return value:
     ///
-    /// # Returns
-    /// Updated parameter array
+    /// ```js
+    /// params = optimizer.step(params, gradients);
+    /// ```
+    ///
+    /// If you want to mutate the JS buffer in-place instead, use `stepInPlace`.
     #[napi]
     pub fn step(&mut self, params: Float32Array, gradients: Float32Array) -> Float32Array {
         let mut params_vec = params.to_vec();
         let gradients_slice = gradients.as_ref();
         self.inner.step(&mut params_vec, gradients_slice);
         Float32Array::new(params_vec)
+    }
+
+    /// Perform an optimization step **in-place** on the underlying JS buffer.
+    ///
+    /// This mutates the `Float32Array`'s backing `ArrayBuffer` directly, so the
+    /// caller's original typed-array view reflects the updated weights without
+    /// needing to capture a return value:
+    ///
+    /// ```js
+    /// optimizer.stepInPlace(params, gradients); // params is mutated
+    /// ```
+    #[napi]
+    pub fn step_in_place(&mut self, mut params: Float32Array, gradients: Float32Array) {
+        let gradients_slice = gradients.as_ref();
+        let params_slice = params.as_mut();
+        self.inner.step(params_slice, gradients_slice);
     }
 
     /// Reset optimizer state
@@ -339,16 +357,38 @@ impl AdamOptimizer {
         }
     }
 
-    /// Perform an optimization step
+    /// Perform an optimization step, returning a **new** `Float32Array`.
     ///
-    /// # Returns
-    /// Updated parameter array
+    /// The input `params` buffer is consumed and a fresh array is returned with
+    /// the updated values. Callers **must** use the return value:
+    ///
+    /// ```js
+    /// params = optimizer.step(params, gradients);
+    /// ```
+    ///
+    /// If you want to mutate the JS buffer in-place instead, use `stepInPlace`.
     #[napi]
     pub fn step(&mut self, params: Float32Array, gradients: Float32Array) -> Float32Array {
         let mut params_vec = params.to_vec();
         let gradients_slice = gradients.as_ref();
         self.inner.step(&mut params_vec, gradients_slice);
         Float32Array::new(params_vec)
+    }
+
+    /// Perform an optimization step **in-place** on the underlying JS buffer.
+    ///
+    /// This mutates the `Float32Array`'s backing `ArrayBuffer` directly, so the
+    /// caller's original typed-array view reflects the updated weights without
+    /// needing to capture a return value:
+    ///
+    /// ```js
+    /// optimizer.stepInPlace(params, gradients); // params is mutated
+    /// ```
+    #[napi]
+    pub fn step_in_place(&mut self, mut params: Float32Array, gradients: Float32Array) {
+        let gradients_slice = gradients.as_ref();
+        let params_slice = params.as_mut();
+        self.inner.step(params_slice, gradients_slice);
     }
 
     /// Reset optimizer state (momentum terms)
@@ -411,16 +451,38 @@ impl AdamWOptimizer {
         }
     }
 
-    /// Perform an optimization step
+    /// Perform an optimization step, returning a **new** `Float32Array`.
     ///
-    /// # Returns
-    /// Updated parameter array
+    /// The input `params` buffer is consumed and a fresh array is returned with
+    /// the updated values. Callers **must** use the return value:
+    ///
+    /// ```js
+    /// params = optimizer.step(params, gradients);
+    /// ```
+    ///
+    /// If you want to mutate the JS buffer in-place instead, use `stepInPlace`.
     #[napi]
     pub fn step(&mut self, params: Float32Array, gradients: Float32Array) -> Float32Array {
         let mut params_vec = params.to_vec();
         let gradients_slice = gradients.as_ref();
         self.inner.step(&mut params_vec, gradients_slice);
         Float32Array::new(params_vec)
+    }
+
+    /// Perform an optimization step **in-place** on the underlying JS buffer.
+    ///
+    /// This mutates the `Float32Array`'s backing `ArrayBuffer` directly, so the
+    /// caller's original typed-array view reflects the updated weights without
+    /// needing to capture a return value:
+    ///
+    /// ```js
+    /// optimizer.stepInPlace(params, gradients); // params is mutated
+    /// ```
+    #[napi]
+    pub fn step_in_place(&mut self, mut params: Float32Array, gradients: Float32Array) {
+        let gradients_slice = gradients.as_ref();
+        let params_slice = params.as_mut();
+        self.inner.step(params_slice, gradients_slice);
     }
 
     /// Reset optimizer state
