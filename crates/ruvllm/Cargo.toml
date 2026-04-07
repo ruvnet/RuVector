@@ -94,6 +94,10 @@ sha2 = "0.10"
 # MD5 hashing for input hashing in semantic cache
 md5 = "0.7"
 
+# Ternary Intelligence Stack (TIS) - Native triadic optimizations
+ternlang-ml = { path = "/home/eri-irfos/Desktop/Ternary Intelligence Stack (TIS)/ternlang-root/ternlang-ml", version = "0.1.0" }
+ternlang-runtime = { path = "/home/eri-irfos/Desktop/Ternary Intelligence Stack (TIS)/ternlang-root/ternlang-runtime", version = "0.1.0" }
+
 # Metal GPU acceleration (macOS only)
 [target.'cfg(target_os = "macos")'.dependencies]
 metal = { version = "0.29", optional = true }
