@@ -27,8 +27,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: ui/ruvocal/package-lock.json
+          cache: ""
 
       - name: Install dependencies
         run: npm ci
@@ -47,8 +46,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: ui/ruvocal/package-lock.json
+          cache: ""
 
       - name: Install dependencies
         run: npm ci
@@ -67,8 +65,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: ui/ruvocal/package-lock.json
+          cache: ""
 
       - name: Install dependencies
         run: npm ci
@@ -87,8 +84,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: ui/ruvocal/package-lock.json
+          cache: ""
 
       - name: Install dependencies
         run: npm ci
