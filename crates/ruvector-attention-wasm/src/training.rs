@@ -32,9 +32,13 @@ impl WasmInfoNCELoss {
         positive: &[f32],
         negatives: JsValue,
     ) -> Result<f32, JsError> {
-        let negatives_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(negatives)?;
+        let array = js_sys::Array::from(&negatives);
+        let mut negatives_vec: Vec<Vec<f32>> = Vec::with_capacity(array.length() as usize);
+        for i in 0..array.length() {
+            let typed_arr = js_sys::Float32Array::new(&array.get(i));
+            negatives_vec.push(typed_arr.to_vec());
+        }
         let negatives_refs: Vec<&[f32]> = negatives_vec.iter().map(|n| n.as_slice()).collect();
-
         Ok(self.inner.compute(anchor, positive, &negatives_refs))
     }
 }
