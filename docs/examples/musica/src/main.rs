@@ -27,6 +27,7 @@ mod real_audio;
 mod transcriber;
 #[cfg(feature = "wasm")]
 mod wasm_bridge;
+mod visualizer;
 mod wav;
 
 use audio_graph::GraphParams;
@@ -107,8 +108,20 @@ fn main() {
     println!("\n======== PART 17: MUSDB18 SOTA Comparison ========");
     run_musdb_comparison();
 
+    // ── Part 18: Terminal visualizer ──────────────────────────────────
+    println!("\n======== PART 18: Terminal Audio Visualizer ========");
+    run_visualizer_demo();
+
+    // ── Part 19: Learned weight optimization ────────────────────────
+    println!("\n======== PART 19: Nelder-Mead Weight Optimization ========");
+    run_weight_optimization();
+
+    // ── Part 20: Multi-source (3+) separation ───────────────────────
+    println!("\n======== PART 20: Multi-Source (3+) Separation ========");
+    run_multi_source_benchmark();
+
     println!("\n================================================================");
-    println!("  MUSICA benchmark suite complete — 17 parts validated.");
+    println!("  MUSICA benchmark suite complete — 20 parts validated.");
     println!("================================================================");
 }
 
@@ -904,4 +917,219 @@ fn run_musdb_comparison() {
     for (method, gap) in gap_analysis(musica_avg) {
         println!("    {:<20} {:>+6.1} dB", method, gap);
     }
+}
+
+// ── Part 18 ─────────────────────────────────────────────────────────────
+
+fn run_visualizer_demo() {
+    use visualizer::{DisplayConfig, render_waveform, render_spectrum, render_masks,
+                     render_separation_comparison, render_lissajous};
+    use std::f64::consts::PI;
+
+    let sr = 8000.0;
+    let n = 4000; // 0.5s
+
+    // Generate a mixed signal: 200Hz + 1500Hz
+    let s1: Vec<f64> = (0..n).map(|i| (2.0 * PI * 200.0 * i as f64 / sr).sin()).collect();
+    let s2: Vec<f64> = (0..n).map(|i| 0.6 * (2.0 * PI * 1500.0 * i as f64 / sr).sin()).collect();
+    let mixed: Vec<f64> = s1.iter().zip(s2.iter()).map(|(a, b)| a + b).collect();
+
+    let config = DisplayConfig { width: 72, height: 10, color: true, unicode_blocks: true };
+
+    // 1. Waveform
+    let wf = render_waveform(&mixed, "Mixed: 200Hz + 1500Hz", &config);
+    print!("{wf}");
+
+    // 2. Spectrum
+    let stft_result = stft::stft(&mixed, 256, 128, sr);
+    let mid = stft_result.num_frames / 2;
+    let sp = render_spectrum(&stft_result, mid, "Frequency Spectrum", &config);
+    print!("{sp}");
+
+    // 3. Separation + mask visualization
+    let graph = audio_graph::build_audio_graph(&stft_result, &GraphParams::default());
+    let sep_config = SeparatorConfig { num_sources: 2, ..SeparatorConfig::default() };
+    let result = separator::separate(&graph, &sep_config);
+
+    let masks_viz = render_masks(
+        &result.masks, stft_result.num_frames, stft_result.num_freq_bins,
+        "Separation Masks (Source 0)", &config,
+    );
+    print!("{masks_viz}");
+
+    // 4. Full comparison view
+    let sources: Vec<Vec<f64>> = result.masks.iter()
+        .map(|m| stft::istft(&stft_result, m, n))
+        .collect();
+    let compact = DisplayConfig { width: 72, height: 8, color: true, unicode_blocks: true };
+    let comp = render_separation_comparison(&mixed, &sources, sr, &compact);
+    print!("{comp}");
+
+    // 5. Lissajous (stereo)
+    let left = &s1;
+    let right = &s2;
+    let liss = render_lissajous(left, right, "Lissajous (L=200Hz R=1500Hz)", &compact);
+    print!("{liss}");
+
+    println!("  Visualizer: 5 rendering modes validated (waveform, spectrum, masks, comparison, Lissajous)");
+}
+
+// ── Part 19 ─────────────────────────────────────────────────────────────
+
+fn run_weight_optimization() {
+    use learned_weights::{TrainingSample, optimize_weights};
+    use std::f64::consts::PI;
+
+    let sr = 8000.0;
+    let n = 4000;
+
+    // Create 3 training scenarios with varying difficulty
+    let scenarios: Vec<(&str, f64, f64)> = vec![
+        ("well-separated", 200.0, 2000.0),
+        ("moderate", 300.0, 800.0),
+        ("close-tones", 400.0, 550.0),
+    ];
+
+    let mut samples = Vec::new();
+    for (label, f1, f2) in &scenarios {
+        let s1: Vec<f64> = (0..n).map(|i| (2.0 * PI * f1 * i as f64 / sr).sin()).collect();
+        let s2: Vec<f64> = (0..n).map(|i| 0.8 * (2.0 * PI * f2 * i as f64 / sr).sin()).collect();
+        let mixed: Vec<f64> = s1.iter().zip(s2.iter()).map(|(a, b)| a + b).collect();
+        samples.push(TrainingSample { mixed, references: vec![s1, s2], sample_rate: sr });
+        println!("  Training scenario: {} ({}Hz + {}Hz)", label, f1, f2);
+    }
+
+    let start = std::time::Instant::now();
+    let result = optimize_weights(&samples, 30, 256, 128);
+    let elapsed = start.elapsed();
+
+    println!("  Optimization: {} iterations in {:.1}ms", result.iterations, elapsed.as_secs_f64() * 1000.0);
+    println!("  Best SDR: {:.2} dB", result.best_sdr);
+    println!("  Optimized params:");
+    println!("    spectral_weight:  {:.4}", result.best_params.spectral_weight);
+    println!("    temporal_weight:  {:.4}", result.best_params.temporal_weight);
+    println!("    harmonic_weight:  {:.4}", result.best_params.harmonic_weight);
+    println!("    phase_threshold:  {:.4}", result.best_params.phase_threshold);
+    println!("    onset_weight:     {:.4}", result.best_params.onset_weight);
+    println!("    magnitude_floor:  {:.4}", result.best_params.magnitude_floor);
+
+    // Compare default vs optimized on each scenario
+    println!("  Per-scenario comparison (default → optimized):");
+    for (i, (label, _, _)) in scenarios.iter().enumerate() {
+        let default_sdr = learned_weights::evaluate_params_public(
+            &GraphParams::default(), &samples[i], 256, 128,
+        );
+        let opt_sdr = learned_weights::evaluate_params_public(
+            &result.best_params, &samples[i], 256, 128,
+        );
+        let delta = opt_sdr - default_sdr;
+        println!("    {:<16} {:.2} → {:.2} dB ({:+.2})", label, default_sdr, opt_sdr, delta);
+    }
+
+    // SDR history
+    if result.history.len() > 3 {
+        println!("  SDR trajectory: {:.2} → {:.2} → ... → {:.2}",
+            result.history[0],
+            result.history[1],
+            result.history.last().unwrap());
+    }
+}
+
+// ── Part 20 ─────────────────────────────────────────────────────────────
+
+fn run_multi_source_benchmark() {
+    use std::f64::consts::PI;
+
+    let sr = 8000.0;
+    let n = 4000;
+
+    // 3-source separation
+    let s1: Vec<f64> = (0..n).map(|i| (2.0 * PI * 200.0 * i as f64 / sr).sin()).collect();
+    let s2: Vec<f64> = (0..n).map(|i| 0.7 * (2.0 * PI * 800.0 * i as f64 / sr).sin()).collect();
+    let s3: Vec<f64> = (0..n).map(|i| 0.5 * (2.0 * PI * 2500.0 * i as f64 / sr).sin()).collect();
+    let mixed: Vec<f64> = (0..n).map(|i| s1[i] + s2[i] + s3[i]).collect();
+
+    println!("  3-source test: 200Hz + 800Hz + 2500Hz");
+
+    let stft_result = stft::stft(&mixed, 512, 256, sr);
+    let graph = audio_graph::build_audio_graph(&stft_result, &GraphParams::default());
+
+    let config3 = SeparatorConfig { num_sources: 3, ..SeparatorConfig::default() };
+    let start = std::time::Instant::now();
+    let result = separator::separate(&graph, &config3);
+    let elapsed = start.elapsed();
+
+    println!("  Separation time: {:.1} ms", elapsed.as_secs_f64() * 1000.0);
+    println!("  Partitions: {}", result.masks.len());
+
+    // Reconstruct and measure energy distribution
+    let references = vec![&s1, &s2, &s3];
+    let sources: Vec<Vec<f64>> = result.masks.iter()
+        .map(|m| stft::istft(&stft_result, m, n))
+        .collect();
+
+    for (i, src) in sources.iter().enumerate() {
+        let energy: f64 = src.iter().map(|x| x * x).sum::<f64>() / n as f64;
+        println!("  Source {}: RMS energy = {:.4}", i, energy.sqrt());
+    }
+
+    // Compute SDR for best permutation (3! = 6 permutations)
+    let perms: Vec<[usize; 3]> = vec![
+        [0,1,2], [0,2,1], [1,0,2], [1,2,0], [2,0,1], [2,1,0],
+    ];
+    let mut best_avg_sdr = f64::MIN;
+    let mut best_perm = [0usize; 3];
+    for perm in &perms {
+        let mut total_sdr = 0.0;
+        for (ref_idx, &est_idx) in perm.iter().enumerate() {
+            if est_idx < sources.len() {
+                total_sdr += compute_sdr_main(references[ref_idx], &sources[est_idx]);
+            }
+        }
+        let avg = total_sdr / 3.0;
+        if avg > best_avg_sdr {
+            best_avg_sdr = avg;
+            best_perm = *perm;
+        }
+    }
+
+    println!("  Best permutation: ref→est {:?}", best_perm);
+    println!("  Average SDR (3 sources): {:.2} dB", best_avg_sdr);
+
+    // 4-source separation
+    let s4: Vec<f64> = (0..n).map(|i| 0.4 * (2.0 * PI * 1500.0 * i as f64 / sr).sin()).collect();
+    let mixed4: Vec<f64> = (0..n).map(|i| s1[i] + s2[i] + s3[i] + s4[i]).collect();
+
+    println!("\n  4-source test: 200Hz + 800Hz + 1500Hz + 2500Hz");
+
+    let stft4 = stft::stft(&mixed4, 512, 256, sr);
+    let graph4 = audio_graph::build_audio_graph(&stft4, &GraphParams::default());
+
+    let config4 = SeparatorConfig { num_sources: 4, ..SeparatorConfig::default() };
+    let start4 = std::time::Instant::now();
+    let result4 = separator::separate(&graph4, &config4);
+    let elapsed4 = start4.elapsed();
+
+    println!("  Separation time: {:.1} ms", elapsed4.as_secs_f64() * 1000.0);
+    println!("  Partitions: {}", result4.masks.len());
+
+    let sources4: Vec<Vec<f64>> = result4.masks.iter()
+        .map(|m| stft::istft(&stft4, m, n))
+        .collect();
+
+    for (i, src) in sources4.iter().enumerate() {
+        let energy: f64 = src.iter().map(|x| x * x).sum::<f64>() / n as f64;
+        println!("  Source {}: RMS energy = {:.4}", i, energy.sqrt());
+    }
+}
+
+fn compute_sdr_main(reference: &[f64], estimate: &[f64]) -> f64 {
+    let n = reference.len().min(estimate.len());
+    if n == 0 { return -60.0; }
+    let ref_e: f64 = reference[..n].iter().map(|x| x * x).sum();
+    let noise_e: f64 = reference[..n].iter().zip(estimate[..n].iter())
+        .map(|(r, e)| (r - e).powi(2)).sum();
+    if ref_e < 1e-12 { return -60.0; }
+    if noise_e < 1e-12 { return 100.0; }
+    (10.0 * (ref_e / noise_e).log10()).clamp(-60.0, 100.0)
 }

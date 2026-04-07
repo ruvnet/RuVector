@@ -24,6 +24,16 @@ pub struct OptimizationResult {
     pub history: Vec<f64>,
 }
 
+/// Public wrapper for evaluate_params.
+pub fn evaluate_params_public(
+    params: &GraphParams,
+    sample: &TrainingSample,
+    window_size: usize,
+    hop_size: usize,
+) -> f64 {
+    evaluate_params(params, sample, window_size, hop_size)
+}
+
 /// Evaluate a set of graph params on a training sample, returning average SDR.
 fn evaluate_params(
     params: &GraphParams,
