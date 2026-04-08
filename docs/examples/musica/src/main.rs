@@ -1,0 +1,1135 @@
+//! Musica — Dynamic MinCut Audio Source Separation
+//!
+//! Full benchmark suite: basic separation, hearing aid streaming,
+//! multitrack 6-stem splitting, and crowd-scale identity tracking.
+
+mod adaptive;
+mod advanced_separator;
+mod audio_graph;
+mod benchmark;
+mod enhanced_separator;
+mod evaluation;
+mod crowd;
+mod hearing_aid;
+mod hearmusica;
+mod lanczos;
+mod learned_weights;
+mod multi_res;
+mod multitrack;
+mod musdb_compare;
+mod neural_refine;
+mod phase;
+mod separator;
+mod spatial;
+mod stft;
+mod streaming_multi;
+mod real_audio;
+mod transcriber;
+#[cfg(feature = "wasm")]
+mod wasm_bridge;
+mod visualizer;
+mod wav;
+
+use audio_graph::GraphParams;
+use benchmark::{benchmark_freq_baseline, benchmark_mincut, generate_test_signal, print_comparison};
+use separator::SeparatorConfig;
+
+fn main() {
+    println!("================================================================");
+    println!("  MUSICA — Structure-First Audio Source Separation");
+    println!("  Dynamic MinCut + Laplacian Eigenvectors + SIMD");
+    println!("================================================================");
+
+    // ── Part 1: Basic separation benchmarks ─────────────────────────────
+    println!("\n======== PART 1: Basic Source Separation ========");
+    run_basic_benchmarks();
+
+    // ── Part 2: Hearing aid streaming ───────────────────────────────────
+    println!("\n======== PART 2: Hearing Aid Streaming (<8ms) ========");
+    run_hearing_aid_benchmark();
+
+    // ── Part 3: Multitrack 6-stem separation ────────────────────────────
+    println!("\n======== PART 3: Multitrack 6-Stem Separation ========");
+    run_multitrack_benchmark();
+
+    // ── Part 4: Lanczos eigensolver validation ──────────────────────────
+    println!("\n======== PART 4: Lanczos Eigensolver Validation ========");
+    run_lanczos_validation();
+
+    // ── Part 5: Crowd-scale identity tracking ───────────────────────────
+    println!("\n======== PART 5: Crowd-Scale Speaker Tracking ========");
+    run_crowd_benchmark();
+
+    // ── Part 6: WAV I/O ─────────────────────────────────────────────────
+    println!("\n======== PART 6: WAV I/O Validation ========");
+    run_wav_validation();
+
+    // ── Part 7: HEARmusica pipeline ────────────────────────────────────
+    println!("\n======== PART 7: HEARmusica Pipeline Benchmark ========");
+    run_hearmusica_benchmark();
+
+    // ── Part 8: Streaming multitrack ────────────────────────────────────
+    println!("\n======== PART 8: Streaming 6-Stem Separation ========");
+    run_streaming_multitrack_benchmark();
+
+    // ── Part 9: Adaptive tuning ────────────────────────────────────────
+    println!("\n======== PART 9: Adaptive Parameter Tuning ========");
+    run_adaptive_tuning();
+
+    // ── Part 10: Enhanced separator comparison ──────────────────────────
+    println!("\n======== PART 10: Enhanced Separator Comparison ========");
+    run_enhanced_comparison();
+
+    // ── Part 11: Real audio evaluation ──────────────────────────────────
+    println!("\n======== PART 11: Real Audio Evaluation (BSS) ========");
+    run_real_audio_evaluation();
+
+    // ── Part 12: Transcription benchmark (before/after separation) ──────
+    println!("\n======== PART 12: Separation → Transcription Benchmark ========");
+    run_transcription_benchmark();
+
+    // ── Part 13: Real audio separation (public domain WAVs) ────────────
+    println!("\n======== PART 13: Real Audio Separation (Public WAVs) ========");
+    run_real_audio_separation();
+
+    // ── Part 14: Advanced SOTA separation (Wiener + Cascade + Multi-Res) ──
+    println!("\n======== PART 14: Advanced SOTA Separation ========");
+    run_advanced_sota_benchmark();
+
+    // ── Part 15: Longer signal benchmarks (2-5 second signals) ──────────
+    println!("\n======== PART 15: Longer Signal Benchmarks (2-5s) ========");
+    run_longer_benchmarks();
+
+    // ── Part 16: Spatial covariance stereo separation ──────────────────
+    println!("\n======== PART 16: Spatial Covariance Stereo Separation ========");
+    run_spatial_benchmark();
+
+    // ── Part 17: MUSDB18 SOTA comparison ──────────────────────────────
+    println!("\n======== PART 17: MUSDB18 SOTA Comparison ========");
+    run_musdb_comparison();
+
+    // ── Part 18: Terminal visualizer ──────────────────────────────────
+    println!("\n======== PART 18: Terminal Audio Visualizer ========");
+    run_visualizer_demo();
+
+    // ── Part 19: Learned weight optimization ────────────────────────
+    println!("\n======== PART 19: Nelder-Mead Weight Optimization ========");
+    run_weight_optimization();
+
+    // ── Part 20: Multi-source (3+) separation ───────────────────────
+    println!("\n======== PART 20: Multi-Source (3+) Separation ========");
+    run_multi_source_benchmark();
+
+    println!("\n================================================================");
+    println!("  MUSICA benchmark suite complete — 20 parts validated.");
+    println!("================================================================");
+}
+
+// ── Part 1 ──────────────────────────────────────────────────────────────
+
+fn run_basic_benchmarks() {
+    let sr = 8000.0;
+    let ws = 256;
+    let hs = 128;
+
+    for (label, freqs, amps) in [
+        ("well-separated", vec![200.0, 2000.0], vec![1.0, 0.8]),
+        ("close-tones", vec![400.0, 600.0], vec![1.0, 1.0]),
+        ("harmonic-3rd", vec![300.0, 900.0], vec![1.0, 0.6]),
+    ] {
+        let (mixed, sources) = generate_test_signal(sr, 0.5, &freqs, &amps);
+        println!("\n-- {label}: {} samples", mixed.len());
+
+        let mc = benchmark_mincut(
+            &mixed, &sources, sr, ws, hs,
+            &GraphParams::default(),
+            &SeparatorConfig { num_sources: sources.len(), ..SeparatorConfig::default() },
+        );
+        let bl = benchmark_freq_baseline(&mixed, &sources, sr, ws, hs, sources.len());
+        print_comparison(&[mc, bl]);
+    }
+}
+
+// ── Part 2 ──────────────────────────────────────────────────────────────
+
+fn run_hearing_aid_benchmark() {
+    use hearing_aid::{HearingAidConfig, StreamingState};
+    use std::f64::consts::PI;
+
+    let config = HearingAidConfig::default();
+    let mut state = StreamingState::new(&config);
+    let frame_samples = (config.sample_rate * config.frame_size_ms / 1000.0) as usize;
+
+    // Generate binaural speech + cafeteria noise
+    let num_frames = 100;
+    let mut total_latency_us = 0u64;
+    let mut max_latency_us = 0u64;
+    let mut speech_mask_avg = 0.0f64;
+
+    for f in 0..num_frames {
+        let t_base = f as f64 * config.hop_size_ms / 1000.0;
+
+        // Speech: coherent harmonics from front
+        let left: Vec<f64> = (0..frame_samples)
+            .map(|i| {
+                let t = t_base + i as f64 / config.sample_rate;
+                0.6 * (2.0 * PI * 200.0 * t).sin()
+                    + 0.2 * (2.0 * PI * 400.0 * t).sin()
+                    + 0.05 * (t * 1000.0).sin() // Noise
+            })
+            .collect();
+
+        let right: Vec<f64> = (0..frame_samples)
+            .map(|i| {
+                let t = t_base + i as f64 / config.sample_rate;
+                0.55 * (2.0 * PI * 200.0 * t).sin()
+                    + 0.18 * (2.0 * PI * 400.0 * t).sin()
+                    + 0.07 * (t * 1300.0).sin() // Different noise at right ear
+            })
+            .collect();
+
+        let result = state.process_frame(&left, &right, &config);
+        total_latency_us += result.latency_us;
+        max_latency_us = max_latency_us.max(result.latency_us);
+        speech_mask_avg += result.mask.iter().sum::<f64>() / result.mask.len() as f64;
+    }
+
+    let avg_latency_us = total_latency_us / num_frames as u64;
+    speech_mask_avg /= num_frames as f64;
+
+    println!("  Frames processed: {num_frames}");
+    println!("  Avg latency:      {avg_latency_us} us ({:.2} ms)", avg_latency_us as f64 / 1000.0);
+    println!("  Max latency:      {max_latency_us} us ({:.2} ms)", max_latency_us as f64 / 1000.0);
+    println!("  Avg speech mask:  {speech_mask_avg:.3}");
+    println!("  Latency budget:   {} (target <8ms)",
+        if max_latency_us < 8000 { "PASS" } else { "OVER BUDGET" });
+}
+
+// ── Part 3 ──────────────────────────────────────────────────────────────
+
+fn run_multitrack_benchmark() {
+    use multitrack::{separate_multitrack, MultitrackConfig, Stem};
+    use std::f64::consts::PI;
+
+    let sr = 44100.0;
+    let duration = 1.0;
+    let n = (sr * duration) as usize;
+
+    // Synthetic multi-instrument signal
+    let signal: Vec<f64> = (0..n)
+        .map(|i| {
+            let t = i as f64 / sr;
+            // Vocals: 200 Hz + harmonics
+            let vocals = 0.4 * (2.0 * PI * 200.0 * t).sin()
+                + 0.15 * (2.0 * PI * 400.0 * t).sin()
+                + 0.08 * (2.0 * PI * 600.0 * t).sin();
+            // Bass: 80 Hz
+            let bass = 0.3 * (2.0 * PI * 80.0 * t).sin()
+                + 0.1 * (2.0 * PI * 160.0 * t).sin();
+            // Guitar: 330 Hz + harmonics
+            let guitar = 0.2 * (2.0 * PI * 330.0 * t).sin()
+                + 0.08 * (2.0 * PI * 660.0 * t).sin();
+            // Simple drum: periodic transient
+            let drum = if (t * 4.0).fract() < 0.01 { 0.5 } else { 0.0 };
+
+            vocals + bass + guitar + drum
+        })
+        .collect();
+
+    let config = MultitrackConfig {
+        window_size: 1024,
+        hop_size: 512,
+        sample_rate: sr,
+        graph_window_frames: 4,
+        ..MultitrackConfig::default()
+    };
+
+    println!("  Signal: {} samples ({:.1}s at {:.0} Hz)", n, duration, sr);
+
+    let result = separate_multitrack(&signal, &config);
+
+    println!("  Processing time:  {:.1} ms", result.stats.processing_time_ms);
+    println!("  Graph:            {} nodes, {} edges", result.stats.graph_nodes, result.stats.graph_edges);
+    println!("  STFT frames:      {}", result.stats.total_frames);
+    println!("  Replay entries:   {}", result.replay_log.len());
+    println!();
+
+    for stem_result in &result.stems {
+        let energy: f64 = stem_result.signal.iter().map(|s| s * s).sum::<f64>() / n as f64;
+        println!(
+            "  {:>8}: confidence={:.3}  energy={:.6}",
+            stem_result.stem.name(),
+            stem_result.confidence,
+            energy,
+        );
+    }
+
+    // Verify masks sum to ~1
+    let num_freq = result.stft_result.num_freq_bins;
+    let mut mask_sum_err = 0.0f64;
+    let check_bins = (result.stft_result.num_frames * num_freq).min(500);
+    for i in 0..check_bins {
+        let sum: f64 = result.stems.iter().map(|s| s.mask[i]).sum();
+        mask_sum_err += (sum - 1.0).abs();
+    }
+    let avg_err = mask_sum_err / check_bins as f64;
+    println!("\n  Mask sum error:   {avg_err:.4} (avg deviation from 1.0)");
+}
+
+// ── Part 4 ──────────────────────────────────────────────────────────────
+
+fn run_lanczos_validation() {
+    use lanczos::{lanczos_eigenpairs, power_iteration_fiedler, LanczosConfig, SparseMatrix};
+
+    // Two-cluster graph
+    let mut edges = vec![];
+    for i in 0..10 {
+        for j in i + 1..10 {
+            edges.push((i, j, 5.0));
+        }
+    }
+    for i in 10..20 {
+        for j in i + 1..20 {
+            edges.push((i, j, 5.0));
+        }
+    }
+    edges.push((9, 10, 0.1)); // Weak bridge
+
+    let lap = SparseMatrix::from_edges(20, &edges);
+
+    // Power iteration
+    let start = std::time::Instant::now();
+    let fiedler_pi = power_iteration_fiedler(&lap, 100);
+    let pi_time = start.elapsed();
+
+    // Lanczos
+    let start = std::time::Instant::now();
+    let config = LanczosConfig { k: 4, max_iter: 50, tol: 1e-8, reorthogonalize: true };
+    let lanczos_result = lanczos_eigenpairs(&lap, &config);
+    let lanczos_time = start.elapsed();
+
+    println!("  Graph: 20 nodes, 2 clusters connected by weak bridge");
+    println!("  Power iteration: {:.1}us", pi_time.as_micros());
+    println!("  Lanczos (k=4):   {:.1}us ({} iterations, converged={})",
+        lanczos_time.as_micros(), lanczos_result.iterations, lanczos_result.converged);
+
+    // Check cluster separation
+    let cluster_a: Vec<f64> = fiedler_pi[..10].to_vec();
+    let cluster_b: Vec<f64> = fiedler_pi[10..].to_vec();
+    let a_sign = cluster_a[0].signum();
+    let b_sign = cluster_b[0].signum();
+    let clean_split = a_sign != b_sign;
+
+    println!("  Fiedler clean split: {}", if clean_split { "YES" } else { "NO" });
+
+    if !lanczos_result.eigenvalues.is_empty() {
+        println!("  Eigenvalues: {:?}",
+            lanczos_result.eigenvalues.iter().map(|v| format!("{:.3}", v)).collect::<Vec<_>>());
+    }
+}
+
+// ── Part 5 ──────────────────────────────────────────────────────────────
+
+fn run_crowd_benchmark() {
+    use crowd::{CrowdConfig, CrowdTracker, SpeechEvent};
+
+    let config = CrowdConfig {
+        max_identities: 500,
+        association_threshold: 0.4,
+        ..CrowdConfig::default()
+    };
+    let mut tracker = CrowdTracker::new(config);
+
+    // 20 sensors in a grid
+    for x in 0..5 {
+        for y in 0..4 {
+            tracker.add_sensor((x as f64 * 10.0, y as f64 * 10.0));
+        }
+    }
+
+    // Simulate crowd: 50 speakers at various positions over time
+    let start = std::time::Instant::now();
+    for t_step in 0..10 {
+        let time = t_step as f64 * 1.0;
+
+        for speaker in 0..50 {
+            let direction = (speaker as f64 * 7.3) % 360.0 - 180.0;
+            let freq = 150.0 + (speaker as f64 * 30.0) % 400.0;
+            let sensor = speaker % tracker.sensors.len();
+
+            let events: Vec<SpeechEvent> = (0..3)
+                .map(|i| SpeechEvent {
+                    time: time + i as f64 * 0.1,
+                    freq_centroid: freq + i as f64 * 5.0,
+                    energy: 0.3 + (speaker as f64 * 0.01) % 0.5,
+                    voicing: 0.6 + (speaker as f64 * 0.005) % 0.3,
+                    harmonicity: 0.5 + (speaker as f64 * 0.003) % 0.4,
+                    direction,
+                    sensor_id: sensor,
+                })
+                .collect();
+
+            tracker.ingest_events(sensor, events);
+        }
+
+        tracker.update_local_graphs();
+        tracker.associate_cross_sensor(time + 0.5);
+        tracker.update_global_identities(time + 0.5);
+    }
+    let elapsed = start.elapsed();
+
+    let stats = tracker.get_stats();
+    println!("  Sensors:          {}", stats.sensors);
+    println!("  Total events:     {}", stats.total_events);
+    println!("  Local speakers:   {}", stats.total_local_speakers);
+    println!("  Global identities:{}", stats.total_identities);
+    println!("  Active speakers:  {}", stats.active_speakers);
+    println!("  Processing time:  {:.1} ms", elapsed.as_secs_f64() * 1000.0);
+}
+
+// ── Part 6 ──────────────────────────────────────────────────────────────
+
+fn run_wav_validation() {
+    use std::f64::consts::PI;
+
+    let path = "/tmp/musica_test.wav";
+    let sr = 16000u32;
+    let n = 16000; // 1 second
+
+    let samples: Vec<f64> = (0..n)
+        .map(|i| 0.5 * (2.0 * PI * 440.0 * i as f64 / sr as f64).sin())
+        .collect();
+
+    match wav::write_wav(path, &samples, sr, 1) {
+        Ok(()) => {
+            match wav::read_wav(path) {
+                Ok(loaded) => {
+                    let max_err: f64 = samples.iter()
+                        .zip(loaded.channel_data[0].iter())
+                        .map(|(a, b)| (a - b).abs())
+                        .fold(0.0f64, f64::max);
+
+                    println!("  WAV roundtrip:    {} samples, max error = {:.6}", n, max_err);
+                    println!("  Sample rate:      {} Hz", loaded.sample_rate);
+                    println!("  Channels:         {}", loaded.channels);
+                    println!("  Status:           {}", if max_err < 0.001 { "PASS" } else { "FAIL" });
+                }
+                Err(e) => println!("  WAV read error: {e}"),
+            }
+        }
+        Err(e) => println!("  WAV write error: {e}"),
+    }
+
+    // Binaural test
+    let stereo_path = "/tmp/musica_binaural_test.wav";
+    match wav::generate_binaural_test_wav(stereo_path, sr, 0.5, 300.0, &[800.0, 1200.0], 30.0) {
+        Ok(()) => {
+            match wav::read_wav(stereo_path) {
+                Ok(loaded) => {
+                    println!("  Binaural WAV:     {} channels, {} samples/ch",
+                        loaded.channels, loaded.channel_data[0].len());
+                }
+                Err(e) => println!("  Binaural read error: {e}"),
+            }
+        }
+        Err(e) => println!("  Binaural write error: {e}"),
+    }
+}
+
+// ── Part 7 ──────────────────────────────────────────────────────────────
+
+fn run_hearmusica_benchmark() {
+    use hearmusica::{AudioBlock, Pipeline};
+    use hearmusica::presets;
+    use hearing_aid::Audiogram;
+
+    let audiogram = Audiogram::default();
+    let sr = 16000.0f32;
+    let block_size = 128usize;
+    let num_blocks = 200;
+
+    let presets_list: Vec<(&str, fn(&Audiogram, f32, usize) -> Pipeline)> = vec![
+        ("Standard HA", presets::standard_hearing_aid),
+        ("Speech-in-Noise", presets::speech_in_noise),
+        ("Music Mode", presets::music_mode),
+        ("Max Clarity", presets::maximum_clarity),
+    ];
+
+    for (name, builder) in &presets_list {
+        let mut pipeline = builder(&audiogram, sr, block_size);
+
+        let start = std::time::Instant::now();
+        let mut max_block_us = 0u64;
+
+        for frame in 0..num_blocks {
+            let mut block = AudioBlock::new(block_size, sr);
+            let t_base = frame as f32 * block_size as f32 / sr;
+
+            for i in 0..block_size {
+                let t = t_base + i as f32 / sr;
+                let speech = 0.4 * (2.0 * std::f32::consts::PI * 200.0 * t).sin()
+                    + 0.15 * (2.0 * std::f32::consts::PI * 400.0 * t).sin();
+                let noise = 0.1 * (t * 1500.0).sin();
+                block.left[i] = speech + noise;
+                block.right[i] = speech * 0.9 + noise * 1.1;
+            }
+
+            let block_start = std::time::Instant::now();
+            pipeline.process_block(&mut block);
+            let block_us = block_start.elapsed().as_micros() as u64;
+            max_block_us = max_block_us.max(block_us);
+        }
+
+        let total_ms = start.elapsed().as_secs_f64() * 1000.0;
+        let avg_block_ms = total_ms / num_blocks as f64;
+        let latency_ms = pipeline.total_latency_ms();
+
+        println!("  {:<18} blocks={:>3}  avg={:.3}ms  max={:.3}ms  latency={:.2}ms  chain={}",
+            name, num_blocks, avg_block_ms,
+            max_block_us as f64 / 1000.0, latency_ms,
+            pipeline.block_names().join("→"));
+    }
+}
+
+// ── Part 8 ──────────────────────────────────────────────────────────────
+
+fn run_streaming_multitrack_benchmark() {
+    use streaming_multi::{StreamingMultiConfig, StreamingMultiState};
+
+    let config = StreamingMultiConfig {
+        window_size: 1024,
+        hop_size: 512,
+        sample_rate: 44100.0,
+        ..StreamingMultiConfig::default()
+    };
+    let mut state = StreamingMultiState::new(&config);
+
+    let sr = config.sample_rate;
+    let num_frames = 50;
+    let mut total_latency_us = 0u64;
+    let mut max_latency_us = 0u64;
+
+    for f in 0..num_frames {
+        let t_base = f as f64 * config.hop_size as f64 / sr;
+        let samples: Vec<f64> = (0..config.hop_size)
+            .map(|i| {
+                let t = t_base + i as f64 / sr;
+                0.4 * (2.0 * std::f64::consts::PI * 200.0 * t).sin()
+                    + 0.2 * (2.0 * std::f64::consts::PI * 80.0 * t).sin()
+                    + 0.15 * (2.0 * std::f64::consts::PI * 330.0 * t).sin()
+            })
+            .collect();
+
+        let result = state.process_frame(&samples, &config);
+        total_latency_us += result.latency_us;
+        max_latency_us = max_latency_us.max(result.latency_us);
+    }
+
+    let avg_latency_us = total_latency_us / num_frames as u64;
+    println!("  Frames:           {num_frames}");
+    println!("  Avg latency:      {avg_latency_us} us ({:.2} ms)", avg_latency_us as f64 / 1000.0);
+    println!("  Max latency:      {max_latency_us} us ({:.2} ms)", max_latency_us as f64 / 1000.0);
+
+    let stems = state.get_accumulated_stems();
+    for (stem, signal) in &stems {
+        let energy: f64 = signal.iter().map(|s| s * s).sum::<f64>() / signal.len().max(1) as f64;
+        println!("  {:>8}: energy={:.6}", format!("{:?}", stem), energy);
+    }
+}
+
+// ── Part 9 ──────────────────────────────────────────────────────────────
+
+fn run_adaptive_tuning() {
+    use adaptive::{default_search_ranges, random_search};
+    use std::f64::consts::PI;
+
+    let sr = 8000.0;
+    let duration = 0.25;
+    let n = (sr * duration) as usize;
+
+    // Two-tone test signal: 200 Hz + 2000 Hz (well-separated)
+    let src1: Vec<f64> = (0..n)
+        .map(|i| (2.0 * PI * 200.0 * i as f64 / sr).sin())
+        .collect();
+    let src2: Vec<f64> = (0..n)
+        .map(|i| 0.8 * (2.0 * PI * 2000.0 * i as f64 / sr).sin())
+        .collect();
+    let mixed: Vec<f64> = src1.iter().zip(src2.iter()).map(|(a, b)| a + b).collect();
+    let references = vec![src1, src2];
+
+    println!("  Signal: {} samples ({:.2}s, 200Hz + 2000Hz)", n, duration);
+
+    // Evaluate default params
+    let config = default_search_ranges();
+    let default_params = GraphParams::default();
+
+    let stft_result = stft::stft(&mixed, config.window_size, config.hop_size, config.sample_rate);
+    let ag = audio_graph::build_audio_graph(&stft_result, &default_params);
+    let sep = separator::separate(&ag, &config.separator_config);
+
+    let default_sdr = {
+        let num_sources = sep.masks.len().min(references.len());
+        let mut total = 0.0f64;
+        for s in 0..num_sources {
+            let recovered = stft::istft(&stft_result, &sep.masks[s], mixed.len());
+            let ref_e: f64 = references[s].iter().map(|x| x * x).sum();
+            let noise_e: f64 = references[s]
+                .iter()
+                .zip(recovered.iter())
+                .map(|(r, e)| (r - e) * (r - e))
+                .sum();
+            let sdr = if noise_e < 1e-12 {
+                100.0
+            } else if ref_e < 1e-12 {
+                f64::NEG_INFINITY
+            } else {
+                10.0 * (ref_e / noise_e).log10()
+            };
+            total += sdr;
+        }
+        total / num_sources as f64
+    };
+
+    // Random search with 20 trials
+    let start = std::time::Instant::now();
+    let result = random_search(&mixed, &references, &config, 20);
+    let elapsed = start.elapsed();
+
+    let improvement = result.best_score - default_sdr;
+
+    println!("  Default SDR:      {:.2} dB", default_sdr);
+    println!("  Optimized SDR:    {:.2} dB", result.best_score);
+    println!("  Improvement:      {:+.2} dB", improvement);
+    println!("  Trials:           {}", result.trials.len());
+    println!("  Search time:      {:.1} ms", elapsed.as_secs_f64() * 1000.0);
+    println!("  Best params:");
+    println!("    spectral_weight:  {:.3}", result.best_params.spectral_weight);
+    println!("    temporal_weight:  {:.3}", result.best_params.temporal_weight);
+    println!("    harmonic_weight:  {:.3}", result.best_params.harmonic_weight);
+    println!("    phase_threshold:  {:.3}", result.best_params.phase_threshold);
+    println!("    spectral_radius:  {}", result.best_params.spectral_radius);
+    println!("    max_harmonics:    {}", result.best_params.max_harmonics);
+}
+
+// ── Part 10 ──────────────────────────────────────────────────────────────
+
+fn run_enhanced_comparison() {
+    use std::f64::consts::PI;
+
+    let sr = 8000.0;
+    let duration = 0.25;
+    let n = (sr * duration) as usize;
+
+    let src1: Vec<f64> = (0..n).map(|i| (2.0 * PI * 200.0 * i as f64 / sr).sin()).collect();
+    let src2: Vec<f64> = (0..n).map(|i| 0.8 * (2.0 * PI * 2000.0 * i as f64 / sr).sin()).collect();
+    let mixed: Vec<f64> = src1.iter().zip(src2.iter()).map(|(a, b)| a + b).collect();
+    let references = vec![src1, src2];
+
+    println!("  Signal: {} samples ({:.2}s, 200Hz + 2000Hz)", n, duration);
+
+    let report = enhanced_separator::compare_modes(&mixed, &references, sr);
+    println!("  Basic (Fiedler only):    {:+.2} dB", report.basic_sdr);
+    println!("  + Multi-Resolution:      {:+.2} dB  ({:+.2} dB)", report.multires_sdr, report.multires_sdr - report.basic_sdr);
+    println!("  + Neural Refinement:     {:+.2} dB  ({:+.2} dB)", report.neural_sdr, report.neural_sdr - report.basic_sdr);
+    println!("  + Both (full pipeline):  {:+.2} dB  ({:+.2} dB)", report.both_sdr, report.both_sdr - report.basic_sdr);
+}
+
+// ── Part 11 ─────────────────────────────────────────────────────────────
+
+fn run_real_audio_evaluation() {
+    let results = evaluation::run_full_evaluation(8000.0, 0.5);
+    evaluation::print_evaluation_report(&results);
+}
+
+// ── Part 12 ─────────────────────────────────────────────────────────────
+
+fn run_transcription_benchmark() {
+    use evaluation::{generate_speech_like, generate_noise, NoiseType};
+    use transcriber::{benchmark_separation_for_transcription, estimate_wer_from_snr, compute_snr};
+
+    let sr = 8000.0;
+    let duration = 1.0;
+    let n = (sr * duration) as usize;
+
+    println!("  candle-whisper integration: pure Rust transcription pipeline");
+    println!("  Model: Whisper tiny (39M params) | Feature: --features transcribe");
+    println!();
+
+    // Scenario A: Two speakers with different pitches
+    let speaker1 = generate_speech_like(sr, duration, 120.0, 10, 5.0, 0.02);
+    let speaker2 = generate_speech_like(sr, duration, 220.0, 8, 6.0, 0.03);
+
+    println!("  ── Scenario A: Two Overlapping Speakers ──");
+    let result_a = benchmark_separation_for_transcription(
+        &[speaker1.clone(), speaker2.clone()],
+        &["Speaker 1 (120Hz)", "Speaker 2 (220Hz)"],
+        sr,
+    );
+    print_transcription_quality("  ", &result_a);
+
+    // Scenario B: Speech in noise
+    let speech = generate_speech_like(sr, duration, 150.0, 12, 5.0, 0.02);
+    let noise = generate_noise(sr, duration, NoiseType::Pink);
+
+    println!("\n  ── Scenario B: Speech in Pink Noise ──");
+    let result_b = benchmark_separation_for_transcription(
+        &[speech.clone(), noise.clone()],
+        &["Speech", "Noise"],
+        sr,
+    );
+    print_transcription_quality("  ", &result_b);
+
+    // Scenario C: Speech in babble (cocktail party)
+    let target = generate_speech_like(sr, duration, 150.0, 12, 5.0, 0.02);
+    let babble = generate_noise(sr, duration, NoiseType::Babble);
+
+    println!("\n  ── Scenario C: Speech in Babble Noise (Cocktail Party) ──");
+    let result_c = benchmark_separation_for_transcription(
+        &[target.clone(), babble.clone()],
+        &["Target Speech", "Babble"],
+        sr,
+    );
+    print_transcription_quality("  ", &result_c);
+
+    // Summary table
+    println!("\n  ── Summary: Before vs After Musica Separation ──");
+    println!("  {:<25} {:>10} {:>10} {:>10} {:>10}", "Scenario", "SNR(mix)", "SNR(sep)", "WER(mix)", "WER(sep)");
+    println!("  {}", "-".repeat(70));
+    for (name, result) in [
+        ("Two Speakers", &result_a),
+        ("Speech + Pink Noise", &result_b),
+        ("Cocktail Party", &result_c),
+    ] {
+        let q = &result.quality;
+        println!(
+            "  {:<25} {:>+9.1}dB {:>+9.1}dB {:>9.1}% {:>9.1}%",
+            name, q.mixed_snr_db, q.separated_snr_db, q.estimated_wer_mixed, q.estimated_wer_separated
+        );
+    }
+}
+
+fn print_transcription_quality(prefix: &str, result: &transcriber::SeparateAndTranscribeResult) {
+    let q = &result.quality;
+    println!("{}  BEFORE separation (mixed signal):", prefix);
+    println!("{}    SNR:           {:+.1} dB", prefix, q.mixed_snr_db);
+    println!("{}    Est. WER:      {:.1}%", prefix, q.estimated_wer_mixed);
+    println!("{}  AFTER Musica separation:", prefix);
+    println!("{}    SNR:           {:+.1} dB  ({:+.1} dB improvement)", prefix, q.separated_snr_db, q.snr_improvement_db);
+    println!("{}    Est. WER:      {:.1}%  ({:.1}x reduction)", prefix, q.estimated_wer_separated, q.wer_reduction_factor);
+    println!("{}  Separation time: {:.1} ms | Transcription time: {:.1} ms", prefix, result.separation_ms, result.transcription_ms);
+
+    for (label, trans) in &result.transcriptions {
+        println!("{}  Track '{}': {} segments, {:.1}ms", prefix, label, trans.segments.len(), trans.processing_ms);
+    }
+}
+
+// ── Part 13 ─────────────────────────────────────────────────────────────
+
+fn run_real_audio_separation() {
+    real_audio::run_real_audio_benchmarks("test_audio");
+}
+
+// ── Part 14 ─────────────────────────────────────────────────────────────
+
+fn run_advanced_sota_benchmark() {
+    use advanced_separator::{advanced_separate, compare_basic_vs_advanced, AdvancedConfig};
+    use std::f64::consts::PI;
+
+    let sr = 8000.0;
+    let duration = 0.5;
+    let n = (sr * duration) as usize;
+
+    let scenarios: Vec<(&str, Vec<f64>, Vec<Vec<f64>>)> = vec![
+        {
+            // Well-separated tones
+            let s1: Vec<f64> = (0..n).map(|i| (2.0 * PI * 200.0 * i as f64 / sr).sin()).collect();
+            let s2: Vec<f64> = (0..n).map(|i| 0.8 * (2.0 * PI * 2000.0 * i as f64 / sr).sin()).collect();
+            let mix: Vec<f64> = s1.iter().zip(s2.iter()).map(|(a, b)| a + b).collect();
+            ("Well-separated (200Hz+2000Hz)", mix, vec![s1, s2])
+        },
+        {
+            // Close tones (harder)
+            let s1: Vec<f64> = (0..n).map(|i| (2.0 * PI * 400.0 * i as f64 / sr).sin()).collect();
+            let s2: Vec<f64> = (0..n).map(|i| (2.0 * PI * 600.0 * i as f64 / sr).sin()).collect();
+            let mix: Vec<f64> = s1.iter().zip(s2.iter()).map(|(a, b)| a + b).collect();
+            ("Close tones (400Hz+600Hz)", mix, vec![s1, s2])
+        },
+        {
+            // Harmonic + noise
+            let s1: Vec<f64> = (0..n).map(|i| {
+                let t = i as f64 / sr;
+                0.5 * (2.0 * PI * 300.0 * t).sin()
+                    + 0.25 * (2.0 * PI * 600.0 * t).sin()
+                    + 0.12 * (2.0 * PI * 900.0 * t).sin()
+            }).collect();
+            let s2: Vec<f64> = (0..n).map(|i| {
+                // Pseudo-noise via high-frequency sum
+                let t = i as f64 / sr;
+                0.3 * ((t * 7919.0).sin() + (t * 6271.0).sin() + (t * 3571.0).sin()) / 3.0
+            }).collect();
+            let mix: Vec<f64> = s1.iter().zip(s2.iter()).map(|(a, b)| a + b).collect();
+            ("Harmonic + broadband noise", mix, vec![s1, s2])
+        },
+    ];
+
+    println!("  Techniques: Wiener filtering + Cascaded refinement + Multi-resolution fusion");
+    println!("  Wiener exponent: 2.0 | Cascade iters: 3 | Resolutions: 256/512/1024");
+    println!();
+    println!("  {:<35} {:>10} {:>10} {:>10} {:>10} {:>10}",
+        "Scenario", "Basic", "Advanced", "Δ SDR", "Basic ms", "Adv ms");
+    println!("  {}", "-".repeat(85));
+
+    for (label, mixed, refs) in &scenarios {
+        let result = compare_basic_vs_advanced(mixed, refs, sr);
+        println!(
+            "  {:<35} {:>+9.1}dB {:>+9.1}dB {:>+9.1}dB {:>9.1} {:>9.1}",
+            label,
+            result.basic_avg_sdr,
+            result.advanced_avg_sdr,
+            result.improvement_db,
+            result.basic_ms,
+            result.advanced_ms,
+        );
+    }
+
+    // Also show resolution stats for the last scenario
+    let last = scenarios.last().unwrap();
+    let adv_config = AdvancedConfig::default();
+    let adv_result = advanced_separate(&last.1, &adv_config, sr);
+    println!();
+    println!("  Resolution breakdown (last scenario):");
+    for (ws, nodes) in &adv_result.resolution_stats {
+        println!("    Window {}: {} nodes", ws, nodes);
+    }
+    println!("  Total time: {:.1} ms | Iterations: {}",
+        adv_result.processing_ms, adv_result.iterations_used);
+}
+
+// ── Part 15 ─────────────────────────────────────────────────────────────
+
+fn run_longer_benchmarks() {
+    use advanced_separator::{compare_basic_vs_advanced, AdvancedConfig};
+    use std::f64::consts::PI;
+
+    println!("  Testing separation on longer signals (real-world duration)");
+    println!();
+
+    for &(label, duration, f1, f2) in &[
+        ("2s well-separated", 2.0, 200.0, 2000.0),
+        ("3s close tones", 3.0, 400.0, 600.0),
+        ("5s speech-like + noise", 5.0, 150.0, 3000.0),
+    ] {
+        let sr = 8000.0;
+        let n = (sr * duration) as usize;
+        let s1: Vec<f64> = (0..n).map(|i| {
+            let t = i as f64 / sr;
+            // Add harmonics and amplitude modulation for realism
+            (2.0 * PI * f1 * t).sin() * (1.0 + 0.3 * (2.0 * PI * 3.0 * t).sin())
+                + 0.3 * (2.0 * PI * f1 * 2.0 * t).sin()
+                + 0.15 * (2.0 * PI * f1 * 3.0 * t).sin()
+        }).collect();
+        let s2: Vec<f64> = (0..n).map(|i| {
+            let t = i as f64 / sr;
+            0.8 * (2.0 * PI * f2 * t).sin() * (1.0 + 0.2 * (2.0 * PI * 5.0 * t).sin())
+                + 0.2 * (2.0 * PI * f2 * 1.5 * t).sin()
+        }).collect();
+        let mixed: Vec<f64> = s1.iter().zip(s2.iter()).map(|(a, b)| a + b).collect();
+
+        let result = compare_basic_vs_advanced(&mixed, &[s1, s2], sr);
+        println!(
+            "  {:<30} basic={:>+6.1}dB  adv={:>+6.1}dB  Δ={:>+5.1}dB  ({:.0}ms/{:.0}ms)",
+            label, result.basic_avg_sdr, result.advanced_avg_sdr,
+            result.improvement_db, result.basic_ms, result.advanced_ms
+        );
+    }
+}
+
+// ── Part 16 ─────────────────────────────────────────────────────────────
+
+fn run_spatial_benchmark() {
+    use spatial::{spatial_separate, SpatialConfig};
+    use std::f64::consts::PI;
+
+    let sr = 16000.0;
+    let n = 8000; // 500ms
+    let config = SpatialConfig {
+        source_directions: vec![-30.0, 30.0],
+        sample_rate: sr,
+        window_size: 512,
+        hop_size: 256,
+        ..SpatialConfig::default()
+    };
+
+    // Generate stereo signal: speech from left, noise from right
+    let speech: Vec<f64> = (0..n).map(|i| {
+        let t = i as f64 / sr;
+        0.5 * (2.0 * PI * 200.0 * t).sin()
+            + 0.2 * (2.0 * PI * 400.0 * t).sin()
+            + 0.1 * (2.0 * PI * 600.0 * t).sin()
+    }).collect();
+
+    let noise: Vec<f64> = (0..n).map(|i| {
+        let t = i as f64 / sr;
+        0.3 * (2.0 * PI * 1200.0 * t).sin()
+            + 0.2 * (2.0 * PI * 1800.0 * t).sin()
+    }).collect();
+
+    // Apply spatial cues: ILD and ITD
+    let left: Vec<f64> = speech.iter().zip(noise.iter())
+        .map(|(s, n)| s * 1.3 + n * 0.4).collect();
+    let right: Vec<f64> = speech.iter().zip(noise.iter())
+        .map(|(s, n)| s * 0.4 + n * 1.3).collect();
+
+    let result = spatial_separate(&left, &right, &config);
+
+    println!("  Sources: {} | Signal: {}ms at {:.0}Hz", result.sources.len(), n as f64 / sr * 1000.0, sr);
+    println!("  Processing time: {:.1} ms", result.processing_ms);
+
+    for (i, source) in result.sources.iter().enumerate() {
+        let energy: f64 = source.iter().map(|x| x * x).sum::<f64>() / n as f64;
+        let dir = config.source_directions[i];
+        println!("  Source {} (dir={:+.0}°): energy={:.4}", i, dir, energy);
+    }
+
+    // Verify mask quality
+    let total = result.masks[0].len();
+    let mask_sharpness: f64 = (0..total)
+        .map(|i| {
+            let m = result.masks[0][i];
+            if m > 0.01 && m < 0.99 { 0.0 } else { 1.0 }
+        })
+        .sum::<f64>() / total as f64;
+    println!("  Mask sharpness: {:.1}% of bins are hard-assigned", mask_sharpness * 100.0);
+}
+
+// ── Part 17 ─────────────────────────────────────────────────────────────
+
+fn run_musdb_comparison() {
+    use musdb_compare::{MusicaProfile, print_comparison_table, gap_analysis};
+
+    let profile = MusicaProfile::default();
+    print_comparison_table(&profile);
+
+    let musica_avg = (profile.well_separated_sdr + profile.close_tone_sdr
+        + profile.harmonic_noise_sdr + profile.close_tone_sdr) / 4.0;
+
+    println!("  Gap analysis (SDR needed to match each method):");
+    for (method, gap) in gap_analysis(musica_avg) {
+        println!("    {:<20} {:>+6.1} dB", method, gap);
+    }
+}
+
+// ── Part 18 ─────────────────────────────────────────────────────────────
+
+fn run_visualizer_demo() {
+    use visualizer::{DisplayConfig, render_waveform, render_spectrum, render_masks,
+                     render_separation_comparison, render_lissajous};
+    use std::f64::consts::PI;
+
+    let sr = 8000.0;
+    let n = 4000; // 0.5s
+
+    // Generate a mixed signal: 200Hz + 1500Hz
+    let s1: Vec<f64> = (0..n).map(|i| (2.0 * PI * 200.0 * i as f64 / sr).sin()).collect();
+    let s2: Vec<f64> = (0..n).map(|i| 0.6 * (2.0 * PI * 1500.0 * i as f64 / sr).sin()).collect();
+    let mixed: Vec<f64> = s1.iter().zip(s2.iter()).map(|(a, b)| a + b).collect();
+
+    let config = DisplayConfig { width: 72, height: 10, color: true, unicode_blocks: true };
+
+    // 1. Waveform
+    let wf = render_waveform(&mixed, "Mixed: 200Hz + 1500Hz", &config);
+    print!("{wf}");
+
+    // 2. Spectrum
+    let stft_result = stft::stft(&mixed, 256, 128, sr);
+    let mid = stft_result.num_frames / 2;
+    let sp = render_spectrum(&stft_result, mid, "Frequency Spectrum", &config);
+    print!("{sp}");
+
+    // 3. Separation + mask visualization
+    let graph = audio_graph::build_audio_graph(&stft_result, &GraphParams::default());
+    let sep_config = SeparatorConfig { num_sources: 2, ..SeparatorConfig::default() };
+    let result = separator::separate(&graph, &sep_config);
+
+    let masks_viz = render_masks(
+        &result.masks, stft_result.num_frames, stft_result.num_freq_bins,
+        "Separation Masks (Source 0)", &config,
+    );
+    print!("{masks_viz}");
+
+    // 4. Full comparison view
+    let sources: Vec<Vec<f64>> = result.masks.iter()
+        .map(|m| stft::istft(&stft_result, m, n))
+        .collect();
+    let compact = DisplayConfig { width: 72, height: 8, color: true, unicode_blocks: true };
+    let comp = render_separation_comparison(&mixed, &sources, sr, &compact);
+    print!("{comp}");
+
+    // 5. Lissajous (stereo)
+    let left = &s1;
+    let right = &s2;
+    let liss = render_lissajous(left, right, "Lissajous (L=200Hz R=1500Hz)", &compact);
+    print!("{liss}");
+
+    println!("  Visualizer: 5 rendering modes validated (waveform, spectrum, masks, comparison, Lissajous)");
+}
+
+// ── Part 19 ─────────────────────────────────────────────────────────────
+
+fn run_weight_optimization() {
+    use learned_weights::{TrainingSample, optimize_weights};
+    use std::f64::consts::PI;
+
+    let sr = 8000.0;
+    let n = 4000;
+
+    // Create 3 training scenarios with varying difficulty
+    let scenarios: Vec<(&str, f64, f64)> = vec![
+        ("well-separated", 200.0, 2000.0),
+        ("moderate", 300.0, 800.0),
+        ("close-tones", 400.0, 550.0),
+    ];
+
+    let mut samples = Vec::new();
+    for (label, f1, f2) in &scenarios {
+        let s1: Vec<f64> = (0..n).map(|i| (2.0 * PI * f1 * i as f64 / sr).sin()).collect();
+        let s2: Vec<f64> = (0..n).map(|i| 0.8 * (2.0 * PI * f2 * i as f64 / sr).sin()).collect();
+        let mixed: Vec<f64> = s1.iter().zip(s2.iter()).map(|(a, b)| a + b).collect();
+        samples.push(TrainingSample { mixed, references: vec![s1, s2], sample_rate: sr });
+        println!("  Training scenario: {} ({}Hz + {}Hz)", label, f1, f2);
+    }
+
+    let start = std::time::Instant::now();
+    let result = optimize_weights(&samples, 30, 256, 128);
+    let elapsed = start.elapsed();
+
+    println!("  Optimization: {} iterations in {:.1}ms", result.iterations, elapsed.as_secs_f64() * 1000.0);
+    println!("  Best SDR: {:.2} dB", result.best_sdr);
+    println!("  Optimized params:");
+    println!("    spectral_weight:  {:.4}", result.best_params.spectral_weight);
+    println!("    temporal_weight:  {:.4}", result.best_params.temporal_weight);
+    println!("    harmonic_weight:  {:.4}", result.best_params.harmonic_weight);
+    println!("    phase_threshold:  {:.4}", result.best_params.phase_threshold);
+    println!("    onset_weight:     {:.4}", result.best_params.onset_weight);
+    println!("    magnitude_floor:  {:.4}", result.best_params.magnitude_floor);
+
+    // Compare default vs optimized on each scenario
+    println!("  Per-scenario comparison (default → optimized):");
+    for (i, (label, _, _)) in scenarios.iter().enumerate() {
+        let default_sdr = learned_weights::evaluate_params_public(
+            &GraphParams::default(), &samples[i], 256, 128,
+        );
+        let opt_sdr = learned_weights::evaluate_params_public(
+            &result.best_params, &samples[i], 256, 128,
+        );
+        let delta = opt_sdr - default_sdr;
+        println!("    {:<16} {:.2} → {:.2} dB ({:+.2})", label, default_sdr, opt_sdr, delta);
+    }
+
+    // SDR history
+    if result.history.len() > 3 {
+        println!("  SDR trajectory: {:.2} → {:.2} → ... → {:.2}",
+            result.history[0],
+            result.history[1],
+            result.history.last().unwrap());
+    }
+}
+
+// ── Part 20 ─────────────────────────────────────────────────────────────
+
+fn run_multi_source_benchmark() {
+    use std::f64::consts::PI;
+
+    let sr = 8000.0;
+    let n = 4000;
+
+    // 3-source separation
+    let s1: Vec<f64> = (0..n).map(|i| (2.0 * PI * 200.0 * i as f64 / sr).sin()).collect();
+    let s2: Vec<f64> = (0..n).map(|i| 0.7 * (2.0 * PI * 800.0 * i as f64 / sr).sin()).collect();
+    let s3: Vec<f64> = (0..n).map(|i| 0.5 * (2.0 * PI * 2500.0 * i as f64 / sr).sin()).collect();
+    let mixed: Vec<f64> = (0..n).map(|i| s1[i] + s2[i] + s3[i]).collect();
+
+    println!("  3-source test: 200Hz + 800Hz + 2500Hz");
+
+    let stft_result = stft::stft(&mixed, 512, 256, sr);
+    let graph = audio_graph::build_audio_graph(&stft_result, &GraphParams::default());
+
+    let config3 = SeparatorConfig { num_sources: 3, ..SeparatorConfig::default() };
+    let start = std::time::Instant::now();
+    let result = separator::separate(&graph, &config3);
+    let elapsed = start.elapsed();
+
+    println!("  Separation time: {:.1} ms", elapsed.as_secs_f64() * 1000.0);
+    println!("  Partitions: {}", result.masks.len());
+
+    // Reconstruct and measure energy distribution
+    let references = vec![&s1, &s2, &s3];
+    let sources: Vec<Vec<f64>> = result.masks.iter()
+        .map(|m| stft::istft(&stft_result, m, n))
+        .collect();
+
+    for (i, src) in sources.iter().enumerate() {
+        let energy: f64 = src.iter().map(|x| x * x).sum::<f64>() / n as f64;
+        println!("  Source {}: RMS energy = {:.4}", i, energy.sqrt());
+    }
+
+    // Compute SDR for best permutation (3! = 6 permutations)
+    let perms: Vec<[usize; 3]> = vec![
+        [0,1,2], [0,2,1], [1,0,2], [1,2,0], [2,0,1], [2,1,0],
+    ];
+    let mut best_avg_sdr = f64::MIN;
+    let mut best_perm = [0usize; 3];
+    for perm in &perms {
+        let mut total_sdr = 0.0;
+        for (ref_idx, &est_idx) in perm.iter().enumerate() {
+            if est_idx < sources.len() {
+                total_sdr += compute_sdr_main(references[ref_idx], &sources[est_idx]);
+            }
+        }
+        let avg = total_sdr / 3.0;
+        if avg > best_avg_sdr {
+            best_avg_sdr = avg;
+            best_perm = *perm;
+        }
+    }
+
+    println!("  Best permutation: ref→est {:?}", best_perm);
+    println!("  Average SDR (3 sources): {:.2} dB", best_avg_sdr);
+
+    // 4-source separation
+    let s4: Vec<f64> = (0..n).map(|i| 0.4 * (2.0 * PI * 1500.0 * i as f64 / sr).sin()).collect();
+    let mixed4: Vec<f64> = (0..n).map(|i| s1[i] + s2[i] + s3[i] + s4[i]).collect();
+
+    println!("\n  4-source test: 200Hz + 800Hz + 1500Hz + 2500Hz");
+
+    let stft4 = stft::stft(&mixed4, 512, 256, sr);
+    let graph4 = audio_graph::build_audio_graph(&stft4, &GraphParams::default());
+
+    let config4 = SeparatorConfig { num_sources: 4, ..SeparatorConfig::default() };
+    let start4 = std::time::Instant::now();
+    let result4 = separator::separate(&graph4, &config4);
+    let elapsed4 = start4.elapsed();
+
+    println!("  Separation time: {:.1} ms", elapsed4.as_secs_f64() * 1000.0);
+    println!("  Partitions: {}", result4.masks.len());
+
+    let sources4: Vec<Vec<f64>> = result4.masks.iter()
+        .map(|m| stft::istft(&stft4, m, n))
+        .collect();
+
+    for (i, src) in sources4.iter().enumerate() {
+        let energy: f64 = src.iter().map(|x| x * x).sum::<f64>() / n as f64;
+        println!("  Source {}: RMS energy = {:.4}", i, energy.sqrt());
+    }
+}
+
+fn compute_sdr_main(reference: &[f64], estimate: &[f64]) -> f64 {
+    let n = reference.len().min(estimate.len());
+    if n == 0 { return -60.0; }
+    let ref_e: f64 = reference[..n].iter().map(|x| x * x).sum();
+    let noise_e: f64 = reference[..n].iter().zip(estimate[..n].iter())
+        .map(|(r, e)| (r - e).powi(2)).sum();
+    if ref_e < 1e-12 { return -60.0; }
+    if noise_e < 1e-12 { return 100.0; }
+    (10.0 * (ref_e / noise_e).log10()).clamp(-60.0, 100.0)
+}

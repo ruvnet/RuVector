@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MUSICA — Audio Source Separation</title>
+<!--
+  Browser demo for the Musica WASM audio separator.
+
+  Build the WASM module first:
+    cargo build --target wasm32-unknown-unknown --features wasm --release
+
+  Then copy the .wasm file here:
+    cp target/wasm32-unknown-unknown/release/musica.wasm wasm/musica.wasm
+
+  Serve this directory (WASM requires HTTP, not file://):
+    python3 -m http.server 8080
+
+  Open http://localhost:8080/wasm/index.html
+-->
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0e1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --accent-hover: #79c0ff;
+    --green: #3fb950;
+    --orange: #d29922;
+    --red: #f85149;
+    --radius: 8px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 2rem 1rem;
+  }
+
+  .app {
+    max-width: 720px;
+    width: 100%;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    color: #ffffff;
+  }
+
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    margin-bottom: 1.5rem;
+  }
+
+  /* Drop zone */
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 2.5rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    margin-bottom: 1rem;
+    position: relative;
+  }
+  .dropzone:hover, .dropzone.dragover {
+    border-color: var(--accent);
+    background: rgba(88, 166, 255, 0.05);
+  }
+  .dropzone p { color: var(--text-dim); }
+  .dropzone .icon { font-size: 2rem; margin-bottom: 0.5rem; }
+  .dropzone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  }
+  .file-info {
+    font-size: 0.8rem;
+    color: var(--green);
+    margin-top: 0.5rem;
+  }
+
+  /* Controls row */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+  }
+  .slider-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 180px;
+  }
+  .slider-group label { font-size: 0.85rem; white-space: nowrap; }
+  .slider-group input[type="range"] {
+    flex: 1;
+    accent-color: var(--accent);
+  }
+  .slider-group .val {
+    font-weight: 600;
+    font-size: 0.9rem;
+    min-width: 1.2rem;
+    text-align: center;
+  }
+
+  button {
+    padding: 0.55rem 1.25rem;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #0d1117;
+  }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-primary:disabled {
+    background: var(--border);
+    color: var(--text-dim);
+    cursor: not-allowed;
+  }
+  .btn-play {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 0.4rem 0.75rem;
+    font-size: 0.78rem;
+  }
+  .btn-play:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Waveform section */
+  .waveforms { margin-bottom: 1rem; }
+  .waveform-row {
+    margin-bottom: 0.75rem;
+  }
+  .waveform-label {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    margin-bottom: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  canvas {
+    width: 100%;
+    height: 60px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    display: block;
+  }
+
+  /* Stats bar */
+  .stats {
+    display: flex;
+    gap: 1.5rem;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    padding: 0.6rem 0;
+    border-top: 1px solid var(--border);
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .stats span strong { color: var(--text); }
+
+  /* Playback row */
+  .playback {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .status-msg {
+    font-size: 0.8rem;
+    color: var(--orange);
+    margin-top: 0.5rem;
+    min-height: 1.2rem;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>MUSICA</h1>
+  <p class="subtitle">Structure-first audio source separation via dynamic mincut graph partitioning</p>
+
+  <!-- Drop zone -->
+  <div class="dropzone" id="dropzone">
+    <div class="icon">&#x1F3B5;</div>
+    <p>Drag a WAV file here or click to upload</p>
+    <input type="file" id="fileInput" accept=".wav,audio/wav">
+    <div class="file-info" id="fileInfo"></div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <div class="slider-group">
+      <label>Sources:</label>
+      <span class="val">2</span>
+      <input type="range" id="numSources" min="2" max="4" value="2">
+      <span class="val">4</span>
+      <span class="val" id="srcVal" style="color:var(--accent)">2</span>
+    </div>
+    <button class="btn-primary" id="btnSeparate" disabled>Separate</button>
+  </div>
+
+  <!-- Waveforms -->
+  <div class="waveforms" id="waveforms">
+    <div class="waveform-row">
+      <div class="waveform-label"><span>Input</span></div>
+      <canvas id="canvasInput"></canvas>
+    </div>
+    <!-- Source canvases are added dynamically -->
+  </div>
+
+  <!-- Stats -->
+  <div class="stats" id="stats">
+    <span>Latency: <strong id="statLatency">--</strong></span>
+    <span>Samples: <strong id="statSamples">--</strong></span>
+    <span>Sample rate: <strong id="statSR">--</strong></span>
+    <span>Sources: <strong id="statSources">--</strong></span>
+  </div>
+
+  <!-- Playback -->
+  <div class="playback" id="playback"></div>
+
+  <div class="status-msg" id="statusMsg"></div>
+</div>
+
+<script>
+// =========================================================================
+// State
+// =========================================================================
+let wasmInstance = null;
+let audioCtx = null;
+let rawSamples = null;     // Float64Array of mono samples
+let sampleRate = 44100;
+let resultMasks = null;    // Float64Array of interleaved masks
+let numSources = 2;
+
+// =========================================================================
+// DOM refs
+// =========================================================================
+const dropzone     = document.getElementById('dropzone');
+const fileInput    = document.getElementById('fileInput');
+const fileInfo     = document.getElementById('fileInfo');
+const srcSlider    = document.getElementById('numSources');
+const srcVal       = document.getElementById('srcVal');
+const btnSeparate  = document.getElementById('btnSeparate');
+const waveformsDiv = document.getElementById('waveforms');
+const playbackDiv  = document.getElementById('playback');
+const statusMsg    = document.getElementById('statusMsg');
+
+const statLatency  = document.getElementById('statLatency');
+const statSamples  = document.getElementById('statSamples');
+const statSR       = document.getElementById('statSR');
+const statSources  = document.getElementById('statSources');
+
+// =========================================================================
+// WASM loading
+// =========================================================================
+async function loadWasm() {
+  try {
+    // Memory shared with WASM — start with 256 pages (16 MB), grow up to 1024 (64 MB)
+    const memory = new WebAssembly.Memory({ initial: 256, maximum: 1024 });
+
+    const importObject = {
+      env: { memory },
+      // Stubs for any imports the Rust binary might expect
+      wasi_snapshot_preview1: {
+        proc_exit: () => {},
+        fd_write: () => 0,
+        fd_seek: () => 0,
+        fd_close: () => 0,
+        environ_sizes_get: () => 0,
+        environ_get: () => 0,
+        clock_time_get: (id, precision, out) => {
+          // Provide a monotonic clock for std::time::Instant
+          const now = BigInt(Math.round(performance.now() * 1e6));
+          const view = new DataView(memory.buffer);
+          view.setBigUint64(out, now, true);
+          return 0;
+        },
+        args_sizes_get: () => 0,
+        args_get: () => 0,
+      },
+    };
+
+    const resp = await fetch('musica.wasm');
+    if (!resp.ok) throw new Error(`Failed to fetch musica.wasm (${resp.status})`);
+    const { instance } = await WebAssembly.instantiateStreaming(resp, importObject);
+    wasmInstance = instance;
+    setStatus('WASM module loaded.');
+  } catch (e) {
+    setStatus('WASM not loaded (' + e.message + '). You can still load files to preview waveforms.');
+    console.warn('WASM load error:', e);
+  }
+}
+
+loadWasm();
+
+// =========================================================================
+// WAV decoding (parse RIFF/WAVE header, extract PCM samples as Float64)
+// =========================================================================
+function decodeWav(arrayBuffer) {
+  const view = new DataView(arrayBuffer);
+
+  // Validate RIFF header
+  const riff = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3));
+  const wave = String.fromCharCode(view.getUint8(8), view.getUint8(9), view.getUint8(10), view.getUint8(11));
+  if (riff !== 'RIFF' || wave !== 'WAVE') throw new Error('Not a valid WAV file');
+
+  // Find fmt and data chunks
+  let offset = 12;
+  let fmtChunk = null;
+  let dataOffset = 0;
+  let dataSize = 0;
+
+  while (offset < view.byteLength - 8) {
+    const id = String.fromCharCode(
+      view.getUint8(offset), view.getUint8(offset+1),
+      view.getUint8(offset+2), view.getUint8(offset+3)
+    );
+    const size = view.getUint32(offset + 4, true);
+
+    if (id === 'fmt ') {
+      fmtChunk = {
+        audioFormat: view.getUint16(offset + 8, true),
+        numChannels: view.getUint16(offset + 10, true),
+        sampleRate:  view.getUint32(offset + 12, true),
+        bitsPerSample: view.getUint16(offset + 22, true),
+      };
+    } else if (id === 'data') {
+      dataOffset = offset + 8;
+      dataSize = size;
+    }
+
+    offset += 8 + size;
+    if (size % 2 !== 0) offset++; // pad byte
+  }
+
+  if (!fmtChunk) throw new Error('Missing fmt chunk');
+  if (!dataOffset) throw new Error('Missing data chunk');
+  if (fmtChunk.audioFormat !== 1) throw new Error('Only PCM WAV is supported (format=' + fmtChunk.audioFormat + ')');
+
+  const bytesPerSample = fmtChunk.bitsPerSample / 8;
+  const numChannels = fmtChunk.numChannels;
+  const totalSamples = Math.floor(dataSize / (bytesPerSample * numChannels));
+  const mono = new Float64Array(totalSamples);
+
+  for (let i = 0; i < totalSamples; i++) {
+    let sum = 0;
+    for (let ch = 0; ch < numChannels; ch++) {
+      const pos = dataOffset + (i * numChannels + ch) * bytesPerSample;
+      let sample = 0;
+      if (bytesPerSample === 2) {
+        sample = view.getInt16(pos, true) / 32768;
+      } else if (bytesPerSample === 3) {
+        const lo = view.getUint8(pos);
+        const mid = view.getUint8(pos + 1);
+        const hi = view.getInt8(pos + 2);
+        sample = ((hi << 16) | (mid << 8) | lo) / 8388608;
+      } else if (bytesPerSample === 1) {
+        sample = (view.getUint8(pos) - 128) / 128;
+      }
+      sum += sample;
+    }
+    mono[i] = sum / numChannels;
+  }
+
+  return { samples: mono, sampleRate: fmtChunk.sampleRate, channels: numChannels, bits: fmtChunk.bitsPerSample };
+}
+
+// =========================================================================
+// File handling
+// =========================================================================
+function handleFile(file) {
+  if (!file) return;
+  setStatus('Reading ' + file.name + '...');
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const wav = decodeWav(reader.result);
+      rawSamples = wav.samples;
+      sampleRate = wav.sampleRate;
+      fileInfo.textContent = `${file.name} | ${wav.sampleRate} Hz | ${wav.bits}-bit | ${wav.channels}ch | ${rawSamples.length} samples`;
+      btnSeparate.disabled = !wasmInstance;
+      drawWaveform(document.getElementById('canvasInput'), rawSamples, '#58a6ff');
+      clearSourceCanvases();
+      setStatus('File loaded. Ready to separate.');
+    } catch (e) {
+      setStatus('Error: ' + e.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+
+srcSlider.addEventListener('input', () => {
+  numSources = parseInt(srcSlider.value);
+  srcVal.textContent = numSources;
+});
+
+// =========================================================================
+// Separation
+// =========================================================================
+btnSeparate.addEventListener('click', () => {
+  if (!wasmInstance || !rawSamples) return;
+  runSeparation();
+});
+
+function runSeparation() {
+  setStatus('Running separation...');
+  btnSeparate.disabled = true;
+
+  // Use setTimeout to let the UI update before blocking
+  setTimeout(() => {
+    try {
+      const exports = wasmInstance.exports;
+      const memory = exports.memory;
+      const alloc = exports.__wbindgen_malloc || exports.malloc || null;
+
+      // Write samples into WASM memory
+      // Strategy: use a region after the current memory usage
+      // We need len * 8 bytes for f64 samples
+      const byteLen = rawSamples.length * 8;
+
+      // Grow memory if needed
+      const currentPages = memory.buffer.byteLength / 65536;
+      const neededPages = Math.ceil((memory.buffer.byteLength + byteLen + 65536) / 65536);
+      if (neededPages > currentPages) {
+        memory.grow(neededPages - currentPages);
+      }
+
+      // Find a safe offset to write samples (after the WASM data segment)
+      // Use a simple bump allocator starting at 1MB offset
+      const inputPtr = 1048576; // 1 MB
+      const f64View = new Float64Array(memory.buffer, inputPtr, rawSamples.length);
+      f64View.set(rawSamples);
+
+      // Call separate_audio
+      const resultPtr = exports.separate_audio(inputPtr, rawSamples.length, sampleRate, numSources);
+      const resultLen = exports.get_result_len();
+      const latencyUs = Number(exports.get_latency_us());
+
+      if (resultPtr === 0 || resultLen === 0) {
+        setStatus('Separation returned no results.');
+        btnSeparate.disabled = false;
+        return;
+      }
+
+      // Read result masks from WASM memory
+      resultMasks = new Float64Array(memory.buffer, resultPtr, resultLen).slice();
+
+      // Free WASM-side allocation
+      exports.free_result(resultPtr);
+
+      // Update stats
+      const latencyMs = (latencyUs / 1000).toFixed(2);
+      statLatency.textContent = latencyMs + ' ms';
+      statSamples.textContent = rawSamples.length.toLocaleString();
+      statSR.textContent = sampleRate + ' Hz';
+      statSources.textContent = numSources;
+
+      // Draw source waveforms (masks applied to input)
+      renderSourceWaveforms();
+      renderPlaybackButtons();
+
+      setStatus('Separation complete in ' + latencyMs + ' ms.');
+    } catch (e) {
+      setStatus('Error: ' + e.message);
+      console.error(e);
+    }
+    btnSeparate.disabled = false;
+  }, 50);
+}
+
+// =========================================================================
+// Waveform rendering
+// =========================================================================
+function drawWaveform(canvas, samples, color) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const w = rect.width;
+  const h = rect.height;
+  const mid = h / 2;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Find peak for normalization
+  let peak = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const abs = Math.abs(samples[i]);
+    if (abs > peak) peak = abs;
+  }
+  if (peak === 0) peak = 1;
+
+  ctx.beginPath();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+
+  const step = Math.max(1, Math.floor(samples.length / w));
+  for (let x = 0; x < w; x++) {
+    const idx = Math.floor(x * samples.length / w);
+    // Min/max in this bucket for a filled waveform look
+    let min = 0, max = 0;
+    for (let j = 0; j < step && idx + j < samples.length; j++) {
+      const v = samples[idx + j] / peak;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    ctx.moveTo(x, mid + min * mid * 0.9);
+    ctx.lineTo(x, mid + max * mid * 0.9);
+  }
+  ctx.stroke();
+}
+
+const SOURCE_COLORS = ['#3fb950', '#d29922', '#f85149', '#bc8cff'];
+
+function clearSourceCanvases() {
+  // Remove old source rows
+  document.querySelectorAll('.source-row').forEach(el => el.remove());
+  playbackDiv.innerHTML = '';
+}
+
+function renderSourceWaveforms() {
+  clearSourceCanvases();
+  if (!resultMasks || !rawSamples) return;
+
+  const perSource = resultMasks.length / numSources;
+
+  // For visualization: apply each mask to the input signal (approximate)
+  // The mask is in TF domain; we just use it as an amplitude envelope for display
+  for (let s = 0; s < numSources; s++) {
+    const maskOffset = s * perSource;
+    // Create a time-domain approximation: resample the mask to signal length
+    const sourceSamples = new Float64Array(rawSamples.length);
+    for (let i = 0; i < rawSamples.length; i++) {
+      const maskIdx = Math.floor(i * perSource / rawSamples.length);
+      const m = maskIdx < perSource ? resultMasks[maskOffset + maskIdx] : 0;
+      sourceSamples[i] = rawSamples[i] * m;
+    }
+
+    // Create canvas row
+    const row = document.createElement('div');
+    row.className = 'waveform-row source-row';
+    row.innerHTML = `
+      <div class="waveform-label"><span>Source ${s + 1}</span></div>
+      <canvas id="canvasSrc${s}"></canvas>
+    `;
+    waveformsDiv.appendChild(row);
+
+    const canvas = document.getElementById('canvasSrc' + s);
+    drawWaveform(canvas, sourceSamples, SOURCE_COLORS[s % SOURCE_COLORS.length]);
+  }
+}
+
+// =========================================================================
+// Playback via Web Audio API
+// =========================================================================
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playSamples(samples, sr) {
+  const ctx = getAudioCtx();
+  const buf = ctx.createBuffer(1, samples.length, sr);
+  const ch = buf.getChannelData(0);
+  for (let i = 0; i < samples.length; i++) ch[i] = samples[i];
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.connect(ctx.destination);
+  src.start();
+}
+
+function renderPlaybackButtons() {
+  playbackDiv.innerHTML = '';
+
+  // Play input
+  const btnInput = document.createElement('button');
+  btnInput.className = 'btn-play';
+  btnInput.textContent = 'Play Input';
+  btnInput.onclick = () => playSamples(rawSamples, sampleRate);
+  playbackDiv.appendChild(btnInput);
+
+  // Play each source
+  if (resultMasks) {
+    const perSource = resultMasks.length / numSources;
+    for (let s = 0; s < numSources; s++) {
+      const btn = document.createElement('button');
+      btn.className = 'btn-play';
+      btn.textContent = 'Play Source ' + (s + 1);
+      btn.onclick = ((idx) => () => {
+        const maskOff = idx * perSource;
+        const out = new Float32Array(rawSamples.length);
+        for (let i = 0; i < rawSamples.length; i++) {
+          const mi = Math.floor(i * perSource / rawSamples.length);
+          const m = mi < perSource ? resultMasks[maskOff + mi] : 0;
+          out[i] = rawSamples[i] * m;
+        }
+        playSamples(out, sampleRate);
+      })(s);
+      playbackDiv.appendChild(btn);
+    }
+  }
+}
+
+// =========================================================================
+// Utility
+// =========================================================================
+function setStatus(msg) {
+  statusMsg.textContent = msg;
+}
+
+// Handle window resize — redraw canvases
+window.addEventListener('resize', () => {
+  if (rawSamples) drawWaveform(document.getElementById('canvasInput'), rawSamples, '#58a6ff');
+  if (resultMasks) renderSourceWaveforms();
+});
+</script>
+</body>
+</html>
