@@ -307,7 +307,7 @@ mod tests {
         let peak_bin = freq_energy
             .iter()
             .enumerate()
-            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap()
             .0;
         let peak_freq = peak_bin as f64 * sr / 256.0;
@@ -353,7 +353,7 @@ mod tests {
         let peak_bin = freq_energy
             .iter()
             .enumerate()
-            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap()
             .0;
 

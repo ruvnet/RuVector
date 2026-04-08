@@ -18,13 +18,32 @@ use crate::stft;
 // Internal helpers (always compiled so tests work without the `wasm` feature)
 // ---------------------------------------------------------------------------
 
+/// Portable elapsed-time measurement (works on native and wasm32)
+fn elapsed_us(start: u64) -> u64 {
+    now_us().saturating_sub(start)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn now_us() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_micros() as u64
+}
+
+#[cfg(target_arch = "wasm32")]
+fn now_us() -> u64 {
+    0 // No monotonic clock on wasm32-unknown-unknown; overridden by JS host
+}
+
 /// Run the full separation pipeline on raw audio samples and return interleaved
 /// mask data: `[source0_mask..., source1_mask..., ...]`.
 ///
 /// Each mask has length `num_frames * num_freq_bins` as produced by the STFT.
 /// The total returned length is `num_sources * num_frames * num_freq_bins`.
-fn run_pipeline(samples: &[f64], sample_rate: f64, num_sources: usize) -> (Vec<f64>, u64) {
-    let start = std::time::Instant::now();
+pub(crate) fn run_pipeline(samples: &[f64], sample_rate: f64, num_sources: usize) -> (Vec<f64>, u64) {
+    let start = now_us();
 
     let window_size = 256usize;
     let hop_size = 128usize;
@@ -46,8 +65,7 @@ fn run_pipeline(samples: &[f64], sample_rate: f64, num_sources: usize) -> (Vec<f
         out.extend_from_slice(mask);
     }
 
-    let elapsed_us = start.elapsed().as_micros() as u64;
-    (out, elapsed_us)
+    (out, elapsed_us(start))
 }
 
 // ---------------------------------------------------------------------------
@@ -57,23 +75,19 @@ fn run_pipeline(samples: &[f64], sample_rate: f64, num_sources: usize) -> (Vec<f
 #[cfg(feature = "wasm")]
 mod ffi {
     use super::run_pipeline;
+    use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
-    /// Length of the last result returned by `separate_audio`.
-    static mut LAST_RESULT_LEN: usize = 0;
-    /// Latency (microseconds) of the last `separate_audio` call.
-    static mut LAST_LATENCY_US: u64 = 0;
+    /// Length of the last result (thread-safe via atomic)
+    static LAST_RESULT_LEN: AtomicUsize = AtomicUsize::new(0);
+    /// Latency of the last call (thread-safe via atomic)
+    static LAST_LATENCY_US: AtomicU64 = AtomicU64::new(0);
 
     /// Run the audio separation pipeline.
     ///
-    /// # Parameters
-    /// - `ptr`  — pointer to `f64` audio samples (mono)
-    /// - `len`  — number of samples
-    /// - `sample_rate` — sample rate in Hz (e.g. 44100.0)
-    /// - `num_sources` — number of sources to separate into (2-4)
-    ///
-    /// # Returns
-    /// Pointer to interleaved mask data. Caller must free with `free_result`.
-    /// Use `get_result_len` to discover the length.
+    /// # Safety
+    /// - `ptr` must point to `len` valid `f64` values
+    /// - Caller must free the returned pointer with `free_result` using
+    ///   the length from `get_result_len` obtained *before* the next call
     #[no_mangle]
     pub unsafe extern "C" fn separate_audio(
         ptr: *const f64,
@@ -82,16 +96,16 @@ mod ffi {
         num_sources: usize,
     ) -> *mut f64 {
         if ptr.is_null() || len == 0 || num_sources == 0 {
-            LAST_RESULT_LEN = 0;
-            LAST_LATENCY_US = 0;
+            LAST_RESULT_LEN.store(0, Ordering::Release);
+            LAST_LATENCY_US.store(0, Ordering::Release);
             return std::ptr::null_mut();
         }
 
         let samples = std::slice::from_raw_parts(ptr, len);
         let (result, latency) = run_pipeline(samples, sample_rate, num_sources);
 
-        LAST_RESULT_LEN = result.len();
-        LAST_LATENCY_US = latency;
+        LAST_RESULT_LEN.store(result.len(), Ordering::Release);
+        LAST_LATENCY_US.store(latency, Ordering::Release);
 
         let boxed = result.into_boxed_slice();
         Box::into_raw(boxed) as *mut f64
@@ -100,25 +114,27 @@ mod ffi {
     /// Return the length (in `f64` elements) of the last result.
     #[no_mangle]
     pub extern "C" fn get_result_len() -> usize {
-        unsafe { LAST_RESULT_LEN }
+        LAST_RESULT_LEN.load(Ordering::Acquire)
     }
 
     /// Free a result buffer previously returned by `separate_audio`.
+    ///
+    /// # Safety
+    /// - `ptr` must have been returned by `separate_audio`
+    /// - `len` must be the value from `get_result_len` obtained immediately
+    ///   after the `separate_audio` call that produced this pointer
     #[no_mangle]
-    pub unsafe extern "C" fn free_result(ptr: *mut f64) {
-        if ptr.is_null() {
+    pub unsafe extern "C" fn free_result(ptr: *mut f64, len: usize) {
+        if ptr.is_null() || len == 0 {
             return;
         }
-        let len = LAST_RESULT_LEN;
-        if len > 0 {
-            let _ = Box::from_raw(std::slice::from_raw_parts_mut(ptr, len));
-        }
+        let _ = Box::from_raw(std::slice::from_raw_parts_mut(ptr, len));
     }
 
     /// Return the wall-clock latency in microseconds of the last call.
     #[no_mangle]
     pub extern "C" fn get_latency_us() -> u64 {
-        unsafe { LAST_LATENCY_US }
+        LAST_LATENCY_US.load(Ordering::Acquire)
     }
 }
 

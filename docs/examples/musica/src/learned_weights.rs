@@ -155,7 +155,7 @@ pub fn optimize_weights(
 
     for iter in 0..max_iterations {
         // Sort by objective (higher = better, so sort descending)
-        simplex.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        simplex.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         history.push(simplex[0].1);
 
         let best = &simplex[0].1;
@@ -224,7 +224,7 @@ pub fn optimize_weights(
         }
     }
 
-    simplex.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    simplex.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
     OptimizationResult {
         best_params: vec_to_params(&simplex[0].0),

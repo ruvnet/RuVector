@@ -297,7 +297,7 @@ pub fn separate_multitrack(signal: &[f64], config: &MultitrackConfig) -> Multitr
                 // Use Fiedler vector to modulate mask
                 let median = {
                     let mut sorted = fiedler.clone();
-                    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
                     sorted[fiedler.len() / 2]
                 };
 

@@ -268,7 +268,7 @@ mod tests {
             frame_energy
                 .iter()
                 .enumerate()
-                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
                 .map(|(i, &e)| (i, e))
                 .unwrap()
         };

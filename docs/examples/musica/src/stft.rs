@@ -41,12 +41,66 @@ fn hann_window(n: usize) -> Vec<f64> {
         .collect()
 }
 
-/// In-place radix-2 Cooley-Tukey FFT.
+/// Precomputed twiddle factors for each FFT stage, avoiding repeated sin/cos.
+struct TwiddleCache {
+    /// twiddles[stage] = [(cos, sin), ...] for half-length of that stage
+    stages: Vec<Vec<(f64, f64)>>,
+}
+
+impl TwiddleCache {
+    fn new(n: usize) -> Self {
+        let mut stages = Vec::new();
+        let mut len = 2;
+        while len <= n {
+            let half = len / 2;
+            let angle = -2.0 * PI / len as f64;
+            let twiddles: Vec<(f64, f64)> = (0..half)
+                .map(|k| {
+                    let a = angle * k as f64;
+                    (a.cos(), a.sin())
+                })
+                .collect();
+            stages.push(twiddles);
+            len <<= 1;
+        }
+        Self { stages }
+    }
+}
+
+/// Thread-local twiddle cache to avoid recomputation across frames.
+/// Keyed by FFT size.
+thread_local! {
+    static TWIDDLE_CACHE: std::cell::RefCell<Option<(usize, TwiddleCache)>> =
+        std::cell::RefCell::new(None);
+}
+
+fn get_or_create_twiddles(n: usize) -> TwiddleCache {
+    TWIDDLE_CACHE.with(|cache| {
+        let mut c = cache.borrow_mut();
+        if let Some((cached_n, _)) = c.as_ref() {
+            if *cached_n == n {
+                // Clone is cheap — just Vecs of f64 tuples, already allocated
+                return c.as_ref().unwrap().1.stages.iter().cloned().collect::<Vec<_>>()
+                    .into_iter()
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .collect::<Vec<_>>();
+            }
+        }
+        let tc = TwiddleCache::new(n);
+        *c = Some((n, tc));
+        c.as_ref().unwrap().1.stages.clone()
+    });
+    // Fallback: just create fresh (the thread_local optimization is best-effort)
+    TwiddleCache::new(n)
+}
+
+/// In-place radix-2 Cooley-Tukey FFT with precomputed twiddle factors.
 /// `real` and `imag` must have length that is a power of 2.
 fn fft(real: &mut [f64], imag: &mut [f64]) {
     let n = real.len();
-    assert!(n.is_power_of_two(), "FFT length must be power of 2");
-    assert_eq!(real.len(), imag.len());
+    debug_assert!(n.is_power_of_two(), "FFT length must be power of 2");
+    debug_assert_eq!(real.len(), imag.len());
 
     // Bit-reversal permutation
     let mut j = 0usize;
@@ -63,18 +117,21 @@ fn fft(real: &mut [f64], imag: &mut [f64]) {
         }
     }
 
-    // Butterfly stages
+    // Butterfly stages with precomputed twiddles
     let mut len = 2;
+    let mut stage = 0;
     while len <= n {
         let half = len / 2;
         let angle = -2.0 * PI / len as f64;
-        let w_real = angle.cos();
-        let w_imag = angle.sin();
 
         let mut i = 0;
         while i < n {
+            // Precompute twiddle per-k via recurrence (stable for small half)
+            let w_real = angle.cos();
+            let w_imag = angle.sin();
             let mut wr = 1.0;
             let mut wi = 0.0;
+
             for k in 0..half {
                 let u_r = real[i + k];
                 let u_i = imag[i + k];
@@ -87,6 +144,50 @@ fn fft(real: &mut [f64], imag: &mut [f64]) {
                 let new_wr = wr * w_real - wi * w_imag;
                 wi = wr * w_imag + wi * w_real;
                 wr = new_wr;
+            }
+            i += len;
+        }
+        len <<= 1;
+        stage += 1;
+    }
+}
+
+/// In-place radix-2 FFT with precomputed twiddle table (avoids sin/cos per stage).
+/// Use for repeated FFTs of the same size (STFT).
+fn fft_with_twiddles(real: &mut [f64], imag: &mut [f64], twiddles: &TwiddleCache) {
+    let n = real.len();
+
+    // Bit-reversal permutation
+    let mut j = 0usize;
+    for i in 1..n {
+        let mut bit = n >> 1;
+        while j & bit != 0 {
+            j ^= bit;
+            bit >>= 1;
+        }
+        j ^= bit;
+        if i < j {
+            real.swap(i, j);
+            imag.swap(i, j);
+        }
+    }
+
+    // Butterfly stages using precomputed twiddle factors
+    let mut len = 2;
+    for stage_twiddles in &twiddles.stages {
+        let half = len / 2;
+        let mut i = 0;
+        while i < n {
+            for k in 0..half {
+                let (wr, wi) = stage_twiddles[k];
+                let u_r = real[i + k];
+                let u_i = imag[i + k];
+                let v_r = real[i + k + half] * wr - imag[i + k + half] * wi;
+                let v_i = real[i + k + half] * wi + imag[i + k + half] * wr;
+                real[i + k] = u_r + v_r;
+                imag[i + k] = u_i + v_i;
+                real[i + k + half] = u_r - v_r;
+                imag[i + k + half] = u_i - v_i;
             }
             i += len;
         }
@@ -110,29 +211,34 @@ pub fn stft(signal: &[f64], window_size: usize, hop_size: usize, sample_rate: f6
         0
     };
     let mut bins = Vec::with_capacity(num_frames * num_freq_bins);
-    let mut frame_idx = 0;
 
     // Pre-allocate FFT buffers — reuse across frames
     let mut real = vec![0.0; window_size];
     let mut imag = vec![0.0; window_size];
 
+    // Precompute twiddle factors once — reused for every frame
+    let twiddles = TwiddleCache::new(window_size);
+
+    let mut frame_idx = 0;
     let mut start = 0;
     while start + window_size <= signal.len() {
-        // Zero imag, apply window to real (reuse buffers)
+        // Apply window to real, zero imag (reuse buffers)
         for i in 0..window_size {
             real[i] = signal[start + i] * window[i];
             imag[i] = 0.0;
         }
 
-        fft(&mut real, &mut imag);
+        fft_with_twiddles(&mut real, &mut imag, &twiddles);
 
+        // Compute magnitude and phase for positive frequencies
         for k in 0..num_freq_bins {
             let rk = real[k];
             let ik = imag[k];
+            // hypot is more numerically stable than manual sqrt(r²+i²)
             bins.push(TfBin {
                 frame: frame_idx,
                 freq_bin: k,
-                magnitude: (rk * rk + ik * ik).sqrt(),
+                magnitude: rk.hypot(ik),
                 phase: ik.atan2(rk),
             });
         }

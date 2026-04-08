@@ -46,6 +46,7 @@ pub mod streaming_multi;
 pub mod evaluation;
 pub mod real_audio;
 pub mod transcriber;
+#[cfg(any(feature = "wasm", test))]
 pub mod wasm_bridge;
 pub mod visualizer;
 pub mod wav;

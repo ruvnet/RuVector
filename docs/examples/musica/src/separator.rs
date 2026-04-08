@@ -234,7 +234,7 @@ fn spectral_cluster(
         // Partition by Fiedler vector sign, with frequency-aware tie-breaking
         let median = {
             let mut sorted = fiedler.clone();
-            sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
             sorted[n / 2]
         };
 
@@ -399,7 +399,7 @@ fn spectral_kmeans(embedding: &[Vec<f64>], k: usize) -> Vec<usize> {
                 .min_by(|(_, a), (_, b)| {
                     let da: f64 = (0..dim).map(|d| (point[d] - a[d]).powi(2)).sum();
                     let db: f64 = (0..dim).map(|d| (point[d] - b[d]).powi(2)).sum();
-                    da.partial_cmp(&db).unwrap()
+                    da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
                 })
                 .map(|(idx, _)| idx)
                 .unwrap_or(0);
@@ -460,7 +460,7 @@ fn frequency_kmeans(
                 .iter()
                 .enumerate()
                 .min_by(|(_, a), (_, b)| {
-                    (freq - *a).abs().partial_cmp(&(freq - *b).abs()).unwrap()
+                    (freq - *a).abs().partial_cmp(&(freq - *b).abs()).unwrap_or(std::cmp::Ordering::Equal)
                 })
                 .map(|(idx, _)| idx)
                 .unwrap_or(0);

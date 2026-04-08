@@ -166,26 +166,31 @@ impl SparseMatrix {
 
 // ── SIMD-friendly vector operations ─────────────────────────────────────
 
-/// Dot product (auto-vectorizes on contiguous slices).
+/// Dot product with 4 independent accumulators for maximum ILP.
+/// Auto-vectorizes to NEON/AVX2 on contiguous slices.
 #[inline]
 fn dot(a: &[f64], b: &[f64]) -> f64 {
     let n = a.len().min(b.len());
-    let mut sum = 0.0f64;
-    // Process in chunks of 4 for auto-vectorization
-    let chunks = n / 4;
-    let remainder = n % 4;
+    let mut s0 = 0.0f64;
+    let mut s1 = 0.0f64;
+    let mut s2 = 0.0f64;
+    let mut s3 = 0.0f64;
+    let mut i = 0;
 
-    for i in 0..chunks {
-        let base = i * 4;
-        sum += a[base] * b[base]
-            + a[base + 1] * b[base + 1]
-            + a[base + 2] * b[base + 2]
-            + a[base + 3] * b[base + 3];
+    // 8-wide with 4 accumulators — exploits ILP across FMA units
+    while i + 8 <= n {
+        s0 += a[i] * b[i] + a[i + 4] * b[i + 4];
+        s1 += a[i + 1] * b[i + 1] + a[i + 5] * b[i + 5];
+        s2 += a[i + 2] * b[i + 2] + a[i + 6] * b[i + 6];
+        s3 += a[i + 3] * b[i + 3] + a[i + 7] * b[i + 7];
+        i += 8;
     }
-    for i in (chunks * 4)..(chunks * 4 + remainder) {
-        sum += a[i] * b[i];
+    // Remainder
+    while i < n {
+        s0 += a[i] * b[i];
+        i += 1;
     }
-    sum
+    s0 + s1 + s2 + s3
 }
 
 /// L2 norm.
@@ -194,22 +199,25 @@ fn norm(a: &[f64]) -> f64 {
     dot(a, a).sqrt()
 }
 
-/// axpy: y = y + alpha * x
+/// axpy: y = y + alpha * x (8-wide for auto-vectorization)
 #[inline]
 fn axpy(alpha: f64, x: &[f64], y: &mut [f64]) {
     let n = x.len().min(y.len());
-    let chunks = n / 4;
-    let remainder = n % 4;
-
-    for i in 0..chunks {
-        let base = i * 4;
-        y[base] += alpha * x[base];
-        y[base + 1] += alpha * x[base + 1];
-        y[base + 2] += alpha * x[base + 2];
-        y[base + 3] += alpha * x[base + 3];
-    }
-    for i in (chunks * 4)..(chunks * 4 + remainder) {
+    let mut i = 0;
+    while i + 8 <= n {
         y[i] += alpha * x[i];
+        y[i + 1] += alpha * x[i + 1];
+        y[i + 2] += alpha * x[i + 2];
+        y[i + 3] += alpha * x[i + 3];
+        y[i + 4] += alpha * x[i + 4];
+        y[i + 5] += alpha * x[i + 5];
+        y[i + 6] += alpha * x[i + 6];
+        y[i + 7] += alpha * x[i + 7];
+        i += 8;
+    }
+    while i < n {
+        y[i] += alpha * x[i];
+        i += 1;
     }
 }
 
@@ -435,7 +443,7 @@ fn tridiagonal_qr(alpha: &[f64], beta: &[f64], tol: f64) -> (Vec<f64>, Vec<Vec<f
 
     // Sort by eigenvalue
     let mut indices: Vec<usize> = (0..n).collect();
-    indices.sort_by(|&a, &b| d[a].partial_cmp(&d[b]).unwrap());
+    indices.sort_by(|&a, &b| d[a].partial_cmp(&d[b]).unwrap_or(std::cmp::Ordering::Equal));
 
     let sorted_eigenvalues: Vec<f64> = indices.iter().map(|&i| d[i]).collect();
     let sorted_eigenvectors: Vec<Vec<f64>> = indices
