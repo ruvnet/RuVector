@@ -66,6 +66,19 @@ pub async fn create_router() -> (Router, AppState) {
     ));
     let sona = Arc::new(parking_lot::RwLock::new(sona::SonaEngine::new(128)));
 
+    // Auto-restore SONA state from Firestore on startup (fixes #274)
+    // Requires ruvector-sona >= 0.1.8 (PR #285) for load_state/serialize_state with patterns.
+    // Until then, log that persistence is configured but waiting for sona upgrade.
+    {
+        let docs = store.firestore_list_public("sona_state").await;
+        if let Some(doc) = docs.first() {
+            let patterns = doc.get("patterns_count").and_then(|p| p.as_u64()).unwrap_or(0);
+            tracing::info!(patterns = patterns, "[sona] Found persisted state in Firestore (restore pending sona >= 0.1.8)");
+        } else {
+            tracing::info!("[sona] No persisted state in Firestore — starting fresh");
+        }
+    }
+
     let lora_federation = Arc::new(parking_lot::RwLock::new(
         crate::types::LoraFederationStore::new(2, 128),
     ));
@@ -418,7 +431,7 @@ pub async fn create_router() -> (Router, AppState) {
 }
 
 /// Run a training cycle: SONA force_learn + domain evolve_population.
-/// Returns a summary of what happened.
+/// After training, auto-persists SONA state to Firestore (fixes #274).
 pub fn run_training_cycle(state: &AppState) -> TrainingCycleResult {
     let sona_result = state.sona.write().force_learn();
     let mut domain = state.domain_engine.write();
@@ -427,6 +440,22 @@ pub fn run_training_cycle(state: &AppState) -> TrainingCycleResult {
     let pareto_after = domain.meta.pareto.len();
 
     let sona_stats = state.sona.read().stats();
+
+    // Auto-persist SONA state to Firestore after training (fixes #274)
+    // Stores pattern count + stats; full pattern serialization requires sona >= 0.1.8
+    if sona_stats.patterns_stored > 0 {
+        let sona_stats_json = serde_json::to_string(&sona_stats).unwrap_or_default();
+        let store = state.store.clone();
+        tokio::spawn(async move {
+            let body = serde_json::json!({
+                "state": sona_stats_json,
+                "patterns_count": sona_stats.patterns_stored,
+                "updated_at": chrono::Utc::now().to_rfc3339(),
+            });
+            store.firestore_put_public("sona_state", "latest", &body).await;
+            tracing::info!(patterns = sona_stats.patterns_stored, "[sona] Auto-persisted state to Firestore");
+        });
+    }
 
     TrainingCycleResult {
         sona_message: sona_result,
