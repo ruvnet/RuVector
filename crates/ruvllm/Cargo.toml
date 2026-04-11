@@ -94,9 +94,8 @@ sha2 = "0.10"
 # MD5 hashing for input hashing in semantic cache
 md5 = "0.7"
 
-# Ternary Intelligence Stack (TIS) - Native triadic optimizations
-ternlang-ml = { path = "/home/eri-irfos/Desktop/Ternary Intelligence Stack (TIS)/ternlang-root/ternlang-ml", version = "0.1.0" }
-ternlang-runtime = { path = "/home/eri-irfos/Desktop/Ternary Intelligence Stack (TIS)/ternlang-root/ternlang-runtime", version = "0.1.0" }
+# Ternary sparse matmul for BitNet-style ternary-weight models (optional)
+ternlang-ml = { version = "0.3", optional = true }
 
 # Metal GPU acceleration (macOS only)
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -123,6 +122,8 @@ async-runtime = ["tokio", "tokio-stream"]
 minimal = ["async-runtime"]
 wasm = []
 wasm-simd = []
+# Enable ternary sparse matmul kernel for BitNet-style ternary-weight models
+bitnet-sparse = ["dep:ternlang-ml"]
 
 # Quantization support (requires platform-specific SIMD)
 quantize = []
