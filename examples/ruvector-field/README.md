@@ -288,21 +288,31 @@ route_score = capability_fit
 From the repository root:
 
 ```bash
-cargo run --manifest-path examples/ruvector-field/Cargo.toml
+cargo run --manifest-path examples/ruvector-field/Cargo.toml --bin field_demo
 ```
 
 Or from inside the example directory:
 
 ```bash
 cd examples/ruvector-field
-cargo run
-cargo run --release    # same thing, faster build output
-cargo build            # build without executing
-cargo check            # type-check only
+
+# Interactive demo
+cargo run --bin field_demo
+cargo run --bin field_demo -- --help
+cargo run --bin field_demo -- --nodes 16 --query "session timeout" --show-witness
+
+# Acceptance gate benchmark (spec section 18)
+cargo run --release --bin acceptance_gate
+
+# Tests: 21 integration + 37 doc tests
+cargo test
+cargo test --doc
 ```
 
 No external dependencies, no network, no state files. The demo is
-deterministic apart from timestamps.
+deterministic apart from timestamps. The acceptance gate prints the four
+spec-section-18 numbers (contradiction surfacing rate, token cost, long
+session coherence, latency) with PASS/FAIL markers.
 
 ## 9. Walkthrough of the demo output
 
@@ -373,16 +383,30 @@ Shell budgets (base = 1024):
 
 ```
 examples/ruvector-field/
-├── Cargo.toml          # binary crate, no dependencies
-├── Cargo.lock          # committed for binary reproducibility
-├── README.md           # this file
-└── src/
-    ├── main.rs         # demo entry point (~170 lines)
-    ├── types.rs        # data model (~180 lines)
-    └── engine.rs       # field engine (~230 lines)
+├── Cargo.toml             # lib + two bins, no dependencies
+├── Cargo.lock
+├── README.md
+├── src/
+│   ├── lib.rs             # crate root with prelude re-exports
+│   ├── main.rs            # field_demo CLI binary
+│   ├── clock.rs           # Clock / SystemClock / TestClock / AtomicTestClock
+│   ├── embed.rs           # EmbeddingProvider trait + HashEmbeddingProvider
+│   ├── error.rs           # FieldError enum
+│   ├── witness.rs         # WitnessEvent / WitnessLog
+│   ├── proof.rs           # ProofGate trait / NoopProofGate / ManualProofGate
+│   ├── model/             # ids, embedding + store, shell, node, edge
+│   ├── policy/            # axis constraints + registry
+│   ├── scoring/           # resonance, coherence, retrieval, routing
+│   ├── storage/           # semantic index, snapshot/diff, temporal buckets
+│   └── engine/            # ingest, promote, retrieve, drift, route, tick
+├── tests/                 # 21 integration tests
+│   ├── resonance.rs antipode.rs promotion.rs drift.rs
+│   ├── retrieval.rs phi_budget.rs witness.rs utf8.rs
+└── benches/
+    └── acceptance_gate.rs # runnable spec-section-18 benchmark bin
 ```
 
-Total: under 600 lines of Rust.
+Every source file stays under 500 lines. No external dependencies.
 
 ## 11. Integration with the rest of RuVector
 

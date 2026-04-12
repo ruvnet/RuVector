@@ -1,203 +1,283 @@
-//! RuVector field subsystem — runnable demo.
+//! RuVector Field Subsystem — runnable demo binary.
 //!
-//! This example mirrors `docs/research/ruvector-field/SPEC.md`. It builds a
-//! tiny field engine with four shells, binds geometric and semantic antipodes,
-//! recomputes coherence, promotes shells, runs a shell-aware retrieval with a
-//! contradiction frontier, checks drift, and issues a routing hint.
+//! A thin CLI that exercises the library implementation end-to-end. Run:
 //!
-//! Run with:
-//!     cargo run --manifest-path examples/ruvector-field/Cargo.toml
+//! ```text
+//! cargo run --bin field_demo -- --nodes 16 --query "authentication timeout"
+//! cargo run --bin field_demo -- --help
+//! ```
 
-#![allow(dead_code)]
+use std::env;
+use std::process::ExitCode;
 
-mod engine;
-mod types;
+use ruvector_field::prelude::*;
+use ruvector_field::engine::route::RoutingAgent;
 
-use engine::FieldEngine;
-use types::*;
-
-fn main() {
-    println!("=== RuVector Field Subsystem Demo ===\n");
-
-    let mut engine = FieldEngine::new();
-
-    // --- 1. Ingest a handful of interactions into the Event shell ---
-    let e1 = engine.ingest(
-        NodeKind::Interaction,
-        "User reports authentication timeout after 30s of idle",
-        Embedding::new(vec![0.9, 0.1, 0.0, 0.2, 0.0]),
-        AxisScores::new(0.7, 0.6, 0.5, 0.8),
-        0b0001,
-    );
-    let e2 = engine.ingest(
-        NodeKind::Interaction,
-        "User reports authentication timeout on mobile device",
-        Embedding::new(vec![0.85, 0.15, 0.05, 0.2, 0.0]),
-        AxisScores::new(0.7, 0.6, 0.55, 0.8),
-        0b0001,
-    );
-    let e3 = engine.ingest(
-        NodeKind::Interaction,
-        "Session refresh silently fails after JWT expiry",
-        Embedding::new(vec![0.8, 0.2, 0.1, 0.15, 0.05]),
-        AxisScores::new(0.7, 0.55, 0.5, 0.85),
-        0b0001,
-    );
-
-    // A summary pattern that generalizes these events
-    let p1 = engine.ingest(
-        NodeKind::Summary,
-        "Pattern: idle timeout causes silent JWT refresh failure",
-        Embedding::new(vec![0.85, 0.15, 0.05, 0.18, 0.02]),
-        AxisScores::new(0.8, 0.7, 0.6, 0.85),
-        0b0001,
-    );
-
-    // A concept: refresh token lifecycle
-    let c1 = engine.ingest(
-        NodeKind::Summary,
-        "Concept: refresh tokens must be rotated before access token expiry",
-        Embedding::new(vec![0.82, 0.18, 0.08, 0.2, 0.05]),
-        AxisScores::new(0.85, 0.75, 0.65, 0.9),
-        0b0001,
-    );
-
-    // A policy (principle shell target)
-    let r1 = engine.ingest(
-        NodeKind::Policy,
-        "Principle: sessions shall never silently fail — always surface auth errors",
-        Embedding::new(vec![0.8, 0.2, 0.1, 0.22, 0.06]),
-        AxisScores::new(0.95, 0.9, 0.8, 0.95),
-        0b1111,
-    );
-
-    // An opposing claim to drive the contradiction frontier
-    let opposite = engine.ingest(
-        NodeKind::Summary,
-        "Claim: idle timeouts are harmless; clients always retry on 401",
-        Embedding::new(vec![0.75, 0.25, 0.15, 0.3, 0.1]),
-        AxisScores::new(0.3, 0.2, 0.4, 0.5),
-        0b0001,
-    );
-
-    // --- 2. Wire up relationships ---
-    engine.add_edge(e1, p1, EdgeKind::DerivedFrom, 0.9);
-    engine.add_edge(e2, p1, EdgeKind::DerivedFrom, 0.9);
-    engine.add_edge(e3, p1, EdgeKind::DerivedFrom, 0.85);
-    engine.add_edge(p1, c1, EdgeKind::Refines, 0.9);
-    engine.add_edge(p1, c1, EdgeKind::Supports, 0.9);
-    engine.add_edge(c1, r1, EdgeKind::Supports, 0.95);
-    engine.add_edge(c1, r1, EdgeKind::Refines, 0.95);
-    engine.add_edge(p1, r1, EdgeKind::Supports, 0.9);
-    engine.add_edge(e1, p1, EdgeKind::Supports, 0.9);
-    engine.add_edge(e2, p1, EdgeKind::Supports, 0.9);
-
-    // Semantic antipode — explicit contradiction, not just vector flip
-    engine.bind_semantic_antipode(r1, opposite, 0.95);
-
-    // --- 3. Recompute coherence and promote shells ---
-    engine.recompute_coherence();
-    let promotions = engine.promote_candidates();
-    println!("Shell promotions:");
-    for (id, before, after) in &promotions {
-        println!("  node {:>3}: {:?} → {:?}", id, before, after);
+fn main() -> ExitCode {
+    let args: Vec<String> = env::args().collect();
+    let opts = match parse_args(&args) {
+        Ok(opts) => opts,
+        Err(msg) => {
+            eprintln!("error: {}", msg);
+            print_usage(&args[0]);
+            return ExitCode::from(2);
+        }
+    };
+    if opts.help {
+        print_usage(&args[0]);
+        return ExitCode::SUCCESS;
     }
-    if promotions.is_empty() {
-        println!("  (none — ingest more support edges to trigger promotion)");
+
+    println!("=== RuVector Field Subsystem Demo ===");
+    println!("(nodes={}, seed={}, query={:?})\n", opts.nodes, opts.seed, opts.query);
+
+    let provider = HashEmbeddingProvider::new(32);
+    let mut engine = FieldEngine::new();
+    seed_policies(&mut engine);
+
+    let corpus = build_corpus(opts.nodes, opts.seed);
+    let mut ids = Vec::new();
+    for (kind, text, axes, mask) in &corpus {
+        let emb = provider.embed(text);
+        let id = engine
+            .ingest(*kind, text.clone(), emb, *axes, *mask)
+            .expect("ingest");
+        ids.push(id);
+    }
+
+    // Wire edges: every odd node derives from its predecessor; every fifth
+    // node supports the one before it; the final node contradicts the first.
+    for (i, id) in ids.iter().enumerate() {
+        if i > 0 && i % 2 == 1 {
+            engine
+                .add_edge(ids[i - 1], *id, EdgeKind::DerivedFrom, 0.9)
+                .expect("edge");
+        }
+        if i > 0 && i % 3 == 0 {
+            engine.add_edge(*id, ids[i - 1], EdgeKind::Supports, 0.85).expect("edge");
+        }
+        if i > 0 && i % 5 == 0 {
+            engine.add_edge(*id, ids[i - 1], EdgeKind::Refines, 0.8).expect("edge");
+        }
+    }
+    if ids.len() >= 2 {
+        engine
+            .bind_semantic_antipode(ids[0], ids[ids.len() - 1], 0.9)
+            .expect("antipode");
+    }
+
+    // Force tick + two promotion passes so hysteresis can fire.
+    engine.tick();
+    for _ in 0..3 {
+        let _ = engine.promote_candidates();
+    }
+    let final_promotions = engine.promote_candidates();
+
+    println!("Shell promotions (final pass):");
+    if final_promotions.is_empty() {
+        println!("  (none this pass)");
+    } else {
+        for rec in &final_promotions {
+            println!("  {}", rec);
+        }
     }
 
     println!("\nCurrent nodes:");
     let mut nodes: Vec<&FieldNode> = engine.nodes.values().collect();
     nodes.sort_by_key(|n| n.id);
     for n in &nodes {
-        println!(
-            "  id={:>3} shell={:<9?} coherence={:.3} resonance={:.3} text={:?}",
-            n.id,
-            n.shell,
-            n.coherence,
-            n.resonance,
-            truncate(&n.text, 60)
-        );
+        println!("  {}", n);
     }
 
-    // --- 4. Shell-aware retrieval with contradiction frontier ---
-    let query = Embedding::new(vec![0.88, 0.12, 0.05, 0.2, 0.02]);
-    let result = engine.retrieve(&query, &[Shell::Pattern, Shell::Concept, Shell::Principle], 3);
-
-    println!("\nRetrieval:");
-    println!("  selected nodes: {:?}", result.selected);
-    println!("  contradiction frontier: {:?}", result.contradiction_frontier);
-    println!("  explanation trace:");
-    for line in &result.explanation {
-        println!("    - {}", line);
-    }
-
-    // --- 5. Drift signal against a synthetic baseline centroid ---
-    let baseline = Embedding::new(vec![0.5, 0.5, 0.5, 0.5, 0.5]);
-    let drift = engine.drift(&baseline);
-    println!(
-        "\nDrift: semantic={:.3} structural={:.3} policy={:.3} identity={:.3} total={:.3}",
-        drift.semantic, drift.structural, drift.policy, drift.identity, drift.total
-    );
-    if drift.total > 0.4 && [drift.semantic, drift.structural, drift.policy, drift.identity]
-        .iter()
-        .filter(|c| **c > 0.05)
-        .count()
-        >= 2
-    {
-        println!("  >> drift alert: at least two channels agree past threshold");
+    // Retrieval with the parsed query.
+    let query_emb = provider.embed(&opts.query);
+    let shells = if opts.shells.is_empty() {
+        vec![Shell::Event, Shell::Pattern, Shell::Concept, Shell::Principle]
     } else {
-        println!("  (no alert — threshold not crossed or not enough agreeing channels)");
+        opts.shells.clone()
+    };
+    let result = engine.retrieve(&query_emb, &shells, 3, None);
+    println!("\nRetrieval {}", result);
+    for line in &result.explanation {
+        println!("  {}", line);
     }
 
-    // --- 6. Routing hint based on role embeddings ---
-    let roles = vec![
-        (
-            1001_u64,
-            "constraint",
-            Embedding::new(vec![0.9, 0.1, 0.0, 0.2, 0.0]),
-        ),
-        (
-            1002_u64,
-            "structuring",
-            Embedding::new(vec![0.5, 0.5, 0.0, 0.2, 0.0]),
-        ),
-        (
-            1003_u64,
-            "synthesis",
-            Embedding::new(vec![0.3, 0.3, 0.3, 0.3, 0.3]),
-        ),
-        (
-            1004_u64,
-            "verification",
-            Embedding::new(vec![0.8, 0.2, 0.1, 0.25, 0.05]),
-        ),
-    ];
-    match engine.route(&query, &roles) {
-        Some(hint) => {
-            println!(
-                "\nRouting hint: agent={:?} gain={:.3} cost={:.3} ttl={} reason={:?}",
-                hint.target_agent, hint.gain_estimate, hint.cost_estimate, hint.ttl_epochs, hint.reason
-            );
-            println!("  note: hint is advisory — privileged mutations must still pass proof + witness gates");
+    // Drift
+    if opts.show_drift {
+        let baseline = provider.embed("baseline reference corpus drift");
+        let drift = engine.drift(&baseline);
+        println!("\n{}", drift);
+        if drift.agreement_fires(0.4, 0.1) {
+            println!("  >> drift alert: two or more channels agree past threshold");
+        } else {
+            println!("  (no alert — threshold not crossed or channels do not agree)");
         }
-        None => println!("\nNo routing hint available"),
     }
 
-    // --- 7. Phi-scaled budgets for each shell ---
-    let base_budget = 1024.0;
-    println!("\nShell budgets (base = {base_budget}):");
-    for s in [Shell::Event, Shell::Pattern, Shell::Concept, Shell::Principle] {
-        println!("  {:<9?} → {:.1}", s, s.budget(base_budget));
+    // Routing
+    let agents = vec![
+        RoutingAgent {
+            agent_id: 1001,
+            role: "constraint".into(),
+            capability: provider.embed("constraint guardrail limit"),
+            role_embedding: provider.embed("constraint"),
+            home_node: ids.first().copied(),
+            home_shell: Shell::Principle,
+        },
+        RoutingAgent {
+            agent_id: 1002,
+            role: "synthesis".into(),
+            capability: provider.embed("synthesis bridge combine"),
+            role_embedding: provider.embed("synthesis"),
+            home_node: ids.get(ids.len() / 2).copied(),
+            home_shell: Shell::Concept,
+        },
+        RoutingAgent {
+            agent_id: 1003,
+            role: "verification".into(),
+            capability: provider.embed("verification audit check"),
+            role_embedding: provider.embed("verification"),
+            home_node: ids.last().copied(),
+            home_shell: Shell::Concept,
+        },
+    ];
+    if let Some(hint) = engine.route(&query_emb, Shell::Concept, &agents, ids.first().copied(), false) {
+        println!("\nRouting hint: {}", hint);
+    }
+
+    // Phi budgets
+    let base = 1024.0;
+    println!("\nShell budgets (base = {base}):");
+    for s in Shell::all() {
+        println!("  {:<9} -> {:.1}", format!("{}", s), s.budget(base));
+    }
+
+    if opts.show_witness {
+        println!("\nWitness events:");
+        for ev in engine.witness.events() {
+            println!("  {} {:?}", ev.tag(), ev);
+        }
     }
 
     println!("\nDone.");
+    ExitCode::SUCCESS
 }
 
-fn truncate(s: &str, n: usize) -> String {
-    if s.len() <= n {
-        s.to_string()
-    } else {
-        format!("{}...", &s[..n])
+struct Opts {
+    nodes: usize,
+    query: String,
+    shells: Vec<Shell>,
+    show_witness: bool,
+    show_drift: bool,
+    seed: u64,
+    help: bool,
+}
+
+fn parse_args(args: &[String]) -> Result<Opts, String> {
+    let mut opts = Opts {
+        nodes: 8,
+        query: "authentication timeout".to_string(),
+        shells: Vec::new(),
+        show_witness: false,
+        show_drift: true,
+        seed: 42,
+        help: false,
+    };
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--help" | "-h" => opts.help = true,
+            "--nodes" => {
+                i += 1;
+                opts.nodes = args
+                    .get(i)
+                    .ok_or("--nodes requires a value")?
+                    .parse::<usize>()
+                    .map_err(|e| format!("--nodes: {}", e))?;
+            }
+            "--query" => {
+                i += 1;
+                opts.query = args.get(i).ok_or("--query requires a value")?.clone();
+            }
+            "--shells" => {
+                i += 1;
+                let raw = args.get(i).ok_or("--shells requires a value")?;
+                for part in raw.split(',') {
+                    let s: Shell = part.parse().map_err(|e: &str| e.to_string())?;
+                    opts.shells.push(s);
+                }
+            }
+            "--show-witness" => opts.show_witness = true,
+            "--show-drift" => opts.show_drift = true,
+            "--no-drift" => opts.show_drift = false,
+            "--seed" => {
+                i += 1;
+                opts.seed = args
+                    .get(i)
+                    .ok_or("--seed requires a value")?
+                    .parse::<u64>()
+                    .map_err(|e| format!("--seed: {}", e))?;
+            }
+            other => return Err(format!("unknown flag: {}", other)),
+        }
+        i += 1;
     }
+    Ok(opts)
+}
+
+fn print_usage(argv0: &str) {
+    println!("Usage: {} [flags]", argv0);
+    println!();
+    println!("Flags:");
+    println!("  --nodes N           Number of synthetic nodes to seed (default 8)");
+    println!("  --query TEXT        Retrieval query text (default \"authentication timeout\")");
+    println!("  --shells S1,S2,..   Allowed shells (event,pattern,concept,principle)");
+    println!("  --show-witness      Print the full witness event list");
+    println!("  --show-drift        Print drift analysis (default on)");
+    println!("  --no-drift          Disable drift printout");
+    println!("  --seed N            Deterministic seed (default 42)");
+    println!("  --help              Show this help");
+}
+
+fn seed_policies(engine: &mut FieldEngine) {
+    let mut reg = PolicyRegistry::new();
+    reg.register(Policy {
+        id: 1,
+        name: "safety".into(),
+        mask: 0b0001,
+        required_axes: AxisConstraints {
+            limit: AxisConstraint::min(0.4),
+            care: AxisConstraint::min(0.4),
+            bridge: AxisConstraint::any(),
+            clarity: AxisConstraint::min(0.3),
+        },
+    });
+    engine.set_policy_registry(reg);
+}
+
+fn build_corpus(n: usize, seed: u64) -> Vec<(NodeKind, String, AxisScores, u64)> {
+    let templates = [
+        ("user reports authentication timeout after idle", NodeKind::Interaction),
+        ("session refresh silently fails after JWT expiry", NodeKind::Interaction),
+        ("mobile client hits auth timeout on weak network", NodeKind::Interaction),
+        ("pattern: idle timeout causes refresh failure", NodeKind::Summary),
+        ("pattern: retry loop cures transient auth outage", NodeKind::Summary),
+        ("concept: refresh tokens must rotate before access expiry", NodeKind::Summary),
+        ("concept: silent failures must never reach the user", NodeKind::Summary),
+        ("principle: sessions shall surface auth errors", NodeKind::Policy),
+        ("principle: refresh token compromise forces re-auth", NodeKind::Policy),
+        ("claim: idle timeouts are harmless; clients always retry", NodeKind::Summary),
+    ];
+    let mut out = Vec::new();
+    for i in 0..n {
+        let t = templates[(i + seed as usize) % templates.len()];
+        let mix = ((i as f32) * 0.01) % 1.0;
+        out.push((
+            t.1,
+            format!("{} #{}", t.0, i),
+            AxisScores::new(0.6 + mix, 0.55, 0.5, 0.7),
+            0b0001,
+        ));
+    }
+    out
 }

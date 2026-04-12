@@ -1,13 +1,26 @@
 [package]
 name = "ruvector-field-example"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "Reference implementation sketch of the RuVector field subsystem: shells, antipodes, resonance, drift, and routing hints"
+description = "Reference implementation of the RuVector field subsystem: shells, antipodes, resonance, drift, policy, routing hints, witness log, and proof gate"
 license = "MIT OR Apache-2.0"
 publish = false
+autobenches = false
 
 [workspace]
+
+[lib]
+name = "ruvector_field"
+path = "src/lib.rs"
 
 [[bin]]
 name = "field_demo"
 path = "src/main.rs"
+
+[[bin]]
+name = "acceptance_gate"
+path = "benches/acceptance_gate.rs"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
