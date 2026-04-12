@@ -579,6 +579,50 @@ Extends existing RuVix Witness model. New witness events:
 Only committed mutations need mandatory witnessing. Pure read queries remain
 outside the privileged witness path unless in regulated mode.
 
+### 14.1 Witness cursor semantics
+
+`WitnessCursor` is the single source of truth for "what has this engine
+committed, and in what order". It appears in snapshot metadata (§7) and in
+the diff protocol below; its contract is:
+
+- **Type.** `WitnessCursor` is a monotonically increasing `u64` assigned at
+  the point of event emission inside the engine. Cursor values never
+  decrease and never repeat.
+- **Gap-free allocation.** Every committed mutation is assigned exactly one
+  cursor value with no skipped integers. A mutation that is rolled back
+  before commit never consumes a cursor value. A mutation that commits then
+  fails to append to the witness log is a panic condition — the engine is
+  poisoned and must be recovered from the previous snapshot.
+- **Scope.** The cursor is global per `FieldEngine` instance: one counter,
+  shared across all shells, partitions, and node kinds. Sharding the
+  cursor is explicitly out of scope for v1.
+- **Reads do not advance.** `retrieve`, `drift`, `route`, and any pure
+  observation path must not allocate cursor values. Only committed
+  mutations emit witness events and only witness events advance the
+  cursor.
+- **Snapshot semantics.** A snapshot captures `high_cursor`, the largest
+  cursor value observed at the moment of snapshot commit. Any event with
+  cursor `≤ high_cursor` is guaranteed to be reflected in the snapshot
+  state; any event with cursor `> high_cursor` is not.
+- **Diffs.** Given two snapshots `S_low` and `S_high`, the exact event
+  range replayed to reconstruct the state delta is the half-open interval
+  `(S_low.high_cursor, S_high.high_cursor]`. This is closed on the right
+  so the diff ends at a well-defined snapshot boundary.
+- **Ordering and concurrency.** Cursor order must match happens-before.
+  The v1 implementation enforces this by **serializing all mutating
+  operations through a single async actor** (`FieldEngineActor`) that
+  owns the cursor counter and the mutation log. Reads may proceed in
+  parallel against an immutable view. The actor model is chosen over a
+  mutex because it lets the mutation log and the cursor advance be a
+  single atomic step inside the actor's message handler; a mutex
+  implementation would need a separate acquire/release around the log
+  append, which would leak the gap-free invariant under panic.
+- **Recovery.** On restart, the engine reads the highest cursor value from
+  the last witness log segment and sets its internal counter to
+  `high_cursor + 1`. Any partially committed event (log entry present but
+  mutation not reflected in the snapshot) is re-applied before accepting
+  new mutations.
+
 ## 15. Integration with current RuVector direction
 
 - **`ruvector-sparsifier`** — compressed field graph for coherence sampling,
@@ -591,6 +635,71 @@ outside the privileged witness path unless in regulated mode.
 - **RuVix** — exposes only hints at first: `PriorityHint`, `SplitHint`,
   `MergeHint`, `TierHint`, `RouteHint`.
 
+### 15.5 Relationship to existing coherence signals
+
+§5.4 says the field signals "extend, not replace" the existing coherence
+signals. Spelled out: RuVector already exposes two coherence-shaped
+quantities and this spec introduces a third. They are not interchangeable
+and must not be collapsed in client code.
+
+- **`CoherenceScore`** (existing, from the RuVix coherence engine) —
+  structural coherence of a **partition**, computed from the graph's
+  effective-resistance profile. Produced inside the 50 µs coherence epoch.
+- **`CutPressure`** (existing) — readiness of a partition to split.
+  Produced by the same coherence epoch, consumed by the mincut pass.
+- **`FieldCoherence`** (new, this spec, §8.2) — semantic coherence of a
+  **node**, computed from same-shell neighborhood similarity. Produced
+  outside the scheduler epoch in the field engine.
+
+The three signals live on different objects (partition / partition / node)
+and carry different meaning (structural / readiness / semantic). The
+composition rules below are the only sanctioned way to combine them.
+
+**Composition rules.**
+
+- For a **node** `n` that also belongs to a partition `P`:
+
+  ```
+  effective_coherence(n) = min(
+      CoherenceScore(P),     # structural floor from the kernel
+      FieldCoherence(n),     # semantic floor from the field engine
+  )
+  ```
+
+  `min` is deliberate: a node is only as coherent as its weakest channel.
+  A node with a high semantic score sitting inside a structurally
+  fractured partition is not coherent, and vice versa.
+
+- For a **partition** `P`:
+
+  ```
+  semantic_fracture(P) = fraction of nodes in P with
+                         semantic_antipode != None
+  effective_pressure(P) = CutPressure(P)
+                        + clamp01(semantic_fracture(P)) * 0.3
+  ```
+
+  The field-side bonus is bounded at `0.3` so the field engine cannot by
+  itself push `effective_pressure` past the kernel's split threshold —
+  the kernel always gets the final call. `0.3` is set so that a partition
+  that is 100 % semantically fractured but has zero structural pressure
+  still needs some structural pressure to cross the split threshold.
+
+**Precedence.** Kernel decisions — partition assignment, cut
+authorization, tier migration — use `CoherenceScore` and `CutPressure`
+**directly**. Field signals are advisory: they must pass the proof gate
+(§13.4) before they can influence kernel state at all. The field engine
+may store `effective_coherence` and `effective_pressure` in snapshots for
+observability, but the kernel ignores those values on its hot path.
+
+**Conflict resolution.** When field and kernel signals disagree — for
+example, `FieldCoherence(n) = 0.9` but `CoherenceScore(P) = 0.2`, or
+`semantic_fracture(P) = 0.8` but `CutPressure(P) = 0.0` — the kernel wins.
+The field engine emits a `ContradictionFlagged` witness event (§14) whose
+payload records both signals, the partition id, and the node id (when
+applicable). Operators can then decide whether to retune field thresholds,
+kernel thresholds, or both. The field engine does not auto-tune.
+
 ## 16. Recommended crate boundaries
 
 1. **Step 1** — `ruvector-field-types`: shared model and serialization
@@ -598,6 +707,90 @@ outside the privileged witness path unless in regulated mode.
 3. **Step 3** — `ruvector-field-index`: query planner, candidate generation, contradiction frontier, reranker
 4. **Step 4** — `ruvector-field-router`: role selection, gain estimation, hint issuance
 5. **Step 5** — `ruvix-field-bridge`: adapter converting field hints into RuVix scheduler and partition hints
+
+### 16.1 Bridge contract: field hints → RuVix hints
+
+The `ruvix-field-bridge` crate is the single adapter point where field
+engine state crosses into RuVix. It owns the mapping table below, the
+proof-gate invocation, and the bounded channel to RuVix. No other crate
+is allowed to synthesize RuVix hints from field state.
+
+| Field signal                                         | RuVix hint     | Condition                                                                                  | Payload                                          | Mode   | TTL          | Witness event emitted on conversion |
+|------------------------------------------------------|----------------|---------------------------------------------------------------------------------------------|--------------------------------------------------|--------|--------------|-------------------------------------|
+| High resonance on a node                             | `PriorityHint` | `node.resonance > 0.7`                                                                      | `(node_id: u64, priority_delta: f32)`            | stream | 1 epoch      | `RoutingHintIssued`                 |
+| `semantic_antipode` bound + high partition fracture  | `SplitHint`    | partition `semantic_fracture > 0.25` (see §15.5)                                            | `(partition_id: u64, suggested_cut_edges: Vec<(u64,u64)>)` | batch  | 4 epochs     | `RoutingHintIssued`                 |
+| Frequent `Refines` edges between partitions          | `MergeHint`    | `cross_partition_refines / total_refines > 0.3` for the partition pair over a 1 h window    | `(partition_a: u64, partition_b: u64)`           | batch  | 8 epochs     | `RoutingHintIssued`                 |
+| Shell demotion with cold access pattern              | `TierHint`     | `shell < Pattern` **and** `now - node.last_access > 1 h`                                    | `(node_id: u64, target_tier: Tier)`              | batch  | 16 epochs    | `RoutingHintIssued`                 |
+| Routing hint with `gain_estimate > 0.5`              | `RouteHint`    | `route_score > 0.5` **and** passes `ProofGate::authorize`                                   | `(agent_id: u64, partition_id: u64, ttl: u16)`   | stream | `hint.ttl_epochs` | `RoutingHintCommitted`          |
+
+Notes on the table:
+
+- **Precondition strictness.** Every field-side precondition is
+  re-evaluated at bridge `tick()` time, not at the time the underlying
+  field state was produced. A hint that was eligible at epoch `n` but
+  fails re-evaluation at epoch `n+1` is dropped silently.
+- **Payload types.** All payload types are the existing RuVix hint
+  structs. The bridge never defines new RuVix-facing types; it only
+  produces values for types already exported by RuVix.
+- **Mode.** `stream` hints are emitted one at a time as soon as their
+  condition flips true. `batch` hints accumulate across a bridge tick
+  and are drained at the end of the tick into a single `Vec<Hint>`
+  message on the channel. `PriorityHint` and `RouteHint` are streamed
+  because they are time-sensitive; the rest are batched because they
+  are derived from partition-level aggregates that are cheaper to
+  compute once per tick.
+- **TTL.** TTLs are in RuVix coherence epochs, not wall clock. The TTL
+  is carried on the hint so RuVix can discard stale hints without
+  consulting the bridge.
+- **Witness.** Every conversion emits exactly one witness event on the
+  field-engine side before the hint is enqueued. `RouteHint` is the only
+  case that emits `RoutingHintCommitted` on enqueue, because that is the
+  moment the field engine considers the hint "handed off"; RuVix may
+  still reject it downstream and will emit its own witness in that case.
+- **Proof gate.** Only `RouteHint` is proof-gated on conversion because
+  it can cause partition migration or actuation (§13.4). The other four
+  hints are advisory-only on the RuVix side and do not touch privileged
+  state until RuVix itself decides to act on them, at which point RuVix
+  runs its own proof gate.
+
+**Bridge control loop.** The bridge runs a periodic `tick()` driven by an
+external scheduler — one tick per RuVix coherence epoch is the default,
+but the bridge does not itself run inside the 50 µs epoch budget. Shape:
+
+```
+function tick(engine: &FieldEngine, registry: &PolicyRegistry,
+              proof_gate: &ProofGate, out: &BoundedChannel<Vec<Hint>>):
+    let mut batch: Vec<Hint> = Vec::new()
+
+    # 1. Read-only snapshot of engine state. No mutations here.
+    let state = engine.observe()
+
+    # 2. Walk the mapping table top to bottom.
+    for row in MAPPING_TABLE:
+        for source in state.sources_for(row):
+            if not row.condition(source, state, registry):
+                continue
+            let hint = row.build_payload(source, state)
+            if row.proof_gated:
+                if not proof_gate.authorize(&hint):
+                    continue
+            engine.emit_witness(row.witness_event(&hint))
+            if row.mode == Stream:
+                out.try_send(vec![hint])   # bounded, non-blocking
+            else:
+                batch.push(hint)
+
+    # 3. Drain the batch into one message.
+    if !batch.is_empty():
+        out.try_send(batch)                # bounded, non-blocking
+```
+
+The channel is bounded and `try_send` is non-blocking: if RuVix is
+backpressured, the bridge drops the oldest batch and logs a
+`BridgeBackpressure` diagnostic. Dropping hints is always safe because
+every hint is advisory and carries a TTL. The bridge never retries
+dropped hints; the next `tick()` will re-derive current state and emit a
+fresh hint if the precondition still holds.
 
 ## 17. Failure modes
 
@@ -631,3 +824,181 @@ pass:
    real gain.
 
 This compounds the current RuVector trajectory instead of competing with it.
+
+## 20. Appendix: benchmark corpus RuField-Bench-v1
+
+The acceptance gate in §18 names four metric thresholds but does not name a
+corpus. This appendix defines the v1 corpus against which those thresholds
+are measured. The corpus is deterministic, synthetic, and self-contained so
+benchmark runs are reproducible across machines and dates.
+
+### 20.1 Composition
+
+`RuField-Bench-v1` is a fixed mix of 1390 items drawn from a single
+synthetic domain: **enterprise authentication and session management**.
+The domain is narrow on purpose — contradictions must be semantically
+meaningful for the benchmark to measure anything.
+
+| Category              | Count | Shell target    | Role in the benchmark                                 |
+|-----------------------|-------|-----------------|-------------------------------------------------------|
+| Event interactions    | 1000  | Event           | raw observations, logs, user reports, tool calls      |
+| Pattern summaries     | 200   | Pattern         | recurring motifs and local clusters                   |
+| Concept summaries     | 100   | Concept         | durable working theories about auth behavior          |
+| Principle policies    | 30    | Principle       | canonical policies with proof references              |
+| Explicit contradictions | 50  | Event / Pattern | contradiction pairs with a `bind_semantic_antipode`   |
+| Policy conflicts      | 10    | Principle       | mutually exclusive policy pairs                       |
+
+The contradiction and policy-conflict counts are in addition to the other
+rows — i.e. the 50 explicit contradictions are attached to nodes already
+counted in the Event and Pattern rows.
+
+### 20.2 Distribution
+
+Within the 1000 Event interactions the distribution is:
+
+- **60 % canonical** — axis-aligned with a single internally-consistent
+  "correct" theme about session refresh, idle timeout, and OAuth flow
+- **25 % drifting** — gradually moving away from the canonical centroid
+  across a simulated 30 day span to exercise the drift detector
+- **10 % contradicting** — directly opposed to a canonical node, half of
+  which have an explicit `semantic_antipode` bound, half of which do not
+  (so both detection modes are tested)
+- **5 % policy-violating** — axes positioned below the requirements of at
+  least one registered policy, to exercise `policy_fit = 0`
+
+### 20.3 Metric definitions
+
+All four acceptance metrics are measured precisely as follows. Each
+definition assumes a retrieval with `top_k = k` and a query set of `Q`
+queries drawn from the canonical theme.
+
+- **Contradiction rate.** For each query, count the pairs of selected
+  results that contradict each other. A pair is contradictory iff either
+  result appears on the other's contradiction frontier under §10.3. The
+  per-query contradiction rate is `contradictory_pairs / k`; the corpus
+  metric is the mean over `Q` queries. A value of `0.0` means no
+  selected pair contradicts any other; a value of `1.0` means every
+  selected pair contradicts. Improvement is reported as percentage
+  reduction against baseline.
+
+- **Retrieval token cost.** For each query, `cost = sum(node.text.len()
+  for node in selected) + 50 * |selected|`. The 50-byte per-node overhead
+  models the framing cost of serializing a result (id, scores,
+  explanation pointer) into a prompt. The corpus metric is the mean
+  `cost` over `Q` queries. Improvement is reported as percentage
+  reduction against baseline.
+
+- **Long-session coherence.** Simulate a 100-query rolling session
+  drawn from the canonical theme. For each query, compute
+  `per_query_resonance = mean(node.resonance for node in selected)`.
+  The corpus metric is the mean `per_query_resonance` across the 100
+  queries. Improvement is reported as percentage increase against
+  baseline.
+
+- **Latency.** Time `retrieve` end-to-end for each query in
+  microseconds. Report `p50` and `p99` across `Q` queries. The acceptance
+  gate does not set a latency threshold directly; it requires that
+  enabling field hints does not violate the kernel's 50 µs epoch budget
+  or the sub-10 µs partition switch target when field engine is running
+  alongside.
+
+### 20.4 Baseline
+
+The baseline against which all four metrics are measured is **naive
+top-k cosine** on the same embeddings:
+
+- Linear scan across all nodes regardless of shell
+- Rank by raw cosine similarity to the query
+- No shell filtering, no antipodes, no reranking, no contradiction
+  frontier
+- No policy filtering, no drift adjustment
+
+The baseline is trivial on purpose: it is the simplest thing that
+retrieves, and any improvement the field engine claims must hold against
+it.
+
+### 20.5 Thresholds (restated from §18 with definitions plugged in)
+
+The field engine graduates from user space to RuVix hints only if **all
+four** hold on `RuField-Bench-v1` against the naive baseline:
+
+1. `contradiction_rate` improves by ≥ **20 %** (reduction)
+2. `retrieval_token_cost` improves by ≥ **20 %** (reduction)
+3. `long_session_coherence` improves by ≥ **15 %** (increase)
+4. Enabling hints does **not** violate the 50 µs coherence epoch budget
+   or the sub 10 µs partition switch target
+
+### 20.6 Reproduction
+
+The corpus is generated from a single fixed seed so results are
+bit-reproducible. Pseudocode:
+
+```
+const SEED: u64 = 0xRUFIELD_BENCH_V1      # fixed, see corpus generator
+const DIM:  usize = 128                    # embedding dimension for the benchmark
+
+function generate_corpus(seed: u64) -> Corpus:
+    let rng = SeedableRng::from_seed(seed)
+    let canonical_axis = random_unit_vector(rng, DIM)     # the "correct" theme
+    let mut corpus = Corpus::new()
+
+    # 1. Canonical events (600)
+    for i in 0..600:
+        let v = jitter(canonical_axis, sigma=0.10, rng)
+        corpus.push_event(text=template_event(i), embedding=v,
+                          axes=(0.8, 0.8, 0.8, 0.8),
+                          policy_mask=0b0001)
+
+    # 2. Drifting events (250) — centroid slides over simulated time
+    for i in 0..250:
+        let t = i as f32 / 250.0                          # 0 → 1 across the span
+        let drift = lerp(canonical_axis, random_unit_vector(rng, DIM), t * 0.4)
+        let v = jitter(drift, sigma=0.10, rng)
+        corpus.push_event(text=template_drift(i), embedding=v,
+                          axes=(0.7 - 0.2*t, 0.7, 0.6, 0.6),
+                          policy_mask=0b0001,
+                          ts_offset_days=i*30/250)
+
+    # 3. Contradicting events (100)
+    for i in 0..100:
+        let v = jitter(-canonical_axis, sigma=0.10, rng)
+        let node = corpus.push_event(text=template_contradict(i), embedding=v,
+                                     axes=(0.3, 0.3, 0.3, 0.3),
+                                     policy_mask=0b0001)
+        if i < 50:
+            corpus.bind_semantic_antipode(node, corpus.canonical_peer(i))
+
+    # 4. Policy-violating events (50)
+    for i in 0..50:
+        let v = jitter(canonical_axis, sigma=0.15, rng)
+        corpus.push_event(text=template_policy_violation(i), embedding=v,
+                          axes=(0.1, 0.1, 0.1, 0.1),             # below required
+                          policy_mask=0b0010)
+
+    # 5. Pattern / Concept / Principle summaries
+    for i in 0..200: corpus.push_pattern_summary(i, rng)
+    for i in 0..100: corpus.push_concept_summary(i, rng)
+    for i in 0..30:  corpus.push_principle_policy(i, rng)
+
+    # 6. Policy conflicts (10 pairs)
+    for i in 0..10:
+        corpus.push_conflicting_policy_pair(i, rng)
+
+    return corpus
+```
+
+`jitter(v, sigma, rng)` adds Gaussian noise with standard deviation
+`sigma` per component and re-normalizes. `template_*` functions are
+deterministic string builders keyed on `i`. The reference
+implementation lives under `benches/rufield_bench_v1.rs` when this
+spec is implemented; until then, the pseudocode above is the
+specification of record.
+
+---
+
+## Revision history
+
+- **v1.1 (2026-04-12):** pinned promotion thresholds, added policy fit
+  algorithm, witness cursor semantics, benchmark corpus, coherence
+  composition rules, bridge contract.
+- **v1.0 (2026-04-12):** initial draft.
