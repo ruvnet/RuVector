@@ -267,30 +267,179 @@ route_score = capability_fit
             * expected_gain / expected_cost
 ```
 
+### 8.5 Policy fit
+
+`policy_fit` and `policy_risk` are referenced by §8.3 and §11 but need a
+concrete definition. A `Policy` is an application-level object registered
+with the field engine at startup; the engine evaluates a node against every
+policy whose capability bits overlap the node's `policy_mask`.
+
+**Data model.**
+
+```rust
+pub struct Policy {
+    pub id: u64,
+    pub name: String,
+    /// Minimum axis scores the node must exceed to be fully aligned.
+    /// Each field is in [0, 1].
+    pub required_axes: AxisScores,
+    /// Edge kinds that, if incident to the node, are considered a
+    /// hard policy violation (fit collapses to 0).
+    pub forbidden_edges: Vec<EdgeKind>,
+    /// Bits that select which nodes this policy applies to. A policy
+    /// applies when `node.policy_mask & policy.capability_mask != 0`.
+    pub capability_mask: u64,
+}
+```
+
+Policies live in a `PolicyRegistry` owned by the field engine and are
+snapshot-included (§7) so that `policy_fit` values are reproducible from
+a snapshot plus the registry version.
+
+**Algorithm.** `policy_fit(node, registry) -> f32`:
+
+```
+function policy_fit(node, registry):
+    let eps = 1e-6
+    let mut worst = 1.0                                 # most restrictive wins
+    let applicable = registry.policies.filter(|p|
+        (node.policy_mask & p.capability_mask) != 0
+    )
+    if applicable.is_empty():
+        return 1.0                                      # no applicable policy, fully aligned
+    for p in applicable:
+        # 1. Hard gate: any forbidden edge kind incident to the node zeroes fit.
+        if node_has_incident_edge_kind(node, p.forbidden_edges):
+            return 0.0
+        # 2. Soft axis alignment: min over four axes.
+        let r = p.required_axes
+        let fit = min(
+            clamp01((node.axes.limit   - r.limit)   / (1.0 - r.limit   + eps)),
+            clamp01((node.axes.care    - r.care)    / (1.0 - r.care    + eps)),
+            clamp01((node.axes.bridge  - r.bridge)  / (1.0 - r.bridge  + eps)),
+            clamp01((node.axes.clarity - r.clarity) / (1.0 - r.clarity + eps)),
+        )
+        # 3. Compose with running worst (min across policies).
+        worst = min(worst, fit)
+    return worst
+
+function policy_risk(node, registry):
+    return 1.0 - policy_fit(node, registry)
+```
+
+The per-axis formula is the linear headroom between the node's axis score
+and the policy's required minimum, normalized against the remaining range
+`(1 - required + eps)`. A node exactly at the required minimum gets `0.0`
+on that axis; a node at `1.0` gets `1.0`; values below the minimum clamp to
+`0.0`. Taking the minimum across axes means a single collapsed axis
+collapses the policy fit, mirroring the multiplicative intent of resonance.
+Taking the minimum across policies means the most restrictive applicable
+policy wins.
+
+**Worked example.** Node `N` has axes `(limit=0.80, care=0.60, bridge=0.90,
+clarity=0.50)`, `policy_mask = 0b0011`, no incident forbidden edges.
+Registry has two policies:
+
+- `P_A`: `required_axes = (0.50, 0.50, 0.50, 0.50)`, `capability_mask = 0b0001`, `forbidden_edges = []`
+- `P_B`: `required_axes = (0.70, 0.70, 0.70, 0.40)`, `capability_mask = 0b0010`, `forbidden_edges = [Contrasts]`
+
+Both policies apply (`N.policy_mask & 0b0001 != 0` and `N.policy_mask &
+0b0010 != 0`).
+
+`P_A` with `eps` elided for readability:
+
+- limit:   `clamp01((0.80 - 0.50) / (1.0 - 0.50)) = clamp01(0.30 / 0.50) = 0.60`
+- care:    `clamp01((0.60 - 0.50) / (1.0 - 0.50)) = clamp01(0.10 / 0.50) = 0.20`
+- bridge:  `clamp01((0.90 - 0.50) / (1.0 - 0.50)) = clamp01(0.40 / 0.50) = 0.80`
+- clarity: `clamp01((0.50 - 0.50) / (1.0 - 0.50)) = clamp01(0.00 / 0.50) = 0.00`
+- `fit_A = min(0.60, 0.20, 0.80, 0.00) = 0.00`
+
+`P_B`:
+
+- limit:   `clamp01((0.80 - 0.70) / (1.0 - 0.70)) = clamp01(0.10 / 0.30) ≈ 0.333`
+- care:    `clamp01((0.60 - 0.70) / (1.0 - 0.70)) = clamp01(-0.10 / 0.30) = 0.000`
+- bridge:  `clamp01((0.90 - 0.70) / (1.0 - 0.70)) = clamp01(0.20 / 0.30) ≈ 0.667`
+- clarity: `clamp01((0.50 - 0.40) / (1.0 - 0.40)) = clamp01(0.10 / 0.60) ≈ 0.167`
+- `fit_B = min(0.333, 0.000, 0.667, 0.167) = 0.000`
+
+`policy_fit(N) = min(fit_A, fit_B) = 0.000`, `policy_risk(N) = 1.000`.
+Both policies happen to be blocked by different axes — `P_A` by `clarity`
+exactly at the minimum and `P_B` by `care` below the minimum. The linear
+headroom model makes the "just barely at the bar" case a zero deliberately:
+policies should require strict headroom before a node is considered
+aligned.
+
 ## 9. Shell assignment rules
 
 ### 9.1 Promotion
 
-**Event → Pattern** when:
+Every promotion edge is gated on four pinned conditions. A node advances only
+when **all four** rows for its transition hold simultaneously at the same
+promote-cycle tick. Values below are the v1 defaults; domain profiles may
+override them but must stay monotonic across shells (tighter as depth
+increases).
 
-1. recurrence crosses threshold
-2. reuse crosses threshold
-3. contradiction density crosses threshold
-4. local stability holds across a window
+| From      | To        | Threshold             | Value                                                            | Window                    | Rationale                                                                    |
+|-----------|-----------|-----------------------|------------------------------------------------------------------|---------------------------|------------------------------------------------------------------------------|
+| Event     | Pattern   | recurrence            | ≥ 3 support edges (`Supports` ∪ `DerivedFrom`)                   | rolling 24 h              | prove the node has been referenced, not just stored                          |
+| Event     | Pattern   | reuse                 | retrieved in ≥ 2 distinct contexts (distinct partition or agent) | rolling 24 h              | reuse across contexts, not a single hot loop                                 |
+| Event     | Pattern   | contradiction density | `contrast_edges / total_edges ≤ 0.10`                            | all incident edges        | local contradiction must be low before lifting out of raw Event              |
+| Event     | Pattern   | local stability       | `coherence ≥ 0.6` sustained for ≥ 2 consecutive promote-cycles   | 2 promote-cycles          | avoid promoting a transient spike                                            |
+| Pattern   | Concept   | compression quality   | `resonance ≥ 0.35`                                               | current tick              | pattern must carry real multiplicative score, not just support count         |
+| Pattern   | Concept   | support breadth       | support spans ≥ 3 distinct partitions                            | rolling 7 d               | concepts are cross-partition; a single-partition pattern is not a concept    |
+| Pattern   | Concept   | contradiction risk    | `contrast_edges / total_edges ≤ 0.05`                            | all incident edges        | concept level must not carry live contradictions                             |
+| Pattern   | Concept   | witness agreement     | ≥ 2 witness-linked summaries agree (cosine ≥ 0.85)               | current tick              | consolidation requires two independent witness-bound summaries to line up    |
+| Concept   | Principle | policy owner approval | explicit capability present in `policy_mask` (owner-granted)     | point-in-time             | principles are policy; they do not self-promote                              |
+| Concept   | Principle | proof reference       | `proof_ref` is non-null and validates against the proof store    | point-in-time             | principles must be backed by a concrete proof or contract                    |
+| Concept   | Principle | contradiction risk    | `contrast_edges / total_edges ≤ 0.01`                            | all incident edges        | principles tolerate essentially no live contradictions                       |
+| Concept   | Principle | reuse value           | ≥ 5 retrievals                                                   | rolling 7 d               | only durable, frequently reused concepts earn invariance                     |
 
-**Pattern → Concept** when:
+All edge counts are taken from the relational index at tick time and use the
+edge kinds declared in §6. The `total_edges` denominator for a node is the
+count of all edges incident to it (in + out), not just `Supports` and
+`Contrasts`. Ties at the threshold are resolved conservatively: equality
+counts as passing only for the lower-bound conditions (≥) and only for the
+upper-bound conditions (≤).
 
-1. compression quality is high
-2. support spans multiple contexts
-3. contradiction risk stays low
-4. witness linked summaries agree
+### 9.1.1 Promotion hysteresis
 
-**Concept → Principle** when:
+Promotion and demotion are throttled by two mechanisms that together make
+shell assignment stable and auditable.
 
-1. policy owner approves
-2. proof or contract reference exists
-3. contradiction risk is near zero
-4. reuse value justifies invariance
+1. **Minimum residence time.** A node must reside in its current shell for
+   at least `MIN_RESIDENCE_NS` before any shell change is permitted. The
+   constant is per-shell:
+
+   | Shell     | `MIN_RESIDENCE_NS` |
+   |-----------|--------------------|
+   | Event     | 5 min              |
+   | Pattern   | 1 h                |
+   | Concept   | 24 h               |
+   | Principle | 7 d                |
+
+   Residence is measured from the timestamp of the last shell transition
+   (or ingest time for the initial shell). Any attempted promotion or
+   demotion before the residence window is skipped silently — no witness
+   event, no error.
+
+2. **Hysteresis window.** `HYSTERESIS_WINDOW` is fixed at **4 consecutive
+   promote-cycles**. A node is only eligible for a shell change after it
+   has satisfied the target transition's conditions (or, for demotion, its
+   current shell's demotion conditions) on every tick inside the window.
+   The window is a sliding counter per node; any tick that fails the
+   condition resets the counter to zero.
+
+3. **Oscillation ban.** If a node has moved shells ≥ 2 times within a
+   `HYSTERESIS_WINDOW`, further shell changes are **blocked** until the
+   window resets — i.e. until at least `HYSTERESIS_WINDOW` consecutive
+   ticks pass with zero shell transitions. Blocked transitions emit a
+   `ShellOscillationSuppressed` diagnostic (not a witness event; see §14)
+   so operators can tune thresholds per domain.
+
+Hysteresis applies symmetrically to promotion and demotion. The combination
+of minimum residence, a 4-tick sliding window, and the oscillation ban makes
+it impossible for a node to cross more than two shell boundaries inside a
+single hysteresis window.
 
 ### 9.2 Demotion
 
