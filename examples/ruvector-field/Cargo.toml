@@ -1,0 +1,13 @@
+[package]
+name = "ruvector-field-example"
+version = "0.1.0"
+edition = "2021"
+description = "Reference implementation sketch of the RuVector field subsystem: shells, antipodes, resonance, drift, and routing hints"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[workspace]
+
+[[bin]]
+name = "field_demo"
+path = "src/main.rs"
