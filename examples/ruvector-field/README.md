@@ -314,6 +314,67 @@ deterministic apart from timestamps. The acceptance gate prints the four
 spec-section-18 numbers (contradiction surfacing rate, token cost, long
 session coherence, latency) with PASS/FAIL markers.
 
+### Optional features
+
+The default build stays std-only and zero-dependency. Three Cargo features
+plug real backends into the seams marked `// TODO(solver)`, `// TODO(hnsw)`
+and the `HashEmbeddingProvider`. Every feature is additive; combine them
+via `--features full`.
+
+| Feature           | Plugs into                             | What it enables                                                                                   |
+|-------------------|----------------------------------------|---------------------------------------------------------------------------------------------------|
+| `solver`          | `scoring::coherence::local_coherence`  | Neumann-series effective-resistance solver for a real Laplacian coherence estimate                |
+| `hnsw`            | `storage::SemanticIndex`               | Hierarchical Navigable Small World index replacing the O(n) linear scan                           |
+| `onnx-embeddings` | `embed::EmbeddingProvider`             | 384-dim deterministic char n-gram provider shaped like a MiniLM embedding                         |
+| `full`            | — (alias)                              | `solver + hnsw + onnx-embeddings` in one flag                                                     |
+
+```bash
+cd examples/ruvector-field
+
+# Build each feature on its own.
+cargo build
+cargo build --features solver
+cargo build --features hnsw
+cargo build --features onnx-embeddings
+cargo build --features full
+
+# Per-feature tests (gated with #![cfg(feature = "...")]).
+cargo test --features solver        --test feature_solver
+cargo test --features hnsw          --test feature_hnsw
+cargo test --features onnx-embeddings --test feature_onnx
+
+# Run the acceptance gate with HNSW candidate generation enabled; the
+# binary prints "(build: HNSW-backed semantic index enabled via --features hnsw)"
+# when the feature is on.
+cargo run --release --bin acceptance_gate --features hnsw
+cargo run --release --bin acceptance_gate --features full
+```
+
+Notes:
+
+* **solver** — keeps the proxy's neutral fallback (coh=0.5) for the
+  degenerate case where total conductance is below the numerical floor,
+  so downstream promotion thresholds stay comparable across feature
+  configurations. Math: `R_eff(c → N) = 1 / sum(w_i)` on the center's
+  star subgraph; `coherence = 1 / (1 + R_eff)`.
+* **hnsw** — a compact ~300-line reference HNSW shipped in-crate so the
+  example crate stays dependency-free. `FieldEngine::with_hnsw_index()`
+  opts in. With HNSW enabled the acceptance gate reports contradiction
+  surfacing **+70%** vs **+50%** on the default build; latency on the
+  1350-node corpus is comparable (both ~450 µs) because the graph
+  traversal is still dominated by the reranker and contradiction walk.
+* **onnx-embeddings** — named for the intended plug-point; the shipped
+  provider is a deterministic char n-gram hasher producing 384-dim unit
+  vectors so the [`EmbeddingProvider`] trait is exercised with the same
+  dimensions a real MiniLM backend would produce. Swap in an `ort`-backed
+  provider by implementing the same trait.
+
+If a caller needs a real workspace-integrated `ruvector-solver` or a
+production HNSW (`hnswlib`, `ruvector-hyperbolic-hnsw`), the seams are
+trait-based so those backends drop in by implementing `SolverBackend` /
+`SemanticIndex` / `EmbeddingProvider`. The in-crate implementations ship
+as reference fallbacks so `cargo build --features <name>` always succeeds.
+
 ## 9. Walkthrough of the demo output
 
 The demo ingests seven nodes about an authentication bug, wires relationships,
