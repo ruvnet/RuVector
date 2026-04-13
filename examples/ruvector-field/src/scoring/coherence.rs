@@ -12,10 +12,28 @@
 //! where `w_i` are the positive cosine similarities of a node's k nearest
 //! same-shell neighbors (soft-thresholded to `max(0, cos)`), scaled by an
 //! edge-support term. The formula is diagonal-dominance-friendly and
-//! monotone: adding a stronger neighbor can only increase coherence. Swap in
-//! a real solver at the marked `TODO(solver)`.
+//! monotone: adding a stronger neighbor can only increase coherence.
+//!
+//! # `solver` feature
+//!
+//! Under `--features solver` the [`local_coherence`] helper routes through a
+//! real local Laplacian effective-resistance estimate — see
+//! [`solver_backend::NeumannSolverBackend`]. The formula is:
+//!
+//! ```text
+//! L        = D - W               // star-subgraph Laplacian around center
+//! R(c, u)  = (e_c - e_u)^T L^+ (e_c - e_u)
+//! coh      = 1 / (1 + mean_u R(c, u))
+//! ```
+//!
+//! Both implementations are bounded in `[0, 1]` and monotone in neighbor
+//! weight, so test expectations are consistent across feature configurations.
 
 use crate::model::{Embedding, FieldNode};
+
+#[cfg(feature = "solver")]
+#[path = "coherence/solver_backend.rs"]
+pub mod solver_backend;
 
 /// Effective-resistance proxy for a single node given its `k` nearest
 /// same-shell neighbors.
@@ -79,8 +97,28 @@ pub fn local_coherence(
         .collect();
     sims.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
     sims.truncate(k.max(1));
-    let er = effective_resistance_proxy(&sims);
-    (1.0 / (1.0 + er)).clamp(0.0, 1.0)
+
+    #[cfg(feature = "solver")]
+    {
+        use solver_backend::{NeumannSolverBackend, SolverBackend};
+        // Degenerate input: if the aggregated conductance is effectively
+        // zero, fall back to the proxy's neutral value. This matches the
+        // proxy's sign semantics and keeps downstream thresholds stable
+        // across feature configurations.
+        let total: f32 = sims.iter().sum();
+        if total <= 1e-6 {
+            let er = effective_resistance_proxy(&sims);
+            return (1.0 / (1.0 + er)).clamp(0.0, 1.0);
+        }
+        let backend = NeumannSolverBackend::default();
+        let er = backend.mean_effective_resistance(&sims);
+        return (1.0 / (1.0 + er)).clamp(0.0, 1.0);
+    }
+    #[cfg(not(feature = "solver"))]
+    {
+        let er = effective_resistance_proxy(&sims);
+        (1.0 / (1.0 + er)).clamp(0.0, 1.0)
+    }
 }
 
 /// Batch helper: apply `local_coherence` over a set of nodes, using the

@@ -21,6 +21,20 @@ path = "src/main.rs"
 name = "acceptance_gate"
 path = "benches/acceptance_gate.rs"
 
+[features]
+default = []
+# Real effective-resistance coherence via an in-crate Jacobi/Neumann series
+# solver. See src/scoring/solver_backend.rs.
+solver = []
+# HNSW-backed semantic index. See src/storage/hnsw_index.rs.
+hnsw = []
+# Higher-quality deterministic embedding provider (char n-gram hashing into
+# a 384-dim vector). See src/embed_onnx.rs. Named "onnx-embeddings" to
+# preserve the intended plug-point for a future ONNX Runtime backend.
+onnx-embeddings = []
+# Convenience: all optional backends.
+full = ["solver", "hnsw", "onnx-embeddings"]
+
 [profile.release]
 opt-level = 3
 lto = "thin"
