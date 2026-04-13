@@ -15,26 +15,26 @@ use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
 // ── Novelty thresholds ──
-// VERY aggressive: only publish when something genuinely new is discovered.
-// With ~3100 memories and 2.8M edges, the bar must be HIGH to avoid noise.
-// Target: ~1 gist per WEEK, only for real innovations.
-/// Minimum new inferences: must derive many non-trivial forward-chained claims
-const MIN_NEW_INFERENCES: usize = 10;
-/// Minimum evidence observations — need substantial data
-const MIN_EVIDENCE: usize = 1000;
-/// Minimum strange loop quality score — high bar for self-aware reasoning
-const MIN_STRANGE_LOOP_SCORE: f32 = 0.1;
+// Tuned April 2026: brain has 10K+ memories and 38M edges.
+// Previous thresholds were too aggressive — no gists were ever published.
+// Target: ~1 gist per day, with genuinely interesting content.
+/// Minimum new inferences: at least some non-trivial forward-chained claims
+const MIN_NEW_INFERENCES: usize = 3;
+/// Minimum evidence observations — brain has 10K+, so this is easy
+const MIN_EVIDENCE: usize = 100;
+/// Minimum strange loop quality score — lower bar to start publishing
+const MIN_STRANGE_LOOP_SCORE: f32 = 0.01;
 /// Minimum propositions extracted in this cycle
-const MIN_PROPOSITIONS: usize = 20;
+const MIN_PROPOSITIONS: usize = 5;
 /// Minimum SONA patterns — require at least some SONA learning
 const MIN_SONA_PATTERNS: usize = 1;
-/// Minimum Pareto front growth — evolution must find multiple new solutions
-const MIN_PARETO_GROWTH: usize = 3;
+/// Minimum Pareto front growth — any new solution counts
+const MIN_PARETO_GROWTH: usize = 1;
 /// Minimum confidence for ANY inference to be included in a discovery
-const MIN_INFERENCE_CONFIDENCE: f64 = 0.70;
+const MIN_INFERENCE_CONFIDENCE: f64 = 0.60;
 /// Minimum number of UNIQUE categories across strong propositions
-/// (prevents "debug-architecture-geopolitics" recycling)
-const MIN_UNIQUE_CATEGORIES: usize = 4;
+/// (prevents single-domain noise — but 2 domains is enough for cross-domain)
+const MIN_UNIQUE_CATEGORIES: usize = 2;
 
 /// A discovery worthy of publishing.
 ///
@@ -165,8 +165,8 @@ impl Discovery {
             && self.propositions_extracted >= MIN_PROPOSITIONS
             && self.sona_patterns >= MIN_SONA_PATTERNS
             && self.pareto_growth >= MIN_PARETO_GROWTH
-            && strong.len() >= 3      // Must have at least 3 non-trivial inferences
-            && strong_props.len() >= 5 // Must have at least 5 substantive propositions
+            && strong.len() >= 1      // Must have at least 1 non-trivial inference
+            && strong_props.len() >= 2 // Must have at least 2 substantive propositions
             && diversity >= MIN_UNIQUE_CATEGORIES // Must span multiple domains
     }
 
@@ -228,7 +228,7 @@ impl GistPublisher {
         Some(Self {
             token,
             last_publish: Mutex::new(None),
-            min_interval: Duration::from_secs(259200), // 3 day minimum between gists
+            min_interval: Duration::from_secs(86400), // 1 day minimum between gists
             published_count: Mutex::new(0),
             published_titles: Mutex::new(Vec::new()),
         })
