@@ -1,0 +1,40 @@
+[package]
+name = "ruvector-field-example"
+version = "0.2.0"
+edition = "2021"
+description = "Reference implementation of the RuVector field subsystem: shells, antipodes, resonance, drift, policy, routing hints, witness log, and proof gate"
+license = "MIT OR Apache-2.0"
+publish = false
+autobenches = false
+
+[workspace]
+
+[lib]
+name = "ruvector_field"
+path = "src/lib.rs"
+
+[[bin]]
+name = "field_demo"
+path = "src/main.rs"
+
+[[bin]]
+name = "acceptance_gate"
+path = "benches/acceptance_gate.rs"
+
+[features]
+default = []
+# Real effective-resistance coherence via an in-crate Jacobi/Neumann series
+# solver. See src/scoring/solver_backend.rs.
+solver = []
+# HNSW-backed semantic index. See src/storage/hnsw_index.rs.
+hnsw = []
+# Higher-quality deterministic embedding provider (char n-gram hashing into
+# a 384-dim vector). See src/embed_onnx.rs. Named "onnx-embeddings" to
+# preserve the intended plug-point for a future ONNX Runtime backend.
+onnx-embeddings = []
+# Convenience: all optional backends.
+full = ["solver", "hnsw", "onnx-embeddings"]
+
+[profile.release]
+opt-level = 3
+lto = "thin"

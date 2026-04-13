@@ -62,6 +62,7 @@ examples/apify/*/storage/
 
 # Claude Flow generated files
 .claude/settings.local.json
+.claude/worktrees/
 .mcp.json
 mcp.json
 claude-flow.config.json
