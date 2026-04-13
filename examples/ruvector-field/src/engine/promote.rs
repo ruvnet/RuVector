@@ -88,64 +88,72 @@ impl FieldEngine {
 
         let ids: Vec<NodeId> = self.nodes.keys().copied().collect();
         for id in ids {
-            let Some(node) = self.nodes.get_mut(&id) else { continue };
             let s = *support.get(&id).unwrap_or(&0);
             let c = *contrast.get(&id).unwrap_or(&0);
+            let mut upsert_req: Option<(crate::model::EmbeddingId, Shell)> = None;
+            let mut promoted: Option<(Shell, Shell, PromotionReason)> = None;
+            {
+                let Some(node) = self.nodes.get_mut(&id) else { continue };
 
-            let (candidate, reason) = match node.shell {
-                Shell::Event if s >= 2 && node.resonance > 0.12 => {
-                    (Some(Shell::Pattern), PromotionReason::RecurrenceThreshold)
-                }
-                Shell::Pattern if s >= 3 && c == 0 && node.coherence > 0.55 => {
-                    (Some(Shell::Concept), PromotionReason::CompressionStable)
-                }
-                Shell::Concept if s >= 4 && c == 0 && node.resonance > 0.25 => {
-                    (Some(Shell::Principle), PromotionReason::PolicyInvariant)
-                }
-                _ => (None, PromotionReason::RecurrenceThreshold),
-            };
-
-            if let Some(target) = candidate {
-                node.promotion_streak += 1;
-                let residence_ok = now.saturating_sub(node.shell_entered_ts) >= residence;
-                // Oscillation check: has the node been promoted+demoted
-                // recently inside the window?
-                let history_window: Vec<Shell> = node
-                    .promotion_history
-                    .iter()
-                    .rev()
-                    .take(hysteresis)
-                    .copied()
-                    .collect();
-                let oscillating = history_window
-                    .windows(2)
-                    .any(|w| w[0] == target || w[1] == node.shell);
-                if node.promotion_streak >= passes_required && residence_ok && !oscillating {
-                    let before = node.shell;
-                    node.shell = target;
-                    node.shell_entered_ts = now;
-                    node.promotion_streak = 0;
-                    node.promotion_history.push(target);
-                    if node.promotion_history.len() > hysteresis * 2 {
-                        let drop = node.promotion_history.len() - hysteresis * 2;
-                        node.promotion_history.drain(0..drop);
+                let (candidate, reason) = match node.shell {
+                    Shell::Event if s >= 2 && node.resonance > 0.12 => {
+                        (Some(Shell::Pattern), PromotionReason::RecurrenceThreshold)
                     }
-                    records.push(PromotionRecord {
-                        node: id,
-                        from: before,
-                        to: target,
-                        reason,
-                    });
-                    self.index.upsert(id, node.semantic_embedding, target);
-                    self.witness.emit(WitnessEvent::ShellPromoted {
-                        node: id,
-                        from: before,
-                        to: target,
-                        ts_ns: now,
-                    });
+                    Shell::Pattern if s >= 3 && c == 0 && node.coherence > 0.55 => {
+                        (Some(Shell::Concept), PromotionReason::CompressionStable)
+                    }
+                    Shell::Concept if s >= 4 && c == 0 && node.resonance > 0.25 => {
+                        (Some(Shell::Principle), PromotionReason::PolicyInvariant)
+                    }
+                    _ => (None, PromotionReason::RecurrenceThreshold),
+                };
+
+                if let Some(target) = candidate {
+                    node.promotion_streak += 1;
+                    let residence_ok = now.saturating_sub(node.shell_entered_ts) >= residence;
+                    let history_window: Vec<Shell> = node
+                        .promotion_history
+                        .iter()
+                        .rev()
+                        .take(hysteresis)
+                        .copied()
+                        .collect();
+                    let oscillating = history_window
+                        .windows(2)
+                        .any(|w| w[0] == target || w[1] == node.shell);
+                    if node.promotion_streak >= passes_required && residence_ok && !oscillating {
+                        let before = node.shell;
+                        node.shell = target;
+                        node.shell_entered_ts = now;
+                        node.promotion_streak = 0;
+                        node.promotion_history.push(target);
+                        if node.promotion_history.len() > hysteresis * 2 {
+                            let drop = node.promotion_history.len() - hysteresis * 2;
+                            node.promotion_history.drain(0..drop);
+                        }
+                        upsert_req = Some((node.semantic_embedding, target));
+                        promoted = Some((before, target, reason));
+                    }
+                } else {
+                    node.promotion_streak = 0;
                 }
-            } else {
-                node.promotion_streak = 0;
+            }
+            if let Some((eid, target)) = upsert_req {
+                self.index_upsert(id, eid, target);
+            }
+            if let Some((before, target, reason)) = promoted {
+                records.push(PromotionRecord {
+                    node: id,
+                    from: before,
+                    to: target,
+                    reason,
+                });
+                self.witness.emit(WitnessEvent::ShellPromoted {
+                    node: id,
+                    from: before,
+                    to: target,
+                    ts_ns: now,
+                });
             }
         }
         records
@@ -168,44 +176,54 @@ impl FieldEngine {
 
         let ids: Vec<NodeId> = self.nodes.keys().copied().collect();
         for id in ids {
-            let Some(node) = self.nodes.get_mut(&id) else { continue };
             let s = *support.get(&id).unwrap_or(&0);
             let c = *contrast.get(&id).unwrap_or(&0);
+            let mut upsert_req: Option<(crate::model::EmbeddingId, Shell)> = None;
+            let mut demoted: Option<(Shell, Shell, PromotionReason)> = None;
+            {
+                let Some(node) = self.nodes.get_mut(&id) else { continue };
 
-            let (need, reason) = match node.shell {
-                Shell::Pattern if s < 1 => (true, PromotionReason::SupportDecay),
-                Shell::Concept if s < 2 || c >= 2 => {
-                    if c >= 2 {
-                        (true, PromotionReason::ContradictionGrowth)
-                    } else {
-                        (true, PromotionReason::SupportDecay)
+                let (need, reason) = match node.shell {
+                    Shell::Pattern if s < 1 => (true, PromotionReason::SupportDecay),
+                    Shell::Concept if s < 2 || c >= 2 => {
+                        if c >= 2 {
+                            (true, PromotionReason::ContradictionGrowth)
+                        } else {
+                            (true, PromotionReason::SupportDecay)
+                        }
+                    }
+                    Shell::Principle if c >= 1 => (true, PromotionReason::ContradictionGrowth),
+                    _ => (false, PromotionReason::SupportDecay),
+                };
+
+                if need {
+                    if let Some(target) = node.shell.demote() {
+                        let before = node.shell;
+                        node.shell = target;
+                        node.shell_entered_ts = now;
+                        node.promotion_streak = 0;
+                        node.promotion_history.push(target);
+                        upsert_req = Some((node.semantic_embedding, target));
+                        demoted = Some((before, target, reason));
                     }
                 }
-                Shell::Principle if c >= 1 => (true, PromotionReason::ContradictionGrowth),
-                _ => (false, PromotionReason::SupportDecay),
-            };
-
-            if need {
-                if let Some(target) = node.shell.demote() {
-                    let before = node.shell;
-                    node.shell = target;
-                    node.shell_entered_ts = now;
-                    node.promotion_streak = 0;
-                    node.promotion_history.push(target);
-                    records.push(PromotionRecord {
-                        node: id,
-                        from: before,
-                        to: target,
-                        reason,
-                    });
-                    self.index.upsert(id, node.semantic_embedding, target);
-                    self.witness.emit(WitnessEvent::ShellDemoted {
-                        node: id,
-                        from: before,
-                        to: target,
-                        ts_ns: now,
-                    });
-                }
+            }
+            if let Some((eid, target)) = upsert_req {
+                self.index_upsert(id, eid, target);
+            }
+            if let Some((before, target, reason)) = demoted {
+                records.push(PromotionRecord {
+                    node: id,
+                    from: before,
+                    to: target,
+                    reason,
+                });
+                self.witness.emit(WitnessEvent::ShellDemoted {
+                    node: id,
+                    from: before,
+                    to: target,
+                    ts_ns: now,
+                });
             }
         }
         records

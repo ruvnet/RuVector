@@ -38,7 +38,12 @@ fn main() {
     );
 
     let provider = HashEmbeddingProvider::new(64);
+    #[cfg(feature = "hnsw")]
+    let mut engine = FieldEngine::new().with_hnsw_index();
+    #[cfg(not(feature = "hnsw"))]
     let mut engine = FieldEngine::new();
+    #[cfg(feature = "hnsw")]
+    println!("(build: HNSW-backed semantic index enabled via --features hnsw)");
     let build_start = Instant::now();
     let corpus = build_corpus();
     let mut ids: Vec<NodeId> = Vec::with_capacity(corpus.len());

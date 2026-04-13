@@ -71,7 +71,7 @@ impl FieldEngine {
         };
         node.resonance = resonance_score(&node);
         self.nodes.insert(id, node);
-        self.index.upsert(id, semantic_id, Shell::Event);
+        self.index_upsert(id, semantic_id, Shell::Event);
         self.temporal.insert(id, ts);
         self.witness
             .emit(WitnessEvent::FieldNodeCreated { node: id, ts_ns: ts });

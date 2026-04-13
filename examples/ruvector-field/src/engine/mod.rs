@@ -29,6 +29,8 @@ use crate::model::{
 use crate::policy::PolicyRegistry;
 use crate::scoring::resonance_score;
 use crate::storage::{LinearIndex, TemporalBuckets};
+#[cfg(feature = "hnsw")]
+use crate::storage::HnswIndex;
 use crate::witness::WitnessLog;
 
 pub use promote::{PromotionReason, PromotionRecord};
@@ -89,6 +91,11 @@ pub struct FieldEngine {
     pub store: EmbeddingStore,
     /// Linear semantic index (swap out for HNSW via [`SemanticIndex`]).
     pub index: LinearIndex,
+    /// Optional HNSW override; when `Some`, retrieval, ingest, and promote
+    /// sites mirror writes to both indexes and query the HNSW index for
+    /// candidates. Gated by `--features hnsw`.
+    #[cfg(feature = "hnsw")]
+    pub hnsw: Option<HnswIndex>,
     /// Temporal buckets.
     pub temporal: TemporalBuckets,
     /// Policy registry — may be empty.
@@ -145,6 +152,8 @@ impl FieldEngine {
             edges,
             store: EmbeddingStore::new(),
             index: LinearIndex::new(),
+            #[cfg(feature = "hnsw")]
+            hnsw: None,
             temporal: TemporalBuckets::new(),
             policies: PolicyRegistry::new(),
             witness: WitnessLog::new(),
@@ -153,6 +162,35 @@ impl FieldEngine {
             next_hint_id: 1,
             clock,
             last_tick_ts: 0,
+        }
+    }
+
+    /// Enable HNSW candidate generation on this engine. Future ingest
+    /// and promote calls mirror writes to the HNSW index; retrieval routes
+    /// through it as the primary [`crate::storage::SemanticIndex`].
+    #[cfg(feature = "hnsw")]
+    pub fn with_hnsw_index(mut self) -> Self {
+        self.hnsw = Some(HnswIndex::new());
+        self
+    }
+
+    /// Create an engine with HNSW candidate generation pre-enabled.
+    #[cfg(feature = "hnsw")]
+    pub fn new_with_hnsw() -> Self {
+        Self::new().with_hnsw_index()
+    }
+
+    /// Internal: upsert a node into whichever semantic index is live.
+    pub(crate) fn index_upsert(
+        &mut self,
+        id: NodeId,
+        eid: crate::model::EmbeddingId,
+        shell: Shell,
+    ) {
+        self.index.upsert(id, eid, shell);
+        #[cfg(feature = "hnsw")]
+        if let Some(h) = self.hnsw.as_mut() {
+            h.upsert(&self.store, id, eid, shell);
         }
     }
 

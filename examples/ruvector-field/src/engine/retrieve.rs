@@ -43,7 +43,20 @@ impl FieldEngine {
         let mut result = RetrievalResult::default();
         let target_shell = allowed_shells.first().copied().unwrap_or(Shell::Concept);
         // Step 1: candidate generation via the index trait.
-        let hits = self.index.search(&self.store, query, allowed_shells, 128.max(top_k * 4));
+        let hits = {
+            #[cfg(feature = "hnsw")]
+            {
+                if let Some(h) = self.hnsw.as_ref() {
+                    h.search(&self.store, query, allowed_shells, 128.max(top_k * 4))
+                } else {
+                    self.index.search(&self.store, query, allowed_shells, 128.max(top_k * 4))
+                }
+            }
+            #[cfg(not(feature = "hnsw"))]
+            {
+                self.index.search(&self.store, query, allowed_shells, 128.max(top_k * 4))
+            }
+        };
         // Temporal filter.
         let allowed_by_time: Option<HashSet<NodeId>> = time_window.map(|(from, to)| {
             self.temporal.range(from, to).into_iter().collect()

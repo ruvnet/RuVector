@@ -29,6 +29,8 @@
 
 pub mod clock;
 pub mod embed;
+#[cfg(feature = "onnx-embeddings")]
+pub mod embed_onnx;
 pub mod engine;
 pub mod error;
 pub mod model;
@@ -52,5 +54,9 @@ pub mod prelude {
     pub use crate::proof::{ManualProofGate, NoopProofGate, ProofError, ProofGate, ProofToken};
     pub use crate::scoring::{DriftSignal, RetrievalResult, RoutingHint};
     pub use crate::storage::{FieldSnapshot, LinearIndex, SemanticIndex, SnapshotDiff};
+    #[cfg(feature = "hnsw")]
+    pub use crate::storage::{HnswConfig, HnswIndex};
+    #[cfg(feature = "onnx-embeddings")]
+    pub use crate::embed_onnx::DeterministicEmbeddingProvider;
     pub use crate::witness::{WitnessEvent, WitnessLog};
 }
