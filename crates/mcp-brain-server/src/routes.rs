@@ -5980,20 +5980,45 @@ async fn notify_digest(
     let topic = body["topic"].as_str();
     let hours = body["hours"].as_u64().unwrap_or(24);
 
-    // Gather recent discoveries from the store
+    // Gather recent discoveries from the store — excluding debug/training noise
     let cutoff = chrono::Utc::now() - chrono::Duration::hours(hours as i64);
     let mut all = state.store.all_memories();
     all.sort_by(|a, b| b.created_at.cmp(&a.created_at));
 
-    // Filter by recency and optionally by topic
+    // Filter out noise: training cycles, self-reflections, debug entries,
+    // and low-signal web scraping results
+    let noise_patterns: &[&str] = &[
+        "Self-reflection: training cycle",
+        "Fact Check: Self-reflection",
+        "vTools Events",
+        "Executive Committee Meeting",
+        "DailyMed",
+        "AccessGUDID",
+        "Site en construction",
+    ];
+
     let filtered: Vec<_> = all.iter()
         .filter(|m| {
             if m.created_at < cutoff {
                 return false;
             }
+            // Skip debug/auto-generated training noise
+            if matches!(m.category, crate::types::BrainCategory::Debug) {
+                return false;
+            }
+            // Skip known noise patterns in titles
+            let title_lower = m.title.to_lowercase();
+            if noise_patterns.iter().any(|p| title_lower.contains(&p.to_lowercase())) {
+                return false;
+            }
+            // Skip very short content (likely scraping artifacts)
+            if m.content.len() < 50 {
+                return false;
+            }
+            // Apply optional topic filter
             topic.map_or(true, |t| {
                 let t_lower = t.to_lowercase();
-                m.title.to_lowercase().contains(&t_lower)
+                title_lower.contains(&t_lower)
                     || m.content.to_lowercase().contains(&t_lower)
                     || m.tags.iter().any(|tag| tag.to_lowercase().contains(&t_lower))
             })
@@ -6009,27 +6034,52 @@ async fn notify_digest(
         })));
     }
 
-    // Build HTML rows
+    // Build HTML rows — human-readable format
     let mut rows = String::new();
+    let category_emoji = |cat: &crate::types::BrainCategory| -> &str {
+        use crate::types::BrainCategory::*;
+        match cat {
+            Architecture => "🏗️",
+            Pattern => "🔄",
+            Solution => "💡",
+            Security => "🔒",
+            Convention => "📐",
+            Performance => "⚡",
+            Tooling => "🔧",
+            Debug => "🐛",
+            _ => "📝",
+        }
+    };
+
     for (i, m) in filtered.iter().enumerate() {
-        let title = if m.title.len() > 100 { &m.title[..100] } else { &m.title };
-        let content = if m.content.len() > 200 { &m.content[..200] } else { &m.content };
-        let quality = m.quality_score.mean();
-        let tags_html: Vec<_> = m.tags.iter().take(4).map(|t| {
-            format!("<span style=\"display:inline-block;background:#1a1a3a;color:#4fc3f7;padding:1px 6px;border-radius:3px;font-size:10px;margin:1px;\">{}</span>", t)
-        }).collect();
+        let title = if m.title.len() > 120 { &m.title[..120] } else { &m.title };
+        // Take first ~250 chars but break at sentence boundary
+        let content_raw = if m.content.len() > 250 { &m.content[..250] } else { &m.content };
+        let content = match content_raw.rfind(". ") {
+            Some(pos) if pos > 80 => &content_raw[..pos + 1],
+            _ => content_raw,
+        };
+        let emoji = category_emoji(&m.category);
+        let tags_html: Vec<_> = m.tags.iter()
+            .filter(|t| !t.contains("auto-generated") && !t.contains("training-cycle"))
+            .take(3)
+            .map(|t| {
+                format!("<span style=\"display:inline-block;background:#1a1a3a;color:#4fc3f7;padding:2px 8px;border-radius:4px;font-size:11px;margin:2px;\">{}</span>", t)
+            }).collect();
         rows.push_str(&format!(
-            r#"<tr style="border-bottom:1px solid #222;">
-<td style="padding:10px 0;">
-<strong style="color:#4fc3f7;">{num}. {title}</strong><br>
-<span style="color:#888;font-size:11px;">{cat} | quality: {quality:.2}</span> {tags}<br>
-<span style="color:#999;font-size:12px;">{content}...</span>
+            r#"<tr style="border-bottom:1px solid #1a1a3a;">
+<td style="padding:14px 0;">
+<div style="margin-bottom:4px;">{emoji} <strong style="color:#e0e0ff;font-size:14px;">{title}</strong></div>
+<div style="margin-bottom:6px;">{tags}</div>
+<div style="color:#aaa;font-size:12px;line-height:1.5;">{content}</div>
 </td></tr>"#,
-            num = i + 1,
+            emoji = emoji,
             title = title,
-            cat = m.category,
-            quality = quality,
-            tags = tags_html.join(""),
+            tags = if tags_html.is_empty() {
+                format!("<span style=\"color:#666;font-size:11px;\">{:?}</span>", m.category)
+            } else {
+                tags_html.join("")
+            },
             content = content,
         ));
     }
@@ -6042,16 +6092,21 @@ async fn notify_digest(
     let edges = state.graph.read().edge_count();
 
     let html = format!(
-        r#"<div style="font-family:'SF Mono',monospace;background:#0a0a23;color:#e0e0ff;padding:24px;border-radius:12px;max-width:600px;">
-<h2 style="color:#4fc3f7;margin:0 0 4px 0;">Daily Discovery Digest</h2>
-<p style="color:#888;font-size:12px;margin:0 0 4px 0;">Last {hours}h | {count} discoveries | {total} total memories | {edges} edges</p>
+        r#"<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0a0a23;color:#e0e0ff;padding:24px;border-radius:12px;max-width:600px;">
+<h2 style="color:#4fc3f7;margin:0 0 8px 0;">What the Brain Learned Today</h2>
+<p style="color:#aaa;font-size:13px;margin:0 0 16px 0;">
+{count} new discoveries in the last {hours} hours.
+The brain now holds {total} memories connected by {edges} relationships.
+</p>
 {topic_line}
-<table style="color:#e0e0ff;font-size:13px;width:100%;">{rows}</table>
-<div style="background:#1a1a3a;padding:12px 16px;border-radius:8px;margin-top:16px;">
-<p style="color:#7fdbca;font-size:13px;margin:0;">Reply with <code style="color:#7fdbca;">search &lt;query&gt;</code> to explore | <code style="color:#7fdbca;">help</code> for commands</p>
+<table style="color:#e0e0ff;font-size:13px;width:100%;border-spacing:0;">{rows}</table>
+<div style="background:#1a1a3a;padding:14px 18px;border-radius:8px;margin-top:20px;">
+<p style="color:#7fdbca;font-size:13px;margin:0 0 4px 0;">Explore the brain</p>
+<p style="color:#999;font-size:12px;margin:0;">Reply <code style="color:#7fdbca;background:#0a0a23;padding:2px 5px;border-radius:3px;">search seizure prediction</code> to find related knowledge,
+or <code style="color:#7fdbca;background:#0a0a23;padding:2px 5px;border-radius:3px;">help</code> for all commands.</p>
 </div>
 <div style="color:#666;margin-top:20px;font-size:11px;border-top:1px solid #222;padding-top:12px;">
-<a href="https://pi.ruv.io" style="color:#4fc3f7;">pi.ruv.io</a> | Powered by Resend
+<a href="https://pi.ruv.io" style="color:#4fc3f7;text-decoration:none;">pi.ruv.io</a> — the shared brain for collective intelligence
 </div></div>"#,
         hours = hours,
         count = filtered.len(),
@@ -6062,8 +6117,8 @@ async fn notify_digest(
     );
 
     let subject = match topic {
-        Some(t) => format!("[pi.ruv.io/discovery] Daily Digest: {}", t),
-        None => "[pi.ruv.io/discovery] Daily Discovery Digest".into(),
+        Some(t) => format!("[pi brain] {} — {} new discoveries", t, filtered.len()),
+        None => format!("[pi brain] {} new discoveries today", filtered.len()),
     };
 
     match notifier.send("discovery", &subject, &html).await {
