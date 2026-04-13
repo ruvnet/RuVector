@@ -475,11 +475,13 @@ impl FirestoreClient {
         }
         tracing::info!("Loading state from Firestore...");
 
-        // Load memories
+        // Load memories — normalize on ingest for fast cosine search
         let docs = self.firestore_list("brain_memories").await;
         let mut mem_count = 0usize;
         for doc in docs {
-            if let Ok(m) = serde_json::from_value::<BrainMemory>(doc) {
+            if let Ok(mut m) = serde_json::from_value::<BrainMemory>(doc) {
+                // ADR-149 followup: L2-normalize so search uses pure dot product
+                crate::graph::normalize_embedding(&mut m.embedding);
                 self.memories.insert(m.id, m);
                 mem_count += 1;
             }
@@ -533,8 +535,11 @@ impl FirestoreClient {
     }
 
     /// Store a brain memory (cache + Firestore write-through)
-    pub async fn store_memory(&self, memory: BrainMemory) -> Result<(), StoreError> {
+    /// L2-normalizes the embedding on write so search can use fast dot-product cosine.
+    pub async fn store_memory(&self, mut memory: BrainMemory) -> Result<(), StoreError> {
         let id = memory.id;
+        // ADR-149 followup: pre-normalize embeddings for fast cosine
+        crate::graph::normalize_embedding(&mut memory.embedding);
         // Write-through to Firestore
         if let Ok(body) = serde_json::to_value(&memory) {
             self.firestore_put("brain_memories", &id.to_string(), &body).await;
@@ -586,6 +591,9 @@ impl FirestoreClient {
         limit: usize,
         min_quality: f64,
     ) -> Result<Vec<(f64, BrainMemory)>, StoreError> {
+        // Normalize the query once (stored embeddings are pre-normalized).
+        let mut query_norm = query_embedding.to_vec();
+        crate::graph::normalize_embedding(&mut query_norm);
         let mut scored: Vec<(f64, BrainMemory)> = self
             .memories
             .iter()
@@ -600,7 +608,8 @@ impl FirestoreClient {
             })
             .map(|entry| {
                 let m = entry.value().clone();
-                let sim = cosine_similarity(query_embedding, &m.embedding);
+                // Use fast normalized cosine — embeddings pre-normalized on store.
+                let sim = crate::graph::cosine_similarity_normalized(&query_norm, &m.embedding);
                 (sim, m)
             })
             .collect();
