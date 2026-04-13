@@ -131,3 +131,7 @@ training-data*.jsonl
 # Extracted code artifacts
 claude-code-extracted/
 examples/open-claude-code/
+examples/real-eeg-analysis/data/*.edf
+examples/real-eeg-multi-seizure/data/*.edf
+agentdb.rvf
+agentdb.rvf.lock

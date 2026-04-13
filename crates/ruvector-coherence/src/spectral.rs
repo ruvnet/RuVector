@@ -46,15 +46,83 @@ impl CsrMatrixView {
     }
 
     /// Sparse matrix-vector product: y = A * x.
+    ///
+    /// Dispatches to NEON on AArch64 (Apple Silicon), scalar otherwise.
     pub fn spmv(&self, x: &[f64]) -> Vec<f64> {
         let mut y = vec![0.0; self.rows];
-        for i in 0..self.rows {
-            let (start, end) = (self.row_ptr[i], self.row_ptr[i + 1]);
-            y[i] = (start..end)
-                .map(|j| self.values[j] * x[self.col_indices[j]])
-                .sum();
+
+        #[cfg(target_arch = "aarch64")]
+        {
+            unsafe { self.spmv_neon(x, &mut y) };
+            return y;
         }
-        y
+
+        #[allow(unreachable_code)]
+        {
+            for i in 0..self.rows {
+                let (start, end) = (self.row_ptr[i], self.row_ptr[i + 1]);
+                y[i] = (start..end)
+                    .map(|j| self.values[j] * x[self.col_indices[j]])
+                    .sum();
+            }
+            y
+        }
+    }
+
+    /// NEON-accelerated SpMV for f64 on AArch64.
+    ///
+    /// Uses `float64x2_t` FMA with 2x unroll for the Laplacian × vector
+    /// multiply that dominates power iteration / CG in spectral analysis.
+    ///
+    /// # Safety
+    /// Caller must ensure `x.len() >= self.cols` and `y.len() >= self.rows`.
+    #[cfg(target_arch = "aarch64")]
+    unsafe fn spmv_neon(&self, x: &[f64], y: &mut [f64]) {
+        use std::arch::aarch64::*;
+
+        for i in 0..self.rows {
+            let start = self.row_ptr[i];
+            let end = self.row_ptr[i + 1];
+            let len = end - start;
+
+            let mut acc0 = vdupq_n_f64(0.0);
+            let mut acc1 = vdupq_n_f64(0.0);
+            let chunks = len / 4;
+            let remainder = len % 4;
+
+            for c in 0..chunks {
+                let base = start + c * 4;
+                // Hardware prefetch handles sequential access on M-series
+
+                let v0 = vld1q_f64(self.values.as_ptr().add(base));
+                let v1 = vld1q_f64(self.values.as_ptr().add(base + 2));
+
+                let xb0 = [
+                    *x.get_unchecked(*self.col_indices.get_unchecked(base)),
+                    *x.get_unchecked(*self.col_indices.get_unchecked(base + 1)),
+                ];
+                let xb1 = [
+                    *x.get_unchecked(*self.col_indices.get_unchecked(base + 2)),
+                    *x.get_unchecked(*self.col_indices.get_unchecked(base + 3)),
+                ];
+                let x0 = vld1q_f64(xb0.as_ptr());
+                let x1 = vld1q_f64(xb1.as_ptr());
+
+                acc0 = vfmaq_f64(acc0, v0, x0);
+                acc1 = vfmaq_f64(acc1, v1, x1);
+            }
+
+            let combined = vaddq_f64(acc0, acc1);
+            let mut sum = vgetq_lane_f64(combined, 0) + vgetq_lane_f64(combined, 1);
+
+            let tail_start = start + chunks * 4;
+            for idx in tail_start..(tail_start + remainder) {
+                let col = *self.col_indices.get_unchecked(idx);
+                sum += *self.values.get_unchecked(idx) * *x.get_unchecked(col);
+            }
+
+            *y.get_unchecked_mut(i) = sum;
+        }
     }
 
     /// Build the graph Laplacian L = D - A from edges.
@@ -137,11 +205,53 @@ pub struct SpectralCoherenceScore {
 // --- Internal helpers ---
 
 fn dot(a: &[f64], b: &[f64]) -> f64 {
-    a.iter().zip(b).map(|(x, y)| x * y).sum()
+    #[cfg(target_arch = "aarch64")]
+    {
+        unsafe { dot_neon_f64(a, b) }
+    }
+    #[cfg(not(target_arch = "aarch64"))]
+    {
+        a.iter().zip(b).map(|(x, y)| x * y).sum()
+    }
 }
 
 fn norm(v: &[f64]) -> f64 {
     dot(v, v).sqrt()
+}
+
+/// NEON-accelerated f64 dot product for spectral CG/power iteration.
+///
+/// # Safety
+/// Caller must ensure `a.len() == b.len()`.
+#[cfg(target_arch = "aarch64")]
+unsafe fn dot_neon_f64(a: &[f64], b: &[f64]) -> f64 {
+    use std::arch::aarch64::*;
+
+    let n = a.len().min(b.len());
+    let chunks = n / 4;
+    let remainder = n % 4;
+
+    let mut acc0 = vdupq_n_f64(0.0);
+    let mut acc1 = vdupq_n_f64(0.0);
+
+    for c in 0..chunks {
+        let base = c * 4;
+        let a0 = vld1q_f64(a.as_ptr().add(base));
+        let a1 = vld1q_f64(a.as_ptr().add(base + 2));
+        let b0 = vld1q_f64(b.as_ptr().add(base));
+        let b1 = vld1q_f64(b.as_ptr().add(base + 2));
+        acc0 = vfmaq_f64(acc0, a0, b0);
+        acc1 = vfmaq_f64(acc1, a1, b1);
+    }
+
+    let combined = vaddq_f64(acc0, acc1);
+    let mut sum = vgetq_lane_f64(combined, 0) + vgetq_lane_f64(combined, 1);
+
+    let tail = chunks * 4;
+    for i in tail..(tail + remainder) {
+        sum += *a.get_unchecked(i) * *b.get_unchecked(i);
+    }
+    sum
 }
 
 /// CG solve for L*x = b with null-space deflation (L is graph Laplacian).

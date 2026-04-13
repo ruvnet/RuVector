@@ -897,6 +897,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "boundary-discovery"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "ruvector-coherence",
+ "ruvector-mincut 2.1.0",
+]
+
+[[package]]
+name = "brain-boundary-discovery"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "ruvector-coherence",
+ "ruvector-mincut 2.1.0",
+]
+
+[[package]]
 name = "bstr"
 version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1362,6 +1380,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ddfc5b9aa5d4507acaf872de71051dfd0e309860e88966e1051e462a077aac4f"
 dependencies = [
  "bitflags 1.3.2",
+]
+
+[[package]]
+name = "cmb-boundary-discovery"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "ruvector-coherence",
+ "ruvector-mincut 2.1.0",
 ]
 
 [[package]]
@@ -2492,6 +2519,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1d926b4d407d372f141f93bb444696142c29d32962ccbd3531117cf3aa0bfa9"
 
 [[package]]
+name = "earthquake-boundary-discovery"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "ruvector-coherence",
+ "ruvector-mincut 2.1.0",
+]
+
+[[package]]
 name = "ecosystem-consciousness"
 version = "0.1.0"
 dependencies = [
@@ -2995,6 +3031,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8878864ba14bb86e818a412bfd6f18f9eabd4ec0f008a28e8f7eb61db532fcf9"
 dependencies = [
  "futures-core",
+]
+
+[[package]]
+name = "frb-boundary-discovery"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "ruvector-coherence",
+ "ruvector-mincut 2.1.0",
 ]
 
 [[package]]
@@ -3956,6 +4001,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "health-boundary-discovery"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "ruvector-coherence",
+ "ruvector-mincut 2.1.0",
+]
+
+[[package]]
 name = "heapless"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4616,6 +4670,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "infrastructure-boundary-discovery"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "ruvector-coherence",
+ "ruvector-mincut 2.1.0",
+]
+
+[[package]]
 name = "inout"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5110,6 +5173,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "market-boundary-discovery"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "ruvector-coherence",
+ "ruvector-mincut 2.1.0",
+]
+
+[[package]]
 name = "matchers"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5530,6 +5602,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "music-boundary-discovery"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "ruvector-coherence",
+ "ruvector-mincut 2.1.0",
 ]
 
 [[package]]
@@ -6558,6 +6639,15 @@ checksum = "30d5b2194ed13191c1999ae0704b7839fb18384fa22e49b57eeaa97d79ce40da"
 dependencies = [
  "libc",
  "winapi",
+]
+
+[[package]]
+name = "pandemic-boundary-discovery"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "ruvector-coherence",
+ "ruvector-mincut 2.1.0",
 ]
 
 [[package]]
@@ -8117,6 +8207,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "678054eb77286b51581ba43620cc911abf02758c91f93f479767aed0f90458b2"
 dependencies = [
  "rand_core 0.3.1",
+]
+
+[[package]]
+name = "real-eeg-analysis"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "ruvector-coherence",
+ "ruvector-mincut 2.1.0",
+]
+
+[[package]]
+name = "real-eeg-multi-seizure"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "ruvector-coherence",
 ]
 
 [[package]]
@@ -11251,6 +11358,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "seizure-clinical-report"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "ruvector-coherence",
+ "ruvector-mincut 2.1.0",
+]
+
+[[package]]
+name = "seizure-therapeutic-sim"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "ruvector-coherence",
+ "ruvector-mincut 2.1.0",
+]
+
+[[package]]
 name = "semver"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11410,6 +11535,24 @@ dependencies = [
  "ryu",
  "serde",
  "unsafe-libyaml",
+]
+
+[[package]]
+name = "seti-boundary-discovery"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "ruvector-coherence",
+ "ruvector-mincut 2.1.0",
+]
+
+[[package]]
+name = "seti-exotic-signals"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "ruvector-coherence",
+ "ruvector-mincut 2.1.0",
 ]
 
 [[package]]
@@ -12288,6 +12431,15 @@ dependencies = [
  "once_cell",
  "rustix 1.1.4",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "temporal-attractor-discovery"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "ruvector-coherence",
+ "ruvector-mincut 2.1.0",
 ]
 
 [[package]]
@@ -13421,6 +13573,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "051eb1abcf10076295e815102942cc58f9d5e3b4560e46e53c21e8ff6f3af7b1"
 
 [[package]]
+name = "void-boundary-discovery"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "ruvector-coherence",
+ "ruvector-mincut 2.1.0",
+]
+
+[[package]]
 name = "wait-timeout"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13676,6 +13837,15 @@ name = "weak-table"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "323f4da9523e9a669e1eaf9c6e763892769b1d38c623913647bfdc1532fe4549"
+
+[[package]]
+name = "weather-boundary-discovery"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "ruvector-coherence",
+ "ruvector-mincut 2.1.0",
+]
 
 [[package]]
 name = "web-sys"
