@@ -4934,7 +4934,30 @@ curl -X POST http://localhost:8080/search \
 <details>
 <summary>📚 Production Examples</summary>
 
-34 production-ready examples demonstrating RuVector integration patterns.
+50+ production-ready examples demonstrating RuVector integration patterns.
+
+#### Boundary-First Discovery (NEW — 17 experiments, 7/7 real seizures detected)
+
+Boundary-first detection finds hidden structure by analyzing WHERE correlations change — not WHERE individual measurements cross thresholds. Validated on real clinical EEG data from PhysioNet. [Research paper](https://gist.github.com/ruvnet/1efd1af92b2d6ecd4b27c3ef8551a208) | [Seizure deep-dive](https://gist.github.com/ruvnet/10596316f4e29107b296568f1ff57045)
+
+| Example | Description | Key Result |
+|---------|-------------|------------|
+| [boundary-discovery](./examples/boundary-discovery) | Phase transition detection proof | z=-3.90 |
+| [brain-boundary-discovery](./examples/brain-boundary-discovery) | Seizure prediction 45s early (synthetic) | z=-32.62 |
+| [real-eeg-analysis](./examples/real-eeg-analysis) | **Real CHB-MIT EEG** seizure detection | z=-2.23, 274s warning |
+| [real-eeg-multi-seizure](./examples/real-eeg-multi-seizure) | **7/7 real seizures detected** (100%) | 225s mean warning |
+| [seizure-therapeutic-sim](./examples/seizure-therapeutic-sim) | Entrainment delays seizure 60s | +252% alpha restored |
+| [temporal-attractor-discovery](./examples/temporal-attractor-discovery) | 3/3 regime transitions found | z=-6.83 |
+| [weather-boundary-discovery](./examples/weather-boundary-discovery) | 20 days before thermometer | z=-10.85 |
+| [health-boundary-discovery](./examples/health-boundary-discovery) | 13 days before clinical thresholds | z=-3.90 |
+| [market-boundary-discovery](./examples/market-boundary-discovery) | 42 days before market crash | z=-3.90 |
+| [music-boundary-discovery](./examples/music-boundary-discovery) | Genre boundaries discovered | z=-13.01 |
+| [seti-exotic-signals](./examples/seti-exotic-signals) | 6/6 invisible signals found (trad: 0/6) | z=-8.19 |
+| [earthquake-boundary-discovery](./examples/earthquake-boundary-discovery) | 41 days before mainshock | z=-2.29 |
+| [pandemic-boundary-discovery](./examples/pandemic-boundary-discovery) | 50 days before outbreak | z=-12.31 |
+| [infrastructure-boundary-discovery](./examples/infrastructure-boundary-discovery) | 179 days before bridge collapse | z=-2.15 |
+
+#### All Examples
 
 | Example | Description | Type |
 |---------|-------------|------|
