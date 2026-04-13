@@ -14,7 +14,7 @@ use crate::types::{
     ShareRequest, ShareResponse,
     StatusResponse, SubmitDeltaRequest, TemporalResponse,
     ConsciousnessComputeRequest, ConsciousnessComputeResponse,
-    TrainingCycleResult,
+    EnhancedTrainRequest, TrainingCycleResult,
     TrainingPreferencesResponse,
     TrainingQuery, TransferRequest, TransferResponse, VerifyRequest, VerifyResponse,
     VoteDirection, VoteRequest, WasmNode, WasmNodeSummary,
@@ -114,12 +114,10 @@ pub async fn create_router() -> (Router, AppState) {
 
     let embedding_engine = Arc::new(parking_lot::RwLock::new(emb_engine));
 
-    // Rebuild knowledge graph from (re-embedded) memories
+    // Rebuild knowledge graph from (re-embedded) memories — batch path (ADR-149 P3)
     {
         let mut g = graph.write();
-        for mem in &all_mems {
-            g.add_memory(mem);
-        }
+        g.rebuild_from_batch(&all_mems);
         tracing::info!("Graph rebuilt: {} nodes, {} edges", g.node_count(), g.edge_count());
         // ADR-116: Build sparsifier inline for small graphs, background for large.
         if g.edge_count() <= 100_000 {
@@ -469,11 +467,34 @@ pub struct EnhancedTrainingResult {
     pub lora_auto_submitted: bool,
     /// Strange loop meta-cognitive quality score for this cycle
     pub strange_loop_score: f32,
+    /// ADR-149 P4: Whether this was an incremental (not full) training cycle
+    #[serde(default)]
+    pub incremental: bool,
+    /// ADR-149 P4: Number of memories actually processed for proposition extraction
+    #[serde(default)]
+    pub memories_processed: usize,
+    /// ADR-149 P4: Number of memories skipped (already trained on)
+    #[serde(default)]
+    pub memories_skipped: usize,
+    /// ADR-149 P4: Whether a full retrain was performed (forced or periodic)
+    #[serde(default)]
+    pub was_full_retrain: bool,
 }
 
 /// Run enhanced training cycle with neural-symbolic feedback (ADR-110).
 /// Integrates: SONA → Neural-Symbolic Extraction → Internal Voice Reflection
-pub fn run_enhanced_training_cycle(state: &AppState) -> EnhancedTrainingResult {
+///
+/// ADR-149 P4: When `force_full` is false (default), only memories created after
+/// the last training watermark are used for proposition extraction. A full retrain
+/// is automatically forced every 24 hours to prevent incremental drift.
+pub fn run_enhanced_training_cycle(state: &AppState, force_full: bool) -> EnhancedTrainingResult {
+    // ── ADR-149 P4: Determine whether to do incremental or full training ──
+    let now = chrono::Utc::now();
+    let cutoff = *state.pipeline_metrics.last_enhanced_trained_at.lock();
+    let hours_since_full = (now - *state.pipeline_metrics.last_full_retrain_at.lock()).num_hours();
+    let periodic_full = hours_since_full >= 24;
+    let is_full_retrain = force_full || periodic_full;
+
     // 1. SONA trajectory learning (existing)
     let sona_result = state.sona.write().force_learn();
 
@@ -485,8 +506,84 @@ pub fn run_enhanced_training_cycle(state: &AppState) -> EnhancedTrainingResult {
     drop(domain);
 
     // 3. Neural-symbolic rule extraction (ADR-110)
+    // Fetch all memories — we need the full set for analytics (category distribution,
+    // vote coverage, auto-voting, discovery building). Proposition extraction uses
+    // only the filtered subset.
     let all_memories = state.store.all_memories();
-    let clusters = build_memory_clusters(&all_memories);
+    let total_memory_count = all_memories.len();
+
+    // ADR-149 P4: Filter to only new memories for proposition extraction
+    let training_memories: Vec<BrainMemory> = if is_full_retrain {
+        if periodic_full && !force_full {
+            tracing::info!(
+                "Periodic full retrain triggered ({} hours since last full), processing all {} memories",
+                hours_since_full, total_memory_count
+            );
+        } else {
+            tracing::info!(
+                "Forced full retrain requested, processing all {} memories",
+                total_memory_count
+            );
+        }
+        all_memories.clone()
+    } else {
+        let new_memories: Vec<BrainMemory> = all_memories
+            .iter()
+            .filter(|m| m.created_at > cutoff)
+            .cloned()
+            .collect();
+
+        if new_memories.is_empty() {
+            tracing::debug!(
+                "No new memories since last training cycle (cutoff={}), skipping proposition extraction",
+                cutoff.format("%Y-%m-%d %H:%M:%S")
+            );
+            // Still update watermark so we don't re-check the same window
+            *state.pipeline_metrics.last_enhanced_trained_at.lock() = now;
+
+            let sona_stats = state.sona.read().stats();
+            let skip_reflection = format!(
+                "Incremental skip: no new memories since {}. SONA: {}",
+                cutoff.format("%H:%M:%S"), &sona_result
+            );
+            return EnhancedTrainingResult {
+                sona_message: sona_result,
+                sona_patterns: sona_stats.patterns_stored,
+                pareto_before,
+                pareto_after,
+                memory_count: total_memory_count,
+                vote_count: state.store.vote_count(),
+                propositions_extracted: 0,
+                voice_thoughts: 0,
+                working_memory_load: state.internal_voice.read().working_memory_utilization(),
+                rule_count: state.neural_symbolic.read().rule_count(),
+                inferences_derived: 0,
+                auto_votes: 0,
+                self_reflection: skip_reflection,
+                curiosity_triggered: false,
+                sona_adaptive_threshold: {
+                    state.sona.read().coordinator().reasoning_bank().read().config().quality_threshold
+                },
+                lora_auto_submitted: false,
+                strange_loop_score: 0.0,
+                incremental: true,
+                memories_processed: 0,
+                memories_skipped: total_memory_count,
+                was_full_retrain: false,
+            };
+        }
+
+        tracing::info!(
+            "Incremental training: {} new memories (of {} total) since {}",
+            new_memories.len(), total_memory_count, cutoff.format("%H:%M:%S")
+        );
+        new_memories
+    };
+
+    let memories_processed = training_memories.len();
+    let memories_skipped = total_memory_count.saturating_sub(memories_processed);
+
+    let clusters = build_memory_clusters(&training_memories);
     let (propositions_extracted, inferences_derived, raw_propositions, raw_inferences) = {
         let mut ns = state.neural_symbolic.write();
         let props = ns.extract_from_clusters(&clusters);
@@ -1078,6 +1175,12 @@ pub fn run_enhanced_training_cycle(state: &AppState) -> EnhancedTrainingResult {
         }
     }
 
+    // ── ADR-149 P4: Update watermarks after successful training ──
+    *state.pipeline_metrics.last_enhanced_trained_at.lock() = now;
+    if is_full_retrain {
+        *state.pipeline_metrics.last_full_retrain_at.lock() = now;
+    }
+
     EnhancedTrainingResult {
         sona_message: sona_result,
         sona_patterns: sona_stats.patterns_stored,
@@ -1096,6 +1199,10 @@ pub fn run_enhanced_training_cycle(state: &AppState) -> EnhancedTrainingResult {
         sona_adaptive_threshold,
         lora_auto_submitted,
         strange_loop_score: strange_loop_adjustment,
+        incremental: !is_full_retrain,
+        memories_processed,
+        memories_skipped,
+        was_full_retrain: is_full_retrain,
     }
 }
 
@@ -1504,7 +1611,9 @@ async fn search_memories(
     }
 
     let limit = query.limit.unwrap_or(10).min(100);
-    let min_quality = query.min_quality.unwrap_or(0.0);
+    // ADR-149 P2: Default quality floor of 0.01 skips noise memories (quality=0.0)
+    // while remaining backward-compatible — callers can pass min_quality=0 to get everything.
+    let min_quality = query.min_quality.unwrap_or(0.01);
 
     // ── Phase 6 (ADR-075): Negative cache check ──
     // If the query embedding is blacklisted, return empty results early
@@ -2937,13 +3046,19 @@ async fn ground_proposition(
     }))
 }
 
-/// POST /v1/train/enhanced — Trigger enhanced training cycle (ADR-110)
+/// POST /v1/train/enhanced — Trigger enhanced training cycle (ADR-110, ADR-149 P4)
+///
+/// Accepts optional JSON body: `{ "force_full": true }` to bypass incremental
+/// filtering and process all memories. Without the flag, only memories created
+/// since the last training cycle are processed.
 async fn train_enhanced_endpoint(
     State(state): State<AppState>,
     _contributor: AuthenticatedContributor,
+    body: Option<Json<EnhancedTrainRequest>>,
 ) -> Result<Json<EnhancedTrainingResult>, (StatusCode, String)> {
     check_read_only(&state)?;
-    let result = run_enhanced_training_cycle(&state);
+    let force_full = body.map(|b| b.force_full).unwrap_or(false);
+    let result = run_enhanced_training_cycle(&state, force_full);
 
     // Persist LoRA consensus to Firestore if auto-submitted (fire-and-forget)
     if result.lora_auto_submitted {
@@ -2964,7 +3079,8 @@ async fn train_enhanced_endpoint(
     }
 
     tracing::info!(
-        "Enhanced training cycle: sona={}, propositions={}, inferences={}, voice_thoughts={}, rules={}, auto_votes={}, lora={}, curiosity={}, sona_threshold={:.3}",
+        "Enhanced training cycle ({}): sona={}, propositions={}, inferences={}, voice_thoughts={}, rules={}, auto_votes={}, lora={}, curiosity={}, sona_threshold={:.3}, processed={}/{}",
+        if result.was_full_retrain { "full" } else { "incremental" },
         result.sona_patterns,
         result.propositions_extracted,
         result.inferences_derived,
@@ -2973,7 +3089,9 @@ async fn train_enhanced_endpoint(
         result.auto_votes,
         result.lora_auto_submitted,
         result.curiosity_triggered,
-        result.sona_adaptive_threshold
+        result.sona_adaptive_threshold,
+        result.memories_processed,
+        result.memory_count
     );
     Ok(Json(result))
 }
@@ -3505,10 +3623,8 @@ async fn pipeline_optimize(
             "rebuild_graph" => {
                 let all_mems = state.store.all_memories();
                 let mut graph = state.graph.write();
-                *graph = crate::graph::KnowledgeGraph::new();
-                for mem in &all_mems {
-                    graph.add_memory(mem);
-                }
+                // ADR-149 P3: batch rebuild instead of one-at-a-time add_memory loop
+                graph.rebuild_from_batch(&all_mems);
                 graph.rebuild_sparsifier();
                 (true, format!("Graph rebuilt: {} nodes, {} edges", graph.node_count(), graph.edge_count()))
             }
@@ -5241,8 +5357,16 @@ fn mcp_tool_definitions() -> Vec<serde_json::Value> {
         }),
         serde_json::json!({
             "name": "brain_train_enhanced",
-            "description": "Trigger an enhanced AGI training cycle (ADR-110): includes self-reflection, inference, adaptive SONA, and full optimization pipeline.",
-            "inputSchema": { "type": "object", "properties": {} }
+            "description": "Trigger an enhanced AGI training cycle (ADR-110, ADR-149 P4). By default runs incrementally — only processing memories created since the last cycle. Set force_full=true to retrain on all memories. A full retrain is also forced automatically every 24 hours.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "force_full": {
+                        "type": "boolean",
+                        "description": "When true, process ALL memories instead of only new ones since last cycle. Default: false (incremental)."
+                    }
+                }
+            }
         }),
         serde_json::json!({
             "name": "brain_optimizer_status",
@@ -5528,7 +5652,8 @@ async fn handle_mcp_tool_call(
             proxy_post(&client, &base, "/v1/train", api_key, &serde_json::json!({})).await
         },
         "brain_train_enhanced" => {
-            proxy_post(&client, &base, "/v1/train/enhanced", api_key, &serde_json::json!({})).await
+            let force_full = args.get("force_full").and_then(|v| v.as_bool()).unwrap_or(false);
+            proxy_post(&client, &base, "/v1/train/enhanced", api_key, &serde_json::json!({ "force_full": force_full })).await
         },
         "brain_optimizer_status" => {
             proxy_get(&client, &base, "/v1/optimizer/status", api_key, &[]).await
@@ -5739,7 +5864,8 @@ async fn gist_preview(
     _contributor: AuthenticatedContributor,
 ) -> Json<serde_json::Value> {
     // Run enhanced training (which internally builds a discovery and checks publishability)
-    let result = run_enhanced_training_cycle(&state);
+    // Gist preview always uses full retrain to get accurate novelty assessment
+    let result = run_enhanced_training_cycle(&state, true);
 
     // Read current propositions + inferences from symbolic engine
     let ns = state.neural_symbolic.read();
@@ -5789,7 +5915,8 @@ async fn gist_publish(
 
     // The enhanced training cycle now auto-publishes via tokio::spawn if thresholds are met.
     // This endpoint triggers a cycle and reports the result.
-    let result = run_enhanced_training_cycle(&state);
+    // Force full retrain for gist publishing to get complete novelty assessment
+    let result = run_enhanced_training_cycle(&state, true);
 
     Ok(Json(serde_json::json!({
         "cycle_ran": true,

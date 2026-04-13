@@ -5257,6 +5257,7 @@ dependencies = [
  "rand 0.8.5",
  "reqwest 0.12.28",
  "ruvector-consciousness",
+ "ruvector-core 2.1.0",
  "ruvector-delta-core",
  "ruvector-domain-expansion",
  "ruvector-mincut 2.1.0",

@@ -981,6 +981,14 @@ pub struct TrainingCycleResult {
     pub vote_count: u64,
 }
 
+/// Request body for POST /v1/train/enhanced (ADR-149 P4: incremental LoRA training).
+#[derive(Debug, Deserialize)]
+pub struct EnhancedTrainRequest {
+    /// When true, process ALL memories regardless of the incremental watermark.
+    #[serde(default)]
+    pub force_full: bool,
+}
+
 /// Federated LoRA store for accumulating submissions and producing consensus
 pub struct LoraFederationStore {
     /// Pending submissions waiting for next aggregation round
@@ -1417,10 +1425,18 @@ pub struct PipelineState {
     pub last_training: parking_lot::RwLock<Option<DateTime<Utc>>>,
     pub last_drift_check: parking_lot::RwLock<Option<DateTime<Utc>>>,
     pub last_injection: parking_lot::RwLock<Option<DateTime<Utc>>>,
+    /// Watermark: timestamp of last incremental enhanced training cycle (ADR-149 P4).
+    /// Only memories created after this timestamp are processed in the next cycle.
+    pub last_enhanced_trained_at: parking_lot::Mutex<DateTime<Utc>>,
+    /// Watermark: timestamp of last *full* enhanced retrain (ADR-149 P4).
+    /// A full retrain is forced every `full_retrain_interval_hours` (default 24).
+    pub last_full_retrain_at: parking_lot::Mutex<DateTime<Utc>>,
 }
 
 impl PipelineState {
     pub fn new() -> Self {
+        // Use epoch as initial watermark so the first cycle processes all memories.
+        let epoch = DateTime::<Utc>::from_timestamp(0, 0).unwrap_or_else(|| Utc::now());
         Self {
             messages_received: std::sync::atomic::AtomicU64::new(0),
             messages_processed: std::sync::atomic::AtomicU64::new(0),
@@ -1429,6 +1445,8 @@ impl PipelineState {
             last_training: parking_lot::RwLock::new(None),
             last_drift_check: parking_lot::RwLock::new(None),
             last_injection: parking_lot::RwLock::new(None),
+            last_enhanced_trained_at: parking_lot::Mutex::new(epoch),
+            last_full_retrain_at: parking_lot::Mutex::new(epoch),
         }
     }
 }
