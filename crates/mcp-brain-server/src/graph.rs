@@ -856,6 +856,41 @@ impl Default for KnowledgeGraph {
     }
 }
 
+/// L2-normalize an embedding in place. Safe to call repeatedly (idempotent
+/// within float precision).
+#[inline]
+pub fn normalize_embedding(emb: &mut [f32]) {
+    let norm: f32 = emb.iter().map(|x| x * x).sum::<f32>().sqrt();
+    if norm > 1e-10 {
+        let inv = 1.0 / norm;
+        for x in emb.iter_mut() {
+            *x *= inv;
+        }
+    }
+}
+
+/// Fast cosine when BOTH vectors are pre-normalized to unit length.
+/// This is just a dot product — ~3x faster than full cosine.
+#[inline]
+pub fn cosine_similarity_normalized(a: &[f32], b: &[f32]) -> f64 {
+    if a.len() != b.len() || a.is_empty() {
+        return 0.0;
+    }
+    let n = a.len();
+    let chunks = n / 4;
+    let (mut d0, mut d1) = (0.0f64, 0.0f64);
+    for c in 0..chunks {
+        let i = c * 4;
+        d0 += (a[i] as f64) * (b[i] as f64) + (a[i+2] as f64) * (b[i+2] as f64);
+        d1 += (a[i+1] as f64) * (b[i+1] as f64) + (a[i+3] as f64) * (b[i+3] as f64);
+    }
+    let mut sum = d0 + d1;
+    for i in (chunks * 4)..n {
+        sum += (a[i] as f64) * (b[i] as f64);
+    }
+    sum
+}
+
 pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f64 {
     if a.len() != b.len() || a.is_empty() {
         return 0.0;

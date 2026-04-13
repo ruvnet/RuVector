@@ -400,6 +400,9 @@ pub async fn create_router() -> (Router, AppState) {
                 ])
         })
         .layer(TraceLayer::new_for_http())
+        // Gzip compression on responses (ADR-149 followup).
+        // JSON compresses 5-10x, saves ~100-200ms on network return path.
+        .layer(tower_http::compression::CompressionLayer::new().gzip(true))
         .layer(tower_http::limit::RequestBodyLimitLayer::new(2_097_152)) // 2MB (base64 overhead on 1MB WASM)
         // Security response headers
         .layer(tower_http::set_header::SetResponseHeaderLayer::overriding(
