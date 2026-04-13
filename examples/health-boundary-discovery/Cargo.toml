@@ -1,0 +1,10 @@
+[package]
+name = "health-boundary-discovery"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+ruvector-mincut = { path = "../../crates/ruvector-mincut", features = ["exact"] }
+ruvector-coherence = { path = "../../crates/ruvector-coherence", features = ["spectral"] }
+rand = "0.8"

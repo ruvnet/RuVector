@@ -153,6 +153,44 @@ members = [
     # DiskANN / Vamana (ADR-143)
     "crates/ruvector-diskann",
     "crates/ruvector-diskann-node",
+    # Boundary-first scientific discovery PoC
+    "examples/boundary-discovery",
+    # CMB Cold Spot boundary-first discovery
+    "examples/cmb-boundary-discovery",
+    # FRB population boundary discovery (CHIME-like data)
+    "examples/frb-boundary-discovery",
+    # Cosmic void boundary information content
+    "examples/void-boundary-discovery",
+    # Multi-regime temporal attractor boundary detection
+    "examples/temporal-attractor-discovery",
+    # Music genre boundary discovery via spectral graph bisection
+    "examples/music-boundary-discovery",
+    # Weather regime boundary detection (variance/correlation precedes temperature)
+    "examples/weather-boundary-discovery",
+    # Market regime boundary discovery via correlation structure
+    "examples/market-boundary-discovery",
+    # Health state boundary detection from wearable sensor data
+    "examples/health-boundary-discovery",
+    # SETI exotic signals gallery: boundary-first detection of sub-threshold signals
+    "examples/seti-exotic-signals",
+    # SETI boundary-first discovery: sub-noise signal detection via coherence graphs
+    "examples/seti-boundary-discovery",
+    # Earthquake precursor detection via inter-station correlation boundary shifts
+    "examples/earthquake-boundary-discovery",
+    # Pandemic outbreak detection 60 days before case counts via correlation boundaries
+    "examples/pandemic-boundary-discovery",
+    # Infrastructure failure prediction via sensor correlation boundaries
+    "examples/infrastructure-boundary-discovery",
+    # Pre-seizure detection via brain correlation boundary shifts
+    "examples/brain-boundary-discovery",
+    # Clinical-publication-grade pre-seizure detection report with CSV output
+    "examples/seizure-clinical-report",
+    # Closed-loop seizure detection + therapeutic response simulation
+    "examples/seizure-therapeutic-sim",
+    # Real EEG analysis: CHB-MIT PhysioNet data with boundary-first detection
+    "examples/real-eeg-analysis",
+    # Multi-seizure cross-patient analysis: all 7 chb01 seizures
+    "examples/real-eeg-multi-seizure",
 ]
 resolver = "2"
 

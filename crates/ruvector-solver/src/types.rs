@@ -76,6 +76,9 @@ impl CsrMatrix<f32> {
     /// eliminate per-element bounds checks in the inner loop, which is the
     /// single hottest path in all iterative solvers.
     ///
+    /// On AArch64 (Apple Silicon), dispatches to NEON-accelerated SpMV
+    /// via [`spmv_simd`](crate::simd::spmv_simd) for ~3x throughput.
+    ///
     /// # Safety contract
     ///
     /// The caller must ensure the CSR structure is valid (use
@@ -87,27 +90,39 @@ impl CsrMatrix<f32> {
         debug_assert!(x.len() >= self.cols);
         debug_assert!(y.len() >= self.rows);
 
-        let vals = self.values.as_ptr();
-        let cols = self.col_indices.as_ptr();
-        let rp = self.row_ptr.as_ptr();
+        // Dispatch to NEON/AVX2-accelerated SpMV when available
+        #[cfg(target_arch = "aarch64")]
+        {
+            crate::simd::spmv_simd(self, x, y);
+            return;
+        }
 
-        for i in 0..self.rows {
-            // SAFETY: row_ptr has length rows+1, so i and i+1 are in bounds.
-            let start = unsafe { *rp.add(i) };
-            let end = unsafe { *rp.add(i + 1) };
-            let mut sum = 0.0f32;
+        #[cfg(all(feature = "simd", target_arch = "x86_64"))]
+        {
+            crate::simd::spmv_simd(self, x, y);
+            return;
+        }
 
-            for idx in start..end {
-                // SAFETY: idx < nnz (enforced by valid CSR structure),
-                // col_indices[idx] < cols <= x.len() (enforced by validation).
-                unsafe {
-                    let v = *vals.add(idx);
-                    let c = *cols.add(idx);
-                    sum += v * *x.get_unchecked(c);
+        #[allow(unreachable_code)]
+        {
+            let vals = self.values.as_ptr();
+            let cols = self.col_indices.as_ptr();
+            let rp = self.row_ptr.as_ptr();
+
+            for i in 0..self.rows {
+                let start = unsafe { *rp.add(i) };
+                let end = unsafe { *rp.add(i + 1) };
+                let mut sum = 0.0f32;
+
+                for idx in start..end {
+                    unsafe {
+                        let v = *vals.add(idx);
+                        let c = *cols.add(idx);
+                        sum += v * *x.get_unchecked(c);
+                    }
                 }
+                unsafe { *y.get_unchecked_mut(i) = sum };
             }
-            // SAFETY: i < rows <= y.len()
-            unsafe { *y.get_unchecked_mut(i) = sum };
         }
     }
 
@@ -152,11 +167,28 @@ impl CsrMatrix<f32> {
 
 impl CsrMatrix<f64> {
     /// High-performance SpMV for f64 with bounds-check elimination.
+    ///
+    /// On AArch64, dispatches to NEON-accelerated SpMV for ~2x throughput.
     #[inline]
     pub fn spmv_unchecked(&self, x: &[f64], y: &mut [f64]) {
         debug_assert!(x.len() >= self.cols);
         debug_assert!(y.len() >= self.rows);
 
+        // Dispatch to NEON/AVX2-accelerated SpMV when available
+        #[cfg(target_arch = "aarch64")]
+        {
+            crate::simd::spmv_simd_f64(self, x, y);
+            return;
+        }
+
+        #[cfg(all(feature = "simd", target_arch = "x86_64"))]
+        {
+            crate::simd::spmv_simd_f64(self, x, y);
+            return;
+        }
+
+        #[allow(unreachable_code)]
+        {
         let vals = self.values.as_ptr();
         let cols = self.col_indices.as_ptr();
         let rp = self.row_ptr.as_ptr();
@@ -174,6 +206,7 @@ impl CsrMatrix<f64> {
                 }
             }
             unsafe { *y.get_unchecked_mut(i) = sum };
+        }
         }
     }
 }

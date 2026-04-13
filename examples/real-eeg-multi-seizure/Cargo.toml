@@ -1,0 +1,9 @@
+[package]
+name = "real-eeg-multi-seizure"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+ruvector-coherence = { path = "../../crates/ruvector-coherence", features = ["spectral"] }
+rand = "0.8"

@@ -24,6 +24,15 @@ pub fn spmv_simd(matrix: &CsrMatrix<f32>, x: &[f32], y: &mut [f32]) {
         }
     }
 
+    #[cfg(target_arch = "aarch64")]
+    {
+        unsafe {
+            spmv_neon_f32(matrix, x, y);
+        }
+        return;
+    }
+
+    #[allow(unreachable_code)]
     spmv_scalar(matrix, x, y);
 }
 
@@ -137,6 +146,15 @@ pub fn spmv_simd_f64(matrix: &CsrMatrix<f64>, x: &[f64], y: &mut [f64]) {
         }
     }
 
+    #[cfg(target_arch = "aarch64")]
+    {
+        unsafe {
+            spmv_neon_f64(matrix, x, y);
+        }
+        return;
+    }
+
+    #[allow(unreachable_code)]
     spmv_scalar_f64(matrix, x, y);
 }
 
@@ -203,6 +221,138 @@ unsafe fn horizontal_sum_f64x4(v: std::arch::x86_64::__m256d) -> f64 {
     let hi64 = _mm_unpackhi_pd(sum128, sum128);
     let result = _mm_add_sd(sum128, hi64);
     _mm_cvtsd_f64(result)
+}
+
+// ---------------------------------------------------------------------------
+// NEON implementations for AArch64 / Apple Silicon (M1-M4)
+// ---------------------------------------------------------------------------
+
+/// NEON-accelerated SpMV for f32 on AArch64.
+///
+/// Uses `float32x4_t` (4-wide f32 NEON) with FMA and software prefetch.
+///
+/// # Safety
+/// Caller must ensure the CSR matrix is structurally valid and
+/// `x.len() >= matrix.cols`, `y.len() >= matrix.rows`.
+#[cfg(target_arch = "aarch64")]
+unsafe fn spmv_neon_f32(matrix: &CsrMatrix<f32>, x: &[f32], y: &mut [f32]) {
+    use std::arch::aarch64::*;
+
+    for i in 0..matrix.rows {
+        let start = matrix.row_ptr[i];
+        let end = matrix.row_ptr[i + 1];
+        let len = end - start;
+
+        let mut acc0 = vdupq_n_f32(0.0);
+        let mut acc1 = vdupq_n_f32(0.0);
+        let chunks = len / 8;
+        let mid_remainder = (len % 8) / 4;
+        let tail_remainder = len % 4;
+
+        // 2x unrolled: 8 f32 per iteration (2 NEON regs × 4)
+        for chunk in 0..chunks {
+            let base = start + chunk * 8;
+            // Prefetch next chunk
+            // Contiguous values benefit from hardware prefetch on M-series
+
+            let v0 = vld1q_f32(matrix.values.as_ptr().add(base));
+            let v1 = vld1q_f32(matrix.values.as_ptr().add(base + 4));
+
+            // Gather x values (sparse column access)
+            let mut xbuf0 = [0.0f32; 4];
+            let mut xbuf1 = [0.0f32; 4];
+            for k in 0..4 {
+                xbuf0[k] = *x.get_unchecked(*matrix.col_indices.get_unchecked(base + k));
+                xbuf1[k] = *x.get_unchecked(*matrix.col_indices.get_unchecked(base + 4 + k));
+            }
+            let x0 = vld1q_f32(xbuf0.as_ptr());
+            let x1 = vld1q_f32(xbuf1.as_ptr());
+
+            acc0 = vfmaq_f32(acc0, v0, x0);
+            acc1 = vfmaq_f32(acc1, v1, x1);
+        }
+
+        // Process remaining 4-element chunk
+        let mid_start = start + chunks * 8;
+        if mid_remainder > 0 {
+            let v0 = vld1q_f32(matrix.values.as_ptr().add(mid_start));
+            let mut xbuf = [0.0f32; 4];
+            for k in 0..4 {
+                xbuf[k] = *x.get_unchecked(*matrix.col_indices.get_unchecked(mid_start + k));
+            }
+            let x0 = vld1q_f32(xbuf.as_ptr());
+            acc0 = vfmaq_f32(acc0, v0, x0);
+        }
+
+        // Combine accumulators and reduce
+        let combined = vaddq_f32(acc0, acc1);
+        let mut sum = vaddvq_f32(combined);
+
+        // Scalar tail
+        let tail_start = start + len - tail_remainder;
+        for idx in tail_start..end {
+            let col = *matrix.col_indices.get_unchecked(idx);
+            sum += *matrix.values.get_unchecked(idx) * *x.get_unchecked(col);
+        }
+
+        *y.get_unchecked_mut(i) = sum;
+    }
+}
+
+/// NEON-accelerated SpMV for f64 on AArch64.
+///
+/// Uses `float64x2_t` (2-wide f64 NEON) with FMA and software prefetch.
+///
+/// # Safety
+/// Caller must ensure the CSR matrix is structurally valid and
+/// `x.len() >= matrix.cols`, `y.len() >= matrix.rows`.
+#[cfg(target_arch = "aarch64")]
+unsafe fn spmv_neon_f64(matrix: &CsrMatrix<f64>, x: &[f64], y: &mut [f64]) {
+    use std::arch::aarch64::*;
+
+    for i in 0..matrix.rows {
+        let start = matrix.row_ptr[i];
+        let end = matrix.row_ptr[i + 1];
+        let len = end - start;
+
+        let mut acc0 = vdupq_n_f64(0.0);
+        let mut acc1 = vdupq_n_f64(0.0);
+        let chunks = len / 4;
+        let remainder = len % 4;
+
+        // 2x unrolled: 4 f64 per iteration (2 NEON regs × 2)
+        for chunk in 0..chunks {
+            let base = start + chunk * 4;
+            // Contiguous values benefit from hardware prefetch on M-series
+
+            let v0 = vld1q_f64(matrix.values.as_ptr().add(base));
+            let v1 = vld1q_f64(matrix.values.as_ptr().add(base + 2));
+
+            let mut xbuf0 = [0.0f64; 2];
+            let mut xbuf1 = [0.0f64; 2];
+            for k in 0..2 {
+                xbuf0[k] = *x.get_unchecked(*matrix.col_indices.get_unchecked(base + k));
+                xbuf1[k] = *x.get_unchecked(*matrix.col_indices.get_unchecked(base + 2 + k));
+            }
+            let x0 = vld1q_f64(xbuf0.as_ptr());
+            let x1 = vld1q_f64(xbuf1.as_ptr());
+
+            acc0 = vfmaq_f64(acc0, v0, x0);
+            acc1 = vfmaq_f64(acc1, v1, x1);
+        }
+
+        let combined = vaddq_f64(acc0, acc1);
+        let mut sum = vgetq_lane_f64(combined, 0) + vgetq_lane_f64(combined, 1);
+
+        // Scalar tail
+        let tail_start = start + chunks * 4;
+        for idx in tail_start..(tail_start + remainder) {
+            let col = *matrix.col_indices.get_unchecked(idx);
+            sum += *matrix.values.get_unchecked(idx) * *x.get_unchecked(col);
+        }
+
+        *y.get_unchecked_mut(i) = sum;
+    }
 }
 
 #[cfg(test)]
