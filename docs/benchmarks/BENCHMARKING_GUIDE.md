@@ -178,7 +178,64 @@ search_with_product_quant time:   [523.45 µs 528.67 µs 533.89 µs]
                           recall: [92.8%]
 ```
 
-### 5. Comprehensive Benchmark
+### 5. EML End-to-End Proof Benchmark
+
+**File**: `crates/ruvector-core/benches/eml_end_to_end.rs`
+
+**What it measures**: Apples-to-apples comparison of EML-inspired optimizations
+(`LogQuantized` + `UnifiedDistanceParams`) vs the baseline (`ScalarQuantized` +
+match-dispatched SimSIMD) on end-to-end ANN search — the only thing that counts
+as "ultimate proof" for a vector database.
+
+**Metrics**:
+- Index build time
+- Recall@1, Recall@10, Recall@100 (vs brute-force ground truth)
+- Search latency percentiles (p50, p95, p99, p99.9)
+- Throughput (QPS) at ef_search=64 and ef_search=256
+- Reconstruction MSE on actual embeddings
+
+**Datasets**: Two synthetic distributions:
+- SIFT-like (half-normal |N(0, 30²)| clamped, 128D) — models SIFT descriptor histograms
+- Normal embeddings (Gaussian, 128D) — models transformer outputs
+
+**Configuration**: Three independent runs with seeds [42, 1337, 2024]
+reporting mean ± stddev. HNSW M=16, ef_construction=200.
+
+**Run**:
+```bash
+# Fast Criterion micro-benchmarks (~1 minute, 10K vectors)
+cargo bench -p ruvector-core --bench eml_end_to_end
+
+# Full proof at 20K vectors (~3 minutes)
+EML_FULL_PROOF=1 EML_PROOF_N=20000 EML_PROOF_Q=500 \
+  cargo bench -p ruvector-core --bench eml_end_to_end -- eml_e2e_full_proof
+
+# Full proof at 100K vectors (takes ~15-30 minutes)
+EML_FULL_PROOF=1 \
+  cargo bench -p ruvector-core --bench eml_end_to_end -- eml_e2e_full_proof
+```
+
+**Output**: Markdown comparison table + embedded CSV printed to stderr.
+
+**Profiling**:
+```bash
+# Flamegraph — see if exp/ln appear in the hot path
+cargo flamegraph --bench eml_end_to_end -p ruvector-core -- eml_e2e_search
+
+# perf on Linux
+perf record cargo bench -p ruvector-core --bench eml_end_to_end
+perf report
+```
+
+**Reference results**:
+- `bench_results/eml_proof_2026-04-14.md` — v1: disproof of scalar EML kernel
+  (-21% QPS regression identified a missing SIMD acceleration in
+  `UnifiedDistanceParams::compute`).
+- `bench_results/eml_proof_2026-04-14_v2.md` — v2: after porting
+  `UnifiedDistanceParams` to SimSIMD, EML+SIMD becomes a +5–11% QPS win and
+  -10–20% tail-latency win on both tested distributions, with recall preserved.
+
+### 6. Comprehensive Benchmark
 
 **File**: `crates/ruvector-core/benches/comprehensive_bench.rs`
 

@@ -637,10 +637,41 @@ impl UnifiedDistanceParams {
     /// For Cosine: 1 - dot(a,b)/(|a|*|b|)
     /// For DotProduct: -dot(a,b)
     /// For Manhattan: sum(|a-b|)
+    ///
+    /// # SIMD acceleration
+    ///
+    /// On native targets with the `simd` feature, dispatches to SimSIMD's
+    /// hand-tuned AVX2/NEON kernels for Cosine, Euclidean, and DotProduct.
+    /// Manhattan has no SimSIMD variant, so uses the scalar path.
+    /// WASM builds use the pure Rust path throughout.
     #[inline]
     pub fn compute(&self, a: &[f32], b: &[f32]) -> f32 {
+        // Native + SIMD: mirror distance.rs exactly so we match baseline perf.
+        #[cfg(all(feature = "simd", not(target_arch = "wasm32")))]
+        {
+            if self.normalize {
+                // Cosine distance: SimSIMD returns (1 - cos_sim) directly
+                return simsimd::SpatialSimilarity::cosine(a, b)
+                    .expect("SimSIMD cosine failed") as f32;
+            }
+            if self.use_sq_diff {
+                // Euclidean: SimSIMD returns squared L2
+                let sq = simsimd::SpatialSimilarity::sqeuclidean(a, b)
+                    .expect("SimSIMD sqeuclidean failed") as f32;
+                return if self.apply_sqrt { sq.sqrt() } else { sq };
+            }
+            if !self.use_abs_diff {
+                // Dot product path (negate for DotProduct distance)
+                let dot = simsimd::SpatialSimilarity::dot(a, b)
+                    .expect("SimSIMD dot product failed") as f32;
+                return if self.negate { -dot } else { dot };
+            }
+            // Manhattan: no SimSIMD variant, fall through to scalar
+        }
+
+        // Scalar path (WASM, non-simd feature, or Manhattan)
         if self.normalize {
-            // Cosine: needs dot product and both norms
+            // Cosine
             let mut dot = 0.0f32;
             let mut norm_a = 0.0f32;
             let mut norm_b = 0.0f32;
@@ -650,24 +681,14 @@ impl UnifiedDistanceParams {
                 norm_b += bi * bi;
             }
             let denom = norm_a.sqrt() * norm_b.sqrt();
-            if denom > 1e-8 {
-                1.0 - dot / denom
-            } else {
-                1.0
-            }
+            if denom > 1e-8 { 1.0 - dot / denom } else { 1.0 }
         } else if self.use_abs_diff {
             // Manhattan
-            let sum: f32 = a.iter().zip(b.iter()).map(|(ai, bi)| (ai - bi).abs()).sum();
-            sum
+            a.iter().zip(b.iter()).map(|(ai, bi)| (ai - bi).abs()).sum()
         } else if self.use_sq_diff {
             // Euclidean
-            let sum: f32 = a
-                .iter()
-                .zip(b.iter())
-                .map(|(ai, bi)| {
-                    let d = ai - bi;
-                    d * d
-                })
+            let sum: f32 = a.iter().zip(b.iter())
+                .map(|(ai, bi)| { let d = ai - bi; d * d })
                 .sum();
             if self.apply_sqrt { sum.sqrt() } else { sum }
         } else {

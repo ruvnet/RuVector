@@ -1,5 +1,6 @@
 //! HNSW (Hierarchical Navigable Small World) index implementation
 
+use crate::advanced::eml::UnifiedDistanceParams;
 use crate::distance::distance;
 use crate::error::{Result, RuvectorError};
 use crate::index::VectorIndex;
@@ -10,20 +11,37 @@ use hnsw_rs::prelude::*;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
-/// Distance function wrapper for hnsw_rs
-struct DistanceFn {
-    metric: DistanceMetric,
+/// Distance function strategy for hnsw_rs.
+///
+/// `Dispatched` uses the standard `match metric` dispatch with SimSIMD acceleration.
+/// `Unified` pre-resolves the metric into numeric params, eliminating branch overhead
+/// in tight loops (used when LogQuantized / EML mode is active).
+enum HnswDistanceFn {
+    /// Standard: match-dispatches to SimSIMD-accelerated functions (default)
+    Dispatched { metric: DistanceMetric },
+    /// Unified: pre-resolved params, branch-free inner loop (EML mode)
+    Unified { params: UnifiedDistanceParams },
 }
 
-impl DistanceFn {
-    fn new(metric: DistanceMetric) -> Self {
-        Self { metric }
+impl HnswDistanceFn {
+    fn dispatched(metric: DistanceMetric) -> Self {
+        Self::Dispatched { metric }
+    }
+
+    fn unified(metric: DistanceMetric) -> Self {
+        Self::Unified {
+            params: UnifiedDistanceParams::from_metric(metric),
+        }
     }
 }
 
-impl Distance<f32> for DistanceFn {
+impl Distance<f32> for HnswDistanceFn {
+    #[inline]
     fn eval(&self, a: &[f32], b: &[f32]) -> f32 {
-        distance(a, b, self.metric).unwrap_or(f32::MAX)
+        match self {
+            Self::Dispatched { metric } => distance(a, b, *metric).unwrap_or(f32::MAX),
+            Self::Unified { params } => params.compute(a, b),
+        }
     }
 }
 
@@ -36,7 +54,7 @@ pub struct HnswIndex {
 }
 
 struct HnswInner {
-    hnsw: Hnsw<'static, f32, DistanceFn>,
+    hnsw: Hnsw<'static, f32, HnswDistanceFn>,
     vectors: DashMap<VectorId, Vec<f32>>,
     id_to_idx: DashMap<VectorId, usize>,
     idx_to_id: DashMap<usize, VectorId>,
@@ -94,12 +112,37 @@ impl From<SerializableDistanceMetric> for DistanceMetric {
 }
 
 impl HnswIndex {
-    /// Create a new HNSW index
+    /// Create a new HNSW index with standard match-dispatched distance (default)
     pub fn new(dimensions: usize, metric: DistanceMetric, config: HnswConfig) -> Result<Self> {
-        let distance_fn = DistanceFn::new(metric);
+        Self::new_with_distance(dimensions, metric, config, false)
+    }
 
-        // Create HNSW with configured parameters
-        let hnsw = Hnsw::<f32, DistanceFn>::new(
+    /// Create a new HNSW index with unified (branch-free) distance kernel.
+    ///
+    /// Uses `UnifiedDistanceParams` which pre-resolves the distance metric into
+    /// numeric parameters, eliminating per-call match dispatch overhead.
+    /// Recommended when using LogQuantized or in high-QPS scenarios.
+    pub fn new_unified(
+        dimensions: usize,
+        metric: DistanceMetric,
+        config: HnswConfig,
+    ) -> Result<Self> {
+        Self::new_with_distance(dimensions, metric, config, true)
+    }
+
+    fn new_with_distance(
+        dimensions: usize,
+        metric: DistanceMetric,
+        config: HnswConfig,
+        unified: bool,
+    ) -> Result<Self> {
+        let distance_fn = if unified {
+            HnswDistanceFn::unified(metric)
+        } else {
+            HnswDistanceFn::dispatched(metric)
+        };
+
+        let hnsw = Hnsw::<f32, HnswDistanceFn>::new(
             config.m,
             config.max_elements,
             dimensions,
@@ -188,8 +231,8 @@ impl HnswIndex {
         let dimensions = state.dimensions;
         let metric: DistanceMetric = state.metric.into();
 
-        let distance_fn = DistanceFn::new(metric);
-        let mut hnsw = Hnsw::<'static, f32, DistanceFn>::new(
+        let distance_fn = HnswDistanceFn::dispatched(metric);
+        let mut hnsw = Hnsw::<'static, f32, HnswDistanceFn>::new(
             config.m,
             config.max_elements,
             dimensions,
