@@ -9503,7 +9503,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-kernel"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "flate2",
  "rvf-types",
@@ -9513,7 +9513,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-launch"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "rvf-runtime",
  "rvf-types",
@@ -9551,7 +9551,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-server"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "axum",
  "axum-test 16.4.1",

@@ -110,7 +110,8 @@ pub use vector_db::VectorDB;
 
 // Quantization types (ADR-001)
 pub use quantization::{
-    BinaryQuantized, Int4Quantized, ProductQuantized, QuantizedVector, ScalarQuantized,
+    BinaryQuantized, Int4Quantized, LogQuantized, ProductQuantized, QuantizedVector,
+    ScalarQuantized,
 };
 
 // Memory management types (ADR-001)

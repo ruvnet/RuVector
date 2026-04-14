@@ -6,11 +6,16 @@
 //! - **Neural Hashing**: Similarity-preserving binary projections
 //! - **Topological Data Analysis**: Embedding quality assessment
 
+pub mod eml;
 pub mod hypergraph;
 pub mod learned_index;
 pub mod neural_hash;
 pub mod tda;
 
+pub use eml::{
+    eml, eml_safe, EmlModel, EmlNode, EmlScoreFusion, EmlTree, LeafKind, TrainConfig,
+    TrainResult, UnifiedDistanceParams, train_eml_tree,
+};
 pub use hypergraph::{CausalMemory, Hyperedge, HypergraphIndex, TemporalHyperedge};
 pub use learned_index::{HybridIndex, LearnedIndex, RecursiveModelIndex};
 pub use neural_hash::{DeepHashEmbedding, NeuralHash};
