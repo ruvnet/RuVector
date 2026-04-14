@@ -47,15 +47,32 @@ fn extract_client_ip(headers: &HeaderMap) -> String {
 /// can spawn background tasks with access to shared state.
 pub async fn create_router() -> (Router, AppState) {
     let store = Arc::new(crate::store::FirestoreClient::new());
-    // Hydrate cache from Firestore in BACKGROUND (non-blocking).
-    // Server starts immediately; data loads asynchronously.
-    let store_hydrate = store.clone();
-    tokio::spawn(async move {
-        store_hydrate.load_from_firestore().await;
-        tracing::info!("Firestore hydration complete: {} memories", store_hydrate.memory_count());
-    });
     let gcs = Arc::new(crate::gcs::GcsClient::new());
     let graph = Arc::new(parking_lot::RwLock::new(crate::graph::KnowledgeGraph::new()));
+
+    // Hydrate cache from Firestore in BACKGROUND (non-blocking).
+    // Server starts immediately; data loads asynchronously.
+    // After hydration completes, rebuild the knowledge graph from the loaded
+    // memories (previously this was a no-op because hydration wasn't awaited).
+    let store_hydrate = store.clone();
+    let graph_hydrate = graph.clone();
+    tokio::spawn(async move {
+        store_hydrate.load_from_firestore().await;
+        let count = store_hydrate.memory_count();
+        tracing::info!("Firestore hydration complete: {} memories", count);
+        if count > 0 {
+            let mems = store_hydrate.all_memories();
+            let mut g = graph_hydrate.write();
+            g.rebuild_from_batch(&mems);
+            tracing::info!(
+                "Graph rebuilt after hydration: {} nodes, {} edges",
+                g.node_count(), g.edge_count()
+            );
+            if g.edge_count() <= 100_000 {
+                g.rebuild_sparsifier();
+            }
+        }
+    });
     let rate_limiter = Arc::new(crate::rate_limit::RateLimiter::default_limits());
     let ranking = Arc::new(parking_lot::RwLock::new(crate::ranking::RankingEngine::new(128)));
     let cognitive = Arc::new(parking_lot::RwLock::new(crate::cognitive::CognitiveEngine::new(128)));
