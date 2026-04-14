@@ -13,8 +13,9 @@ pub mod neural_hash;
 pub mod tda;
 
 pub use eml::{
-    eml, eml_safe, EmlModel, EmlNode, EmlScoreFusion, EmlTree, LeafKind, TrainConfig,
-    TrainResult, UnifiedDistanceParams, train_eml_tree,
+    eml, eml_complex, eml_safe, Complex, EmlModel, EmlNode, EmlScoreFusion, EmlTree, LeafKind,
+    TrainConfig, TrainResult, UnifiedDistanceParams, compute_pi_direct, compute_pi_via_eml,
+    compute_pi_via_euler, train_eml_tree,
 };
 pub use hypergraph::{CausalMemory, Hyperedge, HypergraphIndex, TemporalHyperedge};
 pub use learned_index::{HybridIndex, LearnedIndex, RecursiveModelIndex};
