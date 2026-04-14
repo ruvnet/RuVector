@@ -646,6 +646,9 @@ impl UnifiedDistanceParams {
     /// but can unlock SIMD tail efficiency for non-power-of-two dimensions like
     /// GloVe's 100D. The padded data is held in a thread-local scratch buffer so
     /// there is no per-call heap allocation after the first call.
+    // TODO(future): implement pad-at-insert (pad once at add()/search time)
+    // to eliminate per-call overhead. Current per-call padding is only for
+    // experimentation.
     pub fn with_padding(mut self, enabled: bool) -> Self {
         self.pad_to_power_of_two = enabled;
         self

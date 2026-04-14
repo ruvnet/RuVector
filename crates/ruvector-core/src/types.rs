@@ -115,14 +115,21 @@ pub enum QuantizationConfig {
     ///
     /// **Dimensional caveat**: Best results on power-of-two dimensions (128,
     /// 256, 512, …). Non-power-of-two vectors (e.g. GloVe's 100D) may see
-    /// reduced gains on the unified-distance path unless padding is enabled —
-    /// see [`crate::index::hnsw::HnswIndex::new_unified_padded`] and the
-    /// `pad_to_power_of_two` flag on `UnifiedDistanceParams`.
+    /// reduced gains on the unified-distance path. The
+    /// [`crate::index::hnsw::HnswIndex::new_unified_padded`] constructor and
+    /// the `pad_to_power_of_two` flag on `UnifiedDistanceParams` are available
+    /// as an API hook, but the v4 proof showed that the *current* per-call
+    /// padding implementation does **not** recover the GloVe regression —
+    /// per-call padding overhead exceeds the SIMD tail savings. A future
+    /// pad-at-insert implementation is needed to close this gap.
     ///
     /// **Evidence**: see the proof reports under `bench_results/`:
-    /// - `eml_proof_2026-04-14_v2.md` — synthetic datasets
-    /// - `eml_proof_2026-04-14_v3.md` — SIFT1M + GloVe (mixed real-data results)
-    /// - `eml_proof_2026-04-14_v4.md` — GloVe with padding enabled
+    /// - `eml_proof_2026-04-14.md` — v1 disproof of scalar unified kernel
+    /// - `eml_proof_2026-04-14_v2.md` — v2 SIMD port, synthetic wins confirmed
+    /// - `eml_proof_2026-04-14_v3.md` — v3 real datasets: **SIFT1M +14.0% QPS +
+    ///   0.75% Recall@1**; GloVe −10.4% QPS (recall preserved)
+    /// - `eml_proof_2026-04-14_v4.md` — v4 padding test: per-call padding did
+    ///   NOT flip the GloVe regression (ship with caveat)
     ///
     /// Default stays `Scalar` because it is universally safe; enable `Log`
     /// explicitly when profile-guided validation on your data shows the MSE

@@ -237,23 +237,28 @@ perf report
 - `bench_results/eml_proof_2026-04-14_v3.md` — v3: real-dataset validation on
   SIFT1M (+14.0% QPS ef=64, Recall@1 +0.75%) and GloVe-100d (−10.4% QPS ef=256,
   recall preserved). Result is data-dependent — ship only as opt-in.
-- `bench_results/eml_proof_2026-04-14_v4.md` — v4: padding test on GloVe to
-  validate the dimension-alignment hypothesis from v3.
+- `bench_results/eml_proof_2026-04-14_v4.md` — v4: padding test on GloVe —
+  per-call padding did **NOT** flip the regression (hypothesis disproved;
+  future pad-at-insert work is needed).
 
-**Dimensional caveat (v3 finding)**: Best results on power-of-two dimensions
-(128, 256, 512, …). Non-power-of-two vectors (e.g. GloVe's 100D) may see
-reduced gains unless padding is enabled via
-`HnswIndex::new_unified_padded()` or `UnifiedDistanceParams.with_padding(true)`.
+**Dimensional caveat (v3 + v4 finding)**: Best results on power-of-two
+dimensions (128, 256, 512, …). Non-power-of-two vectors (e.g. GloVe's 100D)
+may see reduced gains on the unified-distance path. The
+`HnswIndex::new_unified_padded()` constructor and
+`UnifiedDistanceParams.with_padding(true)` flag are available as API hooks,
+but v4 demonstrated that the current per-call padding implementation does
+not recover the regression — per-call padding overhead exceeds SIMD tail
+savings. A future pad-at-insert implementation is needed to close the gap.
 
-### Headline real-dataset numbers (v3 + v4)
+### Headline real-dataset numbers (v3)
 
-**SIFT1M (real Texmex, 100K × 500 × 128D, Euclidean):** **+14.0% QPS ef=64**,
-Recall@1 +0.75%, build time −3.3%. Strong, consistent win.
+**SIFT1M (real Texmex, 100K × 500 × 128D, Euclidean) — strong win:**
+**+14.0% QPS ef=64**, **+0.75% Recall@1**, build time −3.3%.
+p50/p95/p99 at ef=64 all 6–13% faster.
 
-**GloVe-100d (real Stanford NLP, 100K × 500 × 100D, Cosine):** see
-`bench_results/eml_proof_2026-04-14_v3.md` (unpadded: −10.4% QPS ef=256) and
-`bench_results/eml_proof_2026-04-14_v4.md` (with padding: outcome recorded
-in that file).
+**GloVe-100d (real Stanford NLP, 100K × 500 × 100D, Cosine) — mixed:**
+−10.4% QPS ef=256, recall preserved. v4 padding test: −23.4% QPS ef=256
+(worse). See `bench_results/eml_proof_2026-04-14_v4.md` for root cause.
 
 ### 6. Comprehensive Benchmark
 
