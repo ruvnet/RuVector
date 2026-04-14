@@ -138,6 +138,7 @@ members = [
     # Spectral graph sparsification
     "crates/ruvector-sparsifier",
     "crates/ruvector-sparsifier-wasm",
+    "crates/ruvector-eml-hnsw",
 ]
 resolver = "2"
 

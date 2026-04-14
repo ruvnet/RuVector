@@ -1,0 +1,14 @@
+[package]
+name = "ruvector-eml-hnsw"
+version = "0.1.0"
+edition = "2021"
+description = "EML-powered HNSW optimizations: search path prediction, rebuild prediction, PQ distance correction"
+license = "MIT"
+
+[dependencies]
+eml-core = { path = "../../patches/eml-core" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[dev-dependencies]
+rand = "0.8"

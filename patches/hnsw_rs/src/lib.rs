@@ -7,6 +7,7 @@ use lazy_static::lazy_static;
 
 pub mod api;
 pub mod datamap;
+pub mod eml_distance;
 pub mod filter;
 pub mod flatten;
 pub mod hnsw;

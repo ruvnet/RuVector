@@ -88,6 +88,9 @@ anyhow = { version = "1.0" }
 
 # anndists = { path = "../anndists" }
 anndists = { version = "0.1" }
+
+# EML learned distance functions
+eml-core = { path = "../eml-core" }
 # anndists = { git = "https://github.com/jean-pierreBoth/anndists" }
 
 # for benchmark reading, so the lbrary do not depend on hdf5 nor ndarray
@@ -104,6 +107,9 @@ itertools = {version = "0.14"}
 [features]
 
 default = []
+
+# Enable EML-based learned HNSW optimizations
+eml = []
 
 # feature for std simd on nightly
 stdsimd = ["anndists/stdsimd"]
