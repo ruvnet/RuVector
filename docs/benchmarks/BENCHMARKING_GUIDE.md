@@ -233,7 +233,27 @@ perf report
   `UnifiedDistanceParams::compute`).
 - `bench_results/eml_proof_2026-04-14_v2.md` — v2: after porting
   `UnifiedDistanceParams` to SimSIMD, EML+SIMD becomes a +5–11% QPS win and
-  -10–20% tail-latency win on both tested distributions, with recall preserved.
+  -10–20% tail-latency win on **synthetic** distributions with recall preserved.
+- `bench_results/eml_proof_2026-04-14_v3.md` — v3: real-dataset validation on
+  SIFT1M (+14.0% QPS ef=64, Recall@1 +0.75%) and GloVe-100d (−10.4% QPS ef=256,
+  recall preserved). Result is data-dependent — ship only as opt-in.
+- `bench_results/eml_proof_2026-04-14_v4.md` — v4: padding test on GloVe to
+  validate the dimension-alignment hypothesis from v3.
+
+**Dimensional caveat (v3 finding)**: Best results on power-of-two dimensions
+(128, 256, 512, …). Non-power-of-two vectors (e.g. GloVe's 100D) may see
+reduced gains unless padding is enabled via
+`HnswIndex::new_unified_padded()` or `UnifiedDistanceParams.with_padding(true)`.
+
+### Headline real-dataset numbers (v3 + v4)
+
+**SIFT1M (real Texmex, 100K × 500 × 128D, Euclidean):** **+14.0% QPS ef=64**,
+Recall@1 +0.75%, build time −3.3%. Strong, consistent win.
+
+**GloVe-100d (real Stanford NLP, 100K × 500 × 100D, Cosine):** see
+`bench_results/eml_proof_2026-04-14_v3.md` (unpadded: −10.4% QPS ef=256) and
+`bench_results/eml_proof_2026-04-14_v4.md` (with padding: outcome recorded
+in that file).
 
 ### 6. Comprehensive Benchmark
 

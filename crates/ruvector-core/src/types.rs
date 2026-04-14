@@ -102,11 +102,31 @@ pub enum QuantizationConfig {
     None,
     /// Scalar quantization to int8 (4x compression)
     Scalar,
-    /// Logarithmic quantization to int8 (4x compression, lower reconstruction error)
+    /// Logarithmic quantization to int8 (4x compression).
     ///
-    /// Applies `ln(x - min + 1)` before uniform quantization. Better for non-uniform
-    /// distributions (transformer embeddings, CNN features) where values cluster near zero.
-    /// Same compression ratio as Scalar but 15-40% lower reconstruction MSE.
+    /// Applies `ln(x - min + 1)` before uniform quantization. Same 4× compression
+    /// ratio as [`QuantizationConfig::Scalar`] but different error profile.
+    ///
+    /// **When to use it**: `LogQuantized` shines on heavy-tailed distributions
+    /// (exponential, ReLU outputs, frequency data, log-normal feature values)
+    /// where `tests/eml_proof.rs` measures 20–52 % lower reconstruction MSE than
+    /// `Scalar`. On normal/SIFT-like embeddings it has higher reconstruction
+    /// MSE but **does not degrade recall** in end-to-end ANN search.
+    ///
+    /// **Dimensional caveat**: Best results on power-of-two dimensions (128,
+    /// 256, 512, …). Non-power-of-two vectors (e.g. GloVe's 100D) may see
+    /// reduced gains on the unified-distance path unless padding is enabled —
+    /// see [`crate::index::hnsw::HnswIndex::new_unified_padded`] and the
+    /// `pad_to_power_of_two` flag on `UnifiedDistanceParams`.
+    ///
+    /// **Evidence**: see the proof reports under `bench_results/`:
+    /// - `eml_proof_2026-04-14_v2.md` — synthetic datasets
+    /// - `eml_proof_2026-04-14_v3.md` — SIFT1M + GloVe (mixed real-data results)
+    /// - `eml_proof_2026-04-14_v4.md` — GloVe with padding enabled
+    ///
+    /// Default stays `Scalar` because it is universally safe; enable `Log`
+    /// explicitly when profile-guided validation on your data shows the MSE
+    /// win matters.
     Log,
     /// Product quantization
     Product {

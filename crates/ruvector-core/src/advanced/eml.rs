@@ -574,6 +574,11 @@ pub struct UnifiedDistanceParams {
     pub use_sq_diff: bool,
     /// Whether to apply sqrt to the sum (Euclidean)
     pub apply_sqrt: bool,
+    /// When true, pad inputs to the next multiple of 8 (f32) with zeros before
+    /// dispatching to SimSIMD. Neutral semantically (zero-padding doesn't change
+    /// dot/L2/L1/cosine), but can unlock SIMD tail efficiency for non-power-of-two
+    /// dimensions (e.g. GloVe 100D → 104D). Default false for backward compat.
+    pub pad_to_power_of_two: bool,
 }
 
 impl UnifiedDistanceParams {
@@ -585,6 +590,7 @@ impl UnifiedDistanceParams {
             use_abs_diff: false,
             use_sq_diff: true,
             apply_sqrt: true,
+            pad_to_power_of_two: false,
         }
     }
 
@@ -596,6 +602,7 @@ impl UnifiedDistanceParams {
             use_abs_diff: false,
             use_sq_diff: false,
             apply_sqrt: false,
+            pad_to_power_of_two: false,
         }
     }
 
@@ -607,6 +614,7 @@ impl UnifiedDistanceParams {
             use_abs_diff: false,
             use_sq_diff: false,
             apply_sqrt: false,
+            pad_to_power_of_two: false,
         }
     }
 
@@ -618,6 +626,7 @@ impl UnifiedDistanceParams {
             use_abs_diff: true,
             use_sq_diff: false,
             apply_sqrt: false,
+            pad_to_power_of_two: false,
         }
     }
 
@@ -629,6 +638,17 @@ impl UnifiedDistanceParams {
             crate::types::DistanceMetric::DotProduct => Self::dot_product(),
             crate::types::DistanceMetric::Manhattan => Self::manhattan(),
         }
+    }
+
+    /// Builder-style setter: enable zero-padding to next multiple of 8 (f32).
+    ///
+    /// This is semantically neutral (zero-padding doesn't change dot/L2/L1/cosine),
+    /// but can unlock SIMD tail efficiency for non-power-of-two dimensions like
+    /// GloVe's 100D. The padded data is held in a thread-local scratch buffer so
+    /// there is no per-call heap allocation after the first call.
+    pub fn with_padding(mut self, enabled: bool) -> Self {
+        self.pad_to_power_of_two = enabled;
+        self
     }
 
     /// Compute distance using pre-resolved parameters.
@@ -644,8 +664,31 @@ impl UnifiedDistanceParams {
     /// hand-tuned AVX2/NEON kernels for Cosine, Euclidean, and DotProduct.
     /// Manhattan has no SimSIMD variant, so uses the scalar path.
     /// WASM builds use the pure Rust path throughout.
+    ///
+    /// # Padding
+    ///
+    /// When `self.pad_to_power_of_two` is true and the input length is not a
+    /// multiple of 8, the inputs are copied into a thread-local scratch buffer,
+    /// zero-padded to the next multiple of 8, and the metric computed on the
+    /// padded vectors. This is semantically neutral (the four supported metrics
+    /// are all invariant under zero-padding) but lets SimSIMD dispatch without
+    /// paying a scalar tail on each call.
     #[inline]
     pub fn compute(&self, a: &[f32], b: &[f32]) -> f32 {
+        // Optional padding path for non-SIMD-aligned dimensions
+        if self.pad_to_power_of_two {
+            let len = a.len();
+            if len % 8 != 0 {
+                let padded_len = (len + 7) & !7; // next multiple of 8
+                return compute_padded(self, a, b, padded_len);
+            }
+        }
+        self.compute_raw(a, b)
+    }
+
+    /// Distance computation on already-aligned inputs (no padding logic).
+    #[inline]
+    fn compute_raw(&self, a: &[f32], b: &[f32]) -> f32 {
         // Native + SIMD: mirror distance.rs exactly so we match baseline perf.
         #[cfg(all(feature = "simd", not(target_arch = "wasm32")))]
         {
@@ -701,8 +744,21 @@ impl UnifiedDistanceParams {
     /// Batch distance computation with pre-resolved parameters.
     ///
     /// The key advantage: the metric dispatch happens once (when creating
-    /// `UnifiedDistanceParams`), not once per vector in the batch.
+    /// `UnifiedDistanceParams`), not once per vector in the batch. If
+    /// `pad_to_power_of_two` is enabled and the query length isn't a multiple
+    /// of 8, the query is padded once and kept padded across the whole batch,
+    /// so the padding cost amortizes across `vectors.len()` distance calls.
     pub fn batch_compute(&self, query: &[f32], vectors: &[&[f32]]) -> Vec<f32> {
+        if self.pad_to_power_of_two && query.len() % 8 != 0 {
+            let padded_len = (query.len() + 7) & !7;
+            let mut padded_query = Vec::with_capacity(padded_len);
+            padded_query.extend_from_slice(query);
+            padded_query.resize(padded_len, 0.0);
+            return vectors
+                .iter()
+                .map(|v| compute_padded(self, &padded_query, v, padded_len))
+                .collect();
+        }
         vectors.iter().map(|v| self.compute(query, v)).collect()
     }
 
@@ -711,8 +767,59 @@ impl UnifiedDistanceParams {
     pub fn batch_compute_parallel(&self, query: &[f32], vectors: &[Vec<f32>]) -> Vec<f32> {
         use rayon::prelude::*;
         let params = *self; // Copy for thread safety
+        if params.pad_to_power_of_two && query.len() % 8 != 0 {
+            let padded_len = (query.len() + 7) & !7;
+            let mut padded_query = Vec::with_capacity(padded_len);
+            padded_query.extend_from_slice(query);
+            padded_query.resize(padded_len, 0.0);
+            return vectors
+                .par_iter()
+                .map(|v| compute_padded(&params, &padded_query, v, padded_len))
+                .collect();
+        }
         vectors.par_iter().map(|v| params.compute(query, v)).collect()
     }
+}
+
+// =============================================================================
+// Padding helper — thread-local scratch so per-call cost is amortized
+// =============================================================================
+
+std::thread_local! {
+    static PAD_SCRATCH_A: std::cell::RefCell<Vec<f32>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+    static PAD_SCRATCH_B: std::cell::RefCell<Vec<f32>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Pad `a` and `b` into thread-local scratch buffers of length `padded_len`
+/// (filling with zeros) and delegate to `params.compute_raw()`. `a` may
+/// already be pre-padded (length == `padded_len`) — in that case we just
+/// copy its slice directly; this is the batch-query fast path.
+#[inline]
+fn compute_padded(
+    params: &UnifiedDistanceParams,
+    a: &[f32],
+    b: &[f32],
+    padded_len: usize,
+) -> f32 {
+    PAD_SCRATCH_A.with(|sa| {
+        PAD_SCRATCH_B.with(|sb| {
+            let mut pa = sa.borrow_mut();
+            let mut pb = sb.borrow_mut();
+            pa.clear();
+            pa.extend_from_slice(a);
+            if pa.len() < padded_len {
+                pa.resize(padded_len, 0.0);
+            }
+            pb.clear();
+            pb.extend_from_slice(b);
+            if pb.len() < padded_len {
+                pb.resize(padded_len, 0.0);
+            }
+            params.compute_raw(&pa[..padded_len], &pb[..padded_len])
+        })
+    })
 }
 
 // ============================================================================
@@ -980,4 +1087,129 @@ mod tests {
         assert!((dists[1] - 2.0f32.sqrt()).abs() < 1e-5); // Orthogonal
     }
 
+    // =========================================================================
+    // Padding correctness tests
+    // =========================================================================
+
+    /// Zero-padding is semantically neutral for all four metrics.
+    /// Padded result must match unpadded result to within float epsilon.
+    #[test]
+    fn test_padding_preserves_euclidean() {
+        // 100-dim vectors (GloVe-like, non-aligned to 8)
+        let a: Vec<f32> = (0..100).map(|i| (i as f32) * 0.01 - 0.5).collect();
+        let b: Vec<f32> = (0..100).map(|i| (i as f32) * 0.007 + 0.1).collect();
+
+        let unpadded = UnifiedDistanceParams::euclidean();
+        let padded = UnifiedDistanceParams::euclidean().with_padding(true);
+
+        let d_unpadded = unpadded.compute(&a, &b);
+        let d_padded = padded.compute(&a, &b);
+
+        assert!(
+            (d_unpadded - d_padded).abs() < 1e-3,
+            "Euclidean padding should be semantically neutral: unpadded={}, padded={}",
+            d_unpadded,
+            d_padded
+        );
+    }
+
+    #[test]
+    fn test_padding_preserves_cosine() {
+        let a: Vec<f32> = (0..100).map(|i| (i as f32 * 0.05).sin()).collect();
+        let b: Vec<f32> = (0..100).map(|i| (i as f32 * 0.07).cos()).collect();
+
+        let unpadded = UnifiedDistanceParams::cosine();
+        let padded = UnifiedDistanceParams::cosine().with_padding(true);
+
+        let d_unpadded = unpadded.compute(&a, &b);
+        let d_padded = padded.compute(&a, &b);
+
+        assert!(
+            (d_unpadded - d_padded).abs() < 1e-4,
+            "Cosine padding should be semantically neutral: unpadded={}, padded={}",
+            d_unpadded,
+            d_padded
+        );
+    }
+
+    #[test]
+    fn test_padding_preserves_dot_product() {
+        let a: Vec<f32> = (0..100).map(|i| (i as f32) * 0.02).collect();
+        let b: Vec<f32> = (0..100).map(|i| (i as f32) * 0.03 - 1.0).collect();
+
+        let unpadded = UnifiedDistanceParams::dot_product();
+        let padded = UnifiedDistanceParams::dot_product().with_padding(true);
+
+        let d_unpadded = unpadded.compute(&a, &b);
+        let d_padded = padded.compute(&a, &b);
+
+        assert!(
+            (d_unpadded - d_padded).abs() < 1e-2,
+            "DotProduct padding should be semantically neutral: unpadded={}, padded={}",
+            d_unpadded,
+            d_padded
+        );
+    }
+
+    #[test]
+    fn test_padding_preserves_manhattan() {
+        let a: Vec<f32> = (0..100).map(|i| (i as f32) * 0.1).collect();
+        let b: Vec<f32> = (0..100).map(|i| (i as f32) * 0.15 - 0.5).collect();
+
+        let unpadded = UnifiedDistanceParams::manhattan();
+        let padded = UnifiedDistanceParams::manhattan().with_padding(true);
+
+        let d_unpadded = unpadded.compute(&a, &b);
+        let d_padded = padded.compute(&a, &b);
+
+        assert!(
+            (d_unpadded - d_padded).abs() < 1e-3,
+            "Manhattan padding should be semantically neutral: unpadded={}, padded={}",
+            d_unpadded,
+            d_padded
+        );
+    }
+
+    #[test]
+    fn test_padding_noop_when_already_aligned() {
+        // 128D is already aligned to 8 — padded path should short-circuit to raw
+        let a: Vec<f32> = (0..128).map(|i| (i as f32) * 0.01).collect();
+        let b: Vec<f32> = (0..128).map(|i| (i as f32) * 0.02).collect();
+
+        let padded = UnifiedDistanceParams::euclidean().with_padding(true);
+        let unpadded = UnifiedDistanceParams::euclidean();
+
+        let d_padded = padded.compute(&a, &b);
+        let d_unpadded = unpadded.compute(&a, &b);
+
+        assert!(
+            (d_padded - d_unpadded).abs() < 1e-6,
+            "Aligned inputs should give identical results with/without padding flag"
+        );
+    }
+
+    #[test]
+    fn test_padding_batch_compute() {
+        let query: Vec<f32> = (0..100).map(|i| (i as f32) * 0.01).collect();
+        let vecs: Vec<Vec<f32>> = (0..10)
+            .map(|k| (0..100).map(|i| ((i + k) as f32) * 0.02).collect())
+            .collect();
+        let vec_refs: Vec<&[f32]> = vecs.iter().map(|v| v.as_slice()).collect();
+
+        let unpadded_params = UnifiedDistanceParams::euclidean();
+        let padded_params = UnifiedDistanceParams::euclidean().with_padding(true);
+
+        let dists_unpadded = unpadded_params.batch_compute(&query, &vec_refs);
+        let dists_padded = padded_params.batch_compute(&query, &vec_refs);
+
+        for (i, (du, dp)) in dists_unpadded.iter().zip(dists_padded.iter()).enumerate() {
+            assert!(
+                (du - dp).abs() < 1e-3,
+                "batch index {}: unpadded={} vs padded={}",
+                i,
+                du,
+                dp
+            );
+        }
+    }
 }

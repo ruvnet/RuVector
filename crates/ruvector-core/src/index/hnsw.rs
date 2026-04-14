@@ -33,6 +33,12 @@ impl HnswDistanceFn {
             params: UnifiedDistanceParams::from_metric(metric),
         }
     }
+
+    fn unified_padded(metric: DistanceMetric) -> Self {
+        Self::Unified {
+            params: UnifiedDistanceParams::from_metric(metric).with_padding(true),
+        }
+    }
 }
 
 impl Distance<f32> for HnswDistanceFn {
@@ -43,6 +49,17 @@ impl Distance<f32> for HnswDistanceFn {
             Self::Unified { params } => params.compute(a, b),
         }
     }
+}
+
+/// Selects which distance strategy the HNSW index uses internally.
+#[derive(Debug, Clone, Copy)]
+enum DistanceStrategy {
+    /// Standard `match metric` dispatch to SimSIMD (default).
+    Dispatched,
+    /// `UnifiedDistanceParams` branch-free dispatch.
+    Unified,
+    /// `UnifiedDistanceParams` with `pad_to_power_of_two` enabled.
+    UnifiedPadded,
 }
 
 /// HNSW index wrapper
@@ -114,7 +131,7 @@ impl From<SerializableDistanceMetric> for DistanceMetric {
 impl HnswIndex {
     /// Create a new HNSW index with standard match-dispatched distance (default)
     pub fn new(dimensions: usize, metric: DistanceMetric, config: HnswConfig) -> Result<Self> {
-        Self::new_with_distance(dimensions, metric, config, false)
+        Self::new_with_distance(dimensions, metric, config, DistanceStrategy::Dispatched)
     }
 
     /// Create a new HNSW index with unified (branch-free) distance kernel.
@@ -127,19 +144,37 @@ impl HnswIndex {
         metric: DistanceMetric,
         config: HnswConfig,
     ) -> Result<Self> {
-        Self::new_with_distance(dimensions, metric, config, true)
+        Self::new_with_distance(dimensions, metric, config, DistanceStrategy::Unified)
+    }
+
+    /// Create a new HNSW index with unified distance kernel + padding.
+    ///
+    /// Same as [`HnswIndex::new_unified`] but also enables
+    /// `pad_to_power_of_two` on the unified params, zero-padding vectors to
+    /// the next multiple of 8 floats inside the distance callback. This is
+    /// semantically neutral (zero-padding preserves dot / L2 / L1 / cosine)
+    /// but can unlock SIMD efficiency for non-power-of-two dimensions such as
+    /// GloVe-100d. Only set this if you know your dimension is not aligned;
+    /// otherwise the extra branch in [`UnifiedDistanceParams::compute`] is
+    /// slightly wasteful.
+    pub fn new_unified_padded(
+        dimensions: usize,
+        metric: DistanceMetric,
+        config: HnswConfig,
+    ) -> Result<Self> {
+        Self::new_with_distance(dimensions, metric, config, DistanceStrategy::UnifiedPadded)
     }
 
     fn new_with_distance(
         dimensions: usize,
         metric: DistanceMetric,
         config: HnswConfig,
-        unified: bool,
+        strategy: DistanceStrategy,
     ) -> Result<Self> {
-        let distance_fn = if unified {
-            HnswDistanceFn::unified(metric)
-        } else {
-            HnswDistanceFn::dispatched(metric)
+        let distance_fn = match strategy {
+            DistanceStrategy::Dispatched => HnswDistanceFn::dispatched(metric),
+            DistanceStrategy::Unified => HnswDistanceFn::unified(metric),
+            DistanceStrategy::UnifiedPadded => HnswDistanceFn::unified_padded(metric),
         };
 
         let hnsw = Hnsw::<f32, HnswDistanceFn>::new(

@@ -98,3 +98,6 @@ data/
 # Large model files
 *.gguf
 test_models/*.gguf
+
+# ANN benchmark datasets (downloaded at runtime)
+/bench_data/
