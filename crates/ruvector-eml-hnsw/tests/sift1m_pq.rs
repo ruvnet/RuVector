@@ -134,43 +134,69 @@ fn sift1m_pq_vs_eml_hnsw() {
     );
 
     // ---------------- Train the corrector on ~2000 (PQ, exact) pairs --------
+    //
+    // SOTA-C fix: use per-query local-scale normalization. The legacy
+    // record()/correct() path is scale-saturated on SIFT (10^5 squared-dist)
+    // and actually *increases* MSE. See `pq_corrector.rs`.
+    //
+    // Scale per query = median PQ distance across that query's probe
+    // samples. This matches what `PqEmlHnsw::search_with_rerank` has
+    // available at inference time.
     let mut corrector = PqDistanceCorrector::new();
     let pair_budget = 2000usize;
     let pair_queries = 40usize.min(queries.len());
     let pairs_per_query = (pair_budget / pair_queries).max(1);
     let mut pre_sq_err = 0.0f64;
     let mut pre_n = 0u64;
+
     for q in queries.iter().take(pair_queries) {
-        // Score every base vector with PQ once via the query table, sample
-        // pairs_per_query at stride for good mix of near and far.
         let table = pq.codebook().build_query_table(q);
         let stride = (base.len() / pairs_per_query).max(1);
+        // First pass: compute PQ for probe samples to get per-query median.
+        let mut this_query_pq: Vec<(usize, f32, f32)> = Vec::with_capacity(pairs_per_query);
         for i in (0..base.len()).step_by(stride).take(pairs_per_query) {
             let code = pq.code_of(i + 1);
             let pq_d = pq.codebook().asymmetric_distance_with_table(&table, code);
             let exact_d = sq_euclidean(q, &base[i]);
-            let residual = (exact_d - pq_d).abs();
-            corrector.record(pq_d, exact_d, residual);
-            let e = (pq_d - exact_d) as f64;
+            this_query_pq.push((i, pq_d, exact_d));
+        }
+        let mut sorted_pq: Vec<f32> = this_query_pq.iter().map(|x| x.1).collect();
+        sorted_pq.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let q_scale = sorted_pq[sorted_pq.len() / 2].max(1.0);
+        // Second pass: record pairs with per-query scale.
+        for (_i, pq_d, exact_d) in &this_query_pq {
+            corrector.record_normalized(*pq_d, *exact_d, q_scale);
+            let e = (*pq_d - *exact_d) as f64;
             pre_sq_err += e * e;
             pre_n += 1;
         }
     }
     let converged = corrector.train();
+    assert!(
+        corrector.is_locally_normalized(),
+        "corrector should be in local-scale mode after record_normalized"
+    );
     let pre_mse = pre_sq_err / pre_n.max(1) as f64;
 
-    // Post-correction MSE on a held-out sample.
+    // Post-correction MSE on a held-out set of queries. Inference scale =
+    // per-query median PQ, same as training.
     let mut post_sq_err = 0.0f64;
     let mut post_n = 0u64;
     let hold_queries = pair_queries.min(queries.len() - pair_queries);
     for q in queries.iter().skip(pair_queries).take(hold_queries) {
         let table = pq.codebook().build_query_table(q);
         let stride = (base.len() / pairs_per_query).max(1);
+        let mut probe: Vec<(usize, f32)> = Vec::with_capacity(pairs_per_query);
         for i in (0..base.len()).step_by(stride).take(pairs_per_query) {
             let code = pq.code_of(i + 1);
-            let pq_d = pq.codebook().asymmetric_distance_with_table(&table, code);
-            let corrected = corrector.correct(pq_d, (sq_euclidean(q, &base[i]) - pq_d).abs());
-            let exact_d = sq_euclidean(q, &base[i]);
+            probe.push((i, pq.codebook().asymmetric_distance_with_table(&table, code)));
+        }
+        let mut sorted_pq: Vec<f32> = probe.iter().map(|x| x.1).collect();
+        sorted_pq.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let q_scale = sorted_pq[sorted_pq.len() / 2].max(1.0);
+        for (i, pq_d) in &probe {
+            let corrected = corrector.correct_with_scale(*pq_d, 0.0, q_scale);
+            let exact_d = sq_euclidean(q, &base[*i]);
             let e = (corrected - exact_d) as f64;
             post_sq_err += e * e;
             post_n += 1;
@@ -178,8 +204,21 @@ fn sift1m_pq_vs_eml_hnsw() {
     }
     let post_mse = post_sq_err / post_n.max(1) as f64;
     eprintln!(
-        "Corrector: trained on {} pairs, converged={}, pre_MSE={:.4}, post_MSE={:.4} (held-out)",
-        pre_n, converged, pre_mse, post_mse
+        "Corrector: trained on {} pairs (local-scale, per-query median PQ), \
+         converged={}, pre_MSE={:.4e}, post_MSE={:.4e} (held-out)  reduction={:+.1}%",
+        pre_n,
+        converged,
+        pre_mse,
+        post_mse,
+        100.0 * (pre_mse - post_mse) / pre_mse.max(1e-12)
+    );
+    let mse_improved = post_mse < pre_mse * 0.98;
+    eprintln!(
+        "Corrector promotable to non-advisory step: {} (criterion: post_MSE < 0.98 * pre_MSE). \
+         In pq_hnsw.rs, the non-advisory path is enabled whenever \
+         corrector.is_locally_normalized(), so this corrector IS being used \
+         as a pre-rerank filter (k*15 window) in search_with_rerank.",
+        mse_improved
     );
 
     pq.set_corrector(corrector);

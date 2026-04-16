@@ -182,7 +182,7 @@ fn retention_vs_pearson_sift1m() {
         pearson.selected_dims(),
     );
 
-    // --- B: retention-objective selector ------------------------------------
+    // --- B: retention-objective selector (greedy) ---------------------------
     let t_r = Instant::now();
     let mut retention = EmlDistanceModel::new(dim, SELECTED_K);
     let ok = retention.train_for_retention(
@@ -196,24 +196,52 @@ fn retention_vs_pearson_sift1m() {
     assert!(retention.is_trained());
     assert_eq!(retention.selected_dims().len(), SELECTED_K);
     eprintln!(
-        "retention selector trained in {:.3}s, dims={:?}",
+        "retention (greedy) selector trained in {:.3}s, dims={:?}",
         retention_train_s,
         retention.selected_dims(),
     );
 
-    // --- Build two HNSWs and evaluate ---------------------------------------
+    // --- C: retention-objective selector (beam, width=4) --------------------
+    const BEAM_WIDTH: usize = 4;
+    let t_beam = Instant::now();
+    let mut retention_beam = EmlDistanceModel::new(dim, SELECTED_K);
+    let ok_beam = retention_beam.train_for_retention_beam(
+        &train_corpus,
+        &train_queries,
+        TARGET_K,
+        CANDIDATE_POOL,
+        BEAM_WIDTH,
+    );
+    let retention_beam_train_s = t_beam.elapsed().as_secs_f64();
+    assert!(ok_beam, "train_for_retention_beam failed");
+    assert!(retention_beam.is_trained());
+    assert_eq!(retention_beam.selected_dims().len(), SELECTED_K);
+    eprintln!(
+        "retention (beam={BEAM_WIDTH}) selector trained in {:.3}s, dims={:?}",
+        retention_beam_train_s,
+        retention_beam.selected_dims(),
+    );
+
+    // --- Build three HNSWs and evaluate -------------------------------------
     eprintln!("building HNSW (pearson) …");
     let t_b1 = Instant::now();
     let pearson_idx = build_with_selector(pearson, &eval_corpus, HNSW_M, HNSW_EF_C);
     eprintln!("pearson index built in {:?}", t_b1.elapsed());
 
-    eprintln!("building HNSW (retention) …");
+    eprintln!("building HNSW (retention greedy) …");
     let t_b2 = Instant::now();
     let retention_idx = build_with_selector(retention, &eval_corpus, HNSW_M, HNSW_EF_C);
-    eprintln!("retention index built in {:?}", t_b2.elapsed());
+    eprintln!("retention (greedy) index built in {:?}", t_b2.elapsed());
+
+    eprintln!("building HNSW (retention beam) …");
+    let t_b3 = Instant::now();
+    let retention_beam_idx =
+        build_with_selector(retention_beam, &eval_corpus, HNSW_M, HNSW_EF_C);
+    eprintln!("retention (beam) index built in {:?}", t_b3.elapsed());
 
     let mut pearson_recall = 0.0f32;
     let mut retention_recall = 0.0f32;
+    let mut retention_beam_recall = 0.0f32;
     for (qi, q) in eval_queries.iter().enumerate() {
         let p_hits: Vec<usize> = pearson_idx
             .search_with_rerank(q, TARGET_K, FETCH_K, HNSW_EF_S)
@@ -225,32 +253,56 @@ fn retention_vs_pearson_sift1m() {
             .into_iter()
             .map(|r| r.id)
             .collect();
+        let b_hits: Vec<usize> = retention_beam_idx
+            .search_with_rerank(q, TARGET_K, FETCH_K, HNSW_EF_S)
+            .into_iter()
+            .map(|r| r.id)
+            .collect();
         pearson_recall += recall_at_k(&truths[qi], &p_hits, TARGET_K);
         retention_recall += recall_at_k(&truths[qi], &r_hits, TARGET_K);
+        retention_beam_recall += recall_at_k(&truths[qi], &b_hits, TARGET_K);
     }
     pearson_recall /= EVAL_QUERIES as f32;
     retention_recall /= EVAL_QUERIES as f32;
+    retention_beam_recall /= EVAL_QUERIES as f32;
     let delta = retention_recall - pearson_recall;
+    let beam_delta_vs_greedy = retention_beam_recall - retention_recall;
 
     // Rough binomial standard error for 200 queries at the observed rate.
     let se_p = ((pearson_recall * (1.0 - pearson_recall)) / EVAL_QUERIES as f32).sqrt();
     let se_r =
         ((retention_recall * (1.0 - retention_recall)) / EVAL_QUERIES as f32).sqrt();
+    let se_b =
+        ((retention_beam_recall * (1.0 - retention_beam_recall)) / EVAL_QUERIES as f32)
+            .sqrt();
 
     eprintln!("------------------------------------------------------------");
-    eprintln!("Tier-1C: Pearson vs Retention selector (SIFT1M, selected_k={SELECTED_K})");
-    eprintln!("");
-    eprintln!("| selector   | recall@10 | selector_train_s |");
-    eprintln!("|------------|-----------|------------------|");
     eprintln!(
-        "| pearson    | {pearson_recall:.4}    | {pearson_train_s:.3}            |"
-    );
-    eprintln!(
-        "| retention  | {retention_recall:.4}    | {retention_train_s:.3}            |"
+        "Tier-1C: Pearson vs Retention (greedy) vs Retention (beam={BEAM_WIDTH}) — SIFT1M, \
+         selected_k={SELECTED_K}"
     );
     eprintln!("");
-    eprintln!("delta (retention - pearson) = {delta:+.4}");
-    eprintln!("rough SE (200 queries): pearson ~{se_p:.4}, retention ~{se_r:.4}");
+    eprintln!("| selector         | recall@10 | selector_train_s |");
+    eprintln!("|------------------|-----------|------------------|");
+    eprintln!(
+        "| pearson          | {pearson_recall:.4}    | {pearson_train_s:.3}            |"
+    );
+    eprintln!(
+        "| retention_greedy | {retention_recall:.4}    | {retention_train_s:.3}            |"
+    );
+    eprintln!(
+        "| retention_beam   | {retention_beam_recall:.4}    | {retention_beam_train_s:.3}            |"
+    );
+    eprintln!("");
+    eprintln!("delta (greedy - pearson) = {delta:+.4}");
+    eprintln!("delta (beam   - greedy)  = {beam_delta_vs_greedy:+.4}");
+    eprintln!(
+        "beam training wall-clock / greedy training wall-clock = {:.2}x (expected ~{BEAM_WIDTH}x)",
+        retention_beam_train_s / retention_train_s.max(1e-9)
+    );
+    eprintln!(
+        "rough SE (200 queries): pearson ~{se_p:.4}, greedy ~{se_r:.4}, beam ~{se_b:.4}"
+    );
     eprintln!("fetch_k={FETCH_K}, ef_search={HNSW_EF_S}, target_k={TARGET_K}");
     eprintln!("------------------------------------------------------------");
 
@@ -259,5 +311,11 @@ fn retention_vs_pearson_sift1m() {
         retention_recall >= pearson_recall - 0.02,
         "retention selector regressed by more than 2pp: pearson={pearson_recall:.4} \
          retention={retention_recall:.4}"
+    );
+    // Beam should not regress against greedy by more than SE noise.
+    assert!(
+        retention_beam_recall >= retention_recall - 0.02,
+        "beam selector regressed >2pp vs greedy: greedy={retention_recall:.4} \
+         beam={retention_beam_recall:.4}"
     );
 }
