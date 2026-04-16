@@ -17,6 +17,8 @@
 use eml_core::EmlModel;
 use serde::{Deserialize, Serialize};
 
+use crate::selected_distance::cosine_distance_selected;
+
 /// Learned dimension selection for fast approximate distance.
 ///
 /// # Example
@@ -178,6 +180,181 @@ impl EmlDistanceModel {
         converged
     }
 
+    /// Train the dimension selector by directly optimizing retention of the
+    /// exact-cosine top-`target_k` neighbor set.
+    ///
+    /// This is a retention-objective selector: at each step we add the single
+    /// dimension that maximizes mean recall\@`target_k` on the given training
+    /// queries against a pre-computed exact full-cosine top-`candidate_pool`
+    /// ground truth over the training corpus.
+    ///
+    /// # Algorithm (greedy forward selection)
+    ///
+    /// 1. Precompute full-cosine top-`candidate_pool` ground truth for each
+    ///    training query against the training corpus.
+    /// 2. Start with `selected = []` and `remaining = 0..full_dim`.
+    /// 3. At each step, for every candidate dim `d` in `remaining`, form
+    ///    `trial = selected ∪ {d}`, compute `cosine_distance_selected` on
+    ///    `trial` over the corpus, take the top-`target_k`, and measure
+    ///    `recall@target_k` against the ground truth.
+    /// 4. Add the single dim whose mean recall over training queries is
+    ///    highest (ties broken by lower index for determinism).
+    /// 5. Repeat until `|selected| == selected_k` (the field configured at
+    ///    construction time).
+    ///
+    /// ## Why greedy forward (not exhaustive / beam / backward)?
+    ///
+    /// Exhaustive subset search is combinatorial in `full_dim`. Backward
+    /// elimination costs O(full_dim^2) evaluations, each over the whole corpus.
+    /// Forward greedy is O(full_dim × selected_k) full-corpus evaluations,
+    /// which is the only tractable choice at SIFT1M selector-training scale
+    /// (128 × 32 × 500 queries × 1000 corpus ≈ 2e9 inner ops). A beam search
+    /// would multiply cost by the beam width for typically sub-1% gain at the
+    /// recall levels we are measuring.
+    ///
+    /// # Arguments
+    /// - `corpus`: training corpus (full-dim vectors) to evaluate retention on.
+    ///   Must be disjoint from any evaluation corpus to avoid leakage.
+    /// - `queries`: training queries (full-dim vectors). Disjoint from
+    ///   evaluation queries.
+    /// - `target_k`: the k in recall\@k that the selector optimizes for.
+    /// - `candidate_pool`: how many ground-truth neighbors to materialize per
+    ///   query. Must be ≥ `target_k`. Larger values only change the ground
+    ///   truth if `target_k` falls outside the top-`target_k` band, so in
+    ///   practice `candidate_pool == target_k` is fine; we take a larger
+    ///   pool only so that ties on the boundary do not flip recall.
+    ///
+    /// # Returns
+    /// `true` once the internal EML model has been retrained on the selected
+    /// dims using the training-corpus pairs (so `selected_distance` still
+    /// works). `false` on argument error (empty corpus / queries, k=0).
+    pub fn train_for_retention(
+        &mut self,
+        corpus: &[Vec<f32>],
+        queries: &[Vec<f32>],
+        target_k: usize,
+        candidate_pool: usize,
+    ) -> bool {
+        if corpus.is_empty() || queries.is_empty() || target_k == 0 {
+            return false;
+        }
+        if candidate_pool < target_k {
+            return false;
+        }
+        // Defensive: ensure all vectors are the right shape.
+        for v in corpus.iter().chain(queries.iter()) {
+            if v.len() != self.full_dim {
+                return false;
+            }
+        }
+        let k = self.selected_k.min(self.full_dim);
+        if k == 0 {
+            return false;
+        }
+
+        // Step 1: ground truth — top-`candidate_pool` corpus indices per query
+        // under exact full-dim cosine.
+        let pool = candidate_pool.min(corpus.len());
+        let mut gt: Vec<Vec<usize>> = Vec::with_capacity(queries.len());
+        for q in queries {
+            let mut scored: Vec<(usize, f32)> = corpus
+                .iter()
+                .enumerate()
+                .map(|(i, v)| (i, cosine_distance_f32(q, v)))
+                .collect();
+            scored.sort_by(|a, b| {
+                a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal)
+            });
+            gt.push(scored.into_iter().take(pool).map(|(i, _)| i).collect());
+        }
+        // Truth sets for recall lookup use the top-target_k band.
+        let gt_sets: Vec<std::collections::HashSet<usize>> = gt
+            .iter()
+            .map(|v| v.iter().copied().take(target_k).collect())
+            .collect();
+
+        // Step 2: greedy forward selection.
+        let mut selected: Vec<usize> = Vec::with_capacity(k);
+        let mut remaining: Vec<usize> = (0..self.full_dim).collect();
+
+        while selected.len() < k && !remaining.is_empty() {
+            let mut best_dim: Option<usize> = None;
+            let mut best_recall: f32 = f32::NEG_INFINITY;
+
+            for (pos, &cand) in remaining.iter().enumerate() {
+                // trial = selected ∪ {cand}
+                let mut trial = selected.clone();
+                trial.push(cand);
+
+                // Mean recall@target_k across training queries.
+                let mut recall_sum = 0.0f32;
+                for (qi, q) in queries.iter().enumerate() {
+                    let mut scored: Vec<(usize, f32)> = corpus
+                        .iter()
+                        .enumerate()
+                        .map(|(i, v)| (i, cosine_distance_selected(q, v, &trial)))
+                        .collect();
+                    // Partial top-target_k via full sort is acceptable at our
+                    // corpus sizes (1k). select_nth_unstable would be faster
+                    // but complicates tie handling.
+                    scored.sort_by(|a, b| {
+                        a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal)
+                    });
+                    let set = &gt_sets[qi];
+                    let hits = scored
+                        .iter()
+                        .take(target_k)
+                        .filter(|(i, _)| set.contains(i))
+                        .count();
+                    recall_sum += hits as f32 / target_k as f32;
+                }
+                let recall = recall_sum / queries.len() as f32;
+
+                if recall > best_recall {
+                    best_recall = recall;
+                    best_dim = Some(pos);
+                }
+            }
+
+            match best_dim {
+                Some(pos) => {
+                    let chosen = remaining.swap_remove(pos);
+                    selected.push(chosen);
+                }
+                None => break,
+            }
+        }
+
+        selected.sort(); // cache-friendly access, same convention as `train`
+        self.selected_dims = selected;
+
+        // Step 3: retrain the internal EML model on the training-corpus pairs
+        // using the chosen dims. This keeps `fast_distance` / `selected_distance`
+        // functional after retention-training. We synthesize pairs from the
+        // corpus itself (consistent with `train_and_build`).
+        self.training_buffer.clear();
+        for pair in corpus.chunks(2) {
+            if pair.len() < 2 {
+                break;
+            }
+            let d = cosine_distance_f32(&pair[0], &pair[1]);
+            self.training_buffer
+                .push((pair[0].clone(), pair[1].clone(), d));
+        }
+        self.model = EmlModel::new(3, self.selected_dims.len(), 1);
+        for (a, b, dist) in &self.training_buffer {
+            let features: Vec<f64> = self
+                .selected_dims
+                .iter()
+                .map(|&d| (a[d] - b[d]).abs() as f64)
+                .collect();
+            self.model.record(&features, &[Some(*dist as f64)]);
+        }
+        let _ = self.model.train();
+        self.trained = true;
+        true
+    }
+
     /// Serialize the model to JSON.
     pub fn to_json(&self) -> String {
         serde_json::to_string(self).expect("EmlDistanceModel serialization should not fail")
@@ -332,5 +509,34 @@ mod tests {
         assert_eq!(m.full_dim, m2.full_dim);
         assert_eq!(m.selected_k, m2.selected_k);
         assert_eq!(m.trained, m2.trained);
+    }
+
+    #[test]
+    fn train_for_retention_selects_k_dims() {
+        // Tiny synthetic test: 8-dim vectors where variance is concentrated
+        // in dims 0..4. Retention selector should pick a subset of those.
+        let dim = 8;
+        let mut rng = 17u64;
+        let mut next = || {
+            rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1);
+            (rng >> 33) as f32 / (u32::MAX as f32) - 0.5
+        };
+        let mk = |n: usize, next: &mut dyn FnMut() -> f32| -> Vec<Vec<f32>> {
+            (0..n)
+                .map(|_| {
+                    (0..dim)
+                        .map(|d| if d < 4 { next() * 4.0 } else { next() * 0.1 })
+                        .collect()
+                })
+                .collect()
+        };
+        let corpus = mk(120, &mut next);
+        let queries = mk(20, &mut next);
+
+        let mut m = EmlDistanceModel::new(dim, 3);
+        let ok = m.train_for_retention(&corpus, &queries, 5, 10);
+        assert!(ok);
+        assert!(m.is_trained());
+        assert_eq!(m.selected_dims().len(), 3);
     }
 }

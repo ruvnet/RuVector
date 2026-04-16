@@ -9,7 +9,28 @@
 //! EML tree was 2.1× slower than baseline. That recommendation was never
 //! shipped as callable code; this file ships it.
 
-use crate::cosine_decomp::EmlDistanceModel;
+use crate::cosine_decomp::{cosine_distance_f32, EmlDistanceModel};
+use simsimd::SpatialSimilarity;
+
+/// SimSIMD-backed cosine distance over full-dim vectors.
+///
+/// Returns `1 - cosine_similarity`, clamped to `[0.0, 2.0]`. Falls back to the
+/// scalar reference implementation if SimSIMD returns `None` (e.g. on an
+/// unsupported CPU, or mismatched lengths).
+///
+/// This is the kernel used by `EmlHnsw::search_with_rerank` when the metric
+/// is cosine — the reduced-dim HNSW produces a candidate set, and this runs
+/// once per candidate at full dim. SimSIMD gives us the AVX/NEON/SVE path
+/// without building our own intrinsics.
+#[inline]
+pub fn cosine_distance_simd(a: &[f32], b: &[f32]) -> f32 {
+    debug_assert_eq!(a.len(), b.len());
+    match <f32 as SpatialSimilarity>::cosine(a, b) {
+        Some(d) => (d as f32).clamp(0.0, 2.0),
+        None => cosine_distance_f32(a, b),
+    }
+}
+
 
 /// Plain cosine distance computed over a chosen subset of dimensions.
 ///
@@ -158,5 +179,57 @@ mod tests {
         let ab = sq_euclidean_selected(&a, &b, &[0]);
         let ac = sq_euclidean_selected(&a, &c, &[0]);
         assert!(ac > ab);
+    }
+
+    fn random_vec(seed: u64, dim: usize) -> Vec<f32> {
+        let mut s = seed;
+        (0..dim)
+            .map(|_| {
+                s = s
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
+                ((s >> 33) as f32 / u32::MAX as f32) * 2.0 - 1.0
+            })
+            .collect()
+    }
+
+    #[test]
+    fn cosine_distance_simd_matches_scalar_dim64() {
+        for seed in 0..5 {
+            let a = random_vec(seed, 64);
+            let b = random_vec(seed + 100, 64);
+            let scalar = crate::cosine_decomp::cosine_distance_f32(&a, &b);
+            let simd = cosine_distance_simd(&a, &b);
+            assert!((simd - scalar).abs() < 1e-4, "dim64 seed={} scalar={} simd={}", seed, scalar, simd);
+        }
+    }
+
+    #[test]
+    fn cosine_distance_simd_matches_scalar_dim128() {
+        for seed in 0..5 {
+            let a = random_vec(seed * 7 + 11, 128);
+            let b = random_vec(seed * 7 + 12, 128);
+            let scalar = crate::cosine_decomp::cosine_distance_f32(&a, &b);
+            let simd = cosine_distance_simd(&a, &b);
+            assert!((simd - scalar).abs() < 1e-4, "dim128 seed={} scalar={} simd={}", seed, scalar, simd);
+        }
+    }
+
+    #[test]
+    fn cosine_distance_simd_matches_scalar_dim384() {
+        for seed in 0..5 {
+            let a = random_vec(seed * 13 + 3, 384);
+            let b = random_vec(seed * 13 + 4, 384);
+            let scalar = crate::cosine_decomp::cosine_distance_f32(&a, &b);
+            let simd = cosine_distance_simd(&a, &b);
+            assert!((simd - scalar).abs() < 1e-4, "dim384 seed={} scalar={} simd={}", seed, scalar, simd);
+        }
+    }
+
+    #[test]
+    fn cosine_distance_simd_self_is_zero() {
+        let a = random_vec(99, 128);
+        let d = cosine_distance_simd(&a, &a);
+        assert!(d.abs() < 1e-5, "self-distance ~0, got {d}");
     }
 }

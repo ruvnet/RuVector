@@ -18,7 +18,7 @@
 //! re-rank the top-K with exact distance.
 
 use crate::cosine_decomp::{cosine_distance_f32, EmlDistanceModel};
-use crate::selected_distance::project_vector;
+use crate::selected_distance::{cosine_distance_simd, project_vector};
 use hnsw_rs::prelude::{DistCosine, Hnsw};
 use serde::{Deserialize, Serialize};
 
@@ -191,7 +191,9 @@ impl EmlHnsw {
         for c in cands.iter_mut() {
             let stored = &self.full_store[c.id - 1];
             c.distance = match self.metric {
-                EmlMetric::Cosine => cosine_distance_f32(query_full, stored),
+                // SimSIMD-backed AVX/NEON cosine kernel; falls back to the scalar
+                // reference impl if the runtime does not support it.
+                EmlMetric::Cosine => cosine_distance_simd(query_full, stored),
             };
         }
         cands.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap_or(std::cmp::Ordering::Equal));

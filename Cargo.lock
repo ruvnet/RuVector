@@ -9051,7 +9051,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-eml-hnsw"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "criterion 0.5.1",
  "eml-core",
@@ -9059,6 +9059,7 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "serde_json",
+ "simsimd",
 ]
 
 [[package]]

@@ -1,18 +1,19 @@
 [package]
 name = "ruvector-eml-hnsw"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "EML-powered HNSW optimizations: search path prediction, rebuild prediction, PQ distance correction"
+description = "EML-powered HNSW: learned-selected-dim candidate prefilter + SIMD rerank + optional PQ compression"
 license = "MIT"
 
 [dependencies]
 eml-core = { path = "../../patches/eml-core" }
 hnsw_rs = { workspace = true }
+rand = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+simsimd = { workspace = true }
 
 [dev-dependencies]
-rand = "0.8"
 criterion = { version = "0.5", features = ["html_reports"] }
 
 [[bench]]
@@ -23,6 +24,26 @@ harness = false
 name = "eml_e2e"
 harness = false
 
+[[bench]]
+name = "rerank_kernel"
+harness = false
+
 [[test]]
 name = "recall_integration"
 path = "tests/recall_integration.rs"
+
+[[test]]
+name = "sift1m_real"
+path = "tests/sift1m_real.rs"
+
+[[test]]
+name = "retention_vs_pearson"
+path = "tests/retention_vs_pearson.rs"
+
+[[test]]
+name = "progressive_sift1m"
+path = "tests/progressive_sift1m.rs"
+
+[[test]]
+name = "sift1m_pq"
+path = "tests/sift1m_pq.rs"
