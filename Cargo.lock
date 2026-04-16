@@ -9120,6 +9120,7 @@ version = "2.1.0"
 dependencies = [
  "bincode 2.0.1",
  "chrono",
+ "criterion 0.5.1",
  "dashmap 6.1.0",
  "parking_lot 0.12.5",
  "ruvector-core 2.1.0",

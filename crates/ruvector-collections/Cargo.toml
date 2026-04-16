@@ -7,6 +7,13 @@ authors.workspace = true
 repository.workspace = true
 readme = "README.md"
 description = "High-performance collection management for Ruvector vector databases"
+build = "build.rs"
+
+[features]
+default = []
+# Opt-in probabilistic Miller-Rabin for u128 (PRD §5, ADR-151).
+# WASM u128 codegen is ~5× slower than native; gate keeps it out of default bundles.
+unstable-u128 = []
 
 [dependencies]
 ruvector-core = { version = "2.0.2", path = "../ruvector-core" }
@@ -20,3 +27,9 @@ bincode = { workspace = true }
 chrono = { workspace = true }
 
 [dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "primality"
+harness = false
+
