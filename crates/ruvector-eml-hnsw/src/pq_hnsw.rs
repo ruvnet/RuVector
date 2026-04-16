@@ -343,11 +343,59 @@ impl PqEmlHnsw {
     ) -> Vec<PqSearchResult> {
         let fetch = fetch_k.max(k);
         let mut cands = self.search(query_full, fetch, ef_search);
+        // cands already carry asymmetric PQ distances from the PQ-native
+        // search above (set via PqAsymmetricDistance::set_query_table).
+        //
+        // Apply the learned PQ-error corrector.
+        //
+        // * **Legacy (global-max) mode**: corrector output is advisory only.
+        //   We recompute `c.distance` but then overwrite it with exact cosine
+        //   below — this is the old behavior, preserved for backward compat.
+        // * **Local-scale mode** (post-SOTA-C fix): corrector output is
+        //   NON-ADVISORY — we use it to truncate the candidate set to a
+        //   tighter `rerank_k` before exact cosine rerank. The per-query
+        //   inference scale is the median PQ distance across the fetched
+        //   candidates, which mimics the per-sample exact distance the
+        //   model was trained on (within a 2–3× margin the model tolerates).
+        let mut corrector_non_advisory = false;
         if let Some(corr) = &self.corrector {
-            for c in cands.iter_mut() {
-                c.distance = corr.correct(c.distance, 0.0);
+            if corr.is_locally_normalized() {
+                corrector_non_advisory = true;
+                let mut pqs: Vec<f32> = cands.iter().map(|c| c.distance).collect();
+                pqs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                let q_scale = if pqs.is_empty() {
+                    corr.median_local_scale() as f32
+                } else {
+                    pqs[pqs.len() / 2].max(1e-6)
+                };
+                for c in cands.iter_mut() {
+                    c.distance = corr.correct_with_scale(c.distance, 0.0, q_scale);
+                }
+                cands.sort_by(|a, b| {
+                    a.distance.partial_cmp(&b.distance).unwrap_or(std::cmp::Ordering::Equal)
+                });
+                // Rerank window: 15× the requested k (or all if fewer). This
+                // is where the corrector has teeth — it decides which of
+                // the fetch_k candidates survive into the exact rerank
+                // stage. 15× is a conservative safety margin: at k=10 with
+                // fetch_k=200, we keep 150 candidates (75% of the fetch
+                // pool) for exact cosine rerank, so even a mediocre
+                // corrector cannot easily evict true top-10 vectors.
+                // The corrector still acts on WHICH 50 candidates get
+                // dropped — a ~20-25% saving of rerank cost without
+                // collapsing recall.
+                let rerank_k = (k.saturating_mul(15)).max(k).min(cands.len());
+                cands.truncate(rerank_k);
+            } else {
+                // Legacy advisory path (pre-fix): values overwritten below.
+                for c in cands.iter_mut() {
+                    c.distance = corr.correct(c.distance, 0.0);
+                }
             }
         }
+        let _ = corrector_non_advisory; // variable read for clarity in logs.
+
+        // Exact rerank with full-dim cosine. Authoritative final ranker.
         for c in cands.iter_mut() {
             let stored = &self.full_store[c.id - 1];
             c.distance = cosine_distance_f32(query_full, stored);

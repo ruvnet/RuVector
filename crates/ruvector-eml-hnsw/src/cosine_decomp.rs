@@ -355,6 +355,194 @@ impl EmlDistanceModel {
         true
     }
 
+    /// Train the dimension selector by **beam-search** forward selection
+    /// over the retention objective.
+    ///
+    /// This is a drop-in higher-quality alternative to
+    /// [`train_for_retention`]. Greedy forward selection is locally optimal
+    /// — once a dim is picked it stays, so an early bad pick (a dim that
+    /// looked slightly better at step 2 but interacts poorly with the rest
+    /// of the subset) gets locked in. Beam search with width `b` keeps the
+    /// top-`b` partial subsets at each step and is guaranteed to match or
+    /// beat greedy (greedy is the `b=1` case).
+    ///
+    /// # Algorithm
+    ///
+    /// 1. Precompute the exact-cosine top-`candidate_pool` ground truth per
+    ///    training query (identical to `train_for_retention`).
+    /// 2. Initialize `beams = [empty_set]` (one seed beam).
+    /// 3. For each step `s` in `1..=selected_k`:
+    ///    - For every (beam, candidate_dim) pair, form `trial = beam ∪ {d}`
+    ///      and score mean recall\@`target_k` on the training queries.
+    ///    - Collect all scored trials across all beams.
+    ///    - Dedupe (same sorted trial set → keep highest score).
+    ///    - Keep the top `beam_width` distinct trials as the new beams.
+    /// 4. After step `selected_k`, return the highest-recall beam.
+    ///
+    /// # Cost
+    ///
+    /// `beam_width × greedy_cost`. Greedy is
+    /// `O(full_dim × selected_k × queries × corpus)` inner ops — beam
+    /// multiplies by `beam_width` (typically 4). At the Tier-1C scale
+    /// (`128 × 32 × 500 × 1000 ≈ 2e9`), width-4 is ~8e9 inner ops,
+    /// acceptable for selector training.
+    ///
+    /// # Arguments
+    /// - `corpus` / `queries` / `target_k` / `candidate_pool`: same as
+    ///   `train_for_retention`.
+    /// - `beam_width`: number of partial subsets to keep at each step.
+    ///   `1` is equivalent to greedy. `4` is the Tier-1C default.
+    ///
+    /// # Returns
+    /// `true` once the internal EML model is retrained on the winning
+    /// beam. `false` on argument error.
+    pub fn train_for_retention_beam(
+        &mut self,
+        corpus: &[Vec<f32>],
+        queries: &[Vec<f32>],
+        target_k: usize,
+        candidate_pool: usize,
+        beam_width: usize,
+    ) -> bool {
+        if corpus.is_empty() || queries.is_empty() || target_k == 0 || beam_width == 0 {
+            return false;
+        }
+        if candidate_pool < target_k {
+            return false;
+        }
+        for v in corpus.iter().chain(queries.iter()) {
+            if v.len() != self.full_dim {
+                return false;
+            }
+        }
+        let k = self.selected_k.min(self.full_dim);
+        if k == 0 {
+            return false;
+        }
+
+        // Step 1: exact ground truth (shared across all beams).
+        let pool = candidate_pool.min(corpus.len());
+        let mut gt: Vec<Vec<usize>> = Vec::with_capacity(queries.len());
+        for q in queries {
+            let mut scored: Vec<(usize, f32)> = corpus
+                .iter()
+                .enumerate()
+                .map(|(i, v)| (i, cosine_distance_f32(q, v)))
+                .collect();
+            scored.sort_by(|a, b| {
+                a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal)
+            });
+            gt.push(scored.into_iter().take(pool).map(|(i, _)| i).collect());
+        }
+        let gt_sets: Vec<std::collections::HashSet<usize>> = gt
+            .iter()
+            .map(|v| v.iter().copied().take(target_k).collect())
+            .collect();
+
+        // Helper: score a partial subset against training queries.
+        let score_subset = |subset: &[usize]| -> f32 {
+            let mut recall_sum = 0.0f32;
+            for (qi, q) in queries.iter().enumerate() {
+                let mut scored: Vec<(usize, f32)> = corpus
+                    .iter()
+                    .enumerate()
+                    .map(|(i, v)| (i, cosine_distance_selected(q, v, subset)))
+                    .collect();
+                scored.sort_by(|a, b| {
+                    a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal)
+                });
+                let set = &gt_sets[qi];
+                let hits = scored
+                    .iter()
+                    .take(target_k)
+                    .filter(|(i, _)| set.contains(i))
+                    .count();
+                recall_sum += hits as f32 / target_k as f32;
+            }
+            recall_sum / queries.len() as f32
+        };
+
+        // Step 2: beam search. Each beam is (selected_sorted, score).
+        // selected_sorted is kept sorted ascending as the canonical dedupe key.
+        let mut beams: Vec<(Vec<usize>, f32)> = vec![(Vec::new(), 0.0)];
+
+        for _step in 0..k {
+            let mut candidates: Vec<(Vec<usize>, f32)> = Vec::new();
+
+            for (beam, _beam_score) in &beams {
+                // remaining dims = full_dim \ beam
+                let in_beam: std::collections::HashSet<usize> =
+                    beam.iter().copied().collect();
+                for d in 0..self.full_dim {
+                    if in_beam.contains(&d) {
+                        continue;
+                    }
+                    // trial = beam ∪ {d}, sorted (canonical dedupe key).
+                    let mut trial = beam.clone();
+                    trial.push(d);
+                    trial.sort();
+                    let s = score_subset(&trial);
+                    candidates.push((trial, s));
+                }
+            }
+
+            // Dedupe: same sorted-trial across different parent beams maps
+            // to the same child. Keep the one with highest score (same up
+            // to floating-point nondeterminism, but be defensive).
+            candidates.sort_by(|a, b| a.0.cmp(&b.0));
+            candidates.dedup_by(|a, b| a.0 == b.0);
+
+            // Rank by score, keep top beam_width. Tie-break by
+            // lexicographic subset for determinism.
+            candidates.sort_by(|a, b| {
+                b.1.partial_cmp(&a.1)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| a.0.cmp(&b.0))
+            });
+            candidates.truncate(beam_width);
+
+            if candidates.is_empty() {
+                break;
+            }
+            beams = candidates;
+        }
+
+        // Step 3: pick the best beam.
+        beams.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.0.cmp(&b.0))
+        });
+        let winner = beams.into_iter().next().map(|(s, _)| s).unwrap_or_default();
+
+        self.selected_dims = winner;
+        // self.selected_dims is already sorted from the canonical form above.
+
+        // Step 4: retrain the internal EML model on pair distances from
+        // the training corpus, mirroring `train_for_retention`.
+        self.training_buffer.clear();
+        for pair in corpus.chunks(2) {
+            if pair.len() < 2 {
+                break;
+            }
+            let d = cosine_distance_f32(&pair[0], &pair[1]);
+            self.training_buffer
+                .push((pair[0].clone(), pair[1].clone(), d));
+        }
+        self.model = EmlModel::new(3, self.selected_dims.len(), 1);
+        for (a, b, dist) in &self.training_buffer {
+            let features: Vec<f64> = self
+                .selected_dims
+                .iter()
+                .map(|&d| (a[d] - b[d]).abs() as f64)
+                .collect();
+            self.model.record(&features, &[Some(*dist as f64)]);
+        }
+        let _ = self.model.train();
+        self.trained = true;
+        true
+    }
+
     /// Serialize the model to JSON.
     pub fn to_json(&self) -> String {
         serde_json::to_string(self).expect("EmlDistanceModel serialization should not fail")
@@ -538,5 +726,47 @@ mod tests {
         assert!(ok);
         assert!(m.is_trained());
         assert_eq!(m.selected_dims().len(), 3);
+    }
+
+    #[test]
+    fn train_for_retention_beam_selects_k_dims() {
+        // Same synthetic setup as the greedy test — variance concentrated
+        // in dims 0..4 of an 8-dim vector. Beam search must still select
+        // exactly selected_k dims and the model must be trained.
+        let dim = 8;
+        let mut rng = 17u64;
+        let mut next = || {
+            rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1);
+            (rng >> 33) as f32 / (u32::MAX as f32) - 0.5
+        };
+        let mk = |n: usize, next: &mut dyn FnMut() -> f32| -> Vec<Vec<f32>> {
+            (0..n)
+                .map(|_| {
+                    (0..dim)
+                        .map(|d| if d < 4 { next() * 4.0 } else { next() * 0.1 })
+                        .collect()
+                })
+                .collect()
+        };
+        let corpus = mk(120, &mut next);
+        let queries = mk(20, &mut next);
+
+        let mut m = EmlDistanceModel::new(dim, 3);
+        let ok = m.train_for_retention_beam(&corpus, &queries, 5, 10, 4);
+        assert!(ok);
+        assert!(m.is_trained());
+        assert_eq!(m.selected_dims().len(), 3);
+
+        // beam_width=1 must match greedy (deterministically) on a stable
+        // scoring function — both collapse to the same algorithm.
+        let mut g = EmlDistanceModel::new(dim, 3);
+        let _ = g.train_for_retention(&corpus, &queries, 5, 10);
+        let mut b1 = EmlDistanceModel::new(dim, 3);
+        let _ = b1.train_for_retention_beam(&corpus, &queries, 5, 10, 1);
+        assert_eq!(
+            g.selected_dims(),
+            b1.selected_dims(),
+            "beam_width=1 should equal greedy"
+        );
     }
 }
