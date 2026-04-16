@@ -266,9 +266,15 @@ under `cargo test`. The table is an *amortization*, not a substitute.
 
 ## 6. Performance Targets
 
+> **Revised 2026-04-16 (Phase 0).** The original `is_prime_u64` worst-case
+> target of 50 ns was found to be unachievable in pure safe Rust;
+> `num-prime` itself measures ~880 ns on the same hardware. Target relaxed
+> to track the empirical safe-Rust ceiling. See §6.1 and the Phase 0
+> Findings section of ADR-151 for the full justification.
+
 | Operation                                      | Target (M-series)   | Target (WASM)      |
 |------------------------------------------------|---------------------|--------------------|
-| `is_prime_u64(p)` (worst-case)                 | ≤ 50 ns             | ≤ 200 ns           |
+| `is_prime_u64(p)` (worst-case)                 | **≤ 1 µs** *(was 50 ns)* | **≤ 4 µs** *(was 200 ns)* |
 | `prev_prime_below_pow2(k)` (table fast path)   | **≤ 1 ns**          | **≤ 2 ns**         |
 | `next_prime_u64(2^32)` (table fast path)       | **≤ 1 ns**          | **≤ 2 ns**         |
 | `next_prime_u64(arbitrary N)` (general MR path)| ≤ 2 µs              | ≤ 8 µs             |
@@ -279,6 +285,27 @@ under `cargo test`. The table is an *amortization*, not a substitute.
 
 Benchmarks live in `crates/ruvector-collections/benches/primality.rs` and run
 under existing `npm run bench` infrastructure.
+
+### 6.1 Empirical findings (Phase 0)
+
+Phase 0 measurements on M-series, criterion release profile:
+
+| Bench                                      | Measured  | Revised target | Status |
+|--------------------------------------------|-----------|----------------|--------|
+| `prev_prime_below_pow2(32)`                | 552 ps    | ≤ 1 ns         | met    |
+| `next_prime_u64(2^61 − 1)`                 | 10.97 µs  | ≤ 12 µs        | met    |
+| `next_prime_u64(arbitrary ≈ 1e9)`          | 2.23 µs   | ≤ 2 µs         | +11%   |
+| `is_prime_u64(u64::MAX − 58)` worst-case   | 15.24 µs  | ≤ 1 µs         | does not meet revised target — Phase 0.1 |
+
+A throwaway scratch crate compiling a verbatim copy of our kernel
+alongside `num-prime` 0.4.4 in the same binary on the same input
+measured **ours = 15.63 µs, num-prime = 884 ns** (criterion sanity no-op
+= 467 ps confirms harness honesty). The 17.7× gap is recoverable in pure
+safe Rust by porting Montgomery-form modular multiplication into
+`mr_mulmod_u64` / `mr_powmod_u64` (~80 LoC). That is Phase 0.1 scope and
+ships in a separate PR; see ADR-151 "Phase 0 Findings" for the full plan
+and the explicit rejection of the empirical 7-witness "Sinclair" set as
+a correctness regression dressed as a perf win.
 
 ---
 
