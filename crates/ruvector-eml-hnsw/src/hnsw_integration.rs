@@ -20,6 +20,7 @@
 use crate::cosine_decomp::{cosine_distance_f32, EmlDistanceModel};
 use crate::selected_distance::{cosine_distance_simd, project_vector};
 use hnsw_rs::prelude::{DistCosine, Hnsw};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// Metric used for the reduced-dim HNSW distance.
@@ -161,6 +162,33 @@ impl EmlHnsw {
         ids
     }
 
+    /// Parallel bulk insert via hnsw_rs::parallel_insert. At 1M scale this is
+    /// order-of-magnitude faster than the serial `add_batch` because the
+    /// projections parallelize across cores and the HNSW graph build itself
+    /// is rayon-parallel inside `hnsw_rs`. Projection and id assignment run
+    /// upfront so ids stay order-preserving relative to `fulls`.
+    pub fn add_batch_parallel(&mut self, fulls: &[Vec<f32>]) -> Vec<usize> {
+        use rayon::prelude::*;
+        let start_id = self.full_store.len() + 1;
+        let ids: Vec<usize> = (start_id..start_id + fulls.len()).collect();
+        // Project all vectors in parallel.
+        let dims = self.selector.selected_dims();
+        let projected: Vec<Vec<f32>> = fulls
+            .par_iter()
+            .map(|v| project_vector(v, dims))
+            .collect();
+        // Clone fulls into the side store sequentially (cheap compared to HNSW build).
+        self.full_store.extend_from_slice(fulls);
+        // Feed the projections into hnsw_rs::parallel_insert.
+        let refs: Vec<(&Vec<f32>, usize)> = projected
+            .iter()
+            .zip(ids.iter().copied())
+            .map(|(v, id)| (v, id))
+            .collect();
+        self.hnsw.parallel_insert(&refs);
+        ids
+    }
+
     /// Search returning top `k` results by projected-cosine distance.
     pub fn search(&self, query_full: &[f32], k: usize, ef_search: usize) -> Vec<EmlSearchResult> {
         let reduced = project_vector(query_full, self.selector.selected_dims());
@@ -186,15 +214,58 @@ impl EmlHnsw {
         fetch_k: usize,
         ef_search: usize,
     ) -> Vec<EmlSearchResult> {
+        self.search_with_rerank_inner(query_full, k, fetch_k, ef_search, true)
+    }
+
+    /// Serial-rerank variant retained for A/B benchmarking. Equivalent to the
+    /// v2 implementation that walked candidates with a plain `for` loop. Not
+    /// intended for production paths — `search_with_rerank` is parallel by
+    /// default and should be preferred.
+    pub fn search_with_rerank_serial(
+        &self,
+        query_full: &[f32],
+        k: usize,
+        fetch_k: usize,
+        ef_search: usize,
+    ) -> Vec<EmlSearchResult> {
+        self.search_with_rerank_inner(query_full, k, fetch_k, ef_search, false)
+    }
+
+    /// Search + exact re-rank: pull `fetch_k` candidates from the reduced
+    /// index, then re-order with full-dim cosine, and return top `k`.
+    ///
+    /// This is the "approx then exact" pattern — the reduced index narrows
+    /// the candidate set cheaply, the re-rank restores ground-truth ordering.
+    ///
+    /// When `parallel` is true, the full-dim cosine pass is dispatched across
+    /// rayon's global pool. The inner kernel touches only `&self.full_store`
+    /// (a `Sync` borrow of `Vec<Vec<f32>>`) and writes back to
+    /// `cands[i].distance` through a `par_iter_mut`, so no extra locking is
+    /// needed.
+    fn search_with_rerank_inner(
+        &self,
+        query_full: &[f32],
+        k: usize,
+        fetch_k: usize,
+        ef_search: usize,
+        parallel: bool,
+    ) -> Vec<EmlSearchResult> {
         let fetch = fetch_k.max(k);
         let mut cands = self.search(query_full, fetch, ef_search);
-        for c in cands.iter_mut() {
-            let stored = &self.full_store[c.id - 1];
-            c.distance = match self.metric {
+        let full_store: &[Vec<f32>] = &self.full_store;
+        let metric = self.metric;
+        let rerank = |c: &mut EmlSearchResult| {
+            let stored = &full_store[c.id - 1];
+            c.distance = match metric {
                 // SimSIMD-backed AVX/NEON cosine kernel; falls back to the scalar
                 // reference impl if the runtime does not support it.
                 EmlMetric::Cosine => cosine_distance_simd(query_full, stored),
             };
+        };
+        if parallel {
+            cands.par_iter_mut().for_each(rerank);
+        } else {
+            cands.iter_mut().for_each(rerank);
         }
         cands.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap_or(std::cmp::Ordering::Equal));
         cands.truncate(k);

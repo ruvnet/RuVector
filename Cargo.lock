@@ -9057,6 +9057,7 @@ dependencies = [
  "eml-core",
  "hnsw_rs",
  "rand 0.8.5",
+ "rayon",
  "serde",
  "serde_json",
  "simsimd",

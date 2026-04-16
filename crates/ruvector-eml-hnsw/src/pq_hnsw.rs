@@ -26,6 +26,7 @@ use crate::cosine_decomp::cosine_distance_f32;
 use crate::pq::{self, PqCodebook};
 use crate::pq_corrector::PqDistanceCorrector;
 use hnsw_rs::prelude::{DistL2, Hnsw};
+use rayon::prelude::*;
 
 #[derive(Clone, Debug)]
 pub struct PqSearchResult {
@@ -146,10 +147,13 @@ impl PqEmlHnsw {
         // remove. Instead rerank all fetched candidates with full-dim
         // cosine, then return the top k.
         let _ = self.corrector; // corrector output was advisory only
-        for c in cands.iter_mut() {
-            let stored = &self.full_store[c.id - 1];
+        // Rayon parallel final-stage exact rerank. The kernel only reads
+        // immutably from `full_store`, writes back through `par_iter_mut`.
+        let full_store: &[Vec<f32>] = &self.full_store;
+        cands.par_iter_mut().for_each(|c| {
+            let stored = &full_store[c.id - 1];
             c.distance = cosine_distance_f32(query_full, stored);
-        }
+        });
         cands.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap_or(std::cmp::Ordering::Equal));
         cands.truncate(k);
         cands
