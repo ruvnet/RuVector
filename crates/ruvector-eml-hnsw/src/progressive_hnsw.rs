@@ -37,6 +37,7 @@ use crate::hnsw_integration::{EmlMetric, EmlSearchResult};
 use crate::progressive_distance::ProgressiveDistance;
 use crate::selected_distance::project_vector;
 use hnsw_rs::prelude::{DistCosine, Hnsw};
+use rayon::prelude::*;
 
 /// One cascade level: the trained dim selection and an HNSW indexing the
 /// projected corpus.
@@ -224,11 +225,16 @@ impl ProgressiveEmlHnsw {
             return Vec::new();
         }
 
+        let full_store: &[Vec<f32>] = &self.full_store;
+        let metric = self.metric;
+        // Rayon parallel full-dim rerank. The kernel only borrows immutably
+        // from `full_store`, so no locking is needed. Falls back to a
+        // sequential pass in debug/tests trivially.
         let mut scored: Vec<EmlSearchResult> = union_ids
-            .into_iter()
+            .into_par_iter()
             .map(|id| {
-                let stored = &self.full_store[id - 1];
-                let dist = match self.metric {
+                let stored = &full_store[id - 1];
+                let dist = match metric {
                     EmlMetric::Cosine => cosine_distance_f32(query_full, stored),
                 };
                 EmlSearchResult { id, distance: dist }

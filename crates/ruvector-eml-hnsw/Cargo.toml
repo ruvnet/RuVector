@@ -10,6 +10,7 @@ eml-core = { path = "../../patches/eml-core" }
 hnsw_rs = { workspace = true }
 anndists = "0.1"
 rand = "0.8"
+rayon = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 simsimd = { workspace = true }
@@ -56,3 +57,11 @@ path = "tests/sift1m_pq_native.rs"
 [[test]]
 name = "sift1m_opq"
 path = "tests/sift1m_opq.rs"
+
+[[test]]
+name = "sift1m_full_1m"
+path = "tests/sift1m_full_1m.rs"
+
+[[test]]
+name = "sift1m_baseline_hnswlib"
+path = "tests/sift1m_baseline_hnswlib.rs"

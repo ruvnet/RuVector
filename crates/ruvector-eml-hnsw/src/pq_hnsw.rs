@@ -47,6 +47,7 @@ use crate::pq::{self, PqCodebook};
 use crate::pq_corrector::PqDistanceCorrector;
 use anndists::dist::distances::Distance;
 use hnsw_rs::prelude::{DistL2, Hnsw};
+use rayon::prelude::*;
 use std::sync::{Arc, RwLock};
 
 #[derive(Clone, Debug)]
@@ -396,10 +397,16 @@ impl PqEmlHnsw {
         let _ = corrector_non_advisory; // variable read for clarity in logs.
 
         // Exact rerank with full-dim cosine. Authoritative final ranker.
-        for c in cands.iter_mut() {
-            let stored = &self.full_store[c.id - 1];
+        // Rayon-parallelized: the kernel reads immutably from `full_store`
+        // and writes back through `par_iter_mut`. When the corrector ran
+        // in local-scale mode above, `cands` is already pre-truncated to
+        // the 15× rerank window, so the parallel fan-out is over the
+        // tighter set.
+        let full_store: &[Vec<f32>] = &self.full_store;
+        cands.par_iter_mut().for_each(|c| {
+            let stored = &full_store[c.id - 1];
             c.distance = cosine_distance_f32(query_full, stored);
-        }
+        });
         cands.sort_by(|a, b| {
             a.distance
                 .partial_cmp(&b.distance)
