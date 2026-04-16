@@ -268,3 +268,66 @@ Deferred. PCA directly optimizes variance preservation (what our Pearson selecto
 ---
 
 End of ADR-151. Supersedes nothing. Superseded by: none yet. Next ADR: 152.
+
+---
+
+## v3 SOTA Evidence (merged)
+
+**Branch**: `feat/eml-hnsw-optimizations-v3`  (merge commit `54483c45`)
+**Base**: `feat/eml-hnsw-optimizations-v2` at `dac6f60e`
+**Merge order**: SOTA-D (ruvector-core integration) → SOTA-A (PQ-native + OPQ) → SOTA-C (corrector local-scale + beam selector) → SOTA-B (parallel rerank + 1M + hnswlib baseline).
+
+Each tier is landed as its own merge commit. One non-mechanical conflict was resolved in `src/pq_hnsw.rs`: SOTA-C was written against the legacy PQ path that recomputed asymmetric distances via a query table, but SOTA-A had already replaced that path with a PQ-native graph (`Hnsw<u8, PqAsymmetricDistance>`) whose `search()` returns asymmetric distances directly — the redundant recomputation block was dropped, while Cs corrector wiring and Bs rayon `par_iter_mut` on the exact-cosine rerank were both preserved on top of As PQ-native structure. All 93 lib + 4 new `ruvector-core` integration tests pass on the merged branch.
+
+### Measured on merged v3 (SIFT1M, n=50_000 subset, 200 queries, M=8×256)
+
+| metric | v2 | v3 | delta |
+|---|---|---|---|
+| **PQ-native rerank@10** | — (legacy only, 0.9445 @ 512 B/vec) | **0.9510** @ 8 B/vec | **+0.0065 rerank recall at 64× less memory** |
+| PQ-native p50 rerank latency | — | 371.6 µs | 2.56× faster than legacy path (952 µs) |
+| PQ-native graph payload | 512 B/vec | **8 B/vec** | **64×** reduction |
+| Retention (greedy) vs pearson recall@10 | 0.7125 (pearson) | **0.8165** (greedy) | **+0.1040** (+10.4 pp) |
+| Retention (beam=4) vs greedy recall@10 | — | 0.8230 | +0.0065 (inside SE≈0.0270 → **falsified**) |
+| Corrector held-out MSE | 1.397e9 (pre) | 5.52e8 (post) | **−60.5%** reduction |
+
+### Plain `hnsw_rs` baseline @ 1M (from SOTA-B, same 16C/32T host, DistCosine, same-metric brute-force GT)
+
+| ef_search | recall@10 | QPS | p50 |
+|---|---|---|---|
+| 32 | 0.8750 | 1958 | 506 µs |
+| 64 | 0.9325 | 1285 | 813 µs |
+| **100** | **0.9525** | **893** | **1167 µs** |
+| 200 | 0.9692 |  541 | 1902 µs |
+
+EmlHnsw (selected_k=48, fetch_k=500) plateaus at **recall=0.8159** across `ef_search ∈ {32,64,100,200}` and never reaches 0.95 on 1M. The reduced-dim prefilter drops true NN from the candidate pool before rerank can recover them.
+
+### Honest reframe
+
+Plain `hnsw_rs` beats EmlHnsw at 1M scale on both recall and QPS at matched config. **The v3 speed story does not survive full-corpus scaling.** What v3 *does* deliver:
+
+1. **Memory**: PQ-native HNSW graph holds u8 codes (8 B/vec) with asymmetric-distance-at-query-time. No reconstructed floats in the graph. 64× payload reduction at +0.65 pp rerank-recall gain vs legacy PQ path.
+2. **ruvector-core integration**: `HnswIndex::new_with_selected_dims()` lands as first-class API with 4 new integration tests passing. Selected-dim prefilter is now usable from `ruvector-core` without the `ruvector-eml-hnsw` fork crate — ADR-151 acceptance scope satisfied.
+3. **Retention selector**: greedy retention-objective selector gives a real +10.4 pp recall@10 improvement over pearson at 4× training cost; promoted as the default.
+4. **Corrector**: SOTA-Cs per-query median local-scale normalization fixes the global-max bug in the original corrector (−60.5% MSE on held-out pairs) and the non-advisory path is now wired into `search_with_rerank` as a pre-rerank truncation step (rerank_k = 15×k).
+
+### Clean-falsification list
+
+| item | tier | result | disposition |
+|---|---|---|---|
+| OPQ rotation on SIFT-style non-rotated corpora | SOTA-A | no measurable recall gain at SIFTs native basis | test remains (`sift1m_opq.rs`) as a documented null result |
+| Rayon parallel rerank at 1M | SOTA-B | 1.10× speedup — overhead-bound on SIFT128×500 | kept for wider-embedding future, marked modest in commit |
+| Beam selector (beam=4) vs greedy | SOTA-C | +0.0065 recall@10 inside SE (≈0.027), 4.39× training cost | **not default**; greedy is the promoted retention selector |
+
+### `ruvector-core` test count delta
+
+- Before v3: 24 lib tests (`ruvector_core::index::*` included standard HNSW only)
+- After v3: 28 lib tests + **4 new** `tests/hnsw_selected_dims.rs` integration tests
+  - `selected_dims_construct_errors_on_bad_selected_k` ✓
+  - `selected_dims_construct_errors_on_empty_sample` ✓
+  - `standard_backend_search_with_rerank_falls_through` ✓
+  - `selected_dims_rerank_hits_acceptance_bar` ✓
+
+### v3 readiness
+
+v3 is ready for **review**. The two outstanding questions (from ADR-151 v2 §Open Questions): Q5 (progressive cascade native per-layer distance) remains open for a future fork of `hnsw_rs`; Q6 (corrector rescue) is **closed by SOTA-C**; Q7 (core API integration) is **closed by SOTA-D**. Merge to v2 after a human reviewer signs off on the honest-reframe framing in the PR #356 update.
+
