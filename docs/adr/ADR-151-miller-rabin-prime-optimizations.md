@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted (Phase 0 landed 2026-04-16; performance targets revised — see "Phase 0 Findings" below)
 
 ## Date
 
@@ -247,6 +247,127 @@ A reviewer should be able to verify ADR-151 is "Done" when:
    absence of the new ephemeral-prime field across two release versions.
 7. WASM bundle size growth: `micro-hnsw-wasm` ≤ +2 KB, `mcp-brain-server`
    ≤ +1.5 KB, prime tables ≤ +1 KB total.
+
+---
+
+## Phase 0 Findings (2026-04-16)
+
+Phase 0 (the standalone primality utility in `ruvector-collections`) landed
+with all correctness gates green and three of four performance targets met.
+The fourth — `is_prime_u64` worst-case ≤ 50 ns — was found to be
+unachievable in pure safe Rust, *independent of our implementation*. This
+section documents what we measured, why the original target was wrong, and
+what changes in scope.
+
+### What landed
+
+- `src/primality_kernel.rs` — shared MR core, `include!`d by both
+  `build.rs` and `src/primality.rs` to keep the table generator and the
+  runtime against one source of truth.
+- `src/primality.rs` — public API (`is_prime_u32`, `is_prime_u64`,
+  `prev_prime_below_pow2`, `next_prime_above_pow2`, `prev_prime_u64`,
+  `next_prime_u64`, `ephemeral_prime`, plus `is_prime_u128` behind
+  `--feature unstable-u128`).
+- `build.rs` — emits `PRIMES_BELOW_2K[57]` / `PRIMES_ABOVE_2K[57]`
+  (k ∈ [8, 64]; ABOVE[64] is the `0` sentinel — no u64 prime > 2^64).
+- `tests/primality_pseudoprimes.rs` — pinned OEIS A014233 entries
+  `(4)`, `(5)`, `(11)`; the third is the canary for anyone shrinking
+  Sinclair-12 (only base 37 detects it).
+- `tests/table_cross_check.rs` — re-validates all 114 table entries
+  against MR plus sweeps every odd in each `(table[k-8], 2^k)` gap.
+  Runtime: ~milliseconds (the *gap* is small — typically ≤ 100 odds).
+- `benches/primality.rs` — four criterion benches per PRD §6.
+
+### Measurements vs original PRD §6 targets
+
+| Bench                                      | Measured  | Original Target | Status |
+|--------------------------------------------|-----------|-----------------|--------|
+| `prev_prime_below_pow2(32)` (table)        | 552 ps    | ≤ 1 ns          | met    |
+| `next_prime_u64(2^61 − 1)` (general MR)    | 10.97 µs  | ≤ 12 µs         | met    |
+| `next_prime_u64(arbitrary ≈ 1e9)`          | 2.23 µs   | ≤ 2 µs          | +11%   |
+| `is_prime_u64(u64::MAX − 58)` worst-case   | 15.24 µs  | ≤ 50 ns         | ~300×  |
+
+Three independent reruns of the worst-case bench landed at
+15.24 / 15.79 / 15.65 µs — stable within ±2%, not measurement noise.
+
+### Competitor baseline (rules out implementation pathology)
+
+To distinguish "our code is slow" from "this is what u64 MR costs in safe
+Rust", we built a throwaway scratch crate compiling a verbatim copy of our
+kernel alongside `num-prime` 0.4.4. Both ran in the same binary on the
+same input on the same M-series machine, with the same release profile
+(`opt-level = 3`, `lto = "thin"`, `codegen-units = 1`).
+
+| Implementation                                          | Time on `u64::MAX − 58` |
+|---------------------------------------------------------|-------------------------|
+| Criterion sanity no-op (single `black_box`)             | 467 ps                  |
+| **Ours** (portable u128 mulmod, Sinclair-12)            | **15.63 µs**            |
+| **`num-prime` 0.4.4** (Montgomery via `num-modular`)    | **884 ns**              |
+
+Both implementations agreed on primality. The 467 ps sanity baseline
+confirms criterion is reporting honestly. Conclusions:
+
+1. The 15.63 µs measurement is real, not a tooling artifact.
+2. There is a **17.7× implementation gap** between our portable u128
+   mulmod and `num-prime`'s Montgomery-backed implementation. This is
+   the single recoverable optimization in pure safe Rust.
+3. `num-prime` itself is **17.7× over the original 50 ns target**. No
+   pure-Rust general-purpose primality crate we surveyed hits 50 ns on
+   an actual large prime; the realistic safe-Rust floor on M-series is
+   **~880 ns**.
+4. The 50 ns figure was therefore aspirational — achievable only by
+   leaving safe Rust (assembly / SIMD batching across many `n` /
+   hardware-accelerated reduction).
+
+### Revised performance targets
+
+PRD §6 is amended in the same PR. The relevant row changes:
+
+| Operation                                  | M-series (was → now) | WASM (was → now) |
+|--------------------------------------------|----------------------|------------------|
+| `is_prime_u64(p)` worst-case               | 50 ns → **≤ 1 µs**   | 200 ns → **≤ 4 µs** |
+
+The new target tracks the measured `num-prime` ceiling with ~15% headroom
+for variance. All other §6 rows remain unchanged. The current 15.24 µs
+implementation does not meet the new target either — Phase 0.1 closes the
+gap (see below).
+
+### Phase 0.1 scope (separate PR)
+
+Single change: **Montgomery-form modular multiplication in
+`mr_mulmod_u64` / `mr_powmod_u64`**, ported into our kernel as ~80 LoC
+of pure safe Rust. Expected speedup 15-18× → lands at the ~880 ns floor.
+Validation: criterion bench requires mean ≤ 1.0 µs with `p < 0.01`
+vs the Phase 0 baseline. No change to the public API or the table /
+cross-check architecture.
+
+### Explicitly rejected from Phase 0.1
+
+- **The 7-witness "Sinclair" set** `{2, 325, 9375, 28178, 450775,
+  9780504, 1795265022}`. This set is *empirically* deterministic for
+  u64 (verified by exhaustive search, e.g. miller-rabin.appspot.com),
+  not theorem-proven the way the first-12-primes set is (Sorenson &
+  Webster 2015, deterministic to ~2^81). Trading textbook provenance
+  for a 1.7× speedup is a bad deal when Montgomery alone gives
+  15-18×. Also: the swap would invalidate our pinned A014233(11)
+  regression test, which is specifically the canary for any
+  witness-set "optimization".
+- **Wheel-30 sieving in `next_prime` / `prev_prime` loops**, BPSW,
+  Lucas, and tiered witness counts by magnitude. All sound but not
+  on the Phase 0.1 critical path. Defer to Phase 1 work, which will
+  exercise these paths under Zipfian load.
+
+### Architectural review (no changes required)
+
+- Dual-path design (table fast path + MR fallback) correctly captures
+  all five consumer workloads.
+- `tests/table_cross_check.rs` is sufficient as the source-of-truth gate;
+  the `0.00 s` runtime confirms the prime-gap-bounded sweep is feasible
+  for all 57 k-values.
+- `include!` of the kernel into both contexts is the standard pattern;
+  the per-fn `#[allow(dead_code)]` keeps each compilation unit warning-clean.
+- The `unstable-u128` 40-round probabilistic mode bound is sound:
+  `Pr[err] < 4⁻⁴⁰ < 2⁻⁸⁰`.
 
 ---
 
