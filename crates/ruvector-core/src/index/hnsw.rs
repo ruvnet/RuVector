@@ -2,6 +2,7 @@
 
 use crate::distance::distance;
 use crate::error::{Result, RuvectorError};
+use crate::index::hnsw_selected::{SelectedDimsBackend, SelectedDimsSelector};
 use crate::index::VectorIndex;
 use crate::types::{DistanceMetric, HnswConfig, SearchResult, VectorId};
 use bincode::{Decode, Encode};
@@ -27,7 +28,17 @@ impl Distance<f32> for DistanceFn {
     }
 }
 
-/// HNSW index wrapper
+/// HNSW index wrapper.
+///
+/// Two backends are selectable at construction time:
+///
+/// - [`HnswIndex::new`] — standard full-dim HNSW with the configured metric.
+///   This is the legacy path; existing callers see zero behavioural or API
+///   change.
+/// - [`HnswIndex::new_with_selected_dims`] — project vectors onto a learned
+///   subset of dimensions, build a reduced-dim HNSW, then expose exact
+///   re-rank via [`HnswIndex::search_with_rerank`]. See ADR-151 for the
+///   acceptance bar and measured SIFT1M evidence.
 pub struct HnswIndex {
     inner: Arc<RwLock<HnswInner>>,
     config: HnswConfig,
@@ -35,8 +46,19 @@ pub struct HnswIndex {
     dimensions: usize,
 }
 
+/// Internal backend — either a plain HNSW (legacy default) or a learned
+/// selected-dims pipeline. Callers never see this; dispatch is by
+/// [`HnswIndex`] methods.
+enum Backend {
+    /// Full-dim HNSW. This is what every existing caller gets today.
+    Standard(Hnsw<'static, f32, DistanceFn>),
+    /// Selected-dims HNSW: trained selector + reduced-dim graph + full-dim
+    /// store for exact rerank.
+    SelectedDims(Box<SelectedDimsBackend>),
+}
+
 struct HnswInner {
-    hnsw: Hnsw<'static, f32, DistanceFn>,
+    backend: Backend,
     vectors: DashMap<VectorId, Vec<f32>>,
     id_to_idx: DashMap<VectorId, usize>,
     idx_to_id: DashMap<usize, VectorId>,
@@ -94,7 +116,11 @@ impl From<SerializableDistanceMetric> for DistanceMetric {
 }
 
 impl HnswIndex {
-    /// Create a new HNSW index
+    /// Create a new full-dim HNSW index.
+    ///
+    /// This is the default path: vectors are indexed and searched at their
+    /// full dimensionality using the requested `metric`. Existing callers
+    /// see no change.
     pub fn new(dimensions: usize, metric: DistanceMetric, config: HnswConfig) -> Result<Self> {
         let distance_fn = DistanceFn::new(metric);
 
@@ -109,7 +135,7 @@ impl HnswIndex {
 
         Ok(Self {
             inner: Arc::new(RwLock::new(HnswInner {
-                hnsw,
+                backend: Backend::Standard(hnsw),
                 vectors: DashMap::new(),
                 id_to_idx: DashMap::new(),
                 idx_to_id: DashMap::new(),
@@ -118,6 +144,103 @@ impl HnswIndex {
             config,
             metric,
             dimensions,
+        })
+    }
+
+    /// Construct an HNSW index that projects vectors onto a learned subset
+    /// of dimensions on insert/search, then exposes exact re-rank via
+    /// [`HnswIndex::search_with_rerank`]. See ADR-151 for the acceptance bar
+    /// and measured SIFT1M evidence.
+    ///
+    /// # Arguments
+    ///
+    /// - `full_dim`: dimensionality of the input vectors (e.g. 128 for SIFT).
+    /// - `representative_sample`: a set of vectors drawn from the same
+    ///   distribution as the production corpus — used to train the
+    ///   dimension selector. 500–2000 vectors is the typical range.
+    /// - `selected_k`: reduced dimensionality the graph will be built on.
+    ///   On SIFT1M, `selected_k ∈ [32, 48]` is the empirically validated
+    ///   band.
+    /// - `metric`: the exact metric used for re-rank. The underlying
+    ///   reduced-dim graph always uses cosine on the projection (the cheapest
+    ///   monotone proxy); `metric` only affects what
+    ///   [`HnswIndex::search_with_rerank`] computes at full dim.
+    /// - `config`: standard HNSW parameters (`m`, `ef_construction`,
+    ///   `ef_search`, `max_elements`).
+    ///
+    /// # Acceptance bar (SIFT1M, from ADR-151)
+    ///
+    /// - `selected_k ∈ [32, 48]`
+    /// - `fetch_k ≥ 500` at search time
+    /// - recall\@10 with rerank ≥ 0.80
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use ruvector_core::index::hnsw::HnswIndex;
+    /// use ruvector_core::types::{DistanceMetric, HnswConfig};
+    /// use ruvector_core::index::VectorIndex;
+    ///
+    /// // 1) representative sample drawn from the production distribution
+    /// let sample: Vec<Vec<f32>> = (0..1000).map(|i| vec![i as f32 / 1000.0; 128]).collect();
+    ///
+    /// // 2) build a selected-dims index (selected_k = 32, cosine rerank)
+    /// let mut index = HnswIndex::new_with_selected_dims(
+    ///     128,
+    ///     &sample,
+    ///     32,
+    ///     DistanceMetric::Cosine,
+    ///     HnswConfig::default(),
+    /// ).expect("selector trains on the sample");
+    ///
+    /// // 3) insert full-dim vectors as usual
+    /// for (i, v) in sample.iter().enumerate() {
+    ///     index.add(format!("v_{i}"), v.clone()).unwrap();
+    /// }
+    ///
+    /// // 4) approximate-then-exact search: pull fetch_k=500 candidates at
+    /// //    reduced dim, rerank with full-dim cosine, return top-10.
+    /// let hits = index.search_with_rerank(&sample[0], 10, 500, 100).unwrap();
+    /// assert!(!hits.is_empty());
+    /// ```
+    pub fn new_with_selected_dims(
+        full_dim: usize,
+        representative_sample: &[Vec<f32>],
+        selected_k: usize,
+        metric: DistanceMetric,
+        config: HnswConfig,
+    ) -> Result<Self> {
+        if representative_sample.is_empty() {
+            return Err(RuvectorError::InvalidInput(
+                "new_with_selected_dims requires a non-empty representative_sample".into(),
+            ));
+        }
+        if representative_sample[0].len() != full_dim {
+            return Err(RuvectorError::DimensionMismatch {
+                expected: full_dim,
+                actual: representative_sample[0].len(),
+            });
+        }
+        if selected_k == 0 || selected_k > full_dim {
+            return Err(RuvectorError::InvalidInput(format!(
+                "selected_k must be in 1..={full_dim}, got {selected_k}"
+            )));
+        }
+
+        let selector = SelectedDimsSelector::train(representative_sample, selected_k)?;
+        let backend = SelectedDimsBackend::new(selector, &config);
+
+        Ok(Self {
+            inner: Arc::new(RwLock::new(HnswInner {
+                backend: Backend::SelectedDims(Box::new(backend)),
+                vectors: DashMap::new(),
+                id_to_idx: DashMap::new(),
+                idx_to_id: DashMap::new(),
+                next_idx: 0,
+            })),
+            config,
+            metric,
+            dimensions: full_dim,
         })
     }
 
@@ -132,9 +255,20 @@ impl HnswIndex {
         // We store it in config and use it in search_with_ef
     }
 
-    /// Serialize the index to bytes using bincode
+    /// Serialize the index to bytes using bincode.
+    ///
+    /// Only the `Standard` backend is currently serialisable; attempting to
+    /// serialise a `SelectedDims` index returns
+    /// [`RuvectorError::SerializationError`]. Persisting the learned
+    /// selector + reduced-dim graph is tracked as a follow-up.
     pub fn serialize(&self) -> Result<Vec<u8>> {
         let inner = self.inner.read();
+        if let Backend::SelectedDims(_) = inner.backend {
+            return Err(RuvectorError::SerializationError(
+                "HnswIndex serialization is not yet supported for the selected-dims backend"
+                    .into(),
+            ));
+        }
 
         let state = HnswState {
             vectors: inner
@@ -215,7 +349,7 @@ impl HnswIndex {
 
         Ok(Self {
             inner: Arc::new(RwLock::new(HnswInner {
-                hnsw,
+                backend: Backend::Standard(hnsw),
                 vectors: vectors_map,
                 id_to_idx,
                 idx_to_id,
@@ -227,7 +361,14 @@ impl HnswIndex {
         })
     }
 
-    /// Search with custom efSearch parameter
+    /// Search with custom efSearch parameter.
+    ///
+    /// Dispatches on the underlying backend:
+    /// - `Standard` — full-dim HNSW search.
+    /// - `SelectedDims` — reduced-dim HNSW search on the projection. The
+    ///   returned `score` is cosine over the projection (a monotone proxy);
+    ///   if you need the exact-metric score, call
+    ///   [`HnswIndex::search_with_rerank`] instead.
     pub fn search_with_ef(
         &self,
         query: &[f32],
@@ -243,15 +384,77 @@ impl HnswIndex {
 
         let inner = self.inner.read();
 
-        // Use HNSW search with custom ef parameter (knbn)
-        let neighbors = inner.hnsw.search(query, k, ef_search);
+        let neighbors: Vec<(usize, f32)> = match &inner.backend {
+            Backend::Standard(hnsw) => hnsw
+                .search(query, k, ef_search)
+                .into_iter()
+                .map(|n| (n.d_id, n.distance))
+                .collect(),
+            Backend::SelectedDims(sd) => sd.search_reduced(query, k, ef_search),
+        };
 
         Ok(neighbors
             .into_iter()
-            .filter_map(|neighbor| {
-                inner.idx_to_id.get(&neighbor.d_id).map(|id| SearchResult {
+            .filter_map(|(d_id, distance)| {
+                inner.idx_to_id.get(&d_id).map(|id| SearchResult {
                     id: id.clone(),
-                    score: neighbor.distance,
+                    score: distance,
+                    vector: None,
+                    metadata: None,
+                })
+            })
+            .collect())
+    }
+
+    /// Approximate-then-exact search.
+    ///
+    /// For the selected-dims backend: pulls `fetch_k` candidates from the
+    /// reduced-dim graph, re-ranks them with the configured full-dim
+    /// `metric`, and returns the top-`k`. This is the canonical "fast
+    /// narrow, then exact re-order" pipeline from ADR-151.
+    ///
+    /// For the standard backend: falls back to a plain
+    /// [`HnswIndex::search_with_ef`] call with `k`. `fetch_k` is ignored in
+    /// that path because the graph is already at full dim.
+    ///
+    /// # Recommended operating points (SIFT1M, ADR-151)
+    ///
+    /// - `fetch_k` ≥ 500
+    /// - `selected_k` (at construction) ∈ [32, 48]
+    ///
+    /// Smaller `fetch_k` trades recall for latency.
+    pub fn search_with_rerank(
+        &self,
+        query: &[f32],
+        k: usize,
+        fetch_k: usize,
+        ef_search: usize,
+    ) -> Result<Vec<SearchResult>> {
+        if query.len() != self.dimensions {
+            return Err(RuvectorError::DimensionMismatch {
+                expected: self.dimensions,
+                actual: query.len(),
+            });
+        }
+
+        let inner = self.inner.read();
+
+        let neighbors: Vec<(usize, f32)> = match &inner.backend {
+            Backend::Standard(_) => {
+                drop(inner);
+                return self.search_with_ef(query, k, ef_search);
+            }
+            Backend::SelectedDims(sd) => {
+                sd.search_with_rerank(query, k, fetch_k, ef_search, self.metric)
+            }
+        };
+
+        Ok(neighbors
+            .into_iter()
+            .filter_map(|(d_id, distance)| {
+                inner.idx_to_id.get(&d_id).map(|id| SearchResult {
+                    id: id.clone(),
+                    score: distance,
                     vector: None,
                     metadata: None,
                 })
@@ -270,16 +473,37 @@ impl VectorIndex for HnswIndex {
         }
 
         let mut inner = self.inner.write();
-        let idx = inner.next_idx;
-        inner.next_idx += 1;
+        // Destructure to sidestep the "simultaneous mutable borrows of the
+        // same struct" borrow-check trap — `&mut inner.backend` and
+        // `inner.next_idx` alias `inner` otherwise.
+        let HnswInner {
+            backend,
+            vectors,
+            id_to_idx,
+            idx_to_id,
+            next_idx,
+        } = &mut *inner;
 
-        // Insert into HNSW graph using insert_data
-        inner.hnsw.insert_data(&vector, idx);
+        // For the SelectedDims backend we let the backend own the running
+        // index so the internal id matches `full_store` position; for
+        // Standard we keep using the existing next_idx scheme.
+        let idx = match backend {
+            Backend::Standard(hnsw) => {
+                let i = *next_idx;
+                *next_idx += 1;
+                hnsw.insert_data(&vector, i);
+                i
+            }
+            Backend::SelectedDims(sd) => {
+                let i = sd.insert(&vector);
+                *next_idx = i + 1;
+                i
+            }
+        };
 
-        // Store mappings
-        inner.vectors.insert(id.clone(), vector);
-        inner.id_to_idx.insert(id.clone(), idx);
-        inner.idx_to_id.insert(idx, id);
+        vectors.insert(id.clone(), vector);
+        id_to_idx.insert(id.clone(), idx);
+        idx_to_id.insert(idx, id);
 
         Ok(())
     }
@@ -296,33 +520,56 @@ impl VectorIndex for HnswIndex {
         }
 
         let mut inner = self.inner.write();
+        let HnswInner {
+            backend,
+            vectors,
+            id_to_idx,
+            idx_to_id,
+            next_idx,
+        } = &mut *inner;
 
-        // Prepare batch data for insertion
-        // First, assign indices and collect vector data
-        let data_with_ids: Vec<_> = entries
-            .iter()
-            .enumerate()
-            .map(|(i, (id, vector))| {
-                let idx = inner.next_idx + i;
-                (id.clone(), idx, vector.clone())
-            })
-            .collect();
+        match backend {
+            Backend::Standard(hnsw) => {
+                let base = *next_idx;
+                let data_with_ids: Vec<_> = entries
+                    .iter()
+                    .enumerate()
+                    .map(|(i, (id, vector))| (id.clone(), base + i, vector.clone()))
+                    .collect();
 
-        // Update next_idx
-        inner.next_idx += entries.len();
+                *next_idx += entries.len();
 
-        // Insert into HNSW sequentially
-        // Note: Using sequential insertion to avoid Send requirements with RwLock guard
-        // For large batches, consider restructuring to use hnsw_rs parallel_insert
-        for (_id, idx, vector) in &data_with_ids {
-            inner.hnsw.insert_data(vector, *idx);
-        }
+                // Sequential insertion avoids Send requirements on the RwLock
+                // guard. hnsw_rs parallel_insert could be reintroduced once
+                // we refactor for Send-safe batch access.
+                for (_id, idx, vector) in &data_with_ids {
+                    hnsw.insert_data(vector, *idx);
+                }
 
-        // Store mappings
-        for (id, idx, vector) in data_with_ids {
-            inner.vectors.insert(id.clone(), vector);
-            inner.id_to_idx.insert(id.clone(), idx);
-            inner.idx_to_id.insert(idx, id);
+                for (id, idx, vector) in data_with_ids {
+                    vectors.insert(id.clone(), vector);
+                    id_to_idx.insert(id.clone(), idx);
+                    idx_to_id.insert(idx, id);
+                }
+            }
+            Backend::SelectedDims(sd) => {
+                // The backend assigns indices itself (next_idx = full_store
+                // position). Mirror them into our id maps.
+                let mut assigned: Vec<(VectorId, usize, Vec<f32>)> =
+                    Vec::with_capacity(entries.len());
+                for (id, vector) in entries.into_iter() {
+                    let idx = sd.insert(&vector);
+                    assigned.push((id, idx, vector));
+                }
+                if let Some((_, last_idx, _)) = assigned.last() {
+                    *next_idx = last_idx + 1;
+                }
+                for (id, idx, vector) in assigned {
+                    vectors.insert(id.clone(), vector);
+                    id_to_idx.insert(id.clone(), idx);
+                    idx_to_id.insert(idx, id);
+                }
+            }
         }
 
         Ok(())
