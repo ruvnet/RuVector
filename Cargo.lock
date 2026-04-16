@@ -9055,6 +9055,7 @@ version = "0.1.0"
 dependencies = [
  "criterion 0.5.1",
  "eml-core",
+ "hnsw_rs",
  "rand 0.8.5",
  "serde",
  "serde_json",
