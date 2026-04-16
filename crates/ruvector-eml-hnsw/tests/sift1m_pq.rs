@@ -20,7 +20,7 @@
 use ruvector_eml_hnsw::cosine_decomp::cosine_distance_f32;
 use ruvector_eml_hnsw::hnsw_integration::{EmlHnsw, EmlMetric};
 use ruvector_eml_hnsw::pq_corrector::PqDistanceCorrector;
-use ruvector_eml_hnsw::pq_hnsw::PqEmlHnsw;
+use ruvector_eml_hnsw::pq_hnsw::PqEmlHnswLegacy as PqEmlHnsw;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::PathBuf;

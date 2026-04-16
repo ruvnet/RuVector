@@ -9053,6 +9053,7 @@ dependencies = [
 name = "ruvector-eml-hnsw"
 version = "0.2.0"
 dependencies = [
+ "anndists",
  "criterion 0.5.1",
  "eml-core",
  "hnsw_rs",
