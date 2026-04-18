@@ -369,3 +369,39 @@ mod property_tests {
         }
     }
 }
+
+#[test]
+fn test_get_edges_for_nodes() {
+    let db = GraphDB::new();
+
+    let node1 = Node::new("n1".to_string(), vec![Label { name: "Person".to_string() }], Properties::new());
+    let node2 = Node::new("n2".to_string(), vec![Label { name: "Person".to_string() }], Properties::new());
+    let node3 = Node::new("n3".to_string(), vec![Label { name: "Person".to_string() }], Properties::new());
+    let node4 = Node::new("n4".to_string(), vec![Label { name: "Person".to_string() }], Properties::new());
+
+    db.create_node(node1).unwrap();
+    db.create_node(node2).unwrap();
+    db.create_node(node3).unwrap();
+    db.create_node(node4).unwrap();
+
+    db.create_edge(Edge::new("e1".to_string(), "n1".to_string(), "n2".to_string(), "KNOWS".to_string(), Properties::new())).unwrap();
+    db.create_edge(Edge::new("e2".to_string(), "n1".to_string(), "n3".to_string(), "KNOWS".to_string(), Properties::new())).unwrap();
+    db.create_edge(Edge::new("e3".to_string(), "n2".to_string(), "n1".to_string(), "KNOWS".to_string(), Properties::new())).unwrap();
+    db.create_edge(Edge::new("e4".to_string(), "n3".to_string(), "n4".to_string(), "KNOWS".to_string(), Properties::new())).unwrap();
+
+    let result = db.get_edges_for_nodes(&["n1".to_string(), "n2".to_string()]);
+    assert_eq!(result.len(), 3);
+    let ids: Vec<_> = result.iter().map(|e| e.id.clone()).collect();
+    assert!(ids.contains(&"e1".to_string()));
+    assert!(ids.contains(&"e2".to_string()));
+    assert!(ids.contains(&"e3".to_string()));
+
+    let single = db.get_edges_for_nodes(&["n3".to_string()]);
+    assert_eq!(single.len(), 1);
+
+    let missing = db.get_edges_for_nodes(&["n5".to_string()]);
+    assert_eq!(missing.len(), 0);
+
+    let empty = db.get_edges_for_nodes(&[]);
+    assert_eq!(empty.len(), 0);
+}

@@ -245,6 +245,18 @@ impl GraphDB {
             .collect()
     }
 
+    /// Get outgoing edges for multiple nodes in one call (O(k×avg_degree) vs O(E) for full scan).
+    pub fn get_edges_for_nodes(&self, node_ids: &[NodeId]) -> Vec<Edge> {
+        let mut result = Vec::with_capacity(node_ids.len() * 4);
+        self.adjacency_index.for_each_outgoing_edge(node_ids, |edge_id| {
+            if let Some(edge) = self.edges.get(edge_id.as_str()) {
+                result.push(edge.clone());
+            }
+        });
+
+        result
+    }
+
     // Hyperedge operations
 
     /// Create a hyperedge

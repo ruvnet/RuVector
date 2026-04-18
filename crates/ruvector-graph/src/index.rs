@@ -297,6 +297,29 @@ impl AdjacencyIndex {
         edges
     }
 
+    /// Get outgoing edges for multiple nodes in one call (O(k×avg_degree) vs O(E) for full scan).
+    pub fn get_edges_for_nodes(&self, node_ids: &[NodeId]) -> Vec<EdgeId> {
+        let mut result = Vec::with_capacity(node_ids.len() * 4);
+        for node_id in node_ids {
+            if let Some(guard) = self.outgoing.get(node_id) {
+                result.extend(guard.iter().cloned());
+            }
+        }
+
+        result
+    }
+
+    /// Callback-based pass: avoids intermediate Vec<EdgeId> allocation for hot paths.
+    pub fn for_each_outgoing_edge<F: FnMut(&EdgeId)>(&self, node_ids: &[NodeId], mut f: F) {
+        for node_id in node_ids {
+            if let Some(guard) = self.outgoing.get(node_id) {
+                for edge_id in guard.iter() {
+                    f(edge_id);
+                }
+            }
+        }
+    }
+
     /// Get degree (number of outgoing edges)
     pub fn out_degree(&self, node_id: &NodeId) -> usize {
         self.outgoing.get(node_id).map(|set| set.len()).unwrap_or(0)
@@ -468,5 +491,71 @@ mod tests {
 
         let incoming = index.get_incoming_edges(&"n1".to_string());
         assert_eq!(incoming.len(), 1);
+    }
+
+    #[test]
+    fn test_get_edges_for_nodes() {
+        let index = AdjacencyIndex::new();
+
+        let edge1 = Edge::create("n1".to_string(), "n2".to_string(), "KNOWS");
+        let edge2 = Edge::create("n1".to_string(), "n3".to_string(), "KNOWS");
+        let edge3 = Edge::create("n2".to_string(), "n1".to_string(), "KNOWS");
+        let edge4 = Edge::create("n3".to_string(), "n4".to_string(), "KNOWS");
+
+        index.add_edge(&edge1);
+        index.add_edge(&edge2);
+        index.add_edge(&edge3);
+        index.add_edge(&edge4);
+
+        let result = index.get_edges_for_nodes(&["n1".to_string(), "n2".to_string()]);
+        assert_eq!(result.len(), 3);
+
+        let result_single = index.get_edges_for_nodes(&["n3".to_string()]);
+        assert_eq!(result_single.len(), 1);
+
+        let result_empty = index.get_edges_for_nodes(&["n5".to_string()]);
+        assert_eq!(result_empty.len(), 0);
+
+        let result_multi_empty = index.get_edges_for_nodes(&[]);
+        assert_eq!(result_multi_empty.len(), 0);
+    }
+
+    #[test]
+    fn test_for_each_outgoing_edge() {
+        let index = AdjacencyIndex::new();
+
+        let edge1 = Edge::create("n1".to_string(), "n2".to_string(), "KNOWS");
+        let edge2 = Edge::create("n1".to_string(), "n3".to_string(), "KNOWS");
+        let edge3 = Edge::create("n2".to_string(), "n1".to_string(), "KNOWS");
+        let edge4 = Edge::create("n3".to_string(), "n4".to_string(), "KNOWS");
+
+        index.add_edge(&edge1);
+        index.add_edge(&edge2);
+        index.add_edge(&edge3);
+        index.add_edge(&edge4);
+
+        let mut collected = Vec::new();
+        index.for_each_outgoing_edge(&["n1".to_string(), "n2".to_string()], |id| {
+            collected.push(id.clone());
+        });
+        assert_eq!(collected.len(), 3);
+
+        let mut single = Vec::new();
+        index.for_each_outgoing_edge(&["n3".to_string()], |id| {
+            single.push(id.clone());
+        });
+        assert_eq!(single.len(), 1);
+
+        let mut empty = Vec::new();
+        index.for_each_outgoing_edge(&["n5".to_string()], |id| {
+            empty.push(id.clone());
+        });
+        assert_eq!(empty.len(), 0);
+
+        let mut none_called = Vec::new();
+        index.for_each_outgoing_edge(&[], |id| {
+            none_called.push(id.clone());
+        });
+        assert_eq!(none_called.len(), 0);
     }
 }
