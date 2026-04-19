@@ -1,19 +1,11 @@
 //! Burn-based GAT implementation with autodiff support.
 //!
-//! Phase 1: Stub skeleton only - tensor shape details deferred to Phase 2.
+//! Phase 1: ✅ Skeleton complete. Phase 2 onwards: implement `todo!()` markers.
 
-/// Placeholder for GATEncoderBurn - full implementation in Phase 2.
-#[cfg(feature = "gat-burn")]
-pub mod modgat_encoder_burn {
-    // TODO(Phase 2): Implement GATLayerBurn with burn-nn::Linear
-    // TODO(Phase 2): Implement multi-head attention forward
-    // TODO(Phase 2): Implement backward with burn autodiff
-    // TODO(Phase 2): gradcheck verification
-}
+pub mod gat_encoder;
+pub mod gat_layer;
+pub mod gradcheck;
+pub mod tensor_conversion;
 
-/// Tensor conversion helpers - deferred to Phase 2 when tensor shapes are known.
-#[cfg(feature = "gat-burn")]
-pub mod tensor_conversion {
-    // TODO(Phase 2): to_burn_tensor() -> burn::Tensor<Rank2>
-    // TODO(Phase 2): from_burn_tensor() -> Vec<Vec<f32>>
-}
+pub use gat_encoder::GATEncoderBurn;
+pub use gat_layer::{GATLayerBurn, GATLayerBurnConfig};
