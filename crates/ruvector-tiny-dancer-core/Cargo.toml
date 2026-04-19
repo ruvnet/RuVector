@@ -36,7 +36,7 @@ chrono = { workspace = true }
 uuid = { workspace = true }
 
 # Database
-rusqlite = { version = "0.32", features = ["bundled", "modern_sqlite"] }
+rusqlite = { version = "0.37", features = ["bundled", "modern_sqlite"] }
 
 # Performance monitoring
 once_cell = { workspace = true }

@@ -44,6 +44,10 @@ libc = "0.2"
 napi = { workspace = true, optional = true }
 napi-derive = { workspace = true, optional = true }
 
+# Burn autodiff ML framework (for GAT backward support)
+burn = { version = "0.21.0-pre.3", default-features = false, features = ["autodiff", "ndarray"], optional = true }
+burn-nn = { version = "0.21.0-pre.3", optional = true }
+
 [features]
 default = ["simd", "mmap"]
 simd = []
@@ -51,6 +55,9 @@ wasm = []
 napi = ["dep:napi", "dep:napi-derive"]
 mmap = ["dep:memmap2", "dep:page_size"]
 cold-tier = ["mmap"]  # Hyperbatch training for graphs exceeding RAM
+gat-burn = ["dep:burn", "dep:burn-nn"]
+gat-burn-cuda = ["gat-burn", "burn/cuda"]
+gat-burn-metal = ["gat-burn", "burn/metal"]
 
 [dev-dependencies]
 criterion = { workspace = true }

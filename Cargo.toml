@@ -68,7 +68,7 @@ members = [
     "crates/ruvllm",
     "crates/ruvllm-cli",
     "crates/ruvllm-wasm",
-    "crates/prime-radiant",
+    # "crates/prime-radiant",
     "crates/ruvector-delta-core",
     "crates/ruvector-delta-wasm",
     "crates/ruvector-delta-index",
