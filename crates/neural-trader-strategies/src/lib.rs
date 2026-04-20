@@ -17,12 +17,17 @@
 
 pub mod attention_scalper;
 pub mod coherence_arb;
+pub mod coherence_bridge;
 pub mod ev_kelly;
 pub mod intent;
 pub mod risk;
 
 pub use attention_scalper::{AttentionScalper, AttentionScalperConfig};
 pub use coherence_arb::{CoherenceArb, CoherenceArbConfig};
+pub use coherence_bridge::{
+    simple_context, CoherenceChecker, CoherenceDecision, CoherenceGate, CoherenceOutcome,
+    GateConfig, GateContext, RegimeLabel, ThresholdGate,
+};
 pub use ev_kelly::{ExpectedValueKelly, ExpectedValueKellyConfig};
 pub use intent::{Action, Intent, Side};
 pub use risk::{
