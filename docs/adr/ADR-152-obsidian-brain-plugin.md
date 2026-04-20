@@ -138,6 +138,10 @@ The plugin's only persistent state is:
 - [x] **pi.ruv.io integration** — client, pull modal, search modal,
   status command, settings section. Mirrors memories into
   `Brain/Pi/<title>.md` stubs with `pi-id` + `pi-source` frontmatter.
+- [x] **pi write-through** — `PiClient.createMemory` + `pi.ruv.io:
+  publish current note` command (POST `/v1/memories`, ~20s server-side
+  due to RVF segmentation + DP noising). Typed `PI_CATEGORIES` enum +
+  `{ custom }` newtype variant for unknown categories.
 - [x] **Real embedder autodetect** — `scripts/run-dev.sh` probes
   `:9877` for the real `ruvultra-embedder` (bge-small-en-v1.5, 384-dim,
   candle-cuda) and uses it directly when available; falls back to an
@@ -145,6 +149,52 @@ The plugin's only persistent state is:
 - [x] **Dim-mismatch guard** — seed helper refuses to seed when the
   brain already holds vectors at a different dim than the current
   embedder.
+
+### Phase 4 — advanced capabilities (delivered in 31c865cc)
+
+- [x] **Q&A / RAG modal** (`src/qa-modal.ts`, `Cmd+Shift+K`) —
+  retrieval-grounded. Blends top-k from the local brain and pi.ruv.io,
+  dedups on normalized content, renders each card with real
+  `MarkdownRenderer` fidelity and open/insert/copy actions.
+- [x] **Find similar to selection** — `editor.getSelection()` seeds
+  `BrainSearchModal` via a new `seed` argument.
+- [x] **Tag / category filter** — `BrainSearchModal` parses
+  `category:<token>` prefix and filters results.
+- [x] **Pi pull category filter** — new `piPullCategory` setting
+  passed to `/v1/memories/list?category=`.
+- [x] **Offline queue** (`src/offline-queue.ts`) — `Indexer` catches
+  `BrainError.status === 0` (network) and enqueues pending POSTs
+  deduped by path. Auto-drains every 30 s + opportunistically on each
+  status refresh. Persisted to `data.json` so pending writes survive
+  plugin reloads. Manual `Offline queue: retry pending now` command.
+  Status bar shows `· N queued` when pending.
+- [x] **Keyboard nav in Related panel** — ↑/↓/j/k/Enter/o/r; mouseenter
+  hints; on-screen help strip.
+- [x] **Brain Ops modal** (`src/brain-ops.ts`) — surfaces previously
+  unused endpoints (`/brain/workload`, `/brain/training-stats`,
+  `/learning/stats`, `/brain/store_mode`, `/brain/info`,
+  `/brain/index_stats`) + WAL checkpoint button + DPO JSONL export.
+- [x] **Daily recall** — generates
+  `Brain/Recall/Recall-YYYY-MM-DD.md` from memories whose
+  `created_at` month/day match today but year doesn't.
+- [x] **Agent access (MCP) cross-link** — settings section documenting
+  that the same brain memories are accessible to agents via
+  `mcp-brain-server` / `ruvbrain-sse`. Includes a "Copy MCP endpoint"
+  button that drops the brain URL onto the clipboard for
+  `claude_desktop_config.json` / `.codex/mcp.json` /
+  `.gemini/settings.json`.
+
+### Phase 5 — roadmap
+
+| Priority | Capability | Notes |
+| --- | --- | --- |
+| P2 | **Jump-to-passage on result open** | Locate matching span, scroll + select. |
+| P2 | **Inline wikilink suggestions** | Command reads active note, finds semantically related vault notes, proposes `[[links]]`. |
+| P3 | **Memory explorer view** | Dedicated panel listing memories with category/date filters. |
+| P3 | **MMR diversification** | Optional reranker to reduce redundancy in search results. |
+| P4 | **Multi-brain** | Federated search across local + pi + team brains; provenance per row. |
+| P4 | **Canvas integration** | Drag brain memories onto Obsidian Canvas as cards. |
+| P4 | **Conflict detection** | Flag when a newly written note contradicts an indexed memory (needs either LLM or structured distance metric). |
 
 ## Testing strategy
 
@@ -192,27 +242,20 @@ Plugin is installable by:
 - BRAT — once the repo publishes a tagged GitHub release with
   `main.js`, `manifest.json`, `styles.css` as release assets.
 
-## Roadmap — phase 4 capabilities
+## Distribution
 
-The following capabilities build on the delivered surface and are
-tracked here for future PRs:
+Shipped separately at
+[**ruvnet/obsidian-brain**](https://github.com/ruvnet/obsidian-brain) —
+a clean, BRAT-installable mirror with:
 
-| Priority | Capability | Notes |
-| --- | --- | --- |
-| P0 | **Q&A / RAG modal** | Retrieves top-k memories for a question and renders a grounded answer inline. Can be LLM-free (just top-k context cards) or wired to a local LLM if available. |
-| P0 | **pi.ruv.io write-through** | `POST /v1/memories` to publish selected notes back to the shared brain. Requires bearer + confirmation dialog. |
-| P1 | **Find similar to selection** | Right-click on highlighted text → semantic search on just that fragment. Uses `editor.getSelection()`. |
-| P1 | **Tag / category filter on search** | `Cmd+Shift+B` accepts `category:<x>` prefix or exposes a dropdown. Backend already supports it via `?category=`. |
-| P1 | **Pi pull category filter** | New setting `piPullCategory` + `list?category=` on the pull. Avoids default pulls dominated by self-reflection training logs. |
-| P2 | **Jump-to-passage on result open** | Find the matching span and scroll to it rather than opening the whole note at line 1. |
-| P2 | **Inline wikilink suggestions** | Command analyzes active note, finds semantically related vault notes, proposes `[[links]]`. |
-| P2 | **Offline queue** | On transient brain unavailability, queue pending writes in `data.json.pending[]` and replay on reconnect. |
-| P3 | **Memory explorer view** | Dedicated panel listing brain memories with category/date filters — complements the graph view. |
-| P3 | **MMR diversification** | Optional post-process of search results to diversify redundant near-duplicates. |
-| P3 | **Keyboard nav in Related panel** | Arrow keys + Enter, no mouse required. |
-| P3 | **Daily recall note** | Auto-surface "memories from this day last year". |
-| P4 | **Multi-brain** | Federated search across local + pi + team brains; result provenance per row. |
-| P4 | **Canvas integration** | Drag brain memories onto Obsidian Canvas as cards. |
+- `main.js`, `manifest.json`, `styles.css` published as release assets
+  via `.github/workflows/release.yml` on every `v*` tag push.
+- `.github/workflows/test.yml` running `npm run typecheck` +
+  `npm run build` + `node --check main.js` on every PR.
+- First tagged release: **v0.1.0**.
+
+The authoritative source remains `examples/obsidian-brain/` in this
+repo; `ruvnet/obsidian-brain` is re-synchronized per release.
 
 ## Security / privacy
 

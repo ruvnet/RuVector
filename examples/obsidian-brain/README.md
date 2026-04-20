@@ -34,8 +34,16 @@ Then in Obsidian: **Settings → Community plugins → Installed plugins → RuV
 
 ### Option B — BRAT
 
-Once this plugin is tagged as a GitHub release, install with [BRAT](https://github.com/TfTHacker/obsidian42-brat):
-`BRAT → Add beta plugin → ruvnet/RuVector` (path `examples/obsidian-brain`).
+Install with [BRAT](https://github.com/TfTHacker/obsidian42-brat) from
+the dedicated distribution repo:
+
+```
+BRAT → Add beta plugin → ruvnet/obsidian-brain
+```
+
+The [ruvnet/obsidian-brain](https://github.com/ruvnet/obsidian-brain)
+repo publishes tagged releases of `main.js`, `manifest.json`, and
+`styles.css` built from the source in this directory.
 
 ## Running the brain locally
 
