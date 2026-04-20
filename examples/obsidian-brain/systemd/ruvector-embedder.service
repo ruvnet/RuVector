@@ -1,0 +1,19 @@
+[Unit]
+Description=RuVector local embedder (all-MiniLM-L6-v2, 384-dim)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/projects/RuVector
+Environment=RUST_LOG=info
+# Start whichever embedder binary you use — the brain only needs
+# POST /embed {"texts":["..."]} → {"vectors":[[...]]}.
+ExecStart=%h/.cargo/bin/ruvector-embedder --port 9877
+Restart=on-failure
+RestartSec=3
+IPAddressAllow=127.0.0.0/8
+IPAddressDeny=any
+
+[Install]
+WantedBy=default.target

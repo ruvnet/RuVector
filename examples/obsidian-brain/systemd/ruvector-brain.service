@@ -1,0 +1,21 @@
+[Unit]
+Description=RuVector Brain (local, DiskANN + AIDefence)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust WorkingDirectory to your clone.
+WorkingDirectory=%h/projects/RuVector
+Environment=RUST_LOG=info
+Environment=RUVBRAIN_STORE_MODE=rvf
+Environment=RUVBRAIN_EMBEDDER_URL=http://127.0.0.1:9877
+ExecStart=%h/.cargo/bin/mcp-brain-server-local --port 9876
+Restart=on-failure
+RestartSec=3
+# Keep the brain's listen socket loopback-only.
+IPAddressAllow=127.0.0.0/8
+IPAddressDeny=any
+
+[Install]
+WantedBy=default.target

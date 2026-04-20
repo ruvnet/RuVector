@@ -1,0 +1,31 @@
+{
+  "name": "obsidian-brain",
+  "version": "0.1.0",
+  "description": "Obsidian plugin for the RuVector Brain — DiskANN semantic search + AIDefence + DPO pairs over your vault.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
+    "typecheck": "tsc --noEmit --skipLibCheck",
+    "version": "node version-bump.mjs && git add manifest.json versions.json"
+  },
+  "keywords": [
+    "obsidian",
+    "plugin",
+    "ruvector",
+    "brain",
+    "diskann",
+    "semantic-search",
+    "embeddings"
+  ],
+  "author": "ruvnet",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "builtin-modules": "^3.3.0",
+    "esbuild": "^0.21.4",
+    "obsidian": "^1.6.6",
+    "tslib": "^2.6.2",
+    "typescript": "^5.4.5"
+  }
+}
