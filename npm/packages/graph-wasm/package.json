@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/graph-wasm",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "type": "module",
   "description": "Neo4j-compatible hypergraph database in WebAssembly - Cypher queries, SIMD optimization, knowledge graphs",
   "main": "ruvector_graph_wasm.js",
