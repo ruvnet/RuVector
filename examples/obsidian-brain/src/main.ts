@@ -15,6 +15,8 @@ import { RelatedView, RELATED_VIEW_TYPE } from "./related-view";
 import { BulkSyncModal } from "./bulk-sync";
 import { DpoController, DpoStatusModal } from "./dpo";
 import { GraphOverlay } from "./graph-overlay";
+import { PiClient } from "./pi-client";
+import { PiSync, PiSyncModal, PiSearchModal } from "./pi-sync";
 
 interface PluginData {
 	settings: BrainSettings;
@@ -25,6 +27,8 @@ export default class ObsidianBrainPlugin extends Plugin {
 	settings!: BrainSettings;
 	brain!: BrainClient;
 	indexer!: Indexer;
+	pi!: PiClient;
+	piSync!: PiSync;
 	private dpo!: DpoController;
 	private graph!: GraphOverlay;
 	private statusBar!: HTMLElement;
@@ -40,6 +44,15 @@ export default class ObsidianBrainPlugin extends Plugin {
 		this.indexer.setState(indexState);
 		this.dpo = new DpoController(this.app, this.brain, this.indexer, this.settings, indexState);
 		this.graph = new GraphOverlay(this.app, indexState, this.settings);
+		this.pi = new PiClient(this.settings.piUrl, this.settings.piToken);
+		this.piSync = new PiSync(
+			this.app,
+			this.brain,
+			this.pi,
+			this.indexer,
+			this.settings,
+			indexState,
+		);
 
 		this.registerView(
 			RELATED_VIEW_TYPE,
@@ -126,6 +139,37 @@ export default class ObsidianBrainPlugin extends Plugin {
 			callback: () => void this.showInfo(),
 		});
 
+		this.addCommand({
+			id: "brain-pi-pull",
+			name: "pi.ruv.io: pull memories into local brain",
+			callback: () => new PiSyncModal(this.app, this.piSync).open(),
+		});
+
+		this.addCommand({
+			id: "brain-pi-search",
+			name: "pi.ruv.io: search shared brain directly",
+			callback: () =>
+				new PiSearchModal(this.app, this.pi, this.settings.piPullLimit).open(),
+		});
+
+		this.addCommand({
+			id: "brain-pi-status",
+			name: "pi.ruv.io: status",
+			callback: async () => {
+				try {
+					const s = await this.pi.status();
+					new Notice(
+						`pi.ruv.io — ${s.total_memories.toLocaleString()} memories, ` +
+							`${s.graph_edges.toLocaleString()} edges, ` +
+							`dim ${s.embedding_dim}, ${s.drift_status}`,
+						8000,
+					);
+				} catch (e) {
+					new Notice(`pi.ruv.io unreachable: ${(e as Error).message}`, 6000);
+				}
+			},
+		});
+
 		this.registerEvent(
 			this.app.vault.on("modify", (f) => {
 				if (f instanceof TFile) this.indexer.queueIndex(f);
@@ -165,6 +209,8 @@ export default class ObsidianBrainPlugin extends Plugin {
 	async saveSettings(): Promise<void> {
 		this.brain.brainUrl = this.settings.brainUrl;
 		this.brain.embedderUrl = this.settings.embedderUrl;
+		this.pi.url = this.settings.piUrl;
+		this.pi.token = this.settings.piToken;
 		await this.persist();
 	}
 

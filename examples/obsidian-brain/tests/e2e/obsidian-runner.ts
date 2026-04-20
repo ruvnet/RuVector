@@ -298,6 +298,9 @@ export async function runObsidianE2E(opts: E2EHarnessOptions): Promise<E2EResult
 	await waitForHealth(brainUrl, 20_000);
 
 	// Patch the plugin's data.json so the Brain URL matches our scratch server.
+	// Pi.ruv.io integration is only wired when BRAIN_API_KEY is set in env so
+	// offline runs remain deterministic.
+	const piToken = process.env.BRAIN_API_KEY ?? "";
 	writeFileSync(
 		join(vault, ".obsidian", "plugins", "obsidian-brain", "data.json"),
 		JSON.stringify(
@@ -317,6 +320,10 @@ export async function runObsidianE2E(opts: E2EHarnessOptions): Promise<E2EResult
 					bulkSyncExcludeFolders: ".obsidian,.trash",
 					storeMapping: {},
 					dpoDirection: "quality",
+					piUrl: process.env.PI_URL ?? "https://pi.ruv.io",
+					piToken,
+					piPullLimit: 5,
+					piPullQuery: "",
 				},
 				indexState: { pathToHash: {}, hashToId: {}, idToPath: {}, lastSync: 0 },
 			},

@@ -29,7 +29,10 @@ describe.skipIf(!RUN)("real Obsidian + obsidian-brain plugin (E2E)", () => {
 						failed.map((c) => `  ✗ ${c.name}: ${c.detail}`).join("\n"),
 				);
 			}
-			expect(result.report.passed).toBeGreaterThanOrEqual(5);
+			// 7 baseline checks + 1 "pi commands registered" always;
+			// +1 when BRAIN_API_KEY reaches the plugin (live pi status).
+			const minExpected = process.env.BRAIN_API_KEY ? 9 : 8;
+			expect(result.report.passed).toBeGreaterThanOrEqual(minExpected);
 		},
 		300_000,
 	);

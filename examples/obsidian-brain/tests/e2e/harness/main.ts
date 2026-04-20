@@ -192,6 +192,45 @@ export default class HarnessPlugin extends Plugin {
 			return `${brainGroups.length} groups`;
 		});
 
+		await addCheck("pi.ruv.io commands registered", () => {
+			for (const id of [
+				"obsidian-brain:brain-pi-pull",
+				"obsidian-brain:brain-pi-search",
+				"obsidian-brain:brain-pi-status",
+			]) {
+				if (!lookupCommand(this.app, id))
+					throw new Error(`missing command ${id}`);
+			}
+			return "pull + search + status present";
+		});
+
+		// Only exercise the live pi API when the harness is explicitly told it's
+		// allowed (and a token was pushed through data.json). This keeps the
+		// check deterministic in offline CI.
+		const piApi = (
+			this.app as unknown as {
+				plugins: {
+					plugins: Record<
+						string,
+						{
+							pi?: {
+								configured: boolean;
+								status: () => Promise<{ total_memories: number; embedding_dim: number }>;
+							};
+						}
+					>;
+				};
+			}
+		).plugins.plugins["obsidian-brain"]?.pi;
+		if (piApi?.configured) {
+			await addCheck("pi.ruv.io status roundtrip", async () => {
+				const s = await piApi.status();
+				if (!Number.isFinite(s.total_memories) || s.total_memories <= 0)
+					throw new Error(`unexpected stats: ${JSON.stringify(s)}`);
+				return `${s.total_memories} memories, dim ${s.embedding_dim}`;
+			});
+		}
+
 		this.writeReport({
 			startedAt,
 			checks,

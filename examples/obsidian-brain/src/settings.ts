@@ -16,6 +16,11 @@ export interface BrainSettings {
 	bulkSyncExcludeFolders: string;
 	storeMapping: Record<string, string>;
 	dpoDirection: string;
+	// pi.ruv.io — shared brain integration (ADR-SYS-0025 §pi).
+	piUrl: string;
+	piToken: string;
+	piPullLimit: number;
+	piPullQuery: string;
 }
 
 export const DEFAULT_SETTINGS: BrainSettings = {
@@ -33,6 +38,10 @@ export const DEFAULT_SETTINGS: BrainSettings = {
 	bulkSyncExcludeFolders: ".obsidian,.trash",
 	storeMapping: {},
 	dpoDirection: "quality",
+	piUrl: "https://pi.ruv.io",
+	piToken: "",
+	piPullLimit: 20,
+	piPullQuery: "",
 };
 
 export class BrainSettingTab extends PluginSettingTab {
@@ -239,6 +248,78 @@ export class BrainSettingTab extends PluginSettingTab {
 					.onChange(async (v) => {
 						this.plugin.settings.dpoDirection = v.trim() || "quality";
 						await this.plugin.saveSettings();
+					}),
+			);
+
+		containerEl.createEl("h3", { text: "pi.ruv.io shared brain" });
+
+		new Setting(containerEl)
+			.setName("pi.ruv.io URL")
+			.addText((t) =>
+				t
+					.setValue(this.plugin.settings.piUrl)
+					.onChange(async (v) => {
+						this.plugin.settings.piUrl = v.trim() || "https://pi.ruv.io";
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName("Bearer token")
+			.setDesc("Required for /v1/memories/* endpoints. Stored in the plugin data.json.")
+			.addText((t) =>
+				t
+					.setValue(this.plugin.settings.piToken)
+					.onChange(async (v) => {
+						this.plugin.settings.piToken = v.trim();
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName("Pull limit")
+			.setDesc("How many pi memories to pull per sync")
+			.addText((t) =>
+				t
+					.setValue(String(this.plugin.settings.piPullLimit))
+					.onChange(async (v) => {
+						const n = parseInt(v, 10);
+						if (!Number.isFinite(n) || n < 1 || n > 500) return;
+						this.plugin.settings.piPullLimit = n;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName("Pull query")
+			.setDesc("Empty = latest memories; otherwise a semantic search query")
+			.addText((t) =>
+				t
+					.setValue(this.plugin.settings.piPullQuery)
+					.onChange(async (v) => {
+						this.plugin.settings.piPullQuery = v.trim();
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName("Test pi.ruv.io")
+			.setDesc("Fetch /v1/status — no auth required")
+			.addButton((b) =>
+				b
+					.setButtonText("Probe")
+					.setCta()
+					.onClick(async () => {
+						try {
+							const s = await this.plugin.pi.status();
+							new Notice(
+								`pi.ruv.io: ${s.total_memories.toLocaleString()} memories, ` +
+									`${s.graph_edges.toLocaleString()} edges, dim=${s.embedding_dim}`,
+								6000,
+							);
+						} catch (e) {
+							new Notice(`pi.ruv.io probe failed: ${(e as Error).message}`, 6000);
+						}
 					}),
 			);
 	}
