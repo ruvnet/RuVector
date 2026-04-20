@@ -5253,10 +5253,16 @@ dependencies = [
  "hex",
  "nanosecond-scheduler",
  "ndarray 0.15.6",
+ "ordered-float",
  "parking_lot 0.12.5",
  "rand 0.8.5",
+ "regex",
  "reqwest 0.12.28",
+<<<<<<< Updated upstream
  "ruvector-consciousness",
+=======
+ "rusqlite",
+>>>>>>> Stashed changes
  "ruvector-delta-core",
  "ruvector-domain-expansion",
  "ruvector-mincut 2.1.0",
