@@ -1,8 +1,9 @@
-import { App, Modal, Notice, TFile } from "obsidian";
+import { App, Modal, Notice, TFile, SuggestModal } from "obsidian";
 import { BrainClient } from "./brain";
-import { PiClient, PiMemory } from "./pi-client";
+import { PiClient, PiMemory, PI_CATEGORIES, piCategory } from "./pi-client";
 import type { BrainSettings } from "./settings";
 import type { IndexState, Indexer } from "./indexer";
+import { extractCategory, stripFrontmatter } from "./indexer";
 
 /**
  * Pulls a slice of pi.ruv.io memories and mirrors them into the local
@@ -35,8 +36,15 @@ export class PiSync {
 		let memories: PiMemory[];
 		try {
 			memories = this.settings.piPullQuery
-				? await this.pi.search(this.settings.piPullQuery, this.settings.piPullLimit)
-				: await this.pi.list(this.settings.piPullLimit);
+				? await this.pi.search(
+						this.settings.piPullQuery,
+						this.settings.piPullLimit,
+					)
+				: await this.pi.list(
+						this.settings.piPullLimit,
+						0,
+						this.settings.piPullCategory || undefined,
+					);
 		} catch (e) {
 			new Notice(`pi.ruv.io pull failed: ${(e as Error).message}`, 8000);
 			return { pulled: 0, blocked: 0, total: 0 };
@@ -162,6 +170,112 @@ export class PiSyncModal extends Modal {
 			this.startBtn.disabled = false;
 		}
 	}
+}
+
+/**
+ * Publish the active note to pi.ruv.io. Prompts for a category from the
+ * accepted pi enum (falls back to the `custom` newtype) and assembles
+ * tags from frontmatter + brain-category. Write is async and can take
+ * ~20s server-side — we show a spinner.
+ */
+export class PiPublishCategoryModal extends SuggestModal<string> {
+	constructor(
+		app: App,
+		private defaultCat: string,
+		private done: (c: string | null) => void,
+	) {
+		super(app);
+		this.setPlaceholder(
+			`Pi category — default ${defaultCat} (or type a custom name)`,
+		);
+	}
+
+	getSuggestions(q: string): string[] {
+		const base = new Set<string>(PI_CATEGORIES as unknown as string[]);
+		if (this.defaultCat) base.add(this.defaultCat);
+		if (q.trim()) base.add(q.trim());
+		return Array.from(base);
+	}
+
+	renderSuggestion(v: string, el: HTMLElement): void {
+		el.setText(v);
+	}
+
+	onChooseSuggestion(v: string): void {
+		this.done(v);
+	}
+
+	onClose(): void {
+		setTimeout(() => this.done(null), 0);
+	}
+}
+
+export async function publishActiveNoteToPi(
+	app: App,
+	pi: PiClient,
+	settings: BrainSettings,
+): Promise<void> {
+	if (!pi.configured) {
+		new Notice("pi.ruv.io: set URL + bearer token in settings first");
+		return;
+	}
+	const file = app.workspace.getActiveFile();
+	if (!file || file.extension !== "md") {
+		new Notice("Open a markdown note to publish");
+		return;
+	}
+	const raw = await app.vault.read(file);
+	const body = stripFrontmatter(raw).trim();
+	if (!body) {
+		new Notice("Note is empty after frontmatter strip");
+		return;
+	}
+	const derived = extractCategory(raw, settings.defaultCategory);
+	new PiPublishCategoryModal(app, derived, async (chosen) => {
+		if (!chosen) return;
+		const tags = collectTags(raw, chosen);
+		const notice = new Notice(
+			`pi.ruv.io: publishing '${file.basename}' (can take ~20s)…`,
+			0,
+		);
+		try {
+			const res = await pi.createMemory(
+				piCategory(chosen),
+				body,
+				file.basename,
+				tags,
+			);
+			notice.hide();
+			new Notice(
+				`pi.ruv.io: published ${file.basename} — id ${res.id.slice(0, 12)}, rvf_segments=${res.rvf_segments ?? "?"}`,
+				8000,
+			);
+		} catch (e) {
+			notice.hide();
+			new Notice(`pi.ruv.io publish failed: ${(e as Error).message}`, 8000);
+		}
+	}).open();
+}
+
+function collectTags(raw: string, category: string): string[] {
+	const tags = new Set<string>();
+	tags.add(`brain/${category}`);
+	if (raw.startsWith("---")) {
+		const end = raw.indexOf("\n---", 3);
+		if (end > 0) {
+			const m = /\btags:\s*\[([^\]]+)\]/i.exec(raw.slice(3, end));
+			if (m) {
+				for (const t of m[1].split(",")) {
+					const s = t.trim().replace(/^["']|["']$/g, "");
+					if (s) tags.add(s);
+				}
+			}
+		}
+	}
+	// Inline #tags in body
+	const bodyTags = raw.match(/(?:^|\s)#([A-Za-z0-9_\/-]+)/g);
+	if (bodyTags) for (const t of bodyTags) tags.add(t.trim().slice(1));
+	return Array.from(tags).slice(0, 16);
 }
 
 export class PiSearchModal extends Modal {

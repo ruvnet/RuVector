@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
+import { Component, MarkdownView, Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
 import { BrainClient } from "./brain";
 import {
 	BrainSettings,
@@ -16,11 +16,24 @@ import { BulkSyncModal } from "./bulk-sync";
 import { DpoController, DpoStatusModal } from "./dpo";
 import { GraphOverlay } from "./graph-overlay";
 import { PiClient } from "./pi-client";
-import { PiSync, PiSyncModal, PiSearchModal } from "./pi-sync";
+import {
+	PiSync,
+	PiSyncModal,
+	PiSearchModal,
+	publishActiveNoteToPi,
+} from "./pi-sync";
+import { BrainQaModal } from "./qa-modal";
+import { BrainOpsModal } from "./brain-ops";
+import {
+	EMPTY_QUEUE_STATE,
+	OfflineQueue,
+	OfflineQueueState,
+} from "./offline-queue";
 
 interface PluginData {
 	settings: BrainSettings;
 	indexState: IndexState;
+	offlineQueue?: OfflineQueueState;
 }
 
 export default class ObsidianBrainPlugin extends Plugin {
@@ -29,10 +42,12 @@ export default class ObsidianBrainPlugin extends Plugin {
 	indexer!: Indexer;
 	pi!: PiClient;
 	piSync!: PiSync;
+	queue!: OfflineQueue;
 	private dpo!: DpoController;
 	private graph!: GraphOverlay;
 	private statusBar!: HTMLElement;
 	private statusTimer: number | null = null;
+	private mdComponent = new Component();
 
 	async onload(): Promise<void> {
 		const data = (await this.loadData()) as PluginData | null;
@@ -54,6 +69,16 @@ export default class ObsidianBrainPlugin extends Plugin {
 			indexState,
 		);
 
+		const queueState: OfflineQueueState = data?.offlineQueue ?? {
+			...EMPTY_QUEUE_STATE,
+		};
+		this.queue = new OfflineQueue(this, this.brain, queueState, () =>
+			void this.persist(),
+		);
+		this.indexer.setQueue(this.queue);
+		this.queue.start(30_000);
+		this.mdComponent.load();
+
 		this.registerView(
 			RELATED_VIEW_TYPE,
 			(leaf) => new RelatedView(leaf, this.brain, this.settings, indexState),
@@ -70,6 +95,47 @@ export default class ObsidianBrainPlugin extends Plugin {
 			callback: () => {
 				new BrainSearchModal(this.app, this.brain, this.settings, indexState).open();
 			},
+		});
+
+		this.addCommand({
+			id: "brain-search-selection",
+			name: "Semantic search on current selection",
+			editorCallback: (editor) => {
+				const sel = editor.getSelection().trim();
+				if (!sel) {
+					new Notice("Select some text first.");
+					return;
+				}
+				new BrainSearchModal(
+					this.app,
+					this.brain,
+					this.settings,
+					indexState,
+					sel.slice(0, 400),
+				).open();
+			},
+		});
+
+		this.addCommand({
+			id: "brain-qa",
+			name: "Ask the brain (Q&A modal)",
+			hotkeys: [{ modifiers: ["Mod", "Shift"], key: "k" }],
+			callback: () => {
+				new BrainQaModal(
+					this.app,
+					this.brain,
+					this.pi,
+					this.settings,
+					indexState,
+					this.mdComponent,
+				).open();
+			},
+		});
+
+		this.addCommand({
+			id: "brain-ops",
+			name: "Brain ops (workload, training-stats, checkpoint, export)",
+			callback: () => new BrainOpsModal(this.app, this.brain, this.settings).open(),
 		});
 
 		this.addCommand({
@@ -153,6 +219,32 @@ export default class ObsidianBrainPlugin extends Plugin {
 		});
 
 		this.addCommand({
+			id: "brain-pi-publish",
+			name: "pi.ruv.io: publish current note",
+			callback: () =>
+				void publishActiveNoteToPi(this.app, this.pi, this.settings),
+		});
+
+		this.addCommand({
+			id: "brain-daily-recall",
+			name: "Daily recall — memories from this day",
+			callback: () => void this.dailyRecall(),
+		});
+
+		this.addCommand({
+			id: "brain-offline-queue-flush",
+			name: "Offline queue: retry pending now",
+			callback: async () => {
+				const before = this.queue.size();
+				const r = await this.queue.drain();
+				new Notice(
+					`Queue: ${before} pending → ${this.queue.size()} remaining (sent ${r.sent}, dropped ${r.failed})`,
+					6000,
+				);
+			},
+		});
+
+		this.addCommand({
 			id: "brain-pi-status",
 			name: "pi.ruv.io: status",
 			callback: async () => {
@@ -202,6 +294,8 @@ export default class ObsidianBrainPlugin extends Plugin {
 
 	async onunload(): Promise<void> {
 		if (this.statusTimer) window.clearTimeout(this.statusTimer);
+		this.queue?.stop();
+		this.mdComponent.unload();
 		this.app.workspace.getLeavesOfType(RELATED_VIEW_TYPE).forEach((l) => l.detach());
 		await this.persist();
 	}
@@ -218,8 +312,73 @@ export default class ObsidianBrainPlugin extends Plugin {
 		const payload: PluginData = {
 			settings: this.settings,
 			indexState: this.indexer.state,
+			offlineQueue: this.queue?.state,
 		};
 		await this.saveData(payload);
+	}
+
+	/**
+	 * Daily recall — list memories whose created_at matches today's
+	 * month/day across any year (~"on this day"). We use /memories with
+	 * a high limit and filter client-side because the brain's list
+	 * endpoint has no native date filter.
+	 */
+	private async dailyRecall(): Promise<void> {
+		try {
+			const today = new Date();
+			const thisMonth = today.getMonth();
+			const thisDay = today.getDate();
+			const resp = await this.brain.listMemories(0, 500);
+			const matches = resp.memories.filter((m) => {
+				const d = new Date(m.created_at * 1000);
+				return (
+					d.getMonth() === thisMonth &&
+					d.getDate() === thisDay &&
+					d.getFullYear() !== today.getFullYear()
+				);
+			});
+			if (matches.length === 0) {
+				new Notice("No memories from prior years on this day.");
+				return;
+			}
+			const folder = "Brain/Recall";
+			if (!this.app.vault.getAbstractFileByPath(folder)) {
+				await this.app.vault.createFolder(folder).catch(() => undefined);
+			}
+			const stamp = `${today.getFullYear()}-${String(thisMonth + 1).padStart(2, "0")}-${String(thisDay).padStart(2, "0")}`;
+			const path = `${folder}/Recall-${stamp}.md`;
+			const lines = [
+				"---",
+				`brain-category: recall`,
+				"tags: [brain/recall]",
+				"---",
+				"",
+				`# Brain recall for ${stamp}`,
+				"",
+				`${matches.length} memor${matches.length === 1 ? "y" : "ies"} from earlier years.`,
+				"",
+			];
+			for (const m of matches) {
+				const when = new Date(m.created_at * 1000).toISOString().slice(0, 10);
+				lines.push(`## ${when} — ${m.category} · ${m.id.slice(0, 12)}`);
+				lines.push("");
+				lines.push((m.content ?? "").slice(0, 600));
+				lines.push("");
+			}
+			const existing = this.app.vault.getAbstractFileByPath(path);
+			if (existing instanceof TFile) {
+				await this.app.vault.modify(existing, lines.join("\n"));
+			} else {
+				await this.app.vault.create(path, lines.join("\n"));
+				const file = this.app.vault.getAbstractFileByPath(path);
+				if (file instanceof TFile) {
+					await this.app.workspace.getLeaf(false).openFile(file);
+				}
+			}
+			new Notice(`Daily recall: ${matches.length} memories → ${path}`, 6000);
+		} catch (e) {
+			new Notice(`Daily recall failed: ${(e as Error).message}`, 6000);
+		}
 	}
 
 	private async activateRelatedView(): Promise<void> {
@@ -244,12 +403,18 @@ export default class ObsidianBrainPlugin extends Plugin {
 				this.brain.info().catch(() => null),
 			]);
 			const count = info?.memories_count ?? 0;
+			const pending = this.queue?.size() ?? 0;
+			const suffix = pending > 0 ? ` · ${pending} queued` : "";
 			this.statusBar.setText(
-				`Brain: ${h.backend} · ${count.toLocaleString()} memories`,
+				`Brain: ${h.backend} · ${count.toLocaleString()} memories${suffix}`,
 			);
 			this.statusBar.removeClass("brain-status-offline");
+			// Opportunistic drain when the status call succeeded.
+			if (pending > 0) void this.queue.drain();
 		} catch (e) {
-			this.statusBar.setText(`Brain: offline`);
+			const pending = this.queue?.size() ?? 0;
+			const suffix = pending > 0 ? ` · ${pending} queued` : "";
+			this.statusBar.setText(`Brain: offline${suffix}`);
 			this.statusBar.addClass("brain-status-offline");
 			void e;
 		}

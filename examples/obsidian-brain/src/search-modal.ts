@@ -35,6 +35,7 @@ export class BrainSearchModal extends Modal {
 		private brain: BrainClient,
 		private settings: BrainSettings,
 		private indexState: IndexState,
+		private seed?: string,
 	) {
 		super(app);
 	}
@@ -59,7 +60,18 @@ export class BrainSearchModal extends Modal {
 			this.scheduleSearch();
 		});
 		this.inputEl.addEventListener("keydown", (e) => this.onKey(e));
-		setTimeout(() => this.inputEl.focus(), 0);
+		setTimeout(() => {
+			this.inputEl.focus();
+			if (this.seed) {
+				this.inputEl.value = this.seed;
+				this.inputEl.setSelectionRange(
+					this.seed.length,
+					this.seed.length,
+				);
+				this.state.query = this.seed;
+				void this.runSearch();
+			}
+		}, 0);
 
 		this.render();
 	}
@@ -82,18 +94,24 @@ export class BrainSearchModal extends Modal {
 			this.render();
 			return;
 		}
+		const { query, category } = parseCategoryPrefix(q);
 		const gen = ++this.generation;
 		this.state.loading = true;
 		this.state.error = null;
 		this.render();
 		try {
-			const resp = await this.brain.search(q, this.settings.searchLimit);
+			const resp = await this.brain.search(
+				query || q,
+				this.settings.searchLimit,
+			);
 			if (gen !== this.generation) return;
-			this.state.results = resp.results;
+			this.state.results = category
+				? resp.results.filter((r) => r.category === category)
+				: resp.results;
 		} catch (e) {
 			if (gen !== this.generation) return;
 			this.state.error = (e as Error).message;
-			this.state.results = this.localFallback(q);
+			this.state.results = this.localFallback(query || q);
 		} finally {
 			if (gen === this.generation) {
 				this.state.loading = false;
@@ -227,6 +245,20 @@ function hashColor(s: string): string {
 	for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
 	const hue = Math.abs(h) % 360;
 	return `hsl(${hue}, 55%, 55%)`;
+}
+
+/**
+ * Parse a `category:<token> <rest of query>` prefix. Returns the
+ * extracted category (or null) and the remaining query text. Supports
+ * quoted categories: `category:"design patterns" semantic search`.
+ */
+export function parseCategoryPrefix(q: string): {
+	query: string;
+	category: string | null;
+} {
+	const m = /^category:(?:"([^"]+)"|(\S+))\s*(.*)$/i.exec(q);
+	if (!m) return { query: q, category: null };
+	return { category: (m[1] ?? m[2]).trim(), query: (m[3] ?? "").trim() };
 }
 
 export async function quickSearchAndOpen(

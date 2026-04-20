@@ -21,6 +21,7 @@ export interface BrainSettings {
 	piToken: string;
 	piPullLimit: number;
 	piPullQuery: string;
+	piPullCategory: string;
 }
 
 export const DEFAULT_SETTINGS: BrainSettings = {
@@ -42,6 +43,7 @@ export const DEFAULT_SETTINGS: BrainSettings = {
 	piToken: "",
 	piPullLimit: 20,
 	piPullQuery: "",
+	piPullCategory: "",
 };
 
 export class BrainSettingTab extends PluginSettingTab {
@@ -300,6 +302,49 @@ export class BrainSettingTab extends PluginSettingTab {
 						this.plugin.settings.piPullQuery = v.trim();
 						await this.plugin.saveSettings();
 					}),
+			);
+
+		new Setting(containerEl)
+			.setName("Pull category filter")
+			.setDesc(
+				"Optional — limit list pulls to one pi category (e.g. pattern, solution, architecture). Ignored when a query is set.",
+			)
+			.addText((t) =>
+				t
+					.setValue(this.plugin.settings.piPullCategory)
+					.onChange(async (v) => {
+						this.plugin.settings.piPullCategory = v.trim();
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		containerEl.createEl("h3", { text: "Agent access (MCP)" });
+		containerEl.createEl("p", {
+			cls: "brain-settings-hint",
+			text:
+				"The RuVector brain ships an MCP server (`mcp-brain-server`, plus " +
+				"`ruvbrain-sse` for SSE transport). Any agent that speaks MCP — " +
+				"Claude Code, Codex CLI, Gemini CLI — can read and write the same " +
+				"memories this plugin indexes. Point your agent's MCP config at " +
+				"the brain URL below.",
+		});
+
+		new Setting(containerEl)
+			.setName("Copy MCP endpoint")
+			.setDesc(
+				"Drops the current brain URL onto the clipboard so you can paste it " +
+					"into claude_desktop_config.json, .codex/mcp.json, etc.",
+			)
+			.addButton((b) =>
+				b.setButtonText("Copy").onClick(async () => {
+					const url = this.plugin.settings.brainUrl;
+					try {
+						await navigator.clipboard.writeText(url);
+						new Notice(`MCP endpoint copied: ${url}`);
+					} catch {
+						new Notice(url, 6000);
+					}
+				}),
 			);
 
 		new Setting(containerEl)

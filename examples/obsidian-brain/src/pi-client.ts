@@ -31,6 +31,63 @@ export interface PiMemory {
 	contributor_id?: string;
 }
 
+export interface PiCreateMemoryResult {
+	id: string;
+	partition_id?: string | null;
+	quality_score: number;
+	witness_hash: string;
+	rvf_segments?: number;
+}
+
+/**
+ * Fixed enum accepted by pi.ruv.io's POST /v1/memories endpoint. Anything
+ * outside this set must be submitted via the `custom` newtype variant.
+ */
+export const PI_CATEGORIES = [
+	"architecture",
+	"pattern",
+	"solution",
+	"convention",
+	"security",
+	"performance",
+	"tooling",
+	"debug",
+	"sota",
+	"discovery",
+	"hypothesis",
+	"cross_domain",
+	"neural_architecture",
+	"compression",
+	"self_learning",
+	"reinforcement_learning",
+	"graph_intelligence",
+	"distributed_systems",
+	"edge_computing",
+	"hardware_acceleration",
+	"quantum",
+	"neuromorphic",
+	"bio_computing",
+	"cognitive_science",
+	"formal_methods",
+	"geopolitics",
+	"climate",
+	"biomedical",
+	"space",
+	"finance",
+	"meta_cognition",
+	"benchmark",
+	"consciousness",
+	"information_decomposition",
+] as const;
+
+export type PiCategory = (typeof PI_CATEGORIES)[number] | { custom: string };
+
+export function piCategory(raw: string): PiCategory {
+	const known = PI_CATEGORIES.find((c) => c === raw);
+	if (known) return known;
+	return { custom: raw };
+}
+
 export interface PiSearchResult {
 	memories: PiMemory[];
 	total_count: number;
@@ -57,27 +114,33 @@ export class PiClient {
 		return !!this.url && !!this.token;
 	}
 
-	private async req<T>(path: string): Promise<T> {
+	private async req<T>(
+		method: "GET" | "POST",
+		path: string,
+		body?: unknown,
+	): Promise<T> {
 		const base = this.url.replace(/\/$/, "");
 		let resp: RequestUrlResponse;
 		try {
 			resp = await requestUrl({
 				url: base + path,
-				method: "GET",
+				method,
 				headers: this.token ? { Authorization: `Bearer ${this.token}` } : {},
+				contentType: body ? "application/json" : undefined,
+				body: body ? JSON.stringify(body) : undefined,
 				throw: false,
 			});
 		} catch (e) {
 			throw new PiError(0, `pi.ruv.io network error: ${(e as Error).message}`);
 		}
 		if (resp.status >= 400) {
-			throw new PiError(resp.status, `pi.ruv.io ${path} → ${resp.status}`, resp.json);
+			throw new PiError(resp.status, `pi.ruv.io ${path} → ${resp.status}`, resp.json ?? resp.text);
 		}
 		return resp.json as T;
 	}
 
 	async status(): Promise<PiStatus> {
-		return this.req<PiStatus>("/v1/status");
+		return this.req<PiStatus>("GET", "/v1/status");
 	}
 
 	async list(limit: number, offset = 0, category?: string): Promise<PiMemory[]> {
@@ -87,6 +150,7 @@ export class PiClient {
 		});
 		if (category) q.set("category", category);
 		const resp = await this.req<{ memories?: PiMemory[] } | PiMemory[]>(
+			"GET",
 			`/v1/memories/list?${q.toString()}`,
 		);
 		if (Array.isArray(resp)) return resp;
@@ -96,9 +160,28 @@ export class PiClient {
 	async search(query: string, limit: number): Promise<PiMemory[]> {
 		const q = new URLSearchParams({ q: query, limit: String(limit) });
 		const resp = await this.req<PiMemory[] | { memories?: PiMemory[] }>(
+			"GET",
 			`/v1/memories/search?${q.toString()}`,
 		);
 		if (Array.isArray(resp)) return resp;
 		return resp.memories ?? [];
+	}
+
+	/**
+	 * Publish a memory to pi.ruv.io. The server runs AIDefence, DP-noising
+	 * and RVF segmentation on ingest so requests can take ~20s to return.
+	 */
+	async createMemory(
+		category: PiCategory,
+		content: string,
+		title: string,
+		tags: string[],
+	): Promise<PiCreateMemoryResult> {
+		return this.req<PiCreateMemoryResult>("POST", "/v1/memories", {
+			category,
+			content,
+			title,
+			tags,
+		});
 	}
 }

@@ -10,6 +10,7 @@ interface ViewState {
 	results: Memory[];
 	error: string | null;
 	sourcePath: string | null;
+	selected: number;
 }
 
 export class RelatedView extends ItemView {
@@ -18,8 +19,10 @@ export class RelatedView extends ItemView {
 		results: [],
 		error: null,
 		sourcePath: null,
+		selected: 0,
 	};
 	private generation = 0;
+	private keyHandler: ((e: KeyboardEvent) => void) | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -47,11 +50,42 @@ export class RelatedView extends ItemView {
 		this.registerEvent(
 			this.app.workspace.on("active-leaf-change", () => void this.refreshForActive()),
 		);
+		this.keyHandler = (e) => this.handleKey(e);
+		this.contentEl.addEventListener("keydown", this.keyHandler);
+		// Allow the view itself to receive focus for keyboard nav.
+		this.contentEl.tabIndex = 0;
 		await this.refreshForActive();
 	}
 
 	async onClose(): Promise<void> {
 		this.generation++;
+		if (this.keyHandler) {
+			this.contentEl.removeEventListener("keydown", this.keyHandler);
+			this.keyHandler = null;
+		}
+	}
+
+	private handleKey(e: KeyboardEvent): void {
+		if (this.state.results.length === 0) return;
+		if (e.key === "ArrowDown" || e.key === "j") {
+			e.preventDefault();
+			this.state.selected = Math.min(
+				this.state.results.length - 1,
+				this.state.selected + 1,
+			);
+			this.render();
+		} else if (e.key === "ArrowUp" || e.key === "k") {
+			e.preventDefault();
+			this.state.selected = Math.max(0, this.state.selected - 1);
+			this.render();
+		} else if (e.key === "Enter" || e.key === "o") {
+			e.preventDefault();
+			const r = this.state.results[this.state.selected];
+			if (r) void this.activate(r);
+		} else if (e.key === "r") {
+			e.preventDefault();
+			void this.refreshForActive();
+		}
 	}
 
 	async refreshForActive(): Promise<void> {
@@ -62,7 +96,13 @@ export class RelatedView extends ItemView {
 
 	async loadForFile(file: TFile): Promise<void> {
 		const gen = ++this.generation;
-		this.state = { loading: true, results: [], error: null, sourcePath: file.path };
+		this.state = {
+			loading: true,
+			results: [],
+			error: null,
+			sourcePath: file.path,
+			selected: 0,
+		};
 		this.render();
 		try {
 			const raw = await this.app.vault.read(file);
@@ -126,8 +166,10 @@ export class RelatedView extends ItemView {
 		}
 
 		const list = root.createEl("div", { cls: "brain-related-list" });
-		this.state.results.forEach((mem) => {
-			const row = list.createEl("div", { cls: "brain-related-row" });
+		this.state.results.forEach((mem, idx) => {
+			const row = list.createEl("div", {
+				cls: `brain-related-row${idx === this.state.selected ? " selected" : ""}`,
+			});
 			const cat = row.createEl("span", {
 				cls: "brain-related-category",
 				text: mem.category,
@@ -143,6 +185,14 @@ export class RelatedView extends ItemView {
 				mem.id.slice(0, 16);
 			row.createEl("div", { cls: "brain-related-snippet", text: snippet });
 			row.addEventListener("click", () => void this.activate(mem));
+			row.addEventListener("mouseenter", () => {
+				this.state.selected = idx;
+				this.render();
+			});
+		});
+		root.createEl("div", {
+			cls: "brain-related-hint",
+			text: "↑↓ or j/k move · Enter / o open · r refresh",
 		});
 	}
 

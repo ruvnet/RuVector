@@ -76,4 +76,50 @@ describe.skipIf(!RUN)("protocol: live pi.ruv.io contract", () => {
 		const resp = await fetch(base.replace(/\/$/, "") + "/v1/memories/list?limit=1");
 		expect(resp.status).toBe(401);
 	});
+
+	it("POST /v1/memories write-through (slow ~20s) returns created shape", async () => {
+		const resp = await fetch(base.replace(/\/$/, "") + "/v1/memories", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				Authorization: `Bearer ${token}`,
+			},
+			body: JSON.stringify({
+				category: "pattern",
+				content:
+					"obsidian-brain plugin protocol test — delete-safe placeholder",
+				title: "obsidian-brain protocol probe",
+				tags: ["probe", "obsidian-brain"],
+			}),
+		});
+		expect([200, 201]).toContain(resp.status);
+		const body = (await resp.json()) as {
+			id: string;
+			quality_score: number;
+			witness_hash: string;
+			rvf_segments?: number;
+		};
+		expect(body.id).toMatch(
+			/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+		);
+		expect(typeof body.quality_score).toBe("number");
+		expect(typeof body.witness_hash).toBe("string");
+	}, 40_000);
+
+	it("POST /v1/memories rejects unknown category with 422", async () => {
+		const resp = await fetch(base.replace(/\/$/, "") + "/v1/memories", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				Authorization: `Bearer ${token}`,
+			},
+			body: JSON.stringify({
+				category: "totally-bogus-category-does-not-exist",
+				content: "whatever",
+				title: "unused",
+				tags: [],
+			}),
+		});
+		expect(resp.status).toBe(422);
+	});
 });

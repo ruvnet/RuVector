@@ -1,6 +1,7 @@
 import { TFile, Notice, Plugin, parseYaml } from "obsidian";
 import { BrainClient, BrainError } from "./brain";
 import type { BrainSettings } from "./settings";
+import type { OfflineQueue } from "./offline-queue";
 
 /**
  * Map content_hash → memory id so the plugin can tell Obsidian files
@@ -72,12 +73,17 @@ export function stripFrontmatter(content: string): string {
 export class Indexer {
 	private debounceTimers = new Map<string, number>();
 	state: IndexState = { ...EMPTY_INDEX_STATE };
+	queue: OfflineQueue | null = null;
 
 	constructor(
 		private plugin: Plugin,
 		private brain: BrainClient,
 		private settings: BrainSettings,
 	) {}
+
+	setQueue(queue: OfflineQueue): void {
+		this.queue = queue;
+	}
 
 	setState(s: IndexState): void {
 		this.state = s;
@@ -178,15 +184,35 @@ export class Indexer {
 			}
 		}
 		const category = extractCategory(raw, this.settings.defaultCategory);
-		const result = await this.brain.createMemory(category, body);
-		this.state.pathToHash[file.path] = result.content_hash;
-		this.state.hashToId[result.content_hash] = result.id;
-		this.state.idToPath[result.id] = file.path;
-		this.state.lastSync = Math.floor(Date.now() / 1000);
-		if (opts.notify) {
-			new Notice(`Indexed ${file.name} → ${category}`);
+		try {
+			const result = await this.brain.createMemory(category, body);
+			this.state.pathToHash[file.path] = result.content_hash;
+			this.state.hashToId[result.content_hash] = result.id;
+			this.state.idToPath[result.id] = file.path;
+			this.state.lastSync = Math.floor(Date.now() / 1000);
+			if (opts.notify) {
+				new Notice(`Indexed ${file.name} → ${category}`);
+			}
+			return { indexed: true, id: result.id };
+		} catch (e) {
+			// Network-level failure → enqueue for retry when the brain
+			// comes back. Everything else bubbles up.
+			if (e instanceof BrainError && e.status === 0 && this.queue) {
+				this.queue.enqueue({
+					path: file.path,
+					category,
+					content: body,
+					queuedAt: Date.now(),
+				});
+				if (opts.notify !== false) {
+					new Notice(
+						`Brain offline — queued ${file.name} for later (${this.queue.size()} pending)`,
+					);
+				}
+				return { indexed: false, reason: "queued-offline" };
+			}
+			throw e;
 		}
-		return { indexed: true, id: result.id };
 	}
 
 	async bulkSync(reporter: ProgressReporter): Promise<{

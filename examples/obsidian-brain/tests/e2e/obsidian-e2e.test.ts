@@ -29,9 +29,19 @@ describe.skipIf(!RUN)("real Obsidian + obsidian-brain plugin (E2E)", () => {
 						failed.map((c) => `  ✗ ${c.name}: ${c.detail}`).join("\n"),
 				);
 			}
-			// 7 baseline checks + 1 "pi commands registered" always;
-			// +1 when BRAIN_API_KEY reaches the plugin (live pi status).
-			const minExpected = process.env.BRAIN_API_KEY ? 9 : 8;
+			// Checks:
+			//   1 brain plugin loaded
+			//   2 base commands registered
+			//   3 status bar populated
+			//   4 index current note
+			//   5 brain.search roundtrip
+			//   6 bulk sync
+			//   7 graph overlay
+			//   8 pi commands registered
+			//   9 pi status roundtrip (only when BRAIN_API_KEY plumbed)
+			//  10 phase-4 commands registered (qa/ops/selection/publish/recall/queue)
+			//  11 offline queue API accessible
+			const minExpected = process.env.BRAIN_API_KEY ? 11 : 10;
 			expect(result.report.passed).toBeGreaterThanOrEqual(minExpected);
 		},
 		300_000,

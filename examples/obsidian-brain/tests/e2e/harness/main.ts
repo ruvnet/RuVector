@@ -231,6 +231,43 @@ export default class HarnessPlugin extends Plugin {
 			});
 		}
 
+		await addCheck("phase-4 commands registered", () => {
+			for (const id of [
+				"obsidian-brain:brain-qa",
+				"obsidian-brain:brain-ops",
+				"obsidian-brain:brain-search-selection",
+				"obsidian-brain:brain-pi-publish",
+				"obsidian-brain:brain-daily-recall",
+				"obsidian-brain:brain-offline-queue-flush",
+			]) {
+				if (!lookupCommand(this.app, id))
+					throw new Error(`missing command ${id}`);
+			}
+			return "qa/ops/selection/pi-publish/daily-recall/queue all present";
+		});
+
+		await addCheck("offline queue API accessible", async () => {
+			const queueApi = (
+				this.app as unknown as {
+					plugins: {
+						plugins: Record<
+							string,
+							{
+								queue?: {
+									size: () => number;
+									drain: () => Promise<{ sent: number; failed: number }>;
+								};
+							}
+						>;
+					};
+				}
+			).plugins.plugins["obsidian-brain"]?.queue;
+			if (!queueApi) throw new Error("plugin.queue not exposed");
+			const n = queueApi.size();
+			const r = await queueApi.drain();
+			return `size=${n}, drain sent=${r.sent} failed=${r.failed}`;
+		});
+
 		this.writeReport({
 			startedAt,
 			checks,
