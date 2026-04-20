@@ -9,10 +9,14 @@
 //! making the HTTP call. This is a belt-and-braces backstop on top of any
 //! strategy-level `RiskGate`.
 
+use std::sync::Arc;
+
 use crate::auth::Signer;
 use crate::models::{
-    Market, MarketsResponse, NewOrder, OrderAck, OrderbookResponse, OrderbookSnapshot,
+    AmendOrder, CancelResponse, Market, MarketsResponse, NewOrder, OrderAck, OrderbookResponse,
+    OrderbookSnapshot,
 };
+use crate::rate_limit::RateLimiter;
 use crate::{KalshiError, Result};
 
 #[derive(Clone)]
@@ -20,10 +24,24 @@ pub struct RestClient {
     base_url: String,
     signer: Signer,
     http: reqwest::Client,
+    limiter: Arc<RateLimiter>,
 }
 
 impl RestClient {
     pub fn new(base_url: impl Into<String>, signer: Signer) -> Result<Self> {
+        // Kalshi's public rate limits are conservative; 10 req/s sustained
+        // with a burst of 20 is well under any documented cap.
+        Self::with_rate_limit(base_url, signer, 20, 10.0)
+    }
+
+    /// Construct with an explicit rate-limit (useful for tests and high-
+    /// frequency read-only workloads).
+    pub fn with_rate_limit(
+        base_url: impl Into<String>,
+        signer: Signer,
+        burst: u32,
+        per_sec: f64,
+    ) -> Result<Self> {
         let http = reqwest::Client::builder()
             .user_agent("ruvector-kalshi/0.1")
             .timeout(std::time::Duration::from_secs(10))
@@ -32,6 +50,7 @@ impl RestClient {
             base_url: base_url.into(),
             signer,
             http,
+            limiter: Arc::new(RateLimiter::new(burst, per_sec)),
         })
     }
 
@@ -53,6 +72,7 @@ impl RestClient {
         path: &str,
         body: Option<&impl serde::Serialize>,
     ) -> Result<R> {
+        self.limiter.acquire().await;
         let url = url_join(&self.base_url, path);
         let sig_path = self.sig_path_for(path);
         let headers = self.signer.sign_now(method.as_str(), &sig_path);
@@ -93,14 +113,35 @@ impl RestClient {
 
     /// Place a new order. Refuses to run unless `KALSHI_ENABLE_LIVE=1`.
     pub async fn post_order(&self, order: &NewOrder) -> Result<OrderAck> {
-        if std::env::var("KALSHI_ENABLE_LIVE").ok().as_deref() != Some("1") {
-            return Err(KalshiError::Api {
-                status: 0,
-                body: "live trading disabled (set KALSHI_ENABLE_LIVE=1 to enable)".into(),
-            });
-        }
+        require_live_flag()?;
         self.send(reqwest::Method::POST, "/portfolio/orders", Some(order))
             .await
+    }
+
+    /// Cancel an open order. Refuses to run unless `KALSHI_ENABLE_LIVE=1`.
+    pub async fn cancel_order(&self, order_id: &str) -> Result<CancelResponse> {
+        require_live_flag()?;
+        let path = format!("/portfolio/orders/{order_id}");
+        self.send(reqwest::Method::DELETE, &path, NO_BODY).await
+    }
+
+    /// Amend an existing open order's price or size. Refuses unless
+    /// `KALSHI_ENABLE_LIVE=1`. Kalshi's endpoint is a PATCH.
+    pub async fn amend_order(&self, order_id: &str, amend: &AmendOrder) -> Result<OrderAck> {
+        require_live_flag()?;
+        let path = format!("/portfolio/orders/{order_id}/amend");
+        self.send(reqwest::Method::POST, &path, Some(amend)).await
+    }
+}
+
+fn require_live_flag() -> Result<()> {
+    if std::env::var("KALSHI_ENABLE_LIVE").ok().as_deref() == Some("1") {
+        Ok(())
+    } else {
+        Err(KalshiError::Api {
+            status: 0,
+            body: "live trading disabled (set KALSHI_ENABLE_LIVE=1 to enable)".into(),
+        })
     }
 }
 
@@ -178,5 +219,33 @@ mod tests {
             }
             other => panic!("expected Api status=0 error, got {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn cancel_order_refuses_without_live_flag() {
+        std::env::remove_var("KALSHI_ENABLE_LIVE");
+        let client = RestClient::new(
+            "https://trading-api.kalshi.com/trade-api/v2",
+            test_signer(),
+        )
+        .unwrap();
+        let err = client.cancel_order("some-order-id").await.unwrap_err();
+        assert!(matches!(err, KalshiError::Api { status: 0, .. }));
+    }
+
+    #[tokio::test]
+    async fn amend_order_refuses_without_live_flag() {
+        std::env::remove_var("KALSHI_ENABLE_LIVE");
+        let client = RestClient::new(
+            "https://trading-api.kalshi.com/trade-api/v2",
+            test_signer(),
+        )
+        .unwrap();
+        let amend = crate::models::AmendOrder {
+            yes_price: Some(25),
+            ..Default::default()
+        };
+        let err = client.amend_order("some-order-id", &amend).await.unwrap_err();
+        assert!(matches!(err, KalshiError::Api { status: 0, .. }));
     }
 }

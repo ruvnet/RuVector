@@ -14,8 +14,10 @@
 pub mod auth;
 pub mod models;
 pub mod normalize;
+pub mod rate_limit;
 pub mod rest;
 pub mod secrets;
+pub mod strategy_adapter;
 pub mod ws;
 
 use thiserror::Error;

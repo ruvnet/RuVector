@@ -98,6 +98,24 @@ pub struct OrderAck {
     pub order: OrderRecord,
 }
 
+/// Amend-order body. Either price or count may change; omit what you
+/// don't want to alter.
+#[derive(Debug, Clone, Serialize, Default)]
+pub struct AmendOrder {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub yes_price: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub no_price: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub count: Option<i64>,
+}
+
+/// Response from DELETE /portfolio/orders/{id}.
+#[derive(Debug, Clone, Deserialize)]
+pub struct CancelResponse {
+    pub order: OrderRecord,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct OrderRecord {
     pub order_id: String,

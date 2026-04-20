@@ -19,9 +19,11 @@ pub mod ev_kelly;
 pub mod intent;
 pub mod risk;
 
-pub use ev_kelly::ExpectedValueKelly;
+pub use ev_kelly::{ExpectedValueKelly, ExpectedValueKellyConfig};
 pub use intent::{Action, Intent, Side};
-pub use risk::{PortfolioState, Position, RiskConfig, RiskDecision, RiskGate};
+pub use risk::{
+    PortfolioState, Position, RejectReason, RiskConfig, RiskDecision, RiskGate,
+};
 
 use neural_trader_core::MarketEvent;
 
