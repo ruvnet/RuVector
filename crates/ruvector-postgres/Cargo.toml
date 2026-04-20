@@ -140,7 +140,7 @@ ruvector-mincut-gated-transformer = { version = "0.1.0", path = "../ruvector-min
 ruvector-solver = { version = "2.0", path = "../ruvector-solver", features = ["full"], optional = true }
 ruvector-math = { version = "2.0", path = "../ruvector-math", optional = true }
 ruvector-attention = { version = "2.0", path = "../ruvector-attention", optional = true }
-ruvector-sona = { version = "0.1", path = "../sona", features = ["serde-support"], optional = true }
+ruvector-sona = { version = "0.2", path = "../sona", features = ["serde-support"], optional = true }
 ruvector-domain-expansion = { version = "2.0", path = "../ruvector-domain-expansion", optional = true }
 
 # Optional: Use ruvector-core for shared implementations

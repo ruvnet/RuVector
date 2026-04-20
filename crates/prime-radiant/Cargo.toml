@@ -31,7 +31,7 @@ cognitum-gate-kernel = { version = "0.1.0", features = ["std"], optional = true 
 
 # Self-optimizing thresholds with EWC++ (sona)
 # Provides: SonaEngine, MicroLoRA, EwcPlusPlus, ReasoningBank
-ruvector-sona = { version = "0.1.4", features = ["serde-support"], optional = true }
+ruvector-sona = { version = "0.2.0", path = "../sona", features = ["serde-support"], optional = true }
 
 # Learned restriction maps with GNN (ruvector-gnn)
 # Provides: RuvectorLayer, ElasticWeightConsolidation, ReplayBuffer
