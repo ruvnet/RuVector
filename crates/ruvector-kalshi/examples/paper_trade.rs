@@ -42,9 +42,41 @@ use neural_trader_strategies::{
     ExpectedValueKellyConfig, GateConfig, PortfolioState, Position, RiskConfig, RiskDecision,
     RiskGate, Strategy, ThresholdGate,
 };
+use ruvector_kalshi::brain::{BrainClient, Resolution, SharedMemory};
 use ruvector_kalshi::normalize::symbol_id_for;
 use ruvector_kalshi::strategy_adapter::intent_to_order;
 use ruvector_kalshi::ws::FeedDecoder;
+
+/// Load a brain API key from env first, then gcloud Secret Manager.
+async fn load_brain_key() -> Option<String> {
+    if let Ok(k) = std::env::var("BRAIN_API_KEY") {
+        return Some(k);
+    }
+    let out = tokio::process::Command::new("gcloud")
+        .args([
+            "secrets",
+            "versions",
+            "access",
+            "latest",
+            "--secret",
+            "BRAIN_SYSTEM_KEY",
+            "--project",
+            "ruv-dev",
+        ])
+        .output()
+        .await
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let s = String::from_utf8(out.stdout).ok()?;
+    let trimmed = s.trim().to_string();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed)
+    }
+}
 
 const FRAMES: &[&str] = &[
     r#"{"type":"orderbook_snapshot","msg":{"market_ticker":"FED-DEC26","yes":[[28,100],[27,80],[26,70],[25,60],[24,50]],"no":[[72,100],[73,80],[74,70],[75,60],[76,50]],"ts":1700000000000}}"#,
@@ -54,11 +86,36 @@ const FRAMES: &[&str] = &[
     r#"{"type":"ticker","msg":{"market_ticker":"BTC-100K","yes_bid":49,"yes_ask":51,"ts":1700000003000}}"#,
 ];
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     let ticker = "FED-DEC26";
     let ticker_btc = "BTC-100K";
     let sym = symbol_id_for(ticker);
     let sym_btc = symbol_id_for(ticker_btc);
+
+    // Optional brain client. Enable by setting BRAIN_ENABLE=1 and either
+    // BRAIN_API_KEY directly or a reachable gcloud CLI (secret name:
+    // BRAIN_SYSTEM_KEY in project ruv-dev).
+    let brain = if std::env::var("BRAIN_ENABLE").ok().as_deref() == Some("1") {
+        match load_brain_key().await {
+            Some(key) => match BrainClient::new(key) {
+                Ok(c) => {
+                    println!("brain: share-on-fill enabled");
+                    Some(c)
+                }
+                Err(e) => {
+                    eprintln!("brain: disabled (client init failed: {e})");
+                    None
+                }
+            },
+            None => {
+                eprintln!("brain: disabled (no key; set BRAIN_API_KEY or gcloud auth)");
+                None
+            }
+        }
+    } else {
+        None
+    };
 
     // --- Strategy ---
     let mut strat = ExpectedValueKelly::new(ExpectedValueKellyConfig {
@@ -276,6 +333,26 @@ fn main() -> anyhow::Result<()> {
                         verified_token_id: [0u8; 16],
                         resulting_state_hash: [0u8; 16],
                     })?;
+
+                    // --- Brain share (optional) ---
+                    // Paper fills don't resolve real markets, so we share
+                    // a provisional note so the brain can correlate
+                    // strategy behavior across runs. Real resolutions
+                    // would use Resolution::Yes/No with actual P&L.
+                    if let Some(brain) = brain.as_ref() {
+                        let notional = order.count.saturating_mul(approved.limit_price_cents);
+                        let memory = SharedMemory::market_resolution(
+                            out_ticker,
+                            Resolution::Void,    // paper → void until real settlement
+                            approved.strategy,
+                            0,                   // P&L unknown at fill time
+                            notional,
+                        );
+                        match brain.share(&memory).await {
+                            Ok(id) => println!("    brain: shared id={id}"),
+                            Err(e) => eprintln!("    brain: share failed: {e}"),
+                        }
+                    }
                 }
                 RiskDecision::Reject { reason, intent: rej } => {
                     let key = match reason {
