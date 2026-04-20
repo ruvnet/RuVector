@@ -5925,6 +5925,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "neural-trader-strategies"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "neural-trader-core",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "neural-trader-wasm"
 version = "0.1.1"
 dependencies = [
@@ -8544,6 +8555,7 @@ dependencies = [
  "pkcs1",
  "pkcs8",
  "rand_core 0.6.4",
+ "sha2 0.10.9",
  "signature",
  "spki",
  "subtle",
@@ -9785,6 +9797,25 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "ruvector-kalshi"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "chrono",
+ "neural-trader-core",
+ "rand 0.8.5",
+ "reqwest 0.12.28",
+ "rsa",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

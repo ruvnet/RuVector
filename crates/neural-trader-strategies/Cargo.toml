@@ -1,0 +1,17 @@
+[package]
+name = "neural-trader-strategies"
+version = "0.1.0"
+edition = "2021"
+description = "Venue-agnostic strategy + risk-gate runtime for the RuVector Neural Trader (ADR-151)"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+neural-trader-core = { path = "../neural-trader-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
