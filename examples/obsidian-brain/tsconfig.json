@@ -15,5 +15,5 @@
     "lib": ["DOM", "ES2020", "ES2021.String"],
     "types": ["node"]
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"]
 }

@@ -1,5 +1,9 @@
 node_modules/
 main.js
+tests/e2e/harness/main.js
 *.map
 data.json
 .DS_Store
+
+# Real-Obsidian E2E scratch (should live in ~/.cache, but guard regardless).
+.cache/

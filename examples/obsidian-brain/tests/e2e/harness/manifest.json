@@ -1,0 +1,9 @@
+{
+  "id": "obsidian-brain-e2e-harness",
+  "name": "Brain E2E Harness",
+  "version": "0.0.1",
+  "minAppVersion": "1.4.0",
+  "description": "Runs inside Obsidian and exercises obsidian-brain's commands, writes a JSON report.",
+  "author": "ruvnet",
+  "isDesktopOnly": true
+}

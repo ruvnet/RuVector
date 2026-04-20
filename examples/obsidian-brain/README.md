@@ -81,6 +81,58 @@ npm run build     # production bundle + tsc --noEmit
 npm run typecheck
 ```
 
+## Testing
+
+Two real-service test suites, no mocks. Run both with `npm test`.
+
+### 1. Protocol tests (`tests/protocol/`) — always-on
+
+Spins up a real `mcp-brain-server-local` subprocess with a scratch SQLite DB
+and a small in-process mock embedder, then exercises every endpoint the
+plugin depends on (`/health`, `/brain/info`, `/brain/index_stats`,
+`/brain/search`, `/memories`, `/memories/:id`, `/security/scan`,
+`/preference_pairs`, `/embed`). Validates the exact response shapes the
+`BrainClient` parses.
+
+Prereq (one-time):
+
+```bash
+cargo build --release -p mcp-brain-server --features local --bin mcp-brain-server-local
+```
+
+`npm test` picks up the binary at `../../target/release/mcp-brain-server-local`
+or at `$RUVBRAIN_BIN`.
+
+### 2. Obsidian E2E (`tests/e2e/`) — opt-in, real Obsidian
+
+Downloads the real Obsidian AppImage (cached at `~/.cache/obsidian-brain-e2e/`),
+unpacks it, provisions a disposable vault, enables the built plugin + a
+companion *harness plugin* that runs inside Obsidian and exercises commands
+end-to-end, launches the app under `xvfb-run`, and asserts the harness's
+JSON report.
+
+Prereq:
+
+```bash
+sudo apt install xvfb libfuse2t64   # or libfuse2 on older distros
+```
+
+Run:
+
+```bash
+OBSIDIAN_E2E=1 npm test -- tests/e2e
+```
+
+The harness validates, inside the real Obsidian runtime:
+
+1. `obsidian-brain` plugin loads
+2. All commands are registered
+3. Status bar populates with live brain state
+4. `Index current note` persists a note into the brain
+5. `BrainClient.search` returns the note we just indexed
+6. `bulkSync` completes with zero failures
+7. Graph overlay writes `#brain/*` color groups to `.obsidian/graph.json`
+
 Source layout:
 
 ```

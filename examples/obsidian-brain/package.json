@@ -7,7 +7,9 @@
     "dev": "node esbuild.config.mjs",
     "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
     "typecheck": "tsc --noEmit --skipLibCheck",
-    "version": "node version-bump.mjs && git add manifest.json versions.json"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "BRAIN_INTEGRATION=1 vitest run tests/integration"
   },
   "keywords": [
     "obsidian",
@@ -22,10 +24,13 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "@vitest/coverage-v8": "^1.6.0",
     "builtin-modules": "^3.3.0",
     "esbuild": "^0.21.4",
+    "happy-dom": "^14.12.3",
     "obsidian": "^1.6.6",
     "tslib": "^2.6.2",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
   }
 }
