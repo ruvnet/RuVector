@@ -5258,11 +5258,8 @@ dependencies = [
  "rand 0.8.5",
  "regex",
  "reqwest 0.12.28",
-<<<<<<< Updated upstream
- "ruvector-consciousness",
-=======
  "rusqlite",
->>>>>>> Stashed changes
+ "ruvector-consciousness",
  "ruvector-delta-core",
  "ruvector-domain-expansion",
  "ruvector-mincut 2.1.0",

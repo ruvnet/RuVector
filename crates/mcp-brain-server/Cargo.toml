@@ -13,18 +13,17 @@ name = "mcp-brain-server"
 path = "src/main.rs"
 
 [[bin]]
-<<<<<<< Updated upstream
 name = "ruvbrain-sse"
 path = "src/bin/ruvbrain_sse.rs"
 
 [[bin]]
 name = "ruvbrain-worker"
 path = "src/bin/ruvbrain_worker.rs"
-=======
+
+[[bin]]
 name = "mcp-brain-server-local"
 path = "src/bin/local.rs"
 required-features = ["local"]
->>>>>>> Stashed changes
 
 [dependencies]
 # Web framework
