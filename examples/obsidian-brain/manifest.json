@@ -1,0 +1,11 @@
+{
+  "id": "obsidian-brain",
+  "name": "RuVector Brain",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Bridge Obsidian notes with the RuVector Brain (DiskANN + AIDefence + embedder) — semantic search, auto-index, related notes, DPO pairs.",
+  "author": "ruvnet",
+  "authorUrl": "https://github.com/ruvnet/RuVector",
+  "fundingUrl": "https://github.com/sponsors/ruvnet",
+  "isDesktopOnly": false
+}
