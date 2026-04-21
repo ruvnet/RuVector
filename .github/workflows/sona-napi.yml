@@ -61,10 +61,10 @@ jobs:
     name: Build ${{ matrix.target }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
@@ -112,7 +112,7 @@ jobs:
         run: ls -la *.node || echo "No .node files"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: bindings-${{ matrix.target }}
           path: npm/packages/sona/${{ matrix.node-file }}
@@ -125,16 +125,16 @@ jobs:
     needs: build
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download x64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: bindings-x86_64-apple-darwin
           path: artifacts/x64
 
       - name: Download ARM64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: bindings-aarch64-apple-darwin
           path: artifacts/arm64
@@ -148,7 +148,7 @@ jobs:
             -output artifacts/universal/sona.darwin-universal.node
 
       - name: Upload universal artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: bindings-darwin-universal
           path: artifacts/universal/sona.darwin-universal.node
@@ -161,10 +161,10 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/sona-v') || github.event.inputs.publish == 'true'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
@@ -173,7 +173,7 @@ jobs:
         run: npm install -g @napi-rs/cli
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: artifacts
 
@@ -284,7 +284,7 @@ jobs:
 
     steps:
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
 

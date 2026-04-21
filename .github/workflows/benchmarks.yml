@@ -33,7 +33,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -43,7 +43,7 @@ jobs:
           override: true
 
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
@@ -51,7 +51,7 @@ jobs:
             ${{ runner.os }}-cargo-registry-
 
       - name: Cache cargo index
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cargo/git
           key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
@@ -59,7 +59,7 @@ jobs:
             ${{ runner.os }}-cargo-git-
 
       - name: Cache cargo build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: target
           key: ${{ runner.os }}-cargo-build-benchmarks-${{ hashFiles('**/Cargo.lock') }}
@@ -105,7 +105,7 @@ jobs:
           cargo bench --features pg17 --bench quantized_distance_bench -- --output-format bencher | tee ../../quantized_distance_bench.txt
 
       - name: Upload benchmark results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: benchmark-results
           path: |
@@ -157,7 +157,7 @@ jobs:
       - name: Comment PR with results
         if: github.event_name == 'pull_request'
         continue-on-error: true
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');
@@ -192,7 +192,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -254,7 +254,7 @@ jobs:
           psql -f benches/sql/benchmark_workload.sql | tee ../../sql_workload_bench.txt
 
       - name: Upload SQL benchmark results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: sql-benchmark-results
           path: |
@@ -270,12 +270,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Download current benchmarks
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: benchmark-results
           path: current
@@ -329,7 +329,7 @@ jobs:
 
       - name: Comment comparison
         continue-on-error: true
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');
