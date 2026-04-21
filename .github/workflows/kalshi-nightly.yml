@@ -1,0 +1,50 @@
+name: Kalshi nightly
+
+on:
+  schedule:
+    # Daily at 06:00 UTC — after US event-market settlements.
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+
+      - name: Unit tests (hermetic)
+        run: |
+          cargo test -p ruvector-kalshi -p neural-trader-strategies --lib
+
+      - name: Offline validator example
+        env:
+          # Placeholder API key + PEM path so the local-source path can
+          # be exercised. Replace with GCS pulls in a real deploy.
+          KALSHI_SECRET_SOURCE: env
+          KALSHI_API_KEY: "00000000-0000-0000-0000-000000000000"
+          KALSHI_PRIVATE_KEY_PEM: |
+            -----BEGIN RSA PRIVATE KEY-----
+            MIIBOgIBAAJBAKj34GkxFhD90vcNLYLInFEX6Ppy1tPf9Cnzj4p4WGeKLs1Pt8Qu
+            KUpRKfFLfRYC9AIKjbJTWit+CqvjWYzvQwECAwEAAQJAIJLixBy2qpFoS4DSmoEm
+            o3qGy0t6z09AIJtH+5OeRV1be+N4cDYJKffGzDa88vQENZiRm0GRq6a+HPGQMd2k
+            TQIhAKMSvzIBnni7ot/OSie2TmJLY4SwTQAevXysE2RbFDYdAiEBCUEaRQnMnbp7
+            9mxDXDf6AU0cN/RPBjb9qSHDcWZHGzUCIG2Es59z8ugGrDY+pxLQnwfotadxd+Uy
+            v/Ow5T0q5gIJAiEAyS4RaI9YG8EWx/2w0T67ZUVAw8eOMB6BIUg0Xcu+3okCIBOs
+            /5OiPgoTdSy7bcF9IGpSE8ZgGKzgYQVZeN97YE00
+            -----END RSA PRIVATE KEY-----
+        run: cargo run -p ruvector-kalshi --example validate
+
+      - name: Paper-trade example end-to-end
+        run: cargo run -p ruvector-kalshi --example paper_trade
+
+      - name: Live smoke — /exchange/status
+        continue-on-error: true
+        run: cargo test -p ruvector-kalshi --test live_smoke -- --ignored --nocapture

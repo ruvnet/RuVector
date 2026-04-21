@@ -106,6 +106,9 @@ members = [
     "crates/neural-trader-coherence",
     "crates/neural-trader-replay",
     "crates/neural-trader-wasm",
+    # Kalshi integration (ADR-153)
+    "crates/ruvector-kalshi",
+    "crates/neural-trader-strategies",
     # RuVix Cognition Kernel (organized under crates/ruvix/)
     "crates/ruvix/crates/types",
     "crates/ruvix/crates/region",
