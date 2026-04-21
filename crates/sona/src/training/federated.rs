@@ -232,7 +232,12 @@ impl EphemeralAgent {
 
     /// Get learned patterns from agent
     pub fn get_patterns(&self) -> Vec<LearnedPattern> {
-        self.engine.find_patterns(&[], 0)
+        self.engine.get_all_patterns()
+    }
+
+    /// Find top-k patterns most similar to a query embedding
+    pub fn find_patterns(&self, query: &[f32], k: usize) -> Vec<LearnedPattern> {
+        self.engine.find_patterns(query, k)
     }
 
     /// Export agent state for federation
