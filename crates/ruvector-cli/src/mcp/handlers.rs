@@ -118,6 +118,14 @@ impl McpHandler {
             "resources/read" => self.handle_resources_read(request.id, request.params).await,
             "prompts/list" => self.handle_prompts_list(request.id).await,
             "prompts/get" => self.handle_prompts_get(request.id, request.params).await,
+            
+            "resources/templates/list" => {
+                let empty_templates = serde_json::json!({
+                    "resourceTemplates": []
+                });
+                McpResponse::success(request.id, empty_templates)
+            },
+
             _ => McpResponse::error(
                 request.id,
                 McpError::new(error_codes::METHOD_NOT_FOUND, "Method not found"),
