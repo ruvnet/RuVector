@@ -4,9 +4,9 @@
  * @security Path traversal prevention via ID validation
  */
 
-export * from './index';
+export * from './index.js';
 
-import { RuDag, MemoryStorage } from './index';
+import { RuDag, MemoryStorage } from './index.js';
 import { promises as fs } from 'fs';
 import { join, normalize, resolve } from 'path';
 

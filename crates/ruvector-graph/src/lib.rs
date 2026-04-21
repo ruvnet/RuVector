@@ -11,7 +11,6 @@ pub mod graph;
 pub mod hyperedge;
 pub mod index;
 pub mod node;
-pub mod property;
 pub mod storage;
 pub mod transaction;
 pub mod types;

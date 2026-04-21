@@ -120,6 +120,20 @@ impl LoopCoordinator {
         self.instant.micro_lora()
     }
 
+    /// Get micro-LoRA weights for external persistence (snapshot save)
+    ///
+    /// Returns cloned owned vectors so caller can serialize without lifetime issues.
+    pub fn get_micro_lora_weights(&self) -> (Vec<f32>, Vec<f32>) {
+        let guard = self.instant.micro_lora().read();
+        let (down, up) = guard.get_weights();
+        (down.clone(), up.clone())
+    }
+
+    /// Restore micro-LoRA weights from external persistence (snapshot load)
+    pub fn restore_micro_lora_weights(&self, down: Vec<f32>, up: Vec<f32>) -> Result<(), String> {
+        self.instant.micro_lora().write().set_weights(down, up)
+    }
+
     /// Get base-LoRA for inference
     pub fn base_lora(&self) -> &Arc<RwLock<BaseLoRA>> {
         &self.base_lora
@@ -265,5 +279,41 @@ mod tests {
         let result = coord.force_background();
         assert_eq!(result.trajectories_processed, 150);
         assert!(result.patterns_extracted > 0);
+    }
+
+    #[test]
+    fn test_get_micro_lora_weights() {
+        let coord = LoopCoordinator::new(256);
+        let (down, up) = coord.get_micro_lora_weights();
+
+        assert_eq!(down.len(), 256 * 2);
+        assert_eq!(up.len(), 2 * 256);
+    }
+
+    #[test]
+    fn test_restore_micro_lora_weights() {
+        let coord = LoopCoordinator::new(256);
+
+        let custom_down = vec![0.5f32; 256 * 2];
+        let custom_up = vec![0.3f32; 2 * 256];
+
+        let result = coord.restore_micro_lora_weights(custom_down.clone(), custom_up.clone());
+        assert!(result.is_ok());
+
+        let (got_down, got_up) = coord.get_micro_lora_weights();
+        assert_eq!(got_down, custom_down);
+        assert_eq!(got_up, custom_up);
+    }
+
+    #[test]
+    fn test_restore_micro_lora_weights_wrong_dim() {
+        let coord = LoopCoordinator::new(256);
+
+        let wrong_down = vec![0.5f32; 256 * 3];
+        let custom_up = vec![0.3f32; 2 * 256];
+
+        let result = coord.restore_micro_lora_weights(wrong_down, custom_up);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("down_proj dimension mismatch"));
     }
 }

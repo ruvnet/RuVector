@@ -218,6 +218,33 @@ impl GraphDB {
         }
     }
 
+    /// Delete multiple edges (batch)
+    pub fn delete_edges_batch(&self, ids: &[impl AsRef<str>]) -> Result<usize> {
+        let mut deleted = 0;
+        let mut edges_to_update = Vec::with_capacity(ids.len());
+
+        for id in ids {
+            let key: &str = id.as_ref();
+            if let Some((_, edge)) = self.edges.remove(key) {
+                edges_to_update.push(edge);
+                deleted += 1;
+            }
+        }
+
+        for edge in &edges_to_update {
+            self.edge_type_index.remove_edge(edge);
+            self.adjacency_index.remove_edge(edge);
+        }
+
+        #[cfg(feature = "storage")]
+        if let Some(storage) = &self.storage {
+            let str_ids = ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>();
+            storage.delete_edges_batch(&str_ids)?;
+        }
+
+        Ok(deleted)
+    }
+
     /// Get edges by type
     pub fn get_edges_by_type(&self, edge_type: &str) -> Vec<Edge> {
         self.edge_type_index
@@ -243,6 +270,34 @@ impl GraphDB {
             .into_iter()
             .filter_map(|id| self.get_edge(&id))
             .collect()
+    }
+
+    /// Checks whether an edge exists from `from` → `to` with type `edge_type`.
+    /// Returns true if found, false otherwise.
+    ///
+    /// Fast path: avoids cloning `Edge` by reading fields through the `DashMap`
+    /// reference guard and short-circuits on first match.
+    pub fn has_edge(&self, from: &NodeId, to: &NodeId, edge_type: &str) -> bool {
+        self.adjacency_index
+            .get_outgoing_edges(from)
+            .into_iter()
+            .any(|id| {
+                self.edges
+                    .get(&id)
+                    .is_some_and(|e| e.to == *to && e.edge_type == edge_type)
+            })
+    }
+
+    /// Get outgoing edges for multiple nodes in one call (O(k×avg_degree) vs O(E) for full scan).
+    pub fn get_edges_for_nodes(&self, node_ids: &[NodeId]) -> Vec<Edge> {
+        let mut result = Vec::with_capacity(node_ids.len() * 4);
+        self.adjacency_index.for_each_outgoing_edge(node_ids, |edge_id| {
+            if let Some(edge) = self.edges.get(edge_id.as_str()) {
+                result.push(edge.clone());
+            }
+        });
+
+        result
     }
 
     // Hyperedge operations

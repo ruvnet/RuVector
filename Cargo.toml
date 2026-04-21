@@ -106,7 +106,7 @@ members = [
     "crates/neural-trader-coherence",
     "crates/neural-trader-replay",
     "crates/neural-trader-wasm",
-    # Kalshi integration (ADR-151)
+    # Kalshi integration (ADR-153)
     "crates/ruvector-kalshi",
     "crates/neural-trader-strategies",
     # RuVix Cognition Kernel (organized under crates/ruvix/)
@@ -198,7 +198,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "2.1.0"
+version = "2.2.0"
 edition = "2021"
 rust-version = "1.77"
 license = "MIT"

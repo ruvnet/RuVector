@@ -136,4 +136,4 @@ examples/real-eeg-multi-seizure/data/*.edf
 agentdb.rvf
 agentdb.rvf.lock
 .kalshi
-
+bench_data/

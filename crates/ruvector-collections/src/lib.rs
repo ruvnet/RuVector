@@ -1,6 +1,7 @@
 //! # Ruvector Collections
 //!
-//! Multi-collection management with aliases for organizing vector databases.
+//! Multi-collection management with aliases for organizing vector databases,
+//! plus the workspace's shared primality utility (ADR-151 / PIAL).
 //!
 //! ## Features
 //!
@@ -9,6 +10,9 @@
 //! - **Collection Statistics**: Track collection metrics
 //! - **Thread-safe**: Concurrent access using DashMap
 //! - **Persistence**: Store collections on disk
+//! - **Primality**: Deterministic Miller-Rabin + tabled fast paths for prime
+//!   moduli used by ruvector-graph, micro-hnsw-wasm, sparsifier, attn-mincut,
+//!   and pi-brain (see [`primality`])
 //!
 //! ## Example
 //!
@@ -47,6 +51,7 @@
 pub mod collection;
 pub mod error;
 pub mod manager;
+pub mod primality;
 
 pub use collection::{Collection, CollectionConfig, CollectionStats};
 pub use error::{CollectionError, Result};

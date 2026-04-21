@@ -270,6 +270,38 @@ impl MicroLoRA {
     pub fn get_weights(&self) -> (&Vec<f32>, &Vec<f32>) {
         (&self.down_proj, &self.up_proj)
     }
+
+    /// Set LoRA weights from external source (disk load, other system)
+    ///
+    /// # Arguments
+    /// * `down_proj` - Down projection weights (hidden_dim * rank)
+    /// * `up_proj` - Up projection weights (rank * hidden_dim)
+    ///
+    /// # Errors
+    /// Returns Err if dimensions don't match current rank/hidden_dim
+    pub fn set_weights(&mut self, down_proj: Vec<f32>, up_proj: Vec<f32>) -> Result<(), String> {
+        let expected_down = self.hidden_dim * self.rank;
+        if down_proj.len() != expected_down {
+            return Err(format!(
+                "down_proj dimension mismatch: expected {}, got {}",
+                expected_down,
+                down_proj.len()
+            ));
+        }
+
+        let expected_up = self.rank * self.hidden_dim;
+        if up_proj.len() != expected_up {
+            return Err(format!(
+                "up_proj dimension mismatch: expected {}, got {}",
+                expected_up,
+                up_proj.len()
+            ));
+        }
+
+        self.down_proj = down_proj;
+        self.up_proj = up_proj;
+        Ok(())
+    }
 }
 
 /// Base LoRA for background adaptation
@@ -514,5 +546,41 @@ mod tests {
     #[should_panic(expected = "MicroLoRA rank must be 1-2")]
     fn test_invalid_rank() {
         MicroLoRA::new(64, 5);
+    }
+
+    #[test]
+    fn test_set_weights_valid() {
+        let mut lora = MicroLoRA::new(64, 2);
+        let down = vec![1.0f32; 64 * 2];
+        let up = vec![0.5f32; 2 * 64];
+
+        let result = lora.set_weights(down.clone(), up.clone());
+        assert!(result.is_ok());
+
+        let (got_down, got_up) = lora.get_weights();
+        assert_eq!(got_down, &down);
+        assert_eq!(got_up, &up);
+    }
+
+    #[test]
+    fn test_set_weights_wrong_down_dim() {
+        let mut lora = MicroLoRA::new(64, 2);
+        let wrong_down = vec![1.0f32; 64 * 3];
+        let up = vec![0.5f32; 2 * 64];
+
+        let result = lora.set_weights(wrong_down, up);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("down_proj dimension mismatch"));
+    }
+
+    #[test]
+    fn test_set_weights_wrong_up_dim() {
+        let mut lora = MicroLoRA::new(64, 2);
+        let down = vec![1.0f32; 64 * 2];
+        let wrong_up = vec![0.5f32; 3 * 64];
+
+        let result = lora.set_weights(down, wrong_up);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("up_proj dimension mismatch"));
     }
 }

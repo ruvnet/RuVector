@@ -313,6 +313,7 @@ mod property_tests {
                 .prop_map(PropertyValue::Float),
             any::<bool>().prop_map(PropertyValue::Boolean),
             Just(PropertyValue::Null),
+            prop::collection::vec(any::<f32>(), 0..64).prop_map(PropertyValue::FloatArray),
         ]
     }
 

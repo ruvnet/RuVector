@@ -7,7 +7,7 @@
 | **Authors** | Architecture Team |
 | **Reviewers** | Performance Engineering, ML Infrastructure |
 | **Supersedes** | None |
-| **Related** | ADR-003 (KV Cache), ADR-005 (LoRA Adapter Loading) |
+| **Related** | ADR-004 (KV Cache), ADR-005 (WASM Runtime Integration) |
 
 **Note**: The memory pool and paging strategy described here is complemented by ADR-029. The RVF segment model provides memory management through append-only segments with temperature-tiered quantization.
 

@@ -13,7 +13,7 @@ export {
   type DagEdge,
   type CriticalPath,
   type RuDagOptions,
-} from './dag';
+} from './dag.js';
 
 export {
   DagStorage,
@@ -22,7 +22,7 @@ export {
   isIndexedDBAvailable,
   type StoredDag,
   type DagStorageOptions,
-} from './storage';
+} from './storage.js';
 
 // Version info
 export const VERSION = '0.1.0';

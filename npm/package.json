@@ -28,5 +28,12 @@
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
+  },
+  "overrides": {
+    "node-forge": ">=1.4.0",
+    "flatted": ">=3.3.3",
+    "picomatch": ">=4.0.3",
+    "lodash": ">=4.17.22",
+    "brace-expansion": ">=2.0.2"
   }
 }

@@ -332,17 +332,30 @@ fn test_neo4j_list_property() {
 }
 
 #[test]
-fn test_neo4j_null_property() {
+fn test_neo4j_float_array_property() {
     let db = GraphDB::new();
 
+    let vec = vec![0.1, 0.2, 0.3];
     let mut props = Properties::new();
-    props.insert("optional".to_string(), PropertyValue::Null);
+    props.insert("_vector".to_string(), PropertyValue::FloatArray(vec.clone()));
 
     db.create_node(Node::new("n1".to_string(), vec![], props))
         .unwrap();
 
     let node = db.get_node("n1").unwrap();
-    assert_eq!(node.properties.get("optional"), Some(&PropertyValue::Null));
+    let stored = node.properties.get("_vector");
+    assert!(matches!(stored, Some(PropertyValue::FloatArray(arr)) if arr.len() == 3));
+    let Some(PropertyValue::FloatArray(arr)) = stored else { return };
+    assert_eq!(arr, &vec);
+}
+
+#[test]
+fn test_float_array_constructor() {
+    use ruvector_graph::PropertyValue;
+
+    let vec = vec![1.0f32, 2.0, 3.0];
+    let pv = PropertyValue::float_array(vec.clone());
+    assert!(matches!(pv, PropertyValue::FloatArray(arr) if &arr == &vec));
 }
 
 // ============================================================================

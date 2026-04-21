@@ -261,6 +261,22 @@ impl GraphStorage {
         Ok(deleted)
     }
 
+    pub fn delete_edges_batch(&self, ids: &[impl AsRef<str>]) -> Result<usize> {
+        let write_txn = self.db.begin_write()?;
+        let mut deleted = 0;
+        {
+            let mut table = write_txn.open_table(EDGES_TABLE)?;
+            for id in ids {
+                if table.remove(id.as_ref())?.is_some() {
+                    deleted += 1;
+                }
+            }
+        }
+
+        write_txn.commit()?;
+        Ok(deleted)
+    }
+
     /// Get all edge IDs
     pub fn all_edge_ids(&self) -> Result<Vec<EdgeId>> {
         let read_txn = self.db.begin_read()?;

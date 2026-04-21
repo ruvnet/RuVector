@@ -20,6 +20,11 @@ path = "src/bin/ruvbrain_sse.rs"
 name = "ruvbrain-worker"
 path = "src/bin/ruvbrain_worker.rs"
 
+[[bin]]
+name = "mcp-brain-server-local"
+path = "src/bin/local.rs"
+required-features = ["local"]
+
 [dependencies]
 # Web framework
 axum = { version = "0.7", features = ["json", "query"] }
@@ -88,6 +93,17 @@ strange-loop = "0.3"
 # ndarray — required for temporal-neural-solver Array1 interop (ADR-094)
 ndarray = "0.15"
 
+# Local-only: SQLite storage backend
+rusqlite = { version = "0.32", features = ["bundled"], optional = true }
+
+# DiskANN-style graph index
+ordered-float = "4"
+
+# AIDefence inline patterns
+regex = "1"
+
 [features]
 default = []
 x86-simd = ["temporal-neural-solver"]  # Enable on x86_64 systems
+local = ["rusqlite"]
+local-all = ["local", "x86-simd"]

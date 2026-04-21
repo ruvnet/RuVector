@@ -279,6 +279,7 @@ impl HybridIndex {
         };
 
         match prop_value {
+            PropertyValue::FloatArray(arr) => Ok(Some(arr.clone())),
             PropertyValue::Array(arr) => {
                 let embedding: Result<Vec<f32>> = arr
                     .iter()

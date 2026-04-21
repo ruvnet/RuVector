@@ -2,7 +2,7 @@
 //!
 //! Kalshi exchange integration for the RuVector Neural Trader.
 //!
-//! See ADR-151 for design. This crate provides:
+//! See ADR-153 for design. This crate provides:
 //! - RSA-PSS-SHA256 request signing against Kalshi's REST API
 //! - Typed DTOs for Kalshi market/event/order/fill payloads
 //! - Normalization from Kalshi payloads into

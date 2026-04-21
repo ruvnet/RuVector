@@ -26,6 +26,8 @@ pub enum PropertyValue {
     List(Vec<PropertyValue>),
     /// Map of string keys to values
     Map(HashMap<String, PropertyValue>),
+    /// Contiguous f32 array (e.g., embeddings) — avoids per-element PropertyValue overhead
+    FloatArray(Vec<f32>),
 }
 
 // Convenience constructors for PropertyValue
@@ -53,6 +55,10 @@ impl PropertyValue {
     /// Create a map value
     pub fn map(m: HashMap<String, PropertyValue>) -> Self {
         PropertyValue::Map(m)
+    }
+    /// Create a contiguous f32 array (e.g., for embeddings)
+    pub fn float_array(arr: Vec<f32>) -> Self {
+        PropertyValue::FloatArray(arr)
     }
 }
 

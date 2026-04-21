@@ -14,7 +14,7 @@ description = "Graph Neural Network layer for Ruvector on HNSW topology"
 ruvector-core = { version = "2.1.0", path = "../ruvector-core", default-features = false }
 
 # Math and numerics
-ndarray = { workspace = true, features = ["serde"] }
+ndarray = { version = "0.17.2", features = ["serde"] }
 rand = { workspace = true }
 rand_distr = { workspace = true }
 

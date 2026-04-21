@@ -151,8 +151,9 @@ impl VectorDB {
     }
 
     /// Insert multiple vectors in a batch
-    pub fn insert_batch(&self, entries: Vec<VectorEntry>) -> Result<Vec<VectorId>> {
-        let ids = self.storage.insert_batch(&entries)?;
+    pub fn insert_batch(&self, entries: impl AsRef<[VectorEntry]>) -> Result<Vec<VectorId>> {
+        let entries = entries.as_ref();
+        let ids = self.storage.insert_batch(entries)?;
 
         // Add to index
         let mut index = self.index.write();
