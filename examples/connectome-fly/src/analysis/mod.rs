@@ -15,6 +15,7 @@
 //! here.
 
 pub mod gpu;
+pub mod leiden;
 pub mod motif;
 pub mod partition;
 pub mod structural;
@@ -81,6 +82,18 @@ impl Analysis {
     /// Leiden-style stepping stone called out in ADR-154 §13.
     pub fn louvain_labels(&self, conn: &Connectome) -> Vec<u32> {
         structural::louvain_labels(conn)
+    }
+
+    /// Leiden community labels — the multi-level Louvain pipeline with
+    /// Traag's refinement phase inserted between local moves and
+    /// aggregation (Traag et al. 2019, *From Louvain to Leiden:
+    /// guaranteeing well-connected communities*, *Sci. Rep.* 9:5233).
+    /// Fixes the over-aggregation failure mode of `louvain_labels` on
+    /// hub-heavy SBMs. Deterministic; no RNG. See `analysis::leiden`
+    /// for the algorithm and ADR-154 §17 item 11 for the measured
+    /// delta vs multi-level Louvain.
+    pub fn leiden_labels(&self, conn: &Connectome) -> Vec<u32> {
+        leiden::leiden_labels(conn)
     }
 
     /// Build motif embeddings over sliding windows and index them.

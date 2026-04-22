@@ -68,9 +68,21 @@ fn ac_3a_structural_partition_alignment() {
         adjusted_rand_index(&lv_a, &lv_b, is_hub)
     };
 
+    // Leiden baseline (multi-level Louvain + Traag refinement). This
+    // line publishes the number only; the `tests/leiden_refinement.rs`
+    // suite is the actual gate on Leiden's behaviour.
+    let labels_le = an.leiden_labels(&conn);
+    let (le_a, le_b) = two_way_from_labels(&labels_le);
+    let ari_leiden = if le_a.is_empty() || le_b.is_empty() {
+        0.0
+    } else {
+        adjusted_rand_index(&le_a, &le_b, is_hub)
+    };
+
     eprintln!(
         "ac-3a: mincut_ari={ari_mincut:.3}  greedy_ari={ari_greedy:.3}  \
-         louvain_ari={ari_louvain:.3}  |a|={} |b|={}  SOTA_target=0.75",
+         louvain_ari={ari_louvain:.3}  leiden_ari={ari_leiden:.3}  \
+         |a|={} |b|={}  SOTA_target=0.75",
         part.side_a.len(),
         part.side_b.len()
     );
