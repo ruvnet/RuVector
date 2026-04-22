@@ -8,14 +8,19 @@
 //! - `eigensolver`    — Jacobi full-eigendecomposition for small windows
 //!                      plus a shifted-power-iteration fallback for
 //!                      larger ones.
-//! - `sparse_fiedler` — sparse shifted-power-iteration path for windows
-//!                      with more than 1024 active neurons; uses
+//! - `sparse_fiedler` — sparse eigensolve path for windows with more
+//!                      than 1024 active neurons; uses
 //!                      `ruvector_sparsifier::SparseGraph` as the
 //!                      canonical scratch edge container so memory per
 //!                      detect stays `O(n + nnz)` instead of `O(n²)`.
+//! - `lanczos`        — Lanczos-with-full-reorthogonalization driver
+//!                      used by `sparse_fiedler` to converge on `λ_2(L)`
+//!                      even when `λ_2 ≪ λ_max` (path-like topologies
+//!                      where shifted power iteration collapses to 0).
 
 pub mod core;
 pub mod eigensolver;
+pub mod lanczos;
 pub mod report;
 pub mod sparse_fiedler;
 

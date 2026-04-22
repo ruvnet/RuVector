@@ -7,20 +7,18 @@
 //!
 //! This module builds a symmetric compressed-sparse-row (CSR) adjacency
 //! matrix directly from the rolling spike window, then estimates the
-//! Fiedler value via shifted power iteration on `L = D − A` without
-//! ever materialising an `n × n` matrix. Memory is `O(n + nnz)` where
-//! `nnz` is the number of distinct co-firing edges inside the window.
+//! Fiedler value via Lanczos-with-full-reorthogonalization on
+//! `L = D − A` (see [`super::lanczos::lanczos_fiedler`]). Memory is
+//! `O(n + nnz + k·n)` where `nnz` is the number of distinct co-firing
+//! edges inside the window and `k` is the Krylov dimension (≤ 60
+//! default).
 //!
-//! The algorithm mirrors [`super::eigensolver::approx_fiedler_power`]
-//! step-for-step so that at the cross-validation point (n ≤ 1024, both
-//! paths defined) the results agree on the same Laplacian to within
-//! the iterative convergence tolerance:
-//!
-//! 1. Shifted power iteration on `L` with constant-eigenvector
-//!    deflation → `λ_max(L)`.
-//! 2. Shifted power iteration on `M = c·I − L` with
-//!    `c = 1.1 · λ_max(L) + ε`, again with constant deflation → `μ`.
-//! 3. Return `(λ_max(L) − μ).max(0.0)`.
+//! Prior implementation (shifted power iteration) fell back to the
+//! PSD-floor convention `(λ_max − μ).max(0)` → 0 on path-like
+//! topologies where `λ_2 ≪ λ_max`. Commit 6 (`b805d7158`) named this
+//! follow-up; ADR-154 §13 tracks it. The Lanczos driver replaces the
+//! inner eigensolve and keeps the outer CSR-accumulation scaffolding
+//! unchanged.
 //!
 //! `ruvector_sparsifier::SparseGraph` is the canonical sparse-edge
 //! container in the RuVector ecosystem (per ADR-154 §13 follow-up and
@@ -37,25 +35,13 @@ use std::collections::{HashMap, VecDeque};
 
 use ruvector_sparsifier::SparseGraph;
 
+use super::lanczos::{lanczos_fiedler, DEFAULT_MAX_KRYLOV, DEFAULT_TOL};
 use crate::connectome::NeuronId;
 use crate::lif::Spike;
 
 /// Co-firing coincidence window in ms. Matches the dense path in
 /// `super::core::Observer::compute_fiedler`.
 const COFIRE_TAU_MS: f32 = 5.0;
-
-/// Power-iteration steps for the `λ_max(L)` estimate. Matches the
-/// dense `approx_fiedler_power` path so the two agree on the same
-/// adjacency.
-const POWER_STEPS_LMAX: usize = 32;
-
-/// Power-iteration steps for the shifted `λ_max(c·I − L)` estimate.
-/// Also matches the dense path.
-const POWER_STEPS_SHIFT: usize = 64;
-
-/// Relative-tolerance convergence threshold for early exit (same as
-/// the dense path).
-const POWER_TOL: f32 = 1e-4;
 
 /// Compute the Fiedler value of the co-firing-window Laplacian via a
 /// sparse shifted-power-iteration pipeline (the sparse analogue of
@@ -80,17 +66,13 @@ pub fn sparse_fiedler(active: &[NeuronId], cofire: &VecDeque<Spike>, _n_threshol
         return f32::NAN;
     };
 
-    // Phase 2 — power iteration on L → λ_max(L). Mirrors the dense
-    // path's 32-step loop.
-    let lambda_max = power_iter_lmax(&csr);
-    if !lambda_max.is_finite() || lambda_max <= 0.0 {
-        return 0.0;
-    }
-
-    // Phase 3 — 64-step shifted power iteration on c·I − L → μ.
-    let c = lambda_max * 1.1 + 1e-3;
-    let mu = power_iter_shifted(&csr, c);
-    (lambda_max - mu).max(0.0)
+    // Phase 2 — Lanczos-with-full-reorthogonalization on L →
+    // smallest-positive Ritz value ≈ λ_2(L). Replaces the prior
+    // shifted-power-iteration pair which collapsed to 0 on path-like
+    // topologies where `λ_2 ≪ λ_max` (see module docs and ADR-154
+    // §13). The eigensolve step swaps; the CSR-accumulation
+    // scaffolding above is unchanged.
+    lanczos_fiedler(&csr, n, DEFAULT_MAX_KRYLOV, DEFAULT_TOL)
 }
 
 // ---------------------------------------------------------------------
@@ -102,7 +84,11 @@ pub fn sparse_fiedler(active: &[NeuronId], cofire: &VecDeque<Spike>, _n_threshol
 /// the edge weights of the co-firing graph (not the negated Laplacian
 /// off-diagonals), so `(L·x)[i] = deg[i]·x[i] − Σ_{j ∈ nbrs(i)}
 /// val[j] · x[col[j]]`.
-struct LaplacianCsr {
+///
+/// Public so the Lanczos driver in [`super::lanczos`] and tests can
+/// drive it directly without going through the co-firing-window
+/// accumulation path.
+pub struct CsrLaplacian {
     n: usize,
     row_ptr: Vec<u32>,
     col_idx: Vec<u32>,
@@ -110,9 +96,83 @@ struct LaplacianCsr {
     deg: Vec<f32>,
 }
 
-impl LaplacianCsr {
-    fn nnz(&self) -> usize {
+impl CsrLaplacian {
+    /// Number of rows / columns.
+    pub fn n(&self) -> usize {
+        self.n
+    }
+
+    /// Number of stored non-zero adjacency entries (edges are stored
+    /// symmetrically, so `nnz ≈ 2·|E|`).
+    pub fn nnz(&self) -> usize {
         self.col_idx.len()
+    }
+
+    /// `y ← L · x` where `L = D − A`. CSR store is the adjacency `A`,
+    /// `deg` is the row sum of `A`. Same definition the prior power-
+    /// iteration code used; promoted to a method so the Lanczos driver
+    /// (and tests) can share it.
+    pub fn mat_vec_l(&self, x: &[f32], y: &mut [f32]) {
+        debug_assert_eq!(x.len(), self.n);
+        debug_assert_eq!(y.len(), self.n);
+        for i in 0..self.n {
+            let s = self.row_ptr[i] as usize;
+            let e = self.row_ptr[i + 1] as usize;
+            let mut acc = self.deg[i] * x[i];
+            for k in s..e {
+                let j = self.col_idx[k] as usize;
+                acc -= self.val[k] * x[j];
+            }
+            y[i] = acc;
+        }
+    }
+
+    /// Row-pointer accessor for the Lanczos driver's Gershgorin
+    /// upper-bound computation. `i ∈ [0, n]`.
+    #[inline]
+    pub(super) fn row_ptr_i(&self, i: usize) -> u32 {
+        self.row_ptr[i]
+    }
+
+    /// CSR value accessor (indexed by nonzero slot). `k ∈ [0, nnz)`.
+    #[inline]
+    pub(super) fn val_k(&self, k: usize) -> f32 {
+        self.val[k]
+    }
+
+    /// Degree at row `i`. `i ∈ [0, n)`.
+    #[inline]
+    pub(super) fn deg_i(&self, i: usize) -> f32 {
+        self.deg[i]
+    }
+
+    /// Build a `CsrLaplacian` directly from a list of undirected
+    /// weighted edges. Intended for tests / fixtures — production
+    /// callers go through [`sparse_fiedler`] which accumulates from a
+    /// co-firing spike window.
+    ///
+    /// Edges with `u == v` are skipped. Duplicates are summed. Each
+    /// edge contributes symmetrically (row u ↔ row v).
+    pub fn from_edges(n: usize, edges: &[(u32, u32, f32)]) -> Option<Self> {
+        if n < 2 {
+            return None;
+        }
+        let mut acc: HashMap<(u32, u32), f32> = HashMap::with_capacity(edges.len());
+        for &(u, v, w) in edges {
+            if u == v || (u as usize) >= n || (v as usize) >= n {
+                continue;
+            }
+            let key = if u < v { (u, v) } else { (v, u) };
+            *acc.entry(key).or_insert(0.0) += w;
+        }
+        if acc.is_empty() {
+            return None;
+        }
+        let mut graph = SparseGraph::with_capacity(n);
+        for (&(u, v), &w) in &acc {
+            let _ = graph.insert_or_update_edge(u as usize, v as usize, w as f64);
+        }
+        Some(csr_from_graph(graph, n))
     }
 }
 
@@ -129,7 +189,7 @@ fn build_sparse_laplacian(
     active: &[NeuronId],
     cofire: &VecDeque<Spike>,
     n: usize,
-) -> Option<LaplacianCsr> {
+) -> Option<CsrLaplacian> {
     // `active` is assumed sorted by the caller — binary-search to map
     // NeuronId back to a dense row index in `[0, n)`.
     let lookup = |id: NeuronId| active.binary_search(&id).ok();
@@ -175,12 +235,15 @@ fn build_sparse_laplacian(
         return None;
     }
 
-    // --- CSR export. ---
+    Some(csr_from_graph(graph, n))
+}
+
+/// Convert a `SparseGraph` to our `CsrLaplacian` representation,
+/// padding empty trailing rows if the graph's internal vertex count is
+/// less than `n`.
+fn csr_from_graph(graph: SparseGraph, n: usize) -> CsrLaplacian {
     let (rp_f64, ci_f64, vals_f64, exported_n) = graph.to_csr();
     let mut row_ptr: Vec<u32> = rp_f64.iter().map(|x| *x as u32).collect();
-    // `to_csr` returns the graph's vertex count, which may be < n if
-    // the last few neurons have no edges. Pad with empty rows so the
-    // caller can index by `ai ∈ [0, n)` safely.
     if exported_n < n {
         let last = *row_ptr.last().unwrap_or(&0);
         row_ptr.resize(n + 1, last);
@@ -188,8 +251,6 @@ fn build_sparse_laplacian(
     let col_idx: Vec<u32> = ci_f64.iter().map(|x| *x as u32).collect();
     let val: Vec<f32> = vals_f64.iter().map(|x| *x as f32).collect();
 
-    // Degree from CSR row sums — matches `Σ_j A[i,j]` (A symmetric, so
-    // weighted degree = row sum).
     let mut deg = vec![0.0_f32; n];
     for i in 0..n {
         let s = row_ptr[i] as usize;
@@ -201,147 +262,17 @@ fn build_sparse_laplacian(
         deg[i] = d;
     }
 
-    Some(LaplacianCsr {
+    CsrLaplacian {
         n,
         row_ptr,
         col_idx,
         val,
         deg,
-    })
-}
-
-// ---------------------------------------------------------------------
-// Lanczos matvecs
-// ---------------------------------------------------------------------
-
-/// `y ← L·x` where `L = D − A`, using the CSR adjacency `a`.
-fn mat_vec_l(csr: &LaplacianCsr, x: &[f32], y: &mut [f32]) {
-    debug_assert_eq!(x.len(), csr.n);
-    debug_assert_eq!(y.len(), csr.n);
-    for i in 0..csr.n {
-        let s = csr.row_ptr[i] as usize;
-        let e = csr.row_ptr[i + 1] as usize;
-        let mut acc = csr.deg[i] * x[i];
-        for k in s..e {
-            let j = csr.col_idx[k] as usize;
-            acc -= csr.val[k] * x[j];
-        }
-        y[i] = acc;
     }
 }
 
 // ---------------------------------------------------------------------
-// Shifted power iteration — sparse analogue of
-// `super::eigensolver::approx_fiedler_power`.
-//
-// The dense path does:
-//   - 32 power-iteration steps on L with constant-deflation → λ_max(L)
-//   - 64 power-iteration steps on (c·I − L) with c = 1.1·λ_max + ε
-//     → μ (≈ λ_max(c·I − L))
-//   - return (λ_max − μ).max(0)
-//
-// We do the same, but each matvec `L·x` uses the CSR adjacency instead
-// of an `n × n` scan. Every numerical choice (seed pattern, step
-// counts, tolerance, deflation order) is kept identical to the dense
-// reference so the cross-validation test at n ≤ 1024 agrees within
-// 5 % relative error.
-// ---------------------------------------------------------------------
-
-fn power_iter_lmax(csr: &LaplacianCsr) -> f32 {
-    let n = csr.n;
-    // Same seeding polynomial as the dense path's λ_max estimate.
-    let mut x: Vec<f32> = (0..n).map(|i| ((i * 31 + 7) as f32).sin()).collect();
-    deflate_const(&mut x);
-    normalize(&mut x);
-    let mut w = vec![0.0_f32; n];
-    let mut lambda_max = 0.0_f32;
-    for _ in 0..POWER_STEPS_LMAX {
-        mat_vec_l(csr, &x, &mut w);
-        deflate_const(&mut w);
-        normalize(&mut w);
-        // Rayleigh quotient: w · L · w.
-        let mut lw = vec![0.0_f32; n];
-        mat_vec_l(csr, &w, &mut lw);
-        let lam = dot(&w, &lw);
-        let converged = (lam - lambda_max).abs() < POWER_TOL * lam.abs().max(1.0);
-        lambda_max = lam;
-        std::mem::swap(&mut x, &mut w);
-        if converged {
-            break;
-        }
-    }
-    lambda_max
-}
-
-fn power_iter_shifted(csr: &LaplacianCsr, c: f32) -> f32 {
-    let n = csr.n;
-    // Same seed polynomial as the dense path's shifted loop.
-    let mut x: Vec<f32> = (0..n).map(|i| ((i * 19 + 11) as f32).cos()).collect();
-    deflate_const(&mut x);
-    normalize(&mut x);
-    let mut lx = vec![0.0_f32; n];
-    let mut mu = 0.0_f32;
-    for _ in 0..POWER_STEPS_SHIFT {
-        mat_vec_l(csr, &x, &mut lx);
-        // y = (c·I − L) · x  =  c·x − L·x
-        let mut y: Vec<f32> = (0..n).map(|i| c * x[i] - lx[i]).collect();
-        deflate_const(&mut y);
-        normalize(&mut y);
-        // Rayleigh quotient of (c·I − L) at y: y · (c·y − L·y).
-        mat_vec_l(csr, &y, &mut lx);
-        let mut m2 = 0.0_f32;
-        for i in 0..n {
-            m2 += y[i] * (c * y[i] - lx[i]);
-        }
-        let converged = (m2 - mu).abs() < POWER_TOL * m2.abs().max(1.0);
-        mu = m2;
-        x = y;
-        if converged {
-            break;
-        }
-    }
-    mu
-}
-
-// ---------------------------------------------------------------------
-// Small vector kernels
-// ---------------------------------------------------------------------
-
-fn dot(a: &[f32], b: &[f32]) -> f32 {
-    debug_assert_eq!(a.len(), b.len());
-    let mut s = 0.0_f32;
-    for i in 0..a.len() {
-        s += a[i] * b[i];
-    }
-    s
-}
-
-fn norm(x: &[f32]) -> f32 {
-    x.iter().map(|v| v * v).sum::<f32>().sqrt()
-}
-
-fn normalize(x: &mut [f32]) {
-    let nrm = norm(x);
-    if nrm > 1e-20 {
-        let inv = 1.0 / nrm;
-        for v in x.iter_mut() {
-            *v *= inv;
-        }
-    }
-}
-
-fn deflate_const(x: &mut [f32]) {
-    if x.is_empty() {
-        return;
-    }
-    let m: f32 = x.iter().sum::<f32>() / x.len() as f32;
-    for v in x.iter_mut() {
-        *v -= m;
-    }
-}
-
-// ---------------------------------------------------------------------
-// Expose the LaplacianCsr nnz for tests / diagnostics.
+// Expose the CSR Laplacian extent + builder for tests / diagnostics.
 // ---------------------------------------------------------------------
 
 /// Return `(n, nnz)` of the CSR Laplacian this path would build for
@@ -354,7 +285,19 @@ pub fn estimate_sparse_extent(
 ) -> Option<(usize, usize)> {
     let n = active.len();
     let csr = build_sparse_laplacian(active, cofire, n)?;
-    Some((csr.n, csr.nnz()))
+    Some((csr.n(), csr.nnz()))
+}
+
+/// Build the same `CsrLaplacian` the sparse-Fiedler path would build
+/// for the given active-neuron set and co-firing window. Exposed for
+/// tests that want to drive the Lanczos eigensolver directly without
+/// re-implementing the accumulation path.
+pub fn build_csr_from_window(
+    active: &[NeuronId],
+    cofire: &VecDeque<Spike>,
+) -> Option<CsrLaplacian> {
+    let n = active.len();
+    build_sparse_laplacian(active, cofire, n)
 }
 
 #[cfg(test)]
