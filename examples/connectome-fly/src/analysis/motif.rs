@@ -56,12 +56,12 @@ pub(crate) fn retrieve_motifs(
     (index, hits)
 }
 
-struct WindowMeta {
-    spike_count: u32,
-    dominant_class_idx: u8,
+pub(super) struct WindowMeta {
+    pub(super) spike_count: u32,
+    pub(super) dominant_class_idx: u8,
 }
 
-fn build_raster(
+pub(super) fn build_raster(
     conn: &Connectome,
     spikes: &[Spike],
     t_start: f32,
