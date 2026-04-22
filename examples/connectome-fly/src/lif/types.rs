@@ -59,6 +59,17 @@ pub struct EngineConfig {
     ///
     /// `false` = baseline (BinaryHeap + AoS); `true` = optimized.
     pub use_optimized: bool,
+    /// Use the delay-sorted SoA CSR for spike delivery (Opt D from
+    /// ADR-154 §3.2 step 10). Only effective when `use_optimized` is
+    /// `true`; ignored on the baseline path. Opt-in (default `false`)
+    /// so AC-1 bit-exactness at N=1024 on the shipped scalar / SIMD
+    /// paths is untouched — the delay-sorted CSR reorders intra-row
+    /// pushes into the timing wheel and so can change which tie-broken
+    /// event wins within a bucket, which stays within the ~10 % cross-
+    /// path tolerance the demonstrator already documents (README
+    /// §Determinism; ADR-154 §15.1) but is NOT bit-exact vs the
+    /// insertion-order CSR.
+    pub use_delay_sorted_csr: bool,
     /// Per-neuron default params.
     pub params: NeuronParams,
     /// Engine RNG seed (unused in the deterministic path but kept so
@@ -73,6 +84,7 @@ impl Default for EngineConfig {
             weight_gain: 0.9,
             max_queue: 8_000_000,
             use_optimized: true,
+            use_delay_sorted_csr: false,
             params: NeuronParams::default(),
             seed: 0xDECA_FBAD_F00D_CAFE,
         }

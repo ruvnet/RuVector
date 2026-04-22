@@ -74,3 +74,13 @@ harness = false
 name = "gpu_sdpa"
 harness = false
 required-features = ["gpu-cuda"]
+
+# Opt D — delay-sorted CSR saturated-regime throughput bench (ADR-154
+# §3.2 step 10). Same workload as `lif_throughput.rs::lif_throughput_n_1024`
+# with a third row for the `use_delay_sorted_csr=true` path. Minimal
+# `[[bench]]` registration is required here because Cargo's autodiscovery
+# falls back to the default libtest harness, which conflicts with
+# `criterion_main!`.
+[[bench]]
+name = "delay_csr"
+harness = false

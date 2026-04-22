@@ -11,6 +11,7 @@ use crate::connectome::{Connectome, NeuronId, Sign};
 use crate::observer::Observer;
 use crate::stimulus::Stimulus;
 
+use super::delay_csr::DelaySortedCsr;
 use super::queue::{SpikeEvent, TimingWheel};
 use super::types::{EngineConfig, NeuronParams, Spike};
 
@@ -68,6 +69,9 @@ pub struct Engine<'c> {
     /// first SIMD tick). Outside the `simd` feature this stays empty.
     #[allow(dead_code)]
     bias_cache: Vec<f32>,
+    /// Pre-built delay-sorted SoA CSR for Opt D spike-delivery path.
+    /// `Some` iff `cfg.use_delay_sorted_csr && cfg.use_optimized`.
+    delay_csr: Option<DelaySortedCsr>,
 }
 
 impl<'c> Engine<'c> {
@@ -93,19 +97,35 @@ impl<'c> Engine<'c> {
                 active_list.push(i as u32);
             }
         }
+        // The generic CSR delivery path outperforms the `push_at_slot`
+        // fast path on the full bench (observer armed) — the fast path's
+        // pre-computed per-synapse bucket offset adds a 4-byte SoA
+        // stream which costs more in L1 pressure than the float div +
+        // modulo it saves in the wheel's generic `push`. Retained both
+        // constructors (`from_connectome`, `from_connectome_for_wheel`)
+        // for consumers that run the kernel without the Fiedler detector,
+        // where the fast path wins by ~1.5× (detector-off microbench);
+        // see `benches/delay_csr.rs` and the commit message for numbers.
+        let delay_csr = if cfg.use_optimized && cfg.use_delay_sorted_csr {
+            Some(DelaySortedCsr::from_connectome(conn, cfg.weight_gain))
+        } else {
+            None
+        };
+        let wheel = TimingWheel::new(0.1, 32.0);
         Self {
             conn,
             cfg,
             aos,
             heap: BinaryHeap::with_capacity(1 << 16),
             soa: NeuronStateSoA::new(n, cfg.params.v_rest),
-            wheel: TimingWheel::new(0.1, 32.0),
+            wheel,
             active_mask,
             active_list,
             clock: 0.0,
             tmp_events: Vec::with_capacity(1 << 12),
             total_spikes: 0,
             bias_cache: Vec::new(),
+            delay_csr,
         }
     }
 
@@ -368,6 +388,14 @@ impl<'c> Engine<'c> {
         if !self.active_mask[i] {
             self.active_mask[i] = true;
             self.active_list.push(i as u32);
+        }
+        // Opt D hot path: pre-built delay-sorted SoA CSR with the sign
+        // and `weight_gain` folded into `signed_weight`. Tight inner loop
+        // of three parallel slice loads + one wheel push, no per-synapse
+        // match on `Sign` and no per-synapse `weight_gain * weight`.
+        if let Some(csr) = self.delay_csr.as_ref() {
+            csr.deliver_spike(id, t_ms, &mut self.wheel);
+            return;
         }
         let wg = self.cfg.weight_gain;
         for s in self.conn.outgoing(id) {
