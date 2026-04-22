@@ -690,12 +690,8 @@ mod integration_tests {
         let backing2 = StaticBacking::<1024>::new();
         let backing3 = StaticBacking::<2048>::new();
 
-        let immutable = ImmutableRegion::new(
-            backing1,
-            b"Immutable data",
-            RegionHandle::new(1, 0),
-        )
-        .unwrap();
+        let immutable =
+            ImmutableRegion::new(backing1, b"Immutable data", RegionHandle::new(1, 0)).unwrap();
 
         let mut append_only =
             AppendOnlyRegion::new(backing2, 256, RegionHandle::new(2, 0)).unwrap();
@@ -755,12 +751,8 @@ mod integration_tests {
         }
 
         let backing = StaticBacking::<4096>::new();
-        let mut slab = SlabAllocator::new(
-            backing,
-            core::mem::size_of::<TaskControlBlock>(),
-            16,
-        )
-        .unwrap();
+        let mut slab =
+            SlabAllocator::new(backing, core::mem::size_of::<TaskControlBlock>(), 16).unwrap();
 
         let mut tasks = Vec::new();
 

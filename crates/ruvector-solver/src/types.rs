@@ -189,24 +189,24 @@ impl CsrMatrix<f64> {
 
         #[allow(unreachable_code)]
         {
-        let vals = self.values.as_ptr();
-        let cols = self.col_indices.as_ptr();
-        let rp = self.row_ptr.as_ptr();
+            let vals = self.values.as_ptr();
+            let cols = self.col_indices.as_ptr();
+            let rp = self.row_ptr.as_ptr();
 
-        for i in 0..self.rows {
-            let start = unsafe { *rp.add(i) };
-            let end = unsafe { *rp.add(i + 1) };
-            let mut sum = 0.0f64;
+            for i in 0..self.rows {
+                let start = unsafe { *rp.add(i) };
+                let end = unsafe { *rp.add(i + 1) };
+                let mut sum = 0.0f64;
 
-            for idx in start..end {
-                unsafe {
-                    let v = *vals.add(idx);
-                    let c = *cols.add(idx);
-                    sum += v * *x.get_unchecked(c);
+                for idx in start..end {
+                    unsafe {
+                        let v = *vals.add(idx);
+                        let c = *cols.add(idx);
+                        sum += v * *x.get_unchecked(c);
+                    }
                 }
+                unsafe { *y.get_unchecked_mut(i) = sum };
             }
-            unsafe { *y.get_unchecked_mut(i) = sum };
-        }
         }
     }
 }

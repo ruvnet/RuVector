@@ -403,10 +403,7 @@ mod tests {
         assert_eq!(tasks.len(), 5);
         assert_eq!(coordinator.tasks_spawned, 5);
         assert_eq!(kernel.stats.task_spawn, 5);
-        assert_eq!(
-            coordinator.state(),
-            PipelineCoordinatorState::SpawningTasks
-        );
+        assert_eq!(coordinator.state(), PipelineCoordinatorState::SpawningTasks);
     }
 
     #[test]
@@ -448,10 +445,7 @@ mod tests {
 
         // Cycle 1: Spawn tasks
         coordinator.coordinate_cycle(&mut kernel).unwrap();
-        assert_eq!(
-            coordinator.state(),
-            PipelineCoordinatorState::SpawningTasks
-        );
+        assert_eq!(coordinator.state(), PipelineCoordinatorState::SpawningTasks);
 
         // Cycle 2: Grant capabilities
         coordinator.coordinate_cycle(&mut kernel).unwrap();

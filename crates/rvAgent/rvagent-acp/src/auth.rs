@@ -35,15 +35,9 @@ pub struct ApiKeyState {
 /// Axum middleware that validates `Authorization: Bearer <key>`.
 ///
 /// Skips validation for the `/health` endpoint and when no API key is configured.
-pub async fn require_api_key(
-    request: Request,
-    next: Next,
-) -> Result<Response, Response> {
+pub async fn require_api_key(request: Request, next: Next) -> Result<Response, Response> {
     // Extract API key state from extensions.
-    let api_key_state = request
-        .extensions()
-        .get::<ApiKeyState>()
-        .cloned();
+    let api_key_state = request.extensions().get::<ApiKeyState>().cloned();
 
     let expected_key = match api_key_state {
         Some(state) => state.api_key,
@@ -147,19 +141,13 @@ impl RateLimiterState {
 /// Axum middleware that enforces per-IP rate limiting.
 ///
 /// Skips rate limiting for the `/health` endpoint.
-pub async fn rate_limiter(
-    request: Request,
-    next: Next,
-) -> Result<Response, Response> {
+pub async fn rate_limiter(request: Request, next: Next) -> Result<Response, Response> {
     // Skip for /health.
     if request.uri().path() == "/health" {
         return Ok(next.run(request).await);
     }
 
-    let limiter = request
-        .extensions()
-        .get::<RateLimiterState>()
-        .cloned();
+    let limiter = request.extensions().get::<RateLimiterState>().cloned();
 
     let limiter = match limiter {
         Some(l) => l,
@@ -193,10 +181,7 @@ pub async fn rate_limiter(
 /// This is a defense-in-depth layer on top of tower-http's `RequestBodyLimit`.
 /// Checks the `Content-Length` header; actual body limiting is done by the
 /// tower-http layer configured in `AcpServer::router()`.
-pub async fn request_size_limit(
-    request: Request,
-    next: Next,
-) -> Result<Response, Response> {
+pub async fn request_size_limit(request: Request, next: Next) -> Result<Response, Response> {
     // Skip for /health.
     if request.uri().path() == "/health" {
         return Ok(next.run(request).await);
@@ -245,10 +230,7 @@ pub struct RequireTls(pub bool);
 ///
 /// Checks the `x-forwarded-proto` header and the `Host` header to determine
 /// if the connection is secure. Allows localhost connections without TLS.
-pub async fn require_tls_middleware(
-    request: Request,
-    next: Next,
-) -> Result<Response, Response> {
+pub async fn require_tls_middleware(request: Request, next: Next) -> Result<Response, Response> {
     // Skip for /health endpoint.
     if request.uri().path() == "/health" {
         return Ok(next.run(request).await);

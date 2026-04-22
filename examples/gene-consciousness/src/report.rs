@@ -34,8 +34,14 @@ pub fn print_summary(results: &AnalysisResults) {
         "Causal emergence:    {:.4}",
         results.normal_emergence.causal_emergence
     );
-    println!("Determinism:         {:.4}", results.normal_emergence.determinism);
-    println!("Degeneracy:          {:.4}", results.normal_emergence.degeneracy);
+    println!(
+        "Determinism:         {:.4}",
+        results.normal_emergence.determinism
+    );
+    println!(
+        "Degeneracy:          {:.4}",
+        results.normal_emergence.degeneracy
+    );
 
     println!("\n--- SVD Emergence (Normal) ---");
     println!(
@@ -69,11 +75,19 @@ pub fn print_summary(results: &AnalysisResults) {
     println!("\n--- Key Findings ---");
     println!(
         "Modules > full network:  {}",
-        if results.modules_more_integrated { "YES" } else { "NO" }
+        if results.modules_more_integrated {
+            "YES"
+        } else {
+            "NO"
+        }
     );
     println!(
         "Cancer > normal Phi:     {}",
-        if results.cancer_higher_cross_phi { "YES" } else { "NO" }
+        if results.cancer_higher_cross_phi {
+            "YES"
+        } else {
+            "NO"
+        }
     );
 }
 
@@ -158,7 +172,11 @@ fn render_network_graph(net: &GeneNetwork, x: i32, y: i32, w: i32, h: i32) -> St
             if w_val.abs() > 0.05 && i != j {
                 let (x1, y1) = positions[i];
                 let (x2, y2) = positions[j];
-                let class = if w_val.abs() > 0.2 { "edge-strong" } else { "edge" };
+                let class = if w_val.abs() > 0.2 {
+                    "edge-strong"
+                } else {
+                    "edge"
+                };
                 let opacity = (w_val.abs() * 3.0).min(1.0);
                 s.push_str(&format!(
                     "<line x1=\"{:.0}\" y1=\"{:.0}\" x2=\"{:.0}\" y2=\"{:.0}\" class=\"{}\" opacity=\"{:.2}\"/>\n",
@@ -195,7 +213,9 @@ fn render_network_graph(net: &GeneNetwork, x: i32, y: i32, w: i32, h: i32) -> St
         ));
         s.push_str(&format!(
             "<text x=\"{}\" y=\"{}\" class=\"axis-label\" dominant-baseline=\"middle\">{}</text>\n",
-            lx + 10, legend_y, name
+            lx + 10,
+            legend_y,
+            name
         ));
     }
 
@@ -240,7 +260,10 @@ fn render_phi_comparison(results: &AnalysisResults, x: i32, y: i32, w: i32, h: i
         let bh = (normal_phi.phi / max_phi * chart_h) as i32;
         s.push_str(&format!(
             "<rect x=\"{:.0}\" y=\"{}\" width=\"{:.0}\" height=\"{}\" class=\"bar\" rx=\"2\"/>\n",
-            gx, h - 30 - bh, bar_w, bh
+            gx,
+            h - 30 - bh,
+            bar_w,
+            bh
         ));
 
         // Cancer bar
@@ -264,7 +287,10 @@ fn render_phi_comparison(results: &AnalysisResults, x: i32, y: i32, w: i32, h: i
     let bh = (results.normal_full_phi.phi / max_phi * chart_h) as i32;
     s.push_str(&format!(
         "<rect x=\"{:.0}\" y=\"{}\" width=\"{:.0}\" height=\"{}\" class=\"bar\" rx=\"2\"/>\n",
-        gx, h - 30 - bh, bar_w, bh
+        gx,
+        h - 30 - bh,
+        bar_w,
+        bh
     ));
     let cbh = (results.cancer_full_phi.phi / max_phi * chart_h) as i32;
     s.push_str(&format!(
@@ -278,16 +304,20 @@ fn render_phi_comparison(results: &AnalysisResults, x: i32, y: i32, w: i32, h: i
 
     // Legend
     s.push_str(&format!(
-        "<rect x=\"{}\" y=\"10\" width=\"12\" height=\"12\" class=\"bar\"/>\n", w - 150
+        "<rect x=\"{}\" y=\"10\" width=\"12\" height=\"12\" class=\"bar\"/>\n",
+        w - 150
     ));
     s.push_str(&format!(
-        "<text x=\"{}\" y=\"20\" class=\"axis-label\">Normal</text>\n", w - 135
+        "<text x=\"{}\" y=\"20\" class=\"axis-label\">Normal</text>\n",
+        w - 135
     ));
     s.push_str(&format!(
-        "<rect x=\"{}\" y=\"28\" width=\"12\" height=\"12\" class=\"bar-cancer\"/>\n", w - 150
+        "<rect x=\"{}\" y=\"28\" width=\"12\" height=\"12\" class=\"bar-cancer\"/>\n",
+        w - 150
     ));
     s.push_str(&format!(
-        "<text x=\"{}\" y=\"38\" class=\"axis-label\">Cancer</text>\n", w - 135
+        "<text x=\"{}\" y=\"38\" class=\"axis-label\">Cancer</text>\n",
+        w - 135
     ));
 
     s.push_str("</g>\n");
@@ -323,8 +353,18 @@ fn render_null_distribution(
     }
 
     let n_hist_bins = 25usize;
-    let phi_min = null_phis.iter().cloned().fold(f64::INFINITY, f64::min).min(observed) * 0.9;
-    let phi_max = null_phis.iter().cloned().fold(0.0f64, f64::max).max(observed) * 1.1;
+    let phi_min = null_phis
+        .iter()
+        .cloned()
+        .fold(f64::INFINITY, f64::min)
+        .min(observed)
+        * 0.9;
+    let phi_max = null_phis
+        .iter()
+        .cloned()
+        .fold(0.0f64, f64::max)
+        .max(observed)
+        * 1.1;
     let range = (phi_max - phi_min).max(1e-10);
     let bin_width = range / n_hist_bins as f64;
 
@@ -350,7 +390,9 @@ fn render_null_distribution(
     let obs_x = ((observed - phi_min) / range * w as f64) as i32;
     s.push_str(&format!(
         "<line x1=\"{}\" y1=\"0\" x2=\"{}\" y2=\"{}\" stroke=\"#e74c3c\" stroke-width=\"2\"/>\n",
-        obs_x, obs_x, h - 20
+        obs_x,
+        obs_x,
+        h - 20
     ));
     s.push_str(&format!(
         "<text x=\"{}\" y=\"{}\" text-anchor=\"middle\" fill=\"#e74c3c\" font-size=\"10\">Observed</text>\n",
@@ -373,16 +415,29 @@ fn render_summary_stats(results: &AnalysisResults, x: i32, y: i32) -> String {
     };
 
     let lines = vec![
-        format!("Normal Full Phi:     {:.6}  (n=16)", results.normal_full_phi.phi),
-        format!("Cancer Full Phi:     {:.6}  (n=16)", results.cancer_full_phi.phi),
+        format!(
+            "Normal Full Phi:     {:.6}  (n=16)",
+            results.normal_full_phi.phi
+        ),
+        format!(
+            "Cancer Full Phi:     {:.6}  (n=16)",
+            results.cancer_full_phi.phi
+        ),
         format!(
             "Null Mean Phi:       {:.6}  ({} samples)",
-            null_mean, results.null_phis.len()
+            null_mean,
+            results.null_phis.len()
         ),
         format!("z-score:             {:.3}", results.z_score),
         format!("p-value:             {:.4}", results.p_value),
-        format!("EI (micro):          {:.4} bits", results.normal_emergence.ei_micro),
-        format!("Causal emergence:    {:.4}", results.normal_emergence.causal_emergence),
+        format!(
+            "EI (micro):          {:.4} bits",
+            results.normal_emergence.ei_micro
+        ),
+        format!(
+            "Causal emergence:    {:.4}",
+            results.normal_emergence.causal_emergence
+        ),
         format!(
             "SVD Eff. Rank:       {}/16",
             results.normal_svd_emergence.effective_rank
@@ -393,18 +448,27 @@ fn render_summary_stats(results: &AnalysisResults, x: i32, y: i32) -> String {
         ),
         format!(
             "Modules > Full:      {}",
-            if results.modules_more_integrated { "YES" } else { "NO" }
+            if results.modules_more_integrated {
+                "YES"
+            } else {
+                "NO"
+            }
         ),
         format!(
             "Cancer > Normal:     {}",
-            if results.cancer_higher_cross_phi { "YES" } else { "NO" }
+            if results.cancer_higher_cross_phi {
+                "YES"
+            } else {
+                "NO"
+            }
         ),
     ];
 
     for (i, line) in lines.iter().enumerate() {
         s.push_str(&format!(
             "<text x=\"0\" y=\"{}\" class=\"axis-label\">{}</text>\n",
-            20 + i * 18, line
+            20 + i * 18,
+            line
         ));
     }
 

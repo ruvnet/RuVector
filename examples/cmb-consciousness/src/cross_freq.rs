@@ -61,12 +61,20 @@ pub fn run_cross_frequency_analysis() -> CrossFreqResults {
         .collect();
 
     println!("\n  Per-band signals (arbitrary units):");
-    println!("  {:>8} {:>10} {:>10} {:>10} {:>10} {:>10}",
-        "GHz", "CMB", "Dust", "Sync", "FF", "FG frac");
+    println!(
+        "  {:>8} {:>10} {:>10} {:>10} {:>10} {:>10}",
+        "GHz", "CMB", "Dust", "Sync", "FF", "FG frac"
+    );
     for i in 0..9 {
-        println!("  {:>8.0} {:>10.4} {:>10.4} {:>10.4} {:>10.4} {:>10.4}",
-            PLANCK_BANDS[i], cmb_signal[i], dust_signal[i],
-            sync_signal[i], ff_signal[i], foreground_level[i]);
+        println!(
+            "  {:>8.0} {:>10.4} {:>10.4} {:>10.4} {:>10.4} {:>10.4}",
+            PLANCK_BANDS[i],
+            cmb_signal[i],
+            dust_signal[i],
+            sync_signal[i],
+            ff_signal[i],
+            foreground_level[i]
+        );
     }
 
     // Build 9x9 TPM from cross-frequency correlations with foregrounds
@@ -88,7 +96,10 @@ pub fn run_cross_frequency_analysis() -> CrossFreqResults {
     println!("\n  --- Full 9-band system (CMB + foregrounds) ---");
     let full_phi = match auto_compute_phi(&tpm_with_fg, None, &budget) {
         Ok(phi) => {
-            println!("  Full system Phi = {:.6} (algorithm: {})", phi.phi, phi.algorithm);
+            println!(
+                "  Full system Phi = {:.6} (algorithm: {})",
+                phi.phi, phi.algorithm
+            );
             phi.phi
         }
         Err(e) => {
@@ -118,8 +129,14 @@ pub fn run_cross_frequency_analysis() -> CrossFreqResults {
     // Summary and interpretation
     println!("\n  === Cross-Frequency Foreground Analysis Summary ===");
     println!("  Full system Phi:     {:.6}", full_phi);
-    println!("  Low-freq Phi:        {:.6}  (synchrotron bands)", low_freq_phi);
-    println!("  Clean Phi:           {:.6}  (CMB-dominated bands)", clean_phi);
+    println!(
+        "  Low-freq Phi:        {:.6}  (synchrotron bands)",
+        low_freq_phi
+    );
+    println!(
+        "  Clean Phi:           {:.6}  (CMB-dominated bands)",
+        clean_phi
+    );
     println!("  High-freq Phi:       {:.6}  (dust bands)", high_freq_phi);
 
     println!("\n  Interpretation:");
@@ -289,14 +306,20 @@ mod tests {
     fn test_dust_increases_with_frequency() {
         let dust = generate_dust_signal();
         // Dust should increase from low to high frequency (above ~100 GHz)
-        assert!(dust[8] > dust[3], "Dust should dominate at 857 GHz vs 100 GHz");
+        assert!(
+            dust[8] > dust[3],
+            "Dust should dominate at 857 GHz vs 100 GHz"
+        );
     }
 
     #[test]
     fn test_synchrotron_decreases_with_frequency() {
         let sync = generate_synchrotron_signal();
         // Synchrotron should decrease with frequency
-        assert!(sync[0] > sync[8], "Synchrotron should dominate at 30 GHz vs 857 GHz");
+        assert!(
+            sync[0] > sync[8],
+            "Synchrotron should dominate at 30 GHz vs 857 GHz"
+        );
     }
 
     #[test]

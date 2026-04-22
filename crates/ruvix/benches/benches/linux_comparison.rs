@@ -2,13 +2,13 @@
 //!
 //! Run with: cargo bench --bench linux_comparison
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use ruvix_nucleus::{
-    Kernel, KernelConfig, Syscall, VectorStoreConfig, TaskPriority, ProofTier,
-    VectorKey, RegionPolicy, MsgPriority, TimerSpec, SensorDescriptor, QueueHandle,
-    GraphMutation, CapHandle, CapRights, RvfMountHandle, RvfComponentId,
+    CapHandle, CapRights, GraphMutation, Kernel, KernelConfig, MsgPriority, ProofTier, QueueHandle,
+    RegionPolicy, RvfComponentId, RvfMountHandle, SensorDescriptor, Syscall, TaskPriority,
+    TimerSpec, VectorKey, VectorStoreConfig,
 };
-use ruvix_types::{TaskHandle, ObjectType};
+use ruvix_types::{ObjectType, TaskHandle};
 use std::time::Duration;
 
 fn setup_kernel() -> Kernel {
@@ -25,7 +25,9 @@ fn setup_kernel() -> Kernel {
 fn bench_ruvix_cap_grant(c: &mut Criterion) {
     let mut kernel = setup_kernel();
     let root_task = TaskHandle::new(1, 0);
-    let cap = kernel.create_root_capability(0, ObjectType::RvfMount, root_task).unwrap();
+    let cap = kernel
+        .create_root_capability(0, ObjectType::RvfMount, root_task)
+        .unwrap();
 
     c.bench_function("ruvix/cap_grant", |b| {
         b.iter(|| {
@@ -85,9 +87,7 @@ fn bench_ruvix_timer_wait(c: &mut Criterion) {
 #[cfg(unix)]
 fn bench_linux_getuid(c: &mut Criterion) {
     c.bench_function("linux/getuid", |b| {
-        b.iter(|| {
-            black_box(unsafe { libc::getuid() })
-        })
+        b.iter(|| black_box(unsafe { libc::getuid() }))
     });
 }
 
@@ -110,7 +110,9 @@ fn bench_linux_capability_simulation(c: &mut Criterion) {
 fn bench_linux_pipe_write(c: &mut Criterion) {
     // Create pipe
     let mut fds: [libc::c_int; 2] = [0; 2];
-    unsafe { libc::pipe(fds.as_mut_ptr()); }
+    unsafe {
+        libc::pipe(fds.as_mut_ptr());
+    }
 
     let write_fd = fds[1];
     let read_fd = fds[0];
@@ -120,8 +122,11 @@ fn bench_linux_pipe_write(c: &mut Criterion) {
     let reader = std::thread::spawn(move || {
         let mut buf = [0u8; 1024];
         loop {
-            let n = unsafe { libc::read(read_fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len()) };
-            if n <= 0 { break; }
+            let n =
+                unsafe { libc::read(read_fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len()) };
+            if n <= 0 {
+                break;
+            }
         }
     });
 
@@ -133,7 +138,9 @@ fn bench_linux_pipe_write(c: &mut Criterion) {
         })
     });
 
-    unsafe { libc::close(write_fd); }
+    unsafe {
+        libc::close(write_fd);
+    }
     let _ = reader.join();
 }
 
@@ -164,10 +171,11 @@ fn bench_linux_mmap(c: &mut Criterion) {
 #[cfg(unix)]
 fn bench_linux_clock_gettime(c: &mut Criterion) {
     c.bench_function("linux/clock_gettime", |b| {
-        let mut ts = libc::timespec { tv_sec: 0, tv_nsec: 0 };
-        b.iter(|| {
-            black_box(unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut ts) })
-        })
+        let mut ts = libc::timespec {
+            tv_sec: 0,
+            tv_nsec: 0,
+        };
+        b.iter(|| black_box(unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut ts) }))
     });
 }
 
@@ -193,7 +201,9 @@ fn compare_capability(c: &mut Criterion) {
     // RuVix cap_grant
     let mut kernel = setup_kernel();
     let root_task = TaskHandle::new(1, 0);
-    let cap = kernel.create_root_capability(0, ObjectType::RvfMount, root_task).unwrap();
+    let cap = kernel
+        .create_root_capability(0, ObjectType::RvfMount, root_task)
+        .unwrap();
 
     group.bench_function("ruvix", |b| {
         b.iter(|| {
@@ -241,7 +251,9 @@ fn compare_ipc(c: &mut Criterion) {
     #[cfg(unix)]
     {
         let mut fds: [libc::c_int; 2] = [0; 2];
-        unsafe { libc::pipe(fds.as_mut_ptr()); }
+        unsafe {
+            libc::pipe(fds.as_mut_ptr());
+        }
 
         let write_fd = fds[1];
         let read_fd = fds[0];
@@ -250,8 +262,12 @@ fn compare_ipc(c: &mut Criterion) {
         let reader = std::thread::spawn(move || {
             let mut buf = [0u8; 1024];
             loop {
-                let n = unsafe { libc::read(read_fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len()) };
-                if n <= 0 { break; }
+                let n = unsafe {
+                    libc::read(read_fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len())
+                };
+                if n <= 0 {
+                    break;
+                }
             }
         });
 
@@ -263,7 +279,9 @@ fn compare_ipc(c: &mut Criterion) {
             })
         });
 
-        unsafe { libc::close(write_fd); }
+        unsafe {
+            libc::close(write_fd);
+        }
         let _ = reader.join();
     }
 
@@ -330,11 +348,12 @@ fn compare_timer(c: &mut Criterion) {
     // Linux clock_gettime
     #[cfg(unix)]
     {
-        let mut ts = libc::timespec { tv_sec: 0, tv_nsec: 0 };
+        let mut ts = libc::timespec {
+            tv_sec: 0,
+            tv_nsec: 0,
+        };
         group.bench_function("linux", |b| {
-            b.iter(|| {
-                black_box(unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut ts) })
-            })
+            b.iter(|| black_box(unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut ts) }))
         });
     }
 

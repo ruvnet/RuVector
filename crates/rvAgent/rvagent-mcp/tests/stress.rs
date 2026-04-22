@@ -6,8 +6,8 @@ use std::sync::Arc;
 use rvagent_mcp::protocol::*;
 use rvagent_mcp::registry::*;
 use rvagent_mcp::resources::*;
-use rvagent_mcp::topology::*;
 use rvagent_mcp::skills_bridge::*;
+use rvagent_mcp::topology::*;
 use rvagent_mcp::McpError;
 
 // ---------------------------------------------------------------------------
@@ -55,7 +55,11 @@ fn stress_topology_100_nodes() {
     for i in 0..100 {
         router.add_node(TopologyNode {
             id: format!("node-{}", i),
-            role: if i == 0 { NodeRole::Queen } else { NodeRole::Worker },
+            role: if i == 0 {
+                NodeRole::Queen
+            } else {
+                NodeRole::Worker
+            },
             status: match i % 4 {
                 0 => NodeStatus::Active,
                 1 => NodeStatus::Idle,
@@ -63,7 +67,11 @@ fn stress_topology_100_nodes() {
                 _ => NodeStatus::Active,
             },
             tools: vec![format!("tool-{}", i % 10)],
-            connections: if i > 0 { vec![format!("node-{}", i - 1)] } else { vec![] },
+            connections: if i > 0 {
+                vec![format!("node-{}", i - 1)]
+            } else {
+                vec![]
+            },
         });
     }
     assert_eq!(router.node_count(), 100);
@@ -135,12 +143,34 @@ fn stress_all_nodes_failed() {
 #[tokio::test]
 async fn property_resource_uris_valid() {
     let provider = StaticResourceProvider::new();
-    provider.add("rvagent://state/overview", "overview", "state data", Some("application/json"), Some("Agent state overview"));
-    provider.add("rvagent://skills/catalog", "catalog", "skills list", Some("application/json"), Some("Available skills"));
-    provider.add("rvagent://topology/status", "status", "topology info", Some("application/json"), Some("Topology status"));
+    provider.add(
+        "rvagent://state/overview",
+        "overview",
+        "state data",
+        Some("application/json"),
+        Some("Agent state overview"),
+    );
+    provider.add(
+        "rvagent://skills/catalog",
+        "catalog",
+        "skills list",
+        Some("application/json"),
+        Some("Available skills"),
+    );
+    provider.add(
+        "rvagent://topology/status",
+        "status",
+        "topology info",
+        Some("application/json"),
+        Some("Topology status"),
+    );
 
     for resource in provider.list().await.unwrap() {
-        assert!(resource.uri.starts_with("rvagent://"), "URI must use rvagent:// scheme: {}", resource.uri);
+        assert!(
+            resource.uri.starts_with("rvagent://"),
+            "URI must use rvagent:// scheme: {}",
+            resource.uri
+        );
         assert!(!resource.name.is_empty());
         assert!(resource.description.is_some());
     }
@@ -156,7 +186,11 @@ fn property_tool_schemas_valid() {
     for tool in &tools {
         assert!(!tool.name.is_empty());
         assert!(!tool.description.is_empty());
-        assert!(tool.input_schema.is_object(), "Schema for {} must be object", tool.name);
+        assert!(
+            tool.input_schema.is_object(),
+            "Schema for {} must be object",
+            tool.name
+        );
     }
 }
 
@@ -172,11 +206,31 @@ fn property_topology_status_shape() {
 
     for (name, router) in &topologies {
         let status = router.status();
-        assert!(status.get("topology").is_some(), "{} missing topology", name);
-        assert!(status.get("max_agents").is_some(), "{} missing max_agents", name);
-        assert!(status.get("node_count").is_some(), "{} missing node_count", name);
-        assert!(status.get("active_nodes").is_some(), "{} missing active_nodes", name);
-        assert!(status.get("consensus").is_some(), "{} missing consensus", name);
+        assert!(
+            status.get("topology").is_some(),
+            "{} missing topology",
+            name
+        );
+        assert!(
+            status.get("max_agents").is_some(),
+            "{} missing max_agents",
+            name
+        );
+        assert!(
+            status.get("node_count").is_some(),
+            "{} missing node_count",
+            name
+        );
+        assert!(
+            status.get("active_nodes").is_some(),
+            "{} missing active_nodes",
+            name
+        );
+        assert!(
+            status.get("consensus").is_some(),
+            "{} missing consensus",
+            name
+        );
         assert!(status.get("nodes").is_some(), "{} missing nodes", name);
     }
 }
@@ -215,8 +269,9 @@ fn property_skills_roundtrip_idempotent() {
 /// Stress: Serialize/deserialize many MCP requests.
 #[test]
 fn stress_mcp_serde_throughput() {
-    let req = JsonRpcRequest::new(1, "tools/call")
-        .with_params(serde_json::json!({"name": "read_file", "arguments": {"file_path": "/test.txt"}}));
+    let req = JsonRpcRequest::new(1, "tools/call").with_params(
+        serde_json::json!({"name": "read_file", "arguments": {"file_path": "/test.txt"}}),
+    );
 
     for i in 0..1000 {
         let mut r = req.clone();
@@ -231,9 +286,27 @@ fn stress_mcp_serde_throughput() {
 #[tokio::test]
 async fn stress_resource_reads() {
     let provider = StaticResourceProvider::new();
-    provider.add("rvagent://state/overview", "overview", "{}", Some("application/json"), None);
-    provider.add("rvagent://skills/catalog", "catalog", "[]", Some("application/json"), None);
-    provider.add("rvagent://topology/status", "status", "{}", Some("application/json"), None);
+    provider.add(
+        "rvagent://state/overview",
+        "overview",
+        "{}",
+        Some("application/json"),
+        None,
+    );
+    provider.add(
+        "rvagent://skills/catalog",
+        "catalog",
+        "[]",
+        Some("application/json"),
+        None,
+    );
+    provider.add(
+        "rvagent://topology/status",
+        "status",
+        "{}",
+        Some("application/json"),
+        None,
+    );
 
     // Read all static resources many times
     for _ in 0..100 {
@@ -283,7 +356,8 @@ fn stress_registry_churn() {
     let reg = McpToolRegistry::new();
 
     for i in 0..100 {
-        reg.register_tool(make_tool(&format!("churn-{}", i))).unwrap();
+        reg.register_tool(make_tool(&format!("churn-{}", i)))
+            .unwrap();
     }
     assert_eq!(reg.len(), 100);
 
@@ -304,10 +378,16 @@ async fn stress_builtins_repeated_calls() {
     register_builtins(&reg, serde_json::json!({"tools": true})).unwrap();
 
     for _ in 0..100 {
-        let ping = reg.call_tool("ping", serde_json::Value::Null).await.unwrap();
+        let ping = reg
+            .call_tool("ping", serde_json::Value::Null)
+            .await
+            .unwrap();
         assert!(!ping.is_error);
 
-        let echo = reg.call_tool("echo", serde_json::json!({"text": "hello"})).await.unwrap();
+        let echo = reg
+            .call_tool("echo", serde_json::json!({"text": "hello"}))
+            .await
+            .unwrap();
         match &echo.content[0] {
             Content::Text { text } => assert_eq!(text, "hello"),
             _ => panic!("expected text content"),
@@ -320,7 +400,8 @@ async fn stress_builtins_repeated_calls() {
 fn stress_registry_clone_shared_state() {
     let reg = McpToolRegistry::new();
     for i in 0..100 {
-        reg.register_tool(make_tool(&format!("shared-{}", i))).unwrap();
+        reg.register_tool(make_tool(&format!("shared-{}", i)))
+            .unwrap();
     }
     let reg2 = reg.clone();
     assert_eq!(reg2.len(), 100);
@@ -466,7 +547,9 @@ fn edge_duplicate_tool_registration() {
 #[tokio::test]
 async fn edge_call_nonexistent_tool() {
     let reg = McpToolRegistry::new();
-    let result = reg.call_tool("does-not-exist", serde_json::Value::Null).await;
+    let result = reg
+        .call_tool("does-not-exist", serde_json::Value::Null)
+        .await;
     assert!(result.is_err());
 }
 
@@ -488,7 +571,12 @@ fn property_mcp_method_roundtrip_all() {
     for method in &methods {
         let s = method.as_str();
         let parsed = McpMethod::from_str(s);
-        assert_eq!(parsed.as_ref(), Some(method), "Failed roundtrip for {:?}", method);
+        assert_eq!(
+            parsed.as_ref(),
+            Some(method),
+            "Failed roundtrip for {:?}",
+            method
+        );
     }
 }
 
@@ -521,12 +609,19 @@ fn property_validate_args_consistency() {
     reg.register_tool(make_tool_with_schema(
         "no-req",
         serde_json::json!({"type": "object", "properties": {"b": {"type": "number"}}}),
-    )).unwrap();
+    ))
+    .unwrap();
 
-    assert!(reg.validate_args("obj-tool", &serde_json::json!({})).is_err());
-    assert!(reg.validate_args("obj-tool", &serde_json::json!({"a": "val"})).is_ok());
+    assert!(reg
+        .validate_args("obj-tool", &serde_json::json!({}))
+        .is_err());
+    assert!(reg
+        .validate_args("obj-tool", &serde_json::json!({"a": "val"}))
+        .is_ok());
     assert!(reg.validate_args("no-req", &serde_json::json!({})).is_ok());
-    assert!(reg.validate_args("obj-tool", &serde_json::json!("string")).is_err());
+    assert!(reg
+        .validate_args("obj-tool", &serde_json::json!("string"))
+        .is_err());
 }
 
 /// Property: McpToolDefinition clone preserves all fields.

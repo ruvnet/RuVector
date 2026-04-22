@@ -5,8 +5,8 @@
 
 use crate::distance::l2_squared;
 use crate::error::{DiskAnnError, Result};
-use rand::prelude::*;
 use bincode::{Decode, Encode};
+use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// Product Quantizer with M subspaces, 256 centroids each (1 byte per subspace)

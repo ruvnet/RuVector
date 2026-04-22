@@ -32,11 +32,11 @@ impl Default for PatternConfig {
         //   with fewer trajectories. Previous defaults (k=100, min=5, q=0.3)
         //   prevented crystallization when trajectory count < 500.
         Self {
-            k_clusters: 5,   // Was 50; fewer clusters = more members per cluster with low trajectory counts
+            k_clusters: 5, // Was 50; fewer clusters = more members per cluster with low trajectory counts
             embedding_dim: 256,
             max_iterations: 100,
             convergence_threshold: 0.001,
-            min_cluster_size: 1,  // Was 2; allow single-trajectory clusters to crystallize
+            min_cluster_size: 1, // Was 2; allow single-trajectory clusters to crystallize
             max_trajectories: 10000,
             quality_threshold: 0.05, // Was 0.1; very permissive so early patterns survive
         }

@@ -4,7 +4,7 @@
 //! We run the decompiler on the minified version, compare against ground
 //! truth, and feed results into the self-learning feedback loop.
 
-use ruvector_decompiler::inferrer::{InferenceFeedback, learn_from_ground_truth};
+use ruvector_decompiler::inferrer::{learn_from_ground_truth, InferenceFeedback};
 use ruvector_decompiler::{decompile, DecompileConfig, InferredName};
 
 // ---------------------------------------------------------------------------
@@ -139,16 +139,28 @@ fn run_fixture(
     let name_hits = count_semantic_hits(&result.inferred_names, original_names);
 
     // Confidence breakdown.
-    let high_conf = result.inferred_names.iter().filter(|n| n.confidence > 0.9).count();
+    let high_conf = result
+        .inferred_names
+        .iter()
+        .filter(|n| n.confidence > 0.9)
+        .count();
     let medium_conf = result
         .inferred_names
         .iter()
         .filter(|n| n.confidence >= 0.6 && n.confidence <= 0.9)
         .count();
-    let low_conf = result.inferred_names.iter().filter(|n| n.confidence < 0.6).count();
+    let low_conf = result
+        .inferred_names
+        .iter()
+        .filter(|n| n.confidence < 0.6)
+        .count();
 
     let avg_confidence = if !result.inferred_names.is_empty() {
-        result.inferred_names.iter().map(|n| n.confidence).sum::<f64>()
+        result
+            .inferred_names
+            .iter()
+            .map(|n| n.confidence)
+            .sum::<f64>()
             / result.inferred_names.len() as f64
     } else {
         0.0
@@ -173,10 +185,7 @@ fn run_fixture(
     }
 }
 
-fn count_semantic_hits(
-    inferred: &[InferredName],
-    originals: &[(&str, &str)],
-) -> usize {
+fn count_semantic_hits(inferred: &[InferredName], originals: &[(&str, &str)]) -> usize {
     let mut hits = 0;
     for inf in inferred {
         let inf_lower = inf.inferred.to_lowercase();
@@ -211,10 +220,7 @@ fn keyword_overlap(a: &str, b: &str) -> bool {
     false
 }
 
-fn build_feedback(
-    inferred: &[InferredName],
-    originals: &[(&str, &str)],
-) -> Vec<InferenceFeedback> {
+fn build_feedback(inferred: &[InferredName], originals: &[(&str, &str)]) -> Vec<InferenceFeedback> {
     let mut feedback = Vec::new();
     for &(minified_name, correct_name) in originals {
         if let Some(inf) = inferred.iter().find(|n| n.original == minified_name) {
@@ -248,12 +254,20 @@ fn print_result(r: &FixtureResult) {
         0.0
     };
 
-    println!("  {}: decls {}/{} ({:.0}%), names {}/{} ({:.0}%), modules {}/{}",
-        r.name, r.decl_found, r.decl_expected, decl_pct,
-        r.name_hits, r.name_total, name_pct,
-        r.module_count, r.module_expected,
+    println!(
+        "  {}: decls {}/{} ({:.0}%), names {}/{} ({:.0}%), modules {}/{}",
+        r.name,
+        r.decl_found,
+        r.decl_expected,
+        decl_pct,
+        r.name_hits,
+        r.name_total,
+        name_pct,
+        r.module_count,
+        r.module_expected,
     );
-    println!("    confidence: HIGH={}, MEDIUM={}, LOW={}, avg={:.2}",
+    println!(
+        "    confidence: HIGH={}, MEDIUM={}, LOW={}, avg={:.2}",
         r.high_conf, r.medium_conf, r.low_conf, r.avg_confidence,
     );
 }

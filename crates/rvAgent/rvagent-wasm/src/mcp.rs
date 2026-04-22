@@ -127,8 +127,12 @@ pub struct ResourceCapabilities {
 impl Default for ServerCapabilities {
     fn default() -> Self {
         Self {
-            tools: Some(ToolCapabilities { list_changed: false }),
-            resources: Some(ResourceCapabilities { list_changed: false }),
+            tools: Some(ToolCapabilities {
+                list_changed: false,
+            }),
+            resources: Some(ResourceCapabilities {
+                list_changed: false,
+            }),
         }
     }
 }
@@ -195,7 +199,11 @@ impl WasmMcpServer {
             return to_js_value(&JsonRpcResponse::error(
                 None,
                 -32600,
-                &format!("Request size {} exceeds maximum {}", request_json.len(), MAX_REQUEST_SIZE),
+                &format!(
+                    "Request size {} exceeds maximum {}",
+                    request_json.len(),
+                    MAX_REQUEST_SIZE
+                ),
             ));
         }
 
@@ -251,7 +259,9 @@ impl WasmMcpServer {
             "gallery/search" => self.handle_gallery_search(request.id.clone(), &request.params),
             "gallery/get" => self.handle_gallery_get(request.id.clone(), &request.params),
             "gallery/load" => self.handle_gallery_load(request.id.clone(), &request.params),
-            "gallery/configure" => self.handle_gallery_configure(request.id.clone(), &request.params),
+            "gallery/configure" => {
+                self.handle_gallery_configure(request.id.clone(), &request.params)
+            }
             "gallery/categories" => self.handle_gallery_categories(request.id.clone()),
             _ => JsonRpcResponse::error(
                 request.id.clone(),
@@ -344,14 +354,16 @@ impl WasmMcpServer {
     fn handle_prompts_list(&self, id: Option<serde_json::Value>) -> JsonRpcResponse {
         // Return prompts from active gallery template if any
         if let Some(ref active_id) = self.gallery.get_active() {
-            if let Some(template) = self.gallery.all_templates()
-                .find(|t| &t.id == active_id)
-            {
-                let prompts: Vec<serde_json::Value> = template.prompts.iter()
-                    .map(|p| serde_json::json!({
-                        "name": p.name,
-                        "description": format!("Prompt v{}", p.version),
-                    }))
+            if let Some(template) = self.gallery.all_templates().find(|t| &t.id == active_id) {
+                let prompts: Vec<serde_json::Value> = template
+                    .prompts
+                    .iter()
+                    .map(|p| {
+                        serde_json::json!({
+                            "name": p.name,
+                            "description": format!("Prompt v{}", p.version),
+                        })
+                    })
                     .collect();
                 return JsonRpcResponse::success(id, serde_json::json!({ "prompts": prompts }));
             }
@@ -364,24 +376,31 @@ impl WasmMcpServer {
     // -------------------------------------------------------------------------
 
     fn handle_gallery_list(&self, id: Option<serde_json::Value>) -> JsonRpcResponse {
-        let templates: Vec<serde_json::Value> = self.gallery.all_templates()
-            .map(|t| serde_json::json!({
-                "id": t.id,
-                "name": t.name,
-                "description": t.description,
-                "category": t.category,
-                "version": t.version,
-                "author": t.author,
-                "tags": t.tags,
-                "builtin": t.builtin,
-            }))
+        let templates: Vec<serde_json::Value> = self
+            .gallery
+            .all_templates()
+            .map(|t| {
+                serde_json::json!({
+                    "id": t.id,
+                    "name": t.name,
+                    "description": t.description,
+                    "category": t.category,
+                    "version": t.version,
+                    "author": t.author,
+                    "tags": t.tags,
+                    "builtin": t.builtin,
+                })
+            })
             .collect();
 
-        JsonRpcResponse::success(id, serde_json::json!({
-            "templates": templates,
-            "count": templates.len(),
-            "active": self.gallery.get_active(),
-        }))
+        JsonRpcResponse::success(
+            id,
+            serde_json::json!({
+                "templates": templates,
+                "count": templates.len(),
+                "active": self.gallery.get_active(),
+            }),
+        )
     }
 
     fn handle_gallery_search(
@@ -403,16 +422,24 @@ impl WasmMcpServer {
         let query_lower = query.to_lowercase();
         let terms: Vec<&str> = query_lower.split_whitespace().collect();
 
-        let mut results: Vec<serde_json::Value> = self.gallery.all_templates()
+        let mut results: Vec<serde_json::Value> = self
+            .gallery
+            .all_templates()
             .filter_map(|t| {
                 let mut score = 0.0f32;
                 let name_lower = t.name.to_lowercase();
                 let desc_lower = t.description.to_lowercase();
 
                 for term in &terms {
-                    if name_lower.contains(term) { score += 0.4; }
-                    if desc_lower.contains(term) { score += 0.3; }
-                    if t.tags.iter().any(|tag| tag.to_lowercase().contains(term)) { score += 0.3; }
+                    if name_lower.contains(term) {
+                        score += 0.4;
+                    }
+                    if desc_lower.contains(term) {
+                        score += 0.3;
+                    }
+                    if t.tags.iter().any(|tag| tag.to_lowercase().contains(term)) {
+                        score += 0.3;
+                    }
                 }
 
                 if score > 0.0 {
@@ -437,10 +464,13 @@ impl WasmMcpServer {
             rb.partial_cmp(&ra).unwrap()
         });
 
-        JsonRpcResponse::success(id, serde_json::json!({
-            "results": results,
-            "query": query,
-        }))
+        JsonRpcResponse::success(
+            id,
+            serde_json::json!({
+                "results": results,
+                "query": query,
+            }),
+        )
     }
 
     fn handle_gallery_get(
@@ -457,14 +487,15 @@ impl WasmMcpServer {
         let template = self.gallery.find_template(template_id);
 
         match template {
-            Some(t) => JsonRpcResponse::success(id, serde_json::json!({
-                "template": t,
-            })),
-            None => JsonRpcResponse::error(
+            Some(t) => JsonRpcResponse::success(
                 id,
-                -32602,
-                &format!("template not found: {}", template_id),
+                serde_json::json!({
+                    "template": t,
+                }),
             ),
+            None => {
+                JsonRpcResponse::error(id, -32602, &format!("template not found: {}", template_id))
+            }
         }
     }
 
@@ -489,24 +520,25 @@ impl WasmMcpServer {
                 // Build RVF container
                 let rvf_bytes = t.to_rvf();
 
-                JsonRpcResponse::success(id, serde_json::json!({
-                    "loaded": true,
-                    "template_id": template_id,
-                    "name": t.name,
-                    "rvf_size": rvf_bytes.len(),
-                    "tools_count": t.tools.len(),
-                    "prompts_count": t.prompts.len(),
-                    "skills_count": t.skills.len(),
-                    "mcp_tools_count": t.mcp_tools.len(),
-                    "capabilities_count": t.capabilities.len(),
-                    "has_orchestrator": t.orchestrator.is_some(),
-                }))
+                JsonRpcResponse::success(
+                    id,
+                    serde_json::json!({
+                        "loaded": true,
+                        "template_id": template_id,
+                        "name": t.name,
+                        "rvf_size": rvf_bytes.len(),
+                        "tools_count": t.tools.len(),
+                        "prompts_count": t.prompts.len(),
+                        "skills_count": t.skills.len(),
+                        "mcp_tools_count": t.mcp_tools.len(),
+                        "capabilities_count": t.capabilities.len(),
+                        "has_orchestrator": t.orchestrator.is_some(),
+                    }),
+                )
             }
-            None => JsonRpcResponse::error(
-                id,
-                -32602,
-                &format!("template not found: {}", template_id),
-            ),
+            None => {
+                JsonRpcResponse::error(id, -32602, &format!("template not found: {}", template_id))
+            }
         }
     }
 
@@ -515,7 +547,10 @@ impl WasmMcpServer {
         id: Option<serde_json::Value>,
         params: &serde_json::Value,
     ) -> JsonRpcResponse {
-        let config = params.get("config").cloned().unwrap_or(serde_json::json!({}));
+        let config = params
+            .get("config")
+            .cloned()
+            .unwrap_or(serde_json::json!({}));
 
         if self.gallery.get_active().is_none() {
             return JsonRpcResponse::error(id, -32602, "no active template - load one first");
@@ -523,11 +558,14 @@ impl WasmMcpServer {
 
         self.gallery.set_config_overrides(config.clone());
 
-        JsonRpcResponse::success(id, serde_json::json!({
-            "configured": true,
-            "active": self.gallery.get_active(),
-            "config": config,
-        }))
+        JsonRpcResponse::success(
+            id,
+            serde_json::json!({
+                "configured": true,
+                "active": self.gallery.get_active(),
+                "config": config,
+            }),
+        )
     }
 
     fn handle_gallery_categories(&self, id: Option<serde_json::Value>) -> JsonRpcResponse {
@@ -543,16 +581,22 @@ impl WasmMcpServer {
             *counts.entry(cat).or_insert(0) += 1;
         }
 
-        let categories: Vec<serde_json::Value> = counts.iter()
-            .map(|(name, count)| serde_json::json!({
-                "name": name,
-                "count": count,
-            }))
+        let categories: Vec<serde_json::Value> = counts
+            .iter()
+            .map(|(name, count)| {
+                serde_json::json!({
+                    "name": name,
+                    "count": count,
+                })
+            })
             .collect();
 
-        JsonRpcResponse::success(id, serde_json::json!({
-            "categories": categories,
-        }))
+        JsonRpcResponse::success(
+            id,
+            serde_json::json!({
+                "categories": categories,
+            }),
+        )
     }
 
     /// Get MCP tool definitions from available tools.
@@ -560,7 +604,9 @@ impl WasmMcpServer {
         vec![
             McpToolDef {
                 name: "read_file".to_string(),
-                description: Some("Read the contents of a file from the virtual filesystem".to_string()),
+                description: Some(
+                    "Read the contents of a file from the virtual filesystem".to_string(),
+                ),
                 input_schema: Some(serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -684,7 +730,11 @@ impl WasmMcpServer {
         // Security: Validate input lengths
         let validate_path = |p: &str| -> Result<(), String> {
             if p.len() > MAX_PATH_LENGTH {
-                return Err(format!("Path length {} exceeds maximum {}", p.len(), MAX_PATH_LENGTH));
+                return Err(format!(
+                    "Path length {} exceeds maximum {}",
+                    p.len(),
+                    MAX_PATH_LENGTH
+                ));
             }
             if p.contains("..") {
                 return Err("Path traversal (..) is not allowed".to_string());
@@ -694,7 +744,11 @@ impl WasmMcpServer {
 
         let validate_content = |c: &str| -> Result<(), String> {
             if c.len() > MAX_CONTENT_LENGTH {
-                return Err(format!("Content length {} exceeds maximum {}", c.len(), MAX_CONTENT_LENGTH));
+                return Err(format!(
+                    "Content length {} exceeds maximum {}",
+                    c.len(),
+                    MAX_CONTENT_LENGTH
+                ));
             }
             Ok(())
         };
@@ -707,7 +761,10 @@ impl WasmMcpServer {
                     .and_then(|v| v.as_str())
                     .unwrap_or_default();
                 if let Err(e) = validate_path(path) {
-                    return ToolResult { success: false, output: e };
+                    return ToolResult {
+                        success: false,
+                        output: e,
+                    };
                 }
                 ToolRequest::ReadFile { path: path.into() }
             }
@@ -721,10 +778,16 @@ impl WasmMcpServer {
                     .and_then(|v| v.as_str())
                     .unwrap_or_default();
                 if let Err(e) = validate_path(path) {
-                    return ToolResult { success: false, output: e };
+                    return ToolResult {
+                        success: false,
+                        output: e,
+                    };
                 }
                 if let Err(e) = validate_content(content) {
-                    return ToolResult { success: false, output: e };
+                    return ToolResult {
+                        success: false,
+                        output: e,
+                    };
                 }
                 ToolRequest::WriteFile {
                     path: path.into(),
@@ -745,13 +808,22 @@ impl WasmMcpServer {
                     .and_then(|v| v.as_str())
                     .unwrap_or_default();
                 if let Err(e) = validate_path(path) {
-                    return ToolResult { success: false, output: e };
+                    return ToolResult {
+                        success: false,
+                        output: e,
+                    };
                 }
                 if let Err(e) = validate_content(old_string) {
-                    return ToolResult { success: false, output: e };
+                    return ToolResult {
+                        success: false,
+                        output: e,
+                    };
                 }
                 if let Err(e) = validate_content(new_string) {
-                    return ToolResult { success: false, output: e };
+                    return ToolResult {
+                        success: false,
+                        output: e,
+                    };
                 }
                 ToolRequest::EditFile {
                     path: path.into(),
@@ -795,7 +867,8 @@ mod tests {
 
     #[test]
     fn test_json_rpc_response_success() {
-        let resp = JsonRpcResponse::success(Some(serde_json::json!(1)), serde_json::json!({"ok": true}));
+        let resp =
+            JsonRpcResponse::success(Some(serde_json::json!(1)), serde_json::json!({"ok": true}));
         assert_eq!(resp.jsonrpc, "2.0");
         assert!(resp.result.is_some());
         assert!(resp.error.is_none());

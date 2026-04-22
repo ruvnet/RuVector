@@ -269,10 +269,18 @@ impl MinimumCapabilitySet {
     #[must_use]
     pub fn count(&self) -> usize {
         let mut count = 0;
-        if self.witness_log.is_some() { count += 1; }
-        if self.timer.is_some() { count += 1; }
-        if self.self_task.is_some() { count += 1; }
-        if self.syscall_queue.is_some() { count += 1; }
+        if self.witness_log.is_some() {
+            count += 1;
+        }
+        if self.timer.is_some() {
+            count += 1;
+        }
+        if self.self_task.is_some() {
+            count += 1;
+        }
+        if self.syscall_queue.is_some() {
+            count += 1;
+        }
         count
     }
 
@@ -280,9 +288,7 @@ impl MinimumCapabilitySet {
     #[inline]
     #[must_use]
     pub fn is_valid(&self) -> bool {
-        self.witness_log.is_some()
-            && self.timer.is_some()
-            && self.self_task.is_some()
+        self.witness_log.is_some() && self.timer.is_some() && self.self_task.is_some()
     }
 }
 
@@ -365,12 +371,7 @@ mod tests {
 
     #[test]
     fn test_capability_grant_creation() {
-        let grant = CapabilityGrant::new(
-            0x1000,
-            ObjectType::Region,
-            CapRights::READ,
-            42,
-        );
+        let grant = CapabilityGrant::new(0x1000, ObjectType::Region, CapRights::READ, 42);
 
         assert_eq!(grant.object_id, 0x1000);
         assert_eq!(grant.object_type, ObjectType::Region);
@@ -434,8 +435,12 @@ mod tests {
             grant_count: 0,
         };
 
-        grant.add_grant(CapabilityGrant::region_readonly(0x1000, 0)).unwrap();
-        grant.add_grant(CapabilityGrant::queue_send(0x2000, 1)).unwrap();
+        grant
+            .add_grant(CapabilityGrant::region_readonly(0x1000, 0))
+            .unwrap();
+        grant
+            .add_grant(CapabilityGrant::queue_send(0x2000, 1))
+            .unwrap();
 
         assert_eq!(grant.grant_count, 2);
     }
@@ -450,7 +455,9 @@ mod tests {
 
         // Fill up all 32 slots
         for i in 0..32 {
-            grant.add_grant(CapabilityGrant::region_readonly(i as u64, 0)).unwrap();
+            grant
+                .add_grant(CapabilityGrant::region_readonly(i as u64, 0))
+                .unwrap();
         }
 
         // 33rd should fail

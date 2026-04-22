@@ -19,16 +19,15 @@ use alloc::vec::Vec;
 
 use crate::{
     checkpoint::{Checkpoint, CheckpointConfig, ReplayEngine},
+    graph_store::GraphStore,
     proof_engine::{ProofEngine, ProofEngineConfig},
     scheduler::{Scheduler, SchedulerConfig},
     syscall::{AttestPayload, Syscall, SyscallResult},
     vector_store::VectorStore,
-    graph_store::GraphStore,
     witness_log::{WitnessLog, WitnessRecordKind},
-    CapHandle, CapRights, Duration, GraphHandle, GraphMutation, MsgPriority, ProofTier,
-    ProofToken, QueueHandle, RegionPolicy, Result, RvfMountHandle, SensorDescriptor,
-    SubscriptionHandle, TaskHandle, TaskPriority, TimerSpec, VectorKey, VectorStoreConfig,
-    VectorStoreHandle,
+    CapHandle, CapRights, Duration, GraphHandle, GraphMutation, MsgPriority, ProofTier, ProofToken,
+    QueueHandle, RegionPolicy, Result, RvfMountHandle, SensorDescriptor, SubscriptionHandle,
+    TaskHandle, TaskPriority, TimerSpec, VectorKey, VectorStoreConfig, VectorStoreHandle,
 };
 
 use ruvix_cap::{CapManagerConfig, CapabilityManager};
@@ -270,59 +269,79 @@ impl Kernel {
 
         // Dispatch to specific handler
         let result = match syscall {
-            Syscall::TaskSpawn { priority, deadline, .. } => {
-                self.handle_task_spawn(priority, deadline)
-            }
-            Syscall::CapGrant { target, cap, rights } => {
-                self.handle_cap_grant(target, cap, rights)
-            }
-            Syscall::RegionMap { size, policy, cap } => {
-                self.handle_region_map(size, policy, cap)
-            }
+            Syscall::TaskSpawn {
+                priority, deadline, ..
+            } => self.handle_task_spawn(priority, deadline),
+            Syscall::CapGrant {
+                target,
+                cap,
+                rights,
+            } => self.handle_cap_grant(target, cap, rights),
+            Syscall::RegionMap { size, policy, cap } => self.handle_region_map(size, policy, cap),
             #[cfg(feature = "alloc")]
-            Syscall::QueueSend { queue, msg, priority } => {
-                self.handle_queue_send(queue, &msg, priority)
-            }
+            Syscall::QueueSend {
+                queue,
+                msg,
+                priority,
+            } => self.handle_queue_send(queue, &msg, priority),
             #[cfg(not(feature = "alloc"))]
-            Syscall::QueueSend { queue, msg, msg_len, priority } => {
-                self.handle_queue_send(queue, &msg[..msg_len], priority)
-            }
-            Syscall::QueueRecv { queue, buf_size, timeout } => {
-                self.handle_queue_recv(queue, buf_size, timeout)
-            }
-            Syscall::TimerWait { deadline } => {
-                self.handle_timer_wait(deadline)
-            }
+            Syscall::QueueSend {
+                queue,
+                msg,
+                msg_len,
+                priority,
+            } => self.handle_queue_send(queue, &msg[..msg_len], priority),
+            Syscall::QueueRecv {
+                queue,
+                buf_size,
+                timeout,
+            } => self.handle_queue_recv(queue, buf_size, timeout),
+            Syscall::TimerWait { deadline } => self.handle_timer_wait(deadline),
             #[cfg(feature = "alloc")]
-            Syscall::RvfMount { rvf_data, mount_point, cap } => {
-                self.handle_rvf_mount(&rvf_data, &mount_point, cap)
-            }
+            Syscall::RvfMount {
+                rvf_data,
+                mount_point,
+                cap,
+            } => self.handle_rvf_mount(&rvf_data, &mount_point, cap),
             #[cfg(not(feature = "alloc"))]
-            Syscall::RvfMount { rvf_data, rvf_len, mount_point, mount_point_len, cap } => {
+            Syscall::RvfMount {
+                rvf_data,
+                rvf_len,
+                mount_point,
+                mount_point_len,
+                cap,
+            } => {
                 let mp = core::str::from_utf8(&mount_point[..mount_point_len])
                     .map_err(|_| KernelError::InvalidArgument)?;
                 self.handle_rvf_mount(&rvf_data[..rvf_len], mp, cap)
             }
-            Syscall::AttestEmit { operation, proof } => {
-                self.handle_attest_emit(operation, proof)
-            }
-            Syscall::VectorGet { store, key } => {
-                self.handle_vector_get(store, key)
-            }
+            Syscall::AttestEmit { operation, proof } => self.handle_attest_emit(operation, proof),
+            Syscall::VectorGet { store, key } => self.handle_vector_get(store, key),
             #[cfg(feature = "alloc")]
-            Syscall::VectorPutProved { store, key, data, proof } => {
-                self.handle_vector_put_proved(store, key, data, proof)
-            }
+            Syscall::VectorPutProved {
+                store,
+                key,
+                data,
+                proof,
+            } => self.handle_vector_put_proved(store, key, data, proof),
             #[cfg(not(feature = "alloc"))]
-            Syscall::VectorPutProved { store, key, data, data_len, proof } => {
-                self.handle_vector_put_proved(store, key, &data[..data_len], proof)
-            }
-            Syscall::GraphApplyProved { graph, mutation, proof } => {
-                self.handle_graph_apply_proved(graph, mutation, proof)
-            }
-            Syscall::SensorSubscribe { sensor, target_queue, cap } => {
-                self.handle_sensor_subscribe(sensor, target_queue, cap)
-            }
+            Syscall::VectorPutProved {
+                store,
+                key,
+                data,
+                data_len,
+                proof,
+            } => self.handle_vector_put_proved(store, key, &data[..data_len], proof),
+            Syscall::GraphApplyProved {
+                graph,
+                mutation,
+                proof,
+            } => self.handle_graph_apply_proved(graph, mutation, proof),
+            Syscall::SensorSubscribe {
+                sensor,
+                target_queue,
+                cap,
+            } => self.handle_sensor_subscribe(sensor, target_queue, cap),
         };
 
         if result.is_err() {
@@ -352,9 +371,14 @@ impl Kernel {
         rights: CapRights,
     ) -> Result<SyscallResult> {
         // Get caller task (assume task 1 for now)
-        let caller = self.scheduler.current_task().unwrap_or(TaskHandle::new(1, 0));
+        let caller = self
+            .scheduler
+            .current_task()
+            .unwrap_or(TaskHandle::new(1, 0));
 
-        let derived = self.cap_manager.grant(cap, rights, 0, caller, target)
+        let derived = self
+            .cap_manager
+            .grant(cap, rights, 0, caller, target)
             .map_err(|_| KernelError::NotPermitted)?;
         Ok(SyscallResult::CapGranted(derived))
     }
@@ -426,8 +450,11 @@ impl Kernel {
 
         // Record in witness log
         let package_hash = [0u8; 32]; // Would compute from rvf_data
-        let attestation = self.proof_engine.generate_attestation(&ProofToken::default());
-        self.witness_log.record_mount(package_hash, &attestation, mount)?;
+        let attestation = self
+            .proof_engine
+            .generate_attestation(&ProofToken::default());
+        self.witness_log
+            .record_mount(package_hash, &attestation, mount)?;
 
         self.stats.attestations_emitted += 1;
 
@@ -452,12 +479,11 @@ impl Kernel {
 
         // Record attestation
         let sequence = match operation {
-            AttestPayload::Boot { kernel_hash, .. } => {
-                self.witness_log.record_boot(kernel_hash)?
-            }
-            AttestPayload::Checkpoint { state_hash, sequence } => {
-                self.witness_log.record_checkpoint(state_hash, sequence)?
-            }
+            AttestPayload::Boot { kernel_hash, .. } => self.witness_log.record_boot(kernel_hash)?,
+            AttestPayload::Checkpoint {
+                state_hash,
+                sequence,
+            } => self.witness_log.record_checkpoint(state_hash, sequence)?,
             _ => {
                 // Other attestations
                 self.witness_log.sequence()
@@ -590,11 +616,8 @@ impl Kernel {
 
         // Record in witness log
         let attestation = self.proof_engine.generate_attestation(&proof);
-        self.witness_log.record_graph_mutation(
-            proof.mutation_hash,
-            &attestation,
-            graph_handle,
-        )?;
+        self.witness_log
+            .record_graph_mutation(proof.mutation_hash, &attestation, graph_handle)?;
 
         self.stats.attestations_emitted += 1;
 
@@ -785,7 +808,8 @@ impl Kernel {
         object_type: ObjectType,
         owner: TaskHandle,
     ) -> Result<CapHandle> {
-        self.cap_manager.create_root_capability(object_id, object_type, 0, owner)
+        self.cap_manager
+            .create_root_capability(object_id, object_type, 0, owner)
             .map_err(|_| KernelError::NotPermitted)
     }
 
@@ -809,7 +833,8 @@ impl Kernel {
         );
 
         // Record checkpoint in witness log
-        self.witness_log.record_checkpoint(checkpoint.state_hash, self.next_checkpoint_seq)?;
+        self.witness_log
+            .record_checkpoint(checkpoint.state_hash, self.next_checkpoint_seq)?;
 
         self.next_checkpoint_seq += 1;
         self.stats.checkpoints_created += 1;
@@ -830,19 +855,18 @@ impl Kernel {
     /// Gets counts for acceptance test verification.
     pub fn get_witness_counts(&self) -> (u64, u64, u64) {
         let stats = self.witness_log.stats();
-        (stats.boot_records, stats.mount_records, stats.vector_mutations + stats.graph_mutations)
+        (
+            stats.boot_records,
+            stats.mount_records,
+            stats.vector_mutations + stats.graph_mutations,
+        )
     }
 
     /// Creates a proof token for testing and external use.
     ///
     /// This method provides access to the proof engine for creating valid proof tokens
     /// that can be used with proof-gated syscalls like VectorPutProved and GraphApplyProved.
-    pub fn create_proof(
-        &self,
-        mutation_hash: [u8; 32],
-        tier: ProofTier,
-        nonce: u64,
-    ) -> ProofToken {
+    pub fn create_proof(&self, mutation_hash: [u8; 32], tier: ProofTier, nonce: u64) -> ProofToken {
         self.proof_engine.create_proof(mutation_hash, tier, nonce)
     }
 }
@@ -898,15 +922,17 @@ mod tests {
     fn test_kernel_task_spawn() {
         let mut kernel = Kernel::with_defaults();
 
-        let result = kernel.dispatch(Syscall::TaskSpawn {
-            entry: crate::RvfComponentId::root(RvfMountHandle::null()),
-            #[cfg(feature = "alloc")]
-            caps: Vec::new(),
-            #[cfg(not(feature = "alloc"))]
-            caps: [None; 16],
-            priority: TaskPriority::Normal,
-            deadline: None,
-        }).unwrap();
+        let result = kernel
+            .dispatch(Syscall::TaskSpawn {
+                entry: crate::RvfComponentId::root(RvfMountHandle::null()),
+                #[cfg(feature = "alloc")]
+                caps: Vec::new(),
+                #[cfg(not(feature = "alloc"))]
+                caps: [None; 16],
+                priority: TaskPriority::Normal,
+                deadline: None,
+            })
+            .unwrap();
 
         assert!(matches!(result, SyscallResult::TaskSpawned(_)));
         assert_eq!(kernel.stats().syscalls_executed, 1);
@@ -916,11 +942,13 @@ mod tests {
     fn test_kernel_region_map() {
         let mut kernel = Kernel::with_defaults();
 
-        let result = kernel.dispatch(Syscall::RegionMap {
-            size: 4096,
-            policy: RegionPolicy::AppendOnly { max_size: 4096 },
-            cap: CapHandle::null(),
-        }).unwrap();
+        let result = kernel
+            .dispatch(Syscall::RegionMap {
+                size: 4096,
+                policy: RegionPolicy::AppendOnly { max_size: 4096 },
+                cap: CapHandle::null(),
+            })
+            .unwrap();
 
         assert!(matches!(result, SyscallResult::RegionMapped(_)));
     }
@@ -938,28 +966,30 @@ mod tests {
 
         // Create proof
         let mutation_hash = [1u8; 32];
-        let proof = kernel.proof_engine.create_proof(
-            mutation_hash,
-            crate::ProofTier::Reflex,
-            42,
-        );
+        let proof = kernel
+            .proof_engine
+            .create_proof(mutation_hash, crate::ProofTier::Reflex, 42);
 
         // Put vector
-        let result = kernel.dispatch(Syscall::VectorPutProved {
-            store: store_handle,
-            key: VectorKey::new(1),
-            data: vec![1.0, 2.0, 3.0, 4.0],
-            proof,
-        }).unwrap();
+        let result = kernel
+            .dispatch(Syscall::VectorPutProved {
+                store: store_handle,
+                key: VectorKey::new(1),
+                data: vec![1.0, 2.0, 3.0, 4.0],
+                proof,
+            })
+            .unwrap();
 
         assert!(matches!(result, SyscallResult::VectorStored));
         assert_eq!(kernel.stats().proofs_verified, 1);
 
         // Get vector
-        let result = kernel.dispatch(Syscall::VectorGet {
-            store: store_handle,
-            key: VectorKey::new(1),
-        }).unwrap();
+        let result = kernel
+            .dispatch(Syscall::VectorGet {
+                store: store_handle,
+                key: VectorKey::new(1),
+            })
+            .unwrap();
 
         match result {
             SyscallResult::VectorRetrieved { data, coherence } => {
@@ -981,14 +1011,18 @@ mod tests {
         let vector_config = VectorStoreConfig::new(4, 100);
         let store_handle = kernel.create_vector_store(vector_config).unwrap();
 
-        let proof = kernel.proof_engine.create_proof([1u8; 32], crate::ProofTier::Reflex, 1);
+        let proof = kernel
+            .proof_engine
+            .create_proof([1u8; 32], crate::ProofTier::Reflex, 1);
 
-        kernel.dispatch(Syscall::VectorPutProved {
-            store: store_handle,
-            key: VectorKey::new(1),
-            data: vec![1.0, 2.0, 3.0, 4.0],
-            proof,
-        }).unwrap();
+        kernel
+            .dispatch(Syscall::VectorPutProved {
+                store: store_handle,
+                key: VectorKey::new(1),
+                data: vec![1.0, 2.0, 3.0, 4.0],
+                proof,
+            })
+            .unwrap();
 
         // Create checkpoint
         let checkpoint = kernel.checkpoint(CheckpointConfig::full()).unwrap();

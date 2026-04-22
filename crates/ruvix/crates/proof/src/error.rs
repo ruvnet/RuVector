@@ -130,10 +130,7 @@ impl fmt::Display for ProofError {
                 write!(f, "Merkle verification failed at index {failed_at_index}")
             }
             Self::CoherenceVerificationFailed { score, threshold } => {
-                write!(
-                    f,
-                    "coherence score {score} below threshold {threshold}"
-                )
+                write!(f, "coherence score {score} below threshold {threshold}")
             }
             Self::CacheFull { size, capacity } => {
                 write!(f, "proof cache full: {size}/{capacity}")

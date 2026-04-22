@@ -4,9 +4,9 @@
 //! construct a TPM where TPM[i][j] = P(measure outcome j | input basis state i).
 //! For unitary circuits, this is |<j|U|i>|^2.
 
+use rand::Rng;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
-use rand::Rng;
 
 /// A quantum circuit with its measurement TPM.
 pub struct QuantumCircuit {
@@ -56,8 +56,10 @@ fn identity(n_qubits: usize) -> (Vec<f64>, Vec<f64>) {
 
 /// Multiply two complex matrices C = A * B (dim x dim).
 fn matmul(
-    a_re: &[f64], a_im: &[f64],
-    b_re: &[f64], b_im: &[f64],
+    a_re: &[f64],
+    a_im: &[f64],
+    b_re: &[f64],
+    b_im: &[f64],
     dim: usize,
 ) -> (Vec<f64>, Vec<f64>) {
     let mut c_re = vec![0.0; dim * dim];
@@ -83,9 +85,13 @@ fn matmul(
 /// Apply a 2-qubit gate (4x4 unitary) to qubits (q0, q1) in an n-qubit system.
 /// q0 is the control (higher-order bit in the 2-qubit subspace), q1 is the target.
 fn apply_two_qubit_gate(
-    u_re: &mut Vec<f64>, u_im: &mut Vec<f64>,
-    gate_re: &[f64; 16], gate_im: &[f64; 16],
-    n_qubits: usize, q0: usize, q1: usize,
+    u_re: &mut Vec<f64>,
+    u_im: &mut Vec<f64>,
+    gate_re: &[f64; 16],
+    gate_im: &[f64; 16],
+    n_qubits: usize,
+    q0: usize,
+    q1: usize,
 ) {
     let dim = 1 << n_qubits;
     // Build the full-size gate by tensoring with identities
@@ -104,9 +110,7 @@ fn apply_two_qubit_gate(
             let mut other_match = true;
             for q in 0..n_qubits {
                 if q != q0 && q != q1 {
-                    if ((row >> (n_qubits - 1 - q)) & 1)
-                        != ((col >> (n_qubits - 1 - q)) & 1)
-                    {
+                    if ((row >> (n_qubits - 1 - q)) & 1) != ((col >> (n_qubits - 1 - q)) & 1) {
                         other_match = false;
                         break;
                     }
@@ -128,9 +132,12 @@ fn apply_two_qubit_gate(
 
 /// Apply a single-qubit gate (2x2 unitary) to qubit q in an n-qubit system.
 fn apply_single_qubit_gate(
-    u_re: &mut Vec<f64>, u_im: &mut Vec<f64>,
-    gate_re: &[f64; 4], gate_im: &[f64; 4],
-    n_qubits: usize, q: usize,
+    u_re: &mut Vec<f64>,
+    u_im: &mut Vec<f64>,
+    gate_re: &[f64; 4],
+    gate_im: &[f64; 4],
+    n_qubits: usize,
+    q: usize,
 ) {
     let dim = 1 << n_qubits;
     let mut full_re = vec![0.0; dim * dim];
@@ -145,9 +152,7 @@ fn apply_single_qubit_gate(
             let mut other_match = true;
             for qq in 0..n_qubits {
                 if qq != q {
-                    if ((row >> (n_qubits - 1 - qq)) & 1)
-                        != ((col >> (n_qubits - 1 - qq)) & 1)
-                    {
+                    if ((row >> (n_qubits - 1 - qq)) & 1) != ((col >> (n_qubits - 1 - qq)) & 1) {
                         other_match = false;
                         break;
                     }
@@ -205,10 +210,7 @@ const H_IM: [f64; 4] = [0.0, 0.0, 0.0, 0.0];
 
 /// CNOT gate (control=0, target=1 in 2-qubit basis |00>, |01>, |10>, |11>)
 const CNOT_RE: [f64; 16] = [
-    1.0, 0.0, 0.0, 0.0,
-    0.0, 1.0, 0.0, 0.0,
-    0.0, 0.0, 0.0, 1.0,
-    0.0, 0.0, 1.0, 0.0,
+    1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0,
 ];
 const CNOT_IM: [f64; 16] = [0.0; 16];
 
@@ -404,10 +406,7 @@ fn generate_random_circuit(depth: usize) -> QuantumCircuit {
     QuantumCircuit {
         name: "Random Circuit".to_string(),
         n_qubits: n,
-        description: format!(
-            "3 qubits, depth {} -- random rotations + CNOT",
-            depth
-        ),
+        description: format!("3 qubits, depth {} -- random rotations + CNOT", depth),
         tpm,
         unitary_re: u_re,
         unitary_im: u_im,

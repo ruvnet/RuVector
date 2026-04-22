@@ -8,8 +8,8 @@
 use crate::distance::{l2_squared, FlatVectors, VisitedSet};
 use crate::error::{DiskAnnError, Result};
 use rayon::prelude::*;
-use std::collections::BinaryHeap;
 use std::cmp::Ordering;
+use std::collections::BinaryHeap;
 
 #[derive(Clone)]
 struct Candidate {
@@ -18,15 +18,22 @@ struct Candidate {
 }
 
 impl PartialEq for Candidate {
-    fn eq(&self, other: &Self) -> bool { self.distance == other.distance }
+    fn eq(&self, other: &Self) -> bool {
+        self.distance == other.distance
+    }
 }
 impl Eq for Candidate {}
 impl PartialOrd for Candidate {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) }
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 impl Ord for Candidate {
     fn cmp(&self, other: &Self) -> Ordering {
-        other.distance.partial_cmp(&self.distance).unwrap_or(Ordering::Equal)
+        other
+            .distance
+            .partial_cmp(&self.distance)
+            .unwrap_or(Ordering::Equal)
     }
 }
 
@@ -35,15 +42,21 @@ struct MaxCandidate {
     distance: f32,
 }
 impl PartialEq for MaxCandidate {
-    fn eq(&self, other: &Self) -> bool { self.distance == other.distance }
+    fn eq(&self, other: &Self) -> bool {
+        self.distance == other.distance
+    }
 }
 impl Eq for MaxCandidate {}
 impl PartialOrd for MaxCandidate {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) }
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 impl Ord for MaxCandidate {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.distance.partial_cmp(&other.distance).unwrap_or(Ordering::Equal)
+        self.distance
+            .partial_cmp(&other.distance)
+            .unwrap_or(Ordering::Equal)
     }
 }
 
@@ -91,8 +104,12 @@ impl VamanaGraph {
             let mut visited = VisitedSet::new(n);
 
             for &node in &order {
-                let (candidates, _) =
-                    self.greedy_search_fast(vectors, vectors.get(node as usize), self.build_beam, &mut visited);
+                let (candidates, _) = self.greedy_search_fast(
+                    vectors,
+                    vectors.get(node as usize),
+                    self.build_beam,
+                    &mut visited,
+                );
 
                 let pruned = self.robust_prune(vectors, node, &candidates, alpha);
                 self.neighbors[node as usize] = pruned.clone();
@@ -131,8 +148,14 @@ impl VamanaGraph {
 
         let start = self.medoid;
         let start_dist = l2_squared(vectors.get(start as usize), query);
-        candidates.push(Candidate { id: start, distance: start_dist });
-        best.push(MaxCandidate { id: start, distance: start_dist });
+        candidates.push(Candidate {
+            id: start,
+            distance: start_dist,
+        });
+        best.push(MaxCandidate {
+            id: start,
+            distance: start_dist,
+        });
         visited.insert(start);
 
         let mut visit_count = 1usize;
@@ -155,12 +178,18 @@ impl VamanaGraph {
 
                 let dist = l2_squared(vectors.get(neighbor as usize), query);
 
-                let dominated = best.len() >= beam_width
-                    && best.peek().map_or(false, |w| dist >= w.distance);
+                let dominated =
+                    best.len() >= beam_width && best.peek().map_or(false, |w| dist >= w.distance);
 
                 if !dominated {
-                    candidates.push(Candidate { id: neighbor, distance: dist });
-                    best.push(MaxCandidate { id: neighbor, distance: dist });
+                    candidates.push(Candidate {
+                        id: neighbor,
+                        distance: dist,
+                    });
+                    best.push(MaxCandidate {
+                        id: neighbor,
+                        distance: dist,
+                    });
                     if best.len() > beam_width {
                         best.pop();
                     }
@@ -211,7 +240,10 @@ impl VamanaGraph {
                 break;
             }
             let dominated = result.iter().any(|&selected: &u32| {
-                let inter_dist = l2_squared(vectors.get(selected as usize), vectors.get(*cand_id as usize));
+                let inter_dist = l2_squared(
+                    vectors.get(selected as usize),
+                    vectors.get(*cand_id as usize),
+                );
                 alpha * inter_dist <= *cand_dist
             });
             if !dominated {

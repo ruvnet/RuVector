@@ -135,12 +135,10 @@ fn bench_region_policy_serialization(c: &mut Criterion) {
 
     group.bench_function("RegionPolicy_immutable_encode", |b| {
         let policy = RegionPolicy::immutable();
-        b.iter(|| {
-            match black_box(&policy) {
-                RegionPolicy::Immutable => 0u8,
-                RegionPolicy::AppendOnly { .. } => 1u8,
-                RegionPolicy::Slab { .. } => 2u8,
-            }
+        b.iter(|| match black_box(&policy) {
+            RegionPolicy::Immutable => 0u8,
+            RegionPolicy::AppendOnly { .. } => 1u8,
+            RegionPolicy::Slab { .. } => 2u8,
         })
     });
 

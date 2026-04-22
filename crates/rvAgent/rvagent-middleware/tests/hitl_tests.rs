@@ -1,9 +1,9 @@
 //! Integration tests for the Human-in-the-Loop (HITL) middleware.
 
+use rvagent_middleware::hitl::{ApprovalDecision, HumanInTheLoopMiddleware};
 use rvagent_middleware::{
     Message, Middleware, ModelHandler, ModelRequest, ModelResponse, ToolCall,
 };
-use rvagent_middleware::hitl::{ApprovalDecision, HumanInTheLoopMiddleware};
 
 // ---------------------------------------------------------------------------
 // Test handler
@@ -106,11 +106,8 @@ fn test_prefix_wildcard_does_not_match_other() {
 
 #[test]
 fn test_multiple_patterns() {
-    let mw = HumanInTheLoopMiddleware::new(vec![
-        "execute".into(),
-        "write_*".into(),
-        "delete".into(),
-    ]);
+    let mw =
+        HumanInTheLoopMiddleware::new(vec!["execute".into(), "write_*".into(), "delete".into()]);
     assert!(mw.should_interrupt("execute"));
     assert!(mw.should_interrupt("write_file"));
     assert!(mw.should_interrupt("write_todos"));
@@ -227,12 +224,8 @@ fn test_wrap_preserves_original_response_content() {
 #[test]
 fn test_wrap_prefix_pattern_filters_correctly() {
     let mw = HumanInTheLoopMiddleware::new(vec!["write_*".into()]);
-    let handler = ToolCallHandler::with_names(&[
-        "write_file",
-        "write_todos",
-        "read_file",
-        "execute",
-    ]);
+    let handler =
+        ToolCallHandler::with_names(&["write_file", "write_todos", "read_file", "execute"]);
     let request = ModelRequest::new(vec![Message::user("do writes")]);
 
     let response = mw.wrap_model_call(request, &handler);
@@ -242,7 +235,11 @@ fn test_wrap_prefix_pattern_filters_correctly() {
         2,
         "read_file and execute should pass through"
     );
-    let names: Vec<&str> = response.tool_calls.iter().map(|tc| tc.name.as_str()).collect();
+    let names: Vec<&str> = response
+        .tool_calls
+        .iter()
+        .map(|tc| tc.name.as_str())
+        .collect();
     assert!(names.contains(&"read_file"));
     assert!(names.contains(&"execute"));
     assert!(!names.contains(&"write_file"));

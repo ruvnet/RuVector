@@ -15,41 +15,80 @@ use axum::{
 };
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex, LazyLock};
+use std::sync::{Arc, LazyLock, Mutex};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 // ── AIDefence (inline Rust port) ────────────────────────────────────────────
 
 /// Critical injection + PII patterns compiled once.
-static THREAT_PATTERNS: LazyLock<Vec<(regex::Regex, &'static str, &'static str)>> = LazyLock::new(|| {
-    let patterns: Vec<(&str, &str, &str)> = vec![
-        (r"(?i)ignore\s+(previous|all|above|any|the)(\s+\w+)*\s+(instructions?|prompts?|rules?|context)", "injection", "high"),
-        (r"(?i)disregard\s+(previous|all|above|the|your)(\s+\w+)*\s+(instructions?|prompts?|input)", "injection", "high"),
-        (r"(?i)forget\s+(everything|all|previous|your)", "injection", "high"),
-        (r"(?i)you\s+are\s+(now|actually)\s+", "injection", "high"),
-        (r"(?i)pretend\s+(to\s+be|you're|you\s+are)", "injection", "high"),
-        (r"(?i)what\s+(is|are)\s+your\s+(system\s+)?prompt", "extraction", "high"),
-        (r"(?i)show\s+(me\s+)?your\s+(system\s+)?instructions", "extraction", "high"),
-        (r"(?i)DAN\s+(mode|prompt)", "jailbreak", "critical"),
-        (r"(?i)bypass\s+(safety|security|filter)", "jailbreak", "critical"),
-        (r"(?i)remove\s+(all\s+)?restrictions", "jailbreak", "critical"),
-        (r"<script", "code_injection", "critical"),
-        (r"(?i)javascript:", "code_injection", "critical"),
-        (r"(?i)eval\s*\(", "code_injection", "high"),
-    ];
-    patterns.into_iter()
-        .filter_map(|(p, cat, sev)| regex::Regex::new(p).ok().map(|r| (r, cat, sev)))
-        .collect()
-});
+static THREAT_PATTERNS: LazyLock<Vec<(regex::Regex, &'static str, &'static str)>> = LazyLock::new(
+    || {
+        let patterns: Vec<(&str, &str, &str)> = vec![
+            (
+                r"(?i)ignore\s+(previous|all|above|any|the)(\s+\w+)*\s+(instructions?|prompts?|rules?|context)",
+                "injection",
+                "high",
+            ),
+            (
+                r"(?i)disregard\s+(previous|all|above|the|your)(\s+\w+)*\s+(instructions?|prompts?|input)",
+                "injection",
+                "high",
+            ),
+            (
+                r"(?i)forget\s+(everything|all|previous|your)",
+                "injection",
+                "high",
+            ),
+            (r"(?i)you\s+are\s+(now|actually)\s+", "injection", "high"),
+            (
+                r"(?i)pretend\s+(to\s+be|you're|you\s+are)",
+                "injection",
+                "high",
+            ),
+            (
+                r"(?i)what\s+(is|are)\s+your\s+(system\s+)?prompt",
+                "extraction",
+                "high",
+            ),
+            (
+                r"(?i)show\s+(me\s+)?your\s+(system\s+)?instructions",
+                "extraction",
+                "high",
+            ),
+            (r"(?i)DAN\s+(mode|prompt)", "jailbreak", "critical"),
+            (
+                r"(?i)bypass\s+(safety|security|filter)",
+                "jailbreak",
+                "critical",
+            ),
+            (
+                r"(?i)remove\s+(all\s+)?restrictions",
+                "jailbreak",
+                "critical",
+            ),
+            (r"<script", "code_injection", "critical"),
+            (r"(?i)javascript:", "code_injection", "critical"),
+            (r"(?i)eval\s*\(", "code_injection", "high"),
+        ];
+        patterns
+            .into_iter()
+            .filter_map(|(p, cat, sev)| regex::Regex::new(p).ok().map(|r| (r, cat, sev)))
+            .collect()
+    },
+);
 
 static PII_PATTERNS: LazyLock<Vec<(regex::Regex, &'static str)>> = LazyLock::new(|| {
     let patterns: Vec<(&str, &str)> = vec![
-        (r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", "email"),
+        (
+            r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b",
+            "email",
+        ),
         (r"\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b", "ssn"),
         (r"\b(?:\d{4}[-\s]?){3}\d{4}\b", "credit_card"),
         (r"\b(sk-|api[_-]?key|token)[a-zA-Z0-9_-]{20,}\b", "api_key"),
     ];
-    patterns.into_iter()
+    patterns
+        .into_iter()
         .filter_map(|(p, t)| regex::Regex::new(p).ok().map(|r| (r, t)))
         .collect()
 });
@@ -62,9 +101,15 @@ fn aidefence_scan(text: &str) -> (bool, &'static str, serde_json::Value) {
     for (pattern, category, severity) in THREAT_PATTERNS.iter() {
         if pattern.is_match(text) {
             let sev_num = match *severity {
-                "critical" => 4, "high" => 3, "medium" => 2, "low" => 1, _ => 0,
+                "critical" => 4,
+                "high" => 3,
+                "medium" => 2,
+                "low" => 1,
+                _ => 0,
             };
-            if sev_num > max_severity { max_severity = sev_num; }
+            if sev_num > max_severity {
+                max_severity = sev_num;
+            }
             threats.push(serde_json::json!({
                 "type": category, "severity": severity,
             }));
@@ -73,7 +118,9 @@ fn aidefence_scan(text: &str) -> (bool, &'static str, serde_json::Value) {
 
     for (pattern, pii_type) in PII_PATTERNS.iter() {
         if pattern.is_match(text) {
-            if max_severity < 2 { max_severity = 2; }
+            if max_severity < 2 {
+                max_severity = 2;
+            }
             threats.push(serde_json::json!({
                 "type": "pii", "pii_type": pii_type, "severity": "medium",
             }));
@@ -81,7 +128,11 @@ fn aidefence_scan(text: &str) -> (bool, &'static str, serde_json::Value) {
     }
 
     let level = match max_severity {
-        4 => "critical", 3 => "high", 2 => "medium", 1 => "low", _ => "none",
+        4 => "critical",
+        3 => "high",
+        2 => "medium",
+        1 => "low",
+        _ => "none",
     };
     let safe = max_severity < 2; // block at medium and above
     (safe, level, serde_json::json!(threats))
@@ -150,8 +201,12 @@ impl VectorIndex {
     }
 
     fn insert(&mut self, id_hex: &str, category: &str, embedding: &[f32]) {
-        if embedding.is_empty() { return; }
-        if self.dim == 0 { self.dim = embedding.len(); }
+        if embedding.is_empty() {
+            return;
+        }
+        if self.dim == 0 {
+            self.dim = embedding.len();
+        }
 
         // Pre-normalize
         let norm = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
@@ -162,7 +217,8 @@ impl VectorIndex {
         };
 
         let new_idx = self.entries.len() as u32;
-        self.entries.push((id_hex.to_string(), category.to_string(), normalized));
+        self.entries
+            .push((id_hex.to_string(), category.to_string(), normalized));
         self.neighbors.push(Vec::new());
 
         // Connect to graph using Vamana-style greedy insert
@@ -175,7 +231,9 @@ impl VectorIndex {
     /// then add bidirectional edges with robust pruning.
     fn vamana_insert(&mut self, new_idx: u32) {
         let n = self.entries.len();
-        if n <= 1 { return; }
+        if n <= 1 {
+            return;
+        }
 
         // For small graphs (<500), just connect to nearest neighbors directly
         if n < 500 {
@@ -203,7 +261,9 @@ impl VectorIndex {
         // Add edges with pruning
         let mut selected: Vec<u32> = Vec::new();
         for &(_, cand_idx) in &candidates {
-            if selected.len() >= self.max_degree { break; }
+            if selected.len() >= self.max_degree {
+                break;
+            }
             // Robust pruning: only add if candidate is closer than α * distance
             // to any already-selected neighbor (α = 1.2)
             let cand_dist = self.dot(&query, &self.entries[cand_idx as usize].2);
@@ -238,7 +298,9 @@ impl VectorIndex {
     }
 
     fn update_medoid(&mut self) {
-        if self.entries.len() < 10 { return; }
+        if self.entries.len() < 10 {
+            return;
+        }
         // Sample-based medoid: pick the point closest to the mean of a sample
         let sample_size = self.entries.len().min(100);
         let step = self.entries.len() / sample_size;
@@ -251,7 +313,9 @@ impl VectorIndex {
             count += 1;
         }
         if count > 0 {
-            for v in &mut mean { *v /= count as f32; }
+            for v in &mut mean {
+                *v /= count as f32;
+            }
         }
 
         let mut best = self.medoid;
@@ -271,17 +335,23 @@ impl VectorIndex {
         use std::collections::BinaryHeap;
         use std::collections::HashSet;
 
-        if self.entries.is_empty() { return Vec::new(); }
+        if self.entries.is_empty() {
+            return Vec::new();
+        }
 
         let mut visited = HashSet::new();
-        let mut candidates: BinaryHeap<std::cmp::Reverse<(ordered_float::OrderedFloat<f32>, u32)>> = BinaryHeap::new();
+        let mut candidates: BinaryHeap<std::cmp::Reverse<(ordered_float::OrderedFloat<f32>, u32)>> =
+            BinaryHeap::new();
         let mut results: BinaryHeap<(ordered_float::OrderedFloat<f32>, u32)> = BinaryHeap::new();
 
         // Start from medoid
         let start = self.medoid.min(self.entries.len() - 1);
         let start_dist = self.dot(query, &self.entries[start].2);
         visited.insert(start as u32);
-        candidates.push(std::cmp::Reverse((ordered_float::OrderedFloat(-start_dist), start as u32)));
+        candidates.push(std::cmp::Reverse((
+            ordered_float::OrderedFloat(-start_dist),
+            start as u32,
+        )));
         if start as u32 != exclude {
             results.push((ordered_float::OrderedFloat(-start_dist), start as u32));
         }
@@ -289,10 +359,14 @@ impl VectorIndex {
         let beam_width = (k * 8).max(40);
 
         while let Some(std::cmp::Reverse((_, current))) = candidates.pop() {
-            if current as usize >= self.neighbors.len() { continue; }
+            if current as usize >= self.neighbors.len() {
+                continue;
+            }
 
             for &neighbor in &self.neighbors[current as usize] {
-                if visited.contains(&neighbor) { continue; }
+                if visited.contains(&neighbor) {
+                    continue;
+                }
                 visited.insert(neighbor);
 
                 let dist = self.dot(query, &self.entries[neighbor as usize].2);
@@ -308,15 +382,18 @@ impl VectorIndex {
                     }
                 }
 
-                candidates.push(std::cmp::Reverse((ordered_float::OrderedFloat(-dist), neighbor)));
+                candidates.push(std::cmp::Reverse((
+                    ordered_float::OrderedFloat(-dist),
+                    neighbor,
+                )));
             }
 
-            if visited.len() > beam_width * 4 { break; }
+            if visited.len() > beam_width * 4 {
+                break;
+            }
         }
 
-        let mut out: Vec<(f32, u32)> = results.into_iter()
-            .map(|(d, idx)| (-d.0, idx))
-            .collect();
+        let mut out: Vec<(f32, u32)> = results.into_iter().map(|(d, idx)| (-d.0, idx)).collect();
         out.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
         out.truncate(k);
         out
@@ -324,10 +401,14 @@ impl VectorIndex {
 
     /// Public search: normalize query, search graph, return (score, id_hex).
     fn search(&self, query: &[f32], k: usize) -> Vec<(f64, String)> {
-        if query.is_empty() || self.entries.is_empty() { return Vec::new(); }
+        if query.is_empty() || self.entries.is_empty() {
+            return Vec::new();
+        }
 
         let qnorm = query.iter().map(|x| x * x).sum::<f32>().sqrt();
-        if qnorm < 1e-10 { return Vec::new(); }
+        if qnorm < 1e-10 {
+            return Vec::new();
+        }
         let q: Vec<f32> = query.iter().map(|x| x / qnorm).collect();
 
         // For small indexes (<2000), brute force is faster than graph traversal
@@ -336,16 +417,21 @@ impl VectorIndex {
         }
 
         let results = self.greedy_search_internal(&q, k, u32::MAX);
-        results.into_iter()
+        results
+            .into_iter()
             .map(|(score, idx)| (score as f64, self.entries[idx as usize].0.clone()))
             .collect()
     }
 
     /// Brute force fallback for small indexes.
     fn brute_force_search(&self, q: &[f32], k: usize) -> Vec<(f64, String)> {
-        let mut results: Vec<(f64, &str)> = self.entries.iter()
+        let mut results: Vec<(f64, &str)> = self
+            .entries
+            .iter()
             .map(|(id, _, v)| {
-                let dot: f64 = q.iter().zip(v.iter())
+                let dot: f64 = q
+                    .iter()
+                    .zip(v.iter())
                     .map(|(a, b)| (*a as f64) * (*b as f64))
                     .sum();
                 (dot, id.as_str())
@@ -353,7 +439,10 @@ impl VectorIndex {
             .collect();
         results.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
         results.truncate(k);
-        results.into_iter().map(|(s, id)| (s, id.to_string())).collect()
+        results
+            .into_iter()
+            .map(|(s, id)| (s, id.to_string()))
+            .collect()
     }
 
     #[inline]
@@ -436,7 +525,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/brain/search", post(brain_search))
         .route("/brain/checkpoint", post(brain_checkpoint))
         .route("/brain/workload", get(brain_workload))
-        .route("/brain/export-pairs", get(brain_export_pairs_get).post(brain_export_pairs))
+        .route(
+            "/brain/export-pairs",
+            get(brain_export_pairs_get).post(brain_export_pairs),
+        )
         .route("/brain/training-stats", get(brain_training_stats))
         .route("/memories", get(list_memories))
         .route("/memories", post(create_memory))
@@ -565,14 +657,16 @@ fn ensure_schema(conn: &Connection) -> rusqlite::Result<()> {
             metrics TEXT,
             path TEXT,
             created_at INTEGER NOT NULL
-        );"
+        );",
     )
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 fn bytes_to_f32(blob: &[u8]) -> Vec<f32> {
-    if blob.len() % 4 != 0 { return Vec::new(); }
+    if blob.len() % 4 != 0 {
+        return Vec::new();
+    }
     blob.chunks_exact(4)
         .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
         .collect()
@@ -609,7 +703,9 @@ fn content_hash(data: &str) -> String {
 
 /// Write content to blob store: {blob_dir}/{hash[0:2]}/{hash[2:]}
 fn blob_write(blob_dir: &str, hash: &str, content: &str) {
-    if hash.len() < 4 { return; }
+    if hash.len() < 4 {
+        return;
+    }
     let dir = format!("{}/{}", blob_dir, &hash[..2]);
     let _ = std::fs::create_dir_all(&dir);
     let path = format!("{}/{}", dir, &hash[2..]);
@@ -618,7 +714,9 @@ fn blob_write(blob_dir: &str, hash: &str, content: &str) {
 
 /// Read content from blob store by content_hash
 fn blob_read(blob_dir: &str, hash: &str) -> Option<String> {
-    if hash.len() < 4 { return None; }
+    if hash.len() < 4 {
+        return None;
+    }
     let path = format!("{}/{}/{}", blob_dir, &hash[..2], &hash[2..]);
     std::fs::read_to_string(path).ok()
 }
@@ -637,8 +735,12 @@ async fn health(State(st): State<SharedState>) -> Json<serde_json::Value> {
 
 async fn brain_info(State(st): State<SharedState>) -> Json<serde_json::Value> {
     let db = st.db.lock().unwrap();
-    let mem_count: i64 = db.query_row("SELECT count(*) FROM memories", [], |r| r.get(0)).unwrap_or(0);
-    let pair_count: i64 = db.query_row("SELECT count(*) FROM preference_pairs", [], |r| r.get(0)).unwrap_or(0);
+    let mem_count: i64 = db
+        .query_row("SELECT count(*) FROM memories", [], |r| r.get(0))
+        .unwrap_or(0);
+    let pair_count: i64 = db
+        .query_row("SELECT count(*) FROM preference_pairs", [], |r| r.get(0))
+        .unwrap_or(0);
     Json(serde_json::json!({
         "version": VERSION,
         "db_path": db_path(),
@@ -657,9 +759,17 @@ async fn store_mode_handler(State(st): State<SharedState>) -> Json<serde_json::V
 
 async fn index_stats(State(st): State<SharedState>) -> Json<serde_json::Value> {
     let idx = st.index.lock().unwrap();
-    let mode = if idx.len() < 2000 { "brute_force" } else { "vamana_graph" };
+    let mode = if idx.len() < 2000 {
+        "brute_force"
+    } else {
+        "vamana_graph"
+    };
     let graph_edges: usize = idx.neighbors.iter().map(|n| n.len()).sum();
-    let avg_degree = if idx.len() > 0 { graph_edges as f64 / idx.len() as f64 } else { 0.0 };
+    let avg_degree = if idx.len() > 0 {
+        graph_edges as f64 / idx.len() as f64
+    } else {
+        0.0
+    };
     let vec_ram_mb = (idx.len() * idx.dim * 4) as f64 / (1024.0 * 1024.0);
     let graph_ram_kb = (graph_edges * 4) as f64 / 1024.0;
     Json(serde_json::json!({
@@ -698,15 +808,21 @@ async fn brain_search(
         match embed_text(q).await {
             Ok(v) => v,
             Err(e) => {
-                return Err((StatusCode::BAD_GATEWAY, Json(serde_json::json!({
-                    "error": format!("embedder unavailable: {e}")
-                }))));
+                return Err((
+                    StatusCode::BAD_GATEWAY,
+                    Json(serde_json::json!({
+                        "error": format!("embedder unavailable: {e}")
+                    })),
+                ));
             }
         }
     } else {
-        return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
-            "error": "missing 'query' or 'query_vector'"
-        }))));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "missing 'query' or 'query_vector'"
+            })),
+        ));
     };
 
     // Request extra results from index to account for DB misses and dedup
@@ -788,12 +904,13 @@ async fn embed_text(text: &str) -> Result<Vec<f32>, String> {
         .and_then(|v| v.as_array())
         .ok_or_else(|| "unexpected embedder response".to_string())?;
 
-    Ok(vectors.iter().filter_map(|v| v.as_f64().map(|f| f as f32)).collect())
+    Ok(vectors
+        .iter()
+        .filter_map(|v| v.as_f64().map(|f| f as f32))
+        .collect())
 }
 
-async fn brain_checkpoint(
-    State(st): State<SharedState>,
-) -> Json<serde_json::Value> {
+async fn brain_checkpoint(State(st): State<SharedState>) -> Json<serde_json::Value> {
     let db = st.db.lock().unwrap();
     let result = db.execute_batch("PRAGMA wal_checkpoint(PASSIVE);");
     Json(serde_json::json!({
@@ -830,16 +947,17 @@ async fn brain_workload() -> Json<WorkloadResponse> {
 async fn read_gpu_util() -> f64 {
     // nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits
     let output = tokio::process::Command::new("nvidia-smi")
-        .args(["--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"])
+        .args([
+            "--query-gpu=utilization.gpu",
+            "--format=csv,noheader,nounits",
+        ])
         .output()
         .await;
     match output {
-        Ok(o) if o.status.success() => {
-            String::from_utf8_lossy(&o.stdout)
-                .trim()
-                .parse::<f64>()
-                .unwrap_or(0.0)
-        }
+        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout)
+            .trim()
+            .parse::<f64>()
+            .unwrap_or(0.0),
         _ => 0.0,
     }
 }
@@ -870,25 +988,38 @@ fn decide_profile(gpu_util: f64, cpu_load: f64, num_cores: usize, hour: u32) -> 
     let after_hours = hour >= 22 || hour < 6;
 
     if gpu_util > 80.0 {
-        ("gpu-train".into(), format!("GPU util {gpu_util:.0}% > 80% -- sustained training workload"))
+        (
+            "gpu-train".into(),
+            format!("GPU util {gpu_util:.0}% > 80% -- sustained training workload"),
+        )
     } else if gpu_util >= 30.0 && gpu_util <= 80.0 {
-        ("gpu-infer".into(), format!("GPU util {gpu_util:.0}% in 30-80% range -- inference/MPS beneficial"))
+        (
+            "gpu-infer".into(),
+            format!("GPU util {gpu_util:.0}% in 30-80% range -- inference/MPS beneficial"),
+        )
     } else if cpu_load > cpu_threshold && gpu_idle {
         ("cpu-bulk".into(), format!(
             "CPU load {cpu_load:.1} > {cpu_threshold:.0} threshold, GPU idle -- CPU-bound batch work"
         ))
     } else if after_hours && gpu_idle && cpu_load < cpu_threshold * 0.3 {
-        ("power-save".into(), format!(
-            "After hours (hour={hour}), GPU idle, CPU load {cpu_load:.1} low -- power save"
-        ))
+        (
+            "power-save".into(),
+            format!(
+                "After hours (hour={hour}), GPU idle, CPU load {cpu_load:.1} low -- power save"
+            ),
+        )
     } else if gpu_idle && cpu_load < cpu_threshold * 0.5 {
-        ("interactive".into(), format!(
-            "Low utilization (GPU {gpu_util:.0}%, CPU {cpu_load:.1}) -- interactive mode"
-        ))
+        (
+            "interactive".into(),
+            format!("Low utilization (GPU {gpu_util:.0}%, CPU {cpu_load:.1}) -- interactive mode"),
+        )
     } else {
-        ("default".into(), format!(
-            "GPU {gpu_util:.0}%, CPU load {cpu_load:.1} -- no strong signal, using default"
-        ))
+        (
+            "default".into(),
+            format!(
+                "GPU {gpu_util:.0}%, CPU load {cpu_load:.1} -- no strong signal, using default"
+            ),
+        )
     }
 }
 
@@ -940,14 +1071,16 @@ async fn brain_export_pairs_inner(
          LEFT JOIN memories mc ON mc.id = p.chosen
          LEFT JOIN memories mr ON mr.id = p.rejected
          ORDER BY p.created_at DESC
-         LIMIT ?1"
+         LIMIT ?1",
     ) {
         Ok(s) => s,
         Err(e) => {
             let body = serde_json::json!({"error": e.to_string()});
-            return (StatusCode::INTERNAL_SERVER_ERROR,
-                    [("content-type", "application/json")],
-                    serde_json::to_string(&body).unwrap());
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                [("content-type", "application/json")],
+                serde_json::to_string(&body).unwrap(),
+            );
         }
     };
 
@@ -974,9 +1107,11 @@ async fn brain_export_pairs_inner(
         Ok(r) => r.filter_map(|r| r.ok()).collect(),
         Err(e) => {
             let body = serde_json::json!({"error": e.to_string()});
-            return (StatusCode::INTERNAL_SERVER_ERROR,
-                    [("content-type", "application/json")],
-                    serde_json::to_string(&body).unwrap());
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                [("content-type", "application/json")],
+                serde_json::to_string(&body).unwrap(),
+            );
         }
     };
 
@@ -988,7 +1123,11 @@ async fn brain_export_pairs_inner(
                 out.push('\n');
             }
         }
-        (StatusCode::OK, [("content-type", "application/x-ndjson")], out)
+        (
+            StatusCode::OK,
+            [("content-type", "application/x-ndjson")],
+            out,
+        )
     } else {
         let body = serde_json::to_string(&records).unwrap_or_else(|_| "[]".to_string());
         (StatusCode::OK, [("content-type", "application/json")], body)
@@ -1006,25 +1145,35 @@ struct TrainingStats {
 async fn brain_training_stats(State(st): State<SharedState>) -> Json<TrainingStats> {
     let db = st.db.lock().unwrap();
 
-    let total: i64 = db.query_row(
-        "SELECT count(*) FROM preference_pairs", [], |r| r.get(0)
-    ).unwrap_or(0);
+    let total: i64 = db
+        .query_row("SELECT count(*) FROM preference_pairs", [], |r| r.get(0))
+        .unwrap_or(0);
 
-    let with_emb: i64 = db.query_row(
-        "SELECT count(*) FROM preference_pairs p
+    let with_emb: i64 = db
+        .query_row(
+            "SELECT count(*) FROM preference_pairs p
          JOIN memories mc ON mc.id = p.chosen AND length(mc.embedding) > 0
          JOIN memories mr ON mr.id = p.rejected AND length(mr.embedding) > 0",
-        [], |r| r.get(0)
-    ).unwrap_or(0);
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
 
-    let (exportable, mean_delta) = db.query_row(
-        "SELECT count(*), coalesce(avg(mc.quality - mr.quality), 0.0)
+    let (exportable, mean_delta) = db
+        .query_row(
+            "SELECT count(*), coalesce(avg(mc.quality - mr.quality), 0.0)
          FROM preference_pairs p
          JOIN memories mc ON mc.id = p.chosen AND length(mc.embedding) > 0
          JOIN memories mr ON mr.id = p.rejected AND length(mr.embedding) > 0",
-        [],
-        |r| Ok((r.get::<_, i64>(0).unwrap_or(0), r.get::<_, f64>(1).unwrap_or(0.0)))
-    ).unwrap_or((0, 0.0));
+            [],
+            |r| {
+                Ok((
+                    r.get::<_, i64>(0).unwrap_or(0),
+                    r.get::<_, f64>(1).unwrap_or(0.0),
+                ))
+            },
+        )
+        .unwrap_or((0, 0.0));
 
     Json(TrainingStats {
         total_pairs: total,
@@ -1053,12 +1202,16 @@ async fn list_memories(
 
     // Get total count for this query
     let total: i64 = match &q.category {
-        Some(cat) => db.query_row(
-            "SELECT COUNT(*) FROM memories WHERE category = ?1", [cat], |r| r.get(0)
-        ).unwrap_or(0),
-        None => db.query_row(
-            "SELECT COUNT(*) FROM memories", [], |r| r.get(0)
-        ).unwrap_or(0),
+        Some(cat) => db
+            .query_row(
+                "SELECT COUNT(*) FROM memories WHERE category = ?1",
+                [cat],
+                |r| r.get(0),
+            )
+            .unwrap_or(0),
+        None => db
+            .query_row("SELECT COUNT(*) FROM memories", [], |r| r.get(0))
+            .unwrap_or(0),
     };
 
     let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = match &q.category {
@@ -1081,7 +1234,8 @@ async fn list_memories(
 
     let row_data: Vec<(String, String, String, i64)> = {
         let mut stmt = db.prepare(&sql).unwrap();
-        let params_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+        let params_refs: Vec<&dyn rusqlite::types::ToSql> =
+            params.iter().map(|p| p.as_ref()).collect();
         stmt.query_map(params_refs.as_slice(), |row| {
             Ok((
                 row.get::<_, String>(0).unwrap_or_default().to_lowercase(),
@@ -1089,22 +1243,28 @@ async fn list_memories(
                 row.get::<_, String>(2).unwrap_or_default(),
                 row.get::<_, i64>(3).unwrap_or(0),
             ))
-        }).unwrap().filter_map(|r| r.ok()).collect()
+        })
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect()
     };
     drop(db);
 
-    let memories: Vec<serde_json::Value> = row_data.iter().map(|(id, cat, hash, ts)| {
-        let mut obj = serde_json::json!({
-            "id": id,
-            "category": cat,
-            "content_hash": hash,
-            "created_at": ts,
-        });
-        if let Some(c) = blob_read(&st.blob_dir, hash) {
-            obj["content"] = serde_json::Value::String(c);
-        }
-        obj
-    }).collect();
+    let memories: Vec<serde_json::Value> = row_data
+        .iter()
+        .map(|(id, cat, hash, ts)| {
+            let mut obj = serde_json::json!({
+                "id": id,
+                "category": cat,
+                "content_hash": hash,
+                "created_at": ts,
+            });
+            if let Some(c) = blob_read(&st.blob_dir, hash) {
+                obj["content"] = serde_json::Value::String(c);
+            }
+            obj
+        })
+        .collect();
 
     Json(serde_json::json!({
         "count": memories.len(),
@@ -1129,11 +1289,14 @@ async fn create_memory(
     // AIDefence: scan content before storing
     let (safe, threat_level, threats) = aidefence_scan(&req.content);
     if !safe {
-        return (StatusCode::UNPROCESSABLE_ENTITY, Json(serde_json::json!({
-            "error": "content blocked by AIDefence",
-            "threat_level": threat_level,
-            "threats": threats,
-        })));
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(serde_json::json!({
+                "error": "content blocked by AIDefence",
+                "threat_level": threat_level,
+                "threats": threats,
+            })),
+        );
     }
 
     let id = new_id();
@@ -1169,17 +1332,21 @@ async fn create_memory(
                 let mut idx = st.index.lock().unwrap();
                 idx.insert(&id_hex, &req.category, &emb);
             }
-            (StatusCode::CREATED, Json(serde_json::json!({
-                "id": id_hex,
-                "content_hash": hash,
-                "created_at": now,
-            })))
+            (
+                StatusCode::CREATED,
+                Json(serde_json::json!({
+                    "id": id_hex,
+                    "content_hash": hash,
+                    "created_at": now,
+                })),
+            )
         }
-        Err(e) => {
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
                 "error": e.to_string(),
-            })))
-        }
+            })),
+        ),
     }
 }
 
@@ -1235,28 +1402,35 @@ async fn list_preference_pairs(
         Some(dir) => (
             "SELECT hex(id), hex(chosen), hex(rejected), direction, created_at
              FROM preference_pairs WHERE direction = ?1
-             ORDER BY created_at DESC LIMIT ?2".into(),
-            vec![Box::new(dir.clone()) as Box<dyn rusqlite::types::ToSql>, Box::new(limit as i64)],
+             ORDER BY created_at DESC LIMIT ?2"
+                .into(),
+            vec![
+                Box::new(dir.clone()) as Box<dyn rusqlite::types::ToSql>,
+                Box::new(limit as i64),
+            ],
         ),
         None => (
             "SELECT hex(id), hex(chosen), hex(rejected), direction, created_at
              FROM preference_pairs
-             ORDER BY created_at DESC LIMIT ?1".into(),
+             ORDER BY created_at DESC LIMIT ?1"
+                .into(),
             vec![Box::new(limit as i64) as Box<dyn rusqlite::types::ToSql>],
         ),
     };
 
     let mut stmt = db.prepare(&sql).unwrap();
     let params_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-    let rows = stmt.query_map(params_refs.as_slice(), |row| {
-        Ok(serde_json::json!({
-            "id": row.get::<_, String>(0).unwrap_or_default().to_lowercase(),
-            "chosen_id": row.get::<_, String>(1).unwrap_or_default().to_lowercase(),
-            "rejected_id": row.get::<_, String>(2).unwrap_or_default().to_lowercase(),
-            "direction": row.get::<_, String>(3).unwrap_or_default(),
-            "created_at": row.get::<_, i64>(4).unwrap_or(0),
-        }))
-    }).unwrap();
+    let rows = stmt
+        .query_map(params_refs.as_slice(), |row| {
+            Ok(serde_json::json!({
+                "id": row.get::<_, String>(0).unwrap_or_default().to_lowercase(),
+                "chosen_id": row.get::<_, String>(1).unwrap_or_default().to_lowercase(),
+                "rejected_id": row.get::<_, String>(2).unwrap_or_default().to_lowercase(),
+                "direction": row.get::<_, String>(3).unwrap_or_default(),
+                "created_at": row.get::<_, i64>(4).unwrap_or(0),
+            }))
+        })
+        .unwrap();
 
     let pairs: Vec<serde_json::Value> = rows.filter_map(|r| r.ok()).collect();
     Json(serde_json::json!({
@@ -1278,11 +1452,21 @@ async fn create_preference_pair(
 ) -> (StatusCode, Json<serde_json::Value>) {
     let chosen = match hex_to_id(&req.chosen_id) {
         Some(v) => v,
-        None => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "invalid chosen_id"}))),
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error": "invalid chosen_id"})),
+            )
+        }
     };
     let rejected = match hex_to_id(&req.rejected_id) {
         Some(v) => v,
-        None => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "invalid rejected_id"}))),
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error": "invalid rejected_id"})),
+            )
+        }
     };
 
     let id = new_id();
@@ -1296,13 +1480,19 @@ async fn create_preference_pair(
     );
 
     match result {
-        Ok(_) => (StatusCode::CREATED, Json(serde_json::json!({
-            "id": id_hex,
-            "created_at": now,
-        }))),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-            "error": e.to_string(),
-        }))),
+        Ok(_) => (
+            StatusCode::CREATED,
+            Json(serde_json::json!({
+                "id": id_hex,
+                "created_at": now,
+            })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": e.to_string(),
+            })),
+        ),
     }
 }
 
@@ -1339,19 +1529,36 @@ async fn security_status() -> Json<serde_json::Value> {
 async fn learning_stats(State(st): State<SharedState>) -> Json<serde_json::Value> {
     let db = st.db.lock().unwrap();
 
-    let memories: i64 = db.query_row("SELECT count(*) FROM memories", [], |r| r.get(0)).unwrap_or(0);
-    let pairs: i64 = db.query_row("SELECT count(*) FROM preference_pairs", [], |r| r.get(0)).unwrap_or(0);
-    let votes: i64 = db.query_row("SELECT count(*) FROM votes", [], |r| r.get(0)).unwrap_or(0);
-    let pages: i64 = db.query_row("SELECT count(*) FROM pages", [], |r| r.get(0)).unwrap_or(0);
-    let nodes: i64 = db.query_row("SELECT count(*) FROM nodes", [], |r| r.get(0)).unwrap_or(0);
-    let adapters: i64 = db.query_row("SELECT count(*) FROM adapters", [], |r| r.get(0)).unwrap_or(0);
+    let memories: i64 = db
+        .query_row("SELECT count(*) FROM memories", [], |r| r.get(0))
+        .unwrap_or(0);
+    let pairs: i64 = db
+        .query_row("SELECT count(*) FROM preference_pairs", [], |r| r.get(0))
+        .unwrap_or(0);
+    let votes: i64 = db
+        .query_row("SELECT count(*) FROM votes", [], |r| r.get(0))
+        .unwrap_or(0);
+    let pages: i64 = db
+        .query_row("SELECT count(*) FROM pages", [], |r| r.get(0))
+        .unwrap_or(0);
+    let nodes: i64 = db
+        .query_row("SELECT count(*) FROM nodes", [], |r| r.get(0))
+        .unwrap_or(0);
+    let adapters: i64 = db
+        .query_row("SELECT count(*) FROM adapters", [], |r| r.get(0))
+        .unwrap_or(0);
 
     // Blob stats
     let blob_count = std::fs::read_dir(&st.blob_dir)
         .map(|d| d.count())
         .unwrap_or(0);
     let blob_bytes: u64 = std::fs::read_dir(&st.blob_dir)
-        .map(|d| d.filter_map(|e| e.ok()).filter_map(|e| e.metadata().ok()).map(|m| m.len()).sum())
+        .map(|d| {
+            d.filter_map(|e| e.ok())
+                .filter_map(|e| e.metadata().ok())
+                .map(|m| m.len())
+                .sum()
+        })
         .unwrap_or(0);
 
     // RVF file stats

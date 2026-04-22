@@ -46,11 +46,10 @@ pub struct GcsClient {
 
 impl GcsClient {
     pub fn new() -> Self {
-        let bucket = std::env::var("GCS_BUCKET")
-            .unwrap_or_else(|_| "ruvector-brain-dev".to_string());
+        let bucket =
+            std::env::var("GCS_BUCKET").unwrap_or_else(|_| "ruvector-brain-dev".to_string());
         let static_token = std::env::var("GCS_TOKEN").ok();
-        let use_metadata_server = static_token.is_none()
-            && std::env::var("GCS_BUCKET").is_ok();
+        let use_metadata_server = static_token.is_none() && std::env::var("GCS_BUCKET").is_ok();
 
         if static_token.is_some() {
             tracing::info!("GCS persistence enabled (static token) for bucket: {bucket}");
@@ -107,7 +106,8 @@ impl GcsClient {
     /// Fetch a new token from the GCE metadata server
     async fn refresh_token(&self) -> Option<String> {
         let url = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token";
-        let resp = self.http
+        let resp = self
+            .http
             .get(url)
             .header("Metadata-Flavor", "Google")
             .send()
@@ -126,8 +126,8 @@ impl GcsClient {
         }
 
         let token_resp: TokenResponse = resp.json().await.ok()?;
-        let expires_at = std::time::Instant::now()
-            + std::time::Duration::from_secs(token_resp.expires_in);
+        let expires_at =
+            std::time::Instant::now() + std::time::Duration::from_secs(token_resp.expires_in);
 
         let token = token_resp.access_token.clone();
 
@@ -163,7 +163,8 @@ impl GcsClient {
                 self.bucket,
                 urlencoding::encode(&path)
             );
-            let result = self.http
+            let result = self
+                .http
                 .post(&url)
                 .bearer_auth(&token)
                 .header("Content-Type", "application/octet-stream")
@@ -175,7 +176,8 @@ impl GcsClient {
                     // Token expired mid-flight, try once with fresh token
                     tracing::info!("GCS token expired on upload, refreshing...");
                     if let Some(new_token) = self.refresh_token().await {
-                        let retry = self.http
+                        let retry = self
+                            .http
                             .post(&url)
                             .bearer_auth(&new_token)
                             .header("Content-Type", "application/octet-stream")
@@ -184,7 +186,10 @@ impl GcsClient {
                             .await;
                         if let Ok(resp) = retry {
                             if !resp.status().is_success() {
-                                tracing::warn!("GCS upload {path} retry returned {}", resp.status());
+                                tracing::warn!(
+                                    "GCS upload {path} retry returned {}",
+                                    resp.status()
+                                );
                             }
                         }
                     }
@@ -224,7 +229,9 @@ impl GcsClient {
             );
             match self.http.get(&url).bearer_auth(&token).send().await {
                 Ok(resp) if resp.status().is_success() => {
-                    let bytes = resp.bytes().await
+                    let bytes = resp
+                        .bytes()
+                        .await
                         .map_err(|e| GcsError::DownloadFailed(e.to_string()))?;
                     let data = bytes.to_vec();
                     // Populate cache
@@ -247,11 +254,7 @@ impl GcsClient {
     }
 
     /// Delete RVF container (cache + GCS)
-    pub async fn delete_rvf(
-        &self,
-        contributor: &str,
-        memory_id: &str,
-    ) -> Result<(), GcsError> {
+    pub async fn delete_rvf(&self, contributor: &str, memory_id: &str) -> Result<(), GcsError> {
         let path = format!("{contributor}/{memory_id}.rvf");
         self.local_store.remove(&path);
 

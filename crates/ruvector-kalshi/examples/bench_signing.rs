@@ -78,6 +78,6 @@ fn sigpath_smoke(rc: &ruvector_kalshi::rest::RestClient, path: &str) -> String {
     // equivalent: produce the headers the client would send.
     // Signing dominates; this exercises the alloc/format path too.
     let _ = rc; // client not yet exposing a public sig helper
-    // Reproduce the optimized format — no URL parse.
+                // Reproduce the optimized format — no URL parse.
     format!("/trade-api/v2{path}")
 }

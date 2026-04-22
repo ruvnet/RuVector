@@ -35,7 +35,9 @@ fn gauss(rng: &mut StdRng) -> f64 {
 }
 
 fn log_normal(rng: &mut StdRng, median: f64, sigma_log10: f64) -> f64 {
-    10.0_f64.powf(median.log10() + sigma_log10 * gauss(rng)).max(0.01)
+    10.0_f64
+        .powf(median.log10() + sigma_log10 * gauss(rng))
+        .max(0.01)
 }
 
 fn power_law(rng: &mut StdRng, x_min: f64, x_max: f64, alpha: f64) -> f64 {
@@ -52,7 +54,13 @@ fn generate_catalog(rng: &mut StdRng) -> Vec<Frb> {
     (0..N_FRB)
         .map(|_| {
             let u: f64 = rng.gen();
-            let population = if u < 0.60 { 0u8 } else if u < 0.90 { 1 } else { 2 };
+            let population = if u < 0.60 {
+                0u8
+            } else if u < 0.90 {
+                1
+            } else {
+                2
+            };
             let (dm, width, scattering, sp_idx) = match population {
                 0 => {
                     let dm = log_normal(rng, 750.0, 0.30).max(250.0);
@@ -77,7 +85,14 @@ fn generate_catalog(rng: &mut StdRng) -> Vec<Frb> {
                 }
             };
             let fluence = power_law(rng, 0.4, 200.0, -1.4);
-            Frb { dm, width, fluence, scattering, sp_idx, population }
+            Frb {
+                dm,
+                width,
+                fluence,
+                scattering,
+                sp_idx,
+                population,
+            }
         })
         .collect()
 }
@@ -91,7 +106,14 @@ fn generate_null_catalog(rng: &mut StdRng) -> Vec<Frb> {
             let scat = exponential(rng, 2.5).min(50.0);
             let sp = 0.0 + 4.0 * gauss(rng);
             let fluence = power_law(rng, 0.4, 200.0, -1.4);
-            Frb { dm, width, fluence, scattering: scat, sp_idx: sp, population: 0 }
+            Frb {
+                dm,
+                width,
+                fluence,
+                scattering: scat,
+                sp_idx: sp,
+                population: 0,
+            }
         })
         .collect()
 }
@@ -108,13 +130,24 @@ fn build_features(catalog: &[Frb]) -> Vec<[f64; 5]> {
     let dm = normalize(&catalog.iter().map(|f| f.dm.ln()).collect::<Vec<_>>());
     let wi = normalize(&catalog.iter().map(|f| f.width.ln()).collect::<Vec<_>>());
     let fl = normalize(&catalog.iter().map(|f| f.fluence.ln()).collect::<Vec<_>>());
-    let sc = normalize(&catalog.iter().map(|f| (f.scattering + 0.1).ln()).collect::<Vec<_>>());
+    let sc = normalize(
+        &catalog
+            .iter()
+            .map(|f| (f.scattering + 0.1).ln())
+            .collect::<Vec<_>>(),
+    );
     let sp = normalize(&catalog.iter().map(|f| f.sp_idx).collect::<Vec<_>>());
-    (0..n).map(|i| [dm[i], wi[i], fl[i], sc[i], sp[i]]).collect()
+    (0..n)
+        .map(|i| [dm[i], wi[i], fl[i], sc[i], sp[i]])
+        .collect()
 }
 
 fn euclidean(a: &[f64; 5], b: &[f64; 5]) -> f64 {
-    a.iter().zip(b).map(|(x, y)| (x - y).powi(2)).sum::<f64>().sqrt()
+    a.iter()
+        .zip(b)
+        .map(|(x, y)| (x - y).powi(2))
+        .sum::<f64>()
+        .sqrt()
 }
 
 type EdgeList = Vec<(usize, usize, f64)>;
@@ -154,14 +187,18 @@ fn spectral_bisect(edges: &EdgeList, n: usize) -> (Vec<usize>, Vec<usize>, f64, 
 
     for k in 0..n - 1 {
         set_s.insert(order[k]);
-        if k + 1 < margin || k + 1 > n - margin { continue; }
+        if k + 1 < margin || k + 1 > n - margin {
+            continue;
+        }
         let cut: f64 = edges
             .iter()
             .filter(|&&(u, v, _)| set_s.contains(&u) != set_s.contains(&v))
             .map(|&(_, _, w)| w)
             .sum();
         let ratio = cut * (1.0 / (k + 1) as f64 + 1.0 / (n - k - 1) as f64);
-        if ratio < best.1 { best = (k + 1, ratio); }
+        if ratio < best.1 {
+            best = (k + 1, ratio);
+        }
     }
 
     let a: Vec<usize> = order[..best.0].to_vec();
@@ -184,10 +221,14 @@ fn graph_fiedler(catalog: &[Frb]) -> f64 {
 }
 
 fn null_fiedler_distribution(rng: &mut StdRng) -> Vec<f64> {
-    (0..NULL_PERMS).map(|_| graph_fiedler(&generate_null_catalog(rng))).collect()
+    (0..NULL_PERMS)
+        .map(|_| graph_fiedler(&generate_null_catalog(rng)))
+        .collect()
 }
 
-fn mean(v: &[f64]) -> f64 { v.iter().sum::<f64>() / v.len().max(1) as f64 }
+fn mean(v: &[f64]) -> f64 {
+    v.iter().sum::<f64>() / v.len().max(1) as f64
+}
 
 fn std_dev(v: &[f64]) -> f64 {
     let m = mean(v);
@@ -196,23 +237,42 @@ fn std_dev(v: &[f64]) -> f64 {
 
 fn z_score(obs: f64, null: &[f64]) -> f64 {
     let sd = std_dev(null);
-    if sd < 1e-12 { 0.0 } else { (obs - mean(null)) / sd }
+    if sd < 1e-12 {
+        0.0
+    } else {
+        (obs - mean(null)) / sd
+    }
 }
 
 fn jaccard(a: &HashSet<usize>, b: &HashSet<usize>) -> f64 {
     let u = a.union(b).count() as f64;
-    if u < 1.0 { 0.0 } else { a.intersection(b).count() as f64 / u }
+    if u < 1.0 {
+        0.0
+    } else {
+        a.intersection(b).count() as f64 / u
+    }
 }
 
 fn sub_fiedler(nodes: &[usize], edges: &EdgeList) -> f64 {
     let set: HashSet<usize> = nodes.iter().copied().collect();
     let mut remap = HashMap::new();
-    for (i, &n) in nodes.iter().enumerate() { remap.insert(n, i); }
-    let sub: EdgeList = edges.iter()
+    for (i, &n) in nodes.iter().enumerate() {
+        remap.insert(n, i);
+    }
+    let sub: EdgeList = edges
+        .iter()
         .filter(|(u, v, _)| set.contains(u) && set.contains(v))
-        .map(|(u, v, w)| (remap[u], remap[v], *w)).collect();
-    if nodes.len() < 3 || sub.is_empty() { return 0.0; }
-    estimate_fiedler(&CsrMatrixView::build_laplacian(nodes.len(), &sub), 100, 1e-8).0
+        .map(|(u, v, w)| (remap[u], remap[v], *w))
+        .collect();
+    if nodes.len() < 3 || sub.is_empty() {
+        return 0.0;
+    }
+    estimate_fiedler(
+        &CsrMatrixView::build_laplacian(nodes.len(), &sub),
+        100,
+        1e-8,
+    )
+    .0
 }
 
 fn main() {
@@ -229,17 +289,30 @@ fn main() {
         catalog.iter().filter(|f| f.population == 1).count(),
         catalog.iter().filter(|f| f.population == 2).count(),
     ];
-    println!("[DATA] {} FRBs  (Pop A={}, Pop B={}, Pop C={})", N_FRB, pc[0], pc[1], pc[2]);
+    println!(
+        "[DATA] {} FRBs  (Pop A={}, Pop B={}, Pop C={})",
+        N_FRB, pc[0], pc[1], pc[2]
+    );
 
     // 2. Build features and k-NN graph
     let feats = build_features(&catalog);
     let edges = build_knn_graph(&feats);
-    println!("[DATA] {} edges in {}-NN graph, 5 features", edges.len(), K_NN);
+    println!(
+        "[DATA] {} edges in {}-NN graph, 5 features",
+        edges.len(),
+        K_NN
+    );
 
     // 3. Global mincut (lower bound)
-    let mc_edges: Vec<(u64, u64, f64)> =
-        edges.iter().map(|&(u, v, w)| (u as u64, v as u64, w)).collect();
-    let mc = MinCutBuilder::new().exact().with_edges(mc_edges).build().expect("mincut");
+    let mc_edges: Vec<(u64, u64, f64)> = edges
+        .iter()
+        .map(|&(u, v, w)| (u as u64, v as u64, w))
+        .collect();
+    let mc = MinCutBuilder::new()
+        .exact()
+        .with_edges(mc_edges)
+        .build()
+        .expect("mincut");
     let gv = mc.min_cut_value();
     println!("[MINCUT] Global min-cut value: {:.4} (lower bound)\n", gv);
 
@@ -247,14 +320,18 @@ fn main() {
     let (part_a, part_b, cut_val, fiedler_val) = spectral_bisect(&edges, N_FRB);
     println!(
         "[SPECTRAL] Partition A: {} FRBs, Partition B: {} FRBs",
-        part_a.len(), part_b.len()
+        part_a.len(),
+        part_b.len()
     );
     println!("[SPECTRAL] Cut value: {:.4}", cut_val);
     println!("[SPECTRAL] Fiedler eigenvalue: {:.6}", fiedler_val);
 
     // 5. Null permutations (compare Fiedler eigenvalue)
     // Lower Fiedler = more separable graph = stronger population structure
-    println!("[NULL] Running {} null permutations (single-population)...", NULL_PERMS);
+    println!(
+        "[NULL] Running {} null permutations (single-population)...",
+        NULL_PERMS
+    );
     let null_fiedlers = null_fiedler_distribution(&mut rng);
     let z = z_score(fiedler_val, &null_fiedlers);
     let count_below = null_fiedlers.iter().filter(|&&v| v <= fiedler_val).count();
@@ -265,7 +342,10 @@ fn main() {
     };
     println!(
         "[NULL] Fiedler: obs={:.4}, null_mean={:.4}, z-score={:.2} (p {})",
-        fiedler_val, mean(&null_fiedlers), z, p_str
+        fiedler_val,
+        mean(&null_fiedlers),
+        z,
+        p_str
     );
     println!(
         "[NULL] Interpretation: {} Fiedler = {} separable graph\n",
@@ -294,7 +374,12 @@ fn main() {
         let n = idx.len() as f64;
         println!(
             "         composition: Pop-A={} ({:.0}%), Pop-B={} ({:.0}%), Pop-C={} ({:.0}%)",
-            pa, 100.0 * pa as f64 / n, pb, 100.0 * pb as f64 / n, ppc, 100.0 * ppc as f64 / n,
+            pa,
+            100.0 * pa as f64 / n,
+            pb,
+            100.0 * pb as f64 / n,
+            ppc,
+            100.0 * ppc as f64 / n,
         );
     };
 
@@ -305,10 +390,18 @@ fn main() {
 
     // 7. Compare with simple DM threshold
     let dm_threshold = 500.0;
-    let dm_high: HashSet<usize> = catalog.iter().enumerate()
-        .filter(|(_, f)| f.dm > dm_threshold).map(|(i, _)| i).collect();
-    let dm_low: HashSet<usize> = catalog.iter().enumerate()
-        .filter(|(_, f)| f.dm <= dm_threshold).map(|(i, _)| i).collect();
+    let dm_high: HashSet<usize> = catalog
+        .iter()
+        .enumerate()
+        .filter(|(_, f)| f.dm > dm_threshold)
+        .map(|(i, _)| i)
+        .collect();
+    let dm_low: HashSet<usize> = catalog
+        .iter()
+        .enumerate()
+        .filter(|(_, f)| f.dm <= dm_threshold)
+        .map(|(i, _)| i)
+        .collect();
     let set_a: HashSet<usize> = part_a.iter().copied().collect();
     let set_b: HashSet<usize> = part_b.iter().copied().collect();
 
@@ -317,8 +410,16 @@ fn main() {
         .max(jaccard(&set_b, &dm_high))
         .max(jaccard(&set_b, &dm_low));
 
-    println!("[DM-THRESHOLD] Simple DM>{} split: {}/{}", dm_threshold, dm_high.len(), dm_low.len());
-    println!("[DM-THRESHOLD] Jaccard similarity with spectral = {:.3}", j_best);
+    println!(
+        "[DM-THRESHOLD] Simple DM>{} split: {}/{}",
+        dm_threshold,
+        dm_high.len(),
+        dm_low.len()
+    );
+    println!(
+        "[DM-THRESHOLD] Jaccard similarity with spectral = {:.3}",
+        j_best
+    );
     if j_best < 0.80 {
         println!("  => Spectral bisection finds a DIFFERENT boundary than simple thresholding");
     } else {
@@ -346,8 +447,15 @@ fn main() {
     println!("  Global mincut (lower):  {:.4}", gv);
     println!("  Fiedler eigenvalue:     {:.6}", fiedler_val);
     println!("  z-score (vs null):      {:.2} (p {})", z, p_str);
-    println!("  DM-threshold Jaccard:   {:.3} ({})",
-        j_best, if j_best < 0.80 { "DIFFERENT" } else { "similar" });
+    println!(
+        "  DM-threshold Jaccard:   {:.3} ({})",
+        j_best,
+        if j_best < 0.80 {
+            "DIFFERENT"
+        } else {
+            "similar"
+        }
+    );
     println!("  Spectral Fiedler (A|B): {:.4} | {:.4}", fa, fb);
     println!("================================================================");
 
@@ -355,7 +463,10 @@ fn main() {
     let diff = j_best < 0.80;
     if sig && diff {
         println!("\n  CONCLUSION: Spectral bisection discovers a population boundary");
-        println!("  that is statistically significant (z={:.2}) and structurally", z);
+        println!(
+            "  that is statistically significant (z={:.2}) and structurally",
+            z
+        );
         println!("  DIFFERENT from a naive DM threshold. The boundary separates");
         println!("  cosmological FRBs from local-environment FRBs using the joint");
         println!("  distribution of DM, width, scattering, and spectral index.");
@@ -363,9 +474,15 @@ fn main() {
         println!("\n  CONCLUSION: Significant boundary found (z={:.2}).", z);
         println!("  The multi-parameter cut partly coincides with the DM split.");
     } else if diff {
-        println!("\n  CONCLUSION: Boundary detected (Fiedler z={:.2}) with distinct", z);
+        println!(
+            "\n  CONCLUSION: Boundary detected (Fiedler z={:.2}) with distinct",
+            z
+        );
         println!("  properties between partitions. The spectral split differs from");
-        println!("  DM thresholding (Jaccard={:.3}), confirming multi-parameter", j_best);
+        println!(
+            "  DM thresholding (Jaccard={:.3}), confirming multi-parameter",
+            j_best
+        );
         println!("  structure in the FRB population that DM alone cannot capture.");
     } else {
         println!("\n  CONCLUSION: Adjust parameters for stronger separation.");

@@ -109,7 +109,11 @@ fn test_feature_coverage_matrix() {
         stats.cap_grant,
         config::CAP_GRANTS
     );
-    assert!(stats.region_map >= 3, "region_map: {} < 3", stats.region_map);
+    assert!(
+        stats.region_map >= 3,
+        "region_map: {} < 3",
+        stats.region_map
+    );
     assert!(stats.rvf_mount >= 1, "rvf_mount: {} < 1", stats.rvf_mount);
     assert!(
         stats.sensor_subscribe >= 1,
@@ -358,7 +362,10 @@ fn test_syscall_usage_declarations() {
                     .syscalls
                     .iter()
                     .any(|s| s.syscall_name == "sensor_subscribe"));
-                assert!(component.syscalls.iter().any(|s| s.syscall_name == "queue_send"));
+                assert!(component
+                    .syscalls
+                    .iter()
+                    .any(|s| s.syscall_name == "queue_send"));
             }
             ComponentType::FeatureExtractor => {
                 assert!(component
@@ -391,7 +398,10 @@ fn test_syscall_usage_declarations() {
                     .syscalls
                     .iter()
                     .any(|s| s.syscall_name == "task_spawn"));
-                assert!(component.syscalls.iter().any(|s| s.syscall_name == "cap_grant"));
+                assert!(component
+                    .syscalls
+                    .iter()
+                    .any(|s| s.syscall_name == "cap_grant"));
                 assert!(component
                     .syscalls
                     .iter()
@@ -420,7 +430,10 @@ fn test_full_coverage_verification() {
     for detail in &coverage.syscall_coverage.details {
         println!(
             "  {}: expected={}, actual={}, covered={}",
-            detail.name, detail.expected, detail.actual, detail.actual > 0
+            detail.name,
+            detail.expected,
+            detail.actual,
+            detail.actual > 0
         );
     }
     println!("All covered: {}", coverage.syscall_coverage.all_covered);
@@ -429,7 +442,10 @@ fn test_full_coverage_verification() {
     assert!(
         coverage.syscall_coverage.all_covered,
         "Not all syscalls covered: {:?}",
-        coverage.syscall_coverage.details.iter()
+        coverage
+            .syscall_coverage
+            .details
+            .iter()
             .filter(|d| d.actual == 0)
             .map(|d| d.name)
             .collect::<Vec<_>>()

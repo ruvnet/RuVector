@@ -14,11 +14,7 @@ struct Route {
 
 /// Select the backend and stripped path for a given input path.
 /// Uses longest-prefix-first matching (same as CompositeBackend).
-fn route_path<'a>(
-    routes: &'a [Route],
-    path: &str,
-    default_backend: &'a str,
-) -> (&'a str, String) {
+fn route_path<'a>(routes: &'a [Route], path: &str, default_backend: &'a str) -> (&'a str, String) {
     // Routes should be sorted by prefix length descending.
     for route in routes {
         if path.starts_with(&route.prefix) {

@@ -26,11 +26,7 @@ pub fn print_summary(results: &AnalysisResults, tpm: &TransitionMatrix) {
         } else {
             0
         };
-        let l_start = tpm
-            .bin_centers
-            .get(*start)
-            .map(|x| *x as u32)
-            .unwrap_or(0);
+        let l_start = tpm.bin_centers.get(*start).map(|x| *x as u32).unwrap_or(0);
         let l_end = tpm
             .bin_centers
             .get(end.saturating_sub(1))
@@ -121,7 +117,14 @@ pub fn generate_svg(
     );
 
     // Panel 1: Power spectrum (y=100, h=300)
-    svg.push_str(&render_power_spectrum(ps, &tpm.bin_edges, 50, 100, 1100, 280));
+    svg.push_str(&render_power_spectrum(
+        ps,
+        &tpm.bin_edges,
+        50,
+        100,
+        1100,
+        280,
+    ));
 
     // Panel 2: TPM heatmap (y=420, h=300)
     svg.push_str(&render_tpm_heatmap(tpm, 50, 420, 500, 280));
@@ -232,13 +235,7 @@ fn render_tpm_heatmap(tpm: &TransitionMatrix, x: i32, y: i32, w: i32, h: i32) ->
     s
 }
 
-fn render_phi_spectrum(
-    spectrum: &[(usize, usize, f64)],
-    x: i32,
-    y: i32,
-    w: i32,
-    h: i32,
-) -> String {
+fn render_phi_spectrum(spectrum: &[(usize, usize, f64)], x: i32, y: i32, w: i32, h: i32) -> String {
     let mut s = format!("<g transform=\"translate({},{})\">\n", x, y);
     s.push_str(&format!(
         "<text x=\"{}\" y=\"-5\" text-anchor=\"middle\" class=\"subtitle\">Phi Spectrum (sliding window)</text>\n",
@@ -302,10 +299,18 @@ fn render_null_distribution(
 
     // Histogram of null phis
     let n_hist_bins = 30usize;
-    let phi_min =
-        null_phis.iter().cloned().fold(f64::INFINITY, f64::min).min(observed) * 0.9;
-    let phi_max =
-        null_phis.iter().cloned().fold(0.0f64, f64::max).max(observed) * 1.1;
+    let phi_min = null_phis
+        .iter()
+        .cloned()
+        .fold(f64::INFINITY, f64::min)
+        .min(observed)
+        * 0.9;
+    let phi_max = null_phis
+        .iter()
+        .cloned()
+        .fold(0.0f64, f64::max)
+        .max(observed)
+        * 1.1;
     let range = (phi_max - phi_min).max(1e-10);
     let bin_width = range / n_hist_bins as f64;
 
@@ -348,7 +353,12 @@ fn render_null_distribution(
     s
 }
 
-fn render_summary_stats(results: &AnalysisResults, tpm: &TransitionMatrix, x: i32, y: i32) -> String {
+fn render_summary_stats(
+    results: &AnalysisResults,
+    tpm: &TransitionMatrix,
+    x: i32,
+    y: i32,
+) -> String {
     let mut s = format!("<g transform=\"translate({},{})\">\n", x, y);
     s.push_str("<text x=\"0\" y=\"0\" class=\"subtitle\">Summary Statistics</text>\n");
 
@@ -369,10 +379,7 @@ fn render_summary_stats(results: &AnalysisResults, tpm: &TransitionMatrix, x: i3
         ),
         format!("z-score:          {:.3}", results.z_score),
         format!("p-value:          {:.4}", results.p_value),
-        format!(
-            "EI (micro):       {:.4} bits",
-            results.emergence.ei_micro
-        ),
+        format!("EI (micro):       {:.4} bits", results.emergence.ei_micro),
         format!("Determinism:      {:.4}", results.emergence.determinism),
         format!(
             "SVD Eff. Rank:    {}/{}",

@@ -53,16 +53,16 @@ pub mod model_types;
 
 pub use error::{DecompilerError, Result};
 pub use types::{
-    DecompileConfig, DecompileResult, Declaration, InferredName, Module,
-    ModuleTree, WitnessChainData,
+    Declaration, DecompileConfig, DecompileResult, InferredName, Module, ModuleTree,
+    WitnessChainData,
 };
 
 #[cfg(feature = "model")]
 pub use model_decompiler::{decompile_gguf, decompile_model, decompile_safetensors};
 #[cfg(feature = "model")]
 pub use model_types::{
-    LayerInfo, LayerType, ModelArchitecture, ModelDecompileResult,
-    ModelFormat, QuantizationInfo, TokenizerInfo,
+    LayerInfo, LayerType, ModelArchitecture, ModelDecompileResult, ModelFormat, QuantizationInfo,
+    TokenizerInfo,
 };
 
 /// Decompile a minified JavaScript bundle.
@@ -86,10 +86,7 @@ pub fn decompile(source: &str, config: &DecompileConfig) -> Result<DecompileResu
     let ref_graph = graph::build_reference_graph(declarations);
 
     // Phase 3: Partition into modules.
-    let mut modules = partitioner::partition_modules(
-        &ref_graph,
-        config.target_modules,
-    )?;
+    let mut modules = partitioner::partition_modules(&ref_graph, config.target_modules)?;
 
     // Phase 4: Infer names.
     let inferred_names = inferrer::infer_names(&modules);
@@ -102,12 +99,7 @@ pub fn decompile(source: &str, config: &DecompileConfig) -> Result<DecompileResu
         .collect();
 
     // Beautify module source code.
-    beautifier::beautify_all(
-        &mut modules,
-        source,
-        &filtered_names,
-        config.min_confidence,
-    );
+    beautifier::beautify_all(&mut modules, source, &filtered_names, config.min_confidence);
 
     // Phase 4b: Build hierarchical module tree from graph structure.
     let module_tree = if config.hierarchical_output.unwrap_or(true) {
@@ -120,9 +112,7 @@ pub fn decompile(source: &str, config: &DecompileConfig) -> Result<DecompileResu
     let source_maps = if config.generate_source_maps {
         modules
             .iter()
-            .map(|m| {
-                sourcemap::generate_source_map(m, &filtered_names, &config.output_filename)
-            })
+            .map(|m| sourcemap::generate_source_map(m, &filtered_names, &config.output_filename))
             .collect::<Result<Vec<_>>>()?
     } else {
         Vec::new()

@@ -41,7 +41,12 @@ use std::time::Instant;
 /// 5. SVD of B gives approximate singular values
 ///
 /// Complexity: O(n²·(k+p)) vs O(n³) for full SVD.
-pub fn randomized_svd(tpm: &TransitionMatrix, k: usize, oversampling: usize, seed: u64) -> Vec<f64> {
+pub fn randomized_svd(
+    tpm: &TransitionMatrix,
+    k: usize,
+    oversampling: usize,
+    seed: u64,
+) -> Vec<f64> {
     let n = tpm.n;
     let rank = (k + oversampling).min(n);
     let mut rng = StdRng::seed_from_u64(seed);
@@ -248,7 +253,11 @@ pub struct RsvdEmergenceEngine {
 
 impl RsvdEmergenceEngine {
     pub fn new(k: usize, oversampling: usize, seed: u64) -> Self {
-        Self { k, oversampling, seed }
+        Self {
+            k,
+            oversampling,
+            seed,
+        }
     }
 }
 
@@ -358,7 +367,10 @@ mod tests {
         let svs = randomized_svd(&tpm, 4, 2, 42);
         // Identity matrix has all singular values = 1.
         for sv in &svs {
-            assert!((*sv - 1.0).abs() < 0.1, "identity sv should be ≈ 1, got {sv}");
+            assert!(
+                (*sv - 1.0).abs() < 0.1,
+                "identity sv should be ≈ 1, got {sv}"
+            );
         }
     }
 
@@ -380,7 +392,11 @@ mod tests {
         let budget = ComputeBudget::fast();
         let result = engine.compute(&tpm, &budget).unwrap();
         // Identity: all singular values equal → high spectral entropy → low emergence.
-        assert!(result.emergence_index < 0.5, "identity should have low emergence, got {}", result.emergence_index);
+        assert!(
+            result.emergence_index < 0.5,
+            "identity should have low emergence, got {}",
+            result.emergence_index
+        );
     }
 
     #[test]
@@ -390,7 +406,11 @@ mod tests {
         let budget = ComputeBudget::fast();
         let result = engine.compute(&tpm, &budget).unwrap();
         // Uniform: rank 1 → low spectral entropy → high emergence index.
-        assert!(result.effective_rank <= 2, "uniform should have low effective rank, got {}", result.effective_rank);
+        assert!(
+            result.effective_rank <= 2,
+            "uniform should have low effective rank, got {}",
+            result.effective_rank
+        );
     }
 
     #[test]

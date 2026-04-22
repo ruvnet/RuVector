@@ -105,10 +105,7 @@ mod tests {
     #[test]
     fn test_write_file_missing_path() {
         let runtime = mock_runtime();
-        let result = WriteFileTool.invoke(
-            serde_json::json!({"content": "hello"}),
-            &runtime,
-        );
+        let result = WriteFileTool.invoke(serde_json::json!({"content": "hello"}), &runtime);
         match result {
             ToolResult::Text(s) => assert!(s.contains("file_path is required")),
             _ => panic!("expected error"),
@@ -118,10 +115,7 @@ mod tests {
     #[test]
     fn test_write_file_missing_content() {
         let runtime = mock_runtime();
-        let result = WriteFileTool.invoke(
-            serde_json::json!({"file_path": "/foo.txt"}),
-            &runtime,
-        );
+        let result = WriteFileTool.invoke(serde_json::json!({"file_path": "/foo.txt"}), &runtime);
         match result {
             ToolResult::Text(s) => assert!(s.contains("content is required")),
             _ => panic!("expected error"),

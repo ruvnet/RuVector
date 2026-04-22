@@ -86,7 +86,11 @@ fn build_tree_recursive(
     // Base case: max depth reached, or folder is small enough to be a leaf.
     // At depth 0: only leaf if <=min_folder_size modules
     // At depth 1+: leaf if <=20 modules (enough granularity)
-    let leaf_threshold = if depth == 0 { min_folder_size } else { 20.min(min_folder_size * 5) };
+    let leaf_threshold = if depth == 0 {
+        min_folder_size
+    } else {
+        20.min(min_folder_size * 5)
+    };
     if indices.len() <= leaf_threshold || depth >= max_depth {
         return make_leaf(all_modules, indices, depth, parent_path);
     }
@@ -99,8 +103,10 @@ fn build_tree_recursive(
     }
 
     // Name the internal node.
-    let all_in_group: Vec<Module> =
-        indices.iter().filter_map(|&i| all_modules.get(i).cloned()).collect();
+    let all_in_group: Vec<Module> = indices
+        .iter()
+        .filter_map(|&i| all_modules.get(i).cloned())
+        .collect();
     let folder_name = if depth == 0 {
         "src".to_string()
     } else {
@@ -143,8 +149,10 @@ fn make_leaf(
     depth: usize,
     parent_path: &str,
 ) -> ModuleTree {
-    let leaf_modules: Vec<Module> =
-        indices.iter().filter_map(|&i| all_modules.get(i).cloned()).collect();
+    let leaf_modules: Vec<Module> = indices
+        .iter()
+        .filter_map(|&i| all_modules.get(i).cloned())
+        .collect();
     let name = infer_folder_name(&leaf_modules, all_modules);
     let path = if parent_path.is_empty() {
         name.clone()
@@ -174,7 +182,15 @@ fn agglomerative_cluster(
     let mut clusters: Vec<Vec<usize>> = indices.iter().map(|&i| vec![i]).collect();
 
     // Target: 5-15 top-level folders for large codebases, 3-5 for small
-    let target_clusters = if n > 500 { 10 } else if n > 100 { 7 } else if n > 20 { 5 } else { 3 };
+    let target_clusters = if n > 500 {
+        10
+    } else if n > 100 {
+        7
+    } else if n > 20 {
+        5
+    } else {
+        3
+    };
 
     loop {
         if clusters.len() <= target_clusters {
@@ -188,7 +204,9 @@ fn agglomerative_cluster(
             for j in (i + 1)..clusters.len() {
                 let w = cluster_edge_weight(&clusters[i], &clusters[j], inter_module);
                 // Normalize by geometric mean of sizes (prevents giant clusters from absorbing everything)
-                let size_factor = ((clusters[i].len() * clusters[j].len()) as f64).sqrt().max(1.0);
+                let size_factor = ((clusters[i].len() * clusters[j].len()) as f64)
+                    .sqrt()
+                    .max(1.0);
                 let normalized = w / size_factor;
                 if normalized > best_weight {
                     best_weight = normalized;
@@ -208,7 +226,7 @@ fn agglomerative_cluster(
             // Try next best pair that doesn't exceed max
             let mut found = false;
             for i in 0..clusters.len() {
-                for j in (i+1)..clusters.len() {
+                for j in (i + 1)..clusters.len() {
                     if clusters[i].len() + clusters[j].len() <= max_cluster {
                         let w = cluster_edge_weight(&clusters[i], &clusters[j], inter_module);
                         if w > 0.0 {
@@ -225,9 +243,13 @@ fn agglomerative_cluster(
                         }
                     }
                 }
-                if found { break; }
+                if found {
+                    break;
+                }
             }
-            if !found { break; }
+            if !found {
+                break;
+            }
             continue;
         }
 
@@ -319,7 +341,11 @@ mod tests {
     fn test_build_module_tree_basic() {
         let mut decls = Vec::new();
         for i in 0..5 {
-            let refs = if i > 0 { vec![format!("a{}", i - 1)] } else { vec![] };
+            let refs = if i > 0 {
+                vec![format!("a{}", i - 1)]
+            } else {
+                vec![]
+            };
             decls.push(Declaration {
                 name: format!("a{}", i),
                 kind: DeclKind::Var,
@@ -330,7 +356,11 @@ mod tests {
             });
         }
         for i in 0..5 {
-            let refs = if i > 0 { vec![format!("b{}", i - 1)] } else { vec![] };
+            let refs = if i > 0 {
+                vec![format!("b{}", i - 1)]
+            } else {
+                vec![]
+            };
             decls.push(Declaration {
                 name: format!("b{}", i),
                 kind: DeclKind::Var,

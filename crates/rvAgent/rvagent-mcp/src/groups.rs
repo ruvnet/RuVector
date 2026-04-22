@@ -265,7 +265,8 @@ mod tests {
 
     #[test]
     fn test_tool_filter_from_group_names() {
-        let filter = ToolFilter::from_group_names(&["file".to_string(), "shell".to_string()]).unwrap();
+        let filter =
+            ToolFilter::from_group_names(&["file".to_string(), "shell".to_string()]).unwrap();
         assert!(filter.is_allowed("read_file"));
         assert!(filter.is_allowed("execute"));
         assert!(!filter.is_allowed("brain_search"));

@@ -85,10 +85,7 @@ where
         let f = Arc::clone(&f);
         let sem = Arc::clone(&sem);
         set.spawn(async move {
-            let _permit = sem
-                .acquire()
-                .await
-                .expect("semaphore closed unexpectedly");
+            let _permit = sem.acquire().await.expect("semaphore closed unexpectedly");
             let result = f(item).await;
             (idx, result)
         });
@@ -109,8 +106,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_empty() {
-        let result: Vec<i32> =
-            parallel_execute(Vec::<i32>::new(), |x| async move { x * 2 }).await;
+        let result: Vec<i32> = parallel_execute(Vec::<i32>::new(), |x| async move { x * 2 }).await;
         assert!(result.is_empty());
     }
 

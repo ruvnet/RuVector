@@ -47,7 +47,9 @@ pub enum SparsifierError {
     EmptyGraph,
 
     /// A spectral audit detected unacceptable distortion.
-    #[error("spectral audit failed: max relative error {max_error:.4} exceeds threshold {threshold:.4}")]
+    #[error(
+        "spectral audit failed: max relative error {max_error:.4} exceeds threshold {threshold:.4}"
+    )]
     AuditFailed {
         /// Observed maximum relative error.
         max_error: f64,

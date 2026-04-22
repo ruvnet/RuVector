@@ -36,7 +36,13 @@ impl OpenTracker {
         }
     }
 
-    pub fn record_open(&self, tracking_id: &str, category: &str, subject: &str, user_agent: Option<&str>) {
+    pub fn record_open(
+        &self,
+        tracking_id: &str,
+        category: &str,
+        subject: &str,
+        user_agent: Option<&str>,
+    ) {
         let open = EmailOpen {
             tracking_id: tracking_id.to_string(),
             category: category.to_string(),
@@ -71,10 +77,17 @@ impl OpenTracker {
 
     pub fn open_rates(&self) -> HashMap<String, f64> {
         let stats = self.stats.lock();
-        stats.iter().map(|(cat, (sent, opened))| {
-            let rate = if *sent > 0 { *opened as f64 / *sent as f64 } else { 0.0 };
-            (cat.clone(), rate)
-        }).collect()
+        stats
+            .iter()
+            .map(|(cat, (sent, opened))| {
+                let rate = if *sent > 0 {
+                    *opened as f64 / *sent as f64
+                } else {
+                    0.0
+                };
+                (cat.clone(), rate)
+            })
+            .collect()
     }
 
     pub fn stats_summary(&self) -> serde_json::Value {
@@ -82,12 +95,19 @@ impl OpenTracker {
         let opens = self.opens.lock();
         let mut categories = serde_json::Map::new();
         for (cat, (sent, opened)) in stats.iter() {
-            let rate = if *sent > 0 { *opened as f64 / *sent as f64 } else { 0.0 };
-            categories.insert(cat.clone(), serde_json::json!({
-                "sent": sent,
-                "opened": opened,
-                "open_rate": format!("{:.1}%", rate * 100.0)
-            }));
+            let rate = if *sent > 0 {
+                *opened as f64 / *sent as f64
+            } else {
+                0.0
+            };
+            categories.insert(
+                cat.clone(),
+                serde_json::json!({
+                    "sent": sent,
+                    "opened": opened,
+                    "open_rate": format!("{:.1}%", rate * 100.0)
+                }),
+            );
         }
         serde_json::json!({
             "total_opens": opens.len(),
@@ -105,7 +125,8 @@ pub struct ResendNotifier {
     from_name: String,
     recipient: String,
     /// Dedup: track recently welcomed emails (max 1 per 24h)
-    recent_welcomes: std::sync::Arc<parking_lot::Mutex<std::collections::HashMap<String, std::time::Instant>>>,
+    recent_welcomes:
+        std::sync::Arc<parking_lot::Mutex<std::collections::HashMap<String, std::time::Instant>>>,
     /// Per-category rate limiter: category -> (last_sent, cooldown)
     rate_limits: std::sync::Arc<Mutex<HashMap<String, (Instant, Duration)>>>,
     /// Open tracking
@@ -150,9 +171,11 @@ const STYLE_CONTAINER: &str = "font-family:'SF Mono',SFMono-Regular,Menlo,monosp
 const STYLE_HEADING: &str = "color:#4fc3f7;margin:0 0 16px 0;font-size:20px;";
 const STYLE_SUBHEADING: &str = "color:#4fc3f7;margin:16px 0 8px 0;font-size:16px;";
 const STYLE_TEXT: &str = "color:#c0c0ff;font-size:14px;line-height:1.6;";
-const STYLE_CODE: &str = "background:#1a1a3a;color:#7fdbca;padding:2px 6px;border-radius:4px;font-size:13px;";
+const STYLE_CODE: &str =
+    "background:#1a1a3a;color:#7fdbca;padding:2px 6px;border-radius:4px;font-size:13px;";
 const STYLE_CMD: &str = "background:#1a1a3a;color:#7fdbca;padding:12px 16px;border-radius:8px;font-size:13px;margin:8px 0;display:block;";
-const STYLE_FOOTER: &str = "color:#666;margin-top:20px;font-size:11px;border-top:1px solid #222;padding-top:12px;";
+const STYLE_FOOTER: &str =
+    "color:#666;margin-top:20px;font-size:11px;border-top:1px solid #222;padding-top:12px;";
 const STYLE_BADGE: &str = "display:inline-block;background:#1a1a3a;color:#4fc3f7;padding:2px 8px;border-radius:4px;font-size:11px;margin:2px;";
 
 fn footer_html() -> String {
@@ -172,14 +195,18 @@ impl ResendNotifier {
         if api_key.is_empty() {
             return None;
         }
-        let from_email = std::env::var("BRAIN_NOTIFICATION_EMAIL")
-            .unwrap_or_else(|_| "pi@ruv.io".into());
-        let from_name = std::env::var("BRAIN_NOTIFICATION_NAME")
-            .unwrap_or_else(|_| "Pi Brain".into());
-        let recipient = std::env::var("BRAIN_NOTIFY_RECIPIENT")
-            .unwrap_or_else(|_| "ruv@ruv.net".into());
+        let from_email =
+            std::env::var("BRAIN_NOTIFICATION_EMAIL").unwrap_or_else(|_| "pi@ruv.io".into());
+        let from_name =
+            std::env::var("BRAIN_NOTIFICATION_NAME").unwrap_or_else(|_| "Pi Brain".into());
+        let recipient =
+            std::env::var("BRAIN_NOTIFY_RECIPIENT").unwrap_or_else(|_| "ruv@ruv.net".into());
 
-        tracing::info!("Resend notifier initialized: from={}, to={}", from_email, recipient);
+        tracing::info!(
+            "Resend notifier initialized: from={}, to={}",
+            from_email,
+            recipient
+        );
 
         Some(Self {
             client: reqwest::Client::new(),
@@ -189,13 +216,18 @@ impl ResendNotifier {
             recipient,
             rate_limits: std::sync::Arc::new(Mutex::new(HashMap::new())),
             tracker: OpenTracker::new(),
-            recent_welcomes: std::sync::Arc::new(parking_lot::Mutex::new(std::collections::HashMap::new())),
+            recent_welcomes: std::sync::Arc::new(parking_lot::Mutex::new(
+                std::collections::HashMap::new(),
+            )),
         })
     }
 
     fn check_rate_limit(&self, category: &str) -> bool {
         let cooldowns = default_cooldowns();
-        let cooldown = cooldowns.get(category).copied().unwrap_or(Duration::from_secs(3600));
+        let cooldown = cooldowns
+            .get(category)
+            .copied()
+            .unwrap_or(Duration::from_secs(3600));
         if cooldown.is_zero() {
             return true;
         }
@@ -234,22 +266,19 @@ impl ResendNotifier {
         );
         // Insert pixel before closing </div> and add unsubscribe
         if html.ends_with("</div>") {
-            format!("{}{}{}", &html[..html.len()-6], pixel, "</div>")
-                + &unsub
+            format!("{}{}{}", &html[..html.len() - 6], pixel, "</div>") + &unsub
         } else {
             format!("{}{}{}", html, pixel, unsub)
         }
     }
 
     /// Send an email. Respects per-category rate limits. Injects tracking pixel.
-    pub async fn send(
-        &self,
-        category: &str,
-        subject: &str,
-        html: &str,
-    ) -> Result<String, String> {
+    pub async fn send(&self, category: &str, subject: &str, html: &str) -> Result<String, String> {
         if !self.check_rate_limit(category) {
-            return Err(format!("rate-limited: category '{}' is in cooldown", category));
+            return Err(format!(
+                "rate-limited: category '{}' is in cooldown",
+                category
+            ));
         }
 
         let tracking_id = uuid::Uuid::new_v4().to_string();
@@ -264,7 +293,8 @@ impl ResendNotifier {
             reply_to: Some(&self.from_email),
         };
 
-        let resp = self.client
+        let resp = self
+            .client
             .post("https://api.resend.com/emails")
             .header("Authorization", format!("Bearer {}", self.api_key))
             .json(&body)
@@ -280,7 +310,12 @@ impl ResendNotifier {
                 serde_json::from_str(&text).unwrap_or(SendEmailResponse { id: None });
             let id = parsed.id.unwrap_or_else(|| "unknown".into());
             self.tracker.record_sent(category);
-            tracing::info!("Email sent: category={}, id={}, tracking={}", category, id, tracking_id);
+            tracing::info!(
+                "Email sent: category={}, id={}, tracking={}",
+                category,
+                id,
+                tracking_id
+            );
             Ok(id)
         } else {
             tracing::warn!("Resend API error: status={}, body={}", status, text);
@@ -297,7 +332,10 @@ impl ResendNotifier {
         html: &str,
     ) -> Result<String, String> {
         if !self.check_rate_limit(category) {
-            return Err(format!("rate-limited: category '{}' is in cooldown", category));
+            return Err(format!(
+                "rate-limited: category '{}' is in cooldown",
+                category
+            ));
         }
 
         let tracking_id = uuid::Uuid::new_v4().to_string();
@@ -312,7 +350,8 @@ impl ResendNotifier {
             reply_to: Some(&self.from_email),
         };
 
-        let resp = self.client
+        let resp = self
+            .client
             .post("https://api.resend.com/emails")
             .header("Authorization", format!("Bearer {}", self.api_key))
             .json(&body)
@@ -328,7 +367,13 @@ impl ResendNotifier {
                 serde_json::from_str(&text).unwrap_or(SendEmailResponse { id: None });
             let id = parsed.id.unwrap_or_else(|| "unknown".into());
             self.tracker.record_sent(category);
-            tracing::info!("Email sent to {}: category={}, id={}, tracking={}", to, category, id, tracking_id);
+            tracing::info!(
+                "Email sent to {}: category={}, id={}, tracking={}",
+                to,
+                category,
+                id,
+                tracking_id
+            );
             Ok(id)
         } else {
             Err(format!("resend API error {}: {}", status, text))
@@ -339,7 +384,11 @@ impl ResendNotifier {
 
     /// Welcome email for new users connecting to the brain.
     /// Rate-limited: max 1 welcome per email per 24 hours.
-    pub async fn send_welcome(&self, user_email: &str, user_name: Option<&str>) -> Result<String, String> {
+    pub async fn send_welcome(
+        &self,
+        user_email: &str,
+        user_name: Option<&str>,
+    ) -> Result<String, String> {
         // Dedup: check if we already welcomed this email recently
         {
             let mut recent = self.recent_welcomes.lock();
@@ -347,7 +396,10 @@ impl ResendNotifier {
             // Clean entries older than 24h
             recent.retain(|_, t| now.duration_since(*t) < std::time::Duration::from_secs(86400));
             if recent.contains_key(user_email) {
-                tracing::info!("Welcome dedup: skipping {} (already welcomed recently)", user_email);
+                tracing::info!(
+                    "Welcome dedup: skipping {} (already welcomed recently)",
+                    user_email
+                );
                 return Ok("dedup-skipped".to_string());
             }
             recent.insert(user_email.to_string(), now);
@@ -413,10 +465,13 @@ curl "https://pi.ruv.io/v1/memories/search?q=authentication"
             name = name,
         );
 
-        self.send_to(user_email, "welcome",
+        self.send_to(
+            user_email,
+            "welcome",
             &format!("Welcome to Pi Brain, {}", name),
             &html,
-        ).await
+        )
+        .await
     }
 
     /// Help email — explains all available commands and capabilities
@@ -545,8 +600,20 @@ partitioning, and Gemini Flash grounding for cognitive enrichment.
         sona_patterns: usize,
         drift: f64,
     ) -> Result<String, String> {
-        let drift_indicator = if drift > 0.5 { "HIGH" } else if drift > 0.2 { "MODERATE" } else { "STABLE" };
-        let drift_color = if drift > 0.5 { "#ff6b6b" } else if drift > 0.2 { "#ffd93d" } else { "#6bff6b" };
+        let drift_indicator = if drift > 0.5 {
+            "HIGH"
+        } else if drift > 0.2 {
+            "MODERATE"
+        } else {
+            "STABLE"
+        };
+        let drift_color = if drift > 0.5 {
+            "#ff6b6b"
+        } else if drift > 0.2 {
+            "#ffd93d"
+        } else {
+            "#6bff6b"
+        };
 
         let html = format!(
             r#"<div style="{container}">
@@ -608,7 +675,11 @@ Resend integration is working correctly.
     ) -> Result<String, String> {
         let mut rows = String::new();
         for (i, (title, content, score)) in results.iter().enumerate() {
-            let truncated = if content.len() > 200 { &content[..200] } else { content };
+            let truncated = if content.len() > 200 {
+                &content[..200]
+            } else {
+                content
+            };
             rows.push_str(&format!(
                 r#"<tr style="border-bottom:1px solid #222;">
 <td style="padding:8px 0;vertical-align:top;">
@@ -616,7 +687,10 @@ Resend integration is working correctly.
 <span style="color:#999;font-size:12px;">{}</span><br>
 <span style="color:#666;font-size:11px;">score: {:.3}</span>
 </td></tr>"#,
-                i + 1, title, truncated, score
+                i + 1,
+                title,
+                truncated,
+                score
             ));
         }
 
@@ -642,9 +716,12 @@ Resend integration is working correctly.
             rows = rows,
         );
 
-        self.send_to(to, "chat",
+        self.send_to(
+            to,
+            "chat",
             &format!("Re: search {} ({} results)", query, results.len()),
             &html,
-        ).await
+        )
+        .await
     }
 }

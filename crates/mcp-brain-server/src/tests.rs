@@ -37,7 +37,10 @@ mod tests {
         let recalled = hopfield.retrieve(&noisy).expect("retrieve failed");
 
         // Should retrieve something close to pattern 0 (first element dominant)
-        assert!(recalled[0] > recalled[1], "pattern 0 should be dominant in retrieval");
+        assert!(
+            recalled[0] > recalled[1],
+            "pattern 0 should be dominant in retrieval"
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -134,7 +137,11 @@ mod tests {
             .expect("failed to build MinCut");
 
         let cut_value = mincut.min_cut_value();
-        assert!(cut_value > 0.0, "min cut value should be > 0, got {}", cut_value);
+        assert!(
+            cut_value > 0.0,
+            "min cut value should be > 0, got {}",
+            cut_value
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -279,10 +286,7 @@ mod tests {
             .top_k(&graph, 0, 3)
             .expect("forward push should succeed");
 
-        assert!(
-            !results.is_empty(),
-            "should return PPR results"
-        );
+        assert!(!results.is_empty(), "should return PPR results");
         // Node 0 as source — it or its immediate neighbors should rank high
         let returned_nodes: Vec<usize> = results.iter().map(|(n, _)| *n).collect();
         // At least some nodes should be returned
@@ -320,14 +324,12 @@ mod tests {
 
         // Verify the transfer with simulated metrics
         let verification = engine.verify_transfer(
-            &source,
-            &target,
-            0.8,   // source_before
-            0.79,  // source_after (within tolerance)
-            0.3,   // target_before
-            0.65,  // target_after
-            100,   // baseline_cycles
-            50,    // transfer_cycles
+            &source, &target, 0.8,  // source_before
+            0.79, // source_after (within tolerance)
+            0.3,  // target_before
+            0.65, // target_after
+            100,  // baseline_cycles
+            50,   // transfer_cycles
         );
 
         assert!(
@@ -338,10 +340,7 @@ mod tests {
             !verification.regressed_source,
             "transfer should not regress source"
         );
-        assert!(
-            verification.promotable,
-            "verification should be promotable"
-        );
+        assert!(verification.promotable, "verification should be promotable");
         assert!(
             verification.acceleration_factor > 1.0,
             "acceleration factor should be > 1.0, got {}",
@@ -396,10 +395,16 @@ mod tests {
         let verifier = Verifier::new();
 
         let pii_inputs = vec![
-            ("email address", "My email is user@example.com and I need help"),
+            (
+                "email address",
+                "My email is user@example.com and I need help",
+            ),
             ("phone number", "Call me at 555-867-5309 for details"),
             ("SSN", "My SSN is 123-45-6789 please keep it safe"),
-            ("credit card", "Card number 4111-1111-1111-1111 expires 12/25"),
+            (
+                "credit card",
+                "Card number 4111-1111-1111-1111 expires 12/25",
+            ),
             ("IP address", "Server IP is 192.168.1.100 for internal use"),
             ("AWS key", "AWS key AKIAIOSFODNN7EXAMPLE is exposed"),
             ("private key", "-----BEGIN PRIVATE KEY----- data here"),
@@ -435,7 +440,7 @@ mod tests {
     // -----------------------------------------------------------------------
     #[test]
     fn test_end_to_end_share_pipeline() {
-        use crate::pipeline::{RvfPipelineInput, build_rvf_container, count_segments};
+        use crate::pipeline::{build_rvf_container, count_segments, RvfPipelineInput};
         use crate::verify::Verifier;
         use rvf_crypto::WitnessEntry;
 
@@ -447,30 +452,55 @@ mod tests {
 
         // Step 1: Verify input (should reject due to PII)
         let result = verifier.verify_share(title, content, &tags, &embedding);
-        assert!(result.is_err(), "PII content should be rejected by verify_share");
+        assert!(
+            result.is_err(),
+            "PII content should be rejected by verify_share"
+        );
 
         // Step 2: Strip PII instead of rejecting
         let fields = [("title", title), ("content", content)];
         let (stripped, log) = verifier.strip_pii_fields(&fields);
         assert!(log.total_redactions >= 2, "should redact email + path");
-        assert!(!stripped[1].1.contains("admin@example.com"), "email should be redacted");
+        assert!(
+            !stripped[1].1.contains("admin@example.com"),
+            "email should be redacted"
+        );
         assert!(!stripped[1].1.contains("/home/"), "path should be redacted");
 
         // Step 3: Stripped content should pass verification
         let clean_title = &stripped[0].1;
         let clean_content = &stripped[1].1;
-        assert!(verifier.verify_share(clean_title, clean_content, &tags, &embedding).is_ok());
+        assert!(verifier
+            .verify_share(clean_title, clean_content, &tags, &embedding)
+            .is_ok());
 
         // Step 4: Build witness chain
         let now_ns = 1_000_000_000u64;
         let stripped_hash = rvf_crypto::shake256_256(clean_content.as_bytes());
         let mut emb_bytes = Vec::with_capacity(embedding.len() * 4);
-        for v in &embedding { emb_bytes.extend_from_slice(&v.to_le_bytes()); }
+        for v in &embedding {
+            emb_bytes.extend_from_slice(&v.to_le_bytes());
+        }
         let emb_hash = rvf_crypto::shake256_256(&emb_bytes);
         let entries = vec![
-            WitnessEntry { prev_hash: [0u8; 32], action_hash: stripped_hash, timestamp_ns: now_ns, witness_type: 0x01 },
-            WitnessEntry { prev_hash: [0u8; 32], action_hash: emb_hash, timestamp_ns: now_ns, witness_type: 0x02 },
-            WitnessEntry { prev_hash: [0u8; 32], action_hash: rvf_crypto::shake256_256(b"final"), timestamp_ns: now_ns, witness_type: 0x01 },
+            WitnessEntry {
+                prev_hash: [0u8; 32],
+                action_hash: stripped_hash,
+                timestamp_ns: now_ns,
+                witness_type: 0x01,
+            },
+            WitnessEntry {
+                prev_hash: [0u8; 32],
+                action_hash: emb_hash,
+                timestamp_ns: now_ns,
+                witness_type: 0x02,
+            },
+            WitnessEntry {
+                prev_hash: [0u8; 32],
+                action_hash: rvf_crypto::shake256_256(b"final"),
+                timestamp_ns: now_ns,
+                witness_type: 0x01,
+            },
         ];
         let chain = rvf_crypto::create_witness_chain(&entries);
         assert_eq!(chain.len(), 73 * 3);
@@ -482,7 +512,8 @@ mod tests {
         // Step 6: Build RVF container
         let redaction_json = serde_json::to_string(&serde_json::json!({
             "entries": [], "total_redactions": log.total_redactions
-        })).unwrap();
+        }))
+        .unwrap();
         let input = RvfPipelineInput {
             memory_id: "e2e-test-id",
             embedding: &embedding,
@@ -539,12 +570,21 @@ mod tests {
         assert!(!flags.dp_enabled, "dp_enabled should default to false");
         assert!(!flags.adversarial, "adversarial should default to false");
         assert!(!flags.neg_cache, "neg_cache should default to false");
-        assert!((flags.dp_epsilon - 1.0).abs() < f64::EPSILON, "dp_epsilon should default to 1.0");
+        assert!(
+            (flags.dp_epsilon - 1.0).abs() < f64::EPSILON,
+            "dp_epsilon should default to 1.0"
+        );
         // Phase 8 AGI defaults — all enabled by default
         assert!(flags.sona_enabled, "sona_enabled should default to true");
         assert!(flags.gwt_enabled, "gwt_enabled should default to true");
-        assert!(flags.temporal_enabled, "temporal_enabled should default to true");
-        assert!(flags.meta_learning_enabled, "meta_learning_enabled should default to true");
+        assert!(
+            flags.temporal_enabled,
+            "temporal_enabled should default to true"
+        );
+        assert!(
+            flags.meta_learning_enabled,
+            "meta_learning_enabled should default to true"
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -562,8 +602,10 @@ mod tests {
 
         // Stats should reflect the trajectory
         let stats = sona.stats();
-        assert!(stats.trajectories_buffered >= 1 || stats.trajectories_dropped == 0,
-            "trajectory should be buffered or processed");
+        assert!(
+            stats.trajectories_buffered >= 1 || stats.trajectories_dropped == 0,
+            "trajectory should be buffered or processed"
+        );
 
         // Pattern search should not crash (may return empty before learning)
         let patterns = sona.find_patterns(&query, 5);
@@ -609,7 +651,8 @@ mod tests {
     // -----------------------------------------------------------------------
     #[test]
     fn test_delta_stream_temporal() {
-        let mut stream = ruvector_delta_core::DeltaStream::<ruvector_delta_core::VectorDelta>::for_vectors(4);
+        let mut stream =
+            ruvector_delta_core::DeltaStream::<ruvector_delta_core::VectorDelta>::for_vectors(4);
 
         // Push 3 deltas at different timestamps
         let d1 = VectorDelta::from_dense(vec![1.0, 0.0, 0.0, 0.0]);
@@ -621,7 +664,11 @@ mod tests {
 
         // Query time range
         let range = stream.get_time_range(1500, 3500);
-        assert_eq!(range.len(), 2, "should find 2 deltas in time range 1500-3500");
+        assert_eq!(
+            range.len(),
+            2,
+            "should find 2 deltas in time range 1500-3500"
+        );
 
         // Full range should return all 3
         let all = stream.get_time_range(0, 10000);
@@ -638,7 +685,10 @@ mod tests {
         // Meta-learning health should be available without panicking
         let health = engine.meta_health();
         // Fresh engine has no observations, so consecutive_plateaus = 0
-        assert_eq!(health.consecutive_plateaus, 0, "no plateaus on fresh engine");
+        assert_eq!(
+            health.consecutive_plateaus, 0,
+            "no plateaus on fresh engine"
+        );
 
         // Regret summary should work on empty state
         let regret = engine.regret_summary();
@@ -683,11 +733,12 @@ mod tests {
     #[test]
     fn test_midstream_attractor_too_short() {
         // Less than 10 points → None
-        let embeddings: Vec<Vec<f32>> = (0..5)
-            .map(|i| vec![i as f32; 8])
-            .collect();
+        let embeddings: Vec<Vec<f32>> = (0..5).map(|i| vec![i as f32; 8]).collect();
         let result = crate::midstream::analyze_category_attractor(&embeddings);
-        assert!(result.is_none(), "should return None for too-short trajectory");
+        assert!(
+            result.is_none(),
+            "should return None for too-short trajectory"
+        );
     }
 
     #[test]

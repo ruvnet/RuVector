@@ -25,6 +25,7 @@ pub mod transport;
 
 // Re-export key types at crate root.
 pub use client::McpClient;
+pub use groups::{ToolFilter, ToolGroup};
 pub use protocol::{
     Content, JsonRpcError, JsonRpcRequest, JsonRpcResponse, McpMethod, McpPrompt, McpResource,
     McpResourceTemplate, McpTool, ServerCapabilities,
@@ -35,8 +36,10 @@ pub use server::{McpServer, McpServerConfig};
 pub use topology::{
     ConsensusType, NodeRole, NodeStatus, TopologyConfig, TopologyNode, TopologyRouter, TopologyType,
 };
-pub use transport::{MemoryTransport, SseConfig, SseTransport, StdioTransport, Transport, TransportConfig, TransportType};
-pub use groups::{ToolFilter, ToolGroup};
+pub use transport::{
+    MemoryTransport, SseConfig, SseTransport, StdioTransport, Transport, TransportConfig,
+    TransportType,
+};
 
 /// Error types for the MCP crate.
 #[derive(Debug, thiserror::Error)]

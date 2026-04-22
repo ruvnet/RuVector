@@ -7,10 +7,9 @@
 //! - Rights restrictions
 
 use ruvix_cap::{
-    can_grant, can_revoke, validate_grant, validate_revoke,
-    CapError, CapHandle, CapManagerConfig, CapRights, CapTableEntry, Capability,
-    CapabilityManager, CapabilityTable, DerivationNode, DerivationTree, GrantRequest,
-    ObjectType, TaskHandle,
+    can_grant, can_revoke, validate_grant, validate_revoke, CapError, CapHandle, CapManagerConfig,
+    CapRights, CapTableEntry, Capability, CapabilityManager, CapabilityTable, DerivationNode,
+    DerivationTree, GrantRequest, ObjectType, TaskHandle,
 };
 
 // ============================================================================
@@ -56,7 +55,9 @@ mod cap_table_tests {
 
         // Create derived capability
         let derived_cap = Capability::new(100, ObjectType::Region, CapRights::READ, 42, 0);
-        let derived_handle = table.allocate_derived(derived_cap, owner, 1, root_handle).unwrap();
+        let derived_handle = table
+            .allocate_derived(derived_cap, owner, 1, root_handle)
+            .unwrap();
 
         assert_eq!(table.len(), 2);
 
@@ -178,7 +179,6 @@ mod derivation_tests {
 
     #[test]
     fn test_derivation_tree_add_root() {
-        
         let tree: DerivationTree<64> = DerivationTree::new();
         let handle = CapHandle::new(0, 0);
 
@@ -192,7 +192,6 @@ mod derivation_tests {
 
     #[test]
     fn test_derivation_chain() {
-        
         let mut tree: DerivationTree<64> = DerivationTree::new();
         let root = CapHandle::new(0, 0);
         let child = CapHandle::new(1, 0);
@@ -210,7 +209,6 @@ mod derivation_tests {
 
     #[test]
     fn test_derivation_revoke_propagation() {
-        
         let mut tree: DerivationTree<64> = DerivationTree::new();
         let root = CapHandle::new(0, 0);
         let child1 = CapHandle::new(1, 0);
@@ -234,7 +232,6 @@ mod derivation_tests {
 
     #[test]
     fn test_derivation_partial_revoke() {
-        
         let mut tree: DerivationTree<64> = DerivationTree::new();
         let root = CapHandle::new(0, 0);
         let child1 = CapHandle::new(1, 0);
@@ -271,11 +268,7 @@ mod grant_tests {
     #[test]
     fn test_grant_success() {
         let entry = make_entry(CapRights::ALL, 0);
-        let request = GrantRequest::new(
-            CapHandle::new(0, 0),
-            CapRights::READ,
-            42,
-        );
+        let request = GrantRequest::new(CapHandle::new(0, 0), CapRights::READ, 42);
 
         let result = validate_grant(&entry, &request).unwrap();
         assert!(result.capability.rights.contains(CapRights::READ));
@@ -287,11 +280,7 @@ mod grant_tests {
     #[test]
     fn test_grant_no_grant_right() {
         let entry = make_entry(CapRights::READ | CapRights::WRITE, 0);
-        let request = GrantRequest::new(
-            CapHandle::new(0, 0),
-            CapRights::READ,
-            0,
-        );
+        let request = GrantRequest::new(CapHandle::new(0, 0), CapRights::READ, 0);
 
         assert_eq!(validate_grant(&entry, &request), Err(CapError::CannotGrant));
     }
@@ -305,17 +294,16 @@ mod grant_tests {
             0,
         );
 
-        assert_eq!(validate_grant(&entry, &request), Err(CapError::RightsEscalation));
+        assert_eq!(
+            validate_grant(&entry, &request),
+            Err(CapError::RightsEscalation)
+        );
     }
 
     #[test]
     fn test_grant_depth_exceeded() {
         let entry = make_entry(CapRights::ALL, 8); // At max depth
-        let request = GrantRequest::new(
-            CapHandle::new(0, 0),
-            CapRights::READ,
-            0,
-        );
+        let request = GrantRequest::new(CapHandle::new(0, 0), CapRights::READ, 0);
 
         assert_eq!(
             validate_grant(&entry, &request),
@@ -357,11 +345,7 @@ mod grant_tests {
     #[test]
     fn test_grant_preserves_object_id() {
         let entry = make_entry(CapRights::ALL, 0);
-        let request = GrantRequest::new(
-            CapHandle::new(0, 0),
-            CapRights::READ,
-            0,
-        );
+        let request = GrantRequest::new(CapHandle::new(0, 0), CapRights::READ, 0);
 
         let result = validate_grant(&entry, &request).unwrap();
         assert_eq!(result.capability.object_id, entry.capability.object_id);
@@ -374,11 +358,8 @@ mod grant_tests {
 
         for _ in 0..7 {
             let entry = make_entry(CapRights::READ | CapRights::GRANT, depth);
-            let request = GrantRequest::new(
-                CapHandle::new(0, 0),
-                CapRights::READ | CapRights::GRANT,
-                0,
-            );
+            let request =
+                GrantRequest::new(CapHandle::new(0, 0), CapRights::READ | CapRights::GRANT, 0);
 
             let result = validate_grant(&entry, &request).unwrap();
             depth = result.depth;
@@ -388,11 +369,7 @@ mod grant_tests {
 
         // 8th level should fail
         let entry = make_entry(CapRights::READ | CapRights::GRANT, 8);
-        let request = GrantRequest::new(
-            CapHandle::new(0, 0),
-            CapRights::READ,
-            0,
-        );
+        let request = GrantRequest::new(CapHandle::new(0, 0), CapRights::READ, 0);
 
         assert_eq!(
             validate_grant(&entry, &request),

@@ -34,14 +34,16 @@ pub fn cents_to_fp(cents: i64) -> i64 {
 fn parse_iso_ns(ts: &str) -> Result<u64> {
     let dt = DateTime::parse_from_rfc3339(ts)
         .map_err(|e| KalshiError::Normalize(format!("parse ts {ts}: {e}")))?;
-    let ns = dt.timestamp_nanos_opt().ok_or_else(|| {
-        KalshiError::Normalize(format!("ts {ts} out of range for i64 ns"))
-    })?;
+    let ns = dt
+        .timestamp_nanos_opt()
+        .ok_or_else(|| KalshiError::Normalize(format!("ts {ts} out of range for i64 ns")))?;
     Ok(ns.max(0) as u64)
 }
 
 fn ms_to_ns(ts_ms: Option<i64>) -> u64 {
-    ts_ms.map(|t| (t.max(0) as u64).saturating_mul(1_000_000)).unwrap_or_else(now_ns)
+    ts_ms
+        .map(|t| (t.max(0) as u64).saturating_mul(1_000_000))
+        .unwrap_or_else(now_ns)
 }
 
 fn now_ns() -> u64 {
@@ -333,12 +335,18 @@ mod tests {
             delta: -3,
             ts: None,
         };
-        assert_eq!(ws_orderbook_delta_to_event(&add, 0).event_type, EventType::NewOrder);
+        assert_eq!(
+            ws_orderbook_delta_to_event(&add, 0).event_type,
+            EventType::NewOrder
+        );
         assert_eq!(
             ws_orderbook_delta_to_event(&remove, 1).event_type,
             EventType::CancelOrder
         );
         // qty always positive.
-        assert_eq!(ws_orderbook_delta_to_event(&remove, 1).qty_fp, 3 * KALSHI_PRICE_FP_SCALE);
+        assert_eq!(
+            ws_orderbook_delta_to_event(&remove, 1).qty_fp,
+            3 * KALSHI_PRICE_FP_SCALE
+        );
     }
 }

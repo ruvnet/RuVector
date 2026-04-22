@@ -52,11 +52,7 @@ impl CapTableEntry {
     /// Creates a new valid entry with a root capability.
     #[inline]
     #[must_use]
-    pub const fn new_root(
-        capability: Capability,
-        generation: u32,
-        owner: TaskHandle,
-    ) -> Self {
+    pub const fn new_root(capability: Capability, generation: u32, owner: TaskHandle) -> Self {
         Self {
             capability,
             generation,

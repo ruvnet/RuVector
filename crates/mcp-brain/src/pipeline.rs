@@ -1,7 +1,10 @@
 //! Local processing pipeline: PII -> embed -> sign
 
 use regex_lite::Regex;
-use sha3::{Shake256, digest::{Update, ExtendableOutput, XofReader}};
+use sha3::{
+    digest::{ExtendableOutput, Update, XofReader},
+    Shake256,
+};
 
 /// Pipeline for processing knowledge before sharing.
 /// Pre-compiles 12 PII regex patterns for efficient reuse.
@@ -37,7 +40,9 @@ impl BrainPipeline {
             // 12. Internal hostnames
             (Regex::new(r"\b(?:localhost|127\.0\.0\.1|0\.0\.0\.0|internal\.[a-z.]+)\b").unwrap(), "[REDACTED_HOST]"),
         ];
-        Self { pii_patterns: patterns }
+        Self {
+            pii_patterns: patterns,
+        }
     }
 
     /// Strip PII from text using all 12 pattern categories

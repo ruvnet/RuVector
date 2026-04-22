@@ -49,9 +49,7 @@ impl FeedDecoder {
             WsMessage::Trade(t) => vec![self.tick(|s| ws_trade_to_event(t, s))],
             WsMessage::OrderbookSnapshot(ob) => {
                 let events = ws_orderbook_to_events(ob, self.next_seq);
-                self.next_seq = self
-                    .next_seq
-                    .wrapping_add(events.len() as u64);
+                self.next_seq = self.next_seq.wrapping_add(events.len() as u64);
                 events
             }
             WsMessage::OrderbookDelta(d) => {

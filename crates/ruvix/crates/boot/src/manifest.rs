@@ -78,7 +78,11 @@ impl ManifestVersion {
     #[inline]
     #[must_use]
     pub const fn new(major: u16, minor: u16, patch: u16) -> Self {
-        Self { major, minor, patch }
+        Self {
+            major,
+            minor,
+            patch,
+        }
     }
 
     /// Checks if this version is compatible with the current version.
@@ -298,9 +302,10 @@ impl RegionDecl {
         match &self.policy {
             RegionPolicy::Immutable => None, // Size determined at creation
             RegionPolicy::AppendOnly { max_size } => Some(*max_size as u64),
-            RegionPolicy::Slab { slot_size, slot_count } => {
-                Some((*slot_size as u64) * (*slot_count as u64))
-            }
+            RegionPolicy::Slab {
+                slot_size,
+                slot_count,
+            } => Some((*slot_size as u64) * (*slot_count as u64)),
         }
     }
 }
@@ -553,12 +558,18 @@ impl RvfManifest {
         content_hash.copy_from_slice(&data[10..42]);
 
         // Parse section offsets
-        let component_graph_offset = u32::from_le_bytes([data[42], data[43], data[44], data[45]]) as usize;
-        let memory_schema_offset = u32::from_le_bytes([data[46], data[47], data[48], data[49]]) as usize;
-        let proof_policy_offset = u32::from_le_bytes([data[50], data[51], data[52], data[53]]) as usize;
-        let rollback_hooks_offset = u32::from_le_bytes([data[54], data[55], data[56], data[57]]) as usize;
-        let witness_log_offset = u32::from_le_bytes([data[58], data[59], data[60], data[61]]) as usize;
-        let required_caps_offset = u32::from_le_bytes([data[62], data[63], data[64], data[65]]) as usize;
+        let component_graph_offset =
+            u32::from_le_bytes([data[42], data[43], data[44], data[45]]) as usize;
+        let memory_schema_offset =
+            u32::from_le_bytes([data[46], data[47], data[48], data[49]]) as usize;
+        let proof_policy_offset =
+            u32::from_le_bytes([data[50], data[51], data[52], data[53]]) as usize;
+        let rollback_hooks_offset =
+            u32::from_le_bytes([data[54], data[55], data[56], data[57]]) as usize;
+        let witness_log_offset =
+            u32::from_le_bytes([data[58], data[59], data[60], data[61]]) as usize;
+        let required_caps_offset =
+            u32::from_le_bytes([data[62], data[63], data[64], data[65]]) as usize;
 
         // Parse each section (simplified for Phase A)
         let component_graph = Self::parse_component_graph(data, component_graph_offset)?;
@@ -580,7 +591,10 @@ impl RvfManifest {
         })
     }
 
-    fn parse_component_graph(_data: &[u8], offset: usize) -> Result<ComponentGraph, ruvix_types::KernelError> {
+    fn parse_component_graph(
+        _data: &[u8],
+        offset: usize,
+    ) -> Result<ComponentGraph, ruvix_types::KernelError> {
         if offset == 0 {
             return Ok(ComponentGraph::new());
         }
@@ -589,7 +603,10 @@ impl RvfManifest {
         Ok(ComponentGraph::new())
     }
 
-    fn parse_memory_schema(_data: &[u8], offset: usize) -> Result<MemorySchema, ruvix_types::KernelError> {
+    fn parse_memory_schema(
+        _data: &[u8],
+        offset: usize,
+    ) -> Result<MemorySchema, ruvix_types::KernelError> {
         if offset == 0 {
             return Ok(MemorySchema::new());
         }
@@ -597,7 +614,10 @@ impl RvfManifest {
         Ok(MemorySchema::new())
     }
 
-    fn parse_proof_policy(_data: &[u8], offset: usize) -> Result<ProofPolicy, ruvix_types::KernelError> {
+    fn parse_proof_policy(
+        _data: &[u8],
+        offset: usize,
+    ) -> Result<ProofPolicy, ruvix_types::KernelError> {
         if offset == 0 {
             return Ok(ProofPolicy::new(ProofTier::Standard));
         }
@@ -605,7 +625,10 @@ impl RvfManifest {
         Ok(ProofPolicy::new(ProofTier::Standard))
     }
 
-    fn parse_rollback_hooks(_data: &[u8], offset: usize) -> Result<RollbackHooks, ruvix_types::KernelError> {
+    fn parse_rollback_hooks(
+        _data: &[u8],
+        offset: usize,
+    ) -> Result<RollbackHooks, ruvix_types::KernelError> {
         if offset == 0 {
             return Ok(RollbackHooks::new());
         }
@@ -613,7 +636,10 @@ impl RvfManifest {
         Ok(RollbackHooks::new())
     }
 
-    fn parse_witness_log_policy(data: &[u8], offset: usize) -> Result<WitnessLogPolicy, ruvix_types::KernelError> {
+    fn parse_witness_log_policy(
+        data: &[u8],
+        offset: usize,
+    ) -> Result<WitnessLogPolicy, ruvix_types::KernelError> {
         if offset == 0 || offset >= data.len() {
             return Ok(WitnessLogPolicy::default());
         }
@@ -624,18 +650,36 @@ impl RvfManifest {
         }
 
         let max_entries = u64::from_le_bytes([
-            data[offset], data[offset + 1], data[offset + 2], data[offset + 3],
-            data[offset + 4], data[offset + 5], data[offset + 6], data[offset + 7],
+            data[offset],
+            data[offset + 1],
+            data[offset + 2],
+            data[offset + 3],
+            data[offset + 4],
+            data[offset + 5],
+            data[offset + 6],
+            data[offset + 7],
         ]);
 
         let max_size_bytes = u64::from_le_bytes([
-            data[offset + 8], data[offset + 9], data[offset + 10], data[offset + 11],
-            data[offset + 12], data[offset + 13], data[offset + 14], data[offset + 15],
+            data[offset + 8],
+            data[offset + 9],
+            data[offset + 10],
+            data[offset + 11],
+            data[offset + 12],
+            data[offset + 13],
+            data[offset + 14],
+            data[offset + 15],
         ]);
 
         let retention_seconds = u64::from_le_bytes([
-            data[offset + 16], data[offset + 17], data[offset + 18], data[offset + 19],
-            data[offset + 20], data[offset + 21], data[offset + 22], data[offset + 23],
+            data[offset + 16],
+            data[offset + 17],
+            data[offset + 18],
+            data[offset + 19],
+            data[offset + 20],
+            data[offset + 21],
+            data[offset + 22],
+            data[offset + 23],
         ]);
 
         let compression = match data[offset + 24] {
@@ -663,7 +707,10 @@ impl RvfManifest {
         })
     }
 
-    fn parse_required_capabilities(_data: &[u8], offset: usize) -> Result<RequiredCapabilities, ruvix_types::KernelError> {
+    fn parse_required_capabilities(
+        _data: &[u8],
+        offset: usize,
+    ) -> Result<RequiredCapabilities, ruvix_types::KernelError> {
         if offset == 0 {
             return Ok(RequiredCapabilities::default());
         }

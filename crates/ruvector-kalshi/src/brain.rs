@@ -144,13 +144,8 @@ mod tests {
 
     #[test]
     fn resolution_memory_contains_expected_fields() {
-        let m = SharedMemory::market_resolution(
-            "FED-DEC26",
-            Resolution::Yes,
-            "ev-kelly",
-            420,
-            10_000,
-        );
+        let m =
+            SharedMemory::market_resolution("FED-DEC26", Resolution::Yes, "ev-kelly", 420, 10_000);
         assert_eq!(m.category, "pattern");
         assert!(m.title.contains("FED-DEC26"));
         assert!(m.title.contains("YES"));

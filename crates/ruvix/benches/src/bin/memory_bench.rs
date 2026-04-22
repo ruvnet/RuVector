@@ -6,8 +6,8 @@
 //! Usage: cargo run --bin memory-bench -- [OPTIONS]
 
 use clap::Parser;
-use tabled::{Table, Tabled};
 use sysinfo::System;
+use tabled::{Table, Tabled};
 
 use ruvix_bench::comparison::generate_memory_comparisons;
 
@@ -73,9 +73,18 @@ fn main() {
         sys.refresh_all();
 
         println!("System Information:");
-        println!("  Total Memory: {}", format_bytes(sys.total_memory() as usize));
-        println!("  Used Memory: {}", format_bytes(sys.used_memory() as usize));
-        println!("  Available: {}", format_bytes((sys.total_memory() - sys.used_memory()) as usize));
+        println!(
+            "  Total Memory: {}",
+            format_bytes(sys.total_memory() as usize)
+        );
+        println!(
+            "  Used Memory: {}",
+            format_bytes(sys.used_memory() as usize)
+        );
+        println!(
+            "  Available: {}",
+            format_bytes((sys.total_memory() - sys.used_memory()) as usize)
+        );
         println!();
     }
 
@@ -236,12 +245,12 @@ fn main() {
         WorkloadRow {
             workload: "10K Vectors (768D)".to_string(),
             ruvix: format_bytes(10000 * 768 * 4 + 10000 * 32), // data + metadata
-            linux: format_bytes(10000 * 768 * 4 * 2), // data + page tables
+            linux: format_bytes(10000 * 768 * 4 * 2),          // data + page tables
             savings: format_bytes(10000 * 768 * 4),
         },
         WorkloadRow {
             workload: "1M IPC Messages".to_string(),
-            ruvix: format_bytes(0), // Zero-copy
+            ruvix: format_bytes(0),              // Zero-copy
             linux: format_bytes(1_000_000 * 64), // Buffer allocations
             savings: format_bytes(1_000_000 * 64),
         },

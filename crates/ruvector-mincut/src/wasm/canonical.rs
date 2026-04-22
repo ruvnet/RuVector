@@ -99,7 +99,11 @@ pub extern "C" fn canonical_compute(source: u64) -> i32 {
     };
 
     let config = SourceAnchoredConfig {
-        source: if source == u64::MAX { None } else { Some(source) },
+        source: if source == u64::MAX {
+            None
+        } else {
+            Some(source)
+        },
         vertex_order: None,
         vertex_priorities: None,
     };
@@ -336,7 +340,13 @@ pub extern "C" fn dynamic_epoch() -> u64 {
 pub extern "C" fn dynamic_is_stale() -> i32 {
     let state = DYNAMIC_STATE.lock().unwrap();
     match state.engine.as_ref() {
-        Some(e) => if e.is_stale() { 1 } else { 0 },
+        Some(e) => {
+            if e.is_stale() {
+                1
+            } else {
+                0
+            }
+        }
         None => -1,
     }
 }
@@ -396,7 +406,11 @@ pub unsafe extern "C" fn canonical_hashes_equal(a: *const u8, b: *const u8) -> i
     for i in 0..32 {
         diff |= sa[i] ^ sb[i];
     }
-    if diff == 0 { 1 } else { 0 }
+    if diff == 0 {
+        1
+    } else {
+        0
+    }
 }
 
 #[cfg(test)]

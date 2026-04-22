@@ -11,19 +11,17 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use rvagent_middleware::{
-    AgentState, Message, Middleware, ModelHandler, ModelRequest, ModelResponse,
-    Role, Runtime, RunnableConfig, ToolCall,
-};
-use rvagent_middleware::tool_sanitizer::ToolResultSanitizerMiddleware;
-use rvagent_middleware::witness::{WitnessBuilder, WitnessMiddleware};
-use rvagent_middleware::skills::{
-    validate_skill_name, parse_skill_metadata, MAX_SKILL_FILE_SIZE,
+use rvagent_middleware::memory::{
+    compute_sha3_256, MemoryMiddleware, SecurityPolicy, TrustManifest, TrustVerification,
+    MAX_MEMORY_FILE_SIZE,
 };
 use rvagent_middleware::patch_tool_calls::PatchToolCallsMiddleware;
-use rvagent_middleware::memory::{
-    MemoryMiddleware, SecurityPolicy, TrustManifest, TrustVerification,
-    compute_sha3_256, MAX_MEMORY_FILE_SIZE,
+use rvagent_middleware::skills::{parse_skill_metadata, validate_skill_name, MAX_SKILL_FILE_SIZE};
+use rvagent_middleware::tool_sanitizer::ToolResultSanitizerMiddleware;
+use rvagent_middleware::witness::{WitnessBuilder, WitnessMiddleware};
+use rvagent_middleware::{
+    AgentState, Message, Middleware, ModelHandler, ModelRequest, ModelResponse, Role,
+    RunnableConfig, Runtime, ToolCall,
 };
 
 // ---------------------------------------------------------------------------

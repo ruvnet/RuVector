@@ -126,11 +126,7 @@ pub fn validate_grant(
 /// Checks if a grant operation is allowed.
 ///
 /// This is a lightweight check without creating the derived capability.
-pub fn can_grant(
-    source_entry: &CapTableEntry,
-    requested_rights: CapRights,
-    max_depth: u8,
-) -> bool {
+pub fn can_grant(source_entry: &CapTableEntry, requested_rights: CapRights, max_depth: u8) -> bool {
     if !source_entry.is_valid {
         return false;
     }
@@ -138,9 +134,7 @@ pub fn can_grant(
     let source_rights = source_entry.capability.rights;
 
     // Must have GRANT or GRANT_ONCE
-    if !source_rights.contains(CapRights::GRANT)
-        && !source_rights.contains(CapRights::GRANT_ONCE)
-    {
+    if !source_rights.contains(CapRights::GRANT) && !source_rights.contains(CapRights::GRANT_ONCE) {
         return false;
     }
 
@@ -168,11 +162,7 @@ mod tests {
     #[test]
     fn test_validate_grant_success() {
         let entry = make_entry(CapRights::ALL, 0);
-        let request = GrantRequest::new(
-            CapHandle::new(0, 0),
-            CapRights::READ,
-            42,
-        );
+        let request = GrantRequest::new(CapHandle::new(0, 0), CapRights::READ, 42);
 
         let result = validate_grant(&entry, &request).unwrap();
         assert!(result.capability.rights.contains(CapRights::READ));
@@ -183,11 +173,7 @@ mod tests {
     #[test]
     fn test_validate_grant_no_grant_right() {
         let entry = make_entry(CapRights::READ | CapRights::WRITE, 0);
-        let request = GrantRequest::new(
-            CapHandle::new(0, 0),
-            CapRights::READ,
-            0,
-        );
+        let request = GrantRequest::new(CapHandle::new(0, 0), CapRights::READ, 0);
 
         assert_eq!(validate_grant(&entry, &request), Err(CapError::CannotGrant));
     }
@@ -195,23 +181,19 @@ mod tests {
     #[test]
     fn test_validate_grant_rights_escalation() {
         let entry = make_entry(CapRights::READ | CapRights::GRANT, 0);
-        let request = GrantRequest::new(
-            CapHandle::new(0, 0),
-            CapRights::READ | CapRights::WRITE,
-            0,
-        );
+        let request =
+            GrantRequest::new(CapHandle::new(0, 0), CapRights::READ | CapRights::WRITE, 0);
 
-        assert_eq!(validate_grant(&entry, &request), Err(CapError::RightsEscalation));
+        assert_eq!(
+            validate_grant(&entry, &request),
+            Err(CapError::RightsEscalation)
+        );
     }
 
     #[test]
     fn test_validate_grant_depth_exceeded() {
         let entry = make_entry(CapRights::ALL, 8);
-        let request = GrantRequest::new(
-            CapHandle::new(0, 0),
-            CapRights::READ,
-            0,
-        );
+        let request = GrantRequest::new(CapHandle::new(0, 0), CapRights::READ, 0);
 
         assert_eq!(
             validate_grant(&entry, &request),

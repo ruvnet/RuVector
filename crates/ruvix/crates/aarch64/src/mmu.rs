@@ -104,7 +104,7 @@ impl Mmu {
             | (1 << 26)             // ORGN1 = Normal, Outer Write-Back
             | (3 << 12)             // SH0 = Inner Shareable
             | (3 << 28)             // SH1 = Inner Shareable
-            | (2 << 32);            // IPS = 48-bit physical address
+            | (2 << 32); // IPS = 48-bit physical address
 
         // SAFETY: Configuring TCR during boot
         unsafe {
@@ -165,12 +165,7 @@ impl Mmu {
 }
 
 impl MmuTrait for Mmu {
-    fn map_page(
-        &mut self,
-        virt: u64,
-        phys: u64,
-        perms: PagePermissions,
-    ) -> Result<(), MmuError> {
+    fn map_page(&mut self, virt: u64, phys: u64, perms: PagePermissions) -> Result<(), MmuError> {
         // Validate alignment
         if virt & (PAGE_SIZE as u64 - 1) != 0 {
             return Err(MmuError::NotPageAligned);
@@ -226,9 +221,9 @@ impl MmuTrait for Mmu {
         // SAFETY: Flushing TLB is safe and required after page table modifications
         unsafe {
             core::arch::asm!(
-                "tlbi vmalle1is",  // Invalidate all TLB entries for EL1
-                "dsb ish",         // Data synchronization barrier
-                "isb",             // Instruction synchronization barrier
+                "tlbi vmalle1is", // Invalidate all TLB entries for EL1
+                "dsb ish",        // Data synchronization barrier
+                "isb",            // Instruction synchronization barrier
                 options(nostack, nomem, preserves_flags)
             );
         }
@@ -259,7 +254,8 @@ mod tests {
         assert!(flags & pte_flags::RO != 0);
         assert!(flags & pte_flags::XN != 0);
 
-        let read_write_exec = PagePermissions::READ | PagePermissions::WRITE | PagePermissions::EXECUTE;
+        let read_write_exec =
+            PagePermissions::READ | PagePermissions::WRITE | PagePermissions::EXECUTE;
         let flags = Mmu::permissions_to_flags(read_write_exec);
         assert!(flags & pte_flags::RO == 0);
         assert!(flags & pte_flags::XN == 0);

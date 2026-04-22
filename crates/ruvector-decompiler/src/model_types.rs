@@ -101,10 +101,7 @@ pub enum LayerType {
         head_dim: usize,
     },
     /// Feed-forward / MLP layer.
-    Mlp {
-        up_size: usize,
-        down_size: usize,
-    },
+    Mlp { up_size: usize, down_size: usize },
     /// Layer normalization.
     LayerNorm,
     /// RMS normalization.
@@ -117,7 +114,11 @@ impl std::fmt::Display for LayerType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Embedding => write!(f, "Embedding"),
-            Self::Attention { heads, kv_heads, head_dim } => {
+            Self::Attention {
+                heads,
+                kv_heads,
+                head_dim,
+            } => {
                 if heads == kv_heads {
                     write!(f, "Attention ({} heads, dim {})", heads, head_dim)
                 } else {

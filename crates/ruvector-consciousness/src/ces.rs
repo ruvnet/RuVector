@@ -44,7 +44,10 @@ pub fn compute_ces(
     // num_elements = log2(n)
     let num_elements = n.trailing_zeros() as usize;
     if num_elements > 12 {
-        return Err(ConsciousnessError::SystemTooLarge { n: num_elements, max: 12 });
+        return Err(ConsciousnessError::SystemTooLarge {
+            n: num_elements,
+            max: 12,
+        });
     }
 
     let start = Instant::now();
@@ -63,15 +66,35 @@ pub fn compute_ces(
             .filter(|d| d.phi > phi_threshold)
             .collect()
     } else {
-        ces_sequential(tpm, state, num_elements, full, phi_threshold, &budget, &start)
+        ces_sequential(
+            tpm,
+            state,
+            num_elements,
+            full,
+            phi_threshold,
+            &budget,
+            &start,
+        )
     };
 
     #[cfg(not(feature = "parallel"))]
-    let distinctions = ces_sequential(tpm, state, num_elements, full, phi_threshold, budget, &start);
+    let distinctions = ces_sequential(
+        tpm,
+        state,
+        num_elements,
+        full,
+        phi_threshold,
+        budget,
+        &start,
+    );
 
     // Sort by φ descending.
     let mut distinctions = distinctions;
-    distinctions.sort_by(|a, b| b.phi.partial_cmp(&a.phi).unwrap_or(std::cmp::Ordering::Equal));
+    distinctions.sort_by(|a, b| {
+        b.phi
+            .partial_cmp(&a.phi)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     // Compute relations between distinctions.
     let relations = compute_relations(&distinctions);
@@ -128,19 +151,21 @@ fn compute_relations(distinctions: &[Distinction]) -> Vec<Relation> {
     // Pairwise relations (order 2).
     for i in 0..nd {
         for j in (i + 1)..nd {
-            let overlap_cause = distinctions[i].cause_purview.elements
-                & distinctions[j].cause_purview.elements;
-            let overlap_effect = distinctions[i].effect_purview.elements
-                & distinctions[j].effect_purview.elements;
+            let overlap_cause =
+                distinctions[i].cause_purview.elements & distinctions[j].cause_purview.elements;
+            let overlap_effect =
+                distinctions[i].effect_purview.elements & distinctions[j].effect_purview.elements;
 
             if overlap_cause != 0 || overlap_effect != 0 {
                 // Relation φ: geometric mean of the two distinction φ values
                 // weighted by purview overlap (simplified from full IIT 4.0).
-                let overlap_size = (overlap_cause.count_ones() + overlap_effect.count_ones()) as f64;
+                let overlap_size =
+                    (overlap_cause.count_ones() + overlap_effect.count_ones()) as f64;
                 let total_size = (distinctions[i].cause_purview.size()
                     + distinctions[i].effect_purview.size()
                     + distinctions[j].cause_purview.size()
-                    + distinctions[j].effect_purview.size()) as f64;
+                    + distinctions[j].effect_purview.size())
+                    as f64;
 
                 let overlap_fraction = if total_size > 0.0 {
                     overlap_size / total_size
@@ -162,7 +187,11 @@ fn compute_relations(distinctions: &[Distinction]) -> Vec<Relation> {
     }
 
     // Sort by φ descending.
-    relations.sort_by(|a, b| b.phi.partial_cmp(&a.phi).unwrap_or(std::cmp::Ordering::Equal));
+    relations.sort_by(|a, b| {
+        b.phi
+            .partial_cmp(&a.phi)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     relations
 }
 
@@ -218,7 +247,11 @@ fn compute_big_phi(
         min_phi = min_phi.min(ces_distance);
     }
 
-    if min_phi == f64::MAX { 0.0 } else { min_phi }
+    if min_phi == f64::MAX {
+        0.0
+    } else {
+        min_phi
+    }
 }
 
 /// Quick CES summary: number of distinctions and relations.

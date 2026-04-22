@@ -12,8 +12,7 @@
 use crate::manifest::RvfManifest;
 use crate::signature::SignatureVerifier;
 use ruvix_types::{
-    KernelError, RvfMountHandle, RvfVerifyStatus, RegionHandle,
-    TaskHandle, TaskPriority,
+    KernelError, RegionHandle, RvfMountHandle, RvfVerifyStatus, TaskHandle, TaskPriority,
 };
 
 #[cfg(feature = "alloc")]
@@ -345,7 +344,7 @@ mod tests {
     }
 
     fn create_test_signature(manifest: &[u8]) -> Vec<u8> {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
 
         let mut sig = vec![0u8; SIGNATURE_SIZE];
         sig[0..4].copy_from_slice(b"TEST");

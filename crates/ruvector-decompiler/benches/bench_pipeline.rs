@@ -45,11 +45,7 @@ fn generate_bundle(target_bytes: usize) -> String {
 }
 
 fn bench_full_pipeline(c: &mut Criterion) {
-    let sizes: &[(usize, &str)] = &[
-        (1_000, "1KB"),
-        (10_000, "10KB"),
-        (100_000, "100KB"),
-    ];
+    let sizes: &[(usize, &str)] = &[(1_000, "1KB"), (10_000, "10KB"), (100_000, "100KB")];
 
     let mut group = c.benchmark_group("pipeline");
     group.sample_size(10);
@@ -109,9 +105,8 @@ fn bench_pipeline_phases(c: &mut Criterion) {
     let decls_clone = decls.clone();
     group.bench_function("graph", |b| {
         b.iter(|| {
-            let graph = ruvector_decompiler::graph::build_reference_graph(
-                black_box(decls_clone.clone()),
-            );
+            let graph =
+                ruvector_decompiler::graph::build_reference_graph(black_box(decls_clone.clone()));
             black_box(graph);
         });
     });
@@ -120,10 +115,8 @@ fn bench_pipeline_phases(c: &mut Criterion) {
     let graph = ruvector_decompiler::graph::build_reference_graph(decls);
     group.bench_function("partition", |b| {
         b.iter(|| {
-            let result = ruvector_decompiler::partitioner::partition_modules(
-                black_box(&graph),
-                Some(5),
-            );
+            let result =
+                ruvector_decompiler::partitioner::partition_modules(black_box(&graph), Some(5));
             black_box(result).ok();
         });
     });

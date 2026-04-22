@@ -353,45 +353,69 @@ impl McpBrainTools {
             "brain_node_get" => self.brain_node_get(call.arguments).await,
             "brain_node_wasm" => self.brain_node_wasm(call.arguments).await,
             "brain_node_revoke" => self.brain_node_revoke(call.arguments).await,
-            _ => Err(BrainError::InvalidRequest(format!("Unknown tool: {}", call.name))),
+            _ => Err(BrainError::InvalidRequest(format!(
+                "Unknown tool: {}",
+                call.name
+            ))),
         }
     }
 
     async fn brain_share(&self, args: serde_json::Value) -> Result<McpToolResult, BrainError> {
-        let category = args.get("category").and_then(|v| v.as_str()).unwrap_or("pattern");
-        let title = args.get("title").and_then(|v| v.as_str())
+        let category = args
+            .get("category")
+            .and_then(|v| v.as_str())
+            .unwrap_or("pattern");
+        let title = args
+            .get("title")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| BrainError::InvalidRequest("title required".into()))?;
-        let content = args.get("content").and_then(|v| v.as_str())
+        let content = args
+            .get("content")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| BrainError::InvalidRequest("content required".into()))?;
-        let tags: Vec<String> = args.get("tags")
+        let tags: Vec<String> = args
+            .get("tags")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default();
-        let code_snippet = args.get("code_snippet").and_then(|v| v.as_str()).map(String::from);
+        let code_snippet = args
+            .get("code_snippet")
+            .and_then(|v| v.as_str())
+            .map(String::from);
 
         // PII strip all user-provided text
         let clean_title = self.pipeline.strip_pii(title);
         let clean_content = self.pipeline.strip_pii(content);
-        let clean_tags: Vec<String> = tags.iter()
-            .map(|t| self.pipeline.strip_pii(t))
-            .collect();
+        let clean_tags: Vec<String> = tags.iter().map(|t| self.pipeline.strip_pii(t)).collect();
         let clean_snippet = code_snippet.as_deref().map(|s| self.pipeline.strip_pii(s));
 
         // Safety check: reject if PII still detected after stripping
         if self.pipeline.contains_pii(&clean_title) {
-            return Err(BrainError::Pipeline("PII detected in title after stripping".into()));
+            return Err(BrainError::Pipeline(
+                "PII detected in title after stripping".into(),
+            ));
         }
         if self.pipeline.contains_pii(&clean_content) {
-            return Err(BrainError::Pipeline("PII detected in content after stripping".into()));
+            return Err(BrainError::Pipeline(
+                "PII detected in content after stripping".into(),
+            ));
         }
         for tag in &clean_tags {
             if self.pipeline.contains_pii(tag) {
-                return Err(BrainError::Pipeline("PII detected in tags after stripping".into()));
+                return Err(BrainError::Pipeline(
+                    "PII detected in tags after stripping".into(),
+                ));
             }
         }
         if let Some(ref s) = clean_snippet {
             if self.pipeline.contains_pii(s) {
-                return Err(BrainError::Pipeline("PII detected in code_snippet after stripping".into()));
+                return Err(BrainError::Pipeline(
+                    "PII detected in code_snippet after stripping".into(),
+                ));
             }
         }
 
@@ -409,13 +433,17 @@ impl McpBrainTools {
         chain.append("share");
         let _witness_hash = chain.finalize();
 
-        let result = self.client.share(
-            category,
-            &clean_title,
-            &clean_content,
-            &clean_tags,
-            clean_snippet.as_deref(),
-        ).await.map_err(|e| BrainError::Client(e.to_string()))?;
+        let result = self
+            .client
+            .share(
+                category,
+                &clean_title,
+                &clean_content,
+                &clean_tags,
+                clean_snippet.as_deref(),
+            )
+            .await
+            .map_err(|e| BrainError::Client(e.to_string()))?;
 
         Ok(McpToolResult::Success {
             content: serde_json::to_value(result).unwrap_or_default(),
@@ -423,11 +451,16 @@ impl McpBrainTools {
     }
 
     async fn brain_search(&self, args: serde_json::Value) -> Result<McpToolResult, BrainError> {
-        let query = args.get("query").and_then(|v| v.as_str())
+        let query = args
+            .get("query")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| BrainError::InvalidRequest("query required".into()))?;
         let category = args.get("category").and_then(|v| v.as_str());
         let tags = args.get("tags").and_then(|v| v.as_str());
-        let limit = args.get("limit").and_then(|v| v.as_u64()).map(|v| v as usize);
+        let limit = args
+            .get("limit")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as usize);
         let min_quality = args.get("min_quality").and_then(|v| v.as_f64());
 
         // Generate query embedding via structured hash + MicroLoRA
@@ -437,7 +470,10 @@ impl McpBrainTools {
             crate::embed::generate_embedding(query)
         };
 
-        let results = self.client.search(query, category, tags, limit, min_quality).await
+        let results = self
+            .client
+            .search(query, category, tags, limit, min_quality)
+            .await
             .map_err(|e| BrainError::Client(e.to_string()))?;
 
         Ok(McpToolResult::Success {
@@ -446,10 +482,15 @@ impl McpBrainTools {
     }
 
     async fn brain_get(&self, args: serde_json::Value) -> Result<McpToolResult, BrainError> {
-        let id = args.get("id").and_then(|v| v.as_str())
+        let id = args
+            .get("id")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| BrainError::InvalidRequest("id required".into()))?;
 
-        let memory = self.client.get(id).await
+        let memory = self
+            .client
+            .get(id)
+            .await
             .map_err(|e| BrainError::Client(e.to_string()))?;
 
         Ok(McpToolResult::Success {
@@ -458,12 +499,19 @@ impl McpBrainTools {
     }
 
     async fn brain_vote(&self, args: serde_json::Value) -> Result<McpToolResult, BrainError> {
-        let id = args.get("id").and_then(|v| v.as_str())
+        let id = args
+            .get("id")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| BrainError::InvalidRequest("id required".into()))?;
-        let direction = args.get("direction").and_then(|v| v.as_str())
+        let direction = args
+            .get("direction")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| BrainError::InvalidRequest("direction required".into()))?;
 
-        let result = self.client.vote(id, direction).await
+        let result = self
+            .client
+            .vote(id, direction)
+            .await
             .map_err(|e| BrainError::Client(e.to_string()))?;
 
         Ok(McpToolResult::Success {
@@ -472,12 +520,19 @@ impl McpBrainTools {
     }
 
     async fn brain_transfer(&self, args: serde_json::Value) -> Result<McpToolResult, BrainError> {
-        let source = args.get("source_domain").and_then(|v| v.as_str())
+        let source = args
+            .get("source_domain")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| BrainError::InvalidRequest("source_domain required".into()))?;
-        let target = args.get("target_domain").and_then(|v| v.as_str())
+        let target = args
+            .get("target_domain")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| BrainError::InvalidRequest("target_domain required".into()))?;
 
-        let result = self.client.transfer(source, target).await
+        let result = self
+            .client
+            .transfer(source, target)
+            .await
             .map_err(|e| BrainError::Client(e.to_string()))?;
 
         Ok(McpToolResult::Success {
@@ -489,7 +544,10 @@ impl McpBrainTools {
         let domain = args.get("domain").and_then(|v| v.as_str());
         let since = args.get("since").and_then(|v| v.as_str());
 
-        let report = self.client.drift(domain, since).await
+        let report = self
+            .client
+            .drift(domain, since)
+            .await
             .map_err(|e| BrainError::Client(e.to_string()))?;
 
         Ok(McpToolResult::Success {
@@ -499,9 +557,15 @@ impl McpBrainTools {
 
     async fn brain_partition(&self, args: serde_json::Value) -> Result<McpToolResult, BrainError> {
         let domain = args.get("domain").and_then(|v| v.as_str());
-        let min_size = args.get("min_cluster_size").and_then(|v| v.as_u64()).map(|v| v as usize);
+        let min_size = args
+            .get("min_cluster_size")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as usize);
 
-        let result = self.client.partition(domain, min_size).await
+        let result = self
+            .client
+            .partition(domain, min_size)
+            .await
             .map_err(|e| BrainError::Client(e.to_string()))?;
 
         Ok(McpToolResult::Success {
@@ -511,9 +575,15 @@ impl McpBrainTools {
 
     async fn brain_list(&self, args: serde_json::Value) -> Result<McpToolResult, BrainError> {
         let category = args.get("category").and_then(|v| v.as_str());
-        let limit = args.get("limit").and_then(|v| v.as_u64()).map(|v| v as usize);
+        let limit = args
+            .get("limit")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as usize);
 
-        let results = self.client.list(category, limit).await
+        let results = self
+            .client
+            .list(category, limit)
+            .await
             .map_err(|e| BrainError::Client(e.to_string()))?;
 
         Ok(McpToolResult::Success {
@@ -522,10 +592,14 @@ impl McpBrainTools {
     }
 
     async fn brain_delete(&self, args: serde_json::Value) -> Result<McpToolResult, BrainError> {
-        let id = args.get("id").and_then(|v| v.as_str())
+        let id = args
+            .get("id")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| BrainError::InvalidRequest("id required".into()))?;
 
-        self.client.delete(id).await
+        self.client
+            .delete(id)
+            .await
             .map_err(|e| BrainError::Client(e.to_string()))?;
 
         Ok(McpToolResult::Success {
@@ -534,7 +608,10 @@ impl McpBrainTools {
     }
 
     async fn brain_status(&self, _args: serde_json::Value) -> Result<McpToolResult, BrainError> {
-        let status = self.client.status().await
+        let status = self
+            .client
+            .status()
+            .await
             .map_err(|e| BrainError::Client(e.to_string()))?;
 
         Ok(McpToolResult::Success {
@@ -543,7 +620,10 @@ impl McpBrainTools {
     }
 
     async fn brain_sync(&self, args: serde_json::Value) -> Result<McpToolResult, BrainError> {
-        let direction = args.get("direction").and_then(|v| v.as_str()).unwrap_or("both");
+        let direction = args
+            .get("direction")
+            .and_then(|v| v.as_str())
+            .unwrap_or("both");
         let mut pulled = false;
         let mut pushed = false;
 
@@ -577,7 +657,9 @@ impl McpBrainTools {
                 weights.clip();
                 if weights.validate().is_ok() {
                     match self.client.lora_submit(&weights).await {
-                        Ok(_) => { pushed = true; }
+                        Ok(_) => {
+                            pushed = true;
+                        }
                         Err(e) => {
                             info!("Failed to push local weights: {e}");
                         }
@@ -604,18 +686,36 @@ impl McpBrainTools {
 
     // ── Brainpedia (ADR-062) ─────────────────────────────────────────
 
-    async fn brain_page_create(&self, args: serde_json::Value) -> Result<McpToolResult, BrainError> {
-        let category = args.get("category").and_then(|v| v.as_str()).unwrap_or("pattern");
-        let title = args.get("title").and_then(|v| v.as_str())
+    async fn brain_page_create(
+        &self,
+        args: serde_json::Value,
+    ) -> Result<McpToolResult, BrainError> {
+        let category = args
+            .get("category")
+            .and_then(|v| v.as_str())
+            .unwrap_or("pattern");
+        let title = args
+            .get("title")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| BrainError::InvalidRequest("title required".into()))?;
-        let content = args.get("content").and_then(|v| v.as_str())
+        let content = args
+            .get("content")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| BrainError::InvalidRequest("content required".into()))?;
-        let tags: Vec<String> = args.get("tags")
+        let tags: Vec<String> = args
+            .get("tags")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default();
         let code_snippet = args.get("code_snippet").and_then(|v| v.as_str());
-        let evidence_links = args.get("evidence_links").cloned().unwrap_or(serde_json::json!([]));
+        let evidence_links = args
+            .get("evidence_links")
+            .cloned()
+            .unwrap_or(serde_json::json!([]));
 
         let clean_title = self.pipeline.strip_pii(title);
         let clean_content = self.pipeline.strip_pii(content);
@@ -644,30 +744,47 @@ impl McpBrainTools {
             "witness_hash": hex::encode(witness_hash),
         });
 
-        let result = self.client.create_page(&body).await
+        let result = self
+            .client
+            .create_page(&body)
+            .await
             .map_err(|e| BrainError::Client(e.to_string()))?;
 
         Ok(McpToolResult::Success { content: result })
     }
 
     async fn brain_page_get(&self, args: serde_json::Value) -> Result<McpToolResult, BrainError> {
-        let id = args.get("id").and_then(|v| v.as_str())
+        let id = args
+            .get("id")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| BrainError::InvalidRequest("id required".into()))?;
 
-        let result = self.client.get_page(id).await
+        let result = self
+            .client
+            .get_page(id)
+            .await
             .map_err(|e| BrainError::Client(e.to_string()))?;
 
         Ok(McpToolResult::Success { content: result })
     }
 
     async fn brain_page_delta(&self, args: serde_json::Value) -> Result<McpToolResult, BrainError> {
-        let page_id = args.get("page_id").and_then(|v| v.as_str())
+        let page_id = args
+            .get("page_id")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| BrainError::InvalidRequest("page_id required".into()))?;
-        let delta_type = args.get("delta_type").and_then(|v| v.as_str())
+        let delta_type = args
+            .get("delta_type")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| BrainError::InvalidRequest("delta_type required".into()))?;
-        let content_diff = args.get("content_diff").cloned()
+        let content_diff = args
+            .get("content_diff")
+            .cloned()
             .ok_or_else(|| BrainError::InvalidRequest("content_diff required".into()))?;
-        let evidence_links = args.get("evidence_links").cloned().unwrap_or(serde_json::json!([]));
+        let evidence_links = args
+            .get("evidence_links")
+            .cloned()
+            .unwrap_or(serde_json::json!([]));
 
         let mut chain = crate::pipeline::WitnessChain::new();
         chain.append("delta_submit");
@@ -680,41 +797,70 @@ impl McpBrainTools {
             "witness_hash": hex::encode(witness_hash),
         });
 
-        let result = self.client.submit_delta(page_id, &body).await
+        let result = self
+            .client
+            .submit_delta(page_id, &body)
+            .await
             .map_err(|e| BrainError::Client(e.to_string()))?;
 
         Ok(McpToolResult::Success { content: result })
     }
 
-    async fn brain_page_deltas(&self, args: serde_json::Value) -> Result<McpToolResult, BrainError> {
-        let page_id = args.get("page_id").and_then(|v| v.as_str())
+    async fn brain_page_deltas(
+        &self,
+        args: serde_json::Value,
+    ) -> Result<McpToolResult, BrainError> {
+        let page_id = args
+            .get("page_id")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| BrainError::InvalidRequest("page_id required".into()))?;
 
-        let result = self.client.list_deltas(page_id).await
+        let result = self
+            .client
+            .list_deltas(page_id)
+            .await
             .map_err(|e| BrainError::Client(e.to_string()))?;
 
         Ok(McpToolResult::Success { content: result })
     }
 
-    async fn brain_page_evidence(&self, args: serde_json::Value) -> Result<McpToolResult, BrainError> {
-        let page_id = args.get("page_id").and_then(|v| v.as_str())
+    async fn brain_page_evidence(
+        &self,
+        args: serde_json::Value,
+    ) -> Result<McpToolResult, BrainError> {
+        let page_id = args
+            .get("page_id")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| BrainError::InvalidRequest("page_id required".into()))?;
-        let evidence = args.get("evidence").cloned()
+        let evidence = args
+            .get("evidence")
+            .cloned()
             .ok_or_else(|| BrainError::InvalidRequest("evidence required".into()))?;
 
         let body = serde_json::json!({ "evidence": evidence });
 
-        let result = self.client.add_evidence(page_id, &body).await
+        let result = self
+            .client
+            .add_evidence(page_id, &body)
+            .await
             .map_err(|e| BrainError::Client(e.to_string()))?;
 
         Ok(McpToolResult::Success { content: result })
     }
 
-    async fn brain_page_promote(&self, args: serde_json::Value) -> Result<McpToolResult, BrainError> {
-        let page_id = args.get("page_id").and_then(|v| v.as_str())
+    async fn brain_page_promote(
+        &self,
+        args: serde_json::Value,
+    ) -> Result<McpToolResult, BrainError> {
+        let page_id = args
+            .get("page_id")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| BrainError::InvalidRequest("page_id required".into()))?;
 
-        let result = self.client.promote_page(page_id).await
+        let result = self
+            .client
+            .promote_page(page_id)
+            .await
             .map_err(|e| BrainError::Client(e.to_string()))?;
 
         Ok(McpToolResult::Success { content: result })
@@ -723,34 +869,53 @@ impl McpBrainTools {
     // ── WASM Executable Nodes (ADR-063) ───────────────────────────────
 
     async fn brain_node_list(&self, _args: serde_json::Value) -> Result<McpToolResult, BrainError> {
-        let result = self.client.list_nodes().await
+        let result = self
+            .client
+            .list_nodes()
+            .await
             .map_err(|e| BrainError::Client(e.to_string()))?;
 
         Ok(McpToolResult::Success { content: result })
     }
 
-    async fn brain_node_publish(&self, args: serde_json::Value) -> Result<McpToolResult, BrainError> {
-        let result = self.client.publish_node(&args).await
+    async fn brain_node_publish(
+        &self,
+        args: serde_json::Value,
+    ) -> Result<McpToolResult, BrainError> {
+        let result = self
+            .client
+            .publish_node(&args)
+            .await
             .map_err(|e| BrainError::Client(e.to_string()))?;
 
         Ok(McpToolResult::Success { content: result })
     }
 
     async fn brain_node_get(&self, args: serde_json::Value) -> Result<McpToolResult, BrainError> {
-        let id = args.get("id").and_then(|v| v.as_str())
+        let id = args
+            .get("id")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| BrainError::InvalidRequest("id required".into()))?;
 
-        let result = self.client.get_node(id).await
+        let result = self
+            .client
+            .get_node(id)
+            .await
             .map_err(|e| BrainError::Client(e.to_string()))?;
 
         Ok(McpToolResult::Success { content: result })
     }
 
     async fn brain_node_wasm(&self, args: serde_json::Value) -> Result<McpToolResult, BrainError> {
-        let id = args.get("id").and_then(|v| v.as_str())
+        let id = args
+            .get("id")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| BrainError::InvalidRequest("id required".into()))?;
 
-        let bytes = self.client.get_node_wasm(id).await
+        let bytes = self
+            .client
+            .get_node_wasm(id)
+            .await
             .map_err(|e| BrainError::Client(e.to_string()))?;
 
         let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes);
@@ -764,11 +929,18 @@ impl McpBrainTools {
         })
     }
 
-    async fn brain_node_revoke(&self, args: serde_json::Value) -> Result<McpToolResult, BrainError> {
-        let id = args.get("id").and_then(|v| v.as_str())
+    async fn brain_node_revoke(
+        &self,
+        args: serde_json::Value,
+    ) -> Result<McpToolResult, BrainError> {
+        let id = args
+            .get("id")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| BrainError::InvalidRequest("id required".into()))?;
 
-        self.client.revoke_node(id).await
+        self.client
+            .revoke_node(id)
+            .await
             .map_err(|e| BrainError::Client(e.to_string()))?;
 
         Ok(McpToolResult::Success {

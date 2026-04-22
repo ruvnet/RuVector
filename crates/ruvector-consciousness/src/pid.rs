@@ -116,7 +116,13 @@ fn williams_beer_imin(
         let mut min_spec = f64::MAX;
         for (source, source_marginal) in sources.iter().zip(source_marginals.iter()) {
             let spec = specific_information_cached(
-                tpm, n, source, target, t_state, &target_marginal, source_marginal,
+                tpm,
+                n,
+                source,
+                target,
+                t_state,
+                &target_marginal,
+                source_marginal,
             );
             min_spec = min_spec.min(spec);
         }
@@ -366,8 +372,12 @@ mod tests {
         let target = vec![0, 1];
         let result = compute_pid(&tpm, &sources, &target).unwrap();
         let sum = result.redundancy + result.unique.iter().sum::<f64>() + result.synergy;
-        assert!((sum - result.total_mi).abs() < 1e-6,
-            "PID sum {} should equal total MI {}", sum, result.total_mi);
+        assert!(
+            (sum - result.total_mi).abs() < 1e-6,
+            "PID sum {} should equal total MI {}",
+            sum,
+            result.total_mi
+        );
     }
 
     #[test]

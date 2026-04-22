@@ -14,7 +14,9 @@
 //!
 //! This test validates the full cognition loop from perception to verified state.
 
-use ruvix_cap::{CapManagerConfig, CapabilityManager, CapRights, ObjectType, RevokeRequest, TaskHandle};
+use ruvix_cap::{
+    CapManagerConfig, CapRights, CapabilityManager, ObjectType, RevokeRequest, TaskHandle,
+};
 use ruvix_queue::{KernelQueue, QueueConfig};
 use ruvix_region::{
     append_only::AppendOnlyRegion, backing::StaticBacking, immutable::ImmutableRegion,
@@ -168,8 +170,7 @@ fn test_adr087_section17_full_acceptance() {
     // Create the state region (for cognitive state)
     let state_backing = StaticBacking::<8192>::new();
     let state_handle = RegionHandle::new(2, 0);
-    let mut state_region =
-        AppendOnlyRegion::new(state_backing, 8192, state_handle).unwrap();
+    let mut state_region = AppendOnlyRegion::new(state_backing, 8192, state_handle).unwrap();
 
     // Create capability for state region
     let state_cap = cap_manager
@@ -189,9 +190,7 @@ fn test_adr087_section17_full_acceptance() {
     assert!(cap_manager
         .has_rights(perception_cap, CapRights::WRITE)
         .is_ok());
-    assert!(cap_manager
-        .has_rights(state_cap, CapRights::WRITE)
-        .is_ok());
+    assert!(cap_manager.has_rights(state_cap, CapRights::WRITE).is_ok());
 
     println!("Step 1: RVF cognitive container mounted successfully");
 
@@ -223,11 +222,18 @@ fn test_adr087_section17_full_acceptance() {
         event_queue.send(&event_bytes, MsgPriority::High).unwrap();
     }
 
-    assert_eq!(perception_region.len(), perception_events.iter()
-        .map(|e| e.to_bytes().len())
-        .sum::<usize>());
+    assert_eq!(
+        perception_region.len(),
+        perception_events
+            .iter()
+            .map(|e| e.to_bytes().len())
+            .sum::<usize>()
+    );
 
-    println!("Step 2: {} perception events emitted", perception_events.len());
+    println!(
+        "Step 2: {} perception events emitted",
+        perception_events.len()
+    );
 
     // ========================================================================
     // Step 3: Perform Proof-Gated Mutation
@@ -243,12 +249,13 @@ fn test_adr087_section17_full_acceptance() {
     let proof = SimulatedProof::new(operation_hash, cognition_task);
 
     // Verify proof before allowing mutation
-    assert!(proof.verify(), "Proof verification failed - mutation rejected");
+    assert!(
+        proof.verify(),
+        "Proof verification failed - mutation rejected"
+    );
 
     // Verify capability for state mutation
-    cap_manager
-        .has_rights(state_cap, CapRights::WRITE)
-        .unwrap();
+    cap_manager.has_rights(state_cap, CapRights::WRITE).unwrap();
 
     // Perform proof-gated mutation
     state_region.append(mutation_data).unwrap();
@@ -259,7 +266,10 @@ fn test_adr087_section17_full_acceptance() {
     state_region.append(proof_record.as_bytes()).unwrap();
     operation_count += 1;
 
-    println!("Step 3: Proof-gated mutation completed (hash: {:016x})", operation_hash);
+    println!(
+        "Step 3: Proof-gated mutation completed (hash: {:016x})",
+        operation_hash
+    );
 
     // ========================================================================
     // Step 4: Verify Attestation
@@ -277,13 +287,16 @@ fn test_adr087_section17_full_acceptance() {
     // Compute attestation hashes
     let perception_hash = fnv1a_hash(&perception_buf);
     let state_hash = fnv1a_hash(&state_buf);
-    let combined_hash = fnv1a_hash(&[perception_hash.to_le_bytes(), state_hash.to_le_bytes()].concat());
+    let combined_hash =
+        fnv1a_hash(&[perception_hash.to_le_bytes(), state_hash.to_le_bytes()].concat());
 
     // Create attestation record
     let attestation = AttestationRecord::new(combined_hash, operation_count, 1);
 
-    println!("Step 4: Attestation verified (hash: {:016x}, ops: {})",
-             attestation.region_hash, attestation.operation_count);
+    println!(
+        "Step 4: Attestation verified (hash: {:016x}, ops: {})",
+        attestation.region_hash, attestation.operation_count
+    );
 
     // ========================================================================
     // Step 5: Checkpoint, Restart, and Replay
@@ -328,10 +341,15 @@ fn test_adr087_section17_full_acceptance() {
     replay_operation_count += 1;
 
     let replay_proof_record = format!("proof_verified:{}", operation_hash);
-    fresh_state_region.append(replay_proof_record.as_bytes()).unwrap();
+    fresh_state_region
+        .append(replay_proof_record.as_bytes())
+        .unwrap();
     replay_operation_count += 1;
 
-    println!("Step 5b: Replay completed ({} operations)", replay_operation_count);
+    println!(
+        "Step 5b: Replay completed ({} operations)",
+        replay_operation_count
+    );
 
     // ========================================================================
     // Step 6: Verify Bit-Identical State
@@ -340,7 +358,9 @@ fn test_adr087_section17_full_acceptance() {
 
     // Read replayed perception state
     let mut replay_perception_buf = vec![0u8; fresh_perception_region.len()];
-    fresh_perception_region.read(0, &mut replay_perception_buf).unwrap();
+    fresh_perception_region
+        .read(0, &mut replay_perception_buf)
+        .unwrap();
 
     // Read replayed cognitive state
     let mut replay_state_buf = vec![0u8; fresh_state_region.len()];
@@ -350,7 +370,11 @@ fn test_adr087_section17_full_acceptance() {
     let replay_perception_hash = fnv1a_hash(&replay_perception_buf);
     let replay_state_hash = fnv1a_hash(&replay_state_buf);
     let replay_combined_hash = fnv1a_hash(
-        &[replay_perception_hash.to_le_bytes(), replay_state_hash.to_le_bytes()].concat()
+        &[
+            replay_perception_hash.to_le_bytes(),
+            replay_state_hash.to_le_bytes(),
+        ]
+        .concat(),
     );
 
     // Create replay attestation
@@ -367,8 +391,7 @@ fn test_adr087_section17_full_acceptance() {
         "Perception log size mismatch"
     );
     assert_eq!(
-        perception_buf,
-        replay_perception_buf,
+        perception_buf, replay_perception_buf,
         "Perception log content mismatch"
     );
 
@@ -377,11 +400,7 @@ fn test_adr087_section17_full_acceptance() {
         replay_state_buf.len(),
         "State region size mismatch"
     );
-    assert_eq!(
-        state_buf,
-        replay_state_buf,
-        "State region content mismatch"
-    );
+    assert_eq!(state_buf, replay_state_buf, "State region content mismatch");
 
     assert!(
         attestation.verify_identical(&replay_attestation),
@@ -393,8 +412,10 @@ fn test_adr087_section17_full_acceptance() {
     println!("Step 6: Bit-identical state verified!");
     println!("  Original hash:  {:016x}", attestation.region_hash);
     println!("  Replay hash:    {:016x}", replay_attestation.region_hash);
-    println!("  Operations:     {} (original) == {} (replay)",
-             attestation.operation_count, replay_attestation.operation_count);
+    println!(
+        "  Operations:     {} (original) == {} (replay)",
+        attestation.operation_count, replay_attestation.operation_count
+    );
 
     println!("\n=== ADR-087 Section 17 Acceptance Test: PASSED ===");
 }
@@ -418,7 +439,8 @@ fn test_section17_criterion_1_mount_rvf() {
         immutable_backing,
         b"model weights placeholder",
         immutable_handle,
-    ).unwrap();
+    )
+    .unwrap();
 
     let append_backing = StaticBacking::<4096>::new();
     let append_handle = RegionHandle::new(2, 0);
@@ -434,7 +456,9 @@ fn test_section17_criterion_1_mount_rvf() {
 
     // Verify capabilities are valid
     assert!(cap_manager.has_rights(cap1, CapRights::READ).unwrap());
-    assert!(cap_manager.has_rights(cap2, CapRights::READ | CapRights::WRITE).unwrap());
+    assert!(cap_manager
+        .has_rights(cap2, CapRights::READ | CapRights::WRITE)
+        .unwrap());
 }
 
 #[test]

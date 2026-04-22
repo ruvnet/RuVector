@@ -6,12 +6,11 @@
 use ruvector_consciousness::emergence::CausalEmergenceEngine;
 use ruvector_consciousness::phi::auto_compute_phi;
 use ruvector_consciousness::rsvd_emergence::RsvdEmergenceEngine;
+use ruvector_consciousness::rsvd_emergence::RsvdEmergenceResult;
 use ruvector_consciousness::traits::EmergenceEngine;
 use ruvector_consciousness::types::{
-    ComputeBudget, EmergenceResult,
-    TransitionMatrix as ConsciousnessTPM,
+    ComputeBudget, EmergenceResult, TransitionMatrix as ConsciousnessTPM,
 };
-use ruvector_consciousness::rsvd_emergence::RsvdEmergenceResult;
 
 use crate::data::QuantumCircuit;
 
@@ -47,8 +46,7 @@ pub fn run_quantum_analysis(circuits: &[QuantumCircuit]) -> Vec<CircuitResult> {
         let ctpm = to_consciousness_tpm(&circuit.tpm, dim);
 
         // 1. Compute Phi
-        let phi_result = auto_compute_phi(&ctpm, None, &budget)
-            .expect("Failed to compute Phi");
+        let phi_result = auto_compute_phi(&ctpm, None, &budget).expect("Failed to compute Phi");
         let full_phi = phi_result.phi;
         let algorithm = format!("{}", phi_result.algorithm);
         println!(
@@ -124,18 +122,11 @@ pub fn run_quantum_analysis(circuits: &[QuantumCircuit]) -> Vec<CircuitResult> {
 
     let order_ok = product_phi <= w_phi && w_phi <= bell_phi.max(ghz_phi);
     if order_ok {
-        println!(
-            "\n  Phi ordering AGREES with entanglement hierarchy."
-        );
+        println!("\n  Phi ordering AGREES with entanglement hierarchy.");
     } else {
-        println!(
-            "\n  Phi ordering DIFFERS from naive entanglement hierarchy."
-        );
-        println!(
-            "  This is expected: IIT Phi measures integrated information,");
-        println!(
-            "  not entanglement per se. The two can diverge for certain states."
-        );
+        println!("\n  Phi ordering DIFFERS from naive entanglement hierarchy.");
+        println!("  This is expected: IIT Phi measures integrated information,");
+        println!("  not entanglement per se. The two can diverge for certain states.");
     }
 
     // GHZ vs W emergence comparison
@@ -153,10 +144,7 @@ pub fn run_quantum_analysis(circuits: &[QuantumCircuit]) -> Vec<CircuitResult> {
         );
         println!(
             "  W:   Phi={:.6}, emergence={:.4}, SVD rank={}/{}",
-            w.full_phi,
-            w.emergence.causal_emergence,
-            w.svd_emergence.effective_rank,
-            w.tpm_size
+            w.full_phi, w.emergence.causal_emergence, w.svd_emergence.effective_rank, w.tpm_size
         );
         if ghz.emergence.causal_emergence > w.emergence.causal_emergence {
             println!("  GHZ shows MORE causal emergence than W.");

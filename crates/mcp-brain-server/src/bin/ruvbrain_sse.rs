@@ -96,7 +96,11 @@ async fn sse_handler(
         state.active_connections.fetch_sub(1, Ordering::SeqCst);
         let mut headers = HeaderMap::new();
         headers.insert("Retry-After", "10".parse().unwrap());
-        return (StatusCode::TOO_MANY_REQUESTS, headers, "connection limit reached")
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            headers,
+            "connection limit reached",
+        )
             .into_response();
     }
 
@@ -122,8 +126,7 @@ async fn sse_handler(
     {
         tracing::error!(error = %e, "failed to create session on brain API");
         state.active_connections.fetch_sub(1, Ordering::SeqCst);
-        return (StatusCode::BAD_GATEWAY, "failed to create upstream session")
-            .into_response();
+        return (StatusCode::BAD_GATEWAY, "failed to create upstream session").into_response();
     }
 
     let active = Arc::clone(&state.active_connections);
@@ -256,7 +259,10 @@ async fn messages_handler(
         Ok(resp) => {
             let status = resp.status();
             let response_body = resp.text().await.unwrap_or_default();
-            (StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY), response_body)
+            (
+                StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY),
+                response_body,
+            )
                 .into_response()
         }
         Err(e) => {

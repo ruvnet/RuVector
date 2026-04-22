@@ -86,7 +86,9 @@ impl InitialCapability {
         Self {
             object_id,
             object_type: ObjectType::RvfMount,
-            rights: CapRights::READ.union(CapRights::EXECUTE).union(CapRights::PROVE),
+            rights: CapRights::READ
+                .union(CapRights::EXECUTE)
+                .union(CapRights::PROVE),
             badge: package_hash_lo,
             description: "Boot RVF package",
         }
@@ -269,7 +271,8 @@ impl BootCapabilitySet {
             return false;
         }
 
-        self.memory_regions[self.memory_count] = Some(InitialCapability::memory(object_id, start_addr));
+        self.memory_regions[self.memory_count] =
+            Some(InitialCapability::memory(object_id, start_addr));
         self.memory_count += 1;
         true
     }
@@ -280,7 +283,8 @@ impl BootCapabilitySet {
             return false;
         }
 
-        self.memory_regions[self.memory_count] = Some(InitialCapability::memory_readonly(object_id, start_addr));
+        self.memory_regions[self.memory_count] =
+            Some(InitialCapability::memory_readonly(object_id, start_addr));
         self.memory_count += 1;
         true
     }
@@ -340,13 +344,27 @@ impl BootCapabilitySet {
     pub fn total_count(&self) -> usize {
         let mut count = self.memory_count;
 
-        if self.rvf_package.is_some() { count += 1; }
-        if self.witness_log.is_some() { count += 1; }
-        if self.interrupt_queue.is_some() { count += 1; }
-        if self.timer.is_some() { count += 1; }
-        if self.root_task.is_some() { count += 1; }
-        if self.vector_store.is_some() { count += 1; }
-        if self.proof_graph.is_some() { count += 1; }
+        if self.rvf_package.is_some() {
+            count += 1;
+        }
+        if self.witness_log.is_some() {
+            count += 1;
+        }
+        if self.interrupt_queue.is_some() {
+            count += 1;
+        }
+        if self.timer.is_some() {
+            count += 1;
+        }
+        if self.root_task.is_some() {
+            count += 1;
+        }
+        if self.vector_store.is_some() {
+            count += 1;
+        }
+        if self.proof_graph.is_some() {
+            count += 1;
+        }
 
         count
     }
@@ -408,11 +426,11 @@ mod tests {
     #[test]
     fn test_boot_capability_set_full() {
         let set = BootCapabilitySet::full(
-            1,          // root_task_id
-            0x1000,     // memory_start
-            0x10000,    // memory_size
-            0x2000,     // rvf_object_id
-            0xCAFE,     // rvf_hash
+            1,       // root_task_id
+            0x1000,  // memory_start
+            0x10000, // memory_size
+            0x2000,  // rvf_object_id
+            0xCAFE,  // rvf_hash
         );
 
         assert_eq!(set.memory_region_count(), 1);

@@ -2,13 +2,13 @@
 //!
 //! Run with: cargo bench --bench syscall_benches
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use ruvix_nucleus::{
-    Kernel, KernelConfig, Syscall, VectorStoreConfig, TaskPriority, ProofTier,
-    VectorKey, RegionPolicy, MsgPriority, TimerSpec, SensorDescriptor, QueueHandle,
-    GraphMutation, CapHandle, CapRights, RvfMountHandle, RvfComponentId,
+    CapHandle, CapRights, GraphMutation, Kernel, KernelConfig, MsgPriority, ProofTier, QueueHandle,
+    RegionPolicy, RvfComponentId, RvfMountHandle, SensorDescriptor, Syscall, TaskPriority,
+    TimerSpec, VectorKey, VectorStoreConfig,
 };
-use ruvix_types::{TaskHandle, ObjectType};
+use ruvix_types::{ObjectType, TaskHandle};
 use std::time::Duration;
 
 fn setup_kernel() -> Kernel {
@@ -40,7 +40,9 @@ fn bench_task_spawn(c: &mut Criterion) {
 fn bench_cap_grant(c: &mut Criterion) {
     let mut kernel = setup_kernel();
     let root_task = TaskHandle::new(1, 0);
-    let cap = kernel.create_root_capability(0, ObjectType::RvfMount, root_task).unwrap();
+    let cap = kernel
+        .create_root_capability(0, ObjectType::RvfMount, root_task)
+        .unwrap();
 
     c.bench_function("ruvix_cap_grant", |b| {
         b.iter(|| {
@@ -56,7 +58,9 @@ fn bench_cap_grant(c: &mut Criterion) {
 fn bench_region_map(c: &mut Criterion) {
     let mut kernel = setup_kernel();
     let root_task = TaskHandle::new(1, 0);
-    let cap = kernel.create_root_capability(0, ObjectType::Region, root_task).unwrap();
+    let cap = kernel
+        .create_root_capability(0, ObjectType::Region, root_task)
+        .unwrap();
 
     c.bench_function("ruvix_region_map", |b| {
         b.iter(|| {
@@ -112,7 +116,9 @@ fn bench_timer_wait(c: &mut Criterion) {
 fn bench_rvf_mount(c: &mut Criterion) {
     let mut kernel = setup_kernel();
     let root_task = TaskHandle::new(1, 0);
-    let cap = kernel.create_root_capability(0, ObjectType::RvfMount, root_task).unwrap();
+    let cap = kernel
+        .create_root_capability(0, ObjectType::RvfMount, root_task)
+        .unwrap();
 
     c.bench_function("ruvix_rvf_mount", |b| {
         b.iter(|| {
@@ -134,12 +140,14 @@ fn bench_vector_get(c: &mut Criterion) {
     let mutation_hash = [1u8; 32];
     let proof = kernel.create_proof(mutation_hash, ProofTier::Reflex, 1);
 
-    kernel.dispatch(Syscall::VectorPutProved {
-        store,
-        key: VectorKey::new(1),
-        data: vec![1.0, 2.0, 3.0, 4.0],
-        proof,
-    }).unwrap();
+    kernel
+        .dispatch(Syscall::VectorPutProved {
+            store,
+            key: VectorKey::new(1),
+            data: vec![1.0, 2.0, 3.0, 4.0],
+            proof,
+        })
+        .unwrap();
 
     c.bench_function("ruvix_vector_get", |b| {
         b.iter(|| {
@@ -198,7 +206,9 @@ fn bench_graph_apply_proved(c: &mut Criterion) {
 fn bench_sensor_subscribe(c: &mut Criterion) {
     let mut kernel = setup_kernel();
     let root_task = TaskHandle::new(1, 0);
-    let cap = kernel.create_root_capability(0, ObjectType::RvfMount, root_task).unwrap();
+    let cap = kernel
+        .create_root_capability(0, ObjectType::RvfMount, root_task)
+        .unwrap();
 
     c.bench_function("ruvix_sensor_subscribe", |b| {
         b.iter(|| {
@@ -269,24 +279,20 @@ fn bench_vector_dimensions(c: &mut Criterion) {
         let mut nonce = 0u64;
         let data: Vec<f32> = (0..dims).map(|i| i as f32 * 0.1).collect();
 
-        group.bench_with_input(
-            BenchmarkId::new("put", dims),
-            &dims,
-            |b, _| {
-                b.iter(|| {
-                    nonce += 1;
-                    let mutation_hash = [nonce as u8; 32];
-                    let proof = kernel.create_proof(mutation_hash, ProofTier::Reflex, nonce);
+        group.bench_with_input(BenchmarkId::new("put", dims), &dims, |b, _| {
+            b.iter(|| {
+                nonce += 1;
+                let mutation_hash = [nonce as u8; 32];
+                let proof = kernel.create_proof(mutation_hash, ProofTier::Reflex, nonce);
 
-                    kernel.dispatch(black_box(Syscall::VectorPutProved {
-                        store,
-                        key: VectorKey::new((nonce % 100) as u64),
-                        data: data.clone(),
-                        proof,
-                    }))
-                })
-            },
-        );
+                kernel.dispatch(black_box(Syscall::VectorPutProved {
+                    store,
+                    key: VectorKey::new((nonce % 100) as u64),
+                    data: data.clone(),
+                    proof,
+                }))
+            })
+        });
     }
 
     group.finish();
@@ -311,10 +317,6 @@ criterion_group!(
     bench_sensor_subscribe,
 );
 
-criterion_group!(
-    scaling_benches,
-    bench_proof_tiers,
-    bench_vector_dimensions,
-);
+criterion_group!(scaling_benches, bench_proof_tiers, bench_vector_dimensions,);
 
 criterion_main!(syscall_benches, scaling_benches);

@@ -4,10 +4,9 @@
 //!
 //! Run with: cargo bench --bench proof_tiers
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use ruvix_nucleus::{
-    Kernel, KernelConfig, Syscall, VectorStoreConfig, ProofTier,
-    VectorKey, GraphMutation,
+    GraphMutation, Kernel, KernelConfig, ProofTier, Syscall, VectorKey, VectorStoreConfig,
 };
 
 fn setup_kernel() -> Kernel {
@@ -105,24 +104,20 @@ fn bench_proof_tiers_vector(c: &mut Criterion) {
         let store = kernel.create_vector_store(config).unwrap();
         let mut nonce = 0u64;
 
-        group.bench_with_input(
-            BenchmarkId::new("put", tier_name),
-            &tier,
-            |b, &tier| {
-                b.iter(|| {
-                    nonce += 1;
-                    let mutation_hash = [nonce as u8; 32];
-                    let proof = kernel.create_proof(mutation_hash, tier, nonce);
+        group.bench_with_input(BenchmarkId::new("put", tier_name), &tier, |b, &tier| {
+            b.iter(|| {
+                nonce += 1;
+                let mutation_hash = [nonce as u8; 32];
+                let proof = kernel.create_proof(mutation_hash, tier, nonce);
 
-                    kernel.dispatch(black_box(Syscall::VectorPutProved {
-                        store,
-                        key: VectorKey::new((nonce % 100) as u64),
-                        data: vec![1.0, 2.0, 3.0, 4.0],
-                        proof,
-                    }))
-                })
-            },
-        );
+                kernel.dispatch(black_box(Syscall::VectorPutProved {
+                    store,
+                    key: VectorKey::new((nonce % 100) as u64),
+                    data: vec![1.0, 2.0, 3.0, 4.0],
+                    proof,
+                }))
+            })
+        });
     }
 
     group.finish();
@@ -186,17 +181,13 @@ fn bench_proof_creation(c: &mut Criterion) {
         let kernel = setup_kernel();
         let mut nonce = 0u64;
 
-        group.bench_with_input(
-            BenchmarkId::new("create", tier_name),
-            &tier,
-            |b, &tier| {
-                b.iter(|| {
-                    nonce += 1;
-                    let mutation_hash = [nonce as u8; 32];
-                    black_box(kernel.create_proof(mutation_hash, tier, nonce))
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("create", tier_name), &tier, |b, &tier| {
+            b.iter(|| {
+                nonce += 1;
+                let mutation_hash = [nonce as u8; 32];
+                black_box(kernel.create_proof(mutation_hash, tier, nonce))
+            })
+        });
     }
 
     group.finish();
@@ -219,24 +210,20 @@ fn bench_proof_with_vector_sizes(c: &mut Criterion) {
         // Use Reflex tier for consistent comparison
         group.throughput(Throughput::Bytes((dims * 4) as u64));
 
-        group.bench_with_input(
-            BenchmarkId::new("reflex", dims),
-            &dims,
-            |b, _| {
-                b.iter(|| {
-                    nonce += 1;
-                    let mutation_hash = [nonce as u8; 32];
-                    let proof = kernel.create_proof(mutation_hash, ProofTier::Reflex, nonce);
+        group.bench_with_input(BenchmarkId::new("reflex", dims), &dims, |b, _| {
+            b.iter(|| {
+                nonce += 1;
+                let mutation_hash = [nonce as u8; 32];
+                let proof = kernel.create_proof(mutation_hash, ProofTier::Reflex, nonce);
 
-                    kernel.dispatch(black_box(Syscall::VectorPutProved {
-                        store,
-                        key: VectorKey::new((nonce % 100) as u64),
-                        data: data.clone(),
-                        proof,
-                    }))
-                })
-            },
-        );
+                kernel.dispatch(black_box(Syscall::VectorPutProved {
+                    store,
+                    key: VectorKey::new((nonce % 100) as u64),
+                    data: data.clone(),
+                    proof,
+                }))
+            })
+        });
     }
 
     group.finish();
@@ -282,9 +269,7 @@ fn bench_linux_security_overhead(c: &mut Criterion) {
 
     // Linux seccomp simulation (single check)
     group.bench_function("linux_seccomp_1", |b| {
-        b.iter(|| {
-            black_box(unsafe { libc::getuid() })
-        })
+        b.iter(|| black_box(unsafe { libc::getuid() }))
     });
 
     group.finish();
@@ -310,10 +295,7 @@ criterion_group!(
 );
 
 #[cfg(unix)]
-criterion_group!(
-    linux_comparison,
-    bench_linux_security_overhead,
-);
+criterion_group!(linux_comparison, bench_linux_security_overhead,);
 
 #[cfg(unix)]
 criterion_main!(tier_benches, comparison_benches, linux_comparison);

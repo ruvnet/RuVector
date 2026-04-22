@@ -73,8 +73,8 @@ async fn main() -> anyhow::Result<()> {
     // ---- Strategy + Gates ----
     let sym = symbol_id_for(&ticker);
     let mut strat = ExpectedValueKelly::new(ExpectedValueKellyConfig {
-        kelly_fraction: 0.10,                   // conservative on live
-        bankroll_cents: 10_000,                 // tiny for first live run
+        kelly_fraction: 0.10,   // conservative on live
+        bankroll_cents: 10_000, // tiny for first live run
         min_edge_bps: 500,
         strategy_name: "ev-kelly-live",
     });
@@ -89,8 +89,8 @@ async fn main() -> anyhow::Result<()> {
     }));
     let gate = RiskGate::new(RiskConfig {
         require_live_flag: true,
-        max_position_frac: 0.05,    // ≤ 5% of cash per position
-        max_daily_loss_frac: 0.02,  // tight daily kill
+        max_position_frac: 0.05,   // ≤ 5% of cash per position
+        max_daily_loss_frac: 0.02, // tight daily kill
         min_edge_bps: 500,
         max_cluster_frac: 0.10,
     });
@@ -104,11 +104,7 @@ async fn main() -> anyhow::Result<()> {
     let ws_url = std::env::var("KALSHI_WS_URL").unwrap_or_else(|_| KALSHI_WS_URL.to_string());
     let sub = Subscribe::new(
         1,
-        vec![
-            "ticker".into(),
-            "trade".into(),
-            "orderbook_snapshot".into(),
-        ],
+        vec!["ticker".into(), "trade".into(), "orderbook_snapshot".into()],
         vec![ticker.clone()],
     );
     let (tx, mut rx) = mpsc::channel::<MarketEvent>(256);
@@ -132,18 +128,32 @@ async fn main() -> anyhow::Result<()> {
         }
         let cents = evt.price_fp / 1_000_000;
         if matches!(evt.event_type, EventType::Trade | EventType::VenueStatus)
-            && cents > 0 && cents < 100
+            && cents > 0
+            && cents < 100
         {
             let w = recent_prices.entry(evt.symbol_id).or_default();
             w.push(cents);
-            if w.len() > 40 { w.drain(0..w.len() - 40); }
+            if w.len() > 40 {
+                w.drain(0..w.len() - 40);
+            }
         }
 
-        let Some(intent) = strat.on_event(&evt) else { continue };
+        let Some(intent) = strat.on_event(&evt) else {
+            continue;
+        };
 
-        let window = recent_prices.get(&intent.symbol_id).cloned().unwrap_or_default();
+        let window = recent_prices
+            .get(&intent.symbol_id)
+            .cloned()
+            .unwrap_or_default();
         let depth = observed_depth.get(&intent.symbol_id).copied().unwrap_or(1);
-        let ctx = simple_context(intent.symbol_id, evt.venue_id, evt.ts_exchange_ns, depth, &window);
+        let ctx = simple_context(
+            intent.symbol_id,
+            evt.venue_id,
+            evt.ts_exchange_ns,
+            depth,
+            &window,
+        );
         let intent = match coherence.check(intent, &ctx) {
             CoherenceOutcome::Pass(i) => i,
             CoherenceOutcome::Block { decision, .. } => {
@@ -160,7 +170,11 @@ async fn main() -> anyhow::Result<()> {
         };
 
         // ---- Send live order ----
-        let client_id = format!("live-{}-{}", chrono::Utc::now().timestamp_millis(), orders_sent);
+        let client_id = format!(
+            "live-{}-{}",
+            chrono::Utc::now().timestamp_millis(),
+            orders_sent
+        );
         let order = intent_to_order(&ticker, &approved, client_id);
         match rest.post_order(&order).await {
             Ok(ack) => {

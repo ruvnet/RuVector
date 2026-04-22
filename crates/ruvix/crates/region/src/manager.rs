@@ -8,13 +8,13 @@
 
 extern crate alloc;
 
-use alloc::boxed::Box;
-use alloc::vec::Vec;
 use crate::append_only::AppendOnlyRegion;
 use crate::backing::HeapBacking;
 use crate::immutable::ImmutableRegion;
 use crate::slab::{SlabRegion, SlotHandle};
 use crate::Result;
+use alloc::boxed::Box;
+use alloc::vec::Vec;
 use ruvix_types::{CapHandle, KernelError, RegionHandle, RegionPolicy};
 
 /// Maximum number of regions per manager.
@@ -135,11 +135,7 @@ impl RegionManager {
     ///
     /// - `InsufficientRights` if capability lacks required rights
     /// - `OutOfMemory` if region table is full or backing allocation fails
-    pub fn create_region(
-        &mut self,
-        policy: RegionPolicy,
-        _cap: CapHandle,
-    ) -> Result<RegionHandle> {
+    pub fn create_region(&mut self, policy: RegionPolicy, _cap: CapHandle) -> Result<RegionHandle> {
         // In a real kernel, we'd check the capability here
         // For now, we just verify we have space
 
@@ -419,11 +415,9 @@ impl RegionManager {
         let slot = self.find_region_slot(handle)?;
         match &self.regions[slot] {
             RegionEntry::Immutable { .. } => Ok(RegionPolicy::Immutable),
-            RegionEntry::AppendOnly { region, .. } => {
-                Ok(RegionPolicy::AppendOnly {
-                    max_size: region.max_size(),
-                })
-            }
+            RegionEntry::AppendOnly { region, .. } => Ok(RegionPolicy::AppendOnly {
+                max_size: region.max_size(),
+            }),
             RegionEntry::Slab { region, .. } => Ok(RegionPolicy::Slab {
                 slot_size: region.slot_size(),
                 slot_count: region.slot_count(),
@@ -546,10 +540,19 @@ mod tests {
             .unwrap();
 
         let slab_policy = manager.get_policy(slab_handle).unwrap();
-        assert!(matches!(slab_policy, RegionPolicy::Slab { slot_size: 64, slot_count: 16 }));
+        assert!(matches!(
+            slab_policy,
+            RegionPolicy::Slab {
+                slot_size: 64,
+                slot_count: 16
+            }
+        ));
 
         let append_policy = manager.get_policy(append_handle).unwrap();
-        assert!(matches!(append_policy, RegionPolicy::AppendOnly { max_size: 1024 }));
+        assert!(matches!(
+            append_policy,
+            RegionPolicy::AppendOnly { max_size: 1024 }
+        ));
     }
 
     #[test]
@@ -563,7 +566,9 @@ mod tests {
         let h2 = manager
             .create_region(RegionPolicy::append_only(512), CapHandle::null())
             .unwrap();
-        let h3 = manager.create_immutable(b"test", CapHandle::null()).unwrap();
+        let h3 = manager
+            .create_immutable(b"test", CapHandle::null())
+            .unwrap();
 
         assert_eq!(manager.active_count(), 3);
 

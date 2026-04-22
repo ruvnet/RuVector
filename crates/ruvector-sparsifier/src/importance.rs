@@ -145,13 +145,7 @@ impl LocalImportanceScorer {
 }
 
 impl ImportanceScorer for LocalImportanceScorer {
-    fn score(
-        &self,
-        graph: &SparseGraph,
-        u: usize,
-        v: usize,
-        weight: f64,
-    ) -> EdgeImportance {
+    fn score(&self, graph: &SparseGraph, u: usize, v: usize, weight: f64) -> EdgeImportance {
         let r_eff = self.estimator.estimate(graph, u, v);
         EdgeImportance::new(u, v, weight, r_eff)
     }
@@ -192,12 +186,7 @@ mod tests {
 
     #[test]
     fn test_resistance_positive() {
-        let g = SparseGraph::from_edges(&[
-            (0, 1, 1.0),
-            (1, 2, 1.0),
-            (2, 3, 1.0),
-            (3, 0, 1.0),
-        ]);
+        let g = SparseGraph::from_edges(&[(0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0), (3, 0, 1.0)]);
         let est = EffectiveResistanceEstimator::new(200, 20);
         let r = est.estimate(&g, 0, 2);
         assert!(r > 0.0);

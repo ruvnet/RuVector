@@ -50,10 +50,18 @@ fn kl_divergence_neon_prefetch(p: &[f64], q: &[f64]) -> f64 {
         let (p2, q2) = (p[base + 2], q[base + 2]);
         let (p3, q3) = (p[base + 3], q[base + 3]);
 
-        if p0 > 1e-15 && q0 > 1e-15 { sum0 += p0 * (p0 / q0).ln(); }
-        if p1 > 1e-15 && q1 > 1e-15 { sum1 += p1 * (p1 / q1).ln(); }
-        if p2 > 1e-15 && q2 > 1e-15 { sum0 += p2 * (p2 / q2).ln(); }
-        if p3 > 1e-15 && q3 > 1e-15 { sum1 += p3 * (p3 / q3).ln(); }
+        if p0 > 1e-15 && q0 > 1e-15 {
+            sum0 += p0 * (p0 / q0).ln();
+        }
+        if p1 > 1e-15 && q1 > 1e-15 {
+            sum1 += p1 * (p1 / q1).ln();
+        }
+        if p2 > 1e-15 && q2 > 1e-15 {
+            sum0 += p2 * (p2 / q2).ln();
+        }
+        if p3 > 1e-15 && q3 > 1e-15 {
+            sum1 += p3 * (p3 / q3).ln();
+        }
     }
     for i in (chunks * 4)..(chunks * 4 + remainder) {
         let pi = p[i];
@@ -125,10 +133,18 @@ fn entropy_neon_prefetch(p: &[f64]) -> f64 {
     for c in 0..chunks {
         let base = c * 4;
         let (p0, p1, p2, p3) = (p[base], p[base + 1], p[base + 2], p[base + 3]);
-        if p0 > 1e-15 { h0 -= p0 * p0.ln(); }
-        if p1 > 1e-15 { h1 -= p1 * p1.ln(); }
-        if p2 > 1e-15 { h0 -= p2 * p2.ln(); }
-        if p3 > 1e-15 { h1 -= p3 * p3.ln(); }
+        if p0 > 1e-15 {
+            h0 -= p0 * p0.ln();
+        }
+        if p1 > 1e-15 {
+            h1 -= p1 * p1.ln();
+        }
+        if p2 > 1e-15 {
+            h0 -= p2 * p2.ln();
+        }
+        if p3 > 1e-15 {
+            h1 -= p3 * p3.ln();
+        }
     }
     for i in (chunks * 4)..(chunks * 4 + remainder) {
         let pi = p[i];
@@ -317,9 +333,7 @@ pub fn pairwise_mi(tpm: &[f64], n: usize, i: usize, j: usize, marginal: &[f64]) 
     let pj = marginal[j].max(1e-15);
 
     #[cfg(target_arch = "aarch64")]
-    let pij = {
-        unsafe { pairwise_dot_neon(tpm, n, i, j) }
-    };
+    let pij = { unsafe { pairwise_dot_neon(tpm, n, i, j) } };
 
     #[cfg(not(target_arch = "aarch64"))]
     let pij = {
@@ -352,10 +366,18 @@ unsafe fn pairwise_dot_neon(tpm: &[f64], n: usize, i: usize, j: usize) -> f64 {
         let s1 = s0 + 1;
         // Gather strided values into NEON registers
         let ai = vld1q_f64(
-            [*tpm.get_unchecked(s0 * n + i), *tpm.get_unchecked(s1 * n + i)].as_ptr(),
+            [
+                *tpm.get_unchecked(s0 * n + i),
+                *tpm.get_unchecked(s1 * n + i),
+            ]
+            .as_ptr(),
         );
         let aj = vld1q_f64(
-            [*tpm.get_unchecked(s0 * n + j), *tpm.get_unchecked(s1 * n + j)].as_ptr(),
+            [
+                *tpm.get_unchecked(s0 * n + j),
+                *tpm.get_unchecked(s1 * n + j),
+            ]
+            .as_ptr(),
         );
         acc = vfmaq_f64(acc, ai, aj);
     }
@@ -385,7 +407,11 @@ pub fn build_mi_matrix(tpm: &[f64], n: usize) -> Vec<f64> {
 }
 
 /// Build MI edge list (i, j, weight) with threshold pruning.
-pub fn build_mi_edges(tpm: &[f64], n: usize, threshold: f64) -> (Vec<(usize, usize, f64)>, Vec<f64>) {
+pub fn build_mi_edges(
+    tpm: &[f64],
+    n: usize,
+    threshold: f64,
+) -> (Vec<(usize, usize, f64)>, Vec<f64>) {
     let marginal = marginal_distribution(tpm, n);
     let mut edges = Vec::new();
     for i in 0..n {

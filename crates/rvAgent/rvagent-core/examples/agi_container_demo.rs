@@ -37,12 +37,15 @@ fn main() {
     let prompts = vec![
         AgentPrompt {
             name: "researcher".to_string(),
-            system_prompt: "You are a research assistant specialized in gathering and analyzing information.".to_string(),
+            system_prompt:
+                "You are a research assistant specialized in gathering and analyzing information."
+                    .to_string(),
             version: "1.0.0".to_string(),
         },
         AgentPrompt {
             name: "coder".to_string(),
-            system_prompt: "You are an expert programmer focused on clean, efficient code.".to_string(),
+            system_prompt: "You are an expert programmer focused on clean, efficient code."
+                .to_string(),
             version: "2.0.0".to_string(),
         },
     ];
@@ -122,7 +125,10 @@ fn main() {
         println!("    Topology: {}", orch.topology);
         println!("    Agents: {}", orch.agents.len());
         for agent in &orch.agents {
-            println!("      - {}: {} ({})", agent.id, agent.agent_type, agent.prompt_ref);
+            println!(
+                "      - {}: {} ({})",
+                agent.id, agent.agent_type, agent.prompt_ref
+            );
         }
         println!("    Connections: {}", orch.connections.len());
     }

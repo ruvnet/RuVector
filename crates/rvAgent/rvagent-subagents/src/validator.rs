@@ -28,7 +28,9 @@ impl SubAgentResultValidator {
 
     /// Create with custom max response length.
     pub fn with_max_length(max_response_length: usize) -> Self {
-        Self { max_response_length }
+        Self {
+            max_response_length,
+        }
     }
 
     /// Validate a result message. Returns Ok(()) if valid, Err with reason if not.

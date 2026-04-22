@@ -595,8 +595,12 @@ mod tests {
         let proof = ProofToken::default();
 
         // Add nodes
-        store.apply_proved(&GraphMutation::add_node(1), &proof).unwrap();
-        store.apply_proved(&GraphMutation::add_node(2), &proof).unwrap();
+        store
+            .apply_proved(&GraphMutation::add_node(1), &proof)
+            .unwrap();
+        store
+            .apply_proved(&GraphMutation::add_node(2), &proof)
+            .unwrap();
 
         // Add edge
         let mutation = GraphMutation::add_edge(1, 2, 0.5);
@@ -612,12 +616,20 @@ mod tests {
         let proof = ProofToken::default();
 
         // Add nodes and edges
-        store.apply_proved(&GraphMutation::add_node(1), &proof).unwrap();
-        store.apply_proved(&GraphMutation::add_node(2), &proof).unwrap();
-        store.apply_proved(&GraphMutation::add_edge(1, 2, 0.5), &proof).unwrap();
+        store
+            .apply_proved(&GraphMutation::add_node(1), &proof)
+            .unwrap();
+        store
+            .apply_proved(&GraphMutation::add_node(2), &proof)
+            .unwrap();
+        store
+            .apply_proved(&GraphMutation::add_edge(1, 2, 0.5), &proof)
+            .unwrap();
 
         // Remove node 1 (should also remove edge)
-        store.apply_proved(&GraphMutation::remove_node(1), &proof).unwrap();
+        store
+            .apply_proved(&GraphMutation::remove_node(1), &proof)
+            .unwrap();
 
         assert_eq!(store.node_count(), 1);
         assert_eq!(store.edge_count(), 0);
@@ -631,12 +643,20 @@ mod tests {
         let mut store = GraphStore::new(handle);
         let proof = ProofToken::default();
 
-        store.apply_proved(&GraphMutation::add_node(1), &proof).unwrap();
-        store.apply_proved(&GraphMutation::add_node(2), &proof).unwrap();
-        store.apply_proved(&GraphMutation::add_edge(1, 2, 0.5), &proof).unwrap();
+        store
+            .apply_proved(&GraphMutation::add_node(1), &proof)
+            .unwrap();
+        store
+            .apply_proved(&GraphMutation::add_node(2), &proof)
+            .unwrap();
+        store
+            .apply_proved(&GraphMutation::add_edge(1, 2, 0.5), &proof)
+            .unwrap();
 
         // Update weight
-        store.apply_proved(&GraphMutation::update_edge_weight(1, 2, 0.9), &proof).unwrap();
+        store
+            .apply_proved(&GraphMutation::update_edge_weight(1, 2, 0.9), &proof)
+            .unwrap();
 
         #[cfg(feature = "alloc")]
         {
@@ -655,9 +675,15 @@ mod tests {
 
         // Same operations on both
         for store in [&mut store1, &mut store2] {
-            store.apply_proved(&GraphMutation::add_node(1), &proof).unwrap();
-            store.apply_proved(&GraphMutation::add_node(2), &proof).unwrap();
-            store.apply_proved(&GraphMutation::add_edge(1, 2, 0.5), &proof).unwrap();
+            store
+                .apply_proved(&GraphMutation::add_node(1), &proof)
+                .unwrap();
+            store
+                .apply_proved(&GraphMutation::add_node(2), &proof)
+                .unwrap();
+            store
+                .apply_proved(&GraphMutation::add_edge(1, 2, 0.5), &proof)
+                .unwrap();
         }
 
         assert_eq!(store1.state_hash(), store2.state_hash());
@@ -671,10 +697,14 @@ mod tests {
 
         assert_eq!(store.epoch(), 0);
 
-        store.apply_proved(&GraphMutation::add_node(1), &proof).unwrap();
+        store
+            .apply_proved(&GraphMutation::add_node(1), &proof)
+            .unwrap();
         assert_eq!(store.epoch(), 1);
 
-        store.apply_proved(&GraphMutation::add_node(2), &proof).unwrap();
+        store
+            .apply_proved(&GraphMutation::add_node(2), &proof)
+            .unwrap();
         assert_eq!(store.epoch(), 2);
     }
 
@@ -684,7 +714,9 @@ mod tests {
         let mut store = GraphStore::new(handle);
         let proof = ProofToken::default();
 
-        store.apply_proved(&GraphMutation::add_node(1), &proof).unwrap();
+        store
+            .apply_proved(&GraphMutation::add_node(1), &proof)
+            .unwrap();
 
         let result = store.apply_proved(&GraphMutation::add_node(1), &proof);
         assert!(matches!(result, Err(KernelError::AlreadyExists)));
@@ -696,7 +728,9 @@ mod tests {
         let mut store = GraphStore::new(handle);
         let proof = ProofToken::default();
 
-        store.apply_proved(&GraphMutation::add_node(1), &proof).unwrap();
+        store
+            .apply_proved(&GraphMutation::add_node(1), &proof)
+            .unwrap();
 
         // Try to add edge to non-existent node
         let result = store.apply_proved(&GraphMutation::add_edge(1, 2, 0.5), &proof);

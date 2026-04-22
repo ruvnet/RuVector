@@ -1,8 +1,8 @@
 //! Integration tests for the `write_todos` tool.
 
 use rvagent_tools::{
-    Backend, BackendRef, ExecuteResponse, FileInfo, GrepMatch, StateUpdate,
-    Tool, ToolResult, ToolRuntime, WriteTodosTool, WriteResult,
+    Backend, BackendRef, ExecuteResponse, FileInfo, GrepMatch, StateUpdate, Tool, ToolResult,
+    ToolRuntime, WriteResult, WriteTodosTool,
 };
 use std::sync::Arc;
 
@@ -107,10 +107,7 @@ fn test_update_todo_status_from_pending_to_completed() {
 #[test]
 fn test_empty_todo_list_handling() {
     let runtime = todo_runtime();
-    let result = WriteTodosTool.invoke(
-        serde_json::json!({"todos": []}),
-        &runtime,
-    );
+    let result = WriteTodosTool.invoke(serde_json::json!({"todos": []}), &runtime);
 
     match result {
         ToolResult::Command(StateUpdate::Todos(todos)) => {

@@ -72,9 +72,7 @@ impl NeuralInferrer {
         let session = ort::session::Session::builder()
             .and_then(|b| b.commit_from_file(path))
             .map_err(|e| {
-                crate::error::DecompilerError::ModelError(format!(
-                    "failed to load ONNX model: {e}"
-                ))
+                crate::error::DecompilerError::ModelError(format!("failed to load ONNX model: {e}"))
             })?;
 
         Ok(Self {
@@ -85,9 +83,7 @@ impl NeuralInferrer {
 
     fn load_legacy(path: &Path) -> Result<Self, crate::error::DecompilerError> {
         let data = std::fs::read(path).map_err(|e| {
-            crate::error::DecompilerError::ModelError(format!(
-                "failed to read model file: {e}"
-            ))
+            crate::error::DecompilerError::ModelError(format!("failed to read model file: {e}"))
         })?;
 
         if data.len() < 4 {
@@ -113,11 +109,7 @@ impl NeuralInferrer {
     }
 
     /// Predict the original name for a minified identifier.
-    pub fn predict_name(
-        &self,
-        minified: &str,
-        context: &InferenceContext,
-    ) -> Option<InferredName> {
+    pub fn predict_name(&self, minified: &str, context: &InferenceContext) -> Option<InferredName> {
         match &self.backend {
             Backend::Transformer(encoder) => {
                 let ctx_strings: Vec<&str> = context
@@ -178,31 +170,19 @@ impl NeuralInferrer {
             .take(Self::MAX_CONTEXT_LEN)
             .collect();
 
-        let name_tensor = Tensor::from_array((
-            vec![1i64, Self::MAX_NAME_LEN as i64],
-            name_bytes,
-        ))
-        .ok()?;
-        let ctx_tensor = Tensor::from_array((
-            vec![1i64, Self::MAX_CONTEXT_LEN as i64],
-            ctx_bytes,
-        ))
-        .ok()?;
+        let name_tensor =
+            Tensor::from_array((vec![1i64, Self::MAX_NAME_LEN as i64], name_bytes)).ok()?;
+        let ctx_tensor =
+            Tensor::from_array((vec![1i64, Self::MAX_CONTEXT_LEN as i64], ctx_bytes)).ok()?;
 
-        let outputs = session
-            .run(ort::inputs![name_tensor, ctx_tensor])
-            .ok()?;
+        let outputs = session.run(ort::inputs![name_tensor, ctx_tensor]).ok()?;
 
         if outputs.len() < 2 {
             return None;
         }
 
-        let (_shape, out_data) = outputs[0]
-            .try_extract_tensor::<f32>()
-            .ok()?;
-        let (_cshape, conf_data) = outputs[1]
-            .try_extract_tensor::<f32>()
-            .ok()?;
+        let (_shape, out_data) = outputs[0].try_extract_tensor::<f32>().ok()?;
+        let (_cshape, conf_data) = outputs[1].try_extract_tensor::<f32>().ok()?;
 
         let confidence = *conf_data.first()? as f64;
         if confidence < 0.5 {
@@ -257,10 +237,7 @@ impl NeuralInferrer {
 ///
 /// Neural inference is attempted first; results with confidence > 0.8
 /// are accepted directly. Otherwise falls through to corpus + heuristics.
-pub fn infer_names_neural(
-    modules: &[Module],
-    model_path: Option<&Path>,
-) -> Vec<InferredName> {
+pub fn infer_names_neural(modules: &[Module], model_path: Option<&Path>) -> Vec<InferredName> {
     let corpus = TrainingCorpus::builtin();
     let neural = model_path.and_then(|p| NeuralInferrer::load(p).ok());
 

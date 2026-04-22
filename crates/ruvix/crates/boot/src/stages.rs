@@ -10,13 +10,13 @@
 //! | **3** | Component Mount | Mount components + distribute capabilities |
 //! | **4** | First Attestation | Boot attestation to witness log |
 
+use crate::attestation::BootAttestation;
+use crate::capability_distribution::CapabilityDistribution;
 use crate::manifest::RvfManifest;
 use crate::signature::SignatureVerifier;
 use crate::witness_log::{WitnessLog, WitnessLogConfig};
-use crate::capability_distribution::CapabilityDistribution;
-use crate::attestation::BootAttestation;
-use ruvix_types::{KernelError, RegionHandle, TaskHandle};
 use ruvix_cap::BootCapabilitySet;
+use ruvix_types::{KernelError, RegionHandle, TaskHandle};
 
 /// Stage 0: Hardware initialization.
 ///
@@ -471,7 +471,7 @@ impl Stage4Attest {
     }
 
     fn hash_capability_table(caps: &BootCapabilitySet) -> [u8; 32] {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
 
         let mut hasher = Sha256::new();
 
@@ -489,7 +489,7 @@ impl Stage4Attest {
     }
 
     fn hash_region_layout(manifest: &RvfManifest) -> [u8; 32] {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
 
         let mut hasher = Sha256::new();
 
@@ -587,7 +587,13 @@ mod tests {
 
         // Verify SEC-001: root capability drop occurred
         assert!(stage.capability_distribution.is_some());
-        assert!(stage.capability_distribution.as_ref().unwrap().root_dropped_to_minimum);
+        assert!(
+            stage
+                .capability_distribution
+                .as_ref()
+                .unwrap()
+                .root_dropped_to_minimum
+        );
     }
 
     #[test]
@@ -603,7 +609,9 @@ mod tests {
         let boot_caps = BootCapabilitySet::minimal(1);
         let mut witness_log = WitnessLog::new(WitnessLogConfig::default());
 
-        stage.execute(&manifest, &mut witness_log, &boot_caps).unwrap();
+        stage
+            .execute(&manifest, &mut witness_log, &boot_caps)
+            .unwrap();
 
         assert!(stage.attested);
         assert!(stage.attestation.is_some());

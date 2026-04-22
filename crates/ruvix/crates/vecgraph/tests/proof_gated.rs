@@ -29,7 +29,7 @@ fn create_vector_store() -> KernelVectorStore<StaticBacking<16384>> {
     let hnsw_backing = StaticBacking::<16384>::new();
     let witness_backing = StaticBacking::<16384>::new();
 
-    VectorStoreBuilder::new(4, 10)  // Small capacity for tests
+    VectorStoreBuilder::new(4, 10) // Small capacity for tests
         .with_proof_policy(ProofPolicy::standard())
         .build(
             data_backing,
@@ -256,7 +256,7 @@ fn create_graph_store() -> KernelGraphStore<StaticBacking<16384>> {
     let edge_backing = StaticBacking::<16384>::new();
     let witness_backing = StaticBacking::<16384>::new();
 
-    GraphStoreBuilder::new(10)  // Small capacity for tests
+    GraphStoreBuilder::new(10) // Small capacity for tests
         .with_proof_policy(ProofPolicy::standard())
         .build(
             node_backing,
@@ -495,7 +495,7 @@ fn test_deep_policy_requires_deep_tier() {
     let edge_backing = StaticBacking::<16384>::new();
     let witness_backing = StaticBacking::<16384>::new();
 
-    let mut store = GraphStoreBuilder::new(10)  // Small capacity for tests
+    let mut store = GraphStoreBuilder::new(10) // Small capacity for tests
         .with_proof_policy(ProofPolicy::deep()) // Requires Deep tier
         .build(
             node_backing,
@@ -555,7 +555,7 @@ fn test_reflex_policy_accepts_all_tiers() {
     let edge_backing = StaticBacking::<16384>::new();
     let witness_backing = StaticBacking::<16384>::new();
 
-    let mut store = GraphStoreBuilder::new(10)  // Small capacity for tests
+    let mut store = GraphStoreBuilder::new(10) // Small capacity for tests
         .with_proof_policy(ProofPolicy::reflex()) // Most permissive
         .build(
             node_backing,

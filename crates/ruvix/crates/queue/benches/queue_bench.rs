@@ -185,7 +185,11 @@ fn bench_kernel_queue_send(c: &mut Criterion) {
                     || KernelQueue::new(capacity),
                     |mut queue| {
                         let region = RegionHandle::new(1, 0);
-                        let _ = queue.send(black_box(region), black_box(64), black_box(Priority::Normal));
+                        let _ = queue.send(
+                            black_box(region),
+                            black_box(64),
+                            black_box(Priority::Normal),
+                        );
                     },
                 );
             },
@@ -208,9 +212,7 @@ fn bench_kernel_queue_recv(c: &mut Criterion) {
                 }
                 queue
             },
-            |mut queue| {
-                black_box(queue.recv())
-            },
+            |mut queue| black_box(queue.recv()),
         );
     });
 
@@ -242,7 +244,13 @@ fn bench_kernel_queue_send_recv_cycle(c: &mut Criterion) {
 
         b.iter(|| {
             let region = RegionHandle::new(1, 0);
-            queue.send(black_box(region), black_box(64), black_box(Priority::Normal)).unwrap();
+            queue
+                .send(
+                    black_box(region),
+                    black_box(64),
+                    black_box(Priority::Normal),
+                )
+                .unwrap();
             black_box(queue.recv())
         });
     });
@@ -252,7 +260,9 @@ fn bench_kernel_queue_send_recv_cycle(c: &mut Criterion) {
 
         b.iter(|| {
             let region = RegionHandle::new(1, 0);
-            queue.send(black_box(region), black_box(64), black_box(Priority::High)).unwrap();
+            queue
+                .send(black_box(region), black_box(64), black_box(Priority::High))
+                .unwrap();
             black_box(queue.recv())
         });
     });
@@ -262,7 +272,13 @@ fn bench_kernel_queue_send_recv_cycle(c: &mut Criterion) {
 
         b.iter(|| {
             let region = RegionHandle::new(1, 0);
-            queue.send(black_box(region), black_box(64), black_box(Priority::Realtime)).unwrap();
+            queue
+                .send(
+                    black_box(region),
+                    black_box(64),
+                    black_box(Priority::Realtime),
+                )
+                .unwrap();
             black_box(queue.recv())
         });
     });
@@ -291,17 +307,13 @@ fn bench_message_descriptor(c: &mut Criterion) {
     group.bench_function("validate", |b| {
         let region = RegionHandle::new(1, 0);
         let desc = MessageDescriptor::new(region, 0, 128);
-        b.iter(|| {
-            black_box(desc.validate())
-        });
+        b.iter(|| black_box(desc.validate()));
     });
 
     group.bench_function("is_empty", |b| {
         let region = RegionHandle::new(1, 0);
         let desc = MessageDescriptor::new(region, 0, 128);
-        b.iter(|| {
-            black_box(desc.is_empty())
-        });
+        b.iter(|| black_box(desc.is_empty()));
     });
 
     group.finish();
@@ -317,16 +329,12 @@ fn bench_priority(c: &mut Criterion) {
     group.bench_function("comparison", |b| {
         let p1 = Priority::High;
         let p2 = Priority::Normal;
-        b.iter(|| {
-            black_box(p1 > p2)
-        });
+        b.iter(|| black_box(p1 > p2));
     });
 
     group.bench_function("as_u8", |b| {
         let p = Priority::Realtime;
-        b.iter(|| {
-            black_box(p.as_u8())
-        });
+        b.iter(|| black_box(p.as_u8()));
     });
 
     group.finish();
@@ -425,7 +433,13 @@ fn bench_latency(c: &mut Criterion) {
                 }
             }
             let region = RegionHandle::new(1, 0);
-            queue.send(black_box(region), black_box(64), black_box(Priority::Normal)).unwrap();
+            queue
+                .send(
+                    black_box(region),
+                    black_box(64),
+                    black_box(Priority::Normal),
+                )
+                .unwrap();
         });
     });
 
@@ -520,36 +534,26 @@ fn bench_duration(c: &mut Criterion) {
     let mut group = c.benchmark_group("duration");
 
     group.bench_function("from_nanos", |b| {
-        b.iter(|| {
-            black_box(Duration::from_nanos(black_box(1_000_000)))
-        });
+        b.iter(|| black_box(Duration::from_nanos(black_box(1_000_000))));
     });
 
     group.bench_function("from_micros", |b| {
-        b.iter(|| {
-            black_box(Duration::from_micros(black_box(1_000)))
-        });
+        b.iter(|| black_box(Duration::from_micros(black_box(1_000))));
     });
 
     group.bench_function("from_millis", |b| {
-        b.iter(|| {
-            black_box(Duration::from_millis(black_box(100)))
-        });
+        b.iter(|| black_box(Duration::from_millis(black_box(100))));
     });
 
     group.bench_function("as_nanos", |b| {
         let duration = Duration::from_millis(100);
-        b.iter(|| {
-            black_box(duration.as_nanos())
-        });
+        b.iter(|| black_box(duration.as_nanos()));
     });
 
     group.bench_function("comparison", |b| {
         let d1 = Duration::from_millis(100);
         let d2 = Duration::from_millis(200);
-        b.iter(|| {
-            black_box(d1 < d2)
-        });
+        b.iter(|| black_box(d1 < d2));
     });
 
     group.finish();

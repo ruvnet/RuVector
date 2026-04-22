@@ -66,7 +66,10 @@ fn knn_random(n: usize, k: usize, seed: u64) -> SparseGraph {
 #[test]
 fn test_sparsifier_preserves_laplacian_on_triangle() {
     let g = triangle();
-    let config = SparsifierConfig { epsilon: 0.5, ..Default::default() };
+    let config = SparsifierConfig {
+        epsilon: 0.5,
+        ..Default::default()
+    };
     let spar = AdaptiveGeoSpar::build(&g, config).unwrap();
 
     // For a 3-vertex graph, the sparsifier should be near-exact.
@@ -93,11 +96,7 @@ fn test_sparsifier_preserves_laplacian_on_grid() {
     let spar = AdaptiveGeoSpar::build(&g, config).unwrap();
 
     let auditor = SpectralAuditor::new(50, 0.5);
-    let result = auditor.audit_quadratic_form(
-        spar.full_graph(),
-        spar.sparsifier(),
-        50,
-    );
+    let result = auditor.audit_quadratic_form(spar.full_graph(), spar.sparsifier(), 50);
 
     // Grid with generous epsilon should pass.
     assert!(
@@ -202,14 +201,11 @@ fn test_embedding_update() {
     let config = SparsifierConfig::default();
     let mut spar = AdaptiveGeoSpar::build(&g, config).unwrap();
 
-    let old_neighbors: Vec<(usize, f64)> = spar
-        .full_graph()
-        .neighbors(0)
-        .take(2)
-        .collect();
+    let old_neighbors: Vec<(usize, f64)> = spar.full_graph().neighbors(0).take(2).collect();
     let new_neighbors = vec![(40, 1.5), (41, 2.0)];
 
-    spar.update_embedding(0, &old_neighbors, &new_neighbors).unwrap();
+    spar.update_embedding(0, &old_neighbors, &new_neighbors)
+        .unwrap();
 
     for &(v, _) in &old_neighbors {
         assert!(!spar.full_graph().has_edge(0, v));
@@ -303,11 +299,7 @@ fn test_csr_roundtrip_preserves_structure() {
 
 #[test]
 fn test_weighted_degree() {
-    let g = SparseGraph::from_edges(&[
-        (0, 1, 2.0),
-        (0, 2, 3.0),
-        (0, 3, 5.0),
-    ]);
+    let g = SparseGraph::from_edges(&[(0, 1, 2.0), (0, 2, 3.0), (0, 3, 5.0)]);
     assert!((g.weighted_degree(0) - 10.0).abs() < 1e-10);
 }
 

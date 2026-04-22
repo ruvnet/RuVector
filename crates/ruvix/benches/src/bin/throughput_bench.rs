@@ -9,8 +9,8 @@ use std::time::{Duration, Instant};
 use tabled::{Table, Tabled};
 
 use ruvix_nucleus::{
-    Kernel, KernelConfig, Syscall, VectorStoreConfig, ProofTier,
-    VectorKey, MsgPriority, QueueHandle, GraphMutation,
+    GraphMutation, Kernel, KernelConfig, MsgPriority, ProofTier, QueueHandle, Syscall, VectorKey,
+    VectorStoreConfig,
 };
 
 #[derive(Parser, Debug)]
@@ -92,8 +92,14 @@ where
     let ops_per_sec = ops as f64 / elapsed.as_secs_f64();
     let latency_ns = elapsed.as_nanos() as f64 / ops as f64;
 
-    println!("  {}: {} ops in {:.2}s = {} ops/sec ({}/op)",
-        name, ops, elapsed.as_secs_f64(), format_rate(ops_per_sec), format_duration(latency_ns));
+    println!(
+        "  {}: {} ops in {:.2}s = {} ops/sec ({}/op)",
+        name,
+        ops,
+        elapsed.as_secs_f64(),
+        format_rate(ops_per_sec),
+        format_duration(latency_ns)
+    );
 
     (ops, elapsed, ops_per_sec)
 }
@@ -133,7 +139,11 @@ fn main() {
             ops_per_sec: format!("{}/s", format_rate(ops_per_sec)),
             latency: format_duration(1_000_000_000.0 / ops_per_sec),
             target: format!("{}/s", format_rate(args.target as f64)),
-            status: if meets_target { "PASS".to_string() } else { "FAIL".to_string() },
+            status: if meets_target {
+                "PASS".to_string()
+            } else {
+                "FAIL".to_string()
+            },
         });
     }
     println!();
@@ -166,7 +176,11 @@ fn main() {
             ops_per_sec: format!("{}/s", format_rate(ops_per_sec)),
             latency: format_duration(1_000_000_000.0 / ops_per_sec),
             target: format!("{}/s", format_rate(args.target as f64)),
-            status: if meets_target { "PASS".to_string() } else { "FAIL".to_string() },
+            status: if meets_target {
+                "PASS".to_string()
+            } else {
+                "FAIL".to_string()
+            },
         });
     }
     {
@@ -194,7 +208,11 @@ fn main() {
             ops_per_sec: format!("{}/s", format_rate(ops_per_sec)),
             latency: format_duration(1_000_000_000.0 / ops_per_sec),
             target: format!("{}/s", format_rate(args.target as f64 / 10.0)),
-            status: if ops_per_sec >= args.target as f64 / 10.0 { "PASS".to_string() } else { "FAIL".to_string() },
+            status: if ops_per_sec >= args.target as f64 / 10.0 {
+                "PASS".to_string()
+            } else {
+                "FAIL".to_string()
+            },
         });
     }
     println!();
@@ -223,7 +241,11 @@ fn main() {
             ops_per_sec: format!("{}/s", format_rate(ops_per_sec)),
             latency: format_duration(1_000_000_000.0 / ops_per_sec),
             target: format!("{}/s", format_rate(args.target as f64)),
-            status: if ops_per_sec >= args.target as f64 { "PASS".to_string() } else { "FAIL".to_string() },
+            status: if ops_per_sec >= args.target as f64 {
+                "PASS".to_string()
+            } else {
+                "FAIL".to_string()
+            },
         });
     }
     println!();
@@ -272,7 +294,11 @@ fn main() {
             ops_per_sec: format!("{}/s", format_rate(ops_per_sec)),
             latency: format_duration(1_000_000_000.0 / ops_per_sec),
             target: format!("{}/s", format_rate(args.target as f64 / 3.0)),
-            status: if ops_per_sec >= args.target as f64 / 3.0 { "PASS".to_string() } else { "FAIL".to_string() },
+            status: if ops_per_sec >= args.target as f64 / 3.0 {
+                "PASS".to_string()
+            } else {
+                "FAIL".to_string()
+            },
         });
     }
     println!();
@@ -285,7 +311,9 @@ fn main() {
         // Pipe write
         {
             let mut fds: [libc::c_int; 2] = [0; 2];
-            unsafe { libc::pipe(fds.as_mut_ptr()); }
+            unsafe {
+                libc::pipe(fds.as_mut_ptr());
+            }
 
             let write_fd = fds[1];
             let read_fd = fds[0];
@@ -294,8 +322,12 @@ fn main() {
             let reader = std::thread::spawn(move || {
                 let mut buf = [0u8; 8192];
                 loop {
-                    let n = unsafe { libc::read(read_fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len()) };
-                    if n <= 0 { break; }
+                    let n = unsafe {
+                        libc::read(read_fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len())
+                    };
+                    if n <= 0 {
+                        break;
+                    }
                 }
             });
 
@@ -303,7 +335,9 @@ fn main() {
                 unsafe { libc::write(write_fd, msg.as_ptr() as *const libc::c_void, msg.len()) };
             });
 
-            unsafe { libc::close(write_fd); }
+            unsafe {
+                libc::close(write_fd);
+            }
             let _ = reader.join();
 
             rows.push(ThroughputRow {
@@ -325,6 +359,10 @@ fn main() {
     // Calculate overall pass rate
     let passing = rows.iter().filter(|r| r.status == "PASS").count();
     let total = rows.iter().filter(|r| r.status != "-").count();
-    println!("Overall: {} / {} benchmarks meet target ({:.0}%)",
-        passing, total, 100.0 * passing as f64 / total as f64);
+    println!(
+        "Overall: {} / {} benchmarks meet target ({:.0}%)",
+        passing,
+        total,
+        100.0 * passing as f64 / total as f64
+    );
 }

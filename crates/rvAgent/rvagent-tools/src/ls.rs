@@ -31,10 +31,7 @@ impl Tool for LsTool {
     }
 
     fn invoke(&self, args: serde_json::Value, runtime: &ToolRuntime) -> ToolResult {
-        let path = args
-            .get("path")
-            .and_then(|v| v.as_str())
-            .unwrap_or("/");
+        let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("/");
 
         match runtime.backend.ls_info(path) {
             Ok(infos) => {

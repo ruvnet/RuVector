@@ -5,7 +5,7 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 
-use ruvix_cap::{CapManagerConfig, CapabilityManager, CapRights, ObjectType, TaskHandle};
+use ruvix_cap::{CapManagerConfig, CapRights, CapabilityManager, ObjectType, TaskHandle};
 use ruvix_queue::{KernelQueue, QueueConfig};
 use ruvix_region::{
     append_only::AppendOnlyRegion, backing::StaticBacking, immutable::ImmutableRegion,
@@ -238,7 +238,9 @@ fn bench_perception_pipeline(c: &mut Criterion) {
                     region.append(black_box(&event_data)).unwrap();
 
                     // Queue for processing
-                    queue.send(black_box(&event_data), MsgPriority::High).unwrap();
+                    queue
+                        .send(black_box(&event_data), MsgPriority::High)
+                        .unwrap();
                 }
 
                 // Process all events
@@ -276,34 +278,30 @@ fn bench_checkpoint_attestation(c: &mut Criterion) {
     for size in [1024, 4096, 16384].iter() {
         group.throughput(Throughput::Bytes(*size as u64));
 
-        group.bench_with_input(
-            BenchmarkId::new("checkpoint", size),
-            size,
-            |b, &size| {
-                let backing = StaticBacking::<65536>::new();
-                let handle = RegionHandle::new(1, 0);
-                let mut region = AppendOnlyRegion::new(backing, 65536, handle).unwrap();
+        group.bench_with_input(BenchmarkId::new("checkpoint", size), size, |b, &size| {
+            let backing = StaticBacking::<65536>::new();
+            let handle = RegionHandle::new(1, 0);
+            let mut region = AppendOnlyRegion::new(backing, 65536, handle).unwrap();
 
-                // Fill region
-                let chunk_size = 64;
-                let chunks = size / chunk_size;
-                for i in 0..chunks {
-                    let data = [i as u8; 64];
-                    region.append(&data).unwrap();
-                }
+            // Fill region
+            let chunk_size = 64;
+            let chunks = size / chunk_size;
+            for i in 0..chunks {
+                let data = [i as u8; 64];
+                region.append(&data).unwrap();
+            }
 
-                let mut buf = vec![0u8; size];
+            let mut buf = vec![0u8; size];
 
-                b.iter(|| {
-                    // Read state
-                    region.read(0, black_box(&mut buf)).unwrap();
+            b.iter(|| {
+                // Read state
+                region.read(0, black_box(&mut buf)).unwrap();
 
-                    // Compute attestation hash
-                    let hash = fnv1a_hash(&buf);
-                    black_box(hash)
-                });
-            },
-        );
+                // Compute attestation hash
+                let hash = fnv1a_hash(&buf);
+                black_box(hash)
+            });
+        });
     }
 
     group.finish();
@@ -392,10 +390,7 @@ fn bench_adr087_targets(c: &mut Criterion) {
         let target_cap = caps[50];
 
         b.iter(|| {
-            black_box(cap_manager.has_rights(
-                black_box(target_cap),
-                black_box(CapRights::READ),
-            ))
+            black_box(cap_manager.has_rights(black_box(target_cap), black_box(CapRights::READ)))
         });
     });
 

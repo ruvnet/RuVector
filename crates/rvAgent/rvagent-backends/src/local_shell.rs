@@ -309,10 +309,7 @@ impl SandboxBackend for LocalShellBackend {
                 truncated: false,
             },
             Err(_) => ExecuteResponse {
-                output: format!(
-                    "Command timed out after {} seconds",
-                    timeout_secs
-                ),
+                output: format!("Command timed out after {} seconds", timeout_secs),
                 exit_code: None,
                 truncated: false,
             },
@@ -456,7 +453,10 @@ mod tests {
         };
         let backend = LocalShellBackend::new(tmp.path().to_path_buf(), config);
         let result = backend
-            .execute("echo 'this is a very long output string that should be truncated'", None)
+            .execute(
+                "echo 'this is a very long output string that should be truncated'",
+                None,
+            )
             .await;
         assert!(result.truncated);
         assert!(result.output.contains("[output truncated]"));

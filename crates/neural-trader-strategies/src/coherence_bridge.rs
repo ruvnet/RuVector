@@ -48,7 +48,10 @@ impl<G: CoherenceGate> CoherenceChecker<G> {
     pub fn check(&self, intent: Intent, ctx: &GateContext) -> CoherenceOutcome {
         match self.gate.evaluate(ctx) {
             Ok(d) if d.allow_act => CoherenceOutcome::Pass(intent),
-            Ok(d) => CoherenceOutcome::Block { intent, decision: d },
+            Ok(d) => CoherenceOutcome::Block {
+                intent,
+                decision: d,
+            },
             Err(e) => CoherenceOutcome::Block {
                 intent,
                 decision: CoherenceDecision {

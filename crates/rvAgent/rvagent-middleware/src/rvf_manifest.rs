@@ -19,9 +19,7 @@ use rvagent_core::rvf_bridge::{
     MountTable, RvfBridgeConfig, RvfManifest, RvfMountHandle, RvfVerifyStatus,
 };
 
-use crate::{
-    AgentState, AgentStateUpdate, Middleware, Runtime, RunnableConfig, Tool,
-};
+use crate::{AgentState, AgentStateUpdate, Middleware, RunnableConfig, Runtime, Tool};
 
 // ---------------------------------------------------------------------------
 // RVF Manifest Middleware
@@ -49,10 +47,7 @@ impl RvfManifestMiddleware {
     }
 
     /// Create with a shared mount table.
-    pub fn with_mount_table(
-        config: RvfBridgeConfig,
-        mount_table: Arc<Mutex<MountTable>>,
-    ) -> Self {
+    pub fn with_mount_table(config: RvfBridgeConfig, mount_table: Arc<Mutex<MountTable>>) -> Self {
         Self {
             mount_table,
             config,
@@ -66,10 +61,7 @@ impl RvfManifestMiddleware {
     }
 
     /// Mount a package programmatically.
-    pub fn mount_package(
-        &self,
-        manifest: RvfManifest,
-    ) -> RvfMountHandle {
+    pub fn mount_package(&self, manifest: RvfManifest) -> RvfMountHandle {
         let verify_status = if self.config.verify_signatures {
             // Without rvf-crypto, we mark as valid (signature check is a no-op)
             // With rvf-compat feature, this would delegate to rvf-crypto::verify
@@ -191,10 +183,7 @@ impl Middleware for RvfManifestMiddleware {
             })
             .collect();
 
-        extensions.insert(
-            "rvf_packages".to_string(),
-            serde_json::json!(mount_info),
-        );
+        extensions.insert("rvf_packages".to_string(), serde_json::json!(mount_info));
 
         Some(AgentStateUpdate {
             messages: None,

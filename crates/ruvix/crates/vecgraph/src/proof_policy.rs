@@ -79,8 +79,8 @@ impl ProofPolicy {
     pub const fn deep() -> Self {
         Self {
             required_tier: ProofTier::Deep,
-            max_verification_time_us: 10_000,       // 10ms
-            max_validity_window_ns: 5_000_000_000,  // 5s
+            max_verification_time_us: 10_000,      // 10ms
+            max_validity_window_ns: 5_000_000_000, // 5s
             require_coherence_cert: true,
             min_coherence_in_proof: 5000, // 0.5
         }
@@ -428,7 +428,9 @@ mod tests {
         ProofToken::new(
             mutation_hash,
             tier,
-            ProofPayload::Hash { hash: mutation_hash },
+            ProofPayload::Hash {
+                hash: mutation_hash,
+            },
             valid_until_ns,
             nonce,
         )

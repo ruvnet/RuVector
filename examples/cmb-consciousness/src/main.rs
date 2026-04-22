@@ -44,10 +44,7 @@ fn main() {
     println!("  TPM size: {}x{}", tpm.size, tpm.size);
     println!(
         "  Bin edges (l): {:?}",
-        tpm.bin_edges
-            .iter()
-            .map(|x| *x as u32)
-            .collect::<Vec<_>>()
+        tpm.bin_edges.iter().map(|x| *x as u32).collect::<Vec<_>>()
     );
 
     // Step 3: Run analysis
@@ -61,7 +58,10 @@ fn main() {
     // Step 5: Generate SVG
     let svg = report::generate_svg(&results, &tpm, &ps);
     std::fs::write(output, &svg).expect("Failed to write SVG report");
-    println!("\nSVG report saved to: {}", parse_str_arg(&args, "--output", "cmb_report.svg"));
+    println!(
+        "\nSVG report saved to: {}",
+        parse_str_arg(&args, "--output", "cmb_report.svg")
+    );
 
     // Step 5: Cross-frequency foreground analysis
     println!("\n=== Step 5: Cross-Frequency Foreground Analysis ===");
@@ -81,24 +81,18 @@ fn main() {
     // Final verdict
     println!("\n+==========================================================+");
     if results.p_value < 0.05 {
-        println!(
-            "|  RESULT: Anomalous integrated information detected!     |"
-        );
+        println!("|  RESULT: Anomalous integrated information detected!     |");
         println!(
             "|  p = {:.4}, z = {:.2} -- warrants further investigation   |",
             results.p_value, results.z_score
         );
     } else {
-        println!(
-            "|  RESULT: CMB consistent with Gaussian random field      |"
-        );
+        println!("|  RESULT: CMB consistent with Gaussian random field      |");
         println!(
             "|  p = {:.4}, z = {:.2} -- no evidence of structured        |",
             results.p_value, results.z_score
         );
-        println!(
-            "|  intelligence at this resolution                        |"
-        );
+        println!("|  intelligence at this resolution                        |");
     }
     println!("+==========================================================+");
 }

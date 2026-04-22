@@ -99,8 +99,12 @@ impl PhiEngine for ChebyshevPhiEngine {
             }
         }
         let full = (1u64 << n) - 1;
-        if mask == 0 { mask = 1; }
-        if mask == full { mask = full - 1; }
+        if mask == 0 {
+            mask = 1;
+        }
+        if mask == full {
+            mask = full - 1;
+        }
 
         let partition = Bipartition { mask, n };
         let arena = PhiArena::with_capacity(n * 16);
@@ -237,6 +241,10 @@ mod tests {
         let result = ChebyshevPhiEngine::default()
             .compute_phi(&tpm, Some(0), &budget)
             .unwrap();
-        assert!(result.phi < 1e-3, "chebyshev disconnected should be ~0, got {}", result.phi);
+        assert!(
+            result.phi < 1e-3,
+            "chebyshev disconnected should be ~0, got {}",
+            result.phi
+        );
     }
 }

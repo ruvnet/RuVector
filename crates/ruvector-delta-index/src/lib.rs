@@ -566,7 +566,12 @@ impl DeltaHnsw {
                 let dist = self.distance(query, neighbor);
 
                 // SAFETY: If results.len() < ef is false, results is non-empty (ef >= 1)
-                let should_add = results.len() < ef || dist < -results.peek().expect("results non-empty when len >= ef").dist;
+                let should_add = results.len() < ef
+                    || dist
+                        < -results
+                            .peek()
+                            .expect("results non-empty when len >= ef")
+                            .dist;
 
                 if should_add {
                     candidates.push(Candidate {

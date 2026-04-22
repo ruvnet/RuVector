@@ -107,10 +107,7 @@ impl Arena {
         if self.chunks.is_empty() {
             return 0;
         }
-        let full_chunks: usize = self.chunks[..self.current]
-            .iter()
-            .map(|c| c.len())
-            .sum();
+        let full_chunks: usize = self.chunks[..self.current].iter().map(|c| c.len()).sum();
         full_chunks + self.offset
     }
 }

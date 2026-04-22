@@ -255,9 +255,7 @@ mod tests {
     #[tokio::test]
     async fn test_create_session() {
         let agent = default_agent();
-        let info = agent
-            .create_session(&CreateSessionRequest::default())
-            .await;
+        let info = agent.create_session(&CreateSessionRequest::default()).await;
         assert!(!info.id.is_empty());
         assert_eq!(info.message_count, 0);
     }
@@ -267,12 +265,8 @@ mod tests {
         let agent = default_agent();
         assert!(agent.list_sessions().await.is_empty());
 
-        agent
-            .create_session(&CreateSessionRequest::default())
-            .await;
-        agent
-            .create_session(&CreateSessionRequest::default())
-            .await;
+        agent.create_session(&CreateSessionRequest::default()).await;
+        agent.create_session(&CreateSessionRequest::default()).await;
 
         assert_eq!(agent.list_sessions().await.len(), 2);
     }
@@ -280,9 +274,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_session() {
         let agent = default_agent();
-        let info = agent
-            .create_session(&CreateSessionRequest::default())
-            .await;
+        let info = agent.create_session(&CreateSessionRequest::default()).await;
 
         let fetched = agent.get_session(&info.id).await;
         assert!(fetched.is_some());
@@ -294,9 +286,7 @@ mod tests {
     #[tokio::test]
     async fn test_delete_session() {
         let agent = default_agent();
-        let info = agent
-            .create_session(&CreateSessionRequest::default())
-            .await;
+        let info = agent.create_session(&CreateSessionRequest::default()).await;
 
         assert!(agent.delete_session(&info.id).await);
         assert!(!agent.delete_session(&info.id).await);
@@ -324,9 +314,7 @@ mod tests {
     #[tokio::test]
     async fn test_prompt_existing_session() {
         let agent = default_agent();
-        let info = agent
-            .create_session(&CreateSessionRequest::default())
-            .await;
+        let info = agent.create_session(&CreateSessionRequest::default()).await;
 
         let resp = agent
             .prompt(
@@ -351,9 +339,7 @@ mod tests {
         let result = agent
             .prompt(
                 Some("bad_id"),
-                vec![ContentBlock::Text {
-                    text: "hi".into(),
-                }],
+                vec![ContentBlock::Text { text: "hi".into() }],
             )
             .await;
         assert!(result.is_err());
@@ -366,12 +352,8 @@ mod tests {
             .prompt(
                 None,
                 vec![
-                    ContentBlock::Text {
-                        text: "one".into(),
-                    },
-                    ContentBlock::Text {
-                        text: "two".into(),
-                    },
+                    ContentBlock::Text { text: "one".into() },
+                    ContentBlock::Text { text: "two".into() },
                 ],
             )
             .await

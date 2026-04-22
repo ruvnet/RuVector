@@ -37,7 +37,11 @@ struct SymbolState {
 
 impl Default for SymbolState {
     fn default() -> Self {
-        Self { latest_mid_cents: None, prior: None, last_emit_seq: 0 }
+        Self {
+            latest_mid_cents: None,
+            prior: None,
+            last_emit_seq: 0,
+        }
     }
 }
 
@@ -74,7 +78,10 @@ pub struct ExpectedValueKelly {
 
 impl ExpectedValueKelly {
     pub fn new(config: ExpectedValueKellyConfig) -> Self {
-        Self { config, symbols: HashMap::new() }
+        Self {
+            config,
+            symbols: HashMap::new(),
+        }
     }
 
     /// Install or update the probability prior for a symbol. Priors are

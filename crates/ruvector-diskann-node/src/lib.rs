@@ -4,10 +4,10 @@
 
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
+use parking_lot::RwLock;
 use ruvector_diskann::{DiskAnnConfig, DiskAnnIndex as CoreIndex};
 use std::path::PathBuf;
 use std::sync::Arc;
-use parking_lot::RwLock;
 
 #[napi(object)]
 pub struct DiskAnnOptions {

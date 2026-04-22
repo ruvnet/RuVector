@@ -69,7 +69,7 @@ pub use compress::{CompressedTensor, CompressionLevel, TensorCompress};
 pub use error::{GnnError, Result};
 pub use ewc::ElasticWeightConsolidation;
 pub use graphmae::{
-    sce_loss, mse_loss, FeatureMasking, GATEncoder, GraphData, GraphMAE, GraphMAEConfig,
+    mse_loss, sce_loss, FeatureMasking, GATEncoder, GraphData, GraphMAE, GraphMAEConfig,
     GraphMAEDecoder, LossFn, MaskResult,
 };
 pub use layer::RuvectorLayer;

@@ -30,13 +30,21 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or(5);
     let status_filter = std::env::var("KALSHI_MARKETS_STATUS").ok();
 
-    println!("GET {}/markets{}", creds.api_url, status_filter
-        .as_deref()
-        .map(|s| format!("?status={s}"))
-        .unwrap_or_default());
+    println!(
+        "GET {}/markets{}",
+        creds.api_url,
+        status_filter
+            .as_deref()
+            .map(|s| format!("?status={s}"))
+            .unwrap_or_default()
+    );
 
     let markets = client.list_markets(status_filter.as_deref()).await?;
-    println!("received {} market(s); showing first {}:\n", markets.len(), limit.min(markets.len()));
+    println!(
+        "received {} market(s); showing first {}:\n",
+        markets.len(),
+        limit.min(markets.len())
+    );
 
     for m in markets.iter().take(limit) {
         let yes = m
@@ -44,7 +52,10 @@ async fn main() -> anyhow::Result<()> {
             .zip(m.yes_ask)
             .map(|(b, a)| format!("{b}/{a}¢"))
             .unwrap_or_else(|| "-/-".into());
-        let vol = m.volume.map(|v| v.to_string()).unwrap_or_else(|| "-".into());
+        let vol = m
+            .volume
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| "-".into());
         let title = m.title.as_deref().unwrap_or("");
         let status = m.status.as_deref().unwrap_or("-");
         println!(

@@ -20,7 +20,10 @@ pub enum BudgetError {
     /// Total tokens (input + output) exceeded.
     TokenLimitExceeded { limit: u64, consumed: u64 },
     /// Cost budget exceeded.
-    CostLimitExceeded { limit_microdollars: u64, consumed_microdollars: u64 },
+    CostLimitExceeded {
+        limit_microdollars: u64,
+        consumed_microdollars: u64,
+    },
     /// Too many tool calls.
     ToolCallLimitExceeded { limit: u32, count: u32 },
     /// Too many external writes.
@@ -30,16 +33,25 @@ pub enum BudgetError {
 impl std::fmt::Display for BudgetError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            BudgetError::TimeLimitExceeded { limit_secs, elapsed_secs } => {
+            BudgetError::TimeLimitExceeded {
+                limit_secs,
+                elapsed_secs,
+            } => {
                 write!(f, "time limit exceeded: {elapsed_secs}s > {limit_secs}s")
             }
             BudgetError::TokenLimitExceeded { limit, consumed } => {
                 write!(f, "token limit exceeded: {consumed} > {limit}")
             }
-            BudgetError::CostLimitExceeded { limit_microdollars, consumed_microdollars } => {
-                write!(f, "cost limit exceeded: ${:.4} > ${:.4}",
+            BudgetError::CostLimitExceeded {
+                limit_microdollars,
+                consumed_microdollars,
+            } => {
+                write!(
+                    f,
+                    "cost limit exceeded: ${:.4} > ${:.4}",
                     *consumed_microdollars as f64 / 1_000_000.0,
-                    *limit_microdollars as f64 / 1_000_000.0)
+                    *limit_microdollars as f64 / 1_000_000.0
+                )
             }
             BudgetError::ToolCallLimitExceeded { limit, count } => {
                 write!(f, "tool call limit exceeded: {count} > {limit}")
@@ -216,7 +228,8 @@ impl BudgetEnforcer {
 
     /// Record cost in microdollars.
     pub fn record_cost(&self, microdollars: u64) {
-        self.consumed_cost_microdollars.fetch_add(microdollars, Ordering::Relaxed);
+        self.consumed_cost_microdollars
+            .fetch_add(microdollars, Ordering::Relaxed);
     }
 
     /// Record an external write.

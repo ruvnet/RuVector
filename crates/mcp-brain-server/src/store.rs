@@ -124,10 +124,12 @@ impl FirestoreClient {
         let docs = self.firestore_list("brain_votes").await;
         let mut count = 0usize;
         for doc in docs {
-            let memory_id = doc.get("memory_id")
+            let memory_id = doc
+                .get("memory_id")
                 .and_then(|v| v.as_str())
                 .and_then(|s| s.parse::<Uuid>().ok());
-            let voter = doc.get("voter")
+            let voter = doc
+                .get("voter")
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string());
             if let (Some(mid), Some(v)) = (memory_id, voter) {
@@ -136,7 +138,8 @@ impl FirestoreClient {
             }
         }
         // Restore vote counter from loaded entries
-        self.vote_counter.store(count as u64, std::sync::atomic::Ordering::Relaxed);
+        self.vote_counter
+            .store(count as u64, std::sync::atomic::Ordering::Relaxed);
         tracing::info!("Vote tracker rebuilt: {} entries from Firestore", count);
     }
 
@@ -172,7 +175,8 @@ impl FirestoreClient {
     /// Fetch a new token from the GCE metadata server
     async fn refresh_token(&self) -> Option<String> {
         let url = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token";
-        let resp = self.http
+        let resp = self
+            .http
             .get(url)
             .header("Metadata-Flavor", "Google")
             .send()
@@ -180,7 +184,10 @@ impl FirestoreClient {
             .ok()?;
 
         if !resp.status().is_success() {
-            tracing::warn!("Firestore: GCE metadata token request failed: {}", resp.status());
+            tracing::warn!(
+                "Firestore: GCE metadata token request failed: {}",
+                resp.status()
+            );
             return None;
         }
 
@@ -191,8 +198,8 @@ impl FirestoreClient {
         }
 
         let token_resp: TokenResponse = resp.json().await.ok()?;
-        let expires_at = std::time::Instant::now()
-            + std::time::Duration::from_secs(token_resp.expires_in);
+        let expires_at =
+            std::time::Instant::now() + std::time::Duration::from_secs(token_resp.expires_in);
 
         let token = token_resp.access_token.clone();
 
@@ -205,12 +212,19 @@ impl FirestoreClient {
             });
         }
 
-        tracing::debug!("Firestore token refreshed, expires in {}s", token_resp.expires_in);
+        tracing::debug!(
+            "Firestore token refreshed, expires in {}s",
+            token_resp.expires_in
+        );
         Some(token)
     }
 
     /// Build an authenticated request builder for Firestore
-    async fn authenticated_request(&self, method: reqwest::Method, url: &str) -> reqwest::RequestBuilder {
+    async fn authenticated_request(
+        &self,
+        method: reqwest::Method,
+        url: &str,
+    ) -> reqwest::RequestBuilder {
         let mut builder = self.http.request(method, url);
         if let Some(token) = self.get_token().await {
             builder = builder.bearer_auth(token);
@@ -224,7 +238,9 @@ impl FirestoreClient {
     /// Wraps JSON body as a single `data` stringValue field for simplicity.
     /// Uses PATCH to create or update documents.
     async fn firestore_put(&self, collection: &str, doc_id: &str, body: &serde_json::Value) {
-        let Some(ref base) = self.base_url else { return };
+        let Some(ref base) = self.base_url else {
+            return;
+        };
         let url = format!("{base}/{collection}/{doc_id}");
         let json_str = serde_json::to_string(body).unwrap_or_default();
         let firestore_doc = serde_json::json!({
@@ -235,7 +251,8 @@ impl FirestoreClient {
 
         // Retry loop: up to 2 attempts (initial + 1 retry) with token refresh on 401.
         for attempt in 0..2u8 {
-            let result = self.authenticated_request(reqwest::Method::PATCH, &url)
+            let result = self
+                .authenticated_request(reqwest::Method::PATCH, &url)
                 .await
                 .json(&firestore_doc)
                 .send()
@@ -248,7 +265,9 @@ impl FirestoreClient {
                 Ok(resp) if resp.status().as_u16() == 401 && attempt == 0 => {
                     tracing::info!("Firestore PATCH token expired, refreshing for retry...");
                     if self.refresh_token().await.is_none() {
-                        tracing::warn!("Firestore PATCH {collection}/{doc_id}: token refresh failed");
+                        tracing::warn!(
+                            "Firestore PATCH {collection}/{doc_id}: token refresh failed"
+                        );
                         return;
                     }
                     // Loop will retry with fresh token
@@ -266,7 +285,9 @@ impl FirestoreClient {
                     return;
                 }
                 Err(e) if attempt == 0 => {
-                    tracing::warn!("Firestore PATCH {collection}/{doc_id} failed: {e}, retrying...");
+                    tracing::warn!(
+                        "Firestore PATCH {collection}/{doc_id} failed: {e}, retrying..."
+                    );
                     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                 }
                 Err(e) => {
@@ -279,9 +300,12 @@ impl FirestoreClient {
 
     /// Delete a document from Firestore
     async fn firestore_delete(&self, collection: &str, doc_id: &str) {
-        let Some(ref base) = self.base_url else { return };
+        let Some(ref base) = self.base_url else {
+            return;
+        };
         let url = format!("{base}/{collection}/{doc_id}");
-        let result = self.authenticated_request(reqwest::Method::DELETE, &url)
+        let result = self
+            .authenticated_request(reqwest::Method::DELETE, &url)
             .await
             .send()
             .await;
@@ -310,7 +334,9 @@ impl FirestoreClient {
     const MAX_PAGE_ERRORS: usize = 3;
 
     async fn firestore_list(&self, collection: &str) -> Vec<serde_json::Value> {
-        let Some(ref base) = self.base_url else { return Vec::new() };
+        let Some(ref base) = self.base_url else {
+            return Vec::new();
+        };
         let mut all_docs = Vec::new();
         let mut page_token: Option<String> = None;
         let mut consecutive_errors: usize = 0;
@@ -330,7 +356,8 @@ impl FirestoreClient {
                 url.push_str(&format!("&pageToken={}", urlencoding::encode(token)));
             }
 
-            let result = self.authenticated_request(reqwest::Method::GET, &url)
+            let result = self
+                .authenticated_request(reqwest::Method::GET, &url)
                 .await
                 .send()
                 .await;
@@ -353,26 +380,38 @@ impl FirestoreClient {
                                 consecutive_errors += 1;
                                 tracing::warn!(
                                     "Firestore LIST {collection} retry returned {} (error {}/{})",
-                                    resp.status(), consecutive_errors, Self::MAX_PAGE_ERRORS
+                                    resp.status(),
+                                    consecutive_errors,
+                                    Self::MAX_PAGE_ERRORS
                                 );
-                                if consecutive_errors >= Self::MAX_PAGE_ERRORS { break; }
+                                if consecutive_errors >= Self::MAX_PAGE_ERRORS {
+                                    break;
+                                }
                                 continue;
                             }
                             Err(e) => {
                                 consecutive_errors += 1;
                                 tracing::warn!(
                                     "Firestore LIST {collection} retry failed: {e} (error {}/{})",
-                                    consecutive_errors, Self::MAX_PAGE_ERRORS
+                                    consecutive_errors,
+                                    Self::MAX_PAGE_ERRORS
                                 );
-                                if consecutive_errors >= Self::MAX_PAGE_ERRORS { break; }
+                                if consecutive_errors >= Self::MAX_PAGE_ERRORS {
+                                    break;
+                                }
                                 continue;
                             }
                         }
                     } else {
                         consecutive_errors += 1;
-                        tracing::warn!("Firestore LIST {collection}: token refresh failed (error {}/{})",
-                            consecutive_errors, Self::MAX_PAGE_ERRORS);
-                        if consecutive_errors >= Self::MAX_PAGE_ERRORS { break; }
+                        tracing::warn!(
+                            "Firestore LIST {collection}: token refresh failed (error {}/{})",
+                            consecutive_errors,
+                            Self::MAX_PAGE_ERRORS
+                        );
+                        if consecutive_errors >= Self::MAX_PAGE_ERRORS {
+                            break;
+                        }
                         continue;
                     }
                 }
@@ -381,7 +420,9 @@ impl FirestoreClient {
                     consecutive_errors += 1;
                     tracing::warn!(
                         "Firestore LIST {collection} returned {} (error {}/{})",
-                        status, consecutive_errors, Self::MAX_PAGE_ERRORS
+                        status,
+                        consecutive_errors,
+                        Self::MAX_PAGE_ERRORS
                     );
                     // 400 Bad Request with a page token means the token is stale
                     // (e.g. after OOM restart). Switch to offset-based pagination.
@@ -395,16 +436,21 @@ impl FirestoreClient {
                         consecutive_errors = 0; // reset — this is a recovery, not repeated failure
                         continue;
                     }
-                    if consecutive_errors >= Self::MAX_PAGE_ERRORS { break; }
+                    if consecutive_errors >= Self::MAX_PAGE_ERRORS {
+                        break;
+                    }
                     continue;
                 }
                 Err(e) => {
                     consecutive_errors += 1;
                     tracing::warn!(
                         "Firestore LIST {collection} failed: {e} (error {}/{})",
-                        consecutive_errors, Self::MAX_PAGE_ERRORS
+                        consecutive_errors,
+                        Self::MAX_PAGE_ERRORS
                     );
-                    if consecutive_errors >= Self::MAX_PAGE_ERRORS { break; }
+                    if consecutive_errors >= Self::MAX_PAGE_ERRORS {
+                        break;
+                    }
                     continue;
                 }
             };
@@ -415,9 +461,12 @@ impl FirestoreClient {
                     consecutive_errors += 1;
                     tracing::warn!(
                         "Firestore LIST {collection} parse error: {e} (error {}/{})",
-                        consecutive_errors, Self::MAX_PAGE_ERRORS
+                        consecutive_errors,
+                        Self::MAX_PAGE_ERRORS
                     );
-                    if consecutive_errors >= Self::MAX_PAGE_ERRORS { break; }
+                    if consecutive_errors >= Self::MAX_PAGE_ERRORS {
+                        break;
+                    }
                     continue;
                 }
             };
@@ -447,7 +496,11 @@ impl FirestoreClient {
                 _ if use_offset_fallback => {
                     // In offset mode, check if we got any docs this page
                     // (no docs = we've exhausted the collection)
-                    if body.get("documents").and_then(|d| d.as_array()).map_or(true, |d| d.is_empty()) {
+                    if body
+                        .get("documents")
+                        .and_then(|d| d.as_array())
+                        .map_or(true, |d| d.is_empty())
+                    {
                         break;
                     }
                     // Otherwise continue with incremented offset (all_docs.len() grows each iteration)
@@ -459,10 +512,14 @@ impl FirestoreClient {
         if consecutive_errors > 0 {
             tracing::warn!(
                 "Firestore LIST {collection}: loaded {} documents with {} error(s)",
-                all_docs.len(), consecutive_errors
+                all_docs.len(),
+                consecutive_errors
             );
         } else {
-            tracing::info!("Firestore LIST {collection}: loaded {} documents", all_docs.len());
+            tracing::info!(
+                "Firestore LIST {collection}: loaded {} documents",
+                all_docs.len()
+            );
         }
         all_docs
     }
@@ -501,8 +558,13 @@ impl FirestoreClient {
         let docs = self.firestore_list("brain_page_status").await;
         for doc in docs {
             if let (Some(id), Some(status)) = (
-                doc.get("id").and_then(|v| v.as_str()).and_then(|s| s.parse::<Uuid>().ok()),
-                serde_json::from_value::<PageStatus>(doc.get("status").cloned().unwrap_or_default()).ok(),
+                doc.get("id")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| s.parse::<Uuid>().ok()),
+                serde_json::from_value::<PageStatus>(
+                    doc.get("status").cloned().unwrap_or_default(),
+                )
+                .ok(),
             ) {
                 self.page_status.insert(id, status);
             }
@@ -525,7 +587,12 @@ impl FirestoreClient {
     }
 
     /// Public Firestore write for cross-module persistence (e.g., LoRA store)
-    pub async fn firestore_put_public(&self, collection: &str, doc_id: &str, body: &serde_json::Value) {
+    pub async fn firestore_put_public(
+        &self,
+        collection: &str,
+        doc_id: &str,
+        body: &serde_json::Value,
+    ) {
         self.firestore_put(collection, doc_id, body).await;
     }
 
@@ -542,7 +609,8 @@ impl FirestoreClient {
         crate::graph::normalize_embedding(&mut memory.embedding);
         // Write-through to Firestore
         if let Ok(body) = serde_json::to_value(&memory) {
-            self.firestore_put("brain_memories", &id.to_string(), &body).await;
+            self.firestore_put("brain_memories", &id.to_string(), &body)
+                .await;
         }
         self.memories.insert(id, memory);
         Ok(())
@@ -555,18 +623,15 @@ impl FirestoreClient {
 
     /// Delete a memory (contributor-scoped, cache + Firestore)
     /// Uses atomic remove_if to prevent TOCTOU race
-    pub async fn delete_memory(
-        &self,
-        id: &Uuid,
-        contributor: &str,
-    ) -> Result<bool, StoreError> {
+    pub async fn delete_memory(&self, id: &Uuid, contributor: &str) -> Result<bool, StoreError> {
         // Atomic check-and-remove: no TOCTOU window
-        let removed = self.memories.remove_if(id, |_, entry| {
-            entry.contributor_id == contributor
-        });
+        let removed = self
+            .memories
+            .remove_if(id, |_, entry| entry.contributor_id == contributor);
         match removed {
             Some(_) => {
-                self.firestore_delete("brain_memories", &id.to_string()).await;
+                self.firestore_delete("brain_memories", &id.to_string())
+                    .await;
                 Ok(true)
             }
             None => {
@@ -601,9 +666,7 @@ impl FirestoreClient {
                 let m = entry.value();
                 let quality_ok = m.quality_score.mean() >= min_quality;
                 let category_ok = category.map_or(true, |c| &m.category == c);
-                let tags_ok = tags.map_or(true, |t| {
-                    t.iter().any(|tag| m.tags.contains(tag))
-                });
+                let tags_ok = tags.map_or(true, |t| t.iter().any(|tag| m.tags.contains(tag)));
                 quality_ok && category_ok && tags_ok
             })
             .map(|entry| {
@@ -686,7 +749,10 @@ impl FirestoreClient {
                 }
 
                 // Category match
-                if query_tokens.iter().any(|t| m.category.to_string().to_lowercase().contains(t)) {
+                if query_tokens
+                    .iter()
+                    .any(|t| m.category.to_string().to_lowercase().contains(t))
+                {
                     score += 1.5;
                 }
 
@@ -718,9 +784,7 @@ impl FirestoreClient {
             .filter(|entry| {
                 let m = entry.value();
                 let category_ok = category.map_or(true, |c| &m.category == c);
-                let tags_ok = tags.map_or(true, |t| {
-                    t.iter().any(|tag| m.tags.contains(tag))
-                });
+                let tags_ok = tags.map_or(true, |t| t.iter().any(|tag| m.tags.contains(tag)));
                 category_ok && tags_ok
             })
             .map(|entry| entry.value().clone())
@@ -750,11 +814,7 @@ impl FirestoreClient {
             }
         }
 
-        let paginated: Vec<BrainMemory> = memories
-            .into_iter()
-            .skip(offset)
-            .take(limit)
-            .collect();
+        let paginated: Vec<BrainMemory> = memories.into_iter().skip(offset).take(limit).collect();
 
         Ok((paginated, total_count))
     }
@@ -782,10 +842,10 @@ impl FirestoreClient {
 
         // Block duplicate votes: same voter on same memory (single lookup via entry API)
         let vote_key = (*id, voter.to_string());
-        if let dashmap::mapref::entry::Entry::Occupied(_) = self.vote_tracker.entry(vote_key.clone()) {
-            return Err(StoreError::Forbidden(
-                "Already voted on this memory".into(),
-            ));
+        if let dashmap::mapref::entry::Entry::Occupied(_) =
+            self.vote_tracker.entry(vote_key.clone())
+        {
+            return Err(StoreError::Forbidden("Already voted on this memory".into()));
         }
 
         let quality_score;
@@ -834,27 +894,34 @@ impl FirestoreClient {
                 voter: voter.to_string(),
                 timestamp: chrono::Utc::now(),
             };
-            let idx = self.vote_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let idx = self
+                .vote_counter
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             self.vote_log.insert(idx, pair);
 
             // FIFO eviction: remove oldest entries when over cap
-            let start = self.vote_log_start.load(std::sync::atomic::Ordering::Relaxed);
+            let start = self
+                .vote_log_start
+                .load(std::sync::atomic::Ordering::Relaxed);
             if idx.saturating_sub(start) >= self.vote_log_cap {
                 let evict_to = idx - self.vote_log_cap + 1;
                 for old_idx in start..evict_to {
                     self.vote_log.remove(&old_idx);
                 }
-                self.vote_log_start.store(evict_to, std::sync::atomic::Ordering::Relaxed);
+                self.vote_log_start
+                    .store(evict_to, std::sync::atomic::Ordering::Relaxed);
             }
         }
 
         // Persist vote tracker entry to Firestore (outside borrow block)
-        self.firestore_put("brain_votes", &vote_doc_id, &vote_doc).await;
+        self.firestore_put("brain_votes", &vote_doc_id, &vote_doc)
+            .await;
 
         // Write-through: persist updated memory to Firestore
         if let Some(m) = self.memories.get(id) {
             if let Ok(body) = serde_json::to_value(m.value()) {
-                self.firestore_put("brain_memories", &id.to_string(), &body).await;
+                self.firestore_put("brain_memories", &id.to_string(), &body)
+                    .await;
             }
         }
 
@@ -863,7 +930,11 @@ impl FirestoreClient {
 
     /// Get preference pairs for training data export (Layer A)
     /// Returns pairs accumulated since the given index
-    pub fn get_preference_pairs(&self, since_index: u64, limit: usize) -> (Vec<PreferencePair>, u64) {
+    pub fn get_preference_pairs(
+        &self,
+        since_index: u64,
+        limit: usize,
+    ) -> (Vec<PreferencePair>, u64) {
         let current = self.vote_counter.load(std::sync::atomic::Ordering::Relaxed);
         let mut pairs = Vec::new();
         for idx in since_index..current {
@@ -904,7 +975,8 @@ impl FirestoreClient {
                     composite: 1.0,
                 };
                 if let Ok(body) = serde_json::to_value(c.value()) {
-                    self.firestore_put("brain_contributors", pseudonym, &body).await;
+                    self.firestore_put("brain_contributors", pseudonym, &body)
+                        .await;
                 }
             }
             return Ok(c.clone());
@@ -927,15 +999,20 @@ impl FirestoreClient {
             is_system,
         };
         if let Ok(body) = serde_json::to_value(&info) {
-            self.firestore_put("brain_contributors", pseudonym, &body).await;
+            self.firestore_put("brain_contributors", pseudonym, &body)
+                .await;
         }
-        self.contributors.insert(pseudonym.to_string(), info.clone());
+        self.contributors
+            .insert(pseudonym.to_string(), info.clone());
         Ok(info)
     }
 
     /// Detect the embedding dimension from the first stored memory
     pub fn detect_embedding_dim(&self) -> Option<usize> {
-        self.memories.iter().next().map(|e| e.value().embedding.len())
+        self.memories
+            .iter()
+            .next()
+            .map(|e| e.value().embedding.len())
     }
 
     /// Get all memories (for graph building)
@@ -974,7 +1051,9 @@ impl FirestoreClient {
 
     /// Get the reputation score for a contributor, if known
     pub fn get_contributor_reputation(&self, pseudonym: &str) -> Option<ReputationScore> {
-        self.contributors.get(pseudonym).map(|c| c.reputation.clone())
+        self.contributors
+            .get(pseudonym)
+            .map(|c| c.reputation.clone())
     }
 
     /// Record a contribution: increment count, update uptime, recompute composite
@@ -984,22 +1063,17 @@ impl FirestoreClient {
             entry.last_active = chrono::Utc::now();
             // Grow stake organically through contributions
             entry.reputation.stake += 1.0;
-            crate::reputation::ReputationManager::record_activity(
-                &mut entry.reputation,
-            );
+            crate::reputation::ReputationManager::record_activity(&mut entry.reputation);
             // Persist updated contributor
             if let Ok(body) = serde_json::to_value(entry.value()) {
-                self.firestore_put("brain_contributors", pseudonym, &body).await;
+                self.firestore_put("brain_contributors", pseudonym, &body)
+                    .await;
             }
         }
     }
 
     /// Update contributor reputation based on vote outcome on their content
-    pub async fn update_reputation_from_vote(
-        &self,
-        content_author: &str,
-        was_upvoted: bool,
-    ) {
+    pub async fn update_reputation_from_vote(&self, content_author: &str, was_upvoted: bool) {
         if let Some(mut entry) = self.contributors.get_mut(content_author) {
             crate::reputation::ReputationManager::update_accuracy(
                 &mut entry.reputation,
@@ -1022,11 +1096,8 @@ impl FirestoreClient {
     ) -> bool {
         let mgr = crate::reputation::ReputationManager::new();
         if let Some(mut entry) = self.contributors.get_mut(content_author) {
-            let penalized = mgr.check_poisoning_penalty(
-                &mut entry.reputation,
-                downvote_count,
-                quality,
-            );
+            let penalized =
+                mgr.check_poisoning_penalty(&mut entry.reputation, downvote_count, quality);
             if penalized {
                 if let Ok(body) = serde_json::to_value(entry.value()) {
                     self.firestore_put("brain_contributors", content_author, &body)
@@ -1063,11 +1134,13 @@ impl FirestoreClient {
         let id = memory.id;
         // Persist memory
         if let Ok(body) = serde_json::to_value(&memory) {
-            self.firestore_put("brain_memories", &id.to_string(), &body).await;
+            self.firestore_put("brain_memories", &id.to_string(), &body)
+                .await;
         }
         // Persist page status
         let status_doc = serde_json::json!({ "id": id.to_string(), "status": status });
-        self.firestore_put("brain_page_status", &id.to_string(), &status_doc).await;
+        self.firestore_put("brain_page_status", &id.to_string(), &status_doc)
+            .await;
         // Cache
         self.memories.insert(id, memory);
         self.page_status.insert(id, status);
@@ -1094,11 +1167,7 @@ impl FirestoreClient {
     }
 
     /// Submit a delta to a page
-    pub async fn submit_delta(
-        &self,
-        page_id: &Uuid,
-        delta: PageDelta,
-    ) -> Result<(), StoreError> {
+    pub async fn submit_delta(&self, page_id: &Uuid, delta: PageDelta) -> Result<(), StoreError> {
         if !self.memories.contains_key(page_id) {
             return Err(StoreError::NotFound(page_id.to_string()));
         }
@@ -1135,9 +1204,7 @@ impl FirestoreClient {
             return Err(StoreError::NotFound(page_id.to_string()));
         }
 
-        let mut ev = self.page_evidence
-            .entry(*page_id)
-            .or_insert_with(Vec::new);
+        let mut ev = self.page_evidence.entry(*page_id).or_insert_with(Vec::new);
         ev.push(evidence);
         Ok(ev.len() as u32)
     }
@@ -1160,7 +1227,11 @@ impl FirestoreClient {
 
     /// Get page evidence and delta counts
     pub fn page_counts(&self, page_id: &Uuid) -> (u32, u32) {
-        let ev = self.page_evidence.get(page_id).map(|e| e.len()).unwrap_or(0) as u32;
+        let ev = self
+            .page_evidence
+            .get(page_id)
+            .map(|e| e.len())
+            .unwrap_or(0) as u32;
         let dc = self.page_deltas.get(page_id).map(|d| d.len()).unwrap_or(0) as u32;
         (ev, dc)
     }
@@ -1188,7 +1259,8 @@ impl FirestoreClient {
 
     /// Promote a page from Draft to Canonical (cache + Firestore)
     pub async fn promote_page(&self, page_id: &Uuid) -> Result<PageStatus, StoreError> {
-        let current = self.get_page_status(page_id)
+        let current = self
+            .get_page_status(page_id)
             .ok_or_else(|| StoreError::NotFound(page_id.to_string()))?;
         if current != PageStatus::Draft {
             return Err(StoreError::Storage(format!(
@@ -1202,8 +1274,10 @@ impl FirestoreClient {
         }
         self.page_status.insert(*page_id, PageStatus::Canonical);
         // Persist status change
-        let status_doc = serde_json::json!({ "id": page_id.to_string(), "status": PageStatus::Canonical });
-        self.firestore_put("brain_page_status", &page_id.to_string(), &status_doc).await;
+        let status_doc =
+            serde_json::json!({ "id": page_id.to_string(), "status": PageStatus::Canonical });
+        self.firestore_put("brain_page_status", &page_id.to_string(), &status_doc)
+            .await;
         Ok(PageStatus::Canonical)
     }
 
@@ -1226,7 +1300,11 @@ impl FirestoreClient {
     // ──────────────────────────────────────────────────────────────────
 
     /// Publish a WASM node (cache + Firestore write-through for metadata)
-    pub async fn publish_node(&self, node: WasmNode, wasm_bytes: Vec<u8>) -> Result<(), StoreError> {
+    pub async fn publish_node(
+        &self,
+        node: WasmNode,
+        wasm_bytes: Vec<u8>,
+    ) -> Result<(), StoreError> {
         if self.wasm_nodes.contains_key(&node.id) {
             return Err(StoreError::Storage(format!(
                 "Node {} already exists (nodes are immutable, use a new version)",
@@ -1263,10 +1341,14 @@ impl FirestoreClient {
     /// Revoke a node (marks as revoked, does not delete bytes, cache + Firestore)
     pub async fn revoke_node(&self, id: &str, contributor: &str) -> Result<(), StoreError> {
         {
-            let mut node = self.wasm_nodes.get_mut(id)
+            let mut node = self
+                .wasm_nodes
+                .get_mut(id)
                 .ok_or_else(|| StoreError::NotFound(id.to_string()))?;
             if node.contributor_id != contributor {
-                return Err(StoreError::Forbidden("Only original publisher can revoke".into()));
+                return Err(StoreError::Forbidden(
+                    "Only original publisher can revoke".into(),
+                ));
             }
             node.revoked = true;
         }

@@ -363,7 +363,9 @@ impl<B: MemoryBacking> KernelVectorStore<B> {
         self.data_slab.read(slot_handle, &mut buf)?;
 
         // Parse header
-        let key_bytes: [u8; 8] = buf[0..8].try_into().map_err(|_| KernelError::InternalError)?;
+        let key_bytes: [u8; 8] = buf[0..8]
+            .try_into()
+            .map_err(|_| KernelError::InternalError)?;
         let stored_key = VectorKey::new(u64::from_le_bytes(key_bytes));
 
         if stored_key != key {
@@ -494,7 +496,10 @@ impl<B: MemoryBacking> KernelVectorStore<B> {
         buf[0..8].copy_from_slice(&key.raw().to_le_bytes());
 
         // Write coherence metadata
-        serialize_coherence_meta(coherence, &mut buf[8..8 + core::mem::size_of::<CoherenceMeta>()]);
+        serialize_coherence_meta(
+            coherence,
+            &mut buf[8..8 + core::mem::size_of::<CoherenceMeta>()],
+        );
 
         // Write vector data
         let data_start = VECTOR_ENTRY_HEADER_SIZE;
@@ -607,12 +612,19 @@ mod tests {
         )
     }
 
-    fn create_test_proof(data: &[f32], key: VectorKey, valid_until_ns: u64, nonce: u64) -> ProofToken {
+    fn create_test_proof(
+        data: &[f32],
+        key: VectorKey,
+        valid_until_ns: u64,
+        nonce: u64,
+    ) -> ProofToken {
         let mutation_hash = compute_vector_mutation_hash(key, data);
         ProofToken::new(
             mutation_hash,
             ProofTier::Standard,
-            ProofPayload::Hash { hash: mutation_hash },
+            ProofPayload::Hash {
+                hash: mutation_hash,
+            },
             valid_until_ns,
             nonce,
         )

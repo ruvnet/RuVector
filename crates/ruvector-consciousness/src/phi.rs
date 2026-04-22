@@ -55,7 +55,11 @@ pub(crate) fn validate_tpm(tpm: &TransitionMatrix) -> Result<(), ConsciousnessEr
             row_sum += val;
         }
         if (row_sum - 1.0).abs() > 1e-6 {
-            return Err(ValidationError::InvalidTPM { row: i, sum: row_sum }.into());
+            return Err(ValidationError::InvalidTPM {
+                row: i,
+                sum: row_sum,
+            }
+            .into());
         }
     }
     Ok(())
@@ -178,9 +182,19 @@ fn compute_product_distribution_fast(
         for global_state in 0..n {
             let sa = extract_substate(global_state, set_a);
             let sb = extract_substate(global_state, set_b);
-            let pa = if sa < ka { unsafe { *dist_a.get_unchecked(sa) } } else { 0.0 };
-            let pb = if sb < kb { unsafe { *dist_b.get_unchecked(sb) } } else { 0.0 };
-            unsafe { *output.get_unchecked_mut(global_state) = pa * pb; }
+            let pa = if sa < ka {
+                unsafe { *dist_a.get_unchecked(sa) }
+            } else {
+                0.0
+            };
+            let pb = if sb < kb {
+                unsafe { *dist_b.get_unchecked(sb) }
+            } else {
+                0.0
+            };
+            unsafe {
+                *output.get_unchecked_mut(global_state) = pa * pb;
+            }
         }
     } else {
         for global_state in 0..n {
@@ -697,7 +711,9 @@ impl HierarchicalPhiEngine {
 
 impl Default for HierarchicalPhiEngine {
     fn default() -> Self {
-        Self { exact_threshold: 12 }
+        Self {
+            exact_threshold: 12,
+        }
     }
 }
 
@@ -786,13 +802,20 @@ impl PhiEngine for HierarchicalPhiEngine {
                             }
                         }
                         // Fill in the other group's elements.
-                        let other_group = if std::ptr::eq(group, &group_a) { &group_b } else { &group_a };
+                        let other_group = if std::ptr::eq(group, &group_a) {
+                            &group_b
+                        } else {
+                            &group_a
+                        };
                         for &idx in other_group {
                             global_mask |= 1 << idx;
                         }
                         let full = (1u64 << n) - 1;
                         if global_mask != 0 && global_mask != full {
-                            best_partition = Bipartition { mask: global_mask, n };
+                            best_partition = Bipartition {
+                                mask: global_mask,
+                                n,
+                            };
                         }
                     }
                     convergence.push(min_phi);

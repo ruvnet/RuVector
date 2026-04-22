@@ -3,8 +3,8 @@
 //! Tests C8: SubAgent Result Validation to prevent manipulation attacks.
 
 use rvagent_subagents::{
-    AgentState, CompiledSubAgent, SpawnError, SubAgentOrchestrator, SubAgentSpec,
-    ValidationConfig, ValidationError, spawn_parallel,
+    spawn_parallel, AgentState, CompiledSubAgent, SpawnError, SubAgentOrchestrator, SubAgentSpec,
+    ValidationConfig, ValidationError,
 };
 use std::collections::HashMap;
 

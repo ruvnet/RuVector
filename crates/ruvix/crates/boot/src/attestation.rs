@@ -6,7 +6,7 @@
 //! - Region layout hash
 //! - Boot timestamp
 
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 
 /// Boot attestation entry recorded as the first witness log entry.
 ///
@@ -131,18 +131,18 @@ impl BootAttestation {
         region_layout_hash.copy_from_slice(&bytes[64..96]);
 
         let boot_timestamp_ns = u64::from_le_bytes([
-            bytes[96], bytes[97], bytes[98], bytes[99],
-            bytes[100], bytes[101], bytes[102], bytes[103],
+            bytes[96], bytes[97], bytes[98], bytes[99], bytes[100], bytes[101], bytes[102],
+            bytes[103],
         ]);
 
         let boot_sequence = u64::from_le_bytes([
-            bytes[104], bytes[105], bytes[106], bytes[107],
-            bytes[108], bytes[109], bytes[110], bytes[111],
+            bytes[104], bytes[105], bytes[106], bytes[107], bytes[108], bytes[109], bytes[110],
+            bytes[111],
         ]);
 
         let platform_id = u64::from_le_bytes([
-            bytes[112], bytes[113], bytes[114], bytes[115],
-            bytes[116], bytes[117], bytes[118], bytes[119],
+            bytes[112], bytes[113], bytes[114], bytes[115], bytes[116], bytes[117], bytes[118],
+            bytes[119],
         ]);
 
         let mut reserved = [0u8; 16];
@@ -355,12 +355,7 @@ mod tests {
 
     #[test]
     fn test_boot_attestation_creation() {
-        let att = BootAttestation::new(
-            [1u8; 32],
-            [2u8; 32],
-            [3u8; 32],
-            1234567890,
-        );
+        let att = BootAttestation::new([1u8; 32], [2u8; 32], [3u8; 32], 1234567890);
 
         assert_eq!(att.rvf_hash, [1u8; 32]);
         assert_eq!(att.capability_table_hash, [2u8; 32]);
@@ -370,12 +365,7 @@ mod tests {
 
     #[test]
     fn test_boot_attestation_serialization() {
-        let att = BootAttestation::new(
-            [0xAA; 32],
-            [0xBB; 32],
-            [0xCC; 32],
-            999999999,
-        );
+        let att = BootAttestation::new([0xAA; 32], [0xBB; 32], [0xCC; 32], 999999999);
 
         let bytes = att.to_bytes();
         let recovered = BootAttestation::from_bytes(&bytes).unwrap();

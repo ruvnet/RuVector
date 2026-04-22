@@ -95,7 +95,10 @@ fn main() {
         measure_iterations: iterations,
     };
 
-    println!("Running proof tier benchmarks ({} iterations)...", iterations);
+    println!(
+        "Running proof tier benchmarks ({} iterations)...",
+        iterations
+    );
     println!();
 
     let tier_results = ruvix::bench_proof_tiers(&config);
@@ -219,7 +222,10 @@ fn main() {
             let selinux_speedup = linux_selinux.mean_ns / reflex_result.mean_ns;
 
             println!("Speedup Analysis:");
-            println!("  RuVix Reflex vs Linux Capability: {:.1}x faster", cap_speedup);
+            println!(
+                "  RuVix Reflex vs Linux Capability: {:.1}x faster",
+                cap_speedup
+            );
             println!("  RuVix Reflex vs SELinux: {:.1}x faster", selinux_speedup);
         }
     }

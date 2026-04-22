@@ -14,7 +14,6 @@
 use crate::traits::PhiEngine;
 use crate::types::{ComputeBudget, StreamingPhiResult, TransitionMatrix};
 
-
 // ---------------------------------------------------------------------------
 // Streaming Φ estimator
 // ---------------------------------------------------------------------------
@@ -106,7 +105,12 @@ impl StreamingPhiEstimator {
         engine: &E,
         budget: &ComputeBudget,
     ) -> Option<StreamingPhiResult> {
-        assert!(state < self.n, "state {} out of range for n={}", state, self.n);
+        assert!(
+            state < self.n,
+            "state {} out of range for n={}",
+            state,
+            self.n
+        );
 
         // Record transition.
         if let Some(prev) = self.prev_state {
@@ -215,8 +219,8 @@ impl StreamingPhiEstimator {
         self.cusum_pos = (self.cusum_pos + deviation).max(0.0);
         self.cusum_neg = (self.cusum_neg - deviation).max(0.0);
 
-        let detected = self.cusum_pos > self.cusum_threshold
-            || self.cusum_neg > self.cusum_threshold;
+        let detected =
+            self.cusum_pos > self.cusum_threshold || self.cusum_neg > self.cusum_threshold;
 
         if detected {
             // Reset after detection.
@@ -269,7 +273,10 @@ mod tests {
                 got_result = true;
             }
         }
-        assert!(got_result, "should produce result after enough observations");
+        assert!(
+            got_result,
+            "should produce result after enough observations"
+        );
     }
 
     #[test]

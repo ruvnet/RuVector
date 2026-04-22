@@ -138,7 +138,7 @@ fn matvec(matrix: &[f32], x: &[f32], rows: usize, cols: usize) -> Vec<f32> {
 pub struct SelectiveSSM {
     config: SSMConfig,
     // Parameterized as -exp(a_log) to guarantee negative real parts (stability).
-    a_log: Vec<f32>,     // [d_inner * d_state]
+    a_log: Vec<f32>, // [d_inner * d_state]
     // 1D causal conv weights: [d_inner, d_conv]
     conv_weight: Vec<f32>,
     conv_bias: Vec<f32>, // [d_inner]
@@ -204,7 +204,11 @@ impl SelectiveSSM {
     pub fn forward(&self, input: &[f32]) -> Vec<f32> {
         let d_model = self.config.d_model;
         let seq_len = input.len() / d_model;
-        assert_eq!(input.len(), seq_len * d_model, "input not divisible by d_model");
+        assert_eq!(
+            input.len(),
+            seq_len * d_model,
+            "input not divisible by d_model"
+        );
 
         let d_inner = self.config.d_inner();
 
@@ -394,7 +398,11 @@ impl MambaBlock {
         }
         let ssm_out = self.ssm.forward(&normed);
         // Residual connection
-        input.iter().zip(ssm_out.iter()).map(|(a, b)| a + b).collect()
+        input
+            .iter()
+            .zip(ssm_out.iter())
+            .map(|(a, b)| a + b)
+            .collect()
     }
 
     /// Single-step inference with residual.
@@ -542,7 +550,7 @@ mod tests {
     fn test_softplus_values() {
         assert!((softplus(0.0) - 0.6931).abs() < 1e-3); // ln(2)
         assert!((softplus(1.0) - 1.3133).abs() < 1e-3); // ln(1+e)
-        // Large x: softplus(x) ≈ x
+                                                        // Large x: softplus(x) ≈ x
         assert!((softplus(25.0) - 25.0).abs() < 1e-3);
         // Negative x: approaches 0
         assert!(softplus(-25.0) < 1e-3);
@@ -551,7 +559,7 @@ mod tests {
     #[test]
     fn test_silu_values() {
         assert!((silu(0.0)).abs() < 1e-6); // 0 * 0.5 = 0
-        // silu(1) = 1/(1+e^-1) ≈ 0.7311
+                                           // silu(1) = 1/(1+e^-1) ≈ 0.7311
         assert!((silu(1.0) - 0.7311).abs() < 1e-3);
         // silu is odd-ish: silu(-x) ≈ -x * sigmoid(-x)
         assert!(silu(-5.0) < 0.0);
@@ -632,9 +640,12 @@ mod tests {
         };
         let schedule = hc.layer_schedule();
         assert_eq!(schedule.len(), 8);
-        let attn_count = schedule.iter().filter(|k| **k == LayerKind::Attention).count();
+        let attn_count = schedule
+            .iter()
+            .filter(|k| **k == LayerKind::Attention)
+            .count();
         assert_eq!(attn_count, 2); // 8 layers, every 4th is attn
-        // Layers 3, 7 should be Attention
+                                   // Layers 3, 7 should be Attention
         assert_eq!(schedule[3], LayerKind::Attention);
         assert_eq!(schedule[7], LayerKind::Attention);
     }

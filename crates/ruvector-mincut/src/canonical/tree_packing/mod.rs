@@ -32,11 +32,9 @@
 //! For sparse graphs this is faster than the Tier 1 approach which runs
 //! up to V max-flow probes after Stoer-Wagner.
 
-use crate::graph::{DynamicGraph, VertexId};
+use super::source_anchored::{canonical_mincut, SourceAnchoredConfig, SourceAnchoredCut};
 use super::FixedWeight;
-use super::source_anchored::{
-    canonical_mincut, SourceAnchoredConfig, SourceAnchoredCut,
-};
+use crate::graph::{DynamicGraph, VertexId};
 
 use std::collections::{HashMap, VecDeque};
 
@@ -103,11 +101,8 @@ impl AdjSnapshot {
         let mut vertices = graph.vertices();
         vertices.sort_unstable();
 
-        let id_to_idx: HashMap<VertexId, usize> = vertices
-            .iter()
-            .enumerate()
-            .map(|(i, &v)| (v, i))
-            .collect();
+        let id_to_idx: HashMap<VertexId, usize> =
+            vertices.iter().enumerate().map(|(i, &v)| (v, i)).collect();
 
         let n = vertices.len();
         let mut adj = vec![Vec::new(); n];
@@ -122,7 +117,12 @@ impl AdjSnapshot {
             }
         }
 
-        Self { n, vertices, id_to_idx, adj }
+        Self {
+            n,
+            vertices,
+            id_to_idx,
+            adj,
+        }
     }
 
     /// Build a flat dense capacity matrix for max-flow computation.
@@ -144,12 +144,7 @@ impl AdjSnapshot {
 // Dinic's max-flow (local copy to avoid coupling with source_anchored)
 // ---------------------------------------------------------------------------
 
-fn dinic_maxflow(
-    cap: &mut [FixedWeight],
-    s: usize,
-    t: usize,
-    n: usize,
-) -> FixedWeight {
+fn dinic_maxflow(cap: &mut [FixedWeight], s: usize, t: usize, n: usize) -> FixedWeight {
     let mut total_flow = FixedWeight::zero();
     let mut level = vec![-1i32; n];
     let mut queue = VecDeque::with_capacity(n);
@@ -396,10 +391,7 @@ impl GomoryHuTree {
         side_b.sort_unstable();
 
         let edge = &self.edges[best_edge_idx];
-        let cut_tree_edge = (
-            self.vertices[edge.u],
-            self.vertices[edge.v],
-        );
+        let cut_tree_edge = (self.vertices[edge.u], self.vertices[edge.v]);
 
         Some(TreeMinCutResult {
             lambda,

@@ -57,10 +57,7 @@ impl Tool for WriteTodosTool {
         match serde_json::from_value::<Vec<TodoItem>>(todos_value) {
             Ok(todos) => {
                 // Validate: at most one in_progress
-                let in_progress_count = todos
-                    .iter()
-                    .filter(|t| t.status == "in_progress")
-                    .count();
+                let in_progress_count = todos.iter().filter(|t| t.status == "in_progress").count();
                 if in_progress_count > 1 {
                     return ToolResult::Text(format!(
                         "Error: at most 1 todo should be in_progress, found {}",
@@ -127,10 +124,7 @@ mod tests {
     #[test]
     fn test_write_todos_empty_list() {
         let runtime = mock_runtime();
-        let result = WriteTodosTool.invoke(
-            serde_json::json!({"todos": []}),
-            &runtime,
-        );
+        let result = WriteTodosTool.invoke(serde_json::json!({"todos": []}), &runtime);
         match result {
             ToolResult::Command(StateUpdate::Todos(todos)) => {
                 assert!(todos.is_empty());

@@ -308,7 +308,9 @@ mod tests {
         );
         assert_eq!(
             parser.parse("trace off"),
-            Ok(Command::Trace { enable: Some(false) })
+            Ok(Command::Trace {
+                enable: Some(false)
+            })
         );
         assert_eq!(
             parser.parse("trace enable"),
@@ -316,7 +318,9 @@ mod tests {
         );
         assert_eq!(
             parser.parse("trace disable"),
-            Ok(Command::Trace { enable: Some(false) })
+            Ok(Command::Trace {
+                enable: Some(false)
+            })
         );
         assert_eq!(
             parser.parse("trace 1"),
@@ -324,7 +328,9 @@ mod tests {
         );
         assert_eq!(
             parser.parse("trace 0"),
-            Ok(Command::Trace { enable: Some(false) })
+            Ok(Command::Trace {
+                enable: Some(false)
+            })
         );
         assert!(matches!(
             parser.parse("trace invalid"),

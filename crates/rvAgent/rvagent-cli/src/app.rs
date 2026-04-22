@@ -10,12 +10,10 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use tracing::{info, warn};
 
-use rvagent_core::config::{
-    BackendConfig, MiddlewareConfig, RvAgentConfig, SecurityPolicy,
-};
+use rvagent_core::config::{BackendConfig, MiddlewareConfig, RvAgentConfig, SecurityPolicy};
 use rvagent_core::graph::{AgentGraph, ToolExecutor};
 use rvagent_core::messages::{Message, ToolCall as CoreToolCall};
-use rvagent_core::models::{ChatModel, resolve_model};
+use rvagent_core::models::{resolve_model, ChatModel};
 use rvagent_core::prompt::BASE_AGENT_PROMPT;
 use rvagent_core::state::AgentState;
 
@@ -199,12 +197,7 @@ impl rvagent_tools::Backend for LocalFsBackend {
         Ok(infos)
     }
 
-    fn read(
-        &self,
-        path: &str,
-        offset: usize,
-        limit: usize,
-    ) -> std::result::Result<String, String> {
+    fn read(&self, path: &str, offset: usize, limit: usize) -> std::result::Result<String, String> {
         let content =
             std::fs::read_to_string(path).map_err(|e| format!("read '{}': {}", path, e))?;
         let lines: Vec<&str> = content.lines().collect();
@@ -292,11 +285,7 @@ impl rvagent_tools::Backend for LocalFsBackend {
         }
     }
 
-    fn glob_info(
-        &self,
-        pattern: &str,
-        path: &str,
-    ) -> std::result::Result<Vec<String>, String> {
+    fn glob_info(&self, pattern: &str, path: &str) -> std::result::Result<Vec<String>, String> {
         let base = if path.is_empty() || path == "." {
             self.cwd.clone()
         } else {
@@ -528,10 +517,7 @@ impl App {
 
     /// Run the interactive TUI loop.
     pub async fn run_interactive(&mut self) -> Result<()> {
-        let mut tui = Tui::new(
-            &self.config.model,
-            &self.session.id,
-        )?;
+        let mut tui = Tui::new(&self.config.model, &self.session.id)?;
 
         // Show existing messages if resuming.
         for msg in &self.session.messages {
@@ -717,11 +703,17 @@ mod tests {
     #[test]
     fn test_default_middleware_order() {
         // Verify critical ordering constraints from ADR-103.
-        let todo_pos = DEFAULT_MIDDLEWARE.iter().position(|m| *m == "todo")
+        let todo_pos = DEFAULT_MIDDLEWARE
+            .iter()
+            .position(|m| *m == "todo")
             .expect("'todo' middleware must be in DEFAULT_MIDDLEWARE");
-        let witness_pos = DEFAULT_MIDDLEWARE.iter().position(|m| *m == "witness")
+        let witness_pos = DEFAULT_MIDDLEWARE
+            .iter()
+            .position(|m| *m == "witness")
             .expect("'witness' middleware must be in DEFAULT_MIDDLEWARE");
-        let hitl_pos = DEFAULT_MIDDLEWARE.iter().position(|m| *m == "hitl")
+        let hitl_pos = DEFAULT_MIDDLEWARE
+            .iter()
+            .position(|m| *m == "hitl")
             .expect("'hitl' middleware must be in DEFAULT_MIDDLEWARE");
         let patch_pos = DEFAULT_MIDDLEWARE
             .iter()

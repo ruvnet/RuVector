@@ -98,10 +98,7 @@ mod tests {
     #[test]
     fn test_read_file_success() {
         let runtime = mock_runtime();
-        let result = ReadFileTool.invoke(
-            serde_json::json!({"file_path": "/test.txt"}),
-            &runtime,
-        );
+        let result = ReadFileTool.invoke(serde_json::json!({"file_path": "/test.txt"}), &runtime);
         match result {
             ToolResult::Text(s) => {
                 assert!(s.contains("hello"));
@@ -154,10 +151,7 @@ mod tests {
     #[test]
     fn test_read_image_file() {
         let runtime = mock_runtime();
-        let result = ReadFileTool.invoke(
-            serde_json::json!({"file_path": "/photo.png"}),
-            &runtime,
-        );
+        let result = ReadFileTool.invoke(serde_json::json!({"file_path": "/photo.png"}), &runtime);
         match result {
             ToolResult::Text(s) => assert!(s.contains("Image file")),
             _ => panic!("expected image message"),
@@ -167,10 +161,7 @@ mod tests {
     #[test]
     fn test_read_empty_file() {
         let runtime = mock_runtime_with_empty_file();
-        let result = ReadFileTool.invoke(
-            serde_json::json!({"file_path": "/empty.txt"}),
-            &runtime,
-        );
+        let result = ReadFileTool.invoke(serde_json::json!({"file_path": "/empty.txt"}), &runtime);
         match result {
             ToolResult::Text(s) => assert!(s.contains("empty contents")),
             _ => panic!("expected empty warning"),

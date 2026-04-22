@@ -29,10 +29,18 @@ pub struct MLAConfig {
 impl MLAConfig {
     pub fn validate(&self) -> AttentionResult<()> {
         let err = |msg: &str| Err(AttentionError::InvalidConfig(msg.into()));
-        if self.d_model == 0 { return err("d_model must be > 0"); }
-        if self.num_heads == 0 { return err("num_heads must be > 0"); }
-        if self.head_dim == 0 { return err("head_dim must be > 0"); }
-        if self.latent_dim == 0 { return err("latent_dim must be > 0"); }
+        if self.d_model == 0 {
+            return err("d_model must be > 0");
+        }
+        if self.num_heads == 0 {
+            return err("num_heads must be > 0");
+        }
+        if self.head_dim == 0 {
+            return err("head_dim must be > 0");
+        }
+        if self.latent_dim == 0 {
+            return err("latent_dim must be > 0");
+        }
         if self.latent_dim >= self.full_kv_dim() {
             return err("latent_dim must be < num_heads * head_dim");
         }
@@ -68,9 +76,12 @@ pub struct MLACache {
 impl MLACache {
     pub fn new(config: &MLAConfig) -> Self {
         Self {
-            latent_vectors: Vec::new(), rope_keys: Vec::new(),
-            latent_dim: config.latent_dim, rope_dim: config.rope_dim,
-            num_heads: config.num_heads, head_dim: config.head_dim,
+            latent_vectors: Vec::new(),
+            rope_keys: Vec::new(),
+            latent_dim: config.latent_dim,
+            rope_dim: config.rope_dim,
+            num_heads: config.num_heads,
+            head_dim: config.head_dim,
         }
     }
 
@@ -79,8 +90,12 @@ impl MLACache {
         self.rope_keys.push(rope_key);
     }
 
-    pub fn len(&self) -> usize { self.latent_vectors.len() }
-    pub fn is_empty(&self) -> bool { self.latent_vectors.is_empty() }
+    pub fn len(&self) -> usize {
+        self.latent_vectors.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.latent_vectors.is_empty()
+    }
 
     /// Total floats stored in this MLA cache.
     pub fn cache_size(&self) -> usize {
@@ -94,7 +109,9 @@ impl MLACache {
 
     /// KV-cache reduction ratio (e.g. 0.9375 = 93.75% reduction vs MHA).
     pub fn reduction_ratio(&self) -> f32 {
-        if self.len() == 0 { return 0.0; }
+        if self.len() == 0 {
+            return 0.0;
+        }
         1.0 - (self.cache_size() as f32 / self.mha_equivalent_size() as f32)
     }
 }
@@ -129,7 +146,9 @@ impl MLALayer {
         })
     }
 
-    pub fn config(&self) -> &MLAConfig { &self.config }
+    pub fn config(&self) -> &MLAConfig {
+        &self.config
+    }
 
     /// Compress input to KV latent: `c_kv = x @ W_dkv`.
     pub fn compress_kv(&self, x: &[f32]) -> Vec<f32> {
@@ -138,16 +157,28 @@ impl MLALayer {
 
     /// Decompress latent to keys: `K = c_kv @ W_uk`.
     pub fn decompress_keys(&self, c: &[f32]) -> Vec<f32> {
-        matvec(&self.w_uk, c, self.config.latent_dim, self.config.full_kv_dim())
+        matvec(
+            &self.w_uk,
+            c,
+            self.config.latent_dim,
+            self.config.full_kv_dim(),
+        )
     }
 
     /// Decompress latent to values: `V = c_kv @ W_uv`.
     pub fn decompress_values(&self, c: &[f32]) -> Vec<f32> {
-        matvec(&self.w_uv, c, self.config.latent_dim, self.config.full_kv_dim())
+        matvec(
+            &self.w_uv,
+            c,
+            self.config.latent_dim,
+            self.config.full_kv_dim(),
+        )
     }
 
     fn compute_rope_keys(&self, x: &[f32]) -> Vec<f32> {
-        if self.config.rope_dim == 0 { return Vec::new(); }
+        if self.config.rope_dim == 0 {
+            return Vec::new();
+        }
         matvec(&self.w_rope, x, self.config.d_model, self.config.rope_dim)
     }
 
@@ -161,7 +192,9 @@ impl MLALayer {
     fn apply_rope(v: &mut [f32], position: usize) {
         let dim = v.len();
         for i in (0..dim).step_by(2) {
-            if i + 1 >= dim { break; }
+            if i + 1 >= dim {
+                break;
+            }
             let freq = 1.0 / (10000.0_f32).powf(i as f32 / dim as f32);
             let theta = position as f32 * freq;
             let (cos_t, sin_t) = (theta.cos(), theta.sin());
@@ -172,9 +205,7 @@ impl MLALayer {
     }
 
     /// Core attention computation shared by `forward` and `forward_cached`.
-    fn attend(
-        &self, q_full: &[f32], all_keys: &[Vec<f32>], all_values: &[Vec<f32>],
-    ) -> Vec<f32> {
+    fn attend(&self, q_full: &[f32], all_keys: &[Vec<f32>], all_values: &[Vec<f32>]) -> Vec<f32> {
         let (nh, hd) = (self.config.num_heads, self.config.head_dim);
         let scale = (hd as f32).sqrt();
         let mut out = vec![0.0_f32; nh * hd];
@@ -188,45 +219,71 @@ impl MLALayer {
             softmax_inplace(&mut scores);
             for (si, &w) in scores.iter().enumerate() {
                 let vh = &all_values[si][off..off + hd];
-                for d in 0..hd { out[off + d] += w * vh[d]; }
+                for d in 0..hd {
+                    out[off + d] += w * vh[d];
+                }
             }
         }
-        matvec(&self.w_out, &out, self.config.full_kv_dim(), self.config.d_model)
+        matvec(
+            &self.w_out,
+            &out,
+            self.config.full_kv_dim(),
+            self.config.d_model,
+        )
     }
 
     /// Prepares query with RoPE applied to the decoupled portion of each head.
     fn prepare_query(&self, input: &[f32], pos: usize) -> Vec<f32> {
         let mut q = self.compute_query(input);
-        let (nh, hd, rd) = (self.config.num_heads, self.config.head_dim, self.config.rope_dim);
+        let (nh, hd, rd) = (
+            self.config.num_heads,
+            self.config.head_dim,
+            self.config.rope_dim,
+        );
         if rd > 0 {
-            for h in 0..nh { Self::apply_rope(&mut q[h * hd..h * hd + rd], pos); }
+            for h in 0..nh {
+                Self::apply_rope(&mut q[h * hd..h * hd + rd], pos);
+            }
         }
         q
     }
 
     /// Decompresses a latent+rope pair into full keys/values for one position.
     fn decompress_position(
-        &self, latent: &[f32], rope: &[f32], pos: usize,
+        &self,
+        latent: &[f32],
+        rope: &[f32],
+        pos: usize,
     ) -> (Vec<f32>, Vec<f32>) {
         let mut keys = self.decompress_keys(latent);
         let values = self.decompress_values(latent);
-        let (nh, hd, rd) = (self.config.num_heads, self.config.head_dim, self.config.rope_dim);
+        let (nh, hd, rd) = (
+            self.config.num_heads,
+            self.config.head_dim,
+            self.config.rope_dim,
+        );
         if rd > 0 {
             let mut rp = rope.to_vec();
             Self::apply_rope(&mut rp, pos);
-            for h in 0..nh { keys[h * hd..h * hd + rd].copy_from_slice(&rp); }
+            for h in 0..nh {
+                keys[h * hd..h * hd + rd].copy_from_slice(&rp);
+            }
         }
         (keys, values)
     }
 
     /// Full MLA forward pass for a single query position.
     pub fn forward(
-        &self, query_input: &[f32], kv_inputs: &[&[f32]],
-        query_pos: usize, kv_positions: &[usize],
+        &self,
+        query_input: &[f32],
+        kv_inputs: &[&[f32]],
+        query_pos: usize,
+        kv_positions: &[usize],
     ) -> AttentionResult<Vec<f32>> {
         if query_input.len() != self.config.d_model {
             return Err(AttentionError::DimensionMismatch {
-                expected: self.config.d_model, actual: query_input.len(),
+                expected: self.config.d_model,
+                actual: query_input.len(),
             });
         }
         if kv_inputs.is_empty() {
@@ -234,7 +291,8 @@ impl MLALayer {
         }
         if kv_inputs.len() != kv_positions.len() {
             return Err(AttentionError::DimensionMismatch {
-                expected: kv_inputs.len(), actual: kv_positions.len(),
+                expected: kv_inputs.len(),
+                actual: kv_positions.len(),
             });
         }
         let q_full = self.prepare_query(query_input, query_pos);
@@ -243,7 +301,8 @@ impl MLALayer {
         for (i, &kv) in kv_inputs.iter().enumerate() {
             if kv.len() != self.config.d_model {
                 return Err(AttentionError::DimensionMismatch {
-                    expected: self.config.d_model, actual: kv.len(),
+                    expected: self.config.d_model,
+                    actual: kv.len(),
                 });
             }
             let c = self.compress_kv(kv);
@@ -257,22 +316,28 @@ impl MLALayer {
 
     /// Forward pass using incremental MLA cache (for autoregressive decoding).
     pub fn forward_cached(
-        &self, query_input: &[f32], new_kv_input: &[f32],
-        query_pos: usize, cache: &mut MLACache,
+        &self,
+        query_input: &[f32],
+        new_kv_input: &[f32],
+        query_pos: usize,
+        cache: &mut MLACache,
     ) -> AttentionResult<Vec<f32>> {
         if new_kv_input.len() != self.config.d_model {
             return Err(AttentionError::DimensionMismatch {
-                expected: self.config.d_model, actual: new_kv_input.len(),
+                expected: self.config.d_model,
+                actual: new_kv_input.len(),
             });
         }
-        cache.push(self.compress_kv(new_kv_input), self.compute_rope_keys(new_kv_input));
+        cache.push(
+            self.compress_kv(new_kv_input),
+            self.compute_rope_keys(new_kv_input),
+        );
         let q_full = self.prepare_query(query_input, query_pos);
         let mut all_k = Vec::with_capacity(cache.len());
         let mut all_v = Vec::with_capacity(cache.len());
         for pos in 0..cache.len() {
-            let (k, v) = self.decompress_position(
-                &cache.latent_vectors[pos], &cache.rope_keys[pos], pos,
-            );
+            let (k, v) =
+                self.decompress_position(&cache.latent_vectors[pos], &cache.rope_keys[pos], pos);
             all_k.push(k);
             all_v.push(v);
         }
@@ -284,8 +349,11 @@ impl MLALayer {
         let mha = seq_len * 2 * self.config.num_heads * self.config.head_dim;
         let mla = seq_len * (self.config.latent_dim + self.config.rope_dim);
         MemoryComparison {
-            seq_len, mha_cache_floats: mha, mla_cache_floats: mla,
-            mha_cache_bytes: mha * 4, mla_cache_bytes: mla * 4,
+            seq_len,
+            mha_cache_floats: mha,
+            mla_cache_floats: mla,
+            mha_cache_bytes: mha * 4,
+            mla_cache_bytes: mla * 4,
             reduction_ratio: 1.0 - (mla as f32 / mha as f32),
         }
     }
@@ -304,7 +372,10 @@ pub struct MemoryComparison {
 
 impl Attention for MLALayer {
     fn compute(
-        &self, query: &[f32], keys: &[&[f32]], values: &[&[f32]],
+        &self,
+        query: &[f32],
+        keys: &[&[f32]],
+        values: &[&[f32]],
     ) -> AttentionResult<Vec<f32>> {
         let _ = values; // MLA derives V from the same inputs as K
         let positions: Vec<usize> = (0..keys.len()).collect();
@@ -312,14 +383,21 @@ impl Attention for MLALayer {
     }
 
     fn compute_with_mask(
-        &self, query: &[f32], keys: &[&[f32]], values: &[&[f32]],
+        &self,
+        query: &[f32],
+        keys: &[&[f32]],
+        values: &[&[f32]],
         _mask: Option<&[bool]>,
     ) -> AttentionResult<Vec<f32>> {
         self.compute(query, keys, values)
     }
 
-    fn dim(&self) -> usize { self.config.d_model }
-    fn num_heads(&self) -> usize { self.config.num_heads }
+    fn dim(&self) -> usize {
+        self.config.d_model
+    }
+    fn num_heads(&self) -> usize {
+        self.config.num_heads
+    }
 }
 
 // -- Utility functions --------------------------------------------------------
@@ -340,8 +418,13 @@ fn dot(a: &[f32], b: &[f32]) -> f32 {
 fn softmax_inplace(s: &mut [f32]) {
     let max = s.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
     let mut sum = 0.0_f32;
-    for v in s.iter_mut() { *v = (*v - max).exp(); sum += *v; }
-    for v in s.iter_mut() { *v /= sum; }
+    for v in s.iter_mut() {
+        *v = (*v - max).exp();
+        sum += *v;
+    }
+    for v in s.iter_mut() {
+        *v /= sum;
+    }
 }
 
 fn init_weight(in_d: usize, out_d: usize) -> Vec<f32> {
@@ -358,29 +441,38 @@ mod tests {
 
     fn cfg() -> MLAConfig {
         MLAConfig {
-            d_model: 32, latent_dim: 8, latent_dim_q: None,
-            num_heads: 4, head_dim: 8, rope_dim: 4,
+            d_model: 32,
+            latent_dim: 8,
+            latent_dim_q: None,
+            num_heads: 4,
+            head_dim: 8,
+            rope_dim: 4,
         }
     }
 
     #[test]
-    fn test_config_valid() { assert!(cfg().validate().is_ok()); }
+    fn test_config_valid() {
+        assert!(cfg().validate().is_ok());
+    }
 
     #[test]
     fn test_config_latent_too_large() {
-        let mut c = cfg(); c.latent_dim = 999;
+        let mut c = cfg();
+        c.latent_dim = 999;
         assert!(c.validate().is_err());
     }
 
     #[test]
     fn test_config_rope_dim_odd() {
-        let mut c = cfg(); c.rope_dim = 3;
+        let mut c = cfg();
+        c.rope_dim = 3;
         assert!(c.validate().is_err());
     }
 
     #[test]
     fn test_config_zero_heads() {
-        let mut c = cfg(); c.num_heads = 0;
+        let mut c = cfg();
+        c.num_heads = 0;
         assert!(c.validate().is_err());
     }
 
@@ -407,9 +499,11 @@ mod tests {
     fn test_cache_size_reduction() {
         let c = cfg();
         let mut cache = MLACache::new(&c);
-        for _ in 0..10 { cache.push(vec![0.0; c.latent_dim], vec![0.0; c.rope_dim]); }
+        for _ in 0..10 {
+            cache.push(vec![0.0; c.latent_dim], vec![0.0; c.rope_dim]);
+        }
         assert_eq!(cache.len(), 10);
-        assert_eq!(cache.cache_size(), 120);        // 10 * (8+4)
+        assert_eq!(cache.cache_size(), 120); // 10 * (8+4)
         assert_eq!(cache.mha_equivalent_size(), 640); // 10 * 2*4*8
         assert!((cache.reduction_ratio() - 0.8125).abs() < 1e-4);
     }
@@ -417,8 +511,12 @@ mod tests {
     #[test]
     fn test_memory_comparison_report() {
         let c = MLAConfig {
-            d_model: 2048, latent_dim: 256, latent_dim_q: None,
-            num_heads: 16, head_dim: 128, rope_dim: 0,
+            d_model: 2048,
+            latent_dim: 256,
+            latent_dim_q: None,
+            num_heads: 16,
+            head_dim: 128,
+            rope_dim: 0,
         };
         let layer = MLALayer::new(c).unwrap();
         let r = layer.memory_comparison(1024);
@@ -450,7 +548,9 @@ mod tests {
         let mut v = vec![1.0, 2.0, 3.0, 4.0];
         let orig = v.clone();
         MLALayer::apply_rope(&mut v, 0);
-        for (a, b) in v.iter().zip(&orig) { assert!((a - b).abs() < 1e-6); }
+        for (a, b) in v.iter().zip(&orig) {
+            assert!((a - b).abs() < 1e-6);
+        }
     }
 
     #[test]
@@ -482,7 +582,9 @@ mod tests {
         let q = vec![0.1_f32; c.d_model];
         let kv1 = vec![0.2_f32; c.d_model];
         let kv2 = vec![0.3_f32; c.d_model];
-        let out = layer.compute(&q, &[&kv1[..], &kv2[..]], &[&kv1[..], &kv2[..]]).unwrap();
+        let out = layer
+            .compute(&q, &[&kv1[..], &kv2[..]], &[&kv1[..], &kv2[..]])
+            .unwrap();
         assert_eq!(out.len(), c.d_model);
         assert!(out.iter().all(|v| v.is_finite()));
     }

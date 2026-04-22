@@ -28,15 +28,23 @@ fn print_manifest_info() {
     let manifest = DemoManifest::cognitive_demo();
 
     println!("Manifest: cognitive_demo.rvf");
-    println!("Version: {}.{}.{}", manifest.version.major, manifest.version.minor, manifest.version.patch);
+    println!(
+        "Version: {}.{}.{}",
+        manifest.version.major, manifest.version.minor, manifest.version.patch
+    );
     println!();
 
     println!("Components ({}):", manifest.components.len());
     for comp in &manifest.components {
-        println!("  [{}] {} - entry: {}", comp.index, comp.name, comp.entry_point);
+        println!(
+            "  [{}] {} - entry: {}",
+            comp.index, comp.name, comp.entry_point
+        );
         print!("      syscalls: ");
         for (i, syscall) in comp.syscalls.iter().enumerate() {
-            if i > 0 { print!(", "); }
+            if i > 0 {
+                print!(", ");
+            }
             print!("{}", syscall.syscall_name);
         }
         println!();
@@ -53,16 +61,26 @@ fn print_manifest_info() {
             region.region_type.size_bytes()
         );
     }
-    println!("  Total memory: {} bytes ({:.2} MiB)",
+    println!(
+        "  Total memory: {} bytes ({:.2} MiB)",
         manifest.total_memory_bytes(),
         manifest.total_memory_bytes() as f64 / (1024.0 * 1024.0)
     );
     println!();
 
     println!("Proof Policy:");
-    println!("  Vector mutations: {:?}", manifest.proof_policy.vector_mutations);
-    println!("  Graph mutations: {:?}", manifest.proof_policy.graph_mutations);
-    println!("  Structural changes: {:?}", manifest.proof_policy.structural_changes);
+    println!(
+        "  Vector mutations: {:?}",
+        manifest.proof_policy.vector_mutations
+    );
+    println!(
+        "  Graph mutations: {:?}",
+        manifest.proof_policy.graph_mutations
+    );
+    println!(
+        "  Structural changes: {:?}",
+        manifest.proof_policy.structural_changes
+    );
     println!();
 
     println!("Rollback Hooks ({}):", manifest.rollback_hooks.len());
@@ -72,7 +90,10 @@ fn print_manifest_info() {
     println!();
 
     println!("Expected Syscall Counts:");
-    println!("| {:<20} | {:<15} | {:>10} |", "Syscall", "Component", "Count");
+    println!(
+        "| {:<20} | {:<15} | {:>10} |",
+        "Syscall", "Component", "Count"
+    );
     println!("|{:-<22}|{:-<17}|{:-<12}|", "", "", "");
     for (num, name, count) in manifest.expected_syscall_counts() {
         let component = match num {
@@ -116,9 +137,14 @@ fn run_pipeline() {
     // Initialize
     println!("Initializing...");
     pipeline.initialize().expect("Failed to initialize");
-    pipeline.setup_coordinator().expect("Failed to setup coordinator");
+    pipeline
+        .setup_coordinator()
+        .expect("Failed to setup coordinator");
     println!("  Regions mapped: {}", pipeline.kernel().stats.region_map);
-    println!("  Sensor subscribed: {}", pipeline.kernel().stats.sensor_subscribe);
+    println!(
+        "  Sensor subscribed: {}",
+        pipeline.kernel().stats.sensor_subscribe
+    );
     println!("  RVF mounted: {}", pipeline.kernel().stats.rvf_mount);
 
     // Process events
@@ -131,7 +157,8 @@ fn run_pipeline() {
         // Progress indicator every 10 batches
         if batch_count % 10 == 0 {
             let stats = pipeline.get_syscall_stats();
-            print!("\r  Processed {} events ({} vectors, {} mutations)...",
+            print!(
+                "\r  Processed {} events ({} vectors, {} mutations)...",
                 stats.queue_send / 2,
                 stats.vector_put_proved,
                 stats.graph_apply_proved
@@ -154,7 +181,10 @@ fn run_pipeline() {
     let coverage = pipeline.get_feature_coverage();
 
     println!("Execution Time: {:?}", elapsed);
-    println!("Events/second: {:.0}", stats.queue_send as f64 / 2.0 / elapsed.as_secs_f64());
+    println!(
+        "Events/second: {:.0}",
+        stats.queue_send as f64 / 2.0 / elapsed.as_secs_f64()
+    );
     println!();
 
     println!("Syscall Statistics:");
@@ -168,20 +198,28 @@ fn run_pipeline() {
 
     println!("Feature Coverage:");
     let report = coverage.report();
-    println!("  Syscalls: {}/{} ({:.1}%)",
+    println!(
+        "  Syscalls: {}/{} ({:.1}%)",
         report.syscalls.covered,
         report.syscalls.total,
         report.syscalls.percentage()
     );
-    println!("  Regions: {} types ({:.1}%)",
-        (report.regions.immutable as u32) + (report.regions.append_only as u32) + (report.regions.slab as u32),
+    println!(
+        "  Regions: {} types ({:.1}%)",
+        (report.regions.immutable as u32)
+            + (report.regions.append_only as u32)
+            + (report.regions.slab as u32),
         report.regions.percentage()
     );
-    println!("  Proofs: {} tiers ({:.1}%)",
-        (report.proofs.reflex as u32) + (report.proofs.standard as u32) + (report.proofs.deep as u32),
+    println!(
+        "  Proofs: {} tiers ({:.1}%)",
+        (report.proofs.reflex as u32)
+            + (report.proofs.standard as u32)
+            + (report.proofs.deep as u32),
         report.proofs.percentage()
     );
-    println!("  Components: {} active ({:.1}%)",
+    println!(
+        "  Components: {} active ({:.1}%)",
         (report.components.sensor_adapter as u32)
             + (report.components.feature_extractor as u32)
             + (report.components.reasoning_engine as u32)

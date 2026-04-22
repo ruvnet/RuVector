@@ -5,15 +5,13 @@
 //! ruvector-sparsifier for compressed spectral analytics (ADR-116).
 
 use crate::types::*;
-use ruvector_mincut::{DynamicMinCut, MinCutBuilder};
-use ruvector_mincut::canonical::source_anchored::{
-    self as canonical_sa, SourceAnchoredConfig,
-};
+use ruvector_mincut::canonical::source_anchored::{self as canonical_sa, SourceAnchoredConfig};
 use ruvector_mincut::graph::DynamicGraph;
+use ruvector_mincut::{DynamicMinCut, MinCutBuilder};
 use ruvector_solver::forward_push::ForwardPushSolver;
 use ruvector_solver::types::CsrMatrix;
-use ruvector_sparsifier::{AdaptiveGeoSpar, SparseGraph, SparsifierConfig};
 use ruvector_sparsifier::traits::Sparsifier;
+use ruvector_sparsifier::{AdaptiveGeoSpar, SparseGraph, SparsifierConfig};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -304,11 +302,7 @@ impl KnowledgeGraph {
     /// Builds a CsrMatrix from graph edges and runs PPR from the node
     /// most similar to `query_embedding`. Returns a map of node ID to
     /// PPR score, or `None` if PPR cannot be computed.
-    pub fn pagerank_search(
-        &mut self,
-        query_embedding: &[f32],
-        k: usize,
-    ) -> Vec<(Uuid, f64)> {
+    pub fn pagerank_search(&mut self, query_embedding: &[f32], k: usize) -> Vec<(Uuid, f64)> {
         self.ensure_csr();
         if let Some(ppr_map) = self.pagerank_scores(query_embedding, k) {
             let mut results: Vec<(Uuid, f64)> = ppr_map.into_iter().collect();
@@ -329,11 +323,7 @@ impl KnowledgeGraph {
     }
 
     /// Internal: compute raw PPR scores keyed by node ID.
-    fn pagerank_scores(
-        &self,
-        query_embedding: &[f32],
-        k: usize,
-    ) -> Option<HashMap<Uuid, f64>> {
+    fn pagerank_scores(&self, query_embedding: &[f32], k: usize) -> Option<HashMap<Uuid, f64>> {
         let csr = self.csr_cache.as_ref()?;
         if csr.rows == 0 {
             return None;
@@ -374,10 +364,15 @@ impl KnowledgeGraph {
     }
 
     /// Partition returning (clusters, cut_value, edge_strengths).
-    pub fn partition_full(&self, min_cluster_size: usize) -> (Vec<KnowledgeCluster>, f64, Vec<EdgeStrengthInfo>) {
+    pub fn partition_full(
+        &self,
+        min_cluster_size: usize,
+    ) -> (Vec<KnowledgeCluster>, f64, Vec<EdgeStrengthInfo>) {
         // Try real MinCut partitioning
         if self.nodes.len() >= 3 {
-            if let Some((clusters, cut_val, strengths)) = self.partition_via_mincut_full(min_cluster_size) {
+            if let Some((clusters, cut_val, strengths)) =
+                self.partition_via_mincut_full(min_cluster_size)
+            {
                 if clusters.len() >= 2 {
                     return (clusters, cut_val, strengths);
                 }
@@ -401,7 +396,10 @@ impl KnowledgeGraph {
     fn partition_by_category(&self, min_cluster_size: usize) -> Vec<KnowledgeCluster> {
         let mut by_category: HashMap<BrainCategory, Vec<Uuid>> = HashMap::new();
         for (&id, node) in &self.nodes {
-            by_category.entry(node.category.clone()).or_default().push(id);
+            by_category
+                .entry(node.category.clone())
+                .or_default()
+                .push(id);
         }
 
         let mut clusters = Vec::new();
@@ -420,12 +418,18 @@ impl KnowledgeGraph {
     /// When a sparsifier is available and the full graph has > 50 000 edges,
     /// uses the sparsified edge set (~19K edges vs ~1M) for a ~59x speedup
     /// while preserving spectral cut quality (ADR-116).
-    fn partition_via_mincut_full(&self, min_cluster_size: usize) -> Option<(Vec<KnowledgeCluster>, f64, Vec<EdgeStrengthInfo>)> {
+    fn partition_via_mincut_full(
+        &self,
+        min_cluster_size: usize,
+    ) -> Option<(Vec<KnowledgeCluster>, f64, Vec<EdgeStrengthInfo>)> {
         let use_sparsified = self.sparsifier.is_some() && self.edges.len() > 50_000;
 
         let edges: Vec<(u64, u64, f64)> = if use_sparsified {
             let spar = self.sparsifier.as_ref().unwrap();
-            spar.sparsifier().edges().map(|(u, v, w)| (u as u64, v as u64, w)).collect()
+            spar.sparsifier()
+                .edges()
+                .map(|(u, v, w)| (u as u64, v as u64, w))
+                .collect()
         } else {
             self.edges
                 .iter()
@@ -528,7 +532,12 @@ impl KnowledgeGraph {
 
     /// Build a KnowledgeCluster from member IDs
     fn build_cluster(&self, id: u32, members: &[Uuid]) -> KnowledgeCluster {
-        let dim = self.nodes.values().next().map(|n| n.embedding.len()).unwrap_or(0);
+        let dim = self
+            .nodes
+            .values()
+            .next()
+            .map(|n| n.embedding.len())
+            .unwrap_or(0);
         let mut centroid = vec![0.0f32; dim];
         let mut category_counts: HashMap<BrainCategory, usize> = HashMap::new();
         let mut embeddings = Vec::new();
@@ -624,7 +633,13 @@ impl KnowledgeGraph {
     pub fn partition_canonical_full(
         &self,
         min_cluster_size: usize,
-    ) -> (Vec<KnowledgeCluster>, f64, Vec<EdgeStrengthInfo>, Option<String>, Option<u64>) {
+    ) -> (
+        Vec<KnowledgeCluster>,
+        f64,
+        Vec<EdgeStrengthInfo>,
+        Option<String>,
+        Option<u64>,
+    ) {
         if self.nodes.len() < 3 {
             let (clusters, cut_val, strengths) = self.partition_full(min_cluster_size);
             return (clusters, cut_val, strengths, None, None);
@@ -652,11 +667,17 @@ impl KnowledgeGraph {
                 let source_side: std::collections::HashSet<u64> =
                     cut.side_vertices.iter().copied().collect();
 
-                let side_a: Vec<Uuid> = self.node_ids.iter().enumerate()
+                let side_a: Vec<Uuid> = self
+                    .node_ids
+                    .iter()
+                    .enumerate()
                     .filter(|(i, _)| source_side.contains(&(*i as u64)))
                     .map(|(_, id)| *id)
                     .collect();
-                let side_b: Vec<Uuid> = self.node_ids.iter().enumerate()
+                let side_b: Vec<Uuid> = self
+                    .node_ids
+                    .iter()
+                    .enumerate()
                     .filter(|(i, _)| !source_side.contains(&(*i as u64)))
                     .map(|(_, id)| *id)
                     .collect();
@@ -677,7 +698,13 @@ impl KnowledgeGraph {
                 }
 
                 let strengths = self.compute_edge_strengths(&clusters);
-                (clusters, cut_value, strengths, Some(cut_hash_hex), Some(first_sep))
+                (
+                    clusters,
+                    cut_value,
+                    strengths,
+                    Some(cut_hash_hex),
+                    Some(first_sep),
+                )
             }
             None => {
                 // Canonical cut not available (disconnected graph, etc.)
@@ -699,11 +726,7 @@ impl KnowledgeGraph {
             })
             .collect();
 
-        self.mincut = MinCutBuilder::new()
-            .exact()
-            .with_edges(edges)
-            .build()
-            .ok();
+        self.mincut = MinCutBuilder::new().exact().with_edges(edges).build().ok();
     }
 
     /// Rebuild the CsrMatrix from the adjacency list
@@ -883,8 +906,8 @@ pub fn cosine_similarity_normalized(a: &[f32], b: &[f32]) -> f64 {
     let (mut d0, mut d1) = (0.0f64, 0.0f64);
     for c in 0..chunks {
         let i = c * 4;
-        d0 += (a[i] as f64) * (b[i] as f64) + (a[i+2] as f64) * (b[i+2] as f64);
-        d1 += (a[i+1] as f64) * (b[i+1] as f64) + (a[i+3] as f64) * (b[i+3] as f64);
+        d0 += (a[i] as f64) * (b[i] as f64) + (a[i + 2] as f64) * (b[i + 2] as f64);
+        d1 += (a[i + 1] as f64) * (b[i + 1] as f64) + (a[i + 3] as f64) * (b[i + 3] as f64);
     }
     let mut sum = d0 + d1;
     for i in (chunks * 4)..n {
@@ -907,8 +930,18 @@ pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f64 {
     let (mut nb0, mut nb1) = (0.0f64, 0.0f64);
     for c in 0..chunks {
         let i = c * 4;
-        let (a0, a1, a2, a3) = (a[i] as f64, a[i+1] as f64, a[i+2] as f64, a[i+3] as f64);
-        let (b0, b1, b2, b3) = (b[i] as f64, b[i+1] as f64, b[i+2] as f64, b[i+3] as f64);
+        let (a0, a1, a2, a3) = (
+            a[i] as f64,
+            a[i + 1] as f64,
+            a[i + 2] as f64,
+            a[i + 3] as f64,
+        );
+        let (b0, b1, b2, b3) = (
+            b[i] as f64,
+            b[i + 1] as f64,
+            b[i + 2] as f64,
+            b[i + 3] as f64,
+        );
         dot0 += a0 * b0 + a2 * b2;
         dot1 += a1 * b1 + a3 * b3;
         na0 += a0 * a0 + a2 * a2;
@@ -925,6 +958,8 @@ pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f64 {
     let dot = dot0 + dot1;
     let norm_a = (na0 + na1).sqrt();
     let norm_b = (nb0 + nb1).sqrt();
-    if norm_a < 1e-10 || norm_b < 1e-10 { return 0.0; }
+    if norm_a < 1e-10 || norm_b < 1e-10 {
+        return 0.0;
+    }
     dot / (norm_a * norm_b)
 }

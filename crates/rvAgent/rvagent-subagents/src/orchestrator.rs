@@ -1,8 +1,8 @@
 //! SubAgent orchestrator — spawn and parallel execution (ADR-097, ADR-103 A2).
 
 use crate::{
-    AgentState, CompiledSubAgent, SubAgentResult, SubAgentResultValidator, ValidationConfig,
-    ValidationError, prepare_subagent_state,
+    prepare_subagent_state, AgentState, CompiledSubAgent, SubAgentResult, SubAgentResultValidator,
+    ValidationConfig, ValidationError,
 };
 use std::time::Instant;
 
@@ -57,10 +57,7 @@ impl SubAgentOrchestrator {
 
         // In a real implementation, this would run the agent graph.
         // For now, return a stub result.
-        let result_message = format!(
-            "SubAgent '{}' completed task: {}",
-            name, task_description
-        );
+        let result_message = format!("SubAgent '{}' completed task: {}", name, task_description);
 
         // Validate the result content (C8: SubAgent Result Validation)
         let validated_message = self

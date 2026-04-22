@@ -5,8 +5,7 @@ use ruvector_consciousness::phi::auto_compute_phi;
 use ruvector_consciousness::rsvd_emergence::{RsvdEmergenceEngine, RsvdEmergenceResult};
 use ruvector_consciousness::traits::EmergenceEngine;
 use ruvector_consciousness::types::{
-    ComputeBudget, EmergenceResult, PhiResult,
-    TransitionMatrix as ConsciousnessTPM,
+    ComputeBudget, EmergenceResult, PhiResult, TransitionMatrix as ConsciousnessTPM,
 };
 
 use crate::data::TransitionMatrix;
@@ -56,8 +55,8 @@ pub fn run_analysis(
 
     // 1. Full system Phi
     println!("\n--- Computing IIT Phi (full system, n={}) ---", n_bins);
-    let full_phi = auto_compute_phi(&ctpm, None, &budget)
-        .expect("Failed to compute Phi for full system");
+    let full_phi =
+        auto_compute_phi(&ctpm, None, &budget).expect("Failed to compute Phi for full system");
     println!(
         "  Phi = {:.6}  (algorithm: {}, elapsed: {:?})",
         full_phi.phi, full_phi.algorithm, full_phi.elapsed
@@ -111,8 +110,10 @@ pub fn run_analysis(
         .expect("Failed to compute SVD emergence");
     println!(
         "  Effective rank = {}/{}, entropy = {:.4}, emergence = {:.4}",
-        svd_emergence.effective_rank, n_bins,
-        svd_emergence.spectral_entropy, svd_emergence.emergence_index
+        svd_emergence.effective_rank,
+        n_bins,
+        svd_emergence.spectral_entropy,
+        svd_emergence.emergence_index
     );
 
     // 6. Null hypothesis testing
@@ -158,8 +159,7 @@ pub fn run_analysis(
     let p_value = if null_phis.is_empty() {
         1.0
     } else {
-        null_phis.iter().filter(|&&p| p >= full_phi.phi).count() as f64
-            / null_phis.len() as f64
+        null_phis.iter().filter(|&&p| p >= full_phi.phi).count() as f64 / null_phis.len() as f64
     };
 
     AnalysisResults {

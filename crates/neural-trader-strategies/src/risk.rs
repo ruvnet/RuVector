@@ -98,7 +98,10 @@ impl Default for RiskConfig {
 #[derive(Debug, Clone, PartialEq)]
 pub enum RiskDecision {
     Approve(Intent),
-    Reject { reason: RejectReason, intent: Intent },
+    Reject {
+        reason: RejectReason,
+        intent: Intent,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -140,9 +143,8 @@ impl RiskGate {
         }
 
         // 2. Daily loss kill — stop *all* opening trades after breach.
-        let max_loss = (portfolio.starting_cash_cents as f64
-            * self.config.max_daily_loss_frac)
-            .round() as i64;
+        let max_loss =
+            (portfolio.starting_cash_cents as f64 * self.config.max_daily_loss_frac).round() as i64;
         if intent.action == Action::Buy && portfolio.day_pnl_cents <= -max_loss {
             return RiskDecision::Reject {
                 reason: RejectReason::DailyLossKill,
@@ -170,8 +172,7 @@ impl RiskGate {
         }
 
         // 5. Single-position notional cap (policy).
-        let position_cap = (portfolio.cash_cents as f64
-            * self.config.max_position_frac) as i64;
+        let position_cap = (portfolio.cash_cents as f64 * self.config.max_position_frac) as i64;
         if intent.action == Action::Buy && notional > position_cap {
             return RiskDecision::Reject {
                 reason: RejectReason::PositionTooLarge,
@@ -181,8 +182,7 @@ impl RiskGate {
 
         // 6. Cluster concentration (policy).
         if let Some(cluster) = portfolio.clusters.get(&intent.symbol_id).copied() {
-            let cluster_cap = (portfolio.cash_cents as f64
-                * self.config.max_cluster_frac) as i64;
+            let cluster_cap = (portfolio.cash_cents as f64 * self.config.max_cluster_frac) as i64;
             let existing = portfolio.cluster_notional_cents(cluster);
             let projected = existing.saturating_add(notional);
             if intent.action == Action::Buy && projected > cluster_cap {
@@ -243,7 +243,13 @@ mod tests {
     fn thin_edge_rejected() {
         let gate = RiskGate::default();
         let d = gate.evaluate(sample_intent(100, 24, 10), &portfolio(100_000));
-        assert!(matches!(d, RiskDecision::Reject { reason: RejectReason::EdgeTooThin, .. }));
+        assert!(matches!(
+            d,
+            RiskDecision::Reject {
+                reason: RejectReason::EdgeTooThin,
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -251,7 +257,13 @@ mod tests {
         let gate = RiskGate::default();
         // 24¢ × 600 = 14_400¢ vs cap 10% × 100_000 = 10_000¢
         let d = gate.evaluate(sample_intent(500, 24, 600), &portfolio(100_000));
-        assert!(matches!(d, RiskDecision::Reject { reason: RejectReason::PositionTooLarge, .. }));
+        assert!(matches!(
+            d,
+            RiskDecision::Reject {
+                reason: RejectReason::PositionTooLarge,
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -260,7 +272,13 @@ mod tests {
         let mut p = portfolio(100_000);
         p.day_pnl_cents = -3_001; // just past 3%
         let d = gate.evaluate(sample_intent(500, 24, 10), &p);
-        assert!(matches!(d, RiskDecision::Reject { reason: RejectReason::DailyLossKill, .. }));
+        assert!(matches!(
+            d,
+            RiskDecision::Reject {
+                reason: RejectReason::DailyLossKill,
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -287,12 +305,21 @@ mod tests {
         // 24¢ × 500 = 12_000 < 20% cap (20_000) but existing 35_000 + 12_000
         // = 47_000 > 40% cap (40_000) → concentration rejection.
         let d = gate.evaluate(sample_intent(500, 24, 500), &p);
-        assert!(matches!(d, RiskDecision::Reject { reason: RejectReason::ClusterConcentration, .. }));
+        assert!(matches!(
+            d,
+            RiskDecision::Reject {
+                reason: RejectReason::ClusterConcentration,
+                ..
+            }
+        ));
     }
 
     #[test]
     fn approves_under_paper_config() {
-        let gate = RiskGate::new(RiskConfig { require_live_flag: false, ..Default::default() });
+        let gate = RiskGate::new(RiskConfig {
+            require_live_flag: false,
+            ..Default::default()
+        });
         let d = gate.evaluate(sample_intent(500, 24, 10), &portfolio(100_000));
         assert!(matches!(d, RiskDecision::Approve(_)));
     }
@@ -301,20 +328,50 @@ mod tests {
     fn live_gate_rejects_without_env() {
         // Ensure env flag is off.
         std::env::remove_var("KALSHI_ENABLE_LIVE");
-        let gate = RiskGate::new(RiskConfig { require_live_flag: true, ..Default::default() });
+        let gate = RiskGate::new(RiskConfig {
+            require_live_flag: true,
+            ..Default::default()
+        });
         let d = gate.evaluate(sample_intent(500, 24, 10), &portfolio(100_000));
-        assert!(matches!(d, RiskDecision::Reject { reason: RejectReason::LiveTradingDisabled, .. }));
+        assert!(matches!(
+            d,
+            RiskDecision::Reject {
+                reason: RejectReason::LiveTradingDisabled,
+                ..
+            }
+        ));
     }
 
     #[test]
     fn rejects_non_positive_qty_and_bad_price() {
-        let gate = RiskGate::new(RiskConfig { require_live_flag: false, ..Default::default() });
+        let gate = RiskGate::new(RiskConfig {
+            require_live_flag: false,
+            ..Default::default()
+        });
         let d = gate.evaluate(sample_intent(500, 24, 0), &portfolio(100_000));
-        assert!(matches!(d, RiskDecision::Reject { reason: RejectReason::NonPositiveQuantity, .. }));
+        assert!(matches!(
+            d,
+            RiskDecision::Reject {
+                reason: RejectReason::NonPositiveQuantity,
+                ..
+            }
+        ));
         let d = gate.evaluate(sample_intent(500, 0, 10), &portfolio(100_000));
-        assert!(matches!(d, RiskDecision::Reject { reason: RejectReason::PriceOutOfRange, .. }));
+        assert!(matches!(
+            d,
+            RiskDecision::Reject {
+                reason: RejectReason::PriceOutOfRange,
+                ..
+            }
+        ));
         let d = gate.evaluate(sample_intent(500, 100, 10), &portfolio(100_000));
-        assert!(matches!(d, RiskDecision::Reject { reason: RejectReason::PriceOutOfRange, .. }));
+        assert!(matches!(
+            d,
+            RiskDecision::Reject {
+                reason: RejectReason::PriceOutOfRange,
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -328,6 +385,12 @@ mod tests {
         });
         // 50¢ × 200 = 10_000; cash only 5_000.
         let d = gate.evaluate(sample_intent(500, 50, 200), &portfolio(5_000));
-        assert!(matches!(d, RiskDecision::Reject { reason: RejectReason::InsufficientCash, .. }));
+        assert!(matches!(
+            d,
+            RiskDecision::Reject {
+                reason: RejectReason::InsufficientCash,
+                ..
+            }
+        ));
     }
 }

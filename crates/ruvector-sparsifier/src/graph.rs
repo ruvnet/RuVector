@@ -124,9 +124,7 @@ impl SparseGraph {
     /// consider caching the result externally.
     #[inline]
     pub fn weighted_degree(&self, u: usize) -> f64 {
-        self.adj
-            .get(u)
-            .map_or(0.0, |m| m.values().copied().sum())
+        self.adj.get(u).map_or(0.0, |m| m.values().copied().sum())
     }
 
     /// Iterator over neighbours of `u` yielding `(v, weight)`.
@@ -147,9 +145,7 @@ impl SparseGraph {
     /// Check whether edge `(u, v)` exists.
     #[inline]
     pub fn has_edge(&self, u: usize, v: usize) -> bool {
-        self.adj
-            .get(u)
-            .is_some_and(|m| m.contains_key(&v))
+        self.adj.get(u).is_some_and(|m| m.contains_key(&v))
     }
 
     /// Iterate over all edges yielding `(u, v, weight)` with `u < v`.
@@ -316,10 +312,8 @@ impl SparseGraph {
         row_ptr.push(0);
         for u in 0..n {
             // Sort neighbours for deterministic output.
-            let mut entries: Vec<(usize, f64)> = self.adj[u]
-                .iter()
-                .map(|(&v, &w)| (v, w))
-                .collect();
+            let mut entries: Vec<(usize, f64)> =
+                self.adj[u].iter().map(|(&v, &w)| (v, w)).collect();
             entries.sort_by_key(|&(v, w)| (v, OrderedFloat(w)));
             for (v, w) in entries {
                 col_indices.push(v);
@@ -335,12 +329,7 @@ impl SparseGraph {
     ///
     /// The CSR data is interpreted as a symmetric adjacency matrix.
     /// Only entries with `col >= row` are inserted to avoid double-counting.
-    pub fn from_csr(
-        row_ptr: &[usize],
-        col_indices: &[usize],
-        values: &[f64],
-        n: usize,
-    ) -> Self {
+    pub fn from_csr(row_ptr: &[usize], col_indices: &[usize], values: &[f64], n: usize) -> Self {
         let mut g = Self::with_capacity(n);
         for u in 0..n {
             let start = row_ptr[u];

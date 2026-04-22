@@ -755,9 +755,8 @@ impl<B: MemoryBacking> KernelGraphStore<B> {
     fn write_edge(&mut self, slot: SlotHandle, index: u32, edge: &EdgeEntry) -> Result<()> {
         let offset = 4 + (index as usize) * EdgeEntry::SIZE;
         let ptr = self.edge_slab.slot_ptr(slot)?;
-        let bytes = unsafe {
-            core::slice::from_raw_parts(edge as *const _ as *const u8, EdgeEntry::SIZE)
-        };
+        let bytes =
+            unsafe { core::slice::from_raw_parts(edge as *const _ as *const u8, EdgeEntry::SIZE) };
         unsafe {
             core::ptr::copy_nonoverlapping(bytes.as_ptr(), ptr.add(offset), EdgeEntry::SIZE);
         }
@@ -813,7 +812,9 @@ mod tests {
         ProofToken::new(
             mutation_hash,
             ProofTier::Standard,
-            ProofPayload::Hash { hash: mutation_hash },
+            ProofPayload::Hash {
+                hash: mutation_hash,
+            },
             valid_until_ns,
             nonce,
         )

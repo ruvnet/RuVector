@@ -83,27 +83,47 @@ pub struct JsonRpcError {
 impl JsonRpcError {
     /// Standard parse error (-32700).
     pub fn parse_error(msg: impl Into<String>) -> Self {
-        Self { code: -32700, message: msg.into(), data: None }
+        Self {
+            code: -32700,
+            message: msg.into(),
+            data: None,
+        }
     }
 
     /// Standard invalid request (-32600).
     pub fn invalid_request(msg: impl Into<String>) -> Self {
-        Self { code: -32600, message: msg.into(), data: None }
+        Self {
+            code: -32600,
+            message: msg.into(),
+            data: None,
+        }
     }
 
     /// Standard method not found (-32601).
     pub fn method_not_found(msg: impl Into<String>) -> Self {
-        Self { code: -32601, message: msg.into(), data: None }
+        Self {
+            code: -32601,
+            message: msg.into(),
+            data: None,
+        }
     }
 
     /// Standard invalid params (-32602).
     pub fn invalid_params(msg: impl Into<String>) -> Self {
-        Self { code: -32602, message: msg.into(), data: None }
+        Self {
+            code: -32602,
+            message: msg.into(),
+            data: None,
+        }
     }
 
     /// Standard internal error (-32603).
     pub fn internal_error(msg: impl Into<String>) -> Self {
-        Self { code: -32603, message: msg.into(), data: None }
+        Self {
+            code: -32603,
+            message: msg.into(),
+            data: None,
+        }
     }
 }
 
@@ -403,9 +423,7 @@ pub struct PromptMessage {
 pub enum Content {
     /// Text content.
     #[serde(rename = "text")]
-    Text {
-        text: String,
-    },
+    Text { text: String },
     /// Base64-encoded image content.
     #[serde(rename = "image")]
     Image {
@@ -415,9 +433,7 @@ pub enum Content {
     },
     /// Embedded resource reference.
     #[serde(rename = "resource")]
-    Resource {
-        resource: ResourceContent,
-    },
+    Resource { resource: ResourceContent },
 }
 
 impl Content {
@@ -428,7 +444,10 @@ impl Content {
 
     /// Create image content.
     pub fn image(data: impl Into<String>, mime_type: impl Into<String>) -> Self {
-        Self::Image { data: data.into(), mime_type: mime_type.into() }
+        Self::Image {
+            data: data.into(),
+            mime_type: mime_type.into(),
+        }
     }
 }
 
@@ -479,8 +498,8 @@ mod tests {
 
     #[test]
     fn test_jsonrpc_request_with_params() {
-        let req = JsonRpcRequest::new(42, "tools/call")
-            .with_params(serde_json::json!({"name": "ping"}));
+        let req =
+            JsonRpcRequest::new(42, "tools/call").with_params(serde_json::json!({"name": "ping"}));
         let json = serde_json::to_string(&req).unwrap();
         assert!(json.contains("\"params\""));
         let back: JsonRpcRequest = serde_json::from_str(&json).unwrap();
@@ -489,10 +508,7 @@ mod tests {
 
     #[test]
     fn test_jsonrpc_response_success() {
-        let resp = JsonRpcResponse::success(
-            serde_json::json!(1),
-            serde_json::json!({"tools": []}),
-        );
+        let resp = JsonRpcResponse::success(serde_json::json!(1), serde_json::json!({"tools": []}));
         let json = serde_json::to_string(&resp).unwrap();
         assert!(json.contains("\"result\""));
         assert!(!json.contains("\"error\""));
@@ -522,14 +538,38 @@ mod tests {
 
     #[test]
     fn test_mcp_method_parse() {
-        assert_eq!(McpMethod::from_str("initialize"), Some(McpMethod::Initialize));
-        assert_eq!(McpMethod::from_str("tools/list"), Some(McpMethod::ToolsList));
-        assert_eq!(McpMethod::from_str("tools/call"), Some(McpMethod::ToolsCall));
-        assert_eq!(McpMethod::from_str("resources/list"), Some(McpMethod::ResourcesList));
-        assert_eq!(McpMethod::from_str("resources/read"), Some(McpMethod::ResourcesRead));
-        assert_eq!(McpMethod::from_str("resources/templates/list"), Some(McpMethod::ResourcesTemplatesList));
-        assert_eq!(McpMethod::from_str("prompts/list"), Some(McpMethod::PromptsList));
-        assert_eq!(McpMethod::from_str("prompts/get"), Some(McpMethod::PromptsGet));
+        assert_eq!(
+            McpMethod::from_str("initialize"),
+            Some(McpMethod::Initialize)
+        );
+        assert_eq!(
+            McpMethod::from_str("tools/list"),
+            Some(McpMethod::ToolsList)
+        );
+        assert_eq!(
+            McpMethod::from_str("tools/call"),
+            Some(McpMethod::ToolsCall)
+        );
+        assert_eq!(
+            McpMethod::from_str("resources/list"),
+            Some(McpMethod::ResourcesList)
+        );
+        assert_eq!(
+            McpMethod::from_str("resources/read"),
+            Some(McpMethod::ResourcesRead)
+        );
+        assert_eq!(
+            McpMethod::from_str("resources/templates/list"),
+            Some(McpMethod::ResourcesTemplatesList)
+        );
+        assert_eq!(
+            McpMethod::from_str("prompts/list"),
+            Some(McpMethod::PromptsList)
+        );
+        assert_eq!(
+            McpMethod::from_str("prompts/get"),
+            Some(McpMethod::PromptsGet)
+        );
         assert_eq!(McpMethod::from_str("ping"), Some(McpMethod::Ping));
         assert_eq!(McpMethod::from_str("unknown"), None);
     }
@@ -553,7 +593,10 @@ mod tests {
     fn test_server_capabilities_roundtrip() {
         let caps = ServerCapabilities {
             tools: Some(ToolsCapability { list_changed: true }),
-            resources: Some(ResourcesCapability { subscribe: true, list_changed: false }),
+            resources: Some(ResourcesCapability {
+                subscribe: true,
+                list_changed: false,
+            }),
             prompts: None,
         };
         let json = serde_json::to_string(&caps).unwrap();

@@ -115,9 +115,7 @@ impl Bipartition {
 
     /// Elements in set B.
     pub fn set_b(&self) -> Vec<usize> {
-        (0..self.n)
-            .filter(|&i| self.mask & (1 << i) == 0)
-            .collect()
+        (0..self.n).filter(|&i| self.mask & (1 << i) == 0).collect()
     }
 
     /// Check if this is a valid bipartition (both sets non-empty).
@@ -265,7 +263,9 @@ impl Mechanism {
 
     /// Indices of mechanism elements.
     pub fn indices(&self) -> Vec<usize> {
-        (0..self.n).filter(|&i| self.elements & (1 << i) != 0).collect()
+        (0..self.n)
+            .filter(|&i| self.elements & (1 << i) != 0)
+            .collect()
     }
 }
 

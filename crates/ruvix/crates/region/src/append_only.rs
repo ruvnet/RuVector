@@ -88,11 +88,7 @@ impl<B: MemoryBacking> AppendOnlyRegion<B> {
 
         // SAFETY: We've verified bounds above
         unsafe {
-            core::ptr::copy_nonoverlapping(
-                data.as_ptr(),
-                self.data_ptr.add(offset),
-                data.len(),
-            );
+            core::ptr::copy_nonoverlapping(data.as_ptr(), self.data_ptr.add(offset), data.len());
         }
 
         self.write_cursor = new_cursor;
@@ -123,11 +119,7 @@ impl<B: MemoryBacking> AppendOnlyRegion<B> {
 
         // SAFETY: We've verified bounds above
         unsafe {
-            core::ptr::copy_nonoverlapping(
-                self.data_ptr.add(offset),
-                buf.as_mut_ptr(),
-                to_read,
-            );
+            core::ptr::copy_nonoverlapping(self.data_ptr.add(offset), buf.as_mut_ptr(), to_read);
         }
 
         Ok(to_read)

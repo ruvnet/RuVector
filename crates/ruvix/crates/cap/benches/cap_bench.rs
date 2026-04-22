@@ -6,8 +6,8 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use ruvix_cap::{
-    CapManagerConfig, CapabilityManager, CapabilityTable, DerivationNode,
-    CapHandle, CapRights, Capability, ObjectType, TaskHandle,
+    CapHandle, CapManagerConfig, CapRights, Capability, CapabilityManager, CapabilityTable,
+    DerivationNode, ObjectType, TaskHandle,
 };
 
 // ============================================================================
@@ -48,25 +48,13 @@ fn bench_cap_table_insert(c: &mut Criterion) {
                 let mut table = CapabilityTable::new(256);
                 // Fill to 250/256
                 for i in 0..250 {
-                    let cap = Capability::new(
-                        i as u64,
-                        ObjectType::Region,
-                        CapRights::READ,
-                        0,
-                        0,
-                    );
+                    let cap = Capability::new(i as u64, ObjectType::Region, CapRights::READ, 0, 0);
                     table.insert(cap).unwrap();
                 }
                 table
             },
             |mut table| {
-                let cap = Capability::new(
-                    0xFFFF,
-                    ObjectType::Region,
-                    CapRights::READ,
-                    0,
-                    0,
-                );
+                let cap = Capability::new(0xFFFF, ObjectType::Region, CapRights::READ, 0, 0);
                 black_box(table.insert(cap))
             },
         );
@@ -90,13 +78,7 @@ fn bench_cap_table_lookup(c: &mut Criterion) {
                 let mut handles = Vec::new();
 
                 for i in 0..fill_count {
-                    let cap = Capability::new(
-                        i as u64,
-                        ObjectType::Region,
-                        CapRights::READ,
-                        0,
-                        0,
-                    );
+                    let cap = Capability::new(i as u64, ObjectType::Region, CapRights::READ, 0, 0);
                     if let Ok(handle) = table.insert(cap) {
                         handles.push(handle);
                     }
@@ -104,9 +86,7 @@ fn bench_cap_table_lookup(c: &mut Criterion) {
 
                 let lookup_handle = handles[fill_count / 2];
 
-                b.iter(|| {
-                    black_box(table.get(black_box(lookup_handle)))
-                });
+                b.iter(|| black_box(table.get(black_box(lookup_handle))));
             },
         );
     }
@@ -154,13 +134,7 @@ fn bench_cap_table_remove(c: &mut Criterion) {
                 let mut table = CapabilityTable::new(256);
                 let mut handles = Vec::new();
                 for i in 0..256 {
-                    let cap = Capability::new(
-                        i as u64,
-                        ObjectType::Region,
-                        CapRights::READ,
-                        0,
-                        0,
-                    );
+                    let cap = Capability::new(i as u64, ObjectType::Region, CapRights::READ, 0, 0);
                     if let Ok(h) = table.insert(cap) {
                         handles.push(h);
                     }
@@ -221,12 +195,7 @@ fn bench_manager_create_root(c: &mut Criterion) {
                     },
                     |mut manager| {
                         let task = TaskHandle::new(1, 0);
-                        black_box(manager.create_root_capability(
-                            0x1000,
-                            obj_type,
-                            0,
-                            task,
-                        ))
+                        black_box(manager.create_root_capability(0x1000, obj_type, 0, task))
                     },
                 );
             },
@@ -252,13 +221,7 @@ fn bench_manager_grant(c: &mut Criterion) {
             },
             |(mut manager, root_cap, task1)| {
                 let task2 = TaskHandle::new(2, 0);
-                black_box(manager.grant(
-                    root_cap,
-                    CapRights::READ,
-                    42,
-                    task1,
-                    task2,
-                ))
+                black_box(manager.grant(root_cap, CapRights::READ, 42, task1, task2))
             },
         );
     });
@@ -317,9 +280,7 @@ fn bench_manager_revoke(c: &mut Criterion) {
                     .unwrap();
                 (manager, cap, task)
             },
-            |(mut manager, cap, task)| {
-                black_box(manager.revoke(cap, task))
-            },
+            |(mut manager, cap, task)| black_box(manager.revoke(cap, task)),
         );
     });
 
@@ -343,9 +304,13 @@ fn bench_manager_revoke(c: &mut Criterion) {
                         let mut current_task = task1;
                         for i in 0..chain_length {
                             let next_task = TaskHandle::new(i as u32 + 2, 0);
-                            if let Ok(derived) =
-                                manager.grant(current_cap, CapRights::READ, i as u64, current_task, next_task)
-                            {
+                            if let Ok(derived) = manager.grant(
+                                current_cap,
+                                CapRights::READ,
+                                i as u64,
+                                current_task,
+                                next_task,
+                            ) {
                                 current_cap = derived;
                                 current_task = next_task;
                             }
@@ -353,9 +318,7 @@ fn bench_manager_revoke(c: &mut Criterion) {
 
                         (manager, root_cap, task1)
                     },
-                    |(mut manager, root_cap, task1)| {
-                        black_box(manager.revoke(root_cap, task1))
-                    },
+                    |(mut manager, root_cap, task1)| black_box(manager.revoke(root_cap, task1)),
                 );
             },
         );
@@ -375,9 +338,7 @@ fn bench_manager_has_rights(c: &mut Criterion) {
             .create_root_capability(0x1000, ObjectType::Region, 0, task)
             .unwrap();
 
-        b.iter(|| {
-            black_box(manager.has_rights(cap, CapRights::READ))
-        });
+        b.iter(|| black_box(manager.has_rights(cap, CapRights::READ)));
     });
 
     group.bench_function("check_multiple_rights", |b| {
@@ -390,9 +351,7 @@ fn bench_manager_has_rights(c: &mut Criterion) {
 
         let required_rights = CapRights::READ | CapRights::WRITE | CapRights::EXECUTE;
 
-        b.iter(|| {
-            black_box(manager.has_rights(cap, required_rights))
-        });
+        b.iter(|| black_box(manager.has_rights(cap, required_rights)));
     });
 
     group.finish();
@@ -439,25 +398,19 @@ fn bench_rights_operations(c: &mut Criterion) {
     group.bench_function("combine_rights", |b| {
         let r1 = CapRights::READ;
         let r2 = CapRights::WRITE;
-        b.iter(|| {
-            black_box(r1 | r2)
-        });
+        b.iter(|| black_box(r1 | r2));
     });
 
     group.bench_function("intersect_rights", |b| {
         let r1 = CapRights::READ | CapRights::WRITE | CapRights::GRANT;
         let r2 = CapRights::READ | CapRights::EXECUTE;
-        b.iter(|| {
-            black_box(r1 & r2)
-        });
+        b.iter(|| black_box(r1 & r2));
     });
 
     group.bench_function("contains_check", |b| {
         let rights = CapRights::READ | CapRights::WRITE | CapRights::GRANT;
         let required = CapRights::READ | CapRights::WRITE;
-        b.iter(|| {
-            black_box(rights.contains(required))
-        });
+        b.iter(|| black_box(rights.contains(required)));
     });
 
     group.bench_function("is_subset", |b| {
@@ -521,23 +474,17 @@ fn bench_handle_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("handle_ops");
 
     group.bench_function("cap_handle_new", |b| {
-        b.iter(|| {
-            black_box(CapHandle::new(black_box(42), black_box(1)))
-        });
+        b.iter(|| black_box(CapHandle::new(black_box(42), black_box(1))));
     });
 
     group.bench_function("task_handle_new", |b| {
-        b.iter(|| {
-            black_box(TaskHandle::new(black_box(1), black_box(0)))
-        });
+        b.iter(|| black_box(TaskHandle::new(black_box(1), black_box(0))));
     });
 
     group.bench_function("handle_comparison", |b| {
         let h1 = CapHandle::new(1, 0);
         let h2 = CapHandle::new(1, 0);
-        b.iter(|| {
-            black_box(h1 == h2)
-        });
+        b.iter(|| black_box(h1 == h2));
     });
 
     group.bench_function("handle_generation_check", |b| {
@@ -566,13 +513,7 @@ fn bench_throughput(c: &mut Criterion) {
         let mut handles = Vec::new();
 
         for i in 0..1000 {
-            let cap = Capability::new(
-                i as u64,
-                ObjectType::Region,
-                CapRights::READ,
-                0,
-                0,
-            );
+            let cap = Capability::new(i as u64, ObjectType::Region, CapRights::READ, 0, 0);
             if let Ok(h) = table.insert(cap) {
                 handles.push(h);
             }
@@ -641,9 +582,7 @@ fn bench_latency(c: &mut Criterion) {
             .create_root_capability(0x1000, ObjectType::Region, 0, task)
             .unwrap();
 
-        b.iter(|| {
-            black_box(manager.has_rights(black_box(cap), black_box(CapRights::READ)))
-        });
+        b.iter(|| black_box(manager.has_rights(black_box(cap), black_box(CapRights::READ))));
     });
 
     group.bench_function("grant_latency", |b| {

@@ -4,7 +4,9 @@
 //! RuVix kernel primitives, ensuring proper interaction between
 //! Task, Capability, Region, Queue, Timer, and Proof systems.
 
-use ruvix_cap::{CapManagerConfig, CapabilityManager, CapRights, ObjectType, RevokeRequest, TaskHandle};
+use ruvix_cap::{
+    CapManagerConfig, CapRights, CapabilityManager, ObjectType, RevokeRequest, TaskHandle,
+};
 use ruvix_queue::{KernelQueue, MessageDescriptor, QueueConfig};
 use ruvix_region::{
     append_only::AppendOnlyRegion, backing::StaticBacking, immutable::ImmutableRegion,
@@ -38,12 +40,7 @@ fn test_region_create_syscall_flow() {
 
     // Step 4: Create capability for the region
     let cap_handle = cap_manager
-        .create_root_capability(
-            region_handle.raw().id as u64,
-            ObjectType::Region,
-            0,
-            task,
-        )
+        .create_root_capability(region_handle.raw().id as u64, ObjectType::Region, 0, task)
         .unwrap();
 
     // Verify: task has READ/WRITE access
@@ -68,16 +65,13 @@ fn test_region_write_syscall_flow() {
     let mut region = AppendOnlyRegion::new(backing, 4096, region_handle).unwrap();
 
     let cap_handle = cap_manager
-        .create_root_capability(
-            region_handle.raw().id as u64,
-            ObjectType::Region,
-            0,
-            task,
-        )
+        .create_root_capability(region_handle.raw().id as u64, ObjectType::Region, 0, task)
         .unwrap();
 
     // Verify capability before write
-    assert!(cap_manager.has_rights(cap_handle, CapRights::WRITE).unwrap());
+    assert!(cap_manager
+        .has_rights(cap_handle, CapRights::WRITE)
+        .unwrap());
 
     // Perform write
     let data = b"test data for append-only region";
@@ -106,12 +100,7 @@ fn test_region_read_syscall_flow() {
     let region = ImmutableRegion::new(backing, data, region_handle).unwrap();
 
     let cap_handle = cap_manager
-        .create_root_capability(
-            region_handle.raw().id as u64,
-            ObjectType::Region,
-            0,
-            task,
-        )
+        .create_root_capability(region_handle.raw().id as u64, ObjectType::Region, 0, task)
         .unwrap();
 
     // Verify capability before read
@@ -153,23 +142,21 @@ fn test_queue_send_recv_syscall_flow() {
 
     // Grant read capability to receiver
     let receiver_cap = cap_manager
-        .grant(
-            sender_cap,
-            CapRights::READ,
-            0,
-            sender_task,
-            receiver_task,
-        )
+        .grant(sender_cap, CapRights::READ, 0, sender_task, receiver_task)
         .unwrap();
 
     // Sender verifies and sends
-    assert!(cap_manager.has_rights(sender_cap, CapRights::WRITE).unwrap());
+    assert!(cap_manager
+        .has_rights(sender_cap, CapRights::WRITE)
+        .unwrap());
 
     let msg = b"hello from sender";
     queue.send(msg, MsgPriority::Normal).unwrap();
 
     // Receiver verifies and receives
-    assert!(cap_manager.has_rights(receiver_cap, CapRights::READ).unwrap());
+    assert!(cap_manager
+        .has_rights(receiver_cap, CapRights::READ)
+        .unwrap());
 
     let mut recv_buf = [0u8; 256];
     let len = queue.recv(&mut recv_buf).unwrap();
@@ -235,7 +222,9 @@ fn test_capability_delegation_syscall_flow() {
     assert!(cap_manager.has_rights(worker_cap, CapRights::READ).unwrap());
 
     // Worker cannot write (doesn't have WRITE rights)
-    assert!(!cap_manager.has_rights(worker_cap, CapRights::WRITE).unwrap());
+    assert!(!cap_manager
+        .has_rights(worker_cap, CapRights::WRITE)
+        .unwrap());
 }
 
 #[test]
@@ -424,7 +413,10 @@ fn test_zero_copy_descriptor_flow() {
 
     // Verify descriptor points to valid data
     let slice = region.as_slice();
-    assert_eq!(&slice[desc.offset as usize..(desc.offset as usize + desc.length as usize)], data);
+    assert_eq!(
+        &slice[desc.offset as usize..(desc.offset as usize + desc.length as usize)],
+        data
+    );
 }
 
 // ============================================================================

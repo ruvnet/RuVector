@@ -195,7 +195,7 @@ pub struct WsOrderbook {
 #[derive(Debug, Clone, Deserialize)]
 pub struct WsOrderbookDelta {
     pub market_ticker: String,
-    pub side: String,       // "yes" | "no"
+    pub side: String, // "yes" | "no"
     pub price: i64,
     pub delta: i64,
     pub ts: Option<i64>,

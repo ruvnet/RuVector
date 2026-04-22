@@ -187,7 +187,10 @@ pub struct BetaParams {
 
 impl BetaParams {
     pub fn new() -> Self {
-        Self { alpha: 1.0, beta: 1.0 }
+        Self {
+            alpha: 1.0,
+            beta: 1.0,
+        }
     }
 
     pub fn mean(&self) -> f64 {
@@ -312,7 +315,11 @@ pub struct PartitionResultCompact {
 impl From<PartitionResult> for PartitionResultCompact {
     fn from(r: PartitionResult) -> Self {
         Self {
-            clusters: r.clusters.iter().map(KnowledgeClusterCompact::from).collect(),
+            clusters: r
+                .clusters
+                .iter()
+                .map(KnowledgeClusterCompact::from)
+                .collect(),
             cut_value: r.cut_value,
             edge_strengths: r.edge_strengths,
             total_memories: r.total_memories,
@@ -446,7 +453,9 @@ pub struct PartitionQuery {
     pub force: bool,
 }
 
-fn default_compact() -> bool { true }
+fn default_compact() -> bool {
+    true
+}
 
 #[derive(Debug, Serialize)]
 pub struct HealthResponse {
@@ -529,8 +538,12 @@ pub struct ConsciousnessComputeRequest {
     pub partition_mask: Option<u64>,
 }
 
-fn default_algo() -> String { "auto".into() }
-fn default_phi_threshold() -> f64 { 1e-6 }
+fn default_algo() -> String {
+    "auto".into()
+}
+fn default_phi_threshold() -> f64 {
+    1e-6
+}
 
 /// Response for POST /v1/consciousness/compute
 #[derive(Debug, Serialize)]
@@ -670,10 +683,16 @@ impl LoraSubmission {
         let expected_down = self.hidden_dim * self.rank;
         let expected_up = self.rank * self.hidden_dim;
         if self.down_proj.len() != expected_down {
-            return Err(format!("down_proj shape: expected {expected_down}, got {}", self.down_proj.len()));
+            return Err(format!(
+                "down_proj shape: expected {expected_down}, got {}",
+                self.down_proj.len()
+            ));
         }
         if self.up_proj.len() != expected_up {
-            return Err(format!("up_proj shape: expected {expected_up}, got {}", self.up_proj.len()));
+            return Err(format!(
+                "up_proj shape: expected {expected_up}, got {}",
+                self.up_proj.len()
+            ));
         }
         for (i, &v) in self.down_proj.iter().chain(self.up_proj.iter()).enumerate() {
             if v.is_nan() || v.is_infinite() {
@@ -686,7 +705,9 @@ impl LoraSubmission {
         let down_norm: f32 = self.down_proj.iter().map(|x| x * x).sum::<f32>().sqrt();
         let up_norm: f32 = self.up_proj.iter().map(|x| x * x).sum::<f32>().sqrt();
         if down_norm > 100.0 || up_norm > 100.0 {
-            return Err(format!("Norm too large: down={down_norm:.1}, up={up_norm:.1}"));
+            return Err(format!(
+                "Norm too large: down={down_norm:.1}, up={up_norm:.1}"
+            ));
         }
         if self.evidence_count < 5 {
             return Err(format!("Insufficient evidence: {}", self.evidence_count));
@@ -771,10 +792,25 @@ pub struct EvidenceLink {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum EvidenceType {
-    TestPass { test_name: String, repo: String, commit_hash: String },
-    BuildSuccess { pipeline_url: String, commit_hash: String },
-    MetricImproval { metric_name: String, before: f64, after: f64 },
-    PeerReview { reviewer: String, direction: VoteDirection, score: f64 },
+    TestPass {
+        test_name: String,
+        repo: String,
+        commit_hash: String,
+    },
+    BuildSuccess {
+        pipeline_url: String,
+        commit_hash: String,
+    },
+    MetricImproval {
+        metric_name: String,
+        before: f64,
+        after: f64,
+    },
+    PeerReview {
+        reviewer: String,
+        direction: VoteDirection,
+        score: f64,
+    },
 }
 
 /// A delta entry modifying a canonical page
@@ -1046,7 +1082,9 @@ impl LoraFederationStore {
         let mut accepted_indices: Vec<usize> = Vec::new();
 
         for (idx, (sub, _, rep)) in self.pending.iter().enumerate() {
-            let params: Vec<f32> = sub.down_proj.iter()
+            let params: Vec<f32> = sub
+                .down_proj
+                .iter()
                 .chain(sub.up_proj.iter())
                 .copied()
                 .collect();
@@ -1066,26 +1104,33 @@ impl LoraFederationStore {
         }
 
         // Compute per-parameter median
-        let medians: Vec<f32> = all_params.iter().map(|vals| {
-            let mut sorted = vals.clone();
-            sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-            if sorted.len() % 2 == 0 {
-                (sorted[sorted.len() / 2 - 1] + sorted[sorted.len() / 2]) / 2.0
-            } else {
-                sorted[sorted.len() / 2]
-            }
-        }).collect();
+        let medians: Vec<f32> = all_params
+            .iter()
+            .map(|vals| {
+                let mut sorted = vals.clone();
+                sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                if sorted.len() % 2 == 0 {
+                    (sorted[sorted.len() / 2 - 1] + sorted[sorted.len() / 2]) / 2.0
+                } else {
+                    sorted[sorted.len() / 2]
+                }
+            })
+            .collect();
 
         // Compute MAD (Median Absolute Deviation) per parameter
-        let mads: Vec<f32> = all_params.iter().zip(medians.iter()).map(|(vals, &med)| {
-            let mut devs: Vec<f32> = vals.iter().map(|&v| (v - med).abs()).collect();
-            devs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-            if devs.len() % 2 == 0 {
-                (devs[devs.len() / 2 - 1] + devs[devs.len() / 2]) / 2.0
-            } else {
-                devs[devs.len() / 2]
-            }
-        }).collect();
+        let mads: Vec<f32> = all_params
+            .iter()
+            .zip(medians.iter())
+            .map(|(vals, &med)| {
+                let mut devs: Vec<f32> = vals.iter().map(|&v| (v - med).abs()).collect();
+                devs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                if devs.len() % 2 == 0 {
+                    (devs[devs.len() / 2 - 1] + devs[devs.len() / 2]) / 2.0
+                } else {
+                    devs[devs.len() / 2]
+                }
+            })
+            .collect();
 
         // Reputation-weighted trimmed mean: exclude params >3*MAD from median
         let mut result = vec![0.0f32; total_params];
@@ -1094,7 +1139,9 @@ impl LoraFederationStore {
         // Iterate only over accepted submissions with correct weight indexing
         for (weight_idx, &pending_idx) in accepted_indices.iter().enumerate() {
             let (sub, _, _) = &self.pending[pending_idx];
-            let params: Vec<f32> = sub.down_proj.iter()
+            let params: Vec<f32> = sub
+                .down_proj
+                .iter()
                 .chain(sub.up_proj.iter())
                 .copied()
                 .collect();
@@ -1154,7 +1201,10 @@ impl LoraFederationStore {
         let curr = self.consensus.as_ref()?;
         let prev = self.previous_consensus.as_ref()?;
 
-        let d: f32 = curr.down_proj.iter().zip(prev.down_proj.iter())
+        let d: f32 = curr
+            .down_proj
+            .iter()
+            .zip(prev.down_proj.iter())
             .chain(curr.up_proj.iter().zip(prev.up_proj.iter()))
             .map(|(a, b)| (a - b).powi(2))
             .sum();
@@ -1168,7 +1218,9 @@ impl LoraFederationStore {
                 "epoch": self.epoch,
                 "consensus": consensus,
             });
-            store.firestore_put_public("brain_lora", "consensus", &doc).await;
+            store
+                .firestore_put_public("brain_lora", "consensus", &doc)
+                .await;
         }
     }
 
@@ -1237,7 +1289,9 @@ impl NonceStore {
 
     /// Periodic cleanup of expired nonces
     fn maybe_cleanup(&self) {
-        let count = self.ops_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let count = self
+            .ops_counter
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         if count % 500 != 0 {
             return;
         }
@@ -1340,7 +1394,8 @@ pub struct AppState {
     pub cognitive: std::sync::Arc<parking_lot::RwLock<crate::cognitive::CognitiveEngine>>,
     pub drift: std::sync::Arc<parking_lot::RwLock<crate::drift::DriftMonitor>>,
     pub aggregator: std::sync::Arc<crate::aggregate::ByzantineAggregator>,
-    pub domain_engine: std::sync::Arc<parking_lot::RwLock<ruvector_domain_expansion::DomainExpansionEngine>>,
+    pub domain_engine:
+        std::sync::Arc<parking_lot::RwLock<ruvector_domain_expansion::DomainExpansionEngine>>,
     pub sona: std::sync::Arc<parking_lot::RwLock<sona::SonaEngine>>,
     pub lora_federation: std::sync::Arc<parking_lot::RwLock<LoraFederationStore>>,
     /// RuvLLM embedding engine (HashEmbedder + RlmEmbedder)
@@ -1354,9 +1409,13 @@ pub struct AppState {
     /// RVF feature flags read once at startup (avoids per-request env::var calls)
     pub rvf_flags: RvfFeatureFlags,
     /// Global Workspace Theory attention layer for memory selection (ADR-075 AGI)
-    pub workspace: std::sync::Arc<parking_lot::RwLock<ruvector_nervous_system::routing::workspace::GlobalWorkspace>>,
+    pub workspace: std::sync::Arc<
+        parking_lot::RwLock<ruvector_nervous_system::routing::workspace::GlobalWorkspace>,
+    >,
     /// Temporal delta tracking for knowledge evolution (ADR-075 AGI)
-    pub delta_stream: std::sync::Arc<parking_lot::RwLock<ruvector_delta_core::DeltaStream<ruvector_delta_core::VectorDelta>>>,
+    pub delta_stream: std::sync::Arc<
+        parking_lot::RwLock<ruvector_delta_core::DeltaStream<ruvector_delta_core::VectorDelta>>,
+    >,
     /// Cached verifier (holds compiled PiiStripper regexes — avoids recompiling per request)
     pub verifier: std::sync::Arc<parking_lot::RwLock<crate::verify::Verifier>>,
     /// Negative cost fuse: when true, reject all writes (Firestore/GCS errors spiking)
@@ -1366,15 +1425,28 @@ pub struct AppState {
     /// Nanosecond-precision background scheduler (Phase 9b)
     pub nano_scheduler: std::sync::Arc<nanosecond_scheduler::Scheduler>,
     /// Per-category Lyapunov exponent results from attractor analysis (Phase 9c)
-    pub attractor_results: std::sync::Arc<parking_lot::RwLock<std::collections::HashMap<String, temporal_attractor_studio::LyapunovResult>>>,
+    pub attractor_results: std::sync::Arc<
+        parking_lot::RwLock<
+            std::collections::HashMap<String, temporal_attractor_studio::LyapunovResult>,
+        >,
+    >,
     /// Temporal neural solver with certified predictions (Phase 9d)
     /// Note: Only available on x86_64 platforms (requires SIMD)
     #[cfg(feature = "x86-simd")]
-    pub temporal_solver: std::sync::Arc<parking_lot::RwLock<temporal_neural_solver::TemporalSolver>>,
+    pub temporal_solver:
+        std::sync::Arc<parking_lot::RwLock<temporal_neural_solver::TemporalSolver>>,
     #[cfg(not(feature = "x86-simd"))]
     pub temporal_solver: std::sync::Arc<parking_lot::RwLock<TemporalSolverStub>>,
     /// Meta-cognitive recursive learning with safety bounds (Phase 9e)
-    pub strange_loop: std::sync::Arc<parking_lot::RwLock<strange_loop::StrangeLoop<strange_loop::ScalarReasoner, strange_loop::SimpleCritic, strange_loop::SafeReflector>>>,
+    pub strange_loop: std::sync::Arc<
+        parking_lot::RwLock<
+            strange_loop::StrangeLoop<
+                strange_loop::ScalarReasoner,
+                strange_loop::SimpleCritic,
+                strange_loop::SafeReflector,
+            >,
+        >,
+    >,
     /// Active SSE sessions: session ID -> sender channel for streaming responses
     pub sessions: std::sync::Arc<dashmap::DashMap<String, tokio::sync::mpsc::Sender<String>>>,
     // ── Neural-Symbolic + Internal Voice (ADR-110) ──
@@ -1398,7 +1470,8 @@ pub struct AppState {
     /// Resend email notifier (ADR-125) — None if RESEND_API_KEY not set
     pub notifier: Option<crate::notify::ResendNotifier>,
     /// Cached /v1/status response to avoid recomputing expensive aggregates every call
-    pub cached_status: std::sync::Arc<parking_lot::RwLock<Option<(std::time::Instant, StatusResponse)>>>,
+    pub cached_status:
+        std::sync::Arc<parking_lot::RwLock<Option<(std::time::Instant, StatusResponse)>>>,
     /// GitHub Gist publisher for autonomous discoveries — None if GITHUB_GIST_PAT not set
     pub gist_publisher: Option<std::sync::Arc<crate::gist::GistPublisher>>,
     /// Semaphore to limit concurrent pipeline/optimize requests (prevents scheduler thundering herd)

@@ -77,7 +77,9 @@ impl RateLimitMiddleware {
 #[async_trait]
 impl McpMiddleware for RateLimitMiddleware {
     async fn on_request(&self, request: &JsonRpcRequest) -> Result<Option<JsonRpcResponse>> {
-        let count = self.counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let count = self
+            .counter
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         if count >= self.max_requests {
             return Ok(Some(JsonRpcResponse::error(
                 request.id.clone(),
@@ -254,10 +256,8 @@ mod tests {
     async fn test_logging_middleware_with_error_response() {
         let mw = LoggingMiddleware;
         let req = JsonRpcRequest::new(1, "bad");
-        let resp = JsonRpcResponse::error(
-            serde_json::json!(1),
-            JsonRpcError::method_not_found("bad"),
-        );
+        let resp =
+            JsonRpcResponse::error(serde_json::json!(1), JsonRpcError::method_not_found("bad"));
         let result = mw.on_response(&req, resp).await.unwrap();
         assert!(result.error.is_some());
     }

@@ -122,10 +122,7 @@ pub async fn subscribe(stream: &mut WsStream, sub: &Subscribe) -> Result<()> {
 
 /// Pump text frames from `stream` through `FeedDecoder` into the channel.
 /// Returns when the socket closes or an error occurs.
-pub async fn pump_frames(
-    mut stream: WsStream,
-    tx: mpsc::Sender<MarketEvent>,
-) -> Result<()> {
+pub async fn pump_frames(mut stream: WsStream, tx: mpsc::Sender<MarketEvent>) -> Result<()> {
     let mut decoder = FeedDecoder::new();
     while let Some(next) = stream.next().await {
         let msg = match next {

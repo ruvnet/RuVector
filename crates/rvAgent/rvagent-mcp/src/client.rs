@@ -33,7 +33,10 @@ impl McpClient {
         let req = JsonRpcRequest::new(1, "initialize")
             .with_params(serde_json::to_value(&params).map_err(McpError::from)?);
         self.transport.send_request(req).await?;
-        let resp = self.transport.receive_response().await?
+        let resp = self
+            .transport
+            .receive_response()
+            .await?
             .ok_or_else(|| McpError::client("connection closed"))?;
         if let Some(error) = resp.error {
             return Err(McpError::client(error.message));
@@ -51,7 +54,10 @@ impl McpClient {
     pub async fn ping(&self) -> Result<()> {
         let req = JsonRpcRequest::new(2, "ping");
         self.transport.send_request(req).await?;
-        let resp = self.transport.receive_response().await?
+        let resp = self
+            .transport
+            .receive_response()
+            .await?
             .ok_or_else(|| McpError::client("connection closed"))?;
         if resp.error.is_some() {
             return Err(McpError::client("ping failed"));
@@ -63,7 +69,10 @@ impl McpClient {
     pub async fn list_tools(&self) -> Result<Vec<McpTool>> {
         let req = JsonRpcRequest::new(3, "tools/list");
         self.transport.send_request(req).await?;
-        let resp = self.transport.receive_response().await?
+        let resp = self
+            .transport
+            .receive_response()
+            .await?
             .ok_or_else(|| McpError::client("connection closed"))?;
         if let Some(error) = resp.error {
             return Err(McpError::client(error.message));
@@ -74,8 +83,7 @@ impl McpClient {
         let tools = result
             .get("tools")
             .ok_or_else(|| McpError::client("missing tools field"))?;
-        let tools: Vec<McpTool> =
-            serde_json::from_value(tools.clone()).map_err(McpError::from)?;
+        let tools: Vec<McpTool> = serde_json::from_value(tools.clone()).map_err(McpError::from)?;
         Ok(tools)
     }
 
@@ -88,7 +96,10 @@ impl McpClient {
         let req = JsonRpcRequest::new(4, "tools/call")
             .with_params(serde_json::json!({ "name": name, "arguments": arguments }));
         self.transport.send_request(req).await?;
-        let resp = self.transport.receive_response().await?
+        let resp = self
+            .transport
+            .receive_response()
+            .await?
             .ok_or_else(|| McpError::client("connection closed"))?;
         if let Some(error) = resp.error {
             return Err(McpError::client(error.message));
@@ -103,10 +114,13 @@ impl McpClient {
 
     /// Read a resource by URI.
     pub async fn read_resource(&self, uri: &str) -> Result<ResourceReadResult> {
-        let req = JsonRpcRequest::new(5, "resources/read")
-            .with_params(serde_json::json!({ "uri": uri }));
+        let req =
+            JsonRpcRequest::new(5, "resources/read").with_params(serde_json::json!({ "uri": uri }));
         self.transport.send_request(req).await?;
-        let resp = self.transport.receive_response().await?
+        let resp = self
+            .transport
+            .receive_response()
+            .await?
             .ok_or_else(|| McpError::client("connection closed"))?;
         if let Some(error) = resp.error {
             return Err(McpError::client(error.message));
@@ -123,7 +137,10 @@ impl McpClient {
     pub async fn list_resources(&self) -> Result<Vec<crate::protocol::McpResource>> {
         let req = JsonRpcRequest::new(6, "resources/list");
         self.transport.send_request(req).await?;
-        let resp = self.transport.receive_response().await?
+        let resp = self
+            .transport
+            .receive_response()
+            .await?
             .ok_or_else(|| McpError::client("connection closed"))?;
         if let Some(error) = resp.error {
             return Err(McpError::client(error.message));
@@ -195,7 +212,10 @@ mod tests {
             .initialize(InitializeParams {
                 protocol_version: "2024-11-05".into(),
                 capabilities: ClientCapabilities::default(),
-                client_info: ClientInfo { name: "t".into(), version: "1".into() },
+                client_info: ClientInfo {
+                    name: "t".into(),
+                    version: "1".into(),
+                },
             })
             .await
             .unwrap();
@@ -214,7 +234,10 @@ mod tests {
             .initialize(InitializeParams {
                 protocol_version: "2024-11-05".into(),
                 capabilities: ClientCapabilities::default(),
-                client_info: ClientInfo { name: "t".into(), version: "0".into() },
+                client_info: ClientInfo {
+                    name: "t".into(),
+                    version: "0".into(),
+                },
             })
             .await;
         assert!(err.is_err());
@@ -272,7 +295,10 @@ mod tests {
             )
             .await;
         });
-        let result = client.call_tool("ping", serde_json::json!({})).await.unwrap();
+        let result = client
+            .call_tool("ping", serde_json::json!({}))
+            .await
+            .unwrap();
         assert!(!result.is_error);
         h.await.unwrap();
     }
@@ -283,7 +309,10 @@ mod tests {
         let h = tokio::spawn(async move {
             respond_with_error(&server, JsonRpcError::internal_error("fail")).await;
         });
-        assert!(client.call_tool("bad", serde_json::json!({})).await.is_err());
+        assert!(client
+            .call_tool("bad", serde_json::json!({}))
+            .await
+            .is_err());
         h.await.unwrap();
     }
 

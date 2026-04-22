@@ -43,10 +43,7 @@ pub fn partition_modules(
     let target = target.clamp(1, n);
 
     if target == 1 || n <= 2 {
-        return Ok(vec![build_module(
-            0,
-            &graph.declarations,
-        )]);
+        return Ok(vec![build_module(0, &graph.declarations)]);
     }
 
     // Choose algorithm based on graph size.
@@ -58,15 +55,11 @@ pub fn partition_modules(
 }
 
 /// Exact MinCut partitioning for small-to-medium graphs (<5K nodes).
-fn exact_mincut_partition(
-    graph: &ReferenceGraph,
-    target: usize,
-) -> Result<Vec<Module>> {
+fn exact_mincut_partition(graph: &ReferenceGraph, target: usize) -> Result<Vec<Module>> {
     let partitioner = GraphPartitioner::new(graph.graph.clone(), target);
     let partitions = partitioner.partition();
 
-    let mut assigned: std::collections::HashSet<usize> =
-        std::collections::HashSet::new();
+    let mut assigned: std::collections::HashSet<usize> = std::collections::HashSet::new();
     let mut modules = Vec::new();
     let mut mod_idx = 0;
 
@@ -111,10 +104,7 @@ fn exact_mincut_partition(
 /// modularity gains in parallel. Each node reads the current community
 /// assignments without locking. Moves are applied sequentially after
 /// each parallel sweep to prevent conflicts.
-fn louvain_partition(
-    graph: &ReferenceGraph,
-    target: usize,
-) -> Result<Vec<Module>> {
+fn louvain_partition(graph: &ReferenceGraph, target: usize) -> Result<Vec<Module>> {
     let n = graph.node_count();
 
     // Build adjacency list from the reference graph.
@@ -180,8 +170,7 @@ fn louvain_partition(
                 }
 
                 // Compute sum of weights to each neighbor community.
-                let mut comm_weights: HashMap<usize, f64> =
-                    HashMap::with_capacity(adj[i].len());
+                let mut comm_weights: HashMap<usize, f64> = HashMap::with_capacity(adj[i].len());
                 for &(j, w) in &adj[i] {
                     *comm_weights.entry(community[j]).or_insert(0.0) += w;
                 }
@@ -189,8 +178,7 @@ fn louvain_partition(
                 let mut best_comm = current_comm;
                 let mut best_gain = 0.0f64;
 
-                let ki_in_current =
-                    comm_weights.get(&current_comm).copied().unwrap_or(0.0);
+                let ki_in_current = comm_weights.get(&current_comm).copied().unwrap_or(0.0);
                 let sigma_current = sigma_totals[current_comm];
 
                 for (&candidate_comm, &ki_in_candidate) in &comm_weights {
@@ -271,10 +259,7 @@ fn louvain_partition(
 }
 
 /// Fallback: positional partitioning by byte offset for edge-less graphs.
-fn positional_partition(
-    graph: &ReferenceGraph,
-    target: usize,
-) -> Result<Vec<Module>> {
+fn positional_partition(graph: &ReferenceGraph, target: usize) -> Result<Vec<Module>> {
     let n = graph.node_count();
     let chunk_size = (n + target - 1) / target;
 
@@ -313,25 +298,19 @@ fn distribute_orphans(
                 .iter_mut()
                 .min_by_key(|m| {
                     let mid = (m.byte_range.0 + m.byte_range.1) / 2;
-                    let orphan_mid =
-                        (orphan.byte_range.0 + orphan.byte_range.1) / 2;
+                    let orphan_mid = (orphan.byte_range.0 + orphan.byte_range.1) / 2;
                     (mid as i64 - orphan_mid as i64).unsigned_abs()
                 })
                 .unwrap();
             best_module.declarations.push(orphan.clone());
-            best_module.byte_range.0 =
-                best_module.byte_range.0.min(orphan.byte_range.0);
-            best_module.byte_range.1 =
-                best_module.byte_range.1.max(orphan.byte_range.1);
+            best_module.byte_range.0 = best_module.byte_range.0.min(orphan.byte_range.0);
+            best_module.byte_range.1 = best_module.byte_range.1.max(orphan.byte_range.1);
         }
     }
 }
 
 /// Finalize module list: ensure at least one module exists.
-fn finalize_modules(
-    graph: &ReferenceGraph,
-    modules: Vec<Module>,
-) -> Result<Vec<Module>> {
+fn finalize_modules(graph: &ReferenceGraph, modules: Vec<Module>) -> Result<Vec<Module>> {
     if modules.is_empty() {
         Ok(vec![build_module(0, &graph.declarations)])
     } else {
@@ -386,7 +365,13 @@ fn infer_module_name(decls: &[Declaration], fallback_index: usize) -> String {
 fn sanitize_module_name(raw: &str) -> String {
     let cleaned: String = raw
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect();
     if cleaned.is_empty() {
         "module".to_string()
@@ -470,18 +455,10 @@ mod tests {
         let mut decls = Vec::new();
         for i in 0..50 {
             let refs: Vec<&str> = Vec::new();
-            decls.push(make_decl(
-                &format!("a{}", i),
-                &refs,
-                &["cluster_a"],
-            ));
+            decls.push(make_decl(&format!("a{}", i), &refs, &["cluster_a"]));
         }
         for i in 0..50 {
-            decls.push(make_decl(
-                &format!("b{}", i),
-                &[],
-                &["cluster_b"],
-            ));
+            decls.push(make_decl(&format!("b{}", i), &[], &["cluster_b"]));
         }
         // Add cross-references within clusters.
         for i in 1..50 {

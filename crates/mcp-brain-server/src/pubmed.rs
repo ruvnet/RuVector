@@ -65,7 +65,9 @@ impl PubMedArticle {
             text,
             title: self.title.clone(),
             meta_description: self.abstract_text.chars().take(300).collect(),
-            links: self.references.iter()
+            links: self
+                .references
+                .iter()
                 .map(|pmid| format!("https://pubmed.ncbi.nlm.nih.gov/{pmid}/"))
                 .collect(),
             language: "en".to_string(),
@@ -122,9 +124,7 @@ pub async fn efetch(
     }
 
     let id_str = pmids.join(",");
-    let url = format!(
-        "{EFETCH_URL}?db=pubmed&id={id_str}&rettype=xml&retmode=xml"
-    );
+    let url = format!("{EFETCH_URL}?db=pubmed&id={id_str}&rettype=xml&retmode=xml");
 
     let resp = client
         .get(&url)
@@ -213,7 +213,9 @@ fn extract_abstract(xml: &str) -> String {
         let tag_str = &xml[abs_start..content_start];
         let label = if let Some(lpos) = tag_str.find("Label=\"") {
             let lstart = lpos + 7;
-            tag_str[lstart..].find('"').map(|end| &tag_str[lstart..lstart + end])
+            tag_str[lstart..]
+                .find('"')
+                .map(|end| &tag_str[lstart..lstart + end])
         } else {
             None
         };
@@ -413,24 +415,24 @@ pub fn analyze_discoveries(
     let pmid_to_mem: HashMap<String, &WebMemory> = accepted
         .iter()
         .filter_map(|m| {
-            let pmid = m.source_url
-                .trim_end_matches('/')
-                .rsplit('/')
-                .next()?;
+            let pmid = m.source_url.trim_end_matches('/').rsplit('/').next()?;
             Some((pmid.to_string(), m))
         })
         .collect();
 
     // ── Emerging Topics: high-novelty articles with MeSH context ────
     let mut emerging_topics = Vec::new();
-    let mut high_novelty: Vec<&WebMemory> = accepted
-        .iter()
-        .filter(|m| m.novelty_score > 0.5)
-        .collect();
+    let mut high_novelty: Vec<&WebMemory> =
+        accepted.iter().filter(|m| m.novelty_score > 0.5).collect();
     high_novelty.sort_by(|a, b| b.novelty_score.partial_cmp(&a.novelty_score).unwrap());
 
     for mem in high_novelty.iter().take(10) {
-        let pmid = mem.source_url.trim_end_matches('/').rsplit('/').next().unwrap_or("?");
+        let pmid = mem
+            .source_url
+            .trim_end_matches('/')
+            .rsplit('/')
+            .next()
+            .unwrap_or("?");
         let article = articles.iter().find(|a| a.pmid == pmid);
         emerging_topics.push(EmergingTopic {
             representative_title: mem.base.title.clone(),
@@ -458,7 +460,9 @@ pub fn analyze_discoveries(
             let (mem_a, art_a) = &accepted_refs[i];
             let (mem_b, art_b) = &accepted_refs[j];
 
-            let shared_mesh: Vec<String> = art_a.mesh_terms.iter()
+            let shared_mesh: Vec<String> = art_a
+                .mesh_terms
+                .iter()
                 .filter(|t| art_b.mesh_terms.contains(t))
                 .cloned()
                 .collect();
@@ -562,7 +566,11 @@ pub async fn push_to_brain(
         match resp {
             Ok(r) if r.status().is_success() => pushed += 1,
             Ok(r) => {
-                tracing::warn!("Brain push failed for PMID {}: HTTP {}", article.pmid, r.status());
+                tracing::warn!(
+                    "Brain push failed for PMID {}: HTTP {}",
+                    article.pmid,
+                    r.status()
+                );
             }
             Err(e) => {
                 tracing::warn!("Brain push failed for PMID {}: {e}", article.pmid);

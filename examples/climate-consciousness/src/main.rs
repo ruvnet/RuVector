@@ -40,11 +40,8 @@ fn main() {
 
     // Step 3: Run analysis
     println!("\n=== Step 3: Consciousness Analysis ===");
-    let results = analysis::run_analysis(
-        &neutral, &neutral_tpm,
-        &elnino, &elnino_tpm,
-        null_samples,
-    );
+    let results =
+        analysis::run_analysis(&neutral, &neutral_tpm, &elnino, &elnino_tpm, null_samples);
 
     // Step 4: Print report
     println!("\n=== Step 4: Results ===");
