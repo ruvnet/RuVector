@@ -6,9 +6,9 @@
 use crate::derivation::DerivationTree;
 use crate::error::{CapError, CapResult};
 use crate::grant::{validate_grant, GrantRequest};
-use crate::revoke::{validate_revoke, RevokeRequest, RevokeResult};
 #[cfg(feature = "alloc")]
 use crate::revoke::RevokeStats;
+use crate::revoke::{validate_revoke, RevokeRequest, RevokeResult};
 use crate::table::{CapTableEntry, CapabilityTable};
 use crate::{DEFAULT_CAP_TABLE_CAPACITY, DEFAULT_MAX_DELEGATION_DEPTH};
 use ruvix_types::{CapHandle, CapRights, Capability, ObjectType, TaskHandle};
@@ -181,13 +181,7 @@ impl<const N: usize> CapabilityManager<N> {
         badge: u64,
         owner: TaskHandle,
     ) -> CapResult<CapHandle> {
-        let capability = Capability::new(
-            object_id,
-            object_type,
-            CapRights::ALL,
-            badge,
-            self.epoch,
-        );
+        let capability = Capability::new(object_id, object_type, CapRights::ALL, badge, self.epoch);
 
         let handle = self.table.allocate_root(capability, owner)?;
 
@@ -211,13 +205,7 @@ impl<const N: usize> CapabilityManager<N> {
         badge: u64,
         owner: TaskHandle,
     ) -> CapResult<CapHandle> {
-        let capability = Capability::new(
-            object_id,
-            object_type,
-            rights,
-            badge,
-            self.epoch,
-        );
+        let capability = Capability::new(object_id, object_type, rights, badge, self.epoch);
 
         let handle = self.table.allocate_root(capability, owner)?;
 
@@ -263,7 +251,8 @@ impl<const N: usize> CapabilityManager<N> {
 
         // Track in derivation tree
         if self.config.track_derivation {
-            self.derivation.add_child(source_handle, derived_handle, grant_result.depth)?;
+            self.derivation
+                .add_child(source_handle, derived_handle, grant_result.depth)?;
         }
 
         // Update statistics
@@ -281,7 +270,11 @@ impl<const N: usize> CapabilityManager<N> {
     /// 1. The capability itself is invalidated
     /// 2. All derived capabilities are recursively invalidated
     /// 3. The derivation tree is pruned
-    pub fn revoke(&mut self, handle: CapHandle, _request: RevokeRequest) -> CapResult<RevokeResult> {
+    pub fn revoke(
+        &mut self,
+        handle: CapHandle,
+        _request: RevokeRequest,
+    ) -> CapResult<RevokeResult> {
         // Validate revocation
         let entry = self.table.lookup(handle)?;
         validate_revoke(entry)?;
@@ -397,9 +390,9 @@ impl<const N: usize> CapabilityManager<N> {
 
     /// Returns an iterator over all valid capabilities.
     pub fn iter(&self) -> impl Iterator<Item = (CapHandle, &CapTableEntry)> {
-        self.table.iter().filter(|(h, _)| {
-            !self.config.track_derivation || self.derivation.is_valid(*h)
-        })
+        self.table
+            .iter()
+            .filter(|(h, _)| !self.config.track_derivation || self.derivation.is_valid(*h))
     }
 }
 
@@ -418,12 +411,9 @@ mod tests {
         let mut manager = CapabilityManager::<64>::with_defaults();
         let owner = TaskHandle::new(1, 0);
 
-        let handle = manager.create_root_capability(
-            0x1000,
-            ObjectType::VectorStore,
-            42,
-            owner,
-        ).unwrap();
+        let handle = manager
+            .create_root_capability(0x1000, ObjectType::VectorStore, 42, owner)
+            .unwrap();
 
         assert_eq!(manager.len(), 1);
 
@@ -439,20 +429,19 @@ mod tests {
         let owner = TaskHandle::new(1, 0);
         let target = TaskHandle::new(2, 0);
 
-        let root_handle = manager.create_root_capability(
-            0x1000,
-            ObjectType::Region,
-            0,
-            owner,
-        ).unwrap();
+        let root_handle = manager
+            .create_root_capability(0x1000, ObjectType::Region, 0, owner)
+            .unwrap();
 
-        let derived_handle = manager.grant(
-            root_handle,
-            CapRights::READ | CapRights::WRITE,
-            100,
-            owner,
-            target,
-        ).unwrap();
+        let derived_handle = manager
+            .grant(
+                root_handle,
+                CapRights::READ | CapRights::WRITE,
+                100,
+                owner,
+                target,
+            )
+            .unwrap();
 
         assert_eq!(manager.len(), 2);
 
@@ -471,30 +460,19 @@ mod tests {
         let target2 = TaskHandle::new(3, 0);
 
         // Create root capability
-        let root = manager.create_root_capability(
-            0x1000,
-            ObjectType::Queue,
-            0,
-            owner,
-        ).unwrap();
+        let root = manager
+            .create_root_capability(0x1000, ObjectType::Queue, 0, owner)
+            .unwrap();
 
         // Grant to target1
-        let child1 = manager.grant(
-            root,
-            CapRights::READ | CapRights::GRANT,
-            1,
-            owner,
-            target1,
-        ).unwrap();
+        let child1 = manager
+            .grant(root, CapRights::READ | CapRights::GRANT, 1, owner, target1)
+            .unwrap();
 
         // Grant from child1 to target2
-        let grandchild = manager.grant(
-            child1,
-            CapRights::READ,
-            2,
-            target1,
-            target2,
-        ).unwrap();
+        let grandchild = manager
+            .grant(child1, CapRights::READ, 2, target1, target2)
+            .unwrap();
 
         assert_eq!(manager.len(), 3);
 
@@ -515,37 +493,20 @@ mod tests {
         let owner = TaskHandle::new(1, 0);
 
         // Create chain: root -> d1 -> d2 -> d3 (should fail)
-        let root = manager.create_root_capability(
-            0x1000,
-            ObjectType::Timer,
-            0,
-            owner,
-        ).unwrap();
+        let root = manager
+            .create_root_capability(0x1000, ObjectType::Timer, 0, owner)
+            .unwrap();
 
-        let d1 = manager.grant(
-            root,
-            CapRights::READ | CapRights::GRANT,
-            1,
-            owner,
-            owner,
-        ).unwrap();
+        let d1 = manager
+            .grant(root, CapRights::READ | CapRights::GRANT, 1, owner, owner)
+            .unwrap();
 
-        let d2 = manager.grant(
-            d1,
-            CapRights::READ | CapRights::GRANT,
-            2,
-            owner,
-            owner,
-        ).unwrap();
+        let d2 = manager
+            .grant(d1, CapRights::READ | CapRights::GRANT, 2, owner, owner)
+            .unwrap();
 
         // This should fail - depth limit exceeded
-        let result = manager.grant(
-            d2,
-            CapRights::READ,
-            3,
-            owner,
-            owner,
-        );
+        let result = manager.grant(d2, CapRights::READ, 3, owner, owner);
 
         assert_eq!(result, Err(CapError::DelegationDepthExceeded));
     }
@@ -555,13 +516,15 @@ mod tests {
         let mut manager = CapabilityManager::<64>::with_defaults();
         let owner = TaskHandle::new(1, 0);
 
-        let handle = manager.create_root_capability_with_rights(
-            0x1000,
-            ObjectType::Region,
-            CapRights::READ | CapRights::WRITE,
-            0,
-            owner,
-        ).unwrap();
+        let handle = manager
+            .create_root_capability_with_rights(
+                0x1000,
+                ObjectType::Region,
+                CapRights::READ | CapRights::WRITE,
+                0,
+                owner,
+            )
+            .unwrap();
 
         assert!(manager.has_right(handle, CapRights::READ).unwrap());
         assert!(manager.has_right(handle, CapRights::WRITE).unwrap());
@@ -573,12 +536,9 @@ mod tests {
         let mut manager = CapabilityManager::<64>::with_defaults();
         let owner = TaskHandle::new(1, 0);
 
-        let handle = manager.create_root_capability(
-            0x1000,
-            ObjectType::VectorStore,
-            0,
-            owner,
-        ).unwrap();
+        let handle = manager
+            .create_root_capability(0x1000, ObjectType::VectorStore, 0, owner)
+            .unwrap();
 
         assert!(manager.is_valid(handle));
 

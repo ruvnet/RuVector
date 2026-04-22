@@ -84,11 +84,7 @@ impl Middleware for RetryMiddleware {
         "retry"
     }
 
-    fn wrap_model_call(
-        &self,
-        request: ModelRequest,
-        handler: &dyn ModelHandler,
-    ) -> ModelResponse {
+    fn wrap_model_call(&self, request: ModelRequest, handler: &dyn ModelHandler) -> ModelResponse {
         let mut response = handler.call(request.clone());
 
         if !is_transient_error(&response) {
@@ -283,7 +279,7 @@ mod tests {
         let handler2 = FailNHandler::new(2);
         let _ = mw.wrap_model_call(make_request(), &handler2);
 
-        assert_eq!(mw.retry_count(), 2);  // two calls needed retries
+        assert_eq!(mw.retry_count(), 2); // two calls needed retries
         assert_eq!(mw.total_retries(), 3); // 1 + 2 retries
     }
 }

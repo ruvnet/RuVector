@@ -122,10 +122,14 @@ impl SensorAdapter {
         let coherence_raw = u16::from_le_bytes([hash_result[1], hash_result[2]]);
         let coherence_score = (coherence_raw % 10001).min(10000);
 
-        PerceptionEvent::new(kernel.current_time_ns, self.sensor_type as u8, self.sequence)
-            .with_priority(priority)
-            .with_coherence(coherence_score)
-            .with_data_hash(hash_result)
+        PerceptionEvent::new(
+            kernel.current_time_ns,
+            self.sensor_type as u8,
+            self.sequence,
+        )
+        .with_priority(priority)
+        .with_coherence(coherence_score)
+        .with_data_hash(hash_result)
     }
 
     /// Subscribes to the sensor.
@@ -156,11 +160,7 @@ impl SensorAdapter {
     }
 
     /// Processes one batch of events (up to batch_size).
-    pub fn process_batch(
-        &mut self,
-        kernel: &mut KernelInterface,
-        batch_size: u32,
-    ) -> Result<u32> {
+    pub fn process_batch(&mut self, kernel: &mut KernelInterface, batch_size: u32) -> Result<u32> {
         let mut processed = 0;
 
         while processed < batch_size && self.events_generated < self.total_events {
@@ -230,11 +230,7 @@ mod tests {
 
     #[test]
     fn test_sensor_adapter_creation() {
-        let adapter = SensorAdapter::new(
-            QueueHandle::null(),
-            CapHandle::null(),
-            CapHandle::null(),
-        );
+        let adapter = SensorAdapter::new(QueueHandle::null(), CapHandle::null(), CapHandle::null());
 
         assert_eq!(adapter.name(), "SensorAdapter");
         assert_eq!(adapter.events_generated, 0);
@@ -243,13 +239,10 @@ mod tests {
 
     #[test]
     fn test_sensor_adapter_event_generation() {
-        let mut adapter = SensorAdapter::new(
-            QueueHandle::new(1, 0),
-            CapHandle::null(),
-            CapHandle::null(),
-        )
-        .with_seed(12345)
-        .with_event_count(10);
+        let mut adapter =
+            SensorAdapter::new(QueueHandle::new(1, 0), CapHandle::null(), CapHandle::null())
+                .with_seed(12345)
+                .with_event_count(10);
 
         let mut kernel = KernelInterface::new();
         adapter.initialize().unwrap();
@@ -268,19 +261,13 @@ mod tests {
 
     #[test]
     fn test_sensor_adapter_determinism() {
-        let mut adapter1 = SensorAdapter::new(
-            QueueHandle::null(),
-            CapHandle::null(),
-            CapHandle::null(),
-        )
-        .with_seed(42);
+        let mut adapter1 =
+            SensorAdapter::new(QueueHandle::null(), CapHandle::null(), CapHandle::null())
+                .with_seed(42);
 
-        let mut adapter2 = SensorAdapter::new(
-            QueueHandle::null(),
-            CapHandle::null(),
-            CapHandle::null(),
-        )
-        .with_seed(42);
+        let mut adapter2 =
+            SensorAdapter::new(QueueHandle::null(), CapHandle::null(), CapHandle::null())
+                .with_seed(42);
 
         let mut kernel = KernelInterface::new();
 
@@ -296,8 +283,8 @@ mod tests {
     #[test]
     fn test_sensor_adapter_batch_processing() {
         let queue = QueueHandle::new(1, 0);
-        let mut adapter = SensorAdapter::new(queue, CapHandle::null(), CapHandle::null())
-            .with_event_count(100);
+        let mut adapter =
+            SensorAdapter::new(queue, CapHandle::null(), CapHandle::null()).with_event_count(100);
 
         let mut kernel = KernelInterface::new();
         adapter.initialize().unwrap();

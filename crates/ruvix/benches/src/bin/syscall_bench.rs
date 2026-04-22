@@ -91,7 +91,10 @@ fn main() {
         } else {
             format!("{}ns", spec.target.as_nanos())
         };
-        let tier = spec.proof_tier.map(|t| format!(" [{}]", t.name())).unwrap_or_default();
+        let tier = spec
+            .proof_tier
+            .map(|t| format!(" [{}]", t.name()))
+            .unwrap_or_default();
         println!("  {}: {}{} - {}", spec.name, target, tier, spec.notes);
     }
     println!();
@@ -119,17 +122,11 @@ fn main() {
             0.0
         };
 
-        let status = if result.meets_target {
-            "PASS"
-        } else {
-            "FAIL"
-        };
+        let status = if result.meets_target { "PASS" } else { "FAIL" };
 
         if let Some(spec) = spec_for(&result.operation) {
-            let verification = TargetVerification::new(
-                Duration::from_nanos(result.p95_ns as u64),
-                spec.target,
-            );
+            let verification =
+                TargetVerification::new(Duration::from_nanos(result.p95_ns as u64), spec.target);
             summary.add(&result.operation, verification);
         }
 
@@ -159,7 +156,11 @@ fn main() {
     // Print summary
     println!("Summary:");
     println!("  Total syscalls: {}", summary.total);
-    println!("  Passing: {} ({:.0}%)", summary.passing, summary.pass_rate() * 100.0);
+    println!(
+        "  Passing: {} ({:.0}%)",
+        summary.passing,
+        summary.pass_rate() * 100.0
+    );
     println!("  Failing: {}", summary.failing);
     println!();
 

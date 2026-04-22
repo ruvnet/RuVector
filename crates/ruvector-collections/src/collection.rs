@@ -366,8 +366,7 @@ mod tests {
     fn test_config_serialization_roundtrip() {
         let config = CollectionConfig::with_dimensions(384);
         let json = serde_json::to_string(&config).expect("serialize");
-        let deserialized: CollectionConfig =
-            serde_json::from_str(&json).expect("deserialize");
+        let deserialized: CollectionConfig = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(deserialized.dimensions, 384);
     }
 

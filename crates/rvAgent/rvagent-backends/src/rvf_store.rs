@@ -253,10 +253,7 @@ impl<B: Backend + 'static> Backend for RvfStoreBackend<B> {
                 for manifest_entry in &entry.manifest.entries {
                     if manifest_entry.name.contains(search) {
                         results.push(FileInfo {
-                            path: format!(
-                                "rvf://{}/{}",
-                                entry.package_name, manifest_entry.name
-                            ),
+                            path: format!("rvf://{}/{}", entry.package_name, manifest_entry.name),
                             is_dir: false,
                             size: 0,
                             modified_at: None,
@@ -512,8 +509,7 @@ mod tests {
             config.clone(),
             mount_table.clone(),
         );
-        let backend2 =
-            RvfStoreBackend::with_mount_table(StateBackend::new(), config, mount_table);
+        let backend2 = RvfStoreBackend::with_mount_table(StateBackend::new(), config, mount_table);
 
         // Mount via backend1, visible in backend2
         backend1.mount_package(sample_manifest(), RvfVerifyStatus::SignatureValid);

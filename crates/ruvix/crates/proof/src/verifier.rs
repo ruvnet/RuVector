@@ -149,7 +149,10 @@ impl ProofVerifier {
 
         // 3. Check nonce (if enabled)
         if self.config.check_nonce {
-            if self.cache.is_nonce_consumed(&token.mutation_hash, token.nonce) {
+            if self
+                .cache
+                .is_nonce_consumed(&token.mutation_hash, token.nonce)
+            {
                 self.stats.failures += 1;
                 self.stats.nonce_rejections += 1;
                 return Err(ProofError::NonceReused { nonce: token.nonce });
@@ -169,9 +172,9 @@ impl ProofVerifier {
                 current_time_ns,
             );
             // Mark as consumed
-            let _ = self
-                .cache
-                .lookup_and_consume(&token.mutation_hash, token.nonce, current_time_ns);
+            let _ =
+                self.cache
+                    .lookup_and_consume(&token.mutation_hash, token.nonce, current_time_ns);
         }
 
         self.stats.successes += 1;

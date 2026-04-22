@@ -69,7 +69,11 @@ pub mod temporal_neural_solver_stub {
 // ── Strange Loop Meta-Cognition (strange-loop) ─────────────────────────
 
 /// Create a default StrangeLoop engine for meta-cognitive reasoning.
-pub fn create_strange_loop() -> strange_loop::StrangeLoop<strange_loop::ScalarReasoner, strange_loop::SimpleCritic, strange_loop::SafeReflector> {
+pub fn create_strange_loop() -> strange_loop::StrangeLoop<
+    strange_loop::ScalarReasoner,
+    strange_loop::SimpleCritic,
+    strange_loop::SafeReflector,
+> {
     let reasoner = strange_loop::ScalarReasoner::new(0.0, 1.0);
     let critic = strange_loop::SimpleCritic::new();
     let reflector = strange_loop::SafeReflector::new();
@@ -88,7 +92,11 @@ pub fn create_strange_loop() -> strange_loop::StrangeLoop<strange_loop::ScalarRe
 /// Run a meta-cognitive evaluation on a search context.
 /// Returns a small additive bonus (0.0 to 0.04) based on the loop's convergence.
 pub fn strange_loop_score(
-    loop_engine: &mut strange_loop::StrangeLoop<strange_loop::ScalarReasoner, strange_loop::SimpleCritic, strange_loop::SafeReflector>,
+    loop_engine: &mut strange_loop::StrangeLoop<
+        strange_loop::ScalarReasoner,
+        strange_loop::SimpleCritic,
+        strange_loop::SafeReflector,
+    >,
     query_relevance: f64,
     memory_quality: f64,
 ) -> f32 {

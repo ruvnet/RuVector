@@ -92,20 +92,27 @@ impl Discovery {
             "similar_to",
         ];
 
-        self.inferences.iter()
+        self.inferences
+            .iter()
             .filter(|inf| {
                 let lower = inf.to_lowercase();
 
                 // Reject ALL known boring patterns
                 for pattern in &boring_patterns {
-                    if lower.contains(pattern) { return false; }
+                    if lower.contains(pattern) {
+                        return false;
+                    }
                 }
 
                 // Reject inferences with generic cluster IDs
-                if lower.starts_with("cluster_") { return false; }
+                if lower.starts_with("cluster_") {
+                    return false;
+                }
 
                 // Reject short/generic inferences
-                if inf.len() < 50 { return false; }
+                if inf.len() < 50 {
+                    return false;
+                }
 
                 // Require HIGH confidence (parse from explanation string)
                 if let Some(pct_start) = lower.find("confidence: ") {
@@ -126,14 +133,21 @@ impl Discovery {
 
     /// Filter propositions to only high-confidence, non-generic ones.
     pub fn strong_propositions(&self) -> Vec<&(String, String, String, f64)> {
-        self.propositions.iter()
+        self.propositions
+            .iter()
             .filter(|(subj, pred, _obj, conf)| {
                 // Skip generic cluster labels
-                if subj.starts_with("cluster_") { return false; }
+                if subj.starts_with("cluster_") {
+                    return false;
+                }
                 // Skip ALL co_occurs_with — these are never interesting
-                if pred == "co_occurs_with" { return false; }
+                if pred == "co_occurs_with" {
+                    return false;
+                }
                 // Skip similar_to within same domain — too obvious
-                if pred == "similar_to" { return false; }
+                if pred == "similar_to" {
+                    return false;
+                }
                 // Only keep high-confidence cross-domain findings
                 *conf >= MIN_INFERENCE_CONFIDENCE
             })
@@ -173,21 +187,43 @@ impl Discovery {
     /// Explain why a discovery was or wasn't published.
     pub fn novelty_report(&self) -> String {
         let checks: Vec<(&str, bool, String)> = vec![
-            ("inferences", self.new_inferences >= MIN_NEW_INFERENCES,
-             format!("{}/{}", self.new_inferences, MIN_NEW_INFERENCES)),
-            ("evidence", self.evidence_count >= MIN_EVIDENCE,
-             format!("{}/{}", self.evidence_count, MIN_EVIDENCE)),
-            ("strange_loop", self.strange_loop_score >= MIN_STRANGE_LOOP_SCORE,
-             format!("{:.4}/{:.4}", self.strange_loop_score, MIN_STRANGE_LOOP_SCORE)),
-            ("propositions", self.propositions_extracted >= MIN_PROPOSITIONS,
-             format!("{}/{}", self.propositions_extracted, MIN_PROPOSITIONS)),
-            ("pareto_growth", self.pareto_growth >= MIN_PARETO_GROWTH,
-             format!("{}/{}", self.pareto_growth, MIN_PARETO_GROWTH)),
-            ("has_inferences", !self.inferences.is_empty(),
-             format!("{} items", self.inferences.len())),
+            (
+                "inferences",
+                self.new_inferences >= MIN_NEW_INFERENCES,
+                format!("{}/{}", self.new_inferences, MIN_NEW_INFERENCES),
+            ),
+            (
+                "evidence",
+                self.evidence_count >= MIN_EVIDENCE,
+                format!("{}/{}", self.evidence_count, MIN_EVIDENCE),
+            ),
+            (
+                "strange_loop",
+                self.strange_loop_score >= MIN_STRANGE_LOOP_SCORE,
+                format!(
+                    "{:.4}/{:.4}",
+                    self.strange_loop_score, MIN_STRANGE_LOOP_SCORE
+                ),
+            ),
+            (
+                "propositions",
+                self.propositions_extracted >= MIN_PROPOSITIONS,
+                format!("{}/{}", self.propositions_extracted, MIN_PROPOSITIONS),
+            ),
+            (
+                "pareto_growth",
+                self.pareto_growth >= MIN_PARETO_GROWTH,
+                format!("{}/{}", self.pareto_growth, MIN_PARETO_GROWTH),
+            ),
+            (
+                "has_inferences",
+                !self.inferences.is_empty(),
+                format!("{} items", self.inferences.len()),
+            ),
         ];
 
-        let failed: Vec<String> = checks.iter()
+        let failed: Vec<String> = checks
+            .iter()
             .filter(|(_, ok, _)| !ok)
             .map(|(name, _, val)| format!("{} {}", name, val))
             .collect();
@@ -245,8 +281,11 @@ impl GistPublisher {
         }
         // Content dedup: don't publish if core category + dominant inference already published
         let titles = self.published_titles.lock();
-        let key = format!("{}:{}", discovery.category,
-            discovery.strong_inferences().first().unwrap_or(&""));
+        let key = format!(
+            "{}:{}",
+            discovery.category,
+            discovery.strong_inferences().first().unwrap_or(&"")
+        );
         !titles.iter().any(|t| t == &key || t == &discovery.title)
     }
 
@@ -260,10 +299,7 @@ impl GistPublisher {
     /// - Err if API failed
     pub async fn try_publish(&self, discovery: &Discovery) -> Result<Option<String>, String> {
         if !discovery.is_publishable() {
-            tracing::debug!(
-                "Discovery not publishable: {}",
-                discovery.novelty_report()
-            );
+            tracing::debug!("Discovery not publishable: {}", discovery.novelty_report());
             return Ok(None);
         }
         if !self.can_publish(discovery) {
@@ -276,7 +312,10 @@ impl GistPublisher {
         let strong_propositions = discovery.strong_propositions();
 
         if strong_inferences.len() < 2 {
-            tracing::debug!("Discovery has {} strong inferences (need 2+), skipping", strong_inferences.len());
+            tracing::debug!(
+                "Discovery has {} strong inferences (need 2+), skipping",
+                strong_inferences.len()
+            );
             return Ok(None);
         }
 
@@ -288,7 +327,13 @@ impl GistPublisher {
         // Use Gemini with Google Grounding to do deep research on the discovery
         // topics, then produce a substantive article with real-world context
         let raw_content = format_academic_gist(discovery);
-        let content = match research_and_write_with_gemini(discovery, &strong_inferences, &strong_propositions).await {
+        let content = match research_and_write_with_gemini(
+            discovery,
+            &strong_inferences,
+            &strong_propositions,
+        )
+        .await
+        {
             Ok(polished) => {
                 tracing::info!("Gemini deep research produced {} chars", polished.len());
                 polished
@@ -342,8 +387,11 @@ impl GistPublisher {
             let mut titles = self.published_titles.lock();
             titles.push(discovery.title.clone());
             // Also store the content dedup key
-            let key = format!("{}:{}", discovery.category,
-                discovery.strong_inferences().first().unwrap_or(&""));
+            let key = format!(
+                "{}:{}",
+                discovery.category,
+                discovery.strong_inferences().first().unwrap_or(&"")
+            );
             titles.push(key);
         }
 
@@ -366,9 +414,11 @@ fn format_academic_gist(d: &Discovery) -> String {
     let propositions_md = if d.propositions.is_empty() {
         String::new()
     } else {
-        let rows: Vec<String> = d.propositions.iter().map(|(s, p, o, c)| {
-            format!("| {} | {} | {} | {:.2} |", s, p, o, c)
-        }).collect();
+        let rows: Vec<String> = d
+            .propositions
+            .iter()
+            .map(|(s, p, o, c)| format!("| {} | {} | {} | {:.2} |", s, p, o, c))
+            .collect();
         format!(
             "| Subject | Relation | Object | Confidence |\n\
              |---------|----------|--------|------------|\n\
@@ -378,26 +428,48 @@ fn format_academic_gist(d: &Discovery) -> String {
     };
 
     // Format inferences as numbered claims
-    let inferences_md = d.inferences.iter().enumerate()
+    let inferences_md = d
+        .inferences
+        .iter()
+        .enumerate()
         .map(|(i, inf)| format!("{}. {}", i + 1, inf))
         .collect::<Vec<_>>()
         .join("\n");
 
     // Format findings (the high-level insights)
-    let findings_md = d.findings.iter().enumerate()
+    let findings_md = d
+        .findings
+        .iter()
+        .enumerate()
         .map(|(i, f)| format!("{}. {}", i + 1, f))
         .collect::<Vec<_>>()
         .join("\n");
 
     // Witness links
-    let witness_md = d.witness_memory_ids.iter().take(5)
-        .zip(d.witness_hashes.iter().take(5).chain(std::iter::repeat(&String::new())))
+    let witness_md = d
+        .witness_memory_ids
+        .iter()
+        .take(5)
+        .zip(
+            d.witness_hashes
+                .iter()
+                .take(5)
+                .chain(std::iter::repeat(&String::new())),
+        )
         .map(|(id, hash)| {
             let short = &id[..id.len().min(8)];
             if hash.is_empty() {
-                format!("| [`{}`](https://pi.ruv.io/v1/memories/{}) | — |", short, id)
+                format!(
+                    "| [`{}`](https://pi.ruv.io/v1/memories/{}) | — |",
+                    short, id
+                )
             } else {
-                format!("| [`{}`](https://pi.ruv.io/v1/memories/{}) | `{}` |", short, id, &hash[..hash.len().min(16)])
+                format!(
+                    "| [`{}`](https://pi.ruv.io/v1/memories/{}) | `{}` |",
+                    short,
+                    id,
+                    &hash[..hash.len().min(16)]
+                )
             }
         })
         .collect::<Vec<_>>()
@@ -469,12 +541,28 @@ curl -H "Authorization: Bearer KEY" "https://pi.ruv.io/v1/cognitive/status"
         timestamp = d.timestamp.format("%Y-%m-%d %H:%M UTC"),
         evidence = d.evidence_count,
         abstract_text = d.abstract_text,
-        inferences = if inferences_md.is_empty() { "No novel inferences this cycle.".to_string() } else { inferences_md },
+        inferences = if inferences_md.is_empty() {
+            "No novel inferences this cycle.".to_string()
+        } else {
+            inferences_md
+        },
         n_clusters = d.propositions.len().max(1),
-        propositions = if propositions_md.is_empty() { "No propositions extracted.".to_string() } else { propositions_md },
-        findings = if findings_md.is_empty() { "No cross-domain insights this cycle.".to_string() } else { findings_md },
+        propositions = if propositions_md.is_empty() {
+            "No propositions extracted.".to_string()
+        } else {
+            propositions_md
+        },
+        findings = if findings_md.is_empty() {
+            "No cross-domain insights this cycle.".to_string()
+        } else {
+            findings_md
+        },
         self_reflection = d.self_reflection,
-        witnesses = if witness_md.is_empty() { "| — | — |".to_string() } else { witness_md },
+        witnesses = if witness_md.is_empty() {
+            "| — | — |".to_string()
+        } else {
+            witness_md
+        },
         n_inferences = d.new_inferences,
         n_props = d.propositions_extracted,
         sl = d.strange_loop_score,
@@ -489,25 +577,28 @@ async fn research_and_write_with_gemini(
     strong_inferences: &[&str],
     strong_propositions: &[&(String, String, String, f64)],
 ) -> Result<String, String> {
-    let api_key = std::env::var("GEMINI_API_KEY")
-        .map_err(|_| "GEMINI_API_KEY not set".to_string())?;
-    let model = std::env::var("GEMINI_MODEL")
-        .unwrap_or_else(|_| "gemini-2.5-flash".to_string());
+    let api_key =
+        std::env::var("GEMINI_API_KEY").map_err(|_| "GEMINI_API_KEY not set".to_string())?;
+    let model = std::env::var("GEMINI_MODEL").unwrap_or_else(|_| "gemini-2.5-flash".to_string());
 
     // Build summaries from STRONG signals only (filtered out weak co-occurrences)
-    let inferences_summary = strong_inferences.iter()
+    let inferences_summary = strong_inferences
+        .iter()
         .take(8)
         .map(|i| format!("- {}", i))
         .collect::<Vec<_>>()
         .join("\n");
 
-    let propositions_summary = strong_propositions.iter()
+    let propositions_summary = strong_propositions
+        .iter()
         .take(10)
         .map(|(s, p, o, c)| format!("- {} {} {} (confidence: {:.0}%)", s, p, o, c * 100.0))
         .collect::<Vec<_>>()
         .join("\n");
 
-    let findings_summary = discovery.findings.iter()
+    let findings_summary = discovery
+        .findings
+        .iter()
         .filter(|f| !f.to_lowercase().contains("weak co-occurrence"))
         .take(5)
         .map(|f| format!("- {}", f))
@@ -515,7 +606,8 @@ async fn research_and_write_with_gemini(
         .join("\n");
 
     // Extract the key domain topics for grounding research
-    let topics: Vec<&str> = strong_propositions.iter()
+    let topics: Vec<&str> = strong_propositions
+        .iter()
         .flat_map(|(s, _p, o, _c)| vec![s.as_str(), o.as_str()])
         .filter(|t| !t.starts_with("cluster_") && !t.is_empty())
         .collect::<std::collections::HashSet<_>>()
@@ -524,7 +616,7 @@ async fn research_and_write_with_gemini(
         .collect();
 
     let prompt = format!(
-r#"You are a research scientist at the π Brain autonomous AI knowledge system (pi.ruv.io).
+        r#"You are a research scientist at the π Brain autonomous AI knowledge system (pi.ruv.io).
 
 The π Brain has identified the following substantive cross-domain connections. Your job is to:
 
@@ -596,14 +688,29 @@ Be brutally honest about what this does NOT prove
 - Output ONLY the markdown article.
 
 Write the article now:"#,
-        inferences = if inferences_summary.is_empty() { "No strong inferences survived filtering.".to_string() } else { inferences_summary },
-        propositions = if propositions_summary.is_empty() { "No strong propositions survived filtering.".to_string() } else { propositions_summary },
-        findings = if findings_summary.is_empty() { "No non-trivial findings.".to_string() } else { findings_summary },
+        inferences = if inferences_summary.is_empty() {
+            "No strong inferences survived filtering.".to_string()
+        } else {
+            inferences_summary
+        },
+        propositions = if propositions_summary.is_empty() {
+            "No strong propositions survived filtering.".to_string()
+        } else {
+            propositions_summary
+        },
+        findings = if findings_summary.is_empty() {
+            "No non-trivial findings.".to_string()
+        } else {
+            findings_summary
+        },
         topics = topics.join(", "),
         evidence = discovery.evidence_count,
         n_inferences = strong_inferences.len(),
         n_props = strong_propositions.len(),
-        witnesses = discovery.witness_hashes.iter().take(3)
+        witnesses = discovery
+            .witness_hashes
+            .iter()
+            .take(3)
             .map(|h| format!("`{}`", h))
             .collect::<Vec<_>>()
             .join(", "),
@@ -614,8 +721,8 @@ Write the article now:"#,
         model, api_key
     );
 
-    let grounding = std::env::var("GEMINI_GROUNDING")
-        .unwrap_or_else(|_| "true".to_string()) == "true";
+    let grounding =
+        std::env::var("GEMINI_GROUNDING").unwrap_or_else(|_| "true".to_string()) == "true";
 
     let client = reqwest::Client::new();
 
@@ -650,8 +757,8 @@ Write the article now:"#,
     // ── Pass 2: Brain-guided search via pi.ruv.io ──
     // Search the brain's memory for additional context related to the grounded findings.
     let brain_context = if !topics.is_empty() {
-        let brain_url = std::env::var("BRAIN_URL")
-            .unwrap_or_else(|_| "https://pi.ruv.io".to_string());
+        let brain_url =
+            std::env::var("BRAIN_URL").unwrap_or_else(|_| "https://pi.ruv.io".to_string());
         let brain_key = std::env::var("BRAIN_SYSTEM_KEY")
             .or_else(|_| std::env::var("brain-api-key"))
             .unwrap_or_default();
@@ -660,11 +767,14 @@ Write the article now:"#,
         for topic in &topics {
             let search_url = format!(
                 "{}/v1/memories/search?q={}&limit=3",
-                brain_url, topic.replace(' ', "%20")
+                brain_url,
+                topic.replace(' ', "%20")
             );
-            if let Ok(resp) = client.get(&search_url)
+            if let Ok(resp) = client
+                .get(&search_url)
                 .header("Authorization", format!("Bearer {}", brain_key))
-                .send().await
+                .send()
+                .await
             {
                 if let Ok(json) = resp.json::<serde_json::Value>().await {
                     if let Some(results) = json.get("results").and_then(|r| r.as_array()) {
@@ -674,7 +784,9 @@ Write the article now:"#,
                                 mem.get("content").and_then(|c| c.as_str()),
                             ) {
                                 brain_memories.push(format!(
-                                    "- **{}**: {}", title, &content[..content.len().min(200)]
+                                    "- **{}**: {}",
+                                    title,
+                                    &content[..content.len().min(200)]
                                 ));
                             }
                         }
@@ -706,8 +818,16 @@ Write the article now:"#,
          novel analysis that neither source could produce alone.\n\n\
          Write the final article now:",
         original_prompt = prompt,
-        grounded = if grounded_research.is_empty() { "No grounded findings available.".to_string() } else { grounded_research },
-        brain = if brain_context.is_empty() { "No additional brain memories found.".to_string() } else { brain_context },
+        grounded = if grounded_research.is_empty() {
+            "No grounded findings available.".to_string()
+        } else {
+            grounded_research
+        },
+        brain = if brain_context.is_empty() {
+            "No additional brain memories found.".to_string()
+        } else {
+            brain_context
+        },
     );
 
     let final_text = call_gemini(&client, &url, &synthesis_prompt, grounding, 8192, 0.3).await?;
@@ -763,10 +883,16 @@ async fn call_gemini(
     if !resp.status().is_success() {
         let status = resp.status();
         let text = resp.text().await.unwrap_or_default();
-        return Err(format!("Gemini API {}: {}", status, &text[..text.len().min(200)]));
+        return Err(format!(
+            "Gemini API {}: {}",
+            status,
+            &text[..text.len().min(200)]
+        ));
     }
 
-    let json: serde_json::Value = resp.json().await
+    let json: serde_json::Value = resp
+        .json()
+        .await
         .map_err(|e| format!("Gemini parse error: {}", e))?;
 
     json.get("candidates")

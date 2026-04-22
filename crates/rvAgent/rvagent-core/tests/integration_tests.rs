@@ -53,11 +53,7 @@ struct EchoToolExecutor;
 #[async_trait]
 impl ToolExecutor for EchoToolExecutor {
     async fn execute(&self, call: &ToolCall, _state: &AgentState) -> Result<String> {
-        Ok(format!(
-            "executed {} with args: {}",
-            call.name,
-            call.args
-        ))
+        Ok(format!("executed {} with args: {}", call.name, call.args))
     }
 }
 
@@ -262,16 +258,14 @@ fn test_config_to_graph_pipeline() {
 /// Tool execution failure propagates correctly through the graph.
 #[tokio::test]
 async fn test_agent_graph_tool_failure() {
-    let model = MockModel::new(vec![
-        Message::ai_with_tools(
-            "",
-            vec![ToolCall {
-                id: "tc1".into(),
-                name: "dangerous_tool".into(),
-                args: serde_json::json!({}),
-            }],
-        ),
-    ]);
+    let model = MockModel::new(vec![Message::ai_with_tools(
+        "",
+        vec![ToolCall {
+            id: "tc1".into(),
+            name: "dangerous_tool".into(),
+            args: serde_json::json!({}),
+        }],
+    )]);
     let executor = FailingToolExecutor {
         fail_tool: "dangerous_tool".into(),
     };

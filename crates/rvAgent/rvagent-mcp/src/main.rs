@@ -45,7 +45,9 @@ use rvagent_mcp::{
     registry::McpToolRegistry,
     resources::ResourceRegistry,
     server::{McpServer, McpServerConfig},
-    transport::{SseConfig, SseTransport, StdioTransport, Transport, TransportConfig, TransportType},
+    transport::{
+        SseConfig, SseTransport, StdioTransport, Transport, TransportConfig, TransportType,
+    },
 };
 
 /// rvAgent MCP Server — Model Context Protocol for rvAgent tools.
@@ -97,12 +99,9 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     // Initialize logging
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(&cli.log_level));
-    fmt()
-        .with_env_filter(filter)
-        .with_target(false)
-        .init();
+    let filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&cli.log_level));
+    fmt().with_env_filter(filter).with_target(false).init();
 
     // Parse transport type
     let transport_type: TransportType = cli
@@ -114,8 +113,7 @@ async fn main() -> anyhow::Result<()> {
     let tool_filter = if cli.all {
         ToolFilter::all()
     } else if let Some(ref group_names) = cli.groups {
-        ToolFilter::from_group_names(group_names)
-            .map_err(|e| anyhow::anyhow!(e))?
+        ToolFilter::from_group_names(group_names).map_err(|e| anyhow::anyhow!(e))?
     } else {
         ToolFilter::default() // core + file
     };
@@ -129,7 +127,10 @@ async fn main() -> anyhow::Result<()> {
     if tool_filter.allows_all() {
         info!("Exposing all tools");
     } else {
-        info!("Exposing {} tools from selected groups", tool_filter.count());
+        info!(
+            "Exposing {} tools from selected groups",
+            tool_filter.count()
+        );
     }
 
     // Build registries
@@ -334,7 +335,10 @@ async fn message_handler(
     Json(request): Json<JsonRpcRequest>,
 ) -> impl IntoResponse {
     match state.request_tx.send(request).await {
-        Ok(_) => (StatusCode::ACCEPTED, Json(serde_json::json!({"status": "accepted"}))),
+        Ok(_) => (
+            StatusCode::ACCEPTED,
+            Json(serde_json::json!({"status": "accepted"})),
+        ),
         Err(e) => {
             error!("Failed to queue request: {}", e);
             (

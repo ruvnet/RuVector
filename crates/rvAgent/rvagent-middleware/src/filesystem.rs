@@ -4,9 +4,7 @@
 use async_trait::async_trait;
 use serde_json;
 
-use crate::{
-    AgentState, AgentStateUpdate, Middleware, RunnableConfig, Runtime, Tool,
-};
+use crate::{AgentState, AgentStateUpdate, Middleware, RunnableConfig, Runtime, Tool};
 
 /// Middleware that provides file operation tools.
 ///

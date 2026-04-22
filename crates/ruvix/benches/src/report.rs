@@ -2,11 +2,11 @@
 //!
 //! Generates markdown reports and console output for benchmark results.
 
-use std::fmt::Write;
-use tabled::{Table, Tabled};
-use crate::{BenchmarkResult, Comparison, MemoryComparison};
 use crate::comparison::ComparisonSummary;
 use crate::targets::{TargetSummary, TargetVerification};
+use crate::{BenchmarkResult, Comparison, MemoryComparison};
+use std::fmt::Write;
+use tabled::{Table, Tabled};
 
 /// Table row for syscall benchmarks.
 #[derive(Tabled)]
@@ -39,7 +39,10 @@ impl From<&BenchmarkResult> for SyscallRow {
             }
         };
 
-        let target = result.target_ns.map(|t| format_ns(t)).unwrap_or_else(|| "-".to_string());
+        let target = result
+            .target_ns
+            .map(|t| format_ns(t))
+            .unwrap_or_else(|| "-".to_string());
         let status = if result.meets_target { "PASS" } else { "FAIL" };
 
         Self {
@@ -141,7 +144,11 @@ pub fn generate_markdown_report(
 
     writeln!(report, "# RuVix vs Linux Benchmark Results").unwrap();
     writeln!(report).unwrap();
-    writeln!(report, "Benchmark comparing RuVix Cognition Kernel syscalls against Linux equivalents.").unwrap();
+    writeln!(
+        report,
+        "Benchmark comparing RuVix Cognition Kernel syscalls against Linux equivalents."
+    )
+    .unwrap();
     writeln!(report).unwrap();
 
     // Summary section
@@ -152,13 +159,38 @@ pub fn generate_markdown_report(
 
     writeln!(report, "| Metric | Value |").unwrap();
     writeln!(report, "|--------|-------|").unwrap();
-    writeln!(report, "| RuVix Faster | {} operations |", comp_summary.ruvix_wins).unwrap();
-    writeln!(report, "| Linux Faster | {} operations |", comp_summary.linux_wins).unwrap();
+    writeln!(
+        report,
+        "| RuVix Faster | {} operations |",
+        comp_summary.ruvix_wins
+    )
+    .unwrap();
+    writeln!(
+        report,
+        "| Linux Faster | {} operations |",
+        comp_summary.linux_wins
+    )
+    .unwrap();
     writeln!(report, "| Ties | {} operations |", comp_summary.ties).unwrap();
-    writeln!(report, "| Average Speedup | {:.1}x |", comp_summary.avg_speedup).unwrap();
+    writeln!(
+        report,
+        "| Average Speedup | {:.1}x |",
+        comp_summary.avg_speedup
+    )
+    .unwrap();
     writeln!(report, "| Max Speedup | {:.1}x |", comp_summary.max_speedup).unwrap();
-    writeln!(report, "| Target Pass Rate | {:.0}% |", target_summary.pass_rate() * 100.0).unwrap();
-    writeln!(report, "| Avg Memory Reduction | {:.0}% |", comp_summary.total_memory_reduction * 100.0).unwrap();
+    writeln!(
+        report,
+        "| Target Pass Rate | {:.0}% |",
+        target_summary.pass_rate() * 100.0
+    )
+    .unwrap();
+    writeln!(
+        report,
+        "| Avg Memory Reduction | {:.0}% |",
+        comp_summary.total_memory_reduction * 100.0
+    )
+    .unwrap();
     writeln!(report).unwrap();
 
     // RuVix vs Linux comparison table
@@ -169,21 +201,37 @@ pub fn generate_markdown_report(
 
     for comp in comparisons {
         let row: ComparisonRow = comp.into();
-        writeln!(report, "| {} | {} | {} | {} | {} |",
-            row.operation, row.ruvix, row.linux, row.speedup, row.notes).unwrap();
+        writeln!(
+            report,
+            "| {} | {} | {} | {} | {} |",
+            row.operation, row.ruvix, row.linux, row.speedup, row.notes
+        )
+        .unwrap();
     }
     writeln!(report).unwrap();
 
     // Syscall latency table
     writeln!(report, "## RuVix Syscall Latencies").unwrap();
     writeln!(report).unwrap();
-    writeln!(report, "| Syscall | Mean | P50 | P95 | P99 | Target | Status |").unwrap();
-    writeln!(report, "|---------|------|-----|-----|-----|--------|--------|").unwrap();
+    writeln!(
+        report,
+        "| Syscall | Mean | P50 | P95 | P99 | Target | Status |"
+    )
+    .unwrap();
+    writeln!(
+        report,
+        "|---------|------|-----|-----|-----|--------|--------|"
+    )
+    .unwrap();
 
     for result in syscall_results {
         let row: SyscallRow = result.into();
-        writeln!(report, "| {} | {} | {} | {} | {} | {} | {} |",
-            row.syscall, row.mean, row.p50, row.p95, row.p99, row.target, row.status).unwrap();
+        writeln!(
+            report,
+            "| {} | {} | {} | {} | {} | {} | {} |",
+            row.syscall, row.mean, row.p50, row.p95, row.p99, row.target, row.status
+        )
+        .unwrap();
     }
     writeln!(report).unwrap();
 
@@ -195,29 +243,61 @@ pub fn generate_markdown_report(
 
     for comp in memory_comparisons {
         let row: MemoryRow = comp.into();
-        writeln!(report, "| {} | {} | {} | {} | {} |",
-            row.component, row.ruvix, row.linux, row.reduction, row.notes).unwrap();
+        writeln!(
+            report,
+            "| {} | {} | {} | {} | {} |",
+            row.component, row.ruvix, row.linux, row.reduction, row.notes
+        )
+        .unwrap();
     }
     writeln!(report).unwrap();
 
     // Key findings
     writeln!(report, "## Key Findings").unwrap();
     writeln!(report).unwrap();
-    writeln!(report, "1. **Zero-copy IPC** provides {:.1}x speedup over Linux pipes",
-        comp_summary.avg_speedup).unwrap();
-    writeln!(report, "2. **Capability-based access** is up to {:.1}x faster than Linux DAC",
-        comp_summary.max_speedup).unwrap();
-    writeln!(report, "3. **Region-based memory** eliminates TLB misses (no page tables)").unwrap();
-    writeln!(report, "4. **Proof overhead** is acceptable (<100ns for Reflex tier)").unwrap();
-    writeln!(report, "5. **Total memory reduction** of {:.0}% across all components",
-        comp_summary.total_memory_reduction * 100.0).unwrap();
+    writeln!(
+        report,
+        "1. **Zero-copy IPC** provides {:.1}x speedup over Linux pipes",
+        comp_summary.avg_speedup
+    )
+    .unwrap();
+    writeln!(
+        report,
+        "2. **Capability-based access** is up to {:.1}x faster than Linux DAC",
+        comp_summary.max_speedup
+    )
+    .unwrap();
+    writeln!(
+        report,
+        "3. **Region-based memory** eliminates TLB misses (no page tables)"
+    )
+    .unwrap();
+    writeln!(
+        report,
+        "4. **Proof overhead** is acceptable (<100ns for Reflex tier)"
+    )
+    .unwrap();
+    writeln!(
+        report,
+        "5. **Total memory reduction** of {:.0}% across all components",
+        comp_summary.total_memory_reduction * 100.0
+    )
+    .unwrap();
     writeln!(report).unwrap();
 
     // Target verification
     writeln!(report, "## ADR-087 Target Verification").unwrap();
     writeln!(report).unwrap();
-    writeln!(report, "| Syscall | Actual P95 | Target | Status | Margin |").unwrap();
-    writeln!(report, "|---------|------------|--------|--------|--------|").unwrap();
+    writeln!(
+        report,
+        "| Syscall | Actual P95 | Target | Status | Margin |"
+    )
+    .unwrap();
+    writeln!(
+        report,
+        "|---------|------------|--------|--------|--------|"
+    )
+    .unwrap();
 
     for (name, verification) in &target_summary.verifications {
         let format_dur = |nanos: u128| -> String {
@@ -230,19 +310,31 @@ pub fn generate_markdown_report(
             }
         };
 
-        writeln!(report, "| {} | {} | {} | {} | {:.0}% |",
+        writeln!(
+            report,
+            "| {} | {} | {} | {} | {:.0}% |",
             name,
             format_dur(verification.actual_p95.as_nanos()),
             format_dur(verification.target.as_nanos()),
             verification.status(),
-            verification.margin * 100.0).unwrap();
+            verification.margin * 100.0
+        )
+        .unwrap();
     }
     writeln!(report).unwrap();
 
     // Overall status
-    let status = if target_summary.all_passing() { "PASS" } else { "FAIL" };
-    writeln!(report, "**Overall ADR-087 Compliance: {}** ({}/{} targets met)",
-        status, target_summary.passing, target_summary.total).unwrap();
+    let status = if target_summary.all_passing() {
+        "PASS"
+    } else {
+        "FAIL"
+    };
+    writeln!(
+        report,
+        "**Overall ADR-087 Compliance: {}** ({}/{} targets met)",
+        status, target_summary.passing, target_summary.total
+    )
+    .unwrap();
 
     report
 }
@@ -258,7 +350,10 @@ pub fn print_console_report(
     let term = Term::stdout();
     let _ = term.clear_screen();
 
-    println!("{}", style("RuVix vs Linux Benchmark Results").bold().cyan());
+    println!(
+        "{}",
+        style("RuVix vs Linux Benchmark Results").bold().cyan()
+    );
     println!("{}", style("=".repeat(60)).dim());
     println!();
 
@@ -283,10 +378,26 @@ pub fn print_console_report(
     // Summary
     let comp_summary = ComparisonSummary::from_comparisons(comparisons, memory_comparisons);
     println!("{}", style("Summary").bold());
-    println!("  RuVix faster in: {} operations", style(comp_summary.ruvix_wins).green());
-    println!("  Average speedup: {}", style(format!("{:.1}x", comp_summary.avg_speedup)).green());
-    println!("  Max speedup: {}", style(format!("{:.1}x", comp_summary.max_speedup)).green());
-    println!("  Memory reduction: {}", style(format!("{:.0}%", comp_summary.total_memory_reduction * 100.0)).green());
+    println!(
+        "  RuVix faster in: {} operations",
+        style(comp_summary.ruvix_wins).green()
+    );
+    println!(
+        "  Average speedup: {}",
+        style(format!("{:.1}x", comp_summary.avg_speedup)).green()
+    );
+    println!(
+        "  Max speedup: {}",
+        style(format!("{:.1}x", comp_summary.max_speedup)).green()
+    );
+    println!(
+        "  Memory reduction: {}",
+        style(format!(
+            "{:.0}%",
+            comp_summary.total_memory_reduction * 100.0
+        ))
+        .green()
+    );
 }
 
 /// Generates JSON report for programmatic consumption.
@@ -297,42 +408,51 @@ pub fn generate_json_report(
 ) -> String {
     use serde_json::{json, Value};
 
-    let syscalls: Vec<Value> = syscall_results.iter().map(|r| {
-        json!({
-            "operation": r.operation,
-            "iterations": r.iterations,
-            "mean_ns": r.mean_ns,
-            "p50_ns": r.p50_ns,
-            "p95_ns": r.p95_ns,
-            "p99_ns": r.p99_ns,
-            "min_ns": r.min_ns,
-            "max_ns": r.max_ns,
-            "target_ns": r.target_ns,
-            "meets_target": r.meets_target,
+    let syscalls: Vec<Value> = syscall_results
+        .iter()
+        .map(|r| {
+            json!({
+                "operation": r.operation,
+                "iterations": r.iterations,
+                "mean_ns": r.mean_ns,
+                "p50_ns": r.p50_ns,
+                "p95_ns": r.p95_ns,
+                "p99_ns": r.p99_ns,
+                "min_ns": r.min_ns,
+                "max_ns": r.max_ns,
+                "target_ns": r.target_ns,
+                "meets_target": r.meets_target,
+            })
         })
-    }).collect();
+        .collect();
 
-    let comps: Vec<Value> = comparisons.iter().map(|c| {
-        json!({
-            "operation": c.operation,
-            "ruvix_syscall": c.ruvix_syscall,
-            "linux_equivalent": c.linux_equivalent,
-            "ruvix_mean_ns": c.ruvix_result.mean_ns,
-            "linux_mean_ns": c.linux_result.mean_ns,
-            "speedup": c.speedup,
-            "notes": c.notes,
+    let comps: Vec<Value> = comparisons
+        .iter()
+        .map(|c| {
+            json!({
+                "operation": c.operation,
+                "ruvix_syscall": c.ruvix_syscall,
+                "linux_equivalent": c.linux_equivalent,
+                "ruvix_mean_ns": c.ruvix_result.mean_ns,
+                "linux_mean_ns": c.linux_result.mean_ns,
+                "speedup": c.speedup,
+                "notes": c.notes,
+            })
         })
-    }).collect();
+        .collect();
 
-    let memory: Vec<Value> = memory_comparisons.iter().map(|m| {
-        json!({
-            "operation": m.operation,
-            "ruvix_bytes": m.ruvix_bytes,
-            "linux_bytes": m.linux_bytes,
-            "reduction": m.reduction,
-            "notes": m.notes,
+    let memory: Vec<Value> = memory_comparisons
+        .iter()
+        .map(|m| {
+            json!({
+                "operation": m.operation,
+                "ruvix_bytes": m.ruvix_bytes,
+                "linux_bytes": m.linux_bytes,
+                "reduction": m.reduction,
+                "notes": m.notes,
+            })
         })
-    }).collect();
+        .collect();
 
     let comp_summary = ComparisonSummary::from_comparisons(comparisons, memory_comparisons);
 
@@ -361,41 +481,38 @@ mod tests {
     use std::time::Duration;
 
     fn sample_results() -> Vec<BenchmarkResult> {
-        vec![
-            BenchmarkResult::from_measurements(
-                "cap_grant",
-                &[400.0, 450.0, 420.0],
-                Some(Duration::from_nanos(500)),
-            ),
-        ]
+        vec![BenchmarkResult::from_measurements(
+            "cap_grant",
+            &[400.0, 450.0, 420.0],
+            Some(Duration::from_nanos(500)),
+        )]
     }
 
     fn sample_comparisons() -> Vec<Comparison> {
-        vec![
-            Comparison::new(
-                "Capability Grant",
-                "cap_grant",
-                "setuid",
-                BenchmarkResult::from_measurements("r", &[400.0], None),
-                BenchmarkResult::from_measurements("l", &[6400.0], None),
-                "O(1) lookup",
-            ),
-        ]
+        vec![Comparison::new(
+            "Capability Grant",
+            "cap_grant",
+            "setuid",
+            BenchmarkResult::from_measurements("r", &[400.0], None),
+            BenchmarkResult::from_measurements("l", &[6400.0], None),
+            "O(1) lookup",
+        )]
     }
 
     fn sample_memory() -> Vec<MemoryComparison> {
-        vec![
-            MemoryComparison::new("IPC Buffer", 8, 16384, "Zero-copy"),
-        ]
+        vec![MemoryComparison::new("IPC Buffer", 8, 16384, "Zero-copy")]
     }
 
     #[test]
     fn test_generate_markdown() {
         let mut summary = TargetSummary::new();
-        summary.add("cap_grant", crate::targets::TargetVerification::new(
-            Duration::from_nanos(400),
-            Duration::from_nanos(500),
-        ));
+        summary.add(
+            "cap_grant",
+            crate::targets::TargetVerification::new(
+                Duration::from_nanos(400),
+                Duration::from_nanos(500),
+            ),
+        );
 
         let report = generate_markdown_report(
             &sample_results(),
@@ -410,11 +527,7 @@ mod tests {
 
     #[test]
     fn test_generate_json() {
-        let json = generate_json_report(
-            &sample_results(),
-            &sample_comparisons(),
-            &sample_memory(),
-        );
+        let json = generate_json_report(&sample_results(), &sample_comparisons(), &sample_memory());
 
         assert!(json.contains("cap_grant"));
         assert!(json.contains("speedup"));

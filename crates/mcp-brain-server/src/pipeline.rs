@@ -33,22 +33,29 @@ pub fn build_rvf_container(input: &RvfPipelineInput<'_>) -> Result<Vec<u8>, Stri
     let mut sid: u64 = 1;
     // VEC (0x01)
     let mut vec_payload = Vec::with_capacity(input.embedding.len() * 4);
-    for &v in input.embedding { vec_payload.extend_from_slice(&v.to_le_bytes()); }
-    out.extend_from_slice(&rvf_wire::write_segment(0x01, &vec_payload, flags, sid)); sid += 1;
+    for &v in input.embedding {
+        vec_payload.extend_from_slice(&v.to_le_bytes());
+    }
+    out.extend_from_slice(&rvf_wire::write_segment(0x01, &vec_payload, flags, sid));
+    sid += 1;
     // META (0x07)
     let meta = serde_json::json!({
         "memory_id": input.memory_id, "title": input.title, "content": input.content,
         "tags": input.tags, "category": input.category, "contributor_id": input.contributor_id,
     });
-    let mp = serde_json::to_vec(&meta).map_err(|e| format!("Failed to serialize RVF metadata: {e}"))?;
-    out.extend_from_slice(&rvf_wire::write_segment(0x07, &mp, flags, sid)); sid += 1;
+    let mp =
+        serde_json::to_vec(&meta).map_err(|e| format!("Failed to serialize RVF metadata: {e}"))?;
+    out.extend_from_slice(&rvf_wire::write_segment(0x07, &mp, flags, sid));
+    sid += 1;
     // WITNESS (0x0A)
     if let Some(c) = input.witness_chain {
-        out.extend_from_slice(&rvf_wire::write_segment(0x0A, c, flags, sid)); sid += 1;
+        out.extend_from_slice(&rvf_wire::write_segment(0x0A, c, flags, sid));
+        sid += 1;
     }
     // DiffPrivacyProof (0x34)
     if let Some(p) = input.dp_proof_json {
-        out.extend_from_slice(&rvf_wire::write_segment(0x34, p.as_bytes(), flags, sid)); sid += 1;
+        out.extend_from_slice(&rvf_wire::write_segment(0x34, p.as_bytes(), flags, sid));
+        sid += 1;
     }
     // RedactionLog (0x35)
     if let Some(l) = input.redaction_log_json {
@@ -62,7 +69,8 @@ pub fn build_rvf_container(input: &RvfPipelineInput<'_>) -> Result<Vec<u8>, Stri
 pub fn count_segments(container: &[u8]) -> usize {
     let (mut count, mut off) = (0, 0);
     while off + 64 <= container.len() {
-        let plen = u64::from_le_bytes(container[off+16..off+24].try_into().unwrap_or([0u8;8])) as usize;
+        let plen = u64::from_le_bytes(container[off + 16..off + 24].try_into().unwrap_or([0u8; 8]))
+            as usize;
         off += rvf_wire::calculate_padded_size(64, plen);
         count += 1;
     }
@@ -111,9 +119,12 @@ impl PubSubClient {
     pub fn new(project_id: String, subscription_id: String) -> Self {
         Self {
             use_metadata_server: std::env::var("PUBSUB_EMULATOR_HOST").is_err(),
-            project_id, subscription_id,
-            http: reqwest::Client::builder().timeout(std::time::Duration::from_secs(30))
-                .build().unwrap_or_default(),
+            project_id,
+            subscription_id,
+            http: reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(30))
+                .build()
+                .unwrap_or_default(),
         }
     }
 
@@ -121,29 +132,41 @@ impl PubSubClient {
     pub fn decode_push(envelope: PubSubPushEnvelope) -> Result<PubSubMessage, String> {
         use base64::Engine;
         let data = match envelope.message.data {
-            Some(b64) => base64::engine::general_purpose::STANDARD.decode(&b64)
+            Some(b64) => base64::engine::general_purpose::STANDARD
+                .decode(&b64)
                 .map_err(|e| format!("base64 decode failed: {e}"))?,
             None => Vec::new(),
         };
         Ok(PubSubMessage {
-            data, attributes: envelope.message.attributes,
-            message_id: envelope.message.message_id, publish_time: envelope.message.publish_time,
+            data,
+            attributes: envelope.message.attributes,
+            message_id: envelope.message.message_id,
+            publish_time: envelope.message.publish_time,
         })
     }
 
     /// Acknowledge messages by ack_id (pull mode).
     pub async fn acknowledge(&self, ack_ids: &[String]) -> Result<(), String> {
-        if ack_ids.is_empty() { return Ok(()); }
+        if ack_ids.is_empty() {
+            return Ok(());
+        }
         let url = format!(
             "https://pubsub.googleapis.com/v1/projects/{}/subscriptions/{}:acknowledge",
             self.project_id, self.subscription_id
         );
-        let mut req = self.http.post(&url).json(&serde_json::json!({ "ackIds": ack_ids }));
+        let mut req = self
+            .http
+            .post(&url)
+            .json(&serde_json::json!({ "ackIds": ack_ids }));
         if self.use_metadata_server {
-            if let Some(t) = get_metadata_token(&self.http).await { req = req.bearer_auth(t); }
+            if let Some(t) = get_metadata_token(&self.http).await {
+                req = req.bearer_auth(t);
+            }
         }
         let resp = req.send().await.map_err(|e| format!("ack failed: {e}"))?;
-        if !resp.status().is_success() { return Err(format!("ack returned {}", resp.status())); }
+        if !resp.status().is_success() {
+            return Err(format!("ack returned {}", resp.status()));
+        }
         Ok(())
     }
 }
@@ -151,10 +174,14 @@ impl PubSubClient {
 /// Fetch access token from GCE metadata server.
 async fn get_metadata_token(http: &reqwest::Client) -> Option<String> {
     #[derive(Deserialize)]
-    struct T { access_token: String }
+    struct T {
+        access_token: String,
+    }
     let r = http.get("http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token")
         .header("Metadata-Flavor", "Google").send().await.ok()?;
-    if !r.status().is_success() { return None; }
+    if !r.status().is_success() {
+        return None;
+    }
     Some(r.json::<T>().await.ok()?.access_token)
 }
 
@@ -163,7 +190,13 @@ async fn get_metadata_token(http: &reqwest::Client) -> Option<String> {
 /// Source of injected data.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
-pub enum InjectionSource { PubSub, BatchUpload, RssFeed, Webhook, CommonCrawl }
+pub enum InjectionSource {
+    PubSub,
+    BatchUpload,
+    RssFeed,
+    Webhook,
+    CommonCrawl,
+}
 
 /// An item flowing through the injection pipeline.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -196,39 +229,69 @@ pub struct DataInjector {
 
 impl DataInjector {
     pub fn new() -> Self {
-        Self { seen_hashes: dashmap::DashMap::new(), new_items_since_train: AtomicU64::new(0) }
+        Self {
+            seen_hashes: dashmap::DashMap::new(),
+            new_items_since_train: AtomicU64::new(0),
+        }
     }
 
     /// Compute a SHA-256 content hash for deduplication.
     pub fn content_hash(title: &str, content: &str) -> String {
         let mut h = Sha256::new();
-        h.update(title.as_bytes()); h.update(b"|"); h.update(content.as_bytes());
+        h.update(title.as_bytes());
+        h.update(b"|");
+        h.update(content.as_bytes());
         hex::encode(h.finalize())
     }
 
     /// Run the injection pipeline for a single item.
     pub fn process(&self, item: &InjectionItem) -> InjectionResult {
         if item.title.is_empty() || item.content.is_empty() {
-            return InjectionResult { item_hash: String::new(), accepted: false, duplicate: false,
-                stage_reached: "validate".into(), error: Some("title and content must be non-empty".into()) };
+            return InjectionResult {
+                item_hash: String::new(),
+                accepted: false,
+                duplicate: false,
+                stage_reached: "validate".into(),
+                error: Some("title and content must be non-empty".into()),
+            };
         }
         let hash = Self::content_hash(&item.title, &item.content);
         if self.seen_hashes.contains_key(&hash) {
-            return InjectionResult { item_hash: hash, accepted: false, duplicate: true,
-                stage_reached: "dedup".into(), error: None };
+            return InjectionResult {
+                item_hash: hash,
+                accepted: false,
+                duplicate: true,
+                stage_reached: "dedup".into(),
+                error: None,
+            };
         }
         self.seen_hashes.insert(hash.clone(), Utc::now());
         self.new_items_since_train.fetch_add(1, Ordering::Relaxed);
-        InjectionResult { item_hash: hash, accepted: true, duplicate: false,
-            stage_reached: "ready_for_embed".into(), error: None }
+        InjectionResult {
+            item_hash: hash,
+            accepted: true,
+            duplicate: false,
+            stage_reached: "ready_for_embed".into(),
+            error: None,
+        }
     }
 
-    pub fn new_items_count(&self) -> u64 { self.new_items_since_train.load(Ordering::Relaxed) }
-    pub fn reset_train_counter(&self) { self.new_items_since_train.store(0, Ordering::Relaxed); }
-    pub fn dedup_set_size(&self) -> usize { self.seen_hashes.len() }
+    pub fn new_items_count(&self) -> u64 {
+        self.new_items_since_train.load(Ordering::Relaxed)
+    }
+    pub fn reset_train_counter(&self) {
+        self.new_items_since_train.store(0, Ordering::Relaxed);
+    }
+    pub fn dedup_set_size(&self) -> usize {
+        self.seen_hashes.len()
+    }
 }
 
-impl Default for DataInjector { fn default() -> Self { Self::new() } }
+impl Default for DataInjector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 // ── Optimization Scheduler ───────────────────────────────────────────
 
@@ -248,9 +311,13 @@ pub struct SchedulerConfig {
 impl Default for SchedulerConfig {
     fn default() -> Self {
         Self {
-            train_item_threshold: 100, train_interval_secs: 300, drift_interval_secs: 900,
-            transfer_interval_secs: 1800, graph_rebalance_secs: 3600,
-            cleanup_interval_secs: 86400, attractor_interval_secs: 1200,
+            train_item_threshold: 100,
+            train_interval_secs: 300,
+            drift_interval_secs: 900,
+            transfer_interval_secs: 1800,
+            graph_rebalance_secs: 3600,
+            cleanup_interval_secs: 86400,
+            attractor_interval_secs: 1200,
             prune_quality_threshold: 0.3,
         }
     }
@@ -273,10 +340,14 @@ impl OptimizationScheduler {
     pub fn new(config: SchedulerConfig) -> Self {
         let now = Utc::now();
         Self {
-            config, cycles_completed: AtomicU64::new(0),
-            last_train: RwLock::new(now), last_drift_check: RwLock::new(now),
-            last_transfer: RwLock::new(now), last_graph_rebalance: RwLock::new(now),
-            last_cleanup: RwLock::new(now), last_attractor: RwLock::new(now),
+            config,
+            cycles_completed: AtomicU64::new(0),
+            last_train: RwLock::new(now),
+            last_drift_check: RwLock::new(now),
+            last_transfer: RwLock::new(now),
+            last_graph_rebalance: RwLock::new(now),
+            last_cleanup: RwLock::new(now),
+            last_attractor: RwLock::new(now),
         }
     }
 
@@ -287,12 +358,24 @@ impl OptimizationScheduler {
         let mut due = Vec::new();
         if new_item_count >= self.config.train_item_threshold
             || ss(&*self.last_train.read().await) >= self.config.train_interval_secs
-        { due.push("training".into()); }
-        if ss(&*self.last_drift_check.read().await) >= self.config.drift_interval_secs { due.push("drift_monitoring".into()); }
-        if ss(&*self.last_transfer.read().await) >= self.config.transfer_interval_secs { due.push("cross_domain_transfer".into()); }
-        if ss(&*self.last_graph_rebalance.read().await) >= self.config.graph_rebalance_secs { due.push("graph_rebalancing".into()); }
-        if ss(&*self.last_cleanup.read().await) >= self.config.cleanup_interval_secs { due.push("memory_cleanup".into()); }
-        if ss(&*self.last_attractor.read().await) >= self.config.attractor_interval_secs { due.push("attractor_analysis".into()); }
+        {
+            due.push("training".into());
+        }
+        if ss(&*self.last_drift_check.read().await) >= self.config.drift_interval_secs {
+            due.push("drift_monitoring".into());
+        }
+        if ss(&*self.last_transfer.read().await) >= self.config.transfer_interval_secs {
+            due.push("cross_domain_transfer".into());
+        }
+        if ss(&*self.last_graph_rebalance.read().await) >= self.config.graph_rebalance_secs {
+            due.push("graph_rebalancing".into());
+        }
+        if ss(&*self.last_cleanup.read().await) >= self.config.cleanup_interval_secs {
+            due.push("memory_cleanup".into());
+        }
+        if ss(&*self.last_attractor.read().await) >= self.config.attractor_interval_secs {
+            due.push("attractor_analysis".into());
+        }
         due
     }
 
@@ -311,7 +394,9 @@ impl OptimizationScheduler {
         self.cycles_completed.fetch_add(1, Ordering::Relaxed);
     }
 
-    pub fn cycles_completed(&self) -> u64 { self.cycles_completed.load(Ordering::Relaxed) }
+    pub fn cycles_completed(&self) -> u64 {
+        self.cycles_completed.load(Ordering::Relaxed)
+    }
 }
 
 // ── Health & Metrics ─────────────────────────────────────────────────
@@ -342,14 +427,26 @@ pub struct MetricsCollector {
 
 impl MetricsCollector {
     pub fn new() -> Self {
-        Self { received: AtomicU64::new(0), processed: AtomicU64::new(0),
-            failed: AtomicU64::new(0), queue_depth: AtomicU64::new(0),
-            recent_injections: RwLock::new(Vec::new()) }
+        Self {
+            received: AtomicU64::new(0),
+            processed: AtomicU64::new(0),
+            failed: AtomicU64::new(0),
+            queue_depth: AtomicU64::new(0),
+            recent_injections: RwLock::new(Vec::new()),
+        }
     }
-    pub fn record_received(&self) { self.received.fetch_add(1, Ordering::Relaxed); }
-    pub fn record_processed(&self) { self.processed.fetch_add(1, Ordering::Relaxed); }
-    pub fn record_failed(&self) { self.failed.fetch_add(1, Ordering::Relaxed); }
-    pub fn set_queue_depth(&self, d: u64) { self.queue_depth.store(d, Ordering::Relaxed); }
+    pub fn record_received(&self) {
+        self.received.fetch_add(1, Ordering::Relaxed);
+    }
+    pub fn record_processed(&self) {
+        self.processed.fetch_add(1, Ordering::Relaxed);
+    }
+    pub fn record_failed(&self) {
+        self.failed.fetch_add(1, Ordering::Relaxed);
+    }
+    pub fn set_queue_depth(&self, d: u64) {
+        self.queue_depth.store(d, Ordering::Relaxed);
+    }
 
     pub async fn record_injection(&self) {
         let now = Utc::now().timestamp();
@@ -360,7 +457,9 @@ impl MetricsCollector {
 
     pub async fn injections_per_minute(&self) -> f64 {
         let w = self.recent_injections.read().await;
-        if w.is_empty() { return 0.0; }
+        if w.is_empty() {
+            return 0.0;
+        }
         let total: u64 = w.iter().map(|(_, c)| c).sum();
         let span = ((Utc::now().timestamp() - w[0].0) as f64 / 60.0).max(1.0 / 60.0);
         total as f64 / span
@@ -381,7 +480,11 @@ impl MetricsCollector {
     }
 }
 
-impl Default for MetricsCollector { fn default() -> Self { Self::new() } }
+impl Default for MetricsCollector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 // ── Feed Ingestion (RSS/Atom) ────────────────────────────────────────
 
@@ -418,64 +521,125 @@ pub struct FeedIngester {
 
 impl FeedIngester {
     pub fn new(sources: Vec<FeedSource>) -> Self {
-        let lp = sources.iter().map(|s| (s.url.clone(), Utc::now())).collect();
-        Self { sources, last_poll: lp, seen_hashes: dashmap::DashMap::new(),
-            http: reqwest::Client::builder().timeout(std::time::Duration::from_secs(30))
-                .build().unwrap_or_default() }
+        let lp = sources
+            .iter()
+            .map(|s| (s.url.clone(), Utc::now()))
+            .collect();
+        Self {
+            sources,
+            last_poll: lp,
+            seen_hashes: dashmap::DashMap::new(),
+            http: reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(30))
+                .build()
+                .unwrap_or_default(),
+        }
     }
 
     pub fn feeds_due(&self) -> Vec<&FeedSource> {
         let now = Utc::now();
-        self.sources.iter().filter(|s| {
-            let last = self.last_poll.get(&s.url).copied().unwrap_or(now);
-            (now - last).num_seconds().max(0) as u64 >= s.poll_interval_secs
-        }).collect()
+        self.sources
+            .iter()
+            .filter(|s| {
+                let last = self.last_poll.get(&s.url).copied().unwrap_or(now);
+                (now - last).num_seconds().max(0) as u64 >= s.poll_interval_secs
+            })
+            .collect()
     }
 
     /// Fetch and parse a feed URL, returning new (non-duplicate) entries.
     pub async fn fetch_feed(&self, source: &FeedSource) -> Result<Vec<FeedEntry>, String> {
-        let resp = self.http.get(&source.url)
-            .header("Accept", "application/rss+xml, application/atom+xml, text/xml")
-            .send().await.map_err(|e| format!("feed fetch failed for {}: {e}", source.url))?;
-        if !resp.status().is_success() { return Err(format!("feed {} returned {}", source.url, resp.status())); }
-        let body = resp.text().await.map_err(|e| format!("feed body read failed: {e}"))?;
-        Ok(self.parse_feed_xml(&body, source).into_iter()
-            .filter(|e| { if self.seen_hashes.contains_key(&e.content_hash) { false }
-                else { self.seen_hashes.insert(e.content_hash.clone(), ()); true } }).collect())
+        let resp = self
+            .http
+            .get(&source.url)
+            .header(
+                "Accept",
+                "application/rss+xml, application/atom+xml, text/xml",
+            )
+            .send()
+            .await
+            .map_err(|e| format!("feed fetch failed for {}: {e}", source.url))?;
+        if !resp.status().is_success() {
+            return Err(format!("feed {} returned {}", source.url, resp.status()));
+        }
+        let body = resp
+            .text()
+            .await
+            .map_err(|e| format!("feed body read failed: {e}"))?;
+        Ok(self
+            .parse_feed_xml(&body, source)
+            .into_iter()
+            .filter(|e| {
+                if self.seen_hashes.contains_key(&e.content_hash) {
+                    false
+                } else {
+                    self.seen_hashes.insert(e.content_hash.clone(), ());
+                    true
+                }
+            })
+            .collect())
     }
 
     fn parse_feed_xml(&self, xml: &str, source: &FeedSource) -> Vec<FeedEntry> {
         let blocks: Vec<&str> = if xml.contains("<item>") || xml.contains("<item ") {
-            xml.split("<item").skip(1).filter_map(|s| s.split("</item>").next()).collect()
+            xml.split("<item")
+                .skip(1)
+                .filter_map(|s| s.split("</item>").next())
+                .collect()
         } else {
-            xml.split("<entry").skip(1).filter_map(|s| s.split("</entry>").next()).collect()
+            xml.split("<entry")
+                .skip(1)
+                .filter_map(|s| s.split("</entry>").next())
+                .collect()
         };
-        blocks.iter().filter_map(|block| {
-            let title = extract_tag(block, "title").unwrap_or_default();
-            let content = extract_tag(block, "description")
-                .or_else(|| extract_tag(block, "content"))
-                .or_else(|| extract_tag(block, "summary")).unwrap_or_default();
-            if title.is_empty() && content.is_empty() { return None; }
-            let hash = DataInjector::content_hash(&title, &content);
-            Some(FeedEntry { title, content, link: extract_tag(block, "link"), published: None,
-                content_hash: hash, source_url: source.url.clone(),
-                category: source.default_category.clone(), tags: source.default_tags.clone() })
-        }).collect()
+        blocks
+            .iter()
+            .filter_map(|block| {
+                let title = extract_tag(block, "title").unwrap_or_default();
+                let content = extract_tag(block, "description")
+                    .or_else(|| extract_tag(block, "content"))
+                    .or_else(|| extract_tag(block, "summary"))
+                    .unwrap_or_default();
+                if title.is_empty() && content.is_empty() {
+                    return None;
+                }
+                let hash = DataInjector::content_hash(&title, &content);
+                Some(FeedEntry {
+                    title,
+                    content,
+                    link: extract_tag(block, "link"),
+                    published: None,
+                    content_hash: hash,
+                    source_url: source.url.clone(),
+                    category: source.default_category.clone(),
+                    tags: source.default_tags.clone(),
+                })
+            })
+            .collect()
     }
 
     /// Convert a `FeedEntry` into an `InjectionItem`.
     pub fn to_injection_item(entry: &FeedEntry) -> InjectionItem {
         let mut meta = HashMap::new();
-        if let Some(ref l) = entry.link { meta.insert("source_link".into(), l.clone()); }
+        if let Some(ref l) = entry.link {
+            meta.insert("source_link".into(), l.clone());
+        }
         meta.insert("source_url".into(), entry.source_url.clone());
         meta.insert("content_hash".into(), entry.content_hash.clone());
-        InjectionItem { source: InjectionSource::RssFeed, title: entry.title.clone(),
-            content: entry.content.clone(), category: entry.category.clone(),
-            tags: entry.tags.clone(), metadata: meta,
-            received_at: entry.published.unwrap_or_else(Utc::now) }
+        InjectionItem {
+            source: InjectionSource::RssFeed,
+            title: entry.title.clone(),
+            content: entry.content.clone(),
+            category: entry.category.clone(),
+            tags: entry.tags.clone(),
+            metadata: meta,
+            received_at: entry.published.unwrap_or_else(Utc::now),
+        }
     }
 
-    pub fn seen_count(&self) -> usize { self.seen_hashes.len() }
+    pub fn seen_count(&self) -> usize {
+        self.seen_hashes.len()
+    }
 }
 
 fn extract_tag(xml: &str, tag: &str) -> Option<String> {
@@ -485,7 +649,11 @@ fn extract_tag(xml: &str, tag: &str) -> Option<String> {
     let inner = &after[cs..];
     let end = inner.find(&format!("</{}>", tag))?;
     let text = inner[..end].trim();
-    if text.is_empty() { None } else { Some(text.to_string()) }
+    if text.is_empty() {
+        None
+    } else {
+        Some(text.to_string())
+    }
 }
 
 // ── Common Crawl / Open Crawl Integration (ADR-096 §10) ──────────────
@@ -645,18 +813,35 @@ impl CommonCrawlAdapter {
             }
 
             // Add headers that might help with compatibility
-            match self.http.get(&url)
+            match self
+                .http
+                .get(&url)
                 .header("Accept", "application/json")
                 .header("Connection", "close")
-                .send().await
+                .send()
+                .await
             {
                 Ok(resp) => {
                     let status = resp.status().as_u16();
                     match resp.text().await {
-                        Ok(body) => return (status >= 200 && status < 300, status, body.len(), None, attempt + 1),
+                        Ok(body) => {
+                            return (
+                                status >= 200 && status < 300,
+                                status,
+                                body.len(),
+                                None,
+                                attempt + 1,
+                            )
+                        }
                         Err(e) => {
                             if attempt == 2 {
-                                return (false, status, 0, Some(format!("Body read error: {e}")), attempt + 1);
+                                return (
+                                    false,
+                                    status,
+                                    0,
+                                    Some(format!("Body read error: {e}")),
+                                    attempt + 1,
+                                );
                             }
                             continue;
                         }
@@ -675,10 +860,15 @@ impl CommonCrawlAdapter {
 
     /// Test connectivity to different HTTPS endpoints for comparison.
     /// Returns Vec of (name, success, status_code, body_length, error_message, url)
-    pub async fn test_external_connectivity(&self) -> Vec<(String, bool, u16, usize, Option<String>, String)> {
+    pub async fn test_external_connectivity(
+        &self,
+    ) -> Vec<(String, bool, u16, usize, Option<String>, String)> {
         let endpoints = vec![
             ("httpbin", "https://httpbin.org/get"),
-            ("internet_archive_cdx", "https://web.archive.org/cdx/search/cdx?url=example.com&limit=1"),
+            (
+                "internet_archive_cdx",
+                "https://web.archive.org/cdx/search/cdx?url=example.com&limit=1",
+            ),
             ("commoncrawl_data", "https://data.commoncrawl.org/"),
         ];
 
@@ -688,11 +878,32 @@ impl CommonCrawlAdapter {
                 Ok(resp) => {
                     let status = resp.status().as_u16();
                     match resp.text().await {
-                        Ok(body) => (name.to_string(), status >= 200 && status < 300, status, body.len(), None, url.to_string()),
-                        Err(e) => (name.to_string(), false, status, 0, Some(format!("Body read error: {e}")), url.to_string()),
+                        Ok(body) => (
+                            name.to_string(),
+                            status >= 200 && status < 300,
+                            status,
+                            body.len(),
+                            None,
+                            url.to_string(),
+                        ),
+                        Err(e) => (
+                            name.to_string(),
+                            false,
+                            status,
+                            0,
+                            Some(format!("Body read error: {e}")),
+                            url.to_string(),
+                        ),
                     }
                 }
-                Err(e) => (name.to_string(), false, 0, 0, Some(format!("{:?}", e)), url.to_string()),
+                Err(e) => (
+                    name.to_string(),
+                    false,
+                    0,
+                    0,
+                    Some(format!("{:?}", e)),
+                    url.to_string(),
+                ),
             };
             results.push(result);
         }
@@ -718,12 +929,17 @@ impl CommonCrawlAdapter {
 
         // Fall back to Internet Archive's Wayback CDX (works from Cloud Run)
         tracing::warn!("Common Crawl CDX unavailable, falling back to Wayback CDX");
-        self.query_wayback_cdx(&query.url_pattern, query.limit).await
+        self.query_wayback_cdx(&query.url_pattern, query.limit)
+            .await
     }
 
     /// Query Internet Archive's Wayback CDX API (fallback when Common Crawl CDX is unreachable).
     /// Returns synthetic CdxRecords with filename set to "wayback:{timestamp}" for special handling.
-    async fn query_wayback_cdx(&self, url_pattern: &str, limit: usize) -> Result<Vec<CdxRecord>, String> {
+    async fn query_wayback_cdx(
+        &self,
+        url_pattern: &str,
+        limit: usize,
+    ) -> Result<Vec<CdxRecord>, String> {
         // IA Wayback CDX API
         let url = format!(
             "https://web.archive.org/cdx/search/cdx?url={}&output=json&limit={}",
@@ -731,38 +947,49 @@ impl CommonCrawlAdapter {
             limit + 1 // +1 for header row
         );
 
-        let resp = self.http.get(&url)
+        let resp = self
+            .http
+            .get(&url)
             .header("Accept", "application/json")
-            .send().await
+            .send()
+            .await
             .map_err(|e| format!("Wayback CDX failed: {e}"))?;
 
         if !resp.status().is_success() {
             return Err(format!("Wayback CDX returned status {}", resp.status()));
         }
 
-        let body = resp.text().await.map_err(|e| format!("Wayback body read failed: {e}"))?;
+        let body = resp
+            .text()
+            .await
+            .map_err(|e| format!("Wayback body read failed: {e}"))?;
 
         // Parse IA CDX JSON array format: [[headers...], [values...], ...]
-        let rows: Vec<Vec<String>> = serde_json::from_str(&body)
-            .map_err(|e| format!("Wayback CDX parse failed: {e}"))?;
+        let rows: Vec<Vec<String>> =
+            serde_json::from_str(&body).map_err(|e| format!("Wayback CDX parse failed: {e}"))?;
 
         // Skip header row, convert to CdxRecord
-        let records: Vec<CdxRecord> = rows.iter().skip(1).take(limit).filter_map(|row| {
-            if row.len() >= 7 {
-                // IA CDX columns: urlkey, timestamp, original, mimetype, statuscode, digest, length
-                Some(CdxRecord {
-                    url: row.get(2).cloned().unwrap_or_default(),
-                    timestamp: row.get(1).cloned().unwrap_or_default(),
-                    mime: row.get(3).cloned().unwrap_or_default(),
-                    status: row.get(4).cloned().unwrap_or_default(),
-                    filename: format!("wayback:{}", row.get(1).cloned().unwrap_or_default()), // Special marker
-                    offset: 0,
-                    length: row.get(6).and_then(|s| s.parse().ok()).unwrap_or(0),
-                })
-            } else {
-                None
-            }
-        }).collect();
+        let records: Vec<CdxRecord> = rows
+            .iter()
+            .skip(1)
+            .take(limit)
+            .filter_map(|row| {
+                if row.len() >= 7 {
+                    // IA CDX columns: urlkey, timestamp, original, mimetype, statuscode, digest, length
+                    Some(CdxRecord {
+                        url: row.get(2).cloned().unwrap_or_default(),
+                        timestamp: row.get(1).cloned().unwrap_or_default(),
+                        mime: row.get(3).cloned().unwrap_or_default(),
+                        status: row.get(4).cloned().unwrap_or_default(),
+                        filename: format!("wayback:{}", row.get(1).cloned().unwrap_or_default()), // Special marker
+                        offset: 0,
+                        length: row.get(6).and_then(|s| s.parse().ok()).unwrap_or(0),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect();
 
         if records.is_empty() {
             return Err("No Wayback results found".into());
@@ -777,7 +1004,11 @@ impl CommonCrawlAdapter {
     }
 
     /// Get sample CDX records for demonstration when live API is unavailable.
-    fn get_sample_cdx_records(&self, pattern: &str, limit: usize) -> Result<Vec<CdxRecord>, String> {
+    fn get_sample_cdx_records(
+        &self,
+        pattern: &str,
+        limit: usize,
+    ) -> Result<Vec<CdxRecord>, String> {
         // Sample WARC paths from CC-MAIN-2026-08 (verified accessible)
         let samples = vec![
             CdxRecord {
@@ -810,7 +1041,8 @@ impl CommonCrawlAdapter {
         ];
 
         // Filter by pattern
-        let filtered: Vec<CdxRecord> = samples.into_iter()
+        let filtered: Vec<CdxRecord> = samples
+            .into_iter()
             .filter(|r| r.url.contains(pattern) || pattern.contains("wikipedia"))
             .take(limit)
             .collect();
@@ -832,15 +1064,20 @@ impl CommonCrawlAdapter {
     }
 
     /// Query live CDX API (may fail from Cloud Run due to connectivity issues).
-    async fn query_cdx_live(&self, query: &CdxQuery, crawl: &str) -> Result<Vec<CdxRecord>, String> {
-
+    async fn query_cdx_live(
+        &self,
+        query: &CdxQuery,
+        crawl: &str,
+    ) -> Result<Vec<CdxRecord>, String> {
         // Check CDX cache first (ADR-115: avoid redundant API calls)
         let cache_key = format!("{}:{}:{}", crawl, query.url_pattern, query.limit);
         if let Some(entry) = self.cdx_cache.get(&cache_key) {
             if !entry.is_expired() {
                 self.stats.cdx_cache_hits.fetch_add(1, Ordering::Relaxed);
                 // Filter out already-seen URLs and return
-                let records: Vec<CdxRecord> = entry.records.iter()
+                let records: Vec<CdxRecord> = entry
+                    .records
+                    .iter()
                     .filter(|r| !self.seen_urls.contains_key(&r.url))
                     .cloned()
                     .collect();
@@ -854,7 +1091,10 @@ impl CommonCrawlAdapter {
 
         let mut url = format!(
             "{}/{}-index?url={}&output=json&limit={}",
-            self.cdx_base, crawl, urlencoding::encode(&query.url_pattern), query.limit
+            self.cdx_base,
+            crawl,
+            urlencoding::encode(&query.url_pattern),
+            query.limit
         );
         if let Some(ref mime) = query.mime_filter {
             url.push_str(&format!("&filter=mime:{}", urlencoding::encode(mime)));
@@ -876,10 +1116,13 @@ impl CommonCrawlAdapter {
                 tokio::time::sleep(delay).await;
             }
 
-            match self.http.get(&url)
+            match self
+                .http
+                .get(&url)
                 .header("Accept", "application/json")
                 .header("Connection", "close")
-                .send().await
+                .send()
+                .await
             {
                 Ok(resp) => {
                     if !resp.status().is_success() {
@@ -912,19 +1155,24 @@ impl CommonCrawlAdapter {
         }
 
         // CDX returns newline-delimited JSON
-        let all_records: Vec<CdxRecord> = body.lines()
+        let all_records: Vec<CdxRecord> = body
+            .lines()
             .filter_map(|line| serde_json::from_str(line).ok())
             .collect();
 
         // Cache all records before filtering (ADR-115)
-        self.cdx_cache.insert(cache_key, CdxCacheEntry {
-            records: all_records.clone(),
-            cached_at: std::time::Instant::now(),
-            ttl_secs: 86400, // 24 hours
-        });
+        self.cdx_cache.insert(
+            cache_key,
+            CdxCacheEntry {
+                records: all_records.clone(),
+                cached_at: std::time::Instant::now(),
+                ttl_secs: 86400, // 24 hours
+            },
+        );
 
         // Filter out already-seen URLs
-        let records: Vec<CdxRecord> = all_records.into_iter()
+        let records: Vec<CdxRecord> = all_records
+            .into_iter()
             .filter(|r| !self.seen_urls.contains_key(&r.url))
             .collect();
         for r in &records {
@@ -945,22 +1193,27 @@ impl CommonCrawlAdapter {
         let (title, content) = if record.filename.starts_with("wayback:") {
             // Fetch from Internet Archive Wayback Machine
             let timestamp = &record.filename[8..]; // Extract timestamp after "wayback:"
-            // Use id_ modifier for raw content without Wayback toolbar
+                                                   // Use id_ modifier for raw content without Wayback toolbar
             let wayback_url = format!(
                 "https://web.archive.org/web/{}id_/{}",
                 timestamp, record.url
             );
             tracing::info!("Fetching from Wayback: {}", wayback_url);
 
-            let resp = self.http.get(&wayback_url)
-                .send().await
+            let resp = self
+                .http
+                .get(&wayback_url)
+                .send()
+                .await
                 .map_err(|e| format!("Wayback fetch failed for {}: {e}", record.url))?;
 
             if !resp.status().is_success() {
                 return Err(format!("Wayback returned status {}", resp.status()));
             }
 
-            let html_bytes = resp.bytes().await
+            let html_bytes = resp
+                .bytes()
+                .await
                 .map_err(|e| format!("Wayback body read failed: {e}"))?;
 
             // Extract directly from HTML (no WARC envelope)
@@ -971,15 +1224,26 @@ impl CommonCrawlAdapter {
                 return Err("Invalid CDX record: missing length".into());
             }
             let warc_url = format!("{}/{}", self.data_base, record.filename);
-            let range = format!("bytes={}-{}", record.offset, record.offset + record.length - 1);
+            let range = format!(
+                "bytes={}-{}",
+                record.offset,
+                record.offset + record.length - 1
+            );
 
-            let resp = self.http.get(&warc_url)
+            let resp = self
+                .http
+                .get(&warc_url)
                 .header("Range", &range)
-                .send().await.map_err(|e| format!("WARC fetch failed for {}: {e}", record.url))?;
+                .send()
+                .await
+                .map_err(|e| format!("WARC fetch failed for {}: {e}", record.url))?;
             if !resp.status().is_success() && resp.status().as_u16() != 206 {
                 return Err(format!("WARC returned status {}", resp.status()));
             }
-            let warc_bytes = resp.bytes().await.map_err(|e| format!("WARC body read failed: {e}"))?;
+            let warc_bytes = resp
+                .bytes()
+                .await
+                .map_err(|e| format!("WARC body read failed: {e}"))?;
 
             // Extract text from WARC record
             self.extract_from_warc(&warc_bytes)?
@@ -988,7 +1252,9 @@ impl CommonCrawlAdapter {
 
         // Check for duplicate content
         if self.seen_hashes.contains_key(&content_hash) {
-            self.stats.duplicates_skipped.fetch_add(1, Ordering::Relaxed);
+            self.stats
+                .duplicates_skipped
+                .fetch_add(1, Ordering::Relaxed);
             return Err("Duplicate content".into());
         }
         self.seen_hashes.insert(content_hash.clone(), ());
@@ -1000,7 +1266,12 @@ impl CommonCrawlAdapter {
             title,
             content,
             content_hash,
-            crawl_index: record.filename.split('/').next().unwrap_or("unknown").into(),
+            crawl_index: record
+                .filename
+                .split('/')
+                .next()
+                .unwrap_or("unknown")
+                .into(),
         })
     }
 
@@ -1015,8 +1286,13 @@ impl CommonCrawlAdapter {
         let warc_str = String::from_utf8_lossy(warc_bytes);
 
         // Find HTTP response body (after double CRLF in WARC response)
-        let body_start = warc_str.find("\r\n\r\n")
-            .and_then(|p1| warc_str[p1+4..].find("\r\n\r\n").map(|p2| p1 + 4 + p2 + 4))
+        let body_start = warc_str
+            .find("\r\n\r\n")
+            .and_then(|p1| {
+                warc_str[p1 + 4..]
+                    .find("\r\n\r\n")
+                    .map(|p2| p1 + 4 + p2 + 4)
+            })
             .unwrap_or(0);
         let html = &warc_str[body_start..];
 
@@ -1033,14 +1309,18 @@ impl CommonCrawlAdapter {
         // Remove script tags
         while let Some(start) = text.find("<script") {
             if let Some(end) = text[start..].find("</script>") {
-                text = format!("{}{}", &text[..start], &text[start+end+9..]);
-            } else { break; }
+                text = format!("{}{}", &text[..start], &text[start + end + 9..]);
+            } else {
+                break;
+            }
         }
         // Remove style tags
         while let Some(start) = text.find("<style") {
             if let Some(end) = text[start..].find("</style>") {
-                text = format!("{}{}", &text[..start], &text[start+end+8..]);
-            } else { break; }
+                text = format!("{}{}", &text[..start], &text[start + end + 8..]);
+            } else {
+                break;
+            }
         }
         // Remove all HTML tags
         let mut clean = String::new();
@@ -1063,7 +1343,11 @@ impl CommonCrawlAdapter {
     }
 
     /// Convert a CrawlPage to an InjectionItem for the brain pipeline.
-    pub fn to_injection_item(page: &CrawlPage, category: Option<String>, tags: Vec<String>) -> InjectionItem {
+    pub fn to_injection_item(
+        page: &CrawlPage,
+        category: Option<String>,
+        tags: Vec<String>,
+    ) -> InjectionItem {
         let mut meta = HashMap::new();
         meta.insert("source_url".into(), page.url.clone());
         meta.insert("crawl_timestamp".into(), page.timestamp.clone());
@@ -1096,7 +1380,8 @@ impl CommonCrawlAdapter {
             ..Default::default()
         };
         let records = self.query_cdx(&query).await?;
-        self.discover_from_records(&records, category, tags, limit).await
+        self.discover_from_records(&records, category, tags, limit)
+            .await
     }
 
     /// Fetch pages from pre-queried CDX records.
@@ -1112,7 +1397,11 @@ impl CommonCrawlAdapter {
 
         for record in records.iter().take(limit) {
             match self.fetch_page(record).await {
-                Ok(page) => items.push(Self::to_injection_item(&page, category.clone(), tags.clone())),
+                Ok(page) => items.push(Self::to_injection_item(
+                    &page,
+                    category.clone(),
+                    tags.clone(),
+                )),
                 Err(e) => {
                     self.stats.errors.fetch_add(1, Ordering::Relaxed);
                     tracing::warn!("CC page fetch failed for {}: {}", record.url, e);
@@ -1142,12 +1431,18 @@ impl CommonCrawlAdapter {
         )
     }
 
-    pub fn seen_urls_count(&self) -> usize { self.seen_urls.len() }
-    pub fn seen_hashes_count(&self) -> usize { self.seen_hashes.len() }
+    pub fn seen_urls_count(&self) -> usize {
+        self.seen_urls.len()
+    }
+    pub fn seen_hashes_count(&self) -> usize {
+        self.seen_hashes.len()
+    }
 }
 
 impl Default for CommonCrawlAdapter {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 // ── Tests ────────────────────────────────────────────────────────────
@@ -1161,13 +1456,20 @@ mod tests {
         let embedding = vec![0.1f32, 0.2, 0.3, 0.4];
         let tags = vec!["test".to_string()];
         let wc = rvf_crypto::create_witness_chain(&[rvf_crypto::WitnessEntry {
-            prev_hash: [0u8; 32], action_hash: rvf_crypto::shake256_256(b"test"),
-            timestamp_ns: 1000, witness_type: 0x01,
+            prev_hash: [0u8; 32],
+            action_hash: rvf_crypto::shake256_256(b"test"),
+            timestamp_ns: 1000,
+            witness_type: 0x01,
         }]);
         let input = RvfPipelineInput {
-            memory_id: "test-id", embedding: &embedding, title: "Test Title",
-            content: "Test content", tags: &tags, category: "pattern",
-            contributor_id: "test-contributor", witness_chain: Some(&wc),
+            memory_id: "test-id",
+            embedding: &embedding,
+            title: "Test Title",
+            content: "Test content",
+            tags: &tags,
+            category: "pattern",
+            contributor_id: "test-contributor",
+            witness_chain: Some(&wc),
             dp_proof_json: Some(r#"{"epsilon":1.0,"delta":1e-5}"#),
             redaction_log_json: Some(r#"{"entries":[],"total_redactions":0}"#),
         };
@@ -1179,9 +1481,16 @@ mod tests {
     fn test_rvf_container_minimal() {
         let embedding = vec![1.0f32; 128];
         let input = RvfPipelineInput {
-            memory_id: "min-id", embedding: &embedding, title: "Minimal",
-            content: "Content", tags: &[], category: "solution", contributor_id: "anon",
-            witness_chain: None, dp_proof_json: None, redaction_log_json: None,
+            memory_id: "min-id",
+            embedding: &embedding,
+            title: "Minimal",
+            content: "Content",
+            tags: &[],
+            category: "solution",
+            contributor_id: "anon",
+            witness_chain: None,
+            dp_proof_json: None,
+            redaction_log_json: None,
         };
         assert_eq!(count_segments(&build_rvf_container(&input).unwrap()), 2);
     }
@@ -1193,7 +1502,8 @@ mod tests {
             message: PubSubPushMsg {
                 data: Some(base64::engine::general_purpose::STANDARD.encode(b"hello world")),
                 attributes: HashMap::from([("source".into(), "test".into())]),
-                message_id: "msg-001".into(), publish_time: None,
+                message_id: "msg-001".into(),
+                publish_time: None,
             },
             subscription: "projects/test/subscriptions/test-sub".into(),
         };
@@ -1205,9 +1515,15 @@ mod tests {
     #[test]
     fn test_data_injector_dedup() {
         let inj = DataInjector::new();
-        let item = InjectionItem { source: InjectionSource::Webhook, title: "T".into(),
-            content: "C".into(), category: Some("p".into()), tags: vec![],
-            metadata: HashMap::new(), received_at: Utc::now() };
+        let item = InjectionItem {
+            source: InjectionSource::Webhook,
+            title: "T".into(),
+            content: "C".into(),
+            category: Some("p".into()),
+            tags: vec![],
+            metadata: HashMap::new(),
+            received_at: Utc::now(),
+        };
         let r1 = inj.process(&item);
         assert!(r1.accepted && !r1.duplicate && r1.stage_reached == "ready_for_embed");
         let r2 = inj.process(&item);
@@ -1218,29 +1534,47 @@ mod tests {
     #[test]
     fn test_data_injector_validation() {
         let inj = DataInjector::new();
-        let item = InjectionItem { source: InjectionSource::PubSub, title: "".into(),
-            content: "c".into(), category: None, tags: vec![], metadata: HashMap::new(),
-            received_at: Utc::now() };
+        let item = InjectionItem {
+            source: InjectionSource::PubSub,
+            title: "".into(),
+            content: "c".into(),
+            category: None,
+            tags: vec![],
+            metadata: HashMap::new(),
+            received_at: Utc::now(),
+        };
         let r = inj.process(&item);
         assert!(!r.accepted && r.stage_reached == "validate" && r.error.is_some());
     }
 
     #[test]
     fn test_content_hash_deterministic() {
-        assert_eq!(DataInjector::content_hash("a", "b"), DataInjector::content_hash("a", "b"));
-        assert_ne!(DataInjector::content_hash("a", "b"), DataInjector::content_hash("a", "c"));
+        assert_eq!(
+            DataInjector::content_hash("a", "b"),
+            DataInjector::content_hash("a", "b")
+        );
+        assert_ne!(
+            DataInjector::content_hash("a", "b"),
+            DataInjector::content_hash("a", "c")
+        );
     }
 
     #[tokio::test]
     async fn test_scheduler_due_tasks() {
         let sched = OptimizationScheduler::new(SchedulerConfig {
-            train_item_threshold: 5, train_interval_secs: 0, drift_interval_secs: 0,
-            transfer_interval_secs: 99999, graph_rebalance_secs: 99999,
-            cleanup_interval_secs: 99999, attractor_interval_secs: 99999,
+            train_item_threshold: 5,
+            train_interval_secs: 0,
+            drift_interval_secs: 0,
+            transfer_interval_secs: 99999,
+            graph_rebalance_secs: 99999,
+            cleanup_interval_secs: 99999,
+            attractor_interval_secs: 99999,
             prune_quality_threshold: 0.3,
         });
         let due = sched.due_tasks(0).await;
-        assert!(due.contains(&"training".to_string()) && due.contains(&"drift_monitoring".to_string()));
+        assert!(
+            due.contains(&"training".to_string()) && due.contains(&"drift_monitoring".to_string())
+        );
         assert!(!due.contains(&"graph_rebalancing".to_string()));
         sched.mark_completed("training").await;
         assert_eq!(sched.cycles_completed(), 1);
@@ -1249,9 +1583,15 @@ mod tests {
     #[tokio::test]
     async fn test_metrics_collector() {
         let mc = MetricsCollector::new();
-        mc.record_received(); mc.record_received(); mc.record_processed();
-        mc.record_failed(); mc.set_queue_depth(42); mc.record_injection().await;
-        let snap = mc.snapshot(&OptimizationScheduler::new(SchedulerConfig::default())).await;
+        mc.record_received();
+        mc.record_received();
+        mc.record_processed();
+        mc.record_failed();
+        mc.set_queue_depth(42);
+        mc.record_injection().await;
+        let snap = mc
+            .snapshot(&OptimizationScheduler::new(SchedulerConfig::default()))
+            .await;
         assert_eq!(snap.messages_received, 2);
         assert_eq!(snap.messages_processed, 1);
         assert_eq!(snap.messages_failed, 1);
@@ -1261,15 +1601,25 @@ mod tests {
 
     #[test]
     fn test_extract_tag() {
-        assert_eq!(extract_tag("<title>Hello</title>", "title"), Some("Hello".into()));
+        assert_eq!(
+            extract_tag("<title>Hello</title>", "title"),
+            Some("Hello".into())
+        );
         assert_eq!(extract_tag("<x>y</x>", "z"), None);
     }
 
     #[test]
     fn test_feed_entry_to_injection_item() {
-        let e = FeedEntry { title: "A".into(), content: "B".into(),
-            link: Some("https://x.com/1".into()), published: None, content_hash: "h".into(),
-            source_url: "https://x.com/f".into(), category: Some("s".into()), tags: vec![] };
+        let e = FeedEntry {
+            title: "A".into(),
+            content: "B".into(),
+            link: Some("https://x.com/1".into()),
+            published: None,
+            content_hash: "h".into(),
+            source_url: "https://x.com/f".into(),
+            category: Some("s".into()),
+            tags: vec![],
+        };
         let item = FeedIngester::to_injection_item(&e);
         assert_eq!(item.source, InjectionSource::RssFeed);
         assert_eq!(item.metadata.get("source_link").unwrap(), "https://x.com/1");
@@ -1278,8 +1628,12 @@ mod tests {
     #[test]
     fn test_feed_parse_rss_xml() {
         let ing = FeedIngester::new(vec![]);
-        let src = FeedSource { url: "https://x.com/f".into(), poll_interval_secs: 300,
-            default_category: Some("news".into()), default_tags: vec!["rss".into()] };
+        let src = FeedSource {
+            url: "https://x.com/f".into(),
+            poll_interval_secs: 300,
+            default_category: Some("news".into()),
+            default_tags: vec!["rss".into()],
+        };
         let xml = "<rss><channel><item><title>A</title><description>B</description></item>\
             <item><title>C</title><description>D</description></item></channel></rss>";
         let entries = ing.parse_feed_xml(xml, &src);
@@ -1336,7 +1690,8 @@ mod tests {
             content_hash: "abc123".into(),
             crawl_index: "CC-MAIN-2026-13".into(),
         };
-        let item = CommonCrawlAdapter::to_injection_item(&page, Some("pattern".into()), vec!["cc".into()]);
+        let item =
+            CommonCrawlAdapter::to_injection_item(&page, Some("pattern".into()), vec!["cc".into()]);
         assert_eq!(item.source, InjectionSource::CommonCrawl);
         assert_eq!(item.title, "Example");
         assert_eq!(item.category, Some("pattern".into()));

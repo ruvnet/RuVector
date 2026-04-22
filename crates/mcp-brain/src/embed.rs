@@ -8,9 +8,12 @@
 //!    Rank-2 LoRA adapter applied to the frozen hash features. Weights are
 //!    learned locally via SONA and periodically federated to/from the server.
 
-use sha3::{Shake256, digest::{Update, ExtendableOutput, XofReader}};
-use sona::{SonaEngine, LearnedPattern};
+use sha3::{
+    digest::{ExtendableOutput, Update, XofReader},
+    Shake256,
+};
 use sona::engine::SonaEngineBuilder;
+use sona::{LearnedPattern, SonaEngine};
 use std::sync::{Arc, Mutex};
 
 /// Embedding dimension (128 f32s = 512 bytes)
@@ -70,7 +73,9 @@ impl LoraWeights {
         let down_norm: f32 = self.down_proj.iter().map(|x| x * x).sum::<f32>().sqrt();
         let up_norm: f32 = self.up_proj.iter().map(|x| x * x).sum::<f32>().sqrt();
         if down_norm > 100.0 || up_norm > 100.0 {
-            return Err(format!("Weight norm too large: down={down_norm:.1}, up={up_norm:.1}"));
+            return Err(format!(
+                "Weight norm too large: down={down_norm:.1}, up={up_norm:.1}"
+            ));
         }
         // Minimum evidence
         if self.evidence_count < 5 {
@@ -91,7 +96,10 @@ impl LoraWeights {
 
     /// Compute L2 distance to another set of weights
     pub fn l2_distance(&self, other: &LoraWeights) -> f32 {
-        let d: f32 = self.down_proj.iter().zip(other.down_proj.iter())
+        let d: f32 = self
+            .down_proj
+            .iter()
+            .zip(other.down_proj.iter())
             .chain(self.up_proj.iter().zip(other.up_proj.iter()))
             .map(|(a, b)| (a - b).powi(2))
             .sum();
@@ -463,7 +471,11 @@ mod tests {
         for i in 0..100 {
             let key = format!("test-{i}");
             let (_, sign) = signed_hash(key.as_bytes(), b"test", 42);
-            if sign > 0.0 { pos += 1; } else { neg += 1; }
+            if sign > 0.0 {
+                pos += 1;
+            } else {
+                neg += 1;
+            }
         }
         // Both signs should appear (probabilistic, but 100 trials is enough)
         assert!(pos > 10 && neg > 10, "pos={pos}, neg={neg}");

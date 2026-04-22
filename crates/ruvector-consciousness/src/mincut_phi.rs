@@ -71,10 +71,7 @@ impl PhiEngine for MinCutPhiEngine {
         let mut convergence = Vec::new();
 
         // Use MinCut builder pattern to find the minimum weight cut.
-        let mincut_result = MinCutBuilder::new()
-            .exact()
-            .with_edges(edges)
-            .build();
+        let mincut_result = MinCutBuilder::new().exact().with_edges(edges).build();
 
         if let Ok(mincut) = mincut_result {
             let result = mincut.min_cut();
@@ -196,6 +193,10 @@ mod tests {
         let result = MinCutPhiEngine::default()
             .compute_phi(&tpm, Some(0), &budget)
             .unwrap();
-        assert!(result.phi < 1e-3, "disconnected should be ~0, got {}", result.phi);
+        assert!(
+            result.phi < 1e-3,
+            "disconnected should be ~0, got {}",
+            result.phi
+        );
     }
 }

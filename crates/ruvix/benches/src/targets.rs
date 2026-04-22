@@ -262,8 +262,14 @@ mod tests {
     #[test]
     fn test_target_summary() {
         let mut summary = TargetSummary::new();
-        summary.add("op1", TargetVerification::new(Duration::from_nanos(400), Duration::from_nanos(500)));
-        summary.add("op2", TargetVerification::new(Duration::from_nanos(600), Duration::from_nanos(500)));
+        summary.add(
+            "op1",
+            TargetVerification::new(Duration::from_nanos(400), Duration::from_nanos(500)),
+        );
+        summary.add(
+            "op2",
+            TargetVerification::new(Duration::from_nanos(600), Duration::from_nanos(500)),
+        );
 
         assert_eq!(summary.total, 2);
         assert_eq!(summary.passing, 1);

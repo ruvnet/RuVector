@@ -4,9 +4,7 @@
 use async_trait::async_trait;
 use uuid::Uuid;
 
-use crate::{
-    Message, Middleware, ModelHandler, ModelRequest, ModelResponse, Role,
-};
+use crate::{Message, Middleware, ModelHandler, ModelRequest, ModelResponse, Role};
 
 /// Trigger configuration for auto-compaction.
 pub enum TriggerConfig {
@@ -111,11 +109,7 @@ impl Middleware for SummarizationMiddleware {
         "summarization"
     }
 
-    fn wrap_model_call(
-        &self,
-        request: ModelRequest,
-        handler: &dyn ModelHandler,
-    ) -> ModelResponse {
+    fn wrap_model_call(&self, request: ModelRequest, handler: &dyn ModelHandler) -> ModelResponse {
         let token_count = Self::estimate_tokens(&request.messages);
         let threshold = self.threshold();
 

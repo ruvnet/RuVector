@@ -6,9 +6,9 @@
 use crate::protocol::*;
 use async_trait::async_trait;
 use chrono::Utc;
+use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::Arc;
-use parking_lot::RwLock;
 
 /// Ephemeral in-memory file store backend.
 ///
@@ -90,8 +90,7 @@ impl Backend for StateBackend {
                             });
                         }
                     } else {
-                        let content_size: usize =
-                            data.content.iter().map(|l| l.len() + 1).sum();
+                        let content_size: usize = data.content.iter().map(|l| l.len() + 1).sum();
                         results.push(FileInfo {
                             path: file_path.clone(),
                             is_dir: false,
@@ -141,7 +140,10 @@ impl Backend for StateBackend {
         let mut files = self.files.write();
         let existed = files.contains_key(file_path);
         let created_at = if existed {
-            files.get(file_path).map(|f| f.created_at.clone()).unwrap_or_else(|| now.clone())
+            files
+                .get(file_path)
+                .map(|f| f.created_at.clone())
+                .unwrap_or_else(|| now.clone())
         } else {
             now.clone()
         };
@@ -187,10 +189,7 @@ impl Backend for StateBackend {
 
         if count == 0 {
             return EditResult {
-                error: Some(format!(
-                    "old_string not found in {}",
-                    file_path
-                )),
+                error: Some(format!("old_string not found in {}", file_path)),
                 path: Some(file_path.to_string()),
                 files_update: None,
                 occurrences: Some(0),
@@ -366,9 +365,7 @@ mod tests {
     async fn test_edit_not_unique() {
         let backend = StateBackend::new();
         backend.write_file("test.txt", "aaa bbb aaa").await;
-        let result = backend
-            .edit_file("test.txt", "aaa", "ccc", false)
-            .await;
+        let result = backend.edit_file("test.txt", "aaa", "ccc", false).await;
         assert!(result.error.is_some());
         assert_eq!(result.occurrences, Some(2));
     }
@@ -377,9 +374,7 @@ mod tests {
     async fn test_edit_replace_all() {
         let backend = StateBackend::new();
         backend.write_file("test.txt", "aaa bbb aaa").await;
-        let result = backend
-            .edit_file("test.txt", "aaa", "ccc", true)
-            .await;
+        let result = backend.edit_file("test.txt", "aaa", "ccc", true).await;
         assert!(result.error.is_none());
         assert_eq!(result.occurrences, Some(2));
     }
@@ -424,9 +419,7 @@ mod tests {
             .await;
         assert!(upload_result[0].error.is_none());
 
-        let download_result = backend
-            .download_files(&["doc.txt".to_string()])
-            .await;
+        let download_result = backend.download_files(&["doc.txt".to_string()]).await;
         assert!(download_result[0].error.is_none());
         assert!(download_result[0].content.is_some());
     }

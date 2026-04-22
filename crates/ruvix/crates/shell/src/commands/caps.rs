@@ -24,12 +24,36 @@ fn format_rights(rights: u32) -> String {
     let mut s = String::with_capacity(8);
 
     // Standard rights
-    if rights & 0x01 != 0 { s.push('R'); } else { s.push('-'); }
-    if rights & 0x02 != 0 { s.push('W'); } else { s.push('-'); }
-    if rights & 0x04 != 0 { s.push('X'); } else { s.push('-'); }
-    if rights & 0x08 != 0 { s.push('G'); } else { s.push('-'); }
-    if rights & 0x10 != 0 { s.push('P'); } else { s.push('-'); }
-    if rights & 0x20 != 0 { s.push('D'); } else { s.push('-'); }
+    if rights & 0x01 != 0 {
+        s.push('R');
+    } else {
+        s.push('-');
+    }
+    if rights & 0x02 != 0 {
+        s.push('W');
+    } else {
+        s.push('-');
+    }
+    if rights & 0x04 != 0 {
+        s.push('X');
+    } else {
+        s.push('-');
+    }
+    if rights & 0x08 != 0 {
+        s.push('G');
+    } else {
+        s.push('-');
+    }
+    if rights & 0x10 != 0 {
+        s.push('P');
+    } else {
+        s.push('-');
+    }
+    if rights & 0x20 != 0 {
+        s.push('D');
+    } else {
+        s.push('-');
+    }
 
     s
 }

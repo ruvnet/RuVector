@@ -91,17 +91,21 @@ pub trait BaseSandbox: Send + Sync {
     /// ```
     fn validate_path(&self, path: &Path) -> Result<PathBuf, SandboxError> {
         // Canonicalize to resolve symlinks and .. components
-        let canonical = path.canonicalize()
-            .map_err(|e| SandboxError::IoError(format!("Failed to canonicalize {}: {}", path.display(), e)))?;
+        let canonical = path.canonicalize().map_err(|e| {
+            SandboxError::IoError(format!("Failed to canonicalize {}: {}", path.display(), e))
+        })?;
 
-        let root = self.sandbox_root().canonicalize()
-            .map_err(|e| SandboxError::InitializationFailed(format!("Failed to canonicalize root: {}", e)))?;
+        let root = self.sandbox_root().canonicalize().map_err(|e| {
+            SandboxError::InitializationFailed(format!("Failed to canonicalize root: {}", e))
+        })?;
 
         // Check if canonical path starts with root
         if !canonical.starts_with(&root) {
-            return Err(SandboxError::PathEscapesSandbox(
-                format!("{} is outside sandbox root {}", canonical.display(), root.display())
-            ));
+            return Err(SandboxError::PathEscapesSandbox(format!(
+                "{} is outside sandbox root {}",
+                canonical.display(),
+                root.display()
+            )));
         }
 
         Ok(canonical)
@@ -194,17 +198,21 @@ impl LocalSandbox {
     pub fn new_with_config(root: PathBuf, config: SandboxConfig) -> Result<Self, SandboxError> {
         // Create root directory if it doesn't exist
         if !root.exists() {
-            std::fs::create_dir_all(&root)
-                .map_err(|e| SandboxError::InitializationFailed(
-                    format!("Failed to create sandbox root {}: {}", root.display(), e)
-                ))?;
+            std::fs::create_dir_all(&root).map_err(|e| {
+                SandboxError::InitializationFailed(format!(
+                    "Failed to create sandbox root {}: {}",
+                    root.display(),
+                    e
+                ))
+            })?;
         }
 
         // Verify root is a directory
         if !root.is_dir() {
-            return Err(SandboxError::InitializationFailed(
-                format!("{} is not a directory", root.display())
-            ));
+            return Err(SandboxError::InitializationFailed(format!(
+                "{} is not a directory",
+                root.display()
+            )));
         }
 
         Ok(Self {
@@ -281,7 +289,7 @@ impl BaseSandbox for LocalSandbox {
                 output: format!("Command execution failed: {}", e),
                 exit_code: None,
                 truncated: false,
-            }
+            },
         };
 
         result
@@ -392,7 +400,8 @@ impl Backend for LocalSandbox {
         }
 
         // Parse find -ls output (simplified)
-        response.output
+        response
+            .output
             .lines()
             .filter_map(|line| {
                 let parts: Vec<&str> = line.split_whitespace().collect();
@@ -420,14 +429,20 @@ impl Backend for LocalSandbox {
         include_glob: Option<&str>,
     ) -> Result<Vec<GrepMatch>, String> {
         let search_path = path.unwrap_or(".");
-        let include_flag = include_glob.map(|g| format!("--include='{}'", g)).unwrap_or_default();
+        let include_flag = include_glob
+            .map(|g| format!("--include='{}'", g))
+            .unwrap_or_default();
 
         let response = self.execute_sync(
-            &format!("grep -rn {} '{}' {} 2>/dev/null || true", include_flag, pattern, search_path),
+            &format!(
+                "grep -rn {} '{}' {} 2>/dev/null || true",
+                include_flag, pattern, search_path
+            ),
             None,
         );
 
-        let matches = response.output
+        let matches = response
+            .output
             .lines()
             .filter_map(|line| {
                 let parts: Vec<&str> = line.splitn(3, ':').collect();
@@ -579,7 +594,10 @@ mod tests {
         let escape_target = parent_dir.join("escape_test.txt");
         fs::write(&escape_target, "test").unwrap();
 
-        let escape_path = temp.path().join("..").join(escape_target.file_name().unwrap());
+        let escape_path = temp
+            .path()
+            .join("..")
+            .join(escape_target.file_name().unwrap());
 
         let result = sandbox.validate_path(&escape_path);
         // Clean up
@@ -690,7 +708,10 @@ mod tests {
         // Ensure no sensitive env vars leaked
         assert!(!output.contains("AWS_"), "AWS credentials should not leak");
         assert!(!output.contains("API_KEY"), "API keys should not leak");
-        assert!(!output.contains("ANTHROPIC_"), "Anthropic keys should not leak");
+        assert!(
+            !output.contains("ANTHROPIC_"),
+            "Anthropic keys should not leak"
+        );
         assert!(!output.contains("OPENAI_"), "OpenAI keys should not leak");
         assert!(!output.contains("SECRET"), "Secrets should not leak");
     }

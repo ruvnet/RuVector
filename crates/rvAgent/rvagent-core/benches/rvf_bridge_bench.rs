@@ -172,16 +172,12 @@ fn bench_mount_table(c: &mut Criterion) {
             table.mount(manifest, RvfVerifyStatus::SignatureValid);
         }
 
-        group.bench_with_input(
-            BenchmarkId::new("all_tools", count),
-            &table,
-            |b, table| {
-                b.iter(|| {
-                    let tools = table.all_tools();
-                    black_box(tools);
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("all_tools", count), &table, |b, table| {
+            b.iter(|| {
+                let tools = table.all_tools();
+                black_box(tools);
+            })
+        });
     }
 
     // Unmount (retain operation)

@@ -1,10 +1,10 @@
 //! Integration tests for the MCP bridge middleware.
 
-use rvagent_middleware::{
-    AgentState, Middleware, ModelHandler, ModelRequest, ModelResponse,
-    Message, Runtime, RunnableConfig,
-};
 use rvagent_middleware::mcp_bridge::{McpBridgeConfig, McpBridgeMiddleware};
+use rvagent_middleware::{
+    AgentState, Message, Middleware, ModelHandler, ModelRequest, ModelResponse, RunnableConfig,
+    Runtime,
+};
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -117,7 +117,10 @@ fn test_before_agent_when_enabled_injects_config() {
     let config = RunnableConfig::default();
 
     let update = mw.before_agent(&state, &runtime, &config);
-    assert!(update.is_some(), "enabled bridge should produce state update");
+    assert!(
+        update.is_some(),
+        "enabled bridge should produce state update"
+    );
 
     let update = update.unwrap();
     assert!(
@@ -138,7 +141,10 @@ fn test_before_agent_when_disabled_returns_none() {
     let runnable_config = RunnableConfig::default();
 
     let update = mw.before_agent(&state, &runtime, &runnable_config);
-    assert!(update.is_none(), "disabled bridge should not produce update");
+    assert!(
+        update.is_none(),
+        "disabled bridge should not produce update"
+    );
 }
 
 #[test]

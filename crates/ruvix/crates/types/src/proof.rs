@@ -40,9 +40,9 @@ impl ProofTier {
     #[must_use]
     pub const fn max_verification_time_us(&self) -> u32 {
         match self {
-            Self::Reflex => 1,       // <1us
-            Self::Standard => 100,   // <100us
-            Self::Deep => 10_000,    // <10ms
+            Self::Reflex => 1,     // <1us
+            Self::Standard => 100, // <100us
+            Self::Deep => 10_000,  // <10ms
         }
     }
 

@@ -207,16 +207,18 @@ impl PhiEngine for GeoMipPhiEngine {
         for mask in 1..((1u64 << n) - 1) {
             let popcount = mask.count_ones() as usize;
             if (popcount == half || popcount == half + 1)
-                && (!self.prune_automorphisms
-                    || canonical_partition(mask, n) == mask)
-                {
-                    balanced_partitions.push(Bipartition { mask, n });
-                }
+                && (!self.prune_automorphisms || canonical_partition(mask, n) == mask)
+            {
+                balanced_partitions.push(Bipartition { mask, n });
+            }
         }
 
         // Sort by balance score (most balanced first).
-        balanced_partitions
-            .sort_by(|a, b| balance_score(b.mask, n).partial_cmp(&balance_score(a.mask, n)).unwrap());
+        balanced_partitions.sort_by(|a, b| {
+            balance_score(b.mask, n)
+                .partial_cmp(&balance_score(a.mask, n))
+                .unwrap()
+        });
 
         for partition in &balanced_partitions {
             if self.max_evaluations > 0 && evaluated >= self.max_evaluations {
@@ -498,10 +500,12 @@ mod tests {
         let tpm = and_gate_tpm();
         let budget = ComputeBudget::exact();
 
-        let exact_result =
-            crate::phi::ExactPhiEngine.compute_phi(&tpm, Some(0), &budget).unwrap();
-        let geomip_result =
-            GeoMipPhiEngine::default().compute_phi(&tpm, Some(0), &budget).unwrap();
+        let exact_result = crate::phi::ExactPhiEngine
+            .compute_phi(&tpm, Some(0), &budget)
+            .unwrap();
+        let geomip_result = GeoMipPhiEngine::default()
+            .compute_phi(&tpm, Some(0), &budget)
+            .unwrap();
 
         // GeoMIP should evaluate fewer or equal partitions due to pruning.
         assert!(
@@ -524,12 +528,12 @@ mod tests {
     #[test]
     fn emd_loss_disconnected_zero() {
         let tpm = disconnected_tpm();
-        let partition = Bipartition {
-            mask: 0b0011,
-            n: 4,
-        };
+        let partition = Bipartition { mask: 0b0011, n: 4 };
         let arena = PhiArena::with_capacity(1024);
         let loss = partition_information_loss_emd(&tpm, 0, &partition, &arena);
-        assert!(loss < 1e-6, "disconnected EMD loss should be ≈ 0, got {loss}");
+        assert!(
+            loss < 1e-6,
+            "disconnected EMD loss should be ≈ 0, got {loss}"
+        );
     }
 }

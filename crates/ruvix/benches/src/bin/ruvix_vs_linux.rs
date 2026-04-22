@@ -16,11 +16,11 @@ use std::io::Write;
 use std::time::Duration;
 
 use ruvix_bench::{
-    ruvix::{self, BenchConfig},
-    linux::LinuxBenchConfig,
     comparison::{self, generate_memory_comparisons, ComparisonSummary},
-    targets::{TargetSummary, TargetVerification, spec_for},
-    report::{generate_markdown_report, generate_json_report, print_console_report},
+    linux::LinuxBenchConfig,
+    report::{generate_json_report, generate_markdown_report, print_console_report},
+    ruvix::{self, BenchConfig},
+    targets::{spec_for, TargetSummary, TargetVerification},
 };
 
 #[derive(Parser, Debug)]
@@ -97,21 +97,25 @@ fn main() {
     // Generate memory comparisons
     println!("Generating memory overhead comparisons...");
     let memory_comparisons = generate_memory_comparisons();
-    println!("  Generated {} memory comparisons", memory_comparisons.len());
+    println!(
+        "  Generated {} memory comparisons",
+        memory_comparisons.len()
+    );
 
     // Build target verification summary
     println!("Verifying ADR-087 targets...");
     let mut target_summary = TargetSummary::new();
     for result in &syscall_results {
         if let Some(spec) = spec_for(&result.operation) {
-            let verification = TargetVerification::new(
-                Duration::from_nanos(result.p95_ns as u64),
-                spec.target,
-            );
+            let verification =
+                TargetVerification::new(Duration::from_nanos(result.p95_ns as u64), spec.target);
             target_summary.add(&result.operation, verification);
         }
     }
-    println!("  {} / {} targets met", target_summary.passing, target_summary.total);
+    println!(
+        "  {} / {} targets met",
+        target_summary.passing, target_summary.total
+    );
 
     // Generate summary
     let comp_summary = ComparisonSummary::from_comparisons(&comparisons, &memory_comparisons);
@@ -123,7 +127,10 @@ fn main() {
     println!("  Linux faster in: {} operations", comp_summary.linux_wins);
     println!("  Average speedup: {:.1}x", comp_summary.avg_speedup);
     println!("  Max speedup: {:.1}x", comp_summary.max_speedup);
-    println!("  ADR-087 pass rate: {:.0}%", target_summary.pass_rate() * 100.0);
+    println!(
+        "  ADR-087 pass rate: {:.0}%",
+        target_summary.pass_rate() * 100.0
+    );
     println!();
 
     // Generate report
@@ -144,7 +151,8 @@ fn main() {
         match args.output {
             Some(path) => {
                 let mut file = File::create(&path).expect("Failed to create output file");
-                file.write_all(report.as_bytes()).expect("Failed to write report");
+                file.write_all(report.as_bytes())
+                    .expect("Failed to write report");
                 println!("Report written to: {}", path);
             }
             None => {

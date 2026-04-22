@@ -103,8 +103,8 @@ impl LatencyHistogram {
     ///
     /// Tracks latencies from 1ns to 1 second with 3 significant digits.
     pub fn new() -> Self {
-        let histogram = Histogram::new_with_bounds(1, 1_000_000_000, 3)
-            .expect("Failed to create histogram");
+        let histogram =
+            Histogram::new_with_bounds(1, 1_000_000_000, 3).expect("Failed to create histogram");
         Self { histogram }
     }
 

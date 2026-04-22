@@ -588,7 +588,9 @@ mod tests {
     fn test_priority_scheduling() {
         let mut scheduler = Scheduler::with_defaults();
 
-        let low = scheduler.create_task(TaskPriority::Background, None).unwrap();
+        let low = scheduler
+            .create_task(TaskPriority::Background, None)
+            .unwrap();
         let high = scheduler.create_task(TaskPriority::High, None).unwrap();
         let normal = scheduler.create_task(TaskPriority::Normal, None).unwrap();
 

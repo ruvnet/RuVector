@@ -304,11 +304,9 @@ impl WitnessLog {
             data[64], data[65], data[66], data[67], data[68], data[69], data[70], data[71],
         ]);
 
-        let verifier_version =
-            u32::from_le_bytes([data[72], data[73], data[74], data[75]]);
+        let verifier_version = u32::from_le_bytes([data[72], data[73], data[74], data[75]]);
 
-        let reduction_steps =
-            u32::from_le_bytes([data[76], data[77], data[78], data[79]]);
+        let reduction_steps = u32::from_le_bytes([data[76], data[77], data[78], data[79]]);
 
         let cache_hit_rate_bps = u16::from_le_bytes([data[80], data[81]]);
 

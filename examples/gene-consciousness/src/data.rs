@@ -15,7 +15,12 @@ pub const MODULE_APOPTOSIS: &[usize] = &[4, 5, 6, 7];
 pub const MODULE_GROWTH: &[usize] = &[8, 9, 10, 11];
 pub const MODULE_HOUSEKEEPING: &[usize] = &[12, 13, 14, 15];
 
-pub const MODULE_NAMES: &[&str] = &["Cell Cycle", "Apoptosis", "Growth Signaling", "Housekeeping"];
+pub const MODULE_NAMES: &[&str] = &[
+    "Cell Cycle",
+    "Apoptosis",
+    "Growth Signaling",
+    "Housekeeping",
+];
 
 /// All modules with their gene indices.
 pub fn all_modules() -> Vec<(&'static str, &'static [usize])> {
@@ -44,10 +49,7 @@ pub struct GeneNetwork {
 impl GeneNetwork {
     /// Count non-zero edges (absolute value > 0.001).
     pub fn n_edges(&self) -> usize {
-        self.adjacency
-            .iter()
-            .filter(|&&w| w.abs() > 0.001)
-            .count()
+        self.adjacency.iter().filter(|&&w| w.abs() > 0.001).count()
     }
 }
 
@@ -75,18 +77,28 @@ pub fn build_normal_network() -> GeneNetwork {
 
     let gene_labels = vec![
         // Cell cycle
-        "CycD".into(), "CDK4".into(), "CycE".into(), "CDK2".into(),
+        "CycD".into(),
+        "CDK4".into(),
+        "CycE".into(),
+        "CDK2".into(),
         // Apoptosis
-        "BAX".into(), "BCL2".into(), "CASP3".into(), "p53".into(),
+        "BAX".into(),
+        "BCL2".into(),
+        "CASP3".into(),
+        "p53".into(),
         // Growth signaling
-        "EGFR".into(), "RAS".into(), "RAF".into(), "ERK".into(),
+        "EGFR".into(),
+        "RAS".into(),
+        "RAF".into(),
+        "ERK".into(),
         // Housekeeping
-        "GAPDH".into(), "ACTB".into(), "RPL13A".into(), "HPRT".into(),
+        "GAPDH".into(),
+        "ACTB".into(),
+        "RPL13A".into(),
+        "HPRT".into(),
     ];
 
-    let module_ids: Vec<usize> = (0..n)
-        .map(|i| i / 4)
-        .collect();
+    let module_ids: Vec<usize> = (0..n).map(|i| i / 4).collect();
 
     // Within-module connections: strong, directed cascade-like
     let modules: &[&[usize]] = &[
@@ -119,7 +131,7 @@ pub fn build_normal_network() -> GeneNetwork {
     // Apoptosis module: add inhibitory connections (BCL2 inhibits BAX/CASP3)
     adj[5 * n + 4] = -0.35; // BCL2 -| BAX
     adj[5 * n + 6] = -0.30; // BCL2 -| CASP3
-    adj[7 * n + 4] = 0.40;  // p53 -> BAX (pro-apoptotic)
+    adj[7 * n + 4] = 0.40; // p53 -> BAX (pro-apoptotic)
     adj[7 * n + 5] = -0.25; // p53 -| BCL2
 
     // Between-module connections: weak
@@ -247,10 +259,7 @@ pub fn generate_null_tpm(net: &GeneNetwork, rng: &mut impl rand::Rng) -> Transit
 
     // Shuffle non-diagonal entries while preserving row sums
     for i in 0..n {
-        let mut row_vals: Vec<f64> = (0..n)
-            .filter(|&j| j != i)
-            .map(|j| adj[i * n + j])
-            .collect();
+        let mut row_vals: Vec<f64> = (0..n).filter(|&j| j != i).map(|j| adj[i * n + j]).collect();
 
         // Fisher-Yates shuffle
         for k in (1..row_vals.len()).rev() {

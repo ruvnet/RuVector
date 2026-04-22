@@ -15,12 +15,14 @@
 
 use wasm_bindgen::prelude::*;
 
-use ruvector_consciousness::emergence::{CausalEmergenceEngine, effective_information};
-use ruvector_consciousness::phi::{auto_compute_phi, ExactPhiEngine, SpectralPhiEngine, StochasticPhiEngine};
-use ruvector_consciousness::geomip::GeoMipPhiEngine;
 use ruvector_consciousness::collapse::QuantumCollapseEngine;
+use ruvector_consciousness::emergence::{effective_information, CausalEmergenceEngine};
+use ruvector_consciousness::geomip::GeoMipPhiEngine;
+use ruvector_consciousness::phi::{
+    auto_compute_phi, ExactPhiEngine, SpectralPhiEngine, StochasticPhiEngine,
+};
 use ruvector_consciousness::rsvd_emergence::RsvdEmergenceEngine;
-use ruvector_consciousness::traits::{PhiEngine, EmergenceEngine, ConsciousnessCollapse};
+use ruvector_consciousness::traits::{ConsciousnessCollapse, EmergenceEngine, PhiEngine};
 use ruvector_consciousness::types::{ComputeBudget, TransitionMatrix};
 
 use serde::Serialize;
@@ -213,11 +215,7 @@ impl WasmConsciousness {
 
     /// Compute causal emergence for a TPM.
     #[wasm_bindgen(js_name = "computeEmergence")]
-    pub fn compute_emergence(
-        &self,
-        tpm_data: &[f64],
-        n: usize,
-    ) -> Result<JsValue, JsError> {
+    pub fn compute_emergence(&self, tpm_data: &[f64], n: usize) -> Result<JsValue, JsError> {
         let tpm = TransitionMatrix::new(n, tpm_data.to_vec());
         let budget = self.make_budget(1.0);
         let engine = CausalEmergenceEngine::default();
@@ -290,11 +288,7 @@ impl WasmConsciousness {
 
     /// Compute effective information for a TPM.
     #[wasm_bindgen(js_name = "effectiveInformation")]
-    pub fn effective_info(
-        &self,
-        tpm_data: &[f64],
-        n: usize,
-    ) -> Result<f64, JsError> {
+    pub fn effective_info(&self, tpm_data: &[f64], n: usize) -> Result<f64, JsError> {
         let tpm = TransitionMatrix::new(n, tpm_data.to_vec());
         effective_information(&tpm).map_err(|e| JsError::new(&e.to_string()))
     }

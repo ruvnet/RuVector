@@ -3,9 +3,7 @@
 
 use async_trait::async_trait;
 
-use crate::{
-    Middleware, ModelHandler, ModelRequest, ModelResponse, ToolCall,
-};
+use crate::{Middleware, ModelHandler, ModelRequest, ModelResponse, ToolCall};
 
 /// Approval decision from a human reviewer.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,9 +24,7 @@ pub struct HumanInTheLoopMiddleware {
 
 impl HumanInTheLoopMiddleware {
     pub fn new(interrupt_patterns: Vec<String>) -> Self {
-        Self {
-            interrupt_patterns,
-        }
+        Self { interrupt_patterns }
     }
 
     /// Check if a tool call matches any interrupt pattern.
@@ -52,11 +48,7 @@ impl Middleware for HumanInTheLoopMiddleware {
         "hitl"
     }
 
-    fn wrap_model_call(
-        &self,
-        request: ModelRequest,
-        handler: &dyn ModelHandler,
-    ) -> ModelResponse {
+    fn wrap_model_call(&self, request: ModelRequest, handler: &dyn ModelHandler) -> ModelResponse {
         let mut response = handler.call(request);
 
         // Filter out tool calls that require approval
@@ -170,10 +162,7 @@ mod tests {
 
     #[test]
     fn test_multiple_patterns() {
-        let mw = HumanInTheLoopMiddleware::new(vec![
-            "execute".into(),
-            "write_file".into(),
-        ]);
+        let mw = HumanInTheLoopMiddleware::new(vec!["execute".into(), "write_file".into()]);
         assert!(mw.should_interrupt("execute"));
         assert!(mw.should_interrupt("write_file"));
         assert!(!mw.should_interrupt("read_file"));

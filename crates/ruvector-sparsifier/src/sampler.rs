@@ -54,11 +54,7 @@ impl SpectralSampler {
         }
 
         let mut rng = rand::thread_rng();
-        let n_vertices = scores
-            .iter()
-            .map(|s| s.u.max(s.v) + 1)
-            .max()
-            .unwrap_or(0);
+        let n_vertices = scores.iter().map(|s| s.u.max(s.v) + 1).max().unwrap_or(0);
         let log_n = (n_vertices as f64).ln().max(1.0);
 
         // Total importance sum for normalisation.
@@ -143,7 +139,11 @@ impl SpectralSampler {
     // -- helpers ------------------------------------------------------------
 
     fn edge_key(u: usize, v: usize) -> (usize, usize) {
-        if u <= v { (u, v) } else { (v, u) }
+        if u <= v {
+            (u, v)
+        } else {
+            (v, u)
+        }
     }
 
     fn backbone_only_graph(
@@ -151,11 +151,7 @@ impl SpectralSampler {
         scores: &[EdgeImportance],
         backbone_edges: &std::collections::HashSet<(usize, usize)>,
     ) -> SparseGraph {
-        let n = scores
-            .iter()
-            .map(|s| s.u.max(s.v) + 1)
-            .max()
-            .unwrap_or(0);
+        let n = scores.iter().map(|s| s.u.max(s.v) + 1).max().unwrap_or(0);
         let mut g = SparseGraph::with_capacity(n);
         for s in scores {
             let key = Self::edge_key(s.u, s.v);
@@ -202,7 +198,7 @@ mod tests {
             EdgeImportance::new(1, 2, 1.0, 10.0),
         ];
         let sampler = SpectralSampler::new(0.01); // tiny eps => high prob
-        // With very small epsilon and high importance, all edges should be kept.
+                                                  // With very small epsilon and high importance, all edges should be kept.
         let g = sampler.sample_edges(&scores, 1000, &Default::default());
         assert!(g.num_edges() >= 1); // at least one edge kept
     }

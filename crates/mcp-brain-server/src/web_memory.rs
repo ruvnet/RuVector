@@ -8,8 +8,8 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::types::{BetaParams, BrainCategory, BrainMemory};
 use crate::quantization::QuantizedEmbedding;
+use crate::types::{BetaParams, BrainCategory, BrainMemory};
 
 // ── Core Web Memory Types ───────────────────────────────────────────────
 
@@ -167,11 +167,7 @@ pub enum ContentDelta {
 
 impl ContentDelta {
     /// Classify content change based on token counts and embedding similarity.
-    pub fn classify(
-        changed_tokens: usize,
-        total_tokens: usize,
-        embedding_cosine: f32,
-    ) -> Self {
+    pub fn classify(changed_tokens: usize, total_tokens: usize, embedding_cosine: f32) -> Self {
         if changed_tokens == 0 {
             return Self::Unchanged;
         }
@@ -464,10 +460,22 @@ mod tests {
 
     #[test]
     fn compression_tier_from_novelty() {
-        assert_eq!(CompressionTier::from_novelty(0.0), CompressionTier::CentroidMerged);
-        assert_eq!(CompressionTier::from_novelty(0.04), CompressionTier::CentroidMerged);
-        assert_eq!(CompressionTier::from_novelty(0.05), CompressionTier::DeltaCompressed);
-        assert_eq!(CompressionTier::from_novelty(0.19), CompressionTier::DeltaCompressed);
+        assert_eq!(
+            CompressionTier::from_novelty(0.0),
+            CompressionTier::CentroidMerged
+        );
+        assert_eq!(
+            CompressionTier::from_novelty(0.04),
+            CompressionTier::CentroidMerged
+        );
+        assert_eq!(
+            CompressionTier::from_novelty(0.05),
+            CompressionTier::DeltaCompressed
+        );
+        assert_eq!(
+            CompressionTier::from_novelty(0.19),
+            CompressionTier::DeltaCompressed
+        );
         assert_eq!(CompressionTier::from_novelty(0.20), CompressionTier::Full);
         assert_eq!(CompressionTier::from_novelty(1.0), CompressionTier::Full);
     }
@@ -482,39 +490,89 @@ mod tests {
 
     #[test]
     fn content_delta_classify() {
-        assert!(matches!(ContentDelta::classify(0, 100, 1.0), ContentDelta::Unchanged));
-        assert!(matches!(ContentDelta::classify(3, 100, 0.99), ContentDelta::Minor { .. }));
-        assert!(matches!(ContentDelta::classify(10, 100, 0.85), ContentDelta::Major { .. }));
-        assert!(matches!(ContentDelta::classify(50, 100, 0.5), ContentDelta::Rewrite));
+        assert!(matches!(
+            ContentDelta::classify(0, 100, 1.0),
+            ContentDelta::Unchanged
+        ));
+        assert!(matches!(
+            ContentDelta::classify(3, 100, 0.99),
+            ContentDelta::Minor { .. }
+        ));
+        assert!(matches!(
+            ContentDelta::classify(10, 100, 0.85),
+            ContentDelta::Major { .. }
+        ));
+        assert!(matches!(
+            ContentDelta::classify(50, 100, 0.5),
+            ContentDelta::Rewrite
+        ));
     }
 
     #[test]
     fn content_delta_is_significant() {
         assert!(!ContentDelta::Unchanged.is_significant());
-        assert!(!ContentDelta::Minor { changed_tokens: 1, total_tokens: 100 }.is_significant());
-        assert!(ContentDelta::Major { summary: "test".into(), changed_tokens: 10 }.is_significant());
+        assert!(!ContentDelta::Minor {
+            changed_tokens: 1,
+            total_tokens: 100
+        }
+        .is_significant());
+        assert!(ContentDelta::Major {
+            summary: "test".into(),
+            changed_tokens: 10
+        }
+        .is_significant());
         assert!(ContentDelta::Rewrite.is_significant());
     }
 
     #[test]
     fn content_delta_edge_cases() {
         // Zero total tokens → treated as 100% change (Major)
-        assert!(matches!(ContentDelta::classify(5, 0, 0.9), ContentDelta::Major { .. }));
+        assert!(matches!(
+            ContentDelta::classify(5, 0, 0.9),
+            ContentDelta::Major { .. }
+        ));
         // Exactly at 5% boundary (5/100) → Major (≥ 5%)
-        assert!(matches!(ContentDelta::classify(5, 100, 0.9), ContentDelta::Major { .. }));
+        assert!(matches!(
+            ContentDelta::classify(5, 100, 0.9),
+            ContentDelta::Major { .. }
+        ));
         // Just under 5% boundary (4/100) → Minor
-        assert!(matches!(ContentDelta::classify(4, 100, 0.9), ContentDelta::Minor { .. }));
+        assert!(matches!(
+            ContentDelta::classify(4, 100, 0.9),
+            ContentDelta::Minor { .. }
+        ));
     }
 
     #[test]
     fn link_edge_weight_clamped() {
-        let edge = LinkEdge::new(Uuid::new_v4(), Uuid::new_v4(), None, vec![0.0; 128], LinkType::Citation, 1.5);
+        let edge = LinkEdge::new(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            None,
+            vec![0.0; 128],
+            LinkType::Citation,
+            1.5,
+        );
         assert_eq!(edge.weight, 1.0);
 
-        let edge2 = LinkEdge::new(Uuid::new_v4(), Uuid::new_v4(), None, vec![0.0; 128], LinkType::Citation, -0.5);
+        let edge2 = LinkEdge::new(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            None,
+            vec![0.0; 128],
+            LinkType::Citation,
+            -0.5,
+        );
         assert_eq!(edge2.weight, 0.0);
 
-        let edge3 = LinkEdge::new(Uuid::new_v4(), Uuid::new_v4(), None, vec![0.0; 128], LinkType::Evidence, 0.75);
+        let edge3 = LinkEdge::new(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            None,
+            vec![0.0; 128],
+            LinkType::Evidence,
+            0.75,
+        );
         assert!((edge3.weight - 0.75).abs() < f64::EPSILON);
     }
 
@@ -527,7 +585,10 @@ mod tests {
             prev,
             curr,
             0.85,
-            ContentDelta::Minor { changed_tokens: 3, total_tokens: 100 },
+            ContentDelta::Minor {
+                changed_tokens: 3,
+                total_tokens: 100,
+            },
             Duration::hours(24),
             false,
         );
@@ -556,8 +617,14 @@ mod tests {
     fn content_delta_serde_roundtrip() {
         let deltas = [
             ContentDelta::Unchanged,
-            ContentDelta::Minor { changed_tokens: 5, total_tokens: 200 },
-            ContentDelta::Major { summary: "big change".into(), changed_tokens: 50 },
+            ContentDelta::Minor {
+                changed_tokens: 5,
+                total_tokens: 200,
+            },
+            ContentDelta::Major {
+                summary: "big change".into(),
+                changed_tokens: 50,
+            },
             ContentDelta::Rewrite,
         ];
         for delta in &deltas {

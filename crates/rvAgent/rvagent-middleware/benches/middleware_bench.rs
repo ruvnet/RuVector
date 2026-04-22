@@ -7,13 +7,13 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 
-use rvagent_middleware::{
-    build_default_pipeline, Message, ModelHandler, ModelRequest, ModelResponse,
-    PipelineConfig, SystemPromptBuilder,
-};
+use rvagent_core::rvf_bridge::{GovernanceMode, PolicyCheck, TaskOutcome};
 use rvagent_middleware::skills::validate_skill_name;
 use rvagent_middleware::witness::{compute_arguments_hash, WitnessBuilder};
-use rvagent_core::rvf_bridge::{GovernanceMode, PolicyCheck, TaskOutcome};
+use rvagent_middleware::{
+    build_default_pipeline, Message, ModelHandler, ModelRequest, ModelResponse, PipelineConfig,
+    SystemPromptBuilder,
+};
 
 /// A no-op handler that returns immediately.
 struct NoOpHandler;
@@ -101,10 +101,7 @@ fn bench_skill_name_validation(c: &mut Criterion) {
     c.bench_function("validate_skill_name_max_length", |b| {
         let name = "a".repeat(64);
         b.iter(|| {
-            let _ = black_box(validate_skill_name(
-                black_box(&name),
-                black_box(&name),
-            ));
+            let _ = black_box(validate_skill_name(black_box(&name), black_box(&name)));
         });
     });
 }

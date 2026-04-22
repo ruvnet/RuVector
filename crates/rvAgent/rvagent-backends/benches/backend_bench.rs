@@ -1,14 +1,14 @@
 //! Criterion benchmarks for rvagent-backends: line formatting, path resolution,
 //! grep, and unicode detection (ADR-103 A9).
 
-use criterion::{criterion_group, criterion_main, Criterion, black_box, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 
+use rvagent_backends::unicode_security::{
+    check_url_safety, detect_confusables, detect_dangerous_unicode, strip_dangerous_unicode,
+    validate_ascii_identifier,
+};
 use rvagent_backends::utils::{
     contains_traversal, format_content_with_line_numbers, is_safe_path_component,
-};
-use rvagent_backends::unicode_security::{
-    detect_dangerous_unicode, strip_dangerous_unicode, validate_ascii_identifier,
-    detect_confusables, check_url_safety,
 };
 
 // ---------------------------------------------------------------------------
@@ -52,8 +52,7 @@ fn bench_format_content_with_line_numbers(c: &mut Criterion) {
             &content,
             |b, content| {
                 b.iter(|| {
-                    let result =
-                        format_content_with_line_numbers(black_box(content), 1, 2000);
+                    let result = format_content_with_line_numbers(black_box(content), 1, 2000);
                     black_box(result);
                 })
             },
@@ -120,7 +119,10 @@ fn bench_path_resolution(c: &mut Criterion) {
         ("dot", "."),
         ("empty", ""),
         ("with_null", "file\0.rs"),
-        ("long_name", "a_very_long_directory_name_that_might_appear_in_real_projects"),
+        (
+            "long_name",
+            "a_very_long_directory_name_that_might_appear_in_real_projects",
+        ),
     ];
 
     for (name, component) in &components {
@@ -168,21 +170,17 @@ fn bench_grep_literal(c: &mut Criterion) {
         );
 
         // Pattern that appears rarely (should match few/no lines)
-        group.bench_with_input(
-            BenchmarkId::new("rare_match", label),
-            &lines,
-            |b, lines| {
-                b.iter(|| {
-                    let mut matches = Vec::new();
-                    for (i, line) in lines.iter().enumerate() {
-                        if line.contains(black_box("XYZZY_NONEXISTENT_PATTERN")) {
-                            matches.push((i + 1, *line));
-                        }
+        group.bench_with_input(BenchmarkId::new("rare_match", label), &lines, |b, lines| {
+            b.iter(|| {
+                let mut matches = Vec::new();
+                for (i, line) in lines.iter().enumerate() {
+                    if line.contains(black_box("XYZZY_NONEXISTENT_PATTERN")) {
+                        matches.push((i + 1, *line));
                     }
-                    black_box(matches);
-                })
-            },
-        );
+                }
+                black_box(matches);
+            })
+        });
 
         // Pattern at end of line (worst case for naive contains)
         group.bench_with_input(

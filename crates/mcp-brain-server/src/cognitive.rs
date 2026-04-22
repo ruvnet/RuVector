@@ -131,8 +131,16 @@ impl CognitiveEngine {
                     .zip(centroid_f32.iter())
                     .map(|(a, b)| (*a as f64) * (*b as f64))
                     .sum();
-                let norm_r: f64 = retrieved.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
-                let norm_c: f64 = centroid_f32.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt();
+                let norm_r: f64 = retrieved
+                    .iter()
+                    .map(|x| (*x as f64).powi(2))
+                    .sum::<f64>()
+                    .sqrt();
+                let norm_c: f64 = centroid_f32
+                    .iter()
+                    .map(|x| (*x as f64).powi(2))
+                    .sum::<f64>()
+                    .sqrt();
                 if norm_r > 1e-10 && norm_c > 1e-10 {
                     (dot / (norm_r * norm_c)).max(0.0)
                 } else {

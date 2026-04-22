@@ -366,9 +366,8 @@ mod tests {
 
     #[test]
     fn test_novelty_tracker_creation() {
-        let tracker: NoveltyTracker<64> = NoveltyTracker::new(
-            NoveltyConfig::default().with_dimensions(64),
-        );
+        let tracker: NoveltyTracker<64> =
+            NoveltyTracker::new(NoveltyConfig::default().with_dimensions(64));
 
         assert!(!tracker.is_initialized());
         assert_eq!(tracker.input_count(), 0);
@@ -376,9 +375,8 @@ mod tests {
 
     #[test]
     fn test_first_input_is_novel() {
-        let tracker: NoveltyTracker<8> = NoveltyTracker::new(
-            NoveltyConfig::default().with_dimensions(8),
-        );
+        let tracker: NoveltyTracker<8> =
+            NoveltyTracker::new(NoveltyConfig::default().with_dimensions(8));
 
         let input = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
         let novelty = tracker.compute_novelty(&input);
@@ -388,9 +386,8 @@ mod tests {
 
     #[test]
     fn test_same_input_not_novel() {
-        let mut tracker: NoveltyTracker<4> = NoveltyTracker::new(
-            NoveltyConfig::default().with_dimensions(4),
-        );
+        let mut tracker: NoveltyTracker<4> =
+            NoveltyTracker::new(NoveltyConfig::default().with_dimensions(4));
 
         let input = [1.0, 2.0, 3.0, 4.0];
 
@@ -421,9 +418,8 @@ mod tests {
 
     #[test]
     fn test_different_input_is_novel() {
-        let mut tracker: NoveltyTracker<4> = NoveltyTracker::new(
-            NoveltyConfig::default().with_dimensions(4),
-        );
+        let mut tracker: NoveltyTracker<4> =
+            NoveltyTracker::new(NoveltyConfig::default().with_dimensions(4));
 
         let input1 = [1.0, 0.0, 0.0, 0.0];
         let input2 = [0.0, 0.0, 0.0, 10.0]; // Very different
@@ -437,7 +433,9 @@ mod tests {
     #[test]
     fn test_centroid_update() {
         let mut tracker: NoveltyTracker<4> = NoveltyTracker::new(
-            NoveltyConfig::default().with_dimensions(4).with_ema_alpha(0.5),
+            NoveltyConfig::default()
+                .with_dimensions(4)
+                .with_ema_alpha(0.5),
         );
 
         tracker.update(&[1.0, 0.0, 0.0, 0.0]);
@@ -452,9 +450,8 @@ mod tests {
 
     #[test]
     fn test_reset() {
-        let mut tracker: NoveltyTracker<4> = NoveltyTracker::new(
-            NoveltyConfig::default().with_dimensions(4),
-        );
+        let mut tracker: NoveltyTracker<4> =
+            NoveltyTracker::new(NoveltyConfig::default().with_dimensions(4));
 
         tracker.update(&[1.0, 2.0, 3.0, 4.0]);
         assert!(tracker.is_initialized());
@@ -495,11 +492,9 @@ mod tests {
 
     #[test]
     fn test_type_aliases() {
-        let _small: SmallNoveltyTracker = NoveltyTracker::new(
-            NoveltyConfig::default().with_dimensions(16),
-        );
-        let _medium: MediumNoveltyTracker = NoveltyTracker::new(
-            NoveltyConfig::default().with_dimensions(128),
-        );
+        let _small: SmallNoveltyTracker =
+            NoveltyTracker::new(NoveltyConfig::default().with_dimensions(16));
+        let _medium: MediumNoveltyTracker =
+            NoveltyTracker::new(NoveltyConfig::default().with_dimensions(128));
     }
 }

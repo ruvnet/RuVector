@@ -57,10 +57,7 @@ fn compile_single(spec: &SubAgentSpec, parent_config: &RvAgentConfig) -> Compile
 /// The graph follows the standard agent loop:
 /// `start -> agent_loop -> tool_dispatch -> end`
 fn build_graph(spec: &SubAgentSpec) -> Vec<String> {
-    let mut nodes = vec![
-        "start".to_string(),
-        format!("agent:{}", spec.name),
-    ];
+    let mut nodes = vec!["start".to_string(), format!("agent:{}", spec.name)];
 
     if !spec.tools.is_empty() || spec.can_read || spec.can_write || spec.can_execute {
         nodes.push("tool_dispatch".to_string());
@@ -112,7 +109,10 @@ fn resolve_backend(spec: &SubAgentSpec, parent_config: &RvAgentConfig) -> String
     if spec.can_execute {
         "local_shell".to_string()
     } else if spec.can_write {
-        parent_config.cwd.clone().unwrap_or_else(|| "filesystem".to_string())
+        parent_config
+            .cwd
+            .clone()
+            .unwrap_or_else(|| "filesystem".to_string())
     } else {
         "read_only".to_string()
     }

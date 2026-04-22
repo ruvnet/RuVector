@@ -62,47 +62,102 @@ const P3: usize = 390;
 const TAU: f64 = std::f64::consts::TAU;
 const Z_THR: f64 = -2.0;
 
-fn region(ch: usize) -> usize { match ch { 0..=5=>0, 6|7=>1, 8|9|12|13=>2, _=>3 } }
+fn region(ch: usize) -> usize {
+    match ch {
+        0..=5 => 0,
+        6 | 7 => 1,
+        8 | 9 | 12 | 13 => 2,
+        _ => 3,
+    }
+}
 fn plabel(s: usize) -> &'static str {
-    if s<P1{"normal"} else if s<P2{"preictal"} else if s<P3{"seizure"} else {"postictal"}
+    if s < P1 {
+        "normal"
+    } else if s < P2 {
+        "preictal"
+    } else if s < P3 {
+        "seizure"
+    } else {
+        "postictal"
+    }
 }
 fn pdisplay(s: usize) -> &'static str {
-    if s<P1{"Normal "} else if s<P2{"Pre-ic "} else if s<P3{"Seizure"} else {"Post-ic"}
+    if s < P1 {
+        "Normal "
+    } else if s < P2 {
+        "Pre-ic "
+    } else if s < P3 {
+        "Seizure"
+    } else {
+        "Post-ic"
+    }
 }
 fn gauss(rng: &mut StdRng) -> f64 {
     let u: f64 = rng.gen::<f64>().max(1e-15);
-    (-2.0*u.ln()).sqrt() * (TAU*rng.gen::<f64>()).cos()
+    (-2.0 * u.ln()).sqrt() * (TAU * rng.gen::<f64>()).cos()
 }
-fn phase(sec: usize) -> (f64,f64,f64,f64,f64,f64,bool) {
-    if sec < P1 { return (1.0, 0.5, 0.15, 1.0, 0.4, 0.1, false); }
+fn phase(sec: usize) -> (f64, f64, f64, f64, f64, f64, bool) {
+    if sec < P1 {
+        return (1.0, 0.5, 0.15, 1.0, 0.4, 0.1, false);
+    }
     if sec < P2 {
-        let t = 1.0/(1.0+(-12.0*((sec-P1) as f64/(P2-P1) as f64-0.15)).exp());
-        return (1.0, 0.5+0.4*t, 0.15+0.55*t, 1.0-0.7*t, 0.4+0.35*t, 0.1+0.6*t, false);
+        let t = 1.0 / (1.0 + (-12.0 * ((sec - P1) as f64 / (P2 - P1) as f64 - 0.15)).exp());
+        return (
+            1.0,
+            0.5 + 0.4 * t,
+            0.15 + 0.55 * t,
+            1.0 - 0.7 * t,
+            0.4 + 0.35 * t,
+            0.1 + 0.6 * t,
+            false,
+        );
     }
     if sec < P3 {
-        let t = (sec-P2) as f64/(P3-P2) as f64;
-        return (5.0+5.0*t, 0.95, 0.92, 0.1, 0.2, 0.8, true);
+        let t = (sec - P2) as f64 / (P3 - P2) as f64;
+        return (5.0 + 5.0 * t, 0.95, 0.92, 0.1, 0.2, 0.8, true);
     }
-    let t = (sec-P3) as f64/(DUR-P3) as f64;
-    (0.3+0.5*t, 0.05+0.25*t, 0.02+0.08*t, 0.2+0.6*t, 0.1+0.2*t, 0.3-0.15*t, false)
+    let t = (sec - P3) as f64 / (DUR - P3) as f64;
+    (
+        0.3 + 0.5 * t,
+        0.05 + 0.25 * t,
+        0.02 + 0.08 * t,
+        0.2 + 0.6 * t,
+        0.1 + 0.2 * t,
+        0.3 - 0.15 * t,
+        false,
+    )
 }
 fn generate_eeg(rng: &mut StdRng) -> Vec<[f64; NCH]> {
     let mut data = Vec::with_capacity(TSAMP);
-    let mut lat = [[0.0_f64;4];4]; let mut phi = [0.0_f64;NCH];
-    for ch in 0..NCH { phi[ch] = rng.gen::<f64>()*TAU; }
+    let mut lat = [[0.0_f64; 4]; 4];
+    let mut phi = [0.0_f64; NCH];
+    for ch in 0..NCH {
+        phi[ch] = rng.gen::<f64>() * TAU;
+    }
     for s in 0..TSAMP {
-        let t = s as f64/SR as f64;
-        let (amp,ic,xc,al,be,ga,sw) = phase(s/SR);
-        for r in 0..4 { for o in 0..4 { lat[r][o] = 0.95*lat[r][o]+0.22*gauss(rng); } }
-        let gl: f64 = lat.iter().map(|r|r[0]).sum::<f64>()/4.0;
-        let mut row = [0.0_f64;NCH];
+        let t = s as f64 / SR as f64;
+        let (amp, ic, xc, al, be, ga, sw) = phase(s / SR);
+        for r in 0..4 {
+            for o in 0..4 {
+                lat[r][o] = 0.95 * lat[r][o] + 0.22 * gauss(rng);
+            }
+        }
+        let gl: f64 = lat.iter().map(|r| r[0]).sum::<f64>() / 4.0;
+        let mut row = [0.0_f64; NCH];
         for ch in 0..NCH {
             let r = region(ch);
-            row[ch] = amp * (al*(TAU*10.0*t+phi[ch]).sin()
-                + be*(TAU*20.0*t+phi[ch]*1.7).sin()
-                + ga*(TAU*42.0*t+phi[ch]*2.3).sin()
-                + if sw {3.0*(TAU*3.0*t).sin().powi(3)} else {0.0}
-                + lat[r][ch%4]*ic + gl*xc + gauss(rng)*(1.0-0.5*(ic+xc).min(1.0)));
+            row[ch] = amp
+                * (al * (TAU * 10.0 * t + phi[ch]).sin()
+                    + be * (TAU * 20.0 * t + phi[ch] * 1.7).sin()
+                    + ga * (TAU * 42.0 * t + phi[ch] * 2.3).sin()
+                    + if sw {
+                        3.0 * (TAU * 3.0 * t).sin().powi(3)
+                    } else {
+                        0.0
+                    }
+                    + lat[r][ch % 4] * ic
+                    + gl * xc
+                    + gauss(rng) * (1.0 - 0.5 * (ic + xc).min(1.0)));
         }
         data.push(row);
     }
@@ -110,158 +165,307 @@ fn generate_eeg(rng: &mut StdRng) -> Vec<[f64; NCH]> {
 }
 fn goertzel(sig: &[f64], freq: f64) -> f64 {
     let n = sig.len();
-    let w = TAU*(freq*n as f64/SR as f64).round()/n as f64;
-    let c = 2.0*w.cos(); let (mut s1,mut s2) = (0.0_f64,0.0_f64);
-    for &x in sig { let s0=x+c*s1-s2; s2=s1; s1=s0; }
-    (s1*s1+s2*s2-c*s1*s2).max(0.0)/(n*n) as f64
-}
-fn rms(eeg: &[[f64;NCH]]) -> f64 {
-    let n = eeg.len() as f64*NCH as f64;
-    (eeg.iter().flat_map(|r|r.iter()).map(|x|x*x).sum::<f64>()/n).sqrt()
-}
-fn band_powers(samp: &[[f64;NCH]]) -> (f64,f64,f64) {
-    let (mut a,mut b,mut g) = (0.0_f64,0.0_f64,0.0_f64);
-    for ch in 0..NCH {
-        let s: Vec<f64> = samp.iter().map(|r|r[ch]).collect();
-        a += [9.0,10.0,11.0,12.0].iter().map(|&f|goertzel(&s,f)).sum::<f64>();
-        b += [15.0,20.0,25.0].iter().map(|&f|goertzel(&s,f)).sum::<f64>();
-        g += [35.0,42.0,55.0,70.0].iter().map(|&f|goertzel(&s,f)).sum::<f64>();
+    let w = TAU * (freq * n as f64 / SR as f64).round() / n as f64;
+    let c = 2.0 * w.cos();
+    let (mut s1, mut s2) = (0.0_f64, 0.0_f64);
+    for &x in sig {
+        let s0 = x + c * s1 - s2;
+        s2 = s1;
+        s1 = s0;
     }
-    (a/NCH as f64, b/NCH as f64, g/NCH as f64)
+    (s1 * s1 + s2 * s2 - c * s1 * s2).max(0.0) / (n * n) as f64
 }
-fn corr_stats(samp: &[[f64;NCH]]) -> (f64,f64,f64) {
+fn rms(eeg: &[[f64; NCH]]) -> f64 {
+    let n = eeg.len() as f64 * NCH as f64;
+    (eeg.iter()
+        .flat_map(|r| r.iter())
+        .map(|x| x * x)
+        .sum::<f64>()
+        / n)
+        .sqrt()
+}
+fn band_powers(samp: &[[f64; NCH]]) -> (f64, f64, f64) {
+    let (mut a, mut b, mut g) = (0.0_f64, 0.0_f64, 0.0_f64);
+    for ch in 0..NCH {
+        let s: Vec<f64> = samp.iter().map(|r| r[ch]).collect();
+        a += [9.0, 10.0, 11.0, 12.0]
+            .iter()
+            .map(|&f| goertzel(&s, f))
+            .sum::<f64>();
+        b += [15.0, 20.0, 25.0]
+            .iter()
+            .map(|&f| goertzel(&s, f))
+            .sum::<f64>();
+        g += [35.0, 42.0, 55.0, 70.0]
+            .iter()
+            .map(|&f| goertzel(&s, f))
+            .sum::<f64>();
+    }
+    (a / NCH as f64, b / NCH as f64, g / NCH as f64)
+}
+fn corr_stats(samp: &[[f64; NCH]]) -> (f64, f64, f64) {
     let n = samp.len() as f64;
-    let mut mu=[0.0_f64;NCH]; let mut va=[0.0_f64;NCH];
+    let mut mu = [0.0_f64; NCH];
+    let mut va = [0.0_f64; NCH];
     for ch in 0..NCH {
-        mu[ch]=samp.iter().map(|s|s[ch]).sum::<f64>()/n;
-        va[ch]=samp.iter().map(|s|(s[ch]-mu[ch]).powi(2)).sum::<f64>()/n;
+        mu[ch] = samp.iter().map(|s| s[ch]).sum::<f64>() / n;
+        va[ch] = samp.iter().map(|s| (s[ch] - mu[ch]).powi(2)).sum::<f64>() / n;
     }
-    let (mut ci,mut cx)=(0.0_f64,0.0_f64); let (mut ni,mut nx)=(0usize,0usize);
-    for i in 0..NCH { for j in (i+1)..NCH {
-        let mut c=0.0; for s in samp { c+=(s[i]-mu[i])*(s[j]-mu[j]); }
-        c/=n; let d=(va[i]*va[j]).sqrt();
-        let r = if d<1e-12{0.0}else{(c/d).abs()};
-        if region(i)==region(j){ci+=r;ni+=1}else{cx+=r;nx+=1}
-    }}
-    ((ci+cx)/(ni+nx).max(1) as f64, ci/ni.max(1) as f64, cx/nx.max(1) as f64)
+    let (mut ci, mut cx) = (0.0_f64, 0.0_f64);
+    let (mut ni, mut nx) = (0usize, 0usize);
+    for i in 0..NCH {
+        for j in (i + 1)..NCH {
+            let mut c = 0.0;
+            for s in samp {
+                c += (s[i] - mu[i]) * (s[j] - mu[j]);
+            }
+            c /= n;
+            let d = (va[i] * va[j]).sqrt();
+            let r = if d < 1e-12 { 0.0 } else { (c / d).abs() };
+            if region(i) == region(j) {
+                ci += r;
+                ni += 1
+            } else {
+                cx += r;
+                nx += 1
+            }
+        }
+    }
+    (
+        (ci + cx) / (ni + nx).max(1) as f64,
+        ci / ni.max(1) as f64,
+        cx / nx.max(1) as f64,
+    )
 }
-fn win_features(samp: &[[f64;NCH]]) -> Vec<f64> {
-    let n = samp.len() as f64; let mut f = Vec::with_capacity(NFEAT);
-    let mut mu=[0.0_f64;NCH]; let mut va=[0.0_f64;NCH];
+fn win_features(samp: &[[f64; NCH]]) -> Vec<f64> {
+    let n = samp.len() as f64;
+    let mut f = Vec::with_capacity(NFEAT);
+    let mut mu = [0.0_f64; NCH];
+    let mut va = [0.0_f64; NCH];
     for ch in 0..NCH {
-        mu[ch]=samp.iter().map(|s|s[ch]).sum::<f64>()/n;
-        va[ch]=samp.iter().map(|s|(s[ch]-mu[ch]).powi(2)).sum::<f64>()/n;
+        mu[ch] = samp.iter().map(|s| s[ch]).sum::<f64>() / n;
+        va[ch] = samp.iter().map(|s| (s[ch] - mu[ch]).powi(2)).sum::<f64>() / n;
     }
-    for i in 0..NCH { for j in (i+1)..NCH {
-        let mut c=0.0; for s in samp { c+=(s[i]-mu[i])*(s[j]-mu[j]); }
-        c/=n; let d=(va[i]*va[j]).sqrt();
-        f.push(if d<1e-12{0.0}else{c/d});
-    }}
-    for ch in 0..NCH {
-        let s: Vec<f64> = samp.iter().map(|r|r[ch]).collect();
-        let a: f64 = [9.0,10.0,11.0,12.0].iter().map(|&fr|goertzel(&s,fr)).sum();
-        let b: f64 = [15.0,20.0,25.0].iter().map(|&fr|goertzel(&s,fr)).sum();
-        let g: f64 = [35.0,42.0,55.0,70.0].iter().map(|&fr|goertzel(&s,fr)).sum();
-        f.push(a.ln().max(-10.0)); f.push(b.ln().max(-10.0)); f.push(g.ln().max(-10.0));
+    for i in 0..NCH {
+        for j in (i + 1)..NCH {
+            let mut c = 0.0;
+            for s in samp {
+                c += (s[i] - mu[i]) * (s[j] - mu[j]);
+            }
+            c /= n;
+            let d = (va[i] * va[j]).sqrt();
+            f.push(if d < 1e-12 { 0.0 } else { c / d });
+        }
     }
     for ch in 0..NCH {
-        let s: Vec<f64> = samp.iter().map(|r|r[ch]).collect();
-        let (mut bf,mut bp)=(10.0_f64,0.0_f64);
-        for fi in 4..80 { let p=goertzel(&s,fi as f64); if p>bp{bp=p;bf=fi as f64;} }
-        f.push(bf/80.0);
+        let s: Vec<f64> = samp.iter().map(|r| r[ch]).collect();
+        let a: f64 = [9.0, 10.0, 11.0, 12.0]
+            .iter()
+            .map(|&fr| goertzel(&s, fr))
+            .sum();
+        let b: f64 = [15.0, 20.0, 25.0].iter().map(|&fr| goertzel(&s, fr)).sum();
+        let g: f64 = [35.0, 42.0, 55.0, 70.0]
+            .iter()
+            .map(|&fr| goertzel(&s, fr))
+            .sum();
+        f.push(a.ln().max(-10.0));
+        f.push(b.ln().max(-10.0));
+        f.push(g.ln().max(-10.0));
+    }
+    for ch in 0..NCH {
+        let s: Vec<f64> = samp.iter().map(|r| r[ch]).collect();
+        let (mut bf, mut bp) = (10.0_f64, 0.0_f64);
+        for fi in 4..80 {
+            let p = goertzel(&s, fi as f64);
+            if p > bp {
+                bp = p;
+                bf = fi as f64;
+            }
+        }
+        f.push(bf / 80.0);
     }
     f
 }
 fn normalize(fs: &[Vec<f64>]) -> Vec<Vec<f64>> {
-    let (d,n) = (fs[0].len(), fs.len() as f64);
-    let mut mu=vec![0.0_f64;d]; let mut sd=vec![0.0_f64;d];
-    for f in fs { for i in 0..d { mu[i]+=f[i]; } }
-    for v in &mut mu { *v/=n; }
-    for f in fs { for i in 0..d { sd[i]+=(f[i]-mu[i]).powi(2); } }
-    for v in &mut sd { *v=(*v/n).sqrt().max(1e-12); }
-    fs.iter().map(|f|(0..d).map(|i|(f[i]-mu[i])/sd[i]).collect()).collect()
+    let (d, n) = (fs[0].len(), fs.len() as f64);
+    let mut mu = vec![0.0_f64; d];
+    let mut sd = vec![0.0_f64; d];
+    for f in fs {
+        for i in 0..d {
+            mu[i] += f[i];
+        }
+    }
+    for v in &mut mu {
+        *v /= n;
+    }
+    for f in fs {
+        for i in 0..d {
+            sd[i] += (f[i] - mu[i]).powi(2);
+        }
+    }
+    for v in &mut sd {
+        *v = (*v / n).sqrt().max(1e-12);
+    }
+    fs.iter()
+        .map(|f| (0..d).map(|i| (f[i] - mu[i]) / sd[i]).collect())
+        .collect()
 }
-fn dsq(a: &[f64], b: &[f64]) -> f64 { a.iter().zip(b).map(|(x,y)|(x-y).powi(2)).sum() }
-fn build_graph(f: &[Vec<f64>]) -> (Vec<(u64,u64,f64)>, Vec<(usize,usize,f64)>) {
-    let mut ds: Vec<f64> = (0..f.len()).flat_map(|i|
-        ((i+1)..f.len().min(i+5)).map(move |j|dsq(&f[i],&f[j]))).collect();
-    ds.sort_by(|a,b|a.partial_cmp(b).unwrap());
-    let sig = ds[ds.len()/2].max(1e-6);
-    let (mut mc,mut sp) = (Vec::new(),Vec::new());
-    for i in 0..f.len() { for sk in 1..=4 { if i+sk<f.len() {
-        let w = (-dsq(&f[i],&f[i+sk])/(2.0*sig)).exp().max(1e-6);
-        mc.push((i as u64,(i+sk) as u64,w)); sp.push((i,i+sk,w));
-    }}}
-    (mc,sp)
+fn dsq(a: &[f64], b: &[f64]) -> f64 {
+    a.iter().zip(b).map(|(x, y)| (x - y).powi(2)).sum()
 }
-fn cut_profile(edges: &[(usize,usize,f64)], n: usize) -> Vec<f64> {
-    let mut c = vec![0.0_f64;n];
-    for &(u,v,w) in edges { for k in (u.min(v)+1)..=u.max(v) { c[k]+=w; } }
+fn build_graph(f: &[Vec<f64>]) -> (Vec<(u64, u64, f64)>, Vec<(usize, usize, f64)>) {
+    let mut ds: Vec<f64> = (0..f.len())
+        .flat_map(|i| ((i + 1)..f.len().min(i + 5)).map(move |j| dsq(&f[i], &f[j])))
+        .collect();
+    ds.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let sig = ds[ds.len() / 2].max(1e-6);
+    let (mut mc, mut sp) = (Vec::new(), Vec::new());
+    for i in 0..f.len() {
+        for sk in 1..=4 {
+            if i + sk < f.len() {
+                let w = (-dsq(&f[i], &f[i + sk]) / (2.0 * sig)).exp().max(1e-6);
+                mc.push((i as u64, (i + sk) as u64, w));
+                sp.push((i, i + sk, w));
+            }
+        }
+    }
+    (mc, sp)
+}
+fn cut_profile(edges: &[(usize, usize, f64)], n: usize) -> Vec<f64> {
+    let mut c = vec![0.0_f64; n];
+    for &(u, v, w) in edges {
+        for k in (u.min(v) + 1)..=u.max(v) {
+            c[k] += w;
+        }
+    }
     c
 }
-fn find_bounds(cuts: &[f64], margin: usize, gap: usize) -> Vec<(usize,f64)> {
+fn find_bounds(cuts: &[f64], margin: usize, gap: usize) -> Vec<(usize, f64)> {
     let n = cuts.len();
-    let mut m: Vec<(usize,f64,f64)> = (1..n-1).filter_map(|i| {
-        if i<=margin||i>=n-margin||cuts[i]>=cuts[i-1]||cuts[i]>=cuts[i+1]{return None;}
-        let (lo,hi)=(i.saturating_sub(2),(i+3).min(n));
-        Some((i,cuts[i],cuts[lo..hi].iter().sum::<f64>()/(hi-lo) as f64-cuts[i]))
-    }).collect();
-    m.sort_by(|a,b|b.2.partial_cmp(&a.2).unwrap());
+    let mut m: Vec<(usize, f64, f64)> = (1..n - 1)
+        .filter_map(|i| {
+            if i <= margin || i >= n - margin || cuts[i] >= cuts[i - 1] || cuts[i] >= cuts[i + 1] {
+                return None;
+            }
+            let (lo, hi) = (i.saturating_sub(2), (i + 3).min(n));
+            Some((
+                i,
+                cuts[i],
+                cuts[lo..hi].iter().sum::<f64>() / (hi - lo) as f64 - cuts[i],
+            ))
+        })
+        .collect();
+    m.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap());
     let mut s = Vec::new();
-    for &(p,v,_) in &m {
-        if s.iter().all(|&(q,_): &(usize,f64)|(p as isize-q as isize).unsigned_abs()>=gap){s.push((p,v));}
+    for &(p, v, _) in &m {
+        if s.iter()
+            .all(|&(q, _): &(usize, f64)| (p as isize - q as isize).unsigned_abs() >= gap)
+        {
+            s.push((p, v));
+        }
     }
-    s.sort_by_key(|&(d,_)|d); s
+    s.sort_by_key(|&(d, _)| d);
+    s
 }
-fn amp_detect(eeg: &[[f64;NCH]]) -> Option<usize> {
-    let bl=200*SR;
-    let br=(eeg[..bl].iter().flat_map(|r|r.iter()).map(|x|x*x).sum::<f64>()/(bl*NCH) as f64).sqrt();
+fn amp_detect(eeg: &[[f64; NCH]]) -> Option<usize> {
+    let bl = 200 * SR;
+    let br = (eeg[..bl]
+        .iter()
+        .flat_map(|r| r.iter())
+        .map(|x| x * x)
+        .sum::<f64>()
+        / (bl * NCH) as f64)
+        .sqrt();
     for st in (0..eeg.len()).step_by(SR) {
-        let e=(st+SR).min(eeg.len()); let n=(e-st) as f64*NCH as f64;
-        let r=(eeg[st..e].iter().flat_map(|r|r.iter()).map(|x|x*x).sum::<f64>()/n).sqrt();
-        if r>br*AMP_THR{return Some(st/SR);}
+        let e = (st + SR).min(eeg.len());
+        let n = (e - st) as f64 * NCH as f64;
+        let r = (eeg[st..e]
+            .iter()
+            .flat_map(|r| r.iter())
+            .map(|x| x * x)
+            .sum::<f64>()
+            / n)
+            .sqrt();
+        if r > br * AMP_THR {
+            return Some(st / SR);
+        }
     }
     None
 }
-fn null_eeg(rng: &mut StdRng) -> Vec<[f64;NCH]> {
-    let mut lat=[[0.0_f64;4];4]; let mut phi=[0.0_f64;NCH];
-    for ch in 0..NCH { phi[ch]=rng.gen::<f64>()*TAU; }
-    (0..TSAMP).map(|s| {
-        let t=s as f64/SR as f64;
-        for r in 0..4 { for o in 0..4 { lat[r][o]=0.95*lat[r][o]+0.22*gauss(rng); } }
-        let mut row=[0.0_f64;NCH];
-        for ch in 0..NCH {
-            row[ch]=(TAU*10.0*t+phi[ch]).sin()+0.4*(TAU*20.0*t+phi[ch]*1.7).sin()
-                +lat[region(ch)][ch%4]*0.5+gauss(rng)*0.7;
-        }
-        row
-    }).collect()
+fn null_eeg(rng: &mut StdRng) -> Vec<[f64; NCH]> {
+    let mut lat = [[0.0_f64; 4]; 4];
+    let mut phi = [0.0_f64; NCH];
+    for ch in 0..NCH {
+        phi[ch] = rng.gen::<f64>() * TAU;
+    }
+    (0..TSAMP)
+        .map(|s| {
+            let t = s as f64 / SR as f64;
+            for r in 0..4 {
+                for o in 0..4 {
+                    lat[r][o] = 0.95 * lat[r][o] + 0.22 * gauss(rng);
+                }
+            }
+            let mut row = [0.0_f64; NCH];
+            for ch in 0..NCH {
+                row[ch] = (TAU * 10.0 * t + phi[ch]).sin()
+                    + 0.4 * (TAU * 20.0 * t + phi[ch] * 1.7).sin()
+                    + lat[region(ch)][ch % 4] * 0.5
+                    + gauss(rng) * 0.7;
+            }
+            row
+        })
+        .collect()
 }
 fn null_cuts(rng: &mut StdRng) -> Vec<Vec<f64>> {
-    let mut out = vec![Vec::with_capacity(NULL_N);4];
+    let mut out = vec![Vec::with_capacity(NULL_N); 4];
     for _ in 0..NULL_N {
-        let eeg=null_eeg(rng);
-        let wf: Vec<_>=(0..NWIN).map(|i|{let s=i*WIN_S*SR;win_features(&eeg[s..s+WIN_S*SR])}).collect();
-        let (_,sp)=build_graph(&normalize(&wf));
-        let b=find_bounds(&cut_profile(&sp,NWIN),1,4);
-        for k in 0..4 { out[k].push(b.get(k).map_or(1.0,|x|x.1)); }
+        let eeg = null_eeg(rng);
+        let wf: Vec<_> = (0..NWIN)
+            .map(|i| {
+                let s = i * WIN_S * SR;
+                win_features(&eeg[s..s + WIN_S * SR])
+            })
+            .collect();
+        let (_, sp) = build_graph(&normalize(&wf));
+        let b = find_bounds(&cut_profile(&sp, NWIN), 1, 4);
+        for k in 0..4 {
+            out[k].push(b.get(k).map_or(1.0, |x| x.1));
+        }
     }
     out
 }
 fn zscore(obs: f64, null: &[f64]) -> f64 {
-    let n=null.len() as f64; let mu: f64=null.iter().sum::<f64>()/n;
-    let sd=(null.iter().map(|v|(v-mu).powi(2)).sum::<f64>()/n).sqrt();
-    if sd<1e-12{0.0}else{(obs-mu)/sd}
+    let n = null.len() as f64;
+    let mu: f64 = null.iter().sum::<f64>() / n;
+    let sd = (null.iter().map(|v| (v - mu).powi(2)).sum::<f64>() / n).sqrt();
+    if sd < 1e-12 {
+        0.0
+    } else {
+        (obs - mu) / sd
+    }
 }
-fn fiedler_seg(edges: &[(u64,u64,f64)], s: usize, e: usize) -> f64 {
-    let n=e-s; if n<3{return 0.0;}
-    let se: Vec<_>=edges.iter().filter(|(u,v,_)|{
-        let (a,b)=(*u as usize,*v as usize); a>=s&&a<e&&b>=s&&b<e
-    }).map(|(u,v,w)|(*u as usize-s,*v as usize-s,*w)).collect();
-    if se.is_empty(){return 0.0;}
-    estimate_fiedler(&CsrMatrixView::build_laplacian(n,&se),200,1e-10).0
+fn fiedler_seg(edges: &[(u64, u64, f64)], s: usize, e: usize) -> f64 {
+    let n = e - s;
+    if n < 3 {
+        return 0.0;
+    }
+    let se: Vec<_> = edges
+        .iter()
+        .filter(|(u, v, _)| {
+            let (a, b) = (*u as usize, *v as usize);
+            a >= s && a < e && b >= s && b < e
+        })
+        .map(|(u, v, w)| (*u as usize - s, *v as usize - s, *w))
+        .collect();
+    if se.is_empty() {
+        return 0.0;
+    }
+    estimate_fiedler(&CsrMatrixView::build_laplacian(n, &se), 200, 1e-10).0
 }
-fn w2s(w: usize) -> usize { w*WIN_S+WIN_S/2 }
+fn w2s(w: usize) -> usize {
+    w * WIN_S + WIN_S / 2
+}
 
 fn main() {
     let mut rng = StdRng::seed_from_u64(SEED);
@@ -270,120 +474,265 @@ fn main() {
     eprintln!("  Graph-Theoretic Early Warning from 16-Channel Simulated EEG");
     eprintln!("====================================================================\n");
     eprintln!("SIMULATION PARAMETERS:");
-    eprintln!("  Channels:     {} (10-20: Fp1/Fp2 F3/F4/F7/F8 C3/C4 T3-T6 P3/P4 O1/O2)", NCH);
-    eprintln!("  Sample rate:  {} Hz   Duration: {} s ({} min)   Samples: {}", SR, DUR, DUR/60, TSAMP*NCH);
-    eprintln!("  Window:       {} s ({} windows)   Features: {}/win   Null perms: {}", WIN_S, NWIN, NFEAT, NULL_N);
+    eprintln!(
+        "  Channels:     {} (10-20: Fp1/Fp2 F3/F4/F7/F8 C3/C4 T3-T6 P3/P4 O1/O2)",
+        NCH
+    );
+    eprintln!(
+        "  Sample rate:  {} Hz   Duration: {} s ({} min)   Samples: {}",
+        SR,
+        DUR,
+        DUR / 60,
+        TSAMP * NCH
+    );
+    eprintln!(
+        "  Window:       {} s ({} windows)   Features: {}/win   Null perms: {}",
+        WIN_S, NWIN, NFEAT, NULL_N
+    );
     eprintln!("  Significance: z < {:.1} (one-tailed p < 0.023)\n", Z_THR);
     eprintln!("PHASE TIMELINE:");
-    eprintln!("  Normal 0-{}s | Pre-ictal {}-{}s | Seizure {}-{}s | Post-ictal {}-{}s\n", P1,P1,P2,P2,P3,P3,DUR);
+    eprintln!(
+        "  Normal 0-{}s | Pre-ictal {}-{}s | Seizure {}-{}s | Post-ictal {}-{}s\n",
+        P1, P1, P2, P2, P3, P3, DUR
+    );
 
     let eeg = generate_eeg(&mut rng);
 
     // Per-phase summary
     eprintln!("PER-PHASE SIGNAL CHARACTERISTICS:");
-    eprintln!("  {:11} {:>7} {:>10} {:>10} {:>10} {:>10} {:>10}",
-        "Phase","RMS","IntraCorr","CrossCorr","AlphaPow","BetaPow","GammaPow");
+    eprintln!(
+        "  {:11} {:>7} {:>10} {:>10} {:>10} {:>10} {:>10}",
+        "Phase", "RMS", "IntraCorr", "CrossCorr", "AlphaPow", "BetaPow", "GammaPow"
+    );
     eprintln!("  {}", "-".repeat(75));
-    for &(nm,s,e) in &[("Normal",0,P1),("Pre-ictal",P1,P2),("Seizure",P2,P3),("Post-ictal",P3,DUR)] {
-        let (_,ci,cx)=corr_stats(&eeg[s*SR..e*SR]);
-        let (ap,bp,gp)=band_powers(&eeg[s*SR..e*SR]);
-        eprintln!("  {:11} {:7.3} {:10.4} {:10.4} {:10.6} {:10.6} {:10.6}",
-            nm, rms(&eeg[s*SR..e*SR]), ci, cx, ap, bp, gp);
+    for &(nm, s, e) in &[
+        ("Normal", 0, P1),
+        ("Pre-ictal", P1, P2),
+        ("Seizure", P2, P3),
+        ("Post-ictal", P3, DUR),
+    ] {
+        let (_, ci, cx) = corr_stats(&eeg[s * SR..e * SR]);
+        let (ap, bp, gp) = band_powers(&eeg[s * SR..e * SR]);
+        eprintln!(
+            "  {:11} {:7.3} {:10.4} {:10.4} {:10.6} {:10.6} {:10.6}",
+            nm,
+            rms(&eeg[s * SR..e * SR]),
+            ci,
+            cx,
+            ap,
+            bp,
+            gp
+        );
     }
 
-    let ad = amp_detect(&eeg); let amp_sec = ad.unwrap_or(DUR);
+    let ad = amp_detect(&eeg);
+    let amp_sec = ad.unwrap_or(DUR);
     eprintln!("\nAMPLITUDE DETECTION (threshold={}x baseline):", AMP_THR);
-    if let Some(s)=ad { eprintln!("  Alarm at second {} ({} s after onset)", s, s.saturating_sub(P2)); }
-    else { eprintln!("  No alarm triggered."); }
+    if let Some(s) = ad {
+        eprintln!(
+            "  Alarm at second {} ({} s after onset)",
+            s,
+            s.saturating_sub(P2)
+        );
+    } else {
+        eprintln!("  No alarm triggered.");
+    }
 
     // Build graph
-    let wf: Vec<_>=(0..NWIN).map(|i|{let s=i*WIN_S*SR;win_features(&eeg[s..s+WIN_S*SR])}).collect();
+    let wf: Vec<_> = (0..NWIN)
+        .map(|i| {
+            let s = i * WIN_S * SR;
+            win_features(&eeg[s..s + WIN_S * SR])
+        })
+        .collect();
     let normed = normalize(&wf);
-    let (mc_e,sp_e) = build_graph(&normed);
+    let (mc_e, sp_e) = build_graph(&normed);
     let cuts = cut_profile(&sp_e, NWIN);
     let bounds = find_bounds(&cuts, 1, 4);
     let nd = null_cuts(&mut rng);
 
     // Primary boundary
-    let pb = bounds.iter().find(|&&(w,_)|{let s=w2s(w); s>=P1-30&&s<=P2+10}).or(bounds.first());
-    let (bwin,bcv) = pb.map(|&(w,v)|(w,v)).unwrap_or((0,1.0));
-    let bsec = w2s(bwin); let bz = zscore(bcv,&nd[0]);
-    let warn = if bsec<P2{P2-bsec}else{0};
+    let pb = bounds
+        .iter()
+        .find(|&&(w, _)| {
+            let s = w2s(w);
+            s >= P1 - 30 && s <= P2 + 10
+        })
+        .or(bounds.first());
+    let (bwin, bcv) = pb.map(|&(w, v)| (w, v)).unwrap_or((0, 1.0));
+    let bsec = w2s(bwin);
+    let bz = zscore(bcv, &nd[0]);
+    let warn = if bsec < P2 { P2 - bsec } else { 0 };
 
     eprintln!("\nGRAPH BOUNDARY DETECTION:");
-    eprintln!("  {} nodes, {} edges, {}-dim features", NWIN, mc_e.len(), NFEAT);
+    eprintln!(
+        "  {} nodes, {} edges, {}-dim features",
+        NWIN,
+        mc_e.len(),
+        NFEAT
+    );
     eprintln!("  Primary boundary: window {} (second {})", bwin, bsec);
-    eprintln!("  Cut={:.4}  z={:.2} ({})  Warning: {} s before onset",
-        bcv, bz, if bz<Z_THR{"SIG"}else{"n.s."}, warn);
+    eprintln!(
+        "  Cut={:.4}  z={:.2} ({})  Warning: {} s before onset",
+        bcv,
+        bz,
+        if bz < Z_THR { "SIG" } else { "n.s." },
+        warn
+    );
 
     // Fiedler per segment
-    let sb: Vec<usize> = bounds.iter().take(3).map(|b|b.0).collect();
-    let segs = if sb.len()>=3 { let mut s=sb;s.sort(); vec![(0,s[0]),(s[0],s[1]),(s[1],s[2]),(s[2],NWIN)] }
-    else { let w=|s:usize|s/WIN_S; vec![(0,w(P1)),(w(P1),w(P2)),(w(P2),w(P3)),(w(P3),NWIN)] };
+    let sb: Vec<usize> = bounds.iter().take(3).map(|b| b.0).collect();
+    let segs = if sb.len() >= 3 {
+        let mut s = sb;
+        s.sort();
+        vec![(0, s[0]), (s[0], s[1]), (s[1], s[2]), (s[2], NWIN)]
+    } else {
+        let w = |s: usize| s / WIN_S;
+        vec![(0, w(P1)), (w(P1), w(P2)), (w(P2), w(P3)), (w(P3), NWIN)]
+    };
     eprintln!("\nSPECTRAL (Fiedler values):");
-    for (i,&(s,e)) in segs.iter().enumerate() {
-        eprintln!("  {:11}: {:.4}  (windows {}-{})",
-            ["Normal","Pre-ictal","Seizure","Post-ictal"][i], fiedler_seg(&mc_e,s,e), s, e);
+    for (i, &(s, e)) in segs.iter().enumerate() {
+        eprintln!(
+            "  {:11}: {:.4}  (windows {}-{})",
+            ["Normal", "Pre-ictal", "Seizure", "Post-ictal"][i],
+            fiedler_seg(&mc_e, s, e),
+            s,
+            e
+        );
     }
 
-    let mc = MinCutBuilder::new().exact().with_edges(mc_e.clone()).build().expect("mincut");
-    let (ps,pt) = mc.min_cut().partition.unwrap();
-    eprintln!("\nGLOBAL MIN-CUT: {:.4}  (partition {}|{})", mc.min_cut_value(), ps.len(), pt.len());
+    let mc = MinCutBuilder::new()
+        .exact()
+        .with_edges(mc_e.clone())
+        .build()
+        .expect("mincut");
+    let (ps, pt) = mc.min_cut().partition.unwrap();
+    eprintln!(
+        "\nGLOBAL MIN-CUT: {:.4}  (partition {}|{})",
+        mc.min_cut_value(),
+        ps.len(),
+        pt.len()
+    );
 
     eprintln!("\nALL BOUNDARIES:");
-    eprintln!("  {:>2} {:>5} {:>10} {:>8} {:>7} {:>4}", "#","Sec","Phase","CutVal","z","Sig");
+    eprintln!(
+        "  {:>2} {:>5} {:>10} {:>8} {:>7} {:>4}",
+        "#", "Sec", "Phase", "CutVal", "z", "Sig"
+    );
     eprintln!("  {}", "-".repeat(42));
-    for (i,&(w,cv)) in bounds.iter().take(6).enumerate() {
-        let s=w2s(w); let z=zscore(cv,&nd[i.min(3)]);
-        eprintln!("  {:>2} {:>5} {:>10} {:8.4} {:7.2} {:>4}",
-            i+1, s, plabel(s), cv, z, if z<Z_THR{"YES"}else{"no"});
+    for (i, &(w, cv)) in bounds.iter().take(6).enumerate() {
+        let s = w2s(w);
+        let z = zscore(cv, &nd[i.min(3)]);
+        eprintln!(
+            "  {:>2} {:>5} {:>10} {:8.4} {:7.2} {:>4}",
+            i + 1,
+            s,
+            plabel(s),
+            cv,
+            z,
+            if z < Z_THR { "YES" } else { "no" }
+        );
     }
 
     // Precompute Fiedler per window
-    let mut wfied = vec![0.0_f64;NWIN];
+    let mut wfied = vec![0.0_f64; NWIN];
     for i in 0..NWIN {
-        let lo=if i>=2{i-2}else{0}; let hi=if i+3<=NWIN{i+3}else{NWIN};
-        wfied[i]=fiedler_seg(&mc_e,lo,hi);
+        let lo = if i >= 2 { i - 2 } else { 0 };
+        let hi = if i + 3 <= NWIN { i + 3 } else { NWIN };
+        wfied[i] = fiedler_seg(&mc_e, lo, hi);
     }
 
     // Detection replay (stderr) + CSV (stdout) in one pass
     eprintln!("\n====================================================================");
     eprintln!("DETECTION REPLAY (what the algorithm sees in real-time):");
     eprintln!("====================================================================");
-    eprintln!("  {:>5} {:>7} {:>7} {:>8} {:>8} {:>8} {:>8} {:>8}  Status",
-        "t(s)","Phase","cuts","Fiedler","alpha","beta","gamma","RMS");
+    eprintln!(
+        "  {:>5} {:>7} {:>7} {:>8} {:>8} {:>8} {:>8} {:>8}  Status",
+        "t(s)", "Phase", "cuts", "Fiedler", "alpha", "beta", "gamma", "RMS"
+    );
     eprintln!("  {}", "-".repeat(82));
     println!("window,second,rms,alpha_power,beta_power,gamma_power,mean_intra_corr,mean_cross_corr,fiedler,cut_value,phase,is_boundary,z_score,status");
 
     let (mut bfired, mut bfired_sec, mut fa_normal) = (false, 0usize, 0usize);
     for i in 0..NWIN {
-        let sec=i*WIN_S; let mid=sec+WIN_S/2;
-        let s=i*WIN_S*SR; let e=s+WIN_S*SR;
-        let (ap,bp,gp)=band_powers(&eeg[s..e]);
-        let r=rms(&eeg[s..e]);
-        let (_,ci,cx)=corr_stats(&eeg[s..e]);
-        let cv=cuts[i]; let fv=wfied[i];
-        let is_b = bounds.iter().any(|&(w,_)|w==i);
-        let z_at = if is_b{zscore(cv,&nd[0])}else{0.0};
+        let sec = i * WIN_S;
+        let mid = sec + WIN_S / 2;
+        let s = i * WIN_S * SR;
+        let e = s + WIN_S * SR;
+        let (ap, bp, gp) = band_powers(&eeg[s..e]);
+        let r = rms(&eeg[s..e]);
+        let (_, ci, cx) = corr_stats(&eeg[s..e]);
+        let cv = cuts[i];
+        let fv = wfied[i];
+        let is_b = bounds.iter().any(|&(w, _)| w == i);
+        let z_at = if is_b { zscore(cv, &nd[0]) } else { 0.0 };
 
-        let status = if is_b && z_at<Z_THR {
-            if !bfired { bfired=true; bfired_sec=mid; }
-            if mid<P1 { fa_normal+=1; }
+        let status = if is_b && z_at < Z_THR {
+            if !bfired {
+                bfired = true;
+                bfired_sec = mid;
+            }
+            if mid < P1 {
+                fa_normal += 1;
+            }
             "*** BOUNDARY ***"
-        } else if is_b { "boundary (n.s.)"
-        } else if mid>=P2 && mid<P3 && r>2.0 { "AMPLITUDE SPIKE"
-        } else if bfired && mid>bfired_sec && mid<P2 { "*** WARNING ***"
-        } else { "ok" };
+        } else if is_b {
+            "boundary (n.s.)"
+        } else if mid >= P2 && mid < P3 && r > 2.0 {
+            "AMPLITUDE SPIKE"
+        } else if bfired && mid > bfired_sec && mid < P2 {
+            "*** WARNING ***"
+        } else {
+            "ok"
+        };
 
-        let csv_st = if is_b && z_at<Z_THR{"BOUNDARY"} else if is_b{"boundary_ns"} else {"ok"};
-        eprintln!("  t={:>3}s  [{}]  cv={:.4}  F={:.4}  a={:.5}  b={:.5}  g={:.5}  rms={:.3}  {}",
-            sec, pdisplay(mid), cv, fv, ap, bp, gp, r, status);
-        if mid>=P2 && mid<P2+WIN_S && !is_b {
-            eprintln!("         ^^ Seizure onset at t={}s -- amplitude fires ({} s after boundary)",
-                P2, if bfired{P2.saturating_sub(bfired_sec)}else{0});
+        let csv_st = if is_b && z_at < Z_THR {
+            "BOUNDARY"
+        } else if is_b {
+            "boundary_ns"
+        } else {
+            "ok"
+        };
+        eprintln!(
+            "  t={:>3}s  [{}]  cv={:.4}  F={:.4}  a={:.5}  b={:.5}  g={:.5}  rms={:.3}  {}",
+            sec,
+            pdisplay(mid),
+            cv,
+            fv,
+            ap,
+            bp,
+            gp,
+            r,
+            status
+        );
+        if mid >= P2 && mid < P2 + WIN_S && !is_b {
+            eprintln!(
+                "         ^^ Seizure onset at t={}s -- amplitude fires ({} s after boundary)",
+                P2,
+                if bfired {
+                    P2.saturating_sub(bfired_sec)
+                } else {
+                    0
+                }
+            );
         }
-        println!("{},{},{:.4},{:.6},{:.6},{:.6},{:.4},{:.4},{:.4},{:.4},{},{},{:.2},{}",
-            i, mid, r, ap, bp, gp, ci, cx, fv, cv, plabel(mid), if is_b{1}else{0}, z_at, csv_st);
+        println!(
+            "{},{},{:.4},{:.6},{:.6},{:.6},{:.4},{:.4},{:.4},{:.4},{},{},{:.2},{}",
+            i,
+            mid,
+            r,
+            ap,
+            bp,
+            gp,
+            ci,
+            cx,
+            fv,
+            cv,
+            plabel(mid),
+            if is_b { 1 } else { 0 },
+            z_at,
+            csv_st
+        );
     }
     eprintln!("  Replay: {} false alarms during normal phase\n", fa_normal);
 
@@ -391,46 +740,121 @@ fn main() {
     eprintln!("====================================================================");
     eprintln!("CLINICAL SUMMARY STATISTICS");
     eprintln!("====================================================================\n");
-    let tp = bounds.iter().any(|&(w,_)|{let s=w2s(w); let z=zscore(cuts[w],&nd[0]); s>=P1-30&&s<=P2+10&&z<Z_THR});
+    let tp = bounds.iter().any(|&(w, _)| {
+        let s = w2s(w);
+        let z = zscore(cuts[w], &nd[0]);
+        s >= P1 - 30 && s <= P2 + 10 && z < Z_THR
+    });
     let fn_ = !tp;
-    let fp = bounds.iter().filter(|&&(w,_)|{let s=w2s(w); let z=zscore(cuts[w],&nd[0]); s<P1-30&&z<Z_THR}).count();
-    let nw = (P1-30)/WIN_S; let tn = nw.saturating_sub(fp);
-    let sens = if tp{1.0}else{0.0}; let spec = tn as f64/(tn+fp).max(1) as f64;
-    let ppv = if tp{1.0/(1+fp) as f64}else{0.0};
+    let fp = bounds
+        .iter()
+        .filter(|&&(w, _)| {
+            let s = w2s(w);
+            let z = zscore(cuts[w], &nd[0]);
+            s < P1 - 30 && z < Z_THR
+        })
+        .count();
+    let nw = (P1 - 30) / WIN_S;
+    let tn = nw.saturating_sub(fp);
+    let sens = if tp { 1.0 } else { 0.0 };
+    let spec = tn as f64 / (tn + fp).max(1) as f64;
+    let ppv = if tp { 1.0 / (1 + fp) as f64 } else { 0.0 };
 
     eprintln!("  Method:       Spectral graph boundary (min-cut profile)");
-    eprintln!("  Features:     {} / {}-second window   Null perms: {}", NFEAT, WIN_S, NULL_N);
+    eprintln!(
+        "  Features:     {} / {}-second window   Null perms: {}",
+        NFEAT, WIN_S, NULL_N
+    );
     eprintln!("  Threshold:    z < {:.1} (p < 0.023)\n", Z_THR);
-    eprintln!("  Sensitivity:  {:.1}%  (detected: {})", sens*100.0, if tp{"YES"}else{"NO"});
-    eprintln!("  Specificity:  {:.1}%  ({} normal windows, {} false alarms)", spec*100.0, nw, fp);
-    eprintln!("  PPV:          {:.1}%", ppv*100.0);
+    eprintln!(
+        "  Sensitivity:  {:.1}%  (detected: {})",
+        sens * 100.0,
+        if tp { "YES" } else { "NO" }
+    );
+    eprintln!(
+        "  Specificity:  {:.1}%  ({} normal windows, {} false alarms)",
+        spec * 100.0,
+        nw,
+        fp
+    );
+    eprintln!("  PPV:          {:.1}%", ppv * 100.0);
     eprintln!("  Warning:      {} s before onset", warn);
-    eprintln!("  Amp detect:   {} s AFTER onset", amp_sec.saturating_sub(P2));
-    eprintln!("  Advantage:    {} s earlier\n", amp_sec.saturating_sub(bsec));
+    eprintln!(
+        "  Amp detect:   {} s AFTER onset",
+        amp_sec.saturating_sub(P2)
+    );
+    eprintln!(
+        "  Advantage:    {} s earlier\n",
+        amp_sec.saturating_sub(bsec)
+    );
     eprintln!("  CONFUSION MATRIX:");
     eprintln!("                        Predicted");
     eprintln!("                  Boundary  No-Boundary");
-    eprintln!("  Pre-ictal    | {:^9} | {:^12} |", if tp{"TP = 1"}else{"TP = 0"}, if fn_{"FN = 1"}else{"FN = 0"});
+    eprintln!(
+        "  Pre-ictal    | {:^9} | {:^12} |",
+        if tp { "TP = 1" } else { "TP = 0" },
+        if fn_ { "FN = 1" } else { "FN = 0" }
+    );
     eprintln!("  Normal       | FP = {:^3} | TN = {:^6} |\n", fp, tn);
 
     if bsec > 20 {
-        let bs=(bsec-20)*SR; let be=bsec*SR; let a_s=bsec*SR; let ae=(bsec+20).min(DUR)*SR;
-        let (ab,_,gb) = band_powers(&eeg[bs..be]); let (aa,_,ga) = band_powers(&eeg[a_s..ae]);
-        let (_,cib,cxb) = corr_stats(&eeg[bs..be]); let (_,cia,cxa) = corr_stats(&eeg[a_s..ae]);
-        let fd = if bwin>0&&bwin<NWIN{dsq(&normed[bwin-1],&normed[bwin]).sqrt()}else{0.0};
-        let avg: f64 = (1..normed.len()).map(|i|dsq(&normed[i-1],&normed[i]).sqrt()).sum::<f64>()
-            /(normed.len()-1).max(1) as f64;
-        eprintln!("  BOUNDARY CHARACTERIZATION (20 s before vs after second {}):", bsec);
-        eprintln!("    Feature distance: {:.3} (mean={:.3}, {:.1}x)", fd, avg, fd/avg.max(0.001));
-        eprintln!("    Alpha power:      {:.6} -> {:.6} ({:.0}% drop)", ab, aa, (1.0-aa/ab.max(1e-12))*100.0);
-        eprintln!("    Gamma power:      {:.6} -> {:.6} ({:.1}x increase)", gb, ga, ga/gb.max(1e-12));
+        let bs = (bsec - 20) * SR;
+        let be = bsec * SR;
+        let a_s = bsec * SR;
+        let ae = (bsec + 20).min(DUR) * SR;
+        let (ab, _, gb) = band_powers(&eeg[bs..be]);
+        let (aa, _, ga) = band_powers(&eeg[a_s..ae]);
+        let (_, cib, cxb) = corr_stats(&eeg[bs..be]);
+        let (_, cia, cxa) = corr_stats(&eeg[a_s..ae]);
+        let fd = if bwin > 0 && bwin < NWIN {
+            dsq(&normed[bwin - 1], &normed[bwin]).sqrt()
+        } else {
+            0.0
+        };
+        let avg: f64 = (1..normed.len())
+            .map(|i| dsq(&normed[i - 1], &normed[i]).sqrt())
+            .sum::<f64>()
+            / (normed.len() - 1).max(1) as f64;
+        eprintln!(
+            "  BOUNDARY CHARACTERIZATION (20 s before vs after second {}):",
+            bsec
+        );
+        eprintln!(
+            "    Feature distance: {:.3} (mean={:.3}, {:.1}x)",
+            fd,
+            avg,
+            fd / avg.max(0.001)
+        );
+        eprintln!(
+            "    Alpha power:      {:.6} -> {:.6} ({:.0}% drop)",
+            ab,
+            aa,
+            (1.0 - aa / ab.max(1e-12)) * 100.0
+        );
+        eprintln!(
+            "    Gamma power:      {:.6} -> {:.6} ({:.1}x increase)",
+            gb,
+            ga,
+            ga / gb.max(1e-12)
+        );
         eprintln!("    Intra-region |r|: {:.4} -> {:.4}", cib, cia);
         eprintln!("    Cross-region |r|: {:.4} -> {:.4}", cxb, cxa);
-        eprintln!("    RMS amplitude:    {:.3} -> {:.3} (no change)\n", rms(&eeg[bs..be]), rms(&eeg[a_s..ae]));
+        eprintln!(
+            "    RMS amplitude:    {:.3} -> {:.3} (no change)\n",
+            rms(&eeg[bs..be]),
+            rms(&eeg[a_s..ae])
+        );
     }
     eprintln!("  INTERPRETATION:");
-    eprintln!("    Graph boundary detected pre-ictal hypersynchronization {} s before", warn);
+    eprintln!(
+        "    Graph boundary detected pre-ictal hypersynchronization {} s before",
+        warn
+    );
     eprintln!("    seizure onset while amplitude was unchanged. Conventional amplitude");
-    eprintln!("    detection fired {} s AFTER onset. Net advantage: {} s.", amp_sec.saturating_sub(P2), amp_sec.saturating_sub(bsec));
+    eprintln!(
+        "    detection fired {} s AFTER onset. Net advantage: {} s.",
+        amp_sec.saturating_sub(P2),
+        amp_sec.saturating_sub(bsec)
+    );
     eprintln!("====================================================================");
 }

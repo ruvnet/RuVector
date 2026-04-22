@@ -1,8 +1,8 @@
 //! Integration tests for the `write_file` tool.
 
 use rvagent_tools::{
-    Backend, BackendRef, ExecuteResponse, FileInfo, GrepMatch,
-    WriteFileTool, Tool, ToolResult, ToolRuntime, WriteResult,
+    Backend, BackendRef, ExecuteResponse, FileInfo, GrepMatch, Tool, ToolResult, ToolRuntime,
+    WriteFileTool, WriteResult,
 };
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -42,7 +42,10 @@ impl Backend for WriteMockBackend {
         // Reject directory traversal attempts
         if path.contains("..") {
             return WriteResult {
-                error: Some(format!("Error: invalid path (directory traversal): {}", path)),
+                error: Some(format!(
+                    "Error: invalid path (directory traversal): {}",
+                    path
+                )),
                 ..Default::default()
             };
         }
@@ -220,10 +223,7 @@ fn test_write_file_missing_file_path() {
     let backend = Arc::new(WriteMockBackend::empty());
     let runtime = ToolRuntime::new(backend as BackendRef);
 
-    let result = WriteFileTool.invoke(
-        serde_json::json!({"content": "hello"}),
-        &runtime,
-    );
+    let result = WriteFileTool.invoke(serde_json::json!({"content": "hello"}), &runtime);
 
     match result {
         ToolResult::Text(s) => {
@@ -242,10 +242,7 @@ fn test_write_file_missing_content() {
     let backend = Arc::new(WriteMockBackend::empty());
     let runtime = ToolRuntime::new(backend as BackendRef);
 
-    let result = WriteFileTool.invoke(
-        serde_json::json!({"file_path": "/tmp/test.txt"}),
-        &runtime,
-    );
+    let result = WriteFileTool.invoke(serde_json::json!({"file_path": "/tmp/test.txt"}), &runtime);
 
     match result {
         ToolResult::Text(s) => {

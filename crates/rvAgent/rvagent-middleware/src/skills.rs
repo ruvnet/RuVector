@@ -271,11 +271,7 @@ impl Middleware for SkillsMiddleware {
         Some(update)
     }
 
-    fn wrap_model_call(
-        &self,
-        request: ModelRequest,
-        handler: &dyn ModelHandler,
-    ) -> ModelResponse {
+    fn wrap_model_call(&self, request: ModelRequest, handler: &dyn ModelHandler) -> ModelResponse {
         let skills: Vec<SkillMetadata> = request
             .extensions
             .get("skills_metadata")

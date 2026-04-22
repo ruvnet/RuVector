@@ -7,7 +7,7 @@
 //! - Handoff to kernel main
 
 use crate::mmu::Mmu;
-use crate::registers::{set_vbar_el1, sctlr_el1_read, sctlr_el1_write};
+use crate::registers::{sctlr_el1_read, sctlr_el1_write, set_vbar_el1};
 use crate::VECTOR_ALIGNMENT;
 
 /// BSS start symbol (defined in linker script)

@@ -63,6 +63,9 @@ mod tests {
         assert_eq!(format_bytes(1536), "1.50 KiB");
         assert_eq!(format_bytes(1024 * 1024), "1.00 MiB");
         assert_eq!(format_bytes(1024 * 1024 * 1024), "1.00 GiB");
-        assert_eq!(format_bytes(1024 * 1024 * 1024 + 512 * 1024 * 1024), "1.50 GiB");
+        assert_eq!(
+            format_bytes(1024 * 1024 * 1024 + 512 * 1024 * 1024),
+            "1.50 GiB"
+        );
     }
 }

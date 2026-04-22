@@ -203,12 +203,7 @@ impl MatryoshkaIndex {
     /// # Errors
     ///
     /// Returns an error if `dim` exceeds the query length or `full_dim`.
-    pub fn search(
-        &self,
-        query: &[f32],
-        dim: usize,
-        top_k: usize,
-    ) -> Result<Vec<SearchResult>> {
+    pub fn search(&self, query: &[f32], dim: usize, top_k: usize) -> Result<Vec<SearchResult>> {
         if dim == 0 {
             return Err(RuvectorError::InvalidParameter(
                 "Search dimension must be > 0".into(),
@@ -237,7 +232,13 @@ impl MatryoshkaIndex {
             .map(|(idx, entry)| {
                 let doc_prefix = &entry.embedding[..dim];
                 let doc_norm = compute_norm(doc_prefix);
-                let sim = similarity(query_prefix, query_norm, doc_prefix, doc_norm, self.config.metric);
+                let sim = similarity(
+                    query_prefix,
+                    query_norm,
+                    doc_prefix,
+                    doc_norm,
+                    self.config.metric,
+                );
                 (idx, sim)
             })
             .collect();
@@ -466,7 +467,9 @@ mod tests {
     }
 
     fn make_index(full_dim: usize) -> MatryoshkaIndex {
-        let dims: Vec<usize> = (1..=full_dim).filter(|d| d.is_power_of_two() || *d == full_dim).collect();
+        let dims: Vec<usize> = (1..=full_dim)
+            .filter(|d| d.is_power_of_two() || *d == full_dim)
+            .collect();
         MatryoshkaIndex::new(make_config(full_dim, dims)).unwrap()
     }
 
@@ -474,7 +477,9 @@ mod tests {
     fn test_insert_and_len() {
         let mut index = make_index(4);
         assert!(index.is_empty());
-        index.insert("v1".into(), vec![1.0, 0.0, 0.0, 0.0], None).unwrap();
+        index
+            .insert("v1".into(), vec![1.0, 0.0, 0.0, 0.0], None)
+            .unwrap();
         assert_eq!(index.len(), 1);
     }
 
@@ -488,8 +493,12 @@ mod tests {
     #[test]
     fn test_search_at_full_dim() {
         let mut index = make_index(4);
-        index.insert("v1".into(), vec![1.0, 0.0, 0.0, 0.0], None).unwrap();
-        index.insert("v2".into(), vec![0.0, 1.0, 0.0, 0.0], None).unwrap();
+        index
+            .insert("v1".into(), vec![1.0, 0.0, 0.0, 0.0], None)
+            .unwrap();
+        index
+            .insert("v2".into(), vec![0.0, 1.0, 0.0, 0.0], None)
+            .unwrap();
 
         let results = index.search(&[1.0, 0.0, 0.0, 0.0], 4, 10).unwrap();
         assert_eq!(results[0].id, "v1");
@@ -502,8 +511,12 @@ mod tests {
     fn test_search_at_truncated_dim() {
         let mut index = make_index(4);
         // Vectors differ only in the last two components
-        index.insert("v1".into(), vec![1.0, 0.0, 1.0, 0.0], None).unwrap();
-        index.insert("v2".into(), vec![1.0, 0.0, 0.0, 1.0], None).unwrap();
+        index
+            .insert("v1".into(), vec![1.0, 0.0, 1.0, 0.0], None)
+            .unwrap();
+        index
+            .insert("v2".into(), vec![1.0, 0.0, 0.0, 1.0], None)
+            .unwrap();
 
         // At dim=2, both truncate to [1.0, 0.0] — identical scores
         let results = index.search(&[1.0, 0.0, 0.5, 0.5], 2, 10).unwrap();
@@ -520,13 +533,25 @@ mod tests {
         let mut index = make_index(8);
         // Insert vectors that share the same first 2 dims but differ later
         index
-            .insert("best".into(), vec![1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0], None)
+            .insert(
+                "best".into(),
+                vec![1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                None,
+            )
             .unwrap();
         index
-            .insert("good".into(), vec![1.0, 0.0, 0.5, 0.5, 0.0, 0.0, 0.0, 0.0], None)
+            .insert(
+                "good".into(),
+                vec![1.0, 0.0, 0.5, 0.5, 0.0, 0.0, 0.0, 0.0],
+                None,
+            )
             .unwrap();
         index
-            .insert("bad".into(), vec![0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], None)
+            .insert(
+                "bad".into(),
+                vec![0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                None,
+            )
             .unwrap();
 
         let query = vec![1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0];
@@ -568,13 +593,25 @@ mod tests {
     fn test_cascade_search() {
         let mut index = make_index(8);
         index
-            .insert("a".into(), vec![1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0], None)
+            .insert(
+                "a".into(),
+                vec![1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                None,
+            )
             .unwrap();
         index
-            .insert("b".into(), vec![1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], None)
+            .insert(
+                "b".into(),
+                vec![1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+                None,
+            )
             .unwrap();
         index
-            .insert("c".into(), vec![0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], None)
+            .insert(
+                "c".into(),
+                vec![0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                None,
+            )
             .unwrap();
 
         let query = vec![1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0];
@@ -599,8 +636,12 @@ mod tests {
     #[test]
     fn test_upsert_overwrites() {
         let mut index = make_index(4);
-        index.insert("v1".into(), vec![1.0, 0.0, 0.0, 0.0], None).unwrap();
-        index.insert("v1".into(), vec![0.0, 1.0, 0.0, 0.0], None).unwrap();
+        index
+            .insert("v1".into(), vec![1.0, 0.0, 0.0, 0.0], None)
+            .unwrap();
+        index
+            .insert("v1".into(), vec![0.0, 1.0, 0.0, 0.0], None)
+            .unwrap();
         assert_eq!(index.len(), 1);
         let results = index.search(&[0.0, 1.0, 0.0, 0.0], 4, 10).unwrap();
         assert_eq!(results[0].id, "v1");
@@ -635,7 +676,9 @@ mod tests {
             metric: DistanceMetric::DotProduct,
         };
         let mut index = MatryoshkaIndex::new(config).unwrap();
-        index.insert("v1".into(), vec![2.0, 0.0, 0.0, 0.0], None).unwrap();
+        index
+            .insert("v1".into(), vec![2.0, 0.0, 0.0, 0.0], None)
+            .unwrap();
         let results = index.search(&[3.0, 0.0, 0.0, 0.0], 4, 10).unwrap();
         assert!((results[0].score - 6.0).abs() < 1e-5);
     }

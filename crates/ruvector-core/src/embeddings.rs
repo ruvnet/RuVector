@@ -430,16 +430,19 @@ pub mod onnx {
             let repo = api.model(model_id.to_string());
 
             // Download model files
-            let model_path = repo.get("model.onnx").or_else(|_| {
-                // Try alternative path for some models
-                repo.get("onnx/model.onnx")
-            }).map_err(|e| {
-                RuvectorError::ModelLoadError(format!(
-                    "Failed to download ONNX model from {}: {}. \
+            let model_path = repo
+                .get("model.onnx")
+                .or_else(|_| {
+                    // Try alternative path for some models
+                    repo.get("onnx/model.onnx")
+                })
+                .map_err(|e| {
+                    RuvectorError::ModelLoadError(format!(
+                        "Failed to download ONNX model from {}: {}. \
                      Make sure the model has an ONNX export available.",
-                    model_id, e
-                ))
-            })?;
+                        model_id, e
+                    ))
+                })?;
 
             let tokenizer_path = repo.get("tokenizer.json").map_err(|e| {
                 RuvectorError::ModelLoadError(format!(
@@ -468,7 +471,10 @@ pub mod onnx {
             // Load the ONNX session
             let session = Session::builder()
                 .map_err(|e| {
-                    RuvectorError::ModelLoadError(format!("Failed to create session builder: {}", e))
+                    RuvectorError::ModelLoadError(format!(
+                        "Failed to create session builder: {}",
+                        e
+                    ))
                 })?
                 .with_intra_threads(4)
                 .map_err(|e| {
@@ -583,11 +589,9 @@ pub mod onnx {
             // Tokenize
             let encoding = {
                 let tokenizer = self.tokenizer.read();
-                tokenizer
-                    .encode(text, true)
-                    .map_err(|e| {
-                        RuvectorError::ModelInferenceError(format!("Tokenization failed: {}", e))
-                    })?
+                tokenizer.encode(text, true).map_err(|e| {
+                    RuvectorError::ModelInferenceError(format!("Tokenization failed: {}", e))
+                })?
             };
 
             // Prepare inputs
@@ -597,39 +601,41 @@ pub mod onnx {
                 .iter()
                 .map(|&x| x as i64)
                 .collect();
-            let token_type_ids: Vec<i64> = encoding
-                .get_type_ids()
-                .iter()
-                .map(|&x| x as i64)
-                .collect();
+            let token_type_ids: Vec<i64> =
+                encoding.get_type_ids().iter().map(|&x| x as i64).collect();
 
             let seq_len = input_ids.len();
 
             // Create ONNX tensors using ort 2.0 API (batch_size=1)
             // Tensor::from_array takes (shape, owned_data)
-            let input_ids_tensor = Tensor::<i64>::from_array(([1, seq_len], input_ids.clone().into_boxed_slice()))
-                .map_err(|e| {
-                    RuvectorError::ModelInferenceError(format!(
-                        "Failed to create input_ids tensor: {}",
-                        e
-                    ))
-                })?;
+            let input_ids_tensor =
+                Tensor::<i64>::from_array(([1, seq_len], input_ids.clone().into_boxed_slice()))
+                    .map_err(|e| {
+                        RuvectorError::ModelInferenceError(format!(
+                            "Failed to create input_ids tensor: {}",
+                            e
+                        ))
+                    })?;
 
-            let attention_mask_tensor =
-                Tensor::<i64>::from_array(([1, seq_len], attention_mask.clone().into_boxed_slice())).map_err(|e| {
-                    RuvectorError::ModelInferenceError(format!(
-                        "Failed to create attention_mask tensor: {}",
-                        e
-                    ))
-                })?;
+            let attention_mask_tensor = Tensor::<i64>::from_array((
+                [1, seq_len],
+                attention_mask.clone().into_boxed_slice(),
+            ))
+            .map_err(|e| {
+                RuvectorError::ModelInferenceError(format!(
+                    "Failed to create attention_mask tensor: {}",
+                    e
+                ))
+            })?;
 
             let token_type_ids_tensor =
-                Tensor::<i64>::from_array(([1, seq_len], token_type_ids.into_boxed_slice())).map_err(|e| {
-                    RuvectorError::ModelInferenceError(format!(
-                        "Failed to create token_type_ids tensor: {}",
-                        e
-                    ))
-                })?;
+                Tensor::<i64>::from_array(([1, seq_len], token_type_ids.into_boxed_slice()))
+                    .map_err(|e| {
+                        RuvectorError::ModelInferenceError(format!(
+                            "Failed to create token_type_ids tensor: {}",
+                            e
+                        ))
+                    })?;
 
             // Run inference and extract output (needs mutable access to session)
             // We must extract all data while holding the lock since SessionOutputs has a lifetime
@@ -651,7 +657,10 @@ pub mod onnx {
 
                 // Extract as ndarray view
                 let output_array = output_value.try_extract_array::<f32>().map_err(|e| {
-                    RuvectorError::ModelInferenceError(format!("Failed to extract output tensor: {}", e))
+                    RuvectorError::ModelInferenceError(format!(
+                        "Failed to extract output tensor: {}",
+                        e
+                    ))
                 })?;
 
                 let output_shape_vec: Vec<usize> = output_array.shape().to_vec();

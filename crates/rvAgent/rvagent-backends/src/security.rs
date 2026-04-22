@@ -94,9 +94,7 @@ pub fn sanitize_env(env: &HashMap<String, String>) -> HashMap<String, String> {
                 return true;
             }
             let upper = k.to_uppercase();
-            !SENSITIVE_ENV_PATTERNS
-                .iter()
-                .any(|p| upper.contains(p))
+            !SENSITIVE_ENV_PATTERNS.iter().any(|p| upper.contains(p))
         })
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect()
@@ -322,10 +320,7 @@ pub fn strip_control_chars(text: &str) -> String {
 /// - Enforces maximum length (truncates if needed)
 /// - Strips control characters
 /// - Returns the sanitized result
-pub fn sanitize_subagent_result(
-    result: &str,
-    max_length: usize,
-) -> Result<String, SecurityError> {
+pub fn sanitize_subagent_result(result: &str, max_length: usize) -> Result<String, SecurityError> {
     let stripped = strip_control_chars(result);
 
     if stripped.len() > max_length {

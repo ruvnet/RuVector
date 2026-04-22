@@ -162,11 +162,7 @@ impl McpClient {
         // Clone transport to avoid borrow conflict with &self and &mut self.
         let transport = self.config.transport.clone();
         match &transport {
-            McpTransport::Stdio {
-                command,
-                args,
-                env,
-            } => {
+            McpTransport::Stdio { command, args, env } => {
                 self.connect_stdio(command, args, env).await?;
             }
             McpTransport::Sse { url, auth } => {
@@ -207,9 +203,10 @@ impl McpClient {
         let stdin = self.stdin.as_mut().context(
             "MCP server not connected via stdio — call_tool requires an active subprocess",
         )?;
-        let stdout = self.stdout.as_mut().context(
-            "MCP server stdout not available",
-        )?;
+        let stdout = self
+            .stdout
+            .as_mut()
+            .context("MCP server stdout not available")?;
 
         let id = self.next_id;
         self.next_id += 1;
@@ -224,8 +221,8 @@ impl McpClient {
             }
         });
 
-        let mut request_line = serde_json::to_string(&request)
-            .context("failed to serialize tools/call request")?;
+        let mut request_line =
+            serde_json::to_string(&request).context("failed to serialize tools/call request")?;
         request_line.push('\n');
 
         stdin
@@ -528,10 +525,7 @@ impl McpRegistry {
 
     /// Get all discovered tools across all connected servers.
     pub fn all_tools(&self) -> Vec<&McpToolDef> {
-        self.clients
-            .iter()
-            .flat_map(|c| c.tools())
-            .collect()
+        self.clients.iter().flat_map(|c| c.tools()).collect()
     }
 
     /// Find which client owns a given tool name (immutable).
@@ -550,7 +544,11 @@ impl McpRegistry {
     }
 
     /// Call a tool by name, routing to the appropriate MCP server.
-    pub async fn call_tool(&mut self, name: &str, arguments: serde_json::Value) -> Result<McpToolResult> {
+    pub async fn call_tool(
+        &mut self,
+        name: &str,
+        arguments: serde_json::Value,
+    ) -> Result<McpToolResult> {
         let idx = self
             .find_tool_client_index(name)
             .with_context(|| format!("no MCP server provides tool '{}'", name))?;

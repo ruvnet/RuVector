@@ -73,7 +73,10 @@ pub struct PhiSpectralBound {
 /// Uses spectral gap as a fast proxy. If the gap is above threshold,
 /// the system is strongly connected and Φ is likely high.
 /// If below, the system has a near-partition and Φ may be low.
-pub fn is_highly_integrated(tpm: &TransitionMatrix, threshold: f64) -> Result<bool, ConsciousnessError> {
+pub fn is_highly_integrated(
+    tpm: &TransitionMatrix,
+    threshold: f64,
+) -> Result<bool, ConsciousnessError> {
     let bound = spectral_phi_bound(tpm)?;
     Ok(bound.spectral_gap > threshold)
 }
@@ -103,7 +106,11 @@ mod tests {
         let tpm = uniform_tpm();
         let bound = spectral_phi_bound(&tpm).unwrap();
         // Uniform TPM: all MI is zero → Fiedler = 0.
-        assert!(bound.fiedler_value < 0.1, "uniform should have low fiedler, got {}", bound.fiedler_value);
+        assert!(
+            bound.fiedler_value < 0.1,
+            "uniform should have low fiedler, got {}",
+            bound.fiedler_value
+        );
     }
 
     #[test]

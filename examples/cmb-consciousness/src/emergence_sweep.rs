@@ -46,20 +46,19 @@ pub fn run_emergence_sweep(ps: &PowerSpectrum) -> EmergenceSweepResults {
 
     println!("  Sweeping bin counts: {:?}", BIN_COUNTS);
     println!();
-    println!("  {:>5} {:>8} {:>8} {:>8} {:>8} {:>8} {:>10}",
-        "Bins", "EI", "Determ", "Degen", "EffRank", "SpectH", "EmergIdx");
+    println!(
+        "  {:>5} {:>8} {:>8} {:>8} {:>8} {:>8} {:>10}",
+        "Bins", "EI", "Determ", "Degen", "EffRank", "SpectH", "EmergIdx"
+    );
     println!("  {}", "-".repeat(65));
 
     for &n_bins in &BIN_COUNTS {
         let tpm = power_spectrum_to_tpm(ps, n_bins, alpha);
-        let ctpm = ruvector_consciousness::types::TransitionMatrix::new(
-            tpm.size, tpm.data.clone(),
-        );
+        let ctpm = ruvector_consciousness::types::TransitionMatrix::new(tpm.size, tpm.data.clone());
 
         // Causal emergence
         let emergence_engine = CausalEmergenceEngine::new(n_bins.min(16));
-        let (ei, determinism, degeneracy) = match emergence_engine
-            .compute_emergence(&ctpm, &budget)
+        let (ei, determinism, degeneracy) = match emergence_engine.compute_emergence(&ctpm, &budget)
         {
             Ok(result) => (result.ei_micro, result.determinism, result.degeneracy),
             Err(_) => (0.0, 0.0, 0.0),
@@ -77,9 +76,10 @@ pub fn run_emergence_sweep(ps: &PowerSpectrum) -> EmergenceSweepResults {
                 Err(_) => (0, 0.0, 0.0),
             };
 
-        println!("  {:>5} {:>8.4} {:>8.4} {:>8.4} {:>8} {:>8.4} {:>10.4}",
-            n_bins, ei, determinism, degeneracy,
-            effective_rank, spectral_entropy, emergence_index);
+        println!(
+            "  {:>5} {:>8.4} {:>8.4} {:>8.4} {:>8} {:>8.4} {:>10.4}",
+            n_bins, ei, determinism, degeneracy, effective_rank, spectral_entropy, emergence_index
+        );
 
         sweeps.push(SweepPoint {
             n_bins,
@@ -124,29 +124,44 @@ pub fn run_emergence_sweep(ps: &PowerSpectrum) -> EmergenceSweepResults {
     println!();
 
     if peak_ei_bins <= 12 {
-        println!("  Peak EI at {} bins suggests the CMB causal structure is", peak_ei_bins);
+        println!(
+            "  Peak EI at {} bins suggests the CMB causal structure is",
+            peak_ei_bins
+        );
         println!("  best captured at coarse resolution -- the broad acoustic peak");
         println!("  pattern (Sachs-Wolfe plateau, 3 acoustic peaks, damping tail)");
         println!("  contains most of the deterministic physics.");
     } else if peak_ei_bins <= 32 {
-        println!("  Peak EI at {} bins suggests intermediate resolution best", peak_ei_bins);
+        println!(
+            "  Peak EI at {} bins suggests intermediate resolution best",
+            peak_ei_bins
+        );
         println!("  captures the CMB causal structure -- fine enough to resolve");
         println!("  individual acoustic peaks but not so fine that noise dominates.");
     } else {
-        println!("  Peak EI at {} bins suggests fine-grained resolution captures", peak_ei_bins);
+        println!(
+            "  Peak EI at {} bins suggests fine-grained resolution captures",
+            peak_ei_bins
+        );
         println!("  additional causal structure, possibly from higher-order acoustic");
         println!("  oscillations or the Silk damping cutoff.");
     }
 
     println!();
     if peak_emergence_bins != peak_ei_bins {
-        println!("  The emergence index peaks at {} bins, different from the", peak_emergence_bins);
+        println!(
+            "  The emergence index peaks at {} bins, different from the",
+            peak_emergence_bins
+        );
         println!("  EI peak. This indicates that the SVD spectrum (dynamical");
         println!("  reversibility) reveals different structure than the causal");
         println!("  information measure.");
     } else {
         println!("  Both EI and emergence index peak at the same resolution,");
-        println!("  confirming {} bins as the natural scale of CMB physics.", peak_ei_bins);
+        println!(
+            "  confirming {} bins as the natural scale of CMB physics.",
+            peak_ei_bins
+        );
     }
 
     EmergenceSweepResults {
@@ -176,8 +191,14 @@ mod tests {
         let results = run_emergence_sweep(&ps);
         for point in &results.sweeps {
             assert!(point.ei >= 0.0, "EI should be non-negative");
-            assert!(point.determinism >= 0.0, "Determinism should be non-negative");
-            assert!(point.emergence_index >= 0.0, "Emergence index should be non-negative");
+            assert!(
+                point.determinism >= 0.0,
+                "Determinism should be non-negative"
+            );
+            assert!(
+                point.emergence_index >= 0.0,
+                "Emergence index should be non-negative"
+            );
             assert!(point.n_bins >= 4, "Bin count should be at least 4");
         }
     }

@@ -39,10 +39,7 @@ impl Tool for GlobTool {
             Some(p) => p,
             None => return ToolResult::Text("Error: pattern is required".to_string()),
         };
-        let path = args
-            .get("path")
-            .and_then(|v| v.as_str())
-            .unwrap_or(".");
+        let path = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
 
         match runtime.backend.glob_info(pattern, path) {
             Ok(matches) => {
@@ -80,10 +77,7 @@ mod tests {
     #[test]
     fn test_glob_invoke_success() {
         let runtime = mock_runtime();
-        let result = GlobTool.invoke(
-            serde_json::json!({"pattern": "*.txt"}),
-            &runtime,
-        );
+        let result = GlobTool.invoke(serde_json::json!({"pattern": "*.txt"}), &runtime);
         match result {
             ToolResult::Text(s) => {
                 assert!(s.contains("test.txt") || s.contains("multi.txt"));
@@ -96,10 +90,7 @@ mod tests {
     #[test]
     fn test_glob_no_matches() {
         let runtime = mock_runtime();
-        let result = GlobTool.invoke(
-            serde_json::json!({"pattern": "*.xyz_no_match"}),
-            &runtime,
-        );
+        let result = GlobTool.invoke(serde_json::json!({"pattern": "*.xyz_no_match"}), &runtime);
         match result {
             ToolResult::Text(s) => assert!(s.contains("No files matching")),
             _ => panic!("expected no matches text"),

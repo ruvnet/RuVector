@@ -76,9 +76,7 @@ fn test_env_sanitization_strips_secrets() {
         .into_iter()
         .filter(|(key, _)| {
             let upper = key.to_uppercase();
-            !SENSITIVE_ENV_PATTERNS
-                .iter()
-                .any(|pat| upper.contains(pat))
+            !SENSITIVE_ENV_PATTERNS.iter().any(|pat| upper.contains(pat))
         })
         .collect();
 
@@ -111,9 +109,7 @@ fn test_env_sanitization_preserves_safe_vars() {
         .into_iter()
         .filter(|(key, _)| {
             let upper = key.to_uppercase();
-            !SENSITIVE_ENV_PATTERNS
-                .iter()
-                .any(|pat| upper.contains(pat))
+            !SENSITIVE_ENV_PATTERNS.iter().any(|pat| upper.contains(pat))
         })
         .collect();
 
@@ -128,11 +124,7 @@ fn test_env_sanitization_preserves_safe_vars() {
 /// Command allowlist should block commands not in the list (ADR-103 C2).
 #[test]
 fn test_command_allowlist_blocks() {
-    let allowlist: Vec<String> = vec![
-        "echo".to_string(),
-        "cat".to_string(),
-        "ls".to_string(),
-    ];
+    let allowlist: Vec<String> = vec!["echo".to_string(), "cat".to_string(), "ls".to_string()];
 
     let dangerous_commands = [
         "rm -rf /",

@@ -73,7 +73,11 @@ fn extract(dir: &Path) -> Vec<(String, Discovery)> {
         if path.extension().and_then(|e| e.to_str()) != Some("json") {
             continue;
         }
-        let fname = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+        let fname = path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
         let raw = match fs::read_to_string(&path) {
             Ok(r) => r,
             Err(_) => continue,
@@ -111,35 +115,63 @@ fn extract(dir: &Path) -> Vec<(String, Discovery)> {
 
 fn infer_domain(filename: &str) -> String {
     let f = filename.to_lowercase();
-    if f.contains("exoplanet") || f.contains("apod") || f.contains("mars")
-        || f.contains("gw") || f.contains("neo") || f.contains("solar")
-        || f.contains("cme") || f.contains("flare") || f.contains("geostorm")
-        || f.contains("ips") || f.contains("sep") || f.contains("asteroid")
-        || f.contains("spacex") || f.contains("iss")
+    if f.contains("exoplanet")
+        || f.contains("apod")
+        || f.contains("mars")
+        || f.contains("gw")
+        || f.contains("neo")
+        || f.contains("solar")
+        || f.contains("cme")
+        || f.contains("flare")
+        || f.contains("geostorm")
+        || f.contains("ips")
+        || f.contains("sep")
+        || f.contains("asteroid")
+        || f.contains("spacex")
+        || f.contains("iss")
     {
         "space".into()
-    } else if f.contains("earthquake") || f.contains("climate") || f.contains("river")
-        || f.contains("ocean") || f.contains("natural_event") || f.contains("fire")
-        || f.contains("volcano") || f.contains("marine") || f.contains("epa")
+    } else if f.contains("earthquake")
+        || f.contains("climate")
+        || f.contains("river")
+        || f.contains("ocean")
+        || f.contains("natural_event")
+        || f.contains("fire")
+        || f.contains("volcano")
+        || f.contains("marine")
+        || f.contains("epa")
     {
         "earth".into()
-    } else if f.contains("genom") || f.contains("protein") || f.contains("medical")
-        || f.contains("disease") || f.contains("genetic") || f.contains("endangered")
+    } else if f.contains("genom")
+        || f.contains("protein")
+        || f.contains("medical")
+        || f.contains("disease")
+        || f.contains("genetic")
+        || f.contains("endangered")
     {
         "life-science".into()
     } else if f.contains("economic") || f.contains("market") {
         "economics".into()
-    } else if f.contains("arxiv") || f.contains("crossref") || f.contains("physics")
-        || f.contains("material") || f.contains("academic") || f.contains("book")
+    } else if f.contains("arxiv")
+        || f.contains("crossref")
+        || f.contains("physics")
+        || f.contains("material")
+        || f.contains("academic")
+        || f.contains("book")
         || f.contains("nobel")
     {
         "research".into()
-    } else if f.contains("github") || f.contains("hacker") || f.contains("tech")
+    } else if f.contains("github")
+        || f.contains("hacker")
+        || f.contains("tech")
         || f.contains("airquality")
     {
         "technology".into()
-    } else if f.contains("art") || f.contains("library") || f.contains("smithsonian")
-        || f.contains("wiki") || f.contains("biodiversity")
+    } else if f.contains("art")
+        || f.contains("library")
+        || f.contains("smithsonian")
+        || f.contains("wiki")
+        || f.contains("biodiversity")
     {
         "culture".into()
     } else {
@@ -173,12 +205,30 @@ fn embed(d: &Discovery) -> Vec<f32> {
     // Keyword activations (dims 8-31)
     let text = format!("{} {}", d.title, d.content).to_lowercase();
     let keywords: &[(&str, usize)] = &[
-        ("solar", 8), ("flare", 9), ("cme", 10), ("earthquake", 11),
-        ("gene", 12), ("protein", 13), ("cancer", 14), ("gdp", 15),
-        ("asteroid", 16), ("hazardous", 17), ("volcano", 18), ("wildfire", 19),
-        ("bitcoin", 20), ("ai", 21), ("neural", 22), ("climate", 23),
-        ("disease", 24), ("endangered", 25), ("ocean", 26), ("mars", 27),
-        ("gravitational", 28), ("exoplanet", 29), ("mutation", 30), ("inflation", 31),
+        ("solar", 8),
+        ("flare", 9),
+        ("cme", 10),
+        ("earthquake", 11),
+        ("gene", 12),
+        ("protein", 13),
+        ("cancer", 14),
+        ("gdp", 15),
+        ("asteroid", 16),
+        ("hazardous", 17),
+        ("volcano", 18),
+        ("wildfire", 19),
+        ("bitcoin", 20),
+        ("ai", 21),
+        ("neural", 22),
+        ("climate", 23),
+        ("disease", 24),
+        ("endangered", 25),
+        ("ocean", 26),
+        ("mars", 27),
+        ("gravitational", 28),
+        ("exoplanet", 29),
+        ("mutation", 30),
+        ("inflation", 31),
     ];
     for &(kw, dim) in keywords {
         if text.contains(kw) {
@@ -204,7 +254,11 @@ fn embed(d: &Discovery) -> Vec<f32> {
     vec[56] = d.confidence as f32;
     vec[57] = if d.confidence > 0.9 { 1.0 } else { 0.0 };
     // Timestamp recency (higher = more recent)
-    vec[58] = if d.timestamp.contains("2026-03") { 1.0 } else { 0.5 };
+    vec[58] = if d.timestamp.contains("2026-03") {
+        1.0
+    } else {
+        0.5
+    };
     // Source diversity signal
     vec[59] = match d.source_api.as_str() {
         "nasa_donki" | "nasa_apod" | "nasa_neows" => 0.9,
@@ -227,10 +281,7 @@ fn embed(d: &Discovery) -> Vec<f32> {
 /// Build a k-nearest-neighbor similarity graph as CSR matrix.
 /// Each node connects only to its top-k most similar neighbors,
 /// creating the sparse graph structure that ForwardPush needs.
-fn build_knn_graph(
-    vectors: &[(String, Vec<f32>)],
-    k: usize,
-) -> (CsrMatrix<f64>, Vec<String>) {
+fn build_knn_graph(vectors: &[(String, Vec<f32>)], k: usize) -> (CsrMatrix<f64>, Vec<String>) {
     let n = vectors.len();
     let ids: Vec<String> = vectors.iter().map(|(id, _)| id.clone()).collect();
     let mut entries: Vec<(usize, usize, f64)> = Vec::new();
@@ -239,7 +290,9 @@ fn build_knn_graph(
         // Compute similarity to all other nodes
         let mut sims: Vec<(usize, f64)> = Vec::new();
         for j in 0..n {
-            if i == j { continue; }
+            if i == j {
+                continue;
+            }
             let dist = cosine_distance(&vectors[i].1, &vectors[j].1);
             let sim = (1.0 - dist) as f64;
             sims.push((j, sim));
@@ -293,7 +346,9 @@ fn run_sublinear_pagerank(
             if let Some(target_disc) = discoveries.get(target_id) {
                 if target_disc.domain != source_disc.domain && *ppr_value > 0.005 {
                     let key = format!("{}→{}", source_disc.domain, target_id);
-                    if seen.contains(&key) { continue; }
+                    if seen.contains(&key) {
+                        continue;
+                    }
                     seen.insert(key);
                     correlations.push(RankedCorrelation {
                         source_domain: source_disc.domain.clone(),
@@ -369,7 +424,11 @@ fn load_results(
     let output_file = output_dir.join("pipeline_correlations.json");
     let json = serde_json::to_string_pretty(&correlations).unwrap_or_default();
     match fs::write(&output_file, &json) {
-        Ok(_) => println!("\n  Wrote {} correlations to {}", correlations.len(), output_file.display()),
+        Ok(_) => println!(
+            "\n  Wrote {} correlations to {}",
+            correlations.len(),
+            output_file.display()
+        ),
         Err(e) => eprintln!("\n  Could not write output: {}", e),
     }
 }
@@ -399,7 +458,11 @@ fn main() {
     for (_, d) in &raw {
         *domain_counts.entry(d.domain.clone()).or_insert(0) += 1;
     }
-    println!("  Loaded {} discoveries from {}", raw.len(), data_dir.display());
+    println!(
+        "  Loaded {} discoveries from {}",
+        raw.len(),
+        data_dir.display()
+    );
     let mut sorted: Vec<_> = domain_counts.iter().collect();
     sorted.sort_by(|a, b| b.1.cmp(a.1));
     for (domain, count) in &sorted {
@@ -419,7 +482,9 @@ fn main() {
 
     for (id, d) in &raw {
         let vec = embed(d);
-        index.add(id.clone(), vec.clone()).expect("index add failed");
+        index
+            .add(id.clone(), vec.clone())
+            .expect("index add failed");
         vectors.push((id.clone(), vec));
         discovery_map.insert(id.clone(), d.clone());
     }
@@ -446,7 +511,10 @@ fn main() {
     let mut domain_vecs: HashMap<String, Vec<Vec<f32>>> = HashMap::new();
     for (id, d) in &raw {
         if let Some((_, vec)) = vectors.iter().find(|(vid, _)| vid == id) {
-            domain_vecs.entry(d.domain.clone()).or_default().push(vec.clone());
+            domain_vecs
+                .entry(d.domain.clone())
+                .or_default()
+                .push(vec.clone());
         }
     }
 
@@ -472,8 +540,11 @@ fn main() {
     let total = t0.elapsed();
     println!("\n╔══════════════════════════════════════════════════════════╗");
     println!("║  Pipeline complete                                     ║");
-    println!("║  {} discoveries → {} correlations            ",
-        raw.len(), correlations.len());
+    println!(
+        "║  {} discoveries → {} correlations            ",
+        raw.len(),
+        correlations.len()
+    );
     println!("║  Total: {:?}                                  ", total);
     println!("║  Solver: ForwardPush PPR (sublinear O(1/ε))            ║");
     println!("╚══════════════════════════════════════════════════════════╝");
@@ -520,7 +591,11 @@ fn centroid(vecs: &[Vec<f32>]) -> Vec<f32> {
 }
 
 fn truncate(s: &str, max: usize) -> String {
-    if s.len() <= max { s.to_string() } else { format!("{}...", &s[..max.saturating_sub(3)]) }
+    if s.len() <= max {
+        s.to_string()
+    } else {
+        format!("{}...", &s[..max.saturating_sub(3)])
+    }
 }
 
 fn abbrev(domain: &str) -> String {
@@ -532,6 +607,12 @@ fn abbrev(domain: &str) -> String {
         "economics" => "econ".into(),
         "technology" => "tech".into(),
         "culture" => "culture".into(),
-        other => if other.len() > 8 { other[..8].to_string() } else { other.to_string() },
+        other => {
+            if other.len() > 8 {
+                other[..8].to_string()
+            } else {
+                other.to_string()
+            }
+        }
     }
 }

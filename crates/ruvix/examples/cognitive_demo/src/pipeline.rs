@@ -142,8 +142,8 @@ impl CognitivePipeline {
         .with_max_vectors(config.event_count)
         .with_mutation_frequency(2);
 
-        let attestor = Attestor::new(witness_log, CapHandle::null())
-            .with_max_attestations(config.event_count);
+        let attestor =
+            Attestor::new(witness_log, CapHandle::null()).with_max_attestations(config.event_count);
 
         let coordinator =
             Coordinator::new(CapHandle::null()).with_max_timer_waits(config::TIMER_WAITS as u64);
@@ -193,9 +193,10 @@ impl CognitivePipeline {
         self.state = PipelineState::Initializing;
 
         // Map regions
-        let model_weights = self
-            .kernel
-            .region_map(config::MODEL_WEIGHTS_SIZE, ruvix_types::RegionPolicy::Immutable)?;
+        let model_weights = self.kernel.region_map(
+            config::MODEL_WEIGHTS_SIZE,
+            ruvix_types::RegionPolicy::Immutable,
+        )?;
         let witness_log = self.kernel.region_map(
             config::WITNESS_LOG_MAX_SIZE,
             ruvix_types::RegionPolicy::AppendOnly {
@@ -251,7 +252,9 @@ impl CognitivePipeline {
         let mut processed = 0;
 
         // 1. Generate sensor events
-        let sensor_processed = self.sensor_adapter.process_batch(&mut self.kernel, batch_size)?;
+        let sensor_processed = self
+            .sensor_adapter
+            .process_batch(&mut self.kernel, batch_size)?;
 
         // 2. Transfer events from sensor to extractor (simulate queue_recv)
         for i in 0..sensor_processed {
@@ -267,25 +270,31 @@ impl CognitivePipeline {
         }
 
         // 3. Process in feature extractor
-        let extractor_processed =
-            self.feature_extractor
-                .process_batch(&mut self.kernel, batch_size)?;
+        let extractor_processed = self
+            .feature_extractor
+            .process_batch(&mut self.kernel, batch_size)?;
 
         // 4. Transfer embeddings to reasoning engine
         for i in 0..extractor_processed {
             let key = VectorKey::new(self.events_processed + i as u64);
-            self.reasoning_engine.queue_vector(key, self.events_processed + i as u64, 0.75);
+            self.reasoning_engine
+                .queue_vector(key, self.events_processed + i as u64, 0.75);
         }
 
         // 5. Process in reasoning engine
-        let (engine_processed, mutations) =
-            self.reasoning_engine.process_batch(&mut self.kernel, batch_size)?;
+        let (engine_processed, mutations) = self
+            .reasoning_engine
+            .process_batch(&mut self.kernel, batch_size)?;
 
         // 6. Queue attestations for all operations
         for i in 0..sensor_processed {
             let hash = [i as u8; 32];
-            self.attestor
-                .queue_attestation(hash, ProofTier::Reflex, 0, self.events_processed + i as u64);
+            self.attestor.queue_attestation(
+                hash,
+                ProofTier::Reflex,
+                0,
+                self.events_processed + i as u64,
+            );
         }
 
         // 7. Process attestations
@@ -296,7 +305,9 @@ impl CognitivePipeline {
             self.coordinator.wait_timer(&mut self.kernel)?;
         }
 
-        processed = sensor_processed.max(extractor_processed).max(engine_processed);
+        processed = sensor_processed
+            .max(extractor_processed)
+            .max(engine_processed);
         self.events_processed += processed as u64;
 
         // Check for completion

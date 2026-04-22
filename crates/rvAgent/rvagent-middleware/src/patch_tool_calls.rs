@@ -3,9 +3,7 @@
 
 use async_trait::async_trait;
 
-use crate::{
-    AgentState, AgentStateUpdate, Message, Middleware, Role, RunnableConfig, Runtime,
-};
+use crate::{AgentState, AgentStateUpdate, Message, Middleware, Role, RunnableConfig, Runtime};
 
 /// Maximum length for tool call IDs (ADR-103 C12).
 pub const MAX_TOOL_CALL_ID_LENGTH: usize = 128;
@@ -26,10 +24,7 @@ pub fn validate_tool_call_id(id: &str) -> Result<(), String> {
         if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
             continue;
         }
-        return Err(format!(
-            "tool call ID contains invalid character '{}'",
-            c
-        ));
+        return Err(format!("tool call ID contains invalid character '{}'", c));
     }
     Ok(())
 }
@@ -80,8 +75,7 @@ impl Middleware for PatchToolCallsMiddleware {
                     }
 
                     let has_response = state.messages[i + 1..].iter().any(|m| {
-                        m.role == Role::Tool
-                            && m.tool_call_id.as_deref() == Some(&*tc.id)
+                        m.role == Role::Tool && m.tool_call_id.as_deref() == Some(&*tc.id)
                     });
 
                     if !has_response {
@@ -157,10 +151,7 @@ mod tests {
     fn test_no_patch_needed() {
         let mw = PatchToolCallsMiddleware::new();
         let state = AgentState {
-            messages: vec![
-                Message::user("hi"),
-                Message::assistant("hello"),
-            ],
+            messages: vec![Message::user("hi"), Message::assistant("hello")],
             ..Default::default()
         };
         let runtime = Runtime::new();

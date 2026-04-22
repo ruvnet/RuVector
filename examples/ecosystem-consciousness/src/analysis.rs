@@ -6,12 +6,11 @@
 use ruvector_consciousness::emergence::CausalEmergenceEngine;
 use ruvector_consciousness::phi::auto_compute_phi;
 use ruvector_consciousness::rsvd_emergence::RsvdEmergenceEngine;
+use ruvector_consciousness::rsvd_emergence::RsvdEmergenceResult;
 use ruvector_consciousness::traits::EmergenceEngine;
 use ruvector_consciousness::types::{
-    ComputeBudget, EmergenceResult,
-    TransitionMatrix as ConsciousnessTPM,
+    ComputeBudget, EmergenceResult, TransitionMatrix as ConsciousnessTPM,
 };
-use ruvector_consciousness::rsvd_emergence::RsvdEmergenceResult;
 
 use crate::data::Ecosystem;
 
@@ -47,8 +46,7 @@ pub fn run_ecosystem_analysis(ecosystems: &[Ecosystem]) -> Vec<EcosystemResult> 
         let ctpm = to_consciousness_tpm(&eco.tpm, n);
 
         // 1. Full system Phi
-        let phi_result = auto_compute_phi(&ctpm, None, &budget)
-            .expect("Failed to compute Phi");
+        let phi_result = auto_compute_phi(&ctpm, None, &budget).expect("Failed to compute Phi");
         let full_phi = phi_result.phi;
         let algorithm = format!("{}", phi_result.algorithm);
         println!(
@@ -67,12 +65,7 @@ pub fn run_ecosystem_analysis(ecosystems: &[Ecosystem]) -> Vec<EcosystemResult> 
                 Err(_) => 0.0,
             };
             let contribution = full_phi - reduced_phi;
-            contributions.push((
-                i,
-                eco.species[i].name.clone(),
-                reduced_phi,
-                contribution,
-            ));
+            contributions.push((i, eco.species[i].name.clone(), reduced_phi, contribution));
             println!(
                 "    Remove {:20} -> Phi = {:.6}  (contribution: {:+.6})",
                 eco.species[i].name, reduced_phi, contribution
@@ -80,9 +73,7 @@ pub fn run_ecosystem_analysis(ecosystems: &[Ecosystem]) -> Vec<EcosystemResult> 
         }
 
         // Sort by contribution (highest first)
-        contributions.sort_by(|a, b| {
-            b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal)
-        });
+        contributions.sort_by(|a, b| b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal));
 
         // 3. Causal emergence
         println!("  Computing causal emergence...");
@@ -115,11 +106,7 @@ pub fn run_ecosystem_analysis(ecosystems: &[Ecosystem]) -> Vec<EcosystemResult> 
             .iter()
             .map(|s| s.trophic_level.color().to_string())
             .collect();
-        let species_names: Vec<String> = eco
-            .species
-            .iter()
-            .map(|s| s.name.clone())
-            .collect();
+        let species_names: Vec<String> = eco.species.iter().map(|s| s.name.clone()).collect();
 
         results.push(EcosystemResult {
             name: eco.name.clone(),

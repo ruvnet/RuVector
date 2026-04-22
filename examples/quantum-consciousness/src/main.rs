@@ -28,7 +28,10 @@ fn main() {
     for c in &circuits {
         println!(
             "  {}: {} qubits, {}x{} TPM",
-            c.name, c.n_qubits, c.tpm_size(), c.tpm_size()
+            c.name,
+            c.n_qubits,
+            c.tpm_size(),
+            c.tpm_size()
         );
     }
 

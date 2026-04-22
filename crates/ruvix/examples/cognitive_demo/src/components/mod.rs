@@ -8,19 +8,19 @@
 //! - [`Attestor`] - Emits attestation records to the witness log
 //! - [`Coordinator`] - Spawns tasks, grants capabilities, manages timing
 
-mod sensor_adapter;
-mod feature_extractor;
-mod reasoning_engine;
 mod attestor;
 mod coordinator;
+mod feature_extractor;
+mod reasoning_engine;
+mod sensor_adapter;
 
-pub use sensor_adapter::SensorAdapter;
-pub use feature_extractor::FeatureExtractor;
-pub use reasoning_engine::ReasoningEngine;
 pub use attestor::Attestor;
 pub use coordinator::Coordinator;
+pub use feature_extractor::FeatureExtractor;
+pub use reasoning_engine::ReasoningEngine;
+pub use sensor_adapter::SensorAdapter;
 
-use crate::{PerceptionEvent, VectorEmbedding, ReasoningMutation, Result};
+use crate::{PerceptionEvent, ReasoningMutation, Result, VectorEmbedding};
 use ruvix_types::{
     CapHandle, GraphHandle, ProofToken, QueueHandle, TaskHandle, VectorKey, VectorStoreHandle,
 };
@@ -79,10 +79,7 @@ pub enum PipelineMessage {
     },
 
     /// Graph mutation notification.
-    GraphMutation {
-        sequence: u64,
-        coherence: f32,
-    },
+    GraphMutation { sequence: u64, coherence: f32 },
 
     /// Attestation request.
     AttestRequest {
@@ -120,7 +117,10 @@ impl PipelineMessage {
                 bytes.extend_from_slice(&source_sequence.to_le_bytes());
                 bytes.extend_from_slice(&coherence.to_le_bytes());
             }
-            Self::GraphMutation { sequence, coherence } => {
+            Self::GraphMutation {
+                sequence,
+                coherence,
+            } => {
                 bytes.push(2); // Message type
                 bytes.extend_from_slice(&sequence.to_le_bytes());
                 bytes.extend_from_slice(&coherence.to_le_bytes());
@@ -194,7 +194,10 @@ impl PipelineMessage {
                 ]);
                 let coherence = f32::from_le_bytes([bytes[9], bytes[10], bytes[11], bytes[12]]);
 
-                Some(Self::GraphMutation { sequence, coherence })
+                Some(Self::GraphMutation {
+                    sequence,
+                    coherence,
+                })
             }
             3 if bytes.len() >= 34 => {
                 let mut operation_hash = [0u8; 32];
@@ -281,7 +284,9 @@ impl KernelInterface {
         ProofToken::new(
             mutation_hash,
             tier,
-            ruvix_types::ProofPayload::Hash { hash: mutation_hash },
+            ruvix_types::ProofPayload::Hash {
+                hash: mutation_hash,
+            },
             self.current_time_ns + 1_000_000_000, // 1 second validity
             self.nonce_counter,
         )
@@ -311,7 +316,10 @@ impl KernelInterface {
         _policy: ruvix_types::RegionPolicy,
     ) -> Result<ruvix_types::RegionHandle> {
         self.stats.region_map += 1;
-        Ok(ruvix_types::RegionHandle::new(self.stats.region_map as u32, 0))
+        Ok(ruvix_types::RegionHandle::new(
+            self.stats.region_map as u32,
+            0,
+        ))
     }
 
     /// Simulates queue_send syscall.
@@ -343,7 +351,10 @@ impl KernelInterface {
     /// Simulates rvf_mount syscall.
     pub fn rvf_mount(&mut self, _rvf_data: &[u8]) -> Result<ruvix_types::RvfMountHandle> {
         self.stats.rvf_mount += 1;
-        Ok(ruvix_types::RvfMountHandle::new(self.stats.rvf_mount as u32, 0))
+        Ok(ruvix_types::RvfMountHandle::new(
+            self.stats.rvf_mount as u32,
+            0,
+        ))
     }
 
     /// Simulates attest_emit syscall.
@@ -448,7 +459,9 @@ mod tests {
 
         kernel.task_spawn(&[]).unwrap();
         kernel.task_spawn(&[]).unwrap();
-        kernel.queue_send(QueueHandle::null(), &[], ruvix_types::MsgPriority::Normal).unwrap();
+        kernel
+            .queue_send(QueueHandle::null(), &[], ruvix_types::MsgPriority::Normal)
+            .unwrap();
 
         assert_eq!(kernel.stats.task_spawn, 2);
         assert_eq!(kernel.stats.queue_send, 1);

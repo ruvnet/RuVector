@@ -104,9 +104,7 @@ fn bench_phi_hierarchical_16(c: &mut Criterion) {
     let tpm = make_tpm(16);
     let budget = ComputeBudget::fast();
     c.bench_function("phi_hierarchical_n16", |b| {
-        b.iter(|| {
-            HierarchicalPhiEngine::new(8).compute_phi(black_box(&tpm), Some(0), &budget)
-        })
+        b.iter(|| HierarchicalPhiEngine::new(8).compute_phi(black_box(&tpm), Some(0), &budget))
     });
 }
 

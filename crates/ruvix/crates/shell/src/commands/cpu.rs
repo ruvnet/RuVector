@@ -18,13 +18,20 @@ pub fn execute<B: ShellBackend>(backend: &B) -> String {
 
     let mut output = String::from("CPU Information (SMP)\n");
     output.push_str("=====================\n");
-    output.push_str(&format!("CPUs: {} online / {} total\n\n", online_count, total_count));
+    output.push_str(&format!(
+        "CPUs: {} online / {} total\n\n",
+        online_count, total_count
+    ));
     output.push_str("  ID   STATE     FREQ     LOAD   TYPE\n");
     output.push_str("  ---  --------  -------  -----  --------\n");
 
     for cpu in &cpus {
         let state = if cpu.online { "ONLINE" } else { "OFFLINE" };
-        let cpu_type = if cpu.is_primary { "PRIMARY" } else { "SECONDARY" };
+        let cpu_type = if cpu.is_primary {
+            "PRIMARY"
+        } else {
+            "SECONDARY"
+        };
         let freq = if cpu.freq_mhz > 0 {
             format!("{} MHz", cpu.freq_mhz)
         } else {

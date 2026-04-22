@@ -77,11 +77,7 @@ impl Middleware for SubAgentMiddleware {
         Some(update)
     }
 
-    fn wrap_model_call(
-        &self,
-        request: ModelRequest,
-        handler: &dyn ModelHandler,
-    ) -> ModelResponse {
+    fn wrap_model_call(&self, request: ModelRequest, handler: &dyn ModelHandler) -> ModelResponse {
         if self.specs.is_empty() {
             return handler.call(request);
         }

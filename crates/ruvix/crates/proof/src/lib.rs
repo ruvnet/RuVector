@@ -67,7 +67,9 @@ pub use cache::{CacheEntry, ProofCache, ProofCacheConfig};
 pub use engine::{ProofEngine, ProofEngineConfig, ProofEngineStats};
 pub use error::{ProofError, ProofResult};
 pub use integration::FormallyVerifiable;
-pub use routing::{route_proof_tier, MutationType, RoutingContext, RoutingContextBuilder, TierRouter};
+pub use routing::{
+    route_proof_tier, MutationType, RoutingContext, RoutingContextBuilder, TierRouter,
+};
 pub use verifier::{ProofVerifier, VerificationResult, VerifierConfig};
 pub use witness::{MerkleWitness, WitnessBuilder};
 

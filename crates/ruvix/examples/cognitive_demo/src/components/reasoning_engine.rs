@@ -170,7 +170,12 @@ impl ReasoningEngine {
     }
 
     /// Creates a graph mutation for connecting two vectors.
-    fn create_mutation(&self, key1: VectorKey, key2: VectorKey, sequence: u64) -> ReasoningMutation {
+    fn create_mutation(
+        &self,
+        key1: VectorKey,
+        key2: VectorKey,
+        sequence: u64,
+    ) -> ReasoningMutation {
         // Create an edge between the two vector nodes
         let mutation = GraphMutation::add_edge(key1.raw(), key2.raw(), 1.0);
 
@@ -312,7 +317,9 @@ impl Component for ReasoningEngine {
             return Ok(ComponentTickResult::Idle);
         }
 
-        Ok(ComponentTickResult::Processed(self.pending_vectors.len() as u32))
+        Ok(ComponentTickResult::Processed(
+            self.pending_vectors.len() as u32
+        ))
     }
 
     fn shutdown(&mut self) -> Result<()> {

@@ -11,11 +11,11 @@
 //! Subramanya et al., "DiskANN: Fast Accurate Billion-point Nearest Neighbor Search on a Single Node" (NeurIPS 2019)
 
 pub mod distance;
-pub mod graph;
-pub mod pq;
-pub mod index;
 pub mod error;
+pub mod graph;
+pub mod index;
+pub mod pq;
 
-pub use index::{DiskAnnIndex, DiskAnnConfig};
 pub use error::{DiskAnnError, Result};
+pub use index::{DiskAnnConfig, DiskAnnIndex};
 pub use pq::ProductQuantizer;

@@ -14,9 +14,7 @@ use rand_chacha::ChaCha8Rng;
 use ruvector_consciousness::emergence::CausalEmergenceEngine;
 use ruvector_consciousness::phi::auto_compute_phi;
 use ruvector_consciousness::traits::EmergenceEngine;
-use ruvector_consciousness::types::{
-    ComputeBudget, TransitionMatrix as ConsciousnessTPM,
-};
+use ruvector_consciousness::types::{ComputeBudget, TransitionMatrix as ConsciousnessTPM};
 
 /// A single HEALPix sky patch with computed consciousness metrics.
 pub struct SkyPatch {
@@ -94,7 +92,11 @@ pub fn run_sky_mapping(ps: &PowerSpectrum) -> SkyMapResults {
     // ── Statistics ────────────────────────────────────────────────────
     let n = patches.len() as f64;
     let mean_phi = patches.iter().map(|p| p.phi).sum::<f64>() / n;
-    let var = patches.iter().map(|p| (p.phi - mean_phi).powi(2)).sum::<f64>() / (n - 1.0);
+    let var = patches
+        .iter()
+        .map(|p| (p.phi - mean_phi).powi(2))
+        .sum::<f64>()
+        / (n - 1.0);
     let std_phi = var.sqrt();
 
     let threshold = mean_phi + 2.0 * std_phi;
@@ -185,7 +187,11 @@ fn pix2ang_ring(nside: usize, pix: usize) -> (f64, f64) {
         let p_e = (pix - ncap) as f64;
         let i_ring = (p_e / (4.0 * ns)).floor() + ns;
         let j = p_e % (4.0 * ns);
-        let s = if ((i_ring + ns) as i64) % 2 == 0 { 1.0 } else { 0.5 };
+        let s = if ((i_ring + ns) as i64) % 2 == 0 {
+            1.0
+        } else {
+            0.5
+        };
         let z = (2.0 * ns - i_ring) / (3.0 * ns);
         let theta = z.clamp(-1.0, 1.0).acos();
         let phi = std::f64::consts::PI / (2.0 * ns) * (j + s);
@@ -195,8 +201,7 @@ fn pix2ang_ring(nside: usize, pix: usize) -> (f64, f64) {
         let p_s = (npix - pix) as f64;
         let i_ring = ((-1.0 + (1.0 + 8.0 * p_s).sqrt()) / 2.0).floor().max(1.0);
         let j = p_s - 2.0 * i_ring * (i_ring - 1.0) / 2.0;
-        let theta =
-            std::f64::consts::PI - (1.0 - i_ring * i_ring / (3.0 * ns * ns)).acos();
+        let theta = std::f64::consts::PI - (1.0 - i_ring * i_ring / (3.0 * ns * ns)).acos();
         let phi = std::f64::consts::PI / (2.0 * i_ring) * (j - 0.5);
         (theta, phi)
     }
@@ -252,8 +257,7 @@ fn generate_patch_pixels(
                 "cold_spot" => {
                     // Central depression + non-Gaussian ring
                     let cx = (PATCH_PIXELS as f64 - 1.0) / 2.0;
-                    let r = (((row as f64 - cx).powi(2) + (col as f64 - cx).powi(2)).sqrt())
-                        / cx;
+                    let r = (((row as f64 - cx).powi(2) + (col as f64 - cx).powi(2)).sqrt()) / cx;
                     // Temperature deficit in centre
                     val -= scale * 2.5 * (-r * r * 4.0).exp();
                     // Non-Gaussian ring at r ~ 0.7
@@ -470,8 +474,8 @@ fn mollweide_project(l: f64, b: f64, cx: f64, cy: f64, rx: f64, ry: f64) -> (f64
         if denom.abs() < 1e-12 {
             break;
         }
-        let delta =
-            -(2.0 * theta + (2.0 * theta).sin() - std::f64::consts::PI * lat.sin()) / (2.0 + denom * 2.0);
+        let delta = -(2.0 * theta + (2.0 * theta).sin() - std::f64::consts::PI * lat.sin())
+            / (2.0 + denom * 2.0);
         theta += delta;
         if delta.abs() < 1e-8 {
             break;

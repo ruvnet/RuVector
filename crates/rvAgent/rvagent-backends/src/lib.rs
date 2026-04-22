@@ -19,31 +19,30 @@
 //! - Composite path re-validation after prefix stripping (SEC-003)
 //! - Literal grep mode to prevent ReDoS (SEC-021)
 
-pub mod protocol;
-pub mod security;
-pub mod utils;
-pub mod unicode_security;
-pub mod state;
-pub mod filesystem;
-pub mod local_shell;
-pub mod composite;
-pub mod sandbox;
-pub mod store;
-pub mod rvf_store;
 pub mod anthropic;
+pub mod composite;
+pub mod filesystem;
 pub mod gemini;
+pub mod local_shell;
+pub mod protocol;
+pub mod rvf_store;
+pub mod sandbox;
+pub mod security;
+pub mod state;
+pub mod store;
+pub mod unicode_security;
+pub mod utils;
 
 // Re-export core types for convenience.
-pub use protocol::{
-    Backend, SandboxBackend, FileOperationError, FileInfo, FileData,
-    FileDownloadResponse, FileUploadResponse, GrepMatch,
-    WriteResult, EditResult, ExecuteResponse,
-};
-pub use state::StateBackend;
-pub use filesystem::FilesystemBackend;
-pub use local_shell::{LocalShellBackend, LocalShellConfig, CommandAllowlist};
-pub use composite::{CompositeBackend, BackendRef};
-pub use sandbox::{BaseSandbox, SandboxConfig, SandboxError, LocalSandbox};
-pub use store::StoreBackend;
-pub use rvf_store::MountedToolInfo;
 pub use anthropic::AnthropicClient;
+pub use composite::{BackendRef, CompositeBackend};
+pub use filesystem::FilesystemBackend;
+pub use local_shell::{CommandAllowlist, LocalShellBackend, LocalShellConfig};
+pub use protocol::{
+    Backend, EditResult, ExecuteResponse, FileData, FileDownloadResponse, FileInfo,
+    FileOperationError, FileUploadResponse, GrepMatch, SandboxBackend, WriteResult,
+};
+pub use rvf_store::MountedToolInfo;
+pub use sandbox::{BaseSandbox, LocalSandbox, SandboxConfig, SandboxError};
+pub use state::StateBackend;
+pub use store::StoreBackend;

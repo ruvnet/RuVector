@@ -141,7 +141,10 @@ impl FeatureCoverage {
             syscall_coverage: SyscallCoverage::from_stats(&syscall_stats, &expected),
             region_coverage: RegionCoverage::from_manifest(manifest, kernel.stats.region_map),
             proof_coverage: ProofCoverage::from_stats(&syscall_stats),
-            component_coverage: ComponentCoverage::from_stats(&syscall_stats, kernel.stats.task_spawn),
+            component_coverage: ComponentCoverage::from_stats(
+                &syscall_stats,
+                kernel.stats.task_spawn,
+            ),
         }
     }
 
@@ -344,7 +347,8 @@ impl ProofCoverage {
         // In full pipeline, coordinator may trigger Deep tier
         let has_deep = stats.rvf_mount > 0; // RVF mount could require Deep verification
 
-        let proof_operations = stats.vector_put_proved + stats.graph_apply_proved + stats.attest_emit;
+        let proof_operations =
+            stats.vector_put_proved + stats.graph_apply_proved + stats.attest_emit;
 
         Self {
             reflex: has_reflex,
@@ -459,7 +463,9 @@ impl CoverageReport {
             self.syscalls.covered,
             self.syscalls.total,
             self.syscalls.percentage(),
-            (self.regions.immutable as u32) + (self.regions.append_only as u32) + (self.regions.slab as u32),
+            (self.regions.immutable as u32)
+                + (self.regions.append_only as u32)
+                + (self.regions.slab as u32),
             self.regions.percentage(),
             (self.proofs.reflex as u32) + (self.proofs.standard as u32) + (self.proofs.deep as u32),
             self.proofs.percentage(),

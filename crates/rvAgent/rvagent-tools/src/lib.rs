@@ -450,8 +450,7 @@ pub const DEFAULT_EXECUTE_TIMEOUT: u32 = 120;
 pub const IMAGE_EXTENSIONS: &[&str] = &[".png", ".jpg", ".jpeg", ".gif", ".webp"];
 
 /// Empty content warning.
-pub const EMPTY_CONTENT_WARNING: &str =
-    "System reminder: File exists but has empty contents";
+pub const EMPTY_CONTENT_WARNING: &str = "System reminder: File exists but has empty contents";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -508,10 +507,7 @@ pub(crate) mod tests_common {
         pub fn new() -> Self {
             let mut files = HashMap::new();
             files.insert("/test.txt".to_string(), "hello\nworld".to_string());
-            files.insert(
-                "/multi.txt".to_string(),
-                "aaa\nbbb\naaa\nccc".to_string(),
-            );
+            files.insert("/multi.txt".to_string(), "aaa\nbbb\naaa\nccc".to_string());
             Self {
                 files: Mutex::new(files),
             }
@@ -542,12 +538,7 @@ pub(crate) mod tests_common {
             Ok(infos)
         }
 
-        fn read(
-            &self,
-            path: &str,
-            offset: usize,
-            limit: usize,
-        ) -> Result<String, String> {
+        fn read(&self, path: &str, offset: usize, limit: usize) -> Result<String, String> {
             let files = self.files.lock().unwrap();
             match files.get(path) {
                 Some(content) => {
@@ -597,10 +588,7 @@ pub(crate) mod tests_common {
                     let count = content.matches(old_string).count();
                     if count == 0 {
                         return WriteResult {
-                            error: Some(format!(
-                                "Error: old_string not found in {}",
-                                path
-                            )),
+                            error: Some(format!("Error: old_string not found in {}", path)),
                             ..Default::default()
                         };
                     }
@@ -629,15 +617,9 @@ pub(crate) mod tests_common {
             }
         }
 
-        fn glob_info(
-            &self,
-            pattern: &str,
-            _path: &str,
-        ) -> Result<Vec<String>, String> {
+        fn glob_info(&self, pattern: &str, _path: &str) -> Result<Vec<String>, String> {
             let files = self.files.lock().unwrap();
-            let search = pattern
-                .trim_start_matches('*')
-                .trim_end_matches('*');
+            let search = pattern.trim_start_matches('*').trim_end_matches('*');
             let mut matches: Vec<String> = files
                 .keys()
                 .filter(|k| k.contains(search))
@@ -671,11 +653,7 @@ pub(crate) mod tests_common {
             Ok(matches)
         }
 
-        fn execute(
-            &self,
-            command: &str,
-            _timeout_secs: u32,
-        ) -> Result<ExecuteResponse, String> {
+        fn execute(&self, command: &str, _timeout_secs: u32) -> Result<ExecuteResponse, String> {
             Ok(ExecuteResponse {
                 output: format!("mock output for: {}", command),
                 exit_code: 0,
@@ -690,12 +668,7 @@ pub(crate) mod tests_common {
         fn ls_info(&self, _path: &str) -> Result<Vec<FileInfo>, String> {
             Err("Permission denied".into())
         }
-        fn read(
-            &self,
-            _path: &str,
-            _offset: usize,
-            _limit: usize,
-        ) -> Result<String, String> {
+        fn read(&self, _path: &str, _offset: usize, _limit: usize) -> Result<String, String> {
             Err("Permission denied".into())
         }
         fn write(&self, _path: &str, _content: &str) -> WriteResult {
@@ -704,23 +677,13 @@ pub(crate) mod tests_common {
                 ..Default::default()
             }
         }
-        fn edit(
-            &self,
-            _path: &str,
-            _old: &str,
-            _new: &str,
-            _all: bool,
-        ) -> WriteResult {
+        fn edit(&self, _path: &str, _old: &str, _new: &str, _all: bool) -> WriteResult {
             WriteResult {
                 error: Some("Permission denied".into()),
                 ..Default::default()
             }
         }
-        fn glob_info(
-            &self,
-            _pattern: &str,
-            _path: &str,
-        ) -> Result<Vec<String>, String> {
+        fn glob_info(&self, _pattern: &str, _path: &str) -> Result<Vec<String>, String> {
             Err("Permission denied".into())
         }
         fn grep_raw(
@@ -731,11 +694,7 @@ pub(crate) mod tests_common {
         ) -> Result<Vec<GrepMatch>, String> {
             Err("Permission denied".into())
         }
-        fn execute(
-            &self,
-            _command: &str,
-            _timeout: u32,
-        ) -> Result<ExecuteResponse, String> {
+        fn execute(&self, _command: &str, _timeout: u32) -> Result<ExecuteResponse, String> {
             Err("Permission denied".into())
         }
     }
@@ -924,11 +883,7 @@ mod tests {
             fn parameters_schema(&self) -> serde_json::Value {
                 serde_json::json!({"type": "object", "properties": {}})
             }
-            fn invoke(
-                &self,
-                _args: serde_json::Value,
-                _runtime: &ToolRuntime,
-            ) -> ToolResult {
+            fn invoke(&self, _args: serde_json::Value, _runtime: &ToolRuntime) -> ToolResult {
                 ToolResult::Text("custom result".into())
             }
         }

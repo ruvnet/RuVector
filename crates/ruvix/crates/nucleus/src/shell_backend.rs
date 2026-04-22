@@ -10,14 +10,11 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use ruvix_shell::{
-    CapEntry, CpuInfo, KernelInfo, MemoryStats, PerfCounters, ProofStats, QueueStats,
-    ShellBackend, TaskInfo, TaskState as ShellTaskState, VectorStats, WitnessEntry,
+    CapEntry, CpuInfo, KernelInfo, MemoryStats, PerfCounters, ProofStats, QueueStats, ShellBackend,
+    TaskInfo, TaskState as ShellTaskState, VectorStats, WitnessEntry,
 };
 
-use crate::{
-    scheduler::TaskState,
-    Kernel,
-};
+use crate::{scheduler::TaskState, Kernel};
 
 /// Kernel version string for shell display.
 const KERNEL_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -48,7 +45,7 @@ impl ShellBackend for Kernel {
             used_bytes,
             free_bytes: 1024 * 1024 * 1024 - used_bytes,
             region_count: self.region_count() as u32,
-            slab_count: 0, // Slab allocator not implemented yet
+            slab_count: 0,          // Slab allocator not implemented yet
             peak_bytes: used_bytes, // Track peak in future
         }
     }
@@ -68,9 +65,9 @@ impl ShellBackend for Kernel {
                     name,
                     state: convert_task_state(tcb.state),
                     priority: tcb.priority as u8,
-                    partition: 0, // Partitioning not implemented yet
+                    partition: 0,       // Partitioning not implemented yet
                     cpu_affinity: 0xFF, // All CPUs
-                    cap_count: 0, // Would query cap manager
+                    cap_count: 0,       // Would query cap manager
                 }
             })
             .collect()
@@ -173,9 +170,9 @@ impl ShellBackend for Kernel {
         PerfCounters {
             syscalls: stats.syscalls_executed,
             context_switches: sched_stats.context_switches,
-            interrupts: 0, // Not tracked at kernel level yet
-            page_faults: 0, // MMU not integrated yet
-            ipi_sent: 0, // SMP not implemented yet
+            interrupts: 0,                           // Not tracked at kernel level yet
+            page_faults: 0,                          // MMU not integrated yet
+            ipi_sent: 0,                             // SMP not implemented yet
             cpu_cycles: self.current_time_ns() / 10, // Rough estimate
         }
     }
@@ -284,7 +281,14 @@ impl Kernel {
             }
         }
 
-        (store_count, vector_count, total_dims, memory_bytes, reads, writes)
+        (
+            store_count,
+            vector_count,
+            total_dims,
+            memory_bytes,
+            reads,
+            writes,
+        )
     }
 
     /// Returns proof engine statistics for shell display.
@@ -311,8 +315,8 @@ impl Kernel {
     pub(crate) fn estimate_cpu_load(&self) -> u8 {
         let stats = self.scheduler().stats();
         // Simple estimate: more context switches = higher load
-        let switches_per_sec = stats.context_switches.saturating_mul(1_000_000_000)
-            / self.current_time_ns().max(1);
+        let switches_per_sec =
+            stats.context_switches.saturating_mul(1_000_000_000) / self.current_time_ns().max(1);
 
         // Cap at 100%
         switches_per_sec.min(100) as u8
@@ -440,8 +444,14 @@ mod tests {
         let mut kernel = Kernel::new(KernelConfig::default());
 
         // Create some tasks
-        kernel.scheduler_mut().create_task(crate::TaskPriority::Normal, None).unwrap();
-        kernel.scheduler_mut().create_task(crate::TaskPriority::High, None).unwrap();
+        kernel
+            .scheduler_mut()
+            .create_task(crate::TaskPriority::Normal, None)
+            .unwrap();
+        kernel
+            .scheduler_mut()
+            .create_task(crate::TaskPriority::High, None)
+            .unwrap();
 
         let tasks = kernel.task_list();
         assert_eq!(tasks.len(), 2);

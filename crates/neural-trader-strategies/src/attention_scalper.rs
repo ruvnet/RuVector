@@ -80,7 +80,10 @@ pub struct AttentionScalper {
 
 impl AttentionScalper {
     pub fn new(config: AttentionScalperConfig) -> Self {
-        Self { config, syms: HashMap::new() }
+        Self {
+            config,
+            syms: HashMap::new(),
+        }
     }
 
     fn update_snapshot(&mut self, event: &MarketEvent) -> Option<f64> {
@@ -142,10 +145,7 @@ impl AttentionScalper {
         } else {
             (&state.no_levels, Side::No)
         };
-        let price_cents = levels
-            .last()
-            .map(|(p, _)| *p)
-            .unwrap_or(0);
+        let price_cents = levels.last().map(|(p, _)| *p).unwrap_or(0);
         if price_cents <= 0 || price_cents >= 100 {
             return None;
         }
@@ -282,7 +282,9 @@ mod tests {
         });
         s.on_event(&level(1, NtSide::Bid, 24, 500, 0));
         s.on_event(&level(1, NtSide::Bid, 23, 300, 1));
-        let intent = s.on_event(&level(1, NtSide::Ask, 76, 100, 2)).expect("should emit");
+        let intent = s
+            .on_event(&level(1, NtSide::Ask, 76, 100, 2))
+            .expect("should emit");
         assert_eq!(intent.symbol_id, 1);
         assert!(matches!(intent.side, Side::Yes));
         assert_eq!(intent.quantity, 5);
@@ -301,7 +303,9 @@ mod tests {
         });
         s.on_event(&level(2, NtSide::Bid, 24, 100, 0));
         s.on_event(&level(2, NtSide::Ask, 76, 500, 1));
-        let intent = s.on_event(&level(2, NtSide::Ask, 77, 400, 2)).expect("should emit");
+        let intent = s
+            .on_event(&level(2, NtSide::Ask, 77, 400, 2))
+            .expect("should emit");
         assert!(matches!(intent.side, Side::No));
     }
 

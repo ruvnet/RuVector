@@ -53,13 +53,11 @@ static VAR_RE: Lazy<Regex> = Lazy::new(|| {
 });
 
 static FN_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?:^|[;}\s])function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(")
-        .expect("valid regex")
+    Regex::new(r"(?:^|[;}\s])function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(").expect("valid regex")
 });
 
 static CLASS_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?:^|[;}\s])class\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*[{\(]")
-        .expect("valid regex")
+    Regex::new(r"(?:^|[;}\s])class\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*[{\(]").expect("valid regex")
 });
 
 static EXPORT_RE: Lazy<Regex> = Lazy::new(|| {
@@ -70,9 +68,7 @@ static EXPORT_RE: Lazy<Regex> = Lazy::new(|| {
 /// Parse a minified JavaScript bundle and extract declarations.
 pub fn parse_bundle(source: &str) -> Result<Vec<Declaration>> {
     if source.trim().is_empty() {
-        return Err(DecompilerError::EmptyBundle(
-            "source is empty".to_string(),
-        ));
+        return Err(DecompilerError::EmptyBundle("source is empty".to_string()));
     }
 
     let decls = extract_declarations(source);
@@ -188,10 +184,7 @@ fn extract_declarations(source: &str) -> Vec<Declaration> {
         // Cross-references: identifiers that match other declaration names.
         let mut seen_refs = HashSet::with_capacity(16);
         for ident in idents {
-            if ident != decl.name
-                && all_names.contains(&ident)
-                && seen_refs.insert(ident.clone())
-            {
+            if ident != decl.name && all_names.contains(&ident) && seen_refs.insert(ident.clone()) {
                 decl.references.push(ident);
             }
         }
@@ -279,17 +272,13 @@ fn scan_body_single_pass(body: &str) -> (Vec<String>, Vec<String>, Vec<String>) 
         }
 
         // --- Property access (after '.') ---
-        if ch == b'.'
-            && i + 1 < len
-            && (table[bytes[i + 1] as usize] & IDENT_START) != 0
-        {
+        if ch == b'.' && i + 1 < len && (table[bytes[i + 1] as usize] & IDENT_START) != 0 {
             i += 1;
             let prop_start = i;
             while i < len && (table[bytes[i] as usize] & IDENT_CHAR) != 0 {
                 i += 1;
             }
-            let prop =
-                unsafe { std::str::from_utf8_unchecked(&bytes[prop_start..i]) };
+            let prop = unsafe { std::str::from_utf8_unchecked(&bytes[prop_start..i]) };
             props.push(prop.to_string());
             continue;
         }
@@ -300,8 +289,7 @@ fn scan_body_single_pass(body: &str) -> (Vec<String>, Vec<String>, Vec<String>) 
             while i < len && (table[bytes[i] as usize] & IDENT_CHAR) != 0 {
                 i += 1;
             }
-            let ident =
-                unsafe { std::str::from_utf8_unchecked(&bytes[ident_start..i]) };
+            let ident = unsafe { std::str::from_utf8_unchecked(&bytes[ident_start..i]) };
             idents.push(ident.to_string());
             continue;
         }
@@ -350,7 +338,8 @@ fn find_declaration_end(source: &str, start: usize) -> usize {
                         let abs = i + pos;
                         // Count preceding backslashes.
                         let mut bs = 0;
-                        while abs > 0 && abs - 1 >= i.saturating_sub(bs + 1)
+                        while abs > 0
+                            && abs - 1 >= i.saturating_sub(bs + 1)
                             && abs > bs
                             && bytes[abs - 1 - bs] == b'\\'
                         {

@@ -567,7 +567,7 @@ impl ReplayResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{GraphHandle, VectorKey, VectorStoreConfig, VectorStoreHandle, ProofToken};
+    use crate::{GraphHandle, ProofToken, VectorKey, VectorStoreConfig, VectorStoreHandle};
 
     #[test]
     fn test_checkpoint_creation() {
@@ -649,9 +649,13 @@ mod tests {
         // Add some data
         let proof = ProofToken::default();
         #[cfg(feature = "alloc")]
-        vector_store.put_proved(VectorKey::new(1), vec![1.0, 2.0, 3.0, 4.0], &proof).unwrap();
+        vector_store
+            .put_proved(VectorKey::new(1), vec![1.0, 2.0, 3.0, 4.0], &proof)
+            .unwrap();
         #[cfg(not(feature = "alloc"))]
-        vector_store.put_proved(VectorKey::new(1), &[1.0, 2.0, 3.0, 4.0], &proof).unwrap();
+        vector_store
+            .put_proved(VectorKey::new(1), &[1.0, 2.0, 3.0, 4.0], &proof)
+            .unwrap();
 
         let witness_log = WitnessLog::new();
         let config = CheckpointConfig::full();
@@ -696,9 +700,13 @@ mod tests {
         // Modify store after checkpoint
         let proof = ProofToken::default();
         #[cfg(feature = "alloc")]
-        vector_store.put_proved(VectorKey::new(1), vec![1.0, 2.0, 3.0, 4.0], &proof).unwrap();
+        vector_store
+            .put_proved(VectorKey::new(1), vec![1.0, 2.0, 3.0, 4.0], &proof)
+            .unwrap();
         #[cfg(not(feature = "alloc"))]
-        vector_store.put_proved(VectorKey::new(1), &[1.0, 2.0, 3.0, 4.0], &proof).unwrap();
+        vector_store
+            .put_proved(VectorKey::new(1), &[1.0, 2.0, 3.0, 4.0], &proof)
+            .unwrap();
 
         // Verify state should NOT match
         let engine = ReplayEngine::new();

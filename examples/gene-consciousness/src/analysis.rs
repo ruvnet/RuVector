@@ -5,8 +5,7 @@ use ruvector_consciousness::phi::auto_compute_phi;
 use ruvector_consciousness::rsvd_emergence::{RsvdEmergenceEngine, RsvdEmergenceResult};
 use ruvector_consciousness::traits::EmergenceEngine;
 use ruvector_consciousness::types::{
-    ComputeBudget, EmergenceResult, PhiResult,
-    TransitionMatrix as ConsciousnessTPM,
+    ComputeBudget, EmergenceResult, PhiResult, TransitionMatrix as ConsciousnessTPM,
 };
 
 use crate::data::{self, GeneNetwork, TransitionMatrix};
@@ -113,8 +112,7 @@ pub fn run_analysis(
     let avg_module_phi = if normal_module_phis.is_empty() {
         0.0
     } else {
-        normal_module_phis.iter().map(|(_, p)| p.phi).sum::<f64>()
-            / normal_module_phis.len() as f64
+        normal_module_phis.iter().map(|(_, p)| p.phi).sum::<f64>() / normal_module_phis.len() as f64
     };
     let modules_more_integrated = avg_module_phi > normal_full_phi.phi;
     println!(
@@ -156,8 +154,10 @@ pub fn run_analysis(
         .expect("Failed to compute SVD emergence");
     println!(
         "  Effective rank = {}/{}, entropy = {:.4}, emergence = {:.4}",
-        normal_svd_emergence.effective_rank, normal_tpm.size,
-        normal_svd_emergence.spectral_entropy, normal_svd_emergence.emergence_index
+        normal_svd_emergence.effective_rank,
+        normal_tpm.size,
+        normal_svd_emergence.spectral_entropy,
+        normal_svd_emergence.emergence_index
     );
 
     // 9. Null hypothesis testing

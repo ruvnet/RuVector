@@ -193,7 +193,10 @@ fn test_buffer_full_behavior() {
     }
 
     // Buffer should now be full
-    assert_eq!(tile.delta_count as usize, cognitum_gate_kernel::MAX_DELTA_BUFFER);
+    assert_eq!(
+        tile.delta_count as usize,
+        cognitum_gate_kernel::MAX_DELTA_BUFFER
+    );
 
     // Next insert should fail
     let delta = Delta::edge_add(999, 1000, 100);

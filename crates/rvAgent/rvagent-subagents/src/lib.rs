@@ -20,10 +20,10 @@ pub use result_validator::{
 };
 
 // Re-export CRDT merge types
-pub use crdt_merge::{CrdtState, MergeError, VectorClock, merge_subagent_results};
+pub use crdt_merge::{merge_subagent_results, CrdtState, MergeError, VectorClock};
 
 // Re-export orchestrator types
-pub use orchestrator::{SubAgentOrchestrator, SpawnError, spawn_parallel};
+pub use orchestrator::{spawn_parallel, SpawnError, SubAgentOrchestrator};
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -248,7 +248,9 @@ pub fn extract_result_message(result_state: &AgentState) -> Option<String> {
     let messages = result_state.get("messages")?;
     let arr = messages.as_array()?;
     let last = arr.last()?;
-    last.get("content").and_then(|c| c.as_str()).map(|s| s.trim_end().to_string())
+    last.get("content")
+        .and_then(|c| c.as_str())
+        .map(|s| s.trim_end().to_string())
 }
 
 /// Merge non-excluded state from subagent result back into parent state.
@@ -310,7 +312,10 @@ mod tests {
     #[test]
     fn test_state_isolation_prepare() {
         let mut parent = AgentState::new();
-        parent.insert("messages".into(), serde_json::json!([{"type": "ai", "content": "secret"}]));
+        parent.insert(
+            "messages".into(),
+            serde_json::json!([{"type": "ai", "content": "secret"}]),
+        );
         parent.insert("remaining_steps".into(), serde_json::json!(5));
         parent.insert("task_completion".into(), serde_json::json!(false));
         parent.insert("custom_key".into(), serde_json::json!("visible"));
@@ -330,7 +335,10 @@ mod tests {
         assert!(child.get("todos").is_none());
 
         // Non-excluded keys must pass through
-        assert_eq!(child.get("custom_key").unwrap(), &serde_json::json!("visible"));
+        assert_eq!(
+            child.get("custom_key").unwrap(),
+            &serde_json::json!("visible")
+        );
     }
 
     #[test]
@@ -354,7 +362,10 @@ mod tests {
         parent.insert("existing".into(), serde_json::json!(1));
 
         let mut child_result = AgentState::new();
-        child_result.insert("messages".into(), serde_json::json!([{"type": "ai", "content": "hi"}]));
+        child_result.insert(
+            "messages".into(),
+            serde_json::json!([{"type": "ai", "content": "hi"}]),
+        );
         child_result.insert("new_key".into(), serde_json::json!("added"));
         child_result.insert("todos".into(), serde_json::json!(["leaked"]));
 

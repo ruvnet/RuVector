@@ -104,15 +104,13 @@ fn infer_architecture_from_gguf(
     let num_heads = get_meta_u64(metadata, &format!("{}attention.head_count", arch_prefix))
         .unwrap_or(0) as usize;
 
-    let num_kv_heads =
-        get_meta_u64(metadata, &format!("{}attention.head_count_kv", arch_prefix))
-            .or_else(|| infer_kv_heads(tensors, hidden_size, num_heads))
-            .unwrap_or(num_heads as u64) as usize;
+    let num_kv_heads = get_meta_u64(metadata, &format!("{}attention.head_count_kv", arch_prefix))
+        .or_else(|| infer_kv_heads(tensors, hidden_size, num_heads))
+        .unwrap_or(num_heads as u64) as usize;
 
-    let intermediate_size =
-        get_meta_u64(metadata, &format!("{}feed_forward_length", arch_prefix))
-            .or_else(|| infer_ffn_size(tensors))
-            .unwrap_or(0) as usize;
+    let intermediate_size = get_meta_u64(metadata, &format!("{}feed_forward_length", arch_prefix))
+        .or_else(|| infer_ffn_size(tensors))
+        .unwrap_or(0) as usize;
 
     let vocab_size = infer_vocab_size(tensors).unwrap_or(0);
 
@@ -149,8 +147,8 @@ fn infer_architecture_from_tensors(
     let hidden_size = infer_hidden_size(tensors).unwrap_or(0) as usize;
     let num_layers = infer_num_layers(tensors);
     let num_heads = infer_num_heads(tensors, hidden_size);
-    let num_kv_heads = infer_kv_heads(tensors, hidden_size, num_heads)
-        .unwrap_or(num_heads as u64) as usize;
+    let num_kv_heads =
+        infer_kv_heads(tensors, hidden_size, num_heads).unwrap_or(num_heads as u64) as usize;
     let intermediate_size = infer_ffn_size(tensors).unwrap_or(0) as usize;
     let vocab_size = infer_vocab_size(tensors).unwrap_or(0);
     let total_params: usize = tensors.iter().map(|t| t.num_elements()).sum();
@@ -179,17 +177,13 @@ fn get_meta_u64(metadata: &HashMap<String, GgufValue>, key: &str) -> Option<u64>
 fn infer_hidden_size(tensors: &[ModelTensorInfo]) -> Option<u64> {
     // Look for embedding tensor: shape [vocab_size, hidden_size]
     for t in tensors {
-        if (t.name.contains("embed") || t.name.contains("token_embd"))
-            && t.shape.len() == 2
-        {
+        if (t.name.contains("embed") || t.name.contains("token_embd")) && t.shape.len() == 2 {
             return Some(t.shape[1] as u64);
         }
     }
     // Fall back to attention Q projection: shape [hidden, hidden]
     for t in tensors {
-        if (t.name.contains("attn_q") || t.name.contains(".q_proj"))
-            && t.shape.len() == 2
-        {
+        if (t.name.contains("attn_q") || t.name.contains(".q_proj")) && t.shape.len() == 2 {
             return Some(t.shape[1] as u64);
         }
     }
@@ -216,9 +210,10 @@ fn infer_num_layers(tensors: &[ModelTensorInfo]) -> usize {
 fn extract_layer_index(name: &str) -> Option<usize> {
     // Common patterns: "blk.0.", "layers.0.", "h.0.", "model.layers.0."
     for prefix in &["blk.", "layers.", "h.", "model.layers."] {
-        if let Some(rest) = name.strip_prefix(prefix).or_else(|| {
-            name.find(prefix).map(|i| &name[i + prefix.len()..])
-        }) {
+        if let Some(rest) = name
+            .strip_prefix(prefix)
+            .or_else(|| name.find(prefix).map(|i| &name[i + prefix.len()..]))
+        {
             if let Some(dot) = rest.find('.') {
                 if let Ok(idx) = rest[..dot].parse::<usize>() {
                     return Some(idx);
@@ -253,9 +248,7 @@ fn infer_kv_heads(
     let head_dim = hidden_size / num_heads;
     // Look for K projection tensor shape: [kv_heads * head_dim, hidden_size]
     for t in tensors {
-        if (t.name.contains("attn_k") || t.name.contains(".k_proj"))
-            && t.shape.len() == 2
-        {
+        if (t.name.contains("attn_k") || t.name.contains(".k_proj")) && t.shape.len() == 2 {
             let k_dim = t.shape[0];
             if head_dim > 0 && k_dim % head_dim == 0 {
                 return Some((k_dim / head_dim) as u64);
@@ -267,8 +260,10 @@ fn infer_kv_heads(
 
 fn infer_ffn_size(tensors: &[ModelTensorInfo]) -> Option<u64> {
     for t in tensors {
-        if (t.name.contains("ffn_up") || t.name.contains(".up_proj")
-            || t.name.contains("ffn_gate") || t.name.contains(".gate_proj"))
+        if (t.name.contains("ffn_up")
+            || t.name.contains(".up_proj")
+            || t.name.contains("ffn_gate")
+            || t.name.contains(".gate_proj"))
             && t.shape.len() == 2
         {
             return Some(t.shape[0] as u64);
@@ -279,9 +274,7 @@ fn infer_ffn_size(tensors: &[ModelTensorInfo]) -> Option<u64> {
 
 fn infer_vocab_size(tensors: &[ModelTensorInfo]) -> Option<usize> {
     for t in tensors {
-        if (t.name.contains("embed") || t.name.contains("token_embd"))
-            && t.shape.len() == 2
-        {
+        if (t.name.contains("embed") || t.name.contains("token_embd")) && t.shape.len() == 2 {
             return Some(t.shape[0]);
         }
     }
@@ -346,9 +339,12 @@ fn extract_layers(tensors: &[ModelTensorInfo], arch: &ModelArchitecture) -> Vec<
         let attn: Vec<&ModelTensorInfo> = block_tensors
             .iter()
             .filter(|t| {
-                t.name.contains("attn") || t.name.contains("self_attn")
-                    || t.name.contains("q_proj") || t.name.contains("k_proj")
-                    || t.name.contains("v_proj") || t.name.contains("o_proj")
+                t.name.contains("attn")
+                    || t.name.contains("self_attn")
+                    || t.name.contains("q_proj")
+                    || t.name.contains("k_proj")
+                    || t.name.contains("v_proj")
+                    || t.name.contains("o_proj")
             })
             .copied()
             .collect();
@@ -370,8 +366,10 @@ fn extract_layers(tensors: &[ModelTensorInfo], arch: &ModelArchitecture) -> Vec<
         let mlp: Vec<&ModelTensorInfo> = block_tensors
             .iter()
             .filter(|t| {
-                t.name.contains("ffn") || t.name.contains("mlp")
-                    || t.name.contains("up_proj") || t.name.contains("down_proj")
+                t.name.contains("ffn")
+                    || t.name.contains("mlp")
+                    || t.name.contains("up_proj")
+                    || t.name.contains("down_proj")
                     || t.name.contains("gate_proj")
             })
             .copied()
@@ -416,7 +414,8 @@ fn extract_layers(tensors: &[ModelTensorInfo], arch: &ModelArchitecture) -> Vec<
     let output_tensors: Vec<&ModelTensorInfo> = tensors
         .iter()
         .filter(|t| {
-            t.name.contains("output") && extract_layer_index(&t.name).is_none()
+            t.name.contains("output")
+                && extract_layer_index(&t.name).is_none()
                 && !t.name.contains("norm")
         })
         .collect();
@@ -435,9 +434,7 @@ fn extract_layers(tensors: &[ModelTensorInfo], arch: &ModelArchitecture) -> Vec<
 
 // ── Tokenizer extraction ─────────────────────────────────────────────────
 
-fn extract_tokenizer_from_gguf(
-    metadata: &HashMap<String, GgufValue>,
-) -> Option<TokenizerInfo> {
+fn extract_tokenizer_from_gguf(metadata: &HashMap<String, GgufValue>) -> Option<TokenizerInfo> {
     let vocab_size = metadata
         .get("tokenizer.ggml.tokens")
         .and_then(|v| v.as_array())
@@ -468,9 +465,7 @@ fn extract_tokenizer_from_gguf(
             arr.iter()
                 .take(100)
                 .enumerate()
-                .filter_map(|(i, v)| {
-                    v.as_str().map(|s| (i as u32, s.to_string()))
-                })
+                .filter_map(|(i, v)| v.as_str().map(|s| (i as u32, s.to_string())))
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();
@@ -577,10 +572,7 @@ fn sha3_hex(data: &[u8]) -> String {
     let mut hasher = Sha3_256::new();
     hasher.update(data);
     let result = hasher.finalize();
-    result
-        .iter()
-        .map(|b| format!("{:02x}", b))
-        .collect()
+    result.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
 // ── Metadata flattening ──────────────────────────────────────────────────
@@ -616,7 +608,10 @@ mod tests {
     fn test_extract_layer_index() {
         assert_eq!(extract_layer_index("blk.0.attn_q.weight"), Some(0));
         assert_eq!(extract_layer_index("blk.31.ffn_up.weight"), Some(31));
-        assert_eq!(extract_layer_index("model.layers.5.self_attn.q_proj"), Some(5));
+        assert_eq!(
+            extract_layer_index("model.layers.5.self_attn.q_proj"),
+            Some(5)
+        );
         assert_eq!(extract_layer_index("token_embd.weight"), None);
         assert_eq!(extract_layer_index("output.weight"), None);
     }
@@ -636,16 +631,14 @@ mod tests {
 
     #[test]
     fn test_infer_arch_name() {
-        let tensors = vec![
-            ModelTensorInfo {
-                name: "model.layers.0.gate_proj.weight".to_string(),
-                shape: vec![4096, 4096],
-                quant_type: 0,
-                quant_name: "F32".to_string(),
-                bits_per_weight: 32.0,
-                offset: 0,
-            },
-        ];
+        let tensors = vec![ModelTensorInfo {
+            name: "model.layers.0.gate_proj.weight".to_string(),
+            shape: vec![4096, 4096],
+            quant_type: 0,
+            quant_name: "F32".to_string(),
+            bits_per_weight: 32.0,
+            offset: 0,
+        }];
         assert_eq!(infer_arch_name_from_tensor_names(&tensors), "llama");
     }
 

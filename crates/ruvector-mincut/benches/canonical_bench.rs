@@ -7,8 +7,8 @@ use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criteri
 use rand::prelude::*;
 use ruvector_mincut::graph::DynamicGraph;
 use ruvector_mincut::{
-    canonical_mincut, canonical_mincut_fast, GomoryHuTree, SourceAnchoredConfig,
-    DynamicCanonicalMinCut, DynamicCanonicalConfig, EdgeMutation,
+    canonical_mincut, canonical_mincut_fast, DynamicCanonicalConfig, DynamicCanonicalMinCut,
+    EdgeMutation, GomoryHuTree, SourceAnchoredConfig,
 };
 use std::collections::HashSet;
 
@@ -28,7 +28,11 @@ fn random_connected_graph(n: usize, m: usize, seed: u64) -> DynamicGraph {
     let mut edge_set: HashSet<(u64, u64)> = HashSet::new();
     for i in 0..n {
         for &(nbr, _) in &g.neighbors(i as u64) {
-            let key = if (i as u64) < nbr { (i as u64, nbr) } else { (nbr, i as u64) };
+            let key = if (i as u64) < nbr {
+                (i as u64, nbr)
+            } else {
+                (nbr, i as u64)
+            };
             edge_set.insert(key);
         }
     }
@@ -121,15 +125,11 @@ fn bench_canonical_random(c: &mut Criterion) {
         let g = random_connected_graph(n, m, 42);
         let config = SourceAnchoredConfig::default();
 
-        group.bench_with_input(
-            BenchmarkId::new("source_anchored", n),
-            &g,
-            |b, graph| {
-                b.iter(|| {
-                    black_box(canonical_mincut(graph, &config));
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("source_anchored", n), &g, |b, graph| {
+            b.iter(|| {
+                black_box(canonical_mincut(graph, &config));
+            });
+        });
     }
 
     group.finish();
@@ -142,15 +142,11 @@ fn bench_canonical_cycle(c: &mut Criterion) {
         let g = cycle_graph(n);
         let config = SourceAnchoredConfig::default();
 
-        group.bench_with_input(
-            BenchmarkId::new("cycle", n),
-            &g,
-            |b, graph| {
-                b.iter(|| {
-                    black_box(canonical_mincut(graph, &config));
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("cycle", n), &g, |b, graph| {
+            b.iter(|| {
+                black_box(canonical_mincut(graph, &config));
+            });
+        });
     }
 
     group.finish();
@@ -163,15 +159,11 @@ fn bench_canonical_complete(c: &mut Criterion) {
         let g = complete_graph(n);
         let config = SourceAnchoredConfig::default();
 
-        group.bench_with_input(
-            BenchmarkId::new("complete", n),
-            &g,
-            |b, graph| {
-                b.iter(|| {
-                    black_box(canonical_mincut(graph, &config));
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("complete", n), &g, |b, graph| {
+            b.iter(|| {
+                black_box(canonical_mincut(graph, &config));
+            });
+        });
     }
 
     group.finish();
@@ -202,35 +194,23 @@ fn bench_tree_packing_vs_stoer_wagner(c: &mut Criterion) {
         let g = random_connected_graph(n, m, 42);
         let config = SourceAnchoredConfig::default();
 
-        group.bench_with_input(
-            BenchmarkId::new("stoer_wagner", n),
-            &g,
-            |b, graph| {
-                b.iter(|| {
-                    black_box(canonical_mincut(graph, &config));
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("stoer_wagner", n), &g, |b, graph| {
+            b.iter(|| {
+                black_box(canonical_mincut(graph, &config));
+            });
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("tree_packing", n),
-            &g,
-            |b, graph| {
-                b.iter(|| {
-                    black_box(GomoryHuTree::build(graph));
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("tree_packing", n), &g, |b, graph| {
+            b.iter(|| {
+                black_box(GomoryHuTree::build(graph));
+            });
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("fast_path", n),
-            &g,
-            |b, graph| {
-                b.iter(|| {
-                    black_box(canonical_mincut_fast(graph, &config));
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("fast_path", n), &g, |b, graph| {
+            b.iter(|| {
+                black_box(canonical_mincut_fast(graph, &config));
+            });
+        });
     }
 
     group.finish();
@@ -251,7 +231,8 @@ fn bench_dynamic_add_edge(c: &mut Criterion) {
                 let mut dmc = DynamicCanonicalMinCut::with_edges(
                     base_edges.clone(),
                     DynamicCanonicalConfig::default(),
-                ).unwrap();
+                )
+                .unwrap();
                 dmc.canonical_cut(); // prime the cache
                 dmc
             },
@@ -277,7 +258,8 @@ fn bench_dynamic_batch_100(c: &mut Criterion) {
                 let mut dmc = DynamicCanonicalMinCut::with_edges(
                     base_edges.clone(),
                     DynamicCanonicalConfig::default(),
-                ).unwrap();
+                )
+                .unwrap();
                 dmc.canonical_cut();
 
                 let mut mutations = Vec::new();
@@ -335,7 +317,8 @@ fn bench_dynamic_vs_full_recompute(c: &mut Criterion) {
                         let mut dmc = DynamicCanonicalMinCut::with_edges(
                             edges.clone(),
                             DynamicCanonicalConfig::default(),
-                        ).unwrap();
+                        )
+                        .unwrap();
                         dmc.canonical_cut(); // prime
                         dmc
                     },

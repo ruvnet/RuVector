@@ -73,11 +73,7 @@ pub trait DraftModel: Send + Sync {
     /// Returns a vector of (token_id, probability) pairs representing the
     /// draft model's greedy/sampled choices and their probabilities under
     /// the draft distribution.
-    fn draft_tokens(
-        &self,
-        prefix: &[TokenId],
-        gamma: usize,
-    ) -> Vec<(TokenId, f32)>;
+    fn draft_tokens(&self, prefix: &[TokenId], gamma: usize) -> Vec<(TokenId, f32)>;
 }
 
 /// Target model trait: the large, accurate model that verifies drafts.
@@ -175,10 +171,8 @@ impl SpeculativeDecoder {
             ));
         }
 
-        let draft_tokens: Vec<TokenId> =
-            draft_results.iter().map(|(t, _)| *t).collect();
-        let draft_probs: Vec<f32> =
-            draft_results.iter().map(|(_, p)| *p).collect();
+        let draft_tokens: Vec<TokenId> = draft_results.iter().map(|(t, _)| *t).collect();
+        let draft_probs: Vec<f32> = draft_results.iter().map(|(_, p)| *p).collect();
 
         let target_dists = target.verify_batch(prefix, &draft_tokens);
         if target_dists.len() < draft_tokens.len() + 1 {
@@ -195,9 +189,7 @@ impl SpeculativeDecoder {
             let q_i = draft_probs[i];
             let p_i = prob_of_token(&target_dists[i], token);
 
-            let rng_val = rng_values
-                .and_then(|v| v.get(i).copied())
-                .unwrap_or(0.0);
+            let rng_val = rng_values.and_then(|v| v.get(i).copied()).unwrap_or(0.0);
 
             if p_i >= q_i {
                 // Accept unconditionally: target agrees at least as much.
@@ -207,12 +199,7 @@ impl SpeculativeDecoder {
                 accepted.push(token);
             } else {
                 // Reject: sample from adjusted distribution max(0, p - q).
-                let adjusted = sample_adjusted(
-                    &target_dists[i],
-                    &draft_tokens,
-                    &draft_probs,
-                    i,
-                );
+                let adjusted = sample_adjusted(&target_dists[i], &draft_tokens, &draft_probs, i);
                 accepted.push(adjusted);
                 rejected = true;
                 break;
@@ -266,10 +253,7 @@ fn sample_adjusted(
     draft_probs: &[f32],
     position: usize,
 ) -> TokenId {
-    let mut best_token = target_dist
-        .first()
-        .map(|(t, _)| *t)
-        .unwrap_or(0);
+    let mut best_token = target_dist.first().map(|(t, _)| *t).unwrap_or(0);
     let mut best_score = f32::NEG_INFINITY;
 
     for &(token, p_target) in target_dist {
@@ -329,10 +313,8 @@ pub fn medusa_decode(
     }
 
     // Each head predicts one position ahead.
-    let head_predictions: Vec<Vec<(TokenId, f32)>> = heads
-        .iter()
-        .map(|h| h.predict(prefix))
-        .collect();
+    let head_predictions: Vec<Vec<(TokenId, f32)>> =
+        heads.iter().map(|h| h.predict(prefix)).collect();
 
     // Build the greedy candidate path (top-1 from each head).
     let candidate_path: Vec<TokenId> = head_predictions
@@ -391,11 +373,7 @@ pub struct SimpleDraftModel {
 }
 
 impl DraftModel for SimpleDraftModel {
-    fn draft_tokens(
-        &self,
-        _prefix: &[TokenId],
-        gamma: usize,
-    ) -> Vec<(TokenId, f32)> {
+    fn draft_tokens(&self, _prefix: &[TokenId], gamma: usize) -> Vec<(TokenId, f32)> {
         (0..gamma)
             .map(|i| {
                 let token = self.tokens[i % self.tokens.len()];
@@ -514,14 +492,9 @@ mod tests {
             ],
         };
 
-        let result = SpeculativeDecoder::decode_step(
-            &[1, 2, 3],
-            &draft,
-            &target,
-            &default_config(),
-            None,
-        )
-        .unwrap();
+        let result =
+            SpeculativeDecoder::decode_step(&[1, 2, 3], &draft, &target, &default_config(), None)
+                .unwrap();
 
         // All 4 draft tokens accepted + 1 bonus = 5 tokens.
         assert_eq!(result.tokens.len(), 5);
@@ -612,10 +585,7 @@ mod tests {
         // Adjusted: max(0, 0.3 - 0.8) = 0 for 10, max(0, 0.7 - 0) = 0.7 for 42.
         // So adjusted sample should be 42.
         let target = SimpleTargetModel {
-            distributions: vec![
-                vec![(10, 0.3), (42, 0.7)],
-                vec![(99, 1.0)],
-            ],
+            distributions: vec![vec![(10, 0.3), (42, 0.7)], vec![(99, 1.0)]],
         };
 
         let cfg = SpeculativeConfig::new(1);
@@ -666,16 +636,11 @@ mod tests {
             probability: 0.8,
         };
         let target = SimpleTargetModel {
-            distributions: vec![
-                vec![(10, 0.7)],
-                vec![(20, 0.6)],
-                vec![(99, 1.0)],
-            ],
+            distributions: vec![vec![(10, 0.7)], vec![(20, 0.6)], vec![(99, 1.0)]],
         };
 
         let heads: Vec<&dyn MedusaHead> = vec![&h1, &h2];
-        let result =
-            medusa_decode(&[1, 2], &heads, &target, &default_config()).unwrap();
+        let result = medusa_decode(&[1, 2], &heads, &target, &default_config()).unwrap();
 
         assert_eq!(result.tokens, vec![10, 20]);
         assert_eq!(result.paths_evaluated, 1);
@@ -687,8 +652,7 @@ mod tests {
             distributions: vec![vec![(1, 1.0)]],
         };
         let heads: Vec<&dyn MedusaHead> = vec![];
-        let result =
-            medusa_decode(&[1], &heads, &target, &default_config());
+        let result = medusa_decode(&[1], &heads, &target, &default_config());
         assert!(result.is_err());
     }
 
@@ -710,14 +674,8 @@ mod tests {
 
         let cfg = SpeculativeConfig::new(1);
         // rng = 0.3 < 0.5 (p/q) -> accept
-        let result = SpeculativeDecoder::decode_step(
-            &[1],
-            &draft,
-            &target,
-            &cfg,
-            Some(&[0.3]),
-        )
-        .unwrap();
+        let result =
+            SpeculativeDecoder::decode_step(&[1], &draft, &target, &cfg, Some(&[0.3])).unwrap();
 
         // Accepted draft token + bonus
         assert_eq!(result.tokens, vec![10, 99]);
@@ -733,21 +691,11 @@ mod tests {
             probability: 0.5,
         };
         let target = SimpleTargetModel {
-            distributions: vec![
-                vec![(5, 0.9)],
-                vec![(6, 1.0)],
-            ],
+            distributions: vec![vec![(5, 0.9)], vec![(6, 1.0)]],
         };
 
         let cfg = SpeculativeConfig::new(1);
-        let result = SpeculativeDecoder::decode_step(
-            &[],
-            &draft,
-            &target,
-            &cfg,
-            None,
-        )
-        .unwrap();
+        let result = SpeculativeDecoder::decode_step(&[], &draft, &target, &cfg, None).unwrap();
 
         assert_eq!(result.tokens, vec![5, 6]);
     }

@@ -282,7 +282,9 @@ impl HnswIndex {
                                 })
                             })
                             .collect();
-                        scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+                        scored.sort_by(|a, b| {
+                            b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
+                        });
                         let pruned: Vec<u64> = scored
                             .into_iter()
                             .take(self.config.max_neighbors)
@@ -350,15 +352,9 @@ impl HnswIndex {
     }
 
     /// Search a layer for ef nearest neighbors.
-    fn search_layer(
-        &self,
-        query: &[f32],
-        start: u64,
-        ef: usize,
-        layer: usize,
-    ) -> Vec<(u64, f32)> {
-        use std::collections::{BinaryHeap, HashSet};
+    fn search_layer(&self, query: &[f32], start: u64, ef: usize, layer: usize) -> Vec<(u64, f32)> {
         use std::cmp::Ordering;
+        use std::collections::{BinaryHeap, HashSet};
 
         #[derive(PartialEq)]
         struct Candidate {
@@ -421,11 +417,8 @@ impl HnswIndex {
                     let sim = Self::cosine_similarity(query, &neighbor.vector);
 
                     // Add to candidates if better than worst result
-                    let should_add = results.len() < ef
-                        || results
-                            .peek()
-                            .map(|w| sim > w.0.sim)
-                            .unwrap_or(true);
+                    let should_add =
+                        results.len() < ef || results.peek().map(|w| sim > w.0.sim).unwrap_or(true);
 
                     if should_add {
                         candidates.push(Candidate {
@@ -782,10 +775,7 @@ impl Middleware for HnswMiddleware {
             })
             .collect();
 
-        extensions.insert(
-            "hnsw_memories".to_string(),
-            serde_json::json!(memories),
-        );
+        extensions.insert("hnsw_memories".to_string(), serde_json::json!(memories));
 
         Some(AgentStateUpdate {
             messages: None,
@@ -948,7 +938,11 @@ mod tests {
 
         // "read_file" should be in results
         let has_read_file = results.iter().any(|r| r.metadata.name == "read_file");
-        assert!(has_read_file, "Expected read_file in results: {:?}", results);
+        assert!(
+            has_read_file,
+            "Expected read_file in results: {:?}",
+            results
+        );
     }
 
     #[test]

@@ -345,8 +345,8 @@ mod tests {
     fn test_pq_flat_table() {
         // 2 subspaces, 4 centroids each (k=4 for test)
         let table = vec![
-            0.1, 0.2, 0.3, 0.4,  // subspace 0
-            0.5, 0.6, 0.7, 0.8,  // subspace 1
+            0.1, 0.2, 0.3, 0.4, // subspace 0
+            0.5, 0.6, 0.7, 0.8, // subspace 1
         ];
         let codes = vec![1u8, 2u8]; // code 1 from sub0, code 2 from sub1
         let dist = pq_asymmetric_distance(&codes, &table, 4);

@@ -63,11 +63,7 @@ fn test_path_traversal_blocked_absolute() {
     // Absolute paths are a traversal risk in virtual mode.
     // The real FilesystemBackend.resolve_path() blocks these;
     // here we verify the path component checks.
-    let dangerous_paths = [
-        "/etc/passwd",
-        "/root/.ssh/id_rsa",
-        "/var/log/syslog",
-    ];
+    let dangerous_paths = ["/etc/passwd", "/root/.ssh/id_rsa", "/var/log/syslog"];
     for path in &dangerous_paths {
         // Absolute paths start with '/' -- a properly-configured
         // virtual-mode backend rejects them by checking starts_with(cwd).
@@ -147,7 +143,11 @@ fn test_glob_no_follow_symlinks() {
 #[test]
 fn test_grep_literal_search() {
     let dir = tempfile::tempdir().unwrap();
-    write_temp_file(&dir, "code.rs", "fn main() {\n    println!(\"hello\");\n}\n");
+    write_temp_file(
+        &dir,
+        "code.rs",
+        "fn main() {\n    println!(\"hello\");\n}\n",
+    );
     write_temp_file(&dir, "other.rs", "fn other() { /* no match */ }\n");
 
     // Literal search for "println!" should match code.rs line 2.

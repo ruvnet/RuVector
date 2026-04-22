@@ -11,8 +11,8 @@
 //! - CentroidMerged: 3-bit quantization (10.7x compression)
 //! - Archived: 2-bit quantization (16x compression)
 
-use serde::{Deserialize, Serialize};
 use crate::web_memory::CompressionTier;
+use serde::{Deserialize, Serialize};
 
 /// Quantization configuration by tier
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,9 +28,9 @@ pub struct PiQConfig {
 impl Default for PiQConfig {
     fn default() -> Self {
         Self {
-            delta_bits: 4,     // 2.67x compression, ~99% recall
-            centroid_bits: 3,  // 10.7x compression, ~96% recall
-            archived_bits: 2,  // 16x compression, ~90% recall
+            delta_bits: 4,    // 2.67x compression, ~99% recall
+            centroid_bits: 3, // 10.7x compression, ~96% recall
+            archived_bits: 2, // 16x compression, ~90% recall
         }
     }
 }
@@ -134,7 +134,9 @@ impl PiQQuantizer {
             .iter()
             .map(|&v| {
                 let normalized = (v - min_val) / range;
-                (normalized * levels as f32).round().clamp(0.0, levels as f32) as u32
+                (normalized * levels as f32)
+                    .round()
+                    .clamp(0.0, levels as f32) as u32
             })
             .collect();
 
@@ -207,15 +209,15 @@ impl PiQQuantizer {
     /// Based on empirical measurements from ADR-115
     pub fn expected_recall(bits: u8) -> f32 {
         match bits {
-            8 => 0.999,  // Nearly lossless
+            8 => 0.999, // Nearly lossless
             7 => 0.997,
             6 => 0.995,
             5 => 0.99,
-            4 => 0.985,  // 4-bit still very good
-            3 => 0.96,   // PiQ3 target
-            2 => 0.90,   // Archived tier
-            1 => 0.70,   // Binary (not recommended)
-            _ => 1.0,    // Full precision
+            4 => 0.985, // 4-bit still very good
+            3 => 0.96,  // PiQ3 target
+            2 => 0.90,  // Archived tier
+            1 => 0.70,  // Binary (not recommended)
+            _ => 1.0,   // Full precision
         }
     }
 }
@@ -310,18 +312,26 @@ mod tests {
         let embedding: Vec<f32> = (0..128).map(|i| (i as f32) / 127.0).collect();
 
         // Full tier: no quantization
-        assert!(quantizer.quantize(&embedding, CompressionTier::Full).is_none());
+        assert!(quantizer
+            .quantize(&embedding, CompressionTier::Full)
+            .is_none());
 
         // DeltaCompressed: 4-bit
-        let delta = quantizer.quantize(&embedding, CompressionTier::DeltaCompressed).unwrap();
+        let delta = quantizer
+            .quantize(&embedding, CompressionTier::DeltaCompressed)
+            .unwrap();
         assert_eq!(delta.bits, 4);
 
         // CentroidMerged: 3-bit
-        let centroid = quantizer.quantize(&embedding, CompressionTier::CentroidMerged).unwrap();
+        let centroid = quantizer
+            .quantize(&embedding, CompressionTier::CentroidMerged)
+            .unwrap();
         assert_eq!(centroid.bits, 3);
 
         // Archived: 2-bit
-        let archived = quantizer.quantize(&embedding, CompressionTier::Archived).unwrap();
+        let archived = quantizer
+            .quantize(&embedding, CompressionTier::Archived)
+            .unwrap();
         assert_eq!(archived.bits, 2);
     }
 
@@ -426,21 +436,39 @@ mod tests {
         println!();
         println!("3-bit (CentroidMerged tier):");
         println!("  - Compressed size: {size_3bit} bytes");
-        println!("  - Compression ratio: {:.2}x", original_size as f32 / size_3bit as f32);
+        println!(
+            "  - Compression ratio: {:.2}x",
+            original_size as f32 / size_3bit as f32
+        );
         println!("  - Recall (cosine similarity): {:.4}", avg_recall_3bit);
-        println!("  - Throughput: {:.2} embeddings/sec", num_embeddings as f64 / time_3bit.as_secs_f64());
+        println!(
+            "  - Throughput: {:.2} embeddings/sec",
+            num_embeddings as f64 / time_3bit.as_secs_f64()
+        );
         println!();
         println!("4-bit (DeltaCompressed tier):");
         println!("  - Compressed size: {size_4bit} bytes");
-        println!("  - Compression ratio: {:.2}x", original_size as f32 / size_4bit as f32);
+        println!(
+            "  - Compression ratio: {:.2}x",
+            original_size as f32 / size_4bit as f32
+        );
         println!("  - Recall (cosine similarity): {:.4}", avg_recall_4bit);
-        println!("  - Throughput: {:.2} embeddings/sec", num_embeddings as f64 / time_4bit.as_secs_f64());
+        println!(
+            "  - Throughput: {:.2} embeddings/sec",
+            num_embeddings as f64 / time_4bit.as_secs_f64()
+        );
         println!();
         println!("2-bit (Archived tier):");
         println!("  - Compressed size: {size_2bit} bytes");
-        println!("  - Compression ratio: {:.2}x", original_size as f32 / size_2bit as f32);
+        println!(
+            "  - Compression ratio: {:.2}x",
+            original_size as f32 / size_2bit as f32
+        );
         println!("  - Recall (cosine similarity): {:.4}", avg_recall_2bit);
-        println!("  - Throughput: {:.2} embeddings/sec", num_embeddings as f64 / time_2bit.as_secs_f64());
+        println!(
+            "  - Throughput: {:.2} embeddings/sec",
+            num_embeddings as f64 / time_2bit.as_secs_f64()
+        );
         println!();
 
         // Assertions

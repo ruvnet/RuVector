@@ -32,10 +32,7 @@ pub fn print_summary(results: &[CircuitResult]) {
         println!("  Phi:               {:.6}  ({})", r.full_phi, r.algorithm);
         println!("  EI (micro):        {:.4} bits", r.emergence.ei_micro);
         println!("  EI (macro):        {:.4} bits", r.emergence.ei_macro);
-        println!(
-            "  Causal emergence:  {:.4}",
-            r.emergence.causal_emergence
-        );
+        println!("  Causal emergence:  {:.4}", r.emergence.causal_emergence);
         println!("  Determinism:       {:.4}", r.emergence.determinism);
         println!("  Degeneracy:        {:.4}", r.emergence.degeneracy);
         println!(
@@ -50,10 +47,7 @@ pub fn print_summary(results: &[CircuitResult]) {
             "  Emergence index:   {:.4}",
             r.svd_emergence.emergence_index
         );
-        println!(
-            "  Reversibility:     {:.4}",
-            r.svd_emergence.reversibility
-        );
+        println!("  Reversibility:     {:.4}", r.svd_emergence.reversibility);
     }
 }
 
@@ -149,13 +143,7 @@ fn render_phi_bars(results: &[CircuitResult], x: i32, y: i32, w: i32, h: i32) ->
 }
 
 /// Render emergence comparison bar chart.
-fn render_emergence_bars(
-    results: &[CircuitResult],
-    x: i32,
-    y: i32,
-    w: i32,
-    h: i32,
-) -> String {
+fn render_emergence_bars(results: &[CircuitResult], x: i32, y: i32, w: i32, h: i32) -> String {
     let mut s = format!("<g transform=\"translate({},{})\">\n", x, y);
     s.push_str(&format!(
         "<rect x=\"0\" y=\"0\" width=\"{}\" height=\"{}\" fill=\"#fafafa\" stroke=\"#ddd\" rx=\"5\"/>\n",
@@ -226,7 +214,10 @@ fn render_emergence_bars(
          <text x=\"167\" y=\"{}\" class=\"label\">EI (micro)</text>\n\
          <rect x=\"260\" y=\"{}\" width=\"12\" height=\"12\" class=\"bar-emg\" opacity=\"0.7\"/>\n\
          <text x=\"277\" y=\"{}\" class=\"label\">Causal Emergence</text>\n",
-        ly, ly + 10, ly, ly + 10
+        ly,
+        ly + 10,
+        ly,
+        ly + 10
     ));
 
     s.push_str("</g>\n");
@@ -234,13 +225,7 @@ fn render_emergence_bars(
 }
 
 /// Render stats table at the bottom.
-fn render_stats_table(
-    results: &[CircuitResult],
-    x: i32,
-    y: i32,
-    w: i32,
-    h: i32,
-) -> String {
+fn render_stats_table(results: &[CircuitResult], x: i32, y: i32, w: i32, h: i32) -> String {
     let mut s = format!("<g transform=\"translate({},{})\">\n", x, y);
     s.push_str(&format!(
         "<rect x=\"0\" y=\"0\" width=\"{}\" height=\"{}\" fill=\"#fafafa\" stroke=\"#ddd\" rx=\"5\"/>\n",
@@ -254,8 +239,15 @@ fn render_stats_table(
     // Header
     let cols = [15, 180, 260, 380, 500, 620, 740, 870, 990];
     let headers = [
-        "Circuit", "Qubits", "Phi", "Algorithm", "EI_micro",
-        "Emergence", "SVD Rank", "Emg Index", "Reversibility",
+        "Circuit",
+        "Qubits",
+        "Phi",
+        "Algorithm",
+        "EI_micro",
+        "Emergence",
+        "SVD Rank",
+        "Emg Index",
+        "Reversibility",
     ];
     for (col, hdr) in cols.iter().zip(headers.iter()) {
         s.push_str(&format!(

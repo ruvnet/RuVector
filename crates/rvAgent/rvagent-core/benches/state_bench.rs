@@ -1,7 +1,7 @@
 //! Criterion benchmarks for rvagent-core: AgentState, Message serialization,
 //! and SystemPromptBuilder (ADR-103 A9).
 
-use criterion::{criterion_group, criterion_main, Criterion, black_box, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -115,12 +115,10 @@ fn bench_state_clone(c: &mut Criterion) {
         let files_json = serde_json::to_vec(&*state.files).unwrap();
         let todos_json = serde_json::to_vec(&*state.todos).unwrap();
         b.iter(|| {
-            let msgs: Vec<Message> =
-                serde_json::from_slice(black_box(&json)).unwrap();
+            let msgs: Vec<Message> = serde_json::from_slice(black_box(&json)).unwrap();
             let files: HashMap<String, FileData> =
                 serde_json::from_slice(black_box(&files_json)).unwrap();
-            let todos: Vec<TodoItem> =
-                serde_json::from_slice(black_box(&todos_json)).unwrap();
+            let todos: Vec<TodoItem> = serde_json::from_slice(black_box(&todos_json)).unwrap();
             black_box((msgs, files, todos));
         })
     });
@@ -164,8 +162,7 @@ fn bench_message_serialization(c: &mut Criterion) {
             &json_bytes,
             |b, bytes| {
                 b.iter(|| {
-                    let msgs: Vec<Message> =
-                        serde_json::from_slice(black_box(bytes)).unwrap();
+                    let msgs: Vec<Message> = serde_json::from_slice(black_box(bytes)).unwrap();
                     black_box(msgs);
                 })
             },

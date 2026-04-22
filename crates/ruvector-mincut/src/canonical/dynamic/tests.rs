@@ -1,27 +1,20 @@
 //! Tests for dynamic incremental canonical minimum cut (Tier 3).
 
 use super::*;
+use crate::canonical::source_anchored::{canonical_mincut, SourceAnchoredConfig};
 use crate::canonical::FixedWeight;
-use crate::canonical::source_anchored::{
-    canonical_mincut, SourceAnchoredConfig,
-};
 use crate::graph::DynamicGraph;
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn make_dynamic(
-    edges: &[(u64, u64, f64)],
-) -> DynamicMinCut {
+fn make_dynamic(edges: &[(u64, u64, f64)]) -> DynamicMinCut {
     let edge_vec: Vec<(u64, u64, f64)> = edges.to_vec();
     DynamicMinCut::with_edges(edge_vec, DynamicMinCutConfig::default()).unwrap()
 }
 
-fn make_dynamic_with_threshold(
-    edges: &[(u64, u64, f64)],
-    threshold: u64,
-) -> DynamicMinCut {
+fn make_dynamic_with_threshold(edges: &[(u64, u64, f64)], threshold: u64) -> DynamicMinCut {
     let edge_vec: Vec<(u64, u64, f64)> = edges.to_vec();
     let config = DynamicMinCutConfig {
         canonical_config: SourceAnchoredConfig::default(),
@@ -44,9 +37,7 @@ fn make_graph(edges: &[(u64, u64, f64)]) -> DynamicGraph {
 
 #[test]
 fn test_dynamic_basic_computation() {
-    let mut dmc = make_dynamic(&[
-        (0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0),
-    ]);
+    let mut dmc = make_dynamic(&[(0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0)]);
 
     let cut = dmc.canonical_cut().unwrap();
     assert_eq!(cut.lambda, FixedWeight::from_f64(2.0));
@@ -74,9 +65,7 @@ fn test_dynamic_default() {
 #[test]
 fn test_add_edge_same_side_no_recompute() {
     // Triangle: {0,1,2}, cut isolates one vertex
-    let mut dmc = make_dynamic(&[
-        (0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0),
-    ]);
+    let mut dmc = make_dynamic(&[(0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0)]);
 
     // Force initial computation
     let cut1 = dmc.canonical_cut().unwrap();
@@ -90,9 +79,7 @@ fn test_add_edge_same_side_no_recompute() {
 
     // Actually, let's use a more predictable graph.
     // Path: 0-1-2-3, cut at edge (1,2) or (2,3).
-    let mut dmc2 = make_dynamic(&[
-        (0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0),
-    ]);
+    let mut dmc2 = make_dynamic(&[(0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0)]);
 
     let cut2 = dmc2.canonical_cut().unwrap();
     assert_eq!(cut2.lambda, FixedWeight::from_f64(1.0));
@@ -109,8 +96,12 @@ fn test_add_edge_same_side_no_recompute() {
 fn test_add_edge_crosses_cut_triggers_recompute() {
     // Two clusters connected by weak edge
     let mut dmc = make_dynamic(&[
-        (0, 1, 5.0), (1, 2, 5.0), (2, 0, 5.0),
-        (3, 4, 5.0), (4, 5, 5.0), (5, 3, 5.0),
+        (0, 1, 5.0),
+        (1, 2, 5.0),
+        (2, 0, 5.0),
+        (3, 4, 5.0),
+        (4, 5, 5.0),
+        (5, 3, 5.0),
         (2, 3, 1.0),
     ]);
 
@@ -136,8 +127,12 @@ fn test_add_edge_crosses_cut_triggers_recompute() {
 #[test]
 fn test_remove_edge_not_in_cut() {
     let mut dmc = make_dynamic(&[
-        (0, 1, 5.0), (1, 2, 5.0), (2, 0, 5.0),
-        (3, 4, 5.0), (4, 5, 5.0), (5, 3, 5.0),
+        (0, 1, 5.0),
+        (1, 2, 5.0),
+        (2, 0, 5.0),
+        (3, 4, 5.0),
+        (4, 5, 5.0),
+        (5, 3, 5.0),
         (2, 3, 1.0),
     ]);
 
@@ -154,8 +149,12 @@ fn test_remove_edge_not_in_cut() {
 #[test]
 fn test_remove_edge_in_cut_triggers_recompute() {
     let mut dmc = make_dynamic(&[
-        (0, 1, 5.0), (1, 2, 5.0), (2, 0, 5.0),
-        (3, 4, 5.0), (4, 5, 5.0), (5, 3, 5.0),
+        (0, 1, 5.0),
+        (1, 2, 5.0),
+        (2, 0, 5.0),
+        (3, 4, 5.0),
+        (4, 5, 5.0),
+        (5, 3, 5.0),
         (2, 3, 1.0),
     ]);
 
@@ -180,9 +179,7 @@ fn test_remove_edge_in_cut_triggers_recompute() {
 #[test]
 fn test_batch_updates_match_sequential() {
     // Use a simple triangle as base.
-    let base_edges = vec![
-        (0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0),
-    ];
+    let base_edges = vec![(0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0)];
 
     // Sequential: add two new edges
     let mut dmc_seq = make_dynamic(&base_edges);
@@ -194,10 +191,9 @@ fn test_batch_updates_match_sequential() {
     // Batch: same two new edges
     let mut dmc_batch = make_dynamic(&base_edges);
     dmc_batch.canonical_cut(); // initial computation
-    dmc_batch.apply_batch(&[
-        EdgeMutation::Add(0, 3, 2.0),
-        EdgeMutation::Add(1, 3, 3.0),
-    ]).unwrap();
+    dmc_batch
+        .apply_batch(&[EdgeMutation::Add(0, 3, 2.0), EdgeMutation::Add(1, 3, 3.0)])
+        .unwrap();
     let cut_batch = dmc_batch.canonical_cut();
 
     match (cut_seq, cut_batch) {
@@ -213,16 +209,18 @@ fn test_batch_updates_match_sequential() {
 #[test]
 fn test_batch_add_and_remove() {
     let mut dmc = make_dynamic(&[
-        (0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0),
-        (2, 3, 1.0), (3, 4, 1.0), (4, 2, 1.0),
+        (0, 1, 1.0),
+        (1, 2, 1.0),
+        (2, 0, 1.0),
+        (2, 3, 1.0),
+        (3, 4, 1.0),
+        (4, 2, 1.0),
     ]);
 
     dmc.canonical_cut(); // initial
 
-    dmc.apply_batch(&[
-        EdgeMutation::Add(0, 4, 2.0),
-        EdgeMutation::Remove(2, 3),
-    ]).unwrap();
+    dmc.apply_batch(&[EdgeMutation::Add(0, 4, 2.0), EdgeMutation::Remove(2, 3)])
+        .unwrap();
 
     // Should still be able to compute a cut
     let cut = dmc.canonical_cut();
@@ -236,9 +234,7 @@ fn test_batch_add_and_remove() {
 
 #[test]
 fn test_epoch_increments() {
-    let mut dmc = make_dynamic(&[
-        (0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0),
-    ]);
+    let mut dmc = make_dynamic(&[(0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0)]);
 
     assert_eq!(dmc.epoch(), 0);
 
@@ -254,9 +250,7 @@ fn test_epoch_increments() {
 
 #[test]
 fn test_last_full_epoch_updates_on_recompute() {
-    let mut dmc = make_dynamic(&[
-        (0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0),
-    ]);
+    let mut dmc = make_dynamic(&[(0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0)]);
 
     assert_eq!(dmc.last_full_epoch(), 0);
 
@@ -278,10 +272,7 @@ fn test_last_full_epoch_updates_on_recompute() {
 #[test]
 fn test_staleness_triggers_recompute() {
     // Set threshold to 3 updates
-    let mut dmc = make_dynamic_with_threshold(
-        &[(0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0)],
-        3,
-    );
+    let mut dmc = make_dynamic_with_threshold(&[(0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0)], 3);
 
     dmc.canonical_cut(); // initial compute
     assert_eq!(dmc.incremental_count(), 0);
@@ -291,13 +282,17 @@ fn test_staleness_triggers_recompute() {
     // In a triangle with source=0, cut separates one vertex.
     // Let's add edges to new vertices that connect to the source side.
     dmc.add_edge(3, 4, 1.0).unwrap(); // new disconnected component
-    // This triggers dirty because new vertices aren't in the cache.
-    // Let's use a different approach - use batch to count.
+                                      // This triggers dirty because new vertices aren't in the cache.
+                                      // Let's use a different approach - use batch to count.
 
     let mut dmc2 = make_dynamic_with_threshold(
         &[
-            (0, 1, 5.0), (1, 2, 5.0), (2, 0, 5.0),
-            (3, 4, 5.0), (4, 5, 5.0), (5, 3, 5.0),
+            (0, 1, 5.0),
+            (1, 2, 5.0),
+            (2, 0, 5.0),
+            (3, 4, 5.0),
+            (4, 5, 5.0),
+            (5, 3, 5.0),
             (2, 3, 1.0),
         ],
         3,
@@ -306,15 +301,15 @@ fn test_staleness_triggers_recompute() {
     dmc2.canonical_cut(); // initial compute
 
     // Remove non-cut edges (within clusters)
-    dmc2.remove_edge(0, 1).unwrap();  // incremental_count = 1
+    dmc2.remove_edge(0, 1).unwrap(); // incremental_count = 1
     assert_eq!(dmc2.incremental_count(), 1);
 
-    dmc2.remove_edge(3, 4).unwrap();  // incremental_count = 2
+    dmc2.remove_edge(3, 4).unwrap(); // incremental_count = 2
     assert_eq!(dmc2.incremental_count(), 2);
 
-    dmc2.remove_edge(4, 5).unwrap();  // incremental_count = 3
-    // At this point, staleness should trigger on next canonical_cut()
-    // Note: incremental_count hits threshold (3)
+    dmc2.remove_edge(4, 5).unwrap(); // incremental_count = 3
+                                     // At this point, staleness should trigger on next canonical_cut()
+                                     // Note: incremental_count hits threshold (3)
 
     // The next canonical_cut() should detect staleness and recompute
     let cut = dmc2.canonical_cut();
@@ -350,8 +345,12 @@ fn test_staleness_disabled_when_zero() {
 #[test]
 fn test_dynamic_determinism_100_runs() {
     let edges = vec![
-        (0, 1, 3.0), (1, 2, 2.0), (2, 3, 4.0),
-        (3, 0, 1.0), (0, 2, 5.0), (1, 3, 2.0),
+        (0, 1, 3.0),
+        (1, 2, 2.0),
+        (2, 3, 4.0),
+        (3, 0, 1.0),
+        (0, 2, 5.0),
+        (1, 3, 2.0),
     ];
 
     let mut first_hash = None;
@@ -382,9 +381,7 @@ fn test_dynamic_single_edge() {
 fn test_dynamic_add_then_remove_restores_cut_value() {
     // Use a graph where adding/removing edges doesn't leave isolated vertices.
     // Start with a 4-cycle so there's more structure.
-    let mut dmc = make_dynamic(&[
-        (0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0), (3, 0, 1.0),
-    ]);
+    let mut dmc = make_dynamic(&[(0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0), (3, 0, 1.0)]);
 
     let cut1 = dmc.canonical_cut().unwrap();
     let lambda1 = cut1.lambda;
@@ -404,9 +401,7 @@ fn test_dynamic_add_then_remove_restores_cut_value() {
 
 #[test]
 fn test_dynamic_receipt() {
-    let mut dmc = make_dynamic(&[
-        (0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0),
-    ]);
+    let mut dmc = make_dynamic(&[(0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0)]);
 
     let receipt = dmc.receipt().unwrap();
     assert_eq!(receipt.epoch, 0);
@@ -420,8 +415,11 @@ fn test_dynamic_receipt() {
 #[test]
 fn test_dynamic_matches_full_recompute_after_additions() {
     let base_edges = vec![
-        (0, 1, 2.0), (1, 2, 3.0), (2, 3, 1.0),
-        (3, 0, 4.0), (0, 2, 1.0),
+        (0, 1, 2.0),
+        (1, 2, 3.0),
+        (2, 3, 1.0),
+        (3, 0, 4.0),
+        (0, 2, 1.0),
     ];
 
     let mut dmc = make_dynamic(&base_edges);
@@ -456,8 +454,12 @@ fn test_dynamic_matches_full_recompute_after_additions() {
 #[test]
 fn test_dynamic_matches_full_recompute_after_deletions() {
     let base_edges = vec![
-        (0, 1, 2.0), (1, 2, 3.0), (2, 3, 1.0),
-        (3, 0, 4.0), (0, 2, 1.0), (1, 3, 2.0),
+        (0, 1, 2.0),
+        (1, 2, 3.0),
+        (2, 3, 1.0),
+        (3, 0, 4.0),
+        (0, 2, 1.0),
+        (1, 3, 2.0),
     ];
 
     let mut dmc = make_dynamic(&base_edges);
@@ -469,9 +471,7 @@ fn test_dynamic_matches_full_recompute_after_deletions() {
     dmc.force_recompute();
     let dynamic_cut = dmc.cached_cut.clone();
 
-    let remaining_edges = vec![
-        (0, 1, 2.0), (1, 2, 3.0), (2, 3, 1.0), (3, 0, 4.0),
-    ];
+    let remaining_edges = vec![(0, 1, 2.0), (1, 2, 3.0), (2, 3, 1.0), (3, 0, 4.0)];
     let g = make_graph(&remaining_edges);
     let fresh_cut = canonical_mincut(&g, &SourceAnchoredConfig::default());
 

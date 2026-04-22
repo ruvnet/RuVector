@@ -337,7 +337,10 @@ fn test_neo4j_float_array_property() {
 
     let vec = vec![0.1, 0.2, 0.3];
     let mut props = Properties::new();
-    props.insert("_vector".to_string(), PropertyValue::FloatArray(vec.clone()));
+    props.insert(
+        "_vector".to_string(),
+        PropertyValue::FloatArray(vec.clone()),
+    );
 
     db.create_node(Node::new("n1".to_string(), vec![], props))
         .unwrap();
@@ -345,7 +348,9 @@ fn test_neo4j_float_array_property() {
     let node = db.get_node("n1").unwrap();
     let stored = node.properties.get("_vector");
     assert!(matches!(stored, Some(PropertyValue::FloatArray(arr)) if arr.len() == 3));
-    let Some(PropertyValue::FloatArray(arr)) = stored else { return };
+    let Some(PropertyValue::FloatArray(arr)) = stored else {
+        return;
+    };
     assert_eq!(arr, &vec);
 }
 

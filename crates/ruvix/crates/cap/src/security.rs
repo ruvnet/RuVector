@@ -418,12 +418,7 @@ impl BootVerifier {
             unreachable!("Boot verification is disabled but feature flag is not set");
         }
 
-        verify_boot_signature_or_panic(
-            signature,
-            image_data,
-            &self.trusted_keys,
-            current_time_ns,
-        );
+        verify_boot_signature_or_panic(signature, image_data, &self.trusted_keys, current_time_ns);
     }
 
     /// Returns a reference to the trusted key store.
@@ -449,8 +444,7 @@ mod tests {
         signature[0] = 0x42;
 
         BootSignature::ed25519(
-            signature,
-            [1u8; 32], // public key
+            signature, [1u8; 32], // public key
             [2u8; 32], // message hash
         )
     }
@@ -486,9 +480,8 @@ mod tests {
     #[test]
     fn test_zero_signature_fails() {
         let signature = BootSignature::ed25519(
-            [0u8; 64],  // zero signature = invalid
-            [1u8; 32],
-            [2u8; 32],
+            [0u8; 64], // zero signature = invalid
+            [1u8; 32], [2u8; 32],
         );
         let store = create_trusted_store();
 
@@ -500,9 +493,8 @@ mod tests {
     #[should_panic(expected = "SECURITY VIOLATION [SEC-001]")]
     fn test_panic_on_invalid_signature() {
         let signature = BootSignature::ed25519(
-            [0u8; 64],  // zero = invalid
-            [1u8; 32],
-            [2u8; 32],
+            [0u8; 64], // zero = invalid
+            [1u8; 32], [2u8; 32],
         );
         let store = create_trusted_store();
 
@@ -529,11 +521,7 @@ mod tests {
         let mut store = TrustedKeyStore::new();
         store.add_key(TrustedKey::new([1u8; 32], 1, 1000)); // expires at 1000ns
 
-        let signature = BootSignature::ed25519(
-            [1u8; 64],
-            [1u8; 32],
-            [2u8; 32],
-        );
+        let signature = BootSignature::ed25519([1u8; 64], [1u8; 32], [2u8; 32]);
 
         // Current time 500ns - key should be valid
         let result = verify_signature(&signature, &[], &store, 500);

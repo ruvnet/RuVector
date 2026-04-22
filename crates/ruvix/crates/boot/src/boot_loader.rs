@@ -2,14 +2,14 @@
 //!
 //! Orchestrates the five-stage boot sequence per ADR-087 Section 9.1.
 
+use crate::attestation::BootAttestation;
+use crate::capability_distribution::CapabilityDistribution;
 use crate::manifest::RvfManifest;
 use crate::signature::ML_DSA_65_PUBLIC_KEY_SIZE;
 use crate::stages::{Stage0Hardware, Stage1Verify, Stage2Create, Stage3Mount, Stage4Attest};
 use crate::witness_log::{WitnessLog, WitnessLogConfig};
-use crate::attestation::BootAttestation;
-use crate::capability_distribution::CapabilityDistribution;
-use ruvix_types::KernelError;
 use ruvix_cap::BootCapabilitySet;
+use ruvix_types::KernelError;
 
 /// Boot stage enumeration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -187,7 +187,11 @@ impl BootLoader {
     ///
     /// Returns an error if any boot stage fails (except signature verification,
     /// which panics per SEC-001).
-    pub fn boot(&mut self, manifest_bytes: &[u8], signature: &[u8]) -> Result<&BootResult, KernelError> {
+    pub fn boot(
+        &mut self,
+        manifest_bytes: &[u8],
+        signature: &[u8],
+    ) -> Result<&BootResult, KernelError> {
         // Stage 0: Hardware Init
         self.execute_stage0()?;
 
@@ -230,7 +234,11 @@ impl BootLoader {
     /// # Panics
     ///
     /// Panics if signature verification fails (SEC-001).
-    fn execute_stage1(&mut self, manifest_bytes: &[u8], signature: &[u8]) -> Result<(), KernelError> {
+    fn execute_stage1(
+        &mut self,
+        manifest_bytes: &[u8],
+        signature: &[u8],
+    ) -> Result<(), KernelError> {
         if self.config.verbose {
             eprintln!("Executing Stage 1: RVF Verify");
         }
@@ -250,7 +258,10 @@ impl BootLoader {
             eprintln!("Executing Stage 2: Object Create");
         }
 
-        let manifest = self.result.manifest.as_ref()
+        let manifest = self
+            .result
+            .manifest
+            .as_ref()
             .ok_or(KernelError::InternalError)?;
 
         let physical_memory = self.result.hardware.physical_memory_bytes;
@@ -270,16 +281,24 @@ impl BootLoader {
             eprintln!("Executing Stage 3: Component Mount");
         }
 
-        let manifest = self.result.manifest.as_ref()
+        let manifest = self
+            .result
+            .manifest
+            .as_ref()
             .ok_or(KernelError::InternalError)?;
 
-        let boot_caps = self.result.boot_capabilities.as_ref()
+        let boot_caps = self
+            .result
+            .boot_capabilities
+            .as_ref()
             .ok_or(KernelError::InternalError)?;
 
         self.stage3.execute(manifest, boot_caps)?;
 
         self.result.capability_distribution = self.stage3.capability_distribution.clone();
-        self.result.sec001_capability_drop = self.stage3.capability_distribution
+        self.result.sec001_capability_drop = self
+            .stage3
+            .capability_distribution
             .as_ref()
             .map(|d| d.root_dropped_to_minimum)
             .unwrap_or(false);
@@ -294,13 +313,22 @@ impl BootLoader {
             eprintln!("Executing Stage 4: First Attestation");
         }
 
-        let manifest = self.result.manifest.as_ref()
+        let manifest = self
+            .result
+            .manifest
+            .as_ref()
             .ok_or(KernelError::InternalError)?;
 
-        let boot_caps = self.result.boot_capabilities.as_ref()
+        let boot_caps = self
+            .result
+            .boot_capabilities
+            .as_ref()
             .ok_or(KernelError::InternalError)?;
 
-        let witness_log = self.result.witness_log.as_mut()
+        let witness_log = self
+            .result
+            .witness_log
+            .as_mut()
             .ok_or(KernelError::InternalError)?;
 
         self.stage4.execute(manifest, witness_log, boot_caps)?;
@@ -346,7 +374,7 @@ mod tests {
     }
 
     fn create_test_signature(manifest: &[u8]) -> Vec<u8> {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
 
         let mut sig = vec![0u8; SIGNATURE_SIZE];
         sig[0..4].copy_from_slice(b"TEST");

@@ -269,7 +269,9 @@ fn describe_dangerous_char(ch: char) -> String {
 }
 
 fn extract_domain(url: &str) -> Option<&str> {
-    let url = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://"))?;
+    let url = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))?;
     let domain = url.split('/').next()?;
     // Strip port
     let domain = domain.split(':').next()?;
@@ -305,8 +307,7 @@ fn has_mixed_scripts(domain: &str) -> bool {
         }
     }
 
-    let script_count =
-        has_latin as u8 + has_cyrillic as u8 + has_greek as u8 + has_armenian as u8;
+    let script_count = has_latin as u8 + has_cyrillic as u8 + has_greek as u8 + has_armenian as u8;
     script_count > 1
 }
 
@@ -362,7 +363,10 @@ mod tests {
 
     #[test]
     fn test_url_safety_clean() {
-        assert_eq!(check_url_safety("https://example.com"), UrlSafetyResult::Safe);
+        assert_eq!(
+            check_url_safety("https://example.com"),
+            UrlSafetyResult::Safe
+        );
     }
 
     #[test]
@@ -436,8 +440,14 @@ mod tests {
 
     #[test]
     fn test_extract_domain() {
-        assert_eq!(extract_domain("https://example.com/path"), Some("example.com"));
-        assert_eq!(extract_domain("http://user@host.com:8080/"), Some("host.com"));
+        assert_eq!(
+            extract_domain("https://example.com/path"),
+            Some("example.com")
+        );
+        assert_eq!(
+            extract_domain("http://user@host.com:8080/"),
+            Some("host.com")
+        );
         assert_eq!(extract_domain("ftp://nope"), None);
     }
 }

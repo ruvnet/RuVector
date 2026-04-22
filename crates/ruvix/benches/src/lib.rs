@@ -35,32 +35,33 @@
 
 use std::time::Duration;
 
-pub mod targets;
-pub mod linux;
-pub mod ruvix;
 pub mod comparison;
+pub mod linux;
 pub mod report;
+pub mod ruvix;
 pub mod stats;
+pub mod targets;
 
 /// ADR-087 target latencies for each syscall.
 pub const TARGETS: &[(&str, Duration)] = &[
     ("task_spawn", Duration::from_micros(10)),
-    ("cap_grant", Duration::from_nanos(500)),      // O(1) capability lookup
+    ("cap_grant", Duration::from_nanos(500)), // O(1) capability lookup
     ("region_map", Duration::from_micros(5)),
-    ("queue_send", Duration::from_nanos(200)),     // Zero-copy target
+    ("queue_send", Duration::from_nanos(200)), // Zero-copy target
     ("queue_recv", Duration::from_nanos(200)),
     ("timer_wait", Duration::from_nanos(100)),
     ("rvf_mount", Duration::from_millis(1)),
-    ("attest_emit", Duration::from_nanos(500)),    // 82-byte attestation
+    ("attest_emit", Duration::from_nanos(500)), // 82-byte attestation
     ("vector_get", Duration::from_nanos(100)),
-    ("vector_put_proved", Duration::from_nanos(500)),  // Reflex tier
-    ("graph_apply_proved", Duration::from_micros(1)),  // Standard tier
+    ("vector_put_proved", Duration::from_nanos(500)), // Reflex tier
+    ("graph_apply_proved", Duration::from_micros(1)), // Standard tier
     ("sensor_subscribe", Duration::from_micros(5)),
 ];
 
 /// Returns the target latency for a given syscall name.
 pub fn target_for(syscall: &str) -> Option<Duration> {
-    TARGETS.iter()
+    TARGETS
+        .iter()
         .find(|(name, _)| *name == syscall)
         .map(|(_, target)| *target)
 }
@@ -116,9 +117,11 @@ impl BenchmarkResult {
         let min_ns = sorted.first().copied().unwrap_or(0.0);
         let max_ns = sorted.last().copied().unwrap_or(0.0);
 
-        let variance: f64 = measurements_ns.iter()
+        let variance: f64 = measurements_ns
+            .iter()
             .map(|x| (x - mean_ns).powi(2))
-            .sum::<f64>() / n;
+            .sum::<f64>()
+            / n;
         let std_dev_ns = variance.sqrt();
 
         let target_ns = target.map(|t| t.as_nanos() as f64);

@@ -58,7 +58,10 @@ pub struct CoherenceArb {
 
 impl CoherenceArb {
     pub fn new(config: CoherenceArbConfig) -> Self {
-        Self { config, latest_mid_cents: HashMap::new() }
+        Self {
+            config,
+            latest_mid_cents: HashMap::new(),
+        }
     }
 
     fn update_mid(&mut self, event: &MarketEvent) {
@@ -70,11 +73,7 @@ impl CoherenceArb {
 
     fn try_arb_for(&self, mirror_sym: u32) -> Option<Intent> {
         // Find the pair this symbol participates in.
-        let &(reference, mirror) = self
-            .config
-            .pairs
-            .iter()
-            .find(|(_, m)| *m == mirror_sym)?;
+        let &(reference, mirror) = self.config.pairs.iter().find(|(_, m)| *m == mirror_sym)?;
         let ref_cents = *self.latest_mid_cents.get(&reference)?;
         let mirror_cents = *self.latest_mid_cents.get(&mirror)?;
         let divergence_cents = ref_cents - mirror_cents;

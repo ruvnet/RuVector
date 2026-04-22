@@ -54,7 +54,11 @@ impl SpectralAuditor {
         let mut rng = rand::thread_rng();
         let mut max_error = 0.0f64;
         let mut sum_error = 0.0f64;
-        let probes = if n_probes > 0 { n_probes } else { self.n_probes };
+        let probes = if n_probes > 0 {
+            n_probes
+        } else {
+            self.n_probes
+        };
 
         for _ in 0..probes {
             // Generate random probe vector.
@@ -168,7 +172,9 @@ impl SpectralAuditor {
 
         for _ in 0..k_clusters {
             // Assign each vertex to one of k_clusters clusters.
-            let cluster_id: Vec<usize> = (0..n).map(|_| rng.gen_range(0..k_clusters.max(2))).collect();
+            let cluster_id: Vec<usize> = (0..n)
+                .map(|_| rng.gen_range(0..k_clusters.max(2)))
+                .collect();
 
             // For each cluster, create indicator and measure quadratic form.
             for c in 0..k_clusters.max(2) {
@@ -216,11 +222,7 @@ mod tests {
 
     #[test]
     fn test_audit_identical_graphs() {
-        let g = SparseGraph::from_edges(&[
-            (0, 1, 1.0),
-            (1, 2, 1.0),
-            (2, 0, 1.0),
-        ]);
+        let g = SparseGraph::from_edges(&[(0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0)]);
         let auditor = SpectralAuditor::new(20, 0.01);
         let result = auditor.audit_quadratic_form(&g, &g, 20);
         assert!(result.passed);
@@ -237,10 +239,7 @@ mod tests {
 
     #[test]
     fn test_audit_cuts_identical() {
-        let g = SparseGraph::from_edges(&[
-            (0, 1, 2.0),
-            (1, 2, 3.0),
-        ]);
+        let g = SparseGraph::from_edges(&[(0, 1, 2.0), (1, 2, 3.0)]);
         let auditor = SpectralAuditor::new(10, 0.01);
         let result = auditor.audit_cuts(&g, &g, 10);
         assert!(result.passed);
@@ -248,11 +247,7 @@ mod tests {
 
     #[test]
     fn test_audit_conductance_identical() {
-        let g = SparseGraph::from_edges(&[
-            (0, 1, 1.0),
-            (1, 2, 1.0),
-            (2, 3, 1.0),
-        ]);
+        let g = SparseGraph::from_edges(&[(0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0)]);
         let auditor = SpectralAuditor::new(10, 0.01);
         let result = auditor.audit_conductance(&g, &g, 3);
         assert!(result.passed);

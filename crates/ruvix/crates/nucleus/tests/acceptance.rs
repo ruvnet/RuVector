@@ -27,10 +27,10 @@
 //! Verify: witness log contains exactly 1 boot + 1 mount + 1 mutation attestation
 
 use ruvix_nucleus::{
-    Kernel, KernelConfig, Syscall, SyscallResult, VectorStoreConfig, CheckpointConfig,
-    CapHandle, ProofTier, RvfMountHandle, TaskPriority, VectorKey, WitnessRecordKind,
-    RvfComponentId, RegionPolicy, MsgPriority, TimerSpec, SensorDescriptor,
-    QueueHandle, GraphMutation, GraphHandle,
+    CapHandle, CheckpointConfig, GraphHandle, GraphMutation, Kernel, KernelConfig, MsgPriority,
+    ProofTier, QueueHandle, RegionPolicy, RvfComponentId, RvfMountHandle, SensorDescriptor,
+    Syscall, SyscallResult, TaskPriority, TimerSpec, VectorKey, VectorStoreConfig,
+    WitnessRecordKind,
 };
 
 /// Simulates RVF package data for testing.
@@ -83,23 +83,27 @@ fn test_adr087_section17_full_acceptance() {
 
     // Create a vector store for embeddings
     let vector_config = VectorStoreConfig::new(8, 1000); // 8-dim vectors, 1000 capacity
-    let vector_store = kernel.create_vector_store(vector_config)
+    let vector_store = kernel
+        .create_vector_store(vector_config)
         .expect("Failed to create vector store");
 
     // Create root capability
     let root_task = ruvix_types::TaskHandle::new(1, 0);
-    let root_cap = kernel.create_root_capability(0, ruvix_types::ObjectType::RvfMount, root_task)
+    let root_cap = kernel
+        .create_root_capability(0, ruvix_types::ObjectType::RvfMount, root_task)
         .expect("Failed to create root capability");
 
     // =========================================================================
     // Step 1: rvf_mount("acceptance.rvf", "/test", root_cap)
     // =========================================================================
     let rvf_data = create_test_rvf_package();
-    let result = kernel.dispatch(Syscall::RvfMount {
-        rvf_data,
-        mount_point: "/test".to_string(),
-        cap: root_cap,
-    }).expect("RvfMount syscall failed");
+    let result = kernel
+        .dispatch(Syscall::RvfMount {
+            rvf_data,
+            mount_point: "/test".to_string(),
+            cap: root_cap,
+        })
+        .expect("RvfMount syscall failed");
 
     let mount_handle = match result {
         SyscallResult::RvfMounted(handle) => handle,
@@ -118,20 +122,24 @@ fn test_adr087_section17_full_acceptance() {
     let target_queue = QueueHandle::new(1, 0);
     let sensor_desc = SensorDescriptor::default();
 
-    let result = kernel.dispatch(Syscall::SensorSubscribe {
-        sensor: sensor_desc,
-        target_queue,
-        cap: root_cap,
-    }).expect("SensorSubscribe failed");
+    let result = kernel
+        .dispatch(Syscall::SensorSubscribe {
+            sensor: sensor_desc,
+            target_queue,
+            cap: root_cap,
+        })
+        .expect("SensorSubscribe failed");
 
     assert!(matches!(result, SyscallResult::SensorSubscribed(_)));
 
     // Simulate sending event to queue
-    let result = kernel.dispatch(Syscall::QueueSend {
-        queue: target_queue,
-        msg: perception_event.clone(),
-        priority: MsgPriority::High,
-    }).expect("QueueSend failed");
+    let result = kernel
+        .dispatch(Syscall::QueueSend {
+            queue: target_queue,
+            msg: perception_event.clone(),
+            priority: MsgPriority::High,
+        })
+        .expect("QueueSend failed");
 
     assert!(matches!(result, SyscallResult::MessageSent));
 
@@ -156,7 +164,7 @@ fn test_adr087_section17_full_acceptance() {
     let proof = kernel.create_proof(
         mutation_hash,
         ProofTier::Standard, // Use Standard tier for mutations
-        1, // Nonce
+        1,                   // Nonce
     );
 
     kernel.set_current_time(4_000_000); // 4ms
@@ -166,12 +174,14 @@ fn test_adr087_section17_full_acceptance() {
     // =========================================================================
     let vector_key = VectorKey::new(1);
 
-    let result = kernel.dispatch(Syscall::VectorPutProved {
-        store: vector_store,
-        key: vector_key,
-        data: embedding.clone(),
-        proof,
-    }).expect("VectorPutProved failed");
+    let result = kernel
+        .dispatch(Syscall::VectorPutProved {
+            store: vector_store,
+            key: vector_key,
+            data: embedding.clone(),
+            proof,
+        })
+        .expect("VectorPutProved failed");
 
     // =========================================================================
     // Step 6: Kernel verifies proof, applies mutation, emits attestation
@@ -180,39 +190,60 @@ fn test_adr087_section17_full_acceptance() {
 
     // Verify proof was verified and attestation was emitted
     let stats = kernel.stats();
-    assert_eq!(stats.proofs_verified, 1, "One proof should have been verified");
-    assert!(stats.attestations_emitted >= 1, "At least one attestation should have been emitted");
+    assert_eq!(
+        stats.proofs_verified, 1,
+        "One proof should have been verified"
+    );
+    assert!(
+        stats.attestations_emitted >= 1,
+        "At least one attestation should have been emitted"
+    );
 
     kernel.set_current_time(5_000_000); // 5ms
 
     // =========================================================================
     // Step 7: reader calls vector_get(store, key)
     // =========================================================================
-    let result = kernel.dispatch(Syscall::VectorGet {
-        store: vector_store,
-        key: vector_key,
-    }).expect("VectorGet failed");
+    let result = kernel
+        .dispatch(Syscall::VectorGet {
+            store: vector_store,
+            key: vector_key,
+        })
+        .expect("VectorGet failed");
 
     let (step7_data, step7_coherence) = match result {
         SyscallResult::VectorRetrieved { data, coherence } => (data, coherence),
         _ => panic!("Expected VectorRetrieved result"),
     };
 
-    assert_eq!(step7_data, embedding, "Retrieved data should match stored data");
-    assert!((step7_coherence - 1.0).abs() < 0.001, "Coherence should be ~1.0");
+    assert_eq!(
+        step7_data, embedding,
+        "Retrieved data should match stored data"
+    );
+    assert!(
+        (step7_coherence - 1.0).abs() < 0.001,
+        "Coherence should be ~1.0"
+    );
 
     kernel.set_current_time(6_000_000); // 6ms
 
     // =========================================================================
     // Step 8: System checkpoints (region snapshots + witness log)
     // =========================================================================
-    let checkpoint = kernel.checkpoint(CheckpointConfig::full())
+    let checkpoint = kernel
+        .checkpoint(CheckpointConfig::full())
         .expect("Checkpoint creation failed");
 
-    assert_eq!(checkpoint.sequence, 1, "First checkpoint should have sequence 1");
+    assert_eq!(
+        checkpoint.sequence, 1,
+        "First checkpoint should have sequence 1"
+    );
 
     // Verify the checkpoint contains correct state
-    assert!(kernel.verify_checkpoint(&checkpoint), "Checkpoint should verify");
+    assert!(
+        kernel.verify_checkpoint(&checkpoint),
+        "Checkpoint should verify"
+    );
 
     // =========================================================================
     // Step 9: System shuts down
@@ -231,11 +262,14 @@ fn test_adr087_section17_full_acceptance() {
     // Step 10: System restarts from checkpoint
     // =========================================================================
     let mut restored_kernel = Kernel::new(KernelConfig::default());
-    restored_kernel.boot(0, kernel_hash).expect("Restored kernel boot failed");
+    restored_kernel
+        .boot(0, kernel_hash)
+        .expect("Restored kernel boot failed");
     restored_kernel.set_current_time(7_000_000); // 7ms
 
     // Recreate vector store with same configuration
-    let restored_vector_store = restored_kernel.create_vector_store(vector_config)
+    let restored_vector_store = restored_kernel
+        .create_vector_store(vector_config)
         .expect("Failed to recreate vector store");
 
     // =========================================================================
@@ -252,12 +286,14 @@ fn test_adr087_section17_full_acceptance() {
 
     restored_kernel.set_current_time(8_000_000); // 8ms
 
-    let result = restored_kernel.dispatch(Syscall::VectorPutProved {
-        store: restored_vector_store,
-        key: vector_key,
-        data: embedding.clone(),
-        proof: replay_proof,
-    }).expect("Replay VectorPutProved failed");
+    let result = restored_kernel
+        .dispatch(Syscall::VectorPutProved {
+            store: restored_vector_store,
+            key: vector_key,
+            data: embedding.clone(),
+            proof: replay_proof,
+        })
+        .expect("Replay VectorPutProved failed");
 
     assert!(matches!(result, SyscallResult::VectorStored));
 
@@ -266,10 +302,12 @@ fn test_adr087_section17_full_acceptance() {
     // =========================================================================
     restored_kernel.set_current_time(9_000_000); // 9ms
 
-    let result = restored_kernel.dispatch(Syscall::VectorGet {
-        store: restored_vector_store,
-        key: vector_key,
-    }).expect("Post-replay VectorGet failed");
+    let result = restored_kernel
+        .dispatch(Syscall::VectorGet {
+            store: restored_vector_store,
+            key: vector_key,
+        })
+        .expect("Post-replay VectorGet failed");
 
     let (step12_data, step12_coherence) = match result {
         SyscallResult::VectorRetrieved { data, coherence } => (data, coherence),
@@ -277,10 +315,14 @@ fn test_adr087_section17_full_acceptance() {
     };
 
     // CRITICAL: Step 12 result MUST match Step 7 exactly
-    assert_eq!(step12_data, step7_data,
-        "Post-replay data MUST match pre-shutdown data exactly");
-    assert!((step12_coherence - step7_coherence).abs() < 0.001,
-        "Post-replay coherence MUST match pre-shutdown coherence");
+    assert_eq!(
+        step12_data, step7_data,
+        "Post-replay data MUST match pre-shutdown data exactly"
+    );
+    assert!(
+        (step12_coherence - step7_coherence).abs() < 0.001,
+        "Post-replay coherence MUST match pre-shutdown coherence"
+    );
 
     // =========================================================================
     // Verification: witness log contains exactly 1 boot + 1 mount + 1 mutation
@@ -291,21 +333,36 @@ fn test_adr087_section17_full_acceptance() {
         .expect("Failed to restore witness log");
 
     let boot_count = restored_log.filter_by_kind(WitnessRecordKind::Boot).count();
-    let mount_count = restored_log.filter_by_kind(WitnessRecordKind::Mount).count();
-    let mutation_count = restored_log.filter_by_kind(WitnessRecordKind::VectorMutation).count();
-    let checkpoint_count = restored_log.filter_by_kind(WitnessRecordKind::Checkpoint).count();
+    let mount_count = restored_log
+        .filter_by_kind(WitnessRecordKind::Mount)
+        .count();
+    let mutation_count = restored_log
+        .filter_by_kind(WitnessRecordKind::VectorMutation)
+        .count();
+    let checkpoint_count = restored_log
+        .filter_by_kind(WitnessRecordKind::Checkpoint)
+        .count();
 
     assert_eq!(boot_count, 1, "Should have exactly 1 boot record");
     assert_eq!(mount_count, 1, "Should have exactly 1 mount record");
-    assert_eq!(mutation_count, 1, "Should have exactly 1 vector mutation record");
-    assert_eq!(checkpoint_count, 1, "Should have exactly 1 checkpoint record");
+    assert_eq!(
+        mutation_count, 1,
+        "Should have exactly 1 vector mutation record"
+    );
+    assert_eq!(
+        checkpoint_count, 1,
+        "Should have exactly 1 checkpoint record"
+    );
 
     println!("ADR-087 Section 17 Acceptance Test PASSED");
     println!("  - Boot records: {}", boot_count);
     println!("  - Mount records: {}", mount_count);
     println!("  - Mutation records: {}", mutation_count);
     println!("  - Checkpoint records: {}", checkpoint_count);
-    println!("  - State hash verified: {:?}", &pre_shutdown_state_hash[..8]);
+    println!(
+        "  - State hash verified: {:?}",
+        &pre_shutdown_state_hash[..8]
+    );
 }
 
 #[test]
@@ -331,7 +388,10 @@ fn test_acceptance_capability_gating() {
         proof,
     });
 
-    assert!(result.is_ok(), "VectorPutProved should succeed with valid capability");
+    assert!(
+        result.is_ok(),
+        "VectorPutProved should succeed with valid capability"
+    );
 }
 
 #[test]
@@ -359,7 +419,10 @@ fn test_acceptance_proof_required_for_mutation() {
         proof,
     });
 
-    assert!(result.is_err(), "VectorPutProved should fail with expired proof");
+    assert!(
+        result.is_err(),
+        "VectorPutProved should fail with expired proof"
+    );
 }
 
 #[test]
@@ -370,7 +433,10 @@ fn test_acceptance_witness_logging() {
     kernel.set_current_time(1_000_000);
 
     let initial_records = kernel.witness_log().len();
-    assert_eq!(initial_records, 1, "Boot should have created 1 witness record");
+    assert_eq!(
+        initial_records, 1,
+        "Boot should have created 1 witness record"
+    );
 
     // Create vector store and perform mutation
     let config = VectorStoreConfig::new(4, 100);
@@ -379,16 +445,21 @@ fn test_acceptance_witness_logging() {
     let mutation_hash = [1u8; 32];
     let proof = kernel.create_proof(mutation_hash, ProofTier::Reflex, 1);
 
-    kernel.dispatch(Syscall::VectorPutProved {
-        store,
-        key: VectorKey::new(1),
-        data: vec![1.0, 2.0, 3.0, 4.0],
-        proof,
-    }).unwrap();
+    kernel
+        .dispatch(Syscall::VectorPutProved {
+            store,
+            key: VectorKey::new(1),
+            data: vec![1.0, 2.0, 3.0, 4.0],
+            proof,
+        })
+        .unwrap();
 
     // Verify mutation was logged
     let final_records = kernel.witness_log().len();
-    assert_eq!(final_records, 2, "Mutation should have added 1 witness record");
+    assert_eq!(
+        final_records, 2,
+        "Mutation should have added 1 witness record"
+    );
 
     // Verify the record is a vector mutation
     let last_record = kernel.witness_log().get(1).unwrap();
@@ -426,10 +497,12 @@ fn test_acceptance_multiple_mutations() {
 
     // Verify all vectors can be retrieved
     for i in 0..5u64 {
-        let result = kernel.dispatch(Syscall::VectorGet {
-            store,
-            key: VectorKey::new(i as u64),
-        }).unwrap();
+        let result = kernel
+            .dispatch(Syscall::VectorGet {
+                store,
+                key: VectorKey::new(i as u64),
+            })
+            .unwrap();
 
         match result {
             SyscallResult::VectorRetrieved { data, .. } => {
@@ -440,7 +513,8 @@ fn test_acceptance_multiple_mutations() {
     }
 
     // Verify all mutations were logged
-    let mutation_count = kernel.witness_log()
+    let mutation_count = kernel
+        .witness_log()
         .filter_by_kind(WitnessRecordKind::VectorMutation)
         .count();
     assert_eq!(mutation_count, 5, "Should have 5 vector mutation records");
@@ -469,7 +543,8 @@ fn test_acceptance_graph_mutations() {
     assert!(matches!(result.unwrap(), SyscallResult::GraphApplied));
 
     // Verify graph mutation was logged
-    let graph_mutations = kernel.witness_log()
+    let graph_mutations = kernel
+        .witness_log()
         .filter_by_kind(WitnessRecordKind::GraphMutation)
         .count();
     assert_eq!(graph_mutations, 1, "Should have 1 graph mutation record");

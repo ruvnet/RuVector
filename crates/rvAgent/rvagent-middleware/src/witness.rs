@@ -19,7 +19,7 @@ use std::time::Instant;
 
 use rvagent_core::rvf_bridge::{
     GovernanceMode, PolicyCheck, RvfToolCallEntry, RvfWitnessHeader, TaskOutcome,
-    WIT_HAS_TRACE, WITNESS_HEADER_SIZE,
+    WITNESS_HEADER_SIZE, WIT_HAS_TRACE,
 };
 
 use crate::{Middleware, ModelHandler, ModelRequest, ModelResponse};
@@ -298,11 +298,7 @@ impl Middleware for WitnessMiddleware {
         "witness"
     }
 
-    fn wrap_model_call(
-        &self,
-        request: ModelRequest,
-        handler: &dyn ModelHandler,
-    ) -> ModelResponse {
+    fn wrap_model_call(&self, request: ModelRequest, handler: &dyn ModelHandler) -> ModelResponse {
         let response = handler.call(request);
 
         // Log each tool call to the witness chain
@@ -344,7 +340,7 @@ mod tests {
         let args = serde_json::json!({"path": "test.txt"});
         let hash = compute_arguments_hash(&args);
         assert_eq!(hash.len(), 64); // SHA3-256 = 32 bytes = 64 hex
-        // Deterministic
+                                    // Deterministic
         assert_eq!(hash, compute_arguments_hash(&args));
         // Different args -> different hash
         let other = serde_json::json!({"path": "other.txt"});
@@ -396,9 +392,7 @@ mod tests {
     #[test]
     fn test_wrap_model_call_no_tool_calls() {
         let mw = WitnessMiddleware::new();
-        let handler = ToolCallHandler {
-            tool_calls: vec![],
-        };
+        let handler = ToolCallHandler { tool_calls: vec![] };
 
         let request = ModelRequest::new(vec![]);
         let _response = mw.wrap_model_call(request, &handler);

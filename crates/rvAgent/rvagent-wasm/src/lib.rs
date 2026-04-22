@@ -20,9 +20,9 @@ use wasm_bindgen::prelude::*;
 
 use backends::WasmStateBackend;
 use bridge::{to_js_value, BridgeMessage, JsModelProvider};
-use tools::{TodoItem, ToolRequest, WasmToolExecutor};
 #[cfg(test)]
 use tools::TodoStatus;
+use tools::{TodoItem, ToolRequest, WasmToolExecutor};
 
 // ---------------------------------------------------------------------------
 // Version
@@ -358,7 +358,9 @@ mod tests {
     #[test]
     fn test_agent_state_with_multiple_messages() {
         let mut state = AgentState::default();
-        state.messages.push(BridgeMessage::system("you are helpful"));
+        state
+            .messages
+            .push(BridgeMessage::system("you are helpful"));
         state.messages.push(BridgeMessage::user("hello"));
         state.messages.push(BridgeMessage::assistant("hi there"));
         state.turn_count = 1;

@@ -469,7 +469,13 @@ mod tests {
     #[tokio::test]
     async fn test_static_provider_read() {
         let p = StaticResourceProvider::new();
-        p.add("memory://doc", "doc", "hello world", Some("text/plain"), None);
+        p.add(
+            "memory://doc",
+            "doc",
+            "hello world",
+            Some("text/plain"),
+            None,
+        );
         let result = p.read("memory://doc").await.unwrap();
         assert_eq!(result.contents.len(), 1);
         assert_eq!(result.contents[0].text.as_deref(), Some("hello world"));

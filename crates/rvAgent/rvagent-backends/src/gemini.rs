@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
 use rvagent_core::error::{Result, RvAgentError};
-use rvagent_core::messages::{Message, AiMessage};
+use rvagent_core::messages::{AiMessage, Message};
 use rvagent_core::models::{ApiKeySource, ChatModel, ModelConfig};
 
 // ---------------------------------------------------------------------------
@@ -153,26 +153,34 @@ impl GeminiClient {
                 Message::System(s) => {
                     system_instruction = Some(GeminiContent {
                         role: "user".to_string(),
-                        parts: vec![Part { text: s.content.clone() }],
+                        parts: vec![Part {
+                            text: s.content.clone(),
+                        }],
                     });
                 }
                 Message::Human(h) => {
                     contents.push(GeminiContent {
                         role: "user".to_string(),
-                        parts: vec![Part { text: h.content.clone() }],
+                        parts: vec![Part {
+                            text: h.content.clone(),
+                        }],
                     });
                 }
                 Message::Ai(ai) => {
                     contents.push(GeminiContent {
                         role: "model".to_string(),
-                        parts: vec![Part { text: ai.content.clone() }],
+                        parts: vec![Part {
+                            text: ai.content.clone(),
+                        }],
                     });
                 }
                 Message::Tool(t) => {
                     // Tool results go as user messages
                     contents.push(GeminiContent {
                         role: "user".to_string(),
-                        parts: vec![Part { text: format!("Tool result: {}", t.content) }],
+                        parts: vec![Part {
+                            text: format!("Tool result: {}", t.content),
+                        }],
                     });
                 }
             }
@@ -196,9 +204,7 @@ impl GeminiClient {
     async fn send_with_retry(&self, request_body: &GeminiRequest) -> Result<GeminiResponse> {
         let url = format!(
             "{}/{}:generateContent?key={}",
-            GEMINI_API_BASE,
-            self.config.model_id,
-            self.api_key
+            GEMINI_API_BASE, self.config.model_id, self.api_key
         );
 
         let mut last_err: Option<RvAgentError> = None;
@@ -270,9 +276,8 @@ impl GeminiClient {
             )));
         }
 
-        Err(last_err.unwrap_or_else(|| {
-            RvAgentError::model("Gemini API request failed after all retries")
-        }))
+        Err(last_err
+            .unwrap_or_else(|| RvAgentError::model("Gemini API request failed after all retries")))
     }
 }
 
@@ -311,9 +316,7 @@ impl ChatModel for GeminiClient {
 fn resolve_api_key(source: &ApiKeySource) -> Result<String> {
     match source {
         ApiKeySource::Env(var) => std::env::var(var).map_err(|_| {
-            RvAgentError::config(format!(
-                "API key environment variable '{var}' not set"
-            ))
+            RvAgentError::config(format!("API key environment variable '{var}' not set"))
         }),
         ApiKeySource::File(path) => std::fs::read_to_string(path)
             .map(|s| s.trim().to_string())
@@ -335,7 +338,9 @@ mod tests {
         let request = GeminiRequest {
             contents: vec![GeminiContent {
                 role: "user".to_string(),
-                parts: vec![Part { text: "Hello".to_string() }],
+                parts: vec![Part {
+                    text: "Hello".to_string(),
+                }],
             }],
             generation_config: GenerationConfig {
                 max_output_tokens: 1024,

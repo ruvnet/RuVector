@@ -125,8 +125,8 @@ fn session_path(id: &str) -> Result<PathBuf> {
 /// Supports backward-compatible decryption of legacy V1 (plaintext) and
 /// unencrypted session files.
 mod encryption {
-    use aes_gcm::{Aes256Gcm, Key, Nonce};
     use aes_gcm::aead::{Aead, KeyInit};
+    use aes_gcm::{Aes256Gcm, Key, Nonce};
     use anyhow::Result;
     use rand::RngCore;
 
@@ -140,7 +140,8 @@ mod encryption {
         let mut nonce_bytes = [0u8; NONCE_LEN];
         rand::thread_rng().fill_bytes(&mut nonce_bytes);
         let nonce = Nonce::from_slice(&nonce_bytes);
-        let ciphertext = cipher.encrypt(nonce, plaintext)
+        let ciphertext = cipher
+            .encrypt(nonce, plaintext)
             .map_err(|e| anyhow::anyhow!("encryption failed: {}", e))?;
         let mut out = MAGIC.to_vec();
         out.extend_from_slice(&nonce_bytes);
@@ -162,7 +163,8 @@ mod encryption {
             let cipher_key = Key::<Aes256Gcm>::from_slice(key);
             let cipher = Aes256Gcm::new(cipher_key);
             let nonce = Nonce::from_slice(nonce_bytes);
-            cipher.decrypt(nonce, ciphertext)
+            cipher
+                .decrypt(nonce, ciphertext)
                 .map_err(|e| anyhow::anyhow!("decryption failed: {}", e))
         } else if data.starts_with(v1_magic) {
             // Legacy V1 format (plaintext with prefix)

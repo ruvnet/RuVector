@@ -123,9 +123,18 @@ fn test_decompile_gguf_basic() {
 
     // Layers should include embedding, attention, MLP
     assert!(!result.layers.is_empty());
-    assert!(result.layers.iter().any(|l| matches!(l.layer_type, LayerType::Embedding)));
-    assert!(result.layers.iter().any(|l| matches!(l.layer_type, LayerType::Attention { .. })));
-    assert!(result.layers.iter().any(|l| matches!(l.layer_type, LayerType::Mlp { .. })));
+    assert!(result
+        .layers
+        .iter()
+        .any(|l| matches!(l.layer_type, LayerType::Embedding)));
+    assert!(result
+        .layers
+        .iter()
+        .any(|l| matches!(l.layer_type, LayerType::Attention { .. })));
+    assert!(result
+        .layers
+        .iter()
+        .any(|l| matches!(l.layer_type, LayerType::Mlp { .. })));
 
     // Witness chain
     assert!(!result.witness.source_hash.is_empty());
@@ -134,7 +143,10 @@ fn test_decompile_gguf_basic() {
 
     // Metadata
     assert_eq!(
-        result.metadata.get("general.architecture").map(|s| s.as_str()),
+        result
+            .metadata
+            .get("general.architecture")
+            .map(|s| s.as_str()),
         Some("llama")
     );
 

@@ -8,9 +8,7 @@
 use ruvector_cluster::consensus::{DagConsensus, DagVertex, Transaction, TransactionType};
 use ruvector_cluster::discovery::{DiscoveryService, GossipDiscovery, StaticDiscovery};
 use ruvector_cluster::shard::{ConsistentHashRing, LoadBalancer, ShardMigration, ShardRouter};
-use ruvector_cluster::{
-    ClusterConfig, ClusterManager, ClusterNode, NodeStatus, ShardStatus,
-};
+use ruvector_cluster::{ClusterConfig, ClusterManager, ClusterNode, NodeStatus, ShardStatus};
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
@@ -38,10 +36,7 @@ fn test_config(shard_count: u32, replication_factor: usize) -> ClusterConfig {
     }
 }
 
-fn test_manager(
-    shard_count: u32,
-    replication_factor: usize,
-) -> ClusterManager {
+fn test_manager(shard_count: u32, replication_factor: usize) -> ClusterManager {
     let config = test_config(shard_count, replication_factor);
     let discovery = Box::new(StaticDiscovery::new(vec![]));
     ClusterManager::new(config, "test-manager".to_string(), discovery).unwrap()
@@ -378,7 +373,10 @@ fn test_hash_ring_deterministic_routing() {
 
     let primary1 = ring.get_primary_node("my-key").unwrap();
     let primary2 = ring.get_primary_node("my-key").unwrap();
-    assert_eq!(primary1, primary2, "same key must always route to same node");
+    assert_eq!(
+        primary1, primary2,
+        "same key must always route to same node"
+    );
 }
 
 #[test]

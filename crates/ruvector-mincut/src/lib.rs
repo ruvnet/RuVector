@@ -528,8 +528,8 @@ pub mod prelude {
     pub use crate::{
         CactusCycle, CactusEdge, CactusGraph, CactusVertex, CanonicalCutResult, CanonicalMinCut,
         CanonicalMinCutImpl, DynamicCanonicalConfig, DynamicCanonicalMinCut, EdgeMutation,
-        FixedWeight, GomoryHuTree, SourceAnchoredConfig, SourceAnchoredCut,
-        SourceAnchoredMinCut, SourceAnchoredReceipt, TreeMinCutResult, WitnessReceipt,
+        FixedWeight, GomoryHuTree, SourceAnchoredConfig, SourceAnchoredCut, SourceAnchoredMinCut,
+        SourceAnchoredReceipt, TreeMinCutResult, WitnessReceipt,
     };
 
     #[cfg(feature = "jtree")]

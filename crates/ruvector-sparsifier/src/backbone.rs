@@ -107,7 +107,11 @@ impl Backbone {
     /// Canonical edge key with `u <= v`.
     #[inline]
     fn edge_key(u: usize, v: usize) -> (usize, usize) {
-        if u <= v { (u, v) } else { (v, u) }
+        if u <= v {
+            (u, v)
+        } else {
+            (v, u)
+        }
     }
 
     /// Rebuild the union-find from the current backbone edges.

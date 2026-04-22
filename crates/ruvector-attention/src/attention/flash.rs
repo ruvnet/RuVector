@@ -185,7 +185,9 @@ impl FlashAttention3 {
         }
         let d = q[0].len();
         if d == 0 {
-            return Err(AttentionError::InvalidConfig("Dimension must be > 0".into()));
+            return Err(AttentionError::InvalidConfig(
+                "Dimension must be > 0".into(),
+            ));
         }
         let scale = 1.0 / (d as f32).sqrt();
         let n_q = q.len();
@@ -215,8 +217,8 @@ impl FlashAttention3 {
                 let kj_end = (kj_start + bc).min(n_kv);
 
                 // Track memory reads: Q block + K block + V block
-                stats.memory_reads += ((qi_end - qi_start) * d
-                    + (kj_end - kj_start) * d * 2) as u64;
+                stats.memory_reads +=
+                    ((qi_end - qi_start) * d + (kj_end - kj_start) * d * 2) as u64;
 
                 // For each query row in this Q block
                 for qi in qi_start..qi_end {
@@ -250,10 +252,7 @@ impl FlashAttention3 {
                     // Exponentiate and sum
                     let exp_scores: Vec<f32> =
                         block_scores.iter().map(|&s| (s - m_ij).exp()).collect();
-                    let l_ij: f32 = exp_scores
-                        .iter()
-                        .filter(|x| x.is_finite())
-                        .sum();
+                    let l_ij: f32 = exp_scores.iter().filter(|x| x.is_finite()).sum();
 
                     // Online softmax rescaling
                     let m_old = row_max[qi];
@@ -283,8 +282,7 @@ impl FlashAttention3 {
                                     pv += exp_scores[local_j] * v[kj][dd];
                                 }
                             }
-                            output[qi][dd] =
-                                scale_old * output[qi][dd] + scale_new * pv;
+                            output[qi][dd] = scale_old * output[qi][dd] + scale_new * pv;
                             stats.total_flops += (2 * (kj_end - kj_start)) as u64;
                         }
                     }
@@ -305,11 +303,7 @@ impl FlashAttention3 {
             }
         }
 
-        Ok(FlashOutput {
-            output,
-            lse,
-            stats,
-        })
+        Ok(FlashOutput { output, lse, stats })
     }
 }
 
@@ -393,9 +387,9 @@ impl RingAttention {
         for device_id in 0..num_devices {
             let local_q = &q_shards[device_id];
             if local_q.is_empty() {
-                return Err(AttentionError::EmptyInput(
-                    format!("Q shard on device {device_id}"),
-                ));
+                return Err(AttentionError::EmptyInput(format!(
+                    "Q shard on device {device_id}"
+                )));
             }
             let d = local_q[0].len();
             let n_q = local_q.len();
@@ -486,12 +480,7 @@ impl RingAttention {
 
 /// Computes naive (standard) attention for correctness comparison.
 /// Returns (output, attention_weights) where output is [n_q, d].
-fn naive_attention(
-    q: &[Vec<f32>],
-    k: &[Vec<f32>],
-    v: &[Vec<f32>],
-    causal: bool,
-) -> Vec<Vec<f32>> {
+fn naive_attention(q: &[Vec<f32>], k: &[Vec<f32>], v: &[Vec<f32>], causal: bool) -> Vec<Vec<f32>> {
     let n_q = q.len();
     let n_kv = k.len();
     let d = q[0].len();
@@ -561,8 +550,12 @@ mod tests {
         for qi in 0..n {
             for dd in 0..d {
                 let diff = (flash.output[qi][dd] - naive[qi][dd]).abs();
-                assert!(diff < 1e-4, "row={qi} col={dd} flash={} naive={} diff={diff}",
-                    flash.output[qi][dd], naive[qi][dd]);
+                assert!(
+                    diff < 1e-4,
+                    "row={qi} col={dd} flash={} naive={} diff={diff}",
+                    flash.output[qi][dd],
+                    naive[qi][dd]
+                );
             }
         }
     }
@@ -592,9 +585,7 @@ mod tests {
         let d = 8;
         let n = 4;
         // Use large values that could cause overflow without stable softmax
-        let q: Vec<Vec<f32>> = (0..n)
-            .map(|i| vec![100.0 * (i as f32 + 1.0); d])
-            .collect();
+        let q: Vec<Vec<f32>> = (0..n).map(|i| vec![100.0 * (i as f32 + 1.0); d]).collect();
         let k = q.clone();
         let v: Vec<Vec<f32>> = (0..n).map(|i| vec![i as f32; d]).collect();
 
@@ -676,16 +667,19 @@ mod tests {
             .map(|dev| make_seq(shard_size, d, 0.3 * (dev as f32 + 1.0)))
             .collect();
 
-        let results =
-            RingAttention::ring_forward(&q_shards, &k_shards, &v_shards).unwrap();
+        let results = RingAttention::ring_forward(&q_shards, &k_shards, &v_shards).unwrap();
 
         assert_eq!(results.len(), num_devices);
         for (dev_id, res) in results.iter().enumerate() {
             assert_eq!(res.output.len(), shard_size);
             assert_eq!(res.output[0].len(), d);
             // Each device except first does (num_devices - 1) transfers
-            assert_eq!(res.transfers, num_devices - 1,
-                "Device {dev_id} should have {} transfers", num_devices - 1);
+            assert_eq!(
+                res.transfers,
+                num_devices - 1,
+                "Device {dev_id} should have {} transfers",
+                num_devices - 1
+            );
             for row in &res.output {
                 for &val in row {
                     assert!(val.is_finite(), "Device {dev_id} has non-finite output");
@@ -760,8 +754,11 @@ mod tests {
             let expected_lse = max_s + sum_exp.ln();
 
             let diff = (result.lse[qi] - expected_lse).abs();
-            assert!(diff < 1e-3, "LSE row={qi} flash={} expected={expected_lse} diff={diff}",
-                result.lse[qi]);
+            assert!(
+                diff < 1e-3,
+                "LSE row={qi} flash={} expected={expected_lse} diff={diff}",
+                result.lse[qi]
+            );
         }
     }
 

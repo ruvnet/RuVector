@@ -173,7 +173,8 @@ impl MemoryMiddleware {
             (SecurityPolicy::WarnUntrusted, TrustVerification::HashMismatch { .. }) => {
                 tracing::warn!(
                     "Memory file {} has hash mismatch ({:?}), loading with warning",
-                    path, verification
+                    path,
+                    verification
                 );
                 Some(content.to_string())
             }
@@ -230,11 +231,7 @@ impl Middleware for MemoryMiddleware {
         Some(update)
     }
 
-    fn wrap_model_call(
-        &self,
-        request: ModelRequest,
-        handler: &dyn ModelHandler,
-    ) -> ModelResponse {
+    fn wrap_model_call(&self, request: ModelRequest, handler: &dyn ModelHandler) -> ModelResponse {
         let contents: HashMap<String, String> = request
             .extensions
             .get("memory_contents")
@@ -246,8 +243,7 @@ impl Middleware for MemoryMiddleware {
         }
 
         let memory_section = Self::format_agent_memory(&contents);
-        let new_system =
-            crate::append_to_system_message(&request.system_message, &memory_section);
+        let new_system = crate::append_to_system_message(&request.system_message, &memory_section);
         handler.call(request.with_system(new_system))
     }
 }
@@ -337,8 +333,7 @@ mod tests {
 
     #[test]
     fn test_security_policy_permissive() {
-        let mw = MemoryMiddleware::new(vec![])
-            .with_security_policy(SecurityPolicy::Permissive);
+        let mw = MemoryMiddleware::new(vec![]).with_security_policy(SecurityPolicy::Permissive);
 
         assert!(mw.validate_content("any.md", "anything").is_some());
     }
@@ -360,8 +355,7 @@ mod tests {
         let mut preloaded = HashMap::new();
         preloaded.insert("AGENTS.md".into(), "Memory content".into());
 
-        let mw = MemoryMiddleware::new(vec!["AGENTS.md".into()])
-            .with_preloaded(preloaded);
+        let mw = MemoryMiddleware::new(vec!["AGENTS.md".into()]).with_preloaded(preloaded);
         let state = AgentState::default();
         let runtime = Runtime::new();
         let config = RunnableConfig::default();

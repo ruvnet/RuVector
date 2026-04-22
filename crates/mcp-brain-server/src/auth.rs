@@ -4,7 +4,10 @@ use axum::{
     extract::FromRequestParts,
     http::{request::Parts, StatusCode},
 };
-use sha3::{Shake256, digest::{Update, ExtendableOutput, XofReader}};
+use sha3::{
+    digest::{ExtendableOutput, Update, XofReader},
+    Shake256,
+};
 use subtle::ConstantTimeEq;
 
 /// Authenticated contributor extracted from request
@@ -53,7 +56,9 @@ const MIN_API_KEY_LEN: usize = 8;
 /// If BRAIN_SYSTEM_KEY is unset, system key authentication is disabled entirely
 /// (no hardcoded fallback).
 static SYSTEM_KEY: std::sync::LazyLock<Option<String>> = std::sync::LazyLock::new(|| {
-    std::env::var("BRAIN_SYSTEM_KEY").ok().filter(|k| !k.is_empty())
+    std::env::var("BRAIN_SYSTEM_KEY")
+        .ok()
+        .filter(|k| !k.is_empty())
 });
 
 #[axum::async_trait]

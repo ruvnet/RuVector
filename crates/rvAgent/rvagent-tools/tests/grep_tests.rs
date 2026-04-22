@@ -1,8 +1,8 @@
 //! Integration tests for the `grep` tool.
 
 use rvagent_tools::{
-    Backend, BackendRef, ExecuteResponse, FileInfo, GrepMatch, GrepTool,
-    Tool, ToolResult, ToolRuntime, WriteResult,
+    Backend, BackendRef, ExecuteResponse, FileInfo, GrepMatch, GrepTool, Tool, ToolResult,
+    ToolRuntime, WriteResult,
 };
 use std::sync::Arc;
 
@@ -11,13 +11,30 @@ struct GrepMockBackend {
 }
 
 impl Backend for GrepMockBackend {
-    fn ls_info(&self, _: &str) -> Result<Vec<FileInfo>, String> { Ok(vec![]) }
-    fn read(&self, _: &str, _: usize, _: usize) -> Result<String, String> { Ok(String::new()) }
-    fn write(&self, _: &str, _: &str) -> WriteResult { WriteResult::default() }
-    fn edit(&self, _: &str, _: &str, _: &str, _: bool) -> WriteResult { WriteResult::default() }
-    fn glob_info(&self, _: &str, _: &str) -> Result<Vec<String>, String> { Ok(vec![]) }
-    fn grep_raw(&self, pattern: &str, _path: Option<&str>, include: Option<&str>) -> Result<Vec<GrepMatch>, String> {
-        let filtered: Vec<GrepMatch> = self.matches.iter()
+    fn ls_info(&self, _: &str) -> Result<Vec<FileInfo>, String> {
+        Ok(vec![])
+    }
+    fn read(&self, _: &str, _: usize, _: usize) -> Result<String, String> {
+        Ok(String::new())
+    }
+    fn write(&self, _: &str, _: &str) -> WriteResult {
+        WriteResult::default()
+    }
+    fn edit(&self, _: &str, _: &str, _: &str, _: bool) -> WriteResult {
+        WriteResult::default()
+    }
+    fn glob_info(&self, _: &str, _: &str) -> Result<Vec<String>, String> {
+        Ok(vec![])
+    }
+    fn grep_raw(
+        &self,
+        pattern: &str,
+        _path: Option<&str>,
+        include: Option<&str>,
+    ) -> Result<Vec<GrepMatch>, String> {
+        let filtered: Vec<GrepMatch> = self
+            .matches
+            .iter()
             .filter(|m| m.text.contains(pattern))
             .filter(|m| {
                 if let Some(inc) = include {
@@ -32,17 +49,36 @@ impl Backend for GrepMockBackend {
         Ok(filtered)
     }
     fn execute(&self, _: &str, _: u32) -> Result<ExecuteResponse, String> {
-        Ok(ExecuteResponse { output: String::new(), exit_code: 0 })
+        Ok(ExecuteResponse {
+            output: String::new(),
+            exit_code: 0,
+        })
     }
 }
 
 fn grep_runtime() -> ToolRuntime {
     let backend = Arc::new(GrepMockBackend {
         matches: vec![
-            GrepMatch { file: "src.rs".into(), line_number: 2, text: "    println!(\"hello\");".into() },
-            GrepMatch { file: "notes.txt".into(), line_number: 1, text: "hello world notes".into() },
-            GrepMatch { file: "code.rs".into(), line_number: 5, text: "let target = 42;".into() },
-            GrepMatch { file: "notes.txt".into(), line_number: 3, text: "target reached".into() },
+            GrepMatch {
+                file: "src.rs".into(),
+                line_number: 2,
+                text: "    println!(\"hello\");".into(),
+            },
+            GrepMatch {
+                file: "notes.txt".into(),
+                line_number: 1,
+                text: "hello world notes".into(),
+            },
+            GrepMatch {
+                file: "code.rs".into(),
+                line_number: 5,
+                text: "let target = 42;".into(),
+            },
+            GrepMatch {
+                file: "notes.txt".into(),
+                line_number: 3,
+                text: "target reached".into(),
+            },
         ],
     }) as BackendRef;
     ToolRuntime::new(backend)
@@ -71,7 +107,11 @@ fn test_grep_no_results() {
     );
     match result {
         ToolResult::Text(s) => {
-            assert!(s.contains("No matches"), "should report no matches, got: {}", s);
+            assert!(
+                s.contains("No matches"),
+                "should report no matches, got: {}",
+                s
+            );
         }
         _ => panic!("expected Text from grep"),
     }
@@ -87,8 +127,11 @@ fn test_grep_with_include_filter() {
     match result {
         ToolResult::Text(s) => {
             assert!(s.contains("code.rs"), "should find match in code.rs");
-            assert!(!s.contains("notes.txt"),
-                "should NOT include notes.txt due to include filter, got: {}", s);
+            assert!(
+                !s.contains("notes.txt"),
+                "should NOT include notes.txt due to include filter, got: {}",
+                s
+            );
         }
         _ => panic!("expected Text result from grep"),
     }

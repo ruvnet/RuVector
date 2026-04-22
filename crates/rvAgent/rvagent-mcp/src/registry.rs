@@ -206,10 +206,7 @@ pub struct EchoHandler;
 #[async_trait]
 impl McpToolHandler for EchoHandler {
     async fn execute(&self, arguments: Value) -> Result<ToolCallResult> {
-        let text = arguments
-            .get("text")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let text = arguments.get("text").and_then(|v| v.as_str()).unwrap_or("");
         Ok(ToolCallResult {
             content: vec![Content::text(text)],
             is_error: false,
@@ -232,8 +229,8 @@ impl ListCapabilitiesHandler {
 #[async_trait]
 impl McpToolHandler for ListCapabilitiesHandler {
     async fn execute(&self, _arguments: Value) -> Result<ToolCallResult> {
-        let text = serde_json::to_string_pretty(&self.capabilities)
-            .unwrap_or_else(|_| "{}".to_string());
+        let text =
+            serde_json::to_string_pretty(&self.capabilities).unwrap_or_else(|_| "{}".to_string());
         Ok(ToolCallResult {
             content: vec![Content::text(text)],
             is_error: false,
@@ -443,7 +440,9 @@ mod tests {
         // Object passes
         assert!(reg.validate_args("obj", &serde_json::json!({})).is_ok());
         // Non-object fails
-        assert!(reg.validate_args("obj", &serde_json::json!("string")).is_err());
+        assert!(reg
+            .validate_args("obj", &serde_json::json!("string"))
+            .is_err());
     }
 
     #[test]

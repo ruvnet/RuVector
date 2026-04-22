@@ -174,11 +174,7 @@ impl KnowledgeGraph {
 
     /// BFS expansion: collect all entities reachable within `hop_count` hops from `entity_id`.
     /// Returns `(entities, relations)` forming the subgraph.
-    pub fn get_neighbors(
-        &self,
-        entity_id: &str,
-        hop_count: usize,
-    ) -> (Vec<Entity>, Vec<Relation>) {
+    pub fn get_neighbors(&self, entity_id: &str, hop_count: usize) -> (Vec<Entity>, Vec<Relation>) {
         let mut visited: HashSet<String> = HashSet::new();
         let mut queue: VecDeque<(String, usize)> = VecDeque::new();
         let mut result_entities: Vec<Entity> = Vec::new();
@@ -265,8 +261,9 @@ impl CommunityDetection {
                             *votes.entry(label).or_insert(0.0) += rel.weight * resolution;
                         }
                     }
-                    if let Some((&best_label, _)) =
-                        votes.iter().max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
+                    if let Some((&best_label, _)) = votes
+                        .iter()
+                        .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
                     {
                         let current = labels[id];
                         if best_label != current {
@@ -510,7 +507,10 @@ fn format_context(entities: &[Entity], relations: &[Relation], summaries: &[Stri
     if !entities.is_empty() {
         let mut section = String::from("## Entities\n");
         for e in entities {
-            section.push_str(&format!("- {} ({}): {}\n", e.name, e.entity_type, e.description));
+            section.push_str(&format!(
+                "- {} ({}): {}\n",
+                e.name, e.entity_type, e.description
+            ));
         }
         parts.push(section);
     }
@@ -681,7 +681,11 @@ mod tests {
 
         // Both still appear in communities.
         let communities = CommunityDetection::detect_communities(&g, 1.0);
-        let total_members: usize = communities.iter().filter(|c| c.level == 0).map(|c| c.entities.len()).sum();
+        let total_members: usize = communities
+            .iter()
+            .filter(|c| c.level == 0)
+            .map(|c| c.entities.len())
+            .sum();
         assert_eq!(total_members, 2);
     }
 

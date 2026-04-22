@@ -331,9 +331,7 @@ impl<const N: usize, const M: usize> Scheduler<N, M> {
         let default_quantum = self.config.default_quantum_us;
 
         let partition_id = {
-            let task = self
-                .get_task_mut(task_id)
-                .ok_or(SchedError::TaskNotFound)?;
+            let task = self.get_task_mut(task_id).ok_or(SchedError::TaskNotFound)?;
             if !task.transition_to(TaskState::Ready) {
                 return Err(SchedError::InvalidStateTransition);
             }
@@ -360,9 +358,7 @@ impl<const N: usize, const M: usize> Scheduler<N, M> {
         let task_id = self.current_task.ok_or(SchedError::TaskNotFound)?;
 
         let partition_id = {
-            let task = self
-                .get_task_mut(task_id)
-                .ok_or(SchedError::TaskNotFound)?;
+            let task = self.get_task_mut(task_id).ok_or(SchedError::TaskNotFound)?;
             if !task.transition_to(TaskState::Blocked) {
                 return Err(SchedError::InvalidStateTransition);
             }
@@ -386,9 +382,7 @@ impl<const N: usize, const M: usize> Scheduler<N, M> {
         let default_quantum = self.config.default_quantum_us;
 
         let partition_id = {
-            let task = self
-                .get_task_mut(task_id)
-                .ok_or(SchedError::TaskNotFound)?;
+            let task = self.get_task_mut(task_id).ok_or(SchedError::TaskNotFound)?;
 
             if task.state != TaskState::Blocked {
                 return Err(SchedError::InvalidStateTransition);
@@ -420,9 +414,7 @@ impl<const N: usize, const M: usize> Scheduler<N, M> {
         let task_id = self.current_task.ok_or(SchedError::TaskNotFound)?;
 
         let partition_id = {
-            let task = self
-                .get_task_mut(task_id)
-                .ok_or(SchedError::TaskNotFound)?;
+            let task = self.get_task_mut(task_id).ok_or(SchedError::TaskNotFound)?;
             if !task.transition_to(TaskState::Ready) {
                 return Err(SchedError::InvalidStateTransition);
             }
@@ -463,9 +455,7 @@ impl<const N: usize, const M: usize> Scheduler<N, M> {
 
     /// Updates the novelty value for a task.
     pub fn update_task_novelty(&mut self, task_id: TaskHandle, novelty: f32) -> SchedResult<()> {
-        let task = self
-            .get_task_mut(task_id)
-            .ok_or(SchedError::TaskNotFound)?;
+        let task = self.get_task_mut(task_id).ok_or(SchedError::TaskNotFound)?;
         task.set_novelty(novelty);
         Ok(())
     }
@@ -476,9 +466,7 @@ impl<const N: usize, const M: usize> Scheduler<N, M> {
         task_id: TaskHandle,
         coherence_delta: f32,
     ) -> SchedResult<()> {
-        let task = self
-            .get_task_mut(task_id)
-            .ok_or(SchedError::TaskNotFound)?;
+        let task = self.get_task_mut(task_id).ok_or(SchedError::TaskNotFound)?;
         task.set_coherence_delta(coherence_delta);
         Ok(())
     }
@@ -489,9 +477,7 @@ impl<const N: usize, const M: usize> Scheduler<N, M> {
         task_id: TaskHandle,
         deadline: Option<Instant>,
     ) -> SchedResult<()> {
-        let task = self
-            .get_task_mut(task_id)
-            .ok_or(SchedError::TaskNotFound)?;
+        let task = self.get_task_mut(task_id).ok_or(SchedError::TaskNotFound)?;
         task.set_deadline(deadline);
         Ok(())
     }

@@ -8,7 +8,7 @@
 //! cargo run --example crdt_merge_demo
 //! ```
 
-use rvagent_subagents::crdt_merge::{CrdtState, merge_subagent_results};
+use rvagent_subagents::crdt_merge::{merge_subagent_results, CrdtState};
 
 fn main() {
     println!("CRDT State Merging Demo for Parallel Subagents");
@@ -61,8 +61,9 @@ fn main() {
 
     merge_subagent_results(
         &mut parent,
-        vec![security_scanner, performance_analyzer, quality_checker]
-    ).expect("Merge should succeed");
+        vec![security_scanner, performance_analyzer, quality_checker],
+    )
+    .expect("Merge should succeed");
 
     println!("Parent state after merge:");
     for key in parent.keys() {
@@ -94,12 +95,14 @@ fn main() {
     println!("  - child1 (node 1): shared_key = child1_value");
     println!("  - child2 (node 2): shared_key = child2_value\n");
 
-    merge_subagent_results(&mut parent2, vec![child1, child2])
-        .expect("Merge should succeed");
+    merge_subagent_results(&mut parent2, vec![child1, child2]).expect("Merge should succeed");
 
     let final_value = String::from_utf8_lossy(parent2.get("shared_key").unwrap());
     println!("After merge:");
-    println!("  - shared_key = {} (winner: node 2, highest node_id)", final_value);
+    println!(
+        "  - shared_key = {} (winner: node 2, highest node_id)",
+        final_value
+    );
     println!("\n✓ Deterministic conflict resolution ensures consistency!\n");
 
     // Demonstrate causal ordering
@@ -126,6 +129,9 @@ fn main() {
     state0.merge(&state2);
 
     let final_counter = String::from_utf8_lossy(state0.get("counter").unwrap());
-    println!("After merge: counter = {} (latest in causal chain)", final_counter);
+    println!(
+        "After merge: counter = {} (latest in causal chain)",
+        final_counter
+    );
     println!("\n✓ Causal ordering preserved through vector clocks!\n");
 }

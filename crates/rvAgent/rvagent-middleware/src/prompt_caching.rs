@@ -116,8 +116,7 @@ mod tests {
     #[test]
     fn test_custom_cache_type() {
         let mw = PromptCachingMiddleware::with_cache_type("persistent");
-        let request = ModelRequest::new(vec![])
-            .with_system(Some("sys".into()));
+        let request = ModelRequest::new(vec![]).with_system(Some("sys".into()));
 
         let modified = mw.modify_request(request);
         assert_eq!(modified.cache_control["system"].cache_type, "persistent");

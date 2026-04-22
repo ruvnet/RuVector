@@ -5,8 +5,8 @@
 
 use std::sync::Arc;
 
-use rvagent_core::state::{AgentState, FileData, SkillMetadata, TodoItem, TodoStatus};
 use rvagent_core::messages::Message;
+use rvagent_core::state::{AgentState, FileData, SkillMetadata, TodoItem, TodoStatus};
 
 /// Cloning AgentState must be a shallow Arc clone (O(1)), not a deep copy.
 #[test]

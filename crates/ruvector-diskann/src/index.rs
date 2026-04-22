@@ -132,9 +132,7 @@ impl DiskAnnIndex {
         // Train PQ if configured
         if self.config.pq_subspaces > 0 {
             // Collect vectors for PQ training
-            let vecs: Vec<Vec<f32>> = (0..n)
-                .map(|i| self.vectors.get(i).to_vec())
-                .collect();
+            let vecs: Vec<Vec<f32>> = (0..n).map(|i| self.vectors.get(i).to_vec()).collect();
             let mut pq = ProductQuantizer::new(self.config.dim, self.config.pq_subspaces)?;
             pq.train(&vecs, self.config.pq_iterations)?;
 
@@ -287,7 +285,10 @@ impl DiskAnnIndex {
             "count": self.vectors.len(),
             "built": self.built,
         });
-        fs::write(&config_path, serde_json::to_string_pretty(&config_json).unwrap())?;
+        fs::write(
+            &config_path,
+            serde_json::to_string_pretty(&config_json).unwrap(),
+        )?;
 
         Ok(())
     }
@@ -358,7 +359,8 @@ impl DiskAnnIndex {
         let mut neighbors = Vec::with_capacity(graph_n);
         let mut offset = 16;
         for _ in 0..graph_n {
-            let deg = u32::from_le_bytes(graph_bytes[offset..offset + 4].try_into().unwrap()) as usize;
+            let deg =
+                u32::from_le_bytes(graph_bytes[offset..offset + 4].try_into().unwrap()) as usize;
             offset += 4;
             let mut nbrs = Vec::with_capacity(deg);
             for _ in 0..deg {
@@ -548,10 +550,8 @@ mod tests {
                 .map(|(i, (_, v))| (i, crate::distance::l2_squared(v, query)))
                 .collect();
             brute.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-            let gt: std::collections::HashSet<String> = brute[..k]
-                .iter()
-                .map(|(i, _)| data[*i].0.clone())
-                .collect();
+            let gt: std::collections::HashSet<String> =
+                brute[..k].iter().map(|(i, _)| data[*i].0.clone()).collect();
 
             // DiskANN search
             let results = index.search(query, k).unwrap();
@@ -613,8 +613,8 @@ mod tests {
     #[test]
     fn test_scale_5k() {
         // 5000 vectors, 128-dim — should build in under 5 seconds
-        use std::time::Instant;
         use rand::prelude::*;
+        use std::time::Instant;
         let mut rng = rand::thread_rng();
 
         let n = 5000;
@@ -651,6 +651,9 @@ mod tests {
         let search_us = t0.elapsed().as_micros() / iters;
         println!("Search latency (k=10): {search_us}µs avg over {iters} queries");
 
-        assert!(search_us < 10_000, "Search took {search_us}µs, expected <10ms");
+        assert!(
+            search_us < 10_000,
+            "Search took {search_us}µs, expected <10ms"
+        );
     }
 }

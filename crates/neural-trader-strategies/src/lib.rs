@@ -30,9 +30,7 @@ pub use coherence_bridge::{
 };
 pub use ev_kelly::{ExpectedValueKelly, ExpectedValueKellyConfig};
 pub use intent::{Action, Intent, Side};
-pub use risk::{
-    PortfolioState, Position, RejectReason, RiskConfig, RiskDecision, RiskGate,
-};
+pub use risk::{PortfolioState, Position, RejectReason, RiskConfig, RiskDecision, RiskGate};
 
 use neural_trader_core::MarketEvent;
 

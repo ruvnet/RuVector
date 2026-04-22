@@ -68,14 +68,14 @@ mod signature;
 mod stages;
 mod witness_log;
 
-pub use attestation::{BootAttestation, AttestationEntry};
+pub use attestation::{AttestationEntry, BootAttestation};
 pub use boot_loader::{BootConfig, BootLoader, BootResult, BootStage};
 pub use capability_distribution::{
     CapabilityDistribution, MinimumCapabilitySet, RootCapabilityDrop,
 };
 pub use manifest::{
-    ComponentDecl, ComponentGraph, MemorySchema, ProofPolicy, QueueWiring,
-    RollbackHook, RvfManifest, WitnessLogPolicy,
+    ComponentDecl, ComponentGraph, MemorySchema, ProofPolicy, QueueWiring, RollbackHook,
+    RvfManifest, WitnessLogPolicy,
 };
 pub use mount::{MountConfig, MountResult, RvfMount};
 pub use signature::{SignatureVerifier, VerifyResult};
@@ -85,8 +85,8 @@ pub use witness_log::{WitnessLog, WitnessLogConfig, WitnessLogEntry};
 // Re-export commonly used types from dependencies
 pub use ruvix_cap::{BootCapabilitySet, InitialCapability};
 pub use ruvix_types::{
-    KernelError, ProofAttestation, ProofTier, RegionHandle, RegionPolicy,
-    RvfMountHandle, RvfVerifyStatus, TaskHandle, TaskPriority,
+    KernelError, ProofAttestation, ProofTier, RegionHandle, RegionPolicy, RvfMountHandle,
+    RvfVerifyStatus, TaskHandle, TaskPriority,
 };
 
 /// Result type for boot operations.

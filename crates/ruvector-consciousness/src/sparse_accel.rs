@@ -60,11 +60,7 @@ pub fn build_sparse_laplacian(mi_csr: &CsrMatrix<f64>, n: usize) -> CsrMatrix<f6
 ///
 /// Uses shifted inverse iteration: v_{k+1} = (μI - L) * v_k,
 /// with deflation against the constant eigenvector.
-pub fn sparse_fiedler_vector(
-    laplacian: &CsrMatrix<f64>,
-    n: usize,
-    max_iter: usize,
-) -> Vec<f64> {
+pub fn sparse_fiedler_vector(laplacian: &CsrMatrix<f64>, n: usize, max_iter: usize) -> Vec<f64> {
     use rand::rngs::StdRng;
     use rand::{Rng, SeedableRng};
 
@@ -113,7 +109,11 @@ pub fn sparse_fiedler_vector(
                 numer += w[i] * lv[i];
                 denom += w[i] * w[i];
             }
-            if denom > 1e-30 { numer / denom } else { 0.0 }
+            if denom > 1e-30 {
+                numer / denom
+            } else {
+                0.0
+            }
         };
 
         v.copy_from_slice(&w);
@@ -169,7 +169,10 @@ pub struct SparseSpectralPhiEngine {
 
 impl SparseSpectralPhiEngine {
     pub fn new(mi_threshold: f64, max_iterations: usize) -> Self {
-        Self { mi_threshold, max_iterations }
+        Self {
+            mi_threshold,
+            max_iterations,
+        }
     }
 }
 
@@ -196,7 +199,12 @@ impl PhiEngine for SparseSpectralPhiEngine {
 
         // Build sparse MI adjacency and Laplacian.
         let (mi_csr, nnz) = build_sparse_mi_graph(tpm, self.mi_threshold);
-        tracing::debug!(n, nnz, density = nnz as f64 / (n * n) as f64, "sparse MI graph built");
+        tracing::debug!(
+            n,
+            nnz,
+            density = nnz as f64 / (n * n) as f64,
+            "sparse MI graph built"
+        );
 
         let laplacian = build_sparse_laplacian(&mi_csr, n);
 
@@ -211,8 +219,12 @@ impl PhiEngine for SparseSpectralPhiEngine {
             }
         }
         let full = (1u64 << n) - 1;
-        if mask == 0 { mask = 1; }
-        if mask == full { mask = full - 1; }
+        if mask == 0 {
+            mask = 1;
+        }
+        if mask == full {
+            mask = full - 1;
+        }
 
         let partition = Bipartition { mask, n };
         let arena = PhiArena::with_capacity(n * 16);
@@ -280,7 +292,11 @@ mod tests {
         let result = SparseSpectralPhiEngine::default()
             .compute_phi(&tpm, Some(0), &budget)
             .unwrap();
-        assert!(result.phi < 1e-4, "sparse spectral disconnected should be ~0, got {}", result.phi);
+        assert!(
+            result.phi < 1e-4,
+            "sparse spectral disconnected should be ~0, got {}",
+            result.phi
+        );
     }
 
     #[test]

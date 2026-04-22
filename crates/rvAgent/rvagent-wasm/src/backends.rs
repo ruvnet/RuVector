@@ -63,12 +63,7 @@ impl WasmStateBackend {
     }
 
     /// Apply an edit to an existing file: replace `old` with `new` in the file content.
-    pub fn edit_file(
-        &mut self,
-        path: &str,
-        old: &str,
-        new: &str,
-    ) -> Result<(), WasmBackendError> {
+    pub fn edit_file(&mut self, path: &str, old: &str, new: &str) -> Result<(), WasmBackendError> {
         let content = self.read_file(path)?;
         if !content.contains(old) {
             return Err(WasmBackendError::EditMismatch {
@@ -184,15 +179,9 @@ impl WasmFetchBackend {
     }
 
     /// PUT a file to `{base_url}/{path}`.
-    pub async fn put_file(
-        &self,
-        path: &str,
-        content: &str,
-    ) -> Result<(), WasmBackendError> {
+    pub async fn put_file(&self, path: &str, content: &str) -> Result<(), WasmBackendError> {
         let url = format!("{}/{}", self.base_url, path.trim_start_matches('/'));
-        let resp_value = self
-            .do_fetch(&url, "PUT", Some(content))
-            .await?;
+        let resp_value = self.do_fetch(&url, "PUT", Some(content)).await?;
         let resp: web_sys::Response = resp_value
             .dyn_into()
             .map_err(|_| WasmBackendError::FetchError("response cast failed".into()))?;
@@ -226,12 +215,9 @@ impl WasmFetchBackend {
             .map_err(|e| WasmBackendError::FetchError(format!("Request::new failed: {:?}", e)))?;
 
         if let Some(ref auth) = self.auth_header {
-            request
-                .headers()
-                .set("Authorization", auth)
-                .map_err(|e| {
-                    WasmBackendError::FetchError(format!("set auth header failed: {:?}", e))
-                })?;
+            request.headers().set("Authorization", auth).map_err(|e| {
+                WasmBackendError::FetchError(format!("set auth header failed: {:?}", e))
+            })?;
         }
 
         request
@@ -459,8 +445,7 @@ mod tests {
 
     #[test]
     fn test_fetch_backend_with_auth() {
-        let fb = WasmFetchBackend::new("https://api.example.com")
-            .with_auth("Bearer tok123");
+        let fb = WasmFetchBackend::new("https://api.example.com").with_auth("Bearer tok123");
         assert_eq!(fb.auth_header.as_deref(), Some("Bearer tok123"));
     }
 }

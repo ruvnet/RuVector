@@ -196,7 +196,13 @@ impl ProofEngine {
             path,
         };
 
-        let token = ProofToken::new(*mutation_hash, ProofTier::Standard, payload, valid_until_ns, nonce);
+        let token = ProofToken::new(
+            *mutation_hash,
+            ProofTier::Standard,
+            payload,
+            valid_until_ns,
+            nonce,
+        );
 
         if self.config.enable_cache {
             self.cache
@@ -231,7 +237,13 @@ impl ProofEngine {
             signature: *signature,
         };
 
-        let token = ProofToken::new(*mutation_hash, ProofTier::Deep, payload, valid_until_ns, nonce);
+        let token = ProofToken::new(
+            *mutation_hash,
+            ProofTier::Deep,
+            payload,
+            valid_until_ns,
+            nonce,
+        );
 
         if self.config.enable_cache {
             self.cache
@@ -470,9 +482,7 @@ mod tests {
 
     #[test]
     fn test_proof_validity_window() {
-        let engine = ProofEngineBuilder::new()
-            .validity_window_ns(1000)
-            .build();
+        let engine = ProofEngineBuilder::new().validity_window_ns(1000).build();
 
         assert_eq!(engine.config().validity_window_ns, 1000);
     }

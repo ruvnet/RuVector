@@ -3,9 +3,9 @@
 
 use async_trait::async_trait;
 use rvagent_middleware::{
-    append_to_system_message, AgentState, AgentStateUpdate, Message,
-    Middleware, MiddlewarePipeline, ModelHandler, ModelRequest, ModelResponse,
-    Role, Runtime, RunnableConfig, Tool, ToolDefinition,
+    append_to_system_message, AgentState, AgentStateUpdate, Message, Middleware,
+    MiddlewarePipeline, ModelHandler, ModelRequest, ModelResponse, Role, RunnableConfig, Runtime,
+    Tool, ToolDefinition,
 };
 
 // ---------------------------------------------------------------------------
@@ -68,11 +68,7 @@ impl Middleware for SystemAppender {
         &self.label
     }
 
-    fn wrap_model_call(
-        &self,
-        request: ModelRequest,
-        handler: &dyn ModelHandler,
-    ) -> ModelResponse {
+    fn wrap_model_call(&self, request: ModelRequest, handler: &dyn ModelHandler) -> ModelResponse {
         let new_sys = append_to_system_message(&request.system_message, &self.text);
         handler.call(request.with_system(new_sys))
     }
@@ -172,7 +168,9 @@ async fn test_pipeline_before_agent_chain() {
     let runtime = Runtime::new();
     let config = RunnableConfig::default();
 
-    pipeline.run_before_agent(&mut state, &runtime, &config).await;
+    pipeline
+        .run_before_agent(&mut state, &runtime, &config)
+        .await;
 
     // All three middlewares should have set their extension key.
     assert_eq!(
@@ -200,8 +198,7 @@ fn test_pipeline_wrap_model_call_chain() {
         Box::new(SystemAppender::new("appender_b", "<<B>>")),
     ]);
 
-    let request = ModelRequest::new(vec![Message::user("hi")])
-        .with_system(Some("base".into()));
+    let request = ModelRequest::new(vec![Message::user("hi")]).with_system(Some("base".into()));
 
     let response = pipeline.run_wrap_model_call(request, &CaptureSystemHandler);
 

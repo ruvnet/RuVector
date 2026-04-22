@@ -132,9 +132,7 @@ pub struct BrainTrainer {
 impl BrainTrainer {
     pub fn new(config: TrainerConfig) -> Self {
         let http_client = reqwest::Client::builder()
-            .user_agent(
-                "ruvector-brain-trainer/1.0 (https://pi.ruv.io; benevolent-discovery)",
-            )
+            .user_agent("ruvector-brain-trainer/1.0 (https://pi.ruv.io; benevolent-discovery)")
             .timeout(std::time::Duration::from_secs(30))
             .build()
             .expect("HTTP client");
@@ -191,10 +189,7 @@ impl BrainTrainer {
             }
 
             // Rate limiting between domains
-            tokio::time::sleep(std::time::Duration::from_millis(
-                self.config.api_delay_ms,
-            ))
-            .await;
+            tokio::time::sleep(std::time::Duration::from_millis(self.config.api_delay_ms)).await;
         }
 
         report.discoveries_found = all_discoveries.len();
@@ -230,10 +225,7 @@ impl BrainTrainer {
     }
 
     /// Discover patterns in a specific domain by fetching from public APIs
-    async fn discover_domain(
-        &self,
-        domain: &DiscoveryDomain,
-    ) -> Result<Vec<Discovery>, String> {
+    async fn discover_domain(&self, domain: &DiscoveryDomain) -> Result<Vec<Discovery>, String> {
         match domain {
             DiscoveryDomain::SpaceScience => self.discover_space().await,
             DiscoveryDomain::EarthScience => self.discover_earth().await,
@@ -260,32 +252,21 @@ impl BrainTrainer {
                 if let Some(planets) = data.as_array() {
                     let masses: Vec<f64> = planets
                         .iter()
-                        .filter_map(|p| {
-                            p.get("pl_bmassj").and_then(|v| v.as_f64())
-                        })
+                        .filter_map(|p| p.get("pl_bmassj").and_then(|v| v.as_f64()))
                         .collect();
 
                     if !masses.is_empty() {
-                        let mean =
-                            masses.iter().sum::<f64>() / masses.len() as f64;
-                        let variance = masses
-                            .iter()
-                            .map(|m| (m - mean).powi(2))
-                            .sum::<f64>()
+                        let mean = masses.iter().sum::<f64>() / masses.len() as f64;
+                        let variance = masses.iter().map(|m| (m - mean).powi(2)).sum::<f64>()
                             / masses.len() as f64;
                         let std_dev = variance.sqrt();
 
                         for planet in planets {
                             if let (Some(name), Some(mass)) = (
-                                planet
-                                    .get("pl_name")
-                                    .and_then(|v| v.as_str()),
-                                planet
-                                    .get("pl_bmassj")
-                                    .and_then(|v| v.as_f64()),
+                                planet.get("pl_name").and_then(|v| v.as_str()),
+                                planet.get("pl_bmassj").and_then(|v| v.as_f64()),
                             ) {
-                                let z = (mass - mean).abs()
-                                    / std_dev.max(0.001);
+                                let z = (mass - mean).abs() / std_dev.max(0.001);
                                 if z > 2.5 {
                                     let ecc = planet
                                         .get("pl_orbeccen")
@@ -326,8 +307,7 @@ impl BrainTrainer {
                                         ],
                                         confidence: (z / 5.0).min(0.99),
                                         data_points: planets.len(),
-                                        source_api: "NASA Exoplanet Archive"
-                                            .into(),
+                                        source_api: "NASA Exoplanet Archive".into(),
                                         timestamp: Utc::now(),
                                         witness_hash: None,
                                     });
@@ -351,11 +331,7 @@ impl BrainTrainer {
                                  outliers detected (>2.5\u{03c3}).",
                                 planets.len()
                             ),
-                            tags: vec![
-                                "space".into(),
-                                "exoplanet".into(),
-                                "population".into(),
-                            ],
+                            tags: vec!["space".into(), "exoplanet".into(), "population".into()],
                             confidence: 0.90,
                             data_points: planets.len(),
                             source_api: "NASA Exoplanet Archive".into(),
@@ -376,9 +352,8 @@ impl BrainTrainer {
         );
         match self.fetch_json(&neo_url).await {
             Ok(data) => {
-                if let Some(neo_objects) = data
-                    .get("near_earth_objects")
-                    .and_then(|n| n.as_object())
+                if let Some(neo_objects) =
+                    data.get("near_earth_objects").and_then(|n| n.as_object())
                 {
                     for (_date, objects) in neo_objects {
                         if let Some(arr) = objects.as_array() {
@@ -388,18 +363,14 @@ impl BrainTrainer {
                                     .and_then(|v| v.as_str())
                                     .unwrap_or("unknown");
                                 let hazardous = neo
-                                    .get(
-                                        "is_potentially_hazardous_asteroid",
-                                    )
+                                    .get("is_potentially_hazardous_asteroid")
                                     .and_then(|v| v.as_bool())
                                     .unwrap_or(false);
                                 let miss_km = neo
                                     .get("close_approach_data")
                                     .and_then(|c| c.as_array())
                                     .and_then(|a| a.first())
-                                    .and_then(|a| {
-                                        a.get("miss_distance")
-                                    })
+                                    .and_then(|a| a.get("miss_distance"))
                                     .and_then(|m| m.get("kilometers"))
                                     .and_then(|k| k.as_str())
                                     .and_then(|s| s.parse::<f64>().ok())
@@ -408,42 +379,27 @@ impl BrainTrainer {
                                     .get("close_approach_data")
                                     .and_then(|c| c.as_array())
                                     .and_then(|a| a.first())
-                                    .and_then(|a| {
-                                        a.get("relative_velocity")
-                                    })
-                                    .and_then(|v| {
-                                        v.get("kilometers_per_hour")
-                                    })
+                                    .and_then(|a| a.get("relative_velocity"))
+                                    .and_then(|v| v.get("kilometers_per_hour"))
                                     .and_then(|k| k.as_str())
                                     .and_then(|s| s.parse::<f64>().ok())
                                     .unwrap_or(0.0);
                                 let diameter_max = neo
                                     .get("estimated_diameter")
                                     .and_then(|d| d.get("meters"))
-                                    .and_then(|m| {
-                                        m.get("estimated_diameter_max")
-                                    })
+                                    .and_then(|m| m.get("estimated_diameter_max"))
                                     .and_then(|v| v.as_f64())
                                     .unwrap_or(0.0);
 
                                 // Only report close or hazardous objects
                                 if hazardous || miss_km < 5_000_000.0 {
-                                    let confidence = if hazardous {
-                                        0.95
-                                    } else {
-                                        0.80
-                                    };
+                                    let confidence = if hazardous { 0.95 } else { 0.80 };
                                     discoveries.push(Discovery {
                                         id: Uuid::new_v4(),
-                                        domain:
-                                            DiscoveryDomain::SpaceScience,
+                                        domain: DiscoveryDomain::SpaceScience,
                                         title: format!(
                                             "NEO close approach: {name}{}",
-                                            if hazardous {
-                                                " [HAZARDOUS]"
-                                            } else {
-                                                ""
-                                            }
+                                            if hazardous { " [HAZARDOUS]" } else { "" }
                                         ),
                                         content: format!(
                                             "Asteroid {name} passes \
@@ -480,10 +436,7 @@ impl BrainTrainer {
             Err(e) => tracing::warn!("NASA NEO API: {e}"),
         }
 
-        tokio::time::sleep(std::time::Duration::from_millis(
-            self.config.api_delay_ms,
-        ))
-        .await;
+        tokio::time::sleep(std::time::Duration::from_millis(self.config.api_delay_ms)).await;
 
         // --- NOAA SWPC solar weather (X-ray flare events) ---
         let solar_url = "https://services.swpc.noaa.gov/json/goes/\
@@ -510,20 +463,13 @@ impl BrainTrainer {
                             .unwrap_or(0.0);
 
                         // Only report M- and X-class flares (significant)
-                        let is_significant = class.starts_with('M')
-                            || class.starts_with('X');
+                        let is_significant = class.starts_with('M') || class.starts_with('X');
                         if is_significant {
-                            let confidence = if class.starts_with('X') {
-                                0.98
-                            } else {
-                                0.85
-                            };
+                            let confidence = if class.starts_with('X') { 0.98 } else { 0.85 };
                             discoveries.push(Discovery {
                                 id: Uuid::new_v4(),
                                 domain: DiscoveryDomain::SpaceScience,
-                                title: format!(
-                                    "Solar flare: {class}-class event"
-                                ),
+                                title: format!("Solar flare: {class}-class event"),
                                 content: format!(
                                     "{class}-class solar X-ray flare \
                                      detected. Begin: {begin}, peak: \
@@ -559,33 +505,21 @@ impl BrainTrainer {
             Err(e) => tracing::warn!("NOAA SWPC solar API: {e}"),
         }
 
-        tokio::time::sleep(std::time::Duration::from_millis(
-            self.config.api_delay_ms,
-        ))
-        .await;
+        tokio::time::sleep(std::time::Duration::from_millis(self.config.api_delay_ms)).await;
 
         // --- LIGO/GraceDB gravitational wave events ---
         let gw_url = "https://gracedb.ligo.org/api/superevents/\
                       ?query=far+%3C+1e-6&format=json&count=10";
         match self.fetch_json(gw_url).await {
             Ok(data) => {
-                if let Some(events) = data
-                    .get("superevents")
-                    .and_then(|s| s.as_array())
-                {
+                if let Some(events) = data.get("superevents").and_then(|s| s.as_array()) {
                     for event in events.iter().take(10) {
                         let superevent_id = event
                             .get("superevent_id")
                             .and_then(|v| v.as_str())
                             .unwrap_or("unknown");
-                        let far = event
-                            .get("far")
-                            .and_then(|v| v.as_f64())
-                            .unwrap_or(1.0);
-                        let t_start = event
-                            .get("t_start")
-                            .and_then(|v| v.as_f64())
-                            .unwrap_or(0.0);
+                        let far = event.get("far").and_then(|v| v.as_f64()).unwrap_or(1.0);
+                        let t_start = event.get("t_start").and_then(|v| v.as_f64()).unwrap_or(0.0);
                         let category = event
                             .get("category")
                             .and_then(|v| v.as_str())
@@ -599,18 +533,12 @@ impl BrainTrainer {
                             .and_then(|v| v.as_str())
                             .unwrap_or("");
 
-                        let confidence =
-                            (1.0 - far.log10().abs() / 20.0).clamp(
-                                0.70,
-                                0.99,
-                            );
+                        let confidence = (1.0 - far.log10().abs() / 20.0).clamp(0.70, 0.99);
 
                         discoveries.push(Discovery {
                             id: Uuid::new_v4(),
                             domain: DiscoveryDomain::SpaceScience,
-                            title: format!(
-                                "Gravitational wave: {superevent_id}"
-                            ),
+                            title: format!("Gravitational wave: {superevent_id}"),
                             content: format!(
                                 "GW superevent {superevent_id} \
                                  (category: {category}). False alarm \
@@ -650,22 +578,15 @@ impl BrainTrainer {
                    summary/significant_month.geojson";
         match self.fetch_json(url).await {
             Ok(data) => {
-                if let Some(features) =
-                    data.get("features").and_then(|f| f.as_array())
-                {
+                if let Some(features) = data.get("features").and_then(|f| f.as_array()) {
                     for quake in features {
-                        let props = quake
-                            .get("properties")
-                            .unwrap_or(&serde_json::Value::Null);
+                        let props = quake.get("properties").unwrap_or(&serde_json::Value::Null);
                         let geo = quake
                             .get("geometry")
                             .and_then(|g| g.get("coordinates"))
                             .and_then(|c| c.as_array());
 
-                        let mag = props
-                            .get("mag")
-                            .and_then(|v| v.as_f64())
-                            .unwrap_or(0.0);
+                        let mag = props.get("mag").and_then(|v| v.as_f64()).unwrap_or(0.0);
                         let place = props
                             .get("place")
                             .and_then(|v| v.as_str())
@@ -680,9 +601,7 @@ impl BrainTrainer {
                             discoveries.push(Discovery {
                                 id: Uuid::new_v4(),
                                 domain: DiscoveryDomain::EarthScience,
-                                title: format!(
-                                    "M{mag:.1} earthquake: {place}"
-                                ),
+                                title: format!("M{mag:.1} earthquake: {place}"),
                                 content: format!(
                                     "Significant M{mag:.1} earthquake at \
                                      {place}, depth {depth:.1} km. {}",
@@ -722,9 +641,7 @@ impl BrainTrainer {
                    land_ocean/1/3/1850-2026.json";
         match self.fetch_json(url).await {
             Ok(data) => {
-                if let Some(obj) =
-                    data.get("data").and_then(|d| d.as_object())
-                {
+                if let Some(obj) = data.get("data").and_then(|d| d.as_object()) {
                     let mut temps: Vec<(String, f64)> = obj
                         .iter()
                         .filter_map(|(k, v)| {
@@ -737,14 +654,8 @@ impl BrainTrainer {
                     temps.sort_by(|a, b| a.0.cmp(&b.0));
 
                     if let Some(latest) = temps.last() {
-                        let recent: Vec<f64> = temps
-                            .iter()
-                            .rev()
-                            .take(10)
-                            .map(|t| t.1)
-                            .collect();
-                        let avg_recent = recent.iter().sum::<f64>()
-                            / recent.len() as f64;
+                        let recent: Vec<f64> = temps.iter().rev().take(10).map(|t| t.1).collect();
+                        let avg_recent = recent.iter().sum::<f64>() / recent.len() as f64;
 
                         discoveries.push(Discovery {
                             id: Uuid::new_v4(),
@@ -759,13 +670,12 @@ impl BrainTrainer {
                                  anomaly: +{:.2}\u{00b0}C (period: {}). \
                                  10-period average: +{:.2}\u{00b0}C. \
                                  Dataset spans {} data points from 1850.",
-                                latest.1, latest.0, avg_recent, temps.len()
+                                latest.1,
+                                latest.0,
+                                avg_recent,
+                                temps.len()
                             ),
-                            tags: vec![
-                                "climate".into(),
-                                "temperature".into(),
-                                "anomaly".into(),
-                            ],
+                            tags: vec!["climate".into(), "temperature".into(), "anomaly".into()],
                             confidence: 0.95,
                             data_points: temps.len(),
                             source_api: "NOAA NCEI".into(),
@@ -778,10 +688,7 @@ impl BrainTrainer {
             Err(e) => tracing::warn!("NOAA API: {e}"),
         }
 
-        tokio::time::sleep(std::time::Duration::from_millis(
-            self.config.api_delay_ms,
-        ))
-        .await;
+        tokio::time::sleep(std::time::Duration::from_millis(self.config.api_delay_ms)).await;
 
         // --- NOAA OISST sea surface temperature anomalies ---
         // Uses NOAA ERDDAP for ocean temperature data (Optimum
@@ -818,15 +725,9 @@ impl BrainTrainer {
                                     .unwrap_or(std::cmp::Ordering::Equal)
                             })
                             .unwrap();
-                        let mean_anom = anomalies
-                            .iter()
-                            .map(|a| a.2)
-                            .sum::<f64>()
-                            / anomalies.len() as f64;
-                        let positive_count = anomalies
-                            .iter()
-                            .filter(|a| a.2 > 0.0)
-                            .count();
+                        let mean_anom =
+                            anomalies.iter().map(|a| a.2).sum::<f64>() / anomalies.len() as f64;
+                        let positive_count = anomalies.iter().filter(|a| a.2 > 0.0).count();
 
                         discoveries.push(Discovery {
                             id: Uuid::new_v4(),
@@ -848,9 +749,7 @@ impl BrainTrainer {
                                 max_anom.2,
                                 max_anom.0,
                                 max_anom.1,
-                                positive_count as f64
-                                    / anomalies.len() as f64
-                                    * 100.0,
+                                positive_count as f64 / anomalies.len() as f64 * 100.0,
                                 len = anomalies.len()
                             ),
                             tags: vec![
@@ -884,9 +783,7 @@ impl BrainTrainer {
                    &sort=cited_by_count:desc&per_page=10";
         match self.fetch_json(url).await {
             Ok(data) => {
-                if let Some(results) =
-                    data.get("results").and_then(|r| r.as_array())
-                {
+                if let Some(results) = data.get("results").and_then(|r| r.as_array()) {
                     for work in results.iter().take(5) {
                         let title = work
                             .get("title")
@@ -902,25 +799,18 @@ impl BrainTrainer {
                             .unwrap_or(0);
 
                         if cited > 50 {
-                            let truncated =
-                                &title[..title.len().min(80)];
+                            let truncated = &title[..title.len().min(80)];
                             discoveries.push(Discovery {
                                 id: Uuid::new_v4(),
                                 domain: DiscoveryDomain::AcademicResearch,
-                                title: format!(
-                                    "High-impact AI paper: {truncated}"
-                                ),
+                                title: format!("High-impact AI paper: {truncated}"),
                                 content: format!(
                                     "\"{title}\" ({year}) — {cited} \
                                      citations. Rapidly cited paper \
                                      indicating significant research \
                                      impact in artificial intelligence."
                                 ),
-                                tags: vec![
-                                    "academic".into(),
-                                    "ai".into(),
-                                    "high-impact".into(),
-                                ],
+                                tags: vec!["academic".into(), "ai".into(), "high-impact".into()],
                                 confidence: 0.85,
                                 data_points: results.len(),
                                 source_api: "OpenAlex".into(),
@@ -953,13 +843,10 @@ impl BrainTrainer {
     }
 
     /// Ingest a discovery into the brain via REST API
-    async fn ingest_to_brain(
-        &self,
-        discovery: &Discovery,
-        brain_url: &str,
-    ) -> Result<(), String> {
+    async fn ingest_to_brain(&self, discovery: &Discovery, brain_url: &str) -> Result<(), String> {
         // Get challenge nonce
-        let nonce_resp: serde_json::Value = self.http_client
+        let nonce_resp: serde_json::Value = self
+            .http_client
             .get(format!("{brain_url}/v1/challenge"))
             .send()
             .await
@@ -980,7 +867,8 @@ impl BrainTrainer {
             "tags": discovery.tags,
         });
 
-        let resp = self.http_client
+        let resp = self
+            .http_client
             .post(format!("{brain_url}/v1/memories"))
             .header("X-Challenge-Nonce", nonce)
             .json(&body)
@@ -999,10 +887,7 @@ impl BrainTrainer {
     }
 
     /// Fetch JSON from a URL with error handling
-    async fn fetch_json(
-        &self,
-        url: &str,
-    ) -> Result<serde_json::Value, String> {
+    async fn fetch_json(&self, url: &str) -> Result<serde_json::Value, String> {
         self.http_client
             .get(url)
             .send()

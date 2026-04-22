@@ -177,7 +177,9 @@ pub fn is_prime_u128(n: u128, rounds: u8) -> bool {
     // Numerical-Recipes-style multiplier; we only need uniformity, not crypto.
     let mut state: u128 = n ^ 0x9E37_79B9_7F4A_7C15_F39C_C060_5CED_C835u128;
     for _ in 0..rounds {
-        state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         // Witness in [2, n-2].
         let a = 2u128 + (state % (n - 3));
         if mr_is_composite_u128(n, d, s, a) {
@@ -261,8 +263,8 @@ mod tests {
     #[test]
     fn small_primes_under_100() {
         let known: [u64; 25] = [
-            2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79,
-            83, 89, 97,
+            2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83,
+            89, 97,
         ];
         for n in 0u64..100 {
             assert_eq!(is_prime_u64(n), known.contains(&n), "is_prime_u64({n})");

@@ -11,13 +11,8 @@ use ruvector_decompiler::{decompile, DecompileConfig};
 // ---------------------------------------------------------------------------
 
 /// Original (known) source for the Express-like fixture.
-const EXPRESS_ORIGINAL_NAMES: &[&str] = &[
-    "Router",
-    "Request",
-    "Response",
-    "createApp",
-    "handleRoute",
-];
+const EXPRESS_ORIGINAL_NAMES: &[&str] =
+    &["Router", "Request", "Response", "createApp", "handleRoute"];
 
 const EXPRESS_MINIFIED: &str = concat!(
     r#"var a=class{constructor(){this.routes=[]}"#,
@@ -153,11 +148,7 @@ fn test_fixture_mcp_server() {
 // Fixture 3: React-like Component
 // ---------------------------------------------------------------------------
 
-const REACT_ORIGINAL_NAMES: &[&str] = &[
-    "useState",
-    "useEffect",
-    "Component",
-];
+const REACT_ORIGINAL_NAMES: &[&str] = &["useState", "useEffect", "Component"];
 
 const REACT_MINIFIED: &str = concat!(
     r#"var a=function(b){var c=[b,function(d){c[0]=d}];return c};"#,
@@ -198,9 +189,13 @@ fn test_fixture_react_component() {
 // ---------------------------------------------------------------------------
 
 const MULTI_ORIGINAL_NAMES: &[&str] = &[
-    "add", "subtract", "multiply",  // Module A: math
-    "capitalize", "trim", "concat", // Module B: string
-    "processData",                   // Module C: uses A + B
+    "add",
+    "subtract",
+    "multiply", // Module A: math
+    "capitalize",
+    "trim",
+    "concat",      // Module B: string
+    "processData", // Module C: uses A + B
 ];
 
 const MULTI_MINIFIED: &str = concat!(
@@ -257,12 +252,7 @@ fn test_fixture_multi_module() {
 // Fixture 5: Bundled utils with known tool names
 // ---------------------------------------------------------------------------
 
-const TOOLS_ORIGINAL_NAMES: &[&str] = &[
-    "toolDefinitions",
-    "bashTool",
-    "readTool",
-    "executeTool",
-];
+const TOOLS_ORIGINAL_NAMES: &[&str] = &["toolDefinitions", "bashTool", "readTool", "executeTool"];
 
 const TOOLS_MINIFIED: &str = concat!(
     r#"var a={Bash:{description:"Execute bash commands",inputSchema:{type:"object"}},Read:{description:"Read files",inputSchema:{type:"object"}},Edit:{description:"Edit files",inputSchema:{type:"object"}}};"#,
@@ -304,16 +294,13 @@ fn test_fixture_tools_bundle() {
         .inferred_names
         .iter()
         .filter(|n| {
-            n.evidence.iter().any(|e| {
-                e.contains("Bash") || e.contains("Read") || e.contains("Error")
-            })
+            n.evidence
+                .iter()
+                .any(|e| e.contains("Bash") || e.contains("Read") || e.contains("Error"))
         })
         .collect();
     // We expect at least some tool-related inferences.
-    println!(
-        "  Tool-related inferences: {} found",
-        tool_related.len()
-    );
+    println!("  Tool-related inferences: {} found", tool_related.len());
 }
 
 // ---------------------------------------------------------------------------
@@ -324,10 +311,7 @@ fn test_fixture_tools_bundle() {
 ///
 /// A match is when the inferred name contains a keyword from the original
 /// name (case-insensitive) or vice versa.
-fn count_name_hits(
-    inferred: &[ruvector_decompiler::InferredName],
-    originals: &[&str],
-) -> usize {
+fn count_name_hits(inferred: &[ruvector_decompiler::InferredName], originals: &[&str]) -> usize {
     let mut hits = 0;
     for inf in inferred {
         let inf_lower = inf.inferred.to_lowercase();
@@ -394,8 +378,7 @@ fn print_metrics(
         0.0
     };
     let avg_confidence = if !inferred_names.is_empty() {
-        inferred_names.iter().map(|n| n.confidence).sum::<f64>()
-            / inferred_names.len() as f64
+        inferred_names.iter().map(|n| n.confidence).sum::<f64>() / inferred_names.len() as f64
     } else {
         0.0
     };
@@ -416,7 +399,11 @@ fn print_metrics(
     println!("  Average confidence: {:.2}", avg_confidence);
     println!(
         "  Witness chain: {}",
-        if chain_root.is_empty() { "INVALID" } else { "VALID" }
+        if chain_root.is_empty() {
+            "INVALID"
+        } else {
+            "VALID"
+        }
     );
     println!();
 }

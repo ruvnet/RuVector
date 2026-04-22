@@ -47,7 +47,11 @@ impl ConflictResolver<VectorDelta> for LastWriteWinsResolver {
 
         // Take the last delta (assumed to be sorted by timestamp)
         // SAFETY: We checked deltas.is_empty() above and returned early
-        Ok(deltas.last().expect("deltas verified non-empty").clone().clone())
+        Ok(deltas
+            .last()
+            .expect("deltas verified non-empty")
+            .clone()
+            .clone())
     }
 }
 
@@ -64,7 +68,11 @@ impl ConflictResolver<VectorDelta> for FirstWriteWinsResolver {
 
         // Take the first delta
         // SAFETY: We checked deltas.is_empty() above and returned early
-        Ok(deltas.first().expect("deltas verified non-empty").clone().clone())
+        Ok(deltas
+            .first()
+            .expect("deltas verified non-empty")
+            .clone()
+            .clone())
     }
 }
 
@@ -214,7 +222,10 @@ impl ConflictResolver<VectorDelta> for SparsityResolver {
 
         // Take the sparsest delta
         // SAFETY: We checked deltas.is_empty() above and returned early
-        let sparsest = deltas.iter().min_by_key(|d| d.value.nnz()).expect("deltas verified non-empty");
+        let sparsest = deltas
+            .iter()
+            .min_by_key(|d| d.value.nnz())
+            .expect("deltas verified non-empty");
 
         Ok((*sparsest).clone())
     }
