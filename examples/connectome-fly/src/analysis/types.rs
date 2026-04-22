@@ -23,6 +23,11 @@ pub struct AnalysisConfig {
     pub max_w: f64,
     /// Deterministic projection seed.
     pub proj_seed: u64,
+    /// Opt-in: route `Analysis::retrieve_motifs` through the DiskANN /
+    /// Vamana index (`analysis::diskann_motif`) instead of the bounded
+    /// brute-force `MotifIndex`. Defaults to `false` so AC-2 baseline
+    /// results stay comparable across commits; AC-2-diskann flips it.
+    pub use_diskann: bool,
 }
 
 impl Default for AnalysisConfig {
@@ -36,6 +41,7 @@ impl Default for AnalysisConfig {
             min_w: 0.01,
             max_w: 1_000.0,
             proj_seed: 0xB16F_ACE_C0DE_BABE,
+            use_diskann: false,
         }
     }
 }
@@ -70,6 +76,21 @@ pub struct MotifHit {
     pub dominant_class: String,
     /// L2 distance of the closest other motif (tighter = more repeated).
     pub nearest_distance: f32,
+}
+
+/// One encoded spike-window with its metadata. Emitted by
+/// `Analysis::embed_motif_windows` to support the DiskANN-index
+/// retrieval path without exposing the internal `MotifWindow` type.
+#[derive(Clone, Debug)]
+pub struct MotifEmbedding {
+    /// SDPA-backed embedding vector.
+    pub vector: Vec<f32>,
+    /// Representative window mid-time (ms).
+    pub t_center_ms: f32,
+    /// Spike count in the window.
+    pub spike_count: u32,
+    /// Dominant participating class index (0..15).
+    pub dominant_class_idx: u8,
 }
 
 /// Summary of a motif-window raster for pretty-printing / JSON output.
