@@ -11,9 +11,16 @@ use super::report::{CoherenceEvent, Report};
 use super::sparse_fiedler::sparse_fiedler;
 
 /// Active-neuron threshold above which the observer dispatches to the
-/// sparse-Lanczos Fiedler path. Chosen at 1024 so the current
-/// demonstrator (ADR-154, N=1024) keeps its bit-exact AC-1 trace on
-/// the dense path unchanged.
+/// sparse-Lanczos Fiedler path. Kept at 1024 per commit-9 measurement
+/// (see ADR-154 §16 update). A speculative drop to 96 to route the
+/// saturated N=1024 detector onto the sparse path measured a **3×
+/// regression** (20.1 s vs 6.75 s on `lif_throughput_n_1024`): the
+/// sparse path's HashMap accumulation and SparseGraph canonicalisation
+/// add more overhead at n≈1024 than they save by skipping the dense
+/// O(n²) Laplacian build. The sparse path is a scale win (memory +
+/// time at n ≥ 10 000) not a demo-size speed win. The real saturated-
+/// regime lever is adaptive detect cadence or an incremental Fiedler
+/// accumulator, not threshold tuning.
 const SPARSE_FIEDLER_N_THRESHOLD: usize = 1024;
 
 /// Rolling observer: records spikes, maintains a co-firing window,

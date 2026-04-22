@@ -193,12 +193,13 @@ Opt-in behind `EngineConfig.use_delay_sorted_csr` (default `false`, so AC-1 bit-
 
 Equivalence: delay-csr total spike count matches scalar-opt **exactly at 51 258 spikes (rel-gap 0.0)** — well inside the documented ~10 % cross-path tolerance (ADR-154 §15.1). This is tighter than the SIMD path's same-host equivalence — the delay-sorted reordering does not change dispatch order within a timing-wheel bucket for this workload.
 
-**Closing the 2× gap on the top-line bench requires observer-side work, not more LIF work.** The three plausible levers (in descending bang-for-buck order):
-1. **Dispatch the Fiedler detect at `n > 1024` to the sparse path** (commit 5 shipped it — see §4.8). At the saturated N=1024 bench the active set is exactly at the threshold; a small threshold adjustment would move the bench onto the sparse path.
-2. **Adaptive detect cadence under saturated firing** — the current 5 ms interval produces 24 detects over 120 ms; in saturation most detects are redundant (no meaningful Fiedler drift between ticks). Backing off to 20 ms under sustained high firing cuts the detector's share 4× without losing any observable coherence event.
-3. **Fused spike-raster + Fiedler accumulator** — the detector re-scans the co-firing window; an incremental accumulator updated on each spike would eliminate the O(n²) pair sweep.
+**Closing the 2× gap on the top-line bench requires observer-side work, not more LIF work.** Three plausible levers named in commit 7; one of them was attempted and disproven by measurement in commit 9:
 
-None of those three are in this commit's scope (`src/observer/*` was the MUST-NOT-TOUCH set for the delay-csr agent). They are the right content for the next commit on this branch.
+1. ~~**Dispatch the Fiedler detect at `n > 1024` to the sparse path** (commit 5 shipped it — see §4.8). At the saturated N=1024 bench the active set is exactly at the threshold; a small threshold adjustment would move the bench onto the sparse path.~~ **Attempted commit 9 — measured 3× regression (20.1 s vs 6.75 s).** Lowering `SPARSE_FIEDLER_N_THRESHOLD` from 1024 to 96 routes the saturated detector onto the sparse path, but the sparse path's `HashMap` accumulation + `SparseGraph` canonicalisation overhead at n≈1024 outweighs the O(n²) Laplacian build it replaces. The sparse path is a scale win at n ≥ 10 000 (see §4.8) and an algorithmic win (memory) at any n, but it is **not a speed win at demo N=1024**. Threshold restored to 1024.
+2. **Adaptive detect cadence under saturated firing** — the current 5 ms interval produces 24 detects over 120 ms; in saturation most detects are redundant (no meaningful Fiedler drift between ticks). Backing off to 20 ms under sustained high firing cuts the detector's share 4× without losing any observable coherence event. **This is now the most-probable lever after commit 9 disproved the threshold-swap lever.**
+3. **Fused spike-raster + Fiedler accumulator** — the detector re-scans the co-firing window; an incremental accumulator updated on each spike would eliminate the O(n²) pair sweep. Larger surgery than (2); likely the cleanest long-term fix for production.
+
+Commit 9's measurement is another instance of the ADR-154 §16 lesson: *even after a correct top-level diagnosis (detector dominates), the obvious remediation still needs the measurement.* Two of the three named levers in commit 7 remain plausible; one has been ruled out.
 
 **Honest scorecard for Opt D:** the kernel optimization is real and in place; the top-line bench number doesn't show it yet; the reason is diagnosed and the next commit knows exactly what to do. This is the pattern BENCHMARK.md §4.5 predicted *before* this commit was built — now it is confirmed with measurement.
 
