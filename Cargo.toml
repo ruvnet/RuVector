@@ -194,6 +194,8 @@ members = [
     "examples/real-eeg-analysis",
     # Multi-seizure cross-patient analysis: all 7 chb01 seizures
     "examples/real-eeg-multi-seizure",
+    # Connectome-driven embodied brain demonstrator (ADR-154)
+    "examples/connectome-fly",
 ]
 resolver = "2"
 
