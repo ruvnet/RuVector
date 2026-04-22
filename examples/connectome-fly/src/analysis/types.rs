@@ -115,6 +115,14 @@ impl MotifIndex {
         self.vectors.is_empty()
     }
 
+    /// Raw SDPA-embedded vectors for every indexed window, in insert
+    /// order. Exposed for tests that need a ground-truth-labeled
+    /// precision@k against a multi-protocol corpus (see
+    /// `tests/acceptance_core.rs::ac_2_motif_emergence_labeled_corpus`).
+    pub fn vectors(&self) -> &[Vec<f32>] {
+        &self.vectors
+    }
+
     pub(crate) fn insert(&mut self, v: Vec<f32>, w: MotifWindow) {
         if self.vectors.len() == self.capacity {
             self.vectors.remove(0);
