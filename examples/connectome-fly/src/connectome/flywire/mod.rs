@@ -28,6 +28,9 @@
 pub mod fixture;
 pub mod loader;
 pub mod schema;
+pub mod streaming;
+
+pub use streaming::load_flywire_streaming;
 
 pub use loader::{
     classify_cell_type, classify_cell_type_strict, load_flywire, nt_to_sign, parse_nt,

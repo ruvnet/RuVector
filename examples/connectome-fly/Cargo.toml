@@ -84,3 +84,12 @@ required-features = ["gpu-cuda"]
 [[bench]]
 name = "delay_csr"
 harness = false
+
+# Opt D paired-sample isolation (post-commit-10). Four arms at N=1024
+# across the {use_optimized, use_delay_sorted_csr} product, all with
+# adaptive detect cadence always on (it lives in `Observer`, not the
+# engine config). The Opt-D-attributable delta in the saturated regime
+# is the median of `wheel-SoA-SIMD+delay-csr` minus `wheel-SoA-SIMD`.
+[[bench]]
+name = "opt_d_isolation"
+harness = false

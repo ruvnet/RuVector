@@ -342,7 +342,7 @@ fn classify_by_flow(flow: &str) -> NeuronClass {
     }
 }
 
-fn default_bias_for(class: NeuronClass) -> f32 {
+pub(super) fn default_bias_for(class: NeuronClass) -> f32 {
     if class.is_sensory() {
         -0.5
     } else if class.is_motor() {
@@ -352,7 +352,7 @@ fn default_bias_for(class: NeuronClass) -> f32 {
     }
 }
 
-fn derive_weight(syn: &SynapseRecord, count: u32) -> f32 {
+pub(super) fn derive_weight(syn: &SynapseRecord, count: u32) -> f32 {
     if syn.syn_weight > 0.0 {
         syn.syn_weight
     } else {
@@ -360,7 +360,7 @@ fn derive_weight(syn: &SynapseRecord, count: u32) -> f32 {
     }
 }
 
-fn default_delay_ms() -> f32 {
+pub(super) fn default_delay_ms() -> f32 {
     // Research doc §3.2: FlyWire does not publish conduction delays;
     // the ingest loader uses a constant fallback of 2.0 ms. The
     // distance-scaled estimator requires soma coordinates, which are

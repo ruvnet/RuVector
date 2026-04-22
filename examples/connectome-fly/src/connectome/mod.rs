@@ -16,9 +16,11 @@ pub mod flywire;
 pub mod generator;
 pub mod persist;
 pub mod schema;
+pub mod stratified_null;
 
 pub use flywire::{load_flywire, FlywireError};
 pub use generator::Connectome;
+pub use stratified_null::{degree_stratified_null_sample, StratifiedSample, NUM_DECILES};
 pub use persist::ConnectomeError;
 pub use schema::{
     ConnectomeConfig, FlyWireNeuronId, NeuronClass, NeuronId, NeuronMeta, Sign, Synapse,
