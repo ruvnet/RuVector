@@ -8,6 +8,13 @@ use crate::lif::Spike;
 
 use super::eigensolver::{approx_fiedler_power, jacobi_symmetric};
 use super::report::{CoherenceEvent, Report};
+use super::sparse_fiedler::sparse_fiedler;
+
+/// Active-neuron threshold above which the observer dispatches to the
+/// sparse-Lanczos Fiedler path. Chosen at 1024 so the current
+/// demonstrator (ADR-154, N=1024) keeps its bit-exact AC-1 trace on
+/// the dense path unchanged.
+const SPARSE_FIEDLER_N_THRESHOLD: usize = 1024;
 
 /// Rolling observer: records spikes, maintains a co-firing window,
 /// runs the Fiedler detector, and produces a final report.
@@ -156,6 +163,14 @@ impl Observer {
         let n = active.len();
         if n < 2 {
             return f32::NAN;
+        }
+        // Dispatch to the sparse shifted-power-iteration path above
+        // the dense-matrix ceiling — avoids the O(n²) adjacency /
+        // Laplacian allocation below. Threshold is 1024 so existing
+        // demo-scale runs (N=1024 per ADR-154 §3) stay on the dense
+        // path and AC-1 remains bit-exact vs head.
+        if n > SPARSE_FIEDLER_N_THRESHOLD {
+            return sparse_fiedler(&active, &self.cofire_window, SPARSE_FIEDLER_N_THRESHOLD);
         }
         let index_of = |id: NeuronId| -> Option<usize> { active.binary_search(&id).ok() };
         let tau = 5.0_f32;
