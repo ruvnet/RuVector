@@ -283,7 +283,7 @@ pub fn louvain_labels(conn: &Connectome) -> Vec<u32> {
 /// One full sweep of Louvain level-1 moves on `adj` (size `n`). Returns
 /// per-node community labels using node indices as initial ids. Same
 /// deterministic tie-break as the single-level variant.
-fn level1_moves(adj: &[Vec<(u32, f64)>], n: usize) -> Vec<u32> {
+pub(super) fn level1_moves(adj: &[Vec<(u32, f64)>], n: usize) -> Vec<u32> {
     let mut deg = vec![0.0_f64; n];
     for i in 0..n {
         for &(_, w) in &adj[i] {
@@ -342,7 +342,7 @@ fn level1_moves(adj: &[Vec<(u32, f64)>], n: usize) -> Vec<u32> {
 /// Aggregate `adj` into a super-graph whose nodes are the communities
 /// in `labels`. Returns (new_adj, renumber_map) where renumber_map[old]
 /// = new_community_index. Edge weights sum inside the super-nodes.
-fn aggregate(
+pub(super) fn aggregate(
     adj: &[Vec<(u32, f64)>],
     labels: &[u32],
 ) -> (Vec<Vec<(u32, f64)>>, std::collections::HashMap<u32, u32>) {
@@ -373,7 +373,7 @@ fn aggregate(
 }
 
 /// Compact arbitrary labels into `0..k` space, preserving grouping.
-fn compact_labels(labels: &[u32]) -> Vec<u32> {
+pub(super) fn compact_labels(labels: &[u32]) -> Vec<u32> {
     let mut renum: std::collections::HashMap<u32, u32> = std::collections::HashMap::new();
     let mut out: Vec<u32> = Vec::with_capacity(labels.len());
     for &lab in labels {
