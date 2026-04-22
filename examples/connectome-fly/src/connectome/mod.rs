@@ -1,22 +1,28 @@
 //! Connectome schema, stochastic-block-model generator, and compact
-//! binary serialization. Split across three submodules:
+//! binary serialization. Split across four submodules:
 //!
-//! - `schema`    — public types (`NeuronId`, `Sign`, `NeuronClass`,
-//!                `Synapse`, `NeuronMeta`, `ConnectomeConfig`).
+//! - `schema`    — public types (`NeuronId`, `FlyWireNeuronId`, `Sign`,
+//!                `NeuronClass`, `Synapse`, `NeuronMeta`,
+//!                `ConnectomeConfig`).
 //! - `generator` — deterministic SBM generator + helpers.
 //! - `persist`   — bincode-backed binary round-trip.
+//! - `flywire`   — FlyWire v783 TSV ingest (real wiring path).
 //!
 //! See `docs/research/connectome-ruvector/02-connectome-layer.md` for
 //! the schema design and the log-normal / hub-module statistics this
-//! generator targets.
+//! generator targets, and ADR-154 §13 for the FlyWire ingest hand-off.
 
+pub mod flywire;
 pub mod generator;
 pub mod persist;
 pub mod schema;
 
+pub use flywire::{load_flywire, FlywireError};
 pub use generator::Connectome;
 pub use persist::ConnectomeError;
-pub use schema::{ConnectomeConfig, NeuronClass, NeuronId, NeuronMeta, Sign, Synapse};
+pub use schema::{
+    ConnectomeConfig, FlyWireNeuronId, NeuronClass, NeuronId, NeuronMeta, Sign, Synapse,
+};
 
 #[cfg(test)]
 mod tests {

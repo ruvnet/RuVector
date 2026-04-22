@@ -13,7 +13,8 @@ use smallvec::SmallVec;
 
 use super::persist::ConnectomeError;
 use super::schema::{
-    ConnectomeConfig, ConnectomeSerCfg, NeuronClass, NeuronId, NeuronMeta, Sign, Synapse,
+    ConnectomeConfig, ConnectomeSerCfg, FlyWireNeuronId, NeuronClass, NeuronId, NeuronMeta, Sign,
+    Synapse,
 };
 
 /// A synthetic fly-like connectome. Stores neuron metadata and a
@@ -35,6 +36,12 @@ pub struct Connectome {
     pub(super) motor: Vec<NeuronId>,
     /// Pre-computed index grouped by class.
     pub(super) by_class: Vec<Vec<NeuronId>>,
+    /// Stable FlyWire root ids, parallel to `meta` / dense ids.
+    /// `None` for SBM-generated connectomes; `Some` when loaded via the
+    /// `flywire` module. Serialized at the tail of the bincode blob so
+    /// existing synthetic blobs remain round-trippable.
+    #[serde(default)]
+    pub(super) flywire_ids: Option<Vec<FlyWireNeuronId>>,
 }
 
 impl Connectome {
@@ -134,7 +141,62 @@ impl Connectome {
             sensory,
             motor,
             by_class,
+            flywire_ids: None,
         }
+    }
+
+    /// Construct a `Connectome` directly from already-assembled parts.
+    ///
+    /// Used by the `flywire` loader to install parsed FlyWire v783
+    /// records without going through the synthetic SBM path. Callers
+    /// are responsible for supplying a CSR-consistent `(row_ptr,
+    /// synapses)` pair: `row_ptr.len() == meta.len() + 1` and
+    /// `row_ptr[i] <= row_ptr[i+1] <= synapses.len()`.
+    ///
+    /// Sensory / motor / by-class indices are derived from `meta`.
+    /// `flywire_ids`, if provided, must be parallel to `meta`.
+    pub(super) fn from_parts(
+        cfg: ConnectomeSerCfg,
+        meta: Vec<NeuronMeta>,
+        synapses: Vec<Synapse>,
+        row_ptr: Vec<u32>,
+        flywire_ids: Option<Vec<FlyWireNeuronId>>,
+    ) -> Self {
+        debug_assert_eq!(row_ptr.len(), meta.len() + 1);
+        debug_assert_eq!(*row_ptr.last().unwrap_or(&0) as usize, synapses.len());
+        if let Some(ids) = &flywire_ids {
+            debug_assert_eq!(ids.len(), meta.len());
+        }
+        let mut by_class: Vec<Vec<NeuronId>> = vec![Vec::new(); 15];
+        let mut sensory: Vec<NeuronId> = Vec::new();
+        let mut motor: Vec<NeuronId> = Vec::new();
+        for (i, m) in meta.iter().enumerate() {
+            by_class[m.class as usize].push(NeuronId(i as u32));
+            if m.class.is_sensory() {
+                sensory.push(NeuronId(i as u32));
+            }
+            if m.class.is_motor() {
+                motor.push(NeuronId(i as u32));
+            }
+        }
+        Self {
+            cfg,
+            meta,
+            synapses,
+            row_ptr,
+            sensory,
+            motor,
+            by_class,
+            flywire_ids,
+        }
+    }
+
+    /// Parallel array of stable FlyWire root ids, if this connectome
+    /// was loaded from a FlyWire v783 release. `None` for SBM-generated
+    /// connectomes.
+    #[inline]
+    pub fn flywire_ids(&self) -> Option<&[FlyWireNeuronId]> {
+        self.flywire_ids.as_deref()
     }
 
     /// Total number of neurons.

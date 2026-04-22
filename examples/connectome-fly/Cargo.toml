@@ -46,12 +46,17 @@ bincode = "1.3"
 bytemuck = { version = "1.16", features = ["derive"] }
 thiserror = "1.0"
 
+# FlyWire v783 TSV ingest (connectome::flywire). Column-named streaming
+# parser; sibling ruvector-graph and ruvector-cli already pin 1.3.
+csv = "1.3"
+
 # Optional — gated by feature flags.
 wide = { version = "0.7", optional = true }
 cudarc = { version = "0.13", optional = true, default-features = false, features = ["cuda-12050", "driver", "std"] }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
+tempfile = "3"
 
 [[bench]]
 name = "lif_throughput"

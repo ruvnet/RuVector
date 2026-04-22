@@ -77,7 +77,8 @@ pub use analysis::{
     Analysis, AnalysisConfig, FunctionalPartition, MotifHit, MotifIndex, MotifSignature,
 };
 pub use connectome::{
-    Connectome, ConnectomeConfig, ConnectomeError, NeuronClass, NeuronId, NeuronMeta, Sign, Synapse,
+    load_flywire, Connectome, ConnectomeConfig, ConnectomeError, FlyWireNeuronId, FlywireError,
+    NeuronClass, NeuronId, NeuronMeta, Sign, Synapse,
 };
 pub use lif::{Engine, EngineConfig, LifError, NeuronParams, Spike, SpikeEvent};
 pub use observer::{CoherenceEvent, Observer, Report};
