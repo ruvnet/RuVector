@@ -20,6 +20,21 @@ impl NeuronId {
     }
 }
 
+/// Stable FlyWire v783 root id (64-bit). Carried alongside the dense
+/// `NeuronId` when a `Connectome` is loaded from FlyWire so analyses can
+/// round-trip back to the published identifier space. Opaque newtype;
+/// see `docs/research/connectome-ruvector/02-connectome-layer.md` §3.1.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct FlyWireNeuronId(pub u64);
+
+impl FlyWireNeuronId {
+    /// Raw id.
+    #[inline]
+    pub const fn raw(self) -> u64 {
+        self.0
+    }
+}
+
 /// Synapse sign. `+1` excitatory, `-1` inhibitory. Neuromodulatory
 /// edges are *not* represented in the fast path
 /// (`docs/research/connectome-ruvector/03-neural-dynamics.md` §2.2).
