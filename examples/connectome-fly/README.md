@@ -1,6 +1,9 @@
 # connectome-fly
 
-**Status:** Example crate for ADR-154.
+**Parent project:** [**Connectome OS**](../../docs/adr/ADR-154-connectome-embodied-brain-example.md) — a debugging and control layer for embodied graph systems whose structure is *knowable* (the connectome) rather than learned. "OS" in the Linux sense: infrastructure for introspection and intervention.
+
+**This crate:** Tier-1 demonstrator for Connectome OS. Governed by ADR-154.
+
 **Positioning:** *A graph-native embodied connectome runtime with structural coherence analysis, counterfactual circuit testing, and auditable behavior generation.* This is **not** a consciousness-upload, mind-upload, or digital-person artifact. See `docs/research/connectome-ruvector/07-positioning.md` for the full hype-avoidance rubric.
 
 ## What it is
