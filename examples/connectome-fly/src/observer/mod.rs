@@ -3,31 +3,23 @@
 //!
 //! Submodules:
 //!
-//! - `core`                 — `Observer` and its public API.
-//! - `report`               — serializable report + `CoherenceEvent`.
-//! - `eigensolver`          — Jacobi full-eigendecomposition for small
-//!                            windows plus a shifted-power-iteration
-//!                            fallback for larger ones.
-//! - `sparse_fiedler`       — sparse shifted-power-iteration path for
-//!                            windows with more than 1024 active
-//!                            neurons; uses
-//!                            `ruvector_sparsifier::SparseGraph` as the
-//!                            canonical scratch edge container so
-//!                            memory per detect stays `O(n + nnz)`
-//!                            instead of `O(n²)`.
-//! - `incremental_fiedler`  — rolling `BTreeMap` of τ-coincident pair
-//!                            counts, updated in `on_spike` and
-//!                            amortising the O(S²) pair sweep. ADR-154
-//!                            §16 lever 3.
+//! - `core`           — `Observer` and its public API.
+//! - `report`         — serializable report + `CoherenceEvent`.
+//! - `eigensolver`    — Jacobi full-eigendecomposition for small windows
+//!                      plus a shifted-power-iteration fallback for
+//!                      larger ones.
+//! - `sparse_fiedler` — sparse shifted-power-iteration path for windows
+//!                      with more than 1024 active neurons; uses
+//!                      `ruvector_sparsifier::SparseGraph` as the
+//!                      canonical scratch edge container so memory per
+//!                      detect stays `O(n + nnz)` instead of `O(n²)`.
 
 pub mod core;
 pub mod eigensolver;
-pub mod incremental_fiedler;
 pub mod report;
 pub mod sparse_fiedler;
 
 pub use core::Observer;
-pub use incremental_fiedler::IncrementalCofireAccumulator;
 pub use report::{CoherenceEvent, Report};
 pub use sparse_fiedler::sparse_fiedler;
 

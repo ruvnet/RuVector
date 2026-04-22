@@ -7,7 +7,6 @@ use crate::connectome::NeuronId;
 use crate::lif::Spike;
 
 use super::eigensolver::{approx_fiedler_power, jacobi_symmetric};
-use super::incremental_fiedler::IncrementalCofireAccumulator;
 use super::report::{CoherenceEvent, Report};
 use super::sparse_fiedler::sparse_fiedler;
 
@@ -32,10 +31,6 @@ pub struct Observer {
     // Fiedler detector state.
     window_ms: f32,
     cofire_window: VecDeque<Spike>,
-    /// Incremental `BTreeMap<(NeuronId, NeuronId), u32>` of
-    /// τ-coincident pair counts inside `cofire_window`. Replaces the
-    /// O(S²) per-detect pair sweep — ADR-154 §16 lever 3.
-    cofire_accum: IncrementalCofireAccumulator,
     last_detect_ms: f32,
     detect_every_ms: f32,
     baseline: RollingStats,
@@ -81,7 +76,6 @@ impl Observer {
             spikes: Vec::with_capacity(1 << 14),
             window_ms: 50.0,
             cofire_window: VecDeque::with_capacity(1 << 14),
-            cofire_accum: IncrementalCofireAccumulator::new(),
             last_detect_ms: 0.0,
             detect_every_ms: 5.0,
             baseline: RollingStats::default(),
@@ -143,54 +137,25 @@ impl Observer {
             // constructed-collapse test envelope (markers at t≥500 ms;
             // constructed collapses span > 60 ms, so a 20 ms cadence
             // still catches any ≥50 ms pre-marker event).
-            (self.detect_every_ms * 4.0)
-                .min(20.0)
-                .max(self.detect_every_ms)
+            (self.detect_every_ms * 4.0).min(20.0).max(self.detect_every_ms)
         } else {
             self.detect_every_ms
         }
     }
 
     /// Called by the engine on every spike emission.
-    ///
-    /// Order of operations matters for the incremental accumulator:
-    ///
-    /// 1. Append `s` to `cofire_window`.
-    /// 2. Accumulator `push(s, …)` paired against the existing window
-    ///    contents (excluding the just-pushed `s`). This adds edge
-    ///    counts for every τ-coincident prior spike.
-    /// 3. Expire-from-front: for each popped spike `q`, accumulator
-    ///    `expire(q, remaining_window)` — decrements edge counts for
-    ///    every τ-coincident remaining spike. `q` is always the
-    ///    oldest spike in the window, so the τ-band it paired against
-    ///    is near the front; walking forward from the new front lets
-    ///    `expire` break out as soon as it leaves the band.
-    /// 4. Detect. The accumulator is now exactly the pair-count state
-    ///    implied by the current `cofire_window`, and
-    ///    `compute_fiedler` reads it directly.
     pub fn on_spike(&mut self, s: Spike) {
         self.spikes.push(s);
         self.cofire_window.push_back(s);
         self.t_end_hint_ms = self.t_end_hint_ms.max(s.t_ms);
-
-        // Incremental push: pair `s` against every prior window spike
-        // within τ. `len() - 1` is safe because we just pushed `s`.
-        let prior_len = self.cofire_window.len() - 1;
-        self.cofire_accum
-            .push(s, self.cofire_window.iter().take(prior_len));
-
-        // Expire spikes that slid out of the window, and decrement
-        // their pair counts against the remaining window contents.
         let cutoff = s.t_ms - self.window_ms;
         while let Some(front) = self.cofire_window.front() {
             if front.t_ms < cutoff {
-                let q = self.cofire_window.pop_front().expect("front just checked");
-                self.cofire_accum.expire(q, self.cofire_window.iter());
+                self.cofire_window.pop_front();
             } else {
                 break;
             }
         }
-
         let interval = self.current_detect_interval_ms();
         if s.t_ms - self.last_detect_ms >= interval {
             self.last_detect_ms = s.t_ms;
@@ -222,11 +187,6 @@ impl Observer {
     }
 
     /// Fiedler value of the co-firing-window Laplacian.
-    ///
-    /// The adjacency is read from the incremental pair-count
-    /// accumulator rather than re-derived by an `O(S²)` pair sweep on
-    /// every call. See `IncrementalCofireAccumulator` for the update
-    /// rules that keep the map consistent with `cofire_window`.
     fn compute_fiedler(&self) -> f32 {
         if self.cofire_window.len() < 2 {
             return f32::NAN;
@@ -242,19 +202,31 @@ impl Observer {
         // the dense-matrix ceiling — avoids the O(n²) adjacency /
         // Laplacian allocation below. Threshold is 1024 so existing
         // demo-scale runs (N=1024 per ADR-154 §3) stay on the dense
-        // path and AC-1 remains bit-exact vs head. The sparse path
-        // still reconstructs edges from the live window rather than
-        // the accumulator; that is a separate refactor (`snapshot_sparse`
-        // is exposed on the accumulator for it) and is out of scope
-        // for this lever.
+        // path and AC-1 remains bit-exact vs head.
         if n > SPARSE_FIEDLER_N_THRESHOLD {
             return sparse_fiedler(&active, &self.cofire_window, SPARSE_FIEDLER_N_THRESHOLD);
         }
-        // Dense path: read the `n × n` adjacency directly from the
-        // incremental accumulator instead of re-sweeping every pair
-        // in the window. This replaces the O(S²) pair loop with an
-        // O(|edges| · log n) map traversal.
-        let a = self.cofire_accum.snapshot_adjacency(&active);
+        let index_of = |id: NeuronId| -> Option<usize> { active.binary_search(&id).ok() };
+        let tau = 5.0_f32;
+        let mut a = vec![0.0_f32; n * n];
+        let spikes: Vec<_> = self.cofire_window.iter().copied().collect();
+        for (i, sa) in spikes.iter().enumerate() {
+            let ai = match index_of(sa.neuron) {
+                Some(x) => x,
+                None => continue,
+            };
+            for sb in &spikes[i + 1..] {
+                if (sb.t_ms - sa.t_ms).abs() > tau {
+                    break;
+                }
+                if let Some(bi) = index_of(sb.neuron) {
+                    if ai != bi {
+                        a[ai * n + bi] += 1.0;
+                        a[bi * n + ai] += 1.0;
+                    }
+                }
+            }
+        }
         let mut l = vec![0.0_f32; n * n];
         for i in 0..n {
             let mut d = 0.0_f32;
