@@ -64,6 +64,10 @@ pub struct Engine<'c> {
     clock: f32,
     tmp_events: Vec<SpikeEvent>,
     total_spikes: u64,
+    /// Dense bias-current cache (SIMD path only; materialized lazily on
+    /// first SIMD tick). Outside the `simd` feature this stays empty.
+    #[allow(dead_code)]
+    bias_cache: Vec<f32>,
 }
 
 impl<'c> Engine<'c> {
@@ -101,6 +105,7 @@ impl<'c> Engine<'c> {
             clock: 0.0,
             tmp_events: Vec::with_capacity(1 << 12),
             total_spikes: 0,
+            bias_cache: Vec::new(),
         }
     }
 
@@ -243,6 +248,18 @@ impl<'c> Engine<'c> {
     }
 
     fn subthreshold_opt(&mut self, obs: &mut Observer) {
+        #[cfg(feature = "simd")]
+        {
+            self.subthreshold_opt_simd(obs);
+        }
+        #[cfg(not(feature = "simd"))]
+        {
+            self.subthreshold_opt_scalar(obs);
+        }
+    }
+
+    #[cfg_attr(feature = "simd", allow(dead_code))]
+    fn subthreshold_opt_scalar(&mut self, obs: &mut Observer) {
         let p = self.cfg.params;
         let now = self.clock;
         let dt = self.cfg.dt_ms;
@@ -291,6 +308,53 @@ impl<'c> Engine<'c> {
             }
         }
         self.active_list.truncate(write);
+    }
+
+    /// SIMD-vectorized subthreshold path. Enabled only under
+    /// `--features simd`. Structured so the scalar tail shares identical
+    /// arithmetic — AC-1 repeatability (see tests/acceptance_core.rs)
+    /// remains bit-identical across repeat runs of the SIMD build.
+    #[cfg(feature = "simd")]
+    fn subthreshold_opt_simd(&mut self, obs: &mut Observer) {
+        use super::simd::{subthreshold_tick_simd, TickConsts};
+        let p = self.cfg.params;
+        let now = self.clock;
+        let dt = self.cfg.dt_ms;
+        let tk = TickConsts::new(&p, dt, now);
+
+        // Build a dense bias vector matching the active ids — we pass
+        // the entire `bias` slice and let the SIMD kernel gather lanes.
+        let n = self.soa.v.len();
+        if self.bias_cache.len() != n {
+            self.bias_cache.clear();
+            self.bias_cache
+                .extend(self.conn.all_meta().iter().map(|m| m.bias_pa));
+        }
+
+        // Stable take of the active list so we can iterate and swap.
+        let indices = std::mem::take(&mut self.active_list);
+        let out = subthreshold_tick_simd(
+            &indices,
+            &mut self.soa.v,
+            &mut self.soa.g_e,
+            &mut self.soa.g_i,
+            &mut self.soa.last_update_ms,
+            &self.soa.refrac_until_ms,
+            &self.bias_cache,
+            &p,
+            &tk,
+        );
+        self.active_list = out.still_active;
+        // Repair the membership mask for neurons that dropped out.
+        for id in &indices {
+            self.active_mask[*id as usize] = false;
+        }
+        for id in &self.active_list {
+            self.active_mask[*id as usize] = true;
+        }
+        for id in out.fired {
+            self.emit_spike_opt(NeuronId(id), now, obs);
+        }
     }
 
     fn emit_spike_opt(&mut self, id: NeuronId, t_ms: f32, obs: &mut Observer) {

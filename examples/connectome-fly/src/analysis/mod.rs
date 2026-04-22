@@ -14,8 +14,10 @@
 //! The public surface is the `Analysis` struct re-exported from
 //! here.
 
+pub mod gpu;
 pub mod motif;
 pub mod partition;
+pub mod structural;
 pub mod types;
 
 use ruvector_attention::attention::ScaledDotProductAttention;
@@ -54,6 +56,22 @@ impl Analysis {
     /// weighted by recent spike coactivation.
     pub fn functional_partition(&self, conn: &Connectome, spikes: &[Spike]) -> FunctionalPartition {
         partition::functional_partition(&self.cfg, conn, spikes)
+    }
+
+    /// Build a structural partition of the static connectome (no
+    /// coactivation weighting). AC-3a: does `ruvector-mincut` recover
+    /// SBM module structure from the connectome alone? See
+    /// `analysis::structural` for rationale and ADR-154 §3.4 for the
+    /// split with `functional_partition`.
+    pub fn structural_partition(&self, conn: &Connectome) -> FunctionalPartition {
+        structural::structural_partition(&self.cfg, conn)
+    }
+
+    /// Greedy-modularity community labels for the static connectome.
+    /// Louvain-style level-1, deterministic, no randomness. Used by
+    /// AC-3a to publish a paired baseline against `structural_partition`.
+    pub fn greedy_modularity_labels(&self, conn: &Connectome) -> Vec<u32> {
+        structural::greedy_modularity_labels(conn)
     }
 
     /// Build motif embeddings over sliding windows and index them.

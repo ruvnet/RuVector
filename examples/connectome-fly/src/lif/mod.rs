@@ -16,6 +16,8 @@
 
 pub mod engine;
 pub mod queue;
+#[cfg(feature = "simd")]
+pub mod simd;
 pub mod types;
 
 pub use engine::Engine;

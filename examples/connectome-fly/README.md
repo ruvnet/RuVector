@@ -22,23 +22,50 @@ examples/connectome-fly/
 ├── Cargo.toml
 ├── README.md                 this file
 ├── BENCHMARK.md              baseline and post-optimization numbers
+├── BASELINES.md              head-to-head framing vs Brian2/Auryn/NEST/GeNN
+├── GPU.md                    status of the gpu-cuda feature + unblock plan
 ├── src/
 │   ├── lib.rs
-│   ├── connectome.rs         SBM generator + binary serialization
-│   ├── lif.rs                event-driven LIF kernel (AoS+heap / SoA+wheel)
+│   ├── connectome/           SBM generator + binary serialization
+│   ├── lif/                  event-driven LIF kernel (AoS+heap / SoA+wheel / SIMD)
+│   │   ├── engine.rs         hot loop, scalar + SIMD-gated subthreshold
+│   │   ├── queue.rs          BinaryHeap baseline + bucketed timing wheel
+│   │   ├── simd.rs           f32x8 vectorized subthreshold (feature: simd)
+│   │   └── types.rs
 │   ├── stimulus.rs           deterministic current-injection schedules
-│   ├── observer.rs           raster + population rate + Fiedler detector
-│   ├── analysis.rs           mincut functional partition + SDPA motif retrieval
+│   ├── observer/             raster + population rate + Fiedler detector
+│   ├── analysis/             mincut partition + SDPA motif retrieval
+│   │   ├── motif.rs          SDPA encoder + bounded in-memory kNN
+│   │   ├── partition.rs      coactivation-weighted mincut (AC-3b)
+│   │   ├── structural.rs     static mincut + greedy-modularity (AC-3a)
+│   │   ├── gpu.rs            ComputeBackend trait + CPU/CUDA backends
+│   │   └── types.rs
 │   └── bin/run_demo.rs       CLI demo runner
 ├── tests/
 │   ├── lif_correctness.rs    monotonicity + refractory-limit invariants
 │   ├── connectome_schema.rs  schema + serialization round-trip
 │   ├── analysis_coherence.rs coherence detector fires on fragmentation
+│   ├── acceptance_core.rs    AC-1, AC-2, AC-4-any, AC-4-strict
+│   ├── acceptance_partition.rs AC-3a (structural), AC-3b (functional)
+│   ├── acceptance_causal.rs  AC-5 with degree-stratified null
 │   └── integration.rs        end-to-end non-empty report
 └── benches/
     ├── lif_throughput.rs     LIF events/sec at N ∈ {100, 1024, 10_000}
     ├── motif_search.rs       kNN retrieval latency for spike-window embeddings
-    └── sim_step.rs           per-simulated-ms wallclock
+    ├── sim_step.rs           per-simulated-ms wallclock
+    └── gpu_sdpa.rs           CPU/CUDA SDPA batch (feature: gpu-cuda)
+```
+
+## Feature flags
+
+- **`default = ["simd"]`** — ships with SIMD enabled on all hosts.
+- **`simd`** — enables `wide::f32x8` vectorization of the subthreshold LIF loop (Opt C in ADR-154 §3.2). Required to hit the ≥ 2× speedup in the saturated-regime `lif_throughput_n_1024` bench. Falls back to lane-wise scalar on hosts without AVX.
+- **`gpu-cuda`** — opt-in GPU SDPA path for motif retrieval via `cudarc`. Off by default. If CUDA is not installed or `cudarc` cannot link, the stub in `src/analysis/gpu.rs` returns an actionable error and bench + tests skip the GPU arm. See `GPU.md` for status.
+
+To disable SIMD for comparison:
+
+```bash
+cargo test --release -p connectome-fly --no-default-features
 ```
 
 ## How to run

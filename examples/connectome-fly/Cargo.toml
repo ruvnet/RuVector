@@ -14,6 +14,19 @@ path = "src/lib.rs"
 name = "run_demo"
 path = "src/bin/run_demo.rs"
 
+[features]
+default = ["simd"]
+# SIMD vectorization of the subthreshold LIF loop (V, g_exc, g_inh).
+# Uses the `wide` crate (stable, no nightly). Targets f32x8 on x86_64
+# AVX / AVX2 / AVX-512 capable hosts; falls back to scalar if the host
+# cannot issue the wider ops. See src/lif/simd.rs for the kernel and
+# BENCHMARK.md §4.2 for measured speedups.
+simd = ["dep:wide"]
+# GPU SDPA path. Guarded behind `cudarc` (preferred) with a stub fallback
+# that panics loudly if the feature is toggled on but cudarc cannot be
+# linked against the host CUDA toolkit. See src/analysis/gpu.rs.
+gpu-cuda = ["dep:cudarc"]
+
 [dependencies]
 # RuVector primitives — the whole point of this example
 ruvector-mincut = { path = "../../crates/ruvector-mincut", features = ["exact"] }
@@ -33,6 +46,10 @@ bincode = "1.3"
 bytemuck = { version = "1.16", features = ["derive"] }
 thiserror = "1.0"
 
+# Optional — gated by feature flags.
+wide = { version = "0.7", optional = true }
+cudarc = { version = "0.13", optional = true, default-features = false, features = ["cuda-12050", "driver", "std"] }
+
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 
@@ -47,3 +64,8 @@ harness = false
 [[bench]]
 name = "sim_step"
 harness = false
+
+[[bench]]
+name = "gpu_sdpa"
+harness = false
+required-features = ["gpu-cuda"]

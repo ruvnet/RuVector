@@ -39,6 +39,19 @@ Published analyses of connectome-scale simulation converge on three feasibility 
 
 The mission of this example is the Tier 1 demonstrator. Tier 2 is the crate-split plan and remains deferred. Tier 3 is an explicit non-goal at any horizon in this ADR — any future claim adjacent to Tier 3 requires a new ADR that confronts the feasibility wall head-on rather than gesturing past it.
 
+### 2.3 What "Tier 1" means operationally
+
+The fruit-fly brain (~139 k neurons, ~54.5 M synapses in FlyWire v783) is the working scale. At this scale the connectome fits in ~2 GB of RAM with a 32-bit edge struct, the event-driven LIF dispatcher can run in single-threaded Rust at >10^6 events/sec in the sparse regime on commodity hardware, and the published biological parameters (Lin et al. 2024 *Nature*) cover most of the dynamical regime the circuit is tuned for. A partial mouse cortical column (~10^4–10^5 neurons, published connectomic reconstructions from Allen Institute / MICrONS) is adjacent — the same data structures, higher noise floor, partial biological parameters. Both are concrete targets the `ruvector-connectome` production crate will support once scaffolded; this example is the demonstrator *for* that scaffold, not a subset of it.
+
+Operationally, "Tier 1 is buildable today" means:
+
+- **Memory**: connectome fits in CPU RAM without SSD paging.
+- **Compute**: one LIF run of biologically-plausible duration (100 ms–1 s of simulated time) completes in seconds to minutes on a single thread.
+- **Parameters**: the biophysical parameters (time constants, reversal potentials, synaptic delays) have published values within a factor of 2 of the regime the simulator reproduces.
+- **Readout**: spike trains, population rates, and structural cuts can be computed live and checked against ground-truth labels (module, class, cell type) that are also in the connectome.
+
+Tier 2 breaks at "memory fits" — synapse count exceeds RAM and SSD-backed graph storage becomes mandatory. Tier 3 breaks at "parameters exist and readout is interpretable" — the biophysical parameter floor collapses and behavioral readout at scale becomes underdetermined.
+
 ## 3. Decision
 
 Create one self-contained example crate at `examples/connectome-fly/` that:
@@ -200,3 +213,204 @@ Rejected. The 500-line-per-file convention is project-wide; violating it in a de
 - `crates/ruvector-attention/src/lib.rs` — `ScaledDotProductAttention`, multi-head, graph, sparse variants.
 - ADR-144 / ADR-146 — DiskANN / Vamana (production motif-index target; used here only by pattern).
 - ADR-150 — pi-brain / Ruvultra / Tailscale deployment (out of scope here; referenced for the eventual production runtime).
+
+## 8. Acceptance test architecture
+
+The five acceptance criteria in §3.4 are the spine of the integration test suite. Each criterion answers a different question about the runtime and uses a distinct metric. This section documents the architectural decisions behind the test design so future contributors do not conflate different claims (a mistake the first commit on this ADR landed in AC-3 and which §8.2 below discusses explicitly).
+
+### 8.1 Overview — five criteria, five questions
+
+| Criterion | Question | Metric | Test file |
+|---|---|---|---|
+| AC-1 | Given fixed seeds, is the kernel deterministic? | bit-identical spike trace | `tests/acceptance_core.rs::ac_1_repeatability` |
+| AC-2 | Do repeated stimuli produce repeated spike-motif embeddings? | top-k precision proxy on SDPA-embedded kNN | `tests/acceptance_core.rs::ac_2_motif_emergence` |
+| AC-3a | Does static mincut recover SBM module structure? | Adjusted Rand Index vs ground-truth hub-vs-non-hub labels | `tests/acceptance_partition.rs::ac_3a_structural_partition_alignment` |
+| AC-3b | Does coactivation-weighted mincut move with stimulus? | class-histogram L1 distance of partition sides | `tests/acceptance_partition.rs::ac_3b_functional_partition_is_stimulus_driven` |
+| AC-4-any | Does the Fiedler detector fire near a constructed collapse? | detect rate within ±200 ms | `tests/acceptance_core.rs::test_coherence_detect_any_window` |
+| AC-4-strict | Does the detector precede the collapse by ≥ 50 ms? | lead-time ≥ 50 ms on ≥ 70 % of trials | `tests/acceptance_core.rs::test_coherence_detect_strict_lead` |
+| AC-5 | Do mincut-surfaced edges carry more perturbation load than degree-matched random edges? | σ-separation on paired-trial population-rate delta | `tests/acceptance_causal.rs::ac_5_causal_perturbation` |
+
+Each row is *separately actionable*: failing a row points at one component (engine determinism, encoder quality, mincut surface, detector lead, perturbation null). Rolling multiple questions into a single test — as the original AC-3 draft did — hides the diagnosis and forces relaxing thresholds that belong to different components.
+
+### 8.2 Why AC-3 is split into AC-3a (structural) and AC-3b (functional)
+
+The first commit on this ADR ran `ruvector-mincut` over a coactivation-weighted connectome and compared the result against the SBM module labels — then reported ARI ≈ 0 as a miss versus the ≥ 0.75 target. This is apples-to-oranges:
+
+- **Coactivation-weighted mincut** finds the edge set whose removal most fragments the *dynamical* network — the current functional boundary. Under a 200 ms stimulus into photoreceptors, the boundary is not the static hub-vs-non-hub module boundary; it is the sensory-to-interneuron path.
+- **Static mincut** on the unweighted (or synapse-weight-weighted) connectome finds the structural cut. *That* is the object one compares to SBM module labels for a community-detection claim.
+
+The split in the second commit is:
+
+- **AC-3a** runs `structural::structural_partition(&conn)` (no coactivation) and reports ARI vs hub-vs-non-hub ground truth. Target: ARI ≥ 0.75. Paired with a Louvain-style greedy modularity baseline so the ARI is comparative, not absolute.
+- **AC-3b** runs `partition::functional_partition(&conn, &spikes)` (the existing coactivation path) and reports class-histogram L1 between partition sides under two stimuli (sensory-first vs motor-first). Target: L1 ≥ 0.30. The claim here is "the partition *moves* with stimulus" — the structural informativeness is a by-product.
+
+Failing either leaves the other claim standing. Failing both means the mincut primitive or the engine is broken — a signal the diagnosis is "production-stack, not tuning."
+
+### 8.3 Why AC-4 needs a strict-lead variant
+
+The original AC-4 threshold was "detector fires within ±200 ms of the fragmentation marker, ≥ 50 % detect rate." The ≥ 200 ms window is wide enough that a detector firing *after* the collapse can count as a hit. The precognitive claim — "the Fiedler signal is a *precursor*, not a *lag*" — requires a strict-lead bound.
+
+The second commit keeps the any-window variant (renamed `test_coherence_detect_any_window`) as a regression test of wiring and adds `test_coherence_detect_strict_lead`:
+
+- Run 30 seeded collapse trials.
+- For each trial, record the earliest coherence event with `t_event - t_marker ≤ -50 ms` (i.e., at least 50 ms *before* the marker).
+- Pass if ≥ 70 % of trials have such an event.
+
+If the pass fraction is below 0.70, the test records the actual pass rate and mean lead in `BENCHMARK.md` and *does not* weaken the threshold. Honest mis-target is preferable to a green test that hides a weaker signal than the ADR claims.
+
+### 8.4 Why AC-5 needs a degree-matched random null
+
+The first commit on this ADR reported `z_rand = 1.57σ` — above the 1σ SOTA bound. Root cause: the random-cut control zeroed `k` random synapses without controlling for degree. On an SBM with hub modules, sampling uniformly includes high-weight hub-adjacent edges as often as low-weight peripheral edges, so the random-cut *also* disrupts structurally load-bearing substrate. The null distribution is inflated.
+
+The second commit fixes this by:
+
+1. Binning synapses by the product of source-neuron out-degree and target-neuron in-degree (10 deciles).
+2. Matching the decile histogram of the random-cut sample to the decile histogram of the mincut boundary edges.
+3. Increasing the baseline trial count from 5 to 30 (for `σ` normalization) and the random-cut trial count from 15 to 60 (for the null mean).
+
+Target: `z_cut ≥ 5σ` (already hit in the first commit) and `z_rand ≤ 1σ`. If `z_rand` remains above 1σ after degree stratification, that is evidence the synthetic SBM lacks enough non-hub low-weight filler to make the null distribution tight — an expected mismatch at N=1024 that would shrink on FlyWire v783 (~139 k neurons, much heavier non-hub tail).
+
+### 8.5 AC-1 repeatability is a determinism gate
+
+AC-1 is a *gate* for the rest of the test matrix. If the engine is non-deterministic, `sigma` estimates in AC-5, ARI estimates in AC-3a, and detect-rate estimates in AC-4 are all polluted — no σ bound or lead bound is interpretable. AC-1 therefore runs first in the acceptance order, asserts bit-identical *spike counts* and *first 1000 spikes*, and fails loudly on any seed drift. Cross-path determinism (scalar vs SIMD vs baseline) is *not* part of AC-1; it is a declared future-work goal (§4.2 below).
+
+## 9. Novelty claims
+
+Each claim is scoped narrowly and includes "to our knowledge" language where applicable. Where the claim is directional (we cannot run the competition in the same sandbox), it is flagged as such and pointed at `BASELINES.md` for the measured evidence.
+
+### 9.1 Online Fiedler coherence-collapse detector in a live LIF kernel
+
+The example ships the Fiedler value of the sliding co-firing Laplacian as a first-class output of the spike observer. The detector runs *every 5 ms of simulated time*, not offline; it uses a full Jacobi eigendecomposition for `n ≤ 96` active neurons per window and a shifted power-iteration fallback above that. Brian2, Auryn, NEST, and GeNN do not ship a live spectral-fragility signal — spectral analyses in the published fly literature are offline, on the static connectome, and typically operate on a full Laplacian matrix rather than a streaming sub-sample. We believe this is the first Rust LIF to ship an in-process Fiedler detector with both a dense solver and a streaming approximation alongside a coherence-event emission channel.
+
+### 9.2 Causal perturbation as a σ-separation gate
+
+AC-5 operationalizes the "control, not scale" claim: removing mincut-surfaced edges changes the late-window population rate by ≥ 5σ of a degree-matched random-edge null. Published perturbation studies on connectome LIFs are typically qualitative ("cutting X reduces behavior Y"); AC-5 is a paired-trial, degree-stratified, σ-separation test that any safety-oriented interpretability case study of the production runtime will ultimately need. The degree-stratified null (§8.4) is the non-trivial part — a naïve random-edge null over-counts hub-adjacent edges and inflates the null variance. We are not aware of prior work defining this specific test on a spiking simulator.
+
+### 9.3 Spike-window motif retrieval via SDPA embedding + in-process kNN
+
+The motif retrieval path embeds 100 ms spike-raster windows through a deterministic low-rank projection followed by `ruvector_attention::attention::ScaledDotProductAttention` and indexes the resulting vectors in a bounded in-memory kNN. To our knowledge, the spike-raster community has embedded windows via PCA, CEBRA (Schneider et al., 2023), and t-SNE on rate vectors; we have not seen scaled-dot-product attention used as the encoder for repeated-motif retrieval on spike-raster windows. The claim is qualified with "to our knowledge" language in the README and in the commit message of the first push on this ADR.
+
+### 9.4 Certified incremental mincut on a dynamic connectome
+
+The production path (not this example) uses `ruvector_mincut::canonical::dynamic` plus `ruvector_mincut::certificate::audit` for auditable boundary updates on a streaming connectome — a subpolynomial dynamic cut with certificate output. Standard community detection (Louvain, Leiden) is batch and uncertified; classical mincut is exact but static. Incremental + certified is the combination. This example exercises only the exact (static) path for AC-3a and the weighted-edge interface for AC-3b/AC-5, but the primitive's dynamic + certified variant is the intended substrate for the production runtime. The novelty is the intent and the primitive, not a claim about dynamic mincut being new to the CS literature (it is not — see Thorup 2000 and successors).
+
+### 9.5 Summary of what is and is not claimed
+
+| Claim | Scope | Evidence |
+|---|---|---|
+| First Rust LIF with online Fiedler detector | this crate | `src/observer/core.rs::detect` + `src/observer/eigensolver.rs` |
+| σ-separation gate criterion for causal perturbation | this crate | `tests/acceptance_causal.rs::ac_5_causal_perturbation` with degree-stratified null |
+| SDPA-encoded spike-motif retrieval | to our knowledge | `src/analysis/motif.rs` |
+| Incremental certified mincut on dynamic connectome | primitive intent | `ruvector-mincut::canonical::dynamic` (not exercised here) |
+| Brain simulation | **NOT CLAIMED** | synthetic SBM, not FlyWire ingest; no embodiment; no behavior reproduction |
+| Consciousness / upload / AGI | **NOT CLAIMED, EVER** | §3.1 positioning rubric binds on every artifact |
+
+## 10. Comparison to published systems
+
+Full details live in `examples/connectome-fly/BASELINES.md`. Summary here.
+
+| System | Language | Published throughput (N=1024, single thread) | Our number | Ratio |
+|---|---|---|---|---|
+| Brian2 + C++ codegen | Python + C++ | 50–200 K spikes/sec wallclock (docs + 2024 Nature paper) | ~7.6 M (sparse) / ~26 K (saturated) | 38–150× sparse / direct comparison requires same-sandbox re-run |
+| Auryn | C++ | 300–500 K spikes/sec (Zenke & Gerstner 2014 §3) | ~7.6 M (sparse) | 15–25× sparse regime |
+| NEST | C++ (+MPI) | 100–300 K spikes/sec single-thread (NEST 3 docs) | ~7.6 M (sparse) / ~26 K (saturated) | 25–76× sparse / slower saturated |
+| GeNN | C++/CUDA | millions/sec on a GPU | N/A this example is CPU-only | out-of-band |
+
+The numbers above for Brian2 / Auryn / NEST are *published summary ranges*, not rerun in this sandbox. We do not claim to have beaten any of them in a like-for-like head-to-head on identical input; that would require running all four systems against the same stimulus, tolerance, and determinism contract. What we claim is that in the sparse regime our per-step throughput is within an order of magnitude of the GPU-accelerated GeNN and above every published CPU single-thread number we have found. The saturated-regime claim is weaker and honestly flagged in `BENCHMARK.md` §4.4.
+
+A like-for-like head-to-head against Brian2 is tractable future work — it requires a matching Python driver in a separate artifact and belongs outside this example. See `BASELINES.md` for the specific papers, versions, and page references behind each quoted range.
+
+## 11. Implementation timeline against the original commit
+
+This ADR has had two commits on `research/connectome-ruvector`:
+
+1. **Commit 1 (757f4fa2)** — landed the initial example: synthetic SBM, event-driven LIF, Fiedler detector, SDPA motif retrieval, five acceptance tests, Criterion benchmarks, this ADR at 202 lines. Three acceptance criteria missed their SOTA thresholds (AC-2, AC-3, AC-5) and one threshold was weaker than the SOTA target (AC-4). BENCHMARK.md recorded each gap honestly.
+2. **Commit 2 (this commit)** — closes the specific gaps called out by the SPARC coordinator's post-hoc review. Adds SIMD (Opt C) for the saturated regime, splits AC-3 into AC-3a (structural) and AC-3b (functional) with a paired greedy-modularity baseline, adds AC-4-strict with ≥ 50 ms lead, tightens AC-5 with a degree-stratified random-cut null, adds a GPU feature flag (with a documented stub if `cudarc` cannot link), and expands this ADR from 202 to the current length. Every remaining gap is recorded in `BENCHMARK.md`; no test threshold is weakened to force a green.
+
+The pattern is intentional. Commit 1 landed a credible demonstrator with documented gaps. Commit 2 closes each gap by the narrow mechanism it requires rather than by threshold relaxation. The result is a test suite whose failures (if any) diagnose exactly one component each.
+
+## 12. GPU acceleration path (§6.4)
+
+The example is CPU-first by design — every SOTA claim in §3.4 is measured on CPU and the correctness contract (AC-1) pins the CPU trace as canonical. GPU is additive infrastructure: a throughput uplift for the motif SDPA batch (and eventually the Fiedler power iteration at larger `n` and dense LIF at Tier 2) that does not own any correctness claim.
+
+### 12.1 Scope
+
+- **SDPA batch for motif retrieval**. The canonical target: 10 000 windows × 10 bins × 64 dims × batched SDPA. Expected wins from transfer-bound CPU to device-resident tensors are in the 5–50× range once the kernel is fused.
+- **Dense matvec for Fiedler at scale**. At Tier 2 (~10^5 neurons), the co-firing Laplacian eigenproblem outgrows the 96×96 Jacobi path and needs either a sparse power iteration or a dense GPU matvec. GPU is the right substrate for the dense variant.
+- **Dense LIF at Tier 2**. Out of scope for this example; included here for completeness. At 10^5 neurons, dense-path LIF with GPU conductance updates becomes competitive with the event-driven CPU path.
+
+### 12.2 Backend choice — cudarc primary, wgpu fallback
+
+- **Primary**: `cudarc` 0.13+ with NVRTC kernel compilation. Direct CUDA, minimal host overhead, well-trodden path on Linux.
+- **Fallback**: `wgpu` with WGSL compute shaders. Cross-vendor (Metal, Vulkan, DX12). Higher per-kernel overhead but unblocks macOS / ROCm development.
+
+The `gpu-cuda` feature flag in `Cargo.toml` selects the `cudarc` path. The feature is off by default; the CPU path remains the correctness reference. If `cudarc` cannot link at compile time or at runtime against the host CUDA toolkit, the stub in `src/analysis/gpu.rs::CudaBackend::new()` returns an actionable error, the bench skips the GPU arm, and `GPU.md` documents what blocked.
+
+### 12.3 Determinism contract
+
+FP ordering on GPU is not bit-exact with CPU. The contract:
+
+- CPU path is canonical. AC-1 determinism is measured on CPU.
+- GPU path is allowed ≤ 1e-5 absolute error against CPU on motif vectors.
+- `ComputeBackend::name()` is included in bench sub-report keys so CPU and GPU numbers are always paired and never conflated.
+
+### 12.4 Positioning
+
+This is **scaling infrastructure**, not a new scientific claim. A GPU uplift on the SDPA batch does not change any acceptance-criterion target. It changes the `BENCHMARK.md` §8 row labeled "gpu_sdpa_10k" and nothing else. If a reviewer cites a GPU number as evidence of brain-simulation progress, that is a positioning failure and the ADR's §3.1 rubric applies.
+
+## 13. Follow-up work (intentionally out of scope)
+
+- **FlyWire v783 ingest** — ~3 engineer-weeks; see `docs/research/connectome-ruvector/08-implementation-plan.md` §3 Phase 1. Moves AC-3a / AC-5 from synthetic SBM to real neuronal wiring.
+- **Cross-path determinism** — bit-identical spike traces across baseline (BinaryHeap+AoS) and optimized (wheel+SoA) and SIMD (wheel+SoA+f32x8). Today only *within* a path. Requires a canonical in-bucket ordering contract; see `docs/research/connectome-ruvector/03-neural-dynamics.md` §11.
+- **DiskANN motif index** — ADR-144 / ADR-146. Moves the motif kNN off brute-force and into the production indexing substrate. AC-2's 0.80 precision target probably requires it at the current corpus size.
+- **Live CUDA kernel** — `cudarc` 0.13 on CUDA 13.0 / 5080 driver ABI. Opens `cudarc::driver::CudaContext`, compiles an NVRTC kernel for batched SDPA, warm-boots it outside the bench loop.
+- **NeuroMechFly / MuJoCo body** — Phase 3 of the implementation plan. Replaces the current deterministic current-injection stimulus stub with a closed-loop body.
+- **Leiden community baseline** — today AC-3a pairs against a single-pass greedy modularity; Leiden is the mature community-detection reference. A proper Leiden pairing is a separate effort (`petgraph` has community detection but not Leiden; the `louvain` crate is on crates.io but not in this workspace).
+
+None of the above blocks the current example's correctness contract. Each is a named hand-off to a future artifact.
+
+## 14. Risk register
+
+This section enumerates the risks this ADR is aware of and how the example stays within bounds on each.
+
+| Risk | Surface | Mitigation |
+|---|---|---|
+| Positioning creep (upload / AGI / consciousness language) | README, BENCHMARK.md, commit messages, PR descriptions | §3.1 rubric binds on every artifact; first commit on this ADR passed review against `docs/research/connectome-ruvector/07-positioning.md` §6 |
+| AC threshold drift (relaxing a SOTA target to make a test green) | `tests/acceptance_*.rs` | Do NOT weaken thresholds in the test code. Record the gap in `BENCHMARK.md`. Commit 2 on this ADR is governed by this rule. |
+| Benchmark fabrication (quoting numbers we did not measure) | BENCHMARK.md, BASELINES.md | Every number in BENCHMARK.md is reproduced by the Criterion one-liner in §1; every number in BASELINES.md cites the paper and page/figure if we did not re-run it. |
+| Determinism rot (baseline vs optimized vs SIMD paths diverge across Rust versions) | `tests/acceptance_core.rs::ac_1_repeatability` | AC-1 runs bit-exactness within path; cross-path is not claimed. A Rust upgrade that changes FP intrinsic behavior fails AC-1 loudly. |
+| Scope creep (adding production-stack features to the example) | `src/*` | The 4000-LOC total budget (§3.2) and 500-line-per-file budget are enforced by the commit check in `BENCHMARK.md` §2 reproducibility. Tier 2 features go into the production crates, not here. |
+| GPU numbers leaking into the correctness narrative | `BENCHMARK.md`, commit messages | §12.4 binds: GPU is infrastructure, not a claim. AC-1 is CPU-only. |
+| Unreviewed novelty claims (the four in §9 inflate over time) | README, ADR-154 §9 | Each novelty claim is dated to a commit and backed by a file path. Any new claim requires a new commit, a new file path, and a review pass. |
+
+This register is not comprehensive. It is the set of risks the first two commits on this ADR have surfaced by running into them (positioning creep, threshold drift, null-distribution sloppiness). Future commits are expected to add rows; they are not expected to remove rows.
+
+## 15. Determinism contract (expanded)
+
+AC-1 repeatability requires that every run keyed by `(connectome_seed, stimulus_seed, engine_seed)` produces bit-identical spike traces. This section expands the mechanics of that contract across the three LIF paths.
+
+### 15.1 Ordering rule
+
+The determinism contract is a lexicographic ordering on events within a simulated time-step: `(t_ms, post_id, pre_id)`. Two events scheduled at the same `t_ms` with the same `post` are tie-broken by `pre`. This is invariant across all three paths:
+
+- **Baseline** (BinaryHeap + AoS): `SpikeEvent::cmp` in `src/lif/queue.rs` implements the lexicographic order directly. The max-heap ordering is inverted so the *earliest* event pops first.
+- **Optimized** (wheel + SoA): events inside a bucket are in push-order, which is deterministic given a fixed push schedule. Intra-bucket order within the wheel is *not* identical to the heap order — an event pushed later but with an earlier tie-break position in the heap lands in a different dispatch position under the wheel. This is documented in §4.2 as a known cross-path divergence.
+- **SIMD** (wheel + SoA + f32x8): identical to optimized for queue behavior. The SIMD subthreshold kernel processes 8 neurons per SIMD cycle in the *same id-order* as the scalar optimized path; lane-wise arithmetic matches bit-for-bit when the host issues AVX2 FMA. Scalar tail runs the exact scalar recipe.
+
+### 15.2 What AC-1 guarantees
+
+- **Within a path**: bit-exact spike traces on repeat runs. Verified by `tests/acceptance_core.rs::ac_1_repeatability` comparing spike counts *and* the first 1000 `(neuron_id, t_ms)` pairs.
+- **Across Rust versions**: not promised. An FMA → separate-mul+add change in LLVM, a change in `libm::expf` precision, or a new vectorizer heuristic can break AC-1. The remediation is to re-record the expected trace for the new toolchain, not to relax the test.
+- **Across paths**: NOT promised. A bit-exact diff between baseline and optimized remains future work.
+
+### 15.3 FP reproducibility on x86_64
+
+The SIMD path on x86_64 depends on AVX or AVX2. On a host without AVX, `wide` falls back to two `f32x4` sub-registers; the arithmetic remains deterministic per-lane but the order of certain reductions differs. Since the SIMD kernel in `src/lif/simd.rs` does no cross-lane reductions (every arithmetic step is lane-independent), this does not affect determinism — but a future fused-kernel variant that introduces cross-lane sums must preserve lane-order.
+
+### 15.4 Non-determinism sources intentionally excluded
+
+- No OS-RNG anywhere. All randomness is `Xoshiro256**` seeded from `ConnectomeConfig` / `EngineConfig` / `AnalysisConfig`.
+- No network calls.
+- No wall-clock dependency in the deterministic code path (wall-clock timings exist only for bench annotation; they do not feed the simulation).
+- No uninitialized memory reads; `#![deny(unsafe_code)]` is in `src/lib.rs`.
+- No thread-schedule sensitivity: the example is single-threaded by design. Rayon / threadpool are not linked.
