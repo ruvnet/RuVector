@@ -123,6 +123,20 @@ impl MotifIndex {
         &self.vectors
     }
 
+    /// Raster-regime signature for each indexed window, in insert
+    /// order: `(dominant_class_idx, spike_count, t_center_ms)`. The
+    /// metadata the SDPA encoder's embedding is actually sensitive
+    /// to — unlike the stimulus-protocol labels that discovery #10
+    /// and #12 showed the encoder does *not* track on this substrate.
+    /// Exposed for `tests/ac_2_raster_regime_labels.rs` (ADR §17
+    /// item 10 "labels" axis lever).
+    pub fn window_signatures(&self) -> Vec<(u8, u32, f32)> {
+        self.windows
+            .iter()
+            .map(|w| (w.dominant_class_idx, w.spike_count, w.t_center_ms))
+            .collect()
+    }
+
     pub(crate) fn insert(&mut self, v: Vec<f32>, w: MotifWindow) {
         if self.vectors.len() == self.capacity {
             self.vectors.remove(0);
