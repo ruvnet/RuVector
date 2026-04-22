@@ -186,6 +186,17 @@ impl TimingWheel {
     }
 
     /// Pop all events due at or before `now_ms` into `out`.
+    ///
+    /// Each bucket is sorted ascending by `(t_ms, post, pre)` before
+    /// draining so the wheel path produces the same dispatch order as
+    /// the heap path (`SpikeEvent::cmp` + `BinaryHeap`). This is the
+    /// canonical in-bucket-ordering contract from ADR-154 §15.1 and
+    /// is what enables bit-exact cross-path determinism at N=1024 on
+    /// the AC-1 stimulus — see `tests/cross_path_determinism.rs`.
+    /// Sort cost is O(k log k) per drained bucket; k is typically
+    /// 5–50 events per 0.1 ms bucket, so the added cost is on the
+    /// order of a few hundred compares per drain, comfortably below
+    /// the 5 % perf budget from the same section of the ADR.
     pub fn drain_due(&mut self, now_ms: f32, out: &mut Vec<SpikeEvent>) {
         let nb = self.buckets.len();
         let eps = 1e-6_f32;
@@ -197,6 +208,18 @@ impl TimingWheel {
             let head = self.head;
             let drained = self.buckets[head].len();
             if drained > 0 {
+                // Canonical in-bucket order: ascending by (t_ms, post,
+                // pre). Matches the heap path's `SpikeEvent::cmp`
+                // tie-break (the heap's ordering is the inverse for
+                // max-heap semantics; the earliest event pops first,
+                // which is the ascending order here).
+                self.buckets[head].sort_by(|a, b| {
+                    a.t_ms
+                        .partial_cmp(&b.t_ms)
+                        .unwrap_or(Ordering::Equal)
+                        .then_with(|| a.post.cmp(&b.post))
+                        .then_with(|| a.pre.cmp(&b.pre))
+                });
                 out.extend_from_slice(&self.buckets[head]);
                 self.buckets[head].clear();
                 self.total -= drained;
