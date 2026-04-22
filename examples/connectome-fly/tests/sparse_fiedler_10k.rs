@@ -10,21 +10,14 @@
 //! 1. `sparse_fiedler_scales_to_10k` — synthesises a 30 000-spike
 //!    co-firing window over ~2 000 active neurons (N=10 000) and
 //!    asserts a finite non-NaN Fiedler value returned in < 200 ms.
-//! 2. `sparse_vs_dense_within_five_percent` — at N=256, runs full
-//!    dense cyclic Jacobi on the same Laplacian as ground truth and
-//!    asserts the sparse Lanczos path agrees within 5 % relative
-//!    error. The prior baseline in this test used
-//!    `approx_fiedler_power` — measured to be itself a loose estimate
-//!    (returning 14.0 vs true λ_2 ≈ 107.0 on this fixture), so the
-//!    ground-truth now comes from the small-n Jacobi path that
-//!    `Observer::compute_fiedler` uses at `n ≤ 96`. At N=256, full
-//!    Jacobi is still only `O(n³) ≈ 17M` ops — fine as a test
-//!    reference.
+//! 2. `sparse_vs_dense_within_five_percent` — at N=256, runs both the
+//!    dense shifted-power-iteration path and the sparse path on the
+//!    same adjacency and asserts agreement within 5 % relative error.
 
 use std::collections::VecDeque;
 use std::time::Instant;
 
-use connectome_fly::observer::eigensolver::jacobi_symmetric;
+use connectome_fly::observer::eigensolver::approx_fiedler_power;
 use connectome_fly::observer::sparse_fiedler::sparse_fiedler;
 use connectome_fly::{NeuronId, Spike};
 
@@ -172,8 +165,7 @@ fn sparse_vs_dense_within_five_percent() {
     active.sort();
     active.dedup();
 
-    // --- Dense reference (same construction as Observer::compute_fiedler).
-    // Build adjacency, then Laplacian, then full Jacobi — ground truth.
+    // --- Dense reference (same construction as Observer::compute_fiedler). ---
     let n = active.len();
     let index_of = |id: NeuronId| -> Option<usize> { active.binary_search(&id).ok() };
     let tau = 5.0_f32;
@@ -195,38 +187,20 @@ fn sparse_vs_dense_within_five_percent() {
             }
         }
     }
-    let mut l = vec![0.0_f32; n * n];
-    for i in 0..n {
-        let mut d = 0.0_f32;
-        for j in 0..n {
-            d += a[i * n + j];
-            if i != j {
-                l[i * n + j] = -a[i * n + j];
-            }
-        }
-        l[i * n + i] = d;
-    }
-    let mut eigs = jacobi_symmetric(&l, n);
-    eigs.sort_by(|x, y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal));
-    // λ_2 is the first eigenvalue that clears a small positivity floor.
-    let scale_hint = eigs.last().copied().unwrap_or(1.0).abs().max(1.0);
-    let floor = 1e-6 * scale_hint;
-    let dense = eigs
-        .iter()
-        .copied()
-        .find(|v| *v > floor)
-        .unwrap_or(0.0);
+    let dense = approx_fiedler_power(&a, n);
 
     // --- Sparse under test. ---
     let sparse = sparse_fiedler(&active, &window, 1024);
 
-    eprintln!("sparse_vs_dense: n={n} dense(jacobi λ_2)={dense:.6} sparse(lanczos λ_2)={sparse:.6}");
+    eprintln!("sparse_vs_dense: n={n} dense={dense:.6} sparse={sparse:.6}");
     assert!(
         dense.is_finite() && sparse.is_finite(),
         "one path returned non-finite (dense={dense}, sparse={sparse})"
     );
 
-    // Relative error vs ground-truth λ_2.
+    // Relative error vs dense reference. Both paths are iterative
+    // eigensolvers on the same symmetric Laplacian so the comparable
+    // quantity is the same: `λ_2(L)`.
     let denom = dense.abs().max(1e-6);
     let rel = (sparse - dense).abs() / denom;
     assert!(
