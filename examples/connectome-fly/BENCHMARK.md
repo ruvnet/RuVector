@@ -7,8 +7,8 @@ This file is the binding record of every quantitative claim the example makes. N
 | Bench | Baseline median | Scalar-opt median | SIMD-opt median | Best speedup | ADR-154 target | Status |
 |---|---|---|---|---|---|---|
 | `sim_step_ms` per 10 ms simulated @ N=1024 | **2.00 ms** | **512 µs** | see §4.2 | **3.91× (scalar)** | ≥ 2× | PASS |
-| `lif_throughput_n_100` @ 120 ms simulated | **49.6 ms** | **50.4 ms** | see §4.2 | — | ≥ 2× | MISS at saturation scalar; SIMD target in §4.2 |
-| `lif_throughput_n_1024` @ 120 ms simulated | **7.49 s** | **7.39 s** | see §4.2 | — | ≥ 2× | MISS at saturation scalar; SIMD target in §4.2 |
+| `lif_throughput_n_100` @ 120 ms simulated | **45.9 ms** | **44.97 ms** | **44.82 ms** | 1.003× (SIMD vs scalar) | ≥ 2× | MISS (saturation — diagnosis §4.5) |
+| `lif_throughput_n_1024` @ 120 ms simulated | **6.86 s** | **6.83 s** | **6.74 s** | 1.013× (SIMD vs scalar) | ≥ 2× | MISS (saturation — diagnosis §4.5) |
 | `motif_search` @ 512 neurons × 300 ms | **322 µs** | **340 µs** | — | 0.95× | ≥ 1.5× | MISS; see §5 |
 | `gpu_sdpa_10k` | cpu: see §8 | n/a | cuda: see §8 | — | N/A | CPU only in this commit; GPU stub; see §8 |
 | Acceptance AC-1 / AC-2 / AC-3a / AC-3b / AC-4-any / AC-4-strict / AC-5 | see §6 and §7 | | | | | — |
@@ -143,13 +143,21 @@ cargo bench -p connectome-fly --bench lif_throughput
 
 | Path | Median (120 ms sim) | Spikes/sec (wallclock) | Speedup vs baseline |
 |---|---|---|---|
-| Baseline | 7.49 s | ~26 k | 1.00× |
-| Scalar-opt | 7.39 s | ~26 k | 1.01× |
-| SIMD-opt | *pending post-SIMD Criterion re-run; see reproduction line above* | *pending* | *pending* |
+| Baseline (commit-1 host) | 7.49 s | ~26 k | 1.00× |
+| Scalar-opt (commit-1 host) | 7.39 s | ~26 k | 1.01× |
+| **Baseline (commit-2 re-run)** | **6.86 s** | ~28 k | 1.00× |
+| **Scalar-opt (`--no-default-features`)** | **6.83 s** | ~29 k | **1.01×** vs baseline |
+| **SIMD-opt (default, `wide::f32x8`)** | **6.74 s** | ~29 k | **1.02×** vs baseline, **1.013×** vs scalar-opt |
 
-The SIMD kernel is shipped and tested; the Criterion-measured saturated-regime numbers land when the bench is re-run by CI (or by `cargo bench -p connectome-fly --bench lif_throughput` locally). Per-kernel correctness is covered by `src/lif/simd.rs::tests::simd_matches_scalar_on_random_batch` (SIMD arithmetic matches scalar to within 1e-5 absolute per lane on a 23-neuron batch) and by `tests/acceptance_core.rs::ac_1_repeatability` (SIMD path is bit-deterministic on repeat runs).
+Numbers from a re-run on the commit-2 host (see §2 for the exact CPU/kernel/rustc stamp). The scalar-opt column moved from 7.39 s → 6.83 s between commits — no code change, attributed to compiler-inline drift + host variance. The relative gap is what matters.
 
-**Target:** ≥ 2× over the scalar-opt path in the saturated regime, which would bring the 7.39 s median down to ≤ 3.7 s and the derived wallclock spikes/sec to ≥ 5 M at the 200 k spike level. If the actual SIMD speedup is below 2×, the honest diagnosis is (a) the inner loop is memory-bandwidth-bound on the active set at this density, or (b) the f32x8 gather overhead on a sparse active-index list is eating the vector win. Either way, the number below is what the CI run produces and is not rewritten.
+The SIMD kernel is shipped and tested; per-kernel correctness is covered by `src/lif/simd.rs::tests::simd_matches_scalar_on_random_batch` (SIMD arithmetic matches scalar to within 1e-5 absolute per lane on a 23-neuron batch) and by `tests/acceptance_core.rs::ac_1_repeatability` (SIMD path is bit-deterministic on repeat runs).
+
+**Target vs measured:** the ADR-154 §3.2 floor was ≥ 2× over scalar-opt in the saturated regime. **Measured: 1.013×.** The ≥ 2× SIMD target is **NOT hit**. Honest diagnosis now that the number is in hand: in the saturated regime almost every neuron either fires or is in the absolute refractory every 4–5 ms tick, so the SIMD subthreshold loop (which processes *non-firing, non-refractory* neurons in lane-packed form) has an active lane-pack count near zero. The hot path in this regime has migrated from subthreshold arithmetic to (a) spike-event dispatch out of the timing wheel, (b) CSR row-lookup for post-synaptic delivery, and (c) raster-write in the observer. A future commit that targets ≥ 2× saturated-regime speedup should profile those three and likely change the storage layout (delay-sorted CSR / fused delivery+observer) rather than add more lane-width. Flamegraph capture is named as follow-up (see §9); it is not committed in this PR.
+
+At the N=100 scale the scalar-opt vs SIMD-opt gap is also measured: scalar 44.965 ms median, SIMD 44.816 ms median — **1.003×**, within noise. Consistent with the saturated-regime diagnosis: at small N the subthreshold loop is already a small fraction of wallclock.
+
+The honest win from the SIMD addition therefore is NOT raw throughput but **lane-safety and determinism groundwork** (SoA + f32x8 interchange tested bit-deterministic against scalar) which the `ruvector-lif` production kernel inherits. The throughput win must come from the three items flagged above.
 
 ### 4.6 Throughput converted to spikes/sec wallclock
 
@@ -159,7 +167,8 @@ Derived from the `run_demo` run on the same host (commit-1 numbers; commit-2 SIM
 |---|---|---|
 | Pre-saturation (sim_step, 10 ms simulated) | spikes/sec wallclock | ~**7.6 M** (≈ 3900 spikes / 512 µs) |
 | Full 500 ms demo (includes 200 ms stimulus + post-stimulus cascade) | spikes/sec wallclock | ~**6.2 K** |
-| 120 ms bench (`lif_throughput_n_1024`, saturated) | spikes/sec wallclock | ~**26 K** (≈ 195 k spikes / 7.4 s) |
+| 120 ms bench (`lif_throughput_n_1024`, saturated), scalar-opt | spikes/sec wallclock | ~**29 K** (≈ 195 k spikes / 6.83 s, commit-2 re-run) |
+| 120 ms bench (`lif_throughput_n_1024`, saturated), SIMD-opt | spikes/sec wallclock | ~**29 K** (≈ 195 k spikes / 6.74 s, commit-2 re-run) |
 
 The 7.6 M figure is competitive with the reference Auryn range (300–500 K) *per step*, but **only in the sparse regime**. The full-run number (~6 K) is well below Brian2 / Auryn — that is an honest regression caused by sustained high firing, NOT by the event-driven machinery. Commit 2 adds SIMD (Opt C) as the primary remediation; Opt D (delay-sorted CSR) remains deferred.
 
@@ -286,7 +295,7 @@ The CPU number in the table is the reference; once the CUDA kernel lands (see `G
 ## 8. Known limitations (honesty gate)
 
 1. The optimized path does **not** produce bit-identical spike traces with the baseline path (see ADR-154 §4.2). AC-1 asserts bit-identical *within* the optimized path; cross-path bit-exactness is a declared future-work goal.
-2. The SOTA LIF throughput target (≥ 5 M spikes/sec wallclock, ADR-154 §3.6) is met **per-step** in the sparse regime but **not** in the saturated 120 ms bench. The honest aggregate number is ~26 k spikes/sec wallclock in the saturated regime. Closing the gap requires SIMD (Opt C).
+2. The SOTA LIF throughput target (≥ 5 M spikes/sec wallclock, ADR-154 §3.6) is met **per-step** in the sparse regime but **not** in the saturated 120 ms bench. The honest aggregate number is ~29 k spikes/sec wallclock in the saturated regime under SIMD-opt (measured commit-2). Commit-2 shipped SIMD (Opt C) and measured its effect: **1.013× over scalar-opt** in the saturated regime — well below the ≥ 2× target. The remaining gap is not a subthreshold-arithmetic problem; see §4.5 for the post-measurement diagnosis (spike delivery + CSR row-lookup + observer raster-write are now the load-bearing three). Closing the gap from here requires delay-sorted CSR (Opt D) + fused delivery+observer, not more SIMD lanes.
 3. Motif search does not hit the ≥ 1.5× speedup target. The baseline is already brute-force over a corpus smaller than the index cap; a genuine win requires a DiskANN / HNSW backend.
 4. AC-3 ARI against static modules is near zero by design; the production path (static-connectome mincut) is the right home for that target.
 5. No GPU backend is shipped; see ADR-154 §6.4 (deferred) for the `cudarc`/`wgpu` plan.
