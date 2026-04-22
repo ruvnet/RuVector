@@ -13,7 +13,17 @@
 4. A **spike observer** that rasterizes spikes, computes a population-rate trace, and runs a Fiedler-value detector on the sliding co-firing graph to emit coherence-collapse events (the "structural fragility" signal from `05-analysis-layer.md` §5).
 5. An **analysis layer** that plugs `ruvector-mincut`, `ruvector-sparsifier`, and `ruvector-attention` into the live spike stream: mincut-based functional partitioning of the connectome weighted by recent coactivation, and SDPA-embedded motif retrieval with a bounded in-memory kNN.
 
-The scientific anchor is the 2024 Nature whole-fly-brain LIF paper showing that behavior emerges from connectome-only LIF dynamics without trained parameters. This example does **not** claim to reproduce that biology — the SBM is a calibrated toy, not a FlyWire import. What it claims is that RuVector's graph primitives can be mounted live on a connectome-scale LIF simulation and surface useful structural signals.
+The scientific anchor is the 2024 Nature whole-fly-brain LIF paper showing that behavior emerges from connectome-only LIF dynamics without trained parameters. This example does **not** claim to reproduce that biology — the default connectome is a calibrated SBM toy. What it claims is that RuVector's graph primitives can be mounted live on a connectome-scale LIF simulation and surface useful structural signals.
+
+## What's new on this branch (commit-8 consolidation)
+
+Three capabilities landed concurrently from isolated-worktree agents and merged onto `research/connectome-ruvector`:
+
+1. **Real FlyWire v783 ingest** (`src/connectome/flywire/`) — parses the published FlyWire TSV format into `Connectome` via `load_flywire(path)`. Fixture-driven tests exercise the full parse path without a ~2 GB download; 17/17 tests pass. The synthetic SBM generator remains available and unchanged.
+2. **Sparse-Fiedler dispatch for N > 1024** (`src/observer/sparse_fiedler.rs`) — `O(n + nnz)` memory path via `ruvector-sparsifier`, validated at N = 10 000 in 19 ms wallclock, cross-validated against the dense path at N = 256 within 3×10⁻⁵ relative error. Dense-path behavior at `n ≤ 1024` unchanged.
+3. **Opt D — delay-sorted CSR delivery path** (`src/lif/delay_csr.rs`) — opt-in behind `EngineConfig.use_delay_sorted_csr` (default `false`, AC-1 untouched). Measured 1.5× at the kernel level but 1.00× at the top-line saturated bench because the Fiedler detector dominates by ~450:1. See `BENCHMARK.md` §4.7 and ADR-154 §16 for the measurement-driven discovery that reshaped the roadmap.
+
+All 58 tests across 11 test binaries pass. No regression in any existing acceptance criterion. Positioning rubric (no consciousness / upload / AGI language) holds across all added artifacts.
 
 ## Directory layout
 
@@ -26,14 +36,27 @@ examples/connectome-fly/
 ├── GPU.md                    status of the gpu-cuda feature + unblock plan
 ├── src/
 │   ├── lib.rs
-│   ├── connectome/           SBM generator + binary serialization
-│   ├── lif/                  event-driven LIF kernel (AoS+heap / SoA+wheel / SIMD)
-│   │   ├── engine.rs         hot loop, scalar + SIMD-gated subthreshold
-│   │   ├── queue.rs          BinaryHeap baseline + bucketed timing wheel
+│   ├── connectome/           SBM generator + binary serialization + FlyWire ingest
+│   │   ├── generator.rs      synthetic SBM calibrated to FlyWire v783 stats
+│   │   ├── schema.rs         typed IDs, NeuronMeta, Synapse
+│   │   ├── persist.rs        binary mmap for reuse across runs
+│   │   └── flywire/          real FlyWire v783 TSV ingest (fixture-tested)
+│   │       ├── mod.rs        public load_flywire()
+│   │       ├── schema.rs     NeuronRecord, SynapseRecord, CellTypeRecord
+│   │       ├── loader.rs     TSV → Connectome
+│   │       └── fixture.rs    100-neuron hand-authored FlyWire fixture
+│   ├── lif/                  event-driven LIF kernel (AoS+heap / SoA+wheel / SIMD / delay-csr)
+│   │   ├── engine.rs         hot loop, scalar + SIMD-gated subthreshold + delay-csr dispatch
+│   │   ├── queue.rs          BinaryHeap baseline + bucketed timing wheel + push_at_slot fast path
 │   │   ├── simd.rs           f32x8 vectorized subthreshold (feature: simd)
-│   │   └── types.rs
+│   │   ├── delay_csr.rs      Opt D delay-sorted CSR delivery (opt-in via EngineConfig)
+│   │   └── types.rs          EngineConfig (incl. use_delay_sorted_csr flag)
 │   ├── stimulus.rs           deterministic current-injection schedules
 │   ├── observer/             raster + population rate + Fiedler detector
+│   │   ├── core.rs           on_spike hot path + dispatch to dense/sparse Fiedler
+│   │   ├── eigensolver.rs    Jacobi (n ≤ 96) + shifted power iteration
+│   │   ├── sparse_fiedler.rs sparse-Laplacian Fiedler for n > 1024 (O(n+nnz) memory)
+│   │   └── report.rs
 │   ├── analysis/             mincut partition + SDPA motif retrieval
 │   │   ├── motif.rs          SDPA encoder + bounded in-memory kNN
 │   │   ├── partition.rs      coactivation-weighted mincut (AC-3b)
@@ -42,18 +65,22 @@ examples/connectome-fly/
 │   │   └── types.rs
 │   └── bin/run_demo.rs       CLI demo runner
 ├── tests/
-│   ├── lif_correctness.rs    monotonicity + refractory-limit invariants
-│   ├── connectome_schema.rs  schema + serialization round-trip
-│   ├── analysis_coherence.rs coherence detector fires on fragmentation
-│   ├── acceptance_core.rs    AC-1, AC-2, AC-4-any, AC-4-strict
-│   ├── acceptance_partition.rs AC-3a (structural), AC-3b (functional)
-│   ├── acceptance_causal.rs  AC-5 causal perturbation (interior-edge null)
-│   └── integration.rs        end-to-end non-empty report
+│   ├── lif_correctness.rs        monotonicity + refractory-limit invariants
+│   ├── connectome_schema.rs      schema + serialization round-trip
+│   ├── analysis_coherence.rs     coherence detector fires on fragmentation
+│   ├── acceptance_core.rs        AC-1, AC-2, AC-4-any, AC-4-strict
+│   ├── acceptance_partition.rs   AC-3a (structural), AC-3b (functional)
+│   ├── acceptance_causal.rs      AC-5 causal perturbation (interior-edge null)
+│   ├── flywire_ingest.rs         FlyWire v783 TSV parse + round-trip (17 tests)
+│   ├── sparse_fiedler_10k.rs     sparse-Fiedler scale test at N=10 000
+│   ├── delay_csr_equivalence.rs  delay-csr spike-count equivalence vs scalar-opt
+│   └── integration.rs            end-to-end non-empty report
 └── benches/
     ├── lif_throughput.rs     LIF events/sec at N ∈ {100, 1024, 10_000}
     ├── motif_search.rs       kNN retrieval latency for spike-window embeddings
     ├── sim_step.rs           per-simulated-ms wallclock
-    └── gpu_sdpa.rs           CPU/CUDA SDPA batch (feature: gpu-cuda)
+    ├── gpu_sdpa.rs           CPU/CUDA SDPA batch (feature: gpu-cuda)
+    └── delay_csr.rs          Opt D ablation bench (3-way: baseline / scalar-opt / + delay-csr)
 ```
 
 ## Feature flags

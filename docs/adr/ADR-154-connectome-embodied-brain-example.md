@@ -324,12 +324,24 @@ A like-for-like head-to-head against Brian2 is tractable future work — it requ
 
 ## 11. Implementation timeline against the original commit
 
-This ADR has had two commits on `research/connectome-ruvector`:
+This ADR has had seven commits on `research/connectome-ruvector`:
 
 1. **Commit 1 (757f4fa2)** — landed the initial example: synthetic SBM, event-driven LIF, Fiedler detector, SDPA motif retrieval, five acceptance tests, Criterion benchmarks, this ADR at 202 lines. Three acceptance criteria missed their SOTA thresholds (AC-2, AC-3, AC-5) and one threshold was weaker than the SOTA target (AC-4). BENCHMARK.md recorded each gap honestly.
 2. **Commit 2 (7a83adffe)** — closes the specific gaps called out by the SPARC coordinator's post-hoc review. Adds SIMD (Opt C) for the saturated regime via `src/lif/simd.rs` (308 LOC, `wide::f32x8`, default-on), splits AC-3 into AC-3a (structural, `ARI ≥ 0.75` vs SBM hub-vs-non-hub) and AC-3b (functional, `L1 ≥ 0.30`) with a paired greedy-modularity baseline, adds AC-4-strict with ≥ 50 ms lead, investigates a degree-stratified null for AC-5 but ships the interior-edge null after the stratified variant collapsed the effect size at N=1024 (see §8.4 for the full diagnosis), adds a GPU SDPA feature flag via `src/analysis/gpu.rs` + `benches/gpu_sdpa.rs` + `GPU.md` (with a documented stub if `cudarc` cannot link), ships `BASELINES.md` (honest head-to-head framing vs Brian2 / Auryn / NEST / GeNN), expands `BENCHMARK.md` from 112 to 295 lines with full reproducibility metadata, and expands this ADR from 202 to the current length. Every remaining gap is recorded in `BENCHMARK.md`; no test threshold is weakened to force a green. Test count: 27 → 32 (+3 lib equivalence tests for SIMD and GPU CPU-fallback, +1 AC-3a structural, +1 AC-4-strict).
 
 The pattern is intentional. Commit 1 landed a credible demonstrator with documented gaps. Commit 2 closes each gap by the narrow mechanism it requires rather than by threshold relaxation. The one exception — the degree-stratified AC-5 null — is documented, reverted, and named as production-scale follow-up rather than relaxed into the green bucket. The result is a test suite whose failures (if any) diagnose exactly one component each.
+
+3. **Commit 3 (`b8373a9f9`)** — doc-alignment-only commit. Rewrites ADR-154 §8.4, §9.2, §9.5, §11, §13 and `README.md` so every reference to the degree-stratified AC-5 null describes what actually shipped (interior-edge null) rather than the attempted-but-reverted stratified variant. No code changes.
+
+4. **Commit 4 (`bd26c4ee4`)** — fills BENCHMARK.md §4.5 with the measured SIMD saturated-regime speedup (1.013×, NOT hitting the ≥ 2× target). Replaces the pre-measurement guess paragraph with the post-measurement diagnosis: the hot path has migrated off subthreshold arithmetic onto spike delivery + CSR lookup + observer raster-write. Names Opt D (delay-sorted CSR) as the correct next lever.
+
+5. **Commit 5 (`cf21327c9` / `feat/connectome-flywire-ingest`)** — adds the fixture-driven FlyWire v783 ingest module called out as the first item of §13. `src/connectome/flywire/{mod,schema,loader,fixture}.rs` + `tests/flywire_ingest.rs` (17/17 pass). 1 441 new LOC; max file 437. Deps: `csv = "1.3"` (already in workspace), `tempfile = "3"` dev-dep. No regression in any existing test.
+
+6. **Commit 6 (`b805d7158` / `feat/observer-sparse-fiedler`)** — adds the sparse-Fiedler dispatch at `n > 1024`. `src/observer/sparse_fiedler.rs` (452 LOC) + `tests/sparse_fiedler_10k.rs` (2/2 pass in 19 ms at N=10 000). Cross-validation rel-error 3×10⁻⁵ vs the dense path. Memory O(n + nnz) = 40× reduction at matching scale. AC-1 bit-exact at N=1024 unchanged.
+
+7. **Commit 7 (`a3cca1c5c` / `feat/lif-delay-sorted-csr`)** — Opt D delay-sorted CSR delivery path. `src/lif/delay_csr.rs` (398 LOC) + `tests/delay_csr_equivalence.rs` + `benches/delay_csr.rs`. Opt-in behind `EngineConfig.use_delay_sorted_csr` (default `false`, AC-1 untouched). Measured 1.5× kernel-only (~15 ms → ~10 ms per step); 1.00× top-line because the Fiedler detector dominates by ~450:1 (see §16). Equivalence exact at 51 258 spikes (rel-gap 0.0).
+
+The three agent commits (5, 6, 7) were produced concurrently in isolated worktrees by a 3-agent swarm (hierarchical topology, specialized strategy, per CLAUDE.md §Swarm Configuration). They touched disjoint subtrees (connectome/, observer/, lif/), merged cleanly into `research/connectome-ruvector` in commit-order-5-then-6-then-7, and the consolidated test suite is green: **58 tests pass, 0 fail** across all feature combinations.
 
 ## 12. GPU acceleration path (§6.4)
 
@@ -360,17 +372,51 @@ FP ordering on GPU is not bit-exact with CPU. The contract:
 
 This is **scaling infrastructure**, not a new scientific claim. A GPU uplift on the SDPA batch does not change any acceptance-criterion target. It changes the `BENCHMARK.md` §8 row labeled "gpu_sdpa_10k" and nothing else. If a reviewer cites a GPU number as evidence of brain-simulation progress, that is a positioning failure and the ADR's §3.1 rubric applies.
 
-## 13. Follow-up work (intentionally out of scope)
+## 13. Follow-up work
 
-- **FlyWire v783 ingest** — ~3 engineer-weeks; see `docs/research/connectome-ruvector/08-implementation-plan.md` §3 Phase 1. Moves AC-3a / AC-5 from synthetic SBM to real neuronal wiring.
-- **Cross-path determinism** — bit-identical spike traces across baseline (BinaryHeap+AoS) and optimized (wheel+SoA) and SIMD (wheel+SoA+f32x8). Today only *within* a path. Requires a canonical in-bucket ordering contract; see `docs/research/connectome-ruvector/03-neural-dynamics.md` §11.
+Status as of the commit-8 consolidation of commits 5, 6, 7 on top of `bd26c4ee4`. Items marked **✓ shipped** landed in this branch; **→ next** names the follow-up lever. Items without a mark remain outside this example's scope.
+
+- ✓ **FlyWire v783 ingest (fixture-driven)** — commit 4, `src/connectome/flywire/{mod,schema,loader,fixture}.rs` + `tests/flywire_ingest.rs`. Parses the published FlyWire TSV format into our `Connectome` via a 100-neuron hand-authored fixture; 17/17 tests pass. **→ next:** streaming ingest from the real ~2 GB release tarball + soma-distance-scaled delay model + `NeuronMeta` schema extension (`nt_confidence`, `soma_xyz`, `hemilineage`).
+- ✓ **Sparse Fiedler dispatch at N > 1024** — commit 5, `src/observer/sparse_fiedler.rs` + `tests/sparse_fiedler_10k.rs`. `HashMap`-accumulated sparse adjacency → `ruvector-sparsifier::SparseGraph` → shifted-power iteration. Measured 19.25 ms at N = 10 000; 40× memory reduction vs dense at matching scale; cross-validation rel-error 3×10⁻⁵ at N = 256. **→ next:** Lanczos-with-full-reorthogonalization driver for `λ₂ ≪ λ_max` on path-like topologies; N=139 000 fixture calibration.
+- ✓ **Delay-sorted CSR delivery path (Opt D)** — commit 6, `src/lif/delay_csr.rs` + `benches/delay_csr.rs`. Opt-in behind `EngineConfig.use_delay_sorted_csr` so AC-1 at N=1024 is untouched. Measured 1.5× at the kernel level (~15 ms → ~10 ms per step); 1.00× at the top-line bench because the Fiedler detector dominates by ~450:1. Equivalence vs scalar-opt: spike count exact (51 258, rel-gap 0.0). **→ next:** observer-side work — adaptive detect cadence under sustained high firing, incremental Fiedler accumulator, or dispatching the N=1024 detect to the sparse path via a threshold tweak (see §16 for the full discovery).
+- **Cross-path determinism** — bit-identical spike traces across baseline, optimized, and SIMD. Today only *within* a path. Requires a canonical in-bucket ordering contract; see `docs/research/connectome-ruvector/03-neural-dynamics.md` §11.
 - **DiskANN motif index** — ADR-144 / ADR-146. Moves the motif kNN off brute-force and into the production indexing substrate. AC-2's 0.80 precision target probably requires it at the current corpus size.
 - **Live CUDA kernel** — `cudarc` 0.13 on CUDA 13.0 / 5080 driver ABI. Opens `cudarc::driver::CudaContext`, compiles an NVRTC kernel for batched SDPA, warm-boots it outside the bench loop.
 - **NeuroMechFly / MuJoCo body** — Phase 3 of the implementation plan. Replaces the current deterministic current-injection stimulus stub with a closed-loop body.
 - **Leiden community baseline** — today AC-3a pairs against a single-pass greedy modularity; Leiden is the mature community-detection reference. A proper Leiden pairing is a separate effort (`petgraph` has community detection but not Leiden; the `louvain` crate is on crates.io but not in this workspace).
-- **Degree-stratified AC-5 null at FlyWire ingest scale** — the degree-stratified random-cut null (§8.4) collapsed the effect size at N=1024 synthetic SBM because the functional boundary and the degree-matched hubs overlap. At FlyWire v783 scale (~139 k neurons, much heavier non-hub tail) the null is expected to separate from the boundary. The prototype sampler is preserved in `tests/acceptance_causal.rs` git history (pre-revert version) for direct port once the FlyWire ingest lands.
+- **Degree-stratified AC-5 null at FlyWire ingest scale** — the degree-stratified random-cut null (§8.4) collapsed the effect size at N=1024 synthetic SBM because the functional boundary and the degree-matched hubs overlap. At FlyWire v783 scale (~139 k neurons, much heavier non-hub tail) the null is expected to separate. The prototype sampler is preserved in `tests/acceptance_causal.rs` git history (pre-revert version) for direct port once the FlyWire streaming ingest lands.
 
 None of the above blocks the current example's correctness contract. Each is a named hand-off to a future artifact.
+
+## 16. Measurement-driven discovery — Fiedler detector dominates the saturated bench
+
+Commit 7 (delay-sorted CSR) was the planned lever for closing the saturated-regime throughput gap that SIMD failed to close in commit 2. The bench produced a surprise that is worth preserving as an ADR entry because it reshapes the roadmap.
+
+**What we expected.** Delay-sorted CSR removes per-step branch misprediction and scattered writes in the spike-delivery hot loop. We projected ≥ 2× on the top-line saturated `lif_throughput_n_1024` bench.
+
+**What we measured.**
+
+- Kernel-only microbench (detector disabled): **~15 ms → ~10 ms per simulated step, i.e. 1.5× faster.** The optimization is real.
+- Full-bench median (detector enabled, default): **6.75 s for the scalar-opt + delay-csr arm vs 6.75 s for scalar-opt alone.** The optimization is invisible.
+
+**Diagnosis.** Profiling showed the observer's Fiedler coherence-drop detector dominates wallclock by approximately 450:1 in the saturated regime. Per detect call (24 per 120 ms bench at 5 ms cadence) the detector does:
+
+1. O(n²) pair sweep over ~21 k co-firing-window spikes to build the adjacency.
+2. O(n²)–O(n³) eigendecomposition of the resulting ~1024-neuron Laplacian.
+
+At n_active ≈ 1024, that puts the detector at ≈ 6.8 s of the 6.75 s wallclock. The kernel's 5 ms-per-step improvement is a rounding error on the top-line.
+
+**Why this matters.** The diagnosis inverts the optimization roadmap. Before commit 6 the prevailing diagnosis (BENCHMARK.md §4.5 pre-measurement) named (a) spike dispatch, (b) CSR row-lookup, (c) observer raster-write as the three load-bearing items. (a) and (b) are in fact faster now; (c) is not the right target either. **The right target is the Fiedler detector itself**, and the detector already has a sparse path available (commit 5) that is not engaged at n_active = 1024 because the dispatch threshold is `n > 1024`.
+
+**What to do next (named, not shipped here).** In decreasing bang-for-buck order:
+
+1. **Adjust the sparse-Fiedler dispatch threshold** to cover the saturated N=1024 case — likely drops the detector cost by ≥ 10× on its own, at which point Opt D's 1.5× kernel win becomes visible on the top-line bench.
+2. **Adaptive detect cadence** — in sustained high-firing regimes most 5 ms detects are redundant (no meaningful Fiedler drift). Back off to 20 ms under detected saturation; cuts detector share 4× without losing any observable coherence event.
+3. **Incremental Fiedler accumulator** — the O(n²) pair sweep is re-done each detect. An accumulator updated per spike in `on_spike` removes the sweep entirely.
+
+Each lever is a single follow-up commit. None of them are in this commit's scope because the current ADR's scope is the five-AC + optimization-story demonstrator, not a production Fiedler kernel.
+
+**Lesson for the ADR's risk register (see §14, new row):** *measurement before optimization is necessary but not sufficient — measurement after optimization is what catches misdirected effort.* Commit 2's honest `BENCHMARK.md` entry ("we missed 2× SIMD, diagnosis to follow in a later commit") was correct that SIMD is the wrong lever; its guess about which other lever to pull next was wrong. Commit 7's empirical answer — "Opt D is real but drowned by a detector cost we hadn't measured" — is the kind of finding that only survives the measurement step, not the planning step.
 
 ## 14. Risk register
 
@@ -385,8 +431,9 @@ This section enumerates the risks this ADR is aware of and how the example stays
 | Scope creep (adding production-stack features to the example) | `src/*` | The 4000-LOC total budget (§3.2) and 500-line-per-file budget are enforced by the commit check in `BENCHMARK.md` §2 reproducibility. Tier 2 features go into the production crates, not here. |
 | GPU numbers leaking into the correctness narrative | `BENCHMARK.md`, commit messages | §12.4 binds: GPU is infrastructure, not a claim. AC-1 is CPU-only. |
 | Unreviewed novelty claims (the four in §9 inflate over time) | README, ADR-154 §9 | Each novelty claim is dated to a commit and backed by a file path. Any new claim requires a new commit, a new file path, and a review pass. |
+| Pre-measurement diagnosis mis-directs the next optimization | `BENCHMARK.md`, ADR-154 §16 | Pre-measurement guesses about "which of the three hot paths dominates" can be wrong (commit 2 named three candidates; commit 6 found the *actual* dominant cost was a fourth we hadn't named — the Fiedler detector). Mitigation: BENCHMARK.md now requires the post-measurement diagnosis to be landed in the *same* commit as the optimization, not in a later commit. If the measurement says the optimization is invisible on the top-line, the next commit direction comes from the *measured* profile, not the pre-measurement guess. |
 
-This register is not comprehensive. It is the set of risks the first two commits on this ADR have surfaced by running into them (positioning creep, threshold drift, null-distribution sloppiness). Future commits are expected to add rows; they are not expected to remove rows.
+This register is not comprehensive. It is the set of risks the first seven commits on this ADR have surfaced by running into them (positioning creep, threshold drift, null-distribution sloppiness, pre-measurement mis-diagnosis). Future commits are expected to add rows; they are not expected to remove rows.
 
 ## 15. Determinism contract (expanded)
 
