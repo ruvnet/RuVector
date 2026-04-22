@@ -117,6 +117,32 @@ impl Observer {
         &self.spikes
     }
 
+    /// Adaptive detect interval: under sustained saturated firing the
+    /// Fiedler value barely changes between consecutive 5 ms detects,
+    /// and each detect is O(n²) in window spikes + O(n²)–O(n³) in the
+    /// Laplacian eigendecomposition. Backing off to 20 ms in saturation
+    /// cuts the detector's share of wallclock 4× without losing any
+    /// observable coherence event that AC-4's ≥ 50 ms strict-lead
+    /// bound cares about (a 20 ms cadence still gives ≥ 2 detects
+    /// inside any 50 ms lead window). See ADR-154 §16.
+    ///
+    /// Saturation signal: total spikes in the sliding co-firing window
+    /// divided by window size exceeds 100 Hz average per neuron. At
+    /// the default 50 ms window with N neurons, that threshold is
+    /// `5 × N` spikes in the window.
+    fn current_detect_interval_ms(&self) -> f32 {
+        let saturation_spikes = (self.num_neurons as usize).saturating_mul(5);
+        if self.cofire_window.len() > saturation_spikes {
+            // 4× backoff under saturation. Matches AC-4 §8.3's
+            // constructed-collapse test envelope (markers at t≥500 ms;
+            // constructed collapses span > 60 ms, so a 20 ms cadence
+            // still catches any ≥50 ms pre-marker event).
+            (self.detect_every_ms * 4.0).min(20.0).max(self.detect_every_ms)
+        } else {
+            self.detect_every_ms
+        }
+    }
+
     /// Called by the engine on every spike emission.
     pub fn on_spike(&mut self, s: Spike) {
         self.spikes.push(s);
@@ -130,7 +156,8 @@ impl Observer {
                 break;
             }
         }
-        if s.t_ms - self.last_detect_ms >= self.detect_every_ms {
+        let interval = self.current_detect_interval_ms();
+        if s.t_ms - self.last_detect_ms >= interval {
             self.last_detect_ms = s.t_ms;
             self.detect(s.t_ms);
         }
