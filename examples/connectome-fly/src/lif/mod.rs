@@ -14,12 +14,14 @@
 //! for the biophysical model and `../../BENCHMARK.md` for the
 //! measured speed-ups.
 
+pub mod delay_csr;
 pub mod engine;
 pub mod queue;
 #[cfg(feature = "simd")]
 pub mod simd;
 pub mod types;
 
+pub use delay_csr::DelaySortedCsr;
 pub use engine::Engine;
 pub use queue::{SpikeEvent, TimingWheel};
 pub use types::{EngineConfig, LifError, NeuronParams, Spike};

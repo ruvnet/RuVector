@@ -99,6 +99,92 @@ impl TimingWheel {
         self.total += 1;
     }
 
+    /// Current bucket ring width (number of slots).
+    #[inline]
+    pub fn num_buckets(&self) -> usize {
+        self.buckets.len()
+    }
+
+    /// Byte-exact equality of this wheel's `bucket_ms` against `other`.
+    /// Used by the delay-sorted delivery path to refuse its fast route
+    /// when the wheel it was built against has been swapped out.
+    #[inline]
+    pub fn bucket_ms_matches(&self, other: f32) -> bool {
+        self.bucket_ms.to_bits() == other.to_bits()
+    }
+
+    /// `1.0 / bucket_ms`, cached for the hot delivery loop.
+    #[inline]
+    pub fn inv_bucket_ms(&self) -> f32 {
+        1.0 / self.bucket_ms
+    }
+
+    /// The `base_ms` of bucket index `head` — the wheel's current "now"
+    /// anchor. Used by the delay-sorted CSR delivery path to compute a
+    /// single `base_slot` per spike and increment from there.
+    #[inline]
+    pub fn base_ms(&self) -> f32 {
+        self.base_ms
+    }
+
+    /// Current head (ring start) index.
+    #[inline]
+    pub fn head(&self) -> usize {
+        self.head
+    }
+
+    /// Insert an event whose destination bucket *slot* (distance from
+    /// `head` measured in `bucket_ms`) is already known. Caller must
+    /// guarantee `0 <= slot < num_buckets()`; negative or too-far slots
+    /// must be routed to `push_spill`.
+    ///
+    /// This is the delivery fast-path primitive used by
+    /// `delay_csr::DelaySortedCsr::deliver_spike` (when built via
+    /// `from_connectome_for_wheel`). It skips the float division, bounds
+    /// compare, and modulo of the generic [`TimingWheel::push`], trading
+    /// those for an integer add + one compare (the ring-wrap).
+    ///
+    /// Measured: ~1.5× kernel-level speedup on the saturated-regime
+    /// `N=1024, t_end=120ms` workload *with the observer's Fiedler
+    /// detector disabled*. On the full bench (observer armed) the
+    /// detector dominates runtime 450-to-1 and this saving is inside
+    /// bench noise — see `benches/delay_csr.rs` and the commit message
+    /// for numbers.
+    #[inline]
+    pub fn push_at_slot(&mut self, slot: usize, ev: SpikeEvent) {
+        debug_assert!(slot < self.buckets.len());
+        let nb = self.buckets.len();
+        let raw = self.head + slot;
+        let idx = if raw >= nb { raw - nb } else { raw };
+        // SAFETY-via-debug_assert: `idx < nb` because `head < nb` and
+        // `slot < nb`. We use safe indexing; the bounds check is
+        // branch-predicted identically across all calls.
+        self.buckets[idx].push(ev);
+        self.total += 1;
+    }
+
+    /// Push an event whose delivery time falls past the wheel horizon.
+    /// Complements [`TimingWheel::push_at_slot`] for the slow path.
+    #[inline]
+    pub fn push_spill(&mut self, ev: SpikeEvent) {
+        self.spill.push(ev);
+        self.total += 1;
+    }
+
+    /// Ensure each bucket's inner `Vec` has capacity ≥ `cap`.
+    ///
+    /// A one-shot upper-bound reservation amortizes away the `Vec::push`
+    /// growth cost during the saturated regime, where every bucket can
+    /// see hundreds of inserts per wheel rotation. Only grows — never
+    /// shrinks — so calling it on an already-warm wheel is a no-op.
+    pub fn reserve_per_bucket(&mut self, cap: usize) {
+        for b in &mut self.buckets {
+            if b.capacity() < cap {
+                b.reserve(cap - b.len());
+            }
+        }
+    }
+
     /// Pop all events due at or before `now_ms` into `out`.
     pub fn drain_due(&mut self, now_ms: f32, out: &mut Vec<SpikeEvent>) {
         let nb = self.buckets.len();
