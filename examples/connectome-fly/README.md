@@ -47,7 +47,7 @@ examples/connectome-fly/
 │   ├── analysis_coherence.rs coherence detector fires on fragmentation
 │   ├── acceptance_core.rs    AC-1, AC-2, AC-4-any, AC-4-strict
 │   ├── acceptance_partition.rs AC-3a (structural), AC-3b (functional)
-│   ├── acceptance_causal.rs  AC-5 with degree-stratified null
+│   ├── acceptance_causal.rs  AC-5 causal perturbation (interior-edge null)
 │   └── integration.rs        end-to-end non-empty report
 └── benches/
     ├── lif_throughput.rs     LIF events/sec at N ∈ {100, 1024, 10_000}
@@ -107,7 +107,7 @@ The runner writes a single JSON object. Each top-level field carries concrete me
 
 ## Determinism
 
-All RNG is `Xoshiro256StarStar`. Given `(connectome_seed, engine_seed)`, the *connectome itself* is bit-identical across runs and machines (`ConnectomeConfig::default()` fixes both). The two LIF paths (`use_optimized: false` vs. `true`) produce spike *counts* within ≈10% of each other but not bit-identical spike traces — the timing-wheel groups events within a tick differently from the binary heap, which is a realistic engineering tradeoff and is documented in ADR-154 §4.2. Bit-exact determinism between the two paths is a future-work goal captured in `docs/research/connectome-ruvector/03-neural-dynamics.md` §11.
+All RNG is `Xoshiro256StarStar`. Given `(connectome_seed, engine_seed)`, the *connectome itself* is bit-identical across runs and machines (`ConnectomeConfig::default()` fixes both). The three LIF paths (`use_optimized: false` baseline heap+AoS; `use_optimized: true` wheel+SoA; `simd` feature layering `wide::f32x8` on top of the optimized path) produce spike *counts* within ≈10% of each other but not bit-identical spike traces — the timing-wheel groups events within a tick differently from the binary heap, which is a realistic engineering tradeoff and is documented in ADR-154 §4.2 and §15. Bit-exact determinism *within* a path is guaranteed and verified by `ac_1_repeatability`. Bit-exact determinism *between* paths is a future-work goal captured in `docs/research/connectome-ruvector/03-neural-dynamics.md` §11 and ADR-154 §15.1.
 
 ## What this example is *not*
 
