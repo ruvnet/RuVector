@@ -48,19 +48,29 @@ fn ac_3a_structural_partition_alignment() {
 
     let ari_mincut = adjusted_rand_index(&part.side_a, &part.side_b, is_hub);
 
-    // Greedy-modularity baseline — every node gets a community label;
-    // we coarsen to the two largest communities for the 2-way ARI.
-    let labels = an.greedy_modularity_labels(&conn);
-    let (gm_a, gm_b) = two_way_from_labels(&labels);
-    let ari_baseline = if gm_a.is_empty() || gm_b.is_empty() {
+    // Greedy-modularity baseline (Louvain level-1 only).
+    let labels_gm = an.greedy_modularity_labels(&conn);
+    let (gm_a, gm_b) = two_way_from_labels(&labels_gm);
+    let ari_greedy = if gm_a.is_empty() || gm_b.is_empty() {
         0.0
     } else {
         adjusted_rand_index(&gm_a, &gm_b, is_hub)
     };
 
+    // Multi-level Louvain baseline (aggregation + re-run until
+    // convergence). The stepping stone toward a Leiden pairing called
+    // out in ADR-154 §13.
+    let labels_lv = an.louvain_labels(&conn);
+    let (lv_a, lv_b) = two_way_from_labels(&labels_lv);
+    let ari_louvain = if lv_a.is_empty() || lv_b.is_empty() {
+        0.0
+    } else {
+        adjusted_rand_index(&lv_a, &lv_b, is_hub)
+    };
+
     eprintln!(
-        "ac-3a: mincut_ari={ari_mincut:.3}  greedy_ari={ari_baseline:.3}  \
-         |a|={} |b|={}  SOTA_target=0.75",
+        "ac-3a: mincut_ari={ari_mincut:.3}  greedy_ari={ari_greedy:.3}  \
+         louvain_ari={ari_louvain:.3}  |a|={} |b|={}  SOTA_target=0.75",
         part.side_a.len(),
         part.side_b.len()
     );

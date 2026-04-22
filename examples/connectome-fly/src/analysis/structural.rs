@@ -187,6 +187,203 @@ pub fn greedy_modularity_labels(conn: &Connectome) -> Vec<u32> {
     comm
 }
 
+/// Multi-level Louvain (aggregation + re-run until no further gain).
+///
+/// **Empirical finding on hub-heavy SBMs (ADR-154 §17 item 11):** at
+/// the demo's N=1024 SBM with hub modules, this multi-level variant
+/// *over-aggregates* — by the second level the whole graph collapses
+/// to a single super-community and ARI vs hub-vs-non-hub ground truth
+/// drops to 0. The simpler `greedy_modularity_labels` (level-1 only)
+/// actually scores higher on the same graph (measured `louvain=0.000`
+/// vs `greedy=0.174` on default config). This is the documented
+/// failure mode of Louvain without Leiden's refinement phase: the
+/// aggregation step can absorb well-connected but structurally
+/// distinct communities into one super-node, and there is no
+/// mechanism to un-merge. Leiden's refinement phase is what fixes
+/// this; it remains named as follow-up in ADR-154 §13.
+///
+/// Determinism: fixed iteration order, no RNG, fixed tie-break
+/// (prefer lower community id). Same input → bit-identical labels.
+pub fn louvain_labels(conn: &Connectome) -> Vec<u32> {
+    // Build the level-0 undirected-weighted graph from Connectome:
+    //   nodes = conn neurons
+    //   edges = synapse-weighted undirected, self-loops dropped
+    //           (matches greedy_modularity_labels convention)
+    let n0 = conn.num_neurons();
+    let row_ptr = conn.row_ptr();
+    let syn = conn.synapses();
+    let mut adj0: Vec<Vec<(u32, f64)>> = vec![Vec::new(); n0];
+    for pre_idx in 0..n0 {
+        let s = row_ptr[pre_idx] as usize;
+        let e = row_ptr[pre_idx + 1] as usize;
+        for syn_entry in &syn[s..e] {
+            let post = syn_entry.post.idx();
+            if post == pre_idx {
+                continue;
+            }
+            let w = syn_entry.weight as f64;
+            adj0[pre_idx].push((post as u32, w));
+            adj0[post].push((pre_idx as u32, w));
+        }
+    }
+
+    // Per-node community label at the *original* level. Initially
+    // every neuron is its own community.
+    let mut labels_lvl0: Vec<u32> = (0..n0 as u32).collect();
+
+    // Current working graph, initially = level-0 connectome.
+    let mut adj: Vec<Vec<(u32, f64)>> = adj0;
+
+    // Loop through aggregation levels. `max_levels` is a safety cap.
+    for _level in 0..8 {
+        let n = adj.len();
+        let labels_this_level = level1_moves(&adj, n);
+        // Check if anything changed at this level (every node is its own
+        // community after the move pass = no change).
+        let mut changed = false;
+        for i in 0..n {
+            if labels_this_level[i] != i as u32 {
+                changed = true;
+                break;
+            }
+        }
+        if !changed {
+            break;
+        }
+        // Project labels_this_level back to the level-0 nodes:
+        //   if neuron i at level-0 currently maps to super-node s in
+        //   adj (labels_lvl0[i] == s), then its new *level-superior*
+        //   super-community label is labels_this_level[s]. That is
+        //   still in the OLD label space; renumbering below remaps
+        //   it to the new dense super-graph indices.
+        for lbl in labels_lvl0.iter_mut() {
+            *lbl = labels_this_level[*lbl as usize];
+        }
+        // Renumber + aggregate adj to produce the new working graph.
+        // `renum` maps OLD level-community labels → dense super-node
+        // indices in next_adj. `labels_lvl0` must follow that remap
+        // so subsequent levels index valid super-graph nodes.
+        let (next_adj, renum) = aggregate(&adj, &labels_this_level);
+        for lbl in labels_lvl0.iter_mut() {
+            *lbl = *renum.get(lbl).expect("super-community must be in renum");
+        }
+        if next_adj.len() == adj.len() {
+            // No aggregation happened (every node is its own community),
+            // safe to break.
+            break;
+        }
+        adj = next_adj;
+    }
+
+    // Compact label space to a dense 0..k range so downstream
+    // `two_way_from_labels` works regardless of intermediate renumbering.
+    compact_labels(&labels_lvl0)
+}
+
+/// One full sweep of Louvain level-1 moves on `adj` (size `n`). Returns
+/// per-node community labels using node indices as initial ids. Same
+/// deterministic tie-break as the single-level variant.
+fn level1_moves(adj: &[Vec<(u32, f64)>], n: usize) -> Vec<u32> {
+    let mut deg = vec![0.0_f64; n];
+    for i in 0..n {
+        for &(_, w) in &adj[i] {
+            deg[i] += w;
+        }
+    }
+    let two_m: f64 = deg.iter().sum::<f64>().max(1.0);
+    let mut comm: Vec<u32> = (0..n as u32).collect();
+    // Running per-community weighted degree sum, keyed by community id.
+    // Initially every node is alone, so `cdeg[i] == deg[i]`.
+    let mut cdeg: std::collections::HashMap<u32, f64> = std::collections::HashMap::new();
+    for i in 0..n {
+        cdeg.insert(i as u32, deg[i]);
+    }
+
+    let mut changed = true;
+    let mut it = 0;
+    while changed && it < 16 {
+        changed = false;
+        for i in 0..n {
+            let mut neigh_w: std::collections::HashMap<u32, f64> =
+                std::collections::HashMap::new();
+            for &(j, w) in &adj[i] {
+                if j as usize == i {
+                    continue;
+                }
+                *neigh_w.entry(comm[j as usize]).or_insert(0.0) += w;
+            }
+            let c_self = comm[i];
+            let mut best_c = c_self;
+            let mut best_gain = 0.0_f64;
+            let d_i = deg[i];
+            for (&c, &k_ic) in &neigh_w {
+                if c == c_self {
+                    continue;
+                }
+                let d_c = *cdeg.get(&c).unwrap_or(&0.0);
+                let gain = k_ic / two_m - d_i * d_c / (2.0 * two_m * two_m);
+                if gain > best_gain + 1e-9 {
+                    best_gain = gain;
+                    best_c = c;
+                }
+            }
+            if best_c != c_self {
+                *cdeg.entry(c_self).or_insert(0.0) -= d_i;
+                *cdeg.entry(best_c).or_insert(0.0) += d_i;
+                comm[i] = best_c;
+                changed = true;
+            }
+        }
+        it += 1;
+    }
+    comm
+}
+
+/// Aggregate `adj` into a super-graph whose nodes are the communities
+/// in `labels`. Returns (new_adj, renumber_map) where renumber_map[old]
+/// = new_community_index. Edge weights sum inside the super-nodes.
+fn aggregate(
+    adj: &[Vec<(u32, f64)>],
+    labels: &[u32],
+) -> (Vec<Vec<(u32, f64)>>, std::collections::HashMap<u32, u32>) {
+    // Build dense renumbering old_label → new_index.
+    let mut renum: std::collections::HashMap<u32, u32> = std::collections::HashMap::new();
+    for &lab in labels {
+        let k = renum.len() as u32;
+        renum.entry(lab).or_insert(k);
+    }
+    let new_n = renum.len();
+    let mut next: Vec<std::collections::HashMap<u32, f64>> =
+        (0..new_n).map(|_| std::collections::HashMap::new()).collect();
+    for i in 0..adj.len() {
+        let ui = *renum.get(&labels[i]).expect("renum");
+        for &(j, w) in &adj[i] {
+            let uj = *renum.get(&labels[j as usize]).expect("renum");
+            if ui == uj {
+                continue; // drop intra-community edges (become self-loops)
+            }
+            *next[ui as usize].entry(uj).or_insert(0.0) += w;
+        }
+    }
+    let new_adj: Vec<Vec<(u32, f64)>> = next
+        .into_iter()
+        .map(|m| m.into_iter().collect::<Vec<_>>())
+        .collect();
+    (new_adj, renum)
+}
+
+/// Compact arbitrary labels into `0..k` space, preserving grouping.
+fn compact_labels(labels: &[u32]) -> Vec<u32> {
+    let mut renum: std::collections::HashMap<u32, u32> = std::collections::HashMap::new();
+    let mut out: Vec<u32> = Vec::with_capacity(labels.len());
+    for &lab in labels {
+        let k = renum.len() as u32;
+        let id = *renum.entry(lab).or_insert(k);
+        out.push(id);
+    }
+    out
+}
+
 fn class_histogram(side: &[u32], conn: &Connectome) -> Vec<(String, u32)> {
     let mut counts = [0_u32; 15];
     for id in side {

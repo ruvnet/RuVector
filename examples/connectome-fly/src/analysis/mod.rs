@@ -74,6 +74,15 @@ impl Analysis {
         structural::greedy_modularity_labels(conn)
     }
 
+    /// Multi-level Louvain baseline — aggregates communities into
+    /// super-nodes and iterates until no level-1 move improves
+    /// modularity. Strictly stronger than `greedy_modularity_labels`
+    /// which stops after level-1. Deterministic; used by AC-3a as the
+    /// Leiden-style stepping stone called out in ADR-154 §13.
+    pub fn louvain_labels(&self, conn: &Connectome) -> Vec<u32> {
+        structural::louvain_labels(conn)
+    }
+
     /// Build motif embeddings over sliding windows and index them.
     /// Returns the index plus the top-k repeated motifs.
     pub fn retrieve_motifs(
