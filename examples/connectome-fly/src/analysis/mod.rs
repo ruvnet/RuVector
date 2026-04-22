@@ -17,6 +17,7 @@
 pub mod gpu;
 pub mod motif;
 pub mod partition;
+pub mod rate_encoder;
 pub mod structural;
 pub mod types;
 
@@ -94,6 +95,19 @@ impl Analysis {
         motif::retrieve_motifs(
             &self.cfg, &self.sdpa, &self.w_q, &self.w_k, &self.w_v, conn, spikes, k,
         )
+    }
+
+    /// Same as [`Self::retrieve_motifs`] but uses the rate-histogram
+    /// encoder (see `analysis::rate_encoder`) instead of SDPA. Exposed
+    /// for the ADR-154 §17 item 10 encoder-vs-substrate A/B
+    /// diagnostic; prefer the SDPA path for production use.
+    pub fn retrieve_motifs_rate(
+        &self,
+        conn: &Connectome,
+        spikes: &[Spike],
+        k: usize,
+    ) -> (MotifIndex, Vec<MotifHit>) {
+        rate_encoder::rate_histogram_retrieve_motifs(&self.cfg, conn, spikes, k)
     }
 }
 
