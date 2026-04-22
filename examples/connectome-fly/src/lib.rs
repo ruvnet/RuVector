@@ -68,7 +68,10 @@
 #![allow(clippy::collapsible_if)]
 
 pub mod analysis;
+pub mod audit;
 pub mod connectome;
+pub mod embodiment;
+pub mod lesion;
 pub mod lif;
 pub mod observer;
 pub mod stimulus;
@@ -76,9 +79,14 @@ pub mod stimulus;
 pub use analysis::{
     Analysis, AnalysisConfig, FunctionalPartition, MotifHit, MotifIndex, MotifSignature,
 };
+pub use audit::{AuditConfig, StructuralAudit, StructuralAuditReport};
 pub use connectome::{
     load_flywire, Connectome, ConnectomeConfig, ConnectomeError, FlyWireNeuronId, FlywireError,
     NeuronClass, NeuronId, NeuronMeta, Sign, Synapse,
+};
+pub use embodiment::{BodySimulator, MujocoBody, StubBody};
+pub use lesion::{
+    boundary_edges, interior_edges, CandidateCut, CutMeasurement, LesionReport, LesionStudy,
 };
 pub use lif::{Engine, EngineConfig, LifError, NeuronParams, Spike, SpikeEvent};
 pub use observer::{CoherenceEvent, Observer, Report};
