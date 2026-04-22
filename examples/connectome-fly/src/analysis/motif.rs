@@ -7,7 +7,7 @@ use ruvector_attention::traits::Attention;
 use crate::connectome::Connectome;
 use crate::lif::Spike;
 
-use super::types::{AnalysisConfig, MotifHit, MotifIndex, MotifWindow};
+use super::types::{AnalysisConfig, MotifEmbedding, MotifHit, MotifIndex, MotifWindow};
 
 pub(crate) fn retrieve_motifs(
     cfg: &AnalysisConfig,
@@ -20,8 +20,39 @@ pub(crate) fn retrieve_motifs(
     k: usize,
 ) -> (MotifIndex, Vec<MotifHit>) {
     let mut index = MotifIndex::new(cfg.index_capacity);
+    for sample in embed_windows(cfg, sdpa, w_q, w_k, w_v, conn, spikes) {
+        index.insert(
+            sample.vector,
+            MotifWindow {
+                t_center_ms: sample.t_center_ms,
+                spike_count: sample.spike_count,
+                dominant_class_idx: sample.dominant_class_idx,
+            },
+        );
+    }
+    let hits = index.top_k(k);
+    (index, hits)
+}
+
+/// Drive the SDPA embedder over all motif windows in `spikes` and
+/// return one `MotifEmbedding` per non-empty window.
+///
+/// Exposed to support the DiskANN-index path (`analysis::diskann_motif`)
+/// that needs the raw (vector, label) corpus. The bounded-brute-force
+/// `retrieve_motifs` above uses the same embedder; callers get the
+/// same vectors regardless of the index choice.
+pub(crate) fn embed_windows(
+    cfg: &AnalysisConfig,
+    sdpa: &ScaledDotProductAttention,
+    w_q: &[f32],
+    w_k: &[f32],
+    w_v: &[f32],
+    conn: &Connectome,
+    spikes: &[Spike],
+) -> Vec<MotifEmbedding> {
+    let mut out: Vec<MotifEmbedding> = Vec::new();
     if spikes.is_empty() {
-        return (index, Vec::new());
+        return out;
     }
     let t_end = spikes.last().map(|s| s.t_ms).unwrap_or(0.0);
     let win = cfg.motif_window_ms;
@@ -42,18 +73,15 @@ pub(crate) fn retrieve_motifs(
         let vec = sdpa
             .compute(&q, &k_refs, &v_refs)
             .unwrap_or_else(|_| q.clone());
-        index.insert(
-            vec,
-            MotifWindow {
-                t_center_ms: t + win * 0.5,
-                spike_count: meta.spike_count,
-                dominant_class_idx: meta.dominant_class_idx,
-            },
-        );
+        out.push(MotifEmbedding {
+            vector: vec,
+            t_center_ms: t + win * 0.5,
+            spike_count: meta.spike_count,
+            dominant_class_idx: meta.dominant_class_idx,
+        });
         t += step;
     }
-    let hits = index.top_k(k);
-    (index, hits)
+    out
 }
 
 struct WindowMeta {

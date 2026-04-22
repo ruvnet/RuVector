@@ -74,7 +74,8 @@ pub mod observer;
 pub mod stimulus;
 
 pub use analysis::{
-    Analysis, AnalysisConfig, FunctionalPartition, MotifHit, MotifIndex, MotifSignature,
+    Analysis, AnalysisConfig, DiskAnnMotifIndex, EmbeddingF32, FunctionalPartition, MotifEmbedding,
+    MotifHit, MotifIndex, MotifSignature, VamanaParams,
 };
 pub use connectome::{
     load_flywire, Connectome, ConnectomeConfig, ConnectomeError, FlyWireNeuronId, FlywireError,

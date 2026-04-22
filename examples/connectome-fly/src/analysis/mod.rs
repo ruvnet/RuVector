@@ -14,6 +14,7 @@
 //! The public surface is the `Analysis` struct re-exported from
 //! here.
 
+pub mod diskann_motif;
 pub mod gpu;
 pub mod motif;
 pub mod partition;
@@ -22,7 +23,10 @@ pub mod types;
 
 use ruvector_attention::attention::ScaledDotProductAttention;
 
-pub use types::{AnalysisConfig, FunctionalPartition, MotifHit, MotifIndex, MotifSignature};
+pub use diskann_motif::{DiskAnnMotifIndex, EmbeddingF32, VamanaParams};
+pub use types::{
+    AnalysisConfig, FunctionalPartition, MotifEmbedding, MotifHit, MotifIndex, MotifSignature,
+};
 
 use crate::connectome::Connectome;
 use crate::lif::Spike;
@@ -76,6 +80,14 @@ impl Analysis {
 
     /// Build motif embeddings over sliding windows and index them.
     /// Returns the index plus the top-k repeated motifs.
+    ///
+    /// When `cfg.use_diskann = true` the embeddings are inserted into
+    /// a `DiskAnnMotifIndex` in addition to the bounded brute-force
+    /// `MotifIndex` so downstream callers can drive AC-2-diskann from
+    /// the same embedding corpus. The `(MotifIndex, Vec<MotifHit>)`
+    /// return shape stays source-compatible — the DiskANN view is
+    /// accessed via [`Self::embed_motif_windows`] +
+    /// [`DiskAnnMotifIndex::new`].
     pub fn retrieve_motifs(
         &self,
         conn: &Connectome,
@@ -84,6 +96,23 @@ impl Analysis {
     ) -> (MotifIndex, Vec<MotifHit>) {
         motif::retrieve_motifs(
             &self.cfg, &self.sdpa, &self.w_q, &self.w_k, &self.w_v, conn, spikes, k,
+        )
+    }
+
+    /// Encode every non-empty motif window with the same SDPA
+    /// embedder that drives [`Self::retrieve_motifs`], and return the
+    /// list of embeddings with their class / time metadata.
+    ///
+    /// This is the entry point for the DiskANN retrieval path: the
+    /// caller builds a [`DiskAnnMotifIndex`] over the returned
+    /// vectors, then runs `precision_at_k` against them.
+    pub fn embed_motif_windows(
+        &self,
+        conn: &Connectome,
+        spikes: &[Spike],
+    ) -> Vec<MotifEmbedding> {
+        motif::embed_windows(
+            &self.cfg, &self.sdpa, &self.w_q, &self.w_k, &self.w_v, conn, spikes,
         )
     }
 }
