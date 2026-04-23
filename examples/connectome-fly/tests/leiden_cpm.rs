@@ -487,3 +487,90 @@ fn leiden_cpm_gamma_peak_per_scale() {
     }
     // Publish-only. No assertion — every row is a ceiling observation.
 }
+
+#[test]
+fn leiden_cpm_smaller_scales_and_fine_peak() {
+    // Two follow-ups to item 23 in one test:
+    //
+    // (a) Does the "smaller N beats larger N" pattern continue below
+    //     N=512? Test N=256 at proportional density. If N=256 beats
+    //     N=512 (which hit 0.532 @ γ=2.75), the pattern is "keep
+    //     shrinking" and SOTA on this substrate may be a small-N
+    //     phenomenon — a structurally different claim.
+    //
+    // (b) Fine γ sweep at N=512 around γ=2.75 to pin the true ceiling.
+    //     Coarse sweep {1.25, 1.75, 2.25, 2.75, 3.5, 5.0} gave 0.532
+    //     @ 2.75 — but 3.5 gave 0.480. The peak could be sharper or
+    //     flatter than the coarse grid could resolve.
+    //
+    // Publish-only; each row feeds ADR §17.
+    let small_scales: [(u32, u16, u16); 2] = [(256, 17, 2), (384, 25, 2)];
+    for &(n, m, h) in &small_scales {
+        let cfg = ConnectomeConfig {
+            num_neurons: n,
+            num_modules: m,
+            num_hub_modules: h,
+            ..ConnectomeConfig::default()
+        };
+        let conn = Connectome::generate(&cfg);
+        let truth_labels: Vec<u32> = (0..conn.num_neurons())
+            .map(|i| conn.meta(connectome_fly::NeuronId(i as u32)).module as u32)
+            .collect();
+        let gammas = [2.0, 2.5, 3.0, 3.5, 4.0, 5.0];
+        let mut best_ari = f32::NEG_INFINITY;
+        let mut best_gamma = 0.0_f64;
+        let mut best_distinct = 0usize;
+        for &g in &gammas {
+            let labels = connectome_fly::analysis::leiden::leiden_labels_cpm(&conn, g);
+            let ari = full_partition_ari(&labels, &truth_labels);
+            let d = count_unique(&labels);
+            eprintln!(
+                "cpm-small-scale: N={}  γ={:.2}  full_ari={:.3}  distinct={}",
+                n, g, ari, d
+            );
+            if ari > best_ari {
+                best_ari = ari;
+                best_gamma = g;
+                best_distinct = d;
+            }
+        }
+        eprintln!(
+            "cpm-small-scale: N={}  PEAK full_ari={:.3} @ γ={:.2}  (distinct={})",
+            n, best_ari, best_gamma, best_distinct
+        );
+    }
+
+    // Fine γ sweep at N=512 around the item-23 peak (γ=2.75).
+    let cfg_512 = ConnectomeConfig {
+        num_neurons: 512,
+        num_modules: 35,
+        num_hub_modules: 3,
+        ..ConnectomeConfig::default()
+    };
+    let conn_512 = Connectome::generate(&cfg_512);
+    let truth_512: Vec<u32> = (0..conn_512.num_neurons())
+        .map(|i| conn_512.meta(connectome_fly::NeuronId(i as u32)).module as u32)
+        .collect();
+    let fine_gammas = [2.3, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.4];
+    let mut best_ari = f32::NEG_INFINITY;
+    let mut best_gamma = 0.0_f64;
+    let mut best_distinct = 0usize;
+    for &g in &fine_gammas {
+        let labels = connectome_fly::analysis::leiden::leiden_labels_cpm(&conn_512, g);
+        let ari = full_partition_ari(&labels, &truth_512);
+        let d = count_unique(&labels);
+        eprintln!(
+            "cpm-fine-512: γ={:.2}  full_ari={:.3}  distinct={}",
+            g, ari, d
+        );
+        if ari > best_ari {
+            best_ari = ari;
+            best_gamma = g;
+            best_distinct = d;
+        }
+    }
+    eprintln!(
+        "cpm-fine-512: PEAK full_ari={:.3} @ γ={:.2}  (distinct={})  [SOTA_target=0.75]",
+        best_ari, best_gamma, best_distinct
+    );
+}
