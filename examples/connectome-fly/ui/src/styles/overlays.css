@@ -472,3 +472,264 @@
   .modal { max-height: calc(100vh - 24px); border-radius: 8px; }
   .cmd { max-width: calc(100vw - 24px); width: calc(100vw - 24px); }
 }
+
+/* ============================================================
+ * WELCOME MODAL
+ * ----------------------------------------------------------
+ * First-visit introduction + three tutorial cards. Controlled
+ * by src/modules/welcome.js. Dismissal is remembered in
+ * localStorage under `connectome-os.welcome.dismissed.v1`.
+ * ============================================================ */
+
+.welcome-root {
+  position: fixed; inset: 0;
+  z-index: 2000;
+  display: none;
+  align-items: center; justify-content: center;
+  padding: 4vh 3vw;
+}
+.welcome-root.welcome-open,
+.welcome-root.welcome-closing {
+  display: flex;
+}
+.welcome-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(4, 8, 12, 0.72);
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  animation: welcome-fade-in 240ms ease-out both;
+}
+.welcome-root.welcome-closing .welcome-backdrop {
+  animation: welcome-fade-out 380ms ease-in forwards;
+}
+.welcome-panel {
+  position: relative;
+  max-width: 960px; width: 100%;
+  max-height: calc(100vh - 8vh);
+  overflow-y: auto;
+  background: linear-gradient(180deg, rgba(14, 22, 32, 0.98), rgba(10, 16, 24, 0.98));
+  border: 1px solid var(--bd-hair, rgba(255,255,255,0.08));
+  border-radius: 16px;
+  padding: 28px 32px 24px;
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.6),
+              0 0 0 1px rgba(184, 255, 60, 0.08);
+  animation: welcome-pop-in 280ms cubic-bezier(.2,.9,.3,1.05) both;
+}
+.welcome-root.welcome-closing .welcome-panel {
+  animation: welcome-pop-out 380ms cubic-bezier(.4,.0,.7,.3) forwards;
+}
+
+.welcome-close {
+  position: absolute; top: 14px; right: 16px;
+  width: 32px; height: 32px;
+  background: transparent;
+  border: 1px solid var(--bd-hair, rgba(255,255,255,0.08));
+  border-radius: 50%;
+  color: var(--fg-2, #a9b4be);
+  font: 18px/1 sans-serif;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.welcome-close:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--fg, #e7edf3);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.welcome-head { margin: 4px 0 20px; max-width: 780px; }
+.welcome-eyebrow {
+  font-family: var(--ff-mono, 'JetBrains Mono', monospace);
+  font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--signal, #b8ff3c);
+  margin-bottom: 6px;
+}
+.welcome-eyebrow span { color: var(--fg-2, #a9b4be); font-weight: 500; }
+.welcome-title {
+  font-family: 'Space Grotesk', var(--ff-sans, system-ui), sans-serif;
+  font-weight: 600;
+  font-size: clamp(22px, 3.2vw, 32px);
+  line-height: 1.15;
+  color: var(--fg, #e7edf3);
+  margin: 0 0 14px;
+}
+.welcome-lede {
+  color: var(--fg-2, #a9b4be);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 10px;
+}
+.welcome-lede em { color: var(--signal, #b8ff3c); font-style: normal; }
+.welcome-lede a { color: var(--signal, #b8ff3c); text-decoration: none; border-bottom: 1px dotted currentColor; }
+.welcome-lede a:hover { border-bottom-style: solid; }
+.welcome-lede code {
+  font-family: var(--ff-mono, monospace);
+  font-size: 12px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--fg, #e7edf3);
+}
+.welcome-lede-dim { color: var(--fg-3, #7f8a95); font-size: 13px; }
+
+.welcome-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 10px 0 22px;
+}
+.welcome-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--bd-hair, rgba(255,255,255,0.06));
+  border-radius: 10px;
+  padding: 16px 16px 14px;
+  min-height: 180px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.welcome-card-num {
+  font-family: var(--ff-mono, monospace);
+  font-size: 10px; letter-spacing: 0.18em;
+  color: var(--signal, #b8ff3c);
+  opacity: 0.7;
+}
+.welcome-card-title {
+  font-family: 'Space Grotesk', var(--ff-sans, system-ui), sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--fg, #e7edf3);
+}
+.welcome-card p {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--fg-2, #a9b4be);
+  margin: 0;
+}
+.welcome-card p b { color: var(--fg, #e7edf3); font-weight: 600; }
+.welcome-card p code,
+.welcome-card-foot code {
+  font-family: var(--ff-mono, monospace);
+  font-size: 11.5px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+.welcome-card-foot {
+  font-size: 12px;
+  color: var(--fg-3, #7f8a95);
+  margin-top: auto;
+}
+.welcome-card-foot a {
+  color: var(--signal, #b8ff3c);
+  text-decoration: none;
+  border-bottom: 1px dotted currentColor;
+}
+.welcome-card-foot a:hover { border-bottom-style: solid; }
+.welcome-code {
+  font-family: var(--ff-mono, monospace);
+  font-size: 11px;
+  line-height: 1.55;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(184, 255, 60, 0.08);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin: 6px 0 0;
+  color: var(--fg-2, #a9b4be);
+  white-space: pre;
+  overflow-x: auto;
+}
+.welcome-code code { background: transparent; padding: 0; color: inherit; }
+
+.welcome-foot {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid var(--bd-hair, rgba(255,255,255,0.06));
+}
+.welcome-start {
+  font-family: var(--ff-sans, system-ui), sans-serif;
+  font-weight: 600; font-size: 13px;
+  padding: 9px 16px;
+  background: linear-gradient(180deg, rgba(184, 255, 60, 0.2), rgba(184, 255, 60, 0.1));
+  border: 1px solid rgba(184, 255, 60, 0.4);
+  color: var(--signal, #b8ff3c);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 140ms ease, transform 140ms ease;
+}
+.welcome-start:hover {
+  background: linear-gradient(180deg, rgba(184, 255, 60, 0.3), rgba(184, 255, 60, 0.18));
+  transform: translateY(-1px);
+}
+.welcome-github {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--ff-sans, system-ui), sans-serif;
+  font-size: 12.5px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--bd-hair, rgba(255,255,255,0.08));
+  color: var(--fg, #e7edf3);
+  text-decoration: none;
+  border-radius: 6px;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+.welcome-github:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.welcome-github svg { opacity: 0.9; }
+.welcome-hint {
+  margin-left: auto;
+  font-family: var(--ff-mono, monospace);
+  font-size: 11px;
+  color: var(--fg-3, #7f8a95);
+}
+.welcome-hint b { color: var(--fg-2, #a9b4be); font-weight: 700; }
+
+/* Reopen button in the topbar. */
+.welcome-reopen-btn {
+  width: 22px; height: 22px; line-height: 1;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--bd-hair, rgba(255,255,255,0.12));
+  border-radius: 50%;
+  color: var(--fg-2, #a9b4be);
+  font-family: var(--ff-mono, monospace);
+  font-size: 11px; font-weight: 600;
+  cursor: pointer;
+  align-self: center;
+  margin-right: 4px;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+.welcome-reopen-btn:hover {
+  color: var(--signal, #b8ff3c);
+  border-color: var(--signal, #b8ff3c);
+  background: rgba(184, 255, 60, 0.06);
+}
+
+@keyframes welcome-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes welcome-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes welcome-pop-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+@keyframes welcome-pop-out {
+  from { opacity: 1; transform: translateY(0)    scale(1); }
+  to   { opacity: 0; transform: translateY(8px)  scale(0.97); }
+}
+
+@media (max-width: 720px) {
+  .welcome-panel { padding: 22px 18px 18px; border-radius: 12px; }
+  .welcome-cards { grid-template-columns: 1fr; }
+  .welcome-hint { width: 100%; margin-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-backdrop,
+  .welcome-panel,
+  .welcome-root.welcome-closing .welcome-backdrop,
+  .welcome-root.welcome-closing .welcome-panel { animation: none; }
+}

@@ -83,6 +83,7 @@
 
     <div class="topbar-spacer"></div>
 
+    <button type="button" id="welcome-reopen" class="welcome-reopen-btn" title="Show welcome & tutorials" aria-label="Show welcome & tutorials">?</button>
     <div class="topbar-stat" data-help="engine"><span class="k">engine</span><span class="v" id="real-backend-banner" data-state="pending" title="Rust backend identity from /api/status — proves the UI is downstream of examples/connectome-fly/src/bin/ui_server.rs, not a mock">connecting…</span></div>
     <div class="topbar-stat" data-help="tick"><span class="k">tick</span><span class="v tnum" id="stat-tick">t=0</span></div>
     <div class="topbar-stat" data-help="throughput_stat"><span class="k">Σ</span><span class="v hot tnum" id="stat-throughput">0 sp/s</span></div>
@@ -549,6 +550,82 @@
         <option>Engineer console</option>
       </select>
     </div>
+  </div>
+</div>
+
+<!-- ========================= WELCOME MODAL ========================= -->
+<div id="welcome-modal" class="welcome-root" role="dialog" aria-modal="true" aria-labelledby="welcome-title" aria-hidden="true">
+  <div class="welcome-backdrop" aria-hidden="true"></div>
+  <div class="welcome-panel" role="document">
+    <button type="button" class="welcome-close" aria-label="Close welcome">&times;</button>
+    <header class="welcome-head">
+      <div class="welcome-eyebrow">Connectome <span>OS</span></div>
+      <h1 id="welcome-title" class="welcome-title">A real fly brain, live in your browser</h1>
+      <p class="welcome-lede">
+        115,151 neurons and 2.7 million connections — copied from an actual
+        fly by the <a href="https://flywire.ai" target="_blank" rel="noopener">FlyWire</a>
+        project — running forward in time in a Rust spiking simulator. Not
+        a mock, not a recording. Every spike on the screen is being computed
+        right now.
+      </p>
+      <p class="welcome-lede welcome-lede-dim">
+        This is a <em>debugger</em> for that brain, the way <code>top</code>
+        and <code>strace</code> are debuggers for a computer — you watch
+        structure, cut connections, and measure what changed. No claims
+        about consciousness, uploads, or AGI.
+      </p>
+    </header>
+    <section class="welcome-cards">
+      <div class="welcome-card">
+        <div class="welcome-card-num">01</div>
+        <div class="welcome-card-title">Run it for real</div>
+        <p>
+          This page is the static UI shell. To see real spikes, clone the
+          repo and run the Rust backend locally. The green banner up top
+          flips on only when it's connected.
+        </p>
+        <pre class="welcome-code"><code>cargo build --release --bin ui_server
+CONNECTOME_FLYWIRE_PRINCETON_DIR=examples/connectome-fly/assets \
+CONNECTOME_SKIP_FIEDLER=1 \
+CONNECTOME_SKIP_COMMUNITIES=1 \
+./target/release/ui_server &
+cd examples/connectome-fly/ui && npm run dev</code></pre>
+      </div>
+      <div class="welcome-card">
+        <div class="welcome-card-num">02</div>
+        <div class="welcome-card-title">What the views show</div>
+        <p>
+          Use the left rail to switch: <b>Graph</b> is live co-firing,
+          <b>Dynamics</b> is the raster + λ₂ coherence, <b>Motifs</b> is
+          recurring 100&nbsp;ms spike patterns, <b>Causal</b> is cut-vs-random
+          σ-separation, <b>Acceptance</b> is the AT-1…5 test battery, and
+          <b>Embodiment</b> couples the brain to a stub body.
+        </p>
+      </div>
+      <div class="welcome-card">
+        <div class="welcome-card-num">03</div>
+        <div class="welcome-card-title">How to tell it's real</div>
+        <p>
+          Every restart of the Rust backend changes the <code>witness</code>
+          number in the banner. Kill the backend process and
+          <code>window._real_spikes_total</code> in the browser console
+          stops advancing — a static mock couldn't do that.
+        </p>
+        <p class="welcome-card-foot">
+          Source: <a href="https://github.com/ruvnet/RuVector/blob/research/connectome-ruvector/examples/connectome-fly/src/bin/ui_server.rs" target="_blank" rel="noopener"><code>ui_server.rs</code></a>
+          · <a href="https://github.com/ruvnet/RuVector/blob/research/connectome-ruvector/docs/adr/ADR-154-connectome-embodied-brain-example.md" target="_blank" rel="noopener">ADR-154</a>
+          · <a href="https://github.com/ruvnet/Connectome-OS" target="_blank" rel="noopener">Repo</a>
+        </p>
+      </div>
+    </section>
+    <footer class="welcome-foot">
+      <button type="button" class="welcome-start">Start exploring →</button>
+      <a class="welcome-github" href="https://github.com/ruvnet/Connectome-OS" target="_blank" rel="noopener" title="Source, issues, ADRs">
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        View on GitHub
+      </a>
+      <span class="welcome-hint">ESC to dismiss · press <b>?</b> in the top bar to reopen</span>
+    </footer>
   </div>
 </div>
 
