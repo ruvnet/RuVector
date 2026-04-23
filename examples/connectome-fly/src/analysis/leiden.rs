@@ -521,10 +521,12 @@ fn level1_moves_from(adj: &[Vec<(u32, f64)>], initial: &[u32]) -> Vec<u32> {
 // is the next lever if the measurement says it's worth it.
 
 /// Leiden-style multi-level driver with the Constant Potts Model
-/// quality function at `γ`. At `γ = 1.0` this reduces to a
-/// modularity-ish aggregation with the CPM penalty; common
-/// starting points on weighted SBMs are `γ ∈ [0.01, 0.1]`.
-/// Deterministic; no RNG.
+/// quality function at `γ`. **Edges are pre-normalized so the mean
+/// edge weight becomes 1.0** — this makes γ dimensionless rather
+/// than in raw-synapse-weight units (see §17 item 16 for the
+/// non-normalized first-cut that collapsed). Common starting points
+/// on normalized weighted SBMs: `γ ∈ [0.1, 0.5]`. Deterministic; no
+/// RNG.
 pub fn leiden_labels_cpm(conn: &Connectome, gamma: f64) -> Vec<u32> {
     let n0 = conn.num_neurons();
 
@@ -549,10 +551,23 @@ pub fn leiden_labels_cpm(conn: &Connectome, gamma: f64) -> Vec<u32> {
             *agg_edges.entry((u, v)).or_insert(0.0) += w;
         }
     }
+    // Weight normalization: rescale so the mean undirected edge
+    // weight becomes 1.0. This is what Traag's `leidenalg` does
+    // implicitly (CPM quality is dimensionless there). Without this
+    // rescaling, γ lives in raw-weight units and every reasonable γ
+    // is dwarfed by summed synapse weights — see §17 item 16 for the
+    // non-normalized failure mode.
+    let mean_w = if agg_edges.is_empty() {
+        1.0
+    } else {
+        let sum: f64 = agg_edges.values().sum();
+        (sum / agg_edges.len() as f64).max(1e-12)
+    };
     let mut adj: Vec<Vec<(u32, f64)>> = vec![Vec::new(); n0];
     for ((u, v), w) in agg_edges {
-        adj[u as usize].push((v, w));
-        adj[v as usize].push((u, w));
+        let wn = w / mean_w;
+        adj[u as usize].push((v, wn));
+        adj[v as usize].push((u, wn));
     }
 
     // Multi-level loop: CPM local moves → aggregate → repeat.

@@ -110,7 +110,12 @@ fn leiden_cpm_sweeps_gamma_on_default_sbm() {
         adjusted_rand_index(&ba, &bb, is_hub)
     };
 
-    let gammas = [0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0];
+    // Sweep spans 4 decades so we cross both "too low → merge
+    // everything" and "too high → every node is its own community"
+    // regimes. Normalized edges mean γ = 1.0 is the 'mean-density'
+    // threshold; the SBM's natural γ* for a non-trivial partition
+    // sits at roughly inter_density × n_module.
+    let gammas = [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0];
     let mut best_ari = f32::NEG_INFINITY;
     let mut best_gamma = 0.0_f64;
     let mut rows: Vec<(f64, f32, usize)> = Vec::new();
@@ -181,30 +186,34 @@ fn leiden_cpm_recovers_two_planted_communities() {
     // Ground truth: module 0 vs module 1.
     let is_module_1 = |id: u32| conn.meta(connectome_fly::NeuronId(id)).module == 1;
 
-    // At γ = 0.05 on a 200-node 2-community SBM with clean split,
-    // CPM should find both halves.
-    let labels = connectome_fly::analysis::leiden::leiden_labels_cpm(&conn, 0.05);
-    let (a, b) = two_way_from_labels(&labels);
-    let ari = if a.is_empty() || b.is_empty() {
-        0.0
-    } else {
-        adjusted_rand_index(&a, &b, is_module_1)
-    };
-    let distinct = count_unique(&labels);
+    // γ needs to reach super-edge magnitudes in normalized units.
+    // Sweep the 2-community planted fixture and record the best ARI.
+    let gammas = [0.5, 1.0, 2.0, 4.0, 8.0, 16.0];
+    let mut best_ari = 0.0_f32;
+    let mut best_gamma = 0.0_f64;
+    let mut best_distinct = 0_usize;
+    for g in gammas {
+        let labels = connectome_fly::analysis::leiden::leiden_labels_cpm(&conn, g);
+        let (a, b) = two_way_from_labels(&labels);
+        let ari_g = if a.is_empty() || b.is_empty() {
+            0.0
+        } else {
+            adjusted_rand_index(&a, &b, is_module_1)
+        };
+        let d = count_unique(&labels);
+        eprintln!("leiden-cpm-planted: γ={:.2}  ari={:.3}  distinct={}", g, ari_g, d);
+        if ari_g.abs() > best_ari {
+            best_ari = ari_g.abs();
+            best_gamma = g;
+            best_distinct = d;
+        }
+    }
+    let labels = connectome_fly::analysis::leiden::leiden_labels_cpm(&conn, best_gamma);
+    let _ = labels;
     eprintln!(
-        "leiden-cpm-planted: ari={:.3}  distinct_communities={}  γ=0.05",
-        ari, distinct
+        "leiden-cpm-planted: best_ari={:.3} @ γ={:.2}, distinct={} (weight-normalized)",
+        best_ari, best_gamma, best_distinct
     );
-    // Publish-only: at the first-cut, un-weight-normalized CPM, even
-    // the clean 2-community planted SBM collapses to 1 community for
-    // γ in the useful range. That is the 16th discovery, not a bug
-    // to gate on. Next iteration: weight-normalized CPM (divide by
-    // 2m or by mean edge weight) so γ is dimensionless.
-    eprintln!(
-        "leiden-cpm-planted: PUBLISH-ONLY — ari={:.3}, distinct={} (γ=0.05, \
-         un-normalized weights). See ADR §17 item 16: weight-normalized \
-         CPM is the next lever; naive CPM on f64 edge weights collapses \
-         because γ·n_c is dwarfed by summed weights at any reasonable γ.",
-        ari, distinct
-    );
+    // Publish-only across the sweep. The finding (γ where CPM
+    // recovers the planted modules) updates ADR §17 item 16.
 }
