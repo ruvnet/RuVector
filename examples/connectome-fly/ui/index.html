@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Connectome OS — Structural Intelligence Runtime</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script type="module" src="/src/main.js"></script>
+<style>
+/* Local tweaks for this page */
+.fiedler-alert {
+  position: absolute;
+  top: 12px; right: 12px;
+  padding: 6px 10px;
+  background: rgba(246,196,69,0.14);
+  border: 1px solid rgba(246,196,69,0.5);
+  border-radius: 999px;
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--amber);
+  text-transform: uppercase;
+  display: none;
+}
+.fiedler-alert.on { display: flex; align-items: center; gap: 6px; animation: pulse-signal 1.4s infinite; }
+.fiedler-alert::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--amber); box-shadow: 0 0 8px var(--amber);
+}
+
+.module-legend { display: flex; gap: 8px; flex-wrap: wrap; }
+.mod-chip {
+  padding: 4px 8px;
+  background: var(--glass-1);
+  border: 1px solid var(--bd-hair);
+  border-radius: 999px;
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  color: var(--fg-2);
+  display: flex; align-items: center; gap: 6px;
+}
+.mod-chip .sw { width: 8px; height: 8px; border-radius: 50%; }
+
+.system-map {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+.system-map .seg {
+  flex: 1;
+  height: 3px;
+  background: var(--bd-soft);
+  border-radius: 2px;
+}
+.system-map .seg.active {
+  background: var(--signal);
+  box-shadow: 0 0 6px var(--signal);
+}
+</style>
+</head>
+<body>
+
+<!-- ========================= DESKTOP APP ========================= -->
+<div class="app">
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">C</div>
+      <div>
+        <div>Connectome<span class="brand-sep"> · </span><span class="brand-sub">OS</span></div>
+      </div>
+    </div>
+
+    <div class="topbar-crumbs mono" data-help="breadcrumbs">
+      <span>tier-1</span><span class="sep">/</span>
+      <span>fly-fixture-v783</span><span class="sep">/</span>
+      <span class="cur">session.0x5FA1DE5</span>
+    </div>
+
+    <div class="topbar-spacer"></div>
+
+    <div class="topbar-stat" data-help="engine"><span class="k">engine</span><span class="v">lif-wheel-soa</span></div>
+    <div class="topbar-stat" data-help="tick"><span class="k">tick</span><span class="v tnum" id="stat-tick">t=0</span></div>
+    <div class="topbar-stat" data-help="throughput_stat"><span class="k">Σ</span><span class="v hot tnum" id="stat-throughput">0 sp/s</span></div>
+
+    <button class="pill active live"><span>LIVE</span></button>
+  </header>
+
+  <!-- LEFT RAIL -->
+  <nav class="rail">
+    <div class="rail-item" title="Structure" data-view="structure" aria-label="Structure">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M6 6l12 0M6 6l6 12M18 6l-6 12"/></svg>
+      <div class="rail-tooltip"><div class="rt-title">Structure</div><div class="rt-desc">Static wiring diagram — which neuron connects to which, before any firing.</div></div>
+    </div>
+    <div class="rail-item active" title="Graph" data-view="graph">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5" cy="9" r="1.6"/><circle cx="12" cy="5" r="1.6"/><circle cx="19" cy="10" r="1.6"/><circle cx="8" cy="17" r="1.6"/><circle cx="17" cy="18" r="1.6"/><path d="M5 9l7-4M12 5l7 5M5 9l3 8M19 10l-2 8M8 17l9 1"/></svg>
+      <div class="rail-tooltip"><div class="rt-title">Graph · co-firing</div><div class="rt-desc">Live graph colored by what's firing together. The highlighted boundary is the current mincut.</div></div>
+    </div>
+    <div class="rail-item" title="Dynamics" data-view="dynamics">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 14l3-4 3 6 4-10 3 7 5-3"/></svg>
+      <div class="rail-tooltip"><div class="rt-title">Dynamics</div><div class="rt-desc">The LIF simulator — neurons, delays, delivery wheel, SIMD throughput.</div></div>
+    </div>
+    <div class="rail-item" title="Motifs" data-view="motifs">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      <div class="rail-tooltip"><div class="rt-title">Motifs</div><div class="rt-desc">Finds recurring spike patterns. Every 100ms window is embedded and nearest-neighbor retrieved.</div></div>
+    </div>
+    <div class="rail-item" title="Causal" data-view="causal">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v18M6 9l6-6 6 6"/></svg>
+      <div class="rail-tooltip"><div class="rt-title">Causal</div><div class="rt-desc">Cut specific edges vs random edges — measure how much each matters, in σ.</div></div>
+    </div>
+    <div class="rail-item" title="Acceptance" data-view="acceptance">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 12l4 4 10-10"/></svg>
+      <div class="rail-tooltip"><div class="rt-title">Acceptance</div><div class="rt-desc">AT-1..5 test battery — decides whether a build is fit for use.</div></div>
+    </div>
+    <div class="rail-item" title="Embodiment" data-view="embodiment">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 4c-2 0-3 1.5-3 3 0 1 .5 2 1 2.5-2 .5-4 2.5-4 5v3m6-10.5c.5-.5 1-1.5 1-2.5 0-1.5-1-3-3-3m6 8c2 .5 4 2.5 4 5v3M10 14l-4 4M14 14l4 4M8 20h8"/></svg>
+      <div class="rail-tooltip"><div class="rt-title">Embodiment</div><div class="rt-desc">Couples the simulator to a virtual fly body. Closed-loop sensory → motor.</div></div>
+    </div>
+    <div class="rail-item" title="Benchmarks" data-view="benchmarks">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="12" width="3" height="8"/><rect x="10.5" y="7" width="3" height="13"/><rect x="17" y="3" width="3" height="17"/></svg>
+      <div class="rail-tooltip"><div class="rt-title">Benchmarks</div><div class="rt-desc">Spikes/sec vs Brian2, Auryn, NEST — matched network, single thread.</div></div>
+    </div>
+    <div class="rail-spacer"></div>
+    <div class="rail-item" title="Console" data-view="console">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 8l4 4-4 4M12 16h7"/></svg>
+      <div class="rail-tooltip"><div class="rt-title">Console</div><div class="rt-desc">Raw engine log — init, discoveries, test output, REPL.</div></div>
+    </div>
+    <div class="rail-item" title="Settings" data-view="settings">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.5 4.5l2.1 2.1M17.4 17.4l2.1 2.1M4.5 19.5l2.1-2.1M17.4 6.6l2.1-2.1"/></svg>
+      <div class="rail-tooltip"><div class="rt-title">Settings</div><div class="rt-desc">Seed, engine flags, reproducibility.</div></div>
+    </div>
+  </nav>
+
+  <!-- CENTER CANVAS -->
+  <section class="canvas-wrap">
+    <canvas id="three-canvas"></canvas>
+    <div id="fly-canvas" class="fly-canvas" aria-hidden="true"></div>
+
+    <div class="nav-hint" aria-hidden="true">
+      <span><b>drag</b> rotate</span>
+      <span><b>scroll</b> zoom</span>
+      <span><b>dbl-click</b> reset</span>
+    </div>
+
+    <div class="canvas-header">
+      <div class="canvas-title">
+        <h2 class="display">Connectome — co-firing graph<button class="help-icon lg" id="canvas-help" data-help="view_graph" aria-label="help"></button></h2>
+        <div class="sub mono">208 neurons · 4 modules · SBM fixture · <span style="color:var(--signal)">partition live</span></div>
+      </div>
+      <div class="canvas-controls">
+        <button class="cc-btn active" data-help="cut_boundary_toggle" title="Show cut boundary" data-action="toggle-edges"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h5M15 12h5M12 4l-3 5h6l-3-5zM12 20l-3-5h6l-3 5z"/></svg></button>
+        <button class="cc-btn" data-help="spike_overlay" title="Spike overlay" data-action="burst"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 3L4 14h7l-1 7 9-11h-7l1-7z"/></svg></button>
+        <button class="cc-btn" data-help="camera_reset" title="Camera reset" data-action="reset-cam"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M21 3v6h-6"/></svg></button>
+      </div>
+    </div>
+
+    <div class="fiedler-alert" id="fiedler-alert">
+      <span>coherence collapse predicted — 58ms lead</span>
+    </div>
+
+    <!-- Focus tip -->
+    <div class="focus-tip" id="focus-tip" style="display:none"></div>
+
+    <!-- Legend overlay -->
+    <div class="overlay bl">
+      <div class="label" style="margin-bottom:8px">modules</div>
+      <div class="module-legend">
+        <div class="mod-chip"><span class="sw" style="background:#B8FF3C"></span>M0 · projection · CUT_FROM</div>
+        <div class="mod-chip"><span class="sw" style="background:#7CFF7A"></span>M1 · kenyon · CUT_TO</div>
+        <div class="mod-chip"><span class="sw" style="background:#4b5a52"></span>M2 · optic</div>
+        <div class="mod-chip"><span class="sw" style="background:#4b5a52"></span>M3 · descending</div>
+      </div>
+    </div>
+
+    <!-- Scenario overlay -->
+    <div class="overlay tr">
+      <div class="label" style="margin-bottom:8px; display:flex; align-items:center">scenario<button class="help-icon" data-help="scenario" aria-label="help"></button></div>
+      <div style="display:flex; gap:4px">
+        <button class="btn ghost active" data-scenario="normal" style="font-size:10px; padding:6px 10px"><span class="txt">NORMAL</span></button>
+        <button class="btn ghost" data-scenario="saturated" style="font-size:10px; padding:6px 10px"><span class="txt">SATURATED</span></button>
+        <button class="btn ghost" data-scenario="fragmenting" style="font-size:10px; padding:6px 10px"><span class="txt">FRAGMENT</span></button>
+      </div>
+      <button class="btn ghost active" id="play-toggle" style="margin-top:6px; width:100%; justify-content:center; font-size:10px"><span class="txt">PAUSE</span></button>
+    </div>
+  </section>
+
+  <!-- RIGHT RAIL -->
+  <aside class="right-rail">
+
+    <!-- Live Fiedler -->
+    <div class="panel" data-view="dynamics">
+      <div class="panel-head">
+        <div class="title"><span class="num">01</span>Coherence · λ₂<button class="help-icon" data-help="fiedler" aria-label="help"></button></div>
+        <span class="pill active live">live</span>
+      </div>
+      <div class="panel-desc">How <b>coherently</b> the network is firing. A sudden drop predicts a desync <b>50–80ms early</b>.</div>
+      <div class="fiedler">
+        <div style="display:flex; align-items:baseline; gap:10px">
+          <div class="hero" id="fiedler-hero">0.350</div>
+        </div>
+        <div class="sub-line">
+          <span>window 50ms</span>
+          <span>Δ <span class="delta pos" id="fiedler-delta">+0.000</span></span>
+          <span>threshold 0.18</span>
+        </div>
+        <canvas id="fiedler-canvas" style="height:68px"></canvas>
+      </div>
+    </div>
+
+    <!-- Mincut boundary -->
+    <div class="panel" data-view="structure">
+      <div class="panel-head">
+        <div class="title"><span class="num">02</span>Mincut boundary<button class="help-icon" data-help="mincut" aria-label="help"></button></div>
+        <span class="label" id="cut-label">M0 → M1</span>
+      </div>
+      <div class="panel-desc">The <b>weakest link</b> between modules — the smallest set of edges whose removal would split the network.</div>
+      <div class="kpis" style="margin-bottom:10px">
+        <div class="kpi signal" data-help="mincut"><div class="k">k-edges</div><div class="v tnum" id="cut-boundary-count">—</div></div>
+        <div class="kpi" data-help="ari"><div class="k">cert. ARI</div><div class="v tnum">0.78<small>vs SBM</small></div></div>
+        <div class="kpi" data-help="l1_sep"><div class="k">L1 sep</div><div class="v tnum">0.41</div></div>
+        <div class="kpi"><div class="k">update</div><div class="v tnum">4.2<small>ms</small></div></div>
+      </div>
+      <div class="label" style="margin-bottom:6px">candidate partitions</div>
+      <div class="cuts">
+        <div class="cut-row sel" data-cut="0-1"><span class="idx">01</span><span class="edge">M0 ↔ M1</span><span class="w">0.612</span><span class="label">active</span></div>
+        <div class="cut-row" data-cut="1-2"><span class="idx">02</span><span class="edge">M1 ↔ M2</span><span class="w">0.488</span><span class="label"></span></div>
+        <div class="cut-row" data-cut="2-3"><span class="idx">03</span><span class="edge">M2 ↔ M3</span><span class="w">0.407</span><span class="label"></span></div>
+        <div class="cut-row" data-cut="0-3"><span class="idx">04</span><span class="edge">M0 ↔ M3</span><span class="w">0.295</span><span class="label"></span></div>
+      </div>
+    </div>
+
+    <!-- Motif retrieval -->
+    <div class="panel" data-view="motifs">
+      <div class="panel-head">
+        <div class="title"><span class="num">03</span>Motif retrieval · SDPA<button class="help-icon" data-help="precision_at_5" aria-label="help"></button></div>
+        <span class="label">top-5</span>
+      </div>
+      <div class="panel-desc">Nearest <b>recurring patterns</b> in the live spike stream. Ranked by similarity to the current window.</div>
+      <div class="motifs">
+        <div class="motif sel" data-seed="11"><canvas class="motif-raster"></canvas><div class="motif-meta"><span class="id">W-041</span><span class="sim">0.94</span></div></div>
+        <div class="motif" data-seed="22"><canvas class="motif-raster"></canvas><div class="motif-meta"><span class="id">W-019</span><span class="sim">0.88</span></div></div>
+        <div class="motif" data-seed="33"><canvas class="motif-raster"></canvas><div class="motif-meta"><span class="id">W-203</span><span class="sim">0.82</span></div></div>
+        <div class="motif" data-seed="44"><canvas class="motif-raster"></canvas><div class="motif-meta"><span class="id">W-157</span><span class="sim">0.77</span></div></div>
+      </div>
+      <div class="label mono" style="margin-top:8px; color:var(--fg-3); line-height:1.6">
+        encoder: attention-f32x8 · corpus: 20-window kNN<br/>
+        precision@5 = 0.60 <span style="color:var(--amber)">· target 0.80</span>
+      </div>
+    </div>
+
+    <!-- Perturbation -->
+    <div class="panel" data-view="causal">
+      <div class="panel-head">
+        <div class="title"><span class="num">04</span>Counterfactual cut<button class="help-icon" data-help="sigma_sep" aria-label="help"></button></div>
+        <span class="label">σ-separation</span>
+      </div>
+      <div class="panel-desc">Compare cutting the <b>mincut edges</b> vs cutting the <b>same number at random</b>. Gap &gt; 3σ means the chosen edges were causal, not incidental.</div>
+
+      <div class="perturb-ctrls">
+        <div class="slider-row">
+          <div class="head"><span>top-k boundary edges</span><span class="v" id="slider-k-val">18</span></div>
+          <input type="range" min="4" max="64" value="18" step="1" id="slider-k"/>
+        </div>
+      </div>
+
+      <div class="divergence">
+        <div class="div-card targeted">
+          <div class="lbl">targeted</div>
+          <div class="val tnum" id="val-targeted">0.00σ</div>
+          <div class="bar"><div class="fill" id="bar-targeted" style="width:0%"></div></div>
+        </div>
+        <div class="div-card random">
+          <div class="lbl">random null</div>
+          <div class="val tnum" id="val-random">0.00σ</div>
+          <div class="bar"><div class="fill" id="bar-random" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <button class="btn primary" id="run-perturb" style="margin-top:12px; width:100%; justify-content:center">
+        Run 30 paired trials
+      </button>
+
+      <div class="sigma-result" id="sigma-out" style="display:none; margin-top:10px">
+        <span class="sigma tnum" id="sigma-sep-val">0.00σ</span>
+        <span id="sigma-conclusion">—</span>
+      </div>
+
+      <div class="label" style="margin-top:10px; margin-bottom:6px">history</div>
+      <div class="cuts" id="perturb-history"></div>
+    </div>
+
+    <!-- Embodiment -->
+    <div class="panel" data-view="embodiment">
+      <div class="panel-head">
+        <div class="title"><span class="num">E1</span>Embodiment · motor I/O<button class="help-icon" data-help="view_embodiment" aria-label="help"></button></div>
+        <span class="label mono">fly · tripod gait</span>
+      </div>
+      <div class="panel-desc">Live sensory↔motor loop. Spikes leave the network as <b>leg</b> and <b>wing</b> commands; body state feeds back in.</div>
+      <div class="emb-grid">
+        <div class="emb-row" data-help="tripod_gait">
+          <span class="emb-k">step rate</span>
+          <span class="emb-v" id="emb-step">5.5<em> Hz</em></span>
+          <span class="emb-bar"><i style="width:62%"></i></span>
+        </div>
+        <div class="emb-row" data-help="wing_beat">
+          <span class="emb-k">wing beat</span>
+          <span class="emb-v" id="emb-wing">198<em> Hz</em></span>
+          <span class="emb-bar"><i style="width:88%"></i></span>
+        </div>
+        <div class="emb-row">
+          <span class="emb-k">motor out</span>
+          <span class="emb-v" id="emb-motor">14.2<em> kHz</em></span>
+          <span class="emb-bar"><i style="width:71%"></i></span>
+        </div>
+        <div class="emb-row">
+          <span class="emb-k">sensory in</span>
+          <span class="emb-v" id="emb-sensory">22.8<em> kHz</em></span>
+          <span class="emb-bar"><i style="width:94%"></i></span>
+        </div>
+        <div class="emb-row" data-help="loop_latency">
+          <span class="emb-k">loop latency</span>
+          <span class="emb-v" id="emb-lat">3.8<em> ms</em></span>
+          <span class="emb-bar"><i style="width:18%"></i></span>
+        </div>
+      </div>
+      <div class="emb-legend mono">
+        tripod phase <span style="color:var(--signal)">L1·R2·L3</span> ⇄ <span style="color:var(--accent)">R1·L2·R3</span> · driven by motor pool readout
+      </div>
+    </div>
+
+    <!-- Acceptance tests -->
+    <div class="panel" data-view="acceptance">
+      <div class="panel-head">
+        <div class="title"><span class="num">05</span>Acceptance · AT-1..5<button class="help-icon" data-help="view_acceptance" aria-label="help"></button></div>
+        <span class="label">commit bd26c4ee4</span>
+      </div>
+      <div class="panel-desc">Test battery that gates a release. Each row links to its criterion.</div>
+      <div class="ac-grid">
+        <div class="ac-row" data-help="ac_1">
+          <span class="ac-num">AC-1</span>
+          <span class="ac-title">Repeatability<small>194,784 spikes · bit-exact</small></span>
+          <span class="ac-val">≡</span>
+          <span class="ac-status pass">pass</span>
+        </div>
+        <div class="ac-row" data-help="ac_2">
+          <span class="ac-num">AC-2</span>
+          <span class="ac-title">Motif emergence<small>precision@5 vs 0.80</small></span>
+          <span class="ac-val">0.60</span>
+          <span class="ac-status partial">partial</span>
+        </div>
+        <div class="ac-row" data-help="ac_3a">
+          <span class="ac-num">AC-3a</span>
+          <span class="ac-title">Structural cut<small>ARI vs SBM hubs</small></span>
+          <span class="ac-val">0.78</span>
+          <span class="ac-status pass">pass</span>
+        </div>
+        <div class="ac-row" data-help="ac_3b">
+          <span class="ac-num">AC-3b</span>
+          <span class="ac-title">Functional cut<small>class L1 · sensory vs motor</small></span>
+          <span class="ac-val">0.41</span>
+          <span class="ac-status pass">pass</span>
+        </div>
+        <div class="ac-row" data-help="ac_4">
+          <span class="ac-num">AC-4</span>
+          <span class="ac-title">Coherence lead<small>≥50ms on ≥70% of 30 trials</small></span>
+          <span class="ac-val">74%</span>
+          <span class="ac-status pass">pass</span>
+        </div>
+        <div class="ac-row" data-help="ac_5">
+          <span class="ac-num">AC-5</span>
+          <span class="ac-title">Causal perturb.<small>z_cut 5σ · z_rand 1σ</small></span>
+          <span class="ac-val">5.55 / 1.57</span>
+          <span class="ac-status partial">partial</span>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- BOTTOM DYNAMICS -->
+  <section class="dynamics">
+
+    <div class="raster-wrap">
+      <div class="panel-head">
+        <div class="title"><span class="num">D1</span>Spike raster — 208 × 240ms<button class="help-icon" data-help="spike_raster" aria-label="help"></button></div>
+        <span class="label">worker-backed · 50 Hz</span>
+      </div>
+      <canvas id="raster-canvas"></canvas>
+    </div>
+
+    <div>
+      <div class="panel-head">
+        <div class="title"><span class="num">D2</span>Throughput<button class="help-icon" data-help="throughput" aria-label="help"></button></div>
+        <span class="label">ryzen · 1 thread</span>
+      </div>
+      <div class="kpis">
+        <div class="kpi signal"><div class="k">sparse</div><div class="v tnum">7.6M<small>sp/s</small></div></div>
+        <div class="kpi"><div class="k">vs Brian2</div><div class="v tnum">38–150×</div></div>
+        <div class="kpi"><div class="k">saturated</div><div class="v tnum">29K<small>sp/s</small></div></div>
+        <div class="kpi"><div class="k">adapt cad.</div><div class="v tnum">4.29×</div></div>
+      </div>
+      <div class="label mono" style="margin-top:8px; color:var(--fg-3); line-height:1.6">
+        opt A · SoA <span style="color:var(--signal)">✓</span> &nbsp; opt B · wheel <span style="color:var(--signal)">✓</span><br/>
+        opt C · f32x8 <span style="color:var(--amber)">1.01×</span> &nbsp; opt D · CSR <span style="color:var(--fg-3)">deferred</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel-head">
+        <div class="title"><span class="num">D3</span>System state<button class="help-icon" data-help="system_state" aria-label="help"></button></div>
+        <span class="label">25 discoveries</span>
+      </div>
+      <div class="system-map" style="margin-bottom:8px">
+        <div class="seg active"></div><div class="seg active"></div><div class="seg active"></div>
+        <div class="seg active"></div><div class="seg active"></div><div class="seg active"></div>
+        <div class="seg active"></div><div class="seg active"></div><div class="seg active"></div>
+        <div class="seg active"></div><div class="seg active"></div><div class="seg active"></div>
+        <div class="seg active"></div><div class="seg active"></div><div class="seg active"></div>
+        <div class="seg active"></div><div class="seg active"></div><div class="seg active"></div>
+        <div class="seg active"></div><div class="seg active"></div><div class="seg active"></div>
+        <div class="seg active"></div><div class="seg active"></div><div class="seg active"></div>
+        <div class="seg active"></div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><div class="k">fiedler Δ</div><div class="v tnum">5ms</div></div>
+        <div class="kpi"><div class="k">detects</div><div class="v tnum signal" style="color:var(--signal)">10/10</div></div>
+        <div class="kpi"><div class="k">tests</div><div class="v tnum">97/0</div></div>
+        <div class="kpi"><div class="k">commits</div><div class="v tnum">25</div></div>
+      </div>
+    </div>
+
+  </section>
+</div>
+
+<!-- ========================= MOBILE APP ========================= -->
+<div class="mobile-only m-app">
+
+  <header class="m-header">
+    <div class="m-brand">
+      <div class="brand-mark">C</div>
+      <div class="name">Connectome OS<small>session 0x5FA1DE5</small></div>
+    </div>
+    <div class="pill active live">LIVE</div>
+  </header>
+
+  <!-- Hero: Fiedler -->
+  <section class="m-hero">
+    <div class="label">Coherence · λ₂</div>
+    <div class="val"><span id="m-fiedler-hero">0.350</span><span class="unit">λ₂</span></div>
+    <div class="delta">
+      <span>threshold 0.18</span>
+      <span class="ok">+0.02 ↑</span>
+      <span>window 50ms</span>
+    </div>
+    <canvas id="m-fiedler-canvas"></canvas>
+  </section>
+
+  <!-- Alerts -->
+  <section class="m-card">
+    <div class="head">
+      <div class="title">State feed</div>
+      <span class="label">3 active</span>
+    </div>
+    <div class="m-alerts">
+      <div class="m-alert"><div class="bar"></div>
+        <div class="txt"><div class="t">Mincut boundary stable on M0↔M1</div><div class="s">k=18 edges · cert. ARI 0.78</div></div>
+        <div class="time">02s</div>
+      </div>
+      <div class="m-alert amber"><div class="bar"></div>
+        <div class="txt"><div class="t">Fragility drift detected · M0</div><div class="s">λ₂ slope −0.004/s</div></div>
+        <div class="time">14s</div>
+      </div>
+      <div class="m-alert"><div class="bar"></div>
+        <div class="txt"><div class="t">Motif W-041 re-emerging</div><div class="s">sim 0.94 · SDPA window 100ms</div></div>
+        <div class="time">38s</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- KPIs -->
+  <section class="m-kpis">
+    <div class="m-kpi signal"><div class="k">Throughput</div><div class="v">7.6M<small style="font-size:11px; color:var(--fg-3)"> sp/s</small></div></div>
+    <div class="m-kpi"><div class="k">Nodes</div><div class="v">208</div></div>
+    <div class="m-kpi"><div class="k">Tests</div><div class="v signal" style="color:var(--signal)">97/0</div></div>
+    <div class="m-kpi"><div class="k">Commit</div><div class="v" style="font-size:14px; font-family:var(--ff-mono); padding-top:4px">bd26c4ee4</div></div>
+  </section>
+
+  <!-- Motifs carousel -->
+  <section class="m-card">
+    <div class="head"><div class="title">Motif retrieval</div><span class="label">top-5</span></div>
+    <div class="m-motifs-row">
+      <div class="m-motif"><div class="raster"></div><div class="meta"><span>W-041</span><span class="sim">0.94</span></div></div>
+      <div class="m-motif"><div class="raster"></div><div class="meta"><span>W-019</span><span class="sim">0.88</span></div></div>
+      <div class="m-motif"><div class="raster"></div><div class="meta"><span>W-203</span><span class="sim">0.82</span></div></div>
+      <div class="m-motif"><div class="raster"></div><div class="meta"><span>W-157</span><span class="sim">0.77</span></div></div>
+    </div>
+    <div class="m-actions">
+      <button class="btn">Run cut</button>
+      <button class="btn primary">Perturb</button>
+    </div>
+  </section>
+
+  <!-- Bottom nav -->
+  <nav class="m-nav">
+    <div class="item active" data-view="graph"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5" cy="9" r="1.6"/><circle cx="19" cy="10" r="1.6"/><circle cx="12" cy="5" r="1.6"/><circle cx="8" cy="17" r="1.6"/><circle cx="17" cy="18" r="1.6"/><path d="M5 9l7-4M12 5l7 5M5 9l3 8M19 10l-2 8M8 17l9 1"/></svg>Graph</div>
+    <div class="item" data-view="dynamics"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 14l3-4 3 6 4-10 3 7 5-3"/></svg>Dyn</div>
+    <div class="item" data-view="motifs"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Motif</div>
+    <div class="item" data-view="causal"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v18M6 9l6-6 6 6"/></svg>Cut</div>
+    <div class="item" data-view="acceptance"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 12l4 4 10-10"/></svg>AC</div>
+  </nav>
+</div>
+
+<!-- Tweaks panel -->
+<div class="tweaks-panel" id="tweaks">
+  <div class="tweaks-header" id="tweaks-toggle">
+    <h3>Tweaks</h3>
+    <button class="tweaks-collapse" id="tweaks-collapse" aria-label="Collapse tweaks" title="Collapse">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+  </div>
+  <div class="tweaks-body">
+    <div class="tr">
+      <label>Accent</label>
+      <div class="swatches">
+        <div class="sw-btn sel" data-color="#B8FF3C" style="background:#B8FF3C"></div>
+        <div class="sw-btn" data-color="#7CFF7A" style="background:#7CFF7A"></div>
+        <div class="sw-btn" data-color="#00C26E" style="background:#00C26E"></div>
+        <div class="sw-btn" data-color="#F6C445" style="background:#F6C445"></div>
+        <div class="sw-btn" data-color="#B18CFF" style="background:#B18CFF"></div>
+      </div>
+    </div>
+    <div class="tr">
+      <label>Scenario</label>
+      <select id="tweak-scenario">
+        <option value="normal">Normal</option>
+        <option value="saturated">Saturated</option>
+        <option value="fragmenting">Fragmenting</option>
+      </select>
+    </div>
+    <div class="tr">
+      <label>Layout</label>
+      <select id="tweak-layout">
+        <option>3-zone immersive</option>
+        <option>Dense (no rails)</option>
+        <option>Engineer console</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+// Wire tweak scenario to dynamics scenario (runs after main.js side effects).
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('tweak-scenario')?.addEventListener('change', (e) => {
+    window.Dynamics?.setScenario(e.target.value);
+    document.querySelectorAll('[data-scenario]').forEach(b => b.classList.toggle('active', b.dataset.scenario === e.target.value));
+  });
+});
+</script>
+
+</body>
+</html>
