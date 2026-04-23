@@ -24,7 +24,10 @@ impl RandomRotation {
         let mut m: Vec<Vec<f32>> = (0..dim)
             .map(|_| {
                 (0..dim)
-                    .map(|_| <StandardNormal as Distribution<f64>>::sample(&StandardNormal, &mut rng) as f32)
+                    .map(|_| {
+                        <StandardNormal as Distribution<f64>>::sample(&StandardNormal, &mut rng)
+                            as f32
+                    })
                     .collect()
             })
             .collect();

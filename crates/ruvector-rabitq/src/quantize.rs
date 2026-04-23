@@ -136,11 +136,7 @@ impl BinaryCode {
     /// `q_rotated` must be length `self.dim`; caller pre-normalises and
     /// pre-rotates the query once per search (amortised across n candidates).
     #[inline]
-    pub fn estimated_sq_distance_asymmetric(
-        &self,
-        q_rotated_unit: &[f32],
-        q_norm: f32,
-    ) -> f32 {
+    pub fn estimated_sq_distance_asymmetric(&self, q_rotated_unit: &[f32], q_norm: f32) -> f32 {
         debug_assert_eq!(q_rotated_unit.len(), self.dim);
         let d = self.dim;
         let inv_sqrt_d = 1.0 / (d as f32).sqrt();
@@ -190,15 +186,22 @@ mod tests {
 
     #[test]
     fn xnor_self_is_all_ones() {
-        let v: Vec<f32> = (0..64).map(|i| if i % 2 == 0 { 1.0 } else { -1.0 }).collect();
+        let v: Vec<f32> = (0..64)
+            .map(|i| if i % 2 == 0 { 1.0 } else { -1.0 })
+            .collect();
         let code = BinaryCode::encode(&v, 1.0);
         let agreement = code.xnor_popcount(&code);
-        assert_eq!(agreement, 64, "self-agreement should be D=64, got {agreement}");
+        assert_eq!(
+            agreement, 64,
+            "self-agreement should be D=64, got {agreement}"
+        );
     }
 
     #[test]
     fn xnor_opposite_is_zero() {
-        let v: Vec<f32> = (0..64).map(|i| if i % 2 == 0 { 1.0 } else { -1.0 }).collect();
+        let v: Vec<f32> = (0..64)
+            .map(|i| if i % 2 == 0 { 1.0 } else { -1.0 })
+            .collect();
         let neg_v: Vec<f32> = v.iter().map(|&x| -x).collect();
         let code = BinaryCode::encode(&v, 1.0);
         let code_neg = BinaryCode::encode(&neg_v, 1.0);
@@ -212,16 +215,24 @@ mod tests {
     #[test]
     fn masked_popcount_handles_non_aligned_dim() {
         // D=100 → 2 u64 words, 28 padding bits.
-        let v: Vec<f32> = (0..100).map(|i| if i % 2 == 0 { 1.0 } else { -1.0 }).collect();
+        let v: Vec<f32> = (0..100)
+            .map(|i| if i % 2 == 0 { 1.0 } else { -1.0 })
+            .collect();
         let neg_v: Vec<f32> = v.iter().map(|&x| -x).collect();
         let code = BinaryCode::encode(&v, 1.0);
         let code_neg = BinaryCode::encode(&neg_v, 1.0);
         // Raw would read 0 matches + 28 padding matches = 28 (wrong).
         let raw = code.xnor_popcount(&code_neg);
-        assert_eq!(raw, 28, "raw xnor should count padding as matches (bug demo)");
+        assert_eq!(
+            raw, 28,
+            "raw xnor should count padding as matches (bug demo)"
+        );
         // Masked must report 0 matches.
         let masked = code.masked_xnor_popcount(&code_neg);
-        assert_eq!(masked, 0, "masked xnor must ignore padding bits; got {masked}");
+        assert_eq!(
+            masked, 0,
+            "masked xnor must ignore padding bits; got {masked}"
+        );
         // Self-compare: every real bit matches, padding is masked.
         let self_masked = code.masked_xnor_popcount(&code);
         assert_eq!(self_masked, 100);
@@ -246,7 +257,10 @@ mod tests {
         let code = BinaryCode::encode(&unit, 1.0);
         let est = code.estimated_sq_distance(&code);
         // Symmetric Charikar estimator on the same code: cos(π·(1−D/D))=1 → est=0.
-        assert!(est.abs() < 1e-5, "self sq-distance estimate too large: {est}");
+        assert!(
+            est.abs() < 1e-5,
+            "self sq-distance estimate too large: {est}"
+        );
     }
 
     #[test]

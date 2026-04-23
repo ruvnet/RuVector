@@ -114,20 +114,31 @@ impl TopK {
     #[inline]
     fn push_raw(&mut self, id: usize, score: f32, pos: usize) {
         if self.heap.len() < self.k {
-            self.heap.push(HeapEntry { id, score, pos: pos as u32 });
+            self.heap.push(HeapEntry {
+                id,
+                score,
+                pos: pos as u32,
+            });
             return;
         }
         let worst = self.heap.peek().unwrap().score;
         if score.total_cmp(&worst) == Ordering::Less {
             self.heap.pop();
-            self.heap.push(HeapEntry { id, score, pos: pos as u32 });
+            self.heap.push(HeapEntry {
+                id,
+                score,
+                pos: pos as u32,
+            });
         }
     }
     fn into_sorted_asc(self) -> Vec<SearchResult> {
         let mut v: Vec<SearchResult> = self
             .heap
             .into_iter()
-            .map(|e| SearchResult { id: e.id, score: e.score })
+            .map(|e| SearchResult {
+                id: e.id,
+                score: e.score,
+            })
             .collect();
         v.sort_unstable_by(|a, b| cmp_score_asc(a.score, b.score));
         v
@@ -154,13 +165,19 @@ pub struct FlatF32Index {
 
 impl FlatF32Index {
     pub fn new(dim: usize) -> Self {
-        Self { dim, vectors: Vec::new() }
+        Self {
+            dim,
+            vectors: Vec::new(),
+        }
     }
 }
 
 #[inline]
 fn sq_l2(a: &[f32], b: &[f32]) -> f32 {
-    a.iter().zip(b.iter()).map(|(&x, &y)| (x - y) * (x - y)).sum()
+    a.iter()
+        .zip(b.iter())
+        .map(|(&x, &y)| (x - y) * (x - y))
+        .sum()
 }
 
 impl AnnIndex for FlatF32Index {
@@ -257,7 +274,9 @@ fn build_last_word_mask(dim: usize) -> u64 {
 fn build_cos_lut(dim: usize) -> Vec<f32> {
     use std::f32::consts::PI;
     let d = dim as f32;
-    (0..=dim).map(|b| (PI * (1.0 - b as f32 / d)).cos()).collect()
+    (0..=dim)
+        .map(|b| (PI * (1.0 - b as f32 / d)).cos())
+        .collect()
 }
 
 impl RabitqIndex {
@@ -308,7 +327,11 @@ impl RabitqIndex {
     /// around [`Self::encode_query_packed`] that boxes the result.
     pub fn encode_query(&self, q: &[f32]) -> BinaryCode {
         let (words, norm) = self.encode_query_packed(q);
-        BinaryCode { words, norm, dim: self.dim }
+        BinaryCode {
+            words,
+            norm,
+            dim: self.dim,
+        }
     }
 
     /// Prepare a query for the asymmetric estimator — returns the rotated
@@ -341,7 +364,11 @@ impl RabitqIndex {
                 let words = self.packed[s..s + self.n_words].to_vec();
                 (
                     self.ids[i] as usize,
-                    BinaryCode { words, norm: self.norms[i], dim: self.dim },
+                    BinaryCode {
+                        words,
+                        norm: self.norms[i],
+                        dim: self.dim,
+                    },
                 )
             })
             .collect()
@@ -469,7 +496,10 @@ impl AnnIndex for RabitqIndex {
         let results = self.symmetric_scan_topk(&q_packed, q_norm, k);
         Ok(results
             .into_iter()
-            .map(|(_, id, score)| SearchResult { id: id as usize, score })
+            .map(|(_, id, score)| SearchResult {
+                id: id as usize,
+                score,
+            })
             .collect())
     }
 
@@ -533,7 +563,9 @@ impl AnnIndex for RabitqPlusIndex {
 
         // Binary-code scan via the tuned SoA loop.
         let (q_packed, q_norm) = self.inner.encode_query_packed(query);
-        let cand = self.inner.symmetric_scan_topk(&q_packed, q_norm, candidates);
+        let cand = self
+            .inner
+            .symmetric_scan_topk(&q_packed, q_norm, candidates);
 
         // Exact rerank on the candidate set — `pos` is the row index.
         let k_eff = k.min(cand.len());
@@ -552,8 +584,7 @@ impl AnnIndex for RabitqPlusIndex {
         self.inner.dim()
     }
     fn memory_bytes(&self) -> usize {
-        self.inner.memory_bytes()
-            + self.originals.len() * (self.inner.dim * 4 + 24)
+        self.inner.memory_bytes() + self.originals.len() * (self.inner.dim * 4 + 24)
     }
 }
 
@@ -636,7 +667,10 @@ impl AnnIndex for RabitqAsymIndex {
             let mut out: Vec<SearchResult> = cand
                 .into_iter()
                 .take(k_eff)
-                .map(|(_, id, score)| SearchResult { id: id as usize, score })
+                .map(|(_, id, score)| SearchResult {
+                    id: id as usize,
+                    score,
+                })
                 .collect();
             out.sort_unstable_by(|a, b| cmp_score_asc(a.score, b.score));
             return Ok(out);
@@ -687,12 +721,18 @@ mod tests {
         use rand::{Rng as _, SeedableRng as _};
         let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
         let centroids: Vec<Vec<f32>> = (0..n_clusters)
-            .map(|_| (0..d).map(|_| rng.gen::<f32>() * 4.0 - 2.0).collect::<Vec<_>>())
+            .map(|_| {
+                (0..d)
+                    .map(|_| rng.gen::<f32>() * 4.0 - 2.0)
+                    .collect::<Vec<_>>()
+            })
             .collect();
         (0..n)
             .map(|_| {
                 let c = &centroids[rng.gen_range(0..n_clusters)];
-                c.iter().map(|&x| x + (rng.gen::<f32>() - 0.5) * 0.3).collect()
+                c.iter()
+                    .map(|&x| x + (rng.gen::<f32>() - 0.5) * 0.3)
+                    .collect()
             })
             .collect()
     }
@@ -736,11 +776,20 @@ mod tests {
         for q in &queries {
             let e: std::collections::HashSet<usize> =
                 exact.search(q, k).unwrap().iter().map(|r| r.id).collect();
-            hits += idx.search(q, k).unwrap().iter().filter(|r| e.contains(&r.id)).count();
+            hits += idx
+                .search(q, k)
+                .unwrap()
+                .iter()
+                .filter(|r| e.contains(&r.id))
+                .count();
         }
         let recall = hits as f64 / (nq * k) as f64;
         // k/n = 1% is random chance; we want the estimator to beat it by ≥ 10×.
-        assert!(recall > 0.20, "recall@10={:.1}% — not above 20 % baseline", recall * 100.0);
+        assert!(
+            recall > 0.20,
+            "recall@10={:.1}% — not above 20 % baseline",
+            recall * 100.0
+        );
     }
 
     #[test]
@@ -764,10 +813,19 @@ mod tests {
         for q in &queries {
             let e: std::collections::HashSet<usize> =
                 exact.search(q, k).unwrap().iter().map(|r| r.id).collect();
-            hits += idx.search(q, k).unwrap().iter().filter(|r| e.contains(&r.id)).count();
+            hits += idx
+                .search(q, k)
+                .unwrap()
+                .iter()
+                .filter(|r| e.contains(&r.id))
+                .count();
         }
         let recall = hits as f64 / (nq * k) as f64;
-        assert!(recall > 0.90, "rerank×5 recall@10={:.1}% < 90 %", recall * 100.0);
+        assert!(
+            recall > 0.90,
+            "rerank×5 recall@10={:.1}% < 90 %",
+            recall * 100.0
+        );
     }
 
     /// Asymmetric (f32 query × 1-bit db) should *equal or beat* symmetric on
@@ -797,8 +855,18 @@ mod tests {
         for q in &queries {
             let e: std::collections::HashSet<usize> =
                 exact.search(q, k).unwrap().iter().map(|r| r.id).collect();
-            sh += sym.search(q, k).unwrap().iter().filter(|r| e.contains(&r.id)).count();
-            ah += asym.search(q, k).unwrap().iter().filter(|r| e.contains(&r.id)).count();
+            sh += sym
+                .search(q, k)
+                .unwrap()
+                .iter()
+                .filter(|r| e.contains(&r.id))
+                .count();
+            ah += asym
+                .search(q, k)
+                .unwrap()
+                .iter()
+                .filter(|r| e.contains(&r.id))
+                .count();
         }
         let sr = sh as f64 / (nq * k) as f64;
         let ar = ah as f64 / (nq * k) as f64;
@@ -831,7 +899,12 @@ mod tests {
         for q in &queries {
             let e: std::collections::HashSet<usize> =
                 exact.search(q, k).unwrap().iter().map(|r| r.id).collect();
-            hits += idx.search(q, k).unwrap().iter().filter(|r| e.contains(&r.id)).count();
+            hits += idx
+                .search(q, k)
+                .unwrap()
+                .iter()
+                .filter(|r| e.contains(&r.id))
+                .count();
         }
         let r = hits as f64 / (nq * k) as f64;
         assert!(r > 0.80, "D=100 rerank×5 recall={:.1}% < 80 %", r * 100.0);
@@ -870,7 +943,10 @@ mod tests {
         // Pure 1-bit index MUST report less than flat — it holds no originals.
         assert!(rqb < f, "RabitqIndex {rqb} should be < Flat {f}");
         // Plus-index reports MORE than flat — it holds originals AND codes.
-        assert!(rqpb > f, "RabitqPlusIndex {rqpb} should be > Flat {f} (rerank stores both)");
+        assert!(
+            rqpb > f,
+            "RabitqPlusIndex {rqpb} should be > Flat {f} (rerank stores both)"
+        );
     }
 
     #[test]

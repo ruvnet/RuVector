@@ -32,7 +32,9 @@ fn clustered(n: usize, d: usize, n_clusters: usize, seed: u64) -> Vec<Vec<f32>> 
     (0..n)
         .map(|_| {
             let c = &centroids[rng.gen_range(0..n_clusters)];
-            c.iter().map(|&x| x + noise.sample(&mut rng) as f32).collect()
+            c.iter()
+                .map(|&x| x + noise.sample(&mut rng) as f32)
+                .collect()
         })
         .collect()
 }

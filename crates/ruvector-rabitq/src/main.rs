@@ -190,7 +190,13 @@ fn run_scale(n: usize, d: usize, n_clusters: usize, nq: usize, seed: u64, k_max:
     print_header();
     let rows = [
         measure("FlatF32 (exact)", &flat, &queries, &truth, k_max),
-        measure("RaBitQ 1-bit (sym, no rerank)", &rq, &queries, &truth, k_max),
+        measure(
+            "RaBitQ 1-bit (sym, no rerank)",
+            &rq,
+            &queries,
+            &truth,
+            k_max,
+        ),
         measure("RaBitQ+ (sym, rerank×5)", &rq_p5, &queries, &truth, k_max),
         measure("RaBitQ+ (sym, rerank×20)", &rq_p20, &queries, &truth, k_max),
         measure("RaBitQ-Asym (no rerank)", &rq_a1, &queries, &truth, k_max),
@@ -255,7 +261,13 @@ fn main() {
     let (rq_p5, _) = build_plus(d, 123, 5, db);
     print_header();
     print_row(&measure("FlatF32", &flat, &queries, &truth, k_max));
-    print_row(&measure("RaBitQ+ sym ×5 (D=100)", &rq_p5, &queries, &truth, k_max));
+    print_row(&measure(
+        "RaBitQ+ sym ×5 (D=100)",
+        &rq_p5,
+        &queries,
+        &truth,
+        k_max,
+    ));
 
     println!("\nAll numbers reproducible with the seeds above.");
 }
