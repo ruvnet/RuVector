@@ -248,6 +248,81 @@ fn count_unique(labels: &[u32]) -> usize {
 }
 
 #[test]
+fn leiden_cpm_vs_modularity_across_seeds() {
+    // Reproducibility sweep: are CPM's 3.97× full-ARI win over
+    // modularity-Leiden (ADR §17 items 18 & 20) stable across SBM
+    // seeds, or a single-seed artefact? Run five seeds of the
+    // default config and compare CPM @ γ=2.25 vs modularity-Leiden
+    // on full-partition ARI. If CPM wins on ≥ 4 of 5 seeds by ≥ 2×,
+    // the 3.97× headline is reproducible.
+    let seeds: [u64; 5] = [
+        0x5FA1_DE5,
+        0x0C70_F00D,
+        0xC0DE_CAFE,
+        0xBEEF_BABE,
+        0xDEAD_1234,
+    ];
+    let mut cpm_aris = Vec::new();
+    let mut mod_aris = Vec::new();
+    let mut ratios = Vec::new();
+    for &seed in &seeds {
+        let cfg = ConnectomeConfig {
+            seed,
+            ..ConnectomeConfig::default()
+        };
+        let conn = Connectome::generate(&cfg);
+        let an = Analysis::new(AnalysisConfig::default());
+        let truth_labels: Vec<u32> = (0..conn.num_neurons())
+            .map(|i| conn.meta(connectome_fly::NeuronId(i as u32)).module as u32)
+            .collect();
+        let cpm_labels =
+            connectome_fly::analysis::leiden::leiden_labels_cpm(&conn, 2.25);
+        let cpm_full = full_partition_ari(&cpm_labels, &truth_labels);
+        let mod_labels = an.leiden_labels(&conn);
+        let mod_full = full_partition_ari(&mod_labels, &truth_labels);
+        let ratio = if mod_full > 1e-6 { cpm_full / mod_full } else { f32::INFINITY };
+        eprintln!(
+            "cpm-seed-sweep: seed=0x{seed:X}  cpm_full={cpm_full:.3}  \
+             modularity_full={mod_full:.3}  ratio={ratio:.2}×"
+        );
+        cpm_aris.push(cpm_full);
+        mod_aris.push(mod_full);
+        ratios.push(ratio);
+    }
+    let cpm_mean: f32 = cpm_aris.iter().sum::<f32>() / seeds.len() as f32;
+    let mod_mean: f32 = mod_aris.iter().sum::<f32>() / seeds.len() as f32;
+    let finite_ratios: Vec<f32> = ratios.iter().copied().filter(|x| x.is_finite()).collect();
+    let ratio_mean = if finite_ratios.is_empty() {
+        0.0
+    } else {
+        finite_ratios.iter().sum::<f32>() / finite_ratios.len() as f32
+    };
+    eprintln!(
+        "cpm-seed-sweep: MEAN cpm={:.3}  modularity={:.3}  ratio={:.2}×",
+        cpm_mean, mod_mean, ratio_mean
+    );
+    let wins: usize = cpm_aris
+        .iter()
+        .zip(mod_aris.iter())
+        .filter(|(c, m)| **c > 2.0 * **m)
+        .count();
+    eprintln!(
+        "cpm-seed-sweep: CPM beats modularity by ≥ 2× on {}/{} seeds",
+        wins,
+        seeds.len()
+    );
+    // Gate: publish-only on individual seed values; assert only that
+    // the MEAN ratio is non-degenerate (> 1.0) so a regression in
+    // leiden_labels_cpm itself fails loudly.
+    assert!(
+        ratio_mean > 1.0,
+        "cpm-seed-sweep: CPM mean full-ARI {:.3} is not above modularity's {:.3} — \
+         the 3.97× headline is not reproducible on this seed set, or CPM has regressed",
+        cpm_mean, mod_mean
+    );
+}
+
+#[test]
 fn leiden_cpm_recovers_two_planted_communities() {
     // 2-community planted SBM: dense intra, sparse inter — the exact
     // fixture modularity-Leiden already handles cleanly. CPM should
