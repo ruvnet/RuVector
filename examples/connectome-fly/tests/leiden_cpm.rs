@@ -93,6 +93,59 @@ fn adjusted_rand_index(side_a: &[u32], side_b: &[u32], is_class_1: impl Fn(u32) 
     ((index - expected) / (max - expected)) as f32
 }
 
+/// Full-partition Adjusted Rand Index between two equal-length label
+/// vectors. Unlike the 2-way `adjusted_rand_index` above, this gives
+/// community-detection algorithms credit for recovering the full
+/// ground-truth partition even when the predicted label vocabulary
+/// is larger or smaller than the truth vocabulary.
+///
+/// Standard Hubert-Arabie ARI:
+///   contingency: n_ij = |{k : predicted[k]=i, truth[k]=j}|
+///   a_i = Σ_j n_ij, b_j = Σ_i n_ij
+///   index    = Σ_ij C(n_ij, 2)
+///   expected = (Σ_i C(a_i,2))(Σ_j C(b_j,2)) / C(n,2)
+///   max      = 0.5*(Σ_i C(a_i,2) + Σ_j C(b_j,2))
+///   ARI = (index − expected) / (max − expected)
+fn full_partition_ari(predicted: &[u32], truth: &[u32]) -> f32 {
+    assert_eq!(
+        predicted.len(),
+        truth.len(),
+        "full_partition_ari: vector length mismatch"
+    );
+    let n_total = predicted.len();
+    if n_total < 2 {
+        return 0.0;
+    }
+    fn c2(k: u64) -> f64 {
+        (k as f64) * ((k as f64) - 1.0) / 2.0
+    }
+    // Contingency table via HashMap.
+    let mut contingency: std::collections::HashMap<(u32, u32), u64> =
+        std::collections::HashMap::new();
+    let mut row_sum: std::collections::HashMap<u32, u64> = std::collections::HashMap::new();
+    let mut col_sum: std::collections::HashMap<u32, u64> = std::collections::HashMap::new();
+    for i in 0..n_total {
+        let p = predicted[i];
+        let t = truth[i];
+        *contingency.entry((p, t)).or_insert(0) += 1;
+        *row_sum.entry(p).or_insert(0) += 1;
+        *col_sum.entry(t).or_insert(0) += 1;
+    }
+    let index_sum: f64 = contingency.values().map(|n| c2(*n)).sum();
+    let row_c2: f64 = row_sum.values().map(|a| c2(*a)).sum();
+    let col_c2: f64 = col_sum.values().map(|b| c2(*b)).sum();
+    let total = c2(n_total as u64);
+    if total < 1.0 {
+        return 0.0;
+    }
+    let expected = (row_c2 * col_c2) / total;
+    let max_val = 0.5 * (row_c2 + col_c2);
+    if (max_val - expected).abs() < 1e-12 {
+        return 0.0;
+    }
+    ((index_sum - expected) / (max_val - expected)) as f32
+}
+
 #[test]
 fn leiden_cpm_sweeps_gamma_on_default_sbm() {
     let conn = default_conn();
@@ -100,15 +153,25 @@ fn leiden_cpm_sweeps_gamma_on_default_sbm() {
     let num_hub = ConnectomeConfig::default().num_hub_modules;
     let is_hub = |id: u32| conn.meta(connectome_fly::NeuronId(id)).module < num_hub;
 
-    // Baseline — current modularity-Leiden ARI on this same graph.
-    // Published for context so the CPM sweep can be compared to it.
+    // Ground-truth module labels (full-partition, 70 distinct modules
+    // on the default SBM).
+    let truth_labels: Vec<u32> = (0..conn.num_neurons())
+        .map(|i| conn.meta(connectome_fly::NeuronId(i as u32)).module as u32)
+        .collect();
+
+    // Baselines — modularity-Leiden measured two ways:
+    //   - `ari_modularity_2way`:  top-2 community coarsening vs hub-vs-non-hub
+    //     (the AC-3a-inherited metric; undersells multi-community outputs).
+    //   - `ari_modularity_full`:  full-partition ARI vs ground-truth module labels
+    //     (the correct metric for multi-community outputs).
     let baseline_labels = an.leiden_labels(&conn);
     let (ba, bb) = two_way_from_labels(&baseline_labels);
-    let ari_modularity = if ba.is_empty() || bb.is_empty() {
+    let ari_modularity_2way = if ba.is_empty() || bb.is_empty() {
         0.0
     } else {
         adjusted_rand_index(&ba, &bb, is_hub)
     };
+    let ari_modularity_full = full_partition_ari(&baseline_labels, &truth_labels);
 
     // Sweep spans 4 decades so we cross both "too low → merge
     // everything" and "too high → every node is its own community"
@@ -116,33 +179,43 @@ fn leiden_cpm_sweeps_gamma_on_default_sbm() {
     // threshold; the SBM's natural γ* for a non-trivial partition
     // sits at roughly inter_density × n_module.
     let gammas = [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0];
-    let mut best_ari = f32::NEG_INFINITY;
-    let mut best_gamma = 0.0_f64;
-    let mut rows: Vec<(f64, f32, usize)> = Vec::new();
+    let mut best_ari_2way = f32::NEG_INFINITY;
+    let mut best_gamma_2way = 0.0_f64;
+    let mut best_ari_full = f32::NEG_INFINITY;
+    let mut best_gamma_full = 0.0_f64;
+    let mut rows: Vec<(f64, f32, f32, usize)> = Vec::new();
     for &g in &gammas {
         let labels = connectome_fly::analysis::leiden::leiden_labels_cpm(&conn, g);
         let (la, lb) = two_way_from_labels(&labels);
-        let ari = if la.is_empty() || lb.is_empty() {
+        let ari_2way = if la.is_empty() || lb.is_empty() {
             0.0
         } else {
             adjusted_rand_index(&la, &lb, is_hub)
         };
+        let ari_full = full_partition_ari(&labels, &truth_labels);
         let distinct = count_unique(&labels);
         eprintln!(
-            "leiden-cpm: γ={:.4}  ari={:.3}  distinct_communities={}",
-            g, ari, distinct
+            "leiden-cpm: γ={:.4}  ari_2way={:.3}  ari_full={:.3}  distinct_communities={}",
+            g, ari_2way, ari_full, distinct
         );
-        rows.push((g, ari, distinct));
-        if ari.abs() > best_ari {
-            best_ari = ari.abs();
-            best_gamma = g;
+        rows.push((g, ari_2way, ari_full, distinct));
+        if ari_2way.abs() > best_ari_2way {
+            best_ari_2way = ari_2way.abs();
+            best_gamma_2way = g;
+        }
+        if ari_full.abs() > best_ari_full {
+            best_ari_full = ari_full.abs();
+            best_gamma_full = g;
         }
     }
 
     eprintln!(
-        "leiden-cpm: modularity-Leiden_ari={:.3}  best_cpm_ari={:.3} @ γ={:.4}  \
-         (SOTA_target=0.75)",
-        ari_modularity, best_ari, best_gamma
+        "leiden-cpm baselines: modularity-Leiden 2way_ari={:.3}, full_ari={:.3}",
+        ari_modularity_2way, ari_modularity_full
+    );
+    eprintln!(
+        "leiden-cpm best: 2way={:.3} @ γ={:.4}   full={:.3} @ γ={:.4}   (SOTA_target=0.75)",
+        best_ari_2way, best_gamma_2way, best_ari_full, best_gamma_full
     );
 
     // Diagnostic-only assertion — CPM either beats modularity-Leiden
@@ -151,7 +224,7 @@ fn leiden_cpm_sweeps_gamma_on_default_sbm() {
     // that the measurement is non-degenerate so a regression in
     // `leiden_labels_cpm` itself (e.g., collapses everything to 1
     // community) fails loudly.
-    let any_meaningful = rows.iter().any(|(_, _, k)| *k >= 2);
+    let any_meaningful = rows.iter().any(|(_, _, _, k)| *k >= 2);
     assert!(
         any_meaningful,
         "leiden-cpm: every γ collapsed the graph to a single community — \
