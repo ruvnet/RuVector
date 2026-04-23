@@ -10265,10 +10265,14 @@ dependencies = [
 name = "ruvector-rulake"
 version = "2.2.0"
 dependencies = [
+ "hex",
  "rand 0.8.5",
  "rand_distr 0.4.3",
+ "rayon",
  "ruvector-rabitq",
  "serde",
+ "serde_json",
+ "sha3",
  "thiserror 2.0.18",
 ]
 

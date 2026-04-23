@@ -227,6 +227,7 @@ fn main() {
     println!("  - Fresh calls LocalBackend::generation() on every query (one hash-map read —");
     println!("    on a real backend this is a network round-trip, expect materially higher tax).");
     println!("  - Eventual skips the generation check within TTL; this is the production path.");
-    println!("  - Federated QPS scales inverse to shard count because the k-way merge");
-    println!("    runs sequentially in v1 (v2: parallel fan-out, see ADR-155 §Consequences).");
+    println!("  - Federated fan-out runs on rayon (added 2026-04-22); shard count");
+    println!("    should improve tail latency, but per-shard work still adds to total");
+    println!("    wall clock when shards are balanced and CPU-bound.");
 }

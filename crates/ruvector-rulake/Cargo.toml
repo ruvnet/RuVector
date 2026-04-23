@@ -24,3 +24,5 @@ hex = "0.4"
 # needed by the bin; tests already pull these via dev-deps.
 rand = { workspace = true }
 rand_distr = { workspace = true }
+# Parallel fan-out for federated search (ADR-155). Workspace-pinned 1.10.
+rayon = { workspace = true }

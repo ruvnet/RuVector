@@ -136,18 +136,29 @@ impl RuLake {
     }
 
     /// Federated search: fan out to every `(backend, collection)` pair
-    /// in `targets`, merge by score, return global top-k.
+    /// in `targets` in parallel, merge by score, return global top-k.
+    ///
+    /// Each shard's `search_one` runs on the shared rayon pool. The
+    /// cache is behind a Mutex so the hot path (witness-match → pointer
+    /// touch + search) does not hold it across the rabitq scan; only
+    /// cache-miss prime paths briefly serialize. For a 2-shard all-hit
+    /// workload this gets us close to the single-shard latency; miss
+    /// paths serialize on prime but that's the rare case.
     pub fn search_federated(
         &self,
         targets: &[(&str, &str)],
         query: &[f32],
         k: usize,
     ) -> Result<Vec<SearchResult>> {
-        let mut merged: Vec<SearchResult> = Vec::with_capacity(targets.len() * k);
-        for (backend, collection) in targets {
-            let hits = self.search_one(backend, collection, query, k)?;
-            merged.extend(hits);
-        }
+        use rayon::prelude::*;
+        // Collect so we can return the first error; rayon's `collect`
+        // into `Result<Vec<_>>` short-circuits on the first Err which is
+        // exactly the semantics the sequential loop had.
+        let shard_hits: Result<Vec<Vec<SearchResult>>> = targets
+            .par_iter()
+            .map(|(backend, collection)| self.search_one(backend, collection, query, k))
+            .collect();
+        let mut merged: Vec<SearchResult> = shard_hits?.into_iter().flatten().collect();
         // Ascending by score (L2²) — smaller = closer.
         merged.sort_by(|a, b| a.score.total_cmp(&b.score));
         merged.truncate(k);
