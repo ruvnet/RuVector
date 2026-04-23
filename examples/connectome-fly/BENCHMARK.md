@@ -11,6 +11,7 @@ This file is the binding record of every quantitative claim the example makes. N
 | `lif_throughput_n_1024` @ 120 ms simulated (pre-adaptive) | **6.86 s** | **6.83 s** | **6.74 s** | 1.013× (SIMD vs scalar) | ≥ 2× | MISS (saturation — superseded by §4.10 win) |
 | `lif_throughput_n_1024` + delay-csr (Opt D, commit 7) | **6.81 s** | **6.75 s** | **6.75 s** | 1.00× full-bench / **1.5× kernel-only** | ≥ 2× | MISS at top-line; see §4.7 |
 | `lif_throughput_n_1024` + **adaptive cadence** (commit 10) | **1.70 s** | **1.57 s** | **1.57 s** | **~4.0× full-bench** | ≥ 2× | **PASS** — see §4.10 |
+| `lif_throughput_n_1024` + **bucket sort** (commit 23, §4.11) | *not re-run* | *not re-run* | **1.67 s** | 4.04× vs pre-adaptive | ≥ 2× | **PASS** — sort costs 6.4% over commit-10; see §4.11 |
 | `motif_search` @ 512 neurons × 300 ms | **322 µs** | **340 µs** | — | 0.95× | ≥ 1.5× | MISS; see §5 |
 | `gpu_sdpa_10k` | cpu: see §8 | n/a | cuda: see §8 | — | N/A | CPU only in this commit; GPU stub; see §8 |
 | `sparse_fiedler_n_10_000` @ 60k spike window | — | — | — | **19.25 ms wallclock** | < 200 ms | **PASS** — 40× memory reduction vs dense (§4.8) |
@@ -285,6 +286,28 @@ Design notes:
 - FlyWire root IDs carried as a parallel `Option<Vec<FlyWireNeuronId>>` on `Connectome` — avoids mutating `NeuronMeta` bincode layout.
 
 Test timing: 17 ingest tests pass in < 1 ms total (fixture round-trip is CPU-bound, not I/O-bound).
+
+### 4.11 Bucket-sort determinism contract (commit 23, `feat/lif-bucket-sort-determinism`)
+
+`TimingWheel::drain_due` now sorts each bucket ascending by `(t_ms, post, pre)` before delivery, matching `SpikeEvent::cmp` on the heap path. Canonical in-bucket ordering contract from ADR-154 §15.1 / §17 item 15.
+
+**Measured on the commit-23 host (N=1024, 120 ms saturated, SIMD default):**
+
+| Path | Median | vs pre-sort (commit 10) |
+|---|---|---|
+| SIMD-opt + adaptive cadence (commit 10, pre-sort) | **1.57 s** | — |
+| SIMD-opt + adaptive cadence + **bucket sort** (this) | **1.67 s** | **+6.4 % (slight regression)** |
+
+**Honest note on the perf budget:** the commit message and ADR §15.1 pre-measurement both named a ≤ 5 % budget for the sort. Measured 6.4 % — **slightly over budget.** Root cause: each drain sorts O(k log k) for k ≈ 20–80 events per bucket in saturation, plus an additional cache-miss penalty on the sort's compare+swap passes. Not a panic — still 4.04× over the pre-adaptive-cadence baseline, still inside the ADR-154 §3.2 ≥ 2× saturated-regime target that commit 10 first cleared.
+
+**Two cheaper alternatives for a future iteration** if the 6 % becomes material:
+
+1. **Lazy sort** — skip the sort when the bucket is length ≤ 1 (trivially ordered) or when the engine config specifies the heap path (which already delivers canonical order). Removes ~70 % of the sort calls on sparse buckets.
+2. **Bucket-local radix sort on the `post` field** — `NeuronId` is u32; a 2-pass radix on the lower 16 bits is O(k) with tiny constants and bit-identical output to the `sort_by` tie-break. Projected ~2 % overhead vs 6.4 %.
+
+Neither lands this iteration. The honest 6.4 % is recorded; the tests it enables (`tests/cross_path_determinism.rs`, 3/3 pass) are worth the cost.
+
+**Knock-on effects:** AC-1 bit-exact within-path still holds on both heap and wheel paths. AC-5 wallclock unchanged within measurement noise (pre-sort and post-sort both hit ~100 s on the commit-10 host).
 
 ## 5. Motif search
 
