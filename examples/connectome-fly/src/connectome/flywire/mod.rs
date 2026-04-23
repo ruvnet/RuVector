@@ -27,9 +27,11 @@
 
 pub mod fixture;
 pub mod loader;
+pub mod princeton;
 pub mod schema;
 pub mod streaming;
 
+pub use princeton::load_flywire_princeton;
 pub use streaming::load_flywire_streaming;
 
 pub use loader::{

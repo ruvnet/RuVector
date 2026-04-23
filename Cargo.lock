@@ -1589,6 +1589,7 @@ dependencies = [
  "criterion 0.5.1",
  "csv",
  "cudarc",
+ "flate2",
  "rand 0.8.5",
  "rand_distr 0.4.3",
  "rand_xoshiro",

@@ -68,7 +68,18 @@ impl ConnectomeSource {
     fn status_label(&self) -> &'static str {
         match self {
             Self::SyntheticSbm { .. } => "synthetic-sbm",
-            Self::Flywire { .. } => "flywire-v783-tsv",
+            Self::Flywire { dir, .. } => {
+                // Princeton dirs carry the exact file on disk; TSV
+                // dirs don't. Cheap heuristic — test both common file
+                // names — at runtime so the label reflects what was
+                // actually parsed.
+                let p = std::path::Path::new(dir);
+                if p.join("connections_princeton.csv.gz").exists() {
+                    "flywire-princeton-csv"
+                } else {
+                    "flywire-v783-tsv"
+                }
+            }
         }
     }
     fn num_modules(&self) -> u32 {
@@ -91,6 +102,31 @@ impl ConnectomeSource {
 }
 
 fn load_connectome() -> ConnectomeSource {
+    // Princeton-format gzipped CSV path: `neurons.csv.gz` +
+    // `connections_princeton.csv.gz` under a single dir.
+    if let Ok(dir) = std::env::var("CONNECTOME_FLYWIRE_PRINCETON_DIR") {
+        let dir_path = std::path::Path::new(&dir);
+        let neurons = dir_path.join("neurons.csv.gz");
+        let conns = dir_path.join("connections_princeton.csv.gz");
+        eprintln!("[ui_server] loading FlyWire Princeton CSV from {dir}…");
+        match connectome_fly::connectome::flywire::princeton::load_flywire_princeton(
+            &neurons, &conns,
+        ) {
+            Ok(conn) => {
+                eprintln!(
+                    "[ui_server] Princeton loaded: n={} synapses={} (from {dir})",
+                    conn.num_neurons(),
+                    conn.num_synapses()
+                );
+                return ConnectomeSource::Flywire { dir, conn };
+            }
+            Err(e) => {
+                eprintln!("[ui_server] Princeton load failed: {e:?} — falling back");
+            }
+        }
+    }
+    // v783 TSV path: `neurons.tsv` + `connections.tsv` (+ optional
+    // `classification.tsv`) under a single dir.
     if let Ok(dir) = std::env::var("CONNECTOME_FLYWIRE_DIR") {
         let path = std::path::Path::new(&dir);
         eprintln!("[ui_server] loading FlyWire v783 TSVs from {dir}…");
@@ -291,7 +327,26 @@ fn run_sse_stream(stream: &mut TcpStream) {
     let src = load_connectome();
     let conn = src.conn();
     let mut engine = Engine::new(conn, EngineConfig::default());
-    let mut observer = Observer::new(conn.num_neurons() as usize);
+    let skip_fiedler =
+        std::env::var("CONNECTOME_SKIP_FIEDLER").ok().as_deref() == Some("1");
+    // Fiedler-detector cadence. At N ≤ 10k the default 5 ms cadence
+    // holds; at N = 115k (real fly brain) each detect is O(n²)–O(n³)
+    // on the co-firing Laplacian and stalls the loop for seconds. We
+    // back off to 500 ms automatically at N ≥ 10k, and to `infinity`
+    // (detector disabled) when CONNECTOME_SKIP_FIEDLER=1.
+    let detect_every_ms: f32 = if skip_fiedler {
+        f32::INFINITY
+    } else if conn.num_neurons() >= 10_000 {
+        500.0
+    } else {
+        5.0
+    };
+    let mut observer = Observer::new(conn.num_neurons() as usize)
+        .with_detector(50.0, detect_every_ms, 20, 2.0);
+    eprintln!(
+        "[ui_server] observer: detect_every_ms={} skip_fiedler={}",
+        detect_every_ms, skip_fiedler
+    );
     // Drive the network with a continuous pulse train into all
     // sensory neurons. `run_with` re-pushes every stim event onto
     // the heap on each call, so we apply the full stim ONCE on the

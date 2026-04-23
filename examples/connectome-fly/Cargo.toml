@@ -58,6 +58,11 @@ thiserror = "1.0"
 # parser; sibling ruvector-graph and ruvector-cli already pin 1.3.
 csv = "1.3"
 
+# Gzip decoding for the Princeton FlyWire CSV dump (neurons.csv.gz +
+# connections_princeton.csv.gz). Matches the version pinned by
+# ruvector-cli / ruvector-snapshot.
+flate2 = "1.0"
+
 # Optional — gated by feature flags.
 wide = { version = "0.7", optional = true }
 cudarc = { version = "0.13", optional = true, default-features = false, features = ["cuda-12050", "driver", "std"] }
