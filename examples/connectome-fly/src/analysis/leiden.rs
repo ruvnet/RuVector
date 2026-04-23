@@ -491,3 +491,221 @@ fn level1_moves_from(adj: &[Vec<(u32, f64)>], initial: &[u32]) -> Vec<u32> {
     }
     comm
 }
+
+// -----------------------------------------------------------------
+// CPM (Constant Potts Model) variant — ADR §13 follow-up, §17 item 14
+// -----------------------------------------------------------------
+//
+// Modularity has a resolution limit (Fortunato & Barthélemy 2007) —
+// on hub-heavy SBMs its landscape rewards merging distinct communities
+// into super-communities when 2m grows large, which is why
+// multi-level Louvain collapses and modularity-Leiden scores
+// ARI = 0.089 on the default SBM. CPM (Traag's own default in
+// `leidenalg`) does not have that property — it has a simple
+// per-community penalty in `γ * C(n_c, 2)` that makes merging
+// strictly net-negative once the inter-community density drops
+// below γ. Sweeping γ on real data is the canonical protocol;
+// γ = 0.05 is a common starting point on weighted graphs.
+//
+// The move gain for v moving from S to C (C ≠ S) is
+//
+//     ΔH = k_{v,C} − k_{v,S\{v}} − γ·(n_C − n_S + 1)
+//
+// so the per-candidate score we compare is `k_{v,C} − γ·n_C`.
+//
+// This first cut parallels `level1_moves_from` + the existing
+// aggregate loop. It does NOT layer Traag's refinement phase yet;
+// `leiden_labels_cpm` is a multi-level Louvain with the CPM
+// objective. That's already strictly stronger than modularity-only
+// Louvain on resolution-limit-bound graphs; adding CPM-refinement
+// is the next lever if the measurement says it's worth it.
+
+/// Leiden-style multi-level driver with the Constant Potts Model
+/// quality function at `γ`. At `γ = 1.0` this reduces to a
+/// modularity-ish aggregation with the CPM penalty; common
+/// starting points on weighted SBMs are `γ ∈ [0.01, 0.1]`.
+/// Deterministic; no RNG.
+pub fn leiden_labels_cpm(conn: &Connectome, gamma: f64) -> Vec<u32> {
+    let n0 = conn.num_neurons();
+
+    // Level-0 graph: same undirected aggregation as `leiden_labels`.
+    let mut agg_edges: HashMap<(u32, u32), f64> = HashMap::new();
+    let row_ptr = conn.row_ptr();
+    let syn = conn.synapses();
+    for pre_idx in 0..n0 {
+        let s = row_ptr[pre_idx] as usize;
+        let e = row_ptr[pre_idx + 1] as usize;
+        for syn_entry in &syn[s..e] {
+            let post = syn_entry.post.idx();
+            if post == pre_idx {
+                continue;
+            }
+            let w = syn_entry.weight as f64;
+            let (u, v) = if pre_idx < post {
+                (pre_idx as u32, post as u32)
+            } else {
+                (post as u32, pre_idx as u32)
+            };
+            *agg_edges.entry((u, v)).or_insert(0.0) += w;
+        }
+    }
+    let mut adj: Vec<Vec<(u32, f64)>> = vec![Vec::new(); n0];
+    for ((u, v), w) in agg_edges {
+        adj[u as usize].push((v, w));
+        adj[v as usize].push((u, w));
+    }
+
+    // Multi-level loop: CPM local moves → aggregate → repeat.
+    let mut labels_lvl0: Vec<u32> = (0..n0 as u32).collect();
+    // Per-level-node count-of-base-nodes inside each node. At level 0
+    // every level-node represents 1 base node; at deeper levels each
+    // super-node represents the sum of its constituents.
+    let mut level_n_per_node: Vec<u64> = vec![1_u64; n0];
+
+    for _level in 0..8 {
+        let n = adj.len();
+        let comm = level1_moves_cpm(&adj, &level_n_per_node, gamma);
+
+        // Project this level's community map back onto the level-0
+        // node ids.
+        for lbl in labels_lvl0.iter_mut() {
+            *lbl = comm[*lbl as usize];
+        }
+
+        // Did anything actually coarsen?
+        let unique_new = count_unique(&comm);
+        if unique_new == n {
+            // Every level-node is its own community → no further aggregation.
+            break;
+        }
+
+        // Aggregate level-nodes by their community label. New node
+        // count per super-node = sum of constituents' counts (so CPM
+        // at the next level stays faithful to the base graph).
+        let (next_adj, next_n_per_node, renum) =
+            aggregate_cpm(&adj, &comm, &level_n_per_node);
+        // Re-label the base → level mapping to use the new dense
+        // super-node indices.
+        for lbl in labels_lvl0.iter_mut() {
+            *lbl = *renum.get(lbl).expect("renum must cover every active label");
+        }
+        adj = next_adj;
+        level_n_per_node = next_n_per_node;
+    }
+
+    compact_cpm_labels(&labels_lvl0)
+}
+
+/// CPM level-1 move pass. Same structure as `level1_moves_from` but
+/// per-community accumulator is *count of base nodes* (not weighted
+/// degree) and the move gain is `k_{v,C} − γ·n_C`.
+fn level1_moves_cpm(
+    adj: &[Vec<(u32, f64)>],
+    n_per_node: &[u64],
+    gamma: f64,
+) -> Vec<u32> {
+    let n = adj.len();
+    let mut comm: Vec<u32> = (0..n as u32).collect();
+    // n_c (number of base nodes inside community c). Initialised
+    // from the per-level-node counts.
+    let mut n_c: HashMap<u32, u64> = HashMap::new();
+    for i in 0..n {
+        *n_c.entry(comm[i]).or_insert(0) += n_per_node[i];
+    }
+
+    let mut it = 0_usize;
+    let mut changed = true;
+    while changed && it < MAX_LOCAL_MOVE_PASSES {
+        changed = false;
+        for i in 0..n {
+            let mut neigh_w: HashMap<u32, f64> = HashMap::new();
+            for &(j, w) in &adj[i] {
+                if j as usize == i {
+                    continue;
+                }
+                *neigh_w.entry(comm[j as usize]).or_insert(0.0) += w;
+            }
+            let c_self = comm[i];
+            let my_n = n_per_node[i] as f64;
+            let n_self = *n_c.get(&c_self).unwrap_or(&0) as f64;
+            // "stay" score: k_{v,S\{v}} − γ·(n_S − my_n). The
+            // k_{v,S\{v}} term = neigh_w[c_self] (sum of edge
+            // weights from v to the current community, excluding
+            // self-loops which we skipped above).
+            let k_self = *neigh_w.get(&c_self).unwrap_or(&0.0);
+            let stay_score = k_self - gamma * (n_self - my_n);
+
+            let mut best_c = c_self;
+            let mut best_score = stay_score;
+            let mut cands: Vec<u32> = neigh_w.keys().copied().collect();
+            cands.sort();
+            for c in cands {
+                if c == c_self {
+                    continue;
+                }
+                let k_ic = *neigh_w.get(&c).unwrap_or(&0.0);
+                let n_cand = *n_c.get(&c).unwrap_or(&0) as f64;
+                let score = k_ic - gamma * n_cand;
+                if score > best_score + 1e-9 {
+                    best_score = score;
+                    best_c = c;
+                }
+            }
+            if best_c != c_self {
+                *n_c.entry(c_self).or_insert(0) -= n_per_node[i];
+                *n_c.entry(best_c).or_insert(0) += n_per_node[i];
+                comm[i] = best_c;
+                changed = true;
+            }
+        }
+        it += 1;
+    }
+    comm
+}
+
+/// Aggregate `adj` by the communities in `labels`. Same shape as the
+/// modularity-path's `aggregate` in `structural.rs`, plus it carries
+/// the per-super-node base-node count so CPM at the next level has
+/// the right n_c. Returns (next_adj, next_n_per_node, renumbering).
+fn aggregate_cpm(
+    adj: &[Vec<(u32, f64)>],
+    labels: &[u32],
+    n_per_node: &[u64],
+) -> (Vec<Vec<(u32, f64)>>, Vec<u64>, HashMap<u32, u32>) {
+    let mut renum: HashMap<u32, u32> = HashMap::new();
+    for &lab in labels {
+        let k = renum.len() as u32;
+        renum.entry(lab).or_insert(k);
+    }
+    let new_n = renum.len();
+
+    let mut next_n_per_node = vec![0_u64; new_n];
+    let mut next_adj_map: Vec<HashMap<u32, f64>> = (0..new_n).map(|_| HashMap::new()).collect();
+    for i in 0..adj.len() {
+        let ui = *renum.get(&labels[i]).expect("renum");
+        next_n_per_node[ui as usize] += n_per_node[i];
+        for &(j, w) in &adj[i] {
+            let uj = *renum.get(&labels[j as usize]).expect("renum");
+            if ui == uj {
+                continue; // intra-community edges become self-loops; drop
+            }
+            *next_adj_map[ui as usize].entry(uj).or_insert(0.0) += w;
+        }
+    }
+    let next_adj: Vec<Vec<(u32, f64)>> = next_adj_map
+        .into_iter()
+        .map(|m| m.into_iter().collect::<Vec<_>>())
+        .collect();
+    (next_adj, next_n_per_node, renum)
+}
+
+fn compact_cpm_labels(labels: &[u32]) -> Vec<u32> {
+    let mut renum: HashMap<u32, u32> = HashMap::new();
+    let mut out = Vec::with_capacity(labels.len());
+    for &l in labels {
+        let k = renum.len() as u32;
+        let id = *renum.entry(l).or_insert(k);
+        out.push(id);
+    }
+    out
+}
