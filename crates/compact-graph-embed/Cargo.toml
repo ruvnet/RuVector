@@ -1,0 +1,20 @@
+[package]
+name = "compact-graph-embed"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ahash = "0.8"
+rand = { version = "0.8", features = ["small_rng"] }
+thiserror = "2"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "embed_bench"
+harness = false
+
+[profile.release]
+opt-level = 3
+lto = "thin"

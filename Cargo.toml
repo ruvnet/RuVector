@@ -138,6 +138,8 @@ members = [
     "crates/rvAgent/rvagent-wasm",
     # ETL pipeline example
     "examples/train-discoveries",
+    # Anchor-based compact graph embeddings (NodePiece-inspired)
+    "crates/compact-graph-embed",
     # Spectral graph sparsification
     "crates/ruvector-sparsifier",
     "crates/ruvector-sparsifier-wasm",
@@ -285,6 +287,7 @@ opt-level = 0
 debug = true
 
 [profile.test]
+opt-level = 1
 
 # Patch hnsw_rs to use rand 0.8 instead of 0.9 for WASM compatibility
 # This resolves the getrandom version conflict (0.2 vs 0.3)

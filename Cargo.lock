@@ -1526,6 +1526,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "compact-graph-embed"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "criterion 0.5.1",
+ "rand 0.8.5",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "compact_str"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
