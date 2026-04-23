@@ -574,3 +574,68 @@ fn leiden_cpm_smaller_scales_and_fine_peak() {
         best_ari, best_gamma, best_distinct
     );
 }
+
+#[test]
+fn leiden_cpm_module_count_sweep_at_n512() {
+    // Follow-up to item 24. The N=512 ARI peak (0.549 @ γ=3.10) was
+    // measured with num_modules = N/15 = 35 — matching the default
+    // substrate's neurons-per-module ratio. Does the peak hold if
+    // we vary num_modules at fixed N=512, or is the "N=512 sweet
+    // spot" actually a "neurons-per-module sweet spot" that would
+    // hit a different (N, num_modules) combo just as well?
+    //
+    // Plan: fix N=512, vary num_modules ∈ {20, 25, 30, 35, 40, 45, 50}
+    // (neurons/module ∈ {25.6, 20.5, 17.1, 14.6, 12.8, 11.4, 10.2}).
+    // Sweep γ per-config to find each one's peak ARI.
+    //
+    // Predictions:
+    //   (A) Peak stays ~0.55 across module counts → "N=512 is the
+    //       substrate sweet spot, robust to module-granularity".
+    //   (B) Peak is strongly centred at num_modules=35 → "the win is
+    //       a specific neurons-per-module ratio, which happens to
+    //       land at N=512 when num_modules=35".
+    //   (C) Peak is HIGHER at some other num_modules → new ceiling.
+    let module_counts: [u16; 7] = [20, 25, 30, 35, 40, 45, 50];
+    let hub_count = |m: u16| (m / 12).max(1); // ~ hub_ratio constant
+    let gammas = [1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 5.0];
+    let mut best_overall_ari = f32::NEG_INFINITY;
+    let mut best_overall_cfg: (u16, f64) = (0, 0.0);
+    for &m in &module_counts {
+        let cfg = ConnectomeConfig {
+            num_neurons: 512,
+            num_modules: m,
+            num_hub_modules: hub_count(m),
+            ..ConnectomeConfig::default()
+        };
+        let conn = Connectome::generate(&cfg);
+        let truth: Vec<u32> = (0..conn.num_neurons())
+            .map(|i| conn.meta(connectome_fly::NeuronId(i as u32)).module as u32)
+            .collect();
+        let mut best_ari = f32::NEG_INFINITY;
+        let mut best_g = 0.0_f64;
+        let mut best_distinct = 0usize;
+        for &g in &gammas {
+            let labels = connectome_fly::analysis::leiden::leiden_labels_cpm(&conn, g);
+            let ari = full_partition_ari(&labels, &truth);
+            if ari > best_ari {
+                best_ari = ari;
+                best_g = g;
+                best_distinct = count_unique(&labels);
+            }
+        }
+        let neurons_per_mod = 512.0 / m as f32;
+        eprintln!(
+            "cpm-N512-modsweep: modules={:3}  n_per_mod={:.1}  PEAK full_ari={:.3} @ γ={:.2}  (distinct={})",
+            m, neurons_per_mod, best_ari, best_g, best_distinct
+        );
+        if best_ari > best_overall_ari {
+            best_overall_ari = best_ari;
+            best_overall_cfg = (m, best_g);
+        }
+    }
+    eprintln!(
+        "cpm-N512-modsweep: OVERALL PEAK full_ari={:.3} at num_modules={}, γ={:.2}  [vs 0.549 headline from item 24, 0.75 SOTA]",
+        best_overall_ari, best_overall_cfg.0, best_overall_cfg.1
+    );
+    // Publish-only — each config is a measurement row.
+}
