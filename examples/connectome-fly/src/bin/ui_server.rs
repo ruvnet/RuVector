@@ -43,6 +43,76 @@ use connectome_fly::{
     NeuronId, Observer, Stimulus,
 };
 
+/// Source of truth for the running connectome. Either synthesized
+/// from the default SBM config, or loaded from a directory containing
+/// FlyWire v783 TSVs (`neurons.tsv`, `connections.tsv`, optional
+/// `classification.tsv`). The caller ships a `&'static` description
+/// that goes into the `/status` endpoint so the browser can tell.
+enum ConnectomeSource {
+    SyntheticSbm {
+        cfg: ConnectomeConfig,
+        conn: Connectome,
+    },
+    Flywire {
+        dir: String,
+        conn: Connectome,
+    },
+}
+
+impl ConnectomeSource {
+    fn conn(&self) -> &Connectome {
+        match self {
+            Self::SyntheticSbm { conn, .. } | Self::Flywire { conn, .. } => conn,
+        }
+    }
+    fn status_label(&self) -> &'static str {
+        match self {
+            Self::SyntheticSbm { .. } => "synthetic-sbm",
+            Self::Flywire { .. } => "flywire-v783-tsv",
+        }
+    }
+    fn num_modules(&self) -> u32 {
+        match self {
+            Self::SyntheticSbm { cfg, .. } => cfg.num_modules as u32,
+            // FlyWire has no explicit module count; use community
+            // count of a quick CPM-Leiden run lazily, or 0 as a
+            // placeholder. /status just reports it as 0 for now.
+            Self::Flywire { .. } => 0,
+        }
+    }
+    fn source_detail(&self) -> String {
+        match self {
+            Self::SyntheticSbm { .. } => "connectome-fly/src/lif/engine.rs".into(),
+            Self::Flywire { dir, .. } => format!(
+                "connectome-fly/src/connectome/flywire/streaming.rs (dir={dir})"
+            ),
+        }
+    }
+}
+
+fn load_connectome() -> ConnectomeSource {
+    if let Ok(dir) = std::env::var("CONNECTOME_FLYWIRE_DIR") {
+        let path = std::path::Path::new(&dir);
+        eprintln!("[ui_server] loading FlyWire v783 TSVs from {dir}…");
+        match connectome_fly::connectome::flywire::streaming::load_flywire_streaming(path) {
+            Ok(conn) => {
+                eprintln!(
+                    "[ui_server] FlyWire loaded: n={} synapses={} (from {dir})",
+                    conn.num_neurons(),
+                    conn.num_synapses()
+                );
+                return ConnectomeSource::Flywire { dir, conn };
+            }
+            Err(e) => {
+                eprintln!("[ui_server] FlyWire load failed: {e:?} — falling back to synthetic SBM");
+            }
+        }
+    }
+    let cfg = ConnectomeConfig::default();
+    let conn = Connectome::generate(&cfg);
+    ConnectomeSource::SyntheticSbm { cfg, conn }
+}
+
 const DEFAULT_PORT: u16 = 5174;
 /// Snapshot of the CPM community partition every N ticks (expensive —
 /// a full Leiden-CPM run over the current graph). 50 ticks = every
@@ -138,19 +208,20 @@ fn write_404(stream: &mut TcpStream) {
 
 fn write_status(stream: &mut TcpStream) {
     let witness = WITNESS.load(Ordering::Relaxed);
-    let cfg = ConnectomeConfig::default();
+    let src = load_connectome();
+    let conn = src.conn();
     let body = format!(
-        r#"{{"engine":"rust-lif","source":"connectome-fly/src/lif/engine.rs",
-"crate_version":"{ver}","connectome":{{"num_neurons":{n},"num_modules":{m},"num_hub_modules":{h},"seed":{seed},"avg_out_degree":{dg}}},
+        r#"{{"engine":"rust-lif","source":"{src_detail}",
+"substrate":"{label}","crate_version":"{ver}","connectome":{{"num_neurons":{n},"num_synapses":{syn},"num_modules":{m}}},
 "detector":"Observer::compute_fiedler (eigensolver::approx_fiedler_power / sparse_fiedler)",
 "community_algorithm":"analysis::leiden::leiden_labels_cpm (weight-normalized CPM)",
 "witness":{witness},"mock":false,"simulated":false}}"#,
+        src_detail = src.source_detail(),
+        label = src.status_label(),
         ver = connectome_fly::VERSION,
-        n = cfg.num_neurons,
-        m = cfg.num_modules,
-        h = cfg.num_hub_modules,
-        seed = cfg.seed,
-        dg = cfg.avg_out_degree,
+        n = conn.num_neurons(),
+        syn = conn.num_synapses(),
+        m = src.num_modules(),
         witness = witness
     );
     let _ = write!(
@@ -213,13 +284,14 @@ fn run_sse_stream(stream: &mut TcpStream) {
     let _ = stream.flush();
     eprintln!("[ui_server]   sse: preamble sent");
 
-    // Fresh simulation per client. The connectome is generated from
-    // the default config so the browser can independently assert it
-    // matches what /status advertised.
-    let cfg = ConnectomeConfig::default();
-    let conn = Connectome::generate(&cfg);
-    let mut engine = Engine::new(&conn, EngineConfig::default());
-    let mut observer = Observer::new(cfg.num_neurons as usize);
+    // Fresh simulation per client. The connectome either comes from
+    // the default synthetic SBM or from a FlyWire v783 dataset at the
+    // path in CONNECTOME_FLYWIRE_DIR — the browser can independently
+    // verify which by reading /status.
+    let src = load_connectome();
+    let conn = src.conn();
+    let mut engine = Engine::new(conn, EngineConfig::default());
+    let mut observer = Observer::new(conn.num_neurons() as usize);
     // Drive the network with a continuous pulse train into all
     // sensory neurons. `run_with` re-pushes every stim event onto
     // the heap on each call, so we apply the full stim ONCE on the
@@ -245,10 +317,11 @@ fn run_sse_stream(stream: &mut TcpStream) {
         stream,
         "hello",
         &format!(
-            r#"{{"engine":"rust-lif","crate":"{ver}","connectome":{{"n":{n},"m":{m}}},"witness":{w}}}"#,
+            r#"{{"engine":"rust-lif","substrate":"{label}","crate":"{ver}","connectome":{{"n":{n},"synapses":{syn}}},"witness":{w}}}"#,
+            label = src.status_label(),
             ver = connectome_fly::VERSION,
             n = conn.num_neurons(),
-            m = cfg.num_modules,
+            syn = conn.num_synapses(),
             w = WITNESS.load(Ordering::Relaxed)
         ),
     )
@@ -257,7 +330,7 @@ fn run_sse_stream(stream: &mut TcpStream) {
         eprintln!("[ui_server]   sse: hello write failed");
         return;
     }
-    eprintln!("[ui_server]   sse: hello sent");
+    eprintln!("[ui_server]   sse: hello sent (substrate={})", src.status_label());
 
     // Community snapshot state.
     let analysis = Analysis::new(AnalysisConfig::default());
@@ -313,10 +386,20 @@ fn run_sse_stream(stream: &mut TcpStream) {
             return;
         }
 
-        // Community snapshot every N ticks (cheap at N ≈ 1024).
-        if tick > 0 && tick % COMMUNITY_SNAPSHOT_EVERY_TICKS == 0 {
-            let labels = connectome_fly::analysis::leiden::leiden_labels_cpm(&conn, 3.1);
-            let (num_communities, module_ari_proxy) = summarise(&conn, &labels);
+        // Community snapshot every N ticks (cheap at N ≈ 1024; at
+        // N ≥ 10k we throttle to every 2 s of simulated time so the
+        // CPM run doesn't stall the SSE loop). Set CONNECTOME_SKIP_COMMUNITIES=1
+        // to disable entirely on huge substrates (e.g. full FlyWire).
+        let skip_communities =
+            std::env::var("CONNECTOME_SKIP_COMMUNITIES").ok().as_deref() == Some("1");
+        let snapshot_every = if conn.num_neurons() < 8_000 {
+            COMMUNITY_SNAPSHOT_EVERY_TICKS
+        } else {
+            2_000 // every 2 s of simulated time on big substrates
+        };
+        if !skip_communities && tick > 0 && tick % snapshot_every == 0 {
+            let labels = connectome_fly::analysis::leiden::leiden_labels_cpm(conn, 3.1);
+            let (num_communities, module_ari_proxy) = summarise(conn, &labels);
             let snap = format!(
                 r#"{{"tick":{tick},"num_communities":{nc},"module_sample":{ms}}}"#,
                 tick = tick,
@@ -366,7 +449,10 @@ fn fmt_f32(x: f32) -> String {
 
 /// Tiny summary for the community snapshot: return (num_distinct,
 /// module-alignment-score). Module-alignment is a cheap proxy: for
-/// each predicted community, how pure is it by ground-truth module?
+/// each predicted community, how pure is it by ground-truth module.
+/// On FlyWire-loaded connectomes every neuron has module=0 (the loader
+/// doesn't synthesize SBM module ids), so the purity number is
+/// vacuously 1.0 there; the browser still gets the community count.
 fn summarise(conn: &Connectome, labels: &[u32]) -> (u32, f32) {
     use std::collections::HashMap;
     let mut by_pred: HashMap<u32, HashMap<u16, u32>> = HashMap::new();

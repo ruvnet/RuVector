@@ -57,7 +57,11 @@
       );
       const banner = document.getElementById('real-backend-banner');
       if (banner) {
-        banner.textContent = `engine=${s.engine} crate=${s.crate_version} n=${s.connectome.num_neurons} modules=${s.connectome.num_modules} witness=${s.witness}`;
+        const substrate = s.substrate || 'synthetic-sbm';
+        const synapseTag = s.connectome.num_synapses
+          ? ` syn=${s.connectome.num_synapses.toLocaleString()}`
+          : '';
+        banner.textContent = `engine=${s.engine} substrate=${substrate} n=${s.connectome.num_neurons.toLocaleString()}${synapseTag} witness=${s.witness}`;
         banner.dataset.state = 'live';
       }
       window.__connectomeRealStatus = s;

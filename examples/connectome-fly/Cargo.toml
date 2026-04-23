@@ -18,6 +18,10 @@ path = "src/bin/run_demo.rs"
 name = "ui_server"
 path = "src/bin/ui_server.rs"
 
+[[bin]]
+name = "materialize_fixture"
+path = "src/bin/materialize_fixture.rs"
+
 [features]
 default = ["simd"]
 # SIMD vectorization of the subthreshold LIF loop (V, g_exc, g_inh).
