@@ -372,3 +372,70 @@ fn leiden_cpm_recovers_two_planted_communities() {
     // Publish-only across the sweep. The finding (γ where CPM
     // recovers the planted modules) updates ADR §17 item 16.
 }
+
+#[test]
+fn leiden_cpm_vs_modularity_across_scales() {
+    // N-scaling sweep. The 3.97× full-ARI win (ADR §17 item 20) and
+    // 3.98× mean win across 5 seeds (ADR §17 item 21) were both
+    // measured at N=1024. Does CPM's advantage hold at N=512 and
+    // N=2048? If yes → the pattern is scale-invariant; if it shrinks
+    // or inverts → the advantage is N-dependent and the headline
+    // needs to be qualified.
+    //
+    // Density control: default is N=1024, 70 modules (~14.6
+    // neurons/module). Scale num_modules = N/15 to hold module
+    // size roughly constant; hubs = num_modules / 12 (default ratio
+    // 6/70). Fixed seed isolates scale from seed variance.
+    let scales: [(u32, u16, u16); 3] = [(512, 35, 3), (1024, 70, 6), (2048, 140, 12)];
+    let mut ratios: Vec<f32> = Vec::new();
+    for &(n, m, h) in &scales {
+        let cfg = ConnectomeConfig {
+            num_neurons: n,
+            num_modules: m,
+            num_hub_modules: h,
+            ..ConnectomeConfig::default()
+        };
+        let conn = Connectome::generate(&cfg);
+        let an = Analysis::new(AnalysisConfig::default());
+        let truth_labels: Vec<u32> = (0..conn.num_neurons())
+            .map(|i| conn.meta(connectome_fly::NeuronId(i as u32)).module as u32)
+            .collect();
+        let cpm_labels = connectome_fly::analysis::leiden::leiden_labels_cpm(&conn, 2.25);
+        let mod_labels = an.leiden_labels(&conn);
+        let cpm_full = full_partition_ari(&cpm_labels, &truth_labels);
+        let mod_full = full_partition_ari(&mod_labels, &truth_labels);
+        let ratio = if mod_full.abs() > 1e-4 {
+            cpm_full / mod_full
+        } else {
+            f32::INFINITY
+        };
+        let cpm_d = count_unique(&cpm_labels);
+        let mod_d = count_unique(&mod_labels);
+        eprintln!(
+            "cpm-scale-sweep: N={}  modules={}  cpm_full={:.3} ({}c)  mod_full={:.3} ({}c)  ratio={:.2}×",
+            n, m, cpm_full, cpm_d, mod_full, mod_d, ratio
+        );
+        if ratio.is_finite() {
+            ratios.push(ratio);
+        }
+    }
+    if !ratios.is_empty() {
+        let mean: f32 = ratios.iter().sum::<f32>() / ratios.len() as f32;
+        let min = ratios.iter().cloned().fold(f32::INFINITY, f32::min);
+        let max = ratios.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        eprintln!(
+            "cpm-scale-sweep: ratio across {} scales — mean={:.2}×  min={:.2}×  max={:.2}×",
+            ratios.len(),
+            mean,
+            min,
+            max
+        );
+    }
+    // Regression gate: at least one scale must still show CPM beating
+    // modularity-Leiden (ratio > 1.0). If every scale regresses below
+    // parity, the CPM path or normalization broke — loud failure.
+    assert!(
+        ratios.iter().any(|r| *r > 1.0),
+        "cpm-scale-sweep: CPM no longer beats modularity at ANY scale — regression"
+    );
+}
