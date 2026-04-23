@@ -344,12 +344,27 @@ impl VectorCache {
     }
 
     /// Run the search against the cached entry for `key`. Caller must
-    /// ensure freshness first.
+    /// ensure freshness first. Uses the cache's default rerank factor.
     pub fn search_cached(
         &self,
         key: &CacheKey,
         query: &[f32],
         k: usize,
+    ) -> crate::Result<Vec<(u64, f32)>> {
+        self.search_cached_with_rerank(key, query, k, None)
+    }
+
+    /// As [`search_cached`], but allows per-call override of the rerank
+    /// factor. `None` uses the cache's default; `Some(n)` passes `n` to
+    /// the underlying `RabitqPlusIndex::search_with_rerank`. Used by
+    /// `RuLake::search_federated` to divide the global rerank cost
+    /// across K shards instead of paying K× for it.
+    pub fn search_cached_with_rerank(
+        &self,
+        key: &CacheKey,
+        query: &[f32],
+        k: usize,
+        rerank_factor_override: Option<usize>,
     ) -> crate::Result<Vec<(u64, f32)>> {
         let mut inner = self.inner.lock().unwrap();
         let witness = inner
@@ -372,9 +387,11 @@ impl VectorCache {
                 actual: query.len(),
             });
         }
-        // LRU timestamp bump — unconditional; cheaper than the branch.
         entry.last_used = Instant::now();
-        let hits = entry.index.search(query, k)?;
+        let hits = match rerank_factor_override {
+            None => entry.index.search(query, k)?,
+            Some(rf) => entry.index.search_with_rerank(query, k, rf)?,
+        };
         let pos_to_id = entry.pos_to_id.clone();
         drop(inner);
         Ok(hits

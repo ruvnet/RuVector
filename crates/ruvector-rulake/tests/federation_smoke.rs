@@ -763,6 +763,86 @@ fn refresh_from_bundle_dir_reports_all_three_states() {
 }
 
 #[test]
+fn adaptive_per_shard_rerank_preserves_recall() {
+    // The adaptive federated rerank (global / K, floored) must keep
+    // global recall@10 > 85% on clustered data, matching ADR-155's
+    // M2 acceptance for the per-shard-rerank optimization.
+    use std::collections::HashSet;
+
+    let d = 128;
+    let n = 5_000;
+    let nq = 50;
+    let rerank = 20;
+    let seed = 2025;
+
+    // Single dataset; split two ways to form 2-shard and 4-shard setups.
+    let data = clustered(n + nq, d, 100, seed);
+    let (db, queries) = data.split_at(n);
+    let ids: Vec<u64> = (0..n as u64).collect();
+
+    // Ground truth via exact L2² brute force over the whole dataset.
+    let truth: Vec<HashSet<u64>> = queries
+        .iter()
+        .map(|q| {
+            let mut scored: Vec<(u64, f32)> = db
+                .iter()
+                .enumerate()
+                .map(|(i, v)| {
+                    let s: f32 = q.iter().zip(v).map(|(a, b)| (a - b).powi(2)).sum();
+                    (i as u64, s)
+                })
+                .collect();
+            scored.sort_by(|a, b| a.1.total_cmp(&b.1));
+            scored.into_iter().take(10).map(|(id, _)| id).collect()
+        })
+        .collect();
+
+    let build_fed = |shards: usize| {
+        let lake =
+            RuLake::new(rerank, seed).with_consistency(Consistency::Eventual { ttl_ms: 60_000 });
+        let chunk = n.div_ceil(shards);
+        let mut targets: Vec<(String, String)> = Vec::new();
+        for s in 0..shards {
+            let lo = s * chunk;
+            let hi = ((s + 1) * chunk).min(n);
+            let bid = format!("shard-{s}");
+            let b = Arc::new(LocalBackend::new(&bid));
+            b.put_collection("c", d, ids[lo..hi].to_vec(), db[lo..hi].to_vec())
+                .unwrap();
+            lake.register_backend(b).unwrap();
+            targets.push((bid, "c".to_string()));
+        }
+        (lake, targets)
+    };
+
+    for shards in [2usize, 4] {
+        let (lake, targets) = build_fed(shards);
+        let refs: Vec<(&str, &str)> = targets
+            .iter()
+            .map(|(a, b)| (a.as_str(), b.as_str()))
+            .collect();
+        let mut correct = 0;
+        let mut total = 0;
+        for (q, gt) in queries.iter().zip(truth.iter()) {
+            let hits = lake.search_federated(&refs, q, 10).unwrap();
+            for h in &hits {
+                if gt.contains(&h.id) {
+                    correct += 1;
+                }
+                total += 1;
+            }
+        }
+        let recall = correct as f64 / total as f64;
+        assert!(
+            recall >= 0.85,
+            "adaptive per-shard rerank ({shards} shards) recall@10 = {:.3} < 0.85 — \
+             per-shard floor too low or divide-by-K too aggressive",
+            recall
+        );
+    }
+}
+
+#[test]
 fn stats_expose_hit_rate_and_prime_duration() {
     // The cache-first reframe (ADR-155) makes hit_rate the primary KPI.
     // Verify the counters and the derived accessors actually track.

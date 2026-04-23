@@ -539,6 +539,49 @@ impl RabitqPlusIndex {
     pub fn set_rerank_factor(&mut self, f: usize) {
         self.rerank_factor = f.max(1);
     }
+
+    /// Search with a per-call rerank factor override. Same body as
+    /// [`AnnIndex::search`] but takes `rerank_factor` as a parameter
+    /// instead of reading the field, so callers can tune recall/cost
+    /// per query without mutating shared state.
+    ///
+    /// Added for `ruvector-rulake` (ADR-155): federated fan-out divides
+    /// the global rerank factor across K shards (`per_shard = max(floor,
+    /// global / K)`) so K-shard federation stops paying K× the rerank
+    /// cost. The field `self.rerank_factor` remains the default used by
+    /// plain `search`; nothing about the stored index changes.
+    pub fn search_with_rerank(
+        &self,
+        query: &[f32],
+        k: usize,
+        rerank_factor: usize,
+    ) -> Result<Vec<SearchResult>> {
+        if self.inner.ids.is_empty() {
+            return Err(RabitqError::EmptyIndex);
+        }
+        if query.len() != self.inner.dim {
+            return Err(RabitqError::DimensionMismatch {
+                expected: self.inner.dim,
+                actual: query.len(),
+            });
+        }
+        let rf = rerank_factor.max(1);
+        let n = self.inner.ids.len();
+        let candidates = k.saturating_mul(rf).max(k).min(n);
+
+        let (q_packed, q_norm) = self.inner.encode_query_packed(query);
+        let cand = self
+            .inner
+            .symmetric_scan_topk(&q_packed, q_norm, candidates);
+
+        let k_eff = k.min(cand.len());
+        let mut top = TopK::new(k_eff);
+        for (pos, id, _score) in &cand {
+            let v = &self.originals[*pos as usize];
+            top.push(*id as usize, sq_l2(query, v));
+        }
+        Ok(top.into_sorted_asc())
+    }
 }
 
 impl AnnIndex for RabitqPlusIndex {

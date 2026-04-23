@@ -61,34 +61,40 @@ numbers below for the honest picture.
 
 ### Concurrent clients × shard count (n = 100 k, 8 clients × 300 queries)
 
-| shards | wall (ms) |     QPS | QPS vs 1-shard |
-|-------:|----------:|--------:|---------------:|
-|      1 |     810.1 |   2,963 |           1.00 |
-|      2 |     960.0 |   2,500 |           0.84 |
-|      4 |   1,349.7 |   1,778 |           0.60 |
+With the **adaptive per-shard rerank** introduced via
+`RuLake::search_federated_with_rerank` (default policy: `max(5, global /
+K)`), K-shard federation no longer pays K× the rerank cost:
 
-**Counter-intuitive finding.** Under concurrent clients, more shards
-reduces throughput rather than increasing it, for this "same data split
-K ways on one box" benchmark shape. Root cause: the RaBitQ `rerank_factor
-× k = 200` rerank runs **per shard**, so K-shard federation does
-approximately K× the rerank work per query. Parallel fan-out helps with
-scan cost (bitmap popcount) but not the rerank. The bench isolates the
-cost that was hidden by the single-thread numbers.
+| shards | wall (ms) |     QPS | QPS vs 1-shard | per-shard rerank |
+|-------:|----------:|--------:|---------------:|-----------------:|
+|      1 |     840.9 |   2,854 |           1.00 |               20 |
+|      2 |     811.0 |   2,959 |           1.04 |               10 |
+|      4 |     859.9 |   2,791 |           0.98 |                5 |
 
-**Consequence.** The rayon fan-out is still the right shape — it
-minimizes tail latency on the miss path (prime-time speedups above) and
-parallelizes remote backend calls in the network-bound case — but:
+**Before the fix** (rerank_factor=20 on every shard, same bench shape):
 
-- Federation across local shards of **the same data** is never faster
-  than a single larger shard. Don't shard for throughput; shard for
-  reachability or memory.
-- Per-shard rerank factor is an obvious optimization target for M2.
-  Fan out at rerank=50 per shard (not 200) when `K ≥ 2` keeps global
-  recall above 90% while approximately K× reducing the per-shard rerank
-  cost. Left as a measurement-driven change, not a speculative one.
-- For a real deployment where shards hold *disjoint* data (e.g., one
-  per region or per tenant), the federated scan-cost gain is genuine —
-  it's just not what this bench measures.
+| shards | QPS | QPS vs 1-shard |
+|-------:|--------:|---------------:|
+|      1 | 2,963   |           1.00 |
+|      2 | 2,500   |           0.84 |
+|      4 | 1,778   |           0.60 |
+
+So the adaptive rerank lifts 4-shard federation from 0.60× → 0.98×.
+Recall@10 stays above 85% at K=2 and K=4 (gate test
+`adaptive_per_shard_rerank_preserves_recall` exercises clustered D=128,
+n=5k).
+
+**Implementation:** the floor (`MIN_PER_SHARD_RERANK = 5`) stops the
+divide-by-K from going below the point where exact L2² rerank can
+meaningfully separate near ties. Callers who need byte-exact parity
+with single-shard output can pass `Some(global_rerank)` explicitly via
+`search_federated_with_rerank`.
+
+**Consequences.** The rayon fan-out pays off now — it minimizes tail
+latency on the miss path (prime-time speedups earlier in this file)
+AND keeps hot-path throughput at ~parity with the single-shard
+baseline. Federation is genuinely free for reachability/memory sharding
+on same-box setups; on network-backed setups it's a clear win.
 
 ## Acceptance checks (M1)
 

@@ -210,34 +210,92 @@ impl RuLake {
             .collect())
     }
 
+    /// Floor for per-shard rerank factor under adaptive federation.
+    /// Below this, the rerank candidate set gets too small for exact
+    /// L2² rerank to meaningfully separate near ties.
+    const MIN_PER_SHARD_RERANK: usize = 5;
+
     /// Federated search: fan out to every `(backend, collection)` pair
     /// in `targets` in parallel, merge by score, return global top-k.
     ///
-    /// Each shard's `search_one` runs on the shared rayon pool. The
-    /// cache is behind a Mutex so the hot path (witness-match → pointer
-    /// touch + search) does not hold it across the rabitq scan; only
-    /// cache-miss prime paths briefly serialize. For a 2-shard all-hit
-    /// workload this gets us close to the single-shard latency; miss
-    /// paths serialize on prime but that's the rare case.
+    /// Uses an **adaptive per-shard rerank factor** of
+    /// `max(MIN_PER_SHARD_RERANK, global_rerank / K)`. Before this, a
+    /// K-shard federated search paid K× the rerank cost because each
+    /// shard reranked its own `rerank_factor × k` candidates — see
+    /// `BENCHMARK.md` "concurrent clients × shard count". The adaptive
+    /// default keeps the total pre-merge rerank budget roughly constant
+    /// in K while relying on the merge step to produce the globally
+    /// correct top-k.
+    ///
+    /// Callers who need byte-exact parity with the single-shard path
+    /// should use [`Self::search_federated_with_rerank`] to pass
+    /// `Some(self.cache.rerank_factor())` explicitly.
     pub fn search_federated(
         &self,
         targets: &[(&str, &str)],
         query: &[f32],
         k: usize,
     ) -> Result<Vec<SearchResult>> {
+        self.search_federated_with_rerank(targets, query, k, None)
+    }
+
+    /// As [`Self::search_federated`], but with explicit per-shard rerank
+    /// override. `None` → adaptive default (`global / K`, floored).
+    /// `Some(rf)` → that exact rerank factor on every shard.
+    pub fn search_federated_with_rerank(
+        &self,
+        targets: &[(&str, &str)],
+        query: &[f32],
+        k: usize,
+        per_shard_rerank: Option<usize>,
+    ) -> Result<Vec<SearchResult>> {
         use rayon::prelude::*;
-        // Collect so we can return the first error; rayon's `collect`
-        // into `Result<Vec<_>>` short-circuits on the first Err which is
-        // exactly the semantics the sequential loop had.
+        let shards = targets.len().max(1);
+        let rerank_override = per_shard_rerank.or_else(|| {
+            if shards <= 1 {
+                None // single shard: no reason to override.
+            } else {
+                let global = self.cache.rerank_factor();
+                Some((global / shards).max(Self::MIN_PER_SHARD_RERANK))
+            }
+        });
         let shard_hits: Result<Vec<Vec<SearchResult>>> = targets
             .par_iter()
-            .map(|(backend, collection)| self.search_one(backend, collection, query, k))
+            .map(|(backend, collection)| {
+                self.search_one_with_rerank(backend, collection, query, k, rerank_override)
+            })
             .collect();
         let mut merged: Vec<SearchResult> = shard_hits?.into_iter().flatten().collect();
-        // Ascending by score (L2²) — smaller = closer.
         merged.sort_by(|a, b| a.score.total_cmp(&b.score));
         merged.truncate(k);
         Ok(merged)
+    }
+
+    /// Like [`search_one`] but with an optional per-call rerank override.
+    /// The federated path uses this to fan out with a reduced rerank
+    /// budget per shard.
+    fn search_one_with_rerank(
+        &self,
+        backend: &str,
+        collection: &str,
+        query: &[f32],
+        k: usize,
+        rerank_override: Option<usize>,
+    ) -> Result<Vec<SearchResult>> {
+        let key: CacheKey = (backend.to_string(), collection.to_string());
+        self.ensure_fresh(&key)?;
+        let hits = self
+            .cache
+            .search_cached_with_rerank(&key, query, k, rerank_override)?;
+        Ok(hits
+            .into_iter()
+            .map(|(id, score)| SearchResult {
+                backend: backend.to_string(),
+                collection: collection.to_string(),
+                id,
+                score,
+            })
+            .collect())
     }
 
     /// Coherence check: ask the backend for its current bundle and
