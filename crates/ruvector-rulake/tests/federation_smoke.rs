@@ -761,3 +761,52 @@ fn refresh_from_bundle_dir_reports_all_three_states() {
 
     let _ = std::fs::remove_dir_all(&tmp);
 }
+
+#[test]
+fn stats_expose_hit_rate_and_prime_duration() {
+    // The cache-first reframe (ADR-155) makes hit_rate the primary KPI.
+    // Verify the counters and the derived accessors actually track.
+    let d = 16;
+    let backend = Arc::new(LocalBackend::new("kpi"));
+    backend
+        .put_collection("c", d, (0..100).collect(), vec![vec![0.0; d]; 100])
+        .unwrap();
+    let lake = RuLake::new(20, 42).with_consistency(Consistency::Eventual { ttl_ms: 60_000 });
+    lake.register_backend(backend).unwrap();
+
+    // Before anything: no hits/misses → no hit_rate.
+    assert!(lake.cache_stats().hit_rate().is_none());
+    assert!(lake.cache_stats().avg_prime_ms().is_none());
+
+    // First query: miss + prime. Prime duration should be measurable.
+    lake.search_one("kpi", "c", &vec![0.0f32; d], 1).unwrap();
+    let s1 = lake.cache_stats();
+    assert_eq!(s1.primes, 1);
+    assert_eq!(s1.misses, 1);
+    assert!(
+        s1.last_prime_ms > 0.0 && s1.last_prime_ms < 1000.0,
+        "prime ms out of expected range: {}",
+        s1.last_prime_ms
+    );
+    assert_eq!(s1.avg_prime_ms(), Some(s1.last_prime_ms));
+
+    // Drive 99 warm queries so hit_rate ≥ 0.99.
+    for _ in 0..99 {
+        lake.search_one("kpi", "c", &vec![0.0f32; d], 1).unwrap();
+    }
+    let s2 = lake.cache_stats();
+    // Eventual TTL suppresses the per-query generation check so most
+    // of these ran via can_skip_check → mark_hit without a miss.
+    let hit_rate = s2
+        .hit_rate()
+        .expect("hit_rate should be Some after queries");
+    assert!(
+        hit_rate >= 0.95,
+        "hit rate below 95% gate: {:.3} (hits={}, misses={})",
+        hit_rate,
+        s2.hits,
+        s2.misses
+    );
+    // primes stays at 1 — no re-prime on hits.
+    assert_eq!(s2.primes, 1);
+}

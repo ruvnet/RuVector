@@ -53,6 +53,41 @@ pub struct CacheStats {
     /// Incremented when a pointer move found the target witness
     /// already cached under another pointer — zero prime work done.
     pub shared_hits: u64,
+    /// Sum of prime durations in milliseconds. Paired with `primes` to
+    /// compute the mean via `avg_prime_ms`.
+    pub total_prime_ms: f64,
+    /// Most-recent prime duration in milliseconds (useful to detect
+    /// drift between warm primes and the very first miss).
+    pub last_prime_ms: f64,
+}
+
+impl CacheStats {
+    /// Cache hit rate over `hits + misses`. Returns `None` when no
+    /// coherence-checked searches have run yet.
+    ///
+    /// This is the primary KPI for cache-first operation: an
+    /// `hit_rate >= 0.95` means 95% of queries never pull from the
+    /// backend, which is the acceptance bar for the cache-first reframe
+    /// in ADR-155.
+    pub fn hit_rate(&self) -> Option<f64> {
+        let total = self.hits + self.misses;
+        if total == 0 {
+            None
+        } else {
+            Some(self.hits as f64 / total as f64)
+        }
+    }
+
+    /// Mean prime duration in milliseconds, or `None` when no primes
+    /// have run. Use to budget the cold-start cost of entering reality
+    /// on a warm serving process.
+    pub fn avg_prime_ms(&self) -> Option<f64> {
+        if self.primes == 0 {
+            None
+        } else {
+            Some(self.total_prime_ms / self.primes as f64)
+        }
+    }
 }
 
 /// External lookup key: `(backend_id, collection_id)`.
@@ -156,7 +191,8 @@ impl VectorCache {
             }
         }
 
-        // Slow path: build the index lock-free.
+        // Slow path: build the index lock-free, time it for prime stats.
+        let prime_start = Instant::now();
         let dim = batch.dim;
         let generation = batch.generation;
         let mut idx = RabitqPlusIndex::new(dim, self.rotation_seed, self.rerank_factor);
@@ -184,6 +220,9 @@ impl VectorCache {
         }
         inner.entries.insert(witness.clone(), entry);
         inner.stats.primes += 1;
+        let prime_ms = prime_start.elapsed().as_secs_f64() * 1000.0;
+        inner.stats.total_prime_ms += prime_ms;
+        inner.stats.last_prime_ms = prime_ms;
         let rc = self.inner_install_pointer_unlocked(&mut inner, key, witness, false);
         // Opportunistic LRU eviction: only runs when a cap is set,
         // and only trims unpinned (refcount==0) entries, so live
