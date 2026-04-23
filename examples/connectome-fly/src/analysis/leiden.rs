@@ -571,6 +571,17 @@ pub fn leiden_labels_cpm(conn: &Connectome, gamma: f64) -> Vec<u32> {
     }
 
     // Multi-level loop: CPM local moves → aggregate → repeat.
+    //
+    // Note: a CPM-refinement phase was implemented and tried (see
+    // `refine_cpm` below and §17 item 25). On this substrate at the
+    // γ values where CPM is most effective (γ ∈ [2, 3]) refinement-
+    // from-singletons catastrophically under-merges, because a single
+    // edge of normalized weight ~1.0 cannot overcome the γ·n_v·n_s
+    // merge cost. The result is aggregation-on-identity, which
+    // destroys the coarse community structure built by level1_moves.
+    // Refinement is kept in the code for substrates where γ·n_v·n_s
+    // is small enough that singleton merges are cheap, but it is NOT
+    // wired into this driver by default.
     let mut labels_lvl0: Vec<u32> = (0..n0 as u32).collect();
     // Per-level-node count-of-base-nodes inside each node. At level 0
     // every level-node represents 1 base node; at deeper levels each
@@ -609,6 +620,175 @@ pub fn leiden_labels_cpm(conn: &Connectome, gamma: f64) -> Vec<u32> {
     }
 
     compact_cpm_labels(&labels_lvl0)
+}
+
+#[allow(dead_code)]
+/// CPM-objective refinement phase (Traag 2019 Alg. 4, variant).
+///
+/// **Currently not wired into `leiden_labels_cpm`** — kept in tree
+/// because the implementation is correct for low-γ regimes where
+/// singleton merges are cheap. See ADR-154 §17 item 25 for why this
+/// is not used at the γ ∈ [2, 3] regime where CPM is most effective
+/// on the hub-heavy SBM.
+///
+/// For each coarse community C, start every node in C as a singleton
+/// sub-community. A node v may move from its singleton into a sub-
+/// community s ⊆ C iff:
+///   (i)   v is "well-connected" to C, i.e.
+///         `k_{v,C\{v}} ≥ γ · n_v · (n_C − n_v)`
+///         (this mirrors the modularity refinement's well-connected
+///         condition but expressed in CPM units),
+///   (ii)  s is well-connected to C, i.e.
+///         `e(s, C\s) ≥ γ · n_s · (n_C − n_s)`, and
+///   (iii) the CPM gain `k_{v,s} − γ·n_v·n_s > 0`.
+///
+/// Monotone-growth rule: once v has joined a non-singleton s, it does
+/// not move again within this refinement call. This preserves intra-s
+/// connectivity and guarantees the resulting partition is a valid
+/// refinement of the coarse partition.
+fn refine_cpm(
+    adj: &[Vec<(u32, f64)>],
+    coarse: &[u32],
+    n_per_node: &[u64],
+    gamma: f64,
+) -> Vec<u32> {
+    let n = adj.len();
+
+    // Group level-nodes by coarse community.
+    let mut by_coarse: HashMap<u32, Vec<u32>> = HashMap::new();
+    for (i, &c) in coarse.iter().enumerate() {
+        by_coarse.entry(c).or_default().push(i as u32);
+    }
+    let mut coarse_keys: Vec<u32> = by_coarse.keys().copied().collect();
+    coarse_keys.sort();
+
+    // Refined partition: start with singletons (each node in its own
+    // sub-community named by its own index).
+    let mut sub: Vec<u32> = (0..n as u32).collect();
+
+    for coarse_id in coarse_keys {
+        let mut nodes = by_coarse.remove(&coarse_id).unwrap_or_default();
+        nodes.sort();
+        if nodes.len() <= 1 {
+            continue;
+        }
+        refine_cpm_one_community(&mut sub, adj, &nodes, n_per_node, gamma);
+    }
+    sub
+}
+
+#[allow(dead_code)]
+/// CPM-variant of `MergeNodesSubset(G, P_refined, C)` for one coarse
+/// community. See `refine_cpm` for the move rules.
+fn refine_cpm_one_community(
+    sub: &mut [u32],
+    adj: &[Vec<(u32, f64)>],
+    nodes: &[u32],
+    n_per_node: &[u64],
+    gamma: f64,
+) {
+    let n_graph = adj.len();
+    let mut in_c = vec![false; n_graph];
+    let mut n_total_c: u64 = 0;
+    for &v in nodes {
+        in_c[v as usize] = true;
+        n_total_c += n_per_node[v as usize];
+    }
+
+    // Per-sub-community accumulators:
+    //   sub_n[s]     = Σ n_per_node[i] for i ∈ s,
+    //   sub_e_out[s] = Σ edge weights from s into C\s (counted once per
+    //                  directed adj entry; adj is undirected-as-bi-stored
+    //                  so this is "twice each cross edge", matching the
+    //                  modularity-refine accumulator shape).
+    let mut sub_n: HashMap<u32, u64> = HashMap::with_capacity(nodes.len());
+    let mut sub_e_out: HashMap<u32, f64> = HashMap::with_capacity(nodes.len());
+    for &v in nodes {
+        sub_n.insert(v, n_per_node[v as usize]);
+        let mut ev = 0.0;
+        for &(j, w) in &adj[v as usize] {
+            if in_c[j as usize] && j != v {
+                ev += w;
+            }
+        }
+        sub_e_out.insert(v, ev);
+    }
+
+    // Precompute v-well-connected to C: k_{v,C\{v}} ≥ γ · n_v · (n_C − n_v).
+    let mut v_well: HashMap<u32, bool> = HashMap::with_capacity(nodes.len());
+    for &v in nodes {
+        let n_v = n_per_node[v as usize] as f64;
+        let k_v_c = *sub_e_out.get(&v).unwrap_or(&0.0);
+        let rhs = gamma * n_v * (n_total_c as f64 - n_v);
+        v_well.insert(v, k_v_c >= rhs - 1e-12);
+    }
+
+    let mut moved = vec![false; n_graph];
+    for &v in nodes {
+        if moved[v as usize] || !v_well.get(&v).copied().unwrap_or(false) {
+            continue;
+        }
+        let s_v = sub[v as usize];
+        debug_assert_eq!(s_v, v);
+        let n_v = n_per_node[v as usize] as f64;
+
+        // Weight from v into each candidate sub-community within C.
+        let mut k_to: HashMap<u32, f64> = HashMap::new();
+        for &(j, w) in &adj[v as usize] {
+            if !in_c[j as usize] || j == v {
+                continue;
+            }
+            *k_to.entry(sub[j as usize]).or_insert(0.0) += w;
+        }
+        let mut cand_ids: Vec<u32> = k_to.keys().copied().collect();
+        cand_ids.sort();
+
+        let mut best_target: u32 = s_v;
+        let mut best_gain: f64 = 0.0;
+        for s_t in cand_ids {
+            if s_t == s_v {
+                continue;
+            }
+            let n_s = *sub_n.get(&s_t).unwrap_or(&0) as f64;
+            let e_s_rest = *sub_e_out.get(&s_t).unwrap_or(&0.0);
+            // s must be well-connected to C before accepting a merge.
+            if e_s_rest < gamma * n_s * (n_total_c as f64 - n_s) - 1e-12 {
+                continue;
+            }
+            let k_to_t = *k_to.get(&s_t).unwrap_or(&0.0);
+            // CPM-joining gain: `k_{v,s} − γ·n_v·n_s`.
+            let gain = k_to_t - gamma * n_v * n_s;
+            if gain > best_gain + 1e-12 {
+                best_gain = gain;
+                best_target = s_t;
+            }
+        }
+        if best_target == s_v {
+            continue;
+        }
+
+        // Move v → best_target. Update sub_n, sub_e_out, sub.
+        let k_to_new = *k_to.get(&best_target).unwrap_or(&0.0);
+        let k_v_c: f64 = k_to.values().sum();
+        sub_n.remove(&s_v);
+        sub_e_out.remove(&s_v);
+        *sub_n.entry(best_target).or_insert(0) += n_per_node[v as usize];
+        let et = sub_e_out.entry(best_target).or_insert(0.0);
+        // v joining sub-community: edges from v into C\{s_v} are now
+        // internal (for the peer side in best_target) and become
+        // "rest-of-C" for edges into other sub-communities. Mirroring
+        // the modularity-refine update, Δe_out = (k_v_c − k_to_new) −
+        // 2·k_to_new = k_v_c − 3·k_to_new in the double-stored adj; but
+        // since adj already double-stores each undirected edge we use
+        // the same expression as modularity-refine for consistency:
+        //   Δe_out = (k_v_c − k_to_new) − 2·k_to_new
+        *et += k_v_c - 2.0 * k_to_new;
+        if *et < 0.0 {
+            *et = 0.0;
+        }
+        sub[v as usize] = best_target;
+        moved[v as usize] = true;
+    }
 }
 
 /// CPM level-1 move pass. Same structure as `level1_moves_from` but
