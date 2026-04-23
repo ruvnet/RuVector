@@ -1,0 +1,32 @@
+[package]
+name = "ruvector-rabitq"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "RaBitQ: rotation-based 1-bit quantization for ultra-fast approximate nearest-neighbor search with theoretical error bounds"
+
+[[bin]]
+name = "rabitq-demo"
+path = "src/main.rs"
+
+[[bench]]
+name = "rabitq_bench"
+harness = false
+
+[dependencies]
+rand = { workspace = true }
+rand_distr = { workspace = true }
+rayon = { workspace = true, optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[features]
+default = []
+parallel = ["rayon"]
