@@ -302,10 +302,10 @@ Test timing: 17 ingest tests pass in < 1 ms total (fixture round-trip is CPU-bou
 
 **Two cheaper alternatives for a future iteration** if the 6 % becomes material:
 
-1. **Lazy sort** — skip the sort when the bucket is length ≤ 1 (trivially ordered) or when the engine config specifies the heap path (which already delivers canonical order). Removes ~70 % of the sort calls on sparse buckets.
-2. **Bucket-local radix sort on the `post` field** — `NeuronId` is u32; a 2-pass radix on the lower 16 bits is O(k) with tiny constants and bit-identical output to the `sort_by` tie-break. Projected ~2 % overhead vs 6.4 %.
+1. **Lazy sort** — skip the sort when the bucket is length ≤ 1 (trivially ordered). **Attempted in commit 24; measured null (change +0.57 %, p = 0.22 — within noise).** At the saturated-regime bench the buckets average 10+ events, so the length>1 skip almost never triggers; the extra branch-prediction cost cancels any savings. Kept in-tree as semantic hygiene — it still saves work on *sparse*-regime benches where buckets do have ≤ 1 event — but doesn't shift the saturated top-line. This is another instance of the branch-wide pattern (ADR §17 closing note): the first "cheap alternative" named in a prior commit rarely survives measurement on the actual hot workload.
+2. **Bucket-local radix sort on the `post` field** — `NeuronId` is u32; a 2-pass radix on the lower 16 bits is O(k) with tiny constants and bit-identical output to the `sort_by` tie-break. Projected ~2 % overhead vs 6.4 %. **Not yet attempted.** Cached here so the next iteration has a plan.
 
-Neither lands this iteration. The honest 6.4 % is recorded; the tests it enables (`tests/cross_path_determinism.rs`, 3/3 pass) are worth the cost.
+The honest 6.4 % stays recorded; the tests it enables (`tests/cross_path_determinism.rs`, 3/3 pass) are worth the cost.
 
 **Knock-on effects:** AC-1 bit-exact within-path still holds on both heap and wheel paths. AC-5 wallclock unchanged within measurement noise (pre-sort and post-sort both hit ~100 s on the commit-10 host).
 

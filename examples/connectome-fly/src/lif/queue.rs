@@ -210,16 +210,21 @@ impl TimingWheel {
             if drained > 0 {
                 // Canonical in-bucket order: ascending by (t_ms, post,
                 // pre). Matches the heap path's `SpikeEvent::cmp`
-                // tie-break (the heap's ordering is the inverse for
-                // max-heap semantics; the earliest event pops first,
-                // which is the ascending order here).
-                self.buckets[head].sort_by(|a, b| {
-                    a.t_ms
-                        .partial_cmp(&b.t_ms)
-                        .unwrap_or(Ordering::Equal)
-                        .then_with(|| a.post.cmp(&b.post))
-                        .then_with(|| a.pre.cmp(&b.pre))
-                });
+                // tie-break. Skip the sort when the bucket is
+                // trivially ordered (length 0 or 1) — saves the
+                // sort_by dispatch on the sparse-bucket common case,
+                // recovering ~4 % of the saturated-regime wallclock
+                // the unconditional sort cost (see BENCHMARK.md §4.11
+                // "Two cheaper alternatives" — this is item 1).
+                if drained > 1 {
+                    self.buckets[head].sort_by(|a, b| {
+                        a.t_ms
+                            .partial_cmp(&b.t_ms)
+                            .unwrap_or(Ordering::Equal)
+                            .then_with(|| a.post.cmp(&b.post))
+                            .then_with(|| a.pre.cmp(&b.pre))
+                    });
+                }
                 out.extend_from_slice(&self.buckets[head]);
                 self.buckets[head].clear();
                 self.total -= drained;
