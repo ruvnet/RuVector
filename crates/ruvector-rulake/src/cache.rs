@@ -69,10 +69,12 @@ struct CacheEntry {
     #[allow(dead_code)] // kept for diagnostics
     generation_hint: Option<u64>,
     last_checked: Instant,
+    /// Last time any search hit this entry — used by LRU eviction.
+    last_used: Instant,
     /// internal-position → external id.
     pos_to_id: Vec<u64>,
     /// How many external pointers currently resolve to this witness.
-    /// When this drops to zero the entry is evictable.
+    /// An entry with `refcount > 0` is ineligible for LRU eviction.
     refcount: u32,
 }
 
@@ -80,6 +82,14 @@ pub struct VectorCache {
     inner: Arc<Mutex<CacheState>>,
     rerank_factor: usize,
     rotation_seed: u64,
+    /// LRU cap on the number of distinct compressed entries. `None`
+    /// means unbounded (the MVP default). Evicts the least-recently-used
+    /// *refcount-0* entry on over-cap; refcount>0 entries are never
+    /// evicted (a live pointer needs them). Note: in the current API all
+    /// active pointers refcount their entries, so `max_entries` only has
+    /// effect when pointers have been removed via `invalidate()` but the
+    /// witness entry is still in the pool awaiting GC.
+    max_entries: Option<usize>,
 }
 
 struct CacheState {
@@ -103,7 +113,19 @@ impl VectorCache {
             })),
             rerank_factor,
             rotation_seed,
+            max_entries: None,
         }
+    }
+
+    /// Cap the cache at `n` distinct compressed entries. Evicts the
+    /// least-recently-used *unpinned* (refcount == 0) entry when the
+    /// pool exceeds `n`. Pinned entries (refcount > 0) are never
+    /// evicted; if the cap is reached and every entry is pinned,
+    /// `prime()` succeeds anyway and the cap is temporarily exceeded —
+    /// correctness over strict bounds.
+    pub fn with_max_entries(mut self, n: usize) -> Self {
+        self.max_entries = Some(n.max(1));
+        self
     }
 
     pub fn rerank_factor(&self) -> usize {
@@ -148,6 +170,7 @@ impl VectorCache {
             dim,
             generation_hint: Some(generation),
             last_checked: Instant::now(),
+            last_used: Instant::now(),
             pos_to_id,
             refcount: 0, // install_pointer bumps it
         };
@@ -161,7 +184,36 @@ impl VectorCache {
         }
         inner.entries.insert(witness.clone(), entry);
         inner.stats.primes += 1;
-        self.inner_install_pointer_unlocked(&mut inner, key, witness, false)
+        let rc = self.inner_install_pointer_unlocked(&mut inner, key, witness, false);
+        // Opportunistic LRU eviction: only runs when a cap is set,
+        // and only trims unpinned (refcount==0) entries, so live
+        // pointers are never orphaned.
+        if let Some(cap) = self.max_entries {
+            self.evict_lru_if_over(&mut inner, cap);
+        }
+        rc
+    }
+
+    /// Evict the least-recently-used unpinned entry until we're at or
+    /// below `cap`. Pinned entries are skipped; in the worst case every
+    /// entry is pinned and we can't evict anyone — that's by design.
+    fn evict_lru_if_over(&self, inner: &mut CacheState, cap: usize) {
+        while inner.entries.len() > cap {
+            // Find the oldest unpinned entry.
+            let victim = inner
+                .entries
+                .iter()
+                .filter(|(_, e)| e.refcount == 0)
+                .min_by_key(|(_, e)| e.last_used)
+                .map(|(w, _)| w.clone());
+            match victim {
+                Some(w) => {
+                    inner.entries.remove(&w);
+                    inner.stats.invalidations += 1;
+                }
+                None => break, // every entry pinned
+            }
+        }
     }
 
     /// Core pointer-install logic — must be called with the lock held.
@@ -260,33 +312,35 @@ impl VectorCache {
         query: &[f32],
         k: usize,
     ) -> crate::Result<Vec<(u64, f32)>> {
-        let inner = self.inner.lock().unwrap();
-        let witness =
-            inner
-                .pointers
-                .get(key)
-                .ok_or_else(|| crate::RuLakeError::UnknownCollection {
-                    backend: key.0.clone(),
-                    collection: key.1.clone(),
-                })?;
-        let entry =
-            inner
-                .entries
-                .get(witness)
-                .ok_or_else(|| crate::RuLakeError::UnknownCollection {
-                    backend: key.0.clone(),
-                    collection: key.1.clone(),
-                })?;
+        let mut inner = self.inner.lock().unwrap();
+        let witness = inner
+            .pointers
+            .get(key)
+            .ok_or_else(|| crate::RuLakeError::UnknownCollection {
+                backend: key.0.clone(),
+                collection: key.1.clone(),
+            })?
+            .clone();
+        let entry = inner.entries.get_mut(&witness).ok_or_else(|| {
+            crate::RuLakeError::UnknownCollection {
+                backend: key.0.clone(),
+                collection: key.1.clone(),
+            }
+        })?;
         if query.len() != entry.dim {
             return Err(crate::RuLakeError::DimensionMismatch {
                 expected: entry.dim,
                 actual: query.len(),
             });
         }
+        // LRU timestamp bump — unconditional; cheaper than the branch.
+        entry.last_used = Instant::now();
         let hits = entry.index.search(query, k)?;
+        let pos_to_id = entry.pos_to_id.clone();
+        drop(inner);
         Ok(hits
             .into_iter()
-            .map(|r| (entry.pos_to_id[r.id], r.score))
+            .map(|r| (pos_to_id[r.id], r.score))
             .collect())
     }
 

@@ -433,6 +433,45 @@ fn rulake_recall_at_10_above_90pct_vs_brute_force() {
 }
 
 #[test]
+fn lru_eviction_caps_entry_count_when_pointers_dropped() {
+    // With max_entries=2 and three distinct witnesses primed + then
+    // invalidated (dropping the pointer → refcount=0), LRU should
+    // keep the pool at ≤ 2 entries.
+    let d = 8;
+
+    let a = Arc::new(LocalBackend::new("a"));
+    let b = Arc::new(LocalBackend::new("b"));
+    let c = Arc::new(LocalBackend::new("c"));
+    for (i, back) in [&a, &b, &c].iter().enumerate() {
+        back.put_collection("c", d, vec![i as u64], vec![vec![(i as f32); d]])
+            .unwrap();
+    }
+    let lake = RuLake::new(5, 42).with_max_cache_entries(2);
+    lake.register_backend(a).unwrap();
+    lake.register_backend(b).unwrap();
+    lake.register_backend(c).unwrap();
+
+    let q = vec![0.0; d];
+    lake.search_one("a", "c", &q, 1).unwrap();
+    lake.search_one("b", "c", &q, 1).unwrap();
+    lake.search_one("c", "c", &q, 1).unwrap();
+    // Three pointers → three entries (all pinned).
+    assert_eq!(lake.cache_entry_count(), 3);
+
+    // Drop pointer `a` → its entry becomes unpinned.
+    lake.invalidate_cache(&("a".to_string(), "c".to_string()));
+    // Still 2 pinned (b, c); the now-unpinned `a`-witness entry would
+    // put us at 3 entries, but max_entries=2 evicts it.
+    // Re-prime `b` to trigger the cap check.
+    lake.search_one("b", "c", &q, 1).unwrap();
+    assert!(
+        lake.cache_entry_count() <= 2,
+        "lru cap violated: entry_count={}",
+        lake.cache_entry_count()
+    );
+}
+
+#[test]
 fn unknown_collection_returns_error() {
     let backend = Arc::new(LocalBackend::new("b"));
     let lake = RuLake::new(20, 0);

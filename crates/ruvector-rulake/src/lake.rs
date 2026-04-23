@@ -49,6 +49,20 @@ impl RuLake {
         self
     }
 
+    /// Cap the cache at `n` distinct compressed entries (LRU eviction
+    /// over *unpinned* entries). Unbounded by default. Useful in
+    /// serving processes where memory is finite.
+    pub fn with_max_cache_entries(self, n: usize) -> Self {
+        Self {
+            cache: Arc::new(
+                VectorCache::new(self.cache.rerank_factor(), self.cache.rotation_seed())
+                    .with_max_entries(n),
+            ),
+            backends: self.backends,
+            consistency: self.consistency,
+        }
+    }
+
     /// Register a backend under its `id()`. Returns an error if a backend
     /// with the same id already exists.
     pub fn register_backend(&self, backend: Arc<dyn BackendAdapter>) -> Result<()> {
@@ -89,6 +103,13 @@ impl RuLake {
     /// Returns 0 for unknown witnesses.
     pub fn cache_refcount_of(&self, witness: &str) -> u32 {
         self.cache.refcount_of(witness)
+    }
+
+    /// Drop the cache pointer for a given `(backend, collection)` pair.
+    /// If this was the last pointer at the witness, the underlying
+    /// compressed entry is garbage-collected.
+    pub fn invalidate_cache(&self, key: &CacheKey) {
+        self.cache.invalidate(key);
     }
 
     /// Search a single (backend, collection) pair. Handles cache
