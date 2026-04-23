@@ -439,3 +439,51 @@ fn leiden_cpm_vs_modularity_across_scales() {
         "cpm-scale-sweep: CPM no longer beats modularity at ANY scale — regression"
     );
 }
+
+#[test]
+fn leiden_cpm_gamma_peak_per_scale() {
+    // Follow-up to leiden_cpm_vs_modularity_across_scales (ADR §17
+    // item 22): at fixed γ=2.25 CPM scored 0.322/0.425/0.258 across
+    // N=512/1024/2048. Item 19 established that the γ peak on the
+    // N=1024 substrate is γ ∈ [2.25, 2.5]; it's plausible the peak
+    // γ shifts with N. This test does a small γ sweep at each scale
+    // and reports the per-scale CPM ceiling. If the N=2048 ceiling
+    // is still < 0.3, that's a real algorithmic ceiling; if it's
+    // higher, the fixed-γ measurement at item 22 was understated.
+    let scales: [(u32, u16, u16); 3] = [(512, 35, 3), (1024, 70, 6), (2048, 140, 12)];
+    let gammas = [1.25, 1.75, 2.25, 2.75, 3.5, 5.0];
+    for &(n, m, h) in &scales {
+        let cfg = ConnectomeConfig {
+            num_neurons: n,
+            num_modules: m,
+            num_hub_modules: h,
+            ..ConnectomeConfig::default()
+        };
+        let conn = Connectome::generate(&cfg);
+        let truth_labels: Vec<u32> = (0..conn.num_neurons())
+            .map(|i| conn.meta(connectome_fly::NeuronId(i as u32)).module as u32)
+            .collect();
+        let mut best_ari = f32::NEG_INFINITY;
+        let mut best_gamma = 0.0_f64;
+        let mut best_distinct = 0usize;
+        for &g in &gammas {
+            let labels = connectome_fly::analysis::leiden::leiden_labels_cpm(&conn, g);
+            let ari = full_partition_ari(&labels, &truth_labels);
+            let d = count_unique(&labels);
+            eprintln!(
+                "cpm-peak-per-scale: N={}  γ={:.2}  full_ari={:.3}  distinct={}",
+                n, g, ari, d
+            );
+            if ari > best_ari {
+                best_ari = ari;
+                best_gamma = g;
+                best_distinct = d;
+            }
+        }
+        eprintln!(
+            "cpm-peak-per-scale: N={}  PEAK full_ari={:.3} @ γ={:.2}  (distinct={})",
+            n, best_ari, best_gamma, best_distinct
+        );
+    }
+    // Publish-only. No assertion — every row is a ceiling observation.
+}
