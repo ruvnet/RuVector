@@ -37,6 +37,10 @@ pub struct Observer {
     warmup_samples: u32,
     threshold_factor: f32,
     events: Vec<CoherenceEvent>,
+    // Most-recent detected Fiedler value (NaN until first detect).
+    // Published by `latest_fiedler()` for live consumers (the UI
+    // server); not part of the acceptance-test math.
+    last_fiedler: f32,
     // Population-rate binning.
     bin_ms: f32,
     t_end_hint_ms: f32,
@@ -82,6 +86,7 @@ impl Observer {
             warmup_samples: 20,
             threshold_factor: 2.0,
             events: Vec::new(),
+            last_fiedler: f32::NAN,
             bin_ms: 5.0,
             t_end_hint_ms: 0.0,
         }
@@ -115,6 +120,23 @@ impl Observer {
     /// Raw spike list.
     pub fn spikes(&self) -> &[Spike] {
         &self.spikes
+    }
+
+    /// Most recent Fiedler value from the rolling-baseline stream, or
+    /// NaN if the detector hasn't produced any sample yet. Used by the
+    /// live UI server (`src/bin/ui_server.rs`) to publish real
+    /// `λ₂`-of-the-co-firing-Laplacian to the browser.
+    pub fn latest_fiedler(&self) -> f32 {
+        self.last_fiedler
+    }
+
+    /// Current running mean of Fiedler samples (NaN until first sample).
+    pub fn fiedler_baseline_mean(&self) -> f32 {
+        if self.baseline.n == 0 {
+            f32::NAN
+        } else {
+            self.baseline.mean
+        }
     }
 
     /// Adaptive detect interval: under sustained saturated firing the
@@ -168,6 +190,9 @@ impl Observer {
         if fiedler.is_nan() {
             return;
         }
+        // Expose latest sample to `latest_fiedler()` before thresholding
+        // — live consumers want every sample, not just flagged events.
+        self.last_fiedler = fiedler;
         let (mean, std) = (self.baseline.mean, self.baseline.std());
         if self.baseline.n >= self.warmup_samples && std > 1e-6 {
             let drop = mean - fiedler;

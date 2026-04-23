@@ -14,6 +14,10 @@ path = "src/lib.rs"
 name = "run_demo"
 path = "src/bin/run_demo.rs"
 
+[[bin]]
+name = "ui_server"
+path = "src/bin/ui_server.rs"
+
 [features]
 default = ["simd"]
 # SIMD vectorization of the subthreshold LIF loop (V, g_exc, g_inh).

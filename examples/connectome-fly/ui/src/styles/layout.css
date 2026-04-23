@@ -97,6 +97,10 @@
 .topbar-stat .k { color: var(--fg-3); }
 .topbar-stat .v { color: var(--fg); }
 .topbar-stat .v.hot { color: var(--signal); }
+/* Real-backend status banner — tri-state driven by dynamics.js. */
+#real-backend-banner[data-state="pending"] { color: var(--amber); }
+#real-backend-banner[data-state="live"]    { color: var(--signal); }
+#real-backend-banner[data-state="down"]    { color: #ff6b6b; }
 
 /* === LEFT RAIL === */
 .rail {

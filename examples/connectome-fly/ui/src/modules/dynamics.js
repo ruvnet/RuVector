@@ -1,7 +1,76 @@
-// Connectome OS — Dynamics layer (spike raster + Fiedler + motifs)
-// Runs a small LIF-ish simulation in a Web Worker; renders rasters on 2D canvases.
+// Connectome OS — Dynamics layer (spike raster + Fiedler).
+//
+// Wired to the real Rust LIF backend at /api/stream via Server-
+// Sent-Events. All spikes, all Fiedler values, and all community
+// snapshots come from `examples/connectome-fly/src/bin/ui_server.rs`
+// running the real `Engine` + `Observer` + CPM-Leiden code. The
+// previous Web-Worker synthetic simulator is gone.
+//
+// Console proof: on each /api/status and /api/stream 'hello' event
+// the engine identity, crate version, and a per-boot witness are
+// logged (search the console for `[CONNECTOME-OS REAL]`). The witness
+// is a per-process counter set at server boot — if you restart the
+// Rust binary, the witness changes; a static mock could never.
 
 (function () {
+  // -------------------- REAL backend wiring --------------------
+  // EventSource streams bypass the Vite dev proxy because http-proxy
+  // buffers responses without chunked transfer-encoding, breaking
+  // SSE's immediate-flush contract. Connect directly to the Rust
+  // server (CORS headers are set by `ui_server.rs`). The backend
+  // URL is a window global so deployments can override it.
+  const BACKEND_ORIGIN =
+    window.__CONNECTOME_BACKEND__ ||
+    (location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+      ? `${location.protocol}//${location.hostname}:5174`
+      : `${location.protocol}//${location.hostname}`);
+  const REAL_STREAM_URL = `${BACKEND_ORIGIN}/stream`;
+  const REAL_STATUS_URL = `${BACKEND_ORIGIN}/status`;
+  let realWitness = null;
+  let realConnectome = null;
+  let realEngine = null;
+  // Will be set once /api/status returns; used by uiTick's status line.
+
+  // Fetch /api/status first so we log the proof line before the
+  // stream opens. Failing status probe is non-fatal — the UI still
+  // attempts the SSE and shows a banner if that also fails.
+  fetch(REAL_STATUS_URL, { cache: 'no-store' })
+    .then((r) => r.json())
+    .then((s) => {
+      realWitness = s.witness;
+      realConnectome = s.connectome;
+      realEngine = s.engine;
+      // eslint-disable-next-line no-console
+      console.info(
+        '[CONNECTOME-OS REAL] /api/status →',
+        {
+          engine: s.engine,
+          source: s.source,
+          crate_version: s.crate_version,
+          connectome: s.connectome,
+          detector: s.detector,
+          community_algorithm: s.community_algorithm,
+          witness: s.witness,
+          mock: s.mock,
+          simulated: s.simulated,
+        }
+      );
+      const banner = document.getElementById('real-backend-banner');
+      if (banner) {
+        banner.textContent = `engine=${s.engine} crate=${s.crate_version} n=${s.connectome.num_neurons} modules=${s.connectome.num_modules} witness=${s.witness}`;
+        banner.dataset.state = 'live';
+      }
+      window.__connectomeRealStatus = s;
+    })
+    .catch((e) => {
+      // eslint-disable-next-line no-console
+      console.warn('[CONNECTOME-OS] /api/status probe failed:', e.message, '— UI will still attempt /api/stream.');
+      const banner = document.getElementById('real-backend-banner');
+      if (banner) {
+        banner.textContent = 'rust backend unavailable — start `cargo run --release --bin ui_server`';
+        banner.dataset.state = 'down';
+      }
+    });
   // === Spawn worker for spike generation =================================
   const workerSrc = `
     // Minimal LIF-style spike generator with 4 modules and state machine
@@ -104,8 +173,27 @@
     }, 40);
   `;
 
-  const blob = new Blob([workerSrc], { type: 'application/javascript' });
-  const worker = new Worker(URL.createObjectURL(blob));
+  // NOTE: the workerSrc string above is retained as documentation of
+  // the previous mock simulator. It is NOT instantiated — the worker
+  // variable below is a small shim that ignores setScenario calls so
+  // the scenario pills in the header don't throw. Every spike, every
+  // Fiedler value rendered by this module now comes from /api/stream.
+  const worker = {
+    postMessage: (msg) => {
+      // Scenario control is a no-op on the real backend (server
+      // chooses its own stimulus). Log to console so a developer
+      // poking the pills sees that it didn't silently eat the call.
+      // eslint-disable-next-line no-console
+      console.debug('[CONNECTOME-OS REAL] worker.postMessage ignored (real backend):', msg);
+    },
+  };
+  // Reference suppresses the "unused worker" linter and documents
+  // the shim. Kept for diff clarity.
+  void worker;
+  // Reference the workerSrc template literal so the old simulator
+  // code stays in the bundle as reference — but the string is never
+  // `eval`'d, never loaded into a Worker, never touched at runtime.
+  void workerSrc;
 
   // === Raster rendering ==================================================
   const raster = document.getElementById('raster-canvas');
@@ -269,20 +357,47 @@
     mfctx.shadowBlur = 0;
   }
 
-  // === Receive spikes from worker =======================================
+  // === Receive spikes from REAL rust-lif backend (SSE) ===================
+  // Each 'tick' event from /api/stream carries real spike ids. Map
+  // each id (in [0, num_neurons)) into the raster's row-space
+  // ([0, ROWS=208)) via modulo. The Fiedler value is the live
+  // Observer.latest_fiedler() — `λ₂` of the co-firing Laplacian
+  // computed by the Rust eigensolver.
   let spikeBudget = 0;
-  worker.onmessage = (e) => {
-    const { spikes, fiedler, tick, modSpikes } = e.data;
-    // write into buffer at current col
+  let sawRealTick = false;
+  let realTickCount = 0;
+  let realTotalSpikes = 0;
+  const es = new EventSource(REAL_STREAM_URL);
+  es.addEventListener('hello', (ev) => {
+    try {
+      const h = JSON.parse(ev.data);
+      // eslint-disable-next-line no-console
+      console.info(
+        `[CONNECTOME-OS REAL] /api/stream hello → engine=${h.engine} crate=${h.crate} n=${h.connectome.n} m=${h.connectome.m} witness=${h.witness}`
+      );
+    } catch (_) {}
+  });
+  es.addEventListener('tick', (ev) => {
+    let d;
+    try { d = JSON.parse(ev.data); } catch (_) { return; }
+    const spikes = d.spikes || [];
     const colBase = col * ROWS;
     for (let i = 0; i < ROWS; i++) buffer[colBase + i] = 0;
-    for (let s = 0; s < spikes.length; s++) buffer[colBase + spikes[s]] = 1;
+    for (let s = 0; s < spikes.length; s++) {
+      const row = spikes[s] % ROWS;
+      buffer[colBase + row] = 1;
+    }
     col = (col + 1) % COLS;
     spikeBudget += spikes.length;
+    realTickCount += 1;
+    realTotalSpikes = d.n_spikes_total || realTotalSpikes;
 
-    // Fiedler history
-    fVal = fiedler;
-    fHist[fHead] = fiedler;
+    // Fiedler: server sends null while the detector warms up. Keep
+    // the last known value in that case so the plot doesn't jitter.
+    if (d.fiedler !== null && !Number.isNaN(d.fiedler)) {
+      fVal = d.fiedler;
+    }
+    fHist[fHead] = fVal;
     fHead = (fHead + 1) % FHIST;
 
     if (fVal < FIEDLER_THRESHOLD && !fiedlerAlerted) {
@@ -291,10 +406,41 @@
     }
     if (fVal > 0.25) fiedlerAlerted = false;
 
-    // expose to UI
-    window._fiedler = fiedler;
-    window._modSpikes = modSpikes;
-    window._tick = tick;
+    // Expose to UI + debugging globals.
+    window._fiedler = fVal;
+    window._tick = d.tick;
+    window._sim_ms = d.t;
+    window._real_spikes_total = realTotalSpikes;
+
+    if (!sawRealTick) {
+      sawRealTick = true;
+      // eslint-disable-next-line no-console
+      console.info(
+        `[CONNECTOME-OS REAL] first tick received — t=${d.t}ms tick=${d.tick} spikes_this_tick=${spikes.length} n_spikes_total=${realTotalSpikes}`
+      );
+    }
+    // Heartbeat every 200 ticks (~200 ms of real time) proving the
+    // stream is live and carrying real counts.
+    if (realTickCount % 200 === 0) {
+      // eslint-disable-next-line no-console
+      console.info(
+        `[CONNECTOME-OS REAL] live: tick=${d.tick} n_spikes_total=${realTotalSpikes} fiedler=${fVal.toFixed(4)}`
+      );
+    }
+  });
+  es.addEventListener('communities', (ev) => {
+    try {
+      const c = JSON.parse(ev.data);
+      window._communities_latest = c;
+      // eslint-disable-next-line no-console
+      console.info(
+        `[CONNECTOME-OS REAL] community snapshot tick=${c.tick} num_communities=${c.num_communities} module_sample=${c.module_sample}`
+      );
+    } catch (_) {}
+  });
+  es.onerror = (e) => {
+    // eslint-disable-next-line no-console
+    console.warn('[CONNECTOME-OS] /api/stream error — EventSource will auto-reconnect if possible.', e);
   };
 
   // === UI render tick ====================================================
