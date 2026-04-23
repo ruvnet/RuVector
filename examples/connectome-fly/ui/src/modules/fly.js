@@ -390,6 +390,8 @@
       resize,
       reset: () => { userInteracted = false; targetRadius = 5.8; targetEl = 0.38; },
       setSensoryBurst: (v) => { stats.sensoryBurst = v; },
+      setWingHz: (hz) => { if (Number.isFinite(hz)) stats.wingHz = Math.max(20, Math.min(260, hz)); },
+      setStepHz: (hz) => { if (Number.isFinite(hz)) stats.stepHz = Math.max(1, Math.min(120, hz)); },
       dispose: () => {
         running = false;
         renderer.dispose();

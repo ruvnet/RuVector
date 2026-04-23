@@ -28,4 +28,5 @@ import './modules/scene.js';
 import './modules/dynamics.js';
 import './modules/fly.js';
 import './modules/actions.js';
+import './modules/fly-sim.js';
 import './modules/welcome.js';
