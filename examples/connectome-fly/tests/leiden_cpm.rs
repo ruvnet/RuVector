@@ -639,3 +639,68 @@ fn leiden_cpm_module_count_sweep_at_n512() {
     );
     // Publish-only — each config is a measurement row.
 }
+
+#[test]
+fn leiden_cpm_cross_scale_constant_density_at_25() {
+    // Follow-up to item 26. At N=512 the CPM peak landed at
+    // num_modules=20 (25.6 neurons/module), γ=4.0, full_ARI=0.599 —
+    // well ahead of the density=14.6 configuration used in items
+    // 22/23/24. This test asks: does the "few-large-modules" pattern
+    // generalise across scale? Hold neurons/module ≈ 25.6 constant;
+    // vary N ∈ {256, 512, 1024, 2048}; sweep γ at each.
+    //
+    // Hypotheses:
+    //   (A) N=512 is still the sweet spot with density fixed → the
+    //       peak is a scale property, not a density property.
+    //   (B) Different N wins at this density → the item-24 "N=512 is
+    //       the ceiling" was density-dependent; the real ceiling is
+    //       elsewhere and we've been holding the wrong dimension fixed.
+    //   (C) ARI peaks at an N higher than 512 → the CPM ceiling was
+    //       severely understated by all prior measurements because
+    //       they used density=14.6 instead of density=25.
+    let scales: [(u32, u16, u16); 4] = [
+        (256, 10, 1),
+        (512, 20, 2),
+        (1024, 40, 3),
+        (2048, 80, 6),
+    ];
+    let gammas = [2.0, 2.5, 3.0, 3.5, 4.0, 5.0, 6.0, 8.0];
+    let mut best_overall_ari = f32::NEG_INFINITY;
+    let mut best_overall: (u32, u16, f64) = (0, 0, 0.0);
+    for &(n, m, h) in &scales {
+        let cfg = ConnectomeConfig {
+            num_neurons: n,
+            num_modules: m,
+            num_hub_modules: h,
+            ..ConnectomeConfig::default()
+        };
+        let conn = Connectome::generate(&cfg);
+        let truth: Vec<u32> = (0..conn.num_neurons())
+            .map(|i| conn.meta(connectome_fly::NeuronId(i as u32)).module as u32)
+            .collect();
+        let mut best_ari = f32::NEG_INFINITY;
+        let mut best_g = 0.0_f64;
+        let mut best_d = 0usize;
+        for &g in &gammas {
+            let labels = connectome_fly::analysis::leiden::leiden_labels_cpm(&conn, g);
+            let ari = full_partition_ari(&labels, &truth);
+            if ari > best_ari {
+                best_ari = ari;
+                best_g = g;
+                best_d = count_unique(&labels);
+            }
+        }
+        eprintln!(
+            "cpm-density25-crossscale: N={:5} modules={:3}  PEAK full_ari={:.3} @ γ={:.2}  (distinct={})",
+            n, m, best_ari, best_g, best_d
+        );
+        if best_ari > best_overall_ari {
+            best_overall_ari = best_ari;
+            best_overall = (n, m, best_g);
+        }
+    }
+    eprintln!(
+        "cpm-density25-crossscale: OVERALL PEAK full_ari={:.3} at N={} modules={} γ={:.2}  [vs 0.599 N=512 headline, 0.75 SOTA]",
+        best_overall_ari, best_overall.0, best_overall.1, best_overall.2
+    );
+}
