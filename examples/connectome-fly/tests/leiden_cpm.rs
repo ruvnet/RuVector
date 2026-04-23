@@ -178,7 +178,14 @@ fn leiden_cpm_sweeps_gamma_on_default_sbm() {
     // regimes. Normalized edges mean γ = 1.0 is the 'mean-density'
     // threshold; the SBM's natural γ* for a non-trivial partition
     // sits at roughly inter_density × n_module.
-    let gammas = [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0];
+    // Fine sweep around the γ=2 peak identified in the coarse sweep
+    // (see ADR §17 item 18: best full_ari = 0.393 at γ=2 with 109
+    // communities). Sampling in-between γ=1 and γ=4 with finer
+    // resolution to see whether the peak is a plateau or a ridge.
+    let gammas = [
+        0.1, 0.5, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.5, 4.0, 6.0, 8.0, 16.0, 32.0,
+        64.0,
+    ];
     let mut best_ari_2way = f32::NEG_INFINITY;
     let mut best_gamma_2way = 0.0_f64;
     let mut best_ari_full = f32::NEG_INFINITY;
