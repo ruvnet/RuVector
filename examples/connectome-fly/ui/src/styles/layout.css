@@ -101,6 +101,7 @@
 #real-backend-banner[data-state="pending"] { color: var(--amber); }
 #real-backend-banner[data-state="live"]    { color: var(--signal); }
 #real-backend-banner[data-state="down"]    { color: #ff6b6b; }
+#real-backend-banner[data-state="mock"]    { color: var(--amber); }
 
 /* === LEFT RAIL === */
 .rail {

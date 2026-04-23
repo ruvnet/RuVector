@@ -177,27 +177,38 @@
     }, 40);
   `;
 
-  // NOTE: the workerSrc string above is retained as documentation of
-  // the previous mock simulator. It is NOT instantiated — the worker
-  // variable below is a small shim that ignores setScenario calls so
-  // the scenario pills in the header don't throw. Every spike, every
-  // Fiedler value rendered by this module now comes from /api/stream.
-  const worker = {
-    postMessage: (msg) => {
-      // Scenario control is a no-op on the real backend (server
-      // chooses its own stimulus). Log to console so a developer
-      // poking the pills sees that it didn't silently eat the call.
-      // eslint-disable-next-line no-console
-      console.debug('[CONNECTOME-OS REAL] worker.postMessage ignored (real backend):', msg);
-    },
-  };
-  // Reference suppresses the "unused worker" linter and documents
-  // the shim. Kept for diff clarity.
-  void worker;
-  // Reference the workerSrc template literal so the old simulator
-  // code stays in the bundle as reference — but the string is never
-  // `eval`'d, never loaded into a Worker, never touched at runtime.
-  void workerSrc;
+  // A live mock-Worker reference, populated by startMockSimulator() when
+  // the real Rust backend is unreachable (e.g. on GitHub Pages). When a
+  // real backend is connected, `worker` stays null and the mock never
+  // runs — SSE is the source of truth.
+  let worker = null;
+  let usingMock = false;
+
+  function startMockSimulator() {
+    if (worker) return;
+    const blob = new Blob([workerSrc], { type: 'application/javascript' });
+    worker = new Worker(URL.createObjectURL(blob));
+    usingMock = true;
+    worker.onmessage = (e) => {
+      const { spikes, fiedler, tick: mtick } = e.data;
+      writeTick({
+        spikes,
+        fiedler,
+        tick: mtick,
+        totalSpikesDelta: spikes.length,
+        source: 'mock',
+      });
+    };
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[CONNECTOME-OS] no Rust backend — the raster is now driven by the built-in JS mock simulator. Run `cargo run --release --bin ui_server` to switch to real data.'
+    );
+    const banner = document.getElementById('real-backend-banner');
+    if (banner) {
+      banner.textContent = 'no backend — showing JS mock (run ui_server for real data)';
+      banner.dataset.state = 'mock';
+    }
+  }
 
   // === Raster rendering ==================================================
   const raster = document.getElementById('raster-canvas');
@@ -361,45 +372,29 @@
     mfctx.shadowBlur = 0;
   }
 
-  // === Receive spikes from REAL rust-lif backend (SSE) ===================
-  // Each 'tick' event from /api/stream carries real spike ids. Map
-  // each id (in [0, num_neurons)) into the raster's row-space
-  // ([0, ROWS=208)) via modulo. The Fiedler value is the live
-  // Observer.latest_fiedler() — `λ₂` of the co-firing Laplacian
-  // computed by the Rust eigensolver.
+  // === Shared per-tick writer ===========================================
+  // Both the real SSE stream and the JS mock Worker feed writeTick().
+  // One code path renders the raster + Fiedler regardless of source.
   let spikeBudget = 0;
   let sawRealTick = false;
   let realTickCount = 0;
   let realTotalSpikes = 0;
-  const es = new EventSource(REAL_STREAM_URL);
-  es.addEventListener('hello', (ev) => {
-    try {
-      const h = JSON.parse(ev.data);
-      // eslint-disable-next-line no-console
-      console.info(
-        `[CONNECTOME-OS REAL] /api/stream hello → engine=${h.engine} crate=${h.crate} n=${h.connectome.n} m=${h.connectome.m} witness=${h.witness}`
-      );
-    } catch (_) {}
-  });
-  es.addEventListener('tick', (ev) => {
-    let d;
-    try { d = JSON.parse(ev.data); } catch (_) { return; }
-    const spikes = d.spikes || [];
+
+  function writeTick({ spikes, fiedler, tick: tickNum, totalSpikesDelta, source }) {
+    const arr = spikes || [];
     const colBase = col * ROWS;
     for (let i = 0; i < ROWS; i++) buffer[colBase + i] = 0;
-    for (let s = 0; s < spikes.length; s++) {
-      const row = spikes[s] % ROWS;
+    for (let s = 0; s < arr.length; s++) {
+      const row = arr[s] % ROWS;
       buffer[colBase + row] = 1;
     }
     col = (col + 1) % COLS;
-    spikeBudget += spikes.length;
+    spikeBudget += arr.length;
     realTickCount += 1;
-    realTotalSpikes = d.n_spikes_total || realTotalSpikes;
+    realTotalSpikes += totalSpikesDelta || 0;
 
-    // Fiedler: server sends null while the detector warms up. Keep
-    // the last known value in that case so the plot doesn't jitter.
-    if (d.fiedler !== null && !Number.isNaN(d.fiedler)) {
-      fVal = d.fiedler;
+    if (fiedler !== null && fiedler !== undefined && !Number.isNaN(fiedler)) {
+      fVal = fiedler;
     }
     fHist[fHead] = fVal;
     fHead = (fHead + 1) % FHIST;
@@ -410,42 +405,109 @@
     }
     if (fVal > 0.25) fiedlerAlerted = false;
 
-    // Expose to UI + debugging globals.
     window._fiedler = fVal;
-    window._tick = d.tick;
-    window._sim_ms = d.t;
+    window._tick = tickNum;
     window._real_spikes_total = realTotalSpikes;
+    window._source = source; // 'real' or 'mock'
 
-    if (!sawRealTick) {
+    if (source === 'real' && !sawRealTick) {
       sawRealTick = true;
       // eslint-disable-next-line no-console
       console.info(
-        `[CONNECTOME-OS REAL] first tick received — t=${d.t}ms tick=${d.tick} spikes_this_tick=${spikes.length} n_spikes_total=${realTotalSpikes}`
+        `[CONNECTOME-OS REAL] first tick received — tick=${tickNum} spikes_this_tick=${arr.length} n_spikes_total=${realTotalSpikes}`
       );
     }
-    // Heartbeat every 200 ticks (~200 ms of real time) proving the
-    // stream is live and carrying real counts.
-    if (realTickCount % 200 === 0) {
+    if (source === 'real' && realTickCount % 200 === 0) {
       // eslint-disable-next-line no-console
       console.info(
-        `[CONNECTOME-OS REAL] live: tick=${d.tick} n_spikes_total=${realTotalSpikes} fiedler=${fVal.toFixed(4)}`
+        `[CONNECTOME-OS REAL] live: tick=${tickNum} n_spikes_total=${realTotalSpikes} fiedler=${fVal.toFixed(4)}`
       );
     }
-  });
-  es.addEventListener('communities', (ev) => {
-    try {
-      const c = JSON.parse(ev.data);
-      window._communities_latest = c;
-      // eslint-disable-next-line no-console
-      console.info(
-        `[CONNECTOME-OS REAL] community snapshot tick=${c.tick} num_communities=${c.num_communities} module_sample=${c.module_sample}`
-      );
-    } catch (_) {}
-  });
-  es.onerror = (e) => {
-    // eslint-disable-next-line no-console
-    console.warn('[CONNECTOME-OS] /api/stream error — EventSource will auto-reconnect if possible.', e);
-  };
+  }
+
+  // === Receive spikes from REAL rust-lif backend (SSE) ===================
+  // Falls back to the mock Worker if the stream errors (e.g. static
+  // hosting like GitHub Pages where there's no Rust process).
+  let es = null;
+  let sseReady = false;
+
+  function startRealStream() {
+    es = new EventSource(REAL_STREAM_URL);
+    es.addEventListener('hello', (ev) => {
+      sseReady = true;
+      try {
+        const h = JSON.parse(ev.data);
+        // eslint-disable-next-line no-console
+        console.info(
+          `[CONNECTOME-OS REAL] /api/stream hello → engine=${h.engine} crate=${h.crate} n=${h.connectome.n} m=${h.connectome.m} witness=${h.witness}`
+        );
+      } catch (_) {}
+    });
+    es.addEventListener('tick', (ev) => {
+      let d;
+      try { d = JSON.parse(ev.data); } catch (_) { return; }
+      const delta =
+        typeof d.n_spikes_total === 'number'
+          ? Math.max(0, d.n_spikes_total - realTotalSpikes)
+          : (d.spikes ? d.spikes.length : 0);
+      // Assign the absolute total rather than accumulating the delta
+      // here, so the console log matches the server's counter exactly.
+      realTotalSpikes = d.n_spikes_total || realTotalSpikes;
+      writeTick({
+        spikes: d.spikes,
+        fiedler: d.fiedler,
+        tick: d.tick,
+        totalSpikesDelta: 0, // total is reassigned above
+        source: 'real',
+      });
+      // One extra side effect: expose sim_ms for the real path.
+      window._sim_ms = d.t;
+      void delta;
+    });
+    es.addEventListener('communities', (ev) => {
+      try {
+        const c = JSON.parse(ev.data);
+        window._communities_latest = c;
+        // eslint-disable-next-line no-console
+        console.info(
+          `[CONNECTOME-OS REAL] community snapshot tick=${c.tick} num_communities=${c.num_communities} module_sample=${c.module_sample}`
+        );
+      } catch (_) {}
+    });
+    es.onerror = () => {
+      if (sseReady) {
+        // Transient drop after a successful hello — EventSource will
+        // reconnect on its own. Don't fall back to the mock because
+        // real data may be resumed shortly.
+        // eslint-disable-next-line no-console
+        console.warn('[CONNECTOME-OS] /api/stream drop — EventSource will auto-reconnect.');
+        return;
+      }
+      // Never saw a hello → no Rust backend. Close and fall back.
+      try { es.close(); } catch (_) {}
+      es = null;
+      if (!usingMock) startMockSimulator();
+    };
+  }
+
+  // Kick off the real stream. If status probe above already flagged the
+  // backend as 'down', start the mock immediately instead.
+  const banner = document.getElementById('real-backend-banner');
+  if (banner && banner.dataset.state === 'down') {
+    startMockSimulator();
+  } else {
+    startRealStream();
+    // Safety net: if we never get a hello within 4 s, the backend is
+    // almost certainly unreachable (e.g. static hosting). Start the
+    // mock so the raster isn't blank.
+    setTimeout(() => {
+      if (!sseReady && !usingMock) {
+        try { if (es) es.close(); } catch (_) {}
+        es = null;
+        startMockSimulator();
+      }
+    }, 4000);
+  }
 
   // === UI render tick ====================================================
   let spikesPerSec = 0;
@@ -486,11 +548,23 @@
   requestAnimationFrame(uiTick);
 
   // === Public API ========================================================
+  // The scenario / health / pause controls only apply to the JS mock
+  // simulator. On the real backend the server chooses the stimulus;
+  // these calls are no-ops but we log so it's visible in DevTools.
+  function sendWorker(msg) {
+    if (worker) {
+      worker.postMessage(msg);
+    } else {
+      // eslint-disable-next-line no-console
+      console.debug('[CONNECTOME-OS REAL] worker control ignored (real backend):', msg);
+    }
+  }
   window.Dynamics = {
-    setScenario(name) { worker.postMessage({ type: 'setScenario', scenario: name }); },
-    setHealth(arr) { worker.postMessage({ type: 'setHealth', health: arr }); },
-    pause() { worker.postMessage({ type: 'pause' }); },
-    play() { worker.postMessage({ type: 'play' }); },
-    getFiedler() { return fVal; }
+    setScenario(name) { sendWorker({ type: 'setScenario', scenario: name }); },
+    setHealth(arr)    { sendWorker({ type: 'setHealth', health: arr }); },
+    pause()           { sendWorker({ type: 'pause' }); },
+    play()            { sendWorker({ type: 'play' }); },
+    getFiedler()      { return fVal; },
+    isMock()          { return usingMock; },
   };
 })();
