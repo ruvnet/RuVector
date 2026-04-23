@@ -704,3 +704,111 @@ fn leiden_cpm_cross_scale_constant_density_at_25() {
         best_overall_ari, best_overall.0, best_overall.1, best_overall.2
     );
 }
+
+#[test]
+fn leiden_cpm_hub_fraction_sweep_at_n1024() {
+    // Follow-up to item 27. At N=1024 with num_modules=40 (density
+    // 25.6) and hub_modules=3, CPM scored 0.516. Item 27 also noted
+    // that at N=512 the hub_modules choice matters: hub=1 → 0.599
+    // (item 26), hub=2 → 0.554 (item 27's config). Hypothesis: at
+    // N=1024, reducing hub_modules should raise the ceiling past
+    // 0.516 and perhaps past 0.599 (closing the AC-3a gap further).
+    //
+    // Sweep hub_modules ∈ {0, 1, 2, 3, 4, 6, 8} at N=1024 /
+    // num_modules=40. Per-hub γ sweep.
+    let hub_counts: [u16; 7] = [0, 1, 2, 3, 4, 6, 8];
+    let gammas = [2.0, 2.5, 3.0, 3.5, 4.0, 5.0];
+    let mut overall_best_ari = f32::NEG_INFINITY;
+    let mut overall_best: (u16, f64) = (0, 0.0);
+    for &h in &hub_counts {
+        let cfg = ConnectomeConfig {
+            num_neurons: 1024,
+            num_modules: 40,
+            num_hub_modules: h,
+            ..ConnectomeConfig::default()
+        };
+        let conn = Connectome::generate(&cfg);
+        let truth: Vec<u32> = (0..conn.num_neurons())
+            .map(|i| conn.meta(connectome_fly::NeuronId(i as u32)).module as u32)
+            .collect();
+        let mut best_ari = f32::NEG_INFINITY;
+        let mut best_g = 0.0_f64;
+        let mut best_d = 0usize;
+        for &g in &gammas {
+            let labels = connectome_fly::analysis::leiden::leiden_labels_cpm(&conn, g);
+            let ari = full_partition_ari(&labels, &truth);
+            if ari > best_ari {
+                best_ari = ari;
+                best_g = g;
+                best_d = count_unique(&labels);
+            }
+        }
+        let hub_frac = 100.0 * h as f32 / 40.0;
+        eprintln!(
+            "cpm-hub-sweep-N1024: hub_modules={:2} ({:.1}%)  PEAK full_ari={:.3} @ γ={:.2}  (distinct={})",
+            h, hub_frac, best_ari, best_g, best_d
+        );
+        if best_ari > overall_best_ari {
+            overall_best_ari = best_ari;
+            overall_best = (h, best_g);
+        }
+    }
+    eprintln!(
+        "cpm-hub-sweep-N1024: OVERALL PEAK full_ari={:.3} at hub_modules={} γ={:.2}  [vs 0.516 item-27 headline, 0.75 SOTA]",
+        overall_best_ari, overall_best.0, overall_best.1
+    );
+}
+
+#[test]
+fn leiden_cpm_module_count_sweep_at_n1024_hub3() {
+    // Orthogonal follow-up to item 28. Hub-fraction sweep at
+    // N=1024/40 didn't break 0.516. Try fine num_modules sweep at
+    // N=1024 with hub_modules=3 (item 28's winner) and a wider γ
+    // grid. This tests whether density=25.6 (40 modules) is the
+    // right choice at N=1024 or whether the N=1024 landscape has a
+    // different density optimum than N=512.
+    let module_counts: [u16; 8] = [20, 25, 30, 35, 40, 50, 60, 80];
+    let gammas = [1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 5.0];
+    let mut overall_best_ari = f32::NEG_INFINITY;
+    let mut overall_best: (u16, f64) = (0, 0.0);
+    for &m in &module_counts {
+        // Hub=min(3, m/8) — stay close to the item-28 winner hub_frac
+        // while scaling reasonably with module count.
+        let h = (m / 8).min(3).max(1);
+        let cfg = ConnectomeConfig {
+            num_neurons: 1024,
+            num_modules: m,
+            num_hub_modules: h,
+            ..ConnectomeConfig::default()
+        };
+        let conn = Connectome::generate(&cfg);
+        let truth: Vec<u32> = (0..conn.num_neurons())
+            .map(|i| conn.meta(connectome_fly::NeuronId(i as u32)).module as u32)
+            .collect();
+        let mut best_ari = f32::NEG_INFINITY;
+        let mut best_g = 0.0_f64;
+        let mut best_d = 0usize;
+        for &g in &gammas {
+            let labels = connectome_fly::analysis::leiden::leiden_labels_cpm(&conn, g);
+            let ari = full_partition_ari(&labels, &truth);
+            if ari > best_ari {
+                best_ari = ari;
+                best_g = g;
+                best_d = count_unique(&labels);
+            }
+        }
+        let neurons_per_mod = 1024.0 / m as f32;
+        eprintln!(
+            "cpm-modsweep-N1024: modules={:3}  n_per_mod={:.1}  hub={}  PEAK full_ari={:.3} @ γ={:.2}  (distinct={})",
+            m, neurons_per_mod, h, best_ari, best_g, best_d
+        );
+        if best_ari > overall_best_ari {
+            overall_best_ari = best_ari;
+            overall_best = (m, best_g);
+        }
+    }
+    eprintln!(
+        "cpm-modsweep-N1024: OVERALL PEAK full_ari={:.3} at num_modules={} γ={:.2}  [vs 0.516 item-27, 0.599 item-26, 0.75 SOTA]",
+        overall_best_ari, overall_best.0, overall_best.1
+    );
+}
