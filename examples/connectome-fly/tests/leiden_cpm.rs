@@ -812,3 +812,87 @@ fn leiden_cpm_module_count_sweep_at_n1024_hub3() {
         overall_best_ari, overall_best.0, overall_best.1
     );
 }
+
+#[test]
+fn leiden_cpm_fine_2d_grid_at_n512() {
+    // Follow-up to item 26. The 0.599 peak at (N=512, modules=20,
+    // hub=1, γ=4.0) was measured on a coarse 7×7 grid. A finer 2D
+    // grid around it might reveal a sharper peak. Also try hub=0
+    // and hub=2 at the same module count for completeness.
+    let n: u32 = 512;
+    let configs: [(u16, u16); 3] = [(20, 0), (20, 1), (20, 2)];
+    let module_counts: [u16; 7] = [15, 17, 19, 20, 21, 23, 25];
+    let gammas = [3.2, 3.6, 4.0, 4.4, 4.8, 5.2];
+    let mut overall_ari = f32::NEG_INFINITY;
+    let mut overall_cfg: (u16, u16, f64) = (0, 0, 0.0);
+
+    // Phase 1: fine module sweep at hub=1, γ around 4.0.
+    for &m in &module_counts {
+        let cfg = ConnectomeConfig {
+            num_neurons: n,
+            num_modules: m,
+            num_hub_modules: 1,
+            ..ConnectomeConfig::default()
+        };
+        let conn = Connectome::generate(&cfg);
+        let truth: Vec<u32> = (0..conn.num_neurons())
+            .map(|i| conn.meta(connectome_fly::NeuronId(i as u32)).module as u32)
+            .collect();
+        let mut best_ari = f32::NEG_INFINITY;
+        let mut best_g = 0.0_f64;
+        let mut best_d = 0usize;
+        for &g in &gammas {
+            let labels = connectome_fly::analysis::leiden::leiden_labels_cpm(&conn, g);
+            let ari = full_partition_ari(&labels, &truth);
+            if ari > best_ari {
+                best_ari = ari;
+                best_g = g;
+                best_d = count_unique(&labels);
+            }
+        }
+        eprintln!(
+            "cpm-fine-N512-hub1: modules={:2}  PEAK full_ari={:.3} @ γ={:.2}  (distinct={})",
+            m, best_ari, best_g, best_d
+        );
+        if best_ari > overall_ari {
+            overall_ari = best_ari;
+            overall_cfg = (m, 1, best_g);
+        }
+    }
+
+    // Phase 2: hub sweep at modules=20 with the best γ candidates.
+    for &(m, h) in &configs {
+        let cfg = ConnectomeConfig {
+            num_neurons: n,
+            num_modules: m,
+            num_hub_modules: h,
+            ..ConnectomeConfig::default()
+        };
+        let conn = Connectome::generate(&cfg);
+        let truth: Vec<u32> = (0..conn.num_neurons())
+            .map(|i| conn.meta(connectome_fly::NeuronId(i as u32)).module as u32)
+            .collect();
+        let mut best_ari = f32::NEG_INFINITY;
+        let mut best_g = 0.0_f64;
+        for &g in &gammas {
+            let labels = connectome_fly::analysis::leiden::leiden_labels_cpm(&conn, g);
+            let ari = full_partition_ari(&labels, &truth);
+            if ari > best_ari {
+                best_ari = ari;
+                best_g = g;
+            }
+        }
+        eprintln!(
+            "cpm-fine-N512-hub: modules={:2} hub={}  PEAK full_ari={:.3} @ γ={:.2}",
+            m, h, best_ari, best_g
+        );
+        if best_ari > overall_ari {
+            overall_ari = best_ari;
+            overall_cfg = (m, h, best_g);
+        }
+    }
+    eprintln!(
+        "cpm-fine-N512-grid: OVERALL PEAK full_ari={:.3} at modules={} hub={} γ={:.2}  [vs 0.599 item-26, 0.75 SOTA]",
+        overall_ari, overall_cfg.0, overall_cfg.1, overall_cfg.2
+    );
+}
