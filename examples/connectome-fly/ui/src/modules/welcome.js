@@ -1,37 +1,21 @@
-// Welcome modal: first-visit intro + three tutorial cards.
-// Dismiss via the X button, ESC, the backdrop, or the primary CTA.
-// Remembers the choice in localStorage so repeat visitors aren't
-// interrupted — but a small "?" button (#welcome-reopen) in the topbar
-// reopens it on demand.
+// Welcome modal: intro + three tutorial cards.
+// Opens on every page load. Dismiss via X, ESC, backdrop, or CTA —
+// dismissal only applies to the current page load; a reload brings
+// it back. The "?" button in the topbar also reopens it within a
+// session. Prior localStorage keys from earlier builds are cleaned
+// up on mount so they don't silently suppress the modal.
 
 (function () {
-  const STORAGE_KEY = 'connectome-os.welcome.dismissed.v1';
-
-  function isDismissed() {
-    try {
-      return localStorage.getItem(STORAGE_KEY) === '1';
-    } catch {
-      return false;
-    }
-  }
-
-  function markDismissed() {
-    try {
-      localStorage.setItem(STORAGE_KEY, '1');
-    } catch {
-      /* private mode — best effort */
-    }
-  }
-
-  function clearDismissed() {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      /* ignore */
-    }
-  }
+  const LEGACY_STORAGE_KEY = 'connectome-os.welcome.dismissed.v1';
 
   function mount() {
+    // Drop any stale dismissal state from the previous build so the
+    // modal reliably opens on every load.
+    try {
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+    } catch {
+      /* private-mode: best effort */
+    }
     const root = document.getElementById('welcome-modal');
     if (!root) return;
     const closeBtn = root.querySelector('.welcome-close');
@@ -47,12 +31,11 @@
     }
 
     function close() {
-      // Trigger exit animation; the 'animationend' listener removes
-      // the node from interaction.
+      // Trigger exit animation; the timeout finalises the aria state.
+      // No persistence — reload brings the modal back.
       root.classList.remove('welcome-open');
       root.classList.add('welcome-closing');
       document.removeEventListener('keydown', onKey);
-      markDismissed();
       // Animation timing — must match overlays.css welcome-fade-out.
       const FALLBACK_MS = 520;
       setTimeout(() => {
@@ -72,17 +55,12 @@
     backdrop?.addEventListener('click', close);
     reopenBtn?.addEventListener('click', (e) => {
       e.preventDefault();
-      clearDismissed();
       open();
     });
 
-    if (!isDismissed()) {
-      // Slight delay so the real-backend status fetch can populate
-      // the banner before the modal claims focus.
-      setTimeout(open, 350);
-    } else {
-      root.setAttribute('aria-hidden', 'true');
-    }
+    // Always open on load. Slight delay so the real-backend status
+    // fetch can populate the banner before the modal claims focus.
+    setTimeout(open, 350);
   }
 
   if (document.readyState === 'loading') {
