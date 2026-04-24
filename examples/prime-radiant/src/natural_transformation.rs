@@ -38,14 +38,7 @@ pub trait NaturalTransformation<C: Category, D: Category, F: Functor<C, D>, G: F
     /// Verifies the naturality condition holds for a morphism f: A -> B
     ///
     /// G(f) . α_A = α_B . F(f)
-    fn verify_naturality(
-        &self,
-        source: &C,
-        target: &D,
-        f: &F,
-        g: &G,
-        mor: &C::Morphism,
-    ) -> bool {
+    fn verify_naturality(&self, source: &C, target: &D, f: &F, g: &G, mor: &C::Morphism) -> bool {
         let a = source.domain(mor);
         let b = source.codomain(mor);
 
@@ -65,21 +58,14 @@ pub trait NaturalTransformation<C: Category, D: Category, F: Functor<C, D>, G: F
             (Some(l), Some(r)) => {
                 // In a proper implementation, we'd check morphism equality
                 // For now, check that domains and codomains match
-                target.domain(&l) == target.domain(&r)
-                    && target.codomain(&l) == target.codomain(&r)
+                target.domain(&l) == target.domain(&r) && target.codomain(&l) == target.codomain(&r)
             }
             _ => false,
         }
     }
 
     /// Verifies naturality for all morphisms in the category
-    fn verify_all_naturality(
-        &self,
-        source: &C,
-        target: &D,
-        f: &F,
-        g: &G,
-    ) -> bool {
+    fn verify_all_naturality(&self, source: &C, target: &D, f: &F, g: &G) -> bool {
         source
             .morphisms()
             .iter()
@@ -105,8 +91,8 @@ impl<C: Category, D: Category, F: Functor<C, D>> IdentityNatTrans<C, D, F> {
     }
 }
 
-impl<C: Category, D: Category, F: Functor<C, D> + Clone>
-    NaturalTransformation<C, D, F, F> for IdentityNatTrans<C, D, F>
+impl<C: Category, D: Category, F: Functor<C, D> + Clone> NaturalTransformation<C, D, F, F>
+    for IdentityNatTrans<C, D, F>
 {
     fn component(&self, obj: &C::Object) -> D::Morphism {
         let target_obj = self.functor.map_object(obj);
@@ -282,12 +268,10 @@ impl NaturalIsomorphism {
         G: Functor<C, D>,
         Alpha: NaturalTransformation<C, D, F, G>,
     {
-        objects
-            .iter()
-            .all(|obj| {
-                let component = alpha.component(obj);
-                category.is_isomorphism(&component)
-            })
+        objects.iter().all(|obj| {
+            let component = alpha.component(obj);
+            category.is_isomorphism(&component)
+        })
     }
 }
 

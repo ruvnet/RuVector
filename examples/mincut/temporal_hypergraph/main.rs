@@ -38,19 +38,19 @@ enum ValidityType {
 /// Allen's 13 interval relations
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum AllenRelation {
-    Before,         // X ends before Y starts
-    Meets,          // X ends exactly when Y starts
-    Overlaps,       // X starts before Y, ends during Y
-    Starts,         // X starts with Y, ends before Y
-    During,         // X is contained within Y
-    Finishes,       // X starts after Y, ends with Y
-    Equals,         // X and Y are identical
-    FinishedBy,     // Inverse of Finishes
-    Contains,       // Inverse of During
-    StartedBy,      // Inverse of Starts
-    OverlappedBy,   // Inverse of Overlaps
-    MetBy,          // Inverse of Meets
-    After,          // Inverse of Before
+    Before,       // X ends before Y starts
+    Meets,        // X ends exactly when Y starts
+    Overlaps,     // X starts before Y, ends during Y
+    Starts,       // X starts with Y, ends before Y
+    During,       // X is contained within Y
+    Finishes,     // X starts after Y, ends with Y
+    Equals,       // X and Y are identical
+    FinishedBy,   // Inverse of Finishes
+    Contains,     // Inverse of During
+    StartedBy,    // Inverse of Starts
+    OverlappedBy, // Inverse of Overlaps
+    MetBy,        // Inverse of Meets
+    After,        // Inverse of Before
 }
 
 impl TemporalInterval {
@@ -83,18 +83,31 @@ impl TemporalInterval {
         let s2 = other.start_ms;
         let e2 = other.end_ms.unwrap_or(u64::MAX);
 
-        if e1 < s2 { AllenRelation::Before }
-        else if e1 == s2 { AllenRelation::Meets }
-        else if s1 < s2 && e1 > s2 && e1 < e2 { AllenRelation::Overlaps }
-        else if s1 == s2 && e1 < e2 { AllenRelation::Starts }
-        else if s1 > s2 && e1 < e2 { AllenRelation::During }
-        else if s1 > s2 && e1 == e2 { AllenRelation::Finishes }
-        else if s1 == s2 && e1 == e2 { AllenRelation::Equals }
-        else if s1 == s2 && e1 > e2 { AllenRelation::StartedBy }
-        else if s1 < s2 && e1 > e2 { AllenRelation::Contains }
-        else if s1 > s2 && s1 < e2 && e1 > e2 { AllenRelation::OverlappedBy }
-        else if s1 == e2 { AllenRelation::MetBy }
-        else { AllenRelation::After }
+        if e1 < s2 {
+            AllenRelation::Before
+        } else if e1 == s2 {
+            AllenRelation::Meets
+        } else if s1 < s2 && e1 > s2 && e1 < e2 {
+            AllenRelation::Overlaps
+        } else if s1 == s2 && e1 < e2 {
+            AllenRelation::Starts
+        } else if s1 > s2 && e1 < e2 {
+            AllenRelation::During
+        } else if s1 > s2 && e1 == e2 {
+            AllenRelation::Finishes
+        } else if s1 == s2 && e1 == e2 {
+            AllenRelation::Equals
+        } else if s1 == s2 && e1 > e2 {
+            AllenRelation::StartedBy
+        } else if s1 < s2 && e1 > e2 {
+            AllenRelation::Contains
+        } else if s1 > s2 && s1 < e2 && e1 > e2 {
+            AllenRelation::OverlappedBy
+        } else if s1 == e2 {
+            AllenRelation::MetBy
+        } else {
+            AllenRelation::After
+        }
     }
 }
 
@@ -129,12 +142,12 @@ impl TimeSeries {
 
     fn value_at(&self, t: u64) -> Option<f64> {
         match self.interpolation {
-            Interpolation::Step => {
-                self.points.iter()
-                    .rev()
-                    .find(|(pt, _)| *pt <= t)
-                    .map(|(_, v)| *v)
-            }
+            Interpolation::Step => self
+                .points
+                .iter()
+                .rev()
+                .find(|(pt, _)| *pt <= t)
+                .map(|(_, v)| *v),
             Interpolation::Linear => {
                 let before = self.points.iter().rev().find(|(pt, _)| *pt <= t);
                 let after = self.points.iter().find(|(pt, _)| *pt > t);
@@ -149,11 +162,7 @@ impl TimeSeries {
                     (None, None) => None,
                 }
             }
-            Interpolation::None => {
-                self.points.iter()
-                    .find(|(pt, _)| *pt == t)
-                    .map(|(_, v)| *v)
-            }
+            Interpolation::None => self.points.iter().find(|(pt, _)| *pt == t).map(|(_, v)| *v),
         }
     }
 }
@@ -253,13 +262,17 @@ impl TemporalIndex {
     /// Find all hyperedges valid at time t
     fn query_at(&self, t: u64) -> Vec<usize> {
         // Started before or at t
-        let started: HashSet<_> = self.by_start.iter()
+        let started: HashSet<_> = self
+            .by_start
+            .iter()
             .filter(|(start, _)| *start <= t)
             .map(|(_, id)| *id)
             .collect();
 
         // Ended after t (or not ended)
-        let ended: HashSet<_> = self.by_end.iter()
+        let ended: HashSet<_> = self
+            .by_end
+            .iter()
             .filter(|(end, _)| *end <= t)
             .map(|(_, id)| *id)
             .collect();
@@ -270,7 +283,8 @@ impl TemporalIndex {
     /// Find hyperedges valid during interval
     fn query_during(&self, start: u64, end: u64) -> Vec<usize> {
         let mut result = HashSet::new();
-        for t in (start..=end).step_by(100) { // Sample every 100ms
+        for t in (start..=end).step_by(100) {
+            // Sample every 100ms
             for id in self.query_at(t) {
                 result.insert(id);
             }
@@ -315,7 +329,8 @@ impl TemporalHypergraphDB {
     }
 
     fn query_at_time(&self, t: u64) -> Vec<&TemporalHyperedge> {
-        self.temporal_index.query_at(t)
+        self.temporal_index
+            .query_at(t)
             .iter()
             .filter_map(|id| self.hyperedges.get(id))
             .collect()
@@ -341,7 +356,10 @@ impl TemporalHypergraphDB {
     }
 
     fn get_causal_strength(&self, cause_id: usize, effect_id: usize) -> f64 {
-        self.causal_graph.get(&(cause_id, effect_id)).copied().unwrap_or(0.0)
+        self.causal_graph
+            .get(&(cause_id, effect_id))
+            .copied()
+            .unwrap_or(0.0)
     }
 }
 
@@ -464,10 +482,7 @@ impl<'a> QueryExecutor<'a> {
     fn execute(&self, query: TemporalQuery) -> QueryResult {
         match query {
             TemporalQuery::AtTime(t) => {
-                let ids: Vec<_> = self.db.query_at_time(t)
-                    .iter()
-                    .map(|he| he.id)
-                    .collect();
+                let ids: Vec<_> = self.db.query_at_time(t).iter().map(|he| he.id).collect();
                 QueryResult::Hyperedges(ids)
             }
             TemporalQuery::During(start, end) => {
@@ -478,10 +493,12 @@ impl<'a> QueryExecutor<'a> {
                 let mut pairs = Vec::new();
                 for ((cause_id, effect_id), &strength) in &self.db.causal_graph {
                     if let (Some(cause), Some(effect)) =
-                        (self.db.get(*cause_id), self.db.get(*effect_id)) {
-                        if cause.hyperedge_type == cause_type &&
-                           effect.hyperedge_type == effect_type &&
-                           strength > 0.1 {
+                        (self.db.get(*cause_id), self.db.get(*effect_id))
+                    {
+                        if cause.hyperedge_type == cause_type
+                            && effect.hyperedge_type == effect_type
+                            && strength > 0.1
+                        {
                             pairs.push((*cause_id, *effect_id, strength));
                         }
                     }
@@ -507,7 +524,9 @@ impl<'a> QueryExecutor<'a> {
                 let mut matches = Vec::new();
                 if let Some(target) = self.db.get(he_id) {
                     for (_, he) in &self.db.hyperedges {
-                        if he.id == he_id { continue; }
+                        if he.id == he_id {
+                            continue;
+                        }
                         for t_int in &target.intervals {
                             for h_int in &he.intervals {
                                 if h_int.allen_relation(t_int) == relation {
@@ -550,14 +569,16 @@ impl SimpleGraph {
     }
 
     fn weighted_degree(&self, v: u64) -> f64 {
-        self.edges.iter()
+        self.edges
+            .iter()
             .filter(|((a, b), _)| *a == v || *b == v)
             .map(|(_, w)| *w)
             .sum()
     }
 
     fn approx_mincut(&self) -> f64 {
-        self.vertices.iter()
+        self.vertices
+            .iter()
             .map(|&v| self.weighted_degree(v))
             .min_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap_or(0.0)
@@ -612,7 +633,8 @@ impl<'a> TemporalMinCut<'a> {
     /// Find vulnerability window (lowest MinCut)
     fn find_vulnerability_window(&self, start: u64, end: u64) -> Option<(u64, f64)> {
         let evolution = self.mincut_evolution(start, end, 100);
-        evolution.into_iter()
+        evolution
+            .into_iter()
             .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
     }
 }
@@ -630,7 +652,10 @@ impl<'a> CausalMinCut<'a> {
     /// Find minimum set of hyperedges to prevent target
     fn minimum_intervention(&self, target_id: usize) -> Vec<usize> {
         // Find all causes of target
-        let mut causes: Vec<(usize, f64)> = self.db.causal_graph.iter()
+        let mut causes: Vec<(usize, f64)> = self
+            .db
+            .causal_graph
+            .iter()
             .filter(|((_, effect), _)| *effect == target_id)
             .map(|((cause, _), &strength)| (*cause, strength))
             .collect();
@@ -639,7 +664,8 @@ impl<'a> CausalMinCut<'a> {
         causes.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
         // Return hyperedges that, if removed, would break causal chain
-        causes.into_iter()
+        causes
+            .into_iter()
             .take(3) // Top 3 causes
             .map(|(id, _)| id)
             .collect()
@@ -652,14 +678,22 @@ impl<'a> CausalMinCut<'a> {
         paths
     }
 
-    fn trace_paths(&self, current: usize, path: &mut Vec<usize>,
-                   all_paths: &mut Vec<Vec<usize>>, depth: usize) {
+    fn trace_paths(
+        &self,
+        current: usize,
+        path: &mut Vec<usize>,
+        all_paths: &mut Vec<Vec<usize>>,
+        depth: usize,
+    ) {
         if depth == 0 {
             return;
         }
 
         // Find all causes of current
-        let causes: Vec<usize> = self.db.causal_graph.iter()
+        let causes: Vec<usize> = self
+            .db
+            .causal_graph
+            .iter()
             .filter(|((_, effect), strength)| *effect == current && **strength > 0.2)
             .map(|((cause, _), _)| *cause)
             .collect();
@@ -753,13 +787,18 @@ fn main() {
     // Query at specific time
     let t = 100;
     let active = db.query_at_time(t);
-    println!("Hyperedges active at t={}: {:?}", t,
-             active.iter().map(|h| &h.name).collect::<Vec<_>>());
+    println!(
+        "Hyperedges active at t={}: {:?}",
+        t,
+        active.iter().map(|h| &h.name).collect::<Vec<_>>()
+    );
 
     // Query by type
     let meetings = db.query_by_type("MEETING", 90);
-    println!("Meetings at t=90: {:?}",
-             meetings.iter().map(|h| &h.name).collect::<Vec<_>>());
+    println!(
+        "Meetings at t=90: {:?}",
+        meetings.iter().map(|h| &h.name).collect::<Vec<_>>()
+    );
 
     // Query during interval
     let during = db.temporal_index.query_during(100, 200);
@@ -776,11 +815,31 @@ fn main() {
 
     // Simulate spike events (hyperedge activations)
     let events = vec![
-        SpikeEvent { hyperedge_id: m1_id, time_ms: 10, spike_type: SpikeType::Activation },
-        SpikeEvent { hyperedge_id: m2_id, time_ms: 90, spike_type: SpikeType::Activation },
-        SpikeEvent { hyperedge_id: d1_id, time_ms: 125, spike_type: SpikeType::Activation },
-        SpikeEvent { hyperedge_id: p1_id, time_ms: 160, spike_type: SpikeType::Activation },
-        SpikeEvent { hyperedge_id: f1_id, time_ms: 410, spike_type: SpikeType::Activation },
+        SpikeEvent {
+            hyperedge_id: m1_id,
+            time_ms: 10,
+            spike_type: SpikeType::Activation,
+        },
+        SpikeEvent {
+            hyperedge_id: m2_id,
+            time_ms: 90,
+            spike_type: SpikeType::Activation,
+        },
+        SpikeEvent {
+            hyperedge_id: d1_id,
+            time_ms: 125,
+            spike_type: SpikeType::Activation,
+        },
+        SpikeEvent {
+            hyperedge_id: p1_id,
+            time_ms: 160,
+            spike_type: SpikeType::Activation,
+        },
+        SpikeEvent {
+            hyperedge_id: f1_id,
+            time_ms: 410,
+            spike_type: SpikeType::Activation,
+        },
     ];
 
     println!("Recording {} spike events...", events.len());
@@ -823,21 +882,25 @@ fn main() {
 
     // Query: CAUSES
     println!("\nQuery: MATCH (m:MEETING) CAUSES (p:PROJECT)");
-    if let QueryResult::CausalPairs(pairs) = executor.execute(
-        TemporalQuery::Causes("MEETING".to_string(), "PROJECT".to_string())
-    ) {
+    if let QueryResult::CausalPairs(pairs) = executor.execute(TemporalQuery::Causes(
+        "MEETING".to_string(),
+        "PROJECT".to_string(),
+    )) {
         for (cause, effect, strength) in pairs {
             if let (Some(c), Some(e)) = (db.get(cause), db.get(effect)) {
-                println!("  → {} CAUSES {} (strength: {:.2})", c.name, e.name, strength);
+                println!(
+                    "  → {} CAUSES {} (strength: {:.2})",
+                    c.name, e.name, strength
+                );
             }
         }
     }
 
     // Query: Allen relation
     println!("\nQuery: MATCH (h) OVERLAPS (meeting1)");
-    if let QueryResult::Hyperedges(ids) = executor.execute(
-        TemporalQuery::AllenQuery(AllenRelation::Overlaps, m1_id)
-    ) {
+    if let QueryResult::Hyperedges(ids) =
+        executor.execute(TemporalQuery::AllenQuery(AllenRelation::Overlaps, m1_id))
+    {
         for id in ids {
             if let Some(he) = db.get(id) {
                 println!("  → {}", he.name);
@@ -859,7 +922,10 @@ fn main() {
     for t in [50, 100, 150, 200, 300, 400].iter() {
         let mc = temporal_mincut.mincut_at(*t);
         let active = db.query_at_time(*t).len();
-        println!("  t={:3}: MinCut = {:.2} ({} active hyperedges)", t, mc, active);
+        println!(
+            "  t={:3}: MinCut = {:.2} ({} active hyperedges)",
+            t, mc, active
+        );
     }
 
     // MinCut evolution
@@ -881,7 +947,10 @@ fn main() {
     println!("\nCausal Analysis:");
     let intervention = causal_mincut.minimum_intervention(f1_id);
     if !intervention.is_empty() {
-        println!("To prevent '{}', intervene on:", db.get(f1_id).map(|h| h.name.as_str()).unwrap_or("?"));
+        println!(
+            "To prevent '{}', intervene on:",
+            db.get(f1_id).map(|h| h.name.as_str()).unwrap_or("?")
+        );
         for id in intervention {
             if let Some(he) = db.get(id) {
                 let strength = db.get_causal_strength(id, f1_id);

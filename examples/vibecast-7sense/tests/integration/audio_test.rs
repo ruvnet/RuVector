@@ -2,9 +2,9 @@
 //!
 //! Tests for audio file loading, resampling, segmentation, and spectrogram generation.
 
+use std::io::Cursor;
 use vibecast_tests::fixtures::*;
 use vibecast_tests::mocks::*;
-use std::io::Cursor;
 
 // ============================================================================
 // Audio File Loading Tests
@@ -258,8 +258,11 @@ mod segmentation {
             let mut energies: Vec<f32> = Vec::new();
             let mut i = 0;
             while i + window_size <= samples.len() {
-                let energy: f32 =
-                    samples[i..i + window_size].iter().map(|x| x * x).sum::<f32>() / window_size as f32;
+                let energy: f32 = samples[i..i + window_size]
+                    .iter()
+                    .map(|x| x * x)
+                    .sum::<f32>()
+                    / window_size as f32;
                 energies.push(energy);
                 i += hop_size;
             }
@@ -305,7 +308,7 @@ mod segmentation {
 
         // Create audio with clear signal/silence pattern
         let mut samples = vec![0.0f32; 64000]; // 2 seconds
-        // Add a loud "call" at 200-1200ms (1 second of signal)
+                                               // Add a loud "call" at 200-1200ms (1 second of signal)
         for i in 6400..38400 {
             samples[i] = 0.8 * ((i as f32 * 0.05).sin()); // Louder signal
         }
@@ -313,10 +316,7 @@ mod segmentation {
 
         let segments = segmenter.segment(&samples, recording_id);
 
-        assert!(
-            !segments.is_empty(),
-            "Should detect at least one segment"
-        );
+        assert!(!segments.is_empty(), "Should detect at least one segment");
     }
 
     #[test]
@@ -391,11 +391,7 @@ mod spectrogram {
         let spectrogram = create_test_spectrogram();
 
         assert_eq!(spectrogram.len(), MEL_FRAMES, "Should have 500 frames");
-        assert_eq!(
-            spectrogram[0].len(),
-            MEL_BINS,
-            "Should have 128 mel bins"
-        );
+        assert_eq!(spectrogram[0].len(), MEL_BINS, "Should have 128 mel bins");
     }
 
     #[test]
@@ -436,16 +432,10 @@ mod spectrogram {
         let spectrogram = create_test_spectrogram();
 
         // Compute total energy per frame
-        let frame_energies: Vec<f32> = spectrogram
-            .iter()
-            .map(|frame| frame.iter().sum())
-            .collect();
+        let frame_energies: Vec<f32> = spectrogram.iter().map(|frame| frame.iter().sum()).collect();
 
         // Energy should vary (not all zeros or all same)
-        let min_energy = frame_energies
-            .iter()
-            .cloned()
-            .fold(f32::INFINITY, f32::min);
+        let min_energy = frame_energies.iter().cloned().fold(f32::INFINITY, f32::min);
         let max_energy = frame_energies
             .iter()
             .cloned()

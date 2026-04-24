@@ -27,8 +27,8 @@ use serde::Deserialize;
 
 use ruvector_data_framework::{
     CoherenceConfig, CoherenceEngine, DataRecord, DataSource, DiscoveryConfig, DiscoveryEngine,
-    EdgarClient, FrameworkError, NoaaClient, OpenAlexClient, PatternCategory, Relationship,
-    Result, SimpleEmbedder,
+    EdgarClient, FrameworkError, NoaaClient, OpenAlexClient, PatternCategory, Relationship, Result,
+    SimpleEmbedder,
 };
 
 // ============================================================================
@@ -166,7 +166,13 @@ impl PubMedClient {
 
         // Medical topic keywords based on query
         let keywords = if query.contains("heat") || query.contains("climate") {
-            vec!["heat", "stroke", "cardiovascular", "mortality", "temperature"]
+            vec![
+                "heat",
+                "stroke",
+                "cardiovascular",
+                "mortality",
+                "temperature",
+            ]
         } else if query.contains("drug") || query.contains("pharma") {
             vec!["clinical", "trial", "efficacy", "approval", "treatment"]
         } else {
@@ -201,8 +207,14 @@ impl PubMedClient {
             let mut data_map = serde_json::Map::new();
             data_map.insert("title".to_string(), serde_json::json!(title));
             data_map.insert("abstract".to_string(), serde_json::json!(abstract_text));
-            data_map.insert("journal".to_string(), serde_json::json!(["JAMA", "NEJM", "Lancet", "BMJ"][i % 4]));
-            data_map.insert("publication_types".to_string(), serde_json::json!(["Clinical Trial", "Research Article"]));
+            data_map.insert(
+                "journal".to_string(),
+                serde_json::json!(["JAMA", "NEJM", "Lancet", "BMJ"][i % 4]),
+            );
+            data_map.insert(
+                "publication_types".to_string(),
+                serde_json::json!(["Clinical Trial", "Research Article"]),
+            );
             data_map.insert("synthetic".to_string(), serde_json::json!(true));
 
             records.push(DataRecord {
@@ -363,7 +375,8 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     }
 
     println!();
-    println!("   Total records fetched: {} ({:.2}s)",
+    println!(
+        "   Total records fetched: {} ({:.2}s)",
         all_records.len(),
         fetch_start.elapsed().as_secs_f64()
     );
@@ -381,16 +394,16 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!();
 
     let coherence_config = CoherenceConfig {
-        min_edge_weight: 0.25, // Lower threshold for cross-domain connections
+        min_edge_weight: 0.25,         // Lower threshold for cross-domain connections
         window_size_secs: 86400 * 365, // 1 year window
-        window_step_secs: 86400 * 30,   // Monthly steps
+        window_step_secs: 86400 * 30,  // Monthly steps
         approximate: true,
         epsilon: 0.15,
         parallel: true,
         track_boundaries: true,
-        similarity_threshold: 0.4,  // Lower threshold for cross-domain connections
+        similarity_threshold: 0.4, // Lower threshold for cross-domain connections
         use_embeddings: true,
-        hnsw_k_neighbors: 40,       // More neighbors for multi-domain
+        hnsw_k_neighbors: 40, // More neighbors for multi-domain
         hnsw_min_records: 50,
     };
 
@@ -409,7 +422,8 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // Count cross-domain edges
     let cross_domain_edges = count_cross_domain_edges(&all_records);
     println!("      Cross-domain edges: {}", cross_domain_edges);
-    println!("      Cross-domain ratio: {:.1}%",
+    println!(
+        "      Cross-domain ratio: {:.1}%",
         (cross_domain_edges as f64 / coherence.edge_count().max(1) as f64) * 100.0
     );
 
@@ -440,7 +454,10 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // Categorize patterns
     let mut by_category: HashMap<PatternCategory, Vec<_>> = HashMap::new();
     for pattern in &patterns {
-        by_category.entry(pattern.category).or_default().push(pattern);
+        by_category
+            .entry(pattern.category)
+            .or_default()
+            .push(pattern);
     }
 
     println!();
@@ -584,13 +601,17 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("   💡 Hypotheses Generated:");
     println!("      Climate-Health: {}", hypotheses.climate_health.len());
     println!("      Finance-Health: {}", hypotheses.finance_health.len());
-    println!("      Research-Health: {}", hypotheses.research_health.len());
+    println!(
+        "      Research-Health: {}",
+        hypotheses.research_health.len()
+    );
     println!("      Triangulation: {}", hypotheses.triangulation.len());
     println!();
 
     println!("   ⏱️  Performance:");
     println!("      Total runtime: {:.2}s", start.elapsed().as_secs_f64());
-    println!("      Records/second: {:.0}",
+    println!(
+        "      Records/second: {:.0}",
         all_records.len() as f64 / start.elapsed().as_secs_f64()
     );
     println!();
@@ -680,10 +701,22 @@ fn generate_cross_domain_records() -> Vec<DataRecord> {
 
     // Climate-Health connector
     let climate_health = vec![
-        ("heat_health_link", "Extreme heat events and cardiovascular hospital admissions"),
-        ("temp_mortality_link", "Temperature anomalies and mortality rates correlation"),
-        ("climate_respiratory_link", "Air quality changes and respiratory disease incidence"),
-        ("drought_nutrition_link", "Drought patterns and malnutrition prevalence"),
+        (
+            "heat_health_link",
+            "Extreme heat events and cardiovascular hospital admissions",
+        ),
+        (
+            "temp_mortality_link",
+            "Temperature anomalies and mortality rates correlation",
+        ),
+        (
+            "climate_respiratory_link",
+            "Air quality changes and respiratory disease incidence",
+        ),
+        (
+            "drought_nutrition_link",
+            "Drought patterns and malnutrition prevalence",
+        ),
     ];
 
     for (i, (id, text)) in climate_health.iter().enumerate() {
@@ -705,8 +738,14 @@ fn generate_cross_domain_records() -> Vec<DataRecord> {
 
     // Finance-Health connector
     let finance_health = vec![
-        ("pharma_stock_approval", "Pharmaceutical stock performance and drug approval timelines"),
-        ("healthcare_spending_outcomes", "Healthcare sector investment and patient outcomes"),
+        (
+            "pharma_stock_approval",
+            "Pharmaceutical stock performance and drug approval timelines",
+        ),
+        (
+            "healthcare_spending_outcomes",
+            "Healthcare sector investment and patient outcomes",
+        ),
     ];
 
     for (i, (id, text)) in finance_health.iter().enumerate() {
@@ -728,15 +767,24 @@ fn generate_cross_domain_records() -> Vec<DataRecord> {
 
     // Research-Health connector
     let research_health = vec![
-        ("research_clinical_translation", "Academic research citations in clinical practice guidelines"),
-        ("publication_treatment_adoption", "Publication trends and treatment adoption rates"),
+        (
+            "research_clinical_translation",
+            "Academic research citations in clinical practice guidelines",
+        ),
+        (
+            "publication_treatment_adoption",
+            "Publication trends and treatment adoption rates",
+        ),
     ];
 
     for (i, (id, text)) in research_health.iter().enumerate() {
         let embedding = embedder.embed_text(text);
         let mut data_map = serde_json::Map::new();
         data_map.insert("description".to_string(), serde_json::json!(text));
-        data_map.insert("connector".to_string(), serde_json::json!("research-health"));
+        data_map.insert(
+            "connector".to_string(),
+            serde_json::json!("research-health"),
+        );
 
         records.push(DataRecord {
             id: id.to_string(),
@@ -786,8 +834,12 @@ fn generate_hypotheses(
     let has_finance = records.iter().any(|r| r.source == "edgar");
     let has_research = records.iter().any(|r| r.source == "openalex");
 
-    let has_bridges = patterns.iter().any(|p| p.category == PatternCategory::Bridge);
-    let has_emergence = patterns.iter().any(|p| p.category == PatternCategory::Emergence);
+    let has_bridges = patterns
+        .iter()
+        .any(|p| p.category == PatternCategory::Bridge);
+    let has_emergence = patterns
+        .iter()
+        .any(|p| p.category == PatternCategory::Emergence);
 
     let mut hypotheses = Hypotheses {
         climate_health: Vec::new(),
@@ -887,7 +939,10 @@ fn visualize_domain_connections(records: &[DataRecord], source_counts: &HashMap<
     // Group records by source
     let mut by_source: HashMap<String, Vec<&DataRecord>> = HashMap::new();
     for record in records {
-        by_source.entry(record.source.clone()).or_default().push(record);
+        by_source
+            .entry(record.source.clone())
+            .or_default()
+            .push(record);
     }
 
     let sources: Vec<_> = source_counts.keys().cloned().collect();
@@ -909,8 +964,8 @@ fn visualize_domain_connections(records: &[DataRecord], source_counts: &HashMap<
                 print!("{:>12} ", "-");
             } else {
                 // Count connections (simplified - just show if both exist)
-                let has_both = source_counts.contains_key(source_a) &&
-                               source_counts.contains_key(source_b);
+                let has_both =
+                    source_counts.contains_key(source_a) && source_counts.contains_key(source_b);
                 print!("{:>12} ", if has_both { "●" } else { "○" });
             }
         }

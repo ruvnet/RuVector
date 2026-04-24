@@ -3,10 +3,10 @@
 //! Tests for REST endpoints, GraphQL queries/mutations, rate limiting,
 //! and error responses.
 
-use vibecast_tests::fixtures::*;
-use vibecast_tests::mocks::*;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
+use vibecast_tests::fixtures::*;
+use vibecast_tests::mocks::*;
 
 // ============================================================================
 // REST Endpoint Tests
@@ -41,10 +41,7 @@ mod rest_endpoints {
     #[test]
     fn test_recordings_create_endpoint() {
         let client = MockApiClient::new();
-        client.queue_response(
-            201,
-            r#"{"id": "new-uuid", "status": "created"}"#,
-        );
+        client.queue_response(201, r#"{"id": "new-uuid", "status": "created"}"#);
 
         let body = r#"{"source": "upload", "metadata": {}}"#;
         let response = client.post(RECORDINGS_PATH, body).unwrap();
@@ -71,10 +68,7 @@ mod rest_endpoints {
     #[test]
     fn test_embedding_generation_endpoint() {
         let client = MockApiClient::new();
-        client.queue_response(
-            202,
-            r#"{"job_id": "job123", "status": "processing"}"#,
-        );
+        client.queue_response(202, r#"{"job_id": "job123", "status": "processing"}"#);
 
         let body = r#"{"segment_ids": ["seg1", "seg2"], "model": "perch2"}"#;
         let response = client.post(EMBEDDINGS_PATH, body).unwrap();
@@ -180,9 +174,7 @@ mod graphql {
             r#"{"data": {"recording": {"id": "rec1", "segments": [{"id": "seg1"}]}}}"#,
         );
 
-        let query = create_graphql_query(
-            "{ recording(id: \\\"rec1\\\") { id segments { id } } }",
-        );
+        let query = create_graphql_query("{ recording(id: \\\"rec1\\\") { id segments { id } } }");
         let response = client.post(GRAPHQL_PATH, &query).unwrap();
 
         assert_eq!(response.status, 200);
@@ -197,9 +189,8 @@ mod graphql {
             r#"{"data": {"segment": {"id": "seg1", "embedding": {"id": "emb1", "norm": 1.0}}}}"#,
         );
 
-        let query = create_graphql_query(
-            "{ segment(id: \\\"seg1\\\") { id embedding { id norm } } }",
-        );
+        let query =
+            create_graphql_query("{ segment(id: \\\"seg1\\\") { id embedding { id norm } } }");
         let response = client.post(GRAPHQL_PATH, &query).unwrap();
 
         assert_eq!(response.status, 200);
@@ -357,10 +348,7 @@ mod rate_limiting {
     fn test_rate_limit_response_code() {
         // When rate limited, API should return 429
         let client = MockApiClient::new();
-        client.queue_response(
-            429,
-            r#"{"error": "Too Many Requests", "retry_after": 60}"#,
-        );
+        client.queue_response(429, r#"{"error": "Too Many Requests", "retry_after": 60}"#);
 
         let response = client.get("/api/v1/recordings").unwrap();
 
@@ -376,9 +364,15 @@ mod rate_limiting {
             headers: HashMap::new(),
         };
 
-        response.headers.insert("X-RateLimit-Limit".to_string(), "100".to_string());
-        response.headers.insert("X-RateLimit-Remaining".to_string(), "95".to_string());
-        response.headers.insert("X-RateLimit-Reset".to_string(), "1609459200".to_string());
+        response
+            .headers
+            .insert("X-RateLimit-Limit".to_string(), "100".to_string());
+        response
+            .headers
+            .insert("X-RateLimit-Remaining".to_string(), "95".to_string());
+        response
+            .headers
+            .insert("X-RateLimit-Reset".to_string(), "1609459200".to_string());
 
         assert_eq!(response.headers.get("X-RateLimit-Limit").unwrap(), "100");
         assert_eq!(response.headers.get("X-RateLimit-Remaining").unwrap(), "95");
@@ -387,9 +381,9 @@ mod rate_limiting {
     #[test]
     fn test_different_rate_limits_per_endpoint() {
         // Heavy operations should have lower limits
-        let search_limiter = MockRateLimiter::new(10);   // 10/sec for search
-        let read_limiter = MockRateLimiter::new(100);    // 100/sec for reads
-        let write_limiter = MockRateLimiter::new(20);    // 20/sec for writes
+        let search_limiter = MockRateLimiter::new(10); // 10/sec for search
+        let read_limiter = MockRateLimiter::new(100); // 100/sec for reads
+        let write_limiter = MockRateLimiter::new(20); // 20/sec for writes
 
         // Reads should be most permissive
         for _ in 0..50 {
@@ -433,7 +427,9 @@ mod error_responses {
             r#"{"error": "Bad Request", "message": "Invalid segment_id format", "field": "segment_id"}"#,
         );
 
-        let response = client.post("/api/v1/embeddings", r#"{"segment_id": "invalid"}"#).unwrap();
+        let response = client
+            .post("/api/v1/embeddings", r#"{"segment_id": "invalid"}"#)
+            .unwrap();
 
         assert_eq!(response.status, 400);
         assert!(response.body.contains("Bad Request"));

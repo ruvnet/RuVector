@@ -16,11 +16,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::{
-    ArxivClient, BiorxivClient, ClinicalTrialsClient, CrossRefClient,
-    FdaClient, FredClient, MedrxivClient, NativeDiscoveryEngine,
-    NoaaClient, OpenAlexClient, PubMedClient, SemanticScholarClient,
-    SimpleEmbedder, WikidataClient, WikipediaClient, WorldBankClient,
-    NativeEngineConfig, Result, FrameworkError,
+    ArxivClient, BiorxivClient, ClinicalTrialsClient, CrossRefClient, FdaClient, FrameworkError,
+    FredClient, MedrxivClient, NativeDiscoveryEngine, NativeEngineConfig, NoaaClient,
+    OpenAlexClient, PubMedClient, Result, SemanticScholarClient, SimpleEmbedder, WikidataClient,
+    WikipediaClient, WorldBankClient,
 };
 
 // ============================================================================
@@ -66,27 +65,43 @@ impl JsonRpcError {
     pub const INTERNAL_ERROR: i32 = -32603;
 
     pub fn parse_error(msg: &str) -> Self {
-        Self { code: Self::PARSE_ERROR, message: msg.to_string(), data: None }
+        Self {
+            code: Self::PARSE_ERROR,
+            message: msg.to_string(),
+            data: None,
+        }
     }
 
     pub fn invalid_request(msg: &str) -> Self {
-        Self { code: Self::INVALID_REQUEST, message: msg.to_string(), data: None }
+        Self {
+            code: Self::INVALID_REQUEST,
+            message: msg.to_string(),
+            data: None,
+        }
     }
 
     pub fn method_not_found(method: &str) -> Self {
         Self {
             code: Self::METHOD_NOT_FOUND,
             message: format!("Method not found: {}", method),
-            data: None
+            data: None,
         }
     }
 
     pub fn invalid_params(msg: &str) -> Self {
-        Self { code: Self::INVALID_PARAMS, message: msg.to_string(), data: None }
+        Self {
+            code: Self::INVALID_PARAMS,
+            message: msg.to_string(),
+            data: None,
+        }
     }
 
     pub fn internal_error(msg: &str) -> Self {
-        Self { code: Self::INTERNAL_ERROR, message: msg.to_string(), data: None }
+        Self {
+            code: Self::INTERNAL_ERROR,
+            message: msg.to_string(),
+            data: None,
+        }
     }
 }
 
@@ -191,19 +206,25 @@ impl DataSourceClients {
     /// Create new data source clients
     pub fn new() -> Self {
         Self {
-            openalex: Arc::new(OpenAlexClient::new(None).expect("Failed to create OpenAlex client")),
+            openalex: Arc::new(
+                OpenAlexClient::new(None).expect("Failed to create OpenAlex client"),
+            ),
             arxiv: Arc::new(ArxivClient::new()),
             semantic_scholar: Arc::new(SemanticScholarClient::new(None)),
             crossref: Arc::new(CrossRefClient::new(None)),
             biorxiv: Arc::new(BiorxivClient::new()),
             medrxiv: Arc::new(MedrxivClient::new()),
             pubmed: Arc::new(PubMedClient::new(None).expect("Failed to create PubMed client")),
-            clinical_trials: Arc::new(ClinicalTrialsClient::new().expect("Failed to create ClinicalTrials client")),
+            clinical_trials: Arc::new(
+                ClinicalTrialsClient::new().expect("Failed to create ClinicalTrials client"),
+            ),
             fda: Arc::new(FdaClient::new().expect("Failed to create FDA client")),
             fred: Arc::new(FredClient::new(None).expect("Failed to create FRED client")),
             worldbank: Arc::new(WorldBankClient::new().expect("Failed to create WorldBank client")),
             noaa: Arc::new(NoaaClient::new(None).expect("Failed to create NOAA client")),
-            wikipedia: Arc::new(WikipediaClient::new("en".to_string()).expect("Failed to create Wikipedia client")),
+            wikipedia: Arc::new(
+                WikipediaClient::new("en".to_string()).expect("Failed to create Wikipedia client"),
+            ),
             wikidata: Arc::new(WikidataClient::new().expect("Failed to create Wikidata client")),
             embedder: Arc::new(SimpleEmbedder::new(384)),
         }
@@ -271,9 +292,7 @@ impl McpDiscoveryServer {
     pub async fn run(&mut self) -> Result<()> {
         match &self.transport {
             McpTransport::Stdio => self.run_stdio().await,
-            McpTransport::Sse { endpoint, port } => {
-                self.run_sse(endpoint.clone(), *port).await
-            }
+            McpTransport::Sse { endpoint, port } => self.run_sse(endpoint.clone(), *port).await,
         }
     }
 
@@ -309,11 +328,12 @@ impl McpDiscoveryServer {
             let response = self.handle_request(request).await;
 
             // Send response
-            let response_json = serde_json::to_string(&response)
-                .map_err(|e| FrameworkError::Serialization(e))?;
+            let response_json =
+                serde_json::to_string(&response).map_err(|e| FrameworkError::Serialization(e))?;
             writeln!(stdout, "{}", response_json)
                 .map_err(|e| FrameworkError::Config(e.to_string()))?;
-            stdout.flush()
+            stdout
+                .flush()
                 .map_err(|e| FrameworkError::Config(e.to_string()))?;
         }
 
@@ -326,19 +346,19 @@ impl McpDiscoveryServer {
         {
             use warp::Filter;
 
-            eprintln!("RuVector MCP Server starting on {}:{} (SSE mode)", endpoint, port);
+            eprintln!(
+                "RuVector MCP Server starting on {}:{} (SSE mode)",
+                endpoint, port
+            );
 
             let server = Arc::new(RwLock::new(self));
 
             // SSE endpoint
-            let sse_route = warp::path("sse")
-                .and(warp::get())
-                .map(|| {
-                    warp::sse::reply(warp::sse::keep_alive().stream(
-                        futures::stream::iter(vec![
-                            Ok::<_, warp::Error>(warp::sse::Event::default().data("connected"))
-                        ])
-                    ))
+            let sse_route =
+                warp::path("sse").and(warp::get()).map(|| {
+                    warp::sse::reply(warp::sse::keep_alive().stream(futures::stream::iter(vec![
+                        Ok::<_, warp::Error>(warp::sse::Event::default().data("connected")),
+                    ])))
                 });
 
             // Message endpoint
@@ -357,9 +377,7 @@ impl McpDiscoveryServer {
 
             let routes = sse_route.or(message_route);
 
-            warp::serve(routes)
-                .run(([127, 0, 0, 1], port))
-                .await;
+            warp::serve(routes).run(([127, 0, 0, 1], port)).await;
 
             Ok(())
         }
@@ -368,7 +386,7 @@ impl McpDiscoveryServer {
         {
             let _ = (endpoint, port);
             Err(FrameworkError::Config(
-                "SSE transport requires the 'sse' feature. Compile with --features sse".to_string()
+                "SSE transport requires the 'sse' feature. Compile with --features sse".to_string(),
             ))
         }
     }
@@ -381,7 +399,9 @@ impl McpDiscoveryServer {
                 jsonrpc: "2.0".to_string(),
                 id: request.id,
                 result: None,
-                error: Some(JsonRpcError::invalid_request("JSON-RPC version must be 2.0")),
+                error: Some(JsonRpcError::invalid_request(
+                    "JSON-RPC version must be 2.0",
+                )),
             };
         }
 
@@ -415,7 +435,10 @@ impl McpDiscoveryServer {
     }
 
     /// Handle initialize request
-    async fn handle_initialize(&mut self, _params: Option<Value>) -> std::result::Result<Value, JsonRpcError> {
+    async fn handle_initialize(
+        &mut self,
+        _params: Option<Value>,
+    ) -> std::result::Result<Value, JsonRpcError> {
         self.initialized = true;
 
         Ok(json!({
@@ -443,23 +466,18 @@ impl McpDiscoveryServer {
             self.tool_search_crossref(),
             self.tool_search_biorxiv(),
             self.tool_search_medrxiv(),
-
             // Medical tools
             self.tool_search_pubmed(),
             self.tool_search_clinical_trials(),
             self.tool_search_fda_events(),
-
             // Economic tools
             self.tool_get_fred_series(),
             self.tool_get_worldbank_indicator(),
-
             // Climate tools
             self.tool_get_noaa_data(),
-
             // Knowledge tools
             self.tool_search_wikipedia(),
             self.tool_query_wikidata(),
-
             // Discovery tools
             self.tool_run_discovery(),
             self.tool_analyze_coherence(),
@@ -471,14 +489,19 @@ impl McpDiscoveryServer {
     }
 
     /// Handle tools/call request
-    async fn handle_tool_call(&mut self, params: Option<Value>) -> std::result::Result<Value, JsonRpcError> {
+    async fn handle_tool_call(
+        &mut self,
+        params: Option<Value>,
+    ) -> std::result::Result<Value, JsonRpcError> {
         let params = params.ok_or_else(|| JsonRpcError::invalid_params("Missing params"))?;
 
-        let name = params.get("name")
+        let name = params
+            .get("name")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing tool name"))?;
 
-        let arguments = params.get("arguments")
+        let arguments = params
+            .get("arguments")
             .ok_or_else(|| JsonRpcError::invalid_params("Missing arguments"))?;
 
         // Check rate limiting
@@ -538,10 +561,14 @@ impl McpDiscoveryServer {
     }
 
     /// Handle resources/read request
-    async fn handle_resource_read(&self, params: Option<Value>) -> std::result::Result<Value, JsonRpcError> {
+    async fn handle_resource_read(
+        &self,
+        params: Option<Value>,
+    ) -> std::result::Result<Value, JsonRpcError> {
         let params = params.ok_or_else(|| JsonRpcError::invalid_params("Missing params"))?;
 
-        let uri = params.get("uri")
+        let uri = params
+            .get("uri")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing URI"))?;
 
@@ -556,7 +583,7 @@ impl McpDiscoveryServer {
                     "text": serde_json::to_string_pretty(&patterns)
                         .map_err(|e| JsonRpcError::internal_error(&e.to_string()))?
                 })
-            },
+            }
             "discovery://graph" => {
                 let graph = engine.export_graph();
                 json!({
@@ -565,7 +592,7 @@ impl McpDiscoveryServer {
                     "text": serde_json::to_string_pretty(&graph)
                         .map_err(|e| JsonRpcError::internal_error(&e.to_string()))?
                 })
-            },
+            }
             "discovery://history" => {
                 let history = engine.get_coherence_history();
                 json!({
@@ -574,8 +601,13 @@ impl McpDiscoveryServer {
                     "text": serde_json::to_string_pretty(&history)
                         .map_err(|e| JsonRpcError::internal_error(&e.to_string()))?
                 })
-            },
-            _ => return Err(JsonRpcError::invalid_params(&format!("Unknown resource URI: {}", uri))),
+            }
+            _ => {
+                return Err(JsonRpcError::invalid_params(&format!(
+                    "Unknown resource URI: {}",
+                    uri
+                )))
+            }
         };
 
         Ok(json!({ "contents": [content] }))
@@ -590,7 +622,9 @@ impl McpDiscoveryServer {
                 arguments: Some(vec![
                     PromptArgument {
                         name: "domains".to_string(),
-                        description: "Comma-separated list of domains (research,medical,climate,economic)".to_string(),
+                        description:
+                            "Comma-separated list of domains (research,medical,climate,economic)"
+                                .to_string(),
                         required: true,
                     },
                     PromptArgument {
@@ -606,7 +640,8 @@ impl McpDiscoveryServer {
                 arguments: Some(vec![
                     PromptArgument {
                         name: "seed_paper_id".to_string(),
-                        description: "Starting paper ID (OpenAlex, Semantic Scholar, or DOI)".to_string(),
+                        description: "Starting paper ID (OpenAlex, Semantic Scholar, or DOI)"
+                            .to_string(),
                         required: true,
                     },
                     PromptArgument {
@@ -643,15 +678,18 @@ impl McpDiscoveryServer {
     }
 
     /// Handle prompts/get request
-    async fn handle_prompt_get(&self, params: Option<Value>) -> std::result::Result<Value, JsonRpcError> {
+    async fn handle_prompt_get(
+        &self,
+        params: Option<Value>,
+    ) -> std::result::Result<Value, JsonRpcError> {
         let params = params.ok_or_else(|| JsonRpcError::invalid_params("Missing params"))?;
 
-        let name = params.get("name")
+        let name = params
+            .get("name")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing prompt name"))?;
 
-        let arguments = params.get("arguments")
-            .and_then(|v| v.as_object());
+        let arguments = params.get("arguments").and_then(|v| v.as_object());
 
         let messages = match name {
             "cross_domain_discovery" => {
@@ -679,12 +717,14 @@ impl McpDiscoveryServer {
                         )
                     }
                 })]
-            },
+            }
             "citation_analysis" => {
                 let paper_id = arguments
                     .and_then(|a| a.get("seed_paper_id"))
                     .and_then(|v| v.as_str())
-                    .ok_or_else(|| JsonRpcError::invalid_params("Missing 'seed_paper_id' argument"))?;
+                    .ok_or_else(|| {
+                        JsonRpcError::invalid_params("Missing 'seed_paper_id' argument")
+                    })?;
                 let depth = arguments
                     .and_then(|a| a.get("depth"))
                     .and_then(|v| v.as_u64())
@@ -706,7 +746,7 @@ impl McpDiscoveryServer {
                         )
                     }
                 })]
-            },
+            }
             "trend_detection" => {
                 let source = arguments
                     .and_then(|a| a.get("source"))
@@ -736,7 +776,7 @@ impl McpDiscoveryServer {
                         )
                     }
                 })]
-            },
+            }
             _ => return Err(JsonRpcError::method_not_found(name)),
         };
 
@@ -1075,13 +1115,21 @@ impl McpDiscoveryServer {
     // Tool Executions
     // ========================================================================
 
-    async fn execute_search_openalex(&self, args: &Value) -> std::result::Result<Value, JsonRpcError> {
-        let query = args.get("query")
+    async fn execute_search_openalex(
+        &self,
+        args: &Value,
+    ) -> std::result::Result<Value, JsonRpcError> {
+        let query = args
+            .get("query")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing query"))?;
         let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
 
-        let results = self.clients.openalex.fetch_works(query, limit).await
+        let results = self
+            .clients
+            .openalex
+            .fetch_works(query, limit)
+            .await
             .map_err(|e| JsonRpcError::internal_error(&e.to_string()))?;
 
         Ok(json!({
@@ -1094,12 +1142,17 @@ impl McpDiscoveryServer {
     }
 
     async fn execute_search_arxiv(&self, args: &Value) -> std::result::Result<Value, JsonRpcError> {
-        let query = args.get("query")
+        let query = args
+            .get("query")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing query"))?;
         let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
 
-        let results = self.clients.arxiv.search(query, limit).await
+        let results = self
+            .clients
+            .arxiv
+            .search(query, limit)
+            .await
             .map_err(|e| JsonRpcError::internal_error(&e.to_string()))?;
 
         Ok(json!({
@@ -1111,13 +1164,21 @@ impl McpDiscoveryServer {
         }))
     }
 
-    async fn execute_search_semantic_scholar(&self, args: &Value) -> std::result::Result<Value, JsonRpcError> {
-        let query = args.get("query")
+    async fn execute_search_semantic_scholar(
+        &self,
+        args: &Value,
+    ) -> std::result::Result<Value, JsonRpcError> {
+        let query = args
+            .get("query")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing query"))?;
         let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
 
-        let results = self.clients.semantic_scholar.search_papers(query, limit).await
+        let results = self
+            .clients
+            .semantic_scholar
+            .search_papers(query, limit)
+            .await
             .map_err(|e| JsonRpcError::internal_error(&e.to_string()))?;
 
         Ok(json!({
@@ -1129,12 +1190,20 @@ impl McpDiscoveryServer {
         }))
     }
 
-    async fn execute_get_citations(&self, args: &Value) -> std::result::Result<Value, JsonRpcError> {
-        let paper_id = args.get("paper_id")
+    async fn execute_get_citations(
+        &self,
+        args: &Value,
+    ) -> std::result::Result<Value, JsonRpcError> {
+        let paper_id = args
+            .get("paper_id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing paper_id"))?;
 
-        let citations = self.clients.semantic_scholar.get_citations(paper_id, 100).await
+        let citations = self
+            .clients
+            .semantic_scholar
+            .get_citations(paper_id, 100)
+            .await
             .map_err(|e| JsonRpcError::internal_error(&e.to_string()))?;
 
         Ok(json!({
@@ -1146,13 +1215,21 @@ impl McpDiscoveryServer {
         }))
     }
 
-    async fn execute_search_crossref(&self, args: &Value) -> std::result::Result<Value, JsonRpcError> {
-        let query = args.get("query")
+    async fn execute_search_crossref(
+        &self,
+        args: &Value,
+    ) -> std::result::Result<Value, JsonRpcError> {
+        let query = args
+            .get("query")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing query"))?;
         let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
 
-        let results = self.clients.crossref.search_works(query, limit).await
+        let results = self
+            .clients
+            .crossref
+            .search_works(query, limit)
+            .await
             .map_err(|e| JsonRpcError::internal_error(&e.to_string()))?;
 
         Ok(json!({
@@ -1164,14 +1241,22 @@ impl McpDiscoveryServer {
         }))
     }
 
-    async fn execute_search_biorxiv(&self, args: &Value) -> std::result::Result<Value, JsonRpcError> {
-        let _category = args.get("category")
+    async fn execute_search_biorxiv(
+        &self,
+        args: &Value,
+    ) -> std::result::Result<Value, JsonRpcError> {
+        let _category = args
+            .get("category")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing category"))?;
         let days = args.get("days").and_then(|v| v.as_u64()).unwrap_or(7);
         let limit = 10; // Default limit
 
-        let results = self.clients.biorxiv.search_recent(days, limit).await
+        let results = self
+            .clients
+            .biorxiv
+            .search_recent(days, limit)
+            .await
             .map_err(|e| JsonRpcError::internal_error(&e.to_string()))?;
 
         Ok(json!({
@@ -1183,14 +1268,22 @@ impl McpDiscoveryServer {
         }))
     }
 
-    async fn execute_search_medrxiv(&self, args: &Value) -> std::result::Result<Value, JsonRpcError> {
-        let _query = args.get("query")
+    async fn execute_search_medrxiv(
+        &self,
+        args: &Value,
+    ) -> std::result::Result<Value, JsonRpcError> {
+        let _query = args
+            .get("query")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing query"))?;
         let days = args.get("days").and_then(|v| v.as_u64()).unwrap_or(7);
         let limit = 10; // Default limit
 
-        let results = self.clients.medrxiv.search_recent(days, limit).await
+        let results = self
+            .clients
+            .medrxiv
+            .search_recent(days, limit)
+            .await
             .map_err(|e| JsonRpcError::internal_error(&e.to_string()))?;
 
         Ok(json!({
@@ -1202,13 +1295,21 @@ impl McpDiscoveryServer {
         }))
     }
 
-    async fn execute_search_pubmed(&self, args: &Value) -> std::result::Result<Value, JsonRpcError> {
-        let query = args.get("query")
+    async fn execute_search_pubmed(
+        &self,
+        args: &Value,
+    ) -> std::result::Result<Value, JsonRpcError> {
+        let query = args
+            .get("query")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing query"))?;
         let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
 
-        let results = self.clients.pubmed.search_articles(query, limit).await
+        let results = self
+            .clients
+            .pubmed
+            .search_articles(query, limit)
+            .await
             .map_err(|e| JsonRpcError::internal_error(&e.to_string()))?;
 
         Ok(json!({
@@ -1220,13 +1321,21 @@ impl McpDiscoveryServer {
         }))
     }
 
-    async fn execute_search_clinical_trials(&self, args: &Value) -> std::result::Result<Value, JsonRpcError> {
-        let condition = args.get("condition")
+    async fn execute_search_clinical_trials(
+        &self,
+        args: &Value,
+    ) -> std::result::Result<Value, JsonRpcError> {
+        let condition = args
+            .get("condition")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing condition"))?;
         let status = args.get("status").and_then(|v| v.as_str());
 
-        let results = self.clients.clinical_trials.search_trials(condition, status).await
+        let results = self
+            .clients
+            .clinical_trials
+            .search_trials(condition, status)
+            .await
             .map_err(|e| JsonRpcError::internal_error(&e.to_string()))?;
 
         Ok(json!({
@@ -1238,12 +1347,20 @@ impl McpDiscoveryServer {
         }))
     }
 
-    async fn execute_search_fda_events(&self, args: &Value) -> std::result::Result<Value, JsonRpcError> {
-        let drug_name = args.get("drug_name")
+    async fn execute_search_fda_events(
+        &self,
+        args: &Value,
+    ) -> std::result::Result<Value, JsonRpcError> {
+        let drug_name = args
+            .get("drug_name")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing drug_name"))?;
 
-        let results = self.clients.fda.search_drug_events(drug_name).await
+        let results = self
+            .clients
+            .fda
+            .search_drug_events(drug_name)
+            .await
             .map_err(|e| JsonRpcError::internal_error(&e.to_string()))?;
 
         Ok(json!({
@@ -1255,13 +1372,21 @@ impl McpDiscoveryServer {
         }))
     }
 
-    async fn execute_get_fred_series(&self, args: &Value) -> std::result::Result<Value, JsonRpcError> {
-        let series_id = args.get("series_id")
+    async fn execute_get_fred_series(
+        &self,
+        args: &Value,
+    ) -> std::result::Result<Value, JsonRpcError> {
+        let series_id = args
+            .get("series_id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing series_id"))?;
         let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(100) as usize;
 
-        let results = self.clients.fred.get_series(series_id, Some(limit)).await
+        let results = self
+            .clients
+            .fred
+            .get_series(series_id, Some(limit))
+            .await
             .map_err(|e| JsonRpcError::internal_error(&e.to_string()))?;
 
         Ok(json!({
@@ -1273,15 +1398,24 @@ impl McpDiscoveryServer {
         }))
     }
 
-    async fn execute_get_worldbank_indicator(&self, args: &Value) -> std::result::Result<Value, JsonRpcError> {
-        let country = args.get("country")
+    async fn execute_get_worldbank_indicator(
+        &self,
+        args: &Value,
+    ) -> std::result::Result<Value, JsonRpcError> {
+        let country = args
+            .get("country")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing country"))?;
-        let indicator = args.get("indicator")
+        let indicator = args
+            .get("indicator")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing indicator"))?;
 
-        let results = self.clients.worldbank.get_indicator(country, indicator).await
+        let results = self
+            .clients
+            .worldbank
+            .get_indicator(country, indicator)
+            .await
             .map_err(|e| JsonRpcError::internal_error(&e.to_string()))?;
 
         Ok(json!({
@@ -1293,18 +1427,28 @@ impl McpDiscoveryServer {
         }))
     }
 
-    async fn execute_get_noaa_data(&self, args: &Value) -> std::result::Result<Value, JsonRpcError> {
-        let station_id = args.get("station_id")
+    async fn execute_get_noaa_data(
+        &self,
+        args: &Value,
+    ) -> std::result::Result<Value, JsonRpcError> {
+        let station_id = args
+            .get("station_id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing station_id"))?;
-        let start_date = args.get("start_date")
+        let start_date = args
+            .get("start_date")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing start_date"))?;
-        let end_date = args.get("end_date")
+        let end_date = args
+            .get("end_date")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing end_date"))?;
 
-        let results = self.clients.noaa.fetch_climate_data(station_id, start_date, end_date).await
+        let results = self
+            .clients
+            .noaa
+            .fetch_climate_data(station_id, start_date, end_date)
+            .await
             .map_err(|e| JsonRpcError::internal_error(&e.to_string()))?;
 
         Ok(json!({
@@ -1316,13 +1460,21 @@ impl McpDiscoveryServer {
         }))
     }
 
-    async fn execute_search_wikipedia(&self, args: &Value) -> std::result::Result<Value, JsonRpcError> {
-        let query = args.get("query")
+    async fn execute_search_wikipedia(
+        &self,
+        args: &Value,
+    ) -> std::result::Result<Value, JsonRpcError> {
+        let query = args
+            .get("query")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing query"))?;
         let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
 
-        let results = self.clients.wikipedia.search(query, limit).await
+        let results = self
+            .clients
+            .wikipedia
+            .search(query, limit)
+            .await
             .map_err(|e| JsonRpcError::internal_error(&e.to_string()))?;
 
         Ok(json!({
@@ -1334,12 +1486,20 @@ impl McpDiscoveryServer {
         }))
     }
 
-    async fn execute_query_wikidata(&self, args: &Value) -> std::result::Result<Value, JsonRpcError> {
-        let sparql_query = args.get("sparql_query")
+    async fn execute_query_wikidata(
+        &self,
+        args: &Value,
+    ) -> std::result::Result<Value, JsonRpcError> {
+        let sparql_query = args
+            .get("sparql_query")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing sparql_query"))?;
 
-        let results = self.clients.wikidata.sparql_query(sparql_query).await
+        let results = self
+            .clients
+            .wikidata
+            .sparql_query(sparql_query)
+            .await
             .map_err(|e| JsonRpcError::internal_error(&e.to_string()))?;
 
         Ok(json!({
@@ -1351,11 +1511,16 @@ impl McpDiscoveryServer {
         }))
     }
 
-    async fn execute_run_discovery(&self, args: &Value) -> std::result::Result<Value, JsonRpcError> {
-        let _sources = args.get("sources")
+    async fn execute_run_discovery(
+        &self,
+        args: &Value,
+    ) -> std::result::Result<Value, JsonRpcError> {
+        let _sources = args
+            .get("sources")
             .and_then(|v| v.as_array())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing sources array"))?;
-        let query = args.get("query")
+        let query = args
+            .get("query")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing query"))?;
 
@@ -1368,8 +1533,12 @@ impl McpDiscoveryServer {
         }))
     }
 
-    async fn execute_analyze_coherence(&self, args: &Value) -> std::result::Result<Value, JsonRpcError> {
-        let _vectors = args.get("vectors")
+    async fn execute_analyze_coherence(
+        &self,
+        args: &Value,
+    ) -> std::result::Result<Value, JsonRpcError> {
+        let _vectors = args
+            .get("vectors")
             .and_then(|v| v.as_array())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing vectors array"))?;
 
@@ -1382,8 +1551,12 @@ impl McpDiscoveryServer {
         }))
     }
 
-    async fn execute_detect_patterns(&self, args: &Value) -> std::result::Result<Value, JsonRpcError> {
-        let _signals = args.get("signals")
+    async fn execute_detect_patterns(
+        &self,
+        args: &Value,
+    ) -> std::result::Result<Value, JsonRpcError> {
+        let _signals = args
+            .get("signals")
             .and_then(|v| v.as_array())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing signals array"))?;
 
@@ -1400,7 +1573,8 @@ impl McpDiscoveryServer {
     }
 
     async fn execute_export_graph(&self, args: &Value) -> std::result::Result<Value, JsonRpcError> {
-        let format = args.get("format")
+        let format = args
+            .get("format")
             .and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError::invalid_params("Missing format"))?;
 
@@ -1408,8 +1582,10 @@ impl McpDiscoveryServer {
         let graph = engine.export_graph();
 
         let exported = match format {
-            "graphml" => serde_json::to_string_pretty(&json!({ "format": "graphml", "graph": graph }))
-                .map_err(|e| JsonRpcError::internal_error(&e.to_string()))?,
+            "graphml" => {
+                serde_json::to_string_pretty(&json!({ "format": "graphml", "graph": graph }))
+                    .map_err(|e| JsonRpcError::internal_error(&e.to_string()))?
+            }
             "dot" => serde_json::to_string_pretty(&json!({ "format": "dot", "graph": graph }))
                 .map_err(|e| JsonRpcError::internal_error(&e.to_string()))?,
             "csv" => serde_json::to_string_pretty(&json!({ "format": "csv", "graph": graph }))
@@ -1443,9 +1619,16 @@ mod tests {
     #[test]
     fn test_server_capabilities() {
         let caps = ServerCapabilities {
-            tools: ToolsCapability { list_changed: false },
-            resources: ResourcesCapability { list_changed: false, subscribe: false },
-            prompts: PromptsCapability { list_changed: false },
+            tools: ToolsCapability {
+                list_changed: false,
+            },
+            resources: ResourcesCapability {
+                list_changed: false,
+                subscribe: false,
+            },
+            prompts: PromptsCapability {
+                list_changed: false,
+            },
         };
 
         let json = serde_json::to_value(&caps).unwrap();

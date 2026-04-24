@@ -401,7 +401,8 @@ impl OverpassClient {
     pub async fn query(&self, query: &str) -> Result<Vec<SemanticVector>> {
         sleep(self.rate_limit_delay).await;
 
-        let response = self.client
+        let response = self
+            .client
             .post(&self.base_url)
             .body(query.to_string())
             .send()
@@ -480,9 +481,11 @@ impl OverpassClient {
             };
 
             // Extract name and tags
-            let name = element.tags.get("name").cloned().unwrap_or_else(|| {
-                format!("OSM {} {}", element.r#type, element.id)
-            });
+            let name = element
+                .tags
+                .get("name")
+                .cloned()
+                .unwrap_or_else(|| format!("OSM {} {}", element.r#type, element.id));
 
             let amenity = element.tags.get("amenity").cloned().unwrap_or_default();
             let highway = element.tags.get("highway").cloned().unwrap_or_default();
@@ -982,11 +985,7 @@ impl OpenElevationClient {
 
         let url = format!("{}/lookup", self.base_url);
 
-        let response = self.client
-            .post(&url)
-            .json(&request)
-            .send()
-            .await?;
+        let response = self.client.post(&url).json(&request).send().await?;
 
         let elevation_response: OpenElevationResponse = response.json().await?;
         self.convert_elevations(elevation_response.results)
@@ -1041,7 +1040,10 @@ mod tests {
         let client = NominatimClient::new();
         assert!(client.is_ok());
         let client = client.unwrap();
-        assert_eq!(client.rate_limit_delay, Duration::from_millis(NOMINATIM_RATE_LIMIT_MS));
+        assert_eq!(
+            client.rate_limit_delay,
+            Duration::from_millis(NOMINATIM_RATE_LIMIT_MS)
+        );
     }
 
     #[tokio::test]
@@ -1231,19 +1233,11 @@ mod tests {
         let eiffel_lon = 2.2945;
 
         assert!(GeoUtils::within_radius(
-            center_lat,
-            center_lon,
-            eiffel_lat,
-            eiffel_lon,
-            5.0
+            center_lat, center_lon, eiffel_lat, eiffel_lon, 5.0
         ));
 
         assert!(!GeoUtils::within_radius(
-            center_lat,
-            center_lon,
-            eiffel_lat,
-            eiffel_lon,
-            1.0
+            center_lat, center_lon, eiffel_lat, eiffel_lon, 1.0
         ));
     }
 }

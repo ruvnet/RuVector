@@ -1,6 +1,6 @@
 //! Benchmarks for GNN operations.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use ndarray::Array2;
 
 // Note: These benchmarks require the crate to compile successfully.
@@ -74,7 +74,11 @@ fn benchmark_cosine_similarity(c: &mut Criterion) {
         let vec_b: Vec<f32> = (0..256).map(|i| (i as f32).cos()).collect();
 
         bencher.iter(|| {
-            let dot: f32 = black_box(&vec_a).iter().zip(black_box(&vec_b)).map(|(x, y)| x * y).sum();
+            let dot: f32 = black_box(&vec_a)
+                .iter()
+                .zip(black_box(&vec_b))
+                .map(|(x, y)| x * y)
+                .sum();
             let norm_a: f32 = vec_a.iter().map(|x| x * x).sum::<f32>().sqrt();
             let norm_b: f32 = vec_b.iter().map(|x| x * x).sum::<f32>().sqrt();
             black_box(dot / (norm_a * norm_b))
@@ -87,7 +91,11 @@ fn benchmark_info_nce_loss(c: &mut Criterion) {
         let anchor: Vec<f32> = (0..128).map(|i| (i as f32 * 0.01).sin()).collect();
         let positive: Vec<f32> = (0..128).map(|i| (i as f32 * 0.01).sin() + 0.1).collect();
         let negatives: Vec<Vec<f32>> = (0..10)
-            .map(|j| (0..128).map(|i| ((i + j * 10) as f32 * 0.01).cos()).collect())
+            .map(|j| {
+                (0..128)
+                    .map(|i| ((i + j * 10) as f32 * 0.01).cos())
+                    .collect()
+            })
             .collect();
         let neg_refs: Vec<&[f32]> = negatives.iter().map(|v| v.as_slice()).collect();
 
@@ -96,24 +104,36 @@ fn benchmark_info_nce_loss(c: &mut Criterion) {
 
             // Compute cosine similarities
             let pos_sim = {
-                let dot: f32 = black_box(&anchor).iter().zip(black_box(&positive)).map(|(x, y)| x * y).sum();
+                let dot: f32 = black_box(&anchor)
+                    .iter()
+                    .zip(black_box(&positive))
+                    .map(|(x, y)| x * y)
+                    .sum();
                 let norm_a: f32 = anchor.iter().map(|x| x * x).sum::<f32>().sqrt();
                 let norm_b: f32 = positive.iter().map(|x| x * x).sum::<f32>().sqrt();
                 dot / (norm_a * norm_b) / temp
             };
 
-            let neg_sims: Vec<f32> = neg_refs.iter().map(|neg| {
-                let dot: f32 = anchor.iter().zip(*neg).map(|(x, y)| x * y).sum();
-                let norm_a: f32 = anchor.iter().map(|x| x * x).sum::<f32>().sqrt();
-                let norm_b: f32 = neg.iter().map(|x| x * x).sum::<f32>().sqrt();
-                dot / (norm_a * norm_b) / temp
-            }).collect();
+            let neg_sims: Vec<f32> = neg_refs
+                .iter()
+                .map(|neg| {
+                    let dot: f32 = anchor.iter().zip(*neg).map(|(x, y)| x * y).sum();
+                    let norm_a: f32 = anchor.iter().map(|x| x * x).sum::<f32>().sqrt();
+                    let norm_b: f32 = neg.iter().map(|x| x * x).sum::<f32>().sqrt();
+                    dot / (norm_a * norm_b) / temp
+                })
+                .collect();
 
             // Log-sum-exp
-            let max_sim = neg_sims.iter().chain(std::iter::once(&pos_sim))
-                .cloned().fold(f32::NEG_INFINITY, f32::max);
-            let sum_exp: f32 = std::iter::once(pos_sim).chain(neg_sims)
-                .map(|s| (s - max_sim).exp()).sum();
+            let max_sim = neg_sims
+                .iter()
+                .chain(std::iter::once(&pos_sim))
+                .cloned()
+                .fold(f32::NEG_INFINITY, f32::max);
+            let sum_exp: f32 = std::iter::once(pos_sim)
+                .chain(neg_sims)
+                .map(|s| (s - max_sim).exp())
+                .sum();
 
             black_box(-pos_sim + max_sim + sum_exp.ln())
         });

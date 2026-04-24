@@ -25,7 +25,7 @@
 //!
 //! **Run:** `cargo run --example postgres_bridge`
 
-use rvf_crypto::{create_witness_chain, verify_witness_chain, shake256_256, WitnessEntry};
+use rvf_crypto::{create_witness_chain, shake256_256, verify_witness_chain, WitnessEntry};
 use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{QueryOptions, RvfOptions, RvfStore};
 use rvf_types::DerivationType;
@@ -36,7 +36,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -100,8 +102,7 @@ fn main() {
         metric: DistanceMetric::L2,
         ..Default::default()
     };
-    let mut export_store =
-        RvfStore::create(&export_path, options).expect("create export store");
+    let mut export_store = RvfStore::create(&export_path, options).expect("create export store");
 
     // Insert vectors in batches (pg_dump streaming pattern)
     let batch_size = 100;
@@ -154,7 +155,11 @@ fn main() {
         },
     ];
     let chain_bytes = create_witness_chain(&witness_entries);
-    println!("  Witness chain: {} entries, {} bytes", witness_entries.len(), chain_bytes.len());
+    println!(
+        "  Witness chain: {} entries, {} bytes",
+        witness_entries.len(),
+        chain_bytes.len()
+    );
 
     // Verify the export witness chain
     let verified = verify_witness_chain(&chain_bytes).expect("verify chain");
@@ -209,7 +214,10 @@ fn main() {
     // SQL INSERT statements for the import
     println!("  Generated SQL:");
     println!("    INSERT INTO ml.embeddings (id, embedding)");
-    println!("    VALUES ($1, $2::ruvector)  -- {} rows", all_results.len());
+    println!(
+        "    VALUES ($1, $2::ruvector)  -- {} rows",
+        all_results.len()
+    );
     println!("    -- Using binary COPY protocol for bulk load");
     println!();
 
@@ -269,7 +277,10 @@ fn main() {
     println!("=== Summary ===\n");
     println!("  Vectors exported:     {}", total_exported);
     println!("  Offline queries:      OK (no database required)");
-    println!("  Witness chain:        {} entries, verified", witness_entries.len());
+    println!(
+        "  Witness chain:        {} entries, verified",
+        witness_entries.len()
+    );
     println!("  Lineage depth:        0 (export) → 1 (filtered snapshot)");
     println!("  RVF segments used:    VEC, INDEX, META, WITNESS, MANIFEST");
     println!("  PG compatibility:     pgvector binary layout (drop-in)");

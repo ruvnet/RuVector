@@ -13,41 +13,54 @@
 //! - Quantization (4-32x compression)
 //! - Hyperdimensional Computing for pattern matching
 
-mod identity;
-mod crypto;
-mod relay;
+mod advanced;
 mod artifact;
+mod crypto;
 mod envelope;
+mod identity;
+mod relay;
 #[cfg(feature = "native")]
 mod swarm;
-mod advanced;
 
-pub use identity::{IdentityManager, KeyPair, RegisteredMember};
-pub use crypto::{CryptoV2, EncryptedPayload, CanonicalJson};
-pub use relay::RelayManager;
-pub use artifact::ArtifactStore;
-pub use envelope::{SignedEnvelope, TaskEnvelope, TaskReceipt, ArtifactPointer};
-#[cfg(feature = "native")]
-pub use swarm::{P2PSwarmV2, SwarmStatus};
 pub use advanced::{
-    // Quantization
-    ScalarQuantized, BinaryQuantized, CompressedData,
-    // Hyperdimensional Computing
-    Hypervector, HdcMemory, HDC_DIMENSION,
     // Adaptive compression
-    AdaptiveCompressor, NetworkCondition,
-    // Pattern routing
-    PatternRouter,
+    AdaptiveCompressor,
+    BinaryQuantized,
+    CompressedData,
+    HdcMemory,
     // HNSW vector index
     HnswIndex,
     // Post-quantum crypto
-    HybridKeyPair, HybridPublicKey, HybridSignature,
+    HybridKeyPair,
+    HybridPublicKey,
+    HybridSignature,
+    // Hyperdimensional Computing
+    Hypervector,
     // Spiking neural networks
-    LIFNeuron, SpikingNetwork,
-    // Semantic embeddings
-    SemanticEmbedder, SemanticTaskMatcher,
+    LIFNeuron,
+    LogEntry,
+    NetworkCondition,
+    // Pattern routing
+    PatternRouter,
+    RaftAppendEntries,
+    RaftAppendEntriesResponse,
     // Raft consensus
-    RaftNode, RaftState, LogEntry,
-    RaftVoteRequest, RaftVoteResponse,
-    RaftAppendEntries, RaftAppendEntriesResponse,
+    RaftNode,
+    RaftState,
+    RaftVoteRequest,
+    RaftVoteResponse,
+    // Quantization
+    ScalarQuantized,
+    // Semantic embeddings
+    SemanticEmbedder,
+    SemanticTaskMatcher,
+    SpikingNetwork,
+    HDC_DIMENSION,
 };
+pub use artifact::ArtifactStore;
+pub use crypto::{CanonicalJson, CryptoV2, EncryptedPayload};
+pub use envelope::{ArtifactPointer, SignedEnvelope, TaskEnvelope, TaskReceipt};
+pub use identity::{IdentityManager, KeyPair, RegisteredMember};
+pub use relay::RelayManager;
+#[cfg(feature = "native")]
+pub use swarm::{P2PSwarmV2, SwarmStatus};

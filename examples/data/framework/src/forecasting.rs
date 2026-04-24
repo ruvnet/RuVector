@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Duration, Utc};
 use std::collections::VecDeque;
 
 /// Trend direction for coherence values
@@ -23,13 +23,13 @@ pub struct Forecast {
 /// Coherence forecaster using exponential smoothing methods
 pub struct CoherenceForecaster {
     history: VecDeque<(DateTime<Utc>, f64)>,
-    alpha: f64,      // Level smoothing parameter
-    beta: f64,       // Trend smoothing parameter
-    window: usize,   // Maximum history size
+    alpha: f64,    // Level smoothing parameter
+    beta: f64,     // Trend smoothing parameter
+    window: usize, // Maximum history size
     level: Option<f64>,
     trend: Option<f64>,
-    cusum_pos: f64,  // Positive CUSUM for regime change detection
-    cusum_neg: f64,  // Negative CUSUM for regime change detection
+    cusum_pos: f64, // Positive CUSUM for regime change detection
+    cusum_neg: f64, // Negative CUSUM for regime change detection
 }
 
 impl CoherenceForecaster {
@@ -77,7 +77,8 @@ impl CoherenceForecaster {
                 let new_level = self.alpha * value + (1.0 - self.alpha) * (prev_level + prev_trend);
 
                 // Update trend: T_t = β * (L_t - L_{t-1}) + (1 - β) * T_{t-1}
-                let new_trend = self.beta * (new_level - prev_level) + (1.0 - self.beta) * prev_trend;
+                let new_trend =
+                    self.beta * (new_level - prev_level) + (1.0 - self.beta) * prev_trend;
 
                 self.level = Some(new_level);
                 self.trend = Some(new_trend);
@@ -219,10 +220,12 @@ impl CoherenceForecaster {
         }
 
         let mean = self.get_mean();
-        let variance: f64 = self.history
+        let variance: f64 = self
+            .history
             .iter()
             .map(|(_, v)| (v - mean).powi(2))
-            .sum::<f64>() / (self.history.len() - 1) as f64;
+            .sum::<f64>()
+            / (self.history.len() - 1) as f64;
 
         variance.sqrt()
     }
@@ -240,10 +243,7 @@ impl CoherenceForecaster {
             let (_, actual) = self.history[i];
 
             // Simple exponential smoothing forecast using previous data
-            let prev_values: Vec<f64> = self.history.iter()
-                .take(i)
-                .map(|(_, v)| *v)
-                .collect();
+            let prev_values: Vec<f64> = self.history.iter().take(i).map(|(_, v)| *v).collect();
 
             if let Some(predicted) = self.simple_forecast(&prev_values, 1) {
                 errors.push(actual - predicted);
@@ -354,8 +354,20 @@ impl CrossDomainForecaster {
             return None;
         }
 
-        let values1: Vec<f64> = f1.history.iter().rev().take(min_len).map(|(_, v)| *v).collect();
-        let values2: Vec<f64> = f2.history.iter().rev().take(min_len).map(|(_, v)| *v).collect();
+        let values1: Vec<f64> = f1
+            .history
+            .iter()
+            .rev()
+            .take(min_len)
+            .map(|(_, v)| *v)
+            .collect();
+        let values2: Vec<f64> = f2
+            .history
+            .iter()
+            .rev()
+            .take(min_len)
+            .map(|(_, v)| *v)
+            .collect();
 
         let mean1 = values1.iter().sum::<f64>() / min_len as f64;
         let mean2 = values2.iter().sum::<f64>() / min_len as f64;
@@ -384,9 +396,7 @@ impl CrossDomainForecaster {
     pub fn forecast_all(&self, steps: usize) -> Vec<(String, Vec<Forecast>)> {
         self.forecasters
             .iter()
-            .map(|(domain, forecaster)| {
-                (domain.clone(), forecaster.forecast(steps))
-            })
+            .map(|(domain, forecaster)| (domain.clone(), forecaster.forecast(steps)))
             .collect()
     }
 
@@ -395,7 +405,10 @@ impl CrossDomainForecaster {
         self.forecasters
             .iter()
             .map(|(domain, forecaster)| {
-                (domain.clone(), forecaster.detect_regime_change_probability())
+                (
+                    domain.clone(),
+                    forecaster.detect_regime_change_probability(),
+                )
             })
             .filter(|(_, prob)| *prob > 0.5)
             .collect()
@@ -436,10 +449,7 @@ mod tests {
 
         // Add rising values
         for i in 0..10 {
-            forecaster.add_observation(
-                now + Duration::hours(i),
-                0.5 + (i as f64) * 0.1
-            );
+            forecaster.add_observation(now + Duration::hours(i), 0.5 + (i as f64) * 0.1);
         }
 
         let trend = forecaster.get_trend();
@@ -453,10 +463,7 @@ mod tests {
 
         // Add some observations
         for i in 0..10 {
-            forecaster.add_observation(
-                now + Duration::hours(i),
-                0.5 + (i as f64) * 0.05
-            );
+            forecaster.add_observation(now + Duration::hours(i), 0.5 + (i as f64) * 0.05);
         }
 
         let forecasts = forecaster.forecast(5);

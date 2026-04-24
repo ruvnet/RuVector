@@ -142,11 +142,9 @@ impl AudioIngestionService {
 
         info!("Starting segmentation");
 
-        let segments = self.segmenter.segment(
-            samples,
-            recording.metadata.sample_rate,
-            recording.id,
-        )?;
+        let segments =
+            self.segmenter
+                .segment(samples, recording.metadata.sample_rate, recording.id)?;
 
         let viable_count = segments.iter().filter(|s| s.is_viable()).count();
         info!(

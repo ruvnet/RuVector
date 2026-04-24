@@ -38,8 +38,8 @@
 #![warn(clippy::all)]
 #![allow(clippy::module_name_repetitions)]
 
-pub mod domain;
 pub mod application;
+pub mod domain;
 pub mod infrastructure;
 pub mod metrics;
 
@@ -48,10 +48,10 @@ pub use domain::entities::{
     Anomaly, AnomalyType, Cluster, ClusterId, EmbeddingId, Motif, MotifOccurrence, Prototype,
     RecordingId, SegmentId, SequenceAnalysis,
 };
-pub use domain::repository::{ClusterRepository, MotifRepository, SequenceRepository};
 pub use domain::events::{
     AnalysisEvent, ClusterAssigned, ClustersDiscovered, MotifDetected, SequenceAnalyzed,
 };
+pub use domain::repository::{ClusterRepository, MotifRepository, SequenceRepository};
 pub use domain::value_objects::{
     ClusteringConfig, ClusteringMethod, ClusteringParameters, MotifConfig, SequenceMetrics,
     TransitionMatrix,
@@ -61,18 +61,16 @@ pub use application::services::{
     AnomalyDetectionService, ClusteringService, MotifDetectionService, SequenceAnalysisService,
 };
 
-pub use metrics::{
-    ClusteringMetrics, SequenceEntropy, SilhouetteScore, VMeasure,
-};
+pub use metrics::{ClusteringMetrics, SequenceEntropy, SilhouetteScore, VMeasure};
 
 /// Crate version information
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Prelude module for convenient imports
 pub mod prelude {
+    pub use crate::application::services::*;
     pub use crate::domain::entities::*;
     pub use crate::domain::repository::*;
     pub use crate::domain::value_objects::*;
-    pub use crate::application::services::*;
     pub use crate::metrics::*;
 }

@@ -2,11 +2,11 @@
 //!
 //! Enables agents to share vector embeddings and semantic memories across the swarm.
 
-use crate::{Result, SwarmError, compression::TensorCodec};
+use crate::{compression::TensorCodec, Result, SwarmError};
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use parking_lot::RwLock;
 
 /// Vector memory entry
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -137,16 +137,16 @@ impl VectorMemory {
     pub fn serialize(&self) -> Result<Vec<u8>> {
         let entries = self.entries.read();
         let data: Vec<_> = entries.values().cloned().collect();
-        let json = serde_json::to_vec(&data)
-            .map_err(|e| SwarmError::Serialization(e.to_string()))?;
+        let json =
+            serde_json::to_vec(&data).map_err(|e| SwarmError::Serialization(e.to_string()))?;
         self.codec.compress(&json)
     }
 
     /// Merge entries from peer
     pub fn merge(&self, data: &[u8]) -> Result<usize> {
         let json = self.codec.decompress(data)?;
-        let peer_entries: Vec<VectorEntry> = serde_json::from_slice(&json)
-            .map_err(|e| SwarmError::Serialization(e.to_string()))?;
+        let peer_entries: Vec<VectorEntry> =
+            serde_json::from_slice(&json).map_err(|e| SwarmError::Serialization(e.to_string()))?;
 
         let mut entries = self.entries.write();
         let mut merged = 0;

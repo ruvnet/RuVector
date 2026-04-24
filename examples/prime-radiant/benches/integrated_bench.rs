@@ -11,9 +11,7 @@
 //! - Memory overhead: < 100MB for 10K entities
 //! - Throughput: > 100 decisions/second
 
-use criterion::{
-    black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
-};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -182,8 +180,7 @@ impl CoherenceEngine {
 
         // Compute residuals at each constraint (coboundary)
         for constraint in &self.constraints {
-            if constraint.source >= self.entities.len()
-                || constraint.target >= self.entities.len()
+            if constraint.source >= self.entities.len() || constraint.target >= self.entities.len()
             {
                 continue;
             }
@@ -192,7 +189,8 @@ impl CoherenceEngine {
             let target_state = &self.entities[constraint.target].state;
 
             // Apply restriction map
-            let restricted_source = self.apply_restriction(&constraint.restriction_map, source_state);
+            let restricted_source =
+                self.apply_restriction(&constraint.restriction_map, source_state);
 
             // Residual = rho(source) - target
             let mut residual_sq = 0.0;
@@ -209,12 +207,7 @@ impl CoherenceEngine {
 
     fn apply_restriction(&self, map: &[Vec<f64>], state: &[f64]) -> Vec<f64> {
         map.iter()
-            .map(|row| {
-                row.iter()
-                    .zip(state.iter())
-                    .map(|(a, b)| a * b)
-                    .sum()
-            })
+            .map(|row| row.iter().zip(state.iter()).map(|(a, b)| a * b).sum())
             .collect()
     }
 
@@ -287,8 +280,7 @@ impl CoherenceEngine {
         let mut count = 0;
 
         for constraint in &self.constraints {
-            if constraint.source >= self.entities.len()
-                || constraint.target >= self.entities.len()
+            if constraint.source >= self.entities.len() || constraint.target >= self.entities.len()
             {
                 continue;
             }
@@ -362,7 +354,8 @@ impl StreamingCoherence {
 
         for constraint in &self.engine.constraints {
             if constraint.source == id || constraint.target == id {
-                let old_residual = self.residual_cache
+                let old_residual = self
+                    .residual_cache
                     .get(&(constraint.source, constraint.target))
                     .copied()
                     .unwrap_or(0.0);
@@ -394,7 +387,9 @@ impl StreamingCoherence {
         let source = &self.engine.entities[constraint.source].state;
         let target = &self.engine.entities[constraint.target].state;
 
-        let restricted = self.engine.apply_restriction(&constraint.restriction_map, source);
+        let restricted = self
+            .engine
+            .apply_restriction(&constraint.restriction_map, source);
 
         let mut residual_sq = 0.0;
         for (r, t) in restricted.iter().zip(target.iter()) {
@@ -480,7 +475,9 @@ struct MemoryProfile {
 }
 
 fn estimate_memory(engine: &CoherenceEngine) -> MemoryProfile {
-    let entity_bytes: usize = engine.entities.iter()
+    let entity_bytes: usize = engine
+        .entities
+        .iter()
         .map(|e| {
             std::mem::size_of::<Entity>()
                 + e.state.len() * std::mem::size_of::<f64>()
@@ -488,17 +485,21 @@ fn estimate_memory(engine: &CoherenceEngine) -> MemoryProfile {
         })
         .sum();
 
-    let constraint_bytes: usize = engine.constraints.iter()
+    let constraint_bytes: usize = engine
+        .constraints
+        .iter()
         .map(|c| {
             std::mem::size_of::<Constraint>()
-                + c.restriction_map.len() * c.restriction_map.get(0).map(|r| r.len()).unwrap_or(0) * std::mem::size_of::<f64>()
+                + c.restriction_map.len()
+                    * c.restriction_map.get(0).map(|r| r.len()).unwrap_or(0)
+                    * std::mem::size_of::<f64>()
         })
         .sum();
 
     let cache_bytes = 0; // Would include residual cache if implemented
 
-    let total_bytes = entity_bytes + constraint_bytes + cache_bytes
-        + std::mem::size_of::<CoherenceEngine>();
+    let total_bytes =
+        entity_bytes + constraint_bytes + cache_bytes + std::mem::size_of::<CoherenceEngine>();
 
     MemoryProfile {
         entity_bytes,
@@ -512,7 +513,11 @@ fn estimate_memory(engine: &CoherenceEngine) -> MemoryProfile {
 // DATA GENERATORS
 // ============================================================================
 
-fn generate_coherence_graph(num_entities: usize, avg_degree: usize, state_dim: usize) -> CoherenceEngine {
+fn generate_coherence_graph(
+    num_entities: usize,
+    avg_degree: usize,
+    state_dim: usize,
+) -> CoherenceEngine {
     let mut engine = CoherenceEngine::new();
 
     // Add entities
@@ -596,9 +601,7 @@ fn bench_end_to_end_coherence(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("full_coherence", num_entities),
             &engine,
-            |b, engine| {
-                b.iter(|| black_box(engine.compute_coherence()))
-            },
+            |b, engine| b.iter(|| black_box(engine.compute_coherence())),
         );
     }
 
@@ -617,25 +620,19 @@ fn bench_component_breakdown(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("topological", num_entities),
             &engine,
-            |b, engine| {
-                b.iter(|| black_box(engine.compute_topological_energy()))
-            },
+            |b, engine| b.iter(|| black_box(engine.compute_topological_energy())),
         );
 
         group.bench_with_input(
             BenchmarkId::new("spectral", num_entities),
             &engine,
-            |b, engine| {
-                b.iter(|| black_box(engine.compute_spectral_coherence()))
-            },
+            |b, engine| b.iter(|| black_box(engine.compute_spectral_coherence())),
         );
 
         group.bench_with_input(
             BenchmarkId::new("causal", num_entities),
             &engine,
-            |b, engine| {
-                b.iter(|| black_box(engine.compute_causal_energy()))
-            },
+            |b, engine| b.iter(|| black_box(engine.compute_causal_energy())),
         );
     }
 
@@ -732,9 +729,7 @@ fn bench_hierarchical_coherence(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new(format!("{}L_{}B", levels, branching), total_nodes),
             &engine,
-            |b, engine| {
-                b.iter(|| black_box(engine.compute_coherence()))
-            },
+            |b, engine| b.iter(|| black_box(engine.compute_coherence())),
         );
     }
 
@@ -802,9 +797,7 @@ fn bench_scalability(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new(format!("{}e_{}d", entities, avg_degree), entities),
             &engine,
-            |b, engine| {
-                b.iter(|| black_box(engine.compute_coherence()))
-            },
+            |b, engine| b.iter(|| black_box(engine.compute_coherence())),
         );
     }
 

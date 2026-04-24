@@ -3,8 +3,8 @@
 //! Detects divergence between financial fundamentals and narrative sentiment
 //! in SEC filings using RuVector's coherence analysis.
 
-use std::collections::HashMap;
 use rand::Rng;
+use std::collections::HashMap;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -28,7 +28,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ("0000200406", "Johnson & Johnson", "Healthcare"),
     ];
 
-    println!("🔍 Analyzing {} major companies for coherence signals...\n", target_companies.len());
+    println!(
+        "🔍 Analyzing {} major companies for coherence signals...\n",
+        target_companies.len()
+    );
 
     let mut all_alerts: Vec<(String, String, f64)> = Vec::new();
     let mut sector_signals: HashMap<String, Vec<f64>> = HashMap::new();
@@ -51,13 +54,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let divergence = (fundamental_trend - narrative_trend).abs();
 
         println!("\n   📈 Financial Metrics:");
-        println!("      Fundamental Trend: {:+.2}%", fundamental_trend * 100.0);
+        println!(
+            "      Fundamental Trend: {:+.2}%",
+            fundamental_trend * 100.0
+        );
         println!("      Narrative Trend:   {:+.2}%", narrative_trend * 100.0);
         println!("      Coherence Score:   {:.3}", coherence_score);
         println!("      Divergence:        {:.3}", divergence);
 
         // Track sector signals
-        sector_signals.entry(sector.to_string())
+        sector_signals
+            .entry(sector.to_string())
             .or_default()
             .push(coherence_score);
 
@@ -90,11 +97,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Forward-looking statement analysis
         let fls_sentiment = analysis.fls_sentiment;
-        let fls_tone = if fls_sentiment > 0.1 { "Optimistic" }
-            else if fls_sentiment < -0.1 { "Cautious" }
-            else { "Neutral" };
+        let fls_tone = if fls_sentiment > 0.1 {
+            "Optimistic"
+        } else if fls_sentiment < -0.1 {
+            "Cautious"
+        } else {
+            "Neutral"
+        };
 
-        println!("\n   🔮 Forward-Looking Tone: {} ({:.2})", fls_tone, fls_sentiment);
+        println!(
+            "\n   🔮 Forward-Looking Tone: {} ({:.2})",
+            fls_tone, fls_sentiment
+        );
 
         println!();
     }
@@ -106,14 +120,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for (sector, scores) in &sector_signals {
         let avg = scores.iter().sum::<f64>() / scores.len() as f64;
-        let variance: f64 = scores.iter()
-            .map(|s| (s - avg).powi(2))
-            .sum::<f64>() / scores.len() as f64;
+        let variance: f64 =
+            scores.iter().map(|s| (s - avg).powi(2)).sum::<f64>() / scores.len() as f64;
         let std_dev = variance.sqrt();
 
-        let health = if avg > 0.8 && std_dev < 0.1 { "Strong" }
-            else if avg > 0.6 { "Moderate" }
-            else { "Weak" };
+        let health = if avg > 0.8 && std_dev < 0.1 {
+            "Strong"
+        } else if avg > 0.6 {
+            "Moderate"
+        } else {
+            "Weak"
+        };
 
         println!("   {} Sector:", sector);
         println!("      Average Coherence: {:.3}", avg);
@@ -139,8 +156,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for (sector, companies) in &by_sector {
         if companies.len() >= 2 {
-            println!("   🔗 {} cluster: {} - expect correlated movements",
-                sector, companies.join(", "));
+            println!(
+                "   🔗 {} cluster: {} - expect correlated movements",
+                sector,
+                companies.join(", ")
+            );
         }
     }
 
@@ -156,17 +176,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     // Categorize alerts
-    let fundamental_outpacing: Vec<_> = all_alerts.iter()
+    let fundamental_outpacing: Vec<_> = all_alerts
+        .iter()
         .filter(|(_, t, _)| t == "FundamentalOutpacing")
         .collect();
 
-    let narrative_leading: Vec<_> = all_alerts.iter()
+    let narrative_leading: Vec<_> = all_alerts
+        .iter()
         .filter(|(_, t, _)| t == "NarrativeLeading")
         .collect();
 
     println!("Alert breakdown:");
-    println!("   Fundamental Outpacing: {} companies", fundamental_outpacing.len());
-    println!("   Narrative Leading:     {} companies", narrative_leading.len());
+    println!(
+        "   Fundamental Outpacing: {} companies",
+        fundamental_outpacing.len()
+    );
+    println!(
+        "   Narrative Leading:     {} companies",
+        narrative_leading.len()
+    );
 
     if !fundamental_outpacing.is_empty() {
         println!("\n📈 Potential Undervaluation Signals:");
@@ -229,22 +257,23 @@ fn generate_demo_analysis(name: &str, sector: &str) -> DemoFilingAnalysis {
 
     // Add company-specific variation
     let (fundamental_trend, narrative_trend) = match name {
-        "NVIDIA Corporation" => (0.35, 0.42),    // AI boom - narrative leads
-        "Tesla Inc" => (0.12, 0.28),             // High narrative premium
-        "Apple Inc" => (0.08, 0.10),             // Well aligned
+        "NVIDIA Corporation" => (0.35, 0.42), // AI boom - narrative leads
+        "Tesla Inc" => (0.12, 0.28),          // High narrative premium
+        "Apple Inc" => (0.08, 0.10),          // Well aligned
         "Microsoft Corporation" => (0.15, 0.18), // Slight narrative lead
-        "Amazon.com Inc" => (0.22, 0.15),        // Fundamentals outpacing
-        "Alphabet Inc" => (0.18, 0.12),          // Fundamentals stronger
-        "Berkshire Hathaway" => (0.06, 0.04),    // Very aligned
-        "Pfizer Inc" => (-0.05, 0.08),           // Post-COVID narrative lag
-        "IBM Corporation" => (0.03, -0.02),      // Mixed signals
-        "Johnson & Johnson" => (0.05, 0.06),     // Stable
+        "Amazon.com Inc" => (0.22, 0.15),     // Fundamentals outpacing
+        "Alphabet Inc" => (0.18, 0.12),       // Fundamentals stronger
+        "Berkshire Hathaway" => (0.06, 0.04), // Very aligned
+        "Pfizer Inc" => (-0.05, 0.08),        // Post-COVID narrative lag
+        "IBM Corporation" => (0.03, -0.02),   // Mixed signals
+        "Johnson & Johnson" => (0.05, 0.06),  // Stable
         _ => (rng.gen_range(-0.10..0.20), rng.gen_range(-0.10..0.20)),
     };
 
     // Risk factors
     let risk_categories = ["Regulatory", "Competition", "Supply Chain"];
-    let risk_factors: Vec<DemoRiskFactor> = risk_categories.iter()
+    let risk_factors: Vec<DemoRiskFactor> = risk_categories
+        .iter()
         .map(|cat| DemoRiskFactor {
             category: cat.to_string(),
             severity: rng.gen_range(0.3..0.9),

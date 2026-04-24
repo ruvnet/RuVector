@@ -4,11 +4,13 @@
 //! and pattern summaries for the RuVector discovery framework.
 
 use chrono::{Duration, Utc};
-use ruvector_data_framework::optimized::{OptimizedConfig, OptimizedDiscoveryEngine, SignificantPattern};
+use ruvector_data_framework::optimized::{
+    OptimizedConfig, OptimizedDiscoveryEngine, SignificantPattern,
+};
 use ruvector_data_framework::ruvector_native::{Domain, SemanticVector};
 use ruvector_data_framework::visualization::{
-    render_dashboard, render_coherence_timeline, render_domain_matrix,
-    render_graph_ascii, render_pattern_summary,
+    render_coherence_timeline, render_dashboard, render_domain_matrix, render_graph_ascii,
+    render_pattern_summary,
 };
 use std::collections::HashMap;
 
@@ -108,7 +110,10 @@ fn main() {
     println!("\n═══════════════════════════════════════════════════════════════════════════════");
     println!("5️⃣  COMPLETE DASHBOARD");
     println!("═══════════════════════════════════════════════════════════════════════════════");
-    println!("{}", render_dashboard(&engine, &all_patterns, &coherence_history));
+    println!(
+        "{}",
+        render_dashboard(&engine, &all_patterns, &coherence_history)
+    );
 
     println!("\n✅ Visualization demo complete!\n");
 

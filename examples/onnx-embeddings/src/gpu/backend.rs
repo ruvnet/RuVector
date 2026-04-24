@@ -5,10 +5,13 @@
 //! - CUDA-WASM (optional, via cuda-rust-wasm)
 //! - CPU fallback
 
-use crate::{EmbeddingError, Result};
 use super::config::{GpuConfig, GpuMemoryStats, GpuMode, PowerPreference};
+use crate::{EmbeddingError, Result};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, atomic::{AtomicU64, Ordering}};
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc, Mutex,
+};
 
 /// Global buffer ID counter
 static BUFFER_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -225,7 +228,10 @@ impl GpuBackend for CpuBackend {
         entry_point: &str,
         workgroup_size: [u32; 3],
     ) -> Result<ComputePipeline> {
-        Ok(ComputePipeline::new(entry_point.to_string(), workgroup_size))
+        Ok(ComputePipeline::new(
+            entry_point.to_string(),
+            workgroup_size,
+        ))
     }
 
     fn dispatch(
@@ -333,18 +339,10 @@ impl WebGpuBackend {
                     | wgpu::BufferUsages::COPY_DST
                     | wgpu::BufferUsages::COPY_SRC
             }
-            BufferUsage::Uniform => {
-                wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST
-            }
-            BufferUsage::Staging => {
-                wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST
-            }
-            BufferUsage::Vertex => {
-                wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST
-            }
-            BufferUsage::Index => {
-                wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST
-            }
+            BufferUsage::Uniform => wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            BufferUsage::Staging => wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            BufferUsage::Vertex => wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            BufferUsage::Index => wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
         }
     }
 }
@@ -398,11 +396,12 @@ impl GpuBackend for WebGpuBackend {
 
     fn write_buffer(&self, buffer: &GpuBuffer, data: &[u8]) -> Result<()> {
         let buffers = self.buffers.lock().unwrap();
-        let wgpu_buffer = buffers.get(&buffer.id).ok_or_else(|| {
-            EmbeddingError::GpuBufferError {
-                reason: format!("Buffer {} not found", buffer.id),
-            }
-        })?;
+        let wgpu_buffer =
+            buffers
+                .get(&buffer.id)
+                .ok_or_else(|| EmbeddingError::GpuBufferError {
+                    reason: format!("Buffer {} not found", buffer.id),
+                })?;
 
         self.queue.write_buffer(wgpu_buffer, 0, data);
         Ok(())
@@ -410,11 +409,12 @@ impl GpuBackend for WebGpuBackend {
 
     fn read_buffer(&self, buffer: &GpuBuffer, size: u64) -> Result<Vec<u8>> {
         let buffers = self.buffers.lock().unwrap();
-        let wgpu_buffer = buffers.get(&buffer.id).ok_or_else(|| {
-            EmbeddingError::GpuBufferError {
-                reason: format!("Buffer {} not found", buffer.id),
-            }
-        })?;
+        let wgpu_buffer =
+            buffers
+                .get(&buffer.id)
+                .ok_or_else(|| EmbeddingError::GpuBufferError {
+                    reason: format!("Buffer {} not found", buffer.id),
+                })?;
 
         // Create staging buffer for reading
         let staging_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
@@ -425,9 +425,11 @@ impl GpuBackend for WebGpuBackend {
         });
 
         // Copy from GPU buffer to staging buffer
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Read Buffer Encoder"),
-        });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Read Buffer Encoder"),
+            });
         encoder.copy_buffer_to_buffer(wgpu_buffer, 0, &staging_buffer, 0, size);
         self.queue.submit(std::iter::once(encoder.finish()));
 
@@ -467,76 +469,90 @@ impl GpuBackend for WebGpuBackend {
         let handle = ComputePipeline::new(entry_point.to_string(), workgroup_size);
 
         // Create shader module
-        let shader_module = self.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some(&format!("Shader: {}", entry_point)),
-            source: wgpu::ShaderSource::Wgsl(shader_source.into()),
-        });
+        let shader_module = self
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some(&format!("Shader: {}", entry_point)),
+                source: wgpu::ShaderSource::Wgsl(shader_source.into()),
+            });
 
         // Create bind group layout for storage buffers + uniform params
         // Layout: binding 0-2 are storage, binding 3 is uniform params
-        let bind_group_layout = self.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some(&format!("BindGroupLayout: {}", entry_point)),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
-        });
+        let bind_group_layout =
+            self.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some(&format!("BindGroupLayout: {}", entry_point)),
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Storage { read_only: true },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Storage { read_only: true },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 2,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Storage { read_only: false },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 3,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                    ],
+                });
 
-        let pipeline_layout = self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some(&format!("PipelineLayout: {}", entry_point)),
-            bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
-        });
+        let pipeline_layout = self
+            .device
+            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some(&format!("PipelineLayout: {}", entry_point)),
+                bind_group_layouts: &[&bind_group_layout],
+                push_constant_ranges: &[],
+            });
 
-        let compute_pipeline = self.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some(&format!("Pipeline: {}", entry_point)),
-            layout: Some(&pipeline_layout),
-            module: &shader_module,
-            entry_point: Some(entry_point),
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-            cache: None,
-        });
+        let compute_pipeline =
+            self.device
+                .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                    label: Some(&format!("Pipeline: {}", entry_point)),
+                    layout: Some(&pipeline_layout),
+                    module: &shader_module,
+                    entry_point: Some(entry_point),
+                    compilation_options: wgpu::PipelineCompilationOptions::default(),
+                    cache: None,
+                });
 
-        self.pipelines.lock().unwrap().insert(handle.id, compute_pipeline);
-        self.bind_group_layouts.lock().unwrap().insert(handle.id, bind_group_layout);
+        self.pipelines
+            .lock()
+            .unwrap()
+            .insert(handle.id, compute_pipeline);
+        self.bind_group_layouts
+            .lock()
+            .unwrap()
+            .insert(handle.id, bind_group_layout);
 
         Ok(handle)
     }
@@ -551,28 +567,31 @@ impl GpuBackend for WebGpuBackend {
         let layouts = self.bind_group_layouts.lock().unwrap();
         let buffers = self.buffers.lock().unwrap();
 
-        let compute_pipeline = pipelines.get(&pipeline.id).ok_or_else(|| {
-            EmbeddingError::GpuOperationFailed {
-                operation: "dispatch".to_string(),
-                reason: format!("Pipeline {} not found", pipeline.id),
-            }
-        })?;
+        let compute_pipeline =
+            pipelines
+                .get(&pipeline.id)
+                .ok_or_else(|| EmbeddingError::GpuOperationFailed {
+                    operation: "dispatch".to_string(),
+                    reason: format!("Pipeline {} not found", pipeline.id),
+                })?;
 
-        let bind_group_layout = layouts.get(&pipeline.id).ok_or_else(|| {
-            EmbeddingError::GpuOperationFailed {
-                operation: "dispatch".to_string(),
-                reason: format!("BindGroupLayout for pipeline {} not found", pipeline.id),
-            }
-        })?;
+        let bind_group_layout =
+            layouts
+                .get(&pipeline.id)
+                .ok_or_else(|| EmbeddingError::GpuOperationFailed {
+                    operation: "dispatch".to_string(),
+                    reason: format!("BindGroupLayout for pipeline {} not found", pipeline.id),
+                })?;
 
         // Build bind group entries
         let mut bind_group_entries = Vec::new();
         for (i, buf_handle) in bindings.iter().enumerate() {
-            let wgpu_buffer = buffers.get(&buf_handle.id).ok_or_else(|| {
-                EmbeddingError::GpuBufferError {
-                    reason: format!("Buffer {} not found", buf_handle.id),
-                }
-            })?;
+            let wgpu_buffer =
+                buffers
+                    .get(&buf_handle.id)
+                    .ok_or_else(|| EmbeddingError::GpuBufferError {
+                        reason: format!("Buffer {} not found", buf_handle.id),
+                    })?;
             bind_group_entries.push(wgpu::BindGroupEntry {
                 binding: i as u32,
                 resource: wgpu_buffer.as_entire_binding(),
@@ -586,9 +605,11 @@ impl GpuBackend for WebGpuBackend {
         });
 
         // Create command encoder and dispatch
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Compute Encoder"),
-        });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Compute Encoder"),
+            });
 
         {
             let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -711,72 +732,101 @@ impl CudaWasmBackend {
         let mut kernels = self.kernels.lock().unwrap();
 
         // Batch cosine similarity kernel
-        kernels.insert("batch_cosine_similarity".to_string(), CudaWasmKernel {
-            name: "batch_cosine_similarity".to_string(),
-            workgroup_size: [256, 1, 1],
-            entry_point: Self::kernel_batch_cosine_similarity,
-        });
+        kernels.insert(
+            "batch_cosine_similarity".to_string(),
+            CudaWasmKernel {
+                name: "batch_cosine_similarity".to_string(),
+                workgroup_size: [256, 1, 1],
+                entry_point: Self::kernel_batch_cosine_similarity,
+            },
+        );
 
         // Dot product kernel
-        kernels.insert("dot_product".to_string(), CudaWasmKernel {
-            name: "dot_product".to_string(),
-            workgroup_size: [256, 1, 1],
-            entry_point: Self::kernel_dot_product,
-        });
+        kernels.insert(
+            "dot_product".to_string(),
+            CudaWasmKernel {
+                name: "dot_product".to_string(),
+                workgroup_size: [256, 1, 1],
+                entry_point: Self::kernel_dot_product,
+            },
+        );
 
         // Mean pooling kernel
-        kernels.insert("mean_pool".to_string(), CudaWasmKernel {
-            name: "mean_pool".to_string(),
-            workgroup_size: [64, 1, 1],
-            entry_point: Self::kernel_mean_pool,
-        });
+        kernels.insert(
+            "mean_pool".to_string(),
+            CudaWasmKernel {
+                name: "mean_pool".to_string(),
+                workgroup_size: [64, 1, 1],
+                entry_point: Self::kernel_mean_pool,
+            },
+        );
 
         // Euclidean distance kernel
-        kernels.insert("euclidean_distance".to_string(), CudaWasmKernel {
-            name: "euclidean_distance".to_string(),
-            workgroup_size: [256, 1, 1],
-            entry_point: Self::kernel_euclidean_distance,
-        });
+        kernels.insert(
+            "euclidean_distance".to_string(),
+            CudaWasmKernel {
+                name: "euclidean_distance".to_string(),
+                workgroup_size: [256, 1, 1],
+                entry_point: Self::kernel_euclidean_distance,
+            },
+        );
 
         // L2 normalize kernel
-        kernels.insert("l2_normalize".to_string(), CudaWasmKernel {
-            name: "l2_normalize".to_string(),
-            workgroup_size: [256, 1, 1],
-            entry_point: Self::kernel_l2_normalize,
-        });
+        kernels.insert(
+            "l2_normalize".to_string(),
+            CudaWasmKernel {
+                name: "l2_normalize".to_string(),
+                workgroup_size: [256, 1, 1],
+                entry_point: Self::kernel_l2_normalize,
+            },
+        );
 
         // Max pooling kernel
-        kernels.insert("max_pool".to_string(), CudaWasmKernel {
-            name: "max_pool".to_string(),
-            workgroup_size: [64, 1, 1],
-            entry_point: Self::kernel_max_pool,
-        });
+        kernels.insert(
+            "max_pool".to_string(),
+            CudaWasmKernel {
+                name: "max_pool".to_string(),
+                workgroup_size: [64, 1, 1],
+                entry_point: Self::kernel_max_pool,
+            },
+        );
 
         // Matrix-vector multiplication kernel
-        kernels.insert("matmul".to_string(), CudaWasmKernel {
-            name: "matmul".to_string(),
-            workgroup_size: [16, 16, 1],
-            entry_point: Self::kernel_matmul,
-        });
+        kernels.insert(
+            "matmul".to_string(),
+            CudaWasmKernel {
+                name: "matmul".to_string(),
+                workgroup_size: [16, 16, 1],
+                entry_point: Self::kernel_matmul,
+            },
+        );
 
         // Vector addition kernel
-        kernels.insert("vector_add".to_string(), CudaWasmKernel {
-            name: "vector_add".to_string(),
-            workgroup_size: [256, 1, 1],
-            entry_point: Self::kernel_vector_add,
-        });
+        kernels.insert(
+            "vector_add".to_string(),
+            CudaWasmKernel {
+                name: "vector_add".to_string(),
+                workgroup_size: [256, 1, 1],
+                entry_point: Self::kernel_vector_add,
+            },
+        );
     }
 
     // ==================== Built-in Kernels ====================
 
-    fn kernel_batch_cosine_similarity(inputs: &[&[u8]], output: &mut [u8], _params: &CudaWasmParams) {
+    fn kernel_batch_cosine_similarity(
+        inputs: &[&[u8]],
+        output: &mut [u8],
+        _params: &CudaWasmParams,
+    ) {
         // Parse params from first input (uniform buffer)
         if inputs.len() < 4 || inputs[3].len() < 8 {
             return;
         }
 
         let dimension = u32::from_le_bytes(inputs[3][0..4].try_into().unwrap_or([0; 4])) as usize;
-        let num_candidates = u32::from_le_bytes(inputs[3][4..8].try_into().unwrap_or([0; 4])) as usize;
+        let num_candidates =
+            u32::from_le_bytes(inputs[3][4..8].try_into().unwrap_or([0; 4])) as usize;
 
         if dimension == 0 || num_candidates == 0 {
             return;
@@ -788,28 +838,36 @@ impl CudaWasmBackend {
 
         // Process each candidate in parallel
         use rayon::prelude::*;
-        results.par_iter_mut().enumerate().take(num_candidates).for_each(|(idx, result)| {
-            let base = idx * dimension;
-            if base + dimension > candidates.len() {
-                *result = 0.0;
-                return;
-            }
+        results
+            .par_iter_mut()
+            .enumerate()
+            .take(num_candidates)
+            .for_each(|(idx, result)| {
+                let base = idx * dimension;
+                if base + dimension > candidates.len() {
+                    *result = 0.0;
+                    return;
+                }
 
-            let mut dot = 0.0f32;
-            let mut norm_a = 0.0f32;
-            let mut norm_b = 0.0f32;
+                let mut dot = 0.0f32;
+                let mut norm_a = 0.0f32;
+                let mut norm_b = 0.0f32;
 
-            for i in 0..dimension.min(query.len()) {
-                let a = query[i];
-                let b = candidates[base + i];
-                dot += a * b;
-                norm_a += a * a;
-                norm_b += b * b;
-            }
+                for i in 0..dimension.min(query.len()) {
+                    let a = query[i];
+                    let b = candidates[base + i];
+                    dot += a * b;
+                    norm_a += a * a;
+                    norm_b += b * b;
+                }
 
-            let norm_product = (norm_a * norm_b).sqrt();
-            *result = if norm_product > 1e-12 { dot / norm_product } else { 0.0 };
-        });
+                let norm_product = (norm_a * norm_b).sqrt();
+                *result = if norm_product > 1e-12 {
+                    dot / norm_product
+                } else {
+                    0.0
+                };
+            });
     }
 
     fn kernel_dot_product(inputs: &[&[u8]], output: &mut [u8], _params: &CudaWasmParams) {
@@ -818,7 +876,8 @@ impl CudaWasmBackend {
         }
 
         let dimension = u32::from_le_bytes(inputs[3][0..4].try_into().unwrap_or([0; 4])) as usize;
-        let num_candidates = u32::from_le_bytes(inputs[3][4..8].try_into().unwrap_or([0; 4])) as usize;
+        let num_candidates =
+            u32::from_le_bytes(inputs[3][4..8].try_into().unwrap_or([0; 4])) as usize;
 
         if dimension == 0 || num_candidates == 0 {
             return;
@@ -829,17 +888,21 @@ impl CudaWasmBackend {
         let results: &mut [f32] = bytemuck::cast_slice_mut(output);
 
         use rayon::prelude::*;
-        results.par_iter_mut().enumerate().take(num_candidates).for_each(|(idx, result)| {
-            let base = idx * dimension;
-            if base + dimension > candidates.len() {
-                *result = 0.0;
-                return;
-            }
+        results
+            .par_iter_mut()
+            .enumerate()
+            .take(num_candidates)
+            .for_each(|(idx, result)| {
+                let base = idx * dimension;
+                if base + dimension > candidates.len() {
+                    *result = 0.0;
+                    return;
+                }
 
-            *result = (0..dimension.min(query.len()))
-                .map(|i| query[i] * candidates[base + i])
-                .sum();
-        });
+                *result = (0..dimension.min(query.len()))
+                    .map(|i| query[i] * candidates[base + i])
+                    .sum();
+            });
     }
 
     fn kernel_mean_pool(inputs: &[&[u8]], output: &mut [u8], _params: &CudaWasmParams) {
@@ -849,7 +912,8 @@ impl CudaWasmBackend {
 
         let batch_size = u32::from_le_bytes(inputs[3][0..4].try_into().unwrap_or([0; 4])) as usize;
         let seq_length = u32::from_le_bytes(inputs[3][4..8].try_into().unwrap_or([0; 4])) as usize;
-        let hidden_size = u32::from_le_bytes(inputs[3][8..12].try_into().unwrap_or([0; 4])) as usize;
+        let hidden_size =
+            u32::from_le_bytes(inputs[3][8..12].try_into().unwrap_or([0; 4])) as usize;
 
         if batch_size == 0 || seq_length == 0 || hidden_size == 0 {
             return;
@@ -860,31 +924,37 @@ impl CudaWasmBackend {
         let results: &mut [f32] = bytemuck::cast_slice_mut(output);
 
         use rayon::prelude::*;
-        results.par_chunks_mut(hidden_size).enumerate().take(batch_size).for_each(|(batch_idx, out_chunk)| {
-            let tokens_base = batch_idx * seq_length * hidden_size;
-            let mask_base = batch_idx * seq_length;
+        results
+            .par_chunks_mut(hidden_size)
+            .enumerate()
+            .take(batch_size)
+            .for_each(|(batch_idx, out_chunk)| {
+                let tokens_base = batch_idx * seq_length * hidden_size;
+                let mask_base = batch_idx * seq_length;
 
-            out_chunk.fill(0.0);
-            let mut count = 0.0f32;
+                out_chunk.fill(0.0);
+                let mut count = 0.0f32;
 
-            for seq_idx in 0..seq_length {
-                if mask_base + seq_idx < attention_mask.len() && attention_mask[mask_base + seq_idx] == 1 {
-                    let start = tokens_base + seq_idx * hidden_size;
-                    for (j, out_val) in out_chunk.iter_mut().enumerate() {
-                        if start + j < tokens.len() {
-                            *out_val += tokens[start + j];
+                for seq_idx in 0..seq_length {
+                    if mask_base + seq_idx < attention_mask.len()
+                        && attention_mask[mask_base + seq_idx] == 1
+                    {
+                        let start = tokens_base + seq_idx * hidden_size;
+                        for (j, out_val) in out_chunk.iter_mut().enumerate() {
+                            if start + j < tokens.len() {
+                                *out_val += tokens[start + j];
+                            }
                         }
+                        count += 1.0;
                     }
-                    count += 1.0;
                 }
-            }
 
-            if count > 0.0 {
-                for val in out_chunk.iter_mut() {
-                    *val /= count;
+                if count > 0.0 {
+                    for val in out_chunk.iter_mut() {
+                        *val /= count;
+                    }
                 }
-            }
-        });
+            });
     }
 
     fn kernel_euclidean_distance(inputs: &[&[u8]], output: &mut [u8], _params: &CudaWasmParams) {
@@ -893,7 +963,8 @@ impl CudaWasmBackend {
         }
 
         let dimension = u32::from_le_bytes(inputs[3][0..4].try_into().unwrap_or([0; 4])) as usize;
-        let num_candidates = u32::from_le_bytes(inputs[3][4..8].try_into().unwrap_or([0; 4])) as usize;
+        let num_candidates =
+            u32::from_le_bytes(inputs[3][4..8].try_into().unwrap_or([0; 4])) as usize;
 
         if dimension == 0 || num_candidates == 0 {
             return;
@@ -904,22 +975,26 @@ impl CudaWasmBackend {
         let results: &mut [f32] = bytemuck::cast_slice_mut(output);
 
         use rayon::prelude::*;
-        results.par_iter_mut().enumerate().take(num_candidates).for_each(|(idx, result)| {
-            let base = idx * dimension;
-            if base + dimension > candidates.len() {
-                *result = 0.0;
-                return;
-            }
+        results
+            .par_iter_mut()
+            .enumerate()
+            .take(num_candidates)
+            .for_each(|(idx, result)| {
+                let base = idx * dimension;
+                if base + dimension > candidates.len() {
+                    *result = 0.0;
+                    return;
+                }
 
-            let sum_sq: f32 = (0..dimension.min(query.len()))
-                .map(|i| {
-                    let diff = query[i] - candidates[base + i];
-                    diff * diff
-                })
-                .sum();
+                let sum_sq: f32 = (0..dimension.min(query.len()))
+                    .map(|i| {
+                        let diff = query[i] - candidates[base + i];
+                        diff * diff
+                    })
+                    .sum();
 
-            *result = sum_sq.sqrt();
-        });
+                *result = sum_sq.sqrt();
+            });
     }
 
     fn kernel_l2_normalize(inputs: &[&[u8]], output: &mut [u8], _params: &CudaWasmParams) {
@@ -938,33 +1013,37 @@ impl CudaWasmBackend {
         let output_vectors: &mut [f32] = bytemuck::cast_slice_mut(output);
 
         use rayon::prelude::*;
-        output_vectors.par_chunks_mut(dimension).enumerate().take(num_vectors).for_each(|(vec_idx, out_chunk)| {
-            let base = vec_idx * dimension;
-            if base + dimension > input_vectors.len() {
-                return;
-            }
-
-            // Compute norm
-            let norm_sq: f32 = (0..dimension)
-                .map(|i| {
-                    let val = input_vectors[base + i];
-                    val * val
-                })
-                .sum();
-
-            let norm = norm_sq.sqrt();
-
-            // Normalize
-            if norm > 1e-12 {
-                for (i, out_val) in out_chunk.iter_mut().enumerate() {
-                    *out_val = input_vectors[base + i] / norm;
+        output_vectors
+            .par_chunks_mut(dimension)
+            .enumerate()
+            .take(num_vectors)
+            .for_each(|(vec_idx, out_chunk)| {
+                let base = vec_idx * dimension;
+                if base + dimension > input_vectors.len() {
+                    return;
                 }
-            } else {
-                for (i, out_val) in out_chunk.iter_mut().enumerate() {
-                    *out_val = input_vectors[base + i];
+
+                // Compute norm
+                let norm_sq: f32 = (0..dimension)
+                    .map(|i| {
+                        let val = input_vectors[base + i];
+                        val * val
+                    })
+                    .sum();
+
+                let norm = norm_sq.sqrt();
+
+                // Normalize
+                if norm > 1e-12 {
+                    for (i, out_val) in out_chunk.iter_mut().enumerate() {
+                        *out_val = input_vectors[base + i] / norm;
+                    }
+                } else {
+                    for (i, out_val) in out_chunk.iter_mut().enumerate() {
+                        *out_val = input_vectors[base + i];
+                    }
                 }
-            }
-        });
+            });
     }
 
     fn kernel_max_pool(inputs: &[&[u8]], output: &mut [u8], _params: &CudaWasmParams) {
@@ -974,7 +1053,8 @@ impl CudaWasmBackend {
 
         let batch_size = u32::from_le_bytes(inputs[3][0..4].try_into().unwrap_or([0; 4])) as usize;
         let seq_length = u32::from_le_bytes(inputs[3][4..8].try_into().unwrap_or([0; 4])) as usize;
-        let hidden_size = u32::from_le_bytes(inputs[3][8..12].try_into().unwrap_or([0; 4])) as usize;
+        let hidden_size =
+            u32::from_le_bytes(inputs[3][8..12].try_into().unwrap_or([0; 4])) as usize;
 
         if batch_size == 0 || seq_length == 0 || hidden_size == 0 {
             return;
@@ -985,33 +1065,39 @@ impl CudaWasmBackend {
         let results: &mut [f32] = bytemuck::cast_slice_mut(output);
 
         use rayon::prelude::*;
-        results.par_chunks_mut(hidden_size).enumerate().take(batch_size).for_each(|(batch_idx, out_chunk)| {
-            let tokens_base = batch_idx * seq_length * hidden_size;
-            let mask_base = batch_idx * seq_length;
+        results
+            .par_chunks_mut(hidden_size)
+            .enumerate()
+            .take(batch_size)
+            .for_each(|(batch_idx, out_chunk)| {
+                let tokens_base = batch_idx * seq_length * hidden_size;
+                let mask_base = batch_idx * seq_length;
 
-            out_chunk.fill(f32::NEG_INFINITY);
-            let mut found = false;
+                out_chunk.fill(f32::NEG_INFINITY);
+                let mut found = false;
 
-            for seq_idx in 0..seq_length {
-                if mask_base + seq_idx < attention_mask.len() && attention_mask[mask_base + seq_idx] == 1 {
-                    let start = tokens_base + seq_idx * hidden_size;
-                    for (j, out_val) in out_chunk.iter_mut().enumerate() {
-                        if start + j < tokens.len() {
-                            let val = tokens[start + j];
-                            if !found || val > *out_val {
-                                *out_val = val;
+                for seq_idx in 0..seq_length {
+                    if mask_base + seq_idx < attention_mask.len()
+                        && attention_mask[mask_base + seq_idx] == 1
+                    {
+                        let start = tokens_base + seq_idx * hidden_size;
+                        for (j, out_val) in out_chunk.iter_mut().enumerate() {
+                            if start + j < tokens.len() {
+                                let val = tokens[start + j];
+                                if !found || val > *out_val {
+                                    *out_val = val;
+                                }
                             }
                         }
+                        found = true;
                     }
-                    found = true;
                 }
-            }
 
-            // Replace -inf with 0 if no tokens found
-            if !found {
-                out_chunk.fill(0.0);
-            }
-        });
+                // Replace -inf with 0 if no tokens found
+                if !found {
+                    out_chunk.fill(0.0);
+                }
+            });
     }
 
     fn kernel_matmul(inputs: &[&[u8]], output: &mut [u8], _params: &CudaWasmParams) {
@@ -1031,17 +1117,21 @@ impl CudaWasmBackend {
         let results: &mut [f32] = bytemuck::cast_slice_mut(output);
 
         use rayon::prelude::*;
-        results.par_iter_mut().enumerate().take(rows).for_each(|(row, result)| {
-            let row_start = row * cols;
-            if row_start + cols > matrix.len() || cols > vector.len() {
-                *result = 0.0;
-                return;
-            }
+        results
+            .par_iter_mut()
+            .enumerate()
+            .take(rows)
+            .for_each(|(row, result)| {
+                let row_start = row * cols;
+                if row_start + cols > matrix.len() || cols > vector.len() {
+                    *result = 0.0;
+                    return;
+                }
 
-            *result = (0..cols)
-                .map(|col| matrix[row_start + col] * vector[col])
-                .sum();
-        });
+                *result = (0..cols)
+                    .map(|col| matrix[row_start + col] * vector[col])
+                    .sum();
+            });
     }
 
     fn kernel_vector_add(inputs: &[&[u8]], output: &mut [u8], _params: &CudaWasmParams) {
@@ -1060,13 +1150,17 @@ impl CudaWasmBackend {
         let results: &mut [f32] = bytemuck::cast_slice_mut(output);
 
         use rayon::prelude::*;
-        results.par_iter_mut().enumerate().take(length).for_each(|(idx, result)| {
-            if idx < a.len() && idx < b.len() {
-                *result = a[idx] + b[idx];
-            } else {
-                *result = 0.0;
-            }
-        });
+        results
+            .par_iter_mut()
+            .enumerate()
+            .take(length)
+            .for_each(|(idx, result)| {
+                if idx < a.len() && idx < b.len() {
+                    *result = a[idx] + b[idx];
+                } else {
+                    *result = 0.0;
+                }
+            });
     }
 }
 
@@ -1085,7 +1179,10 @@ impl GpuBackend for CudaWasmBackend {
         GpuMemoryStats {
             total: self.device_info.total_memory,
             used: stats.allocated,
-            free: self.device_info.total_memory.saturating_sub(stats.allocated),
+            free: self
+                .device_info
+                .total_memory
+                .saturating_sub(stats.allocated),
             peak: stats.peak,
         }
     }
@@ -1107,11 +1204,11 @@ impl GpuBackend for CudaWasmBackend {
 
     fn write_buffer(&self, buffer: &GpuBuffer, data: &[u8]) -> Result<()> {
         let mut buffers = self.buffers.lock().unwrap();
-        let buf = buffers.get_mut(&buffer.id).ok_or_else(|| {
-            EmbeddingError::GpuBufferError {
+        let buf = buffers
+            .get_mut(&buffer.id)
+            .ok_or_else(|| EmbeddingError::GpuBufferError {
                 reason: format!("Buffer {} not found", buffer.id),
-            }
-        })?;
+            })?;
 
         let len = data.len().min(buf.len());
         buf[..len].copy_from_slice(&data[..len]);
@@ -1120,11 +1217,11 @@ impl GpuBackend for CudaWasmBackend {
 
     fn read_buffer(&self, buffer: &GpuBuffer, size: u64) -> Result<Vec<u8>> {
         let buffers = self.buffers.lock().unwrap();
-        let buf = buffers.get(&buffer.id).ok_or_else(|| {
-            EmbeddingError::GpuBufferError {
+        let buf = buffers
+            .get(&buffer.id)
+            .ok_or_else(|| EmbeddingError::GpuBufferError {
                 reason: format!("Buffer {} not found", buffer.id),
-            }
-        })?;
+            })?;
 
         let len = (size as usize).min(buf.len());
         Ok(buf[..len].to_vec())
@@ -1141,7 +1238,10 @@ impl GpuBackend for CudaWasmBackend {
             self.register_builtin_kernels();
         }
 
-        Ok(ComputePipeline::new(entry_point.to_string(), workgroup_size))
+        Ok(ComputePipeline::new(
+            entry_point.to_string(),
+            workgroup_size,
+        ))
     }
 
     fn dispatch(
@@ -1163,7 +1263,11 @@ impl GpuBackend for CudaWasmBackend {
         };
 
         // Get output buffer id (binding 2)
-        let output_id = if bindings.len() > 2 { bindings[2].id } else { return Ok(()); };
+        let output_id = if bindings.len() > 2 {
+            bindings[2].id
+        } else {
+            return Ok(());
+        };
 
         // Clone input buffers for kernel execution
         let (input_copies, output_size): (Vec<Vec<u8>>, usize) = {
@@ -1178,7 +1282,8 @@ impl GpuBackend for CudaWasmBackend {
                 }
             }
 
-            let copies: Vec<Vec<u8>> = bindings.iter()
+            let copies: Vec<Vec<u8>> = bindings
+                .iter()
                 .map(|b| buffers.get(&b.id).cloned().unwrap_or_default())
                 .collect();
 
@@ -1234,31 +1339,25 @@ impl GpuBackend for CudaWasmBackend {
 /// Create appropriate backend based on configuration
 pub async fn create_backend(config: &GpuConfig) -> Result<Box<dyn GpuBackend>> {
     match config.mode {
-        GpuMode::CpuOnly => {
-            Ok(Box::new(CpuBackend))
-        }
+        GpuMode::CpuOnly => Ok(Box::new(CpuBackend)),
         #[cfg(feature = "gpu")]
-        GpuMode::WebGpu => {
-            match WebGpuBackend::new(config).await {
-                Ok(backend) => Ok(Box::new(backend)),
-                Err(e) if config.fallback_to_cpu => {
-                    tracing::warn!("WebGPU not available, falling back to CPU: {}", e);
-                    Ok(Box::new(CpuBackend))
-                }
-                Err(e) => Err(e),
+        GpuMode::WebGpu => match WebGpuBackend::new(config).await {
+            Ok(backend) => Ok(Box::new(backend)),
+            Err(e) if config.fallback_to_cpu => {
+                tracing::warn!("WebGPU not available, falling back to CPU: {}", e);
+                Ok(Box::new(CpuBackend))
             }
-        }
+            Err(e) => Err(e),
+        },
         #[cfg(feature = "cuda-wasm")]
-        GpuMode::CudaWasm => {
-            match CudaWasmBackend::new(config).await {
-                Ok(backend) => Ok(Box::new(backend)),
-                Err(e) if config.fallback_to_cpu => {
-                    tracing::warn!("CUDA-WASM not available, falling back to CPU: {}", e);
-                    Ok(Box::new(CpuBackend))
-                }
-                Err(e) => Err(e),
+        GpuMode::CudaWasm => match CudaWasmBackend::new(config).await {
+            Ok(backend) => Ok(Box::new(backend)),
+            Err(e) if config.fallback_to_cpu => {
+                tracing::warn!("CUDA-WASM not available, falling back to CPU: {}", e);
+                Ok(Box::new(CpuBackend))
             }
-        }
+            Err(e) => Err(e),
+        },
         GpuMode::Auto => {
             #[cfg(feature = "gpu")]
             {
@@ -1320,4 +1419,3 @@ pub async fn get_device_info() -> Option<GpuInfo> {
         None
     }
 }
-

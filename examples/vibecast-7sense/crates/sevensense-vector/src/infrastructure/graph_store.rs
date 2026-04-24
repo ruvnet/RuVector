@@ -10,10 +10,10 @@ use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, instrument};
 
+use crate::domain::repository::RepoResult;
 use crate::domain::{
     EdgeType, EmbeddingId, GraphEdgeRepository, GraphTraversal, SimilarityEdge, VectorError,
 };
-use crate::domain::repository::RepoResult;
 
 /// In-memory graph store for similarity edges.
 ///
@@ -88,15 +88,9 @@ impl InMemoryGraphStore {
         *count = 0;
 
         for edge in data.edges {
-            forward
-                .entry(edge.from_id)
-                .or_default()
-                .push(edge.clone());
+            forward.entry(edge.from_id).or_default().push(edge.clone());
 
-            reverse
-                .entry(edge.to_id)
-                .or_default()
-                .push(edge);
+            reverse.entry(edge.to_id).or_default().push(edge);
 
             *count += 1;
         }
@@ -113,15 +107,9 @@ impl GraphEdgeRepository for InMemoryGraphStore {
         let mut reverse = self.reverse.write();
         let mut count = self.count.write();
 
-        forward
-            .entry(edge.from_id)
-            .or_default()
-            .push(edge.clone());
+        forward.entry(edge.from_id).or_default().push(edge.clone());
 
-        reverse
-            .entry(edge.to_id)
-            .or_default()
-            .push(edge);
+        reverse.entry(edge.to_id).or_default().push(edge);
 
         *count += 1;
 
@@ -136,15 +124,9 @@ impl GraphEdgeRepository for InMemoryGraphStore {
         let mut count = self.count.write();
 
         for edge in edges {
-            forward
-                .entry(edge.from_id)
-                .or_default()
-                .push(edge.clone());
+            forward.entry(edge.from_id).or_default().push(edge.clone());
 
-            reverse
-                .entry(edge.to_id)
-                .or_default()
-                .push(edge.clone());
+            reverse.entry(edge.to_id).or_default().push(edge.clone());
 
             *count += 1;
         }
@@ -509,7 +491,10 @@ mod tests {
         let id1 = EmbeddingId::new();
         let id2 = EmbeddingId::new();
 
-        store.add_edge(SimilarityEdge::new(id1, id2, 0.1)).await.unwrap();
+        store
+            .add_edge(SimilarityEdge::new(id1, id2, 0.1))
+            .await
+            .unwrap();
         assert_eq!(store.edge_count().await.unwrap(), 1);
 
         store.remove_edge(&id1, &id2).await.unwrap();
@@ -533,10 +518,16 @@ mod tests {
             .await
             .unwrap();
 
-        let similar = store.get_edges_by_type(&id1, EdgeType::Similar).await.unwrap();
+        let similar = store
+            .get_edges_by_type(&id1, EdgeType::Similar)
+            .await
+            .unwrap();
         assert_eq!(similar.len(), 1);
 
-        let sequential = store.get_edges_by_type(&id1, EdgeType::Sequential).await.unwrap();
+        let sequential = store
+            .get_edges_by_type(&id1, EdgeType::Sequential)
+            .await
+            .unwrap();
         assert_eq!(sequential.len(), 1);
     }
 
@@ -548,8 +539,14 @@ mod tests {
         let id2 = EmbeddingId::new();
         let id3 = EmbeddingId::new();
 
-        store.add_edge(SimilarityEdge::new(id1, id2, 0.1)).await.unwrap(); // 0.9 similarity
-        store.add_edge(SimilarityEdge::new(id1, id3, 0.5)).await.unwrap(); // 0.5 similarity
+        store
+            .add_edge(SimilarityEdge::new(id1, id2, 0.1))
+            .await
+            .unwrap(); // 0.9 similarity
+        store
+            .add_edge(SimilarityEdge::new(id1, id3, 0.5))
+            .await
+            .unwrap(); // 0.5 similarity
 
         let strong = store.get_strong_edges(&id1, 0.8).await.unwrap();
         assert_eq!(strong.len(), 1);
@@ -564,8 +561,14 @@ mod tests {
         let id2 = EmbeddingId::new();
         let id3 = EmbeddingId::new();
 
-        store.add_edge(SimilarityEdge::new(id1, id2, 0.1)).await.unwrap();
-        store.add_edge(SimilarityEdge::new(id2, id3, 0.1)).await.unwrap();
+        store
+            .add_edge(SimilarityEdge::new(id1, id2, 0.1))
+            .await
+            .unwrap();
+        store
+            .add_edge(SimilarityEdge::new(id2, id3, 0.1))
+            .await
+            .unwrap();
 
         let path = store.shortest_path(&id1, &id3, 10).await.unwrap();
         assert!(path.is_some());
@@ -584,9 +587,18 @@ mod tests {
         let id3 = EmbeddingId::new();
         let id4 = EmbeddingId::new();
 
-        store.add_edge(SimilarityEdge::new(id1, id2, 0.1)).await.unwrap();
-        store.add_edge(SimilarityEdge::new(id2, id3, 0.1)).await.unwrap();
-        store.add_edge(SimilarityEdge::new(id3, id4, 0.1)).await.unwrap();
+        store
+            .add_edge(SimilarityEdge::new(id1, id2, 0.1))
+            .await
+            .unwrap();
+        store
+            .add_edge(SimilarityEdge::new(id2, id3, 0.1))
+            .await
+            .unwrap();
+        store
+            .add_edge(SimilarityEdge::new(id3, id4, 0.1))
+            .await
+            .unwrap();
 
         let neighbors = store.neighbors_within_hops(&id1, 2).await.unwrap();
         let neighbor_ids: HashSet<_> = neighbors.iter().map(|(id, _)| *id).collect();
@@ -603,12 +615,18 @@ mod tests {
         // Component 1
         let id1 = EmbeddingId::new();
         let id2 = EmbeddingId::new();
-        store.add_edge(SimilarityEdge::new(id1, id2, 0.1)).await.unwrap();
+        store
+            .add_edge(SimilarityEdge::new(id1, id2, 0.1))
+            .await
+            .unwrap();
 
         // Component 2
         let id3 = EmbeddingId::new();
         let id4 = EmbeddingId::new();
-        store.add_edge(SimilarityEdge::new(id3, id4, 0.1)).await.unwrap();
+        store
+            .add_edge(SimilarityEdge::new(id3, id4, 0.1))
+            .await
+            .unwrap();
 
         let components = store.connected_components().await.unwrap();
         assert_eq!(components.len(), 2);
@@ -622,9 +640,18 @@ mod tests {
         let id2 = EmbeddingId::new();
         let id3 = EmbeddingId::new();
 
-        store.add_edge(SimilarityEdge::new(id1, id2, 0.1)).await.unwrap();
-        store.add_edge(SimilarityEdge::new(id1, id3, 0.1)).await.unwrap();
-        store.add_edge(SimilarityEdge::new(id3, id1, 0.1)).await.unwrap();
+        store
+            .add_edge(SimilarityEdge::new(id1, id2, 0.1))
+            .await
+            .unwrap();
+        store
+            .add_edge(SimilarityEdge::new(id1, id3, 0.1))
+            .await
+            .unwrap();
+        store
+            .add_edge(SimilarityEdge::new(id3, id1, 0.1))
+            .await
+            .unwrap();
 
         assert_eq!(store.edge_count().await.unwrap(), 3);
 
@@ -640,7 +667,10 @@ mod tests {
         let id1 = EmbeddingId::new();
         let id2 = EmbeddingId::new();
 
-        store.add_edge(SimilarityEdge::new(id1, id2, 0.1)).await.unwrap();
+        store
+            .add_edge(SimilarityEdge::new(id1, id2, 0.1))
+            .await
+            .unwrap();
 
         let export = store.export();
         assert_eq!(export.edges.len(), 1);

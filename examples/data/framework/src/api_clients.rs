@@ -92,12 +92,11 @@ impl SimpleEmbedder {
                 }
                 text
             }
-            serde_json::Value::Array(arr) => {
-                arr.iter()
-                    .map(|v| self.extract_text_from_json(v))
-                    .collect::<Vec<_>>()
-                    .join(" ")
-            }
+            serde_json::Value::Array(arr) => arr
+                .iter()
+                .map(|v| self.extract_text_from_json(v))
+                .collect::<Vec<_>>()
+                .join(" "),
             serde_json::Value::Number(n) => n.to_string(),
             serde_json::Value::Bool(b) => b.to_string(),
             serde_json::Value::Null => String::new(),
@@ -395,7 +394,11 @@ impl OpenAlexClient {
     /// * `query` - Search query (title, abstract, etc.)
     /// * `limit` - Maximum number of results
     pub async fn fetch_works(&self, query: &str, limit: usize) -> Result<Vec<DataRecord>> {
-        let mut url = format!("{}/works?search={}", self.base_url, urlencoding::encode(query));
+        let mut url = format!(
+            "{}/works?search={}",
+            self.base_url,
+            urlencoding::encode(query)
+        );
         url.push_str(&format!("&per-page={}", limit.min(200)));
 
         if let Some(email) = &self.user_email {
@@ -580,8 +583,7 @@ impl OpenAlexClient {
         loop {
             match self.client.get(url).send().await {
                 Ok(response) => {
-                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES
-                    {
+                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
                         sleep(Duration::from_millis(RETRY_DELAY_MS * retries as u64)).await;
                         continue;
@@ -786,7 +788,10 @@ impl NoaaClient {
     }
 
     /// Fetch with retry logic
-    async fn fetch_with_retry(&self, request: reqwest::RequestBuilder) -> Result<reqwest::Response> {
+    async fn fetch_with_retry(
+        &self,
+        request: reqwest::RequestBuilder,
+    ) -> Result<reqwest::Response> {
         let mut retries = 0;
         loop {
             let req = request
@@ -795,8 +800,7 @@ impl NoaaClient {
 
             match req.send().await {
                 Ok(response) => {
-                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES
-                    {
+                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
                         sleep(Duration::from_millis(RETRY_DELAY_MS * retries as u64)).await;
                         continue;
@@ -914,10 +918,7 @@ impl EdgarClient {
         // Pad CIK to 10 digits
         let padded_cik = format!("{:0>10}", cik);
 
-        let url = format!(
-            "{}/submissions/CIK{}.json",
-            self.base_url, padded_cik
-        );
+        let url = format!("{}/submissions/CIK{}.json", self.base_url, padded_cik);
 
         let response = self.fetch_with_retry(&url).await?;
         let filing_data: EdgarFilingData = response.json().await?;
@@ -1011,8 +1012,7 @@ impl EdgarClient {
         loop {
             match self.client.get(url).send().await {
                 Ok(response) => {
-                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES
-                    {
+                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
                         sleep(Duration::from_millis(RETRY_DELAY_MS * retries as u64)).await;
                         continue;

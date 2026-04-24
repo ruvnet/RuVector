@@ -173,9 +173,7 @@ impl FilingAnalyzer {
                 ("MDA", "Item 2"),
                 ("Controls", "Item 4"),
             ],
-            FilingType::EightK => vec![
-                ("Item", "Item"),
-            ],
+            FilingType::EightK => vec![("Item", "Item")],
             _ => vec![],
         };
 
@@ -194,13 +192,31 @@ impl FilingAnalyzer {
     /// Compute sentiment score (-1 to 1)
     fn compute_sentiment(&self, content: &str) -> f64 {
         let positive_words = [
-            "growth", "profit", "increased", "strong", "improved", "successful",
-            "innovative", "opportunity", "favorable", "exceeded", "achieved",
+            "growth",
+            "profit",
+            "increased",
+            "strong",
+            "improved",
+            "successful",
+            "innovative",
+            "opportunity",
+            "favorable",
+            "exceeded",
+            "achieved",
         ];
 
         let negative_words = [
-            "loss", "decline", "decreased", "weak", "challenging", "risk",
-            "uncertain", "adverse", "impairment", "litigation", "default",
+            "loss",
+            "decline",
+            "decreased",
+            "weak",
+            "challenging",
+            "risk",
+            "uncertain",
+            "adverse",
+            "impairment",
+            "litigation",
+            "default",
         ];
 
         let content_lower = content.to_lowercase();
@@ -255,7 +271,11 @@ impl FilingAnalyzer {
             }
         }
 
-        risks.sort_by(|a, b| b.severity.partial_cmp(&a.severity).unwrap_or(std::cmp::Ordering::Equal));
+        risks.sort_by(|a, b| {
+            b.severity
+                .partial_cmp(&a.severity)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         risks
     }
 
@@ -264,8 +284,17 @@ impl FilingAnalyzer {
         let mut statements = Vec::new();
 
         let fls_patterns = [
-            "expect", "anticipate", "believe", "estimate", "project",
-            "forecast", "intend", "plan", "may", "will", "should",
+            "expect",
+            "anticipate",
+            "believe",
+            "estimate",
+            "project",
+            "forecast",
+            "intend",
+            "plan",
+            "may",
+            "will",
+            "should",
         ];
 
         let sentences: Vec<&str> = content.split(&['.', '!', '?'][..]).collect();
@@ -276,9 +305,10 @@ impl FilingAnalyzer {
             for pattern in fls_patterns {
                 if sentence_lower.contains(pattern) {
                     // Check if it's truly forward-looking
-                    if sentence_lower.contains("future") ||
-                       sentence_lower.contains("expect") ||
-                       sentence_lower.contains("anticipate") {
+                    if sentence_lower.contains("future")
+                        || sentence_lower.contains("expect")
+                        || sentence_lower.contains("anticipate")
+                    {
                         statements.push(ForwardLookingStatement {
                             text: sentence.trim().to_string(),
                             sentiment: self.compute_sentiment(sentence),
@@ -300,10 +330,7 @@ impl FilingAnalyzer {
         let mut phrases = HashMap::new();
 
         // Simple n-gram extraction
-        let words: Vec<&str> = content
-            .split_whitespace()
-            .filter(|w| w.len() > 3)
-            .collect();
+        let words: Vec<&str> = content.split_whitespace().filter(|w| w.len() > 3).collect();
 
         // Bigrams
         for window in words.windows(2) {
@@ -452,10 +479,12 @@ impl NarrativeExtractor {
         embedding.push((total_risk_severity / 5.0).min(1.0) as f32);
 
         // FLS sentiment
-        let fls_sentiment: f64 = analysis.forward_looking
+        let fls_sentiment: f64 = analysis
+            .forward_looking
             .iter()
             .map(|f| f.sentiment)
-            .sum::<f64>() / analysis.forward_looking.len().max(1) as f64;
+            .sum::<f64>()
+            / analysis.forward_looking.len().max(1) as f64;
         embedding.push(fls_sentiment as f32);
 
         // Key phrase diversity
@@ -497,11 +526,13 @@ mod tests {
         let config = AnalyzerConfig::default();
         let analyzer = FilingAnalyzer::new(config);
 
-        let positive_text = "Growth and profit increased significantly. Strong performance exceeded expectations.";
+        let positive_text =
+            "Growth and profit increased significantly. Strong performance exceeded expectations.";
         let sentiment = analyzer.compute_sentiment(positive_text);
         assert!(sentiment > 0.0);
 
-        let negative_text = "Loss and decline due to challenging conditions. Risk of default increased.";
+        let negative_text =
+            "Loss and decline due to challenging conditions. Risk of default increased.";
         let sentiment = analyzer.compute_sentiment(negative_text);
         assert!(sentiment < 0.0);
     }

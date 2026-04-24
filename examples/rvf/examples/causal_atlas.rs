@@ -14,12 +14,12 @@
 //!
 //! Run: cargo run --example causal_atlas
 
+use rvf_crypto::{create_witness_chain, shake256_256, verify_witness_chain, WitnessEntry};
+use rvf_runtime::filter::FilterValue;
+use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{
     FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult,
 };
-use rvf_runtime::filter::FilterValue;
-use rvf_runtime::options::DistanceMetric;
-use rvf_crypto::{create_witness_chain, verify_witness_chain, shake256_256, WitnessEntry};
 use tempfile::TempDir;
 
 // ---------------------------------------------------------------------------
@@ -27,7 +27,9 @@ use tempfile::TempDir;
 // ---------------------------------------------------------------------------
 
 fn lcg_next(state: &mut u64) -> u64 {
-    *state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+    *state = state
+        .wrapping_mul(6364136223846793005)
+        .wrapping_add(1442695040888963407);
     *state
 }
 
@@ -35,7 +37,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -138,8 +142,7 @@ fn build_causal_edges(windows: &[LightCurveWindow]) -> Vec<InteractionEdge> {
             }
             // Connect windows that are temporally adjacent at different scales
             let same_scale = windows[i].scale == windows[j].scale;
-            let autocorr_close =
-                (windows[i].autocorr_peak - windows[j].autocorr_peak).abs() < 0.3;
+            let autocorr_close = (windows[i].autocorr_peak - windows[j].autocorr_peak).abs() < 0.3;
 
             if same_scale || autocorr_close {
                 let etype_idx = (lcg_next(&mut rng) >> 33) as usize % edge_types.len();
@@ -206,8 +209,8 @@ fn track_boundaries(edges: &[InteractionEdge], num_epochs: usize) -> Vec<Boundar
     let mut rng: u64 = 0xDEAD;
 
     for epoch in 0..num_epochs {
-        let pressure = 0.5 + lcg_f64(&mut rng) * 0.4
-            + if epoch > num_epochs / 2 { 0.15 } else { 0.0 };
+        let pressure =
+            0.5 + lcg_f64(&mut rng) * 0.4 + if epoch > num_epochs / 2 { 0.15 } else { 0.0 };
         let _ = edges; // edges inform the pressure in a real implementation
         boundaries.push(Boundary {
             epoch: epoch as u64,
@@ -323,8 +326,14 @@ fn main() {
     let edges = build_causal_edges(&all_windows);
 
     let causal_count = edges.iter().filter(|e| e.edge_type == "causal").count();
-    let period_count = edges.iter().filter(|e| e.edge_type == "periodicity").count();
-    let shape_count = edges.iter().filter(|e| e.edge_type == "shape_similarity").count();
+    let period_count = edges
+        .iter()
+        .filter(|e| e.edge_type == "periodicity")
+        .count();
+    let shape_count = edges
+        .iter()
+        .filter(|e| e.edge_type == "shape_similarity")
+        .count();
 
     println!("  Total edges:        {}", edges.len());
     println!("    causal:           {}", causal_count);
@@ -388,7 +397,12 @@ fn main() {
         let results = store
             .query(&query_vec, 5, &opts)
             .expect("filtered query failed");
-        println!("  Tier {} [scale={}]: {} results", tier_name, scale, results.len());
+        println!(
+            "  Tier {} [scale={}]: {} results",
+            tier_name,
+            scale,
+            results.len()
+        );
         print_atlas_results(&results, &all_windows);
     }
 

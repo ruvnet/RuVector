@@ -209,7 +209,8 @@ impl TransportFactory {
     pub async fn create(config: &TransportConfig, url: Option<&str>) -> Result<TransportHandle> {
         match config.transport_type {
             Transport::WebSocket => {
-                let url = url.ok_or_else(|| SwarmError::Config("URL required for WebSocket".into()))?;
+                let url =
+                    url.ok_or_else(|| SwarmError::Config("URL required for WebSocket".into()))?;
                 let ws = websocket::WebSocketTransport::connect(url).await?;
                 Ok(ws.handle)
             }

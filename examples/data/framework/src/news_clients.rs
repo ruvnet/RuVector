@@ -221,7 +221,10 @@ impl HackerNewsClient {
         if let Some(descendants) = item.descendants {
             data_map.insert("descendants".to_string(), serde_json::json!(descendants));
         }
-        data_map.insert("comments_count".to_string(), serde_json::json!(item.kids.len()));
+        data_map.insert(
+            "comments_count".to_string(),
+            serde_json::json!(item.kids.len()),
+        );
 
         Ok(DataRecord {
             id: format!("hn_item_{}", item.id),
@@ -236,11 +239,7 @@ impl HackerNewsClient {
 
     /// Convert HN user to DataRecord
     fn user_to_record(&self, user: HNUser) -> Result<DataRecord> {
-        let text_content = format!(
-            "{} {}",
-            user.id,
-            user.about.as_deref().unwrap_or("")
-        );
+        let text_content = format!("{} {}", user.id, user.about.as_deref().unwrap_or(""));
         let embedding = self.embedder.embed_text(&text_content);
 
         let timestamp = DateTime::from_timestamp(user.created, 0).unwrap_or_else(Utc::now);
@@ -273,8 +272,7 @@ impl HackerNewsClient {
         loop {
             match self.client.get(url).send().await {
                 Ok(response) => {
-                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES
-                    {
+                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
                         sleep(Duration::from_millis(RETRY_DELAY_MS * retries as u64)).await;
                         continue;
@@ -492,7 +490,11 @@ impl GuardianClient {
             return Ok(self.generate_synthetic_sections()?);
         }
 
-        let url = format!("{}/sections?api-key={}", self.base_url, self.api_key.as_ref().unwrap());
+        let url = format!(
+            "{}/sections?api-key={}",
+            self.base_url,
+            self.api_key.as_ref().unwrap()
+        );
 
         let response = self.fetch_with_retry(&url).await?;
         let sections_response: GuardianSectionsResponse = response.json().await?;
@@ -554,10 +556,7 @@ impl GuardianClient {
             data_map.insert("section".to_string(), serde_json::json!("world"));
             data_map.insert(
                 "url".to_string(),
-                serde_json::json!(format!(
-                    "https://www.theguardian.com/world/synthetic-{}",
-                    i
-                )),
+                serde_json::json!(format!("https://www.theguardian.com/world/synthetic-{}", i)),
             );
 
             records.push(DataRecord {
@@ -692,8 +691,7 @@ impl GuardianClient {
         loop {
             match self.client.get(url).send().await {
                 Ok(response) => {
-                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES
-                    {
+                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
                         sleep(Duration::from_millis(RETRY_DELAY_MS * retries as u64)).await;
                         continue;
@@ -815,10 +813,7 @@ impl NewsDataClient {
         category: Option<&str>,
     ) -> Result<Vec<DataRecord>> {
         if self.api_key.is_none() {
-            return Ok(self.generate_synthetic_news(
-                query.unwrap_or("technology"),
-                10,
-            )?);
+            return Ok(self.generate_synthetic_news(query.unwrap_or("technology"), 10)?);
         }
 
         let mut url = format!(
@@ -862,10 +857,7 @@ impl NewsDataClient {
         to_date: &str,
     ) -> Result<Vec<DataRecord>> {
         if self.api_key.is_none() {
-            return Ok(self.generate_synthetic_news(
-                query.unwrap_or("archive"),
-                10,
-            )?);
+            return Ok(self.generate_synthetic_news(query.unwrap_or("archive"), 10)?);
         }
 
         let mut url = format!(
@@ -902,7 +894,9 @@ impl NewsDataClient {
                 "This is synthetic news content for demonstration. Topic: {}",
                 query
             );
-            let embedding = self.embedder.embed_text(&format!("{} {}", title, description));
+            let embedding = self
+                .embedder
+                .embed_text(&format!("{} {}", title, description));
 
             let mut data_map = serde_json::Map::new();
             data_map.insert("title".to_string(), serde_json::json!(title));
@@ -999,8 +993,7 @@ impl NewsDataClient {
         loop {
             match self.client.get(url).send().await {
                 Ok(response) => {
-                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES
-                    {
+                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
                         sleep(Duration::from_millis(RETRY_DELAY_MS * retries as u64)).await;
                         continue;
@@ -1312,8 +1305,7 @@ impl RedditClient {
 
             match self.client.get(url).send().await {
                 Ok(response) => {
-                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES
-                    {
+                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
                         sleep(Duration::from_millis(RETRY_DELAY_MS * retries as u64)).await;
                         continue;
@@ -1342,7 +1334,9 @@ impl DataSource for RedditClient {
         batch_size: usize,
     ) -> Result<(Vec<DataRecord>, Option<String>)> {
         let subreddit = cursor.as_deref().unwrap_or("technology");
-        let records = self.get_subreddit_posts(subreddit, "hot", batch_size).await?;
+        let records = self
+            .get_subreddit_posts(subreddit, "hot", batch_size)
+            .await?;
         Ok((records, None))
     }
 
@@ -1486,7 +1480,10 @@ mod tests {
     #[tokio::test]
     async fn test_newsdata_synthetic_news() {
         let client = NewsDataClient::new(None).unwrap();
-        let records = client.get_latest(Some("technology"), None, None).await.unwrap();
+        let records = client
+            .get_latest(Some("technology"), None, None)
+            .await
+            .unwrap();
 
         assert!(!records.is_empty());
         assert_eq!(records[0].source, "newsdata");

@@ -10,8 +10,7 @@
 //! ```
 
 use ruvector_data_framework::{
-    EnsemblClient, GwasClient, NcbiClient, NativeDiscoveryEngine, NativeEngineConfig,
-    UniProtClient,
+    EnsemblClient, GwasClient, NativeDiscoveryEngine, NativeEngineConfig, NcbiClient, UniProtClient,
 };
 
 #[tokio::main]
@@ -35,9 +34,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for gene in &brca1_genes {
         println!("  ✓ Found gene: {}", gene.id);
-        println!("    Symbol: {}", gene.metadata.get("symbol").map(|s| s.as_str()).unwrap_or("N/A"));
-        println!("    Description: {}", gene.metadata.get("description").map(|s| s.as_str()).unwrap_or("N/A"));
-        println!("    Chromosome: {}", gene.metadata.get("chromosome").map(|s| s.as_str()).unwrap_or("N/A"));
+        println!(
+            "    Symbol: {}",
+            gene.metadata
+                .get("symbol")
+                .map(|s| s.as_str())
+                .unwrap_or("N/A")
+        );
+        println!(
+            "    Description: {}",
+            gene.metadata
+                .get("description")
+                .map(|s| s.as_str())
+                .unwrap_or("N/A")
+        );
+        println!(
+            "    Chromosome: {}",
+            gene.metadata
+                .get("chromosome")
+                .map(|s| s.as_str())
+                .unwrap_or("N/A")
+        );
 
         // Add to discovery engine
         engine.add_vector(gene.clone());
@@ -50,11 +67,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", "-".repeat(80));
 
     println!("Searching for heat shock proteins...");
-    let hsp_genes = ncbi_client.search_genes("heat shock protein", Some("human")).await?;
+    let hsp_genes = ncbi_client
+        .search_genes("heat shock protein", Some("human"))
+        .await?;
 
     for (i, gene) in hsp_genes.iter().take(5).enumerate() {
         println!("  ✓ [{}/5] {}", i + 1, gene.id);
-        println!("    Symbol: {}", gene.metadata.get("symbol").map(|s| s.as_str()).unwrap_or("N/A"));
+        println!(
+            "    Symbol: {}",
+            gene.metadata
+                .get("symbol")
+                .map(|s| s.as_str())
+                .unwrap_or("N/A")
+        );
 
         // Add to discovery engine
         engine.add_vector(gene.clone());
@@ -72,10 +97,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for protein in &apoe_proteins {
         println!("  ✓ Protein: {}", protein.id);
-        println!("    Name: {}", protein.metadata.get("protein_name").map(|s| s.as_str()).unwrap_or("N/A"));
-        println!("    Function: {}...",
-            protein.metadata.get("function")
-                .map(|s| s.as_str()).unwrap_or("N/A")
+        println!(
+            "    Name: {}",
+            protein
+                .metadata
+                .get("protein_name")
+                .map(|s| s.as_str())
+                .unwrap_or("N/A")
+        );
+        println!(
+            "    Function: {}...",
+            protein
+                .metadata
+                .get("function")
+                .map(|s| s.as_str())
+                .unwrap_or("N/A")
                 .chars()
                 .take(80)
                 .collect::<String>()
@@ -93,9 +129,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(snp) = ncbi_client.get_snp("rs429358").await? {
         println!("  ✓ SNP: {}", snp.id);
-        println!("    Chromosome: {}", snp.metadata.get("chromosome").map(|s| s.as_str()).unwrap_or("N/A"));
-        println!("    Position: {}", snp.metadata.get("position").map(|s| s.as_str()).unwrap_or("N/A"));
-        println!("    Associated genes: {}", snp.metadata.get("genes").map(|s| s.as_str()).unwrap_or("N/A"));
+        println!(
+            "    Chromosome: {}",
+            snp.metadata
+                .get("chromosome")
+                .map(|s| s.as_str())
+                .unwrap_or("N/A")
+        );
+        println!(
+            "    Position: {}",
+            snp.metadata
+                .get("position")
+                .map(|s| s.as_str())
+                .unwrap_or("N/A")
+        );
+        println!(
+            "    Associated genes: {}",
+            snp.metadata
+                .get("genes")
+                .map(|s| s.as_str())
+                .unwrap_or("N/A")
+        );
 
         // Add to discovery engine
         engine.add_vector(snp);
@@ -114,8 +168,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(gene) = ensembl_client.get_gene_info(braf_id).await? {
         println!("  ✓ Gene: {}", gene.id);
-        println!("    Symbol: {}", gene.metadata.get("symbol").map(|s| s.as_str()).unwrap_or("N/A"));
-        println!("    Description: {}", gene.metadata.get("description").map(|s| s.as_str()).unwrap_or("N/A"));
+        println!(
+            "    Symbol: {}",
+            gene.metadata
+                .get("symbol")
+                .map(|s| s.as_str())
+                .unwrap_or("N/A")
+        );
+        println!(
+            "    Description: {}",
+            gene.metadata
+                .get("description")
+                .map(|s| s.as_str())
+                .unwrap_or("N/A")
+        );
 
         engine.add_vector(gene);
 
@@ -125,9 +191,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("  ✓ Found {} variants", variants.len());
 
         for variant in variants.iter().take(3) {
-            println!("    - {} (consequence: {})",
+            println!(
+                "    - {} (consequence: {})",
                 variant.id,
-                variant.metadata.get("consequence").map(|s| s.as_str()).unwrap_or("unknown")
+                variant
+                    .metadata
+                    .get("consequence")
+                    .map(|s| s.as_str())
+                    .unwrap_or("unknown")
             );
             engine.add_vector(variant.clone());
         }
@@ -145,9 +216,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for (i, assoc) in diabetes_assocs.iter().take(5).enumerate() {
         println!("  ✓ [{}/5] Association:", i + 1);
-        println!("    Trait: {}", assoc.metadata.get("trait").map(|s| s.as_str()).unwrap_or("N/A"));
-        println!("    Genes: {}", assoc.metadata.get("genes").map(|s| s.as_str()).unwrap_or("N/A"));
-        println!("    P-value: {}", assoc.metadata.get("pvalue").map(|s| s.as_str()).unwrap_or("N/A"));
+        println!(
+            "    Trait: {}",
+            assoc
+                .metadata
+                .get("trait")
+                .map(|s| s.as_str())
+                .unwrap_or("N/A")
+        );
+        println!(
+            "    Genes: {}",
+            assoc
+                .metadata
+                .get("genes")
+                .map(|s| s.as_str())
+                .unwrap_or("N/A")
+        );
+        println!(
+            "    P-value: {}",
+            assoc
+                .metadata
+                .get("pvalue")
+                .map(|s| s.as_str())
+                .unwrap_or("N/A")
+        );
 
         engine.add_vector(assoc.clone());
     }
@@ -179,10 +271,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if !pattern.cross_domain_links.is_empty() {
             println!("    Cross-domain links:");
             for link in &pattern.cross_domain_links {
-                println!("      - {:?} ↔ {:?} (strength: {:.2})",
-                    link.source_domain,
-                    link.target_domain,
-                    link.link_strength
+                println!(
+                    "      - {:?} ↔ {:?} (strength: {:.2})",
+                    link.source_domain, link.target_domain, link.link_strength
                 );
             }
         }

@@ -8,11 +8,11 @@
 //! 5. Query with combined filter: category == "B" AND score > 70
 //! 6. Show filtered results vs unfiltered
 
+use rvf_runtime::filter::FilterValue;
+use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{
     FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult,
 };
-use rvf_runtime::filter::FilterValue;
-use rvf_runtime::options::DistanceMetric;
 use tempfile::TempDir;
 
 /// LCG-based pseudo-random vector generator.
@@ -20,7 +20,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -42,7 +44,10 @@ fn main() {
         ..Default::default()
     };
 
-    println!("Creating store with {} vectors ({} dims, L2 metric)...", num_vectors, dim);
+    println!(
+        "Creating store with {} vectors ({} dims, L2 metric)...",
+        num_vectors, dim
+    );
     let mut store = RvfStore::create(&store_path, options).expect("failed to create store");
 
     // -- Step 2: Insert vectors with metadata --
@@ -62,10 +67,7 @@ fn main() {
         let start = batch_idx * batch_size;
         let end = start + batch_size;
 
-        let batch_vecs: Vec<&[f32]> = vectors[start..end]
-            .iter()
-            .map(|v| v.as_slice())
-            .collect();
+        let batch_vecs: Vec<&[f32]> = vectors[start..end].iter().map(|v| v.as_slice()).collect();
         let batch_ids: Vec<u64> = (start as u64..end as u64).collect();
 
         // Build metadata: 2 entries per vector (category + score).
@@ -90,7 +92,10 @@ fn main() {
             .expect("failed to ingest batch");
     }
 
-    println!("Ingested {} vectors across {} batches.", num_vectors, num_batches);
+    println!(
+        "Ingested {} vectors across {} batches.",
+        num_vectors, num_batches
+    );
 
     // Print metadata distribution.
     let cat_a_count = (0..num_vectors).filter(|i| i % 3 == 0).count();
@@ -137,12 +142,7 @@ fn main() {
 
     // Verify all results are category A.
     for r in &results_cat_a {
-        assert_eq!(
-            (r.id as usize) % 3,
-            0,
-            "ID {} should be category A",
-            r.id
-        );
+        assert_eq!((r.id as usize) % 3, 0, "ID {} should be category A", r.id);
     }
     println!("  All results verified as category A.");
 
@@ -188,10 +188,7 @@ fn main() {
     let results_combined = store
         .query(&query, k, &opts_combined)
         .expect("filtered query failed");
-    println!(
-        "Top-{} results (category == B AND score > 70):",
-        k
-    );
+    println!("Top-{} results (category == B AND score > 70):", k);
     print_results_with_meta(&results_combined, num_vectors);
 
     // Verify all results match both conditions.
@@ -199,7 +196,12 @@ fn main() {
         let cat_idx = (r.id as usize) % 3;
         let score = ((r.id as usize) * 7 + 13) % 101;
         assert_eq!(cat_idx, 1, "ID {} should be category B", r.id);
-        assert!(score > 70, "ID {} has score {} which is not > 70", r.id, score);
+        assert!(
+            score > 70,
+            "ID {} has score {} which is not > 70",
+            r.id,
+            score
+        );
     }
     if !results_combined.is_empty() {
         println!("  All results verified as category B with score > 70.");
@@ -227,9 +229,7 @@ fn main() {
         filter: Some(filter_not_c),
         ..Default::default()
     };
-    let results_not_c = store
-        .query(&query, k, &opts_not_c)
-        .expect("query failed");
+    let results_not_c = store.query(&query, k, &opts_not_c).expect("query failed");
     println!("category != \"C\": {} results", results_not_c.len());
     for r in &results_not_c {
         assert_ne!((r.id as usize) % 3, 2);
@@ -248,9 +248,7 @@ fn main() {
         filter: Some(filter_in),
         ..Default::default()
     };
-    let results_in = store
-        .query(&query, k, &opts_in)
-        .expect("query failed");
+    let results_in = store.query(&query, k, &opts_in).expect("query failed");
     println!("category IN (A, C): {} results", results_in.len());
     for r in &results_in {
         let cat_idx = (r.id as usize) % 3;
@@ -264,13 +262,16 @@ fn main() {
         filter: Some(filter_range),
         ..Default::default()
     };
-    let results_range = store
-        .query(&query, k, &opts_range)
-        .expect("query failed");
+    let results_range = store.query(&query, k, &opts_range).expect("query failed");
     println!("score in [30, 60): {} results", results_range.len());
     for r in &results_range {
         let score = ((r.id as usize) * 7 + 13) % 101;
-        assert!((30..60).contains(&score), "ID {} score {} out of range", r.id, score);
+        assert!(
+            (30..60).contains(&score),
+            "ID {} score {} out of range",
+            r.id,
+            score
+        );
     }
     println!("  Verified: all scores in [30, 60).");
 
@@ -278,15 +279,16 @@ fn main() {
     // Summary
     // ====================================================================
     println!("\n=== Filter Summary ===\n");
-    println!(
-        "  {:>30}  {:>10}",
-        "Filter", "Results"
-    );
+    println!("  {:>30}  {:>10}", "Filter", "Results");
     println!("  {:->30}  {:->10}", "", "");
     println!("  {:>30}  {:>10}", "No filter", results_all.len());
     println!("  {:>30}  {:>10}", "category == A", results_cat_a.len());
     println!("  {:>30}  {:>10}", "score > 50", results_high_score.len());
-    println!("  {:>30}  {:>10}", "cat == B AND score > 70", results_combined.len());
+    println!(
+        "  {:>30}  {:>10}",
+        "cat == B AND score > 70",
+        results_combined.len()
+    );
     println!("  {:>30}  {:>10}", "category != C", results_not_c.len());
     println!("  {:>30}  {:>10}", "category IN (A, C)", results_in.len());
     println!("  {:>30}  {:>10}", "score in [30, 60)", results_range.len());

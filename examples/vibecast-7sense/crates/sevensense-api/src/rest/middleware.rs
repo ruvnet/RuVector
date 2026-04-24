@@ -6,11 +6,7 @@
 //! - API key authentication
 //! - Request logging
 
-use std::{
-    net::SocketAddr,
-    sync::Arc,
-    time::Duration,
-};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use axum::{
     body::Body,
@@ -153,10 +149,7 @@ pub async fn json_content_type_middleware(
     next: Next,
 ) -> Response {
     // Only check POST/PUT/PATCH requests
-    if matches!(
-        request.method().as_str(),
-        "POST" | "PUT" | "PATCH"
-    ) {
+    if matches!(request.method().as_str(), "POST" | "PUT" | "PATCH") {
         // Skip multipart endpoints
         let path = request.uri().path();
         if path.contains("/recordings") {
@@ -206,12 +199,12 @@ impl BodyLimitMiddleware {
 }
 
 /// Extract client IP from request.
-pub fn extract_client_ip(headers: &HeaderMap, connect_info: Option<&ConnectInfo<SocketAddr>>) -> Option<String> {
+pub fn extract_client_ip(
+    headers: &HeaderMap,
+    connect_info: Option<&ConnectInfo<SocketAddr>>,
+) -> Option<String> {
     // Try X-Forwarded-For first (for proxied requests)
-    if let Some(forwarded) = headers
-        .get("x-forwarded-for")
-        .and_then(|h| h.to_str().ok())
-    {
+    if let Some(forwarded) = headers.get("x-forwarded-for").and_then(|h| h.to_str().ok()) {
         // Take the first IP in the chain
         if let Some(ip) = forwarded.split(',').next() {
             return Some(ip.trim().to_string());
@@ -219,10 +212,7 @@ pub fn extract_client_ip(headers: &HeaderMap, connect_info: Option<&ConnectInfo<
     }
 
     // Try X-Real-IP
-    if let Some(real_ip) = headers
-        .get("x-real-ip")
-        .and_then(|h| h.to_str().ok())
-    {
+    if let Some(real_ip) = headers.get("x-real-ip").and_then(|h| h.to_str().ok()) {
         return Some(real_ip.to_string());
     }
 

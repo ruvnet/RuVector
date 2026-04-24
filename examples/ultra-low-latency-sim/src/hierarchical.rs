@@ -82,7 +82,9 @@ impl HierarchicalPipeline {
 
         for level in 0..depth as u32 {
             size /= batch_size;
-            if size == 0 { size = 1; }
+            if size == 0 {
+                size = 1;
+            }
             levels.push(HierarchicalCompressor::new(size, level + 1, batch_size));
         }
 
@@ -91,7 +93,9 @@ impl HierarchicalPipeline {
 
     /// Run full compression pipeline
     pub fn compress_all(&mut self, base_inputs: &[f32]) {
-        if self.levels.is_empty() { return; }
+        if self.levels.is_empty() {
+            return;
+        }
 
         // First level compresses base inputs
         self.levels[0].compress(base_inputs);
@@ -105,7 +109,8 @@ impl HierarchicalPipeline {
 
     /// Total simulations at final level
     pub fn final_simulations(&self) -> u64 {
-        self.levels.last()
+        self.levels
+            .last()
             .map(|l| l.total_simulations())
             .unwrap_or(0)
     }
@@ -170,7 +175,10 @@ impl EnsembleAggregator {
         if self.count < 2 {
             return vec![0.0; self.means.len()];
         }
-        self.m2.iter().map(|m| m / (self.count - 1) as f64).collect()
+        self.m2
+            .iter()
+            .map(|m| m / (self.count - 1) as f64)
+            .collect()
     }
 
     /// Standard error (adjusted for aggregation)

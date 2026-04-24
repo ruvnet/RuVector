@@ -15,8 +15,8 @@
 
 use std::collections::{HashMap, HashSet};
 
-use rvf_runtime::{QueryOptions, RvfOptions, RvfStore};
 use rvf_runtime::options::DistanceMetric;
+use rvf_runtime::{QueryOptions, RvfOptions, RvfStore};
 use tempfile::TempDir;
 
 /// Simple pseudo-random number generator (LCG) for deterministic results.
@@ -24,7 +24,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -150,8 +152,12 @@ fn main() {
     all_vectors.extend(dup_vectors.iter().cloned());
 
     let total_vectors = num_originals + num_duplicates;
-    println!("Injected {} near-duplicates (IDs {}-{}).\n",
-        num_duplicates, dup_start_id, dup_start_id + num_duplicates as u64 - 1);
+    println!(
+        "Injected {} near-duplicates (IDs {}-{}).\n",
+        num_duplicates,
+        dup_start_id,
+        dup_start_id + num_duplicates as u64 - 1
+    );
 
     let status_before = store.status();
     let file_size_before = status_before.file_size;
@@ -187,7 +193,11 @@ fn main() {
     }
 
     println!("  Scanned {} vectors with k={}", total_vectors, k);
-    println!("  Found {} duplicate pairs (distance < {})\n", duplicate_pairs.len(), duplicate_threshold);
+    println!(
+        "  Found {} duplicate pairs (distance < {})\n",
+        duplicate_pairs.len(),
+        duplicate_threshold
+    );
 
     // Print sample duplicate pairs
     let display_count = 10.min(duplicate_pairs.len());
@@ -195,20 +205,23 @@ fn main() {
         "  {:>8}  {:>8}  {:>12}  {:>10}",
         "ID A", "ID B", "Distance", "Expected?"
     );
-    println!(
-        "  {:->8}  {:->8}  {:->12}  {:->10}",
-        "", "", "", ""
-    );
+    println!("  {:->8}  {:->8}  {:->12}  {:->10}", "", "", "", "");
     for &(id_a, id_b, dist) in duplicate_pairs.iter().take(display_count) {
         let expected = dup_source_map.get(&id_b).is_some_and(|&src| src == id_a)
             || dup_source_map.get(&id_a).is_some_and(|&src| src == id_b);
         println!(
             "  {:>8}  {:>8}  {:>12.6}  {:>10}",
-            id_a, id_b, dist, if expected { "yes" } else { "no" }
+            id_a,
+            id_b,
+            dist,
+            if expected { "yes" } else { "no" }
         );
     }
     if duplicate_pairs.len() > display_count {
-        println!("  ... and {} more pairs", duplicate_pairs.len() - display_count);
+        println!(
+            "  ... and {} more pairs",
+            duplicate_pairs.len() - display_count
+        );
     }
 
     // Verify we found the injected duplicates
@@ -227,7 +240,8 @@ fn main() {
     }
     println!(
         "\n  Injected duplicates found: {} / {} ({:.1}% recall)",
-        found_injected, num_duplicates,
+        found_injected,
+        num_duplicates,
         found_injected as f64 / num_duplicates as f64 * 100.0
     );
 
@@ -242,7 +256,8 @@ fn main() {
     // Group by cluster root
     let mut clusters: HashMap<usize, Vec<u64>> = HashMap::new();
     // Only include IDs that appear in duplicate pairs
-    let involved_ids: HashSet<u64> = duplicate_pairs.iter()
+    let involved_ids: HashSet<u64> = duplicate_pairs
+        .iter()
         .flat_map(|&(a, b, _)| vec![a, b])
         .collect();
 
@@ -256,11 +271,12 @@ fn main() {
         members.sort();
     }
 
-    let multi_clusters: Vec<_> = clusters.values()
-        .filter(|c| c.len() > 1)
-        .collect();
+    let multi_clusters: Vec<_> = clusters.values().filter(|c| c.len() > 1).collect();
 
-    println!("  Clusters formed: {} (with 2+ members)", multi_clusters.len());
+    println!(
+        "  Clusters formed: {} (with 2+ members)",
+        multi_clusters.len()
+    );
 
     let display_clusters = 8.min(multi_clusters.len());
     for (idx, cluster) in multi_clusters.iter().take(display_clusters).enumerate() {
@@ -268,11 +284,17 @@ fn main() {
         let duplicates: Vec<u64> = cluster[1..].to_vec();
         println!(
             "    Cluster {}: representative={}, duplicates={:?} (size={})",
-            idx + 1, representative, duplicates, cluster.len()
+            idx + 1,
+            representative,
+            duplicates,
+            cluster.len()
         );
     }
     if multi_clusters.len() > display_clusters {
-        println!("    ... and {} more clusters", multi_clusters.len() - display_clusters);
+        println!(
+            "    ... and {} more clusters",
+            multi_clusters.len() - display_clusters
+        );
     }
 
     // -- Step 5: Delete duplicates, keeping representatives --
@@ -296,9 +318,18 @@ fn main() {
 
     let status_after_delete = store.status();
     println!("\n  Status after deletion:");
-    println!("    Total vectors:    {}", status_after_delete.total_vectors);
-    println!("    Dead space ratio: {:.2}%", status_after_delete.dead_space_ratio * 100.0);
-    println!("    File size:        {} bytes", status_after_delete.file_size);
+    println!(
+        "    Total vectors:    {}",
+        status_after_delete.total_vectors
+    );
+    println!(
+        "    Dead space ratio: {:.2}%",
+        status_after_delete.dead_space_ratio * 100.0
+    );
+    println!(
+        "    File size:        {} bytes",
+        status_after_delete.file_size
+    );
 
     // Verify deleted vectors are not returned in queries
     if !ids_to_delete.is_empty() {
@@ -307,7 +338,10 @@ fn main() {
             .query(&all_vectors[check_id], 5, &QueryOptions::default())
             .expect("query failed");
         let found_deleted = results.iter().any(|r| ids_to_delete.contains(&r.id));
-        assert!(!found_deleted, "deleted vectors should not appear in results");
+        assert!(
+            !found_deleted,
+            "deleted vectors should not appear in results"
+        );
         println!("    Verified: deleted vectors excluded from queries.");
     }
 
@@ -315,15 +349,24 @@ fn main() {
     println!("\n=== Compaction ===\n");
 
     let compact_result = store.compact().expect("compaction failed");
-    println!("  Segments compacted: {}", compact_result.segments_compacted);
+    println!(
+        "  Segments compacted: {}",
+        compact_result.segments_compacted
+    );
     println!("  Bytes reclaimed:    {}", compact_result.bytes_reclaimed);
     println!("  Epoch:              {}", compact_result.epoch);
 
     let status_after_compact = store.status();
     let file_size_after = status_after_compact.file_size;
     println!("\n  Status after compaction:");
-    println!("    Total vectors:    {}", status_after_compact.total_vectors);
-    println!("    Dead space ratio: {:.2}%", status_after_compact.dead_space_ratio * 100.0);
+    println!(
+        "    Total vectors:    {}",
+        status_after_compact.total_vectors
+    );
+    println!(
+        "    Dead space ratio: {:.2}%",
+        status_after_compact.dead_space_ratio * 100.0
+    );
     println!("    File size:        {} bytes", file_size_after);
 
     // -- Step 7: Verify store is smaller --
@@ -338,7 +381,10 @@ fn main() {
 
     println!("  File size before: {} bytes", file_size_before);
     println!("  File size after:  {} bytes", file_size_after);
-    println!("  Size reduction:   {} bytes ({:.1}%)", size_reduction, reduction_pct);
+    println!(
+        "  Size reduction:   {} bytes ({:.1}%)",
+        size_reduction, reduction_pct
+    );
 
     // Verify query still works correctly after compaction
     let query = random_vector(dim, 42);
@@ -347,14 +393,8 @@ fn main() {
         .expect("post-compaction query failed");
 
     println!("\n  Post-compaction query (top-10):");
-    println!(
-        "  {:>6}  {:>12}",
-        "ID", "Distance"
-    );
-    println!(
-        "  {:->6}  {:->12}",
-        "", ""
-    );
+    println!("  {:>6}  {:>12}", "ID", "Distance");
+    println!("  {:->6}  {:->12}", "", "");
     for r in &results {
         println!("  {:>6}  {:>12.6}", r.id, r.distance);
     }
@@ -373,20 +413,35 @@ fn main() {
     // Summary
     // ====================================================================
     println!("\n=== Dedup Summary ===\n");
-    println!(
-        "  {:>24}  {:>10}",
-        "Metric", "Value"
-    );
+    println!("  {:>24}  {:>10}", "Metric", "Value");
     println!("  {:->24}  {:->10}", "", "");
     println!("  {:>24}  {:>10}", "Original vectors", num_originals);
     println!("  {:>24}  {:>10}", "Injected duplicates", num_duplicates);
     println!("  {:>24}  {:>10}", "Total before dedup", total_vectors);
-    println!("  {:>24}  {:>10}", "Duplicate pairs found", duplicate_pairs.len());
+    println!(
+        "  {:>24}  {:>10}",
+        "Duplicate pairs found",
+        duplicate_pairs.len()
+    );
     println!("  {:>24}  {:>10}", "Clusters formed", multi_clusters.len());
     println!("  {:>24}  {:>10}", "Vectors deleted", ids_to_delete.len());
-    println!("  {:>24}  {:>10}", "Vectors after dedup", status_after_compact.total_vectors);
-    println!("  {:>24}  {:>10}", "Injected recall", format!("{:.0}%", found_injected as f64 / num_duplicates as f64 * 100.0));
-    println!("  {:>24}  {:>10}", "Space saved", format!("{} B", size_reduction));
+    println!(
+        "  {:>24}  {:>10}",
+        "Vectors after dedup", status_after_compact.total_vectors
+    );
+    println!(
+        "  {:>24}  {:>10}",
+        "Injected recall",
+        format!(
+            "{:.0}%",
+            found_injected as f64 / num_duplicates as f64 * 100.0
+        )
+    );
+    println!(
+        "  {:>24}  {:>10}",
+        "Space saved",
+        format!("{} B", size_reduction)
+    );
 
     store.close().expect("failed to close store");
     println!("\nDone.");

@@ -7,10 +7,10 @@
 //! - Composition is matrix multiplication
 //! - Identity is the identity matrix
 
-use super::{Category, CategoryWithMono, CategoryWithProducts};
-use super::object::{Object, ObjectData};
 use super::morphism::{Morphism, MorphismData};
-use crate::{ObjectId, MorphismId, CategoryError, Result};
+use super::object::{Object, ObjectData};
+use super::{Category, CategoryWithMono, CategoryWithProducts};
+use crate::{CategoryError, MorphismId, ObjectId, Result};
 use dashmap::DashMap;
 use std::sync::Arc;
 
@@ -76,7 +76,11 @@ impl VectorCategory {
         // Validate dimensions
         let (dom_dim, cod_dim) = match (&domain.data, &codomain.data) {
             (ObjectData::VectorSpace(d), ObjectData::VectorSpace(c)) => (*d, *c),
-            _ => return Err(CategoryError::Internal("Expected vector spaces".to_string())),
+            _ => {
+                return Err(CategoryError::Internal(
+                    "Expected vector spaces".to_string(),
+                ))
+            }
         };
 
         if matrix.len() != cod_dim {
@@ -95,11 +99,7 @@ impl VectorCategory {
             }
         }
 
-        let mor = Morphism::new(
-            domain.id,
-            codomain.id,
-            MorphismData::LinearMap(matrix),
-        );
+        let mor = Morphism::new(domain.id, codomain.id, MorphismData::LinearMap(matrix));
         let id = mor.id;
         self.morphisms.insert(id, mor.clone());
 
@@ -119,11 +119,7 @@ impl VectorCategory {
     /// Creates an identity matrix
     fn identity_matrix(dim: usize) -> Vec<Vec<f64>> {
         (0..dim)
-            .map(|i| {
-                (0..dim)
-                    .map(|j| if i == j { 1.0 } else { 0.0 })
-                    .collect()
-            })
+            .map(|i| (0..dim).map(|j| if i == j { 1.0 } else { 0.0 }).collect())
             .collect()
     }
 
@@ -317,7 +313,9 @@ impl Clone for VectorCategory {
             new_cat.objects.insert(*entry.key(), entry.value().clone());
         }
         for entry in self.morphisms.iter() {
-            new_cat.morphisms.insert(*entry.key(), entry.value().clone());
+            new_cat
+                .morphisms
+                .insert(*entry.key(), entry.value().clone());
         }
         for entry in self.identities.iter() {
             new_cat.identities.insert(*entry.key(), *entry.value());
@@ -456,7 +454,10 @@ impl VectorCategory {
                 }
                 m1.iter().zip(m2.iter()).all(|(r1, r2)| {
                     r1.len() == r2.len()
-                        && r1.iter().zip(r2.iter()).all(|(v1, v2)| (v1 - v2).abs() < 1e-10)
+                        && r1
+                            .iter()
+                            .zip(r2.iter())
+                            .all(|(v1, v2)| (v1 - v2).abs() < 1e-10)
                 })
             }
             _ => false,
@@ -498,7 +499,10 @@ impl CategoryWithMono for VectorCategory {
             MorphismData::LinearMap(matrix) => {
                 let rows = matrix.len();
                 let cols = if rows > 0 { matrix[0].len() } else { 0 };
-                rows == cols && Self::matrix_determinant(matrix).map(|d| d.abs() > 1e-10).unwrap_or(false)
+                rows == cols
+                    && Self::matrix_determinant(matrix)
+                        .map(|d| d.abs() > 1e-10)
+                        .unwrap_or(false)
             }
             MorphismData::Identity => true,
             _ => false,
@@ -557,11 +561,7 @@ impl CategoryWithProducts for VectorCategory {
                     matrix[i][i] = 1.0;
                 }
 
-                let proj = Morphism::new(
-                    product.id,
-                    target.id,
-                    MorphismData::LinearMap(matrix),
-                );
+                let proj = Morphism::new(product.id, target.id, MorphismData::LinearMap(matrix));
                 self.morphisms.insert(proj.id, proj.clone());
                 Some(proj)
             }
@@ -586,11 +586,7 @@ impl CategoryWithProducts for VectorCategory {
                     matrix[i][half_dim + i] = 1.0;
                 }
 
-                let proj = Morphism::new(
-                    product.id,
-                    target.id,
-                    MorphismData::LinearMap(matrix),
-                );
+                let proj = Morphism::new(product.id, target.id, MorphismData::LinearMap(matrix));
                 self.morphisms.insert(proj.id, proj.clone());
                 Some(proj)
             }
@@ -612,11 +608,7 @@ impl CategoryWithProducts for VectorCategory {
 
                 let product = self.product(&self.codomain(f), &self.codomain(g))?;
 
-                let paired = Morphism::new(
-                    f.domain,
-                    product.id,
-                    MorphismData::LinearMap(combined),
-                );
+                let paired = Morphism::new(f.domain, product.id, MorphismData::LinearMap(combined));
                 self.morphisms.insert(paired.id, paired.clone());
                 Some(paired)
             }
@@ -657,11 +649,7 @@ mod tests {
         let v3 = cat.add_vector_space(3);
 
         // 3x2 matrix
-        let matrix = vec![
-            vec![1.0, 0.0],
-            vec![0.0, 1.0],
-            vec![1.0, 1.0],
-        ];
+        let matrix = vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]];
 
         let mor = cat.add_linear_map(&v2, &v3, matrix).unwrap();
 
@@ -678,18 +666,11 @@ mod tests {
         let v3 = cat.add_vector_space(3);
 
         // f: R^2 -> R^3
-        let f_matrix = vec![
-            vec![1.0, 0.0],
-            vec![0.0, 1.0],
-            vec![1.0, 1.0],
-        ];
+        let f_matrix = vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]];
         let f = cat.add_linear_map(&v2, &v3, f_matrix).unwrap();
 
         // g: R^3 -> R^2
-        let g_matrix = vec![
-            vec![1.0, 1.0, 0.0],
-            vec![0.0, 1.0, 1.0],
-        ];
+        let g_matrix = vec![vec![1.0, 1.0, 0.0], vec![0.0, 1.0, 1.0]];
         let g = cat.add_linear_map(&v3, &v2, g_matrix).unwrap();
 
         // g.f: R^2 -> R^2
@@ -716,10 +697,7 @@ mod tests {
         let cos = angle.cos();
         let sin = angle.sin();
 
-        let rotation = vec![
-            vec![cos, -sin],
-            vec![sin, cos],
-        ];
+        let rotation = vec![vec![cos, -sin], vec![sin, cos]];
 
         let mor = cat.add_linear_map(&v2, &v2, rotation).unwrap();
 

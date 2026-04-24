@@ -5,9 +5,7 @@
 //! - Neighbor search: <50ms p99
 //! - Evidence pack generation: <200ms
 
-use criterion::{
-    black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
-};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -340,11 +338,15 @@ impl ApiService {
         }
     }
 
-    fn compute_confidence(&self, _embedding: &[f32], neighbors: &[NeighborEvidence]) -> ConfidenceBreakdown {
+    fn compute_confidence(
+        &self,
+        _embedding: &[f32],
+        neighbors: &[NeighborEvidence],
+    ) -> ConfidenceBreakdown {
         // Compute neighbor agreement
         let neighbor_agreement = if !neighbors.is_empty() {
-            let avg_sim: f32 = neighbors.iter().map(|n| n.similarity_score).sum::<f32>()
-                / neighbors.len() as f32;
+            let avg_sim: f32 =
+                neighbors.iter().map(|n| n.similarity_score).sum::<f32>() / neighbors.len() as f32;
             avg_sim
         } else {
             0.0

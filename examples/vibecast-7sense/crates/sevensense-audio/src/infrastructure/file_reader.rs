@@ -186,13 +186,12 @@ impl AudioFileReader for SymphoniaFileReader {
     #[instrument(skip(self), fields(path = %path.display()))]
     async fn read(&self, path: &Path) -> Result<(Vec<f32>, AudioMetadata), AudioError> {
         // Get file metadata for size
-        let file_metadata = std::fs::metadata(path)
-            .map_err(|e| AudioError::file_read(path, e.to_string()))?;
+        let file_metadata =
+            std::fs::metadata(path).map_err(|e| AudioError::file_read(path, e.to_string()))?;
         let file_size = file_metadata.len();
 
         // Open the file
-        let file = File::open(path)
-            .map_err(|e| AudioError::file_read(path, e.to_string()))?;
+        let file = File::open(path).map_err(|e| AudioError::file_read(path, e.to_string()))?;
 
         // Create media source stream
         let mss = MediaSourceStream::new(Box::new(file), Default::default());
@@ -205,7 +204,12 @@ impl AudioFileReader for SymphoniaFileReader {
 
         // Probe the format
         let probed = symphonia::default::get_probe()
-            .format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())
+            .format(
+                &hint,
+                mss,
+                &FormatOptions::default(),
+                &MetadataOptions::default(),
+            )
             .map_err(|e| AudioError::file_read(path, format!("Failed to probe format: {e}")))?;
 
         let mut format = probed.format;
@@ -226,14 +230,9 @@ impl AudioFileReader for SymphoniaFileReader {
             .sample_rate
             .ok_or_else(|| AudioError::file_read(path, "Unknown sample rate"))?;
 
-        let channels = codec_params
-            .channels
-            .map(|c| c.count() as u16)
-            .unwrap_or(1);
+        let channels = codec_params.channels.map(|c| c.count() as u16).unwrap_or(1);
 
-        let bits_per_sample = codec_params
-            .bits_per_sample
-            .unwrap_or(16) as u16;
+        let bits_per_sample = codec_params.bits_per_sample.unwrap_or(16) as u16;
 
         debug!(
             sample_rate = sample_rate,
@@ -332,27 +331,25 @@ impl HoundWavReader {
 
     /// Reads a WAV file synchronously.
     pub fn read_wav(&self, path: &Path) -> Result<(Vec<f32>, AudioMetadata), AudioError> {
-        let reader = hound::WavReader::open(path)
-            .map_err(|e| AudioError::file_read(path, e.to_string()))?;
+        let reader =
+            hound::WavReader::open(path).map_err(|e| AudioError::file_read(path, e.to_string()))?;
 
         let spec = reader.spec();
         let sample_rate = spec.sample_rate;
         let channels = spec.channels;
         let bits_per_sample = spec.bits_per_sample;
 
-        let file_size = std::fs::metadata(path)
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let file_size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
 
         let samples: Vec<f32> = match spec.sample_format {
-            hound::SampleFormat::Float => {
-                reader.into_samples::<f32>()
-                    .filter_map(Result::ok)
-                    .collect()
-            }
+            hound::SampleFormat::Float => reader
+                .into_samples::<f32>()
+                .filter_map(Result::ok)
+                .collect(),
             hound::SampleFormat::Int => {
                 let max_val = (1i32 << (bits_per_sample - 1)) as f32;
-                reader.into_samples::<i32>()
+                reader
+                    .into_samples::<i32>()
                     .filter_map(Result::ok)
                     .map(|s| s as f32 / max_val)
                     .collect()

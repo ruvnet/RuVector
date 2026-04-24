@@ -8,9 +8,7 @@ use ruvector_edge::Transport;
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_env_filter("info")
-        .init();
+    tracing_subscriber::fmt().with_env_filter("info").init();
 
     println!("🚀 RuVector Edge Swarm Demo\n");
 
@@ -68,7 +66,12 @@ async fn main() -> Result<()> {
 
     // Simulate pattern sync (in real implementation, this goes over network)
     for worker in &workers {
-        let state = worker.get_best_action("edit_ts", &["coder".to_string(), "typescript-developer".to_string()]).await;
+        let state = worker
+            .get_best_action(
+                "edit_ts",
+                &["coder".to_string(), "typescript-developer".to_string()],
+            )
+            .await;
         if let Some((action, confidence)) = state {
             println!(
                 "  {} best action for edit_ts: {} (confidence: {:.1}%)",
@@ -83,7 +86,10 @@ async fn main() -> Result<()> {
 
     // Store some vector memories
     let embeddings = vec![
-        ("Authentication flow implementation", vec![0.1, 0.2, 0.8, 0.3]),
+        (
+            "Authentication flow implementation",
+            vec![0.1, 0.2, 0.8, 0.3],
+        ),
         ("Database connection pooling", vec![0.4, 0.1, 0.2, 0.9]),
         ("API rate limiting logic", vec![0.3, 0.7, 0.1, 0.4]),
     ];

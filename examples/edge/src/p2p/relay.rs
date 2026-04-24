@@ -2,9 +2,9 @@
 //!
 //! Tracks relay health, latency, and provides automatic failover
 
-use std::collections::HashMap;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Relay health status
@@ -63,7 +63,8 @@ impl RelayManager {
 
     /// Get list of healthy relays
     pub fn get_healthy_relays(&self) -> Vec<String> {
-        self.relays.read()
+        self.relays
+            .read()
             .values()
             .filter(|r| r.healthy)
             .map(|r| r.url.clone())
@@ -72,10 +73,7 @@ impl RelayManager {
 
     /// Get all relays (for initial connection attempts)
     pub fn get_all_relays(&self) -> Vec<String> {
-        self.relays.read()
-            .keys()
-            .cloned()
-            .collect()
+        self.relays.read().keys().cloned().collect()
     }
 
     /// Mark relay as successful
@@ -98,7 +96,11 @@ impl RelayManager {
 
             if relay.failures >= self.max_failures {
                 relay.healthy = false;
-                tracing::warn!("Relay marked unhealthy: {} (failures: {})", url, relay.failures);
+                tracing::warn!(
+                    "Relay marked unhealthy: {} (failures: {})",
+                    url,
+                    relay.failures
+                );
             }
         }
     }
@@ -124,7 +126,11 @@ impl RelayManager {
         let avg_latency = if healthy_relays.is_empty() {
             0
         } else {
-            healthy_relays.iter().map(|r| r.latency_ms as u64).sum::<u64>() / healthy_relays.len() as u64
+            healthy_relays
+                .iter()
+                .map(|r| r.latency_ms as u64)
+                .sum::<u64>()
+                / healthy_relays.len() as u64
         };
 
         RelayMetrics {

@@ -110,9 +110,9 @@ impl StorageTier {
     #[must_use]
     pub const fn bytes_per_dim(&self) -> usize {
         match self {
-            Self::Hot => 4,   // f32
-            Self::Warm => 2,  // f16
-            Self::Cold => 1,  // i8
+            Self::Hot => 4,  // f32
+            Self::Warm => 2, // f16
+            Self::Cold => 1, // i8
         }
     }
 
@@ -186,11 +186,7 @@ impl Embedding {
     /// Get the L2 norm of the embedding vector
     #[must_use]
     pub fn norm(&self) -> f32 {
-        self.vector
-            .iter()
-            .map(|x| x * x)
-            .sum::<f32>()
-            .sqrt()
+        self.vector.iter().map(|x| x * x).sum::<f32>().sqrt()
     }
 
     /// Check if the embedding is properly L2 normalized (norm close to 1.0)
@@ -262,7 +258,11 @@ pub struct ModelVersion {
 impl ModelVersion {
     /// Create a new model version
     #[must_use]
-    pub fn new(name: impl Into<String>, version: impl Into<String>, variant: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        version: impl Into<String>,
+        variant: impl Into<String>,
+    ) -> Self {
         Self {
             name: name.into(),
             version: version.into(),
@@ -561,7 +561,8 @@ mod tests {
         let segment_id = SegmentId::new();
         let mut vector = vec![0.0; EMBEDDING_DIM];
         vector[0] = 1.0; // Unit vector
-        let embedding = Embedding::new(segment_id, vector, "perch-v2-2.0.0-base".to_string()).unwrap();
+        let embedding =
+            Embedding::new(segment_id, vector, "perch-v2-2.0.0-base".to_string()).unwrap();
         assert!((embedding.norm() - 1.0).abs() < 1e-6);
         assert!(embedding.is_normalized());
     }

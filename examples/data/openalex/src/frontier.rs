@@ -203,11 +203,8 @@ impl FrontierRadar {
 
                 if growth > self.min_growth_rate {
                     // Calculate coherence shift
-                    let coherence_delta = self.compute_topic_coherence_delta(
-                        topic_id,
-                        prev_graph,
-                        curr_graph,
-                    );
+                    let coherence_delta =
+                        self.compute_topic_coherence_delta(topic_id, prev_graph, curr_graph);
 
                     if coherence_delta.abs() > self.min_coherence_shift {
                         // Calculate citation momentum
@@ -222,10 +219,7 @@ impl FrontierRadar {
                             FrontierEvidence {
                                 evidence_type: "growth_rate".to_string(),
                                 value: growth,
-                                explanation: format!(
-                                    "{:.0}% increase in works",
-                                    growth * 100.0
-                                ),
+                                explanation: format!("{:.0}% increase in works", growth * 100.0),
                             },
                             FrontierEvidence {
                                 evidence_type: "coherence_delta".to_string(),
@@ -246,15 +240,13 @@ impl FrontierRadar {
                             evidence.push(FrontierEvidence {
                                 evidence_type: "citation_momentum".to_string(),
                                 value: citation_momentum,
-                                explanation: format!(
-                                    "+{:.1} avg citations",
-                                    citation_momentum
-                                ),
+                                explanation: format!("+{:.1} avg citations", citation_momentum),
                             });
                         }
 
                         // Calculate confidence based on evidence strength
-                        let confidence = self.calculate_confidence(growth, coherence_delta, citation_momentum);
+                        let confidence =
+                            self.calculate_confidence(growth, coherence_delta, citation_momentum);
 
                         if confidence >= 0.3 {
                             frontiers.push(EmergingFrontier {

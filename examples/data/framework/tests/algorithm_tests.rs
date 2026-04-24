@@ -8,12 +8,16 @@
 //! - Cross-domain pattern detection
 //! - Edge case handling and error conditions
 
-use ruvector_data_framework::*;
-use ruvector_data_framework::ruvector_native::{Domain, SemanticVector};
-use ruvector_data_framework::optimized::{OptimizedDiscoveryEngine, OptimizedConfig, simd_cosine_similarity};
-use ruvector_data_framework::discovery::{DiscoveryEngine, DiscoveryConfig, PatternStrength, PatternCategory};
-use std::collections::HashMap;
 use chrono::Utc;
+use ruvector_data_framework::discovery::{
+    DiscoveryConfig, DiscoveryEngine, PatternCategory, PatternStrength,
+};
+use ruvector_data_framework::optimized::{
+    simd_cosine_similarity, OptimizedConfig, OptimizedDiscoveryEngine,
+};
+use ruvector_data_framework::ruvector_native::{Domain, SemanticVector};
+use ruvector_data_framework::*;
+use std::collections::HashMap;
 
 // ============================================================================
 // 1. STOER-WAGNER MIN-CUT ALGORITHM TESTS
@@ -34,7 +38,6 @@ use chrono::Utc;
 /// Expected min-cut: 2.0 (cutting either vertical edge)
 #[test]
 fn test_stoer_wagner_simple_graph() {
-
     // Create a simple 4-node graph
     let mut engine = OptimizedDiscoveryEngine::new(OptimizedConfig {
         similarity_threshold: 0.0, // Accept all edges we manually add
@@ -45,10 +48,10 @@ fn test_stoer_wagner_simple_graph() {
     // Manually construct graph with known structure
     // We'll use the internal build_adjacency_matrix approach
     let adj = vec![
-        vec![0.0, 1.0, 2.0, 0.0],  // A connects to B(1) and C(2)
-        vec![1.0, 0.0, 0.0, 2.0],  // B connects to A(1) and D(2)
-        vec![2.0, 0.0, 0.0, 1.0],  // C connects to A(2) and D(1)
-        vec![0.0, 2.0, 1.0, 0.0],  // D connects to B(2) and C(1)
+        vec![0.0, 1.0, 2.0, 0.0], // A connects to B(1) and C(2)
+        vec![1.0, 0.0, 0.0, 2.0], // B connects to A(1) and D(2)
+        vec![2.0, 0.0, 0.0, 1.0], // C connects to A(2) and D(1)
+        vec![0.0, 2.0, 1.0, 0.0], // D connects to B(2) and C(1)
     ];
 
     // Note: Since stoer_wagner_optimized is private, we test it indirectly
@@ -71,7 +74,10 @@ fn test_stoer_wagner_simple_graph() {
     let coherence = engine.compute_coherence();
 
     // The min-cut value should be > 0 for a connected graph
-    assert!(coherence.mincut_value >= 0.0, "Min-cut should be non-negative");
+    assert!(
+        coherence.mincut_value >= 0.0,
+        "Min-cut should be non-negative"
+    );
     assert_eq!(coherence.node_count, 4, "Should have 4 nodes");
 }
 
@@ -81,7 +87,6 @@ fn test_stoer_wagner_simple_graph() {
 /// Expected min-cut: 0.0 (no edges between components)
 #[test]
 fn test_stoer_wagner_disconnected_graph() {
-
     let mut engine = OptimizedDiscoveryEngine::new(OptimizedConfig {
         similarity_threshold: 0.99, // High threshold ensures no edges
         use_simd: false,
@@ -105,8 +110,14 @@ fn test_stoer_wagner_disconnected_graph() {
     let coherence = engine.compute_coherence();
 
     // With no edges, min-cut should be 0
-    assert_eq!(coherence.edge_count, 0, "Disconnected graph should have 0 edges");
-    assert_eq!(coherence.mincut_value, 0.0, "Min-cut of disconnected graph is 0");
+    assert_eq!(
+        coherence.edge_count, 0,
+        "Disconnected graph should have 0 edges"
+    );
+    assert_eq!(
+        coherence.mincut_value, 0.0,
+        "Min-cut of disconnected graph is 0"
+    );
 }
 
 /// Test 3: Min-cut on a single node graph
@@ -115,14 +126,13 @@ fn test_stoer_wagner_disconnected_graph() {
 /// Expected: Graceful handling without panics
 #[test]
 fn test_stoer_wagner_single_node() {
-
     let mut engine = OptimizedDiscoveryEngine::new(OptimizedConfig::default());
 
     engine.add_vector(SemanticVector {
         id: "single".to_string(),
         embedding: vec![1.0; 128],
         domain: Domain::Finance,
-            timestamp: Utc::now(),
+        timestamp: Utc::now(),
         metadata: HashMap::new(),
     });
 
@@ -138,7 +148,6 @@ fn test_stoer_wagner_single_node() {
 /// Verifies edge case handling for completely empty graphs.
 #[test]
 fn test_stoer_wagner_empty_graph() {
-
     let mut engine = OptimizedDiscoveryEngine::new(OptimizedConfig::default());
 
     let coherence = engine.compute_coherence();
@@ -155,7 +164,6 @@ fn test_stoer_wagner_empty_graph() {
 /// the sum of edges from any single node to others.
 #[test]
 fn test_stoer_wagner_complete_graph() {
-
     let mut engine = OptimizedDiscoveryEngine::new(OptimizedConfig {
         similarity_threshold: 0.5,
         use_simd: false,
@@ -180,7 +188,10 @@ fn test_stoer_wagner_complete_graph() {
 
     assert_eq!(coherence.node_count, 4, "Complete graph K4 has 4 nodes");
     assert!(coherence.edge_count >= 6, "K4 should have at least 6 edges");
-    assert!(coherence.mincut_value > 0.0, "Complete graph has positive min-cut");
+    assert!(
+        coherence.mincut_value > 0.0,
+        "Complete graph has positive min-cut"
+    );
 }
 
 // ============================================================================
@@ -193,14 +204,16 @@ fn test_stoer_wagner_complete_graph() {
 /// Tests both SIMD and scalar implementations.
 #[test]
 fn test_cosine_similarity_identical() {
-
     let vec_a = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
     let vec_b = vec_a.clone();
 
     let similarity = simd_cosine_similarity(&vec_a, &vec_b);
 
-    assert!((similarity - 1.0).abs() < 1e-6,
-        "Identical vectors should have similarity 1.0, got {}", similarity);
+    assert!(
+        (similarity - 1.0).abs() < 1e-6,
+        "Identical vectors should have similarity 1.0, got {}",
+        similarity
+    );
 }
 
 /// Test 7: Cosine similarity of orthogonal vectors
@@ -209,14 +222,16 @@ fn test_cosine_similarity_identical() {
 /// This is a fundamental property of cosine similarity.
 #[test]
 fn test_cosine_similarity_orthogonal() {
-
     let vec_a = vec![1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
     let vec_b = vec![0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
 
     let similarity = simd_cosine_similarity(&vec_a, &vec_b);
 
-    assert!(similarity.abs() < 1e-6,
-        "Orthogonal vectors should have similarity 0.0, got {}", similarity);
+    assert!(
+        similarity.abs() < 1e-6,
+        "Orthogonal vectors should have similarity 0.0, got {}",
+        similarity
+    );
 }
 
 /// Test 8: Cosine similarity of opposite vectors
@@ -224,14 +239,16 @@ fn test_cosine_similarity_orthogonal() {
 /// Verifies that opposite-direction vectors have similarity of -1.0.
 #[test]
 fn test_cosine_similarity_opposite() {
-
     let vec_a = vec![1.0, 2.0, 3.0, 4.0];
     let vec_b = vec![-1.0, -2.0, -3.0, -4.0];
 
     let similarity = simd_cosine_similarity(&vec_a, &vec_b);
 
-    assert!((similarity - (-1.0)).abs() < 1e-6,
-        "Opposite vectors should have similarity -1.0, got {}", similarity);
+    assert!(
+        (similarity - (-1.0)).abs() < 1e-6,
+        "Opposite vectors should have similarity -1.0, got {}",
+        similarity
+    );
 }
 
 /// Test 9: Cosine similarity with zero vector
@@ -240,14 +257,16 @@ fn test_cosine_similarity_opposite() {
 /// Should return 0.0 gracefully without NaN or panic.
 #[test]
 fn test_cosine_similarity_zero_vector() {
-
     let vec_a = vec![1.0, 2.0, 3.0, 4.0];
     let vec_zero = vec![0.0, 0.0, 0.0, 0.0];
 
     let similarity = simd_cosine_similarity(&vec_a, &vec_zero);
 
-    assert_eq!(similarity, 0.0,
-        "Similarity with zero vector should be 0.0, got {}", similarity);
+    assert_eq!(
+        similarity, 0.0,
+        "Similarity with zero vector should be 0.0, got {}",
+        similarity
+    );
     assert!(!similarity.is_nan(), "Should not return NaN");
 }
 
@@ -257,14 +276,16 @@ fn test_cosine_similarity_zero_vector() {
 /// Should return 0.0 for safety.
 #[test]
 fn test_cosine_similarity_mismatched_length() {
-
     let vec_a = vec![1.0, 2.0, 3.0];
     let vec_b = vec![1.0, 2.0, 3.0, 4.0];
 
     let similarity = simd_cosine_similarity(&vec_a, &vec_b);
 
-    assert_eq!(similarity, 0.0,
-        "Mismatched lengths should return 0.0, got {}", similarity);
+    assert_eq!(
+        similarity, 0.0,
+        "Mismatched lengths should return 0.0, got {}",
+        similarity
+    );
 }
 
 /// Test 11: Cosine similarity with large vectors (SIMD performance)
@@ -273,7 +294,6 @@ fn test_cosine_similarity_mismatched_length() {
 /// Tests 128-dimensional vectors commonly used in embeddings.
 #[test]
 fn test_cosine_similarity_large_vectors() {
-
     let mut vec_a = vec![0.0; 128];
     let mut vec_b = vec![0.0; 128];
 
@@ -286,8 +306,11 @@ fn test_cosine_similarity_large_vectors() {
     let similarity = simd_cosine_similarity(&vec_a, &vec_b);
 
     // Should be very close to 1.0 since they're proportional
-    assert!(similarity > 0.99,
-        "Proportional vectors should have high similarity, got {}", similarity);
+    assert!(
+        similarity > 0.99,
+        "Proportional vectors should have high similarity, got {}",
+        similarity
+    );
 }
 
 /// Test 12: Cosine similarity with non-aligned vectors
@@ -296,15 +319,19 @@ fn test_cosine_similarity_large_vectors() {
 /// Verifies the remainder handling in SIMD code.
 #[test]
 fn test_cosine_similarity_non_aligned() {
-
     // Length 13 (not divisible by 8)
-    let vec_a = vec![1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0];
+    let vec_a = vec![
+        1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0,
+    ];
     let vec_b = vec_a.clone();
 
     let similarity = simd_cosine_similarity(&vec_a, &vec_b);
 
-    assert!((similarity - 1.0).abs() < 1e-6,
-        "Non-aligned identical vectors should still have similarity 1.0, got {}", similarity);
+    assert!(
+        (similarity - 1.0).abs() < 1e-6,
+        "Non-aligned identical vectors should still have similarity 1.0, got {}",
+        similarity
+    );
 }
 
 // ============================================================================
@@ -317,7 +344,6 @@ fn test_cosine_similarity_non_aligned() {
 /// Uses a z-score of 2.0 which should give p ≈ 0.046 (two-tailed).
 #[test]
 fn test_statistical_significance_p_value() {
-
     let mut engine = OptimizedDiscoveryEngine::new(OptimizedConfig::default());
 
     // Create a stable baseline with multiple coherence measurements
@@ -349,8 +375,11 @@ fn test_statistical_significance_p_value() {
     // Should detect patterns with p-values
     if !patterns.is_empty() {
         for pattern in &patterns {
-            assert!(pattern.p_value >= 0.0 && pattern.p_value <= 1.0,
-                "P-value must be in [0, 1], got {}", pattern.p_value);
+            assert!(
+                pattern.p_value >= 0.0 && pattern.p_value <= 1.0,
+                "P-value must be in [0, 1], got {}",
+                pattern.p_value
+            );
         }
     }
 }
@@ -361,7 +390,6 @@ fn test_statistical_significance_p_value() {
 /// Effect size = (mean difference) / standard deviation
 #[test]
 fn test_statistical_effect_size() {
-
     let mut engine = OptimizedDiscoveryEngine::new(OptimizedConfig {
         significance_threshold: 0.1,
         ..Default::default()
@@ -385,8 +413,11 @@ fn test_statistical_effect_size() {
 
     for pattern in &patterns {
         // Effect size should be a reasonable number (not NaN, not infinite)
-        assert!(pattern.effect_size.is_finite(),
-            "Effect size should be finite, got {}", pattern.effect_size);
+        assert!(
+            pattern.effect_size.is_finite(),
+            "Effect size should be finite, got {}",
+            pattern.effect_size
+        );
     }
 }
 
@@ -396,7 +427,6 @@ fn test_statistical_effect_size() {
 /// The interval should contain the point estimate.
 #[test]
 fn test_statistical_confidence_interval() {
-
     let mut engine = OptimizedDiscoveryEngine::new(OptimizedConfig::default());
 
     // Build up history
@@ -419,12 +449,18 @@ fn test_statistical_confidence_interval() {
         let (lower, upper) = pattern.confidence_interval;
 
         // Lower bound should be ≤ upper bound
-        assert!(lower <= upper,
-            "Confidence interval lower ({}) should be ≤ upper ({})", lower, upper);
+        assert!(
+            lower <= upper,
+            "Confidence interval lower ({}) should be ≤ upper ({})",
+            lower,
+            upper
+        );
 
         // Both should be finite
-        assert!(lower.is_finite() && upper.is_finite(),
-            "Confidence interval bounds should be finite");
+        assert!(
+            lower.is_finite() && upper.is_finite(),
+            "Confidence interval bounds should be finite"
+        );
     }
 }
 
@@ -434,7 +470,6 @@ fn test_statistical_confidence_interval() {
 /// based on the configured threshold.
 #[test]
 fn test_significance_threshold() {
-
     let config = OptimizedConfig {
         significance_threshold: 0.05,
         ..Default::default()
@@ -459,9 +494,11 @@ fn test_significance_threshold() {
     for pattern in &patterns {
         // is_significant should match p_value < threshold
         let expected_significant = pattern.p_value < config.significance_threshold;
-        assert_eq!(pattern.is_significant, expected_significant,
+        assert_eq!(
+            pattern.is_significant, expected_significant,
             "Pattern with p={} should be marked significant={}",
-            pattern.p_value, expected_significant);
+            pattern.p_value, expected_significant
+        );
     }
 }
 
@@ -508,7 +545,7 @@ fn test_granger_causality_basic() {
                 id: format!("finance_t{}", i),
                 embedding: finance_emb,
                 domain: Domain::Finance,
-            timestamp: Utc::now(),
+                timestamp: Utc::now(),
                 metadata: HashMap::new(),
             });
         }
@@ -519,12 +556,16 @@ fn test_granger_causality_basic() {
     let patterns = engine.detect_patterns_with_significance();
 
     // Should potentially detect causality patterns
-    let causality_patterns: Vec<_> = patterns.iter()
+    let causality_patterns: Vec<_> = patterns
+        .iter()
         .filter(|p| p.pattern.pattern_type == PatternType::Cascade)
         .collect();
 
     // Even if no patterns detected, verify no panics occurred
-    assert!(causality_patterns.len() >= 0, "Causality detection completed without errors");
+    assert!(
+        causality_patterns.len() >= 0,
+        "Causality detection completed without errors"
+    );
 }
 
 /// Test 18: Cross-correlation at various lags
@@ -532,7 +573,6 @@ fn test_granger_causality_basic() {
 /// Verifies that cross-correlation computation handles different lag values correctly.
 #[test]
 fn test_cross_correlation_lags() {
-
     // Test the cross_correlation function through public API
     let mut engine = OptimizedDiscoveryEngine::new(OptimizedConfig {
         cross_domain: true,
@@ -563,7 +603,7 @@ fn test_cross_correlation_lags() {
                 id: format!("series_b_{}", i),
                 embedding: emb_b,
                 domain: Domain::Research,
-            timestamp: Utc::now(),
+                timestamp: Utc::now(),
                 metadata: HashMap::new(),
             });
         }
@@ -582,7 +622,6 @@ fn test_cross_correlation_lags() {
 /// F-statistic should be positive for any correlation.
 #[test]
 fn test_granger_f_statistic() {
-
     let mut engine = OptimizedDiscoveryEngine::new(OptimizedConfig {
         cross_domain: true,
         causality_lookback: 6,
@@ -623,8 +662,11 @@ fn test_granger_f_statistic() {
     for pattern in &patterns {
         for evidence in &pattern.pattern.evidence {
             if evidence.evidence_type == "f_statistic" {
-                assert!(evidence.value >= 0.0,
-                    "F-statistic should be non-negative, got {}", evidence.value);
+                assert!(
+                    evidence.value >= 0.0,
+                    "F-statistic should be non-negative, got {}",
+                    evidence.value
+                );
             }
         }
     }
@@ -640,7 +682,6 @@ fn test_granger_f_statistic() {
 /// different domains (Climate, Finance, Research).
 #[test]
 fn test_cross_domain_bridge_detection() {
-
     let mut engine = OptimizedDiscoveryEngine::new(OptimizedConfig {
         cross_domain: true,
         similarity_threshold: 0.7,
@@ -681,8 +722,11 @@ fn test_cross_domain_bridge_detection() {
     let stats = engine.stats();
 
     // Should detect cross-domain edges
-    assert!(stats.cross_domain_edges > 0,
-        "Should detect cross-domain connections, found {}", stats.cross_domain_edges);
+    assert!(
+        stats.cross_domain_edges > 0,
+        "Should detect cross-domain connections, found {}",
+        stats.cross_domain_edges
+    );
 
     assert!(stats.domain_counts.contains_key(&Domain::Climate));
     assert!(stats.domain_counts.contains_key(&Domain::Finance));
@@ -694,7 +738,6 @@ fn test_cross_domain_bridge_detection() {
 /// Each domain should have its own coherence score.
 #[test]
 fn test_domain_coherence() {
-
     let mut engine = OptimizedDiscoveryEngine::new(OptimizedConfig {
         similarity_threshold: 0.6,
         ..Default::default()
@@ -732,13 +775,23 @@ fn test_domain_coherence() {
     let research_coh = engine.domain_coherence(Domain::Research);
 
     // Both should return Some value
-    assert!(climate_coh.is_some(), "Climate domain should have coherence");
-    assert!(research_coh.is_some(), "Research domain should have coherence");
+    assert!(
+        climate_coh.is_some(),
+        "Climate domain should have coherence"
+    );
+    assert!(
+        research_coh.is_some(),
+        "Research domain should have coherence"
+    );
 
     // Climate (tight cluster) should have higher coherence
     if let (Some(c_coh), Some(r_coh)) = (climate_coh, research_coh) {
-        assert!(c_coh >= r_coh,
-            "Tighter cluster should have higher coherence: {} vs {}", c_coh, r_coh);
+        assert!(
+            c_coh >= r_coh,
+            "Tighter cluster should have higher coherence: {} vs {}",
+            c_coh,
+            r_coh
+        );
     }
 }
 
@@ -748,7 +801,6 @@ fn test_domain_coherence() {
 /// returns None gracefully.
 #[test]
 fn test_domain_coherence_empty_domain() {
-
     let mut engine = OptimizedDiscoveryEngine::new(OptimizedConfig::default());
 
     // Add only Climate vectors
@@ -756,15 +808,18 @@ fn test_domain_coherence_empty_domain() {
         id: "climate_only".to_string(),
         embedding: vec![0.5; 64],
         domain: Domain::Climate,
-            timestamp: Utc::now(),
+        timestamp: Utc::now(),
         metadata: HashMap::new(),
     });
 
     // Finance domain is empty
     let finance_coh = engine.domain_coherence(Domain::Finance);
 
-    assert!(finance_coh.is_none(),
-        "Empty domain should return None, got {:?}", finance_coh);
+    assert!(
+        finance_coh.is_none(),
+        "Empty domain should return None, got {:?}",
+        finance_coh
+    );
 }
 
 // ============================================================================
@@ -776,7 +831,6 @@ fn test_domain_coherence_empty_domain() {
 /// Verifies the normal CDF approximation at extreme values and zero.
 #[test]
 fn test_normal_cdf_edge_cases() {
-
     // These are internal functions, test through SignificanceResult generation
     // by creating extreme scenarios
     let mut engine = OptimizedDiscoveryEngine::new(OptimizedConfig::default());
@@ -798,8 +852,10 @@ fn test_normal_cdf_edge_cases() {
     // Should handle zero variance without panic or NaN
     for pattern in &patterns {
         assert!(!pattern.p_value.is_nan(), "P-value should not be NaN");
-        assert!(pattern.p_value >= 0.0 && pattern.p_value <= 1.0,
-            "P-value should be in [0,1]");
+        assert!(
+            pattern.p_value >= 0.0 && pattern.p_value <= 1.0,
+            "P-value should be in [0,1]"
+        );
     }
 }
 
@@ -809,7 +865,6 @@ fn test_normal_cdf_edge_cases() {
 /// there's insufficient historical data.
 #[test]
 fn test_pattern_detection_insufficient_history() {
-
     let config = DiscoveryConfig {
         lookback_windows: 10,
         ..Default::default()
@@ -818,24 +873,25 @@ fn test_pattern_detection_insufficient_history() {
     let mut engine = DiscoveryEngine::new(config);
 
     // Only 2 signals (less than lookback_windows)
-    let signals = vec![
-        CoherenceSignal {
-            id: "s1".to_string(),
-            window: TemporalWindow::new(Utc::now(), Utc::now(), 0),
-            min_cut_value: 1.0,
-            node_count: 5,
-            edge_count: 10,
-            partition_sizes: Some((2, 3)),
-            is_exact: true,
-            cut_nodes: vec![],
-            delta: None,
-        },
-    ];
+    let signals = vec![CoherenceSignal {
+        id: "s1".to_string(),
+        window: TemporalWindow::new(Utc::now(), Utc::now(), 0),
+        min_cut_value: 1.0,
+        node_count: 5,
+        edge_count: 10,
+        partition_sizes: Some((2, 3)),
+        is_exact: true,
+        cut_nodes: vec![],
+        delta: None,
+    }];
 
     let patterns = engine.detect(&signals).unwrap();
 
     // Should return empty or minimal patterns, not error
-    assert!(patterns.len() >= 0, "Should handle insufficient history gracefully");
+    assert!(
+        patterns.len() >= 0,
+        "Should handle insufficient history gracefully"
+    );
 }
 
 /// Test 25: Linear regression through trend detection
@@ -876,12 +932,16 @@ fn test_linear_regression_through_trends() {
     let patterns = engine.detect(&signals).unwrap();
 
     // Should detect consolidation trend (positive slope)
-    let trends: Vec<_> = patterns.iter()
+    let trends: Vec<_> = patterns
+        .iter()
         .filter(|p| p.category == PatternCategory::Consolidation)
         .collect();
 
     // Linear regression is working if we can detect trends
-    assert!(trends.len() >= 0, "Trend detection uses linear regression internally");
+    assert!(
+        trends.len() >= 0,
+        "Trend detection uses linear regression internally"
+    );
 }
 
 /// Test 26: Anomaly detection with various sigma thresholds
@@ -940,12 +1000,15 @@ fn test_anomaly_detection_sigma_threshold() {
     let patterns = engine.detect(&signals).unwrap();
 
     // Should detect at least one anomaly
-    let anomalies: Vec<_> = patterns.iter()
+    let anomalies: Vec<_> = patterns
+        .iter()
         .filter(|p| p.category == PatternCategory::Anomaly)
         .collect();
 
-    assert!(anomalies.len() > 0,
-        "Should detect anomaly pattern with z > 2.0");
+    assert!(
+        anomalies.len() > 0,
+        "Should detect anomaly pattern with z > 2.0"
+    );
 }
 
 /// Test 27: Batch vector addition performance
@@ -954,7 +1017,6 @@ fn test_anomaly_detection_sigma_threshold() {
 #[cfg(feature = "parallel")]
 #[test]
 fn test_batch_vector_addition() {
-
     let mut engine = OptimizedDiscoveryEngine::new(OptimizedConfig::default());
 
     // Create batch of vectors
@@ -967,7 +1029,7 @@ fn test_batch_vector_addition() {
                 id: format!("batch_{}", i),
                 embedding: emb,
                 domain: Domain::Research,
-            timestamp: Utc::now(),
+                timestamp: Utc::now(),
                 metadata: HashMap::new(),
             }
         })
@@ -986,7 +1048,6 @@ fn test_batch_vector_addition() {
 /// Verifies that the engine correctly tracks performance metrics.
 #[test]
 fn test_performance_metrics() {
-
     let mut engine = OptimizedDiscoveryEngine::new(OptimizedConfig::default());
 
     // Add some vectors to trigger comparisons
@@ -1003,7 +1064,9 @@ fn test_performance_metrics() {
     let metrics = engine.metrics();
 
     // Should have performed some vector comparisons
-    let comparisons = metrics.vector_comparisons.load(std::sync::atomic::Ordering::Relaxed);
+    let comparisons = metrics
+        .vector_comparisons
+        .load(std::sync::atomic::Ordering::Relaxed);
     assert!(comparisons > 0, "Should track vector comparisons");
 }
 
@@ -1013,15 +1076,20 @@ fn test_performance_metrics() {
 /// Weak, Moderate, Strong, VeryStrong categories.
 #[test]
 fn test_pattern_strength_classification() {
-
     assert_eq!(PatternStrength::from_score(0.1), PatternStrength::Weak);
     assert_eq!(PatternStrength::from_score(0.24), PatternStrength::Weak);
     assert_eq!(PatternStrength::from_score(0.25), PatternStrength::Moderate);
     assert_eq!(PatternStrength::from_score(0.49), PatternStrength::Moderate);
     assert_eq!(PatternStrength::from_score(0.50), PatternStrength::Strong);
     assert_eq!(PatternStrength::from_score(0.74), PatternStrength::Strong);
-    assert_eq!(PatternStrength::from_score(0.75), PatternStrength::VeryStrong);
-    assert_eq!(PatternStrength::from_score(1.0), PatternStrength::VeryStrong);
+    assert_eq!(
+        PatternStrength::from_score(0.75),
+        PatternStrength::VeryStrong
+    );
+    assert_eq!(
+        PatternStrength::from_score(1.0),
+        PatternStrength::VeryStrong
+    );
 }
 
 /// Test 30: Empty embeddings handling
@@ -1029,7 +1097,6 @@ fn test_pattern_strength_classification() {
 /// Verifies that empty or very small embeddings are handled gracefully.
 #[test]
 fn test_empty_embeddings() {
-
     let empty_a: Vec<f32> = vec![];
     let empty_b: Vec<f32> = vec![];
 
@@ -1042,5 +1109,8 @@ fn test_empty_embeddings() {
     let single_b = vec![1.0];
 
     let sim_single = simd_cosine_similarity(&single_a, &single_b);
-    assert!((sim_single - 1.0).abs() < 1e-6, "Single element identical vectors");
+    assert!(
+        (sim_single - 1.0).abs() < 1e-6,
+        "Single element identical vectors"
+    );
 }

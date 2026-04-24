@@ -253,21 +253,26 @@ impl NoaaClient {
 
                 Ok((observations, next_cursor))
             }
-            StatusCode::UNAUTHORIZED => Err(ClimateError::Api("Invalid or missing API token".to_string())),
-            StatusCode::TOO_MANY_REQUESTS => Err(ClimateError::Api("Rate limit exceeded".to_string())),
+            StatusCode::UNAUTHORIZED => Err(ClimateError::Api(
+                "Invalid or missing API token".to_string(),
+            )),
+            StatusCode::TOO_MANY_REQUESTS => {
+                Err(ClimateError::Api("Rate limit exceeded".to_string()))
+            }
             status => Err(ClimateError::Api(format!("Unexpected status: {}", status))),
         }
     }
 
     /// Convert GHCN observation to generic format
-    fn convert_observation(&self, obs: GhcnObservation) -> Result<ClimateObservation, ClimateError> {
+    fn convert_observation(
+        &self,
+        obs: GhcnObservation,
+    ) -> Result<ClimateObservation, ClimateError> {
         // Parse date
-        let timestamp = DateTime::parse_from_str(
-            &format!("{}T00:00:00Z", obs.date),
-            "%Y-%m-%dT%H:%M:%SZ",
-        )
-        .map(|dt| dt.with_timezone(&Utc))
-        .map_err(|_| ClimateError::DataFormat(format!("Invalid date: {}", obs.date)))?;
+        let timestamp =
+            DateTime::parse_from_str(&format!("{}T00:00:00Z", obs.date), "%Y-%m-%dT%H:%M:%SZ")
+                .map(|dt| dt.with_timezone(&Utc))
+                .map_err(|_| ClimateError::DataFormat(format!("Invalid date: {}", obs.date)))?;
 
         // Parse quality flag
         let quality = if obs.attributes.contains("S") {
@@ -291,7 +296,10 @@ impl NoaaClient {
     }
 
     /// Fetch stations in a bounding box
-    pub async fn fetch_stations(&self, bounds: BoundingBox) -> Result<Vec<GhcnStation>, ClimateError> {
+    pub async fn fetch_stations(
+        &self,
+        bounds: BoundingBox,
+    ) -> Result<Vec<GhcnStation>, ClimateError> {
         let params = format!(
             "datasetid=GHCND&extent={},{},{},{}&limit=1000",
             bounds.min_lat, bounds.min_lon, bounds.max_lat, bounds.max_lon

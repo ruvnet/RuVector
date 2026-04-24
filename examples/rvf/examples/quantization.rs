@@ -6,13 +6,12 @@
 //! 3. Binary quantization (Cold tier): fp32 -> 1-bit, 32x compression
 //! 4. Count-Min Sketch: track access patterns, assign temperature tiers
 
-use rvf_quant::{
-    ScalarQuantizer, ProductQuantizer, CountMinSketch,
-    encode_binary, decode_binary, hamming_distance,
-    TemperatureTier,
-};
 use rvf_quant::tier::assign_tier;
 use rvf_quant::traits::Quantizer;
+use rvf_quant::{
+    decode_binary, encode_binary, hamming_distance, CountMinSketch, ProductQuantizer,
+    ScalarQuantizer, TemperatureTier,
+};
 
 /// LCG-based pseudo-random vector generator.
 fn random_vectors(n: usize, dim: usize, seed: u64) -> Vec<Vec<f32>> {
@@ -21,7 +20,9 @@ fn random_vectors(n: usize, dim: usize, seed: u64) -> Vec<Vec<f32>> {
         .map(|_| {
             (0..dim)
                 .map(|_| {
-                    s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                    s = s
+                        .wrapping_mul(6364136223846793005)
+                        .wrapping_add(1442695040888963407);
                     ((s >> 33) as f32) / (u32::MAX as f32) - 0.5
                 })
                 .collect()
@@ -74,7 +75,10 @@ fn main() {
     let sq_comp_bytes = sq_encoded.len(); // u8 per dim
     let sq_ratio = sq_orig_bytes as f32 / sq_comp_bytes as f32;
 
-    println!("  Encoded size: {} bytes (from {} bytes)", sq_comp_bytes, sq_orig_bytes);
+    println!(
+        "  Encoded size: {} bytes (from {} bytes)",
+        sq_comp_bytes, sq_orig_bytes
+    );
     println!("  Compression ratio: {:.1}x", sq_ratio);
     println!("  Reconstruction MSE: {:.8}", sq_error);
 
@@ -97,7 +101,10 @@ fn main() {
     let exact_dist: f32 = vectors[0]
         .iter()
         .zip(vectors[1].iter())
-        .map(|(x, y)| { let d = x - y; d * d })
+        .map(|(x, y)| {
+            let d = x - y;
+            d * d
+        })
         .sum();
     println!(
         "  Distance (quantized vs exact): {:.4} vs {:.4} (error: {:.4})",
@@ -111,8 +118,8 @@ fn main() {
     // ====================================================================
     println!("\n--- 2. Product Quantization (Warm Tier) ---");
 
-    let pq_m = 48;  // Number of subspaces (dim must be divisible by M)
-    let pq_k = 64;  // Centroids per subspace
+    let pq_m = 48; // Number of subspaces (dim must be divisible by M)
+    let pq_k = 64; // Centroids per subspace
     let pq_iters = 20;
 
     println!(
@@ -135,7 +142,10 @@ fn main() {
     let pq_comp_bytes = pq_encoded.len(); // 1 byte per subspace
     let pq_ratio = sq_orig_bytes as f32 / pq_comp_bytes as f32;
 
-    println!("  Encoded size: {} bytes (from {} bytes)", pq_comp_bytes, sq_orig_bytes);
+    println!(
+        "  Encoded size: {} bytes (from {} bytes)",
+        pq_comp_bytes, sq_orig_bytes
+    );
     println!("  Compression ratio: {:.1}x", pq_ratio);
     println!("  Reconstruction MSE: {:.8}", pq_error);
 
@@ -148,7 +158,10 @@ fn main() {
     let exact_dist_pq: f32 = query
         .iter()
         .zip(vectors[99].iter())
-        .map(|(x, y)| { let d = x - y; d * d })
+        .map(|(x, y)| {
+            let d = x - y;
+            d * d
+        })
         .sum();
     println!(
         "  ADC distance (query[42] -> vec[99]): {:.4} (exact: {:.4})",
@@ -180,7 +193,10 @@ fn main() {
     let bin_comp_bytes = bin_encoded.len();
     let bin_ratio = sq_orig_bytes as f32 / bin_comp_bytes as f32;
 
-    println!("  Encoded size: {} bytes (from {} bytes)", bin_comp_bytes, sq_orig_bytes);
+    println!(
+        "  Encoded size: {} bytes (from {} bytes)",
+        bin_comp_bytes, sq_orig_bytes
+    );
     println!("  Compression ratio: {:.1}x", bin_ratio);
     println!("  Reconstruction MSE: {:.8}", bin_error);
 
@@ -220,7 +236,10 @@ fn main() {
     }
 
     println!("\n  Access patterns:");
-    println!("  {:>8}  {:>10}  {:>10}  {:>8}", "Block", "Accesses", "Estimate", "Tier");
+    println!(
+        "  {:>8}  {:>10}  {:>10}  {:>8}",
+        "Block", "Accesses", "Estimate", "Tier"
+    );
     println!("  {:->8}  {:->10}  {:->10}  {:->8}", "", "", "", "");
 
     for &(block_id, true_count) in &access_patterns {
@@ -260,10 +279,7 @@ fn main() {
         "  {:>12}  {:>12}  {:>18}  {:>14}",
         "Tier", "Compression", "Avg MSE", "Bytes/Vector"
     );
-    println!(
-        "  {:->12}  {:->12}  {:->18}  {:->14}",
-        "", "", "", ""
-    );
+    println!("  {:->12}  {:->12}  {:->18}  {:->14}", "", "", "", "");
     println!(
         "  {:>12}  {:>11.1}x  {:>18.8}  {:>14}",
         "Hot (SQ)", sq_ratio, sq_avg_mse, sq_comp_bytes

@@ -6,8 +6,8 @@
 //! - Pairs of points (for Sigma-types)
 //! - Paths between points (for identity types)
 
-use std::fmt;
 use super::fresh_id;
+use std::fmt;
 
 /// Terms in HoTT (inhabitants of types)
 #[derive(Clone)]
@@ -16,22 +16,13 @@ pub enum Term {
     Var(String),
 
     /// Lambda abstraction: fun x => body
-    Lambda {
-        var: String,
-        body: Box<Term>,
-    },
+    Lambda { var: String, body: Box<Term> },
 
     /// Function application: f(x)
-    App {
-        func: Box<Term>,
-        arg: Box<Term>,
-    },
+    App { func: Box<Term>, arg: Box<Term> },
 
     /// Dependent pair: (a, b) where b may depend on a
-    Pair {
-        fst: Box<Term>,
-        snd: Box<Term>,
-    },
+    Pair { fst: Box<Term>, snd: Box<Term> },
 
     /// First projection: fst(p)
     Fst(Box<Term>),
@@ -117,27 +108,18 @@ pub enum Term {
     Abort(Box<Term>),
 
     /// Path composition: p . q
-    PathCompose {
-        left: Box<Term>,
-        right: Box<Term>,
-    },
+    PathCompose { left: Box<Term>, right: Box<Term> },
 
     /// Path inverse: p^(-1)
     PathInverse(Box<Term>),
 
     /// Apply function to path: ap f p
     /// If p : a = b and f : A -> B, then ap f p : f(a) = f(b)
-    Ap {
-        func: Box<Term>,
-        path: Box<Term>,
-    },
+    Ap { func: Box<Term>, path: Box<Term> },
 
     /// Dependent ap: apd f p
     /// If p : a = b and f : (x : A) -> P(x), then apd f p : transport P p (f a) = f b
-    Apd {
-        func: Box<Term>,
-        path: Box<Term>,
-    },
+    Apd { func: Box<Term>, path: Box<Term> },
 
     /// Circle base point
     CircleBase,
@@ -250,7 +232,13 @@ impl Term {
                 term: Box::new(term.subst(var, replacement)),
             },
 
-            Term::J { motive, base_case, left, right, path } => Term::J {
+            Term::J {
+                motive,
+                base_case,
+                left,
+                right,
+                path,
+            } => Term::J {
                 motive: Box::new(motive.subst(var, replacement)),
                 base_case: Box::new(base_case.subst(var, replacement)),
                 left: Box::new(left.subst(var, replacement)),
@@ -258,21 +246,34 @@ impl Term {
                 path: Box::new(path.subst(var, replacement)),
             },
 
-            Term::Star | Term::True | Term::False | Term::Zero |
-            Term::CircleBase | Term::CircleLoop |
-            Term::IntervalZero | Term::IntervalOne => self.clone(),
+            Term::Star
+            | Term::True
+            | Term::False
+            | Term::Zero
+            | Term::CircleBase
+            | Term::CircleLoop
+            | Term::IntervalZero
+            | Term::IntervalOne => self.clone(),
 
             Term::NatLit(_) | Term::InternalId(_) => self.clone(),
 
             Term::Succ(n) => Term::Succ(Box::new(n.subst(var, replacement))),
 
-            Term::NatRec { zero_case, succ_case, target } => Term::NatRec {
+            Term::NatRec {
+                zero_case,
+                succ_case,
+                target,
+            } => Term::NatRec {
                 zero_case: Box::new(zero_case.subst(var, replacement)),
                 succ_case: Box::new(succ_case.subst(var, replacement)),
                 target: Box::new(target.subst(var, replacement)),
             },
 
-            Term::If { cond, then_branch, else_branch } => Term::If {
+            Term::If {
+                cond,
+                then_branch,
+                else_branch,
+            } => Term::If {
                 cond: Box::new(cond.subst(var, replacement)),
                 then_branch: Box::new(then_branch.subst(var, replacement)),
                 else_branch: Box::new(else_branch.subst(var, replacement)),
@@ -281,7 +282,11 @@ impl Term {
             Term::Inl(t) => Term::Inl(Box::new(t.subst(var, replacement))),
             Term::Inr(t) => Term::Inr(Box::new(t.subst(var, replacement))),
 
-            Term::Case { scrutinee, left_case, right_case } => Term::Case {
+            Term::Case {
+                scrutinee,
+                left_case,
+                right_case,
+            } => Term::Case {
                 scrutinee: Box::new(scrutinee.subst(var, replacement)),
                 left_case: Box::new(left_case.subst(var, replacement)),
                 right_case: Box::new(right_case.subst(var, replacement)),
@@ -308,12 +313,20 @@ impl Term {
 
             Term::Truncate(t) => Term::Truncate(Box::new(t.subst(var, replacement))),
 
-            Term::Let { var: v, value, body } if v != var => Term::Let {
+            Term::Let {
+                var: v,
+                value,
+                body,
+            } if v != var => Term::Let {
                 var: v.clone(),
                 value: Box::new(value.subst(var, replacement)),
                 body: Box::new(body.subst(var, replacement)),
             },
-            Term::Let { var: v, value, body } => Term::Let {
+            Term::Let {
+                var: v,
+                value,
+                body,
+            } => Term::Let {
                 var: v.clone(),
                 value: Box::new(value.subst(var, replacement)),
                 body: body.clone(), // var is bound in body
@@ -358,9 +371,15 @@ impl Term {
                 snd.collect_free_vars(vars, bound);
             }
 
-            Term::Fst(p) | Term::Snd(p) | Term::Refl(p) |
-            Term::Succ(p) | Term::PathInverse(p) | Term::Truncate(p) |
-            Term::Inl(p) | Term::Inr(p) | Term::Abort(p) => {
+            Term::Fst(p)
+            | Term::Snd(p)
+            | Term::Refl(p)
+            | Term::Succ(p)
+            | Term::PathInverse(p)
+            | Term::Truncate(p)
+            | Term::Inl(p)
+            | Term::Inr(p)
+            | Term::Abort(p) => {
                 p.collect_free_vars(vars, bound);
             }
 
@@ -370,7 +389,13 @@ impl Term {
                 term.collect_free_vars(vars, bound);
             }
 
-            Term::J { motive, base_case, left, right, path } => {
+            Term::J {
+                motive,
+                base_case,
+                left,
+                right,
+                path,
+            } => {
                 motive.collect_free_vars(vars, bound);
                 base_case.collect_free_vars(vars, bound);
                 left.collect_free_vars(vars, bound);
@@ -378,26 +403,45 @@ impl Term {
                 path.collect_free_vars(vars, bound);
             }
 
-            Term::NatRec { zero_case, succ_case, target } => {
+            Term::NatRec {
+                zero_case,
+                succ_case,
+                target,
+            } => {
                 zero_case.collect_free_vars(vars, bound);
                 succ_case.collect_free_vars(vars, bound);
                 target.collect_free_vars(vars, bound);
             }
 
-            Term::If { cond, then_branch, else_branch } => {
+            Term::If {
+                cond,
+                then_branch,
+                else_branch,
+            } => {
                 cond.collect_free_vars(vars, bound);
                 then_branch.collect_free_vars(vars, bound);
                 else_branch.collect_free_vars(vars, bound);
             }
 
-            Term::Case { scrutinee, left_case, right_case } => {
+            Term::Case {
+                scrutinee,
+                left_case,
+                right_case,
+            } => {
                 scrutinee.collect_free_vars(vars, bound);
                 left_case.collect_free_vars(vars, bound);
                 right_case.collect_free_vars(vars, bound);
             }
 
-            Term::PathCompose { left, right } | Term::Ap { func: left, path: right } |
-            Term::Apd { func: left, path: right } => {
+            Term::PathCompose { left, right }
+            | Term::Ap {
+                func: left,
+                path: right,
+            }
+            | Term::Apd {
+                func: left,
+                path: right,
+            } => {
                 left.collect_free_vars(vars, bound);
                 right.collect_free_vars(vars, bound);
             }
@@ -411,9 +455,16 @@ impl Term {
 
             Term::Annot { term, .. } => term.collect_free_vars(vars, bound),
 
-            Term::Star | Term::True | Term::False | Term::Zero |
-            Term::NatLit(_) | Term::CircleBase | Term::CircleLoop |
-            Term::IntervalZero | Term::IntervalOne | Term::InternalId(_) => {}
+            Term::Star
+            | Term::True
+            | Term::False
+            | Term::Zero
+            | Term::NatLit(_)
+            | Term::CircleBase
+            | Term::CircleLoop
+            | Term::IntervalZero
+            | Term::IntervalOne
+            | Term::InternalId(_) => {}
         }
     }
 
@@ -457,44 +508,108 @@ impl Term {
             (Term::Truncate(t1), Term::Truncate(t2)) => t1.structural_eq(t2),
             (Term::Abort(t1), Term::Abort(t2)) => t1.structural_eq(t2),
 
-            (Term::PathCompose { left: l1, right: r1 }, Term::PathCompose { left: l2, right: r2 }) => {
-                l1.structural_eq(l2) && r1.structural_eq(r2)
-            }
+            (
+                Term::PathCompose {
+                    left: l1,
+                    right: r1,
+                },
+                Term::PathCompose {
+                    left: l2,
+                    right: r2,
+                },
+            ) => l1.structural_eq(l2) && r1.structural_eq(r2),
 
             (Term::Annot { term: t1, ty: ty1 }, Term::Annot { term: t2, ty: ty2 }) => {
                 t1.structural_eq(t2) && ty1.structural_eq(ty2)
             }
 
-            (Term::Transport { family: f1, path: p1, term: t1 },
-             Term::Transport { family: f2, path: p2, term: t2 }) => {
-                f1.structural_eq(f2) && p1.structural_eq(p2) && t1.structural_eq(t2)
+            (
+                Term::Transport {
+                    family: f1,
+                    path: p1,
+                    term: t1,
+                },
+                Term::Transport {
+                    family: f2,
+                    path: p2,
+                    term: t2,
+                },
+            ) => f1.structural_eq(f2) && p1.structural_eq(p2) && t1.structural_eq(t2),
+
+            (
+                Term::J {
+                    motive: m1,
+                    base_case: b1,
+                    left: l1,
+                    right: r1,
+                    path: p1,
+                },
+                Term::J {
+                    motive: m2,
+                    base_case: b2,
+                    left: l2,
+                    right: r2,
+                    path: p2,
+                },
+            ) => {
+                m1.structural_eq(m2)
+                    && b1.structural_eq(b2)
+                    && l1.structural_eq(l2)
+                    && r1.structural_eq(r2)
+                    && p1.structural_eq(p2)
             }
 
-            (Term::J { motive: m1, base_case: b1, left: l1, right: r1, path: p1 },
-             Term::J { motive: m2, base_case: b2, left: l2, right: r2, path: p2 }) => {
-                m1.structural_eq(m2) && b1.structural_eq(b2) && l1.structural_eq(l2) &&
-                r1.structural_eq(r2) && p1.structural_eq(p2)
-            }
+            (
+                Term::NatRec {
+                    zero_case: z1,
+                    succ_case: s1,
+                    target: t1,
+                },
+                Term::NatRec {
+                    zero_case: z2,
+                    succ_case: s2,
+                    target: t2,
+                },
+            ) => z1.structural_eq(z2) && s1.structural_eq(s2) && t1.structural_eq(t2),
 
-            (Term::NatRec { zero_case: z1, succ_case: s1, target: t1 },
-             Term::NatRec { zero_case: z2, succ_case: s2, target: t2 }) => {
-                z1.structural_eq(z2) && s1.structural_eq(s2) && t1.structural_eq(t2)
-            }
+            (
+                Term::If {
+                    cond: c1,
+                    then_branch: t1,
+                    else_branch: e1,
+                },
+                Term::If {
+                    cond: c2,
+                    then_branch: t2,
+                    else_branch: e2,
+                },
+            ) => c1.structural_eq(c2) && t1.structural_eq(t2) && e1.structural_eq(e2),
 
-            (Term::If { cond: c1, then_branch: t1, else_branch: e1 },
-             Term::If { cond: c2, then_branch: t2, else_branch: e2 }) => {
-                c1.structural_eq(c2) && t1.structural_eq(t2) && e1.structural_eq(e2)
-            }
+            (
+                Term::Case {
+                    scrutinee: s1,
+                    left_case: l1,
+                    right_case: r1,
+                },
+                Term::Case {
+                    scrutinee: s2,
+                    left_case: l2,
+                    right_case: r2,
+                },
+            ) => s1.structural_eq(s2) && l1.structural_eq(l2) && r1.structural_eq(r2),
 
-            (Term::Case { scrutinee: s1, left_case: l1, right_case: r1 },
-             Term::Case { scrutinee: s2, left_case: l2, right_case: r2 }) => {
-                s1.structural_eq(s2) && l1.structural_eq(l2) && r1.structural_eq(r2)
-            }
-
-            (Term::Let { var: v1, value: val1, body: b1 },
-             Term::Let { var: v2, value: val2, body: b2 }) => {
-                v1 == v2 && val1.structural_eq(val2) && b1.structural_eq(b2)
-            }
+            (
+                Term::Let {
+                    var: v1,
+                    value: val1,
+                    body: b1,
+                },
+                Term::Let {
+                    var: v2,
+                    value: val2,
+                    body: b2,
+                },
+            ) => v1 == v2 && val1.structural_eq(val2) && b1.structural_eq(b2),
 
             (Term::Ap { func: f1, path: p1 }, Term::Ap { func: f2, path: p2 }) => {
                 f1.structural_eq(f2) && p1.structural_eq(p2)
@@ -522,8 +637,18 @@ impl fmt::Debug for Term {
             Term::Transport { family, path, term } => {
                 write!(f, "transport({:?}, {:?}, {:?})", family, path, term)
             }
-            Term::J { motive, base_case, left, right, path } => {
-                write!(f, "J({:?}, {:?}, {:?}, {:?}, {:?})", motive, base_case, left, right, path)
+            Term::J {
+                motive,
+                base_case,
+                left,
+                right,
+                path,
+            } => {
+                write!(
+                    f,
+                    "J({:?}, {:?}, {:?}, {:?}, {:?})",
+                    motive, base_case, left, right, path
+                )
             }
             Term::Star => write!(f, "*"),
             Term::True => write!(f, "true"),
@@ -531,16 +656,36 @@ impl fmt::Debug for Term {
             Term::Zero => write!(f, "0"),
             Term::Succ(n) => write!(f, "S({:?})", n),
             Term::NatLit(n) => write!(f, "{}", n),
-            Term::NatRec { zero_case, succ_case, target } => {
+            Term::NatRec {
+                zero_case,
+                succ_case,
+                target,
+            } => {
                 write!(f, "natrec({:?}, {:?}, {:?})", zero_case, succ_case, target)
             }
-            Term::If { cond, then_branch, else_branch } => {
-                write!(f, "if {:?} then {:?} else {:?}", cond, then_branch, else_branch)
+            Term::If {
+                cond,
+                then_branch,
+                else_branch,
+            } => {
+                write!(
+                    f,
+                    "if {:?} then {:?} else {:?}",
+                    cond, then_branch, else_branch
+                )
             }
             Term::Inl(t) => write!(f, "inl({:?})", t),
             Term::Inr(t) => write!(f, "inr({:?})", t),
-            Term::Case { scrutinee, left_case, right_case } => {
-                write!(f, "case {:?} of inl => {:?} | inr => {:?}", scrutinee, left_case, right_case)
+            Term::Case {
+                scrutinee,
+                left_case,
+                right_case,
+            } => {
+                write!(
+                    f,
+                    "case {:?} of inl => {:?} | inr => {:?}",
+                    scrutinee, left_case, right_case
+                )
             }
             Term::Abort(t) => write!(f, "abort({:?})", t),
             Term::PathCompose { left, right } => write!(f, "({:?} . {:?})", left, right),
@@ -588,10 +733,10 @@ mod tests {
 
     #[test]
     fn test_free_vars() {
-        let term = Term::lambda("x", Term::app(
-            Term::Var("x".to_string()),
-            Term::Var("y".to_string()),
-        ));
+        let term = Term::lambda(
+            "x",
+            Term::app(Term::Var("x".to_string()), Term::Var("y".to_string())),
+        );
 
         let free = term.free_vars();
         assert_eq!(free, vec!["y"]);

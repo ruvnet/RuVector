@@ -12,8 +12,8 @@
 //! - Functoriality: functions preserve paths (ap)
 //! - Transport: paths allow moving between fibers
 
-use std::fmt;
 use super::{Term, Type};
+use std::fmt;
 
 /// A path between two terms in a type
 ///
@@ -87,7 +87,11 @@ impl Path {
     /// Get the identity type this path inhabits
     pub fn path_type(&self) -> Option<Type> {
         self.ambient_type.as_ref().map(|ty| {
-            Type::Id(Box::new(ty.clone()), Box::new(self.source.clone()), Box::new(self.target.clone()))
+            Type::Id(
+                Box::new(ty.clone()),
+                Box::new(self.source.clone()),
+                Box::new(self.target.clone()),
+            )
         })
     }
 }
@@ -148,8 +152,7 @@ impl PathOps for Path {
     }
 
     fn is_refl(&self) -> bool {
-        self.source.structural_eq(&self.target) &&
-        matches!(&self.proof, Term::Refl(_))
+        self.source.structural_eq(&self.target) && matches!(&self.proof, Term::Refl(_))
     }
 
     fn ap(&self, func: &Term) -> Path {
@@ -197,7 +200,11 @@ pub struct Path2 {
 impl Path2 {
     /// Create a 2-path from source to target
     pub fn new(source: Path, target: Path, proof: Term) -> Self {
-        Path2 { source, target, proof }
+        Path2 {
+            source,
+            target,
+            proof,
+        }
     }
 
     /// Reflexivity 2-path (trivial homotopy)
@@ -253,9 +260,9 @@ impl Path2 {
 
 /// Check if two paths are equal (as 1-cells)
 fn path_eq(p: &Path, q: &Path) -> bool {
-    p.source.structural_eq(&q.source) &&
-    p.target.structural_eq(&q.target) &&
-    p.proof.structural_eq(&q.proof)
+    p.source.structural_eq(&q.source)
+        && p.target.structural_eq(&q.target)
+        && p.proof.structural_eq(&q.proof)
 }
 
 /// Path algebra laws (as paths between paths)
@@ -299,7 +306,11 @@ impl PathLaws {
         let left = pq.compose(r)?;
         let right = p.compose(&qr)?;
 
-        Some(Path2::new(left, right, Term::Refl(Box::new(p.proof.clone()))))
+        Some(Path2::new(
+            left,
+            right,
+            Term::Refl(Box::new(p.proof.clone())),
+        ))
     }
 
     /// ap preserves composition: ap f (p . q) = ap f p . ap f q
@@ -376,7 +387,11 @@ impl DepPath {
 
 impl fmt::Debug for Path {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Path({:?} ={:?}= {:?})", self.source, self.proof, self.target)
+        write!(
+            f,
+            "Path({:?} ={:?}= {:?})",
+            self.source, self.proof, self.target
+        )
     }
 }
 
@@ -388,7 +403,11 @@ impl fmt::Display for Path {
 
 impl fmt::Debug for Path2 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Path2({:?} =[{:?}]=> {:?})", self.source, self.proof, self.target)
+        write!(
+            f,
+            "Path2({:?} =[{:?}]=> {:?})",
+            self.source, self.proof, self.target
+        )
     }
 }
 

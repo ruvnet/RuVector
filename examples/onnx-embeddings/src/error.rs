@@ -172,7 +172,9 @@ impl EmbeddingError {
 
     /// Create a GPU initialization error
     pub fn gpu_init_failed(reason: impl Into<String>) -> Self {
-        Self::GpuInitFailed { reason: reason.into() }
+        Self::GpuInitFailed {
+            reason: reason.into(),
+        }
     }
 
     /// Create a GPU operation error
@@ -193,12 +195,16 @@ impl EmbeddingError {
 
     /// Create a GPU buffer error
     pub fn gpu_buffer_error(reason: impl Into<String>) -> Self {
-        Self::GpuBufferError { reason: reason.into() }
+        Self::GpuBufferError {
+            reason: reason.into(),
+        }
     }
 
     /// Create a GPU not available error
     pub fn gpu_not_available(reason: impl Into<String>) -> Self {
-        Self::GpuNotAvailable { reason: reason.into() }
+        Self::GpuNotAvailable {
+            reason: reason.into(),
+        }
     }
 
     /// Check if this error is a GPU error
@@ -225,9 +231,7 @@ impl EmbeddingError {
     pub fn is_config_error(&self) -> bool {
         matches!(
             self,
-            Self::InvalidConfig { .. }
-                | Self::InvalidModel { .. }
-                | Self::DimensionMismatch { .. }
+            Self::InvalidConfig { .. } | Self::InvalidModel { .. } | Self::DimensionMismatch { .. }
         )
     }
 }

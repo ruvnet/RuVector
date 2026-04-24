@@ -1,6 +1,6 @@
 //! Benchmarks for ONNX embedding generation
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::cell::RefCell;
 
 fn embedding_benchmarks(c: &mut Criterion) {
@@ -21,7 +21,9 @@ fn embedding_benchmarks(c: &mut Criterion) {
     // Single text embedding
     group.bench_function("single_text", |b| {
         b.iter(|| {
-            let _ = embedder.borrow_mut().embed_one(black_box("This is a test sentence for benchmarking."));
+            let _ = embedder
+                .borrow_mut()
+                .embed_one(black_box("This is a test sentence for benchmarking."));
         });
     });
 
@@ -31,15 +33,11 @@ fn embedding_benchmarks(c: &mut Criterion) {
             .map(|i| format!("Benchmark sentence number {} for testing.", i))
             .collect();
 
-        group.bench_with_input(
-            BenchmarkId::new("batch", size),
-            &texts,
-            |b, texts| {
-                b.iter(|| {
-                    let _ = embedder.borrow_mut().embed(black_box(texts));
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("batch", size), &texts, |b, texts| {
+            b.iter(|| {
+                let _ = embedder.borrow_mut().embed(black_box(texts));
+            });
+        });
     }
 
     // Large batch embedding
@@ -74,9 +72,7 @@ fn pooling_benchmarks(c: &mut Criterion) {
         })
         .collect();
 
-    let attention_masks: Vec<Vec<i64>> = (0..batch_size)
-        .map(|_| vec![1i64; seq_length])
-        .collect();
+    let attention_masks: Vec<Vec<i64>> = (0..batch_size).map(|_| vec![1i64; seq_length]).collect();
 
     for strategy in [
         PoolingStrategy::Mean,
@@ -111,21 +107,15 @@ fn similarity_benchmarks(c: &mut Criterion) {
     let vec_b: Vec<f32> = (0..dim).map(|i| ((dim - i) as f32) * 0.01).collect();
 
     group.bench_function("cosine_similarity_384d", |b| {
-        b.iter(|| {
-            Pooler::cosine_similarity(black_box(&vec_a), black_box(&vec_b))
-        });
+        b.iter(|| Pooler::cosine_similarity(black_box(&vec_a), black_box(&vec_b)));
     });
 
     group.bench_function("dot_product_384d", |b| {
-        b.iter(|| {
-            Pooler::dot_product(black_box(&vec_a), black_box(&vec_b))
-        });
+        b.iter(|| Pooler::dot_product(black_box(&vec_a), black_box(&vec_b)));
     });
 
     group.bench_function("euclidean_distance_384d", |b| {
-        b.iter(|| {
-            Pooler::euclidean_distance(black_box(&vec_a), black_box(&vec_b))
-        });
+        b.iter(|| Pooler::euclidean_distance(black_box(&vec_a), black_box(&vec_b)));
     });
 
     // Batch similarity

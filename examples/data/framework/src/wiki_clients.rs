@@ -17,8 +17,8 @@ use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
 
-use crate::{DataRecord, DataSource, FrameworkError, Relationship, Result};
 use crate::api_clients::SimpleEmbedder;
+use crate::{DataRecord, DataSource, FrameworkError, Relationship, Result};
 
 /// Rate limiting configuration
 const DEFAULT_RATE_LIMIT_DELAY_MS: u64 = 100;
@@ -273,8 +273,7 @@ impl WikipediaClient {
         loop {
             match self.client.get(url).send().await {
                 Ok(response) => {
-                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES
-                    {
+                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
                         sleep(Duration::from_millis(RETRY_DELAY_MS * retries as u64)).await;
                         continue;
@@ -564,11 +563,7 @@ LIMIT 100
         for result in results {
             // Extract QID from URI
             let item_uri = result.get("item").cloned().unwrap_or_default();
-            let qid = item_uri
-                .split('/')
-                .last()
-                .unwrap_or(&item_uri)
-                .to_string();
+            let qid = item_uri.split('/').last().unwrap_or(&item_uri).to_string();
 
             let label = result
                 .get("itemLabel")
@@ -693,10 +688,7 @@ LIMIT 100
         data_map.insert("aliases".to_string(), serde_json::json!(entity.aliases));
         data_map.insert(
             "url".to_string(),
-            serde_json::json!(format!(
-                "https://www.wikidata.org/wiki/{}",
-                entity.qid
-            )),
+            serde_json::json!(format!("https://www.wikidata.org/wiki/{}", entity.qid)),
         );
 
         // Add claims as structured data
@@ -720,8 +712,7 @@ LIMIT 100
         loop {
             match self.client.get(url).send().await {
                 Ok(response) => {
-                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES
-                    {
+                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
                         sleep(Duration::from_millis(RETRY_DELAY_MS * retries as u64)).await;
                         continue;

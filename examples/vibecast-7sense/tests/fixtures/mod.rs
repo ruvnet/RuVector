@@ -3,9 +3,9 @@
 //! This module provides reusable test data generators, builders, and fixtures
 //! for testing the six bounded contexts of the 7sense system.
 
+use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 // ============================================================================
 // Shared Kernel Types (mirroring sevensense-core)
@@ -443,9 +443,9 @@ pub fn create_embedding_batch(count: usize) -> Vec<Embedding> {
 /// HNSW configuration for testing
 #[derive(Clone, Debug)]
 pub struct HnswConfig {
-    pub m: usize,              // Max connections per node per layer
+    pub m: usize,               // Max connections per node per layer
     pub ef_construction: usize, // Build-time search width
-    pub ef_search: usize,      // Query-time search width
+    pub ef_search: usize,       // Query-time search width
     pub max_layers: usize,
 }
 
@@ -694,7 +694,11 @@ pub fn create_test_transition_matrix(cluster_count: usize) -> TransitionMatrix {
         .collect();
 
     let observations: Vec<Vec<u32>> = (0..cluster_count)
-        .map(|i| (0..cluster_count).map(|j| ((i + j) % 10 + 1) as u32).collect())
+        .map(|i| {
+            (0..cluster_count)
+                .map(|j| ((i + j) % 10 + 1) as u32)
+                .collect()
+        })
         .collect();
 
     TransitionMatrix {
@@ -1086,7 +1090,12 @@ pub fn assert_valid_embeddings(embeddings: &[Embedding], expected_dims: usize) {
 }
 
 /// Assert recall meets threshold
-pub fn assert_recall_at_k(retrieved: &[VectorId], relevant: &[VectorId], k: usize, min_recall: f32) {
+pub fn assert_recall_at_k(
+    retrieved: &[VectorId],
+    relevant: &[VectorId],
+    k: usize,
+    min_recall: f32,
+) {
     let retrieved_set: std::collections::HashSet<_> = retrieved.iter().take(k).collect();
     let relevant_set: std::collections::HashSet<_> = relevant.iter().collect();
 
@@ -1134,7 +1143,10 @@ mod tests {
         let a = vec![1.0, 0.0];
         let b = vec![0.0, 1.0];
         let dist = cosine_distance(&a, &b);
-        assert!((dist - 1.0).abs() < 0.0001, "Perpendicular vectors should have distance 1.0");
+        assert!(
+            (dist - 1.0).abs() < 0.0001,
+            "Perpendicular vectors should have distance 1.0"
+        );
 
         let c = vec![1.0, 0.0];
         let same_dist = cosine_distance(&a, &c);

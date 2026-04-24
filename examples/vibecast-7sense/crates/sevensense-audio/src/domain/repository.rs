@@ -64,10 +64,14 @@ pub trait SegmentRepository: Send + Sync {
     async fn find_by_id(&self, id: &SegmentId) -> Result<Option<CallSegment>, AudioError>;
 
     /// Finds all segments for a recording.
-    async fn find_by_recording(&self, recording_id: &RecordingId) -> Result<Vec<CallSegment>, AudioError>;
+    async fn find_by_recording(
+        &self,
+        recording_id: &RecordingId,
+    ) -> Result<Vec<CallSegment>, AudioError>;
 
     /// Finds segments by quality level.
-    async fn find_by_quality(&self, quality: SignalQuality) -> Result<Vec<CallSegment>, AudioError>;
+    async fn find_by_quality(&self, quality: SignalQuality)
+        -> Result<Vec<CallSegment>, AudioError>;
 
     /// Finds segments within a time range of a recording.
     async fn find_in_time_range(

@@ -102,8 +102,9 @@ impl Tokenizer {
             model_id
         );
 
-        let response = reqwest::blocking::get(&url)
-            .map_err(|e| EmbeddingError::download_failed(format!("Failed to download tokenizer: {}", e)))?;
+        let response = reqwest::blocking::get(&url).map_err(|e| {
+            EmbeddingError::download_failed(format!("Failed to download tokenizer: {}", e))
+        })?;
 
         if !response.status().is_success() {
             return Err(EmbeddingError::download_failed(format!(
@@ -113,7 +114,8 @@ impl Tokenizer {
             )));
         }
 
-        let bytes = response.bytes()
+        let bytes = response
+            .bytes()
             .map_err(|e| EmbeddingError::download_failed(e.to_string()))?;
 
         let inner = HfTokenizer::from_bytes(&bytes)

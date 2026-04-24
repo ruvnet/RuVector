@@ -199,7 +199,9 @@ pub enum SegmentError {
     },
 
     /// Time range out of bounds.
-    #[error("Time range out of bounds: segment ends at {end_ms}ms but recording is {duration_ms}ms")]
+    #[error(
+        "Time range out of bounds: segment ends at {end_ms}ms but recording is {duration_ms}ms"
+    )]
     OutOfBounds {
         /// Segment end time.
         end_ms: u64,
@@ -715,8 +717,8 @@ mod tests {
 
     #[test]
     fn test_error_response_serialization() {
-        let response = ErrorResponse::new("TEST_ERROR", "Test error message")
-            .with_request_id("req-123");
+        let response =
+            ErrorResponse::new("TEST_ERROR", "Test error message").with_request_id("req-123");
 
         let json = serde_json::to_string(&response).unwrap();
         assert!(json.contains("TEST_ERROR"));

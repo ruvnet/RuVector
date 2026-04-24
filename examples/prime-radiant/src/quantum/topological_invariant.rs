@@ -19,7 +19,10 @@ pub struct Cycle {
 impl Cycle {
     /// Create a new cycle
     pub fn new(simplices: Vec<(Simplex, i32)>, dimension: usize) -> Self {
-        Self { simplices, dimension }
+        Self {
+            simplices,
+            dimension,
+        }
     }
 
     /// Check if the cycle is trivial (empty)
@@ -551,11 +554,7 @@ mod tests {
     #[test]
     fn test_vietoris_rips() {
         // Three points forming a triangle
-        let points = vec![
-            vec![0.0, 0.0],
-            vec![1.0, 0.0],
-            vec![0.5, 0.866],
-        ];
+        let points = vec![vec![0.0, 0.0], vec![1.0, 0.0], vec![0.5, 0.866]];
 
         let invariant = compute_topological_invariants(&points, 2, 0.6);
 

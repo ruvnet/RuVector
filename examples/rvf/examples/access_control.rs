@@ -24,8 +24,8 @@ use ed25519_dalek::SigningKey;
 use rand::rngs::OsRng;
 
 use rvf_crypto::{
-    create_witness_chain, sign_segment, verify_segment, verify_witness_chain,
-    shake256_256, WitnessEntry,
+    create_witness_chain, shake256_256, sign_segment, verify_segment, verify_witness_chain,
+    WitnessEntry,
 };
 use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{QueryOptions, RvfOptions, RvfStore};
@@ -37,7 +37,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -63,7 +65,10 @@ impl Role {
     }
 
     fn can_read(self) -> bool {
-        matches!(self, Role::Admin | Role::Writer | Role::Reader | Role::Auditor)
+        matches!(
+            self,
+            Role::Admin | Role::Writer | Role::Reader | Role::Auditor
+        )
     }
 
     fn can_derive(self) -> bool {
@@ -160,16 +165,17 @@ fn main() {
     };
     let mut master_store = RvfStore::create(&master_path, options).expect("create master");
 
-    let vectors: Vec<Vec<f32>> = (0..100)
-        .map(|i| random_vector(dim, i))
-        .collect();
+    let vectors: Vec<Vec<f32>> = (0..100).map(|i| random_vector(dim, i)).collect();
     let vec_refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
     let ids: Vec<u64> = (0..100).collect();
 
     let ingest = master_store
         .ingest_batch(&vec_refs, &ids, None)
         .expect("ingest");
-    println!("  Admin '{}' created store: {} vectors", admin.name, ingest.accepted);
+    println!(
+        "  Admin '{}' created store: {} vectors",
+        admin.name, ingest.accepted
+    );
 
     // Sign the data segment as admin
     let mut header = SegmentHeader::new(SegmentType::Vec as u8, 1);
@@ -178,8 +184,16 @@ fn main() {
     let payload = b"admin-signed vector segment";
 
     let footer = sign_segment(&header, payload, &admin.signing_key);
-    let valid = verify_segment(&header, payload, &footer, &admin.signing_key.verifying_key());
-    println!("  Admin signature: {}", if valid { "VALID" } else { "INVALID" });
+    let valid = verify_segment(
+        &header,
+        payload,
+        &footer,
+        &admin.signing_key.verifying_key(),
+    );
+    println!(
+        "  Admin signature: {}",
+        if valid { "VALID" } else { "INVALID" }
+    );
     assert!(valid);
     println!();
 
@@ -190,9 +204,7 @@ fn main() {
 
     assert!(writer.role.can_write(), "writer must have write access");
 
-    let writer_vecs: Vec<Vec<f32>> = (0..50)
-        .map(|i| random_vector(dim, 200 + i))
-        .collect();
+    let writer_vecs: Vec<Vec<f32>> = (0..50).map(|i| random_vector(dim, 200 + i)).collect();
     let writer_refs: Vec<&[f32]> = writer_vecs.iter().map(|v| v.as_slice()).collect();
     let writer_ids: Vec<u64> = (200..250).collect();
 
@@ -201,16 +213,23 @@ fn main() {
         .expect("writer ingest");
     println!(
         "  Writer '{}' added {} vectors (authorized: write={})",
-        writer.name, writer_ingest.accepted, writer.role.can_write()
+        writer.name,
+        writer_ingest.accepted,
+        writer.role.can_write()
     );
 
     // Writer signs their contribution
     let writer_footer = sign_segment(&header, payload, &writer.signing_key);
     let writer_valid = verify_segment(
-        &header, payload, &writer_footer,
+        &header,
+        payload,
+        &writer_footer,
         &writer.signing_key.verifying_key(),
     );
-    println!("  Writer signature: {}", if writer_valid { "VALID" } else { "INVALID" });
+    println!(
+        "  Writer signature: {}",
+        if writer_valid { "VALID" } else { "INVALID" }
+    );
     assert!(writer_valid);
     println!();
 
@@ -220,7 +239,10 @@ fn main() {
     println!("--- Phase 4: Reader Queries (Read-Only) ---\n");
 
     assert!(reader.role.can_read(), "reader must have read access");
-    assert!(!reader.role.can_write(), "reader must NOT have write access");
+    assert!(
+        !reader.role.can_write(),
+        "reader must NOT have write access"
+    );
 
     let query = random_vector(dim, 42);
     let results = master_store
@@ -229,7 +251,9 @@ fn main() {
 
     println!(
         "  Reader '{}' queries store (authorized: read={}, write={})",
-        reader.name, reader.role.can_read(), reader.role.can_write()
+        reader.name,
+        reader.role.can_read(),
+        reader.role.can_write()
     );
     println!("  Top-5 results:");
     for (i, r) in results.iter().enumerate() {
@@ -239,12 +263,18 @@ fn main() {
     // Demonstrate that reader's key is different from admin/writer
     let reader_footer = sign_segment(&header, payload, &reader.signing_key);
     let cross_verify = verify_segment(
-        &header, payload, &reader_footer,
+        &header,
+        payload,
+        &reader_footer,
         &admin.signing_key.verifying_key(),
     );
     println!(
         "\n  Reader key vs admin key: {} (cross-signature rejected)",
-        if cross_verify { "VALID (bad)" } else { "REJECTED (correct)" }
+        if cross_verify {
+            "VALID (bad)"
+        } else {
+            "REJECTED (correct)"
+        }
     );
     assert!(!cross_verify);
     println!();
@@ -257,7 +287,7 @@ fn main() {
     assert!(auditor.role.can_audit(), "auditor must have audit access");
 
     let access_events = [
-        ("admin:create_store", 0x01u8),   // PROVENANCE
+        ("admin:create_store", 0x01u8),     // PROVENANCE
         ("admin:ingest_100_vectors", 0x02), // COMPUTATION
         ("writer:ingest_50_vectors", 0x02),
         ("reader:query_top5", 0x02),
@@ -279,7 +309,11 @@ fn main() {
     let chain_bytes = create_witness_chain(&entries);
     let verified = verify_witness_chain(&chain_bytes).expect("verify chain");
 
-    println!("  Audit trail: {} events, {} bytes, VERIFIED", verified.len(), chain_bytes.len());
+    println!(
+        "  Audit trail: {} events, {} bytes, VERIFIED",
+        verified.len(),
+        chain_bytes.len()
+    );
     println!();
     println!(
         "  {:>5}  {:>30}  {:>6}  {:>12}",
@@ -294,7 +328,9 @@ fn main() {
         };
         println!(
             "  {:>5}  {:>30}  {:>6}  {:>12}",
-            i, event, wtype,
+            i,
+            event,
+            wtype,
             hex_string(&verified[i].action_hash[..6]),
         );
     }
@@ -347,7 +383,11 @@ fn main() {
     let old_sig_new_key = verify_segment(&header, payload, &old_footer, &new_verifying);
     println!(
         "  Old signature + new key: {} (rotation boundary)",
-        if old_sig_new_key { "VALID (bad)" } else { "REJECTED (correct)" }
+        if old_sig_new_key {
+            "VALID (bad)"
+        } else {
+            "REJECTED (correct)"
+        }
     );
     assert!(!old_sig_new_key);
 
@@ -368,13 +408,22 @@ fn main() {
     // ──────────────────────────────────────────────
     println!("=== Access Control Summary ===\n");
     let status = master_store.status();
-    println!("  Users:              {} (admin, writer, reader, auditor)", users.len());
+    println!(
+        "  Users:              {} (admin, writer, reader, auditor)",
+        users.len()
+    );
     println!("  Roles:              RBAC with write/read/derive/audit permissions");
     println!("  Master store:       {} vectors", status.total_vectors);
-    println!("  Tenant stores:      {} (derived with lineage)", tenants.len());
+    println!(
+        "  Tenant stores:      {} (derived with lineage)",
+        tenants.len()
+    );
     println!("  Signatures:         Ed25519 per-segment signing");
     println!("  Key rotation:       old → rejected, new → accepted");
-    println!("  Audit trail:        {} events, witness chain verified", access_events.len());
+    println!(
+        "  Audit trail:        {} events, witness chain verified",
+        access_events.len()
+    );
     println!("  Cross-key verify:   reader key vs admin key → rejected");
     println!("  Segments used:      VEC, INDEX, CRYPTO, WITNESS, MANIFEST");
 

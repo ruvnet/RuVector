@@ -124,7 +124,12 @@ impl XbrlParser {
     }
 
     /// Parse XBRL document from string
-    pub fn parse(&self, content: &str, cik: &str, accession: &str) -> Result<FinancialStatement, EdgarError> {
+    pub fn parse(
+        &self,
+        content: &str,
+        cik: &str,
+        accession: &str,
+    ) -> Result<FinancialStatement, EdgarError> {
         // This is a simplified parser
         // Real implementation would use quick-xml or similar
 
@@ -152,7 +157,11 @@ impl XbrlParser {
         Ok(FinancialStatement {
             cik: cik.to_string(),
             accession: accession.to_string(),
-            report_type: if is_annual { "10-K".to_string() } else { "10-Q".to_string() },
+            report_type: if is_annual {
+                "10-K".to_string()
+            } else {
+                "10-Q".to_string()
+            },
             period_end,
             is_annual,
             balance_sheet,
@@ -196,7 +205,8 @@ impl XbrlParser {
         // Find the main reporting context
         for ctx in contexts {
             if !ctx.is_instant {
-                let duration_days = ctx.start_date
+                let duration_days = ctx
+                    .start_date
                     .map(|s| (ctx.end_date - s).num_days())
                     .unwrap_or(0);
 
@@ -234,16 +244,8 @@ impl XbrlParser {
     /// Check if concept is income statement item
     fn is_income_statement_item(&self, name: &str) -> bool {
         let income_patterns = [
-            "Revenue",
-            "Sales",
-            "Cost",
-            "Expense",
-            "Income",
-            "Profit",
-            "Loss",
-            "Earnings",
-            "EBITDA",
-            "Margin",
+            "Revenue", "Sales", "Cost", "Expense", "Income", "Profit", "Loss", "Earnings",
+            "EBITDA", "Margin",
         ];
 
         income_patterns.iter().any(|p| name.contains(p))
@@ -270,9 +272,21 @@ pub fn statement_to_embedding(statement: &FinancialStatement) -> Vec<f32> {
     let mut embedding = Vec::with_capacity(64);
 
     // Balance sheet ratios
-    let total_assets = statement.balance_sheet.get("Assets").copied().unwrap_or(1.0);
-    let total_liabilities = statement.balance_sheet.get("Liabilities").copied().unwrap_or(0.0);
-    let equity = statement.balance_sheet.get("StockholdersEquity").copied().unwrap_or(1.0);
+    let total_assets = statement
+        .balance_sheet
+        .get("Assets")
+        .copied()
+        .unwrap_or(1.0);
+    let total_liabilities = statement
+        .balance_sheet
+        .get("Liabilities")
+        .copied()
+        .unwrap_or(0.0);
+    let equity = statement
+        .balance_sheet
+        .get("StockholdersEquity")
+        .copied()
+        .unwrap_or(1.0);
     let cash = statement.balance_sheet.get("Cash").copied().unwrap_or(0.0);
 
     embedding.push((total_liabilities / total_assets) as f32); // Debt ratio
@@ -280,9 +294,21 @@ pub fn statement_to_embedding(statement: &FinancialStatement) -> Vec<f32> {
     embedding.push((equity / total_assets) as f32); // Equity ratio
 
     // Income statement ratios
-    let revenue = statement.income_statement.get("Revenue").copied().unwrap_or(1.0);
-    let net_income = statement.income_statement.get("NetIncome").copied().unwrap_or(0.0);
-    let operating_income = statement.income_statement.get("OperatingIncome").copied().unwrap_or(0.0);
+    let revenue = statement
+        .income_statement
+        .get("Revenue")
+        .copied()
+        .unwrap_or(1.0);
+    let net_income = statement
+        .income_statement
+        .get("NetIncome")
+        .copied()
+        .unwrap_or(0.0);
+    let operating_income = statement
+        .income_statement
+        .get("OperatingIncome")
+        .copied()
+        .unwrap_or(0.0);
 
     embedding.push((net_income / revenue) as f32); // Net margin
     embedding.push((operating_income / revenue) as f32); // Operating margin

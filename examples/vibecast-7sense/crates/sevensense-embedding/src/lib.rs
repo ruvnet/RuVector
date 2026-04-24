@@ -46,20 +46,20 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
-pub mod domain;
 pub mod application;
+pub mod domain;
 pub mod infrastructure;
 pub mod normalization;
 pub mod quantization;
 
 // Re-export main types for convenience
+pub use application::services::EmbeddingService;
 pub use domain::entities::{
-    Embedding, EmbeddingId, EmbeddingModel, EmbeddingMetadata,
-    StorageTier, ModelVersion, InputSpecification,
+    Embedding, EmbeddingId, EmbeddingMetadata, EmbeddingModel, InputSpecification, ModelVersion,
+    StorageTier,
 };
 pub use domain::repository::EmbeddingRepository;
-pub use application::services::EmbeddingService;
-pub use infrastructure::model_manager::{ModelManager, ModelConfig};
+pub use infrastructure::model_manager::{ModelConfig, ModelManager};
 pub use infrastructure::onnx_inference::OnnxInference;
 
 /// Embedding dimension for Perch 2.0 model

@@ -172,10 +172,7 @@ impl MarkovAnalyzer {
         let total_transitions = sequence.len() - 1;
 
         // Count self-transitions
-        let self_transitions = sequence
-            .windows(2)
-            .filter(|w| w[0] == w[1])
-            .count();
+        let self_transitions = sequence.windows(2).filter(|w| w[0] == w[1]).count();
 
         // Compute entropy
         let entropy = self.compute_entropy(&transitions);
@@ -422,10 +419,7 @@ mod tests {
         assert!(entropy > 0.0);
 
         // Deterministic distribution should have lower entropy
-        let deterministic = vec![
-            (c1, c2, 1.0),
-            (c2, c1, 1.0),
-        ];
+        let deterministic = vec![(c1, c2, 1.0), (c2, c1, 1.0)];
 
         let det_entropy = analyzer.compute_entropy(&deterministic);
         assert!(det_entropy < entropy);
@@ -460,7 +454,11 @@ mod tests {
         assert!(!periods.is_empty());
         // Check that period 2 is in the detected periods
         let has_period_2 = periods.iter().any(|(p, _)| *p == 2);
-        assert!(has_period_2, "Period 2 should be detected, found periods: {:?}", periods);
+        assert!(
+            has_period_2,
+            "Period 2 should be detected, found periods: {:?}",
+            periods
+        );
     }
 
     #[test]

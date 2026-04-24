@@ -10,13 +10,13 @@
 //! - **Document Category**: Objects are documents/embeddings, morphisms are relationships
 //! - **Retrieval Functor**: Maps queries to relevant documents while preserving structure
 
-use crate::category::{Category, CategoryWithMono, Object, ObjectData, Morphism, MorphismData};
+use crate::category::{Category, CategoryWithMono, Morphism, MorphismData, Object, ObjectData};
 use crate::functor::Functor;
 use crate::{CategoryError, MorphismId, ObjectId, Result};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, BinaryHeap};
 use std::cmp::Ordering;
+use std::collections::{BinaryHeap, HashMap};
 use std::fmt::Debug;
 use std::sync::Arc;
 
@@ -76,12 +76,20 @@ impl<S: Category, T: Category> FunctorialRetrieval<S, T> {
     }
 
     /// Maps an object (query) to the target category (retrieval)
-    pub fn map_object(&self, query: &S::Object, mapping: impl Fn(&S::Object) -> T::Object) -> T::Object {
+    pub fn map_object(
+        &self,
+        query: &S::Object,
+        mapping: impl Fn(&S::Object) -> T::Object,
+    ) -> T::Object {
         mapping(query)
     }
 
     /// Maps a morphism (query refinement) to the target
-    pub fn map_morphism(&self, refinement: &S::Morphism, mapping: impl Fn(&S::Morphism) -> T::Morphism) -> T::Morphism {
+    pub fn map_morphism(
+        &self,
+        refinement: &S::Morphism,
+        mapping: impl Fn(&S::Morphism) -> T::Morphism,
+    ) -> T::Morphism {
         mapping(refinement)
     }
 
@@ -98,7 +106,7 @@ impl<S: Category, T: Category> FunctorialRetrieval<S, T> {
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_secs()
+                .as_secs(),
         );
 
         &self.invariants
@@ -215,10 +223,7 @@ impl VectorRetrieval {
 
         // Simple indexing by quantizing first component
         let bucket = (vector[0].abs() * 100.0) as usize % 100;
-        self.index
-            .entry(bucket)
-            .or_insert_with(Vec::new)
-            .push(id);
+        self.index.entry(bucket).or_insert_with(Vec::new).push(id);
 
         Ok(())
     }
@@ -430,8 +435,7 @@ mod tests {
 
     #[test]
     fn test_structural_similarity() {
-        let metric = StructuralSimilarity::new(0.7, 0.3)
-            .with_threshold(0.6);
+        let metric = StructuralSimilarity::new(0.7, 0.3).with_threshold(0.6);
 
         let sim = metric.compute(0.8, 0.9);
         assert!(metric.is_similar(sim));

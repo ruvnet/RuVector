@@ -166,12 +166,15 @@ pub trait LearningRepositoryExt: LearningRepository {
 
     /// Get all completed sessions
     async fn get_completed_sessions(&self) -> RepositoryResult<Vec<LearningSession>> {
-        self.list_sessions(Some(TrainingStatus::Completed), None).await
+        self.list_sessions(Some(TrainingStatus::Completed), None)
+            .await
     }
 
     /// Check if any session is currently running
     async fn has_running_session(&self) -> RepositoryResult<bool> {
-        let sessions = self.list_sessions(Some(TrainingStatus::Running), Some(1)).await?;
+        let sessions = self
+            .list_sessions(Some(TrainingStatus::Running), Some(1))
+            .await?;
         Ok(!sessions.is_empty())
     }
 
@@ -418,11 +421,7 @@ mod tests {
 
         // Save graph
         let mut graph = TransitionGraph::new();
-        graph.add_node(
-            crate::EmbeddingId::new("n1"),
-            vec![0.1, 0.2, 0.3],
-            None,
-        );
+        graph.add_node(crate::EmbeddingId::new("n1"), vec![0.1, 0.2, 0.3], None);
         repo.save_transition_graph(&graph).await.unwrap();
 
         // Retrieve graph

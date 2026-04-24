@@ -10,7 +10,7 @@
 //! When the `simd` feature is enabled, these functions use SIMD intrinsics
 //! for improved performance on supported architectures.
 
-#![allow(dead_code)]  // Utility functions for future use
+#![allow(dead_code)] // Utility functions for future use
 
 /// Compute the cosine distance between two vectors.
 ///

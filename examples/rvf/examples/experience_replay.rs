@@ -14,11 +14,11 @@
 //! Run with:
 //!   cargo run --example experience_replay
 
+use rvf_runtime::filter::FilterValue;
+use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{
     FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult,
 };
-use rvf_runtime::filter::FilterValue;
-use rvf_runtime::options::DistanceMetric;
 use tempfile::TempDir;
 
 /// Simple pseudo-random number generator (LCG) for deterministic results.
@@ -26,7 +26,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -218,7 +220,11 @@ fn main() {
         };
         println!(
             "  {:>10}  {:>6}  {:>12}  {:>12}  {:>12}",
-            ep, rewards.len(), avg, max, tier
+            ep,
+            rewards.len(),
+            avg,
+            max,
+            tier
         );
     }
 
@@ -276,25 +282,29 @@ fn main() {
         "  {:>8}  {:>12}  {:>14}  {:>12}",
         "Tier", "Total Count", "Query Results", "Description"
     );
+    println!("  {:->8}  {:->12}  {:->14}  {:->12}", "", "", "", "");
     println!(
-        "  {:->8}  {:->12}  {:->14}  {:->12}",
-        "", "", "", ""
+        "  {:>8}  {:>12}  {:>14}  {:>12}",
+        "Hot",
+        hot_count,
+        hot_results.len(),
+        "priority > 50"
     );
     println!(
         "  {:>8}  {:>12}  {:>14}  {:>12}",
-        "Hot", hot_count, hot_results.len(), "priority > 50"
+        "Warm",
+        warm_count,
+        warm_results.len(),
+        "20 < p <= 50"
     );
     println!(
         "  {:>8}  {:>12}  {:>14}  {:>12}",
-        "Warm", warm_count, warm_results.len(), "20 < p <= 50"
+        "Cold",
+        cold_count,
+        cold_results.len(),
+        "priority <= 20"
     );
-    println!(
-        "  {:>8}  {:>12}  {:>14}  {:>12}",
-        "Cold", cold_count, cold_results.len(), "priority <= 20"
-    );
-    println!(
-        "\n  Hot tier should be kept in fp32 (full precision)."
-    );
+    println!("\n  Hot tier should be kept in fp32 (full precision).");
     println!("  Warm tier could use scalar quantization (4x compression).");
     println!("  Cold tier could use binary quantization (32x compression).");
 
@@ -329,7 +339,10 @@ fn main() {
     println!("  Hot tier (>50):    {} experiences", hot_count);
     println!("  Warm tier (20-50): {} experiences", warm_count);
     println!("  Cold tier (<=20):  {} experiences", cold_count);
-    println!("  High-reward (>5k): {} query results", high_reward_results.len());
+    println!(
+        "  High-reward (>5k): {} query results",
+        high_reward_results.len()
+    );
     println!("  Sampling:          similarity + metadata filters");
 
     println!("\nDone.");

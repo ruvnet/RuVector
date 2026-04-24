@@ -15,11 +15,11 @@
 //! Run with:
 //!   cargo run --example tool_cache
 
+use rvf_runtime::filter::FilterValue;
+use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{
     FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult,
 };
-use rvf_runtime::filter::FilterValue;
-use rvf_runtime::options::DistanceMetric;
 use tempfile::TempDir;
 
 /// Simple pseudo-random number generator (LCG) for deterministic results.
@@ -27,7 +27,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -60,11 +62,11 @@ fn main() {
     println!("\n--- 2. Populating Tool Cache ---");
 
     let tools = [
-        ("search_web", 7200u64, 4096u64),     // 2h TTL, ~4KB results
-        ("read_file", 86400, 1024),            // 24h TTL, ~1KB results
-        ("execute_code", 300, 2048),           // 5min TTL, ~2KB results
-        ("query_database", 1800, 8192),        // 30min TTL, ~8KB results
-        ("call_api", 3600, 512),               // 1h TTL, ~512B results
+        ("search_web", 7200u64, 4096u64), // 2h TTL, ~4KB results
+        ("read_file", 86400, 1024),       // 24h TTL, ~1KB results
+        ("execute_code", 300, 2048),      // 5min TTL, ~2KB results
+        ("query_database", 1800, 8192),   // 30min TTL, ~8KB results
+        ("call_api", 3600, 512),          // 1h TTL, ~512B results
     ];
 
     let entries_per_tool = 10;
@@ -253,9 +255,7 @@ fn main() {
     let compact_result = store.compact().expect("compaction failed");
     println!(
         "  Compacted: {} segments, {} bytes reclaimed (epoch {})",
-        compact_result.segments_compacted,
-        compact_result.bytes_reclaimed,
-        compact_result.epoch
+        compact_result.segments_compacted, compact_result.bytes_reclaimed, compact_result.epoch
     );
 
     let status_after_compact = store.status();
@@ -281,10 +281,7 @@ fn main() {
         "  {:>16}  {:>8}  {:>10}  {:>12}",
         "Tool", "Entries", "Base TTL", "Result Size"
     );
-    println!(
-        "  {:->16}  {:->8}  {:->10}  {:->12}",
-        "", "", "", ""
-    );
+    println!("  {:->16}  {:->8}  {:->10}  {:->12}", "", "", "", "");
     for (name, ttl, size) in &tools {
         println!(
             "  {:>16}  {:>8}  {:>9}s  {:>11}B",
@@ -297,7 +294,10 @@ fn main() {
         "  Final entries:     {}",
         status_after_compact.total_vectors
     );
-    println!("  Compaction:        {} bytes reclaimed", compact_result.bytes_reclaimed);
+    println!(
+        "  Compaction:        {} bytes reclaimed",
+        compact_result.bytes_reclaimed
+    );
 
     println!("\nDone.");
 }

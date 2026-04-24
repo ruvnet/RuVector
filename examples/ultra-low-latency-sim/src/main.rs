@@ -12,9 +12,9 @@
 //! Combined multiplier: 64 × 4 × 4 × 10 = 10,240x over raw FLOPS
 //! On M3 Ultra (1.55 TFLOPS): 1.55T × 10,240 = ~15.9 PFLOPS theoretical
 
-use std::time::Instant;
-use std::env;
 use rayon::prelude::*;
+use std::env;
+use std::time::Instant;
 
 /// Runtime configuration for benchmarks
 struct BenchConfig {
@@ -103,12 +103,20 @@ impl BitParallelCA {
             }
 
             // Unrolled processing of 4 words
-            let left0 = if base == 0 { self.state[len - 1] } else { self.state[base - 1] };
+            let left0 = if base == 0 {
+                self.state[len - 1]
+            } else {
+                self.state[base - 1]
+            };
             let c0 = self.state[base];
             let c1 = self.state[base + 1];
             let c2 = self.state[base + 2];
             let c3 = self.state[base + 3];
-            let right3 = if base + 4 >= len { self.state[0] } else { self.state[base + 4] };
+            let right3 = if base + 4 >= len {
+                self.state[0]
+            } else {
+                self.state[base + 4]
+            };
 
             self.state[base] = self.evolve_word(left0, c0, c1);
             self.state[base + 1] = self.evolve_word(c0, c1, c2);
@@ -118,9 +126,17 @@ impl BitParallelCA {
 
         // Handle remainder
         for i in (chunks * 4)..len {
-            let left = if i == 0 { self.state[len - 1] } else { self.state[i - 1] };
+            let left = if i == 0 {
+                self.state[len - 1]
+            } else {
+                self.state[i - 1]
+            };
             let center = self.state[i];
-            let right = if i == len - 1 { self.state[0] } else { self.state[i + 1] };
+            let right = if i == len - 1 {
+                self.state[0]
+            } else {
+                self.state[i + 1]
+            };
             self.state[i] = self.evolve_word(left, center, right);
         }
     }
@@ -187,9 +203,17 @@ impl BitParallelCA {
     fn step_scalar(&mut self) {
         let len = self.state.len();
         for i in 0..len {
-            let left = if i == 0 { self.state[len - 1] } else { self.state[i - 1] };
+            let left = if i == 0 {
+                self.state[len - 1]
+            } else {
+                self.state[i - 1]
+            };
             let center = self.state[i];
-            let right = if i == len - 1 { self.state[0] } else { self.state[i + 1] };
+            let right = if i == len - 1 {
+                self.state[0]
+            } else {
+                self.state[i + 1]
+            };
             self.state[i] = self.evolve_word(left, center, right);
         }
     }
@@ -228,13 +252,15 @@ impl ClosedFormMonteCarlo {
         let mut power_cache = Vec::with_capacity(8);
         for exp in 0..8u32 {
             let n = 10u64.pow(exp);
-            let powers: Vec<f64> = eigenvalues.iter()
-                .map(|&e| e.powi(n as i32))
-                .collect();
+            let powers: Vec<f64> = eigenvalues.iter().map(|&e| e.powi(n as i32)).collect();
             power_cache.push(powers);
         }
 
-        Self { eigenvalues, power_cache, num_states }
+        Self {
+            eigenvalues,
+            power_cache,
+            num_states,
+        }
     }
 
     /// Compute N iterations of Markov chain in O(1)
@@ -295,7 +321,8 @@ impl ClosedFormMonteCarlo {
     /// Batch simulate multiple states at once (SIMD-friendly)
     #[inline(always)]
     pub fn simulate_batch(&self, initial_states: &[usize], n: u64) -> Vec<f64> {
-        initial_states.iter()
+        initial_states
+            .iter()
             .map(|&state| self.simulate_n_steps(state, n))
             .collect()
     }
@@ -376,7 +403,9 @@ impl HierarchicalSimulator {
             for i in 0..4 {
                 let out_idx = base_out + i;
                 let base = out_idx * BATCH_SIZE;
-                if base + BATCH_SIZE > inputs.len() { break; }
+                if base + BATCH_SIZE > inputs.len() {
+                    break;
+                }
 
                 // SIMD-friendly reduction using tree pattern
                 let mut accumulators = [0.0f32; SIMD_LANES];
@@ -408,8 +437,14 @@ impl HierarchicalSimulator {
                 }
 
                 // Tree reduction of accumulators
-                let sum = accumulators[0] + accumulators[1] + accumulators[2] + accumulators[3]
-                    + accumulators[4] + accumulators[5] + accumulators[6] + accumulators[7];
+                let sum = accumulators[0]
+                    + accumulators[1]
+                    + accumulators[2]
+                    + accumulators[3]
+                    + accumulators[4]
+                    + accumulators[5]
+                    + accumulators[6]
+                    + accumulators[7];
 
                 self.results[out_idx] = sum / BATCH_SIZE as f32;
             }
@@ -418,7 +453,9 @@ impl HierarchicalSimulator {
         // Handle remainder outputs
         for out_idx in (unroll_chunks * 4)..results_len {
             let base = out_idx * BATCH_SIZE;
-            if base + BATCH_SIZE > inputs.len() { break; }
+            if base + BATCH_SIZE > inputs.len() {
+                break;
+            }
 
             let mut sum = 0.0f32;
             for lane in 0..SIMD_LANES {
@@ -565,11 +602,7 @@ mod simd {
 #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 mod simd {
     /// Scalar fallback
-    pub unsafe fn random_walk_step(
-        positions: *mut f32,
-        steps: *const f32,
-        count: usize,
-    ) -> u64 {
+    pub unsafe fn random_walk_step(positions: *mut f32, steps: *const f32, count: usize) -> u64 {
         for i in 0..count {
             *positions.add(i) += *steps.add(i);
         }
@@ -666,29 +699,20 @@ fn benchmark_simd_random_walk() -> (u64, std::time::Duration) {
     for _ in 0..STEPS {
         #[cfg(target_arch = "aarch64")]
         unsafe {
-            total_sims += simd::random_walk_step_neon(
-                positions.as_mut_ptr(),
-                step_values.as_ptr(),
-                WALKERS,
-            );
+            total_sims +=
+                simd::random_walk_step_neon(positions.as_mut_ptr(), step_values.as_ptr(), WALKERS);
         }
 
         #[cfg(target_arch = "x86_64")]
         unsafe {
-            total_sims += simd::random_walk_step_avx2(
-                positions.as_mut_ptr(),
-                step_values.as_ptr(),
-                WALKERS,
-            );
+            total_sims +=
+                simd::random_walk_step_avx2(positions.as_mut_ptr(), step_values.as_ptr(), WALKERS);
         }
 
         #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
         unsafe {
-            total_sims += simd::random_walk_step(
-                positions.as_mut_ptr(),
-                step_values.as_ptr(),
-                WALKERS,
-            );
+            total_sims +=
+                simd::random_walk_step(positions.as_mut_ptr(), step_values.as_ptr(), WALKERS);
         }
     }
 
@@ -783,11 +807,23 @@ fn main() {
 
     // Run benchmarks
     let benchmarks: [(&str, fn() -> (u64, std::time::Duration)); 5] = [
-        ("1. Bit-Parallel Cellular Automaton (64x)", benchmark_bit_parallel_ca),
-        ("2. Closed-Form Monte Carlo (10Mx)", benchmark_closed_form_mc),
-        ("3. Hierarchical Meta-Simulation (16.7Mx)", benchmark_hierarchical),
+        (
+            "1. Bit-Parallel Cellular Automaton (64x)",
+            benchmark_bit_parallel_ca,
+        ),
+        (
+            "2. Closed-Form Monte Carlo (10Mx)",
+            benchmark_closed_form_mc,
+        ),
+        (
+            "3. Hierarchical Meta-Simulation (16.7Mx)",
+            benchmark_hierarchical,
+        ),
         ("4. SIMD Random Walk (4-16x)", benchmark_simd_random_walk),
-        ("5. Combined Parallel (All techniques)", benchmark_parallel_combined),
+        (
+            "5. Combined Parallel (All techniques)",
+            benchmark_parallel_combined,
+        ),
     ];
 
     let mut max_rate = 0.0f64;
@@ -826,11 +862,20 @@ fn main() {
 
     let peak_quadrillions = max_rate / 1e15;
     if peak_quadrillions >= 1.0 {
-        println!("🚀 PEAK: {:.2} quadrillion simulations/second", peak_quadrillions);
+        println!(
+            "🚀 PEAK: {:.2} quadrillion simulations/second",
+            peak_quadrillions
+        );
         println!("✅ TARGET ACHIEVED: >1 quadrillion/sec");
     } else if max_rate >= 1e12 {
-        println!("⚡ PEAK: {:.2} trillion simulations/second", max_rate / 1e12);
-        println!("📈 Scale factor needed for 4 quadrillion: {:.1}x", 4e15 / max_rate);
+        println!(
+            "⚡ PEAK: {:.2} trillion simulations/second",
+            max_rate / 1e12
+        );
+        println!(
+            "📈 Scale factor needed for 4 quadrillion: {:.1}x",
+            4e15 / max_rate
+        );
     } else {
         println!("📊 PEAK: {:.2e} simulations/second", max_rate);
     }
@@ -879,7 +924,10 @@ fn run_verification_comparison() {
     let verifying_key = signing_key.verifying_key();
 
     println!("🔑 Generated Ed25519 key pair");
-    println!("   Public key: {}...", hex::encode(&verifying_key.as_bytes()[..16]));
+    println!(
+        "   Public key: {}...",
+        hex::encode(&verifying_key.as_bytes()[..16])
+    );
     println!();
 
     const ITERATIONS: usize = 10000;
@@ -913,20 +961,27 @@ fn run_verification_comparison() {
     let elapsed_with_verify = start_with_verify.elapsed();
 
     // Calculate overhead
-    let overhead_ms = elapsed_with_verify.as_secs_f64() * 1000.0
-        - elapsed_no_verify.as_secs_f64() * 1000.0;
+    let overhead_ms =
+        elapsed_with_verify.as_secs_f64() * 1000.0 - elapsed_no_verify.as_secs_f64() * 1000.0;
     let overhead_per_op_us = (overhead_ms * 1000.0) / ITERATIONS as f64;
-    let overhead_percent = (elapsed_with_verify.as_secs_f64() / elapsed_no_verify.as_secs_f64() - 1.0) * 100.0;
+    let overhead_percent =
+        (elapsed_with_verify.as_secs_f64() / elapsed_no_verify.as_secs_f64() - 1.0) * 100.0;
 
     println!("📊 Results ({} iterations each):", ITERATIONS);
     println!();
     println!("   WITHOUT Verification:");
     println!("   ├─ Total time:    {:?}", elapsed_no_verify);
-    println!("   └─ Per iteration: {:.2} μs", elapsed_no_verify.as_secs_f64() * 1e6 / ITERATIONS as f64);
+    println!(
+        "   └─ Per iteration: {:.2} μs",
+        elapsed_no_verify.as_secs_f64() * 1e6 / ITERATIONS as f64
+    );
     println!();
     println!("   WITH Ed25519 Verification (SHA-256 + Sign):");
     println!("   ├─ Total time:    {:?}", elapsed_with_verify);
-    println!("   └─ Per iteration: {:.2} μs", elapsed_with_verify.as_secs_f64() * 1e6 / ITERATIONS as f64);
+    println!(
+        "   └─ Per iteration: {:.2} μs",
+        elapsed_with_verify.as_secs_f64() * 1e6 / ITERATIONS as f64
+    );
     println!();
     println!("   📈 OVERHEAD:");
     println!("   ├─ Total overhead:  {:.2} ms", overhead_ms);
@@ -937,7 +992,10 @@ fn run_verification_comparison() {
     // Verify one result to prove it works
     let (_, _, _, hash, sig) = &results_with_verify[0];
     let verified = verifying_key.verify(hash, sig).is_ok();
-    println!("   🔒 Signature verification: {}", if verified { "✅ PASSED" } else { "❌ FAILED" });
+    println!(
+        "   🔒 Signature verification: {}",
+        if verified { "✅ PASSED" } else { "❌ FAILED" }
+    );
 
     // Calculate effective throughput with verification
     let total_sims: u64 = results_no_verify.iter().map(|(_, s, _)| *s).sum();
@@ -946,13 +1004,25 @@ fn run_verification_comparison() {
 
     println!();
     println!("   ⚡ Throughput Comparison:");
-    println!("   ├─ Without verification: {:.3e} sims/sec", throughput_no_verify);
-    println!("   ├─ With verification:    {:.3e} sims/sec", throughput_with_verify);
-    println!("   └─ Impact:               {:.1}% reduction", (1.0 - throughput_with_verify / throughput_no_verify) * 100.0);
+    println!(
+        "   ├─ Without verification: {:.3e} sims/sec",
+        throughput_no_verify
+    );
+    println!(
+        "   ├─ With verification:    {:.3e} sims/sec",
+        throughput_with_verify
+    );
+    println!(
+        "   └─ Impact:               {:.1}% reduction",
+        (1.0 - throughput_with_verify / throughput_no_verify) * 100.0
+    );
 
     println!();
     println!("═══════════════════════════════════════════════════════════════════");
-    println!("  CONCLUSION: Ed25519 verification adds ~{:.0}μs per operation", overhead_per_op_us);
+    println!(
+        "  CONCLUSION: Ed25519 verification adds ~{:.0}μs per operation",
+        overhead_per_op_us
+    );
     println!("  This is negligible for meta-simulations representing millions of sims");
     println!("═══════════════════════════════════════════════════════════════════");
 }

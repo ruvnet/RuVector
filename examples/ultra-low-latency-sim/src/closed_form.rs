@@ -53,7 +53,10 @@ pub struct GaussianRandomWalk {
 
 impl GaussianRandomWalk {
     pub fn new(step_mean: f64, step_variance: f64) -> Self {
-        Self { step_mean, step_variance }
+        Self {
+            step_mean,
+            step_variance,
+        }
     }
 
     /// Simulate n steps: returns (mean, variance) of final position
@@ -131,7 +134,9 @@ impl GeometricBrownianMotion {
         // E[S_t] = S_0 * exp(μt)
         let expected = self.s0 * (self.mu * t).exp();
         // Var[S_t] = S_0² * exp(2μt) * (exp(σ²t) - 1)
-        let variance = self.s0 * self.s0 * (2.0 * self.mu * t).exp()
+        let variance = self.s0
+            * self.s0
+            * (2.0 * self.mu * t).exp()
             * ((self.sigma * self.sigma * t).exp() - 1.0);
         (expected, variance)
     }

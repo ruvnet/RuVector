@@ -24,19 +24,17 @@
 //!
 //! Run: `cargo run --example linux_microkernel`
 
+use ed25519_dalek::{SigningKey, VerifyingKey};
 use rvf_crypto::{
     create_witness_chain, shake256_256, sign_segment, verify_segment, verify_witness_chain,
     WitnessEntry,
 };
-use rvf_runtime::options::DistanceMetric;
-use rvf_runtime::{
-    FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore,
-};
 use rvf_runtime::filter::FilterValue;
+use rvf_runtime::options::DistanceMetric;
+use rvf_runtime::{FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore};
 use rvf_types::kernel::{KernelArch, KernelType};
-use rvf_types::{SegmentHeader, SegmentType};
 use rvf_types::DerivationType;
-use ed25519_dalek::{SigningKey, VerifyingKey};
+use rvf_types::{SegmentHeader, SegmentType};
 use tempfile::TempDir;
 
 /// LCG-based deterministic random vector generator.
@@ -44,7 +42,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -59,7 +59,9 @@ fn keygen(seed: u64) -> (SigningKey, VerifyingKey) {
     let mut key_bytes = [0u8; 32];
     let mut x = seed;
     for b in &mut key_bytes {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         *b = (x >> 56) as u8;
     }
     let sk = SigningKey::from_bytes(&key_bytes);
@@ -108,57 +110,191 @@ fn main() {
     println!("--- Phase 1: Package Collection ---");
 
     let packages: Vec<Package> = vec![
-        Package { name: "musl-libc", version: "1.2.5", category: "core", size_kb: 892,
-            deps: &[], description: "Minimal standard C library" },
-        Package { name: "busybox", version: "1.36.1", category: "core", size_kb: 1024,
-            deps: &["musl-libc"], description: "Swiss army knife of embedded Linux" },
-        Package { name: "linux-kernel", version: "6.8.0-micro", category: "kernel", size_kb: 8192,
-            deps: &[], description: "Linux microkernel (minimal config)" },
-        Package { name: "openssh-server", version: "9.6p1", category: "network", size_kb: 2048,
-            deps: &["musl-libc", "openssl"], description: "SSH protocol server" },
-        Package { name: "openssh-client", version: "9.6p1", category: "network", size_kb: 1536,
-            deps: &["musl-libc", "openssl"], description: "SSH protocol client" },
-        Package { name: "openssl", version: "3.2.1", category: "crypto", size_kb: 4096,
-            deps: &["musl-libc"], description: "TLS/SSL cryptographic library" },
-        Package { name: "iptables", version: "1.8.10", category: "network", size_kb: 768,
-            deps: &["musl-libc"], description: "Packet filtering framework" },
-        Package { name: "nftables", version: "1.0.9", category: "network", size_kb: 512,
-            deps: &["musl-libc"], description: "Netfilter tables (modern firewall)" },
-        Package { name: "iproute2", version: "6.7.0", category: "network", size_kb: 1280,
-            deps: &["musl-libc"], description: "Network configuration utilities" },
-        Package { name: "containerd", version: "1.7.13", category: "container", size_kb: 32768,
-            deps: &["musl-libc"], description: "Container runtime daemon" },
-        Package { name: "runc", version: "1.1.12", category: "container", size_kb: 8192,
-            deps: &["musl-libc"], description: "OCI container runtime" },
-        Package { name: "cni-plugins", version: "1.4.0", category: "container", size_kb: 16384,
-            deps: &["musl-libc", "iproute2"], description: "Container networking plugins" },
-        Package { name: "wireguard-tools", version: "1.0.20210914", category: "vpn", size_kb: 256,
-            deps: &["musl-libc"], description: "WireGuard VPN userspace tools" },
-        Package { name: "ruvector-agent", version: "0.1.0", category: "ai", size_kb: 4096,
-            deps: &["musl-libc", "openssl"], description: "RuVector edge inference agent" },
-        Package { name: "prometheus-node", version: "1.7.0", category: "monitoring", size_kb: 10240,
-            deps: &["musl-libc"], description: "Prometheus node exporter" },
-        Package { name: "chrony", version: "4.5", category: "system", size_kb: 512,
-            deps: &["musl-libc"], description: "NTP time synchronization" },
-        Package { name: "syslog-ng", version: "4.6.0", category: "system", size_kb: 2048,
-            deps: &["musl-libc", "openssl"], description: "System log daemon" },
-        Package { name: "dropbear", version: "2024.84", category: "network", size_kb: 384,
-            deps: &["musl-libc"], description: "Lightweight SSH server/client" },
-        Package { name: "ethtool", version: "6.7", category: "network", size_kb: 256,
-            deps: &["musl-libc"], description: "Ethernet device configuration" },
-        Package { name: "lldpd", version: "1.0.18", category: "network", size_kb: 512,
-            deps: &["musl-libc"], description: "LLDP protocol daemon" },
+        Package {
+            name: "musl-libc",
+            version: "1.2.5",
+            category: "core",
+            size_kb: 892,
+            deps: &[],
+            description: "Minimal standard C library",
+        },
+        Package {
+            name: "busybox",
+            version: "1.36.1",
+            category: "core",
+            size_kb: 1024,
+            deps: &["musl-libc"],
+            description: "Swiss army knife of embedded Linux",
+        },
+        Package {
+            name: "linux-kernel",
+            version: "6.8.0-micro",
+            category: "kernel",
+            size_kb: 8192,
+            deps: &[],
+            description: "Linux microkernel (minimal config)",
+        },
+        Package {
+            name: "openssh-server",
+            version: "9.6p1",
+            category: "network",
+            size_kb: 2048,
+            deps: &["musl-libc", "openssl"],
+            description: "SSH protocol server",
+        },
+        Package {
+            name: "openssh-client",
+            version: "9.6p1",
+            category: "network",
+            size_kb: 1536,
+            deps: &["musl-libc", "openssl"],
+            description: "SSH protocol client",
+        },
+        Package {
+            name: "openssl",
+            version: "3.2.1",
+            category: "crypto",
+            size_kb: 4096,
+            deps: &["musl-libc"],
+            description: "TLS/SSL cryptographic library",
+        },
+        Package {
+            name: "iptables",
+            version: "1.8.10",
+            category: "network",
+            size_kb: 768,
+            deps: &["musl-libc"],
+            description: "Packet filtering framework",
+        },
+        Package {
+            name: "nftables",
+            version: "1.0.9",
+            category: "network",
+            size_kb: 512,
+            deps: &["musl-libc"],
+            description: "Netfilter tables (modern firewall)",
+        },
+        Package {
+            name: "iproute2",
+            version: "6.7.0",
+            category: "network",
+            size_kb: 1280,
+            deps: &["musl-libc"],
+            description: "Network configuration utilities",
+        },
+        Package {
+            name: "containerd",
+            version: "1.7.13",
+            category: "container",
+            size_kb: 32768,
+            deps: &["musl-libc"],
+            description: "Container runtime daemon",
+        },
+        Package {
+            name: "runc",
+            version: "1.1.12",
+            category: "container",
+            size_kb: 8192,
+            deps: &["musl-libc"],
+            description: "OCI container runtime",
+        },
+        Package {
+            name: "cni-plugins",
+            version: "1.4.0",
+            category: "container",
+            size_kb: 16384,
+            deps: &["musl-libc", "iproute2"],
+            description: "Container networking plugins",
+        },
+        Package {
+            name: "wireguard-tools",
+            version: "1.0.20210914",
+            category: "vpn",
+            size_kb: 256,
+            deps: &["musl-libc"],
+            description: "WireGuard VPN userspace tools",
+        },
+        Package {
+            name: "ruvector-agent",
+            version: "0.1.0",
+            category: "ai",
+            size_kb: 4096,
+            deps: &["musl-libc", "openssl"],
+            description: "RuVector edge inference agent",
+        },
+        Package {
+            name: "prometheus-node",
+            version: "1.7.0",
+            category: "monitoring",
+            size_kb: 10240,
+            deps: &["musl-libc"],
+            description: "Prometheus node exporter",
+        },
+        Package {
+            name: "chrony",
+            version: "4.5",
+            category: "system",
+            size_kb: 512,
+            deps: &["musl-libc"],
+            description: "NTP time synchronization",
+        },
+        Package {
+            name: "syslog-ng",
+            version: "4.6.0",
+            category: "system",
+            size_kb: 2048,
+            deps: &["musl-libc", "openssl"],
+            description: "System log daemon",
+        },
+        Package {
+            name: "dropbear",
+            version: "2024.84",
+            category: "network",
+            size_kb: 384,
+            deps: &["musl-libc"],
+            description: "Lightweight SSH server/client",
+        },
+        Package {
+            name: "ethtool",
+            version: "6.7",
+            category: "network",
+            size_kb: 256,
+            deps: &["musl-libc"],
+            description: "Ethernet device configuration",
+        },
+        Package {
+            name: "lldpd",
+            version: "1.0.18",
+            category: "network",
+            size_kb: 512,
+            deps: &["musl-libc"],
+            description: "LLDP protocol daemon",
+        },
     ];
 
     println!("  Packages: {}", packages.len());
-    for cat in &["core", "kernel", "crypto", "network", "container", "vpn", "ai", "monitoring", "system"] {
+    for cat in &[
+        "core",
+        "kernel",
+        "crypto",
+        "network",
+        "container",
+        "vpn",
+        "ai",
+        "monitoring",
+        "system",
+    ] {
         let count = packages.iter().filter(|p| p.category == *cat).count();
         if count > 0 {
             println!("    {:12}: {} packages", cat, count);
         }
     }
     let total_size: u64 = packages.iter().map(|p| p.size_kb).sum();
-    println!("  Total size:  {} KB ({:.1} MB)", total_size, total_size as f64 / 1024.0);
+    println!(
+        "  Total size:  {} KB ({:.1} MB)",
+        total_size,
+        total_size as f64 / 1024.0
+    );
     println!();
 
     // ────────────────────────────────────────────────
@@ -245,11 +381,26 @@ fn main() {
     let mut metadata = Vec::new();
     for (i, pkg) in packages.iter().enumerate() {
         let id = (i + 1) as u64;
-        metadata.push(MetadataEntry { field_id: 0, value: MetadataValue::String(pkg.name.to_string()) });
-        metadata.push(MetadataEntry { field_id: 1, value: MetadataValue::String(pkg.version.to_string()) });
-        metadata.push(MetadataEntry { field_id: 2, value: MetadataValue::String(pkg.category.to_string()) });
-        metadata.push(MetadataEntry { field_id: 3, value: MetadataValue::U64(pkg.size_kb) });
-        metadata.push(MetadataEntry { field_id: 4, value: MetadataValue::U64(pkg.deps.len() as u64) });
+        metadata.push(MetadataEntry {
+            field_id: 0,
+            value: MetadataValue::String(pkg.name.to_string()),
+        });
+        metadata.push(MetadataEntry {
+            field_id: 1,
+            value: MetadataValue::String(pkg.version.to_string()),
+        });
+        metadata.push(MetadataEntry {
+            field_id: 2,
+            value: MetadataValue::String(pkg.category.to_string()),
+        });
+        metadata.push(MetadataEntry {
+            field_id: 3,
+            value: MetadataValue::U64(pkg.size_kb),
+        });
+        metadata.push(MetadataEntry {
+            field_id: 4,
+            value: MetadataValue::U64(pkg.deps.len() as u64),
+        });
         let _ = id; // IDs are positional in the batch
     }
 
@@ -264,14 +415,39 @@ fn main() {
     // ────────────────────────────────────────────────
     println!("--- Phase 4: SSH Key Management ---");
 
-    let ssh_keys = [SshKey { user: "root", key_type: "ed25519", fingerprint_seed: 1000, permissions: "admin" },
-        SshKey { user: "deploy", key_type: "ed25519", fingerprint_seed: 2000, permissions: "deploy" },
-        SshKey { user: "monitor", key_type: "ed25519", fingerprint_seed: 3000, permissions: "readonly" },
-        SshKey { user: "backup", key_type: "ed25519", fingerprint_seed: 4000, permissions: "backup" }];
+    let ssh_keys = [
+        SshKey {
+            user: "root",
+            key_type: "ed25519",
+            fingerprint_seed: 1000,
+            permissions: "admin",
+        },
+        SshKey {
+            user: "deploy",
+            key_type: "ed25519",
+            fingerprint_seed: 2000,
+            permissions: "deploy",
+        },
+        SshKey {
+            user: "monitor",
+            key_type: "ed25519",
+            fingerprint_seed: 3000,
+            permissions: "readonly",
+        },
+        SshKey {
+            user: "backup",
+            key_type: "ed25519",
+            fingerprint_seed: 4000,
+            permissions: "backup",
+        },
+    ];
 
     // Generate Ed25519 keypairs and sign a payload for each
     let (host_sk, host_vk) = keygen(9999);
-    println!("  Host key:    ed25519 ({}...)", hex_short(&host_vk.to_bytes(), 8));
+    println!(
+        "  Host key:    ed25519 ({}...)",
+        hex_short(&host_vk.to_bytes(), 8)
+    );
 
     for (ki, key) in ssh_keys.iter().enumerate() {
         let (user_sk, user_vk) = keygen(key.fingerprint_seed);
@@ -303,25 +479,65 @@ fn main() {
     println!("--- Phase 5: Network Configuration ---");
 
     let interfaces = vec![
-        NetInterface { name: "eth0", ip: "10.0.1.10", mask: "255.255.255.0",
-            gateway: Some("10.0.1.1"), mtu: 9000, vlan: None },
-        NetInterface { name: "eth1", ip: "192.168.100.10", mask: "255.255.255.0",
-            gateway: None, mtu: 1500, vlan: Some(100) },
-        NetInterface { name: "wg0", ip: "10.200.0.1", mask: "255.255.255.0",
-            gateway: None, mtu: 1420, vlan: None },
-        NetInterface { name: "lo", ip: "127.0.0.1", mask: "255.0.0.0",
-            gateway: None, mtu: 65535, vlan: None },
-        NetInterface { name: "docker0", ip: "172.17.0.1", mask: "255.255.0.0",
-            gateway: None, mtu: 1500, vlan: None },
+        NetInterface {
+            name: "eth0",
+            ip: "10.0.1.10",
+            mask: "255.255.255.0",
+            gateway: Some("10.0.1.1"),
+            mtu: 9000,
+            vlan: None,
+        },
+        NetInterface {
+            name: "eth1",
+            ip: "192.168.100.10",
+            mask: "255.255.255.0",
+            gateway: None,
+            mtu: 1500,
+            vlan: Some(100),
+        },
+        NetInterface {
+            name: "wg0",
+            ip: "10.200.0.1",
+            mask: "255.255.255.0",
+            gateway: None,
+            mtu: 1420,
+            vlan: None,
+        },
+        NetInterface {
+            name: "lo",
+            ip: "127.0.0.1",
+            mask: "255.0.0.0",
+            gateway: None,
+            mtu: 65535,
+            vlan: None,
+        },
+        NetInterface {
+            name: "docker0",
+            ip: "172.17.0.1",
+            mask: "255.255.0.0",
+            gateway: None,
+            mtu: 1500,
+            vlan: None,
+        },
     ];
 
-    println!("  {:10} {:18} {:18} {:>5} {:>6}", "Interface", "IP Address", "Gateway", "MTU", "VLAN");
-    println!("  {:->10} {:->18} {:->18} {:->5} {:->6}", "", "", "", "", "");
+    println!(
+        "  {:10} {:18} {:18} {:>5} {:>6}",
+        "Interface", "IP Address", "Gateway", "MTU", "VLAN"
+    );
+    println!(
+        "  {:->10} {:->18} {:->18} {:->5} {:->6}",
+        "", "", "", "", ""
+    );
     for intf in &interfaces {
         println!(
             "  {:10} {:18} {:18} {:>5} {:>6}",
             intf.name,
-            format!("{}/{}", intf.ip, intf.mask.split('.').filter(|&o| o != "0").count() * 8),
+            format!(
+                "{}/{}",
+                intf.ip,
+                intf.mask.split('.').filter(|&o| o != "0").count() * 8
+            ),
             intf.gateway.unwrap_or("-"),
             intf.mtu,
             intf.vlan.map_or("-".to_string(), |v| v.to_string()),
@@ -340,32 +556,50 @@ fn main() {
     net_query[2] = 0.3; // moderate dependencies
 
     let net_opts = QueryOptions {
-        filter: Some(FilterExpr::Eq(2, FilterValue::String("network".to_string()))),
+        filter: Some(FilterExpr::Eq(
+            2,
+            FilterValue::String("network".to_string()),
+        )),
         ..Default::default()
     };
-    let net_results = store.query(&net_query, 10, &net_opts).expect("network search");
+    let net_results = store
+        .query(&net_query, 10, &net_opts)
+        .expect("network search");
     println!("  Network packages (filtered by category='network'):");
     for (i, r) in net_results.iter().enumerate() {
         let pkg = &packages[(r.id - 1) as usize];
         println!(
             "    #{}: {}-{} ({} KB, {} deps) dist={:.4}",
-            i + 1, pkg.name, pkg.version, pkg.size_kb, pkg.deps.len(), r.distance,
+            i + 1,
+            pkg.name,
+            pkg.version,
+            pkg.size_kb,
+            pkg.deps.len(),
+            r.distance,
         );
     }
     println!();
 
     // Search for container-related packages
     let container_opts = QueryOptions {
-        filter: Some(FilterExpr::Eq(2, FilterValue::String("container".to_string()))),
+        filter: Some(FilterExpr::Eq(
+            2,
+            FilterValue::String("container".to_string()),
+        )),
         ..Default::default()
     };
-    let container_results = store.query(&net_query, 10, &container_opts).expect("container search");
+    let container_results = store
+        .query(&net_query, 10, &container_opts)
+        .expect("container search");
     println!("  Container packages:");
     for (i, r) in container_results.iter().enumerate() {
         let pkg = &packages[(r.id - 1) as usize];
         println!(
             "    #{}: {}-{} ({} KB)",
-            i + 1, pkg.name, pkg.version, pkg.size_kb,
+            i + 1,
+            pkg.name,
+            pkg.version,
+            pkg.size_kb,
         );
     }
     println!();
@@ -375,13 +609,19 @@ fn main() {
         filter: Some(FilterExpr::Gt(3, FilterValue::U64(4096))),
         ..Default::default()
     };
-    let large_results = store.query(&net_query, 20, &large_opts).expect("large pkg search");
+    let large_results = store
+        .query(&net_query, 20, &large_opts)
+        .expect("large pkg search");
     println!("  Large packages (> 4 MB):");
     for (i, r) in large_results.iter().enumerate() {
         let pkg = &packages[(r.id - 1) as usize];
         println!(
             "    #{}: {}-{} ({:.1} MB, category={})",
-            i + 1, pkg.name, pkg.version, pkg.size_kb as f64 / 1024.0, pkg.category,
+            i + 1,
+            pkg.name,
+            pkg.version,
+            pkg.size_kb as f64 / 1024.0,
+            pkg.category,
         );
     }
     println!();
@@ -398,10 +638,7 @@ fn main() {
     println!("  Base image:   microkernel.rvf");
     println!("  Update image: microkernel_v2.rvf");
     println!("  Lineage depth: {}", update_store.lineage_depth());
-    println!(
-        "  Parent ID: {}",
-        hex_short(update_store.parent_id(), 8)
-    );
+    println!("  Parent ID: {}", hex_short(update_store.parent_id(), 8));
     println!(
         "  Parent matches: {}",
         update_store.parent_id() == store.file_id()
@@ -418,7 +655,11 @@ fn main() {
         WitnessEntry {
             prev_hash: [0u8; 32],
             action_hash: shake256_256(
-                format!("image_create:packages={},kernel=6.8.0-micro", packages.len()).as_bytes(),
+                format!(
+                    "image_create:packages={},kernel=6.8.0-micro",
+                    packages.len()
+                )
+                .as_bytes(),
             ),
             timestamp_ns: ts,
             witness_type: 0x08, // DATA_PROVENANCE
@@ -426,7 +667,11 @@ fn main() {
         WitnessEntry {
             prev_hash: [0u8; 32],
             action_hash: shake256_256(
-                format!("kernel_embed:arch=x86_64,type=linux,size={}", kernel_image.len()).as_bytes(),
+                format!(
+                    "kernel_embed:arch=x86_64,type=linux,size={}",
+                    kernel_image.len()
+                )
+                .as_bytes(),
             ),
             timestamp_ns: ts + 1_000_000,
             witness_type: 0x02, // COMPUTATION
@@ -456,7 +701,11 @@ fn main() {
         WitnessEntry {
             prev_hash: [0u8; 32],
             action_hash: shake256_256(
-                format!("derive_update:parent_depth=0,child_depth={}", update_store.lineage_depth()).as_bytes(),
+                format!(
+                    "derive_update:parent_depth=0,child_depth={}",
+                    update_store.lineage_depth()
+                )
+                .as_bytes(),
             ),
             timestamp_ns: ts + 5_000_000,
             witness_type: 0x09, // DERIVATION
@@ -490,12 +739,29 @@ fn main() {
     println!("--- Phase 9: Image Layout ---");
     let final_status = store.status();
     println!("  microkernel.rvf contents:");
-    println!("    KERNEL_SEG:   Linux x86_64 microkernel ({} bytes)", kernel_image.len());
-    println!("    VEC_SEG:      {} packages ({}-dim embeddings)", packages.len(), dim);
-    println!("    MANIFEST_SEG: {} segments total", final_status.total_segments);
+    println!(
+        "    KERNEL_SEG:   Linux x86_64 microkernel ({} bytes)",
+        kernel_image.len()
+    );
+    println!(
+        "    VEC_SEG:      {} packages ({}-dim embeddings)",
+        packages.len(),
+        dim
+    );
+    println!(
+        "    MANIFEST_SEG: {} segments total",
+        final_status.total_segments
+    );
     println!("    WITNESS_SEG:  {} audit entries", verified.len());
-    println!("    CRYPTO_SEG:   {} SSH keys (Ed25519 signed)", ssh_keys.len());
-    println!("    File size:    {} bytes ({:.1} KB)", final_status.file_size, final_status.file_size as f64 / 1024.0);
+    println!(
+        "    CRYPTO_SEG:   {} SSH keys (Ed25519 signed)",
+        ssh_keys.len()
+    );
+    println!(
+        "    File size:    {} bytes ({:.1} KB)",
+        final_status.file_size,
+        final_status.file_size as f64 / 1024.0
+    );
     println!();
     println!("  Deployment workflow:");
     println!("    1. Build: packages → RVF image (this example)");
@@ -515,12 +781,19 @@ fn main() {
     // Summary
     // ────────────────────────────────────────────────
     println!("=== Summary ===\n");
-    println!("  Packages:     {} ({:.1} MB total)", packages.len(), total_size as f64 / 1024.0);
+    println!(
+        "  Packages:     {} ({:.1} MB total)",
+        packages.len(),
+        total_size as f64 / 1024.0
+    );
     println!("  Kernel:       Linux 6.8.0-micro x86_64");
     println!("  SSH keys:     {} (Ed25519, host-signed)", ssh_keys.len());
     println!("  Network:      {} interfaces configured", interfaces.len());
     println!("  Audit trail:  {} witness entries", verified.len());
-    println!("  Lineage:      base → v2 (depth {})", update_store.lineage_depth());
+    println!(
+        "  Lineage:      base → v2 (depth {})",
+        update_store.lineage_depth()
+    );
     println!();
     println!("  Key insight: A single .rvf file is a complete, bootable,");
     println!("  searchable, auditable Linux system image — packages are");

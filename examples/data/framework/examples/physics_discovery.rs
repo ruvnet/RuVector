@@ -36,10 +36,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get recent significant earthquakes (magnitude 5.0+, last 7 days)
     match usgs_client.get_recent(5.0, 7).await {
         Ok(earthquakes) => {
-            println!("   ✓ Found {} recent earthquakes (mag 5.0+)", earthquakes.len());
+            println!(
+                "   ✓ Found {} recent earthquakes (mag 5.0+)",
+                earthquakes.len()
+            );
             for eq in earthquakes.iter().take(3) {
-                let mag = eq.metadata.get("magnitude").map(|s| s.as_str()).unwrap_or("N/A");
-                let place = eq.metadata.get("place").map(|s| s.as_str()).unwrap_or("Unknown");
+                let mag = eq
+                    .metadata
+                    .get("magnitude")
+                    .map(|s| s.as_str())
+                    .unwrap_or("N/A");
+                let place = eq
+                    .metadata
+                    .get("place")
+                    .map(|s| s.as_str())
+                    .unwrap_or("Unknown");
                 println!("     - Magnitude {} at {}", mag, place);
 
                 // Add to discovery engine
@@ -52,7 +63,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Get regional earthquakes (Southern California)
     println!("\n📍 Searching earthquakes near Los Angeles...");
-    match usgs_client.search_by_region(34.05, -118.25, 200.0, 30).await {
+    match usgs_client
+        .search_by_region(34.05, -118.25, 200.0, 30)
+        .await
+    {
         Ok(regional) => {
             println!("   ✓ Found {} earthquakes within 200km", regional.len());
             for eq in regional.iter().take(2) {
@@ -73,8 +87,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(datasets) => {
             println!("   ✓ Found {} Higgs-related datasets", datasets.len());
             for dataset in datasets.iter().take(3) {
-                let title = dataset.metadata.get("title").map(|s| s.as_str()).unwrap_or("N/A");
-                let experiment = dataset.metadata.get("experiment").map(|s| s.as_str()).unwrap_or("N/A");
+                let title = dataset
+                    .metadata
+                    .get("title")
+                    .map(|s| s.as_str())
+                    .unwrap_or("N/A");
+                let experiment = dataset
+                    .metadata
+                    .get("experiment")
+                    .map(|s| s.as_str())
+                    .unwrap_or("N/A");
                 println!("     - {} ({})", title, experiment);
 
                 engine.add_vector(dataset.clone());
@@ -106,9 +128,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(profiles) => {
             println!("   ✓ Created {} sample ocean profiles", profiles.len());
             for profile in profiles.iter().take(3) {
-                let lat = profile.metadata.get("latitude").map(|s| s.as_str()).unwrap_or("N/A");
-                let lon = profile.metadata.get("longitude").map(|s| s.as_str()).unwrap_or("N/A");
-                let temp = profile.metadata.get("temperature").map(|s| s.as_str()).unwrap_or("N/A");
+                let lat = profile
+                    .metadata
+                    .get("latitude")
+                    .map(|s| s.as_str())
+                    .unwrap_or("N/A");
+                let lon = profile
+                    .metadata
+                    .get("longitude")
+                    .map(|s| s.as_str())
+                    .unwrap_or("N/A");
+                let temp = profile
+                    .metadata
+                    .get("temperature")
+                    .map(|s| s.as_str())
+                    .unwrap_or("N/A");
                 println!("     - Ocean at ({}, {}): {}°C", lat, lon, temp);
 
                 engine.add_vector(profile.clone());
@@ -131,8 +165,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Ok(materials) => {
                 println!("   ✓ Found {} silicon materials", materials.len());
                 for material in materials.iter().take(3) {
-                    let formula = material.metadata.get("formula").map(|s| s.as_str()).unwrap_or("N/A");
-                    let band_gap = material.metadata.get("band_gap").map(|s| s.as_str()).unwrap_or("N/A");
+                    let formula = material
+                        .metadata
+                        .get("formula")
+                        .map(|s| s.as_str())
+                        .unwrap_or("N/A");
+                    let band_gap = material
+                        .metadata
+                        .get("band_gap")
+                        .map(|s| s.as_str())
+                        .unwrap_or("N/A");
                     println!("     - {} (band gap: {} eV)", formula, band_gap);
 
                     engine.add_vector(material.clone());

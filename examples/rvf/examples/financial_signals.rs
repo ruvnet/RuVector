@@ -16,17 +16,16 @@
 use ed25519_dalek::SigningKey;
 use rand::rngs::OsRng;
 
-use rvf_runtime::{
-    FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult,
+use rvf_crypto::{
+    create_witness_chain, shake256_256, sign_segment, verify_segment, verify_witness_chain,
+    WitnessEntry,
 };
 use rvf_runtime::filter::FilterValue;
 use rvf_runtime::options::DistanceMetric;
-use rvf_types::{SegmentHeader, SegmentType};
-use rvf_crypto::{
-    sign_segment, verify_segment,
-    create_witness_chain, verify_witness_chain, WitnessEntry,
-    shake256_256,
+use rvf_runtime::{
+    FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult,
 };
+use rvf_types::{SegmentHeader, SegmentType};
 use tempfile::TempDir;
 
 /// Simple LCG-based pseudo-random vector generator for deterministic results.
@@ -34,7 +33,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -46,8 +47,9 @@ fn main() {
     let dim = 256;
     let num_signals = 200;
 
-    let tickers = ["AAPL", "GOOGL", "MSFT", "AMZN", "TSLA",
-                    "META", "NVDA", "JPM", "GS", "BAC"];
+    let tickers = [
+        "AAPL", "GOOGL", "MSFT", "AMZN", "TSLA", "META", "NVDA", "JPM", "GS", "BAC",
+    ];
     let signal_types = ["momentum", "mean_revert", "volatility", "sentiment"];
 
     // ====================================================================
@@ -107,11 +109,18 @@ fn main() {
     let ingest = store
         .ingest_batch(&vec_refs, &ids, Some(&metadata))
         .expect("ingest failed");
-    println!("  Ingested {} signals (rejected: {})", ingest.accepted, ingest.rejected);
+    println!(
+        "  Ingested {} signals (rejected: {})",
+        ingest.accepted, ingest.rejected
+    );
 
     // Print signal distribution
-    let momentum_count = (0..num_signals).filter(|i| i % signal_types.len() == 0).count();
-    let high_conf_count = (0..num_signals).filter(|&i| ((i * 13 + 37) % 101) > 80).count();
+    let momentum_count = (0..num_signals)
+        .filter(|i| i % signal_types.len() == 0)
+        .count();
+    let high_conf_count = (0..num_signals)
+        .filter(|&i| ((i * 13 + 37) % 101) > 80)
+        .count();
     println!("  Momentum signals: {}", momentum_count);
     println!("  High confidence (>80): {}", high_conf_count);
 
@@ -121,11 +130,11 @@ fn main() {
     println!("\n--- 3. Attestation Witness Chain ---");
 
     let attestation_steps = [
-        ("tee_init", 0x05u8),           // PLATFORM_ATTESTATION
-        ("data_ingest", 0x08),          // DATA_PROVENANCE
-        ("signal_compute", 0x07),       // COMPUTATION_PROOF
-        ("result_attest", 0x05),        // PLATFORM_ATTESTATION
-        ("chain_seal", 0x08),           // DATA_PROVENANCE
+        ("tee_init", 0x05u8),     // PLATFORM_ATTESTATION
+        ("data_ingest", 0x08),    // DATA_PROVENANCE
+        ("signal_compute", 0x07), // COMPUTATION_PROOF
+        ("result_attest", 0x05),  // PLATFORM_ATTESTATION
+        ("chain_seal", 0x08),     // DATA_PROVENANCE
     ];
 
     let entries: Vec<WitnessEntry> = attestation_steps
@@ -144,7 +153,11 @@ fn main() {
 
     let chain_bytes = create_witness_chain(&entries);
     let verified = verify_witness_chain(&chain_bytes).expect("chain verification failed");
-    println!("  Chain created: {} entries, {} bytes", verified.len(), chain_bytes.len());
+    println!(
+        "  Chain created: {} entries, {} bytes",
+        verified.len(),
+        chain_bytes.len()
+    );
 
     println!("\n  Attestation chain:");
     for (i, (step, _)) in attestation_steps.iter().enumerate() {
@@ -175,9 +188,18 @@ fn main() {
     let valid = verify_segment(&header, payload, &footer, &verifying_key);
 
     println!("  Algorithm:     Ed25519");
-    println!("  Public key:    {}...", hex_string(&verifying_key.to_bytes()[..16]));
-    println!("  Signature:     {}...", hex_string(&footer.signature[..16]));
-    println!("  Verification:  {}", if valid { "VALID" } else { "INVALID" });
+    println!(
+        "  Public key:    {}...",
+        hex_string(&verifying_key.to_bytes()[..16])
+    );
+    println!(
+        "  Signature:     {}...",
+        hex_string(&footer.signature[..16])
+    );
+    println!(
+        "  Verification:  {}",
+        if valid { "VALID" } else { "INVALID" }
+    );
     assert!(valid, "signature should be valid");
 
     // ====================================================================
@@ -246,7 +268,10 @@ fn main() {
         .query(&query_vec, k, &opts_combined)
         .expect("query failed");
 
-    println!("  Momentum signals with confidence > 80: {}", results_combined.len());
+    println!(
+        "  Momentum signals with confidence > 80: {}",
+        results_combined.len()
+    );
     if !results_combined.is_empty() {
         print_signal_results(&results_combined, &tickers, &signal_types);
     }
@@ -257,26 +282,34 @@ fn main() {
     println!("\n=== Financial Signals Summary ===\n");
     println!("  Total signals:           {}", num_signals);
     println!("  Embedding dimensions:    {}", dim);
-    println!("  Attestation chain:       {} entries", attestation_steps.len());
+    println!(
+        "  Attestation chain:       {} entries",
+        attestation_steps.len()
+    );
     println!("  Ed25519 signature:       VALID");
     println!("  High confidence (>80):   {} results", results_high.len());
-    println!("  Momentum signals:        {} results", results_momentum.len());
-    println!("  Combined filter:         {} results", results_combined.len());
+    println!(
+        "  Momentum signals:        {} results",
+        results_momentum.len()
+    );
+    println!(
+        "  Combined filter:         {} results",
+        results_combined.len()
+    );
 
     store.close().expect("failed to close store");
     println!("\nDone.");
 }
 
-fn print_signal_results(
-    results: &[SearchResult],
-    tickers: &[&str],
-    signal_types: &[&str],
-) {
+fn print_signal_results(results: &[SearchResult], tickers: &[&str], signal_types: &[&str]) {
     println!(
         "    {:>6}  {:>12}  {:>6}  {:>12}  {:>6}",
         "ID", "Distance", "Ticker", "Signal", "Conf"
     );
-    println!("    {:->6}  {:->12}  {:->6}  {:->12}  {:->6}", "", "", "", "", "");
+    println!(
+        "    {:->6}  {:->12}  {:->6}  {:->12}  {:->6}",
+        "", "", "", "", ""
+    );
     for r in results {
         let idx = r.id as usize;
         let ticker = tickers[idx % tickers.len()];

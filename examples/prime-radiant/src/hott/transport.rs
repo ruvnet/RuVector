@@ -8,7 +8,7 @@
 //! identity types, expressing that to prove something about all paths,
 //! it suffices to prove it for reflexivity.
 
-use super::{Term, Type, Path, PathOps, TypeError};
+use super::{Path, PathOps, Term, Type, TypeError};
 
 /// Transport a term along a path in a type family
 ///
@@ -65,10 +65,7 @@ pub fn transport_term(family_term: &Term, path_proof: &Term, term: &Term) -> Ter
 /// # Returns
 ///
 /// A term of type C(path.source, path.target, path)
-pub fn path_induction<F>(
-    path: &Path,
-    base_case: F,
-) -> Term
+pub fn path_induction<F>(path: &Path, base_case: F) -> Term
 where
     F: Fn(&Term) -> Term,
 {
@@ -91,13 +88,7 @@ where
 }
 
 /// Full J eliminator with explicit motive
-pub fn j_elim(
-    motive: Term,
-    base_case: Term,
-    left: Term,
-    right: Term,
-    path: Term,
-) -> Term {
+pub fn j_elim(motive: Term, base_case: Term, left: Term, right: Term, path: Term) -> Term {
     Term::J {
         motive: Box::new(motive),
         base_case: Box::new(base_case),
@@ -157,12 +148,7 @@ impl TransportLaws {
     }
 
     /// transport_P(p . q, x) = transport_P(q, transport_P(p, x))
-    pub fn transport_compose(
-        family: &Type,
-        p: &Path,
-        q: &Path,
-        x: &Term,
-    ) -> Option<(Term, Term)> {
+    pub fn transport_compose(family: &Type, p: &Path, q: &Path, x: &Term) -> Option<(Term, Term)> {
         use super::PathOps;
 
         let pq = p.compose(q)?;
@@ -176,11 +162,7 @@ impl TransportLaws {
     }
 
     /// transport_P(p^(-1), transport_P(p, x)) = x
-    pub fn transport_inverse_left(
-        family: &Type,
-        path: &Path,
-        x: &Term,
-    ) -> (Term, Term) {
+    pub fn transport_inverse_left(family: &Type, path: &Path, x: &Term) -> (Term, Term) {
         use super::PathOps;
 
         let transported = transport(family, path, x);
@@ -190,11 +172,7 @@ impl TransportLaws {
     }
 
     /// transport_P(p, transport_P(p^(-1), y)) = y
-    pub fn transport_inverse_right(
-        family: &Type,
-        path: &Path,
-        y: &Term,
-    ) -> (Term, Term) {
+    pub fn transport_inverse_right(family: &Type, path: &Path, y: &Term) -> (Term, Term) {
         use super::PathOps;
 
         let transported = transport(family, &path.inverse(), y);
@@ -282,10 +260,7 @@ impl Contraction {
 
 /// The unit type is contractible
 pub fn unit_contraction() -> Contraction {
-    Contraction::new(
-        Term::Star,
-        |_x| Path::refl(Term::Star),
-    )
+    Contraction::new(Term::Star, |_x| Path::refl(Term::Star))
 }
 
 /// Singleton types are contractible
@@ -326,18 +301,16 @@ impl Fiber {
     pub fn new(func: Term, point: Term, domain: Type, codomain: Type) -> Self {
         let func_clone = func.clone();
         let point_clone = point.clone();
-        let fiber_type = Type::sigma(
-            "x",
-            domain,
-            move |x| Type::Id(
+        let fiber_type = Type::sigma("x", domain, move |x| {
+            Type::Id(
                 Box::new(codomain.clone()),
                 Box::new(Term::App {
                     func: Box::new(func_clone.clone()),
                     arg: Box::new(x.clone()),
                 }),
                 Box::new(point_clone.clone()),
-            ),
-        );
+            )
+        });
 
         Fiber {
             func,

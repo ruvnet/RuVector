@@ -3,5 +3,5 @@
 //! Contains GNN model implementations, attention mechanisms,
 //! and other technical components.
 
-pub mod gnn_model;
 pub mod attention;
+pub mod gnn_model;

@@ -3,8 +3,8 @@
 //! Provides fundamental complex linear algebra operations for quantum computing.
 //! Uses `num-complex` for complex number arithmetic with f64 precision.
 
-use std::ops::{Add, Mul, Sub};
 use ruvector_solver::types::CsrMatrix;
+use std::ops::{Add, Mul, Sub};
 
 /// Complex number type alias using f64 precision
 pub type Complex64 = num_complex::Complex<f64>;
@@ -79,7 +79,11 @@ impl ComplexVector {
 
     /// Inner product ⟨self|other⟩ = self† · other
     pub fn inner(&self, other: &ComplexVector) -> Complex64 {
-        assert_eq!(self.dim(), other.dim(), "Dimension mismatch in inner product");
+        assert_eq!(
+            self.dim(),
+            other.dim(),
+            "Dimension mismatch in inner product"
+        );
         self.data
             .iter()
             .zip(other.data.iter())
@@ -212,7 +216,11 @@ impl ComplexMatrix {
 
     /// Create a matrix from real values
     pub fn from_real(reals: &[f64], rows: usize, cols: usize) -> Self {
-        assert_eq!(reals.len(), rows * cols, "Data length must match dimensions");
+        assert_eq!(
+            reals.len(),
+            rows * cols,
+            "Data length must match dimensions"
+        );
         Self {
             data: reals.iter().map(|&r| Complex64::new(r, 0.0)).collect(),
             rows,
@@ -316,15 +324,14 @@ impl ComplexMatrix {
         }
         let entries: Vec<(usize, usize, f64)> = (0..self.rows)
             .flat_map(|i| {
-                (0..self.cols)
-                    .filter_map(move |j| {
-                        let val = self.get(i, j).re;
-                        if val.abs() > tolerance {
-                            Some((i, j, val))
-                        } else {
-                            None
-                        }
-                    })
+                (0..self.cols).filter_map(move |j| {
+                    let val = self.get(i, j).re;
+                    if val.abs() > tolerance {
+                        Some((i, j, val))
+                    } else {
+                        None
+                    }
+                })
             })
             .collect();
         Some(CsrMatrix::<f64>::from_coo(self.rows, self.cols, entries))
@@ -351,7 +358,11 @@ impl ComplexMatrix {
 
     /// Matrix-vector multiplication
     pub fn matvec(&self, v: &ComplexVector) -> ComplexVector {
-        assert_eq!(self.cols, v.dim(), "Dimension mismatch in matrix-vector product");
+        assert_eq!(
+            self.cols,
+            v.dim(),
+            "Dimension mismatch in matrix-vector product"
+        );
         let mut result = Vec::with_capacity(self.rows);
         for i in 0..self.rows {
             let mut sum = Complex64::new(0.0, 0.0);
@@ -579,12 +590,15 @@ impl ComplexMatrix {
         }
 
         // Eigenvalues are on the diagonal
-        let mut eigenvalues: Vec<Complex64> = (0..n)
-            .map(|i| Complex64::new(a[i][i], 0.0))
-            .collect();
+        let mut eigenvalues: Vec<Complex64> =
+            (0..n).map(|i| Complex64::new(a[i][i], 0.0)).collect();
 
         // Sort by magnitude (descending)
-        eigenvalues.sort_by(|a, b| b.norm().partial_cmp(&a.norm()).unwrap_or(std::cmp::Ordering::Equal));
+        eigenvalues.sort_by(|a, b| {
+            b.norm()
+                .partial_cmp(&a.norm())
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         eigenvalues
     }
@@ -659,7 +673,11 @@ impl ComplexMatrix {
         }
 
         // Sort by magnitude (descending)
-        eigenvalues.sort_by(|a, b| b.norm().partial_cmp(&a.norm()).unwrap_or(std::cmp::Ordering::Equal));
+        eigenvalues.sort_by(|a, b| {
+            b.norm()
+                .partial_cmp(&a.norm())
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         eigenvalues
     }
@@ -886,10 +904,7 @@ mod tests {
 
     #[test]
     fn test_complex_vector_basics() {
-        let v = ComplexVector::new(vec![
-            Complex64::new(1.0, 0.0),
-            Complex64::new(0.0, 1.0),
-        ]);
+        let v = ComplexVector::new(vec![Complex64::new(1.0, 0.0), Complex64::new(0.0, 1.0)]);
         assert_eq!(v.dim(), 2);
         assert!((v.norm_squared() - 2.0).abs() < 1e-10);
     }

@@ -25,9 +25,15 @@ async fn main() -> Result<()> {
         Ok(papers) => {
             println!("   Found {} papers", papers.len());
             for paper in papers.iter().take(3) {
-                println!("   - {}", paper.metadata.get("title").map_or("N/A", |s| s.as_str()));
+                println!(
+                    "   - {}",
+                    paper.metadata.get("title").map_or("N/A", |s| s.as_str())
+                );
                 println!("     ArXiv ID: {}", paper.id);
-                println!("     Authors: {}", paper.metadata.get("authors").map_or("N/A", |s| s.as_str()));
+                println!(
+                    "     Authors: {}",
+                    paper.metadata.get("authors").map_or("N/A", |s| s.as_str())
+                );
                 println!();
             }
         }
@@ -41,7 +47,10 @@ async fn main() -> Result<()> {
             println!("   Found {} AI papers", papers.len());
             let default_text = "N/A".to_string();
             for paper in papers.iter().take(2) {
-                println!("   - {}", paper.metadata.get("title").unwrap_or(&default_text));
+                println!(
+                    "   - {}",
+                    paper.metadata.get("title").unwrap_or(&default_text)
+                );
                 let abstract_text = paper.metadata.get("abstract").unwrap_or(&default_text);
                 let preview = if abstract_text.len() > 150 {
                     format!("{}...", &abstract_text[..150])
@@ -61,9 +70,15 @@ async fn main() -> Result<()> {
         Ok(papers) => {
             println!("   Found {} recent ML papers", papers.len());
             for paper in papers.iter().take(3) {
-                println!("   - {}", paper.metadata.get("title").map_or("N/A", |s| s.as_str()));
+                println!(
+                    "   - {}",
+                    paper.metadata.get("title").map_or("N/A", |s| s.as_str())
+                );
                 println!("     Published: {}", paper.timestamp.format("%Y-%m-%d"));
-                println!("     PDF: {}", paper.metadata.get("pdf_url").map_or("N/A", |s| s.as_str()));
+                println!(
+                    "     PDF: {}",
+                    paper.metadata.get("pdf_url").map_or("N/A", |s| s.as_str())
+                );
                 println!();
             }
         }
@@ -76,9 +91,21 @@ async fn main() -> Result<()> {
     match client.get_paper("1706.03762").await {
         Ok(Some(paper)) => {
             println!("   ✓ Found paper:");
-            println!("     Title: {}", paper.metadata.get("title").map_or("N/A", |s| s.as_str()));
-            println!("     Authors: {}", paper.metadata.get("authors").map_or("N/A", |s| s.as_str()));
-            println!("     Categories: {}", paper.metadata.get("categories").map_or("N/A", |s| s.as_str()));
+            println!(
+                "     Title: {}",
+                paper.metadata.get("title").map_or("N/A", |s| s.as_str())
+            );
+            println!(
+                "     Authors: {}",
+                paper.metadata.get("authors").map_or("N/A", |s| s.as_str())
+            );
+            println!(
+                "     Categories: {}",
+                paper
+                    .metadata
+                    .get("categories")
+                    .map_or("N/A", |s| s.as_str())
+            );
             println!("     Published: {}", paper.timestamp.format("%Y-%m-%d"));
         }
         Ok(None) => println!("   Paper not found"),
@@ -90,19 +117,30 @@ async fn main() -> Result<()> {
     let categories = vec!["cs.AI", "cs.LG", "stat.ML"];
     match client.search_multiple_categories(&categories, 3).await {
         Ok(papers) => {
-            println!("   Found {} papers across {} categories", papers.len(), categories.len());
+            println!(
+                "   Found {} papers across {} categories",
+                papers.len(),
+                categories.len()
+            );
 
             // Group by category
-            let mut by_category: std::collections::HashMap<String, Vec<_>> = std::collections::HashMap::new();
+            let mut by_category: std::collections::HashMap<String, Vec<_>> =
+                std::collections::HashMap::new();
             for paper in papers {
-                let cats = paper.metadata.get("categories")
+                let cats = paper
+                    .metadata
+                    .get("categories")
                     .map(|s| s.clone())
                     .unwrap_or_else(|| "unknown".to_string());
                 by_category.entry(cats).or_insert_with(Vec::new).push(paper);
             }
 
             for (category, cat_papers) in by_category.iter() {
-                println!("   {} papers with categories: {}", cat_papers.len(), category);
+                println!(
+                    "   {} papers with categories: {}",
+                    cat_papers.len(),
+                    category
+                );
             }
         }
         Err(e) => println!("   Error: {}", e),
@@ -114,7 +152,10 @@ async fn main() -> Result<()> {
         Ok(papers) => {
             println!("   Found {} climate papers", papers.len());
             for paper in papers.iter().take(2) {
-                println!("   - {}", paper.metadata.get("title").map_or("N/A", |s| s.as_str()));
+                println!(
+                    "   - {}",
+                    paper.metadata.get("title").map_or("N/A", |s| s.as_str())
+                );
                 println!("     Domain: {:?}", paper.domain);
                 println!();
             }
@@ -128,7 +169,10 @@ async fn main() -> Result<()> {
         Ok(papers) => {
             println!("   Found {} finance papers", papers.len());
             for paper in papers {
-                println!("   - {}", paper.metadata.get("title").map_or("N/A", |s| s.as_str()));
+                println!(
+                    "   - {}",
+                    paper.metadata.get("title").map_or("N/A", |s| s.as_str())
+                );
                 println!("     Embedding dim: {}", paper.embedding.len());
             }
         }

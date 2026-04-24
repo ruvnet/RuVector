@@ -10,9 +10,7 @@
 //! - Cohomology groups: < 5ms for 1K nodes
 //! - Sheaf neural layer: < 2ms per forward pass
 
-use criterion::{
-    black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
-};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use std::collections::HashMap;
 
 // ============================================================================
@@ -405,7 +403,11 @@ impl SheafNeuralLayer {
 // GRAPH GENERATORS
 // ============================================================================
 
-fn generate_random_graph(num_nodes: usize, edge_probability: f64, seed: u64) -> Vec<(usize, usize)> {
+fn generate_random_graph(
+    num_nodes: usize,
+    edge_probability: f64,
+    seed: u64,
+) -> Vec<(usize, usize)> {
     let mut edges = Vec::new();
     let mut rng_state = seed;
 
@@ -466,11 +468,7 @@ fn bench_coboundary_computation(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("d0_apply", num_nodes),
             &(&coboundary, &cochain),
-            |b, (cob, cochain)| {
-                b.iter(|| {
-                    black_box(cob.apply_d0(black_box(cochain)))
-                })
-            },
+            |b, (cob, cochain)| b.iter(|| black_box(cob.apply_d0(black_box(cochain)))),
         );
     }
 
@@ -530,9 +528,7 @@ fn bench_cohomology_class(c: &mut Criterion) {
             BenchmarkId::new("project_harmonic", num_nodes),
             &(&computer, &cochain),
             |b, (comp, cochain)| {
-                b.iter(|| {
-                    black_box(comp.compute_cohomology_class(black_box(cochain)))
-                })
+                b.iter(|| black_box(comp.compute_cohomology_class(black_box(cochain))))
             },
         );
     }
@@ -554,7 +550,11 @@ fn bench_sheaf_neural_layer(c: &mut Criterion) {
         let layer = SheafNeuralLayer::new(feature_dim, edge_dim, num_edges.max(1));
 
         let node_features: Vec<Vec<f64>> = (0..num_nodes)
-            .map(|i| (0..feature_dim).map(|j| ((i + j) as f64 * 0.1).sin()).collect())
+            .map(|i| {
+                (0..feature_dim)
+                    .map(|j| ((i + j) as f64 * 0.1).sin())
+                    .collect()
+            })
             .collect();
 
         group.throughput(Throughput::Elements(num_nodes as u64));
@@ -563,9 +563,7 @@ fn bench_sheaf_neural_layer(c: &mut Criterion) {
             BenchmarkId::new("forward", num_nodes),
             &(&layer, &node_features, &edges),
             |b, (layer, features, edges)| {
-                b.iter(|| {
-                    black_box(layer.forward(black_box(features), black_box(edges)))
-                })
+                b.iter(|| black_box(layer.forward(black_box(features), black_box(edges))))
             },
         );
 
@@ -597,11 +595,7 @@ fn bench_grid_topology(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("build_coboundary", format!("{}x{}", size, size)),
             &complex,
-            |b, complex| {
-                b.iter(|| {
-                    black_box(CoboundaryOperator::from_complex(black_box(complex)))
-                })
-            },
+            |b, complex| b.iter(|| black_box(CoboundaryOperator::from_complex(black_box(complex)))),
         );
 
         let layer = SheafNeuralLayer::new(32, 16, edges.len().max(1));
@@ -613,9 +607,7 @@ fn bench_grid_topology(c: &mut Criterion) {
             BenchmarkId::new("sheaf_layer", format!("{}x{}", size, size)),
             &(&layer, &features, &edges),
             |b, (layer, features, edges)| {
-                b.iter(|| {
-                    black_box(layer.forward(black_box(features), black_box(edges)))
-                })
+                b.iter(|| black_box(layer.forward(black_box(features), black_box(edges))))
             },
         );
     }

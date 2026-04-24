@@ -11,9 +11,7 @@
 //! - Counterfactual: < 5ms per query
 //! - Abstraction verification: < 10ms for moderate models
 
-use criterion::{
-    black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
-};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 // ============================================================================
@@ -156,11 +154,18 @@ impl CausalModel {
 
             let value = if let Some(func) = self.equations.get(&id) {
                 // Combine exogenous with structural equation
-                let exo = self.exogenous.get(&id).cloned().unwrap_or(Value::Continuous(0.0));
+                let exo = self
+                    .exogenous
+                    .get(&id)
+                    .cloned()
+                    .unwrap_or(Value::Continuous(0.0));
                 let base = func(&parent_values);
                 Value::Continuous(base.as_f64() + exo.as_f64())
             } else {
-                self.exogenous.get(&id).cloned().unwrap_or(Value::Continuous(0.0))
+                self.exogenous
+                    .get(&id)
+                    .cloned()
+                    .unwrap_or(Value::Continuous(0.0))
             };
 
             values.insert(id, value);
@@ -207,11 +212,19 @@ fn apply_intervention(
                 .collect();
 
             let value = if let Some(func) = model.equations.get(&id) {
-                let exo = model.exogenous.get(&id).cloned().unwrap_or(Value::Continuous(0.0));
+                let exo = model
+                    .exogenous
+                    .get(&id)
+                    .cloned()
+                    .unwrap_or(Value::Continuous(0.0));
                 let base = func(&parent_values);
                 Value::Continuous(base.as_f64() + exo.as_f64())
             } else {
-                model.exogenous.get(&id).cloned().unwrap_or(Value::Continuous(0.0))
+                model
+                    .exogenous
+                    .get(&id)
+                    .cloned()
+                    .unwrap_or(Value::Continuous(0.0))
             };
 
             values.insert(id, value);
@@ -245,11 +258,19 @@ fn apply_multi_intervention(
                 .collect();
 
             let value = if let Some(func) = model.equations.get(&id) {
-                let exo = model.exogenous.get(&id).cloned().unwrap_or(Value::Continuous(0.0));
+                let exo = model
+                    .exogenous
+                    .get(&id)
+                    .cloned()
+                    .unwrap_or(Value::Continuous(0.0));
                 let base = func(&parent_values);
                 Value::Continuous(base.as_f64() + exo.as_f64())
             } else {
-                model.exogenous.get(&id).cloned().unwrap_or(Value::Continuous(0.0))
+                model
+                    .exogenous
+                    .get(&id)
+                    .cloned()
+                    .unwrap_or(Value::Continuous(0.0))
             };
 
             values.insert(id, value);
@@ -274,10 +295,7 @@ struct CounterfactualQuery {
 }
 
 /// Compute counterfactual using abduction-action-prediction
-fn compute_counterfactual(
-    model: &CausalModel,
-    query: &CounterfactualQuery,
-) -> Option<Value> {
+fn compute_counterfactual(model: &CausalModel, query: &CounterfactualQuery) -> Option<Value> {
     // Step 1: Abduction - infer exogenous variables from observations
     let inferred_exogenous = abduct_exogenous(model, &query.observations)?;
 
@@ -353,11 +371,17 @@ fn abduct_exogenous(
         } else {
             // Compute from parents
             let value = if let Some(func) = model.equations.get(&id) {
-                let exo = exogenous.get(&id).cloned().unwrap_or(Value::Continuous(0.0));
+                let exo = exogenous
+                    .get(&id)
+                    .cloned()
+                    .unwrap_or(Value::Continuous(0.0));
                 let base = func(&parent_values);
                 Value::Continuous(base.as_f64() + exo.as_f64())
             } else {
-                exogenous.get(&id).cloned().unwrap_or(Value::Continuous(0.0))
+                exogenous
+                    .get(&id)
+                    .cloned()
+                    .unwrap_or(Value::Continuous(0.0))
             };
             computed_values.insert(id, value);
         }
@@ -420,7 +444,10 @@ impl CausalAbstraction {
 
         // Compare aggregated low-level values with high-level values
         for (&high_var, low_vars) in &self.variable_map {
-            let high_val = high_values.get(&high_var).map(|v| v.as_f64()).unwrap_or(0.0);
+            let high_val = high_values
+                .get(&high_var)
+                .map(|v| v.as_f64())
+                .unwrap_or(0.0);
 
             let low_vals: Vec<Value> = low_vars
                 .iter()
@@ -471,7 +498,10 @@ impl CausalAbstraction {
 
             // Compute error
             for (&high_var, low_vars) in &self.variable_map {
-                let high_val = high_values.get(&high_var).map(|v| v.as_f64()).unwrap_or(0.0);
+                let high_val = high_values
+                    .get(&high_var)
+                    .map(|v| v.as_f64())
+                    .unwrap_or(0.0);
 
                 let low_vals: Vec<Value> = low_vars
                     .iter()
@@ -505,8 +535,14 @@ fn compute_ate(
     let values_treated = apply_intervention(model, &intervention_treated);
     let values_control = apply_intervention(model, &intervention_control);
 
-    let y_treated = values_treated.get(&outcome).map(|v| v.as_f64()).unwrap_or(0.0);
-    let y_control = values_control.get(&outcome).map(|v| v.as_f64()).unwrap_or(0.0);
+    let y_treated = values_treated
+        .get(&outcome)
+        .map(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let y_control = values_control
+        .get(&outcome)
+        .map(|v| v.as_f64())
+        .unwrap_or(0.0);
 
     y_treated - y_control
 }
@@ -629,7 +665,12 @@ fn bench_intervention(c: &mut Criterion) {
             BenchmarkId::new("chain", size),
             &(&model, &intervention),
             |b, (model, intervention)| {
-                b.iter(|| black_box(apply_intervention(black_box(model), black_box(intervention))))
+                b.iter(|| {
+                    black_box(apply_intervention(
+                        black_box(model),
+                        black_box(intervention),
+                    ))
+                })
             },
         );
     }
@@ -646,7 +687,12 @@ fn bench_intervention(c: &mut Criterion) {
             BenchmarkId::new("diamond", size),
             &(&model, &intervention),
             |b, (model, intervention)| {
-                b.iter(|| black_box(apply_intervention(black_box(model), black_box(intervention))))
+                b.iter(|| {
+                    black_box(apply_intervention(
+                        black_box(model),
+                        black_box(intervention),
+                    ))
+                })
             },
         );
     }
@@ -670,7 +716,12 @@ fn bench_multi_intervention(c: &mut Criterion) {
             BenchmarkId::new("dense_100", num_interventions),
             &(&model, &interventions),
             |b, (model, interventions)| {
-                b.iter(|| black_box(apply_multi_intervention(black_box(model), black_box(interventions))))
+                b.iter(|| {
+                    black_box(apply_multi_intervention(
+                        black_box(model),
+                        black_box(interventions),
+                    ))
+                })
             },
         );
     }
@@ -723,9 +774,7 @@ fn bench_abstraction_verification(c: &mut Criterion) {
 
         // Map high-level vars to groups of low-level vars
         for i in 0..high_size {
-            let low_vars: Vec<VariableId> = (0..5)
-                .map(|j| VariableId(i * 5 + j))
-                .collect();
+            let low_vars: Vec<VariableId> = (0..5).map(|j| VariableId(i * 5 + j)).collect();
             abstraction.add_mapping(VariableId(i), low_vars);
         }
 
@@ -744,9 +793,7 @@ fn bench_abstraction_verification(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("compute_error", low_size),
             &abstraction,
-            |b, abstraction| {
-                b.iter(|| black_box(abstraction.compute_abstraction_error(10)))
-            },
+            |b, abstraction| b.iter(|| black_box(abstraction.compute_abstraction_error(10))),
         );
     }
 
@@ -792,13 +839,9 @@ fn bench_topological_sort(c: &mut Criterion) {
 
         group.throughput(Throughput::Elements(size as u64));
 
-        group.bench_with_input(
-            BenchmarkId::new("dense", size),
-            &model,
-            |b, model| {
-                b.iter(|| black_box(model.topological_order()))
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("dense", size), &model, |b, model| {
+            b.iter(|| black_box(model.topological_order()))
+        });
     }
 
     group.finish();
@@ -813,13 +856,9 @@ fn bench_forward_propagation(c: &mut Criterion) {
 
         group.throughput(Throughput::Elements(size as u64));
 
-        group.bench_with_input(
-            BenchmarkId::new("dense", size),
-            &model,
-            |b, model| {
-                b.iter(|| black_box(model.forward()))
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("dense", size), &model, |b, model| {
+            b.iter(|| black_box(model.forward()))
+        });
     }
 
     for &(layers, width) in &[(3, 10), (5, 10), (5, 20)] {
@@ -831,9 +870,7 @@ fn bench_forward_propagation(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new(format!("diamond_{}x{}", layers, width), total_vars),
             &model,
-            |b, model| {
-                b.iter(|| black_box(model.forward()))
-            },
+            |b, model| b.iter(|| black_box(model.forward())),
         );
     }
 

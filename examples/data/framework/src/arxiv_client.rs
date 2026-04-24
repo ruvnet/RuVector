@@ -233,11 +233,7 @@ impl ArxivClient {
     /// // Get ML papers from the last 3 days
     /// let recent = client.search_recent("cs.LG", 3).await?;
     /// ```
-    pub async fn search_recent(
-        &self,
-        category: &str,
-        days: u64,
-    ) -> Result<Vec<SemanticVector>> {
+    pub async fn search_recent(&self, category: &str, days: u64) -> Result<Vec<SemanticVector>> {
         let cutoff_date = Utc::now() - chrono::Duration::days(days as i64);
 
         let url = format!(
@@ -273,7 +269,10 @@ impl ArxivClient {
         let mut all_vectors = Vec::new();
 
         for category in categories {
-            match self.search_category(category, max_results_per_category).await {
+            match self
+                .search_category(category, max_results_per_category)
+                .await
+            {
                 Ok(mut vectors) => {
                     all_vectors.append(&mut vectors);
                 }
@@ -297,9 +296,8 @@ impl ArxivClient {
         let xml = response.text().await?;
 
         // Parse XML feed
-        let feed: ArxivFeed = quick_xml::de::from_str(&xml).map_err(|e| {
-            FrameworkError::Ingestion(format!("Failed to parse ArXiv XML: {}", e))
-        })?;
+        let feed: ArxivFeed = quick_xml::de::from_str(&xml)
+            .map_err(|e| FrameworkError::Ingestion(format!("Failed to parse ArXiv XML: {}", e)))?;
 
         // Convert entries to SemanticVectors
         let mut vectors = Vec::new();
@@ -315,12 +313,7 @@ impl ArxivClient {
     /// Convert ArXiv entry to SemanticVector
     fn entry_to_vector(&self, entry: ArxivEntry) -> Option<SemanticVector> {
         // Extract ArXiv ID from full URL
-        let arxiv_id = entry
-            .id
-            .split('/')
-            .last()
-            .unwrap_or(&entry.id)
-            .to_string();
+        let arxiv_id = entry.id.split('/').last().unwrap_or(&entry.id).to_string();
 
         // Clean up title and abstract
         let title = entry.title.trim().replace('\n', " ");
@@ -396,17 +389,19 @@ impl ArxivClient {
         loop {
             match self.client.get(url).send().await {
                 Ok(response) => {
-                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES
-                    {
+                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
-                        tracing::warn!("Rate limited by ArXiv, retrying in {}ms", RETRY_DELAY_MS * retries as u64);
+                        tracing::warn!(
+                            "Rate limited by ArXiv, retrying in {}ms",
+                            RETRY_DELAY_MS * retries as u64
+                        );
                         sleep(Duration::from_millis(RETRY_DELAY_MS * retries as u64)).await;
                         continue;
                     }
                     if !response.status().is_success() {
-                        return Err(FrameworkError::Network(
-                            reqwest::Error::from(response.error_for_status().unwrap_err()),
-                        ));
+                        return Err(FrameworkError::Network(reqwest::Error::from(
+                            response.error_for_status().unwrap_err(),
+                        )));
                     }
                     return Ok(response);
                 }
@@ -500,7 +495,10 @@ mod tests {
             "Deep Learning for Climate Science"
         );
         assert_eq!(v.metadata.get("authors").unwrap(), "John Doe, Jane Smith");
-        assert_eq!(v.metadata.get("categories").unwrap(), "cs.LG, physics.ao-ph");
+        assert_eq!(
+            v.metadata.get("categories").unwrap(),
+            "cs.LG, physics.ao-ph"
+        );
     }
 
     #[tokio::test]

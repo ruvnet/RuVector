@@ -9,8 +9,8 @@
 //! 6. Show tail-scan for latest manifest
 
 use rvf_types::{SegmentFlags, SegmentType, SEGMENT_MAGIC};
-use rvf_wire::{write_segment, read_segment, validate_segment};
 use rvf_wire::tail_scan::find_latest_manifest;
+use rvf_wire::{read_segment, validate_segment, write_segment};
 
 fn main() {
     println!("=== RVF Wire Format Example ===\n");
@@ -52,9 +52,15 @@ fn main() {
     );
 
     println!("  Segment ID:      1");
-    println!("  Segment type:    VEC_SEG (0x{:02X})", SegmentType::Vec as u8);
+    println!(
+        "  Segment type:    VEC_SEG (0x{:02X})",
+        SegmentType::Vec as u8
+    );
     println!("  Payload size:    {} bytes", vec_payload.len());
-    println!("  Total seg size:  {} bytes (64-byte aligned)", vec_seg.len());
+    println!(
+        "  Total seg size:  {} bytes (64-byte aligned)",
+        vec_seg.len()
+    );
 
     let vec_seg_offset = file_data.len();
     file_data.extend_from_slice(&vec_seg);
@@ -92,7 +98,10 @@ fn main() {
     );
 
     println!("  Segment ID:      2");
-    println!("  Segment type:    INDEX_SEG (0x{:02X})", SegmentType::Index as u8);
+    println!(
+        "  Segment type:    INDEX_SEG (0x{:02X})",
+        SegmentType::Index as u8
+    );
     println!("  Flags:           SEALED");
     println!("  Payload size:    {} bytes", index_payload.len());
     println!("  Total seg size:  {} bytes", index_seg.len());
@@ -120,7 +129,7 @@ fn main() {
     manifest_payload.extend_from_slice(&(vec_seg_offset as u64).to_le_bytes()); // offset
     manifest_payload.extend_from_slice(&(vec_payload.len() as u64).to_le_bytes()); // payload_len
     manifest_payload.push(SegmentType::Vec as u8); // seg_type
-    // Entry 2: index_seg
+                                                   // Entry 2: index_seg
     manifest_payload.extend_from_slice(&2u64.to_le_bytes());
     manifest_payload.extend_from_slice(&(index_seg_offset as u64).to_le_bytes());
     manifest_payload.extend_from_slice(&(index_payload.len() as u64).to_le_bytes());
@@ -134,7 +143,10 @@ fn main() {
     );
 
     println!("  Segment ID:      3");
-    println!("  Segment type:    MANIFEST_SEG (0x{:02X})", SegmentType::Manifest as u8);
+    println!(
+        "  Segment type:    MANIFEST_SEG (0x{:02X})",
+        SegmentType::Manifest as u8
+    );
     println!("  Payload size:    {} bytes", manifest_payload.len());
     println!("  Total seg size:  {} bytes", manifest_seg.len());
 
@@ -157,7 +169,11 @@ fn main() {
         let (header, payload) = read_segment(data).expect("failed to read segment");
 
         println!("  {} at offset {}:", name, offset);
-        println!("    Magic:         0x{:08X} (valid={})", header.magic, header.magic == SEGMENT_MAGIC);
+        println!(
+            "    Magic:         0x{:08X} (valid={})",
+            header.magic,
+            header.magic == SEGMENT_MAGIC
+        );
         println!("    Version:       {}", header.version);
         println!("    Segment ID:    {}", header.segment_id);
         println!("    Type:          0x{:02X}", header.seg_type);
@@ -166,7 +182,11 @@ fn main() {
         println!("    Checksum algo: {}", header.checksum_algo);
         println!(
             "    Content hash:  {}",
-            header.content_hash.iter().map(|b| format!("{:02x}", b)).collect::<String>()
+            header
+                .content_hash
+                .iter()
+                .map(|b| format!("{:02x}", b))
+                .collect::<String>()
         );
 
         // Validate the content hash.
@@ -210,19 +230,31 @@ fn main() {
     // ====================================================================
     println!("\n=== File Layout Summary ===\n");
     println!("  Total file size: {} bytes", file_data.len());
-    println!("  {:>6}  {:>12}  {:>10}  {:>10}", "Offset", "Type", "Seg ID", "Size");
+    println!(
+        "  {:>6}  {:>12}  {:>10}  {:>10}",
+        "Offset", "Type", "Seg ID", "Size"
+    );
     println!("  {:->6}  {:->12}  {:->10}  {:->10}", "", "", "", "");
     println!(
         "  {:>6}  {:>12}  {:>10}  {:>10}",
-        vec_seg_offset, "VEC_SEG", 1, vec_seg.len()
+        vec_seg_offset,
+        "VEC_SEG",
+        1,
+        vec_seg.len()
     );
     println!(
         "  {:>6}  {:>12}  {:>10}  {:>10}",
-        index_seg_offset, "INDEX_SEG", 2, index_seg.len()
+        index_seg_offset,
+        "INDEX_SEG",
+        2,
+        index_seg.len()
     );
     println!(
         "  {:>6}  {:>12}  {:>10}  {:>10}",
-        manifest_seg_offset, "MANIFEST_SEG", 3, manifest_seg.len()
+        manifest_seg_offset,
+        "MANIFEST_SEG",
+        3,
+        manifest_seg.len()
     );
 
     println!("\nDone.");

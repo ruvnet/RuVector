@@ -116,11 +116,7 @@ impl QuantizationParams {
         let max_val = data.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
 
         let range = max_val - min_val;
-        let scale = if range > 1e-12 {
-            range / 255.0
-        } else {
-            1.0
-        };
+        let scale = if range > 1e-12 { range / 255.0 } else { 1.0 };
 
         // Zero point maps min_val to 0 in quantized space
         let zero_point = -min_val / scale;
@@ -522,10 +518,7 @@ mod tests {
 
     #[test]
     fn test_batch_quantizer() {
-        let embeddings = vec![
-            vec![0.5, -0.3, 0.8],
-            vec![-0.1, 0.2, 0.9],
-        ];
+        let embeddings = vec![vec![0.5, -0.3, 0.8], vec![-0.1, 0.2, 0.9]];
 
         let quantizer = BatchQuantizer::new(QuantizationPrecision::Int8);
         let quantized = quantizer.quantize_batch(&embeddings);

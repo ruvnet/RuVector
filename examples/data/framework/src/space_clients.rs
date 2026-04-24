@@ -246,7 +246,11 @@ impl NasaClient {
     /// ```rust,ignore
     /// let asteroids = client.search_neo("2024-01-01", "2024-01-07").await?;
     /// ```
-    pub async fn search_neo(&self, start_date: &str, end_date: &str) -> Result<Vec<SemanticVector>> {
+    pub async fn search_neo(
+        &self,
+        start_date: &str,
+        end_date: &str,
+    ) -> Result<Vec<SemanticVector>> {
         let url = format!(
             "{}/neo/rest/v1/feed?start_date={}&end_date={}&api_key={}",
             self.base_url, start_date, end_date, self.api_key
@@ -293,8 +297,14 @@ impl NasaClient {
                 metadata.insert("neo_id".to_string(), obj.id.clone());
                 metadata.insert("name".to_string(), obj.name.clone());
                 metadata.insert("date".to_string(), date.clone());
-                metadata.insert("magnitude".to_string(), obj.absolute_magnitude_h.to_string());
-                metadata.insert("hazardous".to_string(), obj.is_potentially_hazardous_asteroid.to_string());
+                metadata.insert(
+                    "magnitude".to_string(),
+                    obj.absolute_magnitude_h.to_string(),
+                );
+                metadata.insert(
+                    "hazardous".to_string(),
+                    obj.is_potentially_hazardous_asteroid.to_string(),
+                );
                 metadata.insert("velocity_kph".to_string(), velocity.to_string());
                 metadata.insert("miss_distance_km".to_string(), miss_distance.to_string());
                 metadata.insert("source".to_string(), "nasa_neo".to_string());
@@ -320,8 +330,10 @@ impl NasaClient {
     /// ```
     pub async fn get_mars_weather(&self) -> Result<Vec<SemanticVector>> {
         // Note: InSight mission ended in Dec 2022, this endpoint may return limited data
-        let url = format!("{}/insight_weather/?api_key={}&feedtype=json&ver=1.0",
-            self.base_url, self.api_key);
+        let url = format!(
+            "{}/insight_weather/?api_key={}&feedtype=json&ver=1.0",
+            self.base_url, self.api_key
+        );
 
         sleep(self.rate_limit_delay).await;
         let response = self.fetch_with_retry(&url).await?;
@@ -342,7 +354,11 @@ impl NasaClient {
     /// let photos = client.search_mars_photos(1000, Some("NAVCAM")).await?;
     /// let all_cameras = client.search_mars_photos(1000, None).await?;
     /// ```
-    pub async fn search_mars_photos(&self, sol: u32, camera: Option<&str>) -> Result<Vec<SemanticVector>> {
+    pub async fn search_mars_photos(
+        &self,
+        sol: u32,
+        camera: Option<&str>,
+    ) -> Result<Vec<SemanticVector>> {
         let mut url = format!(
             "{}/mars-photos/api/v1/rovers/curiosity/photos?sol={}&api_key={}",
             self.base_url, sol, self.api_key
@@ -377,7 +393,10 @@ impl NasaClient {
             metadata.insert("photo_id".to_string(), photo.id.to_string());
             metadata.insert("sol".to_string(), photo.sol.to_string());
             metadata.insert("camera".to_string(), photo.camera.name.clone());
-            metadata.insert("camera_full_name".to_string(), photo.camera.full_name.clone());
+            metadata.insert(
+                "camera_full_name".to_string(),
+                photo.camera.full_name.clone(),
+            );
             metadata.insert("rover".to_string(), photo.rover.name.clone());
             metadata.insert("rover_status".to_string(), photo.rover.status.clone());
             metadata.insert("earth_date".to_string(), photo.earth_date.clone());
@@ -594,7 +613,8 @@ impl ExoplanetClient {
             let embedding = self.embedder.embed_text(&text);
 
             // Use discovery year for timestamp
-            let timestamp = planet.disc_year
+            let timestamp = planet
+                .disc_year
                 .and_then(|y| NaiveDate::from_ymd_opt(y, 1, 1))
                 .and_then(|d| d.and_hms_opt(0, 0, 0))
                 .map(|dt| dt.and_utc())
@@ -603,13 +623,34 @@ impl ExoplanetClient {
             let mut metadata = HashMap::new();
             metadata.insert("planet_name".to_string(), planet.pl_name.clone());
             metadata.insert("host_star".to_string(), planet.hostname.clone());
-            metadata.insert("discovery_method".to_string(), planet.discoverymethod.clone());
-            metadata.insert("discovery_year".to_string(), planet.disc_year.map(|y| y.to_string()).unwrap_or_default());
-            metadata.insert("orbital_period_days".to_string(), planet.pl_orbper.map(|p| p.to_string()).unwrap_or_default());
-            metadata.insert("radius_earth".to_string(), planet.pl_rade.map(|r| r.to_string()).unwrap_or_default());
-            metadata.insert("mass_earth".to_string(), planet.pl_masse.map(|m| m.to_string()).unwrap_or_default());
-            metadata.insert("temperature_k".to_string(), planet.pl_eqt.map(|t| t.to_string()).unwrap_or_default());
-            metadata.insert("distance_parsecs".to_string(), planet.sy_dist.map(|d| d.to_string()).unwrap_or_default());
+            metadata.insert(
+                "discovery_method".to_string(),
+                planet.discoverymethod.clone(),
+            );
+            metadata.insert(
+                "discovery_year".to_string(),
+                planet.disc_year.map(|y| y.to_string()).unwrap_or_default(),
+            );
+            metadata.insert(
+                "orbital_period_days".to_string(),
+                planet.pl_orbper.map(|p| p.to_string()).unwrap_or_default(),
+            );
+            metadata.insert(
+                "radius_earth".to_string(),
+                planet.pl_rade.map(|r| r.to_string()).unwrap_or_default(),
+            );
+            metadata.insert(
+                "mass_earth".to_string(),
+                planet.pl_masse.map(|m| m.to_string()).unwrap_or_default(),
+            );
+            metadata.insert(
+                "temperature_k".to_string(),
+                planet.pl_eqt.map(|t| t.to_string()).unwrap_or_default(),
+            );
+            metadata.insert(
+                "distance_parsecs".to_string(),
+                planet.sy_dist.map(|d| d.to_string()).unwrap_or_default(),
+            );
             metadata.insert("source".to_string(), "nasa_exoplanet_archive".to_string());
 
             vectors.push(SemanticVector {
@@ -632,7 +673,8 @@ impl ExoplanetClient {
     /// ```
     pub async fn get_habitable_zone(&self) -> Result<Vec<SemanticVector>> {
         // Habitable zone: temperature between 200-350K (conservative estimate)
-        self.search_exoplanets(Some("pl_eqt>200 and pl_eqt<350")).await
+        self.search_exoplanets(Some("pl_eqt>200 and pl_eqt<350"))
+            .await
     }
 
     /// Get planets discovered by a specific method
@@ -835,9 +877,15 @@ impl SpaceXClient {
             let mut metadata = HashMap::new();
             metadata.insert("launch_id".to_string(), launch.id.clone());
             metadata.insert("name".to_string(), launch.name.clone());
-            metadata.insert("flight_number".to_string(), launch.flight_number.to_string());
+            metadata.insert(
+                "flight_number".to_string(),
+                launch.flight_number.to_string(),
+            );
             metadata.insert("date".to_string(), launch.date_utc.clone());
-            metadata.insert("success".to_string(), launch.success.map(|s| s.to_string()).unwrap_or_default());
+            metadata.insert(
+                "success".to_string(),
+                launch.success.map(|s| s.to_string()).unwrap_or_default(),
+            );
             metadata.insert("rocket_id".to_string(), launch.rocket.clone());
             metadata.insert("launchpad".to_string(), launch.launchpad.clone());
             metadata.insert("source".to_string(), "spacex_launches".to_string());
@@ -885,7 +933,10 @@ impl SpaceXClient {
             let mut metadata = HashMap::new();
             metadata.insert("launch_id".to_string(), launch.id.clone());
             metadata.insert("name".to_string(), launch.name.clone());
-            metadata.insert("flight_number".to_string(), launch.flight_number.to_string());
+            metadata.insert(
+                "flight_number".to_string(),
+                launch.flight_number.to_string(),
+            );
             metadata.insert("date".to_string(), launch.date_utc.clone());
             metadata.insert("rocket_id".to_string(), launch.rocket.clone());
             metadata.insert("status".to_string(), "upcoming".to_string());
@@ -919,14 +970,8 @@ impl SpaceXClient {
         let mut vectors = Vec::new();
 
         for rocket in rockets {
-            let height = rocket.height
-                .as_ref()
-                .and_then(|h| h.meters)
-                .unwrap_or(0.0);
-            let mass = rocket.mass
-                .as_ref()
-                .and_then(|m| m.kg)
-                .unwrap_or(0.0);
+            let height = rocket.height.as_ref().and_then(|h| h.meters).unwrap_or(0.0);
+            let mass = rocket.mass.as_ref().and_then(|m| m.kg).unwrap_or(0.0);
             let success_rate = rocket.success_rate_pct.unwrap_or(0.0);
 
             let text = format!(
@@ -1119,8 +1164,7 @@ impl AstronomyClient {
         // Note: The actual API response format may vary
         // This is a simplified implementation
         let text = response.text().await?;
-        let data: HashMap<String, SupernovaData> = serde_json::from_str(&text)
-            .unwrap_or_default();
+        let data: HashMap<String, SupernovaData> = serde_json::from_str(&text).unwrap_or_default();
 
         let mut vectors = Vec::new();
         let take_count = limit.unwrap_or(50);
@@ -1142,7 +1186,8 @@ impl AstronomyClient {
             let embedding = self.embedder.embed_text(&text);
 
             // Use discovery year for timestamp
-            let timestamp = sn.discoveryear
+            let timestamp = sn
+                .discoveryear
                 .as_ref()
                 .and_then(|y| y.parse::<i32>().ok())
                 .and_then(|y| NaiveDate::from_ymd_opt(y, 1, 1))
@@ -1157,7 +1202,10 @@ impl AstronomyClient {
             metadata.insert("ra".to_string(), sn.ra.clone().unwrap_or_default());
             metadata.insert("dec".to_string(), sn.dec.clone().unwrap_or_default());
             metadata.insert("redshift".to_string(), redshift.to_string());
-            metadata.insert("max_magnitude".to_string(), sn.maxappmag.clone().unwrap_or_default());
+            metadata.insert(
+                "max_magnitude".to_string(),
+                sn.maxappmag.clone().unwrap_or_default(),
+            );
             metadata.insert("source".to_string(), "open_supernova_catalog".to_string());
 
             vectors.push(SemanticVector {
@@ -1254,16 +1302,28 @@ mod tests {
     #[test]
     fn test_rate_limiting() {
         let nasa = NasaClient::new(None).unwrap();
-        assert_eq!(nasa.rate_limit_delay, Duration::from_millis(NASA_RATE_LIMIT_MS));
+        assert_eq!(
+            nasa.rate_limit_delay,
+            Duration::from_millis(NASA_RATE_LIMIT_MS)
+        );
 
         let exoplanet = ExoplanetClient::new().unwrap();
-        assert_eq!(exoplanet.rate_limit_delay, Duration::from_millis(NASA_RATE_LIMIT_MS));
+        assert_eq!(
+            exoplanet.rate_limit_delay,
+            Duration::from_millis(NASA_RATE_LIMIT_MS)
+        );
 
         let spacex = SpaceXClient::new().unwrap();
-        assert_eq!(spacex.rate_limit_delay, Duration::from_millis(SPACEX_RATE_LIMIT_MS));
+        assert_eq!(
+            spacex.rate_limit_delay,
+            Duration::from_millis(SPACEX_RATE_LIMIT_MS)
+        );
 
         let astronomy = AstronomyClient::new().unwrap();
-        assert_eq!(astronomy.rate_limit_delay, Duration::from_millis(ASTRONOMY_RATE_LIMIT_MS));
+        assert_eq!(
+            astronomy.rate_limit_delay,
+            Duration::from_millis(ASTRONOMY_RATE_LIMIT_MS)
+        );
     }
 
     #[test]

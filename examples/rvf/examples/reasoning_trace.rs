@@ -13,12 +13,10 @@
 //! Run with:
 //!   cargo run --example reasoning_trace
 
-use rvf_runtime::{
-    MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult,
-};
+use rvf_crypto::{create_witness_chain, shake256_256, verify_witness_chain, WitnessEntry};
 use rvf_runtime::options::DistanceMetric;
+use rvf_runtime::{MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult};
 use rvf_types::DerivationType;
-use rvf_crypto::{create_witness_chain, verify_witness_chain, shake256_256, WitnessEntry};
 use tempfile::TempDir;
 
 /// Simple pseudo-random number generator (LCG) for deterministic results.
@@ -26,7 +24,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -89,7 +89,10 @@ fn main() {
         .expect("failed to ingest problems");
 
     let parent_identity = *parent_store.file_identity();
-    println!("  File ID:        {}", hex_short(&parent_identity.file_id, 8));
+    println!(
+        "  File ID:        {}",
+        hex_short(&parent_identity.file_id, 8)
+    );
     println!("  Lineage depth:  {}", parent_identity.lineage_depth);
     println!("  Is root:        {}", parent_identity.is_root());
     println!("  Problems stored: {}", num_problems);
@@ -113,10 +116,19 @@ fn main() {
         .expect("failed to derive reasoning store");
 
     let reasoning_identity = *reasoning_store.file_identity();
-    println!("  File ID:        {}", hex_short(&reasoning_identity.file_id, 8));
-    println!("  Parent ID:      {}", hex_short(&reasoning_identity.parent_id, 8));
+    println!(
+        "  File ID:        {}",
+        hex_short(&reasoning_identity.file_id, 8)
+    );
+    println!(
+        "  Parent ID:      {}",
+        hex_short(&reasoning_identity.parent_id, 8)
+    );
     println!("  Lineage depth:  {}", reasoning_identity.lineage_depth);
-    println!("  Parent hash:    {}...", hex_short(&reasoning_identity.parent_hash, 8));
+    println!(
+        "  Parent hash:    {}...",
+        hex_short(&reasoning_identity.parent_hash, 8)
+    );
 
     // Verify parent linkage
     assert_eq!(
@@ -182,10 +194,19 @@ fn main() {
         .expect("failed to derive conclusions store");
 
     let conclusions_identity = *conclusions_store.file_identity();
-    println!("  File ID:        {}", hex_short(&conclusions_identity.file_id, 8));
-    println!("  Parent ID:      {}", hex_short(&conclusions_identity.parent_id, 8));
+    println!(
+        "  File ID:        {}",
+        hex_short(&conclusions_identity.file_id, 8)
+    );
+    println!(
+        "  Parent ID:      {}",
+        hex_short(&conclusions_identity.parent_id, 8)
+    );
     println!("  Lineage depth:  {}", conclusions_identity.lineage_depth);
-    println!("  Parent hash:    {}...", hex_short(&conclusions_identity.parent_hash, 8));
+    println!(
+        "  Parent hash:    {}...",
+        hex_short(&conclusions_identity.parent_hash, 8)
+    );
 
     // Verify grandchild linkage
     assert_eq!(
@@ -213,9 +234,7 @@ fn main() {
     for i in 0..num_conclusions {
         conc_metadata.push(MetadataEntry {
             field_id: 0,
-            value: MetadataValue::String(
-                conclusion_types[i % conclusion_types.len()].to_string(),
-            ),
+            value: MetadataValue::String(conclusion_types[i % conclusion_types.len()].to_string()),
         });
         conc_metadata.push(MetadataEntry {
             field_id: 1,
@@ -293,7 +312,9 @@ fn main() {
                 "Step", "Type", "Timestamp (ns)", "Action Hash (8 bytes)"
             );
             println!("  {:->5}  {:->8}  {:->20}  {:->32}", "", "", "", "");
-            let type_names = ["", "PROV", "COMP", "", "", "", "", "", "", "", "", "", "", "VERIFY"];
+            let type_names = [
+                "", "PROV", "COMP", "", "", "", "", "", "", "", "", "", "", "VERIFY",
+            ];
             for (i, entry) in verified.iter().enumerate() {
                 let tname = if (entry.witness_type as usize) < type_names.len() {
                     type_names[entry.witness_type as usize]
@@ -374,15 +395,9 @@ fn main() {
 }
 
 fn print_results(prefix: &str, results: &[SearchResult]) {
-    println!(
-        "{}  {:>6}  {:>12}",
-        prefix, "ID", "Distance"
-    );
+    println!("{}  {:>6}  {:>12}", prefix, "ID", "Distance");
     println!("{}  {:->6}  {:->12}", prefix, "", "");
     for r in results {
-        println!(
-            "{}  {:>6}  {:>12.6}",
-            prefix, r.id, r.distance
-        );
+        println!("{}  {:>6}  {:>12.6}", prefix, r.id, r.distance);
     }
 }

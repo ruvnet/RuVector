@@ -11,13 +11,11 @@
 //!
 //! Run: cargo run --example planet_detection
 
-use rvf_runtime::{
-    FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore,
-};
+use rvf_crypto::{create_witness_chain, shake256_256, verify_witness_chain, WitnessEntry};
 use rvf_runtime::filter::FilterValue;
 use rvf_runtime::options::DistanceMetric;
+use rvf_runtime::{FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore};
 use rvf_types::DerivationType;
-use rvf_crypto::{create_witness_chain, verify_witness_chain, shake256_256, WitnessEntry};
 use tempfile::TempDir;
 
 // ---------------------------------------------------------------------------
@@ -25,7 +23,9 @@ use tempfile::TempDir;
 // ---------------------------------------------------------------------------
 
 fn lcg_next(state: &mut u64) -> u64 {
-    *state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+    *state = state
+        .wrapping_mul(6364136223846793005)
+        .wrapping_add(1442695040888963407);
     *state
 }
 
@@ -33,7 +33,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -263,7 +265,10 @@ fn coherence_gate(candidate: &Candidate, lc: &LightCurve) -> ScoredCandidate {
 
     let shape_consistency = if phase_depths.len() > 1 {
         let mean: f64 = phase_depths.iter().sum::<f64>() / phase_depths.len() as f64;
-        let var: f64 = phase_depths.iter().map(|&d| (d - mean).powi(2)).sum::<f64>()
+        let var: f64 = phase_depths
+            .iter()
+            .map(|&d| (d - mean).powi(2))
+            .sum::<f64>()
             / phase_depths.len() as f64;
         1.0 / (1.0 + var * 10000.0)
     } else {
@@ -283,8 +288,10 @@ fn coherence_gate(candidate: &Candidate, lc: &LightCurve) -> ScoredCandidate {
     };
     let coherence_stability = 1.0 - (depth_ratio - 1.0).abs().min(1.0);
 
-    let total_score =
-        snr_strength * 0.3 + shape_consistency * 0.25 + period_stability * 0.25 + coherence_stability * 0.2;
+    let total_score = snr_strength * 0.3
+        + shape_consistency * 0.25
+        + period_stability * 0.25
+        + coherence_stability * 0.2;
 
     let passed = total_score > 0.4 && candidate.snr > 5.0;
 
@@ -378,9 +385,18 @@ fn main() {
     println!("  Windows:     {} total", ingest.accepted);
     println!("  Embedding:   {} dims", dim);
 
-    let kepler_count = light_curves.iter().filter(|l| l.instrument == "kepler-lc").count();
-    let tess_count = light_curves.iter().filter(|l| l.instrument == "tess-ffi").count();
-    println!("  Instruments: {} kepler-lc, {} tess-ffi", kepler_count, tess_count);
+    let kepler_count = light_curves
+        .iter()
+        .filter(|l| l.instrument == "kepler-lc")
+        .count();
+    let tess_count = light_curves
+        .iter()
+        .filter(|l| l.instrument == "tess-ffi")
+        .count();
+    println!(
+        "  Instruments: {} kepler-lc, {} tess-ffi",
+        kepler_count, tess_count
+    );
 
     println!("\n  Sample targets:");
     for lc in light_curves.iter().take(5) {
@@ -409,14 +425,21 @@ fn main() {
         }
     }
 
-    println!("  Candidates detected: {}/{}", candidates.len(), num_targets);
+    println!(
+        "  Candidates detected: {}/{}",
+        candidates.len(),
+        num_targets
+    );
 
     println!("\n  Candidate list:");
     println!(
         "    {:>8}  {:>10}  {:>10}  {:>8}  {:>6}",
         "KIC", "Period(d)", "Depth", "SNR", "Windows"
     );
-    println!("    {:->8}  {:->10}  {:->10}  {:->8}  {:->6}", "", "", "", "", "");
+    println!(
+        "    {:->8}  {:->10}  {:->10}  {:->8}  {:->6}",
+        "", "", "", "", ""
+    );
     for c in &candidates {
         println!(
             "    {:>8}  {:>10.3}  {:>10.6}  {:>8.2}  {:>6}",

@@ -10,12 +10,11 @@
 
 #![cfg(feature = "wasm")]
 
-use wasm_bindgen::prelude::*;
 use serde::{Deserialize, Serialize};
+use wasm_bindgen::prelude::*;
 
 use super::zkproofs_prod::{
-    FinancialProver, FinancialVerifier, ZkRangeProof,
-    RentalApplicationBundle, VerificationResult,
+    FinancialProver, FinancialVerifier, RentalApplicationBundle, VerificationResult, ZkRangeProof,
 };
 
 /// Production ZK Financial Prover for browser use
@@ -72,7 +71,9 @@ impl WasmFinancialProver {
     /// Returns a ZK proof that can be verified without revealing actual income.
     #[wasm_bindgen(js_name = proveIncomeAbove)]
     pub fn prove_income_above(&mut self, threshold_cents: u64) -> Result<JsValue, JsValue> {
-        let proof = self.inner.prove_income_above(threshold_cents)
+        let proof = self
+            .inner
+            .prove_income_above(threshold_cents)
             .map_err(|e| JsValue::from_str(&e))?;
 
         serde_wasm_bindgen::to_value(&ProofResult::from_proof(proof))
@@ -83,8 +84,14 @@ impl WasmFinancialProver {
     ///
     /// Common requirement: income must be 3x rent.
     #[wasm_bindgen(js_name = proveAffordability)]
-    pub fn prove_affordability(&mut self, rent_cents: u64, multiplier: u64) -> Result<JsValue, JsValue> {
-        let proof = self.inner.prove_affordability(rent_cents, multiplier)
+    pub fn prove_affordability(
+        &mut self,
+        rent_cents: u64,
+        multiplier: u64,
+    ) -> Result<JsValue, JsValue> {
+        let proof = self
+            .inner
+            .prove_affordability(rent_cents, multiplier)
             .map_err(|e| JsValue::from_str(&e))?;
 
         serde_wasm_bindgen::to_value(&ProofResult::from_proof(proof))
@@ -94,7 +101,9 @@ impl WasmFinancialProver {
     /// Prove: no overdrafts in the past N days
     #[wasm_bindgen(js_name = proveNoOverdrafts)]
     pub fn prove_no_overdrafts(&mut self, days: usize) -> Result<JsValue, JsValue> {
-        let proof = self.inner.prove_no_overdrafts(days)
+        let proof = self
+            .inner
+            .prove_no_overdrafts(days)
             .map_err(|e| JsValue::from_str(&e))?;
 
         serde_wasm_bindgen::to_value(&ProofResult::from_proof(proof))
@@ -104,7 +113,9 @@ impl WasmFinancialProver {
     /// Prove: current savings >= threshold (in cents)
     #[wasm_bindgen(js_name = proveSavingsAbove)]
     pub fn prove_savings_above(&mut self, threshold_cents: u64) -> Result<JsValue, JsValue> {
-        let proof = self.inner.prove_savings_above(threshold_cents)
+        let proof = self
+            .inner
+            .prove_savings_above(threshold_cents)
             .map_err(|e| JsValue::from_str(&e))?;
 
         serde_wasm_bindgen::to_value(&ProofResult::from_proof(proof))
@@ -113,8 +124,14 @@ impl WasmFinancialProver {
 
     /// Prove: average spending in category <= budget (in cents)
     #[wasm_bindgen(js_name = proveBudgetCompliance)]
-    pub fn prove_budget_compliance(&mut self, category: &str, budget_cents: u64) -> Result<JsValue, JsValue> {
-        let proof = self.inner.prove_budget_compliance(category, budget_cents)
+    pub fn prove_budget_compliance(
+        &mut self,
+        category: &str,
+        budget_cents: u64,
+    ) -> Result<JsValue, JsValue> {
+        let proof = self
+            .inner
+            .prove_budget_compliance(category, budget_cents)
             .map_err(|e| JsValue::from_str(&e))?;
 
         serde_wasm_bindgen::to_value(&ProofResult::from_proof(proof))
@@ -138,7 +155,8 @@ impl WasmFinancialProver {
             income_multiplier,
             stability_days,
             savings_months,
-        ).map_err(|e| JsValue::from_str(&e))?;
+        )
+        .map_err(|e| JsValue::from_str(&e))?;
 
         serde_wasm_bindgen::to_value(&BundleResult::from_bundle(bundle))
             .map_err(|e| JsValue::from_str(&e.to_string()))
@@ -171,11 +189,9 @@ impl WasmFinancialVerifier {
         let proof_result: ProofResult = serde_json::from_str(proof_json)
             .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
 
-        let proof = proof_result.to_proof()
-            .map_err(|e| JsValue::from_str(&e))?;
+        let proof = proof_result.to_proof().map_err(|e| JsValue::from_str(&e))?;
 
-        let result = FinancialVerifier::verify(&proof)
-            .map_err(|e| JsValue::from_str(&e))?;
+        let result = FinancialVerifier::verify(&proof).map_err(|e| JsValue::from_str(&e))?;
 
         serde_wasm_bindgen::to_value(&VerificationOutput::from_result(result))
             .map_err(|e| JsValue::from_str(&e.to_string()))
@@ -187,11 +203,11 @@ impl WasmFinancialVerifier {
         let bundle_result: BundleResult = serde_json::from_str(bundle_json)
             .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
 
-        let bundle = bundle_result.to_bundle()
+        let bundle = bundle_result
+            .to_bundle()
             .map_err(|e| JsValue::from_str(&e))?;
 
-        let valid = bundle.verify()
-            .map_err(|e| JsValue::from_str(&e))?;
+        let valid = bundle.verify().map_err(|e| JsValue::from_str(&e))?;
 
         serde_wasm_bindgen::to_value(&BundleVerification {
             valid,
@@ -235,7 +251,7 @@ pub struct ProofResult {
 
 impl ProofResult {
     fn from_proof(proof: ZkRangeProof) -> Self {
-        use base64::{Engine as _, engine::general_purpose::STANDARD};
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
         Self {
             proof_base64: STANDARD.encode(&proof.proof_bytes),
             commitment_hex: hex::encode(proof.commitment.point),
@@ -250,9 +266,10 @@ impl ProofResult {
 
     fn to_proof(&self) -> Result<ZkRangeProof, String> {
         use super::zkproofs_prod::{PedersenCommitment, ProofMetadata};
-        use base64::{Engine as _, engine::general_purpose::STANDARD};
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
 
-        let proof_bytes = STANDARD.decode(&self.proof_base64)
+        let proof_bytes = STANDARD
+            .decode(&self.proof_base64)
             .map_err(|e| format!("Invalid base64: {}", e))?;
 
         let commitment_bytes: [u8; 32] = hex::decode(&self.commitment_hex)
@@ -267,7 +284,9 @@ impl ProofResult {
 
         Ok(ZkRangeProof {
             proof_bytes,
-            commitment: PedersenCommitment { point: commitment_bytes },
+            commitment: PedersenCommitment {
+                point: commitment_bytes,
+            },
             min: self.min,
             max: self.max,
             statement: self.statement.clone(),
@@ -319,7 +338,11 @@ impl BundleResult {
         Ok(RentalApplicationBundle {
             income_proof: self.income_proof.to_proof()?,
             stability_proof: self.stability_proof.to_proof()?,
-            savings_proof: self.savings_proof.as_ref().map(|p| p.to_proof()).transpose()?,
+            savings_proof: self
+                .savings_proof
+                .as_ref()
+                .map(|p| p.to_proof())
+                .transpose()?,
             application_id: self.application_id.clone(),
             created_at: self.created_at,
             bundle_hash,

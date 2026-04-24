@@ -65,10 +65,8 @@ impl TensorCodec {
     pub fn decompress(&self, data: &[u8]) -> Result<Vec<u8>> {
         match self.level {
             CompressionLevel::None => Ok(data.to_vec()),
-            _ => {
-                lz4_flex::decompress_size_prepended(data)
-                    .map_err(|e| SwarmError::Compression(e.to_string()))
-            }
+            _ => lz4_flex::decompress_size_prepended(data)
+                .map_err(|e| SwarmError::Compression(e.to_string())),
         }
     }
 
@@ -103,10 +101,7 @@ impl TensorCodec {
             }
             _ => {
                 // No quantization, just compress raw bytes
-                let bytes: Vec<u8> = tensor
-                    .iter()
-                    .flat_map(|f| f.to_le_bytes())
-                    .collect();
+                let bytes: Vec<u8> = tensor.iter().flat_map(|f| f.to_le_bytes()).collect();
                 let compressed = self.compress(&bytes)?;
                 Ok(CompressedTensor {
                     data: compressed,
@@ -123,12 +118,17 @@ impl TensorCodec {
             .map_err(|e| SwarmError::Compression(e.to_string()))?;
 
         match &compressed.quantization {
-            Some(params) if params.bits == 8 => {
-                Ok(dequantize_8bit(&decompressed, params.scale, params.zero_point))
-            }
-            Some(params) if params.bits == 4 => {
-                Ok(dequantize_4bit(&decompressed, compressed.original_len, params.scale, params.zero_point))
-            }
+            Some(params) if params.bits == 8 => Ok(dequantize_8bit(
+                &decompressed,
+                params.scale,
+                params.zero_point,
+            )),
+            Some(params) if params.bits == 4 => Ok(dequantize_4bit(
+                &decompressed,
+                compressed.original_len,
+                params.scale,
+                params.zero_point,
+            )),
             _ => {
                 // Raw f32 bytes
                 let tensor: Vec<f32> = decompressed

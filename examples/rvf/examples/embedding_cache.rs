@@ -15,17 +15,13 @@
 //!
 //! Run: cargo run --example embedding_cache
 
-use rvf_runtime::{
-    MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore,
-};
-use rvf_runtime::options::DistanceMetric;
-use rvf_quant::{
-    ScalarQuantizer, ProductQuantizer,
-    encode_binary, hamming_distance,
-    TemperatureTier,
-};
 use rvf_quant::tier::assign_tier;
 use rvf_quant::traits::Quantizer;
+use rvf_quant::{
+    encode_binary, hamming_distance, ProductQuantizer, ScalarQuantizer, TemperatureTier,
+};
+use rvf_runtime::options::DistanceMetric;
+use rvf_runtime::{MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore};
 use tempfile::TempDir;
 
 /// Simple pseudo-random number generator (LCG) for deterministic results.
@@ -33,7 +29,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -64,7 +62,9 @@ fn generate_zipf_access_counts(n: usize, total_accesses: u64, seed: u64) -> Vec<
     let mut perm: Vec<usize> = (0..n).collect();
     let mut lcg = seed;
     for i in (1..n).rev() {
-        lcg = lcg.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        lcg = lcg
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         let j = (lcg >> 33) as usize % (i + 1);
         perm.swap(i, j);
     }
@@ -116,10 +116,14 @@ fn main() {
 
     // Generate last_accessed timestamps: higher access items were accessed more recently.
     let base_ts: u64 = 1_700_000_000;
-    let last_accessed: Vec<u64> = access_counts.iter().enumerate().map(|(i, &count)| {
-        // More accesses -> more recent timestamp
-        base_ts + count * 60 + i as u64
-    }).collect();
+    let last_accessed: Vec<u64> = access_counts
+        .iter()
+        .enumerate()
+        .map(|(i, &count)| {
+            // More accesses -> more recent timestamp
+            base_ts + count * 60 + i as u64
+        })
+        .collect();
 
     // Ingest in batches of 200
     let batch_size = 200;
@@ -188,21 +192,24 @@ fn main() {
     );
     println!(
         "  {:>8}  {:>8}  {:>9.1}%  {:>10}  {:>11.1}%",
-        "Hot", hot_items.len(),
+        "Hot",
+        hot_items.len(),
         hot_items.len() as f64 / num_embeddings as f64 * 100.0,
         hot_accesses,
         hot_accesses as f64 / all_accesses as f64 * 100.0,
     );
     println!(
         "  {:>8}  {:>8}  {:>9.1}%  {:>10}  {:>11.1}%",
-        "Warm", warm_items.len(),
+        "Warm",
+        warm_items.len(),
         warm_items.len() as f64 / num_embeddings as f64 * 100.0,
         warm_accesses,
         warm_accesses as f64 / all_accesses as f64 * 100.0,
     );
     println!(
         "  {:>8}  {:>8}  {:>9.1}%  {:>10}  {:>11.1}%",
-        "Cold", cold_items.len(),
+        "Cold",
+        cold_items.len(),
         cold_items.len() as f64 / num_embeddings as f64 * 100.0,
         cold_accesses,
         cold_accesses as f64 / all_accesses as f64 * 100.0,
@@ -222,15 +229,22 @@ fn main() {
         let sq = ScalarQuantizer::train(&hot_refs);
         assert_eq!(sq.tier(), TemperatureTier::Hot);
 
-        let hot_avg_mse: f32 = hot_vecs.iter().map(|v| {
-            let codes = sq.encode_vec(v);
-            let recon = sq.decode_vec(&codes);
-            mse(v, &recon)
-        }).sum::<f32>() / hot_vecs.len() as f32;
+        let hot_avg_mse: f32 = hot_vecs
+            .iter()
+            .map(|v| {
+                let codes = sq.encode_vec(v);
+                let recon = sq.decode_vec(&codes);
+                mse(v, &recon)
+            })
+            .sum::<f32>()
+            / hot_vecs.len() as f32;
 
         let sq_bytes = dim; // 1 byte per dimension
         println!("  Items:       {}", hot_items.len());
-        println!("  Compression: {}x (fp32 -> u8)", raw_bytes_per_vec / sq_bytes);
+        println!(
+            "  Compression: {}x (fp32 -> u8)",
+            raw_bytes_per_vec / sq_bytes
+        );
         println!("  Avg MSE:     {:.8}", hot_avg_mse);
         println!(
             "  Memory:      {} bytes -> {} bytes (saved {} bytes)",
@@ -258,11 +272,15 @@ fn main() {
         let pq = ProductQuantizer::train(&warm_refs, pq_m, pq_k, pq_iters);
         assert_eq!(pq.tier(), TemperatureTier::Warm);
 
-        let warm_avg_mse: f32 = warm_vecs.iter().map(|v| {
-            let codes = pq.encode_vec(v);
-            let recon = pq.decode_vec(&codes);
-            mse(v, &recon)
-        }).sum::<f32>() / warm_vecs.len() as f32;
+        let warm_avg_mse: f32 = warm_vecs
+            .iter()
+            .map(|v| {
+                let codes = pq.encode_vec(v);
+                let recon = pq.decode_vec(&codes);
+                mse(v, &recon)
+            })
+            .sum::<f32>()
+            / warm_vecs.len() as f32;
 
         let pq_bytes = pq_m; // 1 byte per subspace
         let pq_ratio = raw_bytes_per_vec as f32 / pq_bytes as f32;
@@ -278,7 +296,10 @@ fn main() {
         );
         Some(pq)
     } else {
-        println!("  Not enough warm items for PQ training (need >= 64, have {}).", warm_refs.len());
+        println!(
+            "  Not enough warm items for PQ training (need >= 64, have {}).",
+            warm_refs.len()
+        );
         None
     };
 
@@ -287,11 +308,15 @@ fn main() {
     let cold_vecs: Vec<Vec<f32>> = cold_items.iter().map(|&i| vectors[i].clone()).collect();
 
     if !cold_vecs.is_empty() {
-        let cold_avg_mse: f32 = cold_vecs.iter().map(|v| {
-            let bin = encode_binary(v);
-            let recon = rvf_quant::decode_binary(&bin, dim);
-            mse(v, &recon)
-        }).sum::<f32>() / cold_vecs.len() as f32;
+        let cold_avg_mse: f32 = cold_vecs
+            .iter()
+            .map(|v| {
+                let bin = encode_binary(v);
+                let recon = rvf_quant::decode_binary(&bin, dim);
+                mse(v, &recon)
+            })
+            .sum::<f32>()
+            / cold_vecs.len() as f32;
 
         let bin_bytes = dim.div_ceil(8); // 1 bit per dimension
         let bin_ratio = raw_bytes_per_vec as f32 / bin_bytes as f32;
@@ -310,7 +335,10 @@ fn main() {
             let bin_a = encode_binary(&cold_vecs[0]);
             let bin_b = encode_binary(&cold_vecs[1]);
             let ham = hamming_distance(&bin_a, &bin_b);
-            println!("  Hamming distance (cold[0] vs cold[1]): {} / {} bits", ham, dim);
+            println!(
+                "  Hamming distance (cold[0] vs cold[1]): {} / {} bits",
+                ham, dim
+            );
         }
     } else {
         println!("  No cold items.");
@@ -328,7 +356,9 @@ fn main() {
     // Use LCG to select which items get queried (biased by access frequency).
     let mut lcg_state: u64 = 7777;
     for _ in 0..num_lookups {
-        lcg_state = lcg_state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        lcg_state = lcg_state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         let idx = (lcg_state >> 33) as usize % num_embeddings;
 
         let tier_idx = if access_counts[idx] > hot_threshold {
@@ -354,10 +384,7 @@ fn main() {
         "  {:>6}  {:>10}  {:>8}  {:>10}",
         "Tier", "Lookups", "Hits", "Hit Rate"
     );
-    println!(
-        "  {:->6}  {:->10}  {:->8}  {:->10}",
-        "", "", "", ""
-    );
+    println!("  {:->6}  {:->10}  {:->8}  {:->10}", "", "", "", "");
     for i in 0..3 {
         let rate = if lookups_by_tier[i] > 0 {
             hits_by_tier[i] as f64 / lookups_by_tier[i] as f64 * 100.0
@@ -372,7 +399,9 @@ fn main() {
     let total_hits: u64 = hits_by_tier.iter().sum();
     println!(
         "  {:>6}  {:>10}  {:>8}  {:>9.1}%",
-        "Total", num_lookups, total_hits,
+        "Total",
+        num_lookups,
+        total_hits,
         total_hits as f64 / num_lookups as f64 * 100.0,
     );
 
@@ -400,21 +429,24 @@ fn main() {
     );
     println!(
         "  {:>8}  {:>8}  {:>14}  {:>14}  {:>11.1}x",
-        "Hot", hot_items.len(),
+        "Hot",
+        hot_items.len(),
         hot_items.len() * raw_bytes_per_vec,
         hot_items.len() * sq_bytes_per,
         raw_bytes_per_vec as f64 / sq_bytes_per as f64,
     );
     println!(
         "  {:>8}  {:>8}  {:>14}  {:>14}  {:>11.1}x",
-        "Warm", warm_items.len(),
+        "Warm",
+        warm_items.len(),
         warm_items.len() * raw_bytes_per_vec,
         warm_items.len() * pq_bytes_per,
         raw_bytes_per_vec as f64 / pq_bytes_per as f64,
     );
     println!(
         "  {:>8}  {:>8}  {:>14}  {:>14}  {:>11.1}x",
-        "Cold", cold_items.len(),
+        "Cold",
+        cold_items.len(),
         cold_items.len() * raw_bytes_per_vec,
         cold_items.len() * bin_bytes_per,
         raw_bytes_per_vec as f64 / bin_bytes_per as f64,
@@ -425,7 +457,10 @@ fn main() {
     );
     println!(
         "  {:>8}  {:>8}  {:>14}  {:>14}  {:>11.1}x",
-        "Total", num_embeddings, raw_total, compressed_total,
+        "Total",
+        num_embeddings,
+        raw_total,
+        compressed_total,
         raw_total as f64 / compressed_total as f64,
     );
     println!(

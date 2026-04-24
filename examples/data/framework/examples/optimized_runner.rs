@@ -17,21 +17,20 @@
 //!
 //! Run: cargo run --example optimized_runner --features parallel --release
 
-use std::collections::HashMap;
-use std::time::Instant;
 use chrono::Utc;
 use rand::Rng;
+use std::collections::HashMap;
+use std::time::Instant;
 use tokio;
 
-use ruvector_data_framework::{
-    PubMedClient, BiorxivClient, CrossRefClient,
-    FrameworkError, Result,
-};
+use ruvector_data_framework::export::export_patterns_with_evidence_csv;
 use ruvector_data_framework::optimized::{
-    OptimizedDiscoveryEngine, OptimizedConfig, SignificantPattern, simd_cosine_similarity,
+    simd_cosine_similarity, OptimizedConfig, OptimizedDiscoveryEngine, SignificantPattern,
 };
 use ruvector_data_framework::ruvector_native::{Domain, SemanticVector};
-use ruvector_data_framework::export::export_patterns_with_evidence_csv;
+use ruvector_data_framework::{
+    BiorxivClient, CrossRefClient, FrameworkError, PubMedClient, Result,
+};
 
 /// Performance metrics for the optimized runner
 #[derive(Debug, Default)]
@@ -67,8 +66,12 @@ impl PhaseTimer {
     fn finish(self) -> u64 {
         let elapsed = self.start.elapsed();
         let ms = elapsed.as_millis() as u64;
-        println!("✓ Phase {} completed in {:.2}s ({} ms)",
-            self.name, elapsed.as_secs_f64(), ms);
+        println!(
+            "✓ Phase {} completed in {:.2}s ({} ms)",
+            self.name,
+            elapsed.as_secs_f64(),
+            ms
+        );
         ms
     }
 }
@@ -137,7 +140,10 @@ async fn main() -> Result<()> {
         let stats = engine.stats();
         metrics.edges_created = stats.total_edges;
 
-        println!("  → Built graph: {} nodes, {} edges", stats.total_nodes, stats.total_edges);
+        println!(
+            "  → Built graph: {} nodes, {} edges",
+            stats.total_nodes, stats.total_edges
+        );
         println!("  → Cross-domain edges: {}", stats.cross_domain_edges);
         println!("  → Vector comparisons: {}", stats.total_comparisons);
 
@@ -266,7 +272,11 @@ async fn fetch_all_sources_parallel() -> Result<Vec<SemanticVector>> {
 }
 
 /// Fetch from PubMed
-async fn fetch_pubmed(client: &PubMedClient, query: &str, limit: usize) -> Result<Vec<SemanticVector>> {
+async fn fetch_pubmed(
+    client: &PubMedClient,
+    query: &str,
+    limit: usize,
+) -> Result<Vec<SemanticVector>> {
     match client.search_articles(query, limit).await {
         Ok(vectors) => Ok(vectors),
         Err(e) => {
@@ -288,7 +298,11 @@ async fn fetch_biorxiv_recent(client: &BiorxivClient, days: u64) -> Result<Vec<S
 }
 
 /// Fetch from CrossRef
-async fn fetch_crossref(client: &CrossRefClient, query: &str, limit: usize) -> Result<Vec<SemanticVector>> {
+async fn fetch_crossref(
+    client: &CrossRefClient,
+    query: &str,
+    limit: usize,
+) -> Result<Vec<SemanticVector>> {
     match client.search_works(query, limit).await {
         Ok(vectors) => Ok(vectors),
         Err(e) => {
@@ -300,22 +314,31 @@ async fn fetch_crossref(client: &CrossRefClient, query: &str, limit: usize) -> R
 
 /// Generate synthetic climate and research data
 fn generate_synthetic_data(count: usize) -> Vec<SemanticVector> {
-    use rand::{Rng, SeedableRng};
-    use rand::rngs::StdRng;
     use chrono::Duration as ChronoDuration;
+    use rand::rngs::StdRng;
+    use rand::{Rng, SeedableRng};
 
     let mut rng = StdRng::seed_from_u64(42);
     let mut vectors = Vec::with_capacity(count);
 
     let climate_topics = [
-        "temperature_anomaly", "precipitation_patterns", "drought_severity",
-        "ocean_acidification", "arctic_sea_ice", "atmospheric_co2",
-        "el_nino_southern_oscillation", "atlantic_meridional_oscillation",
+        "temperature_anomaly",
+        "precipitation_patterns",
+        "drought_severity",
+        "ocean_acidification",
+        "arctic_sea_ice",
+        "atmospheric_co2",
+        "el_nino_southern_oscillation",
+        "atlantic_meridional_oscillation",
     ];
 
     let research_topics = [
-        "climate_modeling", "carbon_sequestration", "renewable_energy",
-        "climate_adaptation", "ecosystem_resilience", "climate_policy",
+        "climate_modeling",
+        "carbon_sequestration",
+        "renewable_energy",
+        "climate_adaptation",
+        "ecosystem_resilience",
+        "climate_policy",
     ];
 
     for i in 0..count {
@@ -408,14 +431,16 @@ fn analyze_cross_domain_correlations(
     }
 
     // Cross-domain patterns
-    let cross_domain_patterns: Vec<_> = patterns.iter()
+    let cross_domain_patterns: Vec<_> = patterns
+        .iter()
         .filter(|p| !p.pattern.cross_domain_links.is_empty())
         .collect();
 
     println!("\n  🔗 Cross-Domain Links: {}", cross_domain_patterns.len());
     for (i, pattern) in cross_domain_patterns.iter().take(5).enumerate() {
         for link in &pattern.pattern.cross_domain_links {
-            println!("    {}. {:?} → {:?} (strength: {:.3})",
+            println!(
+                "    {}. {:?} → {:?} (strength: {:.3})",
                 i + 1,
                 link.source_domain,
                 link.target_domain,
@@ -425,18 +450,18 @@ fn analyze_cross_domain_correlations(
     }
 
     // Statistical significance summary
-    let significant_patterns: Vec<_> = patterns.iter()
-        .filter(|p| p.is_significant)
-        .collect();
+    let significant_patterns: Vec<_> = patterns.iter().filter(|p| p.is_significant).collect();
 
     println!("\n  📈 Statistical Significance:");
     println!("    Total patterns: {}", patterns.len());
     println!("    Significant (p < 0.05): {}", significant_patterns.len());
 
     if !significant_patterns.is_empty() {
-        let avg_effect_size: f64 = significant_patterns.iter()
+        let avg_effect_size: f64 = significant_patterns
+            .iter()
             .map(|p| p.effect_size.abs())
-            .sum::<f64>() / significant_patterns.len() as f64;
+            .sum::<f64>()
+            / significant_patterns.len() as f64;
 
         println!("    Avg effect size: {:.3}", avg_effect_size);
     }
@@ -494,8 +519,12 @@ fn export_hypothesis_report(patterns: &[SignificantPattern], path: &str) -> Resu
         for (i, pattern) in group.iter().take(10).enumerate() {
             writeln!(file, "\n{}. {}", i + 1, pattern.pattern.description)
                 .map_err(|e| FrameworkError::Config(format!("Write error: {}", e)))?;
-            writeln!(file, "   Confidence: {:.2}%", pattern.pattern.confidence * 100.0)
-                .map_err(|e| FrameworkError::Config(format!("Write error: {}", e)))?;
+            writeln!(
+                file,
+                "   Confidence: {:.2}%",
+                pattern.pattern.confidence * 100.0
+            )
+            .map_err(|e| FrameworkError::Config(format!("Write error: {}", e)))?;
             writeln!(file, "   P-value: {:.4}", pattern.p_value)
                 .map_err(|e| FrameworkError::Config(format!("Write error: {}", e)))?;
             writeln!(file, "   Effect size: {:.3}", pattern.effect_size)
@@ -507,8 +536,12 @@ fn export_hypothesis_report(patterns: &[SignificantPattern], path: &str) -> Resu
                 writeln!(file, "   Evidence:")
                     .map_err(|e| FrameworkError::Config(format!("Write error: {}", e)))?;
                 for evidence in &pattern.pattern.evidence {
-                    writeln!(file, "     - {}: {:.3}", evidence.evidence_type, evidence.value)
-                        .map_err(|e| FrameworkError::Config(format!("Write error: {}", e)))?;
+                    writeln!(
+                        file,
+                        "     - {}: {:.3}",
+                        evidence.evidence_type, evidence.value
+                    )
+                    .map_err(|e| FrameworkError::Config(format!("Write error: {}", e)))?;
                 }
             }
         }
@@ -525,11 +558,23 @@ fn print_final_report(metrics: &RunnerMetrics, patterns: &[SignificantPattern]) 
 
     println!("\n📊 Timing Breakdown:");
     println!("  ├─ Data Fetching:       {:>6} ms", metrics.fetch_time_ms);
-    println!("  ├─ Graph Building:      {:>6} ms", metrics.graph_build_time_ms);
-    println!("  ├─ Coherence Compute:   {:>6} ms", metrics.coherence_time_ms);
-    println!("  ├─ Pattern Detection:   {:>6} ms", metrics.pattern_detection_time_ms);
-    println!("  └─ Total:               {:>6} ms ({:.2}s)",
-        metrics.total_time_ms, metrics.total_time_ms as f64 / 1000.0);
+    println!(
+        "  ├─ Graph Building:      {:>6} ms",
+        metrics.graph_build_time_ms
+    );
+    println!(
+        "  ├─ Coherence Compute:   {:>6} ms",
+        metrics.coherence_time_ms
+    );
+    println!(
+        "  ├─ Pattern Detection:   {:>6} ms",
+        metrics.pattern_detection_time_ms
+    );
+    println!(
+        "  └─ Total:               {:>6} ms ({:.2}s)",
+        metrics.total_time_ms,
+        metrics.total_time_ms as f64 / 1000.0
+    );
 
     println!("\n⚡ Throughput Metrics:");
     println!("  ├─ Vectors processed:   {:>6}", metrics.vectors_processed);
@@ -538,10 +583,14 @@ fn print_final_report(metrics: &RunnerMetrics, patterns: &[SignificantPattern]) 
     println!("  └─ Edges/sec:           {:>6.0}", metrics.edges_per_sec);
 
     println!("\n🔍 Discovery Results:");
-    println!("  ├─ Total patterns:      {:>6}", metrics.patterns_discovered);
+    println!(
+        "  ├─ Total patterns:      {:>6}",
+        metrics.patterns_discovered
+    );
 
     let significant = patterns.iter().filter(|p| p.is_significant).count();
-    println!("  ├─ Significant:         {:>6} ({:.1}%)",
+    println!(
+        "  ├─ Significant:         {:>6} ({:.1}%)",
         significant,
         if metrics.patterns_discovered > 0 {
             significant as f64 / metrics.patterns_discovered as f64 * 100.0
@@ -550,7 +599,8 @@ fn print_final_report(metrics: &RunnerMetrics, patterns: &[SignificantPattern]) 
         }
     );
 
-    let cross_domain = patterns.iter()
+    let cross_domain = patterns
+        .iter()
         .filter(|p| !p.pattern.cross_domain_links.is_empty())
         .count();
     println!("  └─ Cross-domain links:  {:>6}", cross_domain);
@@ -564,10 +614,15 @@ fn print_final_report(metrics: &RunnerMetrics, patterns: &[SignificantPattern]) 
     } else {
         false
     };
-    println!("  ├─ 1000+ vectors in <5s:   {} {}",
+    println!(
+        "  ├─ 1000+ vectors in <5s:   {} {}",
         if vectors_ok { "✓" } else { "✗" },
         if vectors_ok {
-            format!("({} vectors in {:.2}s)", metrics.vectors_processed, metrics.total_time_ms as f64 / 1000.0)
+            format!(
+                "({} vectors in {:.2}s)",
+                metrics.vectors_processed,
+                metrics.total_time_ms as f64 / 1000.0
+            )
         } else {
             format!("({} vectors)", metrics.vectors_processed)
         }
@@ -579,7 +634,8 @@ fn print_final_report(metrics: &RunnerMetrics, patterns: &[SignificantPattern]) 
     } else {
         metrics.edges_created >= 1000 // Lower threshold if we don't have 100k edges
     };
-    println!("  └─ Fast edge computation:  {} ({} edges in {:.2}s)",
+    println!(
+        "  └─ Fast edge computation:  {} ({} edges in {:.2}s)",
         if edges_ok { "✓" } else { "✗" },
         metrics.edges_created,
         metrics.graph_build_time_ms as f64 / 1000.0
@@ -592,8 +648,8 @@ fn simd_benchmark() {
     println!("║                  SIMD Performance Benchmark                   ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
 
-    use rand::{Rng, SeedableRng};
     use rand::rngs::StdRng;
+    use rand::{Rng, SeedableRng};
 
     let mut rng = StdRng::seed_from_u64(42);
 
@@ -622,8 +678,10 @@ fn simd_benchmark() {
     println!("\n  SIMD-accelerated cosine similarity:");
     println!("    ├─ Comparisons:  {}", num_pairs);
     println!("    ├─ Time:         {:.2} ms", simd_time.as_millis());
-    println!("    ├─ Throughput:   {:.0} comparisons/sec",
-        num_pairs as f64 / simd_time.as_secs_f64());
+    println!(
+        "    ├─ Throughput:   {:.0} comparisons/sec",
+        num_pairs as f64 / simd_time.as_secs_f64()
+    );
     println!("    └─ Checksum:     {:.6}", simd_sum);
 
     // Note: We're using the optimized SIMD version for both since it falls back

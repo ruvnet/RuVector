@@ -20,12 +20,10 @@
 //! Run with:
 //!   cargo run --example ruvllm_inference
 
-use rvf_runtime::{
-    FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore,
-};
+use rvf_crypto::{create_witness_chain, shake256_256, verify_witness_chain, WitnessEntry};
 use rvf_runtime::filter::FilterValue;
 use rvf_runtime::options::DistanceMetric;
-use rvf_crypto::{create_witness_chain, verify_witness_chain, shake256_256, WitnessEntry};
+use rvf_runtime::{FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore};
 use rvf_types::DerivationType;
 use tempfile::TempDir;
 
@@ -34,7 +32,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -77,8 +77,15 @@ fn main() {
     //   field_id 1: head_id (U64)
     //   field_id 2: sequence_position (U64)
     //   field_id 3: token_id (U64)
-    println!("  Model config: {} layers, {} heads, seq_len={}", num_layers, num_heads, seq_len);
-    println!("  Head dimension: {} (total model dim: {})", kv_dim, kv_dim * num_heads);
+    println!(
+        "  Model config: {} layers, {} heads, seq_len={}",
+        num_layers, num_heads, seq_len
+    );
+    println!(
+        "  Head dimension: {} (total model dim: {})",
+        kv_dim,
+        kv_dim * num_heads
+    );
     println!("  Total KV entries: {}", kv_count);
 
     let mut kv_vectors = Vec::with_capacity(kv_count);
@@ -126,8 +133,11 @@ fn main() {
     witness_entries.push(WitnessEntry {
         prev_hash: [0u8; 32],
         action_hash: shake256_256(
-            format!("KV_CACHE_WRITE:layers={}:heads={}:seq={}", num_layers, num_heads, seq_len)
-                .as_bytes(),
+            format!(
+                "KV_CACHE_WRITE:layers={}:heads={}:seq={}",
+                num_layers, num_heads, seq_len
+            )
+            .as_bytes(),
         ),
         timestamp_ns: base_timestamp,
         witness_type: 0x01, // PROVENANCE
@@ -149,7 +159,10 @@ fn main() {
         "    {:>6}  {:>10}  {:>8}  {:>6}  {:>5}  {:>8}",
         "ID", "Distance", "Layer", "Head", "Pos", "Token"
     );
-    println!("    {:->6}  {:->10}  {:->8}  {:->6}  {:->5}  {:->8}", "", "", "", "", "", "");
+    println!(
+        "    {:->6}  {:->10}  {:->8}  {:->6}  {:->5}  {:->8}",
+        "", "", "", "", "", ""
+    );
     for r in &attn_results {
         let idx = r.id as usize;
         let layer = idx / (num_heads * seq_len);
@@ -158,14 +171,23 @@ fn main() {
         let pos = remainder % seq_len;
         println!(
             "    {:>6}  {:>10.6}  {:>8}  {:>6}  {:>5}  {:>8}",
-            r.id, r.distance, layer, head, pos, pos + 1000
+            r.id,
+            r.distance,
+            layer,
+            head,
+            pos,
+            pos + 1000
         );
     }
 
     let kv_status = kv_store.status();
     println!("\n  KV Cache stats:");
     println!("    Total entries:  {}", kv_status.total_vectors);
-    println!("    File size:      {} bytes ({:.1} KB)", kv_status.file_size, kv_status.file_size as f64 / 1024.0);
+    println!(
+        "    File size:      {} bytes ({:.1} KB)",
+        kv_status.file_size,
+        kv_status.file_size as f64 / 1024.0
+    );
     println!(
         "    Memory per KV:  {} bytes ({}d x 4 bytes/float)",
         kv_dim * 4,
@@ -195,14 +217,8 @@ fn main() {
         .expect("failed to derive LoRA store");
 
     println!("  Derived from KV cache via DerivationType::Transform");
-    println!(
-        "  Parent file_id:  {}",
-        hex_prefix(kv_store.file_id(), 8)
-    );
-    println!(
-        "  LoRA file_id:    {}",
-        hex_prefix(lora_store.file_id(), 8)
-    );
+    println!("  Parent file_id:  {}", hex_prefix(kv_store.file_id(), 8));
+    println!("  LoRA file_id:    {}", hex_prefix(lora_store.file_id(), 8));
     println!("  Lineage depth:   {}", lora_store.lineage_depth());
 
     // Metadata fields:
@@ -276,7 +292,10 @@ fn main() {
         "    {:>6}  {:>10}  {:>16}  {:>6}  {:>8}",
         "ID", "Distance", "Adapter", "Rank", "Layer"
     );
-    println!("    {:->6}  {:->10}  {:->16}  {:->6}  {:->8}", "", "", "", "", "");
+    println!(
+        "    {:->6}  {:->10}  {:->16}  {:->6}  {:->8}",
+        "", "", "", "", ""
+    );
     for r in &lora_results {
         let idx = r.id as usize;
         let rank_idx = idx / adapters_per_rank;
@@ -300,7 +319,11 @@ fn main() {
     let lora_status = lora_store.status();
     println!("\n  LoRA Adapter stats:");
     println!("    Total adapters: {}", lora_status.total_vectors);
-    println!("    File size:      {} bytes ({:.1} KB)", lora_status.file_size, lora_status.file_size as f64 / 1024.0);
+    println!(
+        "    File size:      {} bytes ({:.1} KB)",
+        lora_status.file_size,
+        lora_status.file_size as f64 / 1024.0
+    );
     println!("    Ranks:          {:?}", lora_ranks);
 
     // ====================================================================
@@ -364,7 +387,11 @@ fn main() {
     witness_entries.push(WitnessEntry {
         prev_hash: [0u8; 32],
         action_hash: shake256_256(
-            format!("INFERENCE:episodes={}:policy_dim={}", num_episodes, policy_dim).as_bytes(),
+            format!(
+                "INFERENCE:episodes={}:policy_dim={}",
+                num_episodes, policy_dim
+            )
+            .as_bytes(),
         ),
         timestamp_ns: base_timestamp + 2_000_000_000,
         witness_type: 0x02, // COMPUTATION
@@ -386,7 +413,10 @@ fn main() {
         "    {:>6}  {:>10}  {:>8}  {:>8}  {:>8}",
         "ID", "Distance", "Episode", "Reward", "Action"
     );
-    println!("    {:->6}  {:->10}  {:->8}  {:->8}  {:->8}", "", "", "", "", "");
+    println!(
+        "    {:->6}  {:->10}  {:->8}  {:->8}  {:->8}",
+        "", "", "", "", ""
+    );
     for r in &policy_results {
         let ep = r.id as usize;
         let reward = ((ep * 7 + 13) % 101) as u64;
@@ -400,7 +430,11 @@ fn main() {
     let policy_status = policy_store.status();
     println!("\n  Policy Store stats:");
     println!("    Total episodes: {}", policy_status.total_vectors);
-    println!("    File size:      {} bytes ({:.1} KB)", policy_status.file_size, policy_status.file_size as f64 / 1024.0);
+    println!(
+        "    File size:      {} bytes ({:.1} KB)",
+        policy_status.file_size,
+        policy_status.file_size as f64 / 1024.0
+    );
 
     // High reward count
     let high_reward_count = (0..num_episodes)
@@ -468,7 +502,10 @@ fn main() {
                 );
             }
             // Verify chain links
-            assert_eq!(verified[0].prev_hash, [0u8; 32], "genesis entry has zero prev_hash");
+            assert_eq!(
+                verified[0].prev_hash, [0u8; 32],
+                "genesis entry has zero prev_hash"
+            );
             println!("\n  Genesis entry verified (zero prev_hash).");
             println!("  All chain links verified (hash chaining intact).");
         }
@@ -537,8 +574,16 @@ fn main() {
     println!("  {:>24}  {:>12}", "KV Cache entries", kv_count);
     println!("  {:>24}  {:>12}", "LoRA adapters", total_adapters);
     println!("  {:>24}  {:>12}", "Policy episodes", num_episodes);
-    println!("  {:>24}  {:>12}", "Witness chain steps", witness_entries.len());
-    println!("  {:>24}  {:>12}", "Lineage depth (LoRA)", lora_store.lineage_depth());
+    println!(
+        "  {:>24}  {:>12}",
+        "Witness chain steps",
+        witness_entries.len()
+    );
+    println!(
+        "  {:>24}  {:>12}",
+        "Lineage depth (LoRA)",
+        lora_store.lineage_depth()
+    );
     let total_file_size = kv_status.file_size + lora_status.file_size + policy_status.file_size;
     println!(
         "  {:>24}  {:>10.1} KB",
@@ -549,9 +594,7 @@ fn main() {
     // Close all stores
     kv_store.close().expect("failed to close KV store");
     lora_store.close().expect("failed to close LoRA store");
-    policy_store
-        .close()
-        .expect("failed to close policy store");
+    policy_store.close().expect("failed to close policy store");
 
     println!("\nDone.");
 }

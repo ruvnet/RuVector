@@ -346,7 +346,11 @@ impl SemanticScholarClient {
     /// ```rust,ignore
     /// let references = client.get_references("649def34f8be52c8b66281af98ae884c09aef38b", 50).await?;
     /// ```
-    pub async fn get_references(&self, paper_id: &str, limit: usize) -> Result<Vec<SemanticVector>> {
+    pub async fn get_references(
+        &self,
+        paper_id: &str,
+        limit: usize,
+    ) -> Result<Vec<SemanticVector>> {
         let limit = limit.min(1000); // API limit
 
         let url = format!(
@@ -379,7 +383,11 @@ impl SemanticScholarClient {
     /// let cs_papers = client.search_by_field("Computer Science", 100).await?;
     /// let medical_papers = client.search_by_field("Medicine", 50).await?;
     /// ```
-    pub async fn search_by_field(&self, field_of_study: &str, limit: usize) -> Result<Vec<SemanticVector>> {
+    pub async fn search_by_field(
+        &self,
+        field_of_study: &str,
+        limit: usize,
+    ) -> Result<Vec<SemanticVector>> {
         // Search for papers in this field, sorted by citation count
         let query = format!("fieldsOfStudy:{}", field_of_study);
         self.search_papers(&query, limit).await
@@ -461,7 +469,11 @@ impl SemanticScholarClient {
         paper_id: &str,
         max_citations: usize,
         max_references: usize,
-    ) -> Result<(Option<SemanticVector>, Vec<SemanticVector>, Vec<SemanticVector>)> {
+    ) -> Result<(
+        Option<SemanticVector>,
+        Vec<SemanticVector>,
+        Vec<SemanticVector>,
+    )> {
         // Fetch paper, citations, and references in parallel
         let paper_result = self.get_paper(paper_id);
         let citations_result = self.get_citations(paper_id, max_citations);
@@ -494,7 +506,8 @@ impl SemanticScholarClient {
         let embedding = self.embedder.embed_text(&combined_text);
 
         // Convert year to timestamp
-        let timestamp = paper.year
+        let timestamp = paper
+            .year
             .and_then(|y| NaiveDate::from_ymd_opt(y, 1, 1))
             .map(|d| DateTime::from_naive_utc_and_offset(d.and_hms_opt(0, 0, 0).unwrap(), Utc))
             .unwrap_or_else(Utc::now);
@@ -538,11 +551,17 @@ impl SemanticScholarClient {
 
         // Fields of study
         if !paper.fields_of_study.is_empty() {
-            metadata.insert("fieldsOfStudy".to_string(), paper.fields_of_study.join(", "));
+            metadata.insert(
+                "fieldsOfStudy".to_string(),
+                paper.fields_of_study.join(", "),
+            );
         }
 
         // Venue
-        if let Some(venue) = paper.venue.or_else(|| paper.publication_venue.and_then(|pv| pv.name)) {
+        if let Some(venue) = paper
+            .venue
+            .or_else(|| paper.publication_venue.and_then(|pv| pv.name))
+        {
             metadata.insert("venue".to_string(), venue);
         }
 
@@ -599,24 +618,26 @@ impl SemanticScholarClient {
                     if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
                         let delay = RETRY_DELAY_MS * (2_u64.pow(retries - 1)); // Exponential backoff
-                        tracing::warn!(
-                            "Rate limited by Semantic Scholar, retrying in {}ms",
-                            delay
-                        );
+                        tracing::warn!("Rate limited by Semantic Scholar, retrying in {}ms", delay);
                         sleep(Duration::from_millis(delay)).await;
                         continue;
                     }
                     if !response.status().is_success() {
-                        return Err(FrameworkError::Network(
-                            reqwest::Error::from(response.error_for_status().unwrap_err()),
-                        ));
+                        return Err(FrameworkError::Network(reqwest::Error::from(
+                            response.error_for_status().unwrap_err(),
+                        )));
                     }
                     return Ok(response);
                 }
                 Err(_) if retries < MAX_RETRIES => {
                     retries += 1;
                     let delay = RETRY_DELAY_MS * (2_u64.pow(retries - 1)); // Exponential backoff
-                    tracing::warn!("Request failed, retrying ({}/{}) in {}ms", retries, MAX_RETRIES, delay);
+                    tracing::warn!(
+                        "Request failed, retrying ({}/{}) in {}ms",
+                        retries,
+                        MAX_RETRIES,
+                        delay
+                    );
                     sleep(Duration::from_millis(delay)).await;
                 }
                 Err(e) => return Err(FrameworkError::Network(e)),
@@ -643,14 +664,20 @@ mod tests {
     fn test_client_creation() {
         let client = SemanticScholarClient::new(None);
         assert_eq!(client.base_url, "https://api.semanticscholar.org/graph/v1");
-        assert_eq!(client.rate_limit_delay, Duration::from_millis(S2_RATE_LIMIT_MS));
+        assert_eq!(
+            client.rate_limit_delay,
+            Duration::from_millis(S2_RATE_LIMIT_MS)
+        );
     }
 
     #[test]
     fn test_client_with_api_key() {
         let client = SemanticScholarClient::new(Some("test-key".to_string()));
         assert_eq!(client.api_key, Some("test-key".to_string()));
-        assert_eq!(client.rate_limit_delay, Duration::from_millis(S2_WITH_KEY_RATE_LIMIT_MS));
+        assert_eq!(
+            client.rate_limit_delay,
+            Duration::from_millis(S2_WITH_KEY_RATE_LIMIT_MS)
+        );
     }
 
     #[test]
@@ -698,13 +725,25 @@ mod tests {
         let v = vector.unwrap();
         assert_eq!(v.id, "s2:649def34f8be52c8b66281af98ae884c09aef38b");
         assert_eq!(v.domain, Domain::Research);
-        assert_eq!(v.metadata.get("paper_id").unwrap(), "649def34f8be52c8b66281af98ae884c09aef38b");
-        assert_eq!(v.metadata.get("title").unwrap(), "Attention Is All You Need");
+        assert_eq!(
+            v.metadata.get("paper_id").unwrap(),
+            "649def34f8be52c8b66281af98ae884c09aef38b"
+        );
+        assert_eq!(
+            v.metadata.get("title").unwrap(),
+            "Attention Is All You Need"
+        );
         assert_eq!(v.metadata.get("year").unwrap(), "2017");
         assert_eq!(v.metadata.get("citationCount").unwrap(), "50000");
         assert_eq!(v.metadata.get("referenceCount").unwrap(), "35");
-        assert_eq!(v.metadata.get("authors").unwrap(), "Ashish Vaswani, Noam Shazeer");
-        assert_eq!(v.metadata.get("fieldsOfStudy").unwrap(), "Computer Science, Mathematics");
+        assert_eq!(
+            v.metadata.get("authors").unwrap(),
+            "Ashish Vaswani, Noam Shazeer"
+        );
+        assert_eq!(
+            v.metadata.get("fieldsOfStudy").unwrap(),
+            "Computer Science, Mathematics"
+        );
         assert_eq!(v.metadata.get("venue").unwrap(), "NeurIPS");
         assert!(v.metadata.contains_key("pdf_url"));
     }
@@ -735,7 +774,11 @@ mod tests {
         let v = vector.unwrap();
         assert_eq!(v.id, "s2:test123");
         assert_eq!(v.metadata.get("title").unwrap(), "Minimal Paper");
-        assert!(v.metadata.get("url").unwrap().contains("semanticscholar.org"));
+        assert!(v
+            .metadata
+            .get("url")
+            .unwrap()
+            .contains("semanticscholar.org"));
     }
 
     #[test]
@@ -788,7 +831,9 @@ mod tests {
         let client = SemanticScholarClient::new(None);
 
         // Well-known paper: "Attention Is All You Need"
-        let result = client.get_paper("649def34f8be52c8b66281af98ae884c09aef38b").await;
+        let result = client
+            .get_paper("649def34f8be52c8b66281af98ae884c09aef38b")
+            .await;
         assert!(result.is_ok());
 
         let paper = result.unwrap();
@@ -805,7 +850,9 @@ mod tests {
         let client = SemanticScholarClient::new(None);
 
         // Get citations for "Attention Is All You Need"
-        let result = client.get_citations("649def34f8be52c8b66281af98ae884c09aef38b", 10).await;
+        let result = client
+            .get_citations("649def34f8be52c8b66281af98ae884c09aef38b", 10)
+            .await;
         assert!(result.is_ok());
 
         let citations = result.unwrap();
@@ -828,11 +875,9 @@ mod tests {
     async fn test_build_citation_graph_integration() {
         let client = SemanticScholarClient::new(None);
 
-        let result = client.build_citation_graph(
-            "649def34f8be52c8b66281af98ae884c09aef38b",
-            5,
-            5
-        ).await;
+        let result = client
+            .build_citation_graph("649def34f8be52c8b66281af98ae884c09aef38b", 5, 5)
+            .await;
         assert!(result.is_ok());
 
         let (paper, citations, references) = result.unwrap();

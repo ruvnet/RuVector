@@ -8,10 +8,7 @@
 //! cargo run --example wiki_discovery
 //! ```
 
-use ruvector_data_framework::{
-    WikipediaClient, WikidataClient,
-    DiscoveryPipeline, PipelineConfig,
-};
+use ruvector_data_framework::{DiscoveryPipeline, PipelineConfig, WikidataClient, WikipediaClient};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -33,8 +30,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Found {} articles:", climate_articles.len());
     for article in &climate_articles {
-        let title = article.data.get("title").and_then(|v| v.as_str()).unwrap_or("Unknown");
-        let url = article.data.get("url").and_then(|v| v.as_str()).unwrap_or("");
+        let title = article
+            .data
+            .get("title")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Unknown");
+        let url = article
+            .data
+            .get("url")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         println!("  📄 {} - {}", title, url);
         println!("     Relationships: {}", article.relationships.len());
     }
@@ -47,13 +52,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", "=".repeat(60));
 
     let article = wiki_client.get_article("Artificial intelligence").await?;
-    println!("Title: {}", article.data.get("title").and_then(|v| v.as_str()).unwrap_or(""));
-    println!("Extract length: {} chars",
-        article.data.get("extract").and_then(|v| v.as_str()).map(|s| s.len()).unwrap_or(0));
-    println!("Categories: {}",
-        article.relationships.iter().filter(|r| r.rel_type == "in_category").count());
-    println!("Links: {}",
-        article.relationships.iter().filter(|r| r.rel_type == "links_to").count());
+    println!(
+        "Title: {}",
+        article
+            .data
+            .get("title")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+    );
+    println!(
+        "Extract length: {} chars",
+        article
+            .data
+            .get("extract")
+            .and_then(|v| v.as_str())
+            .map(|s| s.len())
+            .unwrap_or(0)
+    );
+    println!(
+        "Categories: {}",
+        article
+            .relationships
+            .iter()
+            .filter(|r| r.rel_type == "in_category")
+            .count()
+    );
+    println!(
+        "Links: {}",
+        article
+            .relationships
+            .iter()
+            .filter(|r| r.rel_type == "links_to")
+            .count()
+    );
     println!();
 
     // ========================================================================
@@ -82,8 +113,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Found {} climate-related entities", climate_entities.len());
 
     for entity in climate_entities.iter().take(10) {
-        let label = entity.data.get("label").and_then(|v| v.as_str()).unwrap_or("Unknown");
-        let description = entity.data.get("description").and_then(|v| v.as_str()).unwrap_or("");
+        let label = entity
+            .data
+            .get("label")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Unknown");
+        let description = entity
+            .data
+            .get("description")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         println!("  🌍 {} - {}", label, description);
     }
     println!();
@@ -98,8 +137,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Found {} pharmaceutical companies", pharma_companies.len());
 
     for company in pharma_companies.iter().take(10) {
-        let label = company.data.get("label").and_then(|v| v.as_str()).unwrap_or("Unknown");
-        let founded = company.data.get("founded").and_then(|v| v.as_str()).unwrap_or("N/A");
+        let label = company
+            .data
+            .get("label")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Unknown");
+        let founded = company
+            .data
+            .get("founded")
+            .and_then(|v| v.as_str())
+            .unwrap_or("N/A");
         println!("  🏢 {} (founded: {})", label, founded);
     }
     println!();
@@ -114,9 +161,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Found {} disease outbreak records", outbreaks.len());
 
     for outbreak in outbreaks.iter().take(10) {
-        let label = outbreak.data.get("label").and_then(|v| v.as_str()).unwrap_or("Unknown");
-        let disease = outbreak.data.get("diseaseLabel").and_then(|v| v.as_str()).unwrap_or("Unknown disease");
-        let location = outbreak.data.get("locationLabel").and_then(|v| v.as_str()).unwrap_or("Unknown location");
+        let label = outbreak
+            .data
+            .get("label")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Unknown");
+        let disease = outbreak
+            .data
+            .get("diseaseLabel")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Unknown disease");
+        let location = outbreak
+            .data
+            .get("locationLabel")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Unknown location");
         println!("  🦠 {} - {} in {}", label, disease, location);
     }
     println!();
@@ -153,10 +212,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut file = std::fs::File::create(&patterns_file)?;
     writeln!(file, "category,strength,description,node_count")?;
     for pattern in &patterns {
-        writeln!(file, "{:?},{:?},{},{}", pattern.category, pattern.strength, pattern.description.replace(",", ";"), pattern.entities.len())?;
+        writeln!(
+            file,
+            "{:?},{:?},{},{}",
+            pattern.category,
+            pattern.strength,
+            pattern.description.replace(",", ";"),
+            pattern.entities.len()
+        )?;
     }
 
-    println!("  ✓ patterns.csv - Pattern metadata ({} patterns)", patterns.len());
+    println!(
+        "  ✓ patterns.csv - Pattern metadata ({} patterns)",
+        patterns.len()
+    );
     println!();
 
     // ========================================================================
@@ -180,8 +249,14 @@ LIMIT 20
     println!("Found {} Nobel laureates (recent 20):", results.len());
 
     for result in results.iter().take(10) {
-        let name = result.get("itemLabel").map(|s| s.as_str()).unwrap_or("Unknown");
-        let award = result.get("awardLabel").map(|s| s.as_str()).unwrap_or("Nobel Prize");
+        let name = result
+            .get("itemLabel")
+            .map(|s| s.as_str())
+            .unwrap_or("Unknown");
+        let award = result
+            .get("awardLabel")
+            .map(|s| s.as_str())
+            .unwrap_or("Nobel Prize");
         let year = result.get("year").map(|s| &s[..4]).unwrap_or("N/A");
         println!("  🏆 {} - {} ({})", name, award, year);
     }

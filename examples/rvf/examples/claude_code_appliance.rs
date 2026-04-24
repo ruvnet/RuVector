@@ -36,16 +36,16 @@
 //!   # SSH into the running appliance
 //!   ssh -p 2222 deploy@localhost
 
+use ed25519_dalek::{SigningKey, VerifyingKey};
 use rvf_crypto::{
-    create_witness_chain, shake256_256, sign_segment, verify_segment,
-    verify_witness_chain, WitnessEntry,
+    create_witness_chain, shake256_256, sign_segment, verify_segment, verify_witness_chain,
+    WitnessEntry,
 };
+use rvf_kernel::KernelBuilder;
 use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore};
 use rvf_types::kernel::{KernelArch, KernelType};
 use rvf_types::{DerivationType, SegmentHeader, SegmentType};
-use rvf_kernel::KernelBuilder;
-use ed25519_dalek::{SigningKey, VerifyingKey};
 use std::fs;
 use std::path::Path;
 
@@ -54,7 +54,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -68,7 +70,9 @@ fn keygen(seed: u64) -> (SigningKey, VerifyingKey) {
     let mut key_bytes = [0u8; 32];
     let mut x = seed;
     for b in &mut key_bytes {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         *b = (x >> 56) as u8;
     }
     let sk = SigningKey::from_bytes(&key_bytes);
@@ -105,61 +109,172 @@ fn main() {
 
     let packages = vec![
         // Core OS
-        Package { name: "musl-libc", version: "1.2.5", category: "core",
-            size_kb: 892, description: "Minimal C library" },
-        Package { name: "busybox", version: "1.36.1", category: "core",
-            size_kb: 1024, description: "Core UNIX utilities" },
-        Package { name: "linux-kernel", version: "6.8.0-micro", category: "kernel",
-            size_kb: 8192, description: "Linux microkernel (minimal)" },
+        Package {
+            name: "musl-libc",
+            version: "1.2.5",
+            category: "core",
+            size_kb: 892,
+            description: "Minimal C library",
+        },
+        Package {
+            name: "busybox",
+            version: "1.36.1",
+            category: "core",
+            size_kb: 1024,
+            description: "Core UNIX utilities",
+        },
+        Package {
+            name: "linux-kernel",
+            version: "6.8.0-micro",
+            category: "kernel",
+            size_kb: 8192,
+            description: "Linux microkernel (minimal)",
+        },
         // SSH
-        Package { name: "openssh-server", version: "9.6p1", category: "ssh",
-            size_kb: 2048, description: "SSH protocol server" },
-        Package { name: "openssh-client", version: "9.6p1", category: "ssh",
-            size_kb: 1536, description: "SSH protocol client" },
-        Package { name: "openssl", version: "3.2.1", category: "crypto",
-            size_kb: 4096, description: "TLS/SSL library" },
+        Package {
+            name: "openssh-server",
+            version: "9.6p1",
+            category: "ssh",
+            size_kb: 2048,
+            description: "SSH protocol server",
+        },
+        Package {
+            name: "openssh-client",
+            version: "9.6p1",
+            category: "ssh",
+            size_kb: 1536,
+            description: "SSH protocol client",
+        },
+        Package {
+            name: "openssl",
+            version: "3.2.1",
+            category: "crypto",
+            size_kb: 4096,
+            description: "TLS/SSL library",
+        },
         // Networking
-        Package { name: "curl", version: "8.6.0", category: "network",
-            size_kb: 1024, description: "HTTP/HTTPS client (for install scripts)" },
-        Package { name: "iproute2", version: "6.7.0", category: "network",
-            size_kb: 1280, description: "Network configuration" },
-        Package { name: "iptables", version: "1.8.10", category: "network",
-            size_kb: 768, description: "Firewall" },
-        Package { name: "wireguard-tools", version: "1.0.20210914", category: "vpn",
-            size_kb: 256, description: "WireGuard VPN" },
+        Package {
+            name: "curl",
+            version: "8.6.0",
+            category: "network",
+            size_kb: 1024,
+            description: "HTTP/HTTPS client (for install scripts)",
+        },
+        Package {
+            name: "iproute2",
+            version: "6.7.0",
+            category: "network",
+            size_kb: 1280,
+            description: "Network configuration",
+        },
+        Package {
+            name: "iptables",
+            version: "1.8.10",
+            category: "network",
+            size_kb: 768,
+            description: "Firewall",
+        },
+        Package {
+            name: "wireguard-tools",
+            version: "1.0.20210914",
+            category: "vpn",
+            size_kb: 256,
+            description: "WireGuard VPN",
+        },
         // Development tools
-        Package { name: "git", version: "2.44.0", category: "dev",
-            size_kb: 8192, description: "Version control" },
-        Package { name: "nodejs", version: "22.0.0", category: "dev",
-            size_kb: 32768, description: "JavaScript runtime" },
-        Package { name: "npm", version: "10.5.0", category: "dev",
-            size_kb: 4096, description: "Node package manager" },
-        Package { name: "python3", version: "3.12.2", category: "dev",
-            size_kb: 16384, description: "Python runtime" },
-        Package { name: "rust-toolchain", version: "1.87.0", category: "dev",
-            size_kb: 65536, description: "Rust compiler + cargo" },
+        Package {
+            name: "git",
+            version: "2.44.0",
+            category: "dev",
+            size_kb: 8192,
+            description: "Version control",
+        },
+        Package {
+            name: "nodejs",
+            version: "22.0.0",
+            category: "dev",
+            size_kb: 32768,
+            description: "JavaScript runtime",
+        },
+        Package {
+            name: "npm",
+            version: "10.5.0",
+            category: "dev",
+            size_kb: 4096,
+            description: "Node package manager",
+        },
+        Package {
+            name: "python3",
+            version: "3.12.2",
+            category: "dev",
+            size_kb: 16384,
+            description: "Python runtime",
+        },
+        Package {
+            name: "rust-toolchain",
+            version: "1.87.0",
+            category: "dev",
+            size_kb: 65536,
+            description: "Rust compiler + cargo",
+        },
         // Claude Code
-        Package { name: "claude-code", version: "latest", category: "ai",
-            size_kb: 51200, description: "Claude Code CLI (via claude.ai/install.sh)" },
+        Package {
+            name: "claude-code",
+            version: "latest",
+            category: "ai",
+            size_kb: 51200,
+            description: "Claude Code CLI (via claude.ai/install.sh)",
+        },
         // System services
-        Package { name: "chrony", version: "4.5", category: "system",
-            size_kb: 512, description: "NTP time sync" },
-        Package { name: "syslog-ng", version: "4.6.0", category: "system",
-            size_kb: 2048, description: "System logging" },
+        Package {
+            name: "chrony",
+            version: "4.5",
+            category: "system",
+            size_kb: 512,
+            description: "NTP time sync",
+        },
+        Package {
+            name: "syslog-ng",
+            version: "4.6.0",
+            category: "system",
+            size_kb: 2048,
+            description: "System logging",
+        },
         // RuVector
-        Package { name: "rvf-cli", version: "0.1.0", category: "ai",
-            size_kb: 2048, description: "RVF vector store CLI" },
-        Package { name: "ruvector-agent", version: "0.1.0", category: "ai",
-            size_kb: 4096, description: "RuVector edge inference agent" },
+        Package {
+            name: "rvf-cli",
+            version: "0.1.0",
+            category: "ai",
+            size_kb: 2048,
+            description: "RVF vector store CLI",
+        },
+        Package {
+            name: "ruvector-agent",
+            version: "0.1.0",
+            category: "ai",
+            size_kb: 4096,
+            description: "RuVector edge inference agent",
+        },
     ];
 
     let total_kb: u64 = packages.iter().map(|p| p.size_kb).sum();
-    println!("  Packages: {} ({:.1} MB total)", packages.len(), total_kb as f64 / 1024.0);
-    for cat in &["core", "kernel", "ssh", "crypto", "network", "vpn", "dev", "ai", "system"] {
+    println!(
+        "  Packages: {} ({:.1} MB total)",
+        packages.len(),
+        total_kb as f64 / 1024.0
+    );
+    for cat in &[
+        "core", "kernel", "ssh", "crypto", "network", "vpn", "dev", "ai", "system",
+    ] {
         let pkgs: Vec<_> = packages.iter().filter(|p| p.category == *cat).collect();
         if !pkgs.is_empty() {
             let cat_kb: u64 = pkgs.iter().map(|p| p.size_kb).sum();
-            println!("    {:10}: {} pkgs ({:.1} MB)", cat, pkgs.len(), cat_kb as f64 / 1024.0);
+            println!(
+                "    {:10}: {} pkgs ({:.1} MB)",
+                cat,
+                pkgs.len(),
+                cat_kb as f64 / 1024.0
+            );
         }
     }
     println!();
@@ -181,20 +296,32 @@ fn main() {
     //   - Standard Linux directory structure (/bin, /sbin, /etc, /dev, ...)
     //   - Device nodes (console, ttyS0, null, zero, urandom)
     //   - /init script that boots network, starts SSH, installs Claude Code
-    let builder = KernelBuilder::new(KernelArch::X86_64)
-        .with_initramfs(&["sshd", "rvf-server"]);
-    let initramfs = builder.build_initramfs(
-        &["sshd", "rvf-server"],
-        &[], // Extra binaries would be added here in production
-    ).expect("build initramfs");
-    println!("  Initramfs:        {} bytes (real gzipped cpio archive)", initramfs.len());
+    let builder = KernelBuilder::new(KernelArch::X86_64).with_initramfs(&["sshd", "rvf-server"]);
+    let initramfs = builder
+        .build_initramfs(
+            &["sshd", "rvf-server"],
+            &[], // Extra binaries would be added here in production
+        )
+        .expect("build initramfs");
+    println!(
+        "  Initramfs:        {} bytes (real gzipped cpio archive)",
+        initramfs.len()
+    );
 
     // Build real Linux kernel (Docker) or fall back to builtin stub
     let tmpdir = std::env::temp_dir().join("rvf-appliance-build");
     std::fs::create_dir_all(&tmpdir).ok();
     let built = builder.build(&tmpdir).expect("build kernel");
-    let kernel_label = if built.bzimage.len() > 8192 { "real bzImage" } else { "builtin stub" };
-    println!("  Kernel built:     {} bytes ({})", built.bzimage.len(), kernel_label);
+    let kernel_label = if built.bzimage.len() > 8192 {
+        "real bzImage"
+    } else {
+        "builtin stub"
+    };
+    println!(
+        "  Kernel built:     {} bytes ({})",
+        built.bzimage.len(),
+        kernel_label
+    );
     let kernel_image = built.bzimage;
 
     // The kernel cmdline configures the system on first boot:
@@ -207,21 +334,21 @@ fn main() {
         "rvf.listen=0.0.0.0:8080 ",
         "rvf.ssh_port=2222 ",
         "rvf.boot_script=\"",
-            "#!/bin/sh\\n",
-            "set -e\\n",
-            "# Enable networking\\n",
-            "ip link set eth0 up\\n",
-            "dhcpcd eth0\\n",
-            "# Start SSH server\\n",
-            "mkdir -p /etc/ssh\\n",
-            "ssh-keygen -A\\n",
-            "/usr/sbin/sshd -p 2222\\n",
-            "# Install Claude Code\\n",
-            "curl -fsSL https://claude.ai/install.sh | bash\\n",
-            "# Start RVF query server\\n",
-            "rvf serve /data/vectors.rvf --port 8080 &\\n",
-            "echo 'Claude Code appliance ready.'\\n",
-            "exec /bin/sh\\n",
+        "#!/bin/sh\\n",
+        "set -e\\n",
+        "# Enable networking\\n",
+        "ip link set eth0 up\\n",
+        "dhcpcd eth0\\n",
+        "# Start SSH server\\n",
+        "mkdir -p /etc/ssh\\n",
+        "ssh-keygen -A\\n",
+        "/usr/sbin/sshd -p 2222\\n",
+        "# Install Claude Code\\n",
+        "curl -fsSL https://claude.ai/install.sh | bash\\n",
+        "# Start RVF query server\\n",
+        "rvf serve /data/vectors.rvf --port 8080 &\\n",
+        "echo 'Claude Code appliance ready.'\\n",
+        "exec /bin/sh\\n",
         "\""
     );
 
@@ -257,9 +384,16 @@ fn main() {
         .map(|(i, pkg)| {
             let mut v = random_vector(dim, i as u64 * 31 + 7);
             let cat_val = match pkg.category {
-                "core" => 0.9, "kernel" => 0.85, "ssh" => 0.8, "crypto" => 0.7,
-                "network" => 0.6, "vpn" => 0.5, "dev" => 0.4, "ai" => 0.3,
-                "system" => 0.2, _ => 0.0,
+                "core" => 0.9,
+                "kernel" => 0.85,
+                "ssh" => 0.8,
+                "crypto" => 0.7,
+                "network" => 0.6,
+                "vpn" => 0.5,
+                "dev" => 0.4,
+                "ai" => 0.3,
+                "system" => 0.2,
+                _ => 0.0,
             };
             v[0] = cat_val;
             v[1] = (pkg.size_kb as f32).ln() / 12.0;
@@ -272,14 +406,31 @@ fn main() {
 
     let mut metadata = Vec::new();
     for pkg in &packages {
-        metadata.push(MetadataEntry { field_id: 0, value: MetadataValue::String(pkg.name.to_string()) });
-        metadata.push(MetadataEntry { field_id: 1, value: MetadataValue::String(pkg.version.to_string()) });
-        metadata.push(MetadataEntry { field_id: 2, value: MetadataValue::String(pkg.category.to_string()) });
-        metadata.push(MetadataEntry { field_id: 3, value: MetadataValue::U64(pkg.size_kb) });
-        metadata.push(MetadataEntry { field_id: 4, value: MetadataValue::String(pkg.description.to_string()) });
+        metadata.push(MetadataEntry {
+            field_id: 0,
+            value: MetadataValue::String(pkg.name.to_string()),
+        });
+        metadata.push(MetadataEntry {
+            field_id: 1,
+            value: MetadataValue::String(pkg.version.to_string()),
+        });
+        metadata.push(MetadataEntry {
+            field_id: 2,
+            value: MetadataValue::String(pkg.category.to_string()),
+        });
+        metadata.push(MetadataEntry {
+            field_id: 3,
+            value: MetadataValue::U64(pkg.size_kb),
+        });
+        metadata.push(MetadataEntry {
+            field_id: 4,
+            value: MetadataValue::String(pkg.description.to_string()),
+        });
     }
 
-    let ingest = store.ingest_batch(&refs, &ids, Some(&metadata)).expect("ingest");
+    let ingest = store
+        .ingest_batch(&refs, &ids, Some(&metadata))
+        .expect("ingest");
     println!("  Ingested {} packages into RVF image", ingest.accepted);
     println!();
 
@@ -289,7 +440,10 @@ fn main() {
     println!("--- Phase 4: SSH Configuration ---\n");
 
     let (host_sk, host_vk) = keygen(9999);
-    println!("  Host key:      ed25519 fp={}...", hex(&host_vk.to_bytes(), 8));
+    println!(
+        "  Host key:      ed25519 fp={}...",
+        hex(&host_vk.to_bytes(), 8)
+    );
 
     let ssh_users = [
         ("root", "admin", 1000u64),
@@ -306,7 +460,9 @@ fn main() {
 
         println!(
             "  User {:10}: ed25519 fp={}... perms={:<12} signed={}",
-            user, hex(&user_vk.to_bytes(), 6), perms,
+            user,
+            hex(&user_vk.to_bytes(), 6),
+            perms,
             if valid { "OK" } else { "FAIL" },
         );
     }
@@ -321,7 +477,10 @@ fn main() {
     // This is the actual BPF C source code for port-based access control.
     // In production, compile with: EbpfCompiler::new()?.compile_source(source, SocketFilter)
     let ebpf_source = rvf_ebpf::programs::SOCKET_FILTER;
-    println!("  eBPF source:      {} bytes (real BPF C program)", ebpf_source.len());
+    println!(
+        "  eBPF source:      {} bytes (real BPF C program)",
+        ebpf_source.len()
+    );
     let ebpf_bytecode = ebpf_source.as_bytes().to_vec();
     let btf = Vec::new(); // BTF generated during clang compilation
     let ebpf_seg_id = store
@@ -379,7 +538,9 @@ fn main() {
         },
         WitnessEntry {
             prev_hash: [0u8; 32],
-            action_hash: shake256_256(b"claude_code_install:curl -fsSL https://claude.ai/install.sh | bash"),
+            action_hash: shake256_256(
+                b"claude_code_install:curl -fsSL https://claude.ai/install.sh | bash",
+            ),
             timestamp_ns: ts + 4_000_000,
             witness_type: 0x01,
         },
@@ -402,7 +563,12 @@ fn main() {
             0x08 => "DATA_PROV ",
             _ => "UNKNOWN   ",
         };
-        println!("    #{}: {} hash={}...", i + 1, label, hex(&e.action_hash, 8));
+        println!(
+            "    #{}: {} hash={}...",
+            i + 1,
+            label,
+            hex(&e.action_hash, 8)
+        );
     }
     println!();
 
@@ -420,7 +586,10 @@ fn main() {
     println!("  Snapshot:        claude_code_appliance_v1.rvf");
     println!("  Lineage depth:   {}", snapshot.lineage_depth());
     println!("  Parent ID:       {}...", hex(snapshot.parent_id(), 8));
-    println!("  Parent matches:  {}", snapshot.parent_id() == store.file_id());
+    println!(
+        "  Parent matches:  {}",
+        snapshot.parent_id() == store.file_id()
+    );
     snapshot.close().unwrap();
     println!();
 
@@ -432,12 +601,20 @@ fn main() {
     let mut ai_query = random_vector(dim, 42);
     ai_query[0] = 0.3; // AI category signal
 
-    let results = store.query(&ai_query, 5, &QueryOptions::default()).expect("query");
+    let results = store
+        .query(&ai_query, 5, &QueryOptions::default())
+        .expect("query");
     println!("  Top-5 AI-related packages:");
     for (i, r) in results.iter().enumerate() {
         let pkg = &packages[(r.id - 1) as usize];
-        println!("    #{}: {} {} ({}) dist={:.4}",
-            i + 1, pkg.name, pkg.version, pkg.category, r.distance);
+        println!(
+            "    #{}: {} {} ({}) dist={:.4}",
+            i + 1,
+            pkg.name,
+            pkg.version,
+            pkg.category,
+            r.distance
+        );
     }
     println!();
 
@@ -447,14 +624,34 @@ fn main() {
     let status = store.status();
     println!("=== Claude Code Appliance Summary ===\n");
     println!("  File:            {:?}", store_path);
-    println!("  File size:       {} bytes ({:.1} KB)", status.file_size, status.file_size as f64 / 1024.0);
+    println!(
+        "  File size:       {} bytes ({:.1} KB)",
+        status.file_size,
+        status.file_size as f64 / 1024.0
+    );
     println!("  Segments:        {}", status.total_segments);
-    println!("  Packages:        {} ({:.1} MB manifest)", packages.len(), total_kb as f64 / 1024.0);
-    println!("  Vectors:         {} ({}-dim embeddings)", status.total_vectors, dim);
-    println!("  KERNEL_SEG:      MicroLinux x86_64 ({} bytes)", kernel_image.len());
-    println!("  EBPF_SEG:        SocketFilter ({} bytes)", ebpf_bytecode.len());
+    println!(
+        "  Packages:        {} ({:.1} MB manifest)",
+        packages.len(),
+        total_kb as f64 / 1024.0
+    );
+    println!(
+        "  Vectors:         {} ({}-dim embeddings)",
+        status.total_vectors, dim
+    );
+    println!(
+        "  KERNEL_SEG:      MicroLinux x86_64 ({} bytes)",
+        kernel_image.len()
+    );
+    println!(
+        "  EBPF_SEG:        SocketFilter ({} bytes)",
+        ebpf_bytecode.len()
+    );
     println!("  SSH users:       {} (Ed25519 signed)", ssh_users.len());
-    println!("  Witness chain:   {} entries (tamper-evident)", verified.len());
+    println!(
+        "  Witness chain:   {} entries (tamper-evident)",
+        verified.len()
+    );
     println!("  Lineage:         base + v1 snapshot");
     println!();
     println!("  Boot sequence:");

@@ -17,13 +17,11 @@
 //!
 //! Run: cargo run --example exomoon_graphcut --release
 
-use rvf_runtime::{
-    FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore,
-};
+use rvf_crypto::{create_witness_chain, shake256_256, verify_witness_chain, WitnessEntry};
 use rvf_runtime::filter::FilterValue;
 use rvf_runtime::options::DistanceMetric;
+use rvf_runtime::{FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore};
 use rvf_types::DerivationType;
-use rvf_crypto::{create_witness_chain, verify_witness_chain, shake256_256, WitnessEntry};
 use tempfile::TempDir;
 
 // ---------------------------------------------------------------------------
@@ -40,7 +38,9 @@ const FIELD_HAS_MOON: u16 = 3;
 // ---------------------------------------------------------------------------
 
 fn lcg_next(state: &mut u64) -> u64 {
-    *state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+    *state = state
+        .wrapping_mul(6364136223846793005)
+        .wrapping_add(1442695040888963407);
     *state
 }
 
@@ -60,7 +60,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -87,8 +89,8 @@ impl Survey {
     /// Mean cadence in days
     fn cadence_days(&self) -> f64 {
         match self {
-            Survey::MoaII => 15.0 / 1440.0,   // ~15 min
-            Survey::OgleIV => 40.0 / 1440.0,   // ~40 min average
+            Survey::MoaII => 15.0 / 1440.0,  // ~15 min
+            Survey::OgleIV => 40.0 / 1440.0, // ~40 min average
         }
     }
 
@@ -115,7 +117,9 @@ impl Survey {
 
 /// A_1(u) = (u^2 + 2) / (u * sqrt(u^2 + 4))
 fn pspl_magnification(u: f64) -> f64 {
-    if u < 1e-10 { return 1e10; }
+    if u < 1e-10 {
+        return 1e10;
+    }
     let u2 = u * u;
     (u2 + 2.0) / (u * (u2 + 4.0).sqrt())
 }
@@ -242,8 +246,8 @@ fn generate_event(event_id: u64, survey: Survey, inject_moon: bool, seed: u64) -
             t0,
             u0,
             t_e,
-            q: 0.001 + lcg_f64(&mut rng) * 0.05,    // q = 0.001 to 0.051
-            s: 0.3 + lcg_f64(&mut rng) * 1.5,         // s = 0.3 to 1.8 R_E
+            q: 0.001 + lcg_f64(&mut rng) * 0.05, // q = 0.001 to 0.051
+            s: 0.3 + lcg_f64(&mut rng) * 1.5,    // s = 0.3 to 1.8 R_E
             alpha: lcg_f64(&mut rng) * 2.0 * std::f64::consts::PI,
             rho: 0.001 + lcg_f64(&mut rng) * 0.01,
         })
@@ -264,7 +268,9 @@ fn generate_event(event_id: u64, survey: Survey, inject_moon: bool, seed: u64) -
         // Skip some observations randomly (weather, daylight)
         let jitter = cadence * (0.5 + lcg_f64(&mut rng));
         t += jitter;
-        if t >= total_duration { break; }
+        if t >= total_duration {
+            break;
+        }
 
         // Only observe ~70% of the time (weather losses)
         if lcg_f64(&mut rng) < 0.3 {
@@ -343,12 +349,16 @@ fn pspl_chi2_at(lc: &LightCurve, t0: f64, u0: f64, t_e: f64, sigma_sys: f64) -> 
     }
 
     let det = sum_a2 * sum_1 - sum_a * sum_a;
-    if det.abs() < 1e-15 { return None; }
+    if det.abs() < 1e-15 {
+        return None;
+    }
 
     let f_s = (sum_af * sum_1 - sum_a * sum_f) / det;
     let f_b = (sum_a2 * sum_f - sum_a * sum_af) / det;
 
-    if f_s < 0.01 { return None; }
+    if f_s < 0.01 {
+        return None;
+    }
 
     let mut chi2 = 0.0;
     for obs in &lc.observations {
@@ -359,14 +369,27 @@ fn pspl_chi2_at(lc: &LightCurve, t0: f64, u0: f64, t_e: f64, sigma_sys: f64) -> 
         chi2 += diff * diff / sig2;
     }
 
-    Some(PSPLFit { t0, u0, t_e, f_s, f_b, chi2, n_obs: lc.observations.len() })
+    Some(PSPLFit {
+        t0,
+        u0,
+        t_e,
+        f_s,
+        f_b,
+        chi2,
+        n_obs: lc.observations.len(),
+    })
 }
 
 fn fit_pspl(lc: &LightCurve) -> PSPLFit {
     let sigma_sys = lc.survey.sigma_sys();
     let mut best = PSPLFit {
-        t0: 0.0, u0: 0.0, t_e: 0.0, f_s: 1.0, f_b: 0.1,
-        chi2: f64::MAX, n_obs: lc.observations.len(),
+        t0: 0.0,
+        u0: 0.0,
+        t_e: 0.0,
+        f_s: 1.0,
+        f_b: 0.1,
+        chi2: f64::MAX,
+        n_obs: lc.observations.len(),
     };
 
     // Phase 1: Coarse grid search
@@ -377,7 +400,9 @@ fn fit_pspl(lc: &LightCurve) -> PSPLFit {
             for u0_i in 1..=12 {
                 let u0 = u0_i as f64 * 0.05;
                 if let Some(fit) = pspl_chi2_at(lc, t0, u0, t_e, sigma_sys) {
-                    if fit.chi2 < best.chi2 { best = fit; }
+                    if fit.chi2 < best.chi2 {
+                        best = fit;
+                    }
                 }
             }
         }
@@ -389,14 +414,20 @@ fn fit_pspl(lc: &LightCurve) -> PSPLFit {
     let du0 = 0.02;
     for dt_e_i in -5..=5 {
         let t_e = best.t_e + dt_e_i as f64 * dt_e * 0.2;
-        if t_e < 1.0 { continue; }
+        if t_e < 1.0 {
+            continue;
+        }
         for dt0_i in -5..=5 {
             let t0 = best.t0 + dt0_i as f64 * dt0 * 0.2;
             for du0_i in -5..=5 {
                 let u0 = best.u0 + du0_i as f64 * du0 * 0.2;
-                if u0 < 0.01 { continue; }
+                if u0 < 0.01 {
+                    continue;
+                }
                 if let Some(fit) = pspl_chi2_at(lc, t0, u0, t_e, sigma_sys) {
-                    if fit.chi2 < best.chi2 { best = fit; }
+                    if fit.chi2 < best.chi2 {
+                        best = fit;
+                    }
                 }
             }
         }
@@ -427,7 +458,12 @@ struct Window {
     embedding: Vec<f32>,
 }
 
-fn build_windows(lc: &LightCurve, fit: &PSPLFit, window_half_width_tau: f64, stride_tau: f64) -> Vec<Window> {
+fn build_windows(
+    lc: &LightCurve,
+    fit: &PSPLFit,
+    window_half_width_tau: f64,
+    stride_tau: f64,
+) -> Vec<Window> {
     let sigma_sys = lc.survey.sigma_sys();
     // Global reduced chi2: baseline for "normal" PSPL fit quality
     let global_rchi2 = (fit.chi2 / fit.n_obs as f64).max(1.0);
@@ -440,7 +476,10 @@ fn build_windows(lc: &LightCurve, fit: &PSPLFit, window_half_width_tau: f64, str
         let _t_center = fit.t0 + tau * fit.t_e;
 
         // Collect observations in this window
-        let obs_indices: Vec<usize> = lc.observations.iter().enumerate()
+        let obs_indices: Vec<usize> = lc
+            .observations
+            .iter()
+            .enumerate()
             .filter(|(_, obs)| {
                 let obs_tau = (obs.time - fit.t0) / fit.t_e;
                 (obs_tau - tau).abs() <= window_half_width_tau
@@ -470,13 +509,16 @@ fn build_windows(lc: &LightCurve, fit: &PSPLFit, window_half_width_tau: f64, str
         let _occam_penalty = extra_params * 0.5 * n_win.ln().max(1.0);
 
         // Weighted residuals (resid / sigma)
-        let norm_residuals: Vec<f64> = obs_indices.iter().map(|&idx| {
-            let obs = &lc.observations[idx];
-            let sig2 = obs.sigma * obs.sigma + sigma_sys * sigma_sys;
-            let u = impact_parameter(obs.time, fit.t0, fit.t_e, fit.u0);
-            let model_null = fit.f_s * pspl_magnification(u) + fit.f_b;
-            (obs.flux - model_null) / sig2.sqrt()
-        }).collect();
+        let norm_residuals: Vec<f64> = obs_indices
+            .iter()
+            .map(|&idx| {
+                let obs = &lc.observations[idx];
+                let sig2 = obs.sigma * obs.sigma + sigma_sys * sigma_sys;
+                let u = impact_parameter(obs.time, fit.t0, fit.t_e, fit.u0);
+                let model_null = fit.f_s * pspl_magnification(u) + fit.f_b;
+                (obs.flux - model_null) / sig2.sqrt()
+            })
+            .collect();
 
         // Stat 1: Excess chi2 relative to global fit quality
         // Under null (PSPL fits equally well everywhere), window chi2/N ≈ global chi2/N.
@@ -490,22 +532,27 @@ fn build_windows(lc: &LightCurve, fit: &PSPLFit, window_half_width_tau: f64, str
         let n_negative = norm_residuals.len() - n_positive;
         let mut runs = 1usize;
         for w in norm_residuals.windows(2) {
-            if (w[0] > 0.0) != (w[1] > 0.0) { runs += 1; }
+            if (w[0] > 0.0) != (w[1] > 0.0) {
+                runs += 1;
+            }
         }
         // Expected runs under null: 1 + 2*n+*n- / (n++n-)
         let np = n_positive.max(1) as f64;
         let nn = n_negative.max(1) as f64;
         let expected_runs = 1.0 + 2.0 * np * nn / (np + nn);
         let runs_std = (2.0 * np * nn * (2.0 * np * nn - np - nn)
-            / ((np + nn) * (np + nn) * (np + nn - 1.0).max(1.0))).sqrt().max(0.5);
+            / ((np + nn) * (np + nn) * (np + nn - 1.0).max(1.0)))
+        .sqrt()
+        .max(0.5);
         // Fewer runs = more coherent → positive signal
         let coherence_z = (expected_runs - runs as f64) / runs_std;
 
         // Stat 3: Best-fit Gaussian bump on residuals
         // Try fitting A * exp(-(tau - tc)^2 / (2 * w^2)) to normalized residuals
-        let obs_taus: Vec<f64> = obs_indices.iter().map(|&idx| {
-            (lc.observations[idx].time - fit.t0) / fit.t_e
-        }).collect();
+        let obs_taus: Vec<f64> = obs_indices
+            .iter()
+            .map(|&idx| (lc.observations[idx].time - fit.t0) / fit.t_e)
+            .collect();
 
         let mut best_bump_chi2_improve = 0.0f64;
         // Grid search over center and width
@@ -528,7 +575,9 @@ fn build_windows(lc: &LightCurve, fit: &PSPLFit, window_half_width_tau: f64, str
                     sum_rg += r * g;
                     sum_gg += g * g;
                 }
-                if sum_gg < 1e-15 { continue; }
+                if sum_gg < 1e-15 {
+                    continue;
+                }
                 let a_opt = sum_rg / sum_gg;
 
                 // Chi2 improvement from this bump
@@ -560,20 +609,40 @@ fn build_windows(lc: &LightCurve, fit: &PSPLFit, window_half_width_tau: f64, str
         let n = obs_indices.len() as f64;
 
         // Feature 1-4: Residual statistics (using properly fitted PSPL model)
-        let residuals: Vec<f64> = obs_indices.iter().map(|&idx| {
-            let obs = &lc.observations[idx];
-            let u = impact_parameter(obs.time, fit.t0, fit.t_e, fit.u0);
-            obs.flux - (fit.f_s * pspl_magnification(u) + fit.f_b)
-        }).collect();
+        let residuals: Vec<f64> = obs_indices
+            .iter()
+            .map(|&idx| {
+                let obs = &lc.observations[idx];
+                let u = impact_parameter(obs.time, fit.t0, fit.t_e, fit.u0);
+                obs.flux - (fit.f_s * pspl_magnification(u) + fit.f_b)
+            })
+            .collect();
 
         let mean_resid = residuals.iter().sum::<f64>() / n;
-        let var_resid = residuals.iter().map(|r| (r - mean_resid).powi(2)).sum::<f64>() / n;
+        let var_resid = residuals
+            .iter()
+            .map(|r| (r - mean_resid).powi(2))
+            .sum::<f64>()
+            / n;
         let skew_resid = if var_resid > 0.0 {
-            residuals.iter().map(|r| ((r - mean_resid) / var_resid.sqrt()).powi(3)).sum::<f64>() / n
-        } else { 0.0 };
+            residuals
+                .iter()
+                .map(|r| ((r - mean_resid) / var_resid.sqrt()).powi(3))
+                .sum::<f64>()
+                / n
+        } else {
+            0.0
+        };
         let kurt_resid = if var_resid > 0.0 {
-            residuals.iter().map(|r| ((r - mean_resid) / var_resid.sqrt()).powi(4)).sum::<f64>() / n - 3.0
-        } else { 0.0 };
+            residuals
+                .iter()
+                .map(|r| ((r - mean_resid) / var_resid.sqrt()).powi(4))
+                .sum::<f64>()
+                / n
+                - 3.0
+        } else {
+            0.0
+        };
 
         embedding.push(mean_resid as f32);
         embedding.push(var_resid.sqrt() as f32);
@@ -596,21 +665,33 @@ fn build_windows(lc: &LightCurve, fit: &PSPLFit, window_half_width_tau: f64, str
                 ac += residuals[i] * residuals[i + lag];
                 count += 1;
             }
-            embedding.push(if count > 0 { (ac / count as f64) as f32 } else { 0.0 });
+            embedding.push(if count > 0 {
+                (ac / count as f64) as f32
+            } else {
+                0.0
+            });
         }
 
         // Feature 17-24: Derivative statistics
         let derivs: Vec<f64> = residuals.windows(2).map(|w| w[1] - w[0]).collect();
-        let mean_d = if !derivs.is_empty() { derivs.iter().sum::<f64>() / derivs.len() as f64 } else { 0.0 };
+        let mean_d = if !derivs.is_empty() {
+            derivs.iter().sum::<f64>() / derivs.len() as f64
+        } else {
+            0.0
+        };
         let var_d = if derivs.len() > 1 {
             derivs.iter().map(|d| (d - mean_d).powi(2)).sum::<f64>() / derivs.len() as f64
-        } else { 0.0 };
+        } else {
+            0.0
+        };
         embedding.push(mean_d as f32);
         embedding.push(var_d.sqrt() as f32);
         // Zero crossings
         let mut zero_cross = 0;
         for w in residuals.windows(2) {
-            if w[0] * w[1] < 0.0 { zero_cross += 1; }
+            if w[0] * w[1] < 0.0 {
+                zero_cross += 1;
+            }
         }
         embedding.push(zero_cross as f32 / n.max(1.0) as f32);
 
@@ -626,7 +707,7 @@ fn build_windows(lc: &LightCurve, fit: &PSPLFit, window_half_width_tau: f64, str
             obs_indices,
             ll_ratio,
             prior_log_odds: 0.0, // filled by RuVector retrieval later
-            lambda: ll_ratio,     // updated after prior
+            lambda: ll_ratio,    // updated after prior
             embedding,
         });
 
@@ -689,7 +770,11 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f64 {
         nb += (b[i] as f64) * (b[i] as f64);
     }
     let denom = na.sqrt() * nb.sqrt();
-    if denom < 1e-15 { 0.0 } else { dot / denom }
+    if denom < 1e-15 {
+        0.0
+    } else {
+        dot / denom
+    }
 }
 
 /// Compute RuVector retrieval prior for each window using a bank of
@@ -706,7 +791,8 @@ fn compute_retrieval_prior(
 ) {
     for win in windows.iter_mut() {
         // Find K nearest neighbors in the bank
-        let mut sims: Vec<(f64, bool)> = bank_embeddings.iter()
+        let mut sims: Vec<(f64, bool)> = bank_embeddings
+            .iter()
             .zip(bank_labels.iter())
             .map(|(emb, &label)| (cosine_similarity(&win.embedding, emb), label))
             .collect();
@@ -753,21 +839,38 @@ fn build_graph(windows: &[Window], alpha: f64, beta: f64, k_nn: usize) -> Vec<Ed
     // Temporal chain edges: connect consecutive windows
     for i in 0..m.saturating_sub(1) {
         let w = alpha;
-        edges.push(Edge { from: i, to: i + 1, weight: w });
-        edges.push(Edge { from: i + 1, to: i, weight: w }); // symmetric
+        edges.push(Edge {
+            from: i,
+            to: i + 1,
+            weight: w,
+        });
+        edges.push(Edge {
+            from: i + 1,
+            to: i,
+            weight: w,
+        }); // symmetric
     }
 
     // RuVector kNN edges
     for i in 0..m {
         let mut sims: Vec<(usize, f64)> = (0..m)
             .filter(|&j| j != i)
-            .map(|j| (j, cosine_similarity(&windows[i].embedding, &windows[j].embedding).max(0.0)))
+            .map(|j| {
+                (
+                    j,
+                    cosine_similarity(&windows[i].embedding, &windows[j].embedding).max(0.0),
+                )
+            })
             .collect();
         sims.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
         for &(j, sim) in sims.iter().take(k_nn) {
             if sim > 0.0 {
-                edges.push(Edge { from: i, to: j, weight: beta * sim });
+                edges.push(Edge {
+                    from: i,
+                    to: j,
+                    weight: beta * sim,
+                });
             }
         }
     }
@@ -788,7 +891,7 @@ fn build_graph(windows: &[Window], alpha: f64, beta: f64, k_nn: usize) -> Vec<Ed
 ///   c(i, j) = gamma * w_ij
 fn solve_mincut(windows: &[Window], edges: &[Edge], gamma: f64) -> Vec<bool> {
     let m = windows.len();
-    let s = m;     // source node (moon side)
+    let s = m; // source node (moon side)
     let t = m + 1; // sink node (null side)
     let n = m + 2;
 
@@ -797,14 +900,15 @@ fn solve_mincut(windows: &[Window], edges: &[Edge], gamma: f64) -> Vec<bool> {
     let mut adj: Vec<Vec<(usize, usize)>> = vec![Vec::new(); n]; // (neighbor, edge_idx)
     let mut caps: Vec<f64> = Vec::new();
 
-    let add_edge = |adj: &mut Vec<Vec<(usize, usize)>>, caps: &mut Vec<f64>, u: usize, v: usize, cap: f64| {
-        let idx_uv = caps.len();
-        caps.push(cap);
-        let idx_vu = caps.len();
-        caps.push(0.0); // reverse edge
-        adj[u].push((v, idx_uv));
-        adj[v].push((u, idx_vu));
-    };
+    let add_edge =
+        |adj: &mut Vec<Vec<(usize, usize)>>, caps: &mut Vec<f64>, u: usize, v: usize, cap: f64| {
+            let idx_uv = caps.len();
+            caps.push(cap);
+            let idx_vu = caps.len();
+            caps.push(0.0); // reverse edge
+            adj[u].push((v, idx_uv));
+            adj[v].push((u, idx_vu));
+        };
 
     // Source and sink edges
     for i in 0..m {
@@ -837,7 +941,9 @@ fn solve_mincut(windows: &[Window], edges: &[Edge], gamma: f64) -> Vec<bool> {
         queue.push_back(s);
 
         while let Some(u) = queue.pop_front() {
-            if u == t { break; }
+            if u == t {
+                break;
+            }
             for &(v, eidx) in &adj[u] {
                 if !visited[v] && caps[eidx] > 1e-15 {
                     visited[v] = true;
@@ -847,7 +953,9 @@ fn solve_mincut(windows: &[Window], edges: &[Edge], gamma: f64) -> Vec<bool> {
             }
         }
 
-        if !visited[t] { break; } // no augmenting path
+        if !visited[t] {
+            break;
+        } // no augmenting path
 
         // Find bottleneck
         let mut bottleneck = f64::MAX;
@@ -910,7 +1018,9 @@ fn global_decision(
     mu: f64,
     nu: f64,
 ) -> DetectionResult {
-    let support_set: Vec<usize> = labels.iter().enumerate()
+    let support_set: Vec<usize> = labels
+        .iter()
+        .enumerate()
         .filter(|(_, &l)| l)
         .map(|(i, _)| i)
         .collect();
@@ -928,7 +1038,8 @@ fn global_decision(
 
     // Fragility: bootstrap stability of support set
     // (simplified: fraction of windows in support with lambda close to zero)
-    let marginal_count = support_set.iter()
+    let marginal_count = support_set
+        .iter()
         .filter(|&&i| windows[i].lambda.abs() < 0.5)
         .count();
     let fragility = marginal_count as f64 / support_set.len().max(1) as f64;
@@ -974,7 +1085,11 @@ fn build_injection_bank(num_events: usize, seed: u64) -> (Vec<Vec<f32>>, Vec<boo
 
     for i in 0..num_events {
         let has_moon = i % 2 == 0;
-        let survey = if i % 3 == 0 { Survey::OgleIV } else { Survey::MoaII };
+        let survey = if i % 3 == 0 {
+            Survey::OgleIV
+        } else {
+            Survey::MoaII
+        };
         let lc = generate_event(1000 + i as u64, survey, has_moon, seed + i as u64 * 13);
         let fit = fit_pspl(&lc);
         let windows = build_windows(&lc, &fit, 0.4, 0.2);
@@ -1014,15 +1129,15 @@ fn main() {
     // Gamma: coherence penalty — higher = more conservative cut
     // Eta: retrieval prior weight from injection bank
     // Mu/nu: J-score composition (lambda sum weight / fragility penalty)
-    let alpha = 0.2;        // temporal edge weight
-    let beta = 0.1;         // RuVector kNN edge weight
-    let gamma = 0.5;        // coherence penalty
-    let eta = 0.5;          // retrieval prior weight
-    let temperature = 0.3;  // softmax temperature for retrieval
-    let k_nn = 3;           // RuVector neighbors in graph
-    let k_bank = 15;        // retrieval neighbors from bank
-    let mu = 1.0;           // lambda sum weight in J-score
-    let nu = 3.0;           // fragility penalty in J-score
+    let alpha = 0.2; // temporal edge weight
+    let beta = 0.1; // RuVector kNN edge weight
+    let gamma = 0.5; // coherence penalty
+    let eta = 0.5; // retrieval prior weight
+    let temperature = 0.3; // softmax temperature for retrieval
+    let k_nn = 3; // RuVector neighbors in graph
+    let k_bank = 15; // retrieval neighbors from bank
+    let mu = 1.0; // lambda sum weight in J-score
+    let nu = 3.0; // fragility penalty in J-score
 
     let tmp_dir = TempDir::new().expect("failed to create temp dir");
     let store_path = tmp_dir.path().join("exomoon_graphcut.rvf");
@@ -1043,7 +1158,10 @@ fn main() {
     let bank_moon_count = bank_labels.iter().filter(|&&l| l).count();
     println!("  Bank size:   {} windows", bank_embeddings.len());
     println!("  Moon windows: {}", bank_moon_count);
-    println!("  Null windows: {}", bank_embeddings.len() - bank_moon_count);
+    println!(
+        "  Null windows: {}",
+        bank_embeddings.len() - bank_moon_count
+    );
 
     // ====================================================================
     // Step 1: Generate events with mixed cadences
@@ -1054,33 +1172,68 @@ fn main() {
     let mut rng = 42u64;
     for i in 0..num_events {
         // Alternate surveys, inject moon in ~40% of events
-        let survey = if i % 3 == 0 { Survey::OgleIV } else { Survey::MoaII };
+        let survey = if i % 3 == 0 {
+            Survey::OgleIV
+        } else {
+            Survey::MoaII
+        };
         let inject_moon = lcg_f64(&mut rng) < 0.4;
-        events.push(generate_event(i as u64, survey, inject_moon, 42 + i as u64 * 17));
+        events.push(generate_event(
+            i as u64,
+            survey,
+            inject_moon,
+            42 + i as u64 * 17,
+        ));
     }
 
-    let moa_count = events.iter().filter(|e| matches!(e.survey, Survey::MoaII)).count();
-    let ogle_count = events.iter().filter(|e| matches!(e.survey, Survey::OgleIV)).count();
+    let moa_count = events
+        .iter()
+        .filter(|e| matches!(e.survey, Survey::MoaII))
+        .count();
+    let ogle_count = events
+        .iter()
+        .filter(|e| matches!(e.survey, Survey::OgleIV))
+        .count();
     let moon_count = events.iter().filter(|e| e.has_moon).count();
 
     println!("  Events:      {}", num_events);
-    println!("  MOA-II:      {} ({:.0} min cadence)", moa_count, Survey::MoaII.cadence_days() * 1440.0);
-    println!("  OGLE-IV:     {} ({:.0} min cadence)", ogle_count, Survey::OgleIV.cadence_days() * 1440.0);
+    println!(
+        "  MOA-II:      {} ({:.0} min cadence)",
+        moa_count,
+        Survey::MoaII.cadence_days() * 1440.0
+    );
+    println!(
+        "  OGLE-IV:     {} ({:.0} min cadence)",
+        ogle_count,
+        Survey::OgleIV.cadence_days() * 1440.0
+    );
     println!("  With moon:   {}", moon_count);
     println!("  Without:     {}", num_events - moon_count);
 
-    println!("\n  {:>4}  {:>7}  {:>6}  {:>6}  {:>6}  {:>5}  {:>5}",
-        "ID", "Survey", "tE(d)", "u0", "Moon", "Nobs", "q");
-    println!("  {:->4}  {:->7}  {:->6}  {:->6}  {:->6}  {:->5}  {:->5}", "", "", "", "", "", "", "");
+    println!(
+        "\n  {:>4}  {:>7}  {:>6}  {:>6}  {:>6}  {:>5}  {:>5}",
+        "ID", "Survey", "tE(d)", "u0", "Moon", "Nobs", "q"
+    );
+    println!(
+        "  {:->4}  {:->7}  {:->6}  {:->6}  {:->6}  {:->5}  {:->5}",
+        "", "", "", "", "", "", ""
+    );
     for e in events.iter().take(10) {
         let q_str = if let Some(ref mp) = e.moon_params {
             format!("{:.4}", mp.q)
         } else {
             "--".to_string()
         };
-        println!("  {:>4}  {:>7}  {:>6.1}  {:>6.3}  {:>6}  {:>5}  {:>5}",
-            e.event_id, e.survey.label(), e.true_t_e, e.true_u0,
-            if e.has_moon { "yes" } else { "no" }, e.observations.len(), q_str);
+        println!(
+            "  {:>4}  {:>7}  {:>6.1}  {:>6.3}  {:>6}  {:>5}  {:>5}",
+            e.event_id,
+            e.survey.label(),
+            e.true_t_e,
+            e.true_u0,
+            if e.has_moon { "yes" } else { "no" },
+            e.observations.len(),
+            q_str
+        );
     }
 
     // ====================================================================
@@ -1107,8 +1260,12 @@ fn main() {
 
         // Step 3b: Compute RuVector retrieval prior
         compute_retrieval_prior(
-            &mut windows, &bank_embeddings, &bank_labels,
-            k_bank, temperature, eta,
+            &mut windows,
+            &bank_embeddings,
+            &bank_labels,
+            k_bank,
+            temperature,
+            eta,
         );
 
         // Step 4: Build graph and solve mincut with iterative refinement
@@ -1120,8 +1277,13 @@ fn main() {
             labels = solve_mincut(&windows, &edges, gamma);
 
             let support_count = labels.iter().filter(|&&s| s).count();
-            println!("    Event {} iter {}: support {} windows (prev {})",
-                     event.event_id, iter + 1, support_count, prev_support_count);
+            println!(
+                "    Event {} iter {}: support {} windows (prev {})",
+                event.event_id,
+                iter + 1,
+                support_count,
+                prev_support_count
+            );
 
             if support_count == prev_support_count {
                 println!("    Support converged at iteration {}", iter + 1);
@@ -1182,10 +1344,14 @@ fn main() {
     // ====================================================================
     // Results
     // ====================================================================
-    println!("  {:>4}  {:>7}  {:>5}  {:>7}  {:>7}  {:>7}  {:>5}  {:>8}  {:>4}",
-        "ID", "Survey", "Moon", "dChi2", "dBIC", "J-score", "Frag", "Support", "Det");
-    println!("  {:->4}  {:->7}  {:->5}  {:->7}  {:->7}  {:->7}  {:->5}  {:->8}  {:->4}",
-        "", "", "", "", "", "", "", "", "");
+    println!(
+        "  {:>4}  {:>7}  {:>5}  {:>7}  {:>7}  {:>7}  {:>5}  {:>8}  {:>4}",
+        "ID", "Survey", "Moon", "dChi2", "dBIC", "J-score", "Frag", "Support", "Det"
+    );
+    println!(
+        "  {:->4}  {:->7}  {:->5}  {:->7}  {:->7}  {:->7}  {:->5}  {:->8}  {:->4}",
+        "", "", "", "", "", "", "", "", ""
+    );
 
     results.sort_by(|a, b| b.j_score.partial_cmp(&a.j_score).unwrap());
 
@@ -1194,9 +1360,15 @@ fn main() {
         let moon_str = if r.has_moon_truth { "TRUE" } else { "false" };
         println!(
             "  {:>4}  {:>7}  {:>5}  {:>7.1}  {:>7.1}  {:>7.1}  {:>5.2}  {:>7.1}%  {:>4}",
-            r.event_id, r.survey.label(), moon_str,
-            r.delta_chi2, r.delta_bic, r.j_score, r.fragility,
-            r.support_fraction * 100.0, det_str,
+            r.event_id,
+            r.survey.label(),
+            moon_str,
+            r.delta_chi2,
+            r.delta_bic,
+            r.j_score,
+            r.fragility,
+            r.support_fraction * 100.0,
+            det_str,
         );
     }
 
@@ -1205,20 +1377,38 @@ fn main() {
     // ====================================================================
     println!("\n--- Classification Metrics ---");
 
-    let true_pos = results.iter().filter(|r| r.detected && r.has_moon_truth).count();
-    let false_pos = results.iter().filter(|r| r.detected && !r.has_moon_truth).count();
-    let true_neg = results.iter().filter(|r| !r.detected && !r.has_moon_truth).count();
-    let false_neg = results.iter().filter(|r| !r.detected && r.has_moon_truth).count();
+    let true_pos = results
+        .iter()
+        .filter(|r| r.detected && r.has_moon_truth)
+        .count();
+    let false_pos = results
+        .iter()
+        .filter(|r| r.detected && !r.has_moon_truth)
+        .count();
+    let true_neg = results
+        .iter()
+        .filter(|r| !r.detected && !r.has_moon_truth)
+        .count();
+    let false_neg = results
+        .iter()
+        .filter(|r| !r.detected && r.has_moon_truth)
+        .count();
 
     let precision = if true_pos + false_pos > 0 {
         true_pos as f64 / (true_pos + false_pos) as f64
-    } else { 0.0 };
+    } else {
+        0.0
+    };
     let recall = if true_pos + false_neg > 0 {
         true_pos as f64 / (true_pos + false_neg) as f64
-    } else { 0.0 };
+    } else {
+        0.0
+    };
     let f1 = if precision + recall > 0.0 {
         2.0 * precision * recall / (precision + recall)
-    } else { 0.0 };
+    } else {
+        0.0
+    };
 
     println!("  True positives:   {}", true_pos);
     println!("  False positives:  {}", false_pos);
@@ -1229,12 +1419,30 @@ fn main() {
     println!("  F1 score:         {:.3}", f1);
 
     // By survey
-    let moa_detected = results.iter().filter(|r| matches!(r.survey, Survey::MoaII) && r.detected).count();
-    let moa_moon = results.iter().filter(|r| matches!(r.survey, Survey::MoaII) && r.has_moon_truth).count();
-    let ogle_detected = results.iter().filter(|r| matches!(r.survey, Survey::OgleIV) && r.detected).count();
-    let ogle_moon = results.iter().filter(|r| matches!(r.survey, Survey::OgleIV) && r.has_moon_truth).count();
-    println!("\n  MOA-II:  {} detected, {} with moon (of {} total MOA)", moa_detected, moa_moon, moa_count);
-    println!("  OGLE-IV: {} detected, {} with moon (of {} total OGLE)", ogle_detected, ogle_moon, ogle_count);
+    let moa_detected = results
+        .iter()
+        .filter(|r| matches!(r.survey, Survey::MoaII) && r.detected)
+        .count();
+    let moa_moon = results
+        .iter()
+        .filter(|r| matches!(r.survey, Survey::MoaII) && r.has_moon_truth)
+        .count();
+    let ogle_detected = results
+        .iter()
+        .filter(|r| matches!(r.survey, Survey::OgleIV) && r.detected)
+        .count();
+    let ogle_moon = results
+        .iter()
+        .filter(|r| matches!(r.survey, Survey::OgleIV) && r.has_moon_truth)
+        .count();
+    println!(
+        "\n  MOA-II:  {} detected, {} with moon (of {} total MOA)",
+        moa_detected, moa_moon, moa_count
+    );
+    println!(
+        "  OGLE-IV: {} detected, {} with moon (of {} total OGLE)",
+        ogle_detected, ogle_moon, ogle_count
+    );
 
     // ====================================================================
     // RVF filtered query
@@ -1246,7 +1454,9 @@ fn main() {
         filter: Some(filter_moon),
         ..Default::default()
     };
-    let moon_results = store.query(&query_vec, 10, &opts_moon).expect("query failed");
+    let moon_results = store
+        .query(&query_vec, 10, &opts_moon)
+        .expect("query failed");
     println!("  Moon event windows found: {}", moon_results.len());
 
     // ====================================================================
@@ -1289,7 +1499,9 @@ fn main() {
         ("pipeline_seal", 0x01),
     ];
 
-    let entries: Vec<WitnessEntry> = chain_steps.iter().enumerate()
+    let entries: Vec<WitnessEntry> = chain_steps
+        .iter()
+        .enumerate()
         .map(|(i, (step, wtype))| {
             let action_data = format!("exomoon_graphcut:{}:step_{}", step, i);
             WitnessEntry {
@@ -1326,7 +1538,10 @@ fn main() {
     println!("  Events analyzed:   {}", num_events);
     println!("  Windows ingested:  {}", ingest.accepted);
     println!("  Moon events:       {}/{}", moon_count, num_events);
-    println!("  Detections:        {}", results.iter().filter(|r| r.detected).count());
+    println!(
+        "  Detections:        {}",
+        results.iter().filter(|r| r.detected).count()
+    );
     println!("  Precision:         {:.1}%", precision * 100.0);
     println!("  Recall:            {:.1}%", recall * 100.0);
     println!("  F1:                {:.3}", f1);
@@ -1343,7 +1558,12 @@ fn main() {
 
     println!("\n  Graph cut insight:");
     println!("    A single positive window survives only if lambda_i > 2 * gamma * w");
-    println!("    gamma = {:.1}, alpha = {:.1} -> threshold = {:.2}", gamma, alpha, 2.0 * gamma * alpha);
+    println!(
+        "    gamma = {:.1}, alpha = {:.1} -> threshold = {:.2}",
+        gamma,
+        alpha,
+        2.0 * gamma * alpha
+    );
     println!("    A block B survives if sum(lambda_B) > 2 * gamma * w");
 
     if let Some(best) = results.iter().find(|r| r.detected && r.has_moon_truth) {
@@ -1353,7 +1573,10 @@ fn main() {
         println!("    J-score:       {:.1}", best.j_score);
         println!("    delta BIC:     {:.1}", best.delta_bic);
         println!("    Fragility:     {:.2}", best.fragility);
-        println!("    Support:       {:.1}% of windows", best.support_fraction * 100.0);
+        println!(
+            "    Support:       {:.1}% of windows",
+            best.support_fraction * 100.0
+        );
     }
 
     store.close().expect("close failed");

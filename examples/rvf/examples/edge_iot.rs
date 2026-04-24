@@ -17,9 +17,9 @@
 //! Run with:
 //!   cargo run --example edge_iot
 
-use rvf_runtime::{QueryOptions, RvfOptions, RvfStore, SearchResult};
-use rvf_runtime::options::DistanceMetric;
 use rvf_quant::{encode_binary, hamming_distance};
+use rvf_runtime::options::DistanceMetric;
+use rvf_runtime::{QueryOptions, RvfOptions, RvfStore, SearchResult};
 use tempfile::TempDir;
 
 /// Simple pseudo-random number generator (LCG) for deterministic results.
@@ -27,7 +27,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -83,10 +85,7 @@ fn main() {
     for batch_idx in 0..num_batches {
         let start = batch_idx * batch_size;
         let end = start + batch_size;
-        let batch_vecs: Vec<&[f32]> = vectors[start..end]
-            .iter()
-            .map(|v| v.as_slice())
-            .collect();
+        let batch_vecs: Vec<&[f32]> = vectors[start..end].iter().map(|v| v.as_slice()).collect();
         let batch_ids: Vec<u64> = (start as u64..end as u64).collect();
 
         let result = store
@@ -121,20 +120,32 @@ fn main() {
     let raw_total = num_vectors * raw_bytes_per_vec;
 
     // Binary quantize all vectors
-    let binary_vectors: Vec<Vec<u8>> = vectors.iter()
-        .map(|v| encode_binary(v))
-        .collect();
+    let binary_vectors: Vec<Vec<u8>> = vectors.iter().map(|v| encode_binary(v)).collect();
 
     let bin_bytes_per_vec = binary_vectors[0].len();
     let bin_total = num_vectors * bin_bytes_per_vec;
     let compression_ratio = raw_total as f64 / bin_total as f64;
 
     println!("  Raw fp32:");
-    println!("    Per vector:   {} bytes ({} dims x 4)", raw_bytes_per_vec, dim);
-    println!("    Total:        {} bytes ({:.1} KB)", raw_total, raw_total as f64 / 1024.0);
+    println!(
+        "    Per vector:   {} bytes ({} dims x 4)",
+        raw_bytes_per_vec, dim
+    );
+    println!(
+        "    Total:        {} bytes ({:.1} KB)",
+        raw_total,
+        raw_total as f64 / 1024.0
+    );
     println!("  Binary quantized:");
-    println!("    Per vector:   {} bytes ({} dims / 8)", bin_bytes_per_vec, dim);
-    println!("    Total:        {} bytes ({:.1} KB)", bin_total, bin_total as f64 / 1024.0);
+    println!(
+        "    Per vector:   {} bytes ({} dims / 8)",
+        bin_bytes_per_vec, dim
+    );
+    println!(
+        "    Total:        {} bytes ({:.1} KB)",
+        bin_total,
+        bin_total as f64 / 1024.0
+    );
     println!("  Compression:    {:.1}x", compression_ratio);
 
     // ====================================================================
@@ -166,7 +177,12 @@ fn main() {
     let overlap = l2_ids.iter().filter(|id| ham_ids.contains(id)).count();
     println!("    L2 top-{}: {:?}", k, l2_ids);
     println!("    Hamming top-{}: {:?}", k, ham_ids);
-    println!("    Overlap: {}/{} ({:.0}%)", overlap, k, overlap as f64 / k as f64 * 100.0);
+    println!(
+        "    Overlap: {}/{} ({:.0}%)",
+        overlap,
+        k,
+        overlap as f64 / k as f64 * 100.0
+    );
 
     // ====================================================================
     // 7. Memory footprint analysis
@@ -205,10 +221,22 @@ fn main() {
 
     // Typical MCU SRAM budgets
     println!("\n  Typical edge device SRAM budgets:");
-    println!("    ESP32:           520 KB  -- fits {} fp32 vectors", 520 * 1024 / raw_bytes_per_vec);
-    println!("    STM32H7:         1 MB    -- fits {} fp32 vectors", 1024 * 1024 / raw_bytes_per_vec);
-    println!("    Raspberry Pi:    varies  -- fits {} fp32 vectors (1 MB budget)", 1024 * 1024 / raw_bytes_per_vec);
-    println!("    With binary PQ:  520 KB  -- fits {} binary vectors", 520 * 1024 / bin_bytes_per_vec);
+    println!(
+        "    ESP32:           520 KB  -- fits {} fp32 vectors",
+        520 * 1024 / raw_bytes_per_vec
+    );
+    println!(
+        "    STM32H7:         1 MB    -- fits {} fp32 vectors",
+        1024 * 1024 / raw_bytes_per_vec
+    );
+    println!(
+        "    Raspberry Pi:    varies  -- fits {} fp32 vectors (1 MB budget)",
+        1024 * 1024 / raw_bytes_per_vec
+    );
+    println!(
+        "    With binary PQ:  520 KB  -- fits {} binary vectors",
+        520 * 1024 / bin_bytes_per_vec
+    );
 
     // ====================================================================
     // 8. Close (rvlite lifecycle: insert -> query -> close)
@@ -227,10 +255,25 @@ fn main() {
     println!("  {:>24}  {:>12}", "Dimensions", dim);
     println!("  {:>24}  {:>10} B", "Raw per vector", raw_bytes_per_vec);
     println!("  {:>24}  {:>10} B", "Binary per vector", bin_bytes_per_vec);
-    println!("  {:>24}  {:>10.1}x", "Compression ratio", compression_ratio);
-    println!("  {:>24}  {:>10.1} KB", "Raw total", raw_total as f64 / 1024.0);
-    println!("  {:>24}  {:>10.1} KB", "Binary total", bin_total as f64 / 1024.0);
-    println!("  {:>24}  {:>10.1} KB", "RVF file size", rvf_file_size as f64 / 1024.0);
+    println!(
+        "  {:>24}  {:>10.1}x",
+        "Compression ratio", compression_ratio
+    );
+    println!(
+        "  {:>24}  {:>10.1} KB",
+        "Raw total",
+        raw_total as f64 / 1024.0
+    );
+    println!(
+        "  {:>24}  {:>10.1} KB",
+        "Binary total",
+        bin_total as f64 / 1024.0
+    );
+    println!(
+        "  {:>24}  {:>10.1} KB",
+        "RVF file size",
+        rvf_file_size as f64 / 1024.0
+    );
 
     println!("\nDone.");
 }

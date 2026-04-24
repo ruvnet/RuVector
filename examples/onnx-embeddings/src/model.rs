@@ -170,9 +170,7 @@ impl OnnxModel {
                 ])?;
             }
             _ => {
-                warn!(
-                    "Requested execution provider not available, falling back to CPU"
-                );
+                warn!("Requested execution provider not available, falling back to CPU");
             }
         }
 
@@ -216,7 +214,10 @@ impl OnnxModel {
             if let Some(shape) = output.output_type.tensor_shape() {
                 for &d in shape.iter().rev() {
                     if d > 0 {
-                        debug!("Detected embedding dimension from ONNX output metadata: {}", d);
+                        debug!(
+                            "Detected embedding dimension from ONNX output metadata: {}",
+                            d
+                        );
                         return Some(d as usize);
                     }
                 }
@@ -244,7 +245,10 @@ impl OnnxModel {
         ];
         for &(pattern, dim) in mappings {
             if path_str.contains(pattern) {
-                debug!("Inferred embedding dimension {} from path pattern '{}'", dim, pattern);
+                debug!(
+                    "Inferred embedding dimension {} from path pattern '{}'",
+                    dim, pattern
+                );
                 return Some(dim);
             }
         }
@@ -301,7 +305,9 @@ impl OnnxModel {
         }
 
         // Run inference
-        let outputs = self.session.run(inputs)
+        let outputs = self
+            .session
+            .run(inputs)
             .map_err(EmbeddingError::OnnxRuntime)?;
 
         // Extract output tensor
@@ -375,10 +381,7 @@ async fn download_from_huggingface(
     show_progress: bool,
 ) -> Result<()> {
     let revision = revision.unwrap_or("main");
-    let base_url = format!(
-        "https://huggingface.co/{}/resolve/{}",
-        model_id, revision
-    );
+    let base_url = format!("https://huggingface.co/{}/resolve/{}", model_id, revision);
 
     let model_path = cache_path.join("model.onnx");
 

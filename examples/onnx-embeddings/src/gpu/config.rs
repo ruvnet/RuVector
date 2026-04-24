@@ -266,9 +266,9 @@ mod tests {
             .with_min_batch_size(16)
             .with_min_dimension(128);
 
-        assert!(!config.should_use_gpu(8, 384));   // batch too small
-        assert!(!config.should_use_gpu(32, 64));   // dimension too small
-        assert!(config.should_use_gpu(32, 384));   // both ok
+        assert!(!config.should_use_gpu(8, 384)); // batch too small
+        assert!(!config.should_use_gpu(32, 64)); // dimension too small
+        assert!(config.should_use_gpu(32, 384)); // both ok
     }
 
     #[test]

@@ -29,7 +29,12 @@ impl PoolingStrategy {
     ///
     /// # Returns
     /// Pooled embedding [hidden_size]
-    pub fn apply(&self, embeddings: &[f32], attention_mask: &[i64], hidden_size: usize) -> Vec<f32> {
+    pub fn apply(
+        &self,
+        embeddings: &[f32],
+        attention_mask: &[i64],
+        hidden_size: usize,
+    ) -> Vec<f32> {
         let seq_len = attention_mask.len();
 
         if embeddings.is_empty() || hidden_size == 0 {
@@ -48,7 +53,8 @@ impl PoolingStrategy {
                 self.max_pooling(embeddings, attention_mask, hidden_size, seq_len)
             }
             PoolingStrategy::MeanSqrtLen => {
-                let mut pooled = self.mean_pooling(embeddings, attention_mask, hidden_size, seq_len);
+                let mut pooled =
+                    self.mean_pooling(embeddings, attention_mask, hidden_size, seq_len);
                 let valid_tokens: f32 = attention_mask.iter().map(|&m| m as f32).sum();
                 let scale = 1.0 / valid_tokens.sqrt();
                 for v in &mut pooled {
@@ -58,10 +64,7 @@ impl PoolingStrategy {
             }
             PoolingStrategy::LastToken => {
                 // Find last valid token
-                let last_idx = attention_mask
-                    .iter()
-                    .rposition(|&m| m == 1)
-                    .unwrap_or(0);
+                let last_idx = attention_mask.iter().rposition(|&m| m == 1).unwrap_or(0);
                 let start = last_idx * hidden_size;
                 embeddings[start..start + hidden_size].to_vec()
             }

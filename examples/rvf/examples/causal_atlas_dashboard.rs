@@ -18,18 +18,16 @@ use rand::rngs::OsRng;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use rvf_runtime::{
-    MetadataEntry, MetadataValue, RvfOptions, RvfStore,
+use rvf_crypto::{
+    create_witness_chain, shake256_256, sign_segment, verify_segment, verify_witness_chain,
+    WitnessEntry,
 };
 use rvf_runtime::options::DistanceMetric;
-use rvf_types::kernel::{KernelArch, KernelType, KernelHeader, KERNEL_MAGIC};
-use rvf_types::ebpf::{EbpfAttachType, EbpfHeader, EbpfProgramType, EBPF_MAGIC};
+use rvf_runtime::{MetadataEntry, MetadataValue, RvfOptions, RvfStore};
 use rvf_types::dashboard::{DashboardHeader, DASHBOARD_MAGIC};
+use rvf_types::ebpf::{EbpfAttachType, EbpfHeader, EbpfProgramType, EBPF_MAGIC};
+use rvf_types::kernel::{KernelArch, KernelHeader, KernelType, KERNEL_MAGIC};
 use rvf_types::{SegmentHeader, SegmentType};
-use rvf_crypto::{
-    sign_segment, verify_segment,
-    create_witness_chain, verify_witness_chain, shake256_256, WitnessEntry,
-};
 use tempfile::TempDir;
 
 // ---------------------------------------------------------------------------
@@ -40,7 +38,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -399,8 +399,7 @@ async fn main() {
         .iter()
         .enumerate()
         .map(|(i, (step, wtype))| {
-            let action_data =
-                format!("causal_atlas_dashboard:{}:step_{}", step, i);
+            let action_data = format!("causal_atlas_dashboard:{}:step_{}", step, i);
             WitnessEntry {
                 prev_hash: [0u8; 32],
                 action_hash: shake256_256(action_data.as_bytes()),
@@ -411,8 +410,7 @@ async fn main() {
         .collect();
 
     let chain_bytes = create_witness_chain(&entries);
-    let verified_chain =
-        verify_witness_chain(&chain_bytes).expect("chain verification failed");
+    let verified_chain = verify_witness_chain(&chain_bytes).expect("chain verification failed");
     println!("  Chain entries: {}", verified_chain.len());
     println!("  Integrity: VALID");
 
@@ -423,11 +421,9 @@ async fn main() {
     let mut header = SegmentHeader::new(SegmentType::Vec as u8, 1);
     header.timestamp_ns = 1_700_000_000_000_000_000;
     header.payload_length = 4096;
-    let attestation_payload =
-        b"Sealed Causal Atlas Dashboard: ADR-040 Phase 2";
+    let attestation_payload = b"Sealed Causal Atlas Dashboard: ADR-040 Phase 2";
     let footer = sign_segment(&header, attestation_payload, &signing_key);
-    let sig_valid =
-        verify_segment(&header, attestation_payload, &footer, &verifying_key);
+    let sig_valid = verify_segment(&header, attestation_payload, &footer, &verifying_key);
     println!(
         "  Signer:    {}...",
         hex_string(&verifying_key.to_bytes()[..16])
@@ -470,8 +466,7 @@ async fn main() {
     );
 
     // Verify witness chain
-    let re_verified =
-        verify_witness_chain(&chain_bytes).expect("re-verify failed");
+    let re_verified = verify_witness_chain(&chain_bytes).expect("re-verify failed");
     assert_eq!(re_verified.len(), chain_steps.len());
     println!("  Witness:   VALID ({} entries)", re_verified.len());
 
@@ -563,10 +558,7 @@ async fn main() {
                     1 => "candidate_new".to_string(),
                     _ => "coherence_update".to_string(),
                 },
-                timestamp: format!(
-                    "2024-01-15T10:{:02}:00Z",
-                    counter % 60
-                ),
+                timestamp: format!("2024-01-15T10:{:02}:00Z", counter % 60),
                 data: serde_json::json!({
                     "counter": counter,
                     "message": format!("Demo event #{}", counter)

@@ -16,12 +16,10 @@
 //! Run with:
 //!   cargo run --example agent_handoff
 
-use rvf_runtime::{
-    MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult,
-};
+use rvf_crypto::{create_witness_chain, shake256_256, verify_witness_chain, WitnessEntry};
 use rvf_runtime::options::DistanceMetric;
+use rvf_runtime::{MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult};
 use rvf_types::DerivationType;
-use rvf_crypto::{create_witness_chain, verify_witness_chain, shake256_256, WitnessEntry};
 use tempfile::TempDir;
 
 /// Simple pseudo-random number generator (LCG) for deterministic results.
@@ -29,7 +27,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -58,8 +58,8 @@ fn main() {
         ..Default::default()
     };
 
-    let mut agent_a = RvfStore::create(&agent_a_path, options.clone())
-        .expect("failed to create Agent A store");
+    let mut agent_a =
+        RvfStore::create(&agent_a_path, options.clone()).expect("failed to create Agent A store");
 
     println!("  Agent A store created at {:?}", agent_a_path);
 
@@ -85,9 +85,7 @@ fn main() {
     for i in 0..num_vectors {
         metadata.push(MetadataEntry {
             field_id: 0,
-            value: MetadataValue::String(
-                knowledge_types[i % knowledge_types.len()].to_string(),
-            ),
+            value: MetadataValue::String(knowledge_types[i % knowledge_types.len()].to_string()),
         });
         metadata.push(MetadataEntry {
             field_id: 1,
@@ -129,7 +127,7 @@ fn main() {
             prev_hash: [0u8; 32],
             action_hash: shake256_256(action.as_bytes()),
             timestamp_ns: 1_700_000_000_000_000_000 + (i as u64) * 600_000_000_000, // 10 min apart
-            witness_type: 0x02, // COMPUTATION
+            witness_type: 0x02,                                                     // COMPUTATION
         })
         .collect();
 
@@ -144,10 +142,7 @@ fn main() {
     let verified_chain = verify_witness_chain(&chain_bytes).expect("chain verification failed");
     println!("  Witness chain: VALID ({} entries)", verified_chain.len());
     println!();
-    println!(
-        "  {:>5}  {:>12}  {:>40}",
-        "Step", "Phase", "Action"
-    );
+    println!("  {:>5}  {:>12}  {:>40}", "Step", "Phase", "Action");
     println!("  {:->5}  {:->12}  {:->40}", "", "", "");
     for (i, (phase, action)) in work_steps.iter().enumerate() {
         println!("  {:>5}  {:>12}  {:>40}", i, phase, action);
@@ -158,7 +153,10 @@ fn main() {
     let agent_a_status = agent_a.status();
 
     println!("\n  Agent A identity:");
-    println!("    File ID:       {}", hex_short(&agent_a_identity.file_id, 8));
+    println!(
+        "    File ID:       {}",
+        hex_short(&agent_a_identity.file_id, 8)
+    );
     println!("    Lineage depth: {}", agent_a_identity.lineage_depth);
     println!("    Total vectors: {}", agent_a_status.total_vectors);
 
@@ -183,7 +181,10 @@ fn main() {
     println!("  Agent B opened Agent A's store");
     println!("  Inherited vectors: {}", inherited_status.total_vectors);
     println!("  Inherited epoch:   {}", inherited_status.current_epoch);
-    println!("  File ID:           {}", hex_short(&inherited_identity.file_id, 8));
+    println!(
+        "  File ID:           {}",
+        hex_short(&inherited_identity.file_id, 8)
+    );
 
     assert_eq!(
         inherited_status.total_vectors, agent_a_status.total_vectors,
@@ -223,7 +224,10 @@ fn main() {
         .query(&query, k, &opts_hp)
         .expect("HP query failed");
 
-    println!("\n  High-priority findings (priority > 5): {} results", hp_results.len());
+    println!(
+        "\n  High-priority findings (priority > 5): {} results",
+        hp_results.len()
+    );
     print_handoff_results(&hp_results, &knowledge_types);
 
     // ====================================================================
@@ -238,15 +242,22 @@ fn main() {
 
     let workspace_identity = *agent_b_workspace.file_identity();
     println!("  Derived workspace created");
-    println!("  File ID:        {}", hex_short(&workspace_identity.file_id, 8));
-    println!("  Parent ID:      {}", hex_short(&workspace_identity.parent_id, 8));
+    println!(
+        "  File ID:        {}",
+        hex_short(&workspace_identity.file_id, 8)
+    );
+    println!(
+        "  Parent ID:      {}",
+        hex_short(&workspace_identity.parent_id, 8)
+    );
     println!("  Lineage depth:  {}", workspace_identity.lineage_depth);
-    println!("  Parent hash:    {}...", hex_short(&workspace_identity.parent_hash, 8));
+    println!(
+        "  Parent hash:    {}...",
+        hex_short(&workspace_identity.parent_hash, 8)
+    );
 
     // Agent B adds its own work to the derived store
-    let b_vectors: Vec<Vec<f32>> = (0..10)
-        .map(|i| random_vector(dim, 5000 + i))
-        .collect();
+    let b_vectors: Vec<Vec<f32>> = (0..10).map(|i| random_vector(dim, 5000 + i)).collect();
     let b_refs: Vec<&[f32]> = b_vectors.iter().map(|v| v.as_slice()).collect();
     let b_ids: Vec<u64> = (1000..1010).collect();
 
@@ -355,12 +366,24 @@ fn main() {
     println!("  Agent A knowledge:      {} vectors", num_vectors);
     println!("  Agent A work history:   {} steps", work_steps.len());
     println!("  Handoff method:         store close + reopen");
-    println!("  Agent B inherited:      {} vectors", inherited_status.total_vectors);
-    println!("  Agent B added:          {} new vectors", b_ingest.accepted);
-    println!("  Agent B workspace:      {} total vectors", b_workspace_status.total_vectors);
+    println!(
+        "  Agent B inherited:      {} vectors",
+        inherited_status.total_vectors
+    );
+    println!(
+        "  Agent B added:          {} new vectors",
+        b_ingest.accepted
+    );
+    println!(
+        "  Agent B workspace:      {} total vectors",
+        b_workspace_status.total_vectors
+    );
     println!("  Derivation type:        Clone");
     println!("  Lineage verification:   passed");
-    println!("  Witness chain:          {} entries, verified", witness_entries.len());
+    println!(
+        "  Witness chain:          {} entries, verified",
+        witness_entries.len()
+    );
 
     println!("\nDone.");
 }

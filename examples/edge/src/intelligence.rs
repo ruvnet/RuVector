@@ -2,11 +2,11 @@
 //!
 //! Sync Q-learning patterns, trajectories, and learning state across swarm agents.
 
-use crate::{Result, SwarmError, compression::TensorCodec};
+use crate::{compression::TensorCodec, Result, SwarmError};
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use parking_lot::RwLock;
 
 /// Learning pattern with Q-value
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -127,7 +127,10 @@ impl IntelligenceSync {
         let mut local = self.local_state.write();
         let key = format!("{}|{}", state, action);
 
-        let pattern = local.patterns.entry(key).or_insert_with(|| Pattern::new(state, action));
+        let pattern = local
+            .patterns
+            .entry(key)
+            .or_insert_with(|| Pattern::new(state, action));
 
         // Q-learning update
         let alpha = 0.1;
@@ -142,8 +145,8 @@ impl IntelligenceSync {
     /// Serialize state for network transfer
     pub fn serialize_state(&self) -> Result<Vec<u8>> {
         let state = self.local_state.read();
-        let json = serde_json::to_vec(&*state)
-            .map_err(|e| SwarmError::Serialization(e.to_string()))?;
+        let json =
+            serde_json::to_vec(&*state).map_err(|e| SwarmError::Serialization(e.to_string()))?;
 
         // Compress for transfer
         self.codec.compress(&json)
@@ -153,8 +156,8 @@ impl IntelligenceSync {
     pub fn merge_peer_state(&self, peer_id: &str, data: &[u8]) -> Result<MergeResult> {
         // Decompress
         let json = self.codec.decompress(data)?;
-        let peer_state: LearningState = serde_json::from_slice(&json)
-            .map_err(|e| SwarmError::Serialization(e.to_string()))?;
+        let peer_state: LearningState =
+            serde_json::from_slice(&json).map_err(|e| SwarmError::Serialization(e.to_string()))?;
 
         // Store peer state
         {

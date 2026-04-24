@@ -6,9 +6,7 @@
 //! - Embedding normalization: <5ms per segment
 //! - Batch ingestion: 1M vectors/minute
 
-use criterion::{
-    black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
-};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use std::time::Duration;
 
 use sevensense_benches::*;
@@ -132,7 +130,8 @@ fn benchmark_spectrogram_generation(c: &mut Criterion) {
     // Batch spectrogram computation
     let batch_sizes = [10, 50, 100];
     for &batch_size in &batch_sizes {
-        let audio_batch: Vec<Vec<f32>> = (0..batch_size).map(|_| generate_audio_segment()).collect();
+        let audio_batch: Vec<Vec<f32>> =
+            (0..batch_size).map(|_| generate_audio_segment()).collect();
 
         group.throughput(Throughput::Elements(batch_size as u64));
         group.bench_with_input(
@@ -436,7 +435,8 @@ fn benchmark_float16_conversion(c: &mut Criterion) {
     });
 
     // Benchmark float16 -> float32 conversion
-    let float16_embeddings: Vec<Vec<u16>> = embeddings.iter().map(|e| simulate_float16(e)).collect();
+    let float16_embeddings: Vec<Vec<u16>> =
+        embeddings.iter().map(|e| simulate_float16(e)).collect();
 
     group.bench_function("from_float16", |b| {
         b.iter(|| {

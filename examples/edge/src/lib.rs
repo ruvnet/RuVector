@@ -32,19 +32,19 @@
 
 // Native-only modules (require tokio)
 #[cfg(feature = "native")]
-pub mod transport;
-#[cfg(feature = "native")]
 pub mod agent;
 #[cfg(feature = "native")]
 pub mod gun;
+#[cfg(feature = "native")]
+pub mod transport;
 
 // Cross-platform modules
+pub mod compression;
 pub mod intelligence;
 pub mod memory;
-pub mod compression;
-pub mod protocol;
 pub mod p2p;
 pub mod plaid;
+pub mod protocol;
 
 // WASM bindings
 #[cfg(feature = "wasm")]
@@ -52,24 +52,24 @@ pub mod wasm;
 
 // Native re-exports
 #[cfg(feature = "native")]
-pub use agent::{SwarmAgent, AgentRole};
+pub use agent::{AgentRole, SwarmAgent};
+#[cfg(feature = "native")]
+pub use gun::{GunSwarmBuilder, GunSwarmConfig, GunSwarmStats, GunSync};
 #[cfg(feature = "native")]
 pub use transport::{Transport, TransportConfig};
-#[cfg(feature = "native")]
-pub use gun::{GunSync, GunSwarmBuilder, GunSwarmConfig, GunSwarmStats};
 
 // Cross-platform re-exports
+pub use compression::{CompressionLevel, TensorCodec};
 pub use intelligence::{IntelligenceSync, LearningState, Pattern};
 pub use memory::{SharedMemory, VectorMemory};
-pub use compression::{TensorCodec, CompressionLevel};
-pub use protocol::{SwarmMessage, MessageType};
-pub use p2p::{IdentityManager, CryptoV2, RelayManager, ArtifactStore};
-pub use plaid::{
-    Transaction, SpendingPattern, CategoryPrediction,
-    AnomalyResult, BudgetRecommendation, FinancialLearningState,
-};
+pub use p2p::{ArtifactStore, CryptoV2, IdentityManager, RelayManager};
 #[cfg(feature = "native")]
 pub use p2p::{P2PSwarmV2, SwarmStatus};
+pub use plaid::{
+    AnomalyResult, BudgetRecommendation, CategoryPrediction, FinancialLearningState,
+    SpendingPattern, Transaction,
+};
+pub use protocol::{MessageType, SwarmMessage};
 
 // WASM re-exports
 #[cfg(feature = "wasm")]
@@ -163,16 +163,11 @@ pub type Result<T> = std::result::Result<T, SwarmError>;
 /// Prelude for convenient imports
 pub mod prelude {
     pub use crate::{
-        SwarmError, Result, MessageType,
-        IntelligenceSync, SharedMemory,
-        CompressionLevel,
+        CompressionLevel, IntelligenceSync, MessageType, Result, SharedMemory, SwarmError,
     };
 
     #[cfg(feature = "native")]
-    pub use crate::{
-        SwarmAgent, SwarmConfig,
-        Transport, AgentRole,
-    };
+    pub use crate::{AgentRole, SwarmAgent, SwarmConfig, Transport};
 }
 
 #[cfg(all(test, feature = "native"))]

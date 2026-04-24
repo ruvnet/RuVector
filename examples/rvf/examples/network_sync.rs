@@ -30,7 +30,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -54,9 +56,18 @@ fn main() {
     let tmp = TempDir::new().expect("temp dir");
 
     let nodes = [
-        NodeInfo { name: "node-us-east", region: "us-east-1" },
-        NodeInfo { name: "node-eu-west", region: "eu-west-1" },
-        NodeInfo { name: "node-ap-south", region: "ap-south-1" },
+        NodeInfo {
+            name: "node-us-east",
+            region: "us-east-1",
+        },
+        NodeInfo {
+            name: "node-eu-west",
+            region: "eu-west-1",
+        },
+        NodeInfo {
+            name: "node-ap-south",
+            region: "ap-south-1",
+        },
     ];
 
     // ──────────────────────────────────────────────
@@ -87,9 +98,7 @@ fn main() {
         let vec_refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
         let ids: Vec<u64> = (shard_start..shard_start + shard_size).collect();
 
-        let result = store
-            .ingest_batch(&vec_refs, &ids, None)
-            .expect("ingest");
+        let result = store.ingest_batch(&vec_refs, &ids, None).expect("ingest");
 
         println!(
             "  {} ({}) → {} vectors, epoch {}",
@@ -112,7 +121,7 @@ fn main() {
         ("node-us-east → node-eu-west", 0x08u8), // DATA_PROVENANCE
         ("node-eu-west → node-ap-south", 0x08),
         ("node-ap-south → node-us-east", 0x08),
-        ("full-mesh-sync-complete", 0x02),        // COMPUTATION
+        ("full-mesh-sync-complete", 0x02), // COMPUTATION
     ];
 
     let entries: Vec<WitnessEntry> = sync_events
@@ -129,7 +138,11 @@ fn main() {
     let chain_bytes = create_witness_chain(&entries);
     let verified = verify_witness_chain(&chain_bytes).expect("verify chain");
 
-    println!("  Sync witness chain: {} events, {} bytes", verified.len(), chain_bytes.len());
+    println!(
+        "  Sync witness chain: {} events, {} bytes",
+        verified.len(),
+        chain_bytes.len()
+    );
     for (i, (event, _)) in sync_events.iter().enumerate() {
         let hash_prefix = hex_short(&verified[i].action_hash, 4);
         println!("    [{}] {} (hash={}..)", i, event, hash_prefix);
@@ -150,9 +163,19 @@ fn main() {
     let us_east_id = stores[0].file_id();
     let snapshot_id = snapshot.file_id();
 
-    println!("  Source:     {} (id={}..)", nodes[0].name, hex_short(us_east_id, 4));
-    println!("  Snapshot:   sync_us_to_eu.rvf (id={}..)", hex_short(snapshot_id, 4));
-    println!("  Parent ID:  {}.. (matches source)", hex_short(snapshot.parent_id(), 4));
+    println!(
+        "  Source:     {} (id={}..)",
+        nodes[0].name,
+        hex_short(us_east_id, 4)
+    );
+    println!(
+        "  Snapshot:   sync_us_to_eu.rvf (id={}..)",
+        hex_short(snapshot_id, 4)
+    );
+    println!(
+        "  Parent ID:  {}.. (matches source)",
+        hex_short(snapshot.parent_id(), 4)
+    );
     println!("  Depth:      {}", snapshot.lineage_depth());
 
     assert_eq!(snapshot.parent_id(), us_east_id);
@@ -178,9 +201,7 @@ fn main() {
     println!("--- Phase 4: Epoch Comparison (Conflict Detection) ---\n");
 
     // Exercise node-us-east getting additional writes
-    let extra_vecs: Vec<Vec<f32>> = (0..20)
-        .map(|j| random_vector(dim, 500 + j))
-        .collect();
+    let extra_vecs: Vec<Vec<f32>> = (0..20).map(|j| random_vector(dim, 500 + j)).collect();
     let extra_refs: Vec<&[f32]> = extra_vecs.iter().map(|v| v.as_slice()).collect();
     let extra_ids: Vec<u64> = (500..520).collect();
 
@@ -201,7 +222,10 @@ fn main() {
     let leader_epoch = stores[0].status().current_epoch;
     let follower_epoch = stores[1].status().current_epoch;
     let behind = leader_epoch.saturating_sub(follower_epoch);
-    println!("\n  {} is {} epoch(s) behind {}", nodes[1].name, behind, nodes[0].name);
+    println!(
+        "\n  {} is {} epoch(s) behind {}",
+        nodes[1].name, behind, nodes[0].name
+    );
     println!();
 
     // ──────────────────────────────────────────────
@@ -237,7 +261,10 @@ fn main() {
     println!("  Nodes:              {}", nodes.len());
     println!("  Topology:           full mesh (P2P)");
     println!("  Transport:          .rvf file transfer");
-    println!("  Sync witness chain: {} events, verified", sync_events.len());
+    println!(
+        "  Sync witness chain: {} events, verified",
+        sync_events.len()
+    );
     println!("  Conflict detection: epoch comparison");
     println!("  Lineage tracking:   parent_id / parent_hash");
     println!("  Segments used:      VEC, INDEX, META, WITNESS, MANIFEST");

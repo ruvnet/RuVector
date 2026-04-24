@@ -5,8 +5,8 @@
 
 use anyhow::Result;
 use ruvector_onnx_embeddings::{
-    prelude::*, EmbedderBuilder, PretrainedModel, PoolingStrategy,
-    RuVectorBuilder, RagPipeline, Distance,
+    prelude::*, Distance, EmbedderBuilder, PoolingStrategy, PretrainedModel, RagPipeline,
+    RuVectorBuilder,
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -15,8 +15,7 @@ async fn main() -> Result<()> {
     // Initialize logging
     tracing_subscriber::registry()
         .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info".into()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
@@ -114,7 +113,12 @@ async fn batch_embedding_example() -> Result<()> {
     // Show token counts
     println!("\nToken counts per text:");
     for (i, (text, tokens)) in texts.iter().zip(output.token_counts.iter()).enumerate() {
-        println!("  [{}] {} tokens: \"{}...\"", i, tokens, &text[..40.min(text.len())]);
+        println!(
+            "  [{}] {} tokens: \"{}...\"",
+            i,
+            tokens,
+            &text[..40.min(text.len())]
+        );
     }
 
     Ok(())
@@ -166,12 +170,7 @@ async fn semantic_search_example() -> Result<()> {
         let results = index.search(query, 3)?;
 
         for (i, result) in results.iter().enumerate() {
-            println!(
-                "  {}. (score: {:.4}) {}",
-                i + 1,
-                result.score,
-                result.text
-            );
+            println!("  {}. (score: {:.4}) {}", i + 1, result.score, result.text);
         }
     }
 

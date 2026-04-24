@@ -529,7 +529,8 @@ mod tests {
 
     #[test]
     fn test_layer_norm() {
-        let x = Array2::from_shape_vec((2, 4), vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]).unwrap();
+        let x =
+            Array2::from_shape_vec((2, 4), vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]).unwrap();
 
         let weight = Array1::ones(4);
         let bias = Array1::zeros(4);

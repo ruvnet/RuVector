@@ -50,7 +50,10 @@ impl std::fmt::Display for ClusteringMethod {
             ClusteringMethod::Spectral { n_clusters } => {
                 write!(f, "Spectral (n={})", n_clusters)
             }
-            ClusteringMethod::Agglomerative { n_clusters, linkage } => {
+            ClusteringMethod::Agglomerative {
+                n_clusters,
+                linkage,
+            } => {
                 write!(f, "Agglomerative (n={}, {:?})", n_clusters, linkage)
             }
         }

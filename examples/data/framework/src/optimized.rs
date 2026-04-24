@@ -8,17 +8,17 @@
 //! - Temporal causality analysis (Granger-style)
 //! - Intelligent caching of expensive computations
 
+use chrono::{DateTime, Duration, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use chrono::{DateTime, Utc, Duration};
-use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 use crate::ruvector_native::{
-    Domain, SemanticVector, GraphNode, GraphEdge, EdgeType,
-    CoherenceSnapshot, DiscoveredPattern, PatternType, Evidence, CrossDomainLink,
+    CoherenceSnapshot, CrossDomainLink, DiscoveredPattern, Domain, EdgeType, Evidence, GraphEdge,
+    GraphNode, PatternType, SemanticVector,
 };
 
 /// Performance metrics for the optimized engine
@@ -134,7 +134,10 @@ impl OptimizedDiscoveryEngine {
                 attributes: HashMap::new(),
             };
 
-            self.domain_nodes.entry(vector.domain).or_default().push(node_id);
+            self.domain_nodes
+                .entry(vector.domain)
+                .or_default()
+                .push(node_id);
             self.nodes.insert(node_id, node);
             self.vectors.push(vector);
         }
@@ -155,14 +158,18 @@ impl OptimizedDiscoveryEngine {
         let use_simd = self.config.use_simd;
 
         // Collect existing vectors for parallel access
-        let all_vectors: Vec<(u32, &[f32], Domain)> = self.nodes.iter()
+        let all_vectors: Vec<(u32, &[f32], Domain)> = self
+            .nodes
+            .iter()
             .filter_map(|(&id, node)| {
-                node.vector_idx.map(|idx| (id, self.vectors[idx].embedding.as_slice(), node.domain))
+                node.vector_idx
+                    .map(|idx| (id, self.vectors[idx].embedding.as_slice(), node.domain))
             })
             .collect();
 
         // For each new node, find all similar nodes in parallel
-        let new_edges: Vec<GraphEdge> = new_ids.par_iter()
+        let new_edges: Vec<GraphEdge> = new_ids
+            .par_iter()
             .flat_map(|&new_id| {
                 let new_node = match self.nodes.get(&new_id) {
                     Some(n) => n,
@@ -177,7 +184,8 @@ impl OptimizedDiscoveryEngine {
                 let new_vec = self.vectors[new_vec_idx].embedding.as_slice();
                 let new_domain = new_node.domain;
 
-                all_vectors.iter()
+                all_vectors
+                    .iter()
                     .filter(|(id, _, _)| *id != new_id)
                     .filter_map(|(other_id, other_vec, other_domain)| {
                         let similarity = if use_simd {
@@ -211,7 +219,7 @@ impl OptimizedDiscoveryEngine {
         self.edges.extend(new_edges);
         self.metrics.vector_comparisons.fetch_add(
             (new_ids.len() * all_vectors.len()) as u64,
-            Ordering::Relaxed
+            Ordering::Relaxed,
         );
     }
 
@@ -241,7 +249,10 @@ impl OptimizedDiscoveryEngine {
             };
 
             self.nodes.insert(node_id, node);
-            self.domain_nodes.entry(vector.domain).or_default().push(node_id);
+            self.domain_nodes
+                .entry(vector.domain)
+                .or_default()
+                .push(node_id);
             self.connect_similar_vectors(node_id);
             self.adjacency_dirty = true;
 
@@ -323,10 +334,9 @@ impl OptimizedDiscoveryEngine {
 
         let mincut_result = self.stoer_wagner_optimized(&adj);
 
-        self.metrics.mincut_time_ns.fetch_add(
-            start.elapsed().as_nanos() as u64,
-            Ordering::Relaxed
-        );
+        self.metrics
+            .mincut_time_ns
+            .fetch_add(start.elapsed().as_nanos() as u64, Ordering::Relaxed);
 
         let avg_edge_weight = if self.edges.is_empty() {
             0.0
@@ -348,7 +358,8 @@ impl OptimizedDiscoveryEngine {
     fn build_adjacency_matrix(&self) -> Vec<Vec<f64>> {
         let n = self.nodes.len();
         let node_ids: Vec<u32> = self.nodes.keys().copied().collect();
-        let id_to_idx: HashMap<u32, usize> = node_ids.iter()
+        let id_to_idx: HashMap<u32, usize> = node_ids
+            .iter()
             .enumerate()
             .map(|(i, &id)| (id, i))
             .collect();
@@ -356,7 +367,8 @@ impl OptimizedDiscoveryEngine {
         let mut adj = vec![vec![0.0; n]; n];
 
         for edge in &self.edges {
-            if let (Some(&i), Some(&j)) = (id_to_idx.get(&edge.source), id_to_idx.get(&edge.target)) {
+            if let (Some(&i), Some(&j)) = (id_to_idx.get(&edge.source), id_to_idx.get(&edge.target))
+            {
                 adj[i][j] += edge.weight;
                 adj[j][i] += edge.weight;
             }
@@ -434,7 +446,8 @@ impl OptimizedDiscoveryEngine {
                     .sum();
 
                 best_partition = (partition_a.len(), partition_b_count);
-                best_boundary = partition_a.iter()
+                best_boundary = partition_a
+                    .iter()
                     .filter_map(|&i| node_ids.get(i).copied())
                     .collect();
 
@@ -469,7 +482,10 @@ impl OptimizedDiscoveryEngine {
         // Store domain coherence for causality analysis
         for domain in [Domain::Climate, Domain::Finance, Domain::Research] {
             if let Some(coh) = self.domain_coherence(domain) {
-                self.domain_timeseries.entry(domain).or_default().push((now, coh));
+                self.domain_timeseries
+                    .entry(domain)
+                    .or_default()
+                    .push((now, coh));
             }
         }
 
@@ -501,15 +517,15 @@ impl OptimizedDiscoveryEngine {
                         detected_at: now,
                         description: format!(
                             "Min-cut changed {:.3} → {:.3} ({:+.1}%)",
-                            prev_mincut, current.mincut_value, relative_change * 100.0
+                            prev_mincut,
+                            current.mincut_value,
+                            relative_change * 100.0
                         ),
-                        evidence: vec![
-                            Evidence {
-                                evidence_type: "mincut_delta".to_string(),
-                                value: mincut_delta,
-                                description: "Change in min-cut value".to_string(),
-                            },
-                        ],
+                        evidence: vec![Evidence {
+                            evidence_type: "mincut_delta".to_string(),
+                            value: mincut_delta,
+                            description: "Change in min-cut value".to_string(),
+                        }],
                         cross_domain_links: vec![],
                     },
                     p_value: significance.p_value,
@@ -525,7 +541,8 @@ impl OptimizedDiscoveryEngine {
             patterns.extend(self.detect_causality_patterns());
         }
 
-        self.coherence_history.push((now, current.mincut_value, current));
+        self.coherence_history
+            .push((now, current.mincut_value, current));
 
         patterns
     }
@@ -541,7 +558,9 @@ impl OptimizedDiscoveryEngine {
         }
 
         // Compute historical deltas
-        let deltas: Vec<f64> = self.coherence_history.windows(2)
+        let deltas: Vec<f64> = self
+            .coherence_history
+            .windows(2)
             .map(|w| w[1].1 - w[0].1)
             .collect();
 
@@ -554,9 +573,8 @@ impl OptimizedDiscoveryEngine {
         }
 
         let mean: f64 = deltas.iter().sum::<f64>() / deltas.len() as f64;
-        let variance: f64 = deltas.iter()
-            .map(|d| (d - mean).powi(2))
-            .sum::<f64>() / deltas.len() as f64;
+        let variance: f64 =
+            deltas.iter().map(|d| (d - mean).powi(2)).sum::<f64>() / deltas.len() as f64;
         let std_dev = variance.sqrt();
 
         if std_dev < 1e-10 {
@@ -603,17 +621,28 @@ impl OptimizedDiscoveryEngine {
                 let domain_b = domains[j];
 
                 if let Some(causality) = self.granger_causality(domain_a, domain_b) {
-                    if causality.f_statistic > 3.0 && causality.correlation.abs() > self.config.causality_min_correlation {
+                    if causality.f_statistic > 3.0
+                        && causality.correlation.abs() > self.config.causality_min_correlation
+                    {
                         patterns.push(SignificantPattern {
                             pattern: DiscoveredPattern {
-                                id: format!("causality_{:?}_{:?}_{}", domain_a, domain_b, Utc::now().timestamp()),
+                                id: format!(
+                                    "causality_{:?}_{:?}_{}",
+                                    domain_a,
+                                    domain_b,
+                                    Utc::now().timestamp()
+                                ),
                                 pattern_type: PatternType::Cascade,
                                 confidence: causality.correlation.abs(),
                                 affected_nodes: vec![],
                                 detected_at: Utc::now(),
                                 description: format!(
                                     "{:?} → {:?} causality detected (F={:.2}, lag={}, r={:.3})",
-                                    domain_a, domain_b, causality.f_statistic, causality.optimal_lag, causality.correlation
+                                    domain_a,
+                                    domain_b,
+                                    causality.f_statistic,
+                                    causality.optimal_lag,
+                                    causality.correlation
                                 ),
                                 evidence: vec![
                                     Evidence {
@@ -633,12 +662,18 @@ impl OptimizedDiscoveryEngine {
                                     source_nodes: vec![],
                                     target_nodes: vec![],
                                     link_strength: causality.correlation.abs(),
-                                    link_type: format!("temporal_causality_lag_{}", causality.optimal_lag),
+                                    link_type: format!(
+                                        "temporal_causality_lag_{}",
+                                        causality.optimal_lag
+                                    ),
                                 }],
                             },
                             p_value: causality.p_value,
                             effect_size: causality.correlation,
-                            confidence_interval: (causality.correlation - 0.1, causality.correlation + 0.1),
+                            confidence_interval: (
+                                causality.correlation - 0.1,
+                                causality.correlation + 0.1,
+                            ),
                             is_significant: causality.p_value < self.config.significance_threshold,
                         });
                     }
@@ -733,7 +768,9 @@ impl OptimizedDiscoveryEngine {
             domain_counts.insert(*domain, self.domain_nodes[domain].len());
         }
 
-        let cross_domain_edges = self.edges.iter()
+        let cross_domain_edges = self
+            .edges
+            .iter()
             .filter(|e| e.edge_type == EdgeType::CrossDomain)
             .count();
 

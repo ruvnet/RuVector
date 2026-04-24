@@ -11,12 +11,11 @@
 //!
 //! Performance: O(log n) updates when λ (min-cut) is bounded by 2^{(log n)^{3/4}}
 
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-
 
 /// Error types for dynamic min-cut operations
 #[derive(Debug, Clone, thiserror::Error)]
@@ -128,10 +127,14 @@ impl EulerTourTree {
         self.add_vertex(v);
 
         // Get representative nodes
-        let u_idx = *self.node_map.get(&u)
+        let u_idx = *self
+            .node_map
+            .get(&u)
             .and_then(|v| v.first())
             .ok_or(DynamicMinCutError::NodeNotFound(u))?;
-        let v_idx = *self.node_map.get(&v)
+        let v_idx = *self
+            .node_map
+            .get(&v)
             .and_then(|v| v.first())
             .ok_or(DynamicMinCutError::NodeNotFound(v))?;
 
@@ -141,7 +144,10 @@ impl EulerTourTree {
 
         // Store edge mapping
         let key = if u < v { (u, v) } else { (v, u) };
-        self.edge_map.entry(key).or_default().extend(&[uv_idx, vu_idx]);
+        self.edge_map
+            .entry(key)
+            .or_default()
+            .extend(&[uv_idx, vu_idx]);
 
         // Splice tours together: root(u) -> u->v -> root(v) -> v->u -> root(u)
         self.splay(u_idx);
@@ -161,8 +167,13 @@ impl EulerTourTree {
     pub fn cut(&mut self, u: u32, v: u32) -> Result<(), DynamicMinCutError> {
         let key = if u < v { (u, v) } else { (v, u) };
 
-        let edge_nodes = self.edge_map.remove(&key)
-            .ok_or(DynamicMinCutError::InvalidEdge(format!("Edge {}-{} not found", u, v)))?;
+        let edge_nodes = self
+            .edge_map
+            .remove(&key)
+            .ok_or(DynamicMinCutError::InvalidEdge(format!(
+                "Edge {}-{} not found",
+                u, v
+            )))?;
 
         // Splay edge tour nodes and split
         for &idx in &edge_nodes {
@@ -331,8 +342,14 @@ impl EulerTourTree {
     }
 
     fn update_size(&mut self, idx: usize) {
-        let left_size = self.nodes[idx].left.map(|i| self.nodes[i].size).unwrap_or(0);
-        let right_size = self.nodes[idx].right.map(|i| self.nodes[i].size).unwrap_or(0);
+        let left_size = self.nodes[idx]
+            .left
+            .map(|i| self.nodes[i].size)
+            .unwrap_or(0);
+        let right_size = self.nodes[idx]
+            .right
+            .map(|i| self.nodes[i].size)
+            .unwrap_or(0);
         self.nodes[idx].size = 1 + left_size + right_size;
     }
 
@@ -480,14 +497,18 @@ impl DynamicCutWatcher {
     pub fn insert_edge(&mut self, u: u32, v: u32, weight: f64) -> Result<(), DynamicMinCutError> {
         // Update Euler tree
         {
-            let mut tree = self.euler_tree.write()
+            let mut tree = self
+                .euler_tree
+                .write()
                 .map_err(|e| DynamicMinCutError::ComputationError(format!("Lock error: {}", e)))?;
             tree.link(u, v)?;
         }
 
         // Update adjacency
         {
-            let mut adj = self.adjacency.write()
+            let mut adj = self
+                .adjacency
+                .write()
                 .map_err(|e| DynamicMinCutError::ComputationError(format!("Lock error: {}", e)))?;
             adj.entry(u).or_default().push((v, weight));
             adj.entry(v).or_default().push((u, weight));
@@ -495,7 +516,9 @@ impl DynamicCutWatcher {
 
         // Queue update for incremental processing
         {
-            let mut updates = self.pending_updates.write()
+            let mut updates = self
+                .pending_updates
+                .write()
                 .map_err(|e| DynamicMinCutError::ComputationError(format!("Lock error: {}", e)))?;
             updates.push_back(EdgeUpdate {
                 update_type: EdgeUpdateType::Insert,
@@ -518,14 +541,18 @@ impl DynamicCutWatcher {
     pub fn delete_edge(&mut self, u: u32, v: u32) -> Result<(), DynamicMinCutError> {
         // Update Euler tree
         {
-            let mut tree = self.euler_tree.write()
+            let mut tree = self
+                .euler_tree
+                .write()
                 .map_err(|e| DynamicMinCutError::ComputationError(format!("Lock error: {}", e)))?;
             tree.cut(u, v)?;
         }
 
         // Update adjacency
         {
-            let mut adj = self.adjacency.write()
+            let mut adj = self
+                .adjacency
+                .write()
                 .map_err(|e| DynamicMinCutError::ComputationError(format!("Lock error: {}", e)))?;
             if let Some(neighbors) = adj.get_mut(&u) {
                 neighbors.retain(|(n, _)| *n != v);
@@ -537,7 +564,9 @@ impl DynamicCutWatcher {
 
         // Queue update
         {
-            let mut updates = self.pending_updates.write()
+            let mut updates = self
+                .pending_updates
+                .write()
                 .map_err(|e| DynamicMinCutError::ComputationError(format!("Lock error: {}", e)))?;
             updates.push_back(EdgeUpdate {
                 update_type: EdgeUpdateType::Delete,
@@ -550,7 +579,9 @@ impl DynamicCutWatcher {
 
         // Remove from flow scores
         {
-            let mut scores = self.local_flow_scores.write()
+            let mut scores = self
+                .local_flow_scores
+                .write()
                 .map_err(|e| DynamicMinCutError::ComputationError(format!("Lock error: {}", e)))?;
             let key = if u < v { (u, v) } else { (v, u) };
             scores.remove(&key);
@@ -601,10 +632,13 @@ impl DynamicCutWatcher {
 
         let mincut = stoer_wagner_mincut(adj_matrix)?;
 
-        self.current_lambda.store(mincut.to_bits(), Ordering::Relaxed);
+        self.current_lambda
+            .store(mincut.to_bits(), Ordering::Relaxed);
         self.cut_changed_flag.store(false, Ordering::Relaxed);
 
-        let mut last_comp = self.last_full_computation.write()
+        let mut last_comp = self
+            .last_full_computation
+            .write()
             .map_err(|e| DynamicMinCutError::ComputationError(format!("Lock error: {}", e)))?;
         *last_comp = Some(Utc::now());
 
@@ -613,7 +647,9 @@ impl DynamicCutWatcher {
 
     /// Process pending updates incrementally
     pub fn process_updates(&mut self) -> Result<usize, DynamicMinCutError> {
-        let mut updates = self.pending_updates.write()
+        let mut updates = self
+            .pending_updates
+            .write()
             .map_err(|e| DynamicMinCutError::ComputationError(format!("Lock error: {}", e)))?;
 
         let count = updates.len();
@@ -623,14 +659,23 @@ impl DynamicCutWatcher {
     }
 
     /// Update local flow score for an edge
-    fn update_local_flow_score(&self, u: u32, v: u32, weight: f64) -> Result<(), DynamicMinCutError> {
-        let mut scores = self.local_flow_scores.write()
+    fn update_local_flow_score(
+        &self,
+        u: u32,
+        v: u32,
+        weight: f64,
+    ) -> Result<(), DynamicMinCutError> {
+        let mut scores = self
+            .local_flow_scores
+            .write()
             .map_err(|e| DynamicMinCutError::ComputationError(format!("Lock error: {}", e)))?;
 
         let key = if u < v { (u, v) } else { (v, u) };
 
         // Simple heuristic: flow score is proportional to edge weight and degree product
-        let adj = self.adjacency.read()
+        let adj = self
+            .adjacency
+            .read()
             .map_err(|e| DynamicMinCutError::ComputationError(format!("Lock error: {}", e)))?;
 
         let deg_u = adj.get(&u).map(|v| v.len()).unwrap_or(1) as f64;
@@ -724,7 +769,12 @@ impl LocalMinCutProcedure {
     }
 
     /// Grow a ball of given radius around vertex
-    fn grow_ball(&self, adjacency: &HashMap<u32, Vec<(u32, f64)>>, start: u32, radius: usize) -> Vec<u32> {
+    fn grow_ball(
+        &self,
+        adjacency: &HashMap<u32, Vec<(u32, f64)>>,
+        start: u32,
+        radius: usize,
+    ) -> Vec<u32> {
         let mut ball = HashSet::new();
         let mut frontier = vec![start];
         ball.insert(start);
@@ -750,16 +800,18 @@ impl LocalMinCutProcedure {
     }
 
     /// Sweep cut using volume ordering
-    fn sweep_cut(&self, adjacency: &HashMap<u32, Vec<(u32, f64)>>, ball: &[u32]) -> Option<LocalCut> {
+    fn sweep_cut(
+        &self,
+        adjacency: &HashMap<u32, Vec<(u32, f64)>>,
+        ball: &[u32],
+    ) -> Option<LocalCut> {
         if ball.len() < 2 {
             return None;
         }
 
         // Sort by degree (simple heuristic)
         let mut sorted: Vec<_> = ball.iter().copied().collect();
-        sorted.sort_by_key(|&v| {
-            adjacency.get(&v).map(|n| n.len()).unwrap_or(0)
-        });
+        sorted.sort_by_key(|&v| adjacency.get(&v).map(|n| n.len()).unwrap_or(0));
 
         let mut best_cut = f64::INFINITY;
         let mut best_partition = HashSet::new();
@@ -790,7 +842,12 @@ impl LocalMinCutProcedure {
     }
 
     /// Compute cut value for a partition
-    fn compute_cut_value(&self, adjacency: &HashMap<u32, Vec<(u32, f64)>>, set_s: &HashSet<u32>, ball: &[u32]) -> f64 {
+    fn compute_cut_value(
+        &self,
+        adjacency: &HashMap<u32, Vec<(u32, f64)>>,
+        set_s: &HashSet<u32>,
+        ball: &[u32],
+    ) -> f64 {
         let ball_set: HashSet<_> = ball.iter().copied().collect();
         let mut cut = 0.0;
 
@@ -858,7 +915,11 @@ pub struct CutGatedSearch<'a> {
 
 impl<'a> CutGatedSearch<'a> {
     /// Create a new cut-gated search
-    pub fn new(watcher: &'a DynamicCutWatcher, coherence_gate: f64, max_weak_expansions: usize) -> Self {
+    pub fn new(
+        watcher: &'a DynamicCutWatcher,
+        coherence_gate: f64,
+        max_weak_expansions: usize,
+    ) -> Self {
         Self {
             watcher,
             coherence_gate,
@@ -876,9 +937,11 @@ impl<'a> CutGatedSearch<'a> {
         graph: &HNSWGraph,
     ) -> Result<Vec<(u32, f32)>, DynamicMinCutError> {
         if query.len() != graph.dimension {
-            return Err(DynamicMinCutError::InvalidConfig(
-                format!("Query dimension {} != graph dimension {}", query.len(), graph.dimension)
-            ));
+            return Err(DynamicMinCutError::InvalidConfig(format!(
+                "Query dimension {} != graph dimension {}",
+                query.len(),
+                graph.dimension
+            )));
         }
 
         let mut candidates = Vec::new();
@@ -945,7 +1008,8 @@ impl<'a> CutGatedSearch<'a> {
 
     fn distance(&self, a: &[f32], b: &[f32]) -> f32 {
         // L2 distance
-        a.iter().zip(b.iter())
+        a.iter()
+            .zip(b.iter())
             .map(|(x, y)| (x - y).powi(2))
             .sum::<f32>()
             .sqrt()
@@ -1022,7 +1086,10 @@ fn stoer_wagner_mincut(adj: &[Vec<f64>]) -> Result<f64, DynamicMinCutError> {
         active[t] = false;
         for i in 0..n {
             if active[i] && i != t {
-                let s = (0..n).filter(|&j| active[j] && in_a[j]).last().unwrap_or(start);
+                let s = (0..n)
+                    .filter(|&j| active[j] && in_a[j])
+                    .last()
+                    .unwrap_or(start);
                 adj[s][i] += adj[t][i];
                 adj[i][s] += adj[i][t];
             }
@@ -1441,12 +1508,16 @@ mod benchmarks {
 
         // Benchmark link operations
         let start = Instant::now();
-        for i in 0..n-1 {
+        for i in 0..n - 1 {
             ett.link(i, i + 1).unwrap();
         }
         let link_time = start.elapsed();
-        println!("ETT Link {} edges: {:?} ({:.2} µs/op)",
-                 n-1, link_time, link_time.as_micros() as f64 / (n-1) as f64);
+        println!(
+            "ETT Link {} edges: {:?} ({:.2} µs/op)",
+            n - 1,
+            link_time,
+            link_time.as_micros() as f64 / (n - 1) as f64
+        );
 
         // Benchmark connectivity queries
         let start = Instant::now();
@@ -1455,8 +1526,12 @@ mod benchmarks {
             ett.connected(i % n, (i * 7) % n);
         }
         let query_time = start.elapsed();
-        println!("ETT Connectivity {} queries: {:?} ({:.2} µs/op)",
-                 queries, query_time, query_time.as_micros() as f64 / queries as f64);
+        println!(
+            "ETT Connectivity {} queries: {:?} ({:.2} µs/op)",
+            queries,
+            query_time,
+            query_time.as_micros() as f64 / queries as f64
+        );
 
         // Benchmark cut operations
         let start = Instant::now();
@@ -1464,8 +1539,11 @@ mod benchmarks {
             ett.cut(i * 10, i * 10 + 1).ok();
         }
         let cut_time = start.elapsed();
-        println!("ETT Cut 10 edges: {:?} ({:.2} µs/op)",
-                 cut_time, cut_time.as_micros() as f64 / 10.0);
+        println!(
+            "ETT Cut 10 edges: {:?} ({:.2} µs/op)",
+            cut_time,
+            cut_time.as_micros() as f64 / 10.0
+        );
     }
 
     #[test]
@@ -1477,12 +1555,16 @@ mod benchmarks {
 
         // Benchmark insertions
         let start = Instant::now();
-        for i in 0..n-1 {
+        for i in 0..n - 1 {
             watcher.insert_edge(i, i + 1, 1.0).unwrap();
         }
         let insert_time = start.elapsed();
-        println!("Dynamic Watcher Insert {} edges: {:?} ({:.2} µs/op)",
-                 n-1, insert_time, insert_time.as_micros() as f64 / (n-1) as f64);
+        println!(
+            "Dynamic Watcher Insert {} edges: {:?} ({:.2} µs/op)",
+            n - 1,
+            insert_time,
+            insert_time.as_micros() as f64 / (n - 1) as f64
+        );
 
         // Benchmark deletions
         let start = Instant::now();
@@ -1490,8 +1572,11 @@ mod benchmarks {
             watcher.delete_edge(i * 10, i * 10 + 1).ok();
         }
         let delete_time = start.elapsed();
-        println!("Dynamic Watcher Delete 10 edges: {:?} ({:.2} µs/op)",
-                 delete_time, delete_time.as_micros() as f64 / 10.0);
+        println!(
+            "Dynamic Watcher Delete 10 edges: {:?} ({:.2} µs/op)",
+            delete_time,
+            delete_time.as_micros() as f64 / 10.0
+        );
     }
 
     #[test]
@@ -1502,7 +1587,7 @@ mod benchmarks {
         let n = 50;
         let mut adj = vec![vec![0.0; n]; n];
         for i in 0..n {
-            for j in i+1..n {
+            for j in i + 1..n {
                 if (i * 7 + j * 13) % 3 == 0 {
                     let weight = ((i + j) % 10 + 1) as f64;
                     adj[i][j] = weight;
@@ -1527,7 +1612,7 @@ mod benchmarks {
 
         // Initial build
         for i in 0..n {
-            for j in i+1..n {
+            for j in i + 1..n {
                 if adj[i][j] > 0.0 {
                     watcher.insert_edge(i as u32, j as u32, adj[i][j]).unwrap();
                 }
@@ -1545,7 +1630,10 @@ mod benchmarks {
 
         let dynamic_time = start.elapsed();
         println!("Dynamic (build + 10 updates): {:?}", dynamic_time);
-        println!("Speedup: {:.2}x", periodic_time.as_secs_f64() / dynamic_time.as_secs_f64());
+        println!(
+            "Speedup: {:.2}x",
+            periodic_time.as_secs_f64() / dynamic_time.as_secs_f64()
+        );
     }
 
     #[test]
@@ -1572,7 +1660,11 @@ mod benchmarks {
             procedure.local_cut(&adjacency, i % n, 5);
         }
         let time = start.elapsed();
-        println!("Local MinCut {} iterations: {:?} ({:.2} ms/op)",
-                 iterations, time, time.as_millis() as f64 / iterations as f64);
+        println!(
+            "Local MinCut {} iterations: {:?} ({:.2} ms/op)",
+            iterations,
+            time,
+            time.as_millis() as f64 / iterations as f64
+        );
     }
 }

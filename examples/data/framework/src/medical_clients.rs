@@ -17,7 +17,9 @@ use crate::ruvector_native::{Domain, SemanticVector};
 use crate::{FrameworkError, Result};
 
 /// Custom deserializer that handles both string and integer values
-fn deserialize_number_from_string<'de, D>(deserializer: D) -> std::result::Result<Option<i32>, D::Error>
+fn deserialize_number_from_string<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<i32>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -303,7 +305,9 @@ impl PubMedClient {
                 let article = citation.article;
 
                 let pmid = citation.pmid.value;
-                let title = article.article_title.unwrap_or_else(|| "Untitled".to_string());
+                let title = article
+                    .article_title
+                    .unwrap_or_else(|| "Untitled".to_string());
 
                 // Extract abstract text
                 let abstract_text = article
@@ -779,7 +783,10 @@ impl FdaClient {
         };
 
         // Create text for embedding
-        let text = format!("Drug: {} Reactions: {} Severity: {}", drugs_text, reactions_text, serious);
+        let text = format!(
+            "Drug: {} Reactions: {} Severity: {}",
+            drugs_text, reactions_text, serious
+        );
         let embedding = self.embedder.embed_text(&text);
 
         // Parse receive date
@@ -809,12 +816,21 @@ impl FdaClient {
 
     /// Convert recall to SemanticVector
     fn recall_to_vector(&self, recall: FdaRecall) -> Result<SemanticVector> {
-        let reason = recall.reason_for_recall.unwrap_or_else(|| "Unknown reason".to_string());
-        let product = recall.product_description.unwrap_or_else(|| "Unknown product".to_string());
-        let classification = recall.classification.unwrap_or_else(|| "Unknown".to_string());
+        let reason = recall
+            .reason_for_recall
+            .unwrap_or_else(|| "Unknown reason".to_string());
+        let product = recall
+            .product_description
+            .unwrap_or_else(|| "Unknown product".to_string());
+        let classification = recall
+            .classification
+            .unwrap_or_else(|| "Unknown".to_string());
 
         // Create text for embedding
-        let text = format!("Product: {} Reason: {} Classification: {}", product, reason, classification);
+        let text = format!(
+            "Product: {} Reason: {} Classification: {}",
+            product, reason, classification
+        );
         let embedding = self.embedder.embed_text(&text);
 
         // Parse report date

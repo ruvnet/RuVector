@@ -516,10 +516,8 @@ mod tests {
         config.hyperparameters.num_layers = 1;
         config.hyperparameters.hidden_dim = 4;
 
-        let model = crate::infrastructure::gnn_model::GnnModel::new(
-            GnnModelType::Gcn,
-            4, 2, 1, 4, 1, 0.0,
-        );
+        let model =
+            crate::infrastructure::gnn_model::GnnModel::new(GnnModelType::Gcn, 4, 2, 1, 4, 1, 0.0);
 
         let params = model.get_parameters();
         let fisher = FisherInformation::from_gradients(&[vec![0.1; params.len()]]);
@@ -534,10 +532,8 @@ mod tests {
 
     #[test]
     fn test_ewc_gradient() {
-        let model = crate::infrastructure::gnn_model::GnnModel::new(
-            GnnModelType::Gcn,
-            4, 2, 1, 4, 1, 0.0,
-        );
+        let model =
+            crate::infrastructure::gnn_model::GnnModel::new(GnnModelType::Gcn, 4, 2, 1, 4, 1, 0.0);
 
         // Create state with slightly different params
         let mut optimal_params = model.get_parameters();
@@ -561,10 +557,8 @@ mod tests {
 
     #[test]
     fn test_online_ewc() {
-        let model = crate::infrastructure::gnn_model::GnnModel::new(
-            GnnModelType::Gcn,
-            4, 2, 1, 4, 1, 0.0,
-        );
+        let model =
+            crate::infrastructure::gnn_model::GnnModel::new(GnnModelType::Gcn, 4, 2, 1, 4, 1, 0.0);
 
         let mut online = OnlineEwc::new(1000.0, 0.9);
 
@@ -581,10 +575,8 @@ mod tests {
 
     #[test]
     fn test_progress_and_compress() {
-        let model = crate::infrastructure::gnn_model::GnnModel::new(
-            GnnModelType::Gcn,
-            4, 2, 1, 4, 1, 0.0,
-        );
+        let model =
+            crate::infrastructure::gnn_model::GnnModel::new(GnnModelType::Gcn, 4, 2, 1, 4, 1, 0.0);
 
         let mut pc = ProgressAndCompress::new(1000.0);
 

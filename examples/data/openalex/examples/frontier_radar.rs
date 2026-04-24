@@ -5,9 +5,8 @@
 
 use chrono::{Duration, Utc};
 use ruvector_data_openalex::{
-    OpenAlexClient, OpenAlexConfig, EntityType,
-    TopicGraph, TopicNode, TopicEdge,
-    frontier::{FrontierRadar, FrontierConfig},
+    frontier::{FrontierConfig, FrontierRadar},
+    EntityType, OpenAlexClient, OpenAlexConfig, TopicEdge, TopicGraph, TopicNode,
 };
 use std::collections::HashMap;
 
@@ -29,25 +28,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Research areas to scan for emerging frontiers
     let research_domains = [
-        ("Quantum Machine Learning", "quantum computing AND machine learning"),
-        ("Foundation Models", "large language model OR foundation model"),
+        (
+            "Quantum Machine Learning",
+            "quantum computing AND machine learning",
+        ),
+        (
+            "Foundation Models",
+            "large language model OR foundation model",
+        ),
         ("Embodied AI", "embodied AI OR robotics learning"),
-        ("Mechanistic Interpretability", "interpretability AND neural network"),
+        (
+            "Mechanistic Interpretability",
+            "interpretability AND neural network",
+        ),
         ("AI Safety", "AI safety OR alignment"),
         ("Synthetic Biology AI", "synthetic biology AND AI"),
         ("Climate AI", "climate AND machine learning"),
         ("Materials Discovery", "materials discovery AND AI"),
     ];
 
-    println!("🔍 Scanning {} research domains for emerging frontiers...\n", research_domains.len());
+    println!(
+        "🔍 Scanning {} research domains for emerging frontiers...\n",
+        research_domains.len()
+    );
 
     // Configure frontier detection
     let frontier_config = FrontierConfig {
-        min_growth_rate: 0.15,           // 15% citation growth threshold
-        coherence_sensitivity: 0.7,       // High sensitivity to structure changes
-        time_window_months: 6,            // Look at last 6 months
-        min_boundary_topics: 3,           // Minimum topics at frontier
-        min_papers: 10,                   // Minimum papers to consider
+        min_growth_rate: 0.15,      // 15% citation growth threshold
+        coherence_sensitivity: 0.7, // High sensitivity to structure changes
+        time_window_months: 6,      // Look at last 6 months
+        min_boundary_topics: 3,     // Minimum topics at frontier
+        min_papers: 10,             // Minimum papers to consider
     };
 
     let mut radar = FrontierRadar::new(frontier_config);
@@ -93,18 +104,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 });
                             } else {
                                 // Update counts
-                                if let Some(node) = topic_graph.nodes.iter_mut().find(|n| n.id == topic_id) {
+                                if let Some(node) =
+                                    topic_graph.nodes.iter_mut().find(|n| n.id == topic_id)
+                                {
                                     node.paper_count += 1;
-                                    node.citation_count += work.cited_by_count.unwrap_or(0) as usize;
+                                    node.citation_count +=
+                                        work.cited_by_count.unwrap_or(0) as usize;
                                 }
                             }
 
-                            topic_papers.entry(topic_id.clone()).or_default().push(work.id.clone());
-                            *topic_citations.entry(topic_id.clone()).or_insert(0) += work.cited_by_count.unwrap_or(0) as usize;
+                            topic_papers
+                                .entry(topic_id.clone())
+                                .or_default()
+                                .push(work.id.clone());
+                            *topic_citations.entry(topic_id.clone()).or_insert(0) +=
+                                work.cited_by_count.unwrap_or(0) as usize;
                         }
 
                         // Build edges between co-occurring topics
-                        let topic_ids: Vec<String> = concepts.iter()
+                        let topic_ids: Vec<String> = concepts
+                            .iter()
                             .filter(|c| c.score > 0.3)
                             .map(|c| c.id.clone())
                             .collect();
@@ -115,9 +134,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 let target = &topic_ids[j];
 
                                 // Check if edge exists
-                                if let Some(edge) = topic_graph.edges.iter_mut()
-                                    .find(|e| (e.source == *source && e.target == *target) ||
-                                              (e.source == *target && e.target == *source)) {
+                                if let Some(edge) = topic_graph.edges.iter_mut().find(|e| {
+                                    (e.source == *source && e.target == *target)
+                                        || (e.source == *target && e.target == *source)
+                                }) {
                                     edge.weight += 1.0;
                                 } else {
                                     topic_graph.edges.push(TopicEdge {
@@ -132,8 +152,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
 
-                println!("   Built topic graph: {} nodes, {} edges",
-                    topic_graph.nodes.len(), topic_graph.edges.len());
+                println!(
+                    "   Built topic graph: {} nodes, {} edges",
+                    topic_graph.nodes.len(),
+                    topic_graph.edges.len()
+                );
 
                 // Add snapshot to radar
                 radar.add_snapshot(Utc::now(), topic_graph.clone());
@@ -187,7 +210,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("║                    Discovery Summary                          ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
-    println!("Total potential frontiers identified: {}", all_discoveries.len());
+    println!(
+        "Total potential frontiers identified: {}",
+        all_discoveries.len()
+    );
     println!();
 
     // Rank discoveries by potential
@@ -260,16 +286,26 @@ fn find_weak_bridges(graph: &TopicGraph) -> Vec<(String, String, f64)> {
     }
 
     for edge in &graph.edges {
-        let source_degree = topic_degrees.get(edge.source.as_str()).copied().unwrap_or(0);
-        let target_degree = topic_degrees.get(edge.target.as_str()).copied().unwrap_or(0);
+        let source_degree = topic_degrees
+            .get(edge.source.as_str())
+            .copied()
+            .unwrap_or(0);
+        let target_degree = topic_degrees
+            .get(edge.target.as_str())
+            .copied()
+            .unwrap_or(0);
 
         // High-degree nodes connected by weak edge = potential bridge
         if source_degree > 3 && target_degree > 3 && edge.weight < 3.0 {
-            let source_name = graph.nodes.iter()
+            let source_name = graph
+                .nodes
+                .iter()
                 .find(|n| n.id == edge.source)
                 .map(|n| n.name.clone())
                 .unwrap_or_else(|| edge.source.clone());
-            let target_name = graph.nodes.iter()
+            let target_name = graph
+                .nodes
+                .iter()
                 .find(|n| n.id == edge.target)
                 .map(|n| n.name.clone())
                 .unwrap_or_else(|| edge.target.clone());
@@ -291,7 +327,8 @@ fn analyze_bridge_papers(works: &[ruvector_data_openalex::Work]) -> Vec<String> 
     for work in works {
         if let Some(concepts) = &work.concepts {
             // Get high-level concepts (level 0-1)
-            let high_level: Vec<String> = concepts.iter()
+            let high_level: Vec<String> = concepts
+                .iter()
                 .filter(|c| c.level <= 1 && c.score > 0.4)
                 .map(|c| c.display_name.clone())
                 .collect();
@@ -305,15 +342,15 @@ fn analyze_bridge_papers(works: &[ruvector_data_openalex::Work]) -> Vec<String> 
 
     // Report unusual combinations with high citations
     for (combo, papers) in &concept_combos {
-        let total_citations: i32 = papers.iter()
-            .filter_map(|w| w.cited_by_count)
-            .sum();
+        let total_citations: i32 = papers.iter().filter_map(|w| w.cited_by_count).sum();
         let avg_citations = total_citations as f64 / papers.len() as f64;
 
         if papers.len() >= 3 && avg_citations > 10.0 {
             discoveries.push(format!(
                 "🔗 Bridge area: {} ({} papers, {:.0} avg citations) - cross-domain synthesis",
-                combo, papers.len(), avg_citations
+                combo,
+                papers.len(),
+                avg_citations
             ));
         }
     }

@@ -13,12 +13,12 @@
 //!
 //! Run: cargo run --example legal_discovery
 
+use rvf_crypto::{create_witness_chain, shake256_256, verify_witness_chain, WitnessEntry};
+use rvf_runtime::filter::FilterValue;
+use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{
     FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult,
 };
-use rvf_runtime::filter::FilterValue;
-use rvf_runtime::options::DistanceMetric;
-use rvf_crypto::{create_witness_chain, verify_witness_chain, shake256_256, WitnessEntry};
 use tempfile::TempDir;
 
 /// Simple LCG-based pseudo-random vector generator for deterministic results.
@@ -26,7 +26,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -99,11 +101,16 @@ fn main() {
     let ingest = store
         .ingest_batch(&vec_refs, &ids, Some(&metadata))
         .expect("ingest failed");
-    println!("  Ingested {} document embeddings (rejected: {})", ingest.accepted, ingest.rejected);
+    println!(
+        "  Ingested {} document embeddings (rejected: {})",
+        ingest.accepted, ingest.rejected
+    );
 
     // Print distribution
     for dt in &doc_types {
-        let count = (0..num_docs).filter(|i| doc_types[i % doc_types.len()] == *dt).count();
+        let count = (0..num_docs)
+            .filter(|i| doc_types[i % doc_types.len()] == *dt)
+            .count();
         println!("    {}: {} documents", dt, count);
     }
 
@@ -235,7 +242,11 @@ fn main() {
 
     let chain_bytes = create_witness_chain(&entries);
     let verified = verify_witness_chain(&chain_bytes).expect("chain verification failed");
-    println!("  Audit chain: {} entries, {} bytes, VALID", verified.len(), chain_bytes.len());
+    println!(
+        "  Audit chain: {} entries, {} bytes, VALID",
+        verified.len(),
+        chain_bytes.len()
+    );
 
     println!("\n  Discovery workflow:");
     for (i, (step, _)) in audit_steps.iter().enumerate() {
@@ -256,8 +267,14 @@ fn main() {
     println!("  Documents indexed:     {}", num_docs);
     println!("  Embedding dims:        {}", dim);
     println!("  Unfiltered:            {} results", results.len());
-    println!("  Contracts (post-2020): {} results", results_contracts.len());
-    println!("  High relevance:        {} results", results_relevance.len());
+    println!(
+        "  Contracts (post-2020): {} results",
+        results_contracts.len()
+    );
+    println!(
+        "  High relevance:        {} results",
+        results_relevance.len()
+    );
     println!("  Delaware:              {} results", results_de.len());
     println!("  Audit trail:           {} entries", audit_steps.len());
 
@@ -265,11 +282,7 @@ fn main() {
     println!("\nDone.");
 }
 
-fn print_legal_results(
-    results: &[SearchResult],
-    doc_types: &[&str],
-    jurisdictions: &[&str],
-) {
+fn print_legal_results(results: &[SearchResult], doc_types: &[&str], jurisdictions: &[&str]) {
     println!(
         "    {:>6}  {:>12}  {:>12}  {:>6}  {:>6}  {:>6}",
         "ID", "Distance", "DocType", "Juris", "Year", "Rel"

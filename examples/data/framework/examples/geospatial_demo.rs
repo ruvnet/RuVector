@@ -9,8 +9,7 @@
 //! Run with: cargo run --example geospatial_demo
 
 use ruvector_data_framework::{
-    GeonamesClient, NominatimClient, OpenElevationClient, OverpassClient,
-    GeoUtils, Result,
+    GeoUtils, GeonamesClient, NominatimClient, OpenElevationClient, OverpassClient, Result,
 };
 
 #[tokio::main]
@@ -75,9 +74,27 @@ async fn demo_nominatim() -> Result<()> {
         Ok(results) => {
             if let Some(result) = results.first() {
                 println!("   ✓ Found: {}", result.id);
-                println!("     - Lat: {}", result.metadata.get("latitude").unwrap_or(&"N/A".to_string()));
-                println!("     - Lon: {}", result.metadata.get("longitude").unwrap_or(&"N/A".to_string()));
-                println!("     - Display: {}", result.metadata.get("display_name").unwrap_or(&"N/A".to_string()));
+                println!(
+                    "     - Lat: {}",
+                    result
+                        .metadata
+                        .get("latitude")
+                        .unwrap_or(&"N/A".to_string())
+                );
+                println!(
+                    "     - Lon: {}",
+                    result
+                        .metadata
+                        .get("longitude")
+                        .unwrap_or(&"N/A".to_string())
+                );
+                println!(
+                    "     - Display: {}",
+                    result
+                        .metadata
+                        .get("display_name")
+                        .unwrap_or(&"N/A".to_string())
+                );
             }
         }
         Err(e) => println!("   ✗ Error: {}", e),
@@ -88,7 +105,13 @@ async fn demo_nominatim() -> Result<()> {
     match client.reverse_geocode(40.7128, -74.0060).await {
         Ok(results) => {
             if let Some(result) = results.first() {
-                println!("   ✓ Found: {}", result.metadata.get("display_name").unwrap_or(&"N/A".to_string()));
+                println!(
+                    "   ✓ Found: {}",
+                    result
+                        .metadata
+                        .get("display_name")
+                        .unwrap_or(&"N/A".to_string())
+                );
             }
         }
         Err(e) => println!("   ✗ Error: {}", e),
@@ -100,7 +123,14 @@ async fn demo_nominatim() -> Result<()> {
         Ok(results) => {
             println!("   ✓ Found {} results", results.len());
             for (i, result) in results.iter().take(3).enumerate() {
-                println!("     {}. {}", i + 1, result.metadata.get("display_name").unwrap_or(&"N/A".to_string()));
+                println!(
+                    "     {}. {}",
+                    i + 1,
+                    result
+                        .metadata
+                        .get("display_name")
+                        .unwrap_or(&"N/A".to_string())
+                );
             }
         }
         Err(e) => println!("   ✗ Error: {}", e),
@@ -118,7 +148,14 @@ async fn demo_overpass() -> Result<()> {
         Ok(results) => {
             println!("   ✓ Found {} cafes", results.len());
             for (i, result) in results.iter().take(5).enumerate() {
-                println!("     {}. {}", i + 1, result.metadata.get("name").unwrap_or(&"Unnamed".to_string()));
+                println!(
+                    "     {}. {}",
+                    i + 1,
+                    result
+                        .metadata
+                        .get("name")
+                        .unwrap_or(&"Unnamed".to_string())
+                );
             }
         }
         Err(e) => println!("   ✗ Error: {}", e),
@@ -145,11 +182,18 @@ async fn demo_geonames(username: &str) -> Result<()> {
         Ok(results) => {
             println!("   ✓ Found {} results", results.len());
             for (i, result) in results.iter().enumerate() {
-                println!("     {}. {} ({}, population: {})",
+                println!(
+                    "     {}. {} ({}, population: {})",
                     i + 1,
                     result.metadata.get("name").unwrap_or(&"N/A".to_string()),
-                    result.metadata.get("country_name").unwrap_or(&"N/A".to_string()),
-                    result.metadata.get("population").unwrap_or(&"0".to_string())
+                    result
+                        .metadata
+                        .get("country_name")
+                        .unwrap_or(&"N/A".to_string()),
+                    result
+                        .metadata
+                        .get("population")
+                        .unwrap_or(&"0".to_string())
                 );
             }
         }
@@ -170,7 +214,13 @@ async fn demo_geonames(username: &str) -> Result<()> {
     match client.get_timezone(40.7128, -74.0060).await {
         Ok(results) => {
             if let Some(result) = results.first() {
-                println!("   ✓ Timezone: {}", result.metadata.get("timezone_id").unwrap_or(&"N/A".to_string()));
+                println!(
+                    "   ✓ Timezone: {}",
+                    result
+                        .metadata
+                        .get("timezone_id")
+                        .unwrap_or(&"N/A".to_string())
+                );
             }
         }
         Err(e) => println!("   ✗ Error: {}", e),
@@ -181,10 +231,31 @@ async fn demo_geonames(username: &str) -> Result<()> {
     match client.get_country_info("US").await {
         Ok(results) => {
             if let Some(result) = results.first() {
-                println!("   ✓ Country: {}", result.metadata.get("country_name").unwrap_or(&"N/A".to_string()));
-                println!("     - Capital: {}", result.metadata.get("capital").unwrap_or(&"N/A".to_string()));
-                println!("     - Population: {}", result.metadata.get("population").unwrap_or(&"0".to_string()));
-                println!("     - Area: {} sq km", result.metadata.get("area_sq_km").unwrap_or(&"0".to_string()));
+                println!(
+                    "   ✓ Country: {}",
+                    result
+                        .metadata
+                        .get("country_name")
+                        .unwrap_or(&"N/A".to_string())
+                );
+                println!(
+                    "     - Capital: {}",
+                    result.metadata.get("capital").unwrap_or(&"N/A".to_string())
+                );
+                println!(
+                    "     - Population: {}",
+                    result
+                        .metadata
+                        .get("population")
+                        .unwrap_or(&"0".to_string())
+                );
+                println!(
+                    "     - Area: {} sq km",
+                    result
+                        .metadata
+                        .get("area_sq_km")
+                        .unwrap_or(&"0".to_string())
+                );
             }
         }
         Err(e) => println!("   ✗ Error: {}", e),
@@ -201,7 +272,13 @@ async fn demo_open_elevation() -> Result<()> {
     match client.get_elevation(27.9881, 86.9250).await {
         Ok(results) => {
             if let Some(result) = results.first() {
-                println!("   ✓ Elevation: {} meters", result.metadata.get("elevation_m").unwrap_or(&"N/A".to_string()));
+                println!(
+                    "   ✓ Elevation: {} meters",
+                    result
+                        .metadata
+                        .get("elevation_m")
+                        .unwrap_or(&"N/A".to_string())
+                );
             }
         }
         Err(e) => println!("   ✗ Error: {}", e),
@@ -222,9 +299,13 @@ async fn demo_open_elevation() -> Result<()> {
             println!("   ✓ Found {} elevations", results.len());
             for (i, result) in results.iter().enumerate() {
                 if i < cities.len() {
-                    println!("     - {}: {} meters",
+                    println!(
+                        "     - {}: {} meters",
                         cities[i],
-                        result.metadata.get("elevation_m").unwrap_or(&"N/A".to_string())
+                        result
+                            .metadata
+                            .get("elevation_m")
+                            .unwrap_or(&"N/A".to_string())
                     );
                 }
             }
@@ -267,6 +348,11 @@ fn demo_geo_utils() {
 
         let within = GeoUtils::within_radius(paris_lat, paris_lon, *lat, *lon, 2000.0);
         let distance = GeoUtils::distance_km(paris_lat, paris_lon, *lat, *lon);
-        println!("     {} ({:.2} km): {}", name, distance, if within { "✓" } else { "✗" });
+        println!(
+            "     {} ({:.2} km): {}",
+            name,
+            distance,
+            if within { "✓" } else { "✗" }
+        );
     }
 }

@@ -48,8 +48,11 @@ impl WasmTokenizer {
             .map_err(|e| WasmEmbeddingError::tokenizer(e.to_string()))?;
 
         let mut input_ids: Vec<i64> = encoding.get_ids().iter().map(|&id| id as i64).collect();
-        let mut attention_mask: Vec<i64> =
-            encoding.get_attention_mask().iter().map(|&m| m as i64).collect();
+        let mut attention_mask: Vec<i64> = encoding
+            .get_attention_mask()
+            .iter()
+            .map(|&m| m as i64)
+            .collect();
         let mut token_type_ids: Vec<i64> =
             encoding.get_type_ids().iter().map(|&t| t as i64).collect();
 

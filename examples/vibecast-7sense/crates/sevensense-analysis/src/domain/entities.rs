@@ -312,11 +312,7 @@ pub struct Prototype {
 impl Prototype {
     /// Create a new prototype.
     #[must_use]
-    pub fn new(
-        id: EmbeddingId,
-        cluster_id: ClusterId,
-        exemplar_score: f32,
-    ) -> Self {
+    pub fn new(id: EmbeddingId, cluster_id: ClusterId, exemplar_score: f32) -> Self {
         Self {
             id,
             cluster_id,
@@ -659,16 +655,8 @@ mod tests {
         let c1 = ClusterId::new();
         let c2 = ClusterId::new();
 
-        let mut analysis = SequenceAnalysis::new(
-            RecordingId::new(),
-            vec![],
-            1.5,
-            0.3,
-        );
-        analysis.set_sequence(
-            vec![c1, c2, c1, c2, c1],
-            vec![SegmentId::new(); 5],
-        );
+        let mut analysis = SequenceAnalysis::new(RecordingId::new(), vec![], 1.5, 0.3);
+        analysis.set_sequence(vec![c1, c2, c1, c2, c1], vec![SegmentId::new(); 5]);
 
         let unique = analysis.unique_clusters();
         assert_eq!(unique.len(), 2);
@@ -676,12 +664,7 @@ mod tests {
 
     #[test]
     fn test_anomaly_severity() {
-        let mut anomaly = Anomaly::new(
-            EmbeddingId::new(),
-            0.8,
-            ClusterId::new(),
-            2.5,
-        );
+        let mut anomaly = Anomaly::new(EmbeddingId::new(), 0.8, ClusterId::new(), 2.5);
 
         assert!(anomaly.is_severe(0.5));
         assert!(!anomaly.is_severe(0.9));

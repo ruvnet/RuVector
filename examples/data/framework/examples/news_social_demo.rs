@@ -18,9 +18,7 @@
 //! NEWSDATA_API_KEY=your_key cargo run --example news_social_demo
 //! ```
 
-use ruvector_data_framework::{
-    GuardianClient, HackerNewsClient, NewsDataClient, RedditClient,
-};
+use ruvector_data_framework::{GuardianClient, HackerNewsClient, NewsDataClient, RedditClient};
 use std::env;
 
 #[tokio::main]
@@ -44,9 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         data.get("title")
                             .and_then(|v| v.as_str())
                             .unwrap_or("No title"),
-                        data.get("score")
-                            .and_then(|v| v.as_i64())
-                            .unwrap_or(0)
+                        data.get("score").and_then(|v| v.as_i64()).unwrap_or(0)
                     );
                 }
             }
@@ -113,7 +109,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 4. Reddit - No auth required for .json endpoints
     println!("4. Fetching posts from Reddit r/programming...");
     let reddit_client = RedditClient::new()?;
-    match reddit_client.get_subreddit_posts("programming", "hot", 5).await {
+    match reddit_client
+        .get_subreddit_posts("programming", "hot", 5)
+        .await
+    {
         Ok(posts) => {
             println!("   ✓ Fetched {} posts", posts.len());
             for (i, post) in posts.iter().enumerate() {
@@ -124,9 +123,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         data.get("title")
                             .and_then(|v| v.as_str())
                             .unwrap_or("No title"),
-                        data.get("score")
-                            .and_then(|v| v.as_i64())
-                            .unwrap_or(0)
+                        data.get("score").and_then(|v| v.as_i64()).unwrap_or(0)
                     );
                 }
             }

@@ -11,9 +11,7 @@
 //! - Composition chain (100 morphisms): < 1ms
 //! - Topos pullback: < 500us
 
-use criterion::{
-    black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
-};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use std::collections::HashMap;
 
 // ============================================================================
@@ -104,7 +102,12 @@ impl Category {
         id
     }
 
-    fn add_morphism(&mut self, source: ObjectId, target: ObjectId, matrix: Vec<Vec<f64>>) -> MorphismId {
+    fn add_morphism(
+        &mut self,
+        source: ObjectId,
+        target: ObjectId,
+        matrix: Vec<Vec<f64>>,
+    ) -> MorphismId {
         let id = MorphismId(self.next_id);
         self.next_id += 1;
 
@@ -303,7 +306,11 @@ impl Topos {
     }
 
     /// Compute pullback of f: A -> C and g: B -> C
-    fn pullback(&mut self, f: MorphismId, g: MorphismId) -> Option<(ObjectId, MorphismId, MorphismId)> {
+    fn pullback(
+        &mut self,
+        f: MorphismId,
+        g: MorphismId,
+    ) -> Option<(ObjectId, MorphismId, MorphismId)> {
         let mor_f = self.base_category.morphisms.get(&f)?;
         let mor_g = self.base_category.morphisms.get(&g)?;
 
@@ -338,8 +345,12 @@ impl Topos {
             })
             .collect();
 
-        let p1 = self.base_category.add_morphism(pullback_obj, mor_f.source, p1_matrix);
-        let p2 = self.base_category.add_morphism(pullback_obj, mor_g.source, p2_matrix);
+        let p1 = self
+            .base_category
+            .add_morphism(pullback_obj, mor_f.source, p1_matrix);
+        let p2 = self
+            .base_category
+            .add_morphism(pullback_obj, mor_g.source, p2_matrix);
 
         Some((pullback_obj, p1, p2))
     }
@@ -357,7 +368,11 @@ impl Topos {
     }
 
     /// Compute pushout of f: C -> A and g: C -> B
-    fn pushout(&mut self, f: MorphismId, g: MorphismId) -> Option<(ObjectId, MorphismId, MorphismId)> {
+    fn pushout(
+        &mut self,
+        f: MorphismId,
+        g: MorphismId,
+    ) -> Option<(ObjectId, MorphismId, MorphismId)> {
         let mor_f = self.base_category.morphisms.get(&f)?;
         let mor_g = self.base_category.morphisms.get(&g)?;
 
@@ -398,8 +413,12 @@ impl Topos {
             })
             .collect();
 
-        let i1 = self.base_category.add_morphism(mor_f.target, pushout_obj, i1_matrix);
-        let i2 = self.base_category.add_morphism(mor_g.target, pushout_obj, i2_matrix);
+        let i1 = self
+            .base_category
+            .add_morphism(mor_f.target, pushout_obj, i1_matrix);
+        let i2 = self
+            .base_category
+            .add_morphism(mor_g.target, pushout_obj, i2_matrix);
 
         Some((pushout_obj, i1, i2))
     }
@@ -559,25 +578,19 @@ fn bench_functor_application(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("embedding_object", dim),
             &(&embedding, &obj),
-            |b, (functor, obj)| {
-                b.iter(|| black_box(functor.apply_object(black_box(obj))))
-            },
+            |b, (functor, obj)| b.iter(|| black_box(functor.apply_object(black_box(obj)))),
         );
 
         group.bench_with_input(
             BenchmarkId::new("embedding_morphism", dim),
             &(&embedding, &mor),
-            |b, (functor, mor)| {
-                b.iter(|| black_box(functor.apply_morphism(black_box(mor))))
-            },
+            |b, (functor, mor)| b.iter(|| black_box(functor.apply_morphism(black_box(mor)))),
         );
 
         group.bench_with_input(
             BenchmarkId::new("projection_object", dim),
             &(&projection, &obj),
-            |b, (functor, obj)| {
-                b.iter(|| black_box(functor.apply_object(black_box(obj))))
-            },
+            |b, (functor, obj)| b.iter(|| black_box(functor.apply_object(black_box(obj)))),
         );
     }
 
@@ -642,74 +655,62 @@ fn bench_topos_operations(c: &mut Criterion) {
         group.throughput(Throughput::Elements(dim as u64));
 
         // Setup for pullback
-        group.bench_with_input(
-            BenchmarkId::new("pullback", dim),
-            &dim,
-            |b, &dim| {
-                b.iter_batched(
-                    || {
-                        let mut topos = Topos::new();
-                        let a = topos.base_category.add_object(dim);
-                        let b = topos.base_category.add_object(dim);
-                        let c = topos.base_category.add_object(dim);
+        group.bench_with_input(BenchmarkId::new("pullback", dim), &dim, |b, &dim| {
+            b.iter_batched(
+                || {
+                    let mut topos = Topos::new();
+                    let a = topos.base_category.add_object(dim);
+                    let b = topos.base_category.add_object(dim);
+                    let c = topos.base_category.add_object(dim);
 
-                        let mat_f = generate_random_matrix(dim, dim, 42);
-                        let mat_g = generate_random_matrix(dim, dim, 43);
+                    let mat_f = generate_random_matrix(dim, dim, 42);
+                    let mat_g = generate_random_matrix(dim, dim, 43);
 
-                        let f = topos.base_category.add_morphism(a, c, mat_f);
-                        let g = topos.base_category.add_morphism(b, c, mat_g);
+                    let f = topos.base_category.add_morphism(a, c, mat_f);
+                    let g = topos.base_category.add_morphism(b, c, mat_g);
 
-                        (topos, f, g)
-                    },
-                    |(mut topos, f, g)| black_box(topos.pullback(f, g)),
-                    criterion::BatchSize::SmallInput,
-                )
-            },
-        );
+                    (topos, f, g)
+                },
+                |(mut topos, f, g)| black_box(topos.pullback(f, g)),
+                criterion::BatchSize::SmallInput,
+            )
+        });
 
         // Pushout
-        group.bench_with_input(
-            BenchmarkId::new("pushout", dim),
-            &dim,
-            |b, &dim| {
-                b.iter_batched(
-                    || {
-                        let mut topos = Topos::new();
-                        let c = topos.base_category.add_object(dim);
-                        let a = topos.base_category.add_object(dim);
-                        let b = topos.base_category.add_object(dim);
+        group.bench_with_input(BenchmarkId::new("pushout", dim), &dim, |b, &dim| {
+            b.iter_batched(
+                || {
+                    let mut topos = Topos::new();
+                    let c = topos.base_category.add_object(dim);
+                    let a = topos.base_category.add_object(dim);
+                    let b = topos.base_category.add_object(dim);
 
-                        let mat_f = generate_random_matrix(dim, dim, 44);
-                        let mat_g = generate_random_matrix(dim, dim, 45);
+                    let mat_f = generate_random_matrix(dim, dim, 44);
+                    let mat_g = generate_random_matrix(dim, dim, 45);
 
-                        let f = topos.base_category.add_morphism(c, a, mat_f);
-                        let g = topos.base_category.add_morphism(c, b, mat_g);
+                    let f = topos.base_category.add_morphism(c, a, mat_f);
+                    let g = topos.base_category.add_morphism(c, b, mat_g);
 
-                        (topos, f, g)
-                    },
-                    |(mut topos, f, g)| black_box(topos.pushout(f, g)),
-                    criterion::BatchSize::SmallInput,
-                )
-            },
-        );
+                    (topos, f, g)
+                },
+                |(mut topos, f, g)| black_box(topos.pushout(f, g)),
+                criterion::BatchSize::SmallInput,
+            )
+        });
 
         // Exponential
-        group.bench_with_input(
-            BenchmarkId::new("exponential", dim),
-            &dim,
-            |b, &dim| {
-                b.iter_batched(
-                    || {
-                        let mut topos = Topos::new();
-                        let a = topos.base_category.add_object(dim);
-                        let b = topos.base_category.add_object(dim);
-                        (topos, a, b)
-                    },
-                    |(mut topos, a, b)| black_box(topos.exponential(a, b)),
-                    criterion::BatchSize::SmallInput,
-                )
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("exponential", dim), &dim, |b, &dim| {
+            b.iter_batched(
+                || {
+                    let mut topos = Topos::new();
+                    let a = topos.base_category.add_object(dim);
+                    let b = topos.base_category.add_object(dim);
+                    (topos, a, b)
+                },
+                |(mut topos, a, b)| black_box(topos.exponential(a, b)),
+                criterion::BatchSize::SmallInput,
+            )
+        });
     }
 
     group.finish();
@@ -781,18 +782,12 @@ fn bench_matrix_operations(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("multiply", dim),
             &(&a, &b),
-            |b, (a, b_mat)| {
-                b.iter(|| black_box(matrix_multiply(black_box(a), black_box(b_mat))))
-            },
+            |b, (a, b_mat)| b.iter(|| black_box(matrix_multiply(black_box(a), black_box(b_mat)))),
         );
 
-        group.bench_with_input(
-            BenchmarkId::new("matvec", dim),
-            &(&a, &v),
-            |b, (a, v)| {
-                b.iter(|| black_box(matvec(black_box(a), black_box(v))))
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("matvec", dim), &(&a, &v), |b, (a, v)| {
+            b.iter(|| black_box(matvec(black_box(a), black_box(v))))
+        });
     }
 
     group.finish();

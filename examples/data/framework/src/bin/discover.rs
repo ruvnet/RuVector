@@ -25,8 +25,8 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use chrono::{Duration as ChronoDuration, Utc};
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use serde::Serialize;
 use serde_json;
 
@@ -389,11 +389,7 @@ fn cmd_discover(
     let start_time = Instant::now();
 
     if verbose {
-        println!(
-            "{}Configuration:{}",
-            color::BOLD,
-            color::RESET
-        );
+        println!("{}Configuration:{}", color::BOLD, color::RESET);
         println!("  Data source: {:?}", data_source);
         println!("  Threshold: {}", threshold);
         if let Some(d) = domain_filter {
@@ -490,7 +486,13 @@ fn cmd_benchmark(
     let mut times = Vec::with_capacity(iterations);
 
     for i in 0..iterations {
-        print!("{}Iteration {}/{}...{} ", color::CYAN, i + 1, iterations, color::RESET);
+        print!(
+            "{}Iteration {}/{}...{} ",
+            color::CYAN,
+            i + 1,
+            iterations,
+            color::RESET
+        );
         io::stdout().flush()?;
 
         let start = Instant::now();
@@ -527,7 +529,7 @@ fn cmd_benchmark(
     }
 
     println!();
-    println!("{}Results:{}",  color::BOLD, color::RESET);
+    println!("{}Results:{}", color::BOLD, color::RESET);
 
     let mean = times.iter().sum::<f64>() / times.len() as f64;
     let variance = times.iter().map(|t| (t - mean).powi(2)).sum::<f64>() / times.len() as f64;
@@ -621,7 +623,7 @@ fn cmd_analyze(
         }
     } else {
         // Cross-domain analysis
-        println!("{}Cross-Domain Analysis:{}",  color::BOLD, color::RESET);
+        println!("{}Cross-Domain Analysis:{}", color::BOLD, color::RESET);
         println!("  Total edges: {}", stats.total_edges);
         println!("  Cross-domain edges: {}", stats.cross_domain_edges);
         let coupling = stats.cross_domain_edges as f64 / stats.total_edges.max(1) as f64;
@@ -634,7 +636,7 @@ fn cmd_analyze(
             *by_type.entry(p.pattern.pattern_type).or_insert(0) += 1;
         }
 
-        println!("{}Patterns by Type:{}",  color::BOLD, color::RESET);
+        println!("{}Patterns by Type:{}", color::BOLD, color::RESET);
         for (pt, count) in by_type {
             println!("  {:?}: {}", pt, count);
         }
@@ -721,21 +723,18 @@ fn print_human_results(
     verbose: bool,
 ) {
     println!();
-    println!("{}Discovery Results{}",  color::BOLD, color::RESET);
+    println!("{}Discovery Results{}", color::BOLD, color::RESET);
     println!("{}", "─".repeat(70));
     println!();
 
-    println!("{}Statistics:{}",  color::BOLD, color::RESET);
+    println!("{}Statistics:{}", color::BOLD, color::RESET);
     println!("  Total nodes: {}", stats.total_nodes);
     println!("  Total edges: {}", stats.total_edges);
     println!("  Cross-domain edges: {}", stats.cross_domain_edges);
     println!("  Processing time: {:.2}ms", elapsed.as_millis());
     println!();
 
-    let significant: Vec<_> = patterns
-        .iter()
-        .filter(|p| p.p_value < 0.05)
-        .collect();
+    let significant: Vec<_> = patterns.iter().filter(|p| p.p_value < 0.05).collect();
 
     println!(
         "{}Patterns Found:{} {} total, {} significant (p < 0.05)",
@@ -754,7 +753,13 @@ fn print_human_results(
         }
 
         for (pattern_type, group) in by_type {
-            println!("{}  {:?}:{} {}", color::YELLOW, pattern_type, color::RESET, group.len());
+            println!(
+                "{}  {:?}:{} {}",
+                color::YELLOW,
+                pattern_type,
+                color::RESET,
+                group.len()
+            );
             for (i, p) in group.iter().take(5).enumerate() {
                 println!(
                     "    {}. {} (conf: {:.2}, p: {:.4})",
@@ -782,7 +787,11 @@ fn print_human_results(
             };
             println!(
                 "  {}{:2}. {:?}: {} (p={:.4})",
-                marker, i + 1, p.pattern.pattern_type, p.pattern.description, p.p_value
+                marker,
+                i + 1,
+                p.pattern.pattern_type,
+                p.pattern.description,
+                p.p_value
             );
         }
 
@@ -792,7 +801,11 @@ fn print_human_results(
     }
 
     println!();
-    println!("{}* = statistically significant (p < 0.05){}", color::GREEN, color::RESET);
+    println!(
+        "{}* = statistically significant (p < 0.05){}",
+        color::GREEN,
+        color::RESET
+    );
 }
 
 fn build_result(

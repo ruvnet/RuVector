@@ -381,7 +381,10 @@ mod tests {
         let vector = vec![1.0; 100];
         let result = validate_embedding(&vector);
         assert!(!result.dimension_valid);
-        assert!(result.issues.iter().any(|i| matches!(i, ValidationIssue::InvalidDimension { .. })));
+        assert!(result
+            .issues
+            .iter()
+            .any(|i| matches!(i, ValidationIssue::InvalidDimension { .. })));
     }
 
     #[test]
@@ -455,6 +458,10 @@ mod tests {
             vector[i] = val;
         }
         let result = validate_embedding(&vector);
-        assert!(result.summary().contains("valid"), "Summary: {}", result.summary());
+        assert!(
+            result.summary().contains("valid"),
+            "Summary: {}",
+            result.summary()
+        );
     }
 }

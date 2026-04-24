@@ -26,9 +26,7 @@ fn benchmark_spectrogram(c: &mut Criterion) {
             BenchmarkId::new("compute", format!("{}s", duration)),
             &samples,
             |b, samples| {
-                b.iter(|| {
-                    MelSpectrogram::compute(black_box(samples), black_box(config.clone()))
-                });
+                b.iter(|| MelSpectrogram::compute(black_box(samples), black_box(config.clone())));
             },
         );
     }
@@ -60,9 +58,7 @@ fn benchmark_mel_bands(c: &mut Criterion) {
             BenchmarkId::new("n_mels", n_mels),
             &samples,
             |b, samples| {
-                b.iter(|| {
-                    MelSpectrogram::compute(black_box(samples), black_box(config.clone()))
-                });
+                b.iter(|| MelSpectrogram::compute(black_box(samples), black_box(config.clone())));
             },
         );
     }
@@ -70,5 +66,10 @@ fn benchmark_mel_bands(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, benchmark_spectrogram, benchmark_5s_segment, benchmark_mel_bands);
+criterion_group!(
+    benches,
+    benchmark_spectrogram,
+    benchmark_5s_segment,
+    benchmark_mel_bands
+);
 criterion_main!(benches);

@@ -245,7 +245,11 @@ impl CrossRefClient {
     /// // Search NSF-funded research
     /// let nsf_works = client.search_by_funder("10.13039/100000001", 20).await?;
     /// ```
-    pub async fn search_by_funder(&self, funder_id: &str, limit: usize) -> Result<Vec<SemanticVector>> {
+    pub async fn search_by_funder(
+        &self,
+        funder_id: &str,
+        limit: usize,
+    ) -> Result<Vec<SemanticVector>> {
         let mut url = format!(
             "{}/funders/{}/works?rows={}",
             self.base_url, funder_id, limit
@@ -268,7 +272,11 @@ impl CrossRefClient {
     /// ```rust,ignore
     /// let biology_works = client.search_by_subject("molecular biology", 30).await?;
     /// ```
-    pub async fn search_by_subject(&self, subject: &str, limit: usize) -> Result<Vec<SemanticVector>> {
+    pub async fn search_by_subject(
+        &self,
+        subject: &str,
+        limit: usize,
+    ) -> Result<Vec<SemanticVector>> {
         let encoded_subject = urlencoding::encode(subject);
         let mut url = format!(
             "{}/works?filter=has-subject:true&query.subject={}&rows={}",
@@ -317,7 +325,12 @@ impl CrossRefClient {
     /// ```rust,ignore
     /// let recent = client.search_recent("artificial intelligence", "2024-01-01", 25).await?;
     /// ```
-    pub async fn search_recent(&self, query: &str, from_date: &str, limit: usize) -> Result<Vec<SemanticVector>> {
+    pub async fn search_recent(
+        &self,
+        query: &str,
+        from_date: &str,
+        limit: usize,
+    ) -> Result<Vec<SemanticVector>> {
         let encoded_query = urlencoding::encode(query);
         let mut url = format!(
             "{}/works?query={}&filter=from-pub-date:{}&rows={}",
@@ -429,11 +442,7 @@ impl CrossRefClient {
             .join("; ");
 
         // Extract journal/container
-        let journal = work
-            .container_title
-            .first()
-            .cloned()
-            .unwrap_or_default();
+        let journal = work.container_title.first().cloned().unwrap_or_default();
 
         // Extract subjects
         let subjects = work.subject.join(", ");
@@ -527,8 +536,7 @@ impl CrossRefClient {
         loop {
             match self.client.get(url).send().await {
                 Ok(response) => {
-                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES
-                    {
+                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
                         tracing::warn!(
                             "Rate limited by CrossRef, retrying in {}ms",
@@ -538,9 +546,9 @@ impl CrossRefClient {
                         continue;
                     }
                     if !response.status().is_success() {
-                        return Err(FrameworkError::Network(
-                            reqwest::Error::from(response.error_for_status().unwrap_err()),
-                        ));
+                        return Err(FrameworkError::Network(reqwest::Error::from(
+                            response.error_for_status().unwrap_err(),
+                        )));
                     }
                     return Ok(response);
                 }
@@ -652,10 +660,7 @@ mod tests {
             name: None,
             orcid: None,
         };
-        assert_eq!(
-            CrossRefClient::format_author_name(&author1),
-            "John Doe"
-        );
+        assert_eq!(CrossRefClient::format_author_name(&author1), "John Doe");
 
         // Name field only
         let author2 = CrossRefAuthor {
@@ -664,10 +669,7 @@ mod tests {
             name: Some("Jane Smith".to_string()),
             orcid: None,
         };
-        assert_eq!(
-            CrossRefClient::format_author_name(&author2),
-            "Jane Smith"
-        );
+        assert_eq!(CrossRefClient::format_author_name(&author2), "Jane Smith");
 
         // Family name only
         let author3 = CrossRefAuthor {
@@ -676,10 +678,7 @@ mod tests {
             name: None,
             orcid: None,
         };
-        assert_eq!(
-            CrossRefClient::format_author_name(&author3),
-            "Einstein"
-        );
+        assert_eq!(CrossRefClient::format_author_name(&author3), "Einstein");
     }
 
     #[test]
@@ -711,7 +710,10 @@ mod tests {
             container_title: vec!["Nature Climate Change".to_string()],
             citation_count: Some(42),
             references_count: Some(35),
-            subject: vec!["Climate Science".to_string(), "Machine Learning".to_string()],
+            subject: vec![
+                "Climate Science".to_string(),
+                "Machine Learning".to_string(),
+            ],
             funder: vec![CrossRefFunder {
                 name: Some("National Science Foundation".to_string()),
                 doi: Some("10.13039/100000001".to_string()),
@@ -724,10 +726,7 @@ mod tests {
 
         assert_eq!(vector.id, "doi:10.1234/example.2024");
         assert_eq!(vector.domain, Domain::Research);
-        assert_eq!(
-            vector.metadata.get("doi").unwrap(),
-            "10.1234/example.2024"
-        );
+        assert_eq!(vector.metadata.get("doi").unwrap(), "10.1234/example.2024");
         assert_eq!(
             vector.metadata.get("title").unwrap(),
             "Deep Learning for Climate Science"

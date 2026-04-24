@@ -250,10 +250,19 @@ impl HnswIndex {
 
         // Insert from level down to 0
         for lc in (0..=level).rev() {
-            let candidates = self.search_layer(&new_node.vector, &current_nearest, self.config.ef_construction, lc);
+            let candidates = self.search_layer(
+                &new_node.vector,
+                &current_nearest,
+                self.config.ef_construction,
+                lc,
+            );
 
             // Select M neighbors
-            let m = if lc == 0 { self.config.m_max_0 } else { self.config.m };
+            let m = if lc == 0 {
+                self.config.m_max_0
+            } else {
+                self.config.m
+            };
             let neighbors = self.select_neighbors(&new_node.vector, candidates, m);
 
             // Add bidirectional links
@@ -276,7 +285,11 @@ impl HnswIndex {
                     self.nodes[neighbor_id].connections[lc].push(node_id);
 
                     // Prune if exceeded max connections
-                    let m_max = if lc == 0 { self.config.m_max_0 } else { self.config.m };
+                    let m_max = if lc == 0 {
+                        self.config.m_max_0
+                    } else {
+                        self.config.m
+                    };
                     if self.nodes[neighbor_id].connections[lc].len() > m_max {
                         let neighbor_vec = self.nodes[neighbor_id].vector.clone();
                         let candidates = self.nodes[neighbor_id].connections[lc].clone();
@@ -299,7 +312,10 @@ impl HnswIndex {
     /// Insert a batch of vectors
     ///
     /// More efficient than inserting one at a time for large batches.
-    pub fn insert_batch(&mut self, vectors: Vec<SemanticVector>) -> Result<Vec<usize>, FrameworkError> {
+    pub fn insert_batch(
+        &mut self,
+        vectors: Vec<SemanticVector>,
+    ) -> Result<Vec<usize>, FrameworkError> {
         let mut ids = Vec::with_capacity(vectors.len());
         for vector in vectors {
             ids.push(self.insert(vector)?);
@@ -317,7 +333,11 @@ impl HnswIndex {
     /// ## Returns
     ///
     /// Up to k nearest neighbors, sorted by distance (ascending)
-    pub fn search_knn(&self, query: &[f32], k: usize) -> Result<Vec<HnswSearchResult>, FrameworkError> {
+    pub fn search_knn(
+        &self,
+        query: &[f32],
+        k: usize,
+    ) -> Result<Vec<HnswSearchResult>, FrameworkError> {
         if query.len() != self.config.dimension {
             return Err(FrameworkError::Config(format!(
                 "Query dimension mismatch: expected {}, got {}",
@@ -449,7 +469,13 @@ impl HnswIndex {
     // ===== Private helper methods =====
 
     /// Search a single layer for nearest neighbors
-    fn search_layer(&self, query: &[f32], entry_points: &[usize], ef: usize, layer: usize) -> Vec<usize> {
+    fn search_layer(
+        &self,
+        query: &[f32],
+        entry_points: &[usize],
+        ef: usize,
+        layer: usize,
+    ) -> Vec<usize> {
         let mut visited = HashSet::new();
         let mut candidates = BinaryHeap::new();
         let mut nearest = BinaryHeap::new();
@@ -515,7 +541,11 @@ impl HnswIndex {
             .collect();
 
         with_distances.sort_by_key(|(dist, _)| *dist);
-        with_distances.into_iter().take(m).map(|(_, id)| id).collect()
+        with_distances
+            .into_iter()
+            .take(m)
+            .map(|(_, id)| id)
+            .collect()
     }
 
     /// Compute distance between two vectors
@@ -526,19 +556,13 @@ impl HnswIndex {
                 // Convert to angular distance: arccos(sim) / π ∈ [0, 1]
                 similarity.max(-1.0).min(1.0).acos() / std::f32::consts::PI
             }
-            DistanceMetric::Euclidean => {
-                a.iter()
-                    .zip(b.iter())
-                    .map(|(x, y)| (x - y).powi(2))
-                    .sum::<f32>()
-                    .sqrt()
-            }
-            DistanceMetric::Manhattan => {
-                a.iter()
-                    .zip(b.iter())
-                    .map(|(x, y)| (x - y).abs())
-                    .sum()
-            }
+            DistanceMetric::Euclidean => a
+                .iter()
+                .zip(b.iter())
+                .map(|(x, y)| (x - y).powi(2))
+                .sum::<f32>()
+                .sqrt(),
+            DistanceMetric::Manhattan => a.iter().zip(b.iter()).map(|(x, y)| (x - y).abs()).sum(),
         }
     }
 
@@ -597,15 +621,17 @@ impl Eq for OrderedFloat {}
 
 impl Ord for OrderedFloat {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.partial_cmp(&other.0).unwrap_or(std::cmp::Ordering::Equal)
+        self.0
+            .partial_cmp(&other.0)
+            .unwrap_or(std::cmp::Ordering::Equal)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
     use crate::ruvector_native::Domain;
+    use std::collections::HashMap;
 
     fn create_test_vector(id: &str, embedding: Vec<f32>) -> SemanticVector {
         SemanticVector {
@@ -673,9 +699,15 @@ mod tests {
         let mut index = HnswIndex::with_config(config);
 
         // Insert vectors at different distances
-        index.insert(create_test_vector("close", vec![1.0, 0.1])).unwrap();
-        index.insert(create_test_vector("medium", vec![0.7, 0.7])).unwrap();
-        index.insert(create_test_vector("far", vec![0.0, 1.0])).unwrap();
+        index
+            .insert(create_test_vector("close", vec![1.0, 0.1]))
+            .unwrap();
+        index
+            .insert(create_test_vector("medium", vec![0.7, 0.7]))
+            .unwrap();
+        index
+            .insert(create_test_vector("far", vec![0.0, 1.0]))
+            .unwrap();
 
         let query = vec![1.0, 0.0];
         let results = index.search_threshold(&query, 0.3, None).unwrap();

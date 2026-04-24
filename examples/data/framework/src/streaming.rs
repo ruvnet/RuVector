@@ -39,11 +39,11 @@
 //!          metrics.vectors_processed, metrics.patterns_detected);
 //! ```
 
-use std::sync::Arc;
-use std::time::{Duration as StdDuration, Instant};
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use futures::{Stream, StreamExt};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use std::time::{Duration as StdDuration, Instant};
 use tokio::sync::{RwLock, Semaphore};
 
 use crate::optimized::{OptimizedConfig, OptimizedDiscoveryEngine, SignificantPattern};
@@ -262,8 +262,9 @@ impl StreamingEngine {
 
             // Check if we need to create a new window (sliding)
             if let Some(slide_interval) = self.config.slide_interval {
-                let slide_duration = ChronoDuration::from_std(slide_interval)
-                    .map_err(|e| crate::FrameworkError::Config(format!("Invalid slide interval: {}", e)))?;
+                let slide_duration = ChronoDuration::from_std(slide_interval).map_err(|e| {
+                    crate::FrameworkError::Config(format!("Invalid slide interval: {}", e))
+                })?;
 
                 let now = Utc::now();
                 if (now - last_window_start) >= slide_duration {
@@ -284,7 +285,9 @@ impl StreamingEngine {
             }
 
             // Pattern detection
-            if self.config.auto_detect_patterns && vector_count % self.config.detection_interval as u64 == 0 {
+            if self.config.auto_detect_patterns
+                && vector_count % self.config.detection_interval as u64 == 0
+            {
                 self.detect_patterns().await?;
             }
 
@@ -394,9 +397,8 @@ impl StreamingEngine {
         let mut windows = self.windows.write().await;
 
         // Find completed windows
-        let (completed, active): (Vec<_>, Vec<_>) = windows
-            .drain(..)
-            .partition(|w| w.is_complete(now));
+        let (completed, active): (Vec<_>, Vec<_>) =
+            windows.drain(..).partition(|w| w.is_complete(now));
 
         *windows = active;
         drop(windows); // Release lock before processing
@@ -592,8 +594,8 @@ impl Default for StreamingEngineBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use futures::stream;
     use crate::ruvector_native::Domain;
+    use futures::stream;
     use std::collections::HashMap;
 
     fn create_test_vector(id: &str, domain: Domain) -> SemanticVector {
@@ -629,13 +631,15 @@ mod tests {
         let pattern_count = Arc::new(RwLock::new(0_u64));
         let pc = pattern_count.clone();
 
-        engine.set_pattern_callback(move |_pattern| {
-            let pc = pc.clone();
-            tokio::spawn(async move {
-                let mut count = pc.write().await;
-                *count += 1;
-            });
-        }).await;
+        engine
+            .set_pattern_callback(move |_pattern| {
+                let pc = pc.clone();
+                tokio::spawn(async move {
+                    let mut count = pc.write().await;
+                    *count += 1;
+                });
+            })
+            .await;
 
         // Create a stream of vectors
         let vectors = vec![

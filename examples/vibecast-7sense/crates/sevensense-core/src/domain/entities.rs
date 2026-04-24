@@ -597,7 +597,12 @@ impl AudioMetadata {
     /// * `duration_ms` - Duration in milliseconds
     /// * `format` - Audio file format
     #[must_use]
-    pub const fn new(sample_rate: u32, channels: u8, duration_ms: u64, format: AudioFormat) -> Self {
+    pub const fn new(
+        sample_rate: u32,
+        channels: u8,
+        duration_ms: u64,
+        format: AudioFormat,
+    ) -> Self {
         Self {
             sample_rate,
             channels,
@@ -639,8 +644,7 @@ impl AudioMetadata {
     /// Returns the total number of samples (all channels combined).
     #[must_use]
     pub fn total_samples(&self) -> u64 {
-        let samples_per_channel =
-            (self.sample_rate as u64 * self.duration_ms) / 1000;
+        let samples_per_channel = (self.sample_rate as u64 * self.duration_ms) / 1000;
         samples_per_channel * self.channels as u64
     }
 

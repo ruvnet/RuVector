@@ -9,7 +9,10 @@
 //! - 3 = HMAC-SHAKE-256 (reserved, not yet implemented)
 
 use rvf_types::SegmentHeader;
-use sha3::{Shake256, digest::{ExtendableOutput, Update}};
+use sha3::{
+    digest::{ExtendableOutput, Update},
+    Shake256,
+};
 use subtle::ConstantTimeEq;
 
 /// Compute the XXH3-128 hash of `data`, returning a 16-byte array.

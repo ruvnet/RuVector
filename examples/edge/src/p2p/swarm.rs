@@ -7,14 +7,14 @@
 //! - Artifact publishing and retrieval
 
 use crate::p2p::{
-    identity::{IdentityManager, RegisteredMember},
-    crypto::{CryptoV2, CanonicalJson},
-    relay::RelayManager,
     artifact::ArtifactStore,
+    crypto::{CanonicalJson, CryptoV2},
     envelope::{
-        SignedEnvelope, TaskEnvelope, TaskReceipt, TaskStatus, TaskBudgets,
-        SignalingMessage, SignalType, ArtifactPointer, ArtifactType,
+        ArtifactPointer, ArtifactType, SignalType, SignalingMessage, SignedEnvelope, TaskBudgets,
+        TaskEnvelope, TaskReceipt, TaskStatus,
     },
+    identity::{IdentityManager, RegisteredMember},
+    relay::RelayManager,
 };
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
@@ -168,7 +168,9 @@ impl P2PSwarmV2 {
         tracing::info!("Connecting to swarm: {}", self.swarm_id);
 
         // Register ourselves
-        let registration = self.identity.create_registration(&self.agent_id, self.capabilities.clone());
+        let registration = self
+            .identity
+            .create_registration(&self.agent_id, self.capabilities.clone());
         self.identity.register_member(registration);
 
         *self.connected.write() = true;
@@ -200,7 +202,8 @@ impl P2PSwarmV2 {
         let connected = self.connected.clone();
 
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(tokio::time::Duration::from_millis(HEARTBEAT_INTERVAL_MS));
+            let mut interval =
+                tokio::time::interval(tokio::time::Duration::from_millis(HEARTBEAT_INTERVAL_MS));
 
             loop {
                 tokio::select! {
@@ -240,7 +243,10 @@ impl P2PSwarmV2 {
     pub fn register_member(&self, member: RegisteredMember) -> bool {
         // Strict validation: require all fields
         if member.x25519_public_key == [0u8; 32] {
-            tracing::warn!("Rejecting member {}: missing x25519_public_key", member.agent_id);
+            tracing::warn!(
+                "Rejecting member {}: missing x25519_public_key",
+                member.agent_id
+            );
             return false;
         }
         if member.capabilities.is_empty() {
@@ -293,7 +299,11 @@ impl P2PSwarmV2 {
         envelope.signature = self.identity.sign(canonical.as_bytes());
 
         // In real implementation, publish to GUN
-        tracing::debug!("Published message {} to topic {}", envelope.message_id, topic);
+        tracing::debug!(
+            "Published message {} to topic {}",
+            envelope.message_id,
+            topic
+        );
 
         Ok(envelope.message_id)
     }
@@ -301,22 +311,33 @@ impl P2PSwarmV2 {
     /// Process incoming envelope (with full verification)
     pub fn process_envelope(&self, envelope: &SignedEnvelope) -> Result<Vec<u8>, String> {
         // 1. Check nonce and timestamp (replay protection)
-        if !self.identity.check_nonce(&envelope.nonce, envelope.timestamp, &envelope.sender_id) {
+        if !self
+            .identity
+            .check_nonce(&envelope.nonce, envelope.timestamp, &envelope.sender_id)
+        {
             return Err("Replay detected or expired".to_string());
         }
 
         // 2. Check counter (ordering)
-        if !self.identity.validate_recv_counter(&envelope.sender_id, envelope.counter) {
+        if !self
+            .identity
+            .validate_recv_counter(&envelope.sender_id, envelope.counter)
+        {
             return Err("Invalid counter".to_string());
         }
 
         // 3. Resolve sender from registry (NOT from envelope)
-        let _member = self.resolve_member(&envelope.sender_id)
+        let _member = self
+            .resolve_member(&envelope.sender_id)
             .ok_or_else(|| format!("Sender {} not in registry", envelope.sender_id))?;
 
         // 4. Verify signature using REGISTRY key
         let canonical = envelope.canonical_header();
-        if !self.identity.verify_from_registry(&envelope.sender_id, canonical.as_bytes(), &envelope.signature) {
+        if !self.identity.verify_from_registry(
+            &envelope.sender_id,
+            canonical.as_bytes(),
+            &envelope.signature,
+        ) {
             return Err("Invalid signature".to_string());
         }
 
@@ -338,7 +359,13 @@ impl P2PSwarmV2 {
     }
 
     /// Create signaling message (WebRTC offer/answer/ice)
-    pub fn create_signaling(&self, signal_type: SignalType, to: &str, payload: String, ttl_ms: u64) -> SignalingMessage {
+    pub fn create_signaling(
+        &self,
+        signal_type: SignalType,
+        to: &str,
+        payload: String,
+        ttl_ms: u64,
+    ) -> SignalingMessage {
         let mut signal = SignalingMessage::new_unsigned(
             signal_type,
             self.agent_id.clone(),
@@ -369,7 +396,8 @@ impl P2PSwarmV2 {
 
         // Verify signature using REGISTRY key (not from signal)
         let canonical = signal.canonical_for_signing();
-        self.identity.verify_from_registry(&signal.from, canonical.as_bytes(), &signal.signature)
+        self.identity
+            .verify_from_registry(&signal.from, canonical.as_bytes(), &signal.signature)
     }
 
     /// Store artifact and get CID
@@ -384,18 +412,30 @@ impl P2PSwarmV2 {
     }
 
     /// Create and sign artifact pointer
-    pub fn create_artifact_pointer(&self, artifact_type: ArtifactType, cid: &str, dimensions: &str) -> Option<ArtifactPointer> {
-        self.artifact_store.create_pointer(artifact_type, &self.agent_id, cid, dimensions, &self.identity)
+    pub fn create_artifact_pointer(
+        &self,
+        artifact_type: ArtifactType,
+        cid: &str,
+        dimensions: &str,
+    ) -> Option<ArtifactPointer> {
+        self.artifact_store.create_pointer(
+            artifact_type,
+            &self.agent_id,
+            cid,
+            dimensions,
+            &self.identity,
+        )
     }
 
     /// Submit task
     pub fn submit_task(&self, task: TaskEnvelope) -> Result<String, String> {
         let task_id = task.task_id.clone();
-        self.pending_tasks.write().insert(task_id.clone(), task.clone());
+        self.pending_tasks
+            .write()
+            .insert(task_id.clone(), task.clone());
 
         // Publish to tasks topic
-        let task_bytes = serde_json::to_vec(&task)
-            .map_err(|e| e.to_string())?;
+        let task_bytes = serde_json::to_vec(&task).map_err(|e| e.to_string())?;
         self.publish("tasks", &task_bytes)?;
 
         Ok(task_id)
@@ -434,7 +474,9 @@ impl P2PSwarmV2 {
         claim.signature = self.identity.sign(canonical_str.as_bytes());
 
         // Store claim
-        self.task_claims.write().insert(task_id.to_string(), claim.clone());
+        self.task_claims
+            .write()
+            .insert(task_id.to_string(), claim.clone());
 
         Ok(claim)
     }
@@ -491,7 +533,8 @@ impl P2PSwarmV2 {
 
     /// Get active peer IDs
     pub fn active_peers(&self) -> Vec<String> {
-        self.identity.get_active_members(HEARTBEAT_TIMEOUT_MS)
+        self.identity
+            .get_active_members(HEARTBEAT_TIMEOUT_MS)
             .into_iter()
             .map(|m| m.agent_id)
             .collect()
@@ -598,7 +641,10 @@ mod tests {
         );
 
         // Submit task
-        swarm.pending_tasks.write().insert(task.task_id.clone(), task.clone());
+        swarm
+            .pending_tasks
+            .write()
+            .insert(task.task_id.clone(), task.clone());
 
         // Claim should succeed
         let claim = swarm.claim_task("task-001").unwrap();

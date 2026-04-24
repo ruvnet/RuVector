@@ -24,8 +24,8 @@ use ed25519_dalek::SigningKey;
 use rand::rngs::OsRng;
 
 use rvf_crypto::{
-    create_witness_chain, shake256_256, verify_witness_chain,
-    sign_segment, verify_segment, WitnessEntry,
+    create_witness_chain, shake256_256, sign_segment, verify_segment, verify_witness_chain,
+    WitnessEntry,
 };
 use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{QueryOptions, RvfOptions, RvfStore};
@@ -37,7 +37,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -100,10 +102,11 @@ fn main() {
     let vec_refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
     let ids: Vec<u64> = (0..num_vectors as u64).collect();
 
-    let ingest = store
-        .ingest_batch(&vec_refs, &ids, None)
-        .expect("ingest");
-    println!("  Prover database: {} vectors, {} dims", ingest.accepted, dim);
+    let ingest = store.ingest_batch(&vec_refs, &ids, None).expect("ingest");
+    println!(
+        "  Prover database: {} vectors, {} dims",
+        ingest.accepted, dim
+    );
     println!();
 
     // ──────────────────────────────────────────────
@@ -133,20 +136,41 @@ fn main() {
 
     // Prover reveals vector + nonce; verifier checks
     let valid = verify_commitment(secret_vector, &nonce, &commitment);
-    println!("  Reveal: vector id={}, nonce={}...", secret_idx, hex_string(&nonce[..4]));
-    println!("  Verification: {}", if valid { "VALID" } else { "INVALID" });
+    println!(
+        "  Reveal: vector id={}, nonce={}...",
+        secret_idx,
+        hex_string(&nonce[..4])
+    );
+    println!(
+        "  Verification: {}",
+        if valid { "VALID" } else { "INVALID" }
+    );
     assert!(valid);
 
     // Wrong vector → fails
     let wrong_vector = &vectors[99];
     let invalid = verify_commitment(wrong_vector, &nonce, &commitment);
-    println!("  Wrong vector (id=99): {}", if invalid { "VALID (bad)" } else { "REJECTED (correct)" });
+    println!(
+        "  Wrong vector (id=99): {}",
+        if invalid {
+            "VALID (bad)"
+        } else {
+            "REJECTED (correct)"
+        }
+    );
     assert!(!invalid);
 
     // Wrong nonce → fails
     let wrong_nonce = shake256_256(b"wrong-nonce");
     let invalid_nonce = verify_commitment(secret_vector, &wrong_nonce, &commitment);
-    println!("  Wrong nonce: {}", if invalid_nonce { "VALID (bad)" } else { "REJECTED (correct)" });
+    println!(
+        "  Wrong nonce: {}",
+        if invalid_nonce {
+            "VALID (bad)"
+        } else {
+            "REJECTED (correct)"
+        }
+    );
     assert!(!invalid_nonce);
     println!();
 
@@ -160,10 +184,14 @@ fn main() {
     let noise_scale = 0.01; // small noise preserves ranking
     let blinded_query = blind_vector(&true_query, 12345, noise_scale);
 
-    println!("  True query:    first 4 = [{:.4}, {:.4}, {:.4}, {:.4}]",
-        true_query[0], true_query[1], true_query[2], true_query[3]);
-    println!("  Blinded query: first 4 = [{:.4}, {:.4}, {:.4}, {:.4}]",
-        blinded_query[0], blinded_query[1], blinded_query[2], blinded_query[3]);
+    println!(
+        "  True query:    first 4 = [{:.4}, {:.4}, {:.4}, {:.4}]",
+        true_query[0], true_query[1], true_query[2], true_query[3]
+    );
+    println!(
+        "  Blinded query: first 4 = [{:.4}, {:.4}, {:.4}, {:.4}]",
+        blinded_query[0], blinded_query[1], blinded_query[2], blinded_query[3]
+    );
     println!("  Noise scale:   {}", noise_scale);
 
     // Search with true query
@@ -180,12 +208,20 @@ fn main() {
     let true_ids: Vec<u64> = true_results.iter().map(|r| r.id).collect();
     let blinded_ids: Vec<u64> = blinded_results.iter().map(|r| r.id).collect();
 
-    let overlap: usize = true_ids.iter().filter(|id| blinded_ids.contains(id)).count();
+    let overlap: usize = true_ids
+        .iter()
+        .filter(|id| blinded_ids.contains(id))
+        .count();
     let overlap_pct = (overlap as f64 / true_ids.len() as f64) * 100.0;
 
     println!("\n  True top-10 IDs:    {:?}", &true_ids[..5]);
     println!("  Blinded top-10 IDs: {:?}", &blinded_ids[..5]);
-    println!("  Ranking overlap:    {}/{} ({:.0}%)", overlap, true_ids.len(), overlap_pct);
+    println!(
+        "  Ranking overlap:    {}/{} ({:.0}%)",
+        overlap,
+        true_ids.len(),
+        overlap_pct
+    );
     println!("  Privacy gain:       query vector hidden behind noise");
     println!();
 
@@ -213,13 +249,22 @@ fn main() {
 
     let meta_footer = sign_segment(&meta_header, metadata_claim.as_bytes(), &signing_key);
     let meta_valid = verify_segment(
-        &meta_header, metadata_claim.as_bytes(), &meta_footer, &verifying_key,
+        &meta_header,
+        metadata_claim.as_bytes(),
+        &meta_footer,
+        &verifying_key,
     );
 
     println!("  Claim: \"{}\"", metadata_claim);
     println!("  Claim hash:  {}...", hex_string(&metadata_hash[..8]));
-    println!("  Signed by:   {}...", hex_string(&verifying_key.to_bytes()[..8]));
-    println!("  Verification: {}", if meta_valid { "VALID" } else { "INVALID" });
+    println!(
+        "  Signed by:   {}...",
+        hex_string(&verifying_key.to_bytes()[..8])
+    );
+    println!(
+        "  Verification: {}",
+        if meta_valid { "VALID" } else { "INVALID" }
+    );
     assert!(meta_valid);
     println!();
 
@@ -229,8 +274,8 @@ fn main() {
     println!("--- Phase 6: Proof Witness Chain ---\n");
 
     let proof_events = [
-        ("commit:vector_42", 0x01u8),    // PROVENANCE
-        ("reveal:vector_42_ok", 0x02),   // COMPUTATION
+        ("commit:vector_42", 0x01u8),  // PROVENANCE
+        ("reveal:vector_42_ok", 0x02), // COMPUTATION
         ("blinded_search:noise=0.01", 0x02),
         ("metadata_proof:signed", 0x01),
         ("audit_complete", 0x02),
@@ -251,7 +296,11 @@ fn main() {
     let chain_bytes = create_witness_chain(&entries);
     let verified_chain = verify_witness_chain(&chain_bytes).expect("verify chain");
 
-    println!("  Proof chain: {} entries, {} bytes, VERIFIED", verified_chain.len(), chain_bytes.len());
+    println!(
+        "  Proof chain: {} entries, {} bytes, VERIFIED",
+        verified_chain.len(),
+        chain_bytes.len()
+    );
     for (i, (event, _)) in proof_events.iter().enumerate() {
         let wtype = match verified_chain[i].witness_type {
             0x01 => "PROV",
@@ -293,7 +342,10 @@ fn main() {
 
     // Verify individual leaf
     let leaf_valid = verify_commitment(&vectors[3], &batch_nonces[3], &leaf_commitments[3]);
-    println!("\n  Verify leaf [3]: {}", if leaf_valid { "VALID" } else { "INVALID" });
+    println!(
+        "\n  Verify leaf [3]: {}",
+        if leaf_valid { "VALID" } else { "INVALID" }
+    );
     assert!(leaf_valid);
 
     // Recompute root from leaves
@@ -303,7 +355,10 @@ fn main() {
     }
     let recomputed_root = shake256_256(&recomputed);
     let root_valid = recomputed_root == batch_root;
-    println!("  Verify root:     {}", if root_valid { "VALID" } else { "INVALID" });
+    println!(
+        "  Verify root:     {}",
+        if root_valid { "VALID" } else { "INVALID" }
+    );
     assert!(root_valid);
     println!();
 
@@ -311,13 +366,25 @@ fn main() {
     // Summary
     // ──────────────────────────────────────────────
     println!("=== Zero-Knowledge Proofs Summary ===\n");
-    println!("  Vector database:       {} vectors, {} dims", num_vectors, dim);
+    println!(
+        "  Vector database:       {} vectors, {} dims",
+        num_vectors, dim
+    );
     println!("  Commitment scheme:     SHAKE-256(vector || nonce)");
     println!("  Commitment verify:     correct=VALID, wrong_vec=REJECTED, wrong_nonce=REJECTED");
-    println!("  Blinded search:        noise={}, overlap={:.0}%", noise_scale, overlap_pct);
+    println!(
+        "  Blinded search:        noise={}, overlap={:.0}%",
+        noise_scale, overlap_pct
+    );
     println!("  Metadata proofs:       signed claim with Ed25519");
-    println!("  Batch commitments:     {} leaves → Merkle root", batch_size);
-    println!("  Witness chain:         {} events, verified", proof_events.len());
+    println!(
+        "  Batch commitments:     {} leaves → Merkle root",
+        batch_size
+    );
+    println!(
+        "  Witness chain:         {} events, verified",
+        proof_events.len()
+    );
     println!("  Segments used:         VEC, INDEX, WITNESS, MANIFEST, META");
     println!();
     println!("  Key insight: RVF's SHAKE-256 and witness chains provide");

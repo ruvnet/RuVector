@@ -7,7 +7,9 @@ use chrono::{DateTime, Utc};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-use crate::{BoundingBox, ClimateError, ClimateObservation, DataSourceType, QualityFlag, WeatherVariable};
+use crate::{
+    BoundingBox, ClimateError, ClimateObservation, DataSourceType, QualityFlag, WeatherVariable,
+};
 
 /// NASA MODIS product types
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -242,10 +244,7 @@ impl NasaClient {
             .collect();
 
         // Parse cloud cover
-        let cloud_cover = entry
-            .cloud_cover
-            .as_ref()
-            .and_then(|s| s.parse().ok());
+        let cloud_cover = entry.cloud_cover.as_ref().and_then(|s| s.parse().ok());
 
         Ok(SatelliteObservation {
             granule_id: entry.id,

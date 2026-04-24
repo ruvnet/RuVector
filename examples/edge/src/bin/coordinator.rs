@@ -40,9 +40,7 @@ async fn main() -> Result<()> {
 
     // Initialize tracing
     let level = if args.verbose { "debug" } else { "info" };
-    tracing_subscriber::fmt()
-        .with_env_filter(level)
-        .init();
+    tracing_subscriber::fmt().with_env_filter(level).init();
 
     // Parse transport
     let transport = match args.transport.to_lowercase().as_str() {

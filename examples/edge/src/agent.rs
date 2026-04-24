@@ -130,7 +130,9 @@ impl SwarmAgent {
     /// Send message to swarm
     pub async fn send_message(&self, msg: SwarmMessage) -> Result<()> {
         if let Some(ref transport) = self.transport {
-            let bytes = msg.to_bytes().map_err(|e| SwarmError::Serialization(e.to_string()))?;
+            let bytes = msg
+                .to_bytes()
+                .map_err(|e| SwarmError::Serialization(e.to_string()))?;
             transport.send(bytes).await?;
         }
         Ok(())
@@ -261,8 +263,10 @@ impl SwarmAgent {
             }
             MessageType::SyncPatterns => {
                 if let MessagePayload::Patterns(payload) = msg.payload {
-                    self.intelligence
-                        .merge_peer_state(&msg.sender_id, &serde_json::to_vec(&payload.state).unwrap())?;
+                    self.intelligence.merge_peer_state(
+                        &msg.sender_id,
+                        &serde_json::to_vec(&payload.state).unwrap(),
+                    )?;
                 }
             }
             MessageType::RequestPatterns => {

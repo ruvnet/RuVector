@@ -12,9 +12,7 @@
 //! - Cheeger constant: < 10ms for 1K nodes
 //! - Spectral clustering: < 100ms for 5K nodes
 
-use criterion::{
-    black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
-};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use std::collections::HashSet;
 
 // ============================================================================
@@ -256,8 +254,11 @@ impl LanczosComputation {
         // Simple eigenvalue estimation using Gershgorin circles
         let mut eigenvalues = Vec::with_capacity(n);
         for i in 0..n {
-            let off_diag = if i > 0 && i - 1 < e.len() { e[i - 1].abs() } else { 0.0 }
-                + if i < e.len() { e[i].abs() } else { 0.0 };
+            let off_diag = if i > 0 && i - 1 < e.len() {
+                e[i - 1].abs()
+            } else {
+                0.0
+            } + if i < e.len() { e[i].abs() } else { 0.0 };
             eigenvalues.push(d[i] + off_diag * 0.5); // Center of Gershgorin disk
         }
 
@@ -304,7 +305,9 @@ impl CheegerComputation {
         let n = laplacian.rows;
 
         // Start with vector orthogonal to ground state
-        let mut v: Vec<f64> = (0..n).map(|i| ((i as f64 * 2.0 + 1.0).sqrt()).cos()).collect();
+        let mut v: Vec<f64> = (0..n)
+            .map(|i| ((i as f64 * 2.0 + 1.0).sqrt()).cos())
+            .collect();
 
         // Gram-Schmidt orthogonalization against ground state
         let dot: f64 = v.iter().zip(ground_state.iter()).map(|(a, b)| a * b).sum();
@@ -362,7 +365,9 @@ impl CheegerComputation {
         // Sort vertices by Fiedler vector values
         let mut indices: Vec<usize> = (0..self.num_nodes).collect();
         indices.sort_by(|&a, &b| {
-            fiedler[a].partial_cmp(&fiedler[b]).unwrap_or(std::cmp::Ordering::Equal)
+            fiedler[a]
+                .partial_cmp(&fiedler[b])
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         // Sweep through cuts
@@ -413,7 +418,11 @@ impl SpectralClustering {
         let lanczos = LanczosComputation::compute(matrix, num_clusters + 1, 100);
 
         // Get first k eigenvectors (corresponding to smallest eigenvalues)
-        let eigenvectors = lanczos.basis_vectors.into_iter().take(num_clusters).collect();
+        let eigenvectors = lanczos
+            .basis_vectors
+            .into_iter()
+            .take(num_clusters)
+            .collect();
 
         Self {
             num_clusters,
@@ -442,9 +451,7 @@ impl SpectralClustering {
             .collect();
 
         // Initialize centroids
-        let mut centroids: Vec<Vec<f64>> = (0..k)
-            .map(|i| embedding[i * n / k].clone())
-            .collect();
+        let mut centroids: Vec<Vec<f64>> = (0..k).map(|i| embedding[i * n / k].clone()).collect();
 
         let mut assignments = vec![0; n];
 
@@ -497,7 +504,11 @@ impl SpectralClustering {
 // GRAPH GENERATORS
 // ============================================================================
 
-fn generate_random_graph(num_nodes: usize, edge_probability: f64, seed: u64) -> Vec<(usize, usize)> {
+fn generate_random_graph(
+    num_nodes: usize,
+    edge_probability: f64,
+    seed: u64,
+) -> Vec<(usize, usize)> {
     let mut edges = Vec::new();
     let mut rng_state = seed;
 
@@ -561,11 +572,7 @@ fn bench_power_iteration(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("standard", num_nodes),
             &matrix,
-            |b, matrix| {
-                b.iter(|| {
-                    black_box(power_iteration(black_box(matrix), 100, 1e-8))
-                })
-            },
+            |b, matrix| b.iter(|| black_box(power_iteration(black_box(matrix), 100, 1e-8))),
         );
     }
 
@@ -612,21 +619,13 @@ fn bench_cheeger_constant(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("spectral_bound", num_nodes),
             &cheeger,
-            |b, cheeger| {
-                b.iter(|| {
-                    black_box(cheeger.compute_spectral_lower_bound())
-                })
-            },
+            |b, cheeger| b.iter(|| black_box(cheeger.compute_spectral_lower_bound())),
         );
 
         group.bench_with_input(
             BenchmarkId::new("sweep_cut", num_nodes),
             &cheeger,
-            |b, cheeger| {
-                b.iter(|| {
-                    black_box(cheeger.compute_sweep_cut())
-                })
-            },
+            |b, cheeger| b.iter(|| black_box(cheeger.compute_sweep_cut())),
         );
     }
 
@@ -649,9 +648,7 @@ fn bench_spectral_clustering(c: &mut Criterion) {
             BenchmarkId::new("compute_embedding", num_nodes),
             &(&matrix, num_clusters),
             |b, (matrix, k)| {
-                b.iter(|| {
-                    black_box(SpectralClustering::compute(black_box(matrix), *k))
-                })
+                b.iter(|| black_box(SpectralClustering::compute(black_box(matrix), *k)))
             },
         );
 
@@ -659,11 +656,7 @@ fn bench_spectral_clustering(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("assign_clusters", num_nodes),
             &clustering,
-            |b, clustering| {
-                b.iter(|| {
-                    black_box(clustering.cluster_assignments())
-                })
-            },
+            |b, clustering| b.iter(|| black_box(clustering.cluster_assignments())),
         );
     }
 
@@ -684,22 +677,14 @@ fn bench_matvec_simd(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("standard", num_nodes),
             &(&matrix, &x),
-            |b, (matrix, x)| {
-                b.iter(|| {
-                    black_box(matrix.matvec(black_box(x)))
-                })
-            },
+            |b, (matrix, x)| b.iter(|| black_box(matrix.matvec(black_box(x)))),
         );
 
         #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
         group.bench_with_input(
             BenchmarkId::new("simd", num_nodes),
             &(&matrix, &x),
-            |b, (matrix, x)| {
-                b.iter(|| {
-                    black_box(matrix.matvec_simd(black_box(x)))
-                })
-            },
+            |b, (matrix, x)| b.iter(|| black_box(matrix.matvec_simd(black_box(x)))),
         );
     }
 
@@ -718,11 +703,7 @@ fn bench_graph_laplacian_construction(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("csr_format", num_nodes),
             &(num_nodes, &edges),
-            |b, (n, edges)| {
-                b.iter(|| {
-                    black_box(CsrMatrix::from_edges(*n, black_box(edges)))
-                })
-            },
+            |b, (n, edges)| b.iter(|| black_box(CsrMatrix::from_edges(*n, black_box(edges)))),
         );
     }
 

@@ -23,12 +23,12 @@
 
 use std::time::Instant;
 
+use rvf_crypto::{create_witness_chain, shake256_256, verify_witness_chain, WitnessEntry};
+use rvf_runtime::filter::FilterValue;
+use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{
     FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult,
 };
-use rvf_runtime::filter::FilterValue;
-use rvf_runtime::options::DistanceMetric;
-use rvf_crypto::{create_witness_chain, verify_witness_chain, shake256_256, WitnessEntry};
 use rvf_wire::tail_scan::find_latest_manifest;
 use tempfile::TempDir;
 
@@ -37,7 +37,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -80,10 +82,7 @@ fn main() {
     for batch_idx in 0..num_batches {
         let start = batch_idx * batch_size;
         let end = start + batch_size;
-        let batch_vecs: Vec<&[f32]> = vectors[start..end]
-            .iter()
-            .map(|v| v.as_slice())
-            .collect();
+        let batch_vecs: Vec<&[f32]> = vectors[start..end].iter().map(|v| v.as_slice()).collect();
         let batch_ids: Vec<u64> = (start as u64..end as u64).collect();
 
         let mut metadata = Vec::with_capacity(batch_size * 2);
@@ -106,7 +105,11 @@ fn main() {
     let deploy_status = store.status();
     println!("  Vectors:    {}", deploy_status.total_vectors);
     println!("  Segments:   {}", deploy_status.total_segments);
-    println!("  File size:  {} bytes ({:.1} KB)", deploy_status.file_size, deploy_status.file_size as f64 / 1024.0);
+    println!(
+        "  File size:  {} bytes ({:.1} KB)",
+        deploy_status.file_size,
+        deploy_status.file_size as f64 / 1024.0
+    );
     println!("  Epoch:      {}", deploy_status.current_epoch);
 
     // Close the store (represents deployment upload)
@@ -122,13 +125,19 @@ fn main() {
     let file_bytes = std::fs::read(&store_path).expect("failed to read file");
 
     let scan_start = Instant::now();
-    let (manifest_offset, manifest_header) = find_latest_manifest(&file_bytes)
-        .expect("manifest not found");
+    let (manifest_offset, manifest_header) =
+        find_latest_manifest(&file_bytes).expect("manifest not found");
     let scan_elapsed = scan_start.elapsed();
 
     println!("  File size:        {} bytes", file_bytes.len());
-    println!("  Manifest found:   offset {} (seg_id={})", manifest_offset, manifest_header.segment_id);
-    println!("  Manifest payload: {} bytes", manifest_header.payload_length);
+    println!(
+        "  Manifest found:   offset {} (seg_id={})",
+        manifest_offset, manifest_header.segment_id
+    );
+    println!(
+        "  Manifest payload: {} bytes",
+        manifest_header.payload_length
+    );
     println!("  Tail scan time:   {:?}", scan_elapsed);
     println!("  Scan strategy:    backward from EOF at 64-byte boundaries");
 
@@ -236,11 +245,7 @@ fn main() {
     print_results_with_meta(&results3, &categories);
 
     // Record witness entry for request 3
-    let action3 = format!(
-        "SEARCH:unfiltered:k={}:results={}",
-        k,
-        results3.len()
-    );
+    let action3 = format!("SEARCH:unfiltered:k={}:results={}", k, results3.len());
     witness_entries.push(WitnessEntry {
         prev_hash: [0u8; 32],
         action_hash: shake256_256(action3.as_bytes()),
@@ -277,8 +282,7 @@ fn main() {
                     0x02 => "SEARCH",
                     _ => "????",
                 };
-                let hash_hex: String = entry
-                    .action_hash[..16]
+                let hash_hex: String = entry.action_hash[..16]
                     .iter()
                     .map(|b| format!("{:02x}", b))
                     .collect();
@@ -314,12 +318,25 @@ fn main() {
     println!("  {:->28}  {:->16}", "", "");
     println!("  {:>28}  {:>16}", "Vectors", num_vectors);
     println!("  {:>28}  {:>16}", "Dimensions", dim);
-    println!("  {:>28}  {:>14.1} KB", "File size", deploy_status.file_size as f64 / 1024.0);
+    println!(
+        "  {:>28}  {:>14.1} KB",
+        "File size",
+        deploy_status.file_size as f64 / 1024.0
+    );
     println!("  {:>28}  {:>16?}", "Tail scan time", scan_elapsed);
     println!("  {:>28}  {:>16?}", "Full cold start", cold_elapsed);
-    println!("  {:>28}  {:>16?}", "Request 1 (cold, filtered)", req1_elapsed);
-    println!("  {:>28}  {:>16?}", "Request 2 (warm, filtered)", req2_elapsed);
-    println!("  {:>28}  {:>16?}", "Request 3 (warm, unfiltered)", req3_elapsed);
+    println!(
+        "  {:>28}  {:>16?}",
+        "Request 1 (cold, filtered)", req1_elapsed
+    );
+    println!(
+        "  {:>28}  {:>16?}",
+        "Request 2 (warm, filtered)", req2_elapsed
+    );
+    println!(
+        "  {:>28}  {:>16?}",
+        "Request 3 (warm, unfiltered)", req3_elapsed
+    );
     println!("  {:>28}  {:>16}", "Witness entries", witness_entries.len());
 
     cold_store.close().expect("failed to close store");
@@ -328,7 +345,10 @@ fn main() {
 }
 
 fn print_results_with_meta(results: &[SearchResult], categories: &[&str]) {
-    println!("    {:>6}  {:>12}  {:>14}  {:>10}", "ID", "Distance", "Category", "Price Tier");
+    println!(
+        "    {:>6}  {:>12}  {:>14}  {:>10}",
+        "ID", "Distance", "Category", "Price Tier"
+    );
     println!("    {:->6}  {:->12}  {:->14}  {:->10}", "", "", "", "");
     for r in results {
         let cat = categories[(r.id as usize) % 4];

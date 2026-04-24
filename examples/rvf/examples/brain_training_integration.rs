@@ -22,51 +22,90 @@ fn solve_mincut(lam: &[f64], edges: &[(usize, usize, f64)], gamma: f64) -> Vec<b
     let (s, t, n) = (m, m + 1, m + 2);
     let mut adj: Vec<Vec<(usize, usize)>> = vec![Vec::new(); n];
     let mut caps: Vec<f64> = Vec::new();
-    let add = |adj: &mut Vec<Vec<(usize, usize)>>, caps: &mut Vec<f64>, u: usize, v: usize, c: f64| {
-        let i = caps.len();
-        caps.push(c); caps.push(0.0);
-        adj[u].push((v, i)); adj[v].push((u, i + 1));
-    };
+    let add =
+        |adj: &mut Vec<Vec<(usize, usize)>>, caps: &mut Vec<f64>, u: usize, v: usize, c: f64| {
+            let i = caps.len();
+            caps.push(c);
+            caps.push(0.0);
+            adj[u].push((v, i));
+            adj[v].push((u, i + 1));
+        };
     for i in 0..m {
         let (p0, p1) = (lam[i].max(0.0), (-lam[i]).max(0.0));
-        if p0 > 1e-12 { add(&mut adj, &mut caps, s, i, p0); }
-        if p1 > 1e-12 { add(&mut adj, &mut caps, i, t, p1); }
+        if p0 > 1e-12 {
+            add(&mut adj, &mut caps, s, i, p0);
+        }
+        if p1 > 1e-12 {
+            add(&mut adj, &mut caps, i, t, p1);
+        }
     }
     for &(f, to, w) in edges {
         let c = gamma * w;
-        if c > 1e-12 { add(&mut adj, &mut caps, f, to, c); }
+        if c > 1e-12 {
+            add(&mut adj, &mut caps, f, to, c);
+        }
     }
     loop {
         let mut par: Vec<Option<(usize, usize)>> = vec![None; n];
         let mut vis = vec![false; n];
         let mut q = VecDeque::new();
-        vis[s] = true; q.push_back(s);
+        vis[s] = true;
+        q.push_back(s);
         while let Some(u) = q.pop_front() {
-            if u == t { break; }
+            if u == t {
+                break;
+            }
             for &(v, ei) in &adj[u] {
-                if !vis[v] && caps[ei] > 1e-15 { vis[v] = true; par[v] = Some((u, ei)); q.push_back(v); }
+                if !vis[v] && caps[ei] > 1e-15 {
+                    vis[v] = true;
+                    par[v] = Some((u, ei));
+                    q.push_back(v);
+                }
             }
         }
-        if !vis[t] { break; }
-        let mut bn = f64::MAX; let mut v = t;
-        while let Some((_, ei)) = par[v] { bn = bn.min(caps[ei]); v = par[v].unwrap().0; }
+        if !vis[t] {
+            break;
+        }
+        let mut bn = f64::MAX;
+        let mut v = t;
+        while let Some((_, ei)) = par[v] {
+            bn = bn.min(caps[ei]);
+            v = par[v].unwrap().0;
+        }
         v = t;
-        while let Some((u, ei)) = par[v] { caps[ei] -= bn; caps[ei ^ 1] += bn; v = u; }
+        while let Some((u, ei)) = par[v] {
+            caps[ei] -= bn;
+            caps[ei ^ 1] += bn;
+            v = u;
+        }
     }
-    let mut reach = vec![false; n]; let mut stk = vec![s]; reach[s] = true;
+    let mut reach = vec![false; n];
+    let mut stk = vec![s];
+    reach[s] = true;
     while let Some(u) = stk.pop() {
-        for &(v, ei) in &adj[u] { if !reach[v] && caps[ei] > 1e-15 { reach[v] = true; stk.push(v); } }
+        for &(v, ei) in &adj[u] {
+            if !reach[v] && caps[ei] > 1e-15 {
+                reach[v] = true;
+                stk.push(v);
+            }
+        }
     }
     (0..m).map(|i| reach[i]).collect()
 }
 
 // ── CSV helpers ─────────────────────────────────────────────────────────────
 
-fn parse_csv_field(s: &str) -> &str { s.trim().trim_matches('"') }
+fn parse_csv_field(s: &str) -> &str {
+    s.trim().trim_matches('"')
+}
 
 fn parse_f64(s: &str) -> Option<f64> {
     let v = parse_csv_field(s);
-    if v.is_empty() { None } else { v.parse().ok() }
+    if v.is_empty() {
+        None
+    } else {
+        v.parse().ok()
+    }
 }
 
 fn split_csv_line(line: &str) -> Vec<String> {
@@ -74,9 +113,14 @@ fn split_csv_line(line: &str) -> Vec<String> {
     let mut cur = String::new();
     let mut in_q = false;
     for ch in line.chars() {
-        if ch == '"' { in_q = !in_q; }
-        else if ch == ',' && !in_q { fields.push(cur.clone()); cur.clear(); }
-        else { cur.push(ch); }
+        if ch == '"' {
+            in_q = !in_q;
+        } else if ch == ',' && !in_q {
+            fields.push(cur.clone());
+            cur.clear();
+        } else {
+            cur.push(ch);
+        }
     }
     fields.push(cur);
     fields
@@ -105,57 +149,111 @@ fn extract_exoplanet_experiences() -> Vec<TrainingExperience> {
         Err(_) => return Vec::new(),
     };
 
-    struct Planet { name: String, log_period: f64, log_radius: f64, log_mass: f64, eq_temp: f64, ecc: f64, method: String }
+    struct Planet {
+        name: String,
+        log_period: f64,
+        log_radius: f64,
+        log_mass: f64,
+        eq_temp: f64,
+        ecc: f64,
+        method: String,
+    }
     let mut planets = Vec::new();
     for line in data.lines().skip(1) {
         let f = split_csv_line(line);
-        if f.len() < 15 { continue; }
-        let period = match parse_f64(&f[3]) { Some(v) if v > 0.0 => v, _ => continue };
-        let radius = match parse_f64(&f[4]) { Some(v) if v > 0.0 => v, _ => continue };
-        let mass = match parse_f64(&f[5]) { Some(v) if v > 0.0 => v, _ => continue };
-        let eq_temp = match parse_f64(&f[6]) { Some(v) => v, _ => continue };
+        if f.len() < 15 {
+            continue;
+        }
+        let period = match parse_f64(&f[3]) {
+            Some(v) if v > 0.0 => v,
+            _ => continue,
+        };
+        let radius = match parse_f64(&f[4]) {
+            Some(v) if v > 0.0 => v,
+            _ => continue,
+        };
+        let mass = match parse_f64(&f[5]) {
+            Some(v) if v > 0.0 => v,
+            _ => continue,
+        };
+        let eq_temp = match parse_f64(&f[6]) {
+            Some(v) => v,
+            _ => continue,
+        };
         let ecc = parse_f64(&f[7]).unwrap_or(0.0);
         planets.push(Planet {
             name: parse_csv_field(&f[0]).to_string(),
-            log_period: period.ln(), log_radius: radius.ln(), log_mass: mass.ln(),
-            eq_temp, ecc, method: parse_csv_field(&f[13]).to_string(),
+            log_period: period.ln(),
+            log_radius: radius.ln(),
+            log_mass: mass.ln(),
+            eq_temp,
+            ecc,
+            method: parse_csv_field(&f[13]).to_string(),
         });
     }
-    if planets.is_empty() { return Vec::new(); }
+    if planets.is_empty() {
+        return Vec::new();
+    }
 
     let n = planets.len() as f64;
     let mean = |f: &dyn Fn(&Planet) -> f64| planets.iter().map(f).sum::<f64>() / n;
-    let std = |f: &dyn Fn(&Planet) -> f64, m: f64|
-        (planets.iter().map(|p| (f(p) - m).powi(2)).sum::<f64>() / n).sqrt();
-    let (mp, mr, mm, mt, me) = (mean(&|p| p.log_period), mean(&|p| p.log_radius),
-        mean(&|p| p.log_mass), mean(&|p| p.eq_temp), mean(&|p| p.ecc));
-    let (sp, sr, sm, st_s, se) = (std(&|p| p.log_period, mp), std(&|p| p.log_radius, mr),
-        std(&|p| p.log_mass, mm), std(&|p| p.eq_temp, mt), std(&|p| p.ecc, me));
+    let std = |f: &dyn Fn(&Planet) -> f64, m: f64| {
+        (planets.iter().map(|p| (f(p) - m).powi(2)).sum::<f64>() / n).sqrt()
+    };
+    let (mp, mr, mm, mt, me) = (
+        mean(&|p| p.log_period),
+        mean(&|p| p.log_radius),
+        mean(&|p| p.log_mass),
+        mean(&|p| p.eq_temp),
+        mean(&|p| p.ecc),
+    );
+    let (sp, sr, sm, st_s, se) = (
+        std(&|p| p.log_period, mp),
+        std(&|p| p.log_radius, mr),
+        std(&|p| p.log_mass, mm),
+        std(&|p| p.eq_temp, mt),
+        std(&|p| p.ecc, me),
+    );
 
-    let scores: Vec<f64> = planets.iter().map(|p| {
-        let zp = ((p.log_period - mp) / sp.max(1e-6)).abs();
-        let zr = ((p.log_radius - mr) / sr.max(1e-6)).abs();
-        let zm = ((p.log_mass - mm) / sm.max(1e-6)).abs();
-        let zt = ((p.eq_temp - mt) / st_s.max(1e-6)).abs();
-        let ze = ((p.ecc - me) / se.max(1e-6)).abs();
-        (zp + zr + zm + zt + ze) / 5.0
-    }).collect();
+    let scores: Vec<f64> = planets
+        .iter()
+        .map(|p| {
+            let zp = ((p.log_period - mp) / sp.max(1e-6)).abs();
+            let zr = ((p.log_radius - mr) / sr.max(1e-6)).abs();
+            let zm = ((p.log_mass - mm) / sm.max(1e-6)).abs();
+            let zt = ((p.eq_temp - mt) / st_s.max(1e-6)).abs();
+            let ze = ((p.ecc - me) / se.max(1e-6)).abs();
+            (zp + zr + zm + zt + ze) / 5.0
+        })
+        .collect();
 
     let threshold = 2.0;
     let lam: Vec<f64> = scores.iter().map(|s| s - threshold).collect();
-    let features: Vec<[f64; 5]> = planets.iter().map(|p| [
-        (p.log_period - mp) / sp.max(1e-6), (p.log_radius - mr) / sr.max(1e-6),
-        (p.log_mass - mm) / sm.max(1e-6), (p.eq_temp - mt) / st_s.max(1e-6),
-        (p.ecc - me) / se.max(1e-6),
-    ]).collect();
+    let features: Vec<[f64; 5]> = planets
+        .iter()
+        .map(|p| {
+            [
+                (p.log_period - mp) / sp.max(1e-6),
+                (p.log_radius - mr) / sr.max(1e-6),
+                (p.log_mass - mm) / sm.max(1e-6),
+                (p.eq_temp - mt) / st_s.max(1e-6),
+                (p.ecc - me) / se.max(1e-6),
+            ]
+        })
+        .collect();
 
     let k = 5;
     let mut edges: Vec<(usize, usize, f64)> = Vec::new();
     for i in 0..planets.len() {
-        let mut dists: Vec<(usize, f64)> = (0..planets.len()).filter(|&j| j != i).map(|j| {
-            let d: f64 = (0..5).map(|d| (features[i][d] - features[j][d]).powi(2)).sum();
-            (j, d.sqrt())
-        }).collect();
+        let mut dists: Vec<(usize, f64)> = (0..planets.len())
+            .filter(|&j| j != i)
+            .map(|j| {
+                let d: f64 = (0..5)
+                    .map(|d| (features[i][d] - features[j][d]).powi(2))
+                    .sum();
+                (j, d.sqrt())
+            })
+            .collect();
         dists.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
         for &(j, d) in dists.iter().take(k) {
             edges.push((i, j, 1.0 / (1.0 + d)));
@@ -166,9 +264,12 @@ fn extract_exoplanet_experiences() -> Vec<TrainingExperience> {
     let mut experiences = Vec::new();
 
     // Package top anomalies as training experiences
-    let mut ranked: Vec<(usize, f64)> = scores.iter().enumerate()
+    let mut ranked: Vec<(usize, f64)> = scores
+        .iter()
+        .enumerate()
         .filter(|(i, _)| flagged[*i])
-        .map(|(i, &s)| (i, s)).collect();
+        .map(|(i, &s)| (i, s))
+        .collect();
     ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
     for &(i, score) in ranked.iter().take(10) {
@@ -190,8 +291,12 @@ fn extract_exoplanet_experiences() -> Vec<TrainingExperience> {
         });
     }
 
-    println!("  Exoplanets: {} planets analyzed, {} flagged, {} experiences",
-        planets.len(), flagged.iter().filter(|&&x| x).count(), experiences.len());
+    println!(
+        "  Exoplanets: {} planets analyzed, {} flagged, {} experiences",
+        planets.len(),
+        flagged.iter().filter(|&&x| x).count(),
+        experiences.len()
+    );
     experiences
 }
 
@@ -204,17 +309,40 @@ fn extract_earthquake_experiences() -> Vec<TrainingExperience> {
         Err(_) => return Vec::new(),
     };
 
-    struct Quake { lat: f64, lon: f64, depth: f64, mag: f64, place: String }
+    struct Quake {
+        lat: f64,
+        lon: f64,
+        depth: f64,
+        mag: f64,
+        place: String,
+    }
     let mut quakes = Vec::new();
     for line in data.lines().skip(1) {
         let f = split_csv_line(line);
-        if f.len() < 15 { continue; }
-        let lat = match parse_f64(&f[1]) { Some(v) => v, _ => continue };
-        let lon = match parse_f64(&f[2]) { Some(v) => v, _ => continue };
+        if f.len() < 15 {
+            continue;
+        }
+        let lat = match parse_f64(&f[1]) {
+            Some(v) => v,
+            _ => continue,
+        };
+        let lon = match parse_f64(&f[2]) {
+            Some(v) => v,
+            _ => continue,
+        };
         let depth = parse_f64(&f[3]).unwrap_or(10.0);
-        let mag = match parse_f64(&f[4]) { Some(v) => v, _ => continue };
+        let mag = match parse_f64(&f[4]) {
+            Some(v) => v,
+            _ => continue,
+        };
         let place = parse_csv_field(&f[13]).to_string();
-        quakes.push(Quake { lat, lon, depth, mag, place });
+        quakes.push(Quake {
+            lat,
+            lon,
+            depth,
+            mag,
+            place,
+        });
     }
 
     // Build proximity graph
@@ -233,33 +361,56 @@ fn extract_earthquake_experiences() -> Vec<TrainingExperience> {
             let d = haversine(quakes[i].lat, quakes[i].lon, quakes[j].lat, quakes[j].lon);
             if d < 200.0 {
                 let w = 1.0 / (1.0 + d / 50.0);
-                edges.push((i, j, w)); edges.push((j, i, w));
-                nc[i] += 1; nc[j] += 1;
+                edges.push((i, j, w));
+                edges.push((j, i, w));
+                nc[i] += 1;
+                nc[j] += 1;
             }
         }
     }
 
     let mean_nc = nc.iter().sum::<usize>() as f64 / quakes.len() as f64;
-    let std_nc = (nc.iter().map(|&c| (c as f64 - mean_nc).powi(2)).sum::<f64>() / quakes.len() as f64).sqrt();
+    let std_nc = (nc
+        .iter()
+        .map(|&c| (c as f64 - mean_nc).powi(2))
+        .sum::<f64>()
+        / quakes.len() as f64)
+        .sqrt();
     let mean_mag = quakes.iter().map(|q| q.mag).sum::<f64>() / quakes.len() as f64;
 
-    let lam: Vec<f64> = quakes.iter().enumerate().map(|(i, q)| {
-        let density_z = (nc[i] as f64 - mean_nc) / std_nc.max(1e-6);
-        let deep = if q.depth > 300.0 { 1.5 } else { 0.0 };
-        let mag_b = if q.mag > mean_mag + 2.0 { 1.0 } else { 0.0 };
-        density_z * 0.5 + deep + mag_b - 1.2
-    }).collect();
+    let lam: Vec<f64> = quakes
+        .iter()
+        .enumerate()
+        .map(|(i, q)| {
+            let density_z = (nc[i] as f64 - mean_nc) / std_nc.max(1e-6);
+            let deep = if q.depth > 300.0 { 1.5 } else { 0.0 };
+            let mag_b = if q.mag > mean_mag + 2.0 { 1.0 } else { 0.0 };
+            density_z * 0.5 + deep + mag_b - 1.2
+        })
+        .collect();
 
     let flagged = solve_mincut(&lam, &edges, 0.4);
     let mut experiences = Vec::new();
 
     // Deep quakes and strong events
     for (i, q) in quakes.iter().enumerate() {
-        if !flagged[i] { continue; }
-        let reward = if q.depth > 300.0 { 0.9 } else if q.mag > 6.0 { 0.8 } else { 0.5 };
-        let anomaly_type = if q.depth > 300.0 { "deep_focus" }
-            else if nc[i] as f64 > mean_nc + 2.0 * std_nc { "swarm_cluster" }
-            else { "magnitude_outlier" };
+        if !flagged[i] {
+            continue;
+        }
+        let reward = if q.depth > 300.0 {
+            0.9
+        } else if q.mag > 6.0 {
+            0.8
+        } else {
+            0.5
+        };
+        let anomaly_type = if q.depth > 300.0 {
+            "deep_focus"
+        } else if nc[i] as f64 > mean_nc + 2.0 * std_nc {
+            "swarm_cluster"
+        } else {
+            "magnitude_outlier"
+        };
         experiences.push(TrainingExperience {
             domain: "seismology".into(),
             state: format!("quake:lat={:.2},lon={:.2},depth={:.1},mag={:.1},neighbors={}",
@@ -274,11 +425,17 @@ fn extract_earthquake_experiences() -> Vec<TrainingExperience> {
             ),
             tags: vec!["earthquake".into(), anomaly_type.into(), "graph-cut".into()],
         });
-        if experiences.len() >= 15 { break; }
+        if experiences.len() >= 15 {
+            break;
+        }
     }
 
-    println!("  Earthquakes: {} events analyzed, {} flagged, {} experiences",
-        quakes.len(), flagged.iter().filter(|&&x| x).count(), experiences.len());
+    println!(
+        "  Earthquakes: {} events analyzed, {} flagged, {} experiences",
+        quakes.len(),
+        flagged.iter().filter(|&&x| x).count(),
+        experiences.len()
+    );
     experiences
 }
 
@@ -293,10 +450,15 @@ fn extract_climate_experiences() -> Vec<TrainingExperience> {
 
     let mut years: Vec<(i32, f64)> = Vec::new();
     for line in data.lines() {
-        if line.starts_with('#') || line.starts_with("Year") { continue; }
+        if line.starts_with('#') || line.starts_with("Year") {
+            continue;
+        }
         let parts: Vec<&str> = line.split(',').collect();
         if parts.len() >= 2 {
-            if let (Ok(y), Ok(a)) = (parts[0].trim().parse::<i32>(), parts[1].trim().parse::<f64>()) {
+            if let (Ok(y), Ok(a)) = (
+                parts[0].trim().parse::<i32>(),
+                parts[1].trim().parse::<f64>(),
+            ) {
                 years.push((y, a));
             }
         }
@@ -314,10 +476,14 @@ fn extract_climate_experiences() -> Vec<TrainingExperience> {
         cusum_pos[i] = (cusum_pos[i - 1] + diff - 0.02).max(0.0);
         cusum_neg[i] = (cusum_neg[i - 1] - diff - 0.02).max(0.0);
     }
-    let cusum_max = cusum_pos.iter().chain(cusum_neg.iter()).cloned().fold(0.0f64, f64::max);
-    let lam: Vec<f64> = (0..n).map(|i| {
-        (cusum_pos[i] + cusum_neg[i]) / cusum_max.max(1e-6) - 0.15
-    }).collect();
+    let cusum_max = cusum_pos
+        .iter()
+        .chain(cusum_neg.iter())
+        .cloned()
+        .fold(0.0f64, f64::max);
+    let lam: Vec<f64> = (0..n)
+        .map(|i| (cusum_pos[i] + cusum_neg[i]) / cusum_max.max(1e-6) - 0.15)
+        .collect();
 
     let mut edges: Vec<(usize, usize, f64)> = Vec::new();
     for i in 0..n.saturating_sub(1) {
@@ -339,7 +505,8 @@ fn extract_climate_experiences() -> Vec<TrainingExperience> {
         if regime[i] != regime[i - 1] {
             let before_start = if i > 10 { i - 10 } else { 0 };
             let after_end = (i + 10).min(n);
-            let before_mean = anomalies[before_start..i].iter().sum::<f64>() / (i - before_start) as f64;
+            let before_mean =
+                anomalies[before_start..i].iter().sum::<f64>() / (i - before_start) as f64;
             let after_mean = anomalies[i..after_end].iter().sum::<f64>() / (after_end - i) as f64;
             let shift = after_mean - before_mean;
             experiences.push(TrainingExperience {
@@ -361,15 +528,23 @@ fn extract_climate_experiences() -> Vec<TrainingExperience> {
     // Warming rate acceleration
     let decades = [(1970, 1990), (1990, 2010), (2010, 2026)];
     for &(y0, y1) in &decades {
-        let vals: Vec<(f64, f64)> = years.iter()
+        let vals: Vec<(f64, f64)> = years
+            .iter()
             .filter(|y| y.0 >= y0 && y.0 < y1)
-            .map(|y| (y.0 as f64, y.1)).collect();
-        if vals.len() < 2 { continue; }
+            .map(|y| (y.0 as f64, y.1))
+            .collect();
+        if vals.len() < 2 {
+            continue;
+        }
         let n_v = vals.len() as f64;
         let mx = vals.iter().map(|v| v.0).sum::<f64>() / n_v;
         let my = vals.iter().map(|v| v.1).sum::<f64>() / n_v;
         let slope = vals.iter().map(|v| (v.0 - mx) * (v.1 - my)).sum::<f64>()
-            / vals.iter().map(|v| (v.0 - mx).powi(2)).sum::<f64>().max(1e-6);
+            / vals
+                .iter()
+                .map(|v| (v.0 - mx).powi(2))
+                .sum::<f64>()
+                .max(1e-6);
         let rate = slope * 10.0;
         experiences.push(TrainingExperience {
             domain: "climate".into(),
@@ -380,10 +555,17 @@ fn extract_climate_experiences() -> Vec<TrainingExperience> {
             title: format!("Warming rate {}-{}: {:+.3}C/decade", y0, y1, rate),
             content: format!(
                 "Temperature anomaly trend {}-{}: {:+.3}C per decade (avg anomaly {:+.3}C). {}",
-                y0, y1, rate, my,
-                if rate > 0.3 { "ACCELERATING — exceeds 2x historical rate" }
-                else if rate > 0.15 { "Sustained warming above pre-industrial trend" }
-                else { "Moderate warming rate" }
+                y0,
+                y1,
+                rate,
+                my,
+                if rate > 0.3 {
+                    "ACCELERATING — exceeds 2x historical rate"
+                } else if rate > 0.15 {
+                    "Sustained warming above pre-industrial trend"
+                } else {
+                    "Moderate warming rate"
+                }
             ),
             tags: vec!["climate".into(), "warming-rate".into(), "trend".into()],
         });
@@ -400,12 +582,19 @@ fn extract_climate_experiences() -> Vec<TrainingExperience> {
             reward: (a / 1.5).min(1.0),
             category: "pattern".into(),
             title: format!("Record warm year: {} ({:+.2}C)", y, a),
-            content: format!("{} recorded {:+.2}C anomaly — among the 5 warmest years in 177-year record", y, a),
+            content: format!(
+                "{} recorded {:+.2}C anomaly — among the 5 warmest years in 177-year record",
+                y, a
+            ),
             tags: vec!["climate".into(), "extreme".into(), "record".into()],
         });
     }
 
-    println!("  Climate: {} years analyzed, {} experiences", years.len(), experiences.len());
+    println!(
+        "  Climate: {} years analyzed, {} experiences",
+        years.len(),
+        experiences.len()
+    );
     experiences
 }
 
@@ -439,12 +628,20 @@ impl BrainClient {
         );
 
         let output = std::process::Command::new("curl")
-            .args(["-s", "-X", "POST",
+            .args([
+                "-s",
+                "-X",
+                "POST",
                 &format!("{}/v1/memories", self.base_url),
-                "-H", "Content-Type: application/json",
-                "-H", &format!("Authorization: Bearer {}", self.api_key),
-                "-d", &body,
-                "--max-time", "10"])
+                "-H",
+                "Content-Type: application/json",
+                "-H",
+                &format!("Authorization: Bearer {}", self.api_key),
+                "-d",
+                &body,
+                "--max-time",
+                "10",
+            ])
             .output()
             .map_err(|e| format!("curl error: {}", e))?;
 
@@ -459,12 +656,20 @@ impl BrainClient {
     /// Trigger a SONA training cycle
     fn train(&self) -> Result<String, String> {
         let output = std::process::Command::new("curl")
-            .args(["-s", "-X", "POST",
+            .args([
+                "-s",
+                "-X",
+                "POST",
                 &format!("{}/v1/train", self.base_url),
-                "-H", "Content-Type: application/json",
-                "-H", &format!("Authorization: Bearer {}", self.api_key),
-                "-d", "{}",
-                "--max-time", "15"])
+                "-H",
+                "Content-Type: application/json",
+                "-H",
+                &format!("Authorization: Bearer {}", self.api_key),
+                "-d",
+                "{}",
+                "--max-time",
+                "15",
+            ])
             .output()
             .map_err(|e| format!("curl error: {}", e))?;
 
@@ -474,10 +679,14 @@ impl BrainClient {
     /// Get SONA learning stats
     fn sona_stats(&self) -> Result<String, String> {
         let output = std::process::Command::new("curl")
-            .args(["-s",
+            .args([
+                "-s",
                 &format!("{}/v1/sona/stats", self.base_url),
-                "-H", &format!("Authorization: Bearer {}", self.api_key),
-                "--max-time", "10"])
+                "-H",
+                &format!("Authorization: Bearer {}", self.api_key),
+                "--max-time",
+                "10",
+            ])
             .output()
             .map_err(|e| format!("curl error: {}", e))?;
 
@@ -487,10 +696,14 @@ impl BrainClient {
     /// Get meta-learning exploration stats
     fn explore(&self) -> Result<String, String> {
         let output = std::process::Command::new("curl")
-            .args(["-s",
+            .args([
+                "-s",
                 &format!("{}/v1/explore", self.base_url),
-                "-H", &format!("Authorization: Bearer {}", self.api_key),
-                "--max-time", "10"])
+                "-H",
+                &format!("Authorization: Bearer {}", self.api_key),
+                "--max-time",
+                "10",
+            ])
             .output()
             .map_err(|e| format!("curl error: {}", e))?;
 
@@ -500,10 +713,14 @@ impl BrainClient {
     /// Get temporal delta tracking
     fn temporal(&self) -> Result<String, String> {
         let output = std::process::Command::new("curl")
-            .args(["-s",
+            .args([
+                "-s",
                 &format!("{}/v1/temporal", self.base_url),
-                "-H", &format!("Authorization: Bearer {}", self.api_key),
-                "--max-time", "10"])
+                "-H",
+                &format!("Authorization: Bearer {}", self.api_key),
+                "--max-time",
+                "10",
+            ])
             .output()
             .map_err(|e| format!("curl error: {}", e))?;
 
@@ -530,15 +747,25 @@ fn main() {
     all_experiences.extend(extract_earthquake_experiences());
     all_experiences.extend(extract_climate_experiences());
 
-    println!("\n  Total training experiences: {}\n", all_experiences.len());
+    println!(
+        "\n  Total training experiences: {}\n",
+        all_experiences.len()
+    );
 
     // Print experience summary
-    println!("  {:>3} {:<12} {:<50} {:>6}",
-        "#", "Domain", "Title", "Reward");
+    println!(
+        "  {:>3} {:<12} {:<50} {:>6}",
+        "#", "Domain", "Title", "Reward"
+    );
     println!("  {:-<3} {:-<12} {:-<50} {:-<6}", "", "", "", "");
     for (i, exp) in all_experiences.iter().enumerate() {
-        println!("  {:>3} {:<12} {:<50} {:>6.3}",
-            i + 1, exp.domain, &exp.title[..exp.title.len().min(50)], exp.reward);
+        println!(
+            "  {:>3} {:<12} {:<50} {:>6.3}",
+            i + 1,
+            exp.domain,
+            &exp.title[..exp.title.len().min(50)],
+            exp.reward
+        );
     }
 
     // Phase 2: Connect to π Brain
@@ -553,10 +780,20 @@ fn main() {
         println!("  Set PI=<api-key> and optionally BRAIN_URL=<url> to enable\n");
 
         // Show what would be sent
-        println!("  Dry-run: would share {} memories and trigger training\n", all_experiences.len());
+        println!(
+            "  Dry-run: would share {} memories and trigger training\n",
+            all_experiences.len()
+        );
         println!("  Example API calls that would be made:");
-        println!("    POST {}/v1/memories  (x{})", brain.base_url, all_experiences.len());
-        println!("    POST {}/v1/train     (trigger SONA cycle)", brain.base_url);
+        println!(
+            "    POST {}/v1/memories  (x{})",
+            brain.base_url,
+            all_experiences.len()
+        );
+        println!(
+            "    POST {}/v1/train     (trigger SONA cycle)",
+            brain.base_url
+        );
         println!("    GET  {}/v1/sona/stats", brain.base_url);
         println!("    GET  {}/v1/explore   (meta-learning)", brain.base_url);
         println!("    GET  {}/v1/temporal  (delta tracking)", brain.base_url);
@@ -574,9 +811,11 @@ fn main() {
         }
     } else {
         println!("  Brain URL: {}", brain.base_url);
-        println!("  API key:   {}...{}\n",
+        println!(
+            "  API key:   {}...{}\n",
             &brain.api_key[..4.min(brain.api_key.len())],
-            &brain.api_key[brain.api_key.len().saturating_sub(4)..]);
+            &brain.api_key[brain.api_key.len().saturating_sub(4)..]
+        );
 
         // Get baseline stats
         println!("  --- Pre-training stats ---");
@@ -642,17 +881,43 @@ fn main() {
     println!("{}\n", "=".repeat(73));
 
     let by_domain: Vec<(&str, usize)> = vec![
-        ("exoplanet", all_experiences.iter().filter(|e| e.domain == "exoplanet").count()),
-        ("seismology", all_experiences.iter().filter(|e| e.domain == "seismology").count()),
-        ("climate", all_experiences.iter().filter(|e| e.domain == "climate").count()),
+        (
+            "exoplanet",
+            all_experiences
+                .iter()
+                .filter(|e| e.domain == "exoplanet")
+                .count(),
+        ),
+        (
+            "seismology",
+            all_experiences
+                .iter()
+                .filter(|e| e.domain == "seismology")
+                .count(),
+        ),
+        (
+            "climate",
+            all_experiences
+                .iter()
+                .filter(|e| e.domain == "climate")
+                .count(),
+        ),
     ];
     for (domain, count) in &by_domain {
         println!("  {:<12} {} experiences", domain, count);
     }
-    let avg_reward = all_experiences.iter().map(|e| e.reward).sum::<f64>() / all_experiences.len().max(1) as f64;
-    println!("\n  Total: {} experiences, avg reward: {:.3}", all_experiences.len(), avg_reward);
+    let avg_reward =
+        all_experiences.iter().map(|e| e.reward).sum::<f64>() / all_experiences.len().max(1) as f64;
+    println!(
+        "\n  Total: {} experiences, avg reward: {:.3}",
+        all_experiences.len(),
+        avg_reward
+    );
     println!("  Pipeline: graph-cut anomaly detection → brain memory → SONA training");
-    println!("  Endpoint: {} (MCP tools: brain_share, brain_train, brain_sona_stats)", brain.base_url);
+    println!(
+        "  Endpoint: {} (MCP tools: brain_share, brain_train, brain_sona_stats)",
+        brain.base_url
+    );
 
     println!("\n=========================================================================");
     println!("  Training integration complete.");

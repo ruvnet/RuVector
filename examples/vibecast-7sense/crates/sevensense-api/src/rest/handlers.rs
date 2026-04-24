@@ -377,7 +377,13 @@ pub async fn upload_recording(
     let filename = filename.unwrap_or_else(|| "unknown.wav".to_string());
 
     // Validate content type
-    let valid_types = ["audio/wav", "audio/x-wav", "audio/flac", "audio/mpeg", "audio/ogg"];
+    let valid_types = [
+        "audio/wav",
+        "audio/x-wav",
+        "audio/flac",
+        "audio/mpeg",
+        "audio/ogg",
+    ];
     if let Some(ref ct) = content_type {
         if !valid_types.iter().any(|t| ct.contains(t)) {
             tracing::warn!(content_type = %ct, "Unknown content type, proceeding anyway");
@@ -476,7 +482,10 @@ async fn process_recording(ctx: AppContext, recording_id: Uuid, audio_data: Vec<
         recording_id,
         status: ProcessingStatus::Embedding,
         progress: 0.5,
-        message: Some(format!("Generating embeddings for {} segments", segments.len())),
+        message: Some(format!(
+            "Generating embeddings for {} segments",
+            segments.len()
+        )),
     });
 
     let embeddings = match ctx.embedding_model.embed_batch(&segments).await {
@@ -757,8 +766,8 @@ pub async fn get_evidence_pack(
     State(ctx): State<AppContext>,
     Path(id): Path<String>,
 ) -> ApiResult<Json<EvidencePack>> {
-    let query_id = Uuid::parse_str(&id)
-        .map_err(|_| ApiError::BadRequest(format!("Invalid UUID: {id}")))?;
+    let query_id =
+        Uuid::parse_str(&id).map_err(|_| ApiError::BadRequest(format!("Invalid UUID: {id}")))?;
 
     let evidence = ctx
         .interpretation_engine

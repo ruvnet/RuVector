@@ -12,8 +12,8 @@
 #[cfg(feature = "gun")]
 use gundb::Node;
 
-use crate::Result;
 use crate::intelligence::{LearningState, Pattern};
+use crate::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -385,8 +385,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_gun_peer_announce() {
-        let sync = GunSwarmBuilder::new("test-swarm")
-            .build("agent-001");
+        let sync = GunSwarmBuilder::new("test-swarm").build("agent-001");
 
         sync.announce_peer().await.unwrap();
 

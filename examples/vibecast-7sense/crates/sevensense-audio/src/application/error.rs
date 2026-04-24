@@ -8,16 +8,11 @@ use thiserror::Error;
 pub enum AudioError {
     /// Failed to read audio file.
     #[error("Failed to read audio file '{path}': {message}")]
-    FileRead {
-        path: PathBuf,
-        message: String,
-    },
+    FileRead { path: PathBuf, message: String },
 
     /// Unsupported audio format.
     #[error("Unsupported audio format: {format}")]
-    UnsupportedFormat {
-        format: String,
-    },
+    UnsupportedFormat { format: String },
 
     /// Resampling error.
     #[error("Resampling failed: {0}")]

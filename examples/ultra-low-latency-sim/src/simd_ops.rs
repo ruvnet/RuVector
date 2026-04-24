@@ -68,37 +68,23 @@ impl SimdLevel {
 /// Vectorized state evolution: state = state * transition + noise
 /// Returns number of states evolved
 #[inline]
-pub fn evolve_states(
-    states: &mut [f32],
-    transition: &[f32],
-    noise: &[f32],
-) -> u64 {
+pub fn evolve_states(states: &mut [f32], transition: &[f32], noise: &[f32]) -> u64 {
     let level = SimdLevel::detect();
 
     match level {
         #[cfg(target_arch = "x86_64")]
-        SimdLevel::Avx512 => unsafe {
-            evolve_states_avx512(states, transition, noise)
-        },
+        SimdLevel::Avx512 => unsafe { evolve_states_avx512(states, transition, noise) },
         #[cfg(target_arch = "x86_64")]
-        SimdLevel::Avx2 => unsafe {
-            evolve_states_avx2(states, transition, noise)
-        },
+        SimdLevel::Avx2 => unsafe { evolve_states_avx2(states, transition, noise) },
         #[cfg(target_arch = "aarch64")]
-        SimdLevel::Neon => unsafe {
-            evolve_states_neon(states, transition, noise)
-        },
+        SimdLevel::Neon => unsafe { evolve_states_neon(states, transition, noise) },
         _ => evolve_states_scalar(states, transition, noise),
     }
 }
 
 /// Scalar fallback
 #[inline]
-fn evolve_states_scalar(
-    states: &mut [f32],
-    transition: &[f32],
-    noise: &[f32],
-) -> u64 {
+fn evolve_states_scalar(states: &mut [f32], transition: &[f32], noise: &[f32]) -> u64 {
     let n = states.len().min(transition.len()).min(noise.len());
     for i in 0..n {
         states[i] = states[i] * transition[i] + noise[i];
@@ -108,11 +94,7 @@ fn evolve_states_scalar(
 
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2", enable = "fma")]
-unsafe fn evolve_states_avx2(
-    states: &mut [f32],
-    transition: &[f32],
-    noise: &[f32],
-) -> u64 {
+unsafe fn evolve_states_avx2(states: &mut [f32], transition: &[f32], noise: &[f32]) -> u64 {
     use std::arch::x86_64::*;
 
     let n = states.len().min(transition.len()).min(noise.len());
@@ -137,11 +119,7 @@ unsafe fn evolve_states_avx2(
 
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx512f")]
-unsafe fn evolve_states_avx512(
-    states: &mut [f32],
-    transition: &[f32],
-    noise: &[f32],
-) -> u64 {
+unsafe fn evolve_states_avx512(states: &mut [f32], transition: &[f32], noise: &[f32]) -> u64 {
     use std::arch::x86_64::*;
 
     let n = states.len().min(transition.len()).min(noise.len());
@@ -165,11 +143,7 @@ unsafe fn evolve_states_avx512(
 }
 
 #[cfg(target_arch = "aarch64")]
-unsafe fn evolve_states_neon(
-    states: &mut [f32],
-    transition: &[f32],
-    noise: &[f32],
-) -> u64 {
+unsafe fn evolve_states_neon(states: &mut [f32], transition: &[f32], noise: &[f32]) -> u64 {
     use std::arch::aarch64::*;
 
     let n = states.len().min(transition.len()).min(noise.len());
@@ -198,13 +172,9 @@ pub fn random_walk_step(positions: &mut [f32], steps: &[f32]) -> u64 {
 
     match level {
         #[cfg(target_arch = "x86_64")]
-        SimdLevel::Avx2 | SimdLevel::Avx512 => unsafe {
-            random_walk_avx2(positions, steps)
-        },
+        SimdLevel::Avx2 | SimdLevel::Avx512 => unsafe { random_walk_avx2(positions, steps) },
         #[cfg(target_arch = "aarch64")]
-        SimdLevel::Neon => unsafe {
-            random_walk_neon(positions, steps)
-        },
+        SimdLevel::Neon => unsafe { random_walk_neon(positions, steps) },
         _ => random_walk_scalar(positions, steps),
     }
 }
@@ -269,13 +239,9 @@ pub fn sum_reduction(values: &[f32]) -> f32 {
 
     match level {
         #[cfg(target_arch = "x86_64")]
-        SimdLevel::Avx2 | SimdLevel::Avx512 => unsafe {
-            sum_reduction_avx2(values)
-        },
+        SimdLevel::Avx2 | SimdLevel::Avx512 => unsafe { sum_reduction_avx2(values) },
         #[cfg(target_arch = "aarch64")]
-        SimdLevel::Neon => unsafe {
-            sum_reduction_neon(values)
-        },
+        SimdLevel::Neon => unsafe { sum_reduction_neon(values) },
         _ => values.iter().sum(),
     }
 }

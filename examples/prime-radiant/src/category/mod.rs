@@ -16,13 +16,13 @@
 //! 3. **Associativity**: h . (g . f) = (h . g) . f
 //! 4. **Unit laws**: id_B . f = f = f . id_A
 
-mod object;
 mod morphism;
+mod object;
 mod set_category;
 mod vector_category;
 
+pub use morphism::{CompositionProof, Morphism, MorphismData};
 pub use object::{Object, ObjectData};
-pub use morphism::{Morphism, MorphismData, CompositionProof};
 pub use set_category::SetCategory;
 pub use vector_category::VectorCategory;
 
@@ -149,11 +149,7 @@ pub trait CategoryWithProducts: Category {
     fn proj2(&self, product: &Self::Object) -> Option<Self::Morphism>;
 
     /// Gets the universal morphism into a product
-    fn pair(
-        &self,
-        f: &Self::Morphism,
-        g: &Self::Morphism,
-    ) -> Option<Self::Morphism>;
+    fn pair(&self, f: &Self::Morphism, g: &Self::Morphism) -> Option<Self::Morphism>;
 }
 
 /// A category with coproducts (disjoint unions)
@@ -168,11 +164,7 @@ pub trait CategoryWithCoproducts: Category {
     fn inj2(&self, coproduct: &Self::Object) -> Option<Self::Morphism>;
 
     /// Gets the universal morphism from a coproduct
-    fn copair(
-        &self,
-        f: &Self::Morphism,
-        g: &Self::Morphism,
-    ) -> Option<Self::Morphism>;
+    fn copair(&self, f: &Self::Morphism, g: &Self::Morphism) -> Option<Self::Morphism>;
 }
 
 /// A category with exponential objects (internal hom)

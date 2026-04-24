@@ -5,7 +5,7 @@
 
 use async_trait::async_trait;
 
-use super::entities::{EmbeddingId, SimilarityEdge, EdgeType, StoredVector, VectorMetadata};
+use super::entities::{EdgeType, EmbeddingId, SimilarityEdge, StoredVector, VectorMetadata};
 use super::error::VectorError;
 
 /// Result type for repository operations.

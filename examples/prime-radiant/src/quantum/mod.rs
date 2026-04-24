@@ -28,37 +28,30 @@
 
 #![allow(dead_code)]
 
+pub mod coherence_integration;
 pub mod complex_matrix;
-pub mod quantum_state;
 pub mod density_matrix;
-pub mod quantum_channel;
-pub mod topological_invariant;
 pub mod persistent_homology;
+pub mod quantum_channel;
+pub mod quantum_state;
 pub mod simplicial_complex;
 pub mod topological_code;
-pub mod coherence_integration;
+pub mod topological_invariant;
 
 // Re-exports for convenient access
-pub use complex_matrix::{ComplexMatrix, ComplexVector};
-pub use quantum_state::{QuantumState, QuantumBasis, Qubit};
-pub use density_matrix::{DensityMatrix, MixedState};
-pub use quantum_channel::{QuantumChannel, KrausOperator, PauliOperator, PauliType};
-pub use topological_invariant::{
-    TopologicalInvariant, HomologyGroup, CohomologyGroup, Cocycle,
-};
-pub use persistent_homology::{
-    PersistenceDiagram, BirthDeathPair, PersistentHomologyComputer,
-};
-pub use simplicial_complex::{
-    Simplex, SimplicialComplex, SparseMatrix, BoundaryMatrix,
-};
-pub use topological_code::{
-    TopologicalCode, StabilizerCode, GraphState, StructurePreservingEncoder,
-    SolverBackedOperator,
-};
 pub use coherence_integration::{
-    TopologicalEnergy, TopologicalCoherenceAnalyzer, QuantumCoherenceMetric,
+    QuantumCoherenceMetric, TopologicalCoherenceAnalyzer, TopologicalEnergy,
 };
+pub use complex_matrix::{ComplexMatrix, ComplexVector};
+pub use density_matrix::{DensityMatrix, MixedState};
+pub use persistent_homology::{BirthDeathPair, PersistenceDiagram, PersistentHomologyComputer};
+pub use quantum_channel::{KrausOperator, PauliOperator, PauliType, QuantumChannel};
+pub use quantum_state::{QuantumBasis, QuantumState, Qubit};
+pub use simplicial_complex::{BoundaryMatrix, Simplex, SimplicialComplex, SparseMatrix};
+pub use topological_code::{
+    GraphState, SolverBackedOperator, StabilizerCode, StructurePreservingEncoder, TopologicalCode,
+};
+pub use topological_invariant::{Cocycle, CohomologyGroup, HomologyGroup, TopologicalInvariant};
 
 /// Error type for quantum/topology operations
 #[derive(Debug, Clone, PartialEq)]
@@ -95,8 +88,15 @@ impl std::fmt::Display for QuantumTopologyError {
             Self::SingularMatrix => write!(f, "Singular matrix encountered"),
             Self::InvalidSimplex(msg) => write!(f, "Invalid simplex: {}", msg),
             Self::InvalidTopologicalCode(msg) => write!(f, "Invalid topological code: {}", msg),
-            Self::ConvergenceFailure { iterations, tolerance } => {
-                write!(f, "Failed to converge after {} iterations (tol={})", iterations, tolerance)
+            Self::ConvergenceFailure {
+                iterations,
+                tolerance,
+            } => {
+                write!(
+                    f,
+                    "Failed to converge after {} iterations (tol={})",
+                    iterations, tolerance
+                )
             }
             Self::NumericalError(msg) => write!(f, "Numerical error: {}", msg),
         }
@@ -132,7 +132,10 @@ mod tests {
 
     #[test]
     fn test_error_display() {
-        let err = QuantumTopologyError::DimensionMismatch { expected: 4, got: 8 };
+        let err = QuantumTopologyError::DimensionMismatch {
+            expected: 4,
+            got: 8,
+        };
         assert!(err.to_string().contains("expected 4"));
         assert!(err.to_string().contains("got 8"));
     }

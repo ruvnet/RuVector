@@ -5,12 +5,8 @@
 //! - HoTT path algebra
 //! - Cross-module coherence
 
-use prime_radiant_category::category::{
-    Category, SetCategory, VectorCategory,
-};
-use prime_radiant_category::hott::{
-    Term, Path, PathOps,
-};
+use prime_radiant_category::category::{Category, SetCategory, VectorCategory};
+use prime_radiant_category::hott::{Path, PathOps, Term};
 
 // ============================================================================
 // CATEGORY THEORY INTEGRATION TESTS
@@ -238,11 +234,7 @@ mod cross_module_integration {
         let belief_b = Term::var("belief_b");
 
         // Evidence for transition
-        let evidence = Path::new(
-            belief_a.clone(),
-            belief_b.clone(),
-            Term::var("evidence"),
-        );
+        let evidence = Path::new(belief_a.clone(), belief_b.clone(), Term::var("evidence"));
 
         // Can compose evidence chains
         let belief_c = Term::var("belief_c");
@@ -325,16 +317,16 @@ mod edge_cases {
     #[test]
     fn test_long_path_chain() {
         // Create a chain of 10 paths
-        let points: Vec<Term> = (0..11)
-            .map(|i| Term::var(&format!("p{}", i)))
-            .collect();
+        let points: Vec<Term> = (0..11).map(|i| Term::var(&format!("p{}", i))).collect();
 
         let paths: Vec<Path> = (0..10)
-            .map(|i| Path::new(
-                points[i].clone(),
-                points[i + 1].clone(),
-                Term::var(&format!("path{}", i)),
-            ))
+            .map(|i| {
+                Path::new(
+                    points[i].clone(),
+                    points[i + 1].clone(),
+                    Term::var(&format!("path{}", i)),
+                )
+            })
             .collect();
 
         // Compose all paths
@@ -363,9 +355,7 @@ mod edge_cases {
     /// Test paths with numeric variable names
     #[test]
     fn test_numeric_variable_paths() {
-        let vars: Vec<Term> = (0..5)
-            .map(|i| Term::var(&i.to_string()))
-            .collect();
+        let vars: Vec<Term> = (0..5).map(|i| Term::var(&i.to_string())).collect();
 
         // Create paths between sequential points
         for i in 0..4 {
@@ -421,8 +411,11 @@ mod performance_tests {
         let duration = start.elapsed();
 
         // Should complete quickly
-        assert!(duration.as_secs() < 5,
-            "Path composition should be fast: {:?}", duration);
+        assert!(
+            duration.as_secs() < 5,
+            "Path composition should be fast: {:?}",
+            duration
+        );
     }
 
     /// Test category operations performance
@@ -437,8 +430,11 @@ mod performance_tests {
 
         let duration = start.elapsed();
 
-        assert!(duration.as_secs() < 10,
-            "Category operations should be fast: {:?}", duration);
+        assert!(
+            duration.as_secs() < 10,
+            "Category operations should be fast: {:?}",
+            duration
+        );
     }
 
     /// Test path inverse performance
@@ -456,8 +452,11 @@ mod performance_tests {
 
         let duration = start.elapsed();
 
-        assert!(duration.as_secs() < 5,
-            "Path inverse should be fast: {:?}", duration);
+        assert!(
+            duration.as_secs() < 5,
+            "Path inverse should be fast: {:?}",
+            duration
+        );
     }
 
     /// Test long composition chain performance
@@ -466,16 +465,16 @@ mod performance_tests {
         let start = std::time::Instant::now();
 
         // Create chain of 100 paths
-        let points: Vec<Term> = (0..101)
-            .map(|i| Term::var(&format!("p{}", i)))
-            .collect();
+        let points: Vec<Term> = (0..101).map(|i| Term::var(&format!("p{}", i))).collect();
 
         let paths: Vec<Path> = (0..100)
-            .map(|i| Path::new(
-                points[i].clone(),
-                points[i + 1].clone(),
-                Term::var(&format!("path{}", i)),
-            ))
+            .map(|i| {
+                Path::new(
+                    points[i].clone(),
+                    points[i + 1].clone(),
+                    Term::var(&format!("path{}", i)),
+                )
+            })
             .collect();
 
         // Compose all
@@ -486,8 +485,11 @@ mod performance_tests {
 
         let duration = start.elapsed();
 
-        assert!(duration.as_secs() < 5,
-            "Long chain composition should be fast: {:?}", duration);
+        assert!(
+            duration.as_secs() < 5,
+            "Long chain composition should be fast: {:?}",
+            duration
+        );
         assert_eq!(composed.source(), &points[0]);
         assert_eq!(composed.target(), &points[100]);
     }

@@ -266,7 +266,11 @@ impl FinancialProver {
     }
 
     /// Prove: income >= multiplier × rent (affordability)
-    pub fn prove_affordability(&mut self, rent: u64, multiplier: u64) -> Result<ZkRangeProof, String> {
+    pub fn prove_affordability(
+        &mut self,
+        rent: u64,
+        multiplier: u64,
+    ) -> Result<ZkRangeProof, String> {
         // Input validation to prevent trivial proof bypass
         if rent == 0 {
             return Err("Rent must be greater than zero".to_string());
@@ -279,7 +283,8 @@ impl FinancialProver {
         }
 
         let avg_income = self.income.iter().sum::<u64>() / self.income.len() as u64;
-        let required = rent.checked_mul(multiplier)
+        let required = rent
+            .checked_mul(multiplier)
             .ok_or("Rent × multiplier overflow")?;
 
         if avg_income < required {
@@ -571,14 +576,17 @@ impl FinancialVerifier {
     pub fn verify_batch(proofs: &[ZkRangeProof]) -> Vec<VerificationResult> {
         // For now, verify individually
         // TODO: Implement batch verification for efficiency
-        proofs.iter().map(|p| Self::verify(p).unwrap_or_else(|e| {
-            VerificationResult {
-                valid: false,
-                statement: p.statement.clone(),
-                verified_at: 0,
-                error: Some(e),
-            }
-        })).collect()
+        proofs
+            .iter()
+            .map(|p| {
+                Self::verify(p).unwrap_or_else(|e| VerificationResult {
+                    valid: false,
+                    statement: p.statement.clone(),
+                    verified_at: 0,
+                    error: Some(e),
+                })
+            })
+            .collect()
     }
 }
 
@@ -757,9 +765,9 @@ mod tests {
 
         let bundle = RentalApplicationBundle::create(
             &mut prover,
-            200000, // $2000 rent
-            3,      // 3x income
-            30,     // 30 days stability
+            200000,  // $2000 rent
+            3,       // 3x income
+            30,      // 30 days stability
             Some(2), // 2 months savings
         )
         .unwrap();

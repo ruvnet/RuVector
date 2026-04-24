@@ -55,8 +55,8 @@ mod tests;
 pub use backend::{GpuBackend, GpuDevice, GpuInfo};
 pub use config::{GpuConfig, GpuMode, PowerPreference};
 pub use operations::{
-    GpuPooler, GpuSimilarity, GpuVectorOps,
-    batch_cosine_similarity_gpu, batch_dot_product_gpu, batch_euclidean_gpu,
+    batch_cosine_similarity_gpu, batch_dot_product_gpu, batch_euclidean_gpu, GpuPooler,
+    GpuSimilarity, GpuVectorOps,
 };
 pub use shaders::ShaderRegistry;
 
@@ -149,7 +149,8 @@ impl GpuAccelerator {
         batch_size: usize,
         hidden_size: usize,
     ) -> Result<Vec<f32>> {
-        self.pooler.cls_pool(token_embeddings, batch_size, hidden_size)
+        self.pooler
+            .cls_pool(token_embeddings, batch_size, hidden_size)
     }
 
     /// Max pooling over token embeddings (GPU-accelerated)
@@ -182,11 +183,7 @@ impl GpuAccelerator {
     }
 
     /// Batch dot product (GPU-accelerated)
-    pub fn batch_dot_product(
-        &self,
-        query: &[f32],
-        candidates: &[&[f32]],
-    ) -> Result<Vec<f32>> {
+    pub fn batch_dot_product(&self, query: &[f32], candidates: &[&[f32]]) -> Result<Vec<f32>> {
         self.similarity.batch_dot_product(query, candidates)
     }
 
@@ -278,11 +275,7 @@ impl HybridAccelerator {
     }
 
     /// Batch cosine similarity with automatic backend selection
-    pub fn batch_cosine_similarity(
-        &self,
-        query: &[f32],
-        candidates: &[Vec<f32>],
-    ) -> Vec<f32> {
+    pub fn batch_cosine_similarity(&self, query: &[f32], candidates: &[Vec<f32>]) -> Vec<f32> {
         if self.use_gpu {
             if let Some(ref gpu) = self.gpu {
                 let refs: Vec<&[f32]> = candidates.iter().map(|v| v.as_slice()).collect();

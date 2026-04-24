@@ -15,11 +15,11 @@
 //!
 //! Run: cargo run --example self_booting
 
-use rvf_runtime::{QueryOptions, RvfOptions, RvfStore};
-use rvf_runtime::options::DistanceMetric;
+use rvf_crypto::{create_witness_chain, shake256_256, verify_witness_chain, WitnessEntry};
 use rvf_kernel;
+use rvf_runtime::options::DistanceMetric;
+use rvf_runtime::{QueryOptions, RvfOptions, RvfStore};
 use rvf_types::kernel::{KernelArch, KernelHeader, KernelType, KERNEL_MAGIC};
-use rvf_crypto::{create_witness_chain, verify_witness_chain, shake256_256, WitnessEntry};
 use tempfile::TempDir;
 
 /// Simple LCG-based pseudo-random vector generator for deterministic results.
@@ -27,7 +27,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -71,7 +73,10 @@ fn main() {
     let results = store
         .query(&query, 5, &QueryOptions::default())
         .expect("query failed");
-    println!("  Pre-kernel query: top-5 results OK (nearest ID={})", results[0].id);
+    println!(
+        "  Pre-kernel query: top-5 results OK (nearest ID={})",
+        results[0].id
+    );
 
     // ====================================================================
     // 2. Create a synthetic kernel image
@@ -86,9 +91,17 @@ fn main() {
         .build(&tmpdir)
         .expect("build kernel");
     let kernel_image = built.bzimage;
-    let kernel_label = if kernel_image.len() > 8192 { "real bzImage" } else { "builtin stub" };
+    let kernel_label = if kernel_image.len() > 8192 {
+        "real bzImage"
+    } else {
+        "builtin stub"
+    };
 
-    println!("  Kernel image size:  {} bytes ({})", kernel_image.len(), kernel_label);
+    println!(
+        "  Kernel image size:  {} bytes ({})",
+        kernel_image.len(),
+        kernel_label
+    );
     println!("  Kernel type:        HermitOS (unikernel)");
     println!("  Target arch:        x86_64");
     println!("  API port:           8080");
@@ -132,22 +145,32 @@ fn main() {
     let kernel_header = KernelHeader::from_bytes(&header_arr).expect("invalid kernel header");
 
     println!("  Header verification:");
-    println!("    Magic:          0x{:08X} (expected: 0x{:08X}) {}",
+    println!(
+        "    Magic:          0x{:08X} (expected: 0x{:08X}) {}",
         kernel_header.kernel_magic,
         KERNEL_MAGIC,
-        if kernel_header.kernel_magic == KERNEL_MAGIC { "OK" } else { "FAIL" }
+        if kernel_header.kernel_magic == KERNEL_MAGIC {
+            "OK"
+        } else {
+            "FAIL"
+        }
     );
-    println!("    Arch:           {} (x86_64=0x{:02X})",
+    println!(
+        "    Arch:           {} (x86_64=0x{:02X})",
         kernel_header.arch,
         KernelArch::X86_64 as u8
     );
-    println!("    Type:           {} (Hermit=0x{:02X})",
+    println!(
+        "    Type:           {} (Hermit=0x{:02X})",
         kernel_header.kernel_type,
         KernelType::Hermit as u8
     );
     println!("    API port:       {}", kernel_header.api_port);
     println!("    Image size:     {} bytes", kernel_header.image_size);
-    println!("    Image hash:     {}...", hex_string(&kernel_header.image_hash[..16]));
+    println!(
+        "    Image hash:     {}...",
+        hex_string(&kernel_header.image_hash[..16])
+    );
     println!("    Cmdline offset: {}", kernel_header.cmdline_offset);
     println!("    Cmdline length: {}", kernel_header.cmdline_length);
 
@@ -173,8 +196,14 @@ fn main() {
         .query(&query, 5, &QueryOptions::default())
         .expect("query failed after kernel embed");
 
-    println!("  Post-kernel query: top-5 results OK (nearest ID={})", results_after[0].id);
-    assert_eq!(results[0].id, results_after[0].id, "query results should match");
+    println!(
+        "  Post-kernel query: top-5 results OK (nearest ID={})",
+        results_after[0].id
+    );
+    assert_eq!(
+        results[0].id, results_after[0].id,
+        "query results should match"
+    );
     println!("  Query results match pre-kernel: VERIFIED");
 
     // ====================================================================
@@ -224,8 +253,14 @@ fn main() {
     println!("\n--- 7. Self-Booting File Contents ---");
     let final_status = store.status();
     println!("  The single .rvf file now contains:");
-    println!("    - {} vectors ({}-dim embeddings)", final_status.total_vectors, dim);
-    println!("    - HermitOS x86_64 kernel image ({} bytes)", kernel_image.len());
+    println!(
+        "    - {} vectors ({}-dim embeddings)",
+        final_status.total_vectors, dim
+    );
+    println!(
+        "    - HermitOS x86_64 kernel image ({} bytes)",
+        kernel_image.len()
+    );
     println!("    - Query API on port 8080");
     println!("    - {} segments total", final_status.total_segments);
     println!("    - File size: {} bytes", final_status.file_size);

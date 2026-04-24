@@ -9,10 +9,7 @@ use parking_lot::RwLock;
 use tracing::{debug, info, instrument, warn};
 
 use crate::distance::{cosine_similarity, normalize_vector};
-use crate::domain::{
-    EmbeddingId, HnswConfig, SimilarityEdge, EdgeType,
-    VectorError,
-};
+use crate::domain::{EdgeType, EmbeddingId, HnswConfig, SimilarityEdge, VectorError};
 use crate::infrastructure::hnsw_index::HnswIndex;
 
 /// A search result neighbor with similarity information.
@@ -389,10 +386,7 @@ impl VectorSpaceService {
         let edges: Vec<_> = neighbors
             .into_iter()
             .filter(|n| n.id != id) // Exclude self
-            .map(|n| {
-                SimilarityEdge::new(id, n.id, n.distance)
-                    .with_type(EdgeType::Similar)
-            })
+            .map(|n| SimilarityEdge::new(id, n.id, n.distance).with_type(EdgeType::Similar))
             .collect();
 
         Ok(edges)
@@ -621,10 +615,7 @@ mod tests {
         let wrong_dim: Vec<f32> = vec![0.1; 64];
 
         let result = service.add_embedding(id, wrong_dim).await;
-        assert!(matches!(
-            result,
-            Err(VectorError::DimensionMismatch { .. })
-        ));
+        assert!(matches!(result, Err(VectorError::DimensionMismatch { .. })));
     }
 
     #[tokio::test]
@@ -658,8 +649,12 @@ mod tests {
         let query: Vec<f32> = (0..128).map(|j| j as f32 / 640.0).collect();
 
         // Filter to only include odd indices
-        let odd_ids: std::collections::HashSet<_> =
-            ids.iter().enumerate().filter(|(i, _)| i % 2 == 1).map(|(_, id)| *id).collect();
+        let odd_ids: std::collections::HashSet<_> = ids
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| i % 2 == 1)
+            .map(|(_, id)| *id)
+            .collect();
 
         let neighbors = service
             .find_neighbors_with_filter(&query, 10, |id| odd_ids.contains(id))

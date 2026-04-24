@@ -60,22 +60,22 @@
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::missing_panics_doc)]
 
-pub mod domain;
 pub mod application;
+pub mod domain;
 pub mod infrastructure;
 
 mod distance;
 mod hyperbolic;
 
 // Re-export commonly used types
+pub use application::services::{Neighbor, SearchOptions, VectorSpaceService};
+pub use distance::{cosine_distance, cosine_similarity, euclidean_distance, normalize_vector};
 pub use domain::entities::{
-    EmbeddingId, HnswConfig, SimilarityEdge, EdgeType, VectorIndex, Timestamp,
+    EdgeType, EmbeddingId, HnswConfig, SimilarityEdge, Timestamp, VectorIndex,
 };
-pub use domain::repository::{VectorIndexRepository, GraphEdgeRepository};
-pub use application::services::{VectorSpaceService, Neighbor, SearchOptions};
+pub use domain::repository::{GraphEdgeRepository, VectorIndexRepository};
+pub use hyperbolic::{exp_map, log_map, mobius_add, poincare_distance};
 pub use infrastructure::hnsw_index::HnswIndex;
-pub use distance::{cosine_distance, euclidean_distance, cosine_similarity, normalize_vector};
-pub use hyperbolic::{poincare_distance, exp_map, log_map, mobius_add};
 
 /// Error types for vector operations
 pub mod error {
@@ -85,14 +85,14 @@ pub mod error {
 /// Prelude module for convenient imports
 pub mod prelude {
     //! Common imports for vector operations.
+    pub use crate::application::services::{Neighbor, SearchOptions, VectorSpaceService};
+    pub use crate::distance::{cosine_distance, cosine_similarity, euclidean_distance};
     pub use crate::domain::entities::{
-        EmbeddingId, HnswConfig, SimilarityEdge, EdgeType, VectorIndex,
+        EdgeType, EmbeddingId, HnswConfig, SimilarityEdge, VectorIndex,
     };
-    pub use crate::domain::repository::{VectorIndexRepository, GraphEdgeRepository};
-    pub use crate::application::services::{VectorSpaceService, Neighbor, SearchOptions};
-    pub use crate::infrastructure::hnsw_index::HnswIndex;
-    pub use crate::distance::{cosine_distance, euclidean_distance, cosine_similarity};
+    pub use crate::domain::repository::{GraphEdgeRepository, VectorIndexRepository};
     pub use crate::error::VectorError;
+    pub use crate::infrastructure::hnsw_index::HnswIndex;
 }
 
 /// Crate version information

@@ -5,7 +5,7 @@
 
 use super::simplicial_complex::{Simplex, SimplicialComplex, SparseMatrix};
 use super::{constants, QuantumTopologyError, Result};
-use std::collections::{HashMap, HashSet, BTreeMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 /// Birth-death pair representing a persistent feature
 #[derive(Debug, Clone, PartialEq)]
@@ -204,11 +204,7 @@ impl PersistenceDiagram {
 
                     if t >= p.birth && t <= death {
                         // Triangle function
-                        let value = if t <= mid {
-                            t - p.birth
-                        } else {
-                            death - t
-                        };
+                        let value = if t <= mid { t - p.birth } else { death - t };
                         Some(value)
                     } else {
                         None
@@ -429,10 +425,7 @@ impl VietorisRipsFiltration {
 
             if self.max_dimension >= 2 {
                 // Find triangles
-                let common: Vec<usize> = adj[i]
-                    .intersection(&adj[j])
-                    .copied()
-                    .collect();
+                let common: Vec<usize> = adj[i].intersection(&adj[j]).copied().collect();
 
                 for k in common {
                     filtration.add(Simplex::triangle(i, j, k), birth);
@@ -578,11 +571,7 @@ impl PersistentHomologyComputer {
     }
 
     /// Compute from point cloud
-    pub fn compute_from_points(
-        &self,
-        points: &[Vec<f64>],
-        max_radius: f64,
-    ) -> PersistenceDiagram {
+    pub fn compute_from_points(&self, points: &[Vec<f64>], max_radius: f64) -> PersistenceDiagram {
         let vr = VietorisRipsFiltration::new(self.max_dimension, max_radius);
         let filtration = vr.build(points);
         self.compute(&filtration)
@@ -689,11 +678,7 @@ mod tests {
     #[test]
     fn test_persistent_homology_triangle() {
         // Three points forming equilateral triangle
-        let points = vec![
-            vec![0.0, 0.0],
-            vec![1.0, 0.0],
-            vec![0.5, 0.866],
-        ];
+        let points = vec![vec![0.0, 0.0], vec![1.0, 0.0], vec![0.5, 0.866]];
 
         let computer = PersistentHomologyComputer::new(2);
         let diagram = computer.compute_from_points(&points, 1.0);

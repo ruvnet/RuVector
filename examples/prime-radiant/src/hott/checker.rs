@@ -6,8 +6,8 @@
 //! - Normalization (beta reduction)
 //! - Context management
 
+use super::{fresh_id, Level, Term, Type, TypeError};
 use std::collections::HashMap;
-use super::{Type, Term, TypeError, Level, fresh_id};
 
 /// Typing context
 pub type Context = Vec<(String, Type)>;
@@ -58,7 +58,9 @@ impl TypeChecker {
 
     /// Look up variable in context
     pub fn lookup(&self, var: &str) -> Option<&Type> {
-        self.context.iter().rev()
+        self.context
+            .iter()
+            .rev()
             .find(|(v, _)| v == var)
             .map(|(_, ty)| ty)
     }
@@ -67,7 +69,12 @@ impl TypeChecker {
     pub fn check(&self, term: &Term, expected: &Type) -> CheckResult<()> {
         match (term, expected) {
             // Check lambda against Pi-type
-            (Term::Lambda { var, body }, Type::Pi { domain, codomain, .. }) => {
+            (
+                Term::Lambda { var, body },
+                Type::Pi {
+                    domain, codomain, ..
+                },
+            ) => {
                 let extended = self.extend(var.clone(), (**domain).clone());
                 let codomain_ty = codomain(&Term::Var(var.clone()));
                 extended.check(body, &codomain_ty)
@@ -147,11 +154,10 @@ impl TypeChecker {
     pub fn infer(&self, term: &Term) -> CheckResult<Type> {
         match term {
             // Variable lookup
-            Term::Var(name) => {
-                self.lookup(name)
-                    .cloned()
-                    .ok_or_else(|| TypeError::UnboundVariable(name.clone()))
-            }
+            Term::Var(name) => self
+                .lookup(name)
+                .cloned()
+                .ok_or_else(|| TypeError::UnboundVariable(name.clone())),
 
             // Star has type Unit
             Term::Star => Ok(Type::Unit),
@@ -170,7 +176,9 @@ impl TypeChecker {
             Term::App { func, arg } => {
                 let func_ty = self.infer(func)?;
                 match func_ty {
-                    Type::Pi { domain, codomain, .. } => {
+                    Type::Pi {
+                        domain, codomain, ..
+                    } => {
                         self.check(arg, &domain)?;
                         Ok(codomain(arg))
                     }
@@ -208,11 +216,19 @@ impl TypeChecker {
             // Reflexivity
             Term::Refl(t) => {
                 let ty = self.infer(t)?;
-                Ok(Type::Id(Box::new(ty), Box::new((**t).clone()), Box::new((**t).clone())))
+                Ok(Type::Id(
+                    Box::new(ty),
+                    Box::new((**t).clone()),
+                    Box::new((**t).clone()),
+                ))
             }
 
             // Transport
-            Term::Transport { family, path, term: inner } => {
+            Term::Transport {
+                family,
+                path,
+                term: inner,
+            } => {
                 // Check that path is an identity type
                 let path_ty = self.infer(path)?;
                 match path_ty {
@@ -225,13 +241,19 @@ impl TypeChecker {
                         Ok(target_fiber)
                     }
                     _ => Err(TypeError::InvalidTransport(
-                        "Expected identity type".to_string()
+                        "Expected identity type".to_string(),
                     )),
                 }
             }
 
             // J-eliminator
-            Term::J { motive, base_case, left, right, path } => {
+            Term::J {
+                motive,
+                base_case,
+                left,
+                right,
+                path,
+            } => {
                 // Verify path type
                 let path_ty = self.infer(path)?;
                 match path_ty {
@@ -239,7 +261,7 @@ impl TypeChecker {
                         // Verify left and right match the path
                         if !source.structural_eq(left) || !target.structural_eq(right) {
                             return Err(TypeError::InvalidPathInduction(
-                                "Path endpoints don't match".to_string()
+                                "Path endpoints don't match".to_string(),
                             ));
                         }
                         // The result type is C(left, right, path)
@@ -247,13 +269,17 @@ impl TypeChecker {
                         self.infer(base_case)
                     }
                     _ => Err(TypeError::InvalidPathInduction(
-                        "Expected identity type".to_string()
+                        "Expected identity type".to_string(),
                     )),
                 }
             }
 
             // If-then-else
-            Term::If { cond, then_branch, else_branch } => {
+            Term::If {
+                cond,
+                then_branch,
+                else_branch,
+            } => {
                 self.check(cond, &Type::Bool)?;
                 let then_ty = self.infer(then_branch)?;
                 self.check(else_branch, &then_ty)?;
@@ -261,20 +287,26 @@ impl TypeChecker {
             }
 
             // Natural number recursion
-            Term::NatRec { zero_case, succ_case, target } => {
+            Term::NatRec {
+                zero_case,
+                succ_case,
+                target,
+            } => {
                 self.check(target, &Type::Nat)?;
                 let result_ty = self.infer(zero_case)?;
                 // Verify succ_case has type Nat -> result_ty -> result_ty
-                let expected_succ_ty = Type::arrow(
-                    Type::Nat,
-                    Type::arrow(result_ty.clone(), result_ty.clone()),
-                );
+                let expected_succ_ty =
+                    Type::arrow(Type::Nat, Type::arrow(result_ty.clone(), result_ty.clone()));
                 self.check(succ_case, &expected_succ_ty)?;
                 Ok(result_ty)
             }
 
             // Case analysis on coproduct
-            Term::Case { scrutinee, left_case, right_case } => {
+            Term::Case {
+                scrutinee,
+                left_case,
+                right_case,
+            } => {
                 let scrut_ty = self.infer(scrutinee)?;
                 match scrut_ty {
                     Type::Coprod(left_ty, right_ty) => {
@@ -335,7 +367,7 @@ impl TypeChecker {
             Term::PathInverse(p) => {
                 let p_ty = self.infer(p)?;
                 match p_ty {
-                    Type::Id(ty, a, b) => Ok(Type::Id(ty, b, a)),  // a and b are already Box<Term>
+                    Type::Id(ty, a, b) => Ok(Type::Id(ty, b, a)), // a and b are already Box<Term>
                     _ => Err(TypeError::TypeMismatch {
                         expected: "identity type".to_string(),
                         found: format!("{:?}", p_ty),
@@ -366,7 +398,12 @@ impl TypeChecker {
                         };
                         Ok(Type::Id(codomain.clone(), Box::new(fa), Box::new(fb)))
                     }
-                    (Type::Pi { domain, codomain, .. }, Type::Id(ty, a, b)) => {
+                    (
+                        Type::Pi {
+                            domain, codomain, ..
+                        },
+                        Type::Id(ty, a, b),
+                    ) => {
                         if !domain.structural_eq(ty) {
                             return Err(TypeError::TypeMismatch {
                                 expected: format!("{:?}", domain),
@@ -426,9 +463,9 @@ impl TypeChecker {
             }
 
             // Coproduct injections need type annotation for full inference
-            Term::Inl(_) | Term::Inr(_) => {
-                Err(TypeError::CannotInfer("injection without type annotation".to_string()))
-            }
+            Term::Inl(_) | Term::Inr(_) => Err(TypeError::CannotInfer(
+                "injection without type annotation".to_string(),
+            )),
 
             // Pair needs type annotation for dependent pairs
             Term::Pair { fst, snd } => {
@@ -438,9 +475,9 @@ impl TypeChecker {
             }
 
             // Lambda needs type annotation
-            Term::Lambda { .. } => {
-                Err(TypeError::CannotInfer("lambda without type annotation".to_string()))
-            }
+            Term::Lambda { .. } => Err(TypeError::CannotInfer(
+                "lambda without type annotation".to_string(),
+            )),
 
             // apd
             Term::Apd { func, path } => {
@@ -500,7 +537,11 @@ impl TypeChecker {
             }
 
             // If reduction
-            Term::If { cond, then_branch, else_branch } => {
+            Term::If {
+                cond,
+                then_branch,
+                else_branch,
+            } => {
                 let cond_norm = self.normalize(cond);
                 match cond_norm {
                     Term::True => self.normalize(then_branch),
@@ -514,7 +555,11 @@ impl TypeChecker {
             }
 
             // Natural recursion reduction
-            Term::NatRec { zero_case, succ_case, target } => {
+            Term::NatRec {
+                zero_case,
+                succ_case,
+                target,
+            } => {
                 let target_norm = self.normalize(target);
                 match target_norm {
                     Term::Zero | Term::NatLit(0) => self.normalize(zero_case),
@@ -560,7 +605,11 @@ impl TypeChecker {
             }
 
             // Case reduction
-            Term::Case { scrutinee, left_case, right_case } => {
+            Term::Case {
+                scrutinee,
+                left_case,
+                right_case,
+            } => {
                 let scrut_norm = self.normalize(scrutinee);
                 match scrut_norm {
                     Term::Inl(x) => {
@@ -662,7 +711,13 @@ impl TypeChecker {
             },
 
             // J-elimination on refl
-            Term::J { motive, base_case, left, right, path } => {
+            Term::J {
+                motive,
+                base_case,
+                left,
+                right,
+                path,
+            } => {
                 let path_norm = self.normalize(path);
                 match &path_norm {
                     Term::Refl(_) => {
@@ -684,7 +739,11 @@ impl TypeChecker {
             }
 
             // Transport on refl
-            Term::Transport { family, path, term: inner } => {
+            Term::Transport {
+                family,
+                path,
+                term: inner,
+            } => {
                 let path_norm = self.normalize(path);
                 match &path_norm {
                     Term::Refl(_) => self.normalize(inner),
@@ -716,9 +775,17 @@ impl TypeChecker {
             Term::Abort(t) => Term::Abort(Box::new(self.normalize(t))),
 
             // Values
-            Term::Var(_) | Term::Star | Term::True | Term::False |
-            Term::Zero | Term::NatLit(_) | Term::CircleBase | Term::CircleLoop |
-            Term::IntervalZero | Term::IntervalOne | Term::InternalId(_) => term.clone(),
+            Term::Var(_)
+            | Term::Star
+            | Term::True
+            | Term::False
+            | Term::Zero
+            | Term::NatLit(_)
+            | Term::CircleBase
+            | Term::CircleLoop
+            | Term::IntervalZero
+            | Term::IntervalOne
+            | Term::InternalId(_) => term.clone(),
         }
     }
 

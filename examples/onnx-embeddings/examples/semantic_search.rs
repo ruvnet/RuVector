@@ -1,9 +1,7 @@
 //! Semantic search example using RuVector integration
 
 use anyhow::Result;
-use ruvector_onnx_embeddings::{
-    Embedder, RuVectorEmbeddings, IndexConfig, Distance,
-};
+use ruvector_onnx_embeddings::{Distance, Embedder, IndexConfig, RuVectorEmbeddings};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -24,16 +22,43 @@ async fn main() -> Result<()> {
 
     // Sample document corpus
     let documents = vec![
-        ("doc1", "Rust provides memory safety without garbage collection through its ownership system."),
-        ("doc2", "Python's simplicity makes it ideal for beginners learning programming."),
-        ("doc3", "JavaScript dominates web development with frameworks like React and Vue."),
-        ("doc4", "Machine learning models can be trained using TensorFlow or PyTorch."),
-        ("doc5", "Docker containers provide consistent deployment environments."),
-        ("doc6", "Kubernetes orchestrates containerized applications at scale."),
-        ("doc7", "GraphQL offers a more efficient alternative to REST APIs."),
-        ("doc8", "PostgreSQL is a powerful open-source relational database."),
+        (
+            "doc1",
+            "Rust provides memory safety without garbage collection through its ownership system.",
+        ),
+        (
+            "doc2",
+            "Python's simplicity makes it ideal for beginners learning programming.",
+        ),
+        (
+            "doc3",
+            "JavaScript dominates web development with frameworks like React and Vue.",
+        ),
+        (
+            "doc4",
+            "Machine learning models can be trained using TensorFlow or PyTorch.",
+        ),
+        (
+            "doc5",
+            "Docker containers provide consistent deployment environments.",
+        ),
+        (
+            "doc6",
+            "Kubernetes orchestrates containerized applications at scale.",
+        ),
+        (
+            "doc7",
+            "GraphQL offers a more efficient alternative to REST APIs.",
+        ),
+        (
+            "doc8",
+            "PostgreSQL is a powerful open-source relational database.",
+        ),
         ("doc9", "Redis provides in-memory data storage for caching."),
-        ("doc10", "Elasticsearch enables full-text search across large datasets."),
+        (
+            "doc10",
+            "Elasticsearch enables full-text search across large datasets.",
+        ),
     ];
 
     // Index documents with metadata

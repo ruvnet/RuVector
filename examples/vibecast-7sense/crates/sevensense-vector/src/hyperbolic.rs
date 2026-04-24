@@ -21,7 +21,7 @@
 //! - `mobius_add`: Gyrovector addition (parallel transport)
 //! - `poincare_distance`: Geodesic distance on the manifold
 
-#![allow(dead_code)]  // Hyperbolic geometry utilities for future use
+#![allow(dead_code)] // Hyperbolic geometry utilities for future use
 
 /// Default curvature for the Poincare ball model.
 /// Negative curvature corresponds to hyperbolic space.
@@ -50,7 +50,10 @@ const MAX_NORM: f32 = 1.0 - 1e-5;
 /// The geodesic distance between u and v.
 pub fn poincare_distance(u: &[f32], v: &[f32], curvature: f32) -> f32 {
     debug_assert_eq!(u.len(), v.len(), "Vector length mismatch");
-    debug_assert!(curvature < 0.0, "Curvature must be negative for hyperbolic space");
+    debug_assert!(
+        curvature < 0.0,
+        "Curvature must be negative for hyperbolic space"
+    );
 
     let sqrt_c = (-curvature).sqrt();
 

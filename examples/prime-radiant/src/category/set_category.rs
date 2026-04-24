@@ -6,13 +6,13 @@
 //! - Composition is function composition
 //! - Identity is the identity function
 
-use super::{Category, CategoryWithMono, CategoryWithProducts, CategoryWithCoproducts};
-use super::object::{Object, ObjectData};
 use super::morphism::{Morphism, MorphismData};
-use crate::{ObjectId, MorphismId, CategoryError, Result};
+use super::object::{Object, ObjectData};
+use super::{Category, CategoryWithCoproducts, CategoryWithMono, CategoryWithProducts};
+use crate::{CategoryError, MorphismId, ObjectId, Result};
 use dashmap::DashMap;
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// The category of finite sets
 ///
@@ -89,11 +89,7 @@ impl SetCategory {
             }
         }
 
-        let mor = Morphism::new(
-            domain.id,
-            codomain.id,
-            MorphismData::SetFunction(mapping),
-        );
+        let mor = Morphism::new(domain.id, codomain.id, MorphismData::SetFunction(mapping));
         let id = mor.id;
         self.morphisms.insert(id, mor.clone());
 
@@ -132,7 +128,9 @@ impl Clone for SetCategory {
             new_cat.objects.insert(*entry.key(), entry.value().clone());
         }
         for entry in self.morphisms.iter() {
-            new_cat.morphisms.insert(*entry.key(), entry.value().clone());
+            new_cat
+                .morphisms
+                .insert(*entry.key(), entry.value().clone());
         }
         for entry in self.identities.iter() {
             new_cat.identities.insert(*entry.key(), *entry.value());
@@ -343,11 +341,7 @@ impl CategoryWithProducts for SetCategory {
 
                     // π₁(i, j) = i
                     // For product element k = i * b_size + j, we get i = k / b_size
-                    let proj = Morphism::new(
-                        product.id,
-                        a_obj.id,
-                        MorphismData::Projection1,
-                    );
+                    let proj = Morphism::new(product.id, a_obj.id, MorphismData::Projection1);
                     self.morphisms.insert(proj.id, proj.clone());
                     Some(proj)
                 } else {
@@ -366,11 +360,7 @@ impl CategoryWithProducts for SetCategory {
 
                     // π₂(i, j) = j
                     // For product element k = i * b_size + j, we get j = k % b_size
-                    let proj = Morphism::new(
-                        product.id,
-                        b_obj.id,
-                        MorphismData::Projection2,
-                    );
+                    let proj = Morphism::new(product.id, b_obj.id, MorphismData::Projection2);
                     self.morphisms.insert(proj.id, proj.clone());
                     Some(proj)
                 } else {
@@ -429,11 +419,7 @@ impl CategoryWithCoproducts for SetCategory {
                     let a_obj = Object::new(ObjectData::FiniteSet(a_size));
 
                     // ι₁(i) = Left(i) = i
-                    let inj = Morphism::new(
-                        a_obj.id,
-                        coproduct.id,
-                        MorphismData::Injection1,
-                    );
+                    let inj = Morphism::new(a_obj.id, coproduct.id, MorphismData::Injection1);
                     self.morphisms.insert(inj.id, inj.clone());
                     Some(inj)
                 } else {
@@ -447,15 +433,12 @@ impl CategoryWithCoproducts for SetCategory {
     fn inj2(&self, coproduct: &Self::Object) -> Option<Self::Morphism> {
         match &coproduct.data {
             ObjectData::Coproduct(a, b) => {
-                if let (ObjectData::FiniteSet(a_size), ObjectData::FiniteSet(b_size)) = (&**a, &**b) {
+                if let (ObjectData::FiniteSet(a_size), ObjectData::FiniteSet(b_size)) = (&**a, &**b)
+                {
                     let b_obj = Object::new(ObjectData::FiniteSet(*b_size));
 
                     // ι₂(j) = Right(j) = a_size + j
-                    let inj = Morphism::new(
-                        b_obj.id,
-                        coproduct.id,
-                        MorphismData::Injection2,
-                    );
+                    let inj = Morphism::new(b_obj.id, coproduct.id, MorphismData::Injection2);
                     self.morphisms.insert(inj.id, inj.clone());
                     Some(inj)
                 } else {

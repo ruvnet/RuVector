@@ -56,10 +56,7 @@ impl Spectrogram {
     /// # Errors
     ///
     /// Returns an error if the data dimensions are incorrect.
-    pub fn new(
-        data: ndarray::Array2<f32>,
-        segment_id: SegmentId,
-    ) -> Result<Self, EmbeddingError> {
+    pub fn new(data: ndarray::Array2<f32>, segment_id: SegmentId) -> Result<Self, EmbeddingError> {
         let shape = data.shape();
         if shape[0] != MEL_FRAMES || shape[1] != MEL_BINS {
             return Err(EmbeddingError::InvalidDimensions {
@@ -228,11 +225,8 @@ impl EmbeddingService {
         let sparsity = normalization::compute_sparsity(&vector);
 
         // Create embedding entity
-        let mut embedding = Embedding::new(
-            spectrogram.segment_id,
-            vector,
-            model_version.full_version(),
-        )?;
+        let mut embedding =
+            Embedding::new(spectrogram.segment_id, vector, model_version.full_version())?;
 
         // Set metadata
         let latency_ms = start.elapsed().as_secs_f32() * 1000.0;
@@ -510,9 +504,9 @@ impl EmbeddingServiceBuilder {
     ///
     /// Returns an error if the model manager is not set.
     pub fn build(self) -> Result<EmbeddingService, EmbeddingError> {
-        let model_manager = self.model_manager.ok_or_else(|| {
-            EmbeddingError::Validation("Model manager is required".to_string())
-        })?;
+        let model_manager = self
+            .model_manager
+            .ok_or_else(|| EmbeddingError::Validation("Model manager is required".to_string()))?;
 
         Ok(EmbeddingService::with_config(model_manager, self.config))
     }

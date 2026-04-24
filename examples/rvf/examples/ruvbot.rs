@@ -25,14 +25,12 @@ use ed25519_dalek::SigningKey;
 use rand::rngs::OsRng;
 
 use rvf_crypto::{
-    create_witness_chain, sign_segment, verify_segment, verify_witness_chain,
-    shake256_256, WitnessEntry,
-};
-use rvf_runtime::options::DistanceMetric;
-use rvf_runtime::{
-    FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore,
+    create_witness_chain, shake256_256, sign_segment, verify_segment, verify_witness_chain,
+    WitnessEntry,
 };
 use rvf_runtime::filter::FilterValue;
+use rvf_runtime::options::DistanceMetric;
+use rvf_runtime::{FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore};
 use rvf_types::{DerivationType, SegmentHeader, SegmentType};
 use tempfile::TempDir;
 
@@ -41,7 +39,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -118,25 +118,110 @@ fn main() {
 
     let conversations: Vec<(&str, TurnType, u64, &str)> = vec![
         ("What's the weather in NYC?", TurnType::User, 0, "none"),
-        ("Let me check the weather for New York City.", TurnType::Assistant, 1, "none"),
-        ("NYC: 72F, partly cloudy, humidity 65%", TurnType::SkillResult, 2, "weather"),
-        ("It's 72F and partly cloudy in NYC with 65% humidity.", TurnType::Assistant, 3, "none"),
-        ("Thanks! Can you summarize my last meeting?", TurnType::User, 4, "none"),
-        ("Retrieving your meeting notes from today.", TurnType::Assistant, 5, "none"),
-        ("Meeting: Q4 planning, attendees: 8, action items: 3", TurnType::SkillResult, 6, "calendar"),
-        ("Your Q4 planning meeting had 8 attendees and 3 action items.", TurnType::Assistant, 7, "none"),
+        (
+            "Let me check the weather for New York City.",
+            TurnType::Assistant,
+            1,
+            "none",
+        ),
+        (
+            "NYC: 72F, partly cloudy, humidity 65%",
+            TurnType::SkillResult,
+            2,
+            "weather",
+        ),
+        (
+            "It's 72F and partly cloudy in NYC with 65% humidity.",
+            TurnType::Assistant,
+            3,
+            "none",
+        ),
+        (
+            "Thanks! Can you summarize my last meeting?",
+            TurnType::User,
+            4,
+            "none",
+        ),
+        (
+            "Retrieving your meeting notes from today.",
+            TurnType::Assistant,
+            5,
+            "none",
+        ),
+        (
+            "Meeting: Q4 planning, attendees: 8, action items: 3",
+            TurnType::SkillResult,
+            6,
+            "calendar",
+        ),
+        (
+            "Your Q4 planning meeting had 8 attendees and 3 action items.",
+            TurnType::Assistant,
+            7,
+            "none",
+        ),
         ("What were the action items?", TurnType::User, 8, "none"),
-        ("1. Finalize budget by Oct 15. 2. Hire 2 engineers. 3. Launch beta.", TurnType::Assistant, 9, "none"),
-        ("Set a reminder for the budget deadline.", TurnType::User, 10, "none"),
-        ("Reminder set: Finalize budget by October 15.", TurnType::SkillResult, 11, "reminders"),
-        ("Done! I've set a reminder for October 15.", TurnType::Assistant, 12, "none"),
-        ("Search for recent papers on RAG pipelines.", TurnType::User, 13, "none"),
-        ("Found 15 papers on RAG pipelines from 2024-2025.", TurnType::SkillResult, 14, "search"),
-        ("Here are the top RAG papers: 1. Self-RAG 2. CRAG 3. Adaptive-RAG", TurnType::Assistant, 15, "none"),
+        (
+            "1. Finalize budget by Oct 15. 2. Hire 2 engineers. 3. Launch beta.",
+            TurnType::Assistant,
+            9,
+            "none",
+        ),
+        (
+            "Set a reminder for the budget deadline.",
+            TurnType::User,
+            10,
+            "none",
+        ),
+        (
+            "Reminder set: Finalize budget by October 15.",
+            TurnType::SkillResult,
+            11,
+            "reminders",
+        ),
+        (
+            "Done! I've set a reminder for October 15.",
+            TurnType::Assistant,
+            12,
+            "none",
+        ),
+        (
+            "Search for recent papers on RAG pipelines.",
+            TurnType::User,
+            13,
+            "none",
+        ),
+        (
+            "Found 15 papers on RAG pipelines from 2024-2025.",
+            TurnType::SkillResult,
+            14,
+            "search",
+        ),
+        (
+            "Here are the top RAG papers: 1. Self-RAG 2. CRAG 3. Adaptive-RAG",
+            TurnType::Assistant,
+            15,
+            "none",
+        ),
         ("Explain Self-RAG in detail.", TurnType::User, 16, "none"),
-        ("Self-RAG uses reflection tokens to decide when to retrieve.", TurnType::Assistant, 17, "none"),
-        ("How does it compare to standard RAG?", TurnType::User, 18, "none"),
-        ("Self-RAG achieves 5-20% improvement in factual accuracy.", TurnType::Assistant, 19, "none"),
+        (
+            "Self-RAG uses reflection tokens to decide when to retrieve.",
+            TurnType::Assistant,
+            17,
+            "none",
+        ),
+        (
+            "How does it compare to standard RAG?",
+            TurnType::User,
+            18,
+            "none",
+        ),
+        (
+            "Self-RAG achieves 5-20% improvement in factual accuracy.",
+            TurnType::Assistant,
+            19,
+            "none",
+        ),
     ];
 
     let num_turns = conversations.len();
@@ -179,10 +264,20 @@ fn main() {
         .expect("ingest turns");
     println!("  Ingested {} conversation turns", ingest.accepted);
     println!("  Session: {}", session_id);
-    println!("  Turn types: user={}, assistant={}, skill_result={}",
-        conversations.iter().filter(|(_, t, _, _)| matches!(t, TurnType::User)).count(),
-        conversations.iter().filter(|(_, t, _, _)| matches!(t, TurnType::Assistant)).count(),
-        conversations.iter().filter(|(_, t, _, _)| matches!(t, TurnType::SkillResult)).count(),
+    println!(
+        "  Turn types: user={}, assistant={}, skill_result={}",
+        conversations
+            .iter()
+            .filter(|(_, t, _, _)| matches!(t, TurnType::User))
+            .count(),
+        conversations
+            .iter()
+            .filter(|(_, t, _, _)| matches!(t, TurnType::Assistant))
+            .count(),
+        conversations
+            .iter()
+            .filter(|(_, t, _, _)| matches!(t, TurnType::SkillResult))
+            .count(),
     );
     println!();
 
@@ -208,7 +303,13 @@ fn main() {
         if turn_idx < conversations.len() {
             let (msg, ttype, _, _) = &conversations[turn_idx];
             let truncated = if msg.len() > 50 { &msg[..50] } else { msg };
-            println!("    #{}: [{}] \"{}\" (dist={:.4})", i + 1, ttype.name(), truncated, r.distance);
+            println!(
+                "    #{}: [{}] \"{}\" (dist={:.4})",
+                i + 1,
+                ttype.name(),
+                truncated,
+                r.distance
+            );
         }
     }
     println!();
@@ -245,7 +346,8 @@ fn main() {
         if turn_idx < conversations.len() {
             assert!(
                 matches!(conversations[turn_idx].1, TurnType::User),
-                "expected user turn, got {:?}", conversations[turn_idx].1
+                "expected user turn, got {:?}",
+                conversations[turn_idx].1
             );
         }
     }
@@ -266,16 +368,56 @@ fn main() {
     let mut skill_store = RvfStore::create(&skill_path, skill_options).expect("create skills");
 
     let skills = vec![
-        Skill { name: "weather", description: "Get current weather conditions for any city", category: "utility" },
-        Skill { name: "calendar", description: "Access calendar events, meetings, and schedules", category: "productivity" },
-        Skill { name: "reminders", description: "Set, list, and manage reminders and alerts", category: "productivity" },
-        Skill { name: "search", description: "Search the web for papers, articles, and information", category: "research" },
-        Skill { name: "code_review", description: "Review code for bugs, security issues, and style", category: "development" },
-        Skill { name: "translate", description: "Translate text between languages", category: "utility" },
-        Skill { name: "summarize", description: "Summarize long documents, articles, or conversations", category: "utility" },
-        Skill { name: "email", description: "Compose, send, and manage emails", category: "communication" },
-        Skill { name: "database", description: "Query databases with natural language SQL generation", category: "development" },
-        Skill { name: "deploy", description: "Deploy applications to cloud infrastructure", category: "development" },
+        Skill {
+            name: "weather",
+            description: "Get current weather conditions for any city",
+            category: "utility",
+        },
+        Skill {
+            name: "calendar",
+            description: "Access calendar events, meetings, and schedules",
+            category: "productivity",
+        },
+        Skill {
+            name: "reminders",
+            description: "Set, list, and manage reminders and alerts",
+            category: "productivity",
+        },
+        Skill {
+            name: "search",
+            description: "Search the web for papers, articles, and information",
+            category: "research",
+        },
+        Skill {
+            name: "code_review",
+            description: "Review code for bugs, security issues, and style",
+            category: "development",
+        },
+        Skill {
+            name: "translate",
+            description: "Translate text between languages",
+            category: "utility",
+        },
+        Skill {
+            name: "summarize",
+            description: "Summarize long documents, articles, or conversations",
+            category: "utility",
+        },
+        Skill {
+            name: "email",
+            description: "Compose, send, and manage emails",
+            category: "communication",
+        },
+        Skill {
+            name: "database",
+            description: "Query databases with natural language SQL generation",
+            category: "development",
+        },
+        Skill {
+            name: "deploy",
+            description: "Deploy applications to cloud infrastructure",
+            category: "development",
+        },
     ];
 
     let skill_vecs: Vec<Vec<f32>> = skills
@@ -323,7 +465,10 @@ fn main() {
         if idx < skills.len() {
             println!(
                 "    #{}: {} ({}) — dist={:.4}",
-                i + 1, skills[idx].name, skills[idx].category, r.distance
+                i + 1,
+                skills[idx].name,
+                skills[idx].category,
+                r.distance
             );
         }
     }
@@ -342,7 +487,12 @@ fn main() {
     for (i, r) in dev_results.iter().enumerate() {
         let idx = r.id as usize;
         if idx < skills.len() {
-            println!("    #{}: {} — dist={:.4}", i + 1, skills[idx].name, r.distance);
+            println!(
+                "    #{}: {} — dist={:.4}",
+                i + 1,
+                skills[idx].name,
+                r.distance
+            );
         }
     }
     println!();
@@ -389,8 +539,8 @@ fn main() {
     println!("--- Phase 7: Interaction Audit Trail ---\n");
 
     let interaction_events = [
-        ("session:start:user=alice", 0x01u8),       // PROVENANCE
-        ("turn:user:weather_query", 0x02),           // COMPUTATION
+        ("session:start:user=alice", 0x01u8), // PROVENANCE
+        ("turn:user:weather_query", 0x02),    // COMPUTATION
         ("skill:invoke:weather", 0x02),
         ("turn:assistant:weather_response", 0x02),
         ("turn:user:meeting_query", 0x02),
@@ -398,7 +548,7 @@ fn main() {
         ("turn:assistant:meeting_summary", 0x02),
         ("turn:user:reminder_request", 0x02),
         ("skill:invoke:reminders", 0x02),
-        ("session:end:turns=20", 0x01),              // PROVENANCE
+        ("session:end:turns=20", 0x01), // PROVENANCE
     ];
 
     let entries: Vec<WitnessEntry> = interaction_events
@@ -415,9 +565,17 @@ fn main() {
     let chain_bytes = create_witness_chain(&entries);
     let verified = verify_witness_chain(&chain_bytes).expect("verify chain");
 
-    println!("  Audit trail: {} events, {} bytes, VERIFIED\n", verified.len(), chain_bytes.len());
+    println!(
+        "  Audit trail: {} events, {} bytes, VERIFIED\n",
+        verified.len(),
+        chain_bytes.len()
+    );
     for (i, (event, _)) in interaction_events.iter().enumerate() {
-        let wtype = if verified[i].witness_type == 0x01 { "PROV" } else { "COMP" };
+        let wtype = if verified[i].witness_type == 0x01 {
+            "PROV"
+        } else {
+            "COMP"
+        };
         println!("    [{}] {} → {}", wtype, i, event);
     }
     println!();
@@ -462,14 +620,27 @@ fn main() {
     let footer = sign_segment(&header, payload, &bot_key);
     let valid = verify_segment(&header, payload, &footer, &bot_pubkey);
 
-    println!("  Bot signing key: {}...", hex_string(&bot_pubkey.to_bytes()[..8]));
-    println!("  Memory segment signature: {}", if valid { "VALID" } else { "INVALID" });
+    println!(
+        "  Bot signing key: {}...",
+        hex_string(&bot_pubkey.to_bytes()[..8])
+    );
+    println!(
+        "  Memory segment signature: {}",
+        if valid { "VALID" } else { "INVALID" }
+    );
     assert!(valid);
 
     // Tamper detection
     let tampered_payload = b"ruvbot:memory:session_42:turns=999:skills=10";
     let tamper_check = verify_segment(&header, tampered_payload, &footer, &bot_pubkey);
-    println!("  Tampered payload: {}", if tamper_check { "VALID (bad)" } else { "REJECTED (correct)" });
+    println!(
+        "  Tampered payload: {}",
+        if tamper_check {
+            "VALID (bad)"
+        } else {
+            "REJECTED (correct)"
+        }
+    );
     assert!(!tamper_check);
     println!();
 
@@ -477,14 +648,25 @@ fn main() {
     // Summary
     // ──────────────────────────────────────────────
     println!("=== RuvBot Memory Summary ===\n");
-    println!("  Conversation turns:    {} ingested, {} after eviction",
-        num_turns, status_after.total_vectors);
+    println!(
+        "  Conversation turns:    {} ingested, {} after eviction",
+        num_turns, status_after.total_vectors
+    );
     println!("  Skills registered:     {}", skills.len());
     println!("  Skill routing:         semantic k-NN with category filter");
     println!("  Session recall:        filtered by turn_type + session_id");
-    println!("  Multi-tenancy:         {} tenants, derived with lineage", tenants.len());
-    println!("  Audit trail:           {} events, witness chain verified", interaction_events.len());
-    println!("  Context management:    delete + compact ({} turns evicted)", del_result.deleted);
+    println!(
+        "  Multi-tenancy:         {} tenants, derived with lineage",
+        tenants.len()
+    );
+    println!(
+        "  Audit trail:           {} events, witness chain verified",
+        interaction_events.len()
+    );
+    println!(
+        "  Context management:    delete + compact ({} turns evicted)",
+        del_result.deleted
+    );
     println!("  Memory signing:        Ed25519, tamper detection verified");
     println!("  Distance metric:       Cosine (semantic similarity)");
     println!("  Segments used:         VEC, INDEX, META, WITNESS, MANIFEST, CRYPTO");

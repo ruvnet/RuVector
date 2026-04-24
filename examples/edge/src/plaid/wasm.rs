@@ -4,16 +4,15 @@
 
 #![cfg(feature = "wasm")]
 
-use wasm_bindgen::prelude::*;
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use parking_lot::RwLock;
+use wasm_bindgen::prelude::*;
 
 use super::{
-    Transaction, SpendingPattern, CategoryPrediction, AnomalyResult,
-    BudgetRecommendation, FinancialLearningState, TransactionFeatures,
-    extract_features, update_q_value, get_recommendation,
+    extract_features, get_recommendation, update_q_value, AnomalyResult, BudgetRecommendation,
+    CategoryPrediction, FinancialLearningState, SpendingPattern, Transaction, TransactionFeatures,
 };
 
 /// Browser-local financial learning engine
@@ -84,7 +83,8 @@ impl PlaidLocalLearner {
             let embedding = features.to_embedding();
 
             // Add to HNSW index for similarity search
-            self.hnsw_index.insert(&tx.transaction_id, embedding.clone());
+            self.hnsw_index
+                .insert(&tx.transaction_id, embedding.clone());
 
             // Update category embedding (HashMap prevents memory leak - overwrites existing)
             let category_key = tx.category.join(":");
@@ -96,7 +96,9 @@ impl PlaidLocalLearner {
                     state.category_embeddings.remove(&key);
                 }
             }
-            state.category_embeddings.insert(category_key.clone(), embedding.clone());
+            state
+                .category_embeddings
+                .insert(category_key.clone(), embedding.clone());
 
             // Learn spending pattern
             self.learn_pattern(&mut state, tx, &features);
@@ -119,8 +121,7 @@ impl PlaidLocalLearner {
         insights.patterns_learned = state.patterns.len();
         insights.state_version = state.version;
 
-        serde_wasm_bindgen::to_value(&insights)
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+        serde_wasm_bindgen::to_value(&insights).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     /// Predict category for a new transaction
@@ -142,8 +143,7 @@ impl PlaidLocalLearner {
             similar_transactions: vec![], // Would populate from results
         };
 
-        serde_wasm_bindgen::to_value(&prediction)
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+        serde_wasm_bindgen::to_value(&prediction).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     /// Detect if a transaction is anomalous
@@ -163,7 +163,11 @@ impl PlaidLocalLearner {
                 is_anomaly: amount_diff > threshold,
                 anomaly_score: amount_diff / pattern.avg_amount.max(1.0),
                 reason: if amount_diff > threshold {
-                    format!("Amount ${:.2} is {:.1}x typical", tx.amount, amount_diff / pattern.avg_amount.max(1.0))
+                    format!(
+                        "Amount ${:.2} is {:.1}x typical",
+                        tx.amount,
+                        amount_diff / pattern.avg_amount.max(1.0)
+                    )
                 } else {
                     "Normal transaction".to_string()
                 },
@@ -178,8 +182,7 @@ impl PlaidLocalLearner {
             }
         };
 
-        serde_wasm_bindgen::to_value(&result)
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+        serde_wasm_bindgen::to_value(&result).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     /// Get budget recommendation for a category
@@ -193,8 +196,7 @@ impl PlaidLocalLearner {
         let state = self.state.read();
         let rec = get_recommendation(&state, category, current_spending, budget);
 
-        serde_wasm_bindgen::to_value(&rec)
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+        serde_wasm_bindgen::to_value(&rec).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     /// Record spending outcome for Q-learning
@@ -214,8 +216,7 @@ impl PlaidLocalLearner {
 
         let summary: Vec<SpendingPattern> = state.patterns.values().cloned().collect();
 
-        serde_wasm_bindgen::to_value(&summary)
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+        serde_wasm_bindgen::to_value(&summary).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     /// Get temporal spending heatmap (day of week + day of month)
@@ -228,8 +229,7 @@ impl PlaidLocalLearner {
             day_of_month: state.monthly_weights.clone(),
         };
 
-        serde_wasm_bindgen::to_value(&heatmap)
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+        serde_wasm_bindgen::to_value(&heatmap).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     /// Find similar transactions to a given one
@@ -258,8 +258,7 @@ impl PlaidLocalLearner {
             index_size: self.hnsw_index.len(),
         };
 
-        serde_wasm_bindgen::to_value(&stats)
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+        serde_wasm_bindgen::to_value(&stats).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     /// Clear all learned data (privacy feature)
@@ -272,19 +271,25 @@ impl PlaidLocalLearner {
 
     // Internal helper methods
 
-    fn learn_pattern(&self, state: &mut FinancialLearningState, tx: &Transaction, features: &TransactionFeatures) {
+    fn learn_pattern(
+        &self,
+        state: &mut FinancialLearningState,
+        tx: &Transaction,
+        features: &TransactionFeatures,
+    ) {
         let category_key = tx.category.join(":");
 
-        let pattern = state.patterns.entry(category_key.clone()).or_insert_with(|| {
-            SpendingPattern {
+        let pattern = state
+            .patterns
+            .entry(category_key.clone())
+            .or_insert_with(|| SpendingPattern {
                 pattern_id: format!("pat_{}", category_key),
                 category: category_key.clone(),
                 avg_amount: 0.0,
                 frequency_days: 30.0,
                 confidence: 0.0,
                 last_seen: 0,
-            }
-        });
+            });
 
         // Exponential moving average for amount
         pattern.avg_amount = pattern.avg_amount * 0.9 + tx.amount.abs() * 0.1;
@@ -298,9 +303,10 @@ impl PlaidLocalLearner {
         let embedding = features.to_embedding();
 
         // Convert floats to spike train (probability encoding)
-        embedding.iter().map(|&v| {
-            if v > 0.5 { 1 } else { 0 }
-        }).collect()
+        embedding
+            .iter()
+            .map(|&v| if v > 0.5 { 1 } else { 0 })
+            .collect()
     }
 }
 

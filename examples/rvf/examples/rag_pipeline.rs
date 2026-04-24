@@ -14,11 +14,9 @@
 
 use std::time::Instant;
 
-use rvf_runtime::{
-    MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore,
-};
+use rvf_crypto::{create_witness_chain, shake256_256, verify_witness_chain, WitnessEntry};
 use rvf_runtime::options::DistanceMetric;
-use rvf_crypto::{create_witness_chain, verify_witness_chain, shake256_256, WitnessEntry};
+use rvf_runtime::{MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore};
 use tempfile::TempDir;
 
 /// Simple pseudo-random number generator (LCG) for deterministic results.
@@ -26,7 +24,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -76,7 +76,11 @@ fn rerank_score(query: &[f32], chunk: &[f32], token_count: u64) -> f32 {
 
 /// Format bytes as a truncated hex string.
 fn hex_short(bytes: &[u8], n: usize) -> String {
-    bytes.iter().take(n).map(|b| format!("{:02x}", b)).collect::<String>()
+    bytes
+        .iter()
+        .take(n)
+        .map(|b| format!("{:02x}", b))
+        .collect::<String>()
 }
 
 fn main() {
@@ -117,7 +121,9 @@ fn main() {
     // Record PROVENANCE witness entry for the chunking step.
     let chunk_action_data = format!(
         "CHUNK: {} chunks from {} sources, dim={}",
-        num_chunks, SOURCE_DOCS.len(), dim
+        num_chunks,
+        SOURCE_DOCS.len(),
+        dim
     );
     witness_entries.push(WitnessEntry {
         prev_hash: [0u8; 32],
@@ -207,7 +213,8 @@ fn main() {
 
     println!("  Query: synthetic question embedding (seed=42000)");
     println!("  Retrieved top-{} chunks", initial_results.len());
-    println!("  Distance range: [{:.6}, {:.6}]",
+    println!(
+        "  Distance range: [{:.6}, {:.6}]",
         initial_results.first().map(|r| r.distance).unwrap_or(0.0),
         initial_results.last().map(|r| r.distance).unwrap_or(0.0),
     );
@@ -234,12 +241,15 @@ fn main() {
     let t_rerank = Instant::now();
 
     // Re-score each retrieved chunk with a cross-encoder approximation.
-    let mut reranked: Vec<(u64, f32, f32)> = initial_results.iter().map(|r| {
-        let chunk_vec = &vectors[r.id as usize];
-        let token_count = chunk_token_count(r.id as usize);
-        let score = rerank_score(&question_vec, chunk_vec, token_count);
-        (r.id, r.distance, score)
-    }).collect();
+    let mut reranked: Vec<(u64, f32, f32)> = initial_results
+        .iter()
+        .map(|r| {
+            let chunk_vec = &vectors[r.id as usize];
+            let token_count = chunk_token_count(r.id as usize);
+            let score = rerank_score(&question_vec, chunk_vec, token_count);
+            (r.id, r.distance, score)
+        })
+        .collect();
 
     // Sort by reranking score (higher = better).
     reranked.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap());
@@ -259,7 +269,12 @@ fn main() {
         let idx = id as usize;
         println!(
             "  {:>6}  {:>12}  {:>12.6}  {:>10.6}  {:>12}  {:>20}",
-            rank + 1, id, l2_dist, score, chunk_token_count(idx), chunk_source(idx)
+            rank + 1,
+            id,
+            l2_dist,
+            score,
+            chunk_token_count(idx),
+            chunk_source(idx)
         );
     }
     println!("  Latency: {} ms", rerank_ms);
@@ -286,7 +301,8 @@ fn main() {
     let context_k = 5;
     let context_chunks: Vec<_> = reranked.iter().take(context_k).collect();
 
-    let total_tokens: u64 = context_chunks.iter()
+    let total_tokens: u64 = context_chunks
+        .iter()
         .map(|&&(id, _, _)| chunk_token_count(id as usize))
         .sum();
 
@@ -298,7 +314,11 @@ fn main() {
         let idx = id as usize;
         println!(
             "    {}. Chunk {} from {} (tokens: {}, score: {:.6})",
-            rank + 1, id, chunk_source(idx), chunk_token_count(idx), score
+            rank + 1,
+            id,
+            chunk_source(idx),
+            chunk_token_count(idx),
+            score
         );
     }
     println!("  Total context tokens: {}", total_tokens);
@@ -321,16 +341,32 @@ fn main() {
     // ====================================================================
     println!("\n=== Witness Chain: Audit Trail ===\n");
 
-    println!("  Creating witness chain with {} entries...", witness_entries.len());
+    println!(
+        "  Creating witness chain with {} entries...",
+        witness_entries.len()
+    );
     let chain_bytes = create_witness_chain(&witness_entries);
-    println!("  Chain size: {} bytes ({} bytes per entry)\n", chain_bytes.len(), 73);
+    println!(
+        "  Chain size: {} bytes ({} bytes per entry)\n",
+        chain_bytes.len(),
+        73
+    );
 
     // Verify chain integrity.
     let verified = verify_witness_chain(&chain_bytes).expect("witness chain verification failed");
-    println!("  Chain integrity: VALID ({} entries verified)\n", verified.len());
+    println!(
+        "  Chain integrity: VALID ({} entries verified)\n",
+        verified.len()
+    );
 
     // Print chain entries.
-    let step_names = ["Chunking", "Embedding", "Retrieval", "Reranking", "Assembly"];
+    let step_names = [
+        "Chunking",
+        "Embedding",
+        "Retrieval",
+        "Reranking",
+        "Assembly",
+    ];
     println!(
         "  {:>5}  {:>10}  {:>12}  {:>16}  {:>32}",
         "Step", "Name", "Type", "Timestamp", "Prev Hash"
@@ -357,7 +393,10 @@ fn main() {
     }
 
     // Verify genesis
-    assert_eq!(verified[0].prev_hash, [0u8; 32], "first entry should have zero prev_hash");
+    assert_eq!(
+        verified[0].prev_hash, [0u8; 32],
+        "first entry should have zero prev_hash"
+    );
     println!("\n  Genesis entry has zero prev_hash: confirmed.");
     println!("  All action hashes are cryptographically bound.");
 
@@ -365,10 +404,7 @@ fn main() {
     // Pipeline Summary
     // ====================================================================
     println!("\n=== Pipeline Trace Summary ===\n");
-    println!(
-        "  {:>20}  {:>10}",
-        "Stage", "Latency (ms)"
-    );
+    println!("  {:>20}  {:>10}", "Stage", "Latency (ms)");
     println!("  {:->20}  {:->10}", "", "");
     let mut total_ms = 0u128;
     for (name, ms) in &step_latencies {
@@ -382,8 +418,15 @@ fn main() {
     println!("    Input:     question embedding ({} dims)", dim);
     println!("    Retrieved: {} initial candidates", retrieval_k);
     println!("    Reranked:  {} candidates", reranked.len());
-    println!("    Selected:  {} context chunks ({} tokens)", context_k, total_tokens);
-    println!("    Audit:     {} witness entries ({} bytes)", witness_entries.len(), chain_bytes.len());
+    println!(
+        "    Selected:  {} context chunks ({} tokens)",
+        context_k, total_tokens
+    );
+    println!(
+        "    Audit:     {} witness entries ({} bytes)",
+        witness_entries.len(),
+        chain_bytes.len()
+    );
 
     store.close().expect("failed to close store");
     println!("\nDone.");

@@ -37,30 +37,30 @@
 //! ```
 
 // Core category theory modules
-pub mod category;
-pub mod functor;
-pub mod natural_transformation;
-pub mod topos;
-pub mod retrieval;
-pub mod higher;
 pub mod belief;
+pub mod category;
 pub mod coherence;
+pub mod functor;
+pub mod higher;
+pub mod natural_transformation;
+pub mod retrieval;
+pub mod topos;
 
 // Advanced modules
-pub mod quantum;
 pub mod hott;
+pub mod quantum;
 // pub mod spectral;
 // pub mod causal; // Disabled - module has internal compilation errors needing fixes
 
 // Re-export main types for convenience
-pub use category::{Category, Object, Morphism, SetCategory, VectorCategory};
-pub use functor::{Functor, EmbeddingFunctor, ForgetfulFunctor};
+pub use belief::{BeliefState, BeliefTopos, Context};
+pub use category::{Category, Morphism, Object, SetCategory, VectorCategory};
+pub use coherence::{verify_pentagon, verify_triangle, CoherenceLaw};
+pub use functor::{EmbeddingFunctor, ForgetfulFunctor, Functor};
+pub use higher::{CoherenceResult, TwoCategory, TwoMorphism};
 pub use natural_transformation::NaturalTransformation;
-pub use topos::{Topos, SubobjectClassifier};
 pub use retrieval::FunctorialRetrieval;
-pub use higher::{TwoCategory, TwoMorphism, CoherenceResult};
-pub use belief::{BeliefTopos, BeliefState, Context};
-pub use coherence::{CoherenceLaw, verify_pentagon, verify_triangle};
+pub use topos::{SubobjectClassifier, Topos};
 
 use serde::{Deserialize, Serialize};
 use std::fmt;

@@ -8,9 +8,9 @@
 //! - Coherence proofs as paths between belief states
 //! - Belief revision as transport along paths
 
+use super::{Equivalence, Path, PathOps, Term, Type, TypeError};
 use std::collections::HashMap;
 use std::sync::Arc;
-use super::{Term, Type, Path, PathOps, Equivalence, TypeError};
 
 /// A belief state in Prime-Radiant
 ///
@@ -123,10 +123,7 @@ impl BeliefState {
 /// one set of beliefs to another, preserving overall coherence.
 ///
 /// Returns None if the states are inconsistent (no path exists).
-pub fn coherence_as_path(
-    belief_a: &BeliefState,
-    belief_b: &BeliefState,
-) -> Option<Path> {
+pub fn coherence_as_path(belief_a: &BeliefState, belief_b: &BeliefState) -> Option<Path> {
     // Check if states are consistent
     if !belief_a.is_consistent_with(belief_b) {
         return None;
@@ -139,19 +136,11 @@ pub fn coherence_as_path(
     // The proof encodes the belief transition
     let proof = construct_coherence_proof(belief_a, belief_b, coherence);
 
-    Some(Path::new(
-        belief_a.to_term(),
-        belief_b.to_term(),
-        proof,
-    ))
+    Some(Path::new(belief_a.to_term(), belief_b.to_term(), proof))
 }
 
 /// Construct the proof term for a coherence path
-fn construct_coherence_proof(
-    source: &BeliefState,
-    target: &BeliefState,
-    coherence: f64,
-) -> Term {
+fn construct_coherence_proof(source: &BeliefState, target: &BeliefState, coherence: f64) -> Term {
     // The proof consists of:
     // 1. Evidence that each belief change is justified
     // 2. A coherence witness
@@ -185,10 +174,7 @@ fn construct_coherence_proof(
 ///
 /// Two belief states are equivalent if there exist paths in both directions
 /// that compose to identity (up to homotopy).
-pub fn belief_equivalence(
-    belief_a: &BeliefState,
-    belief_b: &BeliefState,
-) -> Option<Equivalence> {
+pub fn belief_equivalence(belief_a: &BeliefState, belief_b: &BeliefState) -> Option<Equivalence> {
     // Check bidirectional consistency
     if !belief_a.is_consistent_with(belief_b) || !belief_b.is_consistent_with(belief_a) {
         return None;
@@ -203,13 +189,9 @@ pub fn belief_equivalence(
         Type::Var(format!("BeliefState_{}", belief_a.id)),
         Type::Var(format!("BeliefState_{}", belief_b.id)),
         // Forward: revise beliefs from A to B
-        move |term| {
-            revise_belief_term(term, &a, &b)
-        },
+        move |term| revise_belief_term(term, &a, &b),
         // Backward: revise beliefs from B to A
-        move |term| {
-            revise_belief_term(term, &b2, &a2)
-        },
+        move |term| revise_belief_term(term, &b2, &a2),
         // Section proof
         |x| Term::Refl(Box::new(x.clone())),
         // Retraction proof
@@ -218,11 +200,7 @@ pub fn belief_equivalence(
 }
 
 /// Revise a belief term from source state to target state
-fn revise_belief_term(
-    term: &Term,
-    source: &BeliefState,
-    target: &BeliefState,
-) -> Term {
+fn revise_belief_term(term: &Term, source: &BeliefState, target: &BeliefState) -> Term {
     // Create a transport along the coherence path
     let path_proof = construct_coherence_proof(source, target, source.coherence_with(target));
 
@@ -240,10 +218,7 @@ fn revise_belief_term(
 ///
 /// Given a path from belief state A to B and a proposition proved in A,
 /// transport gives us the revised belief in B.
-pub fn revise_belief(
-    path: &Path,
-    proposition: &Term,
-) -> Term {
+pub fn revise_belief(path: &Path, proposition: &Term) -> Term {
     Term::Transport {
         family: Box::new(Term::Lambda {
             var: "state".to_string(),
@@ -257,10 +232,7 @@ pub fn revise_belief(
 /// Compose belief transitions
 ///
 /// Given paths A -> B and B -> C, construct the composite path A -> C.
-pub fn compose_belief_transitions(
-    path_ab: &Path,
-    path_bc: &Path,
-) -> Option<Path> {
+pub fn compose_belief_transitions(path_ab: &Path, path_bc: &Path) -> Option<Path> {
     path_ab.compose(path_bc)
 }
 
@@ -425,11 +397,9 @@ mod tests {
 
     #[test]
     fn test_inconsistent_states() {
-        let state_a = BeliefState::new("a")
-            .with_belief("p", 0.9);
+        let state_a = BeliefState::new("a").with_belief("p", 0.9);
 
-        let state_b = BeliefState::new("b")
-            .with_belief("p", 0.1); // Contradiction
+        let state_b = BeliefState::new("b").with_belief("p", 0.1); // Contradiction
 
         assert!(!state_a.is_consistent_with(&state_b));
         assert!(coherence_as_path(&state_a, &state_b).is_none());
@@ -437,11 +407,9 @@ mod tests {
 
     #[test]
     fn test_consistent_path() {
-        let state_a = BeliefState::new("a")
-            .with_belief("p", 0.7);
+        let state_a = BeliefState::new("a").with_belief("p", 0.7);
 
-        let state_b = BeliefState::new("b")
-            .with_belief("p", 0.8); // Compatible change
+        let state_b = BeliefState::new("b").with_belief("p", 0.8); // Compatible change
 
         let path = coherence_as_path(&state_a, &state_b);
         assert!(path.is_some());
@@ -449,11 +417,9 @@ mod tests {
 
     #[test]
     fn test_belief_equivalence() {
-        let state_a = BeliefState::new("a")
-            .with_belief("p", 0.6);
+        let state_a = BeliefState::new("a").with_belief("p", 0.6);
 
-        let state_b = BeliefState::new("b")
-            .with_belief("p", 0.65);
+        let state_b = BeliefState::new("b").with_belief("p", 0.65);
 
         let equiv = belief_equivalence(&state_a, &state_b);
         assert!(equiv.is_some());
@@ -499,8 +465,7 @@ mod tests {
 
     #[test]
     fn test_belief_space() {
-        let space = BeliefSpace::new()
-            .with_constraint(consistency_constraint("rain"));
+        let space = BeliefSpace::new().with_constraint(consistency_constraint("rain"));
 
         let valid_state = BeliefState::new("valid")
             .with_belief("rain", 0.8)

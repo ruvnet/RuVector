@@ -67,7 +67,11 @@ async fn main() -> Result<()> {
             println!("Found {} climate tech patents:", patents.len());
             for patent in &patents {
                 if let Some(title) = patent.metadata.get("title") {
-                    let cpc = patent.metadata.get("cpc_codes").map(|s| s.as_str()).unwrap_or("N/A");
+                    let cpc = patent
+                        .metadata
+                        .get("cpc_codes")
+                        .map(|s| s.as_str())
+                        .unwrap_or("N/A");
                     println!("  - {} (CPC: {})", title, cpc);
                 }
             }
@@ -83,10 +87,24 @@ async fn main() -> Result<()> {
         Ok(Some(patent)) => {
             println!("Patent Details:");
             println!("  ID: {}", patent.id);
-            println!("  Title: {}", patent.metadata.get("title").map(|s| s.as_str()).unwrap_or("N/A"));
-            println!("  Abstract: {}",
-                patent.metadata.get("abstract")
-                    .map(|s| if s.len() > 200 { format!("{}...", &s[..200]) } else { s.clone() })
+            println!(
+                "  Title: {}",
+                patent
+                    .metadata
+                    .get("title")
+                    .map(|s| s.as_str())
+                    .unwrap_or("N/A")
+            );
+            println!(
+                "  Abstract: {}",
+                patent
+                    .metadata
+                    .get("abstract")
+                    .map(|s| if s.len() > 200 {
+                        format!("{}...", &s[..200])
+                    } else {
+                        s.clone()
+                    })
                     .unwrap_or_else(|| "N/A".to_string())
             );
             println!("  Domain: {:?}", patent.domain);
@@ -107,7 +125,11 @@ async fn main() -> Result<()> {
             println!("Found {} AI/ML patents:", patents.len());
             for patent in &patents {
                 if let Some(title) = patent.metadata.get("title") {
-                    let citations = patent.metadata.get("citations_count").map(|s| s.as_str()).unwrap_or("0");
+                    let citations = patent
+                        .metadata
+                        .get("citations_count")
+                        .map(|s| s.as_str())
+                        .unwrap_or("0");
                     println!("  - {} (Citations: {})", title, citations);
                 }
             }

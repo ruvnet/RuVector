@@ -203,9 +203,7 @@ impl OpenAlexClient {
 
     /// Convert OpenAlex work to DataRecord
     fn work_to_record(&self, work: OpenAlexWork) -> Result<DataRecord> {
-        let title = work
-            .display_name
-            .unwrap_or_else(|| "Untitled".to_string());
+        let title = work.display_name.unwrap_or_else(|| "Untitled".to_string());
 
         let abstract_text = work
             .abstract_inverted_index
@@ -311,8 +309,7 @@ impl OpenAlexClient {
         loop {
             match self.client.get(url).send().await {
                 Ok(response) => {
-                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES
-                    {
+                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
                         let delay = RETRY_DELAY_MS * 2_u64.pow(retries - 1);
                         sleep(Duration::from_millis(delay)).await;
@@ -547,7 +544,10 @@ impl CoreClient {
     }
 
     /// Fetch with retry logic
-    async fn fetch_with_retry(&self, request: reqwest::RequestBuilder) -> Result<reqwest::Response> {
+    async fn fetch_with_retry(
+        &self,
+        request: reqwest::RequestBuilder,
+    ) -> Result<reqwest::Response> {
         let mut retries = 0;
         loop {
             let req = request
@@ -556,8 +556,7 @@ impl CoreClient {
 
             match req.send().await {
                 Ok(response) => {
-                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES
-                    {
+                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
                         let delay = RETRY_DELAY_MS * 2_u64.pow(retries - 1);
                         sleep(Duration::from_millis(delay)).await;
@@ -754,8 +753,7 @@ impl EricClient {
         loop {
             match self.client.get(url).send().await {
                 Ok(response) => {
-                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES
-                    {
+                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
                         let delay = RETRY_DELAY_MS * 2_u64.pow(retries - 1);
                         sleep(Duration::from_millis(delay)).await;
@@ -899,9 +897,7 @@ impl UnpaywallClient {
 
     /// Convert Unpaywall response to DataRecord
     fn response_to_record(&self, response: UnpaywallResponse) -> Result<DataRecord> {
-        let title = response
-            .title
-            .unwrap_or_else(|| "Untitled".to_string());
+        let title = response.title.unwrap_or_else(|| "Untitled".to_string());
 
         let embedding = self.embedder.embed_text(&title);
 
@@ -966,8 +962,7 @@ impl UnpaywallClient {
         loop {
             match self.client.get(url).send().await {
                 Ok(response) => {
-                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES
-                    {
+                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
                         let delay = RETRY_DELAY_MS * 2_u64.pow(retries - 1);
                         sleep(Duration::from_millis(delay)).await;
@@ -1063,7 +1058,10 @@ mod tests {
         assert_eq!(record.source, "openalex");
         assert_eq!(record.record_type, "work");
         assert!(record.embedding.is_some());
-        assert_eq!(record.embedding.as_ref().unwrap().len(), EMBEDDING_DIMENSION);
+        assert_eq!(
+            record.embedding.as_ref().unwrap().len(),
+            EMBEDDING_DIMENSION
+        );
     }
 
     #[test]
@@ -1139,7 +1137,10 @@ mod tests {
         assert_eq!(record.id, "123456");
         assert_eq!(record.source, "core");
         assert!(record.embedding.is_some());
-        assert_eq!(record.embedding.as_ref().unwrap().len(), EMBEDDING_DIMENSION);
+        assert_eq!(
+            record.embedding.as_ref().unwrap().len(),
+            EMBEDDING_DIMENSION
+        );
 
         // Verify data fields
         assert_eq!(

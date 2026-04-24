@@ -172,7 +172,11 @@ impl HuggingFaceClient {
 
         sleep(Duration::from_millis(HUGGINGFACE_RATE_LIMIT_MS)).await;
 
-        let mut url = format!("{}/models?search={}", self.base_url, urlencoding::encode(query));
+        let mut url = format!(
+            "{}/models?search={}",
+            self.base_url,
+            urlencoding::encode(query)
+        );
         if let Some(task_filter) = task {
             url.push_str(&format!("&filter={}", task_filter));
         }
@@ -276,9 +280,9 @@ impl HuggingFaceClient {
         let response = request.send().await?;
 
         if !response.status().is_success() {
-            return Err(FrameworkError::Network(
-                reqwest::Error::from(response.error_for_status().unwrap_err()),
-            ));
+            return Err(FrameworkError::Network(reqwest::Error::from(
+                response.error_for_status().unwrap_err(),
+            )));
         }
 
         let result: HuggingFaceInferenceResponse = response.json().await?;
@@ -425,14 +429,17 @@ impl HuggingFaceClient {
                 Ok(response) => {
                     if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
-                        tracing::warn!("Rate limited, retrying in {}ms", RETRY_DELAY_MS * retries as u64);
+                        tracing::warn!(
+                            "Rate limited, retrying in {}ms",
+                            RETRY_DELAY_MS * retries as u64
+                        );
                         sleep(Duration::from_millis(RETRY_DELAY_MS * retries as u64)).await;
                         continue;
                     }
                     if !response.status().is_success() {
-                        return Err(FrameworkError::Network(
-                            reqwest::Error::from(response.error_for_status().unwrap_err()),
-                        ));
+                        return Err(FrameworkError::Network(reqwest::Error::from(
+                            response.error_for_status().unwrap_err(),
+                        )));
                     }
                     return Ok(response);
                 }
@@ -622,9 +629,9 @@ impl OllamaClient {
         let response = self.client.post(&url).json(&body).send().await?;
 
         if !response.status().is_success() {
-            return Err(FrameworkError::Network(
-                reqwest::Error::from(response.error_for_status().unwrap_err()),
-            ));
+            return Err(FrameworkError::Network(reqwest::Error::from(
+                response.error_for_status().unwrap_err(),
+            )));
         }
 
         let result: OllamaGenerateResponse = response.json().await?;
@@ -636,11 +643,7 @@ impl OllamaClient {
     /// # Arguments
     /// * `model` - Model name
     /// * `messages` - Chat message history
-    pub async fn chat(
-        &mut self,
-        model: &str,
-        messages: Vec<OllamaChatMessage>,
-    ) -> Result<String> {
+    pub async fn chat(&mut self, model: &str, messages: Vec<OllamaChatMessage>) -> Result<String> {
         if self.use_mock || !self.is_available().await {
             self.use_mock = true;
             let last_msg = messages.last().map(|m| m.content.as_str()).unwrap_or("");
@@ -659,9 +662,9 @@ impl OllamaClient {
         let response = self.client.post(&url).json(&body).send().await?;
 
         if !response.status().is_success() {
-            return Err(FrameworkError::Network(
-                reqwest::Error::from(response.error_for_status().unwrap_err()),
-            ));
+            return Err(FrameworkError::Network(reqwest::Error::from(
+                response.error_for_status().unwrap_err(),
+            )));
         }
 
         let result: OllamaChatResponse = response.json().await?;
@@ -690,9 +693,9 @@ impl OllamaClient {
         let response = self.client.post(&url).json(&body).send().await?;
 
         if !response.status().is_success() {
-            return Err(FrameworkError::Network(
-                reqwest::Error::from(response.error_for_status().unwrap_err()),
-            ));
+            return Err(FrameworkError::Network(reqwest::Error::from(
+                response.error_for_status().unwrap_err(),
+            )));
         }
 
         let result: OllamaEmbeddingsResponse = response.json().await?;
@@ -770,7 +773,10 @@ impl OllamaClient {
     }
 
     fn mock_generation(&self, prompt: &str) -> String {
-        format!("Mock response to: {}", prompt.chars().take(50).collect::<String>())
+        format!(
+            "Mock response to: {}",
+            prompt.chars().take(50).collect::<String>()
+        )
     }
 }
 
@@ -1064,9 +1070,9 @@ impl ReplicateClient {
                         continue;
                     }
                     if !response.status().is_success() {
-                        return Err(FrameworkError::Network(
-                            reqwest::Error::from(response.error_for_status().unwrap_err()),
-                        ));
+                        return Err(FrameworkError::Network(reqwest::Error::from(
+                            response.error_for_status().unwrap_err(),
+                        )));
                     }
                     return Ok(response);
                 }
@@ -1100,9 +1106,9 @@ impl ReplicateClient {
                         continue;
                     }
                     if !response.status().is_success() {
-                        return Err(FrameworkError::Network(
-                            reqwest::Error::from(response.error_for_status().unwrap_err()),
-                        ));
+                        return Err(FrameworkError::Network(reqwest::Error::from(
+                            response.error_for_status().unwrap_err(),
+                        )));
                     }
                     return Ok(response);
                 }
@@ -1391,9 +1397,9 @@ impl TogetherAiClient {
                         continue;
                     }
                     if !response.status().is_success() {
-                        return Err(FrameworkError::Network(
-                            reqwest::Error::from(response.error_for_status().unwrap_err()),
-                        ));
+                        return Err(FrameworkError::Network(reqwest::Error::from(
+                            response.error_for_status().unwrap_err(),
+                        )));
                     }
                     return Ok(response);
                 }
@@ -1427,9 +1433,9 @@ impl TogetherAiClient {
                         continue;
                     }
                     if !response.status().is_success() {
-                        return Err(FrameworkError::Network(
-                            reqwest::Error::from(response.error_for_status().unwrap_err()),
-                        ));
+                        return Err(FrameworkError::Network(reqwest::Error::from(
+                            response.error_for_status().unwrap_err(),
+                        )));
                     }
                     return Ok(response);
                 }
@@ -1553,11 +1559,7 @@ impl PapersWithCodeClient {
     pub async fn search_papers(&self, query: &str) -> Result<Vec<PaperWithCodePaper>> {
         sleep(Duration::from_millis(PAPERWITHCODE_RATE_LIMIT_MS)).await;
 
-        let url = format!(
-            "{}/papers/?q={}",
-            self.base_url,
-            urlencoding::encode(query)
-        );
+        let url = format!("{}/papers/?q={}", self.base_url, urlencoding::encode(query));
 
         let response = self.fetch_with_retry(&url).await?;
         let data: PapersSearchResponse = response.json().await?;
@@ -1735,14 +1737,17 @@ impl PapersWithCodeClient {
                 Ok(response) => {
                     if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
-                        tracing::warn!("Rate limited, retrying in {}ms", RETRY_DELAY_MS * retries as u64);
+                        tracing::warn!(
+                            "Rate limited, retrying in {}ms",
+                            RETRY_DELAY_MS * retries as u64
+                        );
                         sleep(Duration::from_millis(RETRY_DELAY_MS * retries as u64)).await;
                         continue;
                     }
                     if !response.status().is_success() {
-                        return Err(FrameworkError::Network(
-                            reqwest::Error::from(response.error_for_status().unwrap_err()),
-                        ));
+                        return Err(FrameworkError::Network(reqwest::Error::from(
+                            response.error_for_status().unwrap_err(),
+                        )));
                     }
                     return Ok(response);
                 }
@@ -1964,11 +1969,9 @@ mod tests {
             url_abs: Some("https://arxiv.org/abs/1706.03762".to_string()),
             url_pdf: Some("https://arxiv.org/pdf/1706.03762.pdf".to_string()),
             published: Some(Utc::now().to_rfc3339()),
-            authors: Some(vec![
-                PaperAuthor {
-                    name: "Vaswani et al.".to_string(),
-                },
-            ]),
+            authors: Some(vec![PaperAuthor {
+                name: "Vaswani et al.".to_string(),
+            }]),
         };
 
         let vector = client.paper_to_vector(&paper);

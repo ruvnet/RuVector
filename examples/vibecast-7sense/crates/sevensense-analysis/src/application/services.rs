@@ -95,10 +95,7 @@ impl ClusteringService {
     ///
     /// A vector of discovered clusters.
     #[instrument(skip(self, embeddings), fields(n_embeddings = embeddings.len()))]
-    pub async fn run_hdbscan(
-        &self,
-        embeddings: &[EmbeddingWithId],
-    ) -> Result<Vec<Cluster>> {
+    pub async fn run_hdbscan(&self, embeddings: &[EmbeddingWithId]) -> Result<Vec<Cluster>> {
         if embeddings.is_empty() {
             return Err(AnalysisError::InsufficientData(
                 "Cannot cluster empty embedding set".to_string(),
@@ -150,10 +147,7 @@ impl ClusteringService {
         // Convert labels to clusters
         let clusters = self.labels_to_clusters(embeddings, &labels)?;
 
-        info!(
-            n_clusters = clusters.len(),
-            "HDBSCAN clustering completed"
-        );
+        info!(n_clusters = clusters.len(), "HDBSCAN clustering completed");
 
         Ok(clusters)
     }
@@ -189,7 +183,11 @@ impl ClusteringService {
             )));
         }
 
-        info!(n_embeddings = embeddings.len(), k = k, "Starting K-means clustering");
+        info!(
+            n_embeddings = embeddings.len(),
+            k = k,
+            "Starting K-means clustering"
+        );
 
         // Build embedding matrix
         let dim = embeddings[0].1.len();
@@ -207,11 +205,7 @@ impl ClusteringService {
         let (labels, centroids) = clusterer.fit(&matrix)?;
 
         // Convert labels to clusters with known centroids
-        let clusters = self.labels_to_clusters_with_centroids(
-            embeddings,
-            &labels,
-            &centroids,
-        )?;
+        let clusters = self.labels_to_clusters_with_centroids(embeddings, &labels, &centroids)?;
 
         info!(n_clusters = clusters.len(), "K-means clustering completed");
 
@@ -280,7 +274,10 @@ impl ClusteringService {
             return Ok(Vec::new());
         }
 
-        let n_prototypes = self.config.prototypes_per_cluster.min(cluster.member_ids.len());
+        let n_prototypes = self
+            .config
+            .prototypes_per_cluster
+            .min(cluster.member_ids.len());
         let mut scored_members: Vec<(EmbeddingId, f32)> = Vec::new();
 
         // Score each member by distance to centroid (lower = better exemplar)
@@ -404,7 +401,9 @@ impl ClusteringService {
                     let idx_b = embeddings.iter().position(|(id, _)| id == *b).unwrap();
                     let dist_a = self.compute_distance(&embeddings[idx_a].1, &centroid);
                     let dist_b = self.compute_distance(&embeddings[idx_b].1, &centroid);
-                    dist_a.partial_cmp(&dist_b).unwrap_or(std::cmp::Ordering::Equal)
+                    dist_a
+                        .partial_cmp(&dist_b)
+                        .unwrap_or(std::cmp::Ordering::Equal)
                 })
                 .copied()
                 .unwrap_or_else(EmbeddingId::new);
@@ -448,7 +447,9 @@ impl ClusteringService {
                     let idx_b = embeddings.iter().position(|(id, _)| id == *b).unwrap();
                     let dist_a = self.compute_distance(&embeddings[idx_a].1, &centroid);
                     let dist_b = self.compute_distance(&embeddings[idx_b].1, &centroid);
-                    dist_a.partial_cmp(&dist_b).unwrap_or(std::cmp::Ordering::Equal)
+                    dist_a
+                        .partial_cmp(&dist_b)
+                        .unwrap_or(std::cmp::Ordering::Equal)
                 })
                 .copied()
                 .unwrap_or_else(EmbeddingId::new);
@@ -507,19 +508,13 @@ impl ClusteringService {
                     1.0 - (dot / (norm_a * norm_b))
                 }
             }
-            DistanceMetric::Euclidean => {
-                a.iter()
-                    .zip(b.iter())
-                    .map(|(x, y)| (x - y).powi(2))
-                    .sum::<f32>()
-                    .sqrt()
-            }
-            DistanceMetric::Manhattan => {
-                a.iter()
-                    .zip(b.iter())
-                    .map(|(x, y)| (x - y).abs())
-                    .sum()
-            }
+            DistanceMetric::Euclidean => a
+                .iter()
+                .zip(b.iter())
+                .map(|(x, y)| (x - y).powi(2))
+                .sum::<f32>()
+                .sqrt(),
+            DistanceMetric::Manhattan => a.iter().zip(b.iter()).map(|(x, y)| (x - y).abs()).sum(),
             DistanceMetric::Poincare => {
                 // Simplified Poincare distance approximation
                 let euclidean: f32 = a
@@ -533,11 +528,7 @@ impl ClusteringService {
         }
     }
 
-    fn clusters_to_labels(
-        &self,
-        clusters: &[Cluster],
-        embeddings: &[EmbeddingWithId],
-    ) -> Vec<i32> {
+    fn clusters_to_labels(&self, clusters: &[Cluster], embeddings: &[EmbeddingWithId]) -> Vec<i32> {
         let mut labels = vec![-1i32; embeddings.len()];
         let id_to_idx: HashMap<EmbeddingId, usize> = embeddings
             .iter()
@@ -695,7 +686,8 @@ impl MotifDetectionService {
         sequences: &[Vec<ClusterId>],
     ) -> Result<TransitionMatrix> {
         // Collect all unique clusters
-        let mut all_clusters: std::collections::HashSet<ClusterId> = std::collections::HashSet::new();
+        let mut all_clusters: std::collections::HashSet<ClusterId> =
+            std::collections::HashSet::new();
         for sequence in sequences {
             for cluster in sequence {
                 all_clusters.insert(*cluster);
@@ -837,12 +829,8 @@ impl SequenceAnalysisService {
         };
         let stereotypy_score = 1.0 - normalized_entropy;
 
-        let mut analysis = SequenceAnalysis::new(
-            recording_id,
-            transition_probs,
-            entropy,
-            stereotypy_score,
-        );
+        let mut analysis =
+            SequenceAnalysis::new(recording_id, transition_probs, entropy, stereotypy_score);
         analysis.set_sequence(cluster_sequence, segment_ids.to_vec());
 
         info!(
@@ -863,10 +851,7 @@ impl SequenceAnalysisService {
 
     /// Compute sequence metrics from a cluster sequence.
     #[instrument(skip(self, cluster_sequence))]
-    pub async fn compute_metrics(
-        &self,
-        cluster_sequence: &[ClusterId],
-    ) -> Result<SequenceMetrics> {
+    pub async fn compute_metrics(&self, cluster_sequence: &[ClusterId]) -> Result<SequenceMetrics> {
         if cluster_sequence.len() < 2 {
             return Ok(SequenceMetrics::default());
         }
@@ -1001,12 +986,8 @@ impl AnomalyDetectionService {
             };
 
             if anomaly_score > self.threshold {
-                let mut anomaly = Anomaly::new(
-                    *embedding_id,
-                    anomaly_score,
-                    nearest_cluster,
-                    distance,
-                );
+                let mut anomaly =
+                    Anomaly::new(*embedding_id, anomaly_score, nearest_cluster, distance);
 
                 // Classify anomaly type
                 if !in_cluster {
@@ -1100,11 +1081,7 @@ impl AnomalyDetectionService {
 
     /// Classify the type of anomaly based on context.
     #[must_use]
-    pub fn classify_anomaly(
-        &self,
-        anomaly: &Anomaly,
-        cluster_member_count: usize,
-    ) -> AnomalyType {
+    pub fn classify_anomaly(&self, anomaly: &Anomaly, cluster_member_count: usize) -> AnomalyType {
         if anomaly.distance_to_centroid > 0.8 {
             AnomalyType::Artifact
         } else if cluster_member_count < 3 {

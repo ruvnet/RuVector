@@ -4,14 +4,12 @@
 //! in climate sensor networks from NOAA/NASA data.
 
 use chrono::{Duration, NaiveDate, Utc};
+use rand::Rng;
 use ruvector_data_climate::{
-    SensorNetwork, SensorNode, SensorEdge,
-    RegimeShift, ShiftType, ShiftSeverity,
-    ClimateObservation, QualityFlag, DataSourceType, WeatherVariable,
-    BoundingBox,
+    BoundingBox, ClimateObservation, DataSourceType, QualityFlag, RegimeShift, SensorEdge,
+    SensorNetwork, SensorNode, ShiftSeverity, ShiftType, WeatherVariable,
 };
 use std::collections::HashMap;
-use rand::Rng;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -30,7 +28,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ("Arctic Ocean", (66.0, -180.0), (90.0, 180.0)),
     ];
 
-    println!("🌍 Analyzing {} regions for climate regime shifts...\n", regions.len());
+    println!(
+        "🌍 Analyzing {} regions for climate regime shifts...\n",
+        regions.len()
+    );
 
     let mut all_shifts: Vec<(String, RegimeShift)> = Vec::new();
 
@@ -43,7 +44,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (region_name, (lat_min, lon_min), (lat_max, lon_max)) in &regions {
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         println!("🌐 Region: {}", region_name);
-        println!("   Bounds: ({:.1}°, {:.1}°) to ({:.1}°, {:.1}°)", lat_min, lon_min, lat_max, lon_max);
+        println!(
+            "   Bounds: ({:.1}°, {:.1}°) to ({:.1}°, {:.1}°)",
+            lat_min, lon_min, lat_max, lon_max
+        );
         println!();
 
         // Generate demo observations (in production, fetch from NOAA API)
@@ -55,14 +59,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         let station_count = count_unique_stations(&observations);
-        println!("   📊 Processing {} observations from {} stations",
-            observations.len(), station_count);
+        println!(
+            "   📊 Processing {} observations from {} stations",
+            observations.len(),
+            station_count
+        );
 
         // Build sensor correlation network
         let network = build_sensor_network(region_name, &observations);
 
-        println!("   🔗 Built correlation network: {} nodes, {} edges",
-            network.nodes.len(), network.edges.len());
+        println!(
+            "   🔗 Built correlation network: {} nodes, {} edges",
+            network.nodes.len(),
+            network.edges.len()
+        );
 
         // Detect regime shifts using min-cut analysis
         let shifts = detect_regime_shifts(&network, &observations);
@@ -77,7 +87,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     ShiftSeverity::Extreme => "Extreme",
                 };
 
-                println!("   📍 {:?} at {} - Severity: {}, Affected: {} sensors",
+                println!(
+                    "   📍 {:?} at {} - Severity: {}, Affected: {} sensors",
                     shift.shift_type,
                     shift.timestamp.date_naive(),
                     severity_str,
@@ -87,14 +98,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // Detailed analysis
                 match &shift.shift_type {
                     ShiftType::Fragmentation => {
-                        println!("      → Network fragmented - indicates loss of regional coherence");
-                        println!("      → Min-cut dropped from {:.3} to {:.3}",
-                            shift.mincut_before, shift.mincut_after);
+                        println!(
+                            "      → Network fragmented - indicates loss of regional coherence"
+                        );
+                        println!(
+                            "      → Min-cut dropped from {:.3} to {:.3}",
+                            shift.mincut_before, shift.mincut_after
+                        );
                     }
                     ShiftType::Consolidation => {
                         println!("      → Network consolidated - indicates emergence of dominant pattern");
-                        println!("      → Min-cut increased from {:.3} to {:.3}",
-                            shift.mincut_before, shift.mincut_after);
+                        println!(
+                            "      → Min-cut increased from {:.3} to {:.3}",
+                            shift.mincut_before, shift.mincut_after
+                        );
                     }
                     ShiftType::LocalizedDisruption => {
                         if let Some((lat, lon)) = shift.center {
@@ -178,8 +195,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ShiftSeverity::Major => "Major",
             ShiftSeverity::Extreme => "Extreme",
         };
-        println!("   {}. {} - {:?} ({})",
-            i + 1, region, shift.shift_type, severity_str);
+        println!(
+            "   {}. {} - {:?} ({})",
+            i + 1,
+            region,
+            shift.shift_type,
+            severity_str
+        );
     }
 
     // Novel insights
@@ -273,7 +295,8 @@ fn generate_demo_observations(
 
     while current_date <= end_date {
         let days_from_start = (current_date - start_date).num_days();
-        let season_factor = ((days_from_start as f64) * 2.0 * std::f64::consts::PI / 365.0).sin() * 10.0;
+        let season_factor =
+            ((days_from_start as f64) * 2.0 * std::f64::consts::PI / 365.0).sin() * 10.0;
 
         // Add regime shift effect for Arctic
         let shift_factor = if region == "Arctic Ocean" && days_from_start > regime_shift_day {
@@ -304,10 +327,8 @@ fn generate_demo_observations(
 }
 
 fn count_unique_stations(observations: &[ClimateObservation]) -> usize {
-    let unique: std::collections::HashSet<&str> = observations
-        .iter()
-        .map(|o| o.station_id.as_str())
-        .collect();
+    let unique: std::collections::HashSet<&str> =
+        observations.iter().map(|o| o.station_id.as_str()).collect();
     unique.len()
 }
 
@@ -318,7 +339,10 @@ fn build_sensor_network(region_name: &str, observations: &[ClimateObservation]) 
     let mut station_locations: HashMap<String, (f64, f64)> = HashMap::new();
 
     for obs in observations {
-        by_station.entry(obs.station_id.clone()).or_default().push(obs.value);
+        by_station
+            .entry(obs.station_id.clone())
+            .or_default()
+            .push(obs.value);
         station_locations.insert(obs.station_id.clone(), obs.location);
     }
 
@@ -326,17 +350,20 @@ fn build_sensor_network(region_name: &str, observations: &[ClimateObservation]) 
     let mut nodes: HashMap<String, SensorNode> = HashMap::new();
     for (id, values) in &by_station {
         let location = station_locations.get(id).copied().unwrap_or((0.0, 0.0));
-        nodes.insert(id.clone(), SensorNode {
-            id: id.clone(),
-            name: id.clone(),
-            location,
-            elevation: None,
-            variables: vec![WeatherVariable::Temperature],
-            observation_count: values.len() as u64,
-            quality_score: 0.95,
-            first_observation: observations.first().map(|o| o.timestamp),
-            last_observation: observations.last().map(|o| o.timestamp),
-        });
+        nodes.insert(
+            id.clone(),
+            SensorNode {
+                id: id.clone(),
+                name: id.clone(),
+                location,
+                elevation: None,
+                variables: vec![WeatherVariable::Temperature],
+                observation_count: values.len() as u64,
+                quality_score: 0.95,
+                first_observation: observations.first().map(|o| o.timestamp),
+                last_observation: observations.last().map(|o| o.timestamp),
+            },
+        );
     }
 
     // Compute correlations and build edges
@@ -373,7 +400,9 @@ fn build_sensor_network(region_name: &str, observations: &[ClimateObservation]) 
         stats: ruvector_data_climate::network::NetworkStats {
             node_count: station_ids.len(),
             edge_count: edges.len(),
-            avg_correlation: if edges.is_empty() { 0.0 } else {
+            avg_correlation: if edges.is_empty() {
+                0.0
+            } else {
                 edges.iter().map(|e| e.correlation).sum::<f64>() / edges.len() as f64
             },
             ..Default::default()
@@ -420,7 +449,10 @@ fn compute_network_coherence(network: &SensorNetwork) -> f64 {
 }
 
 /// Detect regime shifts in the network
-fn detect_regime_shifts(network: &SensorNetwork, observations: &[ClimateObservation]) -> Vec<RegimeShift> {
+fn detect_regime_shifts(
+    network: &SensorNetwork,
+    observations: &[ClimateObservation],
+) -> Vec<RegimeShift> {
     let mut shifts = Vec::new();
 
     // Group observations by time window
@@ -461,7 +493,10 @@ fn detect_regime_shifts(network: &SensorNetwork, observations: &[ClimateObservat
 
             // Find timestamp for this window
             let window_obs = &by_window[&curr_window];
-            let timestamp = window_obs.first().map(|o| o.timestamp).unwrap_or_else(Utc::now);
+            let timestamp = window_obs
+                .first()
+                .map(|o| o.timestamp)
+                .unwrap_or_else(Utc::now);
 
             // Identify affected sensors
             let affected_sensors: Vec<String> = network.nodes.keys().cloned().collect();
@@ -480,7 +515,10 @@ fn detect_regime_shifts(network: &SensorNetwork, observations: &[ClimateObservat
                 primary_variable: WeatherVariable::Temperature,
                 confidence: 0.8,
                 evidence: vec![],
-                interpretation: format!("{:?} detected with {:.2} coherence change", shift_type, delta),
+                interpretation: format!(
+                    "{:?} detected with {:.2} coherence change",
+                    shift_type, delta
+                ),
             });
         }
     }
@@ -496,7 +534,10 @@ fn compute_window_coherence(observations: &[&ClimateObservation]) -> f64 {
     // Group by station
     let mut by_station: HashMap<&str, Vec<f64>> = HashMap::new();
     for obs in observations {
-        by_station.entry(&obs.station_id).or_default().push(obs.value);
+        by_station
+            .entry(&obs.station_id)
+            .or_default()
+            .push(obs.value);
     }
 
     if by_station.len() < 2 {
@@ -538,19 +579,21 @@ fn analyze_teleconnections(shifts: &[(String, RegimeShift)]) -> Vec<String> {
         if regions.len() >= 2 {
             findings.push(format!(
                 "🔗 Concurrent shifts in {} during {} - potential teleconnection",
-                regions.join(", "), month
+                regions.join(", "),
+                month
             ));
         }
     }
 
     // Arctic influence
-    let arctic_shifts: Vec<_> = shifts.iter()
+    let arctic_shifts: Vec<_> = shifts
+        .iter()
         .filter(|(r, _)| r.contains("Arctic"))
         .collect();
 
     if !arctic_shifts.is_empty() {
         findings.push(
-            "🧊 Arctic regime shifts detected - may influence mid-latitude patterns".to_string()
+            "🧊 Arctic regime shifts detected - may influence mid-latitude patterns".to_string(),
         );
     }
 

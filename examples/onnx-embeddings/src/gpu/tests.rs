@@ -2,10 +2,10 @@
 //!
 //! Comprehensive tests for GPU acceleration functionality.
 
-use super::*;
-use super::config::{GpuConfig, GpuMode, PowerPreference, GpuMemoryStats};
 use super::backend::CpuBackend;
+use super::config::{GpuConfig, GpuMemoryStats, GpuMode, PowerPreference};
 use super::shaders::ShaderModule;
+use super::*;
 
 // ==================== Configuration Tests ====================
 
@@ -157,9 +157,9 @@ fn test_batch_cosine_similarity() {
 fn test_batch_dot_product() {
     let query = vec![1.0, 1.0, 1.0];
     let candidates: Vec<&[f32]> = vec![
-        &[1.0, 1.0, 1.0][..],  // dot = 3.0
-        &[2.0, 2.0, 2.0][..],  // dot = 6.0
-        &[0.0, 0.0, 0.0][..],  // dot = 0.0
+        &[1.0, 1.0, 1.0][..], // dot = 3.0
+        &[2.0, 2.0, 2.0][..], // dot = 6.0
+        &[0.0, 0.0, 0.0][..], // dot = 0.0
     ];
 
     let results = batch_dot_product_gpu(&query, &candidates);
@@ -174,9 +174,9 @@ fn test_batch_dot_product() {
 fn test_batch_euclidean() {
     let query = vec![0.0, 0.0, 0.0];
     let candidates: Vec<&[f32]> = vec![
-        &[3.0, 4.0, 0.0][..],  // dist = 5.0
-        &[1.0, 0.0, 0.0][..],  // dist = 1.0
-        &[0.0, 0.0, 0.0][..],  // dist = 0.0
+        &[3.0, 4.0, 0.0][..], // dist = 5.0
+        &[1.0, 0.0, 0.0][..], // dist = 1.0
+        &[0.0, 0.0, 0.0][..], // dist = 0.0
     ];
 
     let results = batch_euclidean_gpu(&query, &candidates);
@@ -197,9 +197,9 @@ fn test_mean_pool_via_api() {
 
     // batch=2, seq=2, hidden=3
     let tokens = vec![
-        1.0, 2.0, 3.0,  // batch 0, seq 0
-        4.0, 5.0, 6.0,  // batch 0, seq 1
-        7.0, 8.0, 9.0,  // batch 1, seq 0
+        1.0, 2.0, 3.0, // batch 0, seq 0
+        4.0, 5.0, 6.0, // batch 0, seq 1
+        7.0, 8.0, 9.0, // batch 1, seq 0
         10.0, 11.0, 12.0, // batch 1, seq 1
     ];
     let mask = vec![1i64, 1, 1, 1];
@@ -222,13 +222,10 @@ fn test_cls_pool_via_api() {
     // batch=2, seq=3, hidden=4
     let tokens = vec![
         // Batch 0
-        1.0, 2.0, 3.0, 4.0,    // CLS token
-        5.0, 6.0, 7.0, 8.0,
-        9.0, 10.0, 11.0, 12.0,
-        // Batch 1
+        1.0, 2.0, 3.0, 4.0, // CLS token
+        5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, // Batch 1
         10.0, 20.0, 30.0, 40.0, // CLS token
-        50.0, 60.0, 70.0, 80.0,
-        90.0, 100.0, 110.0, 120.0,
+        50.0, 60.0, 70.0, 80.0, 90.0, 100.0, 110.0, 120.0,
     ];
 
     let result = pooler.cls_pool(&tokens, 2, 4).unwrap();
@@ -256,9 +253,9 @@ fn test_max_pool_via_api() {
 
     // batch=1, seq=3, hidden=4
     let tokens = vec![
-        1.0, 10.0, 3.0, 4.0,   // seq 0
-        5.0, 2.0, 7.0, 8.0,    // seq 1
-        9.0, 6.0, 11.0, 0.0,   // seq 2
+        1.0, 10.0, 3.0, 4.0, // seq 0
+        5.0, 2.0, 7.0, 8.0, // seq 1
+        9.0, 6.0, 11.0, 0.0, // seq 2
     ];
 
     let mask = vec![1i64, 1, 1];
@@ -268,10 +265,10 @@ fn test_max_pool_via_api() {
     assert_eq!(result.len(), 4);
 
     // Max across all sequences for each dimension
-    assert!((result[0] - 9.0).abs() < 1e-6);  // max(1, 5, 9)
+    assert!((result[0] - 9.0).abs() < 1e-6); // max(1, 5, 9)
     assert!((result[1] - 10.0).abs() < 1e-6); // max(10, 2, 6)
     assert!((result[2] - 11.0).abs() < 1e-6); // max(3, 7, 11)
-    assert!((result[3] - 8.0).abs() < 1e-6);  // max(4, 8, 0)
+    assert!((result[3] - 8.0).abs() < 1e-6); // max(4, 8, 0)
 }
 
 // ==================== Vector Operations Tests ====================
@@ -283,8 +280,8 @@ fn test_normalize_batch() {
     let ops = GpuVectorOps::new(&backend, &shaders).unwrap();
 
     let mut vectors = vec![
-        3.0, 4.0, 0.0,  // norm = 5, normalized = [0.6, 0.8, 0]
-        0.0, 0.0, 5.0,  // norm = 5, normalized = [0, 0, 1]
+        3.0, 4.0, 0.0, // norm = 5, normalized = [0.6, 0.8, 0]
+        0.0, 0.0, 5.0, // norm = 5, normalized = [0, 0, 1]
     ];
 
     ops.normalize_batch(&mut vectors, 3).unwrap();
@@ -307,10 +304,7 @@ fn test_matmul() {
     let ops = GpuVectorOps::new(&backend, &shaders).unwrap();
 
     // 2x3 matrix
-    let matrix = vec![
-        1.0, 2.0, 3.0,
-        4.0, 5.0, 6.0,
-    ];
+    let matrix = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
 
     // 3x1 vector
     let vector = vec![1.0, 1.0, 1.0];
@@ -318,7 +312,7 @@ fn test_matmul() {
     let result = ops.matmul(&matrix, &vector, 2, 3).unwrap();
 
     assert_eq!(result.len(), 2);
-    assert!((result[0] - 6.0).abs() < 1e-6);  // 1+2+3
+    assert!((result[0] - 6.0).abs() < 1e-6); // 1+2+3
     assert!((result[1] - 15.0).abs() < 1e-6); // 4+5+6
 }
 
@@ -358,10 +352,7 @@ fn test_gpu_similarity_with_backend() {
     let similarity = GpuSimilarity::new(&backend, &shaders).unwrap();
 
     let query = vec![1.0, 0.0, 0.0];
-    let candidates: Vec<&[f32]> = vec![
-        &[1.0, 0.0, 0.0][..],
-        &[0.0, 1.0, 0.0][..],
-    ];
+    let candidates: Vec<&[f32]> = vec![&[1.0, 0.0, 0.0][..], &[0.0, 1.0, 0.0][..]];
 
     let results = similarity.batch_cosine(&query, &candidates).unwrap();
 
@@ -377,10 +368,10 @@ fn test_top_k_similar() {
 
     let query = vec![1.0, 0.0, 0.0];
     let candidates: Vec<&[f32]> = vec![
-        &[0.0, 1.0, 0.0][..],   // sim = 0
-        &[1.0, 0.0, 0.0][..],   // sim = 1 (best)
-        &[0.5, 0.5, 0.0][..],   // sim ≈ 0.707
-        &[-1.0, 0.0, 0.0][..],  // sim = -1 (worst)
+        &[0.0, 1.0, 0.0][..],  // sim = 0
+        &[1.0, 0.0, 0.0][..],  // sim = 1 (best)
+        &[0.5, 0.5, 0.0][..],  // sim ≈ 0.707
+        &[-1.0, 0.0, 0.0][..], // sim = -1 (worst)
     ];
 
     let top2 = similarity.top_k(&query, &candidates, 2).unwrap();

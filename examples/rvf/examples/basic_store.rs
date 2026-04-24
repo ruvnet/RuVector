@@ -9,8 +9,8 @@
 //! 6. Query again to show persistence
 //! 7. Clean up
 
-use rvf_runtime::{QueryOptions, RvfOptions, RvfStore, SearchResult};
 use rvf_runtime::options::DistanceMetric;
+use rvf_runtime::{QueryOptions, RvfOptions, RvfStore, SearchResult};
 use tempfile::TempDir;
 
 /// Simple pseudo-random number generator (LCG) for deterministic results.
@@ -18,7 +18,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -72,7 +74,10 @@ fn main() {
         .query(&query_vec, k, &QueryOptions::default())
         .expect("failed to query");
 
-    println!("\nQuery (seed={}): top-{} nearest neighbors:", query_seed, k);
+    println!(
+        "\nQuery (seed={}): top-{} nearest neighbors:",
+        query_seed, k
+    );
     print_results(&results);
 
     // -- Step 4: Show store status --

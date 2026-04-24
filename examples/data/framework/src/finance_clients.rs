@@ -159,11 +159,14 @@ impl FinnhubClient {
         metadata.insert("open".to_string(), quote.open.to_string());
         metadata.insert("high".to_string(), quote.high.to_string());
         metadata.insert("low".to_string(), quote.low.to_string());
-        metadata.insert("previous_close".to_string(), quote.previous_close.to_string());
+        metadata.insert(
+            "previous_close".to_string(),
+            quote.previous_close.to_string(),
+        );
         metadata.insert("source".to_string(), "finnhub".to_string());
 
-        let timestamp = chrono::DateTime::from_timestamp(quote.timestamp, 0)
-            .unwrap_or_else(Utc::now);
+        let timestamp =
+            chrono::DateTime::from_timestamp(quote.timestamp, 0).unwrap_or_else(Utc::now);
 
         Ok(vec![SemanticVector {
             id: format!("FINNHUB:QUOTE:{}:{}", symbol, quote.timestamp),
@@ -264,8 +267,8 @@ impl FinnhubClient {
             metadata.insert("source".to_string(), news.source.clone());
             metadata.insert("url".to_string(), news.url.clone());
 
-            let timestamp = chrono::DateTime::from_timestamp(news.datetime, 0)
-                .unwrap_or_else(Utc::now);
+            let timestamp =
+                chrono::DateTime::from_timestamp(news.datetime, 0).unwrap_or_else(Utc::now);
 
             vectors.push(SemanticVector {
                 id: format!("FINNHUB:NEWS:{}:{}", symbol, news.datetime),
@@ -956,8 +959,8 @@ impl CoinGeckoClient {
             metadata.insert("price".to_string(), price.to_string());
             metadata.insert("source".to_string(), "coingecko_chart".to_string());
 
-            let timestamp = chrono::DateTime::from_timestamp_millis(timestamp_ms)
-                .unwrap_or_else(Utc::now);
+            let timestamp =
+                chrono::DateTime::from_timestamp_millis(timestamp_ms).unwrap_or_else(Utc::now);
 
             vectors.push(SemanticVector {
                 id: format!("COINGECKO:CHART:{}:{}", id, timestamp_ms),
@@ -988,7 +991,10 @@ impl CoinGeckoClient {
 
         let mut vectors = Vec::new();
         for coin in search_response.coins.iter().take(20) {
-            let text = format!("{} ({}) - rank: {:?}", coin.name, coin.symbol, coin.market_cap_rank);
+            let text = format!(
+                "{} ({}) - rank: {:?}",
+                coin.name, coin.symbol, coin.market_cap_rank
+            );
             let embedding = self.embedder.embed_text(&text);
 
             let mut metadata = HashMap::new();
@@ -1403,7 +1409,10 @@ mod tests {
     #[tokio::test]
     async fn test_finnhub_mock_news() {
         let client = FinnhubClient::new(None).unwrap();
-        let news = client.get_company_news("AAPL", "2024-01-01", "2024-01-31").await.unwrap();
+        let news = client
+            .get_company_news("AAPL", "2024-01-01", "2024-01-31")
+            .await
+            .unwrap();
 
         assert_eq!(news.len(), 1);
         assert_eq!(news[0].domain, Domain::Finance);
@@ -1429,7 +1438,10 @@ mod tests {
     #[tokio::test]
     async fn test_twelvedata_mock_time_series() {
         let client = TwelveDataClient::new(None).unwrap();
-        let series = client.get_time_series("AAPL", "1day", Some(5)).await.unwrap();
+        let series = client
+            .get_time_series("AAPL", "1day", Some(5))
+            .await
+            .unwrap();
 
         assert_eq!(series.len(), 5);
         assert_eq!(series[0].domain, Domain::Finance);
@@ -1456,7 +1468,10 @@ mod tests {
     #[test]
     fn test_coingecko_rate_limiting() {
         let client = CoinGeckoClient::new().unwrap();
-        assert_eq!(client.rate_limit_delay, Duration::from_millis(COINGECKO_RATE_LIMIT_MS));
+        assert_eq!(
+            client.rate_limit_delay,
+            Duration::from_millis(COINGECKO_RATE_LIMIT_MS)
+        );
     }
 
     // ECB Tests
@@ -1488,7 +1503,10 @@ mod tests {
     #[tokio::test]
     async fn test_bls_mock_series() {
         let client = BlsClient::new(None).unwrap();
-        let series = client.get_series(&["LNS14000000"], Some(2024), Some(2024)).await.unwrap();
+        let series = client
+            .get_series(&["LNS14000000"], Some(2024), Some(2024))
+            .await
+            .unwrap();
 
         assert_eq!(series.len(), 12); // 12 months
         assert_eq!(series[0].domain, Domain::Economic);
@@ -1500,18 +1518,33 @@ mod tests {
     #[test]
     fn test_rate_limiting() {
         let finnhub = FinnhubClient::new(None).unwrap();
-        assert_eq!(finnhub.rate_limit_delay, Duration::from_millis(FINNHUB_RATE_LIMIT_MS));
+        assert_eq!(
+            finnhub.rate_limit_delay,
+            Duration::from_millis(FINNHUB_RATE_LIMIT_MS)
+        );
 
         let twelve = TwelveDataClient::new(None).unwrap();
-        assert_eq!(twelve.rate_limit_delay, Duration::from_millis(TWELVEDATA_RATE_LIMIT_MS));
+        assert_eq!(
+            twelve.rate_limit_delay,
+            Duration::from_millis(TWELVEDATA_RATE_LIMIT_MS)
+        );
 
         let cg = CoinGeckoClient::new().unwrap();
-        assert_eq!(cg.rate_limit_delay, Duration::from_millis(COINGECKO_RATE_LIMIT_MS));
+        assert_eq!(
+            cg.rate_limit_delay,
+            Duration::from_millis(COINGECKO_RATE_LIMIT_MS)
+        );
 
         let ecb = EcbClient::new().unwrap();
-        assert_eq!(ecb.rate_limit_delay, Duration::from_millis(ECB_RATE_LIMIT_MS));
+        assert_eq!(
+            ecb.rate_limit_delay,
+            Duration::from_millis(ECB_RATE_LIMIT_MS)
+        );
 
         let bls = BlsClient::new(None).unwrap();
-        assert_eq!(bls.rate_limit_delay, Duration::from_millis(BLS_RATE_LIMIT_MS));
+        assert_eq!(
+            bls.rate_limit_delay,
+            Duration::from_millis(BLS_RATE_LIMIT_MS)
+        );
     }
 }

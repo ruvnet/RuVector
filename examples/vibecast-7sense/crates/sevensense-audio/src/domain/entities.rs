@@ -3,9 +3,7 @@
 //! These are the core aggregates of the audio bounded context.
 
 use serde::{Deserialize, Serialize};
-use sevensense_core::{
-    AudioMetadata, GeoLocation, RecordingId, SegmentId, Timestamp,
-};
+use sevensense_core::{AudioMetadata, GeoLocation, RecordingId, SegmentId, Timestamp};
 use std::path::PathBuf;
 
 /// Represents an audio recording from the field.
@@ -314,14 +312,7 @@ mod tests {
             Timestamp::now(),
         );
 
-        let segment = CallSegment::new(
-            recording.id,
-            1000,
-            2000,
-            0.8,
-            0.3,
-            SignalQuality::High,
-        );
+        let segment = CallSegment::new(recording.id, 1000, 2000, 0.8, 0.3, SignalQuality::High);
 
         recording.add_segment(segment);
         assert_eq!(recording.segment_count(), 1);
@@ -343,24 +334,10 @@ mod tests {
 
     #[test]
     fn test_segment_viability() {
-        let viable = CallSegment::new(
-            RecordingId::new(),
-            0,
-            500,
-            0.5,
-            0.1,
-            SignalQuality::Medium,
-        );
+        let viable = CallSegment::new(RecordingId::new(), 0, 500, 0.5, 0.1, SignalQuality::Medium);
         assert!(viable.is_viable());
 
-        let noise = CallSegment::new(
-            RecordingId::new(),
-            0,
-            500,
-            0.1,
-            0.001,
-            SignalQuality::Noise,
-        );
+        let noise = CallSegment::new(RecordingId::new(), 0, 500, 0.1, 0.001, SignalQuality::Noise);
         assert!(!noise.is_viable());
     }
 

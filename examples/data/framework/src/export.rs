@@ -204,8 +204,16 @@ pub fn export_graphml(
     // - get_node(id) -> Option<&GraphNode>
 
     // Export nodes (example structure - requires engine API extension)
-    writeln!(writer, r#"    <!-- {} nodes in graph -->"#, stats.total_nodes)?;
-    writeln!(writer, r#"    <!-- {} edges in graph -->"#, stats.total_edges)?;
+    writeln!(
+        writer,
+        r#"    <!-- {} nodes in graph -->"#,
+        stats.total_nodes
+    )?;
+    writeln!(
+        writer,
+        r#"    <!-- {} edges in graph -->"#,
+        stats.total_edges
+    )?;
     writeln!(
         writer,
         r#"    <!-- Cross-domain edges: {} -->"#,
@@ -326,10 +334,7 @@ pub fn export_dot(
 /// let patterns = engine.detect_patterns_with_significance();
 /// export_patterns_csv(&patterns, "output/patterns.csv")?;
 /// ```
-pub fn export_patterns_csv(
-    patterns: &[SignificantPattern],
-    path: impl AsRef<Path>,
-) -> Result<()> {
+pub fn export_patterns_csv(patterns: &[SignificantPattern], path: impl AsRef<Path>) -> Result<()> {
     let file = File::create(path.as_ref())
         .map_err(|e| FrameworkError::Config(format!("Failed to create file: {}", e)))?;
     let mut writer = BufWriter::new(file);
@@ -521,11 +526,7 @@ pub fn export_all(
 
     writeln!(readme_writer, "# RuVector Discovery Export")?;
     writeln!(readme_writer, "")?;
-    writeln!(
-        readme_writer,
-        "Exported: {}",
-        Utc::now().to_rfc3339()
-    )?;
+    writeln!(readme_writer, "Exported: {}", Utc::now().to_rfc3339())?;
     writeln!(readme_writer, "")?;
     writeln!(readme_writer, "## Files")?;
     writeln!(readme_writer, "")?;
@@ -556,24 +557,15 @@ pub fn export_all(
         readme_writer,
         "3. Layout → Force Atlas 2 or Fruchterman Reingold"
     )?;
-    writeln!(
-        readme_writer,
-        "4. Color nodes by 'domain' attribute"
-    )?;
+    writeln!(readme_writer, "4. Color nodes by 'domain' attribute")?;
     writeln!(readme_writer, "")?;
     writeln!(readme_writer, "### Graphviz (DOT)")?;
     writeln!(readme_writer, "```bash")?;
     writeln!(readme_writer, "# PNG output")?;
-    writeln!(
-        readme_writer,
-        "dot -Tpng graph.dot -o graph.png"
-    )?;
+    writeln!(readme_writer, "dot -Tpng graph.dot -o graph.png")?;
     writeln!(readme_writer, "")?;
     writeln!(readme_writer, "# SVG output (vector, scalable)")?;
-    writeln!(
-        readme_writer,
-        "neato -Tsvg graph.dot -o graph.svg"
-    )?;
+    writeln!(readme_writer, "neato -Tsvg graph.dot -o graph.svg")?;
     writeln!(readme_writer, "")?;
     writeln!(readme_writer, "# Interactive SVG")?;
     writeln!(
@@ -593,11 +585,7 @@ pub fn export_all(
         stats.cross_domain_edges
     )?;
     writeln!(readme_writer, "- Patterns detected: {}", patterns.len())?;
-    writeln!(
-        readme_writer,
-        "- Coherence snapshots: {}",
-        history.len()
-    )?;
+    writeln!(readme_writer, "- Coherence snapshots: {}", history.len())?;
 
     readme_writer.flush()?;
 

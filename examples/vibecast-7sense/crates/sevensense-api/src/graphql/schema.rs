@@ -25,8 +25,8 @@ impl QueryRoot {
     ) -> Result<Vec<Neighbor>> {
         let app_ctx = ctx.data::<AppContext>()?;
 
-        let segment_uuid = Uuid::parse_str(segment_id.as_str())
-            .map_err(|_| Error::new("Invalid segment ID"))?;
+        let segment_uuid =
+            Uuid::parse_str(segment_id.as_str()).map_err(|_| Error::new("Invalid segment ID"))?;
 
         // Get segment embedding
         let embedding = app_ctx
@@ -79,7 +79,11 @@ impl QueryRoot {
                 label: c.label,
                 size: c.size as i32,
                 density: c.density,
-                exemplar_ids: c.exemplar_ids.into_iter().map(|id| ID::from(id.to_string())).collect(),
+                exemplar_ids: c
+                    .exemplar_ids
+                    .into_iter()
+                    .map(|id| ID::from(id.to_string()))
+                    .collect(),
                 species_distribution: c
                     .species_distribution
                     .into_iter()
@@ -114,7 +118,11 @@ impl QueryRoot {
             label: c.label,
             size: c.size as i32,
             density: c.density,
-            exemplar_ids: c.exemplar_ids.into_iter().map(|id| ID::from(id.to_string())).collect(),
+            exemplar_ids: c
+                .exemplar_ids
+                .into_iter()
+                .map(|id| ID::from(id.to_string()))
+                .collect(),
             species_distribution: c
                 .species_distribution
                 .into_iter()
@@ -166,7 +174,11 @@ impl MutationRoot {
             label: cluster_data.label,
             size: cluster_data.size as i32,
             density: cluster_data.density,
-            exemplar_ids: cluster_data.exemplar_ids.into_iter().map(|id| ID::from(id.to_string())).collect(),
+            exemplar_ids: cluster_data
+                .exemplar_ids
+                .into_iter()
+                .map(|id| ID::from(id.to_string()))
+                .collect(),
             species_distribution: cluster_data
                 .species_distribution
                 .into_iter()

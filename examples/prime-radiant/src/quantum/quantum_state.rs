@@ -181,9 +181,10 @@ impl QuantumState {
         // Check if dimension is a power of 2
         let dimension = amplitudes.len();
         if dimension != 1 && (dimension & (dimension - 1)) != 0 {
-            return Err(QuantumTopologyError::InvalidQuantumState(
-                format!("Dimension {} is not a power of 2", dimension),
-            ));
+            return Err(QuantumTopologyError::InvalidQuantumState(format!(
+                "Dimension {} is not a power of 2",
+                dimension
+            )));
         }
 
         let mut state = Self {
@@ -208,9 +209,10 @@ impl QuantumState {
     /// Create computational basis state |i⟩
     pub fn basis_state(dimension: usize, index: usize) -> Result<Self> {
         if index >= dimension {
-            return Err(QuantumTopologyError::InvalidQuantumState(
-                format!("Index {} out of bounds for dimension {}", index, dimension),
-            ));
+            return Err(QuantumTopologyError::InvalidQuantumState(format!(
+                "Index {} out of bounds for dimension {}",
+                index, dimension
+            )));
         }
 
         let mut amplitudes = vec![Complex64::new(0.0, 0.0); dimension];
@@ -284,7 +286,12 @@ impl QuantumState {
 
     /// Normalize the state in place
     pub fn normalize(&mut self) {
-        let norm: f64 = self.amplitudes.iter().map(|c| c.norm_sqr()).sum::<f64>().sqrt();
+        let norm: f64 = self
+            .amplitudes
+            .iter()
+            .map(|c| c.norm_sqr())
+            .sum::<f64>()
+            .sqrt();
         if norm > constants::EPSILON {
             for c in &mut self.amplitudes {
                 *c /= norm;
@@ -294,7 +301,11 @@ impl QuantumState {
 
     /// Get the norm of the state vector
     pub fn norm(&self) -> f64 {
-        self.amplitudes.iter().map(|c| c.norm_sqr()).sum::<f64>().sqrt()
+        self.amplitudes
+            .iter()
+            .map(|c| c.norm_sqr())
+            .sum::<f64>()
+            .sqrt()
     }
 
     /// Convert to a ComplexVector
@@ -366,9 +377,10 @@ impl QuantumState {
     pub fn apply_single_qubit_gate(&self, gate: &ComplexMatrix, target: usize) -> Result<Self> {
         let num_qubits = self.num_qubits();
         if target >= num_qubits {
-            return Err(QuantumTopologyError::InvalidQuantumState(
-                format!("Target qubit {} out of range for {}-qubit system", target, num_qubits),
-            ));
+            return Err(QuantumTopologyError::InvalidQuantumState(format!(
+                "Target qubit {} out of range for {}-qubit system",
+                target, num_qubits
+            )));
         }
 
         // Build the full operator using tensor products

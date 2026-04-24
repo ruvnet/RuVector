@@ -106,10 +106,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 5. Export coherence history
     if !coherence_history.is_empty() {
         println!("   ✓ Exporting coherence.csv");
-        export_coherence_csv(
-            &coherence_history,
-            format!("{}/coherence.csv", output_dir),
-        )?;
+        export_coherence_csv(&coherence_history, format!("{}/coherence.csv", output_dir))?;
     }
 
     // 6. Export everything at once

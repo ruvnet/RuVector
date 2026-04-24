@@ -89,7 +89,8 @@ pub fn euclidean_distance(a: &[f32], b: &[f32]) -> f32 {
         return 0.0;
     }
 
-    let sum_sq: f32 = a.iter()
+    let sum_sq: f32 = a
+        .iter()
         .zip(b.iter())
         .map(|(ai, bi)| {
             let diff = ai - bi;

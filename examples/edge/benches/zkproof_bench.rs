@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use ruvector_edge::plaid::zkproofs_prod::*;
 
 fn bench_proof_generation_by_bits(c: &mut Criterion) {
@@ -13,9 +13,7 @@ fn bench_proof_generation_by_bits(c: &mut Criterion) {
             |b, _| {
                 let mut prover = FinancialProver::new();
                 prover.set_income(vec![value; 12]);
-                b.iter(|| {
-                    black_box(prover.prove_income_above(value / 2).unwrap())
-                });
+                b.iter(|| black_box(prover.prove_income_above(value / 2).unwrap()));
             },
         );
     }
@@ -26,9 +24,7 @@ fn bench_income_proof(c: &mut Criterion) {
     c.bench_function("prove_income_above", |b| {
         let mut prover = FinancialProver::new();
         prover.set_income(vec![650000, 650000, 680000, 650000]);
-        b.iter(|| {
-            black_box(prover.prove_income_above(500000).unwrap())
-        })
+        b.iter(|| black_box(prover.prove_income_above(500000).unwrap()))
     });
 }
 
@@ -36,9 +32,7 @@ fn bench_affordability_proof(c: &mut Criterion) {
     c.bench_function("prove_affordability", |b| {
         let mut prover = FinancialProver::new();
         prover.set_income(vec![650000, 650000, 680000, 650000]);
-        b.iter(|| {
-            black_box(prover.prove_affordability(200000, 3).unwrap())
-        })
+        b.iter(|| black_box(prover.prove_affordability(200000, 3).unwrap()))
     });
 }
 
@@ -46,9 +40,7 @@ fn bench_no_overdraft_proof(c: &mut Criterion) {
     c.bench_function("prove_no_overdrafts", |b| {
         let mut prover = FinancialProver::new();
         prover.set_balances(vec![100000i64; 90]); // 90 days of balance data
-        b.iter(|| {
-            black_box(prover.prove_no_overdrafts(30).unwrap())
-        })
+        b.iter(|| black_box(prover.prove_no_overdrafts(30).unwrap()))
     });
 }
 
@@ -61,11 +53,12 @@ fn bench_rental_bundle_creation(c: &mut Criterion) {
             black_box(
                 RentalApplicationBundle::create(
                     &mut prover,
-                    200000, // $2000 rent
-                    3,      // 3x income
-                    30,     // 30 days stability
-                    Some(2) // 2 months savings
-                ).unwrap()
+                    200000,  // $2000 rent
+                    3,       // 3x income
+                    30,      // 30 days stability
+                    Some(2), // 2 months savings
+                )
+                .unwrap(),
             )
         })
     });
@@ -77,9 +70,7 @@ fn bench_verification(c: &mut Criterion) {
     let proof = prover.prove_income_above(500000).unwrap();
 
     c.bench_function("verify_single", |b| {
-        b.iter(|| {
-            black_box(FinancialVerifier::verify(&proof).unwrap())
-        })
+        b.iter(|| black_box(FinancialVerifier::verify(&proof).unwrap()))
     });
 }
 
@@ -94,15 +85,9 @@ fn bench_batch_verification(c: &mut Criterion) {
             .collect();
 
         group.throughput(Throughput::Elements(n as u64));
-        group.bench_with_input(
-            BenchmarkId::from_parameter(n),
-            &proofs,
-            |b, proofs| {
-                b.iter(|| {
-                    black_box(FinancialVerifier::verify_batch(proofs))
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(n), &proofs, |b, proofs| {
+            b.iter(|| black_box(FinancialVerifier::verify_batch(proofs)))
+        });
     }
     group.finish();
 }
@@ -112,18 +97,10 @@ fn bench_bundle_verification(c: &mut Criterion) {
     prover.set_income(vec![650000, 650000, 680000, 650000]);
     prover.set_balances(vec![500000i64; 90]);
 
-    let bundle = RentalApplicationBundle::create(
-        &mut prover,
-        200000,
-        3,
-        30,
-        Some(2)
-    ).unwrap();
+    let bundle = RentalApplicationBundle::create(&mut prover, 200000, 3, 30, Some(2)).unwrap();
 
     c.bench_function("bundle_verify", |b| {
-        b.iter(|| {
-            black_box(bundle.verify().unwrap())
-        })
+        b.iter(|| black_box(bundle.verify().unwrap()))
     });
 }
 
@@ -131,22 +108,16 @@ fn bench_commitment_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("commitment_operations");
 
     group.bench_function("commit_new", |b| {
-        b.iter(|| {
-            black_box(PedersenCommitment::commit(650000))
-        })
+        b.iter(|| black_box(PedersenCommitment::commit(650000)))
     });
 
     let (commitment, blinding) = PedersenCommitment::commit(650000);
     group.bench_function("commit_with_blinding", |b| {
-        b.iter(|| {
-            black_box(PedersenCommitment::commit_with_blinding(650000, &blinding))
-        })
+        b.iter(|| black_box(PedersenCommitment::commit_with_blinding(650000, &blinding)))
     });
 
     group.bench_function("decompress", |b| {
-        b.iter(|| {
-            black_box(commitment.decompress())
-        })
+        b.iter(|| black_box(commitment.decompress()))
     });
 
     group.finish();
@@ -164,11 +135,7 @@ fn bench_proof_size(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{}bit_serialize", bits)),
             &proof,
-            |b, proof| {
-                b.iter(|| {
-                    black_box(serde_json::to_string(proof).unwrap())
-                })
-            },
+            |b, proof| b.iter(|| black_box(serde_json::to_string(proof).unwrap())),
         );
     }
     group.finish();
