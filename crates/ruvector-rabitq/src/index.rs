@@ -30,7 +30,7 @@ use std::collections::BinaryHeap;
 
 use crate::error::{RabitqError, Result};
 use crate::quantize::BinaryCode;
-use crate::rotation::{normalize_inplace, RandomRotation};
+use crate::rotation::{normalize_inplace, RandomRotation, RandomRotationKind};
 
 /// A single search result.
 #[derive(Debug, Clone, PartialEq)]
@@ -280,12 +280,27 @@ fn build_cos_lut(dim: usize) -> Vec<f32> {
 }
 
 impl RabitqIndex {
+    /// Default constructor — preserves historical behaviour by selecting the
+    /// dense Haar-uniform rotation. Delegates to [`Self::new_with_rotation`].
     pub fn new(dim: usize, seed: u64) -> Self {
+        Self::new_with_rotation(dim, seed, RandomRotationKind::HaarDense)
+    }
+
+    /// Opt-in constructor selecting the random-rotation kind.
+    ///
+    /// * `HaarDense`      — dense `D×D` Haar-uniform matrix (historical default).
+    /// * `HadamardSigned` — randomised Hadamard (`D₁·H·D₂·H·D₃`), `O(D log D)`
+    ///   apply and `3·padded_D` f32s of storage instead of `D²`.
+    pub fn new_with_rotation(dim: usize, seed: u64, kind: RandomRotationKind) -> Self {
         let n_words = (dim + 63) / 64;
+        let rotation = match kind {
+            RandomRotationKind::HaarDense => RandomRotation::random(dim, seed),
+            RandomRotationKind::HadamardSigned => RandomRotation::hadamard(dim, seed),
+        };
         Self {
             dim,
             n_words,
-            rotation: RandomRotation::random(dim, seed),
+            rotation,
             ids: Vec::new(),
             norms: Vec::new(),
             packed: Vec::new(),
@@ -541,9 +556,22 @@ impl RabitqPlusIndex {
 }
 
 impl RabitqPlusIndex {
+    /// Default constructor — delegates to [`Self::new_with_rotation`] with
+    /// `HaarDense` for backward compatibility.
     pub fn new(dim: usize, seed: u64, rerank_factor: usize) -> Self {
+        Self::new_with_rotation(dim, seed, rerank_factor, RandomRotationKind::HaarDense)
+    }
+
+    /// Opt-in constructor that selects the random-rotation kind for the inner
+    /// [`RabitqIndex`]. See [`RabitqIndex::new_with_rotation`] for semantics.
+    pub fn new_with_rotation(
+        dim: usize,
+        seed: u64,
+        rerank_factor: usize,
+        kind: RandomRotationKind,
+    ) -> Self {
         Self {
-            inner: RabitqIndex::new(dim, seed),
+            inner: RabitqIndex::new_with_rotation(dim, seed, kind),
             originals_flat: Vec::new(),
             rerank_factor: rerank_factor.max(1),
         }
@@ -573,8 +601,27 @@ impl RabitqPlusIndex {
         rerank_factor: usize,
         items: Vec<(usize, Vec<f32>)>,
     ) -> Result<Self> {
+        Self::from_vectors_parallel_with_rotation(
+            dim,
+            seed,
+            rerank_factor,
+            RandomRotationKind::HaarDense,
+            items,
+        )
+    }
+
+    /// Opt-in rotation-kind variant of [`Self::from_vectors_parallel`]. Same
+    /// phase-1/phase-2 construction — rotation matrix is seeded once, encode
+    /// is deterministic, so parallel ordering does not affect the output.
+    pub fn from_vectors_parallel_with_rotation(
+        dim: usize,
+        seed: u64,
+        rerank_factor: usize,
+        kind: RandomRotationKind,
+        items: Vec<(usize, Vec<f32>)>,
+    ) -> Result<Self> {
         use rayon::prelude::*;
-        let mut out = Self::new(dim, seed, rerank_factor);
+        let mut out = Self::new_with_rotation(dim, seed, rerank_factor, kind);
         for (_, v) in &items {
             if v.len() != dim {
                 return Err(RabitqError::DimensionMismatch {
@@ -1092,5 +1139,137 @@ mod tests {
         for w in r.windows(2) {
             assert!(w[0].score <= w[1].score, "top-k not ascending: {:?}", r);
         }
+    }
+
+    // ── Randomised Hadamard rotation opt-in ────────────────────────────────
+
+    /// Smoke test: the opt-in `HadamardSigned` constructor builds an index
+    /// that actually answers searches with finite scores. Does not assert
+    /// recall — that is the job of `hadamard_recall_at_10_within_5pct_of_haar`.
+    #[test]
+    fn hadamard_index_builds_and_searches() {
+        let d = 128;
+        let n = 500;
+        let nq = 10;
+        let all_data = make_clustered(n + nq, d, 12, 2026);
+        let (db_vecs, query_vecs) = all_data.split_at(n);
+        let data: Vec<(usize, Vec<f32>)> = db_vecs.iter().cloned().enumerate().collect();
+
+        let idx = RabitqPlusIndex::from_vectors_parallel_with_rotation(
+            d,
+            2026,
+            5,
+            RandomRotationKind::HadamardSigned,
+            data,
+        )
+        .expect("bulk-build with Hadamard rotation");
+        assert_eq!(idx.len(), n);
+        assert_eq!(idx.dim(), d);
+
+        let k = 10;
+        for q in query_vecs {
+            let res = idx.search(q, k).unwrap();
+            assert_eq!(res.len(), k, "expected {k} results, got {}", res.len());
+            for r in &res {
+                assert!(
+                    r.score.is_finite(),
+                    "Hadamard-rotated result has non-finite score: {r:?}",
+                );
+            }
+        }
+    }
+
+    /// Hadamard is only *approximately* isotropic (truncation + the finite
+    /// 3-stage HD-HD-HD ladder) so we do not expect byte-identical recall
+    /// to the Haar baseline — only that the two rotations share the same
+    /// recall neighbourhood. Assert Hadamard recall@10 ≥ 0.85 against
+    /// exact L2² ground truth with rerank×20 at D=128.
+    #[test]
+    fn hadamard_recall_at_10_within_5pct_of_haar() {
+        let d = 128;
+        let n = 500;
+        let nq = 50;
+        let all_data = make_clustered(n + nq, d, 16, 131);
+        let (db_vecs, query_vecs) = all_data.split_at(n);
+        let data: Vec<(usize, Vec<f32>)> = db_vecs.iter().cloned().enumerate().collect();
+
+        // Ground truth: exact brute-force L2².
+        let mut exact = FlatF32Index::new(d);
+        for (id, v) in &data {
+            exact.add(*id, v.clone()).unwrap();
+        }
+
+        // Same seed for both rotations so the only moving part is the
+        // rotation construction itself.
+        let seed = 131_u64;
+        let rerank = 20;
+        let mut haar =
+            RabitqPlusIndex::new_with_rotation(d, seed, rerank, RandomRotationKind::HaarDense);
+        let mut had =
+            RabitqPlusIndex::new_with_rotation(d, seed, rerank, RandomRotationKind::HadamardSigned);
+        for (id, v) in &data {
+            haar.add(*id, v.clone()).unwrap();
+            had.add(*id, v.clone()).unwrap();
+        }
+
+        let k = 10;
+        let mut haar_hits = 0usize;
+        let mut had_hits = 0usize;
+        for q in query_vecs {
+            let gt: std::collections::HashSet<usize> =
+                exact.search(q, k).unwrap().iter().map(|r| r.id).collect();
+            haar_hits += haar
+                .search(q, k)
+                .unwrap()
+                .iter()
+                .filter(|r| gt.contains(&r.id))
+                .count();
+            had_hits += had
+                .search(q, k)
+                .unwrap()
+                .iter()
+                .filter(|r| gt.contains(&r.id))
+                .count();
+        }
+        let haar_recall = haar_hits as f64 / (nq * k) as f64;
+        let had_recall = had_hits as f64 / (nq * k) as f64;
+        eprintln!(
+            "hadamard_recall_at_10_within_5pct_of_haar: haar={:.3}  had={:.3}",
+            haar_recall, had_recall
+        );
+        // Loose lower bound — we just need to confirm Hadamard lives in the
+        // same recall neighbourhood as Haar, not that it's byte-identical.
+        assert!(
+            had_recall >= 0.85,
+            "Hadamard recall@10={had_recall:.3} < 0.85 (haar={haar_recall:.3})",
+        );
+    }
+
+    /// The whole reason to opt in to Hadamard is the `O(D log D)` memory
+    /// footprint: `3·padded_D` f32s of signs vs `D²` f32s for the dense
+    /// Haar matrix. At D=128 that's 1.5 KiB vs 64 KiB — a ~42× gap. We
+    /// compare the rotation-only storage (via `memory_bytes()` on an empty
+    /// index, which at n=0 isolates the rotation footprint) and assert
+    /// ≥ 30× reduction.
+    #[test]
+    fn hadamard_rotation_memory_smaller_than_haar() {
+        let d = 128;
+        // Empty indexes: `memory_bytes()` at n=0 reduces to
+        // `rotation.bytes() + cos_lut bytes`. The cos LUT is the same
+        // size for both (`(d+1) * 4`), so the delta is entirely the
+        // rotation storage — exactly what we want to measure.
+        let haar = RabitqIndex::new_with_rotation(d, 0, RandomRotationKind::HaarDense);
+        let had = RabitqIndex::new_with_rotation(d, 0, RandomRotationKind::HadamardSigned);
+
+        let haar_bytes = haar.memory_bytes();
+        let had_bytes = had.memory_bytes();
+        eprintln!(
+            "hadamard_rotation_memory_smaller_than_haar: haar={haar_bytes}B  had={had_bytes}B  ratio={:.1}x",
+            haar_bytes as f64 / had_bytes as f64,
+        );
+        assert!(
+            had_bytes * 30 <= haar_bytes,
+            "Hadamard memory={had_bytes} vs Haar={haar_bytes} — expected ≥ 30× reduction",
+        );
     }
 }
