@@ -1,0 +1,25 @@
+[package]
+name = "ruvector-acorn"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "ACORN: predicate-agnostic filtered approximate nearest-neighbor search with neighbor compression for ruvector"
+
+[[bin]]
+name = "acorn-demo"
+path = "src/main.rs"
+
+[[bench]]
+name = "acorn_bench"
+harness = false
+
+[dependencies]
+rand = { workspace = true }
+rand_distr = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
