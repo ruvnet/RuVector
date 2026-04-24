@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::backend::{BackendAdapter, BackendId};
-use crate::cache::{CacheKey, Consistency, VectorCache};
+use crate::cache::{intern_key, CacheKey, Consistency, InternedKey, VectorCache};
 use crate::error::{Result, RuLakeError};
 
 /// Result from a search — the external id and its estimated L2² score.
@@ -226,9 +226,14 @@ impl RuLake {
         query: &[f32],
         k: usize,
     ) -> Result<Vec<SearchResult>> {
-        let key: CacheKey = (backend.to_string(), collection.to_string());
+        // Intern once per query — the memory-audit hot-path fix. Every
+        // downstream cache op takes `Arc<str>` refcount bumps instead
+        // of cloning `String`s (memory-audit finding #1).
+        let key = intern_key(backend, collection);
         self.ensure_fresh(&key)?;
-        let hits = self.cache.search_cached(&key, query, k)?;
+        let hits = self
+            .cache
+            .search_cached_with_rerank_interned(&key, query, k, None)?;
         Ok(hits
             .into_iter()
             .map(|(id, score)| SearchResult {
@@ -342,11 +347,11 @@ impl RuLake {
         k: usize,
         rerank_override: Option<usize>,
     ) -> Result<Vec<SearchResult>> {
-        let key: CacheKey = (backend.to_string(), collection.to_string());
+        let key = intern_key(backend, collection);
         self.ensure_fresh(&key)?;
-        let hits = self
-            .cache
-            .search_cached_with_rerank(&key, query, k, rerank_override)?;
+        let hits =
+            self.cache
+                .search_cached_with_rerank_interned(&key, query, k, rerank_override)?;
         Ok(hits
             .into_iter()
             .map(|(id, score)| SearchResult {
@@ -376,9 +381,11 @@ impl RuLake {
         queries: &[Vec<f32>],
         k: usize,
     ) -> Result<Vec<Vec<SearchResult>>> {
-        let key: CacheKey = (backend.to_string(), collection.to_string());
+        let key = intern_key(backend, collection);
         self.ensure_fresh(&key)?;
-        let raw = self.cache.search_cached_batch(&key, queries, k, None)?;
+        let raw = self
+            .cache
+            .search_cached_batch_interned(&key, queries, k, None)?;
         Ok(raw
             .into_iter()
             .map(|v| {
@@ -405,14 +412,12 @@ impl RuLake {
     ///    entry pool (cached under another pointer) → just move the
     ///    pointer, zero prime work. This is the cross-backend share.
     /// 4. Witness not in the pool → pull + prime.
-    fn ensure_fresh(&self, key: &CacheKey) -> Result<()> {
-        // Intern once at the entry of the hot path — every downstream
-        // mark_hit / mark_miss / per_backend_mut call then takes
-        // refcount-cheap Arc<str> clones instead of cloning the owned
-        // String tuple. Memory-audit finding #1.
-        let interned = crate::cache::intern_key(&key.0, &key.1);
-        if self.cache.can_skip_check(key, self.consistency) {
-            self.cache.mark_hit(&interned);
+    fn ensure_fresh(&self, key: &InternedKey) -> Result<()> {
+        // The hot path already owns Arc<str> clones of (backend,
+        // collection) — every downstream cache op is a refcount bump,
+        // never a String::clone. Memory-audit finding #1.
+        if self.cache.can_skip_check_interned(key, self.consistency) {
+            self.cache.mark_hit(key);
             return Ok(());
         }
 
@@ -424,18 +429,23 @@ impl RuLake {
         )?;
         let target_witness = bundle.rvf_witness.clone();
 
-        if self.cache.witness_of(key).as_deref() == Some(target_witness.as_str()) {
+        if self.cache.witness_of_interned(key).as_deref() == Some(target_witness.as_str()) {
             // Case 2: pointer up-to-date.
-            self.cache.mark_hit(&interned);
-            self.cache.touch(key);
+            self.cache.mark_hit(key);
+            self.cache.touch_interned(key);
             return Ok(());
         }
 
-        // Cases 3 + 4 are handled in `prime`: it reuses an existing
-        // entry for the target witness if present, or builds a new one.
-        self.cache.mark_miss(&interned);
+        // Cases 3 + 4 are handled in `prime_interned`: it reuses an
+        // existing entry for the target witness if present, or builds
+        // a new one.
+        self.cache.mark_miss(key);
         let batch = backend.pull_vectors(&key.1)?;
-        self.cache.prime(key.clone(), target_witness, batch)?;
+        // Clone the Arcs (refcount bumps) to hand the cache an owned
+        // InternedKey — no String allocation.
+        let owned_key: InternedKey = (Arc::clone(&key.0), Arc::clone(&key.1));
+        self.cache
+            .prime_interned(owned_key, target_witness, batch)?;
         Ok(())
     }
 

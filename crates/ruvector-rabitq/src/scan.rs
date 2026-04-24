@@ -32,7 +32,14 @@ use std::sync::OnceLock;
 /// * `q_packed`  — query words, length `n_words`.
 /// * `mask`      — last-word mask (`!0u64` when `dim % 64 == 0`).
 /// * `out_agree` — output agreement counts, length `n`.
-type ScanFn = fn(packed: &[u64], n_words: usize, n: usize, q_packed: &[u64], mask: u64, out_agree: &mut [u32]);
+type ScanFn = fn(
+    packed: &[u64],
+    n_words: usize,
+    n: usize,
+    q_packed: &[u64],
+    mask: u64,
+    out_agree: &mut [u32],
+);
 
 static SCAN_IMPL: OnceLock<ScanFn> = OnceLock::new();
 

@@ -45,6 +45,7 @@
 pub mod error;
 pub mod index;
 pub mod kernel;
+pub mod persist;
 pub mod quantize;
 pub mod rotation;
 pub mod scan;
