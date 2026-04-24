@@ -2,6 +2,7 @@
 exclude = ["crates/micro-hnsw-wasm", "crates/ruvector-hyperbolic-hnsw", "crates/ruvector-hyperbolic-hnsw-wasm", "examples/ruvLLM/esp32", "examples/ruvLLM/esp32-flash", "examples/edge-net", "examples/data", "examples/ruvLLM", "examples/delta-behavior", "crates/rvf", "crates/rvf/*", "crates/rvf/*/*", "examples/rvf-desktop", "crates/mcp-brain-server"]
 members = [
     "crates/ruvector-rabitq",
+    "crates/ruvector-acorn",
     "crates/ruvector-core",
     "crates/ruvector-node",
     "crates/ruvector-wasm",
