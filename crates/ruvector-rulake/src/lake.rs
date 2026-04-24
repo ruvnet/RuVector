@@ -110,6 +110,15 @@ impl RuLake {
         self.cache.stats_by_backend()
     }
 
+    /// Per-`(backend, collection)` cache stats. One level finer than
+    /// `cache_stats_by_backend`. Operators use this to identify hot
+    /// collections for per-collection LRU pinning or eviction.
+    pub fn cache_stats_by_collection(
+        &self,
+    ) -> std::collections::HashMap<crate::cache::CacheKey, crate::cache::PerBackendStats> {
+        self.cache.stats_by_collection()
+    }
+
     /// What witness resolves from a `(backend, collection)` pair?
     /// Useful for diagnostics and cross-backend cache-sharing tests.
     pub fn cache_witness_of(&self, key: &CacheKey) -> Option<String> {
@@ -190,11 +199,21 @@ impl RuLake {
         }
         let bundle = crate::RuLakeBundle::read_from_dir(dir)?;
         let current = self.cache.witness_of(key);
-        if current.as_deref() == Some(bundle.rvf_witness.as_str()) {
-            Ok(RefreshResult::UpToDate)
-        } else {
-            self.cache.invalidate(key);
-            Ok(RefreshResult::Invalidated)
+        match current.as_deref() {
+            Some(w) if w == bundle.rvf_witness.as_str() => Ok(RefreshResult::UpToDate),
+            Some(_) => {
+                // Live cache pointer, but it disagrees with the
+                // published bundle → rotate it out.
+                self.cache.invalidate(key);
+                Ok(RefreshResult::Invalidated)
+            }
+            None => {
+                // Cache pointer is empty. Nothing to invalidate; the
+                // next search will prime transparently. Report
+                // UpToDate so daemons don't re-fire for every poll
+                // between "we invalidated" and "somebody queried".
+                Ok(RefreshResult::UpToDate)
+            }
         }
     }
 

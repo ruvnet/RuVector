@@ -44,6 +44,7 @@
 
 pub mod error;
 pub mod index;
+pub mod kernel;
 pub mod quantize;
 pub mod rotation;
 
@@ -51,5 +52,6 @@ pub use error::RabitqError;
 pub use index::{
     AnnIndex, FlatF32Index, RabitqAsymIndex, RabitqIndex, RabitqPlusIndex, SearchResult,
 };
+pub use kernel::{CpuKernel, KernelCaps, ScanRequest, ScanResponse, VectorKernel};
 pub use quantize::{pack_bits, unpack_bits, BinaryCode};
 pub use rotation::RandomRotation;

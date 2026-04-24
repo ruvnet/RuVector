@@ -119,6 +119,19 @@ pub struct RuLakeBundle {
 
     /// OpenLineage job id that produced this bundle.
     pub lineage_id: Option<String>,
+
+    /// Caller-defined memory-class tag (ADR-156 substrate framing).
+    /// Agent systems tag bundles with cognitive labels like
+    /// `"episodic"` / `"semantic"` / `"procedural"` / `"identity"`;
+    /// ruLake stores the string and surfaces it through bundles and
+    /// stats but never interprets it. Opaque by design — brain
+    /// systems own the semantics, substrate owns the persistence.
+    ///
+    /// Not part of the witness: changing the memory-class tag on the
+    /// same vectors does not invalidate a cache entry. Two bundles
+    /// with identical data but different classes share the cache.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memory_class: Option<String>,
 }
 
 impl RuLakeBundle {
@@ -144,6 +157,7 @@ impl RuLakeBundle {
             rvf_witness: witness,
             pii_policy: None,
             lineage_id: None,
+            memory_class: None,
         }
     }
 
@@ -188,6 +202,13 @@ impl RuLakeBundle {
 
     pub fn with_lineage_id(mut self, id: impl Into<String>) -> Self {
         self.lineage_id = Some(id.into());
+        self
+    }
+
+    /// Tag this bundle with a memory class (ADR-156). Opaque to
+    /// ruLake; meaningful to the consuming brain system.
+    pub fn with_memory_class(mut self, class: impl Into<String>) -> Self {
+        self.memory_class = Some(class.into());
         self
     }
 
@@ -429,6 +450,27 @@ mod tests {
             other => panic!("expected InvalidParameter, got {other:?}"),
         }
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn memory_class_roundtrips_and_does_not_affect_witness() {
+        let plain = RuLakeBundle::new("x", 8, 1, 5, Generation::Num(1));
+        let tagged =
+            RuLakeBundle::new("x", 8, 1, 5, Generation::Num(1)).with_memory_class("episodic");
+        // Witnesses match — class is not part of the digest.
+        assert_eq!(plain.rvf_witness, tagged.rvf_witness);
+        // Serde roundtrip preserves the tag.
+        let s = tagged.to_json().unwrap();
+        let parsed = RuLakeBundle::from_json(&s).unwrap();
+        assert_eq!(parsed.memory_class.as_deref(), Some("episodic"));
+        // Old-format (no memory_class field) still parses.
+        let old_format = r#"{"format_version":1,"data_ref":"x","dim":8,"rotation_seed":1,"rerank_factor":5,"generation":1,"rvf_witness":""#;
+        let legacy = format!(
+            "{}{}\",\"pii_policy\":null,\"lineage_id\":null}}",
+            old_format, plain.rvf_witness
+        );
+        let loaded = RuLakeBundle::from_json(&legacy).unwrap();
+        assert_eq!(loaded.memory_class, None);
     }
 
     #[test]
