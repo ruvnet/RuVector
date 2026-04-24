@@ -44,14 +44,14 @@ pub struct SegmenterConfig {
 impl Default for SegmenterConfig {
     fn default() -> Self {
         Self {
-            window_size: 1024,      // ~32ms at 32kHz
-            hop_size: 256,          // ~8ms hop
+            window_size: 1024,           // ~32ms at 32kHz
+            hop_size: 256,               // ~8ms hop
             energy_threshold_ratio: 3.0, // 3x noise floor
-            min_segment_ms: 100,    // Minimum 100ms
-            max_segment_ms: 10_000, // Maximum 10s
-            min_gap_ms: 50,         // 50ms minimum gap
-            noise_floor_frames: 10, // Use 10 quietest frames
-            smoothing: 0.3,         // Light smoothing
+            min_segment_ms: 100,         // Minimum 100ms
+            max_segment_ms: 10_000,      // Maximum 10s
+            min_gap_ms: 50,              // 50ms minimum gap
+            noise_floor_frames: 10,      // Use 10 quietest frames
+            smoothing: 0.3,              // Light smoothing
         }
     }
 }
@@ -129,11 +129,7 @@ impl EnergySegmenter {
     }
 
     /// Finds segment boundaries from the binary activity signal.
-    fn find_segments(
-        &self,
-        activity: &[bool],
-        sample_rate: u32,
-    ) -> Vec<(u64, u64)> {
+    fn find_segments(&self, activity: &[bool], sample_rate: u32) -> Vec<(u64, u64)> {
         let hop_ms = (self.config.hop_size as u64 * 1000) / u64::from(sample_rate);
         let min_frames = (self.config.min_segment_ms / hop_ms).max(1) as usize;
         let max_frames = (self.config.max_segment_ms / hop_ms) as usize;
@@ -187,11 +183,7 @@ impl EnergySegmenter {
     }
 
     /// Assesses signal quality for a segment.
-    fn assess_quality(
-        &self,
-        samples: &[f32],
-        noise_floor: f32,
-    ) -> (SignalQuality, f32, f32, f32) {
+    fn assess_quality(&self, samples: &[f32], noise_floor: f32) -> (SignalQuality, f32, f32, f32) {
         let rms = Self::calculate_rms(samples);
         let peak = Self::calculate_peak(samples);
         let zcr = Self::calculate_zcr(samples);
@@ -227,9 +219,8 @@ impl AudioSegmenter for EnergySegmenter {
             return Ok(Vec::new());
         }
 
-        let num_windows = (samples.len().saturating_sub(self.config.window_size))
-            / self.config.hop_size
-            + 1;
+        let num_windows =
+            (samples.len().saturating_sub(self.config.window_size)) / self.config.hop_size + 1;
 
         if num_windows == 0 {
             return Ok(Vec::new());
@@ -266,7 +257,10 @@ impl AudioSegmenter for EnergySegmenter {
         // Find segment boundaries
         let boundaries = self.find_segments(&activity, sample_rate);
 
-        debug!(candidate_segments = boundaries.len(), "Found segment candidates");
+        debug!(
+            candidate_segments = boundaries.len(),
+            "Found segment candidates"
+        );
 
         // Create CallSegment entities with quality assessment
         let segments: Vec<CallSegment> = boundaries
@@ -281,8 +275,7 @@ impl AudioSegmenter for EnergySegmenter {
                 }
 
                 let segment_samples = &samples[start_sample..end_sample];
-                let (quality, peak, rms, zcr) =
-                    self.assess_quality(segment_samples, noise_floor);
+                let (quality, peak, rms, zcr) = self.assess_quality(segment_samples, noise_floor);
 
                 Some(
                     CallSegment::new(recording_id, start_ms, end_ms, peak, rms, quality)
@@ -293,7 +286,10 @@ impl AudioSegmenter for EnergySegmenter {
 
         debug!(
             final_segments = segments.len(),
-            high_quality = segments.iter().filter(|s| matches!(s.signal_quality, SignalQuality::High)).count(),
+            high_quality = segments
+                .iter()
+                .filter(|s| matches!(s.signal_quality, SignalQuality::High))
+                .count(),
             "Segmentation complete"
         );
 
@@ -400,9 +396,7 @@ mod tests {
     #[test]
     fn test_zcr_calculation() {
         // Pure sine wave has high ZCR
-        let sine: Vec<f32> = (0..100)
-            .map(|i| (i as f32 * 0.5).sin())
-            .collect();
+        let sine: Vec<f32> = (0..100).map(|i| (i as f32 * 0.5).sin()).collect();
         let zcr = EnergySegmenter::calculate_zcr(&sine);
         assert!(zcr > 0.0);
         assert!(zcr < 1.0);
@@ -465,11 +459,17 @@ mod tests {
         let noise_floor = 0.01;
         let segmenter = EnergySegmenter::new();
         let (quality, _, _, _) = segmenter.assess_quality(&high_snr, noise_floor);
-        assert!(matches!(quality, SignalQuality::High | SignalQuality::Medium));
+        assert!(matches!(
+            quality,
+            SignalQuality::High | SignalQuality::Medium
+        ));
 
         // Low quality signal (low SNR)
         let low_snr = vec![0.02f32; 1000];
         let (quality, _, _, _) = segmenter.assess_quality(&low_snr, noise_floor);
-        assert!(matches!(quality, SignalQuality::Low | SignalQuality::Noise | SignalQuality::Medium));
+        assert!(matches!(
+            quality,
+            SignalQuality::Low | SignalQuality::Noise | SignalQuality::Medium
+        ));
     }
 }

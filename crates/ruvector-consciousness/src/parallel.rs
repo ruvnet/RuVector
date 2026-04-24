@@ -148,7 +148,10 @@ pub struct ParallelStochasticPhiEngine {
 
 impl ParallelStochasticPhiEngine {
     pub fn new(total_samples: u64, seed: u64) -> Self {
-        Self { total_samples, seed }
+        Self {
+            total_samples,
+            seed,
+        }
     }
 }
 

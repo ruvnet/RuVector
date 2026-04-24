@@ -69,20 +69,9 @@ impl TrainingCorpus {
     ///
     /// Returns the best-matching pattern with a computed match score.
     /// Requires at least one context string or property name match.
-    pub fn match_declaration(
-        &self,
-        decl: &Declaration,
-    ) -> Option<(&TrainingPattern, f64)> {
-        let decl_strings: HashSet<&str> = decl
-            .string_literals
-            .iter()
-            .map(|s| s.as_str())
-            .collect();
-        let decl_props: HashSet<&str> = decl
-            .property_accesses
-            .iter()
-            .map(|s| s.as_str())
-            .collect();
+    pub fn match_declaration(&self, decl: &Declaration) -> Option<(&TrainingPattern, f64)> {
+        let decl_strings: HashSet<&str> = decl.string_literals.iter().map(|s| s.as_str()).collect();
+        let decl_props: HashSet<&str> = decl.property_accesses.iter().map(|s| s.as_str()).collect();
 
         let mut best: Option<(&TrainingPattern, f64)> = None;
 
@@ -107,14 +96,12 @@ impl TrainingCorpus {
                 .filter(|pn| decl_props.contains(pn.as_str()))
                 .count();
 
-            let total_signals =
-                pattern.context_strings.len() + pattern.property_names.len();
+            let total_signals = pattern.context_strings.len() + pattern.property_names.len();
             if total_signals == 0 {
                 continue;
             }
 
-            let match_ratio =
-                (string_matches + prop_matches) as f64 / total_signals as f64;
+            let match_ratio = (string_matches + prop_matches) as f64 / total_signals as f64;
 
             // Require at least one match to consider this pattern.
             if string_matches + prop_matches == 0 {
@@ -152,11 +139,7 @@ mod tests {
     use super::*;
     use crate::types::DeclKind;
 
-    fn make_decl(
-        name: &str,
-        strings: &[&str],
-        props: &[&str],
-    ) -> Declaration {
+    fn make_decl(name: &str, strings: &[&str], props: &[&str]) -> Declaration {
         Declaration {
             name: name.to_string(),
             kind: DeclKind::Var,
@@ -205,8 +188,7 @@ mod tests {
         assert!(result.is_some());
         let (pattern, score) = result.unwrap();
         assert!(
-            pattern.inferred_name.contains("Mcp")
-                || pattern.inferred_name.contains("Protocol"),
+            pattern.inferred_name.contains("Mcp") || pattern.inferred_name.contains("Protocol"),
             "Expected MCP-related name, got: {}",
             pattern.inferred_name
         );

@@ -8,9 +8,7 @@
 //! - Insert Throughput: >= 10,000 vectors/s
 //! - Build Time: < 30 min for 1M vectors
 
-use criterion::{
-    black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
-};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use std::time::{Duration, Instant};
 
 use sevensense_benches::*;
@@ -236,8 +234,12 @@ fn benchmark_hnsw_build_m_param(c: &mut Criterion) {
     for m in [16, 24, 32, 48] {
         group.bench_with_input(BenchmarkId::new("M", m), &m, |b, &m| {
             b.iter(|| {
-                let mut index =
-                    SimpleHnswIndex::new(PERCH_EMBEDDING_DIM, m, DEFAULT_EF_CONSTRUCTION, DEFAULT_EF_SEARCH);
+                let mut index = SimpleHnswIndex::new(
+                    PERCH_EMBEDDING_DIM,
+                    m,
+                    DEFAULT_EF_CONSTRUCTION,
+                    DEFAULT_EF_SEARCH,
+                );
                 for vec in &vectors {
                     index.add(vec.clone());
                 }
@@ -382,7 +384,11 @@ fn analyze_latency_distribution() {
 
     let stats = PerformanceStats::from_latencies(latencies);
 
-    println!("Query latency statistics (k={}, {} queries):", k, queries.len());
+    println!(
+        "Query latency statistics (k={}, {} queries):",
+        k,
+        queries.len()
+    );
     println!("{}", stats.report());
     println!();
     println!("Performance targets:");
@@ -434,7 +440,12 @@ criterion_group!(
     targets = measure_recall
 );
 
-criterion_main!(search_benches, insert_benches, build_benches, recall_benches);
+criterion_main!(
+    search_benches,
+    insert_benches,
+    build_benches,
+    recall_benches
+);
 
 // ============================================================================
 // Additional Analysis Functions (run separately)

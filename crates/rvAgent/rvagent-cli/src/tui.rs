@@ -99,8 +99,7 @@ impl Tui {
                     .iter()
                     .map(|tc| DisplayToolCall {
                         name: tc.name.clone(),
-                        output: serde_json::to_string_pretty(&tc.args)
-                            .unwrap_or_default(),
+                        output: serde_json::to_string_pretty(&tc.args).unwrap_or_default(),
                         collapsed: true,
                     })
                     .collect();
@@ -145,8 +144,15 @@ impl Tui {
 
         self.terminal.draw(|f| {
             render_frame(
-                f, messages, input, cursor, scroll_offset, status, model,
-                session_id, token_count,
+                f,
+                messages,
+                input,
+                cursor,
+                scroll_offset,
+                status,
+                model,
+                session_id,
+                token_count,
             );
         })?;
         Ok(())
@@ -176,8 +182,15 @@ impl Tui {
 
                 self.terminal.draw(|f| {
                     render_frame(
-                        f, messages, input, cursor, scroll_offset, status, model,
-                        session_id, token_count,
+                        f,
+                        messages,
+                        input,
+                        cursor,
+                        scroll_offset,
+                        status,
+                        model,
+                        session_id,
+                        token_count,
                     );
                 })?;
             }
@@ -332,8 +345,12 @@ fn render_frame(
     let mut lines: Vec<Line> = Vec::new();
     for msg in messages {
         let role_style = match msg.role.as_str() {
-            "you" => Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
-            "assistant" => Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD),
+            "you" => Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD),
+            "assistant" => Style::default()
+                .fg(Color::Blue)
+                .add_modifier(Modifier::BOLD),
             "system" => Style::default().fg(Color::Yellow),
             _ => Style::default().fg(Color::Magenta),
         };

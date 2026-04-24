@@ -123,10 +123,7 @@ impl OpenAlexClient {
                     .unwrap_or(60);
                 Err(OpenAlexError::RateLimited(retry_after))
             }
-            status => Err(OpenAlexError::Api(format!(
-                "Unexpected status: {}",
-                status
-            ))),
+            status => Err(OpenAlexError::Api(format!("Unexpected status: {}", status))),
         }
     }
 
@@ -147,10 +144,7 @@ impl OpenAlexClient {
         match response.status() {
             StatusCode::OK => Ok(response.json().await?),
             StatusCode::NOT_FOUND => Err(OpenAlexError::InvalidId(id.to_string())),
-            status => Err(OpenAlexError::Api(format!(
-                "Unexpected status: {}",
-                status
-            ))),
+            status => Err(OpenAlexError::Api(format!("Unexpected status: {}", status))),
         }
     }
 
@@ -160,7 +154,11 @@ impl OpenAlexClient {
         query: &str,
         per_page: usize,
     ) -> Result<Vec<Work>, OpenAlexError> {
-        let params = format!("search={}&per_page={}", urlencoding::encode(query), per_page);
+        let params = format!(
+            "search={}&per_page={}",
+            urlencoding::encode(query),
+            per_page
+        );
         let url = self.build_url("works", &params);
         let response = self.client.get(&url).send().await?;
 
@@ -169,10 +167,7 @@ impl OpenAlexClient {
                 let api_response: ApiResponse<Work> = response.json().await?;
                 Ok(api_response.results)
             }
-            status => Err(OpenAlexError::Api(format!(
-                "Unexpected status: {}",
-                status
-            ))),
+            status => Err(OpenAlexError::Api(format!("Unexpected status: {}", status))),
         }
     }
 
@@ -204,10 +199,7 @@ impl OpenAlexClient {
         institution_id: &str,
         per_page: usize,
     ) -> Result<Vec<Work>, OpenAlexError> {
-        let filter = format!(
-            "filter=authorships.institutions.id:{}",
-            institution_id
-        );
+        let filter = format!("filter=authorships.institutions.id:{}", institution_id);
         let (works, _) = self.fetch_works_page(&filter, None, per_page).await?;
         Ok(works)
     }

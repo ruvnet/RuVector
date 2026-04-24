@@ -187,14 +187,15 @@ impl LoopCoordinator {
             "ewc_task_count": ewc.task_count(),
             "instant_enabled": self.instant_enabled,
             "background_enabled": self.background_enabled,
-        }).to_string()
+        })
+        .to_string()
     }
 
     /// Restore state from JSON (fixes #274)
     /// Call after construction to restore learned patterns from a previous session.
     pub fn load_state(&self, json: &str) -> Result<usize, String> {
-        let state: serde_json::Value = serde_json::from_str(json)
-            .map_err(|e| format!("Invalid state JSON: {}", e))?;
+        let state: serde_json::Value =
+            serde_json::from_str(json).map_err(|e| format!("Invalid state JSON: {}", e))?;
 
         let mut loaded = 0;
 

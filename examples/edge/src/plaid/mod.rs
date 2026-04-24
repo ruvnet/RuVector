@@ -24,15 +24,14 @@ pub mod zk_wasm_prod;
 
 // Re-export demo ZK types (for backward compatibility)
 pub use zkproofs::{
-    ZkProof, ProofType, VerificationResult, Commitment,
-    FinancialProofBuilder, RentalApplicationProof,
+    Commitment, FinancialProofBuilder, ProofType, RentalApplicationProof, VerificationResult,
+    ZkProof,
 };
 
 // Re-export production ZK types
 pub use zkproofs_prod::{
-    PedersenCommitment, ZkRangeProof, ProofMetadata,
-    VerificationResult as ProdVerificationResult,
-    FinancialProver, FinancialVerifier, RentalApplicationBundle,
+    FinancialProver, FinancialVerifier, PedersenCommitment, ProofMetadata, RentalApplicationBundle,
+    VerificationResult as ProdVerificationResult, ZkRangeProof,
 };
 
 use serde::{Deserialize, Serialize};
@@ -98,8 +97,8 @@ pub struct FinancialLearningState {
     /// Category embeddings - HashMap prevents unbounded growth (was Vec which leaked memory)
     pub category_embeddings: HashMap<String, Vec<f32>>,
     pub q_values: HashMap<String, f64>, // state|action -> Q-value
-    pub temporal_weights: Vec<f32>, // Day-of-week weights (7 days: Sun-Sat)
-    pub monthly_weights: Vec<f32>,  // Day-of-month weights (31 days)
+    pub temporal_weights: Vec<f32>,     // Day-of-week weights (7 days: Sun-Sat)
+    pub monthly_weights: Vec<f32>,      // Day-of-month weights (31 days)
     /// Maximum embeddings to store (LRU eviction when exceeded)
     #[serde(default = "default_max_embeddings")]
     pub max_embeddings: usize,
@@ -116,8 +115,8 @@ impl Default for FinancialLearningState {
             patterns: HashMap::new(),
             category_embeddings: HashMap::new(),
             q_values: HashMap::new(),
-            temporal_weights: vec![1.0; 7],  // 7 days
-            monthly_weights: vec![1.0; 31],   // 31 days
+            temporal_weights: vec![1.0; 7], // 7 days
+            monthly_weights: vec![1.0; 31], // 31 days
             max_embeddings: default_max_embeddings(),
         }
     }

@@ -27,7 +27,9 @@ fn main() {
     for eco in &ecosystems {
         println!(
             "  {}: {} species, {} connections",
-            eco.name, eco.species.len(), eco.connection_count()
+            eco.name,
+            eco.species.len(),
+            eco.connection_count()
         );
     }
 

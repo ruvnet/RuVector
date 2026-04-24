@@ -62,7 +62,10 @@ impl MockEulerTourTree {
 
     fn tree_size(&self, v: u64) -> usize {
         let comp = self.connected_components.get(&v).unwrap();
-        self.connected_components.values().filter(|&c| c == comp).count()
+        self.connected_components
+            .values()
+            .filter(|&c| c == comp)
+            .count()
     }
 
     fn recompute_components(&mut self) {
@@ -465,15 +468,16 @@ mod local_mincut_tests {
     fn create_expander_graph(n: usize) -> HashMap<usize, Vec<usize>> {
         let mut graph = HashMap::new();
         for i in 0..n {
-            graph.insert(
-                i,
-                vec![(i + 1) % n, (i + 2) % n, (i + 5) % n, (i + 11) % n],
-            );
+            graph.insert(i, vec![(i + 1) % n, (i + 2) % n, (i + 5) % n, (i + 11) % n]);
         }
         graph
     }
 
-    fn compute_local_mincut(graph: &HashMap<usize, Vec<usize>>, source: usize, radius: usize) -> f64 {
+    fn compute_local_mincut(
+        graph: &HashMap<usize, Vec<usize>>,
+        source: usize,
+        radius: usize,
+    ) -> f64 {
         let ball = grow_ball_from_vertex(graph, source, radius);
         compute_conductance(graph, &ball)
     }
@@ -619,7 +623,11 @@ mod cut_gated_search_tests {
         graph
     }
 
-    fn ungated_search(graph: &HashMap<usize, Vec<(usize, f64)>>, start: usize, max: usize) -> Vec<usize> {
+    fn ungated_search(
+        graph: &HashMap<usize, Vec<(usize, f64)>>,
+        start: usize,
+        max: usize,
+    ) -> Vec<usize> {
         let mut visited = vec![start];
         let mut seen = HashSet::new();
         seen.insert(start);
@@ -797,9 +805,7 @@ mod integration_tests {
     // Helper functions
 
     fn generate_test_vectors(n: usize) -> Vec<Vec<f64>> {
-        (0..n)
-            .map(|i| vec![(i as f64) * 0.1; 128])
-            .collect()
+        (0..n).map(|i| vec![(i as f64) * 0.1; 128]).collect()
     }
 
     fn build_knn_graph(vectors: &[Vec<f64>], k: usize) -> Vec<(u64, u64)> {
@@ -818,7 +824,10 @@ mod integration_tests {
     }
 
     fn count_components(ett: &MockEulerTourTree) -> usize {
-        ett.connected_components.values().collect::<HashSet<_>>().len()
+        ett.connected_components
+            .values()
+            .collect::<HashSet<_>>()
+            .len()
     }
 }
 

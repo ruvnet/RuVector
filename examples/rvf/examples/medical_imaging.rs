@@ -13,12 +13,12 @@
 //!
 //! Run: cargo run --example medical_imaging
 
+use rvf_crypto::{create_witness_chain, shake256_256, verify_witness_chain, WitnessEntry};
+use rvf_runtime::filter::FilterValue;
+use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{
     FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult,
 };
-use rvf_runtime::filter::FilterValue;
-use rvf_runtime::options::DistanceMetric;
-use rvf_crypto::{create_witness_chain, verify_witness_chain, shake256_256, WitnessEntry};
 use tempfile::TempDir;
 
 /// Simple LCG-based pseudo-random vector generator for deterministic results.
@@ -26,7 +26,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -100,11 +102,16 @@ fn main() {
     let ingest = store
         .ingest_batch(&vec_refs, &ids, Some(&metadata))
         .expect("ingest failed");
-    println!("  Ingested {} image embeddings (rejected: {})", ingest.accepted, ingest.rejected);
+    println!(
+        "  Ingested {} image embeddings (rejected: {})",
+        ingest.accepted, ingest.rejected
+    );
 
     // Print distribution
     for m in &modalities {
-        let count = (0..num_images).filter(|i| modalities[i % modalities.len()] == *m).count();
+        let count = (0..num_images)
+            .filter(|i| modalities[i % modalities.len()] == *m)
+            .count();
         println!("    {}: {} images", m, count);
     }
 
@@ -170,8 +177,7 @@ fn main() {
 
     let eligible_ct_tumor = (0..num_images)
         .filter(|&i| {
-            modalities[i % modalities.len()] == "CT"
-                && findings[i % findings.len()] == "tumor"
+            modalities[i % modalities.len()] == "CT" && findings[i % findings.len()] == "tumor"
         })
         .count();
     println!(
@@ -205,12 +211,12 @@ fn main() {
     println!("\n--- 7. Audit Trail (Witness Chain) ---");
 
     let audit_steps = [
-        ("image_acquisition", 0x01u8),     // PROVENANCE
-        ("dicom_parsing", 0x02),           // COMPUTATION
-        ("embedding_extraction", 0x02),    // COMPUTATION
-        ("case_indexing", 0x08),           // DATA_PROVENANCE
-        ("similarity_search", 0x02),       // COMPUTATION
-        ("report_generation", 0x08),       // DATA_PROVENANCE
+        ("image_acquisition", 0x01u8),  // PROVENANCE
+        ("dicom_parsing", 0x02),        // COMPUTATION
+        ("embedding_extraction", 0x02), // COMPUTATION
+        ("case_indexing", 0x08),        // DATA_PROVENANCE
+        ("similarity_search", 0x02),    // COMPUTATION
+        ("report_generation", 0x08),    // DATA_PROVENANCE
     ];
 
     let entries: Vec<WitnessEntry> = audit_steps

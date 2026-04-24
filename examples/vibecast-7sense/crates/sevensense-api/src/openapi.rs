@@ -112,8 +112,7 @@ pub fn create_router() -> Router<AppContext> {
         // Raw OpenAPI JSON
         .route("/openapi.json", get(openapi_json))
         // Swagger UI - merge directly
-        .merge(SwaggerUi::new("/docs/swagger-ui")
-            .url("/docs/openapi.json", ApiDoc::openapi()))
+        .merge(SwaggerUi::new("/docs/swagger-ui").url("/docs/openapi.json", ApiDoc::openapi()))
 }
 
 /// Get raw OpenAPI JSON.
@@ -136,7 +135,12 @@ mod tests {
     #[test]
     fn test_openapi_has_required_paths() {
         let doc = ApiDoc::openapi();
-        let paths: Vec<&str> = doc.paths.paths.keys().map(std::string::String::as_str).collect();
+        let paths: Vec<&str> = doc
+            .paths
+            .paths
+            .keys()
+            .map(std::string::String::as_str)
+            .collect();
 
         assert!(paths.contains(&"/recordings"));
         assert!(paths.contains(&"/segments/{id}/neighbors"));

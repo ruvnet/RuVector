@@ -90,8 +90,8 @@ impl SecretLoader {
             .map_err(|_| KalshiError::Secret("KALSHI_API_KEY not set".into()))?;
         let private_key_pem = std::env::var("KALSHI_PRIVATE_KEY_PEM")
             .map_err(|_| KalshiError::Secret("KALSHI_PRIVATE_KEY_PEM not set".into()))?;
-        let api_url = std::env::var("KALSHI_API_URL")
-            .unwrap_or_else(|_| crate::KALSHI_API_URL.to_string());
+        let api_url =
+            std::env::var("KALSHI_API_URL").unwrap_or_else(|_| crate::KALSHI_API_URL.to_string());
         Ok(Credentials {
             api_key,
             private_key_pem,
@@ -124,8 +124,8 @@ impl SecretLoader {
                 })?
         };
 
-        let api_url = std::env::var("KALSHI_API_URL")
-            .unwrap_or_else(|_| crate::KALSHI_API_URL.to_string());
+        let api_url =
+            std::env::var("KALSHI_API_URL").unwrap_or_else(|_| crate::KALSHI_API_URL.to_string());
 
         Ok(Credentials {
             api_key,
@@ -171,9 +171,8 @@ async fn gcloud_secret(project: &str, name: &str) -> Result<String> {
             "gcloud secrets access {name} failed: {stderr}"
         )));
     }
-    let val = String::from_utf8(output.stdout).map_err(|e| {
-        KalshiError::Secret(format!("gcloud output for {name} is not utf-8: {e}"))
-    })?;
+    let val = String::from_utf8(output.stdout)
+        .map_err(|e| KalshiError::Secret(format!("gcloud output for {name} is not utf-8: {e}")))?;
     Ok(val)
 }
 

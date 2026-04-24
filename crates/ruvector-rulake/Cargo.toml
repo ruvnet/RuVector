@@ -1,0 +1,28 @@
+[package]
+name = "ruvector-rulake"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "ruLake — vector-native federation intermediary over heterogeneous backends (ADR-155)"
+
+[[bin]]
+name = "rulake-demo"
+path = "src/bin/rulake-demo.rs"
+
+[dependencies]
+ruvector-rabitq = { path = "../ruvector-rabitq", version = "2.2" }
+serde = { workspace = true }
+serde_json = "1"
+thiserror = { workspace = true }
+# Witness digest for the table.rulake.json bundle (ADR-155). Matches the
+# pin used by `crates/rvf/rvf-crypto`.
+sha3 = "0.10"
+hex = "0.4"
+# needed by the bin; tests already pull these via dev-deps.
+rand = { workspace = true }
+rand_distr = { workspace = true }
+# Parallel fan-out for federated search (ADR-155). Workspace-pinned 1.10.
+rayon = { workspace = true }

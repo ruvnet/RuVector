@@ -65,11 +65,7 @@ pub trait ClusterRepository: Send + Sync {
     async fn list_clusters(&self) -> Result<Vec<Cluster>>;
 
     /// List clusters with pagination.
-    async fn list_clusters_paginated(
-        &self,
-        offset: usize,
-        limit: usize,
-    ) -> Result<Vec<Cluster>>;
+    async fn list_clusters_paginated(&self, offset: usize, limit: usize) -> Result<Vec<Cluster>>;
 
     /// Assign an embedding to a cluster.
     async fn assign_to_cluster(
@@ -100,11 +96,7 @@ pub trait ClusterRepository: Send + Sync {
     async fn find_clusters_by_label(&self, label_pattern: &str) -> Result<Vec<Cluster>>;
 
     /// Update cluster label.
-    async fn update_cluster_label(
-        &self,
-        id: &ClusterId,
-        label: Option<String>,
-    ) -> Result<()>;
+    async fn update_cluster_label(&self, id: &ClusterId, label: Option<String>) -> Result<()>;
 }
 
 /// Repository for prototype persistence.
@@ -117,16 +109,10 @@ pub trait PrototypeRepository: Send + Sync {
     async fn save_prototypes(&self, prototypes: &[Prototype]) -> Result<()>;
 
     /// Find prototypes for a cluster.
-    async fn find_prototypes_by_cluster(
-        &self,
-        cluster_id: &ClusterId,
-    ) -> Result<Vec<Prototype>>;
+    async fn find_prototypes_by_cluster(&self, cluster_id: &ClusterId) -> Result<Vec<Prototype>>;
 
     /// Find the best prototype for a cluster.
-    async fn find_best_prototype(
-        &self,
-        cluster_id: &ClusterId,
-    ) -> Result<Option<Prototype>>;
+    async fn find_best_prototype(&self, cluster_id: &ClusterId) -> Result<Option<Prototype>>;
 
     /// Delete prototypes for a cluster.
     async fn delete_prototypes_by_cluster(&self, cluster_id: &ClusterId) -> Result<()>;

@@ -46,11 +46,7 @@ impl SystemPromptBuilder {
         }
         // Pre-calculate total capacity: sum of segment lengths + separators
         let separator = "\n\n";
-        let total_len: usize = self
-            .segments
-            .iter()
-            .map(|s| s.len())
-            .sum::<usize>()
+        let total_len: usize = self.segments.iter().map(|s| s.len()).sum::<usize>()
             + separator.len() * self.segments.len().saturating_sub(1);
 
         let mut out = String::with_capacity(total_len);
@@ -73,10 +69,7 @@ impl Default for SystemPromptBuilder {
 /// Append text to an existing system message string, returning the combined result.
 /// If `system_message` is `None`, returns a new string from `text`.
 /// Used by Memory, Skills, SubAgent middlewares to inject into system prompts.
-pub fn append_to_system_message(
-    system_message: &Option<String>,
-    text: &str,
-) -> Option<String> {
+pub fn append_to_system_message(system_message: &Option<String>, text: &str) -> Option<String> {
     match system_message {
         Some(msg) => Some(format!("{}\n\n{}", msg, text)),
         None => Some(text.to_string()),

@@ -135,7 +135,9 @@ impl EdgarClient {
         let response = self.client.get(&url).send().await?;
 
         if !response.status().is_success() {
-            return Err(EdgarError::Api("Failed to fetch company tickers".to_string()));
+            return Err(EdgarError::Api(
+                "Failed to fetch company tickers".to_string(),
+            ));
         }
 
         let data: CompanyTickersResponse = response.json().await?;
@@ -146,7 +148,10 @@ impl EdgarClient {
             }
         }
 
-        Err(EdgarError::InvalidCik(format!("Ticker not found: {}", ticker)))
+        Err(EdgarError::InvalidCik(format!(
+            "Ticker not found: {}",
+            ticker
+        )))
     }
 
     /// Get company info
@@ -168,7 +173,11 @@ impl EdgarClient {
                     sic_description: data.sic_description,
                     state: data.state,
                     fiscal_year_end: data.fiscal_year_end,
-                    latest_filing: data.filings.recent.filing_dates.first()
+                    latest_filing: data
+                        .filings
+                        .recent
+                        .filing_dates
+                        .first()
                         .and_then(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d").ok()),
                 })
             }
@@ -204,11 +213,9 @@ impl EdgarClient {
             let filing_type = FilingType::from_form(form);
 
             if filing_types.contains(&filing_type) {
-                let filed_date = NaiveDate::parse_from_str(
-                    &data.filings.recent.filing_dates[i],
-                    "%Y-%m-%d",
-                )
-                .unwrap_or(NaiveDate::from_ymd_opt(2000, 1, 1).unwrap());
+                let filed_date =
+                    NaiveDate::parse_from_str(&data.filings.recent.filing_dates[i], "%Y-%m-%d")
+                        .unwrap_or(NaiveDate::from_ymd_opt(2000, 1, 1).unwrap());
 
                 filings.push(Filing {
                     accession_number: data.filings.recent.accession_numbers[i].clone(),
@@ -247,7 +254,10 @@ impl EdgarClient {
     }
 
     /// Get companies by sector
-    pub async fn get_companies_by_sector(&self, sector: &Sector) -> Result<Vec<Company>, EdgarError> {
+    pub async fn get_companies_by_sector(
+        &self,
+        sector: &Sector,
+    ) -> Result<Vec<Company>, EdgarError> {
         // Note: This is a simplified implementation
         // Real implementation would use bulk data or SIC code search
         let sic_prefix = match sector {
@@ -287,7 +297,9 @@ impl EdgarClient {
 
                         for (_, unit_values) in &concept.units {
                             for uv in unit_values {
-                                if let Ok(date) = NaiveDate::parse_from_str(&uv.end_date, "%Y-%m-%d") {
+                                if let Ok(date) =
+                                    NaiveDate::parse_from_str(&uv.end_date, "%Y-%m-%d")
+                                {
                                     values.push((date, uv.val));
                                 }
                             }

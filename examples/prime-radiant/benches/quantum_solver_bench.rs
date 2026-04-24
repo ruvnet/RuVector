@@ -15,13 +15,9 @@ fn spmv_scaling(c: &mut Criterion) {
         let op = SolverBackedOperator::banded(qubits, bandwidth, 42);
         let state = vec![1.0 / ((1u64 << qubits) as f64).sqrt(); 1 << qubits];
 
-        group.bench_with_input(
-            BenchmarkId::new("apply", qubits),
-            &qubits,
-            |b, _| {
-                b.iter(|| black_box(op.apply(&state)));
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("apply", qubits), &qubits, |b, _| {
+            b.iter(|| black_box(op.apply(&state)));
+        });
     }
 
     group.finish();

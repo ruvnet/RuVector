@@ -17,10 +17,10 @@
 //! Run with:
 //!   cargo run --example browser_wasm
 
-use rvf_runtime::{QueryOptions, RvfOptions, RvfStore, SearchResult};
 use rvf_runtime::options::DistanceMetric;
+use rvf_runtime::{QueryOptions, RvfOptions, RvfStore, SearchResult};
 use rvf_types::{SegmentFlags, SegmentType, SEGMENT_HEADER_SIZE, SEGMENT_MAGIC};
-use rvf_wire::{write_segment, read_segment, validate_segment, calculate_padded_size};
+use rvf_wire::{calculate_padded_size, read_segment, validate_segment, write_segment};
 use tempfile::TempDir;
 
 /// Simple pseudo-random number generator (LCG) for deterministic results.
@@ -28,7 +28,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -107,7 +109,11 @@ fn main() {
 
     let status = store.status();
     println!("  Total vectors:  {}", status.total_vectors);
-    println!("  File size:      {} bytes ({:.1} KB)", status.file_size, status.file_size as f64 / 1024.0);
+    println!(
+        "  File size:      {} bytes ({:.1} KB)",
+        status.file_size,
+        status.file_size as f64 / 1024.0
+    );
     println!("  Segments:       {}", status.total_segments);
     println!("  Epoch:          {}", status.current_epoch);
 
@@ -138,7 +144,10 @@ fn main() {
     let vec_padded = calculate_padded_size(SEGMENT_HEADER_SIZE, vec_payload.len());
     println!("  VEC_SEG:");
     println!("    Segment ID:     1");
-    println!("    Type:           0x{:02X} (VEC_SEG)", SegmentType::Vec as u8);
+    println!(
+        "    Type:           0x{:02X} (VEC_SEG)",
+        SegmentType::Vec as u8
+    );
     println!("    Payload:        {} bytes", vec_payload.len());
     println!("    Total (padded): {} bytes (64-byte aligned)", vec_padded);
 
@@ -166,9 +175,15 @@ fn main() {
     let manifest_padded = calculate_padded_size(SEGMENT_HEADER_SIZE, manifest_payload.len());
     println!("\n  MANIFEST_SEG:");
     println!("    Segment ID:     2");
-    println!("    Type:           0x{:02X} (MANIFEST_SEG)", SegmentType::Manifest as u8);
+    println!(
+        "    Type:           0x{:02X} (MANIFEST_SEG)",
+        SegmentType::Manifest as u8
+    );
     println!("    Payload:        {} bytes", manifest_payload.len());
-    println!("    Total (padded): {} bytes (64-byte aligned)", manifest_padded);
+    println!(
+        "    Total (padded): {} bytes (64-byte aligned)",
+        manifest_padded
+    );
 
     // Combine into a constructed WASM transfer buffer
     let mut wasm_buffer: Vec<u8> = Vec::new();
@@ -177,9 +192,17 @@ fn main() {
     wasm_buffer.extend_from_slice(&manifest_seg);
 
     println!("\n  Combined WASM transfer buffer:");
-    println!("    Total size:     {} bytes ({:.1} KB)", wasm_buffer.len(), wasm_buffer.len() as f64 / 1024.0);
+    println!(
+        "    Total size:     {} bytes ({:.1} KB)",
+        wasm_buffer.len(),
+        wasm_buffer.len() as f64 / 1024.0
+    );
     println!("    VEC_SEG:        offset 0, {} bytes", vec_seg.len());
-    println!("    MANIFEST_SEG:   offset {}, {} bytes", manifest_offset, manifest_seg.len());
+    println!(
+        "    MANIFEST_SEG:   offset {}, {} bytes",
+        manifest_offset,
+        manifest_seg.len()
+    );
 
     // ====================================================================
     // 6. Validate wire format integrity (what WASM runtime does on receive)
@@ -190,7 +213,10 @@ fn main() {
     let (vec_header, vec_data) = read_segment(&wasm_buffer[0..]).expect("failed to read VEC_SEG");
     let magic_valid = vec_header.magic == SEGMENT_MAGIC;
     println!("  VEC_SEG at offset 0:");
-    println!("    Magic:       0x{:08X} (valid={})", vec_header.magic, magic_valid);
+    println!(
+        "    Magic:       0x{:08X} (valid={})",
+        vec_header.magic, magic_valid
+    );
     println!("    Version:     {}", vec_header.version);
     println!("    Seg ID:      {}", vec_header.segment_id);
     println!("    Payload len: {} bytes", vec_header.payload_length);
@@ -200,10 +226,14 @@ fn main() {
     }
 
     // Validate MANIFEST_SEG
-    let (mfst_header, mfst_data) = read_segment(&wasm_buffer[manifest_offset..])
-        .expect("failed to read MANIFEST_SEG");
+    let (mfst_header, mfst_data) =
+        read_segment(&wasm_buffer[manifest_offset..]).expect("failed to read MANIFEST_SEG");
     println!("\n  MANIFEST_SEG at offset {}:", manifest_offset);
-    println!("    Magic:       0x{:08X} (valid={})", mfst_header.magic, mfst_header.magic == SEGMENT_MAGIC);
+    println!(
+        "    Magic:       0x{:08X} (valid={})",
+        mfst_header.magic,
+        mfst_header.magic == SEGMENT_MAGIC
+    );
     println!("    Version:     {}", mfst_header.version);
     println!("    Seg ID:      {}", mfst_header.segment_id);
     println!("    Payload len: {} bytes", mfst_header.payload_length);
@@ -240,9 +270,21 @@ fn main() {
     println!("  {:->24}  {:->12}", "", "");
     println!("  {:>24}  {:>12}", "Vectors", num_vectors);
     println!("  {:>24}  {:>12}", "Dimensions", dim);
-    println!("  {:>24}  {:>10.1} KB", "Raw vector data", raw_bytes / 1024.0);
-    println!("  {:>24}  {:>10.1} KB", "RVF file size", status.file_size as f64 / 1024.0);
-    println!("  {:>24}  {:>10.1} KB", "Wire transfer size", wasm_buffer.len() as f64 / 1024.0);
+    println!(
+        "  {:>24}  {:>10.1} KB",
+        "Raw vector data",
+        raw_bytes / 1024.0
+    );
+    println!(
+        "  {:>24}  {:>10.1} KB",
+        "RVF file size",
+        status.file_size as f64 / 1024.0
+    );
+    println!(
+        "  {:>24}  {:>10.1} KB",
+        "Wire transfer size",
+        wasm_buffer.len() as f64 / 1024.0
+    );
     println!("  {:>24}  {:>12}", "WASM binary target", "5.5 KB");
     println!("  {:>24}  {:>12}", "Query results (k)", k);
     println!("  {:>24}  {:>12}", "Segments", 2);

@@ -189,7 +189,15 @@ pub struct OptimizedCapTable<const N: usize = 256> {
 
 impl<const N: usize> OptimizedCapTable<N> {
     /// Number of u64 chunks needed for the bitmap.
-    const BITMAP_CHUNKS: usize = if N <= 64 { 1 } else if N <= 128 { 2 } else if N <= 192 { 3 } else { 4 };
+    const BITMAP_CHUNKS: usize = if N <= 64 {
+        1
+    } else if N <= 128 {
+        2
+    } else if N <= 192 {
+        3
+    } else {
+        4
+    };
 
     /// Creates a new empty capability table.
     ///

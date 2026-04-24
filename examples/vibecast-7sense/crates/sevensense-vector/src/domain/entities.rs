@@ -110,7 +110,11 @@ impl Default for Timestamp {
 
 impl fmt::Display for Timestamp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_datetime().format("%Y-%m-%d %H:%M:%S%.3f UTC"))
+        write!(
+            f,
+            "{}",
+            self.to_datetime().format("%Y-%m-%d %H:%M:%S%.3f UTC")
+        )
     }
 }
 

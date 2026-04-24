@@ -13,15 +13,13 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 
 use chrono::{DateTime, Utc};
-use flate2::Compression;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
+use flate2::Compression;
 use serde::{Deserialize, Serialize};
 
 use crate::optimized::{OptimizedConfig, OptimizedDiscoveryEngine, SignificantPattern};
-use crate::ruvector_native::{
-    CoherenceSnapshot, Domain, GraphEdge, GraphNode, SemanticVector,
-};
+use crate::ruvector_native::{CoherenceSnapshot, Domain, GraphEdge, GraphNode, SemanticVector};
 use crate::{FrameworkError, Result};
 
 /// Serializable state of the OptimizedDiscoveryEngine
@@ -349,13 +347,13 @@ fn extract_state(_engine: &OptimizedDiscoveryEngine) -> EngineState {
 
     EngineState {
         config: OptimizedConfig::default(), // Would need engine.config() method
-        vectors: Vec::new(), // Would need engine.vectors() method
-        nodes: HashMap::new(), // Would need engine.nodes() method
-        edges: Vec::new(), // Would need engine.edges() method
-        coherence_history: Vec::new(), // Would need engine.coherence_history() method
-        next_node_id: 0, // Would need engine.next_node_id() method
-        domain_nodes: HashMap::new(), // Would need engine.domain_nodes() method
-        domain_timeseries: HashMap::new(), // Would need engine.domain_timeseries() method
+        vectors: Vec::new(),                // Would need engine.vectors() method
+        nodes: HashMap::new(),              // Would need engine.nodes() method
+        edges: Vec::new(),                  // Would need engine.edges() method
+        coherence_history: Vec::new(),      // Would need engine.coherence_history() method
+        next_node_id: 0,                    // Would need engine.next_node_id() method
+        domain_nodes: HashMap::new(),       // Would need engine.domain_nodes() method
+        domain_timeseries: HashMap::new(),  // Would need engine.domain_timeseries() method
         saved_at: Utc::now(),
         version: env!("CARGO_PKG_VERSION").to_string(),
     }
@@ -445,9 +443,8 @@ fn is_compressed(path: &Path) -> Result<bool> {
 
 /// Get file size in bytes
 pub fn get_file_size(path: &Path) -> Result<u64> {
-    let metadata = std::fs::metadata(path).map_err(|e| {
-        FrameworkError::Discovery(format!("Failed to get file metadata: {}", e))
-    })?;
+    let metadata = std::fs::metadata(path)
+        .map_err(|e| FrameworkError::Discovery(format!("Failed to get file metadata: {}", e)))?;
     Ok(metadata.len())
 }
 
@@ -462,9 +459,10 @@ pub fn compression_info(path: &Path) -> Result<(u64, u64, f64)> {
         let file = File::open(path).unwrap();
         let mut decoder = GzDecoder::new(BufReader::new(file));
         let mut buffer = Vec::new();
-        let uncompressed_size = decoder.read_to_end(&mut buffer).map_err(|e| {
-            FrameworkError::Discovery(format!("Failed to decompress: {}", e))
-        })? as u64;
+        let uncompressed_size = decoder
+            .read_to_end(&mut buffer)
+            .map_err(|e| FrameworkError::Discovery(format!("Failed to decompress: {}", e)))?
+            as u64;
 
         let ratio = compressed_size as f64 / uncompressed_size as f64;
         Ok((compressed_size, uncompressed_size, ratio))
@@ -477,7 +475,7 @@ pub fn compression_info(path: &Path) -> Result<(u64, u64, f64)> {
 mod tests {
     use super::*;
     use crate::optimized::OptimizedConfig;
-    use crate::ruvector_native::{DiscoveredPattern, PatternType, Evidence};
+    use crate::ruvector_native::{DiscoveredPattern, Evidence, PatternType};
     use tempfile::NamedTempFile;
 
     #[test]
@@ -487,7 +485,10 @@ mod tests {
 
         assert_eq!(state.next_node_id, 0);
         assert_eq!(state.nodes.len(), 0);
-        assert_eq!(state.config.similarity_threshold, config.similarity_threshold);
+        assert_eq!(
+            state.config.similarity_threshold,
+            config.similarity_threshold
+        );
     }
 
     #[test]
@@ -508,30 +509,26 @@ mod tests {
         let temp_file = NamedTempFile::new().unwrap();
         let path = temp_file.path();
 
-        let patterns = vec![
-            SignificantPattern {
-                pattern: DiscoveredPattern {
-                    id: "test-1".to_string(),
-                    pattern_type: PatternType::CoherenceBreak,
-                    confidence: 0.85,
-                    affected_nodes: vec![1, 2, 3],
-                    detected_at: Utc::now(),
-                    description: "Test pattern".to_string(),
-                    evidence: vec![
-                        Evidence {
-                            evidence_type: "test".to_string(),
-                            value: 1.0,
-                            description: "Test evidence".to_string(),
-                        }
-                    ],
-                    cross_domain_links: vec![],
-                },
-                p_value: 0.03,
-                effect_size: 1.2,
-                confidence_interval: (0.5, 1.5),
-                is_significant: true,
-            }
-        ];
+        let patterns = vec![SignificantPattern {
+            pattern: DiscoveredPattern {
+                id: "test-1".to_string(),
+                pattern_type: PatternType::CoherenceBreak,
+                confidence: 0.85,
+                affected_nodes: vec![1, 2, 3],
+                detected_at: Utc::now(),
+                description: "Test pattern".to_string(),
+                evidence: vec![Evidence {
+                    evidence_type: "test".to_string(),
+                    value: 1.0,
+                    description: "Test evidence".to_string(),
+                }],
+                cross_domain_links: vec![],
+            },
+            p_value: 0.03,
+            effect_size: 1.2,
+            confidence_interval: (0.5, 1.5),
+            is_significant: true,
+        }];
 
         // Save patterns
         save_patterns(&patterns, path, &PersistenceOptions::default()).unwrap();
@@ -549,24 +546,22 @@ mod tests {
         let temp_file = NamedTempFile::new().unwrap();
         let path = temp_file.path();
 
-        let patterns = vec![
-            SignificantPattern {
-                pattern: DiscoveredPattern {
-                    id: "test-compressed".to_string(),
-                    pattern_type: PatternType::Consolidation,
-                    confidence: 0.90,
-                    affected_nodes: vec![4, 5, 6],
-                    detected_at: Utc::now(),
-                    description: "Compressed test pattern".to_string(),
-                    evidence: vec![],
-                    cross_domain_links: vec![],
-                },
-                p_value: 0.01,
-                effect_size: 2.0,
-                confidence_interval: (1.0, 3.0),
-                is_significant: true,
-            }
-        ];
+        let patterns = vec![SignificantPattern {
+            pattern: DiscoveredPattern {
+                id: "test-compressed".to_string(),
+                pattern_type: PatternType::Consolidation,
+                confidence: 0.90,
+                affected_nodes: vec![4, 5, 6],
+                detected_at: Utc::now(),
+                description: "Compressed test pattern".to_string(),
+                evidence: vec![],
+                cross_domain_links: vec![],
+            },
+            p_value: 0.01,
+            effect_size: 2.0,
+            confidence_interval: (1.0, 3.0),
+            is_significant: true,
+        }];
 
         // Save with compression
         save_patterns(&patterns, path, &PersistenceOptions::compressed()).unwrap();
@@ -585,43 +580,39 @@ mod tests {
         let temp_file = NamedTempFile::new().unwrap();
         let path = temp_file.path();
 
-        let pattern1 = vec![
-            SignificantPattern {
-                pattern: DiscoveredPattern {
-                    id: "pattern-1".to_string(),
-                    pattern_type: PatternType::EmergingCluster,
-                    confidence: 0.75,
-                    affected_nodes: vec![1],
-                    detected_at: Utc::now(),
-                    description: "First pattern".to_string(),
-                    evidence: vec![],
-                    cross_domain_links: vec![],
-                },
-                p_value: 0.05,
-                effect_size: 1.0,
-                confidence_interval: (0.0, 2.0),
-                is_significant: false,
-            }
-        ];
+        let pattern1 = vec![SignificantPattern {
+            pattern: DiscoveredPattern {
+                id: "pattern-1".to_string(),
+                pattern_type: PatternType::EmergingCluster,
+                confidence: 0.75,
+                affected_nodes: vec![1],
+                detected_at: Utc::now(),
+                description: "First pattern".to_string(),
+                evidence: vec![],
+                cross_domain_links: vec![],
+            },
+            p_value: 0.05,
+            effect_size: 1.0,
+            confidence_interval: (0.0, 2.0),
+            is_significant: false,
+        }];
 
-        let pattern2 = vec![
-            SignificantPattern {
-                pattern: DiscoveredPattern {
-                    id: "pattern-2".to_string(),
-                    pattern_type: PatternType::Cascade,
-                    confidence: 0.95,
-                    affected_nodes: vec![2],
-                    detected_at: Utc::now(),
-                    description: "Second pattern".to_string(),
-                    evidence: vec![],
-                    cross_domain_links: vec![],
-                },
-                p_value: 0.001,
-                effect_size: 3.0,
-                confidence_interval: (2.0, 4.0),
-                is_significant: true,
-            }
-        ];
+        let pattern2 = vec![SignificantPattern {
+            pattern: DiscoveredPattern {
+                id: "pattern-2".to_string(),
+                pattern_type: PatternType::Cascade,
+                confidence: 0.95,
+                affected_nodes: vec![2],
+                detected_at: Utc::now(),
+                description: "Second pattern".to_string(),
+                evidence: vec![],
+                cross_domain_links: vec![],
+            },
+            p_value: 0.001,
+            effect_size: 3.0,
+            confidence_interval: (2.0, 4.0),
+            is_significant: true,
+        }];
 
         // Save first pattern
         save_patterns(&pattern1, path, &PersistenceOptions::default()).unwrap();

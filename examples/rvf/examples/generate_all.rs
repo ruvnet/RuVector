@@ -20,7 +20,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -50,7 +52,9 @@ fn ingest_random(store: &mut RvfStore, dim: usize, count: usize, id_offset: u64)
         .collect();
     let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
     let ids: Vec<u64> = (0..count as u64).map(|i| id_offset + i).collect();
-    store.ingest_batch(&refs, &ids, None).expect("ingest failed");
+    store
+        .ingest_batch(&refs, &ids, None)
+        .expect("ingest failed");
 }
 
 // ---------------------------------------------------------------------------
@@ -63,7 +67,10 @@ fn gen_basic_store(dir: &Path) {
     let mut store = create_store(&path, 384);
     ingest_random(&mut store, 384, 100, 0);
     let s = store.status();
-    println!("  basic_store.rvf          {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  basic_store.rvf          {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -73,7 +80,10 @@ fn gen_progressive_index(dir: &Path) {
     let mut store = create_store(&path, 128);
     ingest_random(&mut store, 128, 5000, 0);
     let s = store.status();
-    println!("  progressive_index.rvf    {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  progressive_index.rvf    {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -83,7 +93,10 @@ fn gen_quantization(dir: &Path) {
     let mut store = create_store(&path, 384);
     ingest_random(&mut store, 384, 1000, 0);
     let s = store.status();
-    println!("  quantization.rvf         {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  quantization.rvf         {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -93,7 +106,10 @@ fn gen_filtered_search(dir: &Path) {
     let mut store = create_store(&path, 128);
     ingest_random(&mut store, 128, 500, 0);
     let s = store.status();
-    println!("  filtered_search.rvf      {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  filtered_search.rvf      {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -105,7 +121,10 @@ fn gen_agent_memory(dir: &Path) {
         ingest_random(&mut store, 256, 10, session * 100);
     }
     let s = store.status();
-    println!("  agent_memory.rvf         {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  agent_memory.rvf         {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -120,7 +139,10 @@ fn gen_swarm_knowledge(dir: &Path) {
         offset += count as u64;
     }
     let s = store.status();
-    println!("  swarm_knowledge.rvf      {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  swarm_knowledge.rvf      {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -133,17 +155,30 @@ fn gen_reasoning_trace(dir: &Path) {
     let mut parent = create_store(&parent_path, 128);
     ingest_random(&mut parent, 128, 10, 0);
 
-    let mut child = parent.derive(&child_path, DerivationType::Transform, None).unwrap();
+    let mut child = parent
+        .derive(&child_path, DerivationType::Transform, None)
+        .unwrap();
     ingest_random(&mut child, 128, 15, 100);
 
-    let grandchild = child.derive(&grandchild_path, DerivationType::Snapshot, None).unwrap();
+    let grandchild = child
+        .derive(&grandchild_path, DerivationType::Snapshot, None)
+        .unwrap();
 
     let ps = parent.status();
     let cs = child.status();
     let gs = grandchild.status();
-    println!("  reasoning_parent.rvf     {:>5} vectors  {:>8} bytes  depth=0", ps.total_vectors, ps.file_size);
-    println!("  reasoning_child.rvf      {:>5} vectors  {:>8} bytes  depth=1", cs.total_vectors, cs.file_size);
-    println!("  reasoning_grandchild.rvf {:>5} vectors  {:>8} bytes  depth=2", gs.total_vectors, gs.file_size);
+    println!(
+        "  reasoning_parent.rvf     {:>5} vectors  {:>8} bytes  depth=0",
+        ps.total_vectors, ps.file_size
+    );
+    println!(
+        "  reasoning_child.rvf      {:>5} vectors  {:>8} bytes  depth=1",
+        cs.total_vectors, cs.file_size
+    );
+    println!(
+        "  reasoning_grandchild.rvf {:>5} vectors  {:>8} bytes  depth=2",
+        gs.total_vectors, gs.file_size
+    );
     grandchild.close().unwrap();
     child.close().unwrap();
     parent.close().unwrap();
@@ -155,7 +190,10 @@ fn gen_semantic_search(dir: &Path) {
     let mut store = create_store(&path, 384);
     ingest_random(&mut store, 384, 500, 0);
     let s = store.status();
-    println!("  semantic_search.rvf      {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  semantic_search.rvf      {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -165,7 +203,10 @@ fn gen_recommendation(dir: &Path) {
     let mut store = create_store(&path, 128);
     ingest_random(&mut store, 128, 200, 0);
     let s = store.status();
-    println!("  recommendation.rvf       {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  recommendation.rvf       {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -175,7 +216,10 @@ fn gen_rag_pipeline(dir: &Path) {
     let mut store = create_store(&path, 256);
     ingest_random(&mut store, 256, 300, 0);
     let s = store.status();
-    println!("  rag_pipeline.rvf         {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  rag_pipeline.rvf         {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -185,7 +229,10 @@ fn gen_genomic_pipeline(dir: &Path) {
     let mut store = create_store(&path, 64);
     ingest_random(&mut store, 64, 100, 0);
     let s = store.status();
-    println!("  genomic_pipeline.rvdna   {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  genomic_pipeline.rvdna   {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -195,7 +242,10 @@ fn gen_financial_signals(dir: &Path) {
     let mut store = create_store(&path, 256);
     ingest_random(&mut store, 256, 200, 0);
     let s = store.status();
-    println!("  financial_signals.rvf    {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  financial_signals.rvf    {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -205,7 +255,10 @@ fn gen_medical_imaging(dir: &Path) {
     let mut store = create_store(&path, 512);
     ingest_random(&mut store, 512, 150, 0);
     let s = store.status();
-    println!("  medical_imaging.rvf      {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  medical_imaging.rvf      {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -215,7 +268,10 @@ fn gen_legal_discovery(dir: &Path) {
     let mut store = create_store(&path, 768);
     ingest_random(&mut store, 768, 300, 0);
     let s = store.status();
-    println!("  legal_discovery.rvf      {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  legal_discovery.rvf      {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -232,7 +288,10 @@ fn gen_self_booting(dir: &Path) {
         .unwrap();
 
     let s = store.status();
-    println!("  self_booting.rvf         {:>5} vectors  {:>8} bytes  +KERNEL_SEG", s.total_vectors, s.file_size);
+    println!(
+        "  self_booting.rvf         {:>5} vectors  {:>8} bytes  +KERNEL_SEG",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -250,7 +309,10 @@ fn gen_ebpf_accelerator(dir: &Path) {
         .unwrap();
 
     let s = store.status();
-    println!("  ebpf_accelerator.rvf     {:>5} vectors  {:>8} bytes  +EBPF_SEG", s.total_vectors, s.file_size);
+    println!(
+        "  ebpf_accelerator.rvf     {:>5} vectors  {:>8} bytes  +EBPF_SEG",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -274,7 +336,10 @@ fn gen_sealed_engine(dir: &Path) {
         .unwrap();
 
     let s = store.status();
-    println!("  sealed_engine.rvf        {:>5} vectors  {:>8} bytes  +KERNEL+EBPF", s.total_vectors, s.file_size);
+    println!(
+        "  sealed_engine.rvf        {:>5} vectors  {:>8} bytes  +KERNEL+EBPF",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -284,7 +349,10 @@ fn gen_edge_iot(dir: &Path) {
     let mut store = create_store(&path, 32);
     ingest_random(&mut store, 32, 200, 0);
     let s = store.status();
-    println!("  edge_iot.rvf             {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  edge_iot.rvf             {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -294,7 +362,10 @@ fn gen_browser_wasm(dir: &Path) {
     let mut store = create_store(&path, 64);
     ingest_random(&mut store, 64, 50, 0);
     let s = store.status();
-    println!("  browser_wasm.rvf         {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  browser_wasm.rvf         {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -305,7 +376,10 @@ fn gen_ruvllm_inference(dir: &Path) {
     // KV cache entries
     ingest_random(&mut store, 64, 512, 0);
     let s = store.status();
-    println!("  ruvllm_inference.rvf     {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  ruvllm_inference.rvf     {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -318,17 +392,30 @@ fn gen_lineage_chain(dir: &Path) {
     let mut parent = create_store(&parent_path, 128);
     ingest_random(&mut parent, 128, 100, 0);
 
-    let mut child = parent.derive(&child_path, DerivationType::Filter, None).unwrap();
+    let mut child = parent
+        .derive(&child_path, DerivationType::Filter, None)
+        .unwrap();
     ingest_random(&mut child, 128, 50, 200);
 
-    let snapshot = child.derive(&snapshot_path, DerivationType::Snapshot, None).unwrap();
+    let snapshot = child
+        .derive(&snapshot_path, DerivationType::Snapshot, None)
+        .unwrap();
 
     let ps = parent.status();
     let cs = child.status();
     let ss = snapshot.status();
-    println!("  lineage_parent.rvf       {:>5} vectors  {:>8} bytes  depth=0", ps.total_vectors, ps.file_size);
-    println!("  lineage_child.rvf        {:>5} vectors  {:>8} bytes  depth=1", cs.total_vectors, cs.file_size);
-    println!("  lineage_snapshot.rvdna   {:>5} vectors  {:>8} bytes  depth=2", ss.total_vectors, ss.file_size);
+    println!(
+        "  lineage_parent.rvf       {:>5} vectors  {:>8} bytes  depth=0",
+        ps.total_vectors, ps.file_size
+    );
+    println!(
+        "  lineage_child.rvf        {:>5} vectors  {:>8} bytes  depth=1",
+        cs.total_vectors, cs.file_size
+    );
+    println!(
+        "  lineage_snapshot.rvdna   {:>5} vectors  {:>8} bytes  depth=2",
+        ss.total_vectors, ss.file_size
+    );
     snapshot.close().unwrap();
     child.close().unwrap();
     parent.close().unwrap();
@@ -340,7 +427,10 @@ fn gen_network_telemetry(dir: &Path) {
     let mut store = create_store(&path, 64);
     ingest_random(&mut store, 64, 60, 0);
     let s = store.status();
-    println!("  network_telemetry.rvf    {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  network_telemetry.rvf    {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -350,7 +440,10 @@ fn gen_experience_replay(dir: &Path) {
     let mut store = create_store(&path, 64);
     ingest_random(&mut store, 64, 100, 0);
     let s = store.status();
-    println!("  experience_replay.rvf    {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  experience_replay.rvf    {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -360,7 +453,10 @@ fn gen_tool_cache(dir: &Path) {
     let mut store = create_store(&path, 128);
     ingest_random(&mut store, 128, 50, 0);
     let s = store.status();
-    println!("  tool_cache.rvf           {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  tool_cache.rvf           {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -370,7 +466,10 @@ fn gen_dedup_detector(dir: &Path) {
     let mut store = create_store(&path, 128);
     ingest_random(&mut store, 128, 300, 0);
     let s = store.status();
-    println!("  dedup_detector.rvf       {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  dedup_detector.rvf       {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -380,7 +479,10 @@ fn gen_embedding_cache(dir: &Path) {
     let mut store = create_store(&path, 384);
     ingest_random(&mut store, 384, 500, 0);
     let s = store.status();
-    println!("  embedding_cache.rvf      {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  embedding_cache.rvf      {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -390,7 +492,10 @@ fn gen_multimodal_fusion(dir: &Path) {
     let mut store = create_store(&path, 512);
     ingest_random(&mut store, 512, 400, 0);
     let s = store.status();
-    println!("  multimodal_fusion.rvf    {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  multimodal_fusion.rvf    {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -400,7 +505,10 @@ fn gen_hyperbolic_taxonomy(dir: &Path) {
     let mut store = create_store(&path, 64);
     ingest_random(&mut store, 64, 85, 0);
     let s = store.status();
-    println!("  hyperbolic_taxonomy.rvf  {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  hyperbolic_taxonomy.rvf  {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -410,7 +518,10 @@ fn gen_postgres_bridge(dir: &Path) {
     let mut store = create_store(&path, 384);
     ingest_random(&mut store, 384, 100, 0);
     let s = store.status();
-    println!("  postgres_bridge.rvf      {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  postgres_bridge.rvf      {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -420,7 +531,10 @@ fn gen_serverless(dir: &Path) {
     let mut store = create_store(&path, 128);
     ingest_random(&mut store, 128, 1000, 0);
     let s = store.status();
-    println!("  serverless.rvf           {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  serverless.rvf           {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -430,7 +544,10 @@ fn gen_access_control(dir: &Path) {
     let mut store = create_store(&path, 128);
     ingest_random(&mut store, 128, 150, 0);
     let s = store.status();
-    println!("  access_control.rvf       {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  access_control.rvf       {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -440,7 +557,10 @@ fn gen_zero_knowledge(dir: &Path) {
     let mut store = create_store(&path, 128);
     ingest_random(&mut store, 128, 100, 0);
     let s = store.status();
-    println!("  zero_knowledge.rvf       {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  zero_knowledge.rvf       {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -450,7 +570,10 @@ fn gen_tee_attestation(dir: &Path) {
     let mut store = create_store(&path, 256);
     ingest_random(&mut store, 256, 100, 0);
     let s = store.status();
-    println!("  tee_attestation.rvf      {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  tee_attestation.rvf      {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -467,8 +590,14 @@ fn gen_network_sync(dir: &Path) {
 
     let sa = store_a.status();
     let sb = store_b.status();
-    println!("  network_sync_a.rvf       {:>5} vectors  {:>8} bytes", sa.total_vectors, sa.file_size);
-    println!("  network_sync_b.rvf       {:>5} vectors  {:>8} bytes", sb.total_vectors, sb.file_size);
+    println!(
+        "  network_sync_a.rvf       {:>5} vectors  {:>8} bytes",
+        sa.total_vectors, sa.file_size
+    );
+    println!(
+        "  network_sync_b.rvf       {:>5} vectors  {:>8} bytes",
+        sb.total_vectors, sb.file_size
+    );
     store_a.close().unwrap();
     store_b.close().unwrap();
 }
@@ -479,7 +608,10 @@ fn gen_ruvbot(dir: &Path) {
     let mut store = create_store(&path, 256);
     ingest_random(&mut store, 256, 50, 0);
     let s = store.status();
-    println!("  ruvbot.rvf               {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  ruvbot.rvf               {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -496,7 +628,10 @@ fn gen_linux_microkernel(dir: &Path) {
         .unwrap();
 
     let s = store.status();
-    println!("  linux_microkernel.rvf    {:>5} vectors  {:>8} bytes  +KERNEL_SEG", s.total_vectors, s.file_size);
+    println!(
+        "  linux_microkernel.rvf    {:>5} vectors  {:>8} bytes  +KERNEL_SEG",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -520,7 +655,10 @@ fn gen_mcp_in_rvf(dir: &Path) {
         .unwrap();
 
     let s = store.status();
-    println!("  mcp_in_rvf.rvf           {:>5} vectors  {:>8} bytes  +KERNEL+EBPF", s.total_vectors, s.file_size);
+    println!(
+        "  mcp_in_rvf.rvf           {:>5} vectors  {:>8} bytes  +KERNEL+EBPF",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -532,13 +670,21 @@ fn gen_agent_handoff(dir: &Path) {
     let mut store_a = create_store(&path_a, 256);
     ingest_random(&mut store_a, 256, 30, 0);
 
-    let mut store_b = store_a.derive(&path_b, DerivationType::Clone, None).unwrap();
+    let mut store_b = store_a
+        .derive(&path_b, DerivationType::Clone, None)
+        .unwrap();
     ingest_random(&mut store_b, 256, 10, 100);
 
     let sa = store_a.status();
     let sb = store_b.status();
-    println!("  agent_handoff_a.rvf      {:>5} vectors  {:>8} bytes  depth=0", sa.total_vectors, sa.file_size);
-    println!("  agent_handoff_b.rvf      {:>5} vectors  {:>8} bytes  depth=1", sb.total_vectors, sb.file_size);
+    println!(
+        "  agent_handoff_a.rvf      {:>5} vectors  {:>8} bytes  depth=0",
+        sa.total_vectors, sa.file_size
+    );
+    println!(
+        "  agent_handoff_b.rvf      {:>5} vectors  {:>8} bytes  depth=1",
+        sb.total_vectors, sb.file_size
+    );
     store_b.close().unwrap();
     store_a.close().unwrap();
 }
@@ -549,7 +695,10 @@ fn gen_posix_fileops(dir: &Path) {
     let mut store = create_store(&path, 128);
     ingest_random(&mut store, 128, 100, 0);
     let s = store.status();
-    println!("  posix_fileops.rvf        {:>5} vectors  {:>8} bytes", s.total_vectors, s.file_size);
+    println!(
+        "  posix_fileops.rvf        {:>5} vectors  {:>8} bytes",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -580,7 +729,10 @@ fn gen_claude_code_appliance(dir: &Path) {
         .unwrap();
 
     let s = store.status();
-    println!("  claude_code_appliance.rvf {:>4} vectors  {:>8} bytes  +KERNEL+EBPF+SSH", s.total_vectors, s.file_size);
+    println!(
+        "  claude_code_appliance.rvf {:>4} vectors  {:>8} bytes  +KERNEL+EBPF+SSH",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -594,7 +746,10 @@ fn gen_compacted(dir: &Path) {
     store.delete(&to_delete).unwrap();
     store.compact().unwrap();
     let s = store.status();
-    println!("  compacted.rvf            {:>5} vectors  {:>8} bytes  (50 deleted + compacted)", s.total_vectors, s.file_size);
+    println!(
+        "  compacted.rvf            {:>5} vectors  {:>8} bytes  (50 deleted + compacted)",
+        s.total_vectors, s.file_size
+    );
     store.close().unwrap();
 }
 
@@ -665,7 +820,8 @@ fn main() {
         .filter_map(|e| e.ok())
         .filter(|e| {
             let p = e.path();
-            p.extension().map_or(false, |ext| ext == "rvf" || ext == "rvdna")
+            p.extension()
+                .map_or(false, |ext| ext == "rvf" || ext == "rvdna")
         })
         .count();
 
@@ -674,12 +830,17 @@ fn main() {
         .filter_map(|e| e.ok())
         .filter(|e| {
             let p = e.path();
-            p.extension().map_or(false, |ext| ext == "rvf" || ext == "rvdna")
+            p.extension()
+                .map_or(false, |ext| ext == "rvf" || ext == "rvdna")
         })
         .map(|e| e.metadata().map(|m| m.len()).unwrap_or(0))
         .sum();
 
-    println!("\n=== Generated {} RVF files ({:.1} KB total) ===", count, total_bytes as f64 / 1024.0);
+    println!(
+        "\n=== Generated {} RVF files ({:.1} KB total) ===",
+        count,
+        total_bytes as f64 / 1024.0
+    );
     println!("\nInspect with:");
     println!("  rvf status output/basic_store.rvf");
     println!("  rvf inspect output/sealed_engine.rvf");

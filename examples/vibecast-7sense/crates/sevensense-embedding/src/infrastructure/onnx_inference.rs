@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use ndarray::{Array1, Array3};
-use ort::session::{Session, builder::GraphOptimizationLevel};
+use ort::session::{builder::GraphOptimizationLevel, Session};
 use thiserror::Error;
 use tracing::{debug, instrument, warn};
 
@@ -92,7 +92,10 @@ impl OnnxInference {
                     warn!("CoreML requested, using CPU fallback");
                 }
                 ExecutionProvider::DirectML { device_id } => {
-                    warn!("DirectML device {} requested, using CPU fallback", device_id);
+                    warn!(
+                        "DirectML device {} requested, using CPU fallback",
+                        device_id
+                    );
                 }
                 ExecutionProvider::Cpu => {
                     debug!("Using CPU execution provider");
@@ -152,7 +155,9 @@ impl OnnxInference {
 
         // Run inference (lock session for mutable access required by ort 2.0)
         let inputs = ort::inputs![&self.input_name => input_tensor];
-        let mut session = self.session.lock()
+        let mut session = self
+            .session
+            .lock()
             .map_err(|e| InferenceError::Execution(format!("Lock error: {}", e)))?;
         let outputs = session
             .run(inputs)
@@ -222,7 +227,9 @@ impl OnnxInference {
 
         // Run inference (lock session for mutable access required by ort 2.0)
         let ort_inputs = ort::inputs![&self.input_name => input_tensor];
-        let mut session = self.session.lock()
+        let mut session = self
+            .session
+            .lock()
             .map_err(|e| InferenceError::Execution(format!("Lock error: {}", e)))?;
         let outputs = session
             .run(ort_inputs)

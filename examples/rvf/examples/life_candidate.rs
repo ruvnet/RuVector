@@ -11,12 +11,10 @@
 //!
 //! Run: cargo run --example life_candidate
 
-use rvf_runtime::{
-    FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore,
-};
+use rvf_crypto::{create_witness_chain, shake256_256, verify_witness_chain, WitnessEntry};
 use rvf_runtime::filter::FilterValue;
 use rvf_runtime::options::DistanceMetric;
-use rvf_crypto::{create_witness_chain, verify_witness_chain, shake256_256, WitnessEntry};
+use rvf_runtime::{FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore};
 use tempfile::TempDir;
 
 // ---------------------------------------------------------------------------
@@ -24,7 +22,9 @@ use tempfile::TempDir;
 // ---------------------------------------------------------------------------
 
 fn lcg_next(state: &mut u64) -> u64 {
-    *state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+    *state = state
+        .wrapping_mul(6364136223846793005)
+        .wrapping_add(1442695040888963407);
     *state
 }
 
@@ -32,7 +32,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -55,11 +57,31 @@ struct Molecule {
 }
 
 const MOLECULES: &[Molecule] = &[
-    Molecule { name: "H2O",  wavelength_um: 1.4,  width_um: 0.15 },
-    Molecule { name: "CO2",  wavelength_um: 2.0,  width_um: 0.2  },
-    Molecule { name: "CH4",  wavelength_um: 2.3,  width_um: 0.1  },
-    Molecule { name: "O3",   wavelength_um: 0.6,  width_um: 0.08 },
-    Molecule { name: "NH3",  wavelength_um: 3.0,  width_um: 0.12 },
+    Molecule {
+        name: "H2O",
+        wavelength_um: 1.4,
+        width_um: 0.15,
+    },
+    Molecule {
+        name: "CO2",
+        wavelength_um: 2.0,
+        width_um: 0.2,
+    },
+    Molecule {
+        name: "CH4",
+        wavelength_um: 2.3,
+        width_um: 0.1,
+    },
+    Molecule {
+        name: "O3",
+        wavelength_um: 0.6,
+        width_um: 0.08,
+    },
+    Molecule {
+        name: "NH3",
+        wavelength_um: 3.0,
+        width_um: 0.12,
+    },
 ];
 
 #[derive(Debug, Clone)]
@@ -102,10 +124,21 @@ fn generate_spectrum(target_id: u64, seed: u64) -> Spectrum {
     let mut rng = seed.wrapping_add(target_id * 6271);
 
     let target_names = [
-        "TRAPPIST-1e", "TRAPPIST-1f", "K2-18b", "LHS-1140b",
-        "Proxima-Cen-b", "TOI-700d", "Kepler-442b", "GJ-1002b",
-        "Wolf-1061c", "Ross-128b", "GJ-273b", "Teegarden-b",
-        "LP-890-9c", "TOI-1452b", "GJ-357d",
+        "TRAPPIST-1e",
+        "TRAPPIST-1f",
+        "K2-18b",
+        "LHS-1140b",
+        "Proxima-Cen-b",
+        "TOI-700d",
+        "Kepler-442b",
+        "GJ-1002b",
+        "Wolf-1061c",
+        "Ross-128b",
+        "GJ-273b",
+        "Teegarden-b",
+        "LP-890-9c",
+        "TOI-1452b",
+        "GJ-357d",
     ];
     let name = target_names[target_id as usize % target_names.len()].to_string();
 
@@ -182,8 +215,8 @@ fn extract_features(spectrum: &Spectrum) -> Vec<CoOccurrenceEdge> {
 // Equilibrium expectation: which molecule pairs would be expected together
 fn equilibrium_expectation(a: &str, b: &str) -> f64 {
     match (a, b) {
-        ("CO2", "H2O") | ("H2O", "CO2") => 0.8,  // common together
-        ("O3", "CH4") | ("CH4", "O3") => 0.05,    // disequilibrium pair!
+        ("CO2", "H2O") | ("H2O", "CO2") => 0.8, // common together
+        ("O3", "CH4") | ("CH4", "O3") => 0.05,  // disequilibrium pair!
         ("H2O", "O3") | ("O3", "H2O") => 0.3,
         ("NH3", "CH4") | ("CH4", "NH3") => 0.4,
         ("CO2", "CH4") | ("CH4", "CO2") => 0.2,
@@ -225,7 +258,8 @@ fn score_life_candidate(
     let total_score = raw.max(0.0).min(1.0);
 
     // Uncertainty decreases with more molecules and observations
-    let uncertainty = 0.5 / (1.0 + spectrum.detected_molecules.len() as f64 * 0.3 + observations as f64 * 0.1);
+    let uncertainty =
+        0.5 / (1.0 + spectrum.detected_molecules.len() as f64 * 0.3 + observations as f64 * 0.1);
 
     // Follow-up recommendations
     let mut follow_up: Vec<&'static str> = Vec::new();
@@ -282,9 +316,7 @@ fn main() {
     // ====================================================================
     println!("--- L0. Ingest: Synthetic JWST NIRSpec Spectra ---");
 
-    let spectra: Vec<Spectrum> = (0..num_targets)
-        .map(|i| generate_spectrum(i, 42))
-        .collect();
+    let spectra: Vec<Spectrum> = (0..num_targets).map(|i| generate_spectrum(i, 42)).collect();
 
     // Store spectral windows as embeddings
     let mut all_vectors: Vec<Vec<f32>> = Vec::new();
@@ -294,9 +326,7 @@ fn main() {
 
     // Each spectrum gets split into wavelength bands
     let bands = ["vis", "nir-j", "nir-h", "nir-k", "mir"];
-    let band_ranges: &[(f64, f64)] = &[
-        (0.5, 0.9), (0.9, 1.4), (1.4, 1.8), (1.8, 2.5), (2.5, 5.0),
-    ];
+    let band_ranges: &[(f64, f64)] = &[(0.5, 0.9), (0.9, 1.4), (1.4, 1.8), (1.8, 2.5), (2.5, 5.0)];
 
     for spectrum in &spectra {
         for (band_idx, band_name) in bands.iter().enumerate() {
@@ -365,7 +395,8 @@ fn main() {
     // ====================================================================
     println!("\n--- L1. Feature Extraction: Molecule Co-Occurrence ---");
 
-    let all_edges: Vec<Vec<CoOccurrenceEdge>> = spectra.iter().map(|s| extract_features(s)).collect();
+    let all_edges: Vec<Vec<CoOccurrenceEdge>> =
+        spectra.iter().map(|s| extract_features(s)).collect();
 
     let total_edges: usize = all_edges.iter().map(|e| e.len()).sum();
     println!("  Total co-occurrence edges: {}", total_edges);

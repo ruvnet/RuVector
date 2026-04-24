@@ -120,9 +120,7 @@ fn all_engines_and_gate_positive() {
     let tpm = and_gate_tpm();
     let budget = ComputeBudget::exact();
 
-    let exact = ExactPhiEngine
-        .compute_phi(&tpm, Some(3), &budget)
-        .unwrap();
+    let exact = ExactPhiEngine.compute_phi(&tpm, Some(3), &budget).unwrap();
     assert!(exact.phi >= 0.0, "exact: {}", exact.phi);
 
     let geomip = GeoMipPhiEngine::default()
@@ -296,8 +294,12 @@ fn rsvd_vs_hoel_emergence_correlation() {
         .compute_emergence(&tpm_uni, &budget)
         .unwrap();
 
-    let rsvd_id = RsvdEmergenceEngine::default().compute(&tpm_id, &budget).unwrap();
-    let rsvd_uni = RsvdEmergenceEngine::default().compute(&tpm_uni, &budget).unwrap();
+    let rsvd_id = RsvdEmergenceEngine::default()
+        .compute(&tpm_id, &budget)
+        .unwrap();
+    let rsvd_uni = RsvdEmergenceEngine::default()
+        .compute(&tpm_uni, &budget)
+        .unwrap();
 
     // Identity has higher EI than uniform (both systems).
     assert!(hoel_id.ei_micro > hoel_uni.ei_micro);
@@ -384,9 +386,7 @@ fn budget_limits_partitions() {
         max_partitions: 10,
         ..ComputeBudget::exact()
     };
-    let result = ExactPhiEngine
-        .compute_phi(&tpm, Some(0), &budget)
-        .unwrap();
+    let result = ExactPhiEngine.compute_phi(&tpm, Some(0), &budget).unwrap();
     assert!(
         result.partitions_evaluated <= 10,
         "should respect partition limit, evaluated {}",
@@ -483,11 +483,21 @@ fn all_engines_reject_invalid_tpm() {
     let bad_tpm = TransitionMatrix::new(2, vec![0.5, 0.5, 0.3, 0.3]);
     let budget = ComputeBudget::exact();
 
-    assert!(ExactPhiEngine.compute_phi(&bad_tpm, Some(0), &budget).is_err());
-    assert!(SpectralPhiEngine::default().compute_phi(&bad_tpm, Some(0), &budget).is_err());
-    assert!(StochasticPhiEngine::new(10, 42).compute_phi(&bad_tpm, Some(0), &budget).is_err());
-    assert!(GeoMipPhiEngine::default().compute_phi(&bad_tpm, Some(0), &budget).is_err());
-    assert!(GreedyBisectionPhiEngine::default().compute_phi(&bad_tpm, Some(0), &budget).is_err());
+    assert!(ExactPhiEngine
+        .compute_phi(&bad_tpm, Some(0), &budget)
+        .is_err());
+    assert!(SpectralPhiEngine::default()
+        .compute_phi(&bad_tpm, Some(0), &budget)
+        .is_err());
+    assert!(StochasticPhiEngine::new(10, 42)
+        .compute_phi(&bad_tpm, Some(0), &budget)
+        .is_err());
+    assert!(GeoMipPhiEngine::default()
+        .compute_phi(&bad_tpm, Some(0), &budget)
+        .is_err());
+    assert!(GreedyBisectionPhiEngine::default()
+        .compute_phi(&bad_tpm, Some(0), &budget)
+        .is_err());
 }
 
 #[test]

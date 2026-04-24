@@ -77,9 +77,9 @@ impl Embedder {
 
         // Load tokenizer based on model source
         let tokenizer = match &config.model_source {
-            ModelSource::Local {
-                tokenizer_path, ..
-            } => Tokenizer::from_file(tokenizer_path, config.max_length)?,
+            ModelSource::Local { tokenizer_path, .. } => {
+                Tokenizer::from_file(tokenizer_path, config.max_length)?
+            }
 
             ModelSource::Pretrained(pretrained) => {
                 Tokenizer::from_pretrained(pretrained.model_id(), config.max_length)?
@@ -184,24 +184,18 @@ impl Embedder {
         let (input_ids, attention_mask, token_type_ids, shape) = encoded.to_onnx_inputs();
 
         // Run model
-        let token_embeddings = self.model.run(
-            &input_ids,
-            &attention_mask,
-            &token_type_ids,
-            &shape,
-        )?;
+        let token_embeddings =
+            self.model
+                .run(&input_ids, &attention_mask, &token_type_ids, &shape)?;
 
         let seq_length = shape[1];
         let hidden_size = self.model.dimension();
 
         // Pool embeddings
         let attention_masks: Vec<Vec<i64>> = encoded.attention_mask;
-        let embeddings = self.pooler.pool(
-            &token_embeddings,
-            &attention_masks,
-            seq_length,
-            hidden_size,
-        );
+        let embeddings =
+            self.pooler
+                .pool(&token_embeddings, &attention_masks, seq_length, hidden_size);
 
         let token_counts = encoded.original_lengths;
 
@@ -218,7 +212,10 @@ impl Embedder {
 
     /// Process texts one at a time (use embed for batch processing)
     pub fn embed_each<S: AsRef<str>>(&mut self, texts: &[S]) -> Vec<Result<Vec<f32>>> {
-        texts.iter().map(|text| self.embed_one(text.as_ref())).collect()
+        texts
+            .iter()
+            .map(|text| self.embed_one(text.as_ref()))
+            .collect()
     }
 
     /// Get the embedding dimension
@@ -264,7 +261,11 @@ impl Embedder {
         #[cfg(feature = "gpu")]
         if let Some(ref gpu) = self.gpu {
             if corpus.len() >= 64 {
-                let candidates: Vec<&[f32]> = corpus_embs.embeddings.iter().map(|v| v.as_slice()).collect();
+                let candidates: Vec<&[f32]> = corpus_embs
+                    .embeddings
+                    .iter()
+                    .map(|v| v.as_slice())
+                    .collect();
                 if let Ok(results) = gpu.top_k_similar(&query_emb, &candidates, top_k) {
                     return Ok(results
                         .into_iter()
@@ -311,11 +312,7 @@ impl Embedder {
 
     /// Cluster texts by similarity (simple k-means-like approach)
     #[instrument(skip(self, texts), fields(n_texts = texts.len(), n_clusters))]
-    pub fn cluster<S: AsRef<str>>(
-        &mut self,
-        texts: &[S],
-        n_clusters: usize,
-    ) -> Result<Vec<usize>> {
+    pub fn cluster<S: AsRef<str>>(&mut self, texts: &[S], n_clusters: usize) -> Result<Vec<usize>> {
         let embeddings = self.embed(texts)?;
         let dim = self.dimension();
 

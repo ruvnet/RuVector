@@ -205,10 +205,16 @@ impl TimeSeriesProcessor {
         // Variance ratio (for stationarity)
         let variance_ratio = if n > 10 {
             let mid = n / 2;
-            let var1: f64 =
-                values[..mid].iter().map(|v| (v - mean).powi(2)).sum::<f64>() / mid as f64;
-            let var2: f64 =
-                values[mid..].iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n - mid) as f64;
+            let var1: f64 = values[..mid]
+                .iter()
+                .map(|v| (v - mean).powi(2))
+                .sum::<f64>()
+                / mid as f64;
+            let var2: f64 = values[mid..]
+                .iter()
+                .map(|v| (v - mean).powi(2))
+                .sum::<f64>()
+                / (n - mid) as f64;
             if var1 > 0.0 {
                 var2 / var1
             } else {
@@ -443,8 +449,8 @@ impl TimeSeriesProcessor {
         let mut seasonal = vec![0.0; n];
         for i in 0..period {
             let indices: Vec<usize> = (i..n).step_by(period).collect();
-            let seasonal_mean: f64 = indices.iter().map(|&j| detrended[j]).sum::<f64>()
-                / indices.len() as f64;
+            let seasonal_mean: f64 =
+                indices.iter().map(|&j| detrended[j]).sum::<f64>() / indices.len() as f64;
 
             for &j in &indices {
                 seasonal[j] = seasonal_mean;

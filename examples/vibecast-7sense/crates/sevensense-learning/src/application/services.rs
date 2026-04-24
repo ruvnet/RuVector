@@ -12,8 +12,8 @@ use tokio::sync::RwLock;
 use tracing::{debug, info, instrument, warn};
 
 use crate::domain::entities::{
-    EmbeddingId, GnnModelType, LearningConfig, LearningSession, RefinedEmbedding,
-    TrainingMetrics, TrainingStatus, TransitionGraph,
+    EmbeddingId, GnnModelType, LearningConfig, LearningSession, RefinedEmbedding, TrainingMetrics,
+    TrainingStatus, TransitionGraph,
 };
 use crate::domain::repository::LearningRepository;
 use crate::ewc::{EwcRegularizer, EwcState};
@@ -214,14 +214,19 @@ impl LearningService {
         let grad_norm = self.compute_gradient_norm(&gradients);
 
         // Apply gradient clipping if configured
-        let clipped_gradients = if let Some(clip_value) = self.config.hyperparameters.gradient_clip {
+        let clipped_gradients = if let Some(clip_value) = self.config.hyperparameters.gradient_clip
+        {
             self.clip_gradients(gradients, clip_value)
         } else {
             gradients
         };
 
         // Update model weights
-        model.update_weights(&clipped_gradients, lr, self.config.hyperparameters.weight_decay);
+        model.update_weights(
+            &clipped_gradients,
+            lr,
+            self.config.hyperparameters.weight_decay,
+        );
 
         // Apply EWC regularization if available
         if let Some(ref ewc_state) = *self.ewc_state.read().await {
@@ -318,9 +323,7 @@ impl LearningService {
         }
 
         // Normalize adjacency matrix
-        let degrees: Vec<f32> = (0..n)
-            .map(|i| adj_matrix.row(i).sum())
-            .collect();
+        let degrees: Vec<f32> = (0..n).map(|i| adj_matrix.row(i).sum()).collect();
         for i in 0..n {
             for j in 0..n {
                 if degrees[i] > 0.0 && degrees[j] > 0.0 {
@@ -567,12 +570,10 @@ impl LearningService {
 
             // Compute accuracy based on whether positive is closer than negatives
             let pos_sim = cosine_similarity(&anchor, &positive);
-            let all_closer = (0..n)
-                .filter(|&i| i != from && i != to)
-                .all(|i| {
-                    let neg: Vec<f32> = output.row(i).to_vec();
-                    cosine_similarity(&anchor, &neg) < pos_sim
-                });
+            let all_closer = (0..n).filter(|&i| i != from && i != to).all(|i| {
+                let neg: Vec<f32> = output.row(i).to_vec();
+                cosine_similarity(&anchor, &neg) < pos_sim
+            });
 
             if all_closer {
                 correct += 1;

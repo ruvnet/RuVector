@@ -1,12 +1,12 @@
 //! Integration tests for tool dispatch — BuiltinTool, AnyTool, parallel execution,
 //! and ToolRuntime creation (ADR-103 A6, A2).
 
-use rvagent_tools::{
-    AnyTool, Backend, BackendRef, BuiltinTool, ExecuteResponse, FileInfo,
-    GrepMatch, Tool, ToolCall, ToolResult, ToolRuntime, WriteResult,
-    builtin_tools, execute_tools_parallel, resolve_builtin,
-};
 use async_trait::async_trait;
+use rvagent_tools::{
+    builtin_tools, execute_tools_parallel, resolve_builtin, AnyTool, Backend, BackendRef,
+    BuiltinTool, ExecuteResponse, FileInfo, GrepMatch, Tool, ToolCall, ToolResult, ToolRuntime,
+    WriteResult,
+};
 use std::sync::Arc;
 
 /// Minimal mock backend for integration tests.
@@ -28,16 +28,31 @@ impl Backend for MockBackend {
         WriteResult::default()
     }
     fn edit(&self, _path: &str, _old: &str, _new: &str, _all: bool) -> WriteResult {
-        WriteResult { occurrences: Some(1), ..Default::default() }
+        WriteResult {
+            occurrences: Some(1),
+            ..Default::default()
+        }
     }
     fn glob_info(&self, _pattern: &str, _path: &str) -> Result<Vec<String>, String> {
         Ok(vec!["test.txt".into()])
     }
-    fn grep_raw(&self, pattern: &str, _path: Option<&str>, _include: Option<&str>) -> Result<Vec<GrepMatch>, String> {
-        Ok(vec![GrepMatch { file: "test.txt".into(), line_number: 1, text: format!("line with {}", pattern) }])
+    fn grep_raw(
+        &self,
+        pattern: &str,
+        _path: Option<&str>,
+        _include: Option<&str>,
+    ) -> Result<Vec<GrepMatch>, String> {
+        Ok(vec![GrepMatch {
+            file: "test.txt".into(),
+            line_number: 1,
+            text: format!("line with {}", pattern),
+        }])
     }
     fn execute(&self, cmd: &str, _timeout: u32) -> Result<ExecuteResponse, String> {
-        Ok(ExecuteResponse { output: format!("executed: {}", cmd), exit_code: 0 })
+        Ok(ExecuteResponse {
+            output: format!("executed: {}", cmd),
+            exit_code: 0,
+        })
     }
 }
 
@@ -83,13 +98,20 @@ struct EchoTool;
 
 #[async_trait]
 impl Tool for EchoTool {
-    fn name(&self) -> &str { "echo" }
-    fn description(&self) -> &str { "echoes input" }
+    fn name(&self) -> &str {
+        "echo"
+    }
+    fn description(&self) -> &str {
+        "echoes input"
+    }
     fn parameters_schema(&self) -> serde_json::Value {
         serde_json::json!({"type": "object"})
     }
     fn invoke(&self, args: serde_json::Value, _runtime: &ToolRuntime) -> ToolResult {
-        let msg = args.get("message").and_then(|v| v.as_str()).unwrap_or("(empty)");
+        let msg = args
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or("(empty)");
         ToolResult::Text(format!("echo: {}", msg))
     }
 }
@@ -127,8 +149,16 @@ async fn test_parallel_tool_execution() {
     let tools = builtin_tools();
 
     let calls = vec![
-        ToolCall { id: "c1".into(), name: "ls".into(), args: serde_json::json!({"path": "/"}) },
-        ToolCall { id: "c2".into(), name: "grep".into(), args: serde_json::json!({"pattern": "hello"}) },
+        ToolCall {
+            id: "c1".into(),
+            name: "ls".into(),
+            args: serde_json::json!({"path": "/"}),
+        },
+        ToolCall {
+            id: "c2".into(),
+            name: "grep".into(),
+            args: serde_json::json!({"pattern": "hello"}),
+        },
     ];
 
     let results = execute_tools_parallel(&calls, &tools, &runtime).await;

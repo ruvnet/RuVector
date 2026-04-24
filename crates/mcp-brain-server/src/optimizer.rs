@@ -42,7 +42,8 @@ impl Default for OptimizerConfig {
     fn default() -> Self {
         Self {
             api_base: "https://generativelanguage.googleapis.com/v1beta/models".to_string(),
-            model_id: std::env::var("GEMINI_MODEL").unwrap_or_else(|_| "gemini-2.5-flash".to_string()),
+            model_id: std::env::var("GEMINI_MODEL")
+                .unwrap_or_else(|_| "gemini-2.5-flash".to_string()),
             max_tokens: 2048,
             temperature: 0.3,
             interval_secs: 3600, // 1 hour
@@ -148,7 +149,8 @@ pub struct GeminiOptimizer {
 impl GeminiOptimizer {
     /// Create a new optimizer with the given config
     pub fn new(config: OptimizerConfig) -> Self {
-        let api_key = std::env::var("GEMINI_API_KEY").ok()
+        let api_key = std::env::var("GEMINI_API_KEY")
+            .ok()
             .or_else(|| std::env::var("GOOGLE_API_KEY").ok());
 
         let http = reqwest::Client::builder()
@@ -187,7 +189,9 @@ impl GeminiOptimizer {
         task: OptimizationTask,
         context: OptimizationContext,
     ) -> Result<OptimizationResult, String> {
-        let api_key = self.api_key.as_ref()
+        let api_key = self
+            .api_key
+            .as_ref()
             .ok_or("Gemini API key not configured")?;
 
         let start = std::time::Instant::now();
@@ -283,10 +287,17 @@ impl GeminiOptimizer {
             context.sona_patterns,
             context.working_memory_load * 100.0,
             context.memory_count,
-            context.sample_propositions.iter()
+            context
+                .sample_propositions
+                .iter()
                 .take(5)
-                .map(|p| format!("  - {}({}) [conf={:.2}, evidence={}]",
-                    p.predicate, p.arguments.join(", "), p.confidence, p.evidence_count))
+                .map(|p| format!(
+                    "  - {}({}) [conf={:.2}, evidence={}]",
+                    p.predicate,
+                    p.arguments.join(", "),
+                    p.confidence,
+                    p.evidence_count
+                ))
                 .collect::<Vec<_>>()
                 .join("\n")
         )
@@ -300,13 +311,11 @@ impl GeminiOptimizer {
     async fn call_gemini(&self, api_key: &str, prompt: &str) -> Result<String, String> {
         let url = format!(
             "{}/{}:generateContent?key={}",
-            self.config.api_base,
-            self.config.model_id,
-            api_key
+            self.config.api_base, self.config.model_id, api_key
         );
 
-        let grounding_enabled = std::env::var("GEMINI_GROUNDING")
-            .unwrap_or_else(|_| "true".to_string()) == "true";
+        let grounding_enabled =
+            std::env::var("GEMINI_GROUNDING").unwrap_or_else(|_| "true".to_string()) == "true";
 
         let mut body = serde_json::json!({
             "contents": [{
@@ -326,7 +335,8 @@ impl GeminiOptimizer {
             }]);
         }
 
-        let response = self.http
+        let response = self
+            .http
             .post(&url)
             .header("content-type", "application/json")
             .json(&body)
@@ -340,21 +350,26 @@ impl GeminiOptimizer {
             return Err(format!("Gemini API error {}: {}", status, error_text));
         }
 
-        let json: serde_json::Value = response.json().await
+        let json: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| format!("JSON parse error: {}", e))?;
 
         // Log grounding metadata if present (source URLs, support scores)
         if let Some(candidate) = json.get("candidates").and_then(|c| c.get(0)) {
             if let Some(grounding) = candidate.get("groundingMetadata") {
-                let sources = grounding.get("groundingChunks")
+                let sources = grounding
+                    .get("groundingChunks")
                     .and_then(|c| c.as_array())
                     .map(|a| a.len())
                     .unwrap_or(0);
-                let support = grounding.get("groundingSupports")
+                let support = grounding
+                    .get("groundingSupports")
                     .and_then(|s| s.as_array())
                     .map(|a| a.len())
                     .unwrap_or(0);
-                let query = grounding.get("webSearchQueries")
+                let query = grounding
+                    .get("webSearchQueries")
                     .and_then(|q| q.as_array())
                     .and_then(|a| a.first())
                     .and_then(|q| q.as_str())
@@ -364,7 +379,9 @@ impl GeminiOptimizer {
                     supports = support,
                     query = query,
                     "[optimizer] Grounding: {} sources, {} supports, query='{}'",
-                    sources, support, query
+                    sources,
+                    support,
+                    query
                 );
             }
         }
@@ -409,9 +426,9 @@ impl GeminiOptimizer {
             configured: self.is_configured(),
             run_count: self.run_count,
             last_run: self.last_run,
-            next_due: self.last_run.map(|lr| {
-                lr + chrono::Duration::seconds(self.config.interval_secs as i64)
-            }),
+            next_due: self
+                .last_run
+                .map(|lr| lr + chrono::Duration::seconds(self.config.interval_secs as i64)),
         }
     }
 }

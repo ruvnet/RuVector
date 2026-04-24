@@ -91,9 +91,7 @@ impl RealTimeEngine {
         {
             let mut running = self.running.write().await;
             if *running {
-                return Err(FrameworkError::Config(
-                    "Engine already running".to_string(),
-                ));
+                return Err(FrameworkError::Config("Engine already running".to_string()));
             }
             *running = true;
         }
@@ -154,9 +152,7 @@ impl RealTimeEngine {
             FeedSource::Rss { url, category } => {
                 Self::process_rss_feed(url, category, dedup_cache).await
             }
-            FeedSource::RestPolling { url, .. } => {
-                Self::process_rest_feed(url, dedup_cache).await
-            }
+            FeedSource::RestPolling { url, .. } => Self::process_rest_feed(url, dedup_cache).await,
             FeedSource::WebSocket { url } => Self::process_websocket_feed(url, dedup_cache).await,
         }
     }
@@ -403,7 +399,8 @@ impl NewsAggregator {
         // General news sources
         self.add_source(NewsSource {
             name: "Reuters Top News".to_string(),
-            feed_url: "https://www.reutersagency.com/feed/?taxonomy=best-topics&post_type=best".to_string(),
+            feed_url: "https://www.reutersagency.com/feed/?taxonomy=best-topics&post_type=best"
+                .to_string(),
             domain: Domain::CrossDomain,
         });
 

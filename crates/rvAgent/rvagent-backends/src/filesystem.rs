@@ -189,9 +189,9 @@ impl FilesystemBackend {
                     }
                 }
 
-                let real_path = std::path::PathBuf::from(
-                    OsStr::from_bytes(&buf[..buf.iter().position(|&b| b == 0).unwrap_or(0)])
-                );
+                let real_path = std::path::PathBuf::from(OsStr::from_bytes(
+                    &buf[..buf.iter().position(|&b| b == 0).unwrap_or(0)],
+                ));
 
                 let cwd_canonical = self
                     .inner
@@ -238,7 +238,9 @@ impl FilesystemBackend {
             use std::io::Read;
 
             let file = self.resolve_and_open(file_path, false)?;
-            let metadata = file.metadata().map_err(|e| FileOperationError::IoError(e.to_string()))?;
+            let metadata = file
+                .metadata()
+                .map_err(|e| FileOperationError::IoError(e.to_string()))?;
 
             if metadata.is_dir() {
                 return Err(FileOperationError::IsDirectory);
@@ -254,7 +256,8 @@ impl FilesystemBackend {
 
             let mut content = String::new();
             let mut reader = std::io::BufReader::new(file);
-            reader.read_to_string(&mut content)
+            reader
+                .read_to_string(&mut content)
                 .map_err(|e| FileOperationError::IoError(e.to_string()))?;
 
             let lines: Vec<&str> = content.lines().collect();
@@ -297,12 +300,11 @@ impl FilesystemBackend {
                 )));
             }
 
-            let content =
-                std::fs::read_to_string(&resolved).map_err(|e| match e.kind() {
-                    std::io::ErrorKind::NotFound => FileOperationError::FileNotFound,
-                    std::io::ErrorKind::PermissionDenied => FileOperationError::PermissionDenied,
-                    _ => FileOperationError::InvalidPath,
-                })?;
+            let content = std::fs::read_to_string(&resolved).map_err(|e| match e.kind() {
+                std::io::ErrorKind::NotFound => FileOperationError::FileNotFound,
+                std::io::ErrorKind::PermissionDenied => FileOperationError::PermissionDenied,
+                _ => FileOperationError::InvalidPath,
+            })?;
 
             let lines: Vec<&str> = content.lines().collect();
             let total = lines.len();
@@ -413,20 +415,22 @@ impl FilesystemBackend {
                 .unwrap_or(entry_path);
             let path_str = relative.to_string_lossy().to_string();
 
-            if glob_pattern.matches(&path_str) || glob_pattern.matches(
-                entry_path.file_name().and_then(|n| n.to_str()).unwrap_or(""),
-            ) {
+            if glob_pattern.matches(&path_str)
+                || glob_pattern.matches(
+                    entry_path
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or(""),
+                )
+            {
                 let (size, modified_at) = entry
                     .metadata()
                     .map(|m| {
                         let size = m.len();
-                        let modified = m
-                            .modified()
-                            .ok()
-                            .and_then(|t| {
-                                let dt: chrono::DateTime<chrono::Utc> = t.into();
-                                Some(dt.to_rfc3339())
-                            });
+                        let modified = m.modified().ok().and_then(|t| {
+                            let dt: chrono::DateTime<chrono::Utc> = t.into();
+                            Some(dt.to_rfc3339())
+                        });
                         (size, modified)
                     })
                     .unwrap_or((0, None));
@@ -468,13 +472,10 @@ impl FilesystemBackend {
                 .unwrap_or(&entry.path())
                 .to_string_lossy()
                 .to_string();
-            let modified_at = meta
-                .modified()
-                .ok()
-                .map(|t| {
-                    let dt: chrono::DateTime<chrono::Utc> = t.into();
-                    dt.to_rfc3339()
-                });
+            let modified_at = meta.modified().ok().map(|t| {
+                let dt: chrono::DateTime<chrono::Utc> = t.into();
+                dt.to_rfc3339()
+            });
 
             results.push(FileInfo {
                 path: path_str,
@@ -765,11 +766,7 @@ impl Backend for FilesystemBackend {
         let path = path.map(|p| p.to_string());
         let include_glob = include_glob.map(|g| g.to_string());
         tokio::task::spawn_blocking(move || {
-            backend.grep_sync(
-                &pattern,
-                path.as_deref(),
-                include_glob.as_deref(),
-            )
+            backend.grep_sync(&pattern, path.as_deref(), include_glob.as_deref())
         })
         .await
         .unwrap_or_else(|e| Err(format!("spawn_blocking failed: {}", e)))

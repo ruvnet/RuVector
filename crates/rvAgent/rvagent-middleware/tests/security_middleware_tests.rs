@@ -255,7 +255,10 @@ fn test_tool_call_id_max_length() {
     let invalid = "a".repeat(129);
     match validate_tool_call_id(&invalid) {
         Err(SecurityError::InvalidToolCallId(msg)) => {
-            assert!(msg.contains("exceeds"), "Error should mention exceeding length");
+            assert!(
+                msg.contains("exceeds"),
+                "Error should mention exceeding length"
+            );
         }
         other => panic!("Expected InvalidToolCallId, got {:?}", other),
     }

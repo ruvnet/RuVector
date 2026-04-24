@@ -209,14 +209,11 @@ impl TopologyRouter {
         // Find a specialist with the tool, or fall back to queen
         self.nodes
             .values()
-            .find(|n| {
-                n.status == NodeStatus::Active
-                    && n.tools.contains(&tool_name.to_string())
-            })
+            .find(|n| n.status == NodeStatus::Active && n.tools.contains(&tool_name.to_string()))
             .or_else(|| {
-                self.nodes.values().find(|n| {
-                    n.role == NodeRole::Queen && n.status == NodeStatus::Active
-                })
+                self.nodes
+                    .values()
+                    .find(|n| n.role == NodeRole::Queen && n.status == NodeStatus::Active)
             })
             .map(|n| n.id.clone())
     }
@@ -225,10 +222,7 @@ impl TopologyRouter {
         // Find first active node with the tool
         self.nodes
             .values()
-            .find(|n| {
-                n.status == NodeStatus::Active
-                    && n.tools.contains(&tool_name.to_string())
-            })
+            .find(|n| n.status == NodeStatus::Active && n.tools.contains(&tool_name.to_string()))
             .map(|n| n.id.clone())
     }
 
@@ -397,12 +391,7 @@ mod tests {
     #[test]
     fn test_get_node() {
         let mut router = TopologyRouter::standalone();
-        router.add_node(make_node(
-            "n1",
-            NodeRole::Scout,
-            NodeStatus::Idle,
-            vec![],
-        ));
+        router.add_node(make_node("n1", NodeRole::Scout, NodeStatus::Idle, vec![]));
         let node = router.get_node("n1").unwrap();
         assert_eq!(node.role, NodeRole::Scout);
     }
@@ -416,24 +405,9 @@ mod tests {
     #[test]
     fn test_active_nodes_filtering() {
         let mut router = TopologyRouter::standalone();
-        router.add_node(make_node(
-            "a",
-            NodeRole::Worker,
-            NodeStatus::Active,
-            vec![],
-        ));
-        router.add_node(make_node(
-            "b",
-            NodeRole::Worker,
-            NodeStatus::Failed,
-            vec![],
-        ));
-        router.add_node(make_node(
-            "c",
-            NodeRole::Worker,
-            NodeStatus::Active,
-            vec![],
-        ));
+        router.add_node(make_node("a", NodeRole::Worker, NodeStatus::Active, vec![]));
+        router.add_node(make_node("b", NodeRole::Worker, NodeStatus::Failed, vec![]));
+        router.add_node(make_node("c", NodeRole::Worker, NodeStatus::Active, vec![]));
         assert_eq!(router.active_nodes().len(), 2);
     }
 
@@ -447,12 +421,7 @@ mod tests {
     fn test_node_count() {
         let mut router = TopologyRouter::standalone();
         assert_eq!(router.node_count(), 0);
-        router.add_node(make_node(
-            "x",
-            NodeRole::Worker,
-            NodeStatus::Idle,
-            vec![],
-        ));
+        router.add_node(make_node("x", NodeRole::Worker, NodeStatus::Idle, vec![]));
         assert_eq!(router.node_count(), 1);
     }
 

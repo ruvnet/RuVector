@@ -11,13 +11,13 @@
 //!
 //! Run: cargo run --example genomic_pipeline
 
+use rvf_crypto::{create_witness_chain, shake256_256, verify_witness_chain, WitnessEntry};
+use rvf_runtime::filter::FilterValue;
+use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{
     FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult,
 };
-use rvf_runtime::filter::FilterValue;
-use rvf_runtime::options::DistanceMetric;
 use rvf_types::DerivationType;
-use rvf_crypto::{create_witness_chain, verify_witness_chain, shake256_256, WitnessEntry};
 use tempfile::TempDir;
 
 /// Simple LCG-based pseudo-random vector generator for deterministic results.
@@ -25,7 +25,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -39,8 +41,7 @@ fn main() {
 
     // Gene names for metadata
     let gene_names = [
-        "BRCA1", "TP53", "EGFR", "KRAS", "PIK3CA",
-        "BRAF", "PTEN", "APC", "CDKN2A", "MYC",
+        "BRCA1", "TP53", "EGFR", "KRAS", "PIK3CA", "BRAF", "PTEN", "APC", "CDKN2A", "MYC",
     ];
     let chromosomes: [u64; 10] = [17, 17, 7, 12, 3, 7, 10, 5, 9, 8];
 
@@ -117,7 +118,10 @@ fn main() {
         .query(&query_vec, k, &QueryOptions::default())
         .expect("query failed");
 
-    println!("  Query k-mer (seed={}): top-{} similar k-mers:", query_seed, k);
+    println!(
+        "  Query k-mer (seed={}): top-{} similar k-mers:",
+        query_seed, k
+    );
     print_genomic_results(&results, gene_names.as_slice(), &chromosomes);
 
     // ====================================================================
@@ -191,10 +195,17 @@ fn main() {
         .collect();
 
     let chain_bytes = create_witness_chain(&entries);
-    println!("  Created witness chain: {} entries, {} bytes", entries.len(), chain_bytes.len());
+    println!(
+        "  Created witness chain: {} entries, {} bytes",
+        entries.len(),
+        chain_bytes.len()
+    );
 
     let verified = verify_witness_chain(&chain_bytes).expect("chain verification failed");
-    println!("  Chain integrity: VALID ({} entries verified)", verified.len());
+    println!(
+        "  Chain integrity: VALID ({} entries verified)",
+        verified.len()
+    );
 
     println!("\n  Pipeline steps recorded:");
     for (i, step) in pipeline_steps.iter().enumerate() {
@@ -235,7 +246,10 @@ fn main() {
     println!("  Similarity results: {}", results.len());
     println!("  Chr7 results:       {}", results_chr7.len());
     println!("  TP53 variants:      {}", results_tp53.len());
-    println!("  Audit trail:        {} pipeline steps", pipeline_steps.len());
+    println!(
+        "  Audit trail:        {} pipeline steps",
+        pipeline_steps.len()
+    );
     println!("  Lineage chain:      parent -> filtered child");
 
     store.close().expect("failed to close store");
@@ -247,7 +261,10 @@ fn print_genomic_results(results: &[SearchResult], genes: &[&str], chromosomes: 
         "    {:>6}  {:>12}  {:>8}  {:>5}  {:>8}",
         "ID", "Distance", "Gene", "Chr", "Position"
     );
-    println!("    {:->6}  {:->12}  {:->8}  {:->5}  {:->8}", "", "", "", "", "");
+    println!(
+        "    {:->6}  {:->12}  {:->8}  {:->5}  {:->8}",
+        "", "", "", "", ""
+    );
     for r in results {
         let gene_idx = (r.id as usize) % genes.len();
         let pos = (r.id as usize) * 1000 + 50000;

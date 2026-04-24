@@ -165,9 +165,18 @@ mod tests {
 
     #[test]
     fn test_file_operation_error_display() {
-        assert_eq!(FileOperationError::FileNotFound.to_string(), "file not found");
-        assert_eq!(FileOperationError::PermissionDenied.to_string(), "permission denied");
-        assert_eq!(FileOperationError::IsDirectory.to_string(), "is a directory");
+        assert_eq!(
+            FileOperationError::FileNotFound.to_string(),
+            "file not found"
+        );
+        assert_eq!(
+            FileOperationError::PermissionDenied.to_string(),
+            "permission denied"
+        );
+        assert_eq!(
+            FileOperationError::IsDirectory.to_string(),
+            "is a directory"
+        );
         assert_eq!(FileOperationError::InvalidPath.to_string(), "invalid path");
         assert_eq!(
             FileOperationError::SecurityViolation("bad".into()).to_string(),
@@ -254,7 +263,13 @@ mod tests {
 
     #[test]
     fn test_file_operation_error_equality() {
-        assert_eq!(FileOperationError::FileNotFound, FileOperationError::FileNotFound);
-        assert_ne!(FileOperationError::FileNotFound, FileOperationError::InvalidPath);
+        assert_eq!(
+            FileOperationError::FileNotFound,
+            FileOperationError::FileNotFound
+        );
+        assert_ne!(
+            FileOperationError::FileNotFound,
+            FileOperationError::InvalidPath
+        );
     }
 }

@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{ClimateObservation, SensorNetwork, SensorEdge, WeatherVariable};
+use crate::{ClimateObservation, SensorEdge, SensorNetwork, WeatherVariable};
 
 /// A detected regime shift
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -436,7 +436,8 @@ impl RegimeShiftDetector {
             .unwrap_or(WeatherVariable::Temperature);
 
         // Compute confidence based on evidence
-        let confidence = self.compute_confidence(magnitude, network.nodes.len(), observations.len());
+        let confidence =
+            self.compute_confidence(magnitude, network.nodes.len(), observations.len());
 
         // Build evidence
         let evidence = vec![
@@ -445,7 +446,11 @@ impl RegimeShiftDetector {
                 value: delta,
                 explanation: format!(
                     "Min-cut {} by {:.1}%",
-                    if delta > 0.0 { "increased" } else { "decreased" },
+                    if delta > 0.0 {
+                        "increased"
+                    } else {
+                        "decreased"
+                    },
                     delta.abs() * 100.0
                 ),
             },
@@ -510,8 +515,8 @@ impl RegimeShiftDetector {
             .collect();
 
         // Return stations with above-average variance
-        let avg_variance: f64 = variances.iter().map(|(_, v)| v).sum::<f64>()
-            / variances.len().max(1) as f64;
+        let avg_variance: f64 =
+            variances.iter().map(|(_, v)| v).sum::<f64>() / variances.len().max(1) as f64;
 
         variances
             .iter()

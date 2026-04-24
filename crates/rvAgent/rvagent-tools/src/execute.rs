@@ -77,10 +77,7 @@ mod tests {
     #[test]
     fn test_execute_invoke_success() {
         let runtime = mock_runtime();
-        let result = ExecuteTool.invoke(
-            serde_json::json!({"command": "echo hello"}),
-            &runtime,
-        );
+        let result = ExecuteTool.invoke(serde_json::json!({"command": "echo hello"}), &runtime);
         match result {
             ToolResult::Text(s) => assert!(s.contains("mock output")),
             _ => panic!("expected Text result"),
@@ -100,10 +97,7 @@ mod tests {
     #[test]
     fn test_execute_error() {
         let runtime = mock_runtime_with_error();
-        let result = ExecuteTool.invoke(
-            serde_json::json!({"command": "fail"}),
-            &runtime,
-        );
+        let result = ExecuteTool.invoke(serde_json::json!({"command": "fail"}), &runtime);
         match result {
             ToolResult::Text(s) => assert!(s.contains("Error")),
             _ => panic!("expected error"),

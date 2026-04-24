@@ -183,9 +183,7 @@ impl Backend for CompositeBackend {
     ) -> Result<Vec<GrepMatch>, String> {
         let search_path = path.unwrap_or("");
         let prefix = self.find_prefix(search_path);
-        let (backend, stripped) = self
-            .route_path(search_path)
-            .map_err(|e| e.to_string())?;
+        let (backend, stripped) = self.route_path(search_path).map_err(|e| e.to_string())?;
         let stripped_opt = if stripped.is_empty() {
             None
         } else {
@@ -228,9 +226,7 @@ impl Backend for CompositeBackend {
         for (path, content) in files {
             match self.route_path(path) {
                 Ok((backend, stripped)) => {
-                    let mut result = backend
-                        .upload_files(&[(stripped, content.clone())])
-                        .await;
+                    let mut result = backend.upload_files(&[(stripped, content.clone())]).await;
                     if let Some(resp) = result.pop() {
                         responses.push(FileUploadResponse {
                             path: path.clone(),
@@ -302,10 +298,7 @@ mod tests {
             CompositeBackend::remap_path("workspace", "src/main.rs"),
             "workspace/src/main.rs"
         );
-        assert_eq!(
-            CompositeBackend::remap_path("", "file.txt"),
-            "file.txt"
-        );
+        assert_eq!(CompositeBackend::remap_path("", "file.txt"), "file.txt");
     }
 
     #[test]
@@ -313,10 +306,7 @@ mod tests {
         let default: BackendRef = Arc::new(StateBackend::new());
         let short: BackendRef = Arc::new(StateBackend::new());
         let long: BackendRef = Arc::new(StateBackend::new());
-        let routes = vec![
-            ("a/".to_string(), short),
-            ("a/b/c/".to_string(), long),
-        ];
+        let routes = vec![("a/".to_string(), short), ("a/b/c/".to_string(), long)];
         let composite = CompositeBackend::new(default, routes);
         // Should match the longer prefix
         assert_eq!(composite.routes[0].0, "a/b/c/");
@@ -345,7 +335,9 @@ mod tests {
     #[tokio::test]
     async fn test_composite_traversal_blocked() {
         let composite = make_composite();
-        let result = composite.read_file("workspace/../../etc/shadow", 0, 0).await;
+        let result = composite
+            .read_file("workspace/../../etc/shadow", 0, 0)
+            .await;
         assert!(result.is_err());
     }
 

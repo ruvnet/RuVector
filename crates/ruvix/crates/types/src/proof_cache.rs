@@ -84,12 +84,7 @@ pub struct ProofCacheEntry {
 impl ProofCacheEntry {
     /// Creates a new cache entry.
     #[must_use]
-    pub const fn new(
-        proof_id: u32,
-        inserted_at: u64,
-        nonce: u64,
-        mutation_hash: [u8; 32],
-    ) -> Self {
+    pub const fn new(proof_id: u32, inserted_at: u64, nonce: u64, mutation_hash: [u8; 32]) -> Self {
         Self {
             proof_id,
             inserted_at,
@@ -421,13 +416,17 @@ mod tests {
         cache.insert(mutation_hash, nonce, 1, time).unwrap();
 
         // First verification succeeds
-        assert!(cache.verify_and_consume(&mutation_hash, nonce, time).is_ok());
+        assert!(cache
+            .verify_and_consume(&mutation_hash, nonce, time)
+            .is_ok());
 
         // Insert again with same nonce (should succeed since old entry was removed)
         cache.insert(mutation_hash, nonce, 2, time).unwrap();
 
         // Second verification should succeed (new entry)
-        assert!(cache.verify_and_consume(&mutation_hash, nonce, time).is_ok());
+        assert!(cache
+            .verify_and_consume(&mutation_hash, nonce, time)
+            .is_ok());
     }
 
     #[test]
@@ -439,7 +438,9 @@ mod tests {
         let proof_id = 10u32;
         let insert_time = 1_000_000u64;
 
-        cache.insert(mutation_hash, nonce, proof_id, insert_time).unwrap();
+        cache
+            .insert(mutation_hash, nonce, proof_id, insert_time)
+            .unwrap();
 
         // Verify within TTL (50ms later)
         let time_within_ttl = insert_time + 50_000_000;

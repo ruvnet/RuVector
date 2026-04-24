@@ -357,8 +357,7 @@ impl WasmRvfBuilder {
     /// Parse an RVF container from bytes.
     #[wasm_bindgen(js_name = parse)]
     pub fn parse(data: &[u8]) -> Result<JsValue, JsValue> {
-        let parsed = Self::parse_internal(data)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let parsed = Self::parse_internal(data).map_err(|e| JsValue::from_str(&e.to_string()))?;
         to_js_value(&parsed)
     }
 
@@ -463,8 +462,7 @@ impl WasmRvfBuilder {
         if segment_count > MAX_SEGMENTS {
             return Err(RvfError::SizeExceeded(format!(
                 "Segment count {} exceeds maximum {}",
-                segment_count,
-                MAX_SEGMENTS
+                segment_count, MAX_SEGMENTS
             )));
         }
 
@@ -501,7 +499,9 @@ impl WasmRvfBuilder {
 
         for _ in 0..segment_count {
             if offset + 7 > checksum_start {
-                return Err(RvfError::InvalidFormat("Truncated segment header".to_string()));
+                return Err(RvfError::InvalidFormat(
+                    "Truncated segment header".to_string(),
+                ));
             }
 
             let _segment_type = SegmentType::from_u8(data[offset])?;
@@ -510,20 +510,22 @@ impl WasmRvfBuilder {
             let tag = u16::from_le_bytes(data[offset..offset + 2].try_into().expect("2 bytes"));
             offset += 2;
 
-            let len = u32::from_le_bytes(data[offset..offset + 4].try_into().expect("4 bytes")) as usize;
+            let len =
+                u32::from_le_bytes(data[offset..offset + 4].try_into().expect("4 bytes")) as usize;
             offset += 4;
 
             // Security: Check individual segment size
             if len > MAX_SEGMENT_SIZE {
                 return Err(RvfError::SizeExceeded(format!(
                     "Segment size {} exceeds maximum {}",
-                    len,
-                    MAX_SEGMENT_SIZE
+                    len, MAX_SEGMENT_SIZE
                 )));
             }
 
             if offset + len > checksum_start {
-                return Err(RvfError::InvalidFormat("Truncated segment data".to_string()));
+                return Err(RvfError::InvalidFormat(
+                    "Truncated segment data".to_string(),
+                ));
             }
 
             let segment_data = &data[offset..offset + len];
@@ -533,31 +535,42 @@ impl WasmRvfBuilder {
             match tag {
                 agi_tags::TOOL_REGISTRY => {
                     let parsed: Vec<ToolDefinition> = serde_json::from_slice(segment_data)
-                        .map_err(|e| RvfError::ParseError(format!("Failed to parse tools: {}", e)))?;
+                        .map_err(|e| {
+                            RvfError::ParseError(format!("Failed to parse tools: {}", e))
+                        })?;
                     tools.extend(parsed);
                 }
                 agi_tags::AGENT_PROMPTS => {
-                    let parsed: Vec<AgentPrompt> = serde_json::from_slice(segment_data)
-                        .map_err(|e| RvfError::ParseError(format!("Failed to parse prompts: {}", e)))?;
+                    let parsed: Vec<AgentPrompt> =
+                        serde_json::from_slice(segment_data).map_err(|e| {
+                            RvfError::ParseError(format!("Failed to parse prompts: {}", e))
+                        })?;
                     prompts.extend(parsed);
                 }
                 agi_tags::SKILL_LIBRARY => {
                     let parsed: Vec<SkillDefinition> = serde_json::from_slice(segment_data)
-                        .map_err(|e| RvfError::ParseError(format!("Failed to parse skills: {}", e)))?;
+                        .map_err(|e| {
+                            RvfError::ParseError(format!("Failed to parse skills: {}", e))
+                        })?;
                     skills.extend(parsed);
                 }
                 agi_tags::ORCHESTRATOR => {
-                    orchestrator = Some(serde_json::from_slice(segment_data)
-                        .map_err(|e| RvfError::ParseError(format!("Failed to parse orchestrator: {}", e)))?);
+                    orchestrator = Some(serde_json::from_slice(segment_data).map_err(|e| {
+                        RvfError::ParseError(format!("Failed to parse orchestrator: {}", e))
+                    })?);
                 }
                 agi_tags::MCP_TOOLS => {
-                    let parsed: Vec<McpToolEntry> = serde_json::from_slice(segment_data)
-                        .map_err(|e| RvfError::ParseError(format!("Failed to parse MCP tools: {}", e)))?;
+                    let parsed: Vec<McpToolEntry> =
+                        serde_json::from_slice(segment_data).map_err(|e| {
+                            RvfError::ParseError(format!("Failed to parse MCP tools: {}", e))
+                        })?;
                     mcp_tools.extend(parsed);
                 }
                 agi_tags::CAPABILITY_SET => {
-                    let parsed: Vec<CapabilityDef> = serde_json::from_slice(segment_data)
-                        .map_err(|e| RvfError::ParseError(format!("Failed to parse capabilities: {}", e)))?;
+                    let parsed: Vec<CapabilityDef> =
+                        serde_json::from_slice(segment_data).map_err(|e| {
+                            RvfError::ParseError(format!("Failed to parse capabilities: {}", e))
+                        })?;
                     // Security: Validate delegation depth
                     for cap in &parsed {
                         if cap.delegation_depth > MAX_DELEGATION_DEPTH {
@@ -627,14 +640,12 @@ mod tests {
     #[test]
     fn test_build_with_mcp_tools() {
         let mut builder = WasmRvfBuilder::new();
-        let tools = vec![
-            McpToolEntry {
-                name: "read_file".to_string(),
-                description: "Read file".to_string(),
-                input_schema: serde_json::json!({"path": "string"}),
-                group: Some("file".to_string()),
-            },
-        ];
+        let tools = vec![McpToolEntry {
+            name: "read_file".to_string(),
+            description: "Read file".to_string(),
+            input_schema: serde_json::json!({"path": "string"}),
+            group: Some("file".to_string()),
+        }];
         let data = serde_json::to_vec(&tools).unwrap();
         builder.segments.push(Segment {
             segment_type: SegmentType::Data,
@@ -651,14 +662,12 @@ mod tests {
     #[test]
     fn test_build_with_capabilities() {
         let mut builder = WasmRvfBuilder::new();
-        let caps = vec![
-            CapabilityDef {
-                name: "file_read".to_string(),
-                rights: vec!["read".to_string()],
-                scope: "sandbox".to_string(),
-                delegation_depth: 2,
-            },
-        ];
+        let caps = vec![CapabilityDef {
+            name: "file_read".to_string(),
+            rights: vec!["read".to_string()],
+            scope: "sandbox".to_string(),
+            delegation_depth: 2,
+        }];
         let data = serde_json::to_vec(&caps).unwrap();
         builder.segments.push(Segment {
             segment_type: SegmentType::Config,

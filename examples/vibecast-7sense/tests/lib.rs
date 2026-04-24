@@ -30,13 +30,13 @@
 //! ```
 
 pub mod fixtures;
-pub mod mocks;
 pub mod integration;
+pub mod mocks;
 
 // Re-export commonly used types for convenience
 pub use fixtures::*;
-pub use mocks::*;
 pub use integration::{IntegrationTestContext, TestConfig};
+pub use mocks::*;
 
 /// Version of the test suite
 pub const TEST_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -66,8 +66,14 @@ mod tests {
     #[test]
     fn test_constants_match_requirements() {
         // Verify test constants match ADR requirements
-        assert_eq!(PERCH_EMBEDDING_DIMS, 1536, "Perch 2.0 uses 1536-D embeddings");
-        assert_eq!(REQUIRED_SAMPLE_RATE, 32000, "Perch 2.0 requires 32kHz audio");
+        assert_eq!(
+            PERCH_EMBEDDING_DIMS, 1536,
+            "Perch 2.0 uses 1536-D embeddings"
+        );
+        assert_eq!(
+            REQUIRED_SAMPLE_RATE, 32000,
+            "Perch 2.0 requires 32kHz audio"
+        );
         assert_eq!(MEL_FRAMES, 500, "Spectrogram should have 500 frames");
         assert_eq!(MEL_BINS, 128, "Spectrogram should have 128 mel bins");
         assert!(TARGET_RECALL_AT_10 >= 0.95, "Recall@10 must be >= 0.95");

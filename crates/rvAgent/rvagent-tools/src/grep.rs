@@ -51,10 +51,7 @@ impl Tool for GrepTool {
         match runtime.backend.grep_raw(pattern, path, include) {
             Ok(matches) => {
                 if matches.is_empty() {
-                    return ToolResult::Text(format!(
-                        "No matches found for '{}'",
-                        pattern
-                    ));
+                    return ToolResult::Text(format!("No matches found for '{}'", pattern));
                 }
                 let mut output = String::with_capacity(matches.len() * 80);
                 for m in &matches {
@@ -62,10 +59,7 @@ impl Tool for GrepTool {
                         output.push('\n');
                     }
                     // Format: file:line:text (same as ripgrep output)
-                    output.push_str(&format!(
-                        "{}:{}:{}",
-                        m.file, m.line_number, m.text
-                    ));
+                    output.push_str(&format!("{}:{}:{}", m.file, m.line_number, m.text));
                 }
                 ToolResult::Text(output)
             }
@@ -94,10 +88,7 @@ mod tests {
     #[test]
     fn test_grep_invoke_success() {
         let runtime = mock_runtime();
-        let result = GrepTool.invoke(
-            serde_json::json!({"pattern": "hello"}),
-            &runtime,
-        );
+        let result = GrepTool.invoke(serde_json::json!({"pattern": "hello"}), &runtime);
         match result {
             ToolResult::Text(s) => {
                 assert!(s.contains("hello"));
@@ -111,10 +102,7 @@ mod tests {
     #[test]
     fn test_grep_no_matches() {
         let runtime = mock_runtime();
-        let result = GrepTool.invoke(
-            serde_json::json!({"pattern": "nonexistent_xyz"}),
-            &runtime,
-        );
+        let result = GrepTool.invoke(serde_json::json!({"pattern": "nonexistent_xyz"}), &runtime);
         match result {
             ToolResult::Text(s) => assert!(s.contains("No matches")),
             _ => panic!("expected no matches text"),

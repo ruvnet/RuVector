@@ -717,8 +717,14 @@ mod tests {
         assert!(!RvfVerifyStatus::ManifestInvalid.is_valid());
         assert_eq!(RvfVerifyStatus::SignatureValid.as_str(), "Signature valid");
 
-        assert_eq!(RvfVerifyStatus::try_from(0), Ok(RvfVerifyStatus::SignatureValid));
-        assert_eq!(RvfVerifyStatus::try_from(5), Ok(RvfVerifyStatus::CapabilitiesInsufficient));
+        assert_eq!(
+            RvfVerifyStatus::try_from(0),
+            Ok(RvfVerifyStatus::SignatureValid)
+        );
+        assert_eq!(
+            RvfVerifyStatus::try_from(5),
+            Ok(RvfVerifyStatus::CapabilitiesInsufficient)
+        );
         assert!(RvfVerifyStatus::try_from(6).is_err());
     }
 

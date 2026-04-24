@@ -25,7 +25,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -126,7 +128,12 @@ fn main() {
         Ok(r) => {
             println!("  Query succeeded:  {} results returned", r.len());
             for (i, res) in r.iter().enumerate() {
-                println!("    #{}: id={}, distance={:.6}", i + 1, res.id, res.distance);
+                println!(
+                    "    #{}: id={}, distance={:.6}",
+                    i + 1,
+                    res.id,
+                    res.distance
+                );
             }
         }
         Err(e) => println!("  Query failed:    {:?}", e),

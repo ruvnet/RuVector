@@ -3,9 +3,9 @@
 //! This module provides structured comparisons between RuVix syscalls
 //! and their Linux equivalents.
 
-use crate::{BenchmarkResult, Comparison, MemoryComparison};
-use crate::ruvix::BenchConfig;
 use crate::linux::LinuxBenchConfig;
+use crate::ruvix::BenchConfig;
+use crate::{BenchmarkResult, Comparison, MemoryComparison};
 
 /// Comparison mapping between RuVix and Linux operations.
 #[derive(Debug, Clone)]
@@ -91,11 +91,31 @@ pub const COMPARISON_MAPPINGS: &[ComparisonMapping] = &[
 
 /// Memory overhead comparison specifications.
 pub const MEMORY_COMPARISONS: &[(&str, &str, &str)] = &[
-    ("IPC Buffer", "No kernel/user copy (zero-copy)", "Two copies: user->kernel, kernel->user"),
-    ("Page Tables", "Region-based (no page tables)", "Per-process page tables (~4KB min)"),
-    ("Capability Table", "Fixed-size slab (64B per cap)", "Variable-size inode/dentry cache"),
-    ("Proof Cache", "LRU cache (configurable)", "No equivalent (SELinux policy in kernel)"),
-    ("Task State", "Minimal TCB (~256B)", "Full task_struct (~2KB)"),
+    (
+        "IPC Buffer",
+        "No kernel/user copy (zero-copy)",
+        "Two copies: user->kernel, kernel->user",
+    ),
+    (
+        "Page Tables",
+        "Region-based (no page tables)",
+        "Per-process page tables (~4KB min)",
+    ),
+    (
+        "Capability Table",
+        "Fixed-size slab (64B per cap)",
+        "Variable-size inode/dentry cache",
+    ),
+    (
+        "Proof Cache",
+        "LRU cache (configurable)",
+        "No equivalent (SELinux policy in kernel)",
+    ),
+    (
+        "Task State",
+        "Minimal TCB (~256B)",
+        "Full task_struct (~2KB)",
+    ),
 ];
 
 /// Runs all comparisons and returns results.
@@ -104,8 +124,8 @@ pub fn run_all_comparisons(
     ruvix_config: &BenchConfig,
     linux_config: &LinuxBenchConfig,
 ) -> Vec<Comparison> {
-    use crate::ruvix;
     use crate::linux;
+    use crate::ruvix;
 
     let mut comparisons = Vec::new();
 
@@ -233,38 +253,38 @@ pub fn generate_memory_comparisons() -> Vec<MemoryComparison> {
     vec![
         MemoryComparison::new(
             "IPC Buffer (8B message)",
-            8,      // RuVix: zero-copy, just pointer
-            16384,  // Linux: pipe buffer minimum
+            8,     // RuVix: zero-copy, just pointer
+            16384, // Linux: pipe buffer minimum
             "Zero-copy eliminates buffer allocation",
         ),
         MemoryComparison::new(
             "Capability Entry",
-            64,     // RuVix: fixed slab
-            512,    // Linux: inode + dentry cache entry
+            64,  // RuVix: fixed slab
+            512, // Linux: inode + dentry cache entry
             "Fixed-size slab vs variable allocation",
         ),
         MemoryComparison::new(
             "Task Control Block",
-            256,    // RuVix: minimal TCB
-            2048,   // Linux: task_struct
+            256,  // RuVix: minimal TCB
+            2048, // Linux: task_struct
             "Minimal state vs full process context",
         ),
         MemoryComparison::new(
             "Memory Region Descriptor",
-            32,     // RuVix: region descriptor
-            128,    // Linux: vm_area_struct
+            32,  // RuVix: region descriptor
+            128, // Linux: vm_area_struct
             "Region-based vs VMA linked list",
         ),
         MemoryComparison::new(
             "Proof Token",
-            82,     // RuVix: 82-byte attestation
-            0,      // Linux: no equivalent
+            82, // RuVix: 82-byte attestation
+            0,  // Linux: no equivalent
             "No Linux equivalent for proof",
         ),
         MemoryComparison::new(
             "Page Table (4KB region)",
-            0,      // RuVix: no page tables
-            4096,   // Linux: minimum page table
+            0,    // RuVix: no page tables
+            4096, // Linux: minimum page table
             "Region-based eliminates page tables",
         ),
     ]
@@ -329,7 +349,11 @@ impl ComparisonSummary {
             ties,
             avg_speedup,
             max_speedup,
-            min_speedup: if min_speedup.is_infinite() { 1.0 } else { min_speedup },
+            min_speedup: if min_speedup.is_infinite() {
+                1.0
+            } else {
+                min_speedup
+            },
             total_memory_reduction,
         }
     }
@@ -365,16 +389,14 @@ mod tests {
 
     #[test]
     fn test_comparison_summary() {
-        let comparisons = vec![
-            Comparison::new(
-                "test1",
-                "ruvix_op",
-                "linux_op",
-                BenchmarkResult::from_measurements("r", &[100.0], None),
-                BenchmarkResult::from_measurements("l", &[600.0], None),
-                "test",
-            ),
-        ];
+        let comparisons = vec![Comparison::new(
+            "test1",
+            "ruvix_op",
+            "linux_op",
+            BenchmarkResult::from_measurements("r", &[100.0], None),
+            BenchmarkResult::from_measurements("l", &[600.0], None),
+            "test",
+        )];
         let memory = generate_memory_comparisons();
         let summary = ComparisonSummary::from_comparisons(&comparisons, &memory);
 

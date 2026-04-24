@@ -55,10 +55,10 @@
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 
-pub mod noaa;
 pub mod nasa;
-pub mod regime;
 pub mod network;
+pub mod noaa;
+pub mod regime;
 pub mod timeseries;
 
 use std::collections::HashMap;
@@ -70,11 +70,11 @@ use ndarray::Array1;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-pub use network::{SensorNetwork, SensorNetworkBuilder, SensorNode, SensorEdge};
-pub use noaa::{NoaaClient, GhcnStation, GhcnObservation, WeatherVariable};
-pub use nasa::{NasaClient, ModisProduct, SatelliteObservation};
-pub use regime::{RegimeShiftDetector, RegimeShift, ShiftType, ShiftSeverity, ShiftEvidence};
-pub use timeseries::{TimeSeriesVector, TimeSeriesProcessor, SeasonalDecomposition};
+pub use nasa::{ModisProduct, NasaClient, SatelliteObservation};
+pub use network::{SensorEdge, SensorNetwork, SensorNetworkBuilder, SensorNode};
+pub use noaa::{GhcnObservation, GhcnStation, NoaaClient, WeatherVariable};
+pub use regime::{RegimeShift, RegimeShiftDetector, ShiftEvidence, ShiftSeverity, ShiftType};
+pub use timeseries::{SeasonalDecomposition, TimeSeriesProcessor, TimeSeriesVector};
 
 use ruvector_data_framework::{DataRecord, DataSource, FrameworkError, Relationship, Result};
 
@@ -163,18 +163,25 @@ pub struct BoundingBox {
 impl BoundingBox {
     /// Create a new bounding box
     pub fn new(min_lat: f64, max_lat: f64, min_lon: f64, max_lon: f64) -> Self {
-        Self { min_lat, max_lat, min_lon, max_lon }
+        Self {
+            min_lat,
+            max_lat,
+            min_lon,
+            max_lon,
+        }
     }
 
     /// Check if point is within bounds
     pub fn contains(&self, lat: f64, lon: f64) -> bool {
-        lat >= self.min_lat && lat <= self.max_lat &&
-        lon >= self.min_lon && lon <= self.max_lon
+        lat >= self.min_lat && lat <= self.max_lat && lon >= self.min_lon && lon <= self.max_lon
     }
 
     /// Get center point
     pub fn center(&self) -> (f64, f64) {
-        ((self.min_lat + self.max_lat) / 2.0, (self.min_lon + self.max_lon) / 2.0)
+        (
+            (self.min_lat + self.max_lat) / 2.0,
+            (self.min_lon + self.max_lon) / 2.0,
+        )
     }
 
     /// US Continental bounding box
@@ -336,7 +343,11 @@ impl CoherenceAnalyzer {
     /// 1. Build a graph from sensor correlations
     /// 2. Compute dynamic min-cut over sliding windows
     /// 3. Detect significant changes in min-cut value
-    pub fn analyze(&mut self, network: &SensorNetwork, observations: &[ClimateObservation]) -> Result<Vec<CoherenceBreak>> {
+    pub fn analyze(
+        &mut self,
+        network: &SensorNetwork,
+        observations: &[ClimateObservation],
+    ) -> Result<Vec<CoherenceBreak>> {
         if observations.is_empty() {
             return Ok(vec![]);
         }
@@ -398,7 +409,11 @@ impl CoherenceAnalyzer {
     }
 
     /// Compute coherence for a window of observations
-    fn compute_window_coherence(&self, network: &SensorNetwork, observations: &[&ClimateObservation]) -> f64 {
+    fn compute_window_coherence(
+        &self,
+        network: &SensorNetwork,
+        observations: &[&ClimateObservation],
+    ) -> f64 {
         // Build correlation matrix from observations
         let mut station_values: HashMap<&str, Vec<f64>> = HashMap::new();
 
@@ -469,18 +484,27 @@ impl CoherenceAnalyzer {
     }
 
     /// Identify affected sensors during a break
-    fn identify_affected_sensors(&self, network: &SensorNetwork, observations: &[&ClimateObservation]) -> Vec<String> {
+    fn identify_affected_sensors(
+        &self,
+        network: &SensorNetwork,
+        observations: &[&ClimateObservation],
+    ) -> Vec<String> {
         // Return stations with significant value changes
         let mut station_ranges: HashMap<&str, (f64, f64)> = HashMap::new();
 
         for obs in observations {
-            let entry = station_ranges.entry(&obs.station_id).or_insert((f64::INFINITY, f64::NEG_INFINITY));
+            let entry = station_ranges
+                .entry(&obs.station_id)
+                .or_insert((f64::INFINITY, f64::NEG_INFINITY));
             entry.0 = entry.0.min(obs.value);
             entry.1 = entry.1.max(obs.value);
         }
 
         // Stations with high range = affected
-        let avg_range: f64 = station_ranges.values().map(|(min, max)| max - min).sum::<f64>()
+        let avg_range: f64 = station_ranges
+            .values()
+            .map(|(min, max)| max - min)
+            .sum::<f64>()
             / station_ranges.len() as f64;
 
         station_ranges
@@ -491,7 +515,11 @@ impl CoherenceAnalyzer {
     }
 
     /// Compute geographic extent of affected sensors
-    fn compute_geographic_extent(&self, sensor_ids: &[String], network: &SensorNetwork) -> Option<BoundingBox> {
+    fn compute_geographic_extent(
+        &self,
+        sensor_ids: &[String],
+        network: &SensorNetwork,
+    ) -> Option<BoundingBox> {
         if sensor_ids.is_empty() {
             return None;
         }
@@ -528,7 +556,12 @@ impl CoherenceAnalyzer {
             "Minor"
         };
 
-        format!("{} regime shift: coherence {} by {:.1}%", severity, direction, magnitude * 100.0)
+        format!(
+            "{} regime shift: coherence {} by {:.1}%",
+            severity,
+            direction,
+            magnitude * 100.0
+        )
     }
 
     /// Get coherence history
@@ -572,7 +605,8 @@ impl DataSource for ClimateSource {
         batch_size: usize,
     ) -> Result<(Vec<DataRecord>, Option<String>)> {
         // Fetch from NOAA
-        let (observations, next_cursor) = self.noaa_client
+        let (observations, next_cursor) = self
+            .noaa_client
             .fetch_ghcn_observations(
                 self.config.bounding_box,
                 &self.config.variables,
@@ -609,14 +643,12 @@ fn observation_to_record(obs: ClimateObservation) -> DataRecord {
         timestamp: obs.timestamp,
         data: serde_json::to_value(&obs).unwrap_or_default(),
         embedding: None,
-        relationships: vec![
-            Relationship {
-                target_id: obs.station_id.clone(),
-                rel_type: "observed_at".to_string(),
-                weight: 1.0,
-                properties: HashMap::new(),
-            },
-        ],
+        relationships: vec![Relationship {
+            target_id: obs.station_id.clone(),
+            rel_type: "observed_at".to_string(),
+            weight: 1.0,
+            properties: HashMap::new(),
+        }],
     }
 }
 

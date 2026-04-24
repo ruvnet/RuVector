@@ -461,7 +461,10 @@ mod tests {
         let snapshot = backend.snapshot();
 
         // Snapshot shares the same Arc.
-        assert!(Arc::ptr_eq(&*backend.data.borrow(), &*snapshot.data.borrow()));
+        assert!(Arc::ptr_eq(
+            &*backend.data.borrow(),
+            &*snapshot.data.borrow()
+        ));
         assert_eq!(snapshot.branch_id(), backend.branch_id());
         assert_eq!(snapshot.version(), backend.version());
         assert_eq!(snapshot.get("key"), Some(b"val".to_vec()));
@@ -474,13 +477,19 @@ mod tests {
 
         let snapshot = backend.snapshot();
         // Snapshot shares the same Arc initially.
-        assert!(Arc::ptr_eq(&*backend.data.borrow(), &*snapshot.data.borrow()));
+        assert!(Arc::ptr_eq(
+            &*backend.data.borrow(),
+            &*snapshot.data.borrow()
+        ));
 
         // Mutate backend triggers copy-on-write.
         backend.set("original", b"v2".to_vec()).unwrap();
 
         // Now they have different data Arcs.
-        assert!(!Arc::ptr_eq(&*backend.data.borrow(), &*snapshot.data.borrow()));
+        assert!(!Arc::ptr_eq(
+            &*backend.data.borrow(),
+            &*snapshot.data.borrow()
+        ));
 
         // Snapshot still has old value.
         assert_eq!(snapshot.get("original"), Some(b"v1".to_vec()));
@@ -525,10 +534,7 @@ mod tests {
 
         let result = parent.merge_from(&unrelated);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("non-descendant"));
+        assert!(result.unwrap_err().to_string().contains("non-descendant"));
     }
 
     #[test]

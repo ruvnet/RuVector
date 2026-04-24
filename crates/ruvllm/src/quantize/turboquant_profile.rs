@@ -60,10 +60,16 @@ impl TurboQuantProfile {
     /// Load a profile from a JSON file path.
     pub fn load(path: &Path) -> Result<Self> {
         let data = std::fs::read_to_string(path).map_err(|e| {
-            RuvLLMError::Config(format!("failed to read turboquant profile {}: {e}", path.display()))
+            RuvLLMError::Config(format!(
+                "failed to read turboquant profile {}: {e}",
+                path.display()
+            ))
         })?;
         let profile: Self = serde_json::from_str(&data).map_err(|e| {
-            RuvLLMError::Config(format!("invalid turboquant profile {}: {e}", path.display()))
+            RuvLLMError::Config(format!(
+                "invalid turboquant profile {}: {e}",
+                path.display()
+            ))
         })?;
         if profile.version != 1 {
             return Err(RuvLLMError::Config(format!(
@@ -84,10 +90,7 @@ impl TurboQuantProfile {
     pub fn discover(gguf_path: &Path) -> Result<Option<Self>> {
         // Try {path}.turboquant.json
         let mut candidate = PathBuf::from(gguf_path);
-        let mut name = candidate
-            .file_name()
-            .unwrap_or_default()
-            .to_os_string();
+        let mut name = candidate.file_name().unwrap_or_default().to_os_string();
         name.push(".turboquant.json");
         candidate.set_file_name(&name);
 

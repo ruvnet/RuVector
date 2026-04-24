@@ -13,11 +13,11 @@
 //!
 //! Run: cargo run --example recommendation
 
+use rvf_runtime::filter::FilterValue;
+use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{
     FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult,
 };
-use rvf_runtime::filter::FilterValue;
-use rvf_runtime::options::DistanceMetric;
 use tempfile::TempDir;
 
 /// Simple pseudo-random number generator (LCG) for deterministic results.
@@ -25,7 +25,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -151,11 +153,16 @@ fn main() {
 
     println!("\n=== User Profile ===\n");
     println!("  Liked items: {:?}", liked_ids);
-    println!("  Liked types: {:?}",
+    println!(
+        "  Liked types: {:?}",
         liked_ids.iter().map(|&i| item_type(i)).collect::<Vec<_>>()
     );
-    println!("  Liked ratings: {:?}",
-        liked_ids.iter().map(|&i| item_rating(i)).collect::<Vec<_>>()
+    println!(
+        "  Liked ratings: {:?}",
+        liked_ids
+            .iter()
+            .map(|&i| item_rating(i))
+            .collect::<Vec<_>>()
     );
 
     let k = 10;
@@ -189,9 +196,11 @@ fn main() {
         // Verify filter correctness
         for r in &results {
             assert_eq!(
-                item_type(r.id as usize), *itype,
+                item_type(r.id as usize),
+                *itype,
                 "ID {} should be type {}",
-                r.id, itype
+                r.id,
+                itype
             );
         }
     }
@@ -199,7 +208,10 @@ fn main() {
     // ====================================================================
     // 6. Quality recommendations: rating > 70
     // ====================================================================
-    println!("\n=== Quality Recommendations (rating > 70, Top-{}) ===\n", k);
+    println!(
+        "\n=== Quality Recommendations (rating > 70, Top-{}) ===\n",
+        k
+    );
 
     let filter_quality = FilterExpr::Gt(1, FilterValue::U64(70));
     let opts_quality = QueryOptions {
@@ -217,10 +229,14 @@ fn main() {
         assert!(
             rating > 70,
             "ID {} has rating {} which is not > 70",
-            r.id, rating
+            r.id,
+            rating
         );
     }
-    println!("  All {} results verified with rating > 70.", results_quality.len());
+    println!(
+        "  All {} results verified with rating > 70.",
+        results_quality.len()
+    );
 
     // Quality + genre combined
     println!("\n=== High-Rated Movies (rating > 70 AND type == \"movie\", Top-5) ===\n");
@@ -248,7 +264,8 @@ fn main() {
         .expect("query failed");
 
     for itype in &ITEM_TYPES {
-        let typed: Vec<&SearchResult> = results_20.iter()
+        let typed: Vec<&SearchResult> = results_20
+            .iter()
             .filter(|r| item_type(r.id as usize) == *itype)
             .collect();
         println!("  {} ({} found in top-20):", capitalize(itype), typed.len());
@@ -256,7 +273,10 @@ fn main() {
             let id = r.id as usize;
             println!(
                 "    ID {:>4} | rating: {:>3} | popularity: {:>5} | distance: {:.6}",
-                r.id, item_rating(id), item_popularity(id), r.distance
+                r.id,
+                item_rating(id),
+                item_popularity(id),
+                r.distance
             );
         }
     }
@@ -283,7 +303,11 @@ fn print_recommendation_table(results: &[SearchResult]) {
         let id = r.id as usize;
         println!(
             "  {:>6}  {:>12.6}  {:>8}  {:>8}  {:>10}",
-            r.id, r.distance, item_type(id), item_rating(id), item_popularity(id)
+            r.id,
+            r.distance,
+            item_type(id),
+            item_rating(id),
+            item_popularity(id)
         );
     }
 }

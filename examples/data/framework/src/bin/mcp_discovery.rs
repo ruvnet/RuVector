@@ -24,9 +24,7 @@ use std::process;
 use clap::Parser;
 use tracing_subscriber::{fmt, EnvFilter};
 
-use ruvector_data_framework::mcp_server::{
-    McpDiscoveryServer, McpServerConfig, McpTransport,
-};
+use ruvector_data_framework::mcp_server::{McpDiscoveryServer, McpServerConfig, McpTransport};
 use ruvector_data_framework::ruvector_native::NativeEngineConfig;
 
 #[derive(Parser, Debug)]
@@ -89,8 +87,7 @@ async fn main() {
     let env_filter = if args.verbose {
         EnvFilter::new("debug")
     } else {
-        EnvFilter::try_from_default_env()
-            .unwrap_or_else(|_| EnvFilter::new("info"))
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"))
     };
 
     fmt()
@@ -128,7 +125,10 @@ async fn main() {
 
     // Create transport
     let transport = if args.sse {
-        eprintln!("Starting MCP server in SSE mode on {}:{}", args.endpoint, args.port);
+        eprintln!(
+            "Starting MCP server in SSE mode on {}:{}",
+            args.endpoint, args.port
+        );
         McpTransport::Sse {
             endpoint: args.endpoint,
             port: args.port,

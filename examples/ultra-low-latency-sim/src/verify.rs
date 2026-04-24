@@ -47,7 +47,11 @@ impl VerifiedBenchmarkResult {
         // Create canonical data for hashing
         let data = format!(
             "{}|{}|{}|{}|{}",
-            name, total_simulations, elapsed.as_nanos(), timestamp, platform
+            name,
+            total_simulations,
+            elapsed.as_nanos(),
+            timestamp,
+            platform
         );
 
         // SHA-256 hash
@@ -148,12 +152,8 @@ impl VerifiedBenchmarkSuite {
 
     /// Record a benchmark result
     pub fn record(&mut self, name: &str, total_simulations: u64, elapsed: Duration) {
-        let result = VerifiedBenchmarkResult::new(
-            name,
-            total_simulations,
-            elapsed,
-            &self.signing_key,
-        );
+        let result =
+            VerifiedBenchmarkResult::new(name, total_simulations, elapsed, &self.signing_key);
         self.results.push(result);
     }
 
@@ -184,7 +184,11 @@ impl VerifiedBenchmarkSuite {
 
         for (i, result) in self.results.iter().enumerate() {
             let verified = result.verify(&self.verifying_key);
-            let status = if verified { "✅ VERIFIED" } else { "❌ FAILED" };
+            let status = if verified {
+                "✅ VERIFIED"
+            } else {
+                "❌ FAILED"
+            };
 
             println!("{}. {}", i + 1, result.name);
             println!("   Simulations: {:.3e}", result.total_simulations as f64);

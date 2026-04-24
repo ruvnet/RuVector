@@ -25,9 +25,8 @@ pub(crate) fn parse_safetensors_file(
 
     // Read 8-byte header length
     let mut len_bytes = [0u8; 8];
-    file.read_exact(&mut len_bytes).map_err(|e| {
-        DecompilerError::ModelError(format!("failed to read header length: {}", e))
-    })?;
+    file.read_exact(&mut len_bytes)
+        .map_err(|e| DecompilerError::ModelError(format!("failed to read header length: {}", e)))?;
     let header_len = u64::from_le_bytes(len_bytes);
 
     if header_len > MAX_HEADER_SIZE {
@@ -39,12 +38,11 @@ pub(crate) fn parse_safetensors_file(
 
     // Read JSON header
     let mut header_bytes = vec![0u8; header_len as usize];
-    file.read_exact(&mut header_bytes).map_err(|e| {
-        DecompilerError::ModelError(format!("failed to read header JSON: {}", e))
-    })?;
+    file.read_exact(&mut header_bytes)
+        .map_err(|e| DecompilerError::ModelError(format!("failed to read header JSON: {}", e)))?;
 
-    let header: HashMap<String, serde_json::Value> =
-        serde_json::from_slice(&header_bytes).map_err(|e| {
+    let header: HashMap<String, serde_json::Value> = serde_json::from_slice(&header_bytes)
+        .map_err(|e| {
             DecompilerError::ModelError(format!("invalid safetensors header JSON: {}", e))
         })?;
 

@@ -58,9 +58,9 @@ mod parser;
 
 pub use parser::{Command, ParseError, Parser};
 
+use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
-use alloc::format;
 
 /// Shell configuration options.
 #[derive(Debug, Clone)]
@@ -480,15 +480,13 @@ mod tests {
         }
 
         fn cpu_info(&self) -> Vec<CpuInfo> {
-            vec![
-                CpuInfo {
-                    id: 0,
-                    online: true,
-                    is_primary: true,
-                    freq_mhz: 1800,
-                    load_percent: 25,
-                },
-            ]
+            vec![CpuInfo {
+                id: 0,
+                online: true,
+                is_primary: true,
+                freq_mhz: 1800,
+                load_percent: 25,
+            }]
         }
 
         fn queue_stats(&self) -> QueueStats {
@@ -527,16 +525,14 @@ mod tests {
         }
 
         fn capability_entries(&self, _task_id: Option<u32>) -> Vec<CapEntry> {
-            vec![
-                CapEntry {
-                    handle: 0,
-                    object_id: 0x1000,
-                    object_type: 1,
-                    rights: 0x07,
-                    badge: 0,
-                    depth: 0,
-                },
-            ]
+            vec![CapEntry {
+                handle: 0,
+                object_id: 0x1000,
+                object_type: 1,
+                rights: 0x07,
+                badge: 0,
+                depth: 0,
+            }]
         }
 
         fn witness_entries(&self, count: usize) -> Vec<WitnessEntry> {

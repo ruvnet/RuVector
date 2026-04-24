@@ -13,12 +13,12 @@
 //! Run with:
 //!   cargo run --example agent_memory
 
+use rvf_crypto::{create_witness_chain, shake256_256, verify_witness_chain, WitnessEntry};
+use rvf_runtime::filter::FilterValue;
+use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{
     FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult,
 };
-use rvf_runtime::filter::FilterValue;
-use rvf_runtime::options::DistanceMetric;
-use rvf_crypto::{create_witness_chain, verify_witness_chain, shake256_256, WitnessEntry};
 use tempfile::TempDir;
 
 /// Simple pseudo-random number generator (LCG) for deterministic results.
@@ -26,7 +26,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -194,12 +196,12 @@ fn main() {
 
     match verify_witness_chain(&chain_bytes) {
         Ok(verified) => {
-            println!("  Chain integrity: VALID ({} entries verified)", verified.len());
-            println!();
             println!(
-                "  {:>5}  {:>8}  {:>20}",
-                "Index", "Type", "Timestamp (ns)"
+                "  Chain integrity: VALID ({} entries verified)",
+                verified.len()
             );
+            println!();
+            println!("  {:>5}  {:>8}  {:>20}", "Index", "Type", "Timestamp (ns)");
             println!("  {:->5}  {:->8}  {:->20}", "", "", "");
             for (i, entry) in verified.iter().enumerate() {
                 let wtype = match entry.witness_type {
@@ -207,10 +209,7 @@ fn main() {
                     0x02 => "COMP",
                     _ => "????",
                 };
-                println!(
-                    "  {:>5}  {:>8}  {:>20}",
-                    i, wtype, entry.timestamp_ns
-                );
+                println!("  {:>5}  {:>8}  {:>20}", i, wtype, entry.timestamp_ns);
             }
         }
         Err(e) => println!("  Chain integrity: FAILED ({:?})", e),

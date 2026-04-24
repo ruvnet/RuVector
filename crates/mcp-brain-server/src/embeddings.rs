@@ -10,8 +10,7 @@
 //! - Search uses QueryConditioned variant (optimized for retrieval relevance)
 
 use ruvllm::bitnet::rlm_embedder::{
-    BaseEmbedder, EmbeddingVariant, FlatNeighborStore, HashEmbedder, RlmEmbedder,
-    RlmEmbedderConfig,
+    BaseEmbedder, EmbeddingVariant, FlatNeighborStore, HashEmbedder, RlmEmbedder, RlmEmbedderConfig,
 };
 
 /// Embedding dimension used across the brain.
@@ -253,11 +252,8 @@ mod tests {
 
     #[test]
     fn test_prepare_text() {
-        let text = EmbeddingEngine::prepare_text(
-            "Title",
-            "Content here",
-            &["tag1".into(), "tag2".into()],
-        );
+        let text =
+            EmbeddingEngine::prepare_text("Title", "Content here", &["tag1".into(), "tag2".into()]);
         assert_eq!(text, "Title Content here tag1 tag2");
     }
 }

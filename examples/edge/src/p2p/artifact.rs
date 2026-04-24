@@ -7,12 +7,12 @@
 //! - Chunk-based storage for large artifacts
 
 use crate::p2p::crypto::CryptoV2;
-use crate::p2p::identity::IdentityManager;
 use crate::p2p::envelope::{ArtifactPointer, ArtifactType};
+use crate::p2p::identity::IdentityManager;
+use lz4_flex;
 use parking_lot::RwLock;
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
-use lz4_flex;
 
 /// Chunk size for large artifacts (256KB)
 pub const CHUNK_SIZE: usize = 256 * 1024;

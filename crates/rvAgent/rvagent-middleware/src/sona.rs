@@ -21,13 +21,13 @@
 
 #[cfg(feature = "sona")]
 use ruvector_sona::{
-    EwcConfig, EwcPlusPlus, PatternConfig, ReasoningBank, SonaConfig, SonaEngine,
-    TrajectoryBuffer, TrajectoryBuilder, TrajectoryIdGen,
+    EwcConfig, EwcPlusPlus, PatternConfig, ReasoningBank, SonaConfig, SonaEngine, TrajectoryBuffer,
+    TrajectoryBuilder, TrajectoryIdGen,
 };
 
 use crate::{
-    AgentState, AgentStateUpdate, AsyncModelHandler, Middleware, ModelHandler,
-    ModelRequest, ModelResponse, Role, RunnableConfig, Runtime,
+    AgentState, AgentStateUpdate, AsyncModelHandler, Middleware, ModelHandler, ModelRequest,
+    ModelResponse, Role, RunnableConfig, Runtime,
 };
 use async_trait::async_trait;
 use parking_lot::RwLock;
@@ -343,11 +343,7 @@ impl SonaState {
 
         if self.buffer.record(trajectory.clone()) {
             self.trajectories_recorded.fetch_add(1, Ordering::Relaxed);
-            trace!(
-                "Recorded trajectory {} with quality {:.2}",
-                id,
-                quality
-            );
+            trace!("Recorded trajectory {} with quality {:.2}", id, quality);
 
             // Also submit to engine for instant learning
             self.engine.submit_trajectory(trajectory);
@@ -463,8 +459,8 @@ impl SonaState {
         // Prune low-quality patterns
         self.reasoning_bank.prune_patterns(
             self.config.quality_threshold,
-            0,      // min accesses
-            86400,  // max age (24 hours)
+            0,     // min accesses
+            86400, // max age (24 hours)
         );
 
         // Consolidate similar patterns
@@ -665,10 +661,7 @@ impl Middleware for SonaMiddleware {
             if !patterns.is_empty() {
                 // Store patterns in extensions for potential use
                 let mut extensions = std::collections::HashMap::new();
-                extensions.insert(
-                    "sona_patterns".to_string(),
-                    serde_json::json!(patterns),
-                );
+                extensions.insert("sona_patterns".to_string(), serde_json::json!(patterns));
 
                 return Some(AgentStateUpdate {
                     messages: None,
@@ -681,11 +674,7 @@ impl Middleware for SonaMiddleware {
         None
     }
 
-    fn wrap_model_call(
-        &self,
-        request: ModelRequest,
-        handler: &dyn ModelHandler,
-    ) -> ModelResponse {
+    fn wrap_model_call(&self, request: ModelRequest, handler: &dyn ModelHandler) -> ModelResponse {
         if !self.is_enabled() {
             return handler.call(request);
         }
@@ -697,7 +686,9 @@ impl Middleware for SonaMiddleware {
 
         // Record trajectory (Loop A - Instant Learning)
         let latency = start.elapsed();
-        self.state.read().record_trajectory(&request, &response, latency);
+        self.state
+            .read()
+            .record_trajectory(&request, &response, latency);
 
         response
     }
@@ -718,7 +709,9 @@ impl Middleware for SonaMiddleware {
 
         // Record trajectory (Loop A - Instant Learning)
         let latency = start.elapsed();
-        self.state.read().record_trajectory(&request, &response, latency);
+        self.state
+            .read()
+            .record_trajectory(&request, &response, latency);
 
         response
     }
@@ -801,7 +794,8 @@ mod tests {
         assert!(quality2 > quality1);
 
         // Error response
-        let error_response = ModelResponse::text("Sorry, I cannot help with that. An error occurred.");
+        let error_response =
+            ModelResponse::text("Sorry, I cannot help with that. An error occurred.");
         let quality3 = estimate_quality(&request, &error_response);
         assert!(quality3 < quality1);
     }

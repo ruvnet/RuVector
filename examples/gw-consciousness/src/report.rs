@@ -7,10 +7,7 @@ use crate::data::{GWSpectrum, TransitionMatrix};
 pub fn print_summary(results: &AnalysisResults) {
     println!("\n--- IIT Phi by Source Model ---");
     for (name, phi) in &results.model_phis {
-        println!(
-            "  {:20} Phi = {:.6}  ({})",
-            name, phi.phi, phi.algorithm
-        );
+        println!("  {:20} Phi = {:.6}  ({})", name, phi.phi, phi.algorithm);
     }
 
     println!("\n--- Causal Emergence by Source Model ---");
@@ -134,7 +131,13 @@ pub fn generate_svg(
     }
 
     // Panel 3: Phi comparison bar chart (y=740, h=280)
-    svg.push_str(&render_phi_comparison(&results.model_phis, 50, 740, 1100, 260));
+    svg.push_str(&render_phi_comparison(
+        &results.model_phis,
+        50,
+        740,
+        1100,
+        260,
+    ));
 
     // Panel 4: Null distribution (y=1060, h=280)
     let best_exotic_phi = results
@@ -160,13 +163,7 @@ pub fn generate_svg(
 }
 
 /// Render GW strain spectra for all models on log-log axes.
-fn render_strain_spectra(
-    spectra: &[(&str, GWSpectrum)],
-    x: i32,
-    y: i32,
-    w: i32,
-    h: i32,
-) -> String {
+fn render_strain_spectra(spectra: &[(&str, GWSpectrum)], x: i32, y: i32, w: i32, h: i32) -> String {
     let mut s = format!("<g transform=\"translate({},{})\">\n", x, y);
     s.push_str(&format!(
         "<text x=\"{}\" y=\"-5\" text-anchor=\"middle\" class=\"subtitle\">\
@@ -208,9 +205,10 @@ fn render_strain_spectra(
             color
         ));
         for (&freq, &strain) in sp.frequencies.iter().zip(sp.h_c.iter()) {
-            let px = margin
-                + ((freq.ln() - log_f_min) / log_f_range * (w - 2 * margin) as f64) as i32;
-            let py = h - margin
+            let px =
+                margin + ((freq.ln() - log_f_min) / log_f_range * (w - 2 * margin) as f64) as i32;
+            let py = h
+                - margin
                 - ((strain.ln() - log_h_min) / log_h_range * (h - 2 * margin) as f64) as i32;
             s.push_str(&format!("{},{} ", px, py));
         }
@@ -218,9 +216,10 @@ fn render_strain_spectra(
 
         // Draw data points
         for (&freq, &strain) in sp.frequencies.iter().zip(sp.h_c.iter()) {
-            let px = margin
-                + ((freq.ln() - log_f_min) / log_f_range * (w - 2 * margin) as f64) as i32;
-            let py = h - margin
+            let px =
+                margin + ((freq.ln() - log_f_min) / log_f_range * (w - 2 * margin) as f64) as i32;
+            let py = h
+                - margin
                 - ((strain.ln() - log_h_min) / log_h_range * (h - 2 * margin) as f64) as i32;
             s.push_str(&format!(
                 "<circle cx=\"{}\" cy=\"{}\" r=\"3\" fill=\"{}\"/>\n",
@@ -481,9 +480,7 @@ fn render_summary_stats(results: &AnalysisResults, x: i32, y: i32) -> String {
         results.null_phis.iter().sum::<f64>() / results.null_phis.len() as f64
     };
 
-    let mut lines = vec![
-        format!("Phi (SMBH baseline):    {:.6}", smbh_phi),
-    ];
+    let mut lines = vec![format!("Phi (SMBH baseline):    {:.6}", smbh_phi)];
     if let Some((name, phi)) = best_exotic {
         lines.push(format!(
             "Phi (best exotic):      {:.6}  ({})",
@@ -527,19 +524,11 @@ fn render_summary_stats(results: &AnalysisResults, x: i32, y: i32) -> String {
 
     lines.push(String::new());
     if results.p_value < 0.05 {
-        lines.push(
-            "Verdict: SIGNIFICANT -- GWB shows excess integration".to_string(),
-        );
-        lines.push(
-            "  Exotic source model produces higher Phi than SMBH null".to_string(),
-        );
+        lines.push("Verdict: SIGNIFICANT -- GWB shows excess integration".to_string());
+        lines.push("  Exotic source model produces higher Phi than SMBH null".to_string());
     } else {
-        lines.push(
-            "Verdict: CONSISTENT with independent SMBH mergers".to_string(),
-        );
-        lines.push(
-            "  No evidence for correlated cosmological source".to_string(),
-        );
+        lines.push("Verdict: CONSISTENT with independent SMBH mergers".to_string());
+        lines.push("  No evidence for correlated cosmological source".to_string());
     }
 
     for (i, line) in lines.iter().enumerate() {

@@ -17,11 +17,11 @@
 //!
 //! Run: cargo run --example hyperbolic_taxonomy
 
+use rvf_runtime::filter::FilterValue;
+use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{
     FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult,
 };
-use rvf_runtime::filter::FilterValue;
-use rvf_runtime::options::DistanceMetric;
 use tempfile::TempDir;
 
 /// Simple LCG-based pseudo-random vector generator for deterministic results.
@@ -29,7 +29,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -138,7 +140,10 @@ fn main() {
 
     println!("  Taxonomy structure:");
     println!("    Level 0 (roots):         {} categories", level0_count);
-    println!("    Level 1 (children):      {} subcategories", level1_count);
+    println!(
+        "    Level 1 (children):      {} subcategories",
+        level1_count
+    );
     println!("    Level 2 (grandchildren): {} leaf nodes", level2_count);
     println!("    Total nodes:             {}", total_nodes);
     assert_eq!(total_nodes, level0_count + level1_count + level2_count);
@@ -182,7 +187,10 @@ fn main() {
     let ingest = store
         .ingest_batch(&vec_refs, &ids, Some(&metadata))
         .expect("ingest failed");
-    println!("  Ingested {} taxonomy nodes ({} dims)", ingest.accepted, dim);
+    println!(
+        "  Ingested {} taxonomy nodes ({} dims)",
+        ingest.accepted, dim
+    );
 
     // ====================================================================
     // 3. Query for nodes similar to a root concept
@@ -205,10 +213,13 @@ fn main() {
     println!("\n  Science's children should dominate top results.");
 
     // Count how many results share "Science" lineage
-    let science_related = results.iter().filter(|r| {
-        let node = &nodes[r.id as usize];
-        node.name.starts_with("Science") || node.parent_name == "Science"
-    }).count();
+    let science_related = results
+        .iter()
+        .filter(|r| {
+            let node = &nodes[r.id as usize];
+            node.name.starts_with("Science") || node.parent_name == "Science"
+        })
+        .count();
     println!("  Science-related in top-{}: {} nodes", k, science_related);
 
     // ====================================================================

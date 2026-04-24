@@ -283,7 +283,10 @@ fn test_log_get_entry_by_index() {
     assert_eq!(entry.command, b"second");
 
     assert!(log.get(0).is_none(), "index 0 should return None");
-    assert!(log.get(99).is_none(), "out-of-range index should return None");
+    assert!(
+        log.get(99).is_none(),
+        "out-of-range index should return None"
+    );
 }
 
 #[test]
@@ -547,7 +550,10 @@ fn test_snapshot_creation_compacts_log() {
     assert_eq!(snapshot.last_included_term, 1);
     assert_eq!(log.base_index(), 5);
     assert_eq!(log.len(), 5, "entries 6-10 should remain");
-    assert!(log.get(3).is_none(), "entries before snapshot should be gone");
+    assert!(
+        log.get(3).is_none(),
+        "entries before snapshot should be gone"
+    );
     assert!(log.get(6).is_some(), "entries after snapshot should remain");
 }
 
@@ -612,14 +618,7 @@ fn test_append_entries_request_serialisation_roundtrip() {
         LogEntry::new(2, 6, b"write-y".to_vec()),
     ];
 
-    let original = AppendEntriesRequest::new(
-        2,
-        "leader-1".to_string(),
-        4,
-        1,
-        entries,
-        3,
-    );
+    let original = AppendEntriesRequest::new(2, "leader-1".to_string(), 4, 1, entries, 3);
 
     let bytes = original.to_bytes().unwrap();
     let decoded = AppendEntriesRequest::from_bytes(&bytes).unwrap();
@@ -678,12 +677,8 @@ fn test_raft_message_envelope_term_extraction() {
     ));
     assert_eq!(msg.term(), 7);
 
-    let msg = RaftMessage::RequestVoteRequest(RequestVoteRequest::new(
-        3,
-        "candidate".to_string(),
-        0,
-        0,
-    ));
+    let msg =
+        RaftMessage::RequestVoteRequest(RequestVoteRequest::new(3, "candidate".to_string(), 0, 0));
     assert_eq!(msg.term(), 3);
 
     let msg = RaftMessage::AppendEntriesResponse(AppendEntriesResponse::success(4, 10));
@@ -695,12 +690,8 @@ fn test_raft_message_envelope_term_extraction() {
 
 #[test]
 fn test_raft_message_serialisation_roundtrip() {
-    let original = RaftMessage::RequestVoteRequest(RequestVoteRequest::new(
-        10,
-        "c1".to_string(),
-        50,
-        8,
-    ));
+    let original =
+        RaftMessage::RequestVoteRequest(RequestVoteRequest::new(10, "c1".to_string(), 50, 8));
 
     let bytes = original.to_bytes().unwrap();
     let decoded = RaftMessage::from_bytes(&bytes).unwrap();
@@ -795,7 +786,10 @@ fn test_simulated_election_flow_three_nodes() {
     // --- Node 1 processes node-2's vote response ---
     if node2_resp.vote_granted {
         let won = node1_election.record_vote("node-2".to_string());
-        assert!(won, "node-1 should win election with 2 votes in 3-node cluster");
+        assert!(
+            won,
+            "node-1 should win election with 2 votes in 3-node cluster"
+        );
     }
 
     // --- Node 1 becomes leader ---

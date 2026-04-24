@@ -107,7 +107,11 @@ impl PriorityConfig {
 /// ```
 #[inline]
 #[must_use]
-pub fn compute_priority(task: &TaskControlBlock, now: Instant, config: &PriorityConfig) -> SchedulerScore {
+pub fn compute_priority(
+    task: &TaskControlBlock,
+    now: Instant,
+    config: &PriorityConfig,
+) -> SchedulerScore {
     // Compute deadline urgency (EDF component)
     let deadline_urgency = compute_deadline_urgency(task, now, config);
 
@@ -284,14 +288,10 @@ mod tests {
         let config = PriorityConfig::default();
 
         // Novel but risky task
-        let novel_risky = make_task()
-            .with_novelty(0.8)
-            .with_coherence_delta(-0.3);
+        let novel_risky = make_task().with_novelty(0.8).with_coherence_delta(-0.3);
 
         // Not novel but safe task
-        let safe_boring = make_task()
-            .with_novelty(0.1)
-            .with_coherence_delta(0.2);
+        let safe_boring = make_task().with_novelty(0.1).with_coherence_delta(0.2);
 
         let novel_score = compute_priority(&novel_risky, now, &config);
         let safe_score = compute_priority(&safe_boring, now, &config);

@@ -6,11 +6,11 @@
 //! - Capability-gated verification
 //! - Cache limits (64 entries, 100ms TTL)
 
+use ruvix_cap::{CapRights, Capability};
 use ruvix_proof::{
     ProofCache, ProofCacheConfig, ProofEngine, ProofEngineConfig, ProofError, ProofTier,
     ProofVerifier, VerifierConfig,
 };
-use ruvix_cap::{CapRights, Capability};
 use ruvix_types::ObjectType;
 
 /// Test that proofs expire after the validity window.

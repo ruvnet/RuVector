@@ -5,8 +5,8 @@
 //! - Graph storage adapters
 //! - Persistence implementations
 
-pub mod hnsw_index;
 pub mod graph_store;
+pub mod hnsw_index;
 
-pub use hnsw_index::HnswIndex;
 pub use graph_store::InMemoryGraphStore;
+pub use hnsw_index::HnswIndex;

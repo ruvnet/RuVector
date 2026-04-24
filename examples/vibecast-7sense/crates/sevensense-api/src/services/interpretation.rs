@@ -11,8 +11,8 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use super::{
-    EvidencePackData, EvidenceSegment, FeatureContributionData, NeighborEvidenceData,
-    SearchResult, SharedFeature, VisualizationUrls,
+    EvidencePackData, EvidenceSegment, FeatureContributionData, NeighborEvidenceData, SearchResult,
+    SharedFeature, VisualizationUrls,
 };
 
 /// Interpretation error.
@@ -141,7 +141,10 @@ impl InterpretationEngine {
                     similarity: 1.0 - n.distance,
                     contributing_features,
                     spectrogram_comparison_url: if self.config.generate_spectrograms {
-                        Some(format!("/api/v1/evidence/{}/spectrograms/{}", query_id, n.id))
+                        Some(format!(
+                            "/api/v1/evidence/{}/spectrograms/{}",
+                            query_id, n.id
+                        ))
                     } else {
                         None
                     },

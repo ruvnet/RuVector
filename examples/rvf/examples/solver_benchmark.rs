@@ -21,16 +21,18 @@
 //!
 //! Run: cargo run --example solver_benchmark
 
+use rvf_runtime::filter::FilterValue;
+use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{
     FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult,
 };
-use rvf_runtime::filter::FilterValue;
-use rvf_runtime::options::DistanceMetric;
 use tempfile::TempDir;
 
 /// Simple LCG-based pseudo-random number generator for deterministic results.
 fn lcg_next(state: &mut u64) -> u64 {
-    *state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+    *state = state
+        .wrapping_mul(6364136223846793005)
+        .wrapping_add(1442695040888963407);
     *state >> 33
 }
 
@@ -95,7 +97,10 @@ fn benchmark_to_embedding(run: &BenchmarkRun, dim: usize) -> Vec<f32> {
     embedding[2] = (run.tolerance.log10().abs() / 16.0) as f32;
 
     // Feature 3: algorithm one-hot hash (spread across features 3-7)
-    let algo_idx = ALGORITHMS.iter().position(|&a| a == run.algorithm).unwrap_or(0);
+    let algo_idx = ALGORITHMS
+        .iter()
+        .position(|&a| a == run.algorithm)
+        .unwrap_or(0);
     embedding[3 + algo_idx] = 1.0;
 
     // Features 8-12: problem type one-hot hash
@@ -362,10 +367,8 @@ fn main() {
             continue;
         }
         let count = algo_runs.len();
-        let avg_time =
-            algo_runs.iter().map(|r| r.wall_time_us).sum::<u64>() as f64 / count as f64;
-        let avg_iters =
-            algo_runs.iter().map(|r| r.iterations).sum::<u64>() as f64 / count as f64;
+        let avg_time = algo_runs.iter().map(|r| r.wall_time_us).sum::<u64>() as f64 / count as f64;
+        let avg_iters = algo_runs.iter().map(|r| r.iterations).sum::<u64>() as f64 / count as f64;
         let avg_rate = algo_runs.iter().map(|r| r.convergence_rate).sum::<f64>() / count as f64;
 
         println!(
@@ -486,10 +489,8 @@ fn main() {
     let total_converged = runs.iter().filter(|r| r.converged).count();
     let total_time: u64 = runs.iter().map(|r| r.wall_time_us).sum();
     let avg_time = total_time as f64 / num_runs as f64;
-    let avg_iters =
-        runs.iter().map(|r| r.iterations).sum::<u64>() as f64 / num_runs as f64;
-    let avg_rate =
-        runs.iter().map(|r| r.convergence_rate).sum::<f64>() / num_runs as f64;
+    let avg_iters = runs.iter().map(|r| r.iterations).sum::<u64>() as f64 / num_runs as f64;
+    let avg_rate = runs.iter().map(|r| r.convergence_rate).sum::<f64>() / num_runs as f64;
 
     let fastest_run = runs
         .iter()
@@ -501,7 +502,11 @@ fn main() {
         .max_by_key(|r| r.wall_time_us);
 
     println!("  Total runs:          {}", num_runs);
-    println!("  Converged:           {} ({:.1}%)", total_converged, total_converged as f64 / num_runs as f64 * 100.0);
+    println!(
+        "  Converged:           {} ({:.1}%)",
+        total_converged,
+        total_converged as f64 / num_runs as f64 * 100.0
+    );
     println!("  Avg wall time:       {:.0} us", avg_time);
     println!("  Avg iterations:      {:.1}", avg_iters);
     println!("  Avg convergence rate: {:.4}", avg_rate);
@@ -509,15 +514,23 @@ fn main() {
     if let Some(fast) = fastest_run {
         println!(
             "  Fastest converged:   run {} ({} on {} {}, {} us, {} iters)",
-            fast.run_id, fast.algorithm, fast.problem_type, fast.matrix_size,
-            fast.wall_time_us, fast.iterations
+            fast.run_id,
+            fast.algorithm,
+            fast.problem_type,
+            fast.matrix_size,
+            fast.wall_time_us,
+            fast.iterations
         );
     }
     if let Some(slow) = slowest_run {
         println!(
             "  Slowest converged:   run {} ({} on {} {}, {} us, {} iters)",
-            slow.run_id, slow.algorithm, slow.problem_type, slow.matrix_size,
-            slow.wall_time_us, slow.iterations
+            slow.run_id,
+            slow.algorithm,
+            slow.problem_type,
+            slow.matrix_size,
+            slow.wall_time_us,
+            slow.iterations
         );
     }
 
@@ -552,7 +565,10 @@ fn main() {
     println!("  Problem types:       {}", PROBLEM_TYPES.len());
     println!("  Embedding dimension: {}", embed_dim);
     println!("  Store vectors:       {}", ingest.accepted);
-    println!("  Convergence rate:    {:.1}%", total_converged as f64 / num_runs as f64 * 100.0);
+    println!(
+        "  Convergence rate:    {:.1}%",
+        total_converged as f64 / num_runs as f64 * 100.0
+    );
 
     let status = store.status();
     println!("  Store file size:     {} bytes", status.file_size);

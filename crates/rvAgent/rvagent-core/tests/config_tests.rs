@@ -2,9 +2,7 @@
 //!
 //! These tests exercise the public configuration API from `rvagent_core::config`.
 
-use rvagent_core::config::{
-    ResourceBudget, RvAgentConfig, SecurityPolicy, SENSITIVE_ENV_PATTERNS,
-};
+use rvagent_core::config::{ResourceBudget, RvAgentConfig, SecurityPolicy, SENSITIVE_ENV_PATTERNS};
 
 /// Default config must have virtual_mode=true (ADR-103 C1).
 #[test]
@@ -30,9 +28,7 @@ fn test_security_policy_defaults() {
     // sensitive_env_patterns contains all required patterns from ADR-103 C2
     for pattern in SENSITIVE_ENV_PATTERNS {
         assert!(
-            sp.sensitive_env_patterns
-                .iter()
-                .any(|p| p == pattern),
+            sp.sensitive_env_patterns.iter().any(|p| p == pattern),
             "missing sensitive env pattern: {}",
             pattern
         );
@@ -56,10 +52,7 @@ fn test_resource_budget_enforcement() {
         rb.max_cost_microdollars > 0,
         "max_cost_microdollars should be positive"
     );
-    assert!(
-        rb.max_tool_calls > 0,
-        "max_tool_calls should be positive"
-    );
+    assert!(rb.max_tool_calls > 0, "max_tool_calls should be positive");
     assert!(
         rb.max_external_writes > 0,
         "max_external_writes should be positive"

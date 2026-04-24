@@ -10,8 +10,8 @@ use crate::domain::entities::{
     Anomaly, Cluster, ClusterId, EmbeddingId, Motif, Prototype, RecordingId, SequenceAnalysis,
 };
 use crate::domain::repository::{
-    AnomalyRepository, ClusterRepository, MotifRepository, PrototypeRepository,
-    RepositoryError, Result, SequenceRepository,
+    AnomalyRepository, ClusterRepository, MotifRepository, PrototypeRepository, RepositoryError,
+    Result, SequenceRepository,
 };
 
 /// In-memory implementation of the analysis repositories.
@@ -85,17 +85,19 @@ pub struct RepositoryStats {
 #[async_trait]
 impl ClusterRepository for InMemoryAnalysisRepository {
     async fn save_cluster(&self, cluster: &Cluster) -> Result<()> {
-        let mut clusters = self.clusters.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut clusters = self
+            .clusters
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         clusters.insert(cluster.id, cluster.clone());
         Ok(())
     }
 
     async fn save_clusters(&self, clusters_to_save: &[Cluster]) -> Result<()> {
-        let mut clusters = self.clusters.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut clusters = self
+            .clusters
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         for cluster in clusters_to_save {
             clusters.insert(cluster.id, cluster.clone());
         }
@@ -103,28 +105,32 @@ impl ClusterRepository for InMemoryAnalysisRepository {
     }
 
     async fn find_cluster(&self, id: &ClusterId) -> Result<Option<Cluster>> {
-        let clusters = self.clusters.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let clusters = self
+            .clusters
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         Ok(clusters.get(id).cloned())
     }
 
     async fn list_clusters(&self) -> Result<Vec<Cluster>> {
-        let clusters = self.clusters.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let clusters = self
+            .clusters
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         Ok(clusters.values().cloned().collect())
     }
 
-    async fn list_clusters_paginated(
-        &self,
-        offset: usize,
-        limit: usize,
-    ) -> Result<Vec<Cluster>> {
-        let clusters = self.clusters.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
-        Ok(clusters.values().skip(offset).take(limit).cloned().collect())
+    async fn list_clusters_paginated(&self, offset: usize, limit: usize) -> Result<Vec<Cluster>> {
+        let clusters = self
+            .clusters
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
+        Ok(clusters
+            .values()
+            .skip(offset)
+            .take(limit)
+            .cloned()
+            .collect())
     }
 
     async fn assign_to_cluster(
@@ -132,17 +138,19 @@ impl ClusterRepository for InMemoryAnalysisRepository {
         embedding_id: &EmbeddingId,
         cluster_id: &ClusterId,
     ) -> Result<()> {
-        let mut assignments = self.embedding_assignments.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut assignments = self
+            .embedding_assignments
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         assignments.insert(*embedding_id, *cluster_id);
         Ok(())
     }
 
     async fn remove_from_cluster(&self, embedding_id: &EmbeddingId) -> Result<()> {
-        let mut assignments = self.embedding_assignments.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut assignments = self
+            .embedding_assignments
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         assignments.remove(embedding_id);
         Ok(())
     }
@@ -153,9 +161,10 @@ impl ClusterRepository for InMemoryAnalysisRepository {
     ) -> Result<Option<Cluster>> {
         // Extract the cluster_id and drop the guard before await
         let cluster_id = {
-            let assignments = self.embedding_assignments.read().map_err(|e| {
-                RepositoryError::Internal(format!("Lock error: {}", e))
-            })?;
+            let assignments = self
+                .embedding_assignments
+                .read()
+                .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
             assignments.get(embedding_id).cloned()
         };
 
@@ -167,38 +176,43 @@ impl ClusterRepository for InMemoryAnalysisRepository {
     }
 
     async fn delete_cluster(&self, id: &ClusterId) -> Result<()> {
-        let mut clusters = self.clusters.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut clusters = self
+            .clusters
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         clusters.remove(id);
         Ok(())
     }
 
     async fn delete_all_clusters(&self) -> Result<()> {
-        let mut clusters = self.clusters.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut clusters = self
+            .clusters
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         clusters.clear();
 
-        let mut assignments = self.embedding_assignments.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut assignments = self
+            .embedding_assignments
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         assignments.clear();
 
         Ok(())
     }
 
     async fn cluster_count(&self) -> Result<usize> {
-        let clusters = self.clusters.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let clusters = self
+            .clusters
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         Ok(clusters.len())
     }
 
     async fn find_clusters_by_label(&self, label_pattern: &str) -> Result<Vec<Cluster>> {
-        let clusters = self.clusters.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let clusters = self
+            .clusters
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
 
         Ok(clusters
             .values()
@@ -211,14 +225,11 @@ impl ClusterRepository for InMemoryAnalysisRepository {
             .collect())
     }
 
-    async fn update_cluster_label(
-        &self,
-        id: &ClusterId,
-        label: Option<String>,
-    ) -> Result<()> {
-        let mut clusters = self.clusters.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+    async fn update_cluster_label(&self, id: &ClusterId, label: Option<String>) -> Result<()> {
+        let mut clusters = self
+            .clusters
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
 
         if let Some(cluster) = clusters.get_mut(id) {
             cluster.label = label;
@@ -232,9 +243,10 @@ impl ClusterRepository for InMemoryAnalysisRepository {
 #[async_trait]
 impl PrototypeRepository for InMemoryAnalysisRepository {
     async fn save_prototype(&self, prototype: &Prototype) -> Result<()> {
-        let mut prototypes = self.prototypes.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut prototypes = self
+            .prototypes
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
 
         prototypes
             .entry(prototype.cluster_id)
@@ -245,9 +257,10 @@ impl PrototypeRepository for InMemoryAnalysisRepository {
     }
 
     async fn save_prototypes(&self, prototypes_to_save: &[Prototype]) -> Result<()> {
-        let mut prototypes = self.prototypes.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut prototypes = self
+            .prototypes
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
 
         for prototype in prototypes_to_save {
             prototypes
@@ -259,24 +272,20 @@ impl PrototypeRepository for InMemoryAnalysisRepository {
         Ok(())
     }
 
-    async fn find_prototypes_by_cluster(
-        &self,
-        cluster_id: &ClusterId,
-    ) -> Result<Vec<Prototype>> {
-        let prototypes = self.prototypes.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+    async fn find_prototypes_by_cluster(&self, cluster_id: &ClusterId) -> Result<Vec<Prototype>> {
+        let prototypes = self
+            .prototypes
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
 
         Ok(prototypes.get(cluster_id).cloned().unwrap_or_default())
     }
 
-    async fn find_best_prototype(
-        &self,
-        cluster_id: &ClusterId,
-    ) -> Result<Option<Prototype>> {
-        let prototypes = self.prototypes.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+    async fn find_best_prototype(&self, cluster_id: &ClusterId) -> Result<Option<Prototype>> {
+        let prototypes = self
+            .prototypes
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
 
         Ok(prototypes.get(cluster_id).and_then(|protos| {
             protos
@@ -291,17 +300,19 @@ impl PrototypeRepository for InMemoryAnalysisRepository {
     }
 
     async fn delete_prototypes_by_cluster(&self, cluster_id: &ClusterId) -> Result<()> {
-        let mut prototypes = self.prototypes.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut prototypes = self
+            .prototypes
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         prototypes.remove(cluster_id);
         Ok(())
     }
 
     async fn delete_all_prototypes(&self) -> Result<()> {
-        let mut prototypes = self.prototypes.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut prototypes = self
+            .prototypes
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         prototypes.clear();
         Ok(())
     }
@@ -310,17 +321,19 @@ impl PrototypeRepository for InMemoryAnalysisRepository {
 #[async_trait]
 impl MotifRepository for InMemoryAnalysisRepository {
     async fn save_motif(&self, motif: &Motif) -> Result<()> {
-        let mut motifs = self.motifs.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut motifs = self
+            .motifs
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         motifs.insert(motif.id.clone(), motif.clone());
         Ok(())
     }
 
     async fn save_motifs(&self, motifs_to_save: &[Motif]) -> Result<()> {
-        let mut motifs = self.motifs.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut motifs = self
+            .motifs
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         for motif in motifs_to_save {
             motifs.insert(motif.id.clone(), motif.clone());
         }
@@ -328,16 +341,18 @@ impl MotifRepository for InMemoryAnalysisRepository {
     }
 
     async fn find_motif(&self, id: &str) -> Result<Option<Motif>> {
-        let motifs = self.motifs.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let motifs = self
+            .motifs
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         Ok(motifs.get(id).cloned())
     }
 
     async fn find_motifs_by_cluster(&self, cluster_id: &ClusterId) -> Result<Vec<Motif>> {
-        let motifs = self.motifs.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let motifs = self
+            .motifs
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
 
         Ok(motifs
             .values()
@@ -347,16 +362,18 @@ impl MotifRepository for InMemoryAnalysisRepository {
     }
 
     async fn list_motifs(&self) -> Result<Vec<Motif>> {
-        let motifs = self.motifs.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let motifs = self
+            .motifs
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         Ok(motifs.values().cloned().collect())
     }
 
     async fn find_motifs_by_confidence(&self, min_confidence: f32) -> Result<Vec<Motif>> {
-        let motifs = self.motifs.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let motifs = self
+            .motifs
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
 
         Ok(motifs
             .values()
@@ -366,9 +383,10 @@ impl MotifRepository for InMemoryAnalysisRepository {
     }
 
     async fn find_motifs_by_occurrences(&self, min_occurrences: usize) -> Result<Vec<Motif>> {
-        let motifs = self.motifs.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let motifs = self
+            .motifs
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
 
         Ok(motifs
             .values()
@@ -378,32 +396,36 @@ impl MotifRepository for InMemoryAnalysisRepository {
     }
 
     async fn delete_motif(&self, id: &str) -> Result<()> {
-        let mut motifs = self.motifs.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut motifs = self
+            .motifs
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         motifs.remove(id);
         Ok(())
     }
 
     async fn delete_all_motifs(&self) -> Result<()> {
-        let mut motifs = self.motifs.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut motifs = self
+            .motifs
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         motifs.clear();
         Ok(())
     }
 
     async fn motif_count(&self) -> Result<usize> {
-        let motifs = self.motifs.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let motifs = self
+            .motifs
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         Ok(motifs.len())
     }
 
     async fn find_motifs_by_sequence(&self, sequence: &[ClusterId]) -> Result<Vec<Motif>> {
-        let motifs = self.motifs.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let motifs = self
+            .motifs
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
 
         Ok(motifs
             .values()
@@ -416,9 +438,10 @@ impl MotifRepository for InMemoryAnalysisRepository {
         &self,
         subsequence: &[ClusterId],
     ) -> Result<Vec<Motif>> {
-        let motifs = self.motifs.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let motifs = self
+            .motifs
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
 
         Ok(motifs
             .values()
@@ -435,9 +458,10 @@ impl MotifRepository for InMemoryAnalysisRepository {
 #[async_trait]
 impl SequenceRepository for InMemoryAnalysisRepository {
     async fn save_sequence_analysis(&self, analysis: &SequenceAnalysis) -> Result<()> {
-        let mut sequences = self.sequences.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut sequences = self
+            .sequences
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         sequences.insert(analysis.recording_id, analysis.clone());
         Ok(())
     }
@@ -446,39 +470,44 @@ impl SequenceRepository for InMemoryAnalysisRepository {
         &self,
         recording_id: &RecordingId,
     ) -> Result<Option<SequenceAnalysis>> {
-        let sequences = self.sequences.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let sequences = self
+            .sequences
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         Ok(sequences.get(recording_id).cloned())
     }
 
     async fn list_sequence_analyses(&self) -> Result<Vec<SequenceAnalysis>> {
-        let sequences = self.sequences.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let sequences = self
+            .sequences
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         Ok(sequences.values().cloned().collect())
     }
 
     async fn delete_sequence_by_recording(&self, recording_id: &RecordingId) -> Result<()> {
-        let mut sequences = self.sequences.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut sequences = self
+            .sequences
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         sequences.remove(recording_id);
         Ok(())
     }
 
     async fn delete_all_sequences(&self) -> Result<()> {
-        let mut sequences = self.sequences.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut sequences = self
+            .sequences
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         sequences.clear();
         Ok(())
     }
 
     async fn find_sequences_by_entropy(&self, min_entropy: f32) -> Result<Vec<SequenceAnalysis>> {
-        let sequences = self.sequences.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let sequences = self
+            .sequences
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
 
         Ok(sequences
             .values()
@@ -491,9 +520,10 @@ impl SequenceRepository for InMemoryAnalysisRepository {
         &self,
         min_stereotypy: f32,
     ) -> Result<Vec<SequenceAnalysis>> {
-        let sequences = self.sequences.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let sequences = self
+            .sequences
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
 
         Ok(sequences
             .values()
@@ -506,17 +536,19 @@ impl SequenceRepository for InMemoryAnalysisRepository {
 #[async_trait]
 impl AnomalyRepository for InMemoryAnalysisRepository {
     async fn save_anomaly(&self, anomaly: &Anomaly) -> Result<()> {
-        let mut anomalies = self.anomalies.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut anomalies = self
+            .anomalies
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         anomalies.insert(anomaly.embedding_id, anomaly.clone());
         Ok(())
     }
 
     async fn save_anomalies(&self, anomalies_to_save: &[Anomaly]) -> Result<()> {
-        let mut anomalies = self.anomalies.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut anomalies = self
+            .anomalies
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         for anomaly in anomalies_to_save {
             anomalies.insert(anomaly.embedding_id, anomaly.clone());
         }
@@ -524,23 +556,26 @@ impl AnomalyRepository for InMemoryAnalysisRepository {
     }
 
     async fn find_anomaly(&self, embedding_id: &EmbeddingId) -> Result<Option<Anomaly>> {
-        let anomalies = self.anomalies.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let anomalies = self
+            .anomalies
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         Ok(anomalies.get(embedding_id).cloned())
     }
 
     async fn list_anomalies(&self) -> Result<Vec<Anomaly>> {
-        let anomalies = self.anomalies.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let anomalies = self
+            .anomalies
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         Ok(anomalies.values().cloned().collect())
     }
 
     async fn find_anomalies_by_score(&self, min_score: f32) -> Result<Vec<Anomaly>> {
-        let anomalies = self.anomalies.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let anomalies = self
+            .anomalies
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
 
         Ok(anomalies
             .values()
@@ -550,9 +585,10 @@ impl AnomalyRepository for InMemoryAnalysisRepository {
     }
 
     async fn find_anomalies_by_cluster(&self, cluster_id: &ClusterId) -> Result<Vec<Anomaly>> {
-        let anomalies = self.anomalies.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let anomalies = self
+            .anomalies
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
 
         Ok(anomalies
             .values()
@@ -562,25 +598,28 @@ impl AnomalyRepository for InMemoryAnalysisRepository {
     }
 
     async fn delete_anomaly(&self, embedding_id: &EmbeddingId) -> Result<()> {
-        let mut anomalies = self.anomalies.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut anomalies = self
+            .anomalies
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         anomalies.remove(embedding_id);
         Ok(())
     }
 
     async fn delete_all_anomalies(&self) -> Result<()> {
-        let mut anomalies = self.anomalies.write().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let mut anomalies = self
+            .anomalies
+            .write()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         anomalies.clear();
         Ok(())
     }
 
     async fn anomaly_count(&self) -> Result<usize> {
-        let anomalies = self.anomalies.read().map_err(|e| {
-            RepositoryError::Internal(format!("Lock error: {}", e))
-        })?;
+        let anomalies = self
+            .anomalies
+            .read()
+            .map_err(|e| RepositoryError::Internal(format!("Lock error: {}", e)))?;
         Ok(anomalies.len())
     }
 }
@@ -621,12 +660,7 @@ mod tests {
     async fn test_motif_crud() {
         let repo = InMemoryAnalysisRepository::new();
 
-        let motif = Motif::new(
-            vec![ClusterId::new(), ClusterId::new()],
-            5,
-            1500.0,
-            0.8,
-        );
+        let motif = Motif::new(vec![ClusterId::new(), ClusterId::new()], 5, 1500.0, 0.8);
 
         repo.save_motif(&motif).await.unwrap();
 
@@ -642,16 +676,14 @@ mod tests {
         let repo = InMemoryAnalysisRepository::new();
 
         let recording_id = RecordingId::new();
-        let analysis = SequenceAnalysis::new(
-            recording_id,
-            vec![],
-            1.5,
-            0.5,
-        );
+        let analysis = SequenceAnalysis::new(recording_id, vec![], 1.5, 0.5);
 
         repo.save_sequence_analysis(&analysis).await.unwrap();
 
-        let found = repo.find_sequence_by_recording(&recording_id).await.unwrap();
+        let found = repo
+            .find_sequence_by_recording(&recording_id)
+            .await
+            .unwrap();
         assert!(found.is_some());
     }
 
@@ -659,19 +691,9 @@ mod tests {
     async fn test_anomaly_filtering() {
         let repo = InMemoryAnalysisRepository::new();
 
-        let anomaly1 = Anomaly::new(
-            EmbeddingId::new(),
-            0.9,
-            ClusterId::new(),
-            2.0,
-        );
+        let anomaly1 = Anomaly::new(EmbeddingId::new(), 0.9, ClusterId::new(), 2.0);
 
-        let anomaly2 = Anomaly::new(
-            EmbeddingId::new(),
-            0.3,
-            ClusterId::new(),
-            0.5,
-        );
+        let anomaly2 = Anomaly::new(EmbeddingId::new(), 0.3, ClusterId::new(), 0.5);
 
         repo.save_anomalies(&[anomaly1, anomaly2]).await.unwrap();
 

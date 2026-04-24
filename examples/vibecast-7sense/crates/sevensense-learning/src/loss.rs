@@ -3,7 +3,6 @@
 //! This module provides various loss functions for training GNN models
 //! on graph-structured data with contrastive learning objectives.
 
-
 /// Compute InfoNCE (Noise Contrastive Estimation) loss.
 ///
 /// InfoNCE loss encourages the model to distinguish positive samples
@@ -128,12 +127,7 @@ pub fn triplet_loss(anchor: &[f32], positive: &[f32], negative: &[f32], margin: 
 /// # Formula
 /// L = max(0, margin - (sim(a,p) - sim(a,n)))
 #[must_use]
-pub fn margin_ranking_loss(
-    anchor: &[f32],
-    positive: &[f32],
-    negative: &[f32],
-    margin: f32,
-) -> f32 {
+pub fn margin_ranking_loss(anchor: &[f32], positive: &[f32], negative: &[f32], margin: f32) -> f32 {
     if anchor.is_empty() || positive.is_empty() || negative.is_empty() {
         return 0.0;
     }
@@ -340,11 +334,7 @@ pub fn supervised_contrastive_loss(
 /// # Returns
 /// The center loss value
 #[must_use]
-pub fn center_loss(
-    embeddings: &[Vec<f32>],
-    labels: &[usize],
-    centers: &[Vec<f32>],
-) -> f32 {
+pub fn center_loss(embeddings: &[Vec<f32>], labels: &[usize], centers: &[Vec<f32>]) -> f32 {
     if embeddings.is_empty() || embeddings.len() != labels.len() {
         return 0.0;
     }
@@ -372,12 +362,7 @@ pub fn center_loss(
 /// # Returns
 /// The focal loss value
 #[must_use]
-pub fn focal_loss(
-    predictions: &[f32],
-    targets: &[usize],
-    gamma: f32,
-    alpha: f32,
-) -> f32 {
+pub fn focal_loss(predictions: &[f32], targets: &[usize], gamma: f32, alpha: f32) -> f32 {
     if predictions.is_empty() || predictions.len() != targets.len() {
         return 0.0;
     }
@@ -532,9 +517,9 @@ mod tests {
     fn test_supervised_contrastive_loss() {
         let embeddings = vec![
             vec![1.0, 0.0],
-            vec![0.9, 0.1],  // same class as first
+            vec![0.9, 0.1], // same class as first
             vec![0.0, 1.0],
-            vec![0.1, 0.9],  // same class as third
+            vec![0.1, 0.9], // same class as third
         ];
         let labels = vec![0, 0, 1, 1];
 
@@ -544,11 +529,7 @@ mod tests {
 
     #[test]
     fn test_center_loss() {
-        let embeddings = vec![
-            vec![1.0, 0.0],
-            vec![0.9, 0.1],
-            vec![0.0, 1.0],
-        ];
+        let embeddings = vec![vec![1.0, 0.0], vec![0.9, 0.1], vec![0.0, 1.0]];
         let labels = vec![0, 0, 1];
         let centers = vec![
             vec![0.95, 0.05], // center for class 0

@@ -17,11 +17,9 @@
 //!
 //! Run: cargo run --example solver_witness
 
-use rvf_runtime::{
-    MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult,
-};
+use rvf_crypto::{create_witness_chain, shake256_256, verify_witness_chain, WitnessEntry};
 use rvf_runtime::options::DistanceMetric;
-use rvf_crypto::{create_witness_chain, verify_witness_chain, shake256_256, WitnessEntry};
+use rvf_runtime::{MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult};
 use tempfile::TempDir;
 
 /// Simple LCG-based pseudo-random vector generator for deterministic results.
@@ -29,7 +27,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -92,7 +92,10 @@ fn main() {
     };
 
     let mut store = RvfStore::create(&store_path, options).expect("failed to create store");
-    println!("  Store created: {} dims (solver state size), L2 metric", dim);
+    println!(
+        "  Store created: {} dims (solver state size), L2 metric",
+        dim
+    );
 
     // ====================================================================
     // 2. Run solver iterations, storing each snapshot in RVF
@@ -126,7 +129,11 @@ fn main() {
         } else {
             "converged"
         };
-        let converged: u64 = if residual <= convergence_tol as f64 { 1 } else { 0 };
+        let converged: u64 = if residual <= convergence_tol as f64 {
+            1
+        } else {
+            0
+        };
 
         // Store residual as fixed-point u64 (multiply by 1e9)
         let residual_fixed = (residual * 1e9) as u64;
@@ -153,7 +160,11 @@ fn main() {
             iter,
             residual,
             phase,
-            if converged == 1 { "converged" } else { "iterating" }
+            if converged == 1 {
+                "converged"
+            } else {
+                "iterating"
+            }
         );
 
         residuals.push(residual);
@@ -232,7 +243,10 @@ fn main() {
     let verified = verify_witness_chain(&chain_bytes).expect("witness chain verification failed");
     assert_eq!(verified.len(), num_iterations);
 
-    println!("  Chain integrity: VALID ({} entries verified)", verified.len());
+    println!(
+        "  Chain integrity: VALID ({} entries verified)",
+        verified.len()
+    );
     println!("\n  Witness chain summary:");
     println!(
         "  {:>5}  {:>8}  {:>20}  {:>18}",
@@ -258,8 +272,7 @@ fn main() {
 
     // Verify genesis entry has zero prev_hash
     assert_eq!(
-        verified[0].prev_hash,
-        [0u8; 32],
+        verified[0].prev_hash, [0u8; 32],
         "genesis entry should have zero prev_hash"
     );
     println!("\n  Genesis entry (iteration 0): zero prev_hash confirmed.");
@@ -332,7 +345,10 @@ fn main() {
     }
 
     if replay_match {
-        println!("  Deterministic replay: ALL {} iterations match exactly.", num_iterations);
+        println!(
+            "  Deterministic replay: ALL {} iterations match exactly.",
+            num_iterations
+        );
     } else {
         println!("  WARNING: Replay produced different results.");
     }
@@ -373,7 +389,10 @@ fn main() {
     println!("  Solver dimensions:       {}", dim);
     println!("  Total iterations:        {}", num_iterations);
     println!("  Initial residual:        {:.8e}", residuals[0]);
-    println!("  Final residual:          {:.8e}", residuals[num_iterations - 1]);
+    println!(
+        "  Final residual:          {:.8e}",
+        residuals[num_iterations - 1]
+    );
     println!("  Witness chain entries:   {}", verified.len());
     println!("  Chain integrity:         VALID");
     println!("  Deterministic replay:    VERIFIED");

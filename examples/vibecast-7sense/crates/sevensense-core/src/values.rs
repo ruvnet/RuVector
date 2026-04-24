@@ -17,20 +17,32 @@ pub struct GeoLocation {
 
 impl GeoLocation {
     /// Creates a new GeoLocation with validation.
-    pub fn new(latitude: f64, longitude: f64, elevation_m: Option<f64>) -> Result<Self, GeoLocationError> {
+    pub fn new(
+        latitude: f64,
+        longitude: f64,
+        elevation_m: Option<f64>,
+    ) -> Result<Self, GeoLocationError> {
         if !(-90.0..=90.0).contains(&latitude) {
             return Err(GeoLocationError::InvalidLatitude(latitude));
         }
         if !(-180.0..=180.0).contains(&longitude) {
             return Err(GeoLocationError::InvalidLongitude(longitude));
         }
-        Ok(Self { latitude, longitude, elevation_m })
+        Ok(Self {
+            latitude,
+            longitude,
+            elevation_m,
+        })
     }
 
     /// Creates a GeoLocation without validation.
     #[must_use]
     pub const fn new_unchecked(latitude: f64, longitude: f64, elevation_m: Option<f64>) -> Self {
-        Self { latitude, longitude, elevation_m }
+        Self {
+            latitude,
+            longitude,
+            elevation_m,
+        }
     }
 
     /// Returns the latitude.

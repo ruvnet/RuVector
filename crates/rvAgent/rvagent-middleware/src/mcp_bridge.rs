@@ -109,11 +109,7 @@ impl Middleware for McpBridgeMiddleware {
         request
     }
 
-    fn wrap_model_call(
-        &self,
-        request: ModelRequest,
-        handler: &dyn ModelHandler,
-    ) -> ModelResponse {
+    fn wrap_model_call(&self, request: ModelRequest, handler: &dyn ModelHandler) -> ModelResponse {
         handler.call(request)
     }
 
@@ -209,7 +205,9 @@ mod tests {
         let state = AgentState::default();
         let runtime = Runtime::new();
         let runnable_config = RunnableConfig::default();
-        assert!(mw.before_agent(&state, &runtime, &runnable_config).is_none());
+        assert!(mw
+            .before_agent(&state, &runtime, &runnable_config)
+            .is_none());
         assert!(mw.tools().is_empty());
     }
 

@@ -7,8 +7,8 @@
 //! This is the central axiom of HoTT that distinguishes it from
 //! ordinary type theory.
 
+use super::{Path, Term, Type, TypeError};
 use std::sync::Arc;
-use super::{Term, Type, Path, TypeError};
 
 /// A function with homotopy data
 pub type HomotopyFn = Arc<dyn Fn(&Term) -> Term + Send + Sync>;

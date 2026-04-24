@@ -22,7 +22,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -67,8 +69,11 @@ fn main() {
     println!("  File ID:         {}...", hex(parent.file_id(), 8));
 
     let parent_status = parent.status();
-    println!("  File size:       {} bytes ({:.1} KB)",
-        parent_status.file_size, parent_status.file_size as f64 / 1024.0);
+    println!(
+        "  File size:       {} bytes ({:.1} KB)",
+        parent_status.file_size,
+        parent_status.file_size as f64 / 1024.0
+    );
     println!();
 
     // ================================================================
@@ -88,7 +93,10 @@ fn main() {
     // Show COW statistics
     if let Some(stats) = child.cow_stats() {
         println!("  COW clusters:    {} total", stats.cluster_count);
-        println!("  Local clusters:  {} (rest inherited from parent)", stats.local_cluster_count);
+        println!(
+            "  Local clusters:  {} (rest inherited from parent)",
+            stats.local_cluster_count
+        );
         println!("  Cluster size:    {} bytes", stats.cluster_size);
         println!("  Vectors/cluster: {}", stats.vectors_per_cluster);
         println!("  Frozen:          {}", stats.frozen);
@@ -97,12 +105,19 @@ fn main() {
     // Show membership filter
     if let Some(filter) = child.membership_filter() {
         println!("  Membership mode: {:?}", filter.mode());
-        println!("  Members:         {} / {} visible", filter.member_count(), filter.vector_count());
+        println!(
+            "  Members:         {} / {} visible",
+            filter.member_count(),
+            filter.vector_count()
+        );
     }
 
     let child_status = child.status();
-    println!("  Child file size: {} bytes ({:.1} KB)",
-        child_status.file_size, child_status.file_size as f64 / 1024.0);
+    println!(
+        "  Child file size: {} bytes ({:.1} KB)",
+        child_status.file_size,
+        child_status.file_size as f64 / 1024.0
+    );
 
     let ratio = if parent_status.file_size > 0 {
         child_status.file_size as f64 / parent_status.file_size as f64 * 100.0
@@ -119,13 +134,19 @@ fn main() {
 
     let parent_id_matches = child.parent_id() == parent.file_id();
     println!("  Parent ID match: {}", parent_id_matches);
-    println!("  Lineage chain:   base (depth=0) -> child (depth={})", child.lineage_depth());
+    println!(
+        "  Lineage chain:   base (depth=0) -> child (depth={})",
+        child.lineage_depth()
+    );
 
     // Derive a grandchild to show multi-level branching
     let grandchild_path = tmp_dir.path().join("grandchild_branch.rvf");
     let grandchild = child.branch(&grandchild_path).expect("branch grandchild");
-    println!("  Grandchild:      depth={}, parent={}...",
-        grandchild.lineage_depth(), hex(grandchild.parent_id(), 8));
+    println!(
+        "  Grandchild:      depth={}, parent={}...",
+        grandchild.lineage_depth(),
+        hex(grandchild.parent_id(), 8)
+    );
     let gc_parent_matches = grandchild.parent_id() == child.file_id();
     println!("  GC parent match: {}", gc_parent_matches);
     println!();
@@ -138,7 +159,9 @@ fn main() {
     let query_vec = random_vector(dim, 42);
     let k = 5;
 
-    let parent_results = parent.query(&query_vec, k, &QueryOptions::default()).expect("parent query");
+    let parent_results = parent
+        .query(&query_vec, k, &QueryOptions::default())
+        .expect("parent query");
     println!("  Parent top-{} results:", k);
     for (i, r) in parent_results.iter().enumerate() {
         println!("    #{}: id={:4}, distance={:.6}", i + 1, r.id, r.distance);
@@ -167,10 +190,16 @@ fn main() {
     // Summary
     // ================================================================
     println!("=== COW Branching Summary ===\n");
-    println!("  Base store:      {} vectors, {:.1} KB",
-        parent_status.total_vectors, parent_status.file_size as f64 / 1024.0);
-    println!("  Child branch:    COW clone, {:.1} KB ({:.1}% of parent)",
-        child_status.file_size as f64 / 1024.0, ratio);
+    println!(
+        "  Base store:      {} vectors, {:.1} KB",
+        parent_status.total_vectors,
+        parent_status.file_size as f64 / 1024.0
+    );
+    println!(
+        "  Child branch:    COW clone, {:.1} KB ({:.1}% of parent)",
+        child_status.file_size as f64 / 1024.0,
+        ratio
+    );
     println!("  Lineage:         base -> child -> grandchild (3 generations)");
     println!("  Key insight:     Child stores only local changes, not full copy.");
     println!("                   Inherited data is read from parent on demand.");

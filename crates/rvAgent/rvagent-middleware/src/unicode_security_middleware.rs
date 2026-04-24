@@ -3,7 +3,7 @@
 //! Automatically checks tool inputs and outputs for Unicode-based security threats.
 
 use crate::unicode_security::{UnicodeIssue, UnicodeSecurityChecker, UnicodeSecurityConfig};
-use crate::{AgentState, AgentStateUpdate, Message, Middleware, Role, Runtime, RunnableConfig};
+use crate::{AgentState, AgentStateUpdate, Message, Middleware, Role, RunnableConfig, Runtime};
 use async_trait::async_trait;
 use tracing::{debug, warn};
 
@@ -126,7 +126,10 @@ impl Middleware for UnicodeSecurityMiddleware {
                     if !issues.is_empty() {
                         self.log_issues(
                             &issues,
-                            &format!("tool result: {}", msg.tool_name.as_deref().unwrap_or("unknown")),
+                            &format!(
+                                "tool result: {}",
+                                msg.tool_name.as_deref().unwrap_or("unknown")
+                            ),
                         );
 
                         // Sanitize if configured
@@ -300,7 +303,10 @@ mod tests {
             .with_input_sanitization(true);
 
         let state = AgentState {
-            messages: vec![Message::user("Hello world"), Message::tool("OK", "tc-1", "test")],
+            messages: vec![
+                Message::user("Hello world"),
+                Message::tool("OK", "tc-1", "test"),
+            ],
             todos: vec![],
             extensions: Default::default(),
         };
@@ -333,9 +339,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_permissive_config() {
-        let mw =
-            UnicodeSecurityMiddleware::new(UnicodeSecurityConfig::permissive())
-                .with_output_sanitization(true);
+        let mw = UnicodeSecurityMiddleware::new(UnicodeSecurityConfig::permissive())
+            .with_output_sanitization(true);
 
         let state = AgentState {
             messages: vec![

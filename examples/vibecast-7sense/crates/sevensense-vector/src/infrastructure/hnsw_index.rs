@@ -277,10 +277,7 @@ impl HnswIndex {
         self.inner = Some(hnsw);
         self.needs_rebuild = false;
 
-        debug!(
-            vectors = self.vectors.len(),
-            "Built HNSW index"
-        );
+        debug!(vectors = self.vectors.len(), "Built HNSW index");
         Ok(())
     }
 
@@ -415,7 +412,10 @@ mod tests {
 
         assert!(matches!(
             result,
-            Err(VectorError::DimensionMismatch { expected: 64, got: 32 })
+            Err(VectorError::DimensionMismatch {
+                expected: 64,
+                got: 32
+            })
         ));
     }
 
@@ -456,8 +456,12 @@ mod tests {
         let config = HnswConfig::for_dimension(64).with_max_elements(2);
         let mut index = HnswIndex::new(&config);
 
-        index.insert(EmbeddingId::new(), &random_vector(64, 1)).unwrap();
-        index.insert(EmbeddingId::new(), &random_vector(64, 2)).unwrap();
+        index
+            .insert(EmbeddingId::new(), &random_vector(64, 1))
+            .unwrap();
+        index
+            .insert(EmbeddingId::new(), &random_vector(64, 2))
+            .unwrap();
 
         let result = index.insert(EmbeddingId::new(), &random_vector(64, 3));
         assert!(matches!(result, Err(VectorError::CapacityExceeded { .. })));
@@ -536,10 +540,7 @@ mod tests {
         let similar_ids: Vec<_> = (0..5)
             .map(|i| {
                 let id = EmbeddingId::new();
-                let v: Vec<f32> = base
-                    .iter()
-                    .map(|&x| x + 0.01 * (i as f32 + 1.0))
-                    .collect();
+                let v: Vec<f32> = base.iter().map(|&x| x + 0.01 * (i as f32 + 1.0)).collect();
                 index.insert(id, &v).unwrap();
                 id
             })

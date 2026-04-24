@@ -84,7 +84,10 @@ impl SubAgentResultValidator {
 
         // 2. Strip control characters
         let cleaned: String = if self.config.strip_control_chars {
-            content.chars().filter(|&c| !is_dangerous_control(c)).collect()
+            content
+                .chars()
+                .filter(|&c| !is_dangerous_control(c))
+                .collect()
         } else {
             content.to_string()
         };
@@ -153,7 +156,10 @@ mod tests {
         let content = "a".repeat(101);
 
         let result = validator.validate(&content);
-        assert!(matches!(result, Err(ValidationError::ResponseTooLong { .. })));
+        assert!(matches!(
+            result,
+            Err(ValidationError::ResponseTooLong { .. })
+        ));
     }
 
     #[test]
@@ -189,7 +195,10 @@ mod tests {
         for attack in attacks {
             let result = validator.validate(attack);
             assert!(
-                matches!(result, Err(ValidationError::InjectionPatternDetected { .. })),
+                matches!(
+                    result,
+                    Err(ValidationError::InjectionPatternDetected { .. })
+                ),
                 "Failed to detect: {}",
                 attack
             );
@@ -208,7 +217,10 @@ mod tests {
         for attack in attacks {
             let result = validator.validate(attack);
             assert!(
-                matches!(result, Err(ValidationError::InjectionPatternDetected { .. })),
+                matches!(
+                    result,
+                    Err(ValidationError::InjectionPatternDetected { .. })
+                ),
                 "Failed to detect: {}",
                 attack
             );
@@ -227,7 +239,10 @@ mod tests {
         for attack in attacks {
             let result = validator.validate(attack);
             assert!(
-                matches!(result, Err(ValidationError::InjectionPatternDetected { .. })),
+                matches!(
+                    result,
+                    Err(ValidationError::InjectionPatternDetected { .. })
+                ),
                 "Failed to detect: {}",
                 attack
             );
@@ -244,7 +259,10 @@ mod tests {
 
         // Exceeds limit
         let result = validator.validate_tool_calls(21);
-        assert!(matches!(result, Err(ValidationError::TooManyToolCalls { .. })));
+        assert!(matches!(
+            result,
+            Err(ValidationError::TooManyToolCalls { .. })
+        ));
     }
 
     #[test]
@@ -289,7 +307,10 @@ mod tests {
         for attack in variations {
             let result = validator.validate(attack);
             assert!(
-                matches!(result, Err(ValidationError::InjectionPatternDetected { .. })),
+                matches!(
+                    result,
+                    Err(ValidationError::InjectionPatternDetected { .. })
+                ),
                 "Failed to detect case variation: {}",
                 attack
             );
@@ -374,7 +395,10 @@ mod tests {
         for content in injections {
             let result = validator.validate(content);
             assert!(
-                matches!(result, Err(ValidationError::InjectionPatternDetected { .. })),
+                matches!(
+                    result,
+                    Err(ValidationError::InjectionPatternDetected { .. })
+                ),
                 "Should reject prompt token: {}",
                 content
             );

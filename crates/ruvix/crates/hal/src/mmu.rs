@@ -344,12 +344,7 @@ pub trait Mmu {
     /// - `NotPageAligned` if addresses are not 4 KiB aligned
     /// - `AlreadyMapped` if virtual page is already mapped
     /// - `OutOfMemory` if page table allocation fails
-    fn map_page(
-        &mut self,
-        virt: u64,
-        phys: u64,
-        perms: PagePermissions,
-    ) -> Result<(), MmuError>;
+    fn map_page(&mut self, virt: u64, phys: u64, perms: PagePermissions) -> Result<(), MmuError>;
 
     /// Unmap a virtual page
     ///

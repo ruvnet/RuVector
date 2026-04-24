@@ -3,7 +3,7 @@
 //! Demonstrates how cut-aware search respects coherence boundaries
 //! in a multi-cluster vector space.
 
-use ruvector_data_framework::cut_aware_hnsw::{CutAwareHNSW, CutAwareConfig};
+use ruvector_data_framework::cut_aware_hnsw::{CutAwareConfig, CutAwareHNSW};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== Cut-Aware HNSW Demo ===\n");
@@ -67,7 +67,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (i, zone) in zones.iter().enumerate() {
         println!(
             "  Zone {}: {} nodes, coherence ratio: {:.3}",
-            i, zone.nodes.len(), zone.coherence_ratio
+            i,
+            zone.nodes.len(),
+            zone.coherence_ratio
         );
     }
     println!();
@@ -84,7 +86,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (i, result) in ungated.iter().enumerate() {
         println!(
             "  {}: Node {} - distance: {:.4}",
-            i + 1, result.node_id, result.distance
+            i + 1,
+            result.node_id,
+            result.distance
         );
     }
     println!();
@@ -95,7 +99,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (i, result) in gated.iter().enumerate() {
         println!(
             "  {}: Node {} - distance: {:.4}, cuts crossed: {}, coherence: {:.3}",
-            i + 1, result.node_id, result.distance, result.crossed_cuts, result.coherence_score
+            i + 1,
+            result.node_id,
+            result.distance,
+            result.crossed_cuts,
+            result.coherence_score
         );
     }
     println!();
@@ -111,7 +119,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (i, result) in gated_arts.iter().enumerate() {
         println!(
             "  {}: Node {} - distance: {:.4}, cuts crossed: {}, coherence: {:.3}",
-            i + 1, result.node_id, result.distance, result.crossed_cuts, result.coherence_score
+            i + 1,
+            result.node_id,
+            result.distance,
+            result.crossed_cuts,
+            result.coherence_score
         );
     }
     println!();
@@ -121,7 +133,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Finding coherent neighbors of Node 0 (Cluster A):");
 
     let neighborhood = index.coherent_neighborhood(0, 3);
-    println!("  Radius 3: {} reachable nodes without crossing weak cuts", neighborhood.len());
+    println!(
+        "  Radius 3: {} reachable nodes without crossing weak cuts",
+        neighborhood.len()
+    );
     println!("  Nodes: {:?}", &neighborhood[..neighborhood.len().min(10)]);
     println!();
 
@@ -137,7 +152,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for (i, result) in cross_zone.iter().enumerate() {
             println!(
                 "  {}: Node {} - distance: {:.4}, zone crossing: {}",
-                i + 1, result.node_id, result.distance, result.crossed_cuts
+                i + 1,
+                result.node_id,
+                result.distance,
+                result.crossed_cuts
             );
         }
         println!();

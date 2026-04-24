@@ -7,16 +7,16 @@
 //! - Per-sender nonce tracking with timestamps for expiry
 //! - Separate send/receive counters
 
-use ed25519_dalek::{SigningKey, VerifyingKey, Signature, Signer, Verifier};
-use x25519_dalek::{StaticSecret, PublicKey as X25519PublicKey};
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use hkdf::Hkdf;
-use sha2::Sha256;
+use parking_lot::RwLock;
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
+use sha2::Sha256;
 use std::collections::HashMap;
 use std::sync::Arc;
-use parking_lot::RwLock;
+use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret};
 
 /// Ed25519 key pair for identity/signing
 #[derive(Clone)]
@@ -29,7 +29,10 @@ impl KeyPair {
     pub fn generate() -> Self {
         let signing_key = SigningKey::generate(&mut OsRng);
         let verifying_key = signing_key.verifying_key();
-        Self { signing_key, verifying_key }
+        Self {
+            signing_key,
+            verifying_key,
+        }
     }
 
     pub fn public_key_bytes(&self) -> [u8; 32] {
@@ -37,7 +40,10 @@ impl KeyPair {
     }
 
     pub fn public_key_base64(&self) -> String {
-        base64::Engine::encode(&base64::engine::general_purpose::STANDARD, self.public_key_bytes())
+        base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            self.public_key_bytes(),
+        )
     }
 
     pub fn sign(&self, message: &[u8]) -> Signature {
@@ -164,7 +170,10 @@ impl IdentityManager {
     pub fn verify_from_registry(&self, sender_id: &str, data: &[u8], signature: &[u8; 64]) -> bool {
         let registry = self.member_registry.read();
         let Some(member) = registry.get(sender_id) else {
-            tracing::warn!("verify_from_registry: sender not in registry: {}", sender_id);
+            tracing::warn!(
+                "verify_from_registry: sender not in registry: {}",
+                sender_id
+            );
             return false;
         };
         KeyPair::verify(&member.ed25519_public_key, data, signature)
@@ -209,14 +218,19 @@ impl IdentityManager {
     pub fn get_active_members(&self, heartbeat_threshold_ms: u64) -> Vec<RegisteredMember> {
         let now = chrono::Utc::now().timestamp_millis() as u64;
         let registry = self.member_registry.read();
-        registry.values()
+        registry
+            .values()
             .filter(|m| now - m.last_heartbeat < heartbeat_threshold_ms)
             .cloned()
             .collect()
     }
 
     /// Create our registration (for publishing to registry)
-    pub fn create_registration(&self, agent_id: &str, capabilities: Vec<String>) -> RegisteredMember {
+    pub fn create_registration(
+        &self,
+        agent_id: &str,
+        capabilities: Vec<String>,
+    ) -> RegisteredMember {
         let joined_at = chrono::Utc::now().timestamp_millis() as u64;
 
         let mut member = RegisteredMember {
@@ -310,7 +324,9 @@ impl IdentityManager {
         }
 
         let mut nonces = self.seen_nonces.write();
-        let sender_nonces = nonces.entry(sender_id.to_string()).or_insert_with(HashMap::new);
+        let sender_nonces = nonces
+            .entry(sender_id.to_string())
+            .or_insert_with(HashMap::new);
 
         // Reject replayed nonces
         if sender_nonces.contains_key(nonce) {
@@ -356,7 +372,9 @@ impl IdentityManager {
 
     /// Rotate session key for peer
     pub fn rotate_session_key(&self, peer_id: &str) {
-        self.session_keys.write().retain(|k, _| !k.starts_with(peer_id));
+        self.session_keys
+            .write()
+            .retain(|k, _| !k.starts_with(peer_id));
     }
 }
 

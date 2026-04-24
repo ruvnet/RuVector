@@ -13,11 +13,11 @@
 //!
 //! Run: cargo run --example semantic_search
 
+use rvf_runtime::filter::FilterValue;
+use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{
     FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult,
 };
-use rvf_runtime::filter::FilterValue;
-use rvf_runtime::options::DistanceMetric;
 use tempfile::TempDir;
 
 /// Simple pseudo-random number generator (LCG) for deterministic results.
@@ -25,7 +25,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -88,10 +90,7 @@ fn main() {
         let start = batch_idx * batch_size;
         let end = start + batch_size;
 
-        let batch_vecs: Vec<&[f32]> = vectors[start..end]
-            .iter()
-            .map(|v| v.as_slice())
-            .collect();
+        let batch_vecs: Vec<&[f32]> = vectors[start..end].iter().map(|v| v.as_slice()).collect();
         let batch_ids: Vec<u64> = (start as u64..end as u64).collect();
 
         // 3 metadata entries per vector: category, word_count, publish_year
@@ -116,7 +115,10 @@ fn main() {
             .expect("failed to ingest batch");
     }
 
-    println!("Ingested {} documents across {} batches.\n", num_docs, num_batches);
+    println!(
+        "Ingested {} documents across {} batches.\n",
+        num_docs, num_batches
+    );
 
     // Print metadata distribution
     let mut cat_counts = [0usize; 5];
@@ -173,13 +175,17 @@ fn main() {
     print_results_table(&results_sci);
 
     // Measure recall: how many results actually match the filter
-    let sci_recall = results_sci.iter().filter(|r| {
-        let id = r.id as usize;
-        doc_category(id) == "science" && doc_publish_year(id) > 2023
-    }).count();
+    let sci_recall = results_sci
+        .iter()
+        .filter(|r| {
+            let id = r.id as usize;
+            doc_category(id) == "science" && doc_publish_year(id) > 2023
+        })
+        .count();
     println!(
         "  Filter recall: {}/{} results match (100% expected for pre-filter)",
-        sci_recall, results_sci.len()
+        sci_recall,
+        results_sci.len()
     );
 
     // Count eligible documents
@@ -188,7 +194,9 @@ fn main() {
         .count();
     println!(
         "  Eligible pool: {} out of {} documents ({:.1}% selectivity)",
-        sci_eligible, num_docs, sci_eligible as f64 / num_docs as f64 * 100.0
+        sci_eligible,
+        num_docs,
+        sci_eligible as f64 / num_docs as f64 * 100.0
     );
 
     // ====================================================================
@@ -207,11 +215,18 @@ fn main() {
 
     print_results_table(&results_wc);
 
-    let wc_recall = results_wc.iter().filter(|r| {
-        let wc = doc_word_count(r.id as usize);
-        (500..2000).contains(&wc)
-    }).count();
-    println!("  Filter recall: {}/{} results match", wc_recall, results_wc.len());
+    let wc_recall = results_wc
+        .iter()
+        .filter(|r| {
+            let wc = doc_word_count(r.id as usize);
+            (500..2000).contains(&wc)
+        })
+        .count();
+    println!(
+        "  Filter recall: {}/{} results match",
+        wc_recall,
+        results_wc.len()
+    );
 
     let wc_eligible = (0..num_docs)
         .filter(|&i| {
@@ -221,7 +236,9 @@ fn main() {
         .count();
     println!(
         "  Eligible pool: {} out of {} documents ({:.1}% selectivity)",
-        wc_eligible, num_docs, wc_eligible as f64 / num_docs as f64 * 100.0
+        wc_eligible,
+        num_docs,
+        wc_eligible as f64 / num_docs as f64 * 100.0
     );
 
     // ====================================================================
@@ -246,11 +263,18 @@ fn main() {
 
     print_results_table(&results_multi);
 
-    let multi_recall = results_multi.iter().filter(|r| {
-        let cat = doc_category(r.id as usize);
-        cat == "tech" || cat == "science"
-    }).count();
-    println!("  Filter recall: {}/{} results match", multi_recall, results_multi.len());
+    let multi_recall = results_multi
+        .iter()
+        .filter(|r| {
+            let cat = doc_category(r.id as usize);
+            cat == "tech" || cat == "science"
+        })
+        .count();
+    println!(
+        "  Filter recall: {}/{} results match",
+        multi_recall,
+        results_multi.len()
+    );
 
     let multi_eligible = (0..num_docs)
         .filter(|&i| {
@@ -260,33 +284,40 @@ fn main() {
         .count();
     println!(
         "  Eligible pool: {} out of {} documents ({:.1}% selectivity)",
-        multi_eligible, num_docs, multi_eligible as f64 / num_docs as f64 * 100.0
+        multi_eligible,
+        num_docs,
+        multi_eligible as f64 / num_docs as f64 * 100.0
     );
 
     // ====================================================================
     // Summary
     // ====================================================================
     println!("\n=== Search Summary ===\n");
-    println!(
-        "  {:>40}  {:>10}  {:>12}",
-        "Query", "Results", "Eligible"
-    );
+    println!("  {:>40}  {:>10}  {:>12}", "Query", "Results", "Eligible");
     println!("  {:->40}  {:->10}  {:->12}", "", "", "");
     println!(
         "  {:>40}  {:>10}  {:>12}",
-        "Unfiltered (baseline)", results_all.len(), num_docs
+        "Unfiltered (baseline)",
+        results_all.len(),
+        num_docs
     );
     println!(
         "  {:>40}  {:>10}  {:>12}",
-        "science AND year > 2023", results_sci.len(), sci_eligible
+        "science AND year > 2023",
+        results_sci.len(),
+        sci_eligible
     );
     println!(
         "  {:>40}  {:>10}  {:>12}",
-        "word_count in [500, 2000)", results_wc.len(), wc_eligible
+        "word_count in [500, 2000)",
+        results_wc.len(),
+        wc_eligible
     );
     println!(
         "  {:>40}  {:>10}  {:>12}",
-        "category IN [tech, science]", results_multi.len(), multi_eligible
+        "category IN [tech, science]",
+        results_multi.len(),
+        multi_eligible
     );
 
     let status = store.status();
@@ -312,7 +343,11 @@ fn print_results_table(results: &[SearchResult]) {
         let id = r.id as usize;
         println!(
             "  {:>6}  {:>12.6}  {:>10}  {:>12}  {:>6}",
-            r.id, r.distance, doc_category(id), doc_word_count(id), doc_publish_year(id)
+            r.id,
+            r.distance,
+            doc_category(id),
+            doc_word_count(id),
+            doc_publish_year(id)
         );
     }
 }

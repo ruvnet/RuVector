@@ -181,9 +181,9 @@ impl Attestor {
 
         // Cache hit rate (simulated - higher for Reflex tier)
         let cache_hit_rate_bps = match request.proof_tier {
-            ProofTier::Reflex => 9500, // 95%
+            ProofTier::Reflex => 9500,   // 95%
             ProofTier::Standard => 7000, // 70%
-            ProofTier::Deep => 2000, // 20%
+            ProofTier::Deep => 2000,     // 20%
         };
 
         ProofAttestation::new(
@@ -314,7 +314,7 @@ impl Component for Attestor {
         }
 
         Ok(ComponentTickResult::Processed(
-            self.pending_requests.len() as u32,
+            self.pending_requests.len() as u32
         ))
     }
 

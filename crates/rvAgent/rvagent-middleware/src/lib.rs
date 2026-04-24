@@ -104,7 +104,11 @@ impl Message {
         }
     }
 
-    pub fn tool(content: impl Into<String>, tool_call_id: impl Into<String>, name: impl Into<String>) -> Self {
+    pub fn tool(
+        content: impl Into<String>,
+        tool_call_id: impl Into<String>,
+        name: impl Into<String>,
+    ) -> Self {
         Self {
             role: Role::Tool,
             content: content.into(),
@@ -328,11 +332,7 @@ pub trait Middleware: Send + Sync {
     }
 
     /// Wrap a synchronous model call — intercept request/response.
-    fn wrap_model_call(
-        &self,
-        request: ModelRequest,
-        handler: &dyn ModelHandler,
-    ) -> ModelResponse {
+    fn wrap_model_call(&self, request: ModelRequest, handler: &dyn ModelHandler) -> ModelResponse {
         handler.call(request)
     }
 
@@ -547,9 +547,8 @@ pub struct PipelineConfig {
 /// UnicodeSecurityMiddleware runs before SONA to sanitize inputs/outputs (C7).
 /// SONA wraps model calls late to capture full request/response context.
 pub fn build_default_pipeline(config: &PipelineConfig) -> MiddlewarePipeline {
-    let mut middlewares: Vec<Box<dyn Middleware>> = vec![
-        Box::new(todolist::TodoListMiddleware::new()),
-    ];
+    let mut middlewares: Vec<Box<dyn Middleware>> =
+        vec![Box::new(todolist::TodoListMiddleware::new())];
 
     // HNSW early for context augmentation (ADR-103 B6)
     if config.enable_hnsw {
@@ -602,7 +601,9 @@ pub fn build_default_pipeline(config: &PipelineConfig) -> MiddlewarePipeline {
         middlewares.push(Box::new(witness::WitnessMiddleware::new()));
     }
 
-    middlewares.push(Box::new(tool_sanitizer::ToolResultSanitizerMiddleware::new()));
+    middlewares.push(Box::new(
+        tool_sanitizer::ToolResultSanitizerMiddleware::new(),
+    ));
 
     if let Some(patterns) = &config.interrupt_on {
         middlewares.push(Box::new(hitl::HumanInTheLoopMiddleware::new(
@@ -729,8 +730,7 @@ mod tests {
             Box::new(PrependMiddleware::new("B")),
         ]);
 
-        let request = ModelRequest::new(vec![Message::user("hi")])
-            .with_system(Some("base".into()));
+        let request = ModelRequest::new(vec![Message::user("hi")]).with_system(Some("base".into()));
 
         // Track what system message the handler receives
         struct CaptureHandler;
@@ -749,10 +749,8 @@ mod tests {
 
     #[test]
     fn test_pipeline_tool_collection() {
-        let pipeline = MiddlewarePipeline::new(vec![
-            Box::new(ToolInjector),
-            Box::new(ToolInjector),
-        ]);
+        let pipeline =
+            MiddlewarePipeline::new(vec![Box::new(ToolInjector), Box::new(ToolInjector)]);
         let tools = pipeline.collect_tools();
         assert_eq!(tools.len(), 2);
         assert_eq!(tools[0].name(), "dummy_tool");
@@ -770,7 +768,9 @@ mod tests {
         let config = RunnableConfig::default();
         let request = ModelRequest::new(vec![Message::user("test")]);
 
-        let response = pipeline.run(&mut state, &runtime, &config, request, &EchoHandler).await;
+        let response = pipeline
+            .run(&mut state, &runtime, &config, request, &EchoHandler)
+            .await;
         assert!(response.message.content.contains("echo"));
     }
 

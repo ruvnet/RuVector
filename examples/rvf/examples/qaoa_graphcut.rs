@@ -32,7 +32,7 @@
 //!
 //! Run: cargo run --example qaoa_graphcut --release
 
-use ruqu_algorithms::qaoa::{Graph, QaoaConfig, run_qaoa};
+use ruqu_algorithms::qaoa::{run_qaoa, Graph, QaoaConfig};
 use std::collections::VecDeque;
 use std::time::Instant;
 
@@ -41,7 +41,9 @@ use std::time::Instant;
 // ---------------------------------------------------------------------------
 
 fn lcg_next(s: &mut u64) -> u64 {
-    *s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+    *s = s
+        .wrapping_mul(6364136223846793005)
+        .wrapping_add(1442695040888963407);
     *s
 }
 fn lcg_f64(s: &mut u64) -> f64 {
@@ -74,17 +76,14 @@ fn solve_mincut_classical(
     let mut adj: Vec<Vec<(usize, usize)>> = vec![Vec::new(); n];
     let mut caps: Vec<f64> = Vec::new();
 
-    let add_edge = |adj: &mut Vec<Vec<(usize, usize)>>,
-                    caps: &mut Vec<f64>,
-                    u: usize,
-                    v: usize,
-                    cap: f64| {
-        let i = caps.len();
-        caps.push(cap);
-        caps.push(0.0);
-        adj[u].push((v, i));
-        adj[v].push((u, i + 1));
-    };
+    let add_edge =
+        |adj: &mut Vec<Vec<(usize, usize)>>, caps: &mut Vec<f64>, u: usize, v: usize, cap: f64| {
+            let i = caps.len();
+            caps.push(cap);
+            caps.push(0.0);
+            adj[u].push((v, i));
+            adj[v].push((u, i + 1));
+        };
 
     // Unary edges: source/sink connections based on lambda sign
     for i in 0..num_nodes {
@@ -157,11 +156,7 @@ fn solve_mincut_classical(
 }
 
 /// Compute the total graph-cut energy for a given labelling.
-fn graphcut_energy(
-    lambda: &[f64],
-    edges: &[(usize, usize, f64)],
-    labels: &[bool],
-) -> f64 {
+fn graphcut_energy(lambda: &[f64], edges: &[(usize, usize, f64)], labels: &[bool]) -> f64 {
     let mut energy = 0.0;
     // Unary terms
     for (i, &lam) in lambda.iter().enumerate() {
@@ -249,10 +244,7 @@ fn encode_graphcut_as_maxcut(
 ///
 /// The source node (s) defines the "background" partition. Any problem node
 /// on the opposite side of s is labelled foreground (true).
-fn extract_labels_from_maxcut(
-    bitstring: &[bool],
-    num_nodes: usize,
-) -> Vec<bool> {
+fn extract_labels_from_maxcut(bitstring: &[bool], num_nodes: usize) -> Vec<bool> {
     let s_partition = bitstring[num_nodes]; // source node partition
     (0..num_nodes)
         .map(|i| bitstring[i] != s_partition) // opposite side of s = foreground
@@ -293,7 +285,11 @@ fn make_1d_chain(
     for i in 0..num_nodes {
         let is_fg = i >= fg_start && i < fg_end;
         ground_truth.push(is_fg);
-        let base = if is_fg { signal_strength } else { -signal_strength };
+        let base = if is_fg {
+            signal_strength
+        } else {
+            -signal_strength
+        };
         lambda.push(base + lcg_normal(&mut rng) * noise_sigma);
     }
 
@@ -303,15 +299,16 @@ fn make_1d_chain(
         edges.push((i, i + 1, gamma));
     }
 
-    TestCase { num_nodes, lambda, edges, ground_truth, name }
+    TestCase {
+        num_nodes,
+        lambda,
+        edges,
+        ground_truth,
+        name,
+    }
 }
 
-fn make_2d_grid(
-    width: usize,
-    height: usize,
-    seed: u64,
-    name: &'static str,
-) -> TestCase {
+fn make_2d_grid(width: usize, height: usize, seed: u64, name: &'static str) -> TestCase {
     let num_nodes = width * height;
     let mut rng = seed;
     let mut lambda = Vec::with_capacity(num_nodes);
@@ -345,7 +342,13 @@ fn make_2d_grid(
         }
     }
 
-    TestCase { num_nodes, lambda, edges, ground_truth, name }
+    TestCase {
+        num_nodes,
+        lambda,
+        edges,
+        ground_truth,
+        name,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -363,8 +366,16 @@ fn compute_accuracy(pred: &[bool], truth: &[bool]) -> (f64, f64, f64, f64) {
         }
     }
     let accuracy = (tp + tn) as f64 / (tp + tn + fp + fn_) as f64;
-    let precision = if tp + fp > 0 { tp as f64 / (tp + fp) as f64 } else { 0.0 };
-    let recall = if tp + fn_ > 0 { tp as f64 / (tp + fn_) as f64 } else { 0.0 };
+    let precision = if tp + fp > 0 {
+        tp as f64 / (tp + fp) as f64
+    } else {
+        0.0
+    };
+    let recall = if tp + fn_ > 0 {
+        tp as f64 / (tp + fn_) as f64
+    } else {
+        0.0
+    };
     let f1 = if precision + recall > 0.0 {
         2.0 * precision * recall / (precision + recall)
     } else {
@@ -415,8 +426,7 @@ fn main() {
 
     println!(
         "  {:>22}  {:>5}  {:>5}  {:>8}  {:>8}  {:>8}  {:>8}  {:>9}  {:>9}",
-        "Test Case", "Nodes", "Edges", "CL-Enrg", "QA-Enrg", "BF-Enrg",
-        "QA/CL", "CL-F1", "QA-F1"
+        "Test Case", "Nodes", "Edges", "CL-Enrg", "QA-Enrg", "BF-Enrg", "QA/CL", "CL-F1", "QA-F1"
     );
     println!(
         "  {:->22}  {:->5}  {:->5}  {:->8}  {:->8}  {:->8}  {:->8}  {:->9}  {:->9}",
@@ -452,7 +462,7 @@ fn run_test_case(tc: &TestCase) {
     let t1 = Instant::now();
     let qaoa_result = run_qaoa(&QaoaConfig {
         graph: augmented,
-        p: 3,                // depth-3 QAOA
+        p: 3, // depth-3 QAOA
         max_iterations: 80,
         learning_rate: 0.15,
         seed: Some(42),
@@ -489,7 +499,10 @@ fn run_test_case(tc: &TestCase) {
 
     // Detailed per-case output
     println!();
-    println!("    Qubits (QAOA): {} ({} problem + 2 auxiliary s,t)", qaoa_qubits, num_nodes);
+    println!(
+        "    Qubits (QAOA): {} ({} problem + 2 auxiliary s,t)",
+        qaoa_qubits, num_nodes
+    );
     println!("    Classical time: {:?}", classical_time);
     println!("    QAOA time:      {:?}", qaoa_time);
     println!("    QAOA converged: {}", qaoa_result.converged);
@@ -541,10 +554,14 @@ fn run_convergence_analysis() {
     let cl_energy = graphcut_energy(&tc.lambda, &tc.edges, &cl_labels);
     println!("  Classical mincut energy: {:.4}", cl_energy);
     println!();
-    println!("  {:>5}  {:>10}  {:>10}  {:>10}  {:>10}",
+    println!(
+        "  {:>5}  {:>10}  {:>10}  {:>10}  {:>10}",
         "p", "QAOA-Cut", "GC-Energy", "Ratio", "Iters"
     );
-    println!("  {:->5}  {:->10}  {:->10}  {:->10}  {:->10}", "", "", "", "", "");
+    println!(
+        "  {:->5}  {:->10}  {:->10}  {:->10}  {:->10}",
+        "", "", "", "", ""
+    );
 
     for p in 1..=5 {
         // Rebuild the graph for each depth (run_qaoa takes ownership via ref)
@@ -564,7 +581,11 @@ fn run_convergence_analysis() {
 
         let labels = extract_labels_from_maxcut(&result.best_bitstring, tc.num_nodes);
         let energy = graphcut_energy(&tc.lambda, &tc.edges, &labels);
-        let ratio = if cl_energy > 1e-12 { energy / cl_energy } else { 1.0 };
+        let ratio = if cl_energy > 1e-12 {
+            energy / cl_energy
+        } else {
+            1.0
+        };
 
         println!(
             "  {:>5}  {:>10.4}  {:>10.4}  {:>10.4}  {:>10}",

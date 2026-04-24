@@ -45,10 +45,7 @@ impl SparseVector {
             *map.entry(idx).or_insert(0.0) += val;
         }
 
-        let mut entries: Vec<(u32, f32)> = map
-            .into_iter()
-            .filter(|(_, v)| *v != 0.0)
-            .collect();
+        let mut entries: Vec<(u32, f32)> = map.into_iter().filter(|(_, v)| *v != 0.0).collect();
         entries.sort_unstable_by_key(|(idx, _)| *idx);
 
         let (indices, values) = entries.into_iter().unzip();
@@ -170,13 +167,10 @@ impl SparseIndex {
 
         // Add new postings.
         for (pos, &dim) in vector.indices.iter().enumerate() {
-            self.postings
-                .entry(dim)
-                .or_default()
-                .push(PostingEntry {
-                    doc_id: doc_id.clone(),
-                    weight: vector.values[pos],
-                });
+            self.postings.entry(dim).or_default().push(PostingEntry {
+                doc_id: doc_id.clone(),
+                weight: vector.values[pos],
+            });
         }
 
         self.docs.insert(doc_id, vector);
@@ -249,11 +243,7 @@ impl SparseIndex {
     }
 
     /// Batch search: run multiple queries and return results for each.
-    pub fn search_batch(
-        &self,
-        queries: &[SparseVector],
-        k: usize,
-    ) -> Vec<Vec<ScoredDoc>> {
+    pub fn search_batch(&self, queries: &[SparseVector], k: usize) -> Vec<Vec<ScoredDoc>> {
         queries.iter().map(|q| self.search(q, k)).collect()
     }
 }
@@ -279,7 +269,10 @@ pub enum FusionStrategy {
     /// Reciprocal Rank Fusion. `k` controls rank-pressure (default 60).
     RRF { k: f32 },
     /// Weighted linear combination of normalised scores.
-    Linear { dense_weight: f32, sparse_weight: f32 },
+    Linear {
+        dense_weight: f32,
+        sparse_weight: f32,
+    },
     /// Distribution-Based Score Fusion: normalise each list to N(0,1) then
     /// combine with equal weight.
     DBSF,
@@ -331,12 +324,7 @@ pub fn fuse_rankings(
 // -- RRF -------------------------------------------------------------------
 
 /// Reciprocal Rank Fusion: score(d) = sum_over_lists 1 / (k + rank(d)).
-fn fuse_rrf(
-    dense: &[ScoredDoc],
-    sparse: &[ScoredDoc],
-    k: f32,
-    top_k: usize,
-) -> Vec<ScoredDoc> {
+fn fuse_rrf(dense: &[ScoredDoc], sparse: &[ScoredDoc], k: f32, top_k: usize) -> Vec<ScoredDoc> {
     let mut scores: HashMap<VectorId, f32> = HashMap::new();
 
     for (rank, doc) in dense.iter().enumerate() {
@@ -377,11 +365,7 @@ fn fuse_linear(
 // -- DBSF ------------------------------------------------------------------
 
 /// Distribution-Based Score Fusion: z-score normalise, then average.
-fn fuse_dbsf(
-    dense: &[ScoredDoc],
-    sparse: &[ScoredDoc],
-    top_k: usize,
-) -> Vec<ScoredDoc> {
+fn fuse_dbsf(dense: &[ScoredDoc], sparse: &[ScoredDoc], top_k: usize) -> Vec<ScoredDoc> {
     let z_dense = z_score_normalize(dense);
     let z_sparse = z_score_normalize(sparse);
 
@@ -542,10 +526,7 @@ mod tests {
     #[test]
     fn test_index_single_result() {
         let mut idx = SparseIndex::new();
-        idx.insert(
-            "only".into(),
-            SparseVector::from_sorted(vec![7], vec![2.0]),
-        );
+        idx.insert("only".into(), SparseVector::from_sorted(vec![7], vec![2.0]));
         let query = SparseVector::from_sorted(vec![7], vec![3.0]);
         let results = idx.search(&query, 5);
         assert_eq!(results.len(), 1);
@@ -556,10 +537,7 @@ mod tests {
     #[test]
     fn test_index_remove() {
         let mut idx = SparseIndex::new();
-        idx.insert(
-            "d1".into(),
-            SparseVector::from_sorted(vec![0], vec![1.0]),
-        );
+        idx.insert("d1".into(), SparseVector::from_sorted(vec![0], vec![1.0]));
         assert_eq!(idx.len(), 1);
         assert!(idx.remove(&"d1".into()));
         assert_eq!(idx.len(), 0);
@@ -574,10 +552,7 @@ mod tests {
             SparseVector::from_sorted(vec![0, 1], vec![1.0, 2.0]),
         );
         // Re-insert same id with different dimensions.
-        idx.insert(
-            "d1".into(),
-            SparseVector::from_sorted(vec![3], vec![5.0]),
-        );
+        idx.insert("d1".into(), SparseVector::from_sorted(vec![3], vec![5.0]));
         assert_eq!(idx.len(), 1);
 
         // Old dimensions should not match.
@@ -597,14 +572,32 @@ mod tests {
     fn test_rrf_fusion_basic() {
         // Two lists with overlapping documents.
         let dense = vec![
-            ScoredDoc { id: "a".into(), score: 10.0 },
-            ScoredDoc { id: "b".into(), score: 8.0 },
-            ScoredDoc { id: "c".into(), score: 6.0 },
+            ScoredDoc {
+                id: "a".into(),
+                score: 10.0,
+            },
+            ScoredDoc {
+                id: "b".into(),
+                score: 8.0,
+            },
+            ScoredDoc {
+                id: "c".into(),
+                score: 6.0,
+            },
         ];
         let sparse = vec![
-            ScoredDoc { id: "b".into(), score: 9.0 },
-            ScoredDoc { id: "d".into(), score: 7.0 },
-            ScoredDoc { id: "a".into(), score: 5.0 },
+            ScoredDoc {
+                id: "b".into(),
+                score: 9.0,
+            },
+            ScoredDoc {
+                id: "d".into(),
+                score: 7.0,
+            },
+            ScoredDoc {
+                id: "a".into(),
+                score: 5.0,
+            },
         ];
 
         let config = FusionConfig {
@@ -622,12 +615,14 @@ mod tests {
 
     #[test]
     fn test_rrf_with_disjoint_lists() {
-        let dense = vec![
-            ScoredDoc { id: "x".into(), score: 5.0 },
-        ];
-        let sparse = vec![
-            ScoredDoc { id: "y".into(), score: 5.0 },
-        ];
+        let dense = vec![ScoredDoc {
+            id: "x".into(),
+            score: 5.0,
+        }];
+        let sparse = vec![ScoredDoc {
+            id: "y".into(),
+            score: 5.0,
+        }];
 
         let config = FusionConfig {
             strategy: FusionStrategy::RRF { k: 60.0 },
@@ -644,12 +639,24 @@ mod tests {
     #[test]
     fn test_linear_fusion() {
         let dense = vec![
-            ScoredDoc { id: "a".into(), score: 10.0 },
-            ScoredDoc { id: "b".into(), score: 5.0 },
+            ScoredDoc {
+                id: "a".into(),
+                score: 10.0,
+            },
+            ScoredDoc {
+                id: "b".into(),
+                score: 5.0,
+            },
         ];
         let sparse = vec![
-            ScoredDoc { id: "b".into(), score: 10.0 },
-            ScoredDoc { id: "a".into(), score: 5.0 },
+            ScoredDoc {
+                id: "b".into(),
+                score: 10.0,
+            },
+            ScoredDoc {
+                id: "a".into(),
+                score: 5.0,
+            },
         ];
 
         let config = FusionConfig {
@@ -670,12 +677,24 @@ mod tests {
     #[test]
     fn test_dbsf_fusion() {
         let dense = vec![
-            ScoredDoc { id: "a".into(), score: 10.0 },
-            ScoredDoc { id: "b".into(), score: 8.0 },
+            ScoredDoc {
+                id: "a".into(),
+                score: 10.0,
+            },
+            ScoredDoc {
+                id: "b".into(),
+                score: 8.0,
+            },
         ];
         let sparse = vec![
-            ScoredDoc { id: "a".into(), score: 6.0 },
-            ScoredDoc { id: "c".into(), score: 4.0 },
+            ScoredDoc {
+                id: "a".into(),
+                score: 6.0,
+            },
+            ScoredDoc {
+                id: "c".into(),
+                score: 4.0,
+            },
         ];
 
         let config = FusionConfig {
@@ -694,7 +713,10 @@ mod tests {
         let fused = fuse_rankings(&[], &[], &config);
         assert!(fused.is_empty());
 
-        let single = vec![ScoredDoc { id: "x".into(), score: 1.0 }];
+        let single = vec![ScoredDoc {
+            id: "x".into(),
+            score: 1.0,
+        }];
         let fused2 = fuse_rankings(&single, &[], &config);
         assert_eq!(fused2.len(), 1);
         assert_eq!(fused2[0].id, "x");

@@ -55,7 +55,7 @@ mod kernel_queue;
 mod ring;
 mod ring_optimized;
 
-pub use descriptor::{MessageDescriptor, DescriptorValidator};
+pub use descriptor::{DescriptorValidator, MessageDescriptor};
 pub use kernel_queue::{KernelQueue, QueueConfig};
 pub use ring::{RingBuffer, RingEntry, RingStats};
 pub use ring_optimized::{OptimizedRingBuffer, OptimizedRingEntry, OptimizedRingSlot};

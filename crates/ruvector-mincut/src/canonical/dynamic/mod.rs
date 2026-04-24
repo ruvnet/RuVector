@@ -34,12 +34,11 @@
 //! `epoch - last_full_epoch > staleness_threshold`, a full recompute
 //! is triggered automatically.
 
-use crate::graph::{VertexId, Weight};
-use crate::canonical::FixedWeight;
 use crate::canonical::source_anchored::{
-    canonical_mincut, SourceAnchoredConfig, SourceAnchoredCut, SourceAnchoredReceipt,
-    make_receipt,
+    canonical_mincut, make_receipt, SourceAnchoredConfig, SourceAnchoredCut, SourceAnchoredReceipt,
 };
+use crate::canonical::FixedWeight;
+use crate::graph::{VertexId, Weight};
 
 use std::collections::HashSet;
 
@@ -267,12 +266,7 @@ impl DynamicMinCut {
     /// cut value is unchanged and no recomputation is needed.
     /// If the edge crosses the cut, the cut value may increase and
     /// we must recompute.
-    pub fn add_edge(
-        &mut self,
-        u: VertexId,
-        v: VertexId,
-        weight: Weight,
-    ) -> crate::Result<f64> {
+    pub fn add_edge(&mut self, u: VertexId, v: VertexId, weight: Weight) -> crate::Result<f64> {
         let val = self.inner.insert_edge(u, v, weight)?;
         self.epoch += 1;
 
@@ -301,11 +295,7 @@ impl DynamicMinCut {
     /// If the edge is not in the current cut set, the cut value is
     /// unchanged. If it is in the cut set, the cut value decreases
     /// and we must recompute.
-    pub fn remove_edge(
-        &mut self,
-        u: VertexId,
-        v: VertexId,
-    ) -> crate::Result<f64> {
+    pub fn remove_edge(&mut self, u: VertexId, v: VertexId) -> crate::Result<f64> {
         let val = self.inner.delete_edge(u, v)?;
         self.epoch += 1;
 
@@ -330,10 +320,7 @@ impl DynamicMinCut {
     /// This is more efficient than individual mutations when many
     /// edges change at once, because we defer the recomputation
     /// decision until all mutations are applied.
-    pub fn apply_batch(
-        &mut self,
-        mutations: &[EdgeMutation],
-    ) -> crate::Result<()> {
+    pub fn apply_batch(&mut self, mutations: &[EdgeMutation]) -> crate::Result<()> {
         let mut needs_recompute = self.dirty;
 
         for mutation in mutations {
@@ -410,7 +397,11 @@ impl Default for DynamicMinCut {
 
 /// Normalize an edge so (u, v) always has u < v.
 fn normalize_edge(u: VertexId, v: VertexId) -> (VertexId, VertexId) {
-    if u <= v { (u, v) } else { (v, u) }
+    if u <= v {
+        (u, v)
+    } else {
+        (v, u)
+    }
 }
 
 // ---------------------------------------------------------------------------

@@ -53,9 +53,9 @@ impl JsModelProvider {
         let result = self.callback.call1(&JsValue::NULL, &arg)?;
 
         // The callback should return a Promise.
-        let promise: js_sys::Promise = result.dyn_into().map_err(|_| {
-            JsValue::from_str("model callback must return a Promise")
-        })?;
+        let promise: js_sys::Promise = result
+            .dyn_into()
+            .map_err(|_| JsValue::from_str("model callback must return a Promise"))?;
 
         let resolved = wasm_bindgen_futures::JsFuture::from(promise).await?;
 
@@ -115,11 +115,7 @@ pub fn get_optional_string_field(obj: &JsValue, field: &str) -> Option<String> {
 pub fn js_object(entries: &[(&str, &str)]) -> Result<JsValue, JsValue> {
     let obj = js_sys::Object::new();
     for (key, value) in entries {
-        js_sys::Reflect::set(
-            &obj,
-            &JsValue::from_str(key),
-            &JsValue::from_str(value),
-        )?;
+        js_sys::Reflect::set(&obj, &JsValue::from_str(key), &JsValue::from_str(value))?;
     }
     Ok(obj.into())
 }

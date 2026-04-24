@@ -415,7 +415,11 @@ mod tests {
             Ok(())
         }
 
-        fn set_trigger_mode(&mut self, _irq: u32, _mode: TriggerMode) -> Result<(), InterruptError> {
+        fn set_trigger_mode(
+            &mut self,
+            _irq: u32,
+            _mode: TriggerMode,
+        ) -> Result<(), InterruptError> {
             Ok(())
         }
 

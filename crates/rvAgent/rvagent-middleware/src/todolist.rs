@@ -4,8 +4,7 @@ use async_trait::async_trait;
 use serde_json;
 
 use crate::{
-    AgentState, AgentStateUpdate, Middleware,
-    RunnableConfig, Runtime, TodoItem, TodoStatus, Tool,
+    AgentState, AgentStateUpdate, Middleware, RunnableConfig, Runtime, TodoItem, TodoStatus, Tool,
 };
 
 /// Middleware that manages a todo list in agent state.
@@ -47,10 +46,9 @@ impl Middleware for TodoListMiddleware {
 
         // Store formatted todos in extensions for system prompt injection
         let mut update = AgentStateUpdate::default();
-        update.extensions.insert(
-            "todo_context".into(),
-            serde_json::Value::String(todo_text),
-        );
+        update
+            .extensions
+            .insert("todo_context".into(), serde_json::Value::String(todo_text));
         Some(update)
     }
 

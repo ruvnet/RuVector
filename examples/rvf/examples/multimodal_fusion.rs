@@ -14,11 +14,11 @@
 //!
 //! Run: cargo run --example multimodal_fusion
 
+use rvf_runtime::filter::FilterValue;
+use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{
     FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult,
 };
-use rvf_runtime::filter::FilterValue;
-use rvf_runtime::options::DistanceMetric;
 use tempfile::TempDir;
 
 /// Simple LCG-based pseudo-random vector generator for deterministic results.
@@ -26,7 +26,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -143,10 +145,17 @@ fn main() {
         .ingest_batch(&image_refs, &image_ids, Some(&image_meta))
         .expect("image ingest failed");
     println!("  Ingested {} image embeddings", image_ingest.accepted);
-    println!("  ({} paired with text, {} independent)", 50, num_image - 50);
+    println!(
+        "  ({} paired with text, {} independent)",
+        50,
+        num_image - 50
+    );
 
     let status = store.status();
-    println!("\n  Total vectors: {} ({} text + {} image)", status.total_vectors, num_text, num_image);
+    println!(
+        "\n  Total vectors: {} ({} text + {} image)",
+        status.total_vectors, num_text, num_image
+    );
 
     // ====================================================================
     // 4. Unfiltered search (both modalities)
@@ -164,9 +173,18 @@ fn main() {
     println!("  Query: text embedding #10 -> top-{}:", k);
     print_modal_results(&results_all, num_text);
 
-    let text_in_results = results_all.iter().filter(|r| (r.id as usize) < num_text).count();
-    let image_in_results = results_all.iter().filter(|r| (r.id as usize) >= num_text).count();
-    println!("  Mix: {} text, {} image", text_in_results, image_in_results);
+    let text_in_results = results_all
+        .iter()
+        .filter(|r| (r.id as usize) < num_text)
+        .count();
+    let image_in_results = results_all
+        .iter()
+        .filter(|r| (r.id as usize) >= num_text)
+        .count();
+    println!(
+        "  Mix: {} text, {} image",
+        text_in_results, image_in_results
+    );
 
     // ====================================================================
     // 5. Cross-modal: query text, find images only
@@ -186,7 +204,11 @@ fn main() {
     print_modal_results(&results_cross, num_text);
 
     for r in &results_cross {
-        assert!(r.id as usize >= num_text, "expected image, got text ID {}", r.id);
+        assert!(
+            r.id as usize >= num_text,
+            "expected image, got text ID {}",
+            r.id
+        );
     }
     println!("  All results verified: modality == image.");
 
@@ -196,7 +218,11 @@ fn main() {
     println!(
         "  Paired image (ID {}): {}",
         paired_id,
-        if paired_found { "FOUND (cross-modal alignment works)" } else { "not in top-k" }
+        if paired_found {
+            "FOUND (cross-modal alignment works)"
+        } else {
+            "not in top-k"
+        }
     );
 
     // ====================================================================
@@ -217,7 +243,11 @@ fn main() {
     print_modal_results(&results_same, num_text);
 
     for r in &results_same {
-        assert!((r.id as usize) < num_text, "expected text, got image ID {}", r.id);
+        assert!(
+            (r.id as usize) < num_text,
+            "expected text, got image ID {}",
+            r.id
+        );
     }
     println!("  All results verified: modality == text.");
 
@@ -237,13 +267,21 @@ fn main() {
         .query(query_image, k, &opts_text2)
         .expect("query failed");
 
-    println!("  Query: paired image #{} -> text only (top-{}):", num_text + 10, k);
+    println!(
+        "  Query: paired image #{} -> text only (top-{}):",
+        num_text + 10,
+        k
+    );
     print_modal_results(&results_img2txt, num_text);
 
     let paired_text_found = results_img2txt.iter().any(|r| r.id == 10);
     println!(
         "  Paired text (ID 10): {}",
-        if paired_text_found { "FOUND (bidirectional alignment)" } else { "not in top-k" }
+        if paired_text_found {
+            "FOUND (bidirectional alignment)"
+        } else {
+            "not in top-k"
+        }
     );
 
     // ====================================================================
@@ -269,10 +307,18 @@ fn main() {
     // Summary
     // ====================================================================
     println!("\n=== Multi-Modal Fusion Summary ===\n");
-    println!("  Total embeddings:     {} ({} text + {} image)", total, num_text, num_image);
+    println!(
+        "  Total embeddings:     {} ({} text + {} image)",
+        total, num_text, num_image
+    );
     println!("  Paired embeddings:    50 (CLIP-style alignment)");
     println!("  Embedding dims:       {}", dim);
-    println!("  Unfiltered results:   {} ({} text, {} image)", results_all.len(), text_in_results, image_in_results);
+    println!(
+        "  Unfiltered results:   {} ({} text, {} image)",
+        results_all.len(),
+        text_in_results,
+        image_in_results
+    );
     println!("  Cross-modal (T->I):   {} results", results_cross.len());
     println!("  Same-modal (T->T):    {} results", results_same.len());
     println!("  Cross-modal (I->T):   {} results", results_img2txt.len());
@@ -297,7 +343,10 @@ fn print_modal_results(results: &[SearchResult], text_count: usize) {
             ("text", text_content_types[idx % text_content_types.len()])
         } else {
             let img_idx = idx - text_count;
-            ("image", image_content_types[img_idx % image_content_types.len()])
+            (
+                "image",
+                image_content_types[img_idx % image_content_types.len()],
+            )
         };
         println!(
             "    {:>6}  {:>12.6}  {:>8}  {:>12}",

@@ -16,9 +16,7 @@ fn bench_handle_construction(c: &mut Criterion) {
         b.iter(|| Handle::new(black_box(42), black_box(7)))
     });
 
-    group.bench_function("Handle::null", |b| {
-        b.iter(|| Handle::null())
-    });
+    group.bench_function("Handle::null", |b| b.iter(|| Handle::null()));
 
     group.bench_function("Handle::to_raw", |b| {
         let h = Handle::new(12345, 67890);
@@ -195,25 +193,15 @@ fn bench_capability_derivation_throughput(c: &mut Criterion) {
     group.throughput(Throughput::Elements(1));
 
     for count in [10, 100, 1000].iter() {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(count),
-            count,
-            |b, &count| {
-                let cap = Capability::new(
-                    1,
-                    ObjectType::VectorStore,
-                    CapRights::ALL,
-                    0,
-                    1,
-                );
+        group.bench_with_input(BenchmarkId::from_parameter(count), count, |b, &count| {
+            let cap = Capability::new(1, ObjectType::VectorStore, CapRights::ALL, 0, 1);
 
-                b.iter(|| {
-                    for i in 0..count {
-                        let _ = black_box(&cap).derive(CapRights::READ, i as u64);
-                    }
-                })
-            },
-        );
+            b.iter(|| {
+                for i in 0..count {
+                    let _ = black_box(&cap).derive(CapRights::READ, i as u64);
+                }
+            })
+        });
     }
 
     group.finish();

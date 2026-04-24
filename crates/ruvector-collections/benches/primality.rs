@@ -10,9 +10,7 @@
 //! | `next_prime_u64` (2^61)                  | ≤ 12 µs |
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use ruvector_collections::primality::{
-    is_prime_u64, next_prime_u64, prev_prime_below_pow2,
-};
+use ruvector_collections::primality::{is_prime_u64, next_prime_u64, prev_prime_below_pow2};
 
 fn bench_is_prime_u64_worst_case(c: &mut Criterion) {
     // The Sinclair witness loop runs to completion only on actual primes,

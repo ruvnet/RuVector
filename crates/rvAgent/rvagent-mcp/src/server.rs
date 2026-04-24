@@ -71,7 +71,10 @@ impl McpServer {
         }
     }
 
-    async fn dispatch(&self, request: JsonRpcRequest) -> std::result::Result<serde_json::Value, JsonRpcError> {
+    async fn dispatch(
+        &self,
+        request: JsonRpcRequest,
+    ) -> std::result::Result<serde_json::Value, JsonRpcError> {
         match McpMethod::from_str(&request.method) {
             Some(McpMethod::Initialize) => self.handle_initialize(),
             Some(McpMethod::Ping) => Ok(serde_json::json!({})),
@@ -81,9 +84,7 @@ impl McpServer {
             Some(McpMethod::ResourcesRead) => self.handle_resources_read(request.params).await,
             Some(McpMethod::ResourcesTemplatesList) => self.handle_templates_list(),
             Some(McpMethod::PromptsList) => Ok(serde_json::json!({ "prompts": [] })),
-            Some(McpMethod::PromptsGet) => {
-                Err(JsonRpcError::invalid_params("prompt not found"))
-            }
+            Some(McpMethod::PromptsGet) => Err(JsonRpcError::invalid_params("prompt not found")),
             None => Err(JsonRpcError::method_not_found(format!(
                 "unknown method: {}",
                 request.method
@@ -95,12 +96,16 @@ impl McpServer {
         let result = InitializeResult {
             protocol_version: "2024-11-05".into(),
             capabilities: ServerCapabilities {
-                tools: Some(ToolsCapability { list_changed: false }),
+                tools: Some(ToolsCapability {
+                    list_changed: false,
+                }),
                 resources: Some(ResourcesCapability {
                     subscribe: false,
                     list_changed: false,
                 }),
-                prompts: Some(PromptsCapability { list_changed: false }),
+                prompts: Some(PromptsCapability {
+                    list_changed: false,
+                }),
             },
             server_info: ServerInfo {
                 name: self.config.name.clone(),
@@ -124,10 +129,13 @@ impl McpServer {
         let call: ToolCallParams = serde_json::from_value(params)
             .map_err(|e| JsonRpcError::invalid_params(e.to_string()))?;
 
-        match self.tool_registry.call_tool(&call.name, call.arguments).await {
-            Ok(result) => {
-                serde_json::to_value(result).map_err(|e| JsonRpcError::internal_error(e.to_string()))
-            }
+        match self
+            .tool_registry
+            .call_tool(&call.name, call.arguments)
+            .await
+        {
+            Ok(result) => serde_json::to_value(result)
+                .map_err(|e| JsonRpcError::internal_error(e.to_string())),
             Err(e) => Err(JsonRpcError::internal_error(e.to_string())),
         }
     }
@@ -152,9 +160,8 @@ impl McpServer {
             .map_err(|e| JsonRpcError::invalid_params(e.to_string()))?;
 
         match self.resource_registry.read_resource(&read.uri).await {
-            Ok(result) => {
-                serde_json::to_value(result).map_err(|e| JsonRpcError::internal_error(e.to_string()))
-            }
+            Ok(result) => serde_json::to_value(result)
+                .map_err(|e| JsonRpcError::internal_error(e.to_string())),
             Err(e) => Err(JsonRpcError::internal_error(e.to_string())),
         }
     }
@@ -208,13 +215,11 @@ mod tests {
     #[tokio::test]
     async fn test_handle_initialize() {
         let server = make_server();
-        let req = JsonRpcRequest::new(1, "initialize").with_params(
-            serde_json::json!({
-                "protocolVersion": "2024-11-05",
-                "capabilities": {},
-                "clientInfo": { "name": "test", "version": "1.0" }
-            }),
-        );
+        let req = JsonRpcRequest::new(1, "initialize").with_params(serde_json::json!({
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": { "name": "test", "version": "1.0" }
+        }));
         let resp = server.handle_request(req).await;
         assert!(resp.result.is_some());
         let result = resp.result.unwrap();
@@ -244,9 +249,8 @@ mod tests {
     #[tokio::test]
     async fn test_handle_tools_call_ping() {
         let server = make_server();
-        let req = JsonRpcRequest::new(1, "tools/call").with_params(
-            serde_json::json!({"name": "ping", "arguments": {}}),
-        );
+        let req = JsonRpcRequest::new(1, "tools/call")
+            .with_params(serde_json::json!({"name": "ping", "arguments": {}}));
         let resp = server.handle_request(req).await;
         assert!(resp.result.is_some());
         assert!(resp.error.is_none());
@@ -255,9 +259,8 @@ mod tests {
     #[tokio::test]
     async fn test_handle_tools_call_echo() {
         let server = make_server();
-        let req = JsonRpcRequest::new(1, "tools/call").with_params(
-            serde_json::json!({"name": "echo", "arguments": {"text": "hello"}}),
-        );
+        let req = JsonRpcRequest::new(1, "tools/call")
+            .with_params(serde_json::json!({"name": "echo", "arguments": {"text": "hello"}}));
         let resp = server.handle_request(req).await;
         let result = resp.result.unwrap();
         assert_eq!(result["content"][0]["text"], "hello");
@@ -266,9 +269,8 @@ mod tests {
     #[tokio::test]
     async fn test_handle_tools_call_missing_tool() {
         let server = make_server();
-        let req = JsonRpcRequest::new(1, "tools/call").with_params(
-            serde_json::json!({"name": "nonexistent", "arguments": {}}),
-        );
+        let req = JsonRpcRequest::new(1, "tools/call")
+            .with_params(serde_json::json!({"name": "nonexistent", "arguments": {}}));
         let resp = server.handle_request(req).await;
         assert!(resp.error.is_some());
     }
@@ -284,8 +286,8 @@ mod tests {
     #[tokio::test]
     async fn test_handle_tools_call_invalid_params() {
         let server = make_server();
-        let req = JsonRpcRequest::new(1, "tools/call")
-            .with_params(serde_json::json!("not an object"));
+        let req =
+            JsonRpcRequest::new(1, "tools/call").with_params(serde_json::json!("not an object"));
         let resp = server.handle_request(req).await;
         assert!(resp.error.is_some());
     }
@@ -394,12 +396,15 @@ mod tests {
     #[tokio::test]
     async fn test_register_custom_tool() {
         let server = make_server();
-        server.tool_registry().register_tool(McpToolDefinition {
-            name: "custom".into(),
-            description: "Custom tool".into(),
-            input_schema: serde_json::json!({"type": "object"}),
-            handler: std::sync::Arc::new(PingHandler),
-        }).unwrap();
+        server
+            .tool_registry()
+            .register_tool(McpToolDefinition {
+                name: "custom".into(),
+                description: "Custom tool".into(),
+                input_schema: serde_json::json!({"type": "object"}),
+                handler: std::sync::Arc::new(PingHandler),
+            })
+            .unwrap();
         assert!(server.tool_registry().get_tool("custom").is_some());
     }
 

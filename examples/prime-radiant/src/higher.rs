@@ -283,11 +283,11 @@ impl TwoCategory {
         }
 
         // Create composed morphism
-        let composed = OneMorphism::new(f_mor.source, g_mor.target)
-            .with_name(format!("{} . {}",
-                g_mor.name.as_deref().unwrap_or("g"),
-                f_mor.name.as_deref().unwrap_or("f")
-            ));
+        let composed = OneMorphism::new(f_mor.source, g_mor.target).with_name(format!(
+            "{} . {}",
+            g_mor.name.as_deref().unwrap_or("g"),
+            f_mor.name.as_deref().unwrap_or("f")
+        ));
 
         Some(self.add_one_morphism(composed))
     }
@@ -343,7 +343,13 @@ impl TwoCategory {
             // Check composability: target of alpha's 1-mors = source of beta's 1-mors
             let composable = alpha_source.target == beta_source.source;
 
-            (alpha_mor.source, alpha_mor.target, beta_mor.source, beta_mor.target, composable)
+            (
+                alpha_mor.source,
+                alpha_mor.target,
+                beta_mor.source,
+                beta_mor.target,
+                composable,
+            )
         };
 
         if !composable {
@@ -579,9 +585,7 @@ mod tests {
         let a = cat.add_object(TwoCategoryObject::new());
         let b = cat.add_object(TwoCategoryObject::new());
 
-        let f = cat.add_one_morphism(
-            OneMorphism::new(a, b).with_name("f")
-        );
+        let f = cat.add_one_morphism(OneMorphism::new(a, b).with_name("f"));
 
         assert!(cat.get_one_morphism(&f).is_some());
         assert!(cat.identity_two(f).is_some());

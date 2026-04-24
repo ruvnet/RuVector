@@ -15,16 +15,28 @@ fn fix_module_syntax(source: &str) -> String {
     let mut fixed = String::with_capacity(source.len() + 128);
 
     // Prepend openers for excess closers
-    for _ in 0..(-parens).max(0) { fixed.push('('); }
-    for _ in 0..(-brackets).max(0) { fixed.push('['); }
-    for _ in 0..(-braces).max(0) { fixed.push('{'); }
+    for _ in 0..(-parens).max(0) {
+        fixed.push('(');
+    }
+    for _ in 0..(-brackets).max(0) {
+        fixed.push('[');
+    }
+    for _ in 0..(-braces).max(0) {
+        fixed.push('{');
+    }
 
     fixed.push_str(source);
 
     // Append closers for unclosed openers
-    for _ in 0..braces.max(0) { fixed.push('}'); }
-    for _ in 0..brackets.max(0) { fixed.push(']'); }
-    for _ in 0..parens.max(0) { fixed.push(')'); }
+    for _ in 0..braces.max(0) {
+        fixed.push('}');
+    }
+    for _ in 0..brackets.max(0) {
+        fixed.push(']');
+    }
+    for _ in 0..parens.max(0) {
+        fixed.push(')');
+    }
 
     // Fix try without catch/finally
     let try_count = count_keyword(&fixed, "try");
@@ -50,12 +62,16 @@ fn fix_module_syntax(source: &str) -> String {
         fixed = format!(
             "// ruDevolution: wrapped for syntax validity\n\
              void function() {{\n{}\n}};\n",
-            source  // use ORIGINAL source, not the broken fix
+            source // use ORIGINAL source, not the broken fix
         );
         // Re-balance the wrapper
         let (b3, p3, _) = count_delimiters(&fixed);
-        for _ in 0..p3.max(0) { fixed.push(')'); }
-        for _ in 0..b3.max(0) { fixed.push('}'); }
+        for _ in 0..p3.max(0) {
+            fixed.push(')');
+        }
+        for _ in 0..b3.max(0) {
+            fixed.push('}');
+        }
     }
 
     fixed
@@ -76,12 +92,16 @@ fn count_delimiters(source: &str) -> (i32, i32, i32) {
             // Single-line comment
             b'/' if i + 1 < len && bytes[i + 1] == b'/' => {
                 i += 2;
-                while i < len && bytes[i] != b'\n' { i += 1; }
+                while i < len && bytes[i] != b'\n' {
+                    i += 1;
+                }
             }
             // Multi-line comment
             b'/' if i + 1 < len && bytes[i + 1] == b'*' => {
                 i += 2;
-                while i + 1 < len && !(bytes[i] == b'*' && bytes[i + 1] == b'/') { i += 1; }
+                while i + 1 < len && !(bytes[i] == b'*' && bytes[i + 1] == b'/') {
+                    i += 1;
+                }
                 i += 2;
             }
             // String literals
@@ -89,8 +109,13 @@ fn count_delimiters(source: &str) -> (i32, i32, i32) {
                 let quote = b;
                 i += 1;
                 while i < len {
-                    if bytes[i] == b'\\' { i += 2; continue; }
-                    if bytes[i] == quote { break; }
+                    if bytes[i] == b'\\' {
+                        i += 2;
+                        continue;
+                    }
+                    if bytes[i] == quote {
+                        break;
+                    }
                     i += 1;
                 }
                 i += 1;
@@ -100,24 +125,55 @@ fn count_delimiters(source: &str) -> (i32, i32, i32) {
                 i += 1;
                 let mut tdepth = 0;
                 while i < len {
-                    if bytes[i] == b'\\' { i += 2; continue; }
-                    if bytes[i] == b'$' && i + 1 < len && bytes[i + 1] == b'{' {
-                        tdepth += 1; i += 2; continue;
+                    if bytes[i] == b'\\' {
+                        i += 2;
+                        continue;
                     }
-                    if bytes[i] == b'}' && tdepth > 0 { tdepth -= 1; i += 1; continue; }
-                    if bytes[i] == b'`' && tdepth == 0 { break; }
+                    if bytes[i] == b'$' && i + 1 < len && bytes[i + 1] == b'{' {
+                        tdepth += 1;
+                        i += 2;
+                        continue;
+                    }
+                    if bytes[i] == b'}' && tdepth > 0 {
+                        tdepth -= 1;
+                        i += 1;
+                        continue;
+                    }
+                    if bytes[i] == b'`' && tdepth == 0 {
+                        break;
+                    }
                     i += 1;
                 }
                 i += 1;
             }
             // Delimiters
-            b'{' => { braces += 1; i += 1; }
-            b'}' => { braces -= 1; i += 1; }
-            b'(' => { parens += 1; i += 1; }
-            b')' => { parens -= 1; i += 1; }
-            b'[' => { brackets += 1; i += 1; }
-            b']' => { brackets -= 1; i += 1; }
-            _ => { i += 1; }
+            b'{' => {
+                braces += 1;
+                i += 1;
+            }
+            b'}' => {
+                braces -= 1;
+                i += 1;
+            }
+            b'(' => {
+                parens += 1;
+                i += 1;
+            }
+            b')' => {
+                parens -= 1;
+                i += 1;
+            }
+            b'[' => {
+                brackets += 1;
+                i += 1;
+            }
+            b']' => {
+                brackets -= 1;
+                i += 1;
+            }
+            _ => {
+                i += 1;
+            }
         }
     }
     (braces, parens, brackets)
@@ -135,7 +191,9 @@ fn count_keyword(source: &str, keyword: &str) -> usize {
             let before_ok = i == 0 || !bytes[i - 1].is_ascii_alphanumeric();
             // Check word boundary after
             let after_ok = i + klen >= bytes.len() || !bytes[i + klen].is_ascii_alphanumeric();
-            if before_ok && after_ok { count += 1; }
+            if before_ok && after_ok {
+                count += 1;
+            }
         }
     }
     count
@@ -191,14 +249,17 @@ fn main() {
         );
     }
     let t2 = Instant::now();
-    let modules =
-        ruvector_decompiler::partitioner::partition_modules(&graph, None).unwrap();
+    let modules = ruvector_decompiler::partitioner::partition_modules(&graph, None).unwrap();
     let t_partition = t2.elapsed();
     eprintln!(
         "Phase 3 (Partition): {:?} -- {} modules detected{}",
         t_partition,
         modules.len(),
-        if large_graph { " (Louvain)" } else { " (MinCut)" }
+        if large_graph {
+            " (Louvain)"
+        } else {
+            " (MinCut)"
+        }
     );
 
     // Phase 4: Infer names
@@ -331,7 +392,10 @@ fn main() {
         .sum::<usize>();
     eprintln!("\nEstimated memory usage:");
     eprintln!("  Declarations: {:.2} MB", decl_mem as f64 / 1_048_576.0);
-    eprintln!("  Module sources: {:.2} MB", module_mem as f64 / 1_048_576.0);
+    eprintln!(
+        "  Module sources: {:.2} MB",
+        module_mem as f64 / 1_048_576.0
+    );
     eprintln!(
         "  Total estimate: {:.2} MB",
         (decl_mem + module_mem) as f64 / 1_048_576.0
@@ -339,7 +403,10 @@ fn main() {
 
     // Write tree output if --output-dir is provided.
     let args: Vec<String> = std::env::args().collect();
-    let out_dir = args.iter().position(|a| a == "--output-dir").and_then(|i| args.get(i + 1));
+    let out_dir = args
+        .iter()
+        .position(|a| a == "--output-dir")
+        .and_then(|i| args.get(i + 1));
     if let Some(out_dir) = out_dir {
         let base = std::path::Path::new(out_dir);
         // Write flat modules (all 1,029 as individual .js files)
@@ -356,23 +423,36 @@ fn main() {
             } else {
                 module.source.clone()
             };
-            if content.is_empty() { continue; }
+            if content.is_empty() {
+                continue;
+            }
             // Two-pass fix: try smart fix first, fall back to void-wrapper
             let fixed = fix_module_syntax(&content);
             // Wrap in void function to guarantee parseability
             let safe = format!(
                 "// Module: {}\n// Declarations: {}\nvoid function() {{\n{}\n}};",
-                module.name, module.declarations.len(), content
+                module.name,
+                module.declarations.len(),
+                content
             );
             // Use the smart fix if it has balanced delimiters, otherwise use safe wrapper
             let (b, p, k) = count_delimiters(&fixed);
-            let output = if b == 0 && p == 0 && k == 0 { fixed } else { safe };
+            let output = if b == 0 && p == 0 && k == 0 {
+                fixed
+            } else {
+                safe
+            };
             let filename = format!("{}.js", module.name.replace('/', "_"));
             std::fs::write(source_dir.join(&filename), &output).ok();
             total_bytes += output.len();
             written += 1;
         }
-        eprintln!("\nWrote {} modules to {}/source/ ({:.1} MB)", written, out_dir, total_bytes as f64 / 1_048_576.0);
+        eprintln!(
+            "\nWrote {} modules to {}/source/ ({:.1} MB)",
+            written,
+            out_dir,
+            total_bytes as f64 / 1_048_576.0
+        );
 
         // Phase 8: Auto-fix to 100% parse rate via Node.js post-processing
         eprintln!("Phase 8 (Validate): Auto-fixing modules for 100% parse rate...");
@@ -408,7 +488,10 @@ fn main() {
                     let total = v["total"].as_u64().unwrap_or(0);
                     let pass = v["pass"].as_u64().unwrap_or(0);
                     let fixed = v["fixed"].as_u64().unwrap_or(0);
-                    eprintln!("Phase 8 (Validate): {}/{} parse (100%) — {} auto-fixed", pass, total, fixed);
+                    eprintln!(
+                        "Phase 8 (Validate): {}/{} parse (100%) — {} auto-fixed",
+                        pass, total, fixed
+                    );
                 }
             }
             _ => eprintln!("Phase 8 (Validate): Node.js not available, skipping auto-fix"),
@@ -439,7 +522,11 @@ fn main() {
             "source_bytes": source.len(),
             "output_bytes": total_bytes,
         });
-        std::fs::write(base.join("metrics.json"), serde_json::to_string_pretty(&metrics).unwrap_or_default()).ok();
+        std::fs::write(
+            base.join("metrics.json"),
+            serde_json::to_string_pretty(&metrics).unwrap_or_default(),
+        )
+        .ok();
         eprintln!("Wrote metrics to {}/metrics.json", out_dir);
     }
 }
@@ -449,21 +536,12 @@ fn print_tree(tree: &ModuleTree, indent: &str) {
     let module_count = tree.modules.len();
     let child_count = tree.children.len();
     if module_count > 0 {
-        eprintln!(
-            "{}{}/  ({} modules)",
-            indent, tree.name, module_count
-        );
+        eprintln!("{}{}/  ({} modules)", indent, tree.name, module_count);
         for m in &tree.modules {
-            eprintln!(
-                "{}  {} ({} decls)",
-                indent, m.name, m.declarations.len()
-            );
+            eprintln!("{}  {} ({} decls)", indent, m.name, m.declarations.len());
         }
     } else {
-        eprintln!(
-            "{}{}/  ({} subfolders)",
-            indent, tree.name, child_count
-        );
+        eprintln!("{}{}/  ({} subfolders)", indent, tree.name, child_count);
     }
     for child in &tree.children {
         print_tree(child, &format!("{}  ", indent));

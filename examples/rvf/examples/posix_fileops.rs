@@ -36,7 +36,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -69,7 +71,9 @@ fn main() {
     let mut store = RvfStore::create(&primary_path, options).expect("create store");
 
     // Ingest vectors in batches
-    let vectors: Vec<Vec<f32>> = (0..num_vectors).map(|i| random_vector(dim, i as u64)).collect();
+    let vectors: Vec<Vec<f32>> = (0..num_vectors)
+        .map(|i| random_vector(dim, i as u64))
+        .collect();
     let ids: Vec<u64> = (1..=num_vectors as u64).collect();
 
     for chunk_start in (0..num_vectors).step_by(50) {
@@ -88,7 +92,11 @@ fn main() {
     // stat() the file — standard POSIX metadata
     let meta = fs::metadata(&primary_path).expect("stat");
     println!("  Created: {:?}", primary_path.file_name().unwrap());
-    println!("  Size:    {} bytes ({:.1} KB)", meta.len(), meta.len() as f64 / 1024.0);
+    println!(
+        "  Size:    {} bytes ({:.1} KB)",
+        meta.len(),
+        meta.len() as f64 / 1024.0
+    );
     println!("  Mode:    {:o}", meta.mode() & 0o777);
     println!("  Inode:   {}", meta.ino());
     println!("  Blocks:  {} (512-byte blocks)", meta.blocks());
@@ -150,11 +158,15 @@ fn main() {
             println!("  Payload length: {} bytes", header.payload_length);
 
             // Seek directly to the manifest segment for targeted read
-            file.seek(SeekFrom::Start(offset as u64)).expect("lseek to manifest");
+            file.seek(SeekFrom::Start(offset as u64))
+                .expect("lseek to manifest");
             let mut manifest_header = vec![0u8; SEGMENT_HEADER_SIZE];
-            file.read_exact(&mut manifest_header).expect("read manifest header");
-            println!("  Direct seek to manifest: verified (magic=0x{:08X})",
-                u32::from_le_bytes(manifest_header[0..4].try_into().unwrap()));
+            file.read_exact(&mut manifest_header)
+                .expect("read manifest header");
+            println!(
+                "  Direct seek to manifest: verified (magic=0x{:08X})",
+                u32::from_le_bytes(manifest_header[0..4].try_into().unwrap())
+            );
         }
         Err(e) => println!("  Manifest not found: {:?}", e),
     }
@@ -183,7 +195,9 @@ fn main() {
     let v2_vecs: Vec<Vec<f32>> = (0..50).map(|i| random_vector(dim, i * 7)).collect();
     let v2_refs: Vec<&[f32]> = v2_vecs.iter().map(|v| v.as_slice()).collect();
     let v2_ids: Vec<u64> = (1..=50).collect();
-    store_v2.ingest_batch(&v2_refs, &v2_ids, None).expect("ingest v2");
+    store_v2
+        .ingest_batch(&v2_refs, &v2_ids, None)
+        .expect("ingest v2");
     store_v2.close().expect("close v2");
 
     // Atomic rename: POSIX guarantees this is atomic on the same filesystem
@@ -234,8 +248,13 @@ fn main() {
     let reader = RvfStore::open_readonly(&primary_path).expect("open readonly (no lock)");
     println!("  Reader opened: no lock required for O_RDONLY");
 
-    let reader_results = reader.query(&query, 3, &QueryOptions::default()).expect("reader query");
-    println!("  Reader query while writer holds lock: {} results", reader_results.len());
+    let reader_results = reader
+        .query(&query, 3, &QueryOptions::default())
+        .expect("reader query");
+    println!(
+        "  Reader query while writer holds lock: {} results",
+        reader_results.len()
+    );
 
     drop(reader);
     drop(writer);
@@ -275,10 +294,7 @@ fn main() {
         "  {:>30}  {:>10}  {:>10}  {:>8}",
         "Name", "Size", "Inode", "Ext"
     );
-    println!(
-        "  {:->30}  {:->10}  {:->10}  {:->8}",
-        "", "", "", ""
-    );
+    println!("  {:->30}  {:->10}  {:->10}  {:->8}", "", "", "", "");
 
     let mut rvf_count = 0;
     let mut total_bytes: u64 = 0;
@@ -306,7 +322,11 @@ fn main() {
         }
     }
     println!("\n  RVF files found: {}", rvf_count);
-    println!("  Total RVF size:  {} bytes ({:.1} KB)", total_bytes, total_bytes as f64 / 1024.0);
+    println!(
+        "  Total RVF size:  {} bytes ({:.1} KB)",
+        total_bytes,
+        total_bytes as f64 / 1024.0
+    );
     println!();
 
     // ====================================================================
@@ -347,7 +367,10 @@ fn main() {
                     _ => "UNKNOWN",
                 };
 
-                let padded = rvf_wire::calculate_padded_size(SEGMENT_HEADER_SIZE, header.payload_length as usize);
+                let padded = rvf_wire::calculate_padded_size(
+                    SEGMENT_HEADER_SIZE,
+                    header.payload_length as usize,
+                );
                 println!(
                     "  {:>8}  {:>12}  {:>8}  {:>12}  {:>10}",
                     offset, seg_type_name, header.segment_id, header.payload_length, padded
@@ -372,8 +395,13 @@ fn main() {
         WitnessEntry {
             prev_hash: [0u8; 32],
             action_hash: shake256_256(
-                format!("posix_create:path={},dim={},vectors={}",
-                    primary_path.display(), dim, num_vectors).as_bytes(),
+                format!(
+                    "posix_create:path={},dim={},vectors={}",
+                    primary_path.display(),
+                    dim,
+                    num_vectors
+                )
+                .as_bytes(),
             ),
             timestamp_ns: timestamp_base,
             witness_type: 0x08, // DATA_PROVENANCE
@@ -381,7 +409,9 @@ fn main() {
         WitnessEntry {
             prev_hash: [0u8; 32],
             action_hash: shake256_256(
-                "posix_backup:src=vectors.rvf,dst=vectors.rvf.bak".to_string().as_bytes(),
+                "posix_backup:src=vectors.rvf,dst=vectors.rvf.bak"
+                    .to_string()
+                    .as_bytes(),
             ),
             timestamp_ns: timestamp_base + 1_000_000,
             witness_type: 0x01, // PROVENANCE
@@ -389,7 +419,9 @@ fn main() {
         WitnessEntry {
             prev_hash: [0u8; 32],
             action_hash: shake256_256(
-                "posix_rename:src=vectors_v2.rvf,dst=vectors.rvf,atomic=true".to_string().as_bytes(),
+                "posix_rename:src=vectors_v2.rvf,dst=vectors.rvf,atomic=true"
+                    .to_string()
+                    .as_bytes(),
             ),
             timestamp_ns: timestamp_base + 2_000_000,
             witness_type: 0x02, // COMPUTATION
@@ -397,7 +429,12 @@ fn main() {
         WitnessEntry {
             prev_hash: [0u8; 32],
             action_hash: shake256_256(
-                format!("posix_readdir:dir={},rvf_files={}", rvf_dir.display(), rvf_count).as_bytes(),
+                format!(
+                    "posix_readdir:dir={},rvf_files={}",
+                    rvf_dir.display(),
+                    rvf_count
+                )
+                .as_bytes(),
             ),
             timestamp_ns: timestamp_base + 3_000_000,
             witness_type: 0x01, // PROVENANCE
@@ -407,7 +444,11 @@ fn main() {
     let chain_bytes = create_witness_chain(&witness_entries);
     let verified = verify_witness_chain(&chain_bytes).expect("verify chain");
     println!("  Audit trail: {} file operations recorded", verified.len());
-    println!("  Witness chain: {} bytes, {} entries verified", chain_bytes.len(), verified.len());
+    println!(
+        "  Witness chain: {} bytes, {} entries verified",
+        chain_bytes.len(),
+        verified.len()
+    );
 
     for (i, entry) in verified.iter().enumerate() {
         println!(

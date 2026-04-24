@@ -93,29 +93,31 @@ pub fn ingest_batch(
 
         // Phase 3: Chunk + Embed
         let chunks = chunk_text(&page.text);
-        let embeddings: Vec<Vec<f32>> = if !page.embedding.is_empty()
-            && page.embedding.len() == EMBED_DIM
-        {
-            // Use pre-computed embedding for first chunk
-            let mut embs = vec![page.embedding.clone()];
-            for chunk in chunks.iter().skip(1) {
-                let text = EmbeddingEngine::prepare_text(&page.title, chunk, &page.tags);
-                embs.push(embedding_engine.embed_for_storage(&text));
-            }
-            embs
-        } else {
-            chunks
-                .iter()
-                .map(|chunk| {
+        let embeddings: Vec<Vec<f32>> =
+            if !page.embedding.is_empty() && page.embedding.len() == EMBED_DIM {
+                // Use pre-computed embedding for first chunk
+                let mut embs = vec![page.embedding.clone()];
+                for chunk in chunks.iter().skip(1) {
                     let text = EmbeddingEngine::prepare_text(&page.title, chunk, &page.tags);
-                    embedding_engine.embed_for_storage(&text)
-                })
-                .collect()
-        };
+                    embs.push(embedding_engine.embed_for_storage(&text));
+                }
+                embs
+            } else {
+                chunks
+                    .iter()
+                    .map(|chunk| {
+                        let text = EmbeddingEngine::prepare_text(&page.title, chunk, &page.tags);
+                        embedding_engine.embed_for_storage(&text)
+                    })
+                    .collect()
+            };
 
         // Phase 4: Novelty scoring — compare against existing memories
         // and already-accepted memories in this batch
-        let primary_embedding = embeddings.first().cloned().unwrap_or_else(|| vec![0.0; EMBED_DIM]);
+        let primary_embedding = embeddings
+            .first()
+            .cloned()
+            .unwrap_or_else(|| vec![0.0; EMBED_DIM]);
         let batch_embeddings: Vec<(Uuid, Vec<f32>)> = accepted
             .iter()
             .map(|m| (m.base.id, m.base.embedding.clone()))
@@ -324,11 +326,11 @@ pub fn attractor_recrawl_priority(
     attractor_results: &HashMap<String, temporal_attractor_studio::LyapunovResult>,
 ) -> f32 {
     match attractor_results.get(domain) {
-        Some(r) if r.lambda < -0.5 => 0.1,  // Very stable — low recrawl priority
-        Some(r) if r.lambda < 0.0 => 0.3,   // Stable — moderate priority
-        Some(r) if r.lambda > 0.5 => 0.9,   // Chaotic — high recrawl priority
-        Some(_) => 0.5,                       // Marginally chaotic — default
-        None => 0.5,                          // Unknown domain — default priority
+        Some(r) if r.lambda < -0.5 => 0.1, // Very stable — low recrawl priority
+        Some(r) if r.lambda < 0.0 => 0.3,  // Stable — moderate priority
+        Some(r) if r.lambda > 0.5 => 0.9,  // Chaotic — high recrawl priority
+        Some(_) => 0.5,                    // Marginally chaotic — default
+        None => 0.5,                       // Unknown domain — default priority
     }
 }
 
@@ -359,9 +361,7 @@ pub fn solver_drift_prediction(
 
 /// Stub for non-x86 platforms.
 #[cfg(not(feature = "x86-simd"))]
-pub fn solver_drift_prediction_stub(
-    _recent_embeddings: &[Vec<f32>],
-) -> Option<f32> {
+pub fn solver_drift_prediction_stub(_recent_embeddings: &[Vec<f32>]) -> Option<f32> {
     // Temporal solver not available on this platform
     None
 }
@@ -405,7 +405,11 @@ mod tests {
 
     #[test]
     fn validate_rejects_long_text() {
-        let page = make_page("https://example.com", &"a".repeat(MAX_TEXT_LENGTH + 1), "Title");
+        let page = make_page(
+            "https://example.com",
+            &"a".repeat(MAX_TEXT_LENGTH + 1),
+            "Title",
+        );
         assert_eq!(validate_page(&page).unwrap_err(), "text too long");
     }
 
@@ -506,7 +510,10 @@ mod tests {
 
     #[test]
     fn extract_domain_with_port() {
-        assert_eq!(extract_domain("https://example.com:8080/path"), "example.com:8080");
+        assert_eq!(
+            extract_domain("https://example.com:8080/path"),
+            "example.com:8080"
+        );
     }
 
     #[test]
@@ -583,28 +590,34 @@ mod tests {
     #[test]
     fn attractor_recrawl_priority_stable() {
         let mut results = HashMap::new();
-        results.insert("stable.com".into(), temporal_attractor_studio::LyapunovResult {
-            lambda: -1.0,
-            lyapunov_time: 1.0,
-            doubling_time: 0.693,
-            points_used: 20,
-            dimension: 128,
-            pairs_found: 10,
-        });
+        results.insert(
+            "stable.com".into(),
+            temporal_attractor_studio::LyapunovResult {
+                lambda: -1.0,
+                lyapunov_time: 1.0,
+                doubling_time: 0.693,
+                points_used: 20,
+                dimension: 128,
+                pairs_found: 10,
+            },
+        );
         assert_eq!(attractor_recrawl_priority("stable.com", &results), 0.1);
     }
 
     #[test]
     fn attractor_recrawl_priority_chaotic() {
         let mut results = HashMap::new();
-        results.insert("chaotic.com".into(), temporal_attractor_studio::LyapunovResult {
-            lambda: 1.0,
-            lyapunov_time: 1.0,
-            doubling_time: 0.693,
-            points_used: 20,
-            dimension: 128,
-            pairs_found: 10,
-        });
+        results.insert(
+            "chaotic.com".into(),
+            temporal_attractor_studio::LyapunovResult {
+                lambda: 1.0,
+                lyapunov_time: 1.0,
+                doubling_time: 0.693,
+                points_used: 20,
+                dimension: 128,
+                pairs_found: 10,
+            },
+        );
         assert_eq!(attractor_recrawl_priority("chaotic.com", &results), 0.9);
     }
 
@@ -618,14 +631,17 @@ mod tests {
     fn attractor_recrawl_priority_marginal() {
         let mut results = HashMap::new();
         // lambda=0.3 is > 0 but ≤ 0.5 — hits the Some(_) arm
-        results.insert("marginal.com".into(), temporal_attractor_studio::LyapunovResult {
-            lambda: 0.3,
-            lyapunov_time: 3.33,
-            doubling_time: 2.31,
-            points_used: 20,
-            dimension: 128,
-            pairs_found: 10,
-        });
+        results.insert(
+            "marginal.com".into(),
+            temporal_attractor_studio::LyapunovResult {
+                lambda: 0.3,
+                lyapunov_time: 3.33,
+                doubling_time: 2.31,
+                points_used: 20,
+                dimension: 128,
+                pairs_found: 10,
+            },
+        );
         assert_eq!(attractor_recrawl_priority("marginal.com", &results), 0.5);
     }
 }

@@ -39,6 +39,7 @@ pub mod arxiv_client;
 pub mod biorxiv_client;
 pub mod coherence;
 pub mod crossref_client;
+pub mod cut_aware_hnsw;
 pub mod discovery;
 pub mod dynamic_mincut;
 pub mod economic_clients;
@@ -49,7 +50,6 @@ pub mod genomics_clients;
 pub mod geospatial_clients;
 pub mod government_clients;
 pub mod hnsw;
-pub mod cut_aware_hnsw;
 pub mod ingester;
 pub mod mcp_server;
 pub mod medical_clients;
@@ -79,62 +79,68 @@ use thiserror::Error;
 
 // Re-exports
 pub use academic_clients::{CoreClient, EricClient, UnpaywallClient};
-pub use api_clients::{EdgarClient, Embedder, NoaaClient, OpenAlexClient, SimpleEmbedder};
 #[cfg(feature = "onnx-embeddings")]
 pub use api_clients::OnnxEmbedder;
-#[cfg(feature = "onnx-embeddings")]
-pub use ruvector_onnx_embeddings::{PretrainedModel, EmbedderConfig, PoolingStrategy};
+pub use api_clients::{EdgarClient, Embedder, NoaaClient, OpenAlexClient, SimpleEmbedder};
 pub use arxiv_client::ArxivClient;
 pub use biorxiv_client::{BiorxivClient, MedrxivClient};
-pub use crossref_client::CrossRefClient;
-pub use economic_clients::{AlphaVantageClient, FredClient, WorldBankClient};
-pub use finance_clients::{BlsClient, CoinGeckoClient, EcbClient, FinnhubClient, TwelveDataClient};
-pub use genomics_clients::{EnsemblClient, GwasClient, NcbiClient, UniProtClient};
-pub use geospatial_clients::{GeonamesClient, NominatimClient, OpenElevationClient, OverpassClient};
-pub use government_clients::{
-    CensusClient, DataGovClient, EuOpenDataClient, UkGovClient, UNDataClient,
-    WorldBankClient as WorldBankGovClient,
-};
-pub use medical_clients::{ClinicalTrialsClient, FdaClient, PubMedClient};
-pub use ml_clients::{
-    HuggingFaceClient, HuggingFaceDataset, HuggingFaceModel, OllamaClient, OllamaModel,
-    PapersWithCodeClient, PaperWithCodeDataset, PaperWithCodePaper, ReplicateClient,
-    ReplicateModel, TogetherAiClient, TogetherModel,
-};
-pub use news_clients::{GuardianClient, HackerNewsClient, NewsDataClient, RedditClient};
-pub use patent_clients::{EpoClient, UsptoPatentClient};
-pub use physics_clients::{ArgoClient, CernOpenDataClient, GeoUtils, MaterialsProjectClient, UsgsEarthquakeClient};
-pub use semantic_scholar::SemanticScholarClient;
-pub use space_clients::{AstronomyClient, ExoplanetClient, NasaClient, SpaceXClient};
-pub use transportation_clients::{GtfsClient, MobilityDatabaseClient, OpenChargeMapClient, OpenRouteServiceClient};
-pub use wiki_clients::{WikidataClient, WikidataEntity, WikipediaClient};
 pub use coherence::{
     CoherenceBoundary, CoherenceConfig, CoherenceEngine, CoherenceEvent, CoherenceSignal,
 };
+pub use crossref_client::CrossRefClient;
 pub use cut_aware_hnsw::{
-    CutAwareHNSW, CutAwareConfig, CutAwareMetrics, CoherenceZone,
-    SearchResult as CutAwareSearchResult, EdgeUpdate as CutAwareEdgeUpdate, UpdateKind, LayerCutStats,
+    CoherenceZone, CutAwareConfig, CutAwareHNSW, CutAwareMetrics, EdgeUpdate as CutAwareEdgeUpdate,
+    LayerCutStats, SearchResult as CutAwareSearchResult, UpdateKind,
 };
 pub use discovery::{
     DiscoveryConfig, DiscoveryEngine, DiscoveryPattern, PatternCategory, PatternStrength,
 };
 pub use dynamic_mincut::{
     CutGatedSearch, CutWatcherConfig, DynamicCutWatcher, DynamicMinCutError,
-    EdgeUpdate as DynamicEdgeUpdate, EdgeUpdateType, EulerTourTree, HNSWGraph,
-    LocalCut, LocalMinCutProcedure, WatcherStats,
+    EdgeUpdate as DynamicEdgeUpdate, EdgeUpdateType, EulerTourTree, HNSWGraph, LocalCut,
+    LocalMinCutProcedure, WatcherStats,
 };
+pub use economic_clients::{AlphaVantageClient, FredClient, WorldBankClient};
 pub use export::{
     export_all, export_coherence_csv, export_dot, export_graphml, export_patterns_csv,
     export_patterns_with_evidence_csv, ExportFilter,
 };
+pub use finance_clients::{BlsClient, CoinGeckoClient, EcbClient, FinnhubClient, TwelveDataClient};
 pub use forecasting::{CoherenceForecaster, CrossDomainForecaster, Forecast, Trend};
+pub use genomics_clients::{EnsemblClient, GwasClient, NcbiClient, UniProtClient};
+pub use geospatial_clients::{
+    GeonamesClient, NominatimClient, OpenElevationClient, OverpassClient,
+};
+pub use government_clients::{
+    CensusClient, DataGovClient, EuOpenDataClient, UNDataClient, UkGovClient,
+    WorldBankClient as WorldBankGovClient,
+};
 pub use ingester::{DataIngester, IngestionConfig, IngestionStats, SourceConfig};
+pub use medical_clients::{ClinicalTrialsClient, FdaClient, PubMedClient};
+pub use ml_clients::{
+    HuggingFaceClient, HuggingFaceDataset, HuggingFaceModel, OllamaClient, OllamaModel,
+    PaperWithCodeDataset, PaperWithCodePaper, PapersWithCodeClient, ReplicateClient,
+    ReplicateModel, TogetherAiClient, TogetherModel,
+};
+pub use news_clients::{GuardianClient, HackerNewsClient, NewsDataClient, RedditClient};
+pub use patent_clients::{EpoClient, UsptoPatentClient};
+pub use physics_clients::{
+    ArgoClient, CernOpenDataClient, GeoUtils, MaterialsProjectClient, UsgsEarthquakeClient,
+};
 pub use realtime::{FeedItem, FeedSource, NewsAggregator, NewsSource, RealTimeEngine};
 pub use ruvector_native::{
-    CoherenceHistoryEntry, CoherenceSnapshot, Domain, DiscoveredPattern,
-    GraphExport, NativeDiscoveryEngine, NativeEngineConfig, SemanticVector,
+    CoherenceHistoryEntry, CoherenceSnapshot, DiscoveredPattern, Domain, GraphExport,
+    NativeDiscoveryEngine, NativeEngineConfig, SemanticVector,
 };
+#[cfg(feature = "onnx-embeddings")]
+pub use ruvector_onnx_embeddings::{EmbedderConfig, PoolingStrategy, PretrainedModel};
+pub use semantic_scholar::SemanticScholarClient;
+pub use space_clients::{AstronomyClient, ExoplanetClient, NasaClient, SpaceXClient};
 pub use streaming::{StreamingConfig, StreamingEngine, StreamingEngineBuilder, StreamingMetrics};
+pub use transportation_clients::{
+    GtfsClient, MobilityDatabaseClient, OpenChargeMapClient, OpenRouteServiceClient,
+};
+pub use wiki_clients::{WikidataClient, WikidataEntity, WikipediaClient};
 
 /// Framework error types
 #[derive(Error, Debug)]

@@ -30,13 +30,13 @@
 
 use std::collections::HashMap;
 
-use neural_trader_core::MarketEvent;
 use neural_trader_coherence::WitnessLogger;
-use neural_trader_replay::{
-    CoherenceStats, InMemoryReceiptLog, MemoryStore, ReplaySegment, ReservoirStore,
-    SegmentKind, SegmentLineage,
-};
 use neural_trader_coherence::WitnessReceipt;
+use neural_trader_core::MarketEvent;
+use neural_trader_replay::{
+    CoherenceStats, InMemoryReceiptLog, MemoryStore, ReplaySegment, ReservoirStore, SegmentKind,
+    SegmentLineage,
+};
 use neural_trader_strategies::{
     coherence_bridge::simple_context, CoherenceChecker, CoherenceOutcome, ExpectedValueKelly,
     ExpectedValueKellyConfig, GateConfig, PortfolioState, Position, RiskConfig, RiskDecision,
@@ -142,7 +142,10 @@ async fn main() -> anyhow::Result<()> {
     }));
 
     // --- Risk gate (paper mode) ---
-    let gate = RiskGate::new(RiskConfig { require_live_flag: false, ..Default::default() });
+    let gate = RiskGate::new(RiskConfig {
+        require_live_flag: false,
+        ..Default::default()
+    });
     let mut portfolio = PortfolioState {
         cash_cents: 100_000,
         starting_cash_cents: 100_000,
@@ -244,7 +247,9 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
 
-            let Some(intent) = strat.on_event(evt) else { continue };
+            let Some(intent) = strat.on_event(evt) else {
+                continue;
+            };
             intent_count += 1;
 
             let out_ticker = if intent.symbol_id == sym {
@@ -260,10 +265,7 @@ async fn main() -> anyhow::Result<()> {
                 .get(&intent.symbol_id)
                 .cloned()
                 .unwrap_or_default();
-            let depth = observed_depth
-                .get(&intent.symbol_id)
-                .copied()
-                .unwrap_or(1);
+            let depth = observed_depth.get(&intent.symbol_id).copied().unwrap_or(1);
             let ctx = simple_context(
                 intent.symbol_id,
                 evt.venue_id,
@@ -343,9 +345,9 @@ async fn main() -> anyhow::Result<()> {
                         let notional = order.count.saturating_mul(approved.limit_price_cents);
                         let memory = SharedMemory::market_resolution(
                             out_ticker,
-                            Resolution::Void,    // paper → void until real settlement
+                            Resolution::Void, // paper → void until real settlement
                             approved.strategy,
-                            0,                   // P&L unknown at fill time
+                            0, // P&L unknown at fill time
                             notional,
                         );
                         match brain.share(&memory).await {
@@ -354,14 +356,25 @@ async fn main() -> anyhow::Result<()> {
                         }
                     }
                 }
-                RiskDecision::Reject { reason, intent: rej } => {
+                RiskDecision::Reject {
+                    reason,
+                    intent: rej,
+                } => {
                     let key = match reason {
                         neural_trader_strategies::RejectReason::EdgeTooThin => "thin-edge",
-                        neural_trader_strategies::RejectReason::PositionTooLarge => "position-too-large",
+                        neural_trader_strategies::RejectReason::PositionTooLarge => {
+                            "position-too-large"
+                        }
                         neural_trader_strategies::RejectReason::DailyLossKill => "daily-loss-kill",
-                        neural_trader_strategies::RejectReason::ClusterConcentration => "cluster-concentration",
-                        neural_trader_strategies::RejectReason::LiveTradingDisabled => "live-disabled",
-                        neural_trader_strategies::RejectReason::InsufficientCash => "insufficient-cash",
+                        neural_trader_strategies::RejectReason::ClusterConcentration => {
+                            "cluster-concentration"
+                        }
+                        neural_trader_strategies::RejectReason::LiveTradingDisabled => {
+                            "live-disabled"
+                        }
+                        neural_trader_strategies::RejectReason::InsufficientCash => {
+                            "insufficient-cash"
+                        }
                         neural_trader_strategies::RejectReason::NonPositiveQuantity => "bad-qty",
                         neural_trader_strategies::RejectReason::PriceOutOfRange => "bad-price",
                     };
@@ -406,14 +419,17 @@ async fn main() -> anyhow::Result<()> {
         regime: None,
         limit: 10,
     })?;
-    println!(
-        "replay retrieve(FED-DEC26): {} segments",
-        retrieved.len()
-    );
+    println!("replay retrieve(FED-DEC26): {} segments", retrieved.len());
 
     assert!(intent_count >= 1);
     assert!(approved_count >= 1);
-    assert!(receipts.len() >= 1, "at least one fill must produce a receipt");
-    assert!(replay.len() >= 1, "replay store must capture at least one segment");
+    assert!(
+        receipts.len() >= 1,
+        "at least one fill must produce a receipt"
+    );
+    assert!(
+        replay.len() >= 1,
+        "replay store must capture at least one segment"
+    );
     Ok(())
 }

@@ -60,8 +60,10 @@ fn main() {
     println!("   Memory estimate: {} bytes", stats.estimated_memory_bytes);
     println!("\n   Nodes per layer:");
     for (layer, count) in stats.nodes_per_layer.iter().enumerate() {
-        println!("      Layer {}: {} nodes (avg {:.2} connections)",
-            layer, count, stats.avg_connections_per_layer[layer]);
+        println!(
+            "      Layer {}: {} nodes (avg {:.2} connections)",
+            layer, count, stats.avg_connections_per_layer[layer]
+        );
     }
 
     // Perform k-NN search
@@ -124,8 +126,10 @@ fn main() {
     println!("\n📊 Final Statistics:");
     println!("   Total nodes: {}", final_stats.node_count);
     println!("   Total edges: {}", final_stats.total_edges);
-    println!("   Memory estimate: {:.2} KB",
-        final_stats.estimated_memory_bytes as f64 / 1024.0);
+    println!(
+        "   Memory estimate: {:.2} KB",
+        final_stats.estimated_memory_bytes as f64 / 1024.0
+    );
 
     println!("\n✅ Demo complete!");
     println!("{}", "=".repeat(60));

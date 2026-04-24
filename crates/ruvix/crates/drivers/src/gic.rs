@@ -272,7 +272,8 @@ impl Gic {
         unsafe {
             let reg_idx = irq / 32;
             let bit_idx = irq % 32;
-            let mut isenabler = MmioReg::<u32>::new(self.gicd_base + 0x100 + (reg_idx as usize) * 4);
+            let mut isenabler =
+                MmioReg::<u32>::new(self.gicd_base + 0x100 + (reg_idx as usize) * 4);
             isenabler.write(1 << bit_idx);
             dsb();
         }
@@ -298,7 +299,8 @@ impl Gic {
         unsafe {
             let reg_idx = irq / 32;
             let bit_idx = irq % 32;
-            let mut icenabler = MmioReg::<u32>::new(self.gicd_base + 0x180 + (reg_idx as usize) * 4);
+            let mut icenabler =
+                MmioReg::<u32>::new(self.gicd_base + 0x180 + (reg_idx as usize) * 4);
             icenabler.write(1 << bit_idx);
             dsb();
         }

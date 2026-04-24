@@ -28,8 +28,16 @@ fn main() {
     println!("\n=== Step 1: Building Gene Regulatory Networks ===");
     let normal = data::build_normal_network();
     let cancer = data::build_cancer_network();
-    println!("  Normal network: {} genes, {} edges", normal.n_genes, normal.n_edges());
-    println!("  Cancer network: {} genes, {} edges", cancer.n_genes, cancer.n_edges());
+    println!(
+        "  Normal network: {} genes, {} edges",
+        normal.n_genes,
+        normal.n_edges()
+    );
+    println!(
+        "  Cancer network: {} genes, {} edges",
+        cancer.n_genes,
+        cancer.n_edges()
+    );
 
     // Step 2: Construct TPMs
     println!("\n=== Step 2: Constructing Transition Probability Matrices ===");

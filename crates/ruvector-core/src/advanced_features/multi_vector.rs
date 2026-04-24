@@ -125,9 +125,10 @@ impl MultiVectorIndex {
                 });
             }
             if emb.is_empty() {
-                return Err(RuvectorError::InvalidParameter(
-                    format!("Embedding at index {} has zero dimensions", i),
-                ));
+                return Err(RuvectorError::InvalidParameter(format!(
+                    "Embedding at index {} has zero dimensions",
+                    i
+                )));
             }
         }
 
@@ -170,11 +171,7 @@ impl MultiVectorIndex {
     /// # Errors
     ///
     /// Returns an error if `query_embeddings` is empty.
-    pub fn search(
-        &self,
-        query_embeddings: &[Vec<f32>],
-        top_k: usize,
-    ) -> Result<Vec<SearchResult>> {
+    pub fn search(&self, query_embeddings: &[Vec<f32>], top_k: usize) -> Result<Vec<SearchResult>> {
         if query_embeddings.is_empty() {
             return Err(RuvectorError::InvalidParameter(
                 "Query embeddings cannot be empty".into(),
@@ -268,9 +265,7 @@ impl MultiVectorIndex {
                 doc_embeddings
                     .iter()
                     .enumerate()
-                    .map(|(di, d)| {
-                        self.token_similarity(q, query_norms[qi], d, doc_norms[di])
-                    })
+                    .map(|(di, d)| self.token_similarity(q, query_norms[qi], d, doc_norms[di]))
                     .fold(f32::NEG_INFINITY, f32::max)
             })
             .sum()
@@ -295,9 +290,7 @@ impl MultiVectorIndex {
                 doc_embeddings
                     .iter()
                     .enumerate()
-                    .map(move |(di, d)| {
-                        self.token_similarity(q, query_norms[qi], d, doc_norms[di])
-                    })
+                    .map(move |(di, d)| self.token_similarity(q, query_norms[qi], d, doc_norms[di]))
             })
             .sum();
         sum / total_pairs
@@ -318,9 +311,7 @@ impl MultiVectorIndex {
                 query_embeddings
                     .iter()
                     .enumerate()
-                    .map(|(qi, q)| {
-                        self.token_similarity(q, query_norms[qi], d, doc_norms[di])
-                    })
+                    .map(|(qi, q)| self.token_similarity(q, query_norms[qi], d, doc_norms[di]))
                     .fold(f32::NEG_INFINITY, f32::max)
             })
             .sum()
@@ -342,11 +333,7 @@ impl MultiVectorIndex {
             DistanceMetric::DotProduct => dot,
             // For Euclidean and Manhattan we convert to a similarity-like score.
             DistanceMetric::Euclidean => {
-                let dist_sq: f32 = a
-                    .iter()
-                    .zip(b.iter())
-                    .map(|(x, y)| (x - y).powi(2))
-                    .sum();
+                let dist_sq: f32 = a.iter().zip(b.iter()).map(|(x, y)| (x - y).powi(2)).sum();
                 1.0 / (1.0 + dist_sq.sqrt())
             }
             DistanceMetric::Manhattan => {

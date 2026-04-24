@@ -7,8 +7,8 @@
 //! cargo run --example realtime_feeds
 //! ```
 
+use ruvector_data_framework::realtime::{FeedSource, NewsAggregator, RealTimeEngine};
 use std::time::Duration;
-use ruvector_data_framework::realtime::{NewsAggregator, RealTimeEngine, FeedSource};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -29,7 +29,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!(
                     "  {}. {} - {:?} ({})",
                     i + 1,
-                    vector.metadata.get("title").map(|s| s.as_str()).unwrap_or("Untitled"),
+                    vector
+                        .metadata
+                        .get("title")
+                        .map(|s| s.as_str())
+                        .unwrap_or("Untitled"),
                     vector.domain,
                     vector.timestamp.format("%Y-%m-%d %H:%M")
                 );
@@ -62,7 +66,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         for vector in vectors.iter().take(3) {
             println!(
                 "   - {} ({:?})",
-                vector.metadata.get("title").map(|s| s.as_str()).unwrap_or("Untitled"),
+                vector
+                    .metadata
+                    .get("title")
+                    .map(|s| s.as_str())
+                    .unwrap_or("Untitled"),
                 vector.domain
             );
         }

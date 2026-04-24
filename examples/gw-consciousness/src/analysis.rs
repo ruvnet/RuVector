@@ -8,8 +8,7 @@ use ruvector_consciousness::phi::auto_compute_phi;
 use ruvector_consciousness::rsvd_emergence::{RsvdEmergenceEngine, RsvdEmergenceResult};
 use ruvector_consciousness::traits::EmergenceEngine;
 use ruvector_consciousness::types::{
-    ComputeBudget, EmergenceResult, PhiResult,
-    TransitionMatrix as ConsciousnessTPM,
+    ComputeBudget, EmergenceResult, PhiResult, TransitionMatrix as ConsciousnessTPM,
 };
 
 use crate::data::{GWSpectrum, TransitionMatrix};
@@ -110,8 +109,7 @@ pub fn run_analysis(
             Ok(svd) => {
                 println!(
                     "  {:20} eff_rank = {}/{}, entropy = {:.4}, emergence = {:.4}",
-                    name, svd.effective_rank, n_bins, svd.spectral_entropy,
-                    svd.emergence_index
+                    name, svd.effective_rank, n_bins, svd.spectral_entropy, svd.emergence_index
                 );
                 model_svd.push((name.to_string(), svd));
             }
@@ -125,10 +123,7 @@ pub fn run_analysis(
     let mut smbh_phi_spectrum = Vec::new();
     if let Some((_, smbh_tpm)) = tpms.iter().find(|(n, _)| *n == "smbh") {
         let window = (n_bins / 4).max(3).min(6);
-        println!(
-            "\n--- Phi Spectrum (window={}) for SMBH model ---",
-            window
-        );
+        println!("\n--- Phi Spectrum (window={}) for SMBH model ---", window);
         for start in 0..=(n_bins.saturating_sub(window)) {
             let bins: Vec<usize> = (start..start + window).collect();
             let sub = extract_sub_tpm(smbh_tpm, &bins);
@@ -155,10 +150,7 @@ pub fn run_analysis(
         best_exotic_phi
     );
 
-    let smbh_spec = spectra
-        .iter()
-        .find(|(n, _)| *n == "smbh")
-        .map(|(_, s)| s);
+    let smbh_spec = spectra.iter().find(|(n, _)| *n == "smbh").map(|(_, s)| s);
 
     let mut null_phis = Vec::with_capacity(null_samples);
 
@@ -201,11 +193,7 @@ pub fn run_analysis(
     let p_value = if null_phis.is_empty() {
         1.0
     } else {
-        null_phis
-            .iter()
-            .filter(|&&p| p >= best_exotic_phi)
-            .count() as f64
-            / null_phis.len() as f64
+        null_phis.iter().filter(|&&p| p >= best_exotic_phi).count() as f64 / null_phis.len() as f64
     };
 
     AnalysisResults {

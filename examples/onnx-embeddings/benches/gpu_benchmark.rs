@@ -5,12 +5,12 @@
 //! - Pooling operations
 //! - Vector operations
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 
 #[cfg(feature = "gpu")]
 use ruvector_onnx_embeddings::gpu::{
-    GpuAccelerator, GpuConfig, GpuPooler, GpuSimilarity, GpuVectorOps,
-    batch_cosine_similarity_gpu, batch_dot_product_gpu, batch_euclidean_gpu,
+    batch_cosine_similarity_gpu, batch_dot_product_gpu, batch_euclidean_gpu, GpuAccelerator,
+    GpuConfig, GpuPooler, GpuSimilarity, GpuVectorOps,
 };
 
 /// CPU baseline implementations for comparison
@@ -95,11 +95,7 @@ fn similarity_benchmarks(c: &mut Criterion) {
         // Test different candidate counts
         for num_candidates in [100, 1000, 10000].iter() {
             let candidates: Vec<Vec<f32>> = (0..*num_candidates)
-                .map(|i| {
-                    (0..*dimension)
-                        .map(|j| ((i + j) as f32) * 0.0001)
-                        .collect()
-                })
+                .map(|i| (0..*dimension).map(|j| ((i + j) as f32) * 0.0001).collect())
                 .collect();
 
             let id = format!("dim{}_n{}", dimension, num_candidates);
@@ -122,9 +118,7 @@ fn similarity_benchmarks(c: &mut Criterion) {
                 group.bench_with_input(
                     BenchmarkId::new("gpu_cosine", &id),
                     &(&query, &refs),
-                    |b, (q, c)| {
-                        b.iter(|| batch_cosine_similarity_gpu(black_box(q), black_box(c)))
-                    },
+                    |b, (q, c)| b.iter(|| batch_cosine_similarity_gpu(black_box(q), black_box(c))),
                 );
             }
         }
@@ -151,7 +145,13 @@ fn pooling_benchmarks(c: &mut Criterion) {
             .collect();
 
         let mask: Vec<i64> = (0..batch_size * seq_length)
-            .map(|i| if i % seq_length < seq_length - 10 { 1 } else { 0 })
+            .map(|i| {
+                if i % seq_length < seq_length - 10 {
+                    1
+                } else {
+                    0
+                }
+            })
             .collect();
 
         let id = format!("b{}_s{}_h{}", batch_size, seq_length, hidden_size);
@@ -163,9 +163,7 @@ fn pooling_benchmarks(c: &mut Criterion) {
             BenchmarkId::new("cpu_mean_pool", &id),
             &(&tokens, &mask, batch_size, seq_length, hidden_size),
             |b, (t, m, bs, sl, hs)| {
-                b.iter(|| {
-                    cpu_baseline::mean_pool(black_box(t), black_box(m), *bs, *sl, *hs)
-                })
+                b.iter(|| cpu_baseline::mean_pool(black_box(t), black_box(m), *bs, *sl, *hs))
             },
         );
 
@@ -202,9 +200,7 @@ fn vector_ops_benchmarks(c: &mut Criterion) {
             &(dimension,),
             |b, (dim,)| {
                 let mut v = vectors.clone();
-                b.iter(|| {
-                    cpu_baseline::normalize_batch(black_box(&mut v), *dim)
-                })
+                b.iter(|| cpu_baseline::normalize_batch(black_box(&mut v), *dim))
             },
         );
     }
@@ -236,7 +232,8 @@ fn e2e_similarity_search(c: &mut Criterion) {
     // CPU: compute similarities and find top-k
     group.bench_function("cpu_top_k", |b| {
         b.iter(|| {
-            let sims = cpu_baseline::batch_cosine_similarity(black_box(&query), black_box(&candidates));
+            let sims =
+                cpu_baseline::batch_cosine_similarity(black_box(&query), black_box(&candidates));
             let mut indexed: Vec<(usize, f32)> = sims.into_iter().enumerate().collect();
             indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
             indexed.truncate(top_k);

@@ -13,8 +13,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use crate::{
-    ProofAttestation, GraphHandle, ProofToken, Result, RvfMountHandle, VectorKey,
-    VectorStoreHandle,
+    GraphHandle, ProofAttestation, ProofToken, Result, RvfMountHandle, VectorKey, VectorStoreHandle,
 };
 use ruvix_types::KernelError;
 
@@ -445,12 +444,8 @@ impl WitnessLog {
         state_hash: [u8; 32],
         checkpoint_sequence: u64,
     ) -> Result<u64> {
-        let record = WitnessRecord::checkpoint(
-            0,
-            self.current_time_ns,
-            state_hash,
-            checkpoint_sequence,
-        );
+        let record =
+            WitnessRecord::checkpoint(0, self.current_time_ns, state_hash, checkpoint_sequence);
         self.append(record)
     }
 
@@ -579,7 +574,13 @@ fn hash_attestation(attestation: &ProofAttestation) -> [u8; 32] {
     result[0..8].copy_from_slice(&hash.to_le_bytes());
     result[8..16].copy_from_slice(&hash.wrapping_mul(prime).to_le_bytes());
     result[16..24].copy_from_slice(&hash.wrapping_mul(prime).wrapping_mul(prime).to_le_bytes());
-    result[24..32].copy_from_slice(&hash.wrapping_mul(prime).wrapping_mul(prime).wrapping_mul(prime).to_le_bytes());
+    result[24..32].copy_from_slice(
+        &hash
+            .wrapping_mul(prime)
+            .wrapping_mul(prime)
+            .wrapping_mul(prime)
+            .to_le_bytes(),
+    );
     result
 }
 

@@ -2,12 +2,12 @@
 //!
 //! Run with: cargo bench --package sevensense-vector
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use rand::prelude::*;
 
 use sevensense_vector::{
-    HnswIndex, HnswConfig, EmbeddingId,
-    cosine_distance, euclidean_distance, cosine_similarity, normalize_vector,
+    cosine_distance, cosine_similarity, euclidean_distance, normalize_vector, EmbeddingId,
+    HnswConfig, HnswIndex,
 };
 
 /// Generate a random vector of given dimension.
@@ -24,8 +24,7 @@ fn bench_hnsw_search(c: &mut Criterion) {
     let mut group = c.benchmark_group("hnsw_search");
 
     for num_vectors in [1000, 10_000, 100_000] {
-        let config = HnswConfig::for_dimension(128)
-            .with_max_elements(num_vectors + 1000);
+        let config = HnswConfig::for_dimension(128).with_max_elements(num_vectors + 1000);
         let mut index = HnswIndex::new(&config);
 
         let mut rng = StdRng::seed_from_u64(42);
@@ -41,17 +40,13 @@ fn bench_hnsw_search(c: &mut Criterion) {
         // Query vector
         let query = random_unit_vector(128, &mut rng);
 
-        group.bench_with_input(
-            BenchmarkId::new("k10", num_vectors),
-            &query,
-            |b, q| b.iter(|| black_box(index.search(q, 10))),
-        );
+        group.bench_with_input(BenchmarkId::new("k10", num_vectors), &query, |b, q| {
+            b.iter(|| black_box(index.search(q, 10)))
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("k50", num_vectors),
-            &query,
-            |b, q| b.iter(|| black_box(index.search(q, 50))),
-        );
+        group.bench_with_input(BenchmarkId::new("k50", num_vectors), &query, |b, q| {
+            b.iter(|| black_box(index.search(q, 50)))
+        });
     }
 
     group.finish();
@@ -71,8 +66,7 @@ fn bench_brute_force_vs_hnsw(c: &mut Criterion) {
         .collect();
 
     // HNSW index
-    let config = HnswConfig::for_dimension(dim)
-        .with_max_elements(num_vectors + 100);
+    let config = HnswConfig::for_dimension(dim).with_max_elements(num_vectors + 100);
     let mut hnsw_index = HnswIndex::new(&config);
 
     for (i, vector) in vectors.iter().enumerate() {
@@ -139,8 +133,7 @@ fn bench_batch_insert(c: &mut Criterion) {
     let mut group = c.benchmark_group("batch_insert");
 
     for batch_size in [100, 1000, 10_000] {
-        let config = HnswConfig::for_dimension(128)
-            .with_max_elements(batch_size + 100);
+        let config = HnswConfig::for_dimension(128).with_max_elements(batch_size + 100);
 
         let mut rng = StdRng::seed_from_u64(42);
         let vectors: Vec<(EmbeddingId, Vec<f32>)> = (0..batch_size)
@@ -173,11 +166,9 @@ fn bench_normalization(c: &mut Criterion) {
         let mut rng = StdRng::seed_from_u64(42);
         let v = random_vector(dim, &mut rng);
 
-        group.bench_with_input(
-            BenchmarkId::new("normalize_vector", dim),
-            &v,
-            |b, v| b.iter(|| black_box(normalize_vector(v))),
-        );
+        group.bench_with_input(BenchmarkId::new("normalize_vector", dim), &v, |b, v| {
+            b.iter(|| black_box(normalize_vector(v)))
+        });
     }
 
     group.finish();

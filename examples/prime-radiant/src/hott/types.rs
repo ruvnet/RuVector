@@ -9,9 +9,9 @@
 //! - Sigma-types: total space of a fibration
 //! - Identity types: path space
 
+use super::{Level, Term};
 use std::fmt;
 use std::sync::Arc;
-use super::{Level, Term};
 
 /// Type error variants
 #[derive(Debug, Clone, PartialEq)]
@@ -25,7 +25,10 @@ pub enum TypeError {
     /// Not a pair type (for projections)
     NotAPair(String),
     /// Invalid path composition (endpoints don't match)
-    PathMismatch { left_target: String, right_source: String },
+    PathMismatch {
+        left_target: String,
+        right_source: String,
+    },
     /// Universe level violation
     UniverseLevel { expected: Level, found: Level },
     /// Cannot infer type
@@ -45,11 +48,22 @@ impl fmt::Display for TypeError {
             }
             TypeError::NotAFunction(t) => write!(f, "Not a function type: {}", t),
             TypeError::NotAPair(t) => write!(f, "Not a pair type: {}", t),
-            TypeError::PathMismatch { left_target, right_source } => {
-                write!(f, "Path composition mismatch: {} != {}", left_target, right_source)
+            TypeError::PathMismatch {
+                left_target,
+                right_source,
+            } => {
+                write!(
+                    f,
+                    "Path composition mismatch: {} != {}",
+                    left_target, right_source
+                )
             }
             TypeError::UniverseLevel { expected, found } => {
-                write!(f, "Universe level error: expected U_{}, found U_{}", expected, found)
+                write!(
+                    f,
+                    "Universe level error: expected U_{}, found U_{}",
+                    expected, found
+                )
             }
             TypeError::CannotInfer(t) => write!(f, "Cannot infer type: {}", t),
             TypeError::InvalidTransport(msg) => write!(f, "Invalid transport: {}", msg),
@@ -74,7 +88,9 @@ impl Universe {
 
     /// Get the universe containing this universe
     pub fn lift(&self) -> Self {
-        Universe { level: self.level + 1 }
+        Universe {
+            level: self.level + 1,
+        }
     }
 
     /// Check if self can be contained in other
@@ -209,7 +225,9 @@ impl Type {
             }
             Type::Sigma { base, .. } | Type::Product(base, _) => base.universe_level(),
             Type::Id(ty, _, _) => ty.universe_level(),
-            Type::Coprod(left, right) => std::cmp::max(left.universe_level(), right.universe_level()),
+            Type::Coprod(left, right) => {
+                std::cmp::max(left.universe_level(), right.universe_level())
+            }
             Type::Var(_) => 0, // Variables are at level 0 by default
             Type::Truncation { inner, .. } => inner.universe_level(),
         }
@@ -222,9 +240,9 @@ impl Type {
 
     /// Check if this type is a set (all identity proofs are equal)
     pub fn is_set(&self) -> bool {
-        matches!(self,
-            Type::Nat | Type::Bool | Type::Unit |
-            Type::Truncation { level: 0, .. }
+        matches!(
+            self,
+            Type::Nat | Type::Bool | Type::Unit | Type::Truncation { level: 0, .. }
         )
     }
 
@@ -251,16 +269,41 @@ impl Type {
             (Type::Id(t1, a1, b1), Type::Id(t2, a2, b2)) => {
                 t1.structural_eq(t2) && a1.structural_eq(a2) && b1.structural_eq(b2)
             }
-            (Type::Truncation { inner: i1, level: l1 }, Type::Truncation { inner: i2, level: l2 }) => {
-                l1 == l2 && i1.structural_eq(i2)
-            }
+            (
+                Type::Truncation {
+                    inner: i1,
+                    level: l1,
+                },
+                Type::Truncation {
+                    inner: i2,
+                    level: l2,
+                },
+            ) => l1 == l2 && i1.structural_eq(i2),
             // Pi and Sigma require more careful comparison
-            (Type::Pi { domain: d1, var_name: v1, .. }, Type::Pi { domain: d2, var_name: v2, .. }) => {
-                d1.structural_eq(d2) && v1 == v2
-            }
-            (Type::Sigma { base: b1, var_name: v1, .. }, Type::Sigma { base: b2, var_name: v2, .. }) => {
-                b1.structural_eq(b2) && v1 == v2
-            }
+            (
+                Type::Pi {
+                    domain: d1,
+                    var_name: v1,
+                    ..
+                },
+                Type::Pi {
+                    domain: d2,
+                    var_name: v2,
+                    ..
+                },
+            ) => d1.structural_eq(d2) && v1 == v2,
+            (
+                Type::Sigma {
+                    base: b1,
+                    var_name: v1,
+                    ..
+                },
+                Type::Sigma {
+                    base: b2,
+                    var_name: v2,
+                    ..
+                },
+            ) => b1.structural_eq(b2) && v1 == v2,
             _ => false,
         }
     }
@@ -280,7 +323,9 @@ impl fmt::Debug for Type {
             Type::Product(a, b) => write!(f, "({:?} x {:?})", a, b),
             Type::Coprod(a, b) => write!(f, "({:?} + {:?})", a, b),
             Type::Var(name) => write!(f, "{}", name),
-            Type::Pi { domain, var_name, .. } => {
+            Type::Pi {
+                domain, var_name, ..
+            } => {
                 write!(f, "(({} : {:?}) -> ...)", var_name, domain)
             }
             Type::Sigma { base, var_name, .. } => {

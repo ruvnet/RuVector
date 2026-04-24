@@ -16,16 +16,18 @@
 //!
 //! Run: cargo run --example sparse_matrix_store
 
+use rvf_runtime::filter::FilterValue;
+use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{
     FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult,
 };
-use rvf_runtime::filter::FilterValue;
-use rvf_runtime::options::DistanceMetric;
 use tempfile::TempDir;
 
 /// Simple LCG-based pseudo-random number generator for deterministic results.
 fn lcg_next(state: &mut u64) -> u64 {
-    *state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+    *state = state
+        .wrapping_mul(6364136223846793005)
+        .wrapping_add(1442695040888963407);
     *state >> 33
 }
 
@@ -182,7 +184,11 @@ fn main() {
 
     println!("  Matrix size:     {} x {}", nrows, ncols);
     println!("  Total nnz:       {}", total_nnz);
-    println!("  Density:         {:.4} ({:.2}%)", density, density * 100.0);
+    println!(
+        "  Density:         {:.4} ({:.2}%)",
+        density,
+        density * 100.0
+    );
     println!("  Condition est:   {:.2}", cond_estimate);
 
     // Print first few rows

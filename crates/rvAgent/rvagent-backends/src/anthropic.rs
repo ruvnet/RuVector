@@ -160,11 +160,7 @@ impl AnthropicClient {
 
     /// Create an `AnthropicClient` with a pre-built `reqwest::Client` (useful for testing).
     #[cfg(test)]
-    pub(crate) fn with_http(
-        config: ModelConfig,
-        http: reqwest::Client,
-        api_key: String,
-    ) -> Self {
+    pub(crate) fn with_http(config: ModelConfig, http: reqwest::Client, api_key: String) -> Self {
         Self {
             config,
             http,
@@ -373,7 +369,9 @@ impl ChatModel for AnthropicClient {
     /// Send messages and receive a complete response.
     async fn complete(&self, messages: &[Message]) -> Result<Message> {
         let request_body = self.build_request(messages, false);
-        let response = self.send_with_retry(&request_body, ANTHROPIC_API_URL).await?;
+        let response = self
+            .send_with_retry(&request_body, ANTHROPIC_API_URL)
+            .await?;
         Ok(Self::parse_response(response))
     }
 
@@ -448,11 +446,8 @@ mod tests {
 
     #[test]
     fn test_build_request_basic() {
-        let client = AnthropicClient::with_http(
-            test_config(),
-            reqwest::Client::new(),
-            "key".to_string(),
-        );
+        let client =
+            AnthropicClient::with_http(test_config(), reqwest::Client::new(), "key".to_string());
         let messages = vec![
             Message::system("You are helpful."),
             Message::human("Hello!"),
@@ -469,11 +464,8 @@ mod tests {
 
     #[test]
     fn test_build_request_multiple_system_messages() {
-        let client = AnthropicClient::with_http(
-            test_config(),
-            reqwest::Client::new(),
-            "key".to_string(),
-        );
+        let client =
+            AnthropicClient::with_http(test_config(), reqwest::Client::new(), "key".to_string());
         let messages = vec![
             Message::system("First instruction."),
             Message::system("Second instruction."),
@@ -489,11 +481,8 @@ mod tests {
 
     #[test]
     fn test_build_request_with_tool_calls() {
-        let client = AnthropicClient::with_http(
-            test_config(),
-            reqwest::Client::new(),
-            "key".to_string(),
-        );
+        let client =
+            AnthropicClient::with_http(test_config(), reqwest::Client::new(), "key".to_string());
         let messages = vec![
             Message::human("Read that file."),
             Message::ai_with_tools(
@@ -524,11 +513,8 @@ mod tests {
 
     #[test]
     fn test_build_request_stream_flag() {
-        let client = AnthropicClient::with_http(
-            test_config(),
-            reqwest::Client::new(),
-            "key".to_string(),
-        );
+        let client =
+            AnthropicClient::with_http(test_config(), reqwest::Client::new(), "key".to_string());
         let messages = vec![Message::human("Hi")];
         let req = client.build_request(&messages, true);
         assert_eq!(req.stream, Some(true));
@@ -642,9 +628,7 @@ mod tests {
         let key_path = dir.path().join("api_key.txt");
         std::fs::write(&key_path, "  sk-file-key  \n").expect("failed to write key file");
 
-        let key = resolve_api_key(&ApiKeySource::File(
-            key_path.to_string_lossy().to_string(),
-        ));
+        let key = resolve_api_key(&ApiKeySource::File(key_path.to_string_lossy().to_string()));
         assert_eq!(key.unwrap(), "sk-file-key");
     }
 
@@ -656,11 +640,8 @@ mod tests {
 
     #[test]
     fn test_temperature_serialization() {
-        let client = AnthropicClient::with_http(
-            test_config(),
-            reqwest::Client::new(),
-            "key".to_string(),
-        );
+        let client =
+            AnthropicClient::with_http(test_config(), reqwest::Client::new(), "key".to_string());
         let req = client.build_request(&[Message::human("Hi")], false);
         // temperature=0.0 => None (omitted)
         assert!(req.temperature.is_none());
@@ -725,7 +706,8 @@ mod tests {
 
     #[test]
     fn test_api_error_response_deserialization() {
-        let json = r#"{"error": {"type": "invalid_request_error", "message": "max_tokens must be > 0"}}"#;
+        let json =
+            r#"{"error": {"type": "invalid_request_error", "message": "max_tokens must be > 0"}}"#;
         let err: ApiErrorResponse = serde_json::from_str(json).expect("deserialization failed");
         assert_eq!(err.error.message, "max_tokens must be > 0");
     }

@@ -5,9 +5,9 @@
 //! to build a minimum spanning tree and extract clusters.
 
 use ndarray::{Array2, ArrayView1};
-use petgraph::graph::{NodeIndex, UnGraph};
 use petgraph::algo::min_spanning_tree;
 use petgraph::data::FromElements;
+use petgraph::graph::{NodeIndex, UnGraph};
 use std::collections::{HashMap, HashSet};
 use tracing::{debug, instrument};
 
@@ -77,7 +77,11 @@ impl HdbscanClusterer {
         let labels = self.extract_clusters(&mst, n);
 
         debug!(
-            n_clusters = labels.iter().filter(|&&l| l >= 0).collect::<HashSet<_>>().len(),
+            n_clusters = labels
+                .iter()
+                .filter(|&&l| l >= 0)
+                .collect::<HashSet<_>>()
+                .len(),
             n_noise = labels.iter().filter(|&&l| l < 0).count(),
             "HDBSCAN fit completed"
         );
@@ -265,13 +269,12 @@ impl HdbscanClusterer {
     /// Compute distance between two vectors.
     fn distance(&self, a: ArrayView1<f32>, b: ArrayView1<f32>) -> f32 {
         match self.metric {
-            DistanceMetric::Euclidean => {
-                a.iter()
-                    .zip(b.iter())
-                    .map(|(x, y)| (x - y).powi(2))
-                    .sum::<f32>()
-                    .sqrt()
-            }
+            DistanceMetric::Euclidean => a
+                .iter()
+                .zip(b.iter())
+                .map(|(x, y)| (x - y).powi(2))
+                .sum::<f32>()
+                .sqrt(),
             DistanceMetric::Cosine => {
                 let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
                 let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
@@ -365,7 +368,11 @@ mod tests {
         assert_eq!(labels.len(), 30);
 
         // Should have at least one cluster
-        let n_clusters = labels.iter().filter(|&&l| l >= 0).collect::<HashSet<_>>().len();
+        let n_clusters = labels
+            .iter()
+            .filter(|&&l| l >= 0)
+            .collect::<HashSet<_>>()
+            .len();
         assert!(n_clusters >= 1);
     }
 

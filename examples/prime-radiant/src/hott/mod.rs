@@ -59,22 +59,22 @@
 //! assert!(checker.check(&refl, &id_type).is_ok());
 //! ```
 
-pub mod types;
-pub mod term;
-pub mod path;
-pub mod equivalence;
 pub mod checker;
-pub mod transport;
 pub mod coherence;
+pub mod equivalence;
+pub mod path;
+pub mod term;
+pub mod transport;
+pub mod types;
 
 // Re-export core types
-pub use types::{Type, Universe, TypeError};
-pub use term::Term;
+pub use checker::{CheckResult, Context, TypeChecker};
+pub use coherence::{belief_equivalence, coherence_as_path, BeliefState};
+pub use equivalence::{ua_beta, ua_eta, univalence, Equivalence, Isomorphism};
 pub use path::{Path, PathOps};
-pub use equivalence::{Equivalence, Isomorphism, univalence, ua_beta, ua_eta};
-pub use checker::{TypeChecker, Context, CheckResult};
-pub use transport::{transport, path_induction, apd, ap};
-pub use coherence::{BeliefState, coherence_as_path, belief_equivalence};
+pub use term::Term;
+pub use transport::{ap, apd, path_induction, transport};
+pub use types::{Type, TypeError, Universe};
 
 /// Result type for HoTT operations
 pub type HottResult<T> = Result<T, TypeError>;

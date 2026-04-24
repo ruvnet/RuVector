@@ -16,12 +16,11 @@
 //! 12. SensorSubscribe - Subscribe to sensors
 
 use ruvix_nucleus::{
-    Kernel, KernelConfig, Syscall, SyscallResult, VectorStoreConfig,
-    TaskPriority, CapHandle, CapRights, ProofTier, VectorKey, RegionPolicy,
-    MsgPriority, TimerSpec, SensorDescriptor, QueueHandle, GraphMutation,
-    RvfMountHandle, RvfComponentId, Duration,
+    CapHandle, CapRights, Duration, GraphMutation, Kernel, KernelConfig, MsgPriority, ProofTier,
+    QueueHandle, RegionPolicy, RvfComponentId, RvfMountHandle, SensorDescriptor, Syscall,
+    SyscallResult, TaskPriority, TimerSpec, VectorKey, VectorStoreConfig,
 };
-use ruvix_types::{TaskHandle, ObjectType};
+use ruvix_types::{ObjectType, TaskHandle};
 
 // ============================================================================
 // Test Fixtures
@@ -36,7 +35,8 @@ fn setup_kernel() -> Kernel {
 
 fn create_root_cap(kernel: &mut Kernel) -> CapHandle {
     let root_task = TaskHandle::new(1, 0);
-    kernel.create_root_capability(0, ObjectType::RvfMount, root_task)
+    kernel
+        .create_root_capability(0, ObjectType::RvfMount, root_task)
         .expect("Failed to create root capability")
 }
 
@@ -48,12 +48,14 @@ fn create_root_cap(kernel: &mut Kernel) -> CapHandle {
 fn test_syscall_task_spawn_basic() {
     let mut kernel = setup_kernel();
 
-    let result = kernel.dispatch(Syscall::TaskSpawn {
-        entry: RvfComponentId::root(RvfMountHandle::null()),
-        caps: Vec::new(),
-        priority: TaskPriority::Normal,
-        deadline: None,
-    }).expect("TaskSpawn failed");
+    let result = kernel
+        .dispatch(Syscall::TaskSpawn {
+            entry: RvfComponentId::root(RvfMountHandle::null()),
+            caps: Vec::new(),
+            priority: TaskPriority::Normal,
+            deadline: None,
+        })
+        .expect("TaskSpawn failed");
 
     match result {
         SyscallResult::TaskSpawned(handle) => {
@@ -80,7 +82,11 @@ fn test_syscall_task_spawn_all_priorities() {
             deadline: None,
         });
 
-        assert!(result.is_ok(), "TaskSpawn with {:?} priority should succeed", priority);
+        assert!(
+            result.is_ok(),
+            "TaskSpawn with {:?} priority should succeed",
+            priority
+        );
     }
 }
 
@@ -88,12 +94,14 @@ fn test_syscall_task_spawn_all_priorities() {
 fn test_syscall_task_spawn_with_deadline() {
     let mut kernel = setup_kernel();
 
-    let result = kernel.dispatch(Syscall::TaskSpawn {
-        entry: RvfComponentId::root(RvfMountHandle::null()),
-        caps: Vec::new(),
-        priority: TaskPriority::RealTime,
-        deadline: Some(Duration::from_millis(100)),
-    }).expect("TaskSpawn with deadline failed");
+    let result = kernel
+        .dispatch(Syscall::TaskSpawn {
+            entry: RvfComponentId::root(RvfMountHandle::null()),
+            caps: Vec::new(),
+            priority: TaskPriority::RealTime,
+            deadline: Some(Duration::from_millis(100)),
+        })
+        .expect("TaskSpawn with deadline failed");
 
     assert!(matches!(result, SyscallResult::TaskSpawned(_)));
 }
@@ -103,12 +111,14 @@ fn test_syscall_task_spawn_with_caps() {
     let mut kernel = setup_kernel();
     let cap = create_root_cap(&mut kernel);
 
-    let result = kernel.dispatch(Syscall::TaskSpawn {
-        entry: RvfComponentId::root(RvfMountHandle::null()),
-        caps: vec![cap],
-        priority: TaskPriority::Normal,
-        deadline: None,
-    }).expect("TaskSpawn with caps failed");
+    let result = kernel
+        .dispatch(Syscall::TaskSpawn {
+            entry: RvfComponentId::root(RvfMountHandle::null()),
+            caps: vec![cap],
+            priority: TaskPriority::Normal,
+            deadline: None,
+        })
+        .expect("TaskSpawn with caps failed");
 
     assert!(matches!(result, SyscallResult::TaskSpawned(_)));
 }
@@ -123,11 +133,13 @@ fn test_syscall_cap_grant_basic() {
     let cap = create_root_cap(&mut kernel);
     let target = TaskHandle::new(2, 0);
 
-    let result = kernel.dispatch(Syscall::CapGrant {
-        target,
-        cap,
-        rights: CapRights::READ,
-    }).expect("CapGrant failed");
+    let result = kernel
+        .dispatch(Syscall::CapGrant {
+            target,
+            cap,
+            rights: CapRights::READ,
+        })
+        .expect("CapGrant failed");
 
     match result {
         SyscallResult::CapGranted(derived) => {
@@ -158,7 +170,11 @@ fn test_syscall_cap_grant_various_rights() {
             rights,
         });
 
-        assert!(result.is_ok(), "CapGrant with {:?} rights should succeed", rights);
+        assert!(
+            result.is_ok(),
+            "CapGrant with {:?} rights should succeed",
+            rights
+        );
     }
 }
 
@@ -171,11 +187,13 @@ fn test_syscall_region_map_basic() {
     let mut kernel = setup_kernel();
     let cap = create_root_cap(&mut kernel);
 
-    let result = kernel.dispatch(Syscall::RegionMap {
-        size: 4096,
-        policy: RegionPolicy::Immutable,
-        cap,
-    }).expect("RegionMap failed");
+    let result = kernel
+        .dispatch(Syscall::RegionMap {
+            size: 4096,
+            policy: RegionPolicy::Immutable,
+            cap,
+        })
+        .expect("RegionMap failed");
 
     match result {
         SyscallResult::RegionMapped(handle) => {
@@ -193,7 +211,10 @@ fn test_syscall_region_map_policies() {
     let policies = [
         RegionPolicy::Immutable,
         RegionPolicy::AppendOnly { max_size: 8192 },
-        RegionPolicy::Slab { slot_size: 64, slot_count: 128 },
+        RegionPolicy::Slab {
+            slot_size: 64,
+            slot_count: 128,
+        },
     ];
 
     for policy in policies {
@@ -203,7 +224,11 @@ fn test_syscall_region_map_policies() {
             cap,
         });
 
-        assert!(result.is_ok(), "RegionMap with {:?} policy should succeed", policy);
+        assert!(
+            result.is_ok(),
+            "RegionMap with {:?} policy should succeed",
+            policy
+        );
     }
 }
 
@@ -219,7 +244,11 @@ fn test_syscall_region_map_various_sizes() {
             cap,
         });
 
-        assert!(result.is_ok(), "RegionMap with size {} should succeed", size);
+        assert!(
+            result.is_ok(),
+            "RegionMap with size {} should succeed",
+            size
+        );
     }
 }
 
@@ -232,11 +261,13 @@ fn test_syscall_queue_send_basic() {
     let mut kernel = setup_kernel();
     let queue = QueueHandle::new(1, 0);
 
-    let result = kernel.dispatch(Syscall::QueueSend {
-        queue,
-        msg: vec![1, 2, 3, 4],
-        priority: MsgPriority::Normal,
-    }).expect("QueueSend failed");
+    let result = kernel
+        .dispatch(Syscall::QueueSend {
+            queue,
+            msg: vec![1, 2, 3, 4],
+            priority: MsgPriority::Normal,
+        })
+        .expect("QueueSend failed");
 
     assert!(matches!(result, SyscallResult::MessageSent));
 }
@@ -258,7 +289,11 @@ fn test_syscall_queue_send_priorities() {
             priority,
         });
 
-        assert!(result.is_ok(), "QueueSend with {:?} priority should succeed", priority);
+        assert!(
+            result.is_ok(),
+            "QueueSend with {:?} priority should succeed",
+            priority
+        );
     }
 }
 
@@ -273,7 +308,10 @@ fn test_syscall_queue_send_empty_message() {
         priority: MsgPriority::Normal,
     });
 
-    assert!(result.is_ok(), "QueueSend with empty message should succeed");
+    assert!(
+        result.is_ok(),
+        "QueueSend with empty message should succeed"
+    );
 }
 
 // ============================================================================
@@ -285,11 +323,13 @@ fn test_syscall_queue_recv_basic() {
     let mut kernel = setup_kernel();
     let queue = QueueHandle::new(1, 0);
 
-    let result = kernel.dispatch(Syscall::QueueRecv {
-        queue,
-        buf_size: 4096,
-        timeout: Duration::from_millis(100),
-    }).expect("QueueRecv failed");
+    let result = kernel
+        .dispatch(Syscall::QueueRecv {
+            queue,
+            buf_size: 4096,
+            timeout: Duration::from_millis(100),
+        })
+        .expect("QueueRecv failed");
 
     match result {
         SyscallResult::MessageReceived { data, priority } => {
@@ -312,7 +352,11 @@ fn test_syscall_queue_recv_various_timeouts() {
             timeout: Duration::from_millis(timeout_ms),
         });
 
-        assert!(result.is_ok(), "QueueRecv with {}ms timeout should succeed", timeout_ms);
+        assert!(
+            result.is_ok(),
+            "QueueRecv with {}ms timeout should succeed",
+            timeout_ms
+        );
     }
 }
 
@@ -324,9 +368,11 @@ fn test_syscall_queue_recv_various_timeouts() {
 fn test_syscall_timer_wait_relative() {
     let mut kernel = setup_kernel();
 
-    let result = kernel.dispatch(Syscall::TimerWait {
-        deadline: TimerSpec::from_millis(100),
-    }).expect("TimerWait failed");
+    let result = kernel
+        .dispatch(Syscall::TimerWait {
+            deadline: TimerSpec::from_millis(100),
+        })
+        .expect("TimerWait failed");
 
     assert!(matches!(result, SyscallResult::TimerExpired));
 }
@@ -335,9 +381,13 @@ fn test_syscall_timer_wait_relative() {
 fn test_syscall_timer_wait_absolute() {
     let mut kernel = setup_kernel();
 
-    let result = kernel.dispatch(Syscall::TimerWait {
-        deadline: TimerSpec::Absolute { nanos_since_boot: 2_000_000 },
-    }).expect("TimerWait failed");
+    let result = kernel
+        .dispatch(Syscall::TimerWait {
+            deadline: TimerSpec::Absolute {
+                nanos_since_boot: 2_000_000,
+            },
+        })
+        .expect("TimerWait failed");
 
     assert!(matches!(result, SyscallResult::TimerExpired));
 }
@@ -351,7 +401,11 @@ fn test_syscall_timer_wait_various_durations() {
             deadline: TimerSpec::from_millis(duration_ms),
         });
 
-        assert!(result.is_ok(), "TimerWait with {}ms should succeed", duration_ms);
+        assert!(
+            result.is_ok(),
+            "TimerWait with {}ms should succeed",
+            duration_ms
+        );
     }
 }
 
@@ -364,11 +418,13 @@ fn test_syscall_rvf_mount_basic() {
     let mut kernel = setup_kernel();
     let cap = create_root_cap(&mut kernel);
 
-    let result = kernel.dispatch(Syscall::RvfMount {
-        rvf_data: vec![0u8; 32], // Minimal RVF data
-        mount_point: "/test".to_string(),
-        cap,
-    }).expect("RvfMount failed");
+    let result = kernel
+        .dispatch(Syscall::RvfMount {
+            rvf_data: vec![0u8; 32], // Minimal RVF data
+            mount_point: "/test".to_string(),
+            cap,
+        })
+        .expect("RvfMount failed");
 
     match result {
         SyscallResult::RvfMounted(handle) => {
@@ -390,7 +446,11 @@ fn test_syscall_rvf_mount_various_paths() {
             cap,
         });
 
-        assert!(result.is_ok(), "RvfMount at '{}' should succeed", mount_point);
+        assert!(
+            result.is_ok(),
+            "RvfMount at '{}' should succeed",
+            mount_point
+        );
     }
 }
 
@@ -405,13 +465,15 @@ fn test_syscall_attest_emit_boot() {
     let mutation_hash = [0u8; 32];
     let proof = kernel.create_proof(mutation_hash, ProofTier::Reflex, 1);
 
-    let result = kernel.dispatch(Syscall::AttestEmit {
-        operation: ruvix_nucleus::AttestPayload::Boot {
-            kernel_hash: [0x42u8; 32],
-            boot_time_ns: 0,
-        },
-        proof,
-    }).expect("AttestEmit failed");
+    let result = kernel
+        .dispatch(Syscall::AttestEmit {
+            operation: ruvix_nucleus::AttestPayload::Boot {
+                kernel_hash: [0x42u8; 32],
+                boot_time_ns: 0,
+            },
+            proof,
+        })
+        .expect("AttestEmit failed");
 
     match result {
         SyscallResult::AttestEmitted { sequence } => {
@@ -430,13 +492,15 @@ fn test_syscall_attest_emit_checkpoint() {
     let mutation_hash = state_hash;
     let proof = kernel.create_proof(mutation_hash, ProofTier::Reflex, 1);
 
-    let result = kernel.dispatch(Syscall::AttestEmit {
-        operation: ruvix_nucleus::AttestPayload::Checkpoint {
-            sequence: 1,
-            state_hash,
-        },
-        proof,
-    }).expect("AttestEmit for checkpoint failed");
+    let result = kernel
+        .dispatch(Syscall::AttestEmit {
+            operation: ruvix_nucleus::AttestPayload::Checkpoint {
+                sequence: 1,
+                state_hash,
+            },
+            proof,
+        })
+        .expect("AttestEmit for checkpoint failed");
 
     assert!(matches!(result, SyscallResult::AttestEmitted { .. }));
 }
@@ -457,18 +521,22 @@ fn test_syscall_vector_get_basic() {
     let mutation_hash = [1u8; 32];
     let proof = kernel.create_proof(mutation_hash, ProofTier::Reflex, 1);
 
-    kernel.dispatch(Syscall::VectorPutProved {
-        store,
-        key: VectorKey::new(1),
-        data: vec![1.0, 2.0, 3.0, 4.0],
-        proof,
-    }).unwrap();
+    kernel
+        .dispatch(Syscall::VectorPutProved {
+            store,
+            key: VectorKey::new(1),
+            data: vec![1.0, 2.0, 3.0, 4.0],
+            proof,
+        })
+        .unwrap();
 
     // Now get it
-    let result = kernel.dispatch(Syscall::VectorGet {
-        store,
-        key: VectorKey::new(1),
-    }).expect("VectorGet failed");
+    let result = kernel
+        .dispatch(Syscall::VectorGet {
+            store,
+            key: VectorKey::new(1),
+        })
+        .expect("VectorGet failed");
 
     match result {
         SyscallResult::VectorRetrieved { data, coherence } => {
@@ -492,7 +560,10 @@ fn test_syscall_vector_get_not_found() {
         key: VectorKey::new(999),
     });
 
-    assert!(result.is_err(), "VectorGet for non-existent key should fail");
+    assert!(
+        result.is_err(),
+        "VectorGet for non-existent key should fail"
+    );
 }
 
 // ============================================================================
@@ -509,12 +580,14 @@ fn test_syscall_vector_put_proved_basic() {
     let mutation_hash = [1u8; 32];
     let proof = kernel.create_proof(mutation_hash, ProofTier::Reflex, 1);
 
-    let result = kernel.dispatch(Syscall::VectorPutProved {
-        store,
-        key: VectorKey::new(1),
-        data: vec![1.0, 2.0, 3.0, 4.0],
-        proof,
-    }).expect("VectorPutProved failed");
+    let result = kernel
+        .dispatch(Syscall::VectorPutProved {
+            store,
+            key: VectorKey::new(1),
+            data: vec![1.0, 2.0, 3.0, 4.0],
+            proof,
+        })
+        .expect("VectorPutProved failed");
 
     assert!(matches!(result, SyscallResult::VectorStored));
 }
@@ -541,7 +614,11 @@ fn test_syscall_vector_put_proved_all_tiers() {
             proof,
         });
 
-        assert!(result.is_ok(), "VectorPutProved with {:?} tier should succeed", tier);
+        assert!(
+            result.is_ok(),
+            "VectorPutProved with {:?} tier should succeed",
+            tier
+        );
     }
 }
 
@@ -565,7 +642,10 @@ fn test_syscall_vector_put_proved_expired_proof() {
         proof,
     });
 
-    assert!(result.is_err(), "VectorPutProved with expired proof should fail");
+    assert!(
+        result.is_err(),
+        "VectorPutProved with expired proof should fail"
+    );
 }
 
 #[test]
@@ -611,11 +691,13 @@ fn test_syscall_graph_apply_proved_add_node() {
     let mutation_hash = [1u8; 32];
     let proof = kernel.create_proof(mutation_hash, ProofTier::Standard, 1);
 
-    let result = kernel.dispatch(Syscall::GraphApplyProved {
-        graph,
-        mutation: GraphMutation::add_node(1),
-        proof,
-    }).expect("GraphApplyProved failed");
+    let result = kernel
+        .dispatch(Syscall::GraphApplyProved {
+            graph,
+            mutation: GraphMutation::add_node(1),
+            proof,
+        })
+        .expect("GraphApplyProved failed");
 
     assert!(matches!(result, SyscallResult::GraphApplied));
 }
@@ -631,11 +713,13 @@ fn test_syscall_graph_apply_proved_add_edge() {
         let mutation_hash = [nonce as u8; 32];
         let proof = kernel.create_proof(mutation_hash, ProofTier::Standard, nonce);
 
-        kernel.dispatch(Syscall::GraphApplyProved {
-            graph,
-            mutation: GraphMutation::add_node(node_id),
-            proof,
-        }).unwrap();
+        kernel
+            .dispatch(Syscall::GraphApplyProved {
+                graph,
+                mutation: GraphMutation::add_node(node_id),
+                proof,
+            })
+            .unwrap();
     }
 
     // Now add an edge
@@ -661,30 +745,36 @@ fn test_syscall_graph_apply_proved_set_property() {
     let mutation_hash = [1u8; 32];
     let proof = kernel.create_proof(mutation_hash, ProofTier::Standard, 1);
 
-    kernel.dispatch(Syscall::GraphApplyProved {
-        graph,
-        mutation: GraphMutation::add_node(1),
-        proof,
-    }).unwrap();
+    kernel
+        .dispatch(Syscall::GraphApplyProved {
+            graph,
+            mutation: GraphMutation::add_node(1),
+            proof,
+        })
+        .unwrap();
 
     let mutation_hash = [2u8; 32];
     let proof = kernel.create_proof(mutation_hash, ProofTier::Standard, 2);
 
-    kernel.dispatch(Syscall::GraphApplyProved {
-        graph,
-        mutation: GraphMutation::add_node(2),
-        proof,
-    }).unwrap();
+    kernel
+        .dispatch(Syscall::GraphApplyProved {
+            graph,
+            mutation: GraphMutation::add_node(2),
+            proof,
+        })
+        .unwrap();
 
     // Add edge between them
     let mutation_hash = [3u8; 32];
     let proof = kernel.create_proof(mutation_hash, ProofTier::Standard, 3);
 
-    kernel.dispatch(Syscall::GraphApplyProved {
-        graph,
-        mutation: GraphMutation::add_edge(1, 2, 1.0),
-        proof,
-    }).unwrap();
+    kernel
+        .dispatch(Syscall::GraphApplyProved {
+            graph,
+            mutation: GraphMutation::add_edge(1, 2, 1.0),
+            proof,
+        })
+        .unwrap();
 
     // Update edge weight
     let mutation_hash = [4u8; 32];
@@ -708,11 +798,13 @@ fn test_syscall_sensor_subscribe_basic() {
     let mut kernel = setup_kernel();
     let cap = create_root_cap(&mut kernel);
 
-    let result = kernel.dispatch(Syscall::SensorSubscribe {
-        sensor: SensorDescriptor::default(),
-        target_queue: QueueHandle::new(1, 0),
-        cap,
-    }).expect("SensorSubscribe failed");
+    let result = kernel
+        .dispatch(Syscall::SensorSubscribe {
+            sensor: SensorDescriptor::default(),
+            target_queue: QueueHandle::new(1, 0),
+            cap,
+        })
+        .expect("SensorSubscribe failed");
 
     match result {
         SyscallResult::SensorSubscribed(handle) => {
@@ -749,23 +841,29 @@ fn test_syscall_integration_full_flow() {
 
     // Create necessary resources
     let root_task = TaskHandle::new(1, 0);
-    let root_cap = kernel.create_root_capability(0, ObjectType::RvfMount, root_task).unwrap();
+    let root_cap = kernel
+        .create_root_capability(0, ObjectType::RvfMount, root_task)
+        .unwrap();
 
     // 1. Spawn a task
-    let result = kernel.dispatch(Syscall::TaskSpawn {
-        entry: RvfComponentId::root(RvfMountHandle::null()),
-        caps: vec![root_cap],
-        priority: TaskPriority::Normal,
-        deadline: None,
-    }).unwrap();
+    let result = kernel
+        .dispatch(Syscall::TaskSpawn {
+            entry: RvfComponentId::root(RvfMountHandle::null()),
+            caps: vec![root_cap],
+            priority: TaskPriority::Normal,
+            deadline: None,
+        })
+        .unwrap();
     assert!(matches!(result, SyscallResult::TaskSpawned(_)));
 
     // 2. Map a region
-    let result = kernel.dispatch(Syscall::RegionMap {
-        size: 4096,
-        policy: RegionPolicy::AppendOnly { max_size: 8192 },
-        cap: root_cap,
-    }).unwrap();
+    let result = kernel
+        .dispatch(Syscall::RegionMap {
+            size: 4096,
+            policy: RegionPolicy::AppendOnly { max_size: 8192 },
+            cap: root_cap,
+        })
+        .unwrap();
     assert!(matches!(result, SyscallResult::RegionMapped(_)));
 
     // 3. Create vector store and insert data
@@ -775,19 +873,23 @@ fn test_syscall_integration_full_flow() {
     let mutation_hash = [1u8; 32];
     let proof = kernel.create_proof(mutation_hash, ProofTier::Reflex, 1);
 
-    let result = kernel.dispatch(Syscall::VectorPutProved {
-        store,
-        key: VectorKey::new(1),
-        data: vec![1.0, 2.0, 3.0, 4.0],
-        proof,
-    }).unwrap();
+    let result = kernel
+        .dispatch(Syscall::VectorPutProved {
+            store,
+            key: VectorKey::new(1),
+            data: vec![1.0, 2.0, 3.0, 4.0],
+            proof,
+        })
+        .unwrap();
     assert!(matches!(result, SyscallResult::VectorStored));
 
     // 4. Read back the data
-    let result = kernel.dispatch(Syscall::VectorGet {
-        store,
-        key: VectorKey::new(1),
-    }).unwrap();
+    let result = kernel
+        .dispatch(Syscall::VectorGet {
+            store,
+            key: VectorKey::new(1),
+        })
+        .unwrap();
 
     match result {
         SyscallResult::VectorRetrieved { data, .. } => {
@@ -806,67 +908,103 @@ fn test_syscall_integration_full_flow() {
 fn test_syscall_number_mapping() {
     // Verify syscall numbers match ADR-087 specification
     let syscalls: Vec<(Syscall, u8)> = vec![
-        (Syscall::TaskSpawn {
-            entry: RvfComponentId::root(RvfMountHandle::null()),
-            caps: Vec::new(),
-            priority: TaskPriority::Normal,
-            deadline: None,
-        }, 0),
-        (Syscall::CapGrant {
-            target: TaskHandle::new(0, 0),
-            cap: CapHandle::null(),
-            rights: CapRights::READ,
-        }, 1),
-        (Syscall::RegionMap {
-            size: 4096,
-            policy: RegionPolicy::Immutable,
-            cap: CapHandle::null(),
-        }, 2),
-        (Syscall::QueueSend {
-            queue: QueueHandle::null(),
-            msg: Vec::new(),
-            priority: MsgPriority::Normal,
-        }, 3),
-        (Syscall::QueueRecv {
-            queue: QueueHandle::null(),
-            buf_size: 4096,
-            timeout: Duration::from_millis(100),
-        }, 4),
-        (Syscall::TimerWait {
-            deadline: TimerSpec::from_millis(100),
-        }, 5),
-        (Syscall::RvfMount {
-            rvf_data: Vec::new(),
-            mount_point: String::new(),
-            cap: CapHandle::null(),
-        }, 6),
-        (Syscall::AttestEmit {
-            operation: ruvix_nucleus::AttestPayload::Boot {
-                kernel_hash: [0u8; 32],
-                boot_time_ns: 0,
+        (
+            Syscall::TaskSpawn {
+                entry: RvfComponentId::root(RvfMountHandle::null()),
+                caps: Vec::new(),
+                priority: TaskPriority::Normal,
+                deadline: None,
             },
-            proof: Default::default(),
-        }, 7),
-        (Syscall::VectorGet {
-            store: ruvix_nucleus::VectorStoreHandle::null(),
-            key: VectorKey::new(0),
-        }, 8),
-        (Syscall::VectorPutProved {
-            store: ruvix_nucleus::VectorStoreHandle::null(),
-            key: VectorKey::new(0),
-            data: Vec::new(),
-            proof: Default::default(),
-        }, 9),
-        (Syscall::GraphApplyProved {
-            graph: ruvix_nucleus::GraphHandle::null(),
-            mutation: GraphMutation::add_node(0),
-            proof: Default::default(),
-        }, 10),
-        (Syscall::SensorSubscribe {
-            sensor: SensorDescriptor::default(),
-            target_queue: QueueHandle::null(),
-            cap: CapHandle::null(),
-        }, 11),
+            0,
+        ),
+        (
+            Syscall::CapGrant {
+                target: TaskHandle::new(0, 0),
+                cap: CapHandle::null(),
+                rights: CapRights::READ,
+            },
+            1,
+        ),
+        (
+            Syscall::RegionMap {
+                size: 4096,
+                policy: RegionPolicy::Immutable,
+                cap: CapHandle::null(),
+            },
+            2,
+        ),
+        (
+            Syscall::QueueSend {
+                queue: QueueHandle::null(),
+                msg: Vec::new(),
+                priority: MsgPriority::Normal,
+            },
+            3,
+        ),
+        (
+            Syscall::QueueRecv {
+                queue: QueueHandle::null(),
+                buf_size: 4096,
+                timeout: Duration::from_millis(100),
+            },
+            4,
+        ),
+        (
+            Syscall::TimerWait {
+                deadline: TimerSpec::from_millis(100),
+            },
+            5,
+        ),
+        (
+            Syscall::RvfMount {
+                rvf_data: Vec::new(),
+                mount_point: String::new(),
+                cap: CapHandle::null(),
+            },
+            6,
+        ),
+        (
+            Syscall::AttestEmit {
+                operation: ruvix_nucleus::AttestPayload::Boot {
+                    kernel_hash: [0u8; 32],
+                    boot_time_ns: 0,
+                },
+                proof: Default::default(),
+            },
+            7,
+        ),
+        (
+            Syscall::VectorGet {
+                store: ruvix_nucleus::VectorStoreHandle::null(),
+                key: VectorKey::new(0),
+            },
+            8,
+        ),
+        (
+            Syscall::VectorPutProved {
+                store: ruvix_nucleus::VectorStoreHandle::null(),
+                key: VectorKey::new(0),
+                data: Vec::new(),
+                proof: Default::default(),
+            },
+            9,
+        ),
+        (
+            Syscall::GraphApplyProved {
+                graph: ruvix_nucleus::GraphHandle::null(),
+                mutation: GraphMutation::add_node(0),
+                proof: Default::default(),
+            },
+            10,
+        ),
+        (
+            Syscall::SensorSubscribe {
+                sensor: SensorDescriptor::default(),
+                target_queue: QueueHandle::null(),
+                cap: CapHandle::null(),
+            },
+            11,
+        ),
     ];
 
     for (syscall, expected_number) in syscalls {

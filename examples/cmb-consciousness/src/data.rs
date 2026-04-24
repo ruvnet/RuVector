@@ -168,17 +168,14 @@ pub fn power_spectrum_to_tpm(ps: &PowerSpectrum, n_bins: usize, alpha: f64) -> T
             let delta = (bin_centers[i] - bin_centers[j]).abs();
             let sigma2 = w_i * w_j;
             let coupling = (-delta * delta / (2.0 * sigma2.max(1.0))).exp();
-            corr[i * n_bins + j] =
-                (bin_power[i] * bin_power[j]).sqrt().max(1e-10) * coupling;
+            corr[i * n_bins + j] = (bin_power[i] * bin_power[j]).sqrt().max(1e-10) * coupling;
         }
     }
 
     // Row-normalize with sharpness alpha
     let mut tpm = vec![0.0f64; n_bins * n_bins];
     for i in 0..n_bins {
-        let row_sum: f64 = (0..n_bins)
-            .map(|j| corr[i * n_bins + j].powf(alpha))
-            .sum();
+        let row_sum: f64 = (0..n_bins).map(|j| corr[i * n_bins + j].powf(alpha)).sum();
         for j in 0..n_bins {
             tpm[i * n_bins + j] = corr[i * n_bins + j].powf(alpha) / row_sum.max(1e-30);
         }

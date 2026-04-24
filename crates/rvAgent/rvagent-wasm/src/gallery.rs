@@ -9,8 +9,8 @@ use wasm_bindgen::prelude::*;
 
 use crate::bridge::to_js_value;
 use crate::rvf::{
-    AgentNode, AgentPrompt, CapabilityDef, McpToolEntry, OrchestratorConfig,
-    SkillDefinition, ToolDefinition, WasmRvfBuilder,
+    AgentNode, AgentPrompt, CapabilityDef, McpToolEntry, OrchestratorConfig, SkillDefinition,
+    ToolDefinition, WasmRvfBuilder,
 };
 
 // ---------------------------------------------------------------------------
@@ -673,16 +673,18 @@ impl WasmGallery {
             .builtin
             .iter()
             .chain(self.custom.iter())
-            .map(|t| serde_json::json!({
-                "id": t.id,
-                "name": t.name,
-                "description": t.description,
-                "category": t.category,
-                "version": t.version,
-                "author": t.author,
-                "tags": t.tags,
-                "builtin": t.builtin,
-            }))
+            .map(|t| {
+                serde_json::json!({
+                    "id": t.id,
+                    "name": t.name,
+                    "description": t.description,
+                    "category": t.category,
+                    "version": t.version,
+                    "author": t.author,
+                    "tags": t.tags,
+                    "builtin": t.builtin,
+                })
+            })
             .collect();
         to_js_value(&all)
     }
@@ -698,12 +700,14 @@ impl WasmGallery {
             .iter()
             .chain(self.custom.iter())
             .filter(|t| t.category == cat)
-            .map(|t| serde_json::json!({
-                "id": t.id,
-                "name": t.name,
-                "description": t.description,
-                "tags": t.tags,
-            }))
+            .map(|t| {
+                serde_json::json!({
+                    "id": t.id,
+                    "name": t.name,
+                    "description": t.description,
+                    "tags": t.tags,
+                })
+            })
             .collect();
         to_js_value(&filtered)
     }

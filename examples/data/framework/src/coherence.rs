@@ -5,10 +5,10 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::hnsw::{HnswConfig, HnswIndex, DistanceMetric};
+use crate::hnsw::{DistanceMetric, HnswConfig, HnswIndex};
 use crate::ruvector_native::{Domain, SemanticVector};
 use crate::utils::cosine_similarity;
-use crate::{DataRecord, FrameworkError, Result, Relationship, TemporalWindow};
+use crate::{DataRecord, FrameworkError, Relationship, Result, TemporalWindow};
 
 /// Configuration for coherence engine
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -253,9 +253,7 @@ impl CoherenceEngine {
         let min_weight = self.config.min_edge_weight;
 
         // Collect records with embeddings
-        let embedded: Vec<_> = records.iter()
-            .filter(|r| r.embedding.is_some())
-            .collect();
+        let embedded: Vec<_> = records.iter().filter(|r| r.embedding.is_some()).collect();
 
         if embedded.len() < 2 {
             return;
@@ -270,7 +268,12 @@ impl CoherenceEngine {
     }
 
     /// HNSW-accelerated edge creation: O(n * k * log n)
-    fn connect_by_embeddings_hnsw(&mut self, embedded: &[&DataRecord], threshold: f64, min_weight: f64) {
+    fn connect_by_embeddings_hnsw(
+        &mut self,
+        embedded: &[&DataRecord],
+        threshold: f64,
+        min_weight: f64,
+    ) {
         let dim = match &embedded[0].embedding {
             Some(emb) => emb.len(),
             None => return,
@@ -323,7 +326,11 @@ impl CoherenceEngine {
                                     (neighbor.external_id.clone(), record.id.clone())
                                 };
                                 if seen.insert(key) {
-                                    self.add_edge(&record.id, &neighbor.external_id, similarity.max(min_weight_f32) as f64);
+                                    self.add_edge(
+                                        &record.id,
+                                        &neighbor.external_id,
+                                        similarity.max(min_weight_f32) as f64,
+                                    );
                                 }
                             }
                         }
@@ -334,14 +341,18 @@ impl CoherenceEngine {
     }
 
     /// Brute-force edge creation for small datasets: O(n²)
-    fn connect_by_embeddings_bruteforce(&mut self, embedded: &[&DataRecord], threshold: f64, min_weight: f64) {
+    fn connect_by_embeddings_bruteforce(
+        &mut self,
+        embedded: &[&DataRecord],
+        threshold: f64,
+        min_weight: f64,
+    ) {
         let threshold_f32 = threshold as f32;
         let min_weight_f32 = min_weight as f32;
 
         for i in 0..embedded.len() {
             for j in (i + 1)..embedded.len() {
-                if let (Some(emb_a), Some(emb_b)) =
-                    (&embedded[i].embedding, &embedded[j].embedding)
+                if let (Some(emb_a), Some(emb_b)) = (&embedded[i].embedding, &embedded[j].embedding)
                 {
                     let similarity = cosine_similarity(emb_a, emb_b);
                     if similarity >= threshold_f32 {

@@ -12,8 +12,8 @@
 //! - Verification (prove system behaved correctly)
 
 use ruvix_nucleus::{
-    Kernel, KernelConfig, Syscall, SyscallResult, VectorStoreConfig, CheckpointConfig,
-    ProofTier, VectorKey, GraphMutation, WitnessRecord, WitnessRecordKind,
+    CheckpointConfig, GraphMutation, Kernel, KernelConfig, ProofTier, Syscall, SyscallResult,
+    VectorKey, VectorStoreConfig, WitnessRecord, WitnessRecordKind,
 };
 
 // ============================================================================
@@ -28,7 +28,10 @@ fn test_checkpoint_creation() {
 
     let checkpoint = kernel.checkpoint(CheckpointConfig::full()).unwrap();
 
-    assert_eq!(checkpoint.sequence, 1, "First checkpoint should have sequence 1");
+    assert_eq!(
+        checkpoint.sequence, 1,
+        "First checkpoint should have sequence 1"
+    );
     assert_eq!(checkpoint.timestamp_ns, 1_000_000);
 }
 
@@ -45,19 +48,24 @@ fn test_checkpoint_with_data() {
     let mutation_hash = [1u8; 32];
     let proof = kernel.create_proof(mutation_hash, ProofTier::Reflex, 1);
 
-    kernel.dispatch(Syscall::VectorPutProved {
-        store,
-        key: VectorKey::new(1),
-        data: vec![1.0, 2.0, 3.0, 4.0],
-        proof,
-    }).unwrap();
+    kernel
+        .dispatch(Syscall::VectorPutProved {
+            store,
+            key: VectorKey::new(1),
+            data: vec![1.0, 2.0, 3.0, 4.0],
+            proof,
+        })
+        .unwrap();
 
     // Create checkpoint after mutation
     let checkpoint = kernel.checkpoint(CheckpointConfig::full()).unwrap();
 
     // Verify checkpoint captures the state
     assert!(kernel.verify_checkpoint(&checkpoint));
-    assert_ne!(checkpoint.state_hash, [0u8; 32], "State hash should not be zero");
+    assert_ne!(
+        checkpoint.state_hash, [0u8; 32],
+        "State hash should not be zero"
+    );
 }
 
 #[test]
@@ -92,12 +100,14 @@ fn test_checkpoint_state_hash_changes() {
     let mutation_hash = [1u8; 32];
     let proof = kernel.create_proof(mutation_hash, ProofTier::Reflex, 1);
 
-    kernel.dispatch(Syscall::VectorPutProved {
-        store,
-        key: VectorKey::new(1),
-        data: vec![1.0, 2.0, 3.0, 4.0],
-        proof,
-    }).unwrap();
+    kernel
+        .dispatch(Syscall::VectorPutProved {
+            store,
+            key: VectorKey::new(1),
+            data: vec![1.0, 2.0, 3.0, 4.0],
+            proof,
+        })
+        .unwrap();
 
     kernel.set_current_time(2_000_000);
 
@@ -146,17 +156,21 @@ fn test_witness_log_mutation_records() {
 
         let proof = kernel.create_proof(mutation_hash, ProofTier::Reflex, i + 1);
 
-        kernel.dispatch(Syscall::VectorPutProved {
-            store,
-            key: VectorKey::new(i as u64),
-            data: vec![i as f32; 4],
-            proof,
-        }).unwrap();
+        kernel
+            .dispatch(Syscall::VectorPutProved {
+                store,
+                key: VectorKey::new(i as u64),
+                data: vec![i as f32; 4],
+                proof,
+            })
+            .unwrap();
     }
 
     // Verify witness log
     let log = kernel.witness_log();
-    let mutations: Vec<_> = log.filter_by_kind(WitnessRecordKind::VectorMutation).collect();
+    let mutations: Vec<_> = log
+        .filter_by_kind(WitnessRecordKind::VectorMutation)
+        .collect();
 
     assert_eq!(mutations.len(), 3, "Should have 3 mutation records");
 
@@ -179,12 +193,14 @@ fn test_witness_log_serialization_roundtrip() {
     let mutation_hash = [1u8; 32];
     let proof = kernel.create_proof(mutation_hash, ProofTier::Reflex, 1);
 
-    kernel.dispatch(Syscall::VectorPutProved {
-        store,
-        key: VectorKey::new(1),
-        data: vec![1.0, 2.0, 3.0, 4.0],
-        proof,
-    }).unwrap();
+    kernel
+        .dispatch(Syscall::VectorPutProved {
+            store,
+            key: VectorKey::new(1),
+            data: vec![1.0, 2.0, 3.0, 4.0],
+            proof,
+        })
+        .unwrap();
 
     kernel.checkpoint(CheckpointConfig::full()).unwrap();
 
@@ -224,21 +240,25 @@ fn test_deterministic_replay_single_mutation() {
     let mutation_hash = [1u8; 32];
     let proof1 = kernel1.create_proof(mutation_hash, ProofTier::Reflex, 1);
 
-    kernel1.dispatch(Syscall::VectorPutProved {
-        store: store1,
-        key: VectorKey::new(1),
-        data: vec![1.0, 2.0, 3.0, 4.0],
-        proof: proof1,
-    }).unwrap();
+    kernel1
+        .dispatch(Syscall::VectorPutProved {
+            store: store1,
+            key: VectorKey::new(1),
+            data: vec![1.0, 2.0, 3.0, 4.0],
+            proof: proof1,
+        })
+        .unwrap();
 
     let checkpoint1 = kernel1.checkpoint(CheckpointConfig::full()).unwrap();
     let log_bytes = kernel1.witness_log().to_bytes();
 
     // Get final state
-    let result1 = kernel1.dispatch(Syscall::VectorGet {
-        store: store1,
-        key: VectorKey::new(1),
-    }).unwrap();
+    let result1 = kernel1
+        .dispatch(Syscall::VectorGet {
+            store: store1,
+            key: VectorKey::new(1),
+        })
+        .unwrap();
 
     let (data1, coherence1) = match result1 {
         SyscallResult::VectorRetrieved { data, coherence } => (data, coherence),
@@ -264,20 +284,24 @@ fn test_deterministic_replay_single_mutation() {
                 2, // Different nonce for replay
             );
 
-            kernel2.dispatch(Syscall::VectorPutProved {
-                store: store2,
-                key: VectorKey::new(1),
-                data: vec![1.0, 2.0, 3.0, 4.0], // Same data as original
-                proof: proof2,
-            }).unwrap();
+            kernel2
+                .dispatch(Syscall::VectorPutProved {
+                    store: store2,
+                    key: VectorKey::new(1),
+                    data: vec![1.0, 2.0, 3.0, 4.0], // Same data as original
+                    proof: proof2,
+                })
+                .unwrap();
         }
     }
 
     // Get replayed state
-    let result2 = kernel2.dispatch(Syscall::VectorGet {
-        store: store2,
-        key: VectorKey::new(1),
-    }).unwrap();
+    let result2 = kernel2
+        .dispatch(Syscall::VectorGet {
+            store: store2,
+            key: VectorKey::new(1),
+        })
+        .unwrap();
 
     let (data2, coherence2) = match result2 {
         SyscallResult::VectorRetrieved { data, coherence } => (data, coherence),
@@ -286,7 +310,10 @@ fn test_deterministic_replay_single_mutation() {
 
     // CRITICAL: Replayed state MUST match original
     assert_eq!(data1, data2, "Replayed data must match original");
-    assert!((coherence1 - coherence2).abs() < 0.001, "Replayed coherence must match");
+    assert!(
+        (coherence1 - coherence2).abs() < 0.001,
+        "Replayed coherence must match"
+    );
 
     // Create checkpoint for replayed system
     let checkpoint2 = kernel2.checkpoint(CheckpointConfig::full()).unwrap();
@@ -317,16 +344,23 @@ fn test_deterministic_replay_multiple_mutations() {
         mutation_hash[0..8].copy_from_slice(&i.to_le_bytes());
 
         let proof = kernel1.create_proof(mutation_hash, ProofTier::Reflex, i + 1);
-        let data = vec![(i as f32) * 1.1, (i as f32) * 2.2, (i as f32) * 3.3, (i as f32) * 4.4];
+        let data = vec![
+            (i as f32) * 1.1,
+            (i as f32) * 2.2,
+            (i as f32) * 3.3,
+            (i as f32) * 4.4,
+        ];
 
         mutation_data.push((i as u32, data.clone()));
 
-        kernel1.dispatch(Syscall::VectorPutProved {
-            store: store1,
-            key: VectorKey::new(i as u64),
-            data,
-            proof,
-        }).unwrap();
+        kernel1
+            .dispatch(Syscall::VectorPutProved {
+                store: store1,
+                key: VectorKey::new(i as u64),
+                data,
+                proof,
+            })
+            .unwrap();
     }
 
     kernel1.set_current_time(11_000_000);
@@ -335,10 +369,12 @@ fn test_deterministic_replay_multiple_mutations() {
     // Collect all final values
     let mut final_values1: Vec<Vec<f32>> = Vec::new();
     for i in 0..10u64 {
-        let result = kernel1.dispatch(Syscall::VectorGet {
-            store: store1,
-            key: VectorKey::new(i as u64),
-        }).unwrap();
+        let result = kernel1
+            .dispatch(Syscall::VectorGet {
+                store: store1,
+                key: VectorKey::new(i as u64),
+            })
+            .unwrap();
 
         if let SyscallResult::VectorRetrieved { data, .. } = result {
             final_values1.push(data);
@@ -364,12 +400,14 @@ fn test_deterministic_replay_multiple_mutations() {
             *key as u64 + 11, // Different nonces for replay
         );
 
-        kernel2.dispatch(Syscall::VectorPutProved {
-            store: store2,
-            key: VectorKey::new(*key as u64),
-            data: data.clone(),
-            proof,
-        }).unwrap();
+        kernel2
+            .dispatch(Syscall::VectorPutProved {
+                store: store2,
+                key: VectorKey::new(*key as u64),
+                data: data.clone(),
+                proof,
+            })
+            .unwrap();
     }
 
     kernel2.set_current_time(11_000_000);
@@ -378,10 +416,12 @@ fn test_deterministic_replay_multiple_mutations() {
     // Collect all replayed values
     let mut final_values2: Vec<Vec<f32>> = Vec::new();
     for i in 0..10u64 {
-        let result = kernel2.dispatch(Syscall::VectorGet {
-            store: store2,
-            key: VectorKey::new(i as u64),
-        }).unwrap();
+        let result = kernel2
+            .dispatch(Syscall::VectorGet {
+                store: store2,
+                key: VectorKey::new(i as u64),
+            })
+            .unwrap();
 
         if let SyscallResult::VectorRetrieved { data, .. } = result {
             final_values2.push(data);
@@ -414,22 +454,26 @@ fn test_deterministic_replay_graph_mutations() {
     for i in 1..=5 {
         let proof = kernel1.create_proof([i as u8; 32], ProofTier::Standard, i);
 
-        kernel1.dispatch(Syscall::GraphApplyProved {
-            graph: graph1,
-            mutation: GraphMutation::add_node(i as u64),
-            proof,
-        }).unwrap();
+        kernel1
+            .dispatch(Syscall::GraphApplyProved {
+                graph: graph1,
+                mutation: GraphMutation::add_node(i as u64),
+                proof,
+            })
+            .unwrap();
     }
 
     // Add edges
     for i in 1..5 {
         let proof = kernel1.create_proof([i as u8 + 10; 32], ProofTier::Standard, i + 10);
 
-        kernel1.dispatch(Syscall::GraphApplyProved {
-            graph: graph1,
-            mutation: GraphMutation::add_edge(i as u64, (i + 1) as u64, 1.0),
-            proof,
-        }).unwrap();
+        kernel1
+            .dispatch(Syscall::GraphApplyProved {
+                graph: graph1,
+                mutation: GraphMutation::add_edge(i as u64, (i + 1) as u64, 1.0),
+                proof,
+            })
+            .unwrap();
     }
 
     kernel1.set_current_time(2_000_000);
@@ -446,22 +490,26 @@ fn test_deterministic_replay_graph_mutations() {
     for i in 1..=5 {
         let proof = kernel2.create_proof([i as u8; 32], ProofTier::Standard, i + 100);
 
-        kernel2.dispatch(Syscall::GraphApplyProved {
-            graph: graph2,
-            mutation: GraphMutation::add_node(i as u64),
-            proof,
-        }).unwrap();
+        kernel2
+            .dispatch(Syscall::GraphApplyProved {
+                graph: graph2,
+                mutation: GraphMutation::add_node(i as u64),
+                proof,
+            })
+            .unwrap();
     }
 
     // Replay edges
     for i in 1..5 {
         let proof = kernel2.create_proof([i as u8 + 10; 32], ProofTier::Standard, i + 110);
 
-        kernel2.dispatch(Syscall::GraphApplyProved {
-            graph: graph2,
-            mutation: GraphMutation::add_edge(i as u64, (i + 1) as u64, 1.0),
-            proof,
-        }).unwrap();
+        kernel2
+            .dispatch(Syscall::GraphApplyProved {
+                graph: graph2,
+                mutation: GraphMutation::add_edge(i as u64, (i + 1) as u64, 1.0),
+                proof,
+            })
+            .unwrap();
     }
 
     kernel2.set_current_time(2_000_000);
@@ -535,12 +583,14 @@ fn test_checkpoint_verification_fails_after_mutation() {
     let mutation_hash = [1u8; 32];
     let proof = kernel.create_proof(mutation_hash, ProofTier::Reflex, 1);
 
-    kernel.dispatch(Syscall::VectorPutProved {
-        store,
-        key: VectorKey::new(1),
-        data: vec![1.0, 2.0, 3.0, 4.0],
-        proof,
-    }).unwrap();
+    kernel
+        .dispatch(Syscall::VectorPutProved {
+            store,
+            key: VectorKey::new(1),
+            data: vec![1.0, 2.0, 3.0, 4.0],
+            proof,
+        })
+        .unwrap();
 
     // Old checkpoint should no longer verify (state has changed)
     assert!(
@@ -566,18 +616,22 @@ fn test_replay_order_matters() {
         let mutation_hash = [i as u8; 32];
         let proof = kernel1.create_proof(mutation_hash, ProofTier::Reflex, i + 1);
 
-        kernel1.dispatch(Syscall::VectorPutProved {
-            store: store1,
-            key: VectorKey::new(1), // Same key
-            data: vec![i as f32; 4],
-            proof,
-        }).unwrap();
+        kernel1
+            .dispatch(Syscall::VectorPutProved {
+                store: store1,
+                key: VectorKey::new(1), // Same key
+                data: vec![i as f32; 4],
+                proof,
+            })
+            .unwrap();
     }
 
-    let result1 = kernel1.dispatch(Syscall::VectorGet {
-        store: store1,
-        key: VectorKey::new(1),
-    }).unwrap();
+    let result1 = kernel1
+        .dispatch(Syscall::VectorGet {
+            store: store1,
+            key: VectorKey::new(1),
+        })
+        .unwrap();
 
     let data1 = match result1 {
         SyscallResult::VectorRetrieved { data, .. } => data,
@@ -599,18 +653,22 @@ fn test_replay_order_matters() {
         let mutation_hash = [i as u8; 32];
         let proof = kernel2.create_proof(mutation_hash, ProofTier::Reflex, (2 - i) + 10);
 
-        kernel2.dispatch(Syscall::VectorPutProved {
-            store: store2,
-            key: VectorKey::new(1), // Same key
-            data: vec![i as f32; 4],
-            proof,
-        }).unwrap();
+        kernel2
+            .dispatch(Syscall::VectorPutProved {
+                store: store2,
+                key: VectorKey::new(1), // Same key
+                data: vec![i as f32; 4],
+                proof,
+            })
+            .unwrap();
     }
 
-    let result2 = kernel2.dispatch(Syscall::VectorGet {
-        store: store2,
-        key: VectorKey::new(1),
-    }).unwrap();
+    let result2 = kernel2
+        .dispatch(Syscall::VectorGet {
+            store: store2,
+            key: VectorKey::new(1),
+        })
+        .unwrap();
 
     let data2 = match result2 {
         SyscallResult::VectorRetrieved { data, .. } => data,
@@ -621,5 +679,8 @@ fn test_replay_order_matters() {
     assert_eq!(data2, vec![0.0, 0.0, 0.0, 0.0]);
 
     // Demonstrate that order affects final state
-    assert_ne!(data1, data2, "Different order should produce different results");
+    assert_ne!(
+        data1, data2,
+        "Different order should produce different results"
+    );
 }

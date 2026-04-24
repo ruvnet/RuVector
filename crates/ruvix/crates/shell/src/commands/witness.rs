@@ -7,16 +7,16 @@ use alloc::string::String;
 /// Convert operation type to display string.
 fn operation_str(op: u8) -> &'static str {
     match op {
-        0 => "VGET",      // vector_get
-        1 => "VPUT",      // vector_put_proved
-        2 => "GAPPLY",    // graph_apply_proved
-        3 => "QSEND",     // queue_send
-        4 => "QRECV",     // queue_recv
-        5 => "RGRANT",    // region_grant
-        6 => "CGRANT",    // cap_grant
-        7 => "CREVOKE",   // cap_revoke
-        8 => "TSPAWN",    // task_spawn
-        9 => "TEXIT",     // task_exit
+        0 => "VGET",    // vector_get
+        1 => "VPUT",    // vector_put_proved
+        2 => "GAPPLY",  // graph_apply_proved
+        3 => "QSEND",   // queue_send
+        4 => "QRECV",   // queue_recv
+        5 => "RGRANT",  // region_grant
+        6 => "CGRANT",  // cap_grant
+        7 => "CREVOKE", // cap_revoke
+        8 => "TSPAWN",  // task_spawn
+        9 => "TEXIT",   // task_exit
         _ => "UNKNOWN",
     }
 }
@@ -48,7 +48,10 @@ pub fn execute<B: ShellBackend>(backend: &B, count: usize) -> String {
 
     let mut output = String::from("Witness Log\n");
     output.push_str("===========\n");
-    output.push_str(&format!("Showing {} most recent entries\n\n", entries.len()));
+    output.push_str(&format!(
+        "Showing {} most recent entries\n\n",
+        entries.len()
+    ));
     output.push_str("  SEQ       TIMESTAMP   OP       OBJECT_ID         HASH_PREFIX\n");
     output.push_str("  --------  ----------  -------  ----------------  ----------------\n");
 

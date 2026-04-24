@@ -12,12 +12,11 @@
 use ed25519_dalek::SigningKey;
 use rand::rngs::OsRng;
 
-use rvf_types::{SegmentHeader, SegmentType};
 use rvf_crypto::{
-    sign_segment, verify_segment,
-    create_witness_chain, verify_witness_chain, WitnessEntry,
-    shake256_256,
+    create_witness_chain, shake256_256, sign_segment, verify_segment, verify_witness_chain,
+    WitnessEntry,
 };
+use rvf_types::{SegmentHeader, SegmentType};
 
 fn main() {
     println!("=== RVF Crypto Signing Example ===\n");
@@ -31,10 +30,7 @@ fn main() {
     let verifying_key = signing_key.verifying_key();
 
     println!("  Algorithm:    Ed25519");
-    println!(
-        "  Public key:   {}",
-        hex_string(&verifying_key.to_bytes())
-    );
+    println!("  Public key:   {}", hex_string(&verifying_key.to_bytes()));
     println!("  Key size:     32 bytes (public), 32 bytes (private)");
 
     // ====================================================================
@@ -61,10 +57,7 @@ fn main() {
         "  Signature:       {}...",
         hex_string(&footer.signature[..16])
     );
-    println!(
-        "  Footer length:   {} bytes",
-        footer.footer_length
-    );
+    println!("  Footer length:   {} bytes", footer.footer_length);
 
     // ====================================================================
     // 3. Verify signature
@@ -72,7 +65,10 @@ fn main() {
     println!("\n--- 3. Signature Verification ---");
 
     let valid = verify_segment(&header, payload, &footer, &verifying_key);
-    println!("  Original payload + header: {}", if valid { "VALID" } else { "INVALID" });
+    println!(
+        "  Original payload + header: {}",
+        if valid { "VALID" } else { "INVALID" }
+    );
     assert!(valid, "signature should be valid for original data");
 
     // ====================================================================
@@ -85,7 +81,11 @@ fn main() {
     let valid_tampered_payload = verify_segment(&header, tampered_payload, &footer, &verifying_key);
     println!(
         "  Tampered payload:  {}",
-        if valid_tampered_payload { "VALID (BAD!)" } else { "INVALID (tamper detected)" }
+        if valid_tampered_payload {
+            "VALID (BAD!)"
+        } else {
+            "INVALID (tamper detected)"
+        }
     );
     assert!(!valid_tampered_payload, "tampered payload should fail");
 
@@ -95,7 +95,11 @@ fn main() {
     let valid_tampered_header = verify_segment(&tampered_header, payload, &footer, &verifying_key);
     println!(
         "  Tampered header:   {}",
-        if valid_tampered_header { "VALID (BAD!)" } else { "INVALID (tamper detected)" }
+        if valid_tampered_header {
+            "VALID (BAD!)"
+        } else {
+            "INVALID (tamper detected)"
+        }
     );
     assert!(!valid_tampered_header, "tampered header should fail");
 
@@ -105,7 +109,11 @@ fn main() {
     let valid_wrong_key = verify_segment(&header, payload, &footer, &wrong_pubkey);
     println!(
         "  Wrong public key:  {}",
-        if valid_wrong_key { "VALID (BAD!)" } else { "INVALID (wrong key detected)" }
+        if valid_wrong_key {
+            "VALID (BAD!)"
+        } else {
+            "INVALID (wrong key detected)"
+        }
     );
     assert!(!valid_wrong_key, "wrong key should fail");
 
@@ -129,7 +137,11 @@ fn main() {
 
     println!("  Creating chain with {} entries...", num_entries);
     let chain_bytes = create_witness_chain(&entries);
-    println!("  Chain size: {} bytes ({} bytes per entry)", chain_bytes.len(), chain_bytes.len() / num_entries);
+    println!(
+        "  Chain size: {} bytes ({} bytes per entry)",
+        chain_bytes.len(),
+        chain_bytes.len() / num_entries
+    );
 
     // Print chain entries.
     println!("\n  Chain entries:");
@@ -137,10 +149,7 @@ fn main() {
         "  {:>5}  {:>8}  {:>18}  {:>32}",
         "Index", "Type", "Timestamp (ns)", "Prev Hash (first 16 bytes)"
     );
-    println!(
-        "  {:->5}  {:->8}  {:->18}  {:->32}",
-        "", "", "", ""
-    );
+    println!("  {:->5}  {:->8}  {:->18}  {:->32}", "", "", "", "");
 
     // ====================================================================
     // 6. Verify witness chain
@@ -149,7 +158,10 @@ fn main() {
 
     match verify_witness_chain(&chain_bytes) {
         Ok(verified_entries) => {
-            println!("  Chain integrity: VALID ({} entries verified)", verified_entries.len());
+            println!(
+                "  Chain integrity: VALID ({} entries verified)",
+                verified_entries.len()
+            );
 
             for (i, entry) in verified_entries.iter().enumerate() {
                 let wtype = match entry.witness_type {
@@ -168,8 +180,7 @@ fn main() {
 
             // Verify first entry has zero prev_hash (genesis).
             assert_eq!(
-                verified_entries[0].prev_hash,
-                [0u8; 32],
+                verified_entries[0].prev_hash, [0u8; 32],
                 "first entry should have zero prev_hash"
             );
             println!("\n  Genesis entry has zero prev_hash: confirmed.");
@@ -207,7 +218,10 @@ fn main() {
         }
         Err(e) => {
             println!("  Tampered chain: INVALID ({:?})", e);
-            println!("  Tamper at entry 2 (byte {}) successfully detected.", tamper_offset);
+            println!(
+                "  Tamper at entry 2 (byte {}) successfully detected.",
+                tamper_offset
+            );
         }
     }
 
@@ -226,7 +240,10 @@ fn main() {
     println!("  Tamper detection (payload):       working");
     println!("  Tamper detection (header):        working");
     println!("  Wrong-key rejection:              working");
-    println!("  Witness chain creation:           {} entries", num_entries);
+    println!(
+        "  Witness chain creation:           {} entries",
+        num_entries
+    );
     println!("  Witness chain verification:       working");
     println!("  Witness chain tamper detection:    working");
 

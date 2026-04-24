@@ -60,7 +60,9 @@ impl WebMemoryStore {
 
         // Write-through to Firestore
         if let Ok(body) = serde_json::to_value(&mem) {
-            self.firestore.firestore_put_public("web_memories", &id.to_string(), &body).await;
+            self.firestore
+                .firestore_put_public("web_memories", &id.to_string(), &body)
+                .await;
         }
 
         // Store base BrainMemory in core store for search compatibility
@@ -87,7 +89,10 @@ impl WebMemoryStore {
 
     /// Get all content hashes for deduplication.
     pub fn content_hashes(&self) -> HashSet<String> {
-        self.content_hashes.iter().map(|e| e.key().clone()).collect()
+        self.content_hashes
+            .iter()
+            .map(|e| e.key().clone())
+            .collect()
     }
 
     /// Get all embeddings for novelty scoring.
@@ -116,11 +121,16 @@ impl WebMemoryStore {
         let url = delta.page_url.clone();
 
         if let Ok(body) = serde_json::to_value(&delta) {
-            self.firestore.firestore_put_public("web_deltas", &delta_id.to_string(), &body).await;
+            self.firestore
+                .firestore_put_public("web_deltas", &delta_id.to_string(), &body)
+                .await;
         }
 
         // Index by URL for evolution queries
-        self.url_deltas.entry(url).or_insert_with(Vec::new).push(delta_id);
+        self.url_deltas
+            .entry(url)
+            .or_insert_with(Vec::new)
+            .push(delta_id);
 
         self.deltas.insert(delta_id, delta);
     }
@@ -147,7 +157,10 @@ impl WebMemoryStore {
     /// Store a link edge.
     pub fn store_link_edge(&self, edge: LinkEdge) {
         let source = edge.source_memory_id;
-        self.link_edges.entry(source).or_insert_with(Vec::new).push(edge);
+        self.link_edges
+            .entry(source)
+            .or_insert_with(Vec::new)
+            .push(edge);
     }
 
     /// Get outbound link edges from a memory.
@@ -214,7 +227,8 @@ impl WebMemoryStore {
         }
 
         let total = self.memories.len();
-        let compressed = tier_dist.delta_compressed + tier_dist.centroid_merged + tier_dist.archived;
+        let compressed =
+            tier_dist.delta_compressed + tier_dist.centroid_merged + tier_dist.archived;
         let compression_ratio = if total > 0 {
             compressed as f64 / total as f64
         } else {
@@ -226,8 +240,16 @@ impl WebMemoryStore {
             .map(|(domain, (count, qual_sum, nov_sum))| DomainStats {
                 domain,
                 page_count: count,
-                avg_quality: if count > 0 { qual_sum / count as f64 } else { 0.0 },
-                avg_novelty: if count > 0 { nov_sum / count as f32 } else { 0.0 },
+                avg_quality: if count > 0 {
+                    qual_sum / count as f64
+                } else {
+                    0.0
+                },
+                avg_novelty: if count > 0 {
+                    nov_sum / count as f32
+                } else {
+                    0.0
+                },
             })
             .collect();
         top_domains.sort_by(|a, b| b.page_count.cmp(&a.page_count));
@@ -305,8 +327,12 @@ mod tests {
         let mem2 = make_test_web_memory("https://b.com", 0.7);
 
         // Manually insert to test hash tracking (bypassing async store)
-        store.content_hashes.insert(mem1.content_hash.clone(), mem1.base.id);
-        store.content_hashes.insert(mem2.content_hash.clone(), mem2.base.id);
+        store
+            .content_hashes
+            .insert(mem1.content_hash.clone(), mem1.base.id);
+        store
+            .content_hashes
+            .insert(mem2.content_hash.clone(), mem2.base.id);
 
         let hashes = store.content_hashes();
         assert!(hashes.contains(&mem1.content_hash));

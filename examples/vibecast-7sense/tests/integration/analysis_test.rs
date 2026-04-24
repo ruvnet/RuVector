@@ -3,9 +3,9 @@
 //! Tests for HDBSCAN clustering, cluster assignment, motif detection,
 //! entropy calculation, and transition matrix operations.
 
+use std::collections::{HashMap, HashSet};
 use vibecast_tests::fixtures::*;
 use vibecast_tests::mocks::*;
-use std::collections::{HashMap, HashSet};
 
 // ============================================================================
 // HDBSCAN Clustering Tests
@@ -50,7 +50,11 @@ mod hdbscan_clustering {
 
         let clusters = service.cluster_hdbscan(&embeddings).unwrap();
 
-        assert_eq!(clusters.len(), 0, "Should not form clusters with too few points");
+        assert_eq!(
+            clusters.len(),
+            0,
+            "Should not form clusters with too few points"
+        );
     }
 
     #[test]
@@ -80,10 +84,7 @@ mod hdbscan_clustering {
         let cluster = create_test_cluster_with_members(10);
 
         let norm: f32 = cluster.centroid.iter().map(|x| x * x).sum::<f32>().sqrt();
-        assert!(
-            (norm - 1.0).abs() < 0.0001,
-            "Centroid should be normalized"
-        );
+        assert!((norm - 1.0).abs() < 0.0001, "Centroid should be normalized");
     }
 
     #[test]
@@ -136,11 +137,7 @@ mod cluster_assignment {
             .unwrap();
 
         // Farther from centroid
-        let far_vector: Vec<f32> = clusters[0]
-            .centroid
-            .iter()
-            .map(|v| v + 0.5)
-            .collect();
+        let far_vector: Vec<f32> = clusters[0].centroid.iter().map(|v| v + 0.5).collect();
         let far_embedding = create_test_embedding_with_vector(l2_normalize(&far_vector));
         let far_assignment = service
             .assign_to_cluster(&far_embedding, &clusters)
@@ -159,7 +156,9 @@ mod cluster_assignment {
         let embedding = create_test_embedding();
         let empty_clusters: Vec<Cluster> = vec![];
 
-        let assignment = service.assign_to_cluster(&embedding, &empty_clusters).unwrap();
+        let assignment = service
+            .assign_to_cluster(&embedding, &empty_clusters)
+            .unwrap();
         assert!(assignment.is_none());
     }
 
@@ -222,7 +221,10 @@ mod cluster_assignment {
             .unwrap();
 
         // Confidence should reflect uncertainty
-        assert!(assignment.confidence < 0.9, "Boundary point should have lower confidence");
+        assert!(
+            assignment.confidence < 0.9,
+            "Boundary point should have lower confidence"
+        );
     }
 }
 
@@ -616,10 +618,7 @@ mod sequence_analysis {
 mod anomaly_detection {
     use super::*;
 
-    fn compute_local_outlier_factor(
-        embedding: &Embedding,
-        neighbors: &[Embedding],
-    ) -> f32 {
+    fn compute_local_outlier_factor(embedding: &Embedding, neighbors: &[Embedding]) -> f32 {
         if neighbors.is_empty() {
             return 1.0;
         }
@@ -679,11 +678,7 @@ mod anomaly_detection {
         let lof = compute_local_outlier_factor(test_point, &neighbors);
 
         // Should be relatively low for normal point
-        assert!(
-            lof < 5.0,
-            "Normal point should have low LOF: {}",
-            lof
-        );
+        assert!(lof < 5.0, "Normal point should have low LOF: {}", lof);
     }
 }
 
@@ -803,10 +798,8 @@ mod tests {
 
         // Detect motifs
         let motif_service = MockMotifDetectionService::new();
-        let sequences: Vec<Vec<ClusterId>> = clusters
-            .iter()
-            .map(|c| vec![c.id, c.id, c.id])
-            .collect();
+        let sequences: Vec<Vec<ClusterId>> =
+            clusters.iter().map(|c| vec![c.id, c.id, c.id]).collect();
         let _motifs = motif_service.detect_motifs(&sequences).unwrap();
     }
 }

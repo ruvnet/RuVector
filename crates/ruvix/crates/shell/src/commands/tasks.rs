@@ -39,11 +39,7 @@ pub fn execute<B: ShellBackend>(backend: &B) -> String {
         let line = format!(
             "  {:<3}  {:<15}  {:<6}  {:>3}  {:>4}  0x{:02X}  {:>4}\n",
             task.id,
-            if name.len() > 15 {
-                &name[..15]
-            } else {
-                &name
-            },
+            if name.len() > 15 { &name[..15] } else { &name },
             state_str(task.state),
             task.priority,
             task.partition,

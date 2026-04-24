@@ -373,6 +373,9 @@ mod tests {
         assert_eq!(config::FULL_PIPELINE_EVENTS, 10_000);
         assert_eq!(config::GRAPH_MUTATIONS, 5_000);
         assert_eq!(config::MODEL_WEIGHTS_SIZE, 1024 * 1024);
-        assert_eq!(config::VECTOR_SLOT_SIZE * config::VECTOR_SLOT_COUNT, 3 * 1024 * 1024);
+        assert_eq!(
+            config::VECTOR_SLOT_SIZE * config::VECTOR_SLOT_COUNT,
+            3 * 1024 * 1024
+        );
     }
 }

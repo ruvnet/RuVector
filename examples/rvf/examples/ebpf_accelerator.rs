@@ -15,8 +15,8 @@
 //!
 //! Run: cargo run --example ebpf_accelerator
 
-use rvf_runtime::{QueryOptions, RvfOptions, RvfStore};
 use rvf_runtime::options::DistanceMetric;
+use rvf_runtime::{QueryOptions, RvfOptions, RvfStore};
 use rvf_types::ebpf::{EbpfAttachType, EbpfHeader, EbpfProgramType, EBPF_MAGIC};
 use tempfile::TempDir;
 
@@ -25,7 +25,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -69,7 +71,8 @@ fn main() {
     let baseline_results = store
         .query(&query, 5, &QueryOptions::default())
         .expect("query failed");
-    println!("  Baseline query: top-5 nearest (ID={}, dist={:.6})",
+    println!(
+        "  Baseline query: top-5 nearest (ID={}, dist={:.6})",
         baseline_results[0].id, baseline_results[0].distance
     );
 
@@ -92,10 +95,10 @@ fn main() {
     let mut btf_data = Vec::with_capacity(256);
     // BTF header magic
     btf_data.extend_from_slice(&0x9FEB_u16.to_le_bytes()); // BTF magic
-    btf_data.extend_from_slice(&1u8.to_le_bytes());        // version
-    btf_data.push(0);                                       // flags
-    btf_data.extend_from_slice(&24u32.to_le_bytes());       // hdr_len
-    // Pad to 256 bytes
+    btf_data.extend_from_slice(&1u8.to_le_bytes()); // version
+    btf_data.push(0); // flags
+    btf_data.extend_from_slice(&24u32.to_le_bytes()); // hdr_len
+                                                      // Pad to 256 bytes
     btf_data.resize(256, 0);
 
     println!("  Program type:   XDP Distance Computation");
@@ -143,16 +146,23 @@ fn main() {
     let ebpf_header = EbpfHeader::from_bytes(&header_arr).expect("invalid eBPF header");
 
     println!("  Header verification:");
-    println!("    Magic:          0x{:08X} (expected: 0x{:08X}) {}",
+    println!(
+        "    Magic:          0x{:08X} (expected: 0x{:08X}) {}",
         ebpf_header.ebpf_magic,
         EBPF_MAGIC,
-        if ebpf_header.ebpf_magic == EBPF_MAGIC { "OK" } else { "FAIL" }
+        if ebpf_header.ebpf_magic == EBPF_MAGIC {
+            "OK"
+        } else {
+            "FAIL"
+        }
     );
-    println!("    Program type:   0x{:02X} (XdpDistance=0x{:02X})",
+    println!(
+        "    Program type:   0x{:02X} (XdpDistance=0x{:02X})",
         ebpf_header.program_type,
         EbpfProgramType::XdpDistance as u8
     );
-    println!("    Attach type:    0x{:02X} (XdpIngress=0x{:02X})",
+    println!(
+        "    Attach type:    0x{:02X} (XdpIngress=0x{:02X})",
         ebpf_header.attach_type,
         EbpfAttachType::XdpIngress as u8
     );
@@ -161,7 +171,10 @@ fn main() {
     println!("    Program size:   {} bytes", ebpf_header.program_size);
     println!("    Map count:      {}", ebpf_header.map_count);
     println!("    BTF size:       {} bytes", ebpf_header.btf_size);
-    println!("    Program hash:   {}...", hex_string(&ebpf_header.program_hash[..16]));
+    println!(
+        "    Program hash:   {}...",
+        hex_string(&ebpf_header.program_hash[..16])
+    );
 
     // Verify header fields
     assert_eq!(ebpf_header.ebpf_magic, EBPF_MAGIC);
@@ -188,7 +201,8 @@ fn main() {
         .query(&query, 5, &QueryOptions::default())
         .expect("query failed after eBPF embed");
 
-    println!("  Post-eBPF query: top-5 nearest (ID={}, dist={:.6})",
+    println!(
+        "  Post-eBPF query: top-5 nearest (ID={}, dist={:.6})",
         results_after[0].id, results_after[0].distance
     );
 
@@ -208,11 +222,21 @@ fn main() {
     println!("\n--- 6. File Layout ---");
     let final_status = store.status();
     println!("  The single .rvf file now contains:");
-    println!("    - VEC_SEG:    {} vectors x {} dims", final_status.total_vectors, dim);
-    println!("    - EBPF_SEG:   XDP program ({} instructions)", num_instructions);
-    println!("    - BTF data:   {} bytes (type info for verifier)", btf_data.len());
+    println!(
+        "    - VEC_SEG:    {} vectors x {} dims",
+        final_status.total_vectors, dim
+    );
+    println!(
+        "    - EBPF_SEG:   XDP program ({} instructions)",
+        num_instructions
+    );
+    println!(
+        "    - BTF data:   {} bytes (type info for verifier)",
+        btf_data.len()
+    );
     println!("    - MANIFEST:   segment directory + metadata");
-    println!("    - Total:      {} bytes, {} segments",
+    println!(
+        "    - Total:      {} bytes, {} segments",
         final_status.file_size, final_status.total_segments
     );
     println!("\n  At query time, the kernel can:");

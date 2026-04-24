@@ -10,9 +10,8 @@
 use std::collections::BTreeSet;
 
 use rvf_index::{
-    build_full_index, build_layer_a, build_layer_b, build_layer_c,
-    HnswConfig, InMemoryVectorStore, ProgressiveIndex,
-    l2_distance,
+    build_full_index, build_layer_a, build_layer_b, build_layer_c, l2_distance, HnswConfig,
+    InMemoryVectorStore, ProgressiveIndex,
 };
 
 /// LCG-based pseudo-random vector generator for deterministic results.
@@ -93,9 +92,7 @@ fn main() {
     let mut rng_seed: u64 = 12345;
     let rng_values: Vec<f64> = (0..n)
         .map(|_| {
-            rng_seed = rng_seed
-                .wrapping_mul(6364136223846793005)
-                .wrapping_add(1);
+            rng_seed = rng_seed.wrapping_mul(6364136223846793005).wrapping_add(1);
             let val = (rng_seed >> 33) as f64 / (1u64 << 31) as f64;
             val.clamp(0.001, 0.999)
         })
@@ -166,10 +163,7 @@ fn main() {
     println!("\n--- Layer A + B + C: Full HNSW Graph ---");
 
     let layer_c = build_layer_c(&graph);
-    println!(
-        "  Full adjacency layers: {}",
-        layer_c.full_adjacency.len(),
-    );
+    println!("  Full adjacency layers: {}", layer_c.full_adjacency.len(),);
 
     let index_abc = ProgressiveIndex {
         layer_a: Some(layer_a),
@@ -177,8 +171,7 @@ fn main() {
         layer_c: Some(layer_c),
     };
 
-    let recall_abc =
-        measure_recall(&index_abc, &store, &vectors, k, ef_search, num_queries, 999);
+    let recall_abc = measure_recall(&index_abc, &store, &vectors, k, ef_search, num_queries, 999);
     println!("  Recall@{}: {:.3}", k, recall_abc);
 
     // -- Summary --

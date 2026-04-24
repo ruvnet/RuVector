@@ -6,9 +6,7 @@ use ruvector_edge::prelude::*;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter("info")
-        .init();
+    tracing_subscriber::fmt().with_env_filter("info").init();
 
     println!("Local Swarm Example");
     println!("==================\n");
@@ -34,11 +32,18 @@ async fn main() -> Result<()> {
     println!("\nWorker learned: local_task -> process_data (0.9)");
 
     // Get best action
-    if let Some((action, confidence)) = worker.get_best_action(
-        "local_task",
-        &["process_data".to_string(), "skip_data".to_string()]
-    ).await {
-        println!("Best action: {} (confidence: {:.1}%)", action, confidence * 100.0);
+    if let Some((action, confidence)) = worker
+        .get_best_action(
+            "local_task",
+            &["process_data".to_string(), "skip_data".to_string()],
+        )
+        .await
+    {
+        println!(
+            "Best action: {} (confidence: {:.1}%)",
+            action,
+            confidence * 100.0
+        );
     }
 
     println!("\nLocal swarm example complete!");

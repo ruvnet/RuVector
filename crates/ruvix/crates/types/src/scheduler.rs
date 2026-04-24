@@ -30,11 +30,7 @@ impl SchedulerScore {
     /// Creates a new scheduler score with explicit components.
     #[inline]
     #[must_use]
-    pub const fn new(
-        deadline_urgency: f32,
-        novelty_boost: f32,
-        risk_penalty: f32,
-    ) -> Self {
+    pub const fn new(deadline_urgency: f32, novelty_boost: f32, risk_penalty: f32) -> Self {
         Self {
             score: deadline_urgency + novelty_boost - risk_penalty,
             deadline_urgency,

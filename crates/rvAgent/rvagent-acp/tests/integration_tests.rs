@@ -80,8 +80,8 @@ async fn test_auth_required() {
 async fn test_session_lifecycle() {
     // We test the session lifecycle by simulating the AcpAgent's behavior
     // using its public types and core config.
-    use std::collections::HashMap;
     use chrono::Utc;
+    use std::collections::HashMap;
 
     // 1. Create: simulate session creation.
     let session_id = uuid::Uuid::new_v4().to_string();

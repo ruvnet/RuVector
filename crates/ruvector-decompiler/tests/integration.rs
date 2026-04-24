@@ -5,8 +5,7 @@
 use ruvector_decompiler::{decompile, DecompileConfig};
 
 /// A small minified bundle with 3 declarations and cross-references.
-const SAMPLE_BUNDLE: &str =
-    r#"var a=function(){return"hello"};var b=class{constructor(){this.name="test"}};var c=function(x){return a()+b.name};"#;
+const SAMPLE_BUNDLE: &str = r#"var a=function(){return"hello"};var b=class{constructor(){this.name="test"}};var c=function(x){return a()+b.name};"#;
 
 #[test]
 fn test_parser_finds_declarations() {
@@ -43,14 +42,15 @@ fn test_mincut_partitions() {
     let result = decompile(SAMPLE_BUNDLE, &config).unwrap();
 
     // Should produce at least 1 module (partitioning may merge small groups).
-    assert!(
-        !result.modules.is_empty(),
-        "expected at least 1 module"
-    );
+    assert!(!result.modules.is_empty(), "expected at least 1 module");
 
     // Total declarations should equal what we parsed.
     let total: usize = result.modules.iter().map(|m| m.declarations.len()).sum();
-    assert!(total >= 3, "expected at least 3 total declarations, got {}", total);
+    assert!(
+        total >= 3,
+        "expected at least 3 total declarations, got {}",
+        total
+    );
 }
 
 #[test]
@@ -89,10 +89,7 @@ fn test_source_map_v3_format() {
             parsed["mappings"].is_string(),
             "mappings should be a string"
         );
-        assert!(
-            parsed["sources"].is_array(),
-            "sources should be an array"
-        );
+        assert!(parsed["sources"].is_array(), "sources should be an array");
     }
 }
 

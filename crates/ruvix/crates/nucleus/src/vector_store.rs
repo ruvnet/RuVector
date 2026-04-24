@@ -305,12 +305,7 @@ impl VectorStore {
 
     /// Puts a vector with proof verification (no_std version).
     #[cfg(not(feature = "alloc"))]
-    pub fn put_proved(
-        &mut self,
-        key: VectorKey,
-        data: &[f32],
-        _proof: &ProofToken,
-    ) -> Result<()> {
+    pub fn put_proved(&mut self, key: VectorKey, data: &[f32], _proof: &ProofToken) -> Result<()> {
         // Validate dimensions
         if data.len() != self.config.dimensions as usize {
             return Err(KernelError::InvalidArgument);
@@ -492,15 +487,23 @@ mod tests {
 
         // First put
         #[cfg(feature = "alloc")]
-        store.put_proved(key, vec![1.0, 2.0, 3.0, 4.0], &proof).unwrap();
+        store
+            .put_proved(key, vec![1.0, 2.0, 3.0, 4.0], &proof)
+            .unwrap();
         #[cfg(not(feature = "alloc"))]
-        store.put_proved(key, &[1.0, 2.0, 3.0, 4.0], &proof).unwrap();
+        store
+            .put_proved(key, &[1.0, 2.0, 3.0, 4.0], &proof)
+            .unwrap();
 
         // Update
         #[cfg(feature = "alloc")]
-        store.put_proved(key, vec![5.0, 6.0, 7.0, 8.0], &proof).unwrap();
+        store
+            .put_proved(key, vec![5.0, 6.0, 7.0, 8.0], &proof)
+            .unwrap();
         #[cfg(not(feature = "alloc"))]
-        store.put_proved(key, &[5.0, 6.0, 7.0, 8.0], &proof).unwrap();
+        store
+            .put_proved(key, &[5.0, 6.0, 7.0, 8.0], &proof)
+            .unwrap();
 
         // Should still have 1 entry
         assert_eq!(store.len(), 1);
@@ -548,13 +551,21 @@ mod tests {
         // Same operations on both
         #[cfg(feature = "alloc")]
         {
-            store1.put_proved(VectorKey::new(1), vec![1.0, 2.0, 3.0, 4.0], &proof).unwrap();
-            store2.put_proved(VectorKey::new(1), vec![1.0, 2.0, 3.0, 4.0], &proof).unwrap();
+            store1
+                .put_proved(VectorKey::new(1), vec![1.0, 2.0, 3.0, 4.0], &proof)
+                .unwrap();
+            store2
+                .put_proved(VectorKey::new(1), vec![1.0, 2.0, 3.0, 4.0], &proof)
+                .unwrap();
         }
         #[cfg(not(feature = "alloc"))]
         {
-            store1.put_proved(VectorKey::new(1), &[1.0, 2.0, 3.0, 4.0], &proof).unwrap();
-            store2.put_proved(VectorKey::new(1), &[1.0, 2.0, 3.0, 4.0], &proof).unwrap();
+            store1
+                .put_proved(VectorKey::new(1), &[1.0, 2.0, 3.0, 4.0], &proof)
+                .unwrap();
+            store2
+                .put_proved(VectorKey::new(1), &[1.0, 2.0, 3.0, 4.0], &proof)
+                .unwrap();
         }
 
         // Hashes should be identical
@@ -572,16 +583,24 @@ mod tests {
         assert_eq!(store.epoch(), 0);
 
         #[cfg(feature = "alloc")]
-        store.put_proved(VectorKey::new(1), vec![1.0, 2.0, 3.0, 4.0], &proof).unwrap();
+        store
+            .put_proved(VectorKey::new(1), vec![1.0, 2.0, 3.0, 4.0], &proof)
+            .unwrap();
         #[cfg(not(feature = "alloc"))]
-        store.put_proved(VectorKey::new(1), &[1.0, 2.0, 3.0, 4.0], &proof).unwrap();
+        store
+            .put_proved(VectorKey::new(1), &[1.0, 2.0, 3.0, 4.0], &proof)
+            .unwrap();
 
         assert_eq!(store.epoch(), 1);
 
         #[cfg(feature = "alloc")]
-        store.put_proved(VectorKey::new(2), vec![5.0, 6.0, 7.0, 8.0], &proof).unwrap();
+        store
+            .put_proved(VectorKey::new(2), vec![5.0, 6.0, 7.0, 8.0], &proof)
+            .unwrap();
         #[cfg(not(feature = "alloc"))]
-        store.put_proved(VectorKey::new(2), &[5.0, 6.0, 7.0, 8.0], &proof).unwrap();
+        store
+            .put_proved(VectorKey::new(2), &[5.0, 6.0, 7.0, 8.0], &proof)
+            .unwrap();
 
         assert_eq!(store.epoch(), 2);
     }

@@ -7,9 +7,9 @@
 //! - Domain Errors: Error types specific to this context
 
 pub mod entities;
-pub mod repository;
 pub mod error;
+pub mod repository;
 
 pub use entities::*;
-pub use repository::*;
 pub use error::*;
+pub use repository::*;

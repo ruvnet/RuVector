@@ -328,8 +328,7 @@ impl VMeasure {
             0.0
         } else {
             let beta_sq = self.beta * self.beta;
-            (1.0 + beta_sq) * homogeneity * completeness
-                / (beta_sq * homogeneity + completeness)
+            (1.0 + beta_sq) * homogeneity * completeness / (beta_sq * homogeneity + completeness)
         };
 
         (v_measure, homogeneity, completeness)
@@ -497,10 +496,7 @@ impl SequenceEntropy {
             return 0.0;
         }
 
-        let probabilities: Vec<f32> = counts
-            .iter()
-            .map(|&c| c as f32 / total as f32)
-            .collect();
+        let probabilities: Vec<f32> = counts.iter().map(|&c| c as f32 / total as f32).collect();
 
         self.shannon_entropy(&probabilities)
     }
@@ -630,10 +626,7 @@ impl SequenceEntropy {
             return 0.0;
         }
 
-        let ngrams: Vec<Vec<&T>> = sequence
-            .windows(n)
-            .map(|w| w.iter().collect())
-            .collect();
+        let ngrams: Vec<Vec<&T>> = sequence.windows(n).map(|w| w.iter().collect()).collect();
 
         let mut counts: HashMap<Vec<&T>, usize> = HashMap::new();
         for ngram in &ngrams {
@@ -776,12 +769,7 @@ impl DaviesBouldinIndex {
     ///
     /// DBI score (lower is better).
     #[must_use]
-    pub fn compute(
-        &self,
-        data: &Array2<f32>,
-        labels: &[i32],
-        centroids: &Array2<f32>,
-    ) -> f32 {
+    pub fn compute(&self, data: &Array2<f32>, labels: &[i32], centroids: &Array2<f32>) -> f32 {
         let k = centroids.nrows();
         if k < 2 {
             return 0.0;
@@ -823,8 +811,7 @@ impl DaviesBouldinIndex {
                     continue;
                 }
 
-                let centroid_dist =
-                    self.euclidean_distance(centroids.row(i), centroids.row(j));
+                let centroid_dist = self.euclidean_distance(centroids.row(i), centroids.row(j));
 
                 if centroid_dist > 0.0 {
                     let ratio = (scatter[i] + scatter[j]) / centroid_dist;
@@ -874,12 +861,7 @@ impl CalinskiHarabaszIndex {
     ///
     /// CHI score (higher is better).
     #[must_use]
-    pub fn compute(
-        &self,
-        data: &Array2<f32>,
-        labels: &[i32],
-        centroids: &Array2<f32>,
-    ) -> f32 {
+    pub fn compute(&self, data: &Array2<f32>, labels: &[i32], centroids: &Array2<f32>) -> f32 {
         let n = data.nrows();
         let k = centroids.nrows();
 
@@ -1012,7 +994,10 @@ mod tests {
         // Using very extreme skew: 15 zeros, 1 one for entropy < 0.5
         let skewed = vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
         let ne_skewed = calc.normalized_entropy(&skewed);
-        assert!(ne_skewed < ne, "Skewed distribution should have lower entropy than uniform");
+        assert!(
+            ne_skewed < ne,
+            "Skewed distribution should have lower entropy than uniform"
+        );
     }
 
     #[test]
@@ -1047,11 +1032,7 @@ mod tests {
         .unwrap();
 
         let labels = vec![0, 0, 0, 1, 1, 1];
-        let centroids = Array2::from_shape_vec(
-            (2, 2),
-            vec![0.033, 0.033, 10.033, 10.033],
-        )
-        .unwrap();
+        let centroids = Array2::from_shape_vec((2, 2), vec![0.033, 0.033, 10.033, 10.033]).unwrap();
 
         let score = dbi.compute(&data, &labels, &centroids);
         // Well-separated clusters should have low DBI
@@ -1073,11 +1054,7 @@ mod tests {
         .unwrap();
 
         let labels = vec![0, 0, 0, 1, 1, 1];
-        let centroids = Array2::from_shape_vec(
-            (2, 2),
-            vec![0.033, 0.033, 10.033, 10.033],
-        )
-        .unwrap();
+        let centroids = Array2::from_shape_vec((2, 2), vec![0.033, 0.033, 10.033, 10.033]).unwrap();
 
         let score = chi.compute(&data, &labels, &centroids);
         // Well-separated clusters should have high CHI

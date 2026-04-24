@@ -1,9 +1,7 @@
 //! Integration tests for the prompt caching middleware.
 
-use rvagent_middleware::{
-    Message, Middleware, ModelRequest, ToolDefinition,
-};
 use rvagent_middleware::prompt_caching::PromptCachingMiddleware;
+use rvagent_middleware::{Message, Middleware, ModelRequest, ToolDefinition};
 
 // ---------------------------------------------------------------------------
 // Tests: Construction
@@ -18,8 +16,8 @@ fn test_middleware_name() {
 #[test]
 fn test_default_cache_type_is_ephemeral() {
     let mw = PromptCachingMiddleware::new();
-    let request = ModelRequest::new(vec![Message::user("hi")])
-        .with_system(Some("system prompt".into()));
+    let request =
+        ModelRequest::new(vec![Message::user("hi")]).with_system(Some("system prompt".into()));
 
     let modified = mw.modify_request(request);
     assert_eq!(modified.cache_control["system"].cache_type, "ephemeral");
@@ -28,8 +26,8 @@ fn test_default_cache_type_is_ephemeral() {
 #[test]
 fn test_custom_cache_type() {
     let mw = PromptCachingMiddleware::with_cache_type("persistent");
-    let request = ModelRequest::new(vec![Message::user("hi")])
-        .with_system(Some("system prompt".into()));
+    let request =
+        ModelRequest::new(vec![Message::user("hi")]).with_system(Some("system prompt".into()));
 
     let modified = mw.modify_request(request);
     assert_eq!(modified.cache_control["system"].cache_type, "persistent");
@@ -116,8 +114,8 @@ fn test_no_cache_control_without_tools() {
 #[test]
 fn test_both_system_and_tools_get_cache_control() {
     let mw = PromptCachingMiddleware::new();
-    let mut request = ModelRequest::new(vec![Message::user("hello")])
-        .with_system(Some("system".into()));
+    let mut request =
+        ModelRequest::new(vec![Message::user("hello")]).with_system(Some("system".into()));
     request.tools.push(ToolDefinition {
         name: "ls".into(),
         description: "List files".into(),
@@ -146,8 +144,7 @@ fn test_neither_system_nor_tools_no_cache_control() {
 #[test]
 fn test_custom_cache_type_applies_to_both() {
     let mw = PromptCachingMiddleware::with_cache_type("long_lived");
-    let mut request = ModelRequest::new(vec![Message::user("hi")])
-        .with_system(Some("sys".into()));
+    let mut request = ModelRequest::new(vec![Message::user("hi")]).with_system(Some("sys".into()));
     request.tools.push(ToolDefinition {
         name: "tool".into(),
         description: "desc".into(),
@@ -163,11 +160,8 @@ fn test_custom_cache_type_applies_to_both() {
 #[test]
 fn test_messages_are_preserved_after_modify() {
     let mw = PromptCachingMiddleware::new();
-    let request = ModelRequest::new(vec![
-        Message::user("first"),
-        Message::assistant("second"),
-    ])
-    .with_system(Some("sys".into()));
+    let request = ModelRequest::new(vec![Message::user("first"), Message::assistant("second")])
+        .with_system(Some("sys".into()));
 
     let modified = mw.modify_request(request);
 

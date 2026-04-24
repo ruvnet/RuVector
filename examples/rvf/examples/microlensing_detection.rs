@@ -15,13 +15,11 @@
 //!
 //! Run: cargo run --example microlensing_detection
 
-use rvf_runtime::{
-    FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore,
-};
+use rvf_crypto::{create_witness_chain, shake256_256, verify_witness_chain, WitnessEntry};
 use rvf_runtime::filter::FilterValue;
 use rvf_runtime::options::DistanceMetric;
+use rvf_runtime::{FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore};
 use rvf_types::DerivationType;
-use rvf_crypto::{create_witness_chain, verify_witness_chain, shake256_256, WitnessEntry};
 use tempfile::TempDir;
 
 // ---------------------------------------------------------------------------
@@ -38,7 +36,9 @@ const FIELD_ANOMALY_TYPE: u16 = 3;
 // ---------------------------------------------------------------------------
 
 fn lcg_next(state: &mut u64) -> u64 {
-    *state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+    *state = state
+        .wrapping_mul(6364136223846793005)
+        .wrapping_add(1442695040888963407);
     *state
 }
 
@@ -51,7 +51,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -185,7 +187,7 @@ fn generate_microlensing_event(event_id: u64, seed: u64) -> MicrolensingEvent {
     };
 
     let t_0 = 50.0 + lcg_f64(&mut rng) * 20.0; // peak around day 50-70
-    let u_0 = 0.01 + lcg_f64(&mut rng) * 0.8;   // impact parameter
+    let u_0 = 0.01 + lcg_f64(&mut rng) * 0.8; // impact parameter
     let baseline_mag = 18.0 + lcg_f64(&mut rng) * 4.0; // 18-22 mag
     let noise_level = 0.005 + lcg_f64(&mut rng) * 0.02;
 
@@ -210,7 +212,8 @@ fn generate_microlensing_event(event_id: u64, seed: u64) -> MicrolensingEvent {
                 let anomaly_width = t_e * 0.02;
                 let dt = (t - t_anomaly).abs();
                 if dt < anomaly_width * 3.0 {
-                    let caustic_bump = 0.3 * mag * (-dt * dt / (2.0 * anomaly_width * anomaly_width)).exp();
+                    let caustic_bump =
+                        0.3 * mag * (-dt * dt / (2.0 * anomaly_width * anomaly_width)).exp();
                     mag += caustic_bump;
                 }
             }
@@ -308,7 +311,11 @@ fn fit_pspl(event: &MicrolensingEvent) -> PSPLFit {
         peak_signal = peak_signal.max(event.magnification[i] - 1.0);
     }
     let residual_rms = (residual_sum_sq / event.time.len() as f64).sqrt();
-    let snr = if residual_rms > 0.0 { peak_signal / residual_rms } else { 0.0 };
+    let snr = if residual_rms > 0.0 {
+        peak_signal / residual_rms
+    } else {
+        0.0
+    };
 
     PSPLFit {
         event_id: event.event_id,
@@ -346,7 +353,10 @@ fn detect_anomaly(event: &MicrolensingEvent, fit: &PSPLFit) -> Option<AnomalyCan
         return None;
     }
     let wing_mean: f64 = wing_residuals.iter().sum::<f64>() / wing_residuals.len() as f64;
-    let wing_var: f64 = wing_residuals.iter().map(|r| (r - wing_mean).powi(2)).sum::<f64>()
+    let wing_var: f64 = wing_residuals
+        .iter()
+        .map(|r| (r - wing_mean).powi(2))
+        .sum::<f64>()
         / wing_residuals.len() as f64;
     let wing_std = wing_var.sqrt();
 
@@ -422,7 +432,8 @@ fn detect_anomaly(event: &MicrolensingEvent, fit: &PSPLFit) -> Option<AnomalyCan
 
 fn coherence_gate(candidate: &AnomalyCandidate, event: &MicrolensingEvent) -> ScoredCandidate {
     // PSPL residual score: how much better is a non-PSPL model?
-    let pspl_residual_score = 1.0 / (1.0 + (-0.3 * (candidate.pspl_fit.residual_rms * 100.0 - 2.0)).exp());
+    let pspl_residual_score =
+        1.0 / (1.0 + (-0.3 * (candidate.pspl_fit.residual_rms * 100.0 - 2.0)).exp());
 
     // Anomaly strength: sigmoid on anomaly SNR
     let anomaly_strength = 1.0 / (1.0 + (-0.5 * (candidate.anomaly_snr - 5.0)).exp());
@@ -531,23 +542,44 @@ fn main() {
 
     let ogle_count = events.iter().filter(|e| e.survey == "ogle-iv").count();
     let moa_count = events.iter().filter(|e| e.survey == "moa-ii").count();
-    let clean_count = events.iter().filter(|e| e.anomaly_type == AnomalyType::None).count();
-    let binary_count = events.iter().filter(|e| e.anomaly_type == AnomalyType::BinaryPlanet).count();
-    let rogue_count = events.iter().filter(|e| e.anomaly_type == AnomalyType::RoguePlanet).count();
-    let moon_count = events.iter().filter(|e| e.anomaly_type == AnomalyType::Exomoon).count();
+    let clean_count = events
+        .iter()
+        .filter(|e| e.anomaly_type == AnomalyType::None)
+        .count();
+    let binary_count = events
+        .iter()
+        .filter(|e| e.anomaly_type == AnomalyType::BinaryPlanet)
+        .count();
+    let rogue_count = events
+        .iter()
+        .filter(|e| e.anomaly_type == AnomalyType::RoguePlanet)
+        .count();
+    let moon_count = events
+        .iter()
+        .filter(|e| e.anomaly_type == AnomalyType::Exomoon)
+        .count();
 
     println!("  Events:      {}", num_events);
     println!("  Ingested:    {}", ingest.accepted);
     println!("  Embedding:   {} dims", dim);
-    println!("  Surveys:     {} OGLE-IV, {} MOA-II", ogle_count, moa_count);
-    println!("  Injected:    {} clean, {} binary, {} rogue, {} exomoon",
-        clean_count, binary_count, rogue_count, moon_count);
+    println!(
+        "  Surveys:     {} OGLE-IV, {} MOA-II",
+        ogle_count, moa_count
+    );
+    println!(
+        "  Injected:    {} clean, {} binary, {} rogue, {} exomoon",
+        clean_count, binary_count, rogue_count, moon_count
+    );
 
     println!("\n  Sample events:");
     for event in events.iter().take(5) {
         println!(
             "    id={:>2} survey={:<7} tE={:>6.2}d u0={:.3} type={}",
-            event.event_id, event.survey, event.t_e, event.u_0, event.anomaly_type.label()
+            event.event_id,
+            event.survey,
+            event.t_e,
+            event.u_0,
+            event.anomaly_type.label()
         );
     }
 
@@ -559,8 +591,14 @@ fn main() {
     let fits: Vec<PSPLFit> = events.iter().map(|e| fit_pspl(e)).collect();
 
     println!("  PSPL fits computed: {}", fits.len());
-    println!("\n  {:>4}  {:>8}  {:>8}  {:>6}  {:>8}  {:>6}", "ID", "tE_fit", "t0_fit", "u0", "chi2", "SNR");
-    println!("  {:->4}  {:->8}  {:->8}  {:->6}  {:->8}  {:->6}", "", "", "", "", "", "");
+    println!(
+        "\n  {:>4}  {:>8}  {:>8}  {:>6}  {:>8}  {:>6}",
+        "ID", "tE_fit", "t0_fit", "u0", "chi2", "SNR"
+    );
+    println!(
+        "  {:->4}  {:->8}  {:->8}  {:->6}  {:->8}  {:->6}",
+        "", "", "", "", "", ""
+    );
     for fit in fits.iter().take(10) {
         println!(
             "  {:>4}  {:>8.2}  {:>8.2}  {:>6.3}  {:>8.2}  {:>6.1}",
@@ -569,7 +607,11 @@ fn main() {
     }
 
     let high_snr: Vec<&PSPLFit> = fits.iter().filter(|f| f.snr > 5.0).collect();
-    println!("\n  High-SNR events (>5): {}/{}", high_snr.len(), fits.len());
+    println!(
+        "\n  High-SNR events (>5): {}/{}",
+        high_snr.len(),
+        fits.len()
+    );
 
     // ====================================================================
     // M2: Anomaly detection in residuals
@@ -583,15 +625,28 @@ fn main() {
         }
     }
 
-    println!("  Anomalies detected: {}/{}", anomaly_candidates.len(), num_events);
+    println!(
+        "  Anomalies detected: {}/{}",
+        anomaly_candidates.len(),
+        num_events
+    );
 
-    println!("\n  {:>4}  {:>10}  {:>8}  {:>8}  {:>10}",
-        "ID", "Anom SNR", "Duration", "Time", "Class");
-    println!("  {:->4}  {:->10}  {:->8}  {:->8}  {:->10}", "", "", "", "", "");
+    println!(
+        "\n  {:>4}  {:>10}  {:>8}  {:>8}  {:>10}",
+        "ID", "Anom SNR", "Duration", "Time", "Class"
+    );
+    println!(
+        "  {:->4}  {:->10}  {:->8}  {:->8}  {:->10}",
+        "", "", "", "", ""
+    );
     for c in &anomaly_candidates {
         println!(
             "  {:>4}  {:>10.2}  {:>8.3}  {:>8.2}  {:>10}",
-            c.event_id, c.anomaly_snr, c.anomaly_duration, c.anomaly_time, c.classified_type.label()
+            c.event_id,
+            c.anomaly_snr,
+            c.anomaly_duration,
+            c.anomaly_time,
+            c.classified_type.label()
         );
     }
 
@@ -621,7 +676,11 @@ fn main() {
     );
     for sc in &scored {
         let pass_str = if sc.passed { "YES" } else { "no" };
-        let correct = if sc.candidate.classified_type == sc.true_type { "*" } else { "" };
+        let correct = if sc.candidate.classified_type == sc.true_type {
+            "*"
+        } else {
+            ""
+        };
         println!(
             "  {:>4}  {:>6.3}  {:>6.3}  {:>6.3}  {:>6.3}  {:>7.4}  {:>6}  {:>8}  {:>7}{}",
             sc.candidate.event_id,
@@ -638,11 +697,15 @@ fn main() {
     }
 
     let passed_count = scored.iter().filter(|s| s.passed).count();
-    let correct_class = scored.iter()
+    let correct_class = scored
+        .iter()
         .filter(|s| s.passed && s.candidate.classified_type == s.true_type)
         .count();
     println!("\n  Passed gating:       {}/{}", passed_count, scored.len());
-    println!("  Correct class:       {}/{} passed", correct_class, passed_count);
+    println!(
+        "  Correct class:       {}/{} passed",
+        correct_class, passed_count
+    );
 
     // ====================================================================
     // Filtered query: OGLE-only events
@@ -752,9 +815,18 @@ fn main() {
     println!("  Lineage:             parent -> anomaly snapshot");
 
     // Classification breakdown
-    let passed_binary = scored.iter().filter(|s| s.passed && s.candidate.classified_type == AnomalyType::BinaryPlanet).count();
-    let passed_rogue = scored.iter().filter(|s| s.passed && s.candidate.classified_type == AnomalyType::RoguePlanet).count();
-    let passed_moon = scored.iter().filter(|s| s.passed && s.candidate.classified_type == AnomalyType::Exomoon).count();
+    let passed_binary = scored
+        .iter()
+        .filter(|s| s.passed && s.candidate.classified_type == AnomalyType::BinaryPlanet)
+        .count();
+    let passed_rogue = scored
+        .iter()
+        .filter(|s| s.passed && s.candidate.classified_type == AnomalyType::RoguePlanet)
+        .count();
+    let passed_moon = scored
+        .iter()
+        .filter(|s| s.passed && s.candidate.classified_type == AnomalyType::Exomoon)
+        .count();
     println!("\n  Passed by type:");
     println!("    Binary planet:   {}", passed_binary);
     println!("    Rogue planet:    {}", passed_rogue);
@@ -767,7 +839,10 @@ fn main() {
         println!("    Truth:      {}", best.true_type.label());
         println!("    Anom SNR:   {:.2}", best.candidate.anomaly_snr);
         println!("    Score:      {:.4}", best.total_score);
-        println!("    tE (fit):   {:.2} days", best.candidate.pspl_fit.t_e_fit);
+        println!(
+            "    tE (fit):   {:.2} days",
+            best.candidate.pspl_fit.t_e_fit
+        );
     }
 
     store.close().expect("failed to close store");

@@ -127,7 +127,8 @@ impl KMeansClusterer {
                 .iter()
                 .enumerate()
                 .map(|(i, &label)| {
-                    self.euclidean_distance(data.row(i), centroids.row(label)).powi(2)
+                    self.euclidean_distance(data.row(i), centroids.row(label))
+                        .powi(2)
                 })
                 .sum();
 
@@ -264,7 +265,8 @@ impl KMeansClusterer {
             .iter()
             .enumerate()
             .map(|(i, &label)| {
-                self.euclidean_distance(data.row(i), centroids.row(label)).powi(2)
+                self.euclidean_distance(data.row(i), centroids.row(label))
+                    .powi(2)
             })
             .sum()
     }
@@ -350,19 +352,12 @@ mod tests {
     fn test_kmeans_predict() {
         let clusterer = KMeansClusterer::new(2, Some(42));
 
-        let train_data = Array2::from_shape_vec(
-            (4, 2),
-            vec![0.0, 0.0, 0.1, 0.1, 5.0, 5.0, 5.1, 5.1],
-        )
-        .unwrap();
+        let train_data =
+            Array2::from_shape_vec((4, 2), vec![0.0, 0.0, 0.1, 0.1, 5.0, 5.0, 5.1, 5.1]).unwrap();
 
         let (_, centroids) = clusterer.fit(&train_data).unwrap();
 
-        let test_data = Array2::from_shape_vec(
-            (2, 2),
-            vec![0.05, 0.05, 4.95, 4.95],
-        )
-        .unwrap();
+        let test_data = Array2::from_shape_vec((2, 2), vec![0.05, 0.05, 4.95, 4.95]).unwrap();
 
         let predictions = clusterer.predict(&test_data, &centroids);
         assert_eq!(predictions.len(), 2);

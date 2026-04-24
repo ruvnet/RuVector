@@ -239,8 +239,8 @@ impl FederationMetaNeuron {
 
         for (cluster_id, obs) in observations {
             let weight = self.cluster_weights.get(cluster_id).copied().unwrap_or(1.0);
-            let cluster_state: f64 = obs.meta_states.iter().sum::<f64>()
-                / obs.meta_states.len().max(1) as f64;
+            let cluster_state: f64 =
+                obs.meta_states.iter().sum::<f64>() / obs.meta_states.len().max(1) as f64;
 
             weighted_sum += weight * cluster_state;
             total_weight += weight;
@@ -335,7 +335,9 @@ impl FederationMetaNeuron {
         }
 
         // Check for alternating signs in state deltas
-        let deltas: Vec<f64> = self.state_history.iter()
+        let deltas: Vec<f64> = self
+            .state_history
+            .iter()
             .zip(self.state_history.iter().skip(1))
             .map(|(a, b)| b - a)
             .collect();
@@ -391,12 +393,16 @@ impl CrossClusterInfluence {
 
             // STDP-like update: strengthen if correlated actions succeed
             let delta = self.learning_rate * corr.success_correlation;
-            self.influence.insert(key, (current + delta).clamp(-1.0, 1.0));
+            self.influence
+                .insert(key, (current + delta).clamp(-1.0, 1.0));
         }
     }
 
     fn get_influence(&self, from: &ClusterId, to: &ClusterId) -> f64 {
-        self.influence.get(&(from.clone(), to.clone())).copied().unwrap_or(0.0)
+        self.influence
+            .get(&(from.clone(), to.clone()))
+            .copied()
+            .unwrap_or(0.0)
     }
 }
 
@@ -444,18 +450,10 @@ impl FederationConsensus {
     }
 
     /// Propose a federation-wide action
-    fn propose(
-        &self,
-        action: FederationAction,
-        registry: &ClusterRegistry,
-    ) -> ConsensusResult {
+    fn propose(&self, action: FederationAction, registry: &ClusterRegistry) -> ConsensusResult {
         match self.algorithm {
-            ConsensusAlgorithm::SpikeConsensus => {
-                self.spike_consensus(action, registry)
-            }
-            ConsensusAlgorithm::Majority => {
-                self.majority_consensus(action, registry)
-            }
+            ConsensusAlgorithm::SpikeConsensus => self.spike_consensus(action, registry),
+            ConsensusAlgorithm::Majority => self.majority_consensus(action, registry),
             _ => self.majority_consensus(action, registry),
         }
     }
@@ -520,16 +518,10 @@ impl FederationConsensus {
         }
     }
 
-    fn generate_response_spikes(
-        &self,
-        endpoint: &ClusterEndpoint,
-        proposal: &[u64],
-    ) -> Vec<u64> {
+    fn generate_response_spikes(&self, endpoint: &ClusterEndpoint, proposal: &[u64]) -> Vec<u64> {
         // Response timing influenced by cluster synchrony
         let jitter = ((1.0 - endpoint.synchrony) * 10.0) as u64;
-        proposal.iter()
-            .map(|&t| t + jitter)
-            .collect()
+        proposal.iter().map(|&t| t + jitter).collect()
     }
 
     fn compute_spike_synchrony(&self, patterns: &[SpikePattern]) -> f64 {
@@ -542,13 +534,18 @@ impl FederationConsensus {
 
         for i in 0..patterns.len() {
             for j in (i + 1)..patterns.len() {
-                let sync = self.pairwise_synchrony(&patterns[i].spike_times, &patterns[j].spike_times);
+                let sync =
+                    self.pairwise_synchrony(&patterns[i].spike_times, &patterns[j].spike_times);
                 total_sync += sync;
                 pairs += 1;
             }
         }
 
-        if pairs > 0 { total_sync / pairs as f64 } else { 0.0 }
+        if pairs > 0 {
+            total_sync / pairs as f64
+        } else {
+            0.0
+        }
     }
 
     fn pairwise_synchrony(&self, a: &[u64], b: &[u64]) -> f64 {
@@ -593,11 +590,16 @@ enum EmergentPattern {
     /// All clusters converge to similar structure
     GlobalConvergence,
     /// Clusters specialize into complementary roles
-    Specialization { roles: HashMap<ClusterId, ClusterRole> },
+    Specialization {
+        roles: HashMap<ClusterId, ClusterRole>,
+    },
     /// Periodic coordinated oscillation
     CollectiveOscillation { period_ms: u64 },
     /// Hierarchical organization emerges
-    Hierarchy { leader: ClusterId, followers: Vec<ClusterId> },
+    Hierarchy {
+        leader: ClusterId,
+        followers: Vec<ClusterId>,
+    },
     /// Chaotic dynamics (no stable pattern)
     Chaos,
 }
@@ -617,7 +619,8 @@ impl PatternDetector {
     }
 
     fn record(&mut self, obs: ClusterObservation) {
-        let history = self.observation_history
+        let history = self
+            .observation_history
             .entry(obs.cluster_id.clone())
             .or_insert_with(VecDeque::new);
         history.push_back(obs);
@@ -627,7 +630,11 @@ impl PatternDetector {
     }
 
     fn detect_pattern(&self) -> EmergentPattern {
-        if self.observation_history.values().any(|h| h.len() < self.min_history_size) {
+        if self
+            .observation_history
+            .values()
+            .any(|h| h.len() < self.min_history_size)
+        {
             return EmergentPattern::Chaos;
         }
 
@@ -738,9 +745,7 @@ impl PatternDetector {
 
             if peaks.len() >= 3 {
                 // Calculate average period
-                let periods: Vec<usize> = peaks.windows(2)
-                    .map(|w| w[1] - w[0])
-                    .collect();
+                let periods: Vec<usize> = peaks.windows(2).map(|w| w[1] - w[0]).collect();
                 let avg_period = periods.iter().sum::<usize>() / periods.len();
                 if avg_period > 2 && avg_period < 50 {
                     return Some((avg_period * 100) as u64); // Convert to ms
@@ -768,9 +773,7 @@ impl PatternDetector {
 
             // Leader has significantly higher mincut
             if *leader_mincut > *second_mincut * 1.2 {
-                let followers: Vec<_> = avg_mincut[1..].iter()
-                    .map(|(id, _)| id.clone())
-                    .collect();
+                let followers: Vec<_> = avg_mincut[1..].iter().map(|(id, _)| id.clone()).collect();
                 return Some((leader.clone(), followers));
             }
         }
@@ -884,7 +887,9 @@ impl FederatedStrangeLoop {
         }
 
         // Update cross-cluster influence
-        let correlations: Vec<_> = self.federation_meta.iter()
+        let correlations: Vec<_> = self
+            .federation_meta
+            .iter()
             .flat_map(|m| m.correlation_history.iter().cloned())
             .collect();
         self.cross_influence.update(&correlations);
@@ -904,7 +909,12 @@ impl FederatedStrangeLoop {
     }
 
     /// Simulate cluster state evolution
-    fn simulate_step(&mut self, cluster_id: &ClusterId, delta_meta: &[f64], action: Option<MetaAction>) {
+    fn simulate_step(
+        &mut self,
+        cluster_id: &ClusterId,
+        delta_meta: &[f64],
+        action: Option<MetaAction>,
+    ) {
         if let Some(endpoint) = self.registry.get(cluster_id) {
             let mut endpoint = endpoint.lock().unwrap();
             for (i, &delta) in delta_meta.iter().enumerate() {
@@ -938,7 +948,8 @@ fn rand_float() -> f64 {
 // ============================================================================
 
 fn main() {
-    println!("{}",
+    println!(
+        "{}",
         "╔════════════════════════════════════════════════════════════════╗\n\
          ║  FEDERATED STRANGE LOOPS: Multi-System Mutual Observation      ║\n\
          ║  Implementing All 4 Phases from Research Spec                  ║\n\
@@ -997,8 +1008,10 @@ fn main() {
     for id in federation.registry.all_ids() {
         if let Some(endpoint) = federation.registry.get(&id) {
             let e = endpoint.lock().unwrap();
-            println!("  • {} (nodes: {}, mincut: {:.2}, sync: {:.2})",
-                     id.0, e.stats.node_count, e.mincut, e.synchrony);
+            println!(
+                "  • {} (nodes: {}, mincut: {:.2}, sync: {:.2})",
+                id.0, e.stats.node_count, e.mincut, e.synchrony
+            );
         }
     }
 
@@ -1006,8 +1019,10 @@ fn main() {
     let observations = federation.observe_all();
     println!("\nObservation cycle 1:");
     for (id, obs) in &observations {
-        println!("  {} -> meta_states: {:?}, mincut: {:.2}",
-                 id.0, obs.meta_states, obs.mincut);
+        println!(
+            "  {} -> meta_states: {:?}, mincut: {:.2}",
+            id.0, obs.meta_states, obs.mincut
+        );
     }
 
     println!("\n✅ Phase 1 complete: ClusterObservation, ObservationProtocol, ClusterRegistry\n");
@@ -1031,7 +1046,10 @@ fn main() {
     federation.add_meta_neuron(meta0);
     federation.add_meta_neuron(meta1);
 
-    println!("Created {} federation meta-neurons (Level 3)", federation.federation_meta.len());
+    println!(
+        "Created {} federation meta-neurons (Level 3)",
+        federation.federation_meta.len()
+    );
 
     // Run federation cycles to build up history
     println!("\nRunning 20 federation cycles...");
@@ -1040,17 +1058,25 @@ fn main() {
         federation.simulate_step(
             &ClusterId::new("Cluster-Alpha"),
             &[0.1, -0.05, 0.02],
-            Some(MetaAction::Strengthen { target_edge: (1, 2), delta: 0.1 }),
+            Some(MetaAction::Strengthen {
+                target_edge: (1, 2),
+                delta: 0.1,
+            }),
         );
         federation.simulate_step(
             &ClusterId::new("Cluster-Beta"),
             &[-0.05, 0.1, 0.05],
-            Some(MetaAction::Prune { target_edge: (3, 4) }),
+            Some(MetaAction::Prune {
+                target_edge: (3, 4),
+            }),
         );
         federation.simulate_step(
             &ClusterId::new("Cluster-Gamma"),
             &[0.02, 0.02, -0.1],
-            Some(MetaAction::Restructure { from_node: 5, to_node: 6 }),
+            Some(MetaAction::Restructure {
+                from_node: 5,
+                to_node: 6,
+            }),
         );
 
         let (actions, _) = federation.run_cycle();
@@ -1102,13 +1128,20 @@ fn main() {
 
     // Test other coordination strategies
     println!("\nTesting other consensus proposals:");
-    for strategy in [CoordinationStrategy::Specialize, CoordinationStrategy::Dampen] {
+    for strategy in [
+        CoordinationStrategy::Specialize,
+        CoordinationStrategy::Dampen,
+    ] {
         let action = FederationAction::Coordinate(strategy);
         let result = federation.run_consensus(action);
         let status = match &result {
             ConsensusResult::Agreed(_) => "AGREED",
             ConsensusResult::PartialAgreement(_, s) => {
-                if *s > 0.7 { "PARTIAL (HIGH)" } else { "PARTIAL (LOW)" }
+                if *s > 0.7 {
+                    "PARTIAL (HIGH)"
+                } else {
+                    "PARTIAL (LOW)"
+                }
             }
             ConsensusResult::Rejected => "REJECTED",
         };
@@ -1134,7 +1167,10 @@ fn main() {
             &ClusterId::new("Cluster-Alpha"),
             &[phase * 0.1, 0.05, -0.02],
             if i % 3 == 0 {
-                Some(MetaAction::Strengthen { target_edge: (1, 2), delta: 0.1 })
+                Some(MetaAction::Strengthen {
+                    target_edge: (1, 2),
+                    delta: 0.1,
+                })
             } else {
                 None
             },
@@ -1144,7 +1180,9 @@ fn main() {
             &ClusterId::new("Cluster-Beta"),
             &[-0.02, phase * 0.08, 0.03],
             if i % 4 == 0 {
-                Some(MetaAction::Prune { target_edge: (3, 4) })
+                Some(MetaAction::Prune {
+                    target_edge: (3, 4),
+                })
             } else {
                 None
             },
@@ -1154,7 +1192,10 @@ fn main() {
             &ClusterId::new("Cluster-Gamma"),
             &[0.03, -0.01, phase * 0.12],
             if i % 5 == 0 {
-                Some(MetaAction::Restructure { from_node: 5, to_node: 6 })
+                Some(MetaAction::Restructure {
+                    from_node: 5,
+                    to_node: 6,
+                })
             } else {
                 None
             },
@@ -1183,7 +1224,10 @@ fn main() {
         EmergentPattern::Hierarchy { leader, followers } => {
             println!("  👑 HIERARCHY");
             println!("     Leader: {}", leader.0);
-            println!("     Followers: {:?}", followers.iter().map(|f| &f.0).collect::<Vec<_>>());
+            println!(
+                "     Followers: {:?}",
+                followers.iter().map(|f| &f.0).collect::<Vec<_>>()
+            );
         }
         EmergentPattern::Chaos => {
             println!("  🌀 CHAOS (No stable pattern)");
@@ -1195,9 +1239,16 @@ fn main() {
     for id in federation.registry.all_ids() {
         if let Some(endpoint) = federation.registry.get(&id) {
             let e = endpoint.lock().unwrap();
-            println!("  {} -> mincut: {:.2}, sync: {:.2}, meta: {:?}",
-                     id.0, e.mincut, e.synchrony,
-                     e.meta_states.iter().map(|v| format!("{:.2}", v)).collect::<Vec<_>>());
+            println!(
+                "  {} -> mincut: {:.2}, sync: {:.2}, meta: {:?}",
+                id.0,
+                e.mincut,
+                e.synchrony,
+                e.meta_states
+                    .iter()
+                    .map(|v| format!("{:.2}", v))
+                    .collect::<Vec<_>>()
+            );
         }
     }
 
@@ -1213,9 +1264,18 @@ fn main() {
     println!("  Phase 3: ✅ SpikeConsensus, spike-timing synchrony, consensus voting");
     println!("  Phase 4: ✅ PatternDetector, 5 EmergentPattern types");
     println!("───────────────────────────────────────────────────────────────────");
-    println!("  Registered clusters:      {}", federation.registry.all_ids().len());
-    println!("  Federation meta-neurons:  {}", federation.federation_meta.len());
-    println!("  Observation cycles:       {}", federation.time_ms / federation.protocol.interval_ms);
+    println!(
+        "  Registered clusters:      {}",
+        federation.registry.all_ids().len()
+    );
+    println!(
+        "  Federation meta-neurons:  {}",
+        federation.federation_meta.len()
+    );
+    println!(
+        "  Observation cycles:       {}",
+        federation.time_ms / federation.protocol.interval_ms
+    );
     println!("  Consensus algorithm:      SpikeConsensus (novel!)");
     println!("  Execution time:           {:?}", elapsed);
     println!("═══════════════════════════════════════════════════════════════════");

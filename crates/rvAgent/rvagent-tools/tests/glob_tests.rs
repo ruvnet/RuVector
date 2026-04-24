@@ -1,8 +1,8 @@
 //! Integration tests for the `glob` tool.
 
 use rvagent_tools::{
-    Backend, BackendRef, ExecuteResponse, FileInfo, GlobTool, GrepMatch,
-    Tool, ToolResult, ToolRuntime, WriteResult,
+    Backend, BackendRef, ExecuteResponse, FileInfo, GlobTool, GrepMatch, Tool, ToolResult,
+    ToolRuntime, WriteResult,
 };
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -94,10 +94,7 @@ fn test_glob_pattern_matching_files_in_directory() {
     ]));
     let runtime = ToolRuntime::new(backend as BackendRef);
 
-    let result = GlobTool.invoke(
-        serde_json::json!({"pattern": "*.rs"}),
-        &runtime,
-    );
+    let result = GlobTool.invoke(serde_json::json!({"pattern": "*.rs"}), &runtime);
 
     match result {
         ToolResult::Text(s) => {
@@ -118,10 +115,7 @@ fn test_glob_matching_with_wildcards() {
     ]));
     let runtime = ToolRuntime::new(backend as BackendRef);
 
-    let result = GlobTool.invoke(
-        serde_json::json!({"pattern": "*.md"}),
-        &runtime,
-    );
+    let result = GlobTool.invoke(serde_json::json!({"pattern": "*.md"}), &runtime);
 
     match result {
         ToolResult::Text(s) => {
@@ -135,10 +129,7 @@ fn test_glob_matching_with_wildcards() {
 
 #[test]
 fn test_glob_empty_results() {
-    let backend = Arc::new(GlobMockBackend::new(vec![
-        "/src/main.rs",
-        "/src/lib.rs",
-    ]));
+    let backend = Arc::new(GlobMockBackend::new(vec!["/src/main.rs", "/src/lib.rs"]));
     let runtime = ToolRuntime::new(backend as BackendRef);
 
     let result = GlobTool.invoke(
@@ -168,10 +159,7 @@ fn test_glob_nested_directory_matching() {
     ]));
     let runtime = ToolRuntime::new(backend as BackendRef);
 
-    let result = GlobTool.invoke(
-        serde_json::json!({"pattern": "*utils*"}),
-        &runtime,
-    );
+    let result = GlobTool.invoke(serde_json::json!({"pattern": "*utils*"}), &runtime);
 
     match result {
         ToolResult::Text(s) => {
@@ -217,7 +205,10 @@ fn test_glob_with_explicit_path() {
 
     match result {
         ToolResult::Text(s) => {
-            assert!(s.contains(".rs"), "should find .rs files with explicit path");
+            assert!(
+                s.contains(".rs"),
+                "should find .rs files with explicit path"
+            );
         }
         _ => panic!("expected Text result"),
     }
@@ -228,10 +219,7 @@ fn test_glob_empty_filesystem() {
     let backend = Arc::new(GlobMockBackend::empty());
     let runtime = ToolRuntime::new(backend as BackendRef);
 
-    let result = GlobTool.invoke(
-        serde_json::json!({"pattern": "*.rs"}),
-        &runtime,
-    );
+    let result = GlobTool.invoke(serde_json::json!({"pattern": "*.rs"}), &runtime);
 
     match result {
         ToolResult::Text(s) => {
@@ -254,10 +242,7 @@ fn test_glob_result_is_sorted() {
     ]));
     let runtime = ToolRuntime::new(backend as BackendRef);
 
-    let result = GlobTool.invoke(
-        serde_json::json!({"pattern": "*.txt"}),
-        &runtime,
-    );
+    let result = GlobTool.invoke(serde_json::json!({"pattern": "*.txt"}), &runtime);
 
     match result {
         ToolResult::Text(s) => {

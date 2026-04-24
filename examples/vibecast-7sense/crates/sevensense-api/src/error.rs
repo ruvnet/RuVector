@@ -12,7 +12,9 @@ use serde::Serialize;
 use thiserror::Error;
 use utoipa::ToSchema;
 
-use crate::services::{AnalysisError, AudioError, EmbeddingError, InterpretationError, VectorError};
+use crate::services::{
+    AnalysisError, AudioError, EmbeddingError, InterpretationError, VectorError,
+};
 
 /// Unified API error type.
 #[derive(Debug, Error)]

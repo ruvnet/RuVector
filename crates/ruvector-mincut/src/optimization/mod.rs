@@ -23,7 +23,9 @@ pub mod wasm_batch;
 pub use benchmark::{BenchmarkResult, BenchmarkSuite, OptimizationBenchmark};
 pub use cache::{CacheConfig, CacheStats, PathDistanceCache, PrefetchHint};
 pub use dspar::{DegreePresparse, PresparseConfig, PresparseResult, PresparseStats};
-pub use parallel::{LevelUpdateResult, ParallelConfig, ParallelLevelUpdater, WorkStealingScheduler};
+pub use parallel::{
+    LevelUpdateResult, ParallelConfig, ParallelLevelUpdater, WorkStealingScheduler,
+};
 pub use pool::{LazyLevel, LevelData, LevelPool, PoolConfig, PoolStats};
 pub use simd_distance::{DistanceArray, SimdDistanceOps};
 pub use wasm_batch::{BatchConfig, TypedArrayTransfer, WasmBatchOps};

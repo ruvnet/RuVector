@@ -53,7 +53,10 @@ impl AuditResult {
     #[inline]
     #[must_use]
     pub const fn has_warnings(&self) -> bool {
-        self.deep_chains > 0 || self.broad_grants > 0 || self.orphaned > 0 || self.epoch_warnings > 0
+        self.deep_chains > 0
+            || self.broad_grants > 0
+            || self.orphaned > 0
+            || self.epoch_warnings > 0
     }
 }
 
@@ -226,7 +229,12 @@ impl CapabilityAuditor {
     }
 
     /// Audits a single capability entry.
-    pub fn audit_entry(&self, handle: CapHandle, entry: &CapTableEntry, current_epoch: u64) -> AuditEntry {
+    pub fn audit_entry(
+        &self,
+        handle: CapHandle,
+        entry: &CapTableEntry,
+        current_epoch: u64,
+    ) -> AuditEntry {
         let rights = entry.capability.rights;
         let depth = entry.depth;
 
@@ -244,7 +252,9 @@ impl CapabilityAuditor {
             let has_revoke = rights.contains(CapRights::REVOKE);
 
             // Flag if it has GRANT combined with other powerful rights
-            if has_grant && (rights.contains(CapRights::WRITE) || rights.contains(CapRights::EXECUTE)) {
+            if has_grant
+                && (rights.contains(CapRights::WRITE) || rights.contains(CapRights::EXECUTE))
+            {
                 flags.broad_grant = true;
             }
 

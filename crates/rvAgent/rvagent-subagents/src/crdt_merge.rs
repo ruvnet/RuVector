@@ -174,7 +174,11 @@ pub struct LwwRegister<T> {
 impl<T> LwwRegister<T> {
     /// Create a new LWW register with the given value, timestamp, and node ID.
     pub fn new(value: T, timestamp: u64, node_id: u32) -> Self {
-        Self { value, timestamp, node_id }
+        Self {
+            value,
+            timestamp,
+            node_id,
+        }
     }
 
     /// Get a reference to the value.

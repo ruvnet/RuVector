@@ -17,17 +17,15 @@
 use ed25519_dalek::SigningKey;
 use rand::rngs::OsRng;
 
-use rvf_runtime::{
-    MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore,
+use rvf_crypto::{
+    create_witness_chain, shake256_256, sign_segment, verify_segment, verify_witness_chain,
+    WitnessEntry,
 };
 use rvf_runtime::options::DistanceMetric;
-use rvf_types::kernel::{KernelArch, KernelHeader, KernelType, KERNEL_MAGIC};
+use rvf_runtime::{MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore};
 use rvf_types::ebpf::{EbpfAttachType, EbpfHeader, EbpfProgramType, EBPF_MAGIC};
+use rvf_types::kernel::{KernelArch, KernelHeader, KernelType, KERNEL_MAGIC};
 use rvf_types::{DerivationType, SegmentHeader, SegmentType};
-use rvf_crypto::{
-    sign_segment, verify_segment,
-    create_witness_chain, verify_witness_chain, shake256_256, WitnessEntry,
-};
 use tempfile::TempDir;
 
 // ---------------------------------------------------------------------------
@@ -38,7 +36,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -126,7 +126,10 @@ fn main() {
     let results = store
         .query(&query, 5, &QueryOptions::default())
         .expect("query failed");
-    println!("  Query test:  top-5 OK (nearest ID={}, dist={:.6})", results[0].id, results[0].distance);
+    println!(
+        "  Query test:  top-5 OK (nearest ID={}, dist={:.6})",
+        results[0].id, results[0].distance
+    );
 
     // ====================================================================
     // 2. Kernel image: the runtime (KERNEL_SEG)
@@ -261,12 +264,16 @@ fn main() {
     header.timestamp_ns = 1_700_000_000_000_000_000;
     header.payload_length = 4096;
 
-    let attestation_payload = b"Sealed Causal Atlas: planet detection + life scoring + knowledge base";
+    let attestation_payload =
+        b"Sealed Causal Atlas: planet detection + life scoring + knowledge base";
 
     let footer = sign_segment(&header, attestation_payload, &signing_key);
     let sig_valid = verify_segment(&header, attestation_payload, &footer, &verifying_key);
 
-    println!("  Signer:     {}...", hex_string(&verifying_key.to_bytes()[..16]));
+    println!(
+        "  Signer:     {}...",
+        hex_string(&verifying_key.to_bytes()[..16])
+    );
     println!("  Signature:  {}...", hex_string(&footer.signature[..16]));
     println!("  Valid:      {}", sig_valid);
     assert!(sig_valid, "signature should be valid");
@@ -310,7 +317,10 @@ fn main() {
     assert_eq!(kh.arch, KernelArch::X86_64 as u8);
     assert_eq!(kh.api_port, 9090);
     assert!(ki_bytes.starts_with(&kernel_image));
-    println!("  Kernel:     VALID (magic={:#010X}, arch=x86_64, port=9090)", kh.kernel_magic);
+    println!(
+        "  Kernel:     VALID (magic={:#010X}, arch=x86_64, port=9090)",
+        kh.kernel_magic
+    );
 
     // Verify eBPF
     let (eh_bytes, ep_bytes) = store
@@ -323,7 +333,10 @@ fn main() {
     assert_eq!(eh.program_type, EbpfProgramType::XdpDistance as u8);
     assert_eq!(eh.max_dimension, dim as u16);
     assert_eq!(&ep_bytes[..ebpf_bytecode.len()], ebpf_bytecode.as_slice());
-    println!("  eBPF:       VALID (magic={:#010X}, type=XDP, dim={})", eh.ebpf_magic, eh.max_dimension);
+    println!(
+        "  eBPF:       VALID (magic={:#010X}, type=XDP, dim={})",
+        eh.ebpf_magic, eh.max_dimension
+    );
 
     // Verify witness chain
     let re_verified = verify_witness_chain(&chain_bytes).expect("re-verify failed");
@@ -357,17 +370,41 @@ fn main() {
     println!("  +-----------------------------------------------------------+");
     println!("  | Component          | Details                               |");
     println!("  |--------------------|---------------------------------------|");
-    println!("  | Knowledge Base     | {} vectors x {} dims              |", final_status.total_vectors, dim);
-    println!("  | Targets            | {} synthetic targets                |", num_targets);
-    println!("  | Windows/Target     | {} (multi-scale: 2h/12h/3d/27d)    |", windows_per_target);
+    println!(
+        "  | Knowledge Base     | {} vectors x {} dims              |",
+        final_status.total_vectors, dim
+    );
+    println!(
+        "  | Targets            | {} synthetic targets                |",
+        num_targets
+    );
+    println!(
+        "  | Windows/Target     | {} (multi-scale: 2h/12h/3d/27d)    |",
+        windows_per_target
+    );
     println!("  | Domains            | {:?}    |", domains);
-    println!("  | Runtime            | HermitOS x86_64 ({} KB)            |", kernel_image.len() / 1024);
-    println!("  | Accelerator        | XDP eBPF ({} insns)                |", num_insns);
-    println!("  | Trust Chain        | {} witness entries                  |", chain_steps.len());
+    println!(
+        "  | Runtime            | HermitOS x86_64 ({} KB)            |",
+        kernel_image.len() / 1024
+    );
+    println!(
+        "  | Accelerator        | XDP eBPF ({} insns)                |",
+        num_insns
+    );
+    println!(
+        "  | Trust Chain        | {} witness entries                  |",
+        chain_steps.len()
+    );
     println!("  | Attestation        | Ed25519 signature                    |");
     println!("  | Version            | Snapshot (depth=1)                   |");
-    println!("  | Total Segments     | {}                                  |", final_status.total_segments);
-    println!("  | File Size          | {} bytes                          |", final_status.file_size);
+    println!(
+        "  | Total Segments     | {}                                  |",
+        final_status.total_segments
+    );
+    println!(
+        "  | File Size          | {} bytes                          |",
+        final_status.file_size
+    );
     println!("  | API Port           | 9090                                 |");
     println!("  +-----------------------------------------------------------+");
     println!();

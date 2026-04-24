@@ -1,11 +1,9 @@
 //! Tests for Gomory-Hu tree packing fast path (Tier 2).
 
 use super::*;
-use crate::graph::DynamicGraph;
+use crate::canonical::source_anchored::{canonical_mincut, SourceAnchoredConfig};
 use crate::canonical::FixedWeight;
-use crate::canonical::source_anchored::{
-    canonical_mincut, SourceAnchoredConfig,
-};
+use crate::graph::DynamicGraph;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -71,8 +69,12 @@ fn test_gomory_hu_two_clusters() {
     // {3,4,5} fully connected with weight 5
     // Bridge: 2-3 with weight 1
     let g = make_graph(&[
-        (0, 1, 5.0), (1, 2, 5.0), (2, 0, 5.0),
-        (3, 4, 5.0), (4, 5, 5.0), (5, 3, 5.0),
+        (0, 1, 5.0),
+        (1, 2, 5.0),
+        (2, 0, 5.0),
+        (3, 4, 5.0),
+        (4, 5, 5.0),
+        (5, 3, 5.0),
         (2, 3, 1.0),
     ]);
     let tree = GomoryHuTree::build(&g).unwrap();
@@ -111,13 +113,21 @@ fn test_tree_global_mincut_matches_stoer_wagner() {
         vec![(0, 1, 3.0), (1, 2, 1.0), (2, 3, 5.0)],
         // K4
         vec![
-            (0, 1, 1.0), (0, 2, 1.0), (0, 3, 1.0),
-            (1, 2, 1.0), (1, 3, 1.0), (2, 3, 1.0),
+            (0, 1, 1.0),
+            (0, 2, 1.0),
+            (0, 3, 1.0),
+            (1, 2, 1.0),
+            (1, 3, 1.0),
+            (2, 3, 1.0),
         ],
         // Weighted barbell
         vec![
-            (0, 1, 10.0), (0, 2, 10.0), (1, 2, 10.0),
-            (3, 4, 10.0), (3, 5, 10.0), (4, 5, 10.0),
+            (0, 1, 10.0),
+            (0, 2, 10.0),
+            (1, 2, 10.0),
+            (3, 4, 10.0),
+            (3, 5, 10.0),
+            (4, 5, 10.0),
             (2, 3, 2.0),
         ],
     ];
@@ -143,13 +153,18 @@ fn test_tree_global_mincut_matches_stoer_wagner() {
 #[test]
 fn test_tree_partition_covers_all_vertices() {
     let g = make_graph(&[
-        (0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0),
-        (2, 3, 1.0), (3, 4, 1.0),
+        (0, 1, 1.0),
+        (1, 2, 1.0),
+        (2, 0, 1.0),
+        (2, 3, 1.0),
+        (3, 4, 1.0),
     ]);
     let tree = GomoryHuTree::build(&g).unwrap();
     let result = tree.global_mincut_partition().unwrap();
 
-    let mut all: Vec<VertexId> = result.side_a.iter()
+    let mut all: Vec<VertexId> = result
+        .side_a
+        .iter()
         .chain(result.side_b.iter())
         .copied()
         .collect();
@@ -175,8 +190,12 @@ fn test_tree_partition_single_edge() {
 #[test]
 fn test_fast_canonical_matches_tier1() {
     let edges = vec![
-        (0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0),
-        (2, 3, 1.0), (3, 4, 1.0), (4, 2, 1.0),
+        (0, 1, 1.0),
+        (1, 2, 1.0),
+        (2, 0, 1.0),
+        (2, 3, 1.0),
+        (3, 4, 1.0),
+        (4, 2, 1.0),
     ];
     let g = make_graph(&edges);
     let cfg = default_config();
@@ -209,8 +228,12 @@ fn test_fast_canonical_empty_graph() {
 #[test]
 fn test_gomory_hu_deterministic_100_runs() {
     let g = make_graph(&[
-        (0, 1, 3.0), (1, 2, 2.0), (2, 3, 4.0),
-        (3, 0, 1.0), (0, 2, 5.0), (1, 3, 2.0),
+        (0, 1, 3.0),
+        (1, 2, 2.0),
+        (2, 3, 4.0),
+        (3, 0, 1.0),
+        (0, 2, 5.0),
+        (1, 3, 2.0),
     ]);
 
     let first_tree = GomoryHuTree::build(&g).unwrap();
@@ -243,9 +266,7 @@ fn test_gomory_hu_disconnected_returns_zero() {
 #[test]
 fn test_gomory_hu_weighted_star() {
     // Star: center vertex 0 connected to 1,2,3,4 with various weights
-    let g = make_graph(&[
-        (0, 1, 2.0), (0, 2, 3.0), (0, 3, 1.0), (0, 4, 5.0),
-    ]);
+    let g = make_graph(&[(0, 1, 2.0), (0, 2, 3.0), (0, 3, 1.0), (0, 4, 5.0)]);
     let tree = GomoryHuTree::build(&g).unwrap();
     let lambda = tree.global_mincut_value().unwrap();
     // Min-cut of a star is the minimum edge weight

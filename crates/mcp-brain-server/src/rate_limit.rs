@@ -83,8 +83,8 @@ impl RateLimiter {
             ip_read_buckets: DashMap::new(),
             write_limit,
             read_limit,
-            ip_write_limit: write_limit * 3,  // 1500/hr per IP (allows some key rotation)
-            ip_read_limit: read_limit * 3,     // 15000/hr per IP
+            ip_write_limit: write_limit * 3, // 1500/hr per IP (allows some key rotation)
+            ip_read_limit: read_limit * 3,   // 15000/hr per IP
             window: Duration::from_secs(3600),
             ops_counter: AtomicU64::new(0),
             cleanup_interval: 1000,
@@ -169,7 +169,8 @@ impl RateLimiter {
         self.ip_read_buckets.retain(|_, bucket| !bucket.is_stale());
         // Evict vote entries older than 24h
         let vote_before = self.ip_votes.len();
-        self.ip_votes.retain(|_, (_, timestamp)| timestamp.elapsed() < Duration::from_secs(86400));
+        self.ip_votes
+            .retain(|_, (_, timestamp)| timestamp.elapsed() < Duration::from_secs(86400));
         let vote_evicted = vote_before - self.ip_votes.len();
 
         let write_evicted = write_before - self.write_buckets.len();

@@ -3,9 +3,9 @@
 //! Provides simplicial complexes, boundary maps, and algebraic topology operations
 //! for computing homology and cohomology groups.
 
-use std::collections::{HashMap, HashSet, BTreeSet};
 use super::{constants, QuantumTopologyError, Result};
 use ruvector_solver::types::CsrMatrix;
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 /// A simplex (k-simplex has k+1 vertices)
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -121,7 +121,9 @@ impl Simplex {
 
         let mut new_vertices = self.vertices.clone();
         new_vertices.extend(&other.vertices);
-        Some(Simplex { vertices: new_vertices })
+        Some(Simplex {
+            vertices: new_vertices,
+        })
     }
 }
 
@@ -167,7 +169,11 @@ impl SparseMatrix {
             }
         }
 
-        Self { entries, rows, cols }
+        Self {
+            entries,
+            rows,
+            cols,
+        }
     }
 
     /// Set a value (O(1) via HashMap)
@@ -187,7 +193,11 @@ impl SparseMatrix {
     /// Transpose the matrix
     pub fn transpose(&self) -> Self {
         Self {
-            entries: self.entries.iter().map(|(&(r, c), &v)| ((c, r), v)).collect(),
+            entries: self
+                .entries
+                .iter()
+                .map(|(&(r, c), &v)| ((c, r), v))
+                .collect(),
             rows: self.cols,
             cols: self.rows,
         }
@@ -247,7 +257,8 @@ impl SparseMatrix {
 
     /// Compute rank over Z/2Z using Gaussian elimination
     pub fn rank_mod2(&self) -> usize {
-        let mut dense: Vec<Vec<u8>> = self.to_dense()
+        let mut dense: Vec<Vec<u8>> = self
+            .to_dense()
             .into_iter()
             .map(|row| row.into_iter().map(|v| (v.abs() % 2) as u8).collect())
             .collect();
@@ -300,7 +311,8 @@ impl SparseMatrix {
 
     /// Compute kernel (null space) over Z/2Z
     pub fn kernel_mod2(&self) -> Vec<Vec<u8>> {
-        let mut dense: Vec<Vec<u8>> = self.to_dense()
+        let mut dense: Vec<Vec<u8>> = self
+            .to_dense()
             .into_iter()
             .map(|row| row.into_iter().map(|v| (v.abs() % 2) as u8).collect())
             .collect();
@@ -424,7 +436,11 @@ impl BoundaryMatrix {
 
         Self {
             matrix,
-            dimension: if k_simplices.is_empty() { 0 } else { k_simplices[0].dim() },
+            dimension: if k_simplices.is_empty() {
+                0
+            } else {
+                k_simplices[0].dim()
+            },
             domain: k_simplices.to_vec(),
             codomain: k_minus_1_simplices.to_vec(),
         }
@@ -505,7 +521,10 @@ impl SimplicialComplex {
 
     /// Get all simplices
     pub fn all_simplices(&self) -> Vec<Simplex> {
-        self.simplices.iter().flat_map(|s| s.iter().cloned()).collect()
+        self.simplices
+            .iter()
+            .flat_map(|s| s.iter().cloned())
+            .collect()
     }
 
     /// Number of simplices of dimension k
@@ -598,8 +617,8 @@ impl SimplicialComplex {
     /// For cochains α ∈ C^p and β ∈ C^q, compute α ∪ β ∈ C^{p+q}
     pub fn cup_product(
         &self,
-        alpha: &[f64],  // p-cochain values on p-simplices
-        beta: &[f64],   // q-cochain values on q-simplices
+        alpha: &[f64], // p-cochain values on p-simplices
+        beta: &[f64],  // q-cochain values on q-simplices
         p: usize,
         q: usize,
     ) -> Vec<f64> {
@@ -647,7 +666,8 @@ impl SimplicialComplex {
 
         // Get vertex mapping (since vertices may not be 0..n)
         let vertices = self.simplices_of_dim(0);
-        let vertex_map: HashMap<Vec<usize>, usize> = vertices.iter()
+        let vertex_map: HashMap<Vec<usize>, usize> = vertices
+            .iter()
             .enumerate()
             .map(|(idx, s)| (s.vertices(), idx))
             .collect();
@@ -655,7 +675,10 @@ impl SimplicialComplex {
         for edge in &edges {
             let verts = edge.vertices();
             if verts.len() == 2 {
-                if let (Some(&i), Some(&j)) = (vertex_map.get(&vec![verts[0]]), vertex_map.get(&vec![verts[1]])) {
+                if let (Some(&i), Some(&j)) = (
+                    vertex_map.get(&vec![verts[0]]),
+                    vertex_map.get(&vec![verts[1]]),
+                ) {
                     entries.push((i, j, -1.0));
                     entries.push((j, i, -1.0));
                     degree[i] += 1;
@@ -707,13 +730,27 @@ pub mod standard_complexes {
     pub fn torus() -> SimplicialComplex {
         // Minimal triangulation of torus with 7 vertices
         let triangles = [
-            [0, 1, 2], [0, 2, 3], [0, 3, 5], [0, 5, 6], [0, 4, 6], [0, 1, 4],
-            [1, 2, 4], [2, 4, 5], [2, 3, 5], [3, 4, 6], [3, 5, 6], [1, 3, 4],
-            [1, 3, 6], [1, 2, 6], [2, 5, 6],
+            [0, 1, 2],
+            [0, 2, 3],
+            [0, 3, 5],
+            [0, 5, 6],
+            [0, 4, 6],
+            [0, 1, 4],
+            [1, 2, 4],
+            [2, 4, 5],
+            [2, 3, 5],
+            [3, 4, 6],
+            [3, 5, 6],
+            [1, 3, 4],
+            [1, 3, 6],
+            [1, 2, 6],
+            [2, 5, 6],
         ];
 
         SimplicialComplex::from_simplices(
-            triangles.iter().map(|&[a, b, c]| Simplex::triangle(a, b, c))
+            triangles
+                .iter()
+                .map(|&[a, b, c]| Simplex::triangle(a, b, c)),
         )
     }
 
@@ -722,13 +759,27 @@ pub mod standard_complexes {
         // Minimal triangulation with identification
         // Similar structure to torus but with different identifications
         let triangles = [
-            [0, 1, 4], [0, 4, 3], [0, 3, 2], [0, 2, 5], [0, 5, 1],
-            [1, 4, 5], [2, 3, 6], [3, 4, 6], [4, 5, 6], [1, 2, 5],
-            [1, 2, 6], [2, 5, 6], [3, 4, 7], [4, 6, 7], [3, 6, 7],
+            [0, 1, 4],
+            [0, 4, 3],
+            [0, 3, 2],
+            [0, 2, 5],
+            [0, 5, 1],
+            [1, 4, 5],
+            [2, 3, 6],
+            [3, 4, 6],
+            [4, 5, 6],
+            [1, 2, 5],
+            [1, 2, 6],
+            [2, 5, 6],
+            [3, 4, 7],
+            [4, 6, 7],
+            [3, 6, 7],
         ];
 
         SimplicialComplex::from_simplices(
-            triangles.iter().map(|&[a, b, c]| Simplex::triangle(a, b, c))
+            triangles
+                .iter()
+                .map(|&[a, b, c]| Simplex::triangle(a, b, c)),
         )
     }
 
@@ -736,12 +787,20 @@ pub mod standard_complexes {
     pub fn projective_plane() -> SimplicialComplex {
         // 6-vertex triangulation
         let triangles = [
-            [0, 1, 2], [0, 2, 4], [0, 1, 5], [0, 4, 5], [1, 2, 3],
-            [1, 3, 5], [2, 3, 4], [3, 4, 5],
+            [0, 1, 2],
+            [0, 2, 4],
+            [0, 1, 5],
+            [0, 4, 5],
+            [1, 2, 3],
+            [1, 3, 5],
+            [2, 3, 4],
+            [3, 4, 5],
         ];
 
         SimplicialComplex::from_simplices(
-            triangles.iter().map(|&[a, b, c]| Simplex::triangle(a, b, c))
+            triangles
+                .iter()
+                .map(|&[a, b, c]| Simplex::triangle(a, b, c)),
         )
     }
 }
@@ -816,10 +875,7 @@ mod tests {
     #[test]
     fn test_sparse_matrix_rank() {
         // Simple 2x3 matrix with rank 2
-        let matrix = SparseMatrix::from_dense(&[
-            vec![1, 0, 1],
-            vec![0, 1, 1],
-        ]);
+        let matrix = SparseMatrix::from_dense(&[vec![1, 0, 1], vec![0, 1, 1]]);
 
         assert_eq!(matrix.rank_mod2(), 2);
     }
@@ -827,10 +883,7 @@ mod tests {
     #[test]
     fn test_sparse_matrix_kernel() {
         // Matrix with non-trivial kernel
-        let matrix = SparseMatrix::from_dense(&[
-            vec![1, 1, 0],
-            vec![0, 0, 0],
-        ]);
+        let matrix = SparseMatrix::from_dense(&[vec![1, 1, 0], vec![0, 0, 0]]);
 
         let kernel = matrix.kernel_mod2();
         assert!(!kernel.is_empty());

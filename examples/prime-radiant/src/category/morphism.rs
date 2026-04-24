@@ -211,12 +211,7 @@ impl MorphismData {
                 }
                 let result = matrix
                     .iter()
-                    .map(|row| {
-                        row.iter()
-                            .zip(v.iter())
-                            .map(|(a, b)| a * b)
-                            .sum()
-                    })
+                    .map(|row| row.iter().zip(v.iter()).map(|(a, b)| a * b).sum())
                     .collect();
                 Some(result)
             }
@@ -319,10 +314,7 @@ mod tests {
     #[test]
     fn test_linear_map_application() {
         // 2x2 identity matrix
-        let matrix = vec![
-            vec![1.0, 0.0],
-            vec![0.0, 1.0],
-        ];
+        let matrix = vec![vec![1.0, 0.0], vec![0.0, 1.0]];
         let f = MorphismData::linear_map(matrix);
 
         let v = vec![3.0, 4.0];

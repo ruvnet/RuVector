@@ -19,11 +19,7 @@ impl ToolResultSanitizerMiddleware {
     }
 
     /// Wrap tool output content in delimited block.
-    pub fn sanitize_tool_result(
-        tool_name: &str,
-        tool_call_id: &str,
-        content: &str,
-    ) -> String {
+    pub fn sanitize_tool_result(tool_name: &str, tool_call_id: &str, content: &str) -> String {
         // Escape any existing closing tags in content to prevent injection
         let escaped = content.replace("</tool_output>", "&lt;/tool_output&gt;");
         format!(
@@ -65,8 +61,7 @@ impl Middleware for ToolResultSanitizerMiddleware {
             if msg.role == Role::Tool {
                 let tool_name = msg.tool_name.as_deref().unwrap_or("unknown");
                 let tool_call_id = msg.tool_call_id.as_deref().unwrap_or("unknown");
-                msg.content =
-                    Self::sanitize_tool_result(tool_name, tool_call_id, &msg.content);
+                msg.content = Self::sanitize_tool_result(tool_name, tool_call_id, &msg.content);
             }
         }
 
@@ -129,11 +124,8 @@ mod tests {
 
     #[test]
     fn test_sanitize_xml_in_tool_name() {
-        let result = ToolResultSanitizerMiddleware::sanitize_tool_result(
-            "tool\"name",
-            "id\"val",
-            "content",
-        );
+        let result =
+            ToolResultSanitizerMiddleware::sanitize_tool_result("tool\"name", "id\"val", "content");
         assert!(result.contains("tool=\"tool&quot;name\""));
         assert!(result.contains("id=\"id&quot;val\""));
     }
@@ -175,8 +167,7 @@ mod tests {
 
     #[test]
     fn test_sanitize_empty_content() {
-        let result =
-            ToolResultSanitizerMiddleware::sanitize_tool_result("tool", "id", "");
+        let result = ToolResultSanitizerMiddleware::sanitize_tool_result("tool", "id", "");
         assert_eq!(
             result,
             "<tool_output tool=\"tool\" id=\"id\">\n\n</tool_output>"
@@ -186,8 +177,7 @@ mod tests {
     #[test]
     fn test_sanitize_multiline_content() {
         let content = "line 1\nline 2\nline 3";
-        let result =
-            ToolResultSanitizerMiddleware::sanitize_tool_result("tool", "id", content);
+        let result = ToolResultSanitizerMiddleware::sanitize_tool_result("tool", "id", content);
         assert!(result.contains("line 1\nline 2\nline 3"));
     }
 }

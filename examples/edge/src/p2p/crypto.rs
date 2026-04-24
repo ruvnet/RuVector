@@ -9,10 +9,10 @@ use aes_gcm::{
     aead::{Aead, KeyInit},
     Aes256Gcm, Nonce,
 };
-use sha2::{Sha256, Digest};
+use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use rand::RngCore;
+use sha2::{Digest, Sha256};
 
 /// Encrypted payload with IV and auth tag
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,8 +28,7 @@ pub struct CryptoV2;
 impl CryptoV2 {
     /// Encrypt data with AES-256-GCM
     pub fn encrypt(data: &[u8], key: &[u8; 32]) -> Result<EncryptedPayload, String> {
-        let cipher = Aes256Gcm::new_from_slice(key)
-            .map_err(|e| format!("Invalid key: {}", e))?;
+        let cipher = Aes256Gcm::new_from_slice(key).map_err(|e| format!("Invalid key: {}", e))?;
 
         // Generate random IV
         let mut iv = [0u8; 12];
@@ -37,7 +36,8 @@ impl CryptoV2 {
         let nonce = Nonce::from_slice(&iv);
 
         // Encrypt (GCM includes auth tag in output)
-        let ciphertext_with_tag = cipher.encrypt(nonce, data)
+        let ciphertext_with_tag = cipher
+            .encrypt(nonce, data)
             .map_err(|e| format!("Encryption failed: {}", e))?;
 
         // Split ciphertext and tag (tag is last 16 bytes)
@@ -46,13 +46,16 @@ impl CryptoV2 {
         let mut tag = [0u8; 16];
         tag.copy_from_slice(&ciphertext_with_tag[tag_start..]);
 
-        Ok(EncryptedPayload { ciphertext, iv, tag })
+        Ok(EncryptedPayload {
+            ciphertext,
+            iv,
+            tag,
+        })
     }
 
     /// Decrypt data with AES-256-GCM
     pub fn decrypt(encrypted: &EncryptedPayload, key: &[u8; 32]) -> Result<Vec<u8>, String> {
-        let cipher = Aes256Gcm::new_from_slice(key)
-            .map_err(|e| format!("Invalid key: {}", e))?;
+        let cipher = Aes256Gcm::new_from_slice(key).map_err(|e| format!("Invalid key: {}", e))?;
 
         let nonce = Nonce::from_slice(&encrypted.iv);
 
@@ -60,7 +63,8 @@ impl CryptoV2 {
         let mut ciphertext_with_tag = encrypted.ciphertext.clone();
         ciphertext_with_tag.extend_from_slice(&encrypted.tag);
 
-        cipher.decrypt(nonce, ciphertext_with_tag.as_ref())
+        cipher
+            .decrypt(nonce, ciphertext_with_tag.as_ref())
             .map_err(|_| "Decryption failed: authentication failed".to_string())
     }
 
@@ -148,10 +152,12 @@ impl CanonicalJson {
         let mut keys: Vec<&String> = obj.keys().collect();
         keys.sort();
 
-        let pairs: Vec<String> = keys.iter()
-            .filter_map(|k| obj.get(*k).map(|v| {
-                format!("{}:{}", Self::stringify_string(k), Self::stringify_value(v))
-            }))
+        let pairs: Vec<String> = keys
+            .iter()
+            .filter_map(|k| {
+                obj.get(*k)
+                    .map(|v| format!("{}:{}", Self::stringify_string(k), Self::stringify_value(v)))
+            })
             .collect();
 
         format!("{{{}}}", pairs.join(","))

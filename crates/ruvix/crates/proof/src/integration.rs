@@ -137,14 +137,8 @@ mod tests {
 
     #[test]
     fn test_attestation_verification_tag() {
-        let attestation = ProofAttestation::new(
-            [0xCDu8; 32],
-            [0u8; 32],
-            1000,
-            0x00_01_00_00,
-            100,
-            5000,
-        );
+        let attestation =
+            ProofAttestation::new([0xCDu8; 32], [0u8; 32], 1000, 0x00_01_00_00, 100, 5000);
 
         let tag = attestation.verification_tag();
         assert_eq!(tag, [0xCD; 8]);

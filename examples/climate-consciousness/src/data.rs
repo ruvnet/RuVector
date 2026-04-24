@@ -10,12 +10,12 @@ use rand_chacha::ChaCha8Rng;
 
 /// Climate index identifiers.
 pub const INDEX_ENSO: usize = 0; // El Nino Southern Oscillation (Nino3.4)
-pub const INDEX_NAO: usize = 1;  // North Atlantic Oscillation
-pub const INDEX_PDO: usize = 2;  // Pacific Decadal Oscillation
-pub const INDEX_AMO: usize = 3;  // Atlantic Multidecadal Oscillation
-pub const INDEX_IOD: usize = 4;  // Indian Ocean Dipole
-pub const INDEX_SAM: usize = 5;  // Southern Annular Mode
-pub const INDEX_QBO: usize = 6;  // Quasi-Biennial Oscillation
+pub const INDEX_NAO: usize = 1; // North Atlantic Oscillation
+pub const INDEX_PDO: usize = 2; // Pacific Decadal Oscillation
+pub const INDEX_AMO: usize = 3; // Atlantic Multidecadal Oscillation
+pub const INDEX_IOD: usize = 4; // Indian Ocean Dipole
+pub const INDEX_SAM: usize = 5; // Southern Annular Mode
+pub const INDEX_QBO: usize = 6; // Quasi-Biennial Oscillation
 
 pub const INDEX_NAMES: &[&str] = &["ENSO", "NAO", "PDO", "AMO", "IOD", "SAM", "QBO"];
 pub const N_INDICES: usize = 7;
@@ -71,27 +71,27 @@ pub fn build_neutral_correlations() -> ClimateCorrelations {
     // Define known teleconnection strengths (symmetric)
     let connections: &[(usize, usize, f64, f64)] = &[
         // (index_a, index_b, min_corr, max_corr)
-        (INDEX_ENSO, INDEX_IOD, 0.50, 0.70),  // Strong: ENSO-IOD coupling
-        (INDEX_ENSO, INDEX_PDO, 0.30, 0.50),  // Moderate: Pacific basin coupling
-        (INDEX_NAO, INDEX_AMO, 0.20, 0.40),   // Moderate: Atlantic coupling
-        (INDEX_QBO, INDEX_ENSO, 0.10, 0.20),  // Weak: stratosphere-troposphere
-        (INDEX_PDO, INDEX_IOD, 0.10, 0.25),   // Weak: Indo-Pacific coupling
-        (INDEX_ENSO, INDEX_NAO, 0.05, 0.15),  // Weak: Pacific-Atlantic bridge
-        (INDEX_ENSO, INDEX_SAM, 0.05, 0.15),  // Weak: tropical-polar link
-        (INDEX_AMO, INDEX_PDO, 0.05, 0.10),   // Very weak: inter-basin
-        (INDEX_SAM, INDEX_QBO, 0.03, 0.08),   // Very weak: polar-stratosphere
-        (INDEX_NAO, INDEX_QBO, 0.05, 0.12),   // Weak: NAO-QBO link
-        (INDEX_SAM, INDEX_NAO, 0.02, 0.06),   // Very weak: bipolar
-        (INDEX_IOD, INDEX_AMO, 0.02, 0.06),   // Very weak: Indian-Atlantic
-        (INDEX_AMO, INDEX_SAM, 0.01, 0.04),   // Negligible
-        (INDEX_IOD, INDEX_NAO, 0.01, 0.04),   // Negligible
-        (INDEX_IOD, INDEX_SAM, 0.01, 0.03),   // Negligible
-        (INDEX_PDO, INDEX_NAO, 0.02, 0.06),   // Very weak
-        (INDEX_PDO, INDEX_SAM, 0.01, 0.04),   // Negligible
-        (INDEX_QBO, INDEX_AMO, 0.02, 0.05),   // Very weak
-        (INDEX_QBO, INDEX_PDO, 0.03, 0.08),   // Very weak
-        (INDEX_QBO, INDEX_IOD, 0.02, 0.06),   // Very weak
-        (INDEX_QBO, INDEX_SAM, 0.03, 0.08),   // Very weak
+        (INDEX_ENSO, INDEX_IOD, 0.50, 0.70), // Strong: ENSO-IOD coupling
+        (INDEX_ENSO, INDEX_PDO, 0.30, 0.50), // Moderate: Pacific basin coupling
+        (INDEX_NAO, INDEX_AMO, 0.20, 0.40),  // Moderate: Atlantic coupling
+        (INDEX_QBO, INDEX_ENSO, 0.10, 0.20), // Weak: stratosphere-troposphere
+        (INDEX_PDO, INDEX_IOD, 0.10, 0.25),  // Weak: Indo-Pacific coupling
+        (INDEX_ENSO, INDEX_NAO, 0.05, 0.15), // Weak: Pacific-Atlantic bridge
+        (INDEX_ENSO, INDEX_SAM, 0.05, 0.15), // Weak: tropical-polar link
+        (INDEX_AMO, INDEX_PDO, 0.05, 0.10),  // Very weak: inter-basin
+        (INDEX_SAM, INDEX_QBO, 0.03, 0.08),  // Very weak: polar-stratosphere
+        (INDEX_NAO, INDEX_QBO, 0.05, 0.12),  // Weak: NAO-QBO link
+        (INDEX_SAM, INDEX_NAO, 0.02, 0.06),  // Very weak: bipolar
+        (INDEX_IOD, INDEX_AMO, 0.02, 0.06),  // Very weak: Indian-Atlantic
+        (INDEX_AMO, INDEX_SAM, 0.01, 0.04),  // Negligible
+        (INDEX_IOD, INDEX_NAO, 0.01, 0.04),  // Negligible
+        (INDEX_IOD, INDEX_SAM, 0.01, 0.03),  // Negligible
+        (INDEX_PDO, INDEX_NAO, 0.02, 0.06),  // Very weak
+        (INDEX_PDO, INDEX_SAM, 0.01, 0.04),  // Negligible
+        (INDEX_QBO, INDEX_AMO, 0.02, 0.05),  // Very weak
+        (INDEX_QBO, INDEX_PDO, 0.03, 0.08),  // Very weak
+        (INDEX_QBO, INDEX_IOD, 0.02, 0.06),  // Very weak
+        (INDEX_QBO, INDEX_SAM, 0.03, 0.08),  // Very weak
     ];
 
     for &(a, b, min_c, max_c) in connections {
@@ -126,9 +126,7 @@ pub fn build_elnino_correlations() -> ClimateCorrelations {
     }
 
     // Also boost intra-Pacific correlations
-    let pacific_boost: &[(usize, usize)] = &[
-        (INDEX_PDO, INDEX_IOD),
-    ];
+    let pacific_boost: &[(usize, usize)] = &[(INDEX_PDO, INDEX_IOD)];
     for &(a, b) in pacific_boost {
         let boosted = (data.correlations[a * n + b] * 1.3).min(0.90);
         data.correlations[a * n + b] = boosted;
@@ -225,8 +223,7 @@ pub fn generate_null_tpm(data: &ClimateCorrelations, rng: &mut impl rand::Rng) -
 /// NAO is strongest in winter, weaker in summer.
 pub fn generate_monthly_tpms(base: &ClimateCorrelations) -> Vec<(String, TransitionMatrix)> {
     let months = [
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     ];
     let n = base.n_indices;
 

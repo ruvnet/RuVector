@@ -109,7 +109,11 @@ pub fn round_to_nearest_even(x: f32) -> f32 {
         let r = rounded as i64;
         if r % 2 != 0 {
             // Nudge toward even.
-            if x > 0.0 { rounded - 1.0 } else { rounded + 1.0 }
+            if x > 0.0 {
+                rounded - 1.0
+            } else {
+                rounded + 1.0
+            }
         } else {
             rounded
         }
@@ -140,8 +144,16 @@ pub fn quantize_asymmetric(tensor: &[f32], num_heads: usize, bits: u8) -> Quanti
         let max_val = channel.iter().copied().fold(f32::NEG_INFINITY, f32::max);
 
         let range = max_val - min_val;
-        let scale = if range.abs() < f32::EPSILON { 1.0 } else { range / qmax };
-        let zp = if range.abs() < f32::EPSILON { 0.0 } else { -min_val / scale };
+        let scale = if range.abs() < f32::EPSILON {
+            1.0
+        } else {
+            range / qmax
+        };
+        let zp = if range.abs() < f32::EPSILON {
+            0.0
+        } else {
+            -min_val / scale
+        };
 
         scales.push(scale);
         zero_points.push(zp);
@@ -152,7 +164,12 @@ pub fn quantize_asymmetric(tensor: &[f32], num_heads: usize, bits: u8) -> Quanti
         }
     }
 
-    QuantizedTensor { data, scales, zero_points, bits }
+    QuantizedTensor {
+        data,
+        scales,
+        zero_points,
+        bits,
+    }
 }
 
 /// Symmetric quantization (simpler, useful for comparison).
@@ -163,16 +180,25 @@ pub fn quantize_asymmetric(tensor: &[f32], num_heads: usize, bits: u8) -> Quanti
 ///
 /// Panics if `bits` is less than 2 or greater than 8.
 pub fn quantize_symmetric(tensor: &[f32], bits: u8) -> (Vec<u8>, f32) {
-    assert!(bits >= 2 && bits <= 8, "quantize_symmetric: bits must be in [2, 8], got {}", bits);
+    assert!(
+        bits >= 2 && bits <= 8,
+        "quantize_symmetric: bits must be in [2, 8], got {}",
+        bits
+    );
     let qmax = ((1u32 << (bits - 1)) - 1) as f32;
     let abs_max = tensor.iter().copied().map(f32::abs).fold(0.0_f32, f32::max);
-    let scale = if abs_max < f32::EPSILON { 1.0 } else { abs_max / qmax };
+    let scale = if abs_max < f32::EPSILON {
+        1.0
+    } else {
+        abs_max / qmax
+    };
     let offset = (1u32 << (bits - 1)) as f32; // unsigned offset
 
     let data: Vec<u8> = tensor
         .iter()
         .map(|&v| {
-            let q = round_to_nearest_even(v / scale + offset).clamp(0.0, (1u32 << bits) as f32 - 1.0);
+            let q =
+                round_to_nearest_even(v / scale + offset).clamp(0.0, (1u32 << bits) as f32 - 1.0);
             q as u8
         })
         .collect();
@@ -374,7 +400,9 @@ impl CacheManager {
             return self.config.max_seq_len;
         }
         let weight = (total_layers - layer_idx) as f64 / total_layers as f64;
-        let sum_weights: f64 = (1..=total_layers).map(|i| i as f64 / total_layers as f64).sum();
+        let sum_weights: f64 = (1..=total_layers)
+            .map(|i| i as f64 / total_layers as f64)
+            .sum();
         let budget = (weight / sum_weights) * self.config.max_seq_len as f64;
         (budget.ceil() as usize).max(1)
     }
@@ -433,7 +461,10 @@ mod tests {
         let qt = quantize_asymmetric(&data, 2, 4);
         let restored = dequantize(&qt, 2);
         for (orig, rest) in data.iter().zip(restored.iter()) {
-            assert!((orig - rest).abs() < 0.15, "4-bit error too large: {orig} vs {rest}");
+            assert!(
+                (orig - rest).abs() < 0.15,
+                "4-bit error too large: {orig} vs {rest}"
+            );
         }
     }
 
@@ -444,7 +475,10 @@ mod tests {
         let restored = dequantize(&qt, 2);
         // 3-bit has only 8 levels so error is larger.
         for (orig, rest) in data.iter().zip(restored.iter()) {
-            assert!((orig - rest).abs() < 0.35, "3-bit error too large: {orig} vs {rest}");
+            assert!(
+                (orig - rest).abs() < 0.35,
+                "3-bit error too large: {orig} vs {rest}"
+            );
         }
     }
 
@@ -553,7 +587,10 @@ mod tests {
         let ratio = mgr.compression_ratio();
         // 4-bit in our unpacked scheme: each element uses 1 byte vs 4 bytes in f32,
         // but we also store scales/zero-points. Should still be > 1.0.
-        assert!(ratio > 1.0, "compression ratio should be > 1.0, got {ratio}");
+        assert!(
+            ratio > 1.0,
+            "compression ratio should be > 1.0, got {ratio}"
+        );
     }
 
     #[test]
@@ -593,7 +630,10 @@ mod tests {
         let b0 = mgr.pyramid_budget(0, 4);
         let b3 = mgr.pyramid_budget(3, 4);
         // Lower layers should get a larger budget.
-        assert!(b0 > b3, "layer 0 budget ({b0}) should exceed layer 3 ({b3})");
+        assert!(
+            b0 > b3,
+            "layer 0 budget ({b0}) should exceed layer 3 ({b3})"
+        );
     }
 
     #[test]

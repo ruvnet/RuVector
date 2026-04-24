@@ -1,8 +1,8 @@
 //! Integration tests for the `ls` tool.
 
 use rvagent_tools::{
-    Backend, BackendRef, ExecuteResponse, FileInfo, GrepMatch,
-    LsTool, Tool, ToolResult, ToolRuntime, WriteResult,
+    Backend, BackendRef, ExecuteResponse, FileInfo, GrepMatch, LsTool, Tool, ToolResult,
+    ToolRuntime, WriteResult,
 };
 use std::sync::Arc;
 
@@ -14,12 +14,32 @@ impl Backend for LsMockBackend {
     fn ls_info(&self, _path: &str) -> Result<Vec<FileInfo>, String> {
         Ok(self.entries.clone())
     }
-    fn read(&self, _: &str, _: usize, _: usize) -> Result<String, String> { Ok(String::new()) }
-    fn write(&self, _: &str, _: &str) -> WriteResult { WriteResult::default() }
-    fn edit(&self, _: &str, _: &str, _: &str, _: bool) -> WriteResult { WriteResult::default() }
-    fn glob_info(&self, _: &str, _: &str) -> Result<Vec<String>, String> { Ok(vec![]) }
-    fn grep_raw(&self, _: &str, _: Option<&str>, _: Option<&str>) -> Result<Vec<GrepMatch>, String> { Ok(vec![]) }
-    fn execute(&self, _: &str, _: u32) -> Result<ExecuteResponse, String> { Ok(ExecuteResponse { output: String::new(), exit_code: 0 }) }
+    fn read(&self, _: &str, _: usize, _: usize) -> Result<String, String> {
+        Ok(String::new())
+    }
+    fn write(&self, _: &str, _: &str) -> WriteResult {
+        WriteResult::default()
+    }
+    fn edit(&self, _: &str, _: &str, _: &str, _: bool) -> WriteResult {
+        WriteResult::default()
+    }
+    fn glob_info(&self, _: &str, _: &str) -> Result<Vec<String>, String> {
+        Ok(vec![])
+    }
+    fn grep_raw(
+        &self,
+        _: &str,
+        _: Option<&str>,
+        _: Option<&str>,
+    ) -> Result<Vec<GrepMatch>, String> {
+        Ok(vec![])
+    }
+    fn execute(&self, _: &str, _: u32) -> Result<ExecuteResponse, String> {
+        Ok(ExecuteResponse {
+            output: String::new(),
+            exit_code: 0,
+        })
+    }
 }
 
 struct ErrorLsBackend;
@@ -28,21 +48,53 @@ impl Backend for ErrorLsBackend {
     fn ls_info(&self, path: &str) -> Result<Vec<FileInfo>, String> {
         Err(format!("Error: path '{}' not found", path))
     }
-    fn read(&self, _: &str, _: usize, _: usize) -> Result<String, String> { Err("n/a".into()) }
-    fn write(&self, _: &str, _: &str) -> WriteResult { WriteResult::default() }
-    fn edit(&self, _: &str, _: &str, _: &str, _: bool) -> WriteResult { WriteResult::default() }
-    fn glob_info(&self, _: &str, _: &str) -> Result<Vec<String>, String> { Err("n/a".into()) }
-    fn grep_raw(&self, _: &str, _: Option<&str>, _: Option<&str>) -> Result<Vec<GrepMatch>, String> { Err("n/a".into()) }
-    fn execute(&self, _: &str, _: u32) -> Result<ExecuteResponse, String> { Err("n/a".into()) }
+    fn read(&self, _: &str, _: usize, _: usize) -> Result<String, String> {
+        Err("n/a".into())
+    }
+    fn write(&self, _: &str, _: &str) -> WriteResult {
+        WriteResult::default()
+    }
+    fn edit(&self, _: &str, _: &str, _: &str, _: bool) -> WriteResult {
+        WriteResult::default()
+    }
+    fn glob_info(&self, _: &str, _: &str) -> Result<Vec<String>, String> {
+        Err("n/a".into())
+    }
+    fn grep_raw(
+        &self,
+        _: &str,
+        _: Option<&str>,
+        _: Option<&str>,
+    ) -> Result<Vec<GrepMatch>, String> {
+        Err("n/a".into())
+    }
+    fn execute(&self, _: &str, _: u32) -> Result<ExecuteResponse, String> {
+        Err("n/a".into())
+    }
 }
 
 #[test]
 fn test_ls_directory_listing() {
     let backend = Arc::new(LsMockBackend {
         entries: vec![
-            FileInfo { name: "file_a.txt".into(), file_type: "file".into(), permissions: "-rw-r--r--".into(), size: 5 },
-            FileInfo { name: "file_b.rs".into(), file_type: "file".into(), permissions: "-rw-r--r--".into(), size: 12 },
-            FileInfo { name: "subdir".into(), file_type: "dir".into(), permissions: "drwxr-xr-x".into(), size: 0 },
+            FileInfo {
+                name: "file_a.txt".into(),
+                file_type: "file".into(),
+                permissions: "-rw-r--r--".into(),
+                size: 5,
+            },
+            FileInfo {
+                name: "file_b.rs".into(),
+                file_type: "file".into(),
+                permissions: "-rw-r--r--".into(),
+                size: 12,
+            },
+            FileInfo {
+                name: "subdir".into(),
+                file_type: "dir".into(),
+                permissions: "drwxr-xr-x".into(),
+                size: 0,
+            },
         ],
     }) as BackendRef;
     let runtime = ToolRuntime::new(backend);

@@ -1,8 +1,8 @@
 //! Integration tests for the `execute` tool.
 
 use rvagent_tools::{
-    Backend, BackendRef, ExecuteResponse, ExecuteTool, FileInfo, GrepMatch,
-    Tool, ToolResult, ToolRuntime, WriteResult,
+    Backend, BackendRef, ExecuteResponse, ExecuteTool, FileInfo, GrepMatch, Tool, ToolResult,
+    ToolRuntime, WriteResult,
 };
 use std::sync::Arc;
 
@@ -33,11 +33,7 @@ impl Backend for ExecMockBackend {
     ) -> Result<Vec<GrepMatch>, String> {
         Ok(vec![])
     }
-    fn execute(
-        &self,
-        command: &str,
-        _timeout: u32,
-    ) -> Result<ExecuteResponse, String> {
+    fn execute(&self, command: &str, _timeout: u32) -> Result<ExecuteResponse, String> {
         if command.contains("echo hello_world") {
             Ok(ExecuteResponse {
                 output: "hello_world\n".into(),
@@ -66,10 +62,7 @@ fn exec_runtime() -> ToolRuntime {
 #[test]
 fn test_execute_echo() {
     let runtime = exec_runtime();
-    let result = ExecuteTool.invoke(
-        serde_json::json!({"command": "echo hello_world"}),
-        &runtime,
-    );
+    let result = ExecuteTool.invoke(serde_json::json!({"command": "echo hello_world"}), &runtime);
 
     match result {
         ToolResult::Text(s) => {
@@ -86,10 +79,7 @@ fn test_execute_echo() {
 #[test]
 fn test_execute_exit_code() {
     let runtime = exec_runtime();
-    let result = ExecuteTool.invoke(
-        serde_json::json!({"command": "exit 42"}),
-        &runtime,
-    );
+    let result = ExecuteTool.invoke(serde_json::json!({"command": "exit 42"}), &runtime);
 
     match result {
         ToolResult::Text(s) => {
@@ -113,11 +103,7 @@ fn test_execute_timeout() {
 
     match result {
         ToolResult::Text(s) => {
-            assert!(
-                s.contains("timed out"),
-                "should report timeout, got: {}",
-                s
-            );
+            assert!(s.contains("timed out"), "should report timeout, got: {}", s);
         }
         _ => panic!("expected Text timeout from execute"),
     }

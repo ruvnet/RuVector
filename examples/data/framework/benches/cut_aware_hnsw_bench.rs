@@ -3,8 +3,8 @@
 //! Compares performance of gated vs ungated search, and demonstrates
 //! the trade-offs between coherence-aware navigation and raw search speed.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use ruvector_data_framework::cut_aware_hnsw::{CutAwareHNSW, CutAwareConfig};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use ruvector_data_framework::cut_aware_hnsw::{CutAwareConfig, CutAwareHNSW};
 
 fn create_test_index(n: usize, dimension: usize) -> CutAwareHNSW {
     let config = CutAwareConfig {
@@ -49,27 +49,19 @@ fn bench_gated_search(c: &mut Criterion) {
         let index = create_test_index(*size, 128);
         let query = vec![1.0; 128];
 
-        group.bench_with_input(
-            BenchmarkId::new("gated", size),
-            size,
-            |b, _| {
-                b.iter(|| {
-                    let results = index.search_gated(black_box(&query), black_box(10));
-                    black_box(results);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("gated", size), size, |b, _| {
+            b.iter(|| {
+                let results = index.search_gated(black_box(&query), black_box(10));
+                black_box(results);
+            });
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("ungated", size),
-            size,
-            |b, _| {
-                b.iter(|| {
-                    let results = index.search_ungated(black_box(&query), black_box(10));
-                    black_box(results);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("ungated", size), size, |b, _| {
+            b.iter(|| {
+                let results = index.search_ungated(black_box(&query), black_box(10));
+                black_box(results);
+            });
+        });
     }
 
     group.finish();
@@ -81,27 +73,19 @@ fn bench_coherent_neighborhood(c: &mut Criterion) {
     for size in [100, 500].iter() {
         let index = create_test_index(*size, 128);
 
-        group.bench_with_input(
-            BenchmarkId::new("radius_2", size),
-            size,
-            |b, _| {
-                b.iter(|| {
-                    let neighbors = index.coherent_neighborhood(black_box(0), black_box(2));
-                    black_box(neighbors);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("radius_2", size), size, |b, _| {
+            b.iter(|| {
+                let neighbors = index.coherent_neighborhood(black_box(0), black_box(2));
+                black_box(neighbors);
+            });
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("radius_5", size),
-            size,
-            |b, _| {
-                b.iter(|| {
-                    let neighbors = index.coherent_neighborhood(black_box(0), black_box(5));
-                    black_box(neighbors);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("radius_5", size), size, |b, _| {
+            b.iter(|| {
+                let neighbors = index.coherent_neighborhood(black_box(0), black_box(5));
+                black_box(neighbors);
+            });
+        });
     }
 
     group.finish();
@@ -113,16 +97,12 @@ fn bench_zone_computation(c: &mut Criterion) {
     for size in [100, 500, 1000].iter() {
         let mut index = create_test_index(*size, 128);
 
-        group.bench_with_input(
-            BenchmarkId::new("compute_zones", size),
-            size,
-            |b, _| {
-                b.iter(|| {
-                    let zones = index.compute_zones();
-                    black_box(zones);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("compute_zones", size), size, |b, _| {
+            b.iter(|| {
+                let zones = index.compute_zones();
+                black_box(zones);
+            });
+        });
     }
 
     group.finish();

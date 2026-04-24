@@ -16,10 +16,10 @@
 //! cargo run --example dynamic_mincut_benchmark -p ruvector-data-framework --release
 //! ```
 
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
-use rand::{Rng, SeedableRng};
-use rand::rngs::StdRng;
 
 // Note: In a real implementation, these would come from ruvector-mincut crate
 // For this benchmark framework, we'll create simplified versions
@@ -48,7 +48,8 @@ impl SimpleGraph {
     }
 
     fn remove_edge(&mut self, u: usize, v: usize) {
-        self.edges.retain(|(a, b, _)| !(*a == u && *b == v || *a == v && *b == u));
+        self.edges
+            .retain(|(a, b, _)| !(*a == u && *b == v || *a == v && *b == u));
         if let Some(neighbors) = self.adj.get_mut(&u) {
             neighbors.retain(|(n, _)| *n != v);
         }
@@ -261,8 +262,10 @@ fn benchmark_single_update(config: &BenchmarkConfig) {
 
             let speedup = periodic_time.as_micros() as f64 / dynamic_time.as_micros().max(1) as f64;
 
-            println!("  n={:4}, density={:.1}: Periodic: {:8.2}μs, Dynamic: {:8.2}μs, Speedup: {:6.2}x",
-                size, density,
+            println!(
+                "  n={:4}, density={:.1}: Periodic: {:8.2}μs, Dynamic: {:8.2}μs, Speedup: {:6.2}x",
+                size,
+                density,
                 periodic_time.as_micros(),
                 dynamic_time.as_micros(),
                 speedup
@@ -340,7 +343,8 @@ fn benchmark_query_under_updates(config: &BenchmarkConfig) {
 
         let avg_query_time = total_query_time / num_queries;
 
-        println!("  n={:4}: Average query latency: {:6.2}μs",
+        println!(
+            "  n={:4}: Average query latency: {:6.2}μs",
             size,
             avg_query_time.as_micros()
         );
@@ -364,7 +368,8 @@ fn benchmark_memory_overhead(config: &BenchmarkConfig) {
 
         let overhead_ratio = dynamic_memory as f64 / periodic_memory as f64;
 
-        println!("  n={:4}: Periodic: {:6} KB, Dynamic: {:6} KB, Overhead: {:4.2}x",
+        println!(
+            "  n={:4}: Periodic: {:6} KB, Dynamic: {:6} KB, Overhead: {:4.2}x",
             size,
             periodic_memory / 1024,
             dynamic_memory / 1024,
@@ -400,7 +405,8 @@ fn benchmark_lambda_sensitivity(config: &BenchmarkConfig) {
 
         let throughput = updates.len() as f64 / dynamic_time.as_secs_f64();
 
-        println!("  λ={:3}: Update throughput: {:8.0} ops/s, Avg latency: {:6.2}μs",
+        println!(
+            "  λ={:3}: Update throughput: {:8.0} ops/s, Avg latency: {:6.2}μs",
             lambda,
             throughput,
             dynamic_time.as_micros() / updates.len() as u128
@@ -416,12 +422,24 @@ fn generate_summary_report() {
     println!();
     println!("## Performance Summary");
     println!();
-    println!("| Metric                    | Periodic (Baseline) | Dynamic (RuVector) | Improvement |");
-    println!("|---------------------------|--------------------:|-------------------:|------------:|");
-    println!("| Single Update Latency     |         O(n³)       |      O(log n)      |    ~1000x   |");
-    println!("| Batch Throughput          |        10 ops/s     |     10,000 ops/s   |    ~1000x   |");
-    println!("| Query Latency             |         O(n³)       |        O(1)        |  ~100,000x  |");
-    println!("| Memory Overhead           |           1x        |          3x        |        3x   |");
+    println!(
+        "| Metric                    | Periodic (Baseline) | Dynamic (RuVector) | Improvement |"
+    );
+    println!(
+        "|---------------------------|--------------------:|-------------------:|------------:|"
+    );
+    println!(
+        "| Single Update Latency     |         O(n³)       |      O(log n)      |    ~1000x   |"
+    );
+    println!(
+        "| Batch Throughput          |        10 ops/s     |     10,000 ops/s   |    ~1000x   |"
+    );
+    println!(
+        "| Query Latency             |         O(n³)       |        O(1)        |  ~100,000x  |"
+    );
+    println!(
+        "| Memory Overhead           |           1x        |          3x        |        3x   |"
+    );
     println!();
     println!("## Algorithm Complexity");
     println!();
@@ -474,7 +492,7 @@ fn generate_random_graph(vertices: usize, density: f64, seed: u64) -> SimpleGrap
 fn generate_update_sequence(
     vertices: usize,
     count: usize,
-    seed: u64
+    seed: u64,
 ) -> Vec<(usize, usize, f64, bool)> {
     let mut rng = StdRng::seed_from_u64(seed);
     let mut updates = Vec::new();
@@ -494,7 +512,11 @@ fn generate_update_sequence(
 }
 
 /// Generate a graph with approximate target connectivity
-fn generate_graph_with_connectivity(vertices: usize, target_lambda: usize, seed: u64) -> SimpleGraph {
+fn generate_graph_with_connectivity(
+    vertices: usize,
+    target_lambda: usize,
+    seed: u64,
+) -> SimpleGraph {
     let mut rng = StdRng::seed_from_u64(seed);
     let mut graph = SimpleGraph::new(vertices);
 

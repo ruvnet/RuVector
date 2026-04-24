@@ -14,14 +14,15 @@ use rvagent_backends::security::{
     build_safe_env, count_yaml_anchors, detect_injection_patterns, sanitize_env,
     sanitize_subagent_result, strip_control_chars, validate_no_heredoc_delimiter,
     validate_path_safe, validate_stripped_path, validate_tool_call_id, validate_yaml_safe,
-    wrap_tool_output, RateTracker, SecurityError, DEFAULT_MAX_SUBAGENT_RESPONSE,
-    HEREDOC_DELIMITER, MAX_TOOL_CALL_ID_LENGTH, MAX_YAML_ANCHORS, MAX_YAML_FRONTMATTER_SIZE,
-    SAFE_ENV_ALLOWLIST, SENSITIVE_ENV_PATTERNS,
+    wrap_tool_output, RateTracker, SecurityError, DEFAULT_MAX_SUBAGENT_RESPONSE, HEREDOC_DELIMITER,
+    MAX_TOOL_CALL_ID_LENGTH, MAX_YAML_ANCHORS, MAX_YAML_FRONTMATTER_SIZE, SAFE_ENV_ALLOWLIST,
+    SENSITIVE_ENV_PATTERNS,
 };
 
 // Re-export unicode security items
 use rvagent_backends::unicode_security::{
-    detect_confusables, detect_dangerous_unicode, strip_dangerous_unicode, validate_ascii_identifier,
+    detect_confusables, detect_dangerous_unicode, strip_dangerous_unicode,
+    validate_ascii_identifier,
 };
 
 // =========================================================================
@@ -94,7 +95,10 @@ async fn test_filesystem_backend_blocks_symlink_read() {
 
     // Reading the symlink should fail (O_NOFOLLOW + post-open verification)
     let result = backend.read_file("evil", 0, 0).await;
-    assert!(result.is_err(), "Reading symlink to outside file should fail");
+    assert!(
+        result.is_err(),
+        "Reading symlink to outside file should fail"
+    );
 }
 
 /// SEC-001: Test that FilesystemBackend blocks symlink writes via resolve_and_open.
@@ -192,7 +196,10 @@ async fn test_linux_proc_fd_verification() {
     // Check the error is PathEscapesRoot
     if let Err(e) = result {
         assert!(
-            matches!(e, rvagent_backends::protocol::FileOperationError::PathEscapesRoot(_)),
+            matches!(
+                e,
+                rvagent_backends::protocol::FileOperationError::PathEscapesRoot(_)
+            ),
             "Expected PathEscapesRoot error, got {:?}",
             e
         );
@@ -231,8 +238,8 @@ async fn test_macos_f_getpath_verification() {
         assert!(
             matches!(
                 e,
-                rvagent_backends::protocol::FileOperationError::PathEscapesRoot(_) |
-                rvagent_backends::protocol::FileOperationError::IoError(_)
+                rvagent_backends::protocol::FileOperationError::PathEscapesRoot(_)
+                    | rvagent_backends::protocol::FileOperationError::IoError(_)
             ),
             "Expected PathEscapesRoot or IoError (symlink loop), got {:?}",
             e
@@ -295,7 +302,10 @@ async fn test_write_uses_atomic_resolve_open() {
 
     // Verify outside file was NOT modified
     let outside_content = fs::read_to_string(&outside_file).unwrap();
-    assert_eq!(outside_content, "original", "Outside file must not be modified");
+    assert_eq!(
+        outside_content, "original",
+        "Outside file must not be modified"
+    );
 }
 
 // =========================================================================
@@ -466,24 +476,12 @@ fn test_shell_env_strips_tokens() {
     env.insert("GITHUB_TOKEN".to_string(), "ghp_xxx".to_string());
     env.insert("DATABASE_URL".to_string(), "postgres://...".to_string());
     env.insert("MY_SECRET".to_string(), "shhh".to_string());
-    env.insert(
-        "API_KEY".to_string(),
-        "sk-proj-abc123".to_string(),
-    );
-    env.insert(
-        "AZURE_CLIENT_SECRET".to_string(),
-        "secret".to_string(),
-    );
+    env.insert("API_KEY".to_string(), "sk-proj-abc123".to_string());
+    env.insert("AZURE_CLIENT_SECRET".to_string(), "secret".to_string());
     env.insert("GCP_SERVICE_KEY".to_string(), "json...".to_string());
     env.insert("DB_PASSWORD".to_string(), "pass123".to_string());
-    env.insert(
-        "PRIVATE_KEY".to_string(),
-        "-----BEGIN RSA".to_string(),
-    );
-    env.insert(
-        "SERVICE_CREDENTIAL".to_string(),
-        "cred".to_string(),
-    );
+    env.insert("PRIVATE_KEY".to_string(), "-----BEGIN RSA".to_string());
+    env.insert("SERVICE_CREDENTIAL".to_string(), "cred".to_string());
     env.insert("PATH".to_string(), "/usr/bin".to_string());
 
     let sanitized = sanitize_env(&env);
@@ -598,7 +596,10 @@ fn test_base64_cannot_contain_heredoc_delimiter() {
 fn test_heredoc_delimiter_in_content_rejected() {
     let malicious = format!("normal content\n{}\nrm -rf /\n", HEREDOC_DELIMITER);
     let result = validate_no_heredoc_delimiter(&malicious);
-    assert!(result.is_err(), "Content with heredoc delimiter must be rejected");
+    assert!(
+        result.is_err(),
+        "Content with heredoc delimiter must be rejected"
+    );
 }
 
 /// SEC-007: Normal content without heredoc delimiter should pass.
@@ -774,11 +775,7 @@ fn test_injection_pattern_detection() {
 
     for text in &attack_texts {
         let patterns = detect_injection_patterns(text);
-        assert!(
-            !patterns.is_empty(),
-            "Should detect injection in: {}",
-            text
-        );
+        assert!(!patterns.is_empty(), "Should detect injection in: {}", text);
     }
 }
 
@@ -879,8 +876,7 @@ fn test_confusable_homoglyphs() {
 #[test]
 fn test_subagent_result_max_length() {
     let large_result = "x".repeat(200 * 1024); // 200 KB
-    let sanitized =
-        sanitize_subagent_result(&large_result, DEFAULT_MAX_SUBAGENT_RESPONSE).unwrap();
+    let sanitized = sanitize_subagent_result(&large_result, DEFAULT_MAX_SUBAGENT_RESPONSE).unwrap();
     assert!(
         sanitized.len() <= DEFAULT_MAX_SUBAGENT_RESPONSE,
         "Result must be truncated to max length"

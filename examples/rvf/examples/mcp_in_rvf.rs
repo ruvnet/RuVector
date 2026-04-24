@@ -35,19 +35,17 @@
 //!
 //! Run: `cargo run --example mcp_in_rvf`
 
+use ed25519_dalek::SigningKey;
 use rvf_crypto::{
     create_witness_chain, shake256_256, sign_segment, verify_segment, verify_witness_chain,
     WitnessEntry,
 };
-use rvf_runtime::options::DistanceMetric;
-use rvf_runtime::{
-    FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore,
-};
 use rvf_runtime::filter::FilterValue;
-use rvf_types::ebpf::{EbpfProgramType, EbpfAttachType};
+use rvf_runtime::options::DistanceMetric;
+use rvf_runtime::{FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore};
+use rvf_types::ebpf::{EbpfAttachType, EbpfProgramType};
 use rvf_types::kernel::{KernelArch, KernelType};
 use rvf_types::{SegmentHeader, SegmentType};
-use ed25519_dalek::SigningKey;
 use tempfile::TempDir;
 
 /// LCG-based deterministic random vector generator.
@@ -55,7 +53,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -69,7 +69,9 @@ fn keygen(seed: u64) -> SigningKey {
     let mut key_bytes = [0u8; 32];
     let mut x = seed;
     for b in &mut key_bytes {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         *b = (x >> 56) as u8;
     }
     SigningKey::from_bytes(&key_bytes)
@@ -96,33 +98,77 @@ fn main() {
     println!("--- Phase 1: MCP Tool Registry ---");
 
     let mcp_tools = vec![
-        McpTool { name: "rvf_create_store", description: "Create a new vector store",
-            category: "lifecycle", transport: "both" },
-        McpTool { name: "rvf_open_store", description: "Open an existing store",
-            category: "lifecycle", transport: "both" },
-        McpTool { name: "rvf_close_store", description: "Close a store and release lock",
-            category: "lifecycle", transport: "both" },
-        McpTool { name: "rvf_ingest", description: "Insert vectors with metadata",
-            category: "write", transport: "both" },
-        McpTool { name: "rvf_query", description: "k-NN vector similarity search",
-            category: "read", transport: "both" },
-        McpTool { name: "rvf_delete", description: "Delete vectors by ID",
-            category: "write", transport: "both" },
-        McpTool { name: "rvf_delete_filter", description: "Delete by metadata filter",
-            category: "write", transport: "both" },
-        McpTool { name: "rvf_compact", description: "Reclaim dead space",
-            category: "maintenance", transport: "both" },
-        McpTool { name: "rvf_status", description: "Store status and metrics",
-            category: "read", transport: "both" },
-        McpTool { name: "rvf_list_stores", description: "List all open stores",
-            category: "read", transport: "both" },
+        McpTool {
+            name: "rvf_create_store",
+            description: "Create a new vector store",
+            category: "lifecycle",
+            transport: "both",
+        },
+        McpTool {
+            name: "rvf_open_store",
+            description: "Open an existing store",
+            category: "lifecycle",
+            transport: "both",
+        },
+        McpTool {
+            name: "rvf_close_store",
+            description: "Close a store and release lock",
+            category: "lifecycle",
+            transport: "both",
+        },
+        McpTool {
+            name: "rvf_ingest",
+            description: "Insert vectors with metadata",
+            category: "write",
+            transport: "both",
+        },
+        McpTool {
+            name: "rvf_query",
+            description: "k-NN vector similarity search",
+            category: "read",
+            transport: "both",
+        },
+        McpTool {
+            name: "rvf_delete",
+            description: "Delete vectors by ID",
+            category: "write",
+            transport: "both",
+        },
+        McpTool {
+            name: "rvf_delete_filter",
+            description: "Delete by metadata filter",
+            category: "write",
+            transport: "both",
+        },
+        McpTool {
+            name: "rvf_compact",
+            description: "Reclaim dead space",
+            category: "maintenance",
+            transport: "both",
+        },
+        McpTool {
+            name: "rvf_status",
+            description: "Store status and metrics",
+            category: "read",
+            transport: "both",
+        },
+        McpTool {
+            name: "rvf_list_stores",
+            description: "List all open stores",
+            category: "read",
+            transport: "both",
+        },
     ];
 
     println!("  MCP tools registered: {}", mcp_tools.len());
     for cat in &["lifecycle", "read", "write", "maintenance"] {
         let tools: Vec<_> = mcp_tools.iter().filter(|t| t.category == *cat).collect();
         if !tools.is_empty() {
-            println!("    {:12}: {}", cat, tools.iter().map(|t| t.name).collect::<Vec<_>>().join(", "));
+            println!(
+                "    {:12}: {}",
+                cat,
+                tools.iter().map(|t| t.name).collect::<Vec<_>>().join(", ")
+            );
         }
     }
     println!();
@@ -167,9 +213,18 @@ fn main() {
     for (i, doc) in documents.iter().enumerate() {
         all_vecs.push(random_vector(dim, next_id * 7 + i as u64));
         all_ids.push(next_id);
-        all_meta.push(MetadataEntry { field_id: 0, value: MetadataValue::String("document".to_string()) });
-        all_meta.push(MetadataEntry { field_id: 1, value: MetadataValue::String(doc.to_string()) });
-        all_meta.push(MetadataEntry { field_id: 2, value: MetadataValue::U64(1) });
+        all_meta.push(MetadataEntry {
+            field_id: 0,
+            value: MetadataValue::String("document".to_string()),
+        });
+        all_meta.push(MetadataEntry {
+            field_id: 1,
+            value: MetadataValue::String(doc.to_string()),
+        });
+        all_meta.push(MetadataEntry {
+            field_id: 2,
+            value: MetadataValue::U64(1),
+        });
         next_id += 1;
     }
 
@@ -177,9 +232,18 @@ fn main() {
     for (i, tool) in mcp_tools.iter().enumerate() {
         all_vecs.push(random_vector(dim, next_id * 13 + i as u64));
         all_ids.push(next_id);
-        all_meta.push(MetadataEntry { field_id: 0, value: MetadataValue::String("tool".to_string()) });
-        all_meta.push(MetadataEntry { field_id: 1, value: MetadataValue::String(tool.name.to_string()) });
-        all_meta.push(MetadataEntry { field_id: 2, value: MetadataValue::U64(1) });
+        all_meta.push(MetadataEntry {
+            field_id: 0,
+            value: MetadataValue::String("tool".to_string()),
+        });
+        all_meta.push(MetadataEntry {
+            field_id: 1,
+            value: MetadataValue::String(tool.name.to_string()),
+        });
+        all_meta.push(MetadataEntry {
+            field_id: 2,
+            value: MetadataValue::U64(1),
+        });
         next_id += 1;
     }
 
@@ -193,9 +257,18 @@ fn main() {
     for (i, (name, _desc)) in prompts.iter().enumerate() {
         all_vecs.push(random_vector(dim, next_id * 17 + i as u64));
         all_ids.push(next_id);
-        all_meta.push(MetadataEntry { field_id: 0, value: MetadataValue::String("prompt".to_string()) });
-        all_meta.push(MetadataEntry { field_id: 1, value: MetadataValue::String(name.to_string()) });
-        all_meta.push(MetadataEntry { field_id: 2, value: MetadataValue::U64(1) });
+        all_meta.push(MetadataEntry {
+            field_id: 0,
+            value: MetadataValue::String("prompt".to_string()),
+        });
+        all_meta.push(MetadataEntry {
+            field_id: 1,
+            value: MetadataValue::String(name.to_string()),
+        });
+        all_meta.push(MetadataEntry {
+            field_id: 2,
+            value: MetadataValue::U64(1),
+        });
         next_id += 1;
     }
 
@@ -219,7 +292,7 @@ fn main() {
     // ELF header
     server_binary.extend_from_slice(&[0x7F, b'E', b'L', b'F']);
     server_binary.extend_from_slice(&[2, 1, 1, 0]); // 64-bit, LE
-    // Fill with deterministic content representing the MCP server binary
+                                                    // Fill with deterministic content representing the MCP server binary
     for i in 8..16384u32 {
         server_binary.push((i.wrapping_mul(0xACDA) >> 8) as u8);
     }
@@ -230,12 +303,16 @@ fn main() {
             KernelType::Hermit as u8,
             0x001F, // HAS_QUERY_API | HAS_NETWORKING | HAS_STDIO
             &server_binary,
-            3100,   // SSE port
+            3100, // SSE port
             Some("mcp.transport=dual mcp.stdio=true mcp.sse.port=3100 mcp.sse.path=/sse"),
         )
         .expect("embed kernel");
 
-    println!("  Server binary:  {} bytes (segment ID: {})", server_binary.len(), kernel_seg_id);
+    println!(
+        "  Server binary:  {} bytes (segment ID: {})",
+        server_binary.len(),
+        kernel_seg_id
+    );
     println!("  Runtime:        HermitOS unikernel (x86_64)");
     println!("  Transports:");
     println!("    stdio: enabled (default for claude-code)");
@@ -254,7 +331,8 @@ fn main() {
     ebpf_bytecode.extend_from_slice(&0xB700_0000_0000_0000u64.to_le_bytes());
     // Fill with eBPF instructions
     for i in 1..512u32 {
-        ebpf_bytecode.extend_from_slice(&(0x6100_0000_0000_0000u64.wrapping_add(i as u64)).to_le_bytes());
+        ebpf_bytecode
+            .extend_from_slice(&(0x6100_0000_0000_0000u64.wrapping_add(i as u64)).to_le_bytes());
     }
 
     let ebpf_seg_id = store
@@ -267,7 +345,11 @@ fn main() {
         )
         .expect("embed ebpf");
 
-    println!("  eBPF program:   {} bytes (segment ID: {})", ebpf_bytecode.len(), ebpf_seg_id);
+    println!(
+        "  eBPF program:   {} bytes (segment ID: {})",
+        ebpf_bytecode.len(),
+        ebpf_seg_id
+    );
     println!("  Attach point:   PRE_QUERY (filters before vector search)");
     println!("  Rules:");
     println!("    - Rate limit: 1000 requests/sec");
@@ -291,17 +373,38 @@ fn main() {
         .join(",");
     let tool_header = SegmentHeader::new(SegmentType::Meta as u8, 1000);
     let tool_sig = sign_segment(&tool_header, tool_manifest.as_bytes(), &server_key);
-    let tool_valid = verify_segment(&tool_header, tool_manifest.as_bytes(), &tool_sig, &verifying_key);
+    let tool_valid = verify_segment(
+        &tool_header,
+        tool_manifest.as_bytes(),
+        &tool_sig,
+        &verifying_key,
+    );
 
     // Sign the transport configuration
     let transport_config = "stdio=true,sse=3100,health=/health";
     let transport_header = SegmentHeader::new(SegmentType::Crypto as u8, 1001);
     let transport_sig = sign_segment(&transport_header, transport_config.as_bytes(), &server_key);
-    let transport_valid = verify_segment(&transport_header, transport_config.as_bytes(), &transport_sig, &verifying_key);
+    let transport_valid = verify_segment(
+        &transport_header,
+        transport_config.as_bytes(),
+        &transport_sig,
+        &verifying_key,
+    );
 
-    println!("  Server key:       ed25519 ({}...)", hex_short(&verifying_key.to_bytes(), 8));
-    println!("  Tool manifest:    {} (signed={})", if tool_valid { "VALID" } else { "INVALID" }, tool_valid);
-    println!("  Transport config: {} (signed={})", if transport_valid { "VALID" } else { "INVALID" }, transport_valid);
+    println!(
+        "  Server key:       ed25519 ({}...)",
+        hex_short(&verifying_key.to_bytes(), 8)
+    );
+    println!(
+        "  Tool manifest:    {} (signed={})",
+        if tool_valid { "VALID" } else { "INVALID" },
+        tool_valid
+    );
+    println!(
+        "  Transport config: {} (signed={})",
+        if transport_valid { "VALID" } else { "INVALID" },
+        transport_valid
+    );
     println!();
 
     // ────────────────────────────────────────────────
@@ -312,7 +415,10 @@ fn main() {
     // Search for documents
     let doc_query = random_vector(dim, 42);
     let doc_opts = QueryOptions {
-        filter: Some(FilterExpr::Eq(0, FilterValue::String("document".to_string()))),
+        filter: Some(FilterExpr::Eq(
+            0,
+            FilterValue::String("document".to_string()),
+        )),
         ..Default::default()
     };
     let doc_results = store.query(&doc_query, 5, &doc_opts).expect("doc query");
@@ -320,7 +426,12 @@ fn main() {
     for (i, r) in doc_results.iter().enumerate() {
         let doc_idx = (r.id - 1) as usize;
         if doc_idx < documents.len() {
-            println!("    #{}: \"{}\" (dist={:.4})", i + 1, documents[doc_idx], r.distance);
+            println!(
+                "    #{}: \"{}\" (dist={:.4})",
+                i + 1,
+                documents[doc_idx],
+                r.distance
+            );
         }
     }
     println!();
@@ -336,7 +447,13 @@ fn main() {
     for (i, r) in tool_results.iter().enumerate() {
         let tool_idx = (r.id as usize).saturating_sub(documents.len() + 1);
         if tool_idx < mcp_tools.len() {
-            println!("    #{}: {} — {} (dist={:.4})", i + 1, mcp_tools[tool_idx].name, mcp_tools[tool_idx].description, r.distance);
+            println!(
+                "    #{}: {} — {} (dist={:.4})",
+                i + 1,
+                mcp_tools[tool_idx].name,
+                mcp_tools[tool_idx].description,
+                r.distance
+            );
         }
     }
     println!();
@@ -351,7 +468,13 @@ fn main() {
         WitnessEntry {
             prev_hash: [0u8; 32],
             action_hash: shake256_256(
-                format!("mcp_build:tools={},docs={},prompts={}", mcp_tools.len(), documents.len(), prompts.len()).as_bytes(),
+                format!(
+                    "mcp_build:tools={},docs={},prompts={}",
+                    mcp_tools.len(),
+                    documents.len(),
+                    prompts.len()
+                )
+                .as_bytes(),
             ),
             timestamp_ns: ts,
             witness_type: 0x08,
@@ -359,7 +482,11 @@ fn main() {
         WitnessEntry {
             prev_hash: [0u8; 32],
             action_hash: shake256_256(
-                format!("kernel_embed:type=hermit,size={},port=3100", server_binary.len()).as_bytes(),
+                format!(
+                    "kernel_embed:type=hermit,size={},port=3100",
+                    server_binary.len()
+                )
+                .as_bytes(),
             ),
             timestamp_ns: ts + 1_000_000,
             witness_type: 0x02,
@@ -392,7 +519,9 @@ fn main() {
     for (i, e) in verified.iter().enumerate() {
         println!(
             "    #{}: type=0x{:02X} hash={}",
-            i + 1, e.witness_type, hex_short(&e.action_hash, 8),
+            i + 1,
+            e.witness_type,
+            hex_short(&e.action_hash, 8),
         );
     }
     println!();
@@ -403,14 +532,30 @@ fn main() {
     println!("--- Phase 8: Self-Contained MCP Server Image ---");
     let status = store.status();
     println!("  mcp-server.rvf layout:");
-    println!("    KERNEL_SEG:   MCP server runtime ({} bytes, Hermit/x86_64)", server_binary.len());
-    println!("    EBPF_SEG:     Request filter ({} bytes, PRE_QUERY)", ebpf_bytecode.len());
-    println!("    VEC_SEG:      Knowledge base ({} vectors, {}-dim)", status.total_vectors, dim);
-    println!("    META_SEG:     Tool definitions ({} tools)", mcp_tools.len());
+    println!(
+        "    KERNEL_SEG:   MCP server runtime ({} bytes, Hermit/x86_64)",
+        server_binary.len()
+    );
+    println!(
+        "    EBPF_SEG:     Request filter ({} bytes, PRE_QUERY)",
+        ebpf_bytecode.len()
+    );
+    println!(
+        "    VEC_SEG:      Knowledge base ({} vectors, {}-dim)",
+        status.total_vectors, dim
+    );
+    println!(
+        "    META_SEG:     Tool definitions ({} tools)",
+        mcp_tools.len()
+    );
     println!("    CRYPTO_SEG:   Ed25519 signatures (server key)");
     println!("    WITNESS_SEG:  Audit trail ({} entries)", verified.len());
     println!("    MANIFEST:     {} segments total", status.total_segments);
-    println!("    File size:    {} bytes ({:.1} KB)", status.file_size, status.file_size as f64 / 1024.0);
+    println!(
+        "    File size:    {} bytes ({:.1} KB)",
+        status.file_size,
+        status.file_size as f64 / 1024.0
+    );
     println!();
     println!("  Deployment options:");
     println!("    stdio:  claude mcp add rvf -- firecracker --kernel mcp-server.rvf");
@@ -434,7 +579,10 @@ fn main() {
     println!("=== Summary ===\n");
     println!("  A single .rvf file contains:");
     println!("    - MCP server runtime (unikernel binary)");
-    println!("    - Vector knowledge base ({} embeddings)", status.total_vectors);
+    println!(
+        "    - Vector knowledge base ({} embeddings)",
+        status.total_vectors
+    );
     println!("    - {} registered MCP tools", mcp_tools.len());
     println!("    - {} prompt templates", prompts.len());
     println!("    - eBPF request filter (rate limiting, auth)");

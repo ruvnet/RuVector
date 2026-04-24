@@ -27,9 +27,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(papers) => {
             println!("Found {} neuroscience papers:\n", papers.len());
             for (i, paper) in papers.iter().enumerate() {
-                let title = paper.metadata.get("title").map(|s| s.as_str()).unwrap_or("Untitled");
-                let doi = paper.metadata.get("doi").map(|s| s.as_str()).unwrap_or("No DOI");
-                let category = paper.metadata.get("category").map(|s| s.as_str()).unwrap_or("Unknown");
+                let title = paper
+                    .metadata
+                    .get("title")
+                    .map(|s| s.as_str())
+                    .unwrap_or("Untitled");
+                let doi = paper
+                    .metadata
+                    .get("doi")
+                    .map(|s| s.as_str())
+                    .unwrap_or("No DOI");
+                let category = paper
+                    .metadata
+                    .get("category")
+                    .map(|s| s.as_str())
+                    .unwrap_or("Unknown");
 
                 println!("{}. {}", i + 1, title);
                 println!("   DOI: {}", doi);
@@ -52,8 +64,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(papers) => {
             println!("Found {} papers from January 2024:\n", papers.len());
             for (i, paper) in papers.iter().enumerate() {
-                let title = paper.metadata.get("title").map(|s| s.as_str()).unwrap_or("Untitled");
-                let authors = paper.metadata.get("authors").map(|s| s.as_str()).unwrap_or("Unknown");
+                let title = paper
+                    .metadata
+                    .get("title")
+                    .map(|s| s.as_str())
+                    .unwrap_or("Untitled");
+                let authors = paper
+                    .metadata
+                    .get("authors")
+                    .map(|s| s.as_str())
+                    .unwrap_or("Unknown");
 
                 println!("{}. {}", i + 1, title);
                 println!("   Authors: {}", &authors[..authors.len().min(100)]);
@@ -74,9 +94,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(papers) => {
             println!("Found {} COVID-19 papers:\n", papers.len());
             for (i, paper) in papers.iter().enumerate() {
-                let title = paper.metadata.get("title").map(|s| s.as_str()).unwrap_or("Untitled");
-                let doi = paper.metadata.get("doi").map(|s| s.as_str()).unwrap_or("No DOI");
-                let published = paper.metadata.get("published_status").map(|s| s.as_str()).unwrap_or("preprint");
+                let title = paper
+                    .metadata
+                    .get("title")
+                    .map(|s| s.as_str())
+                    .unwrap_or("Untitled");
+                let doi = paper
+                    .metadata
+                    .get("doi")
+                    .map(|s| s.as_str())
+                    .unwrap_or("No DOI");
+                let published = paper
+                    .metadata
+                    .get("published_status")
+                    .map(|s| s.as_str())
+                    .unwrap_or("preprint");
 
                 println!("{}. {}", i + 1, title);
                 println!("   DOI: {}", doi);
@@ -94,8 +126,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(papers) => {
             println!("Found {} clinical research papers:\n", papers.len());
             for (i, paper) in papers.iter().enumerate() {
-                let title = paper.metadata.get("title").map(|s| s.as_str()).unwrap_or("Untitled");
-                let category = paper.metadata.get("category").map(|s| s.as_str()).unwrap_or("Unknown");
+                let title = paper
+                    .metadata
+                    .get("title")
+                    .map(|s| s.as_str())
+                    .unwrap_or("Untitled");
+                let category = paper
+                    .metadata
+                    .get("category")
+                    .map(|s| s.as_str())
+                    .unwrap_or("Unknown");
 
                 println!("{}. {}", i + 1, title);
                 println!("   Category: {}", category);
@@ -111,8 +151,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let biorxiv_recent = biorxiv.search_recent(7, 2).await?;
     let medrxiv_recent = medrxiv.search_recent(7, 2).await?;
 
-    println!("\nRecent from bioRxiv (last 7 days): {} papers", biorxiv_recent.len());
-    println!("Recent from medRxiv (last 7 days): {} papers", medrxiv_recent.len());
+    println!(
+        "\nRecent from bioRxiv (last 7 days): {} papers",
+        biorxiv_recent.len()
+    );
+    println!(
+        "Recent from medRxiv (last 7 days): {} papers",
+        medrxiv_recent.len()
+    );
 
     // Combine both for cross-domain analysis
     let mut all_papers = biorxiv_recent;
@@ -122,8 +168,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\nDomain distribution:");
 
     use ruvector_data_framework::Domain;
-    let research_count = all_papers.iter().filter(|p| p.domain == Domain::Research).count();
-    let medical_count = all_papers.iter().filter(|p| p.domain == Domain::Medical).count();
+    let research_count = all_papers
+        .iter()
+        .filter(|p| p.domain == Domain::Research)
+        .count();
+    let medical_count = all_papers
+        .iter()
+        .filter(|p| p.domain == Domain::Medical)
+        .count();
 
     println!("  Research domain: {}", research_count);
     println!("  Medical domain: {}", medical_count);

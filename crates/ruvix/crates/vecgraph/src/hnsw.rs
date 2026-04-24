@@ -222,8 +222,12 @@ impl<B: MemoryBacking> HnswRegion<B> {
         let handle = self.node_slab.alloc()?;
 
         let node = HnswNode::new(layer, vector_slot);
-        let node_bytes =
-            unsafe { core::slice::from_raw_parts(&node as *const _ as *const u8, core::mem::size_of::<HnswNode>()) };
+        let node_bytes = unsafe {
+            core::slice::from_raw_parts(
+                &node as *const _ as *const u8,
+                core::mem::size_of::<HnswNode>(),
+            )
+        };
 
         self.node_slab.write(handle, node_bytes)?;
         self.node_count += 1;
@@ -262,8 +266,12 @@ impl<B: MemoryBacking> HnswRegion<B> {
 
     /// Writes an HNSW node.
     pub fn write_node(&mut self, handle: SlotHandle, node: &HnswNode) -> Result<()> {
-        let node_bytes =
-            unsafe { core::slice::from_raw_parts(node as *const _ as *const u8, core::mem::size_of::<HnswNode>()) };
+        let node_bytes = unsafe {
+            core::slice::from_raw_parts(
+                node as *const _ as *const u8,
+                core::mem::size_of::<HnswNode>(),
+            )
+        };
         self.node_slab.write(handle, node_bytes)?;
         Ok(())
     }

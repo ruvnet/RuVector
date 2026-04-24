@@ -20,20 +20,17 @@
 //!
 //! **Run:** `cargo run --example tee_attestation`
 
-use rvf_crypto::{
-    attestation_witness_entry, build_attestation_witness_payload,
-    decode_attestation_header, decode_attestation_record, decode_tee_bound_key,
-    encode_attestation_header, encode_attestation_record, encode_tee_bound_key,
-    verify_attestation_witness_payload, verify_key_binding,
-    shake256_256,
-};
 use rvf_crypto::hash::shake256_128;
+use rvf_crypto::TeeBoundKeyRecord;
+use rvf_crypto::{
+    attestation_witness_entry, build_attestation_witness_payload, decode_attestation_header,
+    decode_attestation_record, decode_tee_bound_key, encode_attestation_header,
+    encode_attestation_record, encode_tee_bound_key, shake256_256,
+    verify_attestation_witness_payload, verify_key_binding,
+};
 use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{QueryOptions, RvfOptions, RvfStore};
-use rvf_types::{
-    AttestationHeader, AttestationWitnessType, TeePlatform, KEY_TYPE_TEE_BOUND,
-};
-use rvf_crypto::TeeBoundKeyRecord;
+use rvf_types::{AttestationHeader, AttestationWitnessType, TeePlatform, KEY_TYPE_TEE_BOUND};
 use tempfile::TempDir;
 
 /// Simple LCG-based pseudo-random vector generator for deterministic results.
@@ -41,7 +38,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -109,7 +108,10 @@ fn main() {
         };
 
         println!("  [{}] {}", i, label);
-        println!("    Platform:    {:?} (0x{:02x})", platform, *platform as u8);
+        println!(
+            "    Platform:    {:?} (0x{:02x})",
+            platform, *platform as u8
+        );
         println!("    Measurement: {}...", hex_string(&measurement[..8]));
         println!("    Signer:      {}...", hex_string(&signer_id[..8]));
         println!("    Nonce:       {}...", hex_string(&nonce[..8]));
@@ -128,9 +130,7 @@ fn main() {
     let mut records = Vec::new();
     for (i, header) in headers.iter().enumerate() {
         // Report data: hash of vectors generated in this TEE
-        let report_data = shake256_256(
-            format!("vectors-generated-in-tee-{}", i).as_bytes(),
-        );
+        let report_data = shake256_256(format!("vectors-generated-in-tee-{}", i).as_bytes());
         let report_data_slice = &report_data[..header.report_data_len as usize];
 
         // Quote blob (opaque platform-specific attestation data)
@@ -153,7 +153,8 @@ fn main() {
 
         println!(
             "  Record {}: {} bytes, codec round-trip OK",
-            i, encoded.len()
+            i,
+            encoded.len()
         );
     }
 
@@ -179,16 +180,14 @@ fn main() {
         AttestationWitnessType::DataProvenance,
     ];
 
-    let payload =
-        build_attestation_witness_payload(&records, &timestamps, &witness_types)
-            .expect("build payload");
+    let payload = build_attestation_witness_payload(&records, &timestamps, &witness_types)
+        .expect("build payload");
 
     println!("  Payload size: {} bytes", payload.len());
     println!("  Records:      {}", records.len());
 
     // Verify the payload
-    let verified_entries =
-        verify_attestation_witness_payload(&payload).expect("verify payload");
+    let verified_entries = verify_attestation_witness_payload(&payload).expect("verify payload");
 
     println!("  Verified:     {} entries OK\n", verified_entries.len());
 
@@ -218,7 +217,11 @@ fn main() {
         };
         println!(
             "  {:>5}  {:>16}  {:>18}  {:>10}  {:>8}",
-            i, wtype_name, platform_name, quote.len(), rd.len()
+            i,
+            wtype_name,
+            platform_name,
+            quote.len(),
+            rd.len()
         );
     }
     println!();
@@ -294,7 +297,14 @@ fn main() {
         &measurement,
         base_ts + 1_000_000_000, // within validity window
     );
-    println!("  Binding check: {}", if binding_result.is_ok() { "VALID" } else { "FAILED" });
+    println!(
+        "  Binding check: {}",
+        if binding_result.is_ok() {
+            "VALID"
+        } else {
+            "FAILED"
+        }
+    );
     assert!(binding_result.is_ok());
 
     // Wrong platform → rejection
@@ -304,7 +314,14 @@ fn main() {
         &measurement,
         base_ts + 1_000_000_000,
     );
-    println!("  Wrong platform: {}", if wrong_platform.is_err() { "REJECTED (correct)" } else { "VALID (bad)" });
+    println!(
+        "  Wrong platform: {}",
+        if wrong_platform.is_err() {
+            "REJECTED (correct)"
+        } else {
+            "VALID (bad)"
+        }
+    );
     assert!(wrong_platform.is_err());
 
     // Wrong measurement → rejection
@@ -314,7 +331,14 @@ fn main() {
         &[0xFF; 32],
         base_ts + 1_000_000_000,
     );
-    println!("  Wrong measurement: {}", if wrong_meas.is_err() { "REJECTED (correct)" } else { "VALID (bad)" });
+    println!(
+        "  Wrong measurement: {}",
+        if wrong_meas.is_err() {
+            "REJECTED (correct)"
+        } else {
+            "VALID (bad)"
+        }
+    );
     assert!(wrong_meas.is_err());
 
     // Expired → rejection
@@ -324,7 +348,14 @@ fn main() {
         &measurement,
         base_ts + 100_000_000_000_000, // way past valid_until
     );
-    println!("  Expired key: {}", if expired.is_err() { "REJECTED (correct)" } else { "VALID (bad)" });
+    println!(
+        "  Expired key: {}",
+        if expired.is_err() {
+            "REJECTED (correct)"
+        } else {
+            "VALID (bad)"
+        }
+    );
     assert!(expired.is_err());
     println!();
 
@@ -341,9 +372,7 @@ fn main() {
     };
     let mut store = RvfStore::create(&store_path, options).expect("create store");
 
-    let vectors: Vec<Vec<f32>> = (0..100)
-        .map(|i| random_vector(dim, i))
-        .collect();
+    let vectors: Vec<Vec<f32>> = (0..100).map(|i| random_vector(dim, i)).collect();
     let vec_refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
     let ids: Vec<u64> = (0..100).collect();
 
@@ -367,10 +396,16 @@ fn main() {
         base_ts,
         AttestationWitnessType::PlatformAttestation,
     );
-    assert_eq!(entry.witness_type, AttestationWitnessType::PlatformAttestation as u8);
+    assert_eq!(
+        entry.witness_type,
+        AttestationWitnessType::PlatformAttestation as u8
+    );
     println!("\n  Attestation witness entry:");
     println!("    Type:        PLATFORM_ATTESTATION");
-    println!("    Action hash: {}...", hex_string(&entry.action_hash[..8]));
+    println!(
+        "    Action hash: {}...",
+        hex_string(&entry.action_hash[..8])
+    );
     println!("    Timestamp:   {} ns", entry.timestamp_ns);
 
     store.close().expect("close store");
@@ -381,12 +416,24 @@ fn main() {
     // ──────────────────────────────────────────────
     println!("=== TEE Attestation Summary ===\n");
     println!("  Platforms demonstrated:  SGX, SEV-SNP, TDX");
-    println!("  Attestation records:     {} (all codec round-trip OK)", records.len());
-    println!("  Witness payload:         {} entries, verified", verified_entries.len());
+    println!(
+        "  Attestation records:     {} (all codec round-trip OK)",
+        records.len()
+    );
+    println!(
+        "  Witness payload:         {} entries, verified",
+        verified_entries.len()
+    );
     println!("  Tamper detection:        payload + truncation → rejected");
-    println!("  TEE-bound key:           {} bytes, binding verified", encoded_key.len());
+    println!(
+        "  TEE-bound key:           {} bytes, binding verified",
+        encoded_key.len()
+    );
     println!("  Key binding checks:      valid / wrong-platform / wrong-measurement / expired");
-    println!("  Attested vectors:        {} stored + queried", ingest.accepted);
+    println!(
+        "  Attested vectors:        {} stored + queried",
+        ingest.accepted
+    );
     println!("  Segments used:           VEC, WITNESS, CRYPTO");
     println!();
     println!("  Key insight: RVF binds attestation quotes to vectors,");

@@ -50,10 +50,10 @@
 #![warn(clippy::all)]
 
 pub mod client;
-pub mod xbrl;
-pub mod filings;
 pub mod coherence;
+pub mod filings;
 pub mod network;
+pub mod xbrl;
 
 use std::collections::HashMap;
 
@@ -63,10 +63,10 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub use client::EdgarClient;
-pub use xbrl::{XbrlParser, FinancialStatement, XbrlFact, XbrlContext};
-pub use filings::{Filing, FilingType, FilingAnalyzer, NarrativeExtractor};
-pub use coherence::{CoherenceWatch, CoherenceAlert, AlertSeverity, DivergenceType};
-pub use network::{PeerNetwork, PeerNetworkBuilder, CompanyNode, PeerEdge};
+pub use coherence::{AlertSeverity, CoherenceAlert, CoherenceWatch, DivergenceType};
+pub use filings::{Filing, FilingAnalyzer, FilingType, NarrativeExtractor};
+pub use network::{CompanyNode, PeerEdge, PeerNetwork, PeerNetworkBuilder};
+pub use xbrl::{FinancialStatement, XbrlContext, XbrlFact, XbrlParser};
 
 use ruvector_data_framework::{DataRecord, DataSource, FrameworkError, Relationship, Result};
 
@@ -390,7 +390,11 @@ impl DataSource for EdgarSource {
 
         for cik in &self.ciks[start_idx..end_idx] {
             // Fetch filings for this CIK
-            match self.client.get_filings(cik, &self.config.filing_types).await {
+            match self
+                .client
+                .get_filings(cik, &self.config.filing_types)
+                .await
+            {
                 Ok(filings) => {
                     for filing in filings {
                         records.push(filing_to_record(filing));
@@ -442,7 +446,9 @@ fn filing_to_record(filing: Filing) -> DataRecord {
         id: filing.accession_number.clone(),
         source: "edgar".to_string(),
         record_type: format!("{:?}", filing.filing_type).to_lowercase(),
-        timestamp: filing.filed_date.and_hms_opt(0, 0, 0)
+        timestamp: filing
+            .filed_date
+            .and_hms_opt(0, 0, 0)
             .map(|dt| DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
             .unwrap_or_else(Utc::now),
         data: serde_json::to_value(&filing).unwrap_or_default(),
@@ -539,7 +545,8 @@ impl FundamentalNarrativeAnalyzer {
     /// Interpret the divergence
     fn interpret_divergence(&self, fundamental: f64, narrative: f64) -> String {
         if fundamental > 0.0 && narrative < 0.0 {
-            "Fundamentals improving but narrative pessimistic - potential undervaluation".to_string()
+            "Fundamentals improving but narrative pessimistic - potential undervaluation"
+                .to_string()
         } else if fundamental < 0.0 && narrative > 0.0 {
             "Fundamentals declining but narrative optimistic - potential risk".to_string()
         } else if fundamental > narrative {

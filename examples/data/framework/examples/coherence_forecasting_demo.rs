@@ -21,7 +21,10 @@ fn main() {
     let trend = forecaster.get_trend();
     println!("Detected trend: {:?}", trend);
     println!("Current level: {:.3}", forecaster.get_level().unwrap());
-    println!("Current trend value: {:.3}", forecaster.get_trend_value().unwrap());
+    println!(
+        "Current trend value: {:.3}",
+        forecaster.get_trend_value().unwrap()
+    );
 
     // Generate forecasts
     let forecasts = forecaster.forecast(10);
@@ -49,16 +52,20 @@ fn main() {
     for i in 0..30 {
         regime_forecaster.add_observation(start + Duration::hours(i), 0.5);
     }
-    println!("Regime change probability: {:.2}%",
-             regime_forecaster.detect_regime_change_probability() * 100.0);
+    println!(
+        "Regime change probability: {:.2}%",
+        regime_forecaster.detect_regime_change_probability() * 100.0
+    );
 
     // Sudden shift (e.g., breakthrough discovery)
     println!("\nPhase 2: Sudden shift to 0.85 (breakthrough detected)...");
     for i in 30..40 {
         regime_forecaster.add_observation(start + Duration::hours(i), 0.85);
     }
-    println!("Regime change probability: {:.2}%",
-             regime_forecaster.detect_regime_change_probability() * 100.0);
+    println!(
+        "Regime change probability: {:.2}%",
+        regime_forecaster.detect_regime_change_probability() * 100.0
+    );
 
     // Example 3: Cross-domain correlation forecasting
     println!("\n3. Cross-Domain Correlation Forecasting");
@@ -77,25 +84,16 @@ fn main() {
         let base = 0.4 + (i as f64) * 0.01;
 
         // Climate science leads
-        climate_forecaster.add_observation(
-            start + Duration::days(i),
-            base + 0.1
-        );
+        climate_forecaster.add_observation(start + Duration::days(i), base + 0.1);
 
         // Economics follows with lag
         if i >= 5 {
-            economics_forecaster.add_observation(
-                start + Duration::days(i),
-                base
-            );
+            economics_forecaster.add_observation(start + Duration::days(i), base);
         }
 
         // Policy follows with more lag
         if i >= 10 {
-            policy_forecaster.add_observation(
-                start + Duration::days(i),
-                base - 0.05
-            );
+            policy_forecaster.add_observation(start + Duration::days(i), base - 0.05);
         }
     }
 
@@ -122,9 +120,7 @@ fn main() {
         if let Some(last) = forecasts.last() {
             println!(
                 "  {}: {:.3} (trend: {:?})",
-                domain,
-                last.predicted_value,
-                last.trend
+                domain, last.predicted_value, last.trend
             );
         }
     }
@@ -150,10 +146,7 @@ fn main() {
     println!("Establishing baseline with normal fluctuations...");
     for i in 0..50 {
         let noise = (i as f64 * 0.1).sin() * 0.05;
-        anomaly_forecaster.add_observation(
-            start + Duration::hours(i),
-            0.6 + noise
-        );
+        anomaly_forecaster.add_observation(start + Duration::hours(i), 0.6 + noise);
     }
 
     // Predict next values

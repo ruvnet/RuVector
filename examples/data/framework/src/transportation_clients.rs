@@ -358,8 +358,14 @@ impl GtfsClient {
                 let mut metadata = HashMap::new();
                 metadata.insert("stop_id".to_string(), stop_id.to_string());
                 metadata.insert("stop_name".to_string(), stop_data.stop.stop_name.clone());
-                metadata.insert("departure_time".to_string(), pair.origin_departure_time.clone());
-                metadata.insert("arrival_time".to_string(), pair.destination_arrival_time.clone());
+                metadata.insert(
+                    "departure_time".to_string(),
+                    pair.origin_departure_time.clone(),
+                );
+                metadata.insert(
+                    "arrival_time".to_string(),
+                    pair.destination_arrival_time.clone(),
+                );
                 metadata.insert("headsign".to_string(), pair.trip_headsign.clone());
                 metadata.insert("source".to_string(), "gtfs_transitland".to_string());
 
@@ -404,7 +410,10 @@ impl GtfsClient {
         let mut vectors = Vec::new();
         for operator in agencies_response.operators {
             // Create text for embedding
-            let text = format!("{} {} {}", operator.name, operator.short_name, operator.website);
+            let text = format!(
+                "{} {} {}",
+                operator.name, operator.short_name, operator.website
+            );
             let embedding = self.embedder.embed_text(&text);
 
             let mut metadata = HashMap::new();
@@ -1023,8 +1032,14 @@ impl OpenRouteServiceClient {
             metadata.insert("end_lon".to_string(), end.0.to_string());
             metadata.insert("end_lat".to_string(), end.1.to_string());
             metadata.insert("profile".to_string(), profile.to_string());
-            metadata.insert("distance_meters".to_string(), route.summary.distance.to_string());
-            metadata.insert("duration_seconds".to_string(), route.summary.duration.to_string());
+            metadata.insert(
+                "distance_meters".to_string(),
+                route.summary.distance.to_string(),
+            );
+            metadata.insert(
+                "duration_seconds".to_string(),
+                route.summary.duration.to_string(),
+            );
             metadata.insert("geometry".to_string(), route.geometry.clone());
             metadata.insert("source".to_string(), "openrouteservice".to_string());
 
@@ -1184,7 +1199,12 @@ impl OpenRouteServiceClient {
     }
 
     // Mock data methods
-    fn mock_directions(&self, start: (f64, f64), end: (f64, f64), profile: &str) -> Vec<SemanticVector> {
+    fn mock_directions(
+        &self,
+        start: (f64, f64),
+        end: (f64, f64),
+        profile: &str,
+    ) -> Vec<SemanticVector> {
         let text = format!(
             "Mock route from ({}, {}) to ({}, {}) via {}",
             start.0, start.1, end.0, end.1, profile
@@ -1206,7 +1226,12 @@ impl OpenRouteServiceClient {
         }]
     }
 
-    fn mock_isochrones(&self, location: (f64, f64), range: &[i32], profile: &str) -> Vec<SemanticVector> {
+    fn mock_isochrones(
+        &self,
+        location: (f64, f64),
+        range: &[i32],
+        profile: &str,
+    ) -> Vec<SemanticVector> {
         let text = format!(
             "Mock isochrone from ({}, {}) via {} for {:?}",
             location.0, location.1, profile, range
@@ -1450,8 +1475,14 @@ impl OpenChargeMapClient {
             metadata.insert("town".to_string(), poi.address_info.town);
             metadata.insert("state".to_string(), poi.address_info.state);
             metadata.insert("country".to_string(), country_name);
-            metadata.insert("latitude".to_string(), poi.address_info.latitude.to_string());
-            metadata.insert("longitude".to_string(), poi.address_info.longitude.to_string());
+            metadata.insert(
+                "latitude".to_string(),
+                poi.address_info.latitude.to_string(),
+            );
+            metadata.insert(
+                "longitude".to_string(),
+                poi.address_info.longitude.to_string(),
+            );
             metadata.insert("status".to_string(), status);
             metadata.insert("max_power_kw".to_string(), max_power.to_string());
             metadata.insert(

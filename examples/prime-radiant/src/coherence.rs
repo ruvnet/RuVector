@@ -11,7 +11,7 @@
 //! - **Hexagon Identity**: For braided monoidal categories
 //! - **Mac Lane Coherence**: All diagrams of associators commute
 
-use crate::higher::{TwoCategory, TwoMorphism, TwoMorphismId, OneMorphism, TwoMorphismData};
+use crate::higher::{OneMorphism, TwoCategory, TwoMorphism, TwoMorphismData, TwoMorphismId};
 use crate::{CategoryError, MorphismId, ObjectId, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -27,10 +27,7 @@ pub enum CoherenceLaw {
         k: MorphismId,
     },
     /// The triangle identity for unitors
-    Triangle {
-        f: MorphismId,
-        g: MorphismId,
-    },
+    Triangle { f: MorphismId, g: MorphismId },
     /// The hexagon identity for braidings
     Hexagon {
         f: MorphismId,
@@ -193,11 +190,14 @@ pub fn verify_pentagon(
         return CoherenceVerification::failure("Pentagon", "Cannot form associator (f,h.g,k)");
     }
 
-    CoherenceVerification::success("Pentagon")
-        .with_paths(
-            vec!["α_{k.h,g,f}".to_string(), "α_{k,h,g} * 1_f".to_string()],
-            vec!["1_k * α_{h,g,f}".to_string(), "α_{k,h.g,f}".to_string(), "α_{k,h,g.f}".to_string()],
-        )
+    CoherenceVerification::success("Pentagon").with_paths(
+        vec!["α_{k.h,g,f}".to_string(), "α_{k,h,g} * 1_f".to_string()],
+        vec![
+            "1_k * α_{h,g,f}".to_string(),
+            "α_{k,h.g,f}".to_string(),
+            "α_{k,h,g.f}".to_string(),
+        ],
+    )
 }
 
 /// Verifies the triangle identity
@@ -245,11 +245,10 @@ pub fn verify_triangle(
         return CoherenceVerification::failure("Triangle", "Cannot form right unitor for g");
     }
 
-    CoherenceVerification::success("Triangle")
-        .with_paths(
-            vec!["ρ_g * 1_f".to_string()],
-            vec!["α_{g,id_B,f}".to_string(), "1_g * λ_f".to_string()],
-        )
+    CoherenceVerification::success("Triangle").with_paths(
+        vec!["ρ_g * 1_f".to_string()],
+        vec!["α_{g,id_B,f}".to_string(), "1_g * λ_f".to_string()],
+    )
 }
 
 /// Verifies the hexagon identity for a braiding
@@ -398,10 +397,7 @@ impl CoherentMorphism {
     pub fn compose(f: CoherentMorphism, g: CoherentMorphism, composed: MorphismId) -> Self {
         Self {
             morphism: composed,
-            witness: CoherenceWitness::Composition(
-                Box::new(f.witness),
-                Box::new(g.witness),
-            ),
+            witness: CoherenceWitness::Composition(Box::new(f.witness), Box::new(g.witness)),
         }
     }
 }

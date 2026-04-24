@@ -354,7 +354,11 @@ impl AdaptiveGeoSpar {
 
     /// Canonical edge key.
     fn edge_key(u: usize, v: usize) -> (usize, usize) {
-        if u <= v { (u, v) } else { (v, u) }
+        if u <= v {
+            (u, v)
+        } else {
+            (v, u)
+        }
     }
 
     /// Refresh derived statistics.
@@ -418,11 +422,7 @@ mod tests {
     use super::*;
 
     fn triangle_graph() -> SparseGraph {
-        SparseGraph::from_edges(&[
-            (0, 1, 1.0),
-            (1, 2, 1.0),
-            (2, 0, 1.0),
-        ])
+        SparseGraph::from_edges(&[(0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0)])
     }
 
     fn path_graph(n: usize) -> SparseGraph {
@@ -502,12 +502,7 @@ mod tests {
         let mut spar = AdaptiveGeoSpar::build(&g, config).unwrap();
 
         // Move vertex 0: remove edge to 1, add edge to new vertex 3.
-        spar.update_embedding(
-            0,
-            &[(1, 1.0)],
-            &[(3, 2.0)],
-        )
-        .unwrap();
+        spar.update_embedding(0, &[(1, 1.0)], &[(3, 2.0)]).unwrap();
 
         assert!(!spar.full_graph().has_edge(0, 1));
         assert!(spar.full_graph().has_edge(0, 3));

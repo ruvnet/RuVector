@@ -463,13 +463,8 @@ mod tests {
 
     #[test]
     fn test_clusters_discovered_event() {
-        let event = ClustersDiscovered::new(
-            10,
-            5,
-            ClusteringMethod::HDBSCAN,
-            100,
-        )
-        .with_silhouette_score(0.75);
+        let event = ClustersDiscovered::new(10, 5, ClusteringMethod::HDBSCAN, 100)
+            .with_silhouette_score(0.75);
 
         assert_eq!(event.cluster_count, 10);
         assert_eq!(event.noise_count, 5);
@@ -479,12 +474,7 @@ mod tests {
 
     #[test]
     fn test_cluster_assigned_event() {
-        let event = ClusterAssigned::new(
-            EmbeddingId::new(),
-            ClusterId::new(),
-            0.95,
-            0.1,
-        );
+        let event = ClusterAssigned::new(EmbeddingId::new(), ClusterId::new(), 0.95, 0.1);
 
         assert_eq!(event.confidence, 0.95);
         assert_eq!(event.event_type(), "ClusterAssigned");
@@ -493,13 +483,7 @@ mod tests {
     #[test]
     fn test_motif_detected_event() {
         let pattern = vec![ClusterId::new(), ClusterId::new()];
-        let event = MotifDetected::new(
-            "motif-1".to_string(),
-            pattern.clone(),
-            10,
-            0.85,
-            1500.0,
-        );
+        let event = MotifDetected::new("motif-1".to_string(), pattern.clone(), 10, 0.85, 1500.0);
 
         assert_eq!(event.pattern.len(), 2);
         assert_eq!(event.occurrences, 10);

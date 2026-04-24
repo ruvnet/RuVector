@@ -88,8 +88,10 @@ fn demo_attractor_dynamics() {
         energy = energy * 0.9 - synchrony * 0.1;
         synchrony = (synchrony + 0.05).min(0.9);
 
-        println!("    Step {}: energy={:.3}, synchrony={:.3}",
-                 step, energy, synchrony);
+        println!(
+            "    Step {}: energy={:.3}, synchrony={:.3}",
+            step, energy, synchrony
+        );
     }
 
     println!("  ✓ System evolved to attractor basin");
@@ -109,13 +111,22 @@ fn demo_neural_optimizer() {
 
     // Simulate optimization
     let mut mincut = 2.0;
-    let actions = ["AddEdge(3,7)", "Strengthen(1,2)", "NoOp", "Weaken(5,6)", "RemoveEdge(0,9)"];
+    let actions = [
+        "AddEdge(3,7)",
+        "Strengthen(1,2)",
+        "NoOp",
+        "Weaken(5,6)",
+        "RemoveEdge(0,9)",
+    ];
 
     println!("  Running optimization steps...");
     for (i, action) in actions.iter().enumerate() {
         let reward = if i % 2 == 0 { 0.1 } else { -0.05 };
         mincut += reward;
-        println!("    Action: {}, reward={:+.2}, mincut={:.2}", action, reward, mincut);
+        println!(
+            "    Action: {}, reward={:+.2}, mincut={:.2}",
+            action, reward, mincut
+        );
     }
 
     println!("  ✓ Optimizer converged");
@@ -132,18 +143,25 @@ fn demo_time_crystal() {
     println!();
 
     // Simulate phase transitions
-    let phases = ["Phase 0 (dense)", "Phase 1 (sparse)", "Phase 2 (clustered)", "Phase 3 (ring)"];
+    let phases = [
+        "Phase 0 (dense)",
+        "Phase 1 (sparse)",
+        "Phase 2 (clustered)",
+        "Phase 3 (ring)",
+    ];
 
     println!("  Oscillator dynamics with 4 phases...");
     for (step, phase) in phases.iter().cycle().take(8).enumerate() {
         let current_phase = step % 4;
-        println!("    t={}: {} (oscillator activities: [{:.2}, {:.2}, {:.2}, {:.2}])",
-                 step * 25,
-                 phase,
-                 if current_phase == 0 { 1.0 } else { 0.3 },
-                 if current_phase == 1 { 1.0 } else { 0.3 },
-                 if current_phase == 2 { 1.0 } else { 0.3 },
-                 if current_phase == 3 { 1.0 } else { 0.3 });
+        println!(
+            "    t={}: {} (oscillator activities: [{:.2}, {:.2}, {:.2}, {:.2}])",
+            step * 25,
+            phase,
+            if current_phase == 0 { 1.0 } else { 0.3 },
+            if current_phase == 1 { 1.0 } else { 0.3 },
+            if current_phase == 2 { 1.0 } else { 0.3 },
+            if current_phase == 3 { 1.0 } else { 0.3 }
+        );
     }
 
     println!("  ✓ Time crystal exhibits periodic coordination");
@@ -190,7 +208,10 @@ fn demo_cognitive_engine() {
     println!("    Total spikes:     {}", total_spikes);
     println!("    Final energy:     {:.3}", energy);
     println!("    Elapsed time:     {:?}", elapsed);
-    println!("    Spikes/ms:        {:.1}", total_spikes as f64 / elapsed.as_millis().max(1) as f64);
+    println!(
+        "    Spikes/ms:        {:.1}",
+        total_spikes as f64 / elapsed.as_millis().max(1) as f64
+    );
     println!("  ═══════════════════════════════════════════════════════════════");
     println!();
 

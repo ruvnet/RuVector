@@ -145,11 +145,7 @@ impl CensusClient {
     /// // Get California counties
     /// let ca_counties = client.get_population(2020, "county:*&in=state:06").await?;
     /// ```
-    pub async fn get_population(
-        &self,
-        year: u32,
-        geography: &str,
-    ) -> Result<Vec<SemanticVector>> {
+    pub async fn get_population(&self, year: u32, geography: &str) -> Result<Vec<SemanticVector>> {
         let url = if year >= 2020 {
             format!(
                 "{}/{}/dec/pl?get=NAME,P1_001N&for={}",
@@ -226,10 +222,8 @@ impl CensusClient {
             if let Some(datasets) = dataset_obj.as_array() {
                 for (idx, ds) in datasets.iter().enumerate() {
                     if let Some(title) = ds.get("title").and_then(|t| t.as_str()) {
-                        let description = ds
-                            .get("description")
-                            .and_then(|d| d.as_str())
-                            .unwrap_or("");
+                        let description =
+                            ds.get("description").and_then(|d| d.as_str()).unwrap_or("");
                         let vintage = ds.get("c_vintage").and_then(|v| v.as_str()).unwrap_or("");
 
                         let text = format!("{} {} {}", title, description, vintage);
@@ -328,7 +322,11 @@ impl CensusClient {
     }
 
     /// Fetch and parse Census data
-    async fn fetch_census_data(&self, url: &str, dataset_name: &str) -> Result<Vec<SemanticVector>> {
+    async fn fetch_census_data(
+        &self,
+        url: &str,
+        dataset_name: &str,
+    ) -> Result<Vec<SemanticVector>> {
         if self.use_mock {
             return Ok(self.get_mock_census_data(dataset_name));
         }
@@ -412,20 +410,12 @@ impl CensusClient {
 
     /// Mock datasets for testing
     fn get_mock_datasets(&self) -> Vec<SemanticVector> {
-        vec![self.create_mock_dataset(
-            "Decennial Census",
-            "Population and housing counts",
-            "2020",
-        )]
+        vec![self.create_mock_dataset("Decennial Census", "Population and housing counts", "2020")]
     }
 
     /// Mock variables for testing
     fn get_mock_variables(&self, query: &str) -> Vec<SemanticVector> {
-        vec![self.create_mock_variable(
-            "B19013_001E",
-            "Median Household Income",
-            "Income",
-        )]
+        vec![self.create_mock_variable("B19013_001E", "Median Household Income", "Income")]
     }
 
     fn create_mock_dataset(&self, title: &str, description: &str, vintage: &str) -> SemanticVector {
@@ -478,9 +468,9 @@ impl CensusClient {
                         continue;
                     }
                     if !response.status().is_success() && self.use_mock {
-                        return Err(FrameworkError::Network(
-                            reqwest::Error::from(response.error_for_status().unwrap_err()),
-                        ));
+                        return Err(FrameworkError::Network(reqwest::Error::from(
+                            response.error_for_status().unwrap_err(),
+                        )));
                     }
                     return Ok(response);
                 }
@@ -683,7 +673,12 @@ impl DataGovClient {
     /// ```
     pub async fn get_dataset(&self, id: &str) -> Result<Option<SemanticVector>> {
         if self.use_mock {
-            return Ok(Some(self.get_mock_datagov_datasets("mock").into_iter().next().unwrap()));
+            return Ok(Some(
+                self.get_mock_datagov_datasets("mock")
+                    .into_iter()
+                    .next()
+                    .unwrap(),
+            ));
         }
 
         let url = format!("{}/action/package_show?id={}", self.base_url, id);
@@ -774,7 +769,9 @@ impl DataGovClient {
     /// ```
     pub async fn get_organization(&self, id: &str) -> Result<Option<SemanticVector>> {
         if self.use_mock {
-            return Ok(Some(self.get_mock_organizations().into_iter().next().unwrap()));
+            return Ok(Some(
+                self.get_mock_organizations().into_iter().next().unwrap(),
+            ));
         }
 
         let url = format!("{}/action/organization_show?id={}", self.base_url, id);
@@ -854,7 +851,10 @@ impl DataGovClient {
 
         let mut metadata = HashMap::new();
         metadata.insert("title".to_string(), "Mock Dataset".to_string());
-        metadata.insert("description".to_string(), "Mock data for testing".to_string());
+        metadata.insert(
+            "description".to_string(),
+            "Mock data for testing".to_string(),
+        );
         metadata.insert("source".to_string(), "datagov_mock".to_string());
 
         vec![SemanticVector {
@@ -1032,7 +1032,11 @@ impl EuOpenDataClient {
 
         let mut vectors = Vec::new();
 
-        if let Some(results) = json.get("result").and_then(|r| r.get("results")).and_then(|r| r.as_array()) {
+        if let Some(results) = json
+            .get("result")
+            .and_then(|r| r.get("results"))
+            .and_then(|r| r.as_array())
+        {
             for dataset in results {
                 let id = dataset.get("id").and_then(|i| i.as_str()).unwrap_or("");
                 let title = dataset
@@ -1076,7 +1080,12 @@ impl EuOpenDataClient {
     /// * `id` - Dataset ID
     pub async fn get_dataset(&self, id: &str) -> Result<Option<SemanticVector>> {
         if self.use_mock {
-            return Ok(Some(self.get_mock_eu_datasets("mock").into_iter().next().unwrap()));
+            return Ok(Some(
+                self.get_mock_eu_datasets("mock")
+                    .into_iter()
+                    .next()
+                    .unwrap(),
+            ));
         }
 
         let url = format!("{}/datasets/{}", self.base_url, id);
@@ -1196,7 +1205,11 @@ impl EuOpenDataClient {
     fn parse_eu_datasets(&self, json: &serde_json::Value) -> Result<Vec<SemanticVector>> {
         let mut vectors = Vec::new();
 
-        if let Some(results) = json.get("result").and_then(|r| r.get("results")).and_then(|r| r.as_array()) {
+        if let Some(results) = json
+            .get("result")
+            .and_then(|r| r.get("results"))
+            .and_then(|r| r.as_array())
+        {
             for dataset in results {
                 let id = dataset.get("id").and_then(|i| i.as_str()).unwrap_or("");
                 let title = dataset.get("title").and_then(|t| t.as_str()).unwrap_or("");
@@ -1411,7 +1424,12 @@ impl UkGovClient {
     /// Get a specific dataset by ID
     pub async fn get_dataset(&self, id: &str) -> Result<Option<SemanticVector>> {
         if self.use_mock {
-            return Ok(Some(self.get_mock_uk_datasets("mock").into_iter().next().unwrap()));
+            return Ok(Some(
+                self.get_mock_uk_datasets("mock")
+                    .into_iter()
+                    .next()
+                    .unwrap(),
+            ));
         }
 
         let url = format!("{}/package_show?id={}", self.base_url, id);
@@ -1747,8 +1765,14 @@ impl WorldBankClient {
         for indicator in indicators.into_iter().take(50) {
             // Filter by topic if specified
             if !topic.is_empty()
-                && !indicator.name.to_lowercase().contains(&topic.to_lowercase())
-                && !indicator.sourceNote.to_lowercase().contains(&topic.to_lowercase())
+                && !indicator
+                    .name
+                    .to_lowercase()
+                    .contains(&topic.to_lowercase())
+                && !indicator
+                    .sourceNote
+                    .to_lowercase()
+                    .contains(&topic.to_lowercase())
             {
                 continue;
             }
@@ -1789,7 +1813,8 @@ impl WorldBankClient {
         let current_year = chrono::Utc::now().year();
         let start_year = current_year - 10;
         let date_range = format!("{}:{}", start_year, current_year);
-        self.get_indicator_data(indicator, country, &date_range).await
+        self.get_indicator_data(indicator, country, &date_range)
+            .await
     }
 
     /// Get indicator data for a country with custom date range
@@ -2296,7 +2321,9 @@ mod tests {
     #[tokio::test]
     async fn test_worldbank_mock_data() {
         let client = WorldBankClient::with_config(256, true).unwrap();
-        let result = client.get_indicator_data("NY.GDP.MKTP.CD", "USA", "2020").await;
+        let result = client
+            .get_indicator_data("NY.GDP.MKTP.CD", "USA", "2020")
+            .await;
         assert!(result.is_ok());
     }
 
@@ -2334,21 +2361,39 @@ mod tests {
     #[test]
     fn test_rate_limits() {
         let census = CensusClient::new(None);
-        assert_eq!(census.rate_limit_delay, Duration::from_millis(CENSUS_RATE_LIMIT_MS));
+        assert_eq!(
+            census.rate_limit_delay,
+            Duration::from_millis(CENSUS_RATE_LIMIT_MS)
+        );
 
         let datagov = DataGovClient::new();
-        assert_eq!(datagov.rate_limit_delay, Duration::from_millis(DATAGOV_RATE_LIMIT_MS));
+        assert_eq!(
+            datagov.rate_limit_delay,
+            Duration::from_millis(DATAGOV_RATE_LIMIT_MS)
+        );
 
         let eu = EuOpenDataClient::new();
-        assert_eq!(eu.rate_limit_delay, Duration::from_millis(EU_OPENDATA_RATE_LIMIT_MS));
+        assert_eq!(
+            eu.rate_limit_delay,
+            Duration::from_millis(EU_OPENDATA_RATE_LIMIT_MS)
+        );
 
         let uk = UkGovClient::new();
-        assert_eq!(uk.rate_limit_delay, Duration::from_millis(UK_GOV_RATE_LIMIT_MS));
+        assert_eq!(
+            uk.rate_limit_delay,
+            Duration::from_millis(UK_GOV_RATE_LIMIT_MS)
+        );
 
         let wb = WorldBankClient::new().unwrap();
-        assert_eq!(wb.rate_limit_delay, Duration::from_millis(WORLDBANK_RATE_LIMIT_MS));
+        assert_eq!(
+            wb.rate_limit_delay,
+            Duration::from_millis(WORLDBANK_RATE_LIMIT_MS)
+        );
 
         let un = UNDataClient::new();
-        assert_eq!(un.rate_limit_delay, Duration::from_millis(UNDATA_RATE_LIMIT_MS));
+        assert_eq!(
+            un.rate_limit_delay,
+            Duration::from_millis(UNDATA_RATE_LIMIT_MS)
+        );
     }
 }

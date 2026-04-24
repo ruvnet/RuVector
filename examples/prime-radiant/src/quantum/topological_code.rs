@@ -109,23 +109,47 @@ impl StabilizerCode {
     pub fn five_qubit_code() -> Self {
         // Stabilizers (cyclic permutations of XZZXI)
         let s1 = PauliOperator::new(vec![
-            PauliType::X, PauliType::Z, PauliType::Z, PauliType::X, PauliType::I,
+            PauliType::X,
+            PauliType::Z,
+            PauliType::Z,
+            PauliType::X,
+            PauliType::I,
         ]);
         let s2 = PauliOperator::new(vec![
-            PauliType::I, PauliType::X, PauliType::Z, PauliType::Z, PauliType::X,
+            PauliType::I,
+            PauliType::X,
+            PauliType::Z,
+            PauliType::Z,
+            PauliType::X,
         ]);
         let s3 = PauliOperator::new(vec![
-            PauliType::X, PauliType::I, PauliType::X, PauliType::Z, PauliType::Z,
+            PauliType::X,
+            PauliType::I,
+            PauliType::X,
+            PauliType::Z,
+            PauliType::Z,
         ]);
         let s4 = PauliOperator::new(vec![
-            PauliType::Z, PauliType::X, PauliType::I, PauliType::X, PauliType::Z,
+            PauliType::Z,
+            PauliType::X,
+            PauliType::I,
+            PauliType::X,
+            PauliType::Z,
         ]);
 
         let lx = PauliOperator::new(vec![
-            PauliType::X, PauliType::X, PauliType::X, PauliType::X, PauliType::X,
+            PauliType::X,
+            PauliType::X,
+            PauliType::X,
+            PauliType::X,
+            PauliType::X,
         ]);
         let lz = PauliOperator::new(vec![
-            PauliType::Z, PauliType::Z, PauliType::Z, PauliType::Z, PauliType::Z,
+            PauliType::Z,
+            PauliType::Z,
+            PauliType::Z,
+            PauliType::Z,
+            PauliType::Z,
         ]);
 
         Self {
@@ -146,39 +170,79 @@ impl StabilizerCode {
 
         // X-type stabilizers (from H matrix)
         stabilizers.push(PauliOperator::new(vec![
-            PauliType::X, PauliType::X, PauliType::X, PauliType::X,
-            PauliType::I, PauliType::I, PauliType::I,
+            PauliType::X,
+            PauliType::X,
+            PauliType::X,
+            PauliType::X,
+            PauliType::I,
+            PauliType::I,
+            PauliType::I,
         ]));
         stabilizers.push(PauliOperator::new(vec![
-            PauliType::X, PauliType::X, PauliType::I, PauliType::I,
-            PauliType::X, PauliType::X, PauliType::I,
+            PauliType::X,
+            PauliType::X,
+            PauliType::I,
+            PauliType::I,
+            PauliType::X,
+            PauliType::X,
+            PauliType::I,
         ]));
         stabilizers.push(PauliOperator::new(vec![
-            PauliType::X, PauliType::I, PauliType::X, PauliType::I,
-            PauliType::X, PauliType::I, PauliType::X,
+            PauliType::X,
+            PauliType::I,
+            PauliType::X,
+            PauliType::I,
+            PauliType::X,
+            PauliType::I,
+            PauliType::X,
         ]));
 
         // Z-type stabilizers
         stabilizers.push(PauliOperator::new(vec![
-            PauliType::Z, PauliType::Z, PauliType::Z, PauliType::Z,
-            PauliType::I, PauliType::I, PauliType::I,
+            PauliType::Z,
+            PauliType::Z,
+            PauliType::Z,
+            PauliType::Z,
+            PauliType::I,
+            PauliType::I,
+            PauliType::I,
         ]));
         stabilizers.push(PauliOperator::new(vec![
-            PauliType::Z, PauliType::Z, PauliType::I, PauliType::I,
-            PauliType::Z, PauliType::Z, PauliType::I,
+            PauliType::Z,
+            PauliType::Z,
+            PauliType::I,
+            PauliType::I,
+            PauliType::Z,
+            PauliType::Z,
+            PauliType::I,
         ]));
         stabilizers.push(PauliOperator::new(vec![
-            PauliType::Z, PauliType::I, PauliType::Z, PauliType::I,
-            PauliType::Z, PauliType::I, PauliType::Z,
+            PauliType::Z,
+            PauliType::I,
+            PauliType::Z,
+            PauliType::I,
+            PauliType::Z,
+            PauliType::I,
+            PauliType::Z,
         ]));
 
         let lx = PauliOperator::new(vec![
-            PauliType::X, PauliType::X, PauliType::X, PauliType::X,
-            PauliType::X, PauliType::X, PauliType::X,
+            PauliType::X,
+            PauliType::X,
+            PauliType::X,
+            PauliType::X,
+            PauliType::X,
+            PauliType::X,
+            PauliType::X,
         ]);
         let lz = PauliOperator::new(vec![
-            PauliType::Z, PauliType::Z, PauliType::Z, PauliType::Z,
-            PauliType::Z, PauliType::Z, PauliType::Z,
+            PauliType::Z,
+            PauliType::Z,
+            PauliType::Z,
+            PauliType::Z,
+            PauliType::Z,
+            PauliType::Z,
+            PauliType::Z,
         ]);
 
         Self {
@@ -689,9 +753,7 @@ impl SolverBackedOperator {
         // extra traits (avoids issues with rand version compatibility).
         let mut rng_state: u64 = seed;
         let mut next_f64 = || -> f64 {
-            rng_state = rng_state
-                .wrapping_mul(6364136223846793005)
-                .wrapping_add(1);
+            rng_state = rng_state.wrapping_mul(6364136223846793005).wrapping_add(1);
             (rng_state >> 33) as f64 / (u32::MAX as f64)
         };
 
@@ -739,19 +801,14 @@ impl SolverBackedOperator {
 
     /// Compute the dominant eigenvalue via power iteration using sparse SpMV.
     /// Returns (eigenvalue, eigenvector) after max_iter iterations.
-    pub fn dominant_eigenvalue(
-        &self,
-        max_iter: usize,
-        tolerance: f64,
-    ) -> (f64, Vec<f64>) {
+    pub fn dominant_eigenvalue(&self, max_iter: usize, tolerance: f64) -> (f64, Vec<f64>) {
         let dim = 1usize << self.num_qubits;
         let mut v: Vec<f64> = vec![1.0 / (dim as f64).sqrt(); dim];
         let mut eigenvalue = 0.0f64;
 
         for _ in 0..max_iter {
             let av = self.apply(&v);
-            let new_eigenvalue: f64 =
-                v.iter().zip(av.iter()).map(|(vi, avi)| vi * avi).sum();
+            let new_eigenvalue: f64 = v.iter().zip(av.iter()).map(|(vi, avi)| vi * avi).sum();
 
             let norm: f64 = av.iter().map(|x| x * x).sum::<f64>().sqrt();
             if norm < 1e-15 {

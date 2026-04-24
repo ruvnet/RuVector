@@ -148,7 +148,10 @@ impl FredClient {
 
         // Check for API error response
         if let Some(error_msg) = obs_response.error_message {
-            return Err(FrameworkError::Ingestion(format!("FRED API error: {}", error_msg)));
+            return Err(FrameworkError::Ingestion(format!(
+                "FRED API error: {}",
+                error_msg
+            )));
         }
 
         let mut vectors = Vec::new();
@@ -226,7 +229,10 @@ impl FredClient {
             metadata.insert("title".to_string(), series.title.clone());
             metadata.insert("units".to_string(), series.units);
             metadata.insert("frequency".to_string(), series.frequency);
-            metadata.insert("seasonal_adjustment".to_string(), series.seasonal_adjustment);
+            metadata.insert(
+                "seasonal_adjustment".to_string(),
+                series.seasonal_adjustment,
+            );
             metadata.insert("source".to_string(), "fred_search".to_string());
 
             vectors.push(SemanticVector {
@@ -466,7 +472,10 @@ impl WorldBankClient {
             metadata.insert("source".to_string(), "worldbank".to_string());
 
             vectors.push(SemanticVector {
-                id: format!("WB:{}:{}:{}", ind.countryiso3code, ind.indicator.id, ind.date),
+                id: format!(
+                    "WB:{}:{}:{}",
+                    ind.countryiso3code, ind.indicator.id, ind.date
+                ),
                 embedding,
                 domain: Domain::Economic,
                 timestamp: date,
@@ -759,12 +768,21 @@ mod tests {
     fn test_rate_limiting() {
         // Verify rate limits are set correctly
         let fred = FredClient::new(None).unwrap();
-        assert_eq!(fred.rate_limit_delay, Duration::from_millis(FRED_RATE_LIMIT_MS));
+        assert_eq!(
+            fred.rate_limit_delay,
+            Duration::from_millis(FRED_RATE_LIMIT_MS)
+        );
 
         let wb = WorldBankClient::new().unwrap();
-        assert_eq!(wb.rate_limit_delay, Duration::from_millis(WORLDBANK_RATE_LIMIT_MS));
+        assert_eq!(
+            wb.rate_limit_delay,
+            Duration::from_millis(WORLDBANK_RATE_LIMIT_MS)
+        );
 
         let av = AlphaVantageClient::new("test".to_string()).unwrap();
-        assert_eq!(av.rate_limit_delay, Duration::from_millis(ALPHAVANTAGE_RATE_LIMIT_MS));
+        assert_eq!(
+            av.rate_limit_delay,
+            Duration::from_millis(ALPHAVANTAGE_RATE_LIMIT_MS)
+        );
     }
 }

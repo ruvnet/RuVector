@@ -184,12 +184,8 @@ impl ObjectData {
             Self::VectorSpace(d) => Some(*d),
             Self::Terminal => Some(1),
             Self::Initial => Some(0),
-            Self::Product(a, b) => {
-                Some(a.size()? * b.size()?)
-            }
-            Self::Coproduct(a, b) => {
-                Some(a.size()? + b.size()?)
-            }
+            Self::Product(a, b) => Some(a.size()? * b.size()?),
+            Self::Coproduct(a, b) => Some(a.size()? + b.size()?),
             Self::Exponential(a, b) => {
                 let a_size = a.size()?;
                 let b_size = b.size()?;
@@ -232,8 +228,7 @@ mod tests {
             .with_name("Test Object")
             .with_tag("category");
 
-        let obj = Object::new(ObjectData::Terminal)
-            .with_metadata(metadata);
+        let obj = Object::new(ObjectData::Terminal).with_metadata(metadata);
 
         assert_eq!(obj.metadata.name, Some("Test Object".to_string()));
         assert!(obj.metadata.tags.contains("category"));
@@ -245,10 +240,7 @@ mod tests {
         assert_eq!(ObjectData::Terminal.size(), Some(1));
         assert_eq!(ObjectData::Initial.size(), Some(0));
 
-        let product = ObjectData::product(
-            ObjectData::FiniteSet(3),
-            ObjectData::FiniteSet(4),
-        );
+        let product = ObjectData::product(ObjectData::FiniteSet(3), ObjectData::FiniteSet(4));
         assert_eq!(product.size(), Some(12));
     }
 }

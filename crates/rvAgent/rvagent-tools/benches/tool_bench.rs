@@ -23,10 +23,7 @@ struct BenchBackend {
 impl BenchBackend {
     fn new() -> Self {
         let mut files = HashMap::new();
-        files.insert(
-            "/bench.txt".to_string(),
-            "line1\nline2\nline3".to_string(),
-        );
+        files.insert("/bench.txt".to_string(), "line1\nline2\nline3".to_string());
         Self { files }
     }
 }
@@ -41,12 +38,7 @@ impl Backend for BenchBackend {
         }])
     }
 
-    fn read(
-        &self,
-        path: &str,
-        _offset: usize,
-        _limit: usize,
-    ) -> Result<String, String> {
+    fn read(&self, path: &str, _offset: usize, _limit: usize) -> Result<String, String> {
         self.files
             .get(path)
             .cloned()
@@ -57,24 +49,14 @@ impl Backend for BenchBackend {
         WriteResult::default()
     }
 
-    fn edit(
-        &self,
-        _path: &str,
-        _old: &str,
-        _new: &str,
-        _all: bool,
-    ) -> WriteResult {
+    fn edit(&self, _path: &str, _old: &str, _new: &str, _all: bool) -> WriteResult {
         WriteResult {
             occurrences: Some(1),
             ..Default::default()
         }
     }
 
-    fn glob_info(
-        &self,
-        _pattern: &str,
-        _path: &str,
-    ) -> Result<Vec<String>, String> {
+    fn glob_info(&self, _pattern: &str, _path: &str) -> Result<Vec<String>, String> {
         Ok(vec!["/bench.txt".to_string()])
     }
 
@@ -91,11 +73,7 @@ impl Backend for BenchBackend {
         }])
     }
 
-    fn execute(
-        &self,
-        command: &str,
-        _timeout: u32,
-    ) -> Result<ExecuteResponse, String> {
+    fn execute(&self, command: &str, _timeout: u32) -> Result<ExecuteResponse, String> {
         Ok(ExecuteResponse {
             output: format!("ok: {}", command),
             exit_code: 0,
@@ -173,11 +151,7 @@ fn bench_any_tool_dispatch(c: &mut Criterion) {
         fn parameters_schema(&self) -> serde_json::Value {
             serde_json::json!({})
         }
-        fn invoke(
-            &self,
-            _args: serde_json::Value,
-            _runtime: &ToolRuntime,
-        ) -> ToolResult {
+        fn invoke(&self, _args: serde_json::Value, _runtime: &ToolRuntime) -> ToolResult {
             ToolResult::Text("ok".into())
         }
     }
@@ -230,10 +204,7 @@ fn bench_format_line_numbers(c: &mut Criterion) {
         .join("\n");
     group.bench_function("100_lines", |b| {
         b.iter(|| {
-            black_box(format_content_with_line_numbers(
-                black_box(&content_100),
-                1,
-            ));
+            black_box(format_content_with_line_numbers(black_box(&content_100), 1));
         });
     });
 

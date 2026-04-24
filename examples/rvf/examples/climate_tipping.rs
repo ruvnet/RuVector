@@ -22,51 +22,90 @@ fn solve_mincut(lam: &[f64], edges: &[(usize, usize, f64)], gamma: f64) -> Vec<b
     let (s, t, n) = (m, m + 1, m + 2);
     let mut adj: Vec<Vec<(usize, usize)>> = vec![Vec::new(); n];
     let mut caps: Vec<f64> = Vec::new();
-    let add = |adj: &mut Vec<Vec<(usize, usize)>>, caps: &mut Vec<f64>, u: usize, v: usize, c: f64| {
-        let i = caps.len();
-        caps.push(c); caps.push(0.0);
-        adj[u].push((v, i)); adj[v].push((u, i + 1));
-    };
+    let add =
+        |adj: &mut Vec<Vec<(usize, usize)>>, caps: &mut Vec<f64>, u: usize, v: usize, c: f64| {
+            let i = caps.len();
+            caps.push(c);
+            caps.push(0.0);
+            adj[u].push((v, i));
+            adj[v].push((u, i + 1));
+        };
     for i in 0..m {
         let (p0, p1) = (lam[i].max(0.0), (-lam[i]).max(0.0));
-        if p0 > 1e-12 { add(&mut adj, &mut caps, s, i, p0); }
-        if p1 > 1e-12 { add(&mut adj, &mut caps, i, t, p1); }
+        if p0 > 1e-12 {
+            add(&mut adj, &mut caps, s, i, p0);
+        }
+        if p1 > 1e-12 {
+            add(&mut adj, &mut caps, i, t, p1);
+        }
     }
     for &(f, to, w) in edges {
         let c = gamma * w;
-        if c > 1e-12 { add(&mut adj, &mut caps, f, to, c); }
+        if c > 1e-12 {
+            add(&mut adj, &mut caps, f, to, c);
+        }
     }
     loop {
         let mut par: Vec<Option<(usize, usize)>> = vec![None; n];
         let mut vis = vec![false; n];
         let mut q = VecDeque::new();
-        vis[s] = true; q.push_back(s);
+        vis[s] = true;
+        q.push_back(s);
         while let Some(u) = q.pop_front() {
-            if u == t { break; }
+            if u == t {
+                break;
+            }
             for &(v, ei) in &adj[u] {
-                if !vis[v] && caps[ei] > 1e-15 { vis[v] = true; par[v] = Some((u, ei)); q.push_back(v); }
+                if !vis[v] && caps[ei] > 1e-15 {
+                    vis[v] = true;
+                    par[v] = Some((u, ei));
+                    q.push_back(v);
+                }
             }
         }
-        if !vis[t] { break; }
-        let mut bn = f64::MAX; let mut v = t;
-        while let Some((_, ei)) = par[v] { bn = bn.min(caps[ei]); v = par[v].unwrap().0; }
+        if !vis[t] {
+            break;
+        }
+        let mut bn = f64::MAX;
+        let mut v = t;
+        while let Some((_, ei)) = par[v] {
+            bn = bn.min(caps[ei]);
+            v = par[v].unwrap().0;
+        }
         v = t;
-        while let Some((u, ei)) = par[v] { caps[ei] -= bn; caps[ei ^ 1] += bn; v = u; }
+        while let Some((u, ei)) = par[v] {
+            caps[ei] -= bn;
+            caps[ei ^ 1] += bn;
+            v = u;
+        }
     }
-    let mut reach = vec![false; n]; let mut stk = vec![s]; reach[s] = true;
+    let mut reach = vec![false; n];
+    let mut stk = vec![s];
+    reach[s] = true;
     while let Some(u) = stk.pop() {
-        for &(v, ei) in &adj[u] { if !reach[v] && caps[ei] > 1e-15 { reach[v] = true; stk.push(v); } }
+        for &(v, ei) in &adj[u] {
+            if !reach[v] && caps[ei] > 1e-15 {
+                reach[v] = true;
+                stk.push(v);
+            }
+        }
     }
     (0..m).map(|i| reach[i]).collect()
 }
 
 // ── CSV helpers ─────────────────────────────────────────────────────────────
 
-fn parse_csv_field(s: &str) -> &str { s.trim().trim_matches('"') }
+fn parse_csv_field(s: &str) -> &str {
+    s.trim().trim_matches('"')
+}
 
 fn parse_f64(s: &str) -> Option<f64> {
     let v = parse_csv_field(s);
-    if v.is_empty() { None } else { v.parse().ok() }
+    if v.is_empty() {
+        None
+    } else {
+        v.parse().ok()
+    }
 }
 
 // ── Smoothing ───────────────────────────────────────────────────────────────
@@ -74,19 +113,23 @@ fn parse_f64(s: &str) -> Option<f64> {
 fn moving_average(data: &[f64], window: usize) -> Vec<f64> {
     let n = data.len();
     let half = window / 2;
-    (0..n).map(|i| {
-        let lo = if i >= half { i - half } else { 0 };
-        let hi = (i + half + 1).min(n);
-        let count = hi - lo;
-        data[lo..hi].iter().sum::<f64>() / count as f64
-    }).collect()
+    (0..n)
+        .map(|i| {
+            let lo = if i >= half { i - half } else { 0 };
+            let hi = (i + half + 1).min(n);
+            let count = hi - lo;
+            data[lo..hi].iter().sum::<f64>() / count as f64
+        })
+        .collect()
 }
 
 // ── Derivative computation ──────────────────────────────────────────────────
 
 fn first_derivative(series: &[f64]) -> Vec<f64> {
     let n = series.len();
-    if n < 2 { return vec![0.0; n]; }
+    if n < 2 {
+        return vec![0.0; n];
+    }
     let mut d = vec![0.0; n];
     for i in 1..n - 1 {
         d[i] = (series[i + 1] - series[i - 1]) / 2.0;
@@ -129,14 +172,18 @@ fn per_scale_cut(
     let cp_mean = cp_score.iter().sum::<f64>() / n as f64;
 
     // Second-derivative boost
-    let d2_std = (second_deriv.iter().map(|v| v * v).sum::<f64>() / n as f64).sqrt().max(1e-8);
+    let d2_std = (second_deriv.iter().map(|v| v * v).sum::<f64>() / n as f64)
+        .sqrt()
+        .max(1e-8);
 
     // Lambda: change-point score above mean = potential transition
-    let lam: Vec<f64> = (0..n).map(|i| {
-        let cp_normalized = cp_score[i] / cp_max;
-        let d2_boost = (second_deriv[i].abs() / d2_std - 1.0).max(0.0) * 0.05;
-        cp_normalized + d2_boost - (cp_mean / cp_max) - 0.05
-    }).collect();
+    let lam: Vec<f64> = (0..n)
+        .map(|i| {
+            let cp_normalized = cp_score[i] / cp_max;
+            let d2_boost = (second_deriv[i].abs() / d2_std - 1.0).max(0.0) * 0.05;
+            cp_normalized + d2_boost - (cp_mean / cp_max) - 0.05
+        })
+        .collect();
 
     // Build temporal chain graph
     let mut edges: Vec<(usize, usize, f64)> = Vec::new();
@@ -201,30 +248,14 @@ fn quadratic_fit(xs: &[f64], ys: &[f64]) -> (f64, f64, f64) {
     // Solve via Cramer's rule
     let det = |m: [[f64; 3]; 3]| -> f64 {
         m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
-      - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
-      + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
+            - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+            + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
     };
 
-    let d = det([
-        [sx4, sx3, sx2],
-        [sx3, sx2, sx ],
-        [sx2, sx,  n  ],
-    ]);
-    let da = det([
-        [sx2y, sx3, sx2],
-        [sxy,  sx2, sx ],
-        [sy,   sx,  n  ],
-    ]);
-    let db = det([
-        [sx4, sx2y, sx2],
-        [sx3, sxy,  sx ],
-        [sx2, sy,   n  ],
-    ]);
-    let dc = det([
-        [sx4, sx3, sx2y],
-        [sx3, sx2, sxy ],
-        [sx2, sx,  sy  ],
-    ]);
+    let d = det([[sx4, sx3, sx2], [sx3, sx2, sx], [sx2, sx, n]]);
+    let da = det([[sx2y, sx3, sx2], [sxy, sx2, sx], [sy, sx, n]]);
+    let db = det([[sx4, sx2y, sx2], [sx3, sxy, sx], [sx2, sy, n]]);
+    let dc = det([[sx4, sx3, sx2y], [sx3, sx2, sxy], [sx2, sx, sy]]);
 
     (da / d, db / d, dc / d)
 }
@@ -242,18 +273,21 @@ fn main() {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/data/global_temp_anomaly.csv");
     let data = match std::fs::read_to_string(path) {
         Ok(d) => d,
-        Err(e) => { eprintln!("  Cannot read {}: {}", path, e); std::process::exit(1); }
+        Err(e) => {
+            eprintln!("  Cannot read {}: {}", path, e);
+            std::process::exit(1);
+        }
     };
 
     let mut years: Vec<(i32, f64)> = Vec::new();
     for line in data.lines() {
-        if line.starts_with('#') || line.starts_with("Year") { continue; }
+        if line.starts_with('#') || line.starts_with("Year") {
+            continue;
+        }
         let parts: Vec<&str> = line.split(',').collect();
         if parts.len() >= 2 {
-            if let (Some(y), Some(a)) = (
-                parse_f64(parts[0]).map(|v| v as i32),
-                parse_f64(parts[1]),
-            ) {
+            if let (Some(y), Some(a)) = (parse_f64(parts[0]).map(|v| v as i32), parse_f64(parts[1]))
+            {
                 years.push((y, a));
             }
         }
@@ -263,8 +297,12 @@ fn main() {
     let year_labels: Vec<i32> = years.iter().map(|y| y.0).collect();
     let anomalies: Vec<f64> = years.iter().map(|y| y.1).collect();
 
-    println!("\n  Loaded {} years of data ({}-{})\n",
-        n, year_labels.first().unwrap_or(&0), year_labels.last().unwrap_or(&0));
+    println!(
+        "\n  Loaded {} years of data ({}-{})\n",
+        n,
+        year_labels.first().unwrap_or(&0),
+        year_labels.last().unwrap_or(&0)
+    );
 
     // ══════════════════════════════════════════════════════════════════════
     // 1. MULTI-SCALE SMOOTHING
@@ -282,14 +320,23 @@ fn main() {
     println!("  1. MULTI-SCALE SMOOTHING");
     println!("{}", "=".repeat(70));
     println!("\n  Scale         | Min      | Max      | Range    | Std Dev");
-    println!("  {:-<14}-+-{:-<8}-+-{:-<8}-+-{:-<8}-+-{:-<8}", "", "", "", "", "");
+    println!(
+        "  {:-<14}-+-{:-<8}-+-{:-<8}-+-{:-<8}-+-{:-<8}",
+        "", "", "", "", ""
+    );
     for (i, s) in scales.iter().enumerate() {
         let mn = s.iter().cloned().fold(f64::MAX, f64::min);
         let mx = s.iter().cloned().fold(f64::MIN, f64::max);
         let mean = s.iter().sum::<f64>() / n as f64;
         let std = (s.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / n as f64).sqrt();
-        println!("  {:<14} | {:>+7.3}C | {:>+7.3}C | {:>7.3}C | {:>7.4}",
-            scale_names[i], mn, mx, mx - mn, std);
+        println!(
+            "  {:<14} | {:>+7.3}C | {:>+7.3}C | {:>7.3}C | {:>7.4}",
+            scale_names[i],
+            mn,
+            mx,
+            mx - mn,
+            std
+        );
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -317,12 +364,18 @@ fn main() {
         let max_jerk = d3.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
 
         // Find year of max warming rate
-        let max_rate_idx = d1.iter().enumerate()
+        let max_rate_idx = d1
+            .iter()
+            .enumerate()
             .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
-            .map(|(i, _)| i).unwrap_or(0);
+            .map(|(i, _)| i)
+            .unwrap_or(0);
 
         println!("\n  {} :", scale_names[i]);
-        println!("    Max warming rate:   {:>+.4} C/yr  (year {})", max_rate, year_labels[max_rate_idx]);
+        println!(
+            "    Max warming rate:   {:>+.4} C/yr  (year {})",
+            max_rate, year_labels[max_rate_idx]
+        );
         println!("    Max |acceleration|: {:>.5} C/yr2", max_accel);
         println!("    Max |jerk|:         {:>.5} C/yr3", max_jerk);
 
@@ -348,24 +401,38 @@ fn main() {
         let regime = per_scale_cut(s, &all_derivs[si].d2, half_windows[si], gammas[si]);
         let trans = find_transitions(&regime);
 
-        println!("\n  {} — {} transition(s) detected:", scale_names[si], trans.len());
+        println!(
+            "\n  {} — {} transition(s) detected:",
+            scale_names[si],
+            trans.len()
+        );
         if trans.is_empty() {
             println!("    (no transitions found at this scale)");
         } else {
-            println!("    {:>6} {:>8} {:>12} {:>12} {:>10} {:>10}",
-                "Year", "Anomaly", "Before(avg)", "After(avg)", "Shift", "Rate(d1)");
-            println!("    {:-<6} {:-<8} {:-<12} {:-<12} {:-<10} {:-<10}",
-                "", "", "", "", "", "");
+            println!(
+                "    {:>6} {:>8} {:>12} {:>12} {:>10} {:>10}",
+                "Year", "Anomaly", "Before(avg)", "After(avg)", "Shift", "Rate(d1)"
+            );
+            println!(
+                "    {:-<6} {:-<8} {:-<12} {:-<12} {:-<10} {:-<10}",
+                "", "", "", "", "", ""
+            );
             for &ti in &trans {
                 let before_start = if ti > 10 { ti - 10 } else { 0 };
                 let after_end = (ti + 10).min(n);
-                let before_mean = scales[si][before_start..ti].iter().sum::<f64>()
-                    / (ti - before_start) as f64;
-                let after_mean = scales[si][ti..after_end].iter().sum::<f64>()
-                    / (after_end - ti) as f64;
-                println!("    {:>6} {:>+8.3} {:>+12.3} {:>+12.3} {:>+10.3} {:>+10.4}",
-                    year_labels[ti], scales[si][ti], before_mean, after_mean,
-                    after_mean - before_mean, all_derivs[si].d1[ti]);
+                let before_mean =
+                    scales[si][before_start..ti].iter().sum::<f64>() / (ti - before_start) as f64;
+                let after_mean =
+                    scales[si][ti..after_end].iter().sum::<f64>() / (after_end - ti) as f64;
+                println!(
+                    "    {:>6} {:>+8.3} {:>+12.3} {:>+12.3} {:>+10.3} {:>+10.4}",
+                    year_labels[ti],
+                    scales[si][ti],
+                    before_mean,
+                    after_mean,
+                    after_mean - before_mean,
+                    all_derivs[si].d1[ti]
+                );
             }
         }
 
@@ -382,7 +449,7 @@ fn main() {
     println!("{}", "=".repeat(70));
 
     let n_scales = 4;
-    let meta_n = n * n_scales;  // total nodes in meta-graph
+    let meta_n = n * n_scales; // total nodes in meta-graph
 
     // Node index: scale * n + year_idx
     let node_id = |scale: usize, year_idx: usize| -> usize { scale * n + year_idx };
@@ -492,7 +559,11 @@ fn main() {
         let mut which_scales = Vec::new();
         for si in 0..n_scales {
             for &ti in &meta_transitions[si] {
-                let diff = if ti > center { ti - center } else { center - ti };
+                let diff = if ti > center {
+                    ti - center
+                } else {
+                    center - ti
+                };
                 if diff <= tolerance {
                     count += 1;
                     which_scales.push(si);
@@ -509,12 +580,19 @@ fn main() {
     year_confidence.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
 
     println!("\n  Cross-scale coherent tipping points (meta-graph consensus):\n");
-    println!("  {:>6} {:>10} {:>8} {:>12} {:<30}",
-        "Year", "Confidence", "Anomaly", "WarmRate", "Scales Agreeing");
-    println!("  {:-<6} {:-<10} {:-<8} {:-<12} {:-<30}", "", "", "", "", "");
+    println!(
+        "  {:>6} {:>10} {:>8} {:>12} {:<30}",
+        "Year", "Confidence", "Anomaly", "WarmRate", "Scales Agreeing"
+    );
+    println!(
+        "  {:-<6} {:-<10} {:-<8} {:-<12} {:-<30}",
+        "", "", "", "", ""
+    );
 
     for &(yi, count, ref which) in &year_confidence {
-        if yi >= n { continue; }
+        if yi >= n {
+            continue;
+        }
         let conf_str = match count {
             4 => "VERY HIGH",
             3 => "HIGH",
@@ -522,16 +600,20 @@ fn main() {
             1 => "LOW",
             _ => "?",
         };
-        let scale_list: String = which.iter()
+        let scale_list: String = which
+            .iter()
             .map(|&s| scale_names[s])
             .collect::<Vec<_>>()
             .join(", ");
-        println!("  {:>6} {:>10} {:>+8.3} {:>+12.4} {}",
-            year_labels[yi], conf_str, anomalies[yi], all_derivs[0].d1[yi], scale_list);
+        println!(
+            "  {:>6} {:>10} {:>+8.3} {:>+12.4} {}",
+            year_labels[yi], conf_str, anomalies[yi], all_derivs[0].d1[yi], scale_list
+        );
     }
 
     // High-confidence tipping points (3+ scales)
-    let high_conf: Vec<_> = year_confidence.iter()
+    let high_conf: Vec<_> = year_confidence
+        .iter()
         .filter(|&&(_, count, _)| count >= 3)
         .collect();
 
@@ -546,8 +628,10 @@ fn main() {
     } else {
         for &&(yi, count, ref _which) in &high_conf {
             if yi < n {
-                println!("    {} ({}/4 scales, anomaly {:>+.3}C)",
-                    year_labels[yi], count, anomalies[yi]);
+                println!(
+                    "    {} ({}/4 scales, anomaly {:>+.3}C)",
+                    year_labels[yi], count, anomalies[yi]
+                );
             }
         }
     }
@@ -579,7 +663,8 @@ fn main() {
     println!("{}", "=".repeat(70));
 
     // Fit quadratic to post-2000 data
-    let post2000: Vec<(f64, f64)> = years.iter()
+    let post2000: Vec<(f64, f64)> = years
+        .iter()
         .filter(|y| y.0 >= 2000)
         .map(|y| (y.0 as f64, y.1))
         .collect();
@@ -589,9 +674,16 @@ fn main() {
         let ys: Vec<f64> = post2000.iter().map(|v| v.1).collect();
         let (a, b, c) = quadratic_fit(&xs, &ys);
 
-        println!("\n  Quadratic fit (post-2000): anomaly = {:.6}*yr^2 + {:.4}*yr + {:.2}", a, b, c);
-        println!("  (based on {} data points: {}-{})", post2000.len(),
-            post2000.first().unwrap().0 as i32, post2000.last().unwrap().0 as i32);
+        println!(
+            "\n  Quadratic fit (post-2000): anomaly = {:.6}*yr^2 + {:.4}*yr + {:.2}",
+            a, b, c
+        );
+        println!(
+            "  (based on {} data points: {}-{})",
+            post2000.len(),
+            post2000.first().unwrap().0 as i32,
+            post2000.last().unwrap().0 as i32
+        );
 
         // Find crossing years for 1.5C and 2.0C
         for &target in &[1.5, 2.0] {
@@ -603,7 +695,11 @@ fn main() {
                 let x2 = (-b - discriminant.sqrt()) / (2.0 * a);
                 // Pick the root in a reasonable future range
                 let crossing = if x1 > 2000.0 && x1 < 2200.0 {
-                    if x2 > 2000.0 && x2 < 2200.0 { x1.min(x2) } else { x1 }
+                    if x2 > 2000.0 && x2 < 2200.0 {
+                        x1.min(x2)
+                    } else {
+                        x1
+                    }
                 } else if x2 > 2000.0 && x2 < 2200.0 {
                     x2
                 } else {
@@ -613,20 +709,30 @@ fn main() {
                 };
                 println!("\n  +{:.1}C threshold crossing: ~{:.0}", target, crossing);
                 let predicted_at_crossing = a * crossing * crossing + b * crossing + c;
-                println!("    Predicted anomaly at crossing: {:>+.3}C", predicted_at_crossing);
+                println!(
+                    "    Predicted anomaly at crossing: {:>+.3}C",
+                    predicted_at_crossing
+                );
             } else {
                 // Fallback to linear fit
                 let (slope, intercept) = linreg(&xs, &ys);
                 let crossing = (target - intercept) / slope;
-                println!("\n  +{:.1}C threshold crossing (linear): ~{:.0}", target, crossing);
+                println!(
+                    "\n  +{:.1}C threshold crossing (linear): ~{:.0}",
+                    target, crossing
+                );
             }
         }
 
         // Current trend
         let latest_year = post2000.last().unwrap().0;
         let rate_now = 2.0 * a * latest_year + b;
-        println!("\n  Current warming rate (quadratic slope at {}): {:>+.4} C/yr ({:>+.3} C/decade)",
-            latest_year as i32, rate_now, rate_now * 10.0);
+        println!(
+            "\n  Current warming rate (quadratic slope at {}): {:>+.4} C/yr ({:>+.3} C/decade)",
+            latest_year as i32,
+            rate_now,
+            rate_now * 10.0
+        );
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -638,29 +744,40 @@ fn main() {
     println!("{}", "=".repeat(70));
 
     let eras: Vec<(&str, i32, i32)> = vec![
-        ("Pre-industrial",   1850, 1900),
-        ("Early warming",    1900, 1940),
-        ("Mid-century",      1940, 1970),
-        ("Late 20th C",      1970, 2000),
-        ("21st Century",     2000, 2026),
+        ("Pre-industrial", 1850, 1900),
+        ("Early warming", 1900, 1940),
+        ("Mid-century", 1940, 1970),
+        ("Late 20th C", 1970, 2000),
+        ("21st Century", 2000, 2026),
     ];
 
-    println!("\n  {:>20} {:>10} {:>12} {:>12}",
-        "Era", "Period", "Avg Anomaly", "Rate C/dec");
+    println!(
+        "\n  {:>20} {:>10} {:>12} {:>12}",
+        "Era", "Period", "Avg Anomaly", "Rate C/dec"
+    );
     println!("  {:-<20} {:-<10} {:-<12} {:-<12}", "", "", "", "");
 
     for &(name, y0, y1) in &eras {
-        let vals: Vec<(f64, f64)> = years.iter()
+        let vals: Vec<(f64, f64)> = years
+            .iter()
             .filter(|y| y.0 >= y0 && y.0 < y1)
             .map(|y| (y.0 as f64, y.1))
             .collect();
-        if vals.len() < 2 { continue; }
+        if vals.len() < 2 {
+            continue;
+        }
         let xs: Vec<f64> = vals.iter().map(|v| v.0).collect();
         let ys: Vec<f64> = vals.iter().map(|v| v.1).collect();
         let (slope, _) = linreg(&xs, &ys);
         let avg = ys.iter().sum::<f64>() / ys.len() as f64;
-        println!("  {:>20} {:>4}-{:<4} {:>+12.3} {:>+12.3}",
-            name, y0, y1, avg, slope * 10.0);
+        println!(
+            "  {:>20} {:>4}-{:<4} {:>+12.3} {:>+12.3}",
+            name,
+            y0,
+            y1,
+            avg,
+            slope * 10.0
+        );
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -675,8 +792,10 @@ fn main() {
     sorted.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
     println!("\n  Top 10 warmest years:");
-    println!("  {:>4} {:>6} {:>10} {:>14}",
-        "Rank", "Year", "Anomaly", "Meta-regime");
+    println!(
+        "  {:>4} {:>6} {:>10} {:>14}",
+        "Rank", "Year", "Anomaly", "Meta-regime"
+    );
     println!("  {:-<4} {:-<6} {:-<10} {:-<14}", "", "", "", "");
     for (rank, &(y, a)) in sorted.iter().take(10).enumerate() {
         let idx = year_labels.iter().position(|&yy| yy == y).unwrap_or(0);
@@ -684,13 +803,17 @@ fn main() {
             .filter(|&si| meta_scale_regimes[si][idx])
             .count();
         let regime_label = format!("{}/4 scales", regime_count);
-        println!("  {:>4} {:>6} {:>+10.3}C {:>14}",
-            rank + 1, y, a, regime_label);
+        println!(
+            "  {:>4} {:>6} {:>+10.3}C {:>14}",
+            rank + 1,
+            y,
+            a,
+            regime_label
+        );
     }
 
     println!("\n  Top 10 coldest years:");
-    println!("  {:>4} {:>6} {:>10}",
-        "Rank", "Year", "Anomaly");
+    println!("  {:>4} {:>6} {:>10}", "Rank", "Year", "Anomaly");
     println!("  {:-<4} {:-<6} {:-<10}", "", "", "");
     for (rank, &(y, a)) in sorted.iter().rev().take(10).enumerate() {
         println!("  {:>4} {:>6} {:>+10.3}C", rank + 1, y, a);
@@ -706,21 +829,37 @@ fn main() {
 
     let total_transitions: usize = scale_transitions.iter().map(|t| t.len()).sum();
     let meta_total: usize = meta_transitions.iter().map(|t| t.len()).sum();
-    println!("\n  Data span:              {} years ({}-{})", n,
-        year_labels.first().unwrap(), year_labels.last().unwrap());
+    println!(
+        "\n  Data span:              {} years ({}-{})",
+        n,
+        year_labels.first().unwrap(),
+        year_labels.last().unwrap()
+    );
     println!("  Scales analyzed:        {}", n_scales);
-    println!("  Per-scale transitions:  {} total across all scales", total_transitions);
-    println!("  Meta-graph transitions: {} (cross-scale coherent)", meta_total);
+    println!(
+        "  Per-scale transitions:  {} total across all scales",
+        total_transitions
+    );
+    println!(
+        "  Meta-graph transitions: {} (cross-scale coherent)",
+        meta_total
+    );
     println!("  High-confidence (3+):   {}", high_conf.len());
-    println!("  Total warming:          {:>+.3}C (from {:>+.3}C to {:>+.3}C)",
+    println!(
+        "  Total warming:          {:>+.3}C (from {:>+.3}C to {:>+.3}C)",
         anomalies.last().unwrap() - anomalies.first().unwrap(),
-        anomalies.first().unwrap(), anomalies.last().unwrap());
+        anomalies.first().unwrap(),
+        anomalies.last().unwrap()
+    );
 
     let _ = &all_derivs; // suppress unused warning
     let _ = &all_derivs[0].d3; // ensure jerk is used
 
     println!("\n=========================================================================");
     println!("  Analysis complete. Tipping points detected via Edmonds-Karp min-cut");
-    println!("  across {} scales with cross-scale meta-graph coherence.", n_scales);
+    println!(
+        "  across {} scales with cross-scale meta-graph coherence.",
+        n_scales
+    );
     println!("=========================================================================");
 }

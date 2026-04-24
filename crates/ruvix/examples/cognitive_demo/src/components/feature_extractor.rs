@@ -33,9 +33,7 @@
 
 use super::{Component, ComponentTickResult, KernelInterface, PipelineMessage};
 use crate::{config, PerceptionEvent, Result, VectorEmbedding};
-use ruvix_types::{
-    CapHandle, MsgPriority, ProofTier, QueueHandle, VectorKey, VectorStoreHandle,
-};
+use ruvix_types::{CapHandle, MsgPriority, ProofTier, QueueHandle, VectorKey, VectorStoreHandle};
 use sha2::{Digest, Sha256};
 
 /// FeatureExtractor component for computing embeddings.
@@ -174,12 +172,7 @@ impl FeatureExtractor {
         let proof = kernel.generate_proof(mutation_hash, ProofTier::Reflex);
 
         // Store the vector with proof
-        kernel.vector_put_proved(
-            self.vector_store,
-            embedding.key,
-            &embedding.data,
-            proof,
-        )?;
+        kernel.vector_put_proved(self.vector_store, embedding.key, &embedding.data, proof)?;
 
         self.vectors_stored += 1;
 
@@ -215,11 +208,7 @@ impl FeatureExtractor {
     }
 
     /// Receives events from the input queue and processes them.
-    pub fn receive_and_process(
-        &mut self,
-        kernel: &mut KernelInterface,
-        count: u32,
-    ) -> Result<u32> {
+    pub fn receive_and_process(&mut self, kernel: &mut KernelInterface, count: u32) -> Result<u32> {
         let mut processed = 0;
 
         for _ in 0..count {
@@ -275,7 +264,9 @@ impl Component for FeatureExtractor {
             return Ok(ComponentTickResult::Idle);
         }
 
-        Ok(ComponentTickResult::Processed(self.pending_events.len() as u32))
+        Ok(ComponentTickResult::Processed(
+            self.pending_events.len() as u32
+        ))
     }
 
     fn shutdown(&mut self) -> Result<()> {
@@ -334,8 +325,7 @@ mod tests {
     #[test]
     fn test_embedding_determinism() {
         let extractor = create_extractor();
-        let event = PerceptionEvent::new(1000, 1, 42)
-            .with_data_hash([0xAB; 32]);
+        let event = PerceptionEvent::new(1000, 1, 42).with_data_hash([0xAB; 32]);
 
         let emb1 = extractor.compute_embedding(&event);
         let emb2 = extractor.compute_embedding(&event);
@@ -399,9 +389,6 @@ mod tests {
 
         // Add events
         extractor.queue_event(PerceptionEvent::default());
-        assert_eq!(
-            extractor.tick().unwrap(),
-            ComponentTickResult::Processed(1)
-        );
+        assert_eq!(extractor.tick().unwrap(), ComponentTickResult::Processed(1));
     }
 }

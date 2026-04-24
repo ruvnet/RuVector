@@ -2,13 +2,12 @@
 
 use std::collections::HashMap;
 
-use rvagent_subagents::{
-    prepare_subagent_state, extract_result_message, merge_subagent_state,
-    AgentState, CompiledSubAgent, SubAgentSpec, RvAgentConfig,
-    EXCLUDED_STATE_KEYS,
-};
 use rvagent_subagents::builder::compile_subagents;
-use rvagent_subagents::orchestrator::{SubAgentOrchestrator, spawn_parallel};
+use rvagent_subagents::orchestrator::{spawn_parallel, SubAgentOrchestrator};
+use rvagent_subagents::{
+    extract_result_message, merge_subagent_state, prepare_subagent_state, AgentState,
+    CompiledSubAgent, RvAgentConfig, SubAgentSpec, EXCLUDED_STATE_KEYS,
+};
 
 fn test_config() -> RvAgentConfig {
     RvAgentConfig {
@@ -30,13 +29,22 @@ fn mock_compiled(name: &str) -> CompiledSubAgent {
 
 fn parent_state_with_data() -> AgentState {
     let mut state = AgentState::new();
-    state.insert("messages".into(), serde_json::json!([
-        {"type": "system", "content": "You are helpful."},
-        {"type": "human", "content": "Do something."},
-    ]));
+    state.insert(
+        "messages".into(),
+        serde_json::json!([
+            {"type": "system", "content": "You are helpful."},
+            {"type": "human", "content": "Do something."},
+        ]),
+    );
     state.insert("remaining_steps".into(), serde_json::json!(10));
-    state.insert("task_completion".into(), serde_json::json!({"status": "in_progress"}));
-    state.insert("files".into(), serde_json::json!({"main.rs": "fn main() {}"}));
+    state.insert(
+        "task_completion".into(),
+        serde_json::json!({"status": "in_progress"}),
+    );
+    state.insert(
+        "files".into(),
+        serde_json::json!({"main.rs": "fn main() {}"}),
+    );
     state.insert("custom_data".into(), serde_json::json!("value"));
     state
 }
@@ -66,13 +74,22 @@ fn test_state_isolation() {
     let child = prepare_subagent_state(&parent, "Do a subtask");
 
     // remaining_steps and task_completion should be excluded
-    assert!(!child.contains_key("remaining_steps"), "remaining_steps leaked");
-    assert!(!child.contains_key("task_completion"), "task_completion leaked");
+    assert!(
+        !child.contains_key("remaining_steps"),
+        "remaining_steps leaked"
+    );
+    assert!(
+        !child.contains_key("task_completion"),
+        "task_completion leaked"
+    );
 
     // messages is re-created with the task description, not the parent's messages
     let child_msgs = child.get("messages").unwrap().as_array().unwrap();
     assert_eq!(child_msgs.len(), 1);
-    assert!(child_msgs[0]["content"].as_str().unwrap().contains("subtask"));
+    assert!(child_msgs[0]["content"]
+        .as_str()
+        .unwrap()
+        .contains("subtask"));
 
     // Non-excluded keys should be present
     assert!(child.contains_key("files"));
@@ -82,10 +99,13 @@ fn test_state_isolation() {
 #[test]
 fn test_extract_result_message() {
     let mut state = AgentState::new();
-    state.insert("messages".into(), serde_json::json!([
-        {"type": "ai", "content": "Working..."},
-        {"type": "ai", "content": "Done! Here is the result."}
-    ]));
+    state.insert(
+        "messages".into(),
+        serde_json::json!([
+            {"type": "ai", "content": "Working..."},
+            {"type": "ai", "content": "Done! Here is the result."}
+        ]),
+    );
 
     let result = extract_result_message(&state);
     assert!(result.is_some());
@@ -98,7 +118,10 @@ fn test_merge_preserves_parent_messages() {
     let parent_msgs = parent.get("messages").cloned();
 
     let mut child_result = AgentState::new();
-    child_result.insert("messages".into(), serde_json::json!([{"type": "ai", "content": "child"}]));
+    child_result.insert(
+        "messages".into(),
+        serde_json::json!([{"type": "ai", "content": "child"}]),
+    );
     child_result.insert("new_key".into(), serde_json::json!("from child"));
 
     merge_subagent_state(&mut parent, &child_result);
@@ -106,7 +129,10 @@ fn test_merge_preserves_parent_messages() {
     // Parent messages must not be overwritten
     assert_eq!(parent.get("messages"), parent_msgs.as_ref());
     // New keys from child should be merged
-    assert_eq!(parent.get("new_key"), Some(&serde_json::json!("from child")));
+    assert_eq!(
+        parent.get("new_key"),
+        Some(&serde_json::json!("from child"))
+    );
 }
 
 #[test]

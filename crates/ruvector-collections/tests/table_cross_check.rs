@@ -6,9 +6,7 @@
 //! assert no other prime hides there. This is what makes MR — not the
 //! table — the source of truth.
 
-use ruvector_collections::primality::{
-    is_prime_u64, PRIMES_ABOVE_2K, PRIMES_BELOW_2K,
-};
+use ruvector_collections::primality::{is_prime_u64, PRIMES_ABOVE_2K, PRIMES_BELOW_2K};
 
 /// Iterate odd candidates strictly between `lo` (exclusive) and `hi`
 /// (exclusive), without overflowing `u64`. Used to confirm the prime gap

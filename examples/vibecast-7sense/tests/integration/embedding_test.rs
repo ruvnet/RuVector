@@ -95,7 +95,10 @@ mod embedding_generation {
         let embedding1 = adapter.embed(&audio).unwrap();
         let embedding2 = adapter.embed(&audio).unwrap();
 
-        assert_eq!(embedding1, embedding2, "Same input should produce same output");
+        assert_eq!(
+            embedding1, embedding2,
+            "Same input should produce same output"
+        );
     }
 
     #[test]
@@ -206,7 +209,9 @@ mod normalization {
 
     #[test]
     fn test_batch_normalization() {
-        let vectors: Vec<Vec<f32>> = (0..10).map(|i| create_deterministic_vector(1536, i)).collect();
+        let vectors: Vec<Vec<f32>> = (0..10)
+            .map(|i| create_deterministic_vector(1536, i))
+            .collect();
 
         let normalized: Vec<Vec<f32>> = vectors.iter().map(|v| l2_normalize(v)).collect();
 
@@ -230,8 +235,8 @@ mod quantization {
         let max_val = vector.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
 
         // Use symmetric quantization: map [min, max] to [-127, 127]
-        let scale = (max_val - min_val) / 254.0;  // 254 = 127 - (-127)
-        let zero_point = (min_val + max_val) / 2.0;  // Midpoint of input range
+        let scale = (max_val - min_val) / 254.0; // 254 = 127 - (-127)
+        let zero_point = (min_val + max_val) / 2.0; // Midpoint of input range
 
         let quantized: Vec<i8> = vector
             .iter()
@@ -274,11 +279,7 @@ mod quantization {
             / original.len() as f32;
 
         let rmse = mse.sqrt();
-        assert!(
-            rmse < 0.1,
-            "Reconstruction RMSE {} is too high",
-            rmse
-        );
+        assert!(rmse < 0.1, "Reconstruction RMSE {} is too high", rmse);
     }
 
     #[test]
@@ -390,7 +391,10 @@ mod batch_embedding {
         // Batch embedding with same audio
         let batch = adapter.embed_batch(&vec![audio]).unwrap();
 
-        assert_eq!(single, batch[0], "Single and batch should produce same result");
+        assert_eq!(
+            single, batch[0],
+            "Single and batch should produce same result"
+        );
     }
 
     #[test]
@@ -439,10 +443,7 @@ mod batch_embedding {
         // All should be similar to base
         for emb in &similar {
             let distance = cosine_distance(&base, &emb.vector);
-            assert!(
-                distance < 0.5,
-                "Similar embedding should be close to base"
-            );
+            assert!(distance < 0.5, "Similar embedding should be close to base");
         }
     }
 }

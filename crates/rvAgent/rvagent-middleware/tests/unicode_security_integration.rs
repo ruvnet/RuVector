@@ -3,7 +3,7 @@
 //! Demonstrates comprehensive security checks against Unicode-based attacks.
 
 use rvagent_middleware::{
-    AgentState, Message, Middleware, PipelineConfig, Runtime, RunnableConfig, ToolCall,
+    AgentState, Message, Middleware, PipelineConfig, RunnableConfig, Runtime, ToolCall,
     UnicodeSecurityChecker, UnicodeSecurityConfig, UnicodeSecurityMiddleware,
 };
 
@@ -49,12 +49,9 @@ async fn test_real_world_homoglyph_attack() {
     let issues = checker.check(phishing_url);
 
     // Should detect confusable and homoglyph attack
-    let has_confusable = issues.iter().any(|issue| {
-        matches!(
-            issue,
-            rvagent_middleware::UnicodeIssue::Confusable { .. }
-        )
-    });
+    let has_confusable = issues
+        .iter()
+        .any(|issue| matches!(issue, rvagent_middleware::UnicodeIssue::Confusable { .. }));
     let has_homoglyph = issues.iter().any(|issue| {
         matches!(
             issue,
@@ -141,12 +138,9 @@ async fn test_mixed_script_detection_in_identifiers() {
     let mixed_code = "let userName = 'test'; let userNаme = 'fake';"; // Second has Cyrillic 'а'
     let issues = checker.check(mixed_code);
 
-    let has_mixed = issues.iter().any(|issue| {
-        matches!(
-            issue,
-            rvagent_middleware::UnicodeIssue::MixedScript { .. }
-        )
-    });
+    let has_mixed = issues
+        .iter()
+        .any(|issue| matches!(issue, rvagent_middleware::UnicodeIssue::MixedScript { .. }));
 
     assert!(has_mixed);
 }
@@ -221,7 +215,7 @@ async fn test_comprehensive_attack_scenario() {
     let new_msgs = update.unwrap().messages.unwrap();
     // User message: zero-width stripped
     assert_eq!(new_msgs[0].content, "Visit pаypal.comnow!"); // Confusable remains
-    // Tool message: BiDi stripped
+                                                             // Tool message: BiDi stripped
     assert_eq!(new_msgs[1].content, "Downloaded: eviltxt.exe");
 }
 
@@ -246,11 +240,7 @@ fn test_all_dangerous_bidi_controls() {
         let malicious = format!("safe{}file.txt", bidi);
         let issues = checker.check(&malicious);
 
-        assert!(
-            !issues.is_empty(),
-            "{} control should be detected",
-            name
-        );
+        assert!(!issues.is_empty(), "{} control should be detected", name);
         assert!(
             !checker.is_safe(&malicious),
             "{} should fail safety check",
@@ -293,27 +283,20 @@ fn test_cyrillic_latin_confusables() {
 
     // Common phishing targets
     let phishing_domains = vec![
-        "pаypal.com",  // Cyrillic 'а'
-        "googlе.com",  // Cyrillic 'е'
-        "аpple.com",   // Cyrillic 'а'
+        "pаypal.com",    // Cyrillic 'а'
+        "googlе.com",    // Cyrillic 'е'
+        "аpple.com",     // Cyrillic 'а'
         "micrоsoft.com", // Cyrillic 'о'
     ];
 
     for domain in phishing_domains {
         let issues = checker.check(domain);
 
-        let has_confusable = issues.iter().any(|issue| {
-            matches!(
-                issue,
-                rvagent_middleware::UnicodeIssue::Confusable { .. }
-            )
-        });
+        let has_confusable = issues
+            .iter()
+            .any(|issue| matches!(issue, rvagent_middleware::UnicodeIssue::Confusable { .. }));
 
-        assert!(
-            has_confusable,
-            "Should detect confusable in '{}'",
-            domain
-        );
+        assert!(has_confusable, "Should detect confusable in '{}'", domain);
     }
 }
 
@@ -377,11 +360,8 @@ fn test_config_strict_vs_permissive() {
 
     // Permissive should only detect zero-width (BiDi and zero-width always checked)
     let permissive_issues = permissive.check(text);
-    let has_confusable = permissive_issues.iter().any(|issue| {
-        matches!(
-            issue,
-            rvagent_middleware::UnicodeIssue::Confusable { .. }
-        )
-    });
+    let has_confusable = permissive_issues
+        .iter()
+        .any(|issue| matches!(issue, rvagent_middleware::UnicodeIssue::Confusable { .. }));
     assert!(!has_confusable); // Should not check confusables
 }

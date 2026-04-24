@@ -88,11 +88,7 @@ pub struct RuVectorEmbeddings {
 impl RuVectorEmbeddings {
     /// Create a new RuVector index with the given embedder
     #[instrument(skip_all)]
-    pub fn new(
-        name: impl Into<String>,
-        embedder: Embedder,
-        config: IndexConfig,
-    ) -> Result<Self> {
+    pub fn new(name: impl Into<String>, embedder: Embedder, config: IndexConfig) -> Result<Self> {
         let name = name.into();
         let dimension = embedder.dimension();
 
@@ -116,11 +112,7 @@ impl RuVectorEmbeddings {
 
     /// Insert a single text with optional metadata
     #[instrument(skip(self, text, metadata), fields(text_len = text.len()))]
-    pub fn insert(
-        &self,
-        text: &str,
-        metadata: Option<serde_json::Value>,
-    ) -> Result<VectorId> {
+    pub fn insert(&self, text: &str, metadata: Option<serde_json::Value>) -> Result<VectorId> {
         let embedding = self.embedder.write().embed_one(text)?;
         self.insert_with_embedding(text, embedding, metadata)
     }
@@ -391,15 +383,19 @@ impl RuVectorEmbeddings {
         self.entries
             .read()
             .iter()
-            .map(|e| (e.id.clone(), e.text.clone(), e.vector.clone(), e.metadata.clone()))
+            .map(|e| {
+                (
+                    e.id.clone(),
+                    e.text.clone(),
+                    e.vector.clone(),
+                    e.metadata.clone(),
+                )
+            })
             .collect()
     }
 
     /// Import entries (for loading from persistence)
-    pub fn import(
-        &self,
-        entries: Vec<(VectorId, String, Vec<f32>, Option<serde_json::Value>)>,
-    ) {
+    pub fn import(&self, entries: Vec<(VectorId, String, Vec<f32>, Option<serde_json::Value>)>) {
         let stored: Vec<StoredEntry> = entries
             .into_iter()
             .map(|(id, text, vector, metadata)| StoredEntry {

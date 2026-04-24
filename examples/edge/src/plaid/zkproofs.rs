@@ -143,9 +143,7 @@ impl PedersenCommitment {
         let hash = hasher.finalize();
         point.copy_from_slice(&hash[..32]);
 
-        Commitment {
-            point,
-        }
+        Commitment { point }
     }
 
     /// Generate random blinding factor
@@ -257,7 +255,11 @@ impl RangeProof {
             valid,
             statement: proof.public_inputs.statement.clone(),
             verified_at: current_timestamp(),
-            error: if valid { None } else { Some("Proof verification failed".to_string()) },
+            error: if valid {
+                None
+            } else {
+                Some("Proof verification failed".to_string())
+            },
         }
     }
 
@@ -288,12 +290,7 @@ impl RangeProof {
     }
 
     // Simplified bulletproof verification
-    fn verify_bulletproof(
-        proof_data: &[u8],
-        commitment: &Commitment,
-        min: u64,
-        max: u64,
-    ) -> bool {
+    fn verify_bulletproof(proof_data: &[u8], commitment: &Commitment, min: u64, max: u64) -> bool {
         let range = max - min;
         let bits = (64 - range.leading_zeros()) as usize;
 
@@ -382,14 +379,10 @@ impl FinancialProofBuilder {
         let avg_income = self.income.iter().sum::<u64>() / self.income.len().max(1) as u64;
 
         let blinding = self.get_or_create_blinding("income");
-        RangeProof::prove(avg_income, threshold, u64::MAX / 2, &blinding)
-            .map(|mut p| {
-                p.public_inputs.statement = format!(
-                    "Average monthly income ≥ ${}",
-                    threshold
-                );
-                p
-            })
+        RangeProof::prove(avg_income, threshold, u64::MAX / 2, &blinding).map(|mut p| {
+            p.public_inputs.statement = format!("Average monthly income ≥ ${}", threshold);
+            p
+        })
     }
 
     /// Prove: income ≥ multiplier × rent (affordability)
@@ -404,16 +397,13 @@ impl FinancialProofBuilder {
         let blinding = self.get_or_create_blinding("affordability");
 
         // Prove income ≥ required
-        RangeProof::prove(avg_income, required, u64::MAX / 2, &blinding)
-            .map(|mut p| {
-                p.proof_type = ProofType::Affordability;
-                p.public_inputs.statement = format!(
-                    "Income ≥ {}× monthly rent of ${}",
-                    multiplier, rent
-                );
-                p.public_inputs.bounds = vec![rent, multiplier];
-                p
-            })
+        RangeProof::prove(avg_income, required, u64::MAX / 2, &blinding).map(|mut p| {
+            p.proof_type = ProofType::Affordability;
+            p.public_inputs.statement =
+                format!("Income ≥ {}× monthly rent of ${}", multiplier, rent);
+            p.public_inputs.bounds = vec![rent, multiplier];
+            p
+        })
     }
 
     /// Prove: no overdrafts (all balances ≥ 0) for N days
@@ -433,16 +423,12 @@ impl FinancialProofBuilder {
         let blinding = self.get_or_create_blinding("no_overdraft");
 
         // Prove minimum balance ≥ 0
-        RangeProof::prove(min_balance as u64, 0, u64::MAX / 2, &blinding)
-            .map(|mut p| {
-                p.proof_type = ProofType::NonNegative;
-                p.public_inputs.statement = format!(
-                    "No overdrafts in the past {} days",
-                    days
-                );
-                p.public_inputs.bounds = vec![days as u64, 0];
-                p
-            })
+        RangeProof::prove(min_balance as u64, 0, u64::MAX / 2, &blinding).map(|mut p| {
+            p.proof_type = ProofType::NonNegative;
+            p.public_inputs.statement = format!("No overdrafts in the past {} days", days);
+            p.public_inputs.bounds = vec![days as u64, 0];
+            p
+        })
     }
 
     /// Prove: savings ≥ threshold
@@ -455,23 +441,19 @@ impl FinancialProofBuilder {
 
         let blinding = self.get_or_create_blinding("savings");
 
-        RangeProof::prove(current_balance as u64, threshold, u64::MAX / 2, &blinding)
-            .map(|mut p| {
-                p.public_inputs.statement = format!(
-                    "Current savings ≥ ${}",
-                    threshold
-                );
+        RangeProof::prove(current_balance as u64, threshold, u64::MAX / 2, &blinding).map(
+            |mut p| {
+                p.public_inputs.statement = format!("Current savings ≥ ${}", threshold);
                 p
-            })
+            },
+        )
     }
 
     /// Prove: average spending in category ≤ budget
-    pub fn prove_budget_compliance(
-        &self,
-        category: &str,
-        budget: u64,
-    ) -> Result<ZkProof, String> {
-        let expenses = self.expenses.get(category)
+    pub fn prove_budget_compliance(&self, category: &str, budget: u64) -> Result<ZkProof, String> {
+        let expenses = self
+            .expenses
+            .get(category)
             .ok_or_else(|| format!("No data for category: {}", category))?;
 
         let avg_spending = expenses.iter().sum::<u64>() / expenses.len().max(1) as u64;
@@ -483,15 +465,12 @@ impl FinancialProofBuilder {
         let blinding = self.get_or_create_blinding(&format!("budget_{}", category));
 
         // Prove spending ≤ budget (equivalent to: spending ∈ [0, budget])
-        RangeProof::prove(avg_spending, 0, budget, &blinding)
-            .map(|mut p| {
-                p.proof_type = ProofType::SumBound;
-                p.public_inputs.statement = format!(
-                    "Average {} spending ≤ ${}/month",
-                    category, budget
-                );
-                p
-            })
+        RangeProof::prove(avg_spending, 0, budget, &blinding).map(|mut p| {
+            p.proof_type = ProofType::SumBound;
+            p.public_inputs.statement =
+                format!("Average {} spending ≤ ${}/month", category, budget);
+            p
+        })
     }
 
     /// Prove: debt-to-income ratio ≤ threshold%
@@ -507,14 +486,10 @@ impl FinancialProofBuilder {
 
         let blinding = self.get_or_create_blinding("debt_ratio");
 
-        RangeProof::prove(actual_ratio, 0, max_ratio, &blinding)
-            .map(|mut p| {
-                p.public_inputs.statement = format!(
-                    "Debt-to-income ratio ≤ {}%",
-                    max_ratio
-                );
-                p
-            })
+        RangeProof::prove(actual_ratio, 0, max_ratio, &blinding).map(|mut p| {
+            p.public_inputs.statement = format!("Debt-to-income ratio ≤ {}%", max_ratio);
+            p
+        })
     }
 
     // ========================================================================
@@ -659,8 +634,7 @@ mod tests {
 
     #[test]
     fn test_income_proof() {
-        let builder = FinancialProofBuilder::new()
-            .with_income(vec![6500, 6500, 6800, 6500]); // ~$6500/month
+        let builder = FinancialProofBuilder::new().with_income(vec![6500, 6500, 6800, 6500]); // ~$6500/month
 
         // Prove income ≥ $5000
         let proof = builder.prove_income_above(5000).unwrap();
@@ -672,8 +646,7 @@ mod tests {
 
     #[test]
     fn test_affordability_proof() {
-        let builder = FinancialProofBuilder::new()
-            .with_income(vec![6500, 6500, 6500, 6500]);
+        let builder = FinancialProofBuilder::new().with_income(vec![6500, 6500, 6500, 6500]);
 
         // Prove can afford $2000 rent (need 3x = $6000)
         let proof = builder.prove_affordability(2000, 3).unwrap();
@@ -684,8 +657,8 @@ mod tests {
 
     #[test]
     fn test_no_overdraft_proof() {
-        let builder = FinancialProofBuilder::new()
-            .with_balances(vec![1000, 800, 1200, 500, 900, 1100, 1500]);
+        let builder =
+            FinancialProofBuilder::new().with_balances(vec![1000, 800, 1200, 500, 900, 1100, 1500]);
 
         let proof = builder.prove_no_overdrafts(7).unwrap();
         let result = RangeProof::verify(&proof);
@@ -701,11 +674,12 @@ mod tests {
 
         let application = RentalApplicationProof::create(
             &builder,
-            2000,  // rent
-            3,     // income multiplier
-            30,    // stability days
+            2000,    // rent
+            3,       // income multiplier
+            30,      // stability days
             Some(2), // 2 months savings
-        ).unwrap();
+        )
+        .unwrap();
 
         assert!(application.is_valid());
     }

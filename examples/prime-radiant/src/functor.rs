@@ -10,7 +10,7 @@
 //! 1. F(id_A) = id_{F(A)} (preserves identities)
 //! 2. F(g . f) = F(g) . F(f) (preserves composition)
 
-use crate::category::{Category, Object, ObjectData, Morphism, MorphismData};
+use crate::category::{Category, Morphism, MorphismData, Object, ObjectData};
 use crate::{CategoryError, Result};
 use std::fmt::Debug;
 use std::marker::PhantomData;

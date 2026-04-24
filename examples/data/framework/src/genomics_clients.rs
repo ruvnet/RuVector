@@ -374,9 +374,8 @@ impl NcbiClient {
                     continue;
                 }
 
-                let gene_names: Vec<String> = summary.genes.iter()
-                    .map(|g| g.name.clone())
-                    .collect();
+                let gene_names: Vec<String> =
+                    summary.genes.iter().map(|g| g.name.clone()).collect();
 
                 let text = format!(
                     "SNP rs{} chromosome {} position {} function {} genes {}",
@@ -604,7 +603,10 @@ impl UniProtClient {
 
         let text = format!(
             "{} {} {} {}",
-            protein_name, organism, gene_names.join(","), function_text
+            protein_name,
+            organism,
+            gene_names.join(","),
+            function_text
         );
         let embedding = self.embedder.embed_text(&text);
 
@@ -752,7 +754,10 @@ impl EnsemblClient {
     /// # Arguments
     /// * `gene_id` - Ensembl gene ID (e.g., "ENSG00000157764" for BRAF)
     pub async fn get_gene_info(&self, gene_id: &str) -> Result<Option<SemanticVector>> {
-        let url = format!("{}/lookup/id/{}?content-type=application/json", self.base_url, gene_id);
+        let url = format!(
+            "{}/lookup/id/{}?content-type=application/json",
+            self.base_url, gene_id
+        );
 
         sleep(self.rate_limit_delay).await;
         let response = self.fetch_with_retry(&url).await?;
@@ -1020,7 +1025,9 @@ impl GwasClient {
         let mut vectors = Vec::new();
         if let Some(embedded) = assoc_response.embedded {
             for assoc in embedded.associations {
-                let genes: Vec<String> = assoc.loci.iter()
+                let genes: Vec<String> = assoc
+                    .loci
+                    .iter()
                     .map(|l| l.authorReportedGene.clone())
                     .collect();
 
@@ -1044,7 +1051,10 @@ impl GwasClient {
                 metadata.insert("source".to_string(), "gwas_catalog".to_string());
 
                 vectors.push(SemanticVector {
-                    id: format!("GWAS:{}_{}_{}", assoc.chromosomeName, assoc.chromosomePosition, assoc.pvalue),
+                    id: format!(
+                        "GWAS:{}_{}_{}",
+                        assoc.chromosomeName, assoc.chromosomePosition, assoc.pvalue
+                    ),
                     embedding,
                     domain: Domain::Genomics,
                     timestamp: Utc::now(),

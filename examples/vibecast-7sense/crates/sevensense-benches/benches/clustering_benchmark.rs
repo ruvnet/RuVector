@@ -6,9 +6,7 @@
 //! - Motif detection in audio sequences
 //! - Centroid computation and updates
 
-use criterion::{
-    black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
-};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
@@ -329,9 +327,13 @@ fn benchmark_cluster_assignment(c: &mut Criterion) {
         let embeddings = generate_random_vectors(batch_size, PERCH_EMBEDDING_DIM);
 
         group.throughput(Throughput::Elements(batch_size as u64));
-        group.bench_with_input(BenchmarkId::new("batch", batch_size), &batch_size, |b, _| {
-            b.iter(|| black_box(assigner.batch_assign(&embeddings)));
-        });
+        group.bench_with_input(
+            BenchmarkId::new("batch", batch_size),
+            &batch_size,
+            |b, _| {
+                b.iter(|| black_box(assigner.batch_assign(&embeddings)));
+            },
+        );
     }
 
     group.finish();
@@ -396,9 +398,7 @@ fn benchmark_centroid_update(c: &mut Criterion) {
     let cluster_size = 1000;
     let cluster_embeddings = generate_random_vectors(cluster_size, PERCH_EMBEDDING_DIM);
     let initial_centroid: Vec<f32> = (0..PERCH_EMBEDDING_DIM)
-        .map(|d| {
-            cluster_embeddings.iter().map(|e| e[d]).sum::<f32>() / cluster_size as f32
-        })
+        .map(|d| cluster_embeddings.iter().map(|e| e[d]).sum::<f32>() / cluster_size as f32)
         .collect();
 
     // New embedding to add
@@ -438,9 +438,13 @@ fn benchmark_motif_detection(c: &mut Criterion) {
         let mut embeddings = generate_clustered_vectors(seq_length, PERCH_EMBEDDING_DIM, 10, 0.05);
 
         group.throughput(Throughput::Elements(seq_length as u64));
-        group.bench_with_input(BenchmarkId::new("seq_length", seq_length), &seq_length, |b, _| {
-            b.iter(|| black_box(detector.detect_motifs(&embeddings)));
-        });
+        group.bench_with_input(
+            BenchmarkId::new("seq_length", seq_length),
+            &seq_length,
+            |b, _| {
+                b.iter(|| black_box(detector.detect_motifs(&embeddings)));
+            },
+        );
     }
 
     group.finish();

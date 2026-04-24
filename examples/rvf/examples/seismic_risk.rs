@@ -18,43 +18,72 @@ fn solve_mincut(lam: &[f64], edges: &[(usize, usize, f64)], gamma: f64) -> Vec<b
     let (s, t, n) = (m, m + 1, m + 2);
     let mut adj: Vec<Vec<(usize, usize)>> = vec![Vec::new(); n];
     let mut caps: Vec<f64> = Vec::new();
-    let add = |adj: &mut Vec<Vec<(usize, usize)>>, caps: &mut Vec<f64>, u: usize, v: usize, c: f64| {
-        let i = caps.len();
-        caps.push(c); caps.push(0.0);
-        adj[u].push((v, i)); adj[v].push((u, i + 1));
-    };
+    let add =
+        |adj: &mut Vec<Vec<(usize, usize)>>, caps: &mut Vec<f64>, u: usize, v: usize, c: f64| {
+            let i = caps.len();
+            caps.push(c);
+            caps.push(0.0);
+            adj[u].push((v, i));
+            adj[v].push((u, i + 1));
+        };
     for i in 0..m {
         let (p0, p1) = (lam[i].max(0.0), (-lam[i]).max(0.0));
-        if p0 > 1e-12 { add(&mut adj, &mut caps, s, i, p0); }
-        if p1 > 1e-12 { add(&mut adj, &mut caps, i, t, p1); }
+        if p0 > 1e-12 {
+            add(&mut adj, &mut caps, s, i, p0);
+        }
+        if p1 > 1e-12 {
+            add(&mut adj, &mut caps, i, t, p1);
+        }
     }
     for &(f, to, w) in edges {
         let c = gamma * w;
-        if c > 1e-12 { add(&mut adj, &mut caps, f, to, c); }
+        if c > 1e-12 {
+            add(&mut adj, &mut caps, f, to, c);
+        }
     }
     loop {
         let mut par: Vec<Option<(usize, usize)>> = vec![None; n];
         let mut vis = vec![false; n];
         let mut q = VecDeque::new();
-        vis[s] = true; q.push_back(s);
+        vis[s] = true;
+        q.push_back(s);
         while let Some(u) = q.pop_front() {
-            if u == t { break; }
+            if u == t {
+                break;
+            }
             for &(v, ei) in &adj[u] {
                 if !vis[v] && caps[ei] > 1e-15 {
-                    vis[v] = true; par[v] = Some((u, ei)); q.push_back(v);
+                    vis[v] = true;
+                    par[v] = Some((u, ei));
+                    q.push_back(v);
                 }
             }
         }
-        if !vis[t] { break; }
-        let mut bn = f64::MAX; let mut v = t;
-        while let Some((_, ei)) = par[v] { bn = bn.min(caps[ei]); v = par[v].unwrap().0; }
+        if !vis[t] {
+            break;
+        }
+        let mut bn = f64::MAX;
+        let mut v = t;
+        while let Some((_, ei)) = par[v] {
+            bn = bn.min(caps[ei]);
+            v = par[v].unwrap().0;
+        }
         v = t;
-        while let Some((u, ei)) = par[v] { caps[ei] -= bn; caps[ei ^ 1] += bn; v = u; }
+        while let Some((u, ei)) = par[v] {
+            caps[ei] -= bn;
+            caps[ei ^ 1] += bn;
+            v = u;
+        }
     }
-    let mut reach = vec![false; n]; let mut stk = vec![s]; reach[s] = true;
+    let mut reach = vec![false; n];
+    let mut stk = vec![s];
+    reach[s] = true;
     while let Some(u) = stk.pop() {
         for &(v, ei) in &adj[u] {
-            if !reach[v] && caps[ei] > 1e-15 { reach[v] = true; stk.push(v); }
+            if !reach[v] && caps[ei] > 1e-15 {
+                reach[v] = true;
+                stk.push(v);
+            }
         }
     }
     (0..m).map(|i| reach[i]).collect()
@@ -62,11 +91,17 @@ fn solve_mincut(lam: &[f64], edges: &[(usize, usize, f64)], gamma: f64) -> Vec<b
 
 // ── CSV helpers ─────────────────────────────────────────────────────────────
 
-fn parse_csv_field(s: &str) -> &str { s.trim().trim_matches('"') }
+fn parse_csv_field(s: &str) -> &str {
+    s.trim().trim_matches('"')
+}
 
 fn parse_f64(s: &str) -> Option<f64> {
     let v = parse_csv_field(s);
-    if v.is_empty() { None } else { v.parse().ok() }
+    if v.is_empty() {
+        None
+    } else {
+        v.parse().ok()
+    }
 }
 
 fn split_csv_line(line: &str) -> Vec<String> {
@@ -74,9 +109,14 @@ fn split_csv_line(line: &str) -> Vec<String> {
     let mut cur = String::new();
     let mut in_q = false;
     for ch in line.chars() {
-        if ch == '"' { in_q = !in_q; }
-        else if ch == ',' && !in_q { fields.push(cur.clone()); cur.clear(); }
-        else { cur.push(ch); }
+        if ch == '"' {
+            in_q = !in_q;
+        } else if ch == ',' && !in_q {
+            fields.push(cur.clone());
+            cur.clear();
+        } else {
+            cur.push(ch);
+        }
     }
     fields.push(cur);
     fields
@@ -117,9 +157,9 @@ struct CellStats {
     a_value: f64,
     b_value: f64,
     energy_joules: f64,
-    shallow: usize,   // < 70 km
+    shallow: usize,      // < 70 km
     intermediate: usize, // 70-300 km
-    deep: usize,       // > 300 km
+    deep: usize,         // > 300 km
     representative_place: String,
 }
 
@@ -157,15 +197,35 @@ fn main() {
     let mut quakes = Vec::new();
     for line in data.lines().skip(1) {
         let f = split_csv_line(line);
-        if f.len() < 15 { continue; }
-        let lat = match parse_f64(&f[1]) { Some(v) => v, _ => continue };
-        let lon = match parse_f64(&f[2]) { Some(v) => v, _ => continue };
+        if f.len() < 15 {
+            continue;
+        }
+        let lat = match parse_f64(&f[1]) {
+            Some(v) => v,
+            _ => continue,
+        };
+        let lon = match parse_f64(&f[2]) {
+            Some(v) => v,
+            _ => continue,
+        };
         let depth = parse_f64(&f[3]).unwrap_or(10.0);
-        let mag = match parse_f64(&f[4]) { Some(v) => v, _ => continue };
+        let mag = match parse_f64(&f[4]) {
+            Some(v) => v,
+            _ => continue,
+        };
         let place = parse_csv_field(&f[13]).to_string();
-        quakes.push(Quake { lat, lon, depth, mag, place });
+        quakes.push(Quake {
+            lat,
+            lon,
+            depth,
+            mag,
+            place,
+        });
     }
-    println!("\n  Parsed {} earthquakes from USGS catalog\n", quakes.len());
+    println!(
+        "\n  Parsed {} earthquakes from USGS catalog\n",
+        quakes.len()
+    );
 
     // ── 1. Spatial grid binning (2-degree cells) ────────────────────────────
     println!("{}", "=".repeat(70));
@@ -193,7 +253,9 @@ fn main() {
     let mut cells: Vec<CellStats> = Vec::new();
 
     for (&key, indices) in &cell_quakes {
-        if indices.len() < 5 { continue; }
+        if indices.len() < 5 {
+            continue;
+        }
 
         let magnitudes: Vec<f64> = indices.iter().map(|&i| quakes[i].mag).collect();
         let depths: Vec<f64> = indices.iter().map(|&i| quakes[i].depth).collect();
@@ -211,7 +273,8 @@ fn main() {
         let a_value = (n as f64 * 12.0).log10();
 
         // Seismic energy budget: sum of 10^(1.5*M + 4.8) joules
-        let energy_joules: f64 = magnitudes.iter()
+        let energy_joules: f64 = magnitudes
+            .iter()
             .map(|&m| 10.0_f64.powf(1.5 * m + 4.8))
             .sum();
 
@@ -221,7 +284,8 @@ fn main() {
         let deep = depths.iter().filter(|&&d| d > 300.0).count();
 
         // Representative place name (from strongest event in cell)
-        let strongest_idx = indices.iter()
+        let strongest_idx = indices
+            .iter()
             .max_by(|&&a, &&b| quakes[a].mag.partial_cmp(&quakes[b].mag).unwrap())
             .copied()
             .unwrap_or(indices[0]);
@@ -248,28 +312,43 @@ fn main() {
     // Global b-value statistics
     let b_values: Vec<f64> = cells.iter().map(|c| c.b_value).collect();
     let b_mean = b_values.iter().sum::<f64>() / b_values.len() as f64;
-    let b_std = (b_values.iter().map(|b| (b - b_mean).powi(2)).sum::<f64>()
-        / b_values.len() as f64).sqrt();
+    let b_std =
+        (b_values.iter().map(|b| (b - b_mean).powi(2)).sum::<f64>() / b_values.len() as f64).sqrt();
 
     println!("  Global b-value statistics across {} cells:", cells.len());
     println!("    Mean b-value:  {:.3}", b_mean);
     println!("    Std dev:       {:.3}", b_std);
-    println!("    Range:         {:.3} — {:.3}",
+    println!(
+        "    Range:         {:.3} — {:.3}",
         b_values.iter().cloned().fold(f64::MAX, f64::min),
-        b_values.iter().cloned().fold(f64::MIN, f64::max));
+        b_values.iter().cloned().fold(f64::MIN, f64::max)
+    );
     println!("    Expected (tectonic): ~1.0 (Gutenberg & Richter 1944)");
 
     println!("\n  Top-15 cells by event count:");
-    println!("  {:>6} {:>6} {:>5} {:>6} {:>6} {:>10} {:>4}/{:>4}/{:>4}  {:<35}",
-        "Lat", "Lon", "N", "b-val", "a-val", "Energy(J)", "S", "I", "D", "Location");
-    println!("  {:-<6} {:-<6} {:-<5} {:-<6} {:-<6} {:-<10} {:-<4} {:-<4} {:-<4}  {:-<35}",
-        "", "", "", "", "", "", "", "", "", "");
+    println!(
+        "  {:>6} {:>6} {:>5} {:>6} {:>6} {:>10} {:>4}/{:>4}/{:>4}  {:<35}",
+        "Lat", "Lon", "N", "b-val", "a-val", "Energy(J)", "S", "I", "D", "Location"
+    );
+    println!(
+        "  {:-<6} {:-<6} {:-<5} {:-<6} {:-<6} {:-<10} {:-<4} {:-<4} {:-<4}  {:-<35}",
+        "", "", "", "", "", "", "", "", "", ""
+    );
     for c in cells.iter().take(15) {
         let (clat, clon) = cell_center(&c.key);
-        println!("  {:>6.1} {:>6.1} {:>5} {:>6.3} {:>6.2} {:>10.2e} {:>4}/{:>4}/{:>4}  {:<35}",
-            clat, clon, c.event_count, c.b_value, c.a_value, c.energy_joules,
-            c.shallow, c.intermediate, c.deep,
-            &c.representative_place[..c.representative_place.len().min(35)]);
+        println!(
+            "  {:>6.1} {:>6.1} {:>5} {:>6.3} {:>6.2} {:>10.2e} {:>4}/{:>4}/{:>4}  {:<35}",
+            clat,
+            clon,
+            c.event_count,
+            c.b_value,
+            c.a_value,
+            c.energy_joules,
+            c.shallow,
+            c.intermediate,
+            c.deep,
+            &c.representative_place[..c.representative_place.len().min(35)]
+        );
     }
 
     // ── 3. Tectonic neighborhood graph ──────────────────────────────────────
@@ -278,8 +357,8 @@ fn main() {
     println!("{}\n", "=".repeat(70));
 
     // Build cell index for adjacency lookups
-    let _cell_index: HashMap<CellKey, usize> = cells.iter().enumerate()
-        .map(|(i, c)| (c.key, i)).collect();
+    let _cell_index: HashMap<CellKey, usize> =
+        cells.iter().enumerate().map(|(i, c)| (c.key, i)).collect();
 
     let nc = cells.len();
     let mut graph_edges: Vec<(usize, usize, f64)> = Vec::new();
@@ -306,64 +385,86 @@ fn main() {
         }
     }
 
-    println!("  Graph: {} cells, {} directed edges", nc, graph_edges.len());
-    let avg_degree = if nc > 0 { graph_edges.len() as f64 / nc as f64 } else { 0.0 };
+    println!(
+        "  Graph: {} cells, {} directed edges",
+        nc,
+        graph_edges.len()
+    );
+    let avg_degree = if nc > 0 {
+        graph_edges.len() as f64 / nc as f64
+    } else {
+        0.0
+    };
     println!("  Average degree: {:.1}", avg_degree);
 
     // ── Compute lambda: combined z-score of (a, b) relative to neighbors ──
 
     let a_values: Vec<f64> = cells.iter().map(|c| c.a_value).collect();
     let a_mean = a_values.iter().sum::<f64>() / a_values.len() as f64;
-    let a_std = (a_values.iter().map(|a| (a - a_mean).powi(2)).sum::<f64>()
-        / a_values.len() as f64).sqrt();
+    let a_std =
+        (a_values.iter().map(|a| (a - a_mean).powi(2)).sum::<f64>() / a_values.len() as f64).sqrt();
 
     // Build neighbor lists for local statistics
     let mut neighbors: Vec<Vec<usize>> = vec![Vec::new(); nc];
     for &(i, j, _) in &graph_edges {
-        if !neighbors[i].contains(&j) { neighbors[i].push(j); }
+        if !neighbors[i].contains(&j) {
+            neighbors[i].push(j);
+        }
     }
 
-    let lam: Vec<f64> = (0..nc).map(|i| {
-        let b = cells[i].b_value;
-        let a = cells[i].a_value;
+    let lam: Vec<f64> = (0..nc)
+        .map(|i| {
+            let b = cells[i].b_value;
+            let a = cells[i].a_value;
 
-        // Global z-scores
-        let b_z = (b - b_mean) / b_std.max(1e-6);
-        let a_z = (a - a_mean) / a_std.max(1e-6);
+            // Global z-scores
+            let b_z = (b - b_mean) / b_std.max(1e-6);
+            let a_z = (a - a_mean) / a_std.max(1e-6);
 
-        // Local z-scores relative to neighbors
-        let (local_b_z, local_a_z) = if neighbors[i].len() >= 2 {
-            let nb: Vec<f64> = neighbors[i].iter().map(|&j| cells[j].b_value).collect();
-            let na: Vec<f64> = neighbors[i].iter().map(|&j| cells[j].a_value).collect();
-            let nb_mean = nb.iter().sum::<f64>() / nb.len() as f64;
-            let nb_std = (nb.iter().map(|v| (v - nb_mean).powi(2)).sum::<f64>()
-                / nb.len() as f64).sqrt();
-            let na_mean = na.iter().sum::<f64>() / na.len() as f64;
-            let na_std = (na.iter().map(|v| (v - na_mean).powi(2)).sum::<f64>()
-                / na.len() as f64).sqrt();
-            (
-                (b - nb_mean) / nb_std.max(1e-6),
-                (a - na_mean) / na_std.max(1e-6),
-            )
-        } else {
-            (b_z, a_z)
-        };
+            // Local z-scores relative to neighbors
+            let (local_b_z, local_a_z) = if neighbors[i].len() >= 2 {
+                let nb: Vec<f64> = neighbors[i].iter().map(|&j| cells[j].b_value).collect();
+                let na: Vec<f64> = neighbors[i].iter().map(|&j| cells[j].a_value).collect();
+                let nb_mean = nb.iter().sum::<f64>() / nb.len() as f64;
+                let nb_std = (nb.iter().map(|v| (v - nb_mean).powi(2)).sum::<f64>()
+                    / nb.len() as f64)
+                    .sqrt();
+                let na_mean = na.iter().sum::<f64>() / na.len() as f64;
+                let na_std = (na.iter().map(|v| (v - na_mean).powi(2)).sum::<f64>()
+                    / na.len() as f64)
+                    .sqrt();
+                (
+                    (b - nb_mean) / nb_std.max(1e-6),
+                    (a - na_mean) / na_std.max(1e-6),
+                )
+            } else {
+                (b_z, a_z)
+            };
 
-        // Combined anomaly: weight local more than global
-        let combined = (local_b_z.abs() + local_a_z.abs()) * 0.6
-            + (b_z.abs() + a_z.abs()) * 0.4;
+            // Combined anomaly: weight local more than global
+            let combined =
+                (local_b_z.abs() + local_a_z.abs()) * 0.6 + (b_z.abs() + a_z.abs()) * 0.4;
 
-        // Boost for scientifically interesting b-value ranges
-        let b_anomaly_boost = if b < 0.7 { 1.5 } // large-quake-prone
-            else if b > 1.3 { 1.2 } // swarm/induced
-            else { 0.0 };
+            // Boost for scientifically interesting b-value ranges
+            let b_anomaly_boost = if b < 0.7 {
+                1.5
+            }
+            // large-quake-prone
+            else if b > 1.3 {
+                1.2
+            }
+            // swarm/induced
+            else {
+                0.0
+            };
 
-        // Energy concentration bonus
-        let log_energy = cells[i].energy_joules.log10();
-        let energy_bonus = if log_energy > 14.0 { 0.5 } else { 0.0 };
+            // Energy concentration bonus
+            let log_energy = cells[i].energy_joules.log10();
+            let energy_bonus = if log_energy > 14.0 { 0.5 } else { 0.0 };
 
-        combined / 2.0 + b_anomaly_boost + energy_bonus - 1.5
-    }).collect();
+            combined / 2.0 + b_anomaly_boost + energy_bonus - 1.5
+        })
+        .collect();
 
     // ── 4. Min-cut segmentation ─────────────────────────────────────────────
     println!("\n{}", "=".repeat(70));
@@ -372,8 +473,16 @@ fn main() {
 
     let flagged = solve_mincut(&lam, &graph_edges, 0.4);
     let n_flagged = flagged.iter().filter(|&&x| x).count();
-    println!("  Graph-cut flagged {} / {} cells as anomalous ({:.1}%)\n",
-        n_flagged, nc, if nc > 0 { n_flagged as f64 / nc as f64 * 100.0 } else { 0.0 });
+    println!(
+        "  Graph-cut flagged {} / {} cells as anomalous ({:.1}%)\n",
+        n_flagged,
+        nc,
+        if nc > 0 {
+            n_flagged as f64 / nc as f64 * 100.0
+        } else {
+            0.0
+        }
+    );
 
     // Categorize flagged cells
     let mut low_b: Vec<usize> = Vec::new();
@@ -381,24 +490,46 @@ fn main() {
     let mut high_energy: Vec<usize> = Vec::new();
 
     for i in 0..nc {
-        if !flagged[i] { continue; }
-        if cells[i].b_value < 0.7 { low_b.push(i); }
-        if cells[i].b_value > 1.3 { high_b.push(i); }
-        if cells[i].energy_joules.log10() > 14.0 { high_energy.push(i); }
+        if !flagged[i] {
+            continue;
+        }
+        if cells[i].b_value < 0.7 {
+            low_b.push(i);
+        }
+        if cells[i].b_value > 1.3 {
+            high_b.push(i);
+        }
+        if cells[i].energy_joules.log10() > 14.0 {
+            high_energy.push(i);
+        }
     }
 
     println!("  Anomaly categories:");
-    println!("    Low b-value  (b < 0.7, large-quake-prone):   {} cells", low_b.len());
-    println!("    High b-value (b > 1.3, swarm/induced):       {} cells", high_b.len());
-    println!("    High energy concentration (>10^14 J):        {} cells", high_energy.len());
+    println!(
+        "    Low b-value  (b < 0.7, large-quake-prone):   {} cells",
+        low_b.len()
+    );
+    println!(
+        "    High b-value (b > 1.3, swarm/induced):       {} cells",
+        high_b.len()
+    );
+    println!(
+        "    High energy concentration (>10^14 J):        {} cells",
+        high_energy.len()
+    );
 
     if !low_b.is_empty() {
         println!("\n  Low b-value cells (higher probability of large events):");
         for &i in low_b.iter().take(5) {
             let (clat, clon) = cell_center(&cells[i].key);
-            println!("    ({:>6.1}, {:>6.1}) b={:.3}, N={}, {}",
-                clat, clon, cells[i].b_value, cells[i].event_count,
-                &cells[i].representative_place[..cells[i].representative_place.len().min(40)]);
+            println!(
+                "    ({:>6.1}, {:>6.1}) b={:.3}, N={}, {}",
+                clat,
+                clon,
+                cells[i].b_value,
+                cells[i].event_count,
+                &cells[i].representative_place[..cells[i].representative_place.len().min(40)]
+            );
         }
     }
 
@@ -406,9 +537,14 @@ fn main() {
         println!("\n  High b-value cells (swarm/induced seismicity signature):");
         for &i in high_b.iter().take(5) {
             let (clat, clon) = cell_center(&cells[i].key);
-            println!("    ({:>6.1}, {:>6.1}) b={:.3}, N={}, {}",
-                clat, clon, cells[i].b_value, cells[i].event_count,
-                &cells[i].representative_place[..cells[i].representative_place.len().min(40)]);
+            println!(
+                "    ({:>6.1}, {:>6.1}) b={:.3}, N={}, {}",
+                clat,
+                clon,
+                cells[i].b_value,
+                cells[i].event_count,
+                &cells[i].representative_place[..cells[i].representative_place.len().min(40)]
+            );
         }
     }
 
@@ -418,21 +554,27 @@ fn main() {
     println!("{}\n", "=".repeat(70));
 
     println!("  Flagged cells with depth profiles:");
-    println!("  {:>6} {:>6} {:>5} {:>6} {:>4} {:>4} {:>4} {:>8} {:<35}",
-        "Lat", "Lon", "N", "b-val", "S", "I", "D", "Profile", "Location");
-    println!("  {:-<6} {:-<6} {:-<5} {:-<6} {:-<4} {:-<4} {:-<4} {:-<8} {:-<35}",
-        "", "", "", "", "", "", "", "", "");
+    println!(
+        "  {:>6} {:>6} {:>5} {:>6} {:>4} {:>4} {:>4} {:>8} {:<35}",
+        "Lat", "Lon", "N", "b-val", "S", "I", "D", "Profile", "Location"
+    );
+    println!(
+        "  {:-<6} {:-<6} {:-<5} {:-<6} {:-<4} {:-<4} {:-<4} {:-<8} {:-<35}",
+        "", "", "", "", "", "", "", "", ""
+    );
 
     let mut subduction_candidates = Vec::new();
 
     for i in 0..nc {
-        if !flagged[i] { continue; }
+        if !flagged[i] {
+            continue;
+        }
         let c = &cells[i];
         let (clat, clon) = cell_center(&c.key);
 
         // Classify depth profile
         let profile = if c.deep > 0 && c.shallow > 0 {
-            "BIMODAL"  // subduction zone indicator
+            "BIMODAL" // subduction zone indicator
         } else if c.intermediate > 0 && c.shallow > 0 {
             "MIXED"
         } else if c.shallow == c.event_count {
@@ -447,10 +589,18 @@ fn main() {
             subduction_candidates.push(i);
         }
 
-        println!("  {:>6.1} {:>6.1} {:>5} {:>6.3} {:>4} {:>4} {:>4} {:>8} {:<35}",
-            clat, clon, c.event_count, c.b_value,
-            c.shallow, c.intermediate, c.deep, profile,
-            &c.representative_place[..c.representative_place.len().min(35)]);
+        println!(
+            "  {:>6.1} {:>6.1} {:>5} {:>6.3} {:>4} {:>4} {:>4} {:>8} {:<35}",
+            clat,
+            clon,
+            c.event_count,
+            c.b_value,
+            c.shallow,
+            c.intermediate,
+            c.deep,
+            profile,
+            &c.representative_place[..c.representative_place.len().min(35)]
+        );
     }
 
     if !subduction_candidates.is_empty() {
@@ -460,10 +610,17 @@ fn main() {
             let (clat, clon) = cell_center(&c.key);
             let depth_range = c.depths.iter().cloned().fold(f64::MAX, f64::min);
             let depth_max = c.depths.iter().cloned().fold(f64::MIN, f64::max);
-            println!("    ({:>6.1}, {:>6.1}) depth {:.0}-{:.0} km, S={} I={} D={}, {}",
-                clat, clon, depth_range, depth_max,
-                c.shallow, c.intermediate, c.deep,
-                &c.representative_place[..c.representative_place.len().min(40)]);
+            println!(
+                "    ({:>6.1}, {:>6.1}) depth {:.0}-{:.0} km, S={} I={} D={}, {}",
+                clat,
+                clon,
+                depth_range,
+                depth_max,
+                c.shallow,
+                c.intermediate,
+                c.deep,
+                &c.representative_place[..c.representative_place.len().min(40)]
+            );
         }
     }
 
@@ -478,46 +635,80 @@ fn main() {
         risk_score: f64,
     }
 
-    let mut risk_entries: Vec<RiskEntry> = (0..nc).map(|i| {
-        let c = &cells[i];
+    let mut risk_entries: Vec<RiskEntry> = (0..nc)
+        .map(|i| {
+            let c = &cells[i];
 
-        // Low b-value = higher risk (more likely large events)
-        let b_risk = if c.b_value < 0.7 { 3.0 }
-            else if c.b_value < 0.9 { 2.0 }
-            else if c.b_value > 1.3 { 1.5 } // swarm risk
-            else { 0.5 };
+            // Low b-value = higher risk (more likely large events)
+            let b_risk = if c.b_value < 0.7 {
+                3.0
+            } else if c.b_value < 0.9 {
+                2.0
+            } else if c.b_value > 1.3 {
+                1.5
+            }
+            // swarm risk
+            else {
+                0.5
+            };
 
-        // Energy concentration
-        let energy_risk = (c.energy_joules.log10() - 10.0).max(0.0) / 5.0;
+            // Energy concentration
+            let energy_risk = (c.energy_joules.log10() - 10.0).max(0.0) / 5.0;
 
-        // Event rate
-        let rate_risk = (c.a_value - 1.0).max(0.0);
+            // Event rate
+            let rate_risk = (c.a_value - 1.0).max(0.0);
 
-        // Max magnitude in cell
-        let max_mag = c.magnitudes.iter().cloned().fold(0.0_f64, f64::max);
-        let mag_risk = if max_mag >= 6.0 { 3.0 }
-            else if max_mag >= 5.0 { 2.0 }
-            else if max_mag >= 4.0 { 1.0 }
-            else { 0.0 };
+            // Max magnitude in cell
+            let max_mag = c.magnitudes.iter().cloned().fold(0.0_f64, f64::max);
+            let mag_risk = if max_mag >= 6.0 {
+                3.0
+            } else if max_mag >= 5.0 {
+                2.0
+            } else if max_mag >= 4.0 {
+                1.0
+            } else {
+                0.0
+            };
 
-        // Depth complexity (subduction indicator = higher risk)
-        let depth_risk = if c.deep > 0 && c.shallow > 0 { 2.0 }
-            else if c.intermediate > 0 { 1.0 }
-            else { 0.0 };
+            // Depth complexity (subduction indicator = higher risk)
+            let depth_risk = if c.deep > 0 && c.shallow > 0 {
+                2.0
+            } else if c.intermediate > 0 {
+                1.0
+            } else {
+                0.0
+            };
 
-        // Flagged bonus
-        let flag_bonus = if flagged[i] { 2.0 } else { 0.0 };
+            // Flagged bonus
+            let flag_bonus = if flagged[i] { 2.0 } else { 0.0 };
 
-        let risk_score = b_risk + energy_risk + rate_risk + mag_risk + depth_risk + flag_bonus;
+            let risk_score = b_risk + energy_risk + rate_risk + mag_risk + depth_risk + flag_bonus;
 
-        RiskEntry { cell_idx: i, risk_score }
-    }).collect();
+            RiskEntry {
+                cell_idx: i,
+                risk_score,
+            }
+        })
+        .collect();
 
     risk_entries.sort_by(|a, b| b.risk_score.partial_cmp(&a.risk_score).unwrap());
 
-    println!("  {:>3} {:>6} {:>6} {:>5} {:>6} {:>6} {:>10} {:>5} {:>4}/{:>4}/{:>4} {:>5} {:<30}",
-        "#", "Lat", "Lon", "N", "b-val", "a-val", "Energy(J)", "MaxM",
-        "S", "I", "D", "Flag", "Location");
+    println!(
+        "  {:>3} {:>6} {:>6} {:>5} {:>6} {:>6} {:>10} {:>5} {:>4}/{:>4}/{:>4} {:>5} {:<30}",
+        "#",
+        "Lat",
+        "Lon",
+        "N",
+        "b-val",
+        "a-val",
+        "Energy(J)",
+        "MaxM",
+        "S",
+        "I",
+        "D",
+        "Flag",
+        "Location"
+    );
     println!("  {:-<3} {:-<6} {:-<6} {:-<5} {:-<6} {:-<6} {:-<10} {:-<5} {:-<4} {:-<4} {:-<4} {:-<5} {:-<30}",
         "", "", "", "", "", "", "", "", "", "", "", "", "");
 
@@ -552,9 +743,20 @@ fn main() {
     println!("  Analysable grid cells (N>=5):     {}", cells.len());
     println!("  Global b-value (whole catalog):   {:.3}", global_b);
     println!("  Total seismic energy:             {:.3e} J", total_energy);
-    println!("  Anomalous cells (graph-cut):      {} / {} ({:.1}%)",
-        n_flagged, nc, if nc > 0 { n_flagged as f64 / nc as f64 * 100.0 } else { 0.0 });
-    println!("  Subduction zone candidates:       {}", subduction_candidates.len());
+    println!(
+        "  Anomalous cells (graph-cut):      {} / {} ({:.1}%)",
+        n_flagged,
+        nc,
+        if nc > 0 {
+            n_flagged as f64 / nc as f64 * 100.0
+        } else {
+            0.0
+        }
+    );
+    println!(
+        "  Subduction zone candidates:       {}",
+        subduction_candidates.len()
+    );
 
     // Magnitude distribution
     println!("\n  Magnitude distribution:");
@@ -567,7 +769,9 @@ fn main() {
         (7.0, 10.0, "M7.0+  "),
     ] {
         let count = quakes.iter().filter(|q| q.mag >= lo && q.mag < hi).count();
-        let bar: String = std::iter::repeat('#').take(count / 5 + if count > 0 { 1 } else { 0 }).collect();
+        let bar: String = std::iter::repeat('#')
+            .take(count / 5 + if count > 0 { 1 } else { 0 })
+            .collect();
         println!("    {} {:>5}  {}", label, count, bar);
     }
 

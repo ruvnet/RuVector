@@ -49,10 +49,7 @@ use std::sync::Arc;
 
 use axum::Router;
 use tokio::sync::broadcast;
-use tower_http::{
-    compression::CompressionLayer,
-    trace::TraceLayer,
-};
+use tower_http::{compression::CompressionLayer, trace::TraceLayer};
 
 pub use services::{
     AudioPipeline, ClusterEngine, EmbeddingModel, InterpretationEngine, VectorIndex,
@@ -138,7 +135,9 @@ pub struct ProcessingEvent {
 }
 
 /// Processing status stages.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ProcessingStatus {
     /// Recording queued for processing

@@ -563,7 +563,10 @@ pub unsafe extern "C" fn ingest_delta(ptr: *const u8, len: usize) -> i32 {
 ///
 /// Returns 1 on success, 0 if buffer is full or tile not initialized.
 #[no_mangle]
-#[deprecated(since = "0.1.2", note = "Use ingest_delta(ptr, len) with bounds checking")]
+#[deprecated(
+    since = "0.1.2",
+    note = "Use ingest_delta(ptr, len) with bounds checking"
+)]
 #[must_use]
 pub unsafe extern "C" fn ingest_delta_unchecked(ptr: *const u8) -> i32 {
     // Use Delta size as implied length

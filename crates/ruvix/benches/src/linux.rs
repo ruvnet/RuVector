@@ -134,7 +134,8 @@ pub fn bench_linux_pipe_write(config: &LinuxBenchConfig) -> BenchmarkResult {
     let reader = std::thread::spawn(move || {
         let mut buf = [0u8; 1024];
         loop {
-            let n = unsafe { libc::read(read_fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len()) };
+            let n =
+                unsafe { libc::read(read_fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len()) };
             if n <= 0 {
                 break;
             }
@@ -187,7 +188,8 @@ pub fn bench_linux_pipe_read(config: &LinuxBenchConfig) -> BenchmarkResult {
     // Writer thread to keep feeding data
     let writer = std::thread::spawn(move || {
         for _ in 0..total_writes {
-            let _ = unsafe { libc::write(write_fd, data.as_ptr() as *const libc::c_void, data.len()) };
+            let _ =
+                unsafe { libc::write(write_fd, data.as_ptr() as *const libc::c_void, data.len()) };
         }
         unsafe { libc::close(write_fd) };
     });
@@ -362,7 +364,10 @@ pub fn bench_linux_clone_simulation(config: &LinuxBenchConfig) -> BenchmarkResul
 #[cfg(unix)]
 pub fn bench_linux_clock_gettime(config: &LinuxBenchConfig) -> BenchmarkResult {
     let mut measurements = Vec::with_capacity(config.measure_iterations);
-    let mut ts = libc::timespec { tv_sec: 0, tv_nsec: 0 };
+    let mut ts = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
 
     for _ in 0..config.warmup_iterations {
         unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut ts) };
@@ -515,7 +520,8 @@ pub fn bench_linux_socket_send(config: &LinuxBenchConfig) -> BenchmarkResult {
     let reader = std::thread::spawn(move || {
         let mut buf = [0u8; 1024];
         loop {
-            let n = unsafe { libc::recv(recv_fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len(), 0) };
+            let n =
+                unsafe { libc::recv(recv_fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len(), 0) };
             if n <= 0 {
                 break;
             }

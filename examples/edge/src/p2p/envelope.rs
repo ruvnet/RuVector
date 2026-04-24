@@ -5,9 +5,9 @@
 //! - Signatures cover canonical representation of all fields
 //! - TaskReceipt includes full execution binding
 
+use crate::p2p::crypto::{CanonicalJson, CryptoV2, EncryptedPayload};
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
-use crate::p2p::crypto::{EncryptedPayload, CanonicalJson, CryptoV2};
 
 /// Signed message envelope for P2P communication
 ///
@@ -80,9 +80,9 @@ impl SignedEnvelope {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskEnvelope {
     pub task_id: String,
-    pub module_cid: String,     // WASM module location
-    pub entrypoint: String,      // Function to call
-    pub input_cid: String,       // Input data location
+    pub module_cid: String, // WASM module location
+    pub entrypoint: String, // Function to call
+    pub input_cid: String,  // Input data location
     #[serde(with = "hex::serde")]
     pub output_schema_hash: [u8; 32],
 
@@ -101,9 +101,9 @@ pub struct TaskEnvelope {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskBudgets {
-    pub fuel_limit: u64,      // Wasmtime fuel
-    pub memory_mb: u32,       // Max memory in MB
-    pub timeout_ms: u64,      // Max execution time
+    pub fuel_limit: u64, // Wasmtime fuel
+    pub memory_mb: u32,  // Max memory in MB
+    pub timeout_ms: u64, // Max execution time
 }
 
 impl TaskEnvelope {

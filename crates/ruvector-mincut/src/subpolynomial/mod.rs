@@ -45,11 +45,11 @@ use crate::cluster::hierarchy::{
     Expander, HierarchyCluster, HierarchyConfig, Precluster, ThreeLevelHierarchy,
 };
 use crate::error::{MinCutError, Result};
-use crate::time_compat::PortableInstant;
 use crate::expander::{ExpanderComponent, ExpanderDecomposition};
 use crate::fragmentation::{Fragmentation, FragmentationConfig, TrimResult};
 use crate::graph::{DynamicGraph, EdgeId, VertexId, Weight};
 use crate::localkcut::deterministic::{DeterministicLocalKCut, LocalCut as DetLocalCut};
+use crate::time_compat::PortableInstant;
 use crate::witness::{LazyWitnessTree, WitnessTree};
 
 /// Configuration for the subpolynomial algorithm

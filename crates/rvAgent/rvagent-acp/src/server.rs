@@ -28,9 +28,7 @@ use crate::auth::{
     rate_limiter, request_size_limit, require_api_key, require_tls_middleware, ApiKeyState,
     MaxBodySize, RateLimiterState, RequireTls,
 };
-use crate::types::{
-    CreateSessionRequest, ErrorResponse, HealthResponse, PromptRequest,
-};
+use crate::types::{CreateSessionRequest, ErrorResponse, HealthResponse, PromptRequest};
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -114,7 +112,10 @@ impl AcpServer {
         Router::new()
             // Routes
             .route("/prompt", post(handle_prompt))
-            .route("/sessions", get(handle_list_sessions).post(handle_create_session))
+            .route(
+                "/sessions",
+                get(handle_list_sessions).post(handle_create_session),
+            )
             .route(
                 "/sessions/{id}",
                 get(handle_get_session).delete(handle_delete_session),
@@ -143,8 +144,11 @@ impl AcpServer {
         tracing::info!("ACP server listening on {}", addr);
 
         let router = self.router();
-        axum::serve(listener, router.into_make_service_with_connect_info::<std::net::SocketAddr>())
-            .await?;
+        axum::serve(
+            listener,
+            router.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .await?;
 
         Ok(())
     }
@@ -171,17 +175,12 @@ async fn handle_prompt(
         .await
     {
         Ok(resp) => Ok((StatusCode::OK, Json(resp))),
-        Err(e) => Err((
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse::bad_request(e)),
-        )),
+        Err(e) => Err((StatusCode::BAD_REQUEST, Json(ErrorResponse::bad_request(e)))),
     }
 }
 
 /// `GET /sessions` — list all sessions.
-async fn handle_list_sessions(
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+async fn handle_list_sessions(State(state): State<AppState>) -> impl IntoResponse {
     let sessions = state.agent.list_sessions().await;
     (StatusCode::OK, Json(sessions))
 }
@@ -204,7 +203,10 @@ async fn handle_get_session(
         Some(info) => Ok((StatusCode::OK, Json(info))),
         None => Err((
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse::not_found(format!("session not found: {}", id))),
+            Json(ErrorResponse::not_found(format!(
+                "session not found: {}",
+                id
+            ))),
         )),
     }
 }

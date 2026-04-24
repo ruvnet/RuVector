@@ -174,7 +174,9 @@ impl Hypervector {
 
     /// XOR binding operation
     pub fn bind(&self, other: &Self) -> Self {
-        let bits = self.bits.iter()
+        let bits = self
+            .bits
+            .iter()
             .zip(&other.bits)
             .map(|(&a, &b)| a ^ b)
             .collect();
@@ -203,7 +205,8 @@ impl Hypervector {
             let word_idx = bit_pos / 64;
             let bit_idx = bit_pos % 64;
 
-            let count: usize = vectors.iter()
+            let count: usize = vectors
+                .iter()
                 .filter(|v| word_idx < v.bits.len() && (v.bits[word_idx] >> bit_idx) & 1 == 1)
                 .count();
 
@@ -212,7 +215,10 @@ impl Hypervector {
             }
         }
 
-        Self { bits: result, dimension }
+        Self {
+            bits: result,
+            dimension,
+        }
     }
 
     /// Hamming similarity (-1 to 1)
@@ -223,7 +229,8 @@ impl Hypervector {
 
     /// Hamming distance
     pub fn hamming_distance(&self, other: &Self) -> usize {
-        self.bits.iter()
+        self.bits
+            .iter()
             .zip(&other.bits)
             .map(|(&a, &b)| (a ^ b).count_ones() as usize)
             .sum()
@@ -245,7 +252,10 @@ impl Hypervector {
             }
         }
 
-        Self { bits: new_bits, dimension: self.dimension }
+        Self {
+            bits: new_bits,
+            dimension: self.dimension,
+        }
     }
 }
 
@@ -256,7 +266,9 @@ pub struct HdcMemory {
 
 impl HdcMemory {
     pub fn new() -> Self {
-        Self { items: HashMap::new() }
+        Self {
+            items: HashMap::new(),
+        }
     }
 
     /// Store item with label
@@ -266,7 +278,9 @@ impl HdcMemory {
 
     /// Retrieve items with similarity above threshold
     pub fn retrieve(&self, query: &Hypervector, threshold: f32) -> Vec<(String, f32)> {
-        let mut results: Vec<_> = self.items.iter()
+        let mut results: Vec<_> = self
+            .items
+            .iter()
             .map(|(label, stored)| (label.clone(), query.similarity(stored)))
             .filter(|(_, sim)| *sim >= threshold)
             .collect();
@@ -277,7 +291,8 @@ impl HdcMemory {
 
     /// Find nearest item
     pub fn nearest(&self, query: &Hypervector) -> Option<(String, f32)> {
-        self.items.iter()
+        self.items
+            .iter()
             .map(|(label, stored)| (label.clone(), query.similarity(stored)))
             .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
     }
@@ -305,10 +320,10 @@ impl Default for HdcMemory {
 /// Network condition for adaptive compression
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NetworkCondition {
-    Excellent,  // High bandwidth, low latency
-    Good,       // Normal conditions
-    Poor,       // Limited bandwidth
-    Critical,   // Very limited, emergency mode
+    Excellent, // High bandwidth, low latency
+    Good,      // Normal conditions
+    Poor,      // Limited bandwidth
+    Critical,  // Very limited, emergency mode
 }
 
 /// Adaptive compressor that adjusts based on network conditions
@@ -341,10 +356,10 @@ impl AdaptiveCompressor {
         self.latency_history.push(latency_ms);
 
         // Calculate averages
-        let avg_bandwidth: f32 = self.bandwidth_history.iter().sum::<f32>()
-            / self.bandwidth_history.len() as f32;
-        let avg_latency: f32 = self.latency_history.iter().sum::<f32>()
-            / self.latency_history.len() as f32;
+        let avg_bandwidth: f32 =
+            self.bandwidth_history.iter().sum::<f32>() / self.bandwidth_history.len() as f32;
+        let avg_latency: f32 =
+            self.latency_history.iter().sum::<f32>() / self.latency_history.len() as f32;
 
         // Determine condition
         self.condition = match (avg_bandwidth, avg_latency) {
@@ -441,18 +456,22 @@ impl PatternRouter {
 
     /// Register agent capability
     pub fn register_capability(&mut self, agent_id: &str, capability: &str) {
-        let cap_vec = self.task_types.entry(capability.to_string())
+        let cap_vec = self
+            .task_types
+            .entry(capability.to_string())
             .or_insert_with(Hypervector::random)
             .clone();
 
-        self.capabilities.entry(agent_id.to_string())
+        self.capabilities
+            .entry(agent_id.to_string())
             .and_modify(|v| *v = v.bind(&cap_vec))
             .or_insert(cap_vec);
     }
 
     /// Register task type
     pub fn register_task_type(&mut self, task_type: &str) {
-        self.task_types.entry(task_type.to_string())
+        self.task_types
+            .entry(task_type.to_string())
             .or_insert_with(Hypervector::random);
     }
 
@@ -460,7 +479,8 @@ impl PatternRouter {
     pub fn route_task(&self, task_type: &str) -> Option<(String, f32)> {
         let task_vec = self.task_types.get(task_type)?;
 
-        self.capabilities.iter()
+        self.capabilities
+            .iter()
             .map(|(agent_id, cap_vec)| (agent_id.clone(), task_vec.similarity(cap_vec)))
             .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
     }
@@ -469,7 +489,7 @@ impl PatternRouter {
     pub fn learn_success(&mut self, agent_id: &str, task_type: &str) {
         if let (Some(task_vec), Some(agent_vec)) = (
             self.task_types.get(task_type),
-            self.capabilities.get(agent_id)
+            self.capabilities.get(agent_id),
         ) {
             // Bind task and agent as successful pair
             let success_pattern = task_vec.bind(agent_vec);
@@ -616,7 +636,8 @@ impl HnswIndex {
 
         // Insert into layers [level, 0]
         for layer_idx in (0..=level.min(self.layers.len().saturating_sub(1))).rev() {
-            let candidates = self.search_layer(current, &self.vectors[idx], self.ef_construction, layer_idx);
+            let candidates =
+                self.search_layer(current, &self.vectors[idx], self.ef_construction, layer_idx);
 
             // Connect to nearest candidates
             for (neighbor, dist) in candidates.iter().take(self.m) {
@@ -689,7 +710,13 @@ impl HnswIndex {
     }
 
     /// Search layer with ef candidates
-    fn search_layer(&self, start: usize, query: &[f32], ef: usize, layer_idx: usize) -> Vec<(usize, f32)> {
+    fn search_layer(
+        &self,
+        start: usize,
+        query: &[f32],
+        ef: usize,
+        layer_idx: usize,
+    ) -> Vec<(usize, f32)> {
         let mut visited = std::collections::HashSet::new();
         let mut candidates = std::collections::BinaryHeap::new();
         let mut results = std::collections::BinaryHeap::new();
@@ -704,7 +731,9 @@ impl HnswIndex {
         )));
         results.push((ordered_float::OrderedFloat(start_dist), start));
 
-        while let Some(std::cmp::Reverse((ordered_float::OrderedFloat(dist), current))) = candidates.pop() {
+        while let Some(std::cmp::Reverse((ordered_float::OrderedFloat(dist), current))) =
+            candidates.pop()
+        {
             // Check if we can stop
             if let Some((ordered_float::OrderedFloat(worst_dist), _)) = results.peek() {
                 if dist > *worst_dist && results.len() >= ef {
@@ -1009,15 +1038,9 @@ impl SpikingNetwork {
         let mut rng = rand::thread_rng();
 
         // Initialize neurons
-        let input_neurons = (0..input_size)
-            .map(|_| LIFNeuron::new(0.5, 0.8))
-            .collect();
-        let hidden_neurons = (0..hidden_size)
-            .map(|_| LIFNeuron::new(1.0, 0.9))
-            .collect();
-        let output_neurons = (0..output_size)
-            .map(|_| LIFNeuron::new(1.0, 0.9))
-            .collect();
+        let input_neurons = (0..input_size).map(|_| LIFNeuron::new(0.5, 0.8)).collect();
+        let hidden_neurons = (0..hidden_size).map(|_| LIFNeuron::new(1.0, 0.9)).collect();
+        let output_neurons = (0..output_size).map(|_| LIFNeuron::new(1.0, 0.9)).collect();
 
         // Initialize weights with small random values
         let weights_ih = (0..hidden_size)
@@ -1042,7 +1065,8 @@ impl SpikingNetwork {
         self.time += 1;
 
         // Input layer: convert external spikes to currents
-        let input_spikes: Vec<bool> = self.input_neurons
+        let input_spikes: Vec<bool> = self
+            .input_neurons
             .iter_mut()
             .zip(input)
             .map(|(neuron, &spike)| {
@@ -1052,7 +1076,8 @@ impl SpikingNetwork {
             .collect();
 
         // Hidden layer: weighted sum of input spikes
-        let hidden_spikes: Vec<bool> = self.hidden_neurons
+        let hidden_spikes: Vec<bool> = self
+            .hidden_neurons
             .iter_mut()
             .enumerate()
             .map(|(i, neuron)| {
@@ -1193,7 +1218,7 @@ impl SemanticEmbedder {
     /// Simple hash-based embedding (for when no word vectors are available)
     /// Uses locality-sensitive hashing for deterministic embeddings
     pub fn embed_hash(&self, text: &str) -> Vec<f32> {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
 
         let mut result = vec![0.0f32; self.dimension];
 
@@ -1268,13 +1293,15 @@ impl SemanticTaskMatcher {
     /// Register agent with capability description
     pub fn register_agent(&mut self, agent_id: &str, capability_desc: &str) {
         let embedding = self.embedder.embed_hash(capability_desc);
-        self.agent_embeddings.insert(agent_id.to_string(), embedding);
+        self.agent_embeddings
+            .insert(agent_id.to_string(), embedding);
     }
 
     /// Register task type with description
     pub fn register_task(&mut self, task_type: &str, description: &str) {
         let embedding = self.embedder.embed_hash(description);
-        self.task_embeddings.insert(task_type.to_string(), embedding);
+        self.task_embeddings
+            .insert(task_type.to_string(), embedding);
     }
 
     /// Find best agent for a task description
@@ -1294,7 +1321,8 @@ impl SemanticTaskMatcher {
     pub fn find_k_nearest(&self, task_desc: &str, k: usize) -> Vec<(String, f32)> {
         let task_embedding = self.embedder.embed_hash(task_desc);
 
-        let mut results: Vec<_> = self.agent_embeddings
+        let mut results: Vec<_> = self
+            .agent_embeddings
             .iter()
             .map(|(agent_id, agent_emb)| {
                 let sim = SemanticEmbedder::cosine_similarity(&task_embedding, agent_emb);
@@ -1422,8 +1450,9 @@ impl RaftNode {
         } else if self.voted_for.is_none() || self.voted_for.as_ref() == Some(&req.candidate_id) {
             let (our_last_index, our_last_term) = self.last_log_info();
             // Grant vote if candidate's log is at least as up-to-date
-            if req.last_log_term > our_last_term ||
-               (req.last_log_term == our_last_term && req.last_log_index >= our_last_index) {
+            if req.last_log_term > our_last_term
+                || (req.last_log_term == our_last_term && req.last_log_index >= our_last_index)
+            {
                 self.voted_for = Some(req.candidate_id.clone());
                 true
             } else {
@@ -1506,14 +1535,17 @@ impl RaftNode {
         let next_idx = *self.next_index.get(follower_id).unwrap_or(&1);
         let prev_log_index = next_idx.saturating_sub(1);
         let prev_log_term = if prev_log_index > 0 {
-            self.log.get((prev_log_index - 1) as usize)
+            self.log
+                .get((prev_log_index - 1) as usize)
                 .map(|e| e.term)
                 .unwrap_or(0)
         } else {
             0
         };
 
-        let entries: Vec<LogEntry> = self.log.iter()
+        let entries: Vec<LogEntry> = self
+            .log
+            .iter()
             .skip(prev_log_index as usize)
             .cloned()
             .collect();
@@ -1591,7 +1623,11 @@ impl RaftNode {
     }
 
     /// Handle append entries response (leader)
-    pub fn handle_append_entries_response(&mut self, follower_id: &str, resp: &RaftAppendEntriesResponse) {
+    pub fn handle_append_entries_response(
+        &mut self,
+        follower_id: &str,
+        resp: &RaftAppendEntriesResponse,
+    ) {
         if resp.term > self.current_term {
             self.current_term = resp.term;
             self.state = RaftState::Follower;
@@ -1603,8 +1639,10 @@ impl RaftNode {
         }
 
         if resp.success {
-            self.next_index.insert(follower_id.to_string(), resp.match_index + 1);
-            self.match_index.insert(follower_id.to_string(), resp.match_index);
+            self.next_index
+                .insert(follower_id.to_string(), resp.match_index + 1);
+            self.match_index
+                .insert(follower_id.to_string(), resp.match_index);
 
             // Update commit index
             self.update_commit_index();
@@ -1846,7 +1884,11 @@ mod tests {
         assert!(HybridKeyPair::verify(&public_key, message, &signature));
 
         // Wrong message should fail
-        assert!(!HybridKeyPair::verify(&public_key, b"wrong message", &signature));
+        assert!(!HybridKeyPair::verify(
+            &public_key,
+            b"wrong message",
+            &signature
+        ));
     }
 
     #[test]
@@ -1986,10 +2028,7 @@ mod tests {
 
     #[test]
     fn test_raft_log_replication() {
-        let members = vec![
-            "leader".to_string(),
-            "follower".to_string(),
-        ];
+        let members = vec!["leader".to_string(), "follower".to_string()];
 
         let mut leader = RaftNode::new("leader", members.clone());
         let mut follower = RaftNode::new("follower", members.clone());

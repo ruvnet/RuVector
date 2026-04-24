@@ -91,10 +91,7 @@ pub fn infer_names(modules: &[Module]) -> Vec<InferredName> {
 }
 
 /// Infer names using a specific training corpus.
-pub fn infer_names_with_corpus(
-    modules: &[Module],
-    corpus: &TrainingCorpus,
-) -> Vec<InferredName> {
+pub fn infer_names_with_corpus(modules: &[Module], corpus: &TrainingCorpus) -> Vec<InferredName> {
     let mut inferred = Vec::new();
 
     for module in modules {
@@ -117,32 +114,36 @@ pub(crate) fn infer_declaration_name(
 
     // Strategy 0: Training corpus match (domain-specific).
     if let Some((pattern, score)) = corpus.match_declaration(decl) {
-        best = keep_best(best, InferredName {
-            original: decl.name.clone(),
-            inferred: pattern.inferred_name.clone(),
-            confidence: score.min(0.98),
-            evidence: vec![format!(
-                "training corpus match: {} (score: {:.2}, module_hint: {:?})",
-                pattern.inferred_name,
-                score,
-                pattern.module_hint
-            )],
-        });
+        best = keep_best(
+            best,
+            InferredName {
+                original: decl.name.clone(),
+                inferred: pattern.inferred_name.clone(),
+                confidence: score.min(0.98),
+                evidence: vec![format!(
+                    "training corpus match: {} (score: {:.2}, module_hint: {:?})",
+                    pattern.inferred_name, score, pattern.module_hint
+                )],
+            },
+        );
     }
 
     // Strategy 1: HIGH confidence -- direct string literal match.
     'outer: for lit in &decl.string_literals {
         for &(pattern, name) in KNOWN_PATTERNS {
             if lit.contains(pattern) {
-                best = keep_best(best, InferredName {
-                    original: decl.name.clone(),
-                    inferred: name.to_string(),
-                    confidence: 0.95,
-                    evidence: vec![format!(
-                        "string literal \"{}\" matches known pattern \"{}\"",
-                        lit, pattern
-                    )],
-                });
+                best = keep_best(
+                    best,
+                    InferredName {
+                        original: decl.name.clone(),
+                        inferred: name.to_string(),
+                        confidence: 0.95,
+                        evidence: vec![format!(
+                            "string literal \"{}\" matches known pattern \"{}\"",
+                            lit, pattern
+                        )],
+                    },
+                );
                 break 'outer;
             }
         }
@@ -157,15 +158,18 @@ pub(crate) fn infer_declaration_name(
     for prop in &decl.property_accesses {
         for &(pattern, name) in PROPERTY_PATTERNS {
             if prop == pattern {
-                best = keep_best(best, InferredName {
-                    original: decl.name.clone(),
-                    inferred: name.to_string(),
-                    confidence: 0.7,
-                    evidence: vec![format!(
-                        "property access .{} suggests purpose \"{}\"",
-                        prop, name
-                    )],
-                });
+                best = keep_best(
+                    best,
+                    InferredName {
+                        original: decl.name.clone(),
+                        inferred: name.to_string(),
+                        confidence: 0.7,
+                        evidence: vec![format!(
+                            "property access .{} suggests purpose \"{}\"",
+                            prop, name
+                        )],
+                    },
+                );
                 break;
             }
         }
@@ -176,15 +180,18 @@ pub(crate) fn infer_declaration_name(
         let joined = decl.string_literals.join("_");
         let inferred = sanitize_name(&joined, 30);
         if !inferred.is_empty() && inferred != decl.name {
-            best = keep_best(best, InferredName {
-                original: decl.name.clone(),
-                inferred,
-                confidence: 0.65,
-                evidence: vec![format!(
-                    "multiple string literals: {:?}",
-                    &decl.string_literals[..decl.string_literals.len().min(3)]
-                )],
-            });
+            best = keep_best(
+                best,
+                InferredName {
+                    original: decl.name.clone(),
+                    inferred,
+                    confidence: 0.65,
+                    evidence: vec![format!(
+                        "multiple string literals: {:?}",
+                        &decl.string_literals[..decl.string_literals.len().min(3)]
+                    )],
+                },
+            );
         }
     }
 
@@ -224,10 +231,7 @@ pub(crate) fn infer_declaration_name(
 }
 
 /// Keep the candidate with the higher confidence score.
-fn keep_best(
-    current: Option<InferredName>,
-    candidate: InferredName,
-) -> Option<InferredName> {
+fn keep_best(current: Option<InferredName>, candidate: InferredName) -> Option<InferredName> {
     match current {
         Some(c) if c.confidence >= candidate.confidence => Some(c),
         _ => Some(candidate),
@@ -277,7 +281,11 @@ fn collect_string_freq<'a>(modules: &'a [Module]) -> std::collections::HashMap<&
     let mut freq = std::collections::HashMap::new();
     for module in modules {
         for decl in &module.declarations {
-            for s in decl.string_literals.iter().chain(decl.property_accesses.iter()) {
+            for s in decl
+                .string_literals
+                .iter()
+                .chain(decl.property_accesses.iter())
+            {
                 let s = s.as_str();
                 if is_meaningful_string(s) {
                     *freq.entry(s).or_insert(0) += 1;
@@ -291,10 +299,18 @@ fn collect_string_freq<'a>(modules: &'a [Module]) -> std::collections::HashMap<&
 /// Check if a string is meaningful enough to use for naming.
 fn is_meaningful_string(s: &str) -> bool {
     let len = s.len();
-    if len < 2 || len > 50 { return false; }
-    if s.chars().all(|c| c.is_ascii_digit()) { return false; }
-    if s.contains("://") || s.starts_with('/') || s.starts_with('.') { return false; }
-    if s.contains('\n') || s.contains('\t') { return false; }
+    if len < 2 || len > 50 {
+        return false;
+    }
+    if s.chars().all(|c| c.is_ascii_digit()) {
+        return false;
+    }
+    if s.contains("://") || s.starts_with('/') || s.starts_with('.') {
+        return false;
+    }
+    if s.contains('\n') || s.contains('\t') {
+        return false;
+    }
     s.chars().any(|c| c.is_alphabetic())
 }
 
@@ -306,21 +322,38 @@ fn infer_from_module_names(modules: &[Module]) -> String {
     let names: Vec<&str> = modules.iter().map(|m| m.name.as_str()).collect();
     if let Some(first) = names.first() {
         let prefix_len = names.iter().skip(1).fold(first.len(), |acc, name| {
-            first.chars().zip(name.chars()).take(acc)
-                .take_while(|(a, b)| a == b).count()
+            first
+                .chars()
+                .zip(name.chars())
+                .take(acc)
+                .take_while(|(a, b)| a == b)
+                .count()
         });
-        if prefix_len >= 2 { return sanitize_folder_name(&first[..prefix_len]); }
+        if prefix_len >= 2 {
+            return sanitize_folder_name(&first[..prefix_len]);
+        }
     }
     format!("group_{}", modules.len())
 }
 
 /// Sanitize a string into a valid folder name.
 fn sanitize_folder_name(raw: &str) -> String {
-    let cleaned: String = raw.chars()
-        .map(|c| if c.is_alphanumeric() || c == '_' || c == '-' { c.to_ascii_lowercase() } else { '_' })
+    let cleaned: String = raw
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '_' || c == '-' {
+                c.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
         .collect();
     let trimmed = cleaned.trim_matches('_');
-    if trimmed.is_empty() { "module".to_string() } else { trimmed.to_string() }
+    if trimmed.is_empty() {
+        "module".to_string()
+    } else {
+        trimmed.to_string()
+    }
 }
 
 /// Feedback from a ground-truth comparison for self-learning.
@@ -410,12 +443,7 @@ mod tests {
         }
     }
 
-    fn make_decl(
-        name: &str,
-        kind: DeclKind,
-        strings: &[&str],
-        props: &[&str],
-    ) -> Declaration {
+    fn make_decl(name: &str, kind: DeclKind, strings: &[&str], props: &[&str]) -> Declaration {
         Declaration {
             name: name.to_string(),
             kind,

@@ -21,8 +21,8 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 use ruvector_data_framework::{
-    CoherenceConfig, CoherenceEngine, DiscoveryConfig, DiscoveryEngine, OpenAlexClient,
-    PatternCategory, SimpleEmbedder, Embedder,
+    CoherenceConfig, CoherenceEngine, DiscoveryConfig, DiscoveryEngine, Embedder, OpenAlexClient,
+    PatternCategory, SimpleEmbedder,
 };
 
 #[cfg(feature = "onnx-embeddings")]
@@ -119,18 +119,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let embed_start = Instant::now();
                 for record in &mut all_records {
                     // Extract text from JSON data for embedding
-                    let title = record.data.get("title")
+                    let title = record
+                        .data
+                        .get("title")
                         .and_then(|v| v.as_str())
                         .unwrap_or("");
-                    let abstract_text = record.data.get("abstract")
+                    let abstract_text = record
+                        .data
+                        .get("abstract")
                         .and_then(|v| v.as_str())
                         .unwrap_or("");
-                    let concepts = record.data.get("concepts")
+                    let concepts = record
+                        .data
+                        .get("concepts")
                         .and_then(|v| v.as_array())
-                        .map(|arr| arr.iter()
-                            .filter_map(|c| c.get("display_name").and_then(|n| n.as_str()))
-                            .collect::<Vec<_>>()
-                            .join(" "))
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|c| c.get("display_name").and_then(|n| n.as_str()))
+                                .collect::<Vec<_>>()
+                                .join(" ")
+                        })
                         .unwrap_or_default();
 
                     let text = format!("{} {} {}", title, abstract_text, concepts);
@@ -138,7 +146,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     record.embedding = Some(embedding);
                 }
 
-                println!("   ✓ Embedded {} papers in {:?}", all_records.len(), embed_start.elapsed());
+                println!(
+                    "   ✓ Embedded {} papers in {:?}",
+                    all_records.len(),
+                    embed_start.elapsed()
+                );
                 println!("   Embedding dimension: 384 (semantic)");
             }
             Err(e) => {
@@ -152,7 +164,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         println!();
         println!("   💡 Tip: Enable ONNX embeddings for better discovery quality:");
-        println!("      cargo run --example real_data_discovery --features onnx-embeddings --release");
+        println!(
+            "      cargo run --example real_data_discovery --features onnx-embeddings --release"
+        );
     }
 
     // ============================================================================
@@ -164,22 +178,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     let coherence_config = CoherenceConfig {
-        min_edge_weight: 0.3,      // Moderate similarity threshold
+        min_edge_weight: 0.3,              // Moderate similarity threshold
         window_size_secs: 86400 * 365 * 3, // 3 year window (catch all papers)
         window_step_secs: 86400 * 30,      // Monthly steps
         approximate: true,
         epsilon: 0.1,
         parallel: true,
         track_boundaries: true,
-        similarity_threshold: 0.5,  // Connect papers with >= 50% similarity
-        use_embeddings: true,       // Use ONNX embeddings for edge creation
-        hnsw_k_neighbors: 30,       // Search 30 nearest neighbors per paper
-        hnsw_min_records: 50,       // Use HNSW for datasets >= 50 records
+        similarity_threshold: 0.5, // Connect papers with >= 50% similarity
+        use_embeddings: true,      // Use ONNX embeddings for edge creation
+        hnsw_k_neighbors: 30,      // Search 30 nearest neighbors per paper
+        hnsw_min_records: 50,      // Use HNSW for datasets >= 50 records
     };
 
     let mut coherence = CoherenceEngine::new(coherence_config);
 
-    println!("   Computing coherence signals from {} papers...", all_records.len());
+    println!(
+        "   Computing coherence signals from {} papers...",
+        all_records.len()
+    );
     let signals = match coherence.compute_from_records(&all_records) {
         Ok(sigs) => {
             println!("   ✓ Generated {} coherence signals", sigs.len());
@@ -199,12 +216,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("      Edges: {}", coherence.edge_count());
 
     if !signals.is_empty() {
-        let avg_min_cut = signals.iter()
-            .map(|s| s.min_cut_value)
-            .sum::<f64>() / signals.len() as f64;
-        let avg_nodes = signals.iter()
-            .map(|s| s.node_count)
-            .sum::<usize>() / signals.len();
+        let avg_min_cut =
+            signals.iter().map(|s| s.min_cut_value).sum::<f64>() / signals.len() as f64;
+        let avg_nodes = signals.iter().map(|s| s.node_count).sum::<usize>() / signals.len();
 
         println!("      Avg min-cut value: {:.3}", avg_min_cut);
         println!("      Avg nodes per window: {}", avg_nodes);
@@ -267,10 +281,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("         Confidence: {:.2}", bridge.confidence);
                 println!("         Entities: {} papers", bridge.entities.len());
                 if !bridge.evidence.is_empty() {
-                    println!(
-                        "         Evidence: {}",
-                        bridge.evidence[0].explanation
-                    );
+                    println!("         Evidence: {}", bridge.evidence[0].explanation);
                 }
                 println!();
             }
@@ -310,10 +321,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             for (i, anomaly) in anomalies.iter().enumerate().take(2) {
                 println!("      {}. {}", i + 1, anomaly.description);
                 if !anomaly.evidence.is_empty() {
-                    println!(
-                        "         {}",
-                        anomaly.evidence[0].explanation
-                    );
+                    println!("         {}", anomaly.evidence[0].explanation);
                 }
             }
             println!();
@@ -355,15 +363,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     println!("   💡 Research Directions:");
-    if patterns.iter().any(|p| p.category == PatternCategory::Bridge) {
+    if patterns
+        .iter()
+        .any(|p| p.category == PatternCategory::Bridge)
+    {
         println!("      ✓ Strong cross-topic connections detected");
         println!("        → Climate and finance research are converging");
     }
-    if patterns.iter().any(|p| p.category == PatternCategory::Emergence) {
+    if patterns
+        .iter()
+        .any(|p| p.category == PatternCategory::Emergence)
+    {
         println!("      ✓ New research clusters emerging");
         println!("        → Novel areas of investigation forming");
     }
-    if patterns.iter().any(|p| p.category == PatternCategory::Consolidation) {
+    if patterns
+        .iter()
+        .any(|p| p.category == PatternCategory::Consolidation)
+    {
         println!("      ✓ Topics consolidating");
         println!("        → Research maturing around key themes");
     }
@@ -371,7 +388,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
     println!("   ⚡ Performance:");
     println!("      Total runtime: {:.2}s", start.elapsed().as_secs_f64());
-    println!("      Papers/second: {:.0}", all_records.len() as f64 / start.elapsed().as_secs_f64());
+    println!(
+        "      Papers/second: {:.0}",
+        all_records.len() as f64 / start.elapsed().as_secs_f64()
+    );
     println!();
 
     println!("✅ Discovery complete!");

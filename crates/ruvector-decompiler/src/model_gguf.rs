@@ -287,8 +287,7 @@ fn read_string<R: Read>(r: &mut R) -> Result<String> {
     }
     let mut buf = vec![0u8; len];
     r.read_exact(&mut buf).map_err(read_err)?;
-    String::from_utf8(buf)
-        .map_err(|e| DecompilerError::ModelError(format!("invalid UTF-8: {}", e)))
+    String::from_utf8(buf).map_err(|e| DecompilerError::ModelError(format!("invalid UTF-8: {}", e)))
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────

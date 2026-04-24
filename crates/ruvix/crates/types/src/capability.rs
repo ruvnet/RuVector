@@ -251,7 +251,9 @@ impl Capability {
 
         // GRANT_ONCE means the derived capability cannot have GRANT
         let final_rights = if self.rights.contains(CapRights::GRANT_ONCE) {
-            new_rights.difference(CapRights::GRANT).difference(CapRights::GRANT_ONCE)
+            new_rights
+                .difference(CapRights::GRANT)
+                .difference(CapRights::GRANT_ONCE)
         } else {
             new_rights
         };

@@ -369,17 +369,19 @@ impl TopicGraph {
             };
 
             // Update or create topic node
-            let node = topics.entry(source_topic.clone()).or_insert_with(|| TopicNode {
-                id: source_topic.clone(),
-                name: work
-                    .primary_topic
-                    .as_ref()
-                    .map(|t| t.display_name.clone())
-                    .unwrap_or_default(),
-                work_count: 0,
-                avg_citations: 0.0,
-                growth_rate: 0.0,
-            });
+            let node = topics
+                .entry(source_topic.clone())
+                .or_insert_with(|| TopicNode {
+                    id: source_topic.clone(),
+                    name: work
+                        .primary_topic
+                        .as_ref()
+                        .map(|t| t.display_name.clone())
+                        .unwrap_or_default(),
+                    work_count: 0,
+                    avg_citations: 0.0,
+                    growth_rate: 0.0,
+                });
             node.work_count += 1;
             node.avg_citations = (node.avg_citations * (node.work_count - 1) as f64
                 + work.cited_by_count as f64)

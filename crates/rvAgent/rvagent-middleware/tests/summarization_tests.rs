@@ -5,10 +5,8 @@
 //! - UUID-based offload filenames (SEC-015)
 //! - File permission expectations (0600)
 
-use rvagent_middleware::{
-    Message, Middleware, ModelHandler, ModelRequest, ModelResponse, Role,
-};
 use rvagent_middleware::summarization::SummarizationMiddleware;
+use rvagent_middleware::{Message, Middleware, ModelHandler, ModelRequest, ModelResponse, Role};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -40,9 +38,18 @@ fn test_auto_compact_triggers() {
     let mw = SummarizationMiddleware::new(10, 0.5, 0.5);
 
     // Verify should_compact logic
-    assert!(!mw.should_compact(4), "4 tokens should NOT trigger (threshold=5)");
-    assert!(!mw.should_compact(5), "5 tokens should NOT trigger (threshold=5, needs >)");
-    assert!(mw.should_compact(6), "6 tokens should trigger (threshold=5)");
+    assert!(
+        !mw.should_compact(4),
+        "4 tokens should NOT trigger (threshold=5)"
+    );
+    assert!(
+        !mw.should_compact(5),
+        "5 tokens should NOT trigger (threshold=5, needs >)"
+    );
+    assert!(
+        mw.should_compact(6),
+        "6 tokens should trigger (threshold=5)"
+    );
 
     // With many messages that exceed the threshold, compaction should reduce count
     let messages = generate_messages(20, 100);
@@ -50,11 +57,7 @@ fn test_auto_compact_triggers() {
     let response = mw.wrap_model_call(request, &MessageCountHandler);
 
     let count_str = response.message.content.clone();
-    let count: usize = count_str
-        .strip_prefix("count=")
-        .unwrap()
-        .parse()
-        .unwrap();
+    let count: usize = count_str.strip_prefix("count=").unwrap().parse().unwrap();
     assert!(
         count < 20,
         "After compaction, message count ({}) must be less than original (20)",
@@ -168,8 +171,7 @@ fn test_offload_uses_uuid_filename() {
         .collect();
 
     // First 4 chars of UUIDs should vary (not all starting with same prefix)
-    let first_chars: std::collections::HashSet<&str> =
-        uuid_parts.iter().map(|u| &u[..4]).collect();
+    let first_chars: std::collections::HashSet<&str> = uuid_parts.iter().map(|u| &u[..4]).collect();
     assert!(
         first_chars.len() > 1,
         "UUID prefixes should vary (SEC-015: unpredictable filenames)"

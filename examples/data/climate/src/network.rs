@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{ClimateObservation, WeatherVariable, BoundingBox};
+use crate::{BoundingBox, ClimateObservation, WeatherVariable};
 
 /// A sensor node in the network graph
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -170,8 +170,8 @@ impl SensorNetwork {
         self.stats.edge_count = self.edges.len();
 
         if !self.edges.is_empty() {
-            self.stats.avg_correlation = self.edges.iter().map(|e| e.correlation).sum::<f64>()
-                / self.edges.len() as f64;
+            self.stats.avg_correlation =
+                self.edges.iter().map(|e| e.correlation).sum::<f64>() / self.edges.len() as f64;
         }
 
         let max_edges = if self.nodes.len() > 1 {
@@ -282,7 +282,10 @@ impl SensorNetworkBuilder {
         // Group observations by station
         let mut station_obs: HashMap<String, Vec<&ClimateObservation>> = HashMap::new();
         for obs in &self.observations {
-            station_obs.entry(obs.station_id.clone()).or_default().push(obs);
+            station_obs
+                .entry(obs.station_id.clone())
+                .or_default()
+                .push(obs);
         }
 
         // Create nodes
@@ -291,7 +294,12 @@ impl SensorNetworkBuilder {
             let last_obs = observations.iter().max_by_key(|o| o.timestamp);
 
             let location = first_obs.map(|o| o.location).unwrap_or((0.0, 0.0));
-            let variables: Vec<_> = observations.iter().map(|o| o.variable).collect::<std::collections::HashSet<_>>().into_iter().collect();
+            let variables: Vec<_> = observations
+                .iter()
+                .map(|o| o.variable)
+                .collect::<std::collections::HashSet<_>>()
+                .into_iter()
+                .collect();
 
             let node = SensorNode {
                 id: station_id.clone(),
@@ -365,7 +373,11 @@ impl SensorNetworkBuilder {
     }
 
     /// Compute correlation between two stations
-    fn compute_correlation(&self, obs_a: &[&ClimateObservation], obs_b: &[&ClimateObservation]) -> (f64, usize) {
+    fn compute_correlation(
+        &self,
+        obs_a: &[&ClimateObservation],
+        obs_b: &[&ClimateObservation],
+    ) -> (f64, usize) {
         // Build time-aligned series
         let mut map_a: HashMap<i64, f64> = HashMap::new();
         let mut map_b: HashMap<i64, f64> = HashMap::new();

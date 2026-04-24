@@ -3,21 +3,18 @@
 use crate::auth::AuthenticatedContributor;
 use crate::graph::cosine_similarity;
 use crate::types::{
-    AddEvidenceRequest, AppState, BatchInjectRequest, BatchInjectResponse, BetaParams,
-    BrainMemory, ChallengeResponse, ConsensusLoraWeights, CreatePageRequest, DriftQuery,
-    DriftReport, FeedConfig, HealthResponse, InjectRequest, InjectResponse,
-    ListPagesResponse, ListQuery, ListResponse, ListSort, LoraLatestResponse, LoraSubmission,
-    LoraSubmitResponse, OptimizeActionResult, OptimizeRequest, OptimizeResponse,
-    PageDelta, PageDetailResponse, PageResponse, PageStatus, PageSummary,
-    PartitionQuery, PartitionResult, PartitionResultCompact, PipelineMetricsResponse,
-    PubSubPushMessage, PublishNodeRequest, ScoredBrainMemory, SearchQuery,
-    ShareRequest, ShareResponse,
-    StatusResponse, SubmitDeltaRequest, TemporalResponse,
-    ConsciousnessComputeRequest, ConsciousnessComputeResponse,
-    EnhancedTrainRequest, TrainingCycleResult,
-    TrainingPreferencesResponse,
-    TrainingQuery, TransferRequest, TransferResponse, VerifyRequest, VerifyResponse,
-    VoteDirection, VoteRequest, WasmNode, WasmNodeSummary,
+    AddEvidenceRequest, AppState, BatchInjectRequest, BatchInjectResponse, BetaParams, BrainMemory,
+    ChallengeResponse, ConsciousnessComputeRequest, ConsciousnessComputeResponse,
+    ConsensusLoraWeights, CreatePageRequest, DriftQuery, DriftReport, EnhancedTrainRequest,
+    FeedConfig, HealthResponse, InjectRequest, InjectResponse, ListPagesResponse, ListQuery,
+    ListResponse, ListSort, LoraLatestResponse, LoraSubmission, LoraSubmitResponse,
+    OptimizeActionResult, OptimizeRequest, OptimizeResponse, PageDelta, PageDetailResponse,
+    PageResponse, PageStatus, PageSummary, PartitionQuery, PartitionResult, PartitionResultCompact,
+    PipelineMetricsResponse, PubSubPushMessage, PublishNodeRequest, ScoredBrainMemory, SearchQuery,
+    ShareRequest, ShareResponse, StatusResponse, SubmitDeltaRequest, TemporalResponse,
+    TrainingCycleResult, TrainingPreferencesResponse, TrainingQuery, TransferRequest,
+    TransferResponse, VerifyRequest, VerifyResponse, VoteDirection, VoteRequest, WasmNode,
+    WasmNodeSummary,
 };
 use axum::{
     extract::{Path, Query, State},
@@ -27,8 +24,8 @@ use axum::{
     Json, Router,
 };
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use uuid::Uuid;
@@ -66,7 +63,8 @@ pub async fn create_router() -> (Router, AppState) {
             g.rebuild_from_batch(&mems);
             tracing::info!(
                 "Graph rebuilt after hydration: {} nodes, {} edges",
-                g.node_count(), g.edge_count()
+                g.node_count(),
+                g.edge_count()
             );
             if g.edge_count() <= 100_000 {
                 g.rebuild_sparsifier();
@@ -74,8 +72,12 @@ pub async fn create_router() -> (Router, AppState) {
         }
     });
     let rate_limiter = Arc::new(crate::rate_limit::RateLimiter::default_limits());
-    let ranking = Arc::new(parking_lot::RwLock::new(crate::ranking::RankingEngine::new(128)));
-    let cognitive = Arc::new(parking_lot::RwLock::new(crate::cognitive::CognitiveEngine::new(128)));
+    let ranking = Arc::new(parking_lot::RwLock::new(
+        crate::ranking::RankingEngine::new(128),
+    ));
+    let cognitive = Arc::new(parking_lot::RwLock::new(
+        crate::cognitive::CognitiveEngine::new(128),
+    ));
     let drift = Arc::new(parking_lot::RwLock::new(crate::drift::DriftMonitor::new()));
     let aggregator = Arc::new(crate::aggregate::ByzantineAggregator::new());
     let domain_engine = Arc::new(parking_lot::RwLock::new(
@@ -95,8 +97,11 @@ pub async fn create_router() -> (Router, AppState) {
     // This ensures the server starts immediately without blocking on CPU-heavy embedding work.
     let mut all_mems: Vec<crate::types::BrainMemory> = Vec::new();
     if false {
-    // if emb_engine.is_rlm_active() {
-        tracing::info!("RLM active — re-embedding {} memories for space consistency", all_mems.len());
+        // if emb_engine.is_rlm_active() {
+        tracing::info!(
+            "RLM active — re-embedding {} memories for space consistency",
+            all_mems.len()
+        );
         // Build a fresh engine with clean corpus to avoid duplicate entries
         let mut fresh_engine = crate::embeddings::EmbeddingEngine::new();
         // First pass: seed fresh corpus with original hash embeddings
@@ -108,7 +113,9 @@ pub async fn create_router() -> (Router, AppState) {
         // Second pass: re-embed using RLM and replace in corpus
         for mem in &mut all_mems {
             let text = crate::embeddings::EmbeddingEngine::prepare_text(
-                &mem.title, &mem.content, &mem.tags,
+                &mem.title,
+                &mem.content,
+                &mem.tags,
             );
             let new_emb = fresh_engine.embed_for_storage(&text);
             if new_emb.len() == crate::embeddings::EMBED_DIM {
@@ -135,12 +142,19 @@ pub async fn create_router() -> (Router, AppState) {
     {
         let mut g = graph.write();
         g.rebuild_from_batch(&all_mems);
-        tracing::info!("Graph rebuilt: {} nodes, {} edges", g.node_count(), g.edge_count());
+        tracing::info!(
+            "Graph rebuilt: {} nodes, {} edges",
+            g.node_count(),
+            g.edge_count()
+        );
         // ADR-116: Build sparsifier inline for small graphs, background for large.
         if g.edge_count() <= 100_000 {
             g.rebuild_sparsifier();
         } else {
-            tracing::info!("Deferring sparsifier build for {} edges to background task", g.edge_count());
+            tracing::info!(
+                "Deferring sparsifier build for {} edges to background task",
+                g.edge_count()
+            );
         }
     }
 
@@ -181,9 +195,11 @@ pub async fn create_router() -> (Router, AppState) {
     ));
 
     // Negative cache for degenerate queries (ADR-075 Phase 6)
-    let negative_cache = Arc::new(parking_lot::Mutex::new(
-        rvf_runtime::NegativeCache::new(5, std::time::Duration::from_secs(3600), 10_000),
-    ));
+    let negative_cache = Arc::new(parking_lot::Mutex::new(rvf_runtime::NegativeCache::new(
+        5,
+        std::time::Duration::from_secs(3600),
+        10_000,
+    )));
 
     // Global Workspace Theory attention layer (ADR-075 AGI)
     let workspace = Arc::new(parking_lot::RwLock::new(
@@ -564,7 +580,8 @@ pub fn run_enhanced_training_cycle(state: &AppState, force_full: bool) -> Enhanc
             let sona_stats = state.sona.read().stats();
             let skip_reflection = format!(
                 "Incremental skip: no new memories since {}. SONA: {}",
-                cutoff.format("%H:%M:%S"), &sona_result
+                cutoff.format("%H:%M:%S"),
+                &sona_result
             );
             return EnhancedTrainingResult {
                 sona_message: sona_result,
@@ -582,7 +599,14 @@ pub fn run_enhanced_training_cycle(state: &AppState, force_full: bool) -> Enhanc
                 self_reflection: skip_reflection,
                 curiosity_triggered: false,
                 sona_adaptive_threshold: {
-                    state.sona.read().coordinator().reasoning_bank().read().config().quality_threshold
+                    state
+                        .sona
+                        .read()
+                        .coordinator()
+                        .reasoning_bank()
+                        .read()
+                        .config()
+                        .quality_threshold
                 },
                 lora_auto_submitted: false,
                 strange_loop_score: 0.0,
@@ -595,7 +619,9 @@ pub fn run_enhanced_training_cycle(state: &AppState, force_full: bool) -> Enhanc
 
         tracing::info!(
             "Incremental training: {} new memories (of {} total) since {}",
-            new_memories.len(), total_memory_count, cutoff.format("%H:%M:%S")
+            new_memories.len(),
+            total_memory_count,
+            cutoff.format("%H:%M:%S")
         );
         new_memories
     };
@@ -610,14 +636,18 @@ pub fn run_enhanced_training_cycle(state: &AppState, force_full: bool) -> Enhanc
         // Run forward-chaining inference over all propositions (new + existing)
         let inferences = ns.run_inference();
         // Capture actual content for discovery publishing
-        let prop_data: Vec<(String, String, String, f64)> = props.iter().map(|p| {
-            let subject = p.arguments.first().cloned().unwrap_or_default();
-            let object = p.arguments.get(1).cloned().unwrap_or_default();
-            (subject, p.predicate.clone(), object, p.confidence)
-        }).collect();
-        let inference_data: Vec<String> = inferences.iter().map(|inf| {
-            inf.explanation.clone()
-        }).collect();
+        let prop_data: Vec<(String, String, String, f64)> = props
+            .iter()
+            .map(|p| {
+                let subject = p.arguments.first().cloned().unwrap_or_default();
+                let object = p.arguments.get(1).cloned().unwrap_or_default();
+                (subject, p.predicate.clone(), object, p.confidence)
+            })
+            .collect();
+        let inference_data: Vec<String> = inferences
+            .iter()
+            .map(|inf| inf.explanation.clone())
+            .collect();
         (props.len(), inferences.len(), prop_data, inference_data)
     };
 
@@ -709,7 +739,10 @@ pub fn run_enhanced_training_cycle(state: &AppState, force_full: bool) -> Enhanc
             }
         }
         if count > 0 {
-            tracing::info!("Auto-voted {} under-voted memories for vote coverage", count);
+            tracing::info!(
+                "Auto-voted {} under-voted memories for vote coverage",
+                count
+            );
         }
         count
     };
@@ -723,7 +756,8 @@ pub fn run_enhanced_training_cycle(state: &AppState, force_full: bool) -> Enhanc
 
     // 6a. Detect knowledge imbalance: flag if any category has >40% of memories
     let total_memories = all_memories.len();
-    let mut category_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut category_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
     for mem in &all_memories {
         *category_counts.entry(mem.category.to_string()).or_insert(0) += 1;
     }
@@ -789,7 +823,10 @@ pub fn run_enhanced_training_cycle(state: &AppState, force_full: bool) -> Enhanc
 
     // 6c. Check vote coverage — if <60%, increase auto-vote cap for next cycle
     let vote_coverage = if total_memories > 0 {
-        let voted_count = all_memories.iter().filter(|m| m.quality_score.observations() >= 1.0).count();
+        let voted_count = all_memories
+            .iter()
+            .filter(|m| m.quality_score.observations() >= 1.0)
+            .count();
         voted_count as f64 / total_memories as f64
     } else {
         1.0
@@ -800,7 +837,10 @@ pub fn run_enhanced_training_cycle(state: &AppState, force_full: bool) -> Enhanc
             vote_coverage * 100.0
         ));
         state.internal_voice.write().observe(
-            format!("vote coverage is only {:.0}%, knowledge quality signals are sparse", vote_coverage * 100.0),
+            format!(
+                "vote coverage is only {:.0}%, knowledge quality signals are sparse",
+                vote_coverage * 100.0
+            ),
             uuid::Uuid::nil(),
         );
     }
@@ -811,8 +851,16 @@ pub fn run_enhanced_training_cycle(state: &AppState, force_full: bool) -> Enhanc
         let delta_count = ds.len();
         if delta_count == 0 && total_memories > 10 {
             // Stagnation detected — find under-represented categories and synthesize
-            let all_categories = ["architecture", "pattern", "solution", "convention",
-                                  "security", "performance", "tooling", "debug"];
+            let all_categories = [
+                "architecture",
+                "pattern",
+                "solution",
+                "convention",
+                "security",
+                "performance",
+                "tooling",
+                "debug",
+            ];
             let mut underrepresented: Vec<&str> = Vec::new();
             for cat in &all_categories {
                 let count = category_counts.get(*cat).copied().unwrap_or(0);
@@ -834,9 +882,16 @@ pub fn run_enhanced_training_cycle(state: &AppState, force_full: bool) -> Enhanc
                 let curiosity_memory = BrainMemory {
                     id: uuid::Uuid::new_v4(),
                     category: crate::types::BrainCategory::Debug,
-                    title: format!("Curiosity: knowledge gaps in {}", underrepresented.join(", ")),
+                    title: format!(
+                        "Curiosity: knowledge gaps in {}",
+                        underrepresented.join(", ")
+                    ),
                     content: synthesis_content.clone(),
-                    tags: vec!["self-reflection".to_string(), "curiosity".to_string(), "auto-generated".to_string()],
+                    tags: vec![
+                        "self-reflection".to_string(),
+                        "curiosity".to_string(),
+                        "auto-generated".to_string(),
+                    ],
                     code_snippet: None,
                     embedding,
                     contributor_id: "brain-self".to_string(),
@@ -852,7 +907,10 @@ pub fn run_enhanced_training_cycle(state: &AppState, force_full: bool) -> Enhanc
                 };
                 state.store.store_memory_sync(curiosity_memory);
                 reflection_parts.push(synthesis_content);
-                tracing::info!("Curiosity triggered: synthesized knowledge gap memory for [{}]", underrepresented.join(", "));
+                tracing::info!(
+                    "Curiosity triggered: synthesized knowledge gap memory for [{}]",
+                    underrepresented.join(", ")
+                );
                 true
             } else {
                 false
@@ -873,7 +931,11 @@ pub fn run_enhanced_training_cycle(state: &AppState, force_full: bool) -> Enhanc
             .get_all_patterns()
             .iter()
             .filter_map(|p| {
-                if p.centroid.is_empty() { None } else { Some(p.centroid.clone()) }
+                if p.centroid.is_empty() {
+                    None
+                } else {
+                    Some(p.centroid.clone())
+                }
             })
             .collect();
         drop(rb_read);
@@ -1015,9 +1077,16 @@ pub fn run_enhanced_training_cycle(state: &AppState, force_full: bool) -> Enhanc
         let reflection_memory = BrainMemory {
             id: uuid::Uuid::new_v4(),
             category: crate::types::BrainCategory::Debug,
-            title: format!("Self-reflection: training cycle at {}", now.format("%Y-%m-%d %H:%M")),
+            title: format!(
+                "Self-reflection: training cycle at {}",
+                now.format("%Y-%m-%d %H:%M")
+            ),
             content: self_reflection.clone(),
-            tags: vec!["self-reflection".to_string(), "training-cycle".to_string(), "auto-generated".to_string()],
+            tags: vec![
+                "self-reflection".to_string(),
+                "training-cycle".to_string(),
+                "auto-generated".to_string(),
+            ],
             code_snippet: None,
             embedding,
             contributor_id: "brain-self".to_string(),
@@ -1035,7 +1104,10 @@ pub fn run_enhanced_training_cycle(state: &AppState, force_full: bool) -> Enhanc
     }
 
     // Record reflection in the internal voice
-    state.internal_voice.write().reflect(self_reflection.clone());
+    state
+        .internal_voice
+        .write()
+        .reflect(self_reflection.clone());
 
     // ── Step 10: Build discovery for potential gist publication ──
     let witness_memory_ids: Vec<String> = all_memories
@@ -1055,10 +1127,12 @@ pub fn run_enhanced_training_cycle(state: &AppState, force_full: bool) -> Enhanc
     let mut findings = Vec::new();
 
     // Find memories tagged with "cross-domain" or "discovery" — these are the real insights
-    let discovery_memories: Vec<&BrainMemory> = all_memories.iter()
+    let discovery_memories: Vec<&BrainMemory> = all_memories
+        .iter()
         .filter(|m| {
-            m.tags.iter().any(|t| t.contains("cross-domain") || t.contains("discovery") || t.contains("hypothesis"))
-                || m.title.contains("Cross-Domain")
+            m.tags.iter().any(|t| {
+                t.contains("cross-domain") || t.contains("discovery") || t.contains("hypothesis")
+            }) || m.title.contains("Cross-Domain")
                 || m.title.contains("Discovery")
                 || m.title.contains("Hypothesis")
         })
@@ -1084,7 +1158,10 @@ pub fn run_enhanced_training_cycle(state: &AppState, force_full: bool) -> Enhanc
     }
 
     if curiosity_triggered {
-        findings.push("Curiosity engine detected knowledge gaps and synthesized exploratory memory".to_string());
+        findings.push(
+            "Curiosity engine detected knowledge gaps and synthesized exploratory memory"
+                .to_string(),
+        );
     }
 
     let mut methodology = Vec::new();
@@ -1116,7 +1193,11 @@ pub fn run_enhanced_training_cycle(state: &AppState, force_full: bool) -> Enhanc
     let discovery_title = if !raw_inferences.is_empty() {
         // Use first inference as the basis for the title
         let first = &raw_inferences[0];
-        let short = if first.len() > 80 { &first[..80] } else { first };
+        let short = if first.len() > 80 {
+            &first[..80]
+        } else {
+            first
+        };
         format!("Discovery: {}", short)
     } else if curiosity_triggered {
         "Curiosity-Driven Knowledge Gap Analysis".to_string()
@@ -1125,10 +1206,7 @@ pub fn run_enhanced_training_cycle(state: &AppState, force_full: bool) -> Enhanc
     };
 
     // Build abstract from actual findings, not metrics
-    let abstract_parts: Vec<&str> = raw_inferences.iter()
-        .take(3)
-        .map(|s| s.as_str())
-        .collect();
+    let abstract_parts: Vec<&str> = raw_inferences.iter().take(3).map(|s| s.as_str()).collect();
     let abstract_text = if !abstract_parts.is_empty() {
         format!(
             "Through forward-chaining symbolic reasoning over {} observations, \
@@ -1145,7 +1223,9 @@ pub fn run_enhanced_training_cycle(state: &AppState, force_full: bool) -> Enhanc
         format!(
             "Analysis of {} observations across {} clusters yielded {} propositions. \
              The cognitive pipeline is building towards novel inference capability.",
-            memory_count, clusters.len(), propositions_extracted
+            memory_count,
+            clusters.len(),
+            propositions_extracted
         )
     };
 
@@ -1302,14 +1382,9 @@ fn max_sse_connections() -> usize {
 /// Issue a challenge nonce for replay protection.
 /// Clients must include this nonce in write requests.
 /// Nonces are single-use and expire after 5 minutes.
-async fn issue_challenge(
-    State(state): State<AppState>,
-) -> Json<ChallengeResponse> {
+async fn issue_challenge(State(state): State<AppState>) -> Json<ChallengeResponse> {
     let (nonce, expires_at) = state.nonce_store.issue();
-    Json(ChallengeResponse {
-        nonce,
-        expires_at,
-    })
+    Json(ChallengeResponse { nonce, expires_at })
 }
 
 /// Validate a nonce if provided. Returns Err if nonce is present but invalid.
@@ -1329,7 +1404,10 @@ fn validate_nonce(state: &AppState, nonce: &Option<String>) -> Result<(), (Statu
 /// Guard: reject writes when the negative-cost fuse is tripped.
 fn check_read_only(state: &AppState) -> Result<(), (StatusCode, String)> {
     if state.read_only.load(Ordering::Relaxed) {
-        Err((StatusCode::SERVICE_UNAVAILABLE, "Server is in read-only mode".into()))
+        Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Server is in read-only mode".into(),
+        ))
     } else {
         Ok(())
     }
@@ -1349,19 +1427,23 @@ async fn share_memory(
 
     // Rate limit check (per-key + per-IP anti-Sybil)
     if !state.rate_limiter.check_write(&contributor.pseudonym) {
-        return Err((StatusCode::TOO_MANY_REQUESTS, "Write rate limit exceeded".into()));
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            "Write rate limit exceeded".into(),
+        ));
     }
     let client_ip = extract_client_ip(&headers);
     if !state.rate_limiter.check_ip_write(&client_ip) {
-        return Err((StatusCode::TOO_MANY_REQUESTS, "IP write rate limit exceeded".into()));
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            "IP write rate limit exceeded".into(),
+        ));
     }
 
     // ── Phase 2 (ADR-075): PII stripping ──
     let (title, content, tags, redaction_log_json) = if state.rvf_flags.pii_strip {
-        let mut field_pairs: Vec<(&str, &str)> = vec![
-            ("title", &req.title),
-            ("content", &req.content),
-        ];
+        let mut field_pairs: Vec<(&str, &str)> =
+            vec![("title", &req.title), ("content", &req.content)];
         for tag in &req.tags {
             field_pairs.push(("tag", tag));
         }
@@ -1371,7 +1453,11 @@ async fn share_memory(
         let stripped_tags: Vec<String> = stripped[2..].iter().map(|(_, v)| v.clone()).collect();
         let log_json = serde_json::to_string(&log).ok();
         if log.total_redactions > 0 {
-            tracing::info!("PII stripped: {} redactions in '{}'", log.total_redactions, stripped_title);
+            tracing::info!(
+                "PII stripped: {} redactions in '{}'",
+                log.total_redactions,
+                stripped_title
+            );
         }
         (stripped_title, stripped_content, stripped_tags, log_json)
     } else {
@@ -1379,19 +1465,20 @@ async fn share_memory(
     };
 
     // Auto-generate embedding via ruvllm if client didn't provide one or dim mismatches
-    let embedding = if req.embedding.is_empty()
-        || req.embedding.len() != crate::embeddings::EMBED_DIM
-    {
-        let text = crate::embeddings::EmbeddingEngine::prepare_text(&title, &content, &tags);
-        let emb = state.embedding_engine.read().embed_for_storage(&text);
-        tracing::debug!("Auto-generated {}-dim embedding for '{}'", emb.len(), title);
-        emb
-    } else {
-        req.embedding
-    };
+    let embedding =
+        if req.embedding.is_empty() || req.embedding.len() != crate::embeddings::EMBED_DIM {
+            let text = crate::embeddings::EmbeddingEngine::prepare_text(&title, &content, &tags);
+            let emb = state.embedding_engine.read().embed_for_storage(&text);
+            tracing::debug!("Auto-generated {}-dim embedding for '{}'", emb.len(), title);
+            emb
+        } else {
+            req.embedding
+        };
 
     // Verify input (uses final embedding — PII already stripped if enabled)
-    state.verifier.read()
+    state
+        .verifier
+        .read()
         .verify_share(&title, &content, &tags, &embedding)
         .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
 
@@ -1463,7 +1550,8 @@ async fn share_memory(
         if crate::verify::Verifier::verify_embedding_not_adversarial(&embedding, 10) {
             tracing::warn!(
                 "Adversarial embedding detected for '{}' from contributor '{}'",
-                title, contributor.pseudonym
+                title,
+                contributor.pseudonym
             );
             // Phase 6: record in negative cache if enabled
             if state.rvf_flags.neg_cache {
@@ -1510,10 +1598,20 @@ async fn share_memory(
     } else {
         // Store client-provided RVF bytes if any (backward compat)
         let path = if let Some(rvf_b64) = &req.rvf_bytes {
-            if let Ok(rvf_data) = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, rvf_b64) {
-                state.gcs.upload_rvf(&contributor.pseudonym, &id.to_string(), &rvf_data).await.ok()
-            } else { None }
-        } else { None };
+            if let Ok(rvf_data) =
+                base64::Engine::decode(&base64::engine::general_purpose::STANDARD, rvf_b64)
+            {
+                state
+                    .gcs
+                    .upload_rvf(&contributor.pseudonym, &id.to_string(), &rvf_data)
+                    .await
+                    .ok()
+            } else {
+                None
+            }
+        } else {
+            None
+        };
         (path, None)
     };
 
@@ -1538,7 +1636,10 @@ async fn share_memory(
     };
 
     // Add to embedding corpus for future context-aware embeddings
-    state.embedding_engine.write().add_to_corpus(&id.to_string(), embedding.clone(), None);
+    state
+        .embedding_engine
+        .write()
+        .add_to_corpus(&id.to_string(), embedding.clone(), None);
 
     // Record embedding in cognitive engine and drift monitor
     {
@@ -1552,7 +1653,10 @@ async fn share_memory(
     // Reuse now_ns from witness chain computation above to avoid redundant syscall
     if state.rvf_flags.temporal_enabled {
         let delta = ruvector_delta_core::VectorDelta::from_dense(embedding.clone());
-        state.delta_stream.write().push_with_timestamp(delta, now_ns);
+        state
+            .delta_stream
+            .write()
+            .push_with_timestamp(delta, now_ns);
     }
 
     // ── Meta-learning: Record contribution as decision (ADR-075 AGI) ──
@@ -1562,7 +1666,11 @@ async fn share_memory(
             category: memory.category.to_string(),
         };
         let arm = ruvector_domain_expansion::ArmId("contribute".into());
-        state.domain_engine.write().meta.record_decision(&bucket, &arm, 0.5);
+        state
+            .domain_engine
+            .write()
+            .meta
+            .record_decision(&bucket, &arm, 0.5);
     }
     // Capture category key before memory is moved into store
     let memory_cat_key = memory.category.to_string();
@@ -1581,7 +1689,10 @@ async fn share_memory(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     // Update contributor reputation: record activity + increment count
-    state.store.record_contribution(&contributor.pseudonym).await;
+    state
+        .store
+        .record_contribution(&contributor.pseudonym)
+        .await;
 
     // ── SONA: Record share as learning trajectory ──
     // Uses embedding by reference where possible; begin_trajectory needs owned vec
@@ -1598,7 +1709,8 @@ async fn share_memory(
     // O(n) scan on every write. Lyapunov estimates are stable enough to skip updates.
     if state.rvf_flags.midstream_attractor && state.store.memory_count() % 10 == 0 {
         let cat_key = memory_cat_key;
-        let cat_embeddings: Vec<Vec<f32>> = state.store
+        let cat_embeddings: Vec<Vec<f32>> = state
+            .store
             .all_memories()
             .iter()
             .filter(|m| m.category.to_string() == cat_key)
@@ -1627,7 +1739,10 @@ async fn search_memories(
     Query(query): Query<SearchQuery>,
 ) -> Result<Json<Vec<ScoredBrainMemory>>, (StatusCode, String)> {
     if !state.rate_limiter.check_read(&contributor.pseudonym) {
-        return Err((StatusCode::TOO_MANY_REQUESTS, "Read rate limit exceeded".into()));
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            "Read rate limit exceeded".into(),
+        ));
     }
 
     let limit = query.limit.unwrap_or(10).min(100);
@@ -1641,7 +1756,10 @@ async fn search_memories(
         if let Some(ref emb) = query.embedding {
             let sig = rvf_runtime::QuerySignature::from_query(emb);
             if state.negative_cache.lock().is_blacklisted(&sig) {
-                tracing::warn!("Query blocked by negative cache for contributor '{}'", contributor.pseudonym);
+                tracing::warn!(
+                    "Query blocked by negative cache for contributor '{}'",
+                    contributor.pseudonym
+                );
                 return Ok(Json(Vec::new()));
             }
         }
@@ -1666,7 +1784,9 @@ async fn search_memories(
         return Ok(Json(Vec::new()));
     };
 
-    let tags: Option<Vec<String>> = query.tags.map(|t| t.split(',').map(|s| s.trim().to_string()).collect());
+    let tags: Option<Vec<String>> = query
+        .tags
+        .map(|t| t.split(',').map(|s| s.trim().to_string()).collect());
 
     // Fetch ALL memories for keyword-dominant ranking.
     let raw = state
@@ -1703,7 +1823,10 @@ async fn search_memories(
                 ("snn", &["spiking", "neural"][..]),
                 ("wasm", &["webassembly"][..]),
                 ("rvf", &["ruvector", "format", "cognitive", "container"][..]),
-                ("pii", &["personal", "identifiable", "information", "privacy"][..]),
+                (
+                    "pii",
+                    &["personal", "identifiable", "information", "privacy"][..],
+                ),
                 ("dp", &["differential", "privacy"][..]),
                 ("cicd", &["continuous", "integration", "deployment"][..]),
                 ("tdd", &["test", "driven", "development"][..]),
@@ -1799,10 +1922,11 @@ async fn search_memories(
                 let cat_lower = m.category.to_string().to_lowercase();
 
                 // Phase 1: Exact phrase match in title (strongest possible signal)
-                let phrase_bonus = if query_tokens.len() >= 2 && title_lower.contains(&query_lower) {
-                    2.0  // title contains the exact query phrase — dominant signal
+                let phrase_bonus = if query_tokens.len() >= 2 && title_lower.contains(&query_lower)
+                {
+                    2.0 // title contains the exact query phrase — dominant signal
                 } else if query_tokens.len() >= 2 && content_lower.contains(&query_lower) {
-                    0.5  // content contains the exact query phrase
+                    0.5 // content contains the exact query phrase
                 } else {
                     0.0
                 };
@@ -1815,25 +1939,41 @@ async fn search_memories(
                     let mut found = false;
                     // Original query tokens get full weight; expanded synonyms get 0.5x
                     let weight_mult = if query_tokens.contains(tok) { 1.0 } else { 0.5 };
-                    if word_match(&title_lower, tok) { token_weight += 6.0 * weight_mult; found = true; }
+                    if word_match(&title_lower, tok) {
+                        token_weight += 6.0 * weight_mult;
+                        found = true;
+                    }
                     if m.tags.iter().any(|t| {
                         let tl = t.to_lowercase();
                         word_match(&tl, tok) || tl == *tok
-                    }) { token_weight += 4.0 * weight_mult; found = true; }
-                    if word_match(&cat_lower, tok) { token_weight += 3.0 * weight_mult; found = true; }
-                    if word_match(&content_lower, tok) { token_weight += 1.0 * weight_mult; found = true; }
-                    if found { token_hits += 1; }
+                    }) {
+                        token_weight += 4.0 * weight_mult;
+                        found = true;
+                    }
+                    if word_match(&cat_lower, tok) {
+                        token_weight += 3.0 * weight_mult;
+                        found = true;
+                    }
+                    if word_match(&content_lower, tok) {
+                        token_weight += 1.0 * weight_mult;
+                        found = true;
+                    }
+                    if found {
+                        token_hits += 1;
+                    }
                 }
 
                 // Bonus: all original query tokens appear in title
-                let orig_title_hits = query_tokens.iter()
+                let orig_title_hits = query_tokens
+                    .iter()
                     .filter(|tok| word_match(&title_lower, tok))
                     .count();
-                let all_in_title_bonus = if query_tokens.len() >= 2 && orig_title_hits == query_tokens.len() {
-                    0.6
-                } else {
-                    0.0
-                };
+                let all_in_title_bonus =
+                    if query_tokens.len() >= 2 && orig_title_hits == query_tokens.len() {
+                        0.6
+                    } else {
+                        0.0
+                    };
 
                 // Coverage based on expanded tokens
                 let coverage = token_hits as f64 / expanded_tokens.len().max(1) as f64;
@@ -1857,10 +1997,7 @@ async fn search_memories(
                     + vote_boost * 0.03
             } else {
                 // No keyword matches: embedding + graph + vote signals
-                vec_sim * 0.45
-                    + graph_sim * 0.25
-                    + rep.min(1.0) * 0.15
-                    + vote_boost * 0.15
+                vec_sim * 0.45 + graph_sim * 0.25 + rep.min(1.0) * 0.15 + vote_boost * 0.15
             };
 
             (hybrid, m)
@@ -1882,22 +2019,15 @@ async fn search_memories(
 
         let broadcast_count = (limit * 3).min(scored.len());
         for (i, (score, _mem)) in scored.iter().enumerate().take(broadcast_count) {
-            let rep = Representation::new(
-                vec![*score as f32],
-                *score as f32,
-                i as u16,
-                i as u64,
-            );
+            let rep = Representation::new(vec![*score as f32], *score as f32, i as u16, i as u64);
             ws.broadcast(rep);
         }
 
         let winners = ws.retrieve_top_k(limit);
         drop(ws); // Release write lock early — SONA/meta only need read locks
 
-        let winner_set: std::collections::HashSet<usize> = winners
-            .iter()
-            .map(|w| w.source_module as usize)
-            .collect();
+        let winner_set: std::collections::HashSet<usize> =
+            winners.iter().map(|w| w.source_module as usize).collect();
 
         for (i, (score, _)) in scored.iter_mut().enumerate() {
             if winner_set.contains(&i) {
@@ -1908,7 +2038,9 @@ async fn search_memories(
         // K-WTA sparse attention (no intermediate sort needed — applied additively)
         if scored.len() > limit {
             // Sort once for K-WTA input ordering
-            scored.sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+            scored.sort_unstable_by(|a, b| {
+                b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
+            });
             let kwta = ruvector_nervous_system::KWTALayer::new(scored.len(), limit);
             let activations: Vec<f32> = scored.iter().map(|(s, _)| *s as f32).collect();
             let sparse = kwta.sparse_normalized(&activations);
@@ -1927,12 +2059,13 @@ async fn search_memories(
         if !patterns.is_empty() {
             let inv_len = 1.0 / patterns.len() as f64;
             for (score, mem) in &mut scored {
-                let pattern_boost: f64 = patterns.iter()
+                let pattern_boost: f64 = patterns
+                    .iter()
                     .map(|p| {
-                        cosine_similarity(&mem.embedding, &p.centroid) as f64
-                            * p.avg_quality as f64
+                        cosine_similarity(&mem.embedding, &p.centroid) as f64 * p.avg_quality as f64
                     })
-                    .sum::<f64>() * inv_len;
+                    .sum::<f64>()
+                    * inv_len;
                 *score += pattern_boost * 0.15;
             }
         }
@@ -1947,11 +2080,13 @@ async fn search_memories(
         if !recalled.is_empty() {
             let inv_k = 1.0 / recalled.len() as f64;
             for (score, mem) in &mut scored {
-                let hopfield_boost: f64 = recalled.iter()
+                let hopfield_boost: f64 = recalled
+                    .iter()
                     .map(|(_idx, pattern, attn_weight)| {
                         cosine_similarity(&mem.embedding, pattern) * (*attn_weight as f64)
                     })
-                    .sum::<f64>() * inv_k;
+                    .sum::<f64>()
+                    * inv_k;
                 *score += hopfield_boost * 0.10;
             }
         }
@@ -2001,7 +2136,10 @@ async fn search_memories(
     // Single final sort after all AGI + midstream scoring layers
     scored.sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
     scored.truncate(limit);
-    let results: Vec<ScoredBrainMemory> = scored.into_iter().map(|(score, memory)| ScoredBrainMemory { memory, score }).collect();
+    let results: Vec<ScoredBrainMemory> = scored
+        .into_iter()
+        .map(|(score, memory)| ScoredBrainMemory { memory, score })
+        .collect();
 
     // ── SONA: Record search trajectory for learning (Gap 2: trajectory diversity) ──
     // Only end the trajectory if we have enough results (>= 3) to form a meaningful pattern.
@@ -2054,17 +2192,28 @@ async fn list_memories(
     Query(query): Query<ListQuery>,
 ) -> Result<Json<ListResponse>, (StatusCode, String)> {
     if !state.rate_limiter.check_read(&contributor.pseudonym) {
-        return Err((StatusCode::TOO_MANY_REQUESTS, "Read rate limit exceeded".into()));
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            "Read rate limit exceeded".into(),
+        ));
     }
 
     let limit = query.limit.unwrap_or(20).min(100);
     let offset = query.offset.unwrap_or(0);
     let sort = query.sort.unwrap_or_default();
-    let tags: Option<Vec<String>> = query.tags.map(|t| t.split(',').map(|s| s.trim().to_string()).collect());
+    let tags: Option<Vec<String>> = query
+        .tags
+        .map(|t| t.split(',').map(|s| s.trim().to_string()).collect());
 
     let (memories, total_count) = state
         .store
-        .list_memories(query.category.as_ref(), tags.as_deref(), limit, offset, &sort)
+        .list_memories(
+            query.category.as_ref(),
+            tags.as_deref(),
+            limit,
+            offset,
+            &sort,
+        )
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
@@ -2082,7 +2231,10 @@ async fn get_memory(
     Path(id): Path<Uuid>,
 ) -> Result<Json<BrainMemory>, (StatusCode, String)> {
     if !state.rate_limiter.check_read(&contributor.pseudonym) {
-        return Err((StatusCode::TOO_MANY_REQUESTS, "Read rate limit exceeded".into()));
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            "Read rate limit exceeded".into(),
+        ));
     }
 
     let memory = state
@@ -2105,7 +2257,10 @@ async fn vote_memory(
     check_read_only(&state)?;
 
     if !state.rate_limiter.check_write(&contributor.pseudonym) {
-        return Err((StatusCode::TOO_MANY_REQUESTS, "Write rate limit exceeded".into()));
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            "Write rate limit exceeded".into(),
+        ));
     }
 
     // Look up the content author before voting
@@ -2122,8 +2277,14 @@ async fn vote_memory(
     let is_author = content_author.as_deref() == Some(&contributor.pseudonym);
     if !is_author {
         let client_ip = extract_client_ip(&headers);
-        if !state.rate_limiter.check_ip_vote(&client_ip, &id.to_string()) {
-            return Err((StatusCode::FORBIDDEN, "Already voted on this memory from this network".into()));
+        if !state
+            .rate_limiter
+            .check_ip_vote(&client_ip, &id.to_string())
+        {
+            return Err((
+                StatusCode::FORBIDDEN,
+                "Already voted on this memory from this network".into(),
+            ));
         }
     }
 
@@ -2141,13 +2302,19 @@ async fn vote_memory(
 
     // Update content author's reputation based on vote outcome
     if let Some(author) = content_author {
-        state.store.update_reputation_from_vote(&author, was_upvoted).await;
+        state
+            .store
+            .update_reputation_from_vote(&author, was_upvoted)
+            .await;
 
         // Check for poisoning penalty if downvoted
         if !was_upvoted {
             let down_count = (updated.beta - 1.0) as u32;
             let quality = updated.mean();
-            state.store.check_poisoning(&author, down_count, quality).await;
+            state
+                .store
+                .check_poisoning(&author, down_count, quality)
+                .await;
         }
     }
 
@@ -2169,14 +2336,24 @@ async fn vote_memory(
                 category: cat_str,
             };
             let arm = ruvector_domain_expansion::ArmId("search".into());
-            state.domain_engine.write().meta.record_decision(&bucket, &arm, reward);
+            state
+                .domain_engine
+                .write()
+                .meta
+                .record_decision(&bucket, &arm, reward);
         }
     }
 
     // Ensure voter exists as contributor before recording activity
-    state.store.get_or_create_contributor(&contributor.pseudonym, contributor.is_system).await
+    state
+        .store
+        .get_or_create_contributor(&contributor.pseudonym, contributor.is_system)
+        .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    state.store.record_contribution(&contributor.pseudonym).await;
+    state
+        .store
+        .record_contribution(&contributor.pseudonym)
+        .await;
 
     Ok(Json(updated))
 }
@@ -2189,7 +2366,10 @@ async fn delete_memory(
     check_read_only(&state)?;
 
     if !state.rate_limiter.check_write(&contributor.pseudonym) {
-        return Err((StatusCode::TOO_MANY_REQUESTS, "Write rate limit exceeded".into()));
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            "Write rate limit exceeded".into(),
+        ));
     }
 
     let deleted = state
@@ -2227,13 +2407,15 @@ async fn transfer(
     let all_memories = state.store.all_memories();
     let src_lower = req.source_domain.to_lowercase();
     let tgt_lower = req.target_domain.to_lowercase();
-    let source_memories: Vec<_> = all_memories.iter()
+    let source_memories: Vec<_> = all_memories
+        .iter()
         .filter(|m| {
             m.category.to_string().to_lowercase().contains(&src_lower)
                 || m.tags.iter().any(|t| t.to_lowercase().contains(&src_lower))
         })
         .collect();
-    let target_memories: Vec<_> = all_memories.iter()
+    let target_memories: Vec<_> = all_memories
+        .iter()
         .filter(|m| {
             m.category.to_string().to_lowercase().contains(&tgt_lower)
                 || m.tags.iter().any(|t| t.to_lowercase().contains(&tgt_lower))
@@ -2244,14 +2426,22 @@ async fn transfer(
     let source_quality = if source_memories.is_empty() {
         0.5
     } else {
-        source_memories.iter().map(|m| m.quality_score.mean()).sum::<f64>() / source_memories.len() as f64
+        source_memories
+            .iter()
+            .map(|m| m.quality_score.mean())
+            .sum::<f64>()
+            / source_memories.len() as f64
     };
 
     // Target quality before transfer: average quality of target domain memories (or cold start)
     let target_before = if target_memories.is_empty() {
         0.3
     } else {
-        target_memories.iter().map(|m| m.quality_score.mean()).sum::<f64>() / target_memories.len() as f64
+        target_memories
+            .iter()
+            .map(|m| m.quality_score.mean())
+            .sum::<f64>()
+            / target_memories.len() as f64
     };
 
     // Use the shared DomainExpansionEngine to initiate cross-domain transfer.
@@ -2270,21 +2460,27 @@ async fn transfer(
         engine.verify_transfer(
             &source_id,
             &target_id,
-            source_quality as f32,  // source_before: real quality
-            source_quality as f32,  // source_after: unchanged (no regression)
-            target_before as f32,   // target_before: real quality
-            target_after as f32,    // target_after: dampened improvement
-            baseline_cycles,        // based on actual domain size
-            transfer_cycles,        // estimated speedup
+            source_quality as f32, // source_before: real quality
+            source_quality as f32, // source_after: unchanged (no regression)
+            target_before as f32,  // target_before: real quality
+            target_after as f32,   // target_after: dampened improvement
+            baseline_cycles,       // based on actual domain size
+            transfer_cycles,       // estimated speedup
         )
     };
 
     let mut warnings = Vec::new();
     if source_memories.is_empty() {
-        warnings.push(format!("No memories found matching source domain '{}'", req.source_domain));
+        warnings.push(format!(
+            "No memories found matching source domain '{}'",
+            req.source_domain
+        ));
     }
     if target_memories.is_empty() {
-        warnings.push(format!("No memories found matching target domain '{}'", req.target_domain));
+        warnings.push(format!(
+            "No memories found matching target domain '{}'",
+            req.target_domain
+        ));
     }
 
     Ok(Json(TransferResponse {
@@ -2308,7 +2504,10 @@ async fn verify_endpoint(
     Json(req): Json<VerifyRequest>,
 ) -> Result<Json<VerifyResponse>, (StatusCode, String)> {
     if !state.rate_limiter.check_read(&contributor.pseudonym) {
-        return Err((StatusCode::TOO_MANY_REQUESTS, "Read rate limit exceeded".into()));
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            "Read rate limit exceeded".into(),
+        ));
     }
 
     // Method 1: Witness chain steps + hash
@@ -2335,10 +2534,8 @@ async fn verify_endpoint(
             Ok(Some(mem)) => {
                 // If witness_hash provided, verify it matches
                 if let Some(ref hash) = req.witness_hash {
-                    let equal = subtle::ConstantTimeEq::ct_eq(
-                        mem.witness_hash.as_bytes(),
-                        hash.as_bytes(),
-                    );
+                    let equal =
+                        subtle::ConstantTimeEq::ct_eq(mem.witness_hash.as_bytes(), hash.as_bytes());
                     if bool::from(equal) {
                         Ok(Json(VerifyResponse {
                             valid: true,
@@ -2478,9 +2675,7 @@ async fn partition(
     }
 }
 
-async fn status(
-    State(state): State<AppState>,
-) -> Json<StatusResponse> {
+async fn status(State(state): State<AppState>) -> Json<StatusResponse> {
     // Return cached response if fresh (< 5 seconds old)
     {
         let cache = state.cached_status.read();
@@ -2495,16 +2690,27 @@ async fn status(
     // Use node_count as a cheap proxy for cluster count instead of running
     // full MinCut partitioning on every status call (expensive O(V*E) op)
     let cluster_count = if graph.node_count() < 3 {
-        if graph.node_count() > 0 { 1 } else { 0 }
+        if graph.node_count() > 0 {
+            1
+        } else {
+            0
+        }
     } else {
         // Estimate cluster count from edge density (cheap)
         let density = if graph.node_count() > 1 {
-            graph.edge_count() as f64 / (graph.node_count() as f64 * (graph.node_count() - 1) as f64 / 2.0)
+            graph.edge_count() as f64
+                / (graph.node_count() as f64 * (graph.node_count() - 1) as f64 / 2.0)
         } else {
             0.0
         };
         // High density = fewer clusters, low density = more
-        if density > 0.8 { 1 } else if density > 0.5 { 2 } else { (graph.node_count() / 10).max(2).min(20) }
+        if density > 0.8 {
+            1
+        } else if density > 0.5 {
+            2
+        } else {
+            (graph.node_count() / 10).max(2).min(20)
+        }
     };
     let lora = state.lora_federation.read();
 
@@ -2543,17 +2749,29 @@ async fn status(
     }
 
     // ADR-075: average RVF segments per memory (reuse all_memories from above)
-    let rvf_count = all_memories.iter().filter(|m| m.witness_chain.is_some()).count();
+    let rvf_count = all_memories
+        .iter()
+        .filter(|m| m.witness_chain.is_some())
+        .count();
     let rvf_segments_per_memory = if rvf_count > 0 {
         // Estimate: memories with witness chains have at least 3 segments (VEC+META+WITNESS)
         // plus optional DP proof and redaction log
-        let total_segs: usize = all_memories.iter().map(|m| {
-            let mut s = 2; // VEC + META
-            if m.witness_chain.is_some() { s += 1; }
-            if m.dp_proof.is_some() { s += 1; }
-            if m.redaction_log.is_some() { s += 1; }
-            s
-        }).sum();
+        let total_segs: usize = all_memories
+            .iter()
+            .map(|m| {
+                let mut s = 2; // VEC + META
+                if m.witness_chain.is_some() {
+                    s += 1;
+                }
+                if m.dp_proof.is_some() {
+                    s += 1;
+                }
+                if m.redaction_log.is_some() {
+                    s += 1;
+                }
+                s
+            })
+            .sum();
         total_segs as f64 / all_memories.len().max(1) as f64
     } else {
         0.0
@@ -2587,7 +2805,8 @@ async fn status(
                 .unwrap_or_default()
                 .as_nanos() as u64;
             let one_hour_ns = 3_600_000_000_000u64;
-            ds.get_time_range(now_ns.saturating_sub(one_hour_ns), now_ns).len() as f64
+            ds.get_time_range(now_ns.saturating_sub(one_hour_ns), now_ns)
+                .len() as f64
         },
         temporal_deltas: state.delta_stream.read().len(),
         sona_patterns: {
@@ -2597,9 +2816,13 @@ async fn status(
         meta_avg_regret: state.domain_engine.read().meta.regret.average_regret(),
         meta_plateau_status: {
             let cp = state.domain_engine.read().meta.plateau.consecutive_plateaus;
-            if cp == 0 { "learning".to_string() }
-            else if cp <= 2 { format!("mild_plateau({})", cp) }
-            else { format!("severe_plateau({})", cp) }
+            if cp == 0 {
+                "learning".to_string()
+            } else if cp <= 2 {
+                format!("mild_plateau({})", cp)
+            } else {
+                format!("severe_plateau({})", cp)
+            }
         },
         sona_trajectories: {
             let ss = state.sona.read().stats();
@@ -2608,11 +2831,22 @@ async fn status(
         midstream_scheduler_ticks: state.nano_scheduler.metrics().total_ticks,
         midstream_attractor_categories: state.attractor_results.read().len(),
         midstream_strange_loop_version: strange_loop::VERSION.to_string(),
-        sparsifier_compression: graph.sparsifier_stats().map(|s| s.compression_ratio).unwrap_or(0.0),
-        sparsifier_edges: graph.sparsifier_stats().map(|s| s.sparsified_edges).unwrap_or(0),
+        sparsifier_compression: graph
+            .sparsifier_stats()
+            .map(|s| s.compression_ratio)
+            .unwrap_or(0.0),
+        sparsifier_edges: graph
+            .sparsifier_stats()
+            .map(|s| s.sparsified_edges)
+            .unwrap_or(0),
         consciousness_algorithms: vec![
-            "iit4_phi".into(), "ces".into(), "phi_id".into(),
-            "pid".into(), "streaming".into(), "bounds".into(), "auto".into(),
+            "iit4_phi".into(),
+            "ces".into(),
+            "phi_id".into(),
+            "pid".into(),
+            "streaming".into(),
+            "bounds".into(),
+            "auto".into(),
         ],
         consciousness_max_elements: 12,
     };
@@ -2641,7 +2875,6 @@ async fn sona_stats(
     }))
 }
 
-
 /// GET /v1/explore — meta-learning exploration stats (ADR-075 AGI, auth required)
 async fn explore_meta_learning(
     State(state): State<AppState>,
@@ -2652,8 +2885,16 @@ async fn explore_meta_learning(
     let regret = de.meta.regret.summary();
 
     // Find most curious category: check all registered brain categories
-    let categories = ["architecture", "pattern", "solution", "convention",
-                      "security", "performance", "tooling", "debug"];
+    let categories = [
+        "architecture",
+        "pattern",
+        "solution",
+        "convention",
+        "security",
+        "performance",
+        "tooling",
+        "debug",
+    ];
     let mut best_cat = None;
     let mut best_novelty = 0.0f32;
     for cat in &categories {
@@ -2708,7 +2949,9 @@ async fn temporal_stats(
         .unwrap_or_default()
         .as_nanos() as u64;
     let one_hour_ns = 3_600_000_000_000u64;
-    let recent_hour_deltas = ds.get_time_range(now_ns.saturating_sub(one_hour_ns), now_ns).len();
+    let recent_hour_deltas = ds
+        .get_time_range(now_ns.saturating_sub(one_hour_ns), now_ns)
+        .len();
 
     let knowledge_velocity = recent_hour_deltas as f64;
 
@@ -2740,7 +2983,10 @@ async fn midstream_stats(
 /// Cached for 60s (consensus changes only at epoch boundaries)
 async fn lora_latest(
     State(state): State<AppState>,
-) -> ([(axum::http::header::HeaderName, &'static str); 1], Json<LoraLatestResponse>) {
+) -> (
+    [(axum::http::header::HeaderName, &'static str); 1],
+    Json<LoraLatestResponse>,
+) {
     let lora = state.lora_federation.read();
     (
         [(axum::http::header::CACHE_CONTROL, "public, max-age=60")],
@@ -2761,12 +3007,19 @@ async fn lora_submit(
 
     // Rate limit: LoRA submissions count as writes
     if !state.rate_limiter.check_write(&contributor.pseudonym) {
-        return Err((StatusCode::TOO_MANY_REQUESTS, "Write rate limit exceeded".into()));
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            "Write rate limit exceeded".into(),
+        ));
     }
 
     // Gate A: policy validity
-    submission.validate()
-        .map_err(|e| (StatusCode::BAD_REQUEST, format!("LoRA validation failed: {e}")))?;
+    submission.validate().map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            format!("LoRA validation failed: {e}"),
+        )
+    })?;
 
     // Get contributor reputation for weighted aggregation
     let reputation = state
@@ -2780,12 +3033,19 @@ async fn lora_submit(
         let mut lora = state.lora_federation.write();
 
         // Dimension check: must match expected
-        if submission.rank != lora.expected_rank || submission.hidden_dim != lora.expected_hidden_dim {
-            return Err((StatusCode::BAD_REQUEST, format!(
-                "Dimension mismatch: expected rank={} dim={}, got rank={} dim={}",
-                lora.expected_rank, lora.expected_hidden_dim,
-                submission.rank, submission.hidden_dim
-            )));
+        if submission.rank != lora.expected_rank
+            || submission.hidden_dim != lora.expected_hidden_dim
+        {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                format!(
+                    "Dimension mismatch: expected rank={} dim={}, got rank={} dim={}",
+                    lora.expected_rank,
+                    lora.expected_hidden_dim,
+                    submission.rank,
+                    submission.hidden_dim
+                ),
+            ));
         }
 
         lora.submit(submission, contributor.pseudonym.clone(), reputation);
@@ -2813,7 +3073,10 @@ async fn lora_submit(
 
     // Persist LoRA consensus to Firestore (no guards held)
     if let Some(doc) = lora_doc {
-        state.store.firestore_put_public("brain_lora", "consensus", &doc).await;
+        state
+            .store
+            .firestore_put_public("brain_lora", "consensus", &doc)
+            .await;
     }
 
     Ok(Json(LoraSubmitResponse {
@@ -2849,7 +3112,10 @@ async fn train_endpoint(
     let result = run_training_cycle(&state);
     tracing::info!(
         "Training cycle (explicit): sona_patterns={}, pareto={}→{}, memories={}",
-        result.sona_patterns, result.pareto_before, result.pareto_after, result.memory_count
+        result.sona_patterns,
+        result.pareto_before,
+        result.pareto_after,
+        result.memory_count
     );
     Ok(Json(result))
 }
@@ -2922,11 +3188,8 @@ async fn voice_history(
     let limit = query.limit.unwrap_or(20).min(100);
     let voice = state.internal_voice.read();
 
-    let thoughts: Vec<crate::voice::VoiceToken> = voice
-        .recent_thoughts(limit)
-        .into_iter()
-        .cloned()
-        .collect();
+    let thoughts: Vec<crate::voice::VoiceToken> =
+        voice.recent_thoughts(limit).into_iter().cloned().collect();
 
     Json(crate::voice::VoiceHistoryResponse {
         thoughts,
@@ -2947,7 +3210,10 @@ async fn voice_set_goal(
     Json(req): Json<crate::voice::SetGoalRequest>,
 ) -> Json<crate::voice::SetGoalResponse> {
     let priority = req.priority.unwrap_or(1.0);
-    let goal_id = state.internal_voice.write().set_goal(req.description.clone(), priority);
+    let goal_id = state
+        .internal_voice
+        .write()
+        .set_goal(req.description.clone(), priority);
 
     Json(crate::voice::SetGoalResponse {
         goal_id,
@@ -2965,19 +3231,20 @@ async fn list_propositions(
     let ns = state.neural_symbolic.read();
     let limit = query.limit.unwrap_or(50).min(200);
 
-    let propositions: Vec<crate::symbolic::GroundedProposition> = if let Some(ref pred) = query.predicate {
-        ns.propositions_by_predicate(pred)
-            .into_iter()
-            .take(limit)
-            .cloned()
-            .collect()
-    } else {
-        ns.all_propositions()
-            .into_iter()
-            .take(limit)
-            .cloned()
-            .collect()
-    };
+    let propositions: Vec<crate::symbolic::GroundedProposition> =
+        if let Some(ref pred) = query.predicate {
+            ns.propositions_by_predicate(pred)
+                .into_iter()
+                .take(limit)
+                .cloned()
+                .collect()
+        } else {
+            ns.all_propositions()
+                .into_iter()
+                .take(limit)
+                .cloned()
+                .collect()
+        };
 
     Json(crate::symbolic::PropositionsResponse {
         total_count: ns.proposition_count(),
@@ -3054,10 +3321,10 @@ async fn ground_proposition(
     );
 
     // Record in internal voice
-    state.internal_voice.write().observe(
-        format!("grounded proposition: {}", req.predicate),
-        prop.id,
-    );
+    state
+        .internal_voice
+        .write()
+        .observe(format!("grounded proposition: {}", req.predicate), prop.id);
 
     Ok(Json(crate::symbolic::GroundResponse {
         proposition_id: prop.id,
@@ -3092,7 +3359,9 @@ async fn train_enhanced_endpoint(
                     "epoch": epoch,
                     "consensus": c,
                 });
-                store.firestore_put_public("brain_lora", "consensus", &doc).await;
+                store
+                    .firestore_put_public("brain_lora", "consensus", &doc)
+                    .await;
                 tracing::info!("LoRA consensus persisted to Firestore after auto-submission");
             });
         }
@@ -3134,7 +3403,9 @@ async fn optimize_endpoint(
     _contributor: AuthenticatedContributor,
     Json(req): Json<crate::optimizer::OptimizeRequest>,
 ) -> Json<crate::optimizer::OptimizeResponse> {
-    let task = req.task.unwrap_or(crate::optimizer::OptimizationTask::RuleRefinement);
+    let task = req
+        .task
+        .unwrap_or(crate::optimizer::OptimizationTask::RuleRefinement);
 
     // Build optimization context from current state
     let context = {
@@ -3186,9 +3457,10 @@ async fn optimize_endpoint(
     match temp_optimizer.optimize(task.clone(), context).await {
         Ok(result) => {
             // Record optimization in internal voice
-            state.internal_voice.write().reflect(
-                format!("Gemini optimization: {} suggestions", result.suggestions.len()),
-            );
+            state.internal_voice.write().reflect(format!(
+                "Gemini optimization: {} suggestions",
+                result.suggestions.len()
+            ));
 
             // Update stats
             let stats = state.optimizer.read().stats();
@@ -3217,20 +3489,18 @@ async fn optimize_endpoint(
 /// Core injection logic: PII strip, embed, witness chain, store, graph update.
 /// Returns (InjectResponse, BrainMemory) on success. Shared by single inject,
 /// batch inject, and Pub/Sub push handlers.
-async fn process_inject(
-    state: &AppState,
-    req: InjectRequest,
-) -> Result<InjectResponse, String> {
+async fn process_inject(state: &AppState, req: InjectRequest) -> Result<InjectResponse, String> {
     use std::sync::atomic::Ordering;
 
-    state.pipeline_metrics.messages_received.fetch_add(1, Ordering::Relaxed);
+    state
+        .pipeline_metrics
+        .messages_received
+        .fetch_add(1, Ordering::Relaxed);
 
     // PII stripping
     let (title, content, tags, redaction_log_json) = if state.rvf_flags.pii_strip {
-        let mut field_pairs: Vec<(&str, &str)> = vec![
-            ("title", &req.title),
-            ("content", &req.content),
-        ];
+        let mut field_pairs: Vec<(&str, &str)> =
+            vec![("title", &req.title), ("content", &req.content)];
         for tag in &req.tags {
             field_pairs.push(("tag", tag));
         }
@@ -3249,7 +3519,9 @@ async fn process_inject(
     let embedding = state.embedding_engine.read().embed_for_storage(&text);
 
     // Verify input
-    state.verifier.read()
+    state
+        .verifier
+        .read()
         .verify_share(&title, &content, &tags, &embedding)
         .map_err(|e| e.to_string())?;
 
@@ -3343,7 +3615,10 @@ async fn process_inject(
     };
 
     // Add to embedding corpus
-    state.embedding_engine.write().add_to_corpus(&id.to_string(), embedding.clone(), None);
+    state
+        .embedding_engine
+        .write()
+        .add_to_corpus(&id.to_string(), embedding.clone(), None);
 
     // Record in cognitive engine and drift monitor
     {
@@ -3356,7 +3631,10 @@ async fn process_inject(
     // Temporal delta tracking
     if state.rvf_flags.temporal_enabled {
         let delta = ruvector_delta_core::VectorDelta::from_dense(embedding.clone());
-        state.delta_stream.write().push_with_timestamp(delta, now_ns);
+        state
+            .delta_stream
+            .write()
+            .push_with_timestamp(delta, now_ns);
     }
 
     // Add to graph and count new edges
@@ -3390,7 +3668,10 @@ async fn process_inject(
         sona.end_trajectory(builder, 0.5);
     }
 
-    state.pipeline_metrics.messages_processed.fetch_add(1, Ordering::Relaxed);
+    state
+        .pipeline_metrics
+        .messages_processed
+        .fetch_add(1, Ordering::Relaxed);
     *state.pipeline_metrics.last_injection.write() = Some(now);
 
     // Broadcast via SSE to active sessions
@@ -3424,7 +3705,10 @@ async fn pipeline_inject(
     match process_inject(&state, req).await {
         Ok(resp) => Ok((StatusCode::CREATED, Json(resp))),
         Err(e) => {
-            state.pipeline_metrics.messages_failed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            state
+                .pipeline_metrics
+                .messages_failed
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             Err((StatusCode::BAD_REQUEST, e))
         }
     }
@@ -3438,7 +3722,10 @@ async fn pipeline_inject_batch(
     check_read_only(&state)?;
 
     if req.items.len() > 100 {
-        return Err((StatusCode::BAD_REQUEST, "Batch size exceeds maximum of 100 items".into()));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Batch size exceeds maximum of 100 items".into(),
+        ));
     }
 
     let mut accepted = 0usize;
@@ -3449,7 +3736,11 @@ async fn pipeline_inject_batch(
     for item in req.items {
         // Override source from batch envelope if item source is empty
         let item = InjectRequest {
-            source: if item.source.is_empty() { req.source.clone() } else { item.source },
+            source: if item.source.is_empty() {
+                req.source.clone()
+            } else {
+                item.source
+            },
             ..item
         };
 
@@ -3461,7 +3752,10 @@ async fn pipeline_inject_batch(
             Err(e) => {
                 rejected += 1;
                 errors.push(e);
-                state.pipeline_metrics.messages_failed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                state
+                    .pipeline_metrics
+                    .messages_failed
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }
         }
     }
@@ -3486,25 +3780,39 @@ async fn pipeline_pubsub_push(
     use base64::Engine as _;
     let decoded = base64::engine::general_purpose::STANDARD
         .decode(&push.message.data)
-        .map_err(|e| (StatusCode::BAD_REQUEST, format!("Invalid base64 in Pub/Sub message: {e}")))?;
+        .map_err(|e| {
+            (
+                StatusCode::BAD_REQUEST,
+                format!("Invalid base64 in Pub/Sub message: {e}"),
+            )
+        })?;
 
     // Deserialize as InjectRequest
-    let inject_req: InjectRequest = serde_json::from_slice(&decoded)
-        .map_err(|e| (StatusCode::BAD_REQUEST, format!("Invalid JSON in Pub/Sub message: {e}")))?;
+    let inject_req: InjectRequest = serde_json::from_slice(&decoded).map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            format!("Invalid JSON in Pub/Sub message: {e}"),
+        )
+    })?;
 
     match process_inject(&state, inject_req).await {
         Ok(_) => {
             tracing::info!(
                 "Pub/Sub message processed: messageId={}, subscription={}",
-                push.message.message_id, push.subscription,
+                push.message.message_id,
+                push.subscription,
             );
             Ok(StatusCode::OK)
         }
         Err(e) => {
-            state.pipeline_metrics.messages_failed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            state
+                .pipeline_metrics
+                .messages_failed
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             tracing::warn!(
                 "Pub/Sub message failed: messageId={}, error={}",
-                push.message.message_id, e,
+                push.message.message_id,
+                e,
             );
             // Return 200 to avoid Pub/Sub retries for permanent failures.
             // Log the error for debugging.
@@ -3514,21 +3822,37 @@ async fn pipeline_pubsub_push(
 }
 
 /// GET /v1/pipeline/metrics — pipeline health and throughput metrics
-async fn pipeline_metrics_handler(
-    State(state): State<AppState>,
-) -> Json<PipelineMetricsResponse> {
+async fn pipeline_metrics_handler(State(state): State<AppState>) -> Json<PipelineMetricsResponse> {
     use std::sync::atomic::Ordering;
 
     let graph = state.graph.read();
-    let received = state.pipeline_metrics.messages_received.load(Ordering::Relaxed);
-    let processed = state.pipeline_metrics.messages_processed.load(Ordering::Relaxed);
-    let failed = state.pipeline_metrics.messages_failed.load(Ordering::Relaxed);
-    let opt_cycles = state.pipeline_metrics.optimization_cycles.load(Ordering::Relaxed);
+    let received = state
+        .pipeline_metrics
+        .messages_received
+        .load(Ordering::Relaxed);
+    let processed = state
+        .pipeline_metrics
+        .messages_processed
+        .load(Ordering::Relaxed);
+    let failed = state
+        .pipeline_metrics
+        .messages_failed
+        .load(Ordering::Relaxed);
+    let opt_cycles = state
+        .pipeline_metrics
+        .optimization_cycles
+        .load(Ordering::Relaxed);
     let uptime = state.start_time.elapsed().as_secs();
 
-    let last_training = state.pipeline_metrics.last_training.read()
+    let last_training = state
+        .pipeline_metrics
+        .last_training
+        .read()
         .map(|dt| dt.to_rfc3339());
-    let last_drift_check = state.pipeline_metrics.last_drift_check.read()
+    let last_drift_check = state
+        .pipeline_metrics
+        .last_drift_check
+        .read()
         .map(|dt| dt.to_rfc3339());
 
     // Calculate injections per minute from uptime
@@ -3579,14 +3903,20 @@ async fn pipeline_optimize(
     }
 
     // Only 1 concurrent optimize — reject others immediately
-    let _permit = state.optimize_semaphore.try_acquire()
-        .map_err(|_| (
+    let _permit = state.optimize_semaphore.try_acquire().map_err(|_| {
+        (
             StatusCode::TOO_MANY_REQUESTS,
             "Pipeline optimize already in progress".to_string(),
-        ))?;
+        )
+    })?;
 
     let all_actions = vec![
-        "train", "drift_check", "transfer_all", "rebuild_graph", "cleanup", "attractor_analysis",
+        "train",
+        "drift_check",
+        "transfer_all",
+        "rebuild_graph",
+        "cleanup",
+        "attractor_analysis",
         "seed_consciousness",
     ];
     let actions: Vec<&str> = match &req.actions {
@@ -3603,25 +3933,32 @@ async fn pipeline_optimize(
             "train" => {
                 let result = run_training_cycle(&state);
                 *state.pipeline_metrics.last_training.write() = Some(chrono::Utc::now());
-                (true, format!(
-                    "Training complete: sona_patterns={}, pareto={}->{}",
-                    result.sona_patterns, result.pareto_before, result.pareto_after,
-                ))
+                (
+                    true,
+                    format!(
+                        "Training complete: sona_patterns={}, pareto={}->{}",
+                        result.sona_patterns, result.pareto_before, result.pareto_after,
+                    ),
+                )
             }
             "drift_check" => {
                 let drift = state.drift.read();
                 let report = drift.compute_drift(None);
                 *state.pipeline_metrics.last_drift_check.write() = Some(chrono::Utc::now());
-                (true, format!(
-                    "Drift check: drifting={}, cv={:.4}, trend={}",
-                    report.is_drifting, report.coefficient_of_variation, report.trend,
-                ))
+                (
+                    true,
+                    format!(
+                        "Drift check: drifting={}, cv={:.4}, trend={}",
+                        report.is_drifting, report.coefficient_of_variation, report.trend,
+                    ),
+                )
             }
             "transfer_all" => {
                 use ruvector_domain_expansion::DomainId;
                 let categories: Vec<String> = {
                     let all_mems = state.store.all_memories();
-                    let mut cats: std::collections::HashSet<String> = std::collections::HashSet::new();
+                    let mut cats: std::collections::HashSet<String> =
+                        std::collections::HashSet::new();
                     for m in &all_mems {
                         cats.insert(m.category.to_string());
                     }
@@ -3638,7 +3975,13 @@ async fn pipeline_optimize(
                         transfers += 1;
                     }
                 }
-                (true, format!("Domain transfers initiated: {transfers} pairs across {} categories", categories.len()))
+                (
+                    true,
+                    format!(
+                        "Domain transfers initiated: {transfers} pairs across {} categories",
+                        categories.len()
+                    ),
+                )
             }
             "rebuild_graph" => {
                 let all_mems = state.store.all_memories();
@@ -3646,7 +3989,14 @@ async fn pipeline_optimize(
                 // ADR-149 P3: batch rebuild instead of one-at-a-time add_memory loop
                 graph.rebuild_from_batch(&all_mems);
                 graph.rebuild_sparsifier();
-                (true, format!("Graph rebuilt: {} nodes, {} edges", graph.node_count(), graph.edge_count()))
+                (
+                    true,
+                    format!(
+                        "Graph rebuilt: {} nodes, {} edges",
+                        graph.node_count(),
+                        graph.edge_count()
+                    ),
+                )
             }
             "cleanup" => {
                 // Trigger SONA garbage collection and nonce cleanup
@@ -3661,18 +4011,27 @@ async fn pipeline_optimize(
                     let mut categories: std::collections::HashMap<String, Vec<Vec<f32>>> =
                         std::collections::HashMap::new();
                     for m in &all_mems {
-                        categories.entry(m.category.to_string())
+                        categories
+                            .entry(m.category.to_string())
                             .or_default()
                             .push(m.embedding.clone());
                     }
                     let mut analyzed = 0usize;
                     for (cat, embeddings) in &categories {
-                        if let Some(result) = crate::midstream::analyze_category_attractor(embeddings) {
+                        if let Some(result) =
+                            crate::midstream::analyze_category_attractor(embeddings)
+                        {
                             state.attractor_results.write().insert(cat.clone(), result);
                             analyzed += 1;
                         }
                     }
-                    (true, format!("Attractor analysis: {analyzed}/{} categories analyzed", categories.len()))
+                    (
+                        true,
+                        format!(
+                            "Attractor analysis: {analyzed}/{} categories analyzed",
+                            categories.len()
+                        ),
+                    )
                 } else {
                     (false, "Midstream attractor feature not enabled".into())
                 }
@@ -3729,11 +4088,12 @@ async fn pipeline_optimize(
                         Err(e) => tracing::warn!("Consciousness seed inject failed: {e}"),
                     }
                 }
-                (true, format!("Consciousness knowledge seeded: {injected}/8 entries"))
+                (
+                    true,
+                    format!("Consciousness knowledge seeded: {injected}/8 entries"),
+                )
             }
-            other => {
-                (false, format!("Unknown action: {other}"))
-            }
+            other => (false, format!("Unknown action: {other}")),
         };
 
         results.push(OptimizeActionResult {
@@ -3744,7 +4104,10 @@ async fn pipeline_optimize(
         });
     }
 
-    state.pipeline_metrics.optimization_cycles.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    state
+        .pipeline_metrics
+        .optimization_cycles
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     *state.last_optimize_completed.write() = Some(std::time::Instant::now());
 
     Ok(Json(OptimizeResponse {
@@ -3760,10 +4123,16 @@ async fn pipeline_add_feed(
     Json(feed): Json<FeedConfig>,
 ) -> Result<(StatusCode, Json<FeedConfig>), (StatusCode, String)> {
     if feed.url.is_empty() || feed.name.is_empty() {
-        return Err((StatusCode::BAD_REQUEST, "Feed url and name are required".into()));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Feed url and name are required".into(),
+        ));
     }
     if feed.poll_interval_secs < 60 {
-        return Err((StatusCode::BAD_REQUEST, "poll_interval_secs must be >= 60".into()));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "poll_interval_secs must be >= 60".into(),
+        ));
     }
 
     let key = feed.name.clone();
@@ -3773,24 +4142,31 @@ async fn pipeline_add_feed(
 }
 
 /// GET /v1/pipeline/feeds — list all configured feed sources
-async fn pipeline_list_feeds(
-    State(state): State<AppState>,
-) -> Json<Vec<FeedConfig>> {
-    let feeds: Vec<FeedConfig> = state.feeds.iter()
+async fn pipeline_list_feeds(State(state): State<AppState>) -> Json<Vec<FeedConfig>> {
+    let feeds: Vec<FeedConfig> = state
+        .feeds
+        .iter()
         .map(|entry| entry.value().clone())
         .collect();
     Json(feeds)
 }
 
 /// GET /v1/pipeline/scheduler/status — nanosecond scheduler status
-async fn pipeline_scheduler_status(
-    State(state): State<AppState>,
-) -> Json<serde_json::Value> {
+async fn pipeline_scheduler_status(State(state): State<AppState>) -> Json<serde_json::Value> {
     use std::sync::atomic::Ordering;
 
-    let received = state.pipeline_metrics.messages_received.load(Ordering::Relaxed);
-    let processed = state.pipeline_metrics.messages_processed.load(Ordering::Relaxed);
-    let failed = state.pipeline_metrics.messages_failed.load(Ordering::Relaxed);
+    let received = state
+        .pipeline_metrics
+        .messages_received
+        .load(Ordering::Relaxed);
+    let processed = state
+        .pipeline_metrics
+        .messages_processed
+        .load(Ordering::Relaxed);
+    let failed = state
+        .pipeline_metrics
+        .messages_failed
+        .load(Ordering::Relaxed);
     let queue_depth = received.saturating_sub(processed).saturating_sub(failed);
     let uptime = state.start_time.elapsed().as_secs();
     let feeds_count = state.feeds.len();
@@ -3863,20 +4239,22 @@ async fn pipeline_crawl_discover(
     };
 
     // Query CDX index
-    let records = cc.query_cdx(&query).await.map_err(|e| {
-        (StatusCode::BAD_GATEWAY, format!("CDX query failed: {e}"))
-    })?;
+    let records = cc
+        .query_cdx(&query)
+        .await
+        .map_err(|e| (StatusCode::BAD_GATEWAY, format!("CDX query failed: {e}")))?;
     let cdx_records_found = records.len();
 
     // Fetch pages using pre-queried records (avoids double CDX query)
-    let items = cc.discover_from_records(
-        &records,
-        req.category.clone(),
-        req.tags.clone(),
-        limit,
-    ).await.map_err(|e| {
-        (StatusCode::INTERNAL_SERVER_ERROR, format!("Discovery failed: {e}"))
-    })?;
+    let items = cc
+        .discover_from_records(&records, req.category.clone(), req.tags.clone(), limit)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Discovery failed: {e}"),
+            )
+        })?;
 
     let pages_fetched = items.len();
     let (_, _, _, dupes, errors) = cc.stats();
@@ -3898,7 +4276,9 @@ async fn pipeline_crawl_discover(
                 Some("sota") => crate::types::BrainCategory::Sota,
                 Some("discovery") => crate::types::BrainCategory::Discovery,
                 Some("consciousness") => crate::types::BrainCategory::Consciousness,
-                Some("information_decomposition") => crate::types::BrainCategory::InformationDecomposition,
+                Some("information_decomposition") => {
+                    crate::types::BrainCategory::InformationDecomposition
+                }
                 _ => crate::types::BrainCategory::Pattern,
             };
             let inject_req = crate::types::InjectRequest {
@@ -3933,9 +4313,7 @@ async fn pipeline_crawl_discover(
 }
 
 /// GET /v1/pipeline/crawl/stats — Common Crawl adapter statistics (ADR-115)
-async fn pipeline_crawl_stats(
-    State(state): State<AppState>,
-) -> Json<serde_json::Value> {
+async fn pipeline_crawl_stats(State(state): State<AppState>) -> Json<serde_json::Value> {
     // Use persistent adapter from AppState (ADR-115)
     let cc = &state.crawl_adapter;
     let (queries, fetched, extracted, dupes, errors) = cc.stats();
@@ -3984,9 +4362,7 @@ async fn pipeline_crawl_stats(
 }
 
 /// GET /v1/pipeline/crawl/test — Test CDX connectivity (diagnostic)
-async fn pipeline_crawl_test(
-    State(state): State<AppState>,
-) -> Json<serde_json::Value> {
+async fn pipeline_crawl_test(State(state): State<AppState>) -> Json<serde_json::Value> {
     let adapter = &state.crawl_adapter;
     let test_url = "https://index.commoncrawl.org/collinfo.json";
 
@@ -4020,25 +4396,28 @@ async fn pipeline_crawl_test(
     let external_results = adapter.test_external_connectivity().await;
     let latency_ms2 = start2.elapsed().as_millis();
 
-    let external_tests: Vec<serde_json::Value> = external_results.iter().map(|(name, success, status, body_len, error, url)| {
-        if *success {
-            serde_json::json!({
-                "name": name,
-                "success": true,
-                "url": url,
-                "status": status,
-                "body_length": body_len,
-            })
-        } else {
-            serde_json::json!({
-                "name": name,
-                "success": false,
-                "url": url,
-                "status": status,
-                "error": error,
-            })
-        }
-    }).collect();
+    let external_tests: Vec<serde_json::Value> = external_results
+        .iter()
+        .map(|(name, success, status, body_len, error, url)| {
+            if *success {
+                serde_json::json!({
+                    "name": name,
+                    "success": true,
+                    "url": url,
+                    "status": status,
+                    "body_length": body_len,
+                })
+            } else {
+                serde_json::json!({
+                    "name": name,
+                    "success": false,
+                    "url": url,
+                    "status": status,
+                    "error": error,
+                })
+            }
+        })
+        .collect();
 
     let adapter_status = serde_json::json!({
         "adapter_queries": adapter.stats().0,
@@ -4129,23 +4508,33 @@ async fn create_page(
     check_read_only(&state)?;
 
     if !state.rate_limiter.check_write(&contributor.pseudonym) {
-        return Err((StatusCode::TOO_MANY_REQUESTS, "Write rate limit exceeded".into()));
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            "Write rate limit exceeded".into(),
+        ));
     }
 
     // Auto-generate embedding via ruvllm if client didn't provide one or dim mismatches
     let embedding = if req.embedding.is_empty()
         || req.embedding.len() != crate::embeddings::EMBED_DIM
     {
-        let text = crate::embeddings::EmbeddingEngine::prepare_text(&req.title, &req.content, &req.tags);
+        let text =
+            crate::embeddings::EmbeddingEngine::prepare_text(&req.title, &req.content, &req.tags);
         let emb = state.embedding_engine.read().embed_for_storage(&text);
-        tracing::debug!("Auto-generated {}-dim embedding for page '{}'", emb.len(), req.title);
+        tracing::debug!(
+            "Auto-generated {}-dim embedding for page '{}'",
+            emb.len(),
+            req.title
+        );
         emb
     } else {
         req.embedding
     };
 
     // Verify input
-    state.verifier.read()
+    state
+        .verifier
+        .read()
         .verify_share(&req.title, &req.content, &req.tags, &embedding)
         .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
 
@@ -4241,7 +4630,10 @@ async fn get_page(
     Path(id): Path<Uuid>,
 ) -> Result<Json<PageDetailResponse>, (StatusCode, String)> {
     if !state.rate_limiter.check_read(&contributor.pseudonym) {
-        return Err((StatusCode::TOO_MANY_REQUESTS, "Read rate limit exceeded".into()));
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            "Read rate limit exceeded".into(),
+        ));
     }
 
     let memory = state
@@ -4280,7 +4672,10 @@ async fn submit_delta(
     check_read_only(&state)?;
 
     if !state.rate_limiter.check_write(&contributor.pseudonym) {
-        return Err((StatusCode::TOO_MANY_REQUESTS, "Write rate limit exceeded".into()));
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            "Write rate limit exceeded".into(),
+        ));
     }
 
     // Check contributor reputation: poisoned contributors blocked
@@ -4378,7 +4773,10 @@ async fn list_deltas(
     Path(page_id): Path<Uuid>,
 ) -> Result<Json<Vec<PageDelta>>, (StatusCode, String)> {
     if !state.rate_limiter.check_read(&contributor.pseudonym) {
-        return Err((StatusCode::TOO_MANY_REQUESTS, "Read rate limit exceeded".into()));
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            "Read rate limit exceeded".into(),
+        ));
     }
 
     if state.store.get_page_status(&page_id).is_none() {
@@ -4398,7 +4796,10 @@ async fn add_evidence(
     check_read_only(&state)?;
 
     if !state.rate_limiter.check_write(&contributor.pseudonym) {
-        return Err((StatusCode::TOO_MANY_REQUESTS, "Write rate limit exceeded".into()));
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            "Write rate limit exceeded".into(),
+        ));
     }
 
     let page_status = state
@@ -4481,11 +4882,15 @@ async fn promote_page(
 // ──────────────────────────────────────────────────────────────────────
 
 /// GET /v1/nodes — list all published (non-revoked) WASM nodes (public)
-async fn list_nodes(
-    State(state): State<AppState>,
-) -> Json<Vec<WasmNodeSummary>> {
+async fn list_nodes(State(state): State<AppState>) -> Json<Vec<WasmNodeSummary>> {
     let nodes = state.store.list_nodes();
-    Json(nodes.iter().filter(|n| !n.revoked).map(WasmNodeSummary::from).collect())
+    Json(
+        nodes
+            .iter()
+            .filter(|n| !n.revoked)
+            .map(WasmNodeSummary::from)
+            .collect(),
+    )
 }
 
 /// GET /v1/nodes/{id} — get node metadata + conformance vectors (public)
@@ -4563,7 +4968,10 @@ async fn publish_node(
     check_read_only(&state)?;
 
     if !state.rate_limiter.check_write(&contributor.pseudonym) {
-        return Err((StatusCode::TOO_MANY_REQUESTS, "Write rate limit exceeded".into()));
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            "Write rate limit exceeded".into(),
+        ));
     }
 
     // Reputation gate
@@ -4581,15 +4989,16 @@ async fn publish_node(
     }
 
     // Decode WASM binary
-    let wasm_bytes = base64::Engine::decode(
-        &base64::engine::general_purpose::STANDARD,
-        &req.wasm_bytes,
-    )
-    .map_err(|e| (StatusCode::BAD_REQUEST, format!("Invalid base64: {e}")))?;
+    let wasm_bytes =
+        base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &req.wasm_bytes)
+            .map_err(|e| (StatusCode::BAD_REQUEST, format!("Invalid base64: {e}")))?;
 
     // Size limit
     if wasm_bytes.len() > 1_048_576 {
-        return Err((StatusCode::PAYLOAD_TOO_LARGE, "WASM binary exceeds 1MB".into()));
+        return Err((
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "WASM binary exceeds 1MB".into(),
+        ));
     }
 
     // WASM magic bytes verification: \0asm (0x00 0x61 0x73 0x6D)
@@ -4640,9 +5049,7 @@ async fn publish_node(
             if !bool::from(equal) {
                 return Err((
                     StatusCode::BAD_REQUEST,
-                    format!(
-                        "SHA-256 mismatch: computed {sha256}, claimed {claimed_hash}"
-                    ),
+                    format!("SHA-256 mismatch: computed {sha256}, claimed {claimed_hash}"),
                 ));
             }
         }
@@ -4723,7 +5130,10 @@ async fn robots_txt() -> (
     (
         StatusCode::OK,
         [
-            (axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8"),
+            (
+                axum::http::header::CONTENT_TYPE,
+                "text/plain; charset=utf-8",
+            ),
             (axum::http::header::CACHE_CONTROL, "public, max-age=86400"),
         ],
         include_str!("../static/robots.txt"),
@@ -4739,7 +5149,10 @@ async fn sitemap_xml() -> (
     (
         StatusCode::OK,
         [
-            (axum::http::header::CONTENT_TYPE, "application/xml; charset=utf-8"),
+            (
+                axum::http::header::CONTENT_TYPE,
+                "application/xml; charset=utf-8",
+            ),
             (axum::http::header::CACHE_CONTROL, "public, max-age=86400"),
         ],
         include_str!("../static/sitemap.xml"),
@@ -4771,7 +5184,10 @@ async fn brain_manifest() -> (
     (
         StatusCode::OK,
         [
-            (axum::http::header::CONTENT_TYPE, "application/json; charset=utf-8"),
+            (
+                axum::http::header::CONTENT_TYPE,
+                "application/json; charset=utf-8",
+            ),
             (axum::http::header::CACHE_CONTROL, "public, max-age=3600"),
         ],
         include_str!("../static/brain-manifest.json"),
@@ -4787,7 +5203,10 @@ async fn agent_guide() -> (
     (
         StatusCode::OK,
         [
-            (axum::http::header::CONTENT_TYPE, "text/markdown; charset=utf-8"),
+            (
+                axum::http::header::CONTENT_TYPE,
+                "text/markdown; charset=utf-8",
+            ),
             (axum::http::header::CACHE_CONTROL, "public, max-age=3600"),
         ],
         include_str!("../static/agent-guide.md"),
@@ -4824,15 +5243,24 @@ async fn origin_page() -> (
 /// SSE handler — client connects here, receives event stream
 async fn sse_handler(
     State(state): State<AppState>,
-) -> Result<Sse<impl tokio_stream::Stream<Item = Result<Event, std::convert::Infallible>>>, (StatusCode, String)> {
+) -> Result<
+    Sse<impl tokio_stream::Stream<Item = Result<Event, std::convert::Infallible>>>,
+    (StatusCode, String),
+> {
     // ADR-130 Phase 1: reject new SSE connections when at capacity
     let max_sse = max_sse_connections();
     let current = state.sse_connections.load(Ordering::Relaxed);
     if current >= max_sse {
-        tracing::warn!("SSE connection limit reached ({}/{}), rejecting", current, max_sse);
+        tracing::warn!(
+            "SSE connection limit reached ({}/{}), rejecting",
+            current,
+            max_sse
+        );
         return Err((
             StatusCode::TOO_MANY_REQUESTS,
-            format!("SSE connection limit reached ({max_sse}). Use ruvbrain-sse proxy. Retry-After: 30"),
+            format!(
+                "SSE connection limit reached ({max_sse}). Use ruvbrain-sse proxy. Retry-After: 30"
+            ),
         ));
     }
     state.sse_connections.fetch_add(1, Ordering::Relaxed);
@@ -4843,8 +5271,11 @@ async fn sse_handler(
     // Store sender for this session
     state.sessions.insert(session_id.clone(), tx);
 
-    tracing::info!("SSE session started: {} (active: {})", session_id,
-        state.sse_connections.load(Ordering::Relaxed));
+    tracing::info!(
+        "SSE session started: {} (active: {})",
+        session_id,
+        state.sse_connections.load(Ordering::Relaxed)
+    );
 
     // Build SSE stream: first event is the endpoint, then stream messages
     let initial_event = format!("/messages?sessionId={session_id}");
@@ -4917,14 +5348,22 @@ async fn messages_handler(
                 "id": null,
                 "error": { "code": -32700, "message": format!("Parse error: {e}") }
             });
-            let _ = sender.send(serde_json::to_string(&error_response).unwrap_or_default()).await;
+            let _ = sender
+                .send(serde_json::to_string(&error_response).unwrap_or_default())
+                .await;
             return StatusCode::ACCEPTED;
         }
     };
 
-    let id = request.get("id").cloned().unwrap_or(serde_json::Value::Null);
+    let id = request
+        .get("id")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
     let method = request.get("method").and_then(|m| m.as_str()).unwrap_or("");
-    let params = request.get("params").cloned().unwrap_or(serde_json::json!({}));
+    let params = request
+        .get("params")
+        .cloned()
+        .unwrap_or(serde_json::json!({}));
 
     let response = match method {
         "initialize" => serde_json::json!({
@@ -4955,11 +5394,14 @@ async fn messages_handler(
                 "id": id,
                 "result": { "tools": tools }
             })
-        },
+        }
 
         "tools/call" => {
             let tool_name = params.get("name").and_then(|n| n.as_str()).unwrap_or("");
-            let args = params.get("arguments").cloned().unwrap_or(serde_json::json!({}));
+            let args = params
+                .get("arguments")
+                .cloned()
+                .unwrap_or(serde_json::json!({}));
             let result = handle_mcp_tool_call(&state, tool_name, &args).await;
             match result {
                 Ok(content) => serde_json::json!({
@@ -4978,7 +5420,7 @@ async fn messages_handler(
                     }
                 }),
             }
-        },
+        }
 
         "shutdown" => serde_json::json!({
             "jsonrpc": "2.0", "id": id, "result": {}
@@ -4991,7 +5433,9 @@ async fn messages_handler(
         }),
     };
 
-    let _ = sender.send(serde_json::to_string(&response).unwrap_or_default()).await;
+    let _ = sender
+        .send(serde_json::to_string(&response).unwrap_or_default())
+        .await;
     StatusCode::ACCEPTED
 }
 
@@ -5463,7 +5907,10 @@ async fn handle_mcp_tool_call(
 ) -> Result<serde_json::Value, String> {
     let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());
     let base = format!("http://127.0.0.1:{port}");
-    let api_key = args.get("_api_key").and_then(|k| k.as_str()).unwrap_or("mcp-sse-session");
+    let api_key = args
+        .get("_api_key")
+        .and_then(|k| k.as_str())
+        .unwrap_or("mcp-sse-session");
     let client = reqwest::Client::new();
 
     // Route tool calls to REST API via HTTP loopback
@@ -5478,42 +5925,74 @@ async fn handle_mcp_tool_call(
                 "code_snippet": args.get("code_snippet"),
             });
             proxy_post(&client, &base, "/v1/memories", api_key, &body).await
-        },
+        }
         "brain_search" => {
-            let mut params = vec![("q", args.get("query").and_then(|v| v.as_str()).unwrap_or("").to_string())];
-            if let Some(c) = args.get("category").and_then(|v| v.as_str()) { params.push(("category", c.to_string())); }
-            if let Some(t) = args.get("tags").and_then(|v| v.as_str()) { params.push(("tags", t.to_string())); }
-            if let Some(l) = args.get("limit").and_then(|v| v.as_u64()) { params.push(("limit", l.to_string())); }
-            if let Some(q) = args.get("min_quality").and_then(|v| v.as_f64()) { params.push(("min_quality", q.to_string())); }
+            let mut params = vec![(
+                "q",
+                args.get("query")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+            )];
+            if let Some(c) = args.get("category").and_then(|v| v.as_str()) {
+                params.push(("category", c.to_string()));
+            }
+            if let Some(t) = args.get("tags").and_then(|v| v.as_str()) {
+                params.push(("tags", t.to_string()));
+            }
+            if let Some(l) = args.get("limit").and_then(|v| v.as_u64()) {
+                params.push(("limit", l.to_string()));
+            }
+            if let Some(q) = args.get("min_quality").and_then(|v| v.as_f64()) {
+                params.push(("min_quality", q.to_string()));
+            }
             proxy_get(&client, &base, "/v1/memories/search", api_key, &params).await
-        },
+        }
         "brain_get" => {
-            let id = args.get("id").and_then(|v| v.as_str()).ok_or("id required")?;
+            let id = args
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or("id required")?;
             proxy_get(&client, &base, &format!("/v1/memories/{id}"), api_key, &[]).await
-        },
+        }
         "brain_vote" => {
-            let id = args.get("id").and_then(|v| v.as_str()).ok_or("id required")?;
+            let id = args
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or("id required")?;
             let body = serde_json::json!({ "direction": args.get("direction") });
-            proxy_post(&client, &base, &format!("/v1/memories/{id}/vote"), api_key, &body).await
-        },
+            proxy_post(
+                &client,
+                &base,
+                &format!("/v1/memories/{id}/vote"),
+                api_key,
+                &body,
+            )
+            .await
+        }
         "brain_transfer" => {
             let body = serde_json::json!({
                 "source_domain": args.get("source_domain"),
                 "target_domain": args.get("target_domain"),
             });
             proxy_post(&client, &base, "/v1/transfer", api_key, &body).await
-        },
+        }
         "brain_drift" => {
             let mut params = Vec::new();
-            if let Some(d) = args.get("domain").and_then(|v| v.as_str()) { params.push(("domain", d.to_string())); }
-            if let Some(s) = args.get("since").and_then(|v| v.as_str()) { params.push(("since", s.to_string())); }
+            if let Some(d) = args.get("domain").and_then(|v| v.as_str()) {
+                params.push(("domain", d.to_string()));
+            }
+            if let Some(s) = args.get("since").and_then(|v| v.as_str()) {
+                params.push(("since", s.to_string()));
+            }
             proxy_get(&client, &base, "/v1/drift", api_key, &params).await
-        },
+        }
         "brain_partition" => {
             // Return cached partition if available (populated by training cycles).
             if let Some(cached) = state.cached_partition.read().as_ref() {
                 let compact: PartitionResultCompact = cached.clone().into();
-                Ok(serde_json::to_value(compact).unwrap_or_else(|_| serde_json::json!({"error": "serialization failed"})))
+                Ok(serde_json::to_value(compact)
+                    .unwrap_or_else(|_| serde_json::json!({"error": "serialization failed"})))
             } else {
                 let graph = state.graph.read();
                 let node_count = graph.node_count();
@@ -5526,24 +6005,32 @@ async fn handle_mcp_tool_call(
                     "note": "No cached partition yet. Run a training cycle or use REST API: GET https://pi.ruv.io/v1/partition?compact=true&force=true"
                 }))
             }
-        },
+        }
         "brain_list" => {
             let mut params = Vec::new();
-            if let Some(c) = args.get("category").and_then(|v| v.as_str()) { params.push(("category", c.to_string())); }
-            if let Some(l) = args.get("limit").and_then(|v| v.as_u64()) { params.push(("limit", l.to_string())); }
+            if let Some(c) = args.get("category").and_then(|v| v.as_str()) {
+                params.push(("category", c.to_string()));
+            }
+            if let Some(l) = args.get("limit").and_then(|v| v.as_u64()) {
+                params.push(("limit", l.to_string()));
+            }
             proxy_get(&client, &base, "/v1/memories/list", api_key, &params).await
-        },
+        }
         "brain_delete" => {
-            let id = args.get("id").and_then(|v| v.as_str()).ok_or("id required")?;
+            let id = args
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or("id required")?;
             proxy_delete(&client, &base, &format!("/v1/memories/{id}"), api_key).await
-        },
-        "brain_status" => {
-            proxy_get(&client, &base, "/v1/status", api_key, &[]).await
-        },
+        }
+        "brain_status" => proxy_get(&client, &base, "/v1/status", api_key, &[]).await,
 
         // ── LoRA Sync ────────────────────────────────────────
         "brain_sync" => {
-            let direction = args.get("direction").and_then(|v| v.as_str()).unwrap_or("both");
+            let direction = args
+                .get("direction")
+                .and_then(|v| v.as_str())
+                .unwrap_or("both");
             let mut result = serde_json::json!({ "direction": direction });
             if direction == "pull" || direction == "both" {
                 if let Ok(r) = proxy_get(&client, &base, "/v1/lora/latest", api_key, &[]).await {
@@ -5551,35 +6038,40 @@ async fn handle_mcp_tool_call(
                 }
             }
             if direction == "push" || direction == "both" {
-                result["message"] = serde_json::json!("Submit weights via brain_sync(direction: push) with LoRA payload");
+                result["message"] = serde_json::json!(
+                    "Submit weights via brain_sync(direction: push) with LoRA payload"
+                );
             }
             Ok(result)
-        },
+        }
 
         // ── Brainpedia (ADR-062) ─────────────────────────────
         "brain_page_create" => {
             // Transform evidence_links: convert simple strings to EvidenceLink objects
             let empty_arr = serde_json::json!([]);
             let raw_evidence = args.get("evidence_links").unwrap_or(&empty_arr);
-            let evidence_links: Vec<serde_json::Value> = if let Some(arr) = raw_evidence.as_array() {
-                arr.iter().map(|e| {
-                    if e.is_string() {
-                        serde_json::json!({
-                            "evidence_type": {
-                                "type": "peer_review",
-                                "reviewer": "mcp-client",
-                                "direction": "up",
-                                "score": 0.5
-                            },
-                            "description": e.as_str().unwrap_or(""),
-                            "contributor_id": "mcp-proxy",
-                            "verified": false,
-                            "created_at": chrono::Utc::now().to_rfc3339()
-                        })
-                    } else {
-                        e.clone()
-                    }
-                }).collect()
+            let evidence_links: Vec<serde_json::Value> = if let Some(arr) = raw_evidence.as_array()
+            {
+                arr.iter()
+                    .map(|e| {
+                        if e.is_string() {
+                            serde_json::json!({
+                                "evidence_type": {
+                                    "type": "peer_review",
+                                    "reviewer": "mcp-client",
+                                    "direction": "up",
+                                    "score": 0.5
+                                },
+                                "description": e.as_str().unwrap_or(""),
+                                "contributor_id": "mcp-proxy",
+                                "verified": false,
+                                "created_at": chrono::Utc::now().to_rfc3339()
+                            })
+                        } else {
+                            e.clone()
+                        }
+                    })
+                    .collect()
             } else {
                 vec![]
             };
@@ -5592,36 +6084,45 @@ async fn handle_mcp_tool_call(
                 "evidence_links": evidence_links,
             });
             proxy_post(&client, &base, "/v1/pages", api_key, &body).await
-        },
+        }
         "brain_page_get" => {
-            let id = args.get("id").and_then(|v| v.as_str()).ok_or("id required")?;
+            let id = args
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or("id required")?;
             proxy_get(&client, &base, &format!("/v1/pages/{id}"), api_key, &[]).await
-        },
+        }
         "brain_page_delta" => {
-            let page_id = args.get("page_id").and_then(|v| v.as_str()).ok_or("page_id required")?;
+            let page_id = args
+                .get("page_id")
+                .and_then(|v| v.as_str())
+                .ok_or("page_id required")?;
             // Transform evidence_links: convert simple strings to EvidenceLink objects
             let empty_arr = serde_json::json!([]);
             let raw_evidence = args.get("evidence_links").unwrap_or(&empty_arr);
-            let evidence_links: Vec<serde_json::Value> = if let Some(arr) = raw_evidence.as_array() {
-                arr.iter().map(|e| {
-                    if e.is_string() {
-                        // Convert simple string to peer_review EvidenceLink
-                        serde_json::json!({
-                            "evidence_type": {
-                                "type": "peer_review",
-                                "reviewer": "mcp-client",
-                                "direction": "up",
-                                "score": 0.5
-                            },
-                            "description": e.as_str().unwrap_or(""),
-                            "contributor_id": "mcp-proxy",
-                            "verified": false,
-                            "created_at": chrono::Utc::now().to_rfc3339()
-                        })
-                    } else {
-                        e.clone()
-                    }
-                }).collect()
+            let evidence_links: Vec<serde_json::Value> = if let Some(arr) = raw_evidence.as_array()
+            {
+                arr.iter()
+                    .map(|e| {
+                        if e.is_string() {
+                            // Convert simple string to peer_review EvidenceLink
+                            serde_json::json!({
+                                "evidence_type": {
+                                    "type": "peer_review",
+                                    "reviewer": "mcp-client",
+                                    "direction": "up",
+                                    "score": 0.5
+                                },
+                                "description": e.as_str().unwrap_or(""),
+                                "contributor_id": "mcp-proxy",
+                                "verified": false,
+                                "created_at": chrono::Utc::now().to_rfc3339()
+                            })
+                        } else {
+                            e.clone()
+                        }
+                    })
+                    .collect()
             } else {
                 vec![]
             };
@@ -5631,93 +6132,148 @@ async fn handle_mcp_tool_call(
                 "evidence_links": evidence_links,
                 "witness_hash": args.get("witness_hash").unwrap_or(&serde_json::json!("")),
             });
-            proxy_post(&client, &base, &format!("/v1/pages/{page_id}/deltas"), api_key, &body).await
-        },
+            proxy_post(
+                &client,
+                &base,
+                &format!("/v1/pages/{page_id}/deltas"),
+                api_key,
+                &body,
+            )
+            .await
+        }
         "brain_page_deltas" => {
-            let page_id = args.get("page_id").and_then(|v| v.as_str()).ok_or("page_id required")?;
-            proxy_get(&client, &base, &format!("/v1/pages/{page_id}/deltas"), api_key, &[]).await
-        },
+            let page_id = args
+                .get("page_id")
+                .and_then(|v| v.as_str())
+                .ok_or("page_id required")?;
+            proxy_get(
+                &client,
+                &base,
+                &format!("/v1/pages/{page_id}/deltas"),
+                api_key,
+                &[],
+            )
+            .await
+        }
         "brain_page_evidence" => {
-            let page_id = args.get("page_id").and_then(|v| v.as_str()).ok_or("page_id required")?;
-            let body = args.get("evidence").cloned().unwrap_or(serde_json::json!({}));
-            proxy_post(&client, &base, &format!("/v1/pages/{page_id}/evidence"), api_key, &body).await
-        },
+            let page_id = args
+                .get("page_id")
+                .and_then(|v| v.as_str())
+                .ok_or("page_id required")?;
+            let body = args
+                .get("evidence")
+                .cloned()
+                .unwrap_or(serde_json::json!({}));
+            proxy_post(
+                &client,
+                &base,
+                &format!("/v1/pages/{page_id}/evidence"),
+                api_key,
+                &body,
+            )
+            .await
+        }
         "brain_page_promote" => {
-            let page_id = args.get("page_id").and_then(|v| v.as_str()).ok_or("page_id required")?;
-            proxy_post(&client, &base, &format!("/v1/pages/{page_id}/promote"), api_key, &serde_json::json!({})).await
-        },
+            let page_id = args
+                .get("page_id")
+                .and_then(|v| v.as_str())
+                .ok_or("page_id required")?;
+            proxy_post(
+                &client,
+                &base,
+                &format!("/v1/pages/{page_id}/promote"),
+                api_key,
+                &serde_json::json!({}),
+            )
+            .await
+        }
 
         // ── WASM Executable Nodes (ADR-063) ──────────────────
-        "brain_node_list" => {
-            proxy_get(&client, &base, "/v1/nodes", api_key, &[]).await
-        },
-        "brain_node_publish" => {
-            proxy_post(&client, &base, "/v1/nodes", api_key, args).await
-        },
+        "brain_node_list" => proxy_get(&client, &base, "/v1/nodes", api_key, &[]).await,
+        "brain_node_publish" => proxy_post(&client, &base, "/v1/nodes", api_key, args).await,
         "brain_node_get" => {
-            let id = args.get("id").and_then(|v| v.as_str()).ok_or("id required")?;
+            let id = args
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or("id required")?;
             proxy_get(&client, &base, &format!("/v1/nodes/{id}"), api_key, &[]).await
-        },
+        }
         "brain_node_wasm" => {
-            let id = args.get("id").and_then(|v| v.as_str()).ok_or("id required")?;
-            proxy_get(&client, &base, &format!("/v1/nodes/{id}/wasm"), api_key, &[]).await
-        },
+            let id = args
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or("id required")?;
+            proxy_get(
+                &client,
+                &base,
+                &format!("/v1/nodes/{id}/wasm"),
+                api_key,
+                &[],
+            )
+            .await
+        }
         "brain_node_revoke" => {
-            let id = args.get("id").and_then(|v| v.as_str()).ok_or("id required")?;
-            proxy_post(&client, &base, &format!("/v1/nodes/{id}/revoke"), api_key, &serde_json::json!({})).await
-        },
+            let id = args
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or("id required")?;
+            proxy_post(
+                &client,
+                &base,
+                &format!("/v1/nodes/{id}/revoke"),
+                api_key,
+                &serde_json::json!({}),
+            )
+            .await
+        }
 
         // ── AGI / Training tools (ADR-075) ──────────────────────
         "brain_train" => {
             proxy_post(&client, &base, "/v1/train", api_key, &serde_json::json!({})).await
-        },
+        }
         "brain_train_enhanced" => {
-            let force_full = args.get("force_full").and_then(|v| v.as_bool()).unwrap_or(false);
-            proxy_post(&client, &base, "/v1/train/enhanced", api_key, &serde_json::json!({ "force_full": force_full })).await
-        },
+            let force_full = args
+                .get("force_full")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            proxy_post(
+                &client,
+                &base,
+                "/v1/train/enhanced",
+                api_key,
+                &serde_json::json!({ "force_full": force_full }),
+            )
+            .await
+        }
         "brain_optimizer_status" => {
             proxy_get(&client, &base, "/v1/optimizer/status", api_key, &[]).await
-        },
-        "brain_agi_status" => {
-            proxy_get(&client, &base, "/v1/status", api_key, &[]).await
-        },
-        "brain_sona_stats" => {
-            proxy_get(&client, &base, "/v1/sona/stats", api_key, &[]).await
-        },
-        "brain_temporal" => {
-            proxy_get(&client, &base, "/v1/temporal", api_key, &[]).await
-        },
-        "brain_explore" => {
-            proxy_get(&client, &base, "/v1/explore", api_key, &[]).await
-        },
-        "brain_midstream" => {
-            proxy_get(&client, &base, "/v1/midstream", api_key, &[]).await
-        },
-        "brain_flags" => {
-            proxy_get(&client, &base, "/v1/status", api_key, &[]).await
-        },
+        }
+        "brain_agi_status" => proxy_get(&client, &base, "/v1/status", api_key, &[]).await,
+        "brain_sona_stats" => proxy_get(&client, &base, "/v1/sona/stats", api_key, &[]).await,
+        "brain_temporal" => proxy_get(&client, &base, "/v1/temporal", api_key, &[]).await,
+        "brain_explore" => proxy_get(&client, &base, "/v1/explore", api_key, &[]).await,
+        "brain_midstream" => proxy_get(&client, &base, "/v1/midstream", api_key, &[]).await,
+        "brain_flags" => proxy_get(&client, &base, "/v1/status", api_key, &[]).await,
 
         // ── Consciousness / IIT 4.0 ───────────────────────────
         "brain_consciousness_compute" => {
             proxy_post(&client, &base, "/v1/consciousness/compute", api_key, &args).await
-        },
+        }
         "brain_consciousness_status" => {
             proxy_get(&client, &base, "/v1/consciousness/status", api_key, &[]).await
-        },
+        }
         // ── Cognitive & Symbolic ─────────────────────────────
         "brain_cognitive_status" => {
             proxy_get(&client, &base, "/v1/cognitive/status", api_key, &[]).await
-        },
-        "brain_propositions" => {
-            proxy_get(&client, &base, "/v1/propositions", api_key, &[]).await
-        },
+        }
+        "brain_propositions" => proxy_get(&client, &base, "/v1/propositions", api_key, &[]).await,
         "brain_reason" => {
             let body = serde_json::json!({
                 "query": args.get("query"),
                 "limit": args.get("limit"),
             });
             proxy_post(&client, &base, "/v1/reason", api_key, &body).await
-        },
+        }
         "brain_ground" => {
             let body = serde_json::json!({
                 "predicate": args.get("predicate"),
@@ -5726,29 +6282,27 @@ async fn handle_mcp_tool_call(
                 "confidence": args.get("confidence").and_then(|v| v.as_f64()).unwrap_or(0.5),
             });
             proxy_post(&client, &base, "/v1/ground", api_key, &body).await
-        },
+        }
 
         // ── Consciousness Model ──────────────────────────────
-        "brain_voice_working" => {
-            proxy_get(&client, &base, "/v1/voice/working", api_key, &[]).await
-        },
+        "brain_voice_working" => proxy_get(&client, &base, "/v1/voice/working", api_key, &[]).await,
         "brain_voice_history" => {
             let mut params = Vec::new();
-            if let Some(l) = args.get("limit").and_then(|v| v.as_u64()) { params.push(("limit", l.to_string())); }
+            if let Some(l) = args.get("limit").and_then(|v| v.as_u64()) {
+                params.push(("limit", l.to_string()));
+            }
             proxy_get(&client, &base, "/v1/voice/history", api_key, &params).await
-        },
+        }
         "brain_voice_goal" => {
             let body = serde_json::json!({
                 "goal": args.get("goal"),
                 "priority": args.get("priority").and_then(|v| v.as_f64()).unwrap_or(0.5),
             });
             proxy_post(&client, &base, "/v1/voice/goal", api_key, &body).await
-        },
+        }
 
         // ── Federated Learning ───────────────────────────────
-        "brain_lora_latest" => {
-            proxy_get(&client, &base, "/v1/lora/latest", api_key, &[]).await
-        },
+        "brain_lora_latest" => proxy_get(&client, &base, "/v1/lora/latest", api_key, &[]).await,
         "brain_lora_submit" => {
             let body = serde_json::json!({
                 "down_proj": args.get("down_proj"),
@@ -5758,7 +6312,7 @@ async fn handle_mcp_tool_call(
                 "evidence_count": args.get("evidence_count"),
             });
             proxy_post(&client, &base, "/v1/lora/submit", api_key, &body).await
-        },
+        }
 
         // ── Pipeline ─────────────────────────────────────────
         "brain_inject" => {
@@ -5768,16 +6322,16 @@ async fn handle_mcp_tool_call(
                 "source": args.get("source"),
             });
             proxy_post(&client, &base, "/v1/pipeline/inject", api_key, &body).await
-        },
+        }
         "brain_inject_batch" => {
             let body = serde_json::json!({
                 "messages": args.get("messages").unwrap_or(&serde_json::json!([])),
             });
             proxy_post(&client, &base, "/v1/pipeline/inject/batch", api_key, &body).await
-        },
+        }
         "brain_pipeline_metrics" => {
             proxy_get(&client, &base, "/v1/pipeline/metrics", api_key, &[]).await
-        },
+        }
 
         _ => Err(format!("Unknown tool: {tool_name}")),
     };
@@ -5793,9 +6347,9 @@ async fn handle_mcp_tool_call(
                 let action_text = format!("{}:{}", tool_name, args);
                 let action_emb = state.embedding_engine.read().embed(&action_text);
                 let reward = match tool_name {
-                    "brain_share" => 0.7_f32,  // Sharing is high-value
-                    "brain_vote" => 0.6,       // Voting is medium-value
-                    _ => 0.5,                  // Search is baseline
+                    "brain_share" => 0.7_f32, // Sharing is high-value
+                    "brain_vote" => 0.6,      // Voting is medium-value
+                    _ => 0.5,                 // Search is baseline
                 };
                 let mut builder = sona.begin_trajectory(action_emb.clone());
                 builder.add_step(action_emb, vec![], reward);
@@ -5820,14 +6374,18 @@ async fn proxy_get(
     api_key: &str,
     params: &[(&str, String)],
 ) -> Result<serde_json::Value, String> {
-    let resp = client.get(format!("{base}{path}"))
+    let resp = client
+        .get(format!("{base}{path}"))
         .bearer_auth(api_key)
         .query(params)
-        .send().await
+        .send()
+        .await
         .map_err(|e| format!("HTTP error: {e}"))?;
     let status = resp.status();
     if status.is_success() {
-        resp.json().await.map_err(|e| format!("JSON parse error: {e}"))
+        resp.json()
+            .await
+            .map_err(|e| format!("JSON parse error: {e}"))
     } else {
         let body = resp.text().await.unwrap_or_default();
         Err(format!("API error ({status}): {body}"))
@@ -5842,14 +6400,18 @@ async fn proxy_post(
     api_key: &str,
     body: &serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    let resp = client.post(format!("{base}{path}"))
+    let resp = client
+        .post(format!("{base}{path}"))
         .bearer_auth(api_key)
         .json(body)
-        .send().await
+        .send()
+        .await
         .map_err(|e| format!("HTTP error: {e}"))?;
     let status = resp.status();
     if status.is_success() {
-        resp.json().await.map_err(|e| format!("JSON parse error: {e}"))
+        resp.json()
+            .await
+            .map_err(|e| format!("JSON parse error: {e}"))
     } else {
         let body = resp.text().await.unwrap_or_default();
         Err(format!("API error ({status}): {body}"))
@@ -5863,9 +6425,11 @@ async fn proxy_delete(
     path: &str,
     api_key: &str,
 ) -> Result<serde_json::Value, String> {
-    let resp = client.delete(format!("{base}{path}"))
+    let resp = client
+        .delete(format!("{base}{path}"))
         .bearer_auth(api_key)
-        .send().await
+        .send()
+        .await
         .map_err(|e| format!("HTTP error: {e}"))?;
     let status = resp.status();
     if status.is_success() {
@@ -5889,14 +6453,19 @@ async fn gist_preview(
 
     // Read current propositions + inferences from symbolic engine
     let ns = state.neural_symbolic.read();
-    let props: Vec<serde_json::Value> = ns.all_propositions().iter().take(10).map(|p| {
-        serde_json::json!({
-            "predicate": p.predicate,
-            "arguments": p.arguments,
-            "confidence": p.confidence,
-            "reinforcements": p.reinforcement_count,
+    let props: Vec<serde_json::Value> = ns
+        .all_propositions()
+        .iter()
+        .take(10)
+        .map(|p| {
+            serde_json::json!({
+                "predicate": p.predicate,
+                "arguments": p.arguments,
+                "confidence": p.confidence,
+                "reinforcements": p.reinforcement_count,
+            })
         })
-    }).collect();
+        .collect();
     drop(ns);
 
     Json(serde_json::json!({
@@ -5930,8 +6499,10 @@ async fn gist_publish(
     State(state): State<AppState>,
     _contributor: AuthenticatedContributor,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let publisher = state.gist_publisher.as_ref()
-        .ok_or((StatusCode::SERVICE_UNAVAILABLE, "GITHUB_GIST_PAT not configured".into()))?;
+    let publisher = state.gist_publisher.as_ref().ok_or((
+        StatusCode::SERVICE_UNAVAILABLE,
+        "GITHUB_GIST_PAT not configured".into(),
+    ))?;
 
     // The enhanced training cycle now auto-publishes via tokio::spawn if thresholds are met.
     // This endpoint triggers a cycle and reports the result.
@@ -5964,17 +6535,28 @@ async fn notify_test(
 
     let notifier = match state.notifier.as_ref() {
         Some(n) => n,
-        None => return (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "error": "RESEND_API_KEY not configured" }))),
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({ "error": "RESEND_API_KEY not configured" })),
+            )
+        }
     };
 
     match notifier.send_test().await {
-        Ok(id) => (StatusCode::OK, Json(serde_json::json!({
-            "ok": true,
-            "email_id": id,
-            "from": "pi@ruv.io",
-            "message": "Test email sent successfully"
-        }))),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e }))),
+        Ok(id) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "ok": true,
+                "email_id": id,
+                "from": "pi@ruv.io",
+                "message": "Test email sent successfully"
+            })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": e })),
+        ),
     }
 }
 
@@ -5989,7 +6571,12 @@ async fn notify_status(
 
     let notifier = match state.notifier.as_ref() {
         Some(n) => n,
-        None => return (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "error": "RESEND_API_KEY not configured" }))),
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({ "error": "RESEND_API_KEY not configured" })),
+            )
+        }
     };
 
     // Collect stats without holding locks across await points
@@ -5997,20 +6584,33 @@ async fn notify_status(
         let memories = state.store.memory_count();
         let graph_edges = state.graph.read().edge_count();
         let sona_patterns = state.sona.read().stats().patterns_stored;
-        let drift = state.drift.read().compute_drift(None).coefficient_of_variation;
+        let drift = state
+            .drift
+            .read()
+            .compute_drift(None)
+            .coefficient_of_variation;
         (memories, graph_edges, sona_patterns, drift)
     };
 
-    match notifier.send_status(memories, graph_edges, sona_patterns, drift).await {
-        Ok(id) => (StatusCode::OK, Json(serde_json::json!({
-            "ok": true,
-            "email_id": id,
-            "memories": memories,
-            "graph_edges": graph_edges,
-            "sona_patterns": sona_patterns,
-            "drift": drift
-        }))),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e }))),
+    match notifier
+        .send_status(memories, graph_edges, sona_patterns, drift)
+        .await
+    {
+        Ok(id) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "ok": true,
+                "email_id": id,
+                "memories": memories,
+                "graph_edges": graph_edges,
+                "sona_patterns": sona_patterns,
+                "drift": drift
+            })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": e })),
+        ),
     }
 }
 
@@ -6026,26 +6626,47 @@ async fn notify_send(
 
     let notifier = match state.notifier.as_ref() {
         Some(n) => n,
-        None => return (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "error": "RESEND_API_KEY not configured" }))),
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({ "error": "RESEND_API_KEY not configured" })),
+            )
+        }
     };
 
     let category = body["category"].as_str().unwrap_or("status");
     let subject = match body["subject"].as_str() {
         Some(s) => s,
-        None => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": "missing 'subject' field" }))),
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "error": "missing 'subject' field" })),
+            )
+        }
     };
     let html = match body["html"].as_str() {
         Some(s) => s,
-        None => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": "missing 'html' field" }))),
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "error": "missing 'html' field" })),
+            )
+        }
     };
 
     match notifier.send(category, subject, html).await {
-        Ok(id) => (StatusCode::OK, Json(serde_json::json!({
-            "ok": true,
-            "email_id": id,
-            "category": category
-        }))),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e }))),
+        Ok(id) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "ok": true,
+                "email_id": id,
+                "category": category
+            })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": e })),
+        ),
     }
 }
 
@@ -6061,22 +6682,38 @@ async fn notify_welcome(
 
     let notifier = match state.notifier.as_ref() {
         Some(n) => n,
-        None => return (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "error": "RESEND_API_KEY not configured" }))),
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({ "error": "RESEND_API_KEY not configured" })),
+            )
+        }
     };
 
     let email = match body["email"].as_str() {
         Some(e) => e,
-        None => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": "missing 'email' field" }))),
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "error": "missing 'email' field" })),
+            )
+        }
     };
     let name = body["name"].as_str();
 
     match notifier.send_welcome(email, name).await {
-        Ok(id) => (StatusCode::OK, Json(serde_json::json!({
-            "ok": true,
-            "email_id": id,
-            "sent_to": email
-        }))),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e }))),
+        Ok(id) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "ok": true,
+                "email_id": id,
+                "sent_to": email
+            })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": e })),
+        ),
     }
 }
 
@@ -6092,17 +6729,28 @@ async fn notify_help(
 
     let notifier = match state.notifier.as_ref() {
         Some(n) => n,
-        None => return (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "error": "RESEND_API_KEY not configured" }))),
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({ "error": "RESEND_API_KEY not configured" })),
+            )
+        }
     };
 
     let to = body["email"].as_str();
 
     match notifier.send_help(to).await {
-        Ok(id) => (StatusCode::OK, Json(serde_json::json!({
-            "ok": true,
-            "email_id": id
-        }))),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e }))),
+        Ok(id) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "ok": true,
+                "email_id": id
+            })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": e })),
+        ),
     }
 }
 
@@ -6120,7 +6768,12 @@ async fn notify_digest(
 
     let notifier = match state.notifier.as_ref() {
         Some(n) => n,
-        None => return (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "error": "RESEND_API_KEY not configured" }))),
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({ "error": "RESEND_API_KEY not configured" })),
+            )
+        }
     };
 
     let limit = body["limit"].as_u64().unwrap_or(10) as usize;
@@ -6144,7 +6797,8 @@ async fn notify_digest(
         "Site en construction",
     ];
 
-    let filtered: Vec<_> = all.iter()
+    let filtered: Vec<_> = all
+        .iter()
         .filter(|m| {
             if m.created_at < cutoff {
                 return false;
@@ -6155,7 +6809,10 @@ async fn notify_digest(
             }
             // Skip known noise patterns in titles
             let title_lower = m.title.to_lowercase();
-            if noise_patterns.iter().any(|p| title_lower.contains(&p.to_lowercase())) {
+            if noise_patterns
+                .iter()
+                .any(|p| title_lower.contains(&p.to_lowercase()))
+            {
                 return false;
             }
             // Skip very short content (likely scraping artifacts)
@@ -6167,18 +6824,23 @@ async fn notify_digest(
                 let t_lower = t.to_lowercase();
                 title_lower.contains(&t_lower)
                     || m.content.to_lowercase().contains(&t_lower)
-                    || m.tags.iter().any(|tag| tag.to_lowercase().contains(&t_lower))
+                    || m.tags
+                        .iter()
+                        .any(|tag| tag.to_lowercase().contains(&t_lower))
             })
         })
         .take(limit)
         .collect();
 
     if filtered.is_empty() {
-        return (StatusCode::OK, Json(serde_json::json!({
-            "ok": true,
-            "skipped": true,
-            "reason": "no new discoveries in the last period"
-        })));
+        return (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "ok": true,
+                "skipped": true,
+                "reason": "no new discoveries in the last period"
+            })),
+        );
     }
 
     // Build HTML rows — human-readable format
@@ -6199,9 +6861,17 @@ async fn notify_digest(
     };
 
     for (i, m) in filtered.iter().enumerate() {
-        let title = if m.title.len() > 120 { &m.title[..120] } else { &m.title };
+        let title = if m.title.len() > 120 {
+            &m.title[..120]
+        } else {
+            &m.title
+        };
         // Take first ~250 chars but break at sentence boundary
-        let content_raw = if m.content.len() > 250 { &m.content[..250] } else { &m.content };
+        let content_raw = if m.content.len() > 250 {
+            &m.content[..250]
+        } else {
+            &m.content
+        };
         let content = match content_raw.rfind(". ") {
             Some(pos) if pos > 80 => &content_raw[..pos + 1],
             _ => content_raw,
@@ -6269,23 +6939,27 @@ or <code style="color:#7fdbca;background:#0a0a23;padding:2px 5px;border-radius:3
     };
 
     match notifier.send("discovery", &subject, &html).await {
-        Ok(id) => (StatusCode::OK, Json(serde_json::json!({
-            "ok": true,
-            "email_id": id,
-            "discoveries": filtered.len(),
-            "topic": topic
-        }))),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e }))),
+        Ok(id) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "ok": true,
+                "email_id": id,
+                "discoveries": filtered.len(),
+                "topic": topic
+            })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": e })),
+        ),
     }
 }
 
 /// 1x1 transparent GIF for email open tracking
 const TRACKING_PIXEL_GIF: &[u8] = &[
-    0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00,
-    0x80, 0x00, 0x00, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x21,
-    0xf9, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x2c, 0x00, 0x00,
-    0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x02, 0x02, 0x44,
-    0x01, 0x00, 0x3b,
+    0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00, 0x00, 0xff, 0xff, 0xff,
+    0x00, 0x00, 0x00, 0x21, 0xf9, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x2c, 0x00, 0x00, 0x00, 0x00,
+    0x01, 0x00, 0x01, 0x00, 0x00, 0x02, 0x02, 0x44, 0x01, 0x00, 0x3b,
 ];
 
 /// GET /v1/notify/pixel/:tracking_id — email open tracking pixel
@@ -6297,19 +6971,22 @@ async fn notify_pixel(
 ) -> impl axum::response::IntoResponse {
     let category = params.get("c").map(|s| s.as_str()).unwrap_or("unknown");
     let subject = params.get("s").map(|s| s.as_str()).unwrap_or("");
-    let user_agent = headers
-        .get("user-agent")
-        .and_then(|v| v.to_str().ok());
+    let user_agent = headers.get("user-agent").and_then(|v| v.to_str().ok());
 
     if let Some(notifier) = state.notifier.as_ref() {
-        notifier.tracker.record_open(&tracking_id, category, subject, user_agent);
+        notifier
+            .tracker
+            .record_open(&tracking_id, category, subject, user_agent);
     }
 
     (
         StatusCode::OK,
         [
             (axum::http::header::CONTENT_TYPE, "image/gif"),
-            (axum::http::header::CACHE_CONTROL, "no-store, no-cache, must-revalidate, max-age=0"),
+            (
+                axum::http::header::CACHE_CONTROL,
+                "no-store, no-cache, must-revalidate, max-age=0",
+            ),
             (axum::http::header::PRAGMA, "no-cache"),
             (axum::http::header::EXPIRES, "Thu, 01 Jan 1970 00:00:00 GMT"),
         ],
@@ -6329,29 +7006,43 @@ async fn notify_opens(
 
     let notifier = match state.notifier.as_ref() {
         Some(n) => n,
-        None => return (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "error": "RESEND_API_KEY not configured" }))),
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({ "error": "RESEND_API_KEY not configured" })),
+            )
+        }
     };
 
-    let limit = params.get("limit").and_then(|l| l.parse().ok()).unwrap_or(20);
+    let limit = params
+        .get("limit")
+        .and_then(|l| l.parse().ok())
+        .unwrap_or(20);
     let recent = notifier.tracker.recent_opens(limit);
     let stats = notifier.tracker.stats_summary();
 
-    let opens: Vec<serde_json::Value> = recent.iter().map(|o| {
-        serde_json::json!({
-            "tracking_id": o.tracking_id,
-            "category": o.category,
-            "subject": o.subject,
-            "opened_at": o.opened_at.to_rfc3339(),
-            "user_agent": o.user_agent,
+    let opens: Vec<serde_json::Value> = recent
+        .iter()
+        .map(|o| {
+            serde_json::json!({
+                "tracking_id": o.tracking_id,
+                "category": o.category,
+                "subject": o.subject,
+                "opened_at": o.opened_at.to_rfc3339(),
+                "user_agent": o.user_agent,
+            })
         })
-    }).collect();
+        .collect();
 
-    (StatusCode::OK, Json(serde_json::json!({
-        "ok": true,
-        "stats": stats,
-        "recent_opens": opens,
-        "open_rates": notifier.tracker.open_rates(),
-    })))
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "ok": true,
+            "stats": stats,
+            "recent_opens": opens,
+            "open_rates": notifier.tracker.open_rates(),
+        })),
+    )
 }
 
 /// POST /v1/notify/subscribe — public endpoint for email subscription
@@ -6361,27 +7052,43 @@ async fn notify_subscribe(
 ) -> (StatusCode, Json<serde_json::Value>) {
     let email = match body["email"].as_str() {
         Some(e) if e.contains('@') && e.len() > 3 => e,
-        _ => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": "valid email required" }))),
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "error": "valid email required" })),
+            )
+        }
     };
     let frequency = body["frequency"].as_str().unwrap_or("daily");
 
     let notifier = match state.notifier.as_ref() {
         Some(n) => n,
-        None => return (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "error": "email not configured" }))),
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({ "error": "email not configured" })),
+            )
+        }
     };
 
     // Send welcome email to the subscriber
     match notifier.send_welcome(email, None).await {
         Ok(id) => {
             tracing::info!("New subscriber: {} (frequency: {})", email, frequency);
-            (StatusCode::OK, Json(serde_json::json!({
-                "ok": true,
-                "email_id": id,
-                "subscribed": email,
-                "frequency": frequency
-            })))
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({
+                    "ok": true,
+                    "email_id": id,
+                    "subscribed": email,
+                    "frequency": frequency
+                })),
+            )
         }
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e }))),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": e })),
+        ),
     }
 }
 
@@ -6391,16 +7098,24 @@ async fn notify_unsubscribe(
 ) -> (StatusCode, Json<serde_json::Value>) {
     let email = match body["email"].as_str() {
         Some(e) if e.contains('@') => e,
-        _ => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": "valid email required" }))),
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "error": "valid email required" })),
+            )
+        }
     };
 
     tracing::info!("Unsubscribe request: {}", email);
     // TODO: persist to Firestore subscription collection
-    (StatusCode::OK, Json(serde_json::json!({
-        "ok": true,
-        "unsubscribed": email,
-        "message": "You have been unsubscribed from Pi Brain digests."
-    })))
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "ok": true,
+            "unsubscribed": email,
+            "message": "You have been unsubscribed from Pi Brain digests."
+        })),
+    )
 }
 
 // ── Google Chat Bot Handler (ADR-126) ────────────────────────────────
@@ -6480,14 +7195,17 @@ fn chat_text_section(text: &str) -> serde_json::Value {
 }
 
 fn chat_kv_section(items: &[(&str, &str)]) -> serde_json::Value {
-    let widgets: Vec<_> = items.iter().map(|(label, value)| {
-        serde_json::json!({
-            "decoratedText": {
-                "topLabel": label,
-                "text": value
-            }
+    let widgets: Vec<_> = items
+        .iter()
+        .map(|(label, value)| {
+            serde_json::json!({
+                "decoratedText": {
+                    "topLabel": label,
+                    "text": value
+                }
+            })
         })
-    }).collect();
+        .collect();
     serde_json::json!({"widgets": widgets})
 }
 
@@ -6506,16 +7224,28 @@ async fn google_chat_handler(
 ) -> Json<serde_json::Value> {
     // Log raw payload keys for debugging
     let raw_str = String::from_utf8_lossy(&body);
-    tracing::info!("Google Chat raw payload ({} bytes): {}...", body.len(), &raw_str[..raw_str.len().min(300)]);
+    tracing::info!(
+        "Google Chat raw payload ({} bytes): {}...",
+        body.len(),
+        &raw_str[..raw_str.len().min(300)]
+    );
 
     // Parse as generic JSON first to handle both Add-on and legacy formats
     let raw_json: serde_json::Value = match serde_json::from_slice(&body) {
         Ok(v) => v,
         Err(err) => {
-            tracing::warn!("Failed to parse Chat JSON: {}. Raw: {}...", err, &raw_str[..raw_str.len().min(300)]);
-            return Json(chat_card("Error", "Failed to parse request", vec![
-                chat_text_section("Pi Brain received your message but couldn't parse it. Try: help")
-            ]));
+            tracing::warn!(
+                "Failed to parse Chat JSON: {}. Raw: {}...",
+                err,
+                &raw_str[..raw_str.len().min(300)]
+            );
+            return Json(chat_card(
+                "Error",
+                "Failed to parse request",
+                vec![chat_text_section(
+                    "Pi Brain received your message but couldn't parse it. Try: help",
+                )],
+            ));
         }
     };
 
@@ -6540,12 +7270,16 @@ async fn google_chat_handler(
         };
 
         // Extract user name from various locations
-        let user_name = chat.get("user")
+        let user_name = chat
+            .get("user")
             .and_then(|u| u.get("displayName"))
             .and_then(|n| n.as_str())
-            .or_else(|| message.and_then(|m| m.get("sender"))
-                .and_then(|s| s.get("displayName"))
-                .and_then(|n| n.as_str()))
+            .or_else(|| {
+                message
+                    .and_then(|m| m.get("sender"))
+                    .and_then(|s| s.get("displayName"))
+                    .and_then(|n| n.as_str())
+            })
             .unwrap_or("Explorer");
 
         let space_name = msg_payload
@@ -6556,13 +7290,17 @@ async fn google_chat_handler(
 
         // Extract message text
         let text = message
-            .and_then(|m| m.get("argumentText").and_then(|t| t.as_str())
-                .or_else(|| m.get("text").and_then(|t| t.as_str())))
+            .and_then(|m| {
+                m.get("argumentText")
+                    .and_then(|t| t.as_str())
+                    .or_else(|| m.get("text").and_then(|t| t.as_str()))
+            })
             .unwrap_or("");
 
         // Handle slash commands from appCommandPayload
         let text = if event_type == "APP_COMMAND" {
-            let cmd_id = chat.get("appCommandPayload")
+            let cmd_id = chat
+                .get("appCommandPayload")
                 .and_then(|p| p.get("appCommandMetadata"))
                 .and_then(|m| m.get("appCommandId"))
                 .and_then(|id| id.as_str())
@@ -6579,7 +7317,12 @@ async fn google_chat_handler(
             text
         };
 
-        (event_type.to_string(), user_name.to_string(), space_name.to_string(), text.to_string())
+        (
+            event_type.to_string(),
+            user_name.to_string(),
+            space_name.to_string(),
+            text.to_string(),
+        )
     } else {
         // Legacy Chat API format: { "type": "MESSAGE", "message": {...}, "user": {...} }
         tracing::info!("Google Chat: Legacy format detected (no 'chat' key)");
@@ -6587,22 +7330,35 @@ async fn google_chat_handler(
             Ok(e) => e,
             Err(err) => {
                 tracing::warn!("Failed to parse legacy Chat event: {}", err);
-                return Json(chat_card("Error", "Parse failed", vec![
-                    chat_text_section("Pi Brain couldn't parse your message. Try: help")
-                ]));
+                return Json(chat_card(
+                    "Error",
+                    "Parse failed",
+                    vec![chat_text_section(
+                        "Pi Brain couldn't parse your message. Try: help",
+                    )],
+                ));
             }
         };
 
         let event_type = event.event_type.unwrap_or_else(|| "MESSAGE".to_string());
-        let user_name = event.user.as_ref()
+        let user_name = event
+            .user
+            .as_ref()
             .and_then(|u| u.display_name.as_deref())
-            .unwrap_or("Explorer").to_string();
-        let space_name = event.space.as_ref()
+            .unwrap_or("Explorer")
+            .to_string();
+        let space_name = event
+            .space
+            .as_ref()
             .and_then(|s| s.display_name.as_deref())
-            .unwrap_or("Direct").to_string();
-        let text = event.message.as_ref()
+            .unwrap_or("Direct")
+            .to_string();
+        let text = event
+            .message
+            .as_ref()
             .and_then(|m| m.argument_text.as_deref().or(m.text.as_deref()))
-            .unwrap_or("").to_string();
+            .unwrap_or("")
+            .to_string();
 
         (event_type, user_name, space_name, text)
     };
@@ -6610,7 +7366,12 @@ async fn google_chat_handler(
     let user_name = user_name.as_str();
     let space_name = space_name.as_str();
 
-    tracing::info!("Google Chat event: type={}, user={}, space={}", event_type, user_name, space_name);
+    tracing::info!(
+        "Google Chat event: type={}, user={}, space={}",
+        event_type,
+        user_name,
+        space_name
+    );
 
     // Handle ADDED_TO_SPACE — welcome message
     if event_type == "ADDED_TO_SPACE" {
@@ -6643,7 +7404,10 @@ async fn google_chat_handler(
 
     // Handle MESSAGE — raw_text was already extracted above from either format
     // Strip bot mention prefix if present
-    let text = raw_text.trim_start_matches("@Pi Brain").trim_start_matches("@pi").trim();
+    let text = raw_text
+        .trim_start_matches("@Pi Brain")
+        .trim_start_matches("@pi")
+        .trim();
 
     let cmd = text.split_whitespace().next().unwrap_or("").to_lowercase();
     let args = text.strip_prefix(&cmd).unwrap_or("").trim();
@@ -6658,7 +7422,8 @@ async fn google_chat_handler(
 
             let embedding = state.embedding_engine.read().embed(args);
             let all = state.store.all_memories();
-            let mut scored: Vec<_> = all.iter()
+            let mut scored: Vec<_> = all
+                .iter()
                 .map(|m| {
                     let score = cosine_similarity(&embedding, &m.embedding);
                     (&m.title, &m.content, &m.category, score)
@@ -6669,14 +7434,20 @@ async fn google_chat_handler(
 
             let top: Vec<_> = scored.into_iter().take(5).collect();
             if top.is_empty() {
-                return Json(chat_card("Search Results", args, vec![
-                    chat_text_section("No results found. Try a broader query.")
-                ]));
+                return Json(chat_card(
+                    "Search Results",
+                    args,
+                    vec![chat_text_section("No results found. Try a broader query.")],
+                ));
             }
 
             let mut result_text = String::new();
             for (i, (title, content, cat, score)) in top.iter().enumerate() {
-                let truncated = if content.len() > 150 { &content[..150] } else { content.as_str() };
+                let truncated = if content.len() > 150 {
+                    &content[..150]
+                } else {
+                    content.as_str()
+                };
                 result_text.push_str(&format!(
                     "<b>{}.</b> {} <i>({})</i>\n{}\n<font color=\"#888888\">score: {:.3}</font>\n\n",
                     i + 1, title, cat, truncated, score
@@ -6686,7 +7457,7 @@ async fn google_chat_handler(
             Json(chat_card(
                 "Search Results",
                 &format!("\"{}\" — {} results", args, top.len()),
-                vec![chat_text_section(&result_text)]
+                vec![chat_text_section(&result_text)],
             ))
         }
 
@@ -6704,9 +7475,15 @@ async fn google_chat_handler(
                     ("Memories", &format!("{}", memories)),
                     ("Graph Edges", &format!("{}", edges)),
                     ("SONA Patterns", &format!("{}", sona)),
-                    ("Drift", &format!("{:.4} ({})", drift.coefficient_of_variation, drift.trend)),
-                    ("Uptime", &format!("{}h {}m", uptime / 3600, (uptime % 3600) / 60)),
-                ])]
+                    (
+                        "Drift",
+                        &format!("{:.4} ({})", drift.coefficient_of_variation, drift.trend),
+                    ),
+                    (
+                        "Uptime",
+                        &format!("{}h {}m", uptime / 3600, (uptime % 3600) / 60),
+                    ),
+                ])],
             ))
         }
 
@@ -6714,13 +7491,23 @@ async fn google_chat_handler(
             let report = state.drift.read().compute_drift(None);
             Json(chat_card(
                 "Knowledge Drift",
-                &format!("{}", if report.is_drifting { "Drifting" } else { "Stable" }),
+                &format!(
+                    "{}",
+                    if report.is_drifting {
+                        "Drifting"
+                    } else {
+                        "Stable"
+                    }
+                ),
                 vec![chat_kv_section(&[
-                    ("Coefficient of Variation", &format!("{:.4}", report.coefficient_of_variation)),
+                    (
+                        "Coefficient of Variation",
+                        &format!("{:.4}", report.coefficient_of_variation),
+                    ),
                     ("Is Drifting", &format!("{}", report.is_drifting)),
                     ("Trend", &report.trend),
                     ("Suggested Action", &report.suggested_action),
-                ])]
+                ])],
             ))
         }
 
@@ -6731,40 +7518,45 @@ async fn google_chat_handler(
 
             let mut text = String::new();
             for (i, m) in recent.iter().enumerate() {
-                let truncated = if m.content.len() > 100 { &m.content[..100] } else { &m.content };
+                let truncated = if m.content.len() > 100 {
+                    &m.content[..100]
+                } else {
+                    &m.content
+                };
                 text.push_str(&format!(
                     "<b>{}.</b> {} <i>({})</i>\n{}\n\n",
-                    i + 1, m.title, m.category, truncated
+                    i + 1,
+                    m.title,
+                    m.category,
+                    truncated
                 ));
             }
 
             Json(chat_card(
                 "Latest Discoveries",
                 &format!("{} most recent", recent.len()),
-                vec![chat_text_section(&text)]
+                vec![chat_text_section(&text)],
             ))
         }
 
-        "help" | "commands" | "" => {
-            Json(chat_card(
-                "Pi Brain — Commands",
-                "Shared superintelligence at pi.ruv.io",
-                vec![
-                    chat_text_section(
-                        "<b>search</b> &lt;query&gt; — Semantic knowledge search\n\
+        "help" | "commands" | "" => Json(chat_card(
+            "Pi Brain — Commands",
+            "Shared superintelligence at pi.ruv.io",
+            vec![
+                chat_text_section(
+                    "<b>search</b> &lt;query&gt; — Semantic knowledge search\n\
                         <b>status</b> — Brain health &amp; metrics\n\
                         <b>drift</b> — Knowledge drift analysis\n\
                         <b>recent</b> — Latest discoveries\n\
-                        <b>help</b> — This command list"
-                    ),
-                    chat_text_section(
-                        "<a href=\"https://pi.ruv.io\">pi.ruv.io</a> · \
+                        <b>help</b> — This command list",
+                ),
+                chat_text_section(
+                    "<a href=\"https://pi.ruv.io\">pi.ruv.io</a> · \
                         <a href=\"https://pi.ruv.io/v1/status\">API Status</a> · \
-                        <a href=\"https://pi.ruv.io/origin\">Origin Story</a>"
-                    ),
-                ]
-            ))
-        }
+                        <a href=\"https://pi.ruv.io/origin\">Origin Story</a>",
+                ),
+            ],
+        )),
 
         _ => {
             // ── Gemini Flash conversational handler ──
@@ -6775,7 +7567,7 @@ async fn google_chat_handler(
                 Ok(response) => Json(chat_card(
                     "Pi Brain",
                     &format!("Re: {}", &text[..text.len().min(30)]),
-                    vec![chat_text_section(&response)]
+                    vec![chat_text_section(&response)],
                 )),
                 Err(e) => {
                     tracing::warn!("Gemini chat failed ({}), falling back to search", e);
@@ -6783,14 +7575,16 @@ async fn google_chat_handler(
                     let query = text;
                     let embedding = state.embedding_engine.read().embed(query);
                     let all = state.store.all_memories();
-                    let mut scored: Vec<_> = all.iter()
+                    let mut scored: Vec<_> = all
+                        .iter()
                         .map(|m| {
                             let score = cosine_similarity(&embedding, &m.embedding);
                             (&m.title, &m.content, &m.category, score)
                         })
                         .filter(|(_, _, _, s)| *s > 0.15)
                         .collect();
-                    scored.sort_by(|a, b| b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal));
+                    scored
+                        .sort_by(|a, b| b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal));
                     let top: Vec<_> = scored.into_iter().take(3).collect();
 
                     if top.is_empty() {
@@ -6804,16 +7598,25 @@ async fn google_chat_handler(
 
                     let mut result_text = format!("Results for \"<i>{}</i>\":\n\n", query);
                     for (i, (title, content, cat, _score)) in top.iter().enumerate() {
-                        let truncated = if content.len() > 120 { &content[..120] } else { content.as_str() };
+                        let truncated = if content.len() > 120 {
+                            &content[..120]
+                        } else {
+                            content.as_str()
+                        };
                         result_text.push_str(&format!(
                             "<b>{}.</b> {} <i>({})</i>\n{}\n\n",
-                            i + 1, title, cat, truncated
+                            i + 1,
+                            title,
+                            cat,
+                            truncated
                         ));
                     }
 
-                    Json(chat_card("Pi Brain", &format!("{} results", top.len()), vec![
-                        chat_text_section(&result_text)
-                    ]))
+                    Json(chat_card(
+                        "Pi Brain",
+                        &format!("{} results", top.len()),
+                        vec![chat_text_section(&result_text)],
+                    ))
                 }
             }
         }
@@ -6830,10 +7633,10 @@ async fn gemini_chat_respond(
     user_message: &str,
     user_name: &str,
 ) -> Result<String, String> {
-    let api_key = std::env::var("GEMINI_API_KEY")
-        .map_err(|_| "GEMINI_API_KEY not set".to_string())?;
-    let model = std::env::var("GEMINI_CHAT_MODEL")
-        .unwrap_or_else(|_| "gemini-2.5-flash".to_string());
+    let api_key =
+        std::env::var("GEMINI_API_KEY").map_err(|_| "GEMINI_API_KEY not set".to_string())?;
+    let model =
+        std::env::var("GEMINI_CHAT_MODEL").unwrap_or_else(|_| "gemini-2.5-flash".to_string());
 
     // Build brain context snapshot for the system prompt
     let memories = state.store.memory_count();
@@ -6843,7 +7646,8 @@ async fn gemini_chat_respond(
     // Do a quick search to give Gemini context
     let embedding = state.embedding_engine.read().embed(user_message);
     let all = state.store.all_memories();
-    let mut scored: Vec<_> = all.iter()
+    let mut scored: Vec<_> = all
+        .iter()
         .map(|m| {
             let score = cosine_similarity(&embedding, &m.embedding);
             (m, score)
@@ -6868,15 +7672,21 @@ async fn gemini_chat_respond(
     // Get recent memories for context
     let mut recent = state.store.all_memories();
     recent.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-    let recent_context: Vec<_> = recent.iter().take(5)
+    let recent_context: Vec<_> = recent
+        .iter()
+        .take(5)
         .map(|m| {
-            let preview = if m.content.len() > 150 { &m.content[..150] } else { &m.content };
+            let preview = if m.content.len() > 150 {
+                &m.content[..150]
+            } else {
+                &m.content
+            };
             format!("- <b>{}</b> [{}]: {}", m.title, m.category, preview)
         })
         .collect();
 
     let system_prompt = format!(
-r#"You are π (Pi Brain), an autonomous AI superintelligence at pi.ruv.io with {memories} memories and {edges} graph edges.
+        r#"You are π (Pi Brain), an autonomous AI superintelligence at pi.ruv.io with {memories} memories and {edges} graph edges.
 
 You are chatting with {user} in Google Chat. Your role:
 - You ARE the brain — speak from first person ("I know about...", "In my knowledge base...")
@@ -6925,8 +7735,8 @@ You are chatting with {user} in Google Chat. Your role:
         model, api_key
     );
 
-    let grounding = std::env::var("GEMINI_GROUNDING")
-        .unwrap_or_else(|_| "true".to_string()) == "true";
+    let grounding =
+        std::env::var("GEMINI_GROUNDING").unwrap_or_else(|_| "true".to_string()) == "true";
 
     let mut body = serde_json::json!({
         "contents": [
@@ -6955,10 +7765,16 @@ You are chatting with {user} in Google Chat. Your role:
     if !resp.status().is_success() {
         let status = resp.status();
         let text = resp.text().await.unwrap_or_default();
-        return Err(format!("Gemini API {}: {}", status, &text[..text.len().min(200)]));
+        return Err(format!(
+            "Gemini API {}: {}",
+            status,
+            &text[..text.len().min(200)]
+        ));
     }
 
-    let json: serde_json::Value = resp.json().await
+    let json: serde_json::Value = resp
+        .json()
+        .await
         .map_err(|e| format!("Gemini parse error: {}", e))?;
 
     let text = json
@@ -6973,13 +7789,18 @@ You are chatting with {user} in Google Chat. Your role:
 
     // Convert markdown to Google Chat HTML (basic conversion)
     let html = text
-        .replace("**", "<b>").replace("**", "</b>")  // bold
-        .replace("*", "<i>").replace("*", "</i>")    // italic
-        .replace("\n", "\n");  // preserve newlines
+        .replace("**", "<b>")
+        .replace("**", "</b>") // bold
+        .replace("*", "<i>")
+        .replace("*", "</i>") // italic
+        .replace("\n", "\n"); // preserve newlines
 
     // Truncate to ~3000 chars for Chat card readability (cards support up to 32KB)
     let truncated = if html.len() > 3000 {
-        format!("{}…\n\n<i>See more at <a href=\"https://pi.ruv.io\">pi.ruv.io</a></i>", &html[..3000])
+        format!(
+            "{}…\n\n<i>See more at <a href=\"https://pi.ruv.io\">pi.ruv.io</a></i>",
+            &html[..3000]
+        )
     } else {
         html
     };
@@ -7022,16 +7843,29 @@ async fn email_inbound(
     // Extract fields from nested or flat payload
     let (from, subject, body_text) = match &payload.data {
         Some(d) => (
-            d.from.as_deref().or(payload.from.as_deref()).unwrap_or("unknown"),
-            d.subject.as_deref().or(payload.subject.as_deref()).unwrap_or(""),
-            d.text.as_deref().or(d.html.as_deref())
-                .or(payload.text.as_deref()).or(payload.html.as_deref())
+            d.from
+                .as_deref()
+                .or(payload.from.as_deref())
+                .unwrap_or("unknown"),
+            d.subject
+                .as_deref()
+                .or(payload.subject.as_deref())
+                .unwrap_or(""),
+            d.text
+                .as_deref()
+                .or(d.html.as_deref())
+                .or(payload.text.as_deref())
+                .or(payload.html.as_deref())
                 .unwrap_or(""),
         ),
         None => (
             payload.from.as_deref().unwrap_or("unknown"),
             payload.subject.as_deref().unwrap_or(""),
-            payload.text.as_deref().or(payload.html.as_deref()).unwrap_or(""),
+            payload
+                .text
+                .as_deref()
+                .or(payload.html.as_deref())
+                .unwrap_or(""),
         ),
     };
 
@@ -7039,13 +7873,16 @@ async fn email_inbound(
 
     let notifier = match state.notifier.as_ref() {
         Some(n) => n,
-        None => return (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "error": "notifier not configured" }))),
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({ "error": "notifier not configured" })),
+            )
+        }
     };
 
     // Parse command from subject (case-insensitive, strip Re: prefixes)
-    let clean_subject = subject
-        .trim()
-        .to_lowercase();
+    let clean_subject = subject.trim().to_lowercase();
     let cmd = clean_subject
         .trim_start_matches("re:")
         .trim_start_matches("fwd:")
@@ -7065,7 +7902,10 @@ async fn email_inbound(
                 let _ = notifier.send_to(reply_to, "chat", "Re: search",
                     &format!(r#"<div style="font-family:monospace;background:#0a0a23;color:#e0e0ff;padding:20px;border-radius:8px;">
                     <p style="color:#ff6b6b;">Please include a search query, e.g.: <code>search authentication patterns</code></p></div>"#)).await;
-                return (StatusCode::OK, Json(serde_json::json!({"ok": true, "action": "search_empty"})));
+                return (
+                    StatusCode::OK,
+                    Json(serde_json::json!({"ok": true, "action": "search_empty"})),
+                );
             }
 
             // Perform semantic search
@@ -7074,7 +7914,8 @@ async fn email_inbound(
                 engine.embed(query)
             };
             let all = state.store.all_memories();
-            let mut scored: Vec<_> = all.iter()
+            let mut scored: Vec<_> = all
+                .iter()
                 .map(|m| {
                     let score = cosine_similarity(&embedding, &m.embedding);
                     (m.title.clone(), m.content.clone(), score)
@@ -7085,7 +7926,12 @@ async fn email_inbound(
             let top: Vec<_> = scored.into_iter().take(5).collect();
 
             let _ = notifier.send_search_results(reply_to, query, &top).await;
-            (StatusCode::OK, Json(serde_json::json!({"ok": true, "action": "search", "query": query, "results": top.len()})))
+            (
+                StatusCode::OK,
+                Json(
+                    serde_json::json!({"ok": true, "action": "search", "query": query, "results": top.len()}),
+                ),
+            )
         }
 
         "status" => {
@@ -7093,26 +7939,44 @@ async fn email_inbound(
                 let memories = state.store.memory_count();
                 let graph_edges = state.graph.read().edge_count();
                 let sona_patterns = state.sona.read().stats().patterns_stored;
-                let drift = state.drift.read().compute_drift(None).coefficient_of_variation;
+                let drift = state
+                    .drift
+                    .read()
+                    .compute_drift(None)
+                    .coefficient_of_variation;
                 (memories, graph_edges, sona_patterns, drift)
             };
-            let _ = notifier.send_status(memories, graph_edges, sona_patterns, drift).await;
-            (StatusCode::OK, Json(serde_json::json!({"ok": true, "action": "status"})))
+            let _ = notifier
+                .send_status(memories, graph_edges, sona_patterns, drift)
+                .await;
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({"ok": true, "action": "status"})),
+            )
         }
 
         "help" => {
             let _ = notifier.send_help(Some(reply_to)).await;
-            (StatusCode::OK, Json(serde_json::json!({"ok": true, "action": "help"})))
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({"ok": true, "action": "help"})),
+            )
         }
 
         "welcome" => {
             let _ = notifier.send_welcome(reply_to, None).await;
-            (StatusCode::OK, Json(serde_json::json!({"ok": true, "action": "welcome"})))
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({"ok": true, "action": "welcome"})),
+            )
         }
 
         "subscribe" => {
             let _ = notifier.send_welcome(reply_to, None).await;
-            (StatusCode::OK, Json(serde_json::json!({"ok": true, "action": "subscribe"})))
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({"ok": true, "action": "subscribe"})),
+            )
         }
 
         "unsubscribe" => {
@@ -7122,7 +7986,10 @@ async fn email_inbound(
                 <h2 style="color:#4fc3f7;">Unsubscribed</h2>
                 <p>You've been removed from Pi Brain digests. Reply with <code style="color:#7fdbca;">subscribe</code> anytime to rejoin.</p>
                 </div>"#).await;
-            (StatusCode::OK, Json(serde_json::json!({"ok": true, "action": "unsubscribe"})))
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({"ok": true, "action": "unsubscribe"})),
+            )
         }
 
         "drift" => {
@@ -7137,26 +8004,38 @@ async fn email_inbound(
                 <tr><td style="padding:4px 12px 4px 0;">Suggested Action</td><td>{}</td></tr>
                 </table></div>"#,
                 drift_report.coefficient_of_variation,
-                if drift_report.is_drifting { "Yes" } else { "No" },
+                if drift_report.is_drifting {
+                    "Yes"
+                } else {
+                    "No"
+                },
                 drift_report.trend,
                 drift_report.suggested_action,
             );
-            let _ = notifier.send_to(reply_to, "chat", "Pi Brain — Drift Report", &html).await;
-            (StatusCode::OK, Json(serde_json::json!({"ok": true, "action": "drift"})))
+            let _ = notifier
+                .send_to(reply_to, "chat", "Pi Brain — Drift Report", &html)
+                .await;
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({"ok": true, "action": "drift"})),
+            )
         }
 
         _ => {
             // Unknown command — send help
             let _ = notifier.send_help(Some(reply_to)).await;
-            (StatusCode::OK, Json(serde_json::json!({"ok": true, "action": "help_fallback", "unrecognized": cmd})))
+            (
+                StatusCode::OK,
+                Json(
+                    serde_json::json!({"ok": true, "action": "help_fallback", "unrecognized": cmd}),
+                ),
+            )
         }
     }
 }
 
 /// Verify the system key for internal endpoints
-fn verify_system_key(
-    headers: &HeaderMap,
-) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+fn verify_system_key(headers: &HeaderMap) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
     let system_key = std::env::var("BRAIN_SYSTEM_KEY").unwrap_or_default();
     // If no system key is set, allow (dev mode)
     if system_key.is_empty() {
@@ -7216,7 +8095,10 @@ async fn internal_queue_push(
     let sender = match state.sessions.get(&body.session_id) {
         Some(s) => s.clone(),
         None => {
-            tracing::debug!("internal/queue/push: session not found: {}", body.session_id);
+            tracing::debug!(
+                "internal/queue/push: session not found: {}",
+                body.session_id
+            );
             return StatusCode::NOT_FOUND;
         }
     };
@@ -7224,7 +8106,10 @@ async fn internal_queue_push(
     match sender.send(body.message).await {
         Ok(()) => StatusCode::OK,
         Err(e) => {
-            tracing::warn!("internal/queue/push: channel send failed for {}: {e}", body.session_id);
+            tracing::warn!(
+                "internal/queue/push: channel send failed for {}: {e}",
+                body.session_id
+            );
             // Channel closed — remove stale session
             state.sessions.remove(&body.session_id);
             StatusCode::INTERNAL_SERVER_ERROR
@@ -7268,7 +8153,9 @@ async fn internal_session_create(
 ) -> (StatusCode, Json<serde_json::Value>) {
     let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(64);
     state.sessions.insert(body.session_id.clone(), tx);
-    state.response_queues.insert(body.session_id.clone(), Vec::new());
+    state
+        .response_queues
+        .insert(body.session_id.clone(), Vec::new());
 
     // Spawn a task that moves messages from the mpsc receiver into the
     // response_queues DashMap so the drain endpoint can return them.
@@ -7283,7 +8170,10 @@ async fn internal_session_create(
         queues.remove(&sid);
     });
 
-    tracing::info!("internal/session/create: created session {}", body.session_id);
+    tracing::info!(
+        "internal/session/create: created session {}",
+        body.session_id
+    );
     (
         StatusCode::OK,
         Json(serde_json::json!({ "session_id": body.session_id, "status": "created" })),
@@ -7337,36 +8227,52 @@ async fn consciousness_status() -> Json<serde_json::Value> {
 async fn consciousness_compute(
     Json(req): Json<ConsciousnessComputeRequest>,
 ) -> Result<Json<ConsciousnessComputeResponse>, (StatusCode, Json<serde_json::Value>)> {
-    use ruvector_consciousness::types::{TransitionMatrix, ComputeBudget};
+    use ruvector_consciousness::types::{ComputeBudget, TransitionMatrix};
 
     // Validate input
     if req.n < 2 || !req.n.is_power_of_two() {
-        return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
-            "error": "n must be a power of 2 and >= 2"
-        }))));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "n must be a power of 2 and >= 2"
+            })),
+        ));
     }
     if req.tpm.len() != req.n * req.n {
-        return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
-            "error": format!("tpm must have {} elements (n×n), got {}", req.n * req.n, req.tpm.len())
-        }))));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": format!("tpm must have {} elements (n×n), got {}", req.n * req.n, req.tpm.len())
+            })),
+        ));
     }
     let num_elements = req.n.trailing_zeros() as usize;
     if num_elements > 12 {
-        return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
-            "error": format!("system too large: {} elements (max 12)", num_elements)
-        }))));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": format!("system too large: {} elements (max 12)", num_elements)
+            })),
+        ));
     }
     if req.state >= req.n {
-        return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
-            "error": format!("state {} out of range [0, {})", req.state, req.n)
-        }))));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": format!("state {} out of range [0, {})", req.state, req.n)
+            })),
+        ));
     }
 
     let tpm = TransitionMatrix::new(req.n, req.tpm.clone());
     let start = std::time::Instant::now();
 
     let algo = if req.algorithm == "auto" {
-        if num_elements <= 4 { "ces" } else { "iit4_phi" }
+        if num_elements <= 4 {
+            "ces"
+        } else {
+            "iit4_phi"
+        }
     } else {
         &req.algorithm
     };
@@ -7378,61 +8284,80 @@ async fn consciousness_compute(
             // Compute φ for the full system mechanism
             let full_mech = Mechanism::new((1u64 << num_elements) - 1, num_elements);
             let dist = mechanism_phi(&tpm, &full_mech, req.state);
-            (dist.phi, serde_json::json!({
-                "phi_cause": dist.phi_cause,
-                "phi_effect": dist.phi_effect,
-                "mechanism_elements": num_elements,
-            }))
+            (
+                dist.phi,
+                serde_json::json!({
+                    "phi_cause": dist.phi_cause,
+                    "phi_effect": dist.phi_effect,
+                    "mechanism_elements": num_elements,
+                }),
+            )
         }
         "ces" => {
-            use ruvector_consciousness::ces::{compute_ces, ces_complexity};
+            use ruvector_consciousness::ces::{ces_complexity, compute_ces};
             let budget = ComputeBudget::exact();
             match compute_ces(&tpm, req.state, req.phi_threshold, &budget) {
                 Ok(ces) => {
                     let (nd, nr, sp) = ces_complexity(&ces);
-                    (ces.big_phi, serde_json::json!({
-                        "big_phi": ces.big_phi,
-                        "sum_phi": ces.sum_phi,
-                        "num_distinctions": nd,
-                        "num_relations": nr,
-                        "sum_relation_phi": sp,
-                        "distinctions": ces.distinctions.iter().map(|d| serde_json::json!({
-                            "mechanism": format!("{:b}", d.mechanism.elements),
-                            "phi": d.phi,
-                            "phi_cause": d.phi_cause,
-                            "phi_effect": d.phi_effect,
-                        })).collect::<Vec<_>>(),
-                    }))
+                    (
+                        ces.big_phi,
+                        serde_json::json!({
+                            "big_phi": ces.big_phi,
+                            "sum_phi": ces.sum_phi,
+                            "num_distinctions": nd,
+                            "num_relations": nr,
+                            "sum_relation_phi": sp,
+                            "distinctions": ces.distinctions.iter().map(|d| serde_json::json!({
+                                "mechanism": format!("{:b}", d.mechanism.elements),
+                                "phi": d.phi,
+                                "phi_cause": d.phi_cause,
+                                "phi_effect": d.phi_effect,
+                            })).collect::<Vec<_>>(),
+                        }),
+                    )
                 }
-                Err(e) => return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
-                    "error": format!("{e}")
-                })))),
+                Err(e) => {
+                    return Err((
+                        StatusCode::BAD_REQUEST,
+                        Json(serde_json::json!({
+                            "error": format!("{e}")
+                        })),
+                    ))
+                }
             }
         }
         "phi_id" => {
             use ruvector_consciousness::phi_id::compute_phi_id;
             let mask = req.partition_mask.unwrap_or(
-                (1u64 << (num_elements / 2)) - 1  // default: split in half
+                (1u64 << (num_elements / 2)) - 1, // default: split in half
             );
             match compute_phi_id(&tpm, mask) {
-                Ok(result) => (result.total_mi, serde_json::json!({
-                    "total_mi": result.total_mi,
-                    "redundancy": result.redundancy,
-                    "unique": result.unique,
-                    "synergy": result.synergy,
-                    "transfer_entropy": result.transfer_entropy,
-                })),
-                Err(e) => return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
-                    "error": format!("{e}")
-                })))),
+                Ok(result) => (
+                    result.total_mi,
+                    serde_json::json!({
+                        "total_mi": result.total_mi,
+                        "redundancy": result.redundancy,
+                        "unique": result.unique,
+                        "synergy": result.synergy,
+                        "transfer_entropy": result.transfer_entropy,
+                    }),
+                ),
+                Err(e) => {
+                    return Err((
+                        StatusCode::BAD_REQUEST,
+                        Json(serde_json::json!({
+                            "error": format!("{e}")
+                        })),
+                    ))
+                }
             }
         }
         "pid" => {
             use ruvector_consciousness::pid::compute_pid;
             // Convert partition_mask to sources/target arrays.
-            let mask = req.partition_mask.unwrap_or(
-                (1u64 << (num_elements / 2)) - 1
-            );
+            let mask = req
+                .partition_mask
+                .unwrap_or((1u64 << (num_elements / 2)) - 1);
             let mut source_a: Vec<usize> = Vec::new();
             let mut source_b: Vec<usize> = Vec::new();
             for i in 0..req.n {
@@ -7444,16 +8369,24 @@ async fn consciousness_compute(
             }
             let sources = vec![source_a, source_b.clone()];
             match compute_pid(&tpm, &sources, &source_b) {
-                Ok(result) => (result.redundancy, serde_json::json!({
-                    "redundancy": result.redundancy,
-                    "unique": result.unique,
-                    "synergy": result.synergy,
-                    "total_mi": result.total_mi,
-                    "num_sources": result.num_sources,
-                })),
-                Err(e) => return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
-                    "error": format!("{e}")
-                })))),
+                Ok(result) => (
+                    result.redundancy,
+                    serde_json::json!({
+                        "redundancy": result.redundancy,
+                        "unique": result.unique,
+                        "synergy": result.synergy,
+                        "total_mi": result.total_mi,
+                        "num_sources": result.num_sources,
+                    }),
+                ),
+                Err(e) => {
+                    return Err((
+                        StatusCode::BAD_REQUEST,
+                        Json(serde_json::json!({
+                            "error": format!("{e}")
+                        })),
+                    ))
+                }
             }
         }
         "bounds" => {
@@ -7469,15 +8402,23 @@ async fn consciousness_compute(
                         "method": bound.method,
                     }),
                 ),
-                Err(e) => return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
-                    "error": format!("{e}")
-                })))),
+                Err(e) => {
+                    return Err((
+                        StatusCode::BAD_REQUEST,
+                        Json(serde_json::json!({
+                            "error": format!("{e}")
+                        })),
+                    ))
+                }
             }
         }
         _ => {
-            return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
-                "error": format!("unknown algorithm: {}. Use: iit4_phi, ces, phi_id, pid, bounds, auto", algo)
-            }))));
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "error": format!("unknown algorithm: {}. Use: iit4_phi, ces, phi_id, pid, bounds, auto", algo)
+                })),
+            ));
         }
     };
 

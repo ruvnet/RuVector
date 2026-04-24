@@ -5,10 +5,7 @@
 
 use wasm_bindgen::prelude::*;
 
-use ruvector_sparsifier::{
-    AdaptiveGeoSpar, SparseGraph, SparsifierConfig,
-    traits::Sparsifier,
-};
+use ruvector_sparsifier::{traits::Sparsifier, AdaptiveGeoSpar, SparseGraph, SparsifierConfig};
 
 // ---------------------------------------------------------------------------
 // Initialisation

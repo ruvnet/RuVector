@@ -21,14 +21,18 @@ use rand::Rng;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LossFn {
     /// Scaled Cosine Error: `(1 - cos_sim)^gamma`. Default for GraphMAE.
-    Sce { /// Scaling exponent (default 2.0).
-        gamma: f32 },
+    Sce {
+        /// Scaling exponent (default 2.0).
+        gamma: f32,
+    },
     /// Standard Mean Squared Error.
     Mse,
 }
 
 impl Default for LossFn {
-    fn default() -> Self { Self::Sce { gamma: 2.0 } }
+    fn default() -> Self {
+        Self::Sce { gamma: 2.0 }
+    }
 }
 
 /// Configuration for a GraphMAE model.
@@ -55,8 +59,14 @@ pub struct GraphMAEConfig {
 impl Default for GraphMAEConfig {
     fn default() -> Self {
         Self {
-            mask_ratio: 0.5, num_layers: 2, hidden_dim: 64, num_heads: 4,
-            decoder_layers: 1, re_mask_ratio: 0.0, loss_fn: LossFn::default(), input_dim: 64,
+            mask_ratio: 0.5,
+            num_layers: 2,
+            hidden_dim: 64,
+            num_heads: 4,
+            decoder_layers: 1,
+            re_mask_ratio: 0.0,
+            loss_fn: LossFn::default(),
+            input_dim: 64,
         }
     }
 }
@@ -90,7 +100,9 @@ impl FeatureMasking {
     /// Create a masking module with a learnable `[MASK]` token of given dimension.
     pub fn new(dim: usize) -> Self {
         let mut rng = rand::thread_rng();
-        Self { mask_token: (0..dim).map(|_| rng.gen::<f32>() * 0.02 - 0.01).collect() }
+        Self {
+            mask_token: (0..dim).map(|_| rng.gen::<f32>() * 0.02 - 0.01).collect(),
+        }
     }
 
     /// Randomly mask `mask_ratio` of nodes, replacing features with `[MASK]` token.
@@ -102,13 +114,21 @@ impl FeatureMasking {
         indices.shuffle(&mut rng);
         let mask_indices = indices[..num_mask.min(n)].to_vec();
         let mut masked = features.to_vec();
-        for &i in &mask_indices { masked[i] = self.mask_token.clone(); }
-        MaskResult { masked_features: masked, mask_indices }
+        for &i in &mask_indices {
+            masked[i] = self.mask_token.clone();
+        }
+        MaskResult {
+            masked_features: masked,
+            mask_indices,
+        }
     }
 
     /// Degree-centrality masking: higher-degree nodes are masked with higher probability.
     pub fn mask_by_degree(
-        &self, features: &[Vec<f32>], adjacency: &[Vec<usize>], mask_ratio: f32,
+        &self,
+        features: &[Vec<f32>],
+        adjacency: &[Vec<usize>],
+        mask_ratio: f32,
     ) -> MaskResult {
         let n = features.len();
         let num_mask = ((n as f32) * mask_ratio.clamp(0.0, 1.0)).round() as usize;
@@ -119,23 +139,35 @@ impl FeatureMasking {
         let mut avail: Vec<usize> = (0..n).collect();
         let mut mask_indices = Vec::with_capacity(num_mask);
         for _ in 0..num_mask.min(n) {
-            if avail.is_empty() { break; }
+            if avail.is_empty() {
+                break;
+            }
             let rp: Vec<f32> = avail.iter().map(|&i| probs[i]).collect();
             let s: f32 = rp.iter().sum();
-            if s <= 0.0 { break; }
+            if s <= 0.0 {
+                break;
+            }
             let thr = rng.gen::<f32>() * s;
             let mut cum = 0.0;
             let mut chosen = 0;
             for (pos, &p) in rp.iter().enumerate() {
                 cum += p;
-                if cum >= thr { chosen = pos; break; }
+                if cum >= thr {
+                    chosen = pos;
+                    break;
+                }
             }
             mask_indices.push(avail[chosen]);
             avail.swap_remove(chosen);
         }
         let mut masked = features.to_vec();
-        for &i in &mask_indices { masked[i] = self.mask_token.clone(); }
-        MaskResult { masked_features: masked, mask_indices }
+        for &i in &mask_indices {
+            masked[i] = self.mask_token.clone();
+        }
+        MaskResult {
+            masked_features: masked,
+            mask_indices,
+        }
     }
 }
 
@@ -174,23 +206,44 @@ impl GATLayer {
             let mut agg = vec![0.0f32; od];
             for h in 0..self.num_heads {
                 let (s, e) = (h * hd, (h + 1) * hd);
-                let ss: f32 = proj[i][s..e].iter().zip(&self.attn_src).map(|(a, b)| a * b).sum();
-                let mut scores: Vec<f32> = adj[i].iter().map(|&j| {
-                    let ds: f32 = proj[j][s..e].iter().zip(&self.attn_dst).map(|(a, b)| a * b).sum();
-                    let v = ss + ds;
-                    if v >= 0.0 { v } else { 0.2 * v } // leaky relu
-                }).collect();
+                let ss: f32 = proj[i][s..e]
+                    .iter()
+                    .zip(&self.attn_src)
+                    .map(|(a, b)| a * b)
+                    .sum();
+                let mut scores: Vec<f32> = adj[i]
+                    .iter()
+                    .map(|&j| {
+                        let ds: f32 = proj[j][s..e]
+                            .iter()
+                            .zip(&self.attn_dst)
+                            .map(|(a, b)| a * b)
+                            .sum();
+                        let v = ss + ds;
+                        if v >= 0.0 {
+                            v
+                        } else {
+                            0.2 * v
+                        } // leaky relu
+                    })
+                    .collect();
                 let mx = scores.iter().copied().fold(f32::NEG_INFINITY, f32::max);
                 let exp: Vec<f32> = scores.iter_mut().map(|v| (*v - mx).exp()).collect();
                 let sm = exp.iter().sum::<f32>().max(1e-10);
                 for (k, &j) in adj[i].iter().enumerate() {
                     let w = exp[k] / sm;
-                    for d in s..e { agg[d] += w * proj[j][d]; }
+                    for d in s..e {
+                        agg[d] += w * proj[j][d];
+                    }
                 }
             }
-            for v in &mut agg { *v /= self.num_heads as f32; }
+            for v in &mut agg {
+                *v /= self.num_heads as f32;
+            }
             if features[i].len() == od {
-                for (a, &f) in agg.iter_mut().zip(features[i].iter()) { *a += f; }
+                for (a, &f) in agg.iter_mut().zip(features[i].iter()) {
+                    *a += f;
+                }
             }
             output.push(elu_vec(&self.norm.forward(&agg)));
         }
@@ -199,73 +252,112 @@ impl GATLayer {
 }
 
 /// Multi-layer GAT encoder for GraphMAE.
-pub struct GATEncoder { layers: Vec<GATLayer> }
+pub struct GATEncoder {
+    layers: Vec<GATLayer>,
+}
 
 impl GATEncoder {
     /// Build an encoder with `num_layers` GAT layers.
     pub fn new(input_dim: usize, hidden_dim: usize, num_layers: usize, num_heads: usize) -> Self {
-        let layers = (0..num_layers).map(|i| {
-            GATLayer::new(if i == 0 { input_dim } else { hidden_dim }, hidden_dim, num_heads)
-        }).collect();
+        let layers = (0..num_layers)
+            .map(|i| {
+                GATLayer::new(
+                    if i == 0 { input_dim } else { hidden_dim },
+                    hidden_dim,
+                    num_heads,
+                )
+            })
+            .collect();
         Self { layers }
     }
 
     /// Encode node features through all GAT layers.
     pub fn encode(&self, features: &[Vec<f32>], adj: &[Vec<usize>]) -> Vec<Vec<f32>> {
-        self.layers.iter().fold(features.to_vec(), |h, l| l.forward(&h, adj))
+        self.layers
+            .iter()
+            .fold(features.to_vec(), |h, l| l.forward(&h, adj))
     }
 }
 
 /// Decoder that reconstructs only masked node features (key efficiency gain).
-pub struct GraphMAEDecoder { layers: Vec<Linear>, norm: LayerNorm }
+pub struct GraphMAEDecoder {
+    layers: Vec<Linear>,
+    norm: LayerNorm,
+}
 
 impl GraphMAEDecoder {
     /// Create a decoder mapping `hidden_dim` -> `output_dim`.
     pub fn new(hidden_dim: usize, output_dim: usize, num_layers: usize) -> Self {
         let n = num_layers.max(1);
-        let layers = (0..n).map(|i| {
-            let out = if i == n - 1 { output_dim } else { hidden_dim };
-            Linear::new(if i == 0 { hidden_dim } else { hidden_dim }, out)
-        }).collect();
-        Self { layers, norm: LayerNorm::new(output_dim, 1e-5) }
+        let layers = (0..n)
+            .map(|i| {
+                let out = if i == n - 1 { output_dim } else { hidden_dim };
+                Linear::new(if i == 0 { hidden_dim } else { hidden_dim }, out)
+            })
+            .collect();
+        Self {
+            layers,
+            norm: LayerNorm::new(output_dim, 1e-5),
+        }
     }
 
     /// Decode latent for masked nodes. Applies re-masking (zeroing dims) for regularization.
     pub fn decode(&self, latent: &[Vec<f32>], mask_idx: &[usize], re_mask: f32) -> Vec<Vec<f32>> {
         let mut rng = rand::thread_rng();
-        mask_idx.iter().map(|&idx| {
-            let mut h = latent[idx].clone();
-            if re_mask > 0.0 {
-                let nz = ((h.len() as f32) * re_mask).round() as usize;
-                let mut dims: Vec<usize> = (0..h.len()).collect();
-                dims.shuffle(&mut rng);
-                for &d in dims.iter().take(nz) { h[d] = 0.0; }
-            }
-            for layer in &self.layers { h = elu_vec(&layer.forward(&h)); }
-            self.norm.forward(&h)
-        }).collect()
+        mask_idx
+            .iter()
+            .map(|&idx| {
+                let mut h = latent[idx].clone();
+                if re_mask > 0.0 {
+                    let nz = ((h.len() as f32) * re_mask).round() as usize;
+                    let mut dims: Vec<usize> = (0..h.len()).collect();
+                    dims.shuffle(&mut rng);
+                    for &d in dims.iter().take(nz) {
+                        h[d] = 0.0;
+                    }
+                }
+                for layer in &self.layers {
+                    h = elu_vec(&layer.forward(&h));
+                }
+                self.norm.forward(&h)
+            })
+            .collect()
     }
 }
 
 /// Scaled Cosine Error: `mean((1 - cos_sim(pred, target))^gamma)` over masked nodes.
 pub fn sce_loss(preds: &[Vec<f32>], targets: &[Vec<f32>], gamma: f32) -> f32 {
-    if preds.is_empty() { return 0.0; }
-    preds.iter().zip(targets).map(|(p, t)| {
-        let dot: f32 = p.iter().zip(t).map(|(a, b)| a * b).sum();
-        let np = p.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
-        let nt = t.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
-        (1.0 - (dot / (np * nt)).clamp(-1.0, 1.0)).powf(gamma)
-    }).sum::<f32>() / preds.len() as f32
+    if preds.is_empty() {
+        return 0.0;
+    }
+    preds
+        .iter()
+        .zip(targets)
+        .map(|(p, t)| {
+            let dot: f32 = p.iter().zip(t).map(|(a, b)| a * b).sum();
+            let np = p.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
+            let nt = t.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
+            (1.0 - (dot / (np * nt)).clamp(-1.0, 1.0)).powf(gamma)
+        })
+        .sum::<f32>()
+        / preds.len() as f32
 }
 
 /// Mean Squared Error across masked node reconstructions.
 pub fn mse_loss(preds: &[Vec<f32>], targets: &[Vec<f32>]) -> f32 {
-    if preds.is_empty() { return 0.0; }
+    if preds.is_empty() {
+        return 0.0;
+    }
     let n: usize = preds.iter().map(|v| v.len()).sum();
-    if n == 0 { return 0.0; }
-    preds.iter().zip(targets).flat_map(|(p, t)| {
-        p.iter().zip(t).map(|(a, b)| (a - b).powi(2))
-    }).sum::<f32>() / n as f32
+    if n == 0 {
+        return 0.0;
+    }
+    preds
+        .iter()
+        .zip(targets)
+        .flat_map(|(p, t)| p.iter().zip(t).map(|(a, b)| (a - b).powi(2)))
+        .sum::<f32>()
+        / n as f32
 }
 
 /// GraphMAE self-supervised model.
@@ -292,18 +384,37 @@ impl GraphMAE {
             return Err(GnnError::layer_config("mask_ratio must be in [0.0, 1.0]"));
         }
         let masking = FeatureMasking::new(config.input_dim);
-        let encoder = GATEncoder::new(config.input_dim, config.hidden_dim, config.num_layers, config.num_heads);
-        let decoder = GraphMAEDecoder::new(config.hidden_dim, config.input_dim, config.decoder_layers);
-        Ok(Self { config, masking, encoder, decoder })
+        let encoder = GATEncoder::new(
+            config.input_dim,
+            config.hidden_dim,
+            config.num_layers,
+            config.num_heads,
+        );
+        let decoder =
+            GraphMAEDecoder::new(config.hidden_dim, config.input_dim, config.decoder_layers);
+        Ok(Self {
+            config,
+            masking,
+            encoder,
+            decoder,
+        })
     }
 
     /// Run one training step: mask -> encode -> re-mask -> decode -> loss.
     /// Returns the reconstruction loss computed only on masked nodes.
     pub fn train_step(&self, graph: &GraphData) -> f32 {
-        let mr = self.masking.mask_nodes(&graph.node_features, self.config.mask_ratio);
+        let mr = self
+            .masking
+            .mask_nodes(&graph.node_features, self.config.mask_ratio);
         let latent = self.encoder.encode(&mr.masked_features, &graph.adjacency);
-        let recon = self.decoder.decode(&latent, &mr.mask_indices, self.config.re_mask_ratio);
-        let targets: Vec<Vec<f32>> = mr.mask_indices.iter().map(|&i| graph.node_features[i].clone()).collect();
+        let recon = self
+            .decoder
+            .decode(&latent, &mr.mask_indices, self.config.re_mask_ratio);
+        let targets: Vec<Vec<f32>> = mr
+            .mask_indices
+            .iter()
+            .map(|&i| graph.node_features[i].clone())
+            .collect();
         match self.config.loss_fn {
             LossFn::Sce { gamma } => sce_loss(&recon, &targets, gamma),
             LossFn::Mse => mse_loss(&recon, &targets),
@@ -316,11 +427,15 @@ impl GraphMAE {
     }
 
     /// Returns node-level representations for downstream tasks.
-    pub fn get_embeddings(&self, graph: &GraphData) -> Vec<Vec<f32>> { self.encode(graph) }
+    pub fn get_embeddings(&self, graph: &GraphData) -> Vec<Vec<f32>> {
+        self.encode(graph)
+    }
 }
 
 fn elu_vec(v: &[f32]) -> Vec<f32> {
-    v.iter().map(|&x| if x >= 0.0 { x } else { x.exp() - 1.0 }).collect()
+    v.iter()
+        .map(|&x| if x >= 0.0 { x } else { x.exp() - 1.0 })
+        .collect()
 }
 
 #[cfg(test)]
@@ -329,20 +444,37 @@ mod tests {
 
     fn graph(n: usize, d: usize) -> GraphData {
         let feats: Vec<Vec<f32>> = (0..n)
-            .map(|i| (0..d).map(|j| (i * d + j) as f32 * 0.1).collect()).collect();
-        let adj: Vec<Vec<usize>> = (0..n).map(|i| {
-            let mut nb = Vec::new();
-            if i > 0 { nb.push(i - 1); }
-            if i + 1 < n { nb.push(i + 1); }
-            nb
-        }).collect();
-        GraphData { node_features: feats, adjacency: adj, num_nodes: n }
+            .map(|i| (0..d).map(|j| (i * d + j) as f32 * 0.1).collect())
+            .collect();
+        let adj: Vec<Vec<usize>> = (0..n)
+            .map(|i| {
+                let mut nb = Vec::new();
+                if i > 0 {
+                    nb.push(i - 1);
+                }
+                if i + 1 < n {
+                    nb.push(i + 1);
+                }
+                nb
+            })
+            .collect();
+        GraphData {
+            node_features: feats,
+            adjacency: adj,
+            num_nodes: n,
+        }
     }
 
     fn cfg(dim: usize) -> GraphMAEConfig {
         GraphMAEConfig {
-            input_dim: dim, hidden_dim: 16, num_heads: 4, num_layers: 2,
-            decoder_layers: 1, mask_ratio: 0.5, re_mask_ratio: 0.0, loss_fn: LossFn::default(),
+            input_dim: dim,
+            hidden_dim: 16,
+            num_heads: 4,
+            num_layers: 2,
+            decoder_layers: 1,
+            mask_ratio: 0.5,
+            re_mask_ratio: 0.0,
+            loss_fn: LossFn::default(),
         }
     }
 
@@ -381,7 +513,10 @@ mod tests {
     #[test]
     fn test_sce_loss_orthogonal() {
         let loss = sce_loss(&[vec![1.0, 0.0]], &[vec![0.0, 1.0]], 2.0);
-        assert!((loss - 1.0).abs() < 1e-5, "SCE orthogonal should be 1.0, got {loss}");
+        assert!(
+            (loss - 1.0).abs() < 1e-5,
+            "SCE orthogonal should be 1.0, got {loss}"
+        );
     }
 
     #[test]
@@ -411,14 +546,21 @@ mod tests {
     fn test_degree_based_masking() {
         let feats: Vec<Vec<f32>> = (0..10).map(|_| vec![1.0; 8]).collect();
         let mut adj: Vec<Vec<usize>> = vec![Vec::new(); 10];
-        for i in 1..10 { adj[0].push(i); adj[i].push(0); }
+        for i in 1..10 {
+            adj[0].push(i);
+            adj[i].push(0);
+        }
         let r = FeatureMasking::new(8).mask_by_degree(&feats, &adj, 0.5);
         assert_eq!(r.mask_indices.len(), 5);
     }
 
     #[test]
     fn test_single_node_graph() {
-        let g = GraphData { node_features: vec![vec![1.0; 16]], adjacency: vec![vec![]], num_nodes: 1 };
+        let g = GraphData {
+            node_features: vec![vec![1.0; 16]],
+            adjacency: vec![vec![]],
+            num_nodes: 1,
+        };
         assert!(GraphMAE::new(cfg(16)).unwrap().train_step(&g).is_finite());
     }
 
@@ -428,12 +570,25 @@ mod tests {
         let emb = model.get_embeddings(&graph(8, 16));
         assert_eq!(emb.len(), 8);
         assert_eq!(emb[0].len(), 16);
-        for e in &emb { for &v in e { assert!(v.is_finite()); } }
+        for e in &emb {
+            for &v in e {
+                assert!(v.is_finite());
+            }
+        }
     }
 
     #[test]
     fn test_invalid_config() {
-        assert!(GraphMAE::new(GraphMAEConfig { hidden_dim: 15, num_heads: 4, ..cfg(16) }).is_err());
-        assert!(GraphMAE::new(GraphMAEConfig { mask_ratio: 1.5, ..cfg(16) }).is_err());
+        assert!(GraphMAE::new(GraphMAEConfig {
+            hidden_dim: 15,
+            num_heads: 4,
+            ..cfg(16)
+        })
+        .is_err());
+        assert!(GraphMAE::new(GraphMAEConfig {
+            mask_ratio: 1.5,
+            ..cfg(16)
+        })
+        .is_err());
     }
 }

@@ -4,8 +4,8 @@
 //! for discovering patterns in medical literature and clinical data.
 
 use ruvector_data_framework::{
-    ClinicalTrialsClient, FdaClient, PubMedClient,
     ruvector_native::{Domain, NativeDiscoveryEngine, NativeEngineConfig},
+    ClinicalTrialsClient, FdaClient, PubMedClient,
 };
 
 #[tokio::main]
@@ -29,7 +29,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("   Found {} articles", pubmed_vectors.len());
     for vector in &pubmed_vectors {
-        let title = vector.metadata.get("title").map(String::as_str).unwrap_or("Untitled");
+        let title = vector
+            .metadata
+            .get("title")
+            .map(String::as_str)
+            .unwrap_or("Untitled");
         println!("   - {}", title);
 
         // Add to discovery engine
@@ -44,8 +48,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("   Found {} trials", trial_vectors.len());
     for vector in &trial_vectors {
-        let title = vector.metadata.get("title").map(String::as_str).unwrap_or("Untitled");
-        let status = vector.metadata.get("status").map(String::as_str).unwrap_or("UNKNOWN");
+        let title = vector
+            .metadata
+            .get("title")
+            .map(String::as_str)
+            .unwrap_or("Untitled");
+        let status = vector
+            .metadata
+            .get("status")
+            .map(String::as_str)
+            .unwrap_or("UNKNOWN");
         println!("   - {} [{}]", title, status);
 
         // Add to discovery engine
@@ -54,15 +66,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\n💊 Step 3: Searching FDA adverse events for aspirin...");
     let fda_client = FdaClient::new()?;
-    let event_vectors = fda_client
-        .search_drug_events("aspirin")
-        .await?;
+    let event_vectors = fda_client.search_drug_events("aspirin").await?;
 
     println!("   Found {} adverse event reports", event_vectors.len());
     if !event_vectors.is_empty() {
         for vector in event_vectors.iter().take(5) {
-            let drugs = vector.metadata.get("drugs").map(String::as_str).unwrap_or("Unknown");
-            let reactions = vector.metadata.get("reactions").map(String::as_str).unwrap_or("Unknown");
+            let drugs = vector
+                .metadata
+                .get("drugs")
+                .map(String::as_str)
+                .unwrap_or("Unknown");
+            let reactions = vector
+                .metadata
+                .get("reactions")
+                .map(String::as_str)
+                .unwrap_or("Unknown");
             println!("   - Drugs: {} | Reactions: {}", drugs, reactions);
 
             // Add to discovery engine
@@ -97,7 +115,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("   Affected nodes: {}", pattern.affected_nodes.len());
 
         if !pattern.cross_domain_links.is_empty() {
-            println!("   Cross-domain connections: {}", pattern.cross_domain_links.len());
+            println!(
+                "   Cross-domain connections: {}",
+                pattern.cross_domain_links.len()
+            );
         }
     }
 

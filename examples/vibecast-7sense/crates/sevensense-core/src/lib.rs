@@ -9,12 +9,12 @@
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 
+pub mod domain;
+pub mod error;
 pub mod identifiers;
 pub mod values;
-pub mod error;
-pub mod domain;
 
 // Re-export commonly used types
+pub use error::*;
 pub use identifiers::*;
 pub use values::*;
-pub use error::*;

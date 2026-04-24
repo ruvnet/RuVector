@@ -72,12 +72,7 @@ impl OptimizedProofEntry {
     /// Creates a new valid entry.
     #[inline]
     #[must_use]
-    pub const fn new(
-        mutation_hash: [u8; 32],
-        nonce: u64,
-        proof_id: u32,
-        inserted_at: u64,
-    ) -> Self {
+    pub const fn new(mutation_hash: [u8; 32], nonce: u64, proof_id: u32, inserted_at: u64) -> Self {
         Self {
             mutation_hash,
             nonce,

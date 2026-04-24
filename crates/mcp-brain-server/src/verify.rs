@@ -10,7 +10,11 @@ pub enum VerifyError {
     #[error("Invalid embedding: {0}")]
     InvalidEmbedding(String),
     #[error("Content too large: {field} is {size} bytes, max {max}")]
-    ContentTooLarge { field: String, size: usize, max: usize },
+    ContentTooLarge {
+        field: String,
+        size: usize,
+        max: usize,
+    },
     #[error("Invalid witness hash: {0}")]
     InvalidWitness(String),
     #[error("Signature verification failed: {0}")]
@@ -154,14 +158,10 @@ impl Verifier {
         }
         for (i, &val) in embedding.iter().enumerate() {
             if val.is_nan() {
-                return Err(VerifyError::InvalidEmbedding(format!(
-                    "NaN at index {i}"
-                )));
+                return Err(VerifyError::InvalidEmbedding(format!("NaN at index {i}")));
             }
             if val.is_infinite() {
-                return Err(VerifyError::InvalidEmbedding(format!(
-                    "Inf at index {i}"
-                )));
+                return Err(VerifyError::InvalidEmbedding(format!("Inf at index {i}")));
             }
             if val.abs() > self.max_embedding_magnitude {
                 return Err(VerifyError::InvalidEmbedding(format!(
@@ -181,14 +181,15 @@ impl Verifier {
         message: &[u8],
         signature_bytes: &[u8; 64],
     ) -> Result<(), VerifyError> {
-        use ed25519_dalek::{Signature, VerifyingKey};
         use ed25519_dalek::Verifier as _;
+        use ed25519_dalek::{Signature, VerifyingKey};
 
         let key = VerifyingKey::from_bytes(public_key_bytes)
             .map_err(|e| VerifyError::SignatureFailed(format!("Invalid public key: {e}")))?;
         let sig = Signature::from_bytes(signature_bytes);
-        key.verify(message, &sig)
-            .map_err(|e| VerifyError::SignatureFailed(format!("Ed25519 verification failed: {e}")))?;
+        key.verify(message, &sig).map_err(|e| {
+            VerifyError::SignatureFailed(format!("Ed25519 verification failed: {e}"))
+        })?;
         Ok(())
     }
 
@@ -200,7 +201,10 @@ impl Verifier {
         steps: &[&str],
         expected_hash: &str,
     ) -> Result<(), VerifyError> {
-        use sha3::{Shake256, digest::{Update, ExtendableOutput, XofReader}};
+        use sha3::{
+            digest::{ExtendableOutput, Update, XofReader},
+            Shake256,
+        };
 
         let mut current = [0u8; 32];
 
@@ -231,11 +235,7 @@ impl Verifier {
 
     /// Verify a SHAKE-256 content hash matches data.
     /// Delegates to rvf_crypto::shake256_256 with constant-time comparison.
-    pub fn verify_content_hash(
-        &self,
-        data: &[u8],
-        expected_hex: &str,
-    ) -> Result<(), VerifyError> {
+    pub fn verify_content_hash(&self, data: &[u8], expected_hex: &str) -> Result<(), VerifyError> {
         let computed_bytes = rvf_crypto::shake256_256(data);
         let computed = hex::encode(computed_bytes);
         let equal = subtle::ConstantTimeEq::ct_eq(computed.as_bytes(), expected_hex.as_bytes());
@@ -261,10 +261,7 @@ impl Verifier {
     /// Check whether embedding distances indicate an adversarial (degenerate) distribution.
     /// Returns true if the distribution is too uniform to trust centroid routing.
     /// Uses rvf_runtime::is_degenerate_distribution (CV < 0.05 threshold).
-    pub fn verify_embedding_not_adversarial(
-        distances: &[f32],
-        n_probe: usize,
-    ) -> bool {
+    pub fn verify_embedding_not_adversarial(distances: &[f32], n_probe: usize) -> bool {
         rvf_runtime::is_degenerate_distribution(distances, n_probe)
     }
 }
@@ -282,27 +279,42 @@ mod tests {
     #[test]
     fn test_verify_clean_data() {
         let v = Verifier::new();
-        assert!(v.verify_share("Good title", "Clean content", &["tag1".into()], &[0.1, 0.2, 0.3]).is_ok());
+        assert!(v
+            .verify_share(
+                "Good title",
+                "Clean content",
+                &["tag1".into()],
+                &[0.1, 0.2, 0.3]
+            )
+            .is_ok());
     }
 
     #[test]
     fn test_reject_pii() {
         let v = Verifier::new();
-        assert!(v.verify_share("Has /home/user path", "content", &[], &[0.1]).is_err());
+        assert!(v
+            .verify_share("Has /home/user path", "content", &[], &[0.1])
+            .is_err());
         // PiiStripper requires sk- followed by 20+ alphanums (realistic API key length)
-        assert!(v.verify_share("title", "has sk-abcdefghijklmnopqrstuvwxyz", &[], &[0.1]).is_err());
+        assert!(v
+            .verify_share("title", "has sk-abcdefghijklmnopqrstuvwxyz", &[], &[0.1])
+            .is_err());
     }
 
     #[test]
     fn test_reject_nan_embedding() {
         let v = Verifier::new();
-        assert!(v.verify_share("title", "content", &[], &[0.1, f32::NAN, 0.3]).is_err());
+        assert!(v
+            .verify_share("title", "content", &[], &[0.1, f32::NAN, 0.3])
+            .is_err());
     }
 
     #[test]
     fn test_reject_inf_embedding() {
         let v = Verifier::new();
-        assert!(v.verify_share("title", "content", &[], &[0.1, f32::INFINITY, 0.3]).is_err());
+        assert!(v
+            .verify_share("title", "content", &[], &[0.1, f32::INFINITY, 0.3])
+            .is_err());
     }
 
     #[test]
@@ -323,7 +335,10 @@ mod tests {
     fn test_verify_witness_chain() {
         let v = Verifier::new();
         // Build expected hash from steps
-        use sha3::{Shake256, digest::{Update, ExtendableOutput, XofReader}};
+        use sha3::{
+            digest::{ExtendableOutput, Update, XofReader},
+            Shake256,
+        };
         let steps = ["pii_strip", "embed", "share"];
         let mut current = [0u8; 32];
         for step in &steps {
@@ -335,7 +350,12 @@ mod tests {
         }
         let expected = hex::encode(current);
         assert!(v.verify_witness_chain(&steps, &expected).is_ok());
-        assert!(v.verify_witness_chain(&steps, "0000000000000000000000000000000000000000000000000000000000000000").is_err());
+        assert!(v
+            .verify_witness_chain(
+                &steps,
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            )
+            .is_err());
     }
 
     #[test]
@@ -350,7 +370,7 @@ mod tests {
 
     #[test]
     fn test_ed25519_signature() {
-        use ed25519_dalek::{SigningKey, Signer};
+        use ed25519_dalek::{Signer, SigningKey};
         let v = Verifier::new();
         let mut rng = rand::thread_rng();
         let signing_key = SigningKey::generate(&mut rng);
@@ -358,9 +378,13 @@ mod tests {
         let signature = signing_key.sign(message);
         let pub_key = signing_key.verifying_key().to_bytes();
         let sig_bytes: [u8; 64] = signature.to_bytes();
-        assert!(v.verify_ed25519_signature(&pub_key, message, &sig_bytes).is_ok());
+        assert!(v
+            .verify_ed25519_signature(&pub_key, message, &sig_bytes)
+            .is_ok());
         // Tampered message should fail
-        assert!(v.verify_ed25519_signature(&pub_key, b"tampered message", &sig_bytes).is_err());
+        assert!(v
+            .verify_ed25519_signature(&pub_key, b"tampered message", &sig_bytes)
+            .is_err());
     }
 
     #[test]

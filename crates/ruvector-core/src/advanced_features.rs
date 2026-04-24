@@ -16,7 +16,7 @@ pub mod diskann;
 pub mod filtered_search;
 pub mod graph_rag;
 pub use graph_rag::{
-    CommunityDetection, Community, Entity, GraphRAGConfig, GraphRAGPipeline, KnowledgeGraph,
+    Community, CommunityDetection, Entity, GraphRAGConfig, GraphRAGPipeline, KnowledgeGraph,
     Relation, RetrievalResult,
 };
 pub mod hybrid_search;
@@ -28,8 +28,12 @@ pub mod product_quantization;
 pub mod sparse_vector;
 
 // Re-exports
+pub use compaction::{BloomFilter, CompactionConfig, LSMIndex, LSMStats, MemTable, Segment};
 pub use conformal_prediction::{
     ConformalConfig, ConformalPredictor, NonconformityMeasure, PredictionSet,
+};
+pub use diskann::{
+    DiskIndex, DiskNode, IOStats, MedoidFinder, PageCache, VamanaConfig, VamanaGraph,
 };
 pub use filtered_search::{FilterExpression, FilterStrategy, FilteredSearch};
 pub use hybrid_search::{HybridConfig, HybridSearch, NormalizationStrategy, BM25};
@@ -39,12 +43,5 @@ pub use multi_vector::{MultiVectorConfig, MultiVectorIndex, ScoringVariant};
 pub use opq::{OPQConfig, OPQIndex, RotationMatrix};
 pub use product_quantization::{EnhancedPQ, LookupTable, PQConfig};
 pub use sparse_vector::{
-    FusionConfig, FusionStrategy, ScoredDoc, SparseIndex, SparseVector,
-    fuse_rankings,
-};
-pub use diskann::{
-    DiskIndex, DiskNode, IOStats, MedoidFinder, PageCache, VamanaConfig, VamanaGraph,
-};
-pub use compaction::{
-    BloomFilter, CompactionConfig, LSMIndex, LSMStats, MemTable, Segment,
+    fuse_rankings, FusionConfig, FusionStrategy, ScoredDoc, SparseIndex, SparseVector,
 };

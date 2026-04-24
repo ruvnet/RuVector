@@ -37,7 +37,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Found {} models matching 'bert'", models.len());
             for model in models.iter().take(3) {
                 let vector = hf_client.model_to_vector(model);
-                println!("  - {} (downloads: {})", model.model_id, model.downloads.unwrap_or(0));
+                println!(
+                    "  - {} (downloads: {})",
+                    model.model_id,
+                    model.downloads.unwrap_or(0)
+                );
                 println!("    Vector ID: {}", vector.id);
                 println!("    Embedding dim: {}", vector.embedding.len());
             }
@@ -56,7 +60,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Available Ollama models: {}", models.len());
             for model in models.iter().take(3) {
                 let vector = ollama_client.model_to_vector(model);
-                println!("  - {} (size: {} GB)",
+                println!(
+                    "  - {} (size: {} GB)",
                     model.name,
                     model.size.unwrap_or(0) / 1_000_000_000
                 );
@@ -93,11 +98,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", "-".repeat(50));
     let replicate_client = ReplicateClient::new();
 
-    match replicate_client.get_model("stability-ai", "stable-diffusion").await {
+    match replicate_client
+        .get_model("stability-ai", "stable-diffusion")
+        .await
+    {
         Ok(Some(model)) => {
             let vector = replicate_client.model_to_vector(&model);
             println!("Model: {}/{}", model.owner, model.name);
-            println!("  Description: {}", model.description.as_deref().unwrap_or("N/A"));
+            println!(
+                "  Description: {}",
+                model.description.as_deref().unwrap_or("N/A")
+            );
             println!("  Vector ID: {}", vector.id);
         }
         Ok(None) => println!("Model not found"),
@@ -133,7 +144,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(embedding) => {
             println!("Generated embedding for: '{}'", test_text);
             println!("  Embedding dimension: {}", embedding.len());
-            println!("  First 5 values: {:?}", &embedding[..5.min(embedding.len())]);
+            println!(
+                "  First 5 values: {:?}",
+                &embedding[..5.min(embedding.len())]
+            );
         }
         Err(e) => println!("Error: {} (using fallback embedder)", e),
     }

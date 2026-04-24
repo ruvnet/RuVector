@@ -542,10 +542,7 @@ async fn test_server_tools_list_returns_builtins() {
     let tools = result["tools"].as_array().unwrap();
     // Should have at least ping, echo, list_capabilities
     assert!(tools.len() >= 3);
-    let names: Vec<&str> = tools
-        .iter()
-        .map(|t| t["name"].as_str().unwrap())
-        .collect();
+    let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
     assert!(names.contains(&"ping"));
     assert!(names.contains(&"echo"));
     assert!(names.contains(&"list_capabilities"));
@@ -671,8 +668,7 @@ async fn test_server_tools_call_without_params() {
 #[tokio::test]
 async fn test_server_tools_call_with_malformed_params() {
     let server = make_server();
-    let req =
-        JsonRpcRequest::new(1, "tools/call").with_params(serde_json::json!("not an object"));
+    let req = JsonRpcRequest::new(1, "tools/call").with_params(serde_json::json!("not an object"));
     let resp = server.handle_request(req).await;
     assert!(resp.error.is_some());
     assert_eq!(resp.error.unwrap().code, -32602);
@@ -726,10 +722,7 @@ fn test_skill_to_claude_code_format() {
     assert_eq!(cc.name, "deploy");
     assert_eq!(cc.description, "Deploy the application to production");
     assert_eq!(cc.path, ".skills/deploy/SKILL.md");
-    assert_eq!(
-        cc.allowed_tools,
-        vec!["execute", "write_file", "read_file"]
-    );
+    assert_eq!(cc.allowed_tools, vec!["execute", "write_file", "read_file"]);
     assert_eq!(cc.triggers, vec!["/deploy"]);
 }
 
@@ -1033,10 +1026,7 @@ fn test_same_status_shape_across_all_topologies() {
             "missing 'active_nodes' key"
         );
         assert!(status.get("nodes").is_some(), "missing 'nodes' key");
-        assert!(
-            status.get("consensus").is_some(),
-            "missing 'consensus' key"
-        );
+        assert!(status.get("consensus").is_some(), "missing 'consensus' key");
     }
 }
 
@@ -1165,16 +1155,25 @@ fn test_config_accessor_consistent() {
 async fn test_server_handles_all_mcp_methods() {
     let server = make_server_with_resources();
     let methods = vec![
-        ("initialize", Some(serde_json::json!({
-            "protocolVersion": "2024-11-05",
-            "capabilities": {},
-            "clientInfo": {"name": "t", "version": "1"}
-        }))),
+        (
+            "initialize",
+            Some(serde_json::json!({
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "t", "version": "1"}
+            })),
+        ),
         ("ping", None),
         ("tools/list", None),
-        ("tools/call", Some(serde_json::json!({"name": "ping", "arguments": {}}))),
+        (
+            "tools/call",
+            Some(serde_json::json!({"name": "ping", "arguments": {}})),
+        ),
         ("resources/list", None),
-        ("resources/read", Some(serde_json::json!({"uri": "rvagent://status"}))),
+        (
+            "resources/read",
+            Some(serde_json::json!({"uri": "rvagent://status"})),
+        ),
         ("resources/templates/list", None),
         ("prompts/list", None),
     ];
@@ -1222,14 +1221,38 @@ fn test_jsonrpc_error_constructors() {
 
 #[test]
 fn test_mcp_method_from_str_all_variants() {
-    assert_eq!(McpMethod::from_str("initialize"), Some(McpMethod::Initialize));
-    assert_eq!(McpMethod::from_str("tools/list"), Some(McpMethod::ToolsList));
-    assert_eq!(McpMethod::from_str("tools/call"), Some(McpMethod::ToolsCall));
-    assert_eq!(McpMethod::from_str("resources/list"), Some(McpMethod::ResourcesList));
-    assert_eq!(McpMethod::from_str("resources/read"), Some(McpMethod::ResourcesRead));
-    assert_eq!(McpMethod::from_str("resources/templates/list"), Some(McpMethod::ResourcesTemplatesList));
-    assert_eq!(McpMethod::from_str("prompts/list"), Some(McpMethod::PromptsList));
-    assert_eq!(McpMethod::from_str("prompts/get"), Some(McpMethod::PromptsGet));
+    assert_eq!(
+        McpMethod::from_str("initialize"),
+        Some(McpMethod::Initialize)
+    );
+    assert_eq!(
+        McpMethod::from_str("tools/list"),
+        Some(McpMethod::ToolsList)
+    );
+    assert_eq!(
+        McpMethod::from_str("tools/call"),
+        Some(McpMethod::ToolsCall)
+    );
+    assert_eq!(
+        McpMethod::from_str("resources/list"),
+        Some(McpMethod::ResourcesList)
+    );
+    assert_eq!(
+        McpMethod::from_str("resources/read"),
+        Some(McpMethod::ResourcesRead)
+    );
+    assert_eq!(
+        McpMethod::from_str("resources/templates/list"),
+        Some(McpMethod::ResourcesTemplatesList)
+    );
+    assert_eq!(
+        McpMethod::from_str("prompts/list"),
+        Some(McpMethod::PromptsList)
+    );
+    assert_eq!(
+        McpMethod::from_str("prompts/get"),
+        Some(McpMethod::PromptsGet)
+    );
     assert_eq!(McpMethod::from_str("ping"), Some(McpMethod::Ping));
     assert_eq!(McpMethod::from_str("nonexistent"), None);
     assert_eq!(McpMethod::from_str(""), None);
@@ -1291,8 +1314,7 @@ fn test_jsonrpc_request_creation() {
 
 #[test]
 fn test_jsonrpc_request_with_params() {
-    let req = JsonRpcRequest::new(1, "test")
-        .with_params(serde_json::json!({"key": "value"}));
+    let req = JsonRpcRequest::new(1, "test").with_params(serde_json::json!({"key": "value"}));
     assert!(req.params.is_some());
     assert_eq!(req.params.unwrap()["key"], "value");
 }
@@ -1307,10 +1329,7 @@ fn test_jsonrpc_response_success() {
 
 #[test]
 fn test_jsonrpc_response_error() {
-    let resp = JsonRpcResponse::error(
-        serde_json::json!(1),
-        JsonRpcError::method_not_found("nope"),
-    );
+    let resp = JsonRpcResponse::error(serde_json::json!(1), JsonRpcError::method_not_found("nope"));
     assert!(resp.result.is_none());
     assert!(resp.error.is_some());
     assert_eq!(resp.error.unwrap().code, -32601);
@@ -1581,10 +1600,7 @@ fn test_tool_filter_from_groups() {
 
 #[test]
 fn test_tool_filter_from_group_names() {
-    let filter = ToolFilter::from_group_names(&[
-        "file".to_string(),
-        "memory".to_string(),
-    ]).unwrap();
+    let filter = ToolFilter::from_group_names(&["file".to_string(), "memory".to_string()]).unwrap();
     assert!(filter.is_allowed("read_file"));
     assert!(filter.is_allowed("semantic_search"));
     assert!(!filter.is_allowed("execute"));
@@ -1666,10 +1682,8 @@ async fn test_sse_transport_response_broadcast() {
     let transport = SseTransport::new(SseConfig::default());
     let mut rx = transport.response_sender().subscribe();
 
-    let resp = JsonRpcResponse::success(
-        serde_json::json!(42),
-        serde_json::json!({"status": "test"}),
-    );
+    let resp =
+        JsonRpcResponse::success(serde_json::json!(42), serde_json::json!({"status": "test"}));
     transport.send_response(resp).await.unwrap();
 
     let received = rx.recv().await.unwrap();
@@ -1712,8 +1726,14 @@ async fn test_sse_transport_receive_response_not_supported() {
 
 #[test]
 fn test_transport_type_from_str() {
-    assert_eq!("stdio".parse::<TransportType>().unwrap(), TransportType::Stdio);
-    assert_eq!("std".parse::<TransportType>().unwrap(), TransportType::Stdio);
+    assert_eq!(
+        "stdio".parse::<TransportType>().unwrap(),
+        TransportType::Stdio
+    );
+    assert_eq!(
+        "std".parse::<TransportType>().unwrap(),
+        TransportType::Stdio
+    );
     assert_eq!("sse".parse::<TransportType>().unwrap(), TransportType::Sse);
     assert_eq!("http".parse::<TransportType>().unwrap(), TransportType::Sse);
     assert_eq!("web".parse::<TransportType>().unwrap(), TransportType::Sse);
@@ -1736,10 +1756,7 @@ async fn test_sse_transport_multiple_subscribers() {
     let mut rx1 = transport.response_sender().subscribe();
     let mut rx2 = transport.response_sender().subscribe();
 
-    let resp = JsonRpcResponse::success(
-        serde_json::json!(1),
-        serde_json::json!({"multi": true}),
-    );
+    let resp = JsonRpcResponse::success(serde_json::json!(1), serde_json::json!({"multi": true}));
     transport.send_response(resp).await.unwrap();
 
     let r1 = rx1.recv().await.unwrap();

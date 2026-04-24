@@ -5,8 +5,7 @@ use ruvector_consciousness::phi::auto_compute_phi;
 use ruvector_consciousness::rsvd_emergence::{RsvdEmergenceEngine, RsvdEmergenceResult};
 use ruvector_consciousness::traits::EmergenceEngine;
 use ruvector_consciousness::types::{
-    ComputeBudget, EmergenceResult, PhiResult,
-    TransitionMatrix as ConsciousnessTPM,
+    ComputeBudget, EmergenceResult, PhiResult, TransitionMatrix as ConsciousnessTPM,
 };
 
 use crate::data::{self, ClimateCorrelations, TransitionMatrix};
@@ -86,8 +85,14 @@ pub fn run_analysis(
             let sub_ctpm = to_consciousness_tpm(&sub);
             match auto_compute_phi(&sub_ctpm, None, &budget) {
                 Ok(phi) => {
-                    let idx_names: Vec<&str> = indices.iter().map(|&i| data::INDEX_NAMES[i]).collect();
-                    println!("  {} Phi = {:.6}  ({})", name, phi.phi, idx_names.join(", "));
+                    let idx_names: Vec<&str> =
+                        indices.iter().map(|&i| data::INDEX_NAMES[i]).collect();
+                    println!(
+                        "  {} Phi = {:.6}  ({})",
+                        name,
+                        phi.phi,
+                        idx_names.join(", ")
+                    );
                     neutral_regional_phis.push((name.to_string(), phi));
                 }
                 Err(e) => {
@@ -135,8 +140,8 @@ pub fn run_analysis(
         .iter()
         .map(|(_, p)| p.phi)
         .fold(0.0f64, f64::max);
-    let pacific_most_integrated = (pacific_phi - max_regional_phi).abs() < 1e-10
-        && pacific_phi > 0.0;
+    let pacific_most_integrated =
+        (pacific_phi - max_regional_phi).abs() < 1e-10 && pacific_phi > 0.0;
 
     // 7. Causal emergence
     println!("\n--- Causal Emergence Analysis (Neutral) ---");
@@ -161,8 +166,10 @@ pub fn run_analysis(
         .expect("Failed to compute SVD emergence");
     println!(
         "  Effective rank = {}/{}, entropy = {:.4}, emergence = {:.4}",
-        neutral_svd_emergence.effective_rank, neutral_tpm.size,
-        neutral_svd_emergence.spectral_entropy, neutral_svd_emergence.emergence_index
+        neutral_svd_emergence.effective_rank,
+        neutral_tpm.size,
+        neutral_svd_emergence.spectral_entropy,
+        neutral_svd_emergence.emergence_index
     );
 
     // 9. Temporal analysis: monthly seasonal cycle

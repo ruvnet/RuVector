@@ -205,7 +205,8 @@ impl DiscoveryEngine {
             return Ok(patterns);
         }
 
-        let recent = &self.signal_history[self.signal_history.len() - self.config.lookback_windows..];
+        let recent =
+            &self.signal_history[self.signal_history.len() - self.config.lookback_windows..];
 
         // Look for sustained growth in node/edge count with increasing coherence
         let node_growth: Vec<i64> = recent
@@ -325,10 +326,7 @@ impl DiscoveryEngine {
                 strength: PatternStrength::Moderate,
                 confidence: 0.6,
                 detected_at: Utc::now(),
-                time_range: Some((
-                    self.signal_history[0].window.start,
-                    latest.window.end,
-                )),
+                time_range: Some((self.signal_history[0].window.start, latest.window.end)),
                 entities: bridge_nodes.iter().map(|(n, _)| n.clone()).collect(),
                 description: format!(
                     "Bridge nodes detected: {} nodes consistently on boundaries",
@@ -358,7 +356,8 @@ impl DiscoveryEngine {
             return Ok(patterns);
         }
 
-        let recent = &self.signal_history[self.signal_history.len() - self.config.lookback_windows..];
+        let recent =
+            &self.signal_history[self.signal_history.len() - self.config.lookback_windows..];
 
         // Calculate trend in min-cut values
         let values: Vec<f64> = recent.iter().map(|s| s.min_cut_value).collect();
@@ -416,11 +415,14 @@ impl DiscoveryEngine {
         }
 
         // Calculate mean and std dev of min-cut values
-        let values: Vec<f64> = self.signal_history.iter().map(|s| s.min_cut_value).collect();
+        let values: Vec<f64> = self
+            .signal_history
+            .iter()
+            .map(|s| s.min_cut_value)
+            .collect();
 
         let mean = values.iter().sum::<f64>() / values.len() as f64;
-        let variance =
-            values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / values.len() as f64;
+        let variance = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / values.len() as f64;
         let std_dev = variance.sqrt();
 
         // Find anomalies
@@ -440,10 +442,7 @@ impl DiscoveryEngine {
                     detected_at: signal.window.start,
                     time_range: Some((signal.window.start, signal.window.end)),
                     entities: signal.cut_nodes.clone(),
-                    description: format!(
-                        "Anomalous coherence: {:.2}σ from mean",
-                        z_score
-                    ),
+                    description: format!("Anomalous coherence: {:.2}σ from mean", z_score),
                     evidence: vec![PatternEvidence {
                         evidence_type: "z_score".to_string(),
                         value: z_score,

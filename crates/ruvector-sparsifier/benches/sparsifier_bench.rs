@@ -57,5 +57,11 @@ fn bench_laplacian_qf(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_build, bench_insert, bench_audit, bench_laplacian_qf);
+criterion_group!(
+    benches,
+    bench_build,
+    bench_insert,
+    bench_audit,
+    bench_laplacian_qf
+);
 criterion_main!(benches);

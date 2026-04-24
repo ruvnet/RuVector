@@ -60,7 +60,7 @@ impl Default for TransportConfig {
     fn default() -> Self {
         Self {
             max_message_size: 4 * 1024 * 1024, // 4MB
-            read_timeout_ms: 30_000,            // 30s
+            read_timeout_ms: 30_000,           // 30s
         }
     }
 }
@@ -332,7 +332,9 @@ impl Transport for SseTransport {
 
     async fn receive_response(&self) -> Result<Option<JsonRpcResponse>> {
         // SSE transport is server-side only
-        Err(McpError::transport("SSE transport does not receive responses"))
+        Err(McpError::transport(
+            "SSE transport does not receive responses",
+        ))
     }
 
     async fn close(&self) -> Result<()> {
@@ -397,10 +399,7 @@ mod tests {
     #[tokio::test]
     async fn test_memory_transport_response_roundtrip() {
         let (client, server) = MemoryTransport::pair(16);
-        let resp = JsonRpcResponse::success(
-            serde_json::json!(1),
-            serde_json::json!({"tools": []}),
-        );
+        let resp = JsonRpcResponse::success(serde_json::json!(1), serde_json::json!({"tools": []}));
         server.send_response(resp).await.unwrap();
         let received = client.receive_response().await.unwrap().unwrap();
         assert!(received.result.is_some());
@@ -463,8 +462,8 @@ mod tests {
     #[tokio::test]
     async fn test_memory_transport_request_with_params() {
         let (client, server) = MemoryTransport::pair(16);
-        let req = JsonRpcRequest::new(42, "tools/call")
-            .with_params(serde_json::json!({"name": "echo"}));
+        let req =
+            JsonRpcRequest::new(42, "tools/call").with_params(serde_json::json!({"name": "echo"}));
         client.send_request(req).await.unwrap();
         let received = server.receive_request().await.unwrap().unwrap();
         assert_eq!(received.method, "tools/call");
@@ -515,10 +514,8 @@ mod tests {
         let transport = SseTransport::new(SseConfig::default());
         let mut rx = transport.response_sender().subscribe();
 
-        let resp = JsonRpcResponse::success(
-            serde_json::json!(1),
-            serde_json::json!({"status": "ok"}),
-        );
+        let resp =
+            JsonRpcResponse::success(serde_json::json!(1), serde_json::json!({"status": "ok"}));
         transport.send_response(resp.clone()).await.unwrap();
 
         let received = rx.recv().await.unwrap();
@@ -559,7 +556,10 @@ mod tests {
 
     #[test]
     fn test_transport_type_from_str() {
-        assert_eq!("stdio".parse::<TransportType>().unwrap(), TransportType::Stdio);
+        assert_eq!(
+            "stdio".parse::<TransportType>().unwrap(),
+            TransportType::Stdio
+        );
         assert_eq!("sse".parse::<TransportType>().unwrap(), TransportType::Sse);
         assert_eq!("http".parse::<TransportType>().unwrap(), TransportType::Sse);
         assert_eq!("web".parse::<TransportType>().unwrap(), TransportType::Sse);

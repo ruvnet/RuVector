@@ -2,9 +2,9 @@
 //!
 //! High-level GPU operations for embeddings with automatic fallback to CPU.
 
-use crate::{EmbeddingError, Result};
-use super::backend::{GpuBackend, BufferUsage};
+use super::backend::{BufferUsage, GpuBackend};
 use super::shaders::ShaderRegistry;
+use crate::{EmbeddingError, Result};
 use rayon::prelude::*;
 use std::sync::Arc;
 
@@ -50,10 +50,22 @@ impl GpuPooler {
         // GPU implementation requires minimum batch size for efficiency
         #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
         if self.use_gpu && batch_size >= 8 && self.backend.is_some() {
-            return self.mean_pool_gpu(token_embeddings, attention_mask, batch_size, seq_length, hidden_size);
+            return self.mean_pool_gpu(
+                token_embeddings,
+                attention_mask,
+                batch_size,
+                seq_length,
+                hidden_size,
+            );
         }
 
-        Ok(self.mean_pool_cpu(token_embeddings, attention_mask, batch_size, seq_length, hidden_size))
+        Ok(self.mean_pool_cpu(
+            token_embeddings,
+            attention_mask,
+            batch_size,
+            seq_length,
+            hidden_size,
+        ))
     }
 
     /// CLS pooling (GPU or CPU fallback)
@@ -78,10 +90,22 @@ impl GpuPooler {
     ) -> Result<Vec<f32>> {
         #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
         if self.use_gpu && batch_size >= 8 && self.backend.is_some() {
-            return self.max_pool_gpu(token_embeddings, attention_mask, batch_size, seq_length, hidden_size);
+            return self.max_pool_gpu(
+                token_embeddings,
+                attention_mask,
+                batch_size,
+                seq_length,
+                hidden_size,
+            );
         }
 
-        Ok(self.max_pool_cpu(token_embeddings, attention_mask, batch_size, seq_length, hidden_size))
+        Ok(self.max_pool_cpu(
+            token_embeddings,
+            attention_mask,
+            batch_size,
+            seq_length,
+            hidden_size,
+        ))
     }
 
     // GPU implementations
@@ -95,26 +119,21 @@ impl GpuPooler {
         seq_length: usize,
         hidden_size: usize,
     ) -> Result<Vec<f32>> {
-        let backend = self.backend.as_ref().ok_or_else(|| {
-            EmbeddingError::GpuOperationFailed {
+        let backend = self
+            .backend
+            .as_ref()
+            .ok_or_else(|| EmbeddingError::GpuOperationFailed {
                 operation: "mean_pool".to_string(),
                 reason: "Backend not initialized".to_string(),
-            }
-        })?;
+            })?;
 
         // Create buffers
-        let token_buf = backend.create_buffer(
-            (token_embeddings.len() * 4) as u64,
-            BufferUsage::Storage,
-        )?;
-        let mask_buf = backend.create_buffer(
-            (attention_mask.len() * 8) as u64,
-            BufferUsage::Storage,
-        )?;
-        let output_buf = backend.create_buffer(
-            (batch_size * hidden_size * 4) as u64,
-            BufferUsage::Storage,
-        )?;
+        let token_buf =
+            backend.create_buffer((token_embeddings.len() * 4) as u64, BufferUsage::Storage)?;
+        let mask_buf =
+            backend.create_buffer((attention_mask.len() * 8) as u64, BufferUsage::Storage)?;
+        let output_buf =
+            backend.create_buffer((batch_size * hidden_size * 4) as u64, BufferUsage::Storage)?;
 
         // Create params buffer (batch_size, seq_length, hidden_size)
         let params: [u32; 3] = [batch_size as u32, seq_length as u32, hidden_size as u32];
@@ -132,11 +151,16 @@ impl GpuPooler {
         // Dispatch with params buffer as 4th binding
         let total_outputs = batch_size * hidden_size;
         let workgroups = [total_outputs.div_ceil(64) as u32, 1, 1];
-        backend.dispatch(&pipeline, &[&token_buf, &mask_buf, &output_buf, &params_buf], workgroups)?;
+        backend.dispatch(
+            &pipeline,
+            &[&token_buf, &mask_buf, &output_buf, &params_buf],
+            workgroups,
+        )?;
         backend.sync()?;
 
         // Read output
-        let output_bytes = backend.read_buffer(&output_buf, (batch_size * hidden_size * 4) as u64)?;
+        let output_bytes =
+            backend.read_buffer(&output_buf, (batch_size * hidden_size * 4) as u64)?;
         let output: Vec<f32> = bytemuck::cast_slice(&output_bytes).to_vec();
 
         // Cleanup
@@ -158,26 +182,21 @@ impl GpuPooler {
         seq_length: usize,
         hidden_size: usize,
     ) -> Result<Vec<f32>> {
-        let backend = self.backend.as_ref().ok_or_else(|| {
-            EmbeddingError::GpuOperationFailed {
+        let backend = self
+            .backend
+            .as_ref()
+            .ok_or_else(|| EmbeddingError::GpuOperationFailed {
                 operation: "max_pool".to_string(),
                 reason: "Backend not initialized".to_string(),
-            }
-        })?;
+            })?;
 
         // Create buffers
-        let token_buf = backend.create_buffer(
-            (token_embeddings.len() * 4) as u64,
-            BufferUsage::Storage,
-        )?;
-        let mask_buf = backend.create_buffer(
-            (attention_mask.len() * 8) as u64,
-            BufferUsage::Storage,
-        )?;
-        let output_buf = backend.create_buffer(
-            (batch_size * hidden_size * 4) as u64,
-            BufferUsage::Storage,
-        )?;
+        let token_buf =
+            backend.create_buffer((token_embeddings.len() * 4) as u64, BufferUsage::Storage)?;
+        let mask_buf =
+            backend.create_buffer((attention_mask.len() * 8) as u64, BufferUsage::Storage)?;
+        let output_buf =
+            backend.create_buffer((batch_size * hidden_size * 4) as u64, BufferUsage::Storage)?;
 
         // Create params buffer (batch_size, seq_length, hidden_size)
         let params: [u32; 3] = [batch_size as u32, seq_length as u32, hidden_size as u32];
@@ -195,11 +214,16 @@ impl GpuPooler {
         // Dispatch with params buffer as 4th binding
         let total_outputs = batch_size * hidden_size;
         let workgroups = [total_outputs.div_ceil(64) as u32, 1, 1];
-        backend.dispatch(&pipeline, &[&token_buf, &mask_buf, &output_buf, &params_buf], workgroups)?;
+        backend.dispatch(
+            &pipeline,
+            &[&token_buf, &mask_buf, &output_buf, &params_buf],
+            workgroups,
+        )?;
         backend.sync()?;
 
         // Read output
-        let output_bytes = backend.read_buffer(&output_buf, (batch_size * hidden_size * 4) as u64)?;
+        let output_bytes =
+            backend.read_buffer(&output_buf, (batch_size * hidden_size * 4) as u64)?;
         let output: Vec<f32> = bytemuck::cast_slice(&output_bytes).to_vec();
 
         // Cleanup
@@ -371,7 +395,12 @@ impl GpuSimilarity {
     }
 
     /// Find top-k most similar
-    pub fn top_k(&self, query: &[f32], candidates: &[&[f32]], k: usize) -> Result<Vec<(usize, f32)>> {
+    pub fn top_k(
+        &self,
+        query: &[f32],
+        candidates: &[&[f32]],
+        k: usize,
+    ) -> Result<Vec<(usize, f32)>> {
         let similarities = self.batch_cosine(query, candidates)?;
 
         let mut indexed: Vec<(usize, f32)> = similarities.into_iter().enumerate().collect();
@@ -385,12 +414,13 @@ impl GpuSimilarity {
 
     #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
     fn batch_cosine_gpu(&self, query: &[f32], candidates: &[&[f32]]) -> Result<Vec<f32>> {
-        let backend = self.backend.as_ref().ok_or_else(|| {
-            EmbeddingError::GpuOperationFailed {
+        let backend = self
+            .backend
+            .as_ref()
+            .ok_or_else(|| EmbeddingError::GpuOperationFailed {
                 operation: "batch_cosine".to_string(),
                 reason: "Backend not initialized".to_string(),
-            }
-        })?;
+            })?;
 
         let dimension = query.len();
         let num_candidates = candidates.len();
@@ -400,8 +430,10 @@ impl GpuSimilarity {
 
         // Create buffers
         let query_buf = backend.create_buffer((dimension * 4) as u64, BufferUsage::Storage)?;
-        let candidates_buf = backend.create_buffer((candidates_flat.len() * 4) as u64, BufferUsage::Storage)?;
-        let output_buf = backend.create_buffer((num_candidates * 4) as u64, BufferUsage::Storage)?;
+        let candidates_buf =
+            backend.create_buffer((candidates_flat.len() * 4) as u64, BufferUsage::Storage)?;
+        let output_buf =
+            backend.create_buffer((num_candidates * 4) as u64, BufferUsage::Storage)?;
 
         // Create params buffer (dimension, num_candidates)
         let params: [u32; 2] = [dimension as u32, num_candidates as u32];
@@ -418,7 +450,11 @@ impl GpuSimilarity {
 
         // Dispatch with params buffer as 4th binding
         let workgroups = [num_candidates.div_ceil(256) as u32, 1, 1];
-        backend.dispatch(&pipeline, &[&query_buf, &candidates_buf, &output_buf, &params_buf], workgroups)?;
+        backend.dispatch(
+            &pipeline,
+            &[&query_buf, &candidates_buf, &output_buf, &params_buf],
+            workgroups,
+        )?;
         backend.sync()?;
 
         // Read output
@@ -437,12 +473,13 @@ impl GpuSimilarity {
 
     #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
     fn batch_dot_product_gpu(&self, query: &[f32], candidates: &[&[f32]]) -> Result<Vec<f32>> {
-        let backend = self.backend.as_ref().ok_or_else(|| {
-            EmbeddingError::GpuOperationFailed {
+        let backend = self
+            .backend
+            .as_ref()
+            .ok_or_else(|| EmbeddingError::GpuOperationFailed {
                 operation: "batch_dot_product".to_string(),
                 reason: "Backend not initialized".to_string(),
-            }
-        })?;
+            })?;
 
         let dimension = query.len();
         let num_candidates = candidates.len();
@@ -452,8 +489,10 @@ impl GpuSimilarity {
 
         // Create buffers
         let query_buf = backend.create_buffer((dimension * 4) as u64, BufferUsage::Storage)?;
-        let candidates_buf = backend.create_buffer((candidates_flat.len() * 4) as u64, BufferUsage::Storage)?;
-        let output_buf = backend.create_buffer((num_candidates * 4) as u64, BufferUsage::Storage)?;
+        let candidates_buf =
+            backend.create_buffer((candidates_flat.len() * 4) as u64, BufferUsage::Storage)?;
+        let output_buf =
+            backend.create_buffer((num_candidates * 4) as u64, BufferUsage::Storage)?;
 
         // Create params buffer (dimension, num_candidates)
         let params: [u32; 2] = [dimension as u32, num_candidates as u32];
@@ -470,7 +509,11 @@ impl GpuSimilarity {
 
         // Dispatch with params buffer as 4th binding
         let workgroups = [num_candidates.div_ceil(256) as u32, 1, 1];
-        backend.dispatch(&pipeline, &[&query_buf, &candidates_buf, &output_buf, &params_buf], workgroups)?;
+        backend.dispatch(
+            &pipeline,
+            &[&query_buf, &candidates_buf, &output_buf, &params_buf],
+            workgroups,
+        )?;
         backend.sync()?;
 
         // Read output
@@ -489,12 +532,13 @@ impl GpuSimilarity {
 
     #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
     fn batch_euclidean_gpu(&self, query: &[f32], candidates: &[&[f32]]) -> Result<Vec<f32>> {
-        let backend = self.backend.as_ref().ok_or_else(|| {
-            EmbeddingError::GpuOperationFailed {
+        let backend = self
+            .backend
+            .as_ref()
+            .ok_or_else(|| EmbeddingError::GpuOperationFailed {
                 operation: "batch_euclidean".to_string(),
                 reason: "Backend not initialized".to_string(),
-            }
-        })?;
+            })?;
 
         let dimension = query.len();
         let num_candidates = candidates.len();
@@ -504,8 +548,10 @@ impl GpuSimilarity {
 
         // Create buffers
         let query_buf = backend.create_buffer((dimension * 4) as u64, BufferUsage::Storage)?;
-        let candidates_buf = backend.create_buffer((candidates_flat.len() * 4) as u64, BufferUsage::Storage)?;
-        let output_buf = backend.create_buffer((num_candidates * 4) as u64, BufferUsage::Storage)?;
+        let candidates_buf =
+            backend.create_buffer((candidates_flat.len() * 4) as u64, BufferUsage::Storage)?;
+        let output_buf =
+            backend.create_buffer((num_candidates * 4) as u64, BufferUsage::Storage)?;
 
         // Create params buffer (dimension, num_candidates)
         let params: [u32; 2] = [dimension as u32, num_candidates as u32];
@@ -522,7 +568,11 @@ impl GpuSimilarity {
 
         // Dispatch with params buffer as 4th binding
         let workgroups = [num_candidates.div_ceil(256) as u32, 1, 1];
-        backend.dispatch(&pipeline, &[&query_buf, &candidates_buf, &output_buf, &params_buf], workgroups)?;
+        backend.dispatch(
+            &pipeline,
+            &[&query_buf, &candidates_buf, &output_buf, &params_buf],
+            workgroups,
+        )?;
         backend.sync()?;
 
         // Read output
@@ -600,7 +650,13 @@ impl GpuVectorOps {
     }
 
     /// Matrix-vector multiplication
-    pub fn matmul(&self, matrix: &[f32], vector: &[f32], rows: usize, cols: usize) -> Result<Vec<f32>> {
+    pub fn matmul(
+        &self,
+        matrix: &[f32],
+        vector: &[f32],
+        rows: usize,
+        cols: usize,
+    ) -> Result<Vec<f32>> {
         #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
         if self.use_gpu && rows >= 64 && self.backend.is_some() {
             return self.matmul_gpu(matrix, vector, rows, cols);
@@ -633,12 +689,13 @@ impl GpuVectorOps {
 
     #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
     fn normalize_batch_gpu(&self, vectors: &mut [f32], dimension: usize) -> Result<()> {
-        let backend = self.backend.as_ref().ok_or_else(|| {
-            EmbeddingError::GpuOperationFailed {
+        let backend = self
+            .backend
+            .as_ref()
+            .ok_or_else(|| EmbeddingError::GpuOperationFailed {
                 operation: "normalize_batch".to_string(),
                 reason: "Backend not initialized".to_string(),
-            }
-        })?;
+            })?;
 
         let num_vectors = vectors.len() / dimension;
 
@@ -661,7 +718,11 @@ impl GpuVectorOps {
 
         // Dispatch with 4 bindings
         let workgroups = [num_vectors.div_ceil(256) as u32, 1, 1];
-        backend.dispatch(&pipeline, &[&input_buf, &dummy_buf, &output_buf, &params_buf], workgroups)?;
+        backend.dispatch(
+            &pipeline,
+            &[&input_buf, &dummy_buf, &output_buf, &params_buf],
+            workgroups,
+        )?;
         backend.sync()?;
 
         // Read output
@@ -680,13 +741,20 @@ impl GpuVectorOps {
     }
 
     #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
-    fn matmul_gpu(&self, matrix: &[f32], vector: &[f32], rows: usize, cols: usize) -> Result<Vec<f32>> {
-        let backend = self.backend.as_ref().ok_or_else(|| {
-            EmbeddingError::GpuOperationFailed {
+    fn matmul_gpu(
+        &self,
+        matrix: &[f32],
+        vector: &[f32],
+        rows: usize,
+        cols: usize,
+    ) -> Result<Vec<f32>> {
+        let backend = self
+            .backend
+            .as_ref()
+            .ok_or_else(|| EmbeddingError::GpuOperationFailed {
                 operation: "matmul".to_string(),
                 reason: "Backend not initialized".to_string(),
-            }
-        })?;
+            })?;
 
         // Create buffers
         let mat_buf = backend.create_buffer((matrix.len() * 4) as u64, BufferUsage::Storage)?;
@@ -708,7 +776,11 @@ impl GpuVectorOps {
 
         // Dispatch with params buffer as 4th binding
         let workgroups = [rows.div_ceil(16) as u32, 1, 1];
-        backend.dispatch(&pipeline, &[&mat_buf, &vec_buf, &output_buf, &params_buf], workgroups)?;
+        backend.dispatch(
+            &pipeline,
+            &[&mat_buf, &vec_buf, &output_buf, &params_buf],
+            workgroups,
+        )?;
         backend.sync()?;
 
         // Read output
@@ -727,12 +799,13 @@ impl GpuVectorOps {
 
     #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
     fn batch_add_gpu(&self, a: &[f32], b: &[f32]) -> Result<Vec<f32>> {
-        let backend = self.backend.as_ref().ok_or_else(|| {
-            EmbeddingError::GpuOperationFailed {
+        let backend = self
+            .backend
+            .as_ref()
+            .ok_or_else(|| EmbeddingError::GpuOperationFailed {
                 operation: "batch_add".to_string(),
                 reason: "Backend not initialized".to_string(),
-            }
-        })?;
+            })?;
 
         // Create buffers
         let buf_a = backend.create_buffer((a.len() * 4) as u64, BufferUsage::Storage)?;
@@ -754,7 +827,11 @@ impl GpuVectorOps {
 
         // Dispatch with params buffer as 4th binding
         let workgroups = [a.len().div_ceil(256) as u32, 1, 1];
-        backend.dispatch(&pipeline, &[&buf_a, &buf_b, &output_buf, &params_buf], workgroups)?;
+        backend.dispatch(
+            &pipeline,
+            &[&buf_a, &buf_b, &output_buf, &params_buf],
+            workgroups,
+        )?;
         backend.sync()?;
 
         // Read output
@@ -774,32 +851,27 @@ impl GpuVectorOps {
     // CPU implementations
 
     fn normalize_batch_cpu(&self, vectors: &mut [f32], dimension: usize) {
-        vectors
-            .par_chunks_mut(dimension)
-            .for_each(|chunk| {
-                let norm: f32 = chunk.iter().map(|x| x * x).sum::<f32>().sqrt();
-                if norm > 1e-12 {
-                    for val in chunk.iter_mut() {
-                        *val /= norm;
-                    }
+        vectors.par_chunks_mut(dimension).for_each(|chunk| {
+            let norm: f32 = chunk.iter().map(|x| x * x).sum::<f32>().sqrt();
+            if norm > 1e-12 {
+                for val in chunk.iter_mut() {
+                    *val /= norm;
                 }
-            });
+            }
+        });
     }
 
     fn matmul_cpu(&self, matrix: &[f32], vector: &[f32], rows: usize, cols: usize) -> Vec<f32> {
         let mut result = vec![0.0f32; rows];
 
-        result
-            .par_iter_mut()
-            .enumerate()
-            .for_each(|(row, out)| {
-                let row_start = row * cols;
-                *out = matrix[row_start..row_start + cols]
-                    .iter()
-                    .zip(vector.iter())
-                    .map(|(m, v)| m * v)
-                    .sum();
-            });
+        result.par_iter_mut().enumerate().for_each(|(row, out)| {
+            let row_start = row * cols;
+            *out = matrix[row_start..row_start + cols]
+                .iter()
+                .zip(vector.iter())
+                .map(|(m, v)| m * v)
+                .sum();
+        });
 
         result
     }
@@ -916,9 +988,9 @@ mod tests {
 
         // batch=2, seq=2, hidden=3
         let tokens = vec![
-            1.0, 2.0, 3.0,  // batch 0, seq 0
-            4.0, 5.0, 6.0,  // batch 0, seq 1
-            7.0, 8.0, 9.0,  // batch 1, seq 0
+            1.0, 2.0, 3.0, // batch 0, seq 0
+            4.0, 5.0, 6.0, // batch 0, seq 1
+            7.0, 8.0, 9.0, // batch 1, seq 0
             10.0, 11.0, 12.0, // batch 1, seq 1
         ];
         let mask = vec![1i64, 1, 1, 1];

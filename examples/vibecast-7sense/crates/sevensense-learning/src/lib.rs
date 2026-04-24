@@ -36,37 +36,36 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
-pub mod domain;
 pub mod application;
+pub mod domain;
+pub mod ewc;
 pub mod infrastructure;
 pub mod loss;
-pub mod ewc;
 
 // Re-exports for convenience
+pub use application::services::LearningService;
 pub use domain::entities::{
-    LearningSession, GnnModelType, TrainingStatus, TrainingMetrics,
-    TransitionGraph, RefinedEmbedding, EmbeddingId, Timestamp,
-    GraphNode, GraphEdge, HyperParameters, LearningConfig,
+    EmbeddingId, GnnModelType, GraphEdge, GraphNode, HyperParameters, LearningConfig,
+    LearningSession, RefinedEmbedding, Timestamp, TrainingMetrics, TrainingStatus, TransitionGraph,
 };
 pub use domain::repository::LearningRepository;
-pub use application::services::LearningService;
-pub use infrastructure::gnn_model::{GnnModel, GnnLayer, Aggregator};
+pub use ewc::{EwcRegularizer, EwcState, FisherInformation};
 pub use infrastructure::attention::{AttentionLayer, MultiHeadAttention};
-pub use loss::{info_nce_loss, triplet_loss, margin_ranking_loss, contrastive_loss};
-pub use ewc::{EwcState, FisherInformation, EwcRegularizer};
+pub use infrastructure::gnn_model::{Aggregator, GnnLayer, GnnModel};
+pub use loss::{contrastive_loss, info_nce_loss, margin_ranking_loss, triplet_loss};
 
 /// Crate version information
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Prelude module for convenient imports
 pub mod prelude {
+    pub use crate::application::services::*;
     pub use crate::domain::entities::*;
     pub use crate::domain::repository::*;
-    pub use crate::application::services::*;
-    pub use crate::infrastructure::gnn_model::*;
-    pub use crate::infrastructure::attention::*;
-    pub use crate::loss::*;
     pub use crate::ewc::*;
+    pub use crate::infrastructure::attention::*;
+    pub use crate::infrastructure::gnn_model::*;
+    pub use crate::loss::*;
 }
 
 #[cfg(test)]

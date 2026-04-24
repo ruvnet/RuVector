@@ -68,7 +68,9 @@ fn generate_correlated_field(rng: &mut StdRng, sigma: f64) -> Vec<f64> {
     let mean: f64 = white.iter().sum::<f64>() / NPIX as f64;
     let var: f64 = white.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / NPIX as f64;
     let std = var.sqrt().max(1e-12);
-    white.iter_mut().for_each(|v| *v = (*v - mean) / std * BG_RMS);
+    white
+        .iter_mut()
+        .for_each(|v| *v = (*v - mean) / std * BG_RMS);
     white
 }
 
@@ -184,14 +186,15 @@ fn mincut_for_subgraph(edges: &[(usize, usize, f64)]) -> f64 {
         .iter()
         .map(|&(u, v, w)| (u as u64, v as u64, w))
         .collect();
-    let mc = MinCutBuilder::new()
-        .exact()
-        .with_edges(edges_u64)
-        .build();
+    let mc = MinCutBuilder::new().exact().with_edges(edges_u64).build();
     match mc {
         Ok(built) => {
             let val = built.min_cut_value();
-            if val.is_infinite() { 0.0 } else { val }
+            if val.is_infinite() {
+                0.0
+            } else {
+                val
+            }
         }
         Err(_) => 0.0,
     }
@@ -220,8 +223,7 @@ fn main() {
     let mut cs_field = generate_correlated_field(&mut rng, KERNEL_SIGMA);
     inject_cold_spot(&mut cs_field, COLD_CX, COLD_CY);
     let cs_edges = build_graph(&cs_field, EDGE_TAU);
-    let mean_w: f64 =
-        cs_edges.iter().map(|e| e.2).sum::<f64>() / cs_edges.len().max(1) as f64;
+    let mean_w: f64 = cs_edges.iter().map(|e| e.2).sum::<f64>() / cs_edges.len().max(1) as f64;
     println!(
         "[GRAPH] {} edges, mean weight={:.4}",
         cs_edges.len(),
@@ -229,8 +231,7 @@ fn main() {
     );
 
     // -- Cold Spot boundary ring: straddles the cold-to-hot transition (r=5..13) --
-    let (ring_edges, ring_n) =
-        extract_ring_subgraph(&cs_edges, COLD_CX, COLD_CY, 5.0, 13.0);
+    let (ring_edges, ring_n) = extract_ring_subgraph(&cs_edges, COLD_CX, COLD_CY, 5.0, 13.0);
     let cs_fiedler = fiedler_for_subgraph(&ring_edges, ring_n);
 
     // -- Mincut on the Cold Spot region (square patch) --
@@ -303,16 +304,17 @@ fn main() {
     println!("[BOUNDARY ANALYSIS]");
     println!("  Cold Spot boundary ring Fiedler: {:.4}", cs_fiedler);
     println!("  Control boundaries ({} patches):", N_CONTROLS);
-    println!(
-        "    Mean Fiedler: {:.4} +/- {:.4}",
-        ctrl_f_mean, ctrl_f_std
-    );
+    println!("    Mean Fiedler: {:.4} +/- {:.4}", ctrl_f_mean, ctrl_f_std);
     println!("    Min: {:.4}  Max: {:.4}", ctrl_f_min, ctrl_f_max);
     let f_anomalous = f_zscore.abs() > 2.0;
     println!(
         "  Cold Spot z-score: {:.2}  => {}",
         f_zscore,
-        if f_anomalous { "ANOMALOUS" } else { "NOT ANOMALOUS" }
+        if f_anomalous {
+            "ANOMALOUS"
+        } else {
+            "NOT ANOMALOUS"
+        }
     );
 
     println!();

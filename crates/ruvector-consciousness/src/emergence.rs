@@ -207,10 +207,7 @@ impl EmergenceEngine for CausalEmergenceEngine {
         })
     }
 
-    fn effective_information(
-        &self,
-        tpm: &TransitionMatrix,
-    ) -> Result<f64, ConsciousnessError> {
+    fn effective_information(&self, tpm: &TransitionMatrix) -> Result<f64, ConsciousnessError> {
         effective_information(tpm)
     }
 }
@@ -364,7 +361,10 @@ mod tests {
         // Identity: marginal is uniform, so degeneracy = 0.
         let tpm = identity_tpm(4);
         let deg = degeneracy(&tpm);
-        assert!(deg.abs() < 1e-6, "identity TPM degeneracy should be 0, got {deg}");
+        assert!(
+            deg.abs() < 1e-6,
+            "identity TPM degeneracy should be 0, got {deg}"
+        );
     }
 
     #[test]

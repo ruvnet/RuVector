@@ -292,11 +292,7 @@ impl ModelManager {
         // Update model metadata
         {
             let mut models = self.models.write();
-            let mut model = EmbeddingModel::new(
-                name.to_string(),
-                new_version.clone(),
-                checksum,
-            );
+            let mut model = EmbeddingModel::new(name.to_string(), new_version.clone(), checksum);
             model.model_path = Some(new_path.to_string_lossy().to_string());
             model.mark_active();
             models.insert(version_key, model);
@@ -360,13 +356,23 @@ impl ModelManager {
     }
 
     /// Resolve the path to a model file.
-    fn resolve_model_path(&self, name: &str, version: &ModelVersion) -> Result<PathBuf, ModelError> {
+    fn resolve_model_path(
+        &self,
+        name: &str,
+        version: &ModelVersion,
+    ) -> Result<PathBuf, ModelError> {
         // Try various naming conventions
         let candidates = vec![
-            self.config.model_dir.join(format!("{}.onnx", version.full_version())),
-            self.config.model_dir.join(format!("{}_{}.onnx", name, version.version)),
+            self.config
+                .model_dir
+                .join(format!("{}.onnx", version.full_version())),
+            self.config
+                .model_dir
+                .join(format!("{}_{}.onnx", name, version.version)),
             self.config.model_dir.join(format!("{}.onnx", name)),
-            self.config.model_dir.join(format!("{}/{}.onnx", name, version.version)),
+            self.config
+                .model_dir
+                .join(format!("{}/{}.onnx", name, version.version)),
         ];
 
         for path in &candidates {

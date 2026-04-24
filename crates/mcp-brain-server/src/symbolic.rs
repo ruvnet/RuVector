@@ -254,10 +254,18 @@ pub struct HornClause {
 }
 
 impl HornClause {
-    pub fn new(antecedents: Vec<PredicateType>, consequent: PredicateType, confidence: f64) -> Self {
+    pub fn new(
+        antecedents: Vec<PredicateType>,
+        consequent: PredicateType,
+        confidence: f64,
+    ) -> Self {
         let id = format!(
             "rule_{}",
-            uuid::Uuid::new_v4().to_string().split('-').next().unwrap_or("0")
+            uuid::Uuid::new_v4()
+                .to_string()
+                .split('-')
+                .next()
+                .unwrap_or("0")
         );
         Self {
             id,
@@ -309,7 +317,10 @@ impl NeuralSymbolicBridge {
 
         // Association is transitive (with decay): if A associated_with B and B associated_with C → A co_occurs_with C
         self.rules.push(HornClause::new(
-            vec![PredicateType::Custom("associated_with".to_string()), PredicateType::Custom("associated_with".to_string())],
+            vec![
+                PredicateType::Custom("associated_with".to_string()),
+                PredicateType::Custom("associated_with".to_string()),
+            ],
             PredicateType::Custom("co_occurs_with".to_string()),
             0.5,
         ));
@@ -317,14 +328,20 @@ impl NeuralSymbolicBridge {
         // Influence chain: if A may_influence B and B may_influence C → A associated_with C
         // (demotes from influence to association when chaining — honest decay)
         self.rules.push(HornClause::new(
-            vec![PredicateType::Custom("may_influence".to_string()), PredicateType::Custom("may_influence".to_string())],
+            vec![
+                PredicateType::Custom("may_influence".to_string()),
+                PredicateType::Custom("may_influence".to_string()),
+            ],
             PredicateType::Custom("associated_with".to_string()),
             0.6,
         ));
 
         // Cross-type influence: if A may_influence B and B is_type_of C → A associated_with C
         self.rules.push(HornClause::new(
-            vec![PredicateType::Custom("may_influence".to_string()), PredicateType::IsTypeOf],
+            vec![
+                PredicateType::Custom("may_influence".to_string()),
+                PredicateType::IsTypeOf,
+            ],
             PredicateType::Custom("associated_with".to_string()),
             0.5,
         ));
@@ -369,7 +386,10 @@ impl NeuralSymbolicBridge {
 
         // Influence→prevention: if A may_influence B and B prevents C, then A co_occurs_with C
         self.rules.push(HornClause::new(
-            vec![PredicateType::Custom("may_influence".to_string()), PredicateType::Prevents],
+            vec![
+                PredicateType::Custom("may_influence".to_string()),
+                PredicateType::Prevents,
+            ],
             PredicateType::Custom("co_occurs_with".to_string()),
             0.4,
         ));
@@ -416,7 +436,9 @@ impl NeuralSymbolicBridge {
                 let (ref c1, ref ids1, ref cat1) = clusters[i];
                 let (ref c2, ref ids2, ref cat2) = clusters[j];
 
-                if ids1.len() < self.config.min_cluster_size || ids2.len() < self.config.min_cluster_size {
+                if ids1.len() < self.config.min_cluster_size
+                    || ids2.len() < self.config.min_cluster_size
+                {
                     continue;
                 }
 
@@ -432,7 +454,11 @@ impl NeuralSymbolicBridge {
                 let mut merged_evidence = ids1.clone();
                 merged_evidence.extend_from_slice(ids2);
                 merged_evidence.truncate(20);
-                let midpoint: Vec<f32> = c1.iter().zip(c2.iter()).map(|(a, b)| (a + b) / 2.0).collect();
+                let midpoint: Vec<f32> = c1
+                    .iter()
+                    .zip(c2.iter())
+                    .map(|(a, b)| (a + b) / 2.0)
+                    .collect();
 
                 // Use category names instead of cluster sizes for human-readable arguments
                 let arg1 = cat1.clone();
@@ -524,7 +550,10 @@ impl NeuralSymbolicBridge {
             // Create pattern-based proposition
             let prop = GroundedProposition::new(
                 PredicateType::SimilarTo.as_str().to_string(),
-                vec![format!("pattern_{}", memories.len()), "learned_pattern".to_string()],
+                vec![
+                    format!("pattern_{}", memories.len()),
+                    "learned_pattern".to_string(),
+                ],
                 centroid.clone(),
                 *confidence,
                 memories.clone(),
@@ -782,9 +811,9 @@ impl NeuralSymbolicBridge {
                     // Shared-argument: any argument of pa matches any argument of pb
                     // (case-insensitive for robustness).
                     let shared_arg = if !strict_chain {
-                        pa.arguments.iter().any(|a| {
-                            pb.arguments.iter().any(|b| a.eq_ignore_ascii_case(b))
-                        })
+                        pa.arguments
+                            .iter()
+                            .any(|a| pb.arguments.iter().any(|b| a.eq_ignore_ascii_case(b)))
                     } else {
                         false
                     };
@@ -807,17 +836,25 @@ impl NeuralSymbolicBridge {
                         }
                     } else {
                         // Shared-argument: take the non-shared args as endpoints.
-                        let shared: Vec<&String> = pa.arguments.iter()
+                        let shared: Vec<&String> = pa
+                            .arguments
+                            .iter()
                             .filter(|a| pb.arguments.iter().any(|b| a.eq_ignore_ascii_case(b)))
                             .collect();
-                        let pa_unique: Vec<&String> = pa.arguments.iter()
+                        let pa_unique: Vec<&String> = pa
+                            .arguments
+                            .iter()
                             .filter(|a| !shared.iter().any(|s| a.eq_ignore_ascii_case(s)))
                             .collect();
-                        let pb_unique: Vec<&String> = pb.arguments.iter()
+                        let pb_unique: Vec<&String> = pb
+                            .arguments
+                            .iter()
                             .filter(|b| !shared.iter().any(|s| b.eq_ignore_ascii_case(s)))
                             .collect();
-                        let first: Option<&String> = pa_unique.first().copied().or(pa.arguments.first());
-                        let last: Option<&String> = pb_unique.first().copied().or(pb.arguments.first());
+                        let first: Option<&String> =
+                            pa_unique.first().copied().or(pa.arguments.first());
+                        let last: Option<&String> =
+                            pb_unique.first().copied().or(pb.arguments.first());
                         match (first, last) {
                             (Some(f), Some(l)) => {
                                 if f.eq_ignore_ascii_case(l) {
@@ -836,8 +873,7 @@ impl NeuralSymbolicBridge {
                         continue;
                     }
 
-                    let combined_confidence =
-                        rule.confidence * pa.confidence * pb.confidence;
+                    let combined_confidence = rule.confidence * pa.confidence * pb.confidence;
 
                     // Require meaningful confidence — no coin-flip inferences
                     if combined_confidence < 0.4 {
@@ -962,9 +998,7 @@ impl NeuralSymbolicBridge {
         evidence: Vec<Uuid>,
     ) -> GroundedProposition {
         let prop = GroundedProposition::new(
-            predicate,
-            arguments,
-            embedding,
+            predicate, arguments, embedding,
             0.8, // Default confidence for manually grounded propositions
             evidence,
         );
@@ -1077,7 +1111,13 @@ mod tests {
         // cluster_confidence(5) = 1.0 - exp(-1.0) ≈ 0.63
         let clusters = vec![(
             vec![1.0, 0.0, 0.0, 0.0],
-            vec![Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4()],
+            vec![
+                Uuid::new_v4(),
+                Uuid::new_v4(),
+                Uuid::new_v4(),
+                Uuid::new_v4(),
+                Uuid::new_v4(),
+            ],
             "pattern".to_string(),
         )];
 
@@ -1136,7 +1176,10 @@ mod tests {
         assert!(!inferences.is_empty(), "expected at least one inference");
         let inf = &inferences[0];
         assert_eq!(inf.conclusion.predicate, "relates_to");
-        assert_eq!(inf.conclusion.arguments, vec!["A".to_string(), "C".to_string()]);
+        assert_eq!(
+            inf.conclusion.arguments,
+            vec!["A".to_string(), "C".to_string()]
+        );
         assert!(inf.combined_confidence > 0.0);
         assert!(bridge.inference_count() > 0);
 
@@ -1145,7 +1188,10 @@ mod tests {
 
         // Running again should produce no new inferences (already derived)
         let inferences2 = bridge.run_inference();
-        assert!(inferences2.is_empty(), "should not re-derive existing conclusions");
+        assert!(
+            inferences2.is_empty(),
+            "should not re-derive existing conclusions"
+        );
     }
 
     #[test]

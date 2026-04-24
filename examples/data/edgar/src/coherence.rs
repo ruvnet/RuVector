@@ -5,8 +5,11 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{Company, Filing, FilingAnalyzer, FinancialStatement, PeerNetwork, XbrlParser, xbrl::statement_to_embedding};
-use crate::filings::{NarrativeExtractor, FilingAnalysis};
+use crate::filings::{FilingAnalysis, NarrativeExtractor};
+use crate::{
+    xbrl::statement_to_embedding, Company, Filing, FilingAnalyzer, FinancialStatement, PeerNetwork,
+    XbrlParser,
+};
 
 /// A coherence alert
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -267,7 +270,8 @@ impl CoherenceWatch {
     /// Compute coherence between fundamental and narrative vectors
     fn compute_coherence(&self, fundamental: &[f32], narrative: &[f32]) -> f64 {
         // Cosine similarity
-        let dot_product: f32 = fundamental.iter()
+        let dot_product: f32 = fundamental
+            .iter()
             .zip(narrative.iter())
             .map(|(a, b)| a * b)
             .sum();
@@ -296,7 +300,8 @@ impl CoherenceWatch {
         let severity = AlertSeverity::from_magnitude(magnitude);
 
         // Determine divergence type
-        let fundamental_score: f64 = fundamental.iter().map(|x| *x as f64).sum::<f64>() / fundamental.len() as f64;
+        let fundamental_score: f64 =
+            fundamental.iter().map(|x| *x as f64).sum::<f64>() / fundamental.len() as f64;
         let narrative_score = analysis.sentiment.unwrap_or(0.0);
 
         let divergence_type = if fundamental_score > 0.0 && narrative_score < 0.0 {
@@ -317,7 +322,11 @@ impl CoherenceWatch {
                 value: magnitude,
                 explanation: format!(
                     "Coherence {} by {:.1}%",
-                    if curr_coherence > prev_coherence { "increased" } else { "decreased" },
+                    if curr_coherence > prev_coherence {
+                        "increased"
+                    } else {
+                        "decreased"
+                    },
                     magnitude * 100.0
                 ),
             },
@@ -356,7 +365,8 @@ impl CoherenceWatch {
 
     /// Compute peer group z-score
     fn compute_peer_z_score(&self, cik: &str, coherence: f64) -> f64 {
-        let peer_coherences: Vec<f64> = self.coherence_history
+        let peer_coherences: Vec<f64> = self
+            .coherence_history
             .iter()
             .filter(|(k, _)| *k != cik)
             .filter_map(|(_, history)| history.last().map(|(_, c)| *c))
@@ -367,7 +377,10 @@ impl CoherenceWatch {
         }
 
         let mean: f64 = peer_coherences.iter().sum::<f64>() / peer_coherences.len() as f64;
-        let variance: f64 = peer_coherences.iter().map(|c| (c - mean).powi(2)).sum::<f64>()
+        let variance: f64 = peer_coherences
+            .iter()
+            .map(|c| (c - mean).powi(2))
+            .sum::<f64>()
             / peer_coherences.len() as f64;
         let std_dev = variance.sqrt();
 
@@ -380,7 +393,8 @@ impl CoherenceWatch {
 
     /// Find related companies from network
     fn find_related_companies(&self, cik: &str) -> Vec<String> {
-        self.network.get_peers(cik)
+        self.network
+            .get_peers(cik)
             .iter()
             .take(5)
             .map(|p| p.to_string())
@@ -403,27 +417,28 @@ impl CoherenceWatch {
         };
 
         let divergence_str = match divergence_type {
-            DivergenceType::FundamentalOutpacing =>
-                "Fundamentals improving faster than narrative suggests",
-            DivergenceType::NarrativeLeading =>
-                "Narrative more optimistic than fundamentals support",
-            DivergenceType::PeerDivergence =>
-                "Company diverging from peer group pattern",
-            DivergenceType::SectorShift =>
-                "Sector-wide coherence shift detected",
-            DivergenceType::MetricAnomaly =>
-                "Unusual cross-metric relationship detected",
-            DivergenceType::PatternBreak =>
-                "Historical coherence pattern broken",
+            DivergenceType::FundamentalOutpacing => {
+                "Fundamentals improving faster than narrative suggests"
+            }
+            DivergenceType::NarrativeLeading => {
+                "Narrative more optimistic than fundamentals support"
+            }
+            DivergenceType::PeerDivergence => "Company diverging from peer group pattern",
+            DivergenceType::SectorShift => "Sector-wide coherence shift detected",
+            DivergenceType::MetricAnomaly => "Unusual cross-metric relationship detected",
+            DivergenceType::PatternBreak => "Historical coherence pattern broken",
         };
 
         let peer_context = if peer_z_score.abs() > 2.0 {
-            format!(". Company is {:.1} std devs from peer mean",  peer_z_score)
+            format!(". Company is {:.1} std devs from peer mean", peer_z_score)
         } else {
             String::new()
         };
 
-        format!("{} divergence: {}{}", severity_str, divergence_str, peer_context)
+        format!(
+            "{} divergence: {}{}",
+            severity_str, divergence_str, peer_context
+        )
     }
 
     /// Detect sector-wide coherence shifts

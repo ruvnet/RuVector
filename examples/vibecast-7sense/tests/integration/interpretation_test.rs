@@ -3,9 +3,9 @@
 //! Tests for evidence pack building, claim generation with citations,
 //! and validation that all claims have evidence references.
 
+use std::collections::HashSet;
 use vibecast_tests::fixtures::*;
 use vibecast_tests::mocks::*;
-use std::collections::HashSet;
 
 // ============================================================================
 // Evidence Pack Building Tests
@@ -166,10 +166,7 @@ mod claim_generation {
 
         // Verify all statements have at least one citation
         let valid = generator.validate_citations(&interpretation);
-        assert!(
-            valid,
-            "All claims should have corresponding citations"
-        );
+        assert!(valid, "All claims should have corresponding citations");
     }
 
     #[test]
@@ -179,8 +176,11 @@ mod claim_generation {
 
         let interpretation = generator.generate(&evidence_pack).unwrap();
 
-        let evidence_types: HashSet<_> =
-            interpretation.citations.iter().map(|c| &c.evidence_type).collect();
+        let evidence_types: HashSet<_> = interpretation
+            .citations
+            .iter()
+            .map(|c| &c.evidence_type)
+            .collect();
 
         // Should have neighbor citations at minimum
         assert!(
@@ -541,10 +541,7 @@ mod hypothesis_generation {
         let hypothesis = Hypothesis {
             statement: "Similar calls may indicate territorial behavior".to_string(),
             testability: Testability::Medium,
-            supporting_evidence: vec![
-                "neighbor_1".to_string(),
-                "cluster_1".to_string(),
-            ],
+            supporting_evidence: vec!["neighbor_1".to_string(), "cluster_1".to_string()],
         };
 
         assert!(!hypothesis.statement.is_empty());

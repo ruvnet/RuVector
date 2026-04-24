@@ -174,8 +174,8 @@ impl PeerNetwork {
         self.stats.edge_count = self.edges.len();
 
         if !self.edges.is_empty() {
-            self.stats.avg_similarity = self.edges.iter().map(|e| e.similarity).sum::<f64>()
-                / self.edges.len() as f64;
+            self.stats.avg_similarity =
+                self.edges.iter().map(|e| e.similarity).sum::<f64>() / self.edges.len() as f64;
         }
 
         let max_edges = if self.nodes.len() > 1 {
@@ -237,10 +237,7 @@ impl PeerNetworkBuilder {
             companies: Vec::new(),
             min_similarity: 0.3,
             max_peers: 20,
-            relationship_types: vec![
-                PeerRelationType::SameSector,
-                PeerRelationType::SimilarSize,
-            ],
+            relationship_types: vec![PeerRelationType::SameSector, PeerRelationType::SimilarSize],
         }
     }
 
@@ -280,7 +277,8 @@ impl PeerNetworkBuilder {
 
         // Add nodes
         for company in &self.companies {
-            let sector = company.sic_code
+            let sector = company
+                .sic_code
                 .as_ref()
                 .map(|s| Sector::from_sic(s))
                 .unwrap_or(Sector::Other);
@@ -323,15 +321,16 @@ impl PeerNetworkBuilder {
 
         // Update node statistics
         for (cik, node) in network.nodes.iter_mut() {
-            let edges = network.edges
+            let edges = network
+                .edges
                 .iter()
                 .filter(|e| e.source == *cik || e.target == *cik)
                 .collect::<Vec<_>>();
 
             node.peer_count = edges.len();
             if !edges.is_empty() {
-                node.avg_peer_similarity = edges.iter().map(|e| e.similarity).sum::<f64>()
-                    / edges.len() as f64;
+                node.avg_peer_similarity =
+                    edges.iter().map(|e| e.similarity).sum::<f64>() / edges.len() as f64;
             }
         }
 
@@ -345,7 +344,10 @@ impl PeerNetworkBuilder {
         let mut rel_type = PeerRelationType::SameSector;
 
         // Sector similarity
-        if self.relationship_types.contains(&PeerRelationType::SameSector) {
+        if self
+            .relationship_types
+            .contains(&PeerRelationType::SameSector)
+        {
             let sector_a = a.sic_code.as_ref().map(|s| Sector::from_sic(s));
             let sector_b = b.sic_code.as_ref().map(|s| Sector::from_sic(s));
 
@@ -356,8 +358,10 @@ impl PeerNetworkBuilder {
                 // Same SIC division (first digit)
                 let sic_a = a.sic_code.as_ref().unwrap();
                 let sic_b = b.sic_code.as_ref().unwrap();
-                if !sic_a.is_empty() && !sic_b.is_empty() &&
-                   sic_a.chars().next() == sic_b.chars().next() {
+                if !sic_a.is_empty()
+                    && !sic_b.is_empty()
+                    && sic_a.chars().next() == sic_b.chars().next()
+                {
                     total_similarity += 0.3;
                     relationship_count += 1;
                 }
@@ -421,9 +425,7 @@ mod tests {
 
     #[test]
     fn test_builder() {
-        let builder = PeerNetworkBuilder::new()
-            .min_similarity(0.5)
-            .max_peers(10);
+        let builder = PeerNetworkBuilder::new().min_similarity(0.5).max_peers(10);
 
         let network = builder.build();
         assert!(network.nodes.is_empty());

@@ -1,0 +1,127 @@
+name: Mirror ruvector-rulake → ruvnet/RuLake
+
+# Keeps the public ruvnet/RuLake repo in sync with the canonical
+# source at crates/ruvector-rulake/ inside this monorepo. Triggered
+# on push to main whenever either the crate or its ADRs change.
+#
+# ruvnet/RuLake is a **mirror** — do not commit to it directly.
+# Changes land there automatically from this workflow with an
+# attribution commit message.
+#
+# One-time setup (operator):
+#   1. Generate a fine-grained PAT at
+#        github.com/settings/personal-access-tokens/new
+#      with write access to contents of ruvnet/RuLake only.
+#   2. Add it as a repository secret on this repo named
+#        RULAKE_MIRROR_PAT.
+#   3. Confirm ruvnet/RuLake exists and the PAT can push to it.
+#
+# The built-in GITHUB_TOKEN cannot push to another repo, hence the PAT.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/ruvector-rulake/**'
+      - 'docs/adr/ADR-155-*'
+      - 'docs/adr/ADR-156-*'
+      - 'docs/adr/ADR-157-*'
+      - 'docs/adr/ADR-158-*'
+      - '.github/workflows/mirror-rulake.yml'
+  workflow_dispatch: {}
+
+concurrency:
+  group: mirror-rulake
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    name: Sync crate + ADRs to ruvnet/RuLake
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout monorepo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Checkout RuLake mirror
+        uses: actions/checkout@v4
+        with:
+          repository: ruvnet/RuLake
+          token: ${{ secrets.RULAKE_MIRROR_PAT }}
+          path: rulake-mirror
+          fetch-depth: 1
+
+      - name: Sync files
+        run: |
+          set -euo pipefail
+
+          # /crate/ — the full Rust source tree of the crate.
+          # --delete keeps the mirror an exact reflection; we never
+          # carry orphaned files from deleted monorepo paths.
+          mkdir -p rulake-mirror/crate
+          rsync -av --delete \
+            --exclude='target/' \
+            --exclude='.idea/' \
+            --exclude='*.rs.bk' \
+            crates/ruvector-rulake/ rulake-mirror/crate/
+
+          # /docs/adr/ — the four ADRs scoped to ruLake. Only ruLake's
+          # ADRs are copied; the full docs/adr/ tree is not exposed.
+          mkdir -p rulake-mirror/docs/adr
+          cp docs/adr/ADR-155-rulake-datalake-layer.md        rulake-mirror/docs/adr/
+          cp docs/adr/ADR-156-rulake-as-memory-substrate.md   rulake-mirror/docs/adr/
+          cp docs/adr/ADR-157-optional-accelerator-plane.md   rulake-mirror/docs/adr/
+          cp docs/adr/ADR-158-optional-rotation-and-qvcache-positioning.md rulake-mirror/docs/adr/
+
+          # A tombstone marker so humans who stumble into the repo
+          # understand it's auto-generated.
+          cat > rulake-mirror/MIRROR.md <<'EOF'
+          # This is a mirror
+
+          The canonical source lives at
+          [ruvnet/ruvector](https://github.com/ruvnet/ruvector) under
+          [`crates/ruvector-rulake/`](https://github.com/ruvnet/ruvector/tree/main/crates/ruvector-rulake).
+
+          Contents of this repo:
+          - `README.md` — hand-maintained landing page
+          - `crate/` — **auto-synced** from `crates/ruvector-rulake/`
+          - `docs/adr/` — **auto-synced** (ADR-155 through ADR-158)
+
+          Do not open PRs against `crate/` or `docs/adr/` here — they
+          will be overwritten on the next sync. Send changes to
+          ruvnet/ruvector instead.
+
+          The sync is driven by
+          [.github/workflows/mirror-rulake.yml](https://github.com/ruvnet/ruvector/blob/main/.github/workflows/mirror-rulake.yml)
+          and runs on every push to `main` that touches the crate or
+          its ADRs.
+          EOF
+
+      - name: Commit & push to RuLake
+        working-directory: rulake-mirror
+        env:
+          UPSTREAM_SHA: ${{ github.sha }}
+          UPSTREAM_REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          git config user.name "ruvnet-mirror-bot"
+          git config user.email "ruvnet-mirror-bot@users.noreply.github.com"
+
+          if [[ -z "$(git status --porcelain)" ]]; then
+            echo "no-op: mirror already up to date"
+            exit 0
+          fi
+
+          # Short subject line, full provenance in the body.
+          git add -A
+          git commit -m "mirror: ruvnet/ruvector@${UPSTREAM_SHA:0:12}
+
+          Auto-synced from ruvnet/ruvector on ${UPSTREAM_REF}.
+
+          Source commit: https://github.com/ruvnet/ruvector/commit/${UPSTREAM_SHA}
+
+          Do not commit to this repo directly; changes flow from
+          ruvnet/ruvector via .github/workflows/mirror-rulake.yml."
+
+          git push

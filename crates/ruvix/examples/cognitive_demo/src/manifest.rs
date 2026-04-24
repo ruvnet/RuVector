@@ -63,7 +63,11 @@ impl ManifestVersion {
 
     /// Creates a new version.
     pub const fn new(major: u16, minor: u16, patch: u16) -> Self {
-        Self { major, minor, patch }
+        Self {
+            major,
+            minor,
+            patch,
+        }
     }
 }
 
@@ -248,7 +252,9 @@ impl DemoRegionType {
     pub fn to_policy(&self) -> RegionPolicy {
         match self {
             Self::Immutable { .. } => RegionPolicy::Immutable,
-            Self::AppendOnly { max_size } => RegionPolicy::AppendOnly { max_size: *max_size },
+            Self::AppendOnly { max_size } => RegionPolicy::AppendOnly {
+                max_size: *max_size,
+            },
             Self::Slab { slot_size, slots } => RegionPolicy::Slab {
                 slot_size: *slot_size,
                 slot_count: *slots,
@@ -488,9 +494,11 @@ impl DemoManifest {
                 name: String::from("Attestor"),
                 component_type: ComponentType::Attestor,
                 entry_point: String::from("run_attestor"),
-                syscalls: vec![
-                    SyscallUsage::new(7, "attest_emit", config::FULL_PIPELINE_EVENTS as u32),
-                ],
+                syscalls: vec![SyscallUsage::new(
+                    7,
+                    "attest_emit",
+                    config::FULL_PIPELINE_EVENTS as u32,
+                )],
                 dependencies: vec![0, 1, 2],
                 required_caps: vec![CapabilityRequirement {
                     cap_type: CapType::Region,
@@ -511,13 +519,11 @@ impl DemoManifest {
                     SyscallUsage::new(5, "timer_wait", config::TIMER_WAITS as u32),
                 ],
                 dependencies: vec![],
-                required_caps: vec![
-                    CapabilityRequirement {
-                        cap_type: CapType::Timer,
-                        rights: 0x01, // READ
-                        target: 0,
-                    },
-                ],
+                required_caps: vec![CapabilityRequirement {
+                    cap_type: CapType::Timer,
+                    rights: 0x01, // READ
+                    target: 0,
+                }],
                 wit_type: WitTypeId::new(5),
             },
         ]
@@ -622,7 +628,10 @@ impl DemoManifest {
     /// Returns the total memory required by all regions.
     #[must_use]
     pub fn total_memory_bytes(&self) -> usize {
-        self.regions.iter().map(|r| r.region_type.size_bytes()).sum()
+        self.regions
+            .iter()
+            .map(|r| r.region_type.size_bytes())
+            .sum()
     }
 
     /// Returns the expected syscall counts for the full pipeline.

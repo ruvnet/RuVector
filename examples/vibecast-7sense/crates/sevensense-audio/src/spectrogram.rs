@@ -108,7 +108,9 @@ impl MelSpectrogram {
     #[instrument(skip(samples), fields(samples_len = samples.len()))]
     pub fn compute(samples: &[f32], config: SpectrogramConfig) -> Result<Self, AudioError> {
         if samples.is_empty() {
-            return Err(AudioError::invalid_data("Cannot compute spectrogram of empty audio"));
+            return Err(AudioError::invalid_data(
+                "Cannot compute spectrogram of empty audio",
+            ));
         }
 
         let duration_ms = (samples.len() as u64 * 1000) / u64::from(config.sample_rate);
@@ -131,11 +133,7 @@ impl MelSpectrogram {
 
         for (frame_idx, frame) in stft.axis_iter(Axis(1)).enumerate() {
             for (mel_idx, filter) in mel_filterbank.axis_iter(Axis(0)).enumerate() {
-                let energy: f32 = frame
-                    .iter()
-                    .zip(filter.iter())
-                    .map(|(s, f)| s * f)
-                    .sum();
+                let energy: f32 = frame.iter().zip(filter.iter()).map(|(s, f)| s * f).sum();
                 mel_spec[[mel_idx, frame_idx]] = energy.max(config.min_value);
             }
         }
@@ -205,11 +203,7 @@ impl MelSpectrogram {
     }
 
     /// Computes Short-Time Fourier Transform.
-    fn stft(
-        samples: &[f32],
-        n_fft: usize,
-        hop_length: usize,
-    ) -> Result<Array2<f32>, AudioError> {
+    fn stft(samples: &[f32], n_fft: usize, hop_length: usize) -> Result<Array2<f32>, AudioError> {
         let n_frames = (samples.len().saturating_sub(n_fft)) / hop_length + 1;
         if n_frames == 0 {
             return Err(AudioError::invalid_data(

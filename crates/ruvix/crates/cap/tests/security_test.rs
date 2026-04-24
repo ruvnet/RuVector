@@ -17,8 +17,7 @@ fn create_valid_signature() -> BootSignature {
     signature[0] = 0x42; // Non-zero to pass basic check
 
     BootSignature::ed25519(
-        signature,
-        [1u8; 32], // public key
+        signature, [1u8; 32], // public key
         [2u8; 32], // message hash
     )
 }
@@ -42,8 +41,8 @@ fn test_sec001_valid_signature_does_not_panic() {
 #[should_panic(expected = "SECURITY VIOLATION [SEC-001]")]
 fn test_sec001_invalid_signature_panics() {
     let signature = BootSignature::ed25519(
-        [0u8; 64],  // All zeros = invalid
-        [1u8; 32],  // trusted key
+        [0u8; 64], // All zeros = invalid
+        [1u8; 32], // trusted key
         [2u8; 32],
     );
     let store = create_trusted_store();
@@ -56,8 +55,8 @@ fn test_sec001_invalid_signature_panics() {
 #[should_panic(expected = "SECURITY VIOLATION [SEC-001]")]
 fn test_sec001_untrusted_key_panics() {
     let signature = BootSignature::ed25519(
-        [1u8; 64],   // non-zero signature
-        [99u8; 32],  // UNTRUSTED key
+        [1u8; 64],  // non-zero signature
+        [99u8; 32], // UNTRUSTED key
         [2u8; 32],
     );
     let store = create_trusted_store();

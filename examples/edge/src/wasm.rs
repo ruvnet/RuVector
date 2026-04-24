@@ -26,13 +26,12 @@
 
 #![cfg(feature = "wasm")]
 
-use wasm_bindgen::prelude::*;
 use serde::{Deserialize, Serialize};
+use wasm_bindgen::prelude::*;
 
 use crate::p2p::{
-    IdentityManager, CryptoV2, HnswIndex, SemanticTaskMatcher,
-    RaftNode, RaftState, HybridKeyPair, SpikingNetwork,
-    BinaryQuantized, ScalarQuantized, AdaptiveCompressor, NetworkCondition,
+    AdaptiveCompressor, BinaryQuantized, CryptoV2, HnswIndex, HybridKeyPair, IdentityManager,
+    NetworkCondition, RaftNode, RaftState, ScalarQuantized, SemanticTaskMatcher, SpikingNetwork,
 };
 
 // ============================================================================
@@ -109,13 +108,16 @@ impl WasmIdentity {
 
     /// Create a signed registration for this identity
     #[wasm_bindgen(js_name = createRegistration)]
-    pub fn create_registration(&self, agent_id: &str, capabilities: JsValue) -> Result<JsValue, JsValue> {
+    pub fn create_registration(
+        &self,
+        agent_id: &str,
+        capabilities: JsValue,
+    ) -> Result<JsValue, JsValue> {
         let caps: Vec<String> = serde_wasm_bindgen::from_value(capabilities)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         let registration = self.inner.create_registration(agent_id, caps);
-        serde_wasm_bindgen::to_value(&registration)
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+        serde_wasm_bindgen::to_value(&registration).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 }
 
@@ -166,11 +168,9 @@ impl WasmCrypto {
         let mut key = [0u8; 32];
         key.copy_from_slice(&key_bytes);
 
-        let encrypted = CryptoV2::encrypt(data, &key)
-            .map_err(|e| JsValue::from_str(&e))?;
+        let encrypted = CryptoV2::encrypt(data, &key).map_err(|e| JsValue::from_str(&e))?;
 
-        serde_wasm_bindgen::to_value(&encrypted)
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+        serde_wasm_bindgen::to_value(&encrypted).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     /// Decrypt data with AES-256-GCM
@@ -190,8 +190,7 @@ impl WasmCrypto {
             serde_wasm_bindgen::from_value(encrypted)
                 .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-        CryptoV2::decrypt(&encrypted_payload, &key)
-            .map_err(|e| JsValue::from_str(&e))
+        CryptoV2::decrypt(&encrypted_payload, &key).map_err(|e| JsValue::from_str(&e))
     }
 }
 
@@ -380,8 +379,7 @@ impl WasmRaftNode {
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         let response = self.inner.handle_vote_request(&req);
-        serde_wasm_bindgen::to_value(&response)
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+        serde_wasm_bindgen::to_value(&response).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     /// Handle a vote response (returns true if we became leader)
@@ -453,11 +451,15 @@ impl WasmHybridKeyPair {
     /// Verify hybrid signature (pubkey and signature both as JSON)
     #[wasm_bindgen]
     pub fn verify(public_key_json: &str, message: &[u8], signature_json: &str) -> bool {
-        let Ok(pubkey): Result<crate::p2p::HybridPublicKey, _> = serde_json::from_str(public_key_json) else {
+        let Ok(pubkey): Result<crate::p2p::HybridPublicKey, _> =
+            serde_json::from_str(public_key_json)
+        else {
             return false;
         };
 
-        let Ok(signature): Result<crate::p2p::HybridSignature, _> = serde_json::from_str(signature_json) else {
+        let Ok(signature): Result<crate::p2p::HybridSignature, _> =
+            serde_json::from_str(signature_json)
+        else {
             return false;
         };
 
@@ -496,7 +498,10 @@ impl WasmSpikingNetwork {
     pub fn forward(&mut self, inputs: Vec<u8>) -> Vec<u8> {
         let input_bools: Vec<bool> = inputs.iter().map(|&x| x != 0).collect();
         let output_bools = self.inner.forward(&input_bools);
-        output_bools.iter().map(|&b| if b { 1 } else { 0 }).collect()
+        output_bools
+            .iter()
+            .map(|&b| if b { 1 } else { 0 })
+            .collect()
     }
 
     /// Apply STDP learning rule
@@ -504,7 +509,8 @@ impl WasmSpikingNetwork {
     pub fn stdp_update(&mut self, pre: Vec<u8>, post: Vec<u8>, learning_rate: f32) {
         let pre_bools: Vec<bool> = pre.iter().map(|&x| x != 0).collect();
         let post_bools: Vec<bool> = post.iter().map(|&x| x != 0).collect();
-        self.inner.stdp_update(&pre_bools, &post_bools, learning_rate);
+        self.inner
+            .stdp_update(&pre_bools, &post_bools, learning_rate);
     }
 
     /// Reset network state
@@ -539,7 +545,8 @@ impl WasmQuantizer {
             data: quantized.data.clone(),
             min: quantized.min,
             scale: quantized.scale,
-        }).unwrap_or(JsValue::NULL)
+        })
+        .unwrap_or(JsValue::NULL)
     }
 
     /// Reconstruct from scalar quantized

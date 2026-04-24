@@ -40,9 +40,7 @@ impl QuantumCollapseEngine {
 
 impl Default for QuantumCollapseEngine {
     fn default() -> Self {
-        Self {
-            register_size: 256,
-        }
+        Self { register_size: 256 }
     }
 }
 

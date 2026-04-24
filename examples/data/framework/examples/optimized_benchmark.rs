@@ -5,17 +5,17 @@
 //!
 //! Run: cargo run --example optimized_benchmark -p ruvector-data-framework --features parallel
 
+use chrono::{Duration as ChronoDuration, Utc};
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use chrono::{Utc, Duration as ChronoDuration};
-use rand::{Rng, SeedableRng};
-use rand::rngs::StdRng;
 
-use ruvector_data_framework::ruvector_native::{
-    NativeDiscoveryEngine, NativeEngineConfig, Domain, SemanticVector,
-};
 use ruvector_data_framework::optimized::{
-    OptimizedDiscoveryEngine, OptimizedConfig, simd_cosine_similarity,
+    simd_cosine_similarity, OptimizedConfig, OptimizedDiscoveryEngine,
+};
+use ruvector_data_framework::ruvector_native::{
+    Domain, NativeDiscoveryEngine, NativeEngineConfig, SemanticVector,
 };
 
 fn main() {
@@ -51,10 +51,18 @@ fn generate_multi_domain_data() -> Vec<SemanticVector> {
 
     // Climate data - temperature, precipitation, pressure patterns
     let climate_topics = [
-        "temperature_anomaly", "precipitation_index", "drought_severity",
-        "ocean_heat_content", "arctic_sea_ice", "atmospheric_co2",
-        "el_nino_index", "atlantic_oscillation", "monsoon_intensity",
-        "wildfire_risk", "flood_probability", "hurricane_potential",
+        "temperature_anomaly",
+        "precipitation_index",
+        "drought_severity",
+        "ocean_heat_content",
+        "arctic_sea_ice",
+        "atmospheric_co2",
+        "el_nino_index",
+        "atlantic_oscillation",
+        "monsoon_intensity",
+        "wildfire_risk",
+        "flood_probability",
+        "hurricane_potential",
     ];
 
     for (i, topic) in climate_topics.iter().enumerate() {
@@ -77,9 +85,14 @@ fn generate_multi_domain_data() -> Vec<SemanticVector> {
 
     // Financial data - sector performance, market indicators
     let finance_sectors = [
-        "energy_sector", "utilities_sector", "agriculture_commodities",
-        "insurance_sector", "real_estate", "transportation",
-        "consumer_staples", "materials_sector",
+        "energy_sector",
+        "utilities_sector",
+        "agriculture_commodities",
+        "insurance_sector",
+        "real_estate",
+        "transportation",
+        "consumer_staples",
+        "materials_sector",
     ];
 
     for (i, sector) in finance_sectors.iter().enumerate() {
@@ -102,9 +115,14 @@ fn generate_multi_domain_data() -> Vec<SemanticVector> {
 
     // Research data - papers on climate-finance connections
     let research_topics = [
-        "climate_risk_pricing", "stranded_assets", "carbon_markets",
-        "physical_risk_modeling", "transition_risk", "climate_disclosure",
-        "green_bonds", "sustainable_finance",
+        "climate_risk_pricing",
+        "stranded_assets",
+        "carbon_markets",
+        "physical_risk_modeling",
+        "transition_risk",
+        "climate_disclosure",
+        "green_bonds",
+        "sustainable_finance",
     ];
 
     for (i, topic) in research_topics.iter().enumerate() {
@@ -355,7 +373,10 @@ fn benchmark_optimized(data: &[SemanticVector]) -> BenchmarkResults {
     let pattern_start = Instant::now();
     let patterns = engine.detect_patterns_with_significance();
     let pattern_detection_time = pattern_start.elapsed();
-    println!("   Pattern detection (w/ stats): {:?}", pattern_detection_time);
+    println!(
+        "   Pattern detection (w/ stats): {:?}",
+        pattern_detection_time
+    );
 
     let total_time = total_start.elapsed();
     let stats = engine.stats();
@@ -365,7 +386,10 @@ fn benchmark_optimized(data: &[SemanticVector]) -> BenchmarkResults {
     println!("   - Edges: {}", stats.total_edges);
     println!("   - Cross-domain edges: {}", stats.cross_domain_edges);
     println!("   - Patterns found: {}", patterns.len());
-    println!("   - Significant patterns: {}", patterns.iter().filter(|p| p.is_significant).count());
+    println!(
+        "   - Significant patterns: {}",
+        patterns.iter().filter(|p| p.is_significant).count()
+    );
     println!("   - Vector comparisons: {}", stats.total_comparisons);
 
     // Show significant patterns
@@ -373,10 +397,9 @@ fn benchmark_optimized(data: &[SemanticVector]) -> BenchmarkResults {
     if !significant.is_empty() {
         println!("\n   📊 Significant Patterns (p < 0.05):");
         for pattern in significant.iter().take(5) {
-            println!("      • {} (p={:.4}, effect={:.3})",
-                pattern.pattern.description,
-                pattern.p_value,
-                pattern.effect_size
+            println!(
+                "      • {} (p={:.4}, effect={:.3})",
+                pattern.pattern.description, pattern.p_value, pattern.effect_size
             );
         }
     }
@@ -407,26 +430,33 @@ fn print_comparison(baseline: &BenchmarkResults, optimized: &BenchmarkResults) {
     println!("   │ Operation           │ Baseline    │ Optimized   │ Speedup  │");
     println!("   ├─────────────────────┼─────────────┼─────────────┼──────────┤");
 
-    println!("   │ Vector Insertion    │ {:>9.2}ms │ {:>9.2}ms │ {:>6.2}x  │",
+    println!(
+        "   │ Vector Insertion    │ {:>9.2}ms │ {:>9.2}ms │ {:>6.2}x  │",
         baseline.vector_add_time.as_secs_f64() * 1000.0,
         optimized.vector_add_time.as_secs_f64() * 1000.0,
         speedup(baseline.vector_add_time, optimized.vector_add_time)
     );
 
-    println!("   │ Coherence Compute   │ {:>9.2}ms │ {:>9.2}ms │ {:>6.2}x  │",
+    println!(
+        "   │ Coherence Compute   │ {:>9.2}ms │ {:>9.2}ms │ {:>6.2}x  │",
         baseline.coherence_time.as_secs_f64() * 1000.0,
         optimized.coherence_time.as_secs_f64() * 1000.0,
         speedup(baseline.coherence_time, optimized.coherence_time)
     );
 
-    println!("   │ Pattern Detection   │ {:>9.2}ms │ {:>9.2}ms │ {:>6.2}x  │",
+    println!(
+        "   │ Pattern Detection   │ {:>9.2}ms │ {:>9.2}ms │ {:>6.2}x  │",
         baseline.pattern_detection_time.as_secs_f64() * 1000.0,
         optimized.pattern_detection_time.as_secs_f64() * 1000.0,
-        speedup(baseline.pattern_detection_time, optimized.pattern_detection_time)
+        speedup(
+            baseline.pattern_detection_time,
+            optimized.pattern_detection_time
+        )
     );
 
     println!("   ├─────────────────────┼─────────────┼─────────────┼──────────┤");
-    println!("   │ TOTAL               │ {:>9.2}ms │ {:>9.2}ms │ {:>6.2}x  │",
+    println!(
+        "   │ TOTAL               │ {:>9.2}ms │ {:>9.2}ms │ {:>6.2}x  │",
         baseline.total_time.as_secs_f64() * 1000.0,
         optimized.total_time.as_secs_f64() * 1000.0,
         speedup(baseline.total_time, optimized.total_time)
@@ -434,12 +464,18 @@ fn print_comparison(baseline: &BenchmarkResults, optimized: &BenchmarkResults) {
     println!("   └─────────────────────┴─────────────┴─────────────┴──────────┘");
 
     println!("\n   Quality Metrics:");
-    println!("   - Edges created: {} → {} (same algorithm)",
-        baseline.edges_created, optimized.edges_created);
-    println!("   - Cross-domain: {} → {}",
-        baseline.cross_domain_edges, optimized.cross_domain_edges);
-    println!("   - Patterns: {} → {} (+ statistical filtering)",
-        baseline.patterns_found, optimized.patterns_found);
+    println!(
+        "   - Edges created: {} → {} (same algorithm)",
+        baseline.edges_created, optimized.edges_created
+    );
+    println!(
+        "   - Cross-domain: {} → {}",
+        baseline.cross_domain_edges, optimized.cross_domain_edges
+    );
+    println!(
+        "   - Patterns: {} → {} (+ statistical filtering)",
+        baseline.patterns_found, optimized.patterns_found
+    );
 }
 
 /// SIMD microbenchmark
@@ -483,16 +519,24 @@ fn simd_microbenchmark() {
     }
     let std_time = start.elapsed();
 
-    println!("   {} cosine similarity operations on {}-dim vectors:\n", iterations, dim);
-    println!("   SIMD version:     {:>8.2}ms ({:.2} M ops/sec)",
+    println!(
+        "   {} cosine similarity operations on {}-dim vectors:\n",
+        iterations, dim
+    );
+    println!(
+        "   SIMD version:     {:>8.2}ms ({:.2} M ops/sec)",
         simd_time.as_secs_f64() * 1000.0,
         iterations as f64 / simd_time.as_secs_f64() / 1_000_000.0
     );
-    println!("   Standard version: {:>8.2}ms ({:.2} M ops/sec)",
+    println!(
+        "   Standard version: {:>8.2}ms ({:.2} M ops/sec)",
         std_time.as_secs_f64() * 1000.0,
         iterations as f64 / std_time.as_secs_f64() / 1_000_000.0
     );
-    println!("   Speedup: {:.2}x", std_time.as_secs_f64() / simd_time.as_secs_f64());
+    println!(
+        "   Speedup: {:.2}x",
+        std_time.as_secs_f64() / simd_time.as_secs_f64()
+    );
     println!("   (checksum: {:.4}, {:.4})", sum, sum2);
 }
 
@@ -538,8 +582,12 @@ fn discovery_quality_benchmark(data: &[SemanticVector]) {
         let patterns = engine.detect_patterns_with_significance();
         all_patterns.extend(patterns);
 
-        println!("   Batch {} ({} vectors): {} patterns detected",
-            batch_idx + 1, batch.len(), all_patterns.len());
+        println!(
+            "   Batch {} ({} vectors): {} patterns detected",
+            batch_idx + 1,
+            batch.len(),
+            all_patterns.len()
+        );
     }
 
     // Analyze cross-domain discoveries
@@ -547,10 +595,20 @@ fn discovery_quality_benchmark(data: &[SemanticVector]) {
 
     println!("\n   Cross-Domain Analysis:");
     println!("   ─────────────────────────");
-    println!("   Climate nodes:  {}", stats.domain_counts.get(&Domain::Climate).unwrap_or(&0));
-    println!("   Finance nodes:  {}", stats.domain_counts.get(&Domain::Finance).unwrap_or(&0));
-    println!("   Research nodes: {}", stats.domain_counts.get(&Domain::Research).unwrap_or(&0));
-    println!("   Cross-domain edges: {} ({:.1}% of total)",
+    println!(
+        "   Climate nodes:  {}",
+        stats.domain_counts.get(&Domain::Climate).unwrap_or(&0)
+    );
+    println!(
+        "   Finance nodes:  {}",
+        stats.domain_counts.get(&Domain::Finance).unwrap_or(&0)
+    );
+    println!(
+        "   Research nodes: {}",
+        stats.domain_counts.get(&Domain::Research).unwrap_or(&0)
+    );
+    println!(
+        "   Cross-domain edges: {} ({:.1}% of total)",
         stats.cross_domain_edges,
         100.0 * stats.cross_domain_edges as f64 / stats.total_edges.max(1) as f64
     );
@@ -568,7 +626,8 @@ fn discovery_quality_benchmark(data: &[SemanticVector]) {
     }
 
     // Show discovered cross-domain bridges
-    let bridges: Vec<_> = all_patterns.iter()
+    let bridges: Vec<_> = all_patterns
+        .iter()
         .filter(|p| !p.pattern.cross_domain_links.is_empty())
         .collect();
 
@@ -576,25 +635,32 @@ fn discovery_quality_benchmark(data: &[SemanticVector]) {
         println!("\n   🌉 Cross-Domain Bridges Found: {}", bridges.len());
         for bridge in bridges.iter().take(3) {
             for link in &bridge.pattern.cross_domain_links {
-                println!("      {:?} ↔ {:?} (strength: {:.3}, type: {})",
-                    link.source_domain,
-                    link.target_domain,
-                    link.link_strength,
-                    link.link_type
+                println!(
+                    "      {:?} ↔ {:?} (strength: {:.3}, type: {})",
+                    link.source_domain, link.target_domain, link.link_strength, link.link_type
                 );
             }
         }
     }
 
     // Causality patterns
-    let causality: Vec<_> = all_patterns.iter()
-        .filter(|p| matches!(p.pattern.pattern_type, ruvector_data_framework::ruvector_native::PatternType::Cascade))
+    let causality: Vec<_> = all_patterns
+        .iter()
+        .filter(|p| {
+            matches!(
+                p.pattern.pattern_type,
+                ruvector_data_framework::ruvector_native::PatternType::Cascade
+            )
+        })
         .collect();
 
     if !causality.is_empty() {
         println!("\n   🔗 Temporal Causality Patterns: {}", causality.len());
         for pattern in causality.iter().take(3) {
-            println!("      {} (p={:.4})", pattern.pattern.description, pattern.p_value);
+            println!(
+                "      {} (p={:.4})",
+                pattern.pattern.description, pattern.p_value
+            );
         }
     }
 }

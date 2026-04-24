@@ -56,8 +56,6 @@ pub mod targets {
 /// # Returns
 /// A vector of random f32 vectors, normalized to unit length
 pub fn generate_random_vectors(count: usize, dims: usize) -> Vec<Vec<f32>> {
-    
-
     let mut vectors = Vec::with_capacity(count);
 
     for i in 0..count {
@@ -153,10 +151,7 @@ pub fn l2_distance(a: &[f32], b: &[f32]) -> f32 {
 #[inline]
 pub fn l2_distance_squared(a: &[f32], b: &[f32]) -> f32 {
     debug_assert_eq!(a.len(), b.len());
-    a.iter()
-        .zip(b.iter())
-        .map(|(x, y)| (x - y) * (x - y))
-        .sum()
+    a.iter().zip(b.iter()).map(|(x, y)| (x - y) * (x - y)).sum()
 }
 
 /// Compute cosine similarity between two vectors
@@ -408,8 +403,8 @@ impl SimpleHnswIndex {
 
     /// Internal search implementation with simplified HNSW-like traversal
     fn search_internal(&self, query: &[f32], k: usize) -> Vec<(usize, f32)> {
-        use std::collections::{BinaryHeap, HashSet};
         use std::cmp::Reverse;
+        use std::collections::{BinaryHeap, HashSet};
 
         let ef = self.ef_search.max(k);
 
@@ -422,7 +417,10 @@ impl SimpleHnswIndex {
         let mut results: BinaryHeap<(ordered_float::OrderedFloat<f32>, usize)> = BinaryHeap::new();
 
         let entry_dist = l2_distance(query, &self.vectors[entry_point]);
-        candidates.push(Reverse((ordered_float::OrderedFloat(entry_dist), entry_point)));
+        candidates.push(Reverse((
+            ordered_float::OrderedFloat(entry_dist),
+            entry_point,
+        )));
         results.push((ordered_float::OrderedFloat(entry_dist), entry_point));
         visited.insert(entry_point);
 

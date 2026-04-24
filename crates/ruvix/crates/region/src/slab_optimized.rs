@@ -140,7 +140,15 @@ pub struct OptimizedSlabAllocator<B: MemoryBacking, const N: usize = 256> {
 
 impl<B: MemoryBacking, const N: usize> OptimizedSlabAllocator<B, N> {
     /// Number of bitmap chunks needed for the given slot count.
-    const BITMAP_CHUNKS: usize = if N <= 64 { 1 } else if N <= 128 { 2 } else if N <= 192 { 3 } else { 4 };
+    const BITMAP_CHUNKS: usize = if N <= 64 {
+        1
+    } else if N <= 128 {
+        2
+    } else if N <= 192 {
+        3
+    } else {
+        4
+    };
 
     /// Creates a new optimized slab allocator.
     ///
@@ -157,7 +165,10 @@ impl<B: MemoryBacking, const N: usize> OptimizedSlabAllocator<B, N> {
     ///
     /// Returns `OutOfMemory` if the backing cannot allocate sufficient memory.
     pub fn new(mut backing: B, slot_size: usize) -> Result<Self> {
-        assert!(N <= MAX_SLOTS, "OptimizedSlabAllocator supports max 256 slots");
+        assert!(
+            N <= MAX_SLOTS,
+            "OptimizedSlabAllocator supports max 256 slots"
+        );
 
         if slot_size == 0 {
             return Err(KernelError::InvalidArgument);
@@ -262,7 +273,8 @@ impl<B: MemoryBacking, const N: usize> OptimizedSlabAllocator<B, N> {
         let bit_pos = slot_idx % BITS_PER_CHUNK;
 
         // Increment generation to invalidate existing handles
-        self.generations[slot_idx].generation = self.generations[slot_idx].generation.wrapping_add(1);
+        self.generations[slot_idx].generation =
+            self.generations[slot_idx].generation.wrapping_add(1);
 
         // Set the bit (mark as free)
         self.free_bitmap[chunk_idx] |= 1u64 << bit_pos;

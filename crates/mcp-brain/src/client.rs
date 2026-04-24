@@ -24,8 +24,7 @@ impl BrainClient {
     pub fn new() -> Self {
         let base_url = std::env::var("BRAIN_URL")
             .unwrap_or_else(|_| "https://ruvbrain-875130704813.us-central1.run.app".to_string());
-        let api_key = std::env::var("BRAIN_API_KEY")
-            .unwrap_or_else(|_| "anonymous".to_string());
+        let api_key = std::env::var("BRAIN_API_KEY").unwrap_or_else(|_| "anonymous".to_string());
         Self {
             base_url,
             api_key,
@@ -34,8 +33,7 @@ impl BrainClient {
     }
 
     pub fn with_url(url: String) -> Self {
-        let api_key = std::env::var("BRAIN_API_KEY")
-            .unwrap_or_else(|_| "anonymous".to_string());
+        let api_key = std::env::var("BRAIN_API_KEY").unwrap_or_else(|_| "anonymous".to_string());
         Self {
             base_url: url,
             api_key,
@@ -75,10 +73,18 @@ impl BrainClient {
         min_quality: Option<f64>,
     ) -> Result<serde_json::Value, ClientError> {
         let mut params = vec![("q", query.to_string())];
-        if let Some(c) = category { params.push(("category", c.to_string())); }
-        if let Some(t) = tags { params.push(("tags", t.to_string())); }
-        if let Some(l) = limit { params.push(("limit", l.to_string())); }
-        if let Some(q) = min_quality { params.push(("min_quality", q.to_string())); }
+        if let Some(c) = category {
+            params.push(("category", c.to_string()));
+        }
+        if let Some(t) = tags {
+            params.push(("tags", t.to_string()));
+        }
+        if let Some(l) = limit {
+            params.push(("limit", l.to_string()));
+        }
+        if let Some(q) = min_quality {
+            params.push(("min_quality", q.to_string()));
+        }
 
         self.get_with_params("/v1/memories/search", &params).await
     }
@@ -95,7 +101,11 @@ impl BrainClient {
     }
 
     /// Transfer knowledge between domains
-    pub async fn transfer(&self, source: &str, target: &str) -> Result<serde_json::Value, ClientError> {
+    pub async fn transfer(
+        &self,
+        source: &str,
+        target: &str,
+    ) -> Result<serde_json::Value, ClientError> {
         let body = serde_json::json!({
             "source_domain": source,
             "target_domain": target,
@@ -104,33 +114,58 @@ impl BrainClient {
     }
 
     /// Get drift report
-    pub async fn drift(&self, domain: Option<&str>, since: Option<&str>) -> Result<serde_json::Value, ClientError> {
+    pub async fn drift(
+        &self,
+        domain: Option<&str>,
+        since: Option<&str>,
+    ) -> Result<serde_json::Value, ClientError> {
         let mut params = Vec::new();
-        if let Some(d) = domain { params.push(("domain", d.to_string())); }
-        if let Some(s) = since { params.push(("since", s.to_string())); }
+        if let Some(d) = domain {
+            params.push(("domain", d.to_string()));
+        }
+        if let Some(s) = since {
+            params.push(("since", s.to_string()));
+        }
         self.get_with_params("/v1/drift", &params).await
     }
 
     /// Get partition topology
-    pub async fn partition(&self, domain: Option<&str>, min_size: Option<usize>) -> Result<serde_json::Value, ClientError> {
+    pub async fn partition(
+        &self,
+        domain: Option<&str>,
+        min_size: Option<usize>,
+    ) -> Result<serde_json::Value, ClientError> {
         let mut params = Vec::new();
-        if let Some(d) = domain { params.push(("domain", d.to_string())); }
-        if let Some(s) = min_size { params.push(("min_cluster_size", s.to_string())); }
+        if let Some(d) = domain {
+            params.push(("domain", d.to_string()));
+        }
+        if let Some(s) = min_size {
+            params.push(("min_cluster_size", s.to_string()));
+        }
         self.get_with_params("/v1/partition", &params).await
     }
 
     /// List memories
-    pub async fn list(&self, category: Option<&str>, limit: Option<usize>) -> Result<serde_json::Value, ClientError> {
+    pub async fn list(
+        &self,
+        category: Option<&str>,
+        limit: Option<usize>,
+    ) -> Result<serde_json::Value, ClientError> {
         let mut params = Vec::new();
-        if let Some(c) = category { params.push(("category", c.to_string())); }
-        if let Some(l) = limit { params.push(("limit", l.to_string())); }
+        if let Some(c) = category {
+            params.push(("category", c.to_string()));
+        }
+        if let Some(l) = limit {
+            params.push(("limit", l.to_string()));
+        }
         self.get_with_params("/v1/memories/list", &params).await
     }
 
     /// Delete a memory
     pub async fn delete(&self, id: &str) -> Result<(), ClientError> {
         let url = format!("{}/v1/memories/{id}", self.base_url);
-        let resp = self.http
+        let resp = self
+            .http
             .delete(&url)
             .bearer_auth(&self.api_key)
             .send()
@@ -142,7 +177,10 @@ impl BrainClient {
         } else {
             let status = resp.status().as_u16();
             let msg = resp.text().await.unwrap_or_default();
-            Err(ClientError::Server { status, message: msg })
+            Err(ClientError::Server {
+                status,
+                message: msg,
+            })
         }
     }
 
@@ -160,9 +198,9 @@ impl BrainClient {
                 if val.get("weights").map_or(true, |w| w.is_null()) {
                     return Ok(None);
                 }
-                let weights: LoraWeights = serde_json::from_value(
-                    val.get("weights").cloned().unwrap_or_default()
-                ).map_err(|e| ClientError::Serialization(e.to_string()))?;
+                let weights: LoraWeights =
+                    serde_json::from_value(val.get("weights").cloned().unwrap_or_default())
+                        .map_err(|e| ClientError::Serialization(e.to_string()))?;
                 Ok(Some(weights))
             }
             Err(ClientError::Server { status: 404, .. }) => Ok(None),
@@ -171,16 +209,22 @@ impl BrainClient {
     }
 
     /// Submit local LoRA weights for federated aggregation
-    pub async fn lora_submit(&self, weights: &LoraWeights) -> Result<serde_json::Value, ClientError> {
-        let body = serde_json::to_value(weights)
-            .map_err(|e| ClientError::Serialization(e.to_string()))?;
+    pub async fn lora_submit(
+        &self,
+        weights: &LoraWeights,
+    ) -> Result<serde_json::Value, ClientError> {
+        let body =
+            serde_json::to_value(weights).map_err(|e| ClientError::Serialization(e.to_string()))?;
         self.post("/v1/lora/submit", &body).await
     }
 
     // ---- Brainpedia (ADR-062) ----
 
     /// Create a Brainpedia page
-    pub async fn create_page(&self, body: &serde_json::Value) -> Result<serde_json::Value, ClientError> {
+    pub async fn create_page(
+        &self,
+        body: &serde_json::Value,
+    ) -> Result<serde_json::Value, ClientError> {
         self.post("/v1/pages", body).await
     }
 
@@ -190,8 +234,13 @@ impl BrainClient {
     }
 
     /// Submit a delta to a page
-    pub async fn submit_delta(&self, page_id: &str, body: &serde_json::Value) -> Result<serde_json::Value, ClientError> {
-        self.post(&format!("/v1/pages/{page_id}/deltas"), body).await
+    pub async fn submit_delta(
+        &self,
+        page_id: &str,
+        body: &serde_json::Value,
+    ) -> Result<serde_json::Value, ClientError> {
+        self.post(&format!("/v1/pages/{page_id}/deltas"), body)
+            .await
     }
 
     /// List deltas for a page
@@ -200,13 +249,22 @@ impl BrainClient {
     }
 
     /// Add evidence to a page
-    pub async fn add_evidence(&self, page_id: &str, body: &serde_json::Value) -> Result<serde_json::Value, ClientError> {
-        self.post(&format!("/v1/pages/{page_id}/evidence"), body).await
+    pub async fn add_evidence(
+        &self,
+        page_id: &str,
+        body: &serde_json::Value,
+    ) -> Result<serde_json::Value, ClientError> {
+        self.post(&format!("/v1/pages/{page_id}/evidence"), body)
+            .await
     }
 
     /// Promote a page from Draft to Canonical
     pub async fn promote_page(&self, page_id: &str) -> Result<serde_json::Value, ClientError> {
-        self.post(&format!("/v1/pages/{page_id}/promote"), &serde_json::json!({})).await
+        self.post(
+            &format!("/v1/pages/{page_id}/promote"),
+            &serde_json::json!({}),
+        )
+        .await
     }
 
     // ---- WASM Executable Nodes (ADR-063) ----
@@ -217,7 +275,10 @@ impl BrainClient {
     }
 
     /// Publish a WASM node
-    pub async fn publish_node(&self, body: &serde_json::Value) -> Result<serde_json::Value, ClientError> {
+    pub async fn publish_node(
+        &self,
+        body: &serde_json::Value,
+    ) -> Result<serde_json::Value, ClientError> {
         self.post("/v1/nodes", body).await
     }
 
@@ -229,7 +290,8 @@ impl BrainClient {
     /// Download WASM binary
     pub async fn get_node_wasm(&self, id: &str) -> Result<Vec<u8>, ClientError> {
         let url = format!("{}/v1/nodes/{id}.wasm", self.base_url);
-        let resp = self.http
+        let resp = self
+            .http
             .get(&url)
             .bearer_auth(&self.api_key)
             .send()
@@ -237,20 +299,25 @@ impl BrainClient {
             .map_err(|e| ClientError::Http(e.to_string()))?;
 
         if resp.status().is_success() {
-            resp.bytes().await
+            resp.bytes()
+                .await
                 .map(|b| b.to_vec())
                 .map_err(|e| ClientError::Http(e.to_string()))
         } else {
             let status = resp.status().as_u16();
             let msg = resp.text().await.unwrap_or_default();
-            Err(ClientError::Server { status, message: msg })
+            Err(ClientError::Server {
+                status,
+                message: msg,
+            })
         }
     }
 
     /// Revoke a WASM node
     pub async fn revoke_node(&self, id: &str) -> Result<(), ClientError> {
         let url = format!("{}/v1/nodes/{id}/revoke", self.base_url);
-        let resp = self.http
+        let resp = self
+            .http
             .post(&url)
             .bearer_auth(&self.api_key)
             .json(&serde_json::json!({}))
@@ -263,7 +330,10 @@ impl BrainClient {
         } else {
             let status = resp.status().as_u16();
             let msg = resp.text().await.unwrap_or_default();
-            Err(ClientError::Server { status, message: msg })
+            Err(ClientError::Server {
+                status,
+                message: msg,
+            })
         }
     }
 
@@ -271,7 +341,8 @@ impl BrainClient {
 
     async fn get_path(&self, path: &str) -> Result<serde_json::Value, ClientError> {
         let url = format!("{}{path}", self.base_url);
-        let resp = self.http
+        let resp = self
+            .http
             .get(&url)
             .bearer_auth(&self.api_key)
             .send()
@@ -281,9 +352,14 @@ impl BrainClient {
         self.handle_response(resp).await
     }
 
-    async fn get_with_params(&self, path: &str, params: &[(&str, String)]) -> Result<serde_json::Value, ClientError> {
+    async fn get_with_params(
+        &self,
+        path: &str,
+        params: &[(&str, String)],
+    ) -> Result<serde_json::Value, ClientError> {
         let url = format!("{}{path}", self.base_url);
-        let resp = self.http
+        let resp = self
+            .http
             .get(&url)
             .bearer_auth(&self.api_key)
             .query(params)
@@ -294,9 +370,14 @@ impl BrainClient {
         self.handle_response(resp).await
     }
 
-    async fn post(&self, path: &str, body: &serde_json::Value) -> Result<serde_json::Value, ClientError> {
+    async fn post(
+        &self,
+        path: &str,
+        body: &serde_json::Value,
+    ) -> Result<serde_json::Value, ClientError> {
         let url = format!("{}{path}", self.base_url);
-        let resp = self.http
+        let resp = self
+            .http
             .post(&url)
             .bearer_auth(&self.api_key)
             .json(body)
@@ -307,13 +388,21 @@ impl BrainClient {
         self.handle_response(resp).await
     }
 
-    async fn handle_response(&self, resp: reqwest::Response) -> Result<serde_json::Value, ClientError> {
+    async fn handle_response(
+        &self,
+        resp: reqwest::Response,
+    ) -> Result<serde_json::Value, ClientError> {
         let status = resp.status().as_u16();
         if status >= 400 {
             let msg = resp.text().await.unwrap_or_default();
-            return Err(ClientError::Server { status, message: msg });
+            return Err(ClientError::Server {
+                status,
+                message: msg,
+            });
         }
-        resp.json().await.map_err(|e| ClientError::Serialization(e.to_string()))
+        resp.json()
+            .await
+            .map_err(|e| ClientError::Serialization(e.to_string()))
     }
 }
 
@@ -325,7 +414,10 @@ impl Default for BrainClient {
 
 /// SHAKE-256 hash
 fn sha3_hash(data: &[u8]) -> [u8; 32] {
-    use sha3::{Shake256, digest::{Update, ExtendableOutput, XofReader}};
+    use sha3::{
+        digest::{ExtendableOutput, Update, XofReader},
+        Shake256,
+    };
     let mut hasher = Shake256::default();
     hasher.update(data);
     let mut reader = hasher.finalize_xof();

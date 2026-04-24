@@ -350,7 +350,8 @@ impl TopologicalCoherenceAnalyzer {
 
         // High variance in edge weights indicates inconsistency
         let mean: f64 = weights.iter().sum::<f64>() / weights.len() as f64;
-        let variance: f64 = weights.iter().map(|w| (w - mean).powi(2)).sum::<f64>() / weights.len() as f64;
+        let variance: f64 =
+            weights.iter().map(|w| (w - mean).powi(2)).sum::<f64>() / weights.len() as f64;
 
         variance.sqrt()
     }
@@ -504,11 +505,7 @@ mod tests {
         let analyzer = TopologicalCoherenceAnalyzer::default();
 
         // Simple triangle graph
-        let embeddings = vec![
-            vec![0.0, 0.0],
-            vec![1.0, 0.0],
-            vec![0.5, 0.866],
-        ];
+        let embeddings = vec![vec![0.0, 0.0], vec![1.0, 0.0], vec![0.5, 0.866]];
         let edges = vec![(0, 1), (1, 2), (0, 2)];
         let weights = vec![1.0, 1.0, 1.0];
 
@@ -523,10 +520,22 @@ mod tests {
         let analyzer = TopologicalCoherenceAnalyzer::default();
 
         let snapshots = vec![
-            TopologicalEnergy { total_energy: 1.0, ..TopologicalEnergy::zero() },
-            TopologicalEnergy { total_energy: 0.9, ..TopologicalEnergy::zero() },
-            TopologicalEnergy { total_energy: 0.8, ..TopologicalEnergy::zero() },
-            TopologicalEnergy { total_energy: 0.7, ..TopologicalEnergy::zero() },
+            TopologicalEnergy {
+                total_energy: 1.0,
+                ..TopologicalEnergy::zero()
+            },
+            TopologicalEnergy {
+                total_energy: 0.9,
+                ..TopologicalEnergy::zero()
+            },
+            TopologicalEnergy {
+                total_energy: 0.8,
+                ..TopologicalEnergy::zero()
+            },
+            TopologicalEnergy {
+                total_energy: 0.7,
+                ..TopologicalEnergy::zero()
+            },
         ];
 
         let evolution = analyzer.analyze_temporal_coherence(&snapshots);

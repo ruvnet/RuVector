@@ -27,9 +27,30 @@ async fn main() -> Result<()> {
             println!("   Found {} publications", vectors.len());
             if let Some(first) = vectors.first() {
                 println!("   First result:");
-                println!("     DOI: {}", first.metadata.get("doi").map(|s| s.as_str()).unwrap_or("N/A"));
-                println!("     Title: {}", first.metadata.get("title").map(|s| s.as_str()).unwrap_or("N/A"));
-                println!("     Citations: {}", first.metadata.get("citation_count").map(|s| s.as_str()).unwrap_or("0"));
+                println!(
+                    "     DOI: {}",
+                    first
+                        .metadata
+                        .get("doi")
+                        .map(|s| s.as_str())
+                        .unwrap_or("N/A")
+                );
+                println!(
+                    "     Title: {}",
+                    first
+                        .metadata
+                        .get("title")
+                        .map(|s| s.as_str())
+                        .unwrap_or("N/A")
+                );
+                println!(
+                    "     Citations: {}",
+                    first
+                        .metadata
+                        .get("citation_count")
+                        .map(|s| s.as_str())
+                        .unwrap_or("0")
+                );
             }
         }
         Err(e) => println!("   Error: {}", e),
@@ -41,10 +62,38 @@ async fn main() -> Result<()> {
     match client.get_work("10.1038/s41586-021-03819-2").await {
         Ok(Some(vector)) => {
             println!("   Found:");
-            println!("     Title: {}", vector.metadata.get("title").map(|s| s.as_str()).unwrap_or("N/A"));
-            println!("     Authors: {}", vector.metadata.get("authors").map(|s| s.as_str()).unwrap_or("N/A"));
-            println!("     Journal: {}", vector.metadata.get("journal").map(|s| s.as_str()).unwrap_or("N/A"));
-            println!("     Citations: {}", vector.metadata.get("citation_count").map(|s| s.as_str()).unwrap_or("0"));
+            println!(
+                "     Title: {}",
+                vector
+                    .metadata
+                    .get("title")
+                    .map(|s| s.as_str())
+                    .unwrap_or("N/A")
+            );
+            println!(
+                "     Authors: {}",
+                vector
+                    .metadata
+                    .get("authors")
+                    .map(|s| s.as_str())
+                    .unwrap_or("N/A")
+            );
+            println!(
+                "     Journal: {}",
+                vector
+                    .metadata
+                    .get("journal")
+                    .map(|s| s.as_str())
+                    .unwrap_or("N/A")
+            );
+            println!(
+                "     Citations: {}",
+                vector
+                    .metadata
+                    .get("citation_count")
+                    .map(|s| s.as_str())
+                    .unwrap_or("0")
+            );
         }
         Ok(None) => println!("   Work not found"),
         Err(e) => println!("   Error: {}", e),
@@ -57,7 +106,15 @@ async fn main() -> Result<()> {
         Ok(vectors) => {
             println!("   Found {} NSF-funded publications", vectors.len());
             for (i, vector) in vectors.iter().enumerate() {
-                println!("   {}. {}", i + 1, vector.metadata.get("title").map(|s| s.as_str()).unwrap_or("N/A"));
+                println!(
+                    "   {}. {}",
+                    i + 1,
+                    vector
+                        .metadata
+                        .get("title")
+                        .map(|s| s.as_str())
+                        .unwrap_or("N/A")
+                );
             }
         }
         Err(e) => println!("   Error: {}", e),
@@ -70,8 +127,22 @@ async fn main() -> Result<()> {
         Ok(vectors) => {
             println!("   Found {} publications", vectors.len());
             for vector in vectors {
-                println!("     - {}", vector.metadata.get("title").map(|s| s.as_str()).unwrap_or("N/A"));
-                println!("       Subjects: {}", vector.metadata.get("subjects").map(|s| s.as_str()).unwrap_or("N/A"));
+                println!(
+                    "     - {}",
+                    vector
+                        .metadata
+                        .get("title")
+                        .map(|s| s.as_str())
+                        .unwrap_or("N/A")
+                );
+                println!(
+                    "       Subjects: {}",
+                    vector
+                        .metadata
+                        .get("subjects")
+                        .map(|s| s.as_str())
+                        .unwrap_or("N/A")
+                );
             }
         }
         Err(e) => println!("   Error: {}", e),
@@ -80,11 +151,21 @@ async fn main() -> Result<()> {
 
     // Example 5: Search recent publications
     println!("5. Searching recent 'quantum computing' publications...");
-    match client.search_recent("quantum computing", "2024-01-01", 3).await {
+    match client
+        .search_recent("quantum computing", "2024-01-01", 3)
+        .await
+    {
         Ok(vectors) => {
             println!("   Found {} recent publications", vectors.len());
             for vector in vectors {
-                println!("     - {}", vector.metadata.get("title").map(|s| s.as_str()).unwrap_or("N/A"));
+                println!(
+                    "     - {}",
+                    vector
+                        .metadata
+                        .get("title")
+                        .map(|s| s.as_str())
+                        .unwrap_or("N/A")
+                );
                 println!("       Published: {}", vector.timestamp.format("%Y-%m-%d"));
             }
         }
@@ -98,8 +179,22 @@ async fn main() -> Result<()> {
         Ok(vectors) => {
             println!("   Found {} datasets", vectors.len());
             for vector in vectors {
-                println!("     - {}", vector.metadata.get("title").map(|s| s.as_str()).unwrap_or("N/A"));
-                println!("       Type: {}", vector.metadata.get("type").map(|s| s.as_str()).unwrap_or("N/A"));
+                println!(
+                    "     - {}",
+                    vector
+                        .metadata
+                        .get("title")
+                        .map(|s| s.as_str())
+                        .unwrap_or("N/A")
+                );
+                println!(
+                    "       Type: {}",
+                    vector
+                        .metadata
+                        .get("type")
+                        .map(|s| s.as_str())
+                        .unwrap_or("N/A")
+                );
             }
         }
         Err(e) => println!("   Error: {}", e),
@@ -112,7 +207,14 @@ async fn main() -> Result<()> {
         Ok(vectors) => {
             println!("   Found {} citing papers", vectors.len());
             for vector in vectors {
-                println!("     - {}", vector.metadata.get("title").map(|s| s.as_str()).unwrap_or("N/A"));
+                println!(
+                    "     - {}",
+                    vector
+                        .metadata
+                        .get("title")
+                        .map(|s| s.as_str())
+                        .unwrap_or("N/A")
+                );
             }
         }
         Err(e) => println!("   Error: {}", e),

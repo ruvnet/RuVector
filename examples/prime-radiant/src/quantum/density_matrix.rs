@@ -19,9 +19,10 @@ impl MixedState {
     pub fn new(states: Vec<(f64, QuantumState)>) -> Result<Self> {
         let total_prob: f64 = states.iter().map(|(p, _)| p).sum();
         if (total_prob - 1.0).abs() > constants::EPSILON {
-            return Err(QuantumTopologyError::InvalidDensityMatrix(
-                format!("Probabilities sum to {} instead of 1", total_prob),
-            ));
+            return Err(QuantumTopologyError::InvalidDensityMatrix(format!(
+                "Probabilities sum to {} instead of 1",
+                total_prob
+            )));
         }
 
         Ok(Self { states })
@@ -93,9 +94,10 @@ impl DensityMatrix {
         // Check trace = 1
         let trace = matrix.trace();
         if (trace.re - 1.0).abs() > constants::EPSILON || trace.im.abs() > constants::EPSILON {
-            return Err(QuantumTopologyError::InvalidDensityMatrix(
-                format!("Trace must be 1, got {}", trace),
-            ));
+            return Err(QuantumTopologyError::InvalidDensityMatrix(format!(
+                "Trace must be 1, got {}",
+                trace
+            )));
         }
 
         Ok(Self { matrix })
@@ -122,9 +124,7 @@ impl DensityMatrix {
 
     /// Create a pure state density matrix from a vector
     pub fn from_vector(v: &ComplexVector) -> Self {
-        Self {
-            matrix: v.outer(v),
-        }
+        Self { matrix: v.outer(v) }
     }
 
     /// Create the maximally mixed state I/d

@@ -71,7 +71,11 @@ impl RestClient {
     ///
     /// Uses the pre-computed `base_path` so there is no URL parse per call.
     fn sig_path_for(&self, path: &str) -> String {
-        let p = if path.starts_with('/') { path } else { &format!("/{path}")[..] };
+        let p = if path.starts_with('/') {
+            path
+        } else {
+            &format!("/{path}")[..]
+        };
         // Strip any query string for the signature base — Kalshi signs only
         // the path component.
         let path_only = match p.find('?') {
@@ -167,7 +171,11 @@ fn url_join(base: &str, path: &str) -> String {
         return path.to_string();
     }
     let b = base.trim_end_matches('/');
-    let p = if path.starts_with('/') { path.to_string() } else { format!("/{path}") };
+    let p = if path.starts_with('/') {
+        path.to_string()
+    } else {
+        format!("/{path}")
+    };
     format!("{b}{p}")
 }
 
@@ -181,7 +189,10 @@ mod tests {
     fn test_signer() -> Signer {
         let mut rng = rand::thread_rng();
         let key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
-        let pem = key.to_pkcs1_pem(rsa::pkcs1::LineEnding::LF).unwrap().to_string();
+        let pem = key
+            .to_pkcs1_pem(rsa::pkcs1::LineEnding::LF)
+            .unwrap()
+            .to_string();
         Signer::from_pem("test-key", &pem).unwrap()
     }
 
@@ -199,11 +210,8 @@ mod tests {
 
     #[test]
     fn sig_path_uses_full_url_path() {
-        let client = RestClient::new(
-            "https://trading-api.kalshi.com/trade-api/v2",
-            test_signer(),
-        )
-        .unwrap();
+        let client =
+            RestClient::new("https://trading-api.kalshi.com/trade-api/v2", test_signer()).unwrap();
         let p = client.sig_path_for("/markets");
         assert_eq!(p, "/trade-api/v2/markets");
     }
@@ -212,11 +220,8 @@ mod tests {
     async fn post_order_refuses_without_live_flag() {
         // Ensure the flag is not set.
         std::env::remove_var("KALSHI_ENABLE_LIVE");
-        let client = RestClient::new(
-            "https://trading-api.kalshi.com/trade-api/v2",
-            test_signer(),
-        )
-        .unwrap();
+        let client =
+            RestClient::new("https://trading-api.kalshi.com/trade-api/v2", test_signer()).unwrap();
         let order = NewOrder {
             ticker: "X".into(),
             action: crate::models::OrderAction::Buy,
@@ -239,11 +244,8 @@ mod tests {
     #[tokio::test]
     async fn cancel_order_refuses_without_live_flag() {
         std::env::remove_var("KALSHI_ENABLE_LIVE");
-        let client = RestClient::new(
-            "https://trading-api.kalshi.com/trade-api/v2",
-            test_signer(),
-        )
-        .unwrap();
+        let client =
+            RestClient::new("https://trading-api.kalshi.com/trade-api/v2", test_signer()).unwrap();
         let err = client.cancel_order("some-order-id").await.unwrap_err();
         assert!(matches!(err, KalshiError::Api { status: 0, .. }));
     }
@@ -251,16 +253,16 @@ mod tests {
     #[tokio::test]
     async fn amend_order_refuses_without_live_flag() {
         std::env::remove_var("KALSHI_ENABLE_LIVE");
-        let client = RestClient::new(
-            "https://trading-api.kalshi.com/trade-api/v2",
-            test_signer(),
-        )
-        .unwrap();
+        let client =
+            RestClient::new("https://trading-api.kalshi.com/trade-api/v2", test_signer()).unwrap();
         let amend = crate::models::AmendOrder {
             yes_price: Some(25),
             ..Default::default()
         };
-        let err = client.amend_order("some-order-id", &amend).await.unwrap_err();
+        let err = client
+            .amend_order("some-order-id", &amend)
+            .await
+            .unwrap_err();
         assert!(matches!(err, KalshiError::Api { status: 0, .. }));
     }
 }

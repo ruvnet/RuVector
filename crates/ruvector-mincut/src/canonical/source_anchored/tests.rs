@@ -27,22 +27,23 @@ fn default_config() -> SourceAnchoredConfig {
 fn test_sha256_empty() {
     let hash = sha256(b"");
     let expected: [u8; 32] = [
-        0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14,
-        0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9, 0x24,
-        0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c,
-        0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55,
+        0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9,
+        0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52,
+        0xb8, 0x55,
     ];
-    assert_eq!(hash, expected, "SHA-256 of empty string must match NIST vector");
+    assert_eq!(
+        hash, expected,
+        "SHA-256 of empty string must match NIST vector"
+    );
 }
 
 #[test]
 fn test_sha256_abc() {
     let hash = sha256(b"abc");
     let expected: [u8; 32] = [
-        0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea,
-        0x41, 0x41, 0x40, 0xde, 0x5d, 0xae, 0x22, 0x23,
-        0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c,
-        0xb4, 0x10, 0xff, 0x61, 0xf2, 0x00, 0x15, 0xad,
+        0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40, 0xde, 0x5d, 0xae, 0x22,
+        0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61, 0xf2, 0x00,
+        0x15, 0xad,
     ];
     assert_eq!(hash, expected, "SHA-256 of 'abc' must match NIST vector");
 }
@@ -126,8 +127,12 @@ fn test_triangle_invariance() {
 #[test]
 fn test_complete_k4_uniform() {
     let g = make_graph(&[
-        (0, 1, 1.0), (0, 2, 1.0), (0, 3, 1.0),
-        (1, 2, 1.0), (1, 3, 1.0), (2, 3, 1.0),
+        (0, 1, 1.0),
+        (0, 2, 1.0),
+        (0, 3, 1.0),
+        (1, 2, 1.0),
+        (1, 3, 1.0),
+        (2, 3, 1.0),
     ]);
     let cut = canonical_mincut(&g, &default_config()).unwrap();
 
@@ -142,9 +147,13 @@ fn test_complete_k4_uniform() {
 #[test]
 fn test_weighted_barbell() {
     let g = make_graph(&[
-        (0, 1, 10.0), (1, 2, 10.0), (0, 2, 10.0),
+        (0, 1, 10.0),
+        (1, 2, 10.0),
+        (0, 2, 10.0),
         (2, 3, 1.0),
-        (3, 4, 10.0), (4, 5, 10.0), (3, 5, 10.0),
+        (3, 4, 10.0),
+        (4, 5, 10.0),
+        (3, 5, 10.0),
     ]);
     let cut = canonical_mincut(&g, &default_config()).unwrap();
 
@@ -160,9 +169,16 @@ fn test_weighted_barbell() {
 #[test]
 fn test_ladder_graph() {
     let g = make_graph(&[
-        (0, 1, 1.0), (2, 3, 1.0), (4, 5, 1.0), (6, 7, 1.0),
-        (0, 2, 1.0), (2, 4, 1.0), (4, 6, 1.0),
-        (1, 3, 1.0), (3, 5, 1.0), (5, 7, 1.0),
+        (0, 1, 1.0),
+        (2, 3, 1.0),
+        (4, 5, 1.0),
+        (6, 7, 1.0),
+        (0, 2, 1.0),
+        (2, 4, 1.0),
+        (4, 6, 1.0),
+        (1, 3, 1.0),
+        (3, 5, 1.0),
+        (5, 7, 1.0),
     ]);
     let cut = canonical_mincut(&g, &default_config()).unwrap();
 
@@ -178,8 +194,12 @@ fn test_ladder_graph() {
 #[test]
 fn test_determinism_100_runs() {
     let g = make_graph(&[
-        (0, 1, 2.0), (1, 2, 3.0), (2, 3, 1.0),
-        (3, 0, 4.0), (0, 2, 1.0), (1, 3, 2.0),
+        (0, 1, 2.0),
+        (1, 2, 3.0),
+        (2, 3, 1.0),
+        (3, 0, 4.0),
+        (0, 2, 1.0),
+        (1, 3, 2.0),
     ]);
 
     let reference = canonical_mincut(&g, &default_config()).unwrap();
@@ -252,7 +272,8 @@ fn test_stateful_wrapper_basic() {
     let mut mc = SourceAnchoredMinCut::with_edges(
         vec![(0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0)],
         SourceAnchoredConfig::default(),
-    ).unwrap();
+    )
+    .unwrap();
 
     let cut = mc.canonical_cut().unwrap();
     assert_eq!(cut.lambda, FixedWeight::from_f64(2.0));
@@ -264,7 +285,8 @@ fn test_stateful_wrapper_mutation() {
     let mut mc = SourceAnchoredMinCut::with_edges(
         vec![(0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0)],
         SourceAnchoredConfig::default(),
-    ).unwrap();
+    )
+    .unwrap();
 
     let _cut_before = mc.canonical_cut().unwrap();
 
@@ -280,7 +302,8 @@ fn test_stateful_wrapper_receipt() {
     let mut mc = SourceAnchoredMinCut::with_edges(
         vec![(0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0)],
         SourceAnchoredConfig::default(),
-    ).unwrap();
+    )
+    .unwrap();
 
     let receipt = mc.receipt().unwrap();
     assert_eq!(receipt.epoch, 0);
@@ -409,8 +432,12 @@ fn test_star_graph_n10() {
 #[test]
 fn test_cycle_n6() {
     let g = make_graph(&[
-        (0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0),
-        (3, 4, 1.0), (4, 5, 1.0), (5, 0, 1.0),
+        (0, 1, 1.0),
+        (1, 2, 1.0),
+        (2, 3, 1.0),
+        (3, 4, 1.0),
+        (4, 5, 1.0),
+        (5, 0, 1.0),
     ]);
     let cut = canonical_mincut(&g, &default_config()).unwrap();
 
@@ -426,8 +453,12 @@ fn test_cycle_n6() {
 #[test]
 fn test_hash_stability_1000_iterations() {
     let g = make_graph(&[
-        (0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0), (3, 0, 1.0),
-        (0, 2, 1.0), (1, 3, 1.0),
+        (0, 1, 1.0),
+        (1, 2, 1.0),
+        (2, 3, 1.0),
+        (3, 0, 1.0),
+        (0, 2, 1.0),
+        (1, 3, 1.0),
     ]);
 
     let reference = canonical_mincut(&g, &default_config()).unwrap();
@@ -436,7 +467,8 @@ fn test_hash_stability_1000_iterations() {
         let cut = canonical_mincut(&g, &default_config()).unwrap();
         assert_eq!(
             cut.cut_hash, reference.cut_hash,
-            "Hash diverged at iteration {}", i
+            "Hash diverged at iteration {}",
+            i
         );
     }
 }
@@ -449,9 +481,7 @@ fn test_hash_stability_1000_iterations() {
 fn test_source_always_on_source_side() {
     // Test with various sources
     for source in 0..4u64 {
-        let g = make_graph(&[
-            (0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0), (3, 0, 1.0),
-        ]);
+        let g = make_graph(&[(0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0), (3, 0, 1.0)]);
         let config = SourceAnchoredConfig {
             source: Some(source),
             ..Default::default()
@@ -459,7 +489,8 @@ fn test_source_always_on_source_side() {
         if let Some(cut) = canonical_mincut(&g, &config) {
             assert!(
                 cut.side_vertices.contains(&source),
-                "Source {} not on source side", source
+                "Source {} not on source side",
+                source
             );
         }
     }
@@ -488,9 +519,15 @@ fn test_different_graphs_different_hashes() {
 #[test]
 fn test_k5_symmetry() {
     let g = make_graph(&[
-        (0, 1, 1.0), (0, 2, 1.0), (0, 3, 1.0), (0, 4, 1.0),
-        (1, 2, 1.0), (1, 3, 1.0), (1, 4, 1.0),
-        (2, 3, 1.0), (2, 4, 1.0),
+        (0, 1, 1.0),
+        (0, 2, 1.0),
+        (0, 3, 1.0),
+        (0, 4, 1.0),
+        (1, 2, 1.0),
+        (1, 3, 1.0),
+        (1, 4, 1.0),
+        (2, 3, 1.0),
+        (2, 4, 1.0),
         (3, 4, 1.0),
     ]);
     let cut = canonical_mincut(&g, &default_config()).unwrap();

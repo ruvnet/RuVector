@@ -14,11 +14,11 @@
 //! Run with:
 //!   cargo run --example swarm_knowledge
 
+use rvf_runtime::filter::FilterValue;
+use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::{
     FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore, SearchResult,
 };
-use rvf_runtime::filter::FilterValue;
-use rvf_runtime::options::DistanceMetric;
 use tempfile::TempDir;
 
 /// Simple pseudo-random number generator (LCG) for deterministic results.
@@ -26,7 +26,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed.wrapping_add(1);
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -204,9 +206,7 @@ fn main() {
     println!("\n--- 7. Append-Only Concurrent Safety ---");
 
     // A late-arriving agent appends more knowledge
-    let late_vectors: Vec<Vec<f32>> = (0..5)
-        .map(|i| random_vector(dim, 5000 + i))
-        .collect();
+    let late_vectors: Vec<Vec<f32>> = (0..5).map(|i| random_vector(dim, 5000 + i)).collect();
     let late_refs: Vec<&[f32]> = late_vectors.iter().map(|v| v.as_slice()).collect();
     let late_ids: Vec<u64> = (next_id..next_id + 5).collect();
     let mut late_metadata = Vec::with_capacity(15);
@@ -230,7 +230,10 @@ fn main() {
         .expect("late ingest failed");
 
     let status = store.status();
-    println!("  Late append by reviewer: {} more vectors", late_result.accepted);
+    println!(
+        "  Late append by reviewer: {} more vectors",
+        late_result.accepted
+    );
     println!(
         "  Total vectors after append: {} (epoch {})",
         status.total_vectors, status.current_epoch
@@ -279,10 +282,7 @@ fn find_agent_index(id: u64, agents: &[(&str, &str, usize)]) -> usize {
     agents.len() // late additions
 }
 
-fn print_knowledge_results(
-    results: &[SearchResult],
-    agents: &[(&str, &str, usize)],
-) {
+fn print_knowledge_results(results: &[SearchResult], agents: &[(&str, &str, usize)]) {
     println!(
         "  {:>6}  {:>12}  {:>12}  {:>18}  {:>7}",
         "ID", "Distance", "Agent", "Domain", "Quality"

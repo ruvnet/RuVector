@@ -14,7 +14,6 @@ use crate::simd::build_mi_matrix;
 use crate::traits::PhiEngine;
 use crate::types::{ComputeBudget, PhiBound, TransitionMatrix};
 
-
 // ---------------------------------------------------------------------------
 // Spectral bounds
 // ---------------------------------------------------------------------------
@@ -139,12 +138,7 @@ fn estimate_fiedler(laplacian: &[f64], n: usize, max_iter: usize) -> f64 {
 /// `k`: number of samples evaluated.
 /// `phi_max`: maximum observed φ (used for range bound).
 /// `delta`: failure probability (e.g., 0.05 for 95% confidence).
-pub fn hoeffding_bound(
-    phi_estimate: f64,
-    k: u64,
-    phi_max: f64,
-    delta: f64,
-) -> PhiBound {
+pub fn hoeffding_bound(phi_estimate: f64, k: u64, phi_max: f64, delta: f64) -> PhiBound {
     assert!(delta > 0.0 && delta < 1.0);
     assert!(k > 0);
 
@@ -170,10 +164,7 @@ pub fn hoeffding_bound(
 ///
 /// `phi_estimates`: all observed φ values from sampling.
 /// `delta`: failure probability.
-pub fn empirical_bernstein_bound(
-    phi_estimates: &[f64],
-    delta: f64,
-) -> PhiBound {
+pub fn empirical_bernstein_bound(phi_estimates: &[f64], delta: f64) -> PhiBound {
     assert!(!phi_estimates.is_empty());
     assert!(delta > 0.0 && delta < 1.0);
 
@@ -181,12 +172,17 @@ pub fn empirical_bernstein_bound(
     let mean: f64 = phi_estimates.iter().sum::<f64>() / k;
 
     // Sample variance.
-    let variance: f64 = phi_estimates.iter()
+    let variance: f64 = phi_estimates
+        .iter()
         .map(|&x| (x - mean).powi(2))
-        .sum::<f64>() / (k - 1.0).max(1.0);
+        .sum::<f64>()
+        / (k - 1.0).max(1.0);
 
     // Range bound.
-    let max_val = phi_estimates.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let max_val = phi_estimates
+        .iter()
+        .cloned()
+        .fold(f64::NEG_INFINITY, f64::max);
     let min_val = phi_estimates.iter().cloned().fold(f64::INFINITY, f64::min);
 
     let phi_min = min_val; // Best estimate (minimum = MIP).
@@ -309,8 +305,10 @@ mod tests {
     fn hoeffding_bound_narrows_with_samples() {
         let b1 = hoeffding_bound(0.5, 100, 1.0, 0.05);
         let b2 = hoeffding_bound(0.5, 10000, 1.0, 0.05);
-        assert!(b2.upper - b2.lower < b1.upper - b1.lower,
-            "more samples should give tighter bound");
+        assert!(
+            b2.upper - b2.lower < b1.upper - b1.lower,
+            "more samples should give tighter bound"
+        );
     }
 
     #[test]
@@ -327,7 +325,8 @@ mod tests {
         let tpm = and_gate_tpm();
         let engine = SpectralPhiEngine::default();
         let budget = ComputeBudget::fast();
-        let (result, bound) = compute_phi_with_bounds(&engine, &tpm, Some(0), &budget, 0.05).unwrap();
+        let (result, bound) =
+            compute_phi_with_bounds(&engine, &tpm, Some(0), &budget, 0.05).unwrap();
         assert!(result.phi >= 0.0);
         assert!(bound.lower >= 0.0);
     }

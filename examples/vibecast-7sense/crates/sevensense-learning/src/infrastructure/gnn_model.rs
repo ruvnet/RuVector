@@ -117,9 +117,8 @@ impl GnnLayer {
         // Initialize attention weights with small values
         let mut rng = rand::thread_rng();
         let uniform = Uniform::new(-0.1, 0.1);
-        let attention_weights: Array1<f32> = Array1::from_iter(
-            (0..2 * output_dim).map(|_| uniform.sample(&mut rng)),
-        );
+        let attention_weights: Array1<f32> =
+            Array1::from_iter((0..2 * output_dim).map(|_| uniform.sample(&mut rng)));
         let bias = Array1::zeros(output_dim * num_heads);
         Self::Gat {
             weights,
@@ -146,12 +145,18 @@ impl GnnLayer {
         match self {
             Self::Gcn { weights, .. } => weights.ncols(),
             Self::GraphSage { self_weights, .. } => self_weights.ncols(),
-            Self::Gat { weights, num_heads, .. } => weights.ncols() / num_heads,
+            Self::Gat {
+                weights, num_heads, ..
+            } => weights.ncols() / num_heads,
         }
     }
 
     /// Forward pass through the layer
-    pub fn forward(&self, features: &Array2<f32>, adj_matrix: &Array2<f32>) -> GnnResult<Array2<f32>> {
+    pub fn forward(
+        &self,
+        features: &Array2<f32>,
+        adj_matrix: &Array2<f32>,
+    ) -> GnnResult<Array2<f32>> {
         match self {
             Self::Gcn { weights, bias } => self.gcn_forward(features, adj_matrix, weights, bias),
             Self::GraphSage {
@@ -159,14 +164,29 @@ impl GnnLayer {
                 self_weights,
                 neighbor_weights,
                 bias,
-            } => self.sage_forward(features, adj_matrix, *aggregator, self_weights, neighbor_weights, bias),
+            } => self.sage_forward(
+                features,
+                adj_matrix,
+                *aggregator,
+                self_weights,
+                neighbor_weights,
+                bias,
+            ),
             Self::Gat {
                 weights,
                 attention_weights,
                 num_heads,
                 bias,
                 negative_slope,
-            } => self.gat_forward(features, adj_matrix, weights, attention_weights, *num_heads, bias, *negative_slope),
+            } => self.gat_forward(
+                features,
+                adj_matrix,
+                weights,
+                attention_weights,
+                *num_heads,
+                bias,
+                *negative_slope,
+            ),
         }
     }
 
@@ -381,7 +401,9 @@ impl GnnLayer {
                     *neighbor_weights -= &(gradient * lr);
                 }
             }
-            Self::Gat { weights, bias: _, .. } => {
+            Self::Gat {
+                weights, bias: _, ..
+            } => {
                 *weights -= &(weights.clone() * weight_decay);
                 if gradient.shape() == weights.shape() {
                     *weights -= &(gradient * lr);
@@ -543,12 +565,7 @@ impl GnnModel {
     }
 
     /// Update model weights with gradients
-    pub fn update_weights(
-        &mut self,
-        gradients: &[Array2<f32>],
-        lr: f32,
-        weight_decay: f32,
-    ) {
+    pub fn update_weights(&mut self, gradients: &[Array2<f32>], lr: f32, weight_decay: f32) {
         for (layer, grad) in self.layers.iter_mut().zip(gradients.iter()) {
             layer.update_weights(grad, lr, weight_decay);
         }
@@ -739,11 +756,13 @@ mod tests {
 
     #[test]
     fn test_aggregators() {
-        let features = Array2::from_shape_vec((3, 4), vec![
-            1.0, 2.0, 3.0, 4.0,
-            5.0, 6.0, 7.0, 8.0,
-            9.0, 10.0, 11.0, 12.0,
-        ]).unwrap();
+        let features = Array2::from_shape_vec(
+            (3, 4),
+            vec![
+                1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0,
+            ],
+        )
+        .unwrap();
 
         let mut adj = Array2::zeros((3, 3));
         adj[[0, 1]] = 1.0;

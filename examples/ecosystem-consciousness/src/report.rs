@@ -25,10 +25,7 @@ pub fn print_summary(results: &[EcosystemResult]) {
         println!("\nCausal Emergence:");
         println!("  EI (micro):        {:.4} bits", r.emergence.ei_micro);
         println!("  EI (macro):        {:.4} bits", r.emergence.ei_macro);
-        println!(
-            "  Causal emergence:  {:.4}",
-            r.emergence.causal_emergence
-        );
+        println!("  Causal emergence:  {:.4}", r.emergence.causal_emergence);
         println!("  Determinism:       {:.4}", r.emergence.determinism);
         println!("  Degeneracy:        {:.4}", r.emergence.degeneracy);
 
@@ -45,10 +42,7 @@ pub fn print_summary(results: &[EcosystemResult]) {
             "  Emergence index:   {:.4}",
             r.svd_emergence.emergence_index
         );
-        println!(
-            "  Reversibility:     {:.4}",
-            r.svd_emergence.reversibility
-        );
+        println!("  Reversibility:     {:.4}", r.svd_emergence.reversibility);
     }
 }
 
@@ -79,7 +73,13 @@ pub fn generate_svg(results: &[EcosystemResult]) -> String {
 
     for (idx, r) in results.iter().enumerate() {
         let y_off = 100 + idx as i32 * (panel_height + 50);
-        svg.push_str(&render_ecosystem_panel(r, 30, y_off, width - 60, panel_height));
+        svg.push_str(&render_ecosystem_panel(
+            r,
+            30,
+            y_off,
+            width - 60,
+            panel_height,
+        ));
     }
 
     svg.push_str("</svg>\n");
@@ -87,13 +87,7 @@ pub fn generate_svg(results: &[EcosystemResult]) -> String {
 }
 
 /// Render a single ecosystem panel with food web and contribution bars.
-fn render_ecosystem_panel(
-    r: &EcosystemResult,
-    x: i32,
-    y: i32,
-    w: i32,
-    h: i32,
-) -> String {
+fn render_ecosystem_panel(r: &EcosystemResult, x: i32, y: i32, w: i32, h: i32) -> String {
     let mut s = format!("<g transform=\"translate({},{})\">\n", x, y);
 
     // Panel background
@@ -131,8 +125,8 @@ fn render_ecosystem_panel(
     // Node positions
     let positions: Vec<(f64, f64)> = (0..n)
         .map(|i| {
-            let angle = 2.0 * std::f64::consts::PI * i as f64 / n as f64
-                - std::f64::consts::FRAC_PI_2;
+            let angle =
+                2.0 * std::f64::consts::PI * i as f64 / n as f64 - std::f64::consts::FRAC_PI_2;
             (
                 cx as f64 + radius as f64 * angle.cos(),
                 cy as f64 + radius as f64 * angle.sin(),

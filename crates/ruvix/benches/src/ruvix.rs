@@ -5,11 +5,11 @@
 use std::time::{Duration, Instant};
 
 use ruvix_nucleus::{
-    Kernel, KernelConfig, Syscall, VectorStoreConfig, TaskPriority, ProofTier,
-    VectorKey, RegionPolicy, MsgPriority, TimerSpec, SensorDescriptor, QueueHandle,
-    GraphMutation, CapHandle, CapRights, RvfMountHandle, RvfComponentId,
+    CapHandle, CapRights, GraphMutation, Kernel, KernelConfig, MsgPriority, ProofTier, QueueHandle,
+    RegionPolicy, RvfComponentId, RvfMountHandle, SensorDescriptor, Syscall, TaskPriority,
+    TimerSpec, VectorKey, VectorStoreConfig,
 };
-use ruvix_types::{TaskHandle, ObjectType};
+use ruvix_types::{ObjectType, TaskHandle};
 
 use crate::BenchmarkResult;
 
@@ -91,7 +91,9 @@ pub fn bench_task_spawn(config: &BenchConfig) -> BenchmarkResult {
 pub fn bench_cap_grant(config: &BenchConfig) -> BenchmarkResult {
     let mut kernel = setup_kernel();
     let root_task = TaskHandle::new(1, 0);
-    let cap = kernel.create_root_capability(0, ObjectType::RvfMount, root_task).unwrap();
+    let cap = kernel
+        .create_root_capability(0, ObjectType::RvfMount, root_task)
+        .unwrap();
 
     // Need to create a kernel for the benchmark
     let cap_copy = cap;
@@ -100,7 +102,8 @@ pub fn bench_cap_grant(config: &BenchConfig) -> BenchmarkResult {
         || {
             let mut k = setup_kernel();
             let rt = TaskHandle::new(1, 0);
-            k.create_root_capability(0, ObjectType::RvfMount, rt).unwrap();
+            k.create_root_capability(0, ObjectType::RvfMount, rt)
+                .unwrap();
             k
         },
         move |kernel| {
@@ -188,7 +191,8 @@ pub fn bench_rvf_mount(config: &BenchConfig) -> BenchmarkResult {
         || {
             let mut k = setup_kernel();
             let rt = TaskHandle::new(1, 0);
-            k.create_root_capability(0, ObjectType::RvfMount, rt).unwrap();
+            k.create_root_capability(0, ObjectType::RvfMount, rt)
+                .unwrap();
             k
         },
         |kernel| {
@@ -213,12 +217,14 @@ pub fn bench_vector_get(config: &BenchConfig) -> BenchmarkResult {
     let mutation_hash = [1u8; 32];
     let proof = kernel.create_proof(mutation_hash, ProofTier::Reflex, 1);
 
-    kernel.dispatch(Syscall::VectorPutProved {
-        store,
-        key: VectorKey::new(1),
-        data: vec![1.0, 2.0, 3.0, 4.0],
-        proof,
-    }).unwrap();
+    kernel
+        .dispatch(Syscall::VectorPutProved {
+            store,
+            key: VectorKey::new(1),
+            data: vec![1.0, 2.0, 3.0, 4.0],
+            proof,
+        })
+        .unwrap();
 
     // Now benchmark get
     let mut measurements = Vec::with_capacity(config.measure_iterations);
@@ -338,7 +344,8 @@ pub fn bench_sensor_subscribe(config: &BenchConfig) -> BenchmarkResult {
         || {
             let mut k = setup_kernel();
             let rt = TaskHandle::new(1, 0);
-            k.create_root_capability(0, ObjectType::RvfMount, rt).unwrap();
+            k.create_root_capability(0, ObjectType::RvfMount, rt)
+                .unwrap();
             k
         },
         |kernel| {

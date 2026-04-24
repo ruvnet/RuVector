@@ -63,10 +63,9 @@ impl Tool for EditFileTool {
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
 
-        let result =
-            runtime
-                .backend
-                .edit(file_path, old_string, new_string, replace_all);
+        let result = runtime
+            .backend
+            .edit(file_path, old_string, new_string, replace_all);
 
         match result.error {
             Some(err) => ToolResult::Text(err),

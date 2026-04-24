@@ -18,7 +18,7 @@
 use crate::attestation::BootAttestation;
 use crate::manifest::WitnessLogPolicy;
 use ruvix_types::{KernelError, ProofAttestation};
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
@@ -293,7 +293,10 @@ impl WitnessLog {
     /// Appends a boot attestation entry.
     ///
     /// This should be the first entry in the witness log.
-    pub fn append_boot_attestation(&mut self, attestation: &BootAttestation) -> Result<(), KernelError> {
+    pub fn append_boot_attestation(
+        &mut self,
+        attestation: &BootAttestation,
+    ) -> Result<(), KernelError> {
         if self.entry_count != 0 {
             // Boot attestation must be first
             return Err(KernelError::NotPermitted);
@@ -304,13 +307,20 @@ impl WitnessLog {
     }
 
     /// Appends a proof attestation entry.
-    pub fn append_proof_attestation(&mut self, attestation: &ProofAttestation) -> Result<(), KernelError> {
+    pub fn append_proof_attestation(
+        &mut self,
+        attestation: &ProofAttestation,
+    ) -> Result<(), KernelError> {
         let payload = Self::serialize_proof_attestation(attestation);
         self.append(WitnessLogEntryType::ProofAttestation, &payload)
     }
 
     /// Appends a generic entry.
-    pub fn append(&mut self, entry_type: WitnessLogEntryType, payload: &[u8]) -> Result<(), KernelError> {
+    pub fn append(
+        &mut self,
+        entry_type: WitnessLogEntryType,
+        payload: &[u8],
+    ) -> Result<(), KernelError> {
         // Check limits
         if self.entry_count >= self.config.max_entries {
             return Err(KernelError::RegionFull);
@@ -427,12 +437,7 @@ mod tests {
         let config = WitnessLogConfig::default();
         let mut log = WitnessLog::new(config);
 
-        let attestation = BootAttestation::new(
-            [1u8; 32],
-            [2u8; 32],
-            [3u8; 32],
-            1234567890,
-        );
+        let attestation = BootAttestation::new([1u8; 32], [2u8; 32], [3u8; 32], 1234567890);
 
         log.append_boot_attestation(&attestation).unwrap();
 
@@ -503,13 +508,8 @@ mod tests {
 
     #[test]
     fn test_entry_header_hash() {
-        let header = WitnessLogEntryHeader::new(
-            [1u8; 32],
-            WitnessLogEntryType::Custom,
-            42,
-            1234567890,
-            100,
-        );
+        let header =
+            WitnessLogEntryHeader::new([1u8; 32], WitnessLogEntryType::Custom, 42, 1234567890, 100);
 
         let hash1 = header.hash();
         let hash2 = header.hash();

@@ -163,10 +163,7 @@ impl DataIngester {
             let mut cursor: Option<String> = None;
 
             loop {
-                match source
-                    .fetch_batch(cursor.clone(), config.batch_size)
-                    .await
-                {
+                match source.fetch_batch(cursor.clone(), config.batch_size).await {
                     Ok((batch, next_cursor)) => {
                         if batch.is_empty() {
                             break;

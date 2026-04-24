@@ -366,9 +366,7 @@ impl LearningSession {
     /// Update metrics for a completed epoch
     pub fn update_metrics(&mut self, metrics: TrainingMetrics) {
         // Update best metrics if this is an improvement
-        if self.best_metrics.is_none()
-            || metrics.loss < self.best_metrics.as_ref().unwrap().loss
-        {
+        if self.best_metrics.is_none() || metrics.loss < self.best_metrics.as_ref().unwrap().loss {
             self.best_metrics = Some(metrics.clone());
         }
 
@@ -667,11 +665,7 @@ pub struct RefinedEmbedding {
 impl RefinedEmbedding {
     /// Create a new refined embedding
     #[must_use]
-    pub fn new(
-        original_id: EmbeddingId,
-        refined_vector: Vec<f32>,
-        refinement_score: f32,
-    ) -> Self {
+    pub fn new(original_id: EmbeddingId, refined_vector: Vec<f32>, refinement_score: f32) -> Self {
         Self {
             original_id,
             refined_vector,
@@ -704,7 +698,12 @@ impl RefinedEmbedding {
 
     /// Normalize the refined vector to unit length
     pub fn normalize(&mut self) {
-        let norm: f32 = self.refined_vector.iter().map(|x| x * x).sum::<f32>().sqrt();
+        let norm: f32 = self
+            .refined_vector
+            .iter()
+            .map(|x| x * x)
+            .sum::<f32>()
+            .sqrt();
         if norm > 1e-10 {
             for x in &mut self.refined_vector {
                 *x /= norm;
@@ -798,11 +797,7 @@ mod tests {
         let original = vec![1.0, 0.0, 0.0];
         let refined = vec![0.9, 0.1, 0.0];
 
-        let mut re = RefinedEmbedding::new(
-            EmbeddingId::new("test"),
-            refined,
-            0.95,
-        );
+        let mut re = RefinedEmbedding::new(EmbeddingId::new("test"), refined, 0.95);
 
         re.compute_delta(&original);
         assert!(re.delta_norm.is_some());

@@ -336,9 +336,8 @@ impl QuantumChannel {
         }
 
         // Compose Kraus operators: {E_i F_j}
-        let mut new_operators = Vec::with_capacity(
-            self.kraus_operators.len() * other.kraus_operators.len(),
-        );
+        let mut new_operators =
+            Vec::with_capacity(self.kraus_operators.len() * other.kraus_operators.len());
 
         for e in &self.kraus_operators {
             for f in &other.kraus_operators {
@@ -351,9 +350,8 @@ impl QuantumChannel {
 
     /// Tensor product of channels: (E ⊗ F)(ρ_AB) = E(ρ_A) ⊗ F(ρ_B)
     pub fn tensor(&self, other: &QuantumChannel) -> Self {
-        let mut new_operators = Vec::with_capacity(
-            self.kraus_operators.len() * other.kraus_operators.len(),
-        );
+        let mut new_operators =
+            Vec::with_capacity(self.kraus_operators.len() * other.kraus_operators.len());
 
         for k1 in &self.kraus_operators {
             for k2 in &other.kraus_operators {
@@ -660,7 +658,9 @@ mod tests {
         assert!(channel.is_trace_preserving(1e-10));
 
         // p=0 should be identity
-        let rho = DensityMatrix::from_pure_state(&super::super::quantum_state::QuantumState::ground_state(1));
+        let rho = DensityMatrix::from_pure_state(
+            &super::super::quantum_state::QuantumState::ground_state(1),
+        );
         let result = channel.apply(&rho).unwrap();
         assert!((result.fidelity(&rho).unwrap() - 1.0).abs() < 1e-5);
     }
@@ -671,7 +671,9 @@ mod tests {
         assert!(channel.is_trace_preserving(1e-10));
 
         // γ=1 should map everything to |0⟩
-        let rho = DensityMatrix::from_pure_state(&super::super::quantum_state::QuantumState::basis_state(2, 1).unwrap());
+        let rho = DensityMatrix::from_pure_state(
+            &super::super::quantum_state::QuantumState::basis_state(2, 1).unwrap(),
+        );
         let result = channel.apply(&rho).unwrap();
 
         // Should be close to |0⟩⟨0|

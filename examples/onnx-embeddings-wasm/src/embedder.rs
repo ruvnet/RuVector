@@ -86,7 +86,10 @@ impl WasmEmbedder {
     /// * `model_bytes` - ONNX model file bytes
     /// * `tokenizer_json` - Tokenizer JSON configuration
     #[wasm_bindgen(constructor)]
-    pub fn new(model_bytes: &[u8], tokenizer_json: &str) -> std::result::Result<WasmEmbedder, JsValue> {
+    pub fn new(
+        model_bytes: &[u8],
+        tokenizer_json: &str,
+    ) -> std::result::Result<WasmEmbedder, JsValue> {
         Self::with_config(model_bytes, tokenizer_json, WasmEmbedderConfig::default())
     }
 
@@ -131,9 +134,11 @@ impl WasmEmbedder {
     /// Compute similarity between two texts
     #[wasm_bindgen]
     pub fn similarity(&mut self, text1: &str, text2: &str) -> std::result::Result<f32, JsValue> {
-        let emb1 = self.embed_one_internal(text1)
+        let emb1 = self
+            .embed_one_internal(text1)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
-        let emb2 = self.embed_one_internal(text2)
+        let emb2 = self
+            .embed_one_internal(text2)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         Ok(cosine_similarity(&emb1, &emb2))
@@ -173,11 +178,10 @@ impl WasmEmbedder {
         }
 
         // Apply pooling
-        let mut embedding = self.config.pooling.apply(
-            &raw_output,
-            &attention_mask,
-            self.hidden_size,
-        );
+        let mut embedding =
+            self.config
+                .pooling
+                .apply(&raw_output, &attention_mask, self.hidden_size);
 
         // Normalize if configured
         if self.config.normalize {

@@ -323,7 +323,9 @@ impl UsptoPatentClient {
         let mut vectors = Vec::new();
 
         for patent in patents {
-            let title = patent.patent_title.unwrap_or_else(|| "Untitled Patent".to_string());
+            let title = patent
+                .patent_title
+                .unwrap_or_else(|| "Untitled Patent".to_string());
             let abstract_text = patent.patent_abstract.unwrap_or_default();
 
             // Create combined text for embedding
@@ -427,16 +429,15 @@ impl UsptoPatentClient {
         loop {
             match self.client.get(url).send().await {
                 Ok(response) => {
-                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES
-                    {
+                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
                         sleep(Duration::from_millis(RETRY_DELAY_MS * retries as u64)).await;
                         continue;
                     }
                     if !response.status().is_success() {
-                        return Err(FrameworkError::Network(
-                            reqwest::Error::from(response.error_for_status().unwrap_err()),
-                        ));
+                        return Err(FrameworkError::Network(reqwest::Error::from(
+                            response.error_for_status().unwrap_err(),
+                        )));
                     }
                     return Ok(response);
                 }
@@ -460,16 +461,15 @@ impl UsptoPatentClient {
         loop {
             match self.client.post(url).json(json).send().await {
                 Ok(response) => {
-                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES
-                    {
+                    if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
                         sleep(Duration::from_millis(RETRY_DELAY_MS * retries as u64)).await;
                         continue;
                     }
                     if !response.status().is_success() {
-                        return Err(FrameworkError::Network(
-                            reqwest::Error::from(response.error_for_status().unwrap_err()),
-                        ));
+                        return Err(FrameworkError::Network(reqwest::Error::from(
+                            response.error_for_status().unwrap_err(),
+                        )));
                     }
                     return Ok(response);
                 }
@@ -642,7 +642,11 @@ mod tests {
             Ok(patents) => {
                 assert!(patents.len() <= 5);
                 for patent in patents {
-                    let cpc_codes = patent.metadata.get("cpc_codes").map(|s| s.as_str()).unwrap_or("");
+                    let cpc_codes = patent
+                        .metadata
+                        .get("cpc_codes")
+                        .map(|s| s.as_str())
+                        .unwrap_or("");
                     // Should contain G06N classification
                     assert!(
                         cpc_codes.contains("G06N") || cpc_codes.is_empty(),

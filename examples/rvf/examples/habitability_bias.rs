@@ -17,27 +17,39 @@ fn solve_mincut(lam: &[f64], edges: &[(usize, usize, f64)], gamma: f64) -> Vec<b
     let (s, t, n) = (m, m + 1, m + 2);
     let mut adj: Vec<Vec<(usize, usize)>> = vec![Vec::new(); n];
     let mut caps: Vec<f64> = Vec::new();
-    let add = |adj: &mut Vec<Vec<(usize, usize)>>, caps: &mut Vec<f64>, u: usize, v: usize, c: f64| {
-        let i = caps.len();
-        caps.push(c); caps.push(0.0);
-        adj[u].push((v, i)); adj[v].push((u, i + 1));
-    };
+    let add =
+        |adj: &mut Vec<Vec<(usize, usize)>>, caps: &mut Vec<f64>, u: usize, v: usize, c: f64| {
+            let i = caps.len();
+            caps.push(c);
+            caps.push(0.0);
+            adj[u].push((v, i));
+            adj[v].push((u, i + 1));
+        };
     for i in 0..m {
         let (p0, p1) = (lam[i].max(0.0), (-lam[i]).max(0.0));
-        if p0 > 1e-12 { add(&mut adj, &mut caps, s, i, p0); }
-        if p1 > 1e-12 { add(&mut adj, &mut caps, i, t, p1); }
+        if p0 > 1e-12 {
+            add(&mut adj, &mut caps, s, i, p0);
+        }
+        if p1 > 1e-12 {
+            add(&mut adj, &mut caps, i, t, p1);
+        }
     }
     for &(f, to, w) in edges {
         let c = gamma * w;
-        if c > 1e-12 { add(&mut adj, &mut caps, f, to, c); }
+        if c > 1e-12 {
+            add(&mut adj, &mut caps, f, to, c);
+        }
     }
     loop {
         let mut par: Vec<Option<(usize, usize)>> = vec![None; n];
         let mut vis = vec![false; n];
         let mut q = VecDeque::new();
-        vis[s] = true; q.push_back(s);
+        vis[s] = true;
+        q.push_back(s);
         while let Some(u) = q.pop_front() {
-            if u == t { break; }
+            if u == t {
+                break;
+            }
             for &(v, ei) in &adj[u] {
                 if !vis[v] && caps[ei] > 1e-15 {
                     vis[v] = true;
@@ -46,16 +58,31 @@ fn solve_mincut(lam: &[f64], edges: &[(usize, usize, f64)], gamma: f64) -> Vec<b
                 }
             }
         }
-        if !vis[t] { break; }
-        let mut bn = f64::MAX; let mut v = t;
-        while let Some((_, ei)) = par[v] { bn = bn.min(caps[ei]); v = par[v].unwrap().0; }
+        if !vis[t] {
+            break;
+        }
+        let mut bn = f64::MAX;
+        let mut v = t;
+        while let Some((_, ei)) = par[v] {
+            bn = bn.min(caps[ei]);
+            v = par[v].unwrap().0;
+        }
         v = t;
-        while let Some((u, ei)) = par[v] { caps[ei] -= bn; caps[ei ^ 1] += bn; v = u; }
+        while let Some((u, ei)) = par[v] {
+            caps[ei] -= bn;
+            caps[ei ^ 1] += bn;
+            v = u;
+        }
     }
-    let mut reach = vec![false; n]; let mut stk = vec![s]; reach[s] = true;
+    let mut reach = vec![false; n];
+    let mut stk = vec![s];
+    reach[s] = true;
     while let Some(u) = stk.pop() {
         for &(v, ei) in &adj[u] {
-            if !reach[v] && caps[ei] > 1e-15 { reach[v] = true; stk.push(v); }
+            if !reach[v] && caps[ei] > 1e-15 {
+                reach[v] = true;
+                stk.push(v);
+            }
         }
     }
     (0..m).map(|i| reach[i]).collect()
@@ -63,11 +90,17 @@ fn solve_mincut(lam: &[f64], edges: &[(usize, usize, f64)], gamma: f64) -> Vec<b
 
 // ── CSV helpers ─────────────────────────────────────────────────────────────
 
-fn parse_csv_field(s: &str) -> &str { s.trim().trim_matches('"') }
+fn parse_csv_field(s: &str) -> &str {
+    s.trim().trim_matches('"')
+}
 
 fn parse_f64(s: &str) -> Option<f64> {
     let v = parse_csv_field(s);
-    if v.is_empty() { None } else { v.parse().ok() }
+    if v.is_empty() {
+        None
+    } else {
+        v.parse().ok()
+    }
 }
 
 fn split_csv_line(line: &str) -> Vec<String> {
@@ -75,9 +108,14 @@ fn split_csv_line(line: &str) -> Vec<String> {
     let mut cur = String::new();
     let mut in_q = false;
     for ch in line.chars() {
-        if ch == '"' { in_q = !in_q; }
-        else if ch == ',' && !in_q { fields.push(cur.clone()); cur.clear(); }
-        else { cur.push(ch); }
+        if ch == '"' {
+            in_q = !in_q;
+        } else if ch == ',' && !in_q {
+            fields.push(cur.clone());
+            cur.clear();
+        } else {
+            cur.push(ch);
+        }
     }
     fields.push(cur);
     fields
@@ -85,14 +123,26 @@ fn split_csv_line(line: &str) -> Vec<String> {
 
 // ── Discovery method categories ─────────────────────────────────────────────
 
-const METHOD_NAMES: [&str; 5] = ["Transit", "Radial Velocity", "Microlensing", "Imaging", "Other"];
+const METHOD_NAMES: [&str; 5] = [
+    "Transit",
+    "Radial Velocity",
+    "Microlensing",
+    "Imaging",
+    "Other",
+];
 
 fn categorize_method(method: &str) -> usize {
-    if method.contains("Transit") { 0 }
-    else if method.contains("Radial Velocity") { 1 }
-    else if method.contains("Microlensing") { 2 }
-    else if method.contains("Imaging") { 3 }
-    else { 4 }
+    if method.contains("Transit") {
+        0
+    } else if method.contains("Radial Velocity") {
+        1
+    } else if method.contains("Microlensing") {
+        2
+    } else if method.contains("Imaging") {
+        3
+    } else {
+        4
+    }
 }
 
 // ── Planet data ─────────────────────────────────────────────────────────────
@@ -100,12 +150,12 @@ fn categorize_method(method: &str) -> usize {
 struct Planet {
     name: String,
     period: Option<f64>,
-    radius: Option<f64>,   // Earth radii
-    mass: Option<f64>,     // Earth masses
-    eq_temp: Option<f64>,  // Kelvin
+    radius: Option<f64>,  // Earth radii
+    mass: Option<f64>,    // Earth masses
+    eq_temp: Option<f64>, // Kelvin
     eccentricity: f64,
-    st_teff: Option<f64>,  // stellar effective temperature
-    method_cat: usize,     // index into METHOD_NAMES
+    st_teff: Option<f64>, // stellar effective temperature
+    method_cat: usize,    // index into METHOD_NAMES
     method_raw: String,
     disc_year: Option<f64>,
     _sy_dist: Option<f64>,
@@ -163,7 +213,11 @@ fn compute_habitability(p: &Planet) -> Option<f64> {
     };
 
     // Period: not directly scored but used for filtering (must be > 0)
-    let period_score = if period > 1.0 && period < 1000.0 { 1.0 } else { 0.8 };
+    let period_score = if period > 1.0 && period < 1000.0 {
+        1.0
+    } else {
+        0.8
+    };
 
     Some(temp_score * radius_score * mass_score * ecc_score * stellar_score * period_score)
 }
@@ -211,7 +265,9 @@ fn main() {
     let mut planets: Vec<Planet> = Vec::new();
     for line in data.lines().skip(1) {
         let f = split_csv_line(line);
-        if f.len() < 15 { continue; }
+        if f.len() < 15 {
+            continue;
+        }
         let method_raw = parse_csv_field(&f[13]).to_string();
         planets.push(Planet {
             name: parse_csv_field(&f[0]).to_string(),
@@ -248,11 +304,17 @@ fn main() {
     let mut scored: Vec<ScoredPlanet> = Vec::new();
     for (idx, p) in planets.iter().enumerate() {
         if let Some(h) = compute_habitability(p) {
-            scored.push(ScoredPlanet { idx, habitability: h });
+            scored.push(ScoredPlanet {
+                idx,
+                habitability: h,
+            });
         }
     }
 
-    println!("\n  Planets with sufficient data for habitability scoring: {}", scored.len());
+    println!(
+        "\n  Planets with sufficient data for habitability scoring: {}",
+        scored.len()
+    );
 
     // Sort by habitability descending
     scored.sort_by(|a, b| b.habitability.partial_cmp(&a.habitability).unwrap());
@@ -263,16 +325,31 @@ fn main() {
 
     // We work only with scored planets for the graph
     let n = scored.len();
-    let features: Vec<[f64; 5]> = scored.iter().map(|sp| feature_vector(&planets[sp.idx])).collect();
+    let features: Vec<[f64; 5]> = scored
+        .iter()
+        .map(|sp| feature_vector(&planets[sp.idx]))
+        .collect();
 
     // Compute feature scales (std dev) for normalization
     let n_f = n as f64;
     let mut means = [0.0f64; 5];
-    for f in &features { for d in 0..5 { means[d] += f[d]; } }
-    for d in 0..5 { means[d] /= n_f; }
+    for f in &features {
+        for d in 0..5 {
+            means[d] += f[d];
+        }
+    }
+    for d in 0..5 {
+        means[d] /= n_f;
+    }
     let mut scales = [0.0f64; 5];
-    for f in &features { for d in 0..5 { scales[d] += (f[d] - means[d]).powi(2); } }
-    for d in 0..5 { scales[d] = (scales[d] / n_f).sqrt().max(1e-6); }
+    for f in &features {
+        for d in 0..5 {
+            scales[d] += (f[d] - means[d]).powi(2);
+        }
+    }
+    for d in 0..5 {
+        scales[d] = (scales[d] / n_f).sqrt().max(1e-6);
+    }
 
     // Group indices by method
     let mut method_groups: Vec<Vec<usize>> = vec![Vec::new(); 5];
@@ -286,9 +363,12 @@ fn main() {
 
     // Layer 1: Intra-method kNN (k=7)
     for group in &method_groups {
-        if group.len() < 2 { continue; }
+        if group.len() < 2 {
+            continue;
+        }
         for &i in group {
-            let mut dists: Vec<(usize, f64)> = group.iter()
+            let mut dists: Vec<(usize, f64)> = group
+                .iter()
                 .filter(|&&j| j != i)
                 .map(|&j| (j, feature_distance(&features[i], &features[j], &scales)))
                 .collect();
@@ -335,32 +415,51 @@ fn main() {
     let mut hab_vals: Vec<f64> = scored.iter().map(|sp| sp.habitability).collect();
     hab_vals.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let hab_threshold = hab_vals[hab_vals.len() * 3 / 4]; // top quartile
-    let lam_hab: Vec<f64> = scored.iter()
+    let lam_hab: Vec<f64> = scored
+        .iter()
         .map(|sp| (sp.habitability - hab_threshold) * 2.0) // amplify signal
         .collect();
     let flagged_hab = solve_mincut(&lam_hab, &edges, 0.05); // low gamma: allow small clusters
     let n_hab = flagged_hab.iter().filter(|&&x| x).count();
 
-    println!("\n  Cut A (Habitability): {} / {} planets flagged as habitable candidates ({:.1}%)",
-        n_hab, n, n_hab as f64 / n as f64 * 100.0);
+    println!(
+        "\n  Cut A (Habitability): {} / {} planets flagged as habitable candidates ({:.1}%)",
+        n_hab,
+        n,
+        n_hab as f64 / n as f64 * 100.0
+    );
 
     // Cut B: Bias detection (high cross-method isolation)
     // Normalize cross_isolation
-    let max_iso = cross_isolation.iter().cloned()
+    let max_iso = cross_isolation
+        .iter()
+        .cloned()
         .filter(|&v| v < f64::MAX)
         .fold(0.0f64, f64::max);
-    let norm_isolation: Vec<f64> = cross_isolation.iter()
-        .map(|&v| if v < f64::MAX { v / max_iso.max(1e-6) } else { 1.0 })
+    let norm_isolation: Vec<f64> = cross_isolation
+        .iter()
+        .map(|&v| {
+            if v < f64::MAX {
+                v / max_iso.max(1e-6)
+            } else {
+                1.0
+            }
+        })
         .collect();
     let bias_threshold = median(&norm_isolation) + 0.1;
-    let lam_bias: Vec<f64> = norm_isolation.iter()
+    let lam_bias: Vec<f64> = norm_isolation
+        .iter()
         .map(|&iso| (iso - bias_threshold) * 1.5)
         .collect();
     let flagged_bias = solve_mincut(&lam_bias, &edges, 0.05);
     let n_bias = flagged_bias.iter().filter(|&&x| x).count();
 
-    println!("  Cut B (Method bias): {} / {} planets in method-exclusive regions ({:.1}%)",
-        n_bias, n, n_bias as f64 / n as f64 * 100.0);
+    println!(
+        "  Cut B (Method bias): {} / {} planets in method-exclusive regions ({:.1}%)",
+        n_bias,
+        n,
+        n_bias as f64 / n as f64 * 100.0
+    );
 
     // ── 5. Report: Top 20 most habitable planets ────────────────────────────
 
@@ -368,43 +467,105 @@ fn main() {
     println!("  TOP 20 MOST HABITABLE PLANET CANDIDATES");
     println!("{}", "=".repeat(70));
     println!();
-    println!("  {:>3} {:<28} {:>6} {:>7} {:>7} {:>6} {:>5} {:<16}",
-        "#", "Planet", "HScore", "Teq(K)", "R(Re)", "M(Me)", "Ecc", "Method");
-    println!("  {:-<3} {:-<28} {:-<6} {:-<7} {:-<7} {:-<6} {:-<5} {:-<16}",
-        "", "", "", "", "", "", "", "");
+    println!(
+        "  {:>3} {:<28} {:>6} {:>7} {:>7} {:>6} {:>5} {:<16}",
+        "#", "Planet", "HScore", "Teq(K)", "R(Re)", "M(Me)", "Ecc", "Method"
+    );
+    println!(
+        "  {:-<3} {:-<28} {:-<6} {:-<7} {:-<7} {:-<6} {:-<5} {:-<16}",
+        "", "", "", "", "", "", "", ""
+    );
 
     let mut hab_rank = 0;
     for sp in &scored {
-        if hab_rank >= 20 { break; }
+        if hab_rank >= 20 {
+            break;
+        }
         if !flagged_hab[scored.iter().position(|s| s.idx == sp.idx).unwrap()] {
             continue;
         }
         let p = &planets[sp.idx];
         hab_rank += 1;
-        let r_str = p.radius.map(|v| format!("{:.2}", v)).unwrap_or_else(|| "  -".into());
-        let m_str = p.mass.map(|v| format!("{:.1}", v)).unwrap_or_else(|| "  -".into());
-        let t_str = p.eq_temp.map(|v| format!("{:.0}", v)).unwrap_or_else(|| "  -".into());
-        let name_short = if p.name.len() > 28 { &p.name[..28] } else { &p.name };
-        let method_short = if p.method_raw.len() > 16 { &p.method_raw[..16] } else { &p.method_raw };
-        println!("  {:>3} {:<28} {:>6.4} {:>7} {:>7} {:>6} {:>5.3} {:<16}",
-            hab_rank, name_short, sp.habitability, t_str, r_str, m_str, p.eccentricity, method_short);
+        let r_str = p
+            .radius
+            .map(|v| format!("{:.2}", v))
+            .unwrap_or_else(|| "  -".into());
+        let m_str = p
+            .mass
+            .map(|v| format!("{:.1}", v))
+            .unwrap_or_else(|| "  -".into());
+        let t_str = p
+            .eq_temp
+            .map(|v| format!("{:.0}", v))
+            .unwrap_or_else(|| "  -".into());
+        let name_short = if p.name.len() > 28 {
+            &p.name[..28]
+        } else {
+            &p.name
+        };
+        let method_short = if p.method_raw.len() > 16 {
+            &p.method_raw[..16]
+        } else {
+            &p.method_raw
+        };
+        println!(
+            "  {:>3} {:<28} {:>6.4} {:>7} {:>7} {:>6} {:>5.3} {:<16}",
+            hab_rank,
+            name_short,
+            sp.habitability,
+            t_str,
+            r_str,
+            m_str,
+            p.eccentricity,
+            method_short
+        );
     }
 
     // If we didn't get 20 from flagged, fill from top scored
     if hab_rank < 20 {
         for sp in &scored {
-            if hab_rank >= 20 { break; }
+            if hab_rank >= 20 {
+                break;
+            }
             let si = scored.iter().position(|s| s.idx == sp.idx).unwrap();
-            if flagged_hab[si] { continue; } // already shown
+            if flagged_hab[si] {
+                continue;
+            } // already shown
             let p = &planets[sp.idx];
             hab_rank += 1;
-            let r_str = p.radius.map(|v| format!("{:.2}", v)).unwrap_or_else(|| "  -".into());
-            let m_str = p.mass.map(|v| format!("{:.1}", v)).unwrap_or_else(|| "  -".into());
-            let t_str = p.eq_temp.map(|v| format!("{:.0}", v)).unwrap_or_else(|| "  -".into());
-            let name_short = if p.name.len() > 28 { &p.name[..28] } else { &p.name };
-            let method_short = if p.method_raw.len() > 16 { &p.method_raw[..16] } else { &p.method_raw };
-            println!("  {:>3} {:<28} {:>6.4} {:>7} {:>7} {:>6} {:>5.3} {:<16}",
-                hab_rank, name_short, sp.habitability, t_str, r_str, m_str, p.eccentricity, method_short);
+            let r_str = p
+                .radius
+                .map(|v| format!("{:.2}", v))
+                .unwrap_or_else(|| "  -".into());
+            let m_str = p
+                .mass
+                .map(|v| format!("{:.1}", v))
+                .unwrap_or_else(|| "  -".into());
+            let t_str = p
+                .eq_temp
+                .map(|v| format!("{:.0}", v))
+                .unwrap_or_else(|| "  -".into());
+            let name_short = if p.name.len() > 28 {
+                &p.name[..28]
+            } else {
+                &p.name
+            };
+            let method_short = if p.method_raw.len() > 16 {
+                &p.method_raw[..16]
+            } else {
+                &p.method_raw
+            };
+            println!(
+                "  {:>3} {:<28} {:>6.4} {:>7} {:>7} {:>6} {:>5.3} {:<16}",
+                hab_rank,
+                name_short,
+                sp.habitability,
+                t_str,
+                r_str,
+                m_str,
+                p.eccentricity,
+                method_short
+            );
         }
     }
 
@@ -424,42 +585,79 @@ fn main() {
     }
 
     println!("  Bias-flagged planets per method:");
-    println!("  {:<20} {:>6} {:>8} {:>10}", "Method", "Biased", "Total", "Fraction");
+    println!(
+        "  {:<20} {:>6} {:>8} {:>10}",
+        "Method", "Biased", "Total", "Fraction"
+    );
     println!("  {:-<20} {:-<6} {:-<8} {:-<10}", "", "", "", "");
     for (i, name) in METHOD_NAMES.iter().enumerate() {
-        let total_in_scored: usize = scored.iter()
+        let total_in_scored: usize = scored
+            .iter()
             .filter(|sp| planets[sp.idx].method_cat == i)
             .count();
         if total_in_scored > 0 {
-            println!("  {:<20} {:>6} {:>8} {:>9.1}%", name, bias_by_method[i], total_in_scored,
-                bias_by_method[i] as f64 / total_in_scored as f64 * 100.0);
+            println!(
+                "  {:<20} {:>6} {:>8} {:>9.1}%",
+                name,
+                bias_by_method[i],
+                total_in_scored,
+                bias_by_method[i] as f64 / total_in_scored as f64 * 100.0
+            );
         }
     }
 
     // Show some examples of method-exclusive planets
     println!("\n  Example method-exclusive planets:");
-    println!("  {:<28} {:<16} {:>7} {:>7} {:>7} {:>6}",
-        "Planet", "Method", "Per(d)", "R(Re)", "Teq(K)", "Isol");
-    println!("  {:-<28} {:-<16} {:-<7} {:-<7} {:-<7} {:-<6}", "", "", "", "", "", "");
+    println!(
+        "  {:<28} {:<16} {:>7} {:>7} {:>7} {:>6}",
+        "Planet", "Method", "Per(d)", "R(Re)", "Teq(K)", "Isol"
+    );
+    println!(
+        "  {:-<28} {:-<16} {:-<7} {:-<7} {:-<7} {:-<6}",
+        "", "", "", "", "", ""
+    );
 
     let mut shown = 0;
     // Sort bias-flagged by isolation score descending
-    let mut bias_ranked: Vec<(usize, f64)> = scored.iter().enumerate()
+    let mut bias_ranked: Vec<(usize, f64)> = scored
+        .iter()
+        .enumerate()
         .filter(|(si, _)| flagged_bias[*si])
         .map(|(si, _)| (si, norm_isolation[si]))
         .collect();
     bias_ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
     for &(si, iso) in &bias_ranked {
-        if shown >= 15 { break; }
+        if shown >= 15 {
+            break;
+        }
         let p = &planets[scored[si].idx];
-        let per_str = p.period.map(|v| format!("{:.1}", v)).unwrap_or_else(|| "  -".into());
-        let r_str = p.radius.map(|v| format!("{:.2}", v)).unwrap_or_else(|| "  -".into());
-        let t_str = p.eq_temp.map(|v| format!("{:.0}", v)).unwrap_or_else(|| "  -".into());
-        let name_short = if p.name.len() > 28 { &p.name[..28] } else { &p.name };
-        let method_short = if p.method_raw.len() > 16 { &p.method_raw[..16] } else { &p.method_raw };
-        println!("  {:<28} {:<16} {:>7} {:>7} {:>7} {:>6.3}",
-            name_short, method_short, per_str, r_str, t_str, iso);
+        let per_str = p
+            .period
+            .map(|v| format!("{:.1}", v))
+            .unwrap_or_else(|| "  -".into());
+        let r_str = p
+            .radius
+            .map(|v| format!("{:.2}", v))
+            .unwrap_or_else(|| "  -".into());
+        let t_str = p
+            .eq_temp
+            .map(|v| format!("{:.0}", v))
+            .unwrap_or_else(|| "  -".into());
+        let name_short = if p.name.len() > 28 {
+            &p.name[..28]
+        } else {
+            &p.name
+        };
+        let method_short = if p.method_raw.len() > 16 {
+            &p.method_raw[..16]
+        } else {
+            &p.method_raw
+        };
+        println!(
+            "  {:<28} {:<16} {:>7} {:>7} {:>7} {:>6.3}",
+            name_short, method_short, per_str, r_str, t_str, iso
+        );
         shown += 1;
     }
 
@@ -471,7 +669,9 @@ fn main() {
 
     for (mi, name) in METHOD_NAMES.iter().enumerate() {
         let group: Vec<&Planet> = planets.iter().filter(|p| p.method_cat == mi).collect();
-        if group.is_empty() { continue; }
+        if group.is_empty() {
+            continue;
+        }
 
         let periods: Vec<f64> = group.iter().filter_map(|p| p.period).collect();
         let radii: Vec<f64> = group.iter().filter_map(|p| p.radius).collect();
@@ -483,25 +683,37 @@ fn main() {
             let min_p = periods.iter().cloned().fold(f64::MAX, f64::min);
             let max_p = periods.iter().cloned().fold(0.0f64, f64::max);
             let med_p = median(&periods);
-            println!("    Period:  {:.2} - {:.0} days (median {:.1})", min_p, max_p, med_p);
+            println!(
+                "    Period:  {:.2} - {:.0} days (median {:.1})",
+                min_p, max_p, med_p
+            );
         }
         if !radii.is_empty() {
             let min_r = radii.iter().cloned().fold(f64::MAX, f64::min);
             let max_r = radii.iter().cloned().fold(0.0f64, f64::max);
             let med_r = median(&radii);
-            println!("    Radius:  {:.2} - {:.1} Re (median {:.2})", min_r, max_r, med_r);
+            println!(
+                "    Radius:  {:.2} - {:.1} Re (median {:.2})",
+                min_r, max_r, med_r
+            );
         }
         if !masses.is_empty() {
             let min_m = masses.iter().cloned().fold(f64::MAX, f64::min);
             let max_m = masses.iter().cloned().fold(0.0f64, f64::max);
             let med_m = median(&masses);
-            println!("    Mass:    {:.2} - {:.0} Me (median {:.1})", min_m, max_m, med_m);
+            println!(
+                "    Mass:    {:.2} - {:.0} Me (median {:.1})",
+                min_m, max_m, med_m
+            );
         }
         if !temps.is_empty() {
             let min_t = temps.iter().cloned().fold(f64::MAX, f64::min);
             let max_t = temps.iter().cloned().fold(0.0f64, f64::max);
             let med_t = median(&temps);
-            println!("    Eq Temp: {:.0} - {:.0} K (median {:.0})", min_t, max_t, med_t);
+            println!(
+                "    Eq Temp: {:.0} - {:.0} K (median {:.0})",
+                min_t, max_t, med_t
+            );
         }
 
         // Year range
@@ -545,10 +757,22 @@ fn main() {
     }
 
     // Find range
-    let lp_min = bin_planets.iter().map(|b| b.log_period).fold(f64::MAX, f64::min);
-    let lp_max = bin_planets.iter().map(|b| b.log_period).fold(f64::MIN, f64::max);
-    let lr_min = bin_planets.iter().map(|b| b.log_radius).fold(f64::MAX, f64::min);
-    let lr_max = bin_planets.iter().map(|b| b.log_radius).fold(f64::MIN, f64::max);
+    let lp_min = bin_planets
+        .iter()
+        .map(|b| b.log_period)
+        .fold(f64::MAX, f64::min);
+    let lp_max = bin_planets
+        .iter()
+        .map(|b| b.log_period)
+        .fold(f64::MIN, f64::max);
+    let lr_min = bin_planets
+        .iter()
+        .map(|b| b.log_radius)
+        .fold(f64::MAX, f64::min);
+    let lr_max = bin_planets
+        .iter()
+        .map(|b| b.log_radius)
+        .fold(f64::MIN, f64::max);
 
     let lp_range = (lp_max - lp_min).max(1e-6);
     let lr_range = (lr_max - lr_min).max(1e-6);
@@ -566,14 +790,20 @@ fn main() {
     // Compute bias matrix: fraction of method A's cells NOT occupied by method B
     let mut bias_matrix = [[0.0f64; 5]; 5];
     for a in 0..5 {
-        let cells_a: usize = occupancy[a].iter()
+        let cells_a: usize = occupancy[a]
+            .iter()
             .flat_map(|row| row.iter())
             .filter(|&&v| v)
             .count();
-        if cells_a == 0 { continue; }
+        if cells_a == 0 {
+            continue;
+        }
         for b in 0..5 {
-            if a == b { continue; }
-            let exclusive: usize = (0..n_bins).flat_map(|pi| (0..n_bins).map(move |ri| (pi, ri)))
+            if a == b {
+                continue;
+            }
+            let exclusive: usize = (0..n_bins)
+                .flat_map(|pi| (0..n_bins).map(move |ri| (pi, ri)))
                 .filter(|&(pi, ri)| occupancy[a][pi][ri] && !occupancy[b][pi][ri])
                 .count();
             bias_matrix[a][b] = exclusive as f64 / cells_a as f64;
@@ -590,7 +820,9 @@ fn main() {
     }
     println!();
     print!("  {:-<20}", "");
-    for _ in &active { print!("{:-<12}", ""); }
+    for _ in &active {
+        print!("{:-<12}", "");
+    }
     println!();
 
     for &a in &active {
@@ -616,16 +848,23 @@ fn main() {
     println!();
 
     for (mi, name) in METHOD_NAMES.iter().enumerate() {
-        let hab_count: usize = scored.iter().enumerate()
+        let hab_count: usize = scored
+            .iter()
+            .enumerate()
             .filter(|(si, sp)| planets[sp.idx].method_cat == mi && flagged_hab[*si])
             .count();
-        let total_scored: usize = scored.iter()
+        let total_scored: usize = scored
+            .iter()
             .filter(|sp| planets[sp.idx].method_cat == mi)
             .count();
         if total_scored > 0 {
-            println!("  {:<20} {:>4} habitable / {:>5} scored ({:.1}%)",
-                name, hab_count, total_scored,
-                hab_count as f64 / total_scored as f64 * 100.0);
+            println!(
+                "  {:<20} {:>4} habitable / {:>5} scored ({:.1}%)",
+                name,
+                hab_count,
+                total_scored,
+                hab_count as f64 / total_scored as f64 * 100.0
+            );
         }
     }
 
@@ -661,7 +900,12 @@ fn median(vals: &[f64]) -> f64 {
     let mut sorted = vals.to_vec();
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let n = sorted.len();
-    if n == 0 { return 0.0; }
-    if n % 2 == 0 { (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0 }
-    else { sorted[n / 2] }
+    if n == 0 {
+        return 0.0;
+    }
+    if n % 2 == 0 {
+        (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0
+    } else {
+        sorted[n / 2]
+    }
 }

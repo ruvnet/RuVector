@@ -183,7 +183,8 @@ impl BiorxivClient {
         let end_date = Utc::now().date_naive();
         let start_date = end_date - chrono::Duration::days(days as i64);
 
-        self.search_by_date_range(start_date, end_date, Some(limit)).await
+        self.search_by_date_range(start_date, end_date, Some(limit))
+            .await
     }
 
     /// Search preprints by date range
@@ -208,7 +209,8 @@ impl BiorxivClient {
         limit: Option<usize>,
     ) -> Result<Vec<SemanticVector>> {
         let interval = format!("{}/{}", start_date, end_date);
-        self.fetch_with_pagination("biorxiv", &interval, limit).await
+        self.fetch_with_pagination("biorxiv", &interval, limit)
+            .await
     }
 
     /// Search preprints by subject category
@@ -247,7 +249,9 @@ impl BiorxivClient {
         let end_date = Utc::now().date_naive();
         let start_date = end_date - chrono::Duration::days(365);
 
-        let all_papers = self.search_by_date_range(start_date, end_date, Some(limit * 2)).await?;
+        let all_papers = self
+            .search_by_date_range(start_date, end_date, Some(limit * 2))
+            .await?;
 
         // Filter by category
         Ok(all_papers
@@ -278,7 +282,10 @@ impl BiorxivClient {
                 break;
             }
 
-            let url = format!("{}/details/{}/{}/{}", self.base_url, server, interval, cursor);
+            let url = format!(
+                "{}/details/{}/{}/{}",
+                self.base_url, server, interval, cursor
+            );
 
             // Rate limiting
             sleep(Duration::from_millis(BIORXIV_RATE_LIMIT_MS)).await;
@@ -385,14 +392,17 @@ impl BiorxivClient {
                 Ok(response) => {
                     if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
-                        tracing::warn!("Rate limited, retrying in {}ms", RETRY_DELAY_MS * retries as u64);
+                        tracing::warn!(
+                            "Rate limited, retrying in {}ms",
+                            RETRY_DELAY_MS * retries as u64
+                        );
                         sleep(Duration::from_millis(RETRY_DELAY_MS * retries as u64)).await;
                         continue;
                     }
                     if !response.status().is_success() {
-                        return Err(FrameworkError::Network(
-                            reqwest::Error::from(response.error_for_status().unwrap_err()),
-                        ));
+                        return Err(FrameworkError::Network(reqwest::Error::from(
+                            response.error_for_status().unwrap_err(),
+                        )));
                     }
                     return Ok(response);
                 }
@@ -482,7 +492,8 @@ impl MedrxivClient {
         let end_date = Utc::now().date_naive();
         let start_date = end_date - chrono::Duration::days(days as i64);
 
-        self.search_by_date_range(start_date, end_date, Some(limit)).await
+        self.search_by_date_range(start_date, end_date, Some(limit))
+            .await
     }
 
     /// Search preprints by date range
@@ -507,7 +518,8 @@ impl MedrxivClient {
         limit: Option<usize>,
     ) -> Result<Vec<SemanticVector>> {
         let interval = format!("{}/{}", start_date, end_date);
-        self.fetch_with_pagination("medrxiv", &interval, limit).await
+        self.fetch_with_pagination("medrxiv", &interval, limit)
+            .await
     }
 
     /// Search COVID-19 related preprints
@@ -524,15 +536,29 @@ impl MedrxivClient {
         let end_date = Utc::now().date_naive();
         let start_date = NaiveDate::from_ymd_opt(2020, 1, 1).expect("Valid date");
 
-        let all_papers = self.search_by_date_range(start_date, end_date, Some(limit * 2)).await?;
+        let all_papers = self
+            .search_by_date_range(start_date, end_date, Some(limit * 2))
+            .await?;
 
         // Filter by COVID-19 related keywords
         Ok(all_papers
             .into_iter()
             .filter(|v| {
-                let title = v.metadata.get("title").map(|s| s.to_lowercase()).unwrap_or_default();
-                let abstract_text = v.metadata.get("abstract").map(|s| s.to_lowercase()).unwrap_or_default();
-                let category = v.metadata.get("category").map(|s| s.to_lowercase()).unwrap_or_default();
+                let title = v
+                    .metadata
+                    .get("title")
+                    .map(|s| s.to_lowercase())
+                    .unwrap_or_default();
+                let abstract_text = v
+                    .metadata
+                    .get("abstract")
+                    .map(|s| s.to_lowercase())
+                    .unwrap_or_default();
+                let category = v
+                    .metadata
+                    .get("category")
+                    .map(|s| s.to_lowercase())
+                    .unwrap_or_default();
 
                 let keywords = ["covid", "sars-cov-2", "coronavirus", "pandemic"];
                 keywords.iter().any(|kw| {
@@ -557,17 +583,38 @@ impl MedrxivClient {
         let end_date = Utc::now().date_naive();
         let start_date = end_date - chrono::Duration::days(365);
 
-        let all_papers = self.search_by_date_range(start_date, end_date, Some(limit * 2)).await?;
+        let all_papers = self
+            .search_by_date_range(start_date, end_date, Some(limit * 2))
+            .await?;
 
         // Filter by clinical keywords
         Ok(all_papers
             .into_iter()
             .filter(|v| {
-                let title = v.metadata.get("title").map(|s| s.to_lowercase()).unwrap_or_default();
-                let abstract_text = v.metadata.get("abstract").map(|s| s.to_lowercase()).unwrap_or_default();
-                let category = v.metadata.get("category").map(|s| s.to_lowercase()).unwrap_or_default();
+                let title = v
+                    .metadata
+                    .get("title")
+                    .map(|s| s.to_lowercase())
+                    .unwrap_or_default();
+                let abstract_text = v
+                    .metadata
+                    .get("abstract")
+                    .map(|s| s.to_lowercase())
+                    .unwrap_or_default();
+                let category = v
+                    .metadata
+                    .get("category")
+                    .map(|s| s.to_lowercase())
+                    .unwrap_or_default();
 
-                let keywords = ["clinical", "trial", "patient", "treatment", "therapy", "diagnosis"];
+                let keywords = [
+                    "clinical",
+                    "trial",
+                    "patient",
+                    "treatment",
+                    "therapy",
+                    "diagnosis",
+                ];
                 keywords.iter().any(|kw| {
                     title.contains(kw) || abstract_text.contains(kw) || category.contains(kw)
                 })
@@ -592,7 +639,10 @@ impl MedrxivClient {
                 break;
             }
 
-            let url = format!("{}/details/{}/{}/{}", self.base_url, server, interval, cursor);
+            let url = format!(
+                "{}/details/{}/{}/{}",
+                self.base_url, server, interval, cursor
+            );
 
             // Rate limiting
             sleep(Duration::from_millis(BIORXIV_RATE_LIMIT_MS)).await;
@@ -699,14 +749,17 @@ impl MedrxivClient {
                 Ok(response) => {
                     if response.status() == StatusCode::TOO_MANY_REQUESTS && retries < MAX_RETRIES {
                         retries += 1;
-                        tracing::warn!("Rate limited, retrying in {}ms", RETRY_DELAY_MS * retries as u64);
+                        tracing::warn!(
+                            "Rate limited, retrying in {}ms",
+                            RETRY_DELAY_MS * retries as u64
+                        );
                         sleep(Duration::from_millis(RETRY_DELAY_MS * retries as u64)).await;
                         continue;
                     }
                     if !response.status().is_success() {
-                        return Err(FrameworkError::Network(
-                            reqwest::Error::from(response.error_for_status().unwrap_err()),
-                        ));
+                        return Err(FrameworkError::Network(reqwest::Error::from(
+                            response.error_for_status().unwrap_err(),
+                        )));
                     }
                     return Ok(response);
                 }
@@ -780,7 +833,10 @@ mod tests {
         assert_eq!(v.id, "doi:10.1101/2024.01.01.123456");
         assert_eq!(v.domain, Domain::Research);
         assert_eq!(v.metadata.get("doi").unwrap(), "10.1101/2024.01.01.123456");
-        assert_eq!(v.metadata.get("title").unwrap(), "Deep Learning for Neuroscience");
+        assert_eq!(
+            v.metadata.get("title").unwrap(),
+            "Deep Learning for Neuroscience"
+        );
         assert_eq!(v.metadata.get("authors").unwrap(), "John Doe; Jane Smith");
         assert_eq!(v.metadata.get("category").unwrap(), "Neuroscience");
         assert_eq!(v.metadata.get("server").unwrap(), "biorxiv");
@@ -813,10 +869,16 @@ mod tests {
         assert_eq!(v.id, "doi:10.1101/2024.01.01.654321");
         assert_eq!(v.domain, Domain::Medical);
         assert_eq!(v.metadata.get("doi").unwrap(), "10.1101/2024.01.01.654321");
-        assert_eq!(v.metadata.get("title").unwrap(), "COVID-19 Vaccine Efficacy Study");
+        assert_eq!(
+            v.metadata.get("title").unwrap(),
+            "COVID-19 Vaccine Efficacy Study"
+        );
         assert_eq!(v.metadata.get("category").unwrap(), "Infectious Diseases");
         assert_eq!(v.metadata.get("server").unwrap(), "medrxiv");
-        assert_eq!(v.metadata.get("published_status").unwrap(), "Nature Medicine");
+        assert_eq!(
+            v.metadata.get("published_status").unwrap(),
+            "Nature Medicine"
+        );
     }
 
     #[test]
@@ -907,7 +969,10 @@ mod tests {
                 || abstract_text.contains("covid")
                 || abstract_text.contains("sars-cov-2");
 
-            assert!(has_covid_keyword, "Expected COVID-related keywords in results");
+            assert!(
+                has_covid_keyword,
+                "Expected COVID-related keywords in results"
+            );
         }
     }
 

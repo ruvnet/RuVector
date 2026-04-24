@@ -5,9 +5,9 @@
 //! adjacency matrix is row-normalized to produce a TPM suitable for
 //! IIT Phi computation.
 
+use rand::Rng;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
-use rand::Rng;
 
 /// A single species in the food web.
 #[derive(Clone, Debug)]
@@ -116,21 +116,57 @@ pub fn generate_all_ecosystems() -> Vec<Ecosystem> {
 fn generate_tropical_rainforest() -> Ecosystem {
     let species = vec![
         // Producers (0-2)
-        Species { name: "Canopy Tree".into(), trophic_level: TrophicLevel::Producer },
-        Species { name: "Understory Shrub".into(), trophic_level: TrophicLevel::Producer },
-        Species { name: "Epiphyte".into(), trophic_level: TrophicLevel::Producer },
+        Species {
+            name: "Canopy Tree".into(),
+            trophic_level: TrophicLevel::Producer,
+        },
+        Species {
+            name: "Understory Shrub".into(),
+            trophic_level: TrophicLevel::Producer,
+        },
+        Species {
+            name: "Epiphyte".into(),
+            trophic_level: TrophicLevel::Producer,
+        },
         // Primary consumers (3-5)
-        Species { name: "Leaf Insect".into(), trophic_level: TrophicLevel::PrimaryConsumer },
-        Species { name: "Fruit Bird".into(), trophic_level: TrophicLevel::PrimaryConsumer },
-        Species { name: "Herbivore Mammal".into(), trophic_level: TrophicLevel::PrimaryConsumer },
+        Species {
+            name: "Leaf Insect".into(),
+            trophic_level: TrophicLevel::PrimaryConsumer,
+        },
+        Species {
+            name: "Fruit Bird".into(),
+            trophic_level: TrophicLevel::PrimaryConsumer,
+        },
+        Species {
+            name: "Herbivore Mammal".into(),
+            trophic_level: TrophicLevel::PrimaryConsumer,
+        },
         // Secondary consumers (6-8)
-        Species { name: "Snake".into(), trophic_level: TrophicLevel::SecondaryConsumer },
-        Species { name: "Raptor".into(), trophic_level: TrophicLevel::SecondaryConsumer },
-        Species { name: "Wild Cat".into(), trophic_level: TrophicLevel::SecondaryConsumer },
+        Species {
+            name: "Snake".into(),
+            trophic_level: TrophicLevel::SecondaryConsumer,
+        },
+        Species {
+            name: "Raptor".into(),
+            trophic_level: TrophicLevel::SecondaryConsumer,
+        },
+        Species {
+            name: "Wild Cat".into(),
+            trophic_level: TrophicLevel::SecondaryConsumer,
+        },
         // Decomposers (9-11)
-        Species { name: "Fungi".into(), trophic_level: TrophicLevel::Decomposer },
-        Species { name: "Bacteria".into(), trophic_level: TrophicLevel::Decomposer },
-        Species { name: "Earthworm".into(), trophic_level: TrophicLevel::Decomposer },
+        Species {
+            name: "Fungi".into(),
+            trophic_level: TrophicLevel::Decomposer,
+        },
+        Species {
+            name: "Bacteria".into(),
+            trophic_level: TrophicLevel::Decomposer,
+        },
+        Species {
+            name: "Earthworm".into(),
+            trophic_level: TrophicLevel::Decomposer,
+        },
     ];
     let n = species.len();
     let mut rng = ChaCha8Rng::seed_from_u64(100);
@@ -204,20 +240,44 @@ fn generate_tropical_rainforest() -> Ecosystem {
 fn generate_agricultural_monoculture() -> Ecosystem {
     let species = vec![
         // 0: Crop (producer)
-        Species { name: "Wheat Crop".into(), trophic_level: TrophicLevel::Producer },
+        Species {
+            name: "Wheat Crop".into(),
+            trophic_level: TrophicLevel::Producer,
+        },
         // 1: Pest
-        Species { name: "Aphid Pest".into(), trophic_level: TrophicLevel::PrimaryConsumer },
+        Species {
+            name: "Aphid Pest".into(),
+            trophic_level: TrophicLevel::PrimaryConsumer,
+        },
         // 2: Predator of pest
-        Species { name: "Ladybug".into(), trophic_level: TrophicLevel::SecondaryConsumer },
+        Species {
+            name: "Ladybug".into(),
+            trophic_level: TrophicLevel::SecondaryConsumer,
+        },
         // 3: Pollinator
-        Species { name: "Honeybee".into(), trophic_level: TrophicLevel::PrimaryConsumer },
+        Species {
+            name: "Honeybee".into(),
+            trophic_level: TrophicLevel::PrimaryConsumer,
+        },
         // 4-5: Soil microbes
-        Species { name: "Nitrogen Fixer".into(), trophic_level: TrophicLevel::Decomposer },
-        Species { name: "Mycorrhiza".into(), trophic_level: TrophicLevel::Decomposer },
+        Species {
+            name: "Nitrogen Fixer".into(),
+            trophic_level: TrophicLevel::Decomposer,
+        },
+        Species {
+            name: "Mycorrhiza".into(),
+            trophic_level: TrophicLevel::Decomposer,
+        },
         // 6: Weed
-        Species { name: "Weed".into(), trophic_level: TrophicLevel::Producer },
+        Species {
+            name: "Weed".into(),
+            trophic_level: TrophicLevel::Producer,
+        },
         // 7: Resistant pest variant
-        Species { name: "Resistant Aphid".into(), trophic_level: TrophicLevel::PrimaryConsumer },
+        Species {
+            name: "Resistant Aphid".into(),
+            trophic_level: TrophicLevel::PrimaryConsumer,
+        },
     ];
     let n = species.len();
     let mut rng = ChaCha8Rng::seed_from_u64(200);
@@ -268,22 +328,52 @@ fn generate_agricultural_monoculture() -> Ecosystem {
 fn generate_coral_reef() -> Ecosystem {
     let species = vec![
         // 0: Coral (keystone)
-        Species { name: "Coral".into(), trophic_level: TrophicLevel::Producer },
+        Species {
+            name: "Coral".into(),
+            trophic_level: TrophicLevel::Producer,
+        },
         // 1: Algae
-        Species { name: "Algae".into(), trophic_level: TrophicLevel::Producer },
+        Species {
+            name: "Algae".into(),
+            trophic_level: TrophicLevel::Producer,
+        },
         // 2-4: Fish
-        Species { name: "Clownfish".into(), trophic_level: TrophicLevel::PrimaryConsumer },
-        Species { name: "Parrotfish".into(), trophic_level: TrophicLevel::PrimaryConsumer },
-        Species { name: "Grouper".into(), trophic_level: TrophicLevel::SecondaryConsumer },
+        Species {
+            name: "Clownfish".into(),
+            trophic_level: TrophicLevel::PrimaryConsumer,
+        },
+        Species {
+            name: "Parrotfish".into(),
+            trophic_level: TrophicLevel::PrimaryConsumer,
+        },
+        Species {
+            name: "Grouper".into(),
+            trophic_level: TrophicLevel::SecondaryConsumer,
+        },
         // 5-6: Invertebrates
-        Species { name: "Sea Urchin".into(), trophic_level: TrophicLevel::PrimaryConsumer },
-        Species { name: "Crown-of-Thorns".into(), trophic_level: TrophicLevel::PrimaryConsumer },
+        Species {
+            name: "Sea Urchin".into(),
+            trophic_level: TrophicLevel::PrimaryConsumer,
+        },
+        Species {
+            name: "Crown-of-Thorns".into(),
+            trophic_level: TrophicLevel::PrimaryConsumer,
+        },
         // 7: Shark (apex)
-        Species { name: "Reef Shark".into(), trophic_level: TrophicLevel::Apex },
+        Species {
+            name: "Reef Shark".into(),
+            trophic_level: TrophicLevel::Apex,
+        },
         // 8: Sea turtle
-        Species { name: "Sea Turtle".into(), trophic_level: TrophicLevel::SecondaryConsumer },
+        Species {
+            name: "Sea Turtle".into(),
+            trophic_level: TrophicLevel::SecondaryConsumer,
+        },
         // 9: Plankton
-        Species { name: "Plankton".into(), trophic_level: TrophicLevel::Producer },
+        Species {
+            name: "Plankton".into(),
+            trophic_level: TrophicLevel::Producer,
+        },
     ];
     let n = species.len();
     let mut rng = ChaCha8Rng::seed_from_u64(300);
@@ -296,7 +386,7 @@ fn generate_coral_reef() -> Ecosystem {
     // Parrotfish grazes algae off coral (mutually beneficial)
     adj[3 * n + 1] = 0.4 + rng.gen::<f64>() * 0.1;
     adj[0 * n + 3] = 0.3 + rng.gen::<f64>() * 0.1; // coral benefits from parrotfish
-    // Grouper eats smaller fish
+                                                   // Grouper eats smaller fish
     adj[4 * n + 2] = 0.3 + rng.gen::<f64>() * 0.1;
     adj[4 * n + 3] = 0.2 + rng.gen::<f64>() * 0.1;
     // Sea urchin grazes algae

@@ -11,11 +11,9 @@
 //! - Betti numbers (dim 2): < 10ms
 //! - Quantum fidelity: < 1ms per pair
 
-use criterion::{
-    black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
-};
-use std::collections::{BinaryHeap, HashMap, HashSet};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use std::cmp::Ordering;
+use std::collections::{BinaryHeap, HashMap, HashSet};
 
 // ============================================================================
 // SIMPLICIAL COMPLEX TYPES
@@ -61,7 +59,9 @@ struct FilteredComplex {
 
 impl FilteredComplex {
     fn new() -> Self {
-        Self { simplices: Vec::new() }
+        Self {
+            simplices: Vec::new(),
+        }
     }
 
     fn add(&mut self, filtration: f64, simplex: Simplex) {
@@ -70,7 +70,8 @@ impl FilteredComplex {
 
     fn sort_by_filtration(&mut self) {
         self.simplices.sort_by(|a, b| {
-            a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal)
+            a.0.partial_cmp(&b.0)
+                .unwrap_or(Ordering::Equal)
                 .then_with(|| a.1.dimension().cmp(&b.1.dimension()))
         });
     }
@@ -153,7 +154,9 @@ impl UnionFind {
 /// Compute persistent homology using standard algorithm
 fn compute_persistent_homology(complex: &FilteredComplex, max_dim: usize) -> Vec<PersistencePair> {
     let mut pairs = Vec::new();
-    let num_vertices = complex.simplices.iter()
+    let num_vertices = complex
+        .simplices
+        .iter()
         .filter(|(_, s)| s.dimension() == 0)
         .count();
 
@@ -202,7 +205,8 @@ fn compute_persistent_homology(complex: &FilteredComplex, max_dim: usize) -> Vec
         } else if dim <= max_dim {
             // Higher dimensional simplex
             let faces = simplex.faces();
-            let mut boundary: HashSet<usize> = faces.iter()
+            let mut boundary: HashSet<usize> = faces
+                .iter()
                 .filter_map(|f| simplex_index.get(&f.vertices).copied())
                 .collect();
 
@@ -265,14 +269,14 @@ struct PersistenceStats {
     betti_at_threshold: Vec<usize>,
 }
 
-fn compute_persistence_stats(pairs: &[PersistencePair], threshold: f64, max_dim: usize) -> PersistenceStats {
-    let finite_pairs: Vec<_> = pairs.iter()
-        .filter(|p| p.death.is_finite())
-        .collect();
+fn compute_persistence_stats(
+    pairs: &[PersistencePair],
+    threshold: f64,
+    max_dim: usize,
+) -> PersistenceStats {
+    let finite_pairs: Vec<_> = pairs.iter().filter(|p| p.death.is_finite()).collect();
 
-    let persistences: Vec<f64> = finite_pairs.iter()
-        .map(|p| p.persistence())
-        .collect();
+    let persistences: Vec<f64> = finite_pairs.iter().map(|p| p.persistence()).collect();
 
     let max_persistence = persistences.iter().cloned().fold(0.0f64, f64::max);
     let mean_persistence = if persistences.is_empty() {
@@ -320,7 +324,10 @@ impl Complex {
     }
 
     fn conjugate(&self) -> Self {
-        Self { re: self.re, im: -self.im }
+        Self {
+            re: self.re,
+            im: -self.im,
+        }
     }
 
     fn mul(&self, other: &Self) -> Self {
@@ -542,7 +549,11 @@ fn betti_numbers(complex: &FilteredComplex, max_dim: usize) -> Vec<usize> {
     let mut betti = vec![0usize; max_dim + 1];
     for k in 0..=max_dim {
         let c_k = counts[k];
-        let c_k1 = if k + 1 <= max_dim + 1 { counts[k + 1] } else { 0 };
+        let c_k1 = if k + 1 <= max_dim + 1 {
+            counts[k + 1]
+        } else {
+            0
+        };
 
         // Very rough approximation
         betti[k] = if c_k > c_k1 { c_k - c_k1 } else { 1 };
@@ -560,7 +571,11 @@ fn betti_numbers(complex: &FilteredComplex, max_dim: usize) -> Vec<usize> {
 // DATA GENERATORS
 // ============================================================================
 
-fn generate_rips_complex(points: &[(f64, f64)], max_radius: f64, max_dim: usize) -> FilteredComplex {
+fn generate_rips_complex(
+    points: &[(f64, f64)],
+    max_radius: f64,
+    max_dim: usize,
+) -> FilteredComplex {
     let n = points.len();
     let mut complex = FilteredComplex::new();
 
@@ -573,9 +588,8 @@ fn generate_rips_complex(points: &[(f64, f64)], max_radius: f64, max_dim: usize)
     let mut edges: Vec<(f64, usize, usize)> = Vec::new();
     for i in 0..n {
         for j in (i + 1)..n {
-            let dist = ((points[i].0 - points[j].0).powi(2)
-                + (points[i].1 - points[j].1).powi(2))
-                .sqrt();
+            let dist =
+                ((points[i].0 - points[j].0).powi(2) + (points[i].1 - points[j].1).powi(2)).sqrt();
             if dist <= max_radius {
                 edges.push((dist, i, j));
             }
@@ -687,9 +701,7 @@ fn bench_persistent_homology(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("dim2", num_points),
             &complex,
-            |b, complex| {
-                b.iter(|| black_box(compute_persistent_homology(black_box(complex), 2)))
-            },
+            |b, complex| b.iter(|| black_box(compute_persistent_homology(black_box(complex), 2))),
         );
     }
 
@@ -710,9 +722,7 @@ fn bench_persistence_stats(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("compute", num_points),
             &pairs,
-            |b, pairs| {
-                b.iter(|| black_box(compute_persistence_stats(black_box(pairs), 0.1, 2)))
-            },
+            |b, pairs| b.iter(|| black_box(compute_persistence_stats(black_box(pairs), 0.1, 2))),
         );
     }
 
@@ -732,17 +742,13 @@ fn bench_topological_invariants(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("euler", num_points),
             &complex,
-            |b, complex| {
-                b.iter(|| black_box(euler_characteristic(black_box(complex))))
-            },
+            |b, complex| b.iter(|| black_box(euler_characteristic(black_box(complex)))),
         );
 
         group.bench_with_input(
             BenchmarkId::new("betti", num_points),
             &complex,
-            |b, complex| {
-                b.iter(|| black_box(betti_numbers(black_box(complex), 2)))
-            },
+            |b, complex| b.iter(|| black_box(betti_numbers(black_box(complex), 2))),
         );
     }
 
@@ -761,17 +767,13 @@ fn bench_rips_construction(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("dim2", num_points),
             &points,
-            |b, points| {
-                b.iter(|| black_box(generate_rips_complex(black_box(points), 0.15, 2)))
-            },
+            |b, points| b.iter(|| black_box(generate_rips_complex(black_box(points), 0.15, 2))),
         );
 
         group.bench_with_input(
             BenchmarkId::new("dim1", num_points),
             &points,
-            |b, points| {
-                b.iter(|| black_box(generate_rips_complex(black_box(points), 0.15, 1)))
-            },
+            |b, points| b.iter(|| black_box(generate_rips_complex(black_box(points), 0.15, 1))),
         );
     }
 
@@ -824,33 +826,21 @@ fn bench_density_matrix_operations(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("from_pure_state", dim),
             &state,
-            |b, state| {
-                b.iter(|| black_box(DensityMatrix::from_pure_state(black_box(state))))
-            },
+            |b, state| b.iter(|| black_box(DensityMatrix::from_pure_state(black_box(state)))),
         );
 
-        group.bench_with_input(
-            BenchmarkId::new("multiply", dim),
-            &rho,
-            |b, rho| {
-                b.iter(|| black_box(rho.multiply(black_box(rho))))
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("multiply", dim), &rho, |b, rho| {
+            b.iter(|| black_box(rho.multiply(black_box(rho))))
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("trace", dim),
-            &rho,
-            |b, rho| {
-                b.iter(|| black_box(rho.trace()))
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("trace", dim), &rho, |b, rho| {
+            b.iter(|| black_box(rho.trace()))
+        });
 
         group.bench_with_input(
             BenchmarkId::new("von_neumann_entropy", dim),
             &rho,
-            |b, rho| {
-                b.iter(|| black_box(von_neumann_entropy(black_box(rho))))
-            },
+            |b, rho| b.iter(|| black_box(von_neumann_entropy(black_box(rho)))),
         );
     }
 
@@ -867,21 +857,13 @@ fn bench_simplex_operations(c: &mut Criterion) {
 
         group.throughput(Throughput::Elements(dim as u64));
 
-        group.bench_with_input(
-            BenchmarkId::new("create", dim),
-            &vertices,
-            |b, vertices| {
-                b.iter(|| black_box(Simplex::new(black_box(vertices.clone()))))
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("create", dim), &vertices, |b, vertices| {
+            b.iter(|| black_box(Simplex::new(black_box(vertices.clone()))))
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("faces", dim),
-            &simplex,
-            |b, simplex| {
-                b.iter(|| black_box(simplex.faces()))
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("faces", dim), &simplex, |b, simplex| {
+            b.iter(|| black_box(simplex.faces()))
+        });
     }
 
     group.finish();

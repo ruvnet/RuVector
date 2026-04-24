@@ -19,14 +19,10 @@ harness = false
 [dependencies]
 rand = { workspace = true }
 rand_distr = { workspace = true }
-rayon = { workspace = true, optional = true }
+rayon = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }
-
-[features]
-default = []
-parallel = ["rayon"]

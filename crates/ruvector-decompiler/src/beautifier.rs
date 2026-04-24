@@ -109,8 +109,7 @@ fn replace_identifier(code: &str, old: &str, new_name: &str) -> String {
     while i < bytes.len() {
         if i + old_len <= bytes.len() && &bytes[i..i + old_len] == old_bytes {
             let before_ok = i == 0 || !is_ident_char(bytes[i - 1]);
-            let after_ok =
-                i + old_len >= bytes.len() || !is_ident_char(bytes[i + old_len]);
+            let after_ok = i + old_len >= bytes.len() || !is_ident_char(bytes[i + old_len]);
 
             if before_ok && after_ok {
                 result.push_str(new_name);
@@ -222,10 +221,7 @@ mod tests {
 
     #[test]
     fn test_replace_no_substring() {
-        assert_eq!(
-            replace_identifier("var bar = 1", "a", "x"),
-            "var bar = 1"
-        );
+        assert_eq!(replace_identifier("var bar = 1", "a", "x"), "var bar = 1");
     }
 
     #[test]

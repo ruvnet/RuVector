@@ -190,11 +190,7 @@ pub fn unconstrained_repertoire(purview_size: usize) -> Vec<f64> {
 /// and φ_effect = min over partitions of the effect side.
 ///
 /// This is the IIT 4.0 version using intrinsic_difference instead of KL.
-pub fn mechanism_phi(
-    tpm: &TransitionMatrix,
-    mechanism: &Mechanism,
-    state: usize,
-) -> Distinction {
+pub fn mechanism_phi(tpm: &TransitionMatrix, mechanism: &Mechanism, state: usize) -> Distinction {
     let n = tpm.n; // number of states
     let num_elements = num_elements_from_states(n);
 
@@ -219,9 +215,8 @@ pub fn mechanism_phi(
         let cause_phi = intrinsic_difference(&cause_rep, &uc_rep);
 
         // Find the minimum over partitions of the mechanism for this purview.
-        let partitioned_cause_phi = min_partition_phi_cause(
-            tpm, mechanism, &purview, state, &cause_rep,
-        );
+        let partitioned_cause_phi =
+            min_partition_phi_cause(tpm, mechanism, &purview, state, &cause_rep);
 
         if partitioned_cause_phi > best_cause_phi {
             best_cause_phi = partitioned_cause_phi;
@@ -234,9 +229,8 @@ pub fn mechanism_phi(
         let uc_effect = unconstrained_repertoire(purview_size);
         let effect_phi = intrinsic_difference(&effect_rep, &uc_effect);
 
-        let partitioned_effect_phi = min_partition_phi_effect(
-            tpm, mechanism, &purview, state, &effect_rep,
-        );
+        let partitioned_effect_phi =
+            min_partition_phi_effect(tpm, mechanism, &purview, state, &effect_rep);
 
         if partitioned_effect_phi > best_effect_phi {
             best_effect_phi = partitioned_effect_phi;
@@ -305,7 +299,11 @@ fn min_partition_phi_cause(
         min_loss = min_loss.min(loss);
     }
 
-    if min_loss == f64::MAX { 0.0 } else { min_loss }
+    if min_loss == f64::MAX {
+        0.0
+    } else {
+        min_loss
+    }
 }
 
 /// Minimum partition φ for the effect side.
@@ -350,7 +348,11 @@ fn min_partition_phi_effect(
         min_loss = min_loss.min(loss);
     }
 
-    if min_loss == f64::MAX { 0.0 } else { min_loss }
+    if min_loss == f64::MAX {
+        0.0
+    } else {
+        min_loss
+    }
 }
 
 /// Product of two distributions (element-wise multiply + normalize).
@@ -438,7 +440,10 @@ mod tests {
         let purview = Purview::new(0b11, 2);
         let rep = cause_repertoire(&tpm, &mech, &purview, 0);
         let sum: f64 = rep.iter().sum();
-        assert!((sum - 1.0).abs() < 1e-10, "cause repertoire should sum to 1, got {sum}");
+        assert!(
+            (sum - 1.0).abs() < 1e-10,
+            "cause repertoire should sum to 1, got {sum}"
+        );
     }
 
     #[test]
@@ -448,7 +453,10 @@ mod tests {
         let purview = Purview::new(0b11, 2);
         let rep = effect_repertoire(&tpm, &mech, &purview, 0);
         let sum: f64 = rep.iter().sum();
-        assert!((sum - 1.0).abs() < 1e-10, "effect repertoire should sum to 1, got {sum}");
+        assert!(
+            (sum - 1.0).abs() < 1e-10,
+            "effect repertoire should sum to 1, got {sum}"
+        );
     }
 
     #[test]

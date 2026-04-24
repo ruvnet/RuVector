@@ -14,7 +14,10 @@ pub struct Pooler {
 impl Pooler {
     /// Create a new pooler with the given strategy
     pub fn new(strategy: PoolingStrategy, normalize: bool) -> Self {
-        Self { strategy, normalize }
+        Self {
+            strategy,
+            normalize,
+        }
     }
 
     /// Pool token embeddings into sentence embeddings
@@ -41,9 +44,7 @@ impl Pooler {
         let embeddings: Vec<Vec<f32>> = token_embeddings
             .par_iter()
             .zip(attention_mask.par_iter())
-            .map(|(tokens, mask)| {
-                self.pool_single(tokens, mask, seq_length, hidden_size)
-            })
+            .map(|(tokens, mask)| self.pool_single(tokens, mask, seq_length, hidden_size))
             .collect();
 
         if self.normalize {
@@ -68,9 +69,7 @@ impl Pooler {
             PoolingStrategy::Mean => {
                 self.mean_pool(token_embeddings, attention_mask, seq_length, hidden_size)
             }
-            PoolingStrategy::Cls => {
-                self.cls_pool(token_embeddings, hidden_size)
-            }
+            PoolingStrategy::Cls => self.cls_pool(token_embeddings, hidden_size),
             PoolingStrategy::Max => {
                 self.max_pool(token_embeddings, attention_mask, seq_length, hidden_size)
             }
@@ -184,10 +183,7 @@ impl Pooler {
         hidden_size: usize,
     ) -> Vec<f32> {
         // Find last non-padding token
-        let last_idx = attention_mask
-            .iter()
-            .rposition(|&m| m == 1)
-            .unwrap_or(0);
+        let last_idx = attention_mask.iter().rposition(|&m| m == 1).unwrap_or(0);
 
         let start = last_idx * hidden_size;
         let end = start + hidden_size;
@@ -300,10 +296,7 @@ impl Default for Pooler {
 }
 
 /// Batch distance computation using ndarray
-pub fn batch_cosine_similarity(
-    query: &[f32],
-    candidates: &[Vec<f32>],
-) -> Vec<f32> {
+pub fn batch_cosine_similarity(query: &[f32], candidates: &[Vec<f32>]) -> Vec<f32> {
     candidates
         .par_iter()
         .map(|c| Pooler::cosine_similarity(query, c))
@@ -311,11 +304,7 @@ pub fn batch_cosine_similarity(
 }
 
 /// Find top-k most similar vectors
-pub fn top_k_similar(
-    query: &[f32],
-    candidates: &[Vec<f32>],
-    k: usize,
-) -> Vec<(usize, f32)> {
+pub fn top_k_similar(query: &[f32], candidates: &[Vec<f32>], k: usize) -> Vec<(usize, f32)> {
     let mut scores: Vec<(usize, f32)> = candidates
         .par_iter()
         .enumerate()

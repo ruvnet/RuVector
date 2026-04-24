@@ -13,8 +13,8 @@
 //! - **Limits and colimits**: All finite limits and colimits exist
 
 use crate::category::{
-    Category, CategoryWithMono, CategoryWithProducts, CartesianClosedCategory,
-    Object, ObjectData, Morphism, MorphismData,
+    CartesianClosedCategory, Category, CategoryWithMono, CategoryWithProducts, Morphism,
+    MorphismData, Object, ObjectData,
 };
 use crate::{CategoryError, MorphismId, ObjectId, Result};
 use dashmap::DashMap;
@@ -169,11 +169,7 @@ impl<C: Category + CategoryWithProducts> Topos<C> {
     /// Computes the equalizer of f, g: A -> B
     ///
     /// The equalizer E is the largest subobject of A where f = g
-    pub fn equalizer(
-        &self,
-        f: &C::Morphism,
-        g: &C::Morphism,
-    ) -> Option<(C::Object, C::Morphism)> {
+    pub fn equalizer(&self, f: &C::Morphism, g: &C::Morphism) -> Option<(C::Object, C::Morphism)> {
         // f and g must have the same domain and codomain
         if self.category.domain(f) != self.category.domain(g) {
             return None;

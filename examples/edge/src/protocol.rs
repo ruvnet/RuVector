@@ -135,7 +135,11 @@ impl SwarmMessage {
 
     /// Create task broadcast message
     pub fn broadcast_task(agent_id: &str, task: TaskPayload) -> Self {
-        Self::new(MessageType::BroadcastTask, agent_id, MessagePayload::Task(task))
+        Self::new(
+            MessageType::BroadcastTask,
+            agent_id,
+            MessagePayload::Task(task),
+        )
     }
 
     /// Create error message

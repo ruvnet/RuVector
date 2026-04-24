@@ -43,10 +43,7 @@ impl Tool for TaskTool {
             None => return ToolResult::Text("Error: prompt is required".to_string()),
         };
 
-        let task_id = runtime
-            .tool_call_id
-            .as_deref()
-            .unwrap_or("task_unknown");
+        let task_id = runtime.tool_call_id.as_deref().unwrap_or("task_unknown");
 
         // In a real implementation, this would spawn a subagent via the orchestrator.
         // For now, return a confirmation with the task metadata.
@@ -119,10 +116,7 @@ mod tests {
     #[test]
     fn test_task_missing_description() {
         let runtime = mock_runtime();
-        let result = TaskTool.invoke(
-            serde_json::json!({"prompt": "do stuff"}),
-            &runtime,
-        );
+        let result = TaskTool.invoke(serde_json::json!({"prompt": "do stuff"}), &runtime);
         match result {
             ToolResult::Text(s) => assert!(s.contains("description is required")),
             _ => panic!("expected error"),
@@ -132,10 +126,7 @@ mod tests {
     #[test]
     fn test_task_missing_prompt() {
         let runtime = mock_runtime();
-        let result = TaskTool.invoke(
-            serde_json::json!({"description": "task"}),
-            &runtime,
-        );
+        let result = TaskTool.invoke(serde_json::json!({"description": "task"}), &runtime);
         match result {
             ToolResult::Text(s) => assert!(s.contains("prompt is required")),
             _ => panic!("expected error"),

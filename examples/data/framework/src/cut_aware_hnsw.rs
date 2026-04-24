@@ -23,15 +23,15 @@
 //! - Euler Tour Trees for dynamic connectivity
 //! - HNSW for approximate nearest neighbor search
 
-use std::collections::{HashMap, HashSet, BinaryHeap, VecDeque};
-use std::sync::{Arc, RwLock};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, RwLock};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::hnsw::{HnswIndex, HnswConfig, HnswSearchResult};
+use crate::hnsw::{HnswConfig, HnswIndex, HnswSearchResult};
 use crate::ruvector_native::SemanticVector;
 use crate::FrameworkError;
 
@@ -248,7 +248,8 @@ impl DynamicCutWatcher {
             return (0.0, (HashSet::new(), HashSet::new()));
         }
 
-        let node_to_idx: HashMap<u32, usize> = nodes.iter()
+        let node_to_idx: HashMap<u32, usize> = nodes
+            .iter()
             .enumerate()
             .map(|(i, &node)| (node, i))
             .collect();
@@ -269,11 +270,13 @@ impl DynamicCutWatcher {
         let mut best_partition_nodes = HashSet::new();
 
         let mut active = vec![true; n];
-        let mut merged: Vec<HashSet<usize>> = (0..n).map(|i| {
-            let mut s = HashSet::new();
-            s.insert(i);
-            s
-        }).collect();
+        let mut merged: Vec<HashSet<usize>> = (0..n)
+            .map(|i| {
+                let mut s = HashSet::new();
+                s.insert(i);
+                s
+            })
+            .collect();
 
         for _phase in 0..(n - 1) {
             let mut in_a = vec![false; n];
@@ -341,10 +344,10 @@ impl DynamicCutWatcher {
         }
 
         // Convert indices back to node IDs
-        let partition_a: HashSet<u32> = best_partition_nodes.iter()
-            .map(|&idx| nodes[idx])
-            .collect();
-        let partition_b: HashSet<u32> = nodes.iter()
+        let partition_a: HashSet<u32> =
+            best_partition_nodes.iter().map(|&idx| nodes[idx]).collect();
+        let partition_b: HashSet<u32> = nodes
+            .iter()
             .filter(|&node| !partition_a.contains(node))
             .copied()
             .collect();
@@ -479,14 +482,20 @@ impl CutAwareHNSW {
         if self.insertions_since_recompute >= self.config.cut_recompute_interval {
             self.recompute_zones();
             self.insertions_since_recompute = 0;
-            self.metrics.cut_recomputations.fetch_add(1, Ordering::Relaxed);
+            self.metrics
+                .cut_recomputations
+                .fetch_add(1, Ordering::Relaxed);
         }
 
         Ok(())
     }
 
     /// Update cut watcher with edges for a newly inserted node
-    fn update_cut_watcher_for_node(&mut self, node_id: u32, vector: &[f32]) -> Result<(), FrameworkError> {
+    fn update_cut_watcher_for_node(
+        &mut self,
+        node_id: u32,
+        vector: &[f32],
+    ) -> Result<(), FrameworkError> {
         let hnsw_id = self.node_to_hnsw[&node_id];
 
         // Find similar nodes using HNSW
@@ -524,7 +533,9 @@ impl CutAwareHNSW {
 
     /// Internal search implementation
     fn search_internal(&self, query: &[f32], k: usize, use_gates: bool) -> Vec<SearchResult> {
-        self.metrics.searches_performed.fetch_add(1, Ordering::Relaxed);
+        self.metrics
+            .searches_performed
+            .fetch_add(1, Ordering::Relaxed);
 
         // Perform HNSW search
         let hnsw_results = match self.hnsw.search_knn(query, k * 2) {
@@ -534,7 +545,8 @@ impl CutAwareHNSW {
 
         if !use_gates {
             // No gating - return direct results
-            return hnsw_results.iter()
+            return hnsw_results
+                .iter()
                 .take(k)
                 .map(|r| SearchResult {
                     node_id: self.hnsw_to_node.get(&r.node_id).copied().unwrap_or(0),
@@ -584,7 +596,9 @@ impl CutAwareHNSW {
                         break;
                     }
                 } else {
-                    self.metrics.expansions_pruned.fetch_add(1, Ordering::Relaxed);
+                    self.metrics
+                        .expansions_pruned
+                        .fetch_add(1, Ordering::Relaxed);
                 }
             }
         }
@@ -592,7 +606,9 @@ impl CutAwareHNSW {
         if !cross_cut_count.is_empty() {
             let total_crossed: usize = cross_cut_count.values().sum();
             if total_crossed > 0 {
-                self.metrics.cut_gates_triggered.fetch_add(1, Ordering::Relaxed);
+                self.metrics
+                    .cut_gates_triggered
+                    .fetch_add(1, Ordering::Relaxed);
             }
         }
 
@@ -626,7 +642,8 @@ impl CutAwareHNSW {
                             if let Some(&neighbor_node) = self.hnsw_to_node.get(&neighbor.node_id) {
                                 if visited.insert(neighbor_node) {
                                     // Only add if not crossing weak cut
-                                    if !watcher.crosses_weak_cut(current, neighbor_node, threshold) {
+                                    if !watcher.crosses_weak_cut(current, neighbor_node, threshold)
+                                    {
                                         queue.push_back((neighbor_node, depth + 1));
                                     }
                                 }
@@ -689,7 +706,9 @@ impl CutAwareHNSW {
 
         // Recompute zones after batch
         self.recompute_zones();
-        self.metrics.cut_recomputations.fetch_add(1, Ordering::Relaxed);
+        self.metrics
+            .cut_recomputations
+            .fetch_add(1, Ordering::Relaxed);
 
         stats
     }
@@ -807,7 +826,7 @@ impl CutAwareHNSW {
         all_results.truncate(k);
         self.metrics.zone_boundary_crossings.fetch_add(
             all_results.iter().filter(|r| r.crossed_cuts > 0).count() as u64,
-            Ordering::Relaxed
+            Ordering::Relaxed,
         );
 
         all_results
@@ -1188,7 +1207,10 @@ mod tests {
         let config = CutAwareConfig::default();
         let index = CutAwareHNSW::new(config);
 
-        index.metrics.searches_performed.store(100, Ordering::Relaxed);
+        index
+            .metrics
+            .searches_performed
+            .store(100, Ordering::Relaxed);
         index.reset_metrics();
 
         assert_eq!(index.metrics.searches_performed.load(Ordering::Relaxed), 0);

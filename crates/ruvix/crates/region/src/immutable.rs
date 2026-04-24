@@ -45,11 +45,7 @@ impl<B: MemoryBacking> ImmutableRegion<B> {
     /// # Errors
     ///
     /// Returns `OutOfMemory` if the backing cannot allocate sufficient memory.
-    pub fn new(
-        mut backing: B,
-        data: &[u8],
-        handle: ruvix_types::RegionHandle,
-    ) -> Result<Self> {
+    pub fn new(mut backing: B, data: &[u8], handle: ruvix_types::RegionHandle) -> Result<Self> {
         let size = data.len();
         if size == 0 {
             // Empty region
@@ -118,11 +114,7 @@ impl<B: MemoryBacking> ImmutableRegion<B> {
 
         // SAFETY: We've verified bounds above
         unsafe {
-            core::ptr::copy_nonoverlapping(
-                self.data_ptr.add(offset),
-                buf.as_mut_ptr(),
-                to_read,
-            );
+            core::ptr::copy_nonoverlapping(self.data_ptr.add(offset), buf.as_mut_ptr(), to_read);
         }
 
         Ok(to_read)

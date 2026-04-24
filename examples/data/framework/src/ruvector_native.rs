@@ -3,9 +3,9 @@
 //! Deep integration with ruvector-core, ruvector-graph, and ruvector-mincut
 //! for production-grade coherence analysis and pattern discovery.
 
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::utils::cosine_similarity;
 
@@ -278,7 +278,10 @@ impl NativeDiscoveryEngine {
         };
 
         self.nodes.insert(node_id, node);
-        self.domain_nodes.entry(vector.domain).or_default().push(node_id);
+        self.domain_nodes
+            .entry(vector.domain)
+            .or_default()
+            .push(node_id);
 
         // Auto-connect to similar vectors
         self.connect_similar_vectors(node_id);
@@ -390,14 +393,16 @@ impl NativeDiscoveryEngine {
 
         // Build adjacency matrix
         let node_ids: Vec<u32> = self.nodes.keys().copied().collect();
-        let id_to_idx: HashMap<u32, usize> = node_ids.iter()
+        let id_to_idx: HashMap<u32, usize> = node_ids
+            .iter()
             .enumerate()
             .map(|(i, &id)| (id, i))
             .collect();
 
         let mut adj = vec![vec![0.0; n]; n];
         for edge in &self.edges {
-            if let (Some(&i), Some(&j)) = (id_to_idx.get(&edge.source), id_to_idx.get(&edge.target)) {
+            if let (Some(&i), Some(&j)) = (id_to_idx.get(&edge.source), id_to_idx.get(&edge.target))
+            {
                 adj[i][j] += edge.weight;
                 adj[j][i] += edge.weight;
             }
@@ -470,9 +475,7 @@ impl NativeDiscoveryEngine {
                 best_partition = (partition_a.len(), partition_b.len());
 
                 // Boundary nodes are those in the smaller partition with edges to other
-                best_boundary = partition_a.iter()
-                    .map(|&i| node_ids[i])
-                    .collect();
+                best_boundary = partition_a.iter().map(|&i| node_ids[i]).collect();
             }
 
             // Merge s and t
@@ -517,7 +520,9 @@ impl NativeDiscoveryEngine {
                     detected_at: now,
                     description: format!(
                         "Network coherence dropped from {:.3} to {:.3} ({:.1}% decrease)",
-                        prev_mincut, current.mincut_value, relative_change * 100.0
+                        prev_mincut,
+                        current.mincut_value,
+                        relative_change * 100.0
                     ),
                     evidence: vec![
                         Evidence {
@@ -545,15 +550,15 @@ impl NativeDiscoveryEngine {
                     detected_at: now,
                     description: format!(
                         "Network coherence increased from {:.3} to {:.3} ({:.1}% increase)",
-                        prev_mincut, current.mincut_value, relative_change * 100.0
+                        prev_mincut,
+                        current.mincut_value,
+                        relative_change * 100.0
                     ),
-                    evidence: vec![
-                        Evidence {
-                            evidence_type: "mincut_delta".to_string(),
-                            value: mincut_delta,
-                            description: "Change in min-cut value".to_string(),
-                        },
-                    ],
+                    evidence: vec![Evidence {
+                        evidence_type: "mincut_delta".to_string(),
+                        value: mincut_delta,
+                        description: "Change in min-cut value".to_string(),
+                    }],
                     cross_domain_links: vec![],
                 });
             }
@@ -591,7 +596,8 @@ impl NativeDiscoveryEngine {
         }
 
         // Store current state in history
-        self.coherence_history.push((now, current.mincut_value, current));
+        self.coherence_history
+            .push((now, current.mincut_value, current));
 
         patterns
     }
@@ -754,13 +760,12 @@ impl NativeDiscoveryEngine {
 
     /// Get the coherence history
     pub fn get_coherence_history(&self) -> Vec<CoherenceHistoryEntry> {
-        self.coherence_history.iter()
-            .map(|(timestamp, mincut, snapshot)| {
-                CoherenceHistoryEntry {
-                    timestamp: *timestamp,
-                    mincut_value: *mincut,
-                    snapshot: snapshot.clone(),
-                }
+        self.coherence_history
+            .iter()
+            .map(|(timestamp, mincut, snapshot)| CoherenceHistoryEntry {
+                timestamp: *timestamp,
+                mincut_value: *mincut,
+                snapshot: snapshot.clone(),
             })
             .collect()
     }

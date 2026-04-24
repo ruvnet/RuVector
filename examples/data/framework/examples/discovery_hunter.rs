@@ -5,17 +5,15 @@
 //!
 //! Run: cargo run --example discovery_hunter -p ruvector-data-framework --features parallel --release
 
-use std::collections::HashMap;
-use chrono::{Utc, Duration as ChronoDuration};
-use rand::{Rng, SeedableRng};
+use chrono::{Duration as ChronoDuration, Utc};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
+use std::collections::HashMap;
 
 use ruvector_data_framework::optimized::{
-    OptimizedDiscoveryEngine, OptimizedConfig, SignificantPattern,
+    OptimizedConfig, OptimizedDiscoveryEngine, SignificantPattern,
 };
-use ruvector_data_framework::ruvector_native::{
-    Domain, SemanticVector, PatternType,
-};
+use ruvector_data_framework::ruvector_native::{Domain, PatternType, SemanticVector};
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
@@ -25,8 +23,8 @@ fn main() {
 
     // Initialize discovery engine with sensitive settings
     let config = OptimizedConfig {
-        similarity_threshold: 0.45,  // Lower threshold to catch more connections
-        mincut_sensitivity: 0.08,    // More sensitive to coherence changes
+        similarity_threshold: 0.45, // Lower threshold to catch more connections
+        mincut_sensitivity: 0.08,   // More sensitive to coherence changes
         cross_domain: true,
         use_simd: true,
         significance_threshold: 0.10, // Include marginally significant patterns
@@ -47,7 +45,9 @@ fn main() {
     #[cfg(feature = "parallel")]
     engine.add_vectors_batch(climate_data);
     #[cfg(not(feature = "parallel"))]
-    for v in climate_data { engine.add_vector(v); }
+    for v in climate_data {
+        engine.add_vector(v);
+    }
 
     let patterns = engine.detect_patterns_with_significance();
     process_discoveries(&patterns, &mut all_discoveries, "Climate Baseline");
@@ -61,10 +61,16 @@ fn main() {
     #[cfg(feature = "parallel")]
     engine.add_vectors_batch(finance_data);
     #[cfg(not(feature = "parallel"))]
-    for v in finance_data { engine.add_vector(v); }
+    for v in finance_data {
+        engine.add_vector(v);
+    }
 
     let patterns = engine.detect_patterns_with_significance();
-    process_discoveries(&patterns, &mut all_discoveries, "Climate-Finance Integration");
+    process_discoveries(
+        &patterns,
+        &mut all_discoveries,
+        "Climate-Finance Integration",
+    );
 
     // Phase 3: Load research publications
     println!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -75,7 +81,9 @@ fn main() {
     #[cfg(feature = "parallel")]
     engine.add_vectors_batch(research_data);
     #[cfg(not(feature = "parallel"))]
-    for v in research_data { engine.add_vector(v); }
+    for v in research_data {
+        engine.add_vector(v);
+    }
 
     let patterns = engine.detect_patterns_with_significance();
     process_discoveries(&patterns, &mut all_discoveries, "Full Integration");
@@ -89,7 +97,9 @@ fn main() {
     #[cfg(feature = "parallel")]
     engine.add_vectors_batch(anomaly_data);
     #[cfg(not(feature = "parallel"))]
-    for v in anomaly_data { engine.add_vector(v); }
+    for v in anomaly_data {
+        engine.add_vector(v);
+    }
 
     let patterns = engine.detect_patterns_with_significance();
     process_discoveries(&patterns, &mut all_discoveries, "Anomaly Detection");
@@ -103,7 +113,8 @@ fn main() {
     println!("📊 Graph Statistics:");
     println!("   Total nodes: {}", stats.total_nodes);
     println!("   Total edges: {}", stats.total_edges);
-    println!("   Cross-domain edges: {} ({:.1}%)",
+    println!(
+        "   Cross-domain edges: {} ({:.1}%)",
         stats.cross_domain_edges,
         100.0 * stats.cross_domain_edges as f64 / stats.total_edges.max(1) as f64
     );
@@ -120,8 +131,13 @@ fn main() {
     if let Some(bridges) = by_type.get("Bridge") {
         println!("   🌉 Cross-Domain Bridges: {}", bridges.len());
         for (i, bridge) in bridges.iter().take(5).enumerate() {
-            println!("      {}. {} (confidence: {:.2}, p={:.4})",
-                i + 1, bridge.description, bridge.confidence, bridge.p_value);
+            println!(
+                "      {}. {} (confidence: {:.2}, p={:.4})",
+                i + 1,
+                bridge.description,
+                bridge.confidence,
+                bridge.p_value
+            );
             if !bridge.hypothesis.is_empty() {
                 println!("         → Hypothesis: {}", bridge.hypothesis);
             }
@@ -132,8 +148,12 @@ fn main() {
     if let Some(cascades) = by_type.get("Cascade") {
         println!("\n   🔗 Temporal Cascades: {}", cascades.len());
         for (i, cascade) in cascades.iter().take(5).enumerate() {
-            println!("      {}. {} (p={:.4})",
-                i + 1, cascade.description, cascade.p_value);
+            println!(
+                "      {}. {} (p={:.4})",
+                i + 1,
+                cascade.description,
+                cascade.p_value
+            );
             if !cascade.hypothesis.is_empty() {
                 println!("         → {}", cascade.hypothesis);
             }
@@ -144,8 +164,12 @@ fn main() {
     if let Some(coherence) = by_type.get("Coherence") {
         println!("\n   📉 Coherence Events: {}", coherence.len());
         for (i, event) in coherence.iter().take(5).enumerate() {
-            println!("      {}. {} (effect size: {:.3})",
-                i + 1, event.description, event.effect_size);
+            println!(
+                "      {}. {} (effect size: {:.3})",
+                i + 1,
+                event.description,
+                event.effect_size
+            );
         }
     }
 
@@ -161,7 +185,8 @@ fn main() {
     println!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!("💡 NOVEL FINDINGS\n");
 
-    let significant: Vec<_> = all_discoveries.iter()
+    let significant: Vec<_> = all_discoveries
+        .iter()
         .filter(|d| d.p_value < 0.05 && d.confidence > 0.6)
         .collect();
 
@@ -169,12 +194,22 @@ fn main() {
         println!("   No statistically significant novel patterns detected.");
         println!("   This suggests the data is well-integrated with expected correlations.");
     } else {
-        println!("   Found {} statistically significant discoveries:\n", significant.len());
+        println!(
+            "   Found {} statistically significant discoveries:\n",
+            significant.len()
+        );
 
         for (i, discovery) in significant.iter().enumerate() {
-            println!("   {}. [{}] {}", i + 1, discovery.category, discovery.description);
-            println!("      Confidence: {:.2}, p-value: {:.4}, effect: {:.3}",
-                discovery.confidence, discovery.p_value, discovery.effect_size);
+            println!(
+                "   {}. [{}] {}",
+                i + 1,
+                discovery.category,
+                discovery.description
+            );
+            println!(
+                "      Confidence: {:.2}, p-value: {:.4}, effect: {:.3}",
+                discovery.confidence, discovery.p_value, discovery.effect_size
+            );
             if !discovery.hypothesis.is_empty() {
                 println!("      Hypothesis: {}", discovery.hypothesis);
             }
@@ -261,12 +296,16 @@ fn process_discoveries(
             PatternType::TemporalShift => "Temporal",
         };
 
-        let domains: Vec<Domain> = pattern.pattern.cross_domain_links.iter()
+        let domains: Vec<Domain> = pattern
+            .pattern
+            .cross_domain_links
+            .iter()
             .flat_map(|l| vec![l.source_domain, l.target_domain])
             .collect();
 
         let hypothesis = generate_pattern_hypothesis(&pattern.pattern.pattern_type, &domains);
-        let implications = generate_implications(&pattern.pattern.pattern_type, pattern.effect_size);
+        let implications =
+            generate_implications(&pattern.pattern.pattern_type, pattern.effect_size);
 
         discoveries.push(Discovery {
             category: category.to_string(),
@@ -334,10 +373,16 @@ fn generate_implications(pattern_type: &PatternType, effect_size: f64) -> String
 
     match pattern_type {
         PatternType::BridgeFormation => {
-            format!("Consider monitoring {} cross-domain signals for early warning", strength)
+            format!(
+                "Consider monitoring {} cross-domain signals for early warning",
+                strength
+            )
         }
         PatternType::Cascade => {
-            format!("Temporal lag of {} effect may enable prediction window", strength)
+            format!(
+                "Temporal lag of {} effect may enable prediction window",
+                strength
+            )
         }
         PatternType::CoherenceBreak => {
             format!("Structural {} break suggests regime change risk", strength)
@@ -362,11 +407,13 @@ fn generate_hypotheses(
     discoveries: &[Discovery],
     stats: &ruvector_data_framework::optimized::OptimizedStats,
 ) {
-    let bridges: Vec<_> = discoveries.iter()
+    let bridges: Vec<_> = discoveries
+        .iter()
         .filter(|d| d.category == "Bridge")
         .collect();
 
-    let cascades: Vec<_> = discoveries.iter()
+    let cascades: Vec<_> = discoveries
+        .iter()
         .filter(|d| d.category == "Cascade")
         .collect();
 
@@ -374,16 +421,22 @@ fn generate_hypotheses(
 
     // Hypothesis 1: Climate-Finance Link
     if !bridges.is_empty() {
-        let climate_finance: Vec<_> = bridges.iter()
-            .filter(|b| b.domains_involved.contains(&Domain::Climate)
-                     && b.domains_involved.contains(&Domain::Finance))
+        let climate_finance: Vec<_> = bridges
+            .iter()
+            .filter(|b| {
+                b.domains_involved.contains(&Domain::Climate)
+                    && b.domains_involved.contains(&Domain::Finance)
+            })
             .collect();
 
         if !climate_finance.is_empty() {
             println!("   H{}: Climate-Finance Coupling", hypothesis_num);
             println!("       Extreme weather events are correlated with financial");
             println!("       sector stress indicators. Energy and insurance sectors");
-            println!("       show strongest coupling ({} bridge connections).", climate_finance.len());
+            println!(
+                "       show strongest coupling ({} bridge connections).",
+                climate_finance.len()
+            );
             println!("       → Testable: Drought index vs utility stock returns\n");
             hypothesis_num += 1;
         }
@@ -401,7 +454,10 @@ fn generate_hypotheses(
 
     // Hypothesis 3: Coherence as Early Warning
     if !cascades.is_empty() {
-        println!("   H{}: Coherence Degradation as Early Warning", hypothesis_num);
+        println!(
+            "   H{}: Coherence Degradation as Early Warning",
+            hypothesis_num
+        );
         println!("       Network min-cut value decline preceded identified cascade");
         println!("       events by 1-3 time periods. Cross-domain coherence drop");
         println!("       may serve as systemic risk indicator.");
@@ -411,7 +467,10 @@ fn generate_hypotheses(
 
     // Hypothesis 4: Teleconnection Pattern
     if stats.cross_domain_edges > stats.total_edges / 4 {
-        println!("   H{}: Climate Teleconnection Financial Mapping", hypothesis_num);
+        println!(
+            "   H{}: Climate Teleconnection Financial Mapping",
+            hypothesis_num
+        );
         println!("       ENSO (El Niño) patterns show semantic similarity to");
         println!("       agricultural commodity and shipping sector indicators.");
         println!("       Teleconnection strength may predict cross-sector impacts.");
@@ -426,8 +485,22 @@ fn generate_climate_extremes_data() -> Vec<SemanticVector> {
     let mut vectors = Vec::new();
 
     // Temperature extremes
-    let regions = ["arctic", "mediterranean", "sahel", "amazon", "pacific_rim", "central_asia"];
-    let extremes = ["heatwave", "cold_snap", "drought", "flooding", "wildfire", "storm"];
+    let regions = [
+        "arctic",
+        "mediterranean",
+        "sahel",
+        "amazon",
+        "pacific_rim",
+        "central_asia",
+    ];
+    let extremes = [
+        "heatwave",
+        "cold_snap",
+        "drought",
+        "flooding",
+        "wildfire",
+        "storm",
+    ];
 
     for region in &regions {
         for extreme in &extremes {
@@ -452,7 +525,8 @@ fn generate_climate_extremes_data() -> Vec<SemanticVector> {
                 }
 
                 // Cross-domain bridge: certain extremes correlate with finance
-                if extreme_idx < 3 { // heatwave, cold_snap, drought
+                if extreme_idx < 3 {
+                    // heatwave, cold_snap, drought
                     for i in 100..110 {
                         embedding[i] = 0.25 + rng.gen::<f32>() * 0.15;
                     }
@@ -490,12 +564,25 @@ fn generate_financial_stress_data() -> Vec<SemanticVector> {
     let mut rng = StdRng::seed_from_u64(2025);
     let mut vectors = Vec::new();
 
-    let sectors = ["energy", "utilities", "insurance", "agriculture", "reits", "materials"];
-    let indicators = ["volatility", "credit_spread", "earnings_revision", "analyst_downgrade"];
+    let sectors = [
+        "energy",
+        "utilities",
+        "insurance",
+        "agriculture",
+        "reits",
+        "materials",
+    ];
+    let indicators = [
+        "volatility",
+        "credit_spread",
+        "earnings_revision",
+        "analyst_downgrade",
+    ];
 
     for sector in &sectors {
         for indicator in &indicators {
-            for quarter in 0..16 { // 4 years of quarters
+            for quarter in 0..16 {
+                // 4 years of quarters
                 let mut embedding = vec![0.0_f32; 128];
 
                 // Finance base signature (different from climate)
@@ -516,7 +603,8 @@ fn generate_financial_stress_data() -> Vec<SemanticVector> {
                 }
 
                 // Climate-sensitive sectors bridge to climate domain
-                if sector_idx < 3 { // energy, utilities, insurance
+                if sector_idx < 3 {
+                    // energy, utilities, insurance
                     for i in 0..15 {
                         embedding[i] = embedding[i].max(0.2) + 0.15;
                     }
@@ -554,9 +642,14 @@ fn generate_research_data() -> Vec<SemanticVector> {
     let mut vectors = Vec::new();
 
     let topics = [
-        "climate_risk_disclosure", "stranded_assets", "transition_risk",
-        "physical_risk_modeling", "carbon_pricing", "green_bonds",
-        "tcfd_compliance", "climate_scenario_analysis",
+        "climate_risk_disclosure",
+        "stranded_assets",
+        "transition_risk",
+        "physical_risk_modeling",
+        "carbon_pricing",
+        "green_bonds",
+        "tcfd_compliance",
+        "climate_scenario_analysis",
     ];
 
     for topic in &topics {
@@ -595,7 +688,8 @@ fn generate_research_data() -> Vec<SemanticVector> {
                     id: format!("research_{}_{}_{}", topic, year, paper_id),
                     embedding,
                     domain: Domain::Research,
-                    timestamp: Utc::now() - ChronoDuration::days((2024 - year) as i64 * 365 + paper_id as i64 * 30),
+                    timestamp: Utc::now()
+                        - ChronoDuration::days((2024 - year) as i64 * 365 + paper_id as i64 * 30),
                     metadata: {
                         let mut m = HashMap::new();
                         m.insert("topic".to_string(), topic.to_string());

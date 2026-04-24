@@ -11,16 +11,16 @@
 //! cargo run --example streaming_demo --features parallel
 //! ```
 
-use std::collections::HashMap;
-use std::time::Duration;
 use chrono::Utc;
 use futures::stream;
+use std::collections::HashMap;
+use std::time::Duration;
 use tokio;
 
 use ruvector_data_framework::{
-    StreamingConfig, StreamingEngine, StreamingEngineBuilder,
-    ruvector_native::{Domain, SemanticVector},
     optimized::OptimizedConfig,
+    ruvector_native::{Domain, SemanticVector},
+    StreamingConfig, StreamingEngine, StreamingEngineBuilder,
 };
 
 /// Generate a random embedding vector
@@ -105,7 +105,10 @@ async fn demo_sliding_windows() -> Result<(), Box<dyn std::error::Error>> {
         })
         .collect();
 
-    println!("Ingesting {} vectors with sliding windows...", vectors.len());
+    println!(
+        "Ingesting {} vectors with sliding windows...",
+        vectors.len()
+    );
 
     let vector_stream = stream::iter(vectors);
     engine.ingest_stream(vector_stream).await?;
@@ -114,7 +117,10 @@ async fn demo_sliding_windows() -> Result<(), Box<dyn std::error::Error>> {
     println!("✓ Processed {} vectors", metrics.vectors_processed);
     println!("✓ Windows processed: {}", metrics.windows_processed);
     println!("✓ Avg latency: {:.2}ms", metrics.avg_latency_ms);
-    println!("✓ Throughput: {:.1} vectors/sec", metrics.throughput_per_sec);
+    println!(
+        "✓ Throughput: {:.1} vectors/sec",
+        metrics.throughput_per_sec
+    );
 
     Ok(())
 }
@@ -132,7 +138,10 @@ async fn demo_tumbling_windows() -> Result<(), Box<dyn std::error::Error>> {
         .map(|i| create_vector(&format!("tumbling_{}", i), Domain::Climate))
         .collect();
 
-    println!("Ingesting {} vectors with tumbling windows...", vectors.len());
+    println!(
+        "Ingesting {} vectors with tumbling windows...",
+        vectors.len()
+    );
 
     let mut engine = engine;
     let vector_stream = stream::iter(vectors);
@@ -175,14 +184,16 @@ async fn demo_pattern_detection() -> Result<(), Box<dyn std::error::Error>> {
     let pattern_count = std::sync::Arc::new(std::sync::Mutex::new(0_usize));
     let pc = pattern_count.clone();
 
-    engine.set_pattern_callback(move |pattern| {
-        let mut count = pc.lock().unwrap();
-        *count += 1;
-        println!("  🔍 Pattern detected: {:?}", pattern.pattern.pattern_type);
-        println!("     Confidence: {:.2}", pattern.pattern.confidence);
-        println!("     P-value: {:.4}", pattern.p_value);
-        println!("     Significant: {}", pattern.is_significant);
-    }).await;
+    engine
+        .set_pattern_callback(move |pattern| {
+            let mut count = pc.lock().unwrap();
+            *count += 1;
+            println!("  🔍 Pattern detected: {:?}", pattern.pattern.pattern_type);
+            println!("     Confidence: {:.2}", pattern.pattern.confidence);
+            println!("     P-value: {:.4}", pattern.p_value);
+            println!("     Significant: {}", pattern.is_significant);
+        })
+        .await;
 
     // Generate diverse vectors
     let vectors: Vec<_> = (0..80)
@@ -197,7 +208,10 @@ async fn demo_pattern_detection() -> Result<(), Box<dyn std::error::Error>> {
         })
         .collect();
 
-    println!("Ingesting {} vectors with pattern detection...", vectors.len());
+    println!(
+        "Ingesting {} vectors with pattern detection...",
+        vectors.len()
+    );
 
     let vector_stream = stream::iter(vectors);
     engine.ingest_stream(vector_stream).await?;
@@ -206,8 +220,10 @@ async fn demo_pattern_detection() -> Result<(), Box<dyn std::error::Error>> {
     let total_patterns = *pattern_count.lock().unwrap();
 
     println!("\n✓ Processed {} vectors", metrics.vectors_processed);
-    println!("✓ Patterns detected: {} (callbacks triggered: {})",
-             metrics.patterns_detected, total_patterns);
+    println!(
+        "✓ Patterns detected: {} (callbacks triggered: {})",
+        metrics.patterns_detected, total_patterns
+    );
     println!("✓ Avg latency: {:.2}ms", metrics.avg_latency_ms);
 
     Ok(())
@@ -248,13 +264,23 @@ async fn demo_high_throughput() -> Result<(), Box<dyn std::error::Error>> {
     let metrics = engine.metrics().await;
     let stats = engine.engine_stats().await;
 
-    println!("\n✓ Processed {} vectors in {:.2}s", metrics.vectors_processed, elapsed.as_secs_f64());
-    println!("✓ Throughput: {:.1} vectors/sec", num_vectors as f64 / elapsed.as_secs_f64());
+    println!(
+        "\n✓ Processed {} vectors in {:.2}s",
+        metrics.vectors_processed,
+        elapsed.as_secs_f64()
+    );
+    println!(
+        "✓ Throughput: {:.1} vectors/sec",
+        num_vectors as f64 / elapsed.as_secs_f64()
+    );
     println!("✓ Avg latency: {:.2}ms", metrics.avg_latency_ms);
     println!("✓ Windows processed: {}", metrics.windows_processed);
     println!("✓ Patterns detected: {}", metrics.patterns_detected);
     println!("✓ Backpressure events: {}", metrics.backpressure_events);
-    println!("✓ Graph size: {} nodes, {} edges", stats.total_nodes, stats.total_edges);
+    println!(
+        "✓ Graph size: {} nodes, {} edges",
+        stats.total_nodes, stats.total_edges
+    );
     println!("✓ Cross-domain edges: {}", stats.cross_domain_edges);
 
     // Show per-domain statistics

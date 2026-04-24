@@ -49,10 +49,7 @@ fn test_full_pipeline_10000_events() {
          - Vectors: {}\n\
          - Graph mutations: {}\n\
          - Attestations: {}",
-        result.events_processed,
-        result.vectors_stored,
-        result.graph_mutations,
-        result.attestations
+        result.events_processed, result.vectors_stored, result.graph_mutations, result.attestations
     );
 }
 
@@ -81,7 +78,10 @@ fn test_all_syscalls_covered() {
     assert!(stats.attest_emit > 0, "attest_emit not called");
     assert!(stats.vector_get > 0, "vector_get not called");
     assert!(stats.vector_put_proved > 0, "vector_put_proved not called");
-    assert!(stats.graph_apply_proved > 0, "graph_apply_proved not called");
+    assert!(
+        stats.graph_apply_proved > 0,
+        "graph_apply_proved not called"
+    );
     assert!(stats.sensor_subscribe > 0, "sensor_subscribe not called");
 
     assert!(
@@ -201,10 +201,7 @@ fn test_deterministic_generation() {
     assert_eq!(result1.events_processed, result2.events_processed);
     assert_eq!(result1.vectors_stored, result2.vectors_stored);
     assert_eq!(result1.attestations, result2.attestations);
-    assert_eq!(
-        result1.syscall_stats.total(),
-        result2.syscall_stats.total()
-    );
+    assert_eq!(result1.syscall_stats.total(), result2.syscall_stats.total());
 }
 
 /// Test pipeline handles small event counts correctly.

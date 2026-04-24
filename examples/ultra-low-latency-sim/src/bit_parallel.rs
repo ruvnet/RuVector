@@ -62,7 +62,9 @@ impl CellularAutomaton1D {
 impl BitParallelAutomaton for CellularAutomaton1D {
     fn step(&mut self) {
         let len = self.state.len();
-        if len == 0 { return; }
+        if len == 0 {
+            return;
+        }
 
         // We need to update in-place, so use temp for boundary handling
         let first = self.state[0];
@@ -71,7 +73,11 @@ impl BitParallelAutomaton for CellularAutomaton1D {
         for i in 0..len {
             let left = if i == 0 { last } else { self.state[i - 1] };
             let center = self.state[i];
-            let right = if i == len - 1 { first } else { self.state[i + 1] };
+            let right = if i == len - 1 {
+                first
+            } else {
+                self.state[i + 1]
+            };
 
             let mut next = 0u64;
             for byte_idx in 0..8 {

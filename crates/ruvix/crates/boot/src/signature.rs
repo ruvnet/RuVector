@@ -12,8 +12,8 @@
 //! - Signature size: 3309 bytes
 //! - Public key size: 1952 bytes
 
-use sha2::{Sha256, Digest};
 use ruvix_types::KernelError;
+use sha2::{Digest, Sha256};
 
 /// ML-DSA-65 signature size in bytes.
 pub const SIGNATURE_SIZE: usize = 3309;
@@ -159,7 +159,10 @@ impl SignatureVerifier {
             _ => {
                 // SEC-001: PANIC IMMEDIATELY on signature failure
                 // No diagnostic information beyond the error type (prevents oracle attacks)
-                eprintln!("FATAL: Boot signature verification failed: {}", result.as_str());
+                eprintln!(
+                    "FATAL: Boot signature verification failed: {}",
+                    result.as_str()
+                );
                 panic!("Boot signature verification failed");
             }
         }
@@ -364,9 +367,18 @@ mod tests {
 
     #[test]
     fn test_verify_result_to_kernel_error() {
-        assert_eq!(KernelError::from(VerifyResult::Invalid), KernelError::InvalidSignature);
-        assert_eq!(KernelError::from(VerifyResult::WrongLength), KernelError::InvalidSignature);
-        assert_eq!(KernelError::from(VerifyResult::HashMismatch), KernelError::InvalidSignature);
+        assert_eq!(
+            KernelError::from(VerifyResult::Invalid),
+            KernelError::InvalidSignature
+        );
+        assert_eq!(
+            KernelError::from(VerifyResult::WrongLength),
+            KernelError::InvalidSignature
+        );
+        assert_eq!(
+            KernelError::from(VerifyResult::HashMismatch),
+            KernelError::InvalidSignature
+        );
     }
 
     #[test]

@@ -223,7 +223,10 @@ impl<B: MemoryBacking> SlabAllocator<B> {
         }
 
         let slot_index = self.free_head as usize;
-        let meta = self.meta.get_mut(slot_index).ok_or(KernelError::InternalError)?;
+        let meta = self
+            .meta
+            .get_mut(slot_index)
+            .ok_or(KernelError::InternalError)?;
 
         // Remove from free list
         self.free_head = meta.next_free;
@@ -245,7 +248,10 @@ impl<B: MemoryBacking> SlabAllocator<B> {
         self.validate_handle(handle)?;
 
         let slot_index = handle.index as usize;
-        let meta = self.meta.get_mut(slot_index).ok_or(KernelError::InternalError)?;
+        let meta = self
+            .meta
+            .get_mut(slot_index)
+            .ok_or(KernelError::InternalError)?;
 
         // Increment generation to invalidate existing handles
         meta.generation = meta.generation.wrapping_add(1);
@@ -333,7 +339,10 @@ impl<B: MemoryBacking> SlabAllocator<B> {
             return Err(KernelError::InvalidSlot);
         }
 
-        let meta = self.meta.get(slot_index).ok_or(KernelError::InternalError)?;
+        let meta = self
+            .meta
+            .get(slot_index)
+            .ok_or(KernelError::InternalError)?;
 
         // Check generation - if it doesn't match, the handle is stale
         if meta.generation != handle.generation {

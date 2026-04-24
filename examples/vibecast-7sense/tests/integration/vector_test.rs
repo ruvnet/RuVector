@@ -3,10 +3,10 @@
 //! Tests for HNSW index creation, vector insertion, k-NN search accuracy,
 //! index persistence, and batch insertion performance.
 
-use vibecast_tests::fixtures::*;
-use vibecast_tests::mocks::*;
 use std::collections::HashSet;
 use std::time::Instant;
+use vibecast_tests::fixtures::*;
+use vibecast_tests::mocks::*;
 
 // ============================================================================
 // HNSW Index Creation Tests
@@ -193,7 +193,9 @@ mod knn_search {
         let index = MockVectorIndex::new();
 
         let target_vector = create_deterministic_vector(1536, 42);
-        let target_id = index.insert(EmbeddingId::new(), target_vector.clone()).unwrap();
+        let target_id = index
+            .insert(EmbeddingId::new(), target_vector.clone())
+            .unwrap();
 
         // Insert other vectors
         for i in 0..50 {
@@ -207,7 +209,10 @@ mod knn_search {
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].vector_id, target_id);
-        assert!(results[0].distance < 0.0001, "Exact match should have near-zero distance");
+        assert!(
+            results[0].distance < 0.0001,
+            "Exact match should have near-zero distance"
+        );
     }
 
     #[test]
@@ -297,7 +302,11 @@ mod knn_search {
         let query = create_normalized_vector(1536);
         let results = index.search(&query, 100).unwrap();
 
-        assert_eq!(results.len(), 5, "Should return all vectors if k > index size");
+        assert_eq!(
+            results.len(),
+            5,
+            "Should return all vectors if k > index size"
+        );
     }
 }
 
@@ -535,7 +544,10 @@ mod distance_metrics {
         let v1 = vec![1.0, 0.0, 0.0];
         let v2 = vec![0.0, 1.0, 0.0];
         let dist = cosine_distance(&v1, &v2);
-        assert!((dist - 1.0).abs() < 0.0001, "Orthogonal vectors should have distance 1");
+        assert!(
+            (dist - 1.0).abs() < 0.0001,
+            "Orthogonal vectors should have distance 1"
+        );
     }
 
     #[test]
@@ -543,7 +555,10 @@ mod distance_metrics {
         let v1 = vec![1.0, 0.0];
         let v2 = vec![-1.0, 0.0];
         let dist = cosine_distance(&v1, &v2);
-        assert!((dist - 2.0).abs() < 0.0001, "Opposite vectors should have distance 2");
+        assert!(
+            (dist - 2.0).abs() < 0.0001,
+            "Opposite vectors should have distance 2"
+        );
     }
 
     #[test]
@@ -568,11 +583,17 @@ mod distance_metrics {
 
         let cosine_12 = cosine_distance(&v1, &v2);
         let cosine_21 = cosine_distance(&v2, &v1);
-        assert!((cosine_12 - cosine_21).abs() < 0.0001, "Cosine distance should be symmetric");
+        assert!(
+            (cosine_12 - cosine_21).abs() < 0.0001,
+            "Cosine distance should be symmetric"
+        );
 
         let eucl_12 = euclidean_distance(&v1, &v2);
         let eucl_21 = euclidean_distance(&v2, &v1);
-        assert!((eucl_12 - eucl_21).abs() < 0.0001, "Euclidean distance should be symmetric");
+        assert!(
+            (eucl_12 - eucl_21).abs() < 0.0001,
+            "Euclidean distance should be symmetric"
+        );
     }
 
     #[test]

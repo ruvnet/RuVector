@@ -388,7 +388,9 @@ mod tests {
             returns: Some("SearchResults".to_string()),
         };
 
-        let container = AgiContainerBuilder::new().with_tools(&[tool.clone()]).build();
+        let container = AgiContainerBuilder::new()
+            .with_tools(&[tool.clone()])
+            .build();
 
         // Verify magic
         assert_eq!(&container[0..4], b"RVF\x01");

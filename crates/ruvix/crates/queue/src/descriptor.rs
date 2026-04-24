@@ -130,7 +130,11 @@ impl DescriptorValidator {
     /// # Errors
     ///
     /// Returns `InvalidParameter` if the descriptor references memory outside the region.
-    pub fn validate_bounds(&self, descriptor: &MessageDescriptor, region_size: usize) -> Result<()> {
+    pub fn validate_bounds(
+        &self,
+        descriptor: &MessageDescriptor,
+        region_size: usize,
+    ) -> Result<()> {
         let end = descriptor
             .offset
             .checked_add(descriptor.length as u64)

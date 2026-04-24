@@ -182,11 +182,7 @@ impl UsgsEarthquakeClient {
     /// ```rust,ignore
     /// let earthquakes = client.get_recent(5.0, 30).await?;
     /// ```
-    pub async fn get_recent(
-        &self,
-        min_magnitude: f64,
-        days: u32,
-    ) -> Result<Vec<SemanticVector>> {
+    pub async fn get_recent(&self, min_magnitude: f64, days: u32) -> Result<Vec<SemanticVector>> {
         let now = Utc::now();
         let start_time = now - chrono::Duration::days(days as i64);
 
@@ -273,9 +269,7 @@ impl UsgsEarthquakeClient {
         let significant: Vec<_> = geojson
             .features
             .into_iter()
-            .filter(|f| {
-                f.properties.mag.unwrap_or(0.0) >= 6.0 || f.properties.sig >= 600
-            })
+            .filter(|f| f.properties.mag.unwrap_or(0.0) >= 6.0 || f.properties.sig >= 600)
             .collect();
 
         self.convert_earthquakes(significant)
@@ -319,7 +313,10 @@ impl UsgsEarthquakeClient {
     }
 
     /// Convert USGS earthquake features to SemanticVectors
-    fn convert_earthquakes(&self, features: Vec<UsgsEarthquakeFeature>) -> Result<Vec<SemanticVector>> {
+    fn convert_earthquakes(
+        &self,
+        features: Vec<UsgsEarthquakeFeature>,
+    ) -> Result<Vec<SemanticVector>> {
         let mut vectors = Vec::new();
 
         for feature in features {
@@ -330,8 +327,8 @@ impl UsgsEarthquakeClient {
             let depth = coords.get(2).copied().unwrap_or(0.0);
 
             // Convert Unix timestamp (milliseconds) to DateTime
-            let timestamp = DateTime::from_timestamp_millis(feature.properties.time)
-                .unwrap_or_else(Utc::now);
+            let timestamp =
+                DateTime::from_timestamp_millis(feature.properties.time).unwrap_or_else(Utc::now);
 
             // Create text for embedding
             let text = format!(
@@ -346,8 +343,14 @@ impl UsgsEarthquakeClient {
             metadata.insert("latitude".to_string(), lat.to_string());
             metadata.insert("longitude".to_string(), lon.to_string());
             metadata.insert("depth_km".to_string(), depth.to_string());
-            metadata.insert("tsunami".to_string(), feature.properties.tsunami.to_string());
-            metadata.insert("significance".to_string(), feature.properties.sig.to_string());
+            metadata.insert(
+                "tsunami".to_string(),
+                feature.properties.tsunami.to_string(),
+            );
+            metadata.insert(
+                "significance".to_string(),
+                feature.properties.sig.to_string(),
+            );
             metadata.insert("status".to_string(), feature.properties.status);
             if let Some(alert) = feature.properties.alert {
                 metadata.insert("alert".to_string(), alert);
@@ -515,11 +518,7 @@ impl CernOpenDataClient {
     /// let higgs_data = client.search_datasets("Higgs boson").await?;
     /// ```
     pub async fn search_datasets(&self, query: &str) -> Result<Vec<SemanticVector>> {
-        let url = format!(
-            "{}?q={}&size=50",
-            self.base_url,
-            urlencoding::encode(query)
-        );
+        let url = format!("{}?q={}&size=50", self.base_url, urlencoding::encode(query));
 
         sleep(self.rate_limit_delay).await;
         let response = self.fetch_with_retry(&url).await?;
@@ -608,11 +607,7 @@ impl CernOpenDataClient {
             // Create text for embedding
             let text = format!(
                 "{} {} {} {} {}",
-                title,
-                description,
-                experiment,
-                collision_energy,
-                collision_type
+                title, description, experiment, collision_energy, collision_type
             );
             let embedding = self.embedder.embed_text(&text);
 
@@ -962,7 +957,8 @@ impl MaterialsProjectClient {
         );
 
         sleep(self.rate_limit_delay).await;
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("X-API-KEY", &self.api_key)
             .send()
@@ -982,13 +978,11 @@ impl MaterialsProjectClient {
     /// let silicon = client.get_material("mp-149").await?;
     /// ```
     pub async fn get_material(&self, material_id: &str) -> Result<Vec<SemanticVector>> {
-        let url = format!(
-            "{}/materials/{}/",
-            self.base_url, material_id
-        );
+        let url = format!("{}/materials/{}/", self.base_url, material_id);
 
         sleep(self.rate_limit_delay).await;
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("X-API-KEY", &self.api_key)
             .send()
@@ -1022,7 +1016,8 @@ impl MaterialsProjectClient {
         );
 
         sleep(self.rate_limit_delay).await;
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("X-API-KEY", &self.api_key)
             .send()
@@ -1033,7 +1028,10 @@ impl MaterialsProjectClient {
     }
 
     /// Convert Materials Project materials to SemanticVectors
-    fn convert_materials(&self, materials: Vec<MaterialsProjectMaterial>) -> Result<Vec<SemanticVector>> {
+    fn convert_materials(
+        &self,
+        materials: Vec<MaterialsProjectMaterial>,
+    ) -> Result<Vec<SemanticVector>> {
         let mut vectors = Vec::new();
 
         for material in materials {
@@ -1141,15 +1139,27 @@ mod tests {
     #[test]
     fn test_rate_limiting() {
         let usgs = UsgsEarthquakeClient::new().unwrap();
-        assert_eq!(usgs.rate_limit_delay, Duration::from_millis(USGS_RATE_LIMIT_MS));
+        assert_eq!(
+            usgs.rate_limit_delay,
+            Duration::from_millis(USGS_RATE_LIMIT_MS)
+        );
 
         let cern = CernOpenDataClient::new().unwrap();
-        assert_eq!(cern.rate_limit_delay, Duration::from_millis(CERN_RATE_LIMIT_MS));
+        assert_eq!(
+            cern.rate_limit_delay,
+            Duration::from_millis(CERN_RATE_LIMIT_MS)
+        );
 
         let argo = ArgoClient::new().unwrap();
-        assert_eq!(argo.rate_limit_delay, Duration::from_millis(ARGO_RATE_LIMIT_MS));
+        assert_eq!(
+            argo.rate_limit_delay,
+            Duration::from_millis(ARGO_RATE_LIMIT_MS)
+        );
 
         let mp = MaterialsProjectClient::new("test".to_string()).unwrap();
-        assert_eq!(mp.rate_limit_delay, Duration::from_millis(MATERIALS_PROJECT_RATE_LIMIT_MS));
+        assert_eq!(
+            mp.rate_limit_delay,
+            Duration::from_millis(MATERIALS_PROJECT_RATE_LIMIT_MS)
+        );
     }
 }

@@ -11,8 +11,8 @@
 //! - **Belief revision**: Update beliefs while maintaining coherence
 //! - **Sheaf-theoretic consistency**: Local beliefs must agree on overlaps
 
-use crate::topos::{Topos, SubobjectClassifier, InternalLogic};
-use crate::category::{Category, SetCategory, Object, ObjectData};
+use crate::category::{Category, Object, ObjectData, SetCategory};
+use crate::topos::{InternalLogic, SubobjectClassifier, Topos};
 use crate::{CategoryError, MorphismId, ObjectId, Result};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
@@ -458,10 +458,9 @@ impl BeliefTopos {
         for entry in self.contexts.iter() {
             let context = entry.value();
             if let Some(parent_id) = context.parent {
-                if let (Some(child_belief), Some(parent_belief)) = (
-                    self.get_belief(&context.id),
-                    self.get_belief(&parent_id),
-                ) {
+                if let (Some(child_belief), Some(parent_belief)) =
+                    (self.get_belief(&context.id), self.get_belief(&parent_id))
+                {
                     // Child should not contradict parent
                     if child_belief.truth_in(&context.id) != parent_belief.truth_in(&parent_id) {
                         let child_truth = child_belief.truth_in(&context.id);
@@ -478,8 +477,8 @@ impl BeliefTopos {
             }
         }
 
-        result.is_consistent = result.contradictions.is_empty()
-            && result.sheaf_violations.is_empty();
+        result.is_consistent =
+            result.contradictions.is_empty() && result.sheaf_violations.is_empty();
 
         result
     }
@@ -589,8 +588,7 @@ mod tests {
 
     #[test]
     fn test_context_creation() {
-        let ctx = Context::new("test")
-            .with_property("key", serde_json::json!("value"));
+        let ctx = Context::new("test").with_property("key", serde_json::json!("value"));
 
         assert_eq!(ctx.name, "test");
         assert!(ctx.properties.contains_key("key"));

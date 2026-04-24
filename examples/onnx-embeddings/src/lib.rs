@@ -80,20 +80,26 @@ pub mod gpu {
 
     impl GpuConfig {
         /// Create default config (no-op without GPU feature)
-        pub fn auto() -> Self { Self }
+        pub fn auto() -> Self {
+            Self
+        }
         /// CPU-only config
-        pub fn cpu_only() -> Self { Self }
+        pub fn cpu_only() -> Self {
+            Self
+        }
     }
 
     /// Check if GPU is available (always false without feature)
-    pub async fn is_gpu_available() -> bool { false }
+    pub async fn is_gpu_available() -> bool {
+        false
+    }
 }
 
 // Re-exports
 pub use config::{EmbedderConfig, ModelSource, PoolingStrategy};
 pub use embedder::{Embedder, EmbedderBuilder, EmbeddingOutput};
 pub use error::{EmbeddingError, Result};
-pub use model::{OnnxModel, ModelInfo};
+pub use model::{ModelInfo, OnnxModel};
 pub use pooling::Pooler;
 pub use ruvector_integration::{
     Distance, IndexConfig, RagPipeline, RuVectorBuilder, RuVectorEmbeddings, SearchResult, VectorId,
@@ -103,16 +109,15 @@ pub use tokenizer::Tokenizer;
 // GPU exports (conditional)
 #[cfg(feature = "gpu")]
 pub use gpu::{
-    GpuAccelerator, GpuConfig, GpuMode, GpuInfo, GpuBackend,
-    HybridAccelerator, is_gpu_available,
+    is_gpu_available, GpuAccelerator, GpuBackend, GpuConfig, GpuInfo, GpuMode, HybridAccelerator,
 };
 
 /// Prelude module for convenient imports
 pub mod prelude {
     pub use crate::{
-        Distance, Embedder, EmbedderBuilder, EmbedderConfig, EmbeddingError,
-        IndexConfig, ModelSource, PoolingStrategy, RagPipeline, Result,
-        RuVectorBuilder, RuVectorEmbeddings, SearchResult, VectorId,
+        Distance, Embedder, EmbedderBuilder, EmbedderConfig, EmbeddingError, IndexConfig,
+        ModelSource, PoolingStrategy, RagPipeline, Result, RuVectorBuilder, RuVectorEmbeddings,
+        SearchResult, VectorId,
     };
 }
 
@@ -184,4 +189,3 @@ impl PretrainedModel {
         true
     }
 }
-

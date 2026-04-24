@@ -3,10 +3,10 @@
 //! This module provides mock implementations of repositories and services
 //! for isolated unit and integration testing.
 
+use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::sync::RwLock;
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 // Import fixtures
 use crate::fixtures::*;
@@ -203,21 +203,19 @@ impl MockSegmentRepository {
         let store = self.segments.read().unwrap();
         let results: Vec<CallSegment> = store
             .values()
-            .filter(|s| {
-                match (&s.quality_grade, &min_grade) {
-                    (QualityGrade::Excellent, _) => true,
-                    (QualityGrade::Good, QualityGrade::Good)
-                    | (QualityGrade::Good, QualityGrade::Fair)
-                    | (QualityGrade::Good, QualityGrade::Poor)
-                    | (QualityGrade::Good, QualityGrade::Unusable) => true,
-                    (QualityGrade::Fair, QualityGrade::Fair)
-                    | (QualityGrade::Fair, QualityGrade::Poor)
-                    | (QualityGrade::Fair, QualityGrade::Unusable) => true,
-                    (QualityGrade::Poor, QualityGrade::Poor)
-                    | (QualityGrade::Poor, QualityGrade::Unusable) => true,
-                    (QualityGrade::Unusable, QualityGrade::Unusable) => true,
-                    _ => false,
-                }
+            .filter(|s| match (&s.quality_grade, &min_grade) {
+                (QualityGrade::Excellent, _) => true,
+                (QualityGrade::Good, QualityGrade::Good)
+                | (QualityGrade::Good, QualityGrade::Fair)
+                | (QualityGrade::Good, QualityGrade::Poor)
+                | (QualityGrade::Good, QualityGrade::Unusable) => true,
+                (QualityGrade::Fair, QualityGrade::Fair)
+                | (QualityGrade::Fair, QualityGrade::Poor)
+                | (QualityGrade::Fair, QualityGrade::Unusable) => true,
+                (QualityGrade::Poor, QualityGrade::Poor)
+                | (QualityGrade::Poor, QualityGrade::Unusable) => true,
+                (QualityGrade::Unusable, QualityGrade::Unusable) => true,
+                _ => false,
             })
             .cloned()
             .collect();
@@ -395,8 +393,8 @@ impl MockEmbeddingModelAdapter {
 
             // Use different statistics to create distinct embeddings
             embedding[dim_idx] += sum * 0.001;
-            embedding[dim_idx2] += variance * 0.01;  // Variance-based component
-            embedding[dim_idx3] += (sum.abs() + 0.1).ln() * 0.1;  // Log-scale component
+            embedding[dim_idx2] += variance * 0.01; // Variance-based component
+            embedding[dim_idx3] += (sum.abs() + 0.1).ln() * 0.1; // Log-scale component
         }
 
         // L2 normalize
@@ -727,12 +725,14 @@ impl MockClusteringService {
             }
         }
 
-        Ok(best_cluster.map(|(cluster_id, distance)| ClusterAssignment {
-            segment_id: embedding.segment_id,
-            cluster_id,
-            confidence: 1.0 / (1.0 + distance),
-            distance_to_centroid: distance,
-        }))
+        Ok(
+            best_cluster.map(|(cluster_id, distance)| ClusterAssignment {
+                segment_id: embedding.segment_id,
+                cluster_id,
+                confidence: 1.0 / (1.0 + distance),
+                distance_to_centroid: distance,
+            }),
+        )
     }
 }
 
@@ -875,7 +875,11 @@ impl MockInterpretationGenerator {
 
         // Generate statements and citations based on evidence
         if !evidence_pack.neighbors.is_empty() {
-            let avg_distance: f32 = evidence_pack.neighbors.iter().map(|n| n.distance).sum::<f32>()
+            let avg_distance: f32 = evidence_pack
+                .neighbors
+                .iter()
+                .map(|n| n.distance)
+                .sum::<f32>()
                 / evidence_pack.neighbors.len() as f32;
 
             statements.push(format!(

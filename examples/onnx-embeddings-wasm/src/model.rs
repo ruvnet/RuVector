@@ -57,26 +57,20 @@ impl TractModel {
         let seq_len = input.input_ids.len();
 
         // Create input tensors
-        let input_ids: Tensor = tract_ndarray::Array2::from_shape_vec(
-            (1, seq_len),
-            input.input_ids.clone(),
-        )
-        .map_err(|e| WasmEmbeddingError::inference(e.to_string()))?
-        .into();
+        let input_ids: Tensor =
+            tract_ndarray::Array2::from_shape_vec((1, seq_len), input.input_ids.clone())
+                .map_err(|e| WasmEmbeddingError::inference(e.to_string()))?
+                .into();
 
-        let attention_mask: Tensor = tract_ndarray::Array2::from_shape_vec(
-            (1, seq_len),
-            input.attention_mask.clone(),
-        )
-        .map_err(|e| WasmEmbeddingError::inference(e.to_string()))?
-        .into();
+        let attention_mask: Tensor =
+            tract_ndarray::Array2::from_shape_vec((1, seq_len), input.attention_mask.clone())
+                .map_err(|e| WasmEmbeddingError::inference(e.to_string()))?
+                .into();
 
-        let token_type_ids: Tensor = tract_ndarray::Array2::from_shape_vec(
-            (1, seq_len),
-            input.token_type_ids.clone(),
-        )
-        .map_err(|e| WasmEmbeddingError::inference(e.to_string()))?
-        .into();
+        let token_type_ids: Tensor =
+            tract_ndarray::Array2::from_shape_vec((1, seq_len), input.token_type_ids.clone())
+                .map_err(|e| WasmEmbeddingError::inference(e.to_string()))?
+                .into();
 
         // Run inference
         let inputs = tvec![
@@ -96,9 +90,9 @@ impl TractModel {
             .first()
             .ok_or_else(|| WasmEmbeddingError::inference("No output tensor"))?;
 
-        let output_array = output
-            .to_array_view::<f32>()
-            .map_err(|e| WasmEmbeddingError::inference(format!("Failed to extract output: {}", e)))?;
+        let output_array = output.to_array_view::<f32>().map_err(|e| {
+            WasmEmbeddingError::inference(format!("Failed to extract output: {}", e))
+        })?;
 
         // Flatten and return
         Ok(output_array.iter().copied().collect())

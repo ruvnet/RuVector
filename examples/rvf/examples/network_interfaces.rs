@@ -23,11 +23,9 @@
 //! Run: `cargo run --example network_interfaces`
 
 use rvf_crypto::{create_witness_chain, shake256_256, verify_witness_chain, WitnessEntry};
-use rvf_runtime::options::DistanceMetric;
 use rvf_runtime::filter::FilterValue;
-use rvf_runtime::{
-    FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore,
-};
+use rvf_runtime::options::DistanceMetric;
+use rvf_runtime::{FilterExpr, MetadataEntry, MetadataValue, QueryOptions, RvfOptions, RvfStore};
 use rvf_types::DerivationType;
 use tempfile::TempDir;
 
@@ -86,7 +84,9 @@ fn encode_interface(counters: &InterfaceCounters, seed: u64) -> Vec<f32> {
     // Fill remaining dimensions with deterministic features
     let mut x = seed.wrapping_add(1);
     for slot in v.iter_mut().skip(32) {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         *slot = ((x >> 33) as f32) / (u32::MAX as f32) * 0.1; // small noise
     }
 
@@ -182,7 +182,9 @@ fn generate_topology() -> Vec<NetworkInterface> {
 
     for (chassis_idx, (hostname, asn)) in chassis.iter().enumerate() {
         for (intf_idx, (name, speed, vlan, mtu)) in interface_templates.iter().enumerate() {
-            seed = seed.wrapping_mul(31).wrapping_add(chassis_idx as u64 * 100 + intf_idx as u64);
+            seed = seed
+                .wrapping_mul(31)
+                .wrapping_add(chassis_idx as u64 * 100 + intf_idx as u64);
 
             // Generate realistic counters based on interface type
             let is_uplink = *speed >= 100;
@@ -201,8 +203,16 @@ fn generate_topology() -> Vec<NetworkInterface> {
 
             // Inject anomalies on specific interfaces
             let is_anomaly = chassis_idx == 2 && intf_idx == 4; // leaf-01 Ethernet3/1
-            let error_rate = if is_anomaly { 0.15 } else { (seed % 100) as f32 / 100000.0 };
-            let drop_rate = if is_anomaly { 0.08 } else { (seed % 50) as f32 / 100000.0 };
+            let error_rate = if is_anomaly {
+                0.15
+            } else {
+                (seed % 100) as f32 / 100000.0
+            };
+            let drop_rate = if is_anomaly {
+                0.08
+            } else {
+                (seed % 50) as f32 / 100000.0
+            };
 
             let oper = if is_anomaly {
                 OperStatus::Dormant
@@ -246,7 +256,11 @@ fn generate_topology() -> Vec<NetworkInterface> {
                     latency_us: ((seed % 500) as f32) + 10.0,
                     oper_status: oper,
                     bgp_state_value: if is_loopback { 1.0 } else { 0.8 },
-                    ospf_cost: if is_loopback { 1.0 } else { (*speed as f32).recip() * 1000.0 },
+                    ospf_cost: if is_loopback {
+                        1.0
+                    } else {
+                        (*speed as f32).recip() * 1000.0
+                    },
                     stp_port_state: if is_uplink { 1.0 } else { 0.5 },
                 },
             });
@@ -271,7 +285,10 @@ fn main() {
     println!("  Chassis count:    6 (2 spine, 3 leaf, 1 border)");
     println!("  Interfaces/host:  10");
     println!("  Total interfaces: {}", topology.len());
-    println!("  Embedding dim:    {} (counter rates, deltas, utilization, protocol state)", dim);
+    println!(
+        "  Embedding dim:    {} (counter rates, deltas, utilization, protocol state)",
+        dim
+    );
     println!();
 
     // ────────────────────────────────────────────────
@@ -345,7 +362,11 @@ fn main() {
     let status = store.status();
     println!("  Ingested {} interface embeddings", status.total_vectors);
     println!("  Segments: {}", status.total_segments);
-    println!("  File size: {} bytes ({:.1} KB)", status.file_size, status.file_size as f64 / 1024.0);
+    println!(
+        "  File size: {} bytes ({:.1} KB)",
+        status.file_size,
+        status.file_size as f64 / 1024.0
+    );
     println!();
 
     // ────────────────────────────────────────────────
@@ -449,7 +470,9 @@ fn main() {
         ])),
         ..Default::default()
     };
-    let spine_results = store.query(&spine_query, 5, &spine_opts).expect("spine query");
+    let spine_results = store
+        .query(&spine_query, 5, &spine_opts)
+        .expect("spine query");
     println!("  Filter: hostname='spine-01' AND speed=100G");
     println!("  Results: {} interfaces", spine_results.len());
     for r in &spine_results {
@@ -466,7 +489,9 @@ fn main() {
         filter: Some(FilterExpr::Eq(3, FilterValue::U64(200))),
         ..Default::default()
     };
-    let vlan_results = store.query(&spine_query, 20, &vlan_opts).expect("vlan query");
+    let vlan_results = store
+        .query(&spine_query, 20, &vlan_opts)
+        .expect("vlan query");
     println!("  Filter: vlan=200 (across all chassis)");
     println!("  Results: {} interfaces", vlan_results.len());
     for r in &vlan_results {
@@ -593,12 +618,18 @@ fn main() {
     // ────────────────────────────────────────────────
     println!("=== Summary ===\n");
     println!("  Interfaces ingested:  {}", topology.len());
-    println!("  Embedding dimensions: {} (counters + deltas + utilization + protocol)", dim);
+    println!(
+        "  Embedding dimensions: {} (counters + deltas + utilization + protocol)",
+        dim
+    );
     println!("  Chassis covered:      6 (2 spine, 3 leaf, 1 border)");
     println!("  Anomaly detection:    vector similarity search (L2 distance)");
     println!("  Filtered queries:     hostname, speed, VLAN, ASN metadata");
     println!("  Drift detection:      epoch snapshots via derive()");
-    println!("  Audit trail:          {} witness entries, tamper-evident", verified.len());
+    println!(
+        "  Audit trail:          {} witness entries, tamper-evident",
+        verified.len()
+    );
     println!();
     println!("  Key insight: RVF turns network telemetry into a searchable,");
     println!("  portable, auditable vector store — anomaly detection and config");

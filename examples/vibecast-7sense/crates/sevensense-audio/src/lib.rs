@@ -48,16 +48,16 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
-pub mod domain;
 pub mod application;
+pub mod domain;
 pub mod infrastructure;
 pub mod spectrogram;
 
 // Re-export main types
-pub use domain::entities::{Recording, CallSegment, SignalQuality};
-pub use domain::repository::RecordingRepository;
-pub use application::services::AudioIngestionService;
 pub use application::error::{AudioError, AudioResult};
+pub use application::services::AudioIngestionService;
+pub use domain::entities::{CallSegment, Recording, SignalQuality};
+pub use domain::repository::RecordingRepository;
 pub use spectrogram::{MelSpectrogram, SpectrogramConfig};
 
 /// Standard target sample rate for all processing (32 kHz).

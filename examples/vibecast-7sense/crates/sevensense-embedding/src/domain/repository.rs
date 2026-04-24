@@ -40,7 +40,10 @@ pub trait EmbeddingRepository: Send + Sync {
     /// - `Ok(Some(embedding))` if found
     /// - `Ok(None)` if not found
     /// - `Err(...)` on storage errors
-    async fn find_by_segment(&self, segment_id: &SegmentId) -> Result<Option<Embedding>, EmbeddingError>;
+    async fn find_by_segment(
+        &self,
+        segment_id: &SegmentId,
+    ) -> Result<Option<Embedding>, EmbeddingError>;
 
     /// Save multiple embeddings in a batch operation.
     ///
@@ -256,7 +259,10 @@ mod tests {
     #[async_trait]
     impl EmbeddingRepository for InMemoryEmbeddingRepository {
         async fn save(&self, embedding: &Embedding) -> Result<(), EmbeddingError> {
-            self.embeddings.write().await.insert(embedding.id, embedding.clone());
+            self.embeddings
+                .write()
+                .await
+                .insert(embedding.id, embedding.clone());
             Ok(())
         }
 
@@ -264,8 +270,15 @@ mod tests {
             Ok(self.embeddings.read().await.get(id).cloned())
         }
 
-        async fn find_by_segment(&self, segment_id: &SegmentId) -> Result<Option<Embedding>, EmbeddingError> {
-            Ok(self.embeddings.read().await.values()
+        async fn find_by_segment(
+            &self,
+            segment_id: &SegmentId,
+        ) -> Result<Option<Embedding>, EmbeddingError> {
+            Ok(self
+                .embeddings
+                .read()
+                .await
+                .values()
                 .find(|e| e.segment_id == *segment_id)
                 .cloned())
         }
@@ -284,7 +297,8 @@ mod tests {
 
         async fn delete_by_segment(&self, segment_id: &SegmentId) -> Result<usize, EmbeddingError> {
             let mut store = self.embeddings.write().await;
-            let to_remove: Vec<_> = store.iter()
+            let to_remove: Vec<_> = store
+                .iter()
                 .filter(|(_, e)| e.segment_id == *segment_id)
                 .map(|(id, _)| *id)
                 .collect();
@@ -300,7 +314,11 @@ mod tests {
         }
 
         async fn count_by_tier(&self, tier: StorageTier) -> Result<u64, EmbeddingError> {
-            Ok(self.embeddings.read().await.values()
+            Ok(self
+                .embeddings
+                .read()
+                .await
+                .values()
                 .filter(|e| e.tier == tier)
                 .count() as u64)
         }
@@ -311,7 +329,11 @@ mod tests {
             limit: usize,
             offset: usize,
         ) -> Result<Vec<Embedding>, EmbeddingError> {
-            Ok(self.embeddings.read().await.values()
+            Ok(self
+                .embeddings
+                .read()
+                .await
+                .values()
                 .filter(|e| e.model_version == model_version)
                 .skip(offset)
                 .take(limit)

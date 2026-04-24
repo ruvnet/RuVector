@@ -3,18 +3,18 @@
 //! Provides terminal-based graph visualization with ANSI colors, domain clustering,
 //! coherence heatmaps, and pattern timeline displays.
 
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 
 use crate::optimized::{OptimizedDiscoveryEngine, SignificantPattern};
 use crate::ruvector_native::{Domain, PatternType};
 
 /// ANSI color codes for domains
-const COLOR_CLIMATE: &str = "\x1b[34m";  // Blue
-const COLOR_FINANCE: &str = "\x1b[32m";  // Green
+const COLOR_CLIMATE: &str = "\x1b[34m"; // Blue
+const COLOR_FINANCE: &str = "\x1b[32m"; // Green
 const COLOR_RESEARCH: &str = "\x1b[33m"; // Yellow
-const COLOR_MEDICAL: &str = "\x1b[36m";  // Cyan
-const COLOR_CROSS: &str = "\x1b[35m";    // Magenta
+const COLOR_MEDICAL: &str = "\x1b[36m"; // Cyan
+const COLOR_CROSS: &str = "\x1b[35m"; // Magenta
 const COLOR_RESET: &str = "\x1b[0m";
 const COLOR_BRIGHT: &str = "\x1b[1m";
 const COLOR_DIM: &str = "\x1b[2m";
@@ -40,11 +40,11 @@ fn domain_color(domain: Domain) -> &'static str {
         Domain::Research => COLOR_RESEARCH,
         Domain::Medical => COLOR_MEDICAL,
         Domain::Economic => "\x1b[38;5;214m", // Orange color for Economic
-        Domain::Genomics => "\x1b[38;5;46m", // Green color for Genomics
-        Domain::Physics => "\x1b[38;5;33m", // Blue color for Physics
-        Domain::Seismic => "\x1b[38;5;130m", // Brown color for Seismic
-        Domain::Ocean => "\x1b[38;5;39m", // Cyan color for Ocean
-        Domain::Space => "\x1b[38;5;141m", // Purple color for Space
+        Domain::Genomics => "\x1b[38;5;46m",  // Green color for Genomics
+        Domain::Physics => "\x1b[38;5;33m",   // Blue color for Physics
+        Domain::Seismic => "\x1b[38;5;130m",  // Brown color for Seismic
+        Domain::Ocean => "\x1b[38;5;39m",     // Cyan color for Ocean
+        Domain::Space => "\x1b[38;5;141m",    // Purple color for Space
         Domain::Transportation => "\x1b[38;5;208m", // Orange color for Transportation
         Domain::Geospatial => "\x1b[38;5;118m", // Light green for Geospatial
         Domain::Government => "\x1b[38;5;243m", // Gray color for Government
@@ -81,7 +81,11 @@ fn domain_char(domain: Domain) -> char {
 ///
 /// # Returns
 /// A string containing the ASCII art representation
-pub fn render_graph_ascii(engine: &OptimizedDiscoveryEngine, width: usize, height: usize) -> String {
+pub fn render_graph_ascii(
+    engine: &OptimizedDiscoveryEngine,
+    width: usize,
+    height: usize,
+) -> String {
     let stats = engine.stats();
     let mut output = String::new();
 
@@ -90,7 +94,10 @@ pub fn render_graph_ascii(engine: &OptimizedDiscoveryEngine, width: usize, heigh
     output.push_str(&BOX_H.to_string().repeat(width - 2));
     output.push_str(&format!("{}{}\n", BOX_TR, COLOR_RESET));
 
-    let title = format!(" Discovery Graph ({} nodes, {} edges) ", stats.total_nodes, stats.total_edges);
+    let title = format!(
+        " Discovery Graph ({} nodes, {} edges) ",
+        stats.total_nodes, stats.total_edges
+    );
     output.push_str(&format!("{}{}", COLOR_BRIGHT, BOX_V));
     output.push_str(&format!("{:^width$}", title, width = width - 2));
     output.push_str(&format!("{}{}\n", BOX_V, COLOR_RESET));
@@ -120,7 +127,8 @@ pub fn render_graph_ascii(engine: &OptimizedDiscoveryEngine, width: usize, heigh
     ];
 
     for (domain, count) in &stats.domain_counts {
-        let (_, base_x, base_y) = domain_regions.iter()
+        let (_, base_x, base_y) = domain_regions
+            .iter()
             .find(|(d, _, _)| d == domain)
             .unwrap_or(&(Domain::Research, 10, 2));
 
@@ -206,10 +214,16 @@ pub fn render_graph_ascii(engine: &OptimizedDiscoveryEngine, width: usize, heigh
 
     // Legend
     output.push_str(&format!("{}Legend:{}\n", COLOR_BRIGHT, COLOR_RESET));
-    output.push_str(&format!("  {}C{} = Climate    ", COLOR_CLIMATE, COLOR_RESET));
+    output.push_str(&format!(
+        "  {}C{} = Climate    ",
+        COLOR_CLIMATE, COLOR_RESET
+    ));
     output.push_str(&format!("{}F{} = Finance    ", COLOR_FINANCE, COLOR_RESET));
     output.push_str(&format!("{}R{} = Research\n", COLOR_RESEARCH, COLOR_RESET));
-    output.push_str(&format!("  Cross-domain bridges: {}\n", stats.cross_domain_edges));
+    output.push_str(&format!(
+        "  Cross-domain bridges: {}\n",
+        stats.cross_domain_edges
+    ));
 
     output
 }
@@ -221,8 +235,10 @@ pub fn render_domain_matrix(engine: &OptimizedDiscoveryEngine) -> String {
     let stats = engine.stats();
     let mut output = String::new();
 
-    output.push_str(&format!("\n{}{}Domain Connectivity Matrix{}{}\n",
-        COLOR_BRIGHT, BOX_TL, BOX_TR, COLOR_RESET));
+    output.push_str(&format!(
+        "\n{}{}Domain Connectivity Matrix{}{}\n",
+        COLOR_BRIGHT, BOX_TL, BOX_TR, COLOR_RESET
+    ));
     output.push_str(&format!("{}\n", BOX_H.to_string().repeat(50)));
 
     // Calculate connections between domains
@@ -238,19 +254,29 @@ pub fn render_domain_matrix(engine: &OptimizedDiscoveryEngine) -> String {
 
     // This is a placeholder - in real implementation, we'd iterate through edges
     // and count connections between domains
-    output.push_str(&format!("         {}Climate{}  {}Finance{}  {}Research{}\n",
-        COLOR_CLIMATE, COLOR_RESET,
-        COLOR_FINANCE, COLOR_RESET,
-        COLOR_RESEARCH, COLOR_RESET));
+    output.push_str(&format!(
+        "         {}Climate{}  {}Finance{}  {}Research{}\n",
+        COLOR_CLIMATE, COLOR_RESET, COLOR_FINANCE, COLOR_RESET, COLOR_RESEARCH, COLOR_RESET
+    ));
 
     for &domain_a in &domains {
         let color_a = domain_color(domain_a);
-        output.push_str(&format!("{}{:9}{} ", color_a, format!("{:?}", domain_a), COLOR_RESET));
+        output.push_str(&format!(
+            "{}{:9}{} ",
+            color_a,
+            format!("{:?}", domain_a),
+            COLOR_RESET
+        ));
 
         for &domain_b in &domains {
             let count = matrix.get(&(domain_a, domain_b)).unwrap_or(&0);
             let display = if domain_a == domain_b {
-                format!("{}[{:3}]{}", COLOR_BRIGHT, stats.domain_counts.get(&domain_a).unwrap_or(&0), COLOR_RESET)
+                format!(
+                    "{}[{:3}]{}",
+                    COLOR_BRIGHT,
+                    stats.domain_counts.get(&domain_a).unwrap_or(&0),
+                    COLOR_RESET
+                )
             } else {
                 format!(" {:3}  ", count)
             };
@@ -259,9 +285,14 @@ pub fn render_domain_matrix(engine: &OptimizedDiscoveryEngine) -> String {
         output.push('\n');
     }
 
-    output.push_str(&format!("\n{}Note:{} Diagonal = node count, Off-diagonal = cross-domain edges\n",
-        COLOR_DIM, COLOR_RESET));
-    output.push_str(&format!("Total cross-domain edges: {}\n", stats.cross_domain_edges));
+    output.push_str(&format!(
+        "\n{}Note:{} Diagonal = node count, Off-diagonal = cross-domain edges\n",
+        COLOR_DIM, COLOR_RESET
+    ));
+    output.push_str(&format!(
+        "Total cross-domain edges: {}\n",
+        stats.cross_domain_edges
+    ));
 
     output
 }
@@ -273,12 +304,17 @@ pub fn render_domain_matrix(engine: &OptimizedDiscoveryEngine) -> String {
 pub fn render_coherence_timeline(history: &[(DateTime<Utc>, f64)]) -> String {
     let mut output = String::new();
 
-    output.push_str(&format!("\n{}{}Coherence Timeline{}{}\n",
-        COLOR_BRIGHT, BOX_TL, BOX_TR, COLOR_RESET));
+    output.push_str(&format!(
+        "\n{}{}Coherence Timeline{}{}\n",
+        COLOR_BRIGHT, BOX_TL, BOX_TR, COLOR_RESET
+    ));
     output.push_str(&format!("{}\n", BOX_H.to_string().repeat(70)));
 
     if history.is_empty() {
-        output.push_str(&format!("{}  (no coherence history){}\n", COLOR_DIM, COLOR_RESET));
+        output.push_str(&format!(
+            "{}  (no coherence history){}\n",
+            COLOR_DIM, COLOR_RESET
+        ));
         return output;
     }
 
@@ -286,7 +322,10 @@ pub fn render_coherence_timeline(history: &[(DateTime<Utc>, f64)]) -> String {
     let min_val = values.iter().cloned().fold(f64::INFINITY, f64::min);
     let max_val = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
 
-    output.push_str(&format!("  Coherence range: {:.4} - {:.4}\n", min_val, max_val));
+    output.push_str(&format!(
+        "  Coherence range: {:.4} - {:.4}\n",
+        min_val, max_val
+    ));
     output.push_str(&format!("  Data points: {}\n\n", history.len()));
 
     // ASCII sparkline
@@ -300,7 +339,8 @@ pub fn render_coherence_timeline(history: &[(DateTime<Utc>, f64)]) -> String {
         1
     };
 
-    let sampled: Vec<f64> = history.iter()
+    let sampled: Vec<f64> = history
+        .iter()
         .step_by(step)
         .take(chart_width)
         .map(|(_, v)| *v)
@@ -309,7 +349,8 @@ pub fn render_coherence_timeline(history: &[(DateTime<Utc>, f64)]) -> String {
     // Normalize values to chart height
     let range = max_val - min_val;
     let normalized: Vec<usize> = if range > 1e-10 {
-        sampled.iter()
+        sampled
+            .iter()
             .map(|v| {
                 let normalized = ((v - min_val) / range * (chart_height - 1) as f64) as usize;
                 normalized.min(chart_height - 1)
@@ -346,12 +387,19 @@ pub fn render_coherence_timeline(history: &[(DateTime<Utc>, f64)]) -> String {
     // Time labels
     if let (Some(first), Some(last)) = (history.first(), history.last()) {
         let duration = last.0.signed_duration_since(first.0);
-        let width_val = if chart_width > 12 { chart_width - 12 } else { 0 };
-        output.push_str(&format!("       {} {:>width$}\n",
+        let width_val = if chart_width > 12 {
+            chart_width - 12
+        } else {
+            0
+        };
+        output.push_str(&format!(
+            "       {} {:>width$}\n",
             first.0.format("%Y-%m-%d"),
             last.0.format("%Y-%m-%d"),
-            width = width_val));
-        output.push_str(&format!("       {}Duration: {}{}\n",
+            width = width_val
+        ));
+        output.push_str(&format!(
+            "       {}Duration: {}{}\n",
             COLOR_DIM,
             if duration.num_days() > 0 {
                 format!("{} days", duration.num_days())
@@ -360,7 +408,8 @@ pub fn render_coherence_timeline(history: &[(DateTime<Utc>, f64)]) -> String {
             } else {
                 format!("{} minutes", duration.num_minutes())
             },
-            COLOR_RESET));
+            COLOR_RESET
+        ));
     }
 
     output
@@ -373,12 +422,17 @@ pub fn render_coherence_timeline(history: &[(DateTime<Utc>, f64)]) -> String {
 pub fn render_pattern_summary(patterns: &[SignificantPattern]) -> String {
     let mut output = String::new();
 
-    output.push_str(&format!("\n{}{}Pattern Discovery Summary{}{}\n",
-        COLOR_BRIGHT, BOX_TL, BOX_TR, COLOR_RESET));
+    output.push_str(&format!(
+        "\n{}{}Pattern Discovery Summary{}{}\n",
+        COLOR_BRIGHT, BOX_TL, BOX_TR, COLOR_RESET
+    ));
     output.push_str(&format!("{}\n", BOX_H.to_string().repeat(80)));
 
     if patterns.is_empty() {
-        output.push_str(&format!("{}  No patterns discovered yet{}\n", COLOR_DIM, COLOR_RESET));
+        output.push_str(&format!(
+            "{}  No patterns discovered yet{}\n",
+            COLOR_DIM, COLOR_RESET
+        ));
         return output;
     }
 
@@ -395,9 +449,11 @@ pub fn render_pattern_summary(patterns: &[SignificantPattern]) -> String {
         }
     }
 
-    output.push_str(&format!("  Statistically significant: {} ({:.1}%)\n\n",
+    output.push_str(&format!(
+        "  Statistically significant: {} ({:.1}%)\n\n",
         significant_count,
-        (significant_count as f64 / patterns.len() as f64) * 100.0));
+        (significant_count as f64 / patterns.len() as f64) * 100.0
+    ));
 
     // Pattern type breakdown
     output.push_str(&format!("{}Pattern Types:{}\n", COLOR_BRIGHT, COLOR_RESET));
@@ -416,22 +472,32 @@ pub fn render_pattern_summary(patterns: &[SignificantPattern]) -> String {
         let bar_length = ((*count as f64 / patterns.len() as f64) * 30.0) as usize;
         let bar = "█".repeat(bar_length);
 
-        output.push_str(&format!("  {} {:20} {:3} {}{}{}\n",
+        output.push_str(&format!(
+            "  {} {:20} {:3} {}{}{}\n",
             icon,
             format!("{:?}", pattern_type),
             count,
             COLOR_CLIMATE,
             bar,
-            COLOR_RESET));
+            COLOR_RESET
+        ));
     }
 
     output.push('\n');
 
     // Top patterns by confidence
-    output.push_str(&format!("{}Top Patterns (by confidence):{}\n", COLOR_BRIGHT, COLOR_RESET));
+    output.push_str(&format!(
+        "{}Top Patterns (by confidence):{}\n",
+        COLOR_BRIGHT, COLOR_RESET
+    ));
 
     let mut sorted_patterns: Vec<_> = patterns.iter().collect();
-    sorted_patterns.sort_by(|a, b| b.pattern.confidence.partial_cmp(&a.pattern.confidence).unwrap());
+    sorted_patterns.sort_by(|a, b| {
+        b.pattern
+            .confidence
+            .partial_cmp(&a.pattern.confidence)
+            .unwrap()
+    });
 
     for (i, pattern) in sorted_patterns.iter().take(5).enumerate() {
         let significance_marker = if pattern.is_significant {
@@ -448,7 +514,8 @@ pub fn render_pattern_summary(patterns: &[SignificantPattern]) -> String {
             COLOR_DIM
         };
 
-        output.push_str(&format!("  {}{}.{} {}{:?}{} (p={:.4}, effect={:.3}, conf={:.2})\n",
+        output.push_str(&format!(
+            "  {}{}.{} {}{:?}{} (p={:.4}, effect={:.3}, conf={:.2})\n",
             significance_marker,
             i + 1,
             COLOR_RESET,
@@ -457,16 +524,19 @@ pub fn render_pattern_summary(patterns: &[SignificantPattern]) -> String {
             COLOR_RESET,
             pattern.p_value,
             pattern.effect_size,
-            pattern.pattern.confidence));
+            pattern.pattern.confidence
+        ));
 
-        output.push_str(&format!("     {}{}{}\n",
-            COLOR_DIM,
-            pattern.pattern.description,
-            COLOR_RESET));
+        output.push_str(&format!(
+            "     {}{}{}\n",
+            COLOR_DIM, pattern.pattern.description, COLOR_RESET
+        ));
     }
 
-    output.push_str(&format!("\n{}Note:{} * = statistically significant (p < 0.05)\n",
-        COLOR_DIM, COLOR_RESET));
+    output.push_str(&format!(
+        "\n{}Note:{} * = statistically significant (p < 0.05)\n",
+        COLOR_DIM, COLOR_RESET
+    ));
 
     output
 }
@@ -480,25 +550,32 @@ pub fn render_dashboard(
     let mut output = String::new();
 
     // Title
-    output.push_str(&format!("\n{}{}═══════════════════════════════════════════════════════════════════════════════{}\n",
-        COLOR_BRIGHT, BOX_TL, COLOR_RESET));
-    output.push_str(&format!("{}{}        RuVector Discovery Framework - Live Dashboard                        {}\n",
-        COLOR_BRIGHT, BOX_V, COLOR_RESET));
-    output.push_str(&format!("{}{}═══════════════════════════════════════════════════════════════════════════════{}\n\n",
-        COLOR_BRIGHT, BOX_BL, COLOR_RESET));
+    output.push_str(&format!(
+        "\n{}{}═══════════════════════════════════════════════════════════════════════════════{}\n",
+        COLOR_BRIGHT, BOX_TL, COLOR_RESET
+    ));
+    output.push_str(&format!(
+        "{}{}        RuVector Discovery Framework - Live Dashboard                        {}\n",
+        COLOR_BRIGHT, BOX_V, COLOR_RESET
+    ));
+    output.push_str(&format!(
+        "{}{}═══════════════════════════════════════════════════════════════════════════════{}\n\n",
+        COLOR_BRIGHT, BOX_BL, COLOR_RESET
+    ));
 
     // Stats overview
     let stats = engine.stats();
     output.push_str(&format!("{}Quick Stats:{}\n", COLOR_BRIGHT, COLOR_RESET));
-    output.push_str(&format!("  Nodes: {}  │  Edges: {}  │  Vectors: {}  │  Cross-domain: {}\n",
-        stats.total_nodes,
-        stats.total_edges,
-        stats.total_vectors,
-        stats.cross_domain_edges));
-    output.push_str(&format!("  Patterns: {}  │  Coherence samples: {}  │  Cache hit rate: {:.1}%\n\n",
+    output.push_str(&format!(
+        "  Nodes: {}  │  Edges: {}  │  Vectors: {}  │  Cross-domain: {}\n",
+        stats.total_nodes, stats.total_edges, stats.total_vectors, stats.cross_domain_edges
+    ));
+    output.push_str(&format!(
+        "  Patterns: {}  │  Coherence samples: {}  │  Cache hit rate: {:.1}%\n\n",
         patterns.len(),
         coherence_history.len(),
-        stats.cache_hit_rate * 100.0));
+        stats.cache_hit_rate * 100.0
+    ));
 
     // Graph visualization
     output.push_str(&render_graph_ascii(engine, 80, 20));
@@ -515,8 +592,10 @@ pub fn render_dashboard(
     // Pattern summary
     output.push_str(&render_pattern_summary(patterns));
 
-    output.push_str(&format!("\n{}{}═══════════════════════════════════════════════════════════════════════════════{}\n",
-        COLOR_DIM, BOX_BL, COLOR_RESET));
+    output.push_str(&format!(
+        "\n{}{}═══════════════════════════════════════════════════════════════════════════════{}\n",
+        COLOR_DIM, BOX_BL, COLOR_RESET
+    ));
 
     output
 }

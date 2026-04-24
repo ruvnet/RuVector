@@ -45,14 +45,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   Plaintext size: {} bytes", plaintext.len());
 
     let encrypted = crypto.encrypt(&plaintext)?;
-    println!("   Encrypted size: {} bytes (includes 12-byte nonce + 16-byte auth tag)", encrypted.len());
+    println!(
+        "   Encrypted size: {} bytes (includes 12-byte nonce + 16-byte auth tag)",
+        encrypted.len()
+    );
     println!("   Overhead: {} bytes", encrypted.len() - plaintext.len());
 
     // 5. Decrypt session data
     println!("\n5. Decrypting session data...");
     let decrypted = crypto.decrypt(&encrypted)?;
     let recovered_data: serde_json::Value = serde_json::from_slice(&decrypted)?;
-    println!("   Recovered data: {}", serde_json::to_string_pretty(&recovered_data)?);
+    println!(
+        "   Recovered data: {}",
+        serde_json::to_string_pretty(&recovered_data)?
+    );
 
     // 6. Demonstrate different nonces for same plaintext
     println!("\n6. Encrypting same data twice (different nonces)...");
@@ -87,8 +93,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n8. Loading encrypted session from file...");
     let loaded_data = crypto.load_session(&session_path)?;
     let loaded_session: serde_json::Value = serde_json::from_slice(&loaded_data)?;
-    println!("   Loaded data matches original: {}", loaded_data == plaintext);
-    println!("   Loaded session: {}", serde_json::to_string_pretty(&loaded_session)?);
+    println!(
+        "   Loaded data matches original: {}",
+        loaded_data == plaintext
+    );
+    println!(
+        "   Loaded session: {}",
+        serde_json::to_string_pretty(&loaded_session)?
+    );
 
     // 10. Demonstrate wrong key failure
     println!("\n9. Testing decryption with wrong key...");

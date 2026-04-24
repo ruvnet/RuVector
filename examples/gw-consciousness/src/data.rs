@@ -62,9 +62,7 @@ pub fn generate_nanograv_spectrum(model: &str) -> GWSpectrum {
     let t_obs_sec = NANOGRAV_T_OBS * 365.25 * 86400.0;
     let f_min = 1.0 / t_obs_sec;
 
-    let frequencies: Vec<f64> = (1..=NANOGRAV_N_BINS)
-        .map(|k| k as f64 * f_min)
-        .collect();
+    let frequencies: Vec<f64> = (1..=NANOGRAV_N_BINS).map(|k| k as f64 * f_min).collect();
 
     let (alpha, h_c) = match model {
         "smbh" => {
@@ -73,9 +71,7 @@ pub fn generate_nanograv_spectrum(model: &str) -> GWSpectrum {
             let alpha = -2.0 / 3.0;
             let h_c: Vec<f64> = frequencies
                 .iter()
-                .map(|&f| {
-                    NANOGRAV_AMPLITUDE * (f / NANOGRAV_F_REF).powf(alpha)
-                })
+                .map(|&f| NANOGRAV_AMPLITUDE * (f / NANOGRAV_F_REF).powf(alpha))
                 .collect();
             (alpha, h_c)
         }
@@ -168,10 +164,10 @@ pub fn gw_spectrum_to_tpm(spec: &GWSpectrum, n_bins: usize, alpha: f64) -> Trans
     // SMBH mergers: narrow (independent sources per frequency)
     // Cosmological: broad (single correlated source)
     let sigma = match spec.model.as_str() {
-        "smbh" => 0.3,              // narrow: nearly independent bins
-        "cosmic_strings" => 2.0,    // broad: strong spectral correlations
-        "primordial" => 1.5,        // moderate: inflationary correlations
-        "phase_transition" => 3.0,  // very broad: phase transition coherence
+        "smbh" => 0.3,             // narrow: nearly independent bins
+        "cosmic_strings" => 2.0,   // broad: strong spectral correlations
+        "primordial" => 1.5,       // moderate: inflationary correlations
+        "phase_transition" => 3.0, // very broad: phase transition coherence
         _ => 1.0,
     };
 
@@ -201,17 +197,13 @@ pub fn gw_spectrum_to_tpm(spec: &GWSpectrum, n_bins: usize, alpha: f64) -> Trans
     // Row-normalize with sharpness parameter
     let mut tpm = vec![0.0f64; n * n];
     for i in 0..n {
-        let row_sum: f64 = (0..n)
-            .map(|j| corr[i * n + j].powf(alpha))
-            .sum();
+        let row_sum: f64 = (0..n).map(|j| corr[i * n + j].powf(alpha)).sum();
         for j in 0..n {
             tpm[i * n + j] = corr[i * n + j].powf(alpha) / row_sum.max(1e-30);
         }
     }
 
-    let bin_labels: Vec<String> = (0..n)
-        .map(|i| format!("f{}", i + 1))
-        .collect();
+    let bin_labels: Vec<String> = (0..n).map(|i| format!("f{}", i + 1)).collect();
     let bin_frequencies = spec.frequencies[..n].to_vec();
 
     TransitionMatrix {

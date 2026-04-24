@@ -245,8 +245,7 @@ fn bench_immutable_read(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("read", size), size, |b, &size| {
             let data = vec![0xABu8; size];
             let backing = StaticBacking::<8192>::new();
-            let region =
-                ImmutableRegion::new(backing, &data, RegionHandle::new(1, 0)).unwrap();
+            let region = ImmutableRegion::new(backing, &data, RegionHandle::new(1, 0)).unwrap();
             let mut buf = vec![0u8; size];
 
             b.iter(|| {
@@ -257,8 +256,7 @@ fn bench_immutable_read(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("as_slice", size), size, |b, &size| {
             let data = vec![0xABu8; size];
             let backing = StaticBacking::<8192>::new();
-            let region =
-                ImmutableRegion::new(backing, &data, RegionHandle::new(1, 0)).unwrap();
+            let region = ImmutableRegion::new(backing, &data, RegionHandle::new(1, 0)).unwrap();
 
             b.iter(|| black_box(region.as_slice()));
         });
@@ -275,10 +273,8 @@ fn bench_immutable_hash(c: &mut Criterion) {
         let backing1 = StaticBacking::<2048>::new();
         let backing2 = StaticBacking::<2048>::new();
 
-        let region1 =
-            ImmutableRegion::new(backing1, &data, RegionHandle::new(1, 0)).unwrap();
-        let region2 =
-            ImmutableRegion::new(backing2, &data, RegionHandle::new(1, 0)).unwrap();
+        let region1 = ImmutableRegion::new(backing1, &data, RegionHandle::new(1, 0)).unwrap();
+        let region2 = ImmutableRegion::new(backing2, &data, RegionHandle::new(1, 0)).unwrap();
 
         b.iter(|| black_box(region1.content_equals(&region2)));
     });
