@@ -302,6 +302,45 @@ fn main() {
         println!();
     }
     if !fast {
+        println!("── search_batch vs per-query loop (n=100k) ──");
+        let n = 100_000;
+        let data = clustered(n, d, 100, seed);
+        let queries = clustered(300, d, 100, seed ^ 0xdead_beef);
+
+        let backend = Arc::new(LocalBackend::new("bench"));
+        backend
+            .put_collection("c", d, (0..n as u64).collect(), data.clone())
+            .unwrap();
+        let lake =
+            RuLake::new(rerank, seed).with_consistency(Consistency::Eventual { ttl_ms: 60_000 });
+        lake.register_backend(backend).unwrap();
+        // Prime.
+        lake.search_one("bench", "c", &queries[0], 10).unwrap();
+
+        // Per-query loop over the full 300-query set.
+        let t = Instant::now();
+        for q in &queries {
+            let _ = lake.search_one("bench", "c", q, 10).unwrap();
+        }
+        let loop_qps = queries.len() as f64 / t.elapsed().as_secs_f64();
+
+        // Batch the same 300 queries in chunks of 32.
+        for &batch_size in &[8usize, 32, 128, 300] {
+            let t = Instant::now();
+            for chunk in queries.chunks(batch_size) {
+                let _ = lake.search_batch("bench", "c", chunk, 10).unwrap();
+            }
+            let batch_qps = queries.len() as f64 / t.elapsed().as_secs_f64();
+            println!(
+                "  batch={:>3}   qps={:>8.0}   speedup vs per-query {:.2}×",
+                batch_size,
+                batch_qps,
+                batch_qps / loop_qps
+            );
+        }
+        println!("  per-query loop   qps={:>8.0}   (baseline)", loop_qps);
+        println!();
+
         println!("── concurrent clients × federation (n=100k, 8 clients × 300 queries) ──");
         let n = 100_000;
         let queries = clustered(300, d, 100, seed ^ 0xdead_beef);

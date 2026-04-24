@@ -59,6 +59,37 @@ The QPS drop with shard count under this single-thread benchmark is
 *not* pure `par_iter` startup overhead — see the concurrent-client
 numbers below for the honest picture.
 
+### search_batch vs per-query loop (n = 100 k, warm cache, single-threaded)
+
+`RuLake::search_batch(queries, k)` amortizes `ensure_fresh` and the
+cache mutex across N queries. Measured speedup on an already-primed
+`LocalBackend` under `Consistency::Eventual` (the hot path):
+
+| batch size |     QPS | speedup vs per-query |
+|-----------:|--------:|---------------------:|
+|         8  |   2,874 |              1.01×   |
+|        32  |   2,961 |              1.04×   |
+|       128  |   2,943 |              1.03×   |
+|       300  |   2,986 |              1.05×   |
+| per-query  |   2,855 | baseline             |
+
+Modest on this workload — the warm cache path is already uncontended
+(single-threaded, Eventual-TTL so `ensure_fresh` is a HashMap lookup,
+not a backend RTT). The bigger wins for batch are latent:
+
+- **`Consistency::Fresh`** — each per-query `ensure_fresh` is a
+  backend round-trip. A batch of 300 on Fresh amortizes 300 RTTs
+  into 1, which is catastrophically different at network latency.
+- **Concurrent contention** — fewer mutex acquires under heavy
+  multi-client load. Not measured in this single-threaded bench.
+- **Kernel dispatch (ADR-157)** — GPU / SIMD kernels cross over CPU
+  only above their `min_batch`. `search_batch` is the plug-point
+  that makes dispatch tractable; a per-query API would never let
+  GPU win.
+
+Test `search_batch_acquires_cache_lock_once` proves the amortization
+mechanically: a batch of 32 registers as 1 coherence check, not 32.
+
 ### Concurrent clients × shard count (n = 100 k, 8 clients × 300 queries)
 
 With the **adaptive per-shard rerank** introduced via
