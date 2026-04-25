@@ -261,8 +261,9 @@ pub enum McpToolResult {
 pub struct JsonRpcRequest {
     /// JSON-RPC version
     pub jsonrpc: String,
-    /// Request ID
-    pub id: serde_json::Value,
+    /// Request ID (None for notifications per JSON-RPC 2.0)
+    #[serde(default)]
+    pub id: Option<serde_json::Value>,
     /// Method name
     pub method: String,
     /// Parameters

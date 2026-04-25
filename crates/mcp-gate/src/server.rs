@@ -138,6 +138,12 @@ impl McpGateServer {
             }
         };
 
+        // Notifications have no id -- must not send a response per JSON-RPC 2.0
+        if request.id.is_none() {
+            info!("Notification received: {}", request.method);
+            return None;
+        }
+
         let result = self.handle_request(&request).await;
         Some(result)
     }
@@ -148,18 +154,18 @@ impl McpGateServer {
             "initialize" => self.handle_initialize(request),
             "initialized" => {
                 // Notification, no response needed
-                JsonRpcResponse::success(request.id.clone(), serde_json::json!({}))
+                JsonRpcResponse::success(request.id.clone().unwrap_or(serde_json::Value::Null), serde_json::json!({}))
             }
             "tools/list" => self.handle_tools_list(request),
             "tools/call" => self.handle_tools_call(request).await,
             "shutdown" => {
                 info!("Received shutdown request");
-                JsonRpcResponse::success(request.id.clone(), serde_json::json!({}))
+                JsonRpcResponse::success(request.id.clone().unwrap_or(serde_json::Value::Null), serde_json::json!({}))
             }
             _ => {
                 warn!("Unknown method: {}", request.method);
                 JsonRpcResponse::error(
-                    request.id.clone(),
+                    request.id.clone().unwrap_or(serde_json::Value::Null),
                     -32601,
                     format!("Method not found: {}", request.method),
                 )
@@ -180,7 +186,7 @@ impl McpGateServer {
             }
         });
 
-        JsonRpcResponse::success(request.id.clone(), result)
+        JsonRpcResponse::success(request.id.clone().unwrap_or(serde_json::Value::Null), result)
     }
 
     /// Handle tools/list request
@@ -192,7 +198,7 @@ impl McpGateServer {
             "tools": tools
         });
 
-        JsonRpcResponse::success(request.id.clone(), result)
+        JsonRpcResponse::success(request.id.clone().unwrap_or(serde_json::Value::Null), result)
     }
 
     /// Handle tools/call request
@@ -204,7 +210,7 @@ impl McpGateServer {
             Ok(tc) => tc,
             Err(e) => {
                 return JsonRpcResponse::error(
-                    request.id.clone(),
+                    request.id.clone().unwrap_or(serde_json::Value::Null),
                     -32602,
                     format!("Invalid params: {}", e),
                 );
@@ -229,9 +235,9 @@ impl McpGateServer {
                         "isError": true
                     }),
                 };
-                JsonRpcResponse::success(request.id.clone(), response_content)
+                JsonRpcResponse::success(request.id.clone().unwrap_or(serde_json::Value::Null), response_content)
             }
-            Err(e) => JsonRpcResponse::error(request.id.clone(), e.code(), e.to_string()),
+            Err(e) => JsonRpcResponse::error(request.id.clone().unwrap_or(serde_json::Value::Null), e.code(), e.to_string()),
         }
     }
 }
@@ -288,7 +294,7 @@ mod tests {
         let server = McpGateServer::new();
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
-            id: serde_json::json!(1),
+            id: Some(serde_json::json!(1)),
             method: "initialize".to_string(),
             params: serde_json::json!({}),
         };
@@ -306,7 +312,7 @@ mod tests {
         let server = McpGateServer::new();
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
-            id: serde_json::json!(1),
+            id: Some(serde_json::json!(1)),
             method: "tools/list".to_string(),
             params: serde_json::json!({}),
         };
@@ -324,7 +330,7 @@ mod tests {
         let server = McpGateServer::new();
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
-            id: serde_json::json!(1),
+            id: Some(serde_json::json!(1)),
             method: "tools/call".to_string(),
             params: serde_json::json!({
                 "name": "permit_action",
@@ -345,7 +351,7 @@ mod tests {
         let server = McpGateServer::new();
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
-            id: serde_json::json!(1),
+            id: Some(serde_json::json!(1)),
             method: "unknown/method".to_string(),
             params: serde_json::json!({}),
         };
@@ -353,5 +359,23 @@ mod tests {
         let response = server.handle_request(&request).await;
         assert!(response.error.is_some());
         assert_eq!(response.error.unwrap().code, -32601);
+    }
+
+    #[tokio::test]
+    async fn test_notification_no_id_parses() {
+        // JSON-RPC 2.0 notifications have no "id" field
+        let json = r#"{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}"#;
+        let request: JsonRpcRequest = serde_json::from_str(json).unwrap();
+        assert!(request.id.is_none());
+        assert_eq!(request.method, "notifications/initialized");
+    }
+
+    #[tokio::test]
+    async fn test_notification_returns_none() {
+        // handle_message must return None for notifications (no id)
+        let server = McpGateServer::new();
+        let json = r#"{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}"#;
+        let response = server.handle_message(json).await;
+        assert!(response.is_none(), "Notifications must not produce a response");
     }
 }
