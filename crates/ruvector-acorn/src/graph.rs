@@ -126,6 +126,10 @@ impl AcornGraph {
         self.data.len() / self.dim.max(1)
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Borrow vector `i` as a contiguous slice — the hot path for L2².
     #[inline(always)]
     pub fn row(&self, i: usize) -> &[f32] {
@@ -155,7 +159,7 @@ pub fn flat_k_nearest(data: &[Vec<f32>], query: &[f32], k: usize) -> Vec<u32> {
         }
     }
     let mut out: Vec<(OrdF32, u32)> = heap.into_sorted_vec();
-    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out.sort_by_key(|a| a.0);
     out.into_iter().map(|(_, id)| id).collect()
 }
 
@@ -173,7 +177,7 @@ pub fn exact_filtered_knn(
         .filter(|&i| predicate(i as u32))
         .map(|i| (OrdF32(l2_sq(&data[i], query)), i as u32))
         .collect();
-    scored.sort_by(|a, b| a.0.cmp(&b.0));
+    scored.sort_by_key(|a| a.0);
     scored.truncate(k);
     scored.into_iter().map(|(_, id)| id).collect()
 }

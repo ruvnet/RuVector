@@ -62,7 +62,7 @@ fn run_variant(
     sel_pct: f64,
     predicate: &(dyn Fn(u32) -> bool + Sync),
 ) {
-    let recall = recall_at_k(data, queries, K, |id| predicate(id), index);
+    let recall = recall_at_k(data, queries, K, predicate, index);
     let qps = bench_qps(index, queries, K, predicate);
     let mem_mb = index.memory_bytes() as f64 / 1_048_576.0;
     println!(
@@ -156,8 +156,8 @@ fn main() {
     println!("{}", "-".repeat(44));
     for sel_frac in [0.50, 0.20, 0.10, 0.05, 0.02, 0.01] {
         let pred = selectivity_predicate(N, sel_frac);
-        let r_flat = recall_at_k(&data, &queries, K, |id| pred(id), &flat);
-        let r_acorn = recall_at_k(&data, &queries, K, |id| pred(id), &acorng);
+        let r_flat = recall_at_k(&data, &queries, K, pred, &flat);
+        let r_acorn = recall_at_k(&data, &queries, K, pred, &acorng);
         println!(
             "{:>7.0}%  {:>16.1}%  {:>16.1}%",
             sel_frac * 100.0,

@@ -34,7 +34,7 @@ pub fn acorn_search(
     ef: usize,
     predicate: impl Fn(u32) -> bool,
 ) -> Vec<(u32, f32)> {
-    if graph.len() == 0 {
+    if graph.is_empty() {
         return vec![];
     }
     let n = graph.len();
