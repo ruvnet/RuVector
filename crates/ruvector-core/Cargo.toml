@@ -44,7 +44,7 @@ chrono = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 
 # HTTP client for API embeddings (not available in WASM)
-reqwest = { version = "0.11", default-features = false, features = ["blocking", "json", "rustls-tls"], optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"], optional = true }
 
 # ONNX Runtime for local semantic embeddings (not available in WASM)
 ort = { version = "2.0.0-rc.9", optional = true }
@@ -53,7 +53,7 @@ ort = { version = "2.0.0-rc.9", optional = true }
 tokenizers = { version = "0.20", default-features = false, features = ["onig"], optional = true }
 
 # HuggingFace Hub for model downloads
-hf-hub = { version = "0.3", optional = true }
+hf-hub = { version = "0.4", optional = true }
 
 [dev-dependencies]
 criterion = { workspace = true }

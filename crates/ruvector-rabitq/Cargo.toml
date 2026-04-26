@@ -19,10 +19,15 @@ harness = false
 [dependencies]
 rand = { workspace = true }
 rand_distr = { workspace = true }
-rayon = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+
+# rayon is native-only — wasm32 falls back to sequential iteration
+# in `from_vectors_parallel_with_rotation`. Output is bit-identical
+# because rotation is deterministic.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }

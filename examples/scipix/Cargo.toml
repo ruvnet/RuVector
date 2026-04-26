@@ -55,7 +55,7 @@ tower-http = { version = "0.5", features = ["fs", "trace", "cors", "compression-
 hyper = { version = "1.0", features = ["full"] }
 
 # Validation
-validator = { version = "0.18", features = ["derive"] }
+validator = { version = "0.20", features = ["derive"] }
 
 # Rate limiting
 governor = "0.6"

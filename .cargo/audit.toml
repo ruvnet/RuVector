@@ -1,0 +1,60 @@
+# cargo-audit configuration for the ruvector workspace.
+#
+# Ignored advisories MUST have a justification. Anything fixable should be
+# fixed via a dependency bump rather than ignored here. Re-evaluate the
+# `until` dates periodically.
+
+[advisories]
+ignore = [
+    # ------------------------------------------------------------------
+    # Vulnerabilities (genuinely no upstream fix available)
+    # ------------------------------------------------------------------
+
+    # rsa 0.9.x — Marvin Attack (timing sidechannel on RSA decryption).
+    # No fixed upgrade is available from upstream `rsa`. We do not expose
+    # an RSA decryption oracle: TLS in this workspace runs on rustls with
+    # Ed25519/X25519 suites, and `rsa` is pulled only transitively (e.g.
+    # SQL drivers, JWT verification paths) where we never decrypt
+    # attacker-controlled ciphertexts under a long-lived RSA key.
+    # Re-evaluate when the `rsa` crate ships a constant-time implementation.
+    "RUSTSEC-2023-0071",
+
+    # ------------------------------------------------------------------
+    # "Unmaintained" warnings (informational, not vulnerabilities)
+    # ------------------------------------------------------------------
+    # These are pulled transitively through deps we do not control. They
+    # are not exploitable on their own; they are notices that the upstream
+    # crate is no longer accepting patches. We mute them to keep CI clean
+    # and revisit when the parent dep migrates.
+
+    "RUSTSEC-2021-0140",  # rusttype — transitive via plotters; pure rendering, no untrusted input
+    "RUSTSEC-2022-0054",  # wee_alloc — transitive via wasm-bindgen-cli internals
+    "RUSTSEC-2024-0370",  # proc-macro-error — build-time only (proc-macro), no runtime exposure
+    "RUSTSEC-2024-0380",  # pqcrypto-dilithium — replaced by pqcrypto-mldsa, awaiting parent migration
+    "RUSTSEC-2024-0381",  # pqcrypto-kyber — replaced by pqcrypto-mlkem, awaiting parent migration
+    "RUSTSEC-2024-0384",  # instant — transitive via parking_lot/older time deps
+    "RUSTSEC-2024-0388",  # derivative — transitive proc-macro
+    "RUSTSEC-2024-0436",  # paste — transitive proc-macro, build-time only
+    "RUSTSEC-2025-0119",  # number_prefix — transitive via indicatif rendering
+    "RUSTSEC-2025-0124",  # rand_os — transitive, replaced by getrandom in modern code paths
+    "RUSTSEC-2025-0134",  # rustls-pemfile — transitive; rustls itself is current
+    "RUSTSEC-2025-0141",  # bincode — unmaintained notice; we pin a known-good version
+    "RUSTSEC-2026-0105",  # core2 — transitive, no_std fallback for std::io types
+
+    # ------------------------------------------------------------------
+    # Soundness/unsoundness notices in deps we do not directly control
+    # ------------------------------------------------------------------
+
+    # lru — IterMut Stacked Borrows violation. Used transitively; we do
+    # not call IterMut from the affected crate. Track parent dep upgrade.
+    "RUSTSEC-2024-0408",
+
+    # pprof — unsound `slice::from_raw_parts` usage. Only loaded behind
+    # benchmark/profiling features, never in production binaries.
+    "RUSTSEC-2026-0002",
+
+    # rand — unsoundness when using a custom global logger with rand::rng().
+    # We never install a custom logger in the rand call path. Awaiting
+    # transitive upgrade across the workspace.
+    "RUSTSEC-2026-0097",
+]

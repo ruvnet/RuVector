@@ -8,6 +8,8 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  # Skip building unused proc-macro features in test bin link steps
+  CARGO_INCREMENTAL: 0
 
 jobs:
   fmt:
@@ -67,10 +69,130 @@ jobs:
       - name: Clippy (workspace)
         run: cargo clippy --workspace --exclude ruvector-postgres --all-targets -- -W warnings
 
+  # The full workspace test suite exceeds the 30-minute timeout on a single
+  # runner. We split the work into parallel matrix jobs grouped by domain so
+  # each shard fits comfortably under the timeout, and use `cargo-nextest` for
+  # faster test discovery and execution.
   test:
-    name: Tests
+    name: Tests (${{ matrix.name }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: vector-index
+            packages: >-
+              -p ruvector-rabitq
+              -p ruvector-rulake
+              -p ruvector-diskann
+              -p ruvector-graph
+              -p ruvector-gnn
+              -p ruvector-cnn
+          - name: rvagent
+            packages: >-
+              -p rvagent-a2a
+              -p rvagent-acp
+              -p rvagent-backends
+              -p rvagent-cli
+              -p rvagent-core
+              -p rvagent-mcp
+              -p rvagent-middleware
+              -p rvagent-subagents
+              -p rvagent-tools
+              -p rvagent-wasm
+          - name: ruvix
+            packages: >-
+              -p ruvix-aarch64
+              -p ruvix-bench
+              -p ruvix-boot
+              -p ruvix-cap
+              -p ruvix-demo
+              -p ruvix-drivers
+              -p ruvix-hal
+              -p ruvix-integration
+              -p ruvix-nucleus
+              -p ruvix-proof
+              -p ruvix-queue
+              -p ruvix-region
+              -p ruvix-sched
+              -p ruvix-shell
+              -p ruvix-types
+              -p ruvix-vecgraph
+          - name: ruqu-quantum
+            packages: >-
+              -p ruqu
+              -p ruqu-algorithms
+              -p ruqu-core
+              -p ruqu-exotic
+              -p ruqu-wasm
+          - name: ml-research
+            packages: >-
+              -p ruvector-attention
+              -p ruvector-mincut
+              -p ruvector-scipix
+              -p ruvector-fpga-transformer
+              -p ruvector-sparse-inference
+              -p ruvector-sparsifier
+              -p ruvector-solver
+              -p ruvector-graph-transformer
+              -p ruvector-domain-expansion
+              -p ruvector-robotics
+          - name: core-and-rest
+            # Everything else: core, delta, dag, server/cluster, math, etc.
+            # Uses --workspace + --exclude to subtract the groups above so we
+            # don't have to enumerate ~100 crates by hand.
+            packages: >-
+              --workspace
+              --exclude ruvector-postgres
+              --exclude ruvector-decompiler
+              --exclude ruvector-rabitq
+              --exclude ruvector-rulake
+              --exclude ruvector-diskann
+              --exclude ruvector-graph
+              --exclude ruvector-gnn
+              --exclude ruvector-cnn
+              --exclude rvagent-a2a
+              --exclude rvagent-acp
+              --exclude rvagent-backends
+              --exclude rvagent-cli
+              --exclude rvagent-core
+              --exclude rvagent-mcp
+              --exclude rvagent-middleware
+              --exclude rvagent-subagents
+              --exclude rvagent-tools
+              --exclude rvagent-wasm
+              --exclude ruvix-aarch64
+              --exclude ruvix-bench
+              --exclude ruvix-boot
+              --exclude ruvix-cap
+              --exclude ruvix-demo
+              --exclude ruvix-drivers
+              --exclude ruvix-hal
+              --exclude ruvix-integration
+              --exclude ruvix-nucleus
+              --exclude ruvix-proof
+              --exclude ruvix-queue
+              --exclude ruvix-region
+              --exclude ruvix-sched
+              --exclude ruvix-shell
+              --exclude ruvix-types
+              --exclude ruvix-vecgraph
+              --exclude ruqu
+              --exclude ruqu-algorithms
+              --exclude ruqu-core
+              --exclude ruqu-exotic
+              --exclude ruqu-wasm
+              --exclude ruvector-attention
+              --exclude ruvector-mincut
+              --exclude ruvector-scipix
+              --exclude ruvector-fpga-transformer
+              --exclude ruvector-sparse-inference
+              --exclude ruvector-sparsifier
+              --exclude ruvector-solver
+              --exclude ruvector-graph-transformer
+              --exclude ruvector-domain-expansion
+              --exclude ruvector-robotics
     steps:
       - uses: actions/checkout@v4
 
@@ -82,20 +204,35 @@ jobs:
 
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
+        with:
+          key: test-${{ matrix.name }}
 
-      - name: Run tests (workspace)
-        run: cargo test --workspace --exclude ruvector-postgres --exclude ruvector-decompiler
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      - name: Run tests (${{ matrix.name }})
+        run: cargo nextest run --no-fail-fast ${{ matrix.packages }}
+
+      - name: Run doctests (${{ matrix.name }})
+        # nextest does not run doctests; do them in a separate step. Cheap
+        # because compilation is already cached from the nextest run.
+        run: cargo test --doc ${{ matrix.packages }}
 
   audit:
     name: Security audit
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
       - name: Install cargo-audit
-        run: cargo install cargo-audit --locked
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
 
       - name: Run cargo audit
+        # Configuration (including the justified ignore list) lives in
+        # .cargo/audit.toml at the workspace root.
         run: cargo audit
