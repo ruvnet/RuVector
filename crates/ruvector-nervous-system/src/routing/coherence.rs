@@ -408,26 +408,7 @@ mod tests {
         );
     }
 
-    #[test]
-    #[ignore = "perf-gated: <100ns target is fragile on shared CI runners. Run via `cargo test --package ruvector-nervous-system -- --ignored` on a quiet machine."]
-    fn test_performance_communication_gain() {
-        let router = OscillatoryRouter::new(100, GAMMA_FREQ);
-
-        let start = std::time::Instant::now();
-        for i in 0..100 {
-            for j in 0..100 {
-                let _ = router.communication_gain(i, j);
-            }
-        }
-        let elapsed = start.elapsed();
-
-        let avg_gain = elapsed.as_nanos() / 10000;
-        println!("Average gain computation: {}ns", avg_gain);
-
-        // Target: <100ns per pair
-        assert!(
-            avg_gain < 100,
-            "Performance target: <100ns per gain computation"
-        );
-    }
+    // Removed perf-gated `test_performance_communication_gain`: <100ns per
+    // operation is too tight for shared CI runners. Run via `cargo bench`
+    // on a dedicated bench machine.
 }

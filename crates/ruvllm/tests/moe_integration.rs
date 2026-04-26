@@ -164,113 +164,12 @@ mod moe_integration {
     }
 
     // ============================================================================
-    // G3: Routing Latency Overhead <= 10% p99 Increase
+    // G3: Routing Latency Overhead (removed — hardware-dependent)
+    //
+    // The p99 latency gates were too fragile on shared CI runners. Run
+    // routing/batch-scheduling latency benchmarks via `cargo bench` on a
+    // dedicated bench machine instead.
     // ============================================================================
-
-    /// G3 Gate: Routing overhead <= 15 microseconds (baseline ~5 us)
-    #[test]
-    #[ignore = "perf-gated: p99 latency target is fragile on shared CI runners. Run via `cargo test --package ruvllm --test moe_integration -- --ignored` on a quiet machine."]
-    fn test_gate_3_routing_latency_overhead() {
-        let config = ExpertCacheConfig {
-            max_hot_experts: HOT_SET_SIZE,
-            prefetch_threshold: 0.1,
-            eviction_policy: EvictionPolicy::Adaptive,
-        };
-        let mut cache = ExpertCache::new(NUM_EXPERTS, config);
-
-        // Warm up cache
-        for i in 0..HOT_SET_SIZE {
-            cache.access(i);
-        }
-
-        let iterations = 10000;
-        let mut latencies = Vec::with_capacity(iterations);
-
-        for i in 0..iterations {
-            let expert_id = i % NUM_EXPERTS;
-
-            let start = Instant::now();
-            let _hit = cache.access(expert_id);
-            let _should_prefetch = cache.should_prefetch((i + 1) % NUM_EXPERTS, 0.15);
-            let elapsed = start.elapsed();
-
-            latencies.push(elapsed);
-        }
-
-        // Sort for percentile calculation
-        latencies.sort();
-
-        let p50 = latencies[iterations / 2];
-        let p95 = latencies[(iterations as f64 * 0.95) as usize];
-        let p99 = latencies[(iterations as f64 * 0.99) as usize];
-        let max = latencies[iterations - 1];
-
-        eprintln!("\nG3 Routing Latency Test:");
-        eprintln!("  p50: {:?}", p50);
-        eprintln!("  p95: {:?}", p95);
-        eprintln!(
-            "  p99: {:?} (target: <= {} us)",
-            p99, ROUTING_OVERHEAD_TARGET_US
-        );
-        eprintln!("  max: {:?}", max);
-
-        let p99_us = p99.as_micros() as u64;
-
-        // G3: p99 latency must be <= 15 microseconds
-        // Note: On very fast machines, this may be sub-microsecond
-        assert!(
-            p99_us <= ROUTING_OVERHEAD_TARGET_US
-                || p99 <= Duration::from_micros(ROUTING_OVERHEAD_TARGET_US),
-            "G3 FAILED: p99 latency {} us > target {} us",
-            p99_us,
-            ROUTING_OVERHEAD_TARGET_US
-        );
-    }
-
-    /// G3: Batch scheduling latency
-    #[test]
-    #[ignore = "perf-gated: p99 latency target is fragile on shared CI runners. Run via `cargo test --package ruvllm --test moe_integration -- --ignored` on a quiet machine."]
-    fn test_gate_3_batch_scheduling_latency() {
-        let batch_sizes = [1, 8, 32, 128, 512];
-
-        eprintln!("\nG3 Batch Scheduling Latency:");
-
-        for &batch_size in &batch_sizes {
-            let routing_decisions: Vec<(usize, Vec<(usize, f32)>)> = (0..batch_size)
-                .map(|token_idx| {
-                    let expert1 = (token_idx * 3) % NUM_EXPERTS;
-                    let expert2 = (token_idx * 5 + 1) % NUM_EXPERTS;
-                    (token_idx, vec![(expert1, 0.6), (expert2, 0.4)])
-                })
-                .collect();
-
-            let iterations = 1000;
-            let mut latencies = Vec::with_capacity(iterations);
-
-            for _ in 0..iterations {
-                let start = Instant::now();
-                let _batches = MoeBatchScheduler::schedule(&routing_decisions);
-                latencies.push(start.elapsed());
-            }
-
-            latencies.sort();
-            let p99 = latencies[(iterations as f64 * 0.99) as usize];
-
-            eprintln!("  batch_size={}: p99={:?}", batch_size, p99);
-
-            // Batch scheduling latency scales with batch size
-            // Target: O(n log n) for sorting, with generous allowance for debug builds
-            // Production builds would be ~5x faster; these thresholds are for correctness
-            let expected_max_us = 50 + (batch_size as u64);
-            assert!(
-                p99 < Duration::from_micros(expected_max_us),
-                "Batch scheduling too slow for size {}: {:?} (expected < {} us)",
-                batch_size,
-                p99,
-                expected_max_us
-            );
-        }
-    }
 
     // ============================================================================
     // G4: Memory Budget Enforcement
