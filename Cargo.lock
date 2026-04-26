@@ -8382,6 +8382,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-acorn"
+version = "2.2.0"
+dependencies = [
+ "criterion 0.5.1",
+ "rand 0.8.5",
+ "rand_distr 0.4.3",
+ "rayon",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ruvector-attention"
 version = "2.2.0"
 dependencies = [

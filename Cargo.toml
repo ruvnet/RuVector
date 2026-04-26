@@ -8,6 +8,7 @@ exclude = ["crates/micro-hnsw-wasm", "crates/ruvector-hyperbolic-hnsw", "crates/
     # after running pgrx init.
     "crates/ruvector-postgres"]
 members = [
+    "crates/ruvector-acorn",
     "crates/ruvector-rabitq",
     "crates/ruvector-rabitq-wasm",
     "crates/ruvector-rulake",

@@ -1,0 +1,26 @@
+[package]
+name = "ruvector-acorn"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "ACORN: Predicate-Agnostic Filtered HNSW — interleaved predicate evaluation inside the graph walk for 2-1000x QPS improvement over post-filter patterns at low selectivity"
+
+[[bin]]
+name = "acorn-demo"
+path = "src/main.rs"
+
+[[bench]]
+name = "acorn_bench"
+harness = false
+
+[dependencies]
+rand = { workspace = true }
+rand_distr = { workspace = true }
+rayon = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
