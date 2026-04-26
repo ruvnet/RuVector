@@ -17,7 +17,7 @@ pub mod index;
 pub mod quantize;
 
 pub use error::{DiskAnnError, Result};
-pub use index::{DiskAnnConfig, DiskAnnIndex};
+pub use index::{DiskAnnConfig, DiskAnnIndex, QuantizerKind};
 pub use quantize::{ProductQuantizer, Quantizer};
 
 #[cfg(feature = "rabitq")]
