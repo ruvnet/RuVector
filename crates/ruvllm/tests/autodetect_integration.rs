@@ -123,8 +123,24 @@ fn test_quantization_recommendation_large_model() {
     // Large model (70GB) - should use Q4K or Q4
     let q_large = caps.optimal_quantization(70.0);
 
-    // Unless you have 256GB+ RAM, this should be Q4K or Q4
-    if caps.memory_mb < 256 * 1024 {
+    // `optimal_quantization` first considers GPU VRAM, then falls back to
+    // available system RAM. The "should use aggressive quantization" claim
+    // only holds when *neither* path can fit Q8: GPU VRAM < 0.75 × model
+    // size AND available RAM < 1.5 × model size.
+    let gpu_vram_gb = caps
+        .gpu
+        .as_ref()
+        .and_then(|g| g.vram_mb)
+        .map(|m| m as f32 / 1024.0)
+        .unwrap_or(0.0);
+    let available_ram_gb = caps
+        .available_memory_mb
+        .unwrap_or(caps.memory_mb / 2) as f32
+        / 1024.0;
+    let can_run_q8_or_better =
+        gpu_vram_gb >= 70.0 * 0.75 || available_ram_gb >= 70.0 * 1.5;
+
+    if !can_run_q8_or_better {
         assert!(
             matches!(
                 q_large,

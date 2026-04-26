@@ -360,7 +360,7 @@ impl QuantizationBounds {
     /// Clamp a quantized value to valid bounds.
     ///
     /// ALWAYS clamp as per ADR-090 Section 4.3:
-    /// ```
+    /// ```text
     /// let q_clamped = q.clamp(-half_range, half_range - 1);
     /// ```
     #[inline]
