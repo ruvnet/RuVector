@@ -1,0 +1,55 @@
+{
+  "name": "@ruvector/acorn-wasm",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "ACORN predicate-agnostic filtered HNSW in WebAssembly — high-recall vector search with arbitrary metadata filters, for browsers, Cloudflare Workers, Deno, and Bun",
+  "main": "ruvector_acorn_wasm.js",
+  "types": "ruvector_acorn_wasm.d.ts",
+  "module": "ruvector_acorn_wasm.js",
+  "sideEffects": [
+    "./snippets/*"
+  ],
+  "keywords": [
+    "acorn",
+    "filtered-vector-search",
+    "predicate-filter",
+    "hnsw",
+    "ann",
+    "approximate-nearest-neighbor",
+    "vector-search",
+    "vector-database",
+    "embeddings",
+    "wasm",
+    "webassembly",
+    "ai",
+    "machine-learning",
+    "rag",
+    "retrieval-augmented-generation",
+    "semantic-search",
+    "rust",
+    "browser",
+    "edge",
+    "cloudflare-workers"
+  ],
+  "author": "RuVector Team",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruvnet/RuVector.git",
+    "directory": "crates/ruvector-acorn-wasm"
+  },
+  "homepage": "https://github.com/ruvnet/RuVector#readme",
+  "bugs": {
+    "url": "https://github.com/ruvnet/RuVector/issues"
+  },
+  "files": [
+    "ruvector_acorn_wasm_bg.wasm",
+    "ruvector_acorn_wasm.js",
+    "ruvector_acorn_wasm.d.ts",
+    "ruvector_acorn_wasm_bg.wasm.d.ts",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}
