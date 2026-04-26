@@ -167,10 +167,11 @@ impl GraphDB {
 
     // Edge operations
 
-    /// Create an edge
+    /// Create an edge.
+    ///
+    /// Disk-first: persists the edge before registering it in memory and
+    /// indexes so a storage failure leaves the graph state untouched.
     pub fn create_edge(&self, edge: Edge) -> Result<EdgeId> {
-        let id = edge.id.clone();
-
         // Verify nodes exist
         if !self.nodes.contains_key(&edge.from) || !self.nodes.contains_key(&edge.to) {
             return Err(crate::error::GraphError::NodeNotFound(
@@ -178,18 +179,17 @@ impl GraphDB {
             ));
         }
 
-        // Update indexes
-        self.edge_type_index.add_edge(&edge);
-        self.adjacency_index.add_edge(&edge);
-
-        // Insert into memory
-        self.edges.insert(id.clone(), edge.clone());
-
-        // Persist to storage if available
+        // Persist first — on failure, memory/indexes stay coherent.
         #[cfg(feature = "storage")]
         if let Some(storage) = &self.storage {
             storage.insert_edge(&edge)?;
         }
+
+        // Persist succeeded — register in indexes and memory.
+        let id = edge.id.clone();
+        self.edge_type_index.add_edge(&edge);
+        self.adjacency_index.add_edge(&edge);
+        self.edges.insert(id.clone(), edge);
 
         Ok(id)
     }
@@ -199,47 +199,56 @@ impl GraphDB {
         self.edges.get(id.as_ref()).map(|entry| entry.clone())
     }
 
-    /// Delete an edge
+    /// Delete an edge.
+    ///
+    /// Disk-first: persists the deletion before mutating in-memory state so a
+    /// storage failure leaves memory and indexes untouched.
     pub fn delete_edge(&self, id: impl AsRef<str>) -> Result<bool> {
-        if let Some((_, edge)) = self.edges.remove(id.as_ref()) {
-            // Update indexes
-            self.edge_type_index.remove_edge(&edge);
-            self.adjacency_index.remove_edge(&edge);
+        let key = id.as_ref();
 
-            // Delete from storage if available
-            #[cfg(feature = "storage")]
-            if let Some(storage) = &self.storage {
-                storage.delete_edge(id.as_ref())?;
-            }
+        let Some(edge) = self.edges.get(key).map(|e| e.clone()) else {
+            return Ok(false);
+        };
 
-            Ok(true)
-        } else {
-            Ok(false)
+        #[cfg(feature = "storage")]
+        if let Some(storage) = &self.storage {
+            storage.delete_edge(key)?;
         }
+
+        self.edge_type_index.remove_edge(&edge);
+        self.adjacency_index.remove_edge(&edge);
+        self.edges.remove(key);
+
+        Ok(true)
     }
 
-    /// Delete multiple edges (batch)
+    /// Delete multiple edges (batch).
+    ///
+    /// Disk-first: persists the deletion before mutating in-memory state so a
+    /// storage failure leaves memory and indexes untouched (caller sees an
+    /// `Err` and the graph is still coherent).
     pub fn delete_edges_batch(&self, ids: &[impl AsRef<str>]) -> Result<usize> {
-        let mut deleted = 0;
-        let mut edges_to_update = Vec::with_capacity(ids.len());
+        // Snapshot edges for later index updates without mutating memory.
+        let edges_to_remove = ids
+            .iter()
+            .filter_map(|id| self.edges.get(id.as_ref()).map(|e| e.clone()))
+            .collect::<Vec<_>>();
 
-        for id in ids {
-            let key: &str = id.as_ref();
-            if let Some((_, edge)) = self.edges.remove(key) {
-                edges_to_update.push(edge);
-                deleted += 1;
-            }
-        }
-
-        for edge in &edges_to_update {
-            self.edge_type_index.remove_edge(edge);
-            self.adjacency_index.remove_edge(edge);
-        }
-
+        // Persist first — on failure, memory/indexes stay coherent.
         #[cfg(feature = "storage")]
         if let Some(storage) = &self.storage {
             let str_ids = ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>();
             storage.delete_edges_batch(&str_ids)?;
+        }
+
+        // Persist succeeded — apply in-memory removal.
+        let mut deleted = 0;
+        for edge in &edges_to_remove {
+            if self.edges.remove(edge.id.as_str()).is_some() {
+                self.edge_type_index.remove_edge(edge);
+                self.adjacency_index.remove_edge(edge);
+                deleted += 1;
+            }
         }
 
         Ok(deleted)
