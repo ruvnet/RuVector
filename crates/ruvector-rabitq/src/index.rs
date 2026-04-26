@@ -665,7 +665,6 @@ impl RabitqPlusIndex {
         kind: RandomRotationKind,
         items: Vec<(usize, Vec<f32>)>,
     ) -> Result<Self> {
-        use rayon::prelude::*;
         let mut out = Self::new_with_rotation(dim, seed, rerank_factor, kind);
         for (_, v) in &items {
             if v.len() != dim {
@@ -675,11 +674,26 @@ impl RabitqPlusIndex {
                 });
             }
         }
-        // Phase 1: rotate + bit-pack every vector in parallel. The
-        // rotation matrix is read-only so this is a pure data race
-        // against nothing.
+        // Phase 1: rotate + bit-pack every vector. On native we use rayon
+        // parallel iteration (rotation matrix is read-only — no race). On
+        // wasm32 (single-threaded) we fall back to sequential — output is
+        // bit-identical because the rotation is deterministic, parallel
+        // ordering doesn't affect bytes.
+        #[cfg(not(target_arch = "wasm32"))]
+        let encoded: Vec<(usize, Vec<u64>, f32, Vec<f32>)> = {
+            use rayon::prelude::*;
+            items
+                .into_par_iter()
+                .map(|(id, v)| {
+                    let (packed, _) = out.inner.encode_query_packed(&v);
+                    let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+                    (id, packed, norm, v)
+                })
+                .collect()
+        };
+        #[cfg(target_arch = "wasm32")]
         let encoded: Vec<(usize, Vec<u64>, f32, Vec<f32>)> = items
-            .into_par_iter()
+            .into_iter()
             .map(|(id, v)| {
                 let (packed, _) = out.inner.encode_query_packed(&v);
                 let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();

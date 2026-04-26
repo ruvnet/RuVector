@@ -9,6 +9,7 @@ exclude = ["crates/micro-hnsw-wasm", "crates/ruvector-hyperbolic-hnsw", "crates/
     "crates/ruvector-postgres"]
 members = [
     "crates/ruvector-rabitq",
+    "crates/ruvector-rabitq-wasm",
     "crates/ruvector-rulake",
     "crates/ruvector-core",
     "crates/ruvector-node",
