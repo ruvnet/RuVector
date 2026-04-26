@@ -9239,6 +9239,7 @@ dependencies = [
  "roaring",
  "ruvector-cluster",
  "ruvector-core 2.2.0",
+ "ruvector-rabitq",
  "ruvector-raft",
  "ruvector-replication",
  "serde",
