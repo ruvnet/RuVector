@@ -45,6 +45,7 @@ impl DiskAnn {
             pq_subspaces: options.pq_subspaces.unwrap_or(0) as usize,
             pq_iterations: options.pq_iterations.unwrap_or(10) as usize,
             storage_path: options.storage_path.map(PathBuf::from),
+            ..Default::default()
         };
         let index = CoreIndex::new(config);
         Ok(Self {
