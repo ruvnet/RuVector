@@ -54,6 +54,12 @@ pub struct RabitqQuery {
 pub struct RabitqQuantizer {
     inner: RabitqIndex,
     dim: usize,
+    /// Seed retained alongside `inner` so persistence (`save`/`load` in
+    /// `index.rs`) can deterministically reconstruct the rotation matrix
+    /// without serialising it: `(dim, seed) → bit-identical rotation` is
+    /// the determinism contract from ADR-154 / `ruvector_rabitq` already
+    /// guarantees, and the persist sidecar simply replays it.
+    seed: u64,
     /// `ceil(D/64)` — the u64-word-length of the bit-packed code.
     n_words: usize,
     /// Total bytes per encoded vector: `n_words * 8` (the code) + `4` (the
@@ -81,10 +87,30 @@ impl RabitqQuantizer {
         Self {
             inner,
             dim,
+            seed,
             n_words,
             code_bytes_total,
             trained: false,
         }
+    }
+
+    /// Constructor used by the load path: same as [`Self::new`] but starts
+    /// in the trained state. Safe because RaBitQ's "training" is purely a
+    /// dim-consistency check — no learned codebooks. The codes that pair
+    /// with this quantizer were already encoded by an equivalent
+    /// `(dim, seed)` quantizer at save time, so they're consistent with
+    /// the rotation we're about to reconstruct.
+    pub(crate) fn new_trained(dim: usize, seed: u64) -> Self {
+        let mut q = Self::new(dim, seed);
+        q.trained = true;
+        q
+    }
+
+    /// Accessor for the seed used to construct this quantizer. Used by the
+    /// DiskANN save path to persist `(dim, seed)` instead of the rotation
+    /// matrix bytes.
+    pub fn seed(&self) -> u64 {
+        self.seed
     }
 
     /// Bytes consumed by the rotation matrix (amortised across all vectors).
