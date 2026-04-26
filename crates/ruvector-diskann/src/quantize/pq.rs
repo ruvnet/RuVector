@@ -5,9 +5,19 @@
 
 use crate::distance::l2_squared;
 use crate::error::{DiskAnnError, Result};
+use crate::quantize::Quantizer;
 use bincode::{Decode, Encode};
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
+
+/// Per-query precomputed state for PQ: the flat asymmetric distance table
+/// (`m * 256` f32s) plus a back-reference to `m` so [`Quantizer::distance`]
+/// can compute the lookup without re-reading the centroids.
+#[derive(Clone, Debug)]
+pub struct PqQuery {
+    /// Flat table[subspace * 256 + centroid] = sub-distance.
+    pub table: Vec<f32>,
+}
 
 /// Product Quantizer with M subspaces, 256 centroids each (1 byte per subspace)
 #[derive(Clone, Serialize, Deserialize, Encode, Decode)]
@@ -219,6 +229,40 @@ impl ProductQuantizer {
     #[inline]
     pub fn distance_with_table(&self, codes: &[u8], table: &[f32]) -> f32 {
         crate::distance::pq_asymmetric_distance(codes, table, 256)
+    }
+}
+
+impl Quantizer for ProductQuantizer {
+    type Query = PqQuery;
+
+    fn dim(&self) -> usize {
+        self.dim
+    }
+
+    fn code_bytes(&self) -> usize {
+        self.m
+    }
+
+    fn is_trained(&self) -> bool {
+        self.trained
+    }
+
+    fn train(&mut self, vectors: &[Vec<f32>], iterations: usize) -> Result<()> {
+        ProductQuantizer::train(self, vectors, iterations)
+    }
+
+    fn encode(&self, vector: &[f32]) -> Result<Vec<u8>> {
+        ProductQuantizer::encode(self, vector)
+    }
+
+    fn prepare_query(&self, query: &[f32]) -> Result<Self::Query> {
+        let table = self.build_distance_table(query)?;
+        Ok(PqQuery { table })
+    }
+
+    #[inline]
+    fn distance(&self, query: &Self::Query, code: &[u8]) -> f32 {
+        crate::distance::pq_asymmetric_distance(code, &query.table, 256)
     }
 }
 

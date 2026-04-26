@@ -8,9 +8,15 @@ repository.workspace = true
 description = "DiskANN/Vamana — SSD-friendly approximate nearest neighbor search with product quantization"
 
 [features]
-default = []
+# `rabitq` is on by default — pure-Rust dependency, no extra system deps,
+# matches the WASM build envelope. Disable with `--no-default-features` if
+# you want the leanest possible compile.
+default = ["rabitq"]
 gpu = []  # Feature flag for GPU acceleration (CUDA/Metal stubs)
 simd = ["simsimd"]
+# RaBitQ-backed quantizer (1-bit rotation quantization, ~32× compression).
+# See ADR-154 and `docs/research/nightly/2026-04-23-rabitq/README.md`.
+rabitq = ["dep:ruvector-rabitq"]
 
 [dependencies]
 memmap2 = { workspace = true }
@@ -23,9 +29,17 @@ rand = { workspace = true }
 parking_lot = "0.12"
 bytemuck = { version = "1.14", features = ["derive"] }
 simsimd = { workspace = true, optional = true }
+ruvector-rabitq = { path = "../ruvector-rabitq", optional = true }
 
 [dev-dependencies]
 tempfile = "3.9"
+rand = { workspace = true }
+criterion = { workspace = true }
+
+[[bench]]
+name = "rabitq_recall"
+harness = false
+required-features = ["rabitq"]
 
 # Workspace cleanup pass: research-tier crate, doc/style churn deferred. Correctness + suspicious lints stay denied.
 [lints.rust]

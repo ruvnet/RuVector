@@ -9003,10 +9003,12 @@ version = "2.2.0"
 dependencies = [
  "bincode 2.0.1",
  "bytemuck",
+ "criterion 0.5.1",
  "memmap2",
  "parking_lot 0.12.5",
  "rand 0.8.5",
  "rayon",
+ "ruvector-rabitq",
  "serde",
  "serde_json",
  "simsimd",
