@@ -54,7 +54,7 @@ statistical = "1.0"
 hdrhistogram = "7.5"
 
 # HTTP for tool-augmented tests
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.12", features = ["json"] }
 
 # Visualization
 plotters = { version = "0.3", optional = true }

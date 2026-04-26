@@ -26,7 +26,7 @@ tokio = { workspace = true, features = ["full", "signal"] }
 futures = { workspace = true }
 
 # HuggingFace Hub for model downloads
-hf-hub = { version = "0.3", features = ["tokio"] }
+hf-hub = { version = "0.4", features = ["tokio"] }
 
 # HTTP server for inference API
 axum = { version = "0.7", features = ["ws"] }
