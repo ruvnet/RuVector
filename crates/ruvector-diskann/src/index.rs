@@ -12,6 +12,154 @@ use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
+// Sidecar layout for the originals file written next to `vectors.bin` when
+// `keep_originals_in_memory == false`. Format is:
+//   [0..8)   magic "DARO0001" (DiskAnn Raw Originals v1)
+//   [8..16)  n      (u64 LE)
+//   [16..24) dim    (u64 LE)
+//   [24..)   raw f32 LE slab, n*dim*4 bytes
+//
+// We keep the existing `vectors.bin` untouched (it has its own (n, dim)
+// header at offset 0). The sidecar is identical in body but uses an explicit
+// magic so the load path can detect a v2 disk-backed-rerank index without
+// reading the JSON config first. When the sidecar isn't present, load falls
+// back to the v1 layout (mmap `vectors.bin` and copy into a Vec) for
+// back-compat.
+const ORIGINALS_MAGIC: &[u8; 8] = b"DARO0001";
+const ORIGINALS_HEADER_BYTES: usize = 24;
+const ORIGINALS_FILENAME: &str = "originals.bin";
+
+/// Backing store for the original f32 vectors used by the rerank pass.
+///
+/// Two variants:
+///   - `InMemory(FlatVectors)` — current behavior. Vectors live in DRAM.
+///     Identical performance to pre-PR.
+///   - `DiskBacked { mmap, n, dim }` — vectors live on disk via memory map.
+///     Read by the rerank pass only (top `rerank_factor * k` candidates),
+///     so the page cache absorbs most of the cost on subsequent queries.
+///
+/// We use an enum (vs `Box<dyn OriginalsStore>`) because there are only ever
+/// two variants and the rerank path benefits from monomorphic dispatch on
+/// the hot path. `Send + Sync` is automatic — `Vec<f32>` and `Mmap` are
+/// both already so.
+enum OriginalsStore {
+    InMemory(FlatVectors),
+    DiskBacked { mmap: Mmap, n: usize, dim: usize },
+}
+
+impl OriginalsStore {
+    #[inline]
+    fn dim(&self) -> usize {
+        match self {
+            OriginalsStore::InMemory(fv) => fv.dim,
+            OriginalsStore::DiskBacked { dim, .. } => *dim,
+        }
+    }
+
+    #[inline]
+    fn len(&self) -> usize {
+        match self {
+            OriginalsStore::InMemory(fv) => fv.len(),
+            OriginalsStore::DiskBacked { n, .. } => *n,
+        }
+    }
+
+    /// Read vector at position `pos` into the destination buffer. The buffer
+    /// length must equal `self.dim()`. The disk-backed path reads from the
+    /// mmap region (kernel handles page-in lazily); the in-memory path is a
+    /// straight copy. Either way the returned slice is owned by the caller,
+    /// so the rerank loop doesn't pin a borrow into the originals.
+    fn read_into(&self, pos: usize, out: &mut [f32]) {
+        debug_assert_eq!(out.len(), self.dim());
+        match self {
+            OriginalsStore::InMemory(fv) => {
+                out.copy_from_slice(fv.get(pos));
+            }
+            OriginalsStore::DiskBacked { mmap, dim, .. } => {
+                let start = ORIGINALS_HEADER_BYTES + pos * dim * 4;
+                let end = start + dim * 4;
+                let bytes = &mmap[start..end];
+                // f32 is little-endian on every platform we target. Use
+                // `bytemuck::cast_slice` to get a safe `&[f32]` view, then
+                // copy. We don't reinterpret-cast directly into `out`
+                // because mmap alignment isn't guaranteed at the f32
+                // boundary on all platforms.
+                let view: &[f32] = bytemuck::cast_slice(bytes);
+                out.copy_from_slice(view);
+            }
+        }
+    }
+
+    /// In-memory heap byte cost (excluding mmap pages, which are kernel-owned
+    /// and not counted as DRAM in the sense the 17.5× target measures).
+    /// Used by `originals_memory_bytes()` to demonstrate compression.
+    fn heap_bytes(&self) -> usize {
+        match self {
+            OriginalsStore::InMemory(fv) => fv.data.len() * std::mem::size_of::<f32>(),
+            OriginalsStore::DiskBacked { .. } => 0,
+        }
+    }
+
+    /// Convenience: are we paying any DRAM cost for originals? Used by tests
+    /// to assert the disk-backed path actually evicted them.
+    #[inline]
+    fn is_disk_backed(&self) -> bool {
+        matches!(self, OriginalsStore::DiskBacked { .. })
+    }
+}
+
+/// Write the originals sidecar to `<dir>/originals.bin`. Mirrors the layout
+/// used by `vectors.bin` but with a v2 magic so the load path can tell them
+/// apart. Returns the path written so callers can mmap it.
+fn write_originals_sidecar(dir: &Path, vectors: &FlatVectors) -> Result<PathBuf> {
+    fs::create_dir_all(dir)?;
+    let path = dir.join(ORIGINALS_FILENAME);
+    let mut f = BufWriter::new(File::create(&path)?);
+    f.write_all(ORIGINALS_MAGIC)?;
+    f.write_all(&(vectors.len() as u64).to_le_bytes())?;
+    f.write_all(&(vectors.dim as u64).to_le_bytes())?;
+    let byte_slice = unsafe {
+        std::slice::from_raw_parts(vectors.data.as_ptr() as *const u8, vectors.data.len() * 4)
+    };
+    f.write_all(byte_slice)?;
+    f.flush()?;
+    Ok(path)
+}
+
+/// Open an existing originals sidecar and return a `DiskBacked` store. The
+/// magic is validated; mismatch returns an `InvalidConfig` error rather
+/// than a generic I/O error so the caller knows the file is the wrong
+/// format, not just absent.
+fn open_originals_sidecar(path: &Path) -> Result<OriginalsStore> {
+    let f = File::open(path)?;
+    let mmap = unsafe { MmapOptions::new().map(&f)? };
+    if mmap.len() < ORIGINALS_HEADER_BYTES {
+        return Err(DiskAnnError::InvalidConfig(format!(
+            "originals sidecar at {} is truncated ({} bytes)",
+            path.display(),
+            mmap.len()
+        )));
+    }
+    if &mmap[0..8] != ORIGINALS_MAGIC {
+        return Err(DiskAnnError::InvalidConfig(format!(
+            "originals sidecar at {} has wrong magic",
+            path.display()
+        )));
+    }
+    let n = u64::from_le_bytes(mmap[8..16].try_into().unwrap()) as usize;
+    let dim = u64::from_le_bytes(mmap[16..24].try_into().unwrap()) as usize;
+    let expected = ORIGINALS_HEADER_BYTES + n * dim * 4;
+    if mmap.len() < expected {
+        return Err(DiskAnnError::InvalidConfig(format!(
+            "originals sidecar at {} is truncated: header says {} bytes, file is {}",
+            path.display(),
+            expected,
+            mmap.len()
+        )));
+    }
+    Ok(OriginalsStore::DiskBacked { mmap, n, dim })
+}
+
 /// Which quantizer backend a [`DiskAnnIndex`] should use during search.
 ///
 /// We use an enum rather than a generic type parameter on the index for two
@@ -139,11 +287,17 @@ impl DiskAnnConfig {
     }
 
     /// Builder-style override for whether to keep f32 originals in DRAM.
-    /// Today the rerank path *requires* originals (we don't read them from
-    /// disk yet), so `false` is rejected at `build()` time with an error
-    /// rather than silently degrading recall. The plumbing is in place so a
-    /// follow-up PR can wire mmap-backed reranking without another API
-    /// break.
+    ///
+    /// When `false`, after `build()` the originals are written to a sidecar
+    /// (`<storage_path>/originals.bin`), the in-memory `FlatVectors` is
+    /// dropped, and the rerank pass reads originals back via mmap. Net DRAM
+    /// drops to (codes + graph) only — for D=128 RaBitQ that's ~25× smaller
+    /// than keeping f32 originals resident, hitting the 17.5× target from
+    /// the research roadmap.
+    ///
+    /// Requires `storage_path` to be set; otherwise `build()` returns
+    /// `InvalidConfig`. Disk-backed rerank produces byte-identical results
+    /// to in-memory rerank (same f32 values, same float arithmetic).
     pub fn with_originals_in_memory(mut self, keep: bool) -> Self {
         self.keep_originals_in_memory = keep;
         self
@@ -184,13 +338,17 @@ impl DiskAnnConfig {
 /// vectors — that's intentional, the codes are an approximation.
 pub struct DiskAnnIndex {
     config: DiskAnnConfig,
-    /// Flat contiguous vector storage (cache-friendly).
-    ///
-    /// Held in DRAM today even when a quantizer is active, so the rerank
-    /// pass can compute exact distances on the candidate pool. The
-    /// `keep_originals_in_memory(false)` knob is wired into the config but
-    /// rejected at `build()` time pending the disk-backed rerank follow-up.
-    vectors: FlatVectors,
+    /// Pre-build staging area for inserts. Always in-memory (graph
+    /// construction needs random f32 access). After `build()` runs, this
+    /// is **either** kept as the search-time originals (in-memory mode)
+    /// **or** flushed to a sidecar and replaced with a mmap-backed reader
+    /// in `originals` (disk-backed mode). In the disk-backed case
+    /// `staging` is dropped entirely and search-time DRAM = codes + graph.
+    staging: Option<FlatVectors>,
+    /// Search-time originals store. Set during `build()` (or `load()`).
+    /// `None` only between `new()` and `build()`. The rerank pass reads
+    /// from this; graph construction reads from `staging`.
+    originals: Option<OriginalsStore>,
     /// ID mapping: internal index -> external string ID
     id_map: Vec<String>,
     /// Reverse mapping: external ID -> internal index
@@ -208,7 +366,9 @@ pub struct DiskAnnIndex {
     built: bool,
     /// Reusable visited set for search (avoids per-query allocation)
     visited: Option<VisitedSet>,
-    /// Memory-mapped vector data (for large datasets)
+    /// Memory-mapped vector data (legacy v1 load path). Held to keep the
+    /// mmap alive for the duration of the index. The new disk-backed
+    /// originals path stores its mmap inside `originals` instead.
     mmap: Option<Mmap>,
 }
 
@@ -218,7 +378,8 @@ impl DiskAnnIndex {
         let dim = config.dim;
         Self {
             config,
-            vectors: FlatVectors::new(dim),
+            staging: Some(FlatVectors::new(dim)),
+            originals: None,
             id_map: Vec::new(),
             id_reverse: HashMap::new(),
             graph: None,
@@ -241,11 +402,18 @@ impl DiskAnnIndex {
         if self.id_reverse.contains_key(&id) {
             return Err(DiskAnnError::InvalidConfig(format!("Duplicate ID: {id}")));
         }
-
-        let idx = self.vectors.len() as u32;
+        // Inserts after build() are not currently supported; re-attach a
+        // staging buffer if the index was loaded or built. The pre-existing
+        // behavior just clobbered `built = false` and let the next build()
+        // recompute, so we preserve that.
+        if self.staging.is_none() {
+            self.staging = Some(FlatVectors::new(self.config.dim));
+        }
+        let staging = self.staging.as_mut().unwrap();
+        let idx = staging.len() as u32;
         self.id_reverse.insert(id.clone(), idx);
         self.id_map.push(id);
-        self.vectors.push(&vector);
+        staging.push(&vector);
         self.built = false;
         Ok(())
     }
@@ -260,17 +428,18 @@ impl DiskAnnIndex {
 
     /// Build the index (must be called after all inserts, before search)
     pub fn build(&mut self) -> Result<()> {
-        let n = self.vectors.len();
+        let staging = self.staging.as_ref().ok_or(DiskAnnError::Empty)?;
+        let n = staging.len();
         if n == 0 {
             return Err(DiskAnnError::Empty);
         }
 
-        // Disk-backed rerank isn't wired yet — bail early rather than
-        // silently dropping originals and degrading recall to garbage.
-        if !self.config.keep_originals_in_memory {
+        // Disk-backed rerank requires a place to spill the originals to.
+        // Reject early with a clear message rather than silently degrading.
+        if !self.config.keep_originals_in_memory && self.config.storage_path.is_none() {
             return Err(DiskAnnError::InvalidConfig(
-                "keep_originals_in_memory=false requires the disk-backed rerank path; \
-                 not yet implemented — keep originals in DRAM for this PR"
+                "keep_originals_in_memory=false requires storage_path to be set \
+                 (originals are written to <storage_path>/originals.bin and mmapped back)"
                     .into(),
             ));
         }
@@ -296,7 +465,7 @@ impl DiskAnnIndex {
                     ));
                 }
                 // Collect vectors for PQ training
-                let vecs: Vec<Vec<f32>> = (0..n).map(|i| self.vectors.get(i).to_vec()).collect();
+                let vecs: Vec<Vec<f32>> = (0..n).map(|i| staging.get(i).to_vec()).collect();
                 let mut pq = ProductQuantizer::new(self.config.dim, m)?;
                 Quantizer::train(&mut pq, &vecs, self.config.pq_iterations)?;
 
@@ -309,7 +478,7 @@ impl DiskAnnIndex {
             }
             #[cfg(feature = "rabitq")]
             QuantizerKind::Rabitq => {
-                let vecs: Vec<Vec<f32>> = (0..n).map(|i| self.vectors.get(i).to_vec()).collect();
+                let vecs: Vec<Vec<f32>> = (0..n).map(|i| staging.get(i).to_vec()).collect();
                 let mut rb = RabitqQuantizer::new(self.config.dim, self.config.rabitq_seed);
                 Quantizer::train(&mut rb, &vecs, 0)?;
 
@@ -332,15 +501,31 @@ impl DiskAnnIndex {
             self.config.build_beam,
             self.config.alpha,
         );
-        graph.build(&self.vectors)?;
+        graph.build(staging)?;
         self.graph = Some(graph);
 
         // Pre-allocate visited set for search
         self.visited = Some(VisitedSet::new(n));
         self.built = true;
 
+        // Persist before we move staging into originals: save() needs to
+        // read the f32 slab to write `vectors.bin`. Once that's done we
+        // either keep `staging` as the in-memory originals (default) or
+        // spill it to the sidecar and drop it (disk-backed mode).
         if let Some(ref path) = self.config.storage_path {
             self.save(path)?;
+        }
+
+        let staging = self.staging.take().unwrap();
+        if self.config.keep_originals_in_memory {
+            self.originals = Some(OriginalsStore::InMemory(staging));
+        } else {
+            // storage_path is guaranteed Some by the check above.
+            let dir = self.config.storage_path.as_ref().unwrap();
+            let sidecar_path = write_originals_sidecar(dir, &staging)?;
+            // staging is dropped here — DRAM cost of originals goes to 0.
+            drop(staging);
+            self.originals = Some(open_originals_sidecar(&sidecar_path)?);
         }
 
         Ok(())
@@ -370,21 +555,45 @@ impl DiskAnnIndex {
         }
 
         let graph = self.graph.as_ref().unwrap();
+        let originals = self.originals.as_ref().ok_or(DiskAnnError::NotBuilt)?;
         let beam = self.config.search_beam.max(k);
-        let n = self.vectors.len();
+        let n = originals.len();
 
         // Phase 1: graph traversal. Distance source depends on the
         // configured quantizer. Each match arm calls
         // `greedy_search_with_codes` with a closure that's monomorphic to
         // the concrete quantizer — the trait dispatch happens once outside
         // the hot loop, not per node.
+        //
+        // The legacy `QuantizerBackend::None` path needs f32 originals
+        // during traversal. When originals are disk-backed, we route it
+        // through `greedy_search_with_codes` with a per-node mmap read
+        // closure; this keeps the disk-backed mode functional even without
+        // a quantizer (mostly useful for tests / regression checks). When
+        // originals are in-memory we keep the old `greedy_search` call to
+        // stay bit-stable with the pre-PR benchmark numbers.
         let candidates: Vec<u32> = match &self.quantizer {
-            QuantizerBackend::None => {
-                // Legacy path — exact f32 distance during traversal. Keeps
-                // old benchmarks bit-stable.
-                let (cands, _) = graph.greedy_search(&self.vectors, query, beam);
-                cands
-            }
+            QuantizerBackend::None => match originals {
+                OriginalsStore::InMemory(fv) => {
+                    let (cands, _) = graph.greedy_search(fv, query, beam);
+                    cands
+                }
+                OriginalsStore::DiskBacked { .. } => {
+                    // Per-node f32 read from mmap. Allocates one scratch
+                    // buffer and reuses it across the closure invocations
+                    // via interior mutability — but the closure signature
+                    // here is `Fn`, so we push the scratch into a `Cell`
+                    // alternative: stack-buffer per call. The latter is
+                    // simpler and the rerank path dominates anyway.
+                    let dim = self.config.dim;
+                    let (cands, _) = graph.greedy_search_with_codes(n, beam, |id| {
+                        let mut scratch = vec![0.0f32; dim];
+                        originals.read_into(id as usize, &mut scratch);
+                        l2_squared(&scratch, query)
+                    });
+                    cands
+                }
+            },
             QuantizerBackend::Pq(pq) => {
                 let prep = pq.prepare_query(query)?;
                 let codes = &self.codes;
@@ -409,11 +618,19 @@ impl DiskAnnIndex {
         // original f32 vectors. When no quantizer is active the candidates
         // are already exact-distance ordered, but we still re-sort to keep
         // the codepath uniform.
+        //
+        // Originals are read through `OriginalsStore` so the disk-backed
+        // path Just Works. Single scratch buffer reused across the
+        // candidate sweep — the whole point is to not allocate per node.
         let rerank_pool = (self.config.rerank_factor.max(1) * k).min(candidates.len());
+        let mut scratch = vec![0.0f32; self.config.dim];
         let mut scored: Vec<(u32, f32)> = candidates
             .into_iter()
             .take(rerank_pool)
-            .map(|id| (id, l2_squared(self.vectors.get(id as usize), query)))
+            .map(|id| {
+                originals.read_into(id as usize, &mut scratch);
+                (id, l2_squared(&scratch, query))
+            })
             .collect();
         scored.sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
 
@@ -429,13 +646,38 @@ impl DiskAnnIndex {
 
     /// Get the number of vectors in the index
     pub fn count(&self) -> usize {
-        self.vectors.len()
+        // After build(), originals carries the count. Before build(), the
+        // staging buffer does. Falls through to 0 for an empty index.
+        if let Some(o) = &self.originals {
+            o.len()
+        } else if let Some(s) = &self.staging {
+            s.len()
+        } else {
+            0
+        }
     }
 
-    /// Delete a vector by ID (marks as deleted, doesn't rebuild graph)
+    /// Delete a vector by ID (marks as deleted, doesn't rebuild graph).
+    ///
+    /// Only supported when originals are in-memory — the disk-backed mode
+    /// would require writing through the mmap, which we don't do (and
+    /// which would also break determinism guarantees with concurrent
+    /// readers). Disk-backed callers must rebuild to delete.
     pub fn delete(&mut self, id: &str) -> Result<bool> {
         if let Some(&idx) = self.id_reverse.get(id) {
-            self.vectors.zero_out(idx as usize);
+            match self.originals.as_mut() {
+                Some(OriginalsStore::InMemory(fv)) => fv.zero_out(idx as usize),
+                Some(OriginalsStore::DiskBacked { .. }) => {
+                    return Err(DiskAnnError::InvalidConfig(
+                        "delete() is not supported on disk-backed indexes; rebuild instead".into(),
+                    ));
+                }
+                None => {
+                    if let Some(s) = self.staging.as_mut() {
+                        s.zero_out(idx as usize);
+                    }
+                }
+            }
             self.id_reverse.remove(id);
             Ok(true)
         } else {
@@ -447,21 +689,39 @@ impl DiskAnnIndex {
     pub fn save(&self, dir: &Path) -> Result<()> {
         fs::create_dir_all(dir)?;
 
+        // The flat-vector source: prefer `staging` (set during build, before
+        // we hand off to `originals`), fall back to `originals` (set after a
+        // load + re-save flow). Both expose dim and per-vector slice access.
+        // Disk-backed save path uses `originals.read_into` to stream from
+        // mmap — slightly slower than the in-memory copy but rare (saves
+        // happen at build-time, not per-query).
+        let n = self.count();
+        let dim = self.config.dim;
+
         // Save vectors as flat binary (already contiguous — mmap-friendly)
         let vec_path = dir.join("vectors.bin");
         let mut f = BufWriter::new(File::create(&vec_path)?);
-        let n = self.vectors.len() as u64;
-        let dim = self.config.dim as u64;
-        f.write_all(&n.to_le_bytes())?;
-        f.write_all(&dim.to_le_bytes())?;
-        // Write flat slab directly — zero copy
-        let byte_slice = unsafe {
-            std::slice::from_raw_parts(
-                self.vectors.data.as_ptr() as *const u8,
-                self.vectors.data.len() * 4,
-            )
-        };
-        f.write_all(byte_slice)?;
+        f.write_all(&(n as u64).to_le_bytes())?;
+        f.write_all(&(dim as u64).to_le_bytes())?;
+
+        if let Some(s) = self.staging.as_ref() {
+            // Hot path: build() is calling us, the slab is contiguous in DRAM.
+            let byte_slice = unsafe {
+                std::slice::from_raw_parts(s.data.as_ptr() as *const u8, s.data.len() * 4)
+            };
+            f.write_all(byte_slice)?;
+        } else if let Some(o) = self.originals.as_ref() {
+            // Cold path: re-saving a loaded index. Stream vector-by-vector.
+            // Disk-backed reads tap the mmap; in-memory reads tap the Vec.
+            let mut scratch = vec![0.0f32; dim];
+            for i in 0..n {
+                o.read_into(i, &mut scratch);
+                let byte_slice = unsafe {
+                    std::slice::from_raw_parts(scratch.as_ptr() as *const u8, scratch.len() * 4)
+                };
+                f.write_all(byte_slice)?;
+            }
+        }
         f.flush()?;
 
         // Save graph adjacency
@@ -515,7 +775,10 @@ impl DiskAnnIndex {
             }
         }
 
-        // Save config
+        // Save config. The `keep_originals_in_memory` flag is persisted so
+        // load() can pick the right originals backing without the caller
+        // having to re-specify. `rerank_factor` is persisted for the same
+        // reason — it affects search behaviour, not just construction.
         let config_path = dir.join("config.json");
         let config_json = serde_json::json!({
             "dim": self.config.dim,
@@ -524,7 +787,9 @@ impl DiskAnnIndex {
             "search_beam": self.config.search_beam,
             "alpha": self.config.alpha,
             "pq_subspaces": self.config.pq_subspaces,
-            "count": self.vectors.len(),
+            "rerank_factor": self.config.rerank_factor,
+            "keep_originals_in_memory": self.config.keep_originals_in_memory,
+            "count": n,
             "built": self.built,
         });
         fs::write(
@@ -548,6 +813,13 @@ impl DiskAnnIndex {
         let search_beam = config_json["search_beam"].as_u64().unwrap() as usize;
         let alpha = config_json["alpha"].as_f64().unwrap() as f32;
         let pq_subspaces = config_json["pq_subspaces"].as_u64().unwrap_or(0) as usize;
+        // `rerank_factor` and `keep_originals_in_memory` are new in v2; old
+        // saves don't have them, so default to the v1 behavior (factor=4,
+        // originals in memory).
+        let rerank_factor = config_json["rerank_factor"].as_u64().unwrap_or(4) as usize;
+        let keep_in_memory = config_json["keep_originals_in_memory"]
+            .as_bool()
+            .unwrap_or(true);
 
         let config = DiskAnnConfig {
             dim,
@@ -556,31 +828,50 @@ impl DiskAnnIndex {
             search_beam,
             alpha,
             pq_subspaces,
+            rerank_factor,
+            keep_originals_in_memory: keep_in_memory,
             storage_path: Some(dir.to_path_buf()),
             ..Default::default()
         };
 
-        // Load vectors via mmap
-        let vec_file = File::open(dir.join("vectors.bin"))?;
-        let mmap = unsafe { MmapOptions::new().map(&vec_file)? };
+        // Decide which originals backing to use:
+        //   - If `originals.bin` sidecar exists *and* the saved config asked
+        //     for disk-backed mode, mmap it. (Sidecar+in-memory mode is
+        //     possible if the index was saved disk-backed and is being
+        //     reloaded; we honor the saved mode.)
+        //   - Else fall back to v1: read `vectors.bin` into a Vec.
+        //
+        // This keeps v1 indexes loading byte-identically while letting v2
+        // indexes skip the heap copy entirely.
+        let sidecar_path = dir.join(ORIGINALS_FILENAME);
+        let (originals, mmap_for_v1, n) = if sidecar_path.exists() && !keep_in_memory {
+            let store = open_originals_sidecar(&sidecar_path)?;
+            let n = store.len();
+            (store, None, n)
+        } else {
+            // v1 path. Mmap vectors.bin, copy into a Vec, wrap in InMemory.
+            let vec_file = File::open(dir.join("vectors.bin"))?;
+            let mmap = unsafe { MmapOptions::new().map(&vec_file)? };
 
-        let n = u64::from_le_bytes(mmap[0..8].try_into().unwrap()) as usize;
-        let file_dim = u64::from_le_bytes(mmap[8..16].try_into().unwrap()) as usize;
-        assert_eq!(file_dim, dim);
+            let n = u64::from_le_bytes(mmap[0..8].try_into().unwrap()) as usize;
+            let file_dim = u64::from_le_bytes(mmap[8..16].try_into().unwrap()) as usize;
+            assert_eq!(file_dim, dim);
 
-        // Load vectors directly into flat slab from mmap
-        let data_start = 16;
-        let total_floats = n * dim;
-        let mut flat_data = Vec::with_capacity(total_floats);
-        let byte_slice = &mmap[data_start..data_start + total_floats * 4];
-        // Safe: f32 from le bytes
-        for chunk in byte_slice.chunks_exact(4) {
-            flat_data.push(f32::from_le_bytes(chunk.try_into().unwrap()));
-        }
-        let vectors = FlatVectors {
-            data: flat_data,
-            dim,
-            count: n,
+            // Load vectors directly into flat slab from mmap
+            let data_start = 16;
+            let total_floats = n * dim;
+            let mut flat_data = Vec::with_capacity(total_floats);
+            let byte_slice = &mmap[data_start..data_start + total_floats * 4];
+            // Safe: f32 from le bytes
+            for chunk in byte_slice.chunks_exact(4) {
+                flat_data.push(f32::from_le_bytes(chunk.try_into().unwrap()));
+            }
+            let vectors = FlatVectors {
+                data: flat_data,
+                dim,
+                count: n,
+            };
+            (OriginalsStore::InMemory(vectors), Some(mmap), n)
         };
 
         // Load IDs
@@ -654,7 +945,8 @@ impl DiskAnnIndex {
 
         Ok(Self {
             config,
-            vectors,
+            staging: None,
+            originals: Some(originals),
             id_map,
             id_reverse,
             graph: Some(graph),
@@ -662,7 +954,7 @@ impl DiskAnnIndex {
             codes,
             built: true,
             visited: Some(VisitedSet::new(n)),
-            mmap: Some(mmap),
+            mmap: mmap_for_v1,
         })
     }
 
@@ -673,10 +965,33 @@ impl DiskAnnIndex {
         self.codes.iter().map(|c| c.len()).sum()
     }
 
-    /// Number of bytes the f32 originals consume in DRAM. Pair with
-    /// [`Self::codes_memory_bytes`] to compute the compression ratio.
+    /// Number of bytes the f32 originals consume **in DRAM** (heap). Pair
+    /// with [`Self::codes_memory_bytes`] to compute the compression ratio.
+    ///
+    /// Importantly, this returns 0 when originals are disk-backed — mmap
+    /// pages are kernel-owned, only paged in on demand for the rerank
+    /// candidates, and don't count toward DRAM in the sense the 17.5×
+    /// compression target measures.
     pub fn originals_memory_bytes(&self) -> usize {
-        self.vectors.data.len() * std::mem::size_of::<f32>()
+        // staging is only set during build; originals after. Sum both for
+        // safety, though only one is ever set at a time.
+        let staging_bytes = self
+            .staging
+            .as_ref()
+            .map(|s| s.data.len() * std::mem::size_of::<f32>())
+            .unwrap_or(0);
+        let originals_bytes = self.originals.as_ref().map(|o| o.heap_bytes()).unwrap_or(0);
+        staging_bytes + originals_bytes
+    }
+
+    /// True when originals are disk-backed (read via mmap on the rerank
+    /// path) rather than DRAM-resident. Used by tests / external tooling
+    /// to verify the disk-backed compression mode is actually engaged.
+    pub fn originals_on_disk(&self) -> bool {
+        self.originals
+            .as_ref()
+            .map(|o| o.is_disk_backed())
+            .unwrap_or(false)
     }
 
     /// Which quantizer this index is using.
