@@ -370,6 +370,222 @@ fn disk_backed_save_load_round_trip_preserves_results() {
 }
 
 #[test]
+fn disk_backed_save_load_round_trip_preserves_results_rabitq() {
+    // RaBitQ-flavored sibling of the PQ round-trip test above. Closes the
+    // limitation flagged in PR #385: previously a reloaded RaBitQ-built
+    // index dropped its rotation matrix + binary codes and silently fell
+    // back to the f32 traversal path, so a save → drop → load round-trip
+    // changed search results. After this PR the rabitq.bin sidecar
+    // persists `(dim, seed)` plus the codes; load() replays the rotation
+    // deterministically (ADR-154) and search results must be bit-identical.
+    let dim = 64;
+    let n = 300;
+    let k = 5;
+    let vectors = random_unit_vectors(n, dim, 0xABCD);
+
+    let dir = tempdir().unwrap();
+    let storage = dir.path().join("idx");
+
+    let config = DiskAnnConfig {
+        dim,
+        max_degree: 32,
+        build_beam: 64,
+        search_beam: 64,
+        alpha: 1.2,
+        storage_path: Some(storage.clone()),
+        ..Default::default()
+    }
+    .with_rabitq_seed(0xFEED_FACE)
+    .with_quantizer_kind(QuantizerKind::Rabitq)
+    .with_rerank_factor(4)
+    .with_originals_in_memory(false);
+
+    let queries = random_unit_vectors(8, dim, 0x9999);
+    let pre_results: Vec<Vec<(String, u32)>> = {
+        let mut idx = DiskAnnIndex::new(config);
+        let entries: Vec<(String, Vec<f32>)> = vectors
+            .iter()
+            .enumerate()
+            .map(|(i, v)| (format!("v{i}"), v.clone()))
+            .collect();
+        idx.insert_batch(entries).unwrap();
+        idx.build().unwrap();
+        assert_eq!(idx.quantizer_kind(), QuantizerKind::Rabitq);
+        assert!(idx.codes_memory_bytes() > 0, "RaBitQ codes slab is empty");
+        assert!(idx.originals_on_disk());
+        queries
+            .iter()
+            .map(|q| {
+                idx.search(q, k)
+                    .unwrap()
+                    .into_iter()
+                    .map(|r| (r.id, r.distance.to_bits()))
+                    .collect()
+            })
+            .collect()
+        // idx dropped here — proves load() is restoring state from disk
+        // rather than reusing in-memory residuals.
+    };
+
+    // Reload. The rabitq.bin sidecar must be picked up so the loaded
+    // index keeps the codes-driven traversal path (not the f32 fallback
+    // that PR #383/#384/#385 silently reverted to).
+    let loaded = DiskAnnIndex::load(&storage).unwrap();
+    assert_eq!(
+        loaded.quantizer_kind(),
+        QuantizerKind::Rabitq,
+        "loaded index should detect rabitq.bin sidecar"
+    );
+    assert!(loaded.originals_on_disk());
+    assert!(
+        loaded.codes_memory_bytes() > 0,
+        "RaBitQ codes slab not restored on load — search will fall back to f32"
+    );
+    for (q, want) in queries.iter().zip(pre_results.iter()) {
+        let got: Vec<(String, u32)> = loaded
+            .search(q, k)
+            .unwrap()
+            .into_iter()
+            .map(|r| (r.id, r.distance.to_bits()))
+            .collect();
+        assert_eq!(
+            got, *want,
+            "RaBitQ search results changed across save → load round-trip — \
+             rotation matrix + codes are not being persisted"
+        );
+    }
+}
+
+#[test]
+fn v1_pq_index_without_quantizer_kind_tag_still_loads() {
+    // Back-compat guard: v1 indexes (saved by PR #383/#384/#385) don't
+    // have the new `quantizer_kind` JSON tag. The load path must fall
+    // back to the file-presence heuristic ("pq.bin exists → PQ") so
+    // existing on-disk PQ indexes keep loading byte-identically.
+    let dim = 32;
+    let n = 200;
+    let k = 5;
+    let vectors = random_unit_vectors(n, dim, 0xF00D);
+
+    let dir = tempdir().unwrap();
+    let storage = dir.path().join("idx");
+
+    let config = DiskAnnConfig {
+        dim,
+        max_degree: 16,
+        build_beam: 32,
+        search_beam: 32,
+        alpha: 1.2,
+        pq_subspaces: 4,
+        pq_iterations: 5,
+        storage_path: Some(storage.clone()),
+        ..Default::default()
+    };
+
+    let queries = random_unit_vectors(5, dim, 0x1357);
+    let pre_results: Vec<Vec<(String, u32)>> = {
+        let mut idx = DiskAnnIndex::new(config);
+        let entries: Vec<(String, Vec<f32>)> = vectors
+            .iter()
+            .enumerate()
+            .map(|(i, v)| (format!("v{i}"), v.clone()))
+            .collect();
+        idx.insert_batch(entries).unwrap();
+        idx.build().unwrap();
+        queries
+            .iter()
+            .map(|q| {
+                idx.search(q, k)
+                    .unwrap()
+                    .into_iter()
+                    .map(|r| (r.id, r.distance.to_bits()))
+                    .collect()
+            })
+            .collect()
+    };
+
+    // Strip `quantizer_kind` from config.json to simulate a v1 save.
+    let cfg_path = storage.join("config.json");
+    let mut cfg: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&cfg_path).unwrap()).unwrap();
+    cfg.as_object_mut().unwrap().remove("quantizer_kind");
+    std::fs::write(&cfg_path, serde_json::to_string_pretty(&cfg).unwrap()).unwrap();
+
+    // Sanity-check the tag is gone.
+    let cfg_check: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&cfg_path).unwrap()).unwrap();
+    assert!(cfg_check.get("quantizer_kind").is_none());
+
+    // Load and search — must still go through the PQ path because pq.bin
+    // exists, and results must be byte-identical.
+    let loaded = DiskAnnIndex::load(&storage).unwrap();
+    assert_eq!(loaded.quantizer_kind(), QuantizerKind::Pq);
+    for (q, want) in queries.iter().zip(pre_results.iter()) {
+        let got: Vec<(String, u32)> = loaded
+            .search(q, k)
+            .unwrap()
+            .into_iter()
+            .map(|r| (r.id, r.distance.to_bits()))
+            .collect();
+        assert_eq!(got, *want, "v1 PQ index search results changed on load");
+    }
+}
+
+#[test]
+fn rabitq_load_rejects_missing_sidecar() {
+    // If the saved config tags `quantizer_kind = rabitq` but the sidecar
+    // is missing (e.g. a v1 index from before this PR, or a corrupted
+    // index where someone deleted rabitq.bin), load() must surface a
+    // clear `InvalidConfig` error rather than silently falling back to
+    // the f32 path. The brief: "If the saved magic is RaBitQ but the
+    // section is missing, return a clear error (don't silently fall back)."
+    let dim = 32;
+    let n = 100;
+    let vectors = random_unit_vectors(n, dim, 0xFADE);
+
+    let dir = tempdir().unwrap();
+    let storage = dir.path().join("idx");
+
+    let config = DiskAnnConfig {
+        dim,
+        max_degree: 16,
+        build_beam: 32,
+        search_beam: 32,
+        alpha: 1.2,
+        storage_path: Some(storage.clone()),
+        ..Default::default()
+    }
+    .with_rabitq_seed(0xBEEF)
+    .with_quantizer_kind(QuantizerKind::Rabitq)
+    .with_rerank_factor(2);
+
+    let mut idx = DiskAnnIndex::new(config);
+    let entries: Vec<(String, Vec<f32>)> = vectors
+        .iter()
+        .enumerate()
+        .map(|(i, v)| (format!("v{i}"), v.clone()))
+        .collect();
+    idx.insert_batch(entries).unwrap();
+    idx.build().unwrap();
+    drop(idx);
+
+    // Simulate corruption: delete the rabitq sidecar but leave the
+    // config tag claiming RaBitQ.
+    std::fs::remove_file(storage.join("rabitq.bin")).unwrap();
+
+    match DiskAnnIndex::load(&storage) {
+        Ok(_) => panic!("expected load to fail when rabitq sidecar is missing"),
+        Err(DiskAnnError::InvalidConfig(msg)) => {
+            assert!(
+                msg.contains("rabitq"),
+                "expected error mentioning rabitq, got: {msg}"
+            );
+        }
+        Err(other) => panic!("expected InvalidConfig, got {other:?}"),
+    }
+}
+
+#[test]
 fn disk_backed_without_storage_path_rejected() {
     // The whole point of storage_path is "where do I spill the originals".
     // Without it, disk-backed mode has nowhere to write — surface an

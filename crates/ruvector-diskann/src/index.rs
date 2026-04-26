@@ -29,6 +29,28 @@ const ORIGINALS_MAGIC: &[u8; 8] = b"DARO0001";
 const ORIGINALS_HEADER_BYTES: usize = 24;
 const ORIGINALS_FILENAME: &str = "originals.bin";
 
+// Sidecar layout for the RaBitQ quantizer state, written next to `pq.bin` /
+// `pq_codes.bin` when the active backend is `QuantizerKind::Rabitq`. Format:
+//   [0..8)   magic "DARQ0001" (DiskAnn RaBitQ Quantizer v1)
+//   [8..12)  version (u32 LE, currently 1)
+//   [12..16) dim     (u32 LE)
+//   [16..24) seed    (u64 LE) — replays the rotation deterministically
+//   [24..28) code_bytes_total (u32 LE) — for cross-checking
+//   [28..32) n_codes (u32 LE) — number of code entries that follow
+//   [32..)   raw codes slab, n_codes * code_bytes_total bytes
+//
+// We persist `(dim, seed)` rather than the rotation matrix because
+// `ruvector_rabitq::RabitqIndex::new(dim, seed)` is documented (ADR-154) to
+// be bit-identical for the same `(dim, seed)` pair. Storing only the seed
+// keeps the sidecar tiny (32 B header) regardless of `D` — the `D×D` Haar
+// matrix at D=128 alone is 64 KiB — and makes the format trivially portable
+// across machines. Codes are written in the same flat layout as `pq_codes.bin`.
+const RABITQ_MAGIC: &[u8; 8] = b"DARQ0001";
+const RABITQ_VERSION: u32 = 1;
+const RABITQ_HEADER_BYTES: usize = 32;
+#[cfg(feature = "rabitq")]
+const RABITQ_FILENAME: &str = "rabitq.bin";
+
 /// Backing store for the original f32 vectors used by the rerank pass.
 ///
 /// Two variants:
@@ -745,11 +767,13 @@ impl DiskAnnIndex {
             .map_err(|e| DiskAnnError::Serialization(e.to_string()))?;
         fs::write(&ids_path, ids_json)?;
 
-        // Save PQ if present. RaBitQ persistence is intentionally a
-        // follow-up: the rotation matrix lives in `ruvector-rabitq` and
-        // doesn't yet expose a stable on-disk format. For now we only
-        // persist PQ-backed indexes; a RaBitQ-backed save returns Ok and
-        // skips the codes — `load()` will rebuild from f32 originals.
+        // Save PQ or RaBitQ quantizer state. PQ uses bincode for the
+        // codebooks plus a flat `pq_codes.bin` for the per-vector codes;
+        // RaBitQ persists `(dim, seed)` plus a flat codes slab in a single
+        // `rabitq.bin` sidecar (rotation matrix is replayed on load via the
+        // ADR-154 determinism contract). The two formats use distinct magic
+        // bytes ("DARQ0001" vs the bincode-PQ stream) so `load()` can
+        // dispatch by file presence alone.
         match &self.quantizer {
             QuantizerBackend::None => {}
             QuantizerBackend::Pq(pq) => {
@@ -767,11 +791,32 @@ impl DiskAnnIndex {
                 f.flush()?;
             }
             #[cfg(feature = "rabitq")]
-            QuantizerBackend::Rabitq(_) => {
-                // Disk format for RaBitQ rotation matrices is a follow-up.
-                // The graph + originals are still saved above so the index
-                // can be reloaded with `quantizer_kind = None` and rebuilt
-                // by the caller if needed.
+            QuantizerBackend::Rabitq(rb) => {
+                // Header + raw codes slab in one sidecar. We don't reuse
+                // `ruvector_rabitq::persist::save_index` here: that helper
+                // takes a `RabitqPlusIndex` and re-persists the *originals*
+                // (so the rebuild path can re-encode them), but DiskANN
+                // already owns the originals via `vectors.bin` /
+                // `originals.bin` and just needs the codes + replay seed.
+                // Reusing it would double-store the f32 payload.
+                let path = dir.join(RABITQ_FILENAME);
+                let mut f = BufWriter::new(File::create(&path)?);
+                f.write_all(RABITQ_MAGIC)?;
+                f.write_all(&RABITQ_VERSION.to_le_bytes())?;
+                f.write_all(&(rb.dim() as u32).to_le_bytes())?;
+                f.write_all(&rb.seed().to_le_bytes())?;
+                let code_bytes_total = rb.code_bytes() as u32;
+                f.write_all(&code_bytes_total.to_le_bytes())?;
+                f.write_all(&(self.codes.len() as u32).to_le_bytes())?;
+                for code in &self.codes {
+                    debug_assert_eq!(
+                        code.len() as u32,
+                        code_bytes_total,
+                        "rabitq code length mismatch"
+                    );
+                    f.write_all(code)?;
+                }
+                f.flush()?;
             }
         }
 
@@ -779,6 +824,16 @@ impl DiskAnnIndex {
         // load() can pick the right originals backing without the caller
         // having to re-specify. `rerank_factor` is persisted for the same
         // reason — it affects search behaviour, not just construction.
+        // `quantizer_kind` is persisted as a string tag so the load path
+        // can fail loudly if the on-disk sidecars don't match the saved
+        // config (e.g. a "Rabitq"-tagged save that's missing rabitq.bin
+        // is a corrupted index, not a silent fallback to f32).
+        let quantizer_tag = match self.quantizer_kind() {
+            QuantizerKind::None => "none",
+            QuantizerKind::Pq => "pq",
+            #[cfg(feature = "rabitq")]
+            QuantizerKind::Rabitq => "rabitq",
+        };
         let config_path = dir.join("config.json");
         let config_json = serde_json::json!({
             "dim": self.config.dim,
@@ -789,6 +844,7 @@ impl DiskAnnIndex {
             "pq_subspaces": self.config.pq_subspaces,
             "rerank_factor": self.config.rerank_factor,
             "keep_originals_in_memory": self.config.keep_originals_in_memory,
+            "quantizer_kind": quantizer_tag,
             "count": n,
             "built": self.built,
         });
@@ -912,29 +968,145 @@ impl DiskAnnIndex {
             alpha,
         };
 
-        // Load PQ if present. RaBitQ persistence is a follow-up — see the
-        // matching note in `save()`.
+        // Load the quantizer backend, dispatching on the saved tag. The
+        // explicit `quantizer_kind` field disambiguates: a "rabitq"-tagged
+        // save that's missing rabitq.bin is a corruption case, not a
+        // silent fallback. v1 PQ saves (which lacked the tag) default to
+        // "pq" via the file-presence heuristic so existing on-disk indexes
+        // keep loading byte-identically.
+        let quantizer_tag = config_json["quantizer_kind"]
+            .as_str()
+            .map(|s| s.to_string());
         let pq_path = dir.join("pq.bin");
-        let (quantizer, codes) = if pq_path.exists() {
-            let pq_bytes = fs::read(&pq_path)?;
-            let (pq, _): (ProductQuantizer, usize) =
-                bincode::decode_from_slice(&pq_bytes, bincode::config::standard())
-                    .map_err(|e| DiskAnnError::Serialization(e.to_string()))?;
+        #[cfg(feature = "rabitq")]
+        let rabitq_path = dir.join(RABITQ_FILENAME);
 
-            let codes_bytes = fs::read(dir.join("pq_codes.bin"))?;
-            let m = pq.m;
-            let mut codes = Vec::with_capacity(n);
-            for i in 0..n {
-                codes.push(codes_bytes[i * m..(i + 1) * m].to_vec());
+        let saved_kind = match quantizer_tag.as_deref() {
+            Some("none") => QuantizerKind::None,
+            Some("pq") => QuantizerKind::Pq,
+            #[cfg(feature = "rabitq")]
+            Some("rabitq") => QuantizerKind::Rabitq,
+            #[cfg(not(feature = "rabitq"))]
+            Some("rabitq") => {
+                return Err(DiskAnnError::InvalidConfig(
+                    "saved index uses RaBitQ quantizer but this build was compiled \
+                     without the `rabitq` feature; rebuild with --features rabitq"
+                        .into(),
+                ));
             }
-            (QuantizerBackend::Pq(pq), codes)
-        } else {
-            (QuantizerBackend::None, Vec::new())
+            // v1 fallback: dispatch on file presence. PQ is the only
+            // quantizer that ever shipped a persisted format pre-this-PR.
+            _ => {
+                if pq_path.exists() {
+                    QuantizerKind::Pq
+                } else {
+                    QuantizerKind::None
+                }
+            }
+        };
+
+        let (quantizer, codes) = match saved_kind {
+            QuantizerKind::None => (QuantizerBackend::None, Vec::new()),
+            QuantizerKind::Pq => {
+                if !pq_path.exists() {
+                    return Err(DiskAnnError::InvalidConfig(format!(
+                        "saved config tags quantizer_kind=pq but {} is missing",
+                        pq_path.display()
+                    )));
+                }
+                let pq_bytes = fs::read(&pq_path)?;
+                let (pq, _): (ProductQuantizer, usize) =
+                    bincode::decode_from_slice(&pq_bytes, bincode::config::standard())
+                        .map_err(|e| DiskAnnError::Serialization(e.to_string()))?;
+
+                let codes_bytes = fs::read(dir.join("pq_codes.bin"))?;
+                let m = pq.m;
+                let mut codes = Vec::with_capacity(n);
+                for i in 0..n {
+                    codes.push(codes_bytes[i * m..(i + 1) * m].to_vec());
+                }
+                (QuantizerBackend::Pq(pq), codes)
+            }
+            #[cfg(feature = "rabitq")]
+            QuantizerKind::Rabitq => {
+                if !rabitq_path.exists() {
+                    return Err(DiskAnnError::InvalidConfig(format!(
+                        "saved config tags quantizer_kind=rabitq but {} is missing — \
+                         the index was likely saved by an older build that didn't \
+                         persist RaBitQ codes; rebuild the index",
+                        rabitq_path.display()
+                    )));
+                }
+                let bytes = fs::read(&rabitq_path)?;
+                if bytes.len() < RABITQ_HEADER_BYTES {
+                    return Err(DiskAnnError::InvalidConfig(format!(
+                        "rabitq sidecar at {} is truncated ({} bytes < header {})",
+                        rabitq_path.display(),
+                        bytes.len(),
+                        RABITQ_HEADER_BYTES
+                    )));
+                }
+                if &bytes[0..8] != RABITQ_MAGIC {
+                    return Err(DiskAnnError::InvalidConfig(format!(
+                        "rabitq sidecar at {} has wrong magic",
+                        rabitq_path.display()
+                    )));
+                }
+                let version = u32::from_le_bytes(bytes[8..12].try_into().unwrap());
+                if version != RABITQ_VERSION {
+                    return Err(DiskAnnError::InvalidConfig(format!(
+                        "rabitq sidecar version {} unsupported (expected {})",
+                        version, RABITQ_VERSION
+                    )));
+                }
+                let saved_dim = u32::from_le_bytes(bytes[12..16].try_into().unwrap()) as usize;
+                if saved_dim != dim {
+                    return Err(DiskAnnError::InvalidConfig(format!(
+                        "rabitq sidecar dim {} != index dim {}",
+                        saved_dim, dim
+                    )));
+                }
+                let seed = u64::from_le_bytes(bytes[16..24].try_into().unwrap());
+                let code_bytes_total =
+                    u32::from_le_bytes(bytes[24..28].try_into().unwrap()) as usize;
+                let n_codes = u32::from_le_bytes(bytes[28..32].try_into().unwrap()) as usize;
+                if n_codes != n {
+                    return Err(DiskAnnError::InvalidConfig(format!(
+                        "rabitq sidecar n_codes {} != index count {}",
+                        n_codes, n
+                    )));
+                }
+                let expected = RABITQ_HEADER_BYTES + n_codes * code_bytes_total;
+                if bytes.len() < expected {
+                    return Err(DiskAnnError::InvalidConfig(format!(
+                        "rabitq sidecar truncated: header expects {} bytes, file is {}",
+                        expected,
+                        bytes.len()
+                    )));
+                }
+                let rb = RabitqQuantizer::new_trained(dim, seed);
+                if rb.code_bytes() != code_bytes_total {
+                    return Err(DiskAnnError::InvalidConfig(format!(
+                        "rabitq code_bytes_total mismatch: sidecar={} reconstructed={}",
+                        code_bytes_total,
+                        rb.code_bytes()
+                    )));
+                }
+                let mut codes = Vec::with_capacity(n_codes);
+                for i in 0..n_codes {
+                    let s = RABITQ_HEADER_BYTES + i * code_bytes_total;
+                    codes.push(bytes[s..s + code_bytes_total].to_vec());
+                }
+                (QuantizerBackend::Rabitq(rb), codes)
+            }
         };
 
         // Mirror the saved quantizer into the runtime config. The legacy
         // `pq_subspaces` field is already populated from JSON above; the
         // explicit `quantizer_kind` is set so callers can introspect it.
+        // For RaBitQ we also mirror the seed read from the sidecar so
+        // `config.rabitq_seed` reflects the seed that actually drives the
+        // loaded rotation matrix (rather than the `Default` placeholder).
         let mut config = config;
         config.quantizer_kind = match &quantizer {
             QuantizerBackend::None => QuantizerKind::None,
@@ -942,6 +1114,10 @@ impl DiskAnnIndex {
             #[cfg(feature = "rabitq")]
             QuantizerBackend::Rabitq(_) => QuantizerKind::Rabitq,
         };
+        #[cfg(feature = "rabitq")]
+        if let QuantizerBackend::Rabitq(rb) = &quantizer {
+            config.rabitq_seed = rb.seed();
+        }
 
         Ok(Self {
             config,
