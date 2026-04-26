@@ -49,11 +49,17 @@ impl FilteredIndex for FlatFilteredIndex {
         predicate: &dyn Fn(u32) -> bool,
     ) -> Result<Vec<(u32, f32)>, AcornError> {
         if k > self.data.len() {
-            return Err(AcornError::KTooLarge { k, n: self.data.len() });
+            return Err(AcornError::KTooLarge {
+                k,
+                n: self.data.len(),
+            });
         }
         let dim = self.data[0].len();
         if query.len() != dim {
-            return Err(AcornError::DimMismatch { expected: dim, actual: query.len() });
+            return Err(AcornError::DimMismatch {
+                expected: dim,
+                actual: query.len(),
+            });
         }
         Ok(flat_filtered_search(&self.data, query, k, predicate))
     }
@@ -105,11 +111,17 @@ impl FilteredIndex for AcornIndex1 {
         predicate: &dyn Fn(u32) -> bool,
     ) -> Result<Vec<(u32, f32)>, AcornError> {
         if k > self.graph.len() {
-            return Err(AcornError::KTooLarge { k, n: self.graph.len() });
+            return Err(AcornError::KTooLarge {
+                k,
+                n: self.graph.len(),
+            });
         }
         let dim = self.graph.dim;
         if query.len() != dim {
-            return Err(AcornError::DimMismatch { expected: dim, actual: query.len() });
+            return Err(AcornError::DimMismatch {
+                expected: dim,
+                actual: query.len(),
+            });
         }
         Ok(acorn_search(&self.graph, query, k, self.ef, predicate))
     }
@@ -146,7 +158,11 @@ impl AcornIndexGamma {
             return Err(AcornError::InvalidGamma { gamma });
         }
         let graph = AcornGraph::build(data, Self::M * gamma)?;
-        Ok(Self { graph, gamma, ef: 150 })
+        Ok(Self {
+            graph,
+            gamma,
+            ef: 150,
+        })
     }
 
     pub fn with_ef(mut self, ef: usize) -> Self {
@@ -167,11 +183,17 @@ impl FilteredIndex for AcornIndexGamma {
         predicate: &dyn Fn(u32) -> bool,
     ) -> Result<Vec<(u32, f32)>, AcornError> {
         if k > self.graph.len() {
-            return Err(AcornError::KTooLarge { k, n: self.graph.len() });
+            return Err(AcornError::KTooLarge {
+                k,
+                n: self.graph.len(),
+            });
         }
         let dim = self.graph.dim;
         if query.len() != dim {
-            return Err(AcornError::DimMismatch { expected: dim, actual: query.len() });
+            return Err(AcornError::DimMismatch {
+                expected: dim,
+                actual: query.len(),
+            });
         }
         Ok(acorn_search(&self.graph, query, k, self.ef, predicate))
     }
@@ -190,7 +212,7 @@ pub fn recall_at_k(
     data: &[Vec<f32>],
     queries: &[Vec<f32>],
     k: usize,
-    predicate: impl Fn(u32) -> bool + Copy,
+    predicate: impl Fn(u32) -> bool + Copy + Sync,
     index: &dyn FilteredIndex,
 ) -> f64 {
     let mut hit = 0usize;
@@ -247,7 +269,10 @@ mod tests {
         let idx = AcornIndex1::build(data.clone()).unwrap();
         let queries = gaussian_data(20, 32, 99);
         let r = recall_at_k(&data, &queries, 5, |id| id % 2 == 0, &idx);
-        assert!(r > 0.30, "ACORN-1 half-filter recall should be >0.30, got {r:.3}");
+        assert!(
+            r > 0.30,
+            "ACORN-1 half-filter recall should be >0.30, got {r:.3}"
+        );
     }
 
     #[test]

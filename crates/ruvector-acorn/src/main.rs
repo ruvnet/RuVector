@@ -10,10 +10,7 @@ use std::time::Instant;
 use rand::SeedableRng;
 use rand_distr::{Distribution, Normal};
 
-use ruvector_acorn::{
-    AcornIndex1, AcornIndexGamma, FilteredIndex, FlatFilteredIndex,
-    recall_at_k,
-};
+use ruvector_acorn::{recall_at_k, AcornIndex1, AcornIndexGamma, FilteredIndex, FlatFilteredIndex};
 
 const N: usize = 5_000;
 const DIM: usize = 128;
@@ -106,11 +103,7 @@ fn main() {
     println!("  ACORN-γ (γ=2): {acorng_build_ms:.1} ms");
 
     // --- Benchmark at three selectivity levels ---
-    let selectivities: &[(f64, &str)] = &[
-        (0.50, "50%"),
-        (0.10, "10%"),
-        (0.01,  "1%"),
-    ];
+    let selectivities: &[(f64, &str)] = &[(0.50, "50%"), (0.10, "10%"), (0.01, "1%")];
 
     print_header();
 
@@ -124,15 +117,42 @@ fn main() {
             continue;
         }
 
-        run_variant(flat.name(), &flat, &data, &queries, flat_build_ms, sel, &pred);
-        run_variant(acorn1.name(), &acorn1, &data, &queries, acorn1_build_ms, sel, &pred);
-        run_variant(acorng.name(), &acorng, &data, &queries, acorng_build_ms, sel, &pred);
+        run_variant(
+            flat.name(),
+            &flat,
+            &data,
+            &queries,
+            flat_build_ms,
+            sel,
+            &pred,
+        );
+        run_variant(
+            acorn1.name(),
+            &acorn1,
+            &data,
+            &queries,
+            acorn1_build_ms,
+            sel,
+            &pred,
+        );
+        run_variant(
+            acorng.name(),
+            &acorng,
+            &data,
+            &queries,
+            acorng_build_ms,
+            sel,
+            &pred,
+        );
         println!();
     }
 
     // --- Recall vs selectivity sweep for ACORN-γ ---
     println!("\nRecall@10 sweep across selectivities (ACORN-γ vs FlatFiltered):");
-    println!("{:>8}  {:>16}  {:>16}", "Sel%", "FlatFiltered R@10", "ACORN-γ R@10");
+    println!(
+        "{:>8}  {:>16}  {:>16}",
+        "Sel%", "FlatFiltered R@10", "ACORN-γ R@10"
+    );
     println!("{}", "-".repeat(44));
     for sel_frac in [0.50, 0.20, 0.10, 0.05, 0.02, 0.01] {
         let pred = selectivity_predicate(N, sel_frac);
@@ -161,7 +181,10 @@ fn main() {
     };
     println!("  ACORN-1 total edges: ~{acorn1_edges}");
     println!("  ACORN-γ total edges: ~{acorng_edges}");
-    println!("  Edge ratio γ/1: {:.2}×", acorng_edges as f64 / acorn1_edges.max(1) as f64);
+    println!(
+        "  Edge ratio γ/1: {:.2}×",
+        acorng_edges as f64 / acorn1_edges.max(1) as f64
+    );
 
     println!("\nDone.");
 }

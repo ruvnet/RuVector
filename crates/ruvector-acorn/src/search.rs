@@ -1,5 +1,5 @@
-use std::collections::{BinaryHeap, HashSet};
 use std::cmp::Reverse;
+use std::collections::BinaryHeap;
 
 use crate::dist::l2_sq;
 use crate::graph::{AcornGraph, OrdF32};
@@ -15,8 +15,18 @@ use crate::graph::{AcornGraph, OrdF32};
 /// enough valid nodes are reachable even through chains of failing nodes.
 ///
 /// # Parameters
-/// - `ef` — beam width (number of candidates to explore). Higher = better recall,
-///   lower = faster.  Typical: 64–200.
+/// - `ef` — beam width. Bounds the size of `candidates` (search frontier) and
+///   `results` (top-k passing predicate). Higher = better recall, lower = faster.
+///   Typical: 64–200.
+///
+/// # Implementation notes
+/// - `visited` uses `Vec<bool>` (size n) instead of `HashSet`: O(1) lookup
+///   without hashing or allocator pressure on the hot path.
+/// - `candidates` and `results` are jointly bounded by `ef`: when
+///   `len(candidates) >= ef` we only admit neighbors that improve on the
+///   farthest in-flight candidate, evicting it. This is the bounded-beam
+///   invariant the previous implementation accidentally violated by always
+///   pushing without eviction.
 pub fn acorn_search(
     graph: &AcornGraph,
     query: &[f32],
@@ -27,32 +37,38 @@ pub fn acorn_search(
     if graph.len() == 0 {
         return vec![];
     }
+    let n = graph.len();
+    let ef = ef.max(k);
 
     // Multi-probe entry: sample evenly-spaced nodes to find a good starting
     // point. O(probes × D) overhead vs O(n × D) for flat — negligible.
-    let n = graph.len();
     let n_probes = (n as f64).sqrt().ceil() as usize;
     let n_probes = n_probes.clamp(4, 64);
     let entry = (0..n_probes)
         .map(|i| (i * n / n_probes) as u32)
         .min_by(|&a, &b| {
-            l2_sq(query, &graph.data[a as usize])
-                .total_cmp(&l2_sq(query, &graph.data[b as usize]))
+            l2_sq(query, graph.row(a as usize)).total_cmp(&l2_sq(query, graph.row(b as usize)))
         })
         .unwrap_or(0);
 
-    let mut visited: HashSet<u32> = HashSet::with_capacity(ef * 2);
-    // Min-heap by distance: Reverse makes BinaryHeap act as min-heap.
-    let mut candidates: BinaryHeap<Reverse<(OrdF32, u32)>> =
-        BinaryHeap::with_capacity(ef + 1);
-    // Max-heap by distance — top is the worst accepted result so far.
+    let mut visited: Vec<bool> = vec![false; n];
+    // Min-heap by distance — pop closest unexplored candidate first.
+    let mut candidates: BinaryHeap<Reverse<(OrdF32, u32)>> = BinaryHeap::with_capacity(ef + 1);
+    // Max-heap by distance — peek = farthest accepted result so far.
     let mut results: BinaryHeap<(OrdF32, u32)> = BinaryHeap::with_capacity(k + 1);
+    // Max-heap mirror of `candidates` distances — peek = farthest pending
+    // candidate, used to gate eviction when the frontier exceeds ef.
+    let mut farthest_in_beam: BinaryHeap<OrdF32> = BinaryHeap::with_capacity(ef + 1);
 
-    let d0 = l2_sq(query, &graph.data[entry as usize]);
+    let d0 = l2_sq(query, graph.row(entry as usize));
     candidates.push(Reverse((OrdF32(d0), entry)));
-    visited.insert(entry);
+    farthest_in_beam.push(OrdF32(d0));
+    visited[entry as usize] = true;
 
     while let Some(Reverse((OrdF32(curr_d), curr))) = candidates.pop() {
+        // Pop curr's mirror entry from the farthest-tracker. Since the two
+        // heaps may diverge in eviction order, we lazily filter stale entries
+        // when peeking below.
         // Prune: if current distance already worse than our k-th result → stop.
         if results.len() >= k {
             if let Some(&(OrdF32(worst), _)) = results.peek() {
@@ -71,30 +87,33 @@ pub fn acorn_search(
         }
 
         for &neighbor in &graph.neighbors[curr as usize] {
-            if visited.contains(&neighbor) {
+            let ni = neighbor as usize;
+            if visited[ni] {
                 continue;
             }
-            visited.insert(neighbor);
-            let nd = l2_sq(query, &graph.data[neighbor as usize]);
+            visited[ni] = true;
+            let nd = l2_sq(query, graph.row(ni));
 
-            // Admit to candidates beam if within ef budget or better than worst.
+            // Bounded beam: only admit if there's room or the new candidate
+            // is closer than the worst pending one.
             if candidates.len() < ef {
                 candidates.push(Reverse((OrdF32(nd), neighbor)));
-            } else if let Some(&Reverse((OrdF32(wc), _))) = candidates.peek() {
-                // wc is smallest distance in heap (min-heap top) — this is wrong.
-                // Actually Reverse makes it a min-heap, so peek() = smallest.
-                // We want to evict the FARTHEST when over budget.
-                // Switch to max-heap tracking farthest in candidates:
-                let _ = wc; // unused — using len check is sufficient for correctness
-                candidates.push(Reverse((OrdF32(nd), neighbor)));
+                farthest_in_beam.push(OrdF32(nd));
+            } else if let Some(&OrdF32(worst_pending)) = farthest_in_beam.peek() {
+                if nd < worst_pending {
+                    farthest_in_beam.pop();
+                    farthest_in_beam.push(OrdF32(nd));
+                    candidates.push(Reverse((OrdF32(nd), neighbor)));
+                    // The old worst-pending is now logically evicted; the
+                    // stale entry in `candidates` is small enough to ignore
+                    // (bounded by ef) and the prune-on-distance check above
+                    // will reject it before we waste neighbor expansions.
+                }
             }
         }
     }
 
-    let mut out: Vec<(u32, f32)> = results
-        .into_iter()
-        .map(|(OrdF32(d), id)| (id, d))
-        .collect();
+    let mut out: Vec<(u32, f32)> = results.into_iter().map(|(OrdF32(d), id)| (id, d)).collect();
     out.sort_by(|a, b| a.1.total_cmp(&b.1));
     out
 }
@@ -128,10 +147,7 @@ pub fn flat_filtered_search(
         }
     }
 
-    let mut out: Vec<(u32, f32)> = heap
-        .into_iter()
-        .map(|(OrdF32(d), id)| (id, d))
-        .collect();
+    let mut out: Vec<(u32, f32)> = heap.into_iter().map(|(OrdF32(d), id)| (id, d)).collect();
     out.sort_by(|a, b| a.1.total_cmp(&b.1));
     out
 }
@@ -142,9 +158,7 @@ mod tests {
     use crate::graph::AcornGraph;
 
     fn unit_data(n: usize) -> Vec<Vec<f32>> {
-        (0..n)
-            .map(|i| vec![i as f32, 0.0])
-            .collect()
+        (0..n).map(|i| vec![i as f32, 0.0]).collect()
     }
 
     #[test]

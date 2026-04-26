@@ -35,5 +35,5 @@ pub mod index;
 pub mod search;
 
 pub use error::AcornError;
-pub use index::{AcornIndex1, AcornIndexGamma, FilteredIndex, FlatFilteredIndex, recall_at_k};
 pub use graph::AcornGraph;
+pub use index::{recall_at_k, AcornIndex1, AcornIndexGamma, FilteredIndex, FlatFilteredIndex};

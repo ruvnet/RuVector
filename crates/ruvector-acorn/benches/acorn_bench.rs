@@ -5,7 +5,9 @@ use rand_distr::{Distribution, Normal};
 use ruvector_acorn::{AcornIndex1, AcornIndexGamma, FilteredIndex, FlatFilteredIndex};
 
 fn make_data(n: usize, dim: usize, seed: u64) -> Vec<Vec<f32>> {
-    let mut rng = rand::rngs::SmallRng::seed_from_u64(seed);
+    // `StdRng` is always available; `SmallRng` is feature-gated and not
+    // enabled in the workspace, which broke this bench when the gate flipped.
+    let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
     let normal = Normal::new(0.0_f32, 1.0).unwrap();
     (0..n)
         .map(|_| (0..dim).map(|_| normal.sample(&mut rng)).collect())
@@ -35,7 +37,8 @@ fn bench_search(c: &mut Criterion) {
             b.iter(|| {
                 for q in &queries {
                     black_box(
-                        idx.search(q, K, &|id: u32| id % 10 == 0).unwrap_or_default(),
+                        idx.search(q, K, &|id: u32| id % 10 == 0)
+                            .unwrap_or_default(),
                     );
                 }
             });
