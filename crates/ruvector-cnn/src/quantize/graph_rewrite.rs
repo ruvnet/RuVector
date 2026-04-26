@@ -568,13 +568,14 @@ mod tests {
         // Create Input node
         let input_id = graph.add_node(NodeType::Input, NodeParams::None);
 
-        // Create Conv2d node
+        // Create Conv2d node — 2 out channels × 2 weights/channel
+        // (weights_per_channel = kernel_size² × in_channels = 1 × 2 = 2)
         let conv_id = graph.add_node(
             NodeType::Conv2d,
             NodeParams::Conv2d {
-                weights: vec![1.0, 2.0, 3.0, 4.0], // 2 out channels, 2 weights each
+                weights: vec![1.0, 2.0, 3.0, 4.0],
                 bias: Some(vec![1.0, 2.0]),
-                in_channels: 1,
+                in_channels: 2,
                 out_channels: 2,
                 kernel_size: 1,
             },
@@ -741,19 +742,24 @@ mod tests {
         let zero_point = 0;
         let lut = generate_hardswish_lut(scale, zero_point);
 
-        // Test key points
+        // LUT is indexed by the i8 quantized value reinterpreted as u8:
+        //   lut[q as u8 as usize]
+        // generate_hardswish_lut iterates i in 0..256 with q_input = i as i8,
+        // so index 0 ↔ q=0, index 30 ↔ q=30, index 226 ↔ q=-30.
+        let lut_idx = |q: i32| -> usize { (q as i8) as u8 as usize };
+
         // x = 0 → HardSwish(0) = 0
-        let idx_0 = (0 - zero_point + 128) as usize;
-        assert_eq!(lut[idx_0], 0);
+        assert_eq!(lut[lut_idx(0 - zero_point)], 0);
 
-        // x = -3 (or less) → HardSwish = 0
-        let idx_neg3 = ((-30 as i32 - zero_point + 128) as usize).min(255);
-        assert_eq!(lut[idx_neg3], 0);
+        // x = -3 (q = -30 with scale=0.1) → HardSwish ≈ 0
+        assert_eq!(lut[lut_idx(-30 - zero_point)], 0);
 
-        // x = 3 (or more) → HardSwish(x) ≈ x
-        let idx_pos3 = ((30 as i32 - zero_point + 128) as usize).min(255);
-        let x_pos3 = (lut[idx_pos3] as i32 - zero_point) as f32 * scale;
-        assert!((x_pos3 - 3.0).abs() < 0.5); // Should be close to 3.0
+        // x = 3 (q = 30 with scale=0.1) → HardSwish(x) ≈ x
+        let x_pos3 = (lut[lut_idx(30 - zero_point)] as i32 - zero_point) as f32 * scale;
+        assert!(
+            (x_pos3 - 3.0).abs() < 0.5,
+            "expected ~3.0 got {x_pos3}"
+        ); // Should be close to 3.0
     }
 
     #[test]

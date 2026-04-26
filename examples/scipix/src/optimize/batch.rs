@@ -329,14 +329,31 @@ mod tests {
     #[tokio::test]
     async fn test_batch_stats() {
         let config = BatchConfig::default();
-        let batcher = DynamicBatcher::new(config, |items: Vec<i32>| {
+        let batcher = Arc::new(DynamicBatcher::new(config, |items: Vec<i32>| {
             items.into_iter().map(|x| Ok(x)).collect()
-        });
+        }));
 
-        // Queue some items without processing
-        let _ = batcher.add(1);
-        let _ = batcher.add(2);
-        let _ = batcher.add(3);
+        // Queue some items without processing. Spawning the adds (rather
+        // than `let _ = batcher.add(N)`, which silently drops the future
+        // without ever polling it) ensures items actually reach the queue.
+        // No run() loop is started, so the spawned tasks park on the
+        // oneshot — that's fine, we only care about queue_size here.
+        for i in 1..=3 {
+            let b = batcher.clone();
+            tokio::spawn(async move { b.add(i).await });
+        }
+
+        // Wait briefly for spawned tasks to enqueue.
+        let enqueued = tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                if batcher.queue_size().await >= 3 {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await;
+        assert!(enqueued.is_ok(), "items did not enqueue within 2s");
 
         let stats = batcher.stats().await;
         assert_eq!(stats.queue_size, 3);
@@ -349,17 +366,39 @@ mod tests {
             ..Default::default()
         };
 
-        let batcher = DynamicBatcher::new(config, |items: Vec<i32>| {
+        let batcher = Arc::new(DynamicBatcher::new(config, |items: Vec<i32>| {
             std::thread::sleep(Duration::from_secs(1)); // Slow processing
             items.into_iter().map(|x| Ok(x)).collect()
-        });
+        }));
 
-        // Fill queue
-        let _ = batcher.add(1);
-        let _ = batcher.add(2);
+        // Fill queue with two items by spawning tasks (no run() loop is
+        // started, so these will park on the oneshot recv after enqueueing).
+        // Previously this test let-bound the futures without polling them,
+        // which meant nothing was actually enqueued and the third add()
+        // would deadlock on its own oneshot waiting for a non-existent
+        // processing loop.
+        let b1 = batcher.clone();
+        let _h1 = tokio::spawn(async move { b1.add(1).await });
+        let b2 = batcher.clone();
+        let _h2 = tokio::spawn(async move { b2.add(2).await });
 
-        // This should fail - queue is full
-        let result = batcher.add(3).await;
+        // Wait for both to be enqueued (poll via stats with a bounded timeout).
+        let enqueued = tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                if batcher.queue_size().await >= 2 {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await;
+        assert!(enqueued.is_ok(), "items did not enqueue within 2s");
+
+        // This should fail - queue is full. The QueueFull error returns
+        // synchronously before any oneshot await, so this completes promptly.
+        let result = tokio::time::timeout(Duration::from_secs(2), batcher.add(3))
+            .await
+            .expect("add(3) should not hang — QueueFull is returned synchronously");
         assert!(matches!(result, Err(BatchError::QueueFull)));
     }
 

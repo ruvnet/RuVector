@@ -9,7 +9,11 @@ use std::f32;
 #[derive(Debug, Clone, Copy)]
 pub struct QuantParams {
     pub scale: f32,
-    pub zero_point: i8,
+    /// Zero-point offset applied during quantize/dequantize. Stored as i32
+    /// so that asymmetric ranges (where the mathematical zero-point can fall
+    /// outside the i8 storage range) do not saturate and lose precision.
+    /// The quantized data themselves still live in i8.
+    pub zero_point: i32,
 }
 
 impl QuantParams {
@@ -18,8 +22,20 @@ impl QuantParams {
         let qmin = i8::MIN as f32;
         let qmax = i8::MAX as f32;
 
-        let scale = (max - min) / (qmax - qmin);
-        let zero_point = (qmin - min / scale).round() as i8;
+        // Guard against zero range (e.g. constant data) — fall back to a
+        // tiny scale so we don't produce NaN/inf zero-points.
+        let range = max - min;
+        let scale = if range.abs() < f32::EPSILON {
+            1.0 / qmax
+        } else {
+            range / (qmax - qmin)
+        };
+        // Compute the (potentially out-of-i8) zero-point exactly. We keep
+        // it as i32 so the dequantization math `(q - zp) * scale` stays
+        // accurate for asymmetric ranges (e.g. min=1, max=4 produces
+        // zp ≈ -213, which would otherwise saturate to -128 and cause
+        // large dequantization error).
+        let zero_point = (qmin - min / scale).round() as i32;
 
         Self { scale, zero_point }
     }

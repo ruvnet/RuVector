@@ -141,6 +141,12 @@ ocr = ["ort", "preprocess"]
 math = []
 optimize = ["memmap2", "rayon"]
 wasm = ["wasm-bindgen", "wasm-bindgen-futures", "js-sys", "web-sys"]
+# Opt-in feature for the heavy integration test suite under tests/integration/.
+# These tests require a `scipix-ocr` binary (not currently built), real OCR
+# models, and large fixture files. Gated off by default so `cargo test
+# --workspace` is green; enable with `--features scipix-integration-tests`
+# to run them once the missing binary and fixtures are in place.
+scipix-integration-tests = []
 
 [[bin]]
 name = "scipix-cli"

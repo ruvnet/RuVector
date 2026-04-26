@@ -87,12 +87,14 @@ fn test_zero_point_fusion() {
     let mut graph = ComputationGraph::new();
 
     let input_id = graph.add_node(NodeType::Input, NodeParams::None);
+    // 2 out channels × 2 weights/channel
+    // (weights_per_channel = kernel_size² × in_channels = 1 × 2 = 2)
     let conv_id = graph.add_node(
         NodeType::Conv2d,
         NodeParams::Conv2d {
             weights: vec![1.0, 2.0, 3.0, 4.0],
             bias: Some(vec![1.0, 2.0]),
-            in_channels: 1,
+            in_channels: 2,
             out_channels: 2,
             kernel_size: 1,
         },
@@ -195,24 +197,28 @@ fn test_hardswish_lut_generation() {
     let zero_point = 0;
     let lut = generate_hardswish_lut(scale, zero_point);
 
-    // Test x = 0: HardSwish(0) = 0
-    let idx_0 = 128; // 0 - 0 + 128
-    assert_eq!(lut[idx_0], 0);
+    // generate_hardswish_lut iterates i in 0..256 with q_input = i as i8,
+    // so the LUT is indexed by `q as u8 as usize` (i.e. wrapping cast):
+    //   q =    0 → idx 0      (x = 0)
+    //   q =   15 → idx 15     (x = 1.5)
+    //   q =  127 → idx 127    (x = 12.7)
+    //   q = -128 → idx 128    (x = -12.8)
+    let lut_idx = |q: i32| -> usize { (q as i8) as u8 as usize };
 
-    // Test x < -3: HardSwish = 0
-    let idx_neg = 0; // -128 → HardSwish = 0
-    assert_eq!(lut[idx_neg], 0);
+    // x = 0 → HardSwish(0) = 0
+    assert_eq!(lut[lut_idx(0 - zero_point)], 0);
 
-    // Test x > 3: HardSwish(x) ≈ x
-    let idx_pos = 255; // 127 → x = 12.7
-    let x_pos = (lut[idx_pos] as i32 - zero_point) as f32 * scale;
-    assert!(x_pos > 10.0); // Should be close to 12.7
+    // x = -12.8 (q = -128, far below -3) → HardSwish = 0
+    assert_eq!(lut[lut_idx(-128 - zero_point)], 0);
 
-    // Test x = 1.5 (middle range)
-    let idx_mid = (15 - zero_point + 128) as usize; // x = 1.5
-    let x_mid = (lut[idx_mid] as i32 - zero_point) as f32 * scale;
+    // x = 12.7 (q = 127, far above 3) → HardSwish(x) ≈ x
+    let x_pos = (lut[lut_idx(127 - zero_point)] as i32 - zero_point) as f32 * scale;
+    assert!(x_pos > 10.0, "expected ~12.7, got {x_pos}");
+
+    // x = 1.5 (q = 15) — middle range
+    let x_mid = (lut[lut_idx(15 - zero_point)] as i32 - zero_point) as f32 * scale;
     // HardSwish(1.5) = 1.5 * ReLU6(4.5) / 6 = 1.5 * 4.5 / 6 = 1.125
-    assert!((x_mid - 1.125).abs() < 0.3);
+    assert!((x_mid - 1.125).abs() < 0.3, "expected ~1.125, got {x_mid}");
 }
 
 #[test]

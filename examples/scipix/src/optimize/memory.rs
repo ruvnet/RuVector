@@ -345,10 +345,13 @@ mod tests {
 
         let mut buf1 = pool.acquire();
         assert_eq!(buf1.capacity(), 1024);
+        // Acquire decremented the pool from 2 → 1.
+        assert_eq!(pool.size(), 1);
         buf1.extend_from_slice(b"test");
 
         drop(buf1);
-        assert_eq!(pool.size(), 3); // Returned to pool
+        // Drop returns the buffer to the pool: 1 → 2.
+        assert_eq!(pool.size(), 2);
     }
 
     #[test]

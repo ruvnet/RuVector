@@ -160,8 +160,10 @@ pub fn simd_threshold(gray: &[u8], thresh: u8, out: &mut [u8]) {
 }
 
 fn scalar_threshold(gray: &[u8], thresh: u8, out: &mut [u8]) {
+    // Use strict greater-than to match the AVX2 path (which uses
+    // _mm256_cmpgt_epi8). Pixels exactly equal to `thresh` map to 0.
     for (g, o) in gray.iter().zip(out.iter_mut()) {
-        *o = if *g >= thresh { 255 } else { 0 };
+        *o = if *g > thresh { 255 } else { 0 };
     }
 }
 

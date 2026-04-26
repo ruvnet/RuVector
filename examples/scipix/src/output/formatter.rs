@@ -389,9 +389,11 @@ mod tests {
 
     #[test]
     fn test_builder() {
+        // FormatterBuilder::new() starts with the default `formats =
+        // [Text]`, so use .formats() to replace (rather than .add_format()
+        // which would append, yielding [Text, Text, LaTeX]).
         let formatter = FormatterBuilder::new()
-            .add_format(OutputFormat::Text)
-            .add_format(OutputFormat::LaTeX)
+            .formats(vec![OutputFormat::Text, OutputFormat::LaTeX])
             .pretty(true)
             .include_confidence(true)
             .build();
