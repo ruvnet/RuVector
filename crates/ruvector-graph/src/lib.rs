@@ -25,6 +25,10 @@ pub mod hybrid;
 #[cfg(feature = "distributed")]
 pub mod distributed;
 
+// Vector-keyed property lookup via RaBitQ codes.
+#[cfg(feature = "rabitq")]
+pub mod vector_property_index;
+
 // Core type re-exports
 pub use edge::{Edge, EdgeBuilder};
 pub use error::{GraphError, Result};
@@ -49,6 +53,10 @@ pub use distributed::{
     Coordinator, Federation, GossipMembership, GraphReplication, GraphShard, RpcClient, RpcServer,
     ShardCoordinator, ShardStrategy,
 };
+
+// Re-export vector-property-index types when the rabitq feature is on.
+#[cfg(feature = "rabitq")]
+pub use vector_property_index::{VectorPropertyIndex, VectorPropertyIndexConfig};
 
 #[cfg(test)]
 mod tests {
