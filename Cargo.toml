@@ -153,6 +153,8 @@ members = [
     "examples/a2a-swarm",
     # ETL pipeline example
     "examples/train-discoveries",
+    # FINGER: fast inference for graph-based ANN (arXiv:2206.11408)
+    "crates/ruvector-finger",
     # Spectral graph sparsification
     "crates/ruvector-sparsifier",
     "crates/ruvector-sparsifier-wasm",

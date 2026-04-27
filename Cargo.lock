@@ -9107,6 +9107,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-finger"
+version = "2.2.0"
+dependencies = [
+ "criterion 0.5.1",
+ "rand 0.8.5",
+ "rand_distr 0.4.3",
+ "rayon",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ruvector-fpga-transformer"
 version = "0.1.0"
 dependencies = [

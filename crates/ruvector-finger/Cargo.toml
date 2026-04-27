@@ -1,0 +1,28 @@
+[package]
+name = "ruvector-finger"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "FINGER: Fast Inference for Graph-based Approximate Nearest Neighbor Search — precomputed residual-basis approximation for O(K) per-neighbor distance skipping"
+
+[[bin]]
+name = "finger-demo"
+path = "src/main.rs"
+
+[[bench]]
+name = "finger_bench"
+harness = false
+
+[dependencies]
+rand = { workspace = true }
+rand_distr = { workspace = true }
+thiserror = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
