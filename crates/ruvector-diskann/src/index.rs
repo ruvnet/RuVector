@@ -420,7 +420,10 @@ mod tests {
 
     fn random_vectors(n: usize, dim: usize) -> Vec<(String, Vec<f32>)> {
         use rand::prelude::*;
-        let mut rng = rand::thread_rng();
+        // Seeded so tests are deterministic across CI runs — random data made
+        // basic-search assertions (nearest of vec-X is vec-X) flake when the
+        // ANN graph traversal happened to land on an unrelated near-duplicate.
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0xD15CA77);
         (0..n)
             .map(|i| {
                 let v: Vec<f32> = (0..dim).map(|_| rng.gen()).collect();
@@ -512,7 +515,7 @@ mod tests {
     fn test_recall_at_10() {
         // Measure recall@10: what fraction of true top-10 neighbors does DiskANN find?
         use rand::prelude::*;
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0xD15CA77);
         let n = 2000;
         let dim = 64;
         let k = 10;
@@ -615,7 +618,7 @@ mod tests {
         // 5000 vectors, 128-dim — should build in under 5 seconds
         use rand::prelude::*;
         use std::time::Instant;
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0xD15CA77);
 
         let n = 5000;
         let dim = 128;
