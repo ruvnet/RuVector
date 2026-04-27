@@ -125,6 +125,21 @@ const program = new Command();
 // Get package version from package.json
 const packageJson = require('../package.json');
 
+// `@ruvector/gnn@0.1.25` has a native-binding regression where every method
+// throws `Given napi value is not an array` regardless of input shape (verified
+// with both Array<Float32Array> and number[][]). Use this helper to print a
+// pointer to the upstream issue when the CLI-side typed-array conversion is
+// already correct.
+function reportGnnBindingError(error) {
+  const msg = error && error.message ? error.message : String(error);
+  console.error(chalk.red(msg));
+  if (msg.includes('Given napi value is not an array') || msg.includes('TypedArray info failed')) {
+    console.error(chalk.yellow('  Note: this is a known regression in the @ruvector/gnn native binding,'));
+    console.error(chalk.yellow('  not in the CLI. Track at:'));
+    console.error(chalk.white('    https://github.com/ruvnet/ruvector/issues/402'));
+  }
+}
+
 // Version and description (lazy load implementation info)
 program
   .name('ruvector')
@@ -758,13 +773,16 @@ gnnCmd
       if (options.test) {
         spinner.start('Running test forward pass...');
 
-        // Create test data
-        const nodeEmbedding = Array.from({ length: inputDim }, () => Math.random());
-        const neighborEmbeddings = [
-          Array.from({ length: inputDim }, () => Math.random()),
-          Array.from({ length: inputDim }, () => Math.random())
-        ];
-        const edgeWeights = [0.6, 0.4];
+        // The @ruvector/gnn binding requires Float32Array — plain number[] surfaces
+        // as `Get TypedArray info failed` from napi-rs.
+        const randVec = (n) => {
+          const v = new Float32Array(n);
+          for (let i = 0; i < n; i++) v[i] = Math.random();
+          return v;
+        };
+        const nodeEmbedding = randVec(inputDim);
+        const neighborEmbeddings = [randVec(inputDim), randVec(inputDim)];
+        const edgeWeights = new Float32Array([0.6, 0.4]);
 
         const output = layer.forward(nodeEmbedding, neighborEmbeddings, edgeWeights);
         spinner.succeed(chalk.green('Forward pass completed'));
@@ -782,7 +800,7 @@ gnnCmd
       }
     } catch (error) {
       spinner.fail(chalk.red('Failed to create GNN layer'));
-      console.error(chalk.red(error.message));
+      reportGnnBindingError(error);
       process.exit(1);
     }
   });
@@ -812,7 +830,9 @@ gnnCmd
       let totalCompressedSize = 0;
 
       for (const embedding of embeddings) {
-        const vec = embedding.vector || embedding;
+        const rawVec = embedding.vector || embedding;
+        // TensorCompress requires Float32Array.
+        const vec = rawVec instanceof Float32Array ? rawVec : new Float32Array(rawVec);
         totalOriginalSize += vec.length * 4; // float32 = 4 bytes
 
         let compressed;
@@ -855,7 +875,7 @@ gnnCmd
       }
     } catch (error) {
       spinner.fail(chalk.red('Failed to compress embeddings'));
-      console.error(chalk.red(error.message));
+      reportGnnBindingError(error);
       process.exit(1);
     }
   });
@@ -875,12 +895,18 @@ gnnCmd
     try {
       const query = JSON.parse(options.query);
       const candidatesData = JSON.parse(fs.readFileSync(options.candidates, 'utf8'));
-      const candidates = candidatesData.map(c => c.vector || c);
+      // @ruvector/gnn's differentiableSearch needs Float32Array everywhere; plain
+      // number[] surfaces as napi-rs `Get TypedArray info failed`.
+      const queryVec = query instanceof Float32Array ? query : new Float32Array(query);
+      const candidates = candidatesData.map((c) => {
+        const v = c.vector || c;
+        return v instanceof Float32Array ? v : new Float32Array(v);
+      });
       const k = parseInt(options.topK);
       const temperature = parseFloat(options.temperature);
 
       spinner.text = 'Running differentiable search...';
-      const result = differentiableSearch(query, candidates, k, temperature);
+      const result = differentiableSearch(queryVec, candidates, k, temperature);
 
       spinner.succeed(chalk.green(`Found top-${k} results`));
 
@@ -889,17 +915,19 @@ gnnCmd
       console.log(chalk.white(`  Candidates:    ${chalk.yellow(candidates.length)}`));
       console.log(chalk.white(`  Temperature:   ${chalk.yellow(temperature)}`));
 
+      // The wrapper exposes `weights`; older native shape used `attention_weights`.
+      const weights = result.weights || result.attention_weights || [];
       console.log(chalk.cyan('\nTop-K Results:'));
       for (let i = 0; i < result.indices.length; i++) {
         const idx = result.indices[i];
-        const weight = result.weights[i];
+        const weight = weights[i];
         const id = candidatesData[idx]?.id || `candidate_${idx}`;
         console.log(chalk.white(`  ${i + 1}. ${chalk.yellow(id)} (index: ${idx})`));
-        console.log(chalk.gray(`     Weight: ${weight.toFixed(6)}`));
+        console.log(chalk.gray(`     Weight: ${weight != null ? weight.toFixed(6) : 'n/a'}`));
       }
     } catch (error) {
       spinner.fail(chalk.red('Failed to run search'));
-      console.error(chalk.red(error.message));
+      reportGnnBindingError(error);
       process.exit(1);
     }
   });
@@ -971,59 +999,60 @@ attentionCmd
     const spinner = ora('Loading keys...').start();
 
     try {
-      const query = JSON.parse(options.query);
+      const queryRaw = JSON.parse(options.query);
       const keysData = JSON.parse(fs.readFileSync(options.keys, 'utf8'));
-      const keys = keysData.map(k => k.vector || k);
+      // The native @ruvector/attention bindings require Float32Array; passing
+      // plain number[] surfaces as napi-rs `Get TypedArray info failed` or
+      // (when dim is read off a missing arg) `... Undefined into rust type u32`.
+      const toF32 = (v) => (v instanceof Float32Array ? v : new Float32Array(v));
+      const query = toF32(queryRaw);
+      const keys = keysData.map((k) => toF32(k.vector || k));
 
       let values = keys;
       if (options.values) {
         const valuesData = JSON.parse(fs.readFileSync(options.values, 'utf8'));
-        values = valuesData.map(v => v.vector || v);
+        values = valuesData.map((v) => toF32(v.vector || v));
       }
+
+      const dim = query.length;
 
       spinner.text = `Computing ${options.type} attention...`;
 
       let result;
       let attentionWeights;
 
+      // The native @ruvector/attention bindings expose `compute(query, keys, values)`
+      // — a flat Float32Array query plus Float32Array[] keys/values, returning a
+      // flat Float32Array. The older CLI invoked `forward([query], keys, values)`,
+      // which doesn't exist on the current binding (issue #402 §B).
       switch (options.type) {
         case 'dot': {
-          const attn = new DotProductAttention();
-          const queryMat = [query];
-          const output = attn.forward(queryMat, keys, values);
-          result = output[0];
-          attentionWeights = attn.getLastWeights ? attn.getLastWeights()[0] : null;
+          const attn = new DotProductAttention(dim);
+          result = attn.compute(query, keys, values);
+          attentionWeights = attn.getLastWeights ? attn.getLastWeights() : null;
           break;
         }
         case 'multi-head': {
           const numHeads = parseInt(options.heads);
           const headDim = parseInt(options.headDim);
-          const attn = new MultiHeadAttention(query.length, numHeads, headDim);
-          const queryMat = [query];
-          const output = attn.forward(queryMat, keys, values);
-          result = output[0];
+          const attn = new MultiHeadAttention(dim, numHeads, headDim);
+          result = attn.compute(query, keys, values);
           break;
         }
         case 'flash': {
-          const attn = new FlashAttention(query.length);
-          const queryMat = [query];
-          const output = attn.forward(queryMat, keys, values);
-          result = output[0];
+          const attn = new FlashAttention(dim);
+          result = attn.compute(query, keys, values);
           break;
         }
         case 'hyperbolic': {
           const curvature = parseFloat(options.curvature);
-          const attn = new HyperbolicAttention(query.length, curvature);
-          const queryMat = [query];
-          const output = attn.forward(queryMat, keys, values);
-          result = output[0];
+          const attn = new HyperbolicAttention(dim, curvature);
+          result = attn.compute(query, keys, values);
           break;
         }
         case 'linear': {
-          const attn = new LinearAttention(query.length);
-          const queryMat = [query];
-          const output = attn.forward(queryMat, keys, values);
-          result = output[0];
+          const attn = new LinearAttention(dim);
+          result = attn.compute(query, keys, values);
           break;
         }
         default:
@@ -2536,13 +2565,15 @@ program
       const spinner = ora('Creating demo database...').start();
 
       try {
-        const db = new VectorDB({ dimensions: 4, metric: 'cosine' });
+        const db = new VectorDB({ dimensions: 4, distanceMetric: 'cosine' });
 
         spinner.text = 'Inserting vectors...';
-        db.insert('vec1', [1.0, 0.0, 0.0, 0.0], { label: 'x-axis' });
-        db.insert('vec2', [0.0, 1.0, 0.0, 0.0], { label: 'y-axis' });
-        db.insert('vec3', [0.0, 0.0, 1.0, 0.0], { label: 'z-axis' });
-        db.insert('vec4', [0.7, 0.7, 0.0, 0.0], { label: 'xy-diagonal' });
+        // VectorDBWrapper.insert takes a single object: { id?, vector, metadata? }.
+        // Wrap to Float32Array so the native binding sees the right typed array.
+        await db.insert({ id: 'vec1', vector: new Float32Array([1.0, 0.0, 0.0, 0.0]), metadata: { label: 'x-axis' } });
+        await db.insert({ id: 'vec2', vector: new Float32Array([0.0, 1.0, 0.0, 0.0]), metadata: { label: 'y-axis' } });
+        await db.insert({ id: 'vec3', vector: new Float32Array([0.0, 0.0, 1.0, 0.0]), metadata: { label: 'z-axis' } });
+        await db.insert({ id: 'vec4', vector: new Float32Array([0.7, 0.7, 0.0, 0.0]), metadata: { label: 'xy-diagonal' } });
 
         spinner.succeed('Demo database created with 4 vectors');
 
@@ -2553,7 +2584,7 @@ program
         console.log(chalk.gray('    vec4: [0.7,0.7,0,0] - xy-diagonal'));
 
         console.log(chalk.cyan('\n  Searching for nearest to [0.8, 0.6, 0, 0]:'));
-        const results = db.search([0.8, 0.6, 0.0, 0.0], 3);
+        const results = await db.search({ vector: new Float32Array([0.8, 0.6, 0.0, 0.0]), k: 3 });
         results.forEach((r, i) => {
           console.log(chalk.gray(`    ${i + 1}. ${r.id} (score: ${r.score.toFixed(4)})`));
         });
@@ -2579,20 +2610,26 @@ program
       try {
         console.log(chalk.cyan('  Running differentiable search with gradients...\n'));
 
-        const queryVec = [1.0, 0.5, 0.3, 0.1];
+        // The native @ruvector/gnn binding expects Float32Array typed arrays.
+        const queryVec = new Float32Array([1.0, 0.5, 0.3, 0.1]);
         const dbVectors = [
-          [1.0, 0.0, 0.0, 0.0],
-          [0.0, 1.0, 0.0, 0.0],
-          [0.5, 0.5, 0.5, 0.5],
-          [0.9, 0.4, 0.2, 0.1]
+          new Float32Array([1.0, 0.0, 0.0, 0.0]),
+          new Float32Array([0.0, 1.0, 0.0, 0.0]),
+          new Float32Array([0.5, 0.5, 0.5, 0.5]),
+          new Float32Array([0.9, 0.4, 0.2, 0.1]),
         ];
 
         const result = differentiableSearch(queryVec, dbVectors, 3, 10.0);
 
-        console.log(chalk.cyan('  Query:'), JSON.stringify(queryVec));
+        // The wrapper returns `{ indices, weights }`; older binding versions
+        // exposed `attention_weights` instead.
+        const weights = result.weights || result.attention_weights || [];
+
+        console.log(chalk.cyan('  Query:'), JSON.stringify(Array.from(queryVec)));
         console.log(chalk.cyan('  Top 3 results:'));
         result.indices.forEach((idx, i) => {
-          console.log(chalk.gray(`    ${i + 1}. Index ${idx} (attention: ${result.attention_weights[i].toFixed(4)})`));
+          const w = weights[i] != null ? weights[i].toFixed(4) : 'n/a';
+          console.log(chalk.gray(`    ${i + 1}. Index ${idx} (attention: ${w})`));
         });
 
         console.log(chalk.cyan('\n  Gradient flow enabled:'), chalk.green('Yes'));
@@ -2600,7 +2637,19 @@ program
 
         console.log(chalk.green('\n  GNN demo complete!'));
       } catch (error) {
-        console.error(chalk.red('GNN demo failed:', error.message));
+        // `@ruvector/gnn@0.1.25`'s native binding has a regression where every
+        // method throws `Given napi value is not an array`, regardless of the
+        // input shape (verified with both Array<Float32Array> and number[][]).
+        // Surface that explicitly so users don't think it's their CLI install.
+        const msg = error && error.message ? error.message : String(error);
+        if (msg.includes('not an array') || msg.includes('TypedArray')) {
+          console.error(chalk.red(`  GNN demo failed: ${msg}`));
+          console.error(chalk.yellow('\n  This looks like a regression in the @ruvector/gnn native binding,'));
+          console.error(chalk.yellow('  not in the CLI. Tracking at:'));
+          console.error(chalk.white('    https://github.com/ruvnet/ruvector/issues/402'));
+        } else {
+          console.error(chalk.red('GNN demo failed:', msg));
+        }
       }
     }
 
@@ -2610,18 +2659,111 @@ program
       let graphNode;
       try {
         graphNode = require('@ruvector/graph-node');
-        console.log(chalk.green('  @ruvector/graph-node is available!'));
-        console.log(chalk.gray('  Full graph demo coming soon.'));
       } catch (e) {
         console.log(chalk.yellow('  @ruvector/graph-node not installed.'));
         console.log(chalk.white('  Install with: npm install @ruvector/graph-node'));
+        console.log('');
+        return;
+      }
+
+      try {
+        // The current binding exposes a `GraphDatabase` class (not Graph /
+        // HyperGraph / RuVectorGraph) with createNode / createEdge / query.
+        const GraphDatabase = graphNode.GraphDatabase;
+        if (typeof GraphDatabase !== 'function') {
+          console.log(chalk.yellow('  @ruvector/graph-node has no GraphDatabase constructor.'));
+          console.log(chalk.gray(`    Available exports: ${Object.keys(graphNode).join(', ')}`));
+          return;
+        }
+
+        const g = new GraphDatabase();
+        console.log(chalk.green('  ✓ GraphDatabase instance created'));
+
+        // createNode / createEdge take a JsNode / JsEdge object (not positional
+        // args) and are async — see @ruvector/graph-node index.d.ts.
+        const aId = await g.createNode({
+          id: 'alice',
+          embedding: new Float32Array([1, 0, 0, 0]),
+          properties: { name: 'Alice', label: 'Person' },
+        });
+        const bId = await g.createNode({
+          id: 'bob',
+          embedding: new Float32Array([0, 1, 0, 0]),
+          properties: { name: 'Bob', label: 'Person' },
+        });
+        console.log(chalk.green(`  ✓ Created nodes: Alice (${aId}), Bob (${bId})`));
+
+        const edgeId = await g.createEdge({
+          from: 'alice',
+          to: 'bob',
+          description: 'KNOWS',
+          embedding: new Float32Array([0.5, 0.5, 0, 0]),
+          confidence: 0.95,
+        });
+        console.log(chalk.green(`  ✓ Created edge Alice -[:KNOWS]-> Bob (${edgeId})`));
+
+        const stats = g.stats();
+        console.log(chalk.gray(`    Stats: ${typeof stats === 'string' ? stats : JSON.stringify(stats)}`));
+
+        console.log(chalk.green('\n  Graph demo complete!'));
+      } catch (error) {
+        // The createNode/createEdge signatures vary across binding versions
+        // (some take (label, propsJson), some take (label, propsObject)).
+        // Print enough context that the user can adapt without guessing.
+        console.error(chalk.red(`  Graph demo failed: ${error.message}`));
+        const G = graphNode && graphNode.GraphDatabase;
+        if (G) {
+          const methods = Object.getOwnPropertyNames(G.prototype || {}).filter((m) => m !== 'constructor');
+          console.error(chalk.gray(`    GraphDatabase prototype: ${methods.join(', ')}`));
+        }
       }
       console.log('');
     }
 
     if (options.benchmark) {
-      console.log(chalk.yellow('  Redirecting to benchmark command...\n'));
-      console.log(chalk.white('  Run: npx ruvector benchmark'));
+      requireRuvector();
+      console.log(chalk.yellow('  Mini Benchmark Demo\n'));
+
+      try {
+        // Note: ruvector-core-linux-x64-gnu@0.1.29 (and current sister binaries)
+        // has a regression where the `dimensions` constructor arg is ignored
+        // and inserts are pinned to dim=4. Tracking at issue #402. Keeping the
+        // demo at dim=4 so it completes; once the binding is rebuilt from
+        // current source, this can scale up.
+        const dim = 4;
+        const n = 1000;
+        const k = 10;
+        const db = new VectorDB({ dimensions: dim, distanceMetric: 'cosine' });
+
+        console.log(chalk.cyan(`  Generating ${n} random ${dim}-dim vectors...`));
+        const t0 = Date.now();
+        const entries = [];
+        for (let i = 0; i < n; i++) {
+          const v = new Float32Array(dim);
+          for (let j = 0; j < dim; j++) v[j] = Math.random();
+          entries.push({ id: `v${i}`, vector: v });
+        }
+        const insertStart = Date.now();
+        for (const entry of entries) await db.insert(entry);
+        const insertMs = Date.now() - insertStart;
+
+        const queryVec = new Float32Array(dim);
+        for (let j = 0; j < dim; j++) queryVec[j] = Math.random();
+
+        const searchStart = Date.now();
+        const iters = 100;
+        for (let i = 0; i < iters; i++) {
+          await db.search({ vector: queryVec, k });
+        }
+        const searchMs = Date.now() - searchStart;
+
+        console.log(chalk.green(`\n  ✓ Inserted ${n} vectors in ${insertMs}ms (${(insertMs / n).toFixed(2)}ms/vec)`));
+        console.log(chalk.green(`  ✓ ${iters}× top-${k} search in ${searchMs}ms (${(searchMs / iters).toFixed(2)}ms/query)`));
+        console.log(chalk.gray(`  Wall time: ${Date.now() - t0}ms`));
+        console.log(chalk.gray('  For deeper benchmarks: npx ruvector benchmark'));
+      } catch (error) {
+        console.error(chalk.red(`  Benchmark demo failed: ${error.message}`));
+      }
       console.log('');
     }
   });

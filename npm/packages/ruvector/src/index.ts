@@ -116,13 +116,50 @@ export function getVersion(): { version: string; implementation: string } {
 }
 
 /**
+ * Normalize a user-friendly distance metric string (`"cosine"`, `"euclidean"`,
+ * etc.) to the PascalCase variant the native `JsDistanceMetric` enum accepts.
+ * Native: { Euclidean, Cosine, DotProduct, Manhattan }.
+ */
+function normalizeMetric(metric: string | undefined): string | undefined {
+  if (!metric) return metric;
+  const m = metric.toLowerCase().replace(/[_\s-]/g, '');
+  switch (m) {
+    case 'cosine':
+      return 'Cosine';
+    case 'euclidean':
+    case 'l2':
+      return 'Euclidean';
+    case 'dot':
+    case 'dotproduct':
+    case 'innerproduct':
+      return 'DotProduct';
+    case 'manhattan':
+    case 'l1':
+      return 'Manhattan';
+    default:
+      return metric; // pass through; native will error with the variant list.
+  }
+}
+
+/**
  * Wrapper class that automatically handles metadata JSON conversion
  */
 class VectorDBWrapper {
   private db: any;
 
-  constructor(options: { dimensions: number; storagePath?: string; distanceMetric?: string; hnswConfig?: any }) {
-    this.db = new implementation.VectorDb(options);
+  constructor(options: { dimensions: number; storagePath?: string; distanceMetric?: string; metric?: string; hnswConfig?: any }) {
+    // Accept both `distanceMetric` (canonical) and `metric` (CLI shorthand).
+    // Normalize to the PascalCase enum variant the native binding expects.
+    const distanceMetric = normalizeMetric(options.distanceMetric ?? (options as any).metric);
+    const nativeOptions: any = {
+      dimensions: options.dimensions,
+      storagePath: options.storagePath,
+      hnswConfig: options.hnswConfig,
+    };
+    if (distanceMetric !== undefined) {
+      nativeOptions.distanceMetric = distanceMetric;
+    }
+    this.db = new implementation.VectorDb(nativeOptions);
   }
 
   /**
