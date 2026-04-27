@@ -1,0 +1,108 @@
+[package]
+name = "connectome-fly"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Connectome-driven embodied brain demonstrator on RuVector (ADR-154). Not consciousness, not upload — graph-native structural analysis on a live LIF simulation."
+license = "MIT"
+
+[lib]
+name = "connectome_fly"
+path = "src/lib.rs"
+
+[[bin]]
+name = "run_demo"
+path = "src/bin/run_demo.rs"
+
+[[bin]]
+name = "ui_server"
+path = "src/bin/ui_server.rs"
+
+[[bin]]
+name = "materialize_fixture"
+path = "src/bin/materialize_fixture.rs"
+
+[features]
+default = ["simd"]
+# SIMD vectorization of the subthreshold LIF loop (V, g_exc, g_inh).
+# Uses the `wide` crate (stable, no nightly). Targets f32x8 on x86_64
+# AVX / AVX2 / AVX-512 capable hosts; falls back to scalar if the host
+# cannot issue the wider ops. See src/lif/simd.rs for the kernel and
+# BENCHMARK.md §4.2 for measured speedups.
+simd = ["dep:wide"]
+# GPU SDPA path. Guarded behind `cudarc` (preferred) with a stub fallback
+# that panics loudly if the feature is toggled on but cudarc cannot be
+# linked against the host CUDA toolkit. See src/analysis/gpu.rs.
+gpu-cuda = ["dep:cudarc"]
+
+[dependencies]
+# RuVector primitives — the whole point of this example
+ruvector-mincut = { path = "../../crates/ruvector-mincut", features = ["exact"] }
+ruvector-sparsifier = { path = "../../crates/ruvector-sparsifier" }
+ruvector-attention = { path = "../../crates/ruvector-attention" }
+
+# Deterministic RNG, distributions, layout
+rand = "0.8"
+rand_distr = "0.4"
+rand_xoshiro = "0.6"
+smallvec = { version = "1.13", features = ["serde"] }
+
+# Serialization (connectome binary format + demo JSON report)
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+bincode = "1.3"
+bytemuck = { version = "1.16", features = ["derive"] }
+thiserror = "1.0"
+
+# FlyWire v783 TSV ingest (connectome::flywire). Column-named streaming
+# parser; sibling ruvector-graph and ruvector-cli already pin 1.3.
+csv = "1.3"
+
+# Gzip decoding for the Princeton FlyWire CSV dump (neurons.csv.gz +
+# connections_princeton.csv.gz). Matches the version pinned by
+# ruvector-cli / ruvector-snapshot.
+flate2 = "1.0"
+
+# Optional — gated by feature flags.
+wide = { version = "0.7", optional = true }
+cudarc = { version = "0.13", optional = true, default-features = false, features = ["cuda-12050", "driver", "std"] }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+tempfile = "3"
+
+[[bench]]
+name = "lif_throughput"
+harness = false
+
+[[bench]]
+name = "motif_search"
+harness = false
+
+[[bench]]
+name = "sim_step"
+harness = false
+
+[[bench]]
+name = "gpu_sdpa"
+harness = false
+required-features = ["gpu-cuda"]
+
+# Opt D — delay-sorted CSR saturated-regime throughput bench (ADR-154
+# §3.2 step 10). Same workload as `lif_throughput.rs::lif_throughput_n_1024`
+# with a third row for the `use_delay_sorted_csr=true` path. Minimal
+# `[[bench]]` registration is required here because Cargo's autodiscovery
+# falls back to the default libtest harness, which conflicts with
+# `criterion_main!`.
+[[bench]]
+name = "delay_csr"
+harness = false
+
+# Opt D paired-sample isolation (post-commit-10). Four arms at N=1024
+# across the {use_optimized, use_delay_sorted_csr} product, all with
+# adaptive detect cadence always on (it lives in `Observer`, not the
+# engine config). The Opt-D-attributable delta in the saturated regime
+# is the median of `wheel-SoA-SIMD+delay-csr` minus `wheel-SoA-SIMD`.
+[[bench]]
+name = "opt_d_isolation"
+harness = false
