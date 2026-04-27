@@ -1,0 +1,26 @@
+[package]
+name = "ruvector-py"
+version = "0.1.0"
+edition = "2021"
+rust-version.workspace = true
+license = "MIT OR Apache-2.0"
+authors.workspace = true
+repository.workspace = true
+description = "Python bindings for ruvector — vector similarity search via RaBitQ 1-bit quantization"
+
+[lib]
+# Must match the maturin `module-name` Python module so the produced
+# cdylib lands as `ruvector/_native.<abi>.so`. See M1 in
+# `docs/sdk/04-milestones.md`.
+name = "ruvector_py"
+crate-type = ["cdylib"]
+
+[dependencies]
+# Pinned to 0.22 across both pyo3 and rust-numpy: the two crates are
+# version-locked and a mismatch produces cryptic linker errors. abi3-py39
+# means one wheel covers Python 3.9..3.13 — see `docs/sdk/02-strategy.md`
+# § "Wheel distribution matrix".
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py39"] }
+numpy = "0.22"
+ruvector-rabitq = { path = "../ruvector-rabitq" }
+thiserror = { workspace = true }

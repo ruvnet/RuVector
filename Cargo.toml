@@ -98,6 +98,8 @@ members = [
     "examples/OSpipe",
     "crates/ruvector-coherence",
     "crates/ruvector-profiler",
+    # Python SDK — M1 (RaBitQ-only). See docs/sdk/04-milestones.md.
+    "crates/ruvector-py",
     "crates/ruvector-attn-mincut",
     "crates/ruvector-cognitive-container",
     "crates/ruvector-verified",
