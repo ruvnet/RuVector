@@ -1619,7 +1619,8 @@ program
       console.log(chalk.white('  cargo add ruvector-raft          # Raft consensus'));
       console.log(chalk.white('  cargo add ruvector-replication   # Data replication'));
       console.log(chalk.white('  cargo add ruvector-tiny-dancer-core  # AI routing'));
-      console.log(chalk.white('  cargo add ruvector-router-core   # Semantic routing'));
+      console.log(chalk.white('  cargo add ruvector-router-core       # Semantic routing (Rust crate)'));
+      console.log(chalk.white('  npm install @ruvector/router         # Semantic routing (npm)'));
       console.log('');
 
       console.log(chalk.yellow('Platform-specific notes:'));
@@ -1737,7 +1738,7 @@ program
 
 program
   .command('router')
-  .description('AI semantic router operations (requires ruvector-router-core)')
+  .description('AI semantic router operations (requires @ruvector/router)')
   .option('--route <text>', 'Route text to best matching intent')
   .option('--intents <file>', 'Load intents from JSON file')
   .option('--add-intent <name>', 'Add new intent')
@@ -1758,8 +1759,9 @@ program
       console.log(chalk.gray('    - Vector-based similarity matching'));
       console.log('');
       console.log(chalk.cyan('  Status:'), chalk.yellow('Coming Soon'));
-      console.log(chalk.gray('  The npm package for router is in development.'));
-      console.log(chalk.gray('  Rust crate available: cargo add ruvector-router-core'));
+      console.log(chalk.gray('  The router subcommand integration is still in development.'));
+      console.log(chalk.gray('  npm package:  npm install @ruvector/router'));
+      console.log(chalk.gray('  Rust crate:   cargo add ruvector-router-core'));
       console.log('');
       console.log(chalk.cyan('  Usage (when available):'));
       console.log(chalk.white('    npx ruvector router --route "What is the weather?"'));
@@ -9119,10 +9121,14 @@ const optimizeCmd = program.command('optimize')
   .action(async (opts) => {
     let optimizerMod;
     try {
+      // Resolve via package.json so it works whether the optimizer ships under
+      // src/optimizer/ or dist/optimizer/.
       optimizerMod = require('../src/optimizer/index.js');
     } catch (e) {
-      console.error(chalk.red('Error: Failed to load optimizer module.'));
-      console.error(chalk.dim(`  ${e.message}`));
+      console.error(chalk.yellow('\n  ruvector optimize: not yet shipped in this release.\n'));
+      console.error(chalk.gray('  The optimizer module (profiles, settings generation) is in development'));
+      console.error(chalk.gray('  and will land in a future release. Track progress at:'));
+      console.error(chalk.white('    https://github.com/ruvnet/ruvector/issues/401\n'));
       process.exit(1);
     }
 

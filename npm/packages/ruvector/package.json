@@ -1,7 +1,7 @@
 {
   "name": "ruvector",
-  "version": "0.2.23",
-  "description": "Self-learning vector database for Node.js \u2014 hybrid search, Graph RAG, FlashAttention-3, HNSW, 50+ attention mechanisms",
+  "version": "0.2.24",
+  "description": "Self-learning vector database for Node.js — hybrid search, Graph RAG, FlashAttention-3, HNSW, 50+ attention mechanisms",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
@@ -9,7 +9,8 @@
   },
   "scripts": {
     "build": "tsc && cp src/core/onnx/pkg/package.json dist/core/onnx/pkg/",
-    "prepublishOnly": "npm run build",
+    "verify-dist": "node scripts/verify-dist.js",
+    "prepublishOnly": "npm run build && npm run verify-dist",
     "test": "node test/integration.js && node test/cli-commands.js"
   },
   "keywords": [
@@ -84,7 +85,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.10.5",
-    "typescript": "^5.3.3"
+    "typescript": "^5.9.3"
   },
   "files": [
     "bin/",
@@ -95,10 +96,10 @@
     "LICENSE"
   ],
   "peerDependencies": {
+    "@ruvector/diskann": ">=0.1.0",
     "@ruvector/pi-brain": ">=0.1.0",
     "@ruvector/router": ">=0.1.0",
-    "@ruvector/ruvllm": ">=2.0.0",
-    "@ruvector/diskann": ">=0.1.0"
+    "@ruvector/ruvllm": ">=2.0.0"
   },
   "peerDependenciesMeta": {
     "@ruvector/pi-brain": {
