@@ -1,0 +1,75 @@
+# Sample GitHub Actions workflow for building ruvector-mcp Windows binaries.
+#
+# This file is NOT used by the Clorch repo itself. It is a template for
+# contributors to upstream into the ruvnet/RuVector repository at
+# `.github/workflows/release-windows.yml`. Once that workflow runs and
+# uploads `ruvector-mcp.exe` to a GitHub Release, Clorch's install.ps1
+# Option B (pre-built release) becomes a one-liner for end users.
+#
+# Why this workflow lives here:
+#   - The upstream RuVector repo has 27 existing workflows but none builds
+#     a Windows binary for ruvector-mcp.
+#   - During Clorch's Windows port (Phase 6), local cross-compile via
+#     cargo-zigbuild on Mac → x86_64-pc-windows-gnu fails because the
+#     ruvector-cli crate's MCP transport calls tokio::io::{stdin,stdout}
+#     without the `io-std` feature flag (workspace tokio is missing it).
+#   - Even the native macOS build of `ruvector-mcp` fails at HEAD with the
+#     same error, suggesting the binary in production was built against an
+#     older revision before this regression. Upstream should add `io-std`.
+#
+# Two upstream changes are needed before this workflow will succeed:
+#   1. Add `io-std` to the workspace tokio features (or to the ruvector-cli
+#      package-level tokio dependency).
+#   2. Tag a release (e.g. `v2.0.4`) to trigger the workflow, OR run via
+#      workflow_dispatch.
+
+name: Release Windows Binary
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build ruvector-mcp (release)
+        run: cargo build --release --bin ruvector-mcp -p ruvector-cli
+
+      - name: Rename binary for release asset
+        shell: pwsh
+        run: |
+          $src = "target/release/ruvector-mcp.exe"
+          $dst = "ruvector-mcp-x86_64-pc-windows-msvc.exe"
+          Copy-Item $src $dst
+          Get-FileHash $dst -Algorithm SHA256 | Format-List
+
+      - name: Upload artifact (workflow_dispatch and tagged builds)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ruvector-mcp-windows-x86_64
+          path: ruvector-mcp-x86_64-pc-windows-msvc.exe
+          retention-days: 30
+
+      - name: Attach to GitHub Release (only on tag push)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ruvector-mcp-x86_64-pc-windows-msvc.exe
+          fail_on_unmatched_files: true
