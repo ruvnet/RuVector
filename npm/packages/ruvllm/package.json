@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/ruvllm",
-  "version": "2.5.4",
+  "version": "2.5.5",
   "description": "Self-learning LLM runtime — TurboQuant KV-cache (6-8x compression), SONA adaptive learning, FlashAttention, speculative decoding, GGUF inference",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -65,11 +65,11 @@
     "ora": "^5.4.1"
   },
   "optionalDependencies": {
-    "@ruvector/ruvllm-linux-x64-gnu": "2.3.0",
-    "@ruvector/ruvllm-linux-arm64-gnu": "2.3.0",
-    "@ruvector/ruvllm-darwin-x64": "2.3.0",
-    "@ruvector/ruvllm-darwin-arm64": "2.3.0",
-    "@ruvector/ruvllm-win32-x64-msvc": "2.3.0"
+    "@ruvector/ruvllm-linux-x64-gnu": "2.0.1",
+    "@ruvector/ruvllm-linux-arm64-gnu": "2.0.1",
+    "@ruvector/ruvllm-darwin-x64": "2.0.1",
+    "@ruvector/ruvllm-darwin-arm64": "2.0.1",
+    "@ruvector/ruvllm-win32-x64-msvc": "2.0.1"
   },
   "keywords": [
     "ruvllm",
