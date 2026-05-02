@@ -96,6 +96,9 @@ pub mod types;
 #[cfg(feature = "real-inference")]
 pub mod inference_real;
 
+#[cfg(feature = "real-inference")]
+pub mod data;
+
 #[cfg(feature = "napi")]
 pub mod napi;
 

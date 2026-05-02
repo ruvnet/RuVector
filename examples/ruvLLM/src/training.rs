@@ -14,7 +14,9 @@ use crate::simd_inference::{
 use ndarray::{Array1, Array2};
 use parking_lot::RwLock;
 use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -731,6 +733,283 @@ pub fn print_benchmark_comparison(results: &[BenchmarkResults]) {
     }
 
     println!("╚════════════════════════════════════════════════════════════════════════════════════════╝");
+}
+
+// ============================================================================
+// P4: Dataset abstraction + checkpoint serialization + baseline perplexity
+// ============================================================================
+
+/// Generic dataset interface so the `Trainer` can consume both the synthetic
+/// `TrainingDataset` and the wiki-derived `TokenizedDataset`.
+pub trait DatasetSource {
+    /// Total number of sequences.
+    fn len(&self) -> usize;
+    /// Whether the source is empty.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    /// Configured sequence length (max).
+    fn seq_length(&self) -> usize;
+    /// Vocabulary size of token IDs in the source.
+    fn vocab_size(&self) -> usize;
+    /// Return (inputs, targets) for the requested sequence indices, using
+    /// the standard next-token shift-by-one convention.
+    fn get_batch(&self, indices: &[usize]) -> (Vec<Vec<u32>>, Vec<Vec<u32>>);
+}
+
+impl DatasetSource for TrainingDataset {
+    fn len(&self) -> usize {
+        TrainingDataset::len(self)
+    }
+    fn seq_length(&self) -> usize {
+        self.seq_length
+    }
+    fn vocab_size(&self) -> usize {
+        self.vocab_size
+    }
+    fn get_batch(&self, indices: &[usize]) -> (Vec<Vec<u32>>, Vec<Vec<u32>>) {
+        TrainingDataset::get_batch(self, indices)
+    }
+}
+
+#[cfg(feature = "real-inference")]
+impl DatasetSource for crate::data::TokenizedDataset {
+    fn len(&self) -> usize {
+        crate::data::TokenizedDataset::len(self)
+    }
+    fn seq_length(&self) -> usize {
+        crate::data::TokenizedDataset::seq_length(self)
+    }
+    fn vocab_size(&self) -> usize {
+        crate::data::TokenizedDataset::vocab_size(self)
+    }
+    fn get_batch(&self, indices: &[usize]) -> (Vec<Vec<u32>>, Vec<Vec<u32>>) {
+        crate::data::TokenizedDataset::get_batch(self, indices)
+    }
+}
+
+/// On-disk checkpoint format. Captures everything needed to reconstruct a
+/// `TrainableModel` and to derive a `Q4Weights` / `SmallTransformer` for
+/// inference (via `TrainableModel::to_q4`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelCheckpoint {
+    /// Format version; bump on breaking change.
+    pub format_version: u32,
+    /// Vocabulary size.
+    pub vocab_size: usize,
+    /// Hidden dim.
+    pub hidden_dim: usize,
+    /// Num layers.
+    pub num_layers: usize,
+    /// Num heads (taken from layer 0).
+    pub num_heads: usize,
+    /// FFN dim (taken from layer 0 `w1.nrows()`).
+    pub ffn_dim: usize,
+    /// Embedding table flattened as (vocab_size * hidden_dim).
+    pub embeddings: Vec<f32>,
+    /// LM head flattened as (vocab_size * hidden_dim).
+    pub lm_head: Vec<f32>,
+    /// Output norm.
+    pub output_norm: Vec<f32>,
+    /// Per-layer weights.
+    pub layers: Vec<LayerCheckpoint>,
+}
+
+/// Per-layer weights as flat f32 vectors.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LayerCheckpoint {
+    /// wq flattened (hidden_dim * hidden_dim).
+    pub wq: Vec<f32>,
+    /// wk flattened.
+    pub wk: Vec<f32>,
+    /// wv flattened.
+    pub wv: Vec<f32>,
+    /// wo flattened.
+    pub wo: Vec<f32>,
+    /// w1 flattened (ffn_dim * hidden_dim).
+    pub w1: Vec<f32>,
+    /// w2 flattened (hidden_dim * ffn_dim).
+    pub w2: Vec<f32>,
+    /// w3 flattened (ffn_dim * hidden_dim).
+    pub w3: Vec<f32>,
+    /// Attention norm weights.
+    pub attn_norm: Vec<f32>,
+    /// FFN norm weights.
+    pub ffn_norm: Vec<f32>,
+}
+
+impl TrainableModel {
+    /// Serialize the model to a binary checkpoint at `path` using bincode.
+    pub fn save_checkpoint(&self, path: &Path) -> std::io::Result<()> {
+        let ckpt = self.to_checkpoint();
+        let cfg = bincode::config::standard();
+        let bytes = bincode::serde::encode_to_vec(&ckpt, cfg).map_err(|e| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, format!("bincode encode: {e}"))
+        })?;
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(path, bytes)?;
+        Ok(())
+    }
+
+    /// Load a model from a binary checkpoint produced by `save_checkpoint`.
+    pub fn load_checkpoint(path: &Path) -> std::io::Result<Self> {
+        let bytes = std::fs::read(path)?;
+        let cfg = bincode::config::standard();
+        let (ckpt, _): (ModelCheckpoint, usize) =
+            bincode::serde::decode_from_slice(&bytes, cfg).map_err(|e| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("bincode decode: {e}"),
+                )
+            })?;
+        Ok(Self::from_checkpoint(ckpt))
+    }
+
+    /// Convert to a serializable checkpoint (deep copy of weights).
+    pub fn to_checkpoint(&self) -> ModelCheckpoint {
+        let num_heads = self.layers.first().map(|l| l.num_heads).unwrap_or(1);
+        let ffn_dim = self
+            .layers
+            .first()
+            .map(|l| l.w1.nrows())
+            .unwrap_or(self.hidden_dim * 4);
+
+        let layers: Vec<LayerCheckpoint> = self
+            .layers
+            .iter()
+            .map(|l| LayerCheckpoint {
+                wq: l.wq.iter().copied().collect(),
+                wk: l.wk.iter().copied().collect(),
+                wv: l.wv.iter().copied().collect(),
+                wo: l.wo.iter().copied().collect(),
+                w1: l.w1.iter().copied().collect(),
+                w2: l.w2.iter().copied().collect(),
+                w3: l.w3.iter().copied().collect(),
+                attn_norm: l.attn_norm.clone(),
+                ffn_norm: l.ffn_norm.clone(),
+            })
+            .collect();
+
+        ModelCheckpoint {
+            format_version: 1,
+            vocab_size: self.vocab_size,
+            hidden_dim: self.hidden_dim,
+            num_layers: self.layers.len(),
+            num_heads,
+            ffn_dim,
+            embeddings: self.embeddings.iter().copied().collect(),
+            lm_head: self.lm_head.iter().copied().collect(),
+            output_norm: self.output_norm.clone(),
+            layers,
+        }
+    }
+
+    /// Reconstruct from a checkpoint.
+    pub fn from_checkpoint(ckpt: ModelCheckpoint) -> Self {
+        let hidden_dim = ckpt.hidden_dim;
+        let vocab_size = ckpt.vocab_size;
+        let ffn_dim = ckpt.ffn_dim;
+        let num_heads = ckpt.num_heads;
+        let head_dim = hidden_dim / num_heads.max(1);
+
+        let embeddings =
+            Array2::from_shape_vec((vocab_size, hidden_dim), ckpt.embeddings).expect("embed shape");
+        let lm_head =
+            Array2::from_shape_vec((vocab_size, hidden_dim), ckpt.lm_head).expect("lm_head shape");
+
+        let layers: Vec<TrainableLayer> = ckpt
+            .layers
+            .into_iter()
+            .map(|lc| TrainableLayer {
+                wq: Array2::from_shape_vec((hidden_dim, hidden_dim), lc.wq).expect("wq shape"),
+                wk: Array2::from_shape_vec((hidden_dim, hidden_dim), lc.wk).expect("wk shape"),
+                wv: Array2::from_shape_vec((hidden_dim, hidden_dim), lc.wv).expect("wv shape"),
+                wo: Array2::from_shape_vec((hidden_dim, hidden_dim), lc.wo).expect("wo shape"),
+                w1: Array2::from_shape_vec((ffn_dim, hidden_dim), lc.w1).expect("w1 shape"),
+                w2: Array2::from_shape_vec((hidden_dim, ffn_dim), lc.w2).expect("w2 shape"),
+                w3: Array2::from_shape_vec((ffn_dim, hidden_dim), lc.w3).expect("w3 shape"),
+                attn_norm: lc.attn_norm,
+                ffn_norm: lc.ffn_norm,
+                hidden_dim,
+                num_heads,
+                head_dim,
+            })
+            .collect();
+
+        Self {
+            embeddings,
+            layers,
+            output_norm: ckpt.output_norm,
+            lm_head,
+            vocab_size,
+            hidden_dim,
+        }
+    }
+
+    /// Build a Q4-quantized `SmallTransformer` from this trained model.
+    /// The shape parameters match, but ruvLLM v1's `SmallTransformer::new_random`
+    /// re-randomizes weights — until the inference module exposes a
+    /// `from_trainable` constructor, this is a structural compatibility hook.
+    /// Trained weights remain available via `to_checkpoint` for downstream tools.
+    pub fn to_q4_weights(&self) -> SmallTransformer {
+        self.to_q4()
+    }
+}
+
+impl Trainer {
+    /// Periodic checkpoint helper. Writes
+    /// `<dir>/checkpoint-step-<N>.bin` if the current step matches the
+    /// configured `checkpoint_interval` (and `dir` is provided).
+    pub fn save_checkpoint_periodic(&self, dir: &Path) -> std::io::Result<Option<PathBuf>> {
+        if self.config.checkpoint_interval == 0 {
+            return Ok(None);
+        }
+        if self.step == 0 || self.step % self.config.checkpoint_interval != 0 {
+            return Ok(None);
+        }
+        let path = dir.join(format!("checkpoint-step-{}.bin", self.step));
+        self.model.save_checkpoint(&path)?;
+        Ok(Some(path))
+    }
+
+    /// Borrow the model under training (read-only).
+    pub fn model(&self) -> &TrainableModel {
+        &self.model
+    }
+}
+
+/// Compute average cross-entropy perplexity on the first `n_samples` sequences
+/// of `dataset`. Used for the random-init baseline AND post-training eval.
+pub fn measure_baseline_perplexity<D: DatasetSource>(
+    model: &TrainableModel,
+    dataset: &D,
+    n_samples: usize,
+) -> f64 {
+    if dataset.is_empty() {
+        return f64::INFINITY;
+    }
+    let take = n_samples.min(dataset.len()).max(1);
+    let indices: Vec<usize> = (0..take).collect();
+    let (inputs, targets) = dataset.get_batch(&indices);
+
+    let mut total = 0.0_f64;
+    let mut count = 0_usize;
+    for (inp, tgt) in inputs.iter().zip(targets.iter()) {
+        if inp.is_empty() || tgt.is_empty() {
+            continue;
+        }
+        let loss = model.compute_loss(inp, tgt);
+        if loss.is_finite() {
+            total += loss * tgt.len() as f64;
+            count += tgt.len();
+        }
+    }
+    if count == 0 {
+        return f64::INFINITY;
+    }
+    (total / count as f64).exp()
 }
 
 #[cfg(test)]

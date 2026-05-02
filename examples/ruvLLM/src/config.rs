@@ -21,6 +21,10 @@ pub struct Config {
     pub inference: InferenceConfig,
     /// Learning configuration
     pub learning: LearningConfig,
+    /// Persistent trajectory sidecar (P1). Optional — when absent the
+    /// in-memory `TrajectoryBuffer` path is used.
+    #[serde(default)]
+    pub trajectory: TrajectoryConfig,
 }
 
 impl Config {
@@ -61,6 +65,26 @@ impl Default for Config {
             router: RouterConfig::default(),
             inference: InferenceConfig::default(),
             learning: LearningConfig::default(),
+            trajectory: TrajectoryConfig::default(),
+        }
+    }
+}
+
+/// Trajectory persistence configuration (P1 sidecar).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrajectoryConfig {
+    /// Path to the SQLite trajectory DB. `None` => use in-memory ArrayQueue
+    /// path only (ESP32 / no_std fallback).
+    pub persist_path: Option<PathBuf>,
+    /// Bounded mpsc channel capacity between producers and the writer thread.
+    pub channel_capacity: usize,
+}
+
+impl Default for TrajectoryConfig {
+    fn default() -> Self {
+        Self {
+            persist_path: None,
+            channel_capacity: 10_000,
         }
     }
 }

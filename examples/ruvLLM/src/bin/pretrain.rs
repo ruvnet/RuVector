@@ -3,12 +3,222 @@
 //! Runs full training pipeline with optimization and benchmarking.
 
 use ruvllm::training::{
-    print_benchmark_comparison, run_benchmark, BenchmarkConfig, TrainableModel, Trainer,
-    TrainingConfig, TrainingDataset,
+    measure_baseline_perplexity, print_benchmark_comparison, run_benchmark, BenchmarkConfig,
+    TrainableModel, Trainer, TrainingConfig, TrainingDataset,
 };
+use std::path::PathBuf;
 use std::time::Instant;
 
+/// Parsed CLI args. Minimal manual parsing — no extra dep.
+struct CliArgs {
+    corpus: Option<PathBuf>,
+    max_articles: Option<usize>,
+    seq_length: usize,
+    epochs: Option<usize>,
+}
+
+impl CliArgs {
+    fn parse() -> Self {
+        let mut corpus = None;
+        let mut max_articles = None;
+        let mut seq_length = 64usize;
+        let mut epochs = None;
+
+        let argv: Vec<String> = std::env::args().collect();
+        let mut i = 1;
+        while i < argv.len() {
+            match argv[i].as_str() {
+                "--corpus" => {
+                    if let Some(v) = argv.get(i + 1) {
+                        corpus = Some(PathBuf::from(v));
+                        i += 2;
+                        continue;
+                    }
+                }
+                "--max-articles" => {
+                    if let Some(v) = argv.get(i + 1) {
+                        max_articles = v.parse::<usize>().ok();
+                        i += 2;
+                        continue;
+                    }
+                }
+                "--seq-length" => {
+                    if let Some(v) = argv.get(i + 1) {
+                        seq_length = v.parse::<usize>().unwrap_or(64);
+                        i += 2;
+                        continue;
+                    }
+                }
+                "--epochs" => {
+                    if let Some(v) = argv.get(i + 1) {
+                        epochs = v.parse::<usize>().ok();
+                        i += 2;
+                        continue;
+                    }
+                }
+                "--help" | "-h" => {
+                    eprintln!(
+                        "Usage: ruvllm-pretrain [--corpus DIR] [--max-articles N] \
+                         [--seq-length N] [--epochs N]\n\
+                         \n\
+                         Without --corpus, runs the synthetic-data benchmark suite (legacy).\n\
+                         With --corpus, runs Wiki pretraining from extracted shards \
+                         (requires --features real-inference)."
+                    );
+                    std::process::exit(0);
+                }
+                _ => {}
+            }
+            i += 1;
+        }
+        Self {
+            corpus,
+            max_articles,
+            seq_length,
+            epochs,
+        }
+    }
+}
+
+#[cfg(feature = "real-inference")]
+fn run_wiki_pretraining(args: &CliArgs) -> std::io::Result<()> {
+    use ruvllm::data::{TokenizedDataset, TokenizerWrapper, WikiCorpus};
+    use std::collections::HashMap;
+
+    let corpus_dir = args.corpus.clone().unwrap();
+    println!("📚 Wiki pretraining mode");
+    println!("   corpus: {}", corpus_dir.display());
+
+    let corpus = WikiCorpus::new(corpus_dir).map_err(|e| {
+        std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("corpus: {e}"))
+    })?;
+    println!("   shards: {}", corpus.shard_count());
+
+    // Tokenizer: try HF Hub bert-base-uncased, fall back to a small offline
+    // whitespace vocab if Hub fetch fails (e.g. offline / sandbox).
+    let tokenizer = match TokenizerWrapper::from_pretrained("bert-base-uncased") {
+        Ok(t) => {
+            println!("   tokenizer: bert-base-uncased (HF Hub)");
+            t
+        }
+        Err(e) => {
+            eprintln!("   tokenizer: hub fetch failed ({e}), using offline fallback");
+            let mut vocab: HashMap<String, u32> = HashMap::new();
+            vocab.insert("[PAD]".into(), 0);
+            vocab.insert("[UNK]".into(), 1);
+            // Build a minimal vocab from the first 4k unique whitespace tokens we see.
+            let mut next_id = 2u32;
+            for (a, article) in corpus.iter_articles().enumerate() {
+                if a >= 200 {
+                    break;
+                }
+                for w in article.split_whitespace() {
+                    if !vocab.contains_key(w) {
+                        vocab.insert(w.to_string(), next_id);
+                        next_id += 1;
+                        if next_id >= 4096 {
+                            break;
+                        }
+                    }
+                }
+                if next_id >= 4096 {
+                    break;
+                }
+            }
+            TokenizerWrapper::from_vocab(vocab).map_err(|e| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!("tokenizer fallback: {e}"),
+                )
+            })?
+        }
+    };
+    let vocab_size = tokenizer.vocab_size();
+    println!("   vocab_size: {vocab_size}");
+
+    let dataset = TokenizedDataset::from_corpus(
+        &corpus,
+        &tokenizer,
+        args.seq_length,
+        args.max_articles,
+    )
+    .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, format!("dataset: {e}")))?;
+    println!(
+        "   sequences: {} ({} tokens each)",
+        dataset.len(),
+        args.seq_length
+    );
+
+    let train_config = TrainingConfig {
+        learning_rate: 3e-4,
+        batch_size: 8,
+        epochs: args.epochs.unwrap_or(1),
+        warmup_steps: 50,
+        grad_clip: 1.0,
+        weight_decay: 0.01,
+        seq_length: args.seq_length,
+        log_interval: 25,
+        checkpoint_interval: 500,
+    };
+
+    // Small model — keeps wiki pretraining tractable on CPU.
+    let hidden_dim = 128;
+    let num_layers = 2;
+    let num_heads = 4;
+    let ffn_dim = 256;
+
+    let model =
+        TrainableModel::new_random(vocab_size, hidden_dim, num_layers, num_heads, ffn_dim);
+    println!(
+        "   model params: {}",
+        format_params(model.num_parameters())
+    );
+
+    let baseline_ppl = measure_baseline_perplexity(&model, &dataset, 32);
+    println!("   random-init baseline perplexity: {:.2}", baseline_ppl);
+
+    let mut trainer = Trainer::new(model, train_config);
+    let _ = trainer.train(&dataset);
+    let trained = trainer.into_model();
+
+    let final_ppl = measure_baseline_perplexity(&trained, &dataset, 32);
+    let delta_pct = if baseline_ppl.is_finite() && baseline_ppl > 0.0 {
+        (baseline_ppl - final_ppl) / baseline_ppl * 100.0
+    } else {
+        0.0
+    };
+    println!(
+        "\nFinal perplexity: {:.2} (vs random-init baseline: {:.2}, delta: {:.1}%)",
+        final_ppl, baseline_ppl, delta_pct
+    );
+
+    let out = PathBuf::from("target/pretrained-wiki.bin");
+    trained.save_checkpoint(&out)?;
+    println!("✓ saved checkpoint: {}", out.display());
+    Ok(())
+}
+
+#[cfg(not(feature = "real-inference"))]
+fn run_wiki_pretraining(_args: &CliArgs) -> std::io::Result<()> {
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "--corpus requires building with --features real-inference",
+    ))
+}
+
 fn main() {
+    let args = CliArgs::parse();
+    if args.corpus.is_some() {
+        if let Err(e) = run_wiki_pretraining(&args) {
+            eprintln!("ERROR: wiki pretraining failed: {e}");
+            std::process::exit(1);
+        }
+        return;
+    }
+    run_synthetic_benchmark();
+}
+
+fn run_synthetic_benchmark() {
     println!("╔═══════════════════════════════════════════════════════════════════════════╗");
     println!("║           RuvLLM Pretraining & Optimization Pipeline                       ║");
     println!("║     SIMD-Optimized Transformer Training & Benchmarking                     ║");

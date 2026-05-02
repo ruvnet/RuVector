@@ -10,6 +10,12 @@ pub mod reasoning_bank;
 pub mod trajectory;
 pub mod types;
 
+#[cfg(feature = "persistence")]
+pub mod persist;
+
+#[cfg(feature = "persistence")]
+pub use persist::{PersistError, PersistentTrajectoryStore, SCHEMA_VERSION};
+
 // Re-export main types
 pub use engine::SonaEngine;
 pub use ewc::{EwcConfig, EwcPlusPlus, TaskFisher};

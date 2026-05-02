@@ -35,6 +35,10 @@ max_context = 8192           # Max context length
 max_loaded_models = 2        # Max concurrent models
 kv_cache_size = 1024         # KV cache entries
 
+# [trajectory]                                                                  # Persistent trajectory sidecar (P1, requires --features persistence)
+# persist_path = "~/Library/Application Support/ruvllm/trajectories.db"          # macOS default; pick a writable XDG_DATA_HOME path on Linux
+# channel_capacity = 10000                                                       # Bounded mpsc queue between producers and writer thread
+
 [learning]
 enabled = true               # Enable self-learning
 quality_threshold = 0.7      # Min quality for writeback

@@ -1,0 +1,18 @@
+# Wiki-corpus pretraining config (Patch P4).
+# Currently advisory — `ruvllm-pretrain --corpus <path>` overrides via CLI.
+
+[corpus]
+path = "./data/simple-wiki/"  # extracted shards from scripts/fetch-simple-wiki.sh
+max_articles = 5000           # v1 pilot — small for fast iteration
+
+[tokenizer]
+model = "bert-base-uncased"
+vocab_size = 32000
+
+[training]
+seq_length = 128
+batch_size = 8
+epochs = 1                    # pilot run
+learning_rate = 3e-4
+checkpoint_dir = "./target/checkpoints"
+checkpoint_interval = 500
