@@ -148,3 +148,10 @@ impl From<serde_json::Error> for Error {
         Error::Serialization(err.to_string())
     }
 }
+
+#[cfg(feature = "real-inference")]
+impl From<candle_core::Error> for Error {
+    fn from(err: candle_core::Error) -> Self {
+        Error::Internal(format!("candle: {err}"))
+    }
+}

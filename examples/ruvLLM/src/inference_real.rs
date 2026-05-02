@@ -236,8 +236,16 @@ mod real {
                 )))
             })?;
 
-            let model_weights = llama::ModelWeights::from_gguf(file, &mut file, &self.device)
-                .map_err(|e| {
+            // candle 0.8 changed the signature to take a parsed gguf Content + Reader.
+            let content =
+                candle_core::quantized::gguf_file::Content::read(&mut file).map_err(|e| {
+                    Error::Inference(InferenceError::InitFailed(format!(
+                        "Failed to parse GGUF: {}",
+                        e
+                    )))
+                })?;
+            let model_weights =
+                llama::ModelWeights::from_gguf(content, &mut file, &self.device).map_err(|e| {
                     Error::Inference(InferenceError::InitFailed(format!(
                         "Failed to load GGUF: {}",
                         e
@@ -365,8 +373,10 @@ mod real {
             let start = Instant::now();
             let small_model = SmallModel::from_model_size(model_size);
 
-            // Load model and tokenizer
-            let model = self.load_model(small_model).await?;
+            // Load model and tokenizer. We deep-clone the ModelWeights out of
+            // the cache because candle's `forward` requires `&mut self`.
+            let model_arc = self.load_model(small_model).await?;
+            let mut model = (*model_arc).clone();
             let tokenizer = self.load_tokenizer(small_model).await?;
 
             // Tokenize input

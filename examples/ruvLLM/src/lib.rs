@@ -97,7 +97,7 @@ pub mod types;
 pub mod inference_real;
 
 #[cfg(feature = "real-inference")]
-pub mod data;
+pub mod corpus;
 
 #[cfg(feature = "napi")]
 pub mod napi;

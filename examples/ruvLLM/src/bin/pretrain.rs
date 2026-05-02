@@ -82,7 +82,7 @@ impl CliArgs {
 
 #[cfg(feature = "real-inference")]
 fn run_wiki_pretraining(args: &CliArgs) -> std::io::Result<()> {
-    use ruvllm::data::{TokenizedDataset, TokenizerWrapper, WikiCorpus};
+    use ruvllm::corpus::{TokenizedDataset, TokenizerWrapper, WikiCorpus};
     use std::collections::HashMap;
 
     let corpus_dir = args.corpus.clone().unwrap();

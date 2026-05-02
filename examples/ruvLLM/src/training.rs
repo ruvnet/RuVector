@@ -504,8 +504,8 @@ impl Trainer {
         }
     }
 
-    /// Train for one epoch
-    pub fn train_epoch(&mut self, dataset: &TrainingDataset, epoch: usize) -> TrainingMetrics {
+    /// Train for one epoch (generic over `DatasetSource`).
+    pub fn train_epoch<D: DatasetSource>(&mut self, dataset: &D, epoch: usize) -> TrainingMetrics {
         let start = Instant::now();
         let mut epoch_loss = 0.0;
         let mut num_tokens = 0;
@@ -565,8 +565,8 @@ impl Trainer {
         metrics
     }
 
-    /// Full training loop
-    pub fn train(&mut self, dataset: &TrainingDataset) -> Vec<TrainingMetrics> {
+    /// Full training loop (generic over `DatasetSource`).
+    pub fn train<D: DatasetSource>(&mut self, dataset: &D) -> Vec<TrainingMetrics> {
         println!("\n╔═══════════════════════════════════════════════════════════════════════════╗");
         println!("║                         PRETRAINING STARTED                               ║");
         println!("╠═══════════════════════════════════════════════════════════════════════════╣");
@@ -579,7 +579,7 @@ impl Trainer {
         println!(
             "║ Dataset: {} sequences, {} seq_length                                 ║",
             dataset.len(),
-            dataset.seq_length
+            dataset.seq_length()
         );
         println!(
             "║ Config: lr={}, batch={}, epochs={}                              ║",
@@ -773,18 +773,18 @@ impl DatasetSource for TrainingDataset {
 }
 
 #[cfg(feature = "real-inference")]
-impl DatasetSource for crate::data::TokenizedDataset {
+impl DatasetSource for crate::corpus::TokenizedDataset {
     fn len(&self) -> usize {
-        crate::data::TokenizedDataset::len(self)
+        crate::corpus::TokenizedDataset::len(self)
     }
     fn seq_length(&self) -> usize {
-        crate::data::TokenizedDataset::seq_length(self)
+        crate::corpus::TokenizedDataset::seq_length(self)
     }
     fn vocab_size(&self) -> usize {
-        crate::data::TokenizedDataset::vocab_size(self)
+        crate::corpus::TokenizedDataset::vocab_size(self)
     }
     fn get_batch(&self, indices: &[usize]) -> (Vec<Vec<u32>>, Vec<Vec<u32>>) {
-        crate::data::TokenizedDataset::get_batch(self, indices)
+        crate::corpus::TokenizedDataset::get_batch(self, indices)
     }
 }
 
