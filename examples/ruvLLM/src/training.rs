@@ -343,6 +343,15 @@ impl TrainableModel {
 
     /// Forward pass for a single token, returns logits
     pub fn forward(&self, token: u32) -> Vec<f32> {
+        let (_normed, logits) = self.forward_with_cache(token);
+        logits
+    }
+
+    /// Forward pass returning the post-norm activation (`normed`) and logits.
+    ///
+    /// `normed` is the LM-head input — required by `Trainer::train_epoch` to
+    /// compute analytical gradients for the output endpoint (P4.1).
+    pub fn forward_with_cache(&self, token: u32) -> (Vec<f32>, Vec<f32>) {
         // Get embedding
         let mut hidden: Vec<f32> = self.embeddings.row(token as usize).to_vec();
 
@@ -355,7 +364,8 @@ impl TrainableModel {
         let normed = SimdOps::rms_norm(&hidden, &self.output_norm, 1e-6);
 
         // LM head to get logits
-        matmul_vec(&self.lm_head, &normed)
+        let logits = matmul_vec(&self.lm_head, &normed);
+        (normed, logits)
     }
 
     /// Compute cross-entropy loss for a sequence
