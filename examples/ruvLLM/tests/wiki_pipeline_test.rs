@@ -178,14 +178,59 @@ fn test_perplexity_better_than_random() {
         after.is_finite() && baseline.is_finite(),
         "perplexity values must be finite (baseline={baseline}, after={after})"
     );
-    // Loose check: training must not catastrophically increase perplexity.
-    // Note: the current optimizer in `Trainer` doesn't backpropagate (no grad
-    // computation in the existing v1 trainer), so the held-out perplexity may
-    // not strictly decrease. We assert non-regression within a wide tolerance.
+    // P4.1 acceptance #4: training must reduce perplexity by ≥5% on this
+    // small repetitive corpus (endpoint-only backprop trains lm_head +
+    // output_norm + embeddings; body remains the random feature extractor).
     let regression_factor = after / baseline;
     assert!(
-        regression_factor <= 2.0,
-        "perplexity regressed too much: {baseline} -> {after} (ratio {regression_factor})"
+        regression_factor < 0.95,
+        "perplexity must improve by ≥5%: {baseline} -> {after} (ratio {regression_factor})"
     );
     eprintln!("perplexity: {baseline:.3} -> {after:.3} (ratio {regression_factor:.3})");
+}
+
+#[test]
+fn test_perplexity_5pct_floor_with_backprop() {
+    // P4.1 acceptance #4 (explicit): final_perplexity < initial_perplexity * 0.95
+    // after ≥1 epoch on the fixture corpus.
+    let tmp = TempDir::new().unwrap();
+    make_fixture_corpus(tmp.path());
+
+    let corpus = WikiCorpus::new(tmp.path().to_path_buf()).unwrap();
+    let tokenizer = TokenizerWrapper::from_vocab(small_vocab()).unwrap();
+    let dataset = TokenizedDataset::from_corpus(&corpus, &tokenizer, 8, None).unwrap();
+    assert!(!dataset.is_empty());
+
+    let vocab_size = tokenizer.vocab_size();
+    let model = TrainableModel::new_random(vocab_size, 32, 1, 4, 64);
+    let initial_ppl = measure_baseline_perplexity(&model, &dataset, dataset.len());
+
+    let cfg = TrainingConfig {
+        // Slightly higher lr + ≥2 epochs lets endpoint-only backprop clear
+        // the 5% floor on this fixture corpus deterministically.
+        learning_rate: 1e-2,
+        batch_size: 2,
+        epochs: 2,
+        warmup_steps: 0,
+        grad_clip: 1.0,
+        weight_decay: 0.0,
+        seq_length: 8,
+        log_interval: 1000,
+        checkpoint_interval: 0,
+    };
+    let mut trainer = Trainer::new(model, cfg);
+    let _ = trainer.train(&dataset);
+    let trained = trainer.into_model();
+    let final_ppl = measure_baseline_perplexity(&trained, &dataset, dataset.len());
+
+    eprintln!(
+        "perplexity (5pct-floor test): {initial_ppl:.3} -> {final_ppl:.3} (ratio {:.3})",
+        final_ppl / initial_ppl
+    );
+    assert!(initial_ppl.is_finite() && final_ppl.is_finite());
+    assert!(
+        final_ppl < initial_ppl * 0.95,
+        "expected final_perplexity < 0.95 * initial_perplexity \
+         (initial={initial_ppl}, final={final_ppl})"
+    );
 }

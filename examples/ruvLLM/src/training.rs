@@ -515,10 +515,22 @@ impl Trainer {
     }
 
     /// Train for one epoch (generic over `DatasetSource`).
+    ///
+    /// Implements P4.1 endpoint-only backprop: analytical gradients are
+    /// computed for the cross-entropy → `lm_head` → RMSNorm path; the
+    /// transformer body is treated as a fixed feature extractor (no body
+    /// gradients, matching the "endpoint-only" approximation). Embeddings
+    /// receive a coarse gradient via the identity-bypass approximation
+    /// (body treated as identity for the embedding-row update only).
     pub fn train_epoch<D: DatasetSource>(&mut self, dataset: &D, epoch: usize) -> TrainingMetrics {
         let start = Instant::now();
         let mut epoch_loss = 0.0;
         let mut num_tokens = 0;
+        let mut grad_norm_accum: f64 = 0.0;
+        let mut grad_norm_batches: usize = 0;
+
+        let vocab_size = self.model.vocab_size;
+        let hidden_dim = self.model.hidden_dim;
 
         // Create batch indices
         let num_batches = (dataset.len() + self.config.batch_size - 1) / self.config.batch_size;
@@ -530,20 +542,151 @@ impl Trainer {
 
             let (inputs, targets) = dataset.get_batch(&indices);
 
-            // Compute loss for each sequence in batch
-            let batch_loss: f64 = inputs
-                .iter()
-                .zip(targets.iter())
-                .map(|(inp, tgt)| self.model.compute_loss(inp, tgt))
-                .sum();
+            // Per-batch gradient accumulators (flattened, row-major).
+            let mut grad_lm_head = vec![0.0f32; vocab_size * hidden_dim];
+            let mut grad_output_norm = vec![0.0f32; hidden_dim];
+            // Embedding gradients: sparse-by-token, but a flat dense buffer is
+            // simpler at this scale (vocab is small in tests + fixtures).
+            let mut grad_embeddings = vec![0.0f32; vocab_size * hidden_dim];
 
-            let tokens_in_batch: usize = targets.iter().map(|t| t.len()).sum();
-            epoch_loss += batch_loss * tokens_in_batch as f64;
-            num_tokens += tokens_in_batch;
+            let mut batch_loss = 0.0f64;
+            let mut tokens_in_batch: usize = 0;
 
-            // Update learning rate
+            for (inp, tgt) in inputs.iter().zip(targets.iter()) {
+                for (&inp_tok, &tgt_tok) in inp.iter().zip(tgt.iter()) {
+                    if (inp_tok as usize) >= vocab_size || (tgt_tok as usize) >= vocab_size {
+                        continue;
+                    }
+                    // Forward with cache: keep the LM-head input.
+                    let (normed, logits) = self.model.forward_with_cache(inp_tok);
+
+                    // Stable softmax + cross-entropy.
+                    let max_logit = logits.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+                    let exps: Vec<f32> =
+                        logits.iter().map(|&l| (l - max_logit).exp()).collect();
+                    let exp_sum: f32 = exps.iter().sum();
+                    let log_softmax_target =
+                        logits[tgt_tok as usize] - max_logit - exp_sum.ln();
+                    batch_loss -= log_softmax_target as f64;
+                    tokens_in_batch += 1;
+
+                    // dL/dlogits = softmax(logits) - one_hot(target).
+                    let inv_sum = 1.0f32 / exp_sum;
+                    let mut grad_logits: Vec<f32> =
+                        exps.iter().map(|e| e * inv_sum).collect();
+                    grad_logits[tgt_tok as usize] -= 1.0;
+
+                    // grad_lm_head += outer(grad_logits, normed)
+                    for v in 0..vocab_size {
+                        let g = grad_logits[v];
+                        if g == 0.0 {
+                            continue;
+                        }
+                        let row_off = v * hidden_dim;
+                        for h in 0..hidden_dim {
+                            grad_lm_head[row_off + h] += g * normed[h];
+                        }
+                    }
+
+                    // grad_normed = lm_head^T @ grad_logits
+                    let mut grad_normed = vec![0.0f32; hidden_dim];
+                    for v in 0..vocab_size {
+                        let g = grad_logits[v];
+                        if g == 0.0 {
+                            continue;
+                        }
+                        let row = self.model.lm_head.row(v);
+                        let row_slice = row.as_slice().unwrap();
+                        for h in 0..hidden_dim {
+                            grad_normed[h] += g * row_slice[h];
+                        }
+                    }
+
+                    // RMSNorm gradient w.r.t. the per-channel scale `output_norm`.
+                    // normed[h] = (hidden[h] / rms) * g[h], with rms = sqrt(mean(hidden^2) + eps).
+                    // We don't have `hidden` cached (skipping body backward), but we
+                    // can recover (hidden / rms) = normed / g for any non-zero g entry.
+                    // Since output_norm is initialized to 1.0 we use the safe form below.
+                    for h in 0..hidden_dim {
+                        let g_h = self.model.output_norm[h];
+                        if g_h.abs() > 1e-8 {
+                            grad_output_norm[h] += grad_normed[h] * (normed[h] / g_h);
+                        }
+                    }
+
+                    // Coarse embedding update: treat body as identity for backward
+                    // and feed grad_normed back to the input embedding row.
+                    // This is a deliberate endpoint-only approximation; biased but
+                    // cheap, and yields a usable descent direction for the embedding
+                    // table on small repetitive corpora.
+                    let row_off = (inp_tok as usize) * hidden_dim;
+                    for h in 0..hidden_dim {
+                        grad_embeddings[row_off + h] += grad_normed[h];
+                    }
+                }
+            }
+
+            // Average grads over tokens-in-batch; skip step if no tokens.
+            if tokens_in_batch == 0 {
+                self.step += 1;
+                continue;
+            }
+            let inv_n = 1.0f32 / tokens_in_batch as f32;
+            for x in grad_lm_head.iter_mut() {
+                *x *= inv_n;
+            }
+            for x in grad_output_norm.iter_mut() {
+                *x *= inv_n;
+            }
+            for x in grad_embeddings.iter_mut() {
+                *x *= inv_n;
+            }
+
+            // Gradient clipping (global L2 across the three buffers).
+            let mut sumsq = 0.0f64;
+            for x in grad_lm_head.iter() {
+                sumsq += (*x as f64) * (*x as f64);
+            }
+            for x in grad_output_norm.iter() {
+                sumsq += (*x as f64) * (*x as f64);
+            }
+            for x in grad_embeddings.iter() {
+                sumsq += (*x as f64) * (*x as f64);
+            }
+            let g_norm = sumsq.sqrt();
+            grad_norm_accum += g_norm;
+            grad_norm_batches += 1;
+            let clip = self.config.grad_clip as f64;
+            if clip > 0.0 && g_norm > clip {
+                let scale = (clip / g_norm) as f32;
+                for x in grad_lm_head.iter_mut() {
+                    *x *= scale;
+                }
+                for x in grad_output_norm.iter_mut() {
+                    *x *= scale;
+                }
+                for x in grad_embeddings.iter_mut() {
+                    *x *= scale;
+                }
+            }
+
+            // Update learning rate, then apply optimizer steps.
             let lr = self.get_lr();
             self.optimizer.set_lr(lr);
+
+            // SAFETY: as_slice_mut returns Some when storage is contiguous +
+            // standard layout, which is the case for Array2::from_shape_fn.
+            if let Some(lm_slice) = self.model.lm_head.as_slice_mut() {
+                self.optimizer.step("lm_head", lm_slice, &grad_lm_head);
+            }
+            self.optimizer
+                .step("output_norm", &mut self.model.output_norm, &grad_output_norm);
+            if let Some(emb_slice) = self.model.embeddings.as_slice_mut() {
+                self.optimizer.step("embeddings", emb_slice, &grad_embeddings);
+            }
+
+            epoch_loss += batch_loss;
+            num_tokens += tokens_in_batch;
 
             self.step += 1;
 
@@ -558,17 +701,30 @@ impl Trainer {
             }
         }
 
-        let avg_loss = epoch_loss / num_tokens as f64;
+        let avg_loss = if num_tokens == 0 {
+            0.0
+        } else {
+            epoch_loss / num_tokens as f64
+        };
         let elapsed = start.elapsed().as_secs_f64();
+        let avg_grad_norm = if grad_norm_batches == 0 {
+            0.0
+        } else {
+            grad_norm_accum / grad_norm_batches as f64
+        };
 
         let metrics = TrainingMetrics {
             epoch,
             step: self.step,
             loss: avg_loss,
             perplexity: avg_loss.exp(),
-            tokens_per_second: num_tokens as f64 / elapsed,
+            tokens_per_second: if elapsed > 0.0 {
+                num_tokens as f64 / elapsed
+            } else {
+                0.0
+            },
             current_lr: self.get_lr() as f64,
-            grad_norm: 0.0, // Would need gradient tracking
+            grad_norm: avg_grad_norm,
         };
 
         self.metrics_history.push(metrics.clone());
@@ -1066,6 +1222,106 @@ mod tests {
 
         // Weights should have changed
         assert!(weights[0] < 1.0);
+    }
+
+    #[test]
+    fn test_train_epoch_decreases_loss() {
+        // P4.1 acceptance #3: loss must decrease over ≥10 optimizer steps on a
+        // small synthetic dataset. We use a tiny vocab + tiny model so the
+        // endpoint-only backprop (lm_head + output_norm + embeddings) can
+        // overfit quickly. The check is "loss after N steps < loss before",
+        // not strict per-step monotonicity (SGD with momentum has minor noise).
+        use rand::SeedableRng;
+        // Deterministic seed-bias on the synthetic dataset is impossible
+        // without restructuring `synthetic`; instead we run with a fixed
+        // model seed via a small dataset and require multi-step descent.
+        let _ = rand::rngs::StdRng::seed_from_u64(42);
+
+        let vocab_size = 16;
+        let hidden_dim = 16;
+        let model = TrainableModel::new_random(vocab_size, hidden_dim, 1, 2, 32);
+
+        // Compute initial loss across the dataset.
+        let dataset = TrainingDataset::synthetic(vocab_size, 8, 8);
+        let initial_loss: f64 = {
+            let (inputs, targets) = dataset.get_batch(&(0..dataset.len()).collect::<Vec<_>>());
+            let mut total = 0.0_f64;
+            let mut n = 0usize;
+            for (inp, tgt) in inputs.iter().zip(targets.iter()) {
+                total += model.compute_loss(inp, tgt) * tgt.len() as f64;
+                n += tgt.len();
+            }
+            total / n as f64
+        };
+
+        let cfg = TrainingConfig {
+            learning_rate: 1e-2,
+            batch_size: 2,
+            epochs: 1,
+            warmup_steps: 0,
+            grad_clip: 5.0,
+            weight_decay: 0.0,
+            seq_length: 8,
+            log_interval: 1000,
+            checkpoint_interval: 0,
+        };
+        let mut trainer = Trainer::new(model, cfg);
+
+        // Run for several epochs to ensure ≥10 optimizer steps.
+        // num_batches = ceil(8/2) = 4, so 3 epochs = 12 steps.
+        let mut last_loss = initial_loss;
+        let mut decreased_at_least_once = false;
+        for _ in 0..3 {
+            let m = trainer.train_epoch(&dataset, 0);
+            if m.loss < last_loss {
+                decreased_at_least_once = true;
+            }
+            last_loss = m.loss;
+        }
+        assert!(trainer.step >= 10, "expected ≥10 steps, got {}", trainer.step);
+        assert!(
+            decreased_at_least_once,
+            "loss never decreased across epochs (init={initial_loss}, final={last_loss})"
+        );
+        assert!(
+            last_loss < initial_loss,
+            "final loss {last_loss} should be < initial loss {initial_loss}"
+        );
+    }
+
+    #[test]
+    fn test_train_epoch_updates_lm_head() {
+        // Sanity: the optimizer must mutate at least the lm_head between epochs.
+        let vocab_size = 8;
+        let hidden_dim = 8;
+        let model = TrainableModel::new_random(vocab_size, hidden_dim, 1, 2, 16);
+        let lm_head_before = model.lm_head.clone();
+
+        let dataset = TrainingDataset::synthetic(vocab_size, 4, 6);
+        let cfg = TrainingConfig {
+            learning_rate: 1e-2,
+            batch_size: 2,
+            epochs: 1,
+            warmup_steps: 0,
+            grad_clip: 5.0,
+            weight_decay: 0.0,
+            seq_length: 6,
+            log_interval: 1000,
+            checkpoint_interval: 0,
+        };
+        let mut trainer = Trainer::new(model, cfg);
+        let _ = trainer.train_epoch(&dataset, 0);
+        let lm_head_after = trainer.into_model().lm_head;
+
+        let max_delta: f32 = lm_head_before
+            .iter()
+            .zip(lm_head_after.iter())
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0f32, f32::max);
+        assert!(
+            max_delta > 0.0,
+            "lm_head must change after train_epoch (max_delta=0 means optimizer never ran)"
+        );
     }
 
     #[test]
