@@ -1108,7 +1108,12 @@ mod tests {
     }
     enum ValidationOutcome {
         Ready { fingerprint: String },
-        NotReady { fingerprint: String },
+        // Iter 255 — `NotReady { fingerprint: String }` was a placeholder
+        // for a not-ready-but-reachable path; no validate_fleet test
+        // currently constructs it (all tests use Ready or Unreachable).
+        // Surfaced by iter-251's allow cleanup. Re-add if a test ever
+        // needs to assert behavior against a worker that responds but
+        // reports `ready: false`.
         Unreachable,
     }
     impl EmbeddingTransport for PerWorkerHealth {
@@ -1127,14 +1132,6 @@ mod tests {
                     device_id: format!("test:{}", w.name),
                     model_fingerprint: fingerprint.clone(),
                     ready: true,
-                    npu_temp_ts0_celsius: None,
-                    npu_temp_ts1_celsius: None,
-                }),
-                Some(ValidationOutcome::NotReady { fingerprint }) => Ok(HealthReport {
-                    version: "test".into(),
-                    device_id: format!("test:{}", w.name),
-                    model_fingerprint: fingerprint.clone(),
-                    ready: false,
                     npu_temp_ts0_celsius: None,
                     npu_temp_ts1_celsius: None,
                 }),

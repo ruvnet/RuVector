@@ -216,9 +216,9 @@ mod tests {
                 probes: AtomicU64::new(0),
             }
         }
-        fn set_ready(&self, b: bool) {
-            self.ready.store(b, Ordering::SeqCst);
-        }
+        // Iter 255 — `set_ready(b)` was scaffolding for a flip-mid-run
+        // test path that never landed. Removed (the iter-251 allow
+        // cleanup surfaced it).
         fn probe_count(&self) -> u64 {
             self.probes.load(Ordering::SeqCst)
         }

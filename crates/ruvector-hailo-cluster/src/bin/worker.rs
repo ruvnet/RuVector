@@ -173,7 +173,7 @@ impl LogTextContent {
                     text.to_string()
                 } else {
                     let mut out: String = text.chars().take(FULL_LOG_CAP).collect();
-                    out.push_str("…");
+                    out.push('…');
                     out
                 }
             }
