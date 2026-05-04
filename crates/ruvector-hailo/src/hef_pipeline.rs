@@ -25,7 +25,6 @@
 // Iter 158 scaffold: several fields are populated by iter-159's
 // open_inner + forward bodies. Dead-code warnings would mask
 // real-progress signals during the EPIC roll-out.
-#![allow(dead_code)]
 
 use crate::device::HailoDevice;
 use crate::error::HailoError;

@@ -15,7 +15,6 @@
 //!      Continuation pieces are prefixed `##`.
 //!   5. Wrap with `[CLS] … [SEP]`, pad/truncate to a fixed `max_seq`.
 
-#![allow(dead_code)]
 
 use crate::error::HailoError;
 use std::collections::HashMap;

@@ -22,7 +22,6 @@
 //!        → L2-normalise to unit vector
 //!        → return Vec<f32; 384>
 
-#![allow(dead_code)]
 
 use crate::device::HailoDevice;
 use crate::error::HailoError;

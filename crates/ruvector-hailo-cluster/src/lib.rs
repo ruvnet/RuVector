@@ -49,7 +49,6 @@
 //! All three share `--workers` / `--workers-file` / `--tailscale-tag`
 //! discovery and `--auto-fingerprint` / `--validate-fleet` safety flags.
 
-#![allow(dead_code)]
 // Iter 75: locks in the doc audit. Future pub additions trigger a
 // warning at build time so docs don't bit-rot back to the iter-73 baseline.
 #![warn(missing_docs)]

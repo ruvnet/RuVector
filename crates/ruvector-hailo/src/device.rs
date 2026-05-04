@@ -11,7 +11,6 @@
 //! configured network group. Configuration changes still need external
 //! serialisation; we provide that via `Mutex` higher up in `lib.rs`.
 
-#![allow(dead_code)]
 
 use crate::error::HailoError;
 #[cfg(feature = "hailo")]
