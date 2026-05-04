@@ -221,6 +221,10 @@ jobs:
               --exclude ruvector-graph-transformer
               --exclude ruvector-domain-expansion
               --exclude ruvector-robotics
+              --exclude hailort-sys
+              --exclude ruvector-hailo
+              --exclude ruvector-mmwave
+              --exclude ruvector-hailo-cluster
     steps:
       - uses: actions/checkout@v4
 
