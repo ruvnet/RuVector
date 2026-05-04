@@ -632,6 +632,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         LogTextContent::parse(&std::env::var("RUVECTOR_LOG_TEXT_CONTENT").unwrap_or_default())?;
     info!(mode = ?log_text_content, "embed text-content audit mode");
 
+    // Iter 248 — surface the NPU pool size operators set via env. The
+    // env var is consumed inside HailoEmbedder::open (iter 235) but
+    // wasn't logged at startup, so an operator who flipped pool=2→4
+    // had no confirmation the new mode took effect short of probing
+    // RSS. Log the parsed value (defaults to 1) alongside the other
+    // iter-180+ tunable knobs so deploy diffs are auditable from the
+    // journal alone.
+    let npu_pool_size: usize = std::env::var("RUVECTOR_NPU_POOL_SIZE")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(1);
+    info!(
+        pool_size = npu_pool_size,
+        "NPU pipeline pool size (iter 235; >=2 enables HefEmbedderPool, see iter-237 deploy default)"
+    );
+
     // ADR-172 §3b iter-104: per-peer rate limiter. None = disabled (back-
     // compat default); Some(_) when RUVECTOR_RATE_LIMIT_RPS > 0. Wrapped
     // in Arc<Option<_>> so the interceptor closure captures cheaply and
