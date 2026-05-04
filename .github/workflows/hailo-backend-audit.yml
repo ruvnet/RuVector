@@ -52,7 +52,10 @@ jobs:
           cargo audit --deny warnings \
               --ignore RUSTSEC-2024-0436 `# paste — unmaintained, transitive via candle` \
               --ignore RUSTSEC-2025-0134 `# rustls-pemfile — transitive via tonic-tls` \
-              --ignore RUSTSEC-2025-0141 `# bincode 1.x — workspace-wide pin via rkyv etc.`
+              --ignore RUSTSEC-2025-0141 `# bincode 1.x — workspace-wide pin via rkyv etc.` \
+              --ignore RUSTSEC-2026-0115 `# imageproc 0.25 — unsound, transitive via ruvector-scipix; outside hailo scope` \
+              --ignore RUSTSEC-2026-0116 `# imageproc 0.25 — unsound, transitive via ruvector-scipix; outside hailo scope` \
+              --ignore RUSTSEC-2026-0117 `# imageproc 0.25 — unsound, transitive via ruvector-scipix; outside hailo scope`
 
   deny:
     name: cargo-deny (license + bans + sources)
