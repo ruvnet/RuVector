@@ -137,6 +137,18 @@ jobs:
       - name: Run doctests
         working-directory: crates/ruvector-hailo-cluster
         run: cargo test --doc
+      # Iter 244 — fast smoke check on the iter-80 dispatch microbench.
+      # `-- --test` runs each bench function exactly once instead of
+      # the criterion default (~100 iterations × warmup), keeping CI
+      # cost <30s while still catching:
+      #   * bench harness panic from a removed dep / API change
+      #   * imports broken by a refactor of the cluster surface
+      #   * a hot-path function getting renamed without updating bench
+      # Doesn't do regression detection on numbers — that requires
+      # baseline-file comparison and is parked for a separate iter.
+      - name: Smoke-test dispatch microbench
+        working-directory: crates/ruvector-hailo-cluster
+        run: cargo bench --bench dispatch -- --test
       # Iter 115/118: shared mmwave parser crate. Tested independently
       # so a regression in the parser fails CI before it can corrupt
       # both the firmware and the host bridge that depend on it.
