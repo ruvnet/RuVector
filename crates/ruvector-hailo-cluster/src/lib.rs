@@ -138,9 +138,10 @@ pub struct FleetMemberState {
 }
 
 /// Cluster coordinator that distributes embed requests across multiple
-/// Pi 5 + Hailo-8 workers. Implements `EmbeddingProvider` (once iteration
-/// 14 brings the path dep on `ruvector-core`) so callers can swap a
-/// single-device `HailoEmbedder` for a fleet without code changes.
+/// Pi 5 + Hailo-8 workers. Implements `EmbeddingProvider` (iter 218
+/// closed ADR-178 Gap B by landing the path dep on `ruvector-core` +
+/// the impl block) so callers can swap a single-device `HailoEmbedder`
+/// for a fleet without code changes.
 pub struct HailoClusterEmbedder {
     /// `Arc` so the background health-checker (when spawned via
     /// `spawn_health_checker`) shares the same pool the dispatcher

@@ -1,8 +1,8 @@
 //! ruvector embedding backend for the Hailo-8 NPU.
 //!
-//! ADR-167 (`hailo-backend` branch). Public surface mirrors
-//! `ruvector_core::embeddings::EmbeddingProvider` exactly so wiring it up
-//! once iteration 3 lands the path dep is a one-line `impl`.
+//! ADR-167 (`hailo-backend` branch). Implements
+//! `ruvector_core::embeddings::EmbeddingProvider` (iter 218 closed
+//! ADR-178 Gap B by landing the path dep + impl block).
 //!
 //! Default build (no `hailo` feature): every API call returns
 //! `Err(HailoError::FeatureDisabled)`. Lets non-Pi machines run
@@ -421,10 +421,13 @@ impl HailoEmbedder {
     }
 }
 
-// SAFETY: HailoEmbedder will own a Mutex<DeviceHandle> once iteration 4
-// lands. The HailoRT C library is documented thread-safe per device handle
-// when accessed under a single configuration; our Mutex wrapper enforces
-// the rest. Send+Sync are required by `EmbeddingProvider`.
+// SAFETY: HailoEmbedder owns `Option<Mutex<HailoDevice>>` (iter 137,
+// see field declaration). The HailoRT C library is documented thread-
+// safe per device handle when accessed under a single configuration;
+// the Mutex wrapper enforces the rest. The HEF backend behind
+// `hef_embedder` (iter 234+) carries its own per-slot Mutex<Inner>,
+// either via the single-pipeline `HefEmbedder` or the multi-pipeline
+// `HefEmbedderPool`. Send+Sync are required by `EmbeddingProvider`.
 unsafe impl Send for HailoEmbedder {}
 unsafe impl Sync for HailoEmbedder {}
 

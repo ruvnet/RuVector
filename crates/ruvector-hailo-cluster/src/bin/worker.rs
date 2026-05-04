@@ -376,10 +376,14 @@ impl Embedding for WorkerService {
         let dim = embedder.dimensions() as u32;
         let (tx, rx) = tokio::sync::mpsc::channel::<Result<EmbedStreamResponse, Status>>(n.max(1));
 
-        // Spawn the embed work — order-preserving sequential issue (the
-        // current HailoEmbedder is single-threaded; later iterations can
-        // pipeline once the NPU is hooked up). `index` field guards the
-        // contract that consumers reorder if needed.
+        // Spawn the embed work — order-preserving sequential issue.
+        // Iter 236 measured that the NPU+PCIe path serializes at the
+        // device level even with HefEmbedderPool > 1, so dispatching
+        // each batch item in parallel won't unlock throughput on this
+        // hardware. `index` field guards the contract that consumers
+        // reorder if needed; concurrent dispatch can land the day we
+        // adopt async vstreams (iter 240+ candidate) or a batch-
+        // compiled HEF.
         tokio::task::spawn(async move {
             for (i, text) in req.texts.into_iter().enumerate() {
                 let start = Instant::now();
