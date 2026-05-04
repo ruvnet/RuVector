@@ -158,7 +158,25 @@ impl LogTextContent {
                 }
                 hex
             }
-            Self::Full => text.to_string(),
+            Self::Full => {
+                // Iter 247 — cap Full mode at 200 chars (truncated on
+                // a char boundary, marker appended). The iter-180
+                // request-byte cap is 64 KB; without this, an
+                // operator who flips RUVECTOR_LOG_TEXT_CONTENT=full
+                // for debugging in prod could push 64 KB × 70 RPS =
+                // 4.5 MB/s into journald — fast journal-disk burn,
+                // and a long single-line log entry that breaks most
+                // ops tooling. 200 chars is plenty to grep / eyeball
+                // correlations against the request_id field.
+                const FULL_LOG_CAP: usize = 200;
+                if text.chars().count() <= FULL_LOG_CAP {
+                    text.to_string()
+                } else {
+                    let mut out: String = text.chars().take(FULL_LOG_CAP).collect();
+                    out.push_str("…");
+                    out
+                }
+            }
         }
     }
 }
@@ -987,5 +1005,44 @@ mod tests {
     #[test]
     fn render_full_passes_through() {
         assert_eq!(LogTextContent::Full.render("payload"), "payload");
+    }
+
+    /// Iter 247 — short Full-mode input is unmodified (cap not hit).
+    #[test]
+    fn render_full_short_unchanged() {
+        let s: String = "x".repeat(199);
+        assert_eq!(LogTextContent::Full.render(&s), s);
+        let s: String = "x".repeat(200);
+        assert_eq!(LogTextContent::Full.render(&s), s);
+    }
+
+    /// Iter 247 — long Full-mode input truncated at the 200-char cap
+    /// with the U+2026 horizontal-ellipsis marker appended.
+    #[test]
+    fn render_full_long_truncated() {
+        let s: String = "x".repeat(1024);
+        let rendered = LogTextContent::Full.render(&s);
+        let chars: Vec<char> = rendered.chars().collect();
+        assert_eq!(chars.len(), 201, "201 chars (200 + ellipsis)");
+        assert!(
+            chars[..200].iter().all(|&c| c == 'x'),
+            "first 200 chars unchanged"
+        );
+        assert_eq!(chars[200], '…', "trailing marker");
+    }
+
+    /// Iter 247 — multi-byte UTF-8 truncates on a char boundary, not a
+    /// byte boundary. Without this, slicing at byte 200 would panic
+    /// mid-codepoint on input dominated by 4-byte glyphs.
+    #[test]
+    fn render_full_truncates_on_char_boundary() {
+        // 300 emoji × 4 bytes = 1.2 KB; cap is 200 chars.
+        let s: String = "🦀".repeat(300);
+        let rendered = LogTextContent::Full.render(&s);
+        let char_count = rendered.chars().count();
+        assert_eq!(char_count, 201, "200 emoji + ellipsis = 201 chars");
+        // `is_char_boundary` is the API contract; this assert documents
+        // that the cut is byte-clean even with multi-byte glyphs.
+        assert!(rendered.is_char_boundary(rendered.len()));
     }
 }
