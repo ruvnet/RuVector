@@ -102,11 +102,15 @@ use crate::hef_embedder::HefEmbedder;
 use std::path::Path;
 use std::sync::Mutex;
 
-/// Default pool size. 4 pipelines is the sweet spot in the SOTA
-/// design space: enough to overlap PCIe write / NPU compute / PCIe
-/// read / host pre-post-processing without exhausting NPU scheduler
-/// resources on the Hailo-8. Iter-235 will sweep 1/2/4/8 to confirm.
-pub const DEFAULT_POOL_SIZE: usize = 4;
+/// Default pool size. **Iter 239 — corrected from 4 to 2.** The iter-234
+/// hypothesis assumed multi-pipeline overlap of PCIe + NPU compute, in
+/// which case pool=4 was the right knee. Iter-236 measurement showed
+/// HailoRT serializes across pipelines at the vdevice level so the
+/// throughput hypothesis was wrong — what's left is a ~23% p50 latency
+/// win at multi-concurrent gRPC load, which saturates at pool=2. Going
+/// higher pays an extra ~55 MB RSS per slot (HailoRT DMA + ring buffers
+/// per network group) for zero additional benefit.
+pub const DEFAULT_POOL_SIZE: usize = 2;
 
 /// N independent NPU pipelines fronted by a Vec<Mutex> with try_lock
 /// dispatch. See module-level docs for design rationale.
