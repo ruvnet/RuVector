@@ -65,6 +65,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut tls_client_cert: Option<String> = None;
     let mut tls_client_key: Option<String> = None;
 
+    // Iter 242 — opt-in coordinator-side LRU cache. The mmwave NL
+    // summaries use four fixed templates ("breathing rate {N} bpm at
+    // radar sensor", "heart rate {N} bpm at radar sensor", "nearest
+    // target distance {N} cm at radar sensor", "{(no )?}person
+    // detected at radar sensor"). The {N} integers live in narrow
+    // physiological ranges (breathing 10-30, heart rate 60-100,
+    // distance 0-500 cm), giving ~200 unique strings total — every
+    // packet beyond the warmup window is a cache hit. Same ADR-172
+    // §2a fingerprint+cache gate as the other bridges.
+    //
+    // I previously argued (iter 240 commit message) that radar
+    // packets are unique per-frame and cache wouldn't help. That
+    // was wrong: the radar payload carries timestamps but the NL
+    // template *discards* them, keying only on the rounded rate /
+    // distance. iter-242 corrects that by exposing the knob.
+    let mut cache_cap: usize = 0;
+
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
@@ -125,6 +142,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "--tls-client-key" => {
                 tls_client_key = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--cache" => {
+                cache_cap = args
+                    .get(i + 1)
+                    .and_then(|s| s.parse().ok())
+                    .ok_or("--cache <N> requires a non-negative integer")?;
                 i += 2;
             }
             "--help" | "-h" => {
@@ -226,10 +250,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             Arc::new(GrpcTransport::new()?)
         };
+        // Iter 242 — same ADR-172 §2a guard as the other bridges:
+        // refuse cache when fingerprint is empty unless explicitly
+        // opted out, so a stale cache can't leak across worker fleets.
+        if cache_cap > 0 && fingerprint.is_empty() && !allow_empty_fingerprint {
+            return Err(
+                "refusing --cache > 0 with empty --fingerprint (ADR-172 §2a); pass \
+                 --fingerprint <hex> or opt out with --allow-empty-fingerprint"
+                    .into(),
+            );
+        }
         let c = HailoClusterEmbedder::new(workers, transport, dim, fingerprint.clone())?;
+        let c = if cache_cap > 0 {
+            c.with_cache(cache_cap)
+        } else {
+            c
+        };
         if !quiet {
+            let cache_msg = if cache_cap > 0 {
+                format!(", cache={}", cache_cap)
+            } else {
+                String::new()
+            };
             eprintln!(
-                "ruvector-mmwave-bridge: cluster sink active — {} worker(s), dim={}, fp={:?}",
+                "ruvector-mmwave-bridge: cluster sink active — {} worker(s), dim={}, fp={:?}{}",
                 csv.split(',').filter(|s| !s.is_empty()).count(),
                 dim,
                 if fingerprint.is_empty() {
@@ -237,6 +281,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 } else {
                     fingerprint.as_str()
                 },
+                cache_msg,
             );
         }
         Some(Arc::new(c))
@@ -588,6 +633,12 @@ OPTIONS:\n    \
     --tls-domain <name>          SNI / cert-SAN to assert. Default: hostname\n                                  of the first --workers entry.\n    \
     --tls-client-cert <path>     PEM client cert for mTLS (ADR-172 §1b).\n                                  Must be paired with --tls-client-key.\n    \
     --tls-client-key <path>      PEM private key matching --tls-client-cert.\n    \
+    --cache <N>                  Coordinator-side LRU cache (default 0=off).\n                                 \
+                                 Iter 242: high hit-rate fit — radar NL\n                                 \
+                                 templates use small-cardinality integers\n                                 \
+                                 so steady-state telemetry hits the cache\n                                 \
+                                 hard. Needs --fingerprint set or\n                                 \
+                                 --allow-empty-fingerprint per ADR-172 \u{00a7}2a.\n    \
     --help                       This message.\n    \
     --version                    Print version.\n\
 \n\
