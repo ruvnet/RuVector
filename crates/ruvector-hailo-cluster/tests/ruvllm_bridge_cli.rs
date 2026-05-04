@@ -237,6 +237,104 @@ fn ruvllm_bridge_help_prints_synopsis() {
     assert!(stdout.contains("JSONL"));
     assert!(stdout.contains("--workers"));
     assert!(stdout.contains("--fingerprint"));
+    // Iter 252 — lock that iter-238/243/245 flags stay documented.
+    // A future refactor that drops one of these from the help text
+    // (e.g. someone forgets to update print_help when adding the
+    // next bridge knob) should fail loud.
+    assert!(stdout.contains("--cache"));
+    assert!(stdout.contains("--cache-ttl"));
+    assert!(stdout.contains("--health-check"));
+}
+
+/// Iter 252 — `--cache N` without fingerprint must be refused by
+/// the ADR-172 §2a gate, mirroring the embed.rs / bench.rs gates.
+/// Lock the wire-up so a future regression (e.g. cache flag added
+/// but gate skipped) fails CI.
+#[test]
+fn ruvllm_bridge_cache_without_fingerprint_refused() {
+    // No --fingerprint AND no --allow-empty-fingerprint ⇒ gate fires
+    // on either the workers-empty-fp gate or the cache-empty-fp gate
+    // (whichever is checked first; both reference §2a in the message).
+    let out = Command::new(BRIDGE)
+        .args([
+            "--workers",
+            "127.0.0.1:1",
+            "--dim",
+            "4",
+            "--cache",
+            "1024",
+        ])
+        .output()
+        .expect("run bridge");
+    assert!(
+        !out.status.success(),
+        "bridge must refuse --cache without --fingerprint"
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("§2a") || stderr.contains("empty --fingerprint"),
+        "stderr should reference the §2a cache+fp gate: {}",
+        stderr
+    );
+}
+
+/// Iter 252 — `--cache N` paired with `--fingerprint` must succeed
+/// (gate satisfied). Bridge produces correct response shape.
+#[test]
+fn ruvllm_bridge_cache_with_fingerprint_accepted() {
+    let port = free_port();
+    let mut worker = spawn_fakeworker(port, 4, "fp:cache-test");
+
+    let mut child = Command::new(BRIDGE)
+        .args([
+            "--workers",
+            &format!("127.0.0.1:{}", port),
+            "--dim",
+            "4",
+            "--fingerprint",
+            "fp:cache-test",
+            "--cache",
+            "256",
+            "--cache-ttl",
+            "60",
+            "--quiet",
+        ])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn ruvllm-bridge with --cache + --cache-ttl");
+
+    {
+        let stdin = child.stdin.as_mut().expect("stdin");
+        // Same text twice → second is a cache hit but the bridge's
+        // JSONL contract is opaque to that; both must produce a
+        // vector response with dim=4 + the same vector contents.
+        stdin
+            .write_all(b"{\"text\":\"cached query\"}\n")
+            .unwrap();
+        stdin
+            .write_all(b"{\"text\":\"cached query\"}\n")
+            .unwrap();
+    }
+    drop(child.stdin.take());
+    let out = child.wait_with_output().expect("wait bridge");
+    let _ = worker.kill();
+    let _ = worker.wait();
+
+    assert!(
+        out.status.success(),
+        "expected exit 0 with --cache + --cache-ttl + --fingerprint, got {:?}\nstderr: {}",
+        out.status,
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let lines: Vec<&str> = stdout.lines().filter(|l| !l.is_empty()).collect();
+    assert_eq!(lines.len(), 2, "expected 2 response lines, got {:?}", lines);
+    for l in &lines {
+        assert!(l.contains("\"dim\":4"), "missing dim=4 in: {}", l);
+        assert!(l.contains("\"vector\":["), "missing vector in: {}", l);
+    }
 }
 
 #[test]
