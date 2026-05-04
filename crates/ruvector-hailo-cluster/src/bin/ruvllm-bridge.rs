@@ -61,6 +61,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut tls_client_cert: Option<String> = None;
     let mut tls_client_key: Option<String> = None;
 
+    // Iter 238 — opt-in coordinator-side LRU cache. Disabled by default.
+    // Real ruvllm RAG flows query the same context repeatedly (system
+    // prompt, tool descriptions, frequently-cited docs) — at full hit
+    // rate the cluster-bench measured 32500× speedup vs the 70 RPS NPU
+    // ceiling because the cache resolves in the bridge process without
+    // a worker round-trip. See iter-238 commit for measurements.
+    let mut cache_cap: usize = 0;
+
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
@@ -98,6 +106,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "--tls-client-key" => {
                 tls_client_key = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--cache" => {
+                cache_cap = args
+                    .get(i + 1)
+                    .and_then(|s| s.parse().ok())
+                    .ok_or("--cache <N> requires a non-negative integer")?;
                 i += 2;
             }
             "--help" | "-h" => {
@@ -173,13 +188,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(GrpcTransport::new()?)
     };
 
-    let cluster = HailoClusterEmbedder::new(workers, transport, dim, fingerprint)?;
+    // Iter 238 — opt-in coordinator-side LRU cache. ADR-172 §2a guard:
+    // refuse cache when fingerprint is empty *unless* the operator has
+    // explicitly opted out of fingerprint enforcement (--allow-empty-
+    // fingerprint), which is the same gate embed.rs / bench.rs already
+    // apply. Without a fingerprint binding, a cache could leak vectors
+    // across worker fleets that don't share the same model.
+    if cache_cap > 0 && fingerprint.is_empty() && !allow_empty_fingerprint {
+        return Err(
+            "refusing --cache > 0 with empty --fingerprint (ADR-172 §2a); pass \
+             --fingerprint <hex> or opt out with --allow-empty-fingerprint"
+                .into(),
+        );
+    }
+    let cluster_inner = HailoClusterEmbedder::new(workers, transport, dim, fingerprint)?;
+    let cluster = if cache_cap > 0 {
+        cluster_inner.with_cache(cache_cap)
+    } else {
+        cluster_inner
+    };
 
     if !quiet {
+        let cache_msg = if cache_cap > 0 {
+            format!(", cache={} entries", cache_cap)
+        } else {
+            String::new()
+        };
         eprintln!(
-            "ruvllm-bridge: cluster sink active — {} worker(s), dim={}",
+            "ruvllm-bridge: cluster sink active — {} worker(s), dim={}{}",
             csv.split(',').filter(|s| !s.is_empty()).count(),
             dim,
+            cache_msg,
         );
         eprintln!("ruvllm-bridge: ready — send JSONL on stdin, EOF to exit");
     }
@@ -363,6 +402,11 @@ OPTIONAL:\n    \
     --tls-domain <name>          SNI / cert-SAN to assert.\n    \
     --tls-client-cert <path>     PEM client cert for mTLS (ADR-172 §1b).\n    \
     --tls-client-key <path>      PEM private key matching client cert.\n    \
+    --cache <N>                  Coordinator-side LRU cache (default 0=off).\n                                 \
+                                 Iter 238: 32500\u{00d7} speedup at full hit rate.\n                                 \
+                                 Recommended for RAG workloads with repeated\n                                 \
+                                 context queries; needs --fingerprint set or\n                                 \
+                                 --allow-empty-fingerprint per ADR-172 \u{00a7}2a.\n    \
     --help                       This message.\n    \
     --version                    Print version.\n",
         env!("CARGO_PKG_NAME"),
