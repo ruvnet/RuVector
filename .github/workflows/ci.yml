@@ -166,6 +166,43 @@ jobs:
               -p prime-radiant
               -p mcp-brain
               -p ruvector-decompiler
+          - name: core-and-rest-wasm
+            # Iter 232 — split out the 29 *-wasm crates from core-and-rest
+            # because the catch-all shard had grown to 115 crates and was
+            # consistently missing the 180min cap (iter-228 + iter-230 +
+            # iter-231 all cancelled at the timeout boundary). The wasm
+            # crates are a natural sub-group: thin bindings on top of host
+            # crates, easy to compile + test in isolation.
+            packages: >-
+              -p neural-trader-wasm
+              -p ruvector-acorn-wasm
+              -p ruvector-attention-unified-wasm
+              -p ruvector-attention-wasm
+              -p ruvector-cnn-wasm
+              -p ruvector-consciousness-wasm
+              -p ruvector-dag-wasm
+              -p ruvector-decompiler-wasm
+              -p ruvector-delta-wasm
+              -p ruvector-domain-expansion-wasm
+              -p ruvector-economy-wasm
+              -p ruvector-exotic-wasm
+              -p ruvector-fpga-transformer-wasm
+              -p ruvector-gnn-wasm
+              -p ruvector-graph-transformer-wasm
+              -p ruvector-graph-wasm
+              -p ruvector-learning-wasm
+              -p ruvector-math-wasm
+              -p ruvector-mincut-gated-transformer-wasm
+              -p ruvector-mincut-wasm
+              -p ruvector-nervous-system-wasm
+              -p ruvector-rabitq-wasm
+              -p ruvector-router-wasm
+              -p ruvector-solver-wasm
+              -p ruvector-sparsifier-wasm
+              -p ruvector-tiny-dancer-wasm
+              -p ruvector-verified-wasm
+              -p ruvector-wasm
+              -p ruvllm-wasm
           - name: core-and-rest
             # Everything else: core, delta, server/cluster, etc.
             # Uses --workspace + --exclude to subtract the groups above so we
@@ -233,6 +270,35 @@ jobs:
               --exclude ruvector-hailo
               --exclude ruvector-mmwave
               --exclude ruvector-hailo-cluster
+              --exclude neural-trader-wasm
+              --exclude ruvector-acorn-wasm
+              --exclude ruvector-attention-unified-wasm
+              --exclude ruvector-attention-wasm
+              --exclude ruvector-cnn-wasm
+              --exclude ruvector-consciousness-wasm
+              --exclude ruvector-dag-wasm
+              --exclude ruvector-decompiler-wasm
+              --exclude ruvector-delta-wasm
+              --exclude ruvector-domain-expansion-wasm
+              --exclude ruvector-economy-wasm
+              --exclude ruvector-exotic-wasm
+              --exclude ruvector-fpga-transformer-wasm
+              --exclude ruvector-gnn-wasm
+              --exclude ruvector-graph-transformer-wasm
+              --exclude ruvector-graph-wasm
+              --exclude ruvector-learning-wasm
+              --exclude ruvector-math-wasm
+              --exclude ruvector-mincut-gated-transformer-wasm
+              --exclude ruvector-mincut-wasm
+              --exclude ruvector-nervous-system-wasm
+              --exclude ruvector-rabitq-wasm
+              --exclude ruvector-router-wasm
+              --exclude ruvector-solver-wasm
+              --exclude ruvector-sparsifier-wasm
+              --exclude ruvector-tiny-dancer-wasm
+              --exclude ruvector-verified-wasm
+              --exclude ruvector-wasm
+              --exclude ruvllm-wasm
     steps:
       - uses: actions/checkout@v4
 
