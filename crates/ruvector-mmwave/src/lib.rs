@@ -62,7 +62,14 @@ pub enum Event {
     Presence { present: bool },
     /// Frame parsed successfully but its `frame_type` isn't in our
     /// table. Keeps the state machine happy without losing observability.
-    Unknown { frame_type: u16, payload_len: u8 },
+    ///
+    /// Iter 249 — `payload_len` widened from `u8` to `u16` to match
+    /// the MR60BHA2 protocol's 2-byte length field. The current
+    /// parser caps payloads at MAX_PAYLOAD=64 so u8 didn't truncate
+    /// in practice, but the type now matches the protocol intent and
+    /// removes the clippy::cast_possible_truncation warning at the
+    /// construction site.
+    Unknown { frame_type: u16, payload_len: u16 },
     /// Header or data checksum mismatch — frame dropped, parser
     /// resyncs at the next 0x01 SOF.
     ChecksumError,
@@ -239,7 +246,11 @@ fn decode_event(frame_type: u16, payload: &[u8]) -> Event {
         },
         _ => Event::Unknown {
             frame_type,
-            payload_len: payload.len() as u8,
+            // Iter 249 — `payload.len()` is bounded by the iter-115
+            // header parser (max 1024 bytes per Seeed protocol).
+            // Cast to u16 instead of u8 so we don't lose the high bit
+            // for legitimately-large unknown frames.
+            payload_len: u16::try_from(payload.len()).unwrap_or(u16::MAX),
         },
     }
 }
@@ -316,6 +327,23 @@ mod tests {
             Event::Unknown {
                 frame_type: 0xBABE,
                 payload_len: 2
+            }
+        );
+    }
+
+    /// Iter 249 — Event::Unknown's payload_len type widened from u8
+    /// to u16. Verify the field reports the correct value for a
+    /// payload at the parser's MAX_PAYLOAD boundary (64 bytes today;
+    /// any future MAX_PAYLOAD bump up to u16::MAX is now type-safe).
+    #[test]
+    fn unknown_event_payload_len_matches_input_size() {
+        let payload = vec![0x00; 60];
+        let f = frame(0xBABE, &payload);
+        assert_eq!(
+            final_event(&f),
+            Event::Unknown {
+                frame_type: 0xBABE,
+                payload_len: 60
             }
         );
     }
