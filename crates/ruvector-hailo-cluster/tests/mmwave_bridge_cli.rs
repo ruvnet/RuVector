@@ -203,6 +203,39 @@ fn bridge_help_prints_synopsis() {
     assert!(stdout.contains("--simulator"));
     assert!(stdout.contains("--workers"));
     assert!(stdout.contains("--fingerprint"));
+    // Iter 253 — lock that iter-242/243/245 flags stay in --help.
+    assert!(stdout.contains("--cache"));
+    assert!(stdout.contains("--cache-ttl"));
+    assert!(stdout.contains("--health-check"));
+}
+
+/// Iter 253 — `--cache N` without fingerprint must be refused per
+/// the ADR-172 §2a gate, mirroring the iter-252 ruvllm-bridge gate
+/// test and iter-253's csi-bridge gate test.
+#[test]
+fn bridge_cache_without_fingerprint_refused() {
+    let out = Command::new(BRIDGE)
+        .args([
+            "--simulator",
+            "--workers",
+            "127.0.0.1:1",
+            "--dim",
+            "4",
+            "--cache",
+            "1024",
+        ])
+        .output()
+        .expect("run bridge");
+    assert!(
+        !out.status.success(),
+        "bridge must refuse --cache without --fingerprint"
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("§2a") || stderr.contains("empty --fingerprint"),
+        "stderr should reference the §2a cache+fp gate: {}",
+        stderr
+    );
 }
 
 #[test]
