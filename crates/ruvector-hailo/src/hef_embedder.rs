@@ -61,10 +61,7 @@ impl HefEmbedder {
     ///   * `model.safetensors`      (HF weights — for the embedding tables)
     ///   * `tokenizer.json`         (HF fast tokenizer)
     ///   * `config.json`            (BERT config — vocab/hidden sizes)
-    pub fn open(
-        device: &HailoDevice,
-        model_dir: &Path,
-    ) -> Result<Self, HailoError> {
+    pub fn open(device: &HailoDevice, model_dir: &Path) -> Result<Self, HailoError> {
         let hef_path = model_dir.join("model.hef");
         let tokenizer_path = model_dir.join("tokenizer.json");
 
@@ -143,11 +140,7 @@ impl HefEmbedder {
             tokenizers::PaddingDirection::Right,
         );
 
-        let input_ids: Vec<i64> = encoding
-            .get_ids()
-            .iter()
-            .map(|&x| x as i64)
-            .collect();
+        let input_ids: Vec<i64> = encoding.get_ids().iter().map(|&x| x as i64).collect();
         let attention_mask: Vec<u32> = encoding.get_attention_mask().to_vec();
 
         if input_ids.len() != self.max_seq || attention_mask.len() != self.max_seq {

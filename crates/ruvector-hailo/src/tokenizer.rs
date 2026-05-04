@@ -46,8 +46,7 @@ impl WordPieceTokenizer {
 
     /// Load from an in-memory `vocab.txt` (one token per line, 0-indexed).
     pub fn from_vocab_str(vocab: &str) -> Result<Self, HailoError> {
-        let id_to_token: Vec<String> =
-            vocab.lines().map(|l| l.to_string()).collect();
+        let id_to_token: Vec<String> = vocab.lines().map(|l| l.to_string()).collect();
         if id_to_token.is_empty() {
             return Err(HailoError::Tokenizer("empty vocab.txt".into()));
         }
@@ -98,7 +97,8 @@ impl WordPieceTokenizer {
             HailoError::BadModelDir {
                 path: path.display().to_string(),
                 what: "vocab.txt (io error: not handled separately)",
-            }.into_or(e)
+            }
+            .into_or(e)
         })?;
         Self::from_vocab_str(&s)
     }
@@ -123,12 +123,7 @@ impl WordPieceTokenizer {
     /// If `pad_to_max_seq` is true, output is padded with `[PAD]` to
     /// exactly `max_seq` tokens — this is what the NPU expects since
     /// the HEF is compiled for a fixed sequence length.
-    pub fn encode(
-        &self,
-        text: &str,
-        max_seq: usize,
-        pad_to_max_seq: bool,
-    ) -> EncodedInput {
+    pub fn encode(&self, text: &str, max_seq: usize, pad_to_max_seq: bool) -> EncodedInput {
         // Iter 130 fix: degenerate `max_seq` values used to produce
         // outputs that violated the `len <= max_seq` invariant. The
         // proptest `output_length_respects_max_seq` flushed it out
@@ -367,7 +362,7 @@ mod tests {
         assert_eq!(enc.input_ids.len(), 8);
         assert_eq!(enc.attention_mask.len(), 8);
         assert_eq!(enc.actual_len, 3); // [CLS] hello [SEP]
-        // First 3 are real, last 5 are PAD with attention 0.
+                                       // First 3 are real, last 5 are PAD with attention 0.
         assert_eq!(enc.input_ids[..3], [101, 104, 102]);
         assert_eq!(&enc.input_ids[3..], &[0, 0, 0, 0, 0]);
         assert_eq!(&enc.attention_mask[3..], &[0, 0, 0, 0, 0]);
@@ -418,13 +413,10 @@ mod tests {
     /// Iter 213 — small vocab still loads correctly.
     #[test]
     fn from_vocab_file_accepts_small_vocab() {
-        let path = std::env::temp_dir().join(format!(
-            "iter213-small-vocab-{}.txt",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("iter213-small-vocab-{}.txt", std::process::id()));
         std::fs::write(&path, mini_vocab()).expect("write fixture");
-        let t = WordPieceTokenizer::from_vocab_file(&path)
-            .expect("small vocab must load");
+        let t = WordPieceTokenizer::from_vocab_file(&path).expect("small vocab must load");
         assert!(t.vocab_size() > 0);
         let _ = std::fs::remove_file(&path);
     }

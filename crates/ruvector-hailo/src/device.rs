@@ -96,8 +96,7 @@ impl HailoDevice {
             // Step 1: enumerate the physical devices behind this vdevice.
             // Pi 5 + AI HAT+ has exactly one (the Hailo-8 over PCIe).
             let mut count: usize = 8;
-            let mut handles: [hailort_sys::hailo_device; 8] =
-                [ptr::null_mut(); 8];
+            let mut handles: [hailort_sys::hailo_device; 8] = [ptr::null_mut(); 8];
             let status = unsafe {
                 hailort_sys::hailo_get_physical_devices(
                     self.handle,
@@ -114,12 +113,8 @@ impl HailoDevice {
                 ts1_temperature: 0.0,
                 sample_count: 0,
             };
-            let status = unsafe {
-                hailort_sys::hailo_get_chip_temperature(
-                    handles[0],
-                    &mut info as *mut _,
-                )
-            };
+            let status =
+                unsafe { hailort_sys::hailo_get_chip_temperature(handles[0], &mut info as *mut _) };
             if status != 0 {
                 return None;
             }

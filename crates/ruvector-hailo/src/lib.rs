@@ -28,7 +28,7 @@ pub mod hef_embedder;
 
 pub use device::HailoDevice;
 pub use error::HailoError;
-pub use inference::{EmbeddingPipeline, l2_normalize, mean_pool, DEFAULT_MAX_SEQ, MINI_LM_DIM};
+pub use inference::{l2_normalize, mean_pool, EmbeddingPipeline, DEFAULT_MAX_SEQ, MINI_LM_DIM};
 pub use tokenizer::{EncodedInput, SpecialIds, WordPieceTokenizer};
 
 #[cfg(feature = "cpu-fallback")]
@@ -237,7 +237,11 @@ impl HailoEmbedder {
             // None when no HAT was present at open time — cpu-fallback
             // path with no NPU. Caller treats this the same as a failed
             // sensor read, which is the correct semantic.
-            let g = self.device.as_ref()?.lock().unwrap_or_else(|p| p.into_inner());
+            let g = self
+                .device
+                .as_ref()?
+                .lock()
+                .unwrap_or_else(|p| p.into_inner());
             g.chip_temperature()
         }
     }

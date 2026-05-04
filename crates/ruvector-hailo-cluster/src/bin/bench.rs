@@ -22,11 +22,11 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
+use ruvector_hailo_cluster::transport::WorkerEndpoint;
 use ruvector_hailo_cluster::{
     Discovery, FileDiscovery, GrpcTransport, HailoClusterEmbedder, StaticDiscovery,
     TailscaleDiscovery,
 };
-use ruvector_hailo_cluster::transport::WorkerEndpoint;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
@@ -86,44 +86,125 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
-            "--workers" => { workers_arg = args.get(i + 1).cloned(); i += 2; }
-            "--workers-file" => { workers_file_arg = args.get(i + 1).cloned(); i += 2; }
-            "--workers-file-sig" => { workers_file_sig = args.get(i + 1).cloned(); i += 2; }
-            "--workers-file-pubkey" => { workers_file_pubkey = args.get(i + 1).cloned(); i += 2; }
-            "--tailscale-tag" => { tag_arg = args.get(i + 1).cloned(); i += 2; }
-            "--port" => { port_arg = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(50051); i += 2; }
-            "--dim" => { dim = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(384); i += 2; }
-            "--concurrency" => { concurrency = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(4); i += 2; }
-            "--duration-secs" => { duration_secs = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(5); i += 2; }
-            "--batch-size" => { batch_size = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(1).max(1); i += 2; }
-            #[cfg(feature = "tls")]
-            "--tls-ca" => { tls_ca = args.get(i + 1).cloned(); i += 2; }
-            #[cfg(feature = "tls")]
-            "--tls-domain" => { tls_domain = args.get(i + 1).cloned(); i += 2; }
-            #[cfg(feature = "tls")]
-            "--tls-client-cert" => { tls_client_cert = args.get(i + 1).cloned(); i += 2; }
-            #[cfg(feature = "tls")]
-            "--tls-client-key" => { tls_client_key = args.get(i + 1).cloned(); i += 2; }
-            "--prom" => { prom_path = args.get(i + 1).cloned(); i += 2; }
-            "--cache" => { cache_cap = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(0); i += 2; }
-            "--cache-ttl" => { cache_ttl_secs = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(0); i += 2; }
-            "--cache-keyspace" => { cache_keyspace = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(0); i += 2; }
-            "--request-id" => { request_id = args.get(i + 1).cloned().unwrap_or_default(); i += 2; }
-            "--quiet" => { quiet = true; i += 1; }
-            "--fingerprint" => { fingerprint = args.get(i + 1).cloned().unwrap_or_default(); i += 2; }
-            "--auto-fingerprint" => { auto_fingerprint = true; i += 1; }
-            "--auto-fingerprint-quorum" => {
-                auto_fingerprint_quorum =
-                    args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(0);
+            "--workers" => {
+                workers_arg = args.get(i + 1).cloned();
                 i += 2;
             }
-            "--allow-empty-fingerprint" => { allow_empty_fingerprint = true; i += 1; }
-            "--validate-fleet" => { validate_fleet = true; i += 1; }
+            "--workers-file" => {
+                workers_file_arg = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--workers-file-sig" => {
+                workers_file_sig = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--workers-file-pubkey" => {
+                workers_file_pubkey = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--tailscale-tag" => {
+                tag_arg = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--port" => {
+                port_arg = args
+                    .get(i + 1)
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(50051);
+                i += 2;
+            }
+            "--dim" => {
+                dim = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(384);
+                i += 2;
+            }
+            "--concurrency" => {
+                concurrency = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(4);
+                i += 2;
+            }
+            "--duration-secs" => {
+                duration_secs = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(5);
+                i += 2;
+            }
+            "--batch-size" => {
+                batch_size = args
+                    .get(i + 1)
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(1)
+                    .max(1);
+                i += 2;
+            }
+            #[cfg(feature = "tls")]
+            "--tls-ca" => {
+                tls_ca = args.get(i + 1).cloned();
+                i += 2;
+            }
+            #[cfg(feature = "tls")]
+            "--tls-domain" => {
+                tls_domain = args.get(i + 1).cloned();
+                i += 2;
+            }
+            #[cfg(feature = "tls")]
+            "--tls-client-cert" => {
+                tls_client_cert = args.get(i + 1).cloned();
+                i += 2;
+            }
+            #[cfg(feature = "tls")]
+            "--tls-client-key" => {
+                tls_client_key = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--prom" => {
+                prom_path = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--cache" => {
+                cache_cap = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(0);
+                i += 2;
+            }
+            "--cache-ttl" => {
+                cache_ttl_secs = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(0);
+                i += 2;
+            }
+            "--cache-keyspace" => {
+                cache_keyspace = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(0);
+                i += 2;
+            }
+            "--request-id" => {
+                request_id = args.get(i + 1).cloned().unwrap_or_default();
+                i += 2;
+            }
+            "--quiet" => {
+                quiet = true;
+                i += 1;
+            }
+            "--fingerprint" => {
+                fingerprint = args.get(i + 1).cloned().unwrap_or_default();
+                i += 2;
+            }
+            "--auto-fingerprint" => {
+                auto_fingerprint = true;
+                i += 1;
+            }
+            "--auto-fingerprint-quorum" => {
+                auto_fingerprint_quorum = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(0);
+                i += 2;
+            }
+            "--allow-empty-fingerprint" => {
+                allow_empty_fingerprint = true;
+                i += 1;
+            }
+            "--validate-fleet" => {
+                validate_fleet = true;
+                i += 1;
+            }
             "--health-check" => {
                 health_check_secs = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(0);
                 i += 2;
             }
-            "--help" | "-h" => { print_help(); return Ok(()); }
+            "--help" | "-h" => {
+                print_help();
+                return Ok(());
+            }
             "--version" | "-V" => {
                 println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
                 return Ok(());
@@ -172,10 +253,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let workers = discovery.discover()?;
-    if workers.is_empty() { return Err("0 workers discovered".into()); }
+    if workers.is_empty() {
+        return Err("0 workers discovered".into());
+    }
     if !quiet {
-        println!("# bench config: workers={} dim={} concurrency={} duration={}s batch_size={}",
-            workers.len(), dim, concurrency, duration_secs, batch_size);
+        println!(
+            "# bench config: workers={} dim={} concurrency={} duration={}s batch_size={}",
+            workers.len(),
+            dim,
+            concurrency,
+            duration_secs,
+            batch_size
+        );
     }
 
     // Trait-object Arc so we can clone-and-share between the
@@ -188,14 +277,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // existing trait-object shape; only the GrpcTransport differs.
     // Partial TLS configs (e.g. cert without key) fail loudly.
     #[cfg(feature = "tls")]
-    let transport: Arc<dyn ruvector_hailo_cluster::transport::EmbeddingTransport + Send + Sync> = {
+    let transport: Arc<
+        dyn ruvector_hailo_cluster::transport::EmbeddingTransport + Send + Sync,
+    > = {
         if let Some(ca_path) = tls_ca.as_deref() {
             // Resolve SNI: explicit --tls-domain wins, otherwise the
             // hostname half of the first worker address. The cluster's
             // worker pool may dial multiple addrs but rustls only
             // checks one SAN per channel; `domain_from_address` strips
             // host:port → host so any sane fleet name works.
-            let addr0 = workers.first().map(|w| w.address.clone()).unwrap_or_default();
+            let addr0 = workers
+                .first()
+                .map(|w| w.address.clone())
+                .unwrap_or_default();
             let domain = tls_domain.clone().unwrap_or_else(|| {
                 ruvector_hailo_cluster::tls::domain_from_address(&addr0).to_string()
             });
@@ -203,7 +297,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .map_err(|e| format!("--tls-ca: {}", e))?;
             match (tls_client_cert.as_deref(), tls_client_key.as_deref()) {
                 (Some(c), Some(k)) => {
-                    tls = tls.with_client_identity(c, k)
+                    tls = tls
+                        .with_client_identity(c, k)
                         .map_err(|e| format!("--tls-client-cert/--tls-client-key: {}", e))?;
                     if !quiet {
                         eprintln!("ruvector-hailo-cluster-bench: mTLS client identity attached");
@@ -211,7 +306,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 (Some(_), None) | (None, Some(_)) => {
                     return Err(
-                        "--tls-client-cert and --tls-client-key must both be set or both unset".into(),
+                        "--tls-client-cert and --tls-client-key must both be set or both unset"
+                            .into(),
                     );
                 }
                 (None, None) => {}
@@ -237,8 +333,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
     #[cfg(not(feature = "tls"))]
-    let transport: Arc<dyn ruvector_hailo_cluster::transport::EmbeddingTransport + Send + Sync> =
-        Arc::new(GrpcTransport::new()?);
+    let transport: Arc<
+        dyn ruvector_hailo_cluster::transport::EmbeddingTransport + Send + Sync,
+    > = Arc::new(GrpcTransport::new()?);
 
     // Auto-discover with quorum (ADR-172 §2b iter 102). Smart default:
     // quorum=2 when fleet has ≥2 workers, quorum=1 for solo dev fleets.
@@ -327,7 +424,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             Err(e) => {
                 // Fail-fast — same exit code as embed for CI consistency.
-                eprintln!("ruvector-hailo-cluster-bench: fleet validation FAILED: {}", e);
+                eprintln!(
+                    "ruvector-hailo-cluster-bench: fleet validation FAILED: {}",
+                    e
+                );
                 std::process::exit(2);
             }
         }
@@ -424,7 +524,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 total_ok.fetch_add(1, Ordering::Relaxed);
                                 samples.push(elapsed_us);
                             }
-                            Err(_) => { total_err.fetch_add(1, Ordering::Relaxed); }
+                            Err(_) => {
+                                total_err.fetch_add(1, Ordering::Relaxed);
+                            }
                         }
                         counter += 1;
                     } else {
@@ -474,14 +576,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     all_samples.sort_unstable();
     let p = |q: f64| {
-        if all_samples.is_empty() { return 0u64; }
+        if all_samples.is_empty() {
+            return 0u64;
+        }
         let idx = ((all_samples.len() as f64) * q) as usize;
         let idx = idx.min(all_samples.len() - 1);
         all_samples[idx]
     };
     let avg_us = if !all_samples.is_empty() {
         all_samples.iter().sum::<u64>() / (all_samples.len() as u64)
-    } else { 0 };
+    } else {
+        0
+    };
     let throughput = (ok as f64) / wall.as_secs_f64();
 
     if !quiet {
@@ -517,7 +623,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             println!(
                 "cache: cap={} size={} hits={} misses={} evictions={} hit_rate={:.3}{}",
-                s.capacity, s.size, s.hits, s.misses, s.evictions,
+                s.capacity,
+                s.size,
+                s.hits,
+                s.misses,
+                s.evictions,
                 s.hit_rate(),
                 ttl_str,
             );
@@ -528,13 +638,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     if let Some(path) = prom_path.as_deref() {
-        write_prom_textfile(path, &BenchSummary {
-            wall, ok, err, throughput, avg_us,
-            min_us: p(0.0), p50_us: p(0.50), p90_us: p(0.90), p99_us: p(0.99), max_us: p(1.0),
-            samples: all_samples.len(),
-            concurrency,
-            cache: cache_stats,
-        })?;
+        write_prom_textfile(
+            path,
+            &BenchSummary {
+                wall,
+                ok,
+                err,
+                throughput,
+                avg_us,
+                min_us: p(0.0),
+                p50_us: p(0.50),
+                p90_us: p(0.90),
+                p99_us: p(0.99),
+                max_us: p(1.0),
+                samples: all_samples.len(),
+                concurrency,
+                cache: cache_stats,
+            },
+        )?;
         if !quiet {
             println!("# wrote prometheus textfile: {}", path);
         }
@@ -573,48 +694,148 @@ fn write_prom_textfile(path: &str, s: &BenchSummary) -> std::io::Result<()> {
     let tmp = format!("{}.tmp", path);
     let mut f = std::fs::File::create(&tmp)?;
     let labels = format!("concurrency=\"{}\"", s.concurrency);
-    writeln!(f, "# HELP ruvector_hailo_bench_wall_seconds Wall-clock duration of the benchmark run.")?;
+    writeln!(
+        f,
+        "# HELP ruvector_hailo_bench_wall_seconds Wall-clock duration of the benchmark run."
+    )?;
     writeln!(f, "# TYPE ruvector_hailo_bench_wall_seconds gauge")?;
-    writeln!(f, "ruvector_hailo_bench_wall_seconds{{{}}} {:.3}", labels, s.wall.as_secs_f64())?;
-    writeln!(f, "# HELP ruvector_hailo_bench_requests_total Total embed requests issued.")?;
+    writeln!(
+        f,
+        "ruvector_hailo_bench_wall_seconds{{{}}} {:.3}",
+        labels,
+        s.wall.as_secs_f64()
+    )?;
+    writeln!(
+        f,
+        "# HELP ruvector_hailo_bench_requests_total Total embed requests issued."
+    )?;
     writeln!(f, "# TYPE ruvector_hailo_bench_requests_total counter")?;
-    writeln!(f, "ruvector_hailo_bench_requests_total{{{},outcome=\"ok\"}} {}", labels, s.ok)?;
-    writeln!(f, "ruvector_hailo_bench_requests_total{{{},outcome=\"err\"}} {}", labels, s.err)?;
-    writeln!(f, "# HELP ruvector_hailo_bench_throughput_per_second Successful embeds per wall-second.")?;
+    writeln!(
+        f,
+        "ruvector_hailo_bench_requests_total{{{},outcome=\"ok\"}} {}",
+        labels, s.ok
+    )?;
+    writeln!(
+        f,
+        "ruvector_hailo_bench_requests_total{{{},outcome=\"err\"}} {}",
+        labels, s.err
+    )?;
+    writeln!(
+        f,
+        "# HELP ruvector_hailo_bench_throughput_per_second Successful embeds per wall-second."
+    )?;
     writeln!(f, "# TYPE ruvector_hailo_bench_throughput_per_second gauge")?;
-    writeln!(f, "ruvector_hailo_bench_throughput_per_second{{{}}} {:.3}", labels, s.throughput)?;
+    writeln!(
+        f,
+        "ruvector_hailo_bench_throughput_per_second{{{}}} {:.3}",
+        labels, s.throughput
+    )?;
     writeln!(f, "# HELP ruvector_hailo_bench_latency_microseconds End-to-end embed latency observed by the bench client.")?;
     writeln!(f, "# TYPE ruvector_hailo_bench_latency_microseconds gauge")?;
-    writeln!(f, "ruvector_hailo_bench_latency_microseconds{{{},quantile=\"0\"}} {}", labels, s.min_us)?;
-    writeln!(f, "ruvector_hailo_bench_latency_microseconds{{{},quantile=\"0.5\"}} {}", labels, s.p50_us)?;
-    writeln!(f, "ruvector_hailo_bench_latency_microseconds{{{},quantile=\"0.9\"}} {}", labels, s.p90_us)?;
-    writeln!(f, "ruvector_hailo_bench_latency_microseconds{{{},quantile=\"0.99\"}} {}", labels, s.p99_us)?;
-    writeln!(f, "ruvector_hailo_bench_latency_microseconds{{{},quantile=\"1\"}} {}", labels, s.max_us)?;
-    writeln!(f, "# HELP ruvector_hailo_bench_latency_avg_microseconds Mean observed embed latency.")?;
-    writeln!(f, "# TYPE ruvector_hailo_bench_latency_avg_microseconds gauge")?;
-    writeln!(f, "ruvector_hailo_bench_latency_avg_microseconds{{{}}} {}", labels, s.avg_us)?;
-    writeln!(f, "# HELP ruvector_hailo_bench_samples Latency samples collected during the run.")?;
+    writeln!(
+        f,
+        "ruvector_hailo_bench_latency_microseconds{{{},quantile=\"0\"}} {}",
+        labels, s.min_us
+    )?;
+    writeln!(
+        f,
+        "ruvector_hailo_bench_latency_microseconds{{{},quantile=\"0.5\"}} {}",
+        labels, s.p50_us
+    )?;
+    writeln!(
+        f,
+        "ruvector_hailo_bench_latency_microseconds{{{},quantile=\"0.9\"}} {}",
+        labels, s.p90_us
+    )?;
+    writeln!(
+        f,
+        "ruvector_hailo_bench_latency_microseconds{{{},quantile=\"0.99\"}} {}",
+        labels, s.p99_us
+    )?;
+    writeln!(
+        f,
+        "ruvector_hailo_bench_latency_microseconds{{{},quantile=\"1\"}} {}",
+        labels, s.max_us
+    )?;
+    writeln!(
+        f,
+        "# HELP ruvector_hailo_bench_latency_avg_microseconds Mean observed embed latency."
+    )?;
+    writeln!(
+        f,
+        "# TYPE ruvector_hailo_bench_latency_avg_microseconds gauge"
+    )?;
+    writeln!(
+        f,
+        "ruvector_hailo_bench_latency_avg_microseconds{{{}}} {}",
+        labels, s.avg_us
+    )?;
+    writeln!(
+        f,
+        "# HELP ruvector_hailo_bench_samples Latency samples collected during the run."
+    )?;
     writeln!(f, "# TYPE ruvector_hailo_bench_samples gauge")?;
-    writeln!(f, "ruvector_hailo_bench_samples{{{}}} {}", labels, s.samples)?;
+    writeln!(
+        f,
+        "ruvector_hailo_bench_samples{{{}}} {}",
+        labels, s.samples
+    )?;
     if let Some(c) = &s.cache {
-        writeln!(f, "# HELP ruvector_hailo_bench_cache_hits_total Cache hits during the bench run.")?;
+        writeln!(
+            f,
+            "# HELP ruvector_hailo_bench_cache_hits_total Cache hits during the bench run."
+        )?;
         writeln!(f, "# TYPE ruvector_hailo_bench_cache_hits_total counter")?;
-        writeln!(f, "ruvector_hailo_bench_cache_hits_total{{{}}} {}", labels, c.hits)?;
-        writeln!(f, "# HELP ruvector_hailo_bench_cache_misses_total Cache misses during the bench run.")?;
+        writeln!(
+            f,
+            "ruvector_hailo_bench_cache_hits_total{{{}}} {}",
+            labels, c.hits
+        )?;
+        writeln!(
+            f,
+            "# HELP ruvector_hailo_bench_cache_misses_total Cache misses during the bench run."
+        )?;
         writeln!(f, "# TYPE ruvector_hailo_bench_cache_misses_total counter")?;
-        writeln!(f, "ruvector_hailo_bench_cache_misses_total{{{}}} {}", labels, c.misses)?;
+        writeln!(
+            f,
+            "ruvector_hailo_bench_cache_misses_total{{{}}} {}",
+            labels, c.misses
+        )?;
         writeln!(f, "# HELP ruvector_hailo_bench_cache_evictions_total Cache evictions during the bench run.")?;
-        writeln!(f, "# TYPE ruvector_hailo_bench_cache_evictions_total counter")?;
-        writeln!(f, "ruvector_hailo_bench_cache_evictions_total{{{}}} {}", labels, c.evictions)?;
-        writeln!(f, "# HELP ruvector_hailo_bench_cache_size Final cache size at end of run.")?;
+        writeln!(
+            f,
+            "# TYPE ruvector_hailo_bench_cache_evictions_total counter"
+        )?;
+        writeln!(
+            f,
+            "ruvector_hailo_bench_cache_evictions_total{{{}}} {}",
+            labels, c.evictions
+        )?;
+        writeln!(
+            f,
+            "# HELP ruvector_hailo_bench_cache_size Final cache size at end of run."
+        )?;
         writeln!(f, "# TYPE ruvector_hailo_bench_cache_size gauge")?;
-        writeln!(f, "ruvector_hailo_bench_cache_size{{{}}} {}", labels, c.size)?;
-        writeln!(f, "# HELP ruvector_hailo_bench_cache_hit_rate Hits / (hits + misses); 0 if no requests.")?;
+        writeln!(
+            f,
+            "ruvector_hailo_bench_cache_size{{{}}} {}",
+            labels, c.size
+        )?;
+        writeln!(
+            f,
+            "# HELP ruvector_hailo_bench_cache_hit_rate Hits / (hits + misses); 0 if no requests."
+        )?;
         writeln!(f, "# TYPE ruvector_hailo_bench_cache_hit_rate gauge")?;
         let hit_rate = if c.hits + c.misses > 0 {
             (c.hits as f64) / ((c.hits + c.misses) as f64)
-        } else { 0.0 };
-        writeln!(f, "ruvector_hailo_bench_cache_hit_rate{{{}}} {:.4}", labels, hit_rate)?;
+        } else {
+            0.0
+        };
+        writeln!(
+            f,
+            "ruvector_hailo_bench_cache_hit_rate{{{}}} {:.4}",
+            labels, hit_rate
+        )?;
     }
     f.sync_all()?;
     drop(f);

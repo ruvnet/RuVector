@@ -28,17 +28,11 @@ pub enum HailoError {
     /// HailoRT C library returned a non-success status. The numeric code
     /// matches the `hailo_status` enum in `hailort.h`.
     #[error("HailoRT error: status={status}, where={where_}")]
-    Hailort {
-        status: i32,
-        where_: &'static str,
-    },
+    Hailort { status: i32, where_: &'static str },
 
     /// Model dir layout missing a required artifact (HEF / vocab.txt).
     #[error("model directory `{path}` is missing `{what}`")]
-    BadModelDir {
-        path: String,
-        what: &'static str,
-    },
+    BadModelDir { path: String, what: &'static str },
 
     /// Tokenizer rejected the input (e.g. WordPiece vocab corrupt).
     #[error("tokenizer error: {0}")]

@@ -129,7 +129,12 @@ async fn third_request_in_burst_2_returns_resource_exhausted() {
     // Burst capacity of 2 → first two through.
     for i in 0..2 {
         let resp = client.embed(req()).await;
-        assert!(resp.is_ok(), "request {} should succeed within burst, got {:?}", i, resp.err());
+        assert!(
+            resp.is_ok(),
+            "request {} should succeed within burst, got {:?}",
+            i,
+            resp.err()
+        );
     }
 
     // 3rd request — same TCP connection, same peer IP — gets capped.
@@ -181,6 +186,10 @@ async fn rate_limit_off_path_passes_unrestricted_traffic() {
                 request_id: "".into(),
             }))
             .await;
-        assert!(resp.is_ok(), "no rate limiter -> never throttled: {:?}", resp.err());
+        assert!(
+            resp.is_ok(),
+            "no rate limiter -> never throttled: {:?}",
+            resp.err()
+        );
     }
 }

@@ -282,13 +282,14 @@ impl EmbeddingTransport for GrpcTransport {
             let mut tonic_req = tonic::Request::new(req);
             tonic_req.set_timeout(timeout);
             crate::proto::inject_request_id(&mut tonic_req, &request_id);
-            let resp = client
-                .embed_stream(tonic_req)
-                .await
-                .map_err(|s| ClusterError::Transport {
-                    worker: worker.name.clone(),
-                    reason: format!("embed_stream RPC: {}", s),
-                })?;
+            let resp =
+                client
+                    .embed_stream(tonic_req)
+                    .await
+                    .map_err(|s| ClusterError::Transport {
+                        worker: worker.name.clone(),
+                        reason: format!("embed_stream RPC: {}", s),
+                    })?;
             let mut stream: Pin<Box<dyn Stream<Item = _> + Send>> = Box::pin(resp.into_inner());
 
             let mut out = Vec::with_capacity(texts.len());
@@ -325,21 +326,21 @@ impl EmbeddingTransport for GrpcTransport {
                 })?
                 .into_inner();
             Ok(StatsSnapshot {
-                embed_count:  resp.embed_count,
-                error_count:  resp.error_count,
+                embed_count: resp.embed_count,
+                error_count: resp.error_count,
                 health_count: resp.health_count,
-                latency_sum:  Duration::from_micros(resp.latency_us_sum),
-                latency_min:  if resp.latency_us_min == 0 && resp.embed_count == 0 {
+                latency_sum: Duration::from_micros(resp.latency_us_sum),
+                latency_min: if resp.latency_us_min == 0 && resp.embed_count == 0 {
                     None
                 } else {
                     Some(Duration::from_micros(resp.latency_us_min))
                 },
-                latency_max:  if resp.latency_us_max == 0 && resp.embed_count == 0 {
+                latency_max: if resp.latency_us_max == 0 && resp.embed_count == 0 {
                     None
                 } else {
                     Some(Duration::from_micros(resp.latency_us_max))
                 },
-                uptime:       Duration::from_secs(resp.uptime_seconds),
+                uptime: Duration::from_secs(resp.uptime_seconds),
                 rate_limit_denials: resp.rate_limit_denials,
                 rate_limit_tracked_peers: resp.rate_limit_tracked_peers,
             })
@@ -352,8 +353,8 @@ mod tests {
     use super::*;
     use crate::proto::embedding_server::{Embedding, EmbeddingServer};
     use crate::proto::{
-        EmbedBatchRequest, EmbedResponse, EmbedStreamResponse, HealthResponse,
-        StatsRequest, StatsResponse,
+        EmbedBatchRequest, EmbedResponse, EmbedStreamResponse, HealthResponse, StatsRequest,
+        StatsResponse,
     };
 
     // `random_request_id` tests live in `proto::tests` since the
@@ -401,8 +402,8 @@ mod tests {
                 device_id: self.device_id.clone(),
                 model_fingerprint: self.fingerprint.clone(),
                 ready: true,
-            npu_temp_ts0_celsius: 0.0,
-            npu_temp_ts1_celsius: 0.0,
+                npu_temp_ts0_celsius: 0.0,
+                npu_temp_ts1_celsius: 0.0,
             }))
         }
         async fn get_stats(
@@ -412,7 +413,11 @@ mod tests {
             Ok(Response::new(StatsResponse::default()))
         }
         type EmbedStreamStream = std::pin::Pin<
-            Box<dyn futures_core::Stream<Item = Result<EmbedStreamResponse, Status>> + Send + 'static>,
+            Box<
+                dyn futures_core::Stream<Item = Result<EmbedStreamResponse, Status>>
+                    + Send
+                    + 'static,
+            >,
         >;
         async fn embed_stream(
             &self,
@@ -421,7 +426,9 @@ mod tests {
             // Mock test workers don't drive batched flows; return empty stream.
             let (tx, rx) = tokio::sync::mpsc::channel::<Result<EmbedStreamResponse, Status>>(1);
             drop(tx);
-            Ok(Response::new(Box::pin(tokio_stream::wrappers::ReceiverStream::new(rx))))
+            Ok(Response::new(Box::pin(
+                tokio_stream::wrappers::ReceiverStream::new(rx),
+            )))
         }
     }
 

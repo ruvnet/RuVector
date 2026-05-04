@@ -44,12 +44,20 @@ fn ruvllm_bridge_single_request_returns_vector_response() {
     let _ = worker.kill();
     let _ = worker.wait();
 
-    assert!(out.status.success(), "expected exit 0, got {:?}", out.status);
+    assert!(
+        out.status.success(),
+        "expected exit 0, got {:?}",
+        out.status
+    );
     let stdout = String::from_utf8_lossy(&out.stdout);
     let line = stdout.trim();
     assert!(line.contains("\"dim\":4"), "missing dim: {}", line);
     assert!(line.contains("\"vector\":["), "missing vector: {}", line);
-    assert!(line.contains("\"latency_us\":"), "missing latency: {}", line);
+    assert!(
+        line.contains("\"latency_us\":"),
+        "missing latency: {}",
+        line
+    );
 }
 
 #[test]
@@ -75,15 +83,11 @@ fn ruvllm_bridge_multi_line_with_request_id_propagates() {
 
     {
         let stdin = child.stdin.as_mut().unwrap();
-        stdin
-            .write_all(b"{\"text\":\"first request\"}\n")
-            .unwrap();
+        stdin.write_all(b"{\"text\":\"first request\"}\n").unwrap();
         stdin
             .write_all(b"{\"text\":\"second\",\"request_id\":\"01HRZK6S6NABCDEF12345678AB\"}\n")
             .unwrap();
-        stdin
-            .write_all(b"{\"text\":\"third no id\"}\n")
-            .unwrap();
+        stdin.write_all(b"{\"text\":\"third no id\"}\n").unwrap();
     }
     drop(child.stdin.take());
     let out = child.wait_with_output().expect("wait bridge");
@@ -93,7 +97,12 @@ fn ruvllm_bridge_multi_line_with_request_id_propagates() {
     assert!(out.status.success());
     let stdout = String::from_utf8_lossy(&out.stdout);
     let lines: Vec<&str> = stdout.lines().collect();
-    assert_eq!(lines.len(), 3, "expected 3 response lines, got: {:?}", lines);
+    assert_eq!(
+        lines.len(),
+        3,
+        "expected 3 response lines, got: {:?}",
+        lines
+    );
     // First and third have no request_id; middle does.
     assert!(!lines[0].contains("request_id"));
     assert!(
@@ -166,13 +175,9 @@ fn ruvllm_bridge_malformed_request_emits_error_line_continues() {
     {
         let stdin = child.stdin.as_mut().unwrap();
         // Missing `text` field.
-        stdin
-            .write_all(b"{\"not_text\":\"foo\"}\n")
-            .unwrap();
+        stdin.write_all(b"{\"not_text\":\"foo\"}\n").unwrap();
         // Valid request next — bridge must still process it.
-        stdin
-            .write_all(b"{\"text\":\"recovered\"}\n")
-            .unwrap();
+        stdin.write_all(b"{\"text\":\"recovered\"}\n").unwrap();
     }
     drop(child.stdin.take());
     let out = child.wait_with_output().expect("wait bridge");
@@ -183,8 +188,16 @@ fn ruvllm_bridge_malformed_request_emits_error_line_continues() {
     let stdout = String::from_utf8_lossy(&out.stdout);
     let lines: Vec<&str> = stdout.lines().collect();
     assert_eq!(lines.len(), 2, "expected 1 error + 1 ok, got {:?}", lines);
-    assert!(lines[0].contains("\"error\""), "first line should be error: {}", lines[0]);
-    assert!(lines[1].contains("\"vector\":["), "second line should embed: {}", lines[1]);
+    assert!(
+        lines[0].contains("\"error\""),
+        "first line should be error: {}",
+        lines[0]
+    );
+    assert!(
+        lines[1].contains("\"vector\":["),
+        "second line should embed: {}",
+        lines[1]
+    );
 }
 
 #[test]
@@ -218,10 +231,7 @@ fn ruvllm_bridge_workers_without_fingerprint_refused() {
 
 #[test]
 fn ruvllm_bridge_help_prints_synopsis() {
-    let out = Command::new(BRIDGE)
-        .arg("--help")
-        .output()
-        .expect("--help");
+    let out = Command::new(BRIDGE).arg("--help").output().expect("--help");
     assert!(out.status.success());
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("JSONL"));

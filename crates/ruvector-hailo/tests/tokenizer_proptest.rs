@@ -14,9 +14,12 @@ fn mini_vocab() -> String {
         v.push(format!("[unused{}]", i));
     }
     v.extend(
-        ["[UNK]", "[CLS]", "[SEP]", "[MASK]", "hello", "world", ",", "ru", "##v", "##ec", "##tor"]
-            .iter()
-            .map(|s| s.to_string()),
+        [
+            "[UNK]", "[CLS]", "[SEP]", "[MASK]", "hello", "world", ",", "ru", "##v", "##ec",
+            "##tor",
+        ]
+        .iter()
+        .map(|s| s.to_string()),
     );
     v.join("\n")
 }

@@ -23,9 +23,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
-use rcgen::{
-    BasicConstraints, CertificateParams, IsCa, KeyPair,
-};
+use rcgen::{BasicConstraints, CertificateParams, IsCa, KeyPair};
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::{transport::Server, Code, Request, Response, Status};
@@ -102,8 +100,7 @@ struct CertChain {
 /// `with_client_ca(ca_pem)` accepts the client.
 fn issue_chain() -> CertChain {
     let ca_key = KeyPair::generate().expect("ca key");
-    let mut ca_params = CertificateParams::new(vec!["compose-test-ca".into()])
-        .expect("ca params");
+    let mut ca_params = CertificateParams::new(vec!["compose-test-ca".into()]).expect("ca params");
     ca_params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
     let ca_cert = ca_params.self_signed(&ca_key).expect("ca self-sign");
 
@@ -180,7 +177,8 @@ fn full_security_stack_composes_correctly() {
 
     let chain = issue_chain();
     let limiter = Arc::new(RateLimiter::new(1, 2).expect("non-zero quota"));
-    let addr = server_rt.block_on(async { start_secure_server(&chain, Arc::clone(&limiter)).await });
+    let addr =
+        server_rt.block_on(async { start_secure_server(&chain, Arc::clone(&limiter)).await });
 
     // §1c side-trip: manifest_sig still works under the same crypto
     // assumptions even with the secure stack live elsewhere.
@@ -213,11 +211,12 @@ fn full_security_stack_composes_correctly() {
             chain.client_cert_pem.as_bytes(),
             chain.client_key_pem.as_bytes(),
         );
-    let endpoint = tonic::transport::Endpoint::from_shared(format!("https://localhost:{}", addr.port()))
-        .unwrap()
-        .connect_timeout(Duration::from_secs(2))
-        .tls_config(tls_client.into_inner())
-        .expect("apply tls_config");
+    let endpoint =
+        tonic::transport::Endpoint::from_shared(format!("https://localhost:{}", addr.port()))
+            .unwrap()
+            .connect_timeout(Duration::from_secs(2))
+            .tls_config(tls_client.into_inner())
+            .expect("apply tls_config");
 
     // First two RPCs: handshake + interceptor + embed all succeed.
     server_rt.block_on(async {
@@ -235,7 +234,8 @@ fn full_security_stack_composes_correctly() {
             assert!(
                 resp.is_ok(),
                 "embed {} should succeed within burst, got {:?}",
-                i, resp.err()
+                i,
+                resp.err()
             );
             let inner = resp.unwrap().into_inner();
             assert_eq!(inner.vector, vec![7.0, 1.0, 2.0, 3.0]);
@@ -302,8 +302,7 @@ fn full_stack_still_rejects_tampered_manifest() {
     let _ = chain; // chain isn't used here; the assertion is operator-side only.
 
     // Original sig + pubkey verify the legit body fine.
-    manifest_sig::verify_detached(body.as_bytes(), &sig_hex, &pk_hex)
-        .expect("legit body verifies");
+    manifest_sig::verify_detached(body.as_bytes(), &sig_hex, &pk_hex).expect("legit body verifies");
     // Same sig + pubkey rejected when body is tampered.
     let tampered = b"pi-0 = 127.0.0.1:50051\npi-rogue = 10.0.0.99:50051\n";
     let err = manifest_sig::verify_detached(tampered, &sig_hex, &pk_hex)

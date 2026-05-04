@@ -20,7 +20,10 @@ pub struct WorkerEndpoint {
 impl WorkerEndpoint {
     /// Construct an endpoint from a (name, address) pair.
     pub fn new(name: impl Into<String>, address: impl Into<String>) -> Self {
-        Self { name: name.into(), address: address.into() }
+        Self {
+            name: name.into(),
+            address: address.into(),
+        }
     }
 }
 
@@ -177,7 +180,11 @@ impl StatsSnapshot {
     /// Lifetime throughput: successful embeds divided by uptime seconds.
     pub fn embeds_per_second(&self) -> f64 {
         let secs = self.uptime.as_secs_f64();
-        if secs <= 0.0 { 0.0 } else { (self.embed_count as f64) / secs }
+        if secs <= 0.0 {
+            0.0
+        } else {
+            (self.embed_count as f64) / secs
+        }
     }
 }
 

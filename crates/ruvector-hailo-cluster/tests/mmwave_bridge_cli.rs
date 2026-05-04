@@ -47,10 +47,26 @@ fn bridge_simulator_emits_cycle_of_jsonl_events() {
                 .and_then(|s| s.split('"').next())
         })
         .collect();
-    assert!(kinds.contains("breathing"), "no breathing event in {:?}", kinds);
-    assert!(kinds.contains("heart_rate"), "no heart_rate event in {:?}", kinds);
-    assert!(kinds.contains("distance"), "no distance event in {:?}", kinds);
-    assert!(kinds.contains("presence"), "no presence event in {:?}", kinds);
+    assert!(
+        kinds.contains("breathing"),
+        "no breathing event in {:?}",
+        kinds
+    );
+    assert!(
+        kinds.contains("heart_rate"),
+        "no heart_rate event in {:?}",
+        kinds
+    );
+    assert!(
+        kinds.contains("distance"),
+        "no distance event in {:?}",
+        kinds
+    );
+    assert!(
+        kinds.contains("presence"),
+        "no presence event in {:?}",
+        kinds
+    );
 }
 
 #[test]
@@ -108,7 +124,7 @@ fn bridge_workers_without_fingerprint_refused_by_default() {
         .args([
             "--simulator",
             "--workers",
-            "127.0.0.1:1",  // never dialed; gate fires first
+            "127.0.0.1:1", // never dialed; gate fires first
             "--dim",
             "4",
             // intentionally no --fingerprint
@@ -128,7 +144,7 @@ fn bridge_workers_without_fingerprint_refused_by_default() {
 #[test]
 fn bridge_workers_without_fingerprint_succeeds_with_opt_in() {
     let port = free_port();
-    let mut worker = spawn_fakeworker(port, 4, "");  // fakeworker default fp
+    let mut worker = spawn_fakeworker(port, 4, ""); // fakeworker default fp
 
     let mut child = Command::new(BRIDGE)
         .args([

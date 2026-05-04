@@ -21,11 +21,11 @@
 use std::io::{BufRead, Write};
 use std::sync::Arc;
 
+use ruvector_hailo_cluster::transport::WorkerEndpoint;
 use ruvector_hailo_cluster::{
     Discovery, FileDiscovery, GrpcTransport, HailoClusterEmbedder, StaticDiscovery,
     TailscaleDiscovery,
 };
-use ruvector_hailo_cluster::transport::WorkerEndpoint;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
@@ -85,20 +85,41 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
-            "--workers" => { workers_arg = args.get(i + 1).cloned(); i += 2; }
-            "--workers-file" => { workers_file_arg = args.get(i + 1).cloned(); i += 2; }
-            "--workers-file-sig" => { workers_file_sig = args.get(i + 1).cloned(); i += 2; }
-            "--workers-file-pubkey" => { workers_file_pubkey = args.get(i + 1).cloned(); i += 2; }
-            "--tailscale-tag" => { tag_arg = args.get(i + 1).cloned(); i += 2; }
+            "--workers" => {
+                workers_arg = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--workers-file" => {
+                workers_file_arg = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--workers-file-sig" => {
+                workers_file_sig = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--workers-file-pubkey" => {
+                workers_file_pubkey = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--tailscale-tag" => {
+                tag_arg = args.get(i + 1).cloned();
+                i += 2;
+            }
             "--port" => {
-                port_arg = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(50051);
+                port_arg = args
+                    .get(i + 1)
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(50051);
                 i += 2;
             }
             "--dim" => {
                 dim = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(384);
                 i += 2;
             }
-            "--fingerprint" => { fingerprint = args.get(i + 1).cloned().unwrap_or_default(); i += 2; }
+            "--fingerprint" => {
+                fingerprint = args.get(i + 1).cloned().unwrap_or_default();
+                i += 2;
+            }
             "--batch" => {
                 batch_size = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(0);
                 i += 2;
@@ -111,16 +132,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 cache_ttl_secs = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(0);
                 i += 2;
             }
-            "--validate-fleet" => { validate_fleet = true; i += 1; }
-            "--validate-only" => { validate_only = true; validate_fleet = true; i += 1; }
-            "--auto-fingerprint" => { auto_fingerprint = true; i += 1; }
+            "--validate-fleet" => {
+                validate_fleet = true;
+                i += 1;
+            }
+            "--validate-only" => {
+                validate_only = true;
+                validate_fleet = true;
+                i += 1;
+            }
+            "--auto-fingerprint" => {
+                auto_fingerprint = true;
+                i += 1;
+            }
             "--auto-fingerprint-quorum" => {
-                auto_fingerprint_quorum =
-                    args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(0);
+                auto_fingerprint_quorum = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(0);
                 i += 2;
             }
-            "--allow-empty-fingerprint" => { allow_empty_fingerprint = true; i += 1; }
-            "--request-id" => { request_id = args.get(i + 1).cloned().unwrap_or_default(); i += 2; }
+            "--allow-empty-fingerprint" => {
+                allow_empty_fingerprint = true;
+                i += 1;
+            }
+            "--request-id" => {
+                request_id = args.get(i + 1).cloned().unwrap_or_default();
+                i += 2;
+            }
             "--output" => {
                 let v = args.get(i + 1).cloned().unwrap_or_default();
                 if !matches!(v.as_str(), "head" | "full" | "none") {
@@ -129,7 +165,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 output_mode = v;
                 i += 2;
             }
-            "--quiet" => { quiet = true; i += 1; }
+            "--quiet" => {
+                quiet = true;
+                i += 1;
+            }
             "--health-check" => {
                 health_check_secs = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(0);
                 i += 2;
@@ -143,14 +182,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 i += 2;
             }
             #[cfg(feature = "tls")]
-            "--tls-ca" => { tls_ca = args.get(i + 1).cloned(); i += 2; }
+            "--tls-ca" => {
+                tls_ca = args.get(i + 1).cloned();
+                i += 2;
+            }
             #[cfg(feature = "tls")]
-            "--tls-domain" => { tls_domain = args.get(i + 1).cloned(); i += 2; }
+            "--tls-domain" => {
+                tls_domain = args.get(i + 1).cloned();
+                i += 2;
+            }
             #[cfg(feature = "tls")]
-            "--tls-client-cert" => { tls_client_cert = args.get(i + 1).cloned(); i += 2; }
+            "--tls-client-cert" => {
+                tls_client_cert = args.get(i + 1).cloned();
+                i += 2;
+            }
             #[cfg(feature = "tls")]
-            "--tls-client-key" => { tls_client_key = args.get(i + 1).cloned(); i += 2; }
-            "--help" | "-h" => { print_help(); return Ok(()); }
+            "--tls-client-key" => {
+                tls_client_key = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--help" | "-h" => {
+                print_help();
+                return Ok(());
+            }
             "--version" | "-V" => {
                 println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
                 return Ok(());
@@ -219,9 +273,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // misconfigured invocation surfaces an early error instead of a
     // silent plaintext downgrade.
     #[cfg(feature = "tls")]
-    let transport: Arc<dyn ruvector_hailo_cluster::transport::EmbeddingTransport + Send + Sync> = {
+    let transport: Arc<
+        dyn ruvector_hailo_cluster::transport::EmbeddingTransport + Send + Sync,
+    > = {
         if let Some(ca_path) = tls_ca.as_deref() {
-            let addr0 = workers.first().map(|w| w.address.clone()).unwrap_or_default();
+            let addr0 = workers
+                .first()
+                .map(|w| w.address.clone())
+                .unwrap_or_default();
             let domain = tls_domain.clone().unwrap_or_else(|| {
                 ruvector_hailo_cluster::tls::domain_from_address(&addr0).to_string()
             });
@@ -229,7 +288,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .map_err(|e| format!("--tls-ca: {}", e))?;
             match (tls_client_cert.as_deref(), tls_client_key.as_deref()) {
                 (Some(c), Some(k)) => {
-                    tls = tls.with_client_identity(c, k)
+                    tls = tls
+                        .with_client_identity(c, k)
                         .map_err(|e| format!("--tls-client-cert/--tls-client-key: {}", e))?;
                     if !quiet {
                         eprintln!("ruvector-hailo-embed: mTLS client identity attached");
@@ -237,7 +297,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 (Some(_), None) | (None, Some(_)) => {
                     return Err(
-                        "--tls-client-cert and --tls-client-key must both be set or both unset".into(),
+                        "--tls-client-cert and --tls-client-key must both be set or both unset"
+                            .into(),
                     );
                 }
                 (None, None) => {}
@@ -263,8 +324,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
     #[cfg(not(feature = "tls"))]
-    let transport: Arc<dyn ruvector_hailo_cluster::transport::EmbeddingTransport + Send + Sync> =
-        Arc::new(GrpcTransport::new()?);
+    let transport: Arc<
+        dyn ruvector_hailo_cluster::transport::EmbeddingTransport + Send + Sync,
+    > = Arc::new(GrpcTransport::new()?);
 
     // Auto-discover fingerprint from the fleet if requested. Quorum mode
     // (ADR-172 §2b iter 102): when fleet has ≥2 workers and operator
@@ -427,7 +489,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                      count: &mut u64,
                      total_us: &mut u128|
          -> Result<(), Box<dyn std::error::Error>> {
-            if buf.is_empty() { return Ok(()); }
+            if buf.is_empty() {
+                return Ok(());
+            }
             let t0 = std::time::Instant::now();
             // --request-id, when set, threads the supplied id through
             // every batch RPC. Multiple batches in one run share the
@@ -443,14 +507,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Ok(vecs) => {
                     let per_item_us = if !buf.is_empty() {
                         batch_us / (buf.len() as u128)
-                    } else { 0 };
+                    } else {
+                        0
+                    };
                     for (text, vec) in buf.iter().zip(vecs.iter()) {
                         *total_us += per_item_us;
                         *count += 1;
                         writeln!(
                             out,
                             "{{\"text\":{:?},\"dim\":{},\"latency_us\":{}{}}}",
-                            text, vec.len(), per_item_us,
+                            text,
+                            vec.len(),
+                            per_item_us,
                             format_vector_field(&output_mode, vec)
                         )?;
                     }
@@ -474,7 +542,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if !inline_texts.is_empty() {
             for text in &inline_texts {
                 let text = text.trim().to_string();
-                if text.is_empty() { continue; }
+                if text.is_empty() {
+                    continue;
+                }
                 buf.push(text);
                 if buf.len() >= batch_size {
                     flush(&mut buf, &mut out, &mut count, &mut total_us)?;
@@ -485,7 +555,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             for line in stdin.lock().lines() {
                 let text = line?;
                 let text = text.trim().to_string();
-                if text.is_empty() { continue; }
+                if text.is_empty() {
+                    continue;
+                }
                 buf.push(text);
                 if buf.len() >= batch_size {
                     flush(&mut buf, &mut out, &mut count, &mut total_us)?;
@@ -505,7 +577,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for line in stdin_iter {
             let text = line?;
             let text = text.trim();
-            if text.is_empty() { continue; }
+            if text.is_empty() {
+                continue;
+            }
 
             let t0 = std::time::Instant::now();
             let result = if request_id.is_empty() {
@@ -528,12 +602,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     )?;
                 }
                 Err(e) => {
-                    writeln!(
-                        out,
-                        "{{\"text\":{:?},\"error\":{:?}}}",
-                        text,
-                        e.to_string()
-                    )?;
+                    writeln!(out, "{{\"text\":{:?},\"error\":{:?}}}", text, e.to_string())?;
                 }
             }
         }
@@ -575,8 +644,7 @@ fn format_vector_field(mode: &str, vec: &[f32]) -> String {
         "none" => String::new(),
         _ => {
             // "head" (default) — first 8 components, 4 decimals
-            let parts: Vec<String> =
-                vec.iter().take(8).map(|f| format!("{:.4}", f)).collect();
+            let parts: Vec<String> = vec.iter().take(8).map(|f| format!("{:.4}", f)).collect();
             format!(",\"vec_head\":[{}]", parts.join(","))
         }
     }

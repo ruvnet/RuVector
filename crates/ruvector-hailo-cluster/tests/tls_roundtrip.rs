@@ -125,14 +125,11 @@ fn grpc_transport_with_tls_embeds_against_tls_mock() {
     // Trust the same self-signed cert as a CA — it's its own issuer.
     // SNI must be one of the SANs we issued for ("localhost" or
     // "127.0.0.1"); rustls validates the SAN bytewise.
-    let tls_client = TlsClient::from_pem_bytes(cert_pem.as_bytes(), "localhost")
-        .expect("build client tls");
-    let transport = GrpcTransport::with_tls(
-        Duration::from_secs(2),
-        Duration::from_secs(2),
-        tls_client,
-    )
-    .expect("build tls transport");
+    let tls_client =
+        TlsClient::from_pem_bytes(cert_pem.as_bytes(), "localhost").expect("build client tls");
+    let transport =
+        GrpcTransport::with_tls(Duration::from_secs(2), Duration::from_secs(2), tls_client)
+            .expect("build tls transport");
 
     // Use the rustls SAN literal for the dialed address so SNI matches.
     let endpoint = format!("localhost:{}", addr.port());
@@ -163,11 +160,8 @@ fn grpc_transport_plaintext_against_tls_server_fails_cleanly() {
 
     // Plain GrpcTransport — no TLS configured. Dialing a TLS-only server
     // must surface as a transport error, not a panic or silent hang.
-    let transport = GrpcTransport::with_timeouts(
-        Duration::from_secs(2),
-        Duration::from_secs(2),
-    )
-    .unwrap();
+    let transport =
+        GrpcTransport::with_timeouts(Duration::from_secs(2), Duration::from_secs(2)).unwrap();
     let worker = WorkerEndpoint::new("tls-mock", addr.to_string());
 
     let res = transport.embed(&worker, "hello", 64);

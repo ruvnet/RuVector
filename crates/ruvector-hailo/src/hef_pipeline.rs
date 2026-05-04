@@ -88,22 +88,16 @@ impl HefPipeline {
     /// one input and one output vstream — the iter-156b compile
     /// produces this shape. Multi-network HEFs are out of scope for
     /// this iteration.
-    pub fn open(
-        device: &HailoDevice,
-        hef_path: &Path,
-    ) -> Result<Self, HailoError> {
-        let path_c = std::ffi::CString::new(
-            hef_path
-                .to_str()
-                .ok_or_else(|| HailoError::BadModelDir {
-                    path: hef_path.display().to_string(),
-                    what: "non-UTF8 HEF path",
-                })?,
-        )
-        .map_err(|_| HailoError::BadModelDir {
-            path: hef_path.display().to_string(),
-            what: "HEF path contains nul byte",
-        })?;
+    pub fn open(device: &HailoDevice, hef_path: &Path) -> Result<Self, HailoError> {
+        let path_c =
+            std::ffi::CString::new(hef_path.to_str().ok_or_else(|| HailoError::BadModelDir {
+                path: hef_path.display().to_string(),
+                what: "non-UTF8 HEF path",
+            })?)
+            .map_err(|_| HailoError::BadModelDir {
+                path: hef_path.display().to_string(),
+                what: "HEF path contains nul byte",
+            })?;
 
         // Iter 173 — security defense in depth: verify the HEF magic
         // before handing the bytes to libhailort. The Hailo HEF format
@@ -124,9 +118,8 @@ impl HefPipeline {
         // 1. Load HEF from disk.
         let mut hef: hailort_sys::hailo_hef = ptr::null_mut();
         // SAFETY: path is valid CString; HailoRT writes through `&mut hef`.
-        let status = unsafe {
-            hailort_sys::hailo_create_hef_file(&mut hef as *mut _, path_c.as_ptr())
-        };
+        let status =
+            unsafe { hailort_sys::hailo_create_hef_file(&mut hef as *mut _, path_c.as_ptr()) };
         if status != 0 {
             return Err(HailoError::Hailort {
                 status: status as i32,
@@ -160,8 +153,7 @@ impl HefPipeline {
         // arrays and primitive ints). All-zero bits are a valid
         // initial state; the SDK overwrites fields via the pointer
         // in the next call.
-        let mut params: hailort_sys::hailo_configure_params_t =
-            unsafe { std::mem::zeroed() };
+        let mut params: hailort_sys::hailo_configure_params_t = unsafe { std::mem::zeroed() };
         // SAFETY (FFI call): `hef` is the valid handle returned by
         // `hailo_create_hef_file` above and not yet released.
         // `vdevice` came from `HailoDevice::raw_vdevice()` which is
@@ -170,11 +162,7 @@ impl HefPipeline {
         // freshly-zeroed struct on this stack frame which lives until
         // the call returns.
         let status = unsafe {
-            hailort_sys::hailo_init_configure_params_by_vdevice(
-                hef,
-                vdevice,
-                &mut params as *mut _,
-            )
+            hailort_sys::hailo_init_configure_params_by_vdevice(hef, vdevice, &mut params as *mut _)
         };
         if status != 0 {
             return Err(HailoError::Hailort {
@@ -187,8 +175,7 @@ impl HefPipeline {
         // contains exactly one network group; n_ng >1 would mean a
         // different HEF and we surface the mismatch as an error.
         let mut n_ng: usize = 1;
-        let mut network_group: hailort_sys::hailo_configured_network_group =
-            ptr::null_mut();
+        let mut network_group: hailort_sys::hailo_configured_network_group = ptr::null_mut();
         // SAFETY (FFI call): `vdevice` and `hef` valid as above.
         // `&mut params` was just initialized by the previous SDK call.
         // `&mut network_group` is a single-element out-buffer (n_ng=1
@@ -275,8 +262,7 @@ impl HefPipeline {
         input_params.params.timeout_ms = vstream_timeout_ms;
 
         // 4. Create the input vstream from the params.
-        let mut input_vstream: hailort_sys::hailo_input_vstream =
-            ptr::null_mut();
+        let mut input_vstream: hailort_sys::hailo_input_vstream = ptr::null_mut();
         // SAFETY (FFI call): network_group + input_params valid from
         // the previous calls. Count `1` matches the iter-156b HEF's
         // single input; passing a wrong count would write past the
@@ -326,8 +312,7 @@ impl HefPipeline {
         // forward-pass bound symmetric.
         output_params.params.timeout_ms = vstream_timeout_ms;
 
-        let mut output_vstream: hailort_sys::hailo_output_vstream =
-            ptr::null_mut();
+        let mut output_vstream: hailort_sys::hailo_output_vstream = ptr::null_mut();
         // SAFETY (FFI call): mirror of create_input_vstreams.
         let status = unsafe {
             hailort_sys::hailo_create_output_vstreams(
@@ -352,15 +337,11 @@ impl HefPipeline {
         // `shape: hailo_3d_image_shape_t` xor `nms_shape: hailo_nms_shape_t`.
         // Zero-init is valid; SDK fills both the discriminant
         // (`format.order`) and the union body.
-        let mut input_info: hailort_sys::hailo_vstream_info_t =
-            unsafe { std::mem::zeroed() };
+        let mut input_info: hailort_sys::hailo_vstream_info_t = unsafe { std::mem::zeroed() };
         // SAFETY (FFI call): input_vstream returned by
         // hailo_create_input_vstreams above and not yet released.
         let status = unsafe {
-            hailort_sys::hailo_get_input_vstream_info(
-                input_vstream,
-                &mut input_info as *mut _,
-            )
+            hailort_sys::hailo_get_input_vstream_info(input_vstream, &mut input_info as *mut _)
         };
         if status != 0 {
             return Err(HailoError::Hailort {
@@ -369,13 +350,9 @@ impl HefPipeline {
             });
         }
         // SAFETY (zeroed/FFI): same invariants as input.
-        let mut output_info: hailort_sys::hailo_vstream_info_t =
-            unsafe { std::mem::zeroed() };
+        let mut output_info: hailort_sys::hailo_vstream_info_t = unsafe { std::mem::zeroed() };
         let status = unsafe {
-            hailort_sys::hailo_get_output_vstream_info(
-                output_vstream,
-                &mut output_info as *mut _,
-            )
+            hailort_sys::hailo_get_output_vstream_info(output_vstream, &mut output_info as *mut _)
         };
         if status != 0 {
             return Err(HailoError::Hailort {
@@ -418,10 +395,8 @@ impl HefPipeline {
         // also exposes `hailo_get_input_vstream_frame_size` if we
         // want HailoRT to compute it; using the shape is equivalent
         // and avoids one more FFI hop.
-        let input_frame_bytes =
-            input_shape[0] * input_shape[1] * input_shape[2] * 4;
-        let output_frame_bytes =
-            output_shape[0] * output_shape[1] * output_shape[2] * 4;
+        let input_frame_bytes = input_shape[0] * input_shape[1] * input_shape[2] * 4;
+        let output_frame_bytes = output_shape[0] * output_shape[1] * output_shape[2] * 4;
 
         let input_quant = QuantInfo {
             scale: input_info.quant_info.qp_scale as f32,
@@ -470,11 +445,7 @@ impl HefPipeline {
     /// 67 embeds/sec.
     ///
     /// `output` is resized to `output_frame_bytes / 4` if shorter.
-    pub fn forward_into(
-        &mut self,
-        input: &[f32],
-        output: &mut Vec<f32>,
-    ) -> Result<(), HailoError> {
+    pub fn forward_into(&mut self, input: &[f32], output: &mut Vec<f32>) -> Result<(), HailoError> {
         let expected_floats = self.input_frame_bytes / 4;
         if input.len() != expected_floats {
             return Err(HailoError::Shape {
@@ -574,16 +545,10 @@ impl Drop for HefPipeline {
         // doesn't expose a separate release for it).
         unsafe {
             if !self.input_vstream.is_null() {
-                hailort_sys::hailo_release_input_vstreams(
-                    &mut self.input_vstream as *mut _,
-                    1,
-                );
+                hailort_sys::hailo_release_input_vstreams(&mut self.input_vstream as *mut _, 1);
             }
             if !self.output_vstream.is_null() {
-                hailort_sys::hailo_release_output_vstreams(
-                    &mut self.output_vstream as *mut _,
-                    1,
-                );
+                hailort_sys::hailo_release_output_vstreams(&mut self.output_vstream as *mut _, 1);
             }
             if !self.hef.is_null() {
                 hailort_sys::hailo_release_hef(self.hef);

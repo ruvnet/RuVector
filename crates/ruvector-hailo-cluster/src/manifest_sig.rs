@@ -57,12 +57,13 @@ fn hex_decode(s: &str, want_bytes: usize, what: &str) -> Result<Vec<u8>, Cluster
                 worker: "<manifest_sig>".into(),
                 reason: format!("{}: non-hex char at offset {}", what, i * 2),
             })?;
-        let lo = (bytes[i * 2 + 1] as char)
-            .to_digit(16)
-            .ok_or_else(|| ClusterError::Transport {
-                worker: "<manifest_sig>".into(),
-                reason: format!("{}: non-hex char at offset {}", what, i * 2 + 1),
-            })?;
+        let lo =
+            (bytes[i * 2 + 1] as char)
+                .to_digit(16)
+                .ok_or_else(|| ClusterError::Transport {
+                    worker: "<manifest_sig>".into(),
+                    reason: format!("{}: non-hex char at offset {}", what, i * 2 + 1),
+                })?;
         out.push((hi * 16 + lo) as u8);
     }
     Ok(out)
@@ -91,10 +92,11 @@ pub fn verify_detached(
         .try_into()
         .expect("hex_decode returned 64 bytes");
     let sig = Signature::from_bytes(&sig_arr);
-    pk.verify(manifest_bytes, &sig).map_err(|e| ClusterError::Transport {
-        worker: "<manifest_sig>".into(),
-        reason: format!("signature verification failed: {}", e),
-    })
+    pk.verify(manifest_bytes, &sig)
+        .map_err(|e| ClusterError::Transport {
+            worker: "<manifest_sig>".into(),
+            reason: format!("signature verification failed: {}", e),
+        })
 }
 
 /// Iter 211 helper — stat-then-read with a hard size cap. Used by
@@ -168,10 +170,9 @@ mod tests {
         // Deterministic test key — never use this in production; it's
         // committed in the test source. The 32-byte seed is arbitrary.
         let seed: [u8; 32] = [
-            0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8,
-            0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, 0xb8,
-            0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7, 0xc8,
-            0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7, 0xd8,
+            0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6,
+            0xb7, 0xb8, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7, 0xc8, 0xd1, 0xd2, 0xd3, 0xd4,
+            0xd5, 0xd6, 0xd7, 0xd8,
         ];
         let sk = SigningKey::from_bytes(&seed);
         let pk = sk.verifying_key().to_bytes();
@@ -278,10 +279,8 @@ mod tests {
     #[test]
     fn verify_files_rejects_oversized_signature() {
         use std::io::Write as _;
-        let dir = std::env::temp_dir().join(format!(
-            "iter211-oversized-sig-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("iter211-oversized-sig-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("mkdir fixture");
         let manifest = dir.join("workers.txt");
         let sig = dir.join("workers.sig");
@@ -314,10 +313,7 @@ mod tests {
     #[test]
     fn verify_files_rejects_oversized_pubkey() {
         use std::io::Write as _;
-        let dir = std::env::temp_dir().join(format!(
-            "iter211-oversized-pk-{}",
-            std::process::id()
-        ));
+        let dir = std::env::temp_dir().join(format!("iter211-oversized-pk-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("mkdir fixture");
         let manifest = dir.join("workers.txt");
         let sig = dir.join("workers.sig");

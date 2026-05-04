@@ -42,15 +42,12 @@ jobs:
       - name: Install cargo-audit
         run: cargo install --locked cargo-audit
       - name: Run cargo audit
-        working-directory: crates/ruvector-hailo-cluster
-        # `--deny warnings` makes any vuln advisory a hard CI fail. Iter
-        # 219 rejoined the hailo crates into the parent workspace, so
-        # cargo-audit now reads the workspace Cargo.lock (one level up).
-        # That lock has wider transitive scope than the per-crate locks
-        # had, surfacing three advisories that deny.toml had already
-        # ignored — but cargo-audit doesn't read deny.toml, so we mirror
-        # the ignore list here. Iter 224 added the --ignore flags
-        # (parallel to iter-177/iter-219's deny.toml ignores).
+        # Iter 228 — run from the workspace root since iter-219's
+        # workspace rejoin moved Cargo.lock there. cargo-audit doesn't
+        # walk up to find a workspace lock from a sub-crate directory;
+        # it errors with "Couldn't load Cargo.lock". The audit's job is
+        # workspace-wide anyway (it's the lock that defines the dep
+        # tree, not the cluster crate's manifest).
         run: |
           cargo audit --deny warnings \
               --ignore RUSTSEC-2024-0436 `# paste — unmaintained, transitive via candle` \
@@ -180,17 +177,19 @@ jobs:
       - name: Add aarch64 rustup target
         run: rustup target add aarch64-unknown-linux-gnu
       - name: Cross-build all three bridges for aarch64
-        working-directory: crates/ruvector-hailo-cluster
+        # Iter 228 — workspace-rooted (iter-219 rejoin moved target/
+        # to the repo root) and explicit `-p` flags so a workspace-wide
+        # cross-compile of unrelated crates doesn't get pulled in.
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
         run: |
-          cargo build --release --target aarch64-unknown-linux-gnu --bin ruvector-mmwave-bridge
-          cargo build --release --target aarch64-unknown-linux-gnu --bin ruview-csi-bridge
-          cargo build --release --target aarch64-unknown-linux-gnu --bin ruvllm-bridge
+          cargo build --release --target aarch64-unknown-linux-gnu -p ruvector-hailo-cluster --bin ruvector-mmwave-bridge
+          cargo build --release --target aarch64-unknown-linux-gnu -p ruvector-hailo-cluster --bin ruview-csi-bridge
+          cargo build --release --target aarch64-unknown-linux-gnu -p ruvector-hailo-cluster --bin ruvllm-bridge
       - name: Verify each ELF is aarch64
         run: |
           for bin in ruvector-mmwave-bridge ruview-csi-bridge ruvllm-bridge; do
-            elf="crates/ruvector-hailo-cluster/target/aarch64-unknown-linux-gnu/release/$bin"
+            elf="target/aarch64-unknown-linux-gnu/release/$bin"
             file "$elf" | grep -q 'ARM aarch64' || { echo "FAIL: $bin not aarch64"; exit 1; }
             echo "  ✓ $bin"
           done

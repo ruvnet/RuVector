@@ -55,8 +55,11 @@ pub fn random_request_id() -> String {
         if x == 0 {
             x = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_nanos() as u64).unwrap_or(1);
-            if x == 0 { x = 0x9E3779B97F4A7C15; }
+                .map(|d| d.as_nanos() as u64)
+                .unwrap_or(1);
+            if x == 0 {
+                x = 0x9E3779B97F4A7C15;
+            }
         }
         x
     });
@@ -155,7 +158,9 @@ pub fn sanitize_request_id(raw: &str) -> String {
             // Track *byte* length so multi-byte UTF-8 doesn't blow past
             // the cap. Stop at MAX_LEN bytes — never push past.
             let cl = c.len_utf8();
-            if byte_count + cl > MAX_LEN { break; }
+            if byte_count + cl > MAX_LEN {
+                break;
+            }
             out.push(c);
             byte_count += cl;
         }
@@ -267,7 +272,7 @@ mod tests {
         // tonic's MetadataValue parsing rejects control chars at parse
         // time; verify the inject path stays clean. For the extract
         // sanitiser test, exercise via the proto-field fallback.
-        inject_request_id(&mut req, "log\nforging\tid");  // bypassed by parse
+        inject_request_id(&mut req, "log\nforging\tid"); // bypassed by parse
         let extracted = extract_request_id(&req, "log\nforging-fallback\tid");
         // Either branch (metadata or fallback), output must be stripped.
         assert!(!extracted.contains('\n'));
@@ -304,7 +309,10 @@ mod tests {
         let mut req = tonic::Request::new(EmbedRequest::default());
         inject_request_id(&mut req, "bad\nid");
         let extracted = extract_request_id(&req, "fallback");
-        assert_eq!(extracted, "fallback", "invalid header value should be silently ignored");
+        assert_eq!(
+            extracted, "fallback",
+            "invalid header value should be silently ignored"
+        );
     }
 
     #[test]
@@ -317,7 +325,8 @@ mod tests {
             assert!(
                 "0123456789ABCDEFGHJKMNPQRSTVWXYZ".contains(c),
                 "char {:?} not in Crockford base32 alphabet (id={:?})",
-                c, id
+                c,
+                id
             );
         }
     }
@@ -328,7 +337,12 @@ mod tests {
         let id1 = random_request_id();
         std::thread::sleep(std::time::Duration::from_millis(2));
         let id2 = random_request_id();
-        assert!(id1 < id2, "expected id1 < id2, got id1={:?} id2={:?}", id1, id2);
+        assert!(
+            id1 < id2,
+            "expected id1 < id2, got id1={:?} id2={:?}",
+            id1,
+            id2
+        );
         assert_eq!(id1.len(), id2.len(), "format stability");
     }
 
@@ -368,7 +382,9 @@ mod tests {
         assert!(
             delta < 5_000,
             "prefix ms {} differs from now {} by {}ms",
-            ts, now_ms, delta
+            ts,
+            now_ms,
+            delta
         );
     }
 

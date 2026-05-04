@@ -114,10 +114,14 @@ impl Embedding for DelayWorker {
                     dim: 4,
                     latency_us: delay.as_micros() as i64,
                 });
-                if tx.send(item).await.is_err() { break; }
+                if tx.send(item).await.is_err() {
+                    break;
+                }
             }
         });
-        Ok(Response::new(Box::pin(tokio_stream::wrappers::ReceiverStream::new(rx))))
+        Ok(Response::new(Box::pin(
+            tokio_stream::wrappers::ReceiverStream::new(rx),
+        )))
     }
 }
 
@@ -130,7 +134,11 @@ fn start_worker_capturing(
     rt: &Runtime,
     name: &str,
     delay_ms: u64,
-) -> (SocketAddr, Arc<AtomicU64>, Arc<std::sync::Mutex<Vec<String>>>) {
+) -> (
+    SocketAddr,
+    Arc<AtomicU64>,
+    Arc<std::sync::Mutex<Vec<String>>>,
+) {
     let calls = Arc::new(AtomicU64::new(0));
     let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
     let calls_for_server = calls.clone();
@@ -277,7 +285,9 @@ fn embed_batch_streaming_returns_ordered_results() {
     // should be the same length-4 zero vector — confirming the bytes
     // round-tripped through the wire format intact.
     for v in &vectors {
-        for &x in v { assert_eq!(x, 0.0); }
+        for &x in v {
+            assert_eq!(x, 0.0);
+        }
     }
 }
 
@@ -302,11 +312,7 @@ fn batch_cache_reuses_results_across_calls() {
 
     // First batch — 3 items, all misses → 3 RPC items.
     let v1 = cluster
-        .embed_batch_blocking(&[
-            "alpha".to_string(),
-            "beta".to_string(),
-            "gamma".to_string(),
-        ])
+        .embed_batch_blocking(&["alpha".to_string(), "beta".to_string(), "gamma".to_string()])
         .expect("first batch");
     assert_eq!(v1.len(), 3);
     let calls_after_first = calls.load(Ordering::SeqCst);
@@ -404,9 +410,7 @@ fn embed_batch_async_succeeds_inside_tokio_runtime() {
         .unwrap();
 
     let texts = vec!["alpha".to_string(), "beta".to_string(), "gamma".to_string()];
-    let result = app_rt.block_on(async {
-        Arc::clone(&cluster).embed_batch(texts).await
-    });
+    let result = app_rt.block_on(async { Arc::clone(&cluster).embed_batch(texts).await });
 
     let vectors = result.expect("async batch embed should succeed");
     assert_eq!(vectors.len(), 3);
@@ -436,9 +440,8 @@ fn async_embed_one_succeeds_inside_tokio_runtime() {
         .enable_all()
         .build()
         .unwrap();
-    let result = caller_rt.block_on(async move {
-        cluster.embed_one("hello async".to_string()).await
-    });
+    let result =
+        caller_rt.block_on(async move { cluster.embed_one("hello async".to_string()).await });
     let v = result.expect("embed_one async should succeed against mock worker");
     assert_eq!(v.len(), 4);
 }
@@ -460,8 +463,7 @@ fn fleet_stats_returns_one_entry_per_worker() {
     ];
 
     let transport = Arc::new(GrpcTransport::new().unwrap());
-    let cluster =
-        HailoClusterEmbedder::new(workers, transport, 4, "fp:test").expect("init");
+    let cluster = HailoClusterEmbedder::new(workers, transport, 4, "fp:test").expect("init");
 
     // Drive a few embeds first so each worker has some counter activity
     // (the DelayWorker mock doesn't actually track stats — its get_stats
@@ -560,24 +562,32 @@ fn caller_supplied_request_id_propagates_to_worker() {
 
     let workers = vec![WorkerEndpoint::new("alpha", addr.to_string())];
     let transport = Arc::new(GrpcTransport::new().unwrap());
-    let cluster = HailoClusterEmbedder::new(workers, transport, 4, "fp:trace-test")
-        .expect("init cluster");
+    let cluster =
+        HailoClusterEmbedder::new(workers, transport, 4, "fp:trace-test").expect("init cluster");
 
     let _ = cluster
         .embed_one_blocking_with_request_id("hello", "trace-12345")
         .expect("embed should succeed");
 
     let observed = seen.lock().unwrap().clone();
-    assert_eq!(observed, vec!["trace-12345".to_string()],
-        "worker should see the caller-supplied id");
+    assert_eq!(
+        observed,
+        vec!["trace-12345".to_string()],
+        "worker should see the caller-supplied id"
+    );
 
     // Sanity: an embed_one_blocking call (random id) should produce a
     // non-empty, different id — confirming the random-id path still works.
-    let _ = cluster.embed_one_blocking("world").expect("embed should succeed");
+    let _ = cluster
+        .embed_one_blocking("world")
+        .expect("embed should succeed");
     let observed = seen.lock().unwrap().clone();
     assert_eq!(observed.len(), 2);
     assert_ne!(observed[1], "trace-12345");
-    assert!(!observed[1].is_empty(), "random id path should populate something");
+    assert!(
+        !observed[1].is_empty(),
+        "random id path should populate something"
+    );
 }
 
 #[test]
@@ -593,8 +603,8 @@ fn caller_supplied_request_id_propagates_through_batch() {
 
     let workers = vec![WorkerEndpoint::new("alpha", addr.to_string())];
     let transport = Arc::new(GrpcTransport::new().unwrap());
-    let cluster = HailoClusterEmbedder::new(workers, transport, 4, "fp:trace-batch")
-        .expect("init cluster");
+    let cluster =
+        HailoClusterEmbedder::new(workers, transport, 4, "fp:trace-batch").expect("init cluster");
 
     let _ = cluster
         .embed_batch_blocking_with_request_id(
@@ -633,8 +643,7 @@ fn async_embed_one_with_request_id_propagates() {
     let workers = vec![WorkerEndpoint::new("alpha", addr.to_string())];
     let transport = Arc::new(GrpcTransport::new().unwrap());
     let cluster = Arc::new(
-        HailoClusterEmbedder::new(workers, transport, 4, "fp:async-trace")
-            .expect("init cluster"),
+        HailoClusterEmbedder::new(workers, transport, 4, "fp:async-trace").expect("init cluster"),
     );
 
     let app_rt = tokio::runtime::Builder::new_multi_thread()

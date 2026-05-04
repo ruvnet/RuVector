@@ -37,7 +37,9 @@ pub struct StaticDiscovery {
 
 impl StaticDiscovery {
     /// Construct from a pre-computed worker list (typically from config).
-    pub fn new(workers: Vec<WorkerEndpoint>) -> Self { Self { workers } }
+    pub fn new(workers: Vec<WorkerEndpoint>) -> Self {
+        Self { workers }
+    }
 }
 
 impl Discovery for StaticDiscovery {
@@ -207,7 +209,11 @@ impl TailscaleDiscovery {
     /// Construct with the canonical `tailscale` CLI on PATH. Use
     /// `with_cli_path` to override for tests or custom installations.
     pub fn new(tag: impl Into<String>, port: u16) -> Self {
-        Self { tag: tag.into(), port, cli_path: "tailscale".into() }
+        Self {
+            tag: tag.into(),
+            port,
+            cli_path: "tailscale".into(),
+        }
     }
 
     /// Override the path to the `tailscale` CLI binary.
@@ -350,7 +356,10 @@ mod tests {
     fn file_discovery_rejects_address_without_port() {
         let d = FileDiscovery::new("ignored");
         let r = d.parse("just-a-hostname-no-port");
-        assert!(matches!(r, Err(crate::error::ClusterError::Transport { .. })));
+        assert!(matches!(
+            r,
+            Err(crate::error::ClusterError::Transport { .. })
+        ));
     }
 
     #[test]
@@ -363,7 +372,9 @@ mod tests {
     #[test]
     fn file_discovery_handles_only_comments() {
         let d = FileDiscovery::new("ignored");
-        let workers = d.parse("# everything is a comment\n# nothing else").unwrap();
+        let workers = d
+            .parse("# everything is a comment\n# nothing else")
+            .unwrap();
         assert!(workers.is_empty());
     }
 
@@ -469,7 +480,9 @@ mod tests {
         drop(f);
 
         let d = FileDiscovery::new(&path);
-        let err = d.discover().expect_err("oversized manifest must be rejected");
+        let err = d
+            .discover()
+            .expect_err("oversized manifest must be rejected");
         match err {
             ClusterError::Transport { reason, .. } => {
                 assert!(

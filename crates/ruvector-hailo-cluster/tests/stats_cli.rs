@@ -18,12 +18,17 @@ fn stats_cli_list_workers_does_not_require_live_workers() {
     // → print path doesn't accidentally regress to needing live workers.
     let out = Command::new(STATS)
         .args([
-            "--workers", "10.255.255.1:50051,10.255.255.2:50051",
+            "--workers",
+            "10.255.255.1:50051,10.255.255.2:50051",
             "--list-workers",
         ])
         .output()
         .expect("run stats");
-    assert!(out.status.success(), "stats --list-workers exited {:?}", out.status);
+    assert!(
+        out.status.success(),
+        "stats --list-workers exited {:?}",
+        out.status
+    );
 
     let stdout = String::from_utf8_lossy(&out.stdout);
     let lines: Vec<&str> = stdout.lines().collect();
@@ -46,16 +51,26 @@ fn stats_cli_default_tsv_against_live_worker() {
     let _ = worker.kill();
     let _ = worker.wait();
 
-    assert!(out.status.success(), "stats exited {:?}, stderr: {}",
-        out.status, String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stats exited {:?}, stderr: {}",
+        out.status,
+        String::from_utf8_lossy(&out.stderr)
+    );
     let stdout = String::from_utf8_lossy(&out.stdout);
     let lines: Vec<&str> = stdout.lines().collect();
     // Header + 1 worker row.
     assert_eq!(lines.len(), 2, "expected header+1 row, got: {}", stdout);
-    assert!(lines[0].starts_with("worker\taddress\tfingerprint"),
-        "unexpected header: {}", lines[0]);
-    assert!(lines[1].contains("fp:test"),
-        "fingerprint should appear in row: {}", lines[1]);
+    assert!(
+        lines[0].starts_with("worker\taddress\tfingerprint"),
+        "unexpected header: {}",
+        lines[0]
+    );
+    assert!(
+        lines[1].contains("fp:test"),
+        "fingerprint should appear in row: {}",
+        lines[1]
+    );
 }
 
 #[test]
@@ -74,8 +89,11 @@ fn stats_cli_json_output_includes_fingerprint_field() {
     assert!(out.status.success());
     let stdout = String::from_utf8_lossy(&out.stdout);
     let line = stdout.trim();
-    assert!(line.contains("\"fingerprint\":\"fp:json-test\""),
-        "JSON should include fingerprint, got: {}", line);
+    assert!(
+        line.contains("\"fingerprint\":\"fp:json-test\""),
+        "JSON should include fingerprint, got: {}",
+        line
+    );
     assert!(line.contains("\"stats\":"), "JSON should include stats");
 }
 
@@ -95,16 +113,42 @@ fn stats_cli_tsv_includes_rate_limit_columns() {
     let _ = worker.kill();
     let _ = worker.wait();
 
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let stdout = String::from_utf8_lossy(&out.stdout);
     let lines: Vec<&str> = stdout.lines().collect();
-    assert!(lines[0].contains("rl_denials"), "header should include rl_denials: {}", lines[0]);
-    assert!(lines[0].contains("rl_peers"), "header should include rl_peers: {}", lines[0]);
+    assert!(
+        lines[0].contains("rl_denials"),
+        "header should include rl_denials: {}",
+        lines[0]
+    );
+    assert!(
+        lines[0].contains("rl_peers"),
+        "header should include rl_peers: {}",
+        lines[0]
+    );
     let cols: Vec<&str> = lines[1].split('\t').collect();
-    assert_eq!(cols.len(), 12, "expected 12 columns in TSV row, got {}: {:?}", cols.len(), cols);
+    assert_eq!(
+        cols.len(),
+        12,
+        "expected 12 columns in TSV row, got {}: {:?}",
+        cols.len(),
+        cols
+    );
     // Last two columns are u64 — must parse cleanly.
-    assert!(cols[10].parse::<u64>().is_ok(), "rl_denials should be u64: {:?}", cols[10]);
-    assert!(cols[11].parse::<u64>().is_ok(), "rl_peers should be u64: {:?}", cols[11]);
+    assert!(
+        cols[10].parse::<u64>().is_ok(),
+        "rl_denials should be u64: {:?}",
+        cols[10]
+    );
+    assert!(
+        cols[11].parse::<u64>().is_ok(),
+        "rl_peers should be u64: {:?}",
+        cols[11]
+    );
 }
 
 #[test]
@@ -120,7 +164,11 @@ fn stats_cli_prom_output_includes_rate_limit_metrics() {
     let _ = worker.kill();
     let _ = worker.wait();
 
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
         stdout.contains("ruvector_rate_limit_denials_total"),
@@ -160,11 +208,18 @@ fn stats_cli_strict_homogeneous_with_drift_exits_three() {
     let _ = wb.kill();
     let _ = wb.wait();
 
-    assert_eq!(out.status.code(), Some(3),
-        "drift + --strict-homogeneous should exit 3, got {:?}", out.status);
+    assert_eq!(
+        out.status.code(),
+        Some(3),
+        "drift + --strict-homogeneous should exit 3, got {:?}",
+        out.status
+    );
     let stderr = String::from_utf8_lossy(&out.stderr);
-    assert!(stderr.contains("DRIFT"),
-        "stderr should mention DRIFT, got: {}", stderr);
+    assert!(
+        stderr.contains("DRIFT"),
+        "stderr should mention DRIFT, got: {}",
+        stderr
+    );
 }
 
 #[test]
@@ -200,11 +255,17 @@ fn stats_cli_strict_homogeneous_with_no_drift_exits_zero() {
     let _ = wb.kill();
     let _ = wb.wait();
 
-    assert!(out.status.success(),
-        "homogeneous fleet should exit 0, got {:?}", out.status);
+    assert!(
+        out.status.success(),
+        "homogeneous fleet should exit 0, got {:?}",
+        out.status
+    );
     let stderr = String::from_utf8_lossy(&out.stderr);
-    assert!(!stderr.contains("DRIFT"),
-        "stderr must NOT mention DRIFT for homogeneous fleet, got: {}", stderr);
+    assert!(
+        !stderr.contains("DRIFT"),
+        "stderr must NOT mention DRIFT for homogeneous fleet, got: {}",
+        stderr
+    );
 }
 
 // ---- ADR-172 §1c iter-110 end-to-end CLI coverage ----
@@ -213,10 +274,9 @@ fn stats_cli_strict_homogeneous_with_no_drift_exits_zero() {
 /// pubkey and (later) signature as the lowercase hex the CLI expects.
 fn fixture_signing_key() -> ed25519_dalek::SigningKey {
     let seed: [u8; 32] = [
-        0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7, 0xe8,
-        0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8,
-        0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, 0xb8,
-        0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7, 0xc8,
+        0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7, 0xe8, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7,
+        0xa8, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, 0xb8, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6,
+        0xc7, 0xc8,
     ];
     ed25519_dalek::SigningKey::from_bytes(&seed)
 }
@@ -235,14 +295,15 @@ fn hex_lower(bytes: &[u8]) -> String {
 /// to avoid a tempfile dev-dep). Caller is expected to clean up.
 fn write_manifest_fixture(manifest_body: &str) -> std::path::PathBuf {
     use std::io::Write as _;
-    let dir = std::env::temp_dir()
-        .join(format!("ruvector-stats-mfsig-{}-{}",
-            std::process::id(),
-            // Distinguish parallel tests from each other.
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()));
+    let dir = std::env::temp_dir().join(format!(
+        "ruvector-stats-mfsig-{}-{}",
+        std::process::id(),
+        // Distinguish parallel tests from each other.
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
     std::fs::create_dir_all(&dir).unwrap();
 
     // Write manifest
@@ -273,9 +334,12 @@ fn stats_cli_signed_workers_file_succeeds_with_matching_sig() {
 
     let out = Command::new(STATS)
         .args([
-            "--workers-file", manifest.to_str().unwrap(),
-            "--workers-file-sig", sig.to_str().unwrap(),
-            "--workers-file-pubkey", pk.to_str().unwrap(),
+            "--workers-file",
+            manifest.to_str().unwrap(),
+            "--workers-file-sig",
+            sig.to_str().unwrap(),
+            "--workers-file-pubkey",
+            pk.to_str().unwrap(),
         ])
         .output()
         .expect("run stats");
@@ -291,7 +355,11 @@ fn stats_cli_signed_workers_file_succeeds_with_matching_sig() {
         String::from_utf8_lossy(&out.stderr),
     );
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.contains("fp:signed"), "expected worker fp in TSV: {}", stdout);
+    assert!(
+        stdout.contains("fp:signed"),
+        "expected worker fp in TSV: {}",
+        stdout
+    );
 }
 
 #[test]
@@ -312,9 +380,12 @@ fn stats_cli_tampered_workers_file_fails_signature_check() {
 
     let out = Command::new(STATS)
         .args([
-            "--workers-file", manifest.to_str().unwrap(),
-            "--workers-file-sig", sig.to_str().unwrap(),
-            "--workers-file-pubkey", pk.to_str().unwrap(),
+            "--workers-file",
+            manifest.to_str().unwrap(),
+            "--workers-file-sig",
+            sig.to_str().unwrap(),
+            "--workers-file-pubkey",
+            pk.to_str().unwrap(),
         ])
         .output()
         .expect("run stats");
@@ -344,8 +415,10 @@ fn stats_cli_partial_signature_config_is_refused() {
 
     let out = Command::new(STATS)
         .args([
-            "--workers-file", manifest.to_str().unwrap(),
-            "--workers-file-sig", sig.to_str().unwrap(),
+            "--workers-file",
+            manifest.to_str().unwrap(),
+            "--workers-file-sig",
+            sig.to_str().unwrap(),
             // intentionally no --workers-file-pubkey
         ])
         .output()

@@ -81,10 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 i += 1;
             }
             "--rate" => {
-                sim_rate_hz = args
-                    .get(i + 1)
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(10);
+                sim_rate_hz = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(10);
                 i += 2;
             }
             "--baud" => {
@@ -157,7 +154,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .split(',')
             .filter(|s| !s.is_empty())
             .enumerate()
-            .map(|(idx, addr)| WorkerEndpoint::new(format!("static-{}", idx), addr.trim().to_string()))
+            .map(|(idx, addr)| {
+                WorkerEndpoint::new(format!("static-{}", idx), addr.trim().to_string())
+            })
             .collect();
         if workers.is_empty() {
             return Err("--workers list is empty".into());
@@ -185,9 +184,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             #[cfg(feature = "tls")]
             {
-                let ca = tls_ca.ok_or(
-                    "--tls-ca <path> is required when any --tls-* flag is set",
-                )?;
+                let ca =
+                    tls_ca.ok_or("--tls-ca <path> is required when any --tls-* flag is set")?;
                 // Operator can pin the SNI domain explicitly; otherwise
                 // we extract it from the first worker's address (host
                 // part). The cluster-side iter-99 path uses the same
@@ -196,9 +194,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     ruvector_hailo_cluster::tls::domain_from_address(&workers[0].address)
                         .to_string()
                 });
-                let mut tls = ruvector_hailo_cluster::tls::TlsClient::from_pem_files(
-                    &ca, domain,
-                )?;
+                let mut tls = ruvector_hailo_cluster::tls::TlsClient::from_pem_files(&ca, domain)?;
                 match (&tls_client_cert, &tls_client_key) {
                     (Some(c), Some(k)) => {
                         tls = tls.with_client_identity(c, k)?;
@@ -236,7 +232,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "ruvector-mmwave-bridge: cluster sink active — {} worker(s), dim={}, fp={:?}",
                 csv.split(',').filter(|s| !s.is_empty()).count(),
                 dim,
-                if fingerprint.is_empty() { "<unset>" } else { fingerprint.as_str() },
+                if fingerprint.is_empty() {
+                    "<unset>"
+                } else {
+                    fingerprint.as_str()
+                },
             );
         }
         Some(Arc::new(c))
@@ -262,9 +262,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else if auto_scan {
         scan_for_radar(baud, quiet)?
     } else {
-        return Err(
-            "must pass exactly one of --device <path> / --simulator / --auto".into(),
-        );
+        return Err("must pass exactly one of --device <path> / --simulator / --auto".into());
     };
 
     if !quiet {
@@ -296,12 +294,8 @@ fn event_to_text(ev: &Event) -> Option<String> {
         Event::Distance { cm } => {
             format!("nearest target distance {} cm at radar sensor", cm)
         }
-        Event::Presence { present: true } => {
-            "person detected at radar sensor".to_string()
-        }
-        Event::Presence { present: false } => {
-            "no person detected at radar sensor".to_string()
-        }
+        Event::Presence { present: true } => "person detected at radar sensor".to_string(),
+        Event::Presence { present: false } => "no person detected at radar sensor".to_string(),
         // Unknown / ChecksumError / Resync don't get embedded — they're
         // protocol-layer noise, not semantic events.
         _ => return None,
@@ -458,9 +452,12 @@ fn synthesise_frame(tick: u64) -> Vec<u8> {
 
     let mut header = vec![
         0x01u8,
-        0x00, 0x00,
-        (payload.len() >> 8) as u8, payload.len() as u8,
-        (frame_type >> 8) as u8, frame_type as u8,
+        0x00,
+        0x00,
+        (payload.len() >> 8) as u8,
+        payload.len() as u8,
+        (frame_type >> 8) as u8,
+        frame_type as u8,
     ];
     let hcksum = invert_xor_public(&header);
     header.push(hcksum);
@@ -543,23 +540,21 @@ fn scan_for_radar(baud: u32, quiet: bool) -> Result<PathBuf, Box<dyn std::error:
 fn emit_event(ev: &Event, t: Duration) {
     let ts_ms = t.as_millis();
     match ev {
-        Event::Breathing { bpm } => println!(
-            r#"{{"t_ms":{},"kind":"breathing","bpm":{}}}"#,
-            ts_ms, bpm
-        ),
-        Event::HeartRate { bpm } => println!(
-            r#"{{"t_ms":{},"kind":"heart_rate","bpm":{}}}"#,
-            ts_ms, bpm
-        ),
-        Event::Distance { cm } => println!(
-            r#"{{"t_ms":{},"kind":"distance","cm":{}}}"#,
-            ts_ms, cm
-        ),
+        Event::Breathing { bpm } => {
+            println!(r#"{{"t_ms":{},"kind":"breathing","bpm":{}}}"#, ts_ms, bpm)
+        }
+        Event::HeartRate { bpm } => {
+            println!(r#"{{"t_ms":{},"kind":"heart_rate","bpm":{}}}"#, ts_ms, bpm)
+        }
+        Event::Distance { cm } => println!(r#"{{"t_ms":{},"kind":"distance","cm":{}}}"#, ts_ms, cm),
         Event::Presence { present } => println!(
             r#"{{"t_ms":{},"kind":"presence","present":{}}}"#,
             ts_ms, present
         ),
-        Event::Unknown { frame_type, payload_len } => println!(
+        Event::Unknown {
+            frame_type,
+            payload_len,
+        } => println!(
             r#"{{"t_ms":{},"kind":"unknown","frame_type":"0x{:04x}","payload_len":{}}}"#,
             ts_ms, frame_type, payload_len
         ),

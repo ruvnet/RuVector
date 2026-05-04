@@ -18,13 +18,17 @@ pub enum ClusterError {
 
     /// Iteration N hasn't landed for this code path.
     #[error("not yet implemented: {0}")]
-    NotYetImplemented(/// Description of the missing functionality.
-                      &'static str),
+    NotYetImplemented(
+        /// Description of the missing functionality.
+        &'static str,
+    ),
 
     /// Every worker we tried failed (after retry budget exhausted).
     #[error("all workers failed: {0}")]
-    AllWorkersFailed(/// Aggregated reason — typically the last seen error.
-                     String),
+    AllWorkersFailed(
+        /// Aggregated reason — typically the last seen error.
+        String,
+    ),
 
     /// Worker refused due to model fingerprint mismatch — never silently
     /// fan out across a heterogeneous fleet.
@@ -144,18 +148,14 @@ mod tests {
         // Connect timeout, deadline_exceeded, generic transport
         // hiccups — all retry-worthy.
         assert!(!transport("connect: timeout after 5s").is_terminal());
-        assert!(!transport(
-            "embed RPC: status: DeadlineExceeded, message: \"\""
-        )
-        .is_terminal());
-        assert!(!transport(
-            "embed RPC: status: Cancelled, message: \"operation was canceled\""
-        )
-        .is_terminal());
-        assert!(!transport(
-            "embed RPC: status: Internal, message: \"embed: NPU stuck\""
-        )
-        .is_terminal());
+        assert!(!transport("embed RPC: status: DeadlineExceeded, message: \"\"").is_terminal());
+        assert!(
+            !transport("embed RPC: status: Cancelled, message: \"operation was canceled\"")
+                .is_terminal()
+        );
+        assert!(
+            !transport("embed RPC: status: Internal, message: \"embed: NPU stuck\"").is_terminal()
+        );
     }
 
     #[test]

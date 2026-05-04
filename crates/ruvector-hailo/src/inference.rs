@@ -99,9 +99,15 @@ impl EmbeddingPipeline {
         Ok(v)
     }
 
-    pub fn dim(&self) -> usize { self.dim }
-    pub fn max_seq(&self) -> usize { self.max_seq }
-    pub fn tokenizer(&self) -> &WordPieceTokenizer { &self.tokenizer }
+    pub fn dim(&self) -> usize {
+        self.dim
+    }
+    pub fn max_seq(&self) -> usize {
+        self.max_seq
+    }
+    pub fn tokenizer(&self) -> &WordPieceTokenizer {
+        &self.tokenizer
+    }
 }
 
 /// Mean-pool a `[seq, dim]` matrix over the sequence dimension, weighted
@@ -115,7 +121,12 @@ impl EmbeddingPipeline {
 /// Iter 186: thin wrapper around `mean_pool_into` for callers that want
 /// the convenient owning Vec. Hot paths (HefEmbedder) use the alloc-free
 /// `mean_pool_into` variant directly.
-pub fn mean_pool(token_embeds: &[f32], attention_mask: &[u32], seq_len: usize, dim: usize) -> Vec<f32> {
+pub fn mean_pool(
+    token_embeds: &[f32],
+    attention_mask: &[u32],
+    seq_len: usize,
+    dim: usize,
+) -> Vec<f32> {
     let mut out = Vec::with_capacity(dim);
     mean_pool_into(token_embeds, attention_mask, seq_len, dim, &mut out);
     out

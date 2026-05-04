@@ -50,7 +50,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== iter-218 trait wiring smoke ===");
     println!(
         "mode: {}",
-        if live { "live (RUVECTOR_HAILO_WORKERS set)" } else { "wiring-only (NullTransport)" }
+        if live {
+            "live (RUVECTOR_HAILO_WORKERS set)"
+        } else {
+            "wiring-only (NullTransport)"
+        }
     );
 
     // Build the cluster and immediately wrap as the trait object.
@@ -63,9 +67,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .split(',')
             .filter(|s| !s.is_empty())
             .enumerate()
-            .map(|(i, addr)| {
-                WorkerEndpoint::new(format!("static-{}", i), addr.trim().to_string())
-            })
+            .map(|(i, addr)| WorkerEndpoint::new(format!("static-{}", i), addr.trim().to_string()))
             .collect();
         let transport = Arc::new(GrpcTransport::new()?);
         HailoClusterEmbedder::new(workers, transport, 384, "")?
@@ -92,7 +94,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // inherent method. NullTransport refuses by design — that's
         // what we expect.
         match provider.embed("hello world") {
-            Ok(v) => panic!("NullTransport should refuse — got {} elements back", v.len()),
+            Ok(v) => panic!(
+                "NullTransport should refuse — got {} elements back",
+                v.len()
+            ),
             Err(e) => {
                 let msg = e.to_string();
                 assert!(

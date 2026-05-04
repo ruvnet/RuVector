@@ -200,7 +200,10 @@ mod tests {
         assert!(r.check("peer-a").is_ok());
         assert!(r.check("peer-a").is_ok());
         assert!(r.check("peer-a").is_ok());
-        assert!(r.check("peer-a").is_err(), "4th in burst should be rate-limited");
+        assert!(
+            r.check("peer-a").is_err(),
+            "4th in burst should be rate-limited"
+        );
     }
 
     #[test]
@@ -308,7 +311,9 @@ mod tests {
     fn env_lock() -> std::sync::MutexGuard<'static, ()> {
         use std::sync::{Mutex, OnceLock};
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|p| p.into_inner())
+        LOCK.get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
     }
 
     #[test]

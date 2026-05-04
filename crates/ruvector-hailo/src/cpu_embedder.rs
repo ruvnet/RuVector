@@ -105,14 +105,9 @@ impl CpuEmbedder {
     /// inference slots. Errors if the three required files
     /// (model.safetensors, tokenizer.json, config.json) aren't all
     /// present + parseable, or if `pool_size == 0`.
-    pub fn open_with_pool(
-        model_dir: &Path,
-        pool_size: usize,
-    ) -> Result<Self, HailoError> {
+    pub fn open_with_pool(model_dir: &Path, pool_size: usize) -> Result<Self, HailoError> {
         if pool_size == 0 {
-            return Err(HailoError::Tokenizer(
-                "pool_size must be >= 1".to_string(),
-            ));
+            return Err(HailoError::Tokenizer("pool_size must be >= 1".to_string()));
         }
 
         let weights_path = model_dir.join("model.safetensors");
@@ -176,12 +171,8 @@ impl CpuEmbedder {
         let mut pool: Vec<Mutex<Inner>> = Vec::with_capacity(pool_size);
         for _ in 0..pool_size {
             let vb = unsafe {
-                VarBuilder::from_mmaped_safetensors(
-                    &[&weights_path],
-                    DType::F32,
-                    &device,
-                )
-                .map_err(|e| HailoError::Tokenizer(format!("load safetensors: {}", e)))?
+                VarBuilder::from_mmaped_safetensors(&[&weights_path], DType::F32, &device)
+                    .map_err(|e| HailoError::Tokenizer(format!("load safetensors: {}", e)))?
             };
             let model = BertModel::load(vb, &config)
                 .map_err(|e| HailoError::Tokenizer(format!("BertModel::load: {}", e)))?;
@@ -230,9 +221,7 @@ impl CpuEmbedder {
                 return g;
             }
         }
-        self.pool[start]
-            .lock()
-            .unwrap_or_else(|p| p.into_inner())
+        self.pool[start].lock().unwrap_or_else(|p| p.into_inner())
     }
 
     /// Embed `text` into a unit-norm `output_dim`-length f32 vector.

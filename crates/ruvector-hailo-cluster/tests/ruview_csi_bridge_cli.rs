@@ -27,7 +27,7 @@ fn synth_csi_v6_packet(node_id: u8, channel: u8, rssi: i8, n_subc: u16) -> Vec<u
     p.push(0xA6); // noise_floor = -90 dBm as i8
     p.extend_from_slice(&[0u8; 5]); // reserved bytes 11..16
     p.extend_from_slice(&12345u32.to_le_bytes()); // timestamp_us at 16..20
-    // I/Q payload (zeros are fine for header-parse coverage)
+                                                  // I/Q payload (zeros are fine for header-parse coverage)
     p.extend_from_slice(&vec![0u8; n_subc as usize * 2 * 2]);
     p
 }
@@ -36,11 +36,7 @@ fn synth_csi_v6_packet(node_id: u8, channel: u8, rssi: i8, n_subc: u16) -> Vec<u
 fn ruview_bridge_emits_jsonl_for_synthetic_csi_packet() {
     let udp_port = free_port();
     let mut child = Command::new(BRIDGE)
-        .args([
-            "--listen",
-            &format!("127.0.0.1:{}", udp_port),
-            "--quiet",
-        ])
+        .args(["--listen", &format!("127.0.0.1:{}", udp_port), "--quiet"])
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
@@ -70,7 +66,11 @@ fn ruview_bridge_emits_jsonl_for_synthetic_csi_packet() {
         stdout
     );
     for line in &lines {
-        assert!(line.contains("\"kind\":\"csi_feature_state\""), "wrong kind: {}", line);
+        assert!(
+            line.contains("\"kind\":\"csi_feature_state\""),
+            "wrong kind: {}",
+            line
+        );
         assert!(line.contains("\"node_id\":7"), "missing node_id: {}", line);
         assert!(line.contains("\"channel\":6"), "missing channel: {}", line);
         assert!(line.contains("\"rssi_dbm\":-42"), "missing rssi: {}", line);
@@ -159,11 +159,7 @@ fn ruview_bridge_drops_malformed_packets_silently() {
     // then 1 valid one; assert exactly 1 JSONL line on stdout.
     let udp_port = free_port();
     let mut child = Command::new(BRIDGE)
-        .args([
-            "--listen",
-            &format!("127.0.0.1:{}", udp_port),
-            "--quiet",
-        ])
+        .args(["--listen", &format!("127.0.0.1:{}", udp_port), "--quiet"])
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
@@ -174,7 +170,9 @@ fn ruview_bridge_drops_malformed_packets_silently() {
     let target = format!("127.0.0.1:{}", udp_port);
     sender.send_to(&[0xAA, 0xBB], &target).unwrap(); // too short
     sender.send_to(&[0u8; 32], &target).unwrap(); // wrong magic, padded
-    sender.send_to(b"hello world this is not a csi frame", &target).unwrap();
+    sender
+        .send_to(b"hello world this is not a csi frame", &target)
+        .unwrap();
     sender
         .send_to(&synth_csi_v6_packet(1, 1, -50, 16), &target)
         .unwrap();

@@ -208,7 +208,10 @@ struct WorkerService {
 
 #[tonic::async_trait]
 impl Embedding for WorkerService {
-    #[instrument(skip(self, request), fields(text_len, text_content, latency_us, dim, request_id))]
+    #[instrument(
+        skip(self, request),
+        fields(text_len, text_content, latency_us, dim, request_id)
+    )]
     async fn embed(
         &self,
         request: Request<EmbedRequest>,
@@ -220,7 +223,11 @@ impl Embedding for WorkerService {
             &request.get_ref().request_id,
         );
         let req = request.into_inner();
-        let req_id_field: &str = if req_id_owned.is_empty() { "-" } else { &req_id_owned };
+        let req_id_field: &str = if req_id_owned.is_empty() {
+            "-"
+        } else {
+            &req_id_owned
+        };
         // ADR-172 §3c iter 103: render text content per configured mode.
         // Default mode is None → "-", so legacy log scrapers see a
         // populated field but get no leakable content.
@@ -277,15 +284,22 @@ impl Embedding for WorkerService {
             // Iter-96 (ADR-174 §93): live NPU temperature read on every
             // health probe. 0.0 if read fails (older firmware variants
             // don't expose the opcode); coordinator side maps 0.0 → None.
-            npu_temp_ts0_celsius: self.embedder.chip_temperature()
-                .map(|(t, _)| t).unwrap_or(0.0),
-            npu_temp_ts1_celsius: self.embedder.chip_temperature()
-                .map(|(_, t)| t).unwrap_or(0.0),
+            npu_temp_ts0_celsius: self
+                .embedder
+                .chip_temperature()
+                .map(|(t, _)| t)
+                .unwrap_or(0.0),
+            npu_temp_ts1_celsius: self
+                .embedder
+                .chip_temperature()
+                .map(|(_, t)| t)
+                .unwrap_or(0.0),
         }))
     }
 
-    type EmbedStreamStream =
-        Pin<Box<dyn futures_core::Stream<Item = Result<EmbedStreamResponse, Status>> + Send + 'static>>;
+    type EmbedStreamStream = Pin<
+        Box<dyn futures_core::Stream<Item = Result<EmbedStreamResponse, Status>> + Send + 'static>,
+    >;
 
     #[instrument(skip(self, request), fields(batch_size, request_id))]
     async fn embed_stream(
@@ -305,7 +319,11 @@ impl Embedding for WorkerService {
         let peer = ruvector_hailo_cluster::rate_limit::peer_identity(&request);
         let req = request.into_inner();
         let n = req.texts.len();
-        let req_id_field: &str = if req_id_owned.is_empty() { "-" } else { &req_id_owned };
+        let req_id_field: &str = if req_id_owned.is_empty() {
+            "-"
+        } else {
+            &req_id_owned
+        };
         tracing::Span::current()
             .record("batch_size", n)
             .record("request_id", req_id_field);
@@ -528,7 +546,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let sim_close = cos(&vecs[0], &vecs[1]);
         let sim_far = cos(&vecs[0], &vecs[2]);
         let dim = vecs[0].len();
-        let head: Vec<String> = vecs[0].iter().take(4).map(|x| format!("{:.4}", x)).collect();
+        let head: Vec<String> = vecs[0]
+            .iter()
+            .take(4)
+            .map(|x| format!("{:.4}", x))
+            .collect();
         info!(
             dim,
             vec_head = %head.join(","),
@@ -575,16 +597,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         None => {
             // Soft warn — older Hailo firmware doesn't expose the
             // temperature opcode; not a startup-blocking issue.
-            tracing::warn!("Hailo-8 NPU temperature read returned None (firmware may not support the opcode)");
+            tracing::warn!(
+                "Hailo-8 NPU temperature read returned None (firmware may not support the opcode)"
+            );
         }
     }
 
     // ADR-172 §3c iter-103: parse the text-content audit mode. Default
     // None means existing deploys see no behavior change; ops opt into
     // hash for cross-system correlation or full for debug environments.
-    let log_text_content = LogTextContent::parse(
-        &std::env::var("RUVECTOR_LOG_TEXT_CONTENT").unwrap_or_default(),
-    )?;
+    let log_text_content =
+        LogTextContent::parse(&std::env::var("RUVECTOR_LOG_TEXT_CONTENT").unwrap_or_default())?;
     info!(mode = ?log_text_content, "embed text-content audit mode");
 
     // ADR-172 §3b iter-104: per-peer rate limiter. None = disabled (back-
@@ -747,11 +770,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let mut tls = ruvector_hailo_cluster::tls::TlsServer::from_pem_files(&c, &k)
                         .map_err(|e| format!("tls server config: {}", e))?;
                     if let Ok(ca) = std::env::var("RUVECTOR_TLS_CLIENT_CA") {
-                        tls = tls.with_client_ca(&ca)
+                        tls = tls
+                            .with_client_ca(&ca)
                             .map_err(|e| format!("tls client_ca: {}", e))?;
                         info!(client_ca = %ca, "mTLS client cert verification enabled");
                     }
-                    server = server.tls_config(tls.into_inner())
+                    server = server
+                        .tls_config(tls.into_inner())
                         .map_err(|e| format!("apply tls: {}", e))?;
                     info!(cert = %c, "TLS enabled (ADR-172 §1a HIGH mitigation, iter 99)");
                 }
@@ -833,10 +858,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let embed_server = EmbeddingServer::new(svc)
             .max_decoding_message_size(max_req_bytes)
             .max_encoding_message_size(max_resp_bytes);
-        let intercepted = tonic::service::interceptor::InterceptedService::new(
-            embed_server,
-            interceptor,
-        );
+        let intercepted =
+            tonic::service::interceptor::InterceptedService::new(embed_server, interceptor);
         server
             .add_service(intercepted)
             .serve_with_shutdown(bind, shutdown_signal())
@@ -890,10 +913,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// Future that resolves when SIGINT or SIGTERM arrives — graceful exit.
 async fn shutdown_signal() {
     use tokio::signal::unix::{signal, SignalKind};
-    let mut sigterm = signal(SignalKind::terminate())
-        .expect("install SIGTERM handler");
-    let mut sigint = signal(SignalKind::interrupt())
-        .expect("install SIGINT handler");
+    let mut sigterm = signal(SignalKind::terminate()).expect("install SIGTERM handler");
+    let mut sigint = signal(SignalKind::interrupt()).expect("install SIGINT handler");
     tokio::select! {
         _ = sigterm.recv() => info!("SIGTERM received, shutting down"),
         _ = sigint.recv()  => info!("SIGINT received, shutting down"),
@@ -909,20 +930,36 @@ mod tests {
 
     #[test]
     fn parse_default_empty_is_none() {
-        assert!(matches!(LogTextContent::parse("").unwrap(), LogTextContent::None));
+        assert!(matches!(
+            LogTextContent::parse("").unwrap(),
+            LogTextContent::None
+        ));
     }
 
     #[test]
     fn parse_named_modes() {
-        assert!(matches!(LogTextContent::parse("none").unwrap(), LogTextContent::None));
-        assert!(matches!(LogTextContent::parse("hash").unwrap(), LogTextContent::Hash));
-        assert!(matches!(LogTextContent::parse("full").unwrap(), LogTextContent::Full));
+        assert!(matches!(
+            LogTextContent::parse("none").unwrap(),
+            LogTextContent::None
+        ));
+        assert!(matches!(
+            LogTextContent::parse("hash").unwrap(),
+            LogTextContent::Hash
+        ));
+        assert!(matches!(
+            LogTextContent::parse("full").unwrap(),
+            LogTextContent::Full
+        ));
     }
 
     #[test]
     fn parse_unknown_mode_errors() {
         let e = LogTextContent::parse("partial").unwrap_err();
-        assert!(e.contains("none|hash|full"), "expected mode list in err: {}", e);
+        assert!(
+            e.contains("none|hash|full"),
+            "expected mode list in err: {}",
+            e
+        );
     }
 
     #[test]
@@ -934,7 +971,11 @@ mod tests {
     fn render_hash_is_16_hex_chars_deterministic() {
         let h = LogTextContent::Hash.render("hello world");
         assert_eq!(h.len(), 16, "expected 16-hex prefix, got {:?}", h);
-        assert!(h.chars().all(|c| c.is_ascii_hexdigit()), "non-hex char in {:?}", h);
+        assert!(
+            h.chars().all(|c| c.is_ascii_hexdigit()),
+            "non-hex char in {:?}",
+            h
+        );
         assert_eq!(LogTextContent::Hash.render("hello world"), h);
         assert_ne!(LogTextContent::Hash.render("hello world!"), h);
     }

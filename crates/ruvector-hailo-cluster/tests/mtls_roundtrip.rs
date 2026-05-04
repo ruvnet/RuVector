@@ -20,8 +20,7 @@ use std::pin::Pin;
 use std::time::Duration;
 
 use rcgen::{
-    BasicConstraints, CertificateParams, CertifiedKey, IsCa, KeyPair,
-    generate_simple_self_signed,
+    generate_simple_self_signed, BasicConstraints, CertificateParams, CertifiedKey, IsCa, KeyPair,
 };
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
@@ -103,8 +102,7 @@ struct Issued {
 fn issue_chain(server_sans: Vec<String>, client_cn: &str) -> (String, Issued, Issued) {
     // CA: self-signed, marked is_ca = Ca(unconstrained).
     let ca_key = KeyPair::generate().expect("ca keypair");
-    let mut ca_params = CertificateParams::new(vec!["ruvector-test-ca".into()])
-        .expect("ca params");
+    let mut ca_params = CertificateParams::new(vec!["ruvector-test-ca".into()]).expect("ca params");
     ca_params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
     let ca_cert = ca_params.self_signed(&ca_key).expect("ca self-sign");
     let ca_pem = ca_cert.pem();
@@ -119,8 +117,7 @@ fn issue_chain(server_sans: Vec<String>, client_cn: &str) -> (String, Issued, Is
     // Client cert: signed by the same CA. The CN goes into a DNS SAN
     // because rcgen wants at least one SAN even for client certs.
     let client_key = KeyPair::generate().expect("client keypair");
-    let client_params = CertificateParams::new(vec![client_cn.into()])
-        .expect("client params");
+    let client_params = CertificateParams::new(vec![client_cn.into()]).expect("client params");
     let client_cert = client_params
         .signed_by(&client_key, &ca_cert, &ca_key)
         .expect("client signed_by ca");
@@ -177,12 +174,9 @@ fn mtls_valid_client_succeeds() {
     let tls_client = TlsClient::from_pem_bytes(ca_pem.as_bytes(), "localhost")
         .expect("build client tls")
         .with_client_identity_bytes(client.cert_pem.as_bytes(), client.key_pem.as_bytes());
-    let transport = GrpcTransport::with_tls(
-        Duration::from_secs(2),
-        Duration::from_secs(2),
-        tls_client,
-    )
-    .unwrap();
+    let transport =
+        GrpcTransport::with_tls(Duration::from_secs(2), Duration::from_secs(2), tls_client)
+            .unwrap();
 
     let endpoint = format!("localhost:{}", addr.port());
     let worker = WorkerEndpoint::new("mtls-mock", endpoint);
@@ -211,14 +205,11 @@ fn mtls_no_client_identity_fails() {
     // Client trusts the CA but does NOT present an identity. Server
     // is configured with hard mTLS (client_auth_optional = false), so
     // the handshake must fail.
-    let tls_client = TlsClient::from_pem_bytes(ca_pem.as_bytes(), "localhost")
-        .expect("build client tls");
-    let transport = GrpcTransport::with_tls(
-        Duration::from_secs(2),
-        Duration::from_secs(2),
-        tls_client,
-    )
-    .unwrap();
+    let tls_client =
+        TlsClient::from_pem_bytes(ca_pem.as_bytes(), "localhost").expect("build client tls");
+    let transport =
+        GrpcTransport::with_tls(Duration::from_secs(2), Duration::from_secs(2), tls_client)
+            .unwrap();
 
     let endpoint = format!("localhost:{}", addr.port());
     let worker = WorkerEndpoint::new("mtls-mock", endpoint);
@@ -251,8 +242,7 @@ fn mtls_rogue_client_identity_fails() {
     let CertifiedKey {
         cert: rogue_cert,
         key_pair: rogue_key,
-    } = generate_simple_self_signed(vec!["rogue.local".into()])
-        .expect("rogue self-signed");
+    } = generate_simple_self_signed(vec!["rogue.local".into()]).expect("rogue self-signed");
 
     let tls_client = TlsClient::from_pem_bytes(ca_pem.as_bytes(), "localhost")
         .expect("build client tls")
@@ -260,12 +250,9 @@ fn mtls_rogue_client_identity_fails() {
             rogue_cert.pem().as_bytes(),
             rogue_key.serialize_pem().as_bytes(),
         );
-    let transport = GrpcTransport::with_tls(
-        Duration::from_secs(2),
-        Duration::from_secs(2),
-        tls_client,
-    )
-    .unwrap();
+    let transport =
+        GrpcTransport::with_tls(Duration::from_secs(2), Duration::from_secs(2), tls_client)
+            .unwrap();
 
     let endpoint = format!("localhost:{}", addr.port());
     let worker = WorkerEndpoint::new("mtls-mock", endpoint);

@@ -51,7 +51,9 @@ impl P2cPool {
     /// `healthy=true` with a neutral EWMA seed.
     pub fn new(workers: Vec<WorkerEndpoint>) -> Self {
         let stats = workers.into_iter().map(WorkerStats::new).collect();
-        Self { inner: Mutex::new(stats) }
+        Self {
+            inner: Mutex::new(stats),
+        }
     }
 
     /// Total worker count in the pool, regardless of healthy state.
@@ -62,7 +64,12 @@ impl P2cPool {
     /// Snapshot of every worker's endpoint, healthy or not. Cheap clone.
     /// Used by `fleet_stats()` so operators can see ejected workers too.
     pub fn all_endpoints(&self) -> Vec<WorkerEndpoint> {
-        self.inner.lock().unwrap().iter().map(|w| w.endpoint.clone()).collect()
+        self.inner
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|w| w.endpoint.clone())
+            .collect()
     }
 
     /// Pick two workers at random (without replacement) from the healthy
@@ -82,7 +89,11 @@ impl P2cPool {
                 }
                 let a = healthy[i];
                 let b = healthy[j];
-                let chosen = if a.ewma_latency_us <= b.ewma_latency_us { a } else { b };
+                let chosen = if a.ewma_latency_us <= b.ewma_latency_us {
+                    a
+                } else {
+                    b
+                };
                 Some(chosen.endpoint.clone())
             }
         }
@@ -149,7 +160,9 @@ fn pseudo_rand_index(n: usize) -> usize {
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_nanos() as u64)
                 .unwrap_or(1);
-            if x == 0 { x = 1; }
+            if x == 0 {
+                x = 1;
+            }
         }
         // xorshift64*
         x ^= x << 13;
@@ -165,7 +178,9 @@ mod tests {
     use super::*;
 
     fn endpoints(n: usize) -> Vec<WorkerEndpoint> {
-        (0..n).map(|i| WorkerEndpoint::new(format!("pi-{}", i), format!("10.0.0.{}:50051", i))).collect()
+        (0..n)
+            .map(|i| WorkerEndpoint::new(format!("pi-{}", i), format!("10.0.0.{}:50051", i)))
+            .collect()
     }
 
     #[test]

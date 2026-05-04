@@ -21,7 +21,7 @@
 //! for whether tokenization is the bottleneck before / after the HEF
 //! lands. Measurements logged to PR #413 review thread.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use ruvector_hailo::tokenizer::WordPieceTokenizer;
 
 /// Build a synthetic ~30k-entry vocab that mirrors BERT-base's structure:
@@ -45,7 +45,9 @@ fn synthetic_vocab() -> String {
     for c in '0'..='9' {
         v.push(c.to_string());
     }
-    for p in [",", ".", "!", "?", "-", ":", ";", "(", ")", "'", "\"", "/", "&"] {
+    for p in [
+        ",", ".", "!", "?", "-", ":", ";", "(", ")", "'", "\"", "/", "&",
+    ] {
         v.push(p.to_string());
     }
     // Bigrams (2-char). 26*26 = 676.
@@ -79,11 +81,45 @@ fn synthetic_vocab() -> String {
 /// the requested character length.
 fn sample_text(target_chars: usize) -> String {
     const STOCK: &[&str] = &[
-        "the", "quick", "brown", "fox", "jumps", "over", "the", "lazy", "dog", "ruvector",
-        "embeddings", "search", "system", "produces", "high-quality", "dense", "vectors",
-        "from", "natural", "language", "queries", "for", "use", "in", "downstream",
-        "retrieval", "pipelines", "and", "neural", "ranking", "models", "trained",
-        "on", "scientific", "literature", "and", "general", "domain", "corpora",
+        "the",
+        "quick",
+        "brown",
+        "fox",
+        "jumps",
+        "over",
+        "the",
+        "lazy",
+        "dog",
+        "ruvector",
+        "embeddings",
+        "search",
+        "system",
+        "produces",
+        "high-quality",
+        "dense",
+        "vectors",
+        "from",
+        "natural",
+        "language",
+        "queries",
+        "for",
+        "use",
+        "in",
+        "downstream",
+        "retrieval",
+        "pipelines",
+        "and",
+        "neural",
+        "ranking",
+        "models",
+        "trained",
+        "on",
+        "scientific",
+        "literature",
+        "and",
+        "general",
+        "domain",
+        "corpora",
     ];
     let mut out = String::with_capacity(target_chars);
     let mut i = 0usize;
@@ -114,12 +150,16 @@ fn bench_encode(c: &mut Criterion) {
         // close to the target before truncation kicks in.
         let text = sample_text(max_seq * 4);
         group.throughput(Throughput::Elements(1));
-        group.bench_with_input(BenchmarkId::from_parameter(max_seq), max_seq, |b, &max_seq| {
-            b.iter(|| {
-                let enc = tok.encode(black_box(&text), black_box(max_seq), true);
-                black_box(enc);
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(max_seq),
+            max_seq,
+            |b, &max_seq| {
+                b.iter(|| {
+                    let enc = tok.encode(black_box(&text), black_box(max_seq), true);
+                    black_box(enc);
+                });
+            },
+        );
     }
     group.finish();
 }

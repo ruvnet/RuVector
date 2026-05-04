@@ -72,8 +72,7 @@ mod tests {
     fn different_texts_distribute_across_workers() {
         let r = HashShardRouter;
         let ws = workers(4);
-        let mut buckets: std::collections::HashMap<String, u32> =
-            std::collections::HashMap::new();
+        let mut buckets: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
         for i in 0..1000 {
             let t = format!("text number {}", i);
             let pick = r.pick(&t, &ws).unwrap();
@@ -85,7 +84,9 @@ mod tests {
         for (name, count) in &buckets {
             assert!(
                 (150..=350).contains(count),
-                "worker {} got {} (expected ~250)", name, count
+                "worker {} got {} (expected ~250)",
+                name,
+                count
             );
         }
     }

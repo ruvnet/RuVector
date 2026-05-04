@@ -228,10 +228,7 @@ impl Embedding for SlowMockWorker {
 /// handler_sleep > timeout the tonic tower-timeout middleware fires
 /// and the client sees `Status::cancelled`. When handler_sleep <
 /// timeout the request completes normally.
-async fn start_timeout_server(
-    timeout_ms: u64,
-    handler_sleep_ms: u64,
-) -> SocketAddr {
+async fn start_timeout_server(timeout_ms: u64, handler_sleep_ms: u64) -> SocketAddr {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let incoming = TcpListenerStream::new(listener);
@@ -334,7 +331,10 @@ async fn embed_request_below_decoding_cap_succeeds() {
         request_id: "dos-gates-test-ok".into(),
     });
 
-    let resp = client.embed(req).await.expect("under-cap embed should succeed");
+    let resp = client
+        .embed(req)
+        .await
+        .expect("under-cap embed should succeed");
     let body = resp.into_inner();
     assert_eq!(body.dim, 384, "echo mock returns dim=384");
 }
@@ -400,7 +400,10 @@ async fn embed_response_under_encoding_cap_succeeds() {
         request_id: "dos-encode-ok".into(),
     });
 
-    let resp = client.embed(req).await.expect("response must fit under cap");
+    let resp = client
+        .embed(req)
+        .await
+        .expect("response must fit under cap");
     let body = resp.into_inner();
     assert_eq!(body.dim, 4_000, "oversized mock returns dim=4000");
     assert_eq!(body.vector.len(), 4_000, "vector length matches dim");
@@ -481,6 +484,9 @@ async fn embed_handler_within_timeout_succeeds() {
         request_id: "dos-timeout-ok".into(),
     });
 
-    let resp = client.embed(req).await.expect("fast handler should complete");
+    let resp = client
+        .embed(req)
+        .await
+        .expect("fast handler should complete");
     assert_eq!(resp.into_inner().dim, 384);
 }

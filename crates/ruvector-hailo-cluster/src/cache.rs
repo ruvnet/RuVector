@@ -194,7 +194,11 @@ impl EmbeddingCache {
             let mut shard = self.shards[shard_idx].lock().unwrap();
             shard.counter = shard.counter.wrapping_add(1);
             let now_counter = shard.counter;
-            let now = if self.ttl.is_some() { Some(Instant::now()) } else { None };
+            let now = if self.ttl.is_some() {
+                Some(Instant::now())
+            } else {
+                None
+            };
 
             let outcome = match shard.map.get_mut(&k) {
                 Some(entry) => {

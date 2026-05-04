@@ -19,10 +19,14 @@ fn bench_cli_default_stdout_includes_percentile_block() {
 
     let out = Command::new(BENCH)
         .args([
-            "--workers", &format!("127.0.0.1:{}", port),
-            "--concurrency", "2",
-            "--duration-secs", "1",
-            "--dim", "4",
+            "--workers",
+            &format!("127.0.0.1:{}", port),
+            "--concurrency",
+            "2",
+            "--duration-secs",
+            "1",
+            "--dim",
+            "4",
         ])
         .output()
         .expect("run bench");
@@ -30,8 +34,12 @@ fn bench_cli_default_stdout_includes_percentile_block() {
     let _ = worker.kill();
     let _ = worker.wait();
 
-    assert!(out.status.success(), "bench exited {:?}, stderr: {}",
-        out.status, String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "bench exited {:?}, stderr: {}",
+        out.status,
+        String::from_utf8_lossy(&out.stderr)
+    );
     let stdout = String::from_utf8_lossy(&out.stdout);
     // Verify the human-readable summary lines we promise.
     for needle in &[
@@ -42,8 +50,12 @@ fn bench_cli_default_stdout_includes_percentile_block() {
         "p50",
         "p99",
     ] {
-        assert!(stdout.contains(needle),
-            "stdout missing {:?}, got: {}", needle, stdout);
+        assert!(
+            stdout.contains(needle),
+            "stdout missing {:?}, got: {}",
+            needle,
+            stdout
+        );
     }
 }
 
@@ -54,10 +66,14 @@ fn bench_cli_quiet_silences_stdout_but_still_runs() {
 
     let out = Command::new(BENCH)
         .args([
-            "--workers", &format!("127.0.0.1:{}", port),
-            "--concurrency", "2",
-            "--duration-secs", "1",
-            "--dim", "4",
+            "--workers",
+            &format!("127.0.0.1:{}", port),
+            "--concurrency",
+            "2",
+            "--duration-secs",
+            "1",
+            "--dim",
+            "4",
             "--quiet",
         ])
         .output()
@@ -68,26 +84,34 @@ fn bench_cli_quiet_silences_stdout_but_still_runs() {
 
     assert!(out.status.success(), "bench exited {:?}", out.status);
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert_eq!(stdout.trim(), "",
-        "--quiet should produce empty stdout, got: {:?}", stdout);
+    assert_eq!(
+        stdout.trim(),
+        "",
+        "--quiet should produce empty stdout, got: {:?}",
+        stdout
+    );
 }
 
 #[test]
 fn bench_cli_prom_file_contains_throughput_metric() {
     let port = free_port();
     let mut worker = spawn_fakeworker(port, 4, "");
-    let prom_path =
-        std::env::temp_dir().join(format!("bench-cli-iter72-{}.prom", port));
+    let prom_path = std::env::temp_dir().join(format!("bench-cli-iter72-{}.prom", port));
     let prom_str = prom_path.to_string_lossy().to_string();
 
     let out = Command::new(BENCH)
         .args([
-            "--workers", &format!("127.0.0.1:{}", port),
-            "--concurrency", "2",
-            "--duration-secs", "1",
-            "--dim", "4",
+            "--workers",
+            &format!("127.0.0.1:{}", port),
+            "--concurrency",
+            "2",
+            "--duration-secs",
+            "1",
+            "--dim",
+            "4",
             "--quiet",
-            "--prom", &prom_str,
+            "--prom",
+            &prom_str,
         ])
         .output()
         .expect("run bench");
@@ -96,15 +120,20 @@ fn bench_cli_prom_file_contains_throughput_metric() {
     let _ = worker.wait();
 
     assert!(out.status.success());
-    let prom_body = std::fs::read_to_string(&prom_path)
-        .expect("prom file should exist");
+    let prom_body = std::fs::read_to_string(&prom_path).expect("prom file should exist");
     let _ = std::fs::remove_file(&prom_path);
 
     // Required textfile-collector preamble + the throughput metric.
-    assert!(prom_body.contains("# HELP ruvector_hailo_bench_throughput_per_second"),
-        "missing HELP, got: {}", prom_body);
-    assert!(prom_body.contains("ruvector_hailo_bench_throughput_per_second{concurrency=\"2\"}"),
-        "missing throughput metric with concurrency label, got: {}", prom_body);
+    assert!(
+        prom_body.contains("# HELP ruvector_hailo_bench_throughput_per_second"),
+        "missing HELP, got: {}",
+        prom_body
+    );
+    assert!(
+        prom_body.contains("ruvector_hailo_bench_throughput_per_second{concurrency=\"2\"}"),
+        "missing throughput metric with concurrency label, got: {}",
+        prom_body
+    );
 }
 
 #[test]
@@ -114,11 +143,16 @@ fn bench_cli_validate_fleet_with_wrong_fingerprint_exits_two() {
 
     let out = Command::new(BENCH)
         .args([
-            "--workers", &format!("127.0.0.1:{}", port),
-            "--concurrency", "1",
-            "--duration-secs", "1",
-            "--dim", "4",
-            "--fingerprint", "fp:not-the-fakeworker",
+            "--workers",
+            &format!("127.0.0.1:{}", port),
+            "--concurrency",
+            "1",
+            "--duration-secs",
+            "1",
+            "--dim",
+            "4",
+            "--fingerprint",
+            "fp:not-the-fakeworker",
             "--validate-fleet",
             "--quiet",
         ])
@@ -128,11 +162,18 @@ fn bench_cli_validate_fleet_with_wrong_fingerprint_exits_two() {
     let _ = worker.kill();
     let _ = worker.wait();
 
-    assert_eq!(out.status.code(), Some(2),
-        "validate_fleet on drifted fp should exit 2, got {:?}", out.status);
+    assert_eq!(
+        out.status.code(),
+        Some(2),
+        "validate_fleet on drifted fp should exit 2, got {:?}",
+        out.status
+    );
     let stderr = String::from_utf8_lossy(&out.stderr);
-    assert!(stderr.contains("FAILED"),
-        "stderr should explain the failure, got: {}", stderr);
+    assert!(
+        stderr.contains("FAILED"),
+        "stderr should explain the failure, got: {}",
+        stderr
+    );
 }
 
 #[test]
@@ -157,10 +198,14 @@ fn bench_cli_duration_secs_actually_bounds_runtime() {
     let start = Instant::now();
     let out = Command::new(BENCH)
         .args([
-            "--workers", &format!("127.0.0.1:{}", port),
-            "--concurrency", "1",
-            "--duration-secs", "1",
-            "--dim", "4",
+            "--workers",
+            &format!("127.0.0.1:{}", port),
+            "--concurrency",
+            "1",
+            "--duration-secs",
+            "1",
+            "--dim",
+            "4",
             "--quiet",
         ])
         .output()
@@ -171,8 +216,14 @@ fn bench_cli_duration_secs_actually_bounds_runtime() {
     let _ = worker.wait();
 
     assert!(out.status.success());
-    assert!(elapsed >= Duration::from_millis(900),
-        "bench should run for ~1s, got {:?}", elapsed);
-    assert!(elapsed < Duration::from_secs(3),
-        "bench should NOT exceed 3s for --duration-secs 1, got {:?}", elapsed);
+    assert!(
+        elapsed >= Duration::from_millis(900),
+        "bench should run for ~1s, got {:?}",
+        elapsed
+    );
+    assert!(
+        elapsed < Duration::from_secs(3),
+        "bench should NOT exceed 3s for --duration-secs 1, got {:?}",
+        elapsed
+    );
 }

@@ -22,11 +22,11 @@
 
 use std::sync::Arc;
 
+use ruvector_hailo_cluster::transport::WorkerEndpoint;
 use ruvector_hailo_cluster::{
     Discovery, FileDiscovery, GrpcTransport, HailoClusterEmbedder, StaticDiscovery,
     TailscaleDiscovery,
 };
-use ruvector_hailo_cluster::transport::WorkerEndpoint;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
@@ -62,17 +62,41 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
-            "--workers" => { workers_arg = args.get(i + 1).cloned(); i += 2; }
-            "--workers-file" => { workers_file_arg = args.get(i + 1).cloned(); i += 2; }
-            "--workers-file-sig" => { workers_file_sig = args.get(i + 1).cloned(); i += 2; }
-            "--workers-file-pubkey" => { workers_file_pubkey = args.get(i + 1).cloned(); i += 2; }
-            "--tailscale-tag" => { tag_arg = args.get(i + 1).cloned(); i += 2; }
-            "--port" => {
-                port_arg = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(50051);
+            "--workers" => {
+                workers_arg = args.get(i + 1).cloned();
                 i += 2;
             }
-            "--json" => { json_output = true; i += 1; }
-            "--prom" => { prom_output = true; i += 1; }
+            "--workers-file" => {
+                workers_file_arg = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--workers-file-sig" => {
+                workers_file_sig = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--workers-file-pubkey" => {
+                workers_file_pubkey = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--tailscale-tag" => {
+                tag_arg = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--port" => {
+                port_arg = args
+                    .get(i + 1)
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(50051);
+                i += 2;
+            }
+            "--json" => {
+                json_output = true;
+                i += 1;
+            }
+            "--prom" => {
+                prom_output = true;
+                i += 1;
+            }
             "--prom-file" => {
                 prom_file = args.get(i + 1).cloned();
                 if prom_file.is_none() {
@@ -81,7 +105,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 i += 2;
             }
             "--watch" => {
-                watch_secs = args.get(i + 1).and_then(|s| s.parse().ok()).filter(|&n| n > 0);
+                watch_secs = args
+                    .get(i + 1)
+                    .and_then(|s| s.parse().ok())
+                    .filter(|&n| n > 0);
                 if watch_secs.is_none() {
                     return Err("--watch needs a positive integer (seconds)".into());
                 }
@@ -91,17 +118,38 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 watch_max_iters = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(0);
                 i += 2;
             }
-            "--strict-homogeneous" => { strict_homogeneous = true; i += 1; }
-            "--list-workers" => { list_workers = true; i += 1; }
+            "--strict-homogeneous" => {
+                strict_homogeneous = true;
+                i += 1;
+            }
+            "--list-workers" => {
+                list_workers = true;
+                i += 1;
+            }
             #[cfg(feature = "tls")]
-            "--tls-ca" => { tls_ca = args.get(i + 1).cloned(); i += 2; }
+            "--tls-ca" => {
+                tls_ca = args.get(i + 1).cloned();
+                i += 2;
+            }
             #[cfg(feature = "tls")]
-            "--tls-domain" => { tls_domain = args.get(i + 1).cloned(); i += 2; }
+            "--tls-domain" => {
+                tls_domain = args.get(i + 1).cloned();
+                i += 2;
+            }
             #[cfg(feature = "tls")]
-            "--tls-client-cert" => { tls_client_cert = args.get(i + 1).cloned(); i += 2; }
+            "--tls-client-cert" => {
+                tls_client_cert = args.get(i + 1).cloned();
+                i += 2;
+            }
             #[cfg(feature = "tls")]
-            "--tls-client-key" => { tls_client_key = args.get(i + 1).cloned(); i += 2; }
-            "--help" | "-h" => { print_help(); return Ok(()); }
+            "--tls-client-key" => {
+                tls_client_key = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--help" | "-h" => {
+                print_help();
+                return Ok(());
+            }
             "--version" | "-V" => {
                 println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
                 return Ok(());
@@ -179,7 +227,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "tls")]
     let transport = {
         if let Some(ca_path) = tls_ca.as_deref() {
-            let addr0 = workers.first().map(|w| w.address.clone()).unwrap_or_default();
+            let addr0 = workers
+                .first()
+                .map(|w| w.address.clone())
+                .unwrap_or_default();
             let domain = tls_domain.clone().unwrap_or_else(|| {
                 ruvector_hailo_cluster::tls::domain_from_address(&addr0).to_string()
             });
@@ -187,12 +238,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .map_err(|e| format!("--tls-ca: {}", e))?;
             match (tls_client_cert.as_deref(), tls_client_key.as_deref()) {
                 (Some(c), Some(k)) => {
-                    tls = tls.with_client_identity(c, k)
+                    tls = tls
+                        .with_client_identity(c, k)
                         .map_err(|e| format!("--tls-client-cert/--tls-client-key: {}", e))?;
                 }
                 (Some(_), None) | (None, Some(_)) => {
                     return Err(
-                        "--tls-client-cert and --tls-client-key must both be set or both unset".into(),
+                        "--tls-client-cert and --tls-client-key must both be set or both unset"
+                            .into(),
                     );
                 }
                 (None, None) => {}
@@ -304,8 +357,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         s,
                     ),
                     Err(e) => {
-                        eprintln!("ruvector-hailo-stats: worker {} stats failed: {}",
-                            m.endpoint.name, e);
+                        eprintln!(
+                            "ruvector-hailo-stats: worker {} stats failed: {}",
+                            m.endpoint.name, e
+                        );
                         had_error = true;
                     }
                 }
@@ -317,25 +372,42 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("worker\taddress\tfingerprint\tnpu_t0\tnpu_t1\tembeds\terrors\tavg_us\tmax_us\tup_s\trl_denials\trl_peers");
             for m in &snapshots {
                 let fp = m.fingerprint.as_deref().unwrap_or("?");
-                let t0 = m.npu_temp_ts0_celsius
-                    .map(|t| format!("{:.1}", t)).unwrap_or_else(|| "?".into());
-                let t1 = m.npu_temp_ts1_celsius
-                    .map(|t| format!("{:.1}", t)).unwrap_or_else(|| "?".into());
+                let t0 = m
+                    .npu_temp_ts0_celsius
+                    .map(|t| format!("{:.1}", t))
+                    .unwrap_or_else(|| "?".into());
+                let t1 = m
+                    .npu_temp_ts1_celsius
+                    .map(|t| format!("{:.1}", t))
+                    .unwrap_or_else(|| "?".into());
                 match &m.stats {
                     Ok(s) => {
-                        let avg_us = s.average_latency().map(|d| d.as_micros() as u64).unwrap_or(0);
+                        let avg_us = s
+                            .average_latency()
+                            .map(|d| d.as_micros() as u64)
+                            .unwrap_or(0);
                         let max_us = s.latency_max.map(|d| d.as_micros() as u64).unwrap_or(0);
                         println!(
                             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
-                            m.endpoint.name, m.endpoint.address, fp, t0, t1,
-                            s.embed_count, s.error_count,
-                            avg_us, max_us, s.uptime.as_secs(),
-                            s.rate_limit_denials, s.rate_limit_tracked_peers,
+                            m.endpoint.name,
+                            m.endpoint.address,
+                            fp,
+                            t0,
+                            t1,
+                            s.embed_count,
+                            s.error_count,
+                            avg_us,
+                            max_us,
+                            s.uptime.as_secs(),
+                            s.rate_limit_denials,
+                            s.rate_limit_tracked_peers,
                         );
                     }
                     Err(e) => {
-                        println!("{}\t{}\t{}\t{}\t{}\tERROR: {}",
-                            m.endpoint.name, m.endpoint.address, fp, t0, t1, e);
+                        println!(
+                            "{}\t{}\t{}\t{}\t{}\tERROR: {}",
+                            m.endpoint.name, m.endpoint.address, fp, t0, t1, e
+                        );
                         had_error = true;
                     }
                 }
@@ -427,16 +499,56 @@ fn emit_prom_header() {
 /// Single source of truth for the textfile-collector metric catalogue.
 /// Iter-105: added `ruvector_rate_limit_*` for ADR-172 §3b visibility.
 const PROM_METRIC_DEFS: &[(&str, &str, &str)] = &[
-    ("ruvector_embed_count_total",       "Successful embed RPCs since worker boot.",                        "counter"),
-    ("ruvector_error_count_total",       "Failed embed RPCs since worker boot.",                            "counter"),
-    ("ruvector_health_count_total",      "Health probes received since worker boot.",                       "counter"),
-    ("ruvector_latency_microseconds_sum","Cumulative microseconds spent in successful embed RPCs.",         "counter"),
-    ("ruvector_latency_microseconds_min","Smallest microsecond latency observed since boot.",               "gauge"),
-    ("ruvector_latency_microseconds_max","Largest microsecond latency observed since boot.",                "gauge"),
-    ("ruvector_uptime_seconds",          "Seconds since worker process started.",                           "gauge"),
-    ("ruvector_npu_temp_celsius",        "Hailo-8 on-die thermal sensor reading (sensor=ts0|ts1).",         "gauge"),
-    ("ruvector_rate_limit_denials_total","ResourceExhausted returned by the per-peer rate limiter.",        "counter"),
-    ("ruvector_rate_limit_tracked_peers","Distinct peers seen by the rate limiter since boot.",             "gauge"),
+    (
+        "ruvector_embed_count_total",
+        "Successful embed RPCs since worker boot.",
+        "counter",
+    ),
+    (
+        "ruvector_error_count_total",
+        "Failed embed RPCs since worker boot.",
+        "counter",
+    ),
+    (
+        "ruvector_health_count_total",
+        "Health probes received since worker boot.",
+        "counter",
+    ),
+    (
+        "ruvector_latency_microseconds_sum",
+        "Cumulative microseconds spent in successful embed RPCs.",
+        "counter",
+    ),
+    (
+        "ruvector_latency_microseconds_min",
+        "Smallest microsecond latency observed since boot.",
+        "gauge",
+    ),
+    (
+        "ruvector_latency_microseconds_max",
+        "Largest microsecond latency observed since boot.",
+        "gauge",
+    ),
+    (
+        "ruvector_uptime_seconds",
+        "Seconds since worker process started.",
+        "gauge",
+    ),
+    (
+        "ruvector_npu_temp_celsius",
+        "Hailo-8 on-die thermal sensor reading (sensor=ts0|ts1).",
+        "gauge",
+    ),
+    (
+        "ruvector_rate_limit_denials_total",
+        "ResourceExhausted returned by the per-peer rate limiter.",
+        "counter",
+    ),
+    (
+        "ruvector_rate_limit_tracked_peers",
+        "Distinct peers seen by the rate limiter since boot.",
+        "gauge",
+    ),
 ];
 
 /// Emit one row per metric for a worker. Fingerprint goes on every row
@@ -458,12 +570,24 @@ fn emit_prom_row(
     println!("ruvector_embed_count_total{} {}", labels, s.embed_count);
     println!("ruvector_error_count_total{} {}", labels, s.error_count);
     println!("ruvector_health_count_total{} {}", labels, s.health_count);
-    println!("ruvector_latency_microseconds_sum{} {}", labels, s.latency_sum.as_micros() as u64);
+    println!(
+        "ruvector_latency_microseconds_sum{} {}",
+        labels,
+        s.latency_sum.as_micros() as u64
+    );
     if let Some(d) = s.latency_min {
-        println!("ruvector_latency_microseconds_min{} {}", labels, d.as_micros() as u64);
+        println!(
+            "ruvector_latency_microseconds_min{} {}",
+            labels,
+            d.as_micros() as u64
+        );
     }
     if let Some(d) = s.latency_max {
-        println!("ruvector_latency_microseconds_max{} {}", labels, d.as_micros() as u64);
+        println!(
+            "ruvector_latency_microseconds_max{} {}",
+            labels,
+            d.as_micros() as u64
+        );
     }
     println!("ruvector_uptime_seconds{} {}", labels, s.uptime.as_secs());
     if let Some(t) = npu_t0 {
@@ -519,9 +643,18 @@ fn prom_row_string(
         name, address, fingerprint
     );
     let mut out = String::new();
-    out.push_str(&format!("ruvector_embed_count_total{} {}\n", labels, s.embed_count));
-    out.push_str(&format!("ruvector_error_count_total{} {}\n", labels, s.error_count));
-    out.push_str(&format!("ruvector_health_count_total{} {}\n", labels, s.health_count));
+    out.push_str(&format!(
+        "ruvector_embed_count_total{} {}\n",
+        labels, s.embed_count
+    ));
+    out.push_str(&format!(
+        "ruvector_error_count_total{} {}\n",
+        labels, s.error_count
+    ));
+    out.push_str(&format!(
+        "ruvector_health_count_total{} {}\n",
+        labels, s.health_count
+    ));
     out.push_str(&format!(
         "ruvector_latency_microseconds_sum{} {}\n",
         labels,

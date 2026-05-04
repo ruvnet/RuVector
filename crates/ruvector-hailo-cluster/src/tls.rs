@@ -86,10 +86,7 @@ impl TlsClient {
 
     /// In-memory variant for tests / embedded deploys that already have
     /// the CA bundle as bytes.
-    pub fn from_pem_bytes(
-        ca_pem: &[u8],
-        domain: impl Into<String>,
-    ) -> Result<Self, ClusterError> {
+    pub fn from_pem_bytes(ca_pem: &[u8], domain: impl Into<String>) -> Result<Self, ClusterError> {
         let inner = ClientTlsConfig::new()
             .domain_name(domain)
             .ca_certificate(Certificate::from_pem(ca_pem));
@@ -115,7 +112,9 @@ impl TlsClient {
     /// at runtime rather than read from a file.
     pub fn with_client_identity_bytes(self, cert_pem: &[u8], key_pem: &[u8]) -> Self {
         let identity = Identity::from_pem(cert_pem, key_pem);
-        Self { inner: self.inner.identity(identity) }
+        Self {
+            inner: self.inner.identity(identity),
+        }
     }
 
     /// Unwrap to the underlying tonic `ClientTlsConfig`. Pub so the
@@ -150,17 +149,16 @@ impl TlsServer {
     /// stand up a TLS server with rcgen-issued material.
     pub fn from_pem_bytes(cert_pem: &[u8], key_pem: &[u8]) -> Self {
         let identity = Identity::from_pem(cert_pem, key_pem);
-        Self { inner: ServerTlsConfig::new().identity(identity) }
+        Self {
+            inner: ServerTlsConfig::new().identity(identity),
+        }
     }
 
     /// Require client certs signed by `ca_pem_path` (mTLS — ADR-172 §1b
     /// mitigation, iter 100). Combined with the default
     /// `client_auth_optional = false` from `ServerTlsConfig::new`, any
     /// client lacking a CA-signed identity is rejected at handshake.
-    pub fn with_client_ca(
-        self,
-        ca_pem_path: impl AsRef<Path>,
-    ) -> Result<Self, ClusterError> {
+    pub fn with_client_ca(self, ca_pem_path: impl AsRef<Path>) -> Result<Self, ClusterError> {
         let ca = read_pem(ca_pem_path.as_ref(), "client ca")?;
         Ok(self.with_client_ca_bytes(&ca))
     }
@@ -209,7 +207,10 @@ mod tests {
 
     #[test]
     fn domain_strip_host_port() {
-        assert_eq!(domain_from_address("worker-a.local:50051"), "worker-a.local");
+        assert_eq!(
+            domain_from_address("worker-a.local:50051"),
+            "worker-a.local"
+        );
     }
 
     #[test]
@@ -231,10 +232,8 @@ mod tests {
     #[test]
     fn read_pem_rejects_oversized_file() {
         use std::io::Write as _;
-        let path = std::env::temp_dir().join(format!(
-            "iter212-oversized-pem-{}",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("iter212-oversized-pem-{}", std::process::id()));
         let mut f = std::fs::File::create(&path).expect("create fixture");
         // 2 MB filler — pem-shaped armor noise so a future read would
         // appear plausible if the cap weren't there.
@@ -264,13 +263,9 @@ mod tests {
     /// Iter 212 — read_pem still works for legit-size files.
     #[test]
     fn read_pem_accepts_small_file() {
-        let path = std::env::temp_dir().join(format!(
-            "iter212-small-pem-{}",
-            std::process::id()
-        ));
+        let path = std::env::temp_dir().join(format!("iter212-small-pem-{}", std::process::id()));
         // ~30 byte fake PEM — well under 1 MB cap.
-        std::fs::write(&path, b"-----BEGIN CERTIFICATE-----\nx\n")
-            .expect("write fixture");
+        std::fs::write(&path, b"-----BEGIN CERTIFICATE-----\nx\n").expect("write fixture");
         let bytes = read_pem(&path, "test").expect("small pem must succeed");
         assert!(bytes.len() < 1024);
         assert!(bytes.starts_with(b"-----BEGIN"));

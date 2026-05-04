@@ -64,16 +64,46 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
-            "--workers" => { workers_csv = args.get(i + 1).cloned(); i += 2; }
-            "--dim" => { dim = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(384); i += 2; }
-            "--fingerprint" => { fingerprint = args.get(i + 1).cloned().unwrap_or_default(); i += 2; }
-            "--allow-empty-fingerprint" => { allow_empty_fingerprint = true; i += 1; }
-            "--quiet" => { quiet = true; i += 1; }
-            "--tls-ca" => { tls_ca = args.get(i + 1).cloned(); i += 2; }
-            "--tls-domain" => { tls_domain = args.get(i + 1).cloned(); i += 2; }
-            "--tls-client-cert" => { tls_client_cert = args.get(i + 1).cloned(); i += 2; }
-            "--tls-client-key" => { tls_client_key = args.get(i + 1).cloned(); i += 2; }
-            "--help" | "-h" => { print_help(); return Ok(()); }
+            "--workers" => {
+                workers_csv = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--dim" => {
+                dim = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(384);
+                i += 2;
+            }
+            "--fingerprint" => {
+                fingerprint = args.get(i + 1).cloned().unwrap_or_default();
+                i += 2;
+            }
+            "--allow-empty-fingerprint" => {
+                allow_empty_fingerprint = true;
+                i += 1;
+            }
+            "--quiet" => {
+                quiet = true;
+                i += 1;
+            }
+            "--tls-ca" => {
+                tls_ca = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--tls-domain" => {
+                tls_domain = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--tls-client-cert" => {
+                tls_client_cert = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--tls-client-key" => {
+                tls_client_key = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--help" | "-h" => {
+                print_help();
+                return Ok(());
+            }
             "--version" | "-V" => {
                 println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
                 return Ok(());
@@ -82,9 +112,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let csv = workers_csv.ok_or(
-        "ruvllm-bridge requires --workers <csv> — there's no other reason to run it",
-    )?;
+    let csv = workers_csv
+        .ok_or("ruvllm-bridge requires --workers <csv> — there's no other reason to run it")?;
 
     if fingerprint.is_empty() && !allow_empty_fingerprint {
         return Err(
@@ -112,18 +141,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         #[cfg(not(feature = "tls"))]
         {
             return Err(
-                "TLS flags supplied but this build wasn't compiled with --features tls"
-                    .into(),
+                "TLS flags supplied but this build wasn't compiled with --features tls".into(),
             );
         }
         #[cfg(feature = "tls")]
         {
-            let ca = tls_ca.ok_or(
-                "--tls-ca <path> is required when any --tls-* flag is set",
-            )?;
+            let ca = tls_ca.ok_or("--tls-ca <path> is required when any --tls-* flag is set")?;
             let domain = tls_domain.unwrap_or_else(|| {
-                ruvector_hailo_cluster::tls::domain_from_address(&workers[0].address)
-                    .to_string()
+                ruvector_hailo_cluster::tls::domain_from_address(&workers[0].address).to_string()
             });
             let mut tls = ruvector_hailo_cluster::tls::TlsClient::from_pem_files(&ca, domain)?;
             match (&tls_client_cert, &tls_client_key) {
@@ -184,7 +209,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 total_ok += 1;
             }
             Err(e) => {
-                writeln!(stdout_lock, r#"{{"error":{}}}"#, json_string(&e.to_string()))?;
+                writeln!(
+                    stdout_lock,
+                    r#"{{"error":{}}}"#,
+                    json_string(&e.to_string())
+                )?;
                 total_err += 1;
             }
         }
@@ -228,7 +257,11 @@ fn handle_request(
     // vector is the only field that needs care; we float-format with
     // `:?` precision (Debug) so round-trip exactness is preserved.
     let mut out = String::with_capacity(64 + vec.len() * 12);
-    out.push_str(&format!(r#"{{"dim":{},"latency_us":{},"#, vec.len(), latency_us));
+    out.push_str(&format!(
+        r#"{{"dim":{},"latency_us":{},"#,
+        vec.len(),
+        latency_us
+    ));
     if let Some(id) = request_id.as_deref() {
         out.push_str(&format!(r#""request_id":{},"#, json_string(id)));
     }

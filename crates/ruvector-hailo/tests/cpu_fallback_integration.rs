@@ -41,11 +41,7 @@ fn cpu_embedder_loads_and_embeds_sensibly() {
 
     let emb = CpuEmbedder::open(&dir)
         .expect("CpuEmbedder::open should succeed against a complete model dir");
-    assert_eq!(
-        emb.output_dim(),
-        384,
-        "all-MiniLM-L6-v2 hidden_size is 384"
-    );
+    assert_eq!(emb.output_dim(), 384, "all-MiniLM-L6-v2 hidden_size is 384");
 
     // Three test sentences — two semantically close, one far.
     let v_dog = emb.embed("a dog runs through the park").unwrap();

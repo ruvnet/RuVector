@@ -60,8 +60,8 @@ pub mod error;
 pub mod fingerprint;
 pub mod grpc_transport;
 pub mod health;
-pub mod pool;
 pub mod manifest_sig;
+pub mod pool;
 pub mod proto;
 pub mod rate_limit;
 pub mod shard;
@@ -464,7 +464,9 @@ impl HailoClusterEmbedder {
     }
 
     /// Embedding dimensionality the coordinator was configured for.
-    pub fn dim(&self) -> usize { self.dim }
+    pub fn dim(&self) -> usize {
+        self.dim
+    }
 
     /// Batched embed via the streaming RPC. Picks a single worker via
     /// P2C (the entire batch goes to that worker; coordinator-side
@@ -574,15 +576,21 @@ impl HailoClusterEmbedder {
         // Place each miss-result into its original input slot, populate
         // the cache for next time.
         for (it, &orig_idx) in items.iter().zip(miss_indices.iter()) {
-            self.cache
-                .insert(&self.expected_model_fingerprint, &miss_texts[it.index as usize], it.vector.clone());
+            self.cache.insert(
+                &self.expected_model_fingerprint,
+                &miss_texts[it.index as usize],
+                it.vector.clone(),
+            );
             output[orig_idx] = Some(it.vector.clone());
         }
 
         self.pool
             .record_latency(&endpoint.name, start.elapsed(), 0.3);
 
-        Ok(output.into_iter().map(|o| o.expect("output filled")).collect())
+        Ok(output
+            .into_iter()
+            .map(|o| o.expect("output filled"))
+            .collect())
     }
 
     /// Async version of `embed_one_blocking`. The current GrpcTransport
@@ -682,7 +690,12 @@ impl HailoClusterEmbedder {
     /// Per-worker errors don't fail the call — they're captured in the
     /// `Result<StatsSnapshot>` element so callers can render them in a
     /// status table without a single bad worker spoiling the batch.
-    pub fn fleet_stats(&self) -> Vec<(transport::WorkerEndpoint, Result<transport::StatsSnapshot, ClusterError>)> {
+    pub fn fleet_stats(
+        &self,
+    ) -> Vec<(
+        transport::WorkerEndpoint,
+        Result<transport::StatsSnapshot, ClusterError>,
+    )> {
         self.pool
             .all_endpoints()
             .into_iter()
@@ -827,11 +840,8 @@ impl HailoClusterEmbedder {
                     self.pool
                         .record_latency(&endpoint.name, start.elapsed(), EWMA_ALPHA);
                     // Populate the cache on success. No-op if cap=0.
-                    self.cache.insert(
-                        &self.expected_model_fingerprint,
-                        text,
-                        vec.clone(),
-                    );
+                    self.cache
+                        .insert(&self.expected_model_fingerprint, text, vec.clone());
                     return Ok(vec);
                 }
                 Err(e) => {
@@ -911,12 +921,8 @@ mod tests {
 
     #[test]
     fn empty_worker_list_rejected() {
-        let r = HailoClusterEmbedder::new(
-            vec![],
-            transport::null_transport(),
-            384,
-            "fingerprint:test",
-        );
+        let r =
+            HailoClusterEmbedder::new(vec![], transport::null_transport(), 384, "fingerprint:test");
         assert!(matches!(r, Err(ClusterError::NoWorkers)));
     }
 
@@ -1012,8 +1018,8 @@ mod tests {
     #[test]
     fn dispatch_succeeds_on_first_try_returns_vector() {
         let transport = Arc::new(FakeTransport::always_ok(vec![1.0, 2.0, 3.0]));
-        let c = HailoClusterEmbedder::new(workers(2), transport.clone(), 3, "fp:test")
-            .expect("init");
+        let c =
+            HailoClusterEmbedder::new(workers(2), transport.clone(), 3, "fp:test").expect("init");
         let v = c.embed_one_blocking("hello").expect("embed should succeed");
         assert_eq!(v, vec![1.0, 2.0, 3.0]);
         assert_eq!(transport.calls.load(Ordering::SeqCst), 1);
@@ -1025,8 +1031,8 @@ mod tests {
         // budget is 3 attempts (initial + MAX_DISPATCH_RETRIES=2) so it
         // should reach the 3rd call.
         let transport = Arc::new(FakeTransport::fail_then_ok(2, vec![1.0, 2.0]));
-        let c = HailoClusterEmbedder::new(workers(3), transport.clone(), 2, "fp:test")
-            .expect("init");
+        let c =
+            HailoClusterEmbedder::new(workers(3), transport.clone(), 2, "fp:test").expect("init");
         let v = c.embed_one_blocking("hello").expect("retry should land");
         assert_eq!(v, vec![1.0, 2.0]);
         assert_eq!(transport.calls.load(Ordering::SeqCst), 3);
@@ -1036,8 +1042,8 @@ mod tests {
     fn dispatch_returns_all_workers_failed_after_budget_exhausted() {
         // Fake fails 99 times — coordinator gives up after MAX+1 attempts.
         let transport = Arc::new(FakeTransport::fail_then_ok(99, vec![]));
-        let c = HailoClusterEmbedder::new(workers(3), transport.clone(), 384, "fp:test")
-            .expect("init");
+        let c =
+            HailoClusterEmbedder::new(workers(3), transport.clone(), 384, "fp:test").expect("init");
         let r = c.embed_one_blocking("hello");
         assert!(matches!(r, Err(ClusterError::AllWorkersFailed(_))));
     }
@@ -1046,10 +1052,12 @@ mod tests {
     fn dispatch_rejects_dim_mismatch_immediately() {
         // Worker returns 7-dim vector but coordinator expects 384.
         let transport = Arc::new(FakeTransport::always_wrong_dim(7));
-        let c = HailoClusterEmbedder::new(workers(2), transport.clone(), 384, "fp:test")
-            .expect("init");
+        let c =
+            HailoClusterEmbedder::new(workers(2), transport.clone(), 384, "fp:test").expect("init");
         match c.embed_one_blocking("hello") {
-            Err(ClusterError::DimMismatch { expected, actual, .. }) => {
+            Err(ClusterError::DimMismatch {
+                expected, actual, ..
+            }) => {
                 assert_eq!(expected, 384);
                 assert_eq!(actual, 7);
             }
@@ -1074,7 +1082,11 @@ mod tests {
         // Second call, same text → hit → transport NOT touched.
         let v2 = c.embed_one_blocking("warm me up").expect("cached embed");
         assert_eq!(v2, vec![0.1, 0.2, 0.3]);
-        assert_eq!(transport.calls.load(Ordering::SeqCst), 1, "cache must skip transport");
+        assert_eq!(
+            transport.calls.load(Ordering::SeqCst),
+            1,
+            "cache must skip transport"
+        );
 
         // Third call, different text → miss → transport count grows.
         let _ = c.embed_one_blocking("cold").expect("second text");
@@ -1115,16 +1127,16 @@ mod tests {
                     device_id: format!("test:{}", w.name),
                     model_fingerprint: fingerprint.clone(),
                     ready: true,
-                npu_temp_ts0_celsius: None,
-                npu_temp_ts1_celsius: None,
+                    npu_temp_ts0_celsius: None,
+                    npu_temp_ts1_celsius: None,
                 }),
                 Some(ValidationOutcome::NotReady { fingerprint }) => Ok(HealthReport {
                     version: "test".into(),
                     device_id: format!("test:{}", w.name),
                     model_fingerprint: fingerprint.clone(),
                     ready: false,
-                npu_temp_ts0_celsius: None,
-                npu_temp_ts1_celsius: None,
+                    npu_temp_ts0_celsius: None,
+                    npu_temp_ts1_celsius: None,
                 }),
                 _ => Err(ClusterError::Transport {
                     worker: w.name.clone(),
@@ -1137,8 +1149,18 @@ mod tests {
     #[test]
     fn validate_fleet_accepts_homogeneous_fleet() {
         let mut outcomes = std::collections::HashMap::new();
-        outcomes.insert("pi-0".into(), ValidationOutcome::Ready { fingerprint: "fp:abc".into() });
-        outcomes.insert("pi-1".into(), ValidationOutcome::Ready { fingerprint: "fp:abc".into() });
+        outcomes.insert(
+            "pi-0".into(),
+            ValidationOutcome::Ready {
+                fingerprint: "fp:abc".into(),
+            },
+        );
+        outcomes.insert(
+            "pi-1".into(),
+            ValidationOutcome::Ready {
+                fingerprint: "fp:abc".into(),
+            },
+        );
         let transport = Arc::new(PerWorkerHealth { outcomes });
 
         let workers = vec![
@@ -1157,16 +1179,26 @@ mod tests {
     fn validate_fleet_ejects_fingerprint_mismatch() {
         // pi-0 on the right model, pi-1 on a stale build.
         let mut outcomes = std::collections::HashMap::new();
-        outcomes.insert("pi-0".into(), ValidationOutcome::Ready { fingerprint: "fp:current".into() });
-        outcomes.insert("pi-1".into(), ValidationOutcome::Ready { fingerprint: "fp:stale".into() });
+        outcomes.insert(
+            "pi-0".into(),
+            ValidationOutcome::Ready {
+                fingerprint: "fp:current".into(),
+            },
+        );
+        outcomes.insert(
+            "pi-1".into(),
+            ValidationOutcome::Ready {
+                fingerprint: "fp:stale".into(),
+            },
+        );
         let transport = Arc::new(PerWorkerHealth { outcomes });
 
         let workers = vec![
             WorkerEndpoint::new("pi-0", "10.0.0.0:1"),
             WorkerEndpoint::new("pi-1", "10.0.0.1:1"),
         ];
-        let c = HailoClusterEmbedder::new(workers, transport.clone(), 4, "fp:current")
-            .expect("init");
+        let c =
+            HailoClusterEmbedder::new(workers, transport.clone(), 4, "fp:current").expect("init");
         let report = c.validate_fleet().expect("at least one healthy → ok");
         assert_eq!(report.healthy, vec!["pi-0"]);
         assert_eq!(report.fingerprint_mismatched.len(), 1);
@@ -1178,7 +1210,9 @@ mod tests {
         // never pick it. Run 20 calls; FakeTransport is single-fingerprint
         // so every Ok() proves we hit pi-0 (the only healthy worker).
         for _ in 0..20 {
-            let v = c.embed_one_blocking("test").expect("should always land on pi-0");
+            let v = c
+                .embed_one_blocking("test")
+                .expect("should always land on pi-0");
             assert_eq!(v, vec![0.0; 4]);
         }
     }
@@ -1187,7 +1221,12 @@ mod tests {
     fn validate_fleet_fails_when_no_workers_healthy() {
         // Every worker on the wrong fingerprint.
         let mut outcomes = std::collections::HashMap::new();
-        outcomes.insert("pi-0".into(), ValidationOutcome::Ready { fingerprint: "fp:wrong".into() });
+        outcomes.insert(
+            "pi-0".into(),
+            ValidationOutcome::Ready {
+                fingerprint: "fp:wrong".into(),
+            },
+        );
         outcomes.insert("pi-1".into(), ValidationOutcome::Unreachable);
         let transport = Arc::new(PerWorkerHealth { outcomes });
 
@@ -1209,8 +1248,18 @@ mod tests {
     #[test]
     fn discover_fingerprint_returns_first_workers_fingerprint() {
         let mut outcomes = std::collections::HashMap::new();
-        outcomes.insert("pi-0".into(), ValidationOutcome::Ready { fingerprint: "fp:discovered".into() });
-        outcomes.insert("pi-1".into(), ValidationOutcome::Ready { fingerprint: "fp:other".into() });
+        outcomes.insert(
+            "pi-0".into(),
+            ValidationOutcome::Ready {
+                fingerprint: "fp:discovered".into(),
+            },
+        );
+        outcomes.insert(
+            "pi-1".into(),
+            ValidationOutcome::Ready {
+                fingerprint: "fp:other".into(),
+            },
+        );
         let transport = Arc::new(PerWorkerHealth { outcomes });
 
         let workers = vec![
@@ -1228,7 +1277,12 @@ mod tests {
     fn discover_fingerprint_falls_through_unreachable_workers() {
         let mut outcomes = std::collections::HashMap::new();
         outcomes.insert("pi-0".into(), ValidationOutcome::Unreachable);
-        outcomes.insert("pi-1".into(), ValidationOutcome::Ready { fingerprint: "fp:second".into() });
+        outcomes.insert(
+            "pi-1".into(),
+            ValidationOutcome::Ready {
+                fingerprint: "fp:second".into(),
+            },
+        );
         let transport = Arc::new(PerWorkerHealth { outcomes });
 
         let workers = vec![
@@ -1237,7 +1291,10 @@ mod tests {
         ];
         let c = HailoClusterEmbedder::new(workers, transport, 4, "").expect("init");
         let fp = c.discover_fingerprint().expect("pi-1 reachable");
-        assert_eq!(fp, "fp:second", "should skip unreachable pi-0 and land on pi-1");
+        assert_eq!(
+            fp, "fp:second",
+            "should skip unreachable pi-0 and land on pi-1"
+        );
     }
 
     #[test]
@@ -1256,7 +1313,10 @@ mod tests {
             Err(ClusterError::AllWorkersFailed(msg)) => {
                 assert!(msg.contains("discover_fingerprint"));
             }
-            other => panic!("expected AllWorkersFailed, got {:?}", other.map(|s| s.to_string())),
+            other => panic!(
+                "expected AllWorkersFailed, got {:?}",
+                other.map(|s| s.to_string())
+            ),
         }
     }
 
@@ -1267,9 +1327,24 @@ mod tests {
         // 3 workers; 2 report fp:A, 1 reports fp:B. quorum=2 should
         // pick fp:A and ignore the lone fp:B.
         let mut outcomes = std::collections::HashMap::new();
-        outcomes.insert("pi-0".into(), ValidationOutcome::Ready { fingerprint: "fp:A".into() });
-        outcomes.insert("pi-1".into(), ValidationOutcome::Ready { fingerprint: "fp:A".into() });
-        outcomes.insert("pi-2".into(), ValidationOutcome::Ready { fingerprint: "fp:B".into() });
+        outcomes.insert(
+            "pi-0".into(),
+            ValidationOutcome::Ready {
+                fingerprint: "fp:A".into(),
+            },
+        );
+        outcomes.insert(
+            "pi-1".into(),
+            ValidationOutcome::Ready {
+                fingerprint: "fp:A".into(),
+            },
+        );
+        outcomes.insert(
+            "pi-2".into(),
+            ValidationOutcome::Ready {
+                fingerprint: "fp:B".into(),
+            },
+        );
         let transport = Arc::new(PerWorkerHealth { outcomes });
         let workers = vec![
             WorkerEndpoint::new("pi-0", "10.0.0.0:1"),
@@ -1285,9 +1360,24 @@ mod tests {
     fn quorum_no_majority_errors_with_tally() {
         // 3 workers, 3 different fingerprints — no quorum possible.
         let mut outcomes = std::collections::HashMap::new();
-        outcomes.insert("pi-0".into(), ValidationOutcome::Ready { fingerprint: "fp:A".into() });
-        outcomes.insert("pi-1".into(), ValidationOutcome::Ready { fingerprint: "fp:B".into() });
-        outcomes.insert("pi-2".into(), ValidationOutcome::Ready { fingerprint: "fp:C".into() });
+        outcomes.insert(
+            "pi-0".into(),
+            ValidationOutcome::Ready {
+                fingerprint: "fp:A".into(),
+            },
+        );
+        outcomes.insert(
+            "pi-1".into(),
+            ValidationOutcome::Ready {
+                fingerprint: "fp:B".into(),
+            },
+        );
+        outcomes.insert(
+            "pi-2".into(),
+            ValidationOutcome::Ready {
+                fingerprint: "fp:C".into(),
+            },
+        );
         let transport = Arc::new(PerWorkerHealth { outcomes });
         let workers = vec![
             WorkerEndpoint::new("pi-0", "10.0.0.0:1"),
@@ -1300,7 +1390,10 @@ mod tests {
                 assert!(msg.contains("need 2"), "expected quorum=2 message: {}", msg);
                 assert!(msg.contains("tally="), "expected tally in error: {}", msg);
             }
-            other => panic!("expected AllWorkersFailed, got {:?}", other.map(|s| s.to_string())),
+            other => panic!(
+                "expected AllWorkersFailed, got {:?}",
+                other.map(|s| s.to_string())
+            ),
         }
     }
 
@@ -1309,7 +1402,12 @@ mod tests {
         // min_agree=1 lets a single-worker dev fleet still use quorum
         // discovery without changing semantics from discover_fingerprint().
         let mut outcomes = std::collections::HashMap::new();
-        outcomes.insert("pi-0".into(), ValidationOutcome::Ready { fingerprint: "fp:solo".into() });
+        outcomes.insert(
+            "pi-0".into(),
+            ValidationOutcome::Ready {
+                fingerprint: "fp:solo".into(),
+            },
+        );
         let transport = Arc::new(PerWorkerHealth { outcomes });
         let workers = vec![WorkerEndpoint::new("pi-0", "10.0.0.0:1")];
         let c = HailoClusterEmbedder::new(workers, transport, 4, "").expect("init");
@@ -1323,9 +1421,24 @@ mod tests {
         // Tally is empty → best_count=0 → quorum>=1 fails. This
         // protects against treating "no model" as quorum agreement.
         let mut outcomes = std::collections::HashMap::new();
-        outcomes.insert("pi-0".into(), ValidationOutcome::Ready { fingerprint: "".into() });
-        outcomes.insert("pi-1".into(), ValidationOutcome::Ready { fingerprint: "".into() });
-        outcomes.insert("pi-2".into(), ValidationOutcome::Ready { fingerprint: "".into() });
+        outcomes.insert(
+            "pi-0".into(),
+            ValidationOutcome::Ready {
+                fingerprint: "".into(),
+            },
+        );
+        outcomes.insert(
+            "pi-1".into(),
+            ValidationOutcome::Ready {
+                fingerprint: "".into(),
+            },
+        );
+        outcomes.insert(
+            "pi-2".into(),
+            ValidationOutcome::Ready {
+                fingerprint: "".into(),
+            },
+        );
         let transport = Arc::new(PerWorkerHealth { outcomes });
         let workers = vec![
             WorkerEndpoint::new("pi-0", "10.0.0.0:1"),
@@ -1335,9 +1448,16 @@ mod tests {
         let c = HailoClusterEmbedder::new(workers, transport, 4, "").expect("init");
         match c.discover_fingerprint_with_quorum(1) {
             Err(ClusterError::AllWorkersFailed(msg)) => {
-                assert!(msg.contains("0 agreeing"), "expected zero-agreement msg: {}", msg);
+                assert!(
+                    msg.contains("0 agreeing"),
+                    "expected zero-agreement msg: {}",
+                    msg
+                );
             }
-            other => panic!("expected error for empty-fp tally, got {:?}", other.map(|s| s.to_string())),
+            other => panic!(
+                "expected error for empty-fp tally, got {:?}",
+                other.map(|s| s.to_string())
+            ),
         }
     }
 
@@ -1357,7 +1477,10 @@ mod tests {
                 assert!(msg.contains("pi-0"), "expected per-worker err: {}", msg);
                 assert!(msg.contains("pi-1"), "expected per-worker err: {}", msg);
             }
-            other => panic!("expected AllWorkersFailed, got {:?}", other.map(|s| s.to_string())),
+            other => panic!(
+                "expected AllWorkersFailed, got {:?}",
+                other.map(|s| s.to_string())
+            ),
         }
     }
 
@@ -1367,8 +1490,18 @@ mod tests {
         // care about ready=true". Useful for legacy fleets where the
         // operator hasn't pinned a fingerprint yet.
         let mut outcomes = std::collections::HashMap::new();
-        outcomes.insert("pi-0".into(), ValidationOutcome::Ready { fingerprint: "fp:any".into() });
-        outcomes.insert("pi-1".into(), ValidationOutcome::Ready { fingerprint: "fp:other".into() });
+        outcomes.insert(
+            "pi-0".into(),
+            ValidationOutcome::Ready {
+                fingerprint: "fp:any".into(),
+            },
+        );
+        outcomes.insert(
+            "pi-1".into(),
+            ValidationOutcome::Ready {
+                fingerprint: "fp:other".into(),
+            },
+        );
         let transport = Arc::new(PerWorkerHealth { outcomes });
 
         let workers = vec![
@@ -1402,8 +1535,11 @@ mod tests {
 
         // Same input now misses → transport call count grows.
         let _ = c.embed_one_blocking("hello").unwrap();
-        assert_eq!(transport.calls.load(Ordering::SeqCst), 3,
-            "post-invalidate hit must reach the transport");
+        assert_eq!(
+            transport.calls.load(Ordering::SeqCst),
+            3,
+            "post-invalidate hit must reach the transport"
+        );
     }
 
     #[test]

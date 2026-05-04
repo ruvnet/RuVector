@@ -68,7 +68,9 @@ fn bench_pool_choose(c: &mut Criterion) {
 fn bench_shard_router(c: &mut Criterion) {
     let mut group = c.benchmark_group("shard/hash_router_pick");
     let ws = workers(8);
-    let texts: Vec<String> = (0..256).map(|i| format!("input text number {}", i)).collect();
+    let texts: Vec<String> = (0..256)
+        .map(|i| format!("input text number {}", i))
+        .collect();
     let router = HashShardRouter;
     group.bench_function("8_workers/256_inputs", |b| {
         b.iter(|| {
@@ -87,7 +89,9 @@ fn bench_dispatch_loop(c: &mut Criterion) {
     for n in [1usize, 2, 8] {
         let cluster = HailoClusterEmbedder::new(
             workers(n),
-            Arc::new(InstantTransport { fixed: fixed.clone() }),
+            Arc::new(InstantTransport {
+                fixed: fixed.clone(),
+            }),
             dim,
             "fp:bench",
         )

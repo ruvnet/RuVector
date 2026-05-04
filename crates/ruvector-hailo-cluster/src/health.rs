@@ -180,7 +180,10 @@ async fn probe_one(
                 warn!("worker reports ready=false");
                 pool.record_health_failure(&worker.name, threshold);
             } else {
-                warn!(elapsed_us = elapsed.as_micros() as u64, "health probe timed out");
+                warn!(
+                    elapsed_us = elapsed.as_micros() as u64,
+                    "health probe timed out"
+                );
                 pool.record_health_failure(&worker.name, threshold);
             }
         }
@@ -213,13 +216,19 @@ mod tests {
                 probes: AtomicU64::new(0),
             }
         }
-        fn set_ready(&self, b: bool) { self.ready.store(b, Ordering::SeqCst); }
-        fn probe_count(&self) -> u64 { self.probes.load(Ordering::SeqCst) }
+        fn set_ready(&self, b: bool) {
+            self.ready.store(b, Ordering::SeqCst);
+        }
+        fn probe_count(&self) -> u64 {
+            self.probes.load(Ordering::SeqCst)
+        }
     }
     impl EmbeddingTransport for ToggleTransport {
         fn embed(
             &self,
-            _: &WorkerEndpoint, _: &str, _: u32,
+            _: &WorkerEndpoint,
+            _: &str,
+            _: u32,
         ) -> Result<(Vec<f32>, u64), crate::error::ClusterError> {
             Ok((vec![0.0; 4], 1))
         }
@@ -283,7 +292,9 @@ mod tests {
     impl EmbeddingTransport for FixedFingerprintTransport {
         fn embed(
             &self,
-            _: &WorkerEndpoint, _: &str, _: u32,
+            _: &WorkerEndpoint,
+            _: &str,
+            _: u32,
         ) -> Result<(Vec<f32>, u64), crate::error::ClusterError> {
             Ok((vec![0.0; 4], 1))
         }
@@ -312,7 +323,9 @@ mod tests {
 
         // Worker reports fp:stale, but coordinator expects fp:current.
         let transport: Arc<dyn EmbeddingTransport + Send + Sync> =
-            Arc::new(FixedFingerprintTransport { fingerprint: "fp:stale".into() });
+            Arc::new(FixedFingerprintTransport {
+                fingerprint: "fp:stale".into(),
+            });
 
         let cfg = HealthCheckerConfig {
             interval: Duration::from_millis(20),
@@ -331,8 +344,10 @@ mod tests {
         checker.stop();
 
         // Worker should be ejected from the healthy pick-pool.
-        assert!(pool.choose_two_random().is_none(),
-            "worker with stale fingerprint should be ejected after first probe");
+        assert!(
+            pool.choose_two_random().is_none(),
+            "worker with stale fingerprint should be ejected after first probe"
+        );
         // Pool size unchanged — eject is healthy=false, not removal.
         assert_eq!(pool.size(), 1);
     }
@@ -351,7 +366,9 @@ mod tests {
         let workers = vec![WorkerEndpoint::new("w0", "127.0.0.1:1")];
         let pool = Arc::new(P2cPool::new(workers.clone()));
         let transport: Arc<dyn EmbeddingTransport + Send + Sync> =
-            Arc::new(FixedFingerprintTransport { fingerprint: "fp:stale".into() });
+            Arc::new(FixedFingerprintTransport {
+                fingerprint: "fp:stale".into(),
+            });
 
         let invoked = Arc::new(AtomicU64::new(0));
         let invoked_clone = invoked.clone();
@@ -373,9 +390,11 @@ mod tests {
         checker.stop();
 
         // Callback should have fired at least once (one mismatch detected).
-        assert!(invoked.load(Ordering::SeqCst) >= 1,
+        assert!(
+            invoked.load(Ordering::SeqCst) >= 1,
             "callback should fire on fingerprint mismatch, got {}",
-            invoked.load(Ordering::SeqCst));
+            invoked.load(Ordering::SeqCst)
+        );
         // Worker still ejected (separate hard-eject path verified by
         // `health_loop_ejects_runtime_fingerprint_mismatch`).
         assert!(pool.choose_two_random().is_none());
@@ -395,7 +414,9 @@ mod tests {
         let workers = vec![WorkerEndpoint::new("w0", "127.0.0.1:1")];
         let pool = Arc::new(P2cPool::new(workers.clone()));
         let transport: Arc<dyn EmbeddingTransport + Send + Sync> =
-            Arc::new(FixedFingerprintTransport { fingerprint: "fp:whatever".into() });
+            Arc::new(FixedFingerprintTransport {
+                fingerprint: "fp:whatever".into(),
+            });
 
         let cfg = HealthCheckerConfig {
             interval: Duration::from_millis(20),
@@ -411,8 +432,10 @@ mod tests {
         checker.stop();
 
         // Worker stays healthy — no fingerprint enforcement at runtime.
-        assert!(pool.choose_two_random().is_some(),
-            "no expected fp ⇒ worker stays healthy regardless of reported fp");
+        assert!(
+            pool.choose_two_random().is_some(),
+            "no expected fp ⇒ worker stays healthy regardless of reported fp"
+        );
     }
 
     #[test]
@@ -447,6 +470,9 @@ mod tests {
 
         // After at least one successful probe, the ejected worker is back.
         assert!(toggle.probe_count() >= 2);
-        assert!(pool.choose_two_random().is_some(), "worker should be re-promoted");
+        assert!(
+            pool.choose_two_random().is_some(),
+            "worker should be re-promoted"
+        );
     }
 }

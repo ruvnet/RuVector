@@ -23,11 +23,9 @@ fn pi_host() -> Option<String> {
 
 fn cluster(addr: &str) -> HailoClusterEmbedder {
     let workers = vec![WorkerEndpoint::new("pi", addr)];
-    let transport: Arc<dyn EmbeddingTransport + Send + Sync> = Arc::new(
-        GrpcTransport::new().expect("GrpcTransport::new"),
-    );
-    HailoClusterEmbedder::new(workers, transport, 384, "")
-        .expect("HailoClusterEmbedder::new")
+    let transport: Arc<dyn EmbeddingTransport + Send + Sync> =
+        Arc::new(GrpcTransport::new().expect("GrpcTransport::new"));
+    HailoClusterEmbedder::new(workers, transport, 384, "").expect("HailoClusterEmbedder::new")
 }
 
 fn cos(a: &[f32], b: &[f32]) -> f32 {
@@ -48,9 +46,15 @@ fn pi_worker_returns_real_semantic_vectors() {
     //   * worker is up
     //   * NPU/cpu-fallback path is loaded
     //   * tokenizer + embeddings + encoder + pool agree
-    let v0 = c.embed_one_blocking("the quick brown fox jumps over the lazy dog").unwrap();
-    let v1 = c.embed_one_blocking("a puppy sprints across the meadow").unwrap();
-    let v2 = c.embed_one_blocking("kafka topic partition rebalancing strategy").unwrap();
+    let v0 = c
+        .embed_one_blocking("the quick brown fox jumps over the lazy dog")
+        .unwrap();
+    let v1 = c
+        .embed_one_blocking("a puppy sprints across the meadow")
+        .unwrap();
+    let v2 = c
+        .embed_one_blocking("kafka topic partition rebalancing strategy")
+        .unwrap();
 
     assert_eq!(v0.len(), 384);
     assert_eq!(v1.len(), 384);

@@ -88,12 +88,10 @@ impl HostEmbeddings {
                 )));
             }
         }
-        let config_str = std::fs::read_to_string(&config_path).map_err(|e| {
-            HailoError::Tokenizer(format!("read config.json: {}", e))
-        })?;
-        let config: Config = serde_json::from_str(&config_str).map_err(|e| {
-            HailoError::Tokenizer(format!("parse config.json: {}", e))
-        })?;
+        let config_str = std::fs::read_to_string(&config_path)
+            .map_err(|e| HailoError::Tokenizer(format!("read config.json: {}", e)))?;
+        let config: Config = serde_json::from_str(&config_str)
+            .map_err(|e| HailoError::Tokenizer(format!("parse config.json: {}", e)))?;
 
         let device = Device::Cpu;
         let vb = unsafe {
@@ -112,25 +110,19 @@ impl HostEmbeddings {
             config.hidden_size,
             emb_vb.pp("word_embeddings"),
         )
-        .map_err(|e| {
-            HailoError::Tokenizer(format!("load word_embeddings: {}", e))
-        })?;
+        .map_err(|e| HailoError::Tokenizer(format!("load word_embeddings: {}", e)))?;
         let position_embeddings = embedding(
             config.max_position_embeddings,
             config.hidden_size,
             emb_vb.pp("position_embeddings"),
         )
-        .map_err(|e| {
-            HailoError::Tokenizer(format!("load position_embeddings: {}", e))
-        })?;
+        .map_err(|e| HailoError::Tokenizer(format!("load position_embeddings: {}", e)))?;
         let token_type_embeddings = embedding(
             config.type_vocab_size,
             config.hidden_size,
             emb_vb.pp("token_type_embeddings"),
         )
-        .map_err(|e| {
-            HailoError::Tokenizer(format!("load token_type_embeddings: {}", e))
-        })?;
+        .map_err(|e| HailoError::Tokenizer(format!("load token_type_embeddings: {}", e)))?;
         let layer_norm = layer_norm(
             config.hidden_size,
             config.layer_norm_eps,
@@ -165,11 +157,7 @@ impl HostEmbeddings {
     /// is `clear()`ed then `extend_from_slice`d from candle's
     /// `CpuStorage::as_slice` — alloc-free as long as the buffer was
     /// pre-sized to `seq_len * hidden_size`.
-    pub fn forward_into(
-        &self,
-        input_ids: &[i64],
-        output: &mut Vec<f32>,
-    ) -> Result<(), HailoError> {
+    pub fn forward_into(&self, input_ids: &[i64], output: &mut Vec<f32>) -> Result<(), HailoError> {
         let normed = self.forward_tensor(input_ids)?;
         let flat = normed
             .squeeze(0)
@@ -231,9 +219,10 @@ impl HostEmbeddings {
         let pos = self.cached_pos_emb_for(seq_len)?;
         let typ = self.cached_type_emb_for(seq_len)?;
 
-        let word = self.word_embeddings.forward(&input_t).map_err(|e| {
-            HailoError::Tokenizer(format!("word_embeddings forward: {}", e))
-        })?;
+        let word = self
+            .word_embeddings
+            .forward(&input_t)
+            .map_err(|e| HailoError::Tokenizer(format!("word_embeddings forward: {}", e)))?;
 
         let summed = (&word + &pos)
             .and_then(|s| s + &typ)
@@ -249,7 +238,10 @@ impl HostEmbeddings {
     /// Iter 186 — fetch (or build on first call) the cached
     /// `[1, seq_len, hidden]` `position_embeddings` output.
     fn cached_pos_emb_for(&self, seq_len: usize) -> Result<Tensor, HailoError> {
-        let mut g = self.cached_pos_emb.lock().unwrap_or_else(|p| p.into_inner());
+        let mut g = self
+            .cached_pos_emb
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         if let Some((cached_seq, t)) = g.as_ref() {
             if *cached_seq == seq_len {
                 return Ok(t.clone());
@@ -260,9 +252,10 @@ impl HostEmbeddings {
             .map_err(|e| HailoError::Tokenizer(format!("pos tensor: {}", e)))?
             .unsqueeze(0)
             .map_err(|e| HailoError::Tokenizer(format!("pos unsqueeze: {}", e)))?;
-        let pos = self.position_embeddings.forward(&pos_t).map_err(|e| {
-            HailoError::Tokenizer(format!("position_embeddings forward: {}", e))
-        })?;
+        let pos = self
+            .position_embeddings
+            .forward(&pos_t)
+            .map_err(|e| HailoError::Tokenizer(format!("position_embeddings forward: {}", e)))?;
         *g = Some((seq_len, pos.clone()));
         Ok(pos)
     }
@@ -270,7 +263,10 @@ impl HostEmbeddings {
     /// Iter 186 — fetch (or build on first call) the cached
     /// `[1, seq_len, hidden]` `token_type_embeddings(zeros)` output.
     fn cached_type_emb_for(&self, seq_len: usize) -> Result<Tensor, HailoError> {
-        let mut g = self.cached_type_emb.lock().unwrap_or_else(|p| p.into_inner());
+        let mut g = self
+            .cached_type_emb
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         if let Some((cached_seq, t)) = g.as_ref() {
             if *cached_seq == seq_len {
                 return Ok(t.clone());
@@ -278,9 +274,10 @@ impl HostEmbeddings {
         }
         let type_t = Tensor::zeros((1, seq_len), DType::I64, &self.device)
             .map_err(|e| HailoError::Tokenizer(format!("type tensor: {}", e)))?;
-        let typ = self.token_type_embeddings.forward(&type_t).map_err(|e| {
-            HailoError::Tokenizer(format!("token_type_embeddings forward: {}", e))
-        })?;
+        let typ = self
+            .token_type_embeddings
+            .forward(&type_t)
+            .map_err(|e| HailoError::Tokenizer(format!("token_type_embeddings forward: {}", e)))?;
         *g = Some((seq_len, typ.clone()));
         Ok(typ)
     }
@@ -298,8 +295,7 @@ mod tests {
     use super::*;
 
     fn model_dir() -> Option<std::path::PathBuf> {
-        std::env::var_os("RUVECTOR_CPU_FALLBACK_MODEL_DIR")
-            .map(std::path::PathBuf::from)
+        std::env::var_os("RUVECTOR_CPU_FALLBACK_MODEL_DIR").map(std::path::PathBuf::from)
     }
 
     #[test]

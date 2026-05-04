@@ -123,17 +123,15 @@ fn parse_csi_header(data: &[u8]) -> Option<CsiSummary> {
 /// preprocessing and is out of scope for this transport bridge;
 /// see the module docstring for the deferral context.
 fn summary_to_text(s: &CsiSummary) -> String {
-    let kind = if s.magic == CSI_MAGIC_V6 { "feature-state" } else { "raw" };
+    let kind = if s.magic == CSI_MAGIC_V6 {
+        "feature-state"
+    } else {
+        "raw"
+    };
     format!(
         "wifi csi {} packet from node {} channel {} rssi {} dBm noise {} dBm \
          antennas {} subcarriers {}",
-        kind,
-        s.node_id,
-        s.channel,
-        s.rssi,
-        s.noise_floor,
-        s.n_antennas,
-        s.n_subcarriers,
+        kind, s.node_id, s.channel, s.rssi, s.noise_floor, s.n_antennas, s.n_subcarriers,
     )
 }
 
@@ -155,17 +153,53 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
-            "--listen" => { listen_addr = args.get(i + 1).cloned().unwrap_or_else(|| "0.0.0.0:5005".into()); i += 2; }
-            "--workers" => { workers_csv = args.get(i + 1).cloned(); i += 2; }
-            "--dim" => { dim = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(384); i += 2; }
-            "--fingerprint" => { fingerprint = args.get(i + 1).cloned().unwrap_or_default(); i += 2; }
-            "--allow-empty-fingerprint" => { allow_empty_fingerprint = true; i += 1; }
-            "--quiet" => { quiet = true; i += 1; }
-            "--tls-ca" => { tls_ca = args.get(i + 1).cloned(); i += 2; }
-            "--tls-domain" => { tls_domain = args.get(i + 1).cloned(); i += 2; }
-            "--tls-client-cert" => { tls_client_cert = args.get(i + 1).cloned(); i += 2; }
-            "--tls-client-key" => { tls_client_key = args.get(i + 1).cloned(); i += 2; }
-            "--help" | "-h" => { print_help(); return Ok(()); }
+            "--listen" => {
+                listen_addr = args
+                    .get(i + 1)
+                    .cloned()
+                    .unwrap_or_else(|| "0.0.0.0:5005".into());
+                i += 2;
+            }
+            "--workers" => {
+                workers_csv = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--dim" => {
+                dim = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(384);
+                i += 2;
+            }
+            "--fingerprint" => {
+                fingerprint = args.get(i + 1).cloned().unwrap_or_default();
+                i += 2;
+            }
+            "--allow-empty-fingerprint" => {
+                allow_empty_fingerprint = true;
+                i += 1;
+            }
+            "--quiet" => {
+                quiet = true;
+                i += 1;
+            }
+            "--tls-ca" => {
+                tls_ca = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--tls-domain" => {
+                tls_domain = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--tls-client-cert" => {
+                tls_client_cert = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--tls-client-key" => {
+                tls_client_key = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--help" | "-h" => {
+                print_help();
+                return Ok(());
+            }
             "--version" | "-V" => {
                 println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
                 return Ok(());
@@ -188,7 +222,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .split(',')
             .filter(|s| !s.is_empty())
             .enumerate()
-            .map(|(idx, addr)| WorkerEndpoint::new(format!("static-{}", idx), addr.trim().to_string()))
+            .map(|(idx, addr)| {
+                WorkerEndpoint::new(format!("static-{}", idx), addr.trim().to_string())
+            })
             .collect();
         if workers.is_empty() {
             return Err("--workers list is empty".into());
@@ -202,15 +238,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             #[cfg(not(feature = "tls"))]
             {
                 return Err(
-                    "TLS flags supplied but this build wasn't compiled with --features tls"
-                        .into(),
+                    "TLS flags supplied but this build wasn't compiled with --features tls".into(),
                 );
             }
             #[cfg(feature = "tls")]
             {
-                let ca = tls_ca.ok_or(
-                    "--tls-ca <path> is required when any --tls-* flag is set",
-                )?;
+                let ca =
+                    tls_ca.ok_or("--tls-ca <path> is required when any --tls-* flag is set")?;
                 let domain = tls_domain.unwrap_or_else(|| {
                     ruvector_hailo_cluster::tls::domain_from_address(&workers[0].address)
                         .to_string()
@@ -247,7 +281,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "ruview-csi-bridge: cluster sink active — {} worker(s), dim={}, fp={:?}",
                 csv.split(',').filter(|s| !s.is_empty()).count(),
                 dim,
-                if fingerprint.is_empty() { "<unset>" } else { fingerprint.as_str() },
+                if fingerprint.is_empty() {
+                    "<unset>"
+                } else {
+                    fingerprint.as_str()
+                },
             );
         }
         Some(Arc::new(c))
@@ -286,7 +324,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 if !quiet {
                                     eprintln!(
                                         "ruview-csi-bridge: posted text={:?} dim={} ok",
-                                        text, v.len()
+                                        text,
+                                        v.len()
                                     );
                                 }
                             }
@@ -308,8 +347,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
             }
-            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock
-                  || e.kind() == std::io::ErrorKind::TimedOut => {
+            Err(e)
+                if e.kind() == std::io::ErrorKind::WouldBlock
+                    || e.kind() == std::io::ErrorKind::TimedOut =>
+            {
                 // Timeout — fall through to status print.
             }
             Err(e) => {
@@ -333,7 +374,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// convention as mmwave-bridge so a downstream consumer can treat
 /// both event streams uniformly.
 fn emit_event(s: &CsiSummary, peer: &std::net::SocketAddr, t: Duration) {
-    let kind = if s.magic == CSI_MAGIC_V6 { "feature_state" } else { "raw" };
+    let kind = if s.magic == CSI_MAGIC_V6 {
+        "feature_state"
+    } else {
+        "raw"
+    };
     println!(
         r#"{{"t_ms":{},"src":"{}","kind":"csi_{}","node_id":{},"channel":{},"rssi_dbm":{},"noise_dbm":{},"antennas":{},"subcarriers":{},"timestamp_us":{}}}"#,
         t.as_millis(),

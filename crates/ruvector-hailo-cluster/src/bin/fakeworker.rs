@@ -56,7 +56,11 @@ impl Embedding for FakeWorker {
             &request.get_ref().request_id,
         );
         let req = request.into_inner();
-        let req_id_field: &str = if req_id_owned.is_empty() { "-" } else { &req_id_owned };
+        let req_id_field: &str = if req_id_owned.is_empty() {
+            "-"
+        } else {
+            &req_id_owned
+        };
         tracing::Span::current()
             .record("text_len", req.text.len())
             .record("request_id", req_id_field);
@@ -91,8 +95,9 @@ impl Embedding for FakeWorker {
         }))
     }
 
-    type EmbedStreamStream =
-        Pin<Box<dyn futures_core::Stream<Item = Result<EmbedStreamResponse, Status>> + Send + 'static>>;
+    type EmbedStreamStream = Pin<
+        Box<dyn futures_core::Stream<Item = Result<EmbedStreamResponse, Status>> + Send + 'static>,
+    >;
 
     #[instrument(skip(self, request), fields(batch_size, request_id))]
     async fn embed_stream(
@@ -105,7 +110,11 @@ impl Embedding for FakeWorker {
         );
         let req = request.into_inner();
         let n = req.texts.len();
-        let req_id_field: &str = if req_id_owned.is_empty() { "-" } else { &req_id_owned };
+        let req_id_field: &str = if req_id_owned.is_empty() {
+            "-"
+        } else {
+            &req_id_owned
+        };
         tracing::Span::current()
             .record("batch_size", n)
             .record("request_id", req_id_field);
@@ -148,7 +157,9 @@ impl Embedding for FakeWorker {
                     dim,
                     latency_us: latency.as_micros() as i64,
                 });
-                if tx.send(item).await.is_err() { break; }
+                if tx.send(item).await.is_err() {
+                    break;
+                }
             }
         });
 
@@ -176,7 +187,9 @@ fn deterministic_vector(text: &str, dim: usize) -> Vec<f32> {
     }
     (0..dim)
         .map(|_| {
-            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            seed = seed
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             // Map u64 → f32 in [-1, 1)
             ((seed >> 32) as i32 as f32) / (i32::MAX as f32)
         })
@@ -203,10 +216,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(0);
-    let name = std::env::var("RUVECTOR_FAKE_NAME")
-        .unwrap_or_else(|_| "fakeworker".into());
-    let fingerprint = std::env::var("RUVECTOR_FAKE_FINGERPRINT")
-        .unwrap_or_else(|_| "fp:fakeworker".into());
+    let name = std::env::var("RUVECTOR_FAKE_NAME").unwrap_or_else(|_| "fakeworker".into());
+    let fingerprint =
+        std::env::var("RUVECTOR_FAKE_FINGERPRINT").unwrap_or_else(|_| "fp:fakeworker".into());
 
     info!(
         bind = %bind, dim, latency_ms, name = %name, fingerprint = %fingerprint,
@@ -307,9 +319,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let key = std::env::var("RUVECTOR_TLS_KEY").ok();
             match (cert, key) {
                 (Some(c), Some(k)) => {
-                    let mut tls =
-                        ruvector_hailo_cluster::tls::TlsServer::from_pem_files(&c, &k)
-                            .map_err(|e| format!("tls server config: {}", e))?;
+                    let mut tls = ruvector_hailo_cluster::tls::TlsServer::from_pem_files(&c, &k)
+                        .map_err(|e| format!("tls server config: {}", e))?;
                     if let Ok(ca) = std::env::var("RUVECTOR_TLS_CLIENT_CA") {
                         tls = tls
                             .with_client_ca(&ca)
