@@ -158,6 +158,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // measurement showed 32500x speedup at full hit rate. Same
     // ADR-172 §2a fp+cache gate as ruvllm-bridge / embed.rs / bench.rs.
     let mut cache_cap: usize = 0;
+    // Iter 243 — optional TTL bound on cached entries (parity with
+    // embed.rs's --cache-ttl). 0 = no TTL (LRU only).
+    let mut cache_ttl_secs: u64 = 0;
 
     let mut i = 1;
     while i < args.len() {
@@ -210,6 +213,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .get(i + 1)
                     .and_then(|s| s.parse().ok())
                     .ok_or("--cache <N> requires a non-negative integer")?;
+                i += 2;
+            }
+            "--cache-ttl" => {
+                cache_ttl_secs = args
+                    .get(i + 1)
+                    .and_then(|s| s.parse().ok())
+                    .ok_or("--cache-ttl <secs> requires a non-negative integer")?;
                 i += 2;
             }
             "--help" | "-h" => {
@@ -301,7 +311,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
         }
         let c = HailoClusterEmbedder::new(workers, transport, dim, fingerprint.clone())?;
-        let c = if cache_cap > 0 { c.with_cache(cache_cap) } else { c };
+        let c = match (cache_cap, cache_ttl_secs) {
+            (0, _) => c,
+            (cap, 0) => c.with_cache(cap),
+            (cap, ttl) => c.with_cache_ttl(cap, Duration::from_secs(ttl)),
+        };
         if !quiet {
             let cache_msg = if cache_cap > 0 {
                 format!(", cache={}", cache_cap)

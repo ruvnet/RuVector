@@ -68,6 +68,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ceiling because the cache resolves in the bridge process without
     // a worker round-trip. See iter-238 commit for measurements.
     let mut cache_cap: usize = 0;
+    // Iter 243 — optional TTL for cached entries. 0 = no TTL (default;
+    // LRU only). Useful for long-running bridges where the operator
+    // wants a max-staleness bound — an entry sitting in cache for >TTL
+    // re-fetches from the worker, which catches worker config drift
+    // even when the fingerprint gate didn't fire (e.g. silent NPU
+    // recalibration that doesn't change the HEF hash).
+    let mut cache_ttl_secs: u64 = 0;
 
     let mut i = 1;
     while i < args.len() {
@@ -113,6 +120,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .get(i + 1)
                     .and_then(|s| s.parse().ok())
                     .ok_or("--cache <N> requires a non-negative integer")?;
+                i += 2;
+            }
+            "--cache-ttl" => {
+                cache_ttl_secs = args
+                    .get(i + 1)
+                    .and_then(|s| s.parse().ok())
+                    .ok_or("--cache-ttl <secs> requires a non-negative integer")?;
                 i += 2;
             }
             "--help" | "-h" => {
@@ -202,10 +216,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
     let cluster_inner = HailoClusterEmbedder::new(workers, transport, dim, fingerprint)?;
-    let cluster = if cache_cap > 0 {
-        cluster_inner.with_cache(cache_cap)
-    } else {
-        cluster_inner
+    let cluster = match (cache_cap, cache_ttl_secs) {
+        (0, _) => cluster_inner,
+        (cap, 0) => cluster_inner.with_cache(cap),
+        (cap, ttl) => {
+            cluster_inner.with_cache_ttl(cap, std::time::Duration::from_secs(ttl))
+        }
     };
 
     if !quiet {
