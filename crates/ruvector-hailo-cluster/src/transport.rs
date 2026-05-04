@@ -144,6 +144,12 @@ pub struct StatsSnapshot {
     /// since boot. 0 = limiter disabled.
     #[serde(default)]
     pub rate_limit_tracked_peers: u64,
+    /// Iter 257 — RUVECTOR_NPU_POOL_SIZE the worker resolved at startup.
+    /// 1 = single-pipeline default (iter-235 baseline); >=2 = pool=N
+    /// (iter-237 HefEmbedderPool). 0 = old worker without the field
+    /// populated (pre-iter-257).
+    #[serde(default)]
+    pub npu_pool_size: u32,
 }
 
 fn serialize_duration_us<S: serde::Serializer>(

@@ -343,6 +343,10 @@ impl EmbeddingTransport for GrpcTransport {
                 uptime: Duration::from_secs(resp.uptime_seconds),
                 rate_limit_denials: resp.rate_limit_denials,
                 rate_limit_tracked_peers: resp.rate_limit_tracked_peers,
+                // Iter 257 — populate from proto. Pre-iter-257 workers
+                // serialise this as 0 (proto3 default), which the
+                // consumer renders as "unknown pool size" / "old worker".
+                npu_pool_size: resp.npu_pool_size,
             })
         })
     }

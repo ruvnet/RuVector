@@ -213,6 +213,11 @@ struct WorkerService {
     /// affecting any legitimate caller (iter-179 streaming sweep
     /// peaked at b=16). Env: RUVECTOR_MAX_BATCH_SIZE.
     max_batch_size: usize,
+    /// Iter 257 — resolved NPU pool size (RUVECTOR_NPU_POOL_SIZE).
+    /// Surfaced via StatsResponse.npu_pool_size so cluster-side
+    /// observability can differentiate single-pipeline vs pool=N
+    /// measurements.
+    npu_pool_size: u32,
     /// Process start time, for uptime reporting in GetStats.
     start: Instant,
     /// Atomic counters surfaced via GetStats.
@@ -450,6 +455,8 @@ impl Embedding for WorkerService {
             uptime_seconds: self.start.elapsed().as_secs(),
             rate_limit_denials: self.rate_limit_denials.load(Ordering::Relaxed),
             rate_limit_tracked_peers: tracked_peers,
+            // Iter 257 — surface the resolved RUVECTOR_NPU_POOL_SIZE.
+            npu_pool_size: self.npu_pool_size,
         }))
     }
 }
@@ -695,6 +702,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         rate_limiter: Arc::clone(&rate_limiter),
         rate_limit_denials: Arc::clone(&rate_limit_denials),
         max_batch_size,
+        // Iter 257 — surface the resolved pool size via gRPC StatsResponse.
+        // Cast usize → u32 is safe — pool sizes are bounded to single
+        // digits in practice (RAM cost; see iter-239 measurement table).
+        npu_pool_size: u32::try_from(npu_pool_size).unwrap_or(u32::MAX),
         start: Instant::now(),
         embed_ok: AtomicU64::new(0),
         embed_err: AtomicU64::new(0),

@@ -12,9 +12,27 @@ branch: hailo-backend
 
 ## Status
 
-**Proposed.** Planning ADR. No code lands here — output is a graded gap
-inventory plus a remediation plan sized to the existing iter cadence
-(213 iters across ~5 days).
+**Closed (iter 257).** All HIGH+MEDIUM gaps remediated; G (Pi 4
+measurement) deferred without a Pi 4 in lab; long-form C/D (CSI
+pose semantics + downstream cluster consumer) tracked as separate
+multi-month ADRs out of this branch's scope.
+
+| Gap | Severity | Status | Closed by |
+|-----|----------|--------|-----------|
+| A — ruvllm-bridge no deploy artifacts | HIGH | closed | iter 215 |
+| B — `EmbeddingProvider` not impl'd | HIGH | closed | iter 218 (path dep + impl) |
+| C — CSI bridge dropping I/Q (short) | MEDIUM | closed | iter 217 (doc-only) |
+| C — CSI bridge dropping I/Q (long) | MEDIUM | tracked separately | future ADR |
+| D — no downstream cluster consumer (short) | MEDIUM | closed | iter 221 (example) |
+| D — mcp-brain client (long) | MEDIUM | tracked separately | future ADR |
+| E — hailo crates excluded from workspace | MEDIUM | closed | iter 219 |
+| F — ADR-167 status stratigraphy | MEDIUM | closed | iter 217 |
+| G — Pi 4 throughput unmeasured | LOW | deferred | needs Pi 4 hardware |
+| H — `install-bridge.sh` misnamed | LOW | closed | iter 216 |
+
+Original (planning) text below; output is a graded gap inventory
+plus a remediation plan sized to the iter cadence (213 iters
+across ~5 days at the time the ADR was first written).
 
 ## 1. Context
 

@@ -96,4 +96,12 @@ message StatsResponse {
   // both as Prometheus gauges so a sudden spike in denials is grep-able.
   uint64 rate_limit_denials       = 8;  // ResourceExhausted returned since boot
   uint64 rate_limit_tracked_peers = 9;  // distinct peers seen since boot
+  // Iter 257 — surface RUVECTOR_NPU_POOL_SIZE the worker resolved at
+  // startup. Lets the cluster-side stats CLI + bench --prom output
+  // differentiate "single-pipeline worker" vs "pool=N worker" measurements.
+  // 1 = single-pipeline default (iter-235 baseline); >=2 enables the
+  // iter-237 HefEmbedderPool. Backward-compatible proto3 add: old
+  // clients see this as 0 ("unknown"), new clients see the resolved
+  // value.
+  uint32 npu_pool_size            = 10;
 }

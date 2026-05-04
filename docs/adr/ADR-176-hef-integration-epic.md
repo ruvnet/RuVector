@@ -27,6 +27,8 @@ phases shipped + hardware-validated end-to-end on cognitum-v0 (Pi 5
 | P5b | 168 | Cache + NPU bench — 100% hit ⇒ **15.86 M/sec** (226,000×) |
 | P5b | 169 | HEF release + `download-encoder-hef.sh` (adoption unblocked) |
 | P5b | 170 | Saturation test C=100 60s — **no OOM, tonic backpressure works** |
+| P6  | 234-237 | `HefEmbedderPool` (multi-pipeline) — **measured: NPU-bound 70 RPS ceiling holds across pool sizes** but pool=2 cuts p50 23% under multi-bridge concurrent load. iter-237 deploy default pool=2 |
+| P6  | 256-257 | bench `--prom` carries `fingerprint` label; StatsResponse exposes `npu_pool_size` for cluster-side observability |
 
 **Real Pi 5 measurements** (cluster-bench, concurrency=4, 15s,
 HEF worker on 50051 via systemd):
