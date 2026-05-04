@@ -26,6 +26,9 @@ pub mod hef_pipeline;
 #[cfg(all(feature = "hailo", feature = "cpu-fallback"))]
 pub mod hef_embedder;
 
+#[cfg(all(feature = "hailo", feature = "cpu-fallback"))]
+pub mod hef_embedder_pool;
+
 pub use device::HailoDevice;
 pub use error::HailoError;
 pub use inference::{l2_normalize, mean_pool, EmbeddingPipeline, DEFAULT_MAX_SEQ, MINI_LM_DIM};
