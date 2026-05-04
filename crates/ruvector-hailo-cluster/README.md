@@ -324,9 +324,12 @@ let cluster = HailoClusterEmbedder::new(...)?
     .with_cache_ttl(4096, Duration::from_secs(600));
 ```
 
-CLI:
+CLI (all four cluster CLIs + all three sensor bridges as of iter 245):
 ```bash
-ruvector-hailo-embed --cache 4096 --cache-ttl 600 ...
+ruvector-hailo-embed --cache 4096 --cache-ttl 600 --health-check 30 ...
+ruvector-mmwave-bridge --cache 4096 --cache-ttl 300 --health-check 30 ...
+ruview-csi-bridge      --cache 4096 --cache-ttl 300 --health-check 30 ...
+ruvllm-bridge          --cache 4096 --cache-ttl 300 ...
 ```
 
 Three eviction triggers:
@@ -335,7 +338,36 @@ Three eviction triggers:
 - Manual `cluster.invalidate_cache()` or auto-fired by health-checker
   on detected fingerprint mismatch
 
+Cache-hit speedup measured via cluster-bench (iter-238 baseline,
+cognitum-v0):
+
+| configuration                                | throughput     | p50    | hit_rate |
+|----------------------------------------------|----------------|--------|----------|
+| no cache (NPU-bound, iter-227 base)          | 70.7 RPS       | 43.5ms | n/a      |
+| `--cache 4096 --cache-keyspace 64`           | 2,305,282 RPS  | 0µs    | 1.000    |
+
 See [ADR-169][adr169] for the full design.
+
+## NPU pipeline pool (iter 234-237)
+
+The NPU backend supports a multi-pipeline pool — N independent
+HailoRT network groups + vstream pairs on the shared vdevice —
+configured via `RUVECTOR_NPU_POOL_SIZE` on the worker. Empirical
+result on cognitum-v0:
+
+| pool size | concurrency | throughput | p50    | RSS   |
+|-----------|-------------|------------|--------|-------|
+| 1         | 1           | 70.6 RPS   | 14.1ms | 87 MB |
+| 1         | 4           | 70.7 RPS   | 56.7ms | 87 MB |
+| 2         | 4           | 70.7 RPS   | 43.3ms | 142 MB|
+| 4         | 4           | 70.7 RPS   | 43.5ms | 251 MB|
+
+Throughput is identical at every pool size — HailoRT serializes
+inferences across network groups at the vdevice level so the
+70 RPS = 1000ms / 14ms-per-inference ceiling is hard. p50 latency
+under multi-concurrent load drops 23% at pool=2 because each
+request gets its own host-side queue slot. Pool=2 is the iter-237
+deploy default (captures the latency win at minimum RAM cost).
 
 ## Tracing correlation
 
