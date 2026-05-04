@@ -76,6 +76,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // recalibration that doesn't change the HEF hash).
     let mut cache_ttl_secs: u64 = 0;
 
+    // Iter 245 — optional background health checker. 0 = disabled
+    // (default; preserves iter-238 behavior). When set, spawns a
+    // tokio runtime that probes every worker on the configured
+    // interval, ejects fingerprint-mismatched workers from the
+    // dispatch pool, and clears the cache on a fingerprint event.
+    // Long-running bridges that don't restart for days would
+    // otherwise keep dispatching to a worker that silently swapped
+    // its HEF — the checker closes that window.
+    let mut health_check_secs: u64 = 0;
+
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
@@ -127,6 +137,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .get(i + 1)
                     .and_then(|s| s.parse().ok())
                     .ok_or("--cache-ttl <secs> requires a non-negative integer")?;
+                i += 2;
+            }
+            "--health-check" => {
+                health_check_secs = args
+                    .get(i + 1)
+                    .and_then(|s| s.parse().ok())
+                    .ok_or("--health-check <secs> requires a non-negative integer")?;
                 i += 2;
             }
             "--help" | "-h" => {
@@ -222,6 +239,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         (cap, ttl) => {
             cluster_inner.with_cache_ttl(cap, std::time::Duration::from_secs(ttl))
         }
+    };
+
+    // Iter 245 — optional background health checker. Mirror of
+    // embed.rs's pattern: spawn a single-threaded tokio runtime,
+    // hand its handle to spawn_health_checker, keep both alive
+    // for the lifetime of main via the let binding.
+    let _health_keepalive = if health_check_secs > 0 {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(1)
+            .enable_all()
+            .thread_name("health-check")
+            .build()
+            .map_err(|e| format!("health-check runtime: {}", e))?;
+        let cfg = ruvector_hailo_cluster::HealthCheckerConfig {
+            interval: std::time::Duration::from_secs(health_check_secs),
+            ..cluster.health_checker_config()
+        };
+        let checker = cluster.spawn_health_checker(rt.handle(), cfg);
+        if !quiet {
+            eprintln!(
+                "ruvllm-bridge: --health-check spawned, interval={}s",
+                health_check_secs
+            );
+        }
+        Some((rt, checker))
+    } else {
+        None
     };
 
     if !quiet {
@@ -423,6 +467,11 @@ OPTIONAL:\n    \
                                  Recommended for RAG workloads with repeated\n                                 \
                                  context queries; needs --fingerprint set or\n                                 \
                                  --allow-empty-fingerprint per ADR-172 \u{00a7}2a.\n    \
+    --cache-ttl <secs>           Optional TTL on cached entries (default 0=off).\n    \
+    --health-check <secs>        Background fingerprint+health probe (iter 245).\n                                 \
+                                 Default 0=off. Recommended 30-60 for long-\n                                 \
+                                 running bridges so silent worker swaps don't\n                                 \
+                                 keep producing wrong embeddings.\n    \
     --help                       This message.\n    \
     --version                    Print version.\n",
         env!("CARGO_PKG_NAME"),

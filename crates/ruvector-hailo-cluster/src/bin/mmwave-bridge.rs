@@ -84,6 +84,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Iter 243 — optional TTL bound on cached entries (parity with
     // embed.rs's --cache-ttl). 0 = no TTL (LRU only).
     let mut cache_ttl_secs: u64 = 0;
+    // Iter 245 — optional background health checker (default 0=off).
+    let mut health_check_secs: u64 = 0;
 
     let mut i = 1;
     while i < args.len() {
@@ -159,6 +161,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .get(i + 1)
                     .and_then(|s| s.parse().ok())
                     .ok_or("--cache-ttl <secs> requires a non-negative integer")?;
+                i += 2;
+            }
+            "--health-check" => {
+                health_check_secs = args
+                    .get(i + 1)
+                    .and_then(|s| s.parse().ok())
+                    .ok_or("--health-check <secs> requires a non-negative integer")?;
                 i += 2;
             }
             "--help" | "-h" => {
@@ -295,6 +304,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
         }
         Some(Arc::new(c))
+    } else {
+        None
+    };
+
+    // Iter 245 — optional background health checker (parity with
+    // embed.rs / ruvllm-bridge / ruview-csi-bridge).
+    let _health_keepalive = if let (Some(c), true) =
+        (cluster.as_ref(), health_check_secs > 0)
+    {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(1)
+            .enable_all()
+            .thread_name("health-check")
+            .build()
+            .map_err(|e| format!("health-check runtime: {}", e))?;
+        let cfg = ruvector_hailo_cluster::HealthCheckerConfig {
+            interval: Duration::from_secs(health_check_secs),
+            ..c.health_checker_config()
+        };
+        let checker = c.spawn_health_checker(rt.handle(), cfg);
+        if !quiet {
+            eprintln!(
+                "ruvector-mmwave-bridge: --health-check spawned, interval={}s",
+                health_check_secs
+            );
+        }
+        Some((rt, checker))
     } else {
         None
     };
@@ -649,6 +685,8 @@ OPTIONS:\n    \
                                  so steady-state telemetry hits the cache\n                                 \
                                  hard. Needs --fingerprint set or\n                                 \
                                  --allow-empty-fingerprint per ADR-172 \u{00a7}2a.\n    \
+    --cache-ttl <secs>           Optional TTL on cached entries (default 0=off).\n    \
+    --health-check <secs>        Background fingerprint+health probe (iter 245).\n    \
     --help                       This message.\n    \
     --version                    Print version.\n\
 \n\
