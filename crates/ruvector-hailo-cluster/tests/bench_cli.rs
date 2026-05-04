@@ -129,9 +129,16 @@ fn bench_cli_prom_file_contains_throughput_metric() {
         "missing HELP, got: {}",
         prom_body
     );
+    // Iter 256 — added `fingerprint` label alongside `concurrency`.
+    // Empty string here because this test uses --allow-empty-fingerprint
+    // (passed implicitly via the worker test fixture). The label being
+    // present (even empty) is the contract — Prometheus alerts grouping
+    // by `fingerprint` should see a stable label set across runs.
     assert!(
-        prom_body.contains("ruvector_hailo_bench_throughput_per_second{concurrency=\"2\"}"),
-        "missing throughput metric with concurrency label, got: {}",
+        prom_body.contains(
+            "ruvector_hailo_bench_throughput_per_second{concurrency=\"2\",fingerprint=\"\"}"
+        ),
+        "missing throughput metric with concurrency+fingerprint labels, got: {}",
         prom_body
     );
 }

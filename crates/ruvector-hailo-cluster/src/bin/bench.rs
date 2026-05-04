@@ -393,7 +393,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let cluster = Arc::new({
-        let c = HailoClusterEmbedder::new(workers, transport, dim, fingerprint)?;
+        // Iter 256 — clone fingerprint so the original String stays
+        // available for the BenchSummary's `fingerprint` label later.
+        let c = HailoClusterEmbedder::new(workers, transport, dim, fingerprint.clone())?;
         match (cache_cap, cache_ttl_secs) {
             (0, _) => c,
             (cap, 0) => c.with_cache(cap),
@@ -654,6 +656,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 samples: all_samples.len(),
                 concurrency,
                 cache: cache_stats,
+                // Iter 256 — surface the resolved fingerprint as a
+                // prom label. Empty string when --allow-empty-
+                // fingerprint was set, which renders as
+                // `fingerprint=""` and stays scrape-stable.
+                fingerprint: fingerprint.clone(),
             },
         )?;
         if !quiet {
@@ -682,6 +689,12 @@ struct BenchSummary {
     /// `None` when --cache 0; otherwise carries hit/miss/eviction counts
     /// so the Prom output reflects what actually happened on the cache.
     cache: Option<ruvector_hailo_cluster::cache::CacheStats>,
+    /// Iter 256 — resolved fingerprint (--fingerprint or
+    /// --auto-fingerprint result). Empty when neither was set
+    /// (--allow-empty-fingerprint). Surfaces as a `fingerprint=`
+    /// label on every prom metric so a CI scrape can alert on
+    /// per-model regressions instead of a single global series.
+    fingerprint: String,
 }
 
 /// Emit Prometheus textfile-collector format. node_exporter's textfile
@@ -693,7 +706,15 @@ fn write_prom_textfile(path: &str, s: &BenchSummary) -> std::io::Result<()> {
     // races us never sees a half-written file.
     let tmp = format!("{}.tmp", path);
     let mut f = std::fs::File::create(&tmp)?;
-    let labels = format!("concurrency=\"{}\"", s.concurrency);
+    // Iter 256 — fingerprint label on every metric. Empty fingerprint
+    // (--allow-empty-fingerprint) renders as `fingerprint=""` rather
+    // than getting omitted, which keeps the label set scrape-stable
+    // across runs (a Prometheus alert that groups by `fingerprint`
+    // sees the same dimensionality whether or not enforcement is on).
+    let labels = format!(
+        "concurrency=\"{}\",fingerprint=\"{}\"",
+        s.concurrency, s.fingerprint
+    );
     writeln!(
         f,
         "# HELP ruvector_hailo_bench_wall_seconds Wall-clock duration of the benchmark run."
