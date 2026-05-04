@@ -4,16 +4,18 @@ Multi-Pi cluster coordinator for ruvector's Hailo-8 NPU embedding workers.
 Implements P2C+EWMA load balancing, fingerprint enforcement, optional
 in-process caching, and Tailscale-tag-based discovery.
 
-> **Status:** library + 3 CLI binaries production-shaped; **131 tests**
-> passing across lib unit / cluster integration / 3 CLI integration / 7
-> doctest suites.
+> **Status:** library + 8 CLI binaries production-shaped; **204 tests**
+> passing across lib unit / cluster integration / 7 CLI integration /
+> 7 doctest suites (iter 253).
 >
 > **NPU acceleration is the production default** as of iter 163
 > (ADR-176). `cargo build --release --features hailo,cpu-fallback
 > --bin ruvector-hailo-worker` produces a worker that auto-detects
 > `model.hef` in the model dir and runs encoder forward pass on the
-> Hailo-8 NPU. Measured **67.3 embeds/sec/worker** on real Pi 5 +
-> AI HAT+ (9.6× over cpu-fallback baseline).
+> Hailo-8 NPU. Measured **70.6 embeds/sec/worker** on cognitum-v0
+> (Pi 5 + AI HAT+, iter-227 baseline reverified post-iter-237 deploy);
+> ~10× over cpu-fallback baseline. iter-237's pool=2 default also
+> cuts p50 latency by 23% under multi-bridge concurrent load.
 >
 > **cpu-fallback remains the automatic failover.** When `model.hef`
 > isn't present, the worker uses host-CPU candle BERT-6 (~7
@@ -419,13 +421,16 @@ See [ADR-170][adr170] for the full design.
                 ┌──────────────────────────────┐
                 │ Doctests             (7)     │  module + 6 method examples
                 ├──────────────────────────────┤
-                │ Lib unit             (69)    │  pure Rust, no IO
+                │ Lib unit            (114)    │  pure Rust, no IO
                 ├──────────────────────────────┤
-                │ Cluster integration  (12)    │  GrpcTransport + tonic mocks
+                │ Cluster integration  (~30)   │  GrpcTransport + tonic mocks +
+                │                              │   load distribution + DoS gates
                 ├──────────────────────────────┤
-                │ CLI integration      (18)    │  real binaries, real subprocess
+                │ CLI integration      (~53)   │  real binaries, real subprocess —
+                │                              │   bench/embed/stats/fakeworker +
+                │                              │   3 sensor bridges
                 └──────────────────────────────┘
-                 106 tests in this crate
+                 204 tests in this crate (iter 253)
 ```
 
 Run all of them:
