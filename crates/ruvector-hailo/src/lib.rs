@@ -86,8 +86,44 @@ pub struct HailoEmbedder {
     /// pipeline. `Some(_)` when both `model.hef` and the safetensors
     /// trio are present in `model_dir`. Takes precedence over
     /// `cpu_fallback` in `embed()` dispatch.
+    ///
+    /// Iter 235 — wraps a `HefBackend` enum so the dispatch can pick
+    /// between a single-pipeline `HefEmbedder` and a multi-pipeline
+    /// `HefEmbedderPool` based on `RUVECTOR_NPU_POOL_SIZE`. Default
+    /// (env unset or = 1) keeps the iter-162 single-pipeline path.
     #[cfg(all(feature = "hailo", feature = "cpu-fallback"))]
-    hef_embedder: Option<crate::hef_embedder::HefEmbedder>,
+    hef_embedder: Option<HefBackend>,
+}
+
+/// Iter 235 — switch between single-pipeline and pool-of-pipelines
+/// NPU dispatch. Exposed as a private enum because the choice is
+/// driven by `RUVECTOR_NPU_POOL_SIZE` at `HailoEmbedder::open` time;
+/// callers see a uniform `embed()` regardless.
+#[cfg(all(feature = "hailo", feature = "cpu-fallback"))]
+enum HefBackend {
+    /// Single Mutex<HefPipeline>. Cheaper init + RAM, hard ~70 RPS
+    /// ceiling per cognitum-v0 iter-227 baseline.
+    Single(crate::hef_embedder::HefEmbedder),
+    /// N independent pipelines on the same vdevice; HailoRT's
+    /// network-group scheduler arbitrates NPU access. Targets the
+    /// PCIe-DMA-overlap throughput unlock (iter 234 design doc).
+    Pool(crate::hef_embedder_pool::HefEmbedderPool),
+}
+
+#[cfg(all(feature = "hailo", feature = "cpu-fallback"))]
+impl HefBackend {
+    fn embed(&self, text: &str) -> Result<Vec<f32>> {
+        match self {
+            Self::Single(s) => s.embed(text),
+            Self::Pool(p) => p.embed(text),
+        }
+    }
+    fn output_dim(&self) -> usize {
+        match self {
+            Self::Single(s) => s.output_dim(),
+            Self::Pool(p) => p.output_dim(),
+        }
+    }
 }
 
 impl HailoEmbedder {
@@ -157,10 +193,31 @@ impl HailoEmbedder {
         let safetensors = model_dir.join("model.safetensors");
 
         #[cfg(all(feature = "hailo", feature = "cpu-fallback"))]
-        let hef_embedder = {
+        let hef_embedder: Option<HefBackend> = {
             if hef_path.exists() && safetensors.exists() {
                 if let Some(dev) = device_opt.as_ref() {
-                    Some(crate::hef_embedder::HefEmbedder::open(dev, model_dir)?)
+                    // Iter 235 — pick single vs pool based on env var.
+                    // Unset / = 1 → Single (preserves iter-162 default).
+                    // >= 2     → Pool with N pipelines on the shared vdevice.
+                    // Bad value (non-numeric) → log + fall back to Single
+                    // rather than fail boot — the worker stays alive on the
+                    // single-pipeline path and operators get a recovery
+                    // window without a forced restart.
+                    let pool_size = std::env::var("RUVECTOR_NPU_POOL_SIZE")
+                        .ok()
+                        .and_then(|s| s.parse::<usize>().ok())
+                        .unwrap_or(1);
+                    if pool_size >= 2 {
+                        Some(HefBackend::Pool(
+                            crate::hef_embedder_pool::HefEmbedderPool::open(
+                                dev, model_dir, pool_size,
+                            )?,
+                        ))
+                    } else {
+                        Some(HefBackend::Single(
+                            crate::hef_embedder::HefEmbedder::open(dev, model_dir)?,
+                        ))
+                    }
                 } else {
                     None
                 }
@@ -194,7 +251,7 @@ impl HailoEmbedder {
         #[cfg(all(feature = "hailo", feature = "cpu-fallback"))]
         let dimensions = hef_embedder
             .as_ref()
-            .map(|h| h.output_dim())
+            .map(HefBackend::output_dim)
             .or_else(|| cpu_fallback.as_ref().map(|c| c.output_dim()))
             .unwrap_or(crate::inference::MINI_LM_DIM);
         #[cfg(all(not(feature = "hailo"), feature = "cpu-fallback"))]
