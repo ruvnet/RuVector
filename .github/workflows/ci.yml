@@ -79,7 +79,15 @@ jobs:
     # `core-and-rest` is the catch-all shard and compiles ~50 crates; on a
     # cold cache the build alone has hit ~90min, so headroom matters more
     # than tight feedback for this job. Faster shards still finish in ~10–20m.
-    timeout-minutes: 150
+    # Iter 231 — bumped 150→180. Historical successful runs landed at
+    # 2h 30m 16s (just under the old cap); two PR-413 runs (iter 228 +
+    # iter 230) both hit the cap and got cancelled mid-test. Excluding
+    # the iter-219 hailo crates from the catch-all (iter 230) was a
+    # necessary but not sufficient fix — the shard was already at the
+    # ragged edge. 180min gives ~30min headroom on the typical 150min
+    # run; if a shard's natural duration drifts further we should split
+    # crates out into a new sibling shard rather than push this higher.
+    timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:
