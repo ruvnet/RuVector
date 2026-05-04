@@ -161,10 +161,8 @@ impl Mr60Parser {
                     self.reset();
                     return Some(Event::ChecksumError);
                 }
-                let length =
-                    u16::from_be_bytes([self.header[3], self.header[4]]) as usize;
-                self.frame_type =
-                    u16::from_be_bytes([self.header[5], self.header[6]]);
+                let length = u16::from_be_bytes([self.header[3], self.header[4]]) as usize;
+                self.frame_type = u16::from_be_bytes([self.header[5], self.header[6]]);
                 if length == 0 {
                     // Zero-length frame — emit immediately as Unknown
                     // (no payload, no trailer).
@@ -193,8 +191,7 @@ impl Mr60Parser {
                 None
             }
             State::Trailer => {
-                let expected =
-                    invert_xor(&self.payload[..self.expected_payload_len]);
+                let expected = invert_xor(&self.payload[..self.expected_payload_len]);
                 let event = if expected != b {
                     Event::ChecksumError
                 } else {
@@ -257,9 +254,12 @@ mod tests {
     fn frame(frame_type: u16, payload: &[u8]) -> Vec<u8> {
         let mut header = vec![
             0x01,
-            0x00, 0x00,                                 // frame_id
-            (payload.len() >> 8) as u8, payload.len() as u8,
-            (frame_type >> 8) as u8, frame_type as u8,
+            0x00,
+            0x00, // frame_id
+            (payload.len() >> 8) as u8,
+            payload.len() as u8,
+            (frame_type >> 8) as u8,
+            frame_type as u8,
         ];
         header.push(invert_xor(&header));
         let mut out = header;
@@ -313,7 +313,10 @@ mod tests {
         let f = frame(0xBABE, &[0xDE, 0xAD]);
         assert_eq!(
             final_event(&f),
-            Event::Unknown { frame_type: 0xBABE, payload_len: 2 }
+            Event::Unknown {
+                frame_type: 0xBABE,
+                payload_len: 2
+            }
         );
     }
 
@@ -367,7 +370,9 @@ mod tests {
         bytes.extend_from_slice(&frame(0x0A16, &[0x00, 0x64])); // 100 cm
         let events = collect_events(&bytes);
         assert!(events.iter().any(|e| matches!(e, Event::Resync)));
-        assert!(events.iter().any(|e| matches!(e, Event::Distance { cm: 100 })));
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, Event::Distance { cm: 100 })));
     }
 
     #[test]
