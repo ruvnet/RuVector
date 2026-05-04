@@ -1,14 +1,59 @@
-//! Multi-pipeline NPU embedder pool — iter 234.
+//! Multi-pipeline NPU embedder pool — iter 234 / iter 236 verdict.
 //!
 //! ADR-176 P5 (queued post-iter-227 baseline). The single-pipeline
 //! [`crate::hef_embedder::HefEmbedder`] caps cluster throughput at
 //! ~70 RPS (cognitum-v0, all-MiniLM-L6-v2, batch=1) because every
 //! gRPC request serializes on a single `Mutex<Inner>` covering one
-//! input-vstream / output-vstream pair. The Hailo-8 NPU plus its PCIe
-//! DMA path can overlap meaningfully — a single inference is ~14 ms
-//! steady-state but only ~2 ms of that is NPU compute; the remainder
-//! is PCIe write + read. Multi-pipeline overlap should unlock a
-//! 2-4× throughput multiplier.
+//! input-vstream / output-vstream pair.
+//!
+//! # Iter 236 — measured: pool size has NO effect on throughput.
+//!
+//! Hypothesis (iter 234): the Hailo-8 NPU + PCIe DMA path can overlap
+//! across multiple HailoRT network groups on the same vdevice. A pool
+//! of 4 pipelines should unlock 2-4× throughput.
+//!
+//! Reality (iter 236, cognitum-v0):
+//!
+//! | configuration              | throughput | p50    | p99    |
+//! |----------------------------|------------|--------|--------|
+//! | pool=1, c=1 (baseline 227) | 70.6 RPS   | 14.1ms | 15.8ms |
+//! | pool=4, c=1                | 70.6 RPS   | 14.1ms | 16.7ms |
+//! | pool=4, c=4                | 70.7 RPS   | 43.5ms | 84.9ms |
+//! | pool=4, c=8                | 70.7 RPS   |112.9ms |211.7ms |
+//! | pool=2, c=4                | 70.7 RPS   | 43.3ms | 84.7ms |
+//! | pool=8, c=8                | 70.7 RPS   |112.9ms |170.7ms |
+//!
+//! Throughput ceiling is identical at every pool size. p50 latency
+//! at fixed concurrency improves marginally (43ms vs 56ms baseline at
+//! c=4) — the host-side queue is shorter — but the NPU itself remains
+//! the bottleneck.
+//!
+//! HailoRT's network-group scheduler serializes inferences at the
+//! vdevice level. The Hailo-8 has one inference engine per chip and
+//! HailoRT does not pipeline DMA-write / NPU-compute / DMA-read
+//! across configured network groups. The 70 RPS ceiling = 1000 / 14ms
+//! per inference is a hard NPU+PCIe limit per single-batch HEF.
+//!
+//! # What the pool *does* still buy
+//!
+//! - **Slightly better tail latency at high concurrency** (p50 43ms
+//!   vs 56ms at c=4) because each request gets its own queue slot
+//!   instead of contending on one host-side mutex.
+//! - **No regression at pool=1** (the env-var default), so this is a
+//!   safe knob to leave in place.
+//! - **A platform** for future async-vstream work (iter 237 candidate):
+//!   `hailo_vstream_recv_async` could overlap DMA with NPU compute
+//!   *within* one network group, which is what would actually break
+//!   the 70 RPS ceiling. The pool layout makes that change additive
+//!   rather than rewrite-everything.
+//!
+//! # Throughput unlocks that were ruled in/out
+//!
+//! - ❌ Multi-network-group pool (this iter, ruled out empirically).
+//! - 🔜 Async vstreams (`HAILO_FORMAT_FLAGS_ASYNC_API`). Iter 237.
+//! - 🔜 Batch-compiled HEF (`--batch-size 4` in DFC). Requires
+//!   re-running the Dataflow Compiler on a host with the Hailo SDK;
+//!   parked as iter 238 candidate.
 //!
 //! # Baseline measurement (iter 227, single pipeline)
 //!
