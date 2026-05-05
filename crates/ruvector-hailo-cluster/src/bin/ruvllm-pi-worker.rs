@@ -51,7 +51,7 @@ use std::net::SocketAddr;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg(feature = "ruvllm-engine")]
-const GATE: &str = "ADR-179 iter 9 — engine wired (qwen2.5-0.5b fp16 first)";
+const GATE: &str = "ADR-180 iter 2 — ServingEngine continuous batching";
 #[cfg(not(feature = "ruvllm-engine"))]
 const GATE: &str = "ADR-179 iter 3 — scaffold (no engine; build with --features ruvllm-engine)";
 
@@ -69,26 +69,35 @@ fn read_optional_env(key: &str) -> String {
 #[cfg(feature = "ruvllm-engine")]
 mod engine {
     use ruvllm::backends::{CandleBackend, GenerateParams, LlmBackend, ModelConfig};
-    use std::sync::Mutex;
+    use ruvllm::serving::{
+        engine::{ServingEngine, ServingEngineConfig},
+        request::InferenceRequest,
+    };
+    use std::sync::Arc;
 
-    /// Thread-safe wrapper around CandleBackend. ServingEngine has its
-    /// own scheduler+batcher, but iter 9 ships a simpler single-shot
-    /// generate path — one request at a time — so we can prove the
-    /// loop closes end-to-end. Iter 10 swaps this for ServingEngine.
+    /// ADR-180 iter 2: ServingEngine wraps the backend and runs a
+    /// continuous-batching scheduler in a background tokio task. Each
+    /// completion request goes via `submit_async`, which lets multiple
+    /// in-flight requests amortize the transformer forward pass.
+    ///
+    /// Replaces the iter-9 `Mutex<CandleBackend>` that bounded us to
+    /// single-stream throughput (ADR-179 iter 28).
     pub struct PiEngine {
-        inner: Mutex<CandleBackend>,
+        /// Shared backend handle — used here for tokenize/detokenize
+        /// outside the scheduler, and held by ServingEngine internally
+        /// as the model executor.
+        backend: Arc<dyn LlmBackend>,
+        engine: Arc<ServingEngine>,
     }
 
     impl PiEngine {
-        pub fn load(model_path: &str) -> anyhow::Result<Self> {
+        pub fn load(model_path: &str, max_inflight: usize) -> anyhow::Result<Self> {
             let mut backend = CandleBackend::new()
                 .map_err(|e| anyhow::anyhow!("CandleBackend::new failed: {e:?}"))?;
-            // ADR-179 iter 10: candle-transformers' Llama path panics
-            // with "compile with '--features flash-attn'" on CPU when
-            // use_flash_attn=true. The flag is intended to gate
-            // CUDA-only kernels — set false so the model uses the
-            // standard candle attention. We also disable quantization
-            // here so iter 10 first-light is fp16; pi_quant lands iter 11.
+            // ADR-179 iter 10 carries: use_flash_attention=false avoids
+            // the candle-transformers CUDA-only flash-attn panic on CPU.
+            // Quantization=None means the loader uses GGUF when present
+            // in the dir; otherwise safetensors fp16.
             let config = ModelConfig {
                 use_flash_attention: false,
                 quantization: None,
@@ -97,23 +106,65 @@ mod engine {
             backend
                 .load_model(model_path, config)
                 .map_err(|e| anyhow::anyhow!("load_model({model_path}) failed: {e:?}"))?;
-            Ok(Self {
-                inner: Mutex::new(backend),
-            })
+
+            // Box the loaded backend behind Arc<dyn LlmBackend>.
+            let backend: Arc<dyn LlmBackend> = Arc::new(backend);
+
+            // ServingEngine config — speculative decoding off in v1
+            // (a draft model would 2-3× decode but isn't co-located yet).
+            let engine_cfg = ServingEngineConfig {
+                max_concurrent_requests: max_inflight,
+                enable_speculative: false,
+                ..ServingEngineConfig::default()
+            };
+            let engine = Arc::new(ServingEngine::new(Arc::clone(&backend), engine_cfg));
+
+            // Spawn the scheduler loop. It drives prefill/decode iterations
+            // across all in-flight requests until shutdown.
+            let scheduler_engine = Arc::clone(&engine);
+            tokio::spawn(async move {
+                if let Err(e) = scheduler_engine.run_async().await {
+                    tracing::error!(error = ?e, "ServingEngine scheduler exited");
+                }
+            });
+
+            Ok(Self { backend, engine })
         }
 
-        pub fn generate(&self, prompt: &str, max_tokens: usize) -> anyhow::Result<String> {
-            let backend = self
-                .inner
-                .lock()
-                .map_err(|_| anyhow::anyhow!("engine mutex poisoned"))?;
+        /// Submit one prompt + return the completion text once decoded.
+        /// Each call enqueues into the scheduler — many concurrent calls
+        /// share the same forward pass via continuous batching.
+        pub async fn generate(&self, prompt: &str, max_tokens: usize) -> anyhow::Result<String> {
+            // 1. tokenize via the backend's Tokenizer (encode/decode live on
+            //    the Tokenizer trait, accessed via LlmBackend::tokenizer())
+            let tokenizer = self
+                .backend
+                .tokenizer()
+                .ok_or_else(|| anyhow::anyhow!("backend has no tokenizer"))?;
+            let prompt_tokens = tokenizer
+                .encode(prompt)
+                .map_err(|e| anyhow::anyhow!("encode failed: {e:?}"))?;
+
+            // 2. submit + await
             let params = GenerateParams {
                 max_tokens,
                 ..Default::default()
             };
-            backend
-                .generate(prompt, params)
-                .map_err(|e| anyhow::anyhow!("generate failed: {e:?}"))
+            let req = InferenceRequest::new(prompt_tokens, params);
+            let result = self
+                .engine
+                .submit_async(req)
+                .await
+                .map_err(|e| anyhow::anyhow!("submit_async failed: {e:?}"))?;
+
+            // 3. detokenize the generated tokens (if not already provided)
+            if let Some(text) = result.generated_text {
+                Ok(text)
+            } else {
+                tokenizer
+                    .decode(&result.generated_tokens)
+                    .map_err(|e| anyhow::anyhow!("decode failed: {e:?}"))
+            }
         }
     }
 }
@@ -145,8 +196,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tracing::warn!("RUVLLM_MODEL_PATH is unset; refusing to start engine, falling back to scaffold mode");
         None
     } else {
-        tracing::info!("loading model from {} ...", model_path);
-        match engine::PiEngine::load(&model_path) {
+        // ADR-180 iter 2: max_inflight controls ServingEngine's
+        // continuous-batching capacity. Default 4; bump via env to sweep.
+        let max_inflight: usize = env::var("RUVLLM_MAX_INFLIGHT")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(4);
+        tracing::info!(
+            "loading model from {} (max_inflight={}) ...",
+            model_path, max_inflight
+        );
+        match engine::PiEngine::load(&model_path, max_inflight) {
             Ok(e) => {
                 tracing::info!("model loaded, ready to serve");
                 Some(std::sync::Arc::new(e))
@@ -215,7 +275,8 @@ async fn handle_conn(
         let started = std::time::Instant::now();
         #[cfg(feature = "ruvllm-engine")]
         let resp = match &engine {
-            Some(e) => match e.generate(prompt, max_tokens) {
+            // ADR-180 iter 2: generate() is now async (ServingEngine submit_async).
+            Some(e) => match e.generate(prompt, max_tokens).await {
                 Ok(text) => {
                     let ms = started.elapsed().as_millis() as u64;
                     serde_json::json!({"text": text, "tokens": text.len(), "ms": ms})

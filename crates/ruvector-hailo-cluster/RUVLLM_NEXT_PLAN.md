@@ -100,3 +100,37 @@ backend-internal interior-mutability state.
 - Verify host build still works
 - Cross-build aarch64
 - Iter 3 wires the request handler
+
+## Iter 2 (2026-05-05 ~12:45)
+
+**Done:**
+- Replaced `Mutex<CandleBackend>` in `engine::PiEngine` with
+  `Arc<dyn LlmBackend>` + `Arc<ServingEngine>`
+- Spawn `engine.run_async()` in a tokio task on worker startup
+- `generate()` is now async; tokenizes via `LlmBackend::tokenizer()`
+  (encode/decode live on the Tokenizer trait, not LlmBackend itself)
+- Bumped `max_inflight` parameter to `PiEngine::load`
+- **Host build green.**
+
+**Iter-2 finding (blocker for iter 3):**
+- Worker starts cleanly: model loaded, ready to serve
+- BUT: a single `submit_async` request **hangs for 60+ seconds**
+  with no result. `nc` times out, the worker's logs show only the
+  startup messages — the scheduler isn't ticking.
+- Hypothesis: `ServingEngine::run_async` doesn't drive the candle
+  backend through the `LlmBackend::generate*` path. It likely
+  expects a lower-level executor interface (forward pass per
+  iteration) that `CandleBackend` may not properly implement.
+
+**Iter 3 plan:**
+- Read `ServingEngine::run_async` + `run_iteration` to find
+  what executor methods it calls into
+- Either:
+  (a) implement those methods on CandleBackend, or
+  (b) fall back to a simpler request-parallel approach where
+      we keep multiple `Arc<CandleBackend>` clones (one per
+      in-flight slot) — coarse-grain batching without the
+      full ServingEngine scheduler
+- Decision tree: prefer (a) if `run_iteration` calls a small
+  number of backend methods we can stub; (b) if the executor
+  surface is complex
