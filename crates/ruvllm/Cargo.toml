@@ -113,7 +113,7 @@ tracing-subscriber = { workspace = true }
 
 [features]
 # Default includes candle for working inference out of the box
-default = ["async-runtime", "candle", "routing-metrics", "quantize"]
+default = ["async-runtime", "candle", "routing-metrics", "quantize", "hub-download"]
 async-runtime = ["tokio", "tokio-stream"]
 
 # Minimal build without inference (for embedding/library use only)
@@ -139,8 +139,16 @@ ruvector-full = ["attention", "graph", "gnn"]
 # Multi-threaded GEMM/GEMV with rayon (4-6x speedup on M4 Pro 10-core)
 parallel = ["dep:rayon"]
 
-# Candle backend for LLM inference (Rust-native, Metal acceleration on Mac)
-candle = ["candle-core", "candle-nn", "candle-transformers", "tokenizers", "hf-hub"]
+# Candle backend for LLM inference (Rust-native, Metal acceleration on Mac).
+# ADR-179 iter 8: hub-download removed from the hard requirement set so
+# the candle backend cross-builds for aarch64 (Pi 5) without pulling
+# the openssl-sys-via-hf-hub-via-ureq cross-link mess. Local-path model
+# load works without it; HF Hub fetch needs `hub-download` feature.
+candle = ["candle-core", "candle-nn", "candle-transformers", "tokenizers"]
+
+# HuggingFace Hub auto-download (default-on for the workstation builds
+# the user runs day-to-day; off for aarch64 cross-builds).
+hub-download = ["hf-hub"]
 
 # Metal acceleration for Apple Silicon (M1/M2/M3/M4) via Candle
 metal = ["candle-core/metal", "candle-nn/metal", "candle-transformers/metal"]

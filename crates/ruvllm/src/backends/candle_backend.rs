@@ -397,7 +397,15 @@ mod candle_impl {
             }
         }
 
-        /// Load model from HuggingFace Hub
+        /// Load model from HuggingFace Hub.
+        ///
+        /// ADR-179 iter 8: gated behind `hub-download` feature. The sync
+        /// `hf_hub::api::sync` API requires the `ureq` feature, which
+        /// in turn pulls `native-tls` → `openssl-sys`. That doesn't
+        /// cross-build to aarch64 cleanly. For Pi 5 deploys the worker
+        /// rsyncs models out-of-band and uses the local-path branch of
+        /// `load_model` only.
+        #[cfg(feature = "hub-download")]
         pub fn load_from_hub(&mut self, model_id: &str, config: &ModelConfig) -> Result<()> {
             use hf_hub::{api::sync::Api, Repo, RepoType};
 
@@ -458,7 +466,9 @@ mod candle_impl {
             self.load_safetensors(&weights_files, &config_path, config)
         }
 
-        /// Get list of safetensors files from repo
+        /// Get list of safetensors files from repo.
+        /// ADR-179 iter 8: hub-download feature only (see load_from_hub).
+        #[cfg(feature = "hub-download")]
         fn get_safetensors_files(&self, repo: &hf_hub::api::sync::ApiRepo) -> Result<Vec<PathBuf>> {
             // Try single file first
             if let Ok(path) = repo.get("model.safetensors") {
@@ -1202,8 +1212,16 @@ mod candle_impl {
                 }
             }
 
-            // Treat as HuggingFace Hub model ID
-            self.load_from_hub(model_id, &config)
+            // Treat as HuggingFace Hub model ID (gated, ADR-179 iter 8).
+            #[cfg(feature = "hub-download")]
+            { return self.load_from_hub(model_id, &config); }
+            #[cfg(not(feature = "hub-download"))]
+            {
+                Err(RuvLLMError::NotFound(format!(
+                    "model_id '{}' not a local path and hub-download feature is disabled (ADR-179 Pi cross-build)",
+                    model_id
+                )))
+            }
         }
 
         fn generate(&self, prompt: &str, params: GenerateParams) -> Result<String> {

@@ -230,3 +230,28 @@ improve for 2 consecutive iterations across both throughput AND quality
   adapter or a different backend entry point.
 - Bring up engine with `RUVLLM_QUANTIZE=none` (fp16 first to prove
   pipeline). Quantization layered after.
+
+## Iter 8 (2026-05-04, ~23:10)
+
+**Done:**
+- Identified `LlmBackend::load_model("/path/to/dir")` already handles
+  local-path mode (scans for tokenizer.json + GGUF + safetensors).
+  No new adapter needed — just feature-gate the HF path.
+- Added `hub-download` feature to `crates/ruvllm/Cargo.toml`. Gated:
+  - `candle_backend.rs::load_from_hub` (HF Hub fetch)
+  - `candle_backend.rs::get_safetensors_files` (sync API param)
+  - `candle_backend.rs::load_model` HF fallback (returns "not found"
+    when feature disabled — local path is the only mode)
+  - `tokenizer.rs::from_pretrained` (HF Hub tokenizer fetch)
+- `default = [..., "hub-download"]` so workstation builds keep current
+  behavior; cross-builds use `--no-default-features --features async-runtime,candle,quantize`.
+- **`cargo build --target aarch64-unknown-linux-gnu -p ruvllm` succeeds**
+  (35 s) — the candle backend cross-builds for Pi 5 cleanly.
+- Model rsync: cluster-1 ✓ (954 MB installed), cluster-2 in progress.
+
+**Iter 9 plan:**
+- Add `ruvllm` as dep to `ruvector-hailo-cluster` Cargo.toml under a
+  feature `ruvllm-engine`, scoped to the new bin only
+- Wire `ruvllm-pi-worker.rs` end-to-end: read env, construct
+  CandleBackend, load_model(local path), generate(prompt, params)
+- Smoke test: simple "hello" → first token from a Pi

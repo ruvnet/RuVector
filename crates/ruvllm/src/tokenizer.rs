@@ -28,7 +28,8 @@
 use crate::error::{Result, RuvLLMError};
 use std::path::Path;
 
-#[cfg(feature = "candle")]
+// ADR-179 iter 8: hf_hub gated behind hub-download (cross-build for Pi).
+#[cfg(feature = "hub-download")]
 use hf_hub::{api::sync::Api, Repo, RepoType};
 #[cfg(feature = "candle")]
 use tokenizers::Tokenizer as HfTokenizer;
@@ -407,6 +408,9 @@ mod candle_impl {
         /// ```rust,ignore
         /// let tokenizer = RuvTokenizer::from_pretrained("mistralai/Mistral-7B-Instruct-v0.3")?;
         /// ```
+        ///
+        /// ADR-179 iter 8: gated behind `hub-download` feature.
+        #[cfg(feature = "hub-download")]
         pub fn from_pretrained(model_id: &str) -> Result<Self> {
             let api = Api::new().map_err(|e| {
                 RuvLLMError::Storage(format!("Failed to initialize HuggingFace API: {}", e))
