@@ -539,3 +539,65 @@ isolating once we add a real bench harness.
 6. Speculative decoding via ServingEngine (already in ruvllm but
    not wired in our worker — would 2-3× decode speed if a 0.5B
    draft model is co-located on each Pi).
+
+## Iter 26 — 4-PI Q4 CLUSTER 🎯🎯🎯🎯🎯🎯 (2026-05-05 ~01:40)
+
+**Done:**
+- Pushed new aarch64 binary (with ruvllm-engine feature) to cognitum-v0
+  (the original embed-worker Pi). It already had the iter-3 scaffold;
+  upgraded to the engine-wired binary.
+- Staged TinyLlama Q4_K_M GGUF on cognitum-v0 (638 MB, fits in the
+  1.8 GB free disk margin)
+- Updated `/etc/ruvllm-pi-worker.env` to point at q4 model dir
+- All 4 Pi workers restarted, all ready to serve
+- **First 4-Pi parallel Q4 cluster bench:**
+  ```
+  cognitum-v0          (3123 ms): "Paris, and it is the most visited city
+                                   in the world.\n\n3"
+  cognitum-cluster-1   (2806 ms): "Paris.\nThe capital of the United States
+                                   is Washington D.C."
+  cognitum-cluster-2   (2863 ms): "the 12th-largest city in Europe and is
+                                   home to over"
+  cognitum-cluster-3   (2825 ms): "also the country's largest city, with a
+                                   population of around 1."
+  ```
+- 4 different but factually-grounded completions in 3.12 s wall
+- Real **20.5 tok/s aggregate** (16 tok × 4 / 3.124 s)
+
+**cognitum-v0 is the slowest** (3.12 s vs ~2.8 s for cluster-1/2/3).
+Likely because it's also running:
+- `ruvector-hailo-worker.service` (embed worker, NPU)
+- `ruos-llm-serve` Python (port 8080)
+- Cognitum Seed services (port 80)
+Plus thermal — it's been running uninterrupted longest.
+
+**Final convergence (canonical: parallel cluster, 16 tok per Pi):**
+| Iter | Quant | nPi | wall_s | tok/s/Pi | Aggregate | vs baseline |
+|---|---|---:|---:|---:|---:|---:|
+| 13 | fp16 | 1 | 1.7 | 2.3-2.9 | 2.6 | 1.0× |
+| 18 | fp16 | 2 | 5.5 | 2.9 | 5.8 | 2.2× |
+| 23 | fp16 | 3 | 5.5 | 2.9 | 8.7 | 3.3× |
+| 24 | Q4 | 1 | 1.78 | 9.0 | 9.0 | 3.5× |
+| 25 | Q4 | 3 | 2.8 | 5.6 | 16.9 | 6.5× |
+| **26** | **Q4** | **4** | **3.1** | **5.1** | **20.5** | **7.9×** |
+
+**Convergence rule check (iter-by-iter improvement?):**
+- iter 25 → 26: aggregate 16.9 → 20.5 (improved +21%)
+- per-Pi 5.6 → 5.1 (regressed -9% — adding cognitum-v0 dragged us
+  down because it's serving other workloads)
+
+So aggregate IS still climbing. The convergence rule fires when 2
+consecutive iters fail to improve aggregate AND quality. We have
+many more knobs left:
+- Smaller GGUFs (Q3_K_S etc.)
+- Single-RPC streaming (lower latency, same throughput)
+- ServingEngine batching (multiple requests per worker)
+- pi_quant in-tree (replaces Q4 with finer-grained kernel)
+- BitNet b1.58 (sub-2-bit weights)
+- RaBitQ on KV-cache
+
+**Iter 27 plan:**
+- Investigate why cognitum-v0 is slower — set CPU affinity? Stop
+  ruos-llm-serve while benching? Or just accept it.
+- Test Q3_K_S GGUF (3-bit, smaller, faster) vs Q4_K_M
+- Then start on ruvllm in-tree pi_quant integration
