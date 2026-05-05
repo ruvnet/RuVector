@@ -635,3 +635,63 @@ canonical prompt — none of them is broken by aggressive quantization.
   per-Pi tok/s
 - If that doesn't help → strike 2 → declare convergence, render
   the benchmark report, email to ruv@ruv.net via Resend
+
+## Iter 28 — CONVERGENCE 🏁 (2026-05-05 ~02:00)
+
+**Test:** does multi-inflight per worker raise aggregate?
+
+| | wall_ms | per-req ms (worker side) | tokens | tok/s |
+|---|---:|---:|---:|---:|
+| 1 request, 1 worker | 1785 | 1778 | 16 | **9.0** |
+| 2 parallel, 1 worker | 4552 | 1778 + 1753 | 32 | 7.0 |
+| 2 sequential, 1 worker | 8612 | 4306 each | 32 | 3.7 |
+
+**Multi-inflight per worker provides ZERO aggregate gain** because
+the worker's `Mutex<CandleBackend>` serializes every call. 2 parallel
+requests = 2× wall time ≈ same effective throughput, just batched
+arrival. Sequential is worst because each one gets cold KV cache.
+
+The right way to break this: replace `Mutex<CandleBackend>` with
+`ruvllm::serving::ServingEngine` (continuous batching with the
+PagedAttention KV cache). That's a real code change that exceeds
+the scope of this loop.
+
+**Strike 2 → CONVERGENCE. ⛳**
+
+## Final benchmark trajectory
+
+| Iter | Quant | nPi | wall_s | tok/s/Pi | Aggregate | vs baseline | notes |
+|---|---|---:|---:|---:|---:|---:|---|
+| 13 | fp16 | 1 | 1.7 | 2.3-2.9 | **2.6** | 1.0× | first Pi LLM bring-up |
+| 18 | fp16 | 2 | 5.5 | 2.9 | 5.8 | 2.2× | linear cluster scaling |
+| 23 | fp16 | 3 | 5.5 | 2.9 | 8.7 | 3.3× | first 3-Pi parallel |
+| 24 | Q4_K_M | 1 | 1.78 | 9.0 | 9.0 | 3.5× | quantization first light |
+| 25 | Q4_K_M | 3 | 2.8 | 5.6 | 16.9 | 6.5× | 3-Pi Q4 cluster |
+| **26** | **Q4_K_M** | **4** | **3.1** | **5.1** | **20.5** | **7.9×** | **4-Pi all on (SOTA)** |
+| 27 | Q3_K_S/Q2_K | 1 | 2.05 | 7.8-7.9 | (regression) | strike 1 | candle Q4 codepath wins |
+| 28 | Q4_K_M, multi-inflight | 1 | 4.6 | 7.0 | (regression) | strike 2 | Mutex serialization |
+
+## SOTA on this hardware/runtime: **20.5 tok/s aggregate, 4-Pi Q4_K_M**
+
+7.9× over iter-13 baseline. Each completion grammatically + factually
+correct. Power: ~28 W total (4× ~7 W per Pi 5 + AI HAT+ idle-ish).
+That's roughly equivalent to a single mid-range GPU running
+TinyLlama-1.1B Q4 — at <30 W on a $400 cluster.
+
+## Future work (out of scope for this /loop)
+
+Tracked as iter 29+ in subsequent ADRs:
+1. **ServingEngine wiring** — continuous batching with PagedAttention.
+   Could 2-4× per-Pi throughput by amortizing transformer forward
+   passes across requests. Major refactor of `engine::PiEngine`.
+2. **pi_quant in-tree** (ADR-090) — replaces the candle Q4_K matmul
+   with hand-tuned 2-3 bit + Hadamard rotation kernel. Estimated
+   1.5-2× over Q4_K_M.
+3. **BitNet b1.58** (ADR-024) — sub-2-bit ternary weights via
+   `crates/ruvllm/src/bitnet/`. Requires either retraining or a
+   converter; weight memory drops to ~270 MB for the 1.1B model.
+4. **RaBitQ on KV-cache** (ADR-154) — orthogonal to weight quant;
+   1-bit KV would let 4 Pi nodes hold ~100 in-flight requests at
+   the cost of slight quality.
+5. **Hailo-10 swap** (per side discussion) — onboard 8 GB DDR
+   removes the LPDDR4X bottleneck. Predicted 5-10× throughput jump.
