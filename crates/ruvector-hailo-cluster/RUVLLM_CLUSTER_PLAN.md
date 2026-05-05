@@ -489,3 +489,53 @@ The user's "until SOTA" goal is the per-Pi tok/s frontier:
   for the next jump beyond GGUF's stock quantizations
 - Then iter 28+: BitNet b1.58 ternary weights (ADR-024) — sub-2-bit
   weights, projected another 1.5-2× over Q4
+
+## Iter 25 — 3-PI Q4 CLUSTER 🎯🎯🎯🎯🎯 (2026-05-05 ~01:35)
+
+**Done:**
+- Replicated Q4_K_M GGUF to cluster-2 + cluster-3 (parallel rsync,
+  638 MB each, ~3 min total)
+- Updated `/etc/ruvllm-pi-worker.env` on each node, restarted services
+- All 3 ready to serve in < 12 s
+- **First 3-Pi parallel Q4 cluster bench:**
+  ```
+  cluster-1 (2813 ms): "also the world's second-largest city, with a
+                        population of around"
+  cluster-2 (2834 ms): "located in Paris, which is known as the City
+                        of Love. The city has"
+  cluster-3 (2805 ms): "a city that is both beautiful and full of
+                        history. It's not just"
+  ```
+- All 3 grammatical, factual completions for max_tokens=16
+- Wall: 2.83 s (vs 5.5 s for fp16) — **1.95× speedup**
+
+**Convergence (canonical: 3-Pi parallel, max_tokens=16):**
+| Iter | Quant | nPi | wall_ms | tok/s/Pi | Aggregate |
+|---|---|---:|---:|---:|---:|
+| 23 | fp16 | 3 | 5540 | 2.9 | 8.7 |
+| **25** | **Q4_K_M** | **3** | **2835** | **5.6** | **16.9** |
+
+Per-Pi Q4 under parallel load (5.6 tok/s) is lower than the
+single-Pi Q4 measurement (9.0 tok/s) — about 60% of solo. WiFi RTT
+contention + concurrent load on AP probably explains it. Worth
+isolating once we add a real bench harness.
+
+**Iter 26 plan:**
+- 4th Pi (cognitum-v0): has 1.8 GB free, Q4 GGUF is 638 MB — fits
+  comfortably. Stage + serve. Predicted aggregate ~22-25 tok/s.
+- After 4-Pi Q4 baseline, push to Q3_K_S (smaller, faster) and
+  Q5_K_M (slower, higher quality) to find the Pareto frontier.
+
+**Knobs left in the SOTA chase:**
+1. Add cognitum-v0 to LLM cluster (4-Pi instead of 3-Pi)
+2. Lower-bit GGUFs: Q3_K_S, Q3_K_M, Q2_K (more speed, less quality)
+3. ruvllm in-tree pi_quant (2-3 bit + Hadamard rotation, ADR-090) —
+   integrate into the candle inference loop. Major work.
+4. BitNet b1.58 ternary weights (ADR-024) — requires retraining or
+   conversion; deferred but very high upside (~6× over fp16).
+5. RaBitQ on KV-cache (ADR-154) — orthogonal to weight quant; could
+   shrink KV memory footprint and let us run more in-flight requests
+   per Pi.
+6. Speculative decoding via ServingEngine (already in ruvllm but
+   not wired in our worker — would 2-3× decode speed if a 0.5B
+   draft model is co-located on each Pi).
