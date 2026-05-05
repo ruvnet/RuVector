@@ -148,7 +148,12 @@ candle = ["candle-core", "candle-nn", "candle-transformers", "tokenizers"]
 
 # HuggingFace Hub auto-download (default-on for the workstation builds
 # the user runs day-to-day; off for aarch64 cross-builds).
-hub-download = ["hf-hub"]
+# Enabling `hub-download` also flips on hf-hub's `ureq` feature, which
+# is what unlocks the sync `hf_hub::api::sync::ApiRepo` API used by
+# `candle_backend::load_from_hub`. Note: hf-hub's `ureq` feature pulls
+# native-tls; that's fine on workstation (openssl-dev present) but
+# unwanted on aarch64 cross-builds — exclude this feature there.
+hub-download = ["dep:hf-hub", "hf-hub/ureq"]
 
 # Metal acceleration for Apple Silicon (M1/M2/M3/M4) via Candle
 metal = ["candle-core/metal", "candle-nn/metal", "candle-transformers/metal"]
