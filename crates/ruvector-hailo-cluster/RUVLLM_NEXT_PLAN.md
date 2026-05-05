@@ -158,3 +158,34 @@ async on host as `b4j4csypc`. Result lands iter 4.
 
 **Iter 4 plan**: read smoke result; if 2-parallel wall ≈ 1× single
 (true parallelism) → ship to all 4 Pis; if ≈ 2× → debug.
+
+## Iter 4 — KV-cache statefulness blocks both Path A and Path B (2026-05-05 ~12:55)
+
+**Reproduced ADR-179 iter-16 bug under both wirings:**
+- 1st request after worker start → success ("Hi" → "ppod" in 151ms)
+- 2nd request → `Forward pass failed: cannot broadcast [5,5] to [1,32,5,X]`
+- 3rd → broadcast to [...,Y] (X != Y, X grows monotonically)
+
+The X value is the accumulated KV-cache sequence length from ALL
+prior requests in this backend instance. CandleBackend (or candle's
+LlamaModel underneath) doesn't reset cache between `generate()`
+calls — it appends. By call 2, the cache shape doesn't match the
+fresh prompt's tensor shape.
+
+This means **N-backend pool also fails** as soon as any single slot
+sees >1 request. No amount of in-process parallelism saves us
+without an upstream ruvllm fix.
+
+**Iter 5 plan: deployment-level parallelism**
+
+Run N independent ruvllm-pi-worker processes per Pi, each on a
+different port (`50053 + i`), each running 1 request at a time.
+The cluster bench dispatches across all (Pis × N) workers. This
+sidesteps the in-process state bug entirely — process boundaries
+== guaranteed isolation.
+
+- Memory: 4 × 638 MB = 2.5 GB per Pi for N=4. Pi 5 8 GB has room.
+- Aggregate (projected): 4 Pis × 4 workers × 9 tok/s = 144 tok/s
+  (ADR-180 target 40 tok/s → comfortably exceeded)
+- Cost: small change to deploy/install-ruvllm-pi-worker.sh to
+  spawn N services + bench harness updates to dispatch across them
