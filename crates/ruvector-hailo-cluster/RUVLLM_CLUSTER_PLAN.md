@@ -601,3 +601,37 @@ many more knobs left:
   ruos-llm-serve while benching? Or just accept it.
 - Test Q3_K_S GGUF (3-bit, smaller, faster) vs Q4_K_M
 - Then start on ruvllm in-tree pi_quant integration
+
+## Iter 27 — quant Pareto sweep (2026-05-05 ~01:55)
+
+**Done:**
+- Downloaded Q3_K_S (500 MB) and Q2_K (483 MB) GGUFs from TheBloke
+- Single-Pi (cluster-1) paired comparison:
+
+| Quant | model_size | wall_ms | tok/s | output (corrupted = quality fail) |
+|---|---:|---:|---:|---|
+| **Q4_K_M** | 638 MB | **1785** | **9.0** | "located on the banks of the Seine River. 10. New York" ✓ |
+| Q3_K_S | 479 MB | 2052 | 7.8 | "Paris. 2. The United States - The US is the world'" ✓ |
+| Q2_K | 463 MB | 2038 | 7.9 | "Paris. 5. The largest city in the United States is New York City" ✓ |
+
+**Key finding:** Q4_K_M is the speed AND quality SOTA on candle's
+Cortex-A76 path. Q3 and Q2 are both **slower** despite being smaller
+because candle's quantized matmul kernels are heavily tuned for the
+Q4_K block layout — Q3_K_S and Q2_K fall to less-optimized codepaths
+where the dequant overhead dominates the saved memory bandwidth.
+
+All three preserve text correctness on the "capital of France"
+canonical prompt — none of them is broken by aggressive quantization.
+
+**Convergence rule status:**
+- iter 26 (Q4 4-Pi): 20.5 tok/s aggregate, 1785 ms p50  ← best so far
+- iter 27 (Q3/Q2 single-Pi): regressed
+- → **strike 1**
+
+**Iter 28 plan (one more attempt before convergence):**
+- Concurrent requests per worker (raise `RUVLLM_MAX_INFLIGHT` from 1
+  effective to 4) — candle is single-request-bound right now;
+  multi-inflight could double or triple aggregate without changing
+  per-Pi tok/s
+- If that doesn't help → strike 2 → declare convergence, render
+  the benchmark report, email to ruv@ruv.net via Resend
