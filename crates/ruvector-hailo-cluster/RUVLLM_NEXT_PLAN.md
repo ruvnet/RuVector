@@ -134,3 +134,27 @@ backend-internal interior-mutability state.
 - Decision tree: prefer (a) if `run_iteration` calls a small
   number of backend methods we can stub; (b) if the executor
   surface is complex
+
+## Iter 3 — Path B pivot (2026-05-05 ~12:50)
+
+**Audited `ServingEngine::generate_next_token`:** it calls
+`self.model.generate(&context_text, max_tokens=1)` per token, in
+text mode. This serializes on the same Mutex<CandleBackend> as
+iter-9, with extra overhead from text↔token round-trips. ruvllm
+2.2.0's serving stack is a scaffold for true continuous batching,
+not a working impl.
+
+**Pivot to Path B**: pool of N independent CandleBackend instances,
+each in its own Mutex, gated by a tokio Semaphore for capacity.
+True request-level parallelism — N requests running on different
+threads simultaneously.
+
+**Cost**: 4 × ~640 MB = 2.5 GB per Pi for the Q4_K_M model. Pi 5's
+8 GB has plenty of headroom (~5 GB free after pool + system + embed
+worker).
+
+**Iter-3 build green**. Smoke (2 parallel, max_tokens=4) running
+async on host as `b4j4csypc`. Result lands iter 4.
+
+**Iter 4 plan**: read smoke result; if 2-parallel wall ≈ 1× single
+(true parallelism) → ship to all 4 Pis; if ≈ 2× → debug.

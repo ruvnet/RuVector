@@ -51,7 +51,7 @@ use std::net::SocketAddr;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg(feature = "ruvllm-engine")]
-const GATE: &str = "ADR-180 iter 2 — ServingEngine continuous batching";
+const GATE: &str = "ADR-180 iter 3 — N-backend pool + semaphore parallelism";
 #[cfg(not(feature = "ruvllm-engine"))]
 const GATE: &str = "ADR-179 iter 3 — scaffold (no engine; build with --features ruvllm-engine)";
 
@@ -69,102 +69,97 @@ fn read_optional_env(key: &str) -> String {
 #[cfg(feature = "ruvllm-engine")]
 mod engine {
     use ruvllm::backends::{CandleBackend, GenerateParams, LlmBackend, ModelConfig};
-    use ruvllm::serving::{
-        engine::{ServingEngine, ServingEngineConfig},
-        request::InferenceRequest,
-    };
     use std::sync::Arc;
+    use tokio::sync::Semaphore;
 
-    /// ADR-180 iter 2: ServingEngine wraps the backend and runs a
-    /// continuous-batching scheduler in a background tokio task. Each
-    /// completion request goes via `submit_async`, which lets multiple
-    /// in-flight requests amortize the transformer forward pass.
+    /// ADR-180 iter 3: pool of `Mutex<CandleBackend>` instances + a
+    /// tokio Semaphore for capacity control. N independent backends =
+    /// N parallel requests *actually running concurrently* on different
+    /// threads, each holding its own model weights + KV cache.
     ///
-    /// Replaces the iter-9 `Mutex<CandleBackend>` that bounded us to
-    /// single-stream throughput (ADR-179 iter 28).
+    /// **Why not ServingEngine?** Iter-2 found that ruvllm 2.2.0's
+    /// `ServingEngine::generate_next_token` is a per-token text-mode
+    /// dispatcher that still serializes on `model.generate(text, 1)` —
+    /// no actual batched forward pass against CandleBackend. It's a
+    /// scaffold for true continuous batching, not a working impl.
+    ///
+    /// **Cost of pool**: N × ~640 MB weights = 4 backends ≈ 2.5 GB on
+    /// each Pi. 8 GB Pi 5 has plenty of headroom (the embed worker
+    /// + system already use ~1 GB, leaving ~5 GB for our pool + KV).
     pub struct PiEngine {
-        /// Shared backend handle — used here for tokenize/detokenize
-        /// outside the scheduler, and held by ServingEngine internally
-        /// as the model executor.
-        backend: Arc<dyn LlmBackend>,
-        engine: Arc<ServingEngine>,
+        backends: Vec<Arc<tokio::sync::Mutex<CandleBackend>>>,
+        sem: Arc<Semaphore>,
     }
 
     impl PiEngine {
-        pub fn load(model_path: &str, max_inflight: usize) -> anyhow::Result<Self> {
-            let mut backend = CandleBackend::new()
-                .map_err(|e| anyhow::anyhow!("CandleBackend::new failed: {e:?}"))?;
-            // ADR-179 iter 10 carries: use_flash_attention=false avoids
-            // the candle-transformers CUDA-only flash-attn panic on CPU.
-            // Quantization=None means the loader uses GGUF when present
-            // in the dir; otherwise safetensors fp16.
+        pub fn load(model_path: &str, pool_size: usize) -> anyhow::Result<Self> {
+            // Load ONE backend first to fail fast on bad model paths,
+            // then load the rest. (Loads are independent; we could
+            // parallelize, but Pi 5 disk IO + tokenizer init is the
+            // serial bottleneck either way.)
             let config = ModelConfig {
                 use_flash_attention: false,
                 quantization: None,
                 ..ModelConfig::default()
             };
-            backend
-                .load_model(model_path, config)
-                .map_err(|e| anyhow::anyhow!("load_model({model_path}) failed: {e:?}"))?;
 
-            // Box the loaded backend behind Arc<dyn LlmBackend>.
-            let backend: Arc<dyn LlmBackend> = Arc::new(backend);
+            let mut backends = Vec::with_capacity(pool_size);
+            for i in 0..pool_size {
+                let mut backend = CandleBackend::new()
+                    .map_err(|e| anyhow::anyhow!("CandleBackend::new[{i}] failed: {e:?}"))?;
+                backend
+                    .load_model(model_path, config.clone())
+                    .map_err(|e| anyhow::anyhow!("load_model[{i}]({model_path}) failed: {e:?}"))?;
+                backends.push(Arc::new(tokio::sync::Mutex::new(backend)));
+                tracing::info!(
+                    "loaded backend slot {}/{} for {}",
+                    i + 1, pool_size, model_path
+                );
+            }
 
-            // ServingEngine config — speculative decoding off in v1
-            // (a draft model would 2-3× decode but isn't co-located yet).
-            let engine_cfg = ServingEngineConfig {
-                max_concurrent_requests: max_inflight,
-                enable_speculative: false,
-                ..ServingEngineConfig::default()
-            };
-            let engine = Arc::new(ServingEngine::new(Arc::clone(&backend), engine_cfg));
-
-            // Spawn the scheduler loop. It drives prefill/decode iterations
-            // across all in-flight requests until shutdown.
-            let scheduler_engine = Arc::clone(&engine);
-            tokio::spawn(async move {
-                if let Err(e) = scheduler_engine.run_async().await {
-                    tracing::error!(error = ?e, "ServingEngine scheduler exited");
-                }
-            });
-
-            Ok(Self { backend, engine })
+            Ok(Self {
+                backends,
+                sem: Arc::new(Semaphore::new(pool_size)),
+            })
         }
 
-        /// Submit one prompt + return the completion text once decoded.
-        /// Each call enqueues into the scheduler — many concurrent calls
-        /// share the same forward pass via continuous batching.
+        /// Pick a free backend slot (round-robin under semaphore) and
+        /// drive the request to completion. Multiple concurrent calls
+        /// run on different slots — true request-level parallelism.
         pub async fn generate(&self, prompt: &str, max_tokens: usize) -> anyhow::Result<String> {
-            // 1. tokenize via the backend's Tokenizer (encode/decode live on
-            //    the Tokenizer trait, accessed via LlmBackend::tokenizer())
-            let tokenizer = self
-                .backend
-                .tokenizer()
-                .ok_or_else(|| anyhow::anyhow!("backend has no tokenizer"))?;
-            let prompt_tokens = tokenizer
-                .encode(prompt)
-                .map_err(|e| anyhow::anyhow!("encode failed: {e:?}"))?;
-
-            // 2. submit + await
-            let params = GenerateParams {
-                max_tokens,
-                ..Default::default()
-            };
-            let req = InferenceRequest::new(prompt_tokens, params);
-            let result = self
-                .engine
-                .submit_async(req)
+            let _permit = self
+                .sem
+                .acquire()
                 .await
-                .map_err(|e| anyhow::anyhow!("submit_async failed: {e:?}"))?;
+                .map_err(|e| anyhow::anyhow!("semaphore closed: {e:?}"))?;
 
-            // 3. detokenize the generated tokens (if not already provided)
-            if let Some(text) = result.generated_text {
-                Ok(text)
-            } else {
-                tokenizer
-                    .decode(&result.generated_tokens)
-                    .map_err(|e| anyhow::anyhow!("decode failed: {e:?}"))
-            }
+            // Find the first un-locked backend (try-lock walk).
+            let backend = {
+                let mut chosen = None;
+                for b in &self.backends {
+                    if let Ok(_g) = b.try_lock() {
+                        chosen = Some(Arc::clone(b));
+                        break;
+                    }
+                }
+                chosen.unwrap_or_else(|| Arc::clone(&self.backends[0]))
+            };
+
+            let prompt = prompt.to_string();
+            // Move the actual generate() call to a blocking thread —
+            // candle's CPU forward pass is sync + compute-heavy.
+            tokio::task::spawn_blocking(move || -> anyhow::Result<String> {
+                let backend = backend.blocking_lock();
+                let params = GenerateParams {
+                    max_tokens,
+                    ..Default::default()
+                };
+                backend
+                    .generate(&prompt, params)
+                    .map_err(|e| anyhow::anyhow!("generate failed: {e:?}"))
+            })
+            .await
+            .map_err(|e| anyhow::anyhow!("spawn_blocking join: {e:?}"))?
         }
     }
 }
