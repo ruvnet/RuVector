@@ -219,3 +219,30 @@ ServingEngine wiring. Without the cache-reset fix, the bug torpedoes
 ALL multi-request strategies.
 
 **Iter 5 plan**: implement the ruvllm upstream patch.
+
+## Iter 5 — ruvllm 2.2.1 cache-reset patch (2026-05-05 ~13:05)
+
+**Patch landed in `crates/ruvllm/src/backends/candle_backend.rs`:**
+1. `LoadedModelInner::Llama` variant now carries
+   `(Llama, Cache, Config, DType)` — was `(Llama, Cache)`
+2. `clear_kv_cache` Llama arm builds a fresh
+   `llama_model::Cache::new(true, dtype, cfg, &self.device)` and
+   replaces the held cache slot. `tracing::warn!` if the rebuild
+   fails (next generate() will likely panic, but worker doesn't
+   die from the warn path).
+3. Updated the forward-pass match arm `LoadedModelInner::Llama(m, cache, _, _)`
+   to ignore the new fields.
+4. Workspace version bumped to 2.2.1.
+
+**Host build of ruvllm: clean (41 s).**
+**Host build of ruvllm-pi-worker: clean.**
+
+Smoke running async (`bcrabffkm`): 3 sequential + 2 parallel
+requests against the patched backend. Iter 6 reads the result.
+
+**Convergence prediction:**
+- If smoke passes → publish ruvllm 2.2.1, deploy to all 4 Pis,
+  enable N=4 backend pool per Pi, smoke 4×4 = 16 in-flight,
+  expect aggregate ~30-50 tok/s (2-3× iter-26 SOTA)
+- If smoke still fails → quantized_llama path may have same bug;
+  patch that arm too

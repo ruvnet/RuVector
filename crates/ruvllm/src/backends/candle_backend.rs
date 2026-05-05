@@ -116,8 +116,17 @@ mod candle_impl {
     pub enum LoadedModelInner {
         /// Mistral model (safetensors)
         Mistral(mistral_model::Model),
-        /// Llama model (safetensors) with its KV cache
-        Llama(llama_model::Llama, llama_model::Cache),
+        /// Llama model (safetensors) with its KV cache + the params
+        /// needed to recreate the cache on `clear_kv_cache` (ADR-180
+        /// iter 5: candle's Cache holds ks/vs Tensor vecs that don't
+        /// reset on position-zero; we must build a fresh Cache to
+        /// isolate request state).
+        Llama(
+            llama_model::Llama,
+            llama_model::Cache,
+            llama_model::Config,
+            candle_core::DType,
+        ),
         /// Quantized GGUF model (Llama-based architecture)
         QuantizedLlama(qlama::ModelWeights),
     }
@@ -848,7 +857,10 @@ mod candle_impl {
                         RuvLLMError::Model(format!("Failed to create Llama cache: {}", e))
                     })?;
 
-                    LoadedModelInner::Llama(model, cache)
+                    // ADR-180 iter 5: store config + dtype alongside so
+                    // clear_kv_cache() can rebuild a fresh Cache for
+                    // each request — request isolation requires this.
+                    LoadedModelInner::Llama(model, cache, llama_config, dtype)
                 }
                 _ => {
                     return Err(RuvLLMError::Config(format!(
@@ -916,7 +928,7 @@ mod candle_impl {
                 LoadedModelInner::Mistral(m) => m
                     .forward(input_ids, current_pos)
                     .map_err(|e| RuvLLMError::Generation(format!("Forward pass failed: {}", e)))?,
-                LoadedModelInner::Llama(m, cache) => m
+                LoadedModelInner::Llama(m, cache, _, _) => m
                     .forward(input_ids, current_pos, cache)
                     .map_err(|e| RuvLLMError::Generation(format!("Forward pass failed: {}", e)))?,
             };
@@ -941,9 +953,27 @@ mod candle_impl {
                         LoadedModelInner::Mistral(m) => {
                             m.clear_kv_cache();
                         }
-                        LoadedModelInner::Llama(_m, _cache) => {
-                            // llama::Llama uses external Cache; resetting position is sufficient
-                            // The cache state will be reset when we start from position 0
+                        LoadedModelInner::Llama(_m, cache_slot, cfg, dtype) => {
+                            // ADR-180 iter 5: candle's external Cache is
+                            // NOT auto-reset on position-zero — its
+                            // ks/vs Tensor vecs accumulate across calls
+                            // and break the next request's forward pass
+                            // ("cannot broadcast [N,N] to [1,H,N,X]" with
+                            // X = stale total seq len). Build a fresh
+                            // Cache and replace the held one so each
+                            // generate() starts clean.
+                            match llama_model::Cache::new(true, *dtype, cfg, &self.device) {
+                                Ok(fresh) => {
+                                    *cache_slot = fresh;
+                                }
+                                Err(e) => {
+                                    tracing::warn!(
+                                        error = ?e,
+                                        "clear_kv_cache: failed to rebuild Llama Cache; \
+                                         next generate() may panic"
+                                    );
+                                }
+                            }
                         }
                     }
                 }
