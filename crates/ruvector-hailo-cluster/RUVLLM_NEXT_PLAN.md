@@ -282,3 +282,51 @@ on this hardware/runtime.
   (b) ADR-181 in-tree pi_quant 3-bit (smaller weights → less memory bw → higher single-stream)
   (c) Coordinator-side prompt prefix cache (orthogonal)
 - Move on to ADR-181 Phase B in iter 7
+
+## Iter 7 — CONVERGENCE 🏁 (2026-05-05 ~13:15)
+
+**Final bench (post-revert to N=1 pool, ruvllm 2.2.1 cache-reset):**
+- 4-Pi × 1 in-flight × 16 tokens
+- wall: 2.88s
+- 4 × 16 = 64 actual tokens
+- **22.2 tok/s aggregate** (real tokens; reported 92.58 char/s is text bytes)
+
+vs iter-26 SOTA 20.5 tok/s → +8% (within measurement noise).
+
+**Strike 2 → CONVERGED.**
+
+The real win delivered by this loop is not a throughput jump — it's
+the **upstream ruvllm 2.2.1 cache-reset patch** that fixes ADR-179
+iter-16's KV-leak bug. Before: every multi-request pattern errored
+after the 1st call. After: stable steady-state at the per-Pi single-
+stream ceiling, no worker restarts needed.
+
+## Final summary
+
+| Metric | iter-26 (ADR-179 SOTA) | iter-7 (ADR-180 final) | Δ |
+|---|---:|---:|---:|
+| Aggregate tok/s | 20.5 | 22.2 | +8% (noise) |
+| Per-Pi tok/s/single-stream | 9.0 | ~22 (corrected: 5.55) | n/a |
+| KV-leak across requests | yes (errors after 1st) | NO (cache-reset) | fixed ✓ |
+| Restart between bench runs | required | not required | fixed ✓ |
+| ruvllm crate version | 2.2.0 | 2.2.1 | upstream patched |
+
+**Why aggregate didn't jump:**
+- iter 1-3: ServingEngine wiring → text-mode per-token serializer, no real batching
+- iter 3-4: N-backend pool → blocked by KV-leak bug; once fixed, blocked by Cortex-A76 4-core saturation at 1 generate
+- iter 5-6: ruvllm patch + multi-inflight → CPU contention regresses
+
+**The real per-Pi ceiling on Cortex-A76 + candle Q4_K_M is ~9 tok/s**.
+Hardware-bound, not software-bound. Next jumps need:
+- Cluster scale-out (more Pis, orthogonal to this work)
+- ADR-181 in-tree pi_quant 2-3 bit kernel (lower memory bw → faster
+  per-token compute)
+- ADR-182 Hailo-10 hardware migration (8 GB onboard DDR removes
+  LPDDR4X bandwidth bottleneck)
+
+## Convergence exit sequence
+
+- [x] CronDelete `5694314c`
+- [ ] Push branch
+- [ ] Open PR
+- [ ] Email summary to ruv@ruv.net via Resend cluster@cognitum.one
