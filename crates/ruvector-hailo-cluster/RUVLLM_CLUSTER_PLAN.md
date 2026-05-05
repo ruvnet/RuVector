@@ -193,3 +193,40 @@ improve for 2 consecutive iterations across both throughput AND quality
   - First test: Llama-3.2-1B fp16 (no quantization) — get one token
     out, prove the engine wires. Quantization layered after.
 - Stage Llama-3.2-1B from ruvultra's HuggingFace cache to Pi via rsync.
+
+## Iter 5–7 (2026-05-04 ~22:50 → ~23:10)
+
+**Substitution decided:**
+- `Llama-3.2-1B` requires HF license accept (token not configured on
+  ruvultra). Cached models available locally (`~/.cache/huggingface/hub/`):
+  - `Qwen2.5-0.5B-Instruct` (954 MB, smallest — chosen as engine-wiring proof)
+  - `Qwen2.5-3B-Instruct`, `Qwen2.5-7B-Instruct`, `TinyLlama-1.1B-Chat-v1.0`,
+    `Phi-4-mini-instruct`
+- **Qwen2.5-0.5B substitutes for Llama-3.2-1B** in iter 5–8. Llama-3.2-1B
+  re-enters scope post-engine-wiring once we configure an HF token.
+- cognitum-v0 has only **1.8 GB free root** (the original SD card,
+  pre-clone) — too tight for 940 MB model + KV; skip it for now,
+  stage on cluster-1/2/3 only (each 29 GB free).
+
+**Rsync challenges:**
+- Iter 5 first attempt — parallel rsync from 3 background tasks
+  collided in `/tmp/qwen2.5-0.5b/` and over WiFi. Slow (~5 MB/s/Pi).
+- Iter 6 cleanup — `pkill -f "rsync.*qwen2.5-0.5b"` matched its own
+  command line, killing the parent bash + all backgrounded tasks
+  (exit 144). Foot-gun documented.
+- Iter 7 (this one) — sequential rsync via background `b13vuf2ct`,
+  uses `--partial` so cluster-1's 320 MB partial resumes.
+
+**Files staged (one-shot when rsync finishes):**
+- `/var/lib/ruvllm/models/qwen2.5-0.5b/{config,tokenizer,model.safetensors,...}`
+  on cluster-1, cluster-2, cluster-3.
+
+**Iter 8 plan (waiting on rsync):**
+- Update `/etc/ruvllm-pi-worker.env` on each cluster Pi to point
+  `RUVLLM_MODEL_PATH=/var/lib/ruvllm/models/qwen2.5-0.5b/model.safetensors`.
+- Wire `ruvllm::serving::ServingEngine` + a `LlmBackend` that loads
+  from this local path. The candle backend's `get_safetensors_files`
+  takes `&hf_hub::api::sync::ApiRepo` — need a thin local-path
+  adapter or a different backend entry point.
+- Bring up engine with `RUVLLM_QUANTIZE=none` (fp16 first to prove
+  pipeline). Quantization layered after.
