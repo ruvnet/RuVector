@@ -189,3 +189,33 @@ sidesteps the in-process state bug entirely — process boundaries
   (ADR-180 target 40 tok/s → comfortably exceeded)
 - Cost: small change to deploy/install-ruvllm-pi-worker.sh to
   spawn N services + bench harness updates to dispatch across them
+
+## Iter 4 — root cause identified, upstream fix queued (2026-05-05 ~13:00)
+
+**Root cause (clear_kv_cache is a no-op for Llama):**
+- `LlmBackend::generate` at `candle_backend.rs:1230` calls `self.clear_kv_cache()`
+- `clear_kv_cache` at line 933: for Llama models, only resets `current_pos = 0`,
+  with comment "cache state will be reset when we start from position 0"
+- That comment is **wrong**. candle's `llama_model::Cache` holds
+  `ks/vs: Vec<Option<Tensor>>` that accumulate across calls. Resetting
+  position doesn't free those tensors. Subsequent `forward()` reads
+  stale KV → broadcast mismatch on the new prompt's [seq, seq] mask.
+
+**Upstream fix path (ruvllm 2.2.1):**
+1. Store `llama_config` + `dtype` on `LoadedModel` so they're
+   accessible from `clear_kv_cache`
+2. In the `LoadedModelInner::Llama(_, cache)` arm of clear_kv_cache,
+   build a fresh `llama_model::Cache::new(true, dtype, &cfg, &device)`
+   and replace the held one
+3. Same treatment for QuantizedLlama (its inner cache state — verify
+   if it has the same bug; Q4_K_M GGUF path may already work because
+   quantized_llama uses different state machinery)
+4. Bump ruvllm version → 2.2.1, publish
+5. Worker pins ruvllm = "2.2.1" with the new dep
+6. Rebuild + redeploy
+
+**This is what unlocks Path B** (N-backend pool) AND any future
+ServingEngine wiring. Without the cache-reset fix, the bug torpedoes
+ALL multi-request strategies.
+
+**Iter 5 plan**: implement the ruvllm upstream patch.
