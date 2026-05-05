@@ -69,8 +69,9 @@ candle-transformers = { version = "0.8", optional = true }
 # Tokenizers
 tokenizers = { version = "0.20", optional = true, default-features = false, features = ["onig"] }
 
-# HuggingFace Hub for model downloads
-hf-hub = { version = "0.4", optional = true, features = ["tokio"] }
+# HuggingFace Hub for model downloads.
+# rustls-tls to keep aarch64 cross-builds working (ADR-179, iter 2).
+hf-hub = { version = "0.4", optional = true, default-features = false, features = ["tokio", "rustls-tls"] }
 
 # mistral-rs backend for high-performance inference (optional)
 # NOTE: mistralrs crate is not yet on crates.io - use git dependency when available:

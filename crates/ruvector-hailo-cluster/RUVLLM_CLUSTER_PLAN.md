@@ -100,3 +100,39 @@ improve for 2 consecutive iterations across both throughput AND quality
 **Files staged:**
 - `docs/adr/ADR-179-ruvllm-pi-cluster-deployment.md`
 - `crates/ruvector-hailo-cluster/RUVLLM_CLUSTER_PLAN.md`
+
+## Iter 2 (2026-05-04, ~20:10)
+
+**Done:**
+- Identified `hf-hub` → `native-tls` → `openssl-sys` as the cross-build blocker
+- Patched `crates/ruvllm-cli/Cargo.toml` and `crates/ruvllm/Cargo.toml`:
+  `hf-hub = { default-features = false, features = ["tokio", "rustls-tls"] }`
+- Added workspace-level `.cargo/config.toml` aarch64 stanza:
+  `linker = "aarch64-linux-gnu-gcc"` + Cortex-A76 rustflags (matches
+  iter-84 hailo-cluster ultra profile for the `+lse +rcpc +fp16 +crc`
+  feature set that gave the embed cluster its 65% perf bump)
+- Identified that the user's shell `RUSTFLAGS=-C link-arg=-fuse-ld=mold`
+  overrides config rustflags entirely; cross-build needs `RUSTFLAGS=`
+  prefix.
+- Build now passes openssl AND linker stages — cleanly hits the
+  Cortex-A76 + rustls path.
+
+**New blocker (iter 3 plan):**
+- `hf-hub` 0.4.3 feature `rustls-tls` only switches reqwest's TLS;
+  the sync `hf_hub::api::sync` API still requires `ureq` feature,
+  and `ureq` brings back native-tls. `crates/ruvllm/src/backends/candle_backend.rs:462`
+  uses sync API.
+- **Decision:** don't try to make `ruvllm-cli` cross-build the whole
+  HF download flow. Instead, create a new minimal binary
+  `crates/ruvector-hailo-cluster/src/bin/ruvllm-pi-worker.rs` that:
+  - Uses ruvllm as a library (engine + serving + quantize)
+  - Loads model from a local `.safetensors` / `.gguf` path (no hf-hub)
+  - Exposes gRPC on `:50053` (mirrors hailo worker pattern on `:50051`)
+  - Models rsync'd from ruvultra → Pis ahead of time
+- This avoids the hf-hub mess + reuses our embedding cluster's deploy
+  conventions (systemd unit, env file, install script).
+
+**Files staged:**
+- `.cargo/config.toml` (workspace)
+- `crates/ruvllm/Cargo.toml`
+- `crates/ruvllm-cli/Cargo.toml`
