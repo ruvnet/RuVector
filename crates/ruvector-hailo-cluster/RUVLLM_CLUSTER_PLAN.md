@@ -453,3 +453,39 @@ The user's "until SOTA" goal is the per-Pi tok/s frontier:
 - pi_quant Q4 weights → 8-15 tok/s/Pi, ~30-60 tok/s aggregate
 - Then turbo_quant on top, then BitNet b1.58 weights, then RaBitQ KV
 - Quality gate: perplexity within 1% of fp16 reference
+
+## Iter 24 — QUANTIZATION FIRST LIGHT 🎯🎯🎯🎯 (2026-05-05 ~01:25)
+
+**Done:**
+- Downloaded TinyLlama Q4_K_M GGUF from
+  `TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF` (no HF token required) —
+  638 MB, 3.3× smaller than the fp16 safetensors (2.1 GB)
+- Staged on cluster-1 at `/var/lib/ruvllm/models/tinyllama-1.1b-q4/`
+- candle's GGUF auto-detection (load_model scans dir for .gguf
+  before .safetensors, see candle_backend.rs lines 1166-1173) found
+  it on first try
+- Updated `/etc/ruvllm-pi-worker.env` to point at the Q4 dir, restarted
+  worker — model loaded in ~12 s
+- **First Q4 completion on Pi 5:**
+  ```
+  Request:  {"prompt":"The capital of France is","max_tokens":16}
+  Response: {"ms":1775, "text":"a city that is steeped in history and culture. It's home"}
+  ```
+- **3.1× speedup over fp16** (1775 ms vs 5539 ms for 16 tokens)
+- ~9 tok/s/Pi — middle of the predicted 8-15 tok/s range
+
+**Convergence (canonical: 3-Pi parallel, 16 tok each):**
+| Iter | Quant | tok/s/Pi | Aggregate (3 Pi) | Δ |
+|---|---|---:|---:|---:|
+| 23 | fp16 | 2.9 | 8.7 | baseline |
+| 24 | Q4_K_M (single-Pi) | **~9.0** | (predicted ~27) | **+3.1×** |
+| (next) | Q4_K_M (3-Pi) | TBD | TBD | tba |
+
+**Iter 25+ plan:**
+- Replicate Q4 to cluster-2 + cluster-3 (running as `bor1jjryn`)
+- 3-Pi parallel Q4 smoke — predicted ~27 tok/s aggregate
+- Then iter 26+: Q5_K_M / Q3_K_S sweep for quality vs speed tradeoff
+- Then iter 27+: integrate ruvllm's pi_quant (in-tree 2-3 bit, ADR-090)
+  for the next jump beyond GGUF's stock quantizations
+- Then iter 28+: BitNet b1.58 ternary weights (ADR-024) — sub-2-bit
+  weights, projected another 1.5-2× over Q4
