@@ -352,3 +352,37 @@ improve for 2 consecutive iterations across both throughput AND quality
 - iter-13 baseline: TinyLlama-1.1B fp16, 1 Pi, 2.3 tok/s
 - iter-14 target: 3-4 Pi replication, 6-9 tok/s aggregate
 - iter-15+ target: pi_quant → 25+ tok/s aggregate
+
+## Iter 14–16 (2026-05-04 → 2026-05-05 ~00:10)
+
+**Done:**
+- New aarch64 binary deployed to cluster-2 + cluster-3
+  (`/usr/local/bin/ruvllm-pi-worker`)
+- Wrote `deploy/ruvllm-cluster-smoke.sh` — first multi-Pi bench harness
+  (parallel completion fanout, per-worker + aggregate stats)
+- Smoke validated end-to-end on cluster-1 post-restart:
+  ```
+  prompt: "The capital of France is"
+  text:   "Paris, and it is the most popul" (31 chars)
+  ms:     3687
+  ```
+- TinyLlama rsync to cluster-2 at 1.8/2.1 GB (sequential rsync still
+  running in background `blferhp81`); cluster-3 queued behind it.
+
+**Known issues found via smoke:**
+1. **Stateful KV cache in CandleBackend** — second request in same
+   process panics with `cannot broadcast [5, 5] to [1, 32, 5, 14]`.
+   Cache state from previous request leaks. Workaround: restart
+   worker between requests; iter-17 fix is to reset cache per call
+   (or keep `ServingEngine`'s scheduler instead of bare backend).
+2. **`tokens` field in worker response reports text byte length**,
+   not actual token count. Cosmetic — fix to track candle output
+   token count properly in iter 17.
+
+**Iter 17 plan (post-rsync):**
+- Patch `engine::PiEngine::generate` to recreate the inference state
+  per call (or wire `ServingEngine` properly)
+- Fix `tokens` count → actual generated token count
+- Run 3-Pi parallel smoke once cluster-2/3 ready: expect ~2.5 tok/s/Pi
+  ⇒ aggregate ~7-8 tok/s baseline
+- Then iter 18: layer pi_quant Q4 weights
