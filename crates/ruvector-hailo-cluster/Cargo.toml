@@ -113,6 +113,15 @@ path = "src/bin/ruview-csi-bridge.rs"
 name = "ruvllm-bridge"
 path = "src/bin/ruvllm-bridge.rs"
 
+[[bin]]
+# ADR-179 (iter 3, scaffold): per-Pi LLM completion worker. Uses
+# `ruvllm` as a library + loads quantized models from local paths
+# (no hf-hub) so it cross-compiles cleanly to aarch64. Sibling to
+# `ruvector-hailo-worker` on each Pi 5 — :50051 for embeddings,
+# :50053 for completions. Engine wiring lands iter 4–6.
+name = "ruvllm-pi-worker"
+path = "src/bin/ruvllm-pi-worker.rs"
+
 [build-dependencies]
 tonic-build         = { version = "0.12", default-features = false, features = ["prost"] }
 protoc-bin-vendored = "3"

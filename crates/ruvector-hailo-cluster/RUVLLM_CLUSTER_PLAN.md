@@ -136,3 +136,26 @@ improve for 2 consecutive iterations across both throughput AND quality
 - `.cargo/config.toml` (workspace)
 - `crates/ruvllm/Cargo.toml`
 - `crates/ruvllm-cli/Cargo.toml`
+
+## Iter 3 (2026-05-04, ~20:18)
+
+**Done:**
+- Created `crates/ruvector-hailo-cluster/src/bin/ruvllm-pi-worker.rs`
+  scaffold (env contract, TCP listener, version banner). Mirrors the
+  hailo worker's env-var documentation style.
+- Added `[[bin]]` entry in `crates/ruvector-hailo-cluster/Cargo.toml`
+- **Cross-build to aarch64 succeeds end-to-end.** Binary at
+  `target/aarch64-unknown-linux-gnu/release/ruvllm-pi-worker`,
+  size 1.18 MB. Compiles with the Cortex-A76 rustflags from the
+  workspace `.cargo/config.toml`.
+- Smoke probe works on host: `nc localhost 50053` returns version
+  banner + bind addr.
+
+**Iter 4 plan:**
+- scp aarch64 binary to all 4 Pis (`/usr/local/bin/ruvllm-pi-worker`)
+- write `ruvllm-pi-worker.service` systemd unit + `ruvllm-pi-worker.env.example`
+- write `install-ruvllm-pi-worker.sh` (mirror of `install.sh`,
+  reuse `ruvector-worker` user pattern but new state dir
+  `/var/lib/ruvllm/`)
+- Run scaffold-version on a Pi, confirm it accepts a TCP connection
+  on `:50053`. No model loading yet — just prove the deploy pipeline.
