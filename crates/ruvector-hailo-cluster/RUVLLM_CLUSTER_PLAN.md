@@ -318,3 +318,37 @@ improve for 2 consecutive iterations across both throughput AND quality
   the same JSON-over-TCP pattern
 - Expected per-Pi tok/s for TinyLlama 1.1B fp16 on Cortex-A76: 1-3 tok/s
   (vs 9 on x86). After iter 12-13 with pi_quant Q4: 8-15 tok/s.
+
+## Iter 11–13 — PI FIRST LIGHT 🎯🎯🎯 (2026-05-04, ~23:48)
+
+**Done:**
+- Cross-built `ruvllm-pi-worker` for aarch64 with `--features ruvllm-engine`
+  (5.86 MB binary, Cortex-A76 tuned)
+- scp'd binary to cognitum-cluster-1, installed via the iter-4 install
+  script
+- Staged TinyLlama-1.1B-Chat-v1.0 (2.1 GB safetensors) into
+  `/var/lib/ruvllm/models/tinyllama-1.1b/` on cognitum-cluster-1
+  - First two attempts hit /tmp tmpfiles cleanup timing + a partial
+    mv. Solved by rsyncing to `~/tinyllama/` (genesis home dir, no
+    cleanup) then `sudo cp` into install dir.
+- Restarted `ruvllm-pi-worker.service` with
+  `RUVLLM_MODEL_PATH=/var/lib/ruvllm/models/tinyllama-1.1b`
+- **Pi 5 first completion:**
+  ```
+  Request:  {"prompt":"The capital of France is","max_tokens":4}
+  Response: {"ms":1727,"text":"Paris, and it","tokens":13}
+  ```
+- **2.3 tok/s on Cortex-A76 fp16** (4 tokens / 1727 ms). Matches
+  the iter-10 prediction of "1-3 tok/s on Cortex-A76 fp16" exactly.
+
+**Next iteration target (iter 14):**
+- Replicate to cluster-2 + cluster-3 (parallel rsync, then service
+  restart)
+- First multi-Pi cluster bench: 3 nodes × ~2.3 tok/s = 6-7 tok/s
+  aggregate fp16 baseline
+- Then layer pi_quant Q4 — projected 8-15 tok/s/Pi → 25-45 aggregate
+
+**Convergence baseline (4-Pi LLM cluster):**
+- iter-13 baseline: TinyLlama-1.1B fp16, 1 Pi, 2.3 tok/s
+- iter-14 target: 3-4 Pi replication, 6-9 tok/s aggregate
+- iter-15+ target: pi_quant → 25+ tok/s aggregate
