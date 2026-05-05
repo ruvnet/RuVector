@@ -289,3 +289,32 @@ improve for 2 consecutive iterations across both throughput AND quality
 - Stage TinyLlama-1.1B-Chat-v1.0 (~2.1 GB cached) — real Llama-arch,
   has explicit lm_head.weight, will load on first try.
 - Re-smoke on host, then aarch64 cross-build, then Pi smoke.
+
+## Iter 10 — FIRST LIGHT 🎯 (2026-05-04, ~23:32)
+
+**Done:**
+- Diagnosed `flash_attn` panic in `candle-transformers-0.8.4` Llama
+  impl — line 260 panics on CPU when `use_flash_attn=true`. The
+  flag is misnamed: it's actually the CUDA-fast-attention gate.
+- Patched `engine::PiEngine::load` in ruvllm-pi-worker.rs to construct
+  `ModelConfig` with `use_flash_attention: false` + `quantization: None`
+  (fp16 first-light; quant lands iter 11).
+- **Smoke test on host:**
+  - Loaded TinyLlama-1.1B-Chat-v1.0 from local HF cache snapshot
+  - First completion request returned successfully:
+    ```
+    Request:  {"prompt":"The capital of France is","max_tokens":4}
+    Response: {"ms":459,"text":"a city that is","tokens":14}
+    ```
+  - 4 tokens in 459 ms on x86 CPU → ~9 tok/s reference
+- iter 5-7 rsync background task completed — all 3 cluster Pis
+  staged with qwen2.5-0.5b (954 MB each)
+
+**Iter 11 plan:**
+- Stage TinyLlama-1.1B onto a cluster Pi (drop qwen2.5-0.5b which
+  has the lm_head issue; iter 11 is for first-light on Pi)
+- Cross-build with --features ruvllm-engine, scp aarch64 binary
+- Update env on the Pi; restart service; smoke completion via
+  the same JSON-over-TCP pattern
+- Expected per-Pi tok/s for TinyLlama 1.1B fp16 on Cortex-A76: 1-3 tok/s
+  (vs 9 on x86). After iter 12-13 with pi_quant Q4: 8-15 tok/s.

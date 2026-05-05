@@ -83,7 +83,17 @@ mod engine {
         pub fn load(model_path: &str) -> anyhow::Result<Self> {
             let mut backend = CandleBackend::new()
                 .map_err(|e| anyhow::anyhow!("CandleBackend::new failed: {e:?}"))?;
-            let config = ModelConfig::default();
+            // ADR-179 iter 10: candle-transformers' Llama path panics
+            // with "compile with '--features flash-attn'" on CPU when
+            // use_flash_attn=true. The flag is intended to gate
+            // CUDA-only kernels — set false so the model uses the
+            // standard candle attention. We also disable quantization
+            // here so iter 10 first-light is fp16; pi_quant lands iter 11.
+            let config = ModelConfig {
+                use_flash_attention: false,
+                quantization: None,
+                ..ModelConfig::default()
+            };
             backend
                 .load_model(model_path, config)
                 .map_err(|e| anyhow::anyhow!("load_model({model_path}) failed: {e:?}"))?;
