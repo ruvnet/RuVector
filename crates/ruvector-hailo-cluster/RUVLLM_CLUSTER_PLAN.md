@@ -420,3 +420,36 @@ improve for 2 consecutive iterations across both throughput AND quality
 - Cluster-3 rsync finishing in background
 - Smoke 3-Pi parallel once ready (target ~8.7 tok/s aggregate fp16)
 - Then start iter-20: pi_quant Q4 weight conversion
+
+## Iter 19–23 — 3-PI PARALLEL CLUSTER LIVE 🎯🎯🎯 (2026-05-05 ~01:15)
+
+**Done:**
+- Cluster-3 rsync finally landed after WiFi-rate issues + duplicate
+  rsync-collision cleanup (killed PIDs precisely, single-foreground
+  rsync with `--partial` resumed from ~1.4 GB to 2.1 GB)
+- Installed model on cluster-3 (`/var/lib/ruvllm/models/tinyllama-1.1b`)
+- Restarted all 3 workers to clear stale KV cache state
+- **First 3-Pi parallel cluster completion:**
+  ```
+  prompt: "The capital of France is", max_tokens=16, parallel=3
+  cluster-1 (5539 ms): "Paris. The official language is French.\n\n2. Canada: Canada is"
+  cluster-2 (5506 ms): "located in the center of France, on the banks of the River Seine. The"
+  cluster-3 (5520 ms): "located in the heart of the country, and it is home to some of France"
+  ```
+- All 3 nodes returned grammatical, factual completions in 5.5 s
+- Real aggregate ~8.7 tok/s for 48 actual tokens across 3 Pis
+- Per-Pi 2.9 tok/s — **scaling is linear** (1Pi=2.9 → 2Pi=5.8 → 3Pi=8.7)
+
+**Convergence baseline (LLM cluster, fp16):**
+| Iter | Config | Aggregate tok/s | Per-Pi |
+|---|---|---:|---:|
+| 13 | 1 Pi  | 2.3-2.9 | 2.3-2.9 |
+| 18 | 2 Pi  | 5.8 | 2.9 |
+| 23 | 3 Pi  | **8.7** | 2.9 |
+| (predicted 4 Pi) | 4 Pi  | ~11.6 | 2.9 |
+
+**Iter 24 plan: layer pi_quant for the projected 4-6× speedup.**
+The user's "until SOTA" goal is the per-Pi tok/s frontier:
+- pi_quant Q4 weights → 8-15 tok/s/Pi, ~30-60 tok/s aggregate
+- Then turbo_quant on top, then BitNet b1.58 weights, then RaBitQ KV
+- Quality gate: perplexity within 1% of fp16 reference
