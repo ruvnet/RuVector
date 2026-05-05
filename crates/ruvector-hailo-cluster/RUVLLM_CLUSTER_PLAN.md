@@ -386,3 +386,37 @@ improve for 2 consecutive iterations across both throughput AND quality
 - Run 3-Pi parallel smoke once cluster-2/3 ready: expect ~2.5 tok/s/Pi
   ⇒ aggregate ~7-8 tok/s baseline
 - Then iter 18: layer pi_quant Q4 weights
+
+## Iter 17–18 — FIRST MULTI-PI BENCH 🎯🎯 (2026-05-05 ~00:20)
+
+**Done:**
+- Resolved hung rsync by killing PIDs precisely (not pattern, learned
+  from iter-6 foot-gun); cluster-2 install completed
+- Both cluster-1 + cluster-2 serving TinyLlama-1.1B fp16
+- **First 2-Pi parallel completion bench:**
+  ```
+  prompt: "The capital of France is", max_tokens=16, parallel=2
+  cluster-1: 5466 ms, "a beautiful city that is filled with history,
+                       culture, and beauty. It'"
+  cluster-2: 5486 ms, "Paris, and it is located in the Île-de-France region."
+  ```
+  - 32 tokens × 2 / 5.5 s wall = **~5.8 tok/s aggregate (Cortex-A76 fp16)**
+  - **2.9 tok/s/Pi** — matches iter-13 single-Pi exactly
+  - Both correct factual completions
+
+**Cluster state (this commit):**
+- cluster-1 (Pi 5): ready to serve ✓
+- cluster-2 (Pi 5): ready to serve ✓
+- cluster-3 (Pi 5): rsync ~1.5/2.1 GB, ~70% done
+
+**Convergence baseline (LLM cluster):**
+- 1-Pi fp16:  2.3-2.9 tok/s (varies w/ prompt, KV state)
+- 2-Pi fp16:  5.8 tok/s aggregate (linear scaling ✓)
+- Predicted 4-Pi fp16:  ~11-12 tok/s aggregate
+- Quantized target (iter 19+ pi_quant Q4):  ~8-15 tok/s/Pi
+                                            ⇒ 32-60 tok/s aggregate
+
+**Iter 19 plan:**
+- Cluster-3 rsync finishing in background
+- Smoke 3-Pi parallel once ready (target ~8.7 tok/s aggregate fp16)
+- Then start iter-20: pi_quant Q4 weight conversion
