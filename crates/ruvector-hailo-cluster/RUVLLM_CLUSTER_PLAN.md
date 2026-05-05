@@ -255,3 +255,37 @@ improve for 2 consecutive iterations across both throughput AND quality
 - Wire `ruvllm-pi-worker.rs` end-to-end: read env, construct
   CandleBackend, load_model(local path), generate(prompt, params)
 - Smoke test: simple "hello" → first token from a Pi
+
+## Iter 9 (2026-05-04, ~23:25)
+
+**Done:**
+- Added `ruvllm` (optional, default-features=off, features=async-runtime+candle+quantize)
+  + `anyhow` (optional) deps to ruvector-hailo-cluster
+- New cargo feature `ruvllm-engine = ["dep:ruvllm", "dep:anyhow"]`
+- Rewrote `ruvllm-pi-worker.rs` to:
+  - Build with or without `ruvllm-engine` (scaffold falls through cleanly)
+  - When the feature is on: construct `CandleBackend`, call
+    `load_model(local_path)`, expose newline-delimited JSON request /
+    response over TCP (`{"prompt":..., "max_tokens":N}` →
+    `{"text":..., "tokens":N, "ms":N}`)
+- **Host build with `ruvllm-engine` succeeds** (1m 21s)
+- **Engine wiring closed end-to-end on host smoke test:**
+  - Worker started, located the Qwen 0.5B local dir
+  - Loaded tokenizer ✓
+  - Began reading safetensors ✓
+  - Failed on `Failed to create Llama model: cannot find tensor
+    lm_head.weight` — a **model-architecture mismatch**, not a
+    wiring bug. Qwen2 ties lm_head to embed_tokens; ruvllm's candle
+    backend expects an explicit lm_head.weight per Llama spec.
+
+**Status:**
+- The wiring path works. The chosen test model needs a different
+  loader (or a newer ruvllm patch for tied embeddings).
+- Model rsync: cluster-1 ✓ (954 MB installed), cluster-2 still in
+  progress (it's been a while — the WiFi link to cluster-2 may be
+  lossy; ssh works fine but rsync slow).
+
+**Iter 10 plan:**
+- Stage TinyLlama-1.1B-Chat-v1.0 (~2.1 GB cached) — real Llama-arch,
+  has explicit lm_head.weight, will load on first try.
+- Re-smoke on host, then aarch64 cross-build, then Pi smoke.

@@ -1,50 +1,59 @@
 //! `ruvllm-pi-worker` — per-Pi LLM completion worker (ADR-179).
 //!
-//! ## Status (iter 3, scaffold only)
-//!
-//! This is the skeleton bin: env-var contract, TCP listener, version
-//! probe. Engine wiring (`ruvllm::serving::ServingEngine` +
-//! quantized model load + gRPC completion RPC) lands in iter 4–6.
-//!
 //! Sibling worker on each Pi 5 to `ruvector-hailo-worker` (ADR-167):
 //! - hailo worker  → :50051  → embeddings via Hailo-8 NPU
 //! - ruvllm worker → :50053  → completions via Cortex-A76 + pi_quant
 //!
-//! ## Env vars (forward-compatible — most are placeholders for now)
+//! ## Build
+//!
+//! Pi 5 cross-build (workstation):
+//! ```text
+//! RUSTFLAGS= cargo build \
+//!   --target aarch64-unknown-linux-gnu --release \
+//!   -p ruvector-hailo-cluster \
+//!   --no-default-features --features ruvllm-engine \
+//!   --bin ruvllm-pi-worker
+//! ```
+//!
+//! Without `--features ruvllm-engine`, the bin still builds but only
+//! exposes the iter-3 scaffold (TCP banner, no LLM). Useful for the
+//! deploy-pipeline tests we ran in iter 4.
+//!
+//! ## Env vars
 //!
 //! ```text
 //! RUVLLM_WORKER_BIND          listen socket   (default 0.0.0.0:50053)
-//! RUVLLM_MODEL_PATH           local path to .safetensors|.gguf|.qm
-//!                             (no hf-hub download — out-of-band rsync;
-//!                              ADR-179 §risks: avoids native-tls cross-link)
-//! RUVLLM_QUANTIZE             pi_quant | turbo_quant | quip | none
-//!                             (default pi_quant; pi_quant_simd path
-//!                              picked at runtime when NEON dotprod ok)
-//! RUVLLM_KV_QUANTIZE          rabitq | none  (default none for iter 3)
+//! RUVLLM_MODEL_PATH           local model directory containing
+//!                             config.json + tokenizer.json + model.safetensors
+//!                             (e.g. /var/lib/ruvllm/models/qwen2.5-0.5b)
+//!                             — no hf-hub download (cross-build constraint, ADR-179 iter 8)
+//! RUVLLM_QUANTIZE             pi_quant | turbo_quant | quip | bitnet158 | none
+//!                             (iter 9 wires `none` only — fp16 reference; quant lands iter 10+)
+//! RUVLLM_KV_QUANTIZE          rabitq | none  (iter 9: none)
 //! RUVLLM_MAX_INFLIGHT         scheduler concurrent requests (default 4)
 //! RUVLLM_MAX_SEQ              max prompt+completion tokens (default 2048)
-//! RUVLLM_LOG_PROMPT_AUDIT     none | hash | full  (default none — no leak)
+//! RUVLLM_LOG_PROMPT_AUDIT     none | hash | full  (default none)
 //! ```
 //!
-//! ## Wire (iter 4+)
+//! ## Wire surface (iter 9)
 //!
-//! gRPC on `:50053` exposing a small completion service mirroring the
-//! hailo cluster's pattern (Embedding service → unary + streaming +
-//! Health + GetStats). Proto goes at
-//! `crates/ruvector-hailo-cluster/proto/completion.proto`.
+//! Plain TCP request/response (no gRPC yet — that's iter 11):
+//! - newline-delimited JSON request: `{"prompt":"...", "max_tokens":N}`
+//! - newline-delimited JSON response: `{"text":"...", "tokens":N, "ms":N}`
 //!
-//! ## Why not reuse `ruvllm-cli serve`
-//!
-//! `ruvllm-cli` cross-builds halt on `hf_hub::api::sync` (needs ureq +
-//! native-tls). This bin uses ruvllm as a library + loads from local
-//! paths only, dodging hf-hub entirely. See ADR-179 iter 2 for the
-//! feature-tree forensics.
+//! Lets the iter-12 `ruvllm-cluster-bench` (mirror of hailo bench) drive
+//! the cluster with simple line-oriented IO; gRPC `Completion` proto
+//! lands in iter 11 once we lock the request shape.
 
 use std::env;
 use std::net::SocketAddr;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-const COMMIT_GATE: &str = "ADR-179 iter 3 — scaffold (no engine yet)";
+
+#[cfg(feature = "ruvllm-engine")]
+const GATE: &str = "ADR-179 iter 9 — engine wired (qwen2.5-0.5b fp16 first)";
+#[cfg(not(feature = "ruvllm-engine"))]
+const GATE: &str = "ADR-179 iter 3 — scaffold (no engine; build with --features ruvllm-engine)";
 
 fn parse_bind() -> SocketAddr {
     env::var("RUVLLM_WORKER_BIND")
@@ -57,6 +66,48 @@ fn read_optional_env(key: &str) -> String {
     env::var(key).unwrap_or_else(|_| "<unset>".to_string())
 }
 
+#[cfg(feature = "ruvllm-engine")]
+mod engine {
+    use ruvllm::backends::{CandleBackend, GenerateParams, LlmBackend, ModelConfig};
+    use std::sync::Mutex;
+
+    /// Thread-safe wrapper around CandleBackend. ServingEngine has its
+    /// own scheduler+batcher, but iter 9 ships a simpler single-shot
+    /// generate path — one request at a time — so we can prove the
+    /// loop closes end-to-end. Iter 10 swaps this for ServingEngine.
+    pub struct PiEngine {
+        inner: Mutex<CandleBackend>,
+    }
+
+    impl PiEngine {
+        pub fn load(model_path: &str) -> anyhow::Result<Self> {
+            let mut backend = CandleBackend::new()
+                .map_err(|e| anyhow::anyhow!("CandleBackend::new failed: {e:?}"))?;
+            let config = ModelConfig::default();
+            backend
+                .load_model(model_path, config)
+                .map_err(|e| anyhow::anyhow!("load_model({model_path}) failed: {e:?}"))?;
+            Ok(Self {
+                inner: Mutex::new(backend),
+            })
+        }
+
+        pub fn generate(&self, prompt: &str, max_tokens: usize) -> anyhow::Result<String> {
+            let backend = self
+                .inner
+                .lock()
+                .map_err(|_| anyhow::anyhow!("engine mutex poisoned"))?;
+            let params = GenerateParams {
+                max_tokens,
+                ..Default::default()
+            };
+            backend
+                .generate(prompt, params)
+                .map_err(|e| anyhow::anyhow!("generate failed: {e:?}"))
+        }
+    }
+}
+
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
@@ -67,35 +118,115 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let bind = parse_bind();
-    tracing::info!(version = VERSION, gate = COMMIT_GATE, "ruvllm-pi-worker starting");
+    let model_path = env::var("RUVLLM_MODEL_PATH").unwrap_or_default();
+
     tracing::info!(
-        model_path = %read_optional_env("RUVLLM_MODEL_PATH"),
+        version = VERSION,
+        gate = GATE,
+        %bind,
+        model_path = %if model_path.is_empty() { "<unset>".into() } else { model_path.clone() },
         quantize = %read_optional_env("RUVLLM_QUANTIZE"),
-        kv_quantize = %read_optional_env("RUVLLM_KV_QUANTIZE"),
         max_inflight = %read_optional_env("RUVLLM_MAX_INFLIGHT"),
-        max_seq = %read_optional_env("RUVLLM_MAX_SEQ"),
-        "iter-3 scaffold: env contract logged"
+        "ruvllm-pi-worker starting"
     );
 
-    // Iter 3: just bind, accept, and print a "hello" line per connection.
-    // Iter 4 swaps this for a tonic Server::builder()
-    //   .add_service(CompletionServer::new(impl))
-    //   .serve(bind);
+    #[cfg(feature = "ruvllm-engine")]
+    let engine = if model_path.is_empty() {
+        tracing::warn!("RUVLLM_MODEL_PATH is unset; refusing to start engine, falling back to scaffold mode");
+        None
+    } else {
+        tracing::info!("loading model from {} ...", model_path);
+        match engine::PiEngine::load(&model_path) {
+            Ok(e) => {
+                tracing::info!("model loaded, ready to serve");
+                Some(std::sync::Arc::new(e))
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "model load failed; falling back to scaffold mode");
+                None
+            }
+        }
+    };
+
     let listener = tokio::net::TcpListener::bind(bind).await?;
-    tracing::info!(%bind, "ruvllm-pi-worker listening (TCP echo placeholder)");
+    tracing::info!(%bind, "ruvllm-pi-worker listening");
 
     loop {
-        let (mut sock, peer) = listener.accept().await?;
-        tracing::info!(%peer, "accepted connection");
+        let (sock, peer) = listener.accept().await?;
+        #[cfg(feature = "ruvllm-engine")]
+        let engine_clone = engine.clone();
         tokio::spawn(async move {
-            use tokio::io::AsyncWriteExt;
-            let banner = format!(
-                "ruvllm-pi-worker v{} — {}\nbind={}\n",
-                VERSION,
-                COMMIT_GATE,
-                sock.local_addr().map(|a| a.to_string()).unwrap_or_default()
-            );
-            let _ = sock.write_all(banner.as_bytes()).await;
+            if let Err(e) = handle_conn(
+                sock,
+                peer,
+                #[cfg(feature = "ruvllm-engine")]
+                engine_clone,
+            )
+            .await
+            {
+                tracing::warn!(%peer, error = %e, "conn handler error");
+            }
         });
     }
+}
+
+async fn handle_conn(
+    mut sock: tokio::net::TcpStream,
+    peer: std::net::SocketAddr,
+    #[cfg(feature = "ruvllm-engine")] engine: Option<std::sync::Arc<engine::PiEngine>>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
+    tracing::debug!(%peer, "conn open");
+    let (rx, mut tx) = sock.split();
+    let mut lines = BufReader::new(rx).lines();
+
+    while let Some(line) = lines.next_line().await? {
+        if line.is_empty() {
+            continue;
+        }
+        let req: serde_json::Value = match serde_json::from_str(&line) {
+            Ok(v) => v,
+            Err(_) => {
+                let banner = format!(
+                    "ruvllm-pi-worker v{} — {}\n",
+                    VERSION, GATE
+                );
+                tx.write_all(banner.as_bytes()).await?;
+                continue;
+            }
+        };
+        let prompt = req.get("prompt").and_then(|v| v.as_str()).unwrap_or("");
+        let max_tokens = req
+            .get("max_tokens")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(64) as usize;
+
+        let started = std::time::Instant::now();
+        #[cfg(feature = "ruvllm-engine")]
+        let resp = match &engine {
+            Some(e) => match e.generate(prompt, max_tokens) {
+                Ok(text) => {
+                    let ms = started.elapsed().as_millis() as u64;
+                    serde_json::json!({"text": text, "tokens": text.len(), "ms": ms})
+                }
+                Err(e) => serde_json::json!({"error": format!("{e:#}")}),
+            },
+            None => {
+                serde_json::json!({"error": "engine not loaded; check RUVLLM_MODEL_PATH"})
+            }
+        };
+        #[cfg(not(feature = "ruvllm-engine"))]
+        let resp = serde_json::json!({
+            "error": "binary built without ruvllm-engine feature",
+            "prompt": prompt,
+            "max_tokens": max_tokens,
+        });
+
+        let mut out = serde_json::to_vec(&resp)?;
+        out.push(b'\n');
+        tx.write_all(&out).await?;
+    }
+    tracing::debug!(%peer, "conn closed");
+    Ok(())
 }
