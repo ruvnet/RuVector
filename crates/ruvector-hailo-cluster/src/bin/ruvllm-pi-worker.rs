@@ -113,7 +113,9 @@ mod engine {
                 backends.push(Arc::new(tokio::sync::Mutex::new(backend)));
                 tracing::info!(
                     "loaded backend slot {}/{} for {}",
-                    i + 1, pool_size, model_path
+                    i + 1,
+                    pool_size,
+                    model_path
                 );
             }
 
@@ -188,7 +190,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     #[cfg(feature = "ruvllm-engine")]
     let engine = if model_path.is_empty() {
-        tracing::warn!("RUVLLM_MODEL_PATH is unset; refusing to start engine, falling back to scaffold mode");
+        tracing::warn!(
+            "RUVLLM_MODEL_PATH is unset; refusing to start engine, falling back to scaffold mode"
+        );
         None
     } else {
         // ADR-180 iter 2: max_inflight controls ServingEngine's
@@ -199,7 +203,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .unwrap_or(4);
         tracing::info!(
             "loading model from {} (max_inflight={}) ...",
-            model_path, max_inflight
+            model_path,
+            max_inflight
         );
         match engine::PiEngine::load(&model_path, max_inflight) {
             Ok(e) => {
@@ -253,33 +258,29 @@ async fn handle_conn(
         let req: serde_json::Value = match serde_json::from_str(&line) {
             Ok(v) => v,
             Err(_) => {
-                let banner = format!(
-                    "ruvllm-pi-worker v{} — {}\n",
-                    VERSION, GATE
-                );
+                let banner = format!("ruvllm-pi-worker v{} — {}\n", VERSION, GATE);
                 tx.write_all(banner.as_bytes()).await?;
                 continue;
             }
         };
         let prompt = req.get("prompt").and_then(|v| v.as_str()).unwrap_or("");
-        let max_tokens = req
-            .get("max_tokens")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(64) as usize;
+        let max_tokens = req.get("max_tokens").and_then(|v| v.as_u64()).unwrap_or(64) as usize;
 
-        let started = std::time::Instant::now();
         #[cfg(feature = "ruvllm-engine")]
-        let resp = match &engine {
-            // ADR-180 iter 2: generate() is now async (ServingEngine submit_async).
-            Some(e) => match e.generate(prompt, max_tokens).await {
-                Ok(text) => {
-                    let ms = started.elapsed().as_millis() as u64;
-                    serde_json::json!({"text": text, "tokens": text.len(), "ms": ms})
+        let resp = {
+            let started = std::time::Instant::now();
+            match &engine {
+                // ADR-180 iter 2: generate() is now async (ServingEngine submit_async).
+                Some(e) => match e.generate(prompt, max_tokens).await {
+                    Ok(text) => {
+                        let ms = started.elapsed().as_millis() as u64;
+                        serde_json::json!({"text": text, "tokens": text.len(), "ms": ms})
+                    }
+                    Err(e) => serde_json::json!({"error": format!("{e:#}")}),
+                },
+                None => {
+                    serde_json::json!({"error": "engine not loaded; check RUVLLM_MODEL_PATH"})
                 }
-                Err(e) => serde_json::json!({"error": format!("{e:#}")}),
-            },
-            None => {
-                serde_json::json!({"error": "engine not loaded; check RUVLLM_MODEL_PATH"})
             }
         };
         #[cfg(not(feature = "ruvllm-engine"))]

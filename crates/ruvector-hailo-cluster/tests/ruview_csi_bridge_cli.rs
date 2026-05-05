@@ -215,14 +215,7 @@ fn ruview_bridge_help_prints_synopsis() {
 #[test]
 fn ruview_bridge_cache_without_fingerprint_refused() {
     let out = Command::new(BRIDGE)
-        .args([
-            "--workers",
-            "127.0.0.1:1",
-            "--dim",
-            "4",
-            "--cache",
-            "1024",
-        ])
+        .args(["--workers", "127.0.0.1:1", "--dim", "4", "--cache", "1024"])
         .output()
         .expect("run bridge");
     assert!(

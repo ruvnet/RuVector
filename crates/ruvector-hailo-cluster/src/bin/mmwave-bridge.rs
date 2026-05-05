@@ -310,9 +310,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Iter 245 — optional background health checker (parity with
     // embed.rs / ruvllm-bridge / ruview-csi-bridge).
-    let _health_keepalive = if let (Some(c), true) =
-        (cluster.as_ref(), health_check_secs > 0)
-    {
+    let _health_keepalive = if let (Some(c), true) = (cluster.as_ref(), health_check_secs > 0) {
         let rt = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(1)
             .enable_all()

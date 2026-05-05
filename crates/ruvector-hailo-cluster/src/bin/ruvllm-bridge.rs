@@ -236,9 +236,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cluster = match (cache_cap, cache_ttl_secs) {
         (0, _) => cluster_inner,
         (cap, 0) => cluster_inner.with_cache(cap),
-        (cap, ttl) => {
-            cluster_inner.with_cache_ttl(cap, std::time::Duration::from_secs(ttl))
-        }
+        (cap, ttl) => cluster_inner.with_cache_ttl(cap, std::time::Duration::from_secs(ttl)),
     };
 
     // Iter 245 — optional background health checker. Mirror of

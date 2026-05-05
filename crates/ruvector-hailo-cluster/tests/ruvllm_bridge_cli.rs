@@ -256,14 +256,7 @@ fn ruvllm_bridge_cache_without_fingerprint_refused() {
     // on either the workers-empty-fp gate or the cache-empty-fp gate
     // (whichever is checked first; both reference §2a in the message).
     let out = Command::new(BRIDGE)
-        .args([
-            "--workers",
-            "127.0.0.1:1",
-            "--dim",
-            "4",
-            "--cache",
-            "1024",
-        ])
+        .args(["--workers", "127.0.0.1:1", "--dim", "4", "--cache", "1024"])
         .output()
         .expect("run bridge");
     assert!(
@@ -310,12 +303,8 @@ fn ruvllm_bridge_cache_with_fingerprint_accepted() {
         // Same text twice → second is a cache hit but the bridge's
         // JSONL contract is opaque to that; both must produce a
         // vector response with dim=4 + the same vector contents.
-        stdin
-            .write_all(b"{\"text\":\"cached query\"}\n")
-            .unwrap();
-        stdin
-            .write_all(b"{\"text\":\"cached query\"}\n")
-            .unwrap();
+        stdin.write_all(b"{\"text\":\"cached query\"}\n").unwrap();
+        stdin.write_all(b"{\"text\":\"cached query\"}\n").unwrap();
     }
     drop(child.stdin.take());
     let out = child.wait_with_output().expect("wait bridge");

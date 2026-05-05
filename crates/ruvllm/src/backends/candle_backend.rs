@@ -1244,7 +1244,9 @@ mod candle_impl {
 
             // Treat as HuggingFace Hub model ID (gated, ADR-179 iter 8).
             #[cfg(feature = "hub-download")]
-            { return self.load_from_hub(model_id, &config); }
+            {
+                return self.load_from_hub(model_id, &config);
+            }
             #[cfg(not(feature = "hub-download"))]
             {
                 Err(RuvLLMError::NotFound(format!(
