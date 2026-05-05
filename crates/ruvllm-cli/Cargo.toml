@@ -14,7 +14,7 @@ path = "src/main.rs"
 
 [dependencies]
 # RuvLLM core library
-ruvllm = { path = "../ruvllm", version = "2.2.0", features = ["candle"] }
+ruvllm = { path = "../ruvllm", version = "2.2.1", features = ["candle"] }
 
 # CLI framework
 clap = { version = "4.5", features = ["derive", "cargo", "env"] }

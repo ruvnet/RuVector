@@ -246,3 +246,39 @@ requests against the patched backend. Iter 6 reads the result.
   expect aggregate ~30-50 tok/s (2-3× iter-26 SOTA)
 - If smoke still fails → quantized_llama path may have same bug;
   patch that arm too
+
+## Iter 6 — ruvllm 2.2.1 deployed, throughput plateau hit (2026-05-05 ~13:10)
+
+**Done:**
+- ruvllm 2.2.1 published to crates.io (cache-reset fix)
+- ruvllm-cli 2.2.1 republished pinning ruvllm 2.2.1
+- Cross-built aarch64 worker, deployed to all 4 Pis
+- Bumped `RUVLLM_MAX_INFLIGHT=4` cluster-wide
+- All 4 Pis ready, 0 errors across 16 in-flight requests
+
+**Cluster bench (TinyLlama-1.1B-Chat-v1.0 Q4_K_M):**
+
+| Config | wall_s | total tok | tok/s aggregate |
+|---|---:|---:|---:|
+| iter-26 baseline (KV bug, 1 in-flight, restarts between) | 3.12 | 64 | **20.5** |
+| 4-Pi × 1 in-flight × 16 tok (NEW: cache-reset, no restarts) | 2.97 | 64 | **21.6** |
+| 4-Pi × 2 in-flight × 8 tok | 3.18 | 64 | 20.1 |
+| 4-Pi × 4 in-flight × 4 tok | 3.87 | 64 | 16.5 (CPU contention) |
+
+**Finding:** the cache-reset patch's win is **operational stability**,
+not raw throughput. Multi-inflight per Pi REGRESSES on Cortex-A76
+because candle's matmul already saturates 4 cores at 1 in-flight —
+extra parallel generates compete for the same cores via context
+switching. The per-Pi single-stream throughput is the actual ceiling
+on this hardware/runtime.
+
+**Strike 1 vs convergence rule** (aggregate not improved past iter-26).
+
+**Iter 7 plan:**
+- Revert `RUVLLM_MAX_INFLIGHT=1` cluster-wide (multi-inflight only
+  hurts here)
+- Real win paths now require either:
+  (a) more cluster nodes (orthogonal to ADR-180)
+  (b) ADR-181 in-tree pi_quant 3-bit (smaller weights → less memory bw → higher single-stream)
+  (c) Coordinator-side prompt prefix cache (orthogonal)
+- Move on to ADR-181 Phase B in iter 7
