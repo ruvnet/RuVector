@@ -1,0 +1,46 @@
+[Unit]
+Description=ruvllm Pi LLM completion worker (ADR-179)
+Documentation=https://github.com/ruvnet/ruvector
+After=network-online.target
+Wants=network-online.target
+
+# Sibling service to ruvector-hailo-worker.service (ADR-167):
+#   :50051 — embeddings (Hailo-8 NPU)
+#   :50053 — completions (Cortex-A76 + pi_quant / turbo_quant / BitNet)
+
+[Service]
+Type=simple
+User=ruvllm-worker
+Group=ruvllm-worker
+EnvironmentFile=-/etc/ruvllm-pi-worker.env
+ExecStart=/usr/local/bin/ruvllm-pi-worker
+Restart=on-failure
+RestartSec=5
+
+# Sandboxing — defense-in-depth (mirrors hailo worker hardening)
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=no                              # need NPU device (future) + /dev/null
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+# JIT-style codegen may need W^X off later; keep at default for now
+MemoryDenyWriteExecute=no
+SystemCallArchitectures=native
+
+# State dir — model files are rsync'd here from operator workstation
+ReadWritePaths=/var/lib/ruvllm
+
+# Resource caps. 8 GB RAM Pi 5 — leave headroom for kernel + embed worker.
+# Llama-3.2-1B Q4 weights ~600 MB + per-request KV ≤256 MB; max 4 in-flight
+# fits comfortably in 4 GB.
+MemoryMax=4G
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

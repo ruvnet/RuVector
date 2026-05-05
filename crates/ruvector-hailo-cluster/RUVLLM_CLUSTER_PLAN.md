@@ -33,10 +33,12 @@ Llama-3.2-1B. Iterate to SOTA per-node throughput + tail latency.
 | 7 | Replicate model + service to all 4 nodes | 4× `ruvllm serve` listening |
 | 8 | Add `ruvllm-cluster-bench` (mirror of hailo bench) for completion RPCs | per-node + 4-node throughput numbers |
 | 9 | Apply turbo_quant on top of pi_quant (composable) | quality + throughput delta |
-| 10 | RaBitQ on KV-cache (sparse_inference's ruvllm.rs hook) | KV-cache memory reduction |
-| 11 | First quality sweep (perplexity vs ruvultra Python reference) | ≤2% perplexity gap target |
-| 12 | Optimize: NPU dispatch via Hailo-8 — investigate which transformer ops compile | feasibility note |
-| 13+ | Push throughput / latency frontier per quantization scheme | iterate to SOTA |
+| 10 | RaBitQ on KV-cache (`crates/ruvector-rabitq` + sparse_inference's ruvllm.rs hook, ADR-154) | KV-cache memory reduction |
+| 11 | **BitNet b1.58 ternary weights** via `crates/ruvllm/src/bitnet/` (ADR-024) — 1.58-bit weight conversion for Llama-3.2-1B (smallest first) | quantized weight blob + eval harness clean |
+| 12 | Quality sweep across {fp16, pi_quant, turbo_quant, BitNet b1.58, +RaBitQ-KV} for all 3 models | ≤1% perplexity gap target on at least one quant per model |
+| 13 | Cross-product matrix: model × quant — pick winners per model | best (tok/s × quality) per model |
+| 14 | Optimize: NPU dispatch via Hailo-8 — investigate which transformer ops compile | feasibility note |
+| 15+ | Push throughput / latency frontier per quantization scheme | iterate to SOTA |
 
 Convergence rule per loop directive: stop when tok/s + p50 don't
 improve for 2 consecutive iterations across both throughput AND quality
@@ -159,3 +161,35 @@ improve for 2 consecutive iterations across both throughput AND quality
   `/var/lib/ruvllm/`)
 - Run scaffold-version on a Pi, confirm it accepts a TCP connection
   on `:50053`. No model loading yet — just prove the deploy pipeline.
+
+## Iter 4 (2026-05-04, ~20:42)
+
+**Done:**
+- `deploy/ruvllm-pi-worker.service` (systemd unit, mirrors hailo
+  worker hardening: NoNewPrivileges, ProtectSystem=strict, MemoryMax=4G,
+  TasksMax=64, runs as `ruvllm-worker`)
+- `deploy/ruvllm-pi-worker.env.example` (env contract for iters 5+)
+- `deploy/install-ruvllm-pi-worker.sh` (idempotent installer, mirrors
+  install.sh for the embed worker)
+- aarch64 binary rsync'd to all 4 Pis
+- Installed + service started on all 4 Pis
+- TCP probe returns version banner from each `:50053` port
+
+**Issues fixed:**
+- systemd's `MemoryDenyWriteExecute=no` line had an inline `#` comment
+  on the same line — systemd doesn't parse those, warns on parse.
+  Moved the comment to its own line.
+
+**Cluster state:**
+- 4× Pi 5 + AI HAT+ each running TWO worker services:
+  - `:50051` ruvector-hailo-worker (embeddings, NPU)
+  - `:50053` ruvllm-pi-worker (scaffold; LLM completions, soon)
+
+**Iter 5 plan:**
+- Wire `ruvllm::serving::ServingEngine` into `ruvllm-pi-worker`. Need:
+  - A `LlmBackend` impl (probably reuse `crates/ruvllm/src/backends/`
+    candle one, but call it with already-on-disk weights — no hf-hub)
+  - Tokenizer load from local path
+  - First test: Llama-3.2-1B fp16 (no quantization) — get one token
+    out, prove the engine wires. Quantization layered after.
+- Stage Llama-3.2-1B from ruvultra's HuggingFace cache to Pi via rsync.
