@@ -1,0 +1,18 @@
+{
+  "name": "connectome-fly-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Connectome OS — structural-intelligence runtime UI (Tier-1 fly demo).",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host"
+  },
+  "dependencies": {
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.10"
+  }
+}

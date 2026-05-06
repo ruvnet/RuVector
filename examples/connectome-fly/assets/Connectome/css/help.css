@@ -1,0 +1,182 @@
+/* Help icon + popover system */
+
+.help-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.15);
+  color: var(--fg-3);
+  font-family: var(--ff-mono);
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: help;
+  flex-shrink: 0;
+  margin-left: 6px;
+  position: relative;
+  transition: all 140ms ease;
+  vertical-align: baseline;
+  user-select: none;
+}
+.help-icon:hover,
+.help-icon.open {
+  border-color: var(--signal);
+  color: var(--signal);
+  background: rgba(184, 255, 60, 0.08);
+  box-shadow: 0 0 0 3px rgba(184, 255, 60, 0.05);
+}
+.help-icon::before {
+  content: '?';
+}
+
+/* Slightly bigger variant for section headings */
+.help-icon.lg {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+}
+
+/* Popover container — fixed-positioned by JS */
+#help-popover {
+  position: fixed;
+  z-index: 1000;
+  max-width: 320px;
+  min-width: 220px;
+  background: rgba(10, 18, 14, 0.97);
+  border: 1px solid rgba(184, 255, 60, 0.22);
+  border-radius: 8px;
+  padding: 14px 16px 12px;
+  backdrop-filter: blur(24px) saturate(140%);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 0 24px rgba(184, 255, 60, 0.06);
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+  transition: opacity 160ms ease, transform 160ms ease;
+  pointer-events: none;
+}
+#help-popover.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+#help-popover .hp-title {
+  font-family: var(--ff-display);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--fg);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+}
+#help-popover .hp-title::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+  box-shadow: 0 0 6px rgba(184, 255, 60, 0.6);
+}
+#help-popover .hp-body {
+  font-family: var(--ff-sans);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--fg-2);
+}
+#help-popover .hp-body p { margin: 0 0 8px; }
+#help-popover .hp-body p:last-child { margin-bottom: 0; }
+#help-popover .hp-body b {
+  color: var(--fg);
+  font-weight: 500;
+}
+#help-popover .hp-body code {
+  font-family: var(--ff-mono);
+  font-size: 10.5px;
+  color: var(--signal);
+  background: rgba(184, 255, 60, 0.06);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid rgba(184, 255, 60, 0.12);
+}
+#help-popover .hp-foot {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.06);
+  font-family: var(--ff-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--fg-3);
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Panel description under title (always visible) */
+.panel-desc {
+  font-family: var(--ff-sans);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--fg-3);
+  margin-top: -4px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed rgba(255,255,255,0.04);
+}
+.panel-desc b { color: var(--fg-2); font-weight: 500; }
+
+/* Subtle hover reveal on kpi labels — they become help-triggers */
+.kpi[data-help] { cursor: help; position: relative; }
+.kpi[data-help]:hover { background: rgba(184, 255, 60, 0.04); }
+
+/* Rail tooltips — enhanced (appear on hover, explain purpose) */
+.rail-item { position: relative; }
+.rail-item .rail-tooltip {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(10, 18, 14, 0.97);
+  border: 1px solid rgba(184, 255, 60, 0.22);
+  border-radius: 6px;
+  padding: 10px 12px;
+  min-width: 220px;
+  max-width: 260px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 200;
+  transition: opacity 140ms ease;
+  backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.rail-item:hover .rail-tooltip {
+  opacity: 1;
+  transition-delay: 200ms;
+}
+.rail-tooltip .rt-title {
+  font-family: var(--ff-display);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg);
+  margin-bottom: 4px;
+}
+.rail-tooltip .rt-desc {
+  font-family: var(--ff-sans);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--fg-2);
+}
+
+@media (max-width: 1100px) {
+  .rail-item .rail-tooltip { display: none; }
+  #help-popover { max-width: 85vw; }
+}
