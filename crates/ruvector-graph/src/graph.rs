@@ -362,6 +362,15 @@ impl GraphDB {
     pub fn hyperedge_count(&self) -> usize {
         self.hyperedges.len()
     }
+
+    /// Snapshot every `NodeId` currently stored in memory.
+    ///
+    /// Order is unspecified (DashMap shard order). Used by additive
+    /// helpers like `VectorPropertyIndex::build` that need to enumerate
+    /// nodes without depending on the internal storage shape.
+    pub fn node_ids(&self) -> Vec<NodeId> {
+        self.nodes.iter().map(|e| e.key().clone()).collect()
+    }
 }
 
 impl Default for GraphDB {

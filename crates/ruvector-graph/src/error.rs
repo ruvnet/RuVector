@@ -78,6 +78,18 @@ pub enum GraphError {
 
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
+
+    /// Wrapping error from `ruvector-rabitq` while building / querying a
+    /// `VectorPropertyIndex`. Only constructed when the `rabitq` feature is on.
+    #[error("RaBitQ index error: {0}")]
+    RabitqIndex(String),
+}
+
+#[cfg(feature = "rabitq")]
+impl From<ruvector_rabitq::RabitqError> for GraphError {
+    fn from(err: ruvector_rabitq::RabitqError) -> Self {
+        GraphError::RabitqIndex(err.to_string())
+    }
 }
 
 impl From<anyhow::Error> for GraphError {

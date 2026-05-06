@@ -15,6 +15,8 @@ ruvector-core = { version = "2.0.1", path = "../ruvector-core", default-features
 ruvector-raft = { version = "2.0.1", path = "../ruvector-raft", optional = true }
 ruvector-cluster = { version = "2.0.1", path = "../ruvector-cluster", optional = true }
 ruvector-replication = { version = "2.0.1", path = "../ruvector-replication", optional = true }
+# Optional vector-keyed property lookup via 1-bit RaBitQ codes.
+ruvector-rabitq = { path = "../ruvector-rabitq", optional = true }
 
 # Storage and indexing (optional for WASM)
 redb = { workspace = true, optional = true }
@@ -107,7 +109,7 @@ pest_generator = "2.7"
 default = ["full"]
 
 # Full feature set (non-WASM)
-full = ["simd", "storage", "async-runtime", "compression", "hnsw_rs", "ruvector-core/hnsw"]
+full = ["simd", "storage", "async-runtime", "compression", "hnsw_rs", "ruvector-core/hnsw", "rabitq"]
 
 # SIMD optimizations
 simd = ["ruvector-core/simd", "simsimd"]
@@ -139,6 +141,11 @@ metrics = ["prometheus"]
 # Full-text search support
 fulltext = []
 
+# Vector-keyed property lookup via RaBitQ 1-bit codes (`VectorPropertyIndex`).
+# Default-on under `full`; opt out with `--no-default-features` to keep a
+# graph-without-rabitq build alive (mirrors PR #383).
+rabitq = ["dep:ruvector-rabitq"]
+
 # Geospatial indexing
 geospatial = []
 
@@ -156,6 +163,11 @@ path = "examples/test_cypher_parser.rs"
 [[bench]]
 name = "new_capabilities_bench"
 harness = false
+
+[[bench]]
+name = "vector_property_index"
+harness = false
+required-features = ["rabitq"]
 
 [lib]
 crate-type = ["rlib"]
