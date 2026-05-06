@@ -1,0 +1,22 @@
+[package]
+name        = "ruview-cluster-sdk"
+version     = "0.1.0"
+edition     = "2021"
+description = "gRPC client SDK for the ruview-vitals-worker cluster (ADR-183)"
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["wifi", "csi", "vital-signs", "grpc", "cognitum"]
+categories  = ["network-programming", "science"]
+publish     = false
+
+[dependencies]
+tonic         = { version = "0.12", default-features = false, features = ["codegen", "prost", "channel"] }
+prost         = "0.13"
+tokio         = { version = "1", default-features = false, features = ["rt-multi-thread", "macros", "time"] }
+futures       = { version = "0.3", default-features = false, features = ["alloc"] }
+thiserror     = "2"
+tracing       = "0.1"
+
+[build-dependencies]
+tonic-build         = { version = "0.12", default-features = false, features = ["prost"] }
+protoc-bin-vendored = "3"

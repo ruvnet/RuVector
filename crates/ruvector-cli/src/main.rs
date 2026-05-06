@@ -9,6 +9,7 @@ mod cli;
 mod config;
 
 use crate::cli::commands::*;
+use crate::cli::csi::CsiCommands;
 use crate::config::Config;
 
 #[derive(Parser)]
@@ -141,6 +142,15 @@ enum Commands {
     Hooks {
         #[command(subcommand)]
         action: cli::hooks::HooksCommands,
+    },
+
+    /// WiFi-CSI embedding sink and search (ADR-183 Tier 3)
+    ///
+    /// `ruvector csi sink`   — ingest brain spatial-csi-embedding memories into HNSW
+    /// `ruvector csi search` — cosine k-NN over the 128-dim CSI index
+    Csi {
+        #[command(subcommand)]
+        action: CsiCommands,
     },
 }
 
@@ -367,6 +377,20 @@ async fn main() -> Result<()> {
                 HooksCommands::CacheStats => cli::hooks::cache_stats(&config),
             }
         }
+        Commands::Csi { action } => match action {
+            CsiCommands::Sink {
+                brain,
+                db,
+                once,
+                interval,
+            } => cli::csi::run_csi_sink(&brain, &db, once, interval),
+            CsiCommands::Search {
+                db,
+                embedding,
+                top_k,
+                show_vectors,
+            } => cli::csi::run_csi_search(&db, embedding.as_deref(), top_k, show_vectors),
+        },
     };
 
     // Handle errors

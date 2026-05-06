@@ -1,0 +1,36 @@
+syntax = "proto3";
+package ruview.llm.v1;
+
+service LlmService {
+  // Token-streaming generation
+  rpc Generate(GenerateRequest) returns (stream GenerateChunk);
+  // Pull/download a model (idempotent)
+  rpc PullModel(PullRequest) returns (PullResponse);
+  // Service health + throughput snapshot
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+message GenerateRequest {
+  string model       = 1; // e.g. "llama3.2:1b"
+  string prompt      = 2;
+  int32  max_tokens  = 3; // 0 = use model default (256)
+  float  temperature = 4; // 0.0 = deterministic
+}
+
+message GenerateChunk {
+  string token      = 1;
+  bool   done       = 2;
+  int64  latency_us = 3; // wall-clock since request start
+}
+
+message PullRequest  { string model = 1; }
+message PullResponse { bool ok = 1; string message = 2; }
+
+message HealthRequest {}
+message HealthResponse {
+  string model         = 1; // currently loaded model name
+  string backend       = 2; // "hailo10h"
+  float  tok_per_sec   = 3; // last-window throughput
+  bool   hailo_ok      = 4; // /dev/hailo0 present + responsive
+  string firmware_ver  = 5; // Hailo-10H firmware version
+}

@@ -1,0 +1,24 @@
+[Unit]
+Description=ruview ruvllm Hailo-10H LLM service (ADR-184)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+EnvironmentFile=-/etc/ruview-ruvllm-h10.env
+ExecStart=/usr/local/bin/ruview-ruvllm-h10
+Restart=on-failure
+RestartSec=10
+
+# Resource limits
+MemoryMax=512M
+TasksMax=64
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ruview-ruvllm-h10
+
+[Install]
+WantedBy=multi-user.target

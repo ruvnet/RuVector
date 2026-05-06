@@ -1,0 +1,56 @@
+[package]
+name        = "ruview-ruvllm-h10"
+version     = "0.1.0"
+edition     = "2021"
+description = "ruvllm LLM serving on cognitum-cluster-3 Hailo-10H (ADR-184)"
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["hailo", "llm", "edge-ai", "cognitum", "ruvllm"]
+categories  = ["network-programming", "science"]
+publish     = false
+
+[dependencies]
+# Async runtime
+tokio        = { version = "1", default-features = false, features = ["rt-multi-thread", "macros", "net", "time", "signal", "sync", "process", "io-util"] }
+tokio-stream = { version = "0.1", default-features = false, features = ["net"] }
+async-stream = "0.3"
+futures-core = "0.3"
+
+# gRPC
+tonic        = { version = "0.12", default-features = false, features = ["codegen", "prost", "channel", "server"] }
+prost        = "0.13"
+
+# HTTP client for hailo-ollama REST bridge
+reqwest      = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+
+# HTTP server for /health /generate proxy
+axum         = { version = "0.7", default-features = false, features = ["json", "http1", "tokio", "query"] }
+
+# Serialisation
+serde        = { version = "1", features = ["derive"] }
+serde_json   = "1"
+
+# Tracing
+tracing              = "0.1"
+tracing-subscriber   = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "ansi"] }
+
+# Error handling
+thiserror    = "2"
+
+[build-dependencies]
+tonic-build         = { version = "0.12", default-features = false, features = ["prost"] }
+protoc-bin-vendored = "3"
+
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+all       = "warn"
+pedantic  = "warn"
+module_name_repetitions = "allow"
+must_use_candidate      = "allow"
+missing_errors_doc      = "allow"
+missing_panics_doc      = "allow"
+cast_precision_loss     = "allow"
+cast_sign_loss          = "allow"
+cast_possible_truncation = "allow"

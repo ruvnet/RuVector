@@ -1,0 +1,22 @@
+[Unit]
+Description=ruview LLM router — load-balances across Hailo-10H backends (ADR-185)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+EnvironmentFile=-/etc/ruview-ruvllm-router.env
+ExecStart=/usr/local/bin/ruview-ruvllm-router
+Restart=on-failure
+RestartSec=10
+
+MemoryMax=256M
+TasksMax=32
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ruview-ruvllm-router
+
+[Install]
+WantedBy=multi-user.target

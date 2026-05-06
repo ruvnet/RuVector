@@ -1,6 +1,7 @@
 //! CLI module for Ruvector
 
 pub mod commands;
+pub mod csi;
 pub mod format;
 pub mod graph;
 pub mod hooks;

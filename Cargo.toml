@@ -69,6 +69,17 @@ members = [
     "crates/ruvector-hailo",
     "crates/ruvector-mmwave",
     "crates/ruvector-hailo-cluster",
+    # ADR-183 Tier 1 — per-Pi WiFi-CSI vital-signs worker. Owns the
+    # ADR-018 frame parser, sliding window, vitals DSP, gRPC :50054
+    # service, and brain POST shim. Path-dep on RuView is opt-in via
+    # `--features ruview-integration` (default off).
+    "crates/ruview-vitals-worker",
+    # ADR-183: gRPC client SDK for cluster-wide vitals aggregation (Tier 1/2 fusion).
+    "crates/ruview-cluster-sdk",
+    # ADR-184: ruvllm LLM serving on cognitum-cluster-3 Hailo-10H (AI HAT+ 2).
+    "crates/ruview-ruvllm-h10",
+    # ADR-185: multi-backend LLM router — load-balances across all H10H nodes.
+    "crates/ruview-ruvllm-router",
     "examples/refrag-pipeline",
     "examples/scipix",
     "examples/google-cloud",

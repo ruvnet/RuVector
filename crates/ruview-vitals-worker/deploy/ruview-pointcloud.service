@@ -1,0 +1,77 @@
+[Unit]
+Description=ruview-pointcloud — depth + CSI + mmwave fusion server (ADR-183 Tier 2)
+Documentation=https://github.com/ruvnet/ruvector
+Wants=network-online.target ruview-mcp-brain-mini.service
+After=network-online.target ruview-mcp-brain-mini.service
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Service]
+Type=simple
+User=ruview-pointcloud
+Group=ruview-pointcloud
+DynamicUser=no
+
+StateDirectory=ruview-pointcloud
+StateDirectoryMode=0750
+RuntimeDirectory=ruview-pointcloud
+RuntimeDirectoryMode=0750
+WorkingDirectory=/var/lib/ruview-pointcloud
+
+EnvironmentFile=-/etc/ruview-pointcloud.env
+
+# Defaults baked into the binary:
+#   RUVIEW_BRAIN_URL       http://127.0.0.1:9876
+#   bind                   127.0.0.1:9880  (loopback — safe default)
+#
+# To expose the viewer over Tailscale, add to env file:
+#   RUVIEW_POINTCLOUD_BIND=0.0.0.0:9880
+ExecStart=/usr/local/bin/ruview-pointcloud serve \
+    --bind ${RUVIEW_POINTCLOUD_BIND:-127.0.0.1:9880} \
+    --brain ${RUVIEW_BRAIN_URL:-http://127.0.0.1:9876}
+
+Restart=on-failure
+RestartSec=5
+
+# cognitum-v0 is the fusion master — it may hold camera frames + CSI
+# windows. 512 MB gives comfortable headroom for the depth + occupancy
+# grid. CPU is uncapped (it's the master, not a worker).
+LimitNOFILE=16384
+MemoryMax=512M
+
+# Hardening — same posture as brain-mini. Relaxed PrivateDevices so
+# V4L2 camera access works (video device is in /dev).
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ReadWritePaths=/var/lib/ruview-pointcloud
+ProtectHome=yes
+PrivateTmp=yes
+# PrivateDevices=yes would block /dev/video* — leave it unset on v0
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @mount @swap @reboot
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ProtectClock=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectProc=invisible
+
+# Allow supplementary group so the ruview-pointcloud user can access
+# /dev/video* through the video group.
+SupplementaryGroups=video
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

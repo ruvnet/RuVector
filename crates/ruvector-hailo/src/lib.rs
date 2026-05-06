@@ -8,6 +8,7 @@
 //! `Err(HailoError::FeatureDisabled)`. Lets non-Pi machines run
 //! `cargo check -p ruvector-hailo` without HailoRT installed.
 
+pub mod csi_embedder;
 pub mod device;
 pub mod error;
 pub mod hef_verify;
@@ -29,6 +30,10 @@ pub mod hef_embedder;
 #[cfg(all(feature = "hailo", feature = "cpu-fallback"))]
 pub mod hef_embedder_pool;
 
+pub use csi_embedder::{
+    CsiEmbedderCpu, CsiFeatures, CsiLoraAdapter, CSI_EMBED_DIM, CSI_ENCODER_HEF_SHA256,
+    CSI_INPUT_DIM, LORA_RANK,
+};
 pub use device::HailoDevice;
 pub use error::HailoError;
 pub use inference::{l2_normalize, mean_pool, EmbeddingPipeline, DEFAULT_MAX_SEQ, MINI_LM_DIM};
@@ -40,6 +45,98 @@ pub use cpu_embedder::CpuEmbedder;
 use std::path::Path;
 #[cfg(feature = "hailo")]
 use std::sync::Mutex;
+
+// ── ADR-183 Tier 3 iter 14 — typed model-variant API ───────────────────────
+
+/// Which embedding model the Hailo backend should load and serve.
+///
+/// Controls input/output shape and the dispatch path inside
+/// `HailoEmbedder` (text encoder vs CSI contrastive encoder).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ModelVariant {
+    /// BERT-6 text encoder → 384-dim embeddings. Default.
+    TextMiniLm,
+    /// WiFi-CSI contrastive encoder (ruv/ruview) → 128-dim L2-normalised
+    /// embeddings. ADR-183 Tier 3 (`WifiCsi128d`).
+    WifiCsi128d,
+}
+
+/// Unified configuration type for the Hailo embedding backend.
+///
+/// Replaces the bare `model_dir: &Path` scattered across `open()` calls.
+/// The `variant` field selects the model architecture and determines the
+/// correct output dimensionality (`output_dim()`).
+#[derive(Debug, Clone)]
+pub struct HailoEmbedderConfig {
+    /// Path to the model directory (for `TextMiniLm`) or directly to
+    /// `model.safetensors` (for `WifiCsi128d`).
+    pub model_dir: std::path::PathBuf,
+    /// Model architecture variant.
+    pub variant: ModelVariant,
+}
+
+impl HailoEmbedderConfig {
+    /// Text-encoder config. `model_dir` must contain `vocab.txt`,
+    /// `special_tokens.json`, and optionally `model.hef` / `model.safetensors`.
+    pub fn text_mini_lm(model_dir: impl Into<std::path::PathBuf>) -> Self {
+        Self {
+            model_dir: model_dir.into(),
+            variant: ModelVariant::TextMiniLm,
+        }
+    }
+
+    /// WiFi-CSI 128-dim contrastive encoder config. `model_path` may be
+    /// either the `model.safetensors` file path directly or a directory
+    /// containing it (same dual-mode as `CsiEmbedderCpu::open`).
+    pub fn wifi_csi_128d(model_path: impl Into<std::path::PathBuf>) -> Self {
+        Self {
+            model_dir: model_path.into(),
+            variant: ModelVariant::WifiCsi128d,
+        }
+    }
+
+    /// Output dimensionality for the selected variant.
+    pub fn output_dim(&self) -> usize {
+        match self.variant {
+            ModelVariant::TextMiniLm => MINI_LM_DIM,
+            ModelVariant::WifiCsi128d => CSI_EMBED_DIM,
+        }
+    }
+
+    /// Open a `CsiEmbedderCpu` when the variant is `WifiCsi128d`.
+    /// Returns `Err(HailoError::FeatureDisabled)` for other variants.
+    pub fn open_csi_cpu(&self) -> Result<CsiEmbedderCpu> {
+        match self.variant {
+            ModelVariant::WifiCsi128d => CsiEmbedderCpu::open(&self.model_dir),
+            _ => Err(HailoError::FeatureDisabled),
+        }
+    }
+}
+
+#[cfg(test)]
+mod config_tests {
+    use super::*;
+
+    #[test]
+    fn text_mini_lm_dim() {
+        let cfg = HailoEmbedderConfig::text_mini_lm("/tmp/model");
+        assert_eq!(cfg.output_dim(), MINI_LM_DIM);
+        assert_eq!(cfg.variant, ModelVariant::TextMiniLm);
+    }
+
+    #[test]
+    fn wifi_csi_128d_dim() {
+        let cfg = HailoEmbedderConfig::wifi_csi_128d("/tmp/model.safetensors");
+        assert_eq!(cfg.output_dim(), CSI_EMBED_DIM);
+        assert_eq!(cfg.variant, ModelVariant::WifiCsi128d);
+    }
+
+    #[test]
+    fn open_csi_cpu_rejects_text_variant() {
+        let cfg = HailoEmbedderConfig::text_mini_lm("/tmp/model");
+        assert!(matches!(cfg.open_csi_cpu(), Err(HailoError::FeatureDisabled)));
+    }
+}
 
 /// Convenience alias matching ruvector-core's `Result<T> = Result<T, Error>`.
 pub type Result<T> = std::result::Result<T, HailoError>;

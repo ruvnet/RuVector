@@ -1,0 +1,71 @@
+[Unit]
+Description=ruview-mcp-brain-mini — minimal cluster brain (ADR-183 Tier 2 iter 8)
+Documentation=https://github.com/ruvnet/ruvector
+Wants=network-online.target tailscaled.service
+After=network-online.target tailscaled.service
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Service]
+Type=simple
+User=ruview-brain
+Group=ruview-brain
+DynamicUser=no
+
+StateDirectory=ruview-brain
+StateDirectoryMode=0750
+RuntimeDirectory=ruview-brain
+RuntimeDirectoryMode=0750
+WorkingDirectory=/var/lib/ruview-brain
+
+EnvironmentFile=-/etc/ruview-mcp-brain-mini.env
+
+# Defaults baked in:
+#   RUVIEW_BRAIN_BIND        0.0.0.0:9876
+#   RUVIEW_BRAIN_STORE_PATH  unset (in-memory only; set in env file
+#                             to /var/lib/ruview-brain/memories.jsonl
+#                             to persist across restarts)
+#   RUVIEW_BRAIN_LOG         info
+ExecStart=/usr/local/bin/ruview-mcp-brain-mini
+
+Restart=on-failure
+RestartSec=3
+
+LimitNOFILE=4096
+MemoryMax=256M
+
+# Hardening — same shape as the worker unit. The brain only needs
+# to:
+#   * bind 9876
+#   * read+write its own state dir
+#   * make no outbound network calls
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ReadWritePaths=/var/lib/ruview-brain
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @mount @swap @reboot
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ProtectClock=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectProc=invisible
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

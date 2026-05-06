@@ -25,7 +25,7 @@ hailo = ["hailort-sys/hailo"]
 # `HailoEmbedder::open` falls back to `CpuEmbedder` if no model.hef is
 # found (and only the safetensors / tokenizer.json artifacts are
 # present). Net: real semantic vectors today, NPU stays idle until HEF.
-cpu-fallback = ["candle-core", "candle-nn", "candle-transformers", "tokenizers", "serde_json"]
+cpu-fallback = ["candle-core", "candle-nn", "candle-transformers", "tokenizers"]
 
 # Iter 219 — rejoined the parent workspace. Closes ADR-178 Gap E
 # (folded into Gap B). The iter-218 ruvector-core path dep made
@@ -58,7 +58,7 @@ candle-core         = { version = "0.8", optional = true, default-features = fal
 candle-nn           = { version = "0.8", optional = true, default-features = false }
 candle-transformers = { version = "0.8", optional = true, default-features = false }
 tokenizers          = { version = "0.20", optional = true, default-features = false, features = ["onig"] }
-serde_json          = { version = "1", optional = true }
+serde_json          = { version = "1" }
 
 [dev-dependencies]
 anyhow    = "1"

@@ -1,0 +1,129 @@
+[package]
+name        = "ruview-vitals-worker"
+version     = "0.1.0"
+edition     = "2021"
+description = "Per-Pi WiFi-CSI vital-signs worker for the cognitum cluster (ADR-183 Tier 1)"
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["wifi", "csi", "vital-signs", "edge-ai", "cognitum"]
+categories  = ["network-programming", "embedded", "science"]
+publish     = false
+
+[features]
+default = []
+# Optional path-dep on the upstream RuView vitals extractors. Default
+# off so the workspace builds without RuView checked out (ADR-183 Open
+# Question 1). When on, the worker swaps the in-crate fallback for the
+# upstream `wifi-densepose-vitals` implementation. Once upstream
+# publishes to crates.io, swap to a pinned crate dep.
+ruview-integration = ["dep:wifi-densepose-vitals"]
+# `tls` enables rustls-backed TLS on the gRPC service. Tailscale
+# already encrypts the wire; opt-in for defense-in-depth or non-
+# Tailscale deployments.
+tls = ["tonic/tls"]
+# ADR-183 Tier 3: CPU-path CSI contrastive encoder from ruv/ruview.
+# When enabled, RUVIEW_CSI_MODEL=/path/to/model.safetensors triggers
+# 128-dim contrastive embedding of each vitals reading and posts it
+# to the brain as "spatial-csi-embedding".
+csi-embed = ["dep:ruvector-hailo"]
+
+[dependencies]
+thiserror          = "2"
+tonic              = { version = "0.12", default-features = false, features = ["codegen", "prost", "channel", "server"] }
+prost              = "0.13"
+tokio              = { version = "1", default-features = false, features = ["rt-multi-thread", "macros", "net", "time", "signal", "sync"] }
+tokio-stream       = { version = "0.1", default-features = false, features = ["net"] }
+async-stream       = "0.3"
+futures-core       = "0.3"
+serde              = { version = "1", features = ["derive"] }
+serde_json         = "1"
+tracing            = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "ansi"] }
+reqwest            = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# axum + sha2 used by the optional `ruview-mcp-brain-mini` bin
+# (ADR-183 Tier 2 iter 8). Cheap to pull — both are already transitive
+# deps via tonic + reqwest.
+axum               = { version = "0.7", default-features = false, features = ["json", "http1", "tokio", "query"] }
+sha2               = "0.10"
+
+# Path-dep behind --features ruview-integration. See ADR-183.
+[dependencies.wifi-densepose-vitals]
+path             = "../../../RuView/rust-port/wifi-densepose-rs/crates/wifi-densepose-vitals"
+optional         = true
+default-features = false
+
+# Path-dep behind --features csi-embed. ADR-183 Tier 3.
+# Provides CsiEmbedderCpu (pure-Rust FC forward pass) + CSI_EMBED_DIM constant.
+[dependencies.ruvector-hailo]
+path    = "../ruvector-hailo"
+optional = true
+default-features = false
+
+[build-dependencies]
+tonic-build         = { version = "0.12", default-features = false, features = ["prost"] }
+protoc-bin-vendored = "3"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full", "test-util"] }
+
+[[bin]]
+name = "ruview-vitals-worker"
+path = "src/bin/ruview-vitals-worker.rs"
+
+[[bin]]
+# `ruview-vitals-replay` — synthetic + recorded ADR-018 UDP broadcaster.
+# Used to validate the worker stack end-to-end without the attached
+# ESP32 hardware. Not deployed to the cluster Pis.
+name = "ruview-vitals-replay"
+path = "src/bin/ruview-vitals-replay.rs"
+
+[[bin]]
+# `ruview-mcp-brain-mini` — minimal axum + JSONL-append brain that
+# accepts {category, content} POSTs to /memories and serves them on
+# GET. ADR-183 Tier 2 iter 8: lets cognitum-v0 host its own brain so
+# workers stop POSTing to the ruvultra LAN proxy. Wire-compatible
+# with the existing mcp-brain-serve REST shape so RuView's
+# brain_bridge.rs and our BrainClient both work unchanged.
+name = "ruview-mcp-brain-mini"
+path = "src/bin/ruview-mcp-brain-mini.rs"
+
+[[bin]]
+# `ruview-csi-bench` — ADR-183 Tier 3 iter 17. Cosine-separability
+# benchmark comparing 128-dim CSI contrastive embeddings vs the
+# text-feature baseline. Requires --features csi-embed.
+name = "ruview-csi-bench"
+path = "src/bin/ruview-csi-bench.rs"
+
+[[bin]]
+# `ruview-lora-init` — ADR-183 Tier 3 iter 19. Generates zero-init LoRA
+# adapter JSON (loraB=zeros, loraA=Gaussian) for SONA online adaptation.
+# Requires --features csi-embed.
+name = "ruview-lora-init"
+path = "src/bin/ruview-lora-init.rs"
+
+[[bin]]
+# `ruview-lora-finetune` — ADR-183 Tier 3 iter 20. Offline supervised LoRA
+# fine-tuning on the 5 synthetic activity class archetypes with all 8 CSI
+# features (including motion_score which SONA zeroes out). Optimises the
+# adapter until separability improvement ≥ 2× over text baseline (ADR-183 §17).
+# Requires --features csi-embed.
+name = "ruview-lora-finetune"
+path = "src/bin/ruview-lora-finetune.rs"
+
+[lints.rust]
+# `deny` (not `forbid`) so `build.rs` can opt in for the one
+# `env::set_var(PROTOC, …)` line. Library + bin code stays
+# unsafe-free; the override is reviewed at the call site.
+unsafe_code = "deny"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+cast_precision_loss = "allow"
+cast_lossless = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"

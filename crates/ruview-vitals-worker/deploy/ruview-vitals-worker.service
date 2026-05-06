@@ -1,0 +1,94 @@
+[Unit]
+Description=ruview-vitals-worker — per-Pi WiFi-CSI vital signs (ADR-183 Tier 1)
+Documentation=https://github.com/ruvnet/ruvector
+# Worker depends on Tailscale being up so it can POST to cognitum-v0
+# at :9876. Stay weak (Wants, not Requires) so the worker still tries
+# on hosts where Tailscale boots later.
+Wants=network-online.target tailscaled.service
+After=network-online.target tailscaled.service
+# Iter-205 pattern: cap restart-on-failure loops. Park in `failed`
+# state after 5 failed starts in 60 s instead of cycling forever.
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Service]
+Type=simple
+# Dedicated unprivileged system user — same iter-106 drop-root pattern
+# as ruview-csi-bridge / ruvllm-pi-worker. Created by
+# install-ruview-vitals-worker.sh.
+User=ruvllm-vitals
+Group=ruvllm-vitals
+DynamicUser=no
+
+StateDirectory=ruview-vitals
+StateDirectoryMode=0750
+RuntimeDirectory=ruview-vitals
+RuntimeDirectoryMode=0750
+WorkingDirectory=/var/lib/ruview-vitals
+
+# All knobs from the env file. Defaults baked into the binary keep
+# the unit minimal:
+#   RUVIEW_VITALS_UDP_LISTEN          (default 0.0.0.0:5005)
+#   RUVIEW_VITALS_GRPC_LISTEN         (default 0.0.0.0:50054)
+#   RUVIEW_VITALS_BRAIN_URL           (default http://cognitum-v0:9876)
+#   RUVIEW_VITALS_NODE_NAME           (default `gethostname`)
+#   RUVIEW_VITALS_WINDOW_FRAMES       (default 50)
+#   RUVIEW_VITALS_BRAIN_INTERVAL_SECS (default 60)
+#   RUVIEW_VITALS_VERBOSE             (default false)
+#   RUVIEW_VITALS_LOG                 (default `info`)
+# ADR-183 Tier 3 (--features csi-embed builds only):
+#   RUVIEW_CSI_MODEL                  path to model.safetensors (enables 128-dim embedding POSTs)
+#   RUVIEW_CSI_LORA_ADAPTER           path to node-N.json per-room LoRA adapter (iter 18)
+EnvironmentFile=-/etc/ruview-vitals-worker.env
+
+ExecStart=/usr/local/bin/ruview-vitals-worker
+
+Restart=on-failure
+RestartSec=3
+
+# Resource bounds — the worker holds a 30-second sliding window per
+# active node (≤ 56 sub × 900 frames × 8 B ≈ 400 KiB) plus tonic
+# state. 128 MB cap is generous; the iter-201 ESP32 burst storm test
+# topped out around 28 MiB RSS on a Pi 5.
+LimitNOFILE=4096
+MemoryMax=128M
+# Pin to ~1 core worth of CPU on the workers so we don't fight
+# ruvllm-pi-worker's batch loop. ADR-183 §"Negative consequences"
+# (CPU contention) — vitals updates at ~0.6 Hz so a hard cap is
+# safe.
+CPUQuota=20%
+
+# Hardening — same shape as ruview-csi-bridge.service.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+# Allow SONA adapter saves (ADR-183 Tier 3). ProtectSystem=strict makes
+# the whole filesystem read-only; this punches a write hole for the one
+# directory where per-node LoRA adapter JSONs live.
+ReadWritePaths=/usr/local/share/ruvector
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @mount @swap @reboot
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ProtectClock=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectProc=invisible
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

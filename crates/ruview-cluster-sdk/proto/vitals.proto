@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+// ruview-vitals-worker — per-Pi WiFi-CSI vital signs gRPC surface.
+// ADR-183 Tier 1. Compiled by tonic-build at crate build time.
+package cognitum.ruview.vitals.v1;
+
+service Vitals {
+  // Cheap health probe — coordinator scrapes this for cluster status.
+  rpc Health (HealthRequest) returns (HealthResponse);
+
+  // Server-side counters + uptime. Coordinator stats CLI scrapes this.
+  rpc GetStats (StatsRequest) returns (StatsResponse);
+
+  // Stream readings as they're produced. Long-lived RPC.
+  rpc StreamVitals (StreamVitalsRequest) returns (stream VitalReading);
+
+  // Latest cached reading for one node (or any if node_id == 0).
+  rpc GetLatest (GetLatestRequest) returns (VitalReading);
+}
+
+// Measurement quality, mirrors wifi_densepose_vitals::VitalStatus.
+enum Status {
+  STATUS_UNSPECIFIED = 0;
+  STATUS_UNAVAILABLE = 1;
+  STATUS_VALID       = 2;
+  STATUS_DEGRADED    = 3;
+  STATUS_UNRELIABLE  = 4;
+}
+
+message Estimate {
+  // Beats / breaths per minute. 0.0 when unavailable.
+  double value_bpm  = 1;
+  // Confidence in [0.0, 1.0].
+  double confidence = 2;
+  Status status     = 3;
+}
+
+message VitalReading {
+  // ADR-018 node_id (1 byte from frame header).
+  uint32   node_id          = 1;
+  // Window-center wall clock, microseconds since UNIX epoch.
+  int64    timestamp_us     = 2;
+  Estimate breathing        = 3;
+  Estimate heart_rate       = 4;
+  // Estimated SNR for this window in dB (0..40 typical for indoor WiFi CSI).
+  float    snr_db           = 5;
+  // Number of subcarriers used in this window.
+  uint32   subcarrier_count = 6;
+  // Number of frames in the sliding window.
+  uint32   window_frames    = 7;
+  // Combined / worst-case status across breathing + heart_rate.
+  Status   status           = 8;
+}
+
+message StreamVitalsRequest {
+  // 0 = stream readings from all nodes; non-zero = only this node_id.
+  uint32 node_id_filter = 1;
+}
+
+message GetLatestRequest {
+  // 0 = any node; otherwise return the latest reading for this node_id.
+  uint32 node_id = 1;
+}
+
+message HealthRequest {}
+message HealthResponse {
+  // "ruview-vitals-worker X.Y.Z"
+  string version        = 1;
+  // Hostname of the worker (e.g. "cognitum-cluster-1").
+  string node_name      = 2;
+  // gRPC bind port (50054).
+  uint32 listen_port    = 3;
+  // false during boot or after a UDP listener restart.
+  bool   ready          = 4;
+  uint64 uptime_seconds = 5;
+}
+
+message StatsRequest {}
+message StatsResponse {
+  uint64 packets_received    = 1;
+  // Frames rejected by the ADR-018 parser (bad magic / short).
+  uint64 packets_dropped     = 2;
+  // Sliding-window steps that produced a reading attempt.
+  uint64 windows_processed   = 3;
+  // Readings emitted on the gRPC stream (or to subscribers).
+  uint64 readings_emitted    = 4;
+  // Successful POSTs to the v0 brain at :9876.
+  uint64 brain_posts_ok      = 5;
+  // Failed brain POSTs (timeout / 5xx / connect refused).
+  uint64 brain_posts_failed  = 6;
+  uint64 uptime_seconds      = 7;
+}
