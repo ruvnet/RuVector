@@ -18,6 +18,7 @@ exclude = ["crates/micro-hnsw-wasm", "crates/ruvector-hyperbolic-hnsw", "crates/
     # land in iters 92-97.
     "crates/ruos-thermal"]
 members = [
+    "crates/ruvector-fresh-diskann",
     "crates/ruvector-acorn",
     "crates/ruvector-acorn-wasm",
     "crates/ruvector-rabitq",

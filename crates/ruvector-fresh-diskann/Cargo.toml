@@ -1,0 +1,35 @@
+[package]
+name = "ruvector-fresh-diskann"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "FreshDiskANN: streaming online index maintenance via lazy-consolidation Vamana graph insertion with buffer + tombstone search"
+
+[[bin]]
+name = "fresh-diskann-bench"
+path = "src/main.rs"
+
+[dependencies]
+thiserror = { workspace = true }
+rand = { workspace = true }
+
+[dev-dependencies]
+rand = { workspace = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", priority = -1 }
+unused_imports = "allow"
+dead_code = "allow"
+unused_variables = "allow"
+unused_mut = "allow"
+missing_docs = "allow"
+
+[lints.clippy]
+pedantic = { level = "allow", priority = -2 }
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+too_many_arguments = "allow"
+type_complexity = "allow"
