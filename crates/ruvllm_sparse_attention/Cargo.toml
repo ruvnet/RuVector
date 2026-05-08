@@ -42,3 +42,7 @@ criterion = "0.5"
 [[bench]]
 name = "attention_bench"
 harness = false
+
+[[bench]]
+name = "sparse_mario_bench"
+harness = false
