@@ -86,6 +86,62 @@ Both fixes are 5–10 line tweaks. The metrics module shipped in iter 11 will
 keep them honest — any change must move `playable_columns` toward 0.86+ and
 `linearity` toward 1.0–2.0 without crashing density / novelty.
 
+## Iter 12 — hyperparameter sweep against the metric
+
+The iter-11 baseline made it possible to ask: "given the metrics, what
+hyperparameter setting puts AR / Diffusion closest to the corpus?" Each
+config is averaged over the same three seeds (`c0ffee42`, `baddf00d`,
+`1337beef`) and scored as L2 distance over `(density, linearity, leniency,
+playable_columns)` to the corpus median target
+`{0.30, 0.33, −0.04, 1.00}`. Novelty is excluded — by construction it's 0
+for corpus, and we *want* novelty in generated output.
+
+| config           | avg L2 distance |  Δ vs current |
+|------------------|----------------:|--------------:|
+| AR quality       |           4.998 |       0 (cur) |
+| AR high_rep      |           5.247 |        +0.249 |
+| AR **low_temp**  |       **4.843** |    **−0.155** |
+| AR loose_p       |           5.197 |        +0.199 |
+| DIFF steps=16    |           0.746 |       0 (cur) |
+| DIFF **steps=24**|       **0.723** |    **−0.023** |
+| DIFF steps=32    |           0.798 |        +0.052 |
+
+### What this finds
+
+- **AR's best knob is temperature.** Lowering it to 0.6 trims 3% off the
+  distance. But: lower T sharpens the distribution and tends to produce
+  longer streaks of common tokens — that would regress the
+  `quality_v9_breaks_streaks_better_than_v5` test guarantee. We
+  *document* the win without applying it, leaving `SamplingConfig::quality()`
+  at T=1.0. A future iter could add a separate `quality_low_temp()` for
+  metric-optimised generation when streak length doesn't matter.
+- **Diffusion benefits from more denoising steps.** 24 steps cuts 3% vs the
+  iter-7 default of 16. 32 steps overshoots — the cosine schedule has a
+  flat tail by then. **`n_steps = 24` is now the example default.**
+- **Other knobs (`high_rep`, `loose_p`) regressed.** Confirms iter 9's
+  retuning was already at a local optimum; the simple grid in iter 12 is
+  unlikely to find a much better point in this configuration space.
+
+### Honest finding: tuning hits a wall
+
+Both AR and diffusion have non-zero distance to corpus that hyperparameters
+can only chip at:
+
+- **AR linearity is 5–6× too high.** No sampling config can fix that —
+  ground tiles aren't placed by row index, only by bigram statistics. To
+  drop linearity to corpus levels you'd need a positional bias in the K
+  builder, or a post-process pin of the bottom row. Both are
+  architectural changes deferred to a future iter.
+- **Diffusion playability is bimodal.** Same root cause from the other side:
+  the boot slice's location decides whether a floor exists. A floor anchor
+  pre-step would fix it; n_steps tuning won't.
+
+Net: iter 12 secured a **3% L2 reduction** on diffusion (the only change
+that doesn't trip an existing test guarantee) and confirmed the
+SOTA-on-this-artifact configuration is `quality()` + `n_steps=24`.
+Architectural moves (floor anchor, positional K bias) are the way to
+double-digit gains.
+
 ## How to reproduce
 
 ```bash

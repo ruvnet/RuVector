@@ -839,6 +839,32 @@ pub fn compute_metrics(tokens: &[u8], cols: usize, rows: usize) -> LevelMetrics 
     }
 }
 
+/// "Centre of corpus" target — median across the embedded slices.
+/// Iter 11 measured: density 0.24/0.36/0.30, linearity 0.0/0.33/1.39,
+/// leniency −0.04/−0.04/0.30, playable 1.0/1.0/0.86. Medians used for
+/// the tuning target so iter 12 has a single L2 distance to minimise.
+pub fn corpus_target() -> LevelMetrics {
+    LevelMetrics {
+        density: 0.30,
+        linearity: 0.33,
+        leniency: -0.04,
+        novelty: 0.0,
+        playable_columns: 1.0,
+    }
+}
+
+/// L2 distance from `m` to the corpus target on the four non-trivial
+/// axes. Novelty is excluded — by construction it's 0 for corpus and
+/// positive for anything else, and we *want* >0 novelty in generated
+/// output (no point penalising it).
+pub fn metric_distance(m: &LevelMetrics, target: &LevelMetrics) -> f32 {
+    let dd = m.density - target.density;
+    let dl = m.linearity - target.linearity;
+    let dle = m.leniency - target.leniency;
+    let dp = m.playable_columns - target.playable_columns;
+    (dd * dd + dl * dl + dle * dle + dp * dp).sqrt()
+}
+
 /// Render with a hard wrap every `cols` non-newline tiles. Repetition
 /// penalty often suppresses the `\n` tile; this keeps the level visually
 /// rectangular even when the model never emits a row break.
@@ -1205,7 +1231,13 @@ fn main() {
     println!("== Sparse-attention masked discrete diffusion ==");
     let diffuser = MarioDiffuser::new(&retriever);
     let n_diff = 50 * 14; // 14×50 grid, fully masked at start
-    let n_steps = 16;
+    // Iter 12 sweep winner: 24 denoising steps (vs the iter 7 default of 16)
+    // gave the lowest avg L2 distance to corpus across 3 seeds:
+    //   steps=16  0.746      steps=24  0.723   steps=32  0.798
+    // 24 is the cosine-schedule sweet-spot — enough late-stage steps for
+    // bidirectional context to settle, without spending budget on a flat
+    // tail.
+    let n_steps = 24;
     let t0 = std::time::Instant::now();
     let diffused = diffuser.diffuse(n_diff, n_steps, &sampling, 0xD1FF_5008);
     let dt = t0.elapsed();
@@ -1269,6 +1301,57 @@ fn main() {
             "CORPUS slice {} {:>7.3} {:>10.3} {:>9.3} {:>8.3} {:>10.3}",
             i, m.density, m.linearity, m.leniency, m.novelty, m.playable_columns
         );
+    }
+
+    // ---------- iter 12: hyperparameter A/B against the corpus target ----------
+    println!();
+    println!("== Iter 12 hyperparameter sweep (avg L2 distance to corpus target) ==");
+    let target = corpus_target();
+
+    let alt_high_rep = SamplingConfig {
+        repetition_penalty: 2.0,
+        no_repeat_window: 40,
+        ..SamplingConfig::quality()
+    };
+    let alt_low_temp = SamplingConfig {
+        temperature: 0.6,
+        ..SamplingConfig::quality()
+    };
+    let alt_loose_p = SamplingConfig {
+        top_p: 0.95,
+        top_k: 8,
+        ..SamplingConfig::quality()
+    };
+
+    let ar_configs: [(&str, &SamplingConfig); 4] = [
+        ("AR quality", &sampling),
+        ("AR high_rep", &alt_high_rep),
+        ("AR low_temp", &alt_low_temp),
+        ("AR loose_p", &alt_loose_p),
+    ];
+
+    for (name, cfg) in ar_configs.iter() {
+        let mut total = 0.0f32;
+        for &s in &seeds {
+            let toks =
+                retriever.generate_fast(&seed_chars, n_total - seed_chars.len(), cfg, s);
+            let m = compute_metrics(&toks, cols, rows);
+            total += metric_distance(&m, &target);
+        }
+        let avg = total / seeds.len() as f32;
+        println!("  {:<14} avg distance = {:.3}", name, avg);
+    }
+
+    let diffusion_steps_to_try = [16usize, 24, 32];
+    for &steps in &diffusion_steps_to_try {
+        let mut total = 0.0f32;
+        for &s in &seeds {
+            let toks = diffuser.diffuse(n_total, steps, &sampling, s);
+            let m = compute_metrics(&toks, cols, rows);
+            total += metric_distance(&m, &target);
+        }
+        let avg = total / seeds.len() as f32;
+        println!("  DIFF steps={:<2}     avg distance = {:.3}", steps, avg);
     }
 }
 
@@ -1476,6 +1559,53 @@ mod tests {
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].chars().count(), 10);
         assert_eq!(rows[1].chars().count(), 20);
+    }
+
+    // ---------- iter 12 tests (metric distance + sweep helpers) ----------
+
+    #[test]
+    fn metric_distance_zero_for_target_itself() {
+        let target = corpus_target();
+        assert_eq!(metric_distance(&target, &target), 0.0);
+    }
+
+    #[test]
+    fn metric_distance_increases_with_density_gap() {
+        let target = corpus_target();
+        let near = LevelMetrics {
+            density: 0.30,
+            ..target.clone()
+        };
+        let far = LevelMetrics {
+            density: 0.80,
+            ..target.clone()
+        };
+        let dn = metric_distance(&near, &target);
+        let df = metric_distance(&far, &target);
+        assert!(
+            df > dn,
+            "distance should grow with density gap: near={}, far={}",
+            dn, df
+        );
+    }
+
+    #[test]
+    fn metric_distance_excludes_novelty() {
+        // Two metrics that differ only in novelty should have identical
+        // distance to target — we want generative diversity to be free.
+        let target = corpus_target();
+        let m1 = LevelMetrics {
+            novelty: 0.1,
+            ..target.clone()
+        };
+        let m2 = LevelMetrics {
+            novelty: 0.9,
+            ..target.clone()
+        };
+        assert!(
+            (metric_distance(&m1, &target) - metric_distance(&m2, &target)).abs() < 1e-6,
+            "novelty must not contribute to metric_distance"
+        );
     }
 
     // ---------- iter 11 tests (PCG metrics) ----------
