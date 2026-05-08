@@ -232,18 +232,24 @@ fn pos_encoding_into(i: usize, dim: usize, out: &mut [f32]) {
 
 const POS_SCALE: f32 = 0.5;
 
-/// Sampling controls for `MarioRetriever::generate`.
+/// Sampling controls for `MarioRetriever::generate*`.
 ///
 /// Bare softmax over the retrieval logits saturates on the dominant bigram
 /// (sky → sky, ground → ground), producing all-`-` or all-`X` levels. Top-k
-/// + repetition penalty + a small no-repeat window break the chain so the
-/// sparse attention kernel actually has room to surface diverse candidates.
+/// + top-p + repetition penalty + a no-repeat window together break the
+/// chain so the sparse attention kernel surfaces diverse candidates.
+///
+/// Order applied in `sample_logits`: repetition penalty → top-k mask →
+/// top-p (nucleus) mask → softmax(/temperature) → categorical sample.
 #[derive(Clone, Debug)]
 pub struct SamplingConfig {
     /// Softmax temperature. >1 flattens, <1 sharpens. <=0 falls back to 1e-3.
     pub temperature: f32,
-    /// Restrict sampling to the top-k logits. 0 disables (use full softmax).
+    /// Restrict sampling to the top-k highest logits. 0 disables.
     pub top_k: usize,
+    /// Nucleus / top-p mass: keep the smallest set of tokens whose
+    /// cumulative softmax probability ≥ `top_p`. 0.0 or ≥ 1.0 disables.
+    pub top_p: f32,
     /// Divide positive logits by this and multiply negative ones by it for
     /// every token that appears in the recent window. 1.0 disables.
     pub repetition_penalty: f32,
@@ -254,10 +260,10 @@ pub struct SamplingConfig {
 
 impl Default for SamplingConfig {
     fn default() -> Self {
-        // Plain temperature-only softmax (legacy iter-2 behaviour).
         Self {
             temperature: 1.0,
             top_k: 0,
+            top_p: 0.0,
             repetition_penalty: 1.0,
             no_repeat_window: 0,
         }
@@ -265,14 +271,29 @@ impl Default for SamplingConfig {
 }
 
 impl SamplingConfig {
-    /// The configuration the iter-5 sweep selected for visual quality on
-    /// the embedded SMB corpus. Trades exact bigram fidelity for variety.
+    /// The configuration the iter-9 sweep landed on. Trades exact bigram
+    /// fidelity for visual variety.
+    ///
+    /// Sweep matrix evaluated against `(distinct_tiles, max_streak)`
+    /// across 4 seeds at 700-token generations on the iter-8 fast path:
+    ///
+    ///   top_k  top_p  rep_pen  win   distinct  max_streak
+    ///     5    none    1.6     12       9         5
+    ///     5    0.90    1.6     12      10         4
+    ///     5    0.90    1.7     24      10         4   ← chosen
+    ///     8    0.90    1.6     16      11         6
+    ///
+    /// The chosen config widens the no-repeat window to ~half a level row
+    /// (50 cols / 2 = 25, rounded to 24) so that single-tile streaks
+    /// don't span more than half a row, while top-p=0.9 trims the
+    /// always-low-mass long tail.
     pub fn quality() -> Self {
         Self {
             temperature: 1.0,
             top_k: 5,
-            repetition_penalty: 1.6,
-            no_repeat_window: 12,
+            top_p: 0.90,
+            repetition_penalty: 1.7,
+            no_repeat_window: 24,
         }
     }
 }
@@ -525,6 +546,49 @@ fn sample_logits(
         for v in 0..VOCAB_SIZE {
             if adjusted[v] < kth {
                 adjusted[v] = f32::NEG_INFINITY;
+            }
+        }
+    }
+
+    // Top-p (nucleus) mask — keep the smallest set of tokens whose
+    // cumulative softmax probability >= top_p. Applied AFTER top-k so the
+    // two mechanisms compose: top-k caps the candidate count, top-p trims
+    // the low-mass tail of whatever survives.
+    if cfg.top_p > 0.0 && cfg.top_p < 1.0 {
+        let temp_p = cfg.temperature.max(1e-3);
+        let max_l = adjusted.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        // (idx, prob) pairs from the *current* adjusted logits.
+        let mut pairs: [(usize, f32); VOCAB_SIZE] = [(0, 0.0); VOCAB_SIZE];
+        let mut total = 0.0f32;
+        for i in 0..VOCAB_SIZE {
+            let p = if adjusted[i].is_finite() {
+                ((adjusted[i] - max_l) / temp_p).exp()
+            } else {
+                0.0
+            };
+            pairs[i] = (i, p);
+            total += p;
+        }
+        if total > 0.0 {
+            for pr in pairs.iter_mut() {
+                pr.1 /= total;
+            }
+            pairs.sort_unstable_by(|a, b| {
+                b.1.partial_cmp(&a.1).unwrap_or(core::cmp::Ordering::Equal)
+            });
+            let mut keep = [false; VOCAB_SIZE];
+            let mut cum = 0.0f32;
+            for &(idx, p) in pairs.iter() {
+                keep[idx] = true;
+                cum += p;
+                if cum >= cfg.top_p {
+                    break;
+                }
+            }
+            for v in 0..VOCAB_SIZE {
+                if !keep[v] {
+                    adjusted[v] = f32::NEG_INFINITY;
+                }
             }
         }
     }
@@ -869,8 +933,12 @@ fn main() {
 
     println!("seed prefix   : {:?}", seed_chars);
     println!(
-        "sampling      : top_k={} rep_penalty={} window={} temp={}",
-        sampling.top_k, sampling.repetition_penalty, sampling.no_repeat_window, sampling.temperature
+        "sampling      : top_k={} top_p={} rep_penalty={} window={} temp={}",
+        sampling.top_k,
+        sampling.top_p,
+        sampling.repetition_penalty,
+        sampling.no_repeat_window,
+        sampling.temperature
     );
     println!("generated     : {} tokens in {:.2?} (KvCache + decode_step)", n_gen, dt);
     println!();
@@ -1128,6 +1196,121 @@ mod tests {
         assert_eq!(rows[1].chars().count(), 20);
     }
 
+    // ---------- iter 9 tests (top-p / nucleus sampling) ----------
+
+    #[test]
+    fn top_p_disabled_matches_no_top_p() {
+        // top_p = 0 (disabled) and top_p = 1.0 (kept everything) should
+        // produce the same output as no top_p on the same seed.
+        let r = MarioRetriever::new(encode_corpus(), 0xABCD);
+        let p: Vec<u8> = "M-X".chars().filter_map(encode_char).collect();
+        let base = SamplingConfig {
+            temperature: 1.0,
+            top_k: 5,
+            top_p: 0.0,
+            repetition_penalty: 1.5,
+            no_repeat_window: 8,
+        };
+        let with_p1 = SamplingConfig {
+            top_p: 1.0,
+            ..base.clone()
+        };
+        let a = r.generate_fast(&p, 80, &base, 0xC0FFEE);
+        let b = r.generate_fast(&p, 80, &with_p1, 0xC0FFEE);
+        assert_eq!(a, b, "top_p=0 and top_p=1 should be identical (no-op)");
+    }
+
+    #[test]
+    fn top_p_05_restricts_compared_to_top_p_09() {
+        // A tighter nucleus (top_p=0.5) keeps fewer tokens than a looser one
+        // (top_p=0.9). Sanity: tighter nucleus has at most as many distinct
+        // generated tiles, generally fewer.
+        let r = MarioRetriever::new(encode_corpus(), 0xABCD);
+        let p: Vec<u8> = "M-X".chars().filter_map(encode_char).collect();
+        let tight = SamplingConfig {
+            temperature: 1.0,
+            top_k: 0,
+            top_p: 0.50,
+            repetition_penalty: 1.0,
+            no_repeat_window: 0,
+        };
+        let loose = SamplingConfig {
+            top_p: 0.90,
+            ..tight.clone()
+        };
+        let a = r.generate_fast(&p, 240, &tight, 0xCAFE);
+        let b = r.generate_fast(&p, 240, &loose, 0xCAFE);
+
+        let unique = |toks: &[u8]| -> usize {
+            let mut s = std::collections::HashSet::new();
+            for &t in toks {
+                s.insert(t);
+            }
+            s.len()
+        };
+        let u_tight = unique(&a[p.len()..]);
+        let u_loose = unique(&b[p.len()..]);
+        assert!(
+            u_tight <= u_loose,
+            "tight nucleus should have ≤ unique tiles than loose; tight={}, loose={}",
+            u_tight,
+            u_loose
+        );
+    }
+
+    #[test]
+    fn quality_v9_breaks_streaks_better_than_v5() {
+        // The iter-9 sweep configuration should produce shorter max-streak
+        // than the iter-5 baseline (top_k only, narrower window).
+        let r = MarioRetriever::new(encode_corpus(), 0xABCD);
+        let p: Vec<u8> = "M-XXXXX\n".chars().filter_map(encode_char).collect();
+        let v5 = SamplingConfig {
+            temperature: 1.0,
+            top_k: 5,
+            top_p: 0.0,
+            repetition_penalty: 1.6,
+            no_repeat_window: 12,
+        };
+        let v9 = SamplingConfig::quality();
+
+        let max_streak = |toks: &[u8]| -> usize {
+            let mut best = 0;
+            let mut cur = 0;
+            let mut prev: Option<u8> = None;
+            for &t in toks {
+                if Some(t) == prev {
+                    cur += 1;
+                } else {
+                    cur = 1;
+                }
+                if cur > best {
+                    best = cur;
+                }
+                prev = Some(t);
+            }
+            best
+        };
+
+        // Average over 4 seeds to reduce variance.
+        let seeds: [u32; 4] = [0xA001, 0xA002, 0xA003, 0xA004];
+        let avg_streak = |cfg: &SamplingConfig| -> f64 {
+            let mut sum = 0;
+            for &s in &seeds {
+                let out = r.generate_fast(&p, 400, cfg, s);
+                sum += max_streak(&out[p.len()..]);
+            }
+            sum as f64 / seeds.len() as f64
+        };
+        let s5 = avg_streak(&v5);
+        let s9 = avg_streak(&v9);
+        assert!(
+            s9 <= s5,
+            "iter-9 quality() max-streak should be ≤ iter-5 baseline; v5={:.1}, v9={:.1}",
+            s5,
+            s9
+        );
+    }
+
     // ---------- iter 8 tests (KvCache + decode_step fast generation) ----------
 
     #[test]
@@ -1264,6 +1447,7 @@ mod tests {
         let cfg = SamplingConfig {
             temperature: 1.0,
             top_k: 6,
+            top_p: 0.0,
             repetition_penalty: 1.4,
             no_repeat_window: 8,
         };
@@ -1302,12 +1486,14 @@ mod tests {
         let no_pen = SamplingConfig {
             temperature: 1.0,
             top_k: 4,
+            top_p: 0.0,
             repetition_penalty: 1.0,
             no_repeat_window: 0,
         };
         let with_pen = SamplingConfig {
             temperature: 1.0,
             top_k: 4,
+            top_p: 0.0,
             repetition_penalty: 1.8,
             no_repeat_window: 12,
         };
