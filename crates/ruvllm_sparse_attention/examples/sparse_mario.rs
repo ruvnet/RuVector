@@ -626,6 +626,93 @@ pub fn render_level(tokens: &[u8]) -> String {
 }
 
 // =================================================================
+// Iter 13 — comparison baselines
+//
+// Two reference pipelines that aren't built on `ruvllm_sparse_attention`
+// at all. They give us "what does this metric mean for a trivial vs a
+// classical generator?" so the AR / diffusion numbers from iter 11
+// have a context.
+// =================================================================
+
+/// Uniform-random baseline: each tile is drawn IID from the full vocab.
+/// Lower bound on every quality dimension.
+pub fn uniform_random_generate(n: usize, seed: u32) -> Vec<u8> {
+    let mut state = seed.max(1);
+    let v = VOCAB_SIZE as u32;
+    (0..n)
+        .map(|_| (xorshift32(&mut state) % v) as u8)
+        .collect()
+}
+
+/// First-order Markov chain over the embedded corpus — the classical
+/// non-neural bigram baseline. Exact P(next | curr), no embeddings, no
+/// attention. This is roughly what AR Sparse-Mario approximates via
+/// random embeddings + attention; the gap between the two tells you
+/// what the attention-as-memory machinery costs in metric distance.
+pub struct Markov1 {
+    /// `cum_probs[v]` is a sorted-by-cumulative-probability list
+    /// `[(next_token, cum_prob)]` covering token `v`'s outgoing
+    /// distribution. Sampling: draw u ∈ [0,1), pick first cum ≥ u.
+    cum_probs: Vec<Vec<(u8, f32)>>,
+}
+
+impl Markov1 {
+    pub fn from_corpus(corpus: &[u8]) -> Self {
+        let v = VOCAB_SIZE;
+        let mut counts = vec![vec![0u32; v]; v];
+        for w in corpus.windows(2) {
+            let a = w[0] as usize;
+            let b = w[1] as usize;
+            if a < v && b < v {
+                counts[a][b] += 1;
+            }
+        }
+        let mut cum_probs = Vec::with_capacity(v);
+        for from in 0..v {
+            let total: u32 = counts[from].iter().sum();
+            let row = if total == 0 {
+                // Fallback: uniform over the vocab.
+                (0..v)
+                    .map(|t| (t as u8, (t as f32 + 1.0) / v as f32))
+                    .collect()
+            } else {
+                let mut cum = 0.0f32;
+                (0..v)
+                    .map(|t| {
+                        cum += counts[from][t] as f32 / total as f32;
+                        (t as u8, cum)
+                    })
+                    .collect()
+            };
+            cum_probs.push(row);
+        }
+        Self { cum_probs }
+    }
+
+    pub fn generate(&self, prefix: &[u8], n: usize, seed: u32) -> Vec<u8> {
+        let mut state = seed.max(1);
+        let mut out = prefix.to_vec();
+        if out.is_empty() {
+            out.push(0); // sky as default seed
+        }
+        for _ in 0..n {
+            let last = *out.last().unwrap();
+            let row = &self.cum_probs[last as usize];
+            let r = next_uniform(&mut state);
+            let mut chosen = row[row.len() - 1].0;
+            for &(t, cum) in row.iter() {
+                if r < cum {
+                    chosen = t;
+                    break;
+                }
+            }
+            out.push(chosen);
+        }
+        out
+    }
+}
+
+// =================================================================
 // Iter 11 — PCG metrics
 //
 // Implements the standard quantitative measures for procedurally-
@@ -1353,6 +1440,68 @@ fn main() {
         let avg = total / seeds.len() as f32;
         println!("  DIFF steps={:<2}     avg distance = {:.3}", steps, avg);
     }
+
+    // ---------- iter 13: cross-baseline comparison ----------
+    println!();
+    println!("== Iter 13 cross-baseline comparison (avg over 3 seeds) ==");
+    println!(
+        "{:<22} {:>8} {:>10} {:>9} {:>8} {:>10} {:>10}",
+        "pipeline", "density", "linearity", "leniency", "novelty", "playable", "L2_dist"
+    );
+    let markov = Markov1::from_corpus(&tokens);
+
+    let mut summarise = |name: &str, gens: &[Vec<u8>]| {
+        let mut acc_d = 0.0f32;
+        let mut acc_l = 0.0f32;
+        let mut acc_le = 0.0f32;
+        let mut acc_n = 0.0f32;
+        let mut acc_p = 0.0f32;
+        let mut acc_dist = 0.0f32;
+        for g in gens {
+            let m = compute_metrics(g, cols, rows);
+            acc_d += m.density;
+            acc_l += m.linearity;
+            acc_le += m.leniency;
+            acc_n += m.novelty;
+            acc_p += m.playable_columns;
+            acc_dist += metric_distance(&m, &target);
+        }
+        let n = gens.len() as f32;
+        println!(
+            "{:<22} {:>8.3} {:>10.3} {:>9.3} {:>8.3} {:>10.3} {:>10.3}",
+            name,
+            acc_d / n,
+            acc_l / n,
+            acc_le / n,
+            acc_n / n,
+            acc_p / n,
+            acc_dist / n
+        );
+    };
+
+    let ar_gens: Vec<Vec<u8>> = seeds
+        .iter()
+        .map(|&s| retriever.generate_fast(&seed_chars, n_total - seed_chars.len(), &sampling, s))
+        .collect();
+    let diff_gens: Vec<Vec<u8>> = seeds
+        .iter()
+        .map(|&s| diffuser.diffuse(n_total, n_steps, &sampling, s))
+        .collect();
+    let unif_gens: Vec<Vec<u8>> = seeds
+        .iter()
+        .map(|&s| uniform_random_generate(n_total, s))
+        .collect();
+    let markov_gens: Vec<Vec<u8>> = seeds
+        .iter()
+        .map(|&s| markov.generate(&seed_chars, n_total - seed_chars.len(), s))
+        .collect();
+    let corpus_gens: Vec<Vec<u8>> = LEVELS.iter().map(|l| encode_level(l)).collect();
+
+    summarise("Sparse-Mario AR", &ar_gens);
+    summarise("Sparse-Mario diffusion", &diff_gens);
+    summarise("Markov-1 (corpus bigram)", &markov_gens);
+    summarise("Uniform random", &unif_gens);
+    summarise("Corpus (target)", &corpus_gens);
 }
 
 #[cfg(test)]
@@ -1559,6 +1708,59 @@ mod tests {
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].chars().count(), 10);
         assert_eq!(rows[1].chars().count(), 20);
+    }
+
+    // ---------- iter 13 tests (baselines: uniform random + Markov-1) ----------
+
+    #[test]
+    fn uniform_random_outputs_in_vocab() {
+        let toks = uniform_random_generate(700, 0xABCD);
+        assert_eq!(toks.len(), 700);
+        for &t in &toks {
+            assert!((t as usize) < VOCAB_SIZE, "out-of-vocab token {}", t);
+        }
+    }
+
+    #[test]
+    fn uniform_random_is_deterministic() {
+        let a = uniform_random_generate(200, 0xCAFE);
+        let b = uniform_random_generate(200, 0xCAFE);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn uniform_random_is_far_from_corpus() {
+        // L2 distance to corpus target should be large for a uniform-random
+        // grid (it's saturating density and ground placement equally).
+        let toks = uniform_random_generate(700, 0xFACE);
+        let m = compute_metrics(&toks, 50, 14);
+        let dist = metric_distance(&m, &corpus_target());
+        assert!(
+            dist > 1.5,
+            "uniform random should be > 1.5 L2 from corpus, got {:.3}",
+            dist
+        );
+    }
+
+    #[test]
+    fn markov_one_is_deterministic() {
+        let corpus = encode_corpus();
+        let m1 = Markov1::from_corpus(&corpus);
+        let m2 = Markov1::from_corpus(&corpus);
+        let p: Vec<u8> = "M-X".chars().filter_map(encode_char).collect();
+        let a = m1.generate(&p, 64, 0xBEEF);
+        let b = m2.generate(&p, 64, 0xBEEF);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn markov_one_outputs_in_vocab() {
+        let corpus = encode_corpus();
+        let m = Markov1::from_corpus(&corpus);
+        let out = m.generate(&[0u8; 0], 700, 0xC0DE);
+        for &t in &out {
+            assert!((t as usize) < VOCAB_SIZE, "out-of-vocab token {}", t);
+        }
     }
 
     // ---------- iter 12 tests (metric distance + sweep helpers) ----------
