@@ -229,6 +229,8 @@ members = [
     "examples/real-eeg-multi-seizure",
     # ruvllm sparse attention kernel for Hailo-10H cluster (ADR-183 – ADR-190)
     "crates/ruvllm_sparse_attention",
+    # Generic retrieval LM + masked discrete diffusion built on the kernel
+    "crates/ruvllm_retrieval_diffusion",
 ]
 resolver = "2"
 

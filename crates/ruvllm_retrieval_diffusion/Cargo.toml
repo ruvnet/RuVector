@@ -1,0 +1,23 @@
+[package]
+name = "ruvllm_retrieval_diffusion"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Corpus-agnostic training-free retrieval LM and masked discrete diffusion built on ruvllm_sparse_attention. Works on any small-vocab token domain — game levels, drum patterns, configs, MIDI, visual tokens."
+authors = ["ruvnet <ruv@ruv.net>"]
+repository = "https://github.com/ruvnet/RuVector"
+homepage = "https://github.com/ruvnet/RuVector/tree/main/crates/ruvllm_retrieval_diffusion"
+readme = "README.md"
+keywords = ["retrieval", "diffusion", "sparse-attention", "pcg", "no-llm"]
+categories = ["algorithms", "science", "no-std"]
+rust-version = "1.77"
+
+[features]
+default = ["std"]
+std = ["ruvllm_sparse_attention/std"]
+
+[dependencies]
+ruvllm_sparse_attention = { path = "../ruvllm_sparse_attention", default-features = false }
+
+[dev-dependencies]
+# Examples / tests only
