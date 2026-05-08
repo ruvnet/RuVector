@@ -229,6 +229,8 @@ members = [
     "examples/real-eeg-multi-seizure",
     # ruvllm sparse attention kernel for Hailo-10H cluster (ADR-183 – ADR-190)
     "crates/ruvllm_sparse_attention",
+    # Locally-Adaptive Vector Quantization (ADR-193, nightly research 2026-05-08)
+    "crates/ruvector-lvq",
 ]
 resolver = "2"
 
