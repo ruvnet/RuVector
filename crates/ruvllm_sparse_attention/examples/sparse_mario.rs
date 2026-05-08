@@ -452,6 +452,29 @@ pub fn render_level(tokens: &[u8]) -> String {
     tokens.iter().map(|&t| decode_token(t)).collect()
 }
 
+/// Render with a hard wrap every `cols` non-newline tiles. Repetition
+/// penalty often suppresses the `\n` tile; this keeps the level visually
+/// rectangular even when the model never emits a row break.
+pub fn render_level_wrapped(tokens: &[u8], cols: usize) -> String {
+    let nl_id = encode_char('\n').unwrap();
+    let mut out = String::with_capacity(tokens.len() + tokens.len() / cols);
+    let mut col = 0usize;
+    for &t in tokens {
+        if t == nl_id {
+            out.push('\n');
+            col = 0;
+            continue;
+        }
+        if col == cols {
+            out.push('\n');
+            col = 0;
+        }
+        out.push(decode_token(t));
+        col += 1;
+    }
+    out
+}
+
 fn main() {
     let tokens = encode_corpus();
     let dist = tile_distribution(&tokens);
@@ -491,9 +514,13 @@ fn main() {
     let t0 = std::time::Instant::now();
     let generated = retriever.generate(&seed_chars, n_gen, &sampling, 0xC0FF_EE42);
     let dt = t0.elapsed();
-    let rendered = render_level(&generated);
+    let rendered = render_level_wrapped(&generated, 50);
 
     println!("seed prefix   : {:?}", seed_chars);
+    println!(
+        "sampling      : top_k={} rep_penalty={} window={} temp={}",
+        sampling.top_k, sampling.repetition_penalty, sampling.no_repeat_window, sampling.temperature
+    );
     println!("generated     : {} tokens in {:.2?}", n_gen, dt);
     println!();
     println!("{}", rendered);
@@ -687,6 +714,37 @@ mod tests {
         let a = r.generate(&p, 32, &cfg, 0x1111);
         let b = r.generate(&p, 32, &cfg, 0x2222);
         assert_eq!(a, b, "top_k=1 should be greedy regardless of sampler seed");
+    }
+
+    #[test]
+    fn render_level_wrapped_rectangular() {
+        // No embedded newlines — every row should be exactly `cols` chars.
+        let toks: Vec<u8> = (0..200).map(|i| (i % 3) as u8).collect();
+        let s = render_level_wrapped(&toks, 50);
+        for (r, row) in s.lines().enumerate() {
+            assert_eq!(
+                row.chars().count(),
+                50,
+                "row {} should have width 50",
+                r
+            );
+        }
+        assert_eq!(s.lines().count(), 4, "200 chars / 50 cols = 4 rows");
+    }
+
+    #[test]
+    fn render_level_wrapped_respects_explicit_newlines() {
+        // Explicit newline tokens reset the column counter; output rows can
+        // therefore be shorter than `cols` (a model-emitted row break wins).
+        let nl = encode_char('\n').unwrap();
+        let mut toks = vec![1u8; 10]; // 10 ground tiles
+        toks.push(nl);
+        toks.extend(std::iter::repeat(0u8).take(20)); // 20 sky
+        let s = render_level_wrapped(&toks, 50);
+        let rows: Vec<&str> = s.lines().collect();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].chars().count(), 10);
+        assert_eq!(rows[1].chars().count(), 20);
     }
 
     #[test]
