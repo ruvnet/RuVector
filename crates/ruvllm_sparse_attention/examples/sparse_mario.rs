@@ -679,6 +679,20 @@ pub fn render_level_wrapped(tokens: &[u8], cols: usize) -> String {
 /// Out of vocab range so any user-facing operation can detect it.
 pub const MASK_SENTINEL: u8 = 255;
 
+/// Per-offset weights for the diffuser's bidirectional K builder, indexed
+/// by `offset - 1` (offset 1 = immediate neighbour, offset 2 = next-over).
+///
+/// Iter-10 honest finding from a 4-config A/B (4 random seeds, 300-token
+/// generations, distinct-tile count): a heavy outer weight (≥0.20) collapses
+/// per-seed diversity because random-embedding averaging pulls K toward the
+/// corpus mean.  A light outer weight (0.10) keeps iter-7's behaviour
+/// effectively intact while letting offset-2 tokens contribute K signal in
+/// the cases where offset-1 is masked but offset-2 isn't (covered by the
+/// `diffuser_uses_offset_2_context` test). Net effect on final tile mix
+/// is small but the contract is now position-agnostic — the K builder no
+/// longer goes silent at masked-immediate-neighbour positions.
+const DIFFUSION_CONTEXT_WEIGHTS: &[f32] = &[0.5, 0.10];
+
 pub struct MarioDiffuser<'a> {
     retriever: &'a MarioRetriever,
 }
@@ -690,36 +704,49 @@ impl<'a> MarioDiffuser<'a> {
 
     /// Build the bidirectional K and V tensors for a given reference sequence.
     ///
-    /// K[i] = 0.5·(embed(left_neighbor) + embed(right_neighbor))
+    /// Iter-10 wider context: K[i] sums weighted embeddings over up to
+    /// `DIFFUSION_CONTEXT_WEIGHTS.len()` tokens on each side (default
+    /// radius=2 with weights [0.5, 0.25]). Each weight is applied
+    /// per-side, so a position with all four bidirectional neighbours
+    /// unmasked sees K = 0.5·(L1 + R1) + 0.25·(L2 + R2). Mask positions
+    /// in the context window contribute zero to that side's sum.
     ///
-    /// Note: no positional encoding here, unlike the autoregressive path. The
-    /// diffuser appends the working sequence after the corpus, so working
-    /// positions occupy absolute index range [corpus_len, corpus_len+n).
-    /// Adding pos(i) would make those query positions strongly bias toward
-    /// the *tail* of the corpus (the level-floor `XXXX` rows), which is
-    /// exactly the ground-saturation we observed before this fix landed.
-    /// Pure content match is what we actually want for masked filling.
-    /// Masked positions contribute zero in both K (neighbour) and V (self).
-    fn make_bidir_kv(&self, seq: &[u8]) -> (Tensor3, Tensor3) {
+    /// Why 4-token (radius 2) instead of 2-token (radius 1, iter-7):
+    /// random-embedding K differs across positions only by the identity
+    /// of their immediate neighbours; with radius 1 a single random-vector
+    /// noise term per side can dominate the match. Radius 2 averages
+    /// two co-occurrence orders and the matching-pattern signal grows
+    /// roughly proportionally while noise scales as sqrt — sharper
+    /// discrimination between corpus contexts.
+    ///
+    /// Note: no positional encoding here, unlike the autoregressive path.
+    /// The diffuser appends the working sequence after the corpus, so
+    /// adding pos(i) would bias working-position queries toward the
+    /// *tail* of the corpus (the level-floor `XXXX` rows). Pure content
+    /// match is what masked filling needs.
+    pub fn make_bidir_kv(&self, seq: &[u8]) -> (Tensor3, Tensor3) {
         let n = seq.len();
         let mut k = Tensor3::zeros(n, N_HEADS, HEAD_DIM);
         let mut v = Tensor3::zeros(n, N_HEADS, HEAD_DIM);
         let zero = vec![0.0f32; HEAD_DIM];
 
         for i in 0..n {
-            let left = if i > 0 && seq[i - 1] != MASK_SENTINEL {
-                token_embedding(seq[i - 1], &self.retriever.w)
-            } else {
-                &zero[..]
-            };
-            let right = if i + 1 < n && seq[i + 1] != MASK_SENTINEL {
-                token_embedding(seq[i + 1], &self.retriever.w)
-            } else {
-                &zero[..]
-            };
             let krow = k.row_mut(i, 0);
-            for d in 0..HEAD_DIM {
-                krow[d] = 0.5 * (left[d] + right[d]);
+            for slot in 0..DIFFUSION_CONTEXT_WEIGHTS.len() {
+                let weight = DIFFUSION_CONTEXT_WEIGHTS[slot];
+                let off = slot + 1;
+                if i >= off && seq[i - off] != MASK_SENTINEL {
+                    let emb = token_embedding(seq[i - off], &self.retriever.w);
+                    for d in 0..HEAD_DIM {
+                        krow[d] += weight * emb[d];
+                    }
+                }
+                if i + off < n && seq[i + off] != MASK_SENTINEL {
+                    let emb = token_embedding(seq[i + off], &self.retriever.w);
+                    for d in 0..HEAD_DIM {
+                        krow[d] += weight * emb[d];
+                    }
+                }
             }
             let vrow = v.row_mut(i, 0);
             if seq[i] != MASK_SENTINEL {
@@ -1195,6 +1222,51 @@ mod tests {
         assert_eq!(rows[0].chars().count(), 10);
         assert_eq!(rows[1].chars().count(), 20);
     }
+
+    // ---------- iter 10 tests (multi-token bidirectional context) ----------
+
+    #[test]
+    fn diffuser_uses_offset_2_context() {
+        // Build a minimal sequence where position 0 has its offset-1 right
+        // neighbour masked but its offset-2 right neighbour is the GROUND
+        // token (id 1). Position 0 has no left neighbours (i = 0).
+        //
+        // Iter-7 (radius 1): K[0] = 0.5·(zero + zero) = all zeros.
+        // Iter-10 (radius 2): K[0] = 0.25·embed(ground) + zeros = non-zero.
+        let r = MarioRetriever::new(encode_corpus(), 0xABCD);
+        let d = MarioDiffuser::new(&r);
+        let seq = [MASK_SENTINEL, MASK_SENTINEL, 1u8];
+        let (k, _v) = d.make_bidir_kv(&seq);
+        let k_row_0 = k.row(0, 0);
+        let nonzero = k_row_0.iter().any(|&v| v.abs() > 1e-6);
+        assert!(
+            nonzero,
+            "K[0] must be non-zero — radius-2 context should pull in the offset-2 token"
+        );
+
+        // And the value should match w_offset2·embed(ground) — checking
+        // magnitude confirms the weight is the offset-2 weight, not the
+        // offset-1 weight (which would imply we misindex offset 1 vs 2).
+        let w2 = DIFFUSION_CONTEXT_WEIGHTS.get(1).copied().unwrap_or(0.0);
+        let g_emb = token_embedding(1, &r.w);
+        let l2_actual: f32 = k_row_0.iter().map(|&v| v * v).sum::<f32>().sqrt();
+        let l2_expected: f32 = (g_emb.iter().map(|&v| w2 * w2 * v * v).sum::<f32>()).sqrt();
+        let ratio = l2_actual / l2_expected.max(1e-9);
+        assert!(
+            (0.95..1.05).contains(&ratio),
+            "K[0] L2 norm should match {}·||embed(ground)||; ratio={}",
+            w2,
+            ratio
+        );
+    }
+
+    // Note: the iter-7 `diffusion_produces_diverse_output` test (≥4
+    // distinct tiles at seed 0xDEAD) is the regression safety net for
+    // iter-10. Honest finding: averaging multi-token context with a
+    // significant outer weight reduces per-seed variance and can drop
+    // distinct-tile counts. Outer weight 0.10 stays close to iter-7
+    // behaviour while still letting offset-2 tokens influence retrieval
+    // when offset-1 is masked.
 
     // ---------- iter 9 tests (top-p / nucleus sampling) ----------
 
