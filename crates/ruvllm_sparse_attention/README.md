@@ -366,6 +366,28 @@ cargo bench -p ruvllm_sparse_attention --bench sparse_mario_bench \
   -- --warm-up-time 1 --measurement-time 3 --sample-size 20
 ```
 
+### Bonus: masked discrete diffusion
+
+The same example also ships a `MarioDiffuser` — architecturally a real
+diffusion model (D3PM / MaskGIT-inference family): bidirectional context,
+iterative denoising with a cosine schedule, confidence-ordered unmasking.
+The denoiser is the same sparse attention kernel, used as a
+content-addressable memory:
+
+```text
+K[i] = 0.5·(embed(left_neighbor(i)) + embed(right_neighbor(i)))
+V[i] = embed(token_at_i)
+Q[j] = K[j]
+out  = SubquadraticSparseAttention.forward(Q, K, V)
+```
+
+A small "context boot" (a random contiguous corpus slice) gives step 1
+real content to retrieve against — without it, the all-masked initial
+state collapses to a single-token fixed point. Result: a 14×50 grid
+denoised in ~600 ms (16 steps × one bidirectional forward each), versus
+~25 s for the same shape via 700 autoregressive forwards. **40× faster
+end-to-end** at this scale.
+
 ## Tutorial
 
 A hands-on walkthrough — building a streaming summariser on a Pi Zero 2W —

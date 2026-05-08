@@ -279,8 +279,11 @@ impl SamplingConfig {
 
 pub struct MarioRetriever {
     pub corpus: Vec<u8>,
-    w: Vec<f32>,
-    cfg: SparseAttentionConfig,
+    /// Public so the `MarioDiffuser` (in this same example file) can read
+    /// the embedding table without going through copy paths.
+    pub w: Vec<f32>,
+    /// Public for the same reason — diffusion builds its own forward calls.
+    pub cfg: SparseAttentionConfig,
 }
 
 impl MarioRetriever {
@@ -475,6 +478,244 @@ pub fn render_level_wrapped(tokens: &[u8], cols: usize) -> String {
     out
 }
 
+// =================================================================
+// Iter 7 — masked discrete diffusion
+//
+// Architecturally a real diffusion model: iterative denoising of a
+// fully-masked grid, bidirectional context, confidence-scheduled
+// unmasking — D3PM / MaskGIT-inference family. Unlike those, the
+// "denoiser" is training-free: the sparse attention kernel acts as
+// a bidirectional content-addressable memory over the same SMB
+// corpus that the autoregressive Sparse-Mario uses.
+//
+// Forward step (one denoising pass):
+//
+//   K[i] = 0.5·(embed(left_neighbor(i)) + embed(right_neighbor(i)))
+//          + 0.5·pos(i)                          ← bidirectional context
+//   V[i] = embed(token_at_i)                     ← actual token (not shifted)
+//   Q[j] = K[j]                                  ← what context does j sit in?
+//   out  = SubquadraticSparseAttention.forward(Q, K, V)
+//   logits[v] = out[j] · embed(v)
+//
+// At every masked position j, attention finds corpus positions whose
+// left/right context matches j's, and reads back what token usually
+// fills that context. We rank masked positions by softmax-max
+// confidence and unmask the most-confident ones each step (cosine-ish
+// schedule), so easy positions resolve first and provide stronger
+// context for harder ones — exactly the MaskGIT inference pattern.
+// =================================================================
+
+/// Sentinel placed in the working sequence for not-yet-denoised positions.
+/// Out of vocab range so any user-facing operation can detect it.
+pub const MASK_SENTINEL: u8 = 255;
+
+pub struct MarioDiffuser<'a> {
+    retriever: &'a MarioRetriever,
+}
+
+impl<'a> MarioDiffuser<'a> {
+    pub fn new(retriever: &'a MarioRetriever) -> Self {
+        Self { retriever }
+    }
+
+    /// Build the bidirectional K and V tensors for a given reference sequence.
+    ///
+    /// K[i] = 0.5·(embed(left_neighbor) + embed(right_neighbor))
+    ///
+    /// Note: no positional encoding here, unlike the autoregressive path. The
+    /// diffuser appends the working sequence after the corpus, so working
+    /// positions occupy absolute index range [corpus_len, corpus_len+n).
+    /// Adding pos(i) would make those query positions strongly bias toward
+    /// the *tail* of the corpus (the level-floor `XXXX` rows), which is
+    /// exactly the ground-saturation we observed before this fix landed.
+    /// Pure content match is what we actually want for masked filling.
+    /// Masked positions contribute zero in both K (neighbour) and V (self).
+    fn make_bidir_kv(&self, seq: &[u8]) -> (Tensor3, Tensor3) {
+        let n = seq.len();
+        let mut k = Tensor3::zeros(n, N_HEADS, HEAD_DIM);
+        let mut v = Tensor3::zeros(n, N_HEADS, HEAD_DIM);
+        let zero = vec![0.0f32; HEAD_DIM];
+
+        for i in 0..n {
+            let left = if i > 0 && seq[i - 1] != MASK_SENTINEL {
+                token_embedding(seq[i - 1], &self.retriever.w)
+            } else {
+                &zero[..]
+            };
+            let right = if i + 1 < n && seq[i + 1] != MASK_SENTINEL {
+                token_embedding(seq[i + 1], &self.retriever.w)
+            } else {
+                &zero[..]
+            };
+            let krow = k.row_mut(i, 0);
+            for d in 0..HEAD_DIM {
+                krow[d] = 0.5 * (left[d] + right[d]);
+            }
+            let vrow = v.row_mut(i, 0);
+            if seq[i] != MASK_SENTINEL {
+                let emb = token_embedding(seq[i], &self.retriever.w);
+                vrow.copy_from_slice(emb);
+            } else {
+                vrow.copy_from_slice(&zero);
+            }
+        }
+        (k, v)
+    }
+
+    /// One forward pass of the bidirectional retrieval denoiser. Returns,
+    /// for every position in the working sequence (corpus + working), the
+    /// vocab-projected logits.
+    fn diffusion_logits(&self, working: &[u8]) -> Vec<[f32; VOCAB_SIZE]> {
+        // Concatenate corpus (always unmasked, contributes signal) with the
+        // working sequence (some masked).
+        let mut combined: Vec<u8> = self.retriever.corpus.clone();
+        combined.extend_from_slice(working);
+
+        let (k, v) = self.make_bidir_kv(&combined);
+        let q = k.clone();
+        let attn = SubquadraticSparseAttention::new(self.retriever.cfg.clone()).expect("config");
+        let out = attn.forward(&q, &q, &v).expect("attention");
+
+        let prefix_start = self.retriever.corpus.len();
+        let mut all = Vec::with_capacity(working.len());
+        for i in 0..working.len() {
+            let idx = prefix_start + i;
+            let mut logits = [0.0f32; VOCAB_SIZE];
+            for v_idx in 0..VOCAB_SIZE {
+                let emb = token_embedding(v_idx as u8, &self.retriever.w);
+                let mut dot = 0.0f32;
+                for d in 0..HEAD_DIM {
+                    dot += out.get(idx, 0, d) * emb[d];
+                }
+                logits[v_idx] = dot;
+            }
+            all.push(logits);
+        }
+        all
+    }
+
+    /// One denoising step: unmask the `keep_count` most-confident masked
+    /// positions, sampling each from its own retrieval distribution.
+    pub fn denoise_step(
+        &self,
+        working: &mut [u8],
+        keep_count: usize,
+        sampling: &SamplingConfig,
+        state: &mut u32,
+    ) {
+        let masked: Vec<usize> = working
+            .iter()
+            .enumerate()
+            .filter(|(_, &t)| t == MASK_SENTINEL)
+            .map(|(i, _)| i)
+            .collect();
+        if masked.is_empty() || keep_count == 0 {
+            return;
+        }
+
+        let logits = self.diffusion_logits(working);
+
+        // Confidence = softmax-max at temperature 1 (no top-k / penalty —
+        // those distort the ranking; we use them only at the sampling step).
+        let confidence = |row: &[f32; VOCAB_SIZE]| -> f32 {
+            let max_l = row.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+            let mut sum = 0.0f32;
+            let mut top = 0.0f32;
+            for &l in row.iter() {
+                let e = (l - max_l).exp();
+                sum += e;
+                if e > top {
+                    top = e;
+                }
+            }
+            if sum > 0.0 {
+                top / sum
+            } else {
+                0.0
+            }
+        };
+
+        let mut ranked: Vec<(usize, f32)> = masked
+            .iter()
+            .map(|&j| (j, confidence(&logits[j])))
+            .collect();
+        ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(core::cmp::Ordering::Equal));
+
+        let n = keep_count.min(ranked.len());
+        for k_i in 0..n {
+            let (j, _) = ranked[k_i];
+            // Sample at the masked position's retrieval distribution.
+            // Skip MASK_SENTINEL (never in vocab) — already excluded by
+            // VOCAB_SIZE bound.
+            let mut next = sample_logits(&logits[j], sampling, &[], state);
+            // Defensive: if the sampler ever returns a non-vocab id, snap to sky.
+            if (next as usize) >= VOCAB_SIZE {
+                next = 0;
+            }
+            working[j] = next;
+        }
+    }
+
+    /// Run the full masked-diffusion pipeline: start with a fully-masked
+    /// sequence of length `n` and run `n_steps` denoising steps with a
+    /// quadratic-decay schedule, then a final sweep to clear stragglers.
+    pub fn diffuse(
+        &self,
+        n: usize,
+        n_steps: usize,
+        sampling: &SamplingConfig,
+        seed: u32,
+    ) -> Vec<u8> {
+        let mut state = seed.max(1);
+        let mut working = vec![MASK_SENTINEL; n];
+
+        // Context boot. Copy a random contiguous slice of the corpus into a
+        // random position in `working`. Without this boot, step-1 retrieval
+        // has zero bidirectional context: K[j]=0 for every working j,
+        // attention returns the average corpus V, and the random-embedding
+        // noise floor picks one fixed-point token that dominates every
+        // step thereafter. A *contiguous* corpus slice (rather than
+        // scattered uniform samples) is critical for diversity: uniform
+        // sampling pulls mostly the dominant token (sky / ground at 93% of
+        // the corpus combined), while a 32-token contiguous slice contains
+        // the full local mix — pipes, coins, enemies, brick blocks. This
+        // is a smaller, simpler analogue of MaskGIT's trained prior
+        // network: give the iterative refiner real content to retrieve
+        // against in step 1.
+        let corpus_len = self.retriever.corpus.len();
+        let boot_len = (n / 8).clamp(8, 64).min(corpus_len.saturating_sub(1));
+        if boot_len > 0 && corpus_len > boot_len {
+            let corpus_off = (xorshift32(&mut state) as usize) % (corpus_len - boot_len);
+            let work_off = (xorshift32(&mut state) as usize) % (n - boot_len);
+            working[work_off..work_off + boot_len].copy_from_slice(
+                &self.retriever.corpus[corpus_off..corpus_off + boot_len],
+            );
+        }
+
+        for t in 0..n_steps {
+            // MaskGIT cosine schedule — gamma(t) = cos(π/2 · (t+1)/T).
+            // Holds back early (only a few positions unmask per step when
+            // context is empty) and accelerates at the end (when most
+            // positions already provide bidirectional context). The slow
+            // start is critical: with all-masked initial state and no
+            // context, sampling many positions in step 1 collapses to
+            // whichever single token has highest base affinity.
+            let frac = ((t + 1) as f32) / (n_steps as f32);
+            let target_masked = (n as f32 * (core::f32::consts::FRAC_PI_2 * frac).cos()) as usize;
+            let current_masked = working.iter().filter(|&&t| t == MASK_SENTINEL).count();
+            let to_unmask = current_masked.saturating_sub(target_masked).max(1);
+            self.denoise_step(&mut working, to_unmask, sampling, &mut state);
+        }
+
+        // Final sweep: clear any leftover masks (rounding can leave some).
+        let remaining = working.iter().filter(|&&t| t == MASK_SENTINEL).count();
+        if remaining > 0 {
+            self.denoise_step(&mut working, remaining, sampling, &mut state);
+        }
+        working
+    }
+}
+
 fn main() {
     let tokens = encode_corpus();
     let dist = tile_distribution(&tokens);
@@ -528,16 +769,46 @@ fn main() {
 
     let gen_only = &generated[seed_chars.len()..];
     let gen_dist = tile_distribution(gen_only);
-    let pct = |c: char| -> f64 {
-        *gen_dist.get(&c).unwrap_or(&0) as f64 / gen_only.len() as f64 * 100.0
+    let pct_of = |dist: &HashMap<char, usize>, total: usize, c: char| -> f64 {
+        *dist.get(&c).unwrap_or(&0) as f64 / total as f64 * 100.0
     };
     println!(
         "tile mix in generated: sky {:.1}%  ground {:.1}%  brick {:.1}%  enemy {:.1}%  newline {:.1}%",
-        pct('-'),
-        pct('X'),
-        pct('S'),
-        pct('E'),
-        pct('\n')
+        pct_of(&gen_dist, gen_only.len(), '-'),
+        pct_of(&gen_dist, gen_only.len(), 'X'),
+        pct_of(&gen_dist, gen_only.len(), 'S'),
+        pct_of(&gen_dist, gen_only.len(), 'E'),
+        pct_of(&gen_dist, gen_only.len(), '\n')
+    );
+
+    // ---------- iter 7: masked discrete diffusion ----------
+    println!();
+    println!("== Sparse-attention masked discrete diffusion ==");
+    let diffuser = MarioDiffuser::new(&retriever);
+    let n_diff = 50 * 14; // 14×50 grid, fully masked at start
+    let n_steps = 16;
+    let t0 = std::time::Instant::now();
+    let diffused = diffuser.diffuse(n_diff, n_steps, &sampling, 0xD1FF_5008);
+    let dt = t0.elapsed();
+    let any_masks = diffused.iter().any(|&t| t == MASK_SENTINEL);
+    println!(
+        "diffusion     : {} positions × {} denoising steps in {:.2?} (residual masks: {})",
+        n_diff, n_steps, dt, any_masks
+    );
+    println!();
+    println!("{}", render_level_wrapped(&diffused, 50));
+    println!();
+    let diff_dist = tile_distribution(&diffused);
+    println!(
+        "tile mix in diffused : sky {:.1}%  ground {:.1}%  brick {:.1}%  enemy {:.1}%  pipe {:.1}%",
+        pct_of(&diff_dist, diffused.len(), '-'),
+        pct_of(&diff_dist, diffused.len(), 'X'),
+        pct_of(&diff_dist, diffused.len(), 'S'),
+        pct_of(&diff_dist, diffused.len(), 'E'),
+        pct_of(&diff_dist, diffused.len(), '<')
+            + pct_of(&diff_dist, diffused.len(), '>')
+            + pct_of(&diff_dist, diffused.len(), '[')
+            + pct_of(&diff_dist, diffused.len(), ']'),
     );
 }
 
@@ -745,6 +1016,93 @@ mod tests {
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].chars().count(), 10);
         assert_eq!(rows[1].chars().count(), 20);
+    }
+
+    // ---------- iter 7 tests (masked discrete diffusion) ----------
+
+    #[test]
+    fn diffusion_clears_all_masks() {
+        let r = MarioRetriever::new(encode_corpus(), 0xABCD);
+        let d = MarioDiffuser::new(&r);
+        let out = d.diffuse(120, 8, &SamplingConfig::quality(), 0x1357);
+        assert_eq!(out.len(), 120);
+        assert!(
+            out.iter().all(|&t| t != MASK_SENTINEL),
+            "diffusion left residual masks in output"
+        );
+        for &t in &out {
+            assert!((t as usize) < VOCAB_SIZE, "out-of-vocab token {}", t);
+        }
+    }
+
+    #[test]
+    fn diffusion_is_deterministic_for_fixed_seed() {
+        let r = MarioRetriever::new(encode_corpus(), 0xABCD);
+        let d = MarioDiffuser::new(&r);
+        let cfg = SamplingConfig::quality();
+        let a = d.diffuse(80, 6, &cfg, 0x9999);
+        let b = d.diffuse(80, 6, &cfg, 0x9999);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn diffusion_produces_diverse_output() {
+        // The diffuser must not collapse to a single-tile saturated grid
+        // (the all-X / all-`-` failure mode that bidirectional context is
+        // supposed to avoid). Expect at least 4 distinct tile types.
+        let r = MarioRetriever::new(encode_corpus(), 0xABCD);
+        let d = MarioDiffuser::new(&r);
+        let cfg = SamplingConfig::quality();
+        let out = d.diffuse(300, 12, &cfg, 0xDEAD);
+        let mut s = std::collections::HashSet::new();
+        for &t in &out {
+            s.insert(t);
+        }
+        assert!(
+            s.len() >= 4,
+            "diffusion should produce ≥4 distinct tiles, got {} ({:?})",
+            s.len(),
+            out.iter().take(40).map(|&t| decode_token(t)).collect::<String>()
+        );
+    }
+
+    #[test]
+    fn diffusion_produces_corpus_like_distribution() {
+        // With bidirectional context, diffusion should bias hard toward the
+        // dominant tiles (sky/ground/structural) — sanity: ≥40% sky+ground.
+        let r = MarioRetriever::new(encode_corpus(), 0xABCD);
+        let d = MarioDiffuser::new(&r);
+        let cfg = SamplingConfig {
+            temperature: 1.0,
+            top_k: 6,
+            repetition_penalty: 1.4,
+            no_repeat_window: 8,
+        };
+        let out = d.diffuse(200, 8, &cfg, 0xDEAD);
+        let dist = tile_distribution(&out);
+        let sky_ground =
+            *dist.get(&'-').unwrap_or(&0) + *dist.get(&'X').unwrap_or(&0);
+        let frac = sky_ground as f64 / out.len() as f64;
+        assert!(
+            frac > 0.30,
+            "diffusion should produce ≥30% sky/ground, got {:.1}%",
+            frac * 100.0
+        );
+    }
+
+    #[test]
+    fn denoise_step_unmasks_at_most_keep_count() {
+        let r = MarioRetriever::new(encode_corpus(), 0xABCD);
+        let d = MarioDiffuser::new(&r);
+        let mut working = vec![MASK_SENTINEL; 60];
+        // Seed a few unmasked positions so the bidirectional context isn't empty.
+        working[0] = 0;
+        working[59] = 1;
+        let before = working.iter().filter(|&&t| t == MASK_SENTINEL).count();
+        let mut state = 0xFEEDu32;
+        d.denoise_step(&mut working, 5, &SamplingConfig::quality(), &mut state);
+        let after = working.iter().filter(|&&t| t == MASK_SENTINEL).count();
+        assert_eq!(before - after, 5, "should have unmasked exactly 5 positions");
     }
 
     #[test]
