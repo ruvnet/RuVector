@@ -625,6 +625,220 @@ pub fn render_level(tokens: &[u8]) -> String {
     tokens.iter().map(|&t| decode_token(t)).collect()
 }
 
+// =================================================================
+// Iter 11 — PCG metrics
+//
+// Implements the standard quantitative measures for procedurally-
+// generated Mario levels: density, linearity, leniency, novelty, and
+// a coarse playability proxy. Mirrors the families used in
+// Snodgrass et al. and the MarioGAN evaluation suite, simplified to
+// the VGLC tile alphabet this demo embeds.
+//
+// Each metric is a single f32, larger / smaller doesn't necessarily
+// mean "better" — they're descriptors that let us compare AR,
+// diffusion, and corpus on the same axes.
+// =================================================================
+
+#[derive(Clone, Debug)]
+pub struct LevelMetrics {
+    /// Fraction of non-sky, non-newline tiles in the level.
+    pub density: f32,
+    /// Std-dev of the topmost-ground row index across columns.
+    /// Higher = jaggier ground profile, lower = flatter.
+    pub linearity: f32,
+    /// (hostile + gaps - friendly) / columns. Higher = harder level.
+    /// Hostile: enemies, cannons. Friendly: ?-blocks, coins.
+    /// Gap: column with no ground tile anywhere.
+    pub leniency: f32,
+    /// Min normalised Hamming distance from `grid` to any same-shape
+    /// window of any embedded corpus level. 0.0 = byte-identical to
+    /// some corpus slice; 1.0 = no shared tile at any aligned cell.
+    pub novelty: f32,
+    /// Fraction of columns where there is at least one ground tile in
+    /// the lower third — proxy for "Mario has somewhere to stand".
+    pub playable_columns: f32,
+}
+
+/// Convert a flat token stream into a `rows × cols` grid by either
+/// honouring embedded `\n` tokens (row break) or hard-wrapping at `cols`.
+/// Out-of-range positions default to sky.
+pub fn tokens_to_grid(tokens: &[u8], cols: usize, rows: usize) -> Vec<Vec<u8>> {
+    let nl = encode_char('\n').unwrap();
+    let sky = encode_char('-').unwrap();
+    let mut grid = vec![vec![sky; cols]; rows];
+    let mut r = 0usize;
+    let mut c = 0usize;
+    for &t in tokens {
+        if r >= rows {
+            break;
+        }
+        if t == nl {
+            r += 1;
+            c = 0;
+            continue;
+        }
+        if c == cols {
+            r += 1;
+            c = 0;
+            if r >= rows {
+                break;
+            }
+        }
+        if (t as usize) < VOCAB.len() {
+            grid[r][c] = t;
+        }
+        c += 1;
+    }
+    grid
+}
+
+fn density(grid: &[Vec<u8>]) -> f32 {
+    let sky = encode_char('-').unwrap();
+    let nl = encode_char('\n').unwrap();
+    let mut total = 0usize;
+    let mut nonsky = 0usize;
+    for row in grid {
+        for &t in row {
+            if t == nl {
+                continue;
+            }
+            total += 1;
+            if t != sky {
+                nonsky += 1;
+            }
+        }
+    }
+    if total == 0 {
+        0.0
+    } else {
+        nonsky as f32 / total as f32
+    }
+}
+
+fn linearity(grid: &[Vec<u8>]) -> f32 {
+    let ground = encode_char('X').unwrap();
+    let rows = grid.len();
+    let cols = grid.first().map(|r| r.len()).unwrap_or(0);
+    if rows == 0 || cols == 0 {
+        return 0.0;
+    }
+    let mut heights = Vec::with_capacity(cols);
+    for c in 0..cols {
+        let mut h = rows; // bottomless = rows (max row index + 1)
+        for r in 0..rows {
+            if grid[r][c] == ground {
+                h = r;
+                break;
+            }
+        }
+        heights.push(h as f32);
+    }
+    let mean: f32 = heights.iter().sum::<f32>() / heights.len() as f32;
+    let var: f32 = heights.iter().map(|&h| (h - mean).powi(2)).sum::<f32>() / heights.len() as f32;
+    var.sqrt()
+}
+
+fn leniency(grid: &[Vec<u8>]) -> f32 {
+    let enemy = encode_char('E').unwrap();
+    let cannon = encode_char('B').unwrap();
+    let q_block = encode_char('?').unwrap();
+    let coin = encode_char('o').unwrap();
+    let ground = encode_char('X').unwrap();
+    let cols = grid.first().map(|r| r.len()).unwrap_or(0);
+    let rows = grid.len();
+    if cols == 0 {
+        return 0.0;
+    }
+    let mut hostile = 0i32;
+    let mut friendly = 0i32;
+    for row in grid {
+        for &t in row {
+            if t == enemy || t == cannon {
+                hostile += 1;
+            }
+            if t == q_block || t == coin {
+                friendly += 1;
+            }
+        }
+    }
+    let mut gaps = 0i32;
+    for c in 0..cols {
+        if !(0..rows).any(|r| grid[r][c] == ground) {
+            gaps += 1;
+        }
+    }
+    ((hostile + gaps) - friendly) as f32 / cols as f32
+}
+
+fn novelty(grid: &[Vec<u8>]) -> f32 {
+    let rows = grid.len();
+    let cols = grid.first().map(|r| r.len()).unwrap_or(0);
+    if rows == 0 || cols == 0 {
+        return 1.0;
+    }
+    let total = (rows * cols) as f32;
+    let mut best_diff = total as usize;
+    for lvl in LEVELS.iter() {
+        let lvl_rows: Vec<Vec<char>> = lvl.lines().map(|l| l.chars().collect()).collect();
+        if lvl_rows.is_empty() {
+            continue;
+        }
+        let lr = lvl_rows.len();
+        let lc = lvl_rows[0].len();
+        if lr < rows || lc < cols {
+            continue;
+        }
+        for sr in 0..=lr - rows {
+            for sc in 0..=lc - cols {
+                let mut diff = 0usize;
+                for r in 0..rows {
+                    for c in 0..cols {
+                        let l_ch = lvl_rows[sr + r][sc + c];
+                        let g_ch = decode_token(grid[r][c]);
+                        if l_ch != g_ch {
+                            diff += 1;
+                        }
+                    }
+                }
+                if diff < best_diff {
+                    best_diff = diff;
+                }
+            }
+        }
+    }
+    best_diff as f32 / total
+}
+
+fn playable_columns(grid: &[Vec<u8>]) -> f32 {
+    let ground = encode_char('X').unwrap();
+    let rows = grid.len();
+    let cols = grid.first().map(|r| r.len()).unwrap_or(0);
+    if rows == 0 || cols == 0 {
+        return 0.0;
+    }
+    let lower_start = (rows * 2) / 3;
+    let mut ok = 0usize;
+    for c in 0..cols {
+        if (lower_start..rows).any(|r| grid[r][c] == ground) {
+            ok += 1;
+        }
+    }
+    ok as f32 / cols as f32
+}
+
+/// Compute all five metrics on a flat token stream interpreted as a
+/// `rows × cols` grid via `tokens_to_grid`.
+pub fn compute_metrics(tokens: &[u8], cols: usize, rows: usize) -> LevelMetrics {
+    let grid = tokens_to_grid(tokens, cols, rows);
+    LevelMetrics {
+        density: density(&grid),
+        linearity: linearity(&grid),
+        leniency: leniency(&grid),
+        novelty: novelty(&grid),
+        playable_columns: playable_columns(&grid),
+    }
+}
+
 /// Render with a hard wrap every `cols` non-newline tiles. Repetition
 /// penalty often suppresses the `\n` tile; this keeps the level visually
 /// rectangular even when the model never emits a row break.
@@ -1015,6 +1229,47 @@ fn main() {
             + pct_of(&diff_dist, diffused.len(), '[')
             + pct_of(&diff_dist, diffused.len(), ']'),
     );
+
+    // ---------- iter 11: PCG metrics baseline ----------
+    println!();
+    println!("== PCG metrics baseline (3 seeds × {{AR, diffusion}}) ==");
+    println!(
+        "{:<14} {:>8} {:>10} {:>9} {:>8} {:>10}",
+        "config", "density", "linearity", "leniency", "novelty", "playable"
+    );
+    let seeds: [u32; 3] = [0xC0FF_EE42, 0xBADD_F00D, 0x1337_BEEF];
+    let cols = 50usize;
+    let rows = 14usize;
+    let n_total = cols * rows;
+
+    for &s in &seeds {
+        let toks = retriever.generate_fast(&seed_chars, n_total - seed_chars.len(), &sampling, s);
+        let m = compute_metrics(&toks, cols, rows);
+        println!(
+            "AR seed={:08x}  {:>7.3} {:>10.3} {:>9.3} {:>8.3} {:>10.3}",
+            s, m.density, m.linearity, m.leniency, m.novelty, m.playable_columns
+        );
+    }
+    for &s in &seeds {
+        let toks = diffuser.diffuse(n_total, n_steps, &sampling, s);
+        let m = compute_metrics(&toks, cols, rows);
+        println!(
+            "DIFF seed={:08x} {:>7.3} {:>10.3} {:>9.3} {:>8.3} {:>10.3}",
+            s, m.density, m.linearity, m.leniency, m.novelty, m.playable_columns
+        );
+    }
+
+    // Corpus baseline — compute the same five metrics on each embedded
+    // level slice so we can read AR/diffusion numbers as deltas from
+    // "real Mario".
+    for (i, lvl) in LEVELS.iter().enumerate() {
+        let toks = encode_level(lvl);
+        let m = compute_metrics(&toks, cols, rows);
+        println!(
+            "CORPUS slice {} {:>7.3} {:>10.3} {:>9.3} {:>8.3} {:>10.3}",
+            i, m.density, m.linearity, m.leniency, m.novelty, m.playable_columns
+        );
+    }
 }
 
 #[cfg(test)]
@@ -1221,6 +1476,74 @@ mod tests {
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].chars().count(), 10);
         assert_eq!(rows[1].chars().count(), 20);
+    }
+
+    // ---------- iter 11 tests (PCG metrics) ----------
+
+    #[test]
+    fn metrics_on_empty_grid_are_finite() {
+        let toks: Vec<u8> = vec![0; 700]; // all sky
+        let m = compute_metrics(&toks, 50, 14);
+        assert!(m.density.is_finite() && m.density >= 0.0);
+        assert!(m.linearity.is_finite() && m.linearity >= 0.0);
+        assert!(m.leniency.is_finite());
+        assert!(m.novelty.is_finite() && m.novelty >= 0.0 && m.novelty <= 1.0);
+        assert!(m.playable_columns.is_finite() && m.playable_columns >= 0.0);
+        assert_eq!(m.density, 0.0, "all-sky should have density 0");
+        assert_eq!(m.playable_columns, 0.0, "all-sky has no ground to stand on");
+    }
+
+    #[test]
+    fn metrics_on_corpus_slice_have_zero_novelty() {
+        // The first embedded level slice is in the corpus, so novelty
+        // (min Hamming distance to any same-shape window of any corpus
+        // slice) must be zero.
+        let toks = encode_level(LEVELS[0]);
+        let m = compute_metrics(&toks, 50, 14);
+        assert_eq!(m.novelty, 0.0, "corpus slice should have novelty 0");
+        // It should also be highly playable (corpus levels have a
+        // continuous ground floor).
+        assert!(
+            m.playable_columns >= 0.95,
+            "corpus slice should have ≥95% playable columns, got {:.3}",
+            m.playable_columns
+        );
+    }
+
+    #[test]
+    fn metrics_density_scales_with_nonsky_tiles() {
+        let cols = 50;
+        let rows = 14;
+        let mut toks = vec![0u8; cols * rows]; // all sky → density 0
+        let half = (cols * rows) / 2;
+        for i in 0..half {
+            toks[i] = 1; // ground
+        }
+        let m = compute_metrics(&toks, cols, rows);
+        assert!(
+            (m.density - 0.5).abs() < 0.01,
+            "half-ground should have density ≈ 0.5, got {}",
+            m.density
+        );
+    }
+
+    #[test]
+    fn metrics_linearity_zero_for_flat_floor() {
+        // A grid where every column has its topmost ground at the same row
+        // should have linearity 0 (no variance in ground heights).
+        let cols = 50;
+        let rows = 14;
+        let mut toks = vec![0u8; cols * rows];
+        // Row 13 (last) all ground; rest sky.
+        for c in 0..cols {
+            toks[13 * cols + c] = 1;
+        }
+        let m = compute_metrics(&toks, cols, rows);
+        assert!(
+            m.linearity < 0.01,
+            "perfectly flat floor should have linearity ≈ 0, got {}",
+            m.linearity
+        );
     }
 
     // ---------- iter 10 tests (multi-token bidirectional context) ----------
