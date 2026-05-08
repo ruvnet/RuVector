@@ -1,0 +1,31 @@
+[package]
+name = "ruvector-lvq"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Locally-Adaptive Vector Quantization (LVQ) primary + two-level residual quantizer for fast asymmetric ANN reranking"
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }
+rayon = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bin]]
+name = "ruvector-lvq-bench"
+path = "src/main.rs"
+
+[[bench]]
+name = "lvq_bench"
+harness = false
+
+[features]
+default = ["parallel"]
+parallel = []
