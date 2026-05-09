@@ -22,6 +22,7 @@ members = [
     "crates/ruvector-acorn-wasm",
     "crates/ruvector-rabitq",
     "crates/ruvector-rabitq-wasm",
+    "crates/ruvector-avq",
     "crates/ruvector-rulake",
     "crates/ruvector-core",
     "crates/ruvector-node",
