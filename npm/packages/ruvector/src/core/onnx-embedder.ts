@@ -97,8 +97,11 @@ const DEFAULT_MODEL = 'all-MiniLM-L6-v2';
  */
 export function isOnnxAvailable(): boolean {
   try {
+    // Prefer the Node-friendly loader (#323); fall back to the bundler entry
+    // for older bundles that don't ship the .mjs sibling yet.
+    const nodePkgPath = path.join(__dirname, 'onnx', 'pkg', 'ruvector_onnx_embeddings_wasm_node.mjs');
     const pkgPath = path.join(__dirname, 'onnx', 'pkg', 'ruvector_onnx_embeddings_wasm.js');
-    return fs.existsSync(pkgPath);
+    return fs.existsSync(nodePkgPath) || fs.existsSync(pkgPath);
   } catch {
     return false;
   }
@@ -176,10 +179,16 @@ export async function initOnnxEmbedder(config: OnnxEmbedderConfig = {}): Promise
 
   loadPromise = (async () => {
     try {
-      // Paths to bundled ONNX files
-      const pkgPath = path.join(__dirname, 'onnx', 'pkg', 'ruvector_onnx_embeddings_wasm.js');
+      // Prefer the Node-friendly loader (resolves issue #323 — the
+      // bundler-target index does `import * as wasm from "./*.wasm"`,
+      // which Node 22 LTS rejects without --experimental-wasm-modules).
+      // Fall back to the bundler entry only if the .mjs is absent (older
+      // bundles), so existing installs aren't broken by this change.
+      const nodePkgPath = path.join(__dirname, 'onnx', 'pkg', 'ruvector_onnx_embeddings_wasm_node.mjs');
+      const bundlerPkgPath = path.join(__dirname, 'onnx', 'pkg', 'ruvector_onnx_embeddings_wasm.js');
       const loaderPath = path.join(__dirname, 'onnx', 'loader.js');
 
+      const pkgPath = fs.existsSync(nodePkgPath) ? nodePkgPath : bundlerPkgPath;
       if (!fs.existsSync(pkgPath)) {
         throw new Error('ONNX WASM files not bundled. The onnx/ directory is missing.');
       }
@@ -188,13 +197,14 @@ export async function initOnnxEmbedder(config: OnnxEmbedderConfig = {}): Promise
       const pkgUrl = pathToFileURL(pkgPath).href;
       const loaderUrl = pathToFileURL(loaderPath).href;
 
-      // Dynamic import of bundled modules using file:// URLs
+      // Dynamic import of bundled modules using file:// URLs.
+      // The Node loader instantiates the WASM at module-load time via
+      // fs.readFileSync, so no separate default() init is needed.
       wasmModule = await dynamicImport(pkgUrl);
 
-      // Initialize WASM module (loads the .wasm file)
-      const wasmPath = path.join(__dirname, 'onnx', 'pkg', 'ruvector_onnx_embeddings_wasm_bg.wasm');
-      if (wasmModule.default && typeof wasmModule.default === 'function') {
-        // For bundler-style initialization, pass the wasm buffer
+      // Legacy bundler-target path still needs an explicit init().
+      if (pkgPath === bundlerPkgPath && wasmModule.default && typeof wasmModule.default === 'function') {
+        const wasmPath = path.join(__dirname, 'onnx', 'pkg', 'ruvector_onnx_embeddings_wasm_bg.wasm');
         const wasmBytes = fs.readFileSync(wasmPath);
         await wasmModule.default(wasmBytes);
       }
