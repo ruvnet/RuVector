@@ -141,8 +141,8 @@ fn aidefence_scan(text: &str) -> (bool, &'static str, serde_json::Value) {
 // ── Configuration ────────────────────────────────────────────────────────────
 
 const VERSION: &str = "0.2.0";
-const DEFAULT_DB: &str = "/home/ruvultra/brain-data/brain.sqlite";
-const DEFAULT_BLOBS: &str = "/home/ruvultra/brain-data/blobs";
+const DEFAULT_DB: &str = "./brain-data/brain.sqlite";
+const DEFAULT_BLOBS: &str = "./brain-data/blobs";
 
 fn db_path() -> String {
     std::env::var("RUVBRAIN_DB").unwrap_or_else(|_| DEFAULT_DB.to_string())

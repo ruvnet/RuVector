@@ -4,6 +4,82 @@ Cloud Run backend for the RuVector Shared Brain at **[π.ruv.io](https://pi.ruv.
 
 Axum REST API with Firestore persistence, GCS blob storage, and a full cognitive stack: SONA learning, GWT attention, temporal delta tracking, meta-learning exploration, and Midstream real-time analysis.
 
+## Binaries
+
+This crate produces four binaries, each serving a distinct role in the local or cloud stack:
+
+| Binary | Purpose | Default Port | Feature Flag |
+|--------|---------|--------------|--------------|
+| `mcp-brain-server` | Cloud Run backend (Firestore + GCS) | `8080` | none |
+| `mcp-brain-server-local` | Local REST API (SQLite + blobs) | `9876` | `local` |
+| `ruvbrain-sse` | MCP-over-SSE proxy (ADR-130) | `8080` | `local` |
+| `ruvllm-embedder` | Local HTTP embedding service | `9877` | `local` |
+| `mcp-brain` | **Stdio MCP server** (Claude Code) | stdio | none |
+
+### `mcp-brain` — Stdio MCP Server (Recommended for Claude Code)
+
+The original MCP tool. Handles `initialize`, `tools/list`, `tools/call`, `shutdown` over stdio JSON-RPC. Connects to the shared brain at `brain.ruv.io` by default.
+
+Build:
+```bash
+cargo build --release -p mcp-brain
+```
+
+Configure in `.mcp.json`:
+```json
+{
+  "mcpServers": {
+    "ruvector-brain": {
+      "command": "/path/to/ruvector/target/release/mcp-brain",
+      "args": []
+    }
+  }
+}
+```
+
+Optional: point at local backend (see note on endpoint paths below):
+```bash
+BRAIN_URL=http://127.0.0.1:9876 ./target/release/mcp-brain
+```
+
+### `ruvbrain-sse` — MCP-over-SSE Proxy
+
+Thin SSE proxy for cloud decoupling (ADR-130). Forwards SSE connections and JSON-RPC messages to a backend brain API. In `LOCAL_MODE=1` it handles MCP directly without a backend.
+
+```bash
+cargo build --release -p mcp-brain-server --bin ruvbrain-sse --features local-all
+PORT=9876 LOCAL_MODE=1 ./target/release/ruvbrain-sse
+```
+
+### `mcp-brain-server-local` — Local REST API
+
+Standalone SQLite-backed brain with DiskANN vector search and AIDefence scanning. Its routes are `/health`, `/brain/search`, `/memories`, etc. **It does NOT implement `/sse` or `/messages`.**
+
+Build and run:
+```bash
+cargo build --release -p mcp-brain-server --bin mcp-brain-server-local --features local-all
+./target/release/mcp-brain-server-local
+```
+
+### `ruvllm-embedder` — Embedding Service
+
+Local HTTP embedder honoring the three-phase `EmbeddingEngine` architecture (see `src/embeddings.rs`):
+- **Phase 1** — `HashEmbedder` fallback (FNV-1a + bigrams, L2-normalized)
+- **Phase 2** — `RlmEmbedder` recursive context-aware embeddings (activates at corpus ≥ 50)
+- **Phase 3** — candle sentence transformer (future)
+
+Endpoints:
+- `POST /embed` — query-conditioned embeddings (retrieval-optimized)
+- `POST /embed/storage` — corpus-conditioned embeddings (stable over time)
+- `POST /corpus/add` — add documents to grow the neighbor store
+- `GET /health` — engine status, corpus size, active phase
+
+Build and run:
+```bash
+cargo build --release -p mcp-brain-server --bin ruvllm-embedder --features local
+RUVLLM_EMBEDDER_PORT=9877 ./target/release/ruvllm-embedder
+```
+
 ## Quick Start
 
 ```bash
@@ -247,20 +323,24 @@ All flags are read once at startup. No per-request `env::var` calls.
 
 ```bash
 cd crates/mcp-brain-server
-cargo build --release
-cargo test  # 59 tests
+cargo build --release --features local-all
+cargo test --features local-all
 ```
 
 ### Run Locally
 
 ```bash
-# Local mode (in-memory store, no Firestore/GCS)
-BRAIN_SYSTEM_KEY=test-key cargo run
+# 1. Start the REST API (SQLite + blobs)
+./target/release/mcp-brain-server-local
 
-# With Firestore
-BRAIN_SYSTEM_KEY=test-key \
-FIRESTORE_URL=https://firestore.googleapis.com/v1/projects/YOUR_PROJECT/databases/(default)/documents \
-cargo run
+# 2. Start the embedder (port 9877)
+./target/release/ruvllm-embedder
+
+# 3. (Optional) Start the SSE proxy (port 9876, LOCAL_MODE=1)
+PORT=9876 LOCAL_MODE=1 ./target/release/ruvbrain-sse
+
+# 4. Configure .mcp.json for stdio mcp-brain (connects to cloud by default)
+#    or point at local with BRAIN_URL=http://127.0.0.1:9876
 ```
 
 ### Test Endpoints

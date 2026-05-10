@@ -25,6 +25,11 @@ name = "mcp-brain-server-local"
 path = "src/bin/local.rs"
 required-features = ["local"]
 
+[[bin]]
+name = "ruvllm-embedder"
+path = "src/bin/embedder.rs"
+required-features = ["local"]
+
 [dependencies]
 # Web framework
 axum = { version = "0.7", features = ["json", "query"] }
