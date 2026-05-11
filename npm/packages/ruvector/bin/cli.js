@@ -45,6 +45,64 @@ function requireRuvector() {
   }
 }
 
+// =============================================================================
+// Database metadata sidecar (#417)
+// -----------------------------------------------------------------------------
+// `<dbPath>` is a redb (Rust binary) file managed by @ruvector/core. It is NOT
+// a JSON document, so the previous implementation that called
+// `JSON.parse(fs.readFileSync(dbPath))` to recover dimensions crashed
+// immediately on the redb magic bytes "redb…".
+//
+// Instead, every `create` writes `<dbPath>.meta.json` carrying the construction
+// args (dimensions, metric, schema version). `insert`, `search`, `stats` and
+// friends read from the sidecar and pass them straight to the wrapper
+// constructor.
+// =============================================================================
+
+const META_SCHEMA_VERSION = 1;
+
+function metaPathFor(dbPath) {
+  return `${dbPath}.meta.json`;
+}
+
+function writeMeta(dbPath, meta) {
+  const payload = {
+    schemaVersion: META_SCHEMA_VERSION,
+    dimensions: meta.dimensions,
+    metric: meta.metric,
+    cliVersion: packageJson.version,
+    createdAt: new Date().toISOString(),
+  };
+  fs.writeFileSync(metaPathFor(dbPath), JSON.stringify(payload, null, 2));
+}
+
+function readMeta(dbPath) {
+  const metaPath = metaPathFor(dbPath);
+  if (!fs.existsSync(metaPath)) {
+    if (!fs.existsSync(dbPath)) {
+      throw new Error(
+        `Database not found: ${dbPath}\n` +
+        `  Run "ruvector create ${dbPath}" first.`,
+      );
+    }
+    throw new Error(
+      `Database metadata sidecar not found: ${metaPath}\n` +
+      `  This database was created without a sidecar (e.g. before #417 was fixed).\n` +
+      `  Recreate it with "ruvector create ${dbPath} -d <dimensions> -m <metric>".`,
+    );
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+  } catch (e) {
+    throw new Error(`Invalid sidecar at ${metaPath}: ${e.message}`);
+  }
+  if (typeof parsed.dimensions !== 'number' || parsed.dimensions <= 0) {
+    throw new Error(`Invalid sidecar at ${metaPath}: missing or invalid dimensions`);
+  }
+  return parsed;
+}
+
 // Lazy load GNN (optional - loaded on first use, not at startup)
 // Saves ~6ms startup time by deferring require('@ruvector/gnn')
 let _gnnModule = undefined; // undefined = not yet attempted, null = failed, object = loaded
@@ -157,16 +215,25 @@ program
     const spinner = ora('Creating database...').start();
 
     try {
-      const dimension = parseInt(options.dimension);
-      const db = new VectorDB({
-        dimensions: dimension,
+      const dimensions = parseInt(options.dimension);
+      // Construct the redb-backed DB; this creates the file at `dbPath`.
+      // Persistence is automatic via `storagePath` — there is no
+      // separate save() call.
+      // eslint-disable-next-line no-new
+      new VectorDB({
+        dimensions,
         metric: options.metric,
         storagePath: dbPath,
       });
 
+      // Persist the construction args so subsequent commands can recover
+      // them without trying to JSON.parse() the redb binary (#417).
+      writeMeta(dbPath, { dimensions, metric: options.metric });
+
       spinner.succeed(chalk.green(`Database created: ${dbPath}`));
-      console.log(chalk.gray(`  Dimension: ${dimension}`));
+      console.log(chalk.gray(`  Dimension: ${dimensions}`));
       console.log(chalk.gray(`  Metric: ${options.metric}`));
+      console.log(chalk.gray(`  Sidecar: ${metaPathFor(dbPath)}`));
       console.log(chalk.gray(`  Implementation: ${getImplementationType()}`));
     } catch (error) {
       spinner.fail(chalk.red('Failed to create database'));
@@ -180,43 +247,39 @@ program
   .command('insert <database> <file>')
   .description('Insert vectors from JSON file')
   .option('-b, --batch-size <number>', 'Batch size for insertion', '1000')
-  .action((dbPath, file, options) => {
+  .action(async (dbPath, file, options) => {
     requireRuvector();
     const spinner = ora('Loading database...').start();
 
     try {
-      // Read database metadata to get dimension
-      let dimension = 384; // default
-      if (fs.existsSync(dbPath)) {
-        const dbData = fs.readFileSync(dbPath, 'utf8');
-        const parsed = JSON.parse(dbData);
-        dimension = parsed.dimension || 384;
-      }
-
-      const db = new VectorDB({ dimension });
-
-      if (fs.existsSync(dbPath)) {
-        db.load(dbPath);
-      }
+      const meta = readMeta(dbPath);
+      const db = new VectorDB({
+        dimensions: meta.dimensions,
+        metric: meta.metric,
+        storagePath: dbPath,
+      });
 
       spinner.text = 'Reading vectors...';
       const data = JSON.parse(fs.readFileSync(file, 'utf8'));
       const vectors = Array.isArray(data) ? data : [data];
+
+      // Coerce integer ids to strings — the native binding requires string ids.
+      for (const v of vectors) {
+        if (typeof v.id === 'number') v.id = String(v.id);
+      }
 
       spinner.text = `Inserting ${vectors.length} vectors...`;
       const batchSize = parseInt(options.batchSize);
 
       for (let i = 0; i < vectors.length; i += batchSize) {
         const batch = vectors.slice(i, i + batchSize);
-        db.insertBatch(batch);
+        await db.insertBatch(batch);
         spinner.text = `Inserted ${Math.min(i + batchSize, vectors.length)}/${vectors.length} vectors...`;
       }
 
-      db.save(dbPath);
+      const total = await db.len();
       spinner.succeed(chalk.green(`Inserted ${vectors.length} vectors`));
-
-      const stats = db.stats();
-      console.log(chalk.gray(`  Total vectors: ${stats.count}`));
+      console.log(chalk.gray(`  Total vectors: ${total}`));
     } catch (error) {
       spinner.fail(chalk.red('Failed to insert vectors'));
       console.error(chalk.red(error.message));
@@ -232,18 +295,17 @@ program
   .option('-k, --top-k <number>', 'Number of results', '10')
   .option('-t, --threshold <number>', 'Similarity threshold', '0.0')
   .option('-f, --filter <json>', 'Metadata filter as JSON')
-  .action((dbPath, options) => {
+  .action(async (dbPath, options) => {
     requireRuvector();
     const spinner = ora('Loading database...').start();
 
     try {
-      // Read database metadata
-      const dbData = fs.readFileSync(dbPath, 'utf8');
-      const parsed = JSON.parse(dbData);
-      const dimension = parsed.dimension || 384;
-
-      const db = new VectorDB({ dimension });
-      db.load(dbPath);
+      const meta = readMeta(dbPath);
+      const db = new VectorDB({
+        dimensions: meta.dimensions,
+        metric: meta.metric,
+        storagePath: dbPath,
+      });
 
       spinner.text = 'Searching...';
 
@@ -251,18 +313,21 @@ program
       const query = {
         vector,
         k: parseInt(options.topK),
-        threshold: parseFloat(options.threshold)
       };
 
       if (options.filter) {
         query.filter = JSON.parse(options.filter);
       }
 
-      const results = db.search(query);
-      spinner.succeed(chalk.green(`Found ${results.length} results`));
+      const results = await db.search(query);
+      const threshold = parseFloat(options.threshold);
+      const filtered = threshold > 0
+        ? results.filter((r) => r.score >= threshold)
+        : results;
+      spinner.succeed(chalk.green(`Found ${filtered.length} results`));
 
       console.log(chalk.cyan('\nSearch Results:'));
-      results.forEach((result, i) => {
+      filtered.forEach((result, i) => {
         console.log(chalk.white(`\n${i + 1}. ID: ${result.id}`));
         console.log(chalk.yellow(`   Score: ${result.score.toFixed(4)}`));
         if (result.metadata) {
@@ -280,35 +345,32 @@ program
 program
   .command('stats <database>')
   .description('Show database statistics')
-  .action((dbPath) => {
+  .action(async (dbPath) => {
     requireRuvector();
     const spinner = ora('Loading database...').start();
 
     try {
-      const dbData = fs.readFileSync(dbPath, 'utf8');
-      const parsed = JSON.parse(dbData);
-      const dimension = parsed.dimension || 384;
+      const meta = readMeta(dbPath);
+      const db = new VectorDB({
+        dimensions: meta.dimensions,
+        metric: meta.metric,
+        storagePath: dbPath,
+      });
 
-      const db = new VectorDB({ dimension });
-      db.load(dbPath);
-
-      const stats = db.stats();
+      const count = await db.len();
       spinner.succeed(chalk.green('Database statistics'));
 
       console.log(chalk.cyan('\nDatabase Stats:'));
-      console.log(chalk.white(`  Vector Count: ${chalk.yellow(stats.count)}`));
-      console.log(chalk.white(`  Dimension: ${chalk.yellow(stats.dimension)}`));
-      console.log(chalk.white(`  Metric: ${chalk.yellow(stats.metric)}`));
+      console.log(chalk.white(`  Vector Count: ${chalk.yellow(count)}`));
+      console.log(chalk.white(`  Dimension: ${chalk.yellow(meta.dimensions)}`));
+      console.log(chalk.white(`  Metric: ${chalk.yellow(meta.metric)}`));
       console.log(chalk.white(`  Implementation: ${chalk.yellow(getImplementationType())}`));
 
-      if (stats.memoryUsage) {
-        const mb = (stats.memoryUsage / (1024 * 1024)).toFixed(2);
-        console.log(chalk.white(`  Memory Usage: ${chalk.yellow(mb + ' MB')}`));
+      if (fs.existsSync(dbPath)) {
+        const fileStats = fs.statSync(dbPath);
+        const fileMb = (fileStats.size / (1024 * 1024)).toFixed(2);
+        console.log(chalk.white(`  File Size: ${chalk.yellow(fileMb + ' MB')}`));
       }
-
-      const fileStats = fs.statSync(dbPath);
-      const fileMb = (fileStats.size / (1024 * 1024)).toFixed(2);
-      console.log(chalk.white(`  File Size: ${chalk.yellow(fileMb + ' MB')}`));
     } catch (error) {
       spinner.fail(chalk.red('Failed to load database'));
       console.error(chalk.red(error.message));
@@ -323,7 +385,7 @@ program
   .option('-d, --dimension <number>', 'Vector dimension', '384')
   .option('-n, --num-vectors <number>', 'Number of vectors', '10000')
   .option('-q, --num-queries <number>', 'Number of queries', '1000')
-  .action((options) => {
+  .action(async (options) => {
     requireRuvector();
     console.log(chalk.cyan('\nruvector Performance Benchmark'));
     console.log(chalk.gray(`Implementation: ${getImplementationType()}\n`));
@@ -338,7 +400,7 @@ program
       const db = new VectorDB({ dimensions: dimension, metric: 'cosine' });
       spinner.succeed();
 
-      // Insert benchmark
+      // Insert benchmark — must await, the wrapper resolves on actual native completion.
       spinner = ora(`Inserting ${numVectors} vectors...`).start();
       const insertStart = Date.now();
 
@@ -351,14 +413,16 @@ program
         });
       }
 
-      db.insertBatch(vectors);
+      await db.insertBatch(vectors);
       const insertTime = Date.now() - insertStart;
       const insertRate = (numVectors / (insertTime / 1000)).toFixed(0);
 
       spinner.succeed(chalk.green(`Inserted ${numVectors} vectors in ${insertTime}ms`));
       console.log(chalk.gray(`  Rate: ${chalk.yellow(insertRate)} vectors/sec`));
 
-      // Search benchmark
+      // Search benchmark — must await each query (#417: previously the
+      // promises were dropped on the floor and the reported rate was just
+      // spinner timing).
       spinner = ora(`Running ${numQueries} searches...`).start();
       const searchStart = Date.now();
 
@@ -367,7 +431,7 @@ program
           vector: Array.from({ length: dimension }, () => Math.random()),
           k: 10
         };
-        db.search(query);
+        await db.search(query);
       }
 
       const searchTime = Date.now() - searchStart;
