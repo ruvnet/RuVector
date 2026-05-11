@@ -523,6 +523,17 @@ impl WasmEphemeralAgent {
         let patterns = self.inner.get_patterns();
         serde_wasm_bindgen::to_value(&patterns).unwrap_or(JsValue::NULL)
     }
+
+    /// Find top-k patterns most similar to a query embedding
+    ///
+    /// # Arguments
+    /// * `query_embedding` - Query vector as Float32Array
+    /// * `k` - Number of patterns to return
+    #[wasm_bindgen(js_name = findPatterns)]
+    pub fn find_patterns(&self, query_embedding: Vec<f32>, k: usize) -> JsValue {
+        let patterns = self.inner.find_patterns(&query_embedding, k);
+        serde_wasm_bindgen::to_value(&patterns).unwrap_or(JsValue::NULL)
+    }
 }
 
 /// WASM-compatible Federated Coordinator
