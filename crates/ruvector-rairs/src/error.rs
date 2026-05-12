@@ -6,15 +6,30 @@ use std::fmt;
 #[derive(Debug, Clone, PartialEq)]
 pub enum RairsError {
     /// Input vectors have inconsistent dimensionality.
-    DimMismatch { expected: usize, got: usize },
+    DimMismatch {
+        /// Dimensionality the index was created with.
+        expected: usize,
+        /// Dimensionality of the offending vector.
+        got: usize,
+    },
     /// Index must be trained before search.
     NotTrained,
     /// Empty corpus passed to train.
     EmptyCorpus,
     /// k > n in top-k search.
-    KTooLarge { k: usize, n: usize },
+    KTooLarge {
+        /// Requested number of neighbours.
+        k: usize,
+        /// Number of vectors currently indexed.
+        n: usize,
+    },
     /// nprobe exceeds number of clusters.
-    NprobeTooLarge { nprobe: usize, nclusters: usize },
+    NprobeTooLarge {
+        /// Requested number of lists to probe.
+        nprobe: usize,
+        /// Number of inverted lists in the index.
+        nclusters: usize,
+    },
     /// Invalid parameter value.
     InvalidParam(String),
 }

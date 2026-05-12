@@ -4,7 +4,7 @@
 //! `nprobe` closest centroids and linearly scans each list.
 
 use crate::error::RairsError;
-use crate::index::{AnnIndex, SearchResult, l2sq};
+use crate::index::{l2sq, AnnIndex, SearchResult};
 use crate::kmeans;
 
 /// IVF baseline: one list per vector, flat scan.
@@ -93,31 +93,17 @@ impl AnnIndex for IvfFlat {
                 got: query.len(),
             });
         }
-        let nc = self.centroids.len();
-        let nprobe = nprobe.min(nc);
-
-        // Rank centroids by distance to query
-        let mut centroid_dists: Vec<(usize, f32)> = self
-            .centroids
-            .iter()
-            .enumerate()
-            .map(|(i, c)| (i, l2sq(query, c)))
-            .collect();
-        centroid_dists.sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-
-        // Collect candidates from top-nprobe lists
-        let mut heap: Vec<SearchResult> = Vec::new();
-        for &(ci, _) in centroid_dists.iter().take(nprobe) {
+        // Collect candidates from the top-nprobe lists, then partial-select top-k.
+        let mut cands: Vec<SearchResult> = Vec::new();
+        for ci in crate::index::top_nprobe_centroids(query, &self.centroids, nprobe) {
             for (id, vec) in &self.lists[ci] {
-                let dist = l2sq(query, vec).sqrt();
-                heap.push(SearchResult { id: *id, distance: dist });
+                cands.push(SearchResult {
+                    id: *id,
+                    distance: l2sq(query, vec).sqrt(),
+                });
             }
         }
-
-        // Partial-sort to find top-k
-        heap.sort_unstable_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
-        heap.truncate(k);
-        Ok(heap)
+        Ok(crate::index::finalize_topk(cands, k))
     }
 
     fn len(&self) -> usize {
@@ -138,7 +124,9 @@ mod tests {
     fn corpus(n: usize, dim: usize, seed: u64) -> Vec<Vec<f32>> {
         use rand::{Rng, SeedableRng};
         let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
-        (0..n).map(|_| (0..dim).map(|_| rng.gen::<f32>()).collect()).collect()
+        (0..n)
+            .map(|_| (0..dim).map(|_| rng.gen::<f32>()).collect())
+            .collect()
     }
 
     #[test]

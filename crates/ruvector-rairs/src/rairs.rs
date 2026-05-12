@@ -14,9 +14,8 @@
 //! A simple `HashSet` deduplicates vector IDs so each candidate is
 //! scored at most once.
 
-use std::collections::HashSet;
 use crate::error::RairsError;
-use crate::index::{AnnIndex, SearchResult, l2sq, dot};
+use crate::index::{l2sq, AnnIndex, SearchResult};
 use crate::kmeans;
 
 /// RAIRS with dual assignment, flat lists, query-time hash deduplication.
@@ -72,12 +71,16 @@ impl RairsStrict {
     /// Compute the RAIR score for assigning vector `v` to centroid `c_j`,
     /// given primary residual `r_p = v − c_primary`.
     ///
-    /// score = ‖v − c_j‖² + λ · ⟨r_p, v − c_j⟩
+    /// `score = ‖v − c_j‖² + λ · ⟨r_p, v − c_j⟩` — allocation-free single pass.
     #[inline]
     fn rair_score(&self, v: &[f32], c_j: &[f32], r_p: &[f32]) -> f32 {
-        let diff: Vec<f32> = v.iter().zip(c_j.iter()).map(|(a, b)| a - b).collect();
-        let l2: f32 = diff.iter().map(|x| x * x).sum();
-        let inner = dot(r_p, &diff);
+        let mut l2 = 0.0f32;
+        let mut inner = 0.0f32;
+        for ((&vi, &cj), &rp) in v.iter().zip(c_j).zip(r_p) {
+            let diff = vi - cj;
+            l2 += diff * diff;
+            inner += rp * diff;
+        }
         l2 + self.lambda * inner
     }
 
@@ -95,7 +98,7 @@ impl RairsStrict {
             .enumerate()
             .filter(|(i, _)| *i != primary)
             .map(|(i, c)| (i, self.rair_score(v, c, &r_p)))
-            .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+            .min_by(|a, b| a.1.total_cmp(&b.1))
             .map(|(i, _)| i)
             .unwrap_or(0)
     }
@@ -143,32 +146,23 @@ impl AnnIndex for RairsStrict {
                 got: query.len(),
             });
         }
-        let nc = self.centroids.len();
-        let nprobe = nprobe.min(nc);
-
-        let mut centroid_dists: Vec<(usize, f32)> = self
-            .centroids
-            .iter()
-            .enumerate()
-            .map(|(i, c)| (i, l2sq(query, c)))
-            .collect();
-        centroid_dists.sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-
-        let mut seen: HashSet<usize> = HashSet::new();
-        let mut heap: Vec<SearchResult> = Vec::new();
-
-        for &(ci, _) in centroid_dists.iter().take(nprobe) {
+        // A vector can land in two lists (primary + secondary), so dedup by id.
+        // A bool-per-vector scratch array is one cheap memset per query — far
+        // cheaper than growing a HashMap on every search call.
+        let mut seen = vec![false; self.total];
+        let mut cands: Vec<SearchResult> = Vec::new();
+        for ci in crate::index::top_nprobe_centroids(query, &self.centroids, nprobe) {
             for (id, vec) in &self.lists[ci] {
-                if seen.insert(*id) {
-                    let dist = l2sq(query, vec).sqrt();
-                    heap.push(SearchResult { id: *id, distance: dist });
+                if !seen[*id] {
+                    seen[*id] = true;
+                    cands.push(SearchResult {
+                        id: *id,
+                        distance: l2sq(query, vec).sqrt(),
+                    });
                 }
             }
         }
-
-        heap.sort_unstable_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
-        heap.truncate(k);
-        Ok(heap)
+        Ok(crate::index::finalize_topk(cands, k))
     }
 
     fn len(&self) -> usize {
@@ -189,7 +183,9 @@ mod tests {
     fn corpus(n: usize, dim: usize, seed: u64) -> Vec<Vec<f32>> {
         use rand::{Rng, SeedableRng};
         let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
-        (0..n).map(|_| (0..dim).map(|_| rng.gen::<f32>()).collect()).collect()
+        (0..n)
+            .map(|_| (0..dim).map(|_| rng.gen::<f32>()).collect())
+            .collect()
     }
 
     #[test]
@@ -228,6 +224,9 @@ mod tests {
         let r = vec![0.5f32, 0.5, 0.5, 0.5];
         let score = idx.rair_score(&v, &c, &r);
         let expected = l2sq(&v, &c);
-        assert!((score - expected).abs() < 1e-5, "score={score} expected={expected}");
+        assert!(
+            (score - expected).abs() < 1e-5,
+            "score={score} expected={expected}"
+        );
     }
 }

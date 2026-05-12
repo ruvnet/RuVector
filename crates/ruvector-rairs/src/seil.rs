@@ -14,7 +14,7 @@
 //! each shared block is stored once.
 
 use crate::error::RairsError;
-use crate::index::{AnnIndex, SearchResult, l2sq};
+use crate::index::{l2sq, AnnIndex, SearchResult};
 use crate::kmeans;
 
 const BLOCK_SIZE: usize = 32;
@@ -39,6 +39,7 @@ pub struct RairsSeil {
     nclusters: usize,
     max_iter: usize,
     seed: u64,
+    /// Amplification factor λ for the RAIR scoring metric (paper default 1.0).
     pub lambda: f32,
     centroids: Vec<Vec<f32>>,
     /// Per-cluster list of blocks.
@@ -103,7 +104,7 @@ impl RairsSeil {
             .enumerate()
             .filter(|(i, _)| *i != primary)
             .map(|(i, c)| (i, self.rair_score(v, c, &r_p)))
-            .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+            .min_by(|a, b| a.1.total_cmp(&b.1))
             .map(|(i, _)| i)
             .unwrap_or(0)
     }
@@ -113,7 +114,9 @@ impl RairsSeil {
     fn append_owned(&mut self, list_idx: usize, entry: (usize, Vec<f32>)) -> (usize, usize) {
         let list = &mut self.lists[list_idx];
         if list.is_empty() {
-            list.push(ListBlock::Owned(Block { entries: vec![entry] }));
+            list.push(ListBlock::Owned(Block {
+                entries: vec![entry],
+            }));
         } else {
             let last = list.len() - 1;
             match &mut list[last] {
@@ -121,7 +124,9 @@ impl RairsSeil {
                     b.entries.push(entry);
                 }
                 _ => {
-                    list.push(ListBlock::Owned(Block { entries: vec![entry] }));
+                    list.push(ListBlock::Owned(Block {
+                        entries: vec![entry],
+                    }));
                 }
             }
         }
@@ -137,22 +142,39 @@ impl RairsSeil {
         });
     }
 
-    /// Resolve a block: follow Ref chains and return the actual entries.
-    fn resolve_block<'a>(&'a self, list_idx: usize, block_idx: usize) -> &'a Block {
+    /// Resolve a block: follow the (at most one-hop) Ref chain to its owned data.
+    fn resolve_block(&self, list_idx: usize, block_idx: usize) -> &Block {
         match &self.lists[list_idx][block_idx] {
             ListBlock::Owned(b) => b,
-            ListBlock::Ref { list_idx: li, block_idx: bi } => {
-                self.resolve_block(*li, *bi)
-            }
+            ListBlock::Ref {
+                list_idx: li,
+                block_idx: bi,
+            } => self.resolve_block(*li, *bi),
         }
     }
 
-    /// Compute a globally unique block key used to dedup visits.
+    /// Canonical `(owning_list, block)` identity used to dedup visits.
     fn block_key(&self, list_idx: usize, block_idx: usize) -> (usize, usize) {
         match &self.lists[list_idx][block_idx] {
             ListBlock::Owned(_) => (list_idx, block_idx),
-            ListBlock::Ref { list_idx: li, block_idx: bi } => (*li, *bi),
+            ListBlock::Ref {
+                list_idx: li,
+                block_idx: bi,
+            } => (*li, *bi),
         }
+    }
+
+    /// Per-query prefix sums so a canonical `(li, bi)` block key maps to a flat
+    /// index into a `Vec<bool>` visited array (cheaper than a `HashSet`).
+    fn block_offsets(&self) -> (Vec<usize>, usize) {
+        let mut offsets = Vec::with_capacity(self.lists.len() + 1);
+        let mut acc = 0usize;
+        for list in &self.lists {
+            offsets.push(acc);
+            acc += list.len();
+        }
+        offsets.push(acc);
+        (offsets, acc)
     }
 }
 
@@ -208,38 +230,29 @@ impl AnnIndex for RairsSeil {
                 got: query.len(),
             });
         }
-        let nc = self.centroids.len();
-        let nprobe = nprobe.min(nc);
+        // Visited-block dedup: each shared block is scored at most once.
+        // Flat bool array indexed via per-list prefix sums — one memset per
+        // query instead of a growing HashMap.
+        let (offsets, n_blocks) = self.block_offsets();
+        let mut visited = vec![false; n_blocks];
+        let mut cands: Vec<SearchResult> = Vec::new();
 
-        let mut centroid_dists: Vec<(usize, f32)> = self
-            .centroids
-            .iter()
-            .enumerate()
-            .map(|(i, c)| (i, l2sq(query, c)))
-            .collect();
-        centroid_dists.sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-
-        // Visited-block deduplication set: stores canonical (list_idx, block_idx) keys.
-        let mut visited: std::collections::HashSet<(usize, usize)> =
-            std::collections::HashSet::new();
-        let mut heap: Vec<SearchResult> = Vec::new();
-
-        for &(ci, _) in centroid_dists.iter().take(nprobe) {
+        for ci in crate::index::top_nprobe_centroids(query, &self.centroids, nprobe) {
             for bi in 0..self.lists[ci].len() {
-                let key = self.block_key(ci, bi);
-                if visited.insert(key) {
-                    let block = self.resolve_block(ci, bi);
-                    for (id, vec) in &block.entries {
-                        let dist = l2sq(query, vec).sqrt();
-                        heap.push(SearchResult { id: *id, distance: dist });
+                let (kli, kbi) = self.block_key(ci, bi);
+                let flat = offsets[kli] + kbi;
+                if !visited[flat] {
+                    visited[flat] = true;
+                    for (id, vec) in &self.resolve_block(ci, bi).entries {
+                        cands.push(SearchResult {
+                            id: *id,
+                            distance: l2sq(query, vec).sqrt(),
+                        });
                     }
                 }
             }
         }
-
-        heap.sort_unstable_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
-        heap.truncate(k);
-        Ok(heap)
+        Ok(crate::index::finalize_topk(cands, k))
     }
 
     fn len(&self) -> usize {
@@ -260,7 +273,9 @@ mod tests {
     fn corpus(n: usize, dim: usize, seed: u64) -> Vec<Vec<f32>> {
         use rand::{Rng, SeedableRng};
         let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
-        (0..n).map(|_| (0..dim).map(|_| rng.gen::<f32>()).collect()).collect()
+        (0..n)
+            .map(|_| (0..dim).map(|_| rng.gen::<f32>()).collect())
+            .collect()
     }
 
     #[test]

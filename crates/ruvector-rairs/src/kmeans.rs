@@ -4,8 +4,8 @@
 //! Uses kmeans++ seeding for stable convergence.
 
 use crate::index::l2sq;
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 
 /// Train k centroids on `vectors` for up to `max_iter` iterations.
 /// Returns `(centroids, assignments)`.
@@ -77,7 +77,7 @@ pub fn nearest_centroid(v: &[f32], centroids: &[Vec<f32>]) -> usize {
         .iter()
         .enumerate()
         .map(|(i, c)| (i, l2sq(v, c)))
-        .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+        .min_by(|a, b| a.1.total_cmp(&b.1))
         .map(|(i, _)| i)
         .unwrap()
 }
@@ -140,12 +140,8 @@ mod tests {
 
     #[test]
     fn two_clusters_separated() {
-        let mut vecs: Vec<Vec<f32>> = (0..50)
-            .map(|i| vec![i as f32 * 0.01, 0.0])
-            .collect();
-        let far: Vec<Vec<f32>> = (0..50)
-            .map(|i| vec![10.0 + i as f32 * 0.01, 0.0])
-            .collect();
+        let mut vecs: Vec<Vec<f32>> = (0..50).map(|i| vec![i as f32 * 0.01, 0.0]).collect();
+        let far: Vec<Vec<f32>> = (0..50).map(|i| vec![10.0 + i as f32 * 0.01, 0.0]).collect();
         vecs.extend(far);
         let (centroids, assignments) = train(&vecs, 2, 50, 42);
         assert_eq!(centroids.len(), 2);

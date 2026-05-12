@@ -11,21 +11,21 @@
 use std::collections::HashSet;
 use std::time::Instant;
 
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 
-use ruvector_rairs::{AnnIndex, IvfFlat, RairsStrict, RairsSeil};
 use ruvector_rairs::index::l2sq;
+use ruvector_rairs::{AnnIndex, IvfFlat, RairsSeil, RairsStrict};
 
 // ─── configuration ────────────────────────────────────────────────────────────
 
-const N: usize      = 5_000;  // corpus size
-const DIM: usize    = 128;    // vector dimensionality
-const NCLUSTERS: usize = 64;  // IVF list count
-const NQUERIES: usize  = 200; // evaluation queries
-const K: usize      = 10;     // recall@K
+const N: usize = 5_000; // corpus size
+const DIM: usize = 128; // vector dimensionality
+const NCLUSTERS: usize = 64; // IVF list count
+const NQUERIES: usize = 200; // evaluation queries
+const K: usize = 10; // recall@K
 const KMEANS_ITER: usize = 25;
-const SEED: u64     = 42;
+const SEED: u64 = 42;
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -94,7 +94,10 @@ fn bench<Idx: AnnIndex>(
     nprobe_values: &[usize],
     memory_bytes: usize,
 ) {
-    println!("\n── {name} (memory ≈ {:.1} KB) ──", memory_bytes as f64 / 1024.0);
+    println!(
+        "\n── {name} (memory ≈ {:.1} KB) ──",
+        memory_bytes as f64 / 1024.0
+    );
     println!("{:<10} {:>12} {:>12}", "nprobe", "recall@10", "QPS");
 
     for &np in nprobe_values {
@@ -124,19 +127,20 @@ fn main() {
     let queries: Vec<Vec<f32>> = {
         let mut rng = StdRng::seed_from_u64(SEED + 1);
         (0..NQUERIES)
-            .map(|_| corpus[rng.gen_range(0..N)].iter()
-                .map(|&x| x + rng.gen_range(-0.1f32..0.1))
-                .collect())
+            .map(|_| {
+                corpus[rng.gen_range(0..N)]
+                    .iter()
+                    .map(|&x| x + rng.gen_range(-0.1f32..0.1))
+                    .collect()
+            })
             .collect()
     };
 
     // Compute exact ground truth (brute force)
     println!("\nComputing exact ground truth …");
     let t_gt = Instant::now();
-    let ground_truth: Vec<HashSet<usize>> = queries
-        .iter()
-        .map(|q| exact_topk(q, &corpus, K))
-        .collect();
+    let ground_truth: Vec<HashSet<usize>> =
+        queries.iter().map(|q| exact_topk(q, &corpus, K)).collect();
     println!("  done in {:.1}ms", t_gt.elapsed().as_millis());
 
     let nprobe_values = [1, 4, 16, 32, 64, NCLUSTERS];
@@ -147,9 +151,20 @@ fn main() {
     let mut ivf = IvfFlat::new(DIM, NCLUSTERS, KMEANS_ITER, SEED);
     ivf.train(&corpus).unwrap();
     ivf.add(&corpus).unwrap();
-    println!("  built in {:.1}ms  lists={}", t0.elapsed().as_millis(), ivf.num_lists());
+    println!(
+        "  built in {:.1}ms  lists={}",
+        t0.elapsed().as_millis(),
+        ivf.num_lists()
+    );
     let mem_ivf = ivf_memory_bytes(&ivf);
-    bench("IvfFlat (baseline)", &ivf, &queries, &ground_truth, &nprobe_values, mem_ivf);
+    bench(
+        "IvfFlat (baseline)",
+        &ivf,
+        &queries,
+        &ground_truth,
+        &nprobe_values,
+        mem_ivf,
+    );
 
     // ── Variant 2: RairsStrict ───────────────────────────────────────────────
     println!("\nTraining RairsStrict (λ=1.0) …");
@@ -157,9 +172,20 @@ fn main() {
     let mut strict = RairsStrict::new(DIM, NCLUSTERS, KMEANS_ITER, SEED, 1.0);
     strict.train(&corpus).unwrap();
     strict.add(&corpus).unwrap();
-    println!("  built in {:.1}ms  lists={}", t0.elapsed().as_millis(), strict.num_lists());
+    println!(
+        "  built in {:.1}ms  lists={}",
+        t0.elapsed().as_millis(),
+        strict.num_lists()
+    );
     let mem_strict = rairs_strict_memory_bytes(&strict);
-    bench("RairsStrict (SRAIR, no dedup)", &strict, &queries, &ground_truth, &nprobe_values, mem_strict);
+    bench(
+        "RairsStrict (SRAIR, no dedup)",
+        &strict,
+        &queries,
+        &ground_truth,
+        &nprobe_values,
+        mem_strict,
+    );
 
     // ── Variant 3: RairsSeil ─────────────────────────────────────────────────
     println!("\nTraining RairsSeil (λ=1.0, block=32) …");
@@ -167,9 +193,20 @@ fn main() {
     let mut seil = RairsSeil::new(DIM, NCLUSTERS, KMEANS_ITER, SEED, 1.0);
     seil.train(&corpus).unwrap();
     seil.add(&corpus).unwrap();
-    println!("  built in {:.1}ms  lists={}", t0.elapsed().as_millis(), seil.num_lists());
+    println!(
+        "  built in {:.1}ms  lists={}",
+        t0.elapsed().as_millis(),
+        seil.num_lists()
+    );
     let mem_seil = rairs_seil_memory_bytes(&seil);
-    bench("RairsSeil (full RAIRS+SEIL)", &seil, &queries, &ground_truth, &nprobe_values, mem_seil);
+    bench(
+        "RairsSeil (full RAIRS+SEIL)",
+        &seil,
+        &queries,
+        &ground_truth,
+        &nprobe_values,
+        mem_seil,
+    );
 
     // ── Summary table ────────────────────────────────────────────────────────
     println!("\n═══════════════════════════════════════");
@@ -191,7 +228,12 @@ fn main() {
             })
             .sum::<f64>()
             / queries.len() as f64;
-        println!("{:<35} {:>11.1}% {:>12.1}", name, recall * 100.0, mem as f64 / 1024.0);
+        println!(
+            "{:<35} {:>11.1}% {:>12.1}",
+            name,
+            recall * 100.0,
+            mem as f64 / 1024.0
+        );
     }
     println!();
 }

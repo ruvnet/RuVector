@@ -10,10 +10,21 @@ tags: [ivf, ann, vector-search, rairs, seil, quantization, recall, nightly-resea
 
 # ADR-193 — RAIRS IVF: ruvector's First Inverted File Index Family
 
+> **⚠️ Provenance note.** The "RAIRS / SEIL" names and the
+> `Yang & Chen, SIGMOD 2026, arXiv:2601.07183` reference cited throughout this
+> document have **not been independently verified** — the arXiv id may not
+> resolve, and these terms are not established literature. The *technique* in
+> `crates/ruvector-rairs` (redundant primary+secondary list assignment with a
+> residual-amplified secondary score, plus a deduplicating shared-block layout)
+> is closely related to well-known ideas — IVF spill lists, SOAR's
+> anti-correlated spilling, multi-probe LSH — and should be evaluated on the
+> reproducible benchmarks in `crates/ruvector-rairs/src/main.rs`, not on the
+> citation. Treat it as an original implementation, not a port of a named paper.
+
 ## Status
 
 **Accepted.** Implemented on branch `research/nightly/2026-05-12-rairs-ivf` as
-`crates/ruvector-rairs`.  All 10 unit tests pass; build is green with
+`crates/ruvector-rairs`.  All unit tests pass; build is green with
 `cargo build --release -p ruvector-rairs`.
 
 ## Context

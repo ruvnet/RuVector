@@ -1,9 +1,9 @@
 //! Criterion micro-benchmarks for RAIRS IVF kernels.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
-use ruvector_rairs::{AnnIndex, IvfFlat, RairsStrict, RairsSeil};
+use rand::{Rng, SeedableRng};
+use ruvector_rairs::{AnnIndex, IvfFlat, RairsSeil, RairsStrict};
 
 const DIM: usize = 128;
 const N: usize = 2_000;
@@ -12,7 +12,9 @@ const SEED: u64 = 99;
 
 fn corpus(n: usize, seed: u64) -> Vec<Vec<f32>> {
     let mut rng = StdRng::seed_from_u64(seed);
-    (0..n).map(|_| (0..DIM).map(|_| rng.gen::<f32>()).collect()).collect()
+    (0..n)
+        .map(|_| (0..DIM).map(|_| rng.gen::<f32>()).collect())
+        .collect()
 }
 
 fn bench_search(c: &mut Criterion) {

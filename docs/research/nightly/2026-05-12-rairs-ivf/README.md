@@ -1,6 +1,13 @@
 # RAIRS IVF: Redundant Assignment with Amplified Inverse Residual for ruvector
 
-**Nightly research · 2026-05-12 · SIGMOD 2026 (arXiv:2601.07183)**
+**Nightly research · 2026-05-12**
+
+> **⚠️ Provenance.** The "RAIRS / SEIL" names and the `SIGMOD 2026 /
+> arXiv:2601.07183` citation used below are **unverified** — the arXiv id may
+> not resolve and these are not established literature terms. The implemented
+> technique is an original take on well-known ideas (IVF spill lists, SOAR
+> anti-correlated spilling, multi-probe LSH). Judge `crates/ruvector-rairs` on
+> the reproducible benchmarks in `src/main.rs`, not on the reference.
 
 ---
 
