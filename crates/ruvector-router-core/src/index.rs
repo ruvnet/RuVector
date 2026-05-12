@@ -116,8 +116,7 @@ impl HnswIndex {
         }
 
         // Find nearest neighbors (safe now - no locks held)
-        let neighbors =
-            self.search_knn_internal(&vector, self.config.ef_construction.min(self.config.m * 2));
+        let neighbors = self.search_knn_internal(&vector, self.config.ef_construction);
 
         // Re-acquire graph lock for modifications
         let mut graph = self.graph.write();
@@ -187,7 +186,7 @@ impl HnswIndex {
         let entry_id = entry_point.as_ref().unwrap();
         let mut visited = HashSet::new();
         let mut candidates = BinaryHeap::new();
-        let mut result = BinaryHeap::new();
+        let mut result: BinaryHeap<std::cmp::Reverse<Neighbor>> = BinaryHeap::new();
 
         // Calculate distance to entry point
         if let Some(entry_vec) = vectors.get(entry_id) {
@@ -199,14 +198,14 @@ impl HnswIndex {
             };
 
             candidates.push(neighbor.clone());
-            result.push(neighbor);
+            result.push(std::cmp::Reverse(neighbor));
             visited.insert(entry_id.clone());
         }
 
         // Search phase
         while let Some(current) = candidates.pop() {
             // Check if we should continue
-            if let Some(furthest) = result.peek() {
+            if let Some(std::cmp::Reverse(furthest)) = result.peek() {
                 if current.distance > furthest.distance && result.len() >= ef {
                     break;
                 }
@@ -235,11 +234,11 @@ impl HnswIndex {
 
                         // Add to results if better than current worst
                         if result.len() < ef {
-                            result.push(neighbor);
-                        } else if let Some(worst) = result.peek() {
+                            result.push(std::cmp::Reverse(neighbor));
+                        } else if let Some(std::cmp::Reverse(worst)) = result.peek() {
                             if dist < worst.distance {
                                 result.pop();
-                                result.push(neighbor);
+                                result.push(std::cmp::Reverse(neighbor));
                             }
                         }
                     }
@@ -248,7 +247,7 @@ impl HnswIndex {
         }
 
         // Convert to sorted vector
-        let mut sorted_results: Vec<Neighbor> = result.into_iter().collect();
+        let mut sorted_results: Vec<Neighbor> = result.into_iter().map(|r| r.0).collect();
         sorted_results.sort_by(|a, b| {
             a.distance
                 .partial_cmp(&b.distance)

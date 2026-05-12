@@ -32,8 +32,20 @@ impl VectorDB {
 
         let index = Arc::new(HnswIndex::new(hnsw_config));
 
-        let stats = Arc::new(RwLock::new(VectorDbStats {
-            total_vectors: 0,
+        // Rebuild index from persisted vectors (fixes search returning 0 results after restart)
+        let stored_ids = storage.get_all_ids()?;
+          if !stored_ids.is_empty() {
+              let mut entries = Vec::with_capacity(stored_ids.len());
+              for id in &stored_ids {
+                  if let Some(vector) = storage.get(id)? {
+                      entries.push((id.clone(), vector));
+                  }
+              }
+              index.insert_batch(entries)?;
+          }
+
+          let stats = Arc::new(RwLock::new(VectorDbStats {
+              total_vectors: stored_ids.len(),
             index_size_bytes: 0,
             storage_size_bytes: 0,
             avg_query_latency_us: 0.0,
