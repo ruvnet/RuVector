@@ -231,6 +231,8 @@ members = [
     "crates/ruvllm_sparse_attention",
     # Generic retrieval LM + masked discrete diffusion built on the kernel
     "crates/ruvllm_retrieval_diffusion",
+    # RAIRS IVF: Redundant Assignment + Amplified Inverse Residual (ADR-193)
+    "crates/ruvector-rairs",
 ]
 resolver = "2"
 

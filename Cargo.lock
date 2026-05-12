@@ -9920,6 +9920,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-rairs"
+version = "0.1.0"
+dependencies = [
+ "criterion 0.5.1",
+ "rand 0.8.5",
+ "serde",
+]
+
+[[package]]
 name = "ruvector-replication"
 version = "2.2.2"
 dependencies = [
@@ -10731,6 +10740,13 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
  "web-sys",
+]
+
+[[package]]
+name = "ruvllm_retrieval_diffusion"
+version = "0.1.0"
+dependencies = [
+ "ruvllm_sparse_attention",
 ]
 
 [[package]]
