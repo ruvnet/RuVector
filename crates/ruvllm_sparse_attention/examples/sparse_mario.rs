@@ -40,7 +40,6 @@ M-------------------------------------[]----------\n\
 XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n\
 XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n\
 XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-
     // Slice B — staircase, double-pipe, brick ceiling
     "\
 --------------------------------------------------\n\
@@ -57,7 +56,6 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n\
 XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n\
 XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n\
 XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-
     // Slice C — cannons, gap, coin shower
     "\
 --------------------------------------------------\n\
@@ -78,21 +76,21 @@ XXXXXXXXXXXXXXXXXXBXXXXXXXXXXXXXXBXXXXX-----XXXXXX",
 
 /// Tile vocabulary in deterministic order. Index = token id.
 pub const VOCAB: &[char] = &[
-    '-', // 0  sky
-    'X', // 1  ground
-    'S', // 2  breakable brick
-    '?', // 3  active ? block
-    'Q', // 4  used ? block
-    'o', // 5  coin
-    '<', // 6  pipe top-left
-    '>', // 7  pipe top-right
-    '[', // 8  pipe body-left
-    ']', // 9  pipe body-right
-    'E', // 10 enemy (goomba)
-    'B', // 11 cannon ball
-    'b', // 12 cannon top
-    'M', // 13 mario start
-    '\n',// 14 row separator
+    '-',  // 0  sky
+    'X',  // 1  ground
+    'S',  // 2  breakable brick
+    '?',  // 3  active ? block
+    'Q',  // 4  used ? block
+    'o',  // 5  coin
+    '<',  // 6  pipe top-left
+    '>',  // 7  pipe top-right
+    '[',  // 8  pipe body-left
+    ']',  // 9  pipe body-right
+    'E',  // 10 enemy (goomba)
+    'B',  // 11 cannon ball
+    'b',  // 12 cannon top
+    'M',  // 13 mario start
+    '\n', // 14 row separator
 ];
 
 /// Char → token id. Returns None for unknown characters so the corpus stays clean.
@@ -639,9 +637,7 @@ pub fn render_level(tokens: &[u8]) -> String {
 pub fn uniform_random_generate(n: usize, seed: u32) -> Vec<u8> {
     let mut state = seed.max(1);
     let v = VOCAB_SIZE as u32;
-    (0..n)
-        .map(|_| (xorshift32(&mut state) % v) as u8)
-        .collect()
+    (0..n).map(|_| (xorshift32(&mut state) % v) as u8).collect()
 }
 
 /// First-order Markov chain over the embedded corpus — the classical
@@ -1211,9 +1207,8 @@ impl<'a> MarioDiffuser<'a> {
         if boot_len > 0 && corpus_len > boot_len {
             let corpus_off = (xorshift32(&mut state) as usize) % (corpus_len - boot_len);
             let work_off = (xorshift32(&mut state) as usize) % (n - boot_len);
-            working[work_off..work_off + boot_len].copy_from_slice(
-                &self.retriever.corpus[corpus_off..corpus_off + boot_len],
-            );
+            working[work_off..work_off + boot_len]
+                .copy_from_slice(&self.retriever.corpus[corpus_off..corpus_off + boot_len]);
         }
 
         for t in 0..n_steps {
@@ -1248,7 +1243,10 @@ fn main() {
     println!("levels        : {}", LEVELS.len());
     println!("total tokens  : {}", tokens.len());
     println!("vocab size    : {}", VOCAB.len());
-    println!("level widths  : {:?}", LEVELS.iter().map(|l| level_width(l)).collect::<Vec<_>>());
+    println!(
+        "level widths  : {:?}",
+        LEVELS.iter().map(|l| level_width(l)).collect::<Vec<_>>()
+    );
     println!();
     println!("Tile distribution:");
     let mut entries: Vec<_> = dist.iter().collect();
@@ -1256,7 +1254,11 @@ fn main() {
     let total = tokens.len() as f64;
     for (c, n) in entries {
         let pct = (*n as f64 / total) * 100.0;
-        let label = if *c == '\n' { "\\n".to_string() } else { c.to_string() };
+        let label = if *c == '\n' {
+            "\\n".to_string()
+        } else {
+            c.to_string()
+        };
         println!("  {:>3}  {:>5}  {:>5.1}%", label, n, pct);
     }
 
@@ -1294,7 +1296,10 @@ fn main() {
         sampling.no_repeat_window,
         sampling.temperature
     );
-    println!("generated     : {} tokens in {:.2?} (KvCache + decode_step)", n_gen, dt);
+    println!(
+        "generated     : {} tokens in {:.2?} (KvCache + decode_step)",
+        n_gen, dt
+    );
     println!();
     println!("{}", rendered);
     println!();
@@ -1318,12 +1323,12 @@ fn main() {
     println!("== Sparse-attention masked discrete diffusion ==");
     let diffuser = MarioDiffuser::new(&retriever);
     let n_diff = 50 * 14; // 14×50 grid, fully masked at start
-    // Iter 12 sweep winner: 24 denoising steps (vs the iter 7 default of 16)
-    // gave the lowest avg L2 distance to corpus across 3 seeds:
-    //   steps=16  0.746      steps=24  0.723   steps=32  0.798
-    // 24 is the cosine-schedule sweet-spot — enough late-stage steps for
-    // bidirectional context to settle, without spending budget on a flat
-    // tail.
+                          // Iter 12 sweep winner: 24 denoising steps (vs the iter 7 default of 16)
+                          // gave the lowest avg L2 distance to corpus across 3 seeds:
+                          //   steps=16  0.746      steps=24  0.723   steps=32  0.798
+                          // 24 is the cosine-schedule sweet-spot — enough late-stage steps for
+                          // bidirectional context to settle, without spending budget on a flat
+                          // tail.
     let n_steps = 24;
     let t0 = std::time::Instant::now();
     let diffused = diffuser.diffuse(n_diff, n_steps, &sampling, 0xD1FF_5008);
@@ -1420,8 +1425,7 @@ fn main() {
     for (name, cfg) in ar_configs.iter() {
         let mut total = 0.0f32;
         for &s in &seeds {
-            let toks =
-                retriever.generate_fast(&seed_chars, n_total - seed_chars.len(), cfg, s);
+            let toks = retriever.generate_fast(&seed_chars, n_total - seed_chars.len(), cfg, s);
             let m = compute_metrics(&toks, cols, rows);
             total += metric_distance(&m, &target);
         }
@@ -1519,7 +1523,11 @@ mod tests {
     #[test]
     fn corpus_nonempty_and_known_tiles() {
         let toks = encode_corpus();
-        assert!(toks.len() > 1000, "corpus should have at least 1k tokens, got {}", toks.len());
+        assert!(
+            toks.len() > 1000,
+            "corpus should have at least 1k tokens, got {}",
+            toks.len()
+        );
         for &t in &toks {
             assert!((t as usize) < VOCAB.len(), "out-of-range token {}", t);
         }
@@ -1551,9 +1559,13 @@ mod tests {
             let w = level_width(lvl);
             for (r, row) in lvl.lines().enumerate() {
                 assert_eq!(
-                    row.chars().count(), w,
+                    row.chars().count(),
+                    w,
                     "level {} row {} width mismatch (expected {}, got {})",
-                    i, r, w, row.chars().count()
+                    i,
+                    r,
+                    w,
+                    row.chars().count()
                 );
             }
         }
@@ -1685,12 +1697,7 @@ mod tests {
         let toks: Vec<u8> = (0..200).map(|i| (i % 3) as u8).collect();
         let s = render_level_wrapped(&toks, 50);
         for (r, row) in s.lines().enumerate() {
-            assert_eq!(
-                row.chars().count(),
-                50,
-                "row {} should have width 50",
-                r
-            );
+            assert_eq!(row.chars().count(), 50, "row {} should have width 50", r);
         }
         assert_eq!(s.lines().count(), 4, "200 chars / 50 cols = 4 rows");
     }
@@ -1787,7 +1794,8 @@ mod tests {
         assert!(
             df > dn,
             "distance should grow with density gap: near={}, far={}",
-            dn, df
+            dn,
+            df
         );
     }
 
@@ -2087,7 +2095,9 @@ mod tests {
         assert!(
             ratio >= 5.0,
             "generate_fast should be ≥5× faster than generate; ratio={:.2} (slow={:?}, fast={:?})",
-            ratio, slow_ms, fast_ms
+            ratio,
+            slow_ms,
+            fast_ms
         );
     }
 
@@ -2161,7 +2171,10 @@ mod tests {
             s.len() >= 4,
             "diffusion should produce ≥4 distinct tiles, got {} ({:?})",
             s.len(),
-            out.iter().take(40).map(|&t| decode_token(t)).collect::<String>()
+            out.iter()
+                .take(40)
+                .map(|&t| decode_token(t))
+                .collect::<String>()
         );
     }
 
@@ -2180,8 +2193,7 @@ mod tests {
         };
         let out = d.diffuse(200, 8, &cfg, 0xDEAD);
         let dist = tile_distribution(&out);
-        let sky_ground =
-            *dist.get(&'-').unwrap_or(&0) + *dist.get(&'X').unwrap_or(&0);
+        let sky_ground = *dist.get(&'-').unwrap_or(&0) + *dist.get(&'X').unwrap_or(&0);
         let frac = sky_ground as f64 / out.len() as f64;
         assert!(
             frac > 0.30,
@@ -2202,7 +2214,11 @@ mod tests {
         let mut state = 0xFEEDu32;
         d.denoise_step(&mut working, 5, &SamplingConfig::quality(), &mut state);
         let after = working.iter().filter(|&&t| t == MASK_SENTINEL).count();
-        assert_eq!(before - after, 5, "should have unmasked exactly 5 positions");
+        assert_eq!(
+            before - after,
+            5,
+            "should have unmasked exactly 5 positions"
+        );
     }
 
     #[test]

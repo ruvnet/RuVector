@@ -97,6 +97,7 @@ harness = false
 [features]
 default = ["simd", "storage", "hnsw", "api-embeddings", "parallel"]
 simd = ["simsimd"]  # SIMD acceleration (not available in WASM)
+simd-avx512 = []  # Opt-in AVX-512 intrinsics (nightly-only); OFF by default so stable builds work
 parallel = ["rayon", "crossbeam"]  # Parallel processing (not available in WASM)
 storage = ["redb", "memmap2"]  # File-based storage (not available in WASM)
 hnsw = ["hnsw_rs"]  # HNSW indexing (not available in WASM due to mmap dependency)

@@ -1,0 +1,172 @@
+name: Regression Guard
+
+# Re-tests the failure modes behind previously-fixed bugs so they cannot
+# silently come back. Each job maps to one or more closed issues — see the
+# comments. Keep this fast (no full workspace build) so it can gate every PR.
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regression-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # npm publish hygiene — guards #354 (ONNX wasm not bundled), #323 (.wasm ext),
+  # #376 (dist/index.js missing from tarball), #415 (rvf-wasm ESM-in-CJS),
+  # #372 (pi-brain require() of ESM-only package).
+  # ---------------------------------------------------------------------------
+  npm-package-integrity:
+    name: npm package integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # Build the packages that ship compiled output, so `npm pack` sees the
+      # real publishable tree. `prepublishOnly` runs build + verify-dist for
+      # the main package; rvf-wasm / pi-brain ship checked-in `pkg/` & `dist/`.
+      - name: Build ruvector package
+        working-directory: npm/packages/ruvector
+        run: |
+          npm install --no-audit --no-fund --ignore-scripts --legacy-peer-deps
+          npm run build
+      - name: Check published-tarball integrity
+        run: node scripts/ci/check-npm-package-integrity.mjs
+
+  # ---------------------------------------------------------------------------
+  # The MCP server must at minimum parse and import cleanly on a stock Node —
+  # guards #372 (require of ESM-only @ruvector/pi-brain) and #422 (spawnSync of
+  # `npx ruvector ...` timing out: the handler should not shell out to npx).
+  # ---------------------------------------------------------------------------
+  mcp-server-loads:
+    name: MCP server loads
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - working-directory: npm/packages/ruvector
+        run: npm install --no-audit --no-fund --ignore-scripts --legacy-peer-deps
+      - name: Build ruvector dist
+        working-directory: npm/packages/ruvector
+        run: npm run build
+      - name: node --check bin/*.js
+        working-directory: npm/packages/ruvector
+        run: |
+          node --check bin/mcp-server.js
+          node --check bin/cli.js
+      - name: IntelligenceEngine invariants (#315, #316)
+        run: node scripts/ci/check-intelligence-engine-invariants.mjs
+      - name: hooks_route_enhanced does not shell out to npx (#422)
+        working-directory: npm/packages/ruvector
+        run: |
+          # Extract the body of the `hooks_route_enhanced` case and ensure it
+          # does not invoke `npx` (cold-start blows the timeout — #422).
+          BODY=$(awk "/case 'hooks_route_enhanced'/{f=1} f{print} f&&/^      }/{exit}" bin/mcp-server.js)
+          echo "$BODY"
+          if echo "$BODY" | grep -qE "\bnpx\b"; then
+            echo "::error::the hooks_route_enhanced handler in bin/mcp-server.js runs \`npx ...\` — npx cold-start exceeds the timeout (#422). Call the local cli.js directly."
+            exit 1
+          fi
+          echo "OK: hooks_route_enhanced calls the local CLI, not npx"
+      - name: pi-brain imports are not require()'d (#372)
+        working-directory: npm/packages/ruvector
+        run: |
+          if grep -nE "require\(\s*['\"]@ruvector/pi-brain['\"]\s*\)" bin/mcp-server.js; then
+            echo "::error::bin/mcp-server.js require()s @ruvector/pi-brain, which is ESM-only — use await import() (#372)."
+            exit 1
+          fi
+          echo "OK: pi-brain is loaded via dynamic import"
+
+  # ---------------------------------------------------------------------------
+  # A default `cargo build` on STABLE must work — guards #438 (avx512f
+  # target_feature/intrinsics are nightly-only and were forcing every consumer
+  # of ruvector-core onto nightly).
+  # ---------------------------------------------------------------------------
+  stable-toolchain-build:
+    name: builds on stable (no nightly-only features)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo +stable check ruvector-core (default features)
+        run: cargo +stable check -p ruvector-core
+      - name: cargo +stable check ruvector-router-core (default features)
+        run: cargo +stable check -p ruvector-router-core
+      - name: avx512 target_feature attrs are cfg-gated behind simd-avx512 (#438)
+        run: |
+          # For every `#[target_feature(enable = "avx512…")]` line, scan the
+          # preceding 3 lines for a `#[cfg(... feature = "simd-avx512" ...)]`
+          # attribute. If none is present, that nightly-only intrinsic is in
+          # the default build path and forces nightly on every consumer.
+          python3 - <<'PY'
+          import re, sys
+          from pathlib import Path
+          BAD = []
+          for p in Path('crates/ruvector-core/src').rglob('*.rs'):
+              lines = p.read_text().splitlines()
+              for i, line in enumerate(lines):
+                  if re.search(r'#\[target_feature\(enable\s*=\s*"avx512', line):
+                      window = '\n'.join(lines[max(0, i-3):i])
+                      if 'simd-avx512' not in window:
+                          BAD.append(f"{p}:{i+1}: {line.strip()}")
+          if BAD:
+              print('::error::avx512 target_feature attrs are not gated behind `feature = "simd-avx512"` (#438):')
+              for b in BAD: print('  ' + b)
+              sys.exit(1)
+          print('OK: every avx512 target_feature is preceded by a simd-avx512 cfg gate')
+          PY
+
+  # ---------------------------------------------------------------------------
+  # Windows-friendly checkout — guards #458 (case-insensitive filesystems can't
+  # check out two tracked files whose paths differ only by case). Run the check
+  # on Linux (where the FS *is* case-sensitive, so both files are present and
+  # we can detect them via `git ls-files`).
+  # ---------------------------------------------------------------------------
+  no-case-collisions:
+    name: no case-insensitive path collisions (#458)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect colliding paths
+        run: |
+          DUPES=$(git ls-files | awk '{ lo = tolower($0); files[lo] = files[lo] "\n  " $0; count[lo]++ } END { for (k in count) if (count[k] > 1) print "COLLISION (lowercase: " k ")" files[k] "\n" }')
+          if [ -n "$DUPES" ]; then
+            echo "::error::Tracked paths collide on case-insensitive filesystems — Windows clones lose one of each pair (#458):"
+            printf '%s\n' "$DUPES"
+            exit 1
+          fi
+          echo "OK: no case-insensitive path collisions"
+
+  # ---------------------------------------------------------------------------
+  # postgres extension toolchain mismatch — guards #331 (pgrx pinned to 0.12 but
+  # `cargo install cargo-pgrx` grabs the latest). We don't build pgrx here
+  # (heavy); we just assert the pin is documented so users don't hit the wall.
+  # ---------------------------------------------------------------------------
+  pgrx-pin-documented:
+    name: pgrx version pin is documented (#331)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: cargo-pgrx version must be pinned in docs
+        run: |
+          PIN=$(grep -oE 'pgrx[^=]*=\s*"[^"]+"' crates/ruvector-postgres/Cargo.toml | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?')
+          echo "Cargo.toml pins pgrx ~= $PIN"
+          if ! grep -RIn "cargo-pgrx --version" crates/ruvector-postgres docs 2>/dev/null | grep -q "$PIN"; then
+            echo "::error::crates/ruvector-postgres pins pgrx $PIN but no doc tells users to 'cargo install cargo-pgrx --version \"$PIN.x\" --locked' (#331)."
+            exit 1
+          fi
+          echo "OK: pgrx pin is documented"

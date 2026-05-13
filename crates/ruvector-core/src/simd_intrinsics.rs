@@ -42,9 +42,13 @@ const PREFETCH_DISTANCE: usize = 64;
 pub fn euclidean_distance_simd(a: &[f32], b: &[f32]) -> f32 {
     #[cfg(target_arch = "x86_64")]
     {
-        if is_x86_feature_detected!("avx512f") {
-            unsafe { euclidean_distance_avx512_impl(a, b) }
-        } else if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
+        #[cfg(feature = "simd-avx512")]
+        {
+            if is_x86_feature_detected!("avx512f") {
+                return unsafe { euclidean_distance_avx512_impl(a, b) };
+            }
+        }
+        if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
             unsafe { euclidean_distance_avx2_fma_impl(a, b) }
         } else if is_x86_feature_detected!("avx2") {
             unsafe { euclidean_distance_avx2_impl(a, b) }
@@ -192,7 +196,7 @@ unsafe fn euclidean_distance_avx2_fma_impl(a: &[f32], b: &[f32]) -> f32 {
 // ============================================================================
 
 /// AVX-512 euclidean distance - processes 16 floats per iteration
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", feature = "simd-avx512"))]
 #[target_feature(enable = "avx512f")]
 unsafe fn euclidean_distance_avx512_impl(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len(), "Input arrays must have the same length");
@@ -223,7 +227,7 @@ unsafe fn euclidean_distance_avx512_impl(a: &[f32], b: &[f32]) -> f32 {
 }
 
 /// AVX-512 dot product - processes 16 floats per iteration
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", feature = "simd-avx512"))]
 #[target_feature(enable = "avx512f")]
 unsafe fn dot_product_avx512_impl(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len(), "Input arrays must have the same length");
@@ -249,7 +253,7 @@ unsafe fn dot_product_avx512_impl(a: &[f32], b: &[f32]) -> f32 {
 }
 
 /// AVX-512 cosine similarity - processes 16 floats per iteration
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", feature = "simd-avx512"))]
 #[target_feature(enable = "avx512f")]
 unsafe fn cosine_similarity_avx512_impl(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len(), "Input arrays must have the same length");
@@ -284,7 +288,7 @@ unsafe fn cosine_similarity_avx512_impl(a: &[f32], b: &[f32]) -> f32 {
 }
 
 /// AVX-512 Manhattan distance - processes 16 floats per iteration
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", feature = "simd-avx512"))]
 #[target_feature(enable = "avx512f")]
 unsafe fn manhattan_distance_avx512_impl(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len(), "Input arrays must have the same length");
@@ -783,9 +787,13 @@ unsafe fn manhattan_distance_neon_unrolled_impl(a: &[f32], b: &[f32]) -> f32 {
 pub fn dot_product_simd(a: &[f32], b: &[f32]) -> f32 {
     #[cfg(target_arch = "x86_64")]
     {
-        if is_x86_feature_detected!("avx512f") {
-            unsafe { dot_product_avx512_impl(a, b) }
-        } else if is_x86_feature_detected!("avx2") {
+        #[cfg(feature = "simd-avx512")]
+        {
+            if is_x86_feature_detected!("avx512f") {
+                return unsafe { dot_product_avx512_impl(a, b) };
+            }
+        }
+        if is_x86_feature_detected!("avx2") {
             unsafe { dot_product_avx2_impl(a, b) }
         } else {
             dot_product_scalar(a, b)
@@ -847,9 +855,13 @@ unsafe fn dot_product_avx2_impl(a: &[f32], b: &[f32]) -> f32 {
 pub fn cosine_similarity_simd(a: &[f32], b: &[f32]) -> f32 {
     #[cfg(target_arch = "x86_64")]
     {
-        if is_x86_feature_detected!("avx512f") {
-            unsafe { cosine_similarity_avx512_impl(a, b) }
-        } else if is_x86_feature_detected!("avx2") {
+        #[cfg(feature = "simd-avx512")]
+        {
+            if is_x86_feature_detected!("avx512f") {
+                return unsafe { cosine_similarity_avx512_impl(a, b) };
+            }
+        }
+        if is_x86_feature_detected!("avx2") {
             unsafe { cosine_similarity_avx2_impl(a, b) }
         } else {
             cosine_similarity_scalar(a, b)
@@ -883,9 +895,13 @@ pub fn cosine_similarity_avx2(a: &[f32], b: &[f32]) -> f32 {
 pub fn manhattan_distance_simd(a: &[f32], b: &[f32]) -> f32 {
     #[cfg(target_arch = "x86_64")]
     {
-        if is_x86_feature_detected!("avx512f") {
-            unsafe { manhattan_distance_avx512_impl(a, b) }
-        } else if is_x86_feature_detected!("avx2") {
+        #[cfg(feature = "simd-avx512")]
+        {
+            if is_x86_feature_detected!("avx512f") {
+                return unsafe { manhattan_distance_avx512_impl(a, b) };
+            }
+        }
+        if is_x86_feature_detected!("avx2") {
             unsafe { manhattan_distance_avx2_impl(a, b) }
         } else {
             manhattan_distance_scalar(a, b)

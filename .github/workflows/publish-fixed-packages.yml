@@ -1,0 +1,155 @@
+name: Publish (ruvector + rvf-wasm)
+
+# Publishes the npm packages that the per-feature `build-*.yml` workflows do
+# NOT cover: the top-level `ruvector` package, `@ruvector/rvf-wasm`, and
+# `@ruvector/rvf`. Runs the regression guard first so a structurally-broken
+# tarball (the #354 / #372 / #376 / #415 / #417 class of bug) can never reach
+# npm again.
+#
+# Triggers:
+#   - manual `workflow_dispatch` (DRY-RUN by default — set dry_run=false to
+#     actually publish)
+#   - push of a tag matching `ruvector-v*` (real publish)
+#
+# Required secrets for a real publish: NPM_TOKEN.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (build + pack + guard only, no npm publish)'
+        type: boolean
+        default: true
+      packages:
+        description: 'Which packages: all | ruvector | rvf-wasm | rvf'
+        type: string
+        default: 'all'
+  push:
+    tags:
+      - 'ruvector-v*'
+
+permissions:
+  contents: read
+  id-token: write   # npm provenance
+
+concurrency:
+  group: publish-fixed-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IS_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+  WANT: ${{ github.event_name == 'workflow_dispatch' && inputs.packages || 'all' }}
+
+jobs:
+  guard:
+    name: Regression guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build ruvector
+        working-directory: npm/packages/ruvector
+        run: |
+          npm install --no-audit --no-fund --ignore-scripts
+          npm run build
+      - name: Tarball integrity check
+        run: node scripts/ci/check-npm-package-integrity.mjs
+
+  publish:
+    name: Publish to npm
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Resolve dry-run flag
+        id: mode
+        run: |
+          echo "dry_run=${IS_DRY_RUN}" >> "$GITHUB_OUTPUT"
+          echo "Mode: dry_run=${IS_DRY_RUN}, packages=${WANT}"
+
+      # --- helper: build a package if it has a build script ----------------
+      - name: Build packages
+        run: |
+          set -euxo pipefail
+          for d in npm/packages/ruvector npm/packages/rvf npm/packages/rvf-wasm; do
+            ( cd "$d"
+              npm install --no-audit --no-fund --ignore-scripts || true
+              if node -e "process.exit(require('./package.json').scripts?.build?0:1)"; then npm run build; fi )
+          done
+
+      # --- publish one package: skip if version already on npm -------------
+      - name: Publish @ruvector/rvf-wasm
+        if: ${{ env.WANT == 'all' || env.WANT == 'rvf-wasm' }}
+        working-directory: npm/packages/rvf-wasm
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VER=$(node -p "require('./package.json').version")
+          npm pack >/dev/null
+          if npm view "$NAME@$VER" version >/dev/null 2>&1; then
+            echo "::notice::$NAME@$VER already published — skipping"; exit 0
+          fi
+          if [ "${{ steps.mode.outputs.dry_run }}" = "true" ]; then
+            echo "DRY RUN — would: npm publish --access public --provenance ($NAME@$VER)"
+          else
+            npm publish --access public --provenance
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @ruvector/rvf
+        if: ${{ env.WANT == 'all' || env.WANT == 'rvf' }}
+        working-directory: npm/packages/rvf
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VER=$(node -p "require('./package.json').version")
+          npm pack >/dev/null
+          if npm view "$NAME@$VER" version >/dev/null 2>&1; then
+            echo "::notice::$NAME@$VER already published — skipping"; exit 0
+          fi
+          if [ "${{ steps.mode.outputs.dry_run }}" = "true" ]; then
+            echo "DRY RUN — would: npm publish --access public --provenance ($NAME@$VER)"
+          else
+            npm publish --access public --provenance
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish ruvector
+        if: ${{ env.WANT == 'all' || env.WANT == 'ruvector' }}
+        working-directory: npm/packages/ruvector
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VER=$(node -p "require('./package.json').version")
+          # `prepublishOnly` (build + verify-dist) runs automatically on publish;
+          # run it now for the dry-run path too so the guard is identical.
+          npm run prepublishOnly
+          npm pack >/dev/null
+          if npm view "$NAME@$VER" version >/dev/null 2>&1; then
+            echo "::notice::$NAME@$VER already published — skipping"; exit 0
+          fi
+          if [ "${{ steps.mode.outputs.dry_run }}" = "true" ]; then
+            echo "DRY RUN — would: npm publish --access public ($NAME@$VER)"
+          else
+            npm publish --access public
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Publish run"
+            echo "- dry_run: \`${{ steps.mode.outputs.dry_run }}\`"
+            echo "- packages: \`${WANT}\`"
+            echo "- ruvector: $(node -p "require('./npm/packages/ruvector/package.json').version")"
+            echo "- @ruvector/rvf-wasm: $(node -p "require('./npm/packages/rvf-wasm/package.json').version")"
+            echo "- @ruvector/rvf: $(node -p "require('./npm/packages/rvf/package.json').version")"
+          } >> "$GITHUB_STEP_SUMMARY"

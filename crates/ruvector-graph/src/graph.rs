@@ -364,9 +364,7 @@ impl GraphDB {
 
     /// Delete all hyperedges that contain a given node
     pub fn delete_hyperedges_by_node(&self, node_id: &NodeId) -> Result<usize> {
-        let ids: Vec<HyperedgeId> = self
-            .hyperedge_node_index
-            .get_hyperedges_by_node(node_id);
+        let ids: Vec<HyperedgeId> = self.hyperedge_node_index.get_hyperedges_by_node(node_id);
         let mut deleted = 0;
         for id in &ids {
             if self.delete_hyperedge(id)? {

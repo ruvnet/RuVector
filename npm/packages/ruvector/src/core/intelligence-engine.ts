@@ -275,20 +275,26 @@ export class IntelligenceEngine {
    * Generate embedding using ONNX, attention, or hash (in order of preference)
    */
   embed(text: string): number[] {
-    const dim = this.config.embeddingDim;
-
-    // Try ONNX semantic embeddings first (best quality)
-    if (this.onnxReady && this.onnxEmbedder) {
-      try {
-        // Note: This is sync wrapper for async ONNX
-        // For full async, use embedAsync
-        return this.hashEmbed(text, dim); // Fallback for sync context
-      } catch {
-        // Fall through
-      }
+    // If an ONNX embedder is configured we MUST NOT silently substitute a
+    // hash vector — sync `embed()` and async `embedAsync()` would otherwise
+    // produce values in completely different vector spaces (and, depending
+    // on `embeddingDim`, different lengths), which `cosineSimilarity` then
+    // either silently zeroes or computes nonsense for. Fail loudly so the
+    // caller switches to `embedAsync()` (or unsets the ONNX embedder). #316
+    if (this.onnxEmbedder) {
+      throw new Error(
+        'IntelligenceEngine.embed() is sync but an ONNX embedder is configured; ' +
+        'call embedAsync(text) to get an ONNX-space vector, or construct the engine ' +
+        'with useOnnx:false to use the synchronous hash embedder.'
+      );
     }
+    return this.embedSyncNoOnnx(text);
+  }
 
-    // Try to use attention-based embedding
+  /** Sync attention/hash path used by both `embed()` and the `embedAsync()`
+   *  ONNX-failure fallback. Never returns an ONNX-space vector. */
+  private embedSyncNoOnnx(text: string): number[] {
+    const dim = this.config.embeddingDim;
     if (this.attention?.DotProductAttention) {
       try {
         return this.attentionEmbed(text, dim);
@@ -296,8 +302,6 @@ export class IntelligenceEngine {
         // Fall through to hash embedding
       }
     }
-
-    // Improved positional hash embedding
     return this.hashEmbed(text, dim);
   }
 
@@ -314,12 +318,12 @@ export class IntelligenceEngine {
         }
         return await this.onnxEmbedder.embed(text);
       } catch {
-        // Fall through to sync methods
+        // Fall through to sync attention/hash — bypass the user-facing
+        // sync embed() which now throws when an ONNX embedder is configured.
       }
     }
 
-    // Fall back to sync embedding
-    return this.embed(text);
+    return this.embedSyncNoOnnx(text);
   }
 
   /**
@@ -482,22 +486,31 @@ export class IntelligenceEngine {
     // Use async ONNX embeddings if available for better semantic quality
     const queryEmbed = await this.embedAsync(query);
 
-    // Try VectorDB search first (HNSW - 150x faster)
+    // Try VectorDB search first (HNSW - 150x faster). When the index has
+    // not been populated for this engine (e.g. after `import()` of a payload
+    // that lacked embeddings, or before any `remember()`), an empty result
+    // is NOT an error — it's just "nothing indexed". Fall through to the
+    // brute-force scan over `this.memories` instead of returning []. (#315)
     if (this.vectorDb) {
       try {
         const results = await this.vectorDb.search({
           vector: new Float32Array(queryEmbed),
           k: topK,
         });
-
-        return results.map((r: any) => {
-          const entry = this.memories.get(r.id);
-          if (entry) {
-            entry.accessed++;
-            entry.score = 1 - r.score; // Convert distance to similarity
-          }
-          return entry;
-        }).filter((e: any): e is MemoryEntry => e !== null);
+        if (results && results.length > 0) {
+          const mapped = results
+            .map((r: any) => {
+              const entry = this.memories.get(r.id);
+              if (entry) {
+                entry.accessed++;
+                entry.score = 1 - r.score; // distance → similarity
+              }
+              return entry;
+            })
+            .filter((e: any): e is MemoryEntry => e !== null && e !== undefined);
+          if (mapped.length > 0) return mapped;
+        }
+        // empty → fall through to brute force
       } catch {
         // Fall through to brute force
       }
@@ -1075,10 +1088,28 @@ export class IntelligenceEngine {
       this.agentMappings.clear();
     }
 
-    // Import memories
+    // Import memories — populate both the Map and (if present) the HNSW
+    // VectorDB. Without the vectorDb.insert() call, `recall()` after import
+    // would call vectorDb.search() against an empty index, get [] back, and
+    // return immediately — silently producing no results. (#315)
     if (data.memories) {
       for (const mem of data.memories) {
         this.memories.set(mem.id, mem);
+        if (this.vectorDb && mem.embedding && Array.isArray(mem.embedding)) {
+          try {
+            this.vectorDb.insert({
+              id: mem.id,
+              vector: new Float32Array(mem.embedding),
+              metadata: JSON.stringify({
+                content: mem.content,
+                type: mem.type,
+                created: mem.created,
+              }),
+            });
+          } catch {
+            // Best-effort: brute-force recall fallback still covers this row.
+          }
+        }
       }
     }
 

@@ -177,27 +177,38 @@ export async function initOnnxEmbedder(config: OnnxEmbedderConfig = {}): Promise
   loadPromise = (async () => {
     try {
       // Paths to bundled ONNX files
-      const pkgPath = path.join(__dirname, 'onnx', 'pkg', 'ruvector_onnx_embeddings_wasm.js');
+      const pkgDir = path.join(__dirname, 'onnx', 'pkg');
+      const bgJsPath = path.join(pkgDir, 'ruvector_onnx_embeddings_wasm_bg.js');
+      const wasmPath = path.join(pkgDir, 'ruvector_onnx_embeddings_wasm_bg.wasm');
       const loaderPath = path.join(__dirname, 'onnx', 'loader.js');
 
-      if (!fs.existsSync(pkgPath)) {
-        throw new Error('ONNX WASM files not bundled. The onnx/ directory is missing.');
+      if (!fs.existsSync(bgJsPath) || !fs.existsSync(wasmPath)) {
+        throw new Error('ONNX WASM files not bundled. The onnx/pkg/ directory is missing.');
       }
 
       // Convert paths to file:// URLs for cross-platform ESM compatibility (Windows fix)
-      const pkgUrl = pathToFileURL(pkgPath).href;
+      const bgJsUrl = pathToFileURL(bgJsPath).href;
       const loaderUrl = pathToFileURL(loaderPath).href;
 
-      // Dynamic import of bundled modules using file:// URLs
-      wasmModule = await dynamicImport(pkgUrl);
-
-      // Initialize WASM module (loads the .wasm file)
-      const wasmPath = path.join(__dirname, 'onnx', 'pkg', 'ruvector_onnx_embeddings_wasm_bg.wasm');
-      if (wasmModule.default && typeof wasmModule.default === 'function') {
-        // For bundler-style initialization, pass the wasm buffer
-        const wasmBytes = fs.readFileSync(wasmPath);
-        await wasmModule.default(wasmBytes);
+      // Instantiate the WASM module by reading its bytes directly rather than
+      // letting Node ESM resolve `import * as wasm from "./...wasm"` (the
+      // wasm-bindgen "bundler" target glue), which requires the
+      // `--experimental-wasm-modules` flag on Node 18-24 (issue #323).
+      const bgModule = await dynamicImport(bgJsUrl);
+      const wasmBytes = fs.readFileSync(wasmPath);
+      // `WebAssembly` is a JS global available in every Node/browser runtime,
+      // but isn't in the `lib: ["ES2020"]` TS typings, hence the cast.
+      const wasmRuntime = (globalThis as any).WebAssembly as {
+        instantiate(bytes: Uint8Array, imports: Record<string, unknown>): Promise<{ instance: { exports: any } }>;
+      };
+      const { instance } = await wasmRuntime.instantiate(wasmBytes, {
+        './ruvector_onnx_embeddings_wasm_bg.js': bgModule,
+      });
+      bgModule.__wbg_set_wasm(instance.exports);
+      if (typeof instance.exports.__wbindgen_start === 'function') {
+        instance.exports.__wbindgen_start();
       }
+      wasmModule = bgModule;
 
       const loaderModule = await dynamicImport(loaderUrl);
       const { ModelLoader } = loaderModule;

@@ -212,9 +212,7 @@ impl HefEmbedderPool {
         // pays a queue cost but doesn't lose throughput — slot 0 is
         // about to be free and the next inference is already in
         // flight on another slot.
-        let g = self.slots[0]
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
+        let g = self.slots[0].lock().unwrap_or_else(|p| p.into_inner());
         g.embed(text)
     }
 }

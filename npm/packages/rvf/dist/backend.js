@@ -37,6 +37,19 @@ exports.WasmBackend = exports.NodeBackend = void 0;
 exports.resolveBackend = resolveBackend;
 const errors_1 = require("./errors");
 // ---------------------------------------------------------------------------
+// ESM-only dynamic import helper.
+//
+// `@ruvector/rvf-wasm@>=0.1.7` is published as an ESM-only package
+// (`"type": "module"`). When this file is transpiled to CommonJS, `tsc`
+// rewrites `await import('pkg')` into `require('pkg')`, which fails on
+// ESM-only packages on older Node (`ERR_REQUIRE_ESM`). Routing the import
+// through `new Function` keeps it as a genuine `import()` expression in the
+// emitted JS, so it works from both CJS and ESM consumers.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const dynamicImport = 
+// eslint-disable-next-line @typescript-eslint/no-implied-eval
+new Function('specifier', 'return import(specifier);');
+// ---------------------------------------------------------------------------
 // NodeBackend — wraps @ruvector/rvf-node (N-API)
 // ---------------------------------------------------------------------------
 /**
@@ -439,7 +452,9 @@ class WasmBackend {
         if (this.wasm)
             return;
         try {
-            const mod = await Promise.resolve().then(() => __importStar(require('@ruvector/rvf-wasm')));
+            // @ruvector/rvf-wasm is ESM-only — use the non-transpiled dynamic
+            // import helper so this works from CommonJS consumers too.
+            const mod = await dynamicImport('@ruvector/rvf-wasm');
             // wasm-pack default export is the init function
             if (typeof mod.default === 'function') {
                 this.wasm = await mod.default();

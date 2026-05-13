@@ -16,6 +16,23 @@ import type {
 import { RvfError, RvfErrorCode } from './errors';
 
 // ---------------------------------------------------------------------------
+// ESM-only dynamic import helper.
+//
+// `@ruvector/rvf-wasm@>=0.1.7` is published as an ESM-only package
+// (`"type": "module"`). When this file is transpiled to CommonJS, `tsc`
+// rewrites `await import('pkg')` into `require('pkg')`, which fails on
+// ESM-only packages on older Node (`ERR_REQUIRE_ESM`). Routing the import
+// through `new Function` keeps it as a genuine `import()` expression in the
+// emitted JS, so it works from both CJS and ESM consumers.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const dynamicImport: (specifier: string) => Promise<any> =
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval
+  new Function('specifier', 'return import(specifier);') as (
+    specifier: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ) => Promise<any>;
+
+// ---------------------------------------------------------------------------
 // Backend interface — every backend (node, wasm) must implement this.
 // ---------------------------------------------------------------------------
 
@@ -479,7 +496,9 @@ export class WasmBackend implements RvfBackend {
   private async loadWasm(): Promise<void> {
     if (this.wasm) return;
     try {
-      const mod = await import('@ruvector/rvf-wasm');
+      // @ruvector/rvf-wasm is ESM-only — use the non-transpiled dynamic
+      // import helper so this works from CommonJS consumers too.
+      const mod = await dynamicImport('@ruvector/rvf-wasm');
       // wasm-pack default export is the init function
       if (typeof mod.default === 'function') {
         this.wasm = await mod.default();

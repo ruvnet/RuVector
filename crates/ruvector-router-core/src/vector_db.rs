@@ -150,7 +150,8 @@ impl VectorDB {
 
         if deleted {
             self.index.remove(id)?;
-            self.stats.write().total_vectors = self.stats.write().total_vectors.saturating_sub(1);
+            let mut stats = self.stats.write();
+            stats.total_vectors = stats.total_vectors.saturating_sub(1);
         }
 
         Ok(deleted)
@@ -298,5 +299,51 @@ mod tests {
         // Delete
         assert!(db.delete("test1").unwrap());
         assert_eq!(db.count().unwrap(), 0);
+    }
+
+    /// Regression test for #437: `delete` previously acquired `self.stats.write()`
+    /// twice in one expression, causing a parking_lot self-deadlock. Run on a
+    /// worker thread with a timeout so a regression fails the test instead of
+    /// hanging CI forever.
+    #[test]
+    fn delete_does_not_deadlock() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        let (tx, rx) = mpsc::channel();
+        let handle = std::thread::spawn(move || {
+            let dir = tempdir().unwrap();
+            let path = dir.path().join("delete_test.db");
+
+            let db = VectorDB::builder()
+                .dimensions(3)
+                .storage_path(&path)
+                .build()
+                .unwrap();
+
+            db.insert(VectorEntry {
+                id: "v1".to_string(),
+                vector: vec![1.0, 0.0, 0.0],
+                metadata: std::collections::HashMap::new(),
+                timestamp: 0,
+            })
+            .unwrap();
+            assert_eq!(db.stats().total_vectors, 1);
+
+            // This is the call that used to deadlock.
+            assert!(db.delete("v1").unwrap());
+            assert_eq!(db.stats().total_vectors, 0);
+
+            // Deleting a missing id must not underflow or change stats.
+            assert!(!db.delete("missing").unwrap());
+            assert_eq!(db.stats().total_vectors, 0);
+
+            tx.send(()).unwrap();
+        });
+
+        match rx.recv_timeout(Duration::from_secs(10)) {
+            Ok(()) => handle.join().unwrap(),
+            Err(_) => panic!("VectorDB::delete deadlocked (regression of #437)"),
+        }
     }
 }

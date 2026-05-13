@@ -4,12 +4,15 @@
  * Loads the .wasm binary and re-exports all C-ABI functions plus the
  * WASM linear memory object.
  *
- * Works in Node.js (CJS/ESM) and browsers.
+ * This package is ESM-only ("type": "module"). Use it via:
+ *   import init from '@ruvector/rvf-wasm';
+ * or from CommonJS via dynamic import:
+ *   const { default: init } = await import('@ruvector/rvf-wasm');
  */
 
-var wasmInstance = null;
+let wasmInstance = null;
 
-var _isNode = typeof process !== 'undefined' &&
+const _isNode = typeof process !== 'undefined' &&
   typeof process.versions !== 'undefined' &&
   typeof process.versions.node === 'string';
 
@@ -23,50 +26,49 @@ var _isNode = typeof process !== 'undefined' &&
 async function init(input) {
   if (wasmInstance) return wasmInstance;
 
-  var wasmBytes;
+  let wasmBytes;
 
   if (input instanceof ArrayBuffer || ArrayBuffer.isView(input)) {
     wasmBytes = input;
   } else if (typeof WebAssembly !== 'undefined' && input instanceof WebAssembly.Module) {
-    var inst = await WebAssembly.instantiate(input, {});
+    const inst = await WebAssembly.instantiate(input, {});
     wasmInstance = inst.exports;
     return wasmInstance;
   } else if (_isNode) {
     // Node.js: always use readFile (fetch on file:// is unreliable)
-    var fs = await import('node:fs/promises');
-    var url = await import('node:url');
-    var path = await import('node:path');
-    var wasmPath;
+    const fs = await import('node:fs/promises');
+    const url = await import('node:url');
+    const path = await import('node:path');
+    let wasmPath;
     if (typeof input === 'string') {
       wasmPath = input;
-    } else if (typeof __dirname !== 'undefined') {
-      // CJS context
-      wasmPath = path.default.join(__dirname, 'rvf_wasm_bg.wasm');
     } else {
-      // ESM context — import.meta.url available
-      var thisDir = path.default.dirname(url.default.fileURLToPath(import.meta.url));
+      // ESM context — import.meta.url is available
+      const thisDir = path.default.dirname(url.default.fileURLToPath(import.meta.url));
       wasmPath = path.default.join(thisDir, 'rvf_wasm_bg.wasm');
     }
     wasmBytes = await fs.default.readFile(wasmPath);
   } else {
     // Browser: use fetch + instantiateStreaming
-    var wasmUrl = new URL('rvf_wasm_bg.wasm', import.meta.url);
+    const wasmUrl = new URL('rvf_wasm_bg.wasm', import.meta.url);
     if (typeof WebAssembly.instantiateStreaming === 'function') {
-      var resp = await fetch(wasmUrl);
-      var result = await WebAssembly.instantiateStreaming(resp, {});
+      const resp = await fetch(wasmUrl);
+      const result = await WebAssembly.instantiateStreaming(resp, {});
       wasmInstance = result.instance.exports;
       return wasmInstance;
     }
-    var resp2 = await fetch(wasmUrl);
+    const resp2 = await fetch(wasmUrl);
     wasmBytes = await resp2.arrayBuffer();
   }
 
-  var compiled = await WebAssembly.instantiate(wasmBytes, {});
+  const compiled = await WebAssembly.instantiate(wasmBytes, {});
   wasmInstance = compiled.instance.exports;
   return wasmInstance;
 }
 
-// Support both ESM (export default) and CJS (module.exports)
+// Back-compat: `mod.default` resolves to the init function whether the caller
+// reads the ESM default export or destructures it off the namespace object.
 init.default = init;
-if (typeof module !== 'undefined') module.exports = init;
+
 export default init;
+export { init };

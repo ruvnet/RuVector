@@ -197,20 +197,26 @@ class OptimizedOnnxEmbedder {
     async doInit() {
         try {
             // Load bundled WASM module
-            const pkgPath = path.join(__dirname, 'onnx', 'pkg', 'ruvector_onnx_embeddings_wasm.js');
+            const pkgDir = path.join(__dirname, 'onnx', 'pkg');
+            const bgJsPath = path.join(pkgDir, 'ruvector_onnx_embeddings_wasm_bg.js');
+            const wasmPath = path.join(pkgDir, 'ruvector_onnx_embeddings_wasm_bg.wasm');
             const loaderPath = path.join(__dirname, 'onnx', 'loader.js');
-            if (!fs.existsSync(pkgPath)) {
+            if (!fs.existsSync(bgJsPath) || !fs.existsSync(wasmPath)) {
                 throw new Error('ONNX WASM files not bundled');
             }
-            const pkgUrl = (0, url_1.pathToFileURL)(pkgPath).href;
+            const bgJsUrl = (0, url_1.pathToFileURL)(bgJsPath).href;
             const loaderUrl = (0, url_1.pathToFileURL)(loaderPath).href;
-            this.wasmModule = await dynamicImport(pkgUrl);
-            // Initialize WASM
-            const wasmPath = path.join(__dirname, 'onnx', 'pkg', 'ruvector_onnx_embeddings_wasm_bg.wasm');
-            if (this.wasmModule.default && typeof this.wasmModule.default === 'function') {
-                const wasmBytes = fs.readFileSync(wasmPath);
-                await this.wasmModule.default(wasmBytes);
+            // Instantiate WASM from bytes (avoids `--experimental-wasm-modules`, issue #323)
+            const bgModule = await dynamicImport(bgJsUrl);
+            const wasmBytes = fs.readFileSync(wasmPath);
+            const { instance } = await WebAssembly.instantiate(wasmBytes, {
+                './ruvector_onnx_embeddings_wasm_bg.js': bgModule,
+            });
+            bgModule.__wbg_set_wasm(instance.exports);
+            if (typeof instance.exports.__wbindgen_start === 'function') {
+                instance.exports.__wbindgen_start();
             }
+            this.wasmModule = bgModule;
             const loaderModule = await dynamicImport(loaderUrl);
             const { ModelLoader } = loaderModule;
             // Select model URL based on quantization preference

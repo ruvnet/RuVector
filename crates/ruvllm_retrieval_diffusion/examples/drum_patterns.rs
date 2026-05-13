@@ -123,7 +123,15 @@ fn main() {
     let t0 = std::time::Instant::now();
     let ar = retriever.generate_fast(&seed, 64, &sampling, 0xC0_FFEE_42);
     let dt_ar = t0.elapsed();
-    println!("seed         : \"{}\"", String::from_utf8_lossy(&seed.iter().map(|&t| decode_token(t) as u8).collect::<Vec<_>>()));
+    println!(
+        "seed         : \"{}\"",
+        String::from_utf8_lossy(
+            &seed
+                .iter()
+                .map(|&t| decode_token(t) as u8)
+                .collect::<Vec<_>>()
+        )
+    );
     println!("generated    : {} tokens in {:.2?}", 64, dt_ar);
     println!();
     println!("{}", render_bars(&ar, 16));

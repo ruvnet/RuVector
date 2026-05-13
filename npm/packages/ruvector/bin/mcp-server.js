@@ -2302,13 +2302,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'hooks_route_enhanced': {
         try {
-          const safeTask = sanitizeShellArg(args.task);
-          let cmd = `npx ruvector hooks route-enhanced "${safeTask}"`;
-          if (args.file) cmd += ` --file "${sanitizeShellArg(args.file)}"`;
-          const output = execSync(cmd, { encoding: 'utf-8', timeout: 30000 });
+          // Call the local CLI directly (no `npx` cold-start) — the routing
+          // logic itself runs in <200ms; the old `npx ruvector ...` form spent
+          // most of the 30s budget resolving the package and timed out (#422).
+          const cliPath = path.join(__dirname, 'cli.js');
+          const cliArgs = ['hooks', 'route-enhanced', String(args.task)];
+          if (args.file) cliArgs.push('--file', String(args.file));
+          const output = execFileSync(process.execPath, [cliPath, ...cliArgs], { encoding: 'utf-8', timeout: 30000 });
           return { content: [{ type: 'text', text: output }] };
         } catch (e) {
-          return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }] };
+          return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message, stdout: e.stdout, stderr: e.stderr }, null, 2) }] };
         }
       }
 
@@ -3239,7 +3242,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // ── Brain Tool Handlers ─────────────────────────────────────────────
       case 'brain_search': {
         try {
-          const piBrain = require('@ruvector/pi-brain');
+          const piBrain = await import('@ruvector/pi-brain');
           const PiBrainClient = piBrain.PiBrainClient || piBrain.default;
           const url = process.env.BRAIN_URL || 'https://pi.ruv.io';
           const key = process.env.PI || '';
@@ -3247,7 +3250,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const results = await client.search(args.query, { limit: args.limit || 10, category: args.category });
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...results }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_MODULE_NOT_FOUND' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3256,7 +3259,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'brain_share': {
         try {
-          const piBrain = require('@ruvector/pi-brain');
+          const piBrain = await import('@ruvector/pi-brain');
           const PiBrainClient = piBrain.PiBrainClient || piBrain.default;
           const url = process.env.BRAIN_URL || 'https://pi.ruv.io';
           const key = process.env.PI || '';
@@ -3264,7 +3267,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const result = await client.share({ title: args.title, content: args.content, category: args.category || 'pattern', tags: args.tags });
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_MODULE_NOT_FOUND' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3273,7 +3276,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'brain_get': {
         try {
-          const piBrain = require('@ruvector/pi-brain');
+          const piBrain = await import('@ruvector/pi-brain');
           const PiBrainClient = piBrain.PiBrainClient || piBrain.default;
           const url = process.env.BRAIN_URL || 'https://pi.ruv.io';
           const key = process.env.PI || '';
@@ -3281,7 +3284,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const result = await client.get(args.id);
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_MODULE_NOT_FOUND' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3290,7 +3293,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'brain_vote': {
         try {
-          const piBrain = require('@ruvector/pi-brain');
+          const piBrain = await import('@ruvector/pi-brain');
           const PiBrainClient = piBrain.PiBrainClient || piBrain.default;
           const url = process.env.BRAIN_URL || 'https://pi.ruv.io';
           const key = process.env.PI || '';
@@ -3298,7 +3301,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const result = await client.vote(args.id, args.direction);
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_MODULE_NOT_FOUND' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3307,7 +3310,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'brain_list': {
         try {
-          const piBrain = require('@ruvector/pi-brain');
+          const piBrain = await import('@ruvector/pi-brain');
           const PiBrainClient = piBrain.PiBrainClient || piBrain.default;
           const url = process.env.BRAIN_URL || 'https://pi.ruv.io';
           const key = process.env.PI || '';
@@ -3315,7 +3318,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const results = await client.list({ category: args.category, limit: args.limit || 20 });
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...results }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_MODULE_NOT_FOUND' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3324,7 +3327,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'brain_delete': {
         try {
-          const piBrain = require('@ruvector/pi-brain');
+          const piBrain = await import('@ruvector/pi-brain');
           const PiBrainClient = piBrain.PiBrainClient || piBrain.default;
           const url = process.env.BRAIN_URL || 'https://pi.ruv.io';
           const key = process.env.PI || '';
@@ -3332,7 +3335,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const result = await client.delete(args.id);
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_MODULE_NOT_FOUND' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3341,7 +3344,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'brain_status': {
         try {
-          const piBrain = require('@ruvector/pi-brain');
+          const piBrain = await import('@ruvector/pi-brain');
           const PiBrainClient = piBrain.PiBrainClient || piBrain.default;
           const url = process.env.BRAIN_URL || 'https://pi.ruv.io';
           const key = process.env.PI || '';
@@ -3349,7 +3352,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const result = await client.status();
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_MODULE_NOT_FOUND' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3358,7 +3361,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'brain_drift': {
         try {
-          const piBrain = require('@ruvector/pi-brain');
+          const piBrain = await import('@ruvector/pi-brain');
           const PiBrainClient = piBrain.PiBrainClient || piBrain.default;
           const url = process.env.BRAIN_URL || 'https://pi.ruv.io';
           const key = process.env.PI || '';
@@ -3366,7 +3369,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const result = await client.drift({ domain: args.domain });
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_MODULE_NOT_FOUND' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3375,7 +3378,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'brain_partition': {
         try {
-          const piBrain = require('@ruvector/pi-brain');
+          const piBrain = await import('@ruvector/pi-brain');
           const PiBrainClient = piBrain.PiBrainClient || piBrain.default;
           const url = process.env.BRAIN_URL || 'https://pi.ruv.io';
           const key = process.env.PI || '';
@@ -3383,7 +3386,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const result = await client.partition({ domain: args.domain, min_cluster_size: args.min_cluster_size || 3 });
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_MODULE_NOT_FOUND' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3392,7 +3395,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'brain_transfer': {
         try {
-          const piBrain = require('@ruvector/pi-brain');
+          const piBrain = await import('@ruvector/pi-brain');
           const PiBrainClient = piBrain.PiBrainClient || piBrain.default;
           const url = process.env.BRAIN_URL || 'https://pi.ruv.io';
           const key = process.env.PI || '';
@@ -3400,7 +3403,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const result = await client.transfer(args.source, args.target);
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_MODULE_NOT_FOUND' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3409,7 +3412,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'brain_sync': {
         try {
-          const piBrain = require('@ruvector/pi-brain');
+          const piBrain = await import('@ruvector/pi-brain');
           const PiBrainClient = piBrain.PiBrainClient || piBrain.default;
           const url = process.env.BRAIN_URL || 'https://pi.ruv.io';
           const key = process.env.PI || '';
@@ -3417,7 +3420,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const result = await client.sync({ direction: args.direction || 'both' });
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_MODULE_NOT_FOUND' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
