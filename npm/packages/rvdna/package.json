@@ -31,13 +31,7 @@
   "devDependencies": {
     "@napi-rs/cli": "^2.18.0"
   },
-  "optionalDependencies": {
-    "@ruvector/rvdna-linux-x64-gnu": "0.1.0",
-    "@ruvector/rvdna-linux-arm64-gnu": "0.1.0",
-    "@ruvector/rvdna-darwin-x64": "0.1.0",
-    "@ruvector/rvdna-darwin-arm64": "0.1.0",
-    "@ruvector/rvdna-win32-x64-msvc": "0.1.0"
-  },
+  "//optionalDependencies": "Removed 2026-05-16: @ruvector/rvdna-{linux-x64-gnu,linux-arm64-gnu,darwin-x64,darwin-arm64,win32-x64-msvc}@0.1.0 were declared but never published on npm — caused every install of rvdna to log warnings. Re-add when the napi build actually publishes platform binaries.",
   "publishConfig": {
     "access": "public"
   },

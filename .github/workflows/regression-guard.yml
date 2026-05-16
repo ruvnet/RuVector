@@ -308,7 +308,10 @@ jobs:
             while IFS= read -r line; do
               [ -z "$line" ] && continue
               name=$(echo "$line" | awk '{print $1}')
-              ver=$(echo "$line" | awk '{print $2}' | tr -d '"^~ ')
+              # Keep range operators (^, ~) intact — `npm view <pkg>@^2.3.0`
+              # resolves to the highest published 2.x.y. Stripping them turns
+              # a range into an exact pin and false-fails on common patterns.
+              ver=$(echo "$line" | awk '{print $2}' | tr -d '" ')
               # Skip workspace: protocol and other non-semver specs.
               case "$ver" in workspace:*|file:*|*://*) continue ;; esac
               out=$(npm view "${name}@${ver}" version 2>&1) || true
