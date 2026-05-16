@@ -605,15 +605,13 @@ impl<'a> Diffuser<'a> {
         if boot_len > 0 && corpus_len > boot_len {
             let corpus_off = (xorshift32(&mut state) as usize) % (corpus_len - boot_len);
             let work_off = (xorshift32(&mut state) as usize) % (n - boot_len);
-            working[work_off..work_off + boot_len].copy_from_slice(
-                &self.retriever.corpus[corpus_off..corpus_off + boot_len],
-            );
+            working[work_off..work_off + boot_len]
+                .copy_from_slice(&self.retriever.corpus[corpus_off..corpus_off + boot_len]);
         }
 
         for t in 0..n_steps {
             let frac = ((t + 1) as f32) / (n_steps as f32);
-            let target_masked =
-                (n as f32 * (core::f32::consts::FRAC_PI_2 * frac).cos()) as usize;
+            let target_masked = (n as f32 * (core::f32::consts::FRAC_PI_2 * frac).cos()) as usize;
             let current_masked = working.iter().filter(|&&x| x == mask).count();
             let to_unmask = current_masked.saturating_sub(target_masked).max(1);
             self.denoise_step(&mut working, to_unmask, sampling, &mut state);

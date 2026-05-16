@@ -214,9 +214,9 @@ impl HailoEmbedder {
                             )?,
                         ))
                     } else {
-                        Some(HefBackend::Single(
-                            crate::hef_embedder::HefEmbedder::open(dev, model_dir)?,
-                        ))
+                        Some(HefBackend::Single(crate::hef_embedder::HefEmbedder::open(
+                            dev, model_dir,
+                        )?))
                     }
                 } else {
                     None

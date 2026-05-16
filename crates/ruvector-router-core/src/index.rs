@@ -264,8 +264,7 @@ impl HnswIndex {
         }
 
         // Convert to sorted vector (ascending distance).
-        let mut sorted_results: Vec<Neighbor> =
-            result.into_iter().map(|Reverse(n)| n).collect();
+        let mut sorted_results: Vec<Neighbor> = result.into_iter().map(|Reverse(n)| n).collect();
         sorted_results.sort_by(|a, b| {
             a.distance
                 .partial_cmp(&b.distance)
@@ -409,7 +408,9 @@ mod tests {
         for _ in 0..n {
             let mut v = vec![0f32; dimensions];
             for slot in v.iter_mut() {
-                state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                state = state
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
                 let bits = (state >> 32) as u32;
                 *slot = (bits as f32 / u32::MAX as f32) - 0.5;
             }
@@ -444,7 +445,11 @@ mod tests {
                 ef_search: Some(200),
             };
             let results = index.search(&query).unwrap();
-            if results.first().map(|r| r.id == format!("v{i}")).unwrap_or(false) {
+            if results
+                .first()
+                .map(|r| r.id == format!("v{i}"))
+                .unwrap_or(false)
+            {
                 hits += 1;
             }
         }
@@ -468,7 +473,11 @@ mod tests {
                     threshold: None,
                     ef_search: Some(200),
                 };
-                index.search(&q).ok().and_then(|r| r.into_iter().next()).map(|n| n.id)
+                index
+                    .search(&q)
+                    .ok()
+                    .and_then(|r| r.into_iter().next())
+                    .map(|n| n.id)
             })
             .collect();
         assert!(
@@ -503,7 +512,11 @@ mod tests {
             ef_search: None, // default 10
         };
         let results = index.search(&query).unwrap();
-        assert_eq!(results.len(), 25, "k=25 with default ef_search=10 must still return 25");
+        assert_eq!(
+            results.len(),
+            25,
+            "k=25 with default ef_search=10 must still return 25"
+        );
     }
 
     #[test]

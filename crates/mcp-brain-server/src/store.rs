@@ -556,9 +556,7 @@ impl FirestoreClient {
                     mem_rejected_parse += 1;
                     // Log first 5 parse errors to surface schema drift without flooding logs
                     if mem_rejected_parse <= 5 {
-                        tracing::warn!(
-                            "brain_memories parse error #{mem_rejected_parse}: {e}"
-                        );
+                        tracing::warn!("brain_memories parse error #{mem_rejected_parse}: {e}");
                     }
                 }
             }

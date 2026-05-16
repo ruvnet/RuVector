@@ -15,7 +15,6 @@
 //!      Continuation pieces are prefixed `##`.
 //!   5. Wrap with `[CLS] … [SEP]`, pad/truncate to a fixed `max_seq`.
 
-
 use crate::error::HailoError;
 use std::collections::HashMap;
 use std::path::Path;
