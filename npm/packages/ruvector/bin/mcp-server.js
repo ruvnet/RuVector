@@ -2301,12 +2301,72 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'hooks_route_enhanced': {
+        // Issue #463/#422: previously shelled out via `npx ruvector hooks
+        // route-enhanced …` and execSync'd it with a 30s timeout. `npx`
+        // package-resolution + bin-launch can exceed 30s on cold cache
+        // even though the underlying work finishes in ~500ms, so MCP
+        // callers got deterministic `spawnSync /bin/sh ETIMEDOUT`. Run the
+        // same logic in-process against the live Intelligence instance.
         try {
-          const safeTask = sanitizeShellArg(args.task);
-          let cmd = `npx ruvector hooks route-enhanced "${safeTask}"`;
-          if (args.file) cmd += ` --file "${sanitizeShellArg(args.file)}"`;
-          const output = execSync(cmd, { encoding: 'utf-8', timeout: 30000 });
-          return { content: [{ type: 'text', text: output }] };
+          const baseRoute = await intel.route(args.task, args.file);
+
+          let coverageWeight = null;
+          let complexity = null;
+
+          if (args.file) {
+            try {
+              const covMod = require('../dist/core/coverage-router.js');
+              if (covMod.findCoverageReport && covMod.findCoverageReport()) {
+                coverageWeight = covMod.getCoverageRoutingWeight(args.file);
+              }
+            } catch (_) {}
+
+            try {
+              const ASTParserMod = require('../dist/core/ast-parser.js');
+              const ASTParserCls = ASTParserMod.ASTParser || ASTParserMod.default;
+              if (ASTParserCls) {
+                const parser = new ASTParserCls();
+                const code = require('fs').readFileSync(args.file, 'utf-8');
+                const ext = require('path').extname(args.file).slice(1);
+                const parsed = parser.parse(code, ext);
+                complexity = parser.calculateComplexity(parsed);
+              }
+            } catch (_) {}
+          }
+
+          let finalAgent = baseRoute.agent;
+          let adjustedConfidence = baseRoute.confidence;
+          const signals = [];
+
+          if (coverageWeight && coverageWeight.tester > 0.4) {
+            signals.push('low coverage detected');
+            if (coverageWeight.tester > adjustedConfidence * 0.5) {
+              finalAgent = 'tester';
+              adjustedConfidence = coverageWeight.tester;
+            }
+          }
+          if (complexity && complexity.cyclomatic > 15) {
+            signals.push('high complexity detected');
+            if (finalAgent === 'coder') {
+              finalAgent = 'reviewer';
+              adjustedConfidence = Math.max(adjustedConfidence, 0.7);
+            }
+          }
+
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                success: true,
+                agent: finalAgent,
+                confidence: adjustedConfidence,
+                reason: baseRoute.reason,
+                signals,
+                coverageWeight,
+                complexity
+              }, null, 2)
+            }]
+          };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }] };
         }
