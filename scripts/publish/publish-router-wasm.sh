@@ -4,15 +4,18 @@
 
 set -e
 
+# Resolve repo root from script location (issue #359: don't hardcode paths).
+REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+
 echo "=========================================="
 echo "router-wasm v0.1.1 Publication Script"
 echo "=========================================="
 echo ""
 
 # Load environment variables
-if [ -f /workspaces/ruvector/.env ]; then
+if [ -f "$REPO_ROOT"/.env ]; then
     echo "✓ Loading CRATES_API_KEY from .env..."
-    export $(grep "^CRATES_API_KEY=" /workspaces/ruvector/.env | xargs)
+    export $(grep "^CRATES_API_KEY=" "$REPO_ROOT"/.env | xargs)
 else
     echo "✗ Error: .env file not found"
     exit 1
@@ -59,7 +62,7 @@ echo ""
 
 # Step 3: Navigate to router-wasm directory
 echo "Step 3: Navigating to router-wasm directory..."
-cd /workspaces/ruvector/crates/router-wasm
+cd "$REPO_ROOT"/crates/router-wasm
 echo "✓ Current directory: $(pwd)"
 echo ""
 

@@ -450,8 +450,8 @@ pub fn array_to_float32_array(arr: Vec<f32>) -> Float32Array {
 /// Utility: Measure performance of an operation
 #[wasm_bindgen(js_name = benchmark)]
 pub fn benchmark(name: &str, iterations: usize, dimensions: usize) -> Result<f64, JsValue> {
-    use std::time::Instant;
-
+    // Issue #267: std::time::Instant panics on wasm32-unknown-unknown.
+    // Use js_sys::Date::now() (milliseconds since epoch) instead.
     console::log_1(
         &format!(
             "Running benchmark '{}' with {} iterations...",
@@ -462,7 +462,7 @@ pub fn benchmark(name: &str, iterations: usize, dimensions: usize) -> Result<f64
 
     let db = VectorDB::new(dimensions, Some("cosine".to_string()), Some(false))?;
 
-    let start = Instant::now();
+    let start_ms = js_sys::Date::now();
 
     for i in 0..iterations {
         let vector: Vec<f32> = (0..dimensions)
@@ -472,8 +472,8 @@ pub fn benchmark(name: &str, iterations: usize, dimensions: usize) -> Result<f64
         db.insert(vector_arr, Some(format!("vec_{}", i)), None)?;
     }
 
-    let duration = start.elapsed();
-    let ops_per_sec = iterations as f64 / duration.as_secs_f64();
+    let elapsed_secs = (js_sys::Date::now() - start_ms) / 1000.0;
+    let ops_per_sec = iterations as f64 / elapsed_secs;
 
     console::log_1(&format!("Benchmark complete: {:.2} ops/sec", ops_per_sec).into());
 

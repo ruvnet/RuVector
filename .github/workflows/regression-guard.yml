@@ -1,0 +1,235 @@
+name: regression-guard
+
+# Guards against the six classes of regressions resolved in the
+# fix/critical-issues-may-2026 batch (issues #437, #438, #458, #462,
+# #463, #430). Each job here corresponds to one fix and exists to
+# prevent the regression from being silently re-introduced.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # Issue #437: parking_lot::RwLock is non-reentrant. Two .write() (or .read())
+  # in the same expression deadlocks. Forbid the exact textual pattern.
+  reentrant-rwlock-double-write:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Forbid reentrant parking_lot lock acquisition in a single statement
+        run: |
+          set -e
+          # parking_lot::RwLock is non-reentrant. Dangerous patterns on the SAME
+          # lock prefix:
+          #   * .write() then .write() — pure deadlock (issue #437)
+          #   * .write() then .read()  — read blocks behind write guard
+          #   * .read()  then .write() — write blocks behind read guard
+          # `.read()` then `.read()` on the same lock is allowed (multi-reader),
+          # and any combination on DIFFERENT locks is safe. We use the same
+          # captured prefix `(\S+)` to flag only same-lock cases.
+          # Pattern 1: .write() …\1.(write|read)()
+          # Pattern 2: .read()  …\1.write()
+          # Bash -P (PCRE) supports backreferences.
+          if grep -rnPe '(\S+)\.write\(\)[^;]*\1\.(write|read)\(\)' \
+                  -rnPe '(\S+)\.read\(\)[^;]*\1\.write\(\)' \
+                 --include='*.rs' -- crates/ ; then
+            echo "::error::Found reentrant parking_lot lock acquisition on a single statement (regression of issue #437). Bind the guard once: 'let mut g = x.write(); g.field = …;'"
+            exit 1
+          fi
+
+  # Issue #458: Windows clones break on case-only collisions because NTFS is
+  # case-insensitive. Fail CI if any two paths in the tree differ only by case.
+  case-insensitive-collisions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect case-only filename collisions
+        run: |
+          set -e
+          dupes=$(git ls-files | tr '[:upper:]' '[:lower:]' | sort | uniq -d || true)
+          if [ -n "$dupes" ]; then
+            echo "::error::Case-only filename collisions found. Windows clones will silently drop one file from each pair:"
+            echo "$dupes"
+            exit 1
+          fi
+
+  # Issue #438: AVX-512 intrinsics must be gated. ruvector-core must build on
+  # stable Rust 1.77+ without the simd-avx512 feature.
+  ruvector-core-no-avx512-builds-on-stable:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.89.0'
+      - name: cargo check ruvector-core without simd-avx512
+        run: |
+          cargo check -p ruvector-core \
+            --no-default-features \
+            --features simd,storage,hnsw,api-embeddings,parallel
+      - name: cargo check ruvector-core with simd-avx512 (default)
+        run: cargo check -p ruvector-core
+
+  # Issue #430: HNSW recall@1 must stay above 95% on the regression test that
+  # historically exposed the result-heap inversion.
+  hnsw-recall-at-1:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: ruvector-router-core unit tests (release)
+        run: |
+          # cargo test only accepts one TESTNAME filter per invocation —
+          # run each guard test separately.
+          cargo test -p ruvector-router-core --release --lib test_recall_at_1_with_biased_insertion_order
+          cargo test -p ruvector-router-core --release --lib test_k_exceeds_ef_search_default
+          cargo test -p ruvector-router-core --release --lib test_vector_db_basic_operations
+
+  # Issue #462 / #376: published tarballs must contain dist/. Run `npm pack`
+  # (which now triggers our prepack hooks) and assert the entry points exist
+  # inside the resulting tarball.
+  npm-publish-pipeline:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pkg:
+          - npm/packages/pi-brain
+          - npm/packages/ruvector
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: npm install + pack ${{ matrix.pkg }}
+        working-directory: ${{ matrix.pkg }}
+        run: |
+          npm install --no-audit --no-fund || true
+          npm pack --pack-destination /tmp/pack >/tmp/pack-name
+          tar -tzf /tmp/pack/*.tgz | head -30
+      - name: assert dist/ entry points exist in tarball
+        working-directory: ${{ matrix.pkg }}
+        run: |
+          tarball=$(ls /tmp/pack/*.tgz | head -1)
+          listing=$(tar -tzf "$tarball")
+          for required in $(node -e "
+            const p = require('./package.json');
+            const files = new Set();
+            if (p.main) files.add(p.main);
+            if (p.module) files.add(p.module);
+            if (p.types) files.add(p.types);
+            if (p.exports) {
+              const walk = (n) => {
+                if (typeof n === 'string') files.add(n);
+                else if (n && typeof n === 'object') Object.values(n).forEach(walk);
+              };
+              walk(p.exports);
+            }
+            console.log([...files].map(f => f.replace(/^\\.\\//,'')).join('\\n'));
+          "); do
+            # The tarball prefixes everything with 'package/'.
+            if ! echo "$listing" | grep -qE "^package/${required}\$"; then
+              echo "::error::Required entry point missing from tarball: $required"
+              echo "Tarball contents:"
+              echo "$listing"
+              exit 1
+            fi
+          done
+
+  # Issues #463 / #422: don't shell out to `npx ruvector …` from inside the
+  # MCP server. Every such call is a candidate for spawnSync ETIMEDOUT.
+  no-npx-execSync-in-mcp-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Forbid execSync('npx ruvector …') in MCP server
+        run: |
+          set -e
+          if grep -nE 'execSync\([^)]*npx[[:space:]]+ruvector' \
+              npm/packages/ruvector/bin/mcp-server.js; then
+            echo "::error::MCP server should call intel.* in-process, not shell out via 'npx ruvector' (regression of issue #463/#422)."
+            exit 1
+          fi
+
+  # Issue #256: MCP tool handlers must sanitize user-controlled input before
+  # interpolating into a shell command. The specific risky pattern is
+  # `${args.X}` (the unsanitized MCP request argument); local variables
+  # (filesArg, threshold, etc.) are typically pre-processed by the handler
+  # and don't need to match here. To catch #256-class regressions without
+  # drowning in false positives, we only flag template literals that include
+  # `${args.…}` and don't wrap it in sanitizeShellArg(...).
+  shell-injection-in-mcp-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Forbid unsanitized ${args.X} in exec*/spawn* calls
+        run: |
+          set -e
+          if grep -nE '(execSync|execFile|execFileSync|exec|spawnSync|spawn)\([^)]*\$\{args\.' \
+              npm/packages/*/bin/*.js 2>/dev/null | grep -v 'sanitizeShellArg('; then
+            echo "::error::Unsanitized \${args.X} interpolation in an exec/spawn call (regression of issue #256). Wrap with sanitizeShellArg(args.X) or use the array form spawn('cmd', [args])."
+            exit 1
+          fi
+
+  # Issue #267: crates whose names contain "wasm" compile to
+  # wasm32-unknown-unknown and can't use std::time::SystemTime / Instant —
+  # they panic at runtime.
+  no-systemtime-in-wasm-crates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject SystemTime/Instant in wasm32-targeted crates
+        run: |
+          set -e
+          fail=0
+          for crate in crates/*-wasm crates/*wasm*; do
+            [ -d "$crate/src" ] || continue
+            # Whitelist crates with a time_compat shim — they explicitly
+            # provide a wasm-safe alternative.
+            [ -f "$crate/src/time_compat.rs" ] && continue
+            hits=$(grep -rnE '\b(SystemTime::now|Instant::now)\b' "$crate/src" 2>/dev/null || true)
+            [ -z "$hits" ] && continue
+            ungated=$(echo "$hits" | while IFS=: read -r f line _; do
+              pre=$(awk -v L="$line" 'NR>=L-4 && NR<L' "$f")
+              if ! echo "$pre" | grep -q 'cfg(not(target_arch.*wasm32'; then
+                echo "$f:$line"
+              fi
+            done)
+            if [ -n "$ungated" ]; then
+              echo "::error file=$crate::WASM crate uses SystemTime/Instant without cfg-gate (regression of issue #267):"
+              echo "$ungated"
+              fail=1
+            fi
+          done
+          exit $fail
+
+  # Issue #359: hardcoded devcontainer-only paths break clones outside the
+  # devcontainer. Block them in settings + workflow files. .claude/hooks and
+  # .claude/intelligence are excluded because they're user-customised helpers
+  # configured per-developer (not committed-by-default). Markdown docs and
+  # JS example/test files are excluded — they're illustrative.
+  no-hardcoded-workspaces-paths:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Forbid hardcoded devcontainer path in checked-in config
+        run: |
+          set -e
+          # Look for the literal pattern but only in load-bearing config files,
+          # not in this workflow file itself or in docs/examples/tests.
+          pattern=$(printf '/workspaces/%s' 'ruvector')
+          hits=$(grep -rln "$pattern" \
+              .github/workflows/ .claude/settings.json .claude/settings.local.json \
+              scripts/publish/ \
+              --exclude='regression-guard.yml' \
+              2>/dev/null || true)
+          if [ -n "$hits" ]; then
+            echo "::error::Hardcoded devcontainer path in checked-in config (regression of issue #359). Use \$GITHUB_WORKSPACE, \$PWD, or a relative path."
+            echo "$hits"
+            exit 1
+          fi
