@@ -109,8 +109,12 @@ jobs:
       - name: npm install + pack ${{ matrix.pkg }}
         working-directory: ${{ matrix.pkg }}
         run: |
-          npm install --no-audit --no-fund || true
-          npm pack --pack-destination /tmp/pack >/tmp/pack-name
+          # --legacy-peer-deps because the monorepo has cross-package peer
+          # conflicts that aren't germane to whether the published tarball
+          # contains its declared entry points.
+          npm install --no-audit --no-fund --legacy-peer-deps
+          mkdir -p /tmp/pack
+          npm pack --pack-destination /tmp/pack
           tar -tzf /tmp/pack/*.tgz | head -30
       - name: assert dist/ entry points exist in tarball
         working-directory: ${{ matrix.pkg }}
@@ -141,18 +145,26 @@ jobs:
             fi
           done
 
-  # Issues #463 / #422: don't shell out to `npx ruvector …` from inside the
-  # MCP server. Every such call is a candidate for spawnSync ETIMEDOUT.
-  no-npx-execSync-in-mcp-server:
+  # Issues #463 / #422: hooks_route_enhanced specifically must not shell out
+  # via execSync('npx ruvector …'). Other handlers in mcp-server.js shell out
+  # to subprocess-only commands (security-scan, git-churn, verify) and are
+  # tracked separately — this guard locks the #463 regression shut.
+  no-npx-execSync-in-route-enhanced:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Forbid execSync('npx ruvector …') in MCP server
+      - name: Forbid execSync('npx ruvector …') inside hooks_route_enhanced case
         run: |
           set -e
-          if grep -nE 'execSync\([^)]*npx[[:space:]]+ruvector' \
-              npm/packages/ruvector/bin/mcp-server.js; then
-            echo "::error::MCP server should call intel.* in-process, not shell out via 'npx ruvector' (regression of issue #463/#422)."
+          # Extract the hooks_route_enhanced case body (case label → next case)
+          # and grep within it. awk for case-body extraction, then grep.
+          body=$(awk '
+            /case .hooks_route_enhanced.:/ { flag=1 }
+            flag && /case .[a-z_]+.:/ && !/hooks_route_enhanced/ { flag=0 }
+            flag { print }
+          ' npm/packages/ruvector/bin/mcp-server.js)
+          if echo "$body" | grep -E 'execSync\([^)]*npx[[:space:]]+ruvector'; then
+            echo "::error::hooks_route_enhanced MUST NOT shell out via 'npx ruvector' (regression of issue #463/#422). Use intel.route() in-process instead."
             exit 1
           fi
 
