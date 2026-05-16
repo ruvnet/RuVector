@@ -331,7 +331,11 @@ impl FirestoreClient {
     /// We unwrap the `data` field and parse the inner JSON.
     /// Paginates with `pageToken` to fetch all documents.
     /// Maximum number of consecutive page-level errors before aborting pagination.
-    const MAX_PAGE_ERRORS: usize = 3;
+    /// Bumped from 3 → 8 in response to issue #464: with ~75 pages of 300 docs per
+    /// hydration, 3 transient errors at the wrong moment terminated the load
+    /// at ~10K instead of ~22K. 8 still bounds runaway behavior but tolerates a
+    /// realistic rate of OAuth refresh blips during long-running hydrations.
+    const MAX_PAGE_ERRORS: usize = 8;
 
     async fn firestore_list(&self, collection: &str) -> Vec<serde_json::Value> {
         let Some(ref base) = self.base_url else {
@@ -526,6 +530,9 @@ impl FirestoreClient {
 
     /// Hydrate in-memory cache from Firestore on startup.
     /// Silently succeeds with empty cache if Firestore is unavailable.
+    ///
+    /// Issue #464: emits per-collection considered/accepted/rejected counts
+    /// so silent record loss during deserialization is observable.
     pub async fn load_from_firestore(&self) {
         if self.base_url.is_none() {
             return;
@@ -534,28 +541,54 @@ impl FirestoreClient {
 
         // Load memories — normalize on ingest for fast cosine search
         let docs = self.firestore_list("brain_memories").await;
+        let considered_mem = docs.len();
         let mut mem_count = 0usize;
+        let mut mem_rejected_parse = 0usize;
         for doc in docs {
-            if let Ok(mut m) = serde_json::from_value::<BrainMemory>(doc) {
-                // ADR-149 followup: L2-normalize so search uses pure dot product
-                crate::graph::normalize_embedding(&mut m.embedding);
-                self.memories.insert(m.id, m);
-                mem_count += 1;
+            match serde_json::from_value::<BrainMemory>(doc) {
+                Ok(mut m) => {
+                    // ADR-149 followup: L2-normalize so search uses pure dot product
+                    crate::graph::normalize_embedding(&mut m.embedding);
+                    self.memories.insert(m.id, m);
+                    mem_count += 1;
+                }
+                Err(e) => {
+                    mem_rejected_parse += 1;
+                    // Log first 5 parse errors to surface schema drift without flooding logs
+                    if mem_rejected_parse <= 5 {
+                        tracing::warn!(
+                            "brain_memories parse error #{mem_rejected_parse}: {e}"
+                        );
+                    }
+                }
             }
         }
+        tracing::info!(
+            "Hydrate brain_memories: considered={considered_mem} accepted={mem_count} rejected_parse={mem_rejected_parse}"
+        );
 
         // Load contributors
         let docs = self.firestore_list("brain_contributors").await;
+        let considered_contrib = docs.len();
         let mut contrib_count = 0usize;
+        let mut contrib_rejected_parse = 0usize;
         for doc in docs {
-            if let Ok(c) = serde_json::from_value::<ContributorInfo>(doc) {
-                self.contributors.insert(c.pseudonym.clone(), c);
-                contrib_count += 1;
+            match serde_json::from_value::<ContributorInfo>(doc) {
+                Ok(c) => {
+                    self.contributors.insert(c.pseudonym.clone(), c);
+                    contrib_count += 1;
+                }
+                Err(_) => contrib_rejected_parse += 1,
             }
         }
+        tracing::info!(
+            "Hydrate brain_contributors: considered={considered_contrib} accepted={contrib_count} rejected_parse={contrib_rejected_parse}"
+        );
 
         // Load page status
         let docs = self.firestore_list("brain_page_status").await;
+        let considered_pages = docs.len();
+        let mut page_rejected = 0usize;
         for doc in docs {
             if let (Some(id), Some(status)) = (
                 doc.get("id")
@@ -567,18 +600,32 @@ impl FirestoreClient {
                 .ok(),
             ) {
                 self.page_status.insert(id, status);
+            } else {
+                page_rejected += 1;
             }
         }
+        tracing::info!(
+            "Hydrate brain_page_status: considered={considered_pages} accepted={} rejected_parse={page_rejected}",
+            self.page_status.len()
+        );
 
         // Load WASM nodes
         let docs = self.firestore_list("brain_nodes").await;
+        let considered_nodes = docs.len();
         let mut node_count = 0usize;
+        let mut node_rejected_parse = 0usize;
         for doc in docs {
-            if let Ok(n) = serde_json::from_value::<WasmNode>(doc) {
-                self.wasm_nodes.insert(n.id.clone(), n);
-                node_count += 1;
+            match serde_json::from_value::<WasmNode>(doc) {
+                Ok(n) => {
+                    self.wasm_nodes.insert(n.id.clone(), n);
+                    node_count += 1;
+                }
+                Err(_) => node_rejected_parse += 1,
             }
         }
+        tracing::info!(
+            "Hydrate brain_nodes: considered={considered_nodes} accepted={node_count} rejected_parse={node_rejected_parse}"
+        );
 
         tracing::info!(
             "Loaded from Firestore: {mem_count} memories, {contrib_count} contributors, {} pages, {node_count} nodes",
