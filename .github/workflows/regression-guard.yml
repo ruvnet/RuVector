@@ -101,6 +101,7 @@ jobs:
         pkg:
           - npm/packages/pi-brain
           - npm/packages/ruvector
+          - npm/packages/rvf-wasm
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -252,3 +253,74 @@ jobs:
             echo "$hits"
             exit 1
           fi
+
+  # Issue #464: the per-collection hydration counters added in 97c07520d are
+  # the only way to diagnose silent record loss during Firestore hydration.
+  # If a future refactor removes the log lines, we lose the diagnostic when
+  # we need it most. Assert all four "Hydrate <collection>:" log lines stay.
+  brain-hydration-counters-present:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert hydration counter log lines exist
+        run: |
+          set -e
+          f=crates/mcp-brain-server/src/store.rs
+          missing=()
+          for collection in brain_memories brain_contributors brain_page_status brain_nodes; do
+            if ! grep -q "Hydrate ${collection}: considered=" "$f"; then
+              missing+=("Hydrate ${collection}: considered=…")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error file=$f::Per-collection hydration counter log lines are missing (regression of issue #464). The next deploy can't diagnose silent record loss without them:"
+            printf '  %s\n' "${missing[@]}"
+            exit 1
+          fi
+
+  # Issue #411: npm wrapper packages declared optionalDependencies pinned to
+  # versions of native binaries that were never published on the registry.
+  # Resolve every optionalDependency declared by every package in this repo
+  # against the live npm registry and fail if any are missing. Soft-skip on
+  # network errors so transient registry hiccups don't false-fail.
+  optional-deps-resolvable-on-npm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Resolve every optionalDependency@version on npm
+        run: |
+          set -e
+          fail=0
+          # Collect (pkg, name, version) tuples from every package.json that
+          # ships an optionalDependencies block.
+          while IFS= read -r pkgjson; do
+            entries=$(node -e "
+              const p = require('${PWD}/$pkgjson');
+              const od = p.optionalDependencies || {};
+              for (const [n, v] of Object.entries(od)) {
+                console.log(n + ' ' + v);
+              }
+            ")
+            [ -z "$entries" ] && continue
+            while IFS= read -r line; do
+              [ -z "$line" ] && continue
+              name=$(echo "$line" | awk '{print $1}')
+              ver=$(echo "$line" | awk '{print $2}' | tr -d '"^~ ')
+              # Skip workspace: protocol and other non-semver specs.
+              case "$ver" in workspace:*|file:*|*://*) continue ;; esac
+              out=$(npm view "${name}@${ver}" version 2>&1) || true
+              if echo "$out" | grep -qE '^npm (error|ERR!)' || [ -z "$out" ]; then
+                # Distinguish "not in registry" from transient network error.
+                if echo "$out" | grep -qE 'E404|is not in this registry'; then
+                  echo "::error file=$pkgjson::optionalDependency ${name}@${ver} is not published on npm (regression of issue #411)."
+                  fail=1
+                else
+                  echo "::warning file=$pkgjson::Could not resolve ${name}@${ver} (transient?): $out"
+                fi
+              fi
+            done <<< "$entries"
+          done < <(find npm/packages -name package.json -not -path '*/node_modules/*')
+          exit $fail
