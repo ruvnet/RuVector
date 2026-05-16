@@ -1,9 +1,10 @@
 {
   "name": "@ruvector/pi-brain",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "CLI and SDK for π — the RuVector shared brain. Share, search, and transfer learning across AI sessions.",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/cjs/index.js",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
     "pi-brain": "dist/cli.js",
@@ -11,12 +12,30 @@
   },
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/cjs/index.js",
+      "default": "./dist/cjs/index.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp.d.ts",
+      "import": "./dist/mcp.js",
+      "require": "./dist/cjs/mcp.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js",
+      "require": "./dist/cjs/client.js"
     }
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsc",
+    "build:esm": "tsc -p tsconfig.json",
+    "build:cjs": "tsc -p tsconfig.cjs.json && node -e \"require('fs').writeFileSync('dist/cjs/package.json', JSON.stringify({type:'commonjs'}))\"",
+    "build": "npm run build:esm && npm run build:cjs",
+    "prepack": "npm run build",
     "start": "node dist/cli.js",
     "dev": "tsc --watch"
   },
@@ -36,5 +55,8 @@
   "devDependencies": {
     "@types/node": "^20.10.0",
     "typescript": "^5.3.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -10,6 +10,7 @@
   "scripts": {
     "build": "tsc && cp src/core/onnx/pkg/package.json dist/core/onnx/pkg/",
     "verify-dist": "node scripts/verify-dist.js",
+    "prepack": "npm run build && npm run verify-dist",
     "prepublishOnly": "npm run build && npm run verify-dist",
     "test": "node test/integration.js && node test/cli-commands.js"
   },
