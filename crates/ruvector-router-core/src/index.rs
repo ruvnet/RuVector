@@ -4,7 +4,7 @@ use crate::distance::calculate_distance;
 use crate::error::{Result, VectorDbError};
 use crate::types::{DistanceMetric, SearchQuery, SearchResult};
 use parking_lot::RwLock;
-use std::cmp::Ordering;
+use std::cmp::{Ordering, Reverse};
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::sync::Arc;
 
@@ -131,9 +131,13 @@ impl HnswIndex {
             if let Some(neighbor_connections) = graph.get_mut(&neighbor.id) {
                 neighbor_connections.push(id.clone());
 
-                // Prune connections if needed
+                // Issue #430: previously `truncate(m)` kept the OLDEST m
+                // connections, including dropping the one we just pushed when
+                // it landed past position m. Drop oldest, keep newest m so the
+                // freshly-inserted edge always survives.
                 if neighbor_connections.len() > self.config.m * 2 {
-                    neighbor_connections.truncate(self.config.m);
+                    let drain_count = neighbor_connections.len() - self.config.m;
+                    neighbor_connections.drain(0..drain_count);
                 }
             }
         }
@@ -152,7 +156,10 @@ impl HnswIndex {
     /// Search for k nearest neighbors
     pub fn search(&self, query: &SearchQuery) -> Result<Vec<SearchResult>> {
         let ef_search = query.ef_search.unwrap_or(self.config.ef_search);
-        let candidates = self.search_knn_internal(&query.vector, ef_search);
+        // Issue #430: caller's k was silently capped at ef_search; raise ef so we
+        // visit at least k candidates.
+        let ef = ef_search.max(query.k);
+        let candidates = self.search_knn_internal(&query.vector, ef);
 
         let mut results = Vec::new();
         for candidate in candidates.into_iter().take(query.k) {
@@ -175,6 +182,13 @@ impl HnswIndex {
     }
 
     /// Internal k-NN search implementation
+    ///
+    /// Issue #430: `Neighbor::Ord` is reversed so BinaryHeap acts as a min-heap
+    /// (smaller distance == "greater"). That's correct for `candidates` (pop
+    /// closest unexplored first), but WRONG for `result` — peek returned the
+    /// best candidate, so eviction kept dropping the best item instead of the
+    /// worst. Wrap `result` in `Reverse` so peek/pop return the furthest item
+    /// (the eviction target).
     fn search_knn_internal(&self, query: &[f32], ef: usize) -> Vec<Neighbor> {
         let vectors = self.vectors.read();
         let graph = self.graph.read();
@@ -186,8 +200,10 @@ impl HnswIndex {
 
         let entry_id = entry_point.as_ref().unwrap();
         let mut visited = HashSet::new();
-        let mut candidates = BinaryHeap::new();
-        let mut result = BinaryHeap::new();
+        let mut candidates: BinaryHeap<Neighbor> = BinaryHeap::new();
+        // Max-heap over distance — peek() returns the worst (furthest) of the
+        // current top-K. Wrap in Reverse to invert Neighbor's min-heap Ord.
+        let mut result: BinaryHeap<Reverse<Neighbor>> = BinaryHeap::new();
 
         // Calculate distance to entry point
         if let Some(entry_vec) = vectors.get(entry_id) {
@@ -199,14 +215,14 @@ impl HnswIndex {
             };
 
             candidates.push(neighbor.clone());
-            result.push(neighbor);
+            result.push(Reverse(neighbor));
             visited.insert(entry_id.clone());
         }
 
         // Search phase
         while let Some(current) = candidates.pop() {
-            // Check if we should continue
-            if let Some(furthest) = result.peek() {
+            // Stop when current is worse than the worst kept result and we have ef.
+            if let Some(Reverse(furthest)) = result.peek() {
                 if current.distance > furthest.distance && result.len() >= ef {
                     break;
                 }
@@ -230,16 +246,16 @@ impl HnswIndex {
                             distance: dist,
                         };
 
-                        // Add to candidates
+                        // Add to candidates (min-heap by distance)
                         candidates.push(neighbor.clone());
 
-                        // Add to results if better than current worst
+                        // Add to results if room or strictly better than current worst.
                         if result.len() < ef {
-                            result.push(neighbor);
-                        } else if let Some(worst) = result.peek() {
+                            result.push(Reverse(neighbor));
+                        } else if let Some(Reverse(worst)) = result.peek() {
                             if dist < worst.distance {
                                 result.pop();
-                                result.push(neighbor);
+                                result.push(Reverse(neighbor));
                             }
                         }
                     }
@@ -247,8 +263,9 @@ impl HnswIndex {
             }
         }
 
-        // Convert to sorted vector
-        let mut sorted_results: Vec<Neighbor> = result.into_iter().collect();
+        // Convert to sorted vector (ascending distance).
+        let mut sorted_results: Vec<Neighbor> =
+            result.into_iter().map(|Reverse(n)| n).collect();
         sorted_results.sort_by(|a, b| {
             a.distance
                 .partial_cmp(&b.distance)
@@ -365,6 +382,128 @@ mod tests {
 
         let results = index.search(&query).unwrap();
         assert_eq!(results.len(), 5);
+    }
+
+    /// Issue #430: recall@1 collapsed at scale because the result-set
+    /// BinaryHeap used min-heap semantics, evicting the BEST match instead of
+    /// the worst whenever a new candidate arrived. Searching for a query
+    /// identical to an inserted vector returned 0 or unrelated hits.
+    /// This test inserts 1024 vectors and verifies recall@1 >= 95%.
+    #[test]
+    fn test_recall_at_1_with_biased_insertion_order() {
+        use std::collections::HashSet;
+        let dimensions = 64;
+        let config = HnswConfig {
+            m: 16,
+            ef_construction: 200,
+            ef_search: 200,
+            metric: DistanceMetric::Cosine,
+            dimensions,
+        };
+        let index = HnswIndex::new(config);
+
+        // Generate 1024 deterministic but well-separated vectors via simple LCG.
+        let n: usize = 1024;
+        let mut vectors: Vec<Vec<f32>> = Vec::with_capacity(n);
+        let mut state: u64 = 0xC0FF_EE15_BEEF_F00D;
+        for _ in 0..n {
+            let mut v = vec![0f32; dimensions];
+            for slot in v.iter_mut() {
+                state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                let bits = (state >> 32) as u32;
+                *slot = (bits as f32 / u32::MAX as f32) - 0.5;
+            }
+            let norm = v.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-12);
+            for slot in v.iter_mut() {
+                *slot /= norm;
+            }
+            vectors.push(v);
+        }
+
+        // Biased insertion order (sorted by first coordinate) — historically
+        // what made the graph topology degenerate enough to expose the bug.
+        let mut order: Vec<usize> = (0..n).collect();
+        order.sort_by(|&a, &b| {
+            vectors[a][0]
+                .partial_cmp(&vectors[b][0])
+                .unwrap_or(Ordering::Equal)
+        });
+        for &i in &order {
+            index.insert(format!("v{i}"), vectors[i].clone()).unwrap();
+        }
+
+        // Query with each inserted vector — recall@1 must return that vector.
+        let mut hits = 0usize;
+        let sample: Vec<usize> = (0..n).step_by(n / 100).collect();
+        for &i in &sample {
+            let query = SearchQuery {
+                vector: vectors[i].clone(),
+                k: 1,
+                filters: None,
+                threshold: None,
+                ef_search: Some(200),
+            };
+            let results = index.search(&query).unwrap();
+            if results.first().map(|r| r.id == format!("v{i}")).unwrap_or(false) {
+                hits += 1;
+            }
+        }
+        let recall = hits as f32 / sample.len() as f32;
+        assert!(
+            recall >= 0.95,
+            "recall@1 should be >= 95% with 1024 vectors, got {recall} ({}/{})",
+            hits,
+            sample.len()
+        );
+
+        // Sanity check: distinct ids returned across the sample (no degenerate
+        // graph collapsing all queries to one node).
+        let returned: HashSet<String> = sample
+            .iter()
+            .filter_map(|&i| {
+                let q = SearchQuery {
+                    vector: vectors[i].clone(),
+                    k: 1,
+                    filters: None,
+                    threshold: None,
+                    ef_search: Some(200),
+                };
+                index.search(&q).ok().and_then(|r| r.into_iter().next()).map(|n| n.id)
+            })
+            .collect();
+        assert!(
+            returned.len() >= (sample.len() * 8) / 10,
+            "expected at least 80% distinct ids, got {}/{}",
+            returned.len(),
+            sample.len()
+        );
+    }
+
+    /// Issue #430 (k > ef_search): caller-driven k was silently capped at
+    /// ef_search; bumping k to exceed ef_search should yield k results.
+    #[test]
+    fn test_k_exceeds_ef_search_default() {
+        let config = HnswConfig {
+            m: 16,
+            ef_construction: 100,
+            ef_search: 10, // small default
+            metric: DistanceMetric::Euclidean,
+            dimensions: 4,
+        };
+        let index = HnswIndex::new(config);
+        for i in 0..50 {
+            let v = vec![i as f32, (i * 2) as f32, (i * 3) as f32, (i * 5) as f32];
+            index.insert(format!("v{i}"), v).unwrap();
+        }
+        let query = SearchQuery {
+            vector: vec![10.0, 20.0, 30.0, 50.0],
+            k: 25,
+            filters: None,
+            threshold: None,
+            ef_search: None, // default 10
+        };
+        let results = index.search(&query).unwrap();
+        assert_eq!(results.len(), 25, "k=25 with default ef_search=10 must still return 25");
     }
 
     #[test]
