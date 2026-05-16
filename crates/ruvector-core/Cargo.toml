@@ -95,8 +95,13 @@ name = "bench_memory"
 harness = false
 
 [features]
-default = ["simd", "storage", "hnsw", "api-embeddings", "parallel"]
+default = ["simd", "simd-avx512", "storage", "hnsw", "api-embeddings", "parallel"]
 simd = ["simsimd"]  # SIMD acceleration (not available in WASM)
+# AVX-512 intrinsics. Requires Rust >= 1.89 (where avx512f stabilized).
+# Downstream consumers on older stable (1.77–1.88) can opt out:
+#   --no-default-features --features simd,storage,hnsw,api-embeddings,parallel
+# See issue #438.
+simd-avx512 = []
 parallel = ["rayon", "crossbeam"]  # Parallel processing (not available in WASM)
 storage = ["redb", "memmap2"]  # File-based storage (not available in WASM)
 hnsw = ["hnsw_rs"]  # HNSW indexing (not available in WASM due to mmap dependency)

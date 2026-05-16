@@ -150,7 +150,8 @@ impl VectorDB {
 
         if deleted {
             self.index.remove(id)?;
-            self.stats.write().total_vectors = self.stats.write().total_vectors.saturating_sub(1);
+            let mut stats = self.stats.write();
+            stats.total_vectors = stats.total_vectors.saturating_sub(1);
         }
 
         Ok(deleted)
