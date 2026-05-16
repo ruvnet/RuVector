@@ -106,13 +106,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: npm install + pack ${{ matrix.pkg }}
-        working-directory: ${{ matrix.pkg }}
+      - name: copy ${{ matrix.pkg }} to isolated dir + npm install + pack
         run: |
-          # --legacy-peer-deps because the monorepo has cross-package peer
-          # conflicts that aren't germane to whether the published tarball
-          # contains its declared entry points.
-          npm install --no-audit --no-fund --legacy-peer-deps
+          # The package lives inside an npm workspace at npm/package.json
+          # whose other workspace members declare cross-platform native
+          # binaries (router-darwin-arm64, etc.). Installing from the
+          # package dir still walks the workspace and chokes on EBADPLATFORM
+          # for the wrong-host binaries. Copy the package to a workspace-free
+          # temp dir so npm only resolves the package's own declared deps.
+          mkdir -p /tmp/pkgcopy
+          cp -r ${{ matrix.pkg }}/. /tmp/pkgcopy/
+          cd /tmp/pkgcopy
+          # Detach from the parent workspace.
+          rm -f package-lock.json
+          npm install --no-audit --no-fund --legacy-peer-deps --no-workspaces
           mkdir -p /tmp/pack
           npm pack --pack-destination /tmp/pack
           tar -tzf /tmp/pack/*.tgz | head -30
