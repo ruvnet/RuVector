@@ -21,3 +21,15 @@ ruvllm_sparse_attention = { path = "../ruvllm_sparse_attention", default-feature
 
 [dev-dependencies]
 # Examples / tests only
+
+# Research-tier crate. Stylistic clippy lints that don't affect correctness
+# are downgraded so the workspace clippy job can stay strict elsewhere.
+[lints.clippy]
+needless_range_loop = "allow"
+needless_lifetimes = "allow"
+if_same_then_else = "allow"
+derivable_impls = "allow"
+redundant_closure = "allow"
+iter_cloned_collect = "allow"
+doc_lazy_continuation = "allow"
+unusual_byte_groupings = "allow"

@@ -46,3 +46,14 @@ harness = false
 [[bench]]
 name = "sparse_mario_bench"
 harness = false
+
+# Research-tier crate (subquadratic attention experiments). Stylistic clippy
+# lints that don't affect correctness are downgraded so the workspace
+# `clippy --all-targets -D warnings` job can stay strict elsewhere.
+[lints.clippy]
+needless_range_loop = "allow"
+if_same_then_else = "allow"
+derivable_impls = "allow"
+redundant_closure = "allow"
+iter_cloned_collect = "allow"
+doc_lazy_continuation = "allow"

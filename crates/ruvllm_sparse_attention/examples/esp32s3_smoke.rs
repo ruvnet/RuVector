@@ -43,7 +43,6 @@
 
 extern crate alloc;
 
-use alloc::vec::Vec;
 use ruvllm_sparse_attention::{
     AttentionBackend, FastGrnnGate, SparseAttentionConfig, SubquadraticSparseAttention, Tensor3,
 };

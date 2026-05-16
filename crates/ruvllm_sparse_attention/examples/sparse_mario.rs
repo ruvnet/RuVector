@@ -1333,7 +1333,7 @@ fn main() {
     let t0 = std::time::Instant::now();
     let diffused = diffuser.diffuse(n_diff, n_steps, &sampling, 0xD1FF_5008);
     let dt = t0.elapsed();
-    let any_masks = diffused.iter().any(|&t| t == MASK_SENTINEL);
+    let any_masks = diffused.contains(&MASK_SENTINEL);
     println!(
         "diffusion     : {} positions × {} denoising steps in {:.2?} (residual masks: {})",
         n_diff, n_steps, dt, any_masks
@@ -1454,7 +1454,7 @@ fn main() {
     );
     let markov = Markov1::from_corpus(&tokens);
 
-    let mut summarise = |name: &str, gens: &[Vec<u8>]| {
+    let summarise = |name: &str, gens: &[Vec<u8>]| {
         let mut acc_d = 0.0f32;
         let mut acc_l = 0.0f32;
         let mut acc_le = 0.0f32;
