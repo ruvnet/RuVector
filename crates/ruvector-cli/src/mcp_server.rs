@@ -48,10 +48,12 @@ async fn main() -> Result<()> {
     // Initialize logging
     if cli.debug {
         tracing_subscriber::fmt()
+            .with_writer(std::io::stderr)
             .with_env_filter("ruvector=debug")
             .init();
     } else {
         tracing_subscriber::fmt()
+            .with_writer(std::io::stderr)
             .with_env_filter("ruvector=info")
             .init();
     }
