@@ -24,12 +24,16 @@ pub enum ExecutionError {
 #[derive(Debug, Clone)]
 pub struct ExecutionContext {
     pub variables: HashMap<String, ContextValue>,
+    /// All matched binding sets from MATCH clauses; populated by execute_match, consumed by execute_return.
+    /// Each entry is one complete set of bindings for one match row.
+    pub matched_rows: Vec<HashMap<String, ContextValue>>,
 }
 
 impl ExecutionContext {
     pub fn new() -> Self {
         Self {
             variables: HashMap::new(),
+            matched_rows: Vec::new(),
         }
     }
 
@@ -267,12 +271,8 @@ impl<'a> Executor<'a> {
             });
         }
 
-        // Merge matches into context
-        for match_ctx in matches {
-            for (var, val) in match_ctx.variables {
-                context.bind(var, val);
-            }
-        }
+        // Store each matched binding set as a separate row so RETURN can iterate all of them
+        context.matched_rows = matches.into_iter().map(|ctx| ctx.variables).collect();
 
         Ok(ExecutionResult::new(vec![]))
     }
@@ -420,8 +420,6 @@ impl<'a> Executor<'a> {
         context: &ExecutionContext,
     ) -> Result<ExecutionResult, ExecutionError> {
         let mut columns = Vec::new();
-        let mut row = HashMap::new();
-
         for item in &clause.items {
             let col_name = item
                 .alias
@@ -430,15 +428,55 @@ impl<'a> Executor<'a> {
                     Expression::Variable(var) => var.clone(),
                     _ => "?column?".to_string(),
                 });
-
-            columns.push(col_name.clone());
-
-            let value = self.evaluate_expression_ctx(&item.expression, context)?;
-            row.insert(col_name, value);
+            if !columns.contains(&col_name) {
+                columns.push(col_name);
+            }
         }
 
-        let mut result = ExecutionResult::new(columns);
-        result.add_row(row);
+        let mut result = ExecutionResult::new(columns.clone());
+
+        // If MATCH produced multiple rows, iterate each row; otherwise use the current context
+        let row_bindings: Vec<&HashMap<String, ContextValue>> = if !context.matched_rows.is_empty()
+        {
+            context.matched_rows.iter().collect()
+        } else {
+            vec![&context.variables]
+        };
+
+        for bindings in row_bindings {
+            // Build a temporary context for this row by merging matched bindings with outer context
+            let mut row_ctx = ExecutionContext::new();
+            for (k, v) in &context.variables {
+                row_ctx.bind(k.clone(), v.clone());
+            }
+            for (k, v) in bindings {
+                row_ctx.bind(k.clone(), v.clone());
+            }
+
+            let mut row = HashMap::new();
+            for col_name in &columns {
+                // Find the expression for this column
+                let expr = clause
+                    .items
+                    .iter()
+                    .find(|item| {
+                        let name = item.alias.clone().unwrap_or_else(|| {
+                            match &item.expression {
+                                Expression::Variable(var) => var.clone(),
+                                _ => "?column?".to_string(),
+                            }
+                        });
+                        &name == col_name
+                    })
+                    .map(|item| &item.expression);
+
+                if let Some(expr) = expr {
+                    let value = self.evaluate_expression_ctx(expr, &row_ctx)?;
+                    row.insert(col_name.clone(), value);
+                }
+            }
+            result.add_row(row);
+        }
 
         Ok(result)
     }

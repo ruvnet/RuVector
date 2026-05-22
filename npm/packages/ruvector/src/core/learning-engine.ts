@@ -580,7 +580,7 @@ export class LearningEngine {
 
     // Running average reward
     this.rewardHistory.push(reward);
-    if (this.rewardHistory.length > 1000) {
+    if (this.rewardHistory.length > 500) {
       this.rewardHistory.shift();
     }
     stats.avgReward = this.rewardHistory.reduce((a, b) => a + b, 0) / this.rewardHistory.length;
@@ -638,6 +638,8 @@ export class LearningEngine {
   export(): {
     qTables: Record<string, Record<string, number>>;
     qTables2: Record<string, Record<string, number>>;
+    eligibilityTraces: Record<string, Record<string, number>>;
+    actorWeights: Record<string, number[]>;
     criticValues: Record<string, number>;
     trajectories: LearningTrajectory[];
     stats: Record<string, AlgorithmStats>;
@@ -654,6 +656,16 @@ export class LearningEngine {
       qTables2[state] = Object.fromEntries(actions);
     }
 
+    const eligibilityTraces: Record<string, Record<string, number>> = {};
+    for (const [state, traces] of this.eligibilityTraces) {
+      eligibilityTraces[state] = Object.fromEntries(traces);
+    }
+
+    const actorWeights: Record<string, number[]> = {};
+    for (const [key, weights] of this.actorWeights) {
+      actorWeights[key] = weights;
+    }
+
     const criticValues = Object.fromEntries(this.criticValues);
     const stats: Record<string, AlgorithmStats> = {};
     for (const [alg, s] of this.stats) {
@@ -668,11 +680,13 @@ export class LearningEngine {
     return {
       qTables,
       qTables2,
+      eligibilityTraces,
+      actorWeights,
       criticValues,
-      trajectories: this.trajectories.slice(-100), // Keep last 100 trajectories
+      trajectories: this.trajectories.slice(-100),
       stats,
       configs,
-      rewardHistory: this.rewardHistory.slice(-1000),
+      rewardHistory: this.rewardHistory.slice(-500),
     };
   }
 
@@ -689,6 +703,18 @@ export class LearningEngine {
     this.qTables2.clear();
     for (const [state, actions] of Object.entries(data.qTables2 || {})) {
       this.qTables2.set(state, new Map(Object.entries(actions)));
+    }
+
+    // Eligibility traces
+    this.eligibilityTraces.clear();
+    for (const [state, traces] of Object.entries((data as any).eligibilityTraces || {})) {
+      this.eligibilityTraces.set(state, new Map(Object.entries(traces as Record<string, number>)));
+    }
+
+    // Actor weights
+    this.actorWeights.clear();
+    for (const [key, weights] of Object.entries((data as any).actorWeights || {})) {
+      this.actorWeights.set(key, weights as number[]);
     }
 
     // Critic values

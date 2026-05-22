@@ -3208,9 +3208,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // ── rvlite Query Tool Handlers ──────────────────────────────────────
       case 'rvlite_sql': {
         try {
-          let rvlite;
+          let rvliteModule;
           try {
-            rvlite = require('rvlite');
+            rvliteModule = await import('rvlite');
           } catch (_e) {
             return { content: [{ type: 'text', text: JSON.stringify({
               success: false,
@@ -3218,6 +3218,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               hint: 'Install with: npm install rvlite'
             }, null, 2) }] };
           }
+          const rvlite = rvliteModule.default || rvliteModule;
           const safeQuery = sanitizeShellArg(args.query);
           const dbOpts = args.db_path ? { path: validateRvfPath(args.db_path) } : {};
           const db = new rvlite.Database(dbOpts);
@@ -3238,9 +3239,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'rvlite_cypher': {
         try {
-          let rvlite;
+          let rvliteModule;
           try {
-            rvlite = require('rvlite');
+            rvliteModule = await import('rvlite');
           } catch (_e) {
             return { content: [{ type: 'text', text: JSON.stringify({
               success: false,
@@ -3248,6 +3249,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               hint: 'Install with: npm install rvlite'
             }, null, 2) }] };
           }
+          const rvlite = rvliteModule.default || rvliteModule;
           const safeQuery = sanitizeShellArg(args.query);
           const dbOpts = args.db_path ? { path: validateRvfPath(args.db_path) } : {};
           const db = new rvlite.Database(dbOpts);
@@ -3268,9 +3270,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'rvlite_sparql': {
         try {
-          let rvlite;
+          let rvliteModule;
           try {
-            rvlite = require('rvlite');
+            rvliteModule = await import('rvlite');
           } catch (_e) {
             return { content: [{ type: 'text', text: JSON.stringify({
               success: false,
@@ -3278,6 +3280,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               hint: 'Install with: npm install rvlite'
             }, null, 2) }] };
           }
+          const rvlite = rvliteModule.default || rvliteModule;
           const safeQuery = sanitizeShellArg(args.query);
           const dbOpts = args.db_path ? { path: validateRvfPath(args.db_path) } : {};
           const db = new rvlite.Database(dbOpts);
