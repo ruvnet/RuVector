@@ -232,7 +232,7 @@ impl EphemeralAgent {
 
     /// Get learned patterns from agent
     pub fn get_patterns(&self) -> Vec<LearnedPattern> {
-        self.engine.find_patterns(&[], 0)
+        self.engine.get_all_patterns()
     }
 
     /// Export agent state for federation
@@ -416,10 +416,8 @@ impl FederatedCoordinator {
     ///
     /// Returns learned patterns that new agents can use for warm start.
     pub fn get_initial_patterns(&self, k: usize) -> Vec<LearnedPattern> {
-        // Find patterns similar to a general query (empty or average)
-        // Since we don't have a specific query, get all patterns
         self.master_engine
-            .find_patterns(&[], 0)
+            .get_all_patterns()
             .into_iter()
             .take(k)
             .collect()
@@ -427,7 +425,7 @@ impl FederatedCoordinator {
 
     /// Get all learned patterns
     pub fn get_all_patterns(&self) -> Vec<LearnedPattern> {
-        self.master_engine.find_patterns(&[], 0)
+        self.master_engine.get_all_patterns()
     }
 
     /// Get coordinator statistics
