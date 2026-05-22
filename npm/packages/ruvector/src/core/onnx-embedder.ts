@@ -177,26 +177,29 @@ export async function initOnnxEmbedder(config: OnnxEmbedderConfig = {}): Promise
   loadPromise = (async () => {
     try {
       // Paths to bundled ONNX files
-      const pkgPath = path.join(__dirname, 'onnx', 'pkg', 'ruvector_onnx_embeddings_wasm.js');
+      const bgJsPath = path.join(__dirname, 'onnx', 'pkg', 'ruvector_onnx_embeddings_wasm_bg.js');
+      const wasmPath = path.join(__dirname, 'onnx', 'pkg', 'ruvector_onnx_embeddings_wasm_bg.wasm');
       const loaderPath = path.join(__dirname, 'onnx', 'loader.js');
 
-      if (!fs.existsSync(pkgPath)) {
+      if (!fs.existsSync(bgJsPath) || !fs.existsSync(wasmPath)) {
         throw new Error('ONNX WASM files not bundled. The onnx/ directory is missing.');
       }
 
-      // Convert paths to file:// URLs for cross-platform ESM compatibility (Windows fix)
-      const pkgUrl = pathToFileURL(pkgPath).href;
+      // Load the bg.js module directly (avoids the ESM `import * as wasm from "*.wasm"`
+      // in the main .js shim which requires --experimental-wasm-modules on Node 18-24).
+      const bgUrl = pathToFileURL(bgJsPath).href;
       const loaderUrl = pathToFileURL(loaderPath).href;
+      wasmModule = await dynamicImport(bgUrl);
 
-      // Dynamic import of bundled modules using file:// URLs
-      wasmModule = await dynamicImport(pkgUrl);
-
-      // Initialize WASM module (loads the .wasm file)
-      const wasmPath = path.join(__dirname, 'onnx', 'pkg', 'ruvector_onnx_embeddings_wasm_bg.wasm');
-      if (wasmModule.default && typeof wasmModule.default === 'function') {
-        // For bundler-style initialization, pass the wasm buffer
-        const wasmBytes = fs.readFileSync(wasmPath);
-        await wasmModule.default(wasmBytes);
+      // Instantiate the .wasm bytes via WebAssembly API (no --experimental-wasm-modules needed).
+      const wasmBytes = fs.readFileSync(wasmPath);
+      const wasmResult = await WebAssembly.instantiate(wasmBytes, { './ruvector_onnx_embeddings_wasm_bg.js': wasmModule });
+      const wasmExports = wasmResult.instance.exports;
+      if (typeof wasmModule.__wbg_set_wasm === 'function') {
+        wasmModule.__wbg_set_wasm(wasmExports);
+      }
+      if (typeof (wasmExports as any).__wbindgen_start === 'function') {
+        (wasmExports as any).__wbindgen_start();
       }
 
       const loaderModule = await dynamicImport(loaderUrl);
