@@ -460,12 +460,13 @@ impl<'a> Executor<'a> {
                     .items
                     .iter()
                     .find(|item| {
-                        let name = item.alias.clone().unwrap_or_else(|| {
-                            match &item.expression {
+                        let name = item
+                            .alias
+                            .clone()
+                            .unwrap_or_else(|| match &item.expression {
                                 Expression::Variable(var) => var.clone(),
                                 _ => "?column?".to_string(),
-                            }
-                        });
+                            });
                         &name == col_name
                     })
                     .map(|item| &item.expression);
