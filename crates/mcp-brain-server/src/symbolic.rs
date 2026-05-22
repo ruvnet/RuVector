@@ -808,9 +808,21 @@ impl NeuralSymbolicBridge {
                         _ => false,
                     };
 
+                    // Reverse-chain check: if the pair (pb, pa) would form a strict
+                    // chain (last of pb == first of pa), skip shared-arg for (pa, pb).
+                    // The reversed pair (ib, ia) is already handled as (ia, ib) in
+                    // another iteration, so applying shared-arg here would produce a
+                    // spurious back-edge (e.g., relates_to(C,A) from relates_to(A,B)
+                    // + relates_to(B,C)).
+                    let reverse_chain = match (pb.arguments.last(), pa.arguments.first()) {
+                        (Some(a), Some(b)) => a == b,
+                        _ => false,
+                    };
+
                     // Shared-argument: any argument of pa matches any argument of pb
-                    // (case-insensitive for robustness).
-                    let shared_arg = if !strict_chain {
+                    // (case-insensitive for robustness). Only fire when neither
+                    // forward nor reverse strict-chain applies.
+                    let shared_arg = if !strict_chain && !reverse_chain {
                         pa.arguments
                             .iter()
                             .any(|a| pb.arguments.iter().any(|b| a.eq_ignore_ascii_case(b)))

@@ -1649,8 +1649,10 @@ mod tests {
     fn test_cdx_query_default() {
         let q = CdxQuery::default();
         assert_eq!(q.limit, 100);
-        assert_eq!(q.mime_filter, Some("text/html".into()));
-        assert_eq!(q.status_filter, Some("200".into()));
+        // Filters are disabled in the default (None) so CDX responses are filtered
+        // client-side rather than server-side; this reduces latency for the PoC.
+        assert_eq!(q.mime_filter, None);
+        assert_eq!(q.status_filter, None);
     }
 
     #[test]
@@ -1668,10 +1670,15 @@ mod tests {
     fn test_cc_warc_extraction() {
         let cc = CommonCrawlAdapter::new();
         // Simulated WARC response with HTTP headers + HTML body
+        // Content must be ≥200 chars after tag-stripping to pass the length gate.
         let warc = b"WARC/1.0\r\nContent-Type: application/http\r\n\r\n\
             HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n\
             <html><head><title>Test Page</title></head>\
-            <body><script>bad();</script><p>This is the main content of the test page with enough characters to pass the minimum length requirement for extraction.</p></body></html>";
+            <body><script>bad();</script><p>This is the main content of the test \
+            page. It has been made long enough to satisfy the two-hundred-character \
+            minimum that the extractor enforces so that trivially short or boilerplate \
+            pages are rejected before being injected into the knowledge graph.</p>\
+            </body></html>";
         let result = cc.extract_from_warc(warc);
         assert!(result.is_ok());
         let (title, content) = result.unwrap();
