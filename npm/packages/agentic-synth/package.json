@@ -67,7 +67,7 @@
   "peerDependencies": {
     "agentic-robotics": "^1.0.0",
     "midstreamer": "^1.0.0",
-    "ruvector": "^0.1.26"
+    "ruvector": "^0.2.0"
   },
   "peerDependenciesMeta": {
     "midstreamer": {
