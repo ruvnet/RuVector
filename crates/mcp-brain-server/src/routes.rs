@@ -474,7 +474,7 @@ pub fn run_training_cycle(state: &AppState) -> TrainingCycleResult {
 }
 
 /// Enhanced training result (ADR-110)
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, Default, serde::Serialize)]
 pub struct EnhancedTrainingResult {
     pub sona_message: String,
     pub sona_patterns: usize,
