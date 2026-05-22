@@ -76,12 +76,21 @@ impl LinearBitNet {
         let weight = weights
             .iter()
             .map(|&w| {
-                if w > threshold { 1 }
-                else if w < -threshold { -1 }
-                else { 0 }
+                if w > threshold {
+                    1
+                } else if w < -threshold {
+                    -1
+                } else {
+                    0
+                }
             })
             .collect();
-        Self { weight, bias, in_features, out_features }
+        Self {
+            weight,
+            bias,
+            in_features,
+            out_features,
+        }
     }
 
     /// GEMV forward pass — zero weights are skipped entirely.
@@ -90,10 +99,12 @@ impl LinearBitNet {
         let len = self.in_features.min(input.len());
 
         for i in 0..self.out_features {
-            let row = &self.weight[i * self.in_features .. i * self.in_features + len];
+            let row = &self.weight[i * self.in_features..i * self.in_features + len];
             let mut acc = 0.0f32;
             for (j, &w) in row.iter().enumerate() {
-                if w == 0 { continue; }
+                if w == 0 {
+                    continue;
+                }
                 acc += w as f32 * input[j];
             }
             if let Some(ref bias) = self.bias {
@@ -239,8 +250,8 @@ mod tests {
     fn test_linear_bitnet_forward() {
         // 2-output, 4-input layer; weights chosen so zero-skipping is verifiable
         let weights = vec![
-            1.0f32, 0.0, -1.0, 0.0,   // row 0: dot([1,0,-1,0], input)
-            0.0, 1.0,  0.0, 1.0,       // row 1: dot([0,1,0,1], input)
+            1.0f32, 0.0, -1.0, 0.0, // row 0: dot([1,0,-1,0], input)
+            0.0, 1.0, 0.0, 1.0, // row 1: dot([0,1,0,1], input)
         ];
         // threshold=0.5 → |w|≤0.5 becomes 0, so 0.0 → 0, ±1.0 → ±1
         let layer = LinearBitNet::from_f32(2, 4, &weights, 0.5, None);
