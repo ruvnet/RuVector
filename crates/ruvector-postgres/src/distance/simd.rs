@@ -22,9 +22,8 @@ use simsimd::SpatialSimilarity;
 // SIMD Feature Detection
 // ============================================================================
 
-/// Check if AVX-512F is available at runtime
-/// Note: AVX-512 intrinsics require nightly Rust, so this returns false on stable builds
-/// To enable AVX-512, compile with --features simd-avx512 on nightly Rust
+/// Check if AVX-512F is available at runtime.
+/// Requires compiling with `--features simd-avx512` (stable Rust 1.72+).
 #[cfg(target_arch = "x86_64")]
 #[inline]
 pub fn is_avx512_available() -> bool {
