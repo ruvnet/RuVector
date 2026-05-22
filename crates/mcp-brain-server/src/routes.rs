@@ -344,6 +344,7 @@ pub async fn create_router() -> (Router, AppState) {
         .route("/v1/lora/submit", post(lora_submit))
         .route("/v1/training/preferences", get(training_preferences))
         .route("/v1/train", post(train_endpoint))
+        .route("/v1/reclassify", post(reclassify))
         // Brainpedia (ADR-062)
         .route("/v1/pages", get(list_pages).post(create_page))
         .route("/v1/pages/:id", get(get_page))
@@ -3118,6 +3119,63 @@ async fn train_endpoint(
         result.memory_count
     );
     Ok(Json(result))
+}
+
+/// POST /v1/reclassify — re-cluster memories and refresh category embeddings
+///
+/// Triggered by the `brain-reclassify-daily` Cloud Scheduler job (every 4 h).
+/// Runs a training cycle (which rebuilds SONA patterns + cluster centroids) and
+/// a drift check, then returns a per-category summary so the caller knows which
+/// categories shifted.  Read-only mode blocks this endpoint.
+async fn reclassify(
+    State(state): State<AppState>,
+    _contributor: AuthenticatedContributor,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    check_read_only(&state)?;
+
+    // 1. Training cycle — rebuilds cluster centroids + SONA patterns
+    let training = run_training_cycle(&state);
+    *state.pipeline_metrics.last_training.write() = Some(chrono::Utc::now());
+
+    // 2. Drift check — computes per-category centroid movement
+    let drift_report = {
+        let drift = state.drift.read();
+        drift.compute_drift(None)
+    };
+    *state.pipeline_metrics.last_drift_check.write() = Some(chrono::Utc::now());
+
+    // 3. Category summary from current store
+    let all_mems = state.store.all_memories();
+    let clusters = build_memory_clusters(&all_mems);
+    let category_summary: Vec<serde_json::Value> = clusters
+        .iter()
+        .map(|(_, ids, cat)| {
+            serde_json::json!({
+                "category": cat,
+                "memory_count": ids.len(),
+            })
+        })
+        .collect();
+
+    tracing::info!(
+        "Reclassify: sona_patterns={}, pareto={}→{}, drifting={}, categories={}",
+        training.sona_patterns,
+        training.pareto_before,
+        training.pareto_after,
+        drift_report.is_drifting,
+        clusters.len(),
+    );
+
+    Ok(Json(serde_json::json!({
+        "status": "ok",
+        "sona_patterns": training.sona_patterns,
+        "pareto_before": training.pareto_before,
+        "pareto_after": training.pareto_after,
+        "memory_count": training.memory_count,
+        "is_drifting": drift_report.is_drifting,
+        "drift_coefficient_of_variation": drift_report.coefficient_of_variation,
+        "categories": category_summary,
+    })))
 }
 
 // ──────────────────────────────────────────────────────────────────────
