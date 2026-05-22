@@ -13,22 +13,22 @@
 -- ============================================================================
 
 -- Register HNSW as a PostgreSQL index access method
-CREATE ACCESS METHOD hnsw TYPE INDEX HANDLER hnsw_handler;
+CREATE ACCESS METHOD ruhnsw TYPE INDEX HANDLER hnsw_handler;
 
-COMMENT ON ACCESS METHOD hnsw IS 'HNSW (Hierarchical Navigable Small World) index for approximate nearest neighbor search';
+COMMENT ON ACCESS METHOD ruhnsw IS 'HNSW (Hierarchical Navigable Small World) index for approximate nearest neighbor search';
 
 -- ============================================================================
 -- Operator Families
 -- ============================================================================
 
 -- L2 (Euclidean) distance operator family
-CREATE OPERATOR FAMILY hnsw_l2_ops USING hnsw;
+CREATE OPERATOR FAMILY hnsw_l2_ops USING ruhnsw;
 
 -- Cosine distance operator family
-CREATE OPERATOR FAMILY hnsw_cosine_ops USING hnsw;
+CREATE OPERATOR FAMILY hnsw_cosine_ops USING ruhnsw;
 
 -- Inner product operator family
-CREATE OPERATOR FAMILY hnsw_ip_ops USING hnsw;
+CREATE OPERATOR FAMILY hnsw_ip_ops USING ruhnsw;
 
 -- ============================================================================
 -- Distance Operators (using array-based functions for now)
@@ -71,14 +71,14 @@ COMMENT ON OPERATOR <#>(real[], real[]) IS 'Negative inner product (for ORDER BY
 -- ============================================================================
 
 CREATE OPERATOR CLASS hnsw_l2_ops
-    FOR TYPE real[] USING hnsw
+    FOR TYPE real[] USING ruhnsw
     FAMILY hnsw_l2_ops AS
     -- Distance operator for ORDER BY
     OPERATOR 1 <-> (real[], real[]) FOR ORDER BY float_ops,
     -- Support function: distance calculation
     FUNCTION 1 l2_distance_arr(real[], real[]);
 
-COMMENT ON OPERATOR CLASS hnsw_l2_ops USING hnsw IS
+COMMENT ON OPERATOR CLASS hnsw_l2_ops USING ruhnsw IS
     'HNSW index operator class for L2 (Euclidean) distance on real[] vectors';
 
 -- ============================================================================
@@ -86,14 +86,14 @@ COMMENT ON OPERATOR CLASS hnsw_l2_ops USING hnsw IS
 -- ============================================================================
 
 CREATE OPERATOR CLASS hnsw_cosine_ops
-    FOR TYPE real[] USING hnsw
+    FOR TYPE real[] USING ruhnsw
     FAMILY hnsw_cosine_ops AS
     -- Distance operator for ORDER BY
     OPERATOR 1 <=> (real[], real[]) FOR ORDER BY float_ops,
     -- Support function: distance calculation
     FUNCTION 1 cosine_distance_arr(real[], real[]);
 
-COMMENT ON OPERATOR CLASS hnsw_cosine_ops USING hnsw IS
+COMMENT ON OPERATOR CLASS hnsw_cosine_ops USING ruhnsw IS
     'HNSW index operator class for cosine distance on real[] vectors';
 
 -- ============================================================================
@@ -101,14 +101,14 @@ COMMENT ON OPERATOR CLASS hnsw_cosine_ops USING hnsw IS
 -- ============================================================================
 
 CREATE OPERATOR CLASS hnsw_ip_ops
-    FOR TYPE real[] USING hnsw
+    FOR TYPE real[] USING ruhnsw
     FAMILY hnsw_ip_ops AS
     -- Distance operator for ORDER BY
     OPERATOR 1 <#> (real[], real[]) FOR ORDER BY float_ops,
     -- Support function: distance calculation
     FUNCTION 1 neg_inner_product_arr(real[], real[]);
 
-COMMENT ON OPERATOR CLASS hnsw_ip_ops USING hnsw IS
+COMMENT ON OPERATOR CLASS hnsw_ip_ops USING ruhnsw IS
     'HNSW index operator class for inner product on real[] vectors';
 
 -- ============================================================================
@@ -123,17 +123,17 @@ CREATE TABLE items (
 );
 
 -- Create HNSW index with L2 distance (default)
-CREATE INDEX ON items USING hnsw (embedding hnsw_l2_ops);
+CREATE INDEX ON items USING ruhnsw (embedding hnsw_l2_ops);
 
 -- Create HNSW index with options
-CREATE INDEX ON items USING hnsw (embedding hnsw_l2_ops)
+CREATE INDEX ON items USING ruhnsw (embedding hnsw_l2_ops)
     WITH (m = 16, ef_construction = 64);
 
 -- Create HNSW index with cosine distance
-CREATE INDEX ON items USING hnsw (embedding hnsw_cosine_ops);
+CREATE INDEX ON items USING ruhnsw (embedding hnsw_cosine_ops);
 
 -- Create HNSW index with inner product
-CREATE INDEX ON items USING hnsw (embedding hnsw_ip_ops);
+CREATE INDEX ON items USING ruhnsw (embedding hnsw_ip_ops);
 
 -- Query examples:
 
