@@ -448,10 +448,10 @@ export function createNervousEngine(config?: NervousConfig): NervousEngine {
         energyConsumed: 0,
       };
     },
-    injectCurrent: (injections) => {
+    injectCurrent: (_injections) => {
       // WASM call: ruvector_nervous_inject(injections)
     },
-    propagate: (sourceIds, signal) => {
+    propagate: (_sourceIds, _signal) => {
       // WASM call: ruvector_nervous_propagate(sourceIds, signal)
       return {
         activatedNeurons: [],
@@ -484,13 +484,13 @@ export function createNervousEngine(config?: NervousConfig): NervousEngine {
       }
       currentTime = 0;
     },
-    applyPlasticity: (rule, learningRate = 1.0) => {
+    applyPlasticity: (_rule, _learningRate = 1.0) => {
       // WASM call: ruvector_nervous_plasticity(rule, learningRate)
     },
-    applyStdp: (stdpConfig) => {
+    applyStdp: (_stdpConfig) => {
       // WASM call: ruvector_nervous_stdp(config)
     },
-    applyHomeostasis: (targetRate = 10) => {
+    applyHomeostasis: (_targetRate = 10) => {
       // WASM call: ruvector_nervous_homeostasis(targetRate)
     },
     getPlasticityStats: () => ({
@@ -500,16 +500,16 @@ export function createNervousEngine(config?: NervousConfig): NervousEngine {
       synapsesPruned: 0,
       synapsesCreated: 0,
     }),
-    createFeedforward: (layerSizes, connectivity = 1.0) => {
+    createFeedforward: (_layerSizes, _connectivity = 1.0) => {
       // WASM call: ruvector_nervous_create_feedforward(layerSizes, connectivity)
     },
-    createRecurrent: (size, connectivity = 0.1) => {
+    createRecurrent: (_size, _connectivity = 0.1) => {
       // WASM call: ruvector_nervous_create_recurrent(size, connectivity)
     },
-    createReservoir: (size, spectralRadius = 0.9, inputSize = 10) => {
+    createReservoir: (_size, _spectralRadius = 0.9, _inputSize = 10) => {
       // WASM call: ruvector_nervous_create_reservoir(size, spectralRadius, inputSize)
     },
-    createSmallWorld: (size, k = 4, beta = 0.1) => {
+    createSmallWorld: (_size, _k = 4, _beta = 0.1) => {
       // WASM call: ruvector_nervous_create_small_world(size, k, beta)
     },
     getTopologyStats: () => ({
@@ -520,7 +520,7 @@ export function createNervousEngine(config?: NervousConfig): NervousEngine {
       averagePathLength: 0,
       spectralRadius: 0,
     }),
-    startRecording: (neuronIds) => {
+    startRecording: (_neuronIds) => {
       // WASM call: ruvector_nervous_start_recording(neuronIds)
     },
     stopRecording: () => ({
@@ -530,7 +530,7 @@ export function createNervousEngine(config?: NervousConfig): NervousEngine {
       spikeTimes: new Map(),
       samplingRate: 1000,
     }),
-    getSpikeRaster: (startTime = 0, endTime = currentTime) => {
+    getSpikeRaster: (_startTime = 0, _endTime = currentTime) => {
       // WASM call: ruvector_nervous_get_raster(startTime, endTime)
       return new Map();
     },

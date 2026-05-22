@@ -40,7 +40,7 @@
   "scripts": {
     "build": "echo 'Meta-package - no build required'",
     "test": "node --test",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "echo 'Meta-package - no TypeScript sources'",
     "prepublishOnly": "npm run typecheck"
   },
   "dependencies": {

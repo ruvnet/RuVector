@@ -169,6 +169,7 @@ export class SlackAdapter extends BaseAdapter {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async loadSlackBolt(): Promise<any | null> {
     try {
+      // @ts-expect-error optional peer dependency — may not be installed
       return await import('@slack/bolt');
     } catch {
       return null;

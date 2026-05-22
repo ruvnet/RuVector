@@ -345,7 +345,7 @@ export function createEconomyEngine(config?: EconomyConfig): EconomyEngine {
       type,
       amount,
       timestamp: Date.now(),
-      metadata,
+      ...(metadata !== undefined ? { metadata } : {}),
     };
     transactions.push(tx);
     return tx;
@@ -470,7 +470,7 @@ export function createEconomyEngine(config?: EconomyConfig): EconomyEngine {
       }
       return result;
     },
-    getCost: (operation, params) => {
+    getCost: (operation, _params) => {
       const baseCost = pricingTable.get(operation) ?? 0;
       // Apply multiplier discount
       return baseCost / contributionMultiplier;
@@ -515,7 +515,7 @@ export function createEconomyEngine(config?: EconomyConfig): EconomyEngine {
         multiplierHistory: [],
       };
     },
-    getLeaderboard: (metric, limit = 10) => {
+    getLeaderboard: (_metric, _limit = 10) => {
       // Placeholder - would connect to global state
       return [];
     },

@@ -102,9 +102,11 @@ export interface MarketStatistics {
  * console.log(`Total candles: ${stats.totalCandles}`);
  * ```
  */
+type ResolvedStockMarketConfig = StockMarketConfig & Required<Pick<StockMarketConfig, 'symbols' | 'startPrice' | 'volatility' | 'marketCondition'>>;
+
 export class StockMarketSimulator extends EventEmitter {
   private synth: AgenticSynth;
-  private config: StockMarketConfig;
+  private config: ResolvedStockMarketConfig;
   private generatedCandles: OHLCVData[] = [];
   private newsEvents: MarketNewsEvent[] = [];
   private currentPrice: Map<string, number> = new Map();

@@ -15,7 +15,11 @@
     "sourceMap": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@ruvector/agentic-synth": ["../agentic-synth/src/index.ts"],
+      "@ruvector/agentic-synth/*": ["../agentic-synth/src/*"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests"]
