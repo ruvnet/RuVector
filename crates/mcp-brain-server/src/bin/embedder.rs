@@ -52,17 +52,16 @@ struct ErrorResponse {
     error: String,
 }
 
-async fn embed(
-    State(state): State<AppState>,
-    Json(req): Json<EmbedRequest>,
-) -> impl IntoResponse {
+async fn embed(State(state): State<AppState>, Json(req): Json<EmbedRequest>) -> impl IntoResponse {
     if req.texts.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(serde_json::to_value(ErrorResponse {
-                error: "texts array must not be empty".into(),
-            })
-            .unwrap()),
+            Json(
+                serde_json::to_value(ErrorResponse {
+                    error: "texts array must not be empty".into(),
+                })
+                .unwrap(),
+            ),
         );
     }
 
@@ -73,7 +72,10 @@ async fn embed(
         corpus_size: engine.corpus_size(),
         vectors,
     };
-    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
 }
 
 async fn health(State(state): State<AppState>) -> impl IntoResponse {
@@ -92,8 +94,7 @@ async fn health(State(state): State<AppState>) -> impl IntoResponse {
 async fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info".into()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .init();
 
