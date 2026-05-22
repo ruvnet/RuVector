@@ -571,6 +571,30 @@ mod candle_impl {
             let gguf_content = gguf_file::Content::read(&mut file)
                 .map_err(|e| RuvLLMError::Storage(format!("Failed to read GGUF file: {}", e)))?;
 
+            // Detect GGUF architecture to validate weight-loader compatibility.
+            // qlama::ModelWeights only handles Llama/Mistral tensor naming.
+            let gguf_arch = gguf_content
+                .metadata
+                .get("general.architecture")
+                .and_then(|v| v.to_string().ok())
+                .map(|s| s.to_owned())
+                .unwrap_or_default();
+            let arch_lower = gguf_arch.to_lowercase();
+            let is_llama_compat = arch_lower.is_empty()
+                || arch_lower == "llama"
+                || arch_lower == "mistral"
+                || arch_lower.contains("llama")
+                || arch_lower.contains("mistral");
+            if !is_llama_compat {
+                return Err(RuvLLMError::Model(format!(
+                    "GGUF architecture '{}' is not supported by the quantized weight loader. \
+                     Only llama/mistral tensor layouts are currently implemented. \
+                     Qwen2, Phi, and Gemma GGUF files use different tensor names \
+                     (e.g. 'qwen2.attention.head_count') that qlama cannot read.",
+                    gguf_arch
+                )));
+            }
+
             // Extract config from GGUF metadata
             let hidden_size = self
                 .get_gguf_u32(
@@ -579,6 +603,9 @@ mod candle_impl {
                         "llama.embedding_length",
                         "mistral.embedding_length",
                         "phi.embedding_length",
+                        "qwen2.embedding_length",
+                        "gemma.embedding_length",
+                        "gemma3.embedding_length",
                     ],
                 )
                 .unwrap_or(4096) as usize;
@@ -590,6 +617,9 @@ mod candle_impl {
                         "llama.block_count",
                         "mistral.block_count",
                         "phi.block_count",
+                        "qwen2.block_count",
+                        "gemma.block_count",
+                        "gemma3.block_count",
                     ],
                 )
                 .unwrap_or(32) as usize;
@@ -601,6 +631,9 @@ mod candle_impl {
                         "llama.attention.head_count",
                         "mistral.attention.head_count",
                         "phi.attention.head_count",
+                        "qwen2.attention.head_count",
+                        "gemma.attention.head_count",
+                        "gemma3.attention.head_count",
                     ],
                 )
                 .unwrap_or(32) as usize;
@@ -612,6 +645,9 @@ mod candle_impl {
                         "llama.attention.head_count_kv",
                         "mistral.attention.head_count_kv",
                         "phi.attention.head_count_kv",
+                        "qwen2.attention.head_count_kv",
+                        "gemma.attention.head_count_kv",
+                        "gemma3.attention.head_count_kv",
                     ],
                 )
                 .unwrap_or(num_heads as u32) as usize;
@@ -619,7 +655,15 @@ mod candle_impl {
             let vocab_size = self
                 .get_gguf_u32(
                     &gguf_content,
-                    &["llama.vocab_size", "mistral.vocab_size", "phi.vocab_size"],
+                    &[
+                        "llama.vocab_size",
+                        "mistral.vocab_size",
+                        "phi.vocab_size",
+                        "qwen2.vocab_size",
+                        "gemma.vocab_size",
+                        "gemma3.vocab_size",
+                        "tokenizer.ggml.tokens_size",
+                    ],
                 )
                 .unwrap_or(32000) as usize;
 
@@ -630,6 +674,9 @@ mod candle_impl {
                         "llama.feed_forward_length",
                         "mistral.feed_forward_length",
                         "phi.feed_forward_length",
+                        "qwen2.feed_forward_length",
+                        "gemma.feed_forward_length",
+                        "gemma3.feed_forward_length",
                     ],
                 )
                 .unwrap_or(14336) as usize;
@@ -641,6 +688,9 @@ mod candle_impl {
                         "llama.rope.freq_base",
                         "mistral.rope.freq_base",
                         "phi.rope.freq_base",
+                        "qwen2.rope.freq_base",
+                        "gemma.rope.freq_base",
+                        "gemma3.rope.freq_base",
                     ],
                 )
                 .unwrap_or(10000.0) as f64;
@@ -652,6 +702,9 @@ mod candle_impl {
                         "llama.context_length",
                         "mistral.context_length",
                         "phi.context_length",
+                        "qwen2.context_length",
+                        "gemma.context_length",
+                        "gemma3.context_length",
                     ],
                 )
                 .unwrap_or(config.max_sequence_length as u32) as usize;
@@ -662,6 +715,9 @@ mod candle_impl {
                     &[
                         "llama.attention.layer_norm_rms_epsilon",
                         "mistral.attention.layer_norm_rms_epsilon",
+                        "qwen2.attention.layer_norm_rms_epsilon",
+                        "gemma.attention.layer_norm_rms_epsilon",
+                        "gemma3.attention.layer_norm_rms_epsilon",
                     ],
                 )
                 .unwrap_or(1e-5) as f64;
