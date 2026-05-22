@@ -1064,10 +1064,17 @@ export class IntelligenceEngine {
       this.agentMappings.clear();
     }
 
-    // Import memories
+    // Import memories and rebuild HNSW index so recall() returns results (#315)
     if (data.memories) {
       for (const mem of data.memories) {
         this.memories.set(mem.id, mem);
+        if (this.vectorDb && mem.embedding?.length) {
+          this.vectorDb.insert({
+            id: mem.id,
+            vector: new Float32Array(mem.embedding),
+            metadata: JSON.stringify({ content: mem.content, type: mem.type, created: mem.created }),
+          }).catch(() => {});
+        }
       }
     }
 
