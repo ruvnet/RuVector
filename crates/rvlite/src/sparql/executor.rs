@@ -302,9 +302,63 @@ fn match_triple_pattern(
         );
     }
 
-    // For now, only support simple IRI predicates in WASM
+    // Handle variable predicate — iterate all triples and bind the variable
+    if let PropertyPath::Variable(var) = &pattern.predicate {
+        // Query with no predicate constraint to get all matching triples
+        let triples = ctx.store.query(subject.as_ref(), None, object.as_ref());
+        let mut solutions = Vec::new();
+
+        for triple in triples {
+            let mut new_binding = binding.clone();
+            let mut matches = true;
+
+            // Bind subject variable
+            if let TermOrVariable::Variable(sv) = &pattern.subject {
+                if let Some(existing) = new_binding.get(sv) {
+                    if existing != &triple.subject {
+                        matches = false;
+                    }
+                } else {
+                    new_binding.insert(sv.clone(), triple.subject.clone());
+                }
+            }
+
+            // Bind predicate variable
+            if matches {
+                let pred_term = RdfTerm::Iri(triple.predicate.clone());
+                if let Some(existing) = new_binding.get(var) {
+                    if existing != &pred_term {
+                        matches = false;
+                    }
+                } else {
+                    new_binding.insert(var.clone(), pred_term);
+                }
+            }
+
+            // Bind object variable
+            if matches {
+                if let TermOrVariable::Variable(ov) = &pattern.object {
+                    if let Some(existing) = new_binding.get(ov) {
+                        if existing != &triple.object {
+                            matches = false;
+                        }
+                    } else {
+                        new_binding.insert(ov.clone(), triple.object.clone());
+                    }
+                }
+            }
+
+            if matches {
+                solutions.push(new_binding);
+            }
+        }
+
+        return Ok(solutions);
+    }
+
+    // Complex property paths (Sequence, Alternative, ZeroOrMore, etc.) are not yet supported
     Err(SparqlError::PropertyPathError(
-        "Complex property paths not yet supported in WASM build".to_string(),
+        "Complex property paths (sequence/alternative/closure) not yet supported".to_string(),
     ))
 }
 

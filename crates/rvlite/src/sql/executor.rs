@@ -277,13 +277,22 @@ impl SqlEngine {
                 vector,
             } = order_by.expression
             {
-                let k = limit.unwrap_or(10);
+                let base_k = limit.unwrap_or(10);
 
                 // Build filter from WHERE clause
                 let filter = if let Some(where_expr) = where_clause {
                     Some(self.build_filter(where_expr)?)
                 } else {
                     None
+                };
+
+                // When a metadata filter is present, oversample so post-filter
+                // truncation still yields enough results (HNSW returns k nearest
+                // before filtering, so with k==limit we may get 0 matches).
+                let k = if filter.is_some() {
+                    (base_k * 20).max(100)
+                } else {
+                    base_k
                 };
 
                 let query = SearchQuery {
@@ -293,10 +302,11 @@ impl SqlEngine {
                     ef_search: None,
                 };
 
-                let results = db.search(query).map_err(|e| RvLiteError {
+                let mut results = db.search(query).map_err(|e| RvLiteError {
                     message: format!("Search failed: {}", e),
                     kind: ErrorKind::VectorError,
                 })?;
+                results.truncate(base_k);
 
                 // Convert results to rows
                 let rows: Vec<HashMap<String, Value>> = results

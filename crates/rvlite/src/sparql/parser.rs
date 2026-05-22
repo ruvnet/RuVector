@@ -1502,7 +1502,8 @@ impl<'a> SparqlParser<'a> {
             loop {
                 self.skip_whitespace();
 
-                if self.peek_keyword("FROM")
+                if self.peek_char().is_none()
+                    || self.peek_keyword("FROM")
                     || self.peek_keyword("WHERE")
                     || self.peek_char() == Some('{')
                 {
