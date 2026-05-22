@@ -184,7 +184,7 @@ jobs:
           cd /tmp/pkgcopy
           # Detach from the parent workspace.
           rm -f package-lock.json
-          npm install --no-audit --no-fund --legacy-peer-deps --no-workspaces
+          npm install --no-audit --no-fund --legacy-peer-deps --no-workspaces --no-optional
           mkdir -p /tmp/pack
           npm pack --pack-destination /tmp/pack
           tar -tzf /tmp/pack/*.tgz | head -30

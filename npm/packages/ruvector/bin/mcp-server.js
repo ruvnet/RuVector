@@ -3307,7 +3307,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const results = await client.search(args.query, { limit: args.limit || 10, category: args.category });
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...results }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_REQUIRE_ESM' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3324,7 +3324,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const result = await client.share({ title: args.title, content: args.content, category: args.category || 'pattern', tags: args.tags });
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_REQUIRE_ESM' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3341,7 +3341,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const result = await client.get(args.id);
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_REQUIRE_ESM' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3358,7 +3358,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const result = await client.vote(args.id, args.direction);
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_REQUIRE_ESM' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3375,7 +3375,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const results = await client.list({ category: args.category, limit: args.limit || 20 });
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...results }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_REQUIRE_ESM' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3392,7 +3392,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const result = await client.delete(args.id);
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_REQUIRE_ESM' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3409,7 +3409,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const result = await client.status();
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_REQUIRE_ESM' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3426,7 +3426,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const result = await client.drift({ domain: args.domain });
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_REQUIRE_ESM' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3443,7 +3443,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const result = await client.partition({ domain: args.domain, min_cluster_size: args.min_cluster_size || 3 });
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_REQUIRE_ESM' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3460,7 +3460,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const result = await client.transfer(args.source, args.target);
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_REQUIRE_ESM' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
@@ -3477,7 +3477,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const result = await client.sync({ direction: args.direction || 'both' });
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
+          if (e.code === 'MODULE_NOT_FOUND' || e.code === 'ERR_REQUIRE_ESM' || e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
             return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain', hint: 'npm install @ruvector/pi-brain' }, null, 2) }] };
           }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };

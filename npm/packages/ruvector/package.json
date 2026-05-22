@@ -1,6 +1,6 @@
 {
   "name": "ruvector",
-  "version": "0.2.25",
+  "version": "0.2.26",
   "description": "Self-learning vector database for Node.js — hybrid search, Graph RAG, FlashAttention-3, HNSW, 50+ attention mechanisms",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -8,7 +8,7 @@
     "ruvector": "./bin/cli.js"
   },
   "scripts": {
-    "build": "tsc && mkdir -p dist/core/onnx/pkg && cp src/core/onnx/pkg/package.json dist/core/onnx/pkg/",
+    "build": "tsc && mkdir -p dist/core/onnx/pkg && cp -r src/core/onnx/pkg/. dist/core/onnx/pkg/",
     "verify-dist": "node scripts/verify-dist.js",
     "prepack": "npm run build && npm run verify-dist",
     "prepublishOnly": "npm run build && npm run verify-dist",
