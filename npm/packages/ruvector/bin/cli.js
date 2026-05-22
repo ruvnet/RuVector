@@ -164,6 +164,9 @@ program
         storagePath: dbPath,
       });
 
+      // Write sidecar so insert/search/stats can recover dimension without JSON-parsing binary redb
+      fs.writeFileSync(`${dbPath}.meta.json`, JSON.stringify({ dimension, metric: options.metric, version: 1 }));
+
       spinner.succeed(chalk.green(`Database created: ${dbPath}`));
       console.log(chalk.gray(`  Dimension: ${dimension}`));
       console.log(chalk.gray(`  Metric: ${options.metric}`));
@@ -185,15 +188,14 @@ program
     const spinner = ora('Loading database...').start();
 
     try {
-      // Read database metadata to get dimension
-      let dimension = 384; // default
-      if (fs.existsSync(dbPath)) {
-        const dbData = fs.readFileSync(dbPath, 'utf8');
-        const parsed = JSON.parse(dbData);
-        dimension = parsed.dimension || 384;
+      // Read dimension from sidecar (avoids JSON-parsing binary redb)
+      let dimension = 384;
+      const metaPath = `${dbPath}.meta.json`;
+      if (fs.existsSync(metaPath)) {
+        try { dimension = JSON.parse(fs.readFileSync(metaPath, 'utf8')).dimension || 384; } catch (_) {}
       }
 
-      const db = new VectorDB({ dimension });
+      const db = new VectorDB({ dimensions: dimension, storagePath: dbPath });
 
       if (fs.existsSync(dbPath)) {
         db.load(dbPath);
@@ -237,12 +239,14 @@ program
     const spinner = ora('Loading database...').start();
 
     try {
-      // Read database metadata
-      const dbData = fs.readFileSync(dbPath, 'utf8');
-      const parsed = JSON.parse(dbData);
-      const dimension = parsed.dimension || 384;
+      // Read dimension from sidecar (avoids JSON-parsing binary redb)
+      let dimension = 384;
+      const metaPath = `${dbPath}.meta.json`;
+      if (fs.existsSync(metaPath)) {
+        try { dimension = JSON.parse(fs.readFileSync(metaPath, 'utf8')).dimension || 384; } catch (_) {}
+      }
 
-      const db = new VectorDB({ dimension });
+      const db = new VectorDB({ dimensions: dimension, storagePath: dbPath });
       db.load(dbPath);
 
       spinner.text = 'Searching...';
@@ -285,11 +289,14 @@ program
     const spinner = ora('Loading database...').start();
 
     try {
-      const dbData = fs.readFileSync(dbPath, 'utf8');
-      const parsed = JSON.parse(dbData);
-      const dimension = parsed.dimension || 384;
+      // Read dimension from sidecar (avoids JSON-parsing binary redb)
+      let dimension = 384;
+      const metaPath = `${dbPath}.meta.json`;
+      if (fs.existsSync(metaPath)) {
+        try { dimension = JSON.parse(fs.readFileSync(metaPath, 'utf8')).dimension || 384; } catch (_) {}
+      }
 
-      const db = new VectorDB({ dimension });
+      const db = new VectorDB({ dimensions: dimension, storagePath: dbPath });
       db.load(dbPath);
 
       const stats = db.stats();
