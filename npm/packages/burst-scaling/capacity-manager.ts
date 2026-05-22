@@ -180,7 +180,7 @@ export class CapacityManager {
     // 3. Process reactive scaling for each region
     const scalingActions: ScalingAction[] = [];
 
-    for (const [region, capacity] of this.regionCapacities) {
+    for (const [region, _capacity] of this.regionCapacities) {
       // Get current metrics (in production, fetch from monitoring)
       const metrics = await this.getCurrentMetrics(region);
 

@@ -63,7 +63,7 @@ export class ReactiveScaler {
   private readonly historySize = 60; // Keep 60 samples (5 minutes at 5s intervals)
 
   constructor(
-    private readonly regions: string[] = ['us-central1', 'europe-west1', 'asia-east1'],
+    _regions: string[] = ['us-central1', 'europe-west1', 'asia-east1'],
     private readonly notifyHook: (message: string) => Promise<void> = async (msg) => {
       await execAsync(`npx claude-flow@alpha hooks notify --message "${msg.replace(/"/g, '\\"')}"`);
     }

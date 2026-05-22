@@ -27,8 +27,8 @@ async function example1_BasicSaveLoad() {
 
   // Create a vector database
   const db = new VectorDB({
-    dimension: 384,
-    metric: 'cosine',
+    dimensions: 384,
+    distanceMetric: 'cosine',
   });
 
   // Add some sample vectors
@@ -44,7 +44,7 @@ async function example1_BasicSaveLoad() {
     });
   }
 
-  console.log(`Added ${db.stats().count} vectors`);
+  console.log(`Added ${await db.len()} vectors`);
 
   // Create persistence manager
   const persistence = new DatabasePersistence(db, {
@@ -64,7 +64,7 @@ async function example1_BasicSaveLoad() {
   console.log(`Saved to: ${savePath}`);
 
   // Create a new database and load the saved data
-  const db2 = new VectorDB({ dimension: 384 });
+  const db2 = new VectorDB({ dimensions: 384 });
   const persistence2 = new DatabasePersistence(db2, {
     baseDir: './data/example1',
   });
@@ -78,11 +78,11 @@ async function example1_BasicSaveLoad() {
     },
   });
 
-  console.log(`Loaded ${db2.stats().count} vectors`);
+  console.log(`Loaded ${await db2.len()} vectors`);
 
   // Verify data integrity
-  const original = db.get('doc-500');
-  const loaded = db2.get('doc-500');
+  const original = await db.get('doc-500');
+  const loaded = await db2.get('doc-500');
   console.log('\nData integrity check:');
   console.log('  Original metadata:', original?.metadata);
   console.log('  Loaded metadata:  ', loaded?.metadata);
@@ -96,7 +96,7 @@ async function example1_BasicSaveLoad() {
 async function example2_SnapshotManagement() {
   console.log('\n=== Example 2: Snapshot Management ===\n');
 
-  const db = new VectorDB({ dimension: 128 });
+  const db = new VectorDB({ dimensions: 128 });
   const persistence = new DatabasePersistence(db, {
     baseDir: './data/example2',
     format: 'binary',
@@ -154,7 +154,7 @@ async function example2_SnapshotManagement() {
     onProgress: (p) => console.log(`  [${p.percentage}%] ${p.message}`),
   });
 
-  console.log(`After restore: ${db.stats().count} vectors`);
+  console.log(`After restore: ${await db.len()} vectors`);
 
   // Delete a snapshot
   console.log('\nDeleting snapshot...');
@@ -170,7 +170,7 @@ async function example3_ExportImport() {
   console.log('\n=== Example 3: Export and Import ===\n');
 
   // Create source database
-  const sourceDb = new VectorDB({ dimension: 256 });
+  const sourceDb = new VectorDB({ dimensions: 256 });
   console.log('Creating source database...');
 
   for (let i = 0; i < 2000; i++) {
@@ -208,7 +208,7 @@ async function example3_ExportImport() {
   });
 
   // Import into new database
-  const targetDb = new VectorDB({ dimension: 256 });
+  const targetDb = new VectorDB({ dimensions: 256 });
   const targetPersistence = new DatabasePersistence(targetDb, {
     baseDir: './data/example3/target',
   });
@@ -222,12 +222,12 @@ async function example3_ExportImport() {
     onProgress: (p) => console.log(`  [${p.percentage}%] ${p.message}`),
   });
 
-  console.log(`\nImport complete: ${targetDb.stats().count} vectors`);
+  console.log(`\nImport complete: ${await targetDb.len()} vectors`);
 
   // Test a search to verify data integrity
-  const sampleVector = sourceDb.get('item-100');
+  const sampleVector = await sourceDb.get('item-100');
   if (sampleVector) {
-    const results = targetDb.search({
+    const results = await targetDb.search({
       vector: sampleVector.vector,
       k: 1,
     });
@@ -245,7 +245,7 @@ async function example3_ExportImport() {
 async function example4_AutoSaveIncremental() {
   console.log('\n=== Example 4: Auto-Save and Incremental Saves ===\n');
 
-  const db = new VectorDB({ dimension: 64 });
+  const db = new VectorDB({ dimensions: 64 });
   const persistence = new DatabasePersistence(db, {
     baseDir: './data/example4',
     format: 'json',
@@ -307,7 +307,7 @@ async function example4_AutoSaveIncremental() {
 async function example5_AdvancedProgress() {
   console.log('\n=== Example 5: Advanced Progress Tracking ===\n');
 
-  const db = new VectorDB({ dimension: 512 });
+  const db = new VectorDB({ dimensions: 512 });
 
   // Create large dataset
   console.log('Creating large dataset (5000 vectors)...');
@@ -363,7 +363,7 @@ async function example5_AdvancedProgress() {
   console.log(`\n\nSave completed in ${Date.now() - saveStart}ms`);
 
   // Load with progress
-  const db2 = new VectorDB({ dimension: 512 });
+  const db2 = new VectorDB({ dimensions: 512 });
   const persistence2 = new DatabasePersistence(db2, {
     baseDir: './data/example5',
   });
@@ -378,7 +378,7 @@ async function example5_AdvancedProgress() {
   });
 
   console.log(`\n\nLoad completed in ${Date.now() - loadStart}ms`);
-  console.log(`Loaded ${db2.stats().count} vectors`);
+  console.log(`Loaded ${await db2.len()} vectors`);
 }
 
 // ============================================================================

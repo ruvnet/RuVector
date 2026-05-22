@@ -12,7 +12,7 @@ async function main() {
 
     // Initialize database
     const db = new VectorDB({
-        dimension: 384,
+        dimensions: 384,
         distanceMetric: 'cosine'
     });
 
@@ -52,17 +52,17 @@ async function main() {
 
     // Add all vectors to database
     for (const { id, embedding, metadata } of sampleData) {
-        await db.add(id, embedding, metadata);
+        await db.insert({ id, vector: embedding, metadata });
     }
 
     console.log(`✅ Added ${sampleData.length} sample nodes\n`);
 
     // Get database statistics
-    const stats = await db.getStats();
+    const totalVectors = await db.len();
     console.log('📈 Database Statistics:');
-    console.log(`   Total vectors: ${stats.totalVectors}`);
-    console.log(`   Dimension: ${stats.dimension}`);
-    console.log(`   Distance metric: ${stats.distanceMetric}\n`);
+    console.log(`   Total vectors: ${totalVectors}`);
+    console.log(`   Dimension: 384`);
+    console.log(`   Distance metric: cosine\n`);
 
     // Start UI server
     console.log('🌐 Starting UI server...\n');
@@ -113,7 +113,7 @@ async function main() {
             tags: [category, `tag-${Math.floor(Math.random() * 5)}`]
         };
 
-        await db.add(id, embedding, metadata);
+        await db.insert({ id, vector: embedding, metadata });
 
         // Notify UI of update
         server.notifyGraphUpdate();
@@ -133,7 +133,6 @@ async function main() {
         console.log('\n\n🛑 Shutting down gracefully...');
         clearInterval(interval);
         await server.stop();
-        await db.close();
         console.log('👋 Goodbye!\n');
         process.exit(0);
     });
