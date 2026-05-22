@@ -40,9 +40,6 @@ jobs:
           - host: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
             platform: linux-arm64-gnu
-          - host: ubuntu-22.04
-            target: aarch64-unknown-linux-musl
-            platform: linux-arm64-musl
           - host: macos-14
             target: x86_64-apple-darwin
             platform: darwin-x64
@@ -87,12 +84,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y musl-tools
 
-      - name: Install cross-compilation tools (Linux ARM64 musl)
-        if: matrix.settings.platform == 'linux-arm64-musl'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu musl-tools
-
       - name: Install NAPI-RS CLI
         run: npm install -g @napi-rs/cli
 
@@ -106,7 +97,6 @@ jobs:
           napi build --platform --release --target ${{ matrix.settings.target }} -p ruvector-gnn-node
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-gnu-gcc
 
       - name: Find built .node files (debug)
         shell: bash
@@ -161,7 +151,7 @@ jobs:
           echo "=== Downloaded artifacts ==="
           find artifacts -name "*.node"
 
-          for platform in linux-x64-gnu linux-x64-musl linux-arm64-gnu linux-arm64-musl darwin-x64 darwin-arm64 win32-x64-msvc; do
+          for platform in linux-x64-gnu linux-x64-musl linux-arm64-gnu darwin-x64 darwin-arm64 win32-x64-msvc; do
             if [ -d "artifacts/gnn-bindings-${platform}" ]; then
               mkdir -p "crates/ruvector-gnn-node/npm/${platform}"
               cp -v artifacts/gnn-bindings-${platform}/*.node "crates/ruvector-gnn-node/npm/${platform}/" || true
@@ -255,10 +245,6 @@ jobs:
               linux-arm64-gnu)
                 OS="linux"; CPU="arm64"; LIBC='"libc": ["glibc"],'
                 NODE_NAME="ruvector-gnn.linux-arm64-gnu.node"
-                ;;
-              linux-arm64-musl)
-                OS="linux"; CPU="arm64"; LIBC='"libc": ["musl"],'
-                NODE_NAME="ruvector-gnn.linux-arm64-musl.node"
                 ;;
               darwin-x64)
                 OS="darwin"; CPU="x64"; LIBC=""
