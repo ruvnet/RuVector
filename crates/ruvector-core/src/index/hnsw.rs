@@ -23,7 +23,13 @@ impl DistanceFn {
 
 impl Distance<f32> for DistanceFn {
     fn eval(&self, a: &[f32], b: &[f32]) -> f32 {
-        distance(a, b, self.metric).unwrap_or(f32::MAX)
+        // hnsw_rs asserts `dist_to_ref >= 0` in its search loop.  Clamp any
+        // tiny negative values caused by floating-point rounding (e.g. cosine
+        // distance between two nearly-identical normalised vectors can be
+        // marginally below zero).  f32::MAX is the safe sentinel for errors.
+        distance(a, b, self.metric)
+            .unwrap_or(f32::MAX)
+            .max(0.0)
     }
 }
 
@@ -126,10 +132,12 @@ impl HnswIndex {
         &self.config
     }
 
-    /// Set efSearch parameter for query-time accuracy tuning
-    pub fn set_ef_search(&mut self, _ef_search: usize) {
-        // Note: hnsw_rs controls ef_search via the search method's knbn parameter
-        // We store it in config and use it in search_with_ef
+    /// Set efSearch parameter for query-time accuracy tuning.
+    ///
+    /// Higher values increase recall at the cost of search latency.
+    /// Typical range: 50–500. Must be >= k for meaningful results.
+    pub fn set_ef_search(&mut self, ef_search: usize) {
+        self.config.ef_search = ef_search;
     }
 
     /// Serialize the index to bytes using bincode
@@ -197,17 +205,24 @@ impl HnswIndex {
             distance_fn,
         );
 
-        // Rebuild the index by inserting all vectors
+        // Rebuild the index by inserting all vectors.
+        // Build a HashMap first to avoid O(n^2) linear search in the loop below.
+        let vectors_lookup: std::collections::HashMap<&str, &Vec<f32>> = state
+            .vectors
+            .iter()
+            .map(|(id, v)| (id.as_str(), v))
+            .collect();
+
         let id_to_idx: DashMap<VectorId, usize> = state.id_to_idx.into_iter().collect();
         let idx_to_id: DashMap<usize, VectorId> = state.idx_to_id.into_iter().collect();
 
-        // Insert vectors into HNSW in order
-        for entry in idx_to_id.iter() {
-            let idx = *entry.key();
-            let id = entry.value();
-            if let Some(vector) = state.vectors.iter().find(|(vid, _)| vid == id) {
-                // Use insert_data method with slice and idx
-                hnsw.insert_data(&vector.1, idx);
+        // Insert vectors into HNSW in index order for deterministic reconstruction.
+        let mut sorted_entries: Vec<_> = idx_to_id.iter().map(|e| (*e.key(), e.value().clone())).collect();
+        sorted_entries.sort_unstable_by_key(|(idx, _)| *idx);
+
+        for (idx, id) in &sorted_entries {
+            if let Some(vector) = vectors_lookup.get(id.as_str()) {
+                hnsw.insert_data(vector, *idx);
             }
         }
 
@@ -227,7 +242,11 @@ impl HnswIndex {
         })
     }
 
-    /// Search with custom efSearch parameter
+    /// Search with custom efSearch parameter.
+    ///
+    /// `ef_search` must be >= `k`; values smaller than `k` are clamped to `k`
+    /// to avoid silent under-recall.  Results are returned sorted by ascending
+    /// distance (closest first).
     pub fn search_with_ef(
         &self,
         query: &[f32],
@@ -241,12 +260,27 @@ impl HnswIndex {
             });
         }
 
+        if k == 0 {
+            return Ok(vec![]);
+        }
+
         let inner = self.inner.read();
 
-        // Use HNSW search with custom ef parameter (knbn)
-        let neighbors = inner.hnsw.search(query, k, ef_search);
+        // hnsw_rs panics in its BinaryHeap traversal when the index is empty
+        // or contains only a single element (the candidate/return-point loop
+        // calls .peek().unwrap() without an emptiness guard).  Return early
+        // to surface a clean error instead of an assertion panic.
+        if inner.vectors.is_empty() {
+            return Ok(vec![]);
+        }
 
-        Ok(neighbors
+        // ef_search < k causes hnsw_rs to return fewer than k candidates; clamp.
+        let effective_ef = ef_search.max(k);
+
+        // Use HNSW search with custom ef parameter (knbn)
+        let neighbors = inner.hnsw.search(query, k, effective_ef);
+
+        let mut results: Vec<SearchResult> = neighbors
             .into_iter()
             .filter_map(|neighbor| {
                 inner.idx_to_id.get(&neighbor.d_id).map(|id| SearchResult {
@@ -256,7 +290,16 @@ impl HnswIndex {
                     metadata: None,
                 })
             })
-            .collect())
+            .collect();
+
+        // hnsw_rs does not guarantee sort order — ensure ascending distance.
+        results.sort_unstable_by(|a, b| {
+            a.score
+                .partial_cmp(&b.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        Ok(results)
     }
 }
 

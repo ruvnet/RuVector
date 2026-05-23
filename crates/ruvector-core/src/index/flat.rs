@@ -34,6 +34,10 @@ impl VectorIndex for FlatIndex {
     }
 
     fn search(&self, query: &[f32], k: usize) -> Result<Vec<SearchResult>> {
+        if k == 0 {
+            return Ok(vec![]);
+        }
+
         // Distance calculation - parallel on native, sequential on WASM
         #[cfg(all(feature = "parallel", not(target_arch = "wasm32")))]
         let mut results: Vec<_> = self
@@ -60,8 +64,11 @@ impl VectorIndex for FlatIndex {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        // Sort by distance and take top k
-        results.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        // Sort by distance (ascending — closest first) and take top k.
+        // Use sort_unstable_by for better performance on large result sets.
+        results.sort_unstable_by(|a, b| {
+            a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal)
+        });
         results.truncate(k);
 
         Ok(results
@@ -102,6 +109,45 @@ mod tests {
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].id, "v1");
         assert!(results[0].score < 0.01);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_flat_index_k_zero() -> Result<()> {
+        let mut index = FlatIndex::new(3, DistanceMetric::Euclidean);
+        index.add("v1".to_string(), vec![1.0, 0.0, 0.0])?;
+
+        let results = index.search(&[1.0, 0.0, 0.0], 0)?;
+        assert!(results.is_empty(), "k=0 must return empty results");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_flat_index_results_sorted() -> Result<()> {
+        let mut index = FlatIndex::new(3, DistanceMetric::Euclidean);
+
+        // Insert vectors at various distances from origin
+        for i in 1usize..=10 {
+            index.add(
+                format!("v{}", i),
+                vec![i as f32, 0.0, 0.0],
+            )?;
+        }
+
+        let query = vec![0.0, 0.0, 0.0];
+        let results = index.search(&query, 5)?;
+
+        assert_eq!(results.len(), 5);
+        for window in results.windows(2) {
+            assert!(
+                window[0].score <= window[1].score,
+                "Results must be sorted ascending by distance"
+            );
+        }
+        // Closest is v1 (distance=1)
+        assert_eq!(results[0].id, "v1");
 
         Ok(())
     }

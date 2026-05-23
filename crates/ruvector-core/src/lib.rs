@@ -73,6 +73,12 @@ pub mod memory;
 /// Advanced techniques: hypergraphs, learned indexes, neural hashing, TDA (Phase 6)
 pub mod advanced;
 
+/// Cross-integration helpers for the ruvnet crate ecosystem.
+///
+/// Provides [`integration::FannAdapter`] for ruv-FANN layer-embedding storage
+/// and [`integration::SemanticSearchAdapter`] for sparc semantic file search.
+pub mod integration;
+
 // Re-exports
 pub use advanced_features::{
     fuse_rankings, ConformalConfig, ConformalPredictor, EnhancedPQ, FilterExpression,

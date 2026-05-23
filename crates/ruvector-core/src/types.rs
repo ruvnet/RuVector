@@ -87,10 +87,13 @@ pub struct HnswConfig {
 impl Default for HnswConfig {
     fn default() -> Self {
         Self {
-            m: 32,
-            ef_construction: 200,
+            m: 16,
+            ef_construction: 100,
             ef_search: 100,
-            max_elements: 10_000_000,
+            // 1M is a reasonable default that avoids excessive upfront memory
+            // allocation while still being suitable for production workloads.
+            // Callers building large indexes should set this explicitly.
+            max_elements: 1_000_000,
         }
     }
 }

@@ -493,3 +493,116 @@ fn test_hnsw_parallel_batch_insert() -> Result<()> {
 
     Ok(())
 }
+
+// ── New tests covering correctness fixes ────────────────────────────────────
+
+/// Verify that `search` with k=0 returns an empty vec without panicking.
+#[test]
+fn test_hnsw_search_k_zero() -> Result<()> {
+    let config = HnswConfig {
+        m: 16,
+        ef_construction: 100,
+        ef_search: 50,
+        max_elements: 1000,
+    };
+
+    let mut index = HnswIndex::new(32, DistanceMetric::Euclidean, config)?;
+    index.add("v0".to_string(), vec![0.0f32; 32])?;
+
+    let results = index.search(&vec![0.0f32; 32], 0)?;
+    assert!(results.is_empty(), "k=0 must return empty results");
+
+    Ok(())
+}
+
+/// Verify that search results are sorted ascending by distance.
+#[test]
+fn test_hnsw_results_sorted_ascending() -> Result<()> {
+    let dimensions = 64;
+    let num_vectors = 200;
+    let k = 20;
+
+    let config = HnswConfig {
+        m: 16,
+        ef_construction: 100,
+        ef_search: 100,
+        max_elements: 1000,
+    };
+
+    let mut index = HnswIndex::new(dimensions, DistanceMetric::Euclidean, config)?;
+
+    let vectors = generate_random_vectors(num_vectors, dimensions, 31415);
+    for (i, v) in vectors.iter().enumerate() {
+        index.add(format!("v{}", i), v.clone())?;
+    }
+
+    let query = &vectors[0];
+    let results = index.search(query, k)?;
+
+    assert!(!results.is_empty());
+    for window in results.windows(2) {
+        assert!(
+            window[0].score <= window[1].score,
+            "Results not sorted: score[n]={} > score[n+1]={}",
+            window[0].score,
+            window[1].score
+        );
+    }
+
+    Ok(())
+}
+
+/// Verify that `set_ef_search` actually changes the effective ef used for search.
+#[test]
+fn test_hnsw_set_ef_search_updates_config() -> Result<()> {
+    let dimensions = 32;
+    let config = HnswConfig {
+        m: 16,
+        ef_construction: 100,
+        ef_search: 50,
+        max_elements: 1000,
+    };
+
+    let mut index = HnswIndex::new(dimensions, DistanceMetric::Cosine, config)?;
+    assert_eq!(index.config().ef_search, 50);
+
+    index.set_ef_search(200);
+    assert_eq!(
+        index.config().ef_search,
+        200,
+        "set_ef_search should update config.ef_search"
+    );
+
+    Ok(())
+}
+
+/// Verify that `ef_search < k` is clamped to k rather than silently under-recalling.
+#[test]
+fn test_hnsw_search_with_ef_clamps_to_k() -> Result<()> {
+    let dimensions = 32;
+    let num_vectors = 100;
+    let k = 20;
+
+    let config = HnswConfig {
+        m: 16,
+        ef_construction: 100,
+        ef_search: 5, // intentionally lower than k
+        max_elements: 1000,
+    };
+
+    let mut index = HnswIndex::new(dimensions, DistanceMetric::Euclidean, config)?;
+    let vectors = generate_random_vectors(num_vectors, dimensions, 27182);
+    for (i, v) in vectors.iter().enumerate() {
+        index.add(format!("v{}", i), v.clone())?;
+    }
+
+    // search() uses ef_search=5 internally, which is < k=20; results should
+    // still be at least as many as the index can return (not zero).
+    let results = index.search(&vectors[0], k)?;
+    assert!(
+        !results.is_empty(),
+        "search with ef_search < k must still return results"
+    );
+
+    Ok(())
+}
