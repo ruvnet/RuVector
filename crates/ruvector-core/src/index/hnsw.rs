@@ -333,6 +333,10 @@ impl VectorIndex for HnswIndex {
         self.search_with_ef(query, k, self.config.ef_search)
     }
 
+    fn metric(&self) -> DistanceMetric {
+        self.metric
+    }
+
     fn remove(&mut self, id: &VectorId) -> Result<bool> {
         let inner = self.inner.write();
 

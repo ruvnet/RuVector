@@ -1,5 +1,7 @@
 //! Flat (brute-force) index for baseline and small datasets
 
+use std::cmp::Ordering;
+
 use crate::distance::distance;
 use crate::error::Result;
 use crate::index::VectorIndex;
@@ -60,8 +62,10 @@ impl VectorIndex for FlatIndex {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        // Sort by distance and take top k
-        results.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        // Sort by distance — NaN-safe total ordering (NaN sorts last)
+        results.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or_else(|| {
+            if a.1.is_nan() { Ordering::Greater } else { Ordering::Less }
+        }));
         results.truncate(k);
 
         Ok(results
@@ -73,6 +77,10 @@ impl VectorIndex for FlatIndex {
                 metadata: None,
             })
             .collect())
+    }
+
+    fn metric(&self) -> DistanceMetric {
+        self.metric
     }
 
     fn remove(&mut self, id: &VectorId) -> Result<bool> {

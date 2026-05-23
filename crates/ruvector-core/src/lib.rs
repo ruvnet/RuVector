@@ -30,6 +30,7 @@
 #![allow(clippy::incompatible_msrv)]
 
 pub mod advanced_features;
+pub mod deterministic_score;
 
 // AgenticDB requires storage feature
 #[cfg(feature = "storage")]
@@ -108,6 +109,9 @@ const _: () = {
     let _ = AGENTICDB_EMBEDDING_WARNING;
 };
 
+pub use deterministic_score::{
+    deterministic_rrf, deterministic_weighted, DeterministicScore, DeterministicSearchResult,
+};
 pub use error::{Result, RuvectorError};
 pub use types::{DistanceMetric, SearchQuery, SearchResult, VectorEntry, VectorId};
 pub use vector_db::VectorDB;
