@@ -187,6 +187,7 @@ absurd_extreme_comparisons = "allow"
 incompatible_msrv = "allow"
 unused_enumerate_index = "allow"
 unused_self = "allow"
+unused_unit = "allow"
 
 map_clone = "allow"
 map_unwrap_or = "allow"
