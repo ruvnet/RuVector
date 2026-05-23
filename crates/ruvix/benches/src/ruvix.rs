@@ -47,7 +47,7 @@ pub fn run_benchmark<F>(
     config: &BenchConfig,
 ) -> BenchmarkResult
 where
-    F: Fn(&mut Kernel) -> (),
+    F: Fn(&mut Kernel),
 {
     let mut kernel = setup_fn();
 
