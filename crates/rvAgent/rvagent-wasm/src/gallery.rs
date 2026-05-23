@@ -753,8 +753,8 @@ impl WasmGallery {
             })
             .collect();
 
-        // Sort by relevance
-        results.sort_by(|a, b| b.relevance.partial_cmp(&a.relevance).unwrap());
+        // Sort by relevance. Use unwrap_or to handle NaN gracefully instead of panicking.
+        results.sort_by(|a, b| b.relevance.partial_cmp(&a.relevance).unwrap_or(std::cmp::Ordering::Equal));
 
         to_js_value(&results)
     }

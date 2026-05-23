@@ -335,8 +335,8 @@ impl RuvLtraRegistry {
             .filter(|m| !m.is_adapter && m.fits_in_ram(available_gb))
             .collect();
 
-        // Sort by parameters (largest that fits)
-        candidates.sort_by(|a, b| b.params_b.partial_cmp(&a.params_b).unwrap());
+        // Sort by parameters (largest that fits). Use unwrap_or to handle NaN gracefully.
+        candidates.sort_by(|a, b| b.params_b.partial_cmp(&a.params_b).unwrap_or(std::cmp::Ordering::Equal));
 
         candidates.first().copied()
     }

@@ -538,9 +538,10 @@ impl HnswRouter {
         }
 
         // Find best agent
+        // Use unwrap_or to handle NaN scores gracefully instead of panicking.
         let (primary_agent, primary_score) = agent_scores
             .iter()
-            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(a, s)| (*a, *s))
             .unwrap_or((AgentType::Coder, 0.0));
 
@@ -558,13 +559,13 @@ impl HnswRouter {
             .filter(|(a, _)| *a != primary_agent)
             .map(|(a, s)| (a, s / total_score.max(0.01)))
             .collect();
-        alternatives.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        alternatives.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         alternatives.truncate(3);
 
         // Find best task type
         let task_type = task_type_scores
             .into_iter()
-            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(t, _)| t)
             .unwrap_or(ClaudeFlowTask::CodeGeneration);
 

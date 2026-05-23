@@ -37,6 +37,14 @@ fn default_limit() -> usize {
     10
 }
 
+/// Maximum `k` accepted in a search request. Prevents memory exhaustion from
+/// maliciously large result-set allocations.
+const MAX_K: usize = 10_000;
+/// Maximum number of points accepted in a single upsert batch.
+const MAX_UPSERT_BATCH: usize = 10_000;
+/// Maximum dimension accepted for a query vector.
+const MAX_VECTOR_DIM: usize = 65_536;
+
 /// Search response
 #[derive(Debug, Serialize)]
 pub struct SearchResponse {
@@ -67,6 +75,15 @@ async fn upsert_points(
     Path(name): Path<String>,
     Json(req): Json<UpsertPointsRequest>,
 ) -> Result<impl IntoResponse> {
+    // Security: guard against oversized batches that could exhaust memory.
+    if req.points.len() > MAX_UPSERT_BATCH {
+        return Err(Error::InvalidRequest(format!(
+            "batch size {} exceeds maximum of {}",
+            req.points.len(),
+            MAX_UPSERT_BATCH
+        )));
+    }
+
     let db = state
         .get_collection(&name)
         .ok_or_else(|| Error::CollectionNotFound(name.clone()))?;
@@ -84,6 +101,27 @@ async fn search_points(
     Path(name): Path<String>,
     Json(req): Json<SearchRequest>,
 ) -> Result<impl IntoResponse> {
+    // Security: guard against k=0, oversized k, and zero/oversized query vectors.
+    if req.k == 0 {
+        return Ok(Json(SearchResponse { results: vec![] }));
+    }
+    if req.k > MAX_K {
+        return Err(Error::InvalidRequest(format!(
+            "k={} exceeds maximum of {}",
+            req.k, MAX_K
+        )));
+    }
+    if req.vector.is_empty() {
+        return Err(Error::InvalidRequest("query vector must not be empty".into()));
+    }
+    if req.vector.len() > MAX_VECTOR_DIM {
+        return Err(Error::InvalidRequest(format!(
+            "query vector dimension {} exceeds maximum of {}",
+            req.vector.len(),
+            MAX_VECTOR_DIM
+        )));
+    }
+
     let db = state
         .get_collection(&name)
         .ok_or_else(|| Error::CollectionNotFound(name))?;

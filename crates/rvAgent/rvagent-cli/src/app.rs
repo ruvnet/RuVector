@@ -329,21 +329,81 @@ impl rvagent_tools::Backend for LocalFsBackend {
         command: &str,
         timeout_secs: u32,
     ) -> std::result::Result<rvagent_tools::ExecuteResponse, String> {
-        use std::process::Command;
-        let output = Command::new("sh")
-            .arg("-c")
-            .arg(command)
-            .current_dir(&self.cwd)
-            .output()
-            .map_err(|e| format!("execute failed: {}", e))?;
-        let _ = timeout_secs; // timeout handled at a higher level if needed
+        use std::process::{Command, Stdio};
+        use std::time::Duration;
+
+        // Security: environment sanitization — strip sensitive variables (SEC-005 / ADR-103 C2).
+        // Only pass through a safe allowlist of environment variables.
+        const SAFE_ENV_VARS: &[&str] = &[
+            "PATH", "HOME", "USER", "SHELL", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "TMPDIR",
+            "TZ",
+        ];
+        // Patterns that identify sensitive env vars that must never reach child processes.
+        const SENSITIVE_PATTERNS: &[&str] = &[
+            "SECRET", "KEY", "TOKEN", "PASSWORD", "CREDENTIAL", "AWS_", "AZURE_", "GCP_",
+            "DATABASE_URL", "PRIVATE", "API_KEY", "AUTH", "BEARER", "JWT", "SESSION",
+        ];
+
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c").arg(command).current_dir(&self.cwd);
+        cmd.env_clear();
+        for var in SAFE_ENV_VARS {
+            if let Ok(val) = std::env::var(var) {
+                let upper = var.to_uppercase();
+                let sensitive = SENSITIVE_PATTERNS
+                    .iter()
+                    .any(|pat| upper.contains(pat));
+                if !sensitive {
+                    cmd.env(var, val);
+                }
+            }
+        }
+        cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+
+        let timeout = if timeout_secs == 0 { 30 } else { timeout_secs };
+        let deadline = std::time::Instant::now() + Duration::from_secs(timeout as u64);
+
+        let mut child = cmd.spawn().map_err(|e| format!("execute failed: {}", e))?;
+
+        // Poll for completion with a deadline to enforce the timeout.
+        loop {
+            match child.try_wait().map_err(|e| format!("wait failed: {}", e))? {
+                Some(_) => break,
+                None => {
+                    if std::time::Instant::now() >= deadline {
+                        let _ = child.kill();
+                        return Ok(rvagent_tools::ExecuteResponse {
+                            output: format!(
+                                "Command timed out after {} seconds",
+                                timeout
+                            ),
+                            exit_code: -1,
+                        });
+                    }
+                    std::thread::sleep(Duration::from_millis(50));
+                }
+            }
+        }
+
+        let output = child
+            .wait_with_output()
+            .map_err(|e| format!("output collection failed: {}", e))?;
+
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
-        let combined = if stderr.is_empty() {
+        let mut combined = if stderr.is_empty() {
             stdout.into_owned()
         } else {
             format!("{}\n{}", stdout, stderr)
         };
+
+        // Security: cap output size to 1 MB to prevent memory exhaustion.
+        const MAX_OUTPUT_BYTES: usize = 1024 * 1024;
+        if combined.len() > MAX_OUTPUT_BYTES {
+            combined.truncate(MAX_OUTPUT_BYTES);
+            combined.push_str("\n... [output truncated at 1 MB]");
+        }
+
         Ok(rvagent_tools::ExecuteResponse {
             output: combined,
             exit_code: output.status.code().unwrap_or(-1),
