@@ -61,7 +61,7 @@ impl ReasoningBank {
         similarities.sort_by(|a, b| {
             let score_a = a.2 * a.1.confidence;
             let score_b = b.2 * b.1.confidence;
-            score_b.partial_cmp(&score_a).unwrap()
+            score_b.total_cmp(&score_a)
         });
 
         // Take top k

@@ -53,8 +53,8 @@ pub fn ruvector_wasserstein_distance(a: Vec<f32>, b: Vec<f32>, p: default!(i32, 
     // 1D Wasserstein: sort and compute L_p distance of CDFs
     let mut a_sorted: Vec<f64> = a.iter().map(|&x| x as f64).collect();
     let mut b_sorted: Vec<f64> = b.iter().map(|&x| x as f64).collect();
-    a_sorted.sort_by(|x, y| x.partial_cmp(y).unwrap());
-    b_sorted.sort_by(|x, y| x.partial_cmp(y).unwrap());
+    a_sorted.sort_by(|x, y| x.total_cmp(y));
+    b_sorted.sort_by(|x, y| x.total_cmp(y));
 
     let p_f64 = p.max(1) as f64;
     let sum: f64 = a_sorted

@@ -1004,7 +1004,7 @@ impl StrategyRegistry {
             .max_by(|a, b| {
                 let weight_a = weights.get(a.name()).unwrap_or(&1.0);
                 let weight_b = weights.get(b.name()).unwrap_or(&1.0);
-                weight_a.partial_cmp(weight_b).unwrap()
+                weight_a.total_cmp(weight_b)
             })
             .cloned()
     }

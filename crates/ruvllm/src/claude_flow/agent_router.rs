@@ -134,7 +134,7 @@ impl AgentRouter {
         // Find best match
         let (primary_agent, primary_score) = scores
             .iter()
-            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .max_by(|a, b| a.1.total_cmp(b.1))
             .map(|(a, s)| (*a, *s))
             .unwrap_or((AgentType::Coder, 0.0));
 
@@ -152,7 +152,7 @@ impl AgentRouter {
             .filter(|(a, _)| *a != primary_agent)
             .map(|(a, s)| (a, s / total_matches.max(1.0)))
             .collect();
-        alternatives.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        alternatives.sort_by(|a, b| b.1.total_cmp(&a.1));
         alternatives.truncate(3);
 
         // Determine task type

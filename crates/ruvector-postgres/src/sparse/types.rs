@@ -156,7 +156,7 @@ impl SparseVec {
             .collect();
 
         // Sort by absolute value (descending)
-        indexed.sort_by(|(_, a), (_, b)| b.abs().partial_cmp(&a.abs()).unwrap());
+        indexed.sort_by(|(_, a), (_, b)| b.abs().total_cmp(&a.abs()));
         indexed.truncate(k);
 
         // Re-sort by index

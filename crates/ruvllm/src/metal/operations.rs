@@ -309,14 +309,14 @@ pub fn verify_speculative_tokens(
         let draft_token = draft_logits[draft_start..draft_start + vocab_size]
             .iter()
             .enumerate()
-            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .max_by(|a, b| a.1.total_cmp(b.1))
             .map(|(idx, _)| idx)
             .unwrap_or(0);
 
         let target_token = target_logits[target_start..target_start + vocab_size]
             .iter()
             .enumerate()
-            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .max_by(|a, b| a.1.total_cmp(b.1))
             .map(|(idx, _)| idx)
             .unwrap_or(0);
 

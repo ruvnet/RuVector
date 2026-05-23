@@ -188,7 +188,7 @@ impl LayerStats {
         if self.values.is_empty() {
             return 0.0;
         }
-        self.values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        self.values.sort_by(|a, b| a.total_cmp(b));
         let idx = ((p / 100.0) * (self.values.len() - 1) as f32) as usize;
         self.values[idx.min(self.values.len() - 1)]
     }

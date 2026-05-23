@@ -93,7 +93,7 @@ impl LatencyStats {
             return 0.0;
         }
         let mut sorted = self.samples.clone();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted.sort_by(|a, b| a.total_cmp(b));
         let idx = ((p / 100.0) * (sorted.len() - 1) as f64).round() as usize;
         sorted[idx.min(sorted.len() - 1)]
     }

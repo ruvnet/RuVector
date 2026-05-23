@@ -697,13 +697,13 @@ mod tests {
         let max_reward_idx = rewards
             .iter()
             .enumerate()
-            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .max_by(|a, b| a.1.total_cmp(b.1))
             .map(|(i, _)| i)
             .unwrap();
         let max_advantage_idx = advantages
             .iter()
             .enumerate()
-            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .max_by(|a, b| a.1.total_cmp(b.1))
             .map(|(i, _)| i)
             .unwrap();
         assert_eq!(max_reward_idx, max_advantage_idx);

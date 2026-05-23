@@ -87,7 +87,7 @@ axum-streams = { version = "0.15", features = ["json"] }
 
 # Image processing (for future OCR integration)
 image = "0.25"
-imageproc = { version = "0.25", optional = true }
+imageproc = { version = "0.26", optional = true }
 rayon = { version = "1.10", optional = true }
 nalgebra = { version = "0.33", optional = true }
 ndarray = { version = "0.16", optional = true }

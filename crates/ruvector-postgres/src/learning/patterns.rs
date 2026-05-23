@@ -135,7 +135,7 @@ impl PatternExtractor {
                 let min_dist = centroids
                     .iter()
                     .map(|c| self.euclidean_distance(&traj.query_vector, c))
-                    .min_by(|a, b| a.partial_cmp(b).unwrap())
+                    .min_by(|a, b| a.total_cmp(b))
                     .unwrap_or(0.0);
                 distances.push(min_dist);
             }
@@ -144,7 +144,7 @@ impl PatternExtractor {
             let idx = distances
                 .iter()
                 .enumerate()
-                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                .max_by(|(_, a), (_, b)| a.total_cmp(b))
                 .map(|(i, _)| i)
                 .unwrap_or(0);
 
@@ -160,7 +160,7 @@ impl PatternExtractor {
             .iter()
             .enumerate()
             .map(|(i, c)| (i, self.euclidean_distance(point, c)))
-            .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .min_by(|(_, a), (_, b)| a.total_cmp(b))
             .map(|(i, _)| i)
             .unwrap_or(0)
     }
