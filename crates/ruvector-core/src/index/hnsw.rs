@@ -27,9 +27,7 @@ impl Distance<f32> for DistanceFn {
         // tiny negative values caused by floating-point rounding (e.g. cosine
         // distance between two nearly-identical normalised vectors can be
         // marginally below zero).  f32::MAX is the safe sentinel for errors.
-        distance(a, b, self.metric)
-            .unwrap_or(f32::MAX)
-            .max(0.0)
+        distance(a, b, self.metric).unwrap_or(f32::MAX).max(0.0)
     }
 }
 
@@ -217,7 +215,10 @@ impl HnswIndex {
         let idx_to_id: DashMap<usize, VectorId> = state.idx_to_id.into_iter().collect();
 
         // Insert vectors into HNSW in index order for deterministic reconstruction.
-        let mut sorted_entries: Vec<_> = idx_to_id.iter().map(|e| (*e.key(), e.value().clone())).collect();
+        let mut sorted_entries: Vec<_> = idx_to_id
+            .iter()
+            .map(|e| (*e.key(), e.value().clone()))
+            .collect();
         sorted_entries.sort_unstable_by_key(|(idx, _)| *idx);
 
         for (idx, id) in &sorted_entries {

@@ -302,7 +302,11 @@ pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
         norm_b += bi * bi;
     }
     let denom = norm_a.sqrt() * norm_b.sqrt();
-    if denom > f32::EPSILON { dot / denom } else { 0.0 }
+    if denom > f32::EPSILON {
+        dot / denom
+    } else {
+        0.0
+    }
 }
 
 #[cfg(test)]
@@ -315,7 +319,11 @@ mod tests {
         let v = vec![3.0f32, 4.0];
         let n = normalize(&v);
         let norm: f32 = n.iter().map(|x| x * x).sum::<f32>().sqrt();
-        assert!((norm - 1.0).abs() < 1e-6, "Expected unit norm, got {}", norm);
+        assert!(
+            (norm - 1.0).abs() < 1e-6,
+            "Expected unit norm, got {}",
+            norm
+        );
     }
 
     #[test]
@@ -329,7 +337,11 @@ mod tests {
     fn test_cosine_similarity_identical() {
         let v = vec![1.0f32, 2.0, 3.0];
         let sim = cosine_similarity(&v, &v);
-        assert!((sim - 1.0).abs() < 1e-5, "Identical vectors: expected 1.0, got {}", sim);
+        assert!(
+            (sim - 1.0).abs() < 1e-5,
+            "Identical vectors: expected 1.0, got {}",
+            sim
+        );
     }
 
     #[test]
@@ -337,7 +349,11 @@ mod tests {
         let a = vec![1.0f32, 0.0];
         let b = vec![0.0f32, 1.0];
         let sim = cosine_similarity(&a, &b);
-        assert!(sim.abs() < 1e-5, "Orthogonal vectors: expected 0.0, got {}", sim);
+        assert!(
+            sim.abs() < 1e-5,
+            "Orthogonal vectors: expected 0.0, got {}",
+            sim
+        );
     }
 
     #[test]
@@ -351,9 +367,15 @@ mod tests {
         let emb_c = normalize(&[0.0, 0.0, 1.0, 0.0]);
 
         // hnsw_rs requires at least 2 elements before searching.
-        adapter.index_file("src/auth.rs", "authentication", &emb_a).unwrap();
-        adapter.index_file("src/user.rs", "user model", &emb_b).unwrap();
-        adapter.index_file("src/storage.rs", "storage layer", &emb_c).unwrap();
+        adapter
+            .index_file("src/auth.rs", "authentication", &emb_a)
+            .unwrap();
+        adapter
+            .index_file("src/user.rs", "user model", &emb_b)
+            .unwrap();
+        adapter
+            .index_file("src/storage.rs", "storage layer", &emb_c)
+            .unwrap();
 
         assert_eq!(adapter.len().unwrap(), 3);
 
@@ -374,9 +396,15 @@ mod tests {
         let layer_emb_2 = normalize(&[1.0, 0.0, 1.0, 0.0]);
 
         // hnsw_rs requires at least 2 elements before searching.
-        adapter.store_layer("model_v1/layer_0", &layer_emb_0, None).unwrap();
-        adapter.store_layer("model_v1/layer_1", &layer_emb_1, None).unwrap();
-        adapter.store_layer("model_v1/layer_2", &layer_emb_2, None).unwrap();
+        adapter
+            .store_layer("model_v1/layer_0", &layer_emb_0, None)
+            .unwrap();
+        adapter
+            .store_layer("model_v1/layer_1", &layer_emb_1, None)
+            .unwrap();
+        adapter
+            .store_layer("model_v1/layer_2", &layer_emb_2, None)
+            .unwrap();
 
         let results = adapter.find_similar_layers(&layer_emb_0, 1).unwrap();
         assert!(!results.is_empty());

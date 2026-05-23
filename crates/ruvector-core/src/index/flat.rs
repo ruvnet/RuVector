@@ -66,9 +66,7 @@ impl VectorIndex for FlatIndex {
 
         // Sort by distance (ascending — closest first) and take top k.
         // Use sort_unstable_by for better performance on large result sets.
-        results.sort_unstable_by(|a, b| {
-            a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal)
-        });
+        results.sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
         results.truncate(k);
 
         Ok(results
@@ -130,10 +128,7 @@ mod tests {
 
         // Insert vectors at various distances from origin
         for i in 1usize..=10 {
-            index.add(
-                format!("v{}", i),
-                vec![i as f32, 0.0, 0.0],
-            )?;
+            index.add(format!("v{}", i), vec![i as f32, 0.0, 0.0])?;
         }
 
         let query = vec![0.0, 0.0, 0.0];
