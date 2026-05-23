@@ -336,7 +336,11 @@ impl RuvLtraRegistry {
             .collect();
 
         // Sort by parameters (largest that fits). Use unwrap_or to handle NaN gracefully.
-        candidates.sort_by(|a, b| b.params_b.partial_cmp(&a.params_b).unwrap_or(std::cmp::Ordering::Equal));
+        candidates.sort_by(|a, b| {
+            b.params_b
+                .partial_cmp(&a.params_b)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         candidates.first().copied()
     }

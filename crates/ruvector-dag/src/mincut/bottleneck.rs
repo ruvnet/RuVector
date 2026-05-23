@@ -42,7 +42,11 @@ impl BottleneckAnalysis {
 
         // Sort by score descending
         // Use unwrap_or to handle NaN scores gracefully instead of panicking.
-        bottlenecks.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        bottlenecks.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         // Calculate total cost by iterating over all node IDs
         let total_cost: f64 = (0..dag.node_count())

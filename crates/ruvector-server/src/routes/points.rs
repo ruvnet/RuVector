@@ -112,7 +112,9 @@ async fn search_points(
         )));
     }
     if req.vector.is_empty() {
-        return Err(Error::InvalidRequest("query vector must not be empty".into()));
+        return Err(Error::InvalidRequest(
+            "query vector must not be empty".into(),
+        ));
     }
     if req.vector.len() > MAX_VECTOR_DIM {
         return Err(Error::InvalidRequest(format!(

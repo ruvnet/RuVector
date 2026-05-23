@@ -982,7 +982,11 @@ impl PretrainPipeline {
         // Pre-sort trajectories once (highest quality first for importance sampling)
         let mut sorted_trajectories = self.successful_trajectories.clone();
         // Use unwrap_or to handle NaN quality scores gracefully instead of panicking.
-        sorted_trajectories.sort_by(|a, b| b.quality.partial_cmp(&a.quality).unwrap_or(std::cmp::Ordering::Equal));
+        sorted_trajectories.sort_by(|a, b| {
+            b.quality
+                .partial_cmp(&a.quality)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         // Replay successful trajectories multiple times
         for replay_idx in 0..self.config.reinforce_replays {

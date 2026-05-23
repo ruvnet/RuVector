@@ -335,13 +335,25 @@ impl rvagent_tools::Backend for LocalFsBackend {
         // Security: environment sanitization — strip sensitive variables (SEC-005 / ADR-103 C2).
         // Only pass through a safe allowlist of environment variables.
         const SAFE_ENV_VARS: &[&str] = &[
-            "PATH", "HOME", "USER", "SHELL", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "TMPDIR",
-            "TZ",
+            "PATH", "HOME", "USER", "SHELL", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "TMPDIR", "TZ",
         ];
         // Patterns that identify sensitive env vars that must never reach child processes.
         const SENSITIVE_PATTERNS: &[&str] = &[
-            "SECRET", "KEY", "TOKEN", "PASSWORD", "CREDENTIAL", "AWS_", "AZURE_", "GCP_",
-            "DATABASE_URL", "PRIVATE", "API_KEY", "AUTH", "BEARER", "JWT", "SESSION",
+            "SECRET",
+            "KEY",
+            "TOKEN",
+            "PASSWORD",
+            "CREDENTIAL",
+            "AWS_",
+            "AZURE_",
+            "GCP_",
+            "DATABASE_URL",
+            "PRIVATE",
+            "API_KEY",
+            "AUTH",
+            "BEARER",
+            "JWT",
+            "SESSION",
         ];
 
         let mut cmd = Command::new("sh");
@@ -350,9 +362,7 @@ impl rvagent_tools::Backend for LocalFsBackend {
         for var in SAFE_ENV_VARS {
             if let Ok(val) = std::env::var(var) {
                 let upper = var.to_uppercase();
-                let sensitive = SENSITIVE_PATTERNS
-                    .iter()
-                    .any(|pat| upper.contains(pat));
+                let sensitive = SENSITIVE_PATTERNS.iter().any(|pat| upper.contains(pat));
                 if !sensitive {
                     cmd.env(var, val);
                 }
@@ -367,16 +377,16 @@ impl rvagent_tools::Backend for LocalFsBackend {
 
         // Poll for completion with a deadline to enforce the timeout.
         loop {
-            match child.try_wait().map_err(|e| format!("wait failed: {}", e))? {
+            match child
+                .try_wait()
+                .map_err(|e| format!("wait failed: {}", e))?
+            {
                 Some(_) => break,
                 None => {
                     if std::time::Instant::now() >= deadline {
                         let _ = child.kill();
                         return Ok(rvagent_tools::ExecuteResponse {
-                            output: format!(
-                                "Command timed out after {} seconds",
-                                timeout
-                            ),
+                            output: format!("Command timed out after {} seconds", timeout),
                             exit_code: -1,
                         });
                     }

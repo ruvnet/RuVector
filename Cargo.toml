@@ -236,6 +236,9 @@ members = [
 ]
 resolver = "2"
 
+[workspace.lints.clippy]
+unused_unit = "allow"
+
 [workspace.package]
 version = "2.2.3"
 edition = "2021"

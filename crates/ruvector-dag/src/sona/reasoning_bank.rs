@@ -167,7 +167,9 @@ impl DagReasoningBank {
                 let score_a = a.quality_score * (a.usage_count as f32 + 1.0).ln();
                 let score_b = b.quality_score * (b.usage_count as f32 + 1.0).ln();
                 // Use unwrap_or to handle NaN scores gracefully instead of panicking.
-                score_a.partial_cmp(&score_b).unwrap_or(std::cmp::Ordering::Equal)
+                score_a
+                    .partial_cmp(&score_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .map(|(i, _)| i)
         {

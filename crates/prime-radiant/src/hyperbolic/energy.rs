@@ -123,7 +123,11 @@ impl HyperbolicEnergy {
         self.edge_energies
             .iter()
             // Use unwrap_or to handle NaN weighted_energy gracefully instead of panicking.
-            .max_by(|a, b| a.weighted_energy.partial_cmp(&b.weighted_energy).unwrap_or(std::cmp::Ordering::Equal))
+            .max_by(|a, b| {
+                a.weighted_energy
+                    .partial_cmp(&b.weighted_energy)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
     }
 
     /// Find deepest edge
@@ -131,7 +135,11 @@ impl HyperbolicEnergy {
         self.edge_energies
             .iter()
             // Use unwrap_or to handle NaN depth gracefully instead of panicking.
-            .max_by(|a, b| a.avg_depth().partial_cmp(&b.avg_depth()).unwrap_or(std::cmp::Ordering::Equal))
+            .max_by(|a, b| {
+                a.avg_depth()
+                    .partial_cmp(&b.avg_depth())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
     }
 
     /// Get edges above energy threshold
