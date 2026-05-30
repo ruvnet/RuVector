@@ -789,6 +789,18 @@ export class AdaptiveEmbedder {
   }
 
   /**
+   * Whether the ONNX backend is initialized and producing real (non-hash)
+   * embeddings. Returns `false` until `init()` has successfully loaded the
+   * ONNX model. Note that `embed()` still works when this is `false` — it
+   * falls back to a deterministic hash embedding — so callers that require
+   * real semantic embeddings should check this after `init()`.
+   * See https://github.com/ruvnet/RuVector/issues/523.
+   */
+  isReady(): boolean {
+    return this.onnxReady;
+  }
+
+  /**
    * Generate adaptive embedding
    * Pipeline: ONNX → LoRA → Prototype Adjustment → Episodic Augmentation
    */

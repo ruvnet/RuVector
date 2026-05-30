@@ -240,30 +240,15 @@ export class OptimizedOnnxEmbedder {
       const loaderModule = await dynamicImport(loaderUrl);
       const { ModelLoader } = loaderModule;
 
-      // Select model URL based on quantization preference
+      // NOTE (issue #523): ModelLoader.loadModel() resolves the model by modelId
+      // from its own registry (currently FP32 all-MiniLM-L6-v2). The per-variant
+      // URLs in QUANTIZED_MODELS are not wired into the loader yet, so we must not
+      // log a quantization (FP16/INT8) that is not actually applied. When the
+      // loader gains variant support, thread the selected variant through to
+      // loadModel() here instead of computing an unused URL.
       const modelInfo = QUANTIZED_MODELS[this.config.modelId];
-      let modelUrl: string;
-
       if (modelInfo) {
-        if (this.config.useQuantized && this.config.quantization !== 'none') {
-          // Try quantized version first
-          if (this.config.quantization === 'int8' && modelInfo.int8) {
-            modelUrl = modelInfo.int8;
-            console.error(`Using INT8 quantized model: ${this.config.modelId}`);
-          } else if (modelInfo.fp16) {
-            modelUrl = modelInfo.fp16;
-            console.error(`Using FP16 quantized model: ${this.config.modelId}`);
-          } else {
-            modelUrl = modelInfo.onnx;
-            console.error(`Using FP32 model (no quantized version): ${this.config.modelId}`);
-          }
-        } else {
-          modelUrl = modelInfo.onnx;
-        }
         this.dimension = modelInfo.dimension;
-      } else {
-        // Fallback to default loader
-        modelUrl = '';
       }
 
       const modelLoader = new ModelLoader({

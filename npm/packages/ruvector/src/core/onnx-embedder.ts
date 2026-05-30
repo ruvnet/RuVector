@@ -89,11 +89,24 @@ let isInitialized = false;
 let parallelEnabled = false;
 let parallelThreshold = 4;
 
+// Captured at init so the bundled worker pool can reuse the loaded model bytes
+// (shared to workers via SharedArrayBuffer) instead of re-downloading per worker.
+let loadedModelBytes: Uint8Array | null = null;
+let loadedTokenizerJson: string | null = null;
+let loadedMaxLength = 256;
+let bundledPool: any = null;
+
 // Default model
 const DEFAULT_MODEL = 'all-MiniLM-L6-v2';
 
 /**
- * Check if ONNX embedder is available (bundled files exist)
+ * Check if the ONNX embedder is *available* — i.e. the bundled WASM files are
+ * present and the embedder can be initialized.
+ *
+ * NOTE: This is a capability check, NOT a readiness check. It returns `true`
+ * before `initOnnxEmbedder()` has run (so callers can decide whether to init).
+ * To check whether the model has actually been loaded, use `isOnnxInitialized()`
+ * or `isReady()`. See https://github.com/ruvnet/RuVector/issues/523.
  */
 export function isOnnxAvailable(): boolean {
   try {
@@ -138,7 +151,7 @@ async function tryInitParallel(config: OnnxEmbedderConfig): Promise<boolean> {
   // Skip if explicitly disabled
   if (config.enableParallel === false) return false;
 
-  // For 'auto' or true, try to initialize
+  // 1) Optional external package (back-compat). Absent by default.
   try {
     const parallelModule = await dynamicImport('ruvector-onnx-embeddings-wasm/parallel');
     const { ParallelEmbedder } = parallelModule;
@@ -151,14 +164,43 @@ async function tryInitParallel(config: OnnxEmbedderConfig): Promise<boolean> {
     parallelThreshold = config.parallelThreshold || 4;
     parallelEnabled = true;
     parallelAvailable = true;
-    console.error(`Parallel embedder ready: ${parallelEmbedder.numWorkers} workers, SIMD: ${simdAvailable}`);
+    console.error(`Parallel embedder ready (external): ${parallelEmbedder.numWorkers} workers, SIMD: ${simdAvailable}`);
+    return true;
+  } catch {
+    // External package not installed — fall through to the bundled pool.
+  }
+
+  // 2) Bundled, zero-dependency worker pool over the already-loaded model bytes.
+  // Opt-in only (enableParallel === true) so the default/'auto' path does not
+  // silently spawn worker threads for existing callers. Vectors are identical
+  // to the single-thread path (issue #523).
+  if (config.enableParallel !== true) {
+    parallelAvailable = false;
+    return false;
+  }
+  try {
+    if (!loadedModelBytes || !loadedTokenizerJson) {
+      throw new Error('model bytes unavailable for bundled pool');
+    }
+    const poolUrl = pathToFileURL(path.join(__dirname, 'onnx', 'bundled-parallel.mjs')).href;
+    const { ParallelEmbedder } = await dynamicImport(poolUrl);
+    const pool = new ParallelEmbedder({
+      modelBytes: loadedModelBytes,
+      tokenizerJson: loadedTokenizerJson,
+      maxLength: loadedMaxLength,
+      dimension: embedder ? embedder.dimension() : 384,
+      numWorkers: config.numWorkers,
+    });
+    await pool.init();
+    parallelEmbedder = pool;
+    parallelThreshold = config.parallelThreshold || 4;
+    parallelEnabled = true;
+    parallelAvailable = true;
+    console.error(`Parallel embedder ready (bundled): ${pool.numWorkers} workers, SIMD: ${simdAvailable}`);
     return true;
   } catch (e: any) {
     parallelAvailable = false;
-    if (config.enableParallel === true) {
-      // Only warn if explicitly requested
-      console.error(`Parallel embedder not available: ${e.message}`);
-    }
+    console.error(`Parallel embedder not available: ${e.message}`);
     return false;
   }
 }
@@ -216,6 +258,11 @@ export async function initOnnxEmbedder(config: OnnxEmbedderConfig = {}): Promise
       console.error(`Loading ONNX model: ${modelId}...`);
 
       const { modelBytes, tokenizerJson, config: modelConfig } = await modelLoader.loadModel(modelId);
+
+      // Retain for the bundled parallel worker pool (see initParallelEmbedder).
+      loadedModelBytes = modelBytes;
+      loadedTokenizerJson = tokenizerJson;
+      loadedMaxLength = config.maxLength || modelConfig.maxLength || 256;
 
       // Create embedder with config
       const embedderConfig = new wasmModule.WasmEmbedderConfig()
@@ -382,9 +429,25 @@ export function getDimension(): number {
 }
 
 /**
- * Check if embedder is ready
+ * Check if the embedder has been initialized (model loaded) and is ready to
+ * embed. Returns `false` until `initOnnxEmbedder()` (or the first `embed()`,
+ * which auto-initializes) has completed successfully.
  */
 export function isReady(): boolean {
+  return isInitialized;
+}
+
+/**
+ * Whether the ONNX embedder has been initialized (model loaded).
+ *
+ * Post-init counterpart to `isOnnxAvailable()` (which only checks that the
+ * bundled files exist). Named distinctly from the WASM-core `isInitialized()`
+ * export to avoid a barrel name collision. Equivalent to `isReady()`; provided
+ * as a self-documenting gate so callers can distinguish "bundled" (available)
+ * from "loaded" (initialized). See
+ * https://github.com/ruvnet/RuVector/issues/523.
+ */
+export function isOnnxInitialized(): boolean {
   return isInitialized;
 }
 
@@ -419,6 +482,57 @@ export async function shutdown(): Promise<void> {
     await parallelEmbedder.shutdown();
     parallelEmbedder = null;
     parallelEnabled = false;
+  }
+  await shutdownParallelEmbedder();
+}
+
+/**
+ * Initialize the bundled-WASM worker pool for high-throughput batch embedding
+ * (issue #523 SOTA). Self-contained — uses Node worker_threads + the bundled
+ * WASM over SharedArrayBuffer model bytes, no external dependency. Vectors are
+ * identical to the single-thread path (cosine-equivalent).
+ *
+ * @param numWorkers number of worker threads (default: min(cpus-2, 16))
+ */
+export async function initParallelEmbedder(numWorkers?: number): Promise<boolean> {
+  if (bundledPool) return true;
+  if (!isInitialized) await initOnnxEmbedder();
+  if (!loadedModelBytes || !loadedTokenizerJson) {
+    throw new Error('Model bytes unavailable; cannot start parallel embedder.');
+  }
+  const poolUrl = pathToFileURL(path.join(__dirname, 'onnx', 'bundled-parallel.mjs')).href;
+  const { ParallelEmbedder } = await dynamicImport(poolUrl);
+  const pool = new ParallelEmbedder({
+    modelBytes: loadedModelBytes,
+    tokenizerJson: loadedTokenizerJson,
+    maxLength: loadedMaxLength,
+    dimension: getDimension(),
+    numWorkers,
+  });
+  await pool.init();
+  bundledPool = pool;
+  return true;
+}
+
+/**
+ * Batch-embed via the bundled worker pool, sharded across CPU cores. Lazily
+ * starts the pool on first use. Returns embeddings in input order.
+ */
+export async function embedBatchParallel(texts: string[]): Promise<number[][]> {
+  if (!bundledPool) await initParallelEmbedder();
+  return bundledPool.embedBatch(texts);
+}
+
+/** Number of active pool workers (0 if the pool isn't started). */
+export function getParallelWorkerCount(): number {
+  return bundledPool ? bundledPool.numWorkers : 0;
+}
+
+/** Shut down the bundled worker pool and release its threads. */
+export async function shutdownParallelEmbedder(): Promise<void> {
+  if (bundledPool) {
+    await bundledPool.shutdown();
+    bundledPool = null;
   }
 }
 

@@ -1,0 +1,79 @@
+name: Publish ruvector to npm
+
+# Publishes the `ruvector` npm package. Triggered manually (workflow_dispatch)
+# or by pushing a `ruvector-v*` tag. Gated: builds, verifies the dist layout,
+# runs the full test suite, and refuses to publish a version that already
+# exists on npm (out-of-band publishes of 0.2.27-0.2.29 happened without tags —
+# this guard prevents silent clobber/no-op, see issue #523 follow-up).
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (must match package.json, e.g. 0.2.30)'
+        required: true
+        type: string
+      dry_run:
+        description: 'If true, run all gates + npm publish --dry-run only'
+        required: false
+        default: false
+        type: boolean
+  push:
+    tags:
+      - 'ruvector-v*'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: npm/packages/ruvector
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci --no-workspaces || npm install --no-workspaces
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify dist layout
+        run: npm run verify-dist
+
+      - name: Test (integration + CLI + contract + pool)
+        run: |
+          npm test
+          node --test tests/*.test.mjs
+
+      - name: Version guard (refuse to clobber a published version)
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          echo "Local version: $LOCAL"
+          if npm view "ruvector@$LOCAL" version >/dev/null 2>&1; then
+            echo "::error::ruvector@$LOCAL is already published on npm. Bump the version first."
+            exit 1
+          fi
+          # If dispatched with an explicit version, it must match package.json.
+          INPUT="${{ github.event.inputs.version }}"
+          if [ -n "$INPUT" ] && [ "$INPUT" != "$LOCAL" ]; then
+            echo "::error::Input version ($INPUT) != package.json ($LOCAL)."
+            exit 1
+          fi
+
+      - name: Publish (dry-run)
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: npm publish --access public --dry-run
+
+      - name: Publish
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -1,0 +1,118 @@
+[
+  {
+    "iter": 1,
+    "label": "baseline",
+    "node": "v22.22.2",
+    "n": 64,
+    "p50_ms": 191.8338,
+    "p95_ms": 194.257,
+    "mean_ms": 192.2223,
+    "batch32_throughput_eps": 5.2,
+    "min_cosine_vs_baseline": "baseline-established",
+    "stats": {
+      "ready": true,
+      "dimension": 384,
+      "model": "all-MiniLM-L6-v2",
+      "simd": true,
+      "parallel": false,
+      "parallelWorkers": 0,
+      "parallelThreshold": 4
+    },
+    "ts": "2026-05-30T21:10:01.300Z"
+  },
+  {
+    "iter": 2,
+    "label": "analysis (corrected)",
+    "node": "v22.22.2",
+    "real_baseline": {
+      "p50_ms": 191.83,
+      "p95_ms": 194.26,
+      "mean_ms": 192.22,
+      "batch32_eps": 5.2,
+      "cpus": 32
+    },
+    "finding": "Pure-WASM single-thread floor ~192ms/embed; embedBatch gives ~no speedup (batch32 throughput == single per-item). parallel-worker npm pkg ruvector-onnx-embeddings-wasm/parallel is NOT installed/declared, so multi-core path is dead.",
+    "targets": {
+      "batch_throughput_eps": 80,
+      "note": ">=80 eps batch (~15x) via cosine-safe worker pool over bundled WASM; cosine>=0.9999. Latency: quantization permitted, cosine>=0.99, target p50<=80ms (from 192ms)."
+    },
+    "ts": "2026-05-30T21:39:34.649Z"
+  },
+  {
+    "iter": 3,
+    "label": "worker-pool (bundled WASM, cosine-safe)",
+    "node": "v22.22.2",
+    "baseline_eps": 5.2,
+    "scaling": [
+      {
+        "workers": 16,
+        "n": 120,
+        "eps": 63.4,
+        "wall_ms": 1894,
+        "minCos": 1
+      },
+      {
+        "workers": 24,
+        "n": 120,
+        "eps": 66.5,
+        "wall_ms": 1803,
+        "minCos": 1
+      },
+      {
+        "workers": 30,
+        "n": 120,
+        "eps": 72.6,
+        "wall_ms": 1652,
+        "minCos": 1
+      }
+    ],
+    "best": {
+      "workers": 30,
+      "n": 120,
+      "eps": 72.6,
+      "wall_ms": 1652,
+      "minCos": 1
+    },
+    "speedup_vs_baseline": 14,
+    "cosine_equivalent": true,
+    "target_eps": 80,
+    "target_hit": false,
+    "ts": "2026-05-30T21:42:34.022Z"
+  },
+  {
+    "iter": 4,
+    "label": "worker-pool large-batch amortization",
+    "node": "v22.22.2",
+    "results": [
+      {
+        "workers": 24,
+        "n": 240,
+        "eps": 69,
+        "minCos": 1
+      },
+      {
+        "workers": 24,
+        "n": 480,
+        "eps": 69.4,
+        "minCos": 1
+      },
+      {
+        "workers": 30,
+        "n": 480,
+        "eps": 72.8,
+        "minCos": 1
+      }
+    ],
+    "best": {
+      "workers": 30,
+      "n": 480,
+      "eps": 72.8,
+      "minCos": 1
+    },
+    "speedup_vs_baseline": 14,
+    "cosine_equivalent": true,
+    "target_eps": 80,
+    "target_hit": false,
+    "ts": "2026-05-30T21:44:18.994Z"
+  }
+]
