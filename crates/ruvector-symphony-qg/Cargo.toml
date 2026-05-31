@@ -1,0 +1,31 @@
+[package]
+name = "ruvector-symphony-qg"
+version.workspace = true
+edition.workspace = true
+rust-edition = "2021"
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "SymphonyQG: graph-coupled 4-bit FastScan neighbor scoring for approximate nearest-neighbor search (SIGMOD 2025)"
+
+[[bin]]
+name = "symphony-qg-demo"
+path = "src/main.rs"
+
+[[bench]]
+name = "sqg_bench"
+harness = false
+
+[dependencies]
+rand = { workspace = true }
+rand_distr = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
