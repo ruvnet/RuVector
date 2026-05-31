@@ -233,6 +233,8 @@ members = [
     "crates/ruvllm_retrieval_diffusion",
     # RAIRS IVF: Redundant Assignment + Amplified Inverse Residual (ADR-193)
     "crates/ruvector-rairs",
+    # Hybrid sparse-dense search: BM25 + dense ANN with RRF and linear fusion (ADR-194)
+    "crates/ruvector-hybrid",
 ]
 resolver = "2"
 
