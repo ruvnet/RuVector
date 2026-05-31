@@ -9673,6 +9673,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-memcompact"
+version = "0.1.0"
+dependencies = [
+ "criterion 0.5.1",
+ "rand 0.8.5",
+ "rand_distr 0.4.3",
+ "serde",
+]
+
+[[package]]
 name = "ruvector-metrics"
 version = "2.2.3"
 dependencies = [

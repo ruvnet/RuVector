@@ -1,0 +1,22 @@
+[package]
+name        = "ruvector-memcompact"
+version     = "0.1.0"
+edition     = "2021"
+description = "Agent memory compaction via graph-cut clustering — semantic-aware memory consolidation for AI agents"
+authors     = ["ruvnet", "claude-flow"]
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["agent-memory", "vector-database", "graph-cut", "compaction", "ruvector"]
+categories  = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "memcompact-bench"
+path = "src/main.rs"
+
+[dependencies]
+rand     = "0.8"
+rand_distr = "0.4"
+serde    = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
