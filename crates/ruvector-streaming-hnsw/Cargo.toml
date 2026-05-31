@@ -1,0 +1,27 @@
+[package]
+name = "ruvector-streaming-hnsw"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Streaming HNSW: lock-free concurrent vector insertions with simultaneous ANN queries — RwLock-per-node graph supporting live index growth without query stalls"
+
+[[bin]]
+name = "streaming-hnsw-demo"
+path = "src/main.rs"
+
+[[bench]]
+name = "streaming_hnsw_bench"
+harness = false
+
+[dependencies]
+rand = { workspace = true }
+rand_distr = { workspace = true }
+rayon = { workspace = true }
+thiserror = { workspace = true }
+parking_lot = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }

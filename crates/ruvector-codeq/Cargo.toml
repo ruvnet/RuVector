@@ -1,0 +1,25 @@
+[package]
+name = "ruvector-codeq"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "CoDEQ: Consistent Dynamic Efficient Quantizer — kd-tree median-split quantization with O(1)-bounded streaming inserts/deletes for ruvector (arXiv:2512.18335)"
+
+[[bin]]
+name = "codeq-demo"
+path = "src/main.rs"
+
+[[bench]]
+name = "codeq_bench"
+harness = false
+
+[dependencies]
+rand = { workspace = true }
+rand_distr = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }

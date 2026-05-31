@@ -8869,6 +8869,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-codeq"
+version = "2.2.2"
+dependencies = [
+ "criterion 0.5.1",
+ "rand 0.8.5",
+ "rand_distr 0.4.3",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ruvector-cognitive-container"
 version = "2.2.3"
 dependencies = [
@@ -10307,6 +10317,18 @@ dependencies = [
  "serde_json",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "ruvector-streaming-hnsw"
+version = "2.2.2"
+dependencies = [
+ "criterion 0.5.1",
+ "parking_lot 0.12.5",
+ "rand 0.8.5",
+ "rand_distr 0.4.3",
+ "rayon",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
