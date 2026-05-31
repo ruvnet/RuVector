@@ -1,0 +1,56 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "ruvector"
+version = "0.1.0"
+description = "Vector similarity search via RaBitQ 1-bit quantization"
+readme = "README.md"
+license = { text = "MIT OR Apache-2.0" }
+requires-python = ">=3.9"
+authors = [{ name = "Ruvector Team" }]
+keywords = ["vector-search", "ann", "rabitq", "rust", "embeddings"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Database :: Database Engines/Servers",
+    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+]
+dependencies = ["numpy>=1.21"]
+
+[project.optional-dependencies]
+test = ["pytest>=7", "numpy>=1.21"]
+
+[project.urls]
+Repository = "https://github.com/ruvnet/ruvector"
+Issues = "https://github.com/ruvnet/ruvector/issues"
+"SDK Plan" = "https://github.com/ruvnet/ruvector/tree/main/docs/sdk"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
+module-name = "ruvector._native"
+# Hand-written stubs live alongside the Python source so they ship in the
+# wheel. `python/ruvector/__init__.pyi` is the canonical surface; the
+# `stubs/` tree carries the same file for tooling that reads PEP 561 stub
+# packages directly. See `docs/sdk/02-strategy.md` § "Type stubs".
+include = [
+    { path = "python/ruvector/py.typed", format = "wheel" },
+    { path = "python/ruvector/__init__.pyi", format = "wheel" },
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
