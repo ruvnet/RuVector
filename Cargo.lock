@@ -10172,6 +10172,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-soar"
+version = "2.2.2"
+dependencies = [
+ "criterion 0.5.1",
+ "rand 0.8.5",
+ "rand_distr 0.4.3",
+ "rayon",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ruvector-solver"
 version = "2.2.3"
 dependencies = [

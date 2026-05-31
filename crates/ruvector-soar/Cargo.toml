@@ -1,0 +1,30 @@
+[package]
+name = "ruvector-soar"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "SOAR-IVF: Spilling with Orthogonality-Amplified Residuals for high-recall approximate nearest-neighbour search — NeurIPS 2023"
+
+[[bin]]
+name = "soar-demo"
+path = "src/main.rs"
+
+[[bench]]
+name = "soar_bench"
+harness = false
+
+[dependencies]
+rand = { workspace = true }
+rand_distr = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
