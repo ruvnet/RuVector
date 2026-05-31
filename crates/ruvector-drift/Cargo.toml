@@ -1,0 +1,23 @@
+[package]
+name        = "ruvector-drift"
+version     = "0.1.0"
+edition     = "2021"
+description = "Semantic drift detection for RuVector agent memory — three detectors with compaction hints"
+authors     = ["ruvnet", "claude-flow"]
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["ann", "agent-memory", "drift", "vector-search", "ruvector"]
+categories  = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "drift-demo"
+path = "src/bin/demo.rs"
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+rand        = "0.8"
+rand_distr  = "0.4"
+serde       = { version = "1", features = ["derive"] }
