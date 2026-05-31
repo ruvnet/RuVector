@@ -233,6 +233,8 @@ members = [
     "crates/ruvllm_retrieval_diffusion",
     # RAIRS IVF: Redundant Assignment + Amplified Inverse Residual (ADR-193)
     "crates/ruvector-rairs",
+    # Tiered agent memory: coherence-driven hot/warm/cold tier promotion (ADR-194)
+    "crates/ruvector-tiered-memory",
 ]
 resolver = "2"
 

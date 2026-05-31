@@ -1,0 +1,24 @@
+[package]
+name        = "ruvector-tiered-memory"
+version     = "0.1.0"
+edition     = "2021"
+description = "Tiered agent memory with coherence-driven hot/warm/cold promotion for ruvector"
+authors     = ["ruvnet", "claude-flow"]
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["agent-memory", "vector-search", "tiered-memory", "coherence", "ruvector"]
+categories  = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "tiered-memory-demo"
+path = "src/main.rs"
+
+[dependencies]
+rand = "0.8"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name    = "tiered_bench"
+harness = false
