@@ -1,0 +1,28 @@
+[package]
+name = "ruvector-muvera"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "MUVERA: Multi-Vector Retrieval via Fixed Dimensional Encodings — reduces ColBERT-style late-interaction search to standard single-vector MIPS (NeurIPS 2024, arXiv:2405.19504)"
+
+[[bin]]
+name = "muvera-demo"
+path = "src/main.rs"
+
+[[bench]]
+name = "muvera_bench"
+harness = false
+
+[dependencies]
+rand = { workspace = true }
+rand_distr = { workspace = true }
+thiserror = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
