@@ -1,0 +1,35 @@
+[package]
+name = "ruvector-symphonyqg"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "SymphonyQG: co-designed 1-bit quantization + SIMD-batch-aligned graph for in-register ANN search — fastest single-machine ANN at high recall (SIGMOD 2025)"
+
+[[bin]]
+name = "symphony-demo"
+path = "src/main.rs"
+
+[[bench]]
+name = "symphony_bench"
+harness = false
+
+[features]
+default = []
+# Per-query data-parallel batch search via rayon. Each query is independent
+# so this scales linearly with cores. Enable for server workloads with
+# concurrent query streams. Adds rayon to the runtime dependency tree.
+parallel = ["dep:rayon"]
+
+[dependencies]
+rand        = { workspace = true }
+rand_distr  = { workspace = true }
+thiserror   = { workspace = true }
+serde       = { workspace = true }
+serde_json  = { workspace = true }
+rayon       = { workspace = true, optional = true }
+
+[dev-dependencies]
+criterion = { workspace = true }

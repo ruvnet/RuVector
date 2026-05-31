@@ -147,6 +147,15 @@ bench_data/
 acceleras.log
 hailo_sdk.client.log
 
+# Python virtual environments (Hailo SDK venvs, DFC venvs, etc.)
+venv-hailo/
+venv-hailo-dfc/
+venv*/
+.venv*/
+
+# Large zip/archive artifacts
+docs/ruvllm/*.zip
+
 # Iter 228 — per-crate Cargo.lock files for the hailo workspace members
 # (post iter-219 workspace rejoin). The parent workspace's Cargo.lock
 # is canonical; cargo regenerates these locally as a side effect of
