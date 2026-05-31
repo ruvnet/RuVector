@@ -14,8 +14,19 @@ pub mod distance;
 pub mod error;
 pub mod graph;
 pub mod index;
-pub mod pq;
+pub mod quantize;
 
 pub use error::{DiskAnnError, Result};
 pub use index::{DiskAnnConfig, DiskAnnIndex};
-pub use pq::ProductQuantizer;
+pub use quantize::{ProductQuantizer, Quantizer};
+
+#[cfg(feature = "rabitq")]
+pub use quantize::RabitqQuantizer;
+
+/// Backwards-compatible alias for the pre-quantize-module module path.
+/// Existing callers that did `use ruvector_diskann::pq::ProductQuantizer;`
+/// keep working without code changes. New code should prefer
+/// `ruvector_diskann::quantize::ProductQuantizer`.
+pub mod pq {
+    pub use crate::quantize::pq::*;
+}
