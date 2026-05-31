@@ -1,0 +1,20 @@
+[package]
+name = "ruvector-lorann"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "LoRANN: clustering-based ANN with per-cluster reduced-rank regression score approximation (NeurIPS 2024) for high-dimensional embedding search"
+
+[[bin]]
+name = "lorann-demo"
+path = "src/main.rs"
+
+[dependencies]
+nalgebra = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }
+rayon = { workspace = true }
+thiserror = { workspace = true }

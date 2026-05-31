@@ -9640,6 +9640,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-lorann"
+version = "2.2.2"
+dependencies = [
+ "nalgebra 0.33.3",
+ "rand 0.8.5",
+ "rand_distr 0.4.3",
+ "rayon",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ruvector-math"
 version = "2.2.3"
 dependencies = [
