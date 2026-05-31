@@ -1,0 +1,30 @@
+[package]
+name = "ruvector-multivec"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Multi-vector late-interaction search: MaxSim, Chamfer, and MUVERA-FDE approximate scoring for ColBERT-style token-level retrieval"
+
+[[bin]]
+name = "multivec-demo"
+path = "src/main.rs"
+
+[[bench]]
+name = "multivec_bench"
+harness = false
+
+[dependencies]
+rand = { workspace = true }
+rand_distr = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
