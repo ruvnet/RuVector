@@ -1,0 +1,26 @@
+[package]
+name = "ruvector-drift"
+version = "0.1.0"
+edition = "2021"
+description = "Semantic drift detection for agent memory and vector index health in RuVector"
+license = "MIT OR Apache-2.0"
+keywords = ["vector", "drift", "embedding", "agent-memory", "anomaly"]
+
+[lib]
+name = "ruvector_drift"
+path = "src/lib.rs"
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+rand = { version = "0.8", features = ["small_rng"] }
+rand_distr = "0.4"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "drift_bench"
+harness = false
