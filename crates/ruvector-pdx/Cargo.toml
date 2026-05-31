@@ -1,0 +1,21 @@
+[package]
+name = "ruvector-pdx"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "PDX: Columnar vector storage with dimension-pruning search for 2-7x faster ANN scans (SIGMOD 2025)"
+
+[[bin]]
+name = "pdx-demo"
+path = "src/main.rs"
+
+[dependencies]
+rand = { workspace = true }
+rand_distr = { workspace = true }
+thiserror = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon = { workspace = true }

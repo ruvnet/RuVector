@@ -9871,6 +9871,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-pdx"
+version = "2.2.2"
+dependencies = [
+ "rand 0.8.5",
+ "rand_distr 0.4.3",
+ "rayon",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ruvector-profiler"
 version = "2.2.3"
 dependencies = [
