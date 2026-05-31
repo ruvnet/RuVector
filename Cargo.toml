@@ -20,6 +20,7 @@ exclude = ["crates/micro-hnsw-wasm", "crates/ruvector-hyperbolic-hnsw", "crates/
 members = [
     "crates/ruvector-acorn",
     "crates/ruvector-acorn-wasm",
+    "crates/ruvector-adaptive-beam",
     "crates/ruvector-rabitq",
     "crates/ruvector-rabitq-wasm",
     "crates/ruvector-rulake",
