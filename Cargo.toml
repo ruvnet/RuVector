@@ -233,6 +233,8 @@ members = [
     "crates/ruvllm_retrieval_diffusion",
     # RAIRS IVF: Redundant Assignment + Amplified Inverse Residual (ADR-193)
     "crates/ruvector-rairs",
+    # Matryoshka HNSW: dimension-adaptive cascaded vector search (ADR-194)
+    "crates/ruvector-matryoshka",
 ]
 resolver = "2"
 
