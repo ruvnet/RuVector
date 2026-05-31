@@ -1,0 +1,19 @@
+[package]
+name        = "ruvector-drift"
+version     = "0.1.0"
+edition     = "2021"
+description = "Semantic drift detection for agent memory: three variants (centroid shift, MMD, diagonal Fréchet) for monitoring query-distribution change in vector indexes"
+authors     = ["ruvnet", "claude-flow"]
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["ann", "drift-detection", "agent-memory", "vector-search", "ruvector"]
+categories  = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "drift-bench"
+path = "src/main.rs"
+
+[dependencies]
+rand        = { version = "0.8", features = ["small_rng"] }
+rand_distr  = "0.4"
+serde       = { version = "1", features = ["derive"] }
