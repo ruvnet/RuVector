@@ -233,6 +233,8 @@ members = [
     "crates/ruvllm_retrieval_diffusion",
     # RAIRS IVF: Redundant Assignment + Amplified Inverse Residual (ADR-193)
     "crates/ruvector-rairs",
+    # MinCut-guided agent memory compaction (ADR-196)
+    "crates/ruvector-mincut-memory",
 ]
 resolver = "2"
 
