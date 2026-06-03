@@ -173,7 +173,7 @@ jobs:
           TMP=$(mktemp -d)
           DB="$TMP/smoke.db"
 
-          node bin/cli.js create "$DB" --dimensions 64
+          node bin/cli.js create "$DB" --dimension 64
           echo "Created DB at $DB"
 
           # Generate 200 random float32 vectors as JSON and insert them
