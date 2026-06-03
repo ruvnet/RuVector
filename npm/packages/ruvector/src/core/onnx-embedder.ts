@@ -118,13 +118,17 @@ export function isOnnxAvailable(): boolean {
 }
 
 /**
- * Check if parallel workers are available (npm package installed)
+ * Check whether the bundled parallel worker pool can be loaded — i.e. the
+ * `onnx/bundled-parallel.mjs` file ships in the package. This reflects the
+ * *bundled* pool (the only parallel implementation), NOT the unpublished
+ * external `ruvector-onnx-embeddings-wasm/parallel` package, which was rejected
+ * in ADR-194. See https://github.com/ruvnet/RuVector/issues/531.
  */
-async function detectParallelAvailable(): Promise<boolean> {
+function detectParallelAvailable(): boolean {
   try {
-    await dynamicImport('ruvector-onnx-embeddings-wasm/parallel');
-    parallelAvailable = true;
-    return true;
+    const poolPath = path.join(__dirname, 'onnx', 'bundled-parallel.mjs');
+    parallelAvailable = fs.existsSync(poolPath);
+    return parallelAvailable;
   } catch {
     parallelAvailable = false;
     return false;
@@ -145,37 +149,25 @@ function detectSimd(): boolean {
 }
 
 /**
- * Try to load ParallelEmbedder from npm package (optional)
+ * Initialize the bundled, zero-dependency worker pool for batch throughput.
+ *
+ * Opt-in only (`enableParallel === true`) so the default/'auto' path does not
+ * silently spawn worker threads for existing callers. Output vectors are
+ * bit-identical to the single-thread path (issue #523).
+ *
+ * The previously-referenced external package
+ * `ruvector-onnx-embeddings-wasm/parallel` was never published and was rejected
+ * in ADR-194; the bundled pool (`onnx/bundled-parallel.mjs`) is the only
+ * parallel implementation. See https://github.com/ruvnet/RuVector/issues/531.
  */
 async function tryInitParallel(config: OnnxEmbedderConfig): Promise<boolean> {
-  // Skip if explicitly disabled
-  if (config.enableParallel === false) return false;
-
-  // 1) Optional external package (back-compat). Absent by default.
-  try {
-    const parallelModule = await dynamicImport('ruvector-onnx-embeddings-wasm/parallel');
-    const { ParallelEmbedder } = parallelModule;
-
-    parallelEmbedder = new ParallelEmbedder({
-      numWorkers: config.numWorkers,
-    });
-    await parallelEmbedder.init(config.modelId || DEFAULT_MODEL);
-
-    parallelThreshold = config.parallelThreshold || 4;
-    parallelEnabled = true;
-    parallelAvailable = true;
-    console.error(`Parallel embedder ready (external): ${parallelEmbedder.numWorkers} workers, SIMD: ${simdAvailable}`);
-    return true;
-  } catch {
-    // External package not installed — fall through to the bundled pool.
-  }
-
-  // 2) Bundled, zero-dependency worker pool over the already-loaded model bytes.
-  // Opt-in only (enableParallel === true) so the default/'auto' path does not
-  // silently spawn worker threads for existing callers. Vectors are identical
-  // to the single-thread path (issue #523).
+  // Skip unless parallelism is explicitly requested (covers false and 'auto').
   if (config.enableParallel !== true) {
     parallelAvailable = false;
+    return false;
+  }
+  if (!detectParallelAvailable()) {
+    console.error('Parallel embedder not available: bundled worker pool (onnx/bundled-parallel.mjs) missing');
     return false;
   }
   try {

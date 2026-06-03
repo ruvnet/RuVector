@@ -40,6 +40,19 @@ jobs:
       - name: Install (isolated from workspace)
         run: npm install --no-audit --no-fund --legacy-peer-deps --no-workspaces --no-optional
 
+      - name: Guard — no dead external parallel-worker import (issue #531)
+        run: |
+          # `ruvector-onnx-embeddings-wasm/parallel` was never published and is
+          # rejected by ADR-194. The bundled worker pool
+          # (onnx/bundled-parallel.mjs) is the only parallel implementation.
+          # Fail if any source re-introduces an import/require/from of the dead
+          # package. Doc comments that merely mention the name are allowed.
+          if grep -rnE "(import|require|dynamicImport)[[:space:]]*\([[:space:]]*['\"]ruvector-onnx-embeddings-wasm/parallel['\"]|from[[:space:]]+['\"]ruvector-onnx-embeddings-wasm/parallel['\"]" src/; then
+            echo "::error::Dead external import of 'ruvector-onnx-embeddings-wasm/parallel' found — package is unpublished and rejected by ADR-194. Use the bundled onnx/bundled-parallel.mjs pool instead (issue #531)."
+            exit 1
+          fi
+          echo "Guard OK: no dead external parallel-worker import in src/."
+
       - name: Build
         # tsc exits non-zero on pre-existing errors but still emits dist/
         # (noEmitOnError is not set in tsconfig, defaults to false).
