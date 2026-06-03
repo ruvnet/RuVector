@@ -365,10 +365,34 @@ export class ModelLoader {
  * ```
  */
 export async function createEmbedder(modelName = DEFAULT_MODEL, wasmModule = null) {
-    // Import WASM module if not provided
+    // Import + initialize the WASM module if not provided.
     if (!wasmModule) {
-        wasmModule = await import('./pkg/ruvector_onnx_embeddings_wasm.js');
-        await wasmModule.default();
+        // The published artifact is a wasm-pack --target bundler build. Its wrapper
+        // (pkg/ruvector_onnx_embeddings_wasm.js) BOTH starts with
+        // `import * as wasm from "...bg.wasm"` — which plain Node ESM cannot resolve —
+        // AND exports no `default` init, so the old `import(wrapper); await default()`
+        // path throws under Node. Mirror the worker's proven init (embed-worker.mjs):
+        // import the _bg.js glue directly and instantiate the .wasm ourselves. This
+        // produces vectors identical to the worker path by construction. (issue #523)
+        if (typeof process !== 'undefined' && process.versions?.node) {
+            const { pathToFileURL, fileURLToPath } = await import('node:url');
+            const path = await import('node:path');
+            const fs = await import('node:fs');
+            const pkgDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'pkg');
+            const bgJs = path.join(pkgDir, 'ruvector_onnx_embeddings_wasm_bg.js');
+            const bgWasm = path.join(pkgDir, 'ruvector_onnx_embeddings_wasm_bg.wasm');
+            wasmModule = await import(pathToFileURL(bgJs).href);
+            const { instance } = await WebAssembly.instantiate(fs.readFileSync(bgWasm), {
+                './ruvector_onnx_embeddings_wasm_bg.js': wasmModule,
+            });
+            if (typeof wasmModule.__wbg_set_wasm === 'function') wasmModule.__wbg_set_wasm(instance.exports);
+            if (typeof instance.exports.__wbindgen_start === 'function') instance.exports.__wbindgen_start();
+        } else {
+            // Browser / bundler: the wrapper resolves the .wasm import and its
+            // default() performs initialization.
+            wasmModule = await import('./pkg/ruvector_onnx_embeddings_wasm.js');
+            await wasmModule.default();
+        }
     }
 
     const loader = new ModelLoader();
