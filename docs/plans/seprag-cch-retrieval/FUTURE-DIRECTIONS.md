@@ -35,10 +35,14 @@ Harness: `crates/ruvector-seprag/examples/reweight_vs_rebuild.rs`.
   in-region vs out-region separately. Reuse held *inside* the drifted region (A_in within
   0.7% of B_in, gate PASS) even at 53% in-region churn. Surfaced a transient rebuild dip
   (B_in 81% at t=0.25) = lite-Vamana build variance → motivates the diskann port.
-- **Open (ranked):** (1) **port baseline to `ruvector-diskann`** (firms B, removes lite
-  build variance, confirms on the production index) + confirm 100k gap with ≥500 queries;
-  (2) hybrid policy (re-weight every step + rebuild every K / on drift-monitor trigger);
-  (3) incremental-rebuild baseline; (4) wire into the real GNN loop behind a flag.
+- **Production-index port ✅** (`examples/diskann_drift.rs`): confirmed on the shipping
+  `ruvector-diskann` Vamana (n=20k, recall 96–99%, reuse within 2% global + in-region). The
+  t=0.25 reuse-beats-rebuild dip reproduced → it's a real property, not lite-Vamana noise;
+  baseline-variance caveat resolved.
+- **Open (ranked):** (1) diskann at n≥10⁵ + ≥500 queries (confirm the −1.5–1.7% gap is
+  real vs noise); (2) hybrid policy (re-weight every step + rebuild every K / on
+  drift-monitor trigger); (3) incremental-rebuild baseline; (4) wire into the real GNN loop
+  behind a flag (the production payoff).
 
 ### BET 2 — Filtered ANN vs `ruvector-acorn`
 Region/predicate pruning for constrained ("nearest among items matching X") retrieval — a

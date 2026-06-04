@@ -15,6 +15,9 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 approx = "0.5"
+# Production DiskANN/Vamana index — used by the diskann_drift example to confirm
+# BET 1 (ADR-200) on the real index rather than the lite reference Vamana.
+ruvector-diskann = { path = "../ruvector-diskann" }
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", priority = -1 }
