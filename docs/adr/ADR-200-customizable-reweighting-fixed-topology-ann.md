@@ -19,9 +19,12 @@ full-contraction was NO-GO on embedding graphs, [ADR-199]). The fixed topology m
 rebuild within the pre-registered 2% recall gate across diagonal/rotational/non-linear drift,
 across n=5k…100k, **and** under region-local drift (warping only a 15% cluster), at
 **~1,000–4,000× lower update cost**. Confirmed on the **production `ruvector-diskann` Vamana** (96–99% recall, reuse within 2% of
-rebuild). **Caveat (honest):** the recall gap widens mildly with scale/churn (−0.2% → −1.7%
-at 100k; −1.5% at peak production-index churn), so this is a *defer/batch rebuilds* strategy,
-not *never rebuild*. The earlier "rebuild-baseline variance" caveat is **resolved** — the
+rebuild), and the **hybrid operating policy is validated**: under aggressive compounding drift
+a periodic rebuild every ~4 steps recovers 98.8% (vs 99.1% always, 94.4% never) at 25% of the
+rebuild cost. **Caveat (honest):** the recall gap widens with scale/churn (−0.2% → −1.7% at
+100k; `never` decays to 94% under heavy compounding drift), which is exactly what the hybrid
+*defer/batch rebuild* policy is for — so the strategy is "re-weight every step, rebuild
+periodically," not "never rebuild." The earlier "rebuild-baseline variance" caveat is **resolved** — the
 production index reaches the same conclusion, and the t=0.25 reuse-beats-rebuild dip
 reproduced (it is a real property, not lite-Vamana noise). Remaining open: a real GNN-metric
 trajectory, an incremental-rebuild baseline, larger-N on diskann, and more-query
@@ -161,6 +164,30 @@ beam width, not edge metric-optimality — and navigability survives smooth reme
 linear *or* non-linear. (Edge optimality would matter more for path length / efficiency,
 which is why we also checked per-query evals and found them equal.)
 
+### Operating policy: hybrid re-weight + periodic rebuild (n=10k, diskann)
+
+The shippable answer to "the gap widens with drift": re-weight every step, rebuild
+occasionally. Tested on a **compounding random-walk** drift (fresh direction each step,
+eps=0.3 — aggressive, to force `never` to decay) over a 24-step trajectory. `hybrid_policy.rs`,
+recall@10:
+
+| policy | mean | min | rebuilds | rebuild cost |
+|---|---|---|---|---|
+| always (rebuild every step) | 99.1% | 98.4% | 24 | 68.7s |
+| never (reuse only) | 94.4% | 89.7% | 1 | 2.9s |
+| **periodic-4** | **98.8%** | 97.9% | 6 | 17.2s |
+| periodic-8 | 98.4% | 96.5% | 3 | 8.6s |
+| triggered (Frobenius monitor) | 95–98% | 90–94% | 1–3 | 2.9–8.6s |
+
+**Result:** under aggressive compounding drift `never` decays (94.4% mean, 89.7% floor);
+**periodic-4 recovers 98.8% — within 0.3% of always — at 25% of the rebuild cost** (periodic-8:
+98.4% at 12.5%). So a cheap fixed-schedule rebuild captures nearly all of always's recall.
+**Honest sub-finding:** the drift-*triggered* policy (rebuild when the Frobenius norm of the
+cumulative-transform delta exceeds τ) **underperformed simple periodic** — the signal fired
+unevenly. Simple **periodic-K is the recommended knob**; a smarter trigger (e.g. a small
+sampled-recall probe) is future work. Note: under *gentle* single-direction drift (n=5k test)
+`never` did **not** decay — the hybrid only earns its keep under large/compounding drift.
+
 ## Consequences
 
 **Positive.**
@@ -172,30 +199,32 @@ which is why we also checked per-query evals and found them equal.)
   overclaiming.
 
 **Boundaries / not yet proven (the honest caveats).**
-- **Scale.** n=2000; recall-at-scale (n≥10⁵) and the rebuild-cost curve unconfirmed. This
-  is now the *primary* open question — and the cost asymmetry only grows with n.
-- **Global drift.** Same transform for all points; **region-local** metric change (different
-  relevance in different regions) is harder and untested.
-- **Baseline.** Compared vs *full* rebuild; an *incremental*-update baseline is not yet in.
-- **Synthetic drift.** Drift is parametric (diag/rot/tanh), not a real learned-GNN metric
-  trajectory — realistic, but the live GNN loop is the eventual proof.
+- **Synthetic drift.** Drift is parametric (diagonal / rotational / non-linear tanh /
+  compounding random walk), not a real learned-GNN metric trajectory. Realistic and
+  adversarial, but the live GNN loop is the eventual proof.
+- **Gap grows with scale/churn.** Recall gap reaches −1.7% at n=100k and `never` decays to
+  ~94% under heavy compounding drift — addressed operationally by the periodic-rebuild
+  hybrid, but not eliminated.
+- **Incremental baseline.** Compared vs *full* rebuild; an *incremental*-update baseline is
+  not yet in (would tighten the cost comparison).
+- **Trigger signal.** The Frobenius drift-monitor underperformed simple periodic; a better
+  cheap signal (sampled-recall probe) is unproven.
 
-*(Resolved: the "linear drift only" caveat — non-linear tanh-warp drift now tested and
-passes, so navigability robustness is not limited to linear remetrization.)*
+*(Resolved: "linear drift only" — non-linear tanh-warp passes. "n=2000 only" — scaled to
+100k. "lite-Vamana baseline variance" — confirmed on production `ruvector-diskann`.)*
 
 ## Next steps
 
-1. ~~Scale to n≥10⁵~~ **done**; ~~port to production `ruvector-diskann`~~ **done** (n=20k,
-   confirmed within 2%, baseline-variance caveat resolved). Follow-up: diskann at n≥10⁵ and
-   ≥500 queries to confirm whether the −1.5–1.7% gap is a real trend or noise.
-2. ~~Region-local drift~~ **done** (warp a 15% cluster; reuse held in-region within 0.7%,
-   gate PASS). Surfaced a build-variance dip in the lite-Vamana baseline → reinforces #1.
+1. ~~Scale to n≥10⁵~~ **done** · ~~production `ruvector-diskann` port~~ **done** ·
+   ~~region-local drift~~ **done** · ~~hybrid policy~~ **done** (periodic-4 ≈ always at 25%
+   cost). Follow-up: diskann at n≥10⁵ with ≥500 queries to firm the gap-trend estimate.
+2. **Smarter rebuild trigger** — replace the Frobenius monitor with a small sampled-recall
+   probe (estimate live recall cheaply, rebuild when it crosses a floor); should beat
+   fixed periodic.
 3. Incremental-rebuild baseline for a fair cost comparison (vs full rebuild).
-4. Wire re-weight-on-drift into the `ruvector-diskann`/GNN loop behind a flag and validate
-   on a real learned-metric trajectory (the eventual production proof).
-5. A *hybrid policy*: cheap re-weight every step + a full rebuild every K steps (or when a
-   drift-monitor predicts the gap will cross a threshold) — captures most of the cost win
-   while bounding recall loss.
+4. **Wire into the `ruvector-diskann`/`ruvector-gnn` loop behind a flag** and validate on a
+   real learned-metric trajectory — the eventual production proof and the natural home for
+   the periodic-rebuild policy.
 
 ## Alternatives considered
 

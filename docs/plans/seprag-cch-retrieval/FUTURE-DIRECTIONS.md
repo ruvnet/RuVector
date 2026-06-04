@@ -39,10 +39,14 @@ Harness: `crates/ruvector-seprag/examples/reweight_vs_rebuild.rs`.
   `ruvector-diskann` Vamana (n=20k, recall 96–99%, reuse within 2% global + in-region). The
   t=0.25 reuse-beats-rebuild dip reproduced → it's a real property, not lite-Vamana noise;
   baseline-variance caveat resolved.
-- **Open (ranked):** (1) diskann at n≥10⁵ + ≥500 queries (confirm the −1.5–1.7% gap is
-  real vs noise); (2) hybrid policy (re-weight every step + rebuild every K / on
-  drift-monitor trigger); (3) incremental-rebuild baseline; (4) wire into the real GNN loop
-  behind a flag (the production payoff).
+- **Hybrid policy ✅** (`examples/hybrid_policy.rs`): under aggressive compounding random-walk
+  drift, `never` decays to 94.4% mean / 89.7% floor; **periodic-4 recovers 98.8% (≈ always
+  99.1%) at 25% of the rebuild cost** (periodic-8: 98.4% at 12.5%). The drift-*triggered*
+  monitor (Frobenius) underperformed simple periodic → periodic-K is the recommended knob.
+- **Open (ranked):** (1) smarter rebuild trigger (sampled-recall probe vs the Frobenius
+  monitor); (2) wire re-weight + periodic-rebuild into the `ruvector-diskann`/`ruvector-gnn`
+  loop behind a flag (production payoff); (3) diskann at n≥10⁵ + ≥500 queries; (4)
+  incremental-rebuild baseline.
 
 ### BET 2 — Filtered ANN vs `ruvector-acorn`
 Region/predicate pruning for constrained ("nearest among items matching X") retrieval — a
