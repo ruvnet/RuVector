@@ -31,10 +31,14 @@ Harness: `crates/ruvector-seprag/examples/reweight_vs_rebuild.rs`.
 - **Scale ✅** (`examples/scale_drift.rs`): recall parity within 2% from 5k→100k at
   **~1,000–4,000× lower update cost** (rebuild 142s vs reuse 0.035s at 100k). Honest caveat:
   gap widens with N (−0.2%→−1.7%) → *defer/batch rebuilds*, not *never*.
-- **Open (ranked):** (1) confirm the 100k gap trend with ≥500 queries + port to
-  `ruvector-diskann`; (2) **region-local drift** (most likely to break reuse);
-  (3) hybrid policy (re-weight every step + rebuild every K); (4) incremental-rebuild baseline;
-  (5) wire into the real GNN loop behind a flag.
+- **Region-local drift ✅** (`examples/region_drift.rs`): warp only a 15% cluster, grade
+  in-region vs out-region separately. Reuse held *inside* the drifted region (A_in within
+  0.7% of B_in, gate PASS) even at 53% in-region churn. Surfaced a transient rebuild dip
+  (B_in 81% at t=0.25) = lite-Vamana build variance → motivates the diskann port.
+- **Open (ranked):** (1) **port baseline to `ruvector-diskann`** (firms B, removes lite
+  build variance, confirms on the production index) + confirm 100k gap with ≥500 queries;
+  (2) hybrid policy (re-weight every step + rebuild every K / on drift-monitor trigger);
+  (3) incremental-rebuild baseline; (4) wire into the real GNN loop behind a flag.
 
 ### BET 2 — Filtered ANN vs `ruvector-acorn`
 Region/predicate pruning for constrained ("nearest among items matching X") retrieval — a

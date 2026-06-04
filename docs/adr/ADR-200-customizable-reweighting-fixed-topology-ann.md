@@ -16,12 +16,15 @@ tags: [ruvector, retrieval, ann, vamana, hnsw, self-learning, metric-drift, cust
 one idea from the SepRAG exploration ([ADR-196]) that survived every test — the
 *customizable metric* of [ADR-198] — re-tested **standalone, decoupled from CCH** (CCH
 full-contraction was NO-GO on embedding graphs, [ADR-199]). The fixed topology matches full
-rebuild within the pre-registered 2% recall gate across diagonal/rotational/non-linear drift
-and across n=5k…100k, at **~1,000–4,000× lower update cost**. **Caveat (honest):** the
-recall gap widens mildly with scale (−0.2% → −1.7% at 100k), so this is a *defer/batch
-rebuilds* strategy, not *never rebuild*. Remaining open: region-local drift, an incremental
-baseline, a real GNN-metric trajectory, and tighter (more-query) confirmation of the
-scale-gap trend.
+rebuild within the pre-registered 2% recall gate across diagonal/rotational/non-linear drift,
+across n=5k…100k, **and** under region-local drift (warping only a 15% cluster), at
+**~1,000–4,000× lower update cost**. **Caveats (honest):** (1) the recall gap widens mildly
+with scale (−0.2% → −1.7% at 100k), so this is a *defer/batch rebuilds* strategy, not *never
+rebuild*; (2) the rebuild baseline is a simplified single-pass Vamana with build variance
+(a transient B dip surfaced under region-local drift), so results should be re-confirmed on
+the production `ruvector-diskann` index. Remaining open: production-index port, a real
+GNN-metric trajectory, an incremental baseline, and more-query confirmation of the scale-gap
+trend.
 
 ## Context
 
@@ -103,6 +106,33 @@ rebuild*. (Both A and B recall fall with N — fixed beam L=64 weakens relativel
 the A−B gap, not the absolute, is the signal.) With 100 queries, per-point noise is ~±1%,
 so the trend should be confirmed with more queries before being treated as definitive.
 
+### Region-local drift (n=20k; warp only a 15% local cluster)
+
+The hardest realistic case: the metric changes a lot in ONE region (e.g. one topic the
+GNN re-learns) while the rest is stationary. Recall reported **separately** for queries
+inside vs outside the warped region (a global average would hide a local failure).
+`region_drift.rs`:
+
+| t | churn-in | A_in (reuse) | B_in (rebuild) | A_out | B_out |
+|---|---|---|---|---|---|
+| 0.00 | 0% | 89.7% | 89.7% | 88.0% | 88.0% |
+| 0.25 | 44% | 89.8% | **81.4%** | 87.9% | 89.0% |
+| 0.50 | 53% | 89.3% | 90.0% | 87.9% | 89.0% |
+| 1.00 | 45% | 89.5% | 90.0% | 87.9% | 89.0% |
+
+**Gate: PASS.** Reuse holds *inside* the drifted region — A_in within 0.7% of B_in (and
+**above** it at t=0.25) even at 53% in-region churn. Out-region recall is essentially
+unchanged (A_out ~1.1% under B_out, within gate). Region-local drift did **not** break
+reuse.
+
+**Honest caveat — the t=0.25 anomaly.** B_in transiently fell to 81.4% (reuse beat rebuild
+by 8 pts) then recovered. This non-monotonic dip is a **build-stability artifact of the
+simplified single-pass Vamana** (random init, one seed, α=1.2) on the quarter-warped
+geometry — *not* a smooth property. It cuts two ways: (i) it shows reuse can be *more
+stable* than a fresh build during drift; (ii) it shows the rebuild baseline `B` has
+build variance, so "A matches B" partly depends on B being a fair baseline. This is the
+strongest argument for porting the baseline to the production `ruvector-diskann` index.
+
 **Query cost is also equal.** Mean distance-evals/query: A ≈ B within ~1% in every row
 (e.g. 590 vs 583 at peak churn). So reuse does **not** trade build savings for slower
 queries — it matches B on recall *and* per-query work.
@@ -142,8 +172,8 @@ passes, so navigability robustness is not limited to linear remetrization.)*
    ~10³–10⁴× lower update cost). Follow-up: re-run with more queries (≥500) to confirm
    whether the −1.7% gap at 100k is a real trend or noise; and port to the production
    `ruvector-diskann` index to confirm on its graph.
-2. **Region-local drift** — the most likely thing to break reuse (different metric in
-   different regions could strand the old topology locally).
+2. ~~Region-local drift~~ **done** (warp a 15% cluster; reuse held in-region within 0.7%,
+   gate PASS). Surfaced a build-variance dip in the lite-Vamana baseline → reinforces #1.
 3. Incremental-rebuild baseline for a fair cost comparison (vs full rebuild).
 4. Wire re-weight-on-drift into the `ruvector-diskann`/GNN loop behind a flag and validate
    on a real learned-metric trajectory (the eventual production proof).
