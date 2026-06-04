@@ -115,6 +115,7 @@ members = [
     "crates/ruvector-solver",
     "crates/ruvector-solver-wasm",
     "crates/ruvector-solver-node",
+    "crates/ruvector-seprag",
     "examples/dna",
     "examples/OSpipe",
     "crates/ruvector-coherence",

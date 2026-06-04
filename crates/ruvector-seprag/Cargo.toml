@@ -1,0 +1,27 @@
+[package]
+name = "ruvector-seprag"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "SepRAG — CCH-inspired separator-tree retrieval for hybrid vector + graph memory (M0 correctness gate). See docs/plans/seprag-cch-retrieval/."
+keywords = ["retrieval", "contraction-hierarchies", "nested-dissection", "knn", "graph"]
+categories = ["algorithms", "data-structures"]
+
+[dependencies]
+thiserror = { workspace = true }
+
+[dev-dependencies]
+approx = "0.5"
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", priority = -1 }
+dead_code = "allow"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+correctness = { level = "deny", priority = 0 }
+suspicious = { level = "deny", priority = 0 }
+needless_range_loop = "allow"
