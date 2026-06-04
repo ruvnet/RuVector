@@ -1,0 +1,61 @@
+# SepRAG — Future Directions & Research Backlog
+
+After the CCH-contraction NO-GO on embedding graphs ([ADR-199 Empirical
+Outcome](../../adr/ADR-199-public-corpus-benchmark-harness.md#empirical-outcome-2026-06-04)),
+two ideas survived every test and several promising directions remain. This file keeps
+them alive so they're explored deliberately, each under the same discipline.
+
+## The "prove not hype" protocol (mandatory for every bet)
+
+A result only counts if it satisfies **all five**:
+
+1. **One claim, one number.** e.g. "N× cheaper at equal recall@10," not "faster."
+2. **Beat the strongest in-repo incumbent, tuned** — HNSW / `ruvector-diskann` (Vamana) /
+   `ruvector-acorn` (filtered ANN) — never a strawman.
+3. **Public data + ground truth** (ogbn-arxiv in hand; BEIR / filtered-ANN sets available).
+4. **Pre-register the win AND kill condition** before running. A loss is an acceptable,
+   reportable outcome.
+5. **Adversarial check.** Explicitly ask "would the baseline win if tuned harder?" and
+   include that variant.
+
+## Backlog (ranked by upside × provability)
+
+### BET 1 — Customizable re-weight vs rebuild  ✅ WIN (linear drift), see [ADR-200]
+Salvages ADR-198 (the customizable metric), decoupled from CCH. Result: a **fixed ANN
+topology + recomputed distances** matches full Vamana **rebuild** recall within 0.2% up to
+**36% relevant-set churn**, under *both* diagonal and adversarial dense-Mahalanobis
+(rotational) drift — at **zero** rebuild cost. Stale-index control loses up to 29 points
+(benchmark has teeth). Full evidence + boundaries in
+[ADR-200](../../adr/ADR-200-customizable-reweighting-fixed-topology-ann.md).
+Harness: `crates/ruvector-seprag/examples/reweight_vs_rebuild.rs`.
+- **Open (the honest caveats, ranked):** (1) **non-linear** learned metric — the decisive
+  next adversarial test; (2) scale to n≥10⁵ on `ruvector-diskann` + rebuild-cost curve;
+  (3) region-local drift; (4) incremental-rebuild baseline. Do (1) next.
+
+### BET 2 — Filtered ANN vs `ruvector-acorn`
+Region/predicate pruning for constrained ("nearest among items matching X") retrieval — a
+real flat-ANN weakness. Higher effort; ACORN is a strong specialized incumbent in-repo, so
+it's a harder, longer fight. Needs a filtered-ANN benchmark with selectivity sweeps.
+
+### BET 3 — Multi-hop Graph-RAG on a sparse curated KG
+ADR-196's true scope: structural + semantic retrieval on a Wikidata-style KG (sparse,
+bounded relation degree — possibly more road-like than the dense citation graph that
+failed), with multi-hop QA ground truth (HotpotQA / MuSiQue / 2WikiMultiHop). Biggest
+upside, most data engineering, least clean head-to-head.
+
+### BET 4 — Region pruning on an IVF/clustering hierarchy
+Structural pivot: move the validated separator-tree **pruning query** off separators (which
+need small treewidth) and onto a **clustering/IVF hierarchy** (`rairs-ivf`, ADR-193), which
+is treewidth-immune. Most novel; define the baseline (plain IVF probe) before building.
+
+## Salvaged, validated assets (reusable regardless of bet)
+
+- `ruvector-seprag` — correct, tested CCH nested-dissection + separator-tree k-NN reference.
+- The separator-tree **branch-and-bound pruning query** — exact recall, ~100% search-space
+  reduction, *treewidth-independent*. The reusable kernel.
+- Road-control + manifold + citation harnesses — a treewidth probe for any new backbone.
+
+## Dead (do not revisit without new evidence)
+
+- CCH **full contraction on embedding / dense-similarity graphs** — high treewidth,
+  confirmed across citation + Euclidean feature backbones. HNSW already owns embedding kNN.
