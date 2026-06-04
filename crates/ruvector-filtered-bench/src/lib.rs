@@ -16,6 +16,7 @@
 pub mod contenders;
 pub mod data;
 pub mod predicate;
+pub mod prune;
 
 // Re-export the substrate + incumbent + oracle so the head-to-head harness has one entry
 // point and the dependency graph is exercised at build time.
