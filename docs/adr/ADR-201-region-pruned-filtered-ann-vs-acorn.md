@@ -144,10 +144,24 @@ What *did* hold, honestly:
 
 ## Next steps
 
-1. **Large-n re-test** (n ≥ 10⁵–10⁶, ≥500 queries): the one condition that could flip the
-   verdict (D's predicate scan stops being free). If A's edge re-opens there, revisit.
-2. Otherwise, close BET 2 ⊗ BET 4 as a qualified NO-GO and retain the exact B&B kernel as a
-   validated asset for the narrow ρ≈0.7 / very-low-selectivity regime.
+Two conditions, both surfaced by this experiment's own evidence, could flip the verdict to a
+scoped WIN — they are the honest follow-ups, not the result:
+
+1. **Multi-predicate conjunctions (the strongest lead).** Under `X ∧ Y ∧ Z`, region-pruning's
+   cluster-skip **composes** (skip clusters with zero conjunction-matches), while ACORN's
+   predicate-aware entry (contender D) **degrades sharply** — a *sampled* seed satisfying *all*
+   conjuncts becomes exponentially unlikely as the conjunction tightens, so D regresses toward
+   vanilla ACORN's cost while A stays cheap. This is precisely the regime where A could beat a
+   tuned ACORN *even at high correlation*. This ADR's experiments hold one predicate fixed;
+   conjunctions were out of scope. Highest-leverage next bet, and it reuses this harness.
+2. **Large-n re-test** (n ≥ 10⁵–10⁶, ≥500 queries): D's seeding leans on a ~full predicate scan
+   the distance-eval metric treats as free; at scale that scan is genuinely costly, which could
+   re-open A's edge. Add a predicate-scan cost term and/or measure wall-clock at n=10⁶.
+3. **(Lower priority) BET 4 standalone:** the IVF region-pruning kernel was validated as BET 2's
+   *mechanism* but never run vs the original *plain-IVF-probe* baseline. The kernel is exact; the
+   standalone "beats plain IVF" head-to-head is technically still open.
+4. If none of the above re-open it, close BET 2 ⊗ BET 4 as a qualified NO-GO and retain the
+   exact B&B kernel as a validated asset for the narrow ρ≈0.7 / very-low-selectivity regime.
 
 ## Alternatives considered
 
