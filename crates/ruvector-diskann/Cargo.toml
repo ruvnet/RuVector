@@ -11,6 +11,8 @@ description = "DiskANN/Vamana — SSD-friendly approximate nearest neighbor sear
 default = []
 gpu = []  # Feature flag for GPU acceleration (CUDA/Metal stubs)
 simd = ["simsimd"]
+# BET 1 (ADR-200): fixed-topology reuse + periodic rebuild under metric drift.
+reuse-under-drift = []
 
 [dependencies]
 memmap2 = { workspace = true }
