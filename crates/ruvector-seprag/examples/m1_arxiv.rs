@@ -17,7 +17,7 @@
 
 use ruvector_seprag::graph::{cmp_dist_id, Graph, NodeId};
 use ruvector_seprag::query::{elim_depth, KnnIndex, QueryStats};
-use ruvector_seprag::{gen, SepRag};
+use ruvector_seprag::{gen, SepRag, SeparatorKind};
 use std::collections::VecDeque;
 use std::time::Instant;
 
@@ -28,6 +28,12 @@ fn main() {
     });
     let n_target: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(6000);
     let seed_node: u32 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(0);
+    // arg4: max degree (0 = no backbone sparsification). arg5: "bal" | "layer".
+    let max_degree: usize = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(0);
+    let kind = match args.get(5).map(String::as_str) {
+        Some("layer") => SeparatorKind::BfsLayer,
+        _ => SeparatorKind::Balanced,
+    };
 
     eprintln!("[m1] reading {path}");
     let t = Instant::now();
@@ -40,15 +46,18 @@ fn main() {
     );
 
     // Connected induced subgraph via BFS ball from `seed_node`.
-    let (g, orig_ids) = bfs_ball(&adj, seed_node, n_target);
+    let (g0, orig_ids) = bfs_ball(&adj, seed_node, n_target);
+    let g = if max_degree > 0 { degree_bound(&g0, max_degree) } else { g0 };
     eprintln!(
-        "[m1] subgraph: {} nodes, {} edges (BFS ball from orig id {seed_node})",
+        "[m1] subgraph: {} nodes, {} edges (BFS ball from orig id {seed_node}); \
+         backbone max_degree={max_degree} ({:?} separator)",
         g.n,
-        g.edges().count()
+        g.edges().count(),
+        kind,
     );
 
     let t = Instant::now();
-    let sr = SepRag::build(g);
+    let sr = SepRag::build_with(g, kind);
     let build_s = t.elapsed().as_secs_f64();
     let max_h = (0..sr.graph.n as u32).map(|r| elim_depth(&sr.topo, r)).max().unwrap_or(0);
 
@@ -146,6 +155,22 @@ fn bfs_ball(adj: &[Vec<u32>], seed: u32, n_target: usize) -> (Graph, Vec<u32>) {
         }
     }
     (g, order)
+}
+
+/// Degree-bound backbone sparsification (ADR-197): keep, per node, edges to its
+/// `d` lowest-degree neighbours (hub-dampening), unioned undirected. A cheap
+/// stand-in for α-pruning when no vector metric is loaded yet.
+fn degree_bound(g: &Graph, d: usize) -> Graph {
+    let deg: Vec<usize> = g.adj.iter().map(Vec::len).collect();
+    let mut out = Graph::new(g.n);
+    for u in 0..g.n {
+        let mut nb = g.adj[u].clone();
+        nb.sort_by(|a, b| deg[a.0 as usize].cmp(&deg[b.0 as usize]).then(a.0.cmp(&b.0)));
+        for &(v, w) in nb.iter().take(d) {
+            out.add_edge(u as NodeId, v, w);
+        }
+    }
+    out
 }
 
 fn dist_multiset_eq(a: &[(NodeId, f64)], b: &[(NodeId, f64)]) -> bool {

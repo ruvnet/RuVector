@@ -13,6 +13,16 @@ use std::collections::VecDeque;
 /// Cells smaller than this become leaves (no further dissection).
 pub const LEAF: usize = 8;
 
+/// Separator-finding strategy. `BfsLayer` (M0 baseline) takes a whole BFS
+/// frontier — fine on grids, degenerate on low-diameter graphs. `Balanced`
+/// grows a half-size region and takes only its boundary, giving small
+/// separators on sparse graphs (the M1 fix; ADR-197).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SeparatorKind {
+    BfsLayer,
+    Balanced,
+}
+
 /// A node of the separator decomposition tree. Every original vertex belongs to
 /// exactly one node (either as a separator member or a leaf member), which is
 /// what lets POIs be bucketed unambiguously during query (see `query.rs`).
@@ -39,11 +49,19 @@ pub struct Ordering {
     pub sep_tree: SepTree,
 }
 
-/// Compute a nested-dissection order over all `n` vertices of `g`.
+/// Compute a nested-dissection order over all `n` vertices of `g` using the
+/// `Balanced` separator (the default since M1).
 #[must_use]
 pub fn nested_dissection(g: &Graph) -> Ordering {
+    nested_dissection_kind(g, SeparatorKind::Balanced)
+}
+
+/// Nested dissection with an explicit separator strategy (for A/B attribution).
+#[must_use]
+pub fn nested_dissection_kind(g: &Graph, kind: SeparatorKind) -> Ordering {
     let mut builder = NdBuilder {
         g,
+        kind,
         order: Vec::with_capacity(g.n),
         nodes: Vec::new(),
     };
@@ -57,6 +75,7 @@ pub fn nested_dissection(g: &Graph) -> Ordering {
 
 struct NdBuilder<'a> {
     g: &'a Graph,
+    kind: SeparatorKind,
     order: Vec<NodeId>,
     nodes: Vec<SepNode>,
 }
@@ -76,7 +95,11 @@ impl NdBuilder<'_> {
             return self.leaf(verts);
         }
 
-        match bfs_separator(self.g, &verts) {
+        let sep_result = match self.kind {
+            SeparatorKind::BfsLayer => bfs_separator(self.g, &verts),
+            SeparatorKind::Balanced => balanced_separator(self.g, &verts),
+        };
+        match sep_result {
             Some((sep, a, b)) => {
                 let ca = self.dissect(a);
                 let cb = self.dissect(b);
@@ -175,6 +198,61 @@ fn bfs_separator(g: &Graph, verts: &[NodeId]) -> Option<(Vec<NodeId>, Vec<NodeId
         return None;
     }
     Some((sep, a, b))
+}
+
+/// Balanced separator: grow a half-size region in BFS order, then take only its
+/// boundary (vertices with a neighbour outside the region) as the vertex
+/// separator. On sparse graphs the boundary is small; on any graph the two
+/// sides are balanced, avoiding the path-like elimination tree that the
+/// whole-layer strategy produces on low-diameter graphs.
+fn balanced_separator(g: &Graph, verts: &[NodeId]) -> Option<(Vec<NodeId>, Vec<NodeId>, Vec<NodeId>)> {
+    let in_set = membership(g.n, verts);
+    let start = farthest(g, &in_set, verts[0]);
+    let visit = bfs_order(g, &in_set, start);
+    if visit.len() < 2 {
+        return None;
+    }
+    let half = verts.len() / 2;
+    let mut in_a = vec![false; g.n];
+    for &v in &visit[..half] {
+        in_a[v as usize] = true;
+    }
+    let mut sep = Vec::new();
+    let mut a = Vec::new();
+    for &v in &visit[..half] {
+        // Boundary iff some in-cell neighbour lies outside region A.
+        let on_boundary = g.adj[v as usize]
+            .iter()
+            .any(|&(u, _)| in_set[u as usize] && !in_a[u as usize]);
+        if on_boundary {
+            sep.push(v);
+        } else {
+            a.push(v);
+        }
+    }
+    let b: Vec<NodeId> = visit[half..].to_vec();
+    if a.is_empty() || b.is_empty() || sep.is_empty() {
+        return None;
+    }
+    Some((sep, a, b))
+}
+
+/// BFS visitation order within the induced subgraph, starting at `start`.
+fn bfs_order(g: &Graph, in_set: &[bool], start: NodeId) -> Vec<NodeId> {
+    let mut order = Vec::new();
+    let mut seen = vec![false; g.n];
+    seen[start as usize] = true;
+    let mut q = VecDeque::from([start]);
+    while let Some(u) = q.pop_front() {
+        order.push(u);
+        for &(v, _) in &g.adj[u as usize] {
+            if in_set[v as usize] && !seen[v as usize] {
+                seen[v as usize] = true;
+                q.push_back(v);
+            }
+        }
+    }
+    order
 }
 
 /// BFS hop-distance layers within the induced subgraph. Returns `(layer, max)`.

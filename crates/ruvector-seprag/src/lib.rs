@@ -42,7 +42,7 @@ pub mod query;
 pub use contraction::Topology;
 pub use customize::Metric;
 pub use graph::{Graph, NodeId};
-pub use order::{SepNode, SepTree};
+pub use order::{SepNode, SeparatorKind, SepTree};
 pub use query::{KnnIndex, QueryStats};
 
 /// A built SepRAG hierarchy: metric-independent topology + one customized metric.
@@ -58,7 +58,13 @@ impl SepRag {
     /// the graph's own edge weights as the metric.
     #[must_use]
     pub fn build(graph: Graph) -> Self {
-        let ord = order::nested_dissection(&graph);
+        Self::build_with(graph, SeparatorKind::Balanced)
+    }
+
+    /// Build with an explicit separator strategy (for M1 A/B attribution).
+    #[must_use]
+    pub fn build_with(graph: Graph, kind: SeparatorKind) -> Self {
+        let ord = order::nested_dissection_kind(&graph, kind);
         let topo = contraction::contract(&graph, &ord.order);
         let metric = customize::customize(&topo);
         SepRag { graph, topo, metric, sep_tree: ord.sep_tree }
