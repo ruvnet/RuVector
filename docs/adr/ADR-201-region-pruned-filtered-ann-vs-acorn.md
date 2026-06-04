@@ -144,24 +144,36 @@ What *did* hold, honestly:
 
 ## Next steps
 
-Two conditions, both surfaced by this experiment's own evidence, could flip the verdict to a
-scoped WIN — they are the honest follow-ups, not the result:
+**Retraction (2026-06-04, post-verdict scrutiny).** An earlier draft of this section named
+*multi-predicate conjunctions* as "the strongest lead," on the reasoning that a seed satisfying
+all conjuncts is "exponentially unlikely" to sample. **That reasoning is wrong and is retracted.**
+A conjunction `X ∧ Y ∧ Z` is a single boolean predicate of selectivity ≈ the product, evaluated
+**O(1)** by both A and ACORN-D. In the distance-eval metric a conjunction is therefore invisible
+*as* a conjunction — only its **selectivity** and **geometric scatter** matter, and both axes are
+already swept here (the selectivity sweep × the ρ-knob). ACORN-D finds a conjunction-seed by
+sampling at exactly the rate it finds any seed of that selectivity. The multi-modal rescue also
+fails: top-k nearest matches are almost always local to one mode, so D's seed lands correctly.
+**Conjunctions do not favour region-pruning in this cost model.**
 
-1. **Multi-predicate conjunctions (the strongest lead).** Under `X ∧ Y ∧ Z`, region-pruning's
-   cluster-skip **composes** (skip clusters with zero conjunction-matches), while ACORN's
-   predicate-aware entry (contender D) **degrades sharply** — a *sampled* seed satisfying *all*
-   conjuncts becomes exponentially unlikely as the conjunction tightens, so D regresses toward
-   vanilla ACORN's cost while A stays cheap. This is precisely the regime where A could beat a
-   tuned ACORN *even at high correlation*. This ADR's experiments hold one predicate fixed;
-   conjunctions were out of scope. Highest-leverage next bet, and it reuses this harness.
+The honest residual leads (both narrow):
+
+1. **Predicate-evaluation cost** (a *different* cost axis, excluded here). ACORN's agnostic
+   traversal tests the predicate on **every** expanded node (~1600/query); A tests it on far
+   fewer (probed-cluster members) and can precompute per-attribute per-cluster bitmaps. When
+   predicate evaluation is *expensive* (many attributes, costly lookups — and conjunctions
+   amplify this), A's asymmetry could matter. But for cheap metadata predicates this term is
+   small vs a 128-d distance, so the regime is narrow. Would require a predicate-eval cost model.
 2. **Large-n re-test** (n ≥ 10⁵–10⁶, ≥500 queries): D's seeding leans on a ~full predicate scan
-   the distance-eval metric treats as free; at scale that scan is genuinely costly, which could
-   re-open A's edge. Add a predicate-scan cost term and/or measure wall-clock at n=10⁶.
+   this metric treats as free; at scale that scan is genuinely costly, which *could* re-open A's
+   edge. The most concrete remaining check.
 3. **(Lower priority) BET 4 standalone:** the IVF region-pruning kernel was validated as BET 2's
    *mechanism* but never run vs the original *plain-IVF-probe* baseline. The kernel is exact; the
    standalone "beats plain IVF" head-to-head is technically still open.
-4. If none of the above re-open it, close BET 2 ⊗ BET 4 as a qualified NO-GO and retain the
-   exact B&B kernel as a validated asset for the narrow ρ≈0.7 / very-low-selectivity regime.
+
+**Recommendation:** treat BET 2 ⊗ BET 4 as **closed** (qualified NO-GO). The residual leads are
+narrow/speculative; the SepRAG thread's remaining value is productionizing BET 1 (the proven WIN,
+[ADR-200]) and exploring BET 3 (multi-hop KG, a different mechanism). Retain the exact B&B kernel
+as a validated asset for the narrow ρ≈0.7 / very-low-selectivity regime.
 
 ## Alternatives considered
 
