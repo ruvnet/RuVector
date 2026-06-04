@@ -107,7 +107,7 @@ fn read_edges(path: &str) -> (Vec<Vec<u32>>, usize) {
         if line.starts_with('#') || line.is_empty() {
             continue;
         }
-        let mut it = line.split(|c| c == ',' || c == '\t' || c == ' ').filter(|s| !s.is_empty());
+        let mut it = line.split(|c: char| matches!(c, ',' | '\t' | ' ')).filter(|s| !s.is_empty());
         if let (Some(a), Some(b)) = (it.next(), it.next()) {
             if let (Ok(u), Ok(v)) = (a.trim().parse::<u32>(), b.trim().parse::<u32>()) {
                 max_id = max_id.max(u).max(v);

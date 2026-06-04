@@ -20,17 +20,17 @@ A result only counts if it satisfies **all five**:
 
 ## Backlog (ranked by upside × provability)
 
-### BET 1 — Customizable re-weight vs rebuild  ✅ WIN (linear drift), see [ADR-200]
+### BET 1 — Customizable re-weight vs rebuild  ✅ WIN (diag + rot + non-linear), see [ADR-200]
 Salvages ADR-198 (the customizable metric), decoupled from CCH. Result: a **fixed ANN
-topology + recomputed distances** matches full Vamana **rebuild** recall within 0.2% up to
-**36% relevant-set churn**, under *both* diagonal and adversarial dense-Mahalanobis
-(rotational) drift — at **zero** rebuild cost. Stale-index control loses up to 29 points
-(benchmark has teeth). Full evidence + boundaries in
-[ADR-200](../../adr/ADR-200-customizable-reweighting-fixed-topology-ann.md).
+topology + recomputed distances** matches full Vamana **rebuild** on **both recall (±0.2%)
+and per-query cost (±1%)** up to **36% relevant-set churn**, across diagonal, dense-
+Mahalanobis (rotational), AND non-linear (tanh-warp) drift — at **zero** rebuild cost.
+Stale-index control loses up to 29 points (benchmark has teeth). Full evidence + boundaries
+in [ADR-200](../../adr/ADR-200-customizable-reweighting-fixed-topology-ann.md).
 Harness: `crates/ruvector-seprag/examples/reweight_vs_rebuild.rs`.
-- **Open (the honest caveats, ranked):** (1) **non-linear** learned metric — the decisive
-  next adversarial test; (2) scale to n≥10⁵ on `ruvector-diskann` + rebuild-cost curve;
-  (3) region-local drift; (4) incremental-rebuild baseline. Do (1) next.
+- **Open (ranked):** (1) **scale to n≥10⁵** on `ruvector-diskann` + rebuild-cost curve —
+  the decisive remaining test; (2) region-local drift; (3) incremental-rebuild baseline;
+  (4) wire into the real GNN loop behind a flag. Do (1) next.
 
 ### BET 2 — Filtered ANN vs `ruvector-acorn`
 Region/predicate pruning for constrained ("nearest among items matching X") retrieval — a

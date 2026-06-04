@@ -227,6 +227,19 @@ fn apply(a: &[f32], vecs: &[Vec32], dim: usize) -> Vec<Vec32> {
     }).collect()
 }
 
+/// Non-linear residual warp: f_s(v) = v + s · tanh(W v). At s=0 it is the
+/// identity; growing s bends the space non-linearly (the adversarial case the
+/// "navigability survives *linear* remetrization" argument does NOT cover).
+fn apply_nonlin(w: &[f32], vecs: &[Vec32], s: f32, dim: usize) -> Vec<Vec32> {
+    vecs.iter().map(|v| {
+        (0..dim).map(|i| {
+            let row = &w[i * dim..(i + 1) * dim];
+            let u: f32 = row.iter().zip(v).map(|(x, y)| x * y).sum();
+            v[i] + s * u.tanh()
+        }).collect()
+    }).collect()
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let path = args.get(1).cloned().unwrap_or_else(|| "target/m1-data/node-feat-2000.csv".into());
@@ -248,52 +261,69 @@ fn main() {
     let med0 = medoid(&vecs, &ones);
     eprintln!("[bet1] base graph built once in {:.2}s ({e0} dist evals)\n", t0.elapsed().as_secs_f64());
 
-    run_mode("DIAGONAL drift (per-axis rescale)", &vecs, &g0, med0, &queries, &p, dim, target_diag(dim, &mut Rng::new(12345)));
-    run_mode("ROTATIONAL drift (anisotropic scale on rotated axes — adversarial)", &vecs, &g0, med0, &queries, &p, dim, target_rot(dim, &mut Rng::new(54321)));
+    let id = identity(dim);
+    let diag = target_diag(dim, &mut Rng::new(12345));
+    let rot = target_rot(dim, &mut Rng::new(54321));
+    // Non-linear warp matrix (scaled so tanh operates in its non-linear regime).
+    let warp = random_rotation(dim, &mut Rng::new(7));
+    let beta = 4.0f32;
+
+    run_mode("DIAGONAL drift (per-axis rescale)", &g0, med0, &queries, &p, dim,
+        |t| apply(&lerp_mat(&id, &diag, t), &vecs, dim));
+    run_mode("ROTATIONAL drift (anisotropic scale on rotated axes — adversarial linear)", &g0, med0, &queries, &p, dim,
+        |t| apply(&lerp_mat(&id, &rot, t), &vecs, dim));
+    run_mode("NON-LINEAR drift (residual tanh warp — adversarial non-linear)", &g0, med0, &queries, &p, dim,
+        |t| apply_nonlin(&warp, &vecs, t * beta, dim));
 
     println!("\nGate: WIN if A within 2% of B across the sweep; KILL if A drops >2% below B.");
     println!("A's rebuild cost is 0 (topology reused); B pays a full rebuild per drift step.");
 }
 
 #[allow(clippy::too_many_arguments)]
-fn run_mode(label: &str, vecs: &[Vec32], g0: &[Vec<u32>], med0: u32, queries: &[usize], p: &Params, dim: usize, a_target: Vec<f32>) {
+fn run_mode<F: Fn(f32) -> Vec<Vec32>>(label: &str, g0: &[Vec<u32>], med0: u32, queries: &[usize], p: &Params, dim: usize, vt_of: F) {
     let ones = vec![1.0f32; dim];
-    let id = identity(dim);
-    let truth0: Vec<Vec<u32>> = queries.iter().map(|&q| brute_topk(vecs, &ones, q, p.k)).collect();
+    let v0 = vt_of(0.0); // original space (drift t=0)
+    let truth0: Vec<Vec<u32>> = queries.iter().map(|&q| brute_topk(&v0, &ones, q, p.k)).collect();
 
     println!("=== BET 1: {label} ===");
-    println!("{:>5} {:>10} | {:>9} {:>9} {:>9} | {:>9} {:>8}", "t", "churn", "A reweit", "B rebuild", "C stale", "B build s", "A-B");
+    println!("{:>5} {:>7} | {:>8} {:>8} {:>8} | {:>8} | {:>7} {:>7}", "t", "churn", "A rewt", "B rebld", "C stale", "B bld s", "A ev/q", "B ev/q");
     println!("{}", "-".repeat(74));
 
     for &t in &[0.0f32, 0.1, 0.25, 0.5, 0.75, 1.0] {
-        let at = lerp_mat(&id, &a_target, t);
-        let vt = apply(&at, vecs, dim); // vectors in the drifted metric space
+        let vt = vt_of(t); // vectors in the drifted metric space
         let truth: Vec<Vec<u32>> = queries.iter().map(|&q| brute_topk(&vt, &ones, q, p.k)).collect();
         let churn: f64 = truth.iter().zip(&truth0).map(|(a, b)| 1.0 - recall(a, b)).sum::<f64>() / queries.len() as f64;
 
         // A: reuse the original-space graph, but compute distances in the drifted space.
-        let ra: f64 = queries.iter().zip(&truth).map(|(&q, tr)| {
-            let (got, _, _) = greedy(g0, &vt, &ones, med0, &vt[q], p.l, p.k);
-            recall(&got, tr)
-        }).sum::<f64>() / queries.len() as f64;
+        let (mut ra, mut a_ev) = (0.0f64, 0usize);
+        for (&q, tr) in queries.iter().zip(&truth) {
+            let (got, _, ev) = greedy(g0, &vt, &ones, med0, &vt[q], p.l, p.k);
+            ra += recall(&got, tr);
+            a_ev += ev;
+        }
 
         // B: rebuild the graph in the drifted space.
         let tb = Instant::now();
         let (gt, _) = build(&vt, &ones, p, 7);
         let bt = tb.elapsed().as_secs_f64();
         let medt = medoid(&vt, &ones);
-        let rb: f64 = queries.iter().zip(&truth).map(|(&q, tr)| {
-            let (got, _, _) = greedy(&gt, &vt, &ones, medt, &vt[q], p.l, p.k);
-            recall(&got, tr)
-        }).sum::<f64>() / queries.len() as f64;
+        let (mut rb, mut b_ev) = (0.0f64, 0usize);
+        for (&q, tr) in queries.iter().zip(&truth) {
+            let (got, _, ev) = greedy(&gt, &vt, &ones, medt, &vt[q], p.l, p.k);
+            rb += recall(&got, tr);
+            b_ev += ev;
+        }
 
         // C: stale — search the original graph in the ORIGINAL space, score vs drifted truth.
         let rc: f64 = queries.iter().zip(&truth).map(|(&q, tr)| {
-            let (got, _, _) = greedy(g0, vecs, &ones, med0, &vecs[q], p.l, p.k);
+            let (got, _, _) = greedy(g0, &v0, &ones, med0, &v0[q], p.l, p.k);
             recall(&got, tr)
         }).sum::<f64>() / queries.len() as f64;
 
-        println!("{:>5.2} {:>9.0}% | {:>8.1}% {:>8.1}% {:>8.1}% | {:>9.2} {:>+7.1}%", t, churn * 100.0, ra * 100.0, rb * 100.0, rc * 100.0, bt, (ra - rb) * 100.0);
+        let nq = queries.len() as f64;
+        // ra, rb are sums (divide here); rc is already a mean.
+        println!("{:>5.2} {:>6.0}% | {:>7.1}% {:>7.1}% {:>7.1}% | {:>8.2} | {:>7.0} {:>7.0}",
+            t, churn * 100.0, ra / nq * 100.0, rb / nq * 100.0, rc * 100.0, bt, a_ev as f64 / nq, b_ev as f64 / nq);
     }
     println!();
 }
