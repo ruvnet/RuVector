@@ -103,7 +103,11 @@ fn read_edges(path: &str) -> (Vec<Vec<u32>>, usize) {
     let mut edges: Vec<(u32, u32)> = Vec::new();
     let mut max_id = 0u32;
     for line in data.lines() {
-        let mut it = line.split(',');
+        // Skip SNAP-style comment lines; accept comma/tab/space separators.
+        if line.starts_with('#') || line.is_empty() {
+            continue;
+        }
+        let mut it = line.split(|c| c == ',' || c == '\t' || c == ' ').filter(|s| !s.is_empty());
         if let (Some(a), Some(b)) = (it.next(), it.next()) {
             if let (Ok(u), Ok(v)) = (a.trim().parse::<u32>(), b.trim().parse::<u32>()) {
                 max_id = max_id.max(u).max(v);
