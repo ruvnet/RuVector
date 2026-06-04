@@ -167,17 +167,57 @@ the entire run at this drift level.
   call `on_metric_update` on its own embedding-flush cadence.
 - **Membership is fixed** (drift changes vector *values*, not the point set); streaming
   insert/delete under reuse is unaddressed.
-- **A smarter rebuild trigger** (sampled-recall probe, ADR-200 next-step #2) was *not* tested —
-  `Periodic{k}` is the knob; the trigger remains future work.
+- **A smarter rebuild trigger** (sampled-recall probe, ADR-200 next-step #2) — **now tested and
+  WON; see the addendum below.** `Periodic{k}` remains the zero-dependency default; the trigger
+  is the better knob when a probe set is available.
 
 *(Resolved from ADR-200: "synthetic drift only" — a real learned-GNN trajectory now confirms the
 transfer, with the holding ceiling at 40% churn ≥ the synthetic 36%.)*
 
+## Addendum (2026-06-04): Sampled-recall trigger — WIN
+
+ADR-200 next-step #2 asked whether a smarter rebuild trigger beats fixed `Periodic{k}`; ADR-200's
+own Frobenius-norm monitor had *lost* to periodic. Re-tested under **variable-rate** drift (the
+only regime where a trigger can earn its keep — periodic is near-optimal under steady drift), with
+the gate **pre-registered and frozen** (`docs/plans/bet1-productionize/PRE-REGISTRATION-trigger.md`).
+
+**Stage:** a bursty trajectory — 3-epoch high-lr bursts (per-step churn ~45%) separated by
+5-epoch low-lr calm (~2%), 89% end churn, n=20k. **Contenders:** `Recall{floor}` (the bet) vs
+`Periodic{k}` (the ADR-202 winner) vs `Frobenius{τ}` (ADR-200's failed monitor), compared on the
+(rebuilds, recall) Pareto frontier.
+
+| policy | recall@10 | rebuilds | rebuild cost | probe evals |
+|---|---|---|---|---|
+| Always | 97.4% | 24 | 333s | — |
+| Periodic k=2 | 96.8% | 12 | 168s | — |
+| Periodic k=3 | 96.5% | 8 | 113s | — |
+| Frobenius τ=0.15 | 97.3% | 9 | 118s | — |
+| **Recall floor=0.95** | **97.2%** | **7** | **95s** | 14.4M (~1s) |
+| Recall floor=0.93 | 96.6% | 6 | 85s | 14.4M |
+
+**Verdict: WIN.** `Recall{floor=0.95}` reaches 97.2% recall at **7 rebuilds** — beating
+`Periodic{k=2}` (96.8% @ 12) on *both* axes (higher recall, **42% fewer rebuilds**) and beating
+the best `Frobenius{τ}` (97.3% @ 9) on rebuilds at equal recall. **Probe-cost trap passed:** the
+probe's 14.4M distance-evals (~1s total) are <2% of the ~73s of rebuild time saved.
+
+**Mechanism (visible, not asserted):** the per-step churn line `45 44 45 | 2 2 2 | 45 44 …` shows
+the trigger rebuilds right after each burst and skips calm stretches, while periodic wastes
+rebuilds during calm and under-protects during bursts. Frobenius measures *how much the metric
+moved*; the recall probe measures *whether the move broke navigability* — and ADR-202 showed those
+decouple, which is why the probe is the better signal.
+
+**Productionized:** `ruvector_diskann::reuse::RecallTrigger` (a `DriftingIndex` in `ReweightOnly`
+mode driven by a probe + `force_rebuild`). Its knob `floor` **is the recall SLA** (`0.95` = "keep
+recall ≥ 95%"), unlike `k`/`τ` which are indirect proxies. Honest caveat: the probe needs an exact
+small-set kNN each update (counted, negligible) and a representative probe set; with no probe
+available, `Periodic{k}` remains the zero-dependency fallback. Harness:
+`crates/ruvector-gnn/examples/triggered_rebuild.rs`.
+
 ## Next steps
 
-1. Wire `on_metric_update` into the actual `ruvector-gnn` embedding-flush path (this ADR validates
-   the policy via the harness; the live serving hook is the remaining production glue).
-2. Smarter rebuild trigger — sampled-recall probe vs fixed periodic (ADR-200 #2 still open).
+1. Wire `on_metric_update` / `RecallTrigger` into the actual `ruvector-gnn` embedding-flush path
+   (the policies are validated via the harness; the live serving hook is the remaining glue).
+2. ~~Smarter rebuild trigger — sampled-recall probe vs fixed periodic~~ **DONE (addendum: WIN).**
 3. Confirm the holding ceiling under a second learned objective (node-classification fine-tune)
    to test objective-dependence.
 4. Incremental-rebuild baseline for a fair cost comparison (ADR-200 #3 still open).

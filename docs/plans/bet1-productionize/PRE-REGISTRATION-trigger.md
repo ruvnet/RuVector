@@ -10,6 +10,14 @@ productionized WIN), ADR-200 next-step #2 · **Self-contained:** `ruvector-diska
 > results voids the bet. Plumbing (`DriftingIndex::force_rebuild` + harness) may precede freeze;
 > the contender run may not.
 
+> **OUTCOME: WIN** (2026-06-04) — see [ADR-202 addendum](../../adr/ADR-202-reuse-under-drift-real-gnn-trajectory.md#addendum-2026-06-04-sampled-recall-trigger--win).
+> On bursty drift (n=20k, 89% end churn), `Recall{floor=0.95}` = 97.2% recall @ 7 rebuilds beat
+> `Periodic{k=2}` (96.8% @ 12) on both axes and the best `Frobenius` (97.3% @ 9) on rebuilds;
+> probe cost (~1s) was <2% of the ~73s rebuild time saved. Productionized as
+> `ruvector_diskann::reuse::RecallTrigger`. **Note:** the first run was VOID (plain-SGD trajectory
+> drifted 0%); switched the generator to Adam and enforced the ≥15% churn precondition — the
+> WIN/KILL gate itself was unchanged.
+
 ## Prove-not-hype protocol (all five)
 
 1. One claim, one number. 2. Beat the strongest in-repo incumbent (here: `Periodic{k}`, the

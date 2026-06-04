@@ -193,6 +193,123 @@ fn build_graph(
     Ok(graph)
 }
 
+/// Exact top-`k` neighbours of point `q` under L2 on `vectors` (brute force, excludes `q`).
+fn brute_force_topk(vectors: &FlatVectors, q: usize, k: usize) -> Vec<u32> {
+    let qv = vectors.get(q);
+    let mut scored: Vec<(f32, u32)> = (0..vectors.len())
+        .filter(|&i| i != q)
+        .map(|i| (crate::distance::l2_squared(vectors.get(i), qv), i as u32))
+        .collect();
+    scored.sort_by(|a, b| a.0.total_cmp(&b.0));
+    scored.into_iter().take(k).map(|(_, i)| i).collect()
+}
+
+/// A drift-adaptive index whose rebuilds are driven by a **sampled-recall probe** instead of
+/// a fixed cadence: on each metric update it estimates live recall@k on a small held-out
+/// probe set and rebuilds only when that estimate falls below `floor`.
+///
+/// Under *bursty* drift this beats fixed [`Periodic`](RebuildPolicy::Periodic) — it spends
+/// rebuilds where the drift actually is, skipping calm stretches (ADR-202 addendum:
+/// validated WIN, ~42% fewer rebuilds than periodic at matched recall, and beats the
+/// Frobenius-norm monitor ADR-200 found wanting). The knob `floor` *is* the recall SLA
+/// (e.g. 0.95 = "keep recall ≥ 95%"), unlike `k`/`τ` which are indirect proxies.
+///
+/// **Cost:** the probe costs `probe_queries.len() × n` distance-evals per update — ~1–2
+/// orders of magnitude below a rebuild — the price of measuring recall directly. Wraps a
+/// [`DriftingIndex`] in `ReweightOnly` mode and drives [`force_rebuild`](DriftingIndex::force_rebuild).
+pub struct RecallTrigger {
+    index: DriftingIndex,
+    probe_queries: Vec<u32>,
+    k: usize,
+    floor: f32,
+    search_beam: usize,
+}
+
+impl RecallTrigger {
+    /// Build the trigger on `vectors` (the `E₀` snapshot). `probe_queries` is a small, fixed
+    /// held-out set of point indices used to estimate recall; `floor` is the recall target.
+    #[allow(clippy::too_many_arguments)]
+    pub fn build(
+        vectors: &FlatVectors,
+        probe_queries: Vec<u32>,
+        k: usize,
+        floor: f32,
+        search_beam: usize,
+        max_degree: usize,
+        build_beam: usize,
+        alpha: f32,
+    ) -> Result<Self> {
+        let index = DriftingIndex::build(
+            vectors,
+            RebuildPolicy::ReweightOnly,
+            max_degree,
+            build_beam,
+            alpha,
+        )?;
+        Ok(Self {
+            index,
+            probe_queries,
+            k,
+            floor,
+            search_beam,
+        })
+    }
+
+    /// Probe-estimated recall@k of the current topology against exact neighbours under
+    /// `vectors` (mean over the probe set). 1.0 if the probe set is empty.
+    pub fn probe_recall(&self, vectors: &FlatVectors) -> f32 {
+        if self.probe_queries.is_empty() {
+            return 1.0;
+        }
+        let mut sum = 0.0f32;
+        for &q in &self.probe_queries {
+            let qi = q as usize;
+            let truth = brute_force_topk(vectors, qi, self.k);
+            let qv = vectors.get(qi);
+            let (cands, _) = self.index.search(vectors, qv, self.search_beam);
+            let mut scored: Vec<(f32, u32)> = cands
+                .iter()
+                .map(|&c| (crate::distance::l2_squared(vectors.get(c as usize), qv), c))
+                .collect();
+            scored.sort_by(|a, b| a.0.total_cmp(&b.0));
+            let hits = scored
+                .into_iter()
+                .filter(|&(_, c)| c as usize != qi)
+                .take(self.k)
+                .filter(|(_, c)| truth.contains(c))
+                .count();
+            sum += hits as f32 / self.k.max(1) as f32;
+        }
+        sum / self.probe_queries.len() as f32
+    }
+
+    /// React to a metric update: rebuild on `vectors` iff the probe recall is below `floor`.
+    /// Returns whether a rebuild happened.
+    pub fn on_metric_update(&mut self, vectors: &FlatVectors) -> Result<bool> {
+        if self.probe_recall(vectors) < self.floor {
+            self.index.force_rebuild(vectors)?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    /// Search the current topology against `vectors`.
+    pub fn search(
+        &self,
+        vectors: &FlatVectors,
+        query: &[f32],
+        beam_width: usize,
+    ) -> (Vec<u32>, usize) {
+        self.index.search(vectors, query, beam_width)
+    }
+
+    /// Number of rebuilds the trigger has fired.
+    pub fn rebuilds(&self) -> usize {
+        self.index.rebuilds()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -272,6 +389,50 @@ mod tests {
             2,
             "force_rebuild must count toward rebuilds"
         );
+    }
+
+    /// A geometrically distinct fixture so swapping it in collapses the E0 graph's recall.
+    fn fixture_b(n: usize, dim: usize) -> FlatVectors {
+        let mut f = FlatVectors::with_capacity(dim, n);
+        for i in 0..n {
+            let v: Vec<f32> = (0..dim)
+                .map(|d| (((n - i) * 53 + d * 17) % 89) as f32 / 89.0)
+                .collect();
+            f.push(&v);
+        }
+        f
+    }
+
+    #[test]
+    fn recall_trigger_holds_under_no_drift() {
+        let v = fixture(128, 8);
+        let probes: Vec<u32> = (0..16).collect();
+        let mut t = RecallTrigger::build(&v, probes, 5, 0.9, 32, 16, 32, 1.2).unwrap();
+        // same vectors → the index searches what it was built on → recall ~1.0 → no rebuild
+        assert!(t.probe_recall(&v) >= 0.9);
+        assert!(!t.on_metric_update(&v).unwrap());
+        assert_eq!(t.rebuilds(), 0);
+    }
+
+    #[test]
+    fn recall_trigger_fires_then_recovers_under_drift() {
+        let v = fixture(128, 8);
+        let probes: Vec<u32> = (0..16).collect();
+        let mut t = RecallTrigger::build(&v, probes, 5, 0.9, 32, 16, 32, 1.2).unwrap();
+        // swap in a geometrically different vector set: recall collapses → trigger fires
+        let vb = fixture_b(128, 8);
+        assert!(
+            t.probe_recall(&vb) < 0.9,
+            "drift should drop probe recall below floor"
+        );
+        assert!(
+            t.on_metric_update(&vb).unwrap(),
+            "trigger must fire on the drift"
+        );
+        assert_eq!(t.rebuilds(), 1);
+        // after rebuilding on vb, recall is restored → a second update does not re-fire
+        assert!(!t.on_metric_update(&vb).unwrap());
+        assert_eq!(t.rebuilds(), 1);
     }
 
     #[test]
