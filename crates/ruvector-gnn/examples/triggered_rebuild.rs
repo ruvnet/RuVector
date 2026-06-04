@@ -160,9 +160,14 @@ fn train_variable_rate(
 
     for epoch in 0..epochs {
         let lr = lr_at(epoch);
-        let mut opt = Optimizer::new(OptimizerType::Sgd {
+        // Adam (fresh per epoch so the burst/calm lr schedule takes effect): its
+        // per-parameter scaling produces real embedding motion at these lrs where plain
+        // SGD does not (a VOID 0%-churn trajectory).
+        let mut opt = Optimizer::new(OptimizerType::Adam {
             learning_rate: lr,
-            momentum: 0.0,
+            beta1: 0.9,
+            beta2: 0.999,
+            epsilon: 1e-8,
         });
         let mut grad = Array2::<f32>::zeros((n, DIM));
         for _ in 0..batch {
@@ -309,7 +314,7 @@ fn run_policy(
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(10_000);
+    let n: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(20_000);
     let epochs: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(24);
 
     let feats = read_features("target/m1-data/node-feat-100k.csv", n);
@@ -318,12 +323,14 @@ fn main() {
     eprintln!("[trig] n={n} edges={} dim={DIM}", edges.len());
     assert!(!edges.is_empty());
 
-    // Variable-rate schedule: 3-epoch bursts (lr 0.03) separated by 5-epoch calm (lr 0.002).
+    // Variable-rate schedule: 3-epoch bursts (lr 0.02) separated by 5-epoch calm (lr 0.0005).
+    // Adam at these lrs produces real motion in bursts, near-stasis in calm → the bursty
+    // churn profile where a fixed cadence is provably suboptimal.
     let lr_at = |e: usize| -> f32 {
         if e % 8 < 3 {
-            0.03
+            0.02
         } else {
-            0.002
+            0.0005
         }
     };
     let e0 = matrix_from_features(&feats);
@@ -358,6 +365,24 @@ fn main() {
         churn * 100.0,
         last
     );
+    // per-step churn delta (vs previous snapshot) — bursts spike, calm flattens
+    print!("per-step Δchurn: ");
+    for step in 1..snaps.len() {
+        let d: f64 = queries
+            .iter()
+            .enumerate()
+            .map(|(qi, _)| 1.0 - recall(&truth[step][qi], &truth[step - 1][qi]))
+            .sum::<f64>()
+            / queries.len() as f64;
+        print!("{:.0} ", d * 100.0);
+    }
+    println!();
+    if churn < 0.15 {
+        println!(
+            "\n!! VOID — trajectory churn < 15% (no real drift). Not a result; escalate lr/epochs."
+        );
+        return;
+    }
 
     let configs: Vec<Trigger> = vec![
         Trigger::Periodic(2),
