@@ -13,6 +13,7 @@
 //! - `predicate` (M0) — predicate families + ρ-correlation knob + selectivity targeting.
 //! - `prune` (M2)     — contender A: region-pruned IVF filtered search + eval counters.
 
+pub mod contenders;
 pub mod data;
 pub mod predicate;
 

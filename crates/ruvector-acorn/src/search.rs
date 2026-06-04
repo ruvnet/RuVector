@@ -34,6 +34,34 @@ pub fn acorn_search(
     ef: usize,
     predicate: impl Fn(u32) -> bool,
 ) -> Vec<(u32, f32)> {
+    let mut evals = 0u64;
+    acorn_search_impl(graph, query, k, ef, predicate, &mut evals)
+}
+
+/// Like [`acorn_search`] but also returns the exact number of distance
+/// evaluations (`l2_sq` calls) performed — the hardware-independent cost metric
+/// used by the filtered-ANN benchmark (`ruvector-filtered-bench`). Results are
+/// identical to [`acorn_search`]; only the eval counter is added.
+pub fn acorn_search_counted(
+    graph: &AcornGraph,
+    query: &[f32],
+    k: usize,
+    ef: usize,
+    predicate: impl Fn(u32) -> bool,
+) -> (Vec<(u32, f32)>, u64) {
+    let mut evals = 0u64;
+    let out = acorn_search_impl(graph, query, k, ef, predicate, &mut evals);
+    (out, evals)
+}
+
+fn acorn_search_impl(
+    graph: &AcornGraph,
+    query: &[f32],
+    k: usize,
+    ef: usize,
+    predicate: impl Fn(u32) -> bool,
+    evals: &mut u64,
+) -> Vec<(u32, f32)> {
     if graph.is_empty() {
         return vec![];
     }
@@ -44,12 +72,19 @@ pub fn acorn_search(
     // point. O(probes × D) overhead vs O(n × D) for flat — negligible.
     let n_probes = (n as f64).sqrt().ceil() as usize;
     let n_probes = n_probes.clamp(4, 64);
-    let entry = (0..n_probes)
-        .map(|i| (i * n / n_probes) as u32)
-        .min_by(|&a, &b| {
-            l2_sq(query, graph.row(a as usize)).total_cmp(&l2_sq(query, graph.row(b as usize)))
-        })
-        .unwrap_or(0);
+    // Count each probe distance once (result-identical to the min_by form, which
+    // recomputed l2_sq inside the comparator — the count reflects fundamental work).
+    let mut entry = 0u32;
+    let mut best = f32::INFINITY;
+    for i in 0..n_probes {
+        let cand = (i * n / n_probes) as u32;
+        let d = l2_sq(query, graph.row(cand as usize));
+        *evals += 1;
+        if d < best {
+            best = d;
+            entry = cand;
+        }
+    }
 
     let mut visited: Vec<bool> = vec![false; n];
     // Min-heap by distance — pop closest unexplored candidate first.
@@ -61,6 +96,7 @@ pub fn acorn_search(
     let mut farthest_in_beam: BinaryHeap<OrdF32> = BinaryHeap::with_capacity(ef + 1);
 
     let d0 = l2_sq(query, graph.row(entry as usize));
+    *evals += 1;
     candidates.push(Reverse((OrdF32(d0), entry)));
     farthest_in_beam.push(OrdF32(d0));
     visited[entry as usize] = true;
@@ -93,6 +129,7 @@ pub fn acorn_search(
             }
             visited[ni] = true;
             let nd = l2_sq(query, graph.row(ni));
+            *evals += 1;
 
             // Bounded beam: only admit if there's room or the new candidate
             // is closer than the worst pending one.
@@ -130,6 +167,30 @@ pub fn flat_filtered_search(
     k: usize,
     predicate: impl Fn(u32) -> bool,
 ) -> Vec<(u32, f32)> {
+    let mut evals = 0u64;
+    flat_filtered_search_impl(data, query, k, predicate, &mut evals)
+}
+
+/// Like [`flat_filtered_search`] but also returns the exact distance-eval count
+/// (one `l2_sq` per predicate-passing vector). Results identical.
+pub fn flat_filtered_search_counted(
+    data: &[Vec<f32>],
+    query: &[f32],
+    k: usize,
+    predicate: impl Fn(u32) -> bool,
+) -> (Vec<(u32, f32)>, u64) {
+    let mut evals = 0u64;
+    let out = flat_filtered_search_impl(data, query, k, predicate, &mut evals);
+    (out, evals)
+}
+
+fn flat_filtered_search_impl(
+    data: &[Vec<f32>],
+    query: &[f32],
+    k: usize,
+    predicate: impl Fn(u32) -> bool,
+    evals: &mut u64,
+) -> Vec<(u32, f32)> {
     let mut heap: BinaryHeap<(OrdF32, u32)> = BinaryHeap::with_capacity(k + 1);
 
     for (i, v) in data.iter().enumerate() {
@@ -137,6 +198,7 @@ pub fn flat_filtered_search(
             continue;
         }
         let d = l2_sq(v, query);
+        *evals += 1;
         if heap.len() < k {
             heap.push((OrdF32(d), i as u32));
         } else if let Some(&(OrdF32(worst), _)) = heap.peek() {
@@ -197,6 +259,28 @@ mod tests {
         for w in res.windows(2) {
             assert!(w[0].1 <= w[1].1 + 1e-5);
         }
+    }
+
+    #[test]
+    fn counted_variants_match_uncounted_and_count_evals() {
+        // The benchmark depends on this invariant: *_counted returns identical
+        // results to the plain fn, plus a positive, finite eval count.
+        let data = unit_data(40);
+        let graph = AcornGraph::build(data.clone(), 8).unwrap();
+        let query = vec![17.0_f32, 0.0];
+        let pred = |id: u32| id % 3 == 0;
+
+        let plain = acorn_search(&graph, &query, 5, 60, pred);
+        let (counted, evals) = acorn_search_counted(&graph, &query, 5, 60, pred);
+        assert_eq!(plain, counted, "counted search must match plain search");
+        assert!(evals > 0, "must record at least the entry probes");
+
+        let fplain = flat_filtered_search(&data, &query, 5, pred);
+        let (fcounted, fevals) = flat_filtered_search_counted(&data, &query, 5, pred);
+        assert_eq!(fplain, fcounted);
+        // Flat does exactly one eval per predicate-passing vector.
+        let n_pass = (0..data.len() as u32).filter(|&i| pred(i)).count() as u64;
+        assert_eq!(fevals, n_pass, "flat evals == #matches");
     }
 
     #[test]
