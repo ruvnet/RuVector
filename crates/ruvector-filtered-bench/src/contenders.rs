@@ -6,10 +6,15 @@
 //! rule #2). Contender A (region-pruned IVF) arrives in M2 (`prune` module).
 
 use ruvector_acorn::graph::AcornGraph;
-use ruvector_acorn::search::acorn_search_counted;
+use ruvector_acorn::search::{acorn_search_counted, acorn_search_seeded_counted};
 
 /// ACORN edge budget base (γ·M neighbors/node); matches `AcornIndexGamma::M`.
 pub const ACORN_M: usize = 16;
+
+#[inline]
+fn l2_sq(a: &[f32], b: &[f32]) -> f32 {
+    a.iter().zip(b).map(|(x, y)| (x - y) * (x - y)).sum()
+}
 
 /// Outcome of one filtered query: the returned ids (nearest-first) and the exact
 /// number of distance evaluations spent — the pre-registered primary cost metric.
@@ -65,6 +70,48 @@ impl Acorn {
             .take(k)
             .collect();
         QueryResult { ids, evals }
+    }
+
+    /// **Contender D** — ACORN with *predicate-aware entry* (the adversarial "tune harder"
+    /// variant, rule #5). Stride-samples `max_entry_probes` nodes, tests the predicate on
+    /// each (O(1), uncounted — symmetric with how contender A gates distances), and
+    /// distance-evaluates only the *matching* probes to pick the `n_seeds` nearest matching
+    /// seeds. The agnostic beam then starts inside the matching region instead of walking to
+    /// it from a random entry. Falls back to standard ACORN if the sample finds no match.
+    ///
+    /// Cost = (matching probes distance-evaluated) + seeded-search evals. At very low
+    /// selectivity a bounded sample usually finds no match → D degenerates to B.
+    pub fn search_predicate_entry(
+        &self,
+        query: &[f32],
+        k: usize,
+        predicate: impl Fn(u32) -> bool,
+        max_entry_probes: usize,
+        n_seeds: usize,
+    ) -> QueryResult {
+        let n = self.graph.len();
+        let probes = max_entry_probes.clamp(1, n);
+        let mut evals = 0u64;
+        let mut seeds: Vec<(f32, u32)> = Vec::new();
+        for i in 0..probes {
+            let id = (i * n / probes) as u32;
+            if !predicate(id) {
+                continue;
+            }
+            let d = l2_sq(query, self.graph.row(id as usize));
+            evals += 1;
+            seeds.push((d, id));
+        }
+        if seeds.is_empty() {
+            // No matching seed in the sample → standard ACORN entry.
+            let (got, ev) = acorn_search_counted(&self.graph, query, k, self.ef, predicate);
+            return QueryResult { ids: got.into_iter().map(|(id, _)| id).collect(), evals: evals + ev };
+        }
+        seeds.sort_by(|a, b| a.0.total_cmp(&b.0));
+        seeds.truncate(n_seeds.max(1));
+        let seed_ids: Vec<u32> = seeds.iter().map(|&(_, id)| id).collect();
+        let (got, ev) = acorn_search_seeded_counted(&self.graph, query, k, self.ef, predicate, &seed_ids);
+        QueryResult { ids: got.into_iter().map(|(id, _)| id).collect(), evals: evals + ev }
     }
 }
 

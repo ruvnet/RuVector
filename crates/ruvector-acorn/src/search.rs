@@ -35,7 +35,7 @@ pub fn acorn_search(
     predicate: impl Fn(u32) -> bool,
 ) -> Vec<(u32, f32)> {
     let mut evals = 0u64;
-    acorn_search_impl(graph, query, k, ef, predicate, &mut evals)
+    acorn_search_impl(graph, query, k, ef, predicate, &mut evals, None)
 }
 
 /// Like [`acorn_search`] but also returns the exact number of distance
@@ -50,7 +50,24 @@ pub fn acorn_search_counted(
     predicate: impl Fn(u32) -> bool,
 ) -> (Vec<(u32, f32)>, u64) {
     let mut evals = 0u64;
-    let out = acorn_search_impl(graph, query, k, ef, predicate, &mut evals);
+    let out = acorn_search_impl(graph, query, k, ef, predicate, &mut evals, None);
+    (out, evals)
+}
+
+/// ACORN search seeded from caller-supplied entry nodes instead of the default
+/// multi-probe entry — the substrate for contender D (predicate-aware entry). The beam
+/// starts from `seeds` (each costs one distance-eval, counted); everything else is the
+/// identical predicate-agnostic traversal. Returns results + exact eval count.
+pub fn acorn_search_seeded_counted(
+    graph: &AcornGraph,
+    query: &[f32],
+    k: usize,
+    ef: usize,
+    predicate: impl Fn(u32) -> bool,
+    seeds: &[u32],
+) -> (Vec<(u32, f32)>, u64) {
+    let mut evals = 0u64;
+    let out = acorn_search_impl(graph, query, k, ef, predicate, &mut evals, Some(seeds));
     (out, evals)
 }
 
@@ -61,30 +78,13 @@ fn acorn_search_impl(
     ef: usize,
     predicate: impl Fn(u32) -> bool,
     evals: &mut u64,
+    seeds: Option<&[u32]>,
 ) -> Vec<(u32, f32)> {
     if graph.is_empty() {
         return vec![];
     }
     let n = graph.len();
     let ef = ef.max(k);
-
-    // Multi-probe entry: sample evenly-spaced nodes to find a good starting
-    // point. O(probes × D) overhead vs O(n × D) for flat — negligible.
-    let n_probes = (n as f64).sqrt().ceil() as usize;
-    let n_probes = n_probes.clamp(4, 64);
-    // Count each probe distance once (result-identical to the min_by form, which
-    // recomputed l2_sq inside the comparator — the count reflects fundamental work).
-    let mut entry = 0u32;
-    let mut best = f32::INFINITY;
-    for i in 0..n_probes {
-        let cand = (i * n / n_probes) as u32;
-        let d = l2_sq(query, graph.row(cand as usize));
-        *evals += 1;
-        if d < best {
-            best = d;
-            entry = cand;
-        }
-    }
 
     let mut visited: Vec<bool> = vec![false; n];
     // Min-heap by distance — pop closest unexplored candidate first.
@@ -95,11 +95,41 @@ fn acorn_search_impl(
     // candidate, used to gate eviction when the frontier exceeds ef.
     let mut farthest_in_beam: BinaryHeap<OrdF32> = BinaryHeap::with_capacity(ef + 1);
 
-    let d0 = l2_sq(query, graph.row(entry as usize));
-    *evals += 1;
-    candidates.push(Reverse((OrdF32(d0), entry)));
-    farthest_in_beam.push(OrdF32(d0));
-    visited[entry as usize] = true;
+    // Initial frontier: caller-supplied predicate-aware seeds (contender D), else the
+    // standard multi-probe entry. Multi-probe distances are counted once (result-identical
+    // to the original min_by form, which recomputed l2_sq inside the comparator).
+    let seed_ids: Vec<u32> = match seeds {
+        Some(s) if !s.is_empty() => s.iter().copied().filter(|&id| (id as usize) < n).collect(),
+        _ => {
+            let n_probes = (n as f64).sqrt().ceil() as usize;
+            let n_probes = n_probes.clamp(4, 64);
+            let mut entry = 0u32;
+            let mut best = f32::INFINITY;
+            for i in 0..n_probes {
+                let cand = (i * n / n_probes) as u32;
+                let d = l2_sq(query, graph.row(cand as usize));
+                *evals += 1;
+                if d < best {
+                    best = d;
+                    entry = cand;
+                }
+            }
+            vec![entry]
+        }
+    };
+    for &s in &seed_ids {
+        if visited[s as usize] {
+            continue;
+        }
+        let d = l2_sq(query, graph.row(s as usize));
+        *evals += 1;
+        candidates.push(Reverse((OrdF32(d), s)));
+        farthest_in_beam.push(OrdF32(d));
+        visited[s as usize] = true;
+    }
+    if candidates.is_empty() {
+        return vec![];
+    }
 
     while let Some(Reverse((OrdF32(curr_d), curr))) = candidates.pop() {
         // Pop curr's mirror entry from the farthest-tracker. Since the two
