@@ -117,4 +117,3 @@ live in `src/`; the harness is `examples/filtered_ann_pruning.rs`. No dependency
 - The uncorrelated/agnostic regime as a *target* (kill control only — ACORN owns it).
 - Multi-predicate conjunctions, streaming updates, the live-GNN metric (BET 1's frontier).
 - Disk-resident / billion-scale (in-memory ogbn-arxiv is the stage).
-</content>
