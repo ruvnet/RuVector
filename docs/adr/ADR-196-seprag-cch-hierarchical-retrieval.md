@@ -12,9 +12,16 @@ tags: [ruvector, retrieval, cch, contraction-hierarchies, graph-rag, mincut, jtr
 
 ## Status
 
-**Proposed.** Keystone design ADR. Depends on the navigation-graph and ordering
-decisions in [ADR-197], the metric layer in [ADR-198], and is validated by the
-benchmark harness in [ADR-199]. No code yet; prototype lands behind a feature gate.
+**Proposed → empirically NO-GO for embedding retrieval (2026-06-04).** Keystone design
+ADR. Depends on the navigation-graph and ordering decisions in [ADR-197], the metric
+layer in [ADR-198], and is validated by the benchmark harness in [ADR-199].
+
+Prototyped in `crates/ruvector-seprag` (M0 + M1). The separator-tree **query** algorithm
+is correct (exact recall) and prunes ~100% of search space — but CCH **full contraction**
+blows up on embedding/citation backbones (high treewidth; see [ADR-199] Empirical
+Outcome). The design's stated edge — *constrained / relational* retrieval over a sparse
+structured backbone, not pure embedding kNN — remains the only plausible niche and is
+unvalidated against HNSW. Treat the contraction-based core as not-fit-for-embedding-kNN.
 
 ## Context
 

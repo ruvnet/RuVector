@@ -12,7 +12,13 @@ tags: [ruvector, benchmark, evaluation, wikipedia, wikidata, beir, hotpotqa, ogb
 
 ## Status
 
-**Proposed.** This is the experimental backbone for [ADR-196]–[ADR-198]. It exists to
+**Accepted — executed; outcome recorded below (2026-06-04).** The go/no-go gate ran on
+real data and returned **NO-GO for CCH full-contraction on embedding/citation backbones**
+(see [Empirical Outcome](#empirical-outcome-2026-06-04)). The implementation is validated
+(road-network control + exact recall everywhere); the thesis fails its structural
+prerequisite (small separators) on embedding-derived graphs.
+
+This is the experimental backbone for [ADR-196]–[ADR-198]. It exists to
 *answer empirically* the design questions the other ADRs leave open, using large public
 datasets rather than synthetic graphs or a priori reasoning.
 
@@ -121,3 +127,43 @@ the expander risk is always visible.
   the point.
 - **Embed everything ourselves.** Rejected for v1 — precomputed embeddings de-risk the
   experiment and isolate retrieval performance from embedder throughput ([ADR-194]).
+
+## Empirical Outcome (2026-06-04)
+
+Implemented in `crates/ruvector-seprag` and run on real public data. All runs use the
+balanced separator at N=1500 (BFS-ball subgraph), **recall 50/50 vs the Dijkstra oracle
+in every configuration** (the algorithm is correct everywhere).
+
+| Backbone | avg degree | blowup `\|G+\|/\|G_nav\|` | elim-tree height | build |
+|---|---|---|---|---|
+| **roadNet-PA (control)** | 2.8 | **7.6×** | 136 (~3.5·√n) | 0.01s |
+| ogbn-arxiv citation | 24 | 23.8× | 941 (~0.6·n) | 13s |
+| ogbn-arxiv feature kNN (k=10, α=1.2) | 11.7 | 42.4× | 837 (~0.56·n) | — |
+| ogbn-arxiv feature kNN (k=6, α=1.2) | 8.7 | 45.1× | 699 (~0.47·n) | — |
+
+**Findings.**
+1. **Implementation is sound.** The road control reproduces textbook CCH behaviour —
+   planar O(√n) separators → 7.6× blowup, elim height ≈ 3.5·√n, instant build.
+2. **Embedding backbones are intrinsically high-treewidth.** Both the citation
+   small-world graph *and* the Euclidean α-pruned feature manifold have elimination-tree
+   height ≈ 0.5·n. The feature manifold is *worse* than citation despite lower degree, so
+   the cause is structural (treewidth), not density or separator-heuristic quality.
+3. **The cost is preprocessing, not query.** Separator-tree branch-and-bound pruning
+   eliminates ~100% of search-space scans on *every* backbone; recall is exact. CCH's
+   failure here is fill-in/build blowup, which does not scale.
+4. Earlier negative result: hub-dampening degree-bounding makes blowup *worse* (shrinks
+   the denominator faster than `|G+|` and destroys good cuts). Judge by absolute `|G+|`
+   and elim-tree height, not the ratio.
+
+**Verdict: NO-GO for CCH full-contraction on embedding/citation retrieval graphs.** For
+embedding kNN, a navigable small-world hierarchy (HNSW) already provides what CCH cannot
+here. The expander risk in [ADR-197] is confirmed across two independent backbones.
+
+**Untested rung (future, not pursued):** a hyperbolic backbone (needs genuine hyperbolic
+embeddings, not Euclidean features reinterpreted) — odds judged low given two negatives.
+
+**Preserved value:** the validated separator-tree pruning *query* + the road-control
+success indicate the only plausible niche is **sparse, structured, relational backbones
+with re-customizable metrics** (the constrained/relational scope of [ADR-196], not pure
+embedding kNN) — to be revisited only with evidence it beats HNSW. The `ruvector-seprag`
+crate stands as a correct, tested reference implementation.

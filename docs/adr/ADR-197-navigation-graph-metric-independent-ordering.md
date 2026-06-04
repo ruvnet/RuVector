@@ -12,9 +12,15 @@ tags: [ruvector, cch, nested-dissection, separators, mincut, jtree, diskann, hyp
 
 ## Status
 
-**Proposed.** Implements Phase 1 of [ADR-196]. This is the **make-or-break**
-technical decision: if the navigation graph has large separators, the whole SepRAG
-approach fails, so the choices here directly determine viability.
+**Proposed — make-or-break question answered NO for embedding backbones (2026-06-04).**
+Implements Phase 1 of [ADR-196]. This was correctly identified as the make-or-break
+decision: the navigation graph's separator size determines viability. Measured outcome
+([ADR-199] Empirical Outcome): the road-network control has small separators (elim height
+≈ 3.5·√n), but **both embedding backbones — citation small-world and Euclidean α-pruned
+feature kNN — have near-linear treewidth (elim height ≈ 0.5·n)**. The "expander risk"
+flagged below is real and confirmed. Degree-bounding the backbone made it worse, not
+better. The hyperbolic-backbone mitigation remains untested (needs genuine hyperbolic
+embeddings).
 
 ## Context
 

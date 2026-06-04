@@ -19,15 +19,34 @@ on real data. The milestones are sequenced to surface that number as cheaply and
 early as possible, on a *correctness-validated* implementation (so the signal is not
 confounded by bugs).
 
-## Milestone sequence
+## Outcome (2026-06-04): M0 ✅ · M1 ❌ NO-GO · M2–M4 not pursued
 
-| Plan | Goal | Retires which risk | Gate |
-|------|------|--------------------|------|
-| [M0](M0-correctness-gate.md) | Separator-tree k-NN correct on toy graphs | Implementation correctness | k-NN == brute-force oracle |
-| [M1](M1-blowup-measurement.md) | Blowup ratio on ogbn-arxiv (static metric) | **Research viability (decisive)** | blowup small + separators sublinear → GO |
-| [M2](M2-customization-loop.md) | GNN metric → customization; self-learning payoff | Re-weight cost vs rebuild | customize ≪ HNSW rebuild |
-| [M3](M3-full-hybrid.md) | HNSW entry + filters + rerank; multi-hop QA | End-task quality / crossover | win on multi-hop, parity on semantic |
-| [M4](M4-integration.md) | Postgres fn + node bindings + snapshot | Productionization | `seprag_knn()` callable end-to-end |
+M0 and M1 ran; the decisive M1 gate returned **NO-GO** (full evidence in
+[ADR-199 Empirical Outcome](../../adr/ADR-199-public-corpus-benchmark-harness.md#empirical-outcome-2026-06-04)).
+The `ruvector-seprag` crate is a correct, tested reference implementation; CCH full
+contraction does **not** fit embedding/citation retrieval graphs (near-linear treewidth).
+M2–M4 are not pursued. Summary:
+
+| Backbone (N=1500, recall 50/50) | blowup | elim height |
+|---|---|---|
+| roadNet-PA (control) | 7.6× | 136 (~3.5·√n) — CCH works |
+| ogbn-arxiv citation | 23.8× | 941 (~0.6·n) |
+| ogbn-arxiv feature kNN (k=10) | 42.4× | 837 (~0.56·n) |
+
+The separator-tree **query** (pruning ~100% of scans, exact recall) is the salvageable
+piece; the failure is preprocessing fill-in. Only plausible future niche: sparse
+relational backbone + re-customizable metrics (ADR-196 scope), revisited only if it beats
+HNSW.
+
+## Milestone sequence (as originally planned)
+
+| Plan | Goal | Retires which risk | Gate | Status |
+|------|------|--------------------|------|--------|
+| [M0](M0-correctness-gate.md) | Separator-tree k-NN correct on toy graphs | Implementation correctness | k-NN == brute-force oracle | ✅ done |
+| [M1](M1-blowup-measurement.md) | Blowup ratio on ogbn-arxiv (static metric) | **Research viability (decisive)** | blowup small + separators sublinear → GO | ❌ NO-GO |
+| [M2](M2-customization-loop.md) | GNN metric → customization; self-learning payoff | Re-weight cost vs rebuild | customize ≪ HNSW rebuild | ⏸ not pursued |
+| [M3](M3-full-hybrid.md) | HNSW entry + filters + rerank; multi-hop QA | End-task quality / crossover | win on multi-hop, parity on semantic | ⏸ not pursued |
+| [M4](M4-integration.md) | Postgres fn + node bindings + snapshot | Productionization | `seprag_knn()` callable end-to-end | ⏸ not pursued |
 
 ## Key sequencing principle
 
