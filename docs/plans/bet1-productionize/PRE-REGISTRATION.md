@@ -13,6 +13,13 @@ NO-GO → why fixed-topology, not separators) ·
 > after seeing results voids the bet. Plumbing (M0–M1) may be built before freeze; contender
 > runs (M3+) may not.
 
+> **OUTCOME: WIN** (2026-06-04) — see [ADR-202](../../adr/ADR-202-reuse-under-drift-real-gnn-trajectory.md).
+> Reuse holds within 2% recall@10 of full rebuild up to a **40% churn ceiling** (identical at
+> n=20k and n=50k, ≥ ADR-200's synthetic ~36%); `Periodic{k:4}` recovers the high-churn tail to
+> within 0.01% at 20–24% of rebuild cost. The "early-trajectory" WIN clause was operationalized
+> post-hoc as the *holding ceiling* (max contiguous churn where reuse stays within 2%) — the
+> regime-resolved statistic this gate named, not the trajectory-wide mean.
+
 ## Prove-not-hype protocol (mandatory — all five)
 
 1. **One claim, one number.** 2. **Beat the strongest in-repo incumbent, tuned** (here the
