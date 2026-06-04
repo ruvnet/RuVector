@@ -1,0 +1,171 @@
+---
+adr: 202
+title: "Fixed-Topology Reuse + Periodic Rebuild on a Real Learned-GNN Trajectory"
+status: proposed
+date: 2026-06-04
+authors: [ofershaal, claude-flow]
+related: [ADR-196, ADR-198, ADR-199, ADR-200]
+tags: [ruvector, retrieval, ann, vamana, diskann, gnn, self-learning, metric-drift, productionization]
+---
+
+# ADR-202 — Fixed-Topology Reuse + Periodic Rebuild on a Real Learned-GNN Trajectory
+
+## Status
+
+**Proposed — WIN on a real learned trajectory (2026-06-04).** This closes ADR-200's named
+open frontier (next-step #4): productionize the BET 1 reuse-under-drift result by wiring
+"re-weight every step + periodic rebuild" into the production `ruvector-diskann` loop behind a
+feature flag, and validate it on a **genuine learned-GNN embedding trajectory** — contrastive
+link-prediction over the ogbn-arxiv citation graph — instead of the synthetic `A(t)` transforms
+of ADR-200.
+
+The result **transfers**: on a real trajectory, pure topology reuse (`ReweightOnly`) holds
+recall@10 **within 2% of a full rebuild up to ~40% top-10 churn** — at or beyond ADR-200's
+synthetic ~36% holding regime — and the **periodic-rebuild hybrid recovers the high-churn tail
+completely** (`Periodic{k:4}`: gap **−0.01%** vs always-rebuild at **24%** of its cumulative
+cost, equal per-query work). The stale control collapses (92% → 33%), proving the benchmark is
+drift-sensitive. **Honest boundary:** pure reuse, run past its holding ceiling on a deliberately
+overdriven trajectory, decays (−4.73% averaged to 67% churn, 1.05× per-query distance-evals) —
+which is precisely what the periodic policy is for, and the shippable periodic policy carries
+neither penalty.
+
+The gate was **pre-registered and frozen before any contender run**
+(`docs/plans/bet1-productionize/PRE-REGISTRATION.md`).
+
+## Context
+
+RuVector is a self-learning memory: a GNN continuously re-estimates node embeddings, so the
+effective L2 metric over those embeddings drifts. ADR-200 showed — under *synthetic* drift, on
+the production `ruvector-diskann` Vamana — that the navigation topology can be **reused** (build
+once on `E₀`, recompute only distances under `E_t`) within a 2% recall gate up to ~36% churn,
+at ~10³–10⁴× lower update cost, with a periodic rebuild recovering the residual gap under heavy
+drift. ADR-200's explicitly-named caveat was that the drift was parametric, not a real learned
+trajectory, and its next-step #4 was to wire the policy into the live loop and prove it there.
+
+Two facts established the substrate (both verified, not assumed):
+
+1. **The reuse hook is native.** `VamanaGraph` (`crates/ruvector-diskann/src/graph.rs`) stores
+   only topology (`neighbors` + `medoid`); `greedy_search(vectors, query, beam)` takes the
+   vectors externally. So "adapt to drift" = pass the drifted snapshot to a graph built on the
+   original — zero structural change.
+2. **`GraphMAE::train_step` does not learn.** It takes `&self` and only returns a loss — no
+   backprop, no weight update — so it cannot produce drift. The repo's genuine learnable path is
+   direct embedding optimization via `Optimizer` (Adam/SGD) + a real objective. The trajectory is
+   built from those primitives, documented up front so its provenance is auditable.
+
+## Decision / Finding
+
+**Ship `ReweightOnly` + `Periodic{k}` as a feature-gated rebuild policy on the production
+index; reuse the topology every step and rebuild on a fixed cadence.** Validated head-to-head
+(pre-registered gate) against a full rebuild on a real learned trajectory, with a stale-index
+negative control.
+
+### Production wiring — `ruvector-diskann::reuse` (feature `reuse-under-drift`, default off)
+
+`RebuildPolicy { AlwaysRebuild, ReweightOnly, Periodic { k } }` + `DriftingIndex`, which owns a
+`VamanaGraph` + build params and exposes `on_metric_update(&mut self, vectors)` (bumps a step
+counter; rebuilds iff the policy dictates) and `search(vectors, q, beam)`. The index owns only
+the *rebuild decision*; the consumer (the GNN) owns the drifting embeddings and passes snapshots
+in. The default build is byte-identical (the module is `#[cfg]`-gated out). 5 unit tests cover
+cadence + search.
+
+### Trajectory — contrastive link-prediction on ogbn-arxiv (real, public)
+
+Node embeddings are the trainable parameters, initialised from the raw 128-d features (`E₀`,
+L2-normalised). Each epoch optimises **InfoNCE** (`ruvector_gnn::training::info_nce_loss`) over
+citation edges (positives) + sampled non-edges (negatives) with `ruvector_gnn`'s `Optimizer`
+(Adam); embeddings are renormalised onto the unit sphere after each step (so cosine = dot and the
+diskann L2 ranking agrees with the contrastive metric), and snapshotted to form `E₀ … E_T`. A
+genuinely learned trajectory driven by real arxiv structure. Harness:
+`crates/ruvector-gnn/examples/diskann_real_trajectory.rs`. Build params: production Vamana
+R=32, L=64, α=1.2; recall@10; 200 queries.
+
+### Evidence (n = 20,000; gradual trajectory, 30 epochs, cumulative churn → 67%)
+
+Strategies (recall@10 vs brute-force truth recomputed under `E_t`):
+
+| cum. churn | B always | **A reuse** | P k=2 | P k=4 | P k=8 | C stale |
+|---|---|---|---|---|---|---|
+| 7%  | 98.7% | 98.1% | 98.6% | 98.4% | 98.2% | 91.9% |
+| 20% | 98.5% | 98.2% | 98.7% | 98.5% | 97.9% | 78.7% |
+| 29% | 98.4% | 97.7% | 98.6% | 98.3% | 98.6% | 70.4% |
+| 37% | 98.5% | 97.1% | 98.9% | 98.3% | 98.8% | 62.7% |
+| **40%** | 98.2% | **96.8%** | 98.6% | 98.8% | 98.8% | 59.7% |
+| 42% | 98.9% | 95.9% | 98.8% | 98.8% | 98.6% | 57.5% |
+| 54% | 99.2% | 92.4% | 98.9% | 98.6% | 99.0% | 45.8% |
+| 67% | 98.8% | 87.4% | 99.2% | 99.0% | 98.8% | 33.2% |
+
+| policy | mean recall | cumulative rebuild cost | evals/query |
+|---|---|---|---|
+| B always (rebuild every step) | 98.7% | 246.3s (30 builds) | 982 |
+| **A reuse** (never rebuild) | 94.0% | **0s** | 1034 |
+| **P k=2** | 98.8% | 124.2s | 982 |
+| **P k=4** | **98.7%** | **58.7s (24% of B)** | 983 |
+| P k=8 | 98.6% | 25.2s (10% of B) | 988 |
+
+**Gate (pre-registered): WIN.**
+- **Precondition (teeth) PASS** — trajectory churn 67% (≥ 15% floor); the `C` stale control
+  collapses 92% → 33%, so the benchmark is genuinely drift-sensitive (not insensitive).
+- **Reuse transfers in-regime** — `A` holds within 2% of `B` up to a **40% churn holding
+  ceiling**, at/beyond ADR-200's synthetic ~36%. Through 40% churn the gap is ≤1.6% and at low
+  churn `A` is occasionally *above* `B` (a fresh build on partially-drifted geometry can
+  underperform reuse — the t=0.25 effect ADR-200 first saw and reproduced).
+- **Periodic recovers the tail** — `Periodic{k:4}` within **0.01%** of `B` at **24%** of its
+  cumulative rebuild cost, with **equal** per-query work (1.00× evals). `k=8` within ~0.1% at
+  10% cost. ADR-200's hybrid finding (periodic-4 ≈ always at 25% cost) reproduced on real drift.
+
+### Scale confirmation (n = 50,000)
+
+<!-- 50K_PLACEHOLDER -->
+*Run in progress (n=50k, 20 epochs, snap_every=2); the holding-ceiling and periodic-recovery
+numbers will be filled here. The 20k cell is the primary result.*
+
+## Consequences
+
+**Positive.**
+- The reuse-under-drift result **transfers from synthetic to real learned drift** — the ADR-200
+  WIN is not an artifact of parametric `A(t)` transforms. A self-learning system can defer index
+  rebuilds under genuine GNN embedding drift.
+- **The shippable policy is `Periodic{k}`, not pure reuse.** It tracks full-rebuild recall within
+  ~0.01–0.1% at 10–24% of the cost *and* equal per-query work — capturing nearly all of the cost
+  asymmetry with none of pure reuse's high-churn decay or eval penalty. `k` is a single, legible
+  knob (rebuild cadence).
+- The policy lives behind a default-off feature flag, so it ships with zero impact on the
+  existing index.
+
+**Boundaries / honest caveats.**
+- **Pure `ReweightOnly` decays past its holding ceiling.** On the deliberately overdriven
+  trajectory (to 67% churn) it falls to −4.73% mean and pays 1.05× per-query distance-evals. This
+  is the predicted failure mode, addressed operationally by `Periodic{k}` — *use the hybrid, not
+  never-rebuild.*
+- **The trajectory is one objective (contrastive link-prediction) on one corpus (arxiv).** Other
+  learned objectives (node classification, GraphMAE with real backprop) may drift differently;
+  the holding ceiling is objective-dependent.
+- **The "metric update" is snapshot-granular**, not per-gradient-step; a production loop would
+  call `on_metric_update` on its own embedding-flush cadence.
+- **Membership is fixed** (drift changes vector *values*, not the point set); streaming
+  insert/delete under reuse is unaddressed.
+- **A smarter rebuild trigger** (sampled-recall probe, ADR-200 next-step #2) was *not* tested —
+  `Periodic{k}` is the knob; the trigger remains future work.
+
+*(Resolved from ADR-200: "synthetic drift only" — a real learned-GNN trajectory now confirms the
+transfer, with the holding ceiling at 40% churn ≥ the synthetic 36%.)*
+
+## Next steps
+
+1. Wire `on_metric_update` into the actual `ruvector-gnn` embedding-flush path (this ADR validates
+   the policy via the harness; the live serving hook is the remaining production glue).
+2. Smarter rebuild trigger — sampled-recall probe vs fixed periodic (ADR-200 #2 still open).
+3. Confirm the holding ceiling under a second learned objective (node-classification fine-tune)
+   to test objective-dependence.
+4. Incremental-rebuild baseline for a fair cost comparison (ADR-200 #3 still open).
+
+## Alternatives considered
+
+- **Rebuild on every metric update** (`AlwaysRebuild`) — the incumbent; the cost this removes
+  (kept as baseline B). Highest recall, full cost every step.
+- **Never rebuild** (`ReweightOnly` alone) — rejected as the *default*: transfers in-regime but
+  decays past ~40% churn on real drift. Retained as a policy for low-drift / cost-critical
+  deployments, with the ceiling documented.
+- **CCH customization** (ADR-198 via ADR-196) — rejected earlier (ADR-199: contraction blows up
+  on embedding graphs). Fixed-topology ANN reuse is the surviving vehicle.

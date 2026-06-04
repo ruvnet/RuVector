@@ -34,7 +34,11 @@ fn read_features(path: &str, n: usize) -> Vec<Vec<f32>> {
     let txt = std::fs::read_to_string(path).expect("read features csv");
     txt.lines()
         .take(n)
-        .map(|line| line.split(',').map(|s| s.trim().parse::<f32>().unwrap()).collect())
+        .map(|line| {
+            line.split(',')
+                .map(|s| s.trim().parse::<f32>().unwrap())
+                .collect()
+        })
         .collect()
 }
 
@@ -247,7 +251,10 @@ fn train_trajectory(
     if (epochs % snap_every) != 0 {
         snapshots.push(emb.clone()); // ensure ET is captured
     }
-    Trajectory { snapshots, loss_curve }
+    Trajectory {
+        snapshots,
+        loss_curve,
+    }
 }
 
 // ---------- contenders ----------
@@ -274,7 +281,10 @@ fn main() {
     let feats = read_features(feat_path, n);
     let n = feats.len();
     let edges = read_edges(edge_path, n);
-    eprintln!("[traj] {} intra-slice citation edges; dim={DIM}", edges.len());
+    eprintln!(
+        "[traj] {} intra-slice citation edges; dim={DIM}",
+        edges.len()
+    );
     assert!(!edges.is_empty(), "no edges in slice; increase N");
 
     let e0 = matrix_from_features(&feats);
@@ -310,7 +320,10 @@ fn main() {
         .map(|(qi, _)| 1.0 - recall(&truth_per_step[n_snap - 1][qi], &truth_per_step[0][qi]))
         .sum::<f64>()
         / n_queries as f64;
-    println!("\n=== PRECONDITION: top-{K} churn E0->ET = {:.1}% (gate: >= 15%) ===", churn_total * 100.0);
+    println!(
+        "\n=== PRECONDITION: top-{K} churn E0->ET = {:.1}% (gate: >= 15%) ===",
+        churn_total * 100.0
+    );
     if churn_total < 0.15 {
         println!("!! trajectory too gentle (churn < 15%) — escalate epochs/lr before treating any result as valid.");
     }
@@ -325,8 +338,10 @@ fn main() {
     ];
 
     // one DriftingIndex per policy, all built on E0
-    let mut indices: Vec<DriftingIndex> =
-        policies.iter().map(|&(_, p)| build_index(&traj.snapshots[0], p)).collect();
+    let mut indices: Vec<DriftingIndex> = policies
+        .iter()
+        .map(|&(_, p)| build_index(&traj.snapshots[0], p))
+        .collect();
     // Stale control: graph AND vectors frozen at E0.
     let stale_idx = build_index(&traj.snapshots[0], RebuildPolicy::ReweightOnly);
     let stale_flat = to_flat(&traj.snapshots[0]);
@@ -462,7 +477,11 @@ fn main() {
             break;
         }
     }
-    println!("Periodic within 1% @ <=50% cost: {}  [{}]", pass(periodic_win), best_desc);
+    println!(
+        "Periodic within 1% @ <=50% cost: {}  [{}]",
+        pass(periodic_win),
+        best_desc
+    );
 
     let verdict = if churn_total < 0.15 {
         "VOID (trajectory too gentle — escalate epochs/lr)"

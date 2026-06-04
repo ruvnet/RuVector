@@ -195,8 +195,7 @@ mod tests {
     #[test]
     fn reweight_only_never_rebuilds() {
         let v = fixture(64, 8);
-        let mut idx =
-            DriftingIndex::build(&v, RebuildPolicy::ReweightOnly, 16, 32, 1.2).unwrap();
+        let mut idx = DriftingIndex::build(&v, RebuildPolicy::ReweightOnly, 16, 32, 1.2).unwrap();
         for _ in 0..10 {
             assert!(!idx.on_metric_update(&v).unwrap());
         }
@@ -207,8 +206,7 @@ mod tests {
     #[test]
     fn always_rebuild_rebuilds_every_step() {
         let v = fixture(64, 8);
-        let mut idx =
-            DriftingIndex::build(&v, RebuildPolicy::AlwaysRebuild, 16, 32, 1.2).unwrap();
+        let mut idx = DriftingIndex::build(&v, RebuildPolicy::AlwaysRebuild, 16, 32, 1.2).unwrap();
         for _ in 0..10 {
             assert!(idx.on_metric_update(&v).unwrap());
         }
@@ -224,9 +222,7 @@ mod tests {
         // steps 1..=12, rebuild at 4, 8, 12
         assert_eq!(
             did,
-            vec![
-                false, false, false, true, false, false, false, true, false, false, false, true
-            ]
+            vec![false, false, false, true, false, false, false, true, false, false, false, true]
         );
         assert_eq!(idx.rebuilds(), 3);
     }
