@@ -32,6 +32,7 @@
 //! assert!(topk.len() <= 5);
 //! ```
 
+pub mod ann;
 pub mod contraction;
 pub mod customize;
 pub mod gen;
