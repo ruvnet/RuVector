@@ -143,6 +143,23 @@ impl DriftingIndex {
         self.graph.greedy_search(vectors, query, beam_width)
     }
 
+    /// Force a topology rebuild on `vectors`, bypassing the policy. The primitive an
+    /// externally-driven trigger (e.g. a sampled-recall monitor) is built on: the caller
+    /// owns the rebuild *signal*, the index owns the rebuild *mechanism*. Counts toward
+    /// `rebuilds()` but does not advance the update `step`.
+    pub fn force_rebuild(&mut self, vectors: &FlatVectors) -> Result<()> {
+        debug_assert_eq!(vectors.len(), self.n, "force_rebuild: point count changed");
+        self.graph = build_graph(
+            vectors,
+            self.n,
+            self.max_degree,
+            self.build_beam,
+            self.alpha,
+        )?;
+        self.rebuilds += 1;
+        Ok(())
+    }
+
     /// The configured rebuild policy.
     pub fn policy(&self) -> RebuildPolicy {
         self.policy
@@ -236,6 +253,25 @@ mod tests {
             assert!(!idx.on_metric_update(&v).unwrap());
         }
         assert_eq!(idx.rebuilds(), 0);
+    }
+
+    #[test]
+    fn force_rebuild_counts_but_does_not_advance_step() {
+        let v = fixture(64, 8);
+        let mut idx = DriftingIndex::build(&v, RebuildPolicy::ReweightOnly, 16, 32, 1.2).unwrap();
+        idx.on_metric_update(&v).unwrap(); // step 1, no rebuild
+        idx.force_rebuild(&v).unwrap(); // external trigger fires
+        idx.force_rebuild(&v).unwrap();
+        assert_eq!(
+            idx.step(),
+            1,
+            "force_rebuild must not advance the update step"
+        );
+        assert_eq!(
+            idx.rebuilds(),
+            2,
+            "force_rebuild must count toward rebuilds"
+        );
     }
 
     #[test]
