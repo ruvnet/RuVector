@@ -9310,6 +9310,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-filtered-bench"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "ruvector-acorn",
+ "ruvector-rairs",
+]
+
+[[package]]
 name = "ruvector-fpga-transformer"
 version = "0.1.0"
 dependencies = [

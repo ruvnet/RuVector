@@ -1,0 +1,15 @@
+[package]
+name        = "ruvector-filtered-bench"
+version     = "0.1.0"
+edition     = "2021"
+description = "BET 2 ⊗ BET 4: region-pruned filtered ANN (IVF cluster-skip) vs tuned ACORN — pre-registered head-to-head on ogbn-arxiv. Self-contained; independent of ruvector-seprag/PR #535."
+authors     = ["ofershaal", "claude-flow"]
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["ann", "filtered-search", "ivf", "acorn", "benchmark"]
+categories  = ["algorithms", "data-structures"]
+
+[dependencies]
+ruvector-acorn = { path = "../ruvector-acorn" }
+ruvector-rairs = { path = "../ruvector-rairs" }
+rand           = "0.8"
