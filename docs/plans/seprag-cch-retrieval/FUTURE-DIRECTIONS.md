@@ -28,9 +28,13 @@ Mahalanobis (rotational), AND non-linear (tanh-warp) drift — at **zero** rebui
 Stale-index control loses up to 29 points (benchmark has teeth). Full evidence + boundaries
 in [ADR-200](../../adr/ADR-200-customizable-reweighting-fixed-topology-ann.md).
 Harness: `crates/ruvector-seprag/examples/reweight_vs_rebuild.rs`.
-- **Open (ranked):** (1) **scale to n≥10⁵** on `ruvector-diskann` + rebuild-cost curve —
-  the decisive remaining test; (2) region-local drift; (3) incremental-rebuild baseline;
-  (4) wire into the real GNN loop behind a flag. Do (1) next.
+- **Scale ✅** (`examples/scale_drift.rs`): recall parity within 2% from 5k→100k at
+  **~1,000–4,000× lower update cost** (rebuild 142s vs reuse 0.035s at 100k). Honest caveat:
+  gap widens with N (−0.2%→−1.7%) → *defer/batch rebuilds*, not *never*.
+- **Open (ranked):** (1) confirm the 100k gap trend with ≥500 queries + port to
+  `ruvector-diskann`; (2) **region-local drift** (most likely to break reuse);
+  (3) hybrid policy (re-weight every step + rebuild every K); (4) incremental-rebuild baseline;
+  (5) wire into the real GNN loop behind a flag.
 
 ### BET 2 — Filtered ANN vs `ruvector-acorn`
 Region/predicate pruning for constrained ("nearest among items matching X") retrieval — a

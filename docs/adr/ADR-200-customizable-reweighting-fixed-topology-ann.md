@@ -12,13 +12,16 @@ tags: [ruvector, retrieval, ann, vamana, hnsw, self-learning, metric-drift, cust
 
 ## Status
 
-**Proposed — experimentally validated across diagonal, rotational, and non-linear drift;
-bounded by scale (2026-06-04).** This salvages the one idea from the SepRAG exploration
-([ADR-196]) that survived every test — the *customizable metric* of [ADR-198] — and
-re-tests it **standalone, decoupled from CCH**, since CCH full-contraction was found NO-GO
-on embedding graphs ([ADR-199]). The fixed topology matches full rebuild on **both recall
-and per-query cost** at **zero** rebuild cost; the only open caveats are scale, region-local
-drift, and an incremental-rebuild baseline.
+**Proposed — validated across drift types AND to n=10⁵ (2026-06-04).** This salvages the
+one idea from the SepRAG exploration ([ADR-196]) that survived every test — the
+*customizable metric* of [ADR-198] — re-tested **standalone, decoupled from CCH** (CCH
+full-contraction was NO-GO on embedding graphs, [ADR-199]). The fixed topology matches full
+rebuild within the pre-registered 2% recall gate across diagonal/rotational/non-linear drift
+and across n=5k…100k, at **~1,000–4,000× lower update cost**. **Caveat (honest):** the
+recall gap widens mildly with scale (−0.2% → −1.7% at 100k), so this is a *defer/batch
+rebuilds* strategy, not *never rebuild*. Remaining open: region-local drift, an incremental
+baseline, a real GNN-metric trajectory, and tighter (more-query) confirmation of the
+scale-gap trend.
 
 ## Context
 
@@ -81,6 +84,25 @@ NON-LINEAR drift (residual tanh warp `v + s·tanh(Wv)` — adversarial non-linea
 36% relevant-set churn. The C control degrades up to 29 points, proving the graph matters
 (the benchmark is not insensitive) — so A's parity is genuine adaptation, not insensitivity.
 
+### Scale (n = 5k…100k, rotational drift t=0.5, ~40% churn)
+
+`scale_drift.rs`, recall@10, 100 queries:
+
+| N | A re-weight | B rebuild | gap | rebuild cost | re-weight update cost | cost ratio |
+|---|---|---|---|---|---|---|
+| 5,000 | 90.2% | 90.0% | +0.2% | 3.6s | 0.001s | ~3,600× |
+| 10,000 | 89.5% | 90.3% | −0.8% | 10.2s | 0.004s | ~2,500× |
+| 25,000 | 88.5% | 89.2% | −0.7% | 21.4s | 0.009s | ~2,400× |
+| 50,000 | 87.7% | 88.6% | −0.9% | 47.1s | 0.043s | ~1,100× |
+| 100,000 | 85.0% | 86.7% | −1.7% | 141.8s | 0.035s | ~4,000× |
+
+**Read:** recall parity stays within the 2% gate through 100k at ~10³–10⁴× lower update
+cost (rebuild is super-linear; re-weight ≈ a medoid recompute). The gap **widens mildly**
+with N (−0.2% → −1.7%), so the honest framing is *defer/batch rebuilds*, not *never
+rebuild*. (Both A and B recall fall with N — fixed beam L=64 weakens relatively as N grows;
+the A−B gap, not the absolute, is the signal.) With 100 queries, per-point noise is ~±1%,
+so the trend should be confirmed with more queries before being treated as definitive.
+
 **Query cost is also equal.** Mean distance-evals/query: A ≈ B within ~1% in every row
 (e.g. 590 vs 583 at peak churn). So reuse does **not** trade build savings for slower
 queries — it matches B on recall *and* per-query work.
@@ -116,12 +138,18 @@ passes, so navigability robustness is not limited to linear remetrization.)*
 
 ## Next steps
 
-1. **Scale to n≥10⁵** on a real ANN index (`ruvector-diskann`) + measure the rebuild-cost
-   curve — the decisive remaining test (cost asymmetry grows with n).
-2. Region-local drift.
-3. Incremental-rebuild baseline for a fair cost comparison.
+1. ~~Scale to n≥10⁵~~ **done** (self-contained Vamana-lite; recall parity within 2% at
+   ~10³–10⁴× lower update cost). Follow-up: re-run with more queries (≥500) to confirm
+   whether the −1.7% gap at 100k is a real trend or noise; and port to the production
+   `ruvector-diskann` index to confirm on its graph.
+2. **Region-local drift** — the most likely thing to break reuse (different metric in
+   different regions could strand the old topology locally).
+3. Incremental-rebuild baseline for a fair cost comparison (vs full rebuild).
 4. Wire re-weight-on-drift into the `ruvector-diskann`/GNN loop behind a flag and validate
-   on a real learned-metric trajectory.
+   on a real learned-metric trajectory (the eventual production proof).
+5. A *hybrid policy*: cheap re-weight every step + a full rebuild every K steps (or when a
+   drift-monitor predicts the gap will cross a threshold) — captures most of the cost win
+   while bounding recall loss.
 
 ## Alternatives considered
 
