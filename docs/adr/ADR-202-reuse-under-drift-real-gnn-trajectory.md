@@ -19,11 +19,12 @@ feature flag, and validate it on a **genuine learned-GNN embedding trajectory** 
 link-prediction over the ogbn-arxiv citation graph — instead of the synthetic `A(t)` transforms
 of ADR-200.
 
-The result **transfers**: on a real trajectory, pure topology reuse (`ReweightOnly`) holds
-recall@10 **within 2% of a full rebuild up to ~40% top-10 churn** — at or beyond ADR-200's
-synthetic ~36% holding regime — and the **periodic-rebuild hybrid recovers the high-churn tail
-completely** (`Periodic{k:4}`: gap **−0.01%** vs always-rebuild at **24%** of its cumulative
-cost, equal per-query work). The stale control collapses (92% → 33%), proving the benchmark is
+The result **transfers, at both n=20k and n=50k**: on a real trajectory, pure topology reuse
+(`ReweightOnly`) holds recall@10 **within 2% of a full rebuild up to a 40% top-10 churn ceiling
+(identical at both scales)** — at or beyond ADR-200's synthetic ~36% holding regime — and the
+**periodic-rebuild hybrid recovers the high-churn tail completely** (`Periodic{k:4}`: gap
+**−0.01%** at n=20k and **+0.1% (above rebuild)** at n=50k, at **20–24%** of the cumulative
+rebuild cost, equal per-query work). The stale control collapses (92% → 33%), proving the benchmark is
 drift-sensitive. **Honest boundary:** pure reuse, run past its holding ceiling on a deliberately
 overdriven trajectory, decays (−4.73% averaged to 67% churn, 1.05× per-query distance-evals) —
 which is precisely what the periodic policy is for, and the shippable periodic policy carries
@@ -114,11 +115,32 @@ Strategies (recall@10 vs brute-force truth recomputed under `E_t`):
   cumulative rebuild cost, with **equal** per-query work (1.00× evals). `k=8` within ~0.1% at
   10% cost. ADR-200's hybrid finding (periodic-4 ≈ always at 25% cost) reproduced on real drift.
 
-### Scale confirmation (n = 50,000)
+### Scale confirmation (n = 50,000; 20 epochs, cumulative churn → 50%)
 
-<!-- 50K_PLACEHOLDER -->
-*Run in progress (n=50k, 20 epochs, snap_every=2); the holding-ceiling and periodic-recovery
-numbers will be filled here. The 20k cell is the primary result.*
+The result holds at 2.5× scale — the **holding ceiling is identical (40% churn)**, and at low
+churn reuse is again *above* full rebuild:
+
+| cum. churn | B always | **A reuse** | P k=2 | P k=4 | P k=8 | C stale |
+|---|---|---|---|---|---|---|
+| 12% | 97.0% | **97.5%** | 96.9% | 97.3% | 97.2% | 85.8% |
+| 28% | 96.7% | 97.1% | 96.9% | 96.9% | 97.1% | 70.5% |
+| 36% | 97.1% | 96.1% | 96.9% | 97.2% | 96.2% | 62.0% |
+| **40%** | 96.8% | **95.4%** | 97.1% | 97.1% | 95.5% | 58.2% |
+| 50% | 97.5% | 93.1% | 97.3% | 97.3% | 96.7% | 48.9% |
+
+| policy | mean recall | cumulative rebuild cost | evals/query |
+|---|---|---|---|
+| B always | 97.0% | 271.2s (10 builds) | 1129 |
+| A reuse | 95.8% | 0s | 1138 |
+| P k=2 | 97.0% | 132.0s (49% of B) | 1127 |
+| **P k=4** | **97.1%** (above B) | **53.7s (20% of B)** | 1126 |
+| P k=8 | 96.7% | 26.8s (10% of B) | 1130 |
+
+Same verdict: **WIN.** Holding ceiling 40% churn (matches 20k, ≥ ADR-200's 36%); stale control
+collapses 86% → 49% (teeth); `Periodic{k:4}` matches/exceeds full rebuild (97.1% vs 97.0%) at
+**20% of the cost**, equal per-query work. The whole-trajectory reuse gap is only −1.18% here
+(this trajectory tops out at 50% churn vs 20k's 67%) — even pure reuse nearly clears 2% across
+the entire run at this drift level.
 
 ## Consequences
 
