@@ -18,6 +18,7 @@
 //! The kernel returns raw counters; [`AdcCost::l2_equiv`] does the conversion so the harness charges
 //! every operation in one honest unit (no free LUT, no free re-rank).
 
+use crate::kernel::{build_ivf, IvfParts};
 use crate::oracle::l2;
 use ruvector_rairs::{kmeans, SearchResult};
 use std::cmp::Ordering;
@@ -127,20 +128,27 @@ impl PqIvf {
         max_iter: usize,
         seed: u64,
     ) -> Self {
+        Self::from_parts(&build_ivf(corpus, nclusters, max_iter, seed), corpus, m, max_iter, seed)
+    }
+
+    /// Construct from a pre-built shared [`IvfParts`] (skips re-clustering) and train the `m`-sub
+    /// product quantizer on `corpus`. Reusing one `IvfParts` for `BnBIvf` + every `PqIvf(m)` pays
+    /// the k-means once per cell while guaranteeing all contenders share an identical index.
+    pub fn from_parts(
+        parts: &IvfParts,
+        corpus: &[Vec<f32>],
+        m: usize,
+        max_iter: usize,
+        seed: u64,
+    ) -> Self {
         assert!(!corpus.is_empty(), "empty corpus");
         let dim = corpus[0].len();
         assert!((1..=MAX_M).contains(&m), "m out of range");
         assert!(dim.is_multiple_of(m), "dim {dim} not divisible by m {m}");
         let sub = dim / m;
 
-        // --- IVF: identical to BnBIvf::build (same seed → shared centroids/lists) ---
-        let k = nclusters.min(corpus.len()).max(1);
-        let (centroids, assignments) = kmeans::train(corpus, k, max_iter, seed);
-        let kc = centroids.len();
-        let mut lists: Vec<Vec<(usize, Vec<f32>)>> = vec![Vec::new(); kc];
-        for (i, v) in corpus.iter().enumerate() {
-            lists[assignments[i]].push((i, v.clone()));
-        }
+        let centroids = parts.centroids.clone();
+        let lists = parts.lists.clone();
 
         // --- PQ: one k-means per subspace; assignments ARE the codes ---
         let n = corpus.len();

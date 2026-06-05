@@ -18,7 +18,7 @@
 //! (default N = 20000 50000 100000).
 
 use ruvector_bet4_ivf_bench::data::load_feat_csv;
-use ruvector_bet4_ivf_bench::kernel::BnBIvf;
+use ruvector_bet4_ivf_bench::kernel::{build_ivf, BnBIvf};
 use ruvector_bet4_ivf_bench::oracle::{brute_force_topk, recall_at_k};
 use ruvector_bet4_ivf_bench::pq::PqIvf;
 use std::time::Instant;
@@ -76,9 +76,10 @@ fn main() {
 
         for (nc_i, &nc) in NCLUSTERS.iter().enumerate() {
             let t_b = Instant::now();
-            let bnb = BnBIvf::build(&corpus, nc, MAX_ITER, SEED);
+            let parts = build_ivf(&corpus, nc, MAX_ITER, SEED); // shared k-means: once per cell
+            let bnb = BnBIvf::from_parts(&parts);
             let nc_eff = bnb.num_lists();
-            let build_ivf = t_b.elapsed();
+            let build_ivf_t = t_b.elapsed();
 
             // ---- tune incumbent nprobe to the smallest reaching recall >= 0.95 ----
             let np_grid = nprobe_grid(nc_eff);
@@ -104,7 +105,7 @@ fn main() {
             let abandon_prune = 1.0 - abandon_dims / (members * dim as f64);
 
             println!(
-                "\n── nclusters={nc_eff} (build {build_ivf:?})  np*={np_star} inc_recall={inc_recall:.3} ──"
+                "\n── nclusters={nc_eff} (build {build_ivf_t:?})  np*={np_star} inc_recall={inc_recall:.3} ──"
             );
             println!(
                 "   incumbent  plain={plain_cost:8.0} ev  | abandon={abandon_cost:8.0} ev (dim-prune {:.1}%, exact r={abandon_recall:.3})  members={members:.0}",
@@ -119,7 +120,7 @@ fn main() {
             let mut cell_ratio = 0.0;
             for &m in &M_VALUES {
                 let t_pq = Instant::now();
-                let pq = PqIvf::build(&corpus, nc, m, MAX_ITER, SEED);
+                let pq = PqIvf::from_parts(&parts, &corpus, m, MAX_ITER, SEED);
                 let build_pq = t_pq.elapsed();
 
                 // pure-ADC ceiling at np_star (no re-rank)

@@ -16,6 +16,28 @@ use ruvector_rairs::{kmeans, SearchResult};
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 
+/// The shared IVF substrate (centroids + inverted lists) built **once** from a seeded k-means, then
+/// reused to construct every contender for a given `nclusters` — so the expensive clustering is paid
+/// once per cell, not once per contender, and all contenders provably share an identical index.
+pub struct IvfParts {
+    pub centroids: Vec<Vec<f32>>,
+    /// Per cluster: `(id, vector)` of its members.
+    pub lists: Vec<Vec<(usize, Vec<f32>)>>,
+}
+
+/// Build the shared IVF substrate (`ruvector-rairs` k-means, identical to `IvfFlat::train`).
+pub fn build_ivf(corpus: &[Vec<f32>], nclusters: usize, max_iter: usize, seed: u64) -> IvfParts {
+    assert!(!corpus.is_empty(), "empty corpus");
+    let k = nclusters.min(corpus.len()).max(1);
+    let (centroids, assignments) = kmeans::train(corpus, k, max_iter, seed);
+    let kc = centroids.len();
+    let mut lists: Vec<Vec<(usize, Vec<f32>)>> = vec![Vec::new(); kc];
+    for (i, v) in corpus.iter().enumerate() {
+        lists[assignments[i]].push((i, v.clone()));
+    }
+    IvfParts { centroids, lists }
+}
+
 /// IVF index supporting lower-bound-ordered branch-and-bound probing.
 pub struct BnBIvf {
     centroids: Vec<Vec<f32>>,
@@ -79,14 +101,14 @@ impl BnBIvf {
     /// Using the same `(corpus, nclusters, max_iter, seed)` as `IvfFlat::train` yields identical
     /// centroids — the shared-index guarantee the pre-registration requires.
     pub fn build(corpus: &[Vec<f32>], nclusters: usize, max_iter: usize, seed: u64) -> Self {
-        assert!(!corpus.is_empty(), "empty corpus");
-        let k = nclusters.min(corpus.len()).max(1);
-        let (centroids, assignments) = kmeans::train(corpus, k, max_iter, seed);
+        Self::from_parts(&build_ivf(corpus, nclusters, max_iter, seed))
+    }
+
+    /// Construct from a pre-built shared [`IvfParts`] (skips re-clustering). Computes the B&B radii.
+    pub fn from_parts(parts: &IvfParts) -> Self {
+        let centroids = parts.centroids.clone();
+        let lists = parts.lists.clone();
         let kc = centroids.len();
-        let mut lists: Vec<Vec<(usize, Vec<f32>)>> = vec![Vec::new(); kc];
-        for (i, v) in corpus.iter().enumerate() {
-            lists[assignments[i]].push((i, v.clone()));
-        }
         let radii: Vec<f32> = (0..kc)
             .map(|c| {
                 lists[c]
