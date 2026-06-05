@@ -48,6 +48,32 @@ impl Ord for Cand {
     }
 }
 
+/// Offer candidate `(id, d)` to a bounded top-`k` max-heap: insert while under capacity, else
+/// replace the current worst iff `d` is closer. Shared by both probe strategies so they accumulate
+/// results identically — only their cluster-visit order/stopping differs.
+#[inline]
+fn consider(heap: &mut BinaryHeap<Cand>, k: usize, id: usize, d: f32) {
+    if heap.len() < k {
+        heap.push(Cand { dist: d, id });
+    } else if d < heap.peek().unwrap().dist {
+        heap.pop();
+        heap.push(Cand { dist: d, id });
+    }
+}
+
+/// Drain a top-`k` heap into an ascending-distance result vector.
+fn finalize(heap: BinaryHeap<Cand>) -> Vec<SearchResult> {
+    let mut res: Vec<SearchResult> = heap
+        .into_iter()
+        .map(|c| SearchResult {
+            id: c.id,
+            distance: c.dist,
+        })
+        .collect();
+    res.sort_by(|a, b| a.distance.total_cmp(&b.distance));
+    res
+}
+
 impl BnBIvf {
     /// Build over `corpus` using `ruvector-rairs` k-means (`nclusters`, `max_iter`, `seed`).
     /// Using the same `(corpus, nclusters, max_iter, seed)` as `IvfFlat::train` yields identical
@@ -122,26 +148,41 @@ impl BnBIvf {
                 }
             }
             for (id, v) in &self.lists[c] {
-                let d = l2(q, v);
                 member_evals += 1;
-                if heap.len() < k {
-                    heap.push(Cand { dist: d, id: *id });
-                } else if d < heap.peek().unwrap().dist {
-                    heap.pop();
-                    heap.push(Cand { dist: d, id: *id });
-                }
+                consider(&mut heap, k, *id, l2(q, v));
             }
             probed += 1;
         }
 
-        let mut res: Vec<SearchResult> = heap
-            .into_iter()
-            .map(|c| SearchResult {
-                id: c.id,
-                distance: c.dist,
-            })
+        (finalize(heap), member_evals, probed)
+    }
+
+    /// The **plain-IVF incumbent** strategy on this same shared index: visit the `nprobe` nearest
+    /// centroids (by centroid distance) and scan **all** their members — no lower-bound ordering,
+    /// no early termination. This is exactly `ruvector-rairs::IvfFlat::search`'s algorithm
+    /// (validated equal by `instrumented_nprobe_matches_rairs`), instrumented to count member
+    /// distance-evals and sharing B&B's centroids/lists so the comparison isolates the probe loop.
+    pub fn search_nprobe(
+        &self,
+        q: &[f32],
+        k: usize,
+        nprobe: usize,
+    ) -> (Vec<SearchResult>, usize, usize) {
+        let nclusters = self.centroids.len();
+        let mut cd: Vec<(f32, usize)> = (0..nclusters)
+            .map(|c| (l2(q, &self.centroids[c]), c))
             .collect();
-        res.sort_by(|a, b| a.distance.total_cmp(&b.distance));
-        (res, member_evals, probed)
+        cd.sort_by(|a, b| a.0.total_cmp(&b.0));
+        let np = nprobe.clamp(1, nclusters);
+
+        let mut heap: BinaryHeap<Cand> = BinaryHeap::with_capacity(k + 1);
+        let mut member_evals = 0usize;
+        for &(_, c) in cd.iter().take(np) {
+            for (id, v) in &self.lists[c] {
+                member_evals += 1;
+                consider(&mut heap, k, *id, l2(q, v));
+            }
+        }
+        (finalize(heap), member_evals, np)
     }
 }

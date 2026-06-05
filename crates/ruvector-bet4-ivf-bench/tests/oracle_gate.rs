@@ -5,6 +5,7 @@
 use ruvector_bet4_ivf_bench::data::load_feat_csv;
 use ruvector_bet4_ivf_bench::kernel::BnBIvf;
 use ruvector_bet4_ivf_bench::oracle::{brute_force_topk, recall_at_k};
+use ruvector_rairs::{AnnIndex, IvfFlat};
 
 /// Repo-root-relative path to the gitignored arxiv feature slice.
 const DATA: &str = "../../target/m1-data/node-feat-2000.csv";
@@ -51,5 +52,51 @@ fn capped_probe_reduces_member_evals() {
     assert!(
         evals_cap <= evals_full,
         "capped probe should not cost more member-evals than full budget"
+    );
+}
+
+#[test]
+fn instrumented_nprobe_matches_rairs() {
+    // The cost-measured incumbent (BnBIvf::search_nprobe) must be algorithmically identical to the
+    // real ruvector-rairs::IvfFlat at the same (nclusters, max_iter, seed, nprobe) — same k-means
+    // substrate => same centroids/lists => same results. This legitimises measuring the incumbent's
+    // member-evals on the shared index rather than driving rairs separately.
+    let corpus = match load_feat_csv(DATA, 2000) {
+        Ok(c) if c.len() >= 500 => c,
+        _ => {
+            eprintln!("skipping instrumented_nprobe_matches_rairs: {DATA} not available");
+            return;
+        }
+    };
+    let (dim, k, nclusters, max_iter, seed, nprobe) = (corpus[0].len(), 10, 64, 25, 42u64, 8);
+
+    let mine = BnBIvf::build(&corpus, nclusters, max_iter, seed);
+    let mut rairs = IvfFlat::new(dim, nclusters, max_iter, seed);
+    rairs.train(&corpus).unwrap();
+    rairs.add(&corpus).unwrap();
+
+    let nq = 100;
+    let (mut r_mine, mut r_rairs) = (0.0, 0.0);
+    for q in 0..nq {
+        let truth = brute_force_topk(&corpus, &corpus[q], k);
+        let got_mine: Vec<usize> = mine
+            .search_nprobe(&corpus[q], k, nprobe)
+            .0
+            .iter()
+            .map(|r| r.id)
+            .collect();
+        let got_rairs: Vec<usize> = rairs
+            .search(&corpus[q], k, nprobe)
+            .unwrap()
+            .iter()
+            .map(|r| r.id)
+            .collect();
+        r_mine += recall_at_k(&truth, &got_mine, k);
+        r_rairs += recall_at_k(&truth, &got_rairs, k);
+    }
+    let (r_mine, r_rairs) = (r_mine / nq as f64, r_rairs / nq as f64);
+    assert!(
+        (r_mine - r_rairs).abs() < 0.01,
+        "instrumented incumbent must match rairs IvfFlat: mine={r_mine:.4} rairs={r_rairs:.4}"
     );
 }
