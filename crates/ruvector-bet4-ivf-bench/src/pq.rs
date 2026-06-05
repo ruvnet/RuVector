@@ -129,8 +129,8 @@ impl PqIvf {
     ) -> Self {
         assert!(!corpus.is_empty(), "empty corpus");
         let dim = corpus[0].len();
-        assert!(m >= 1 && m <= MAX_M, "m out of range");
-        assert!(dim % m == 0, "dim {dim} not divisible by m {m}");
+        assert!((1..=MAX_M).contains(&m), "m out of range");
+        assert!(dim.is_multiple_of(m), "dim {dim} not divisible by m {m}");
         let sub = dim / m;
 
         // --- IVF: identical to BnBIvf::build (same seed → shared centroids/lists) ---
@@ -152,8 +152,8 @@ impl PqIvf {
             let subvecs: Vec<Vec<f32>> = corpus.iter().map(|v| v[lo..hi].to_vec()).collect();
             let kc_pq = PQ_CENTROIDS.min(n).max(1);
             let (subcentroids, subassign) = kmeans::train(&subvecs, kc_pq, max_iter, seed + 1 + j as u64);
-            for (i, &c) in subassign.iter().enumerate() {
-                codes[i][j] = c as u8;
+            for (code_row, &c) in codes.iter_mut().zip(subassign.iter()) {
+                code_row[j] = c as u8;
             }
             codebooks.push(subcentroids);
         }
@@ -188,11 +188,11 @@ impl PqIvf {
     /// `dim/m` dims of subspace `j`. `m × 256` entries; charged as 256 full-L2-equivalents.
     fn adc_lut(&self, q: &[f32]) -> Vec<[f32; PQ_CENTROIDS]> {
         let mut lut = vec![[0f32; PQ_CENTROIDS]; self.m];
-        for j in 0..self.m {
+        for (j, lut_j) in lut.iter_mut().enumerate() {
             let lo = j * self.sub;
             let qs = &q[lo..lo + self.sub];
             for (c, cb) in self.codebooks[j].iter().enumerate() {
-                lut[j][c] = l2sq_slice(qs, cb);
+                lut_j[c] = l2sq_slice(qs, cb);
             }
         }
         lut
@@ -200,10 +200,10 @@ impl PqIvf {
 
     #[inline]
     fn adc_dist(&self, lut: &[[f32; PQ_CENTROIDS]], id: usize) -> f32 {
-        let code = &self.codes[id];
+        // `lut` has `m` entries ≤ `code`'s MAX_M; zip stops at `m` (the valid codes).
         let mut d = 0f32;
-        for j in 0..self.m {
-            d += lut[j][code[j] as usize];
+        for (lut_j, &cj) in lut.iter().zip(self.codes[id].iter()) {
+            d += lut_j[cj as usize];
         }
         d
     }

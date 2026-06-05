@@ -31,6 +31,9 @@ const NQ: usize = 200;
 const MAX_ITER: usize = 15;
 const SEED: u64 = 42;
 
+/// Per-nclusters verdict log: `(nclusters, [(N, full_win, best_ratio)])`.
+type PerNcVerdicts = (usize, Vec<(usize, bool, f64)>);
+
 fn main() {
     let args: Vec<usize> = std::env::args()
         .skip(1)
@@ -49,7 +52,8 @@ fn main() {
     println!("# crossover n* = smallest tested N where PQ beats the best PQ-free incumbent.\n");
 
     // Track, per nclusters, the verdict per scale to find the crossover and the gate.
-    let mut win_at: Vec<(usize, Vec<(usize, bool, f64)>)> =
+    // (nclusters, [(N, full_win, best_ratio)]).
+    let mut win_at: Vec<PerNcVerdicts> =
         NCLUSTERS.iter().map(|&nc| (nc, Vec::new())).collect();
 
     for &n_req in &scales {
