@@ -17,7 +17,7 @@
 //! Feature-gated behind `reuse-under-drift` (default off) — the shipping build is
 //! unaffected. See `docs/plans/bet1-productionize/PRE-REGISTRATION.md`.
 
-use crate::distance::FlatVectors;
+use crate::distance::{FlatVectors, VisitedSet};
 use crate::error::Result;
 use crate::graph::VamanaGraph;
 
@@ -310,6 +310,178 @@ impl RecallTrigger {
     }
 }
 
+/// A drift-adaptive index that repairs only the **displaced subset** of the graph instead of
+/// rebuilding the whole topology — the BET-1 "missing middle" between
+/// [`RebuildPolicy::ReweightOnly`] (repair nothing) and [`RebuildPolicy::AlwaysRebuild`]
+/// (repair everything).
+///
+/// Under metric drift membership is fixed: a point never leaves the set, its coordinates only
+/// move. So the faithful incremental operation is **not** FreshDiskANN delete+reinsert (whose
+/// delete-consolidation is inapplicable when nothing is removed). It is, for each displaced
+/// node `u`: recompute `u`'s out-edges (`greedy_search → robust_prune` at the new position),
+/// set `neighbors[u]`, and add back-edges into its new out-neighbours — exactly the per-node
+/// step [`VamanaGraph::build`] runs, applied to one node. Residual stale *in*-edges from
+/// non-displaced neighbours that `u` moved away from are left to **decay** — the same tolerance
+/// ADR-200/202 proved Vamana has; a neighbour that is itself reindexed re-prunes and drops the
+/// stale edge.
+///
+/// `reindex_frac` selects the top fraction of nodes by **displacement since their last reindex**
+/// to repair each update — the cost/recall knob, analogous to [`RebuildPolicy::Periodic`]'s `k`.
+/// `0.0` repairs nothing (≡ `ReweightOnly`); `1.0` repairs every moved node each step (a costly
+/// upper bound approaching a rebuild).
+///
+/// Feature-gated behind `reuse-under-drift`. See
+/// `docs/plans/bet1-productionize/PRE-REGISTRATION-incremental.md`.
+pub struct IncrementalIndex {
+    graph: VamanaGraph,
+    /// Each node's position as of its last reindex (E₀ for never-reindexed nodes); flat,
+    /// dim-major — the displacement baseline. Length `n * dim`.
+    reference: Vec<f32>,
+    dim: usize,
+    n: usize,
+    max_degree: usize,
+    build_beam: usize,
+    alpha: f32,
+    reindex_frac: f32,
+    // Telemetry.
+    updates: usize,
+    reindexed_total: usize,
+}
+
+impl IncrementalIndex {
+    /// Build the initial topology on `vectors` (the `E₀` snapshot). `reindex_frac` is the
+    /// fraction of (most-displaced) nodes to repair per update; `max_degree`/`build_beam`/`alpha`
+    /// are the Vamana build parameters (production defaults 32 / 64 / 1.2).
+    pub fn build(
+        vectors: &FlatVectors,
+        reindex_frac: f32,
+        max_degree: usize,
+        build_beam: usize,
+        alpha: f32,
+    ) -> Result<Self> {
+        let n = vectors.len();
+        let dim = vectors.dim;
+        let graph = build_graph(vectors, n, max_degree, build_beam, alpha)?;
+        Ok(Self {
+            graph,
+            reference: vectors.data.clone(),
+            dim,
+            n,
+            max_degree,
+            build_beam,
+            alpha,
+            reindex_frac: reindex_frac.clamp(0.0, 1.0),
+            updates: 0,
+            reindexed_total: 0,
+        })
+    }
+
+    /// L2² displacement of node `u` since its last reindex.
+    fn displacement(&self, vectors: &FlatVectors, u: usize) -> f32 {
+        let s = u * self.dim;
+        crate::distance::l2_squared(vectors.get(u), &self.reference[s..s + self.dim])
+    }
+
+    /// React to a metric update: reindex the top `reindex_frac` of nodes by displacement since
+    /// their last reindex (skipping nodes that did not move). Returns how many nodes were
+    /// reindexed, for cost accounting.
+    ///
+    /// `vectors` must keep the same point count as the original build (drift changes vector
+    /// *values*, not membership).
+    pub fn on_metric_update(&mut self, vectors: &FlatVectors) -> Result<usize> {
+        debug_assert_eq!(
+            vectors.len(),
+            self.n,
+            "incremental model assumes fixed membership; point count changed"
+        );
+        self.updates += 1;
+        let budget = ((self.n as f32) * self.reindex_frac).round() as usize;
+        if budget == 0 {
+            return Ok(0);
+        }
+        // Rank nodes by displacement (largest first); repair the top `budget` that actually moved.
+        let mut disp: Vec<(f32, u32)> = (0..self.n)
+            .map(|u| (self.displacement(vectors, u), u as u32))
+            .filter(|&(d, _)| d > 0.0)
+            .collect();
+        disp.sort_unstable_by(|a, b| b.0.total_cmp(&a.0));
+        let take = budget.min(disp.len());
+
+        let mut visited = VisitedSet::new(self.n);
+        for &(_, u) in disp.iter().take(take) {
+            self.reindex_node(vectors, u, &mut visited);
+            // This node is now consistent with the live snapshot — reset its displacement baseline.
+            let s = u as usize * self.dim;
+            self.reference[s..s + self.dim].copy_from_slice(vectors.get(u as usize));
+        }
+        self.reindexed_total += take;
+        Ok(take)
+    }
+
+    /// Recompute `u`'s out-edges at its current position and refresh its back-edges. Two-phase
+    /// (all reads, then all writes) so the `&self` borrow in `robust_prune` never overlaps the
+    /// `&mut` writes into `neighbors`.
+    fn reindex_node(&mut self, vectors: &FlatVectors, u: u32, visited: &mut VisitedSet) {
+        let uq = vectors.get(u as usize).to_vec();
+        // Candidate generation from the live (drifted) graph, then α-robust prune to out-edges.
+        let (cands, _) = self
+            .graph
+            .greedy_search_fast(vectors, &uq, self.build_beam, visited);
+        let pruned = self.graph.robust_prune(vectors, u, &cands, self.alpha);
+
+        // Phase 1 — compute back-edge writes without mutating (read-only borrows of the graph).
+        let mut writes: Vec<(usize, Option<Vec<u32>>)> = Vec::with_capacity(pruned.len());
+        for &c in &pruned {
+            let cu = c as usize;
+            if cu == u as usize || self.graph.neighbors[cu].contains(&u) {
+                continue;
+            }
+            if self.graph.neighbors[cu].len() < self.max_degree {
+                writes.push((cu, None)); // simple append of u
+            } else {
+                let mut combined = self.graph.neighbors[cu].clone();
+                combined.push(u);
+                let repruned = self.graph.robust_prune(vectors, c, &combined, self.alpha);
+                writes.push((cu, Some(repruned)));
+            }
+        }
+
+        // Phase 2 — apply writes.
+        self.graph.neighbors[u as usize] = pruned;
+        for (cu, rep) in writes {
+            match rep {
+                Some(r) => self.graph.neighbors[cu] = r,
+                None => self.graph.neighbors[cu].push(u),
+            }
+        }
+    }
+
+    /// Search the current topology against `vectors` (the live snapshot).
+    pub fn search(
+        &self,
+        vectors: &FlatVectors,
+        query: &[f32],
+        beam_width: usize,
+    ) -> (Vec<u32>, usize) {
+        self.graph.greedy_search(vectors, query, beam_width)
+    }
+
+    /// Total nodes reindexed across all updates (the cumulative cost proxy).
+    pub fn reindexed_total(&self) -> usize {
+        self.reindexed_total
+    }
+
+    /// Number of metric updates seen.
+    pub fn updates(&self) -> usize {
+        self.updates
+    }
+
+    /// Borrow the underlying topology (e.g. for degree-bound inspection).
+    pub fn graph(&self) -> &VamanaGraph {
+        &self.graph
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -444,5 +616,88 @@ mod tests {
         let (cands, visited) = idx.search(&v, &q, 16);
         assert!(visited > 0);
         assert!(cands.contains(&5), "self should be retrieved: {cands:?}");
+    }
+
+    // ---- IncrementalIndex (BET-1 missing-middle) ----
+
+    /// Mean recall@k of a candidate-producing search against brute-force truth on `vectors`.
+    fn measure_recall<F>(vectors: &FlatVectors, k: usize, nq: usize, search: F) -> f64
+    where
+        F: Fn(&[f32]) -> Vec<u32>,
+    {
+        let mut acc = 0.0;
+        for q in 0..nq {
+            let truth = brute_force_topk(vectors, q, k);
+            let qv = vectors.get(q).to_vec();
+            let cands = search(&qv);
+            let mut scored: Vec<(f32, u32)> = cands
+                .iter()
+                .map(|&c| (crate::distance::l2_squared(vectors.get(c as usize), &qv), c))
+                .collect();
+            scored.sort_by(|a, b| a.0.total_cmp(&b.0));
+            let got: Vec<u32> = scored
+                .into_iter()
+                .filter(|&(_, c)| c as usize != q)
+                .take(k)
+                .map(|(_, c)| c)
+                .collect();
+            acc += got.iter().filter(|g| truth.contains(g)).count() as f64 / k as f64;
+        }
+        acc / nq as f64
+    }
+
+    #[test]
+    fn incremental_frac_zero_is_reweight_only() {
+        let v = fixture(64, 8);
+        let mut idx = IncrementalIndex::build(&v, 0.0, 16, 32, 1.2).unwrap();
+        let vb = fixture_b(64, 8);
+        assert_eq!(idx.on_metric_update(&vb).unwrap(), 0);
+        assert_eq!(idx.reindexed_total(), 0);
+        assert_eq!(idx.updates(), 1);
+    }
+
+    #[test]
+    fn incremental_keeps_degree_bounded() {
+        let v = fixture(160, 8);
+        let vb = fixture_b(160, 8);
+        let mut idx = IncrementalIndex::build(&v, 1.0, 16, 32, 1.2).unwrap();
+        idx.on_metric_update(&vb).unwrap();
+        for nbrs in &idx.graph().neighbors {
+            assert!(nbrs.len() <= 16, "degree bound violated: {}", nbrs.len());
+        }
+    }
+
+    #[test]
+    fn incremental_full_reindex_recovers_navigability() {
+        // Build on A, drift to B (every point moves). Pure reuse should lose recall on B;
+        // a full incremental reindex (f=1.0) should recover it, approaching a fresh rebuild.
+        let va = fixture(200, 16);
+        let vb = fixture_b(200, 16);
+        let (k, beam, nq) = (10usize, 48usize, 20usize);
+
+        let reuse = DriftingIndex::build(&va, RebuildPolicy::ReweightOnly, 24, 48, 1.2).unwrap();
+        let mut inc = IncrementalIndex::build(&va, 1.0, 24, 48, 1.2).unwrap();
+        let touched = inc.on_metric_update(&vb).unwrap();
+        assert!(touched > 0, "drift should displace nodes to reindex");
+        let fresh = DriftingIndex::build(&vb, RebuildPolicy::AlwaysRebuild, 24, 48, 1.2).unwrap();
+
+        let r_reuse = measure_recall(&vb, k, nq, |q| reuse.search(&vb, q, beam).0);
+        let r_inc = measure_recall(&vb, k, nq, |q| inc.search(&vb, q, beam).0);
+        let r_fresh = measure_recall(&vb, k, nq, |q| fresh.search(&vb, q, beam).0);
+
+        // Incremental must produce a navigable graph on B and not be worse than pure reuse.
+        assert!(
+            r_inc >= 0.7,
+            "reindexed graph not navigable: r_inc={r_inc:.3}"
+        );
+        assert!(
+            r_inc >= r_reuse - 0.05,
+            "incremental ({r_inc:.3}) should be no worse than reuse ({r_reuse:.3})"
+        );
+        // ...and land within a generous margin of a fresh rebuild (sanity, not the research claim).
+        assert!(
+            r_inc >= r_fresh - 0.2,
+            "incremental ({r_inc:.3}) far below fresh rebuild ({r_fresh:.3})"
+        );
     }
 }

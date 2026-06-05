@@ -23,4 +23,4 @@ pub use error::{DiskAnnError, Result};
 pub use index::{DiskAnnConfig, DiskAnnIndex};
 pub use pq::ProductQuantizer;
 #[cfg(feature = "reuse-under-drift")]
-pub use reuse::{DriftingIndex, RebuildPolicy, RecallTrigger};
+pub use reuse::{DriftingIndex, IncrementalIndex, RebuildPolicy, RecallTrigger};

@@ -17,7 +17,7 @@
 use ndarray::Array2;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use ruvector_diskann::distance::{l2_squared, FlatVectors};
-use ruvector_diskann::{DriftingIndex, RebuildPolicy};
+use ruvector_diskann::{DriftingIndex, IncrementalIndex, RebuildPolicy};
 use ruvector_gnn::training::{info_nce_loss, Optimizer, OptimizerType};
 use std::time::Instant;
 
@@ -615,6 +615,250 @@ fn main() {
         "KILL — BET 1 does not transfer to real GNN drift"
     };
     println!("\n>>> VERDICT: {verdict}");
+
+    // =====================================================================================
+    // ADVERSARIAL CHECK (BET-1 missing middle): incremental reindex vs reuse AND rebuild.
+    // Frozen gate: docs/plans/bet1-productionize/PRE-REGISTRATION-incremental.md
+    //   WIN = some reindex_frac f* beats pure reuse (A) by >2 pts recall@10 AND costs <=0.5x
+    //         B's cumulative rebuild cost AND stays within 2 pts of B in that churn band AND
+    //         per-query evals <=1.10x B. Adversarial: must also beat Periodic{k} (reported).
+    // Runs on the SAME trajectory / queries / ground truth as A/B/P/C above.
+    // =====================================================================================
+    let inc_fracs = [0.05_f32, 0.10, 0.20, 0.50];
+    let mut inc_indices: Vec<IncrementalIndex> = inc_fracs
+        .iter()
+        .map(|&f| {
+            let flat0 = to_flat(&traj.snapshots[0]);
+            IncrementalIndex::build(&flat0, f, R, BUILD_BEAM, ALPHA).expect("inc build")
+        })
+        .collect();
+    let mut inc_cost = vec![0.0f64; inc_fracs.len()]; // cumulative update wall-clock (s)
+    let mut inc_recall_sum = vec![0.0f64; inc_fracs.len()];
+    let mut inc_evals_sum = vec![0.0f64; inc_fracs.len()];
+    let mut inc_reindexed = vec![0usize; inc_fracs.len()];
+    let mut inc_step_recall: Vec<Vec<f64>> = vec![Vec::new(); inc_fracs.len()];
+
+    println!("\n=== ADVERSARIAL: incremental reindex recall@{K} per step (same trajectory) ===");
+    print!("{:>4} {:>7}", "step", "churn");
+    for f in &inc_fracs {
+        print!("  inc{:>4.0}%", f * 100.0);
+    }
+    print!(" {:>9} {:>9}", "A reuse", "B always");
+    println!();
+    println!("{}", "-".repeat(8 + 10 * (inc_fracs.len() + 2)));
+
+    for step in 1..n_snap {
+        let emb = &traj.snapshots[step];
+        let flat = to_flat(emb);
+        let truth = &truth_per_step[step];
+        let churn = step_churn[step - 1];
+        print!("{:>4} {:>6.0}%", step, churn * 100.0);
+        for (fi, idx) in inc_indices.iter_mut().enumerate() {
+            let tb = Instant::now();
+            let touched = idx.on_metric_update(&flat).expect("inc update");
+            inc_cost[fi] += tb.elapsed().as_secs_f64();
+            inc_reindexed[fi] += touched;
+            let mut rsum = 0.0f64;
+            let mut esum = 0.0f64;
+            for (qi, &q) in queries.iter().enumerate() {
+                let qs = emb.row(q).as_slice().unwrap().to_vec();
+                let (cands, ev) = idx.search(&flat, &qs, SEARCH_BEAM);
+                let mut scored: Vec<(f32, u32)> = cands
+                    .iter()
+                    .map(|&c| (l2_squared(emb.row(c as usize).as_slice().unwrap(), &qs), c))
+                    .collect();
+                scored.sort_by(|a, b| a.0.total_cmp(&b.0));
+                let got: Vec<u32> = scored
+                    .into_iter()
+                    .filter(|&(_, c)| c as usize != q)
+                    .take(K)
+                    .map(|(_, c)| c)
+                    .collect();
+                rsum += recall(&got, &truth[qi]);
+                esum += ev as f64;
+            }
+            let r = rsum / n_queries as f64;
+            inc_recall_sum[fi] += r;
+            inc_evals_sum[fi] += esum / n_queries as f64;
+            inc_step_recall[fi].push(r);
+            print!(" {:>8.1}%", r * 100.0);
+        }
+        // reference A reuse (idx 1) and B always (idx 0) at this same step
+        print!(
+            " {:>8.1}% {:>8.1}%",
+            step_recall[1][step - 1] * 100.0,
+            step_recall[0][step - 1] * 100.0
+        );
+        println!();
+    }
+
+    println!("\n=== INCREMENTAL SUMMARY (mean over {steps_counted} steps) ===");
+    println!(
+        "{:>10} {:>9} {:>14} {:>12} {:>11} {:>12}",
+        "reindex_f", "recall", "update cost s", "evals/query", "cost vs B", "reindexed"
+    );
+    let b_evals = evals_sum[0] / steps;
+    let mut inc_mean = vec![0.0f64; inc_fracs.len()];
+    for (fi, &f) in inc_fracs.iter().enumerate() {
+        inc_mean[fi] = inc_recall_sum[fi] / steps;
+        println!(
+            "{:>9.0}% {:>8.1}% {:>14.2} {:>12.0} {:>10.1}% {:>12}",
+            f * 100.0,
+            inc_mean[fi] * 100.0,
+            inc_cost[fi],
+            inc_evals_sum[fi] / steps,
+            inc_cost[fi] / b_cost * 100.0,
+            inc_reindexed[fi],
+        );
+    }
+    println!(
+        "  (reference) B always recall {:.1}% @ {:.2}s ; A reuse recall {:.1}% @ 0s",
+        mean_recall[0] * 100.0,
+        rebuild_cost[0],
+        mean_recall[1] * 100.0,
+    );
+
+    // ---- frozen incremental gate ----
+    // Frozen thresholds (PRE-REGISTRATION-incremental.md): a frac QUALIFIES if, in some churn
+    // band, it beats pure reuse by >2 pts AND stays within 2 pts of rebuild (per-step), AND its
+    // cumulative cost <=0.5x B AND per-query evals <=1.10x B. f* = the BEST qualifying knob
+    // (highest mean recall). Adversarial: f* must Pareto-dominate >=1 Periodic{k} (the BET 1
+    // incumbent) to be a WIN, else PARTIAL.
+    println!("\n=== INCREMENTAL GATE (pre-registered) ===");
+    #[derive(Clone, Copy)]
+    struct Qual {
+        fi: usize,
+        lo: f64,
+        hi: f64,
+        nsteps: usize,
+    }
+    let mut quals: Vec<Qual> = Vec::new();
+    for fi in 0..inc_fracs.len() {
+        let cost_frac = inc_cost[fi] / b_cost;
+        let ev_ratio = (inc_evals_sum[fi] / steps) / b_evals.max(1e-9);
+        let mut lo = f64::MAX;
+        let mut hi = 0.0f64;
+        let mut nsteps = 0usize;
+        for s in 0..inc_step_recall[fi].len() {
+            let inc_r = inc_step_recall[fi][s];
+            let beats_reuse = (inc_r - step_recall[1][s]) * 100.0 > 2.0;
+            let near_rebuild = (step_recall[0][s] - inc_r) * 100.0 <= 2.0;
+            if beats_reuse && near_rebuild {
+                nsteps += 1;
+                lo = lo.min(step_churn[s]);
+                hi = hi.max(step_churn[s]);
+            }
+        }
+        let cost_ok = cost_frac <= 0.5;
+        let eval_ok = ev_ratio <= 1.10;
+        println!(
+            "  f={:>4.0}%  recall {:>5.1}%  cost {:>5.1}% of B ({}), evals {:.2}x B ({}), beats-reuse&near-rebuild steps: {} {}",
+            inc_fracs[fi] * 100.0,
+            inc_mean[fi] * 100.0,
+            cost_frac * 100.0,
+            pass(cost_ok),
+            ev_ratio,
+            pass(eval_ok),
+            nsteps,
+            if nsteps > 0 {
+                format!("(churn {:.0}-{:.0}%)", lo * 100.0, hi * 100.0)
+            } else {
+                String::new()
+            },
+        );
+        if cost_ok && eval_ok && nsteps > 0 {
+            quals.push(Qual { fi, lo, hi, nsteps });
+        }
+    }
+    // f* = best qualifying knob by mean recall (ties → cheaper).
+    let best = quals.iter().copied().max_by(|a, b| {
+        inc_mean[a.fi]
+            .partial_cmp(&inc_mean[b.fi])
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(inc_cost[b.fi].partial_cmp(&inc_cost[a.fi]).unwrap_or(std::cmp::Ordering::Equal))
+    });
+
+    // ---- (recall, cost) frontier across all maintenance policies (transparency) ----
+    println!("\n  (recall, cost) frontier — all maintenance policies, sorted by cost:");
+    let mut frontier: Vec<(String, f64, f64)> = vec![
+        ("A reuse".into(), mean_recall[1], 0.0),
+        ("B always".into(), mean_recall[0], rebuild_cost[0]),
+    ];
+    for pi in 2..policies.len() {
+        frontier.push((policies[pi].0.to_string(), mean_recall[pi], rebuild_cost[pi]));
+    }
+    for fi in 0..inc_fracs.len() {
+        frontier.push((
+            format!("inc {:.0}%", inc_fracs[fi] * 100.0),
+            inc_mean[fi],
+            inc_cost[fi],
+        ));
+    }
+    frontier.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal));
+    for (name, r, c) in &frontier {
+        // Pareto-optimal = no other policy has >= recall at <= cost (strictly better in one).
+        let dominated = frontier.iter().any(|(_, r2, c2)| {
+            (*r2 >= *r && *c2 <= *c) && (*r2 > *r || *c2 < *c)
+        });
+        println!(
+            "    {:<10} recall {:>5.1}%  cost {:>7.2}s {}",
+            name,
+            r * 100.0,
+            c,
+            if dominated { "" } else { "<- Pareto" }
+        );
+    }
+
+    // ---- adversarial: does f* Pareto-dominate any Periodic{k}? ----
+    let mut dominates_periodic: Vec<usize> = Vec::new();
+    if let Some(bq) = best {
+        for pi in 2..policies.len() {
+            let inc_better_or_eq_recall = inc_mean[bq.fi] >= mean_recall[pi];
+            let inc_cheaper_or_eq = inc_cost[bq.fi] <= rebuild_cost[pi];
+            let strict = inc_mean[bq.fi] > mean_recall[pi] || inc_cost[bq.fi] < rebuild_cost[pi];
+            if inc_better_or_eq_recall && inc_cheaper_or_eq && strict {
+                dominates_periodic.push(pi);
+            }
+        }
+    }
+
+    let inc_verdict = match best {
+        None => {
+            "NO-GO — no incremental knob beats pure reuse by >2pts within the cost/eval bars; \
+             reuse+periodic already suffices (BET 1 narrowed: the missing middle earns no place)"
+        }
+        Some(_) if dominates_periodic.is_empty() => {
+            "PARTIAL — incremental beats pure reuse but Pareto-dominates no Periodic{k}; the \
+             BET 1 periodic incumbent already covers the (recall,cost) frontier"
+        }
+        Some(_) => {
+            "WIN — best incremental knob Pareto-dominates the Periodic{k} incumbent (>= recall \
+             at <= cost) AND beats pure reuse by >2pts in a churn band"
+        }
+    };
+    if let Some(bq) = best {
+        let dom = if dominates_periodic.is_empty() {
+            "none".to_string()
+        } else {
+            dominates_periodic
+                .iter()
+                .map(|&pi| policies[pi].0)
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        println!(
+            "\n>>> INCREMENTAL VERDICT: {inc_verdict}\n    best f*={:.0}% (recall {:.1}% @ {:.1}% of B cost), beats-reuse band churn {:.0}-{:.0}% ({} steps); dominates Periodic: [{}]",
+            inc_fracs[bq.fi] * 100.0,
+            inc_mean[bq.fi] * 100.0,
+            inc_cost[bq.fi] / b_cost * 100.0,
+            bq.lo * 100.0,
+            bq.hi * 100.0,
+            bq.nsteps,
+            dom,
+        );
+    } else {
+        println!("\n>>> INCREMENTAL VERDICT: {inc_verdict}");
+    }
 }
 
 fn pass(b: bool) -> &'static str {

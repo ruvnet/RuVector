@@ -215,7 +215,13 @@ impl VamanaGraph {
         self.greedy_search_fast(vectors, query, beam_width, &mut visited)
     }
 
-    fn robust_prune(
+    /// α-robust pruning of a candidate set down to `max_degree` diversified out-edges.
+    ///
+    /// Exposed at crate visibility (no logic change) so the `reuse-under-drift`
+    /// incremental-reindex path ([`crate::reuse::IncrementalIndex`]) can refresh a single
+    /// displaced node's neighbourhood without a full rebuild. Used internally by
+    /// [`VamanaGraph::build`].
+    pub(crate) fn robust_prune(
         &self,
         vectors: &FlatVectors,
         node: u32,
