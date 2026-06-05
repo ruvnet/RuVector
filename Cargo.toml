@@ -233,6 +233,8 @@ members = [
     "crates/ruvllm_retrieval_diffusion",
     # RAIRS IVF: Redundant Assignment + Amplified Inverse Residual (ADR-193)
     "crates/ruvector-rairs",
+    # BET 4 (SepRAG #534): LB-B&B IVF probing vs plain IVF nprobe
+    "crates/ruvector-bet4-ivf-bench",
 ]
 resolver = "2"
 
