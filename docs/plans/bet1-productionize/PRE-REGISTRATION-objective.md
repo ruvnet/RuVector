@@ -41,3 +41,11 @@ else VOID.
 
 A CAVEAT outcome is acceptable and reportable (the prove-not-hype stance): it would mean "reuse
 transfers for citation-structure drift but the safe-reuse window depends on what the GNN learns."
+
+> **OUTCOME: CONFIRM (with a degeneracy caveat)** (2026-06-04) — see
+> [ADR-202 addendum](../../adr/ADR-202-reuse-under-drift-real-gnn-trajectory.md#addendum-2026-06-04-objective-dependence--generality-confirmed-with-a-degeneracy-caveat).
+> Node-class holding ceiling = **54% churn** (≥ 30%, *above* link-prediction's 40%) → generality
+> confirmed across two objectives. Surfaced a real finding: past ~60% churn node-classification
+> collapses embeddings into ~40 class blobs where recall@10 is ill-posed and the *rebuild baseline
+> itself* destabilizes — so the trajectory-wide "reuse > rebuild" is a degeneracy artifact, not a
+> claim. Reported as such, not as a flattering headline.

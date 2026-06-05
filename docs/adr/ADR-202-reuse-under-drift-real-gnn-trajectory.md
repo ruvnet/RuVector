@@ -213,14 +213,55 @@ small-set kNN each update (counted, negligible) and a representative probe set; 
 available, `Periodic{k}` remains the zero-dependency fallback. Harness:
 `crates/ruvector-gnn/examples/triggered_rebuild.rs`.
 
+## Addendum (2026-06-04): Objective-dependence — generality CONFIRMED, with a degeneracy caveat
+
+This ADR's headline was established on **one** learned objective (contrastive link-prediction);
+the named caveat was that the 40% holding ceiling might be objective-dependent. Re-tested with a
+**second, different objective** — supervised **node classification** (real ogbn-arxiv 40-class
+labels, cross-entropy on a linear head, embeddings as the trainable params) — via the same
+harness, contenders, and 2% gate (`objective=nodeclass`; gate pre-registered in
+`PRE-REGISTRATION-objective.md`). n=20k, recall@10.
+
+**CONFIRM (the pre-registered question):** in the well-behaved early regime, reuse holds within
+2% of full rebuild up to a **54% churn holding ceiling** — *higher* than link-prediction's 40%:
+
+| cum. churn | B always | A reuse | gap |
+|---|---|---|---|
+| 13% | 98.4% | 98.5% | +0.1 (A above) |
+| 37% | 98.3% | 97.7% | −0.6 |
+| 47% | 98.4% | 97.4% | −1.0 |
+| **54%** | 97.9% | 96.8% | **−1.1** |
+| 59% | 98.4% | 94.8% | −3.6 (crosses) |
+
+So the reuse-vs-rebuild parity **generalizes across two distinct learned objectives** (40% and
+54% ceilings); the objective-dependence caveat is resolved in the direction of "it generalizes,
+and node-class drift is, early, *more* reuse-friendly." `Periodic{k:4}` again recovers at ~22% of
+rebuild cost with ~equal per-query work.
+
+**Honest caveat (a real finding, not buried):** past ~60% churn the node-class trajectory
+**collapses the embeddings into ~40 class blobs**, and there recall@10 becomes **ill-posed** — with
+~500 nodes/class on the unit sphere, a query's top-10 are near-tied intra-blob points whose order
+reshuffles under tiny perturbations (churn *saturates* at 67%, never reaching 100%, because
+cross-class order is stable but intra-class order is noise). In that degenerate tail the
+**full-rebuild baseline itself destabilizes** (B swings 55–96%, its evals/query drop to 721 — a
+fresh Vamana build needs distance spread that collapsed geometry denies), so the trajectory-wide
+summary shows reuse (92.1%) numerically *above* rebuild (87.8%). **That is a benchmark-degeneracy
+artifact (ADR-200's t=0.25 reuse-beats-rebuild dip, amplified), not a genuine "reuse > rebuild"
+claim** — recall@10 is not a meaningful target once the metric collapses. The *operational*
+conclusion is unaffected: reuse + periodic is never worse than rebuild here. Reporting the artifact
+rather than the flattering headline is the point.
+
 ## Next steps
 
 1. Wire `on_metric_update` / `RecallTrigger` into the actual `ruvector-gnn` embedding-flush path
    (the policies are validated via the harness; the live serving hook is the remaining glue).
 2. ~~Smarter rebuild trigger — sampled-recall probe vs fixed periodic~~ **DONE (addendum: WIN).**
-3. Confirm the holding ceiling under a second learned objective (node-classification fine-tune)
-   to test objective-dependence.
+3. ~~Confirm the holding ceiling under a second learned objective (node-classification)~~ **DONE
+   (addendum: CONFIRMED, ceiling 54% ≥ link-pred 40%; surfaced a class-collapse degeneracy caveat).**
 4. Incremental-rebuild baseline for a fair cost comparison (ADR-200 #3 still open).
+5. **(New, from the degeneracy finding)** recall@10 is ill-posed under extreme class collapse — a
+   collapse-aware quality metric (or capped-churn operating regime) for self-learning indices whose
+   objective tightens clusters over time.
 
 ## Alternatives considered
 
