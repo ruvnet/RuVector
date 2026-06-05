@@ -13,5 +13,7 @@ pub mod data;
 pub mod kernel;
 pub mod oracle;
 pub mod pca;
+pub mod pq;
 
 pub use kernel::BnBIvf;
+pub use pq::{AdcCost, PqIvf};

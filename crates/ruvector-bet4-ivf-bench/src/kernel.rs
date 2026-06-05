@@ -203,6 +203,58 @@ impl BnBIvf {
         (finalize(heap), member_evals, considered)
     }
 
+    /// The **BET-5 steelman incumbent**: plain `nprobe` list selection, but each member's exact L2 is
+    /// computed dim-by-dim and **early-abandoned** the instant the running squared partial exceeds the
+    /// current k-th-best (`τ²`). This is *exact* (an abandoned member provably exceeds `τ`, so it
+    /// cannot enter the top-k) and is the natural PQ-free within-list pruning the PQ contender must
+    /// beat. Returns `(top-k, dims_touched, members)`; the harness charges `dims_touched / D`
+    /// full-L2-equivalents (full credit for skipped dims), and reports the dim-prune fraction as the
+    /// control on whether exact within-list pruning works at all on concentrated 128-d.
+    pub fn search_nprobe_abandon(
+        &self,
+        q: &[f32],
+        k: usize,
+        nprobe: usize,
+    ) -> (Vec<SearchResult>, usize, usize) {
+        let nclusters = self.centroids.len();
+        let mut cd: Vec<(f32, usize)> = (0..nclusters)
+            .map(|c| (l2(q, &self.centroids[c]), c))
+            .collect();
+        cd.sort_by(|a, b| a.0.total_cmp(&b.0));
+        let np = nprobe.clamp(1, nclusters);
+
+        let mut heap: BinaryHeap<Cand> = BinaryHeap::with_capacity(k + 1);
+        let mut dims_touched = 0usize;
+        let mut members = 0usize;
+        for &(_, c) in cd.iter().take(np) {
+            for (id, v) in &self.lists[c] {
+                members += 1;
+                // τ² threshold: finite only when the top-k heap is full.
+                let tau_sq = if heap.len() == k {
+                    let t = heap.peek().unwrap().dist;
+                    t * t
+                } else {
+                    f32::INFINITY
+                };
+                let mut acc = 0f32;
+                let mut abandoned = false;
+                for (x, y) in q.iter().zip(v) {
+                    let d = x - y;
+                    acc += d * d;
+                    dims_touched += 1;
+                    if acc > tau_sq {
+                        abandoned = true;
+                        break;
+                    }
+                }
+                if !abandoned {
+                    consider(&mut heap, k, *id, acc.sqrt());
+                }
+            }
+        }
+        (finalize(heap), dims_touched, members)
+    }
+
     /// The **plain-IVF incumbent** strategy on this same shared index: visit the `nprobe` nearest
     /// centroids (by centroid distance) and scan **all** their members — no lower-bound ordering,
     /// no early termination. This is exactly `ruvector-rairs::IvfFlat::search`'s algorithm
