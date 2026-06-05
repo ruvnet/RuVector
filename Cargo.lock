@@ -8747,6 +8747,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-bet4-ivf-bench"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "ruvector-rairs",
+]
+
+[[package]]
 name = "ruvector-cli"
 version = "2.2.3"
 dependencies = [
