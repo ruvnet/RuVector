@@ -775,7 +775,11 @@ fn main() {
         inc_mean[a.fi]
             .partial_cmp(&inc_mean[b.fi])
             .unwrap_or(std::cmp::Ordering::Equal)
-            .then(inc_cost[b.fi].partial_cmp(&inc_cost[a.fi]).unwrap_or(std::cmp::Ordering::Equal))
+            .then(
+                inc_cost[b.fi]
+                    .partial_cmp(&inc_cost[a.fi])
+                    .unwrap_or(std::cmp::Ordering::Equal),
+            )
     });
 
     // ---- (recall, cost) frontier across all maintenance policies (transparency) ----
@@ -785,7 +789,11 @@ fn main() {
         ("B always".into(), mean_recall[0], rebuild_cost[0]),
     ];
     for pi in 2..policies.len() {
-        frontier.push((policies[pi].0.to_string(), mean_recall[pi], rebuild_cost[pi]));
+        frontier.push((
+            policies[pi].0.to_string(),
+            mean_recall[pi],
+            rebuild_cost[pi],
+        ));
     }
     for fi in 0..inc_fracs.len() {
         frontier.push((
@@ -797,9 +805,9 @@ fn main() {
     frontier.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal));
     for (name, r, c) in &frontier {
         // Pareto-optimal = no other policy has >= recall at <= cost (strictly better in one).
-        let dominated = frontier.iter().any(|(_, r2, c2)| {
-            (*r2 >= *r && *c2 <= *c) && (*r2 > *r || *c2 < *c)
-        });
+        let dominated = frontier
+            .iter()
+            .any(|(_, r2, c2)| (*r2 >= *r && *c2 <= *c) && (*r2 > *r || *c2 < *c));
         println!(
             "    {:<10} recall {:>5.1}%  cost {:>7.2}s {}",
             name,

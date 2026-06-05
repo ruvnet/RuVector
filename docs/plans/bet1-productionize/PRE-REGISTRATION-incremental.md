@@ -17,6 +17,18 @@ on a real learned-GNN trajectory — reuse + periodic rebuild) ·
 > `IncrementalIndex` module + harness wiring) may be built before freeze; the contender run may
 > not.
 
+> **OUTCOME: WIN (scale-qualified, regime-concentrated)** (2026-06-04) — see
+> [ADR-204](../../adr/ADR-204-incremental-reindex-vs-reuse-and-rebuild.md). Reproduced at n=20k,
+> n=50k, and on a gradual trajectory: **`inc-50%` matches full-rebuild recall@10 within ~0.2 pts
+> at ~42% of rebuild cost AND Pareto-dominates `Periodic{k=2}`** — the frozen gate's best-knob +
+> beat-periodic clauses both pass. Honest narrowings recorded in the ADR: the frontier *sweep*
+> (incremental dominating every periodic) held only at n=20k/93% churn; at n=50k and moderate
+> churn periodic reclaims the cheap tiers (incremental *extends* the high-recall end, not a
+> replacement); the advantage is concentrated above ~40% churn; and the `inc > B` reading at
+> >90% churn is the known collapse degeneracy (`inc ≈ B` at n=50k). The harness `f*` selection
+> was corrected to "best knob" (was "first qualifying") to match this document's wording — frozen
+> thresholds unchanged.
+
 ## Prove-not-hype protocol (mandatory — all five)
 
 1. **One claim, one number.** 2. **Beat the strongest in-repo incumbent, tuned** — here the
