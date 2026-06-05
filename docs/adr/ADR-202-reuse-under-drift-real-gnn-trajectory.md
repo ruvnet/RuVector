@@ -251,10 +251,59 @@ claim** — recall@10 is not a meaningful target once the metric collapses. The 
 conclusion is unaffected: reuse + periodic is never worse than rebuild here. Reporting the artifact
 rather than the flattering headline is the point.
 
+## Addendum (2026-06-04): Live serving hook — SCOPED, seam absent (no build)
+
+Next-step #1 below ("wire the policy into the actual `ruvector-gnn` embedding-flush path") was
+scoped before committing any integration code. **Finding: the production seam does not exist —
+and it is missing on *both* ends.** A drifted GNN embedding has no path to a diskann index outside
+the validation harness. Building "the loop" now would require *inventing* the producer, so per the
+prove-not-hype protocol the honest outcome is to record the seam, not manufacture it.
+
+**Where a re-embedding would reach an index, and why it doesn't:**
+
+| Surface | Produces embeddings | Serves ANN | Reacts to drift | Uses diskann |
+|---|---|---|---|---|
+| `ruvector-gnn` (training loop) | ✅ | ❌ (no `serve`/`flush`/`index` module) | ❌ | ❌ dev-dep only (examples) |
+| `ruvector-diskann-node` NAPI (the npm serving surface) | ✗ caller-supplied | ✅ `search()` | ❌ static `build()` | ✅ but `reuse-under-drift` **off** |
+| `mcp-brain-server` (the only live daemon) | ✅ own store | ✅ memory search | ✅ `DriftMonitor` — **monitor-only** | ❌ no dep |
+| `examples/diskann_real_trajectory.rs` | ✅ | ✅ | ✅ `on_metric_update` (line 498) | ✅ feature on |
+
+Every production surface lacks exactly one of {produces, serves, reacts, uses-diskann}. Citations:
+`crates/ruvector-gnn/src/lib.rs` (no serving module); `crates/ruvector-gnn/Cargo.toml`
+(`ruvector-diskann` is a `[dev-dependencies]` entry only); `crates/ruvector-diskann-node/src/lib.rs:38-185`
+(`new/insert/build/search/delete/save/load` — a static-index API, no `on_metric_update`);
+`crates/ruvector-diskann-node/Cargo.toml:14` (no `features`, so `DriftingIndex`/`RecallTrigger`/
+`IncrementalIndex` are unreachable from JS); `crates/mcp-brain-server/src/drift.rs` (`DriftMonitor`
+is statistical, via `ruvector-delta-core`, and feeds no index). The clean
+consumer-owns-the-vectors API (`on_metric_update(&mut self, vectors: &FlatVectors)`, `reuse.rs:111`)
+is a ready socket with nothing plugged in — which is *by design* (it is why diskann has no gnn
+dependency), but it means the live hook is glue that does not yet have two ends to join.
+
+**Minimal seam (proposed, not built), ranked fidelity-vs-cost:**
+
+1. **NAPI binding extension (genuinely minimal, shippable).** Add a feature-gated `DriftingDiskAnn`
+   to `ruvector-diskann-node` (behind `reuse-under-drift`) exposing `onMetricUpdate(vectors)` /
+   `forceRebuild()` over the existing `DriftingIndex`. Makes the validated policy *reachable* from
+   the one surface that actually serves ANN queries, without inventing a producer (the JS caller
+   that re-embeds is the producer). Residual honesty caveat: still no in-repo driver — an
+   exposed-but-undriven API.
+2. **`mcp-brain-server` live loop (highest fidelity, largest change).** The only place with a real
+   (embeddings + serving + drift signal) loop — but it uses its own store, not diskann. Wiring here
+   means swapping its ANN backend to diskann and driving `on_metric_update` from the cognitive
+   cycle's `DriftMonitor`. A real integration, not a minimal seam.
+3. **Rust trait contract** (`EmbeddingSource`/`MetricUpdateSink`) — most speculative; invents a
+   contract no caller requested. Not recommended.
+
+**Verdict: next-step #1 is SCOPED, not done — the seam is absent and recorded; #1 (NAPI) is the
+minimal vehicle when a real producer wants it.** The policy/algorithm work (ADR-200/202/204) stands
+on its own via the harnesses; what is missing is a production consumer, not validated mechanism.
+
 ## Next steps
 
-1. Wire `on_metric_update` / `RecallTrigger` into the actual `ruvector-gnn` embedding-flush path
-   (the policies are validated via the harness; the live serving hook is the remaining glue).
+1. ~~Wire `on_metric_update` / `RecallTrigger` into the actual `ruvector-gnn` embedding-flush path~~
+   **SCOPED (addendum above): the production seam does not exist on either end; not built (would
+   require inventing the producer). Minimal seam recorded — feature-gated `DriftingDiskAnn` NAPI
+   binding — to be built only when a real embedding producer wants the reactive index.**
 2. ~~Smarter rebuild trigger — sampled-recall probe vs fixed periodic~~ **DONE (addendum: WIN).**
 3. ~~Confirm the holding ceiling under a second learned objective (node-classification)~~ **DONE
    (addendum: CONFIRMED, ceiling 54% ≥ link-pred 40%; surfaced a class-collapse degeneracy caveat).**
