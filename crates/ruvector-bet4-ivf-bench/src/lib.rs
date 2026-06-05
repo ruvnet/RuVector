@@ -12,5 +12,6 @@
 pub mod data;
 pub mod kernel;
 pub mod oracle;
+pub mod pca;
 
 pub use kernel::BnBIvf;

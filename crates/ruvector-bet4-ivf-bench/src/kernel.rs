@@ -157,6 +157,52 @@ impl BnBIvf {
         (finalize(heap), member_evals, probed)
     }
 
+    /// The **steelman B&B**: visit clusters in centroid-distance order (the effective `nprobe`
+    /// ordering, so τ tightens fast), but **skip** scanning any cluster the lower bound proves
+    /// cannot hold a top-k point (`LB(q,c) ≥ τ`). Unlike [`search`](Self::search)'s global early
+    /// `break`, skipping is correctness-safe in *any* visit order (a skipped cluster genuinely
+    /// cannot contain a closer point); a global break would be unsound here because a later,
+    /// large-radius cluster can have a *smaller* LB than the current one.
+    ///
+    /// `max_probe` caps the number of clusters **considered** (the apples-to-apples budget against
+    /// `nprobe`); LB-skips save member scans within that budget. This is the strongest version of
+    /// the bet — if it cannot beat `nprobe`, the bound itself doesn't pay. Returns
+    /// `(top-k, member_evals, clusters_considered)`.
+    pub fn search_bnb_skip(
+        &self,
+        q: &[f32],
+        k: usize,
+        max_probe: Option<usize>,
+    ) -> (Vec<SearchResult>, usize, usize) {
+        let nclusters = self.centroids.len();
+        let mut order: Vec<(f32, usize)> = (0..nclusters)
+            .map(|c| (l2(q, &self.centroids[c]), c))
+            .collect();
+        order.sort_by(|a, b| a.0.total_cmp(&b.0));
+        let cap = max_probe.unwrap_or(nclusters).min(nclusters);
+
+        let mut heap: BinaryHeap<Cand> = BinaryHeap::with_capacity(k + 1);
+        let mut member_evals = 0usize;
+        let mut considered = 0usize;
+        for (dc, c) in order {
+            if considered >= cap {
+                break;
+            }
+            considered += 1;
+            if heap.len() == k {
+                let kth = heap.peek().unwrap().dist;
+                if (dc - self.radii[c]).max(0.0) >= kth {
+                    continue; // LB-skip: provably cannot improve the top-k
+                }
+            }
+            for (id, v) in &self.lists[c] {
+                member_evals += 1;
+                consider(&mut heap, k, *id, l2(q, v));
+            }
+        }
+        (finalize(heap), member_evals, considered)
+    }
+
     /// The **plain-IVF incumbent** strategy on this same shared index: visit the `nprobe` nearest
     /// centroids (by centroid distance) and scan **all** their members — no lower-bound ordering,
     /// no early termination. This is exactly `ruvector-rairs::IvfFlat::search`'s algorithm
