@@ -103,13 +103,18 @@ fn main() {
             let abandon_cost = abandon_dims / dim as f64;
             let best_inc = plain_cost.min(abandon_cost);
             let abandon_prune = 1.0 - abandon_dims / (members * dim as f64);
+            // Routing: every contender computes q↔centroid for all nc_eff centroids to pick the
+            // nprobe nearest lists. Charged EQUALLY to incumbent and PQ (the pre-reg's "no free
+            // routing" adversarial check). It dilutes any ratio, decisively at high nclusters.
+            let routing = nc_eff as f64;
 
             println!(
-                "\n── nclusters={nc_eff} (build {build_ivf_t:?})  np*={np_star} inc_recall={inc_recall:.3} ──"
+                "\n── nclusters={nc_eff} (build {build_ivf_t:?})  np*={np_star} inc_recall={inc_recall:.3}  routing={routing:.0} ev/q ──"
             );
             println!(
-                "   incumbent  plain={plain_cost:8.0} ev  | abandon={abandon_cost:8.0} ev (dim-prune {:.1}%, exact r={abandon_recall:.3})  members={members:.0}",
-                abandon_prune * 100.0
+                "   incumbent  plain={plain_cost:8.0} | abandon={abandon_cost:8.0} ev (dim-prune {:.1}%, exact r={abandon_recall:.3})  members={members:.0}  | best+routing={:.0}",
+                abandon_prune * 100.0,
+                best_inc + routing
             );
             println!(
                 "   wall/q     plain={:>8.1}µs | abandon={:>8.1}µs",
@@ -161,26 +166,30 @@ fn main() {
                         let t_pq_q = t0.elapsed().as_secs_f64() * 1e6 / queries.len() as f64;
                         let pq_cost = cost_sum / queries.len() as f64;
                         let rec = rec / queries.len() as f64;
-                        let ratio = best_inc / pq_cost;
+                        // Member-only ratio (transparency) and the gate-deciding TOTAL ratio with
+                        // routing charged to both (the faithful full-L2-equivalent accounting).
+                        let member_ratio = best_inc / pq_cost;
+                        let total_ratio = (best_inc + routing) / (pq_cost + routing);
                         let wall_win = t_pq_q < t_plain.min(t_abandon);
                         let rr_full = rr >= members as usize; // re-rank == whole working set → bought nothing
                         let verdict = if rr_full {
                             "DEGENERATE(R≈WS)"
-                        } else if ratio >= 2.0 && wall_win {
+                        } else if total_ratio >= 2.0 && wall_win {
                             "WIN≥2×"
-                        } else if ratio >= 1.5 {
+                        } else if total_ratio >= 1.5 {
                             "qualified"
                         } else {
                             "miss"
                         };
                         println!(
-                            "   PQ m={m:>2}  ADC-ceiling={adc_ceiling:.3}  R*={rr:>5}  cost={pq_cost:8.0} ev  recall={rec:.3}  wall={t_pq_q:>7.1}µs  ratio={ratio:.2}× vs best-inc  [{verdict}{}]",
+                            "   PQ m={m:>2}  ADC-ceil={adc_ceiling:.3}  R*={rr:>5}  cost={pq_cost:8.0}(+rt={:.0})  recall={rec:.3}  wall={t_pq_q:>7.1}µs  member={member_ratio:.2}× total={total_ratio:.2}×  [{verdict}{}]",
+                            pq_cost + routing,
                             if wall_win { "" } else { ", WALL-REVERSES" }
                         );
-                        if ratio > cell_ratio {
-                            cell_ratio = ratio;
+                        if total_ratio > cell_ratio {
+                            cell_ratio = total_ratio;
                         }
-                        if ratio >= 2.0 && wall_win && !rr_full {
+                        if total_ratio >= 2.0 && wall_win && !rr_full {
                             cell_win = true;
                         }
                     }
