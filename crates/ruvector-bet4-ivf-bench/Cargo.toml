@@ -1,0 +1,14 @@
+[package]
+name = "ruvector-bet4-ivf-bench"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+description = "BET 4 (SepRAG #534): LB-ordered branch-and-bound IVF probing vs plain IVF nprobe"
+
+[dependencies]
+ruvector-rairs = { path = "../ruvector-rairs" }
+rand = "0.8"
+
+[lib]
+crate-type = ["rlib"]
