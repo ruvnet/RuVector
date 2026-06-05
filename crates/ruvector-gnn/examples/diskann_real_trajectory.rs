@@ -257,6 +257,111 @@ fn train_trajectory(
     }
 }
 
+// ---------- node-classification trajectory (the ADR-202 generality check) ----------
+
+fn read_labels(path: &str, n: usize) -> Vec<usize> {
+    let txt = std::fs::read_to_string(path).expect("read labels csv");
+    txt.lines()
+        .take(n)
+        .map(|l| l.trim().parse::<usize>().unwrap())
+        .collect()
+}
+
+/// Drift the embeddings by supervised node classification: a linear head `W` (d×C) maps each
+/// embedding to class logits; cross-entropy trains both `W` and the embeddings, pulling each
+/// node toward its class region. A genuinely different drift geometry from link-prediction.
+#[allow(clippy::too_many_arguments)]
+fn train_nodeclass_trajectory(
+    e0: Array2<f32>,
+    labels: &[usize],
+    n_cls: usize,
+    n: usize,
+    epochs: usize,
+    snap_every: usize,
+    lr: f32,
+    seed: u64,
+) -> Trajectory {
+    let mut emb = e0.clone();
+    let mut w = Array2::<f32>::zeros((DIM, n_cls)); // classifier head
+    {
+        // small random init so logits aren't degenerate
+        let mut rng = StdRng::seed_from_u64(seed);
+        for v in w.iter_mut() {
+            *v = (rng.gen_range(0..2000) as f32 / 1000.0 - 1.0) * 0.01;
+        }
+    }
+    let mut opt_e = Optimizer::new(OptimizerType::Adam {
+        learning_rate: lr,
+        beta1: 0.9,
+        beta2: 0.999,
+        epsilon: 1e-8,
+    });
+    let mut opt_w = Optimizer::new(OptimizerType::Adam {
+        learning_rate: lr,
+        beta1: 0.9,
+        beta2: 0.999,
+        epsilon: 1e-8,
+    });
+
+    let mut snapshots = vec![emb.clone()];
+    let mut loss_curve = Vec::with_capacity(epochs);
+
+    for _epoch in 0..epochs {
+        let mut grad_e = Array2::<f32>::zeros((n, DIM));
+        let mut grad_w = Array2::<f32>::zeros((DIM, n_cls));
+        let mut loss_acc = 0.0f32;
+        for i in 0..n {
+            // logits = emb_i · W
+            let mut logits = vec![0.0f32; n_cls];
+            for c in 0..n_cls {
+                let mut s = 0.0f32;
+                for d in 0..DIM {
+                    s += emb[[i, d]] * w[[d, c]];
+                }
+                logits[c] = s;
+            }
+            let m = logits.iter().cloned().fold(f32::MIN, f32::max);
+            let mut z = 0.0f32;
+            for c in 0..n_cls {
+                logits[c] = (logits[c] - m).exp();
+                z += logits[c];
+            }
+            let y = labels[i];
+            loss_acc += -(logits[y] / z).max(1e-12).ln();
+            // dL/dlogit_c = softmax_c - [c==y]
+            for c in 0..n_cls {
+                let g = logits[c] / z - if c == y { 1.0 } else { 0.0 };
+                for d in 0..DIM {
+                    grad_e[[i, d]] += g * w[[d, c]];
+                    grad_w[[d, c]] += g * emb[[i, d]];
+                }
+            }
+        }
+        grad_e.mapv_inplace(|g| g / n as f32);
+        grad_w.mapv_inplace(|g| g / n as f32);
+        opt_e.step(&mut emb, &grad_e).expect("step e");
+        opt_w.step(&mut w, &grad_w).expect("step w");
+        for i in 0..n {
+            let mut row = emb.row(i).to_vec();
+            normalize_row(&mut row);
+            for d in 0..DIM {
+                emb[[i, d]] = row[d];
+            }
+        }
+        loss_curve.push(loss_acc / n as f32);
+        if (_epoch + 1) % snap_every == 0 {
+            snapshots.push(emb.clone());
+        }
+    }
+    if epochs % snap_every != 0 {
+        snapshots.push(emb.clone());
+    }
+    Trajectory {
+        snapshots,
+        loss_curve,
+    }
+}
+
 // ---------- contenders ----------
 
 fn build_index(emb: &Array2<f32>, policy: RebuildPolicy) -> DriftingIndex {
@@ -273,6 +378,13 @@ fn main() {
     let epochs: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(60);
     let lr: f32 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(0.01);
     let snap_every: usize = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(3);
+    // objective: "linkpred" (default, contrastive citation link-prediction) or "nodeclass"
+    // (supervised CE on the 40 real arxiv subject labels) — the generality check of ADR-202.
+    let objective = args
+        .get(5)
+        .map(|s| s.as_str())
+        .unwrap_or("linkpred")
+        .to_string();
 
     let feat_path = "target/m1-data/node-feat-100k.csv";
     let edge_path = "target/m1-data/arxiv/raw/edge.csv";
@@ -289,12 +401,20 @@ fn main() {
 
     let e0 = matrix_from_features(&feats);
 
-    // ---- M1: generate the real learned trajectory ----
+    // ---- M1: generate the real learned trajectory (objective selectable) ----
     let t0 = Instant::now();
-    let traj = train_trajectory(
-        e0, &edges, n, epochs, snap_every, /*batch*/ 2048, /*n_neg*/ 64,
-        /*tau*/ 0.1, lr, /*seed*/ 1234,
-    );
+    let traj = if objective == "nodeclass" {
+        let labels = read_labels("target/m1-data/node-label.csv", n);
+        let n_cls = labels.iter().copied().max().unwrap_or(0) + 1;
+        eprintln!("[traj] objective=nodeclass; {n_cls} classes");
+        train_nodeclass_trajectory(e0, &labels, n_cls, n, epochs, snap_every, lr, 1234)
+    } else {
+        eprintln!("[traj] objective=linkpred");
+        train_trajectory(
+            e0, &edges, n, epochs, snap_every, /*batch*/ 2048, /*n_neg*/ 64,
+            /*tau*/ 0.1, lr, /*seed*/ 1234,
+        )
+    };
     let n_snap = traj.snapshots.len();
     eprintln!(
         "[traj] trained {epochs} epochs in {:.1}s; {n_snap} snapshots; loss {:.3} -> {:.3}",
