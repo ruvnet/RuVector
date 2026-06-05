@@ -53,11 +53,20 @@ Region/predicate pruning for constrained ("nearest among items matching X") retr
 real flat-ANN weakness. Higher effort; ACORN is a strong specialized incumbent in-repo, so
 it's a harder, longer fight. Needs a filtered-ANN benchmark with selectivity sweeps.
 
-### BET 3 — Multi-hop Graph-RAG on a sparse curated KG
-ADR-196's true scope: structural + semantic retrieval on a Wikidata-style KG (sparse,
-bounded relation degree — possibly more road-like than the dense citation graph that
-failed), with multi-hop QA ground truth (HotpotQA / MuSiQue / 2WikiMultiHop). Biggest
-upside, most data engineering, least clean head-to-head.
+### BET 3 — Multi-hop Graph-RAG on a sparse curated KG  ❌ NO-GO (treewidth gate), see [ADR-203]
+ADR-196's true scope: structural + semantic retrieval on a Wikidata-style KG, on the bet
+that bounded relation degree might be more road-like than the dense citation graph that
+failed. **Probed first (treewidth go/no-go gate) before any QA harness — and it failed.**
+All three curated KGs are high-treewidth: WN18RR (WordNet) blowup 59.9×, FB15k-237
+(Freebase) elim_h≈0.46·n, CoDEx-L (Wikidata) exponent p=1.83 (tree-like periphery, but the
+hub-dense core collapses treewidth). Minor-min-width **lower** bounds (28–44) are 7–11× the
+road control's (4) → structurally certain, not a heuristic artifact. Cause: KGs are
+small-world **with hubs** (max degree 520/1999/4999 vs road's 9); hubs kill separators
+regardless of average degree. Combined with ADR-199 this **closes the CCH-contraction
+line** — no retrieval backbone of interest has road-like treewidth. The QA benchmark was
+(correctly) never built. Query kernel stays exact (recall 30/30) + treewidth-independent;
+its only viable home remains a treewidth-immune IVF hierarchy (BET 4). Probe:
+`crates/ruvector-seprag/examples/kg_treewidth_probe.rs`; ADR-203.
 
 ### BET 4 — Region pruning on an IVF/clustering hierarchy
 Structural pivot: move the validated separator-tree **pruning query** off separators (which
