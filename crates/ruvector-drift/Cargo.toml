@@ -1,0 +1,20 @@
+[package]
+name = "ruvector-drift"
+version = "0.1.0"
+edition = "2021"
+description = "Streaming semantic drift detection for agent vector memory — online distribution shift monitoring for RuVector"
+authors = ["ruvnet", "claude-flow"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ruvnet/ruvector"
+keywords = ["ann", "drift-detection", "agent-memory", "vector-search", "ruvector"]
+categories = ["algorithms", "data-structures", "science"]
+
+[[bin]]
+name = "drift-bench"
+path = "src/main.rs"
+
+[dependencies]
+rand = "0.8"
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
