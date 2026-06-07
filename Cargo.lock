@@ -9459,6 +9459,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-graph-condense"
+version = "2.2.3"
+dependencies = [
+ "criterion 0.5.1",
+ "rand 0.8.5",
+ "ruvector-mincut 2.2.3",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ruvector-graph-node"
 version = "2.2.3"
 dependencies = [
