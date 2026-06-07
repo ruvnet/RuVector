@@ -9818,6 +9818,13 @@ name = "ruvector-mmwave"
 version = "0.0.1"
 
 [[package]]
+name = "ruvector-namespace-router"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+]
+
+[[package]]
 name = "ruvector-nervous-system"
 version = "2.2.3"
 dependencies = [

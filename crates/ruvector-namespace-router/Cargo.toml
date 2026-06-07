@@ -1,0 +1,19 @@
+[package]
+name        = "ruvector-namespace-router"
+version     = "0.1.0"
+edition     = "2021"
+description = "Coherence-gated multi-tenant vector namespace router for ruvector agent memory isolation"
+authors     = ["ruvnet", "claude-flow"]
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["ann", "vector-search", "multi-tenant", "namespace", "ruvector"]
+categories  = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "namespace-bench"
+path = "src/main.rs"
+
+[dependencies]
+rand = "0.8"
+
+[dev-dependencies]
