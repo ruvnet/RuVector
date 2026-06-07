@@ -233,6 +233,8 @@ members = [
     "crates/ruvllm_retrieval_diffusion",
     # RAIRS IVF: Redundant Assignment + Amplified Inverse Residual (ADR-193)
     "crates/ruvector-rairs",
+    # GCVS: Graph-Coherence Vector Search with coherence-gated BFS (ADR-194)
+    "crates/ruvector-gcvs",
 ]
 resolver = "2"
 

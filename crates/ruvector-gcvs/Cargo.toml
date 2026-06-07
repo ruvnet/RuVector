@@ -1,0 +1,45 @@
+[package]
+name = "ruvector-gcvs"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Graph-Coherence Vector Search: ANN retrieval augmented with coherence-gated graph traversal"
+
+[[bin]]
+name = "benchmark"
+path = "src/main.rs"
+
+[features]
+default = []
+rayon = ["dep:rayon"]
+
+[dependencies]
+thiserror = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }
+rayon = { workspace = true, optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+rand = { workspace = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", priority = -1 }
+unused_imports = "allow"
+dead_code = "allow"
+unused_variables = "allow"
+unused_mut = "allow"
+missing_docs = "allow"
+
+[lints.clippy]
+pedantic = { level = "allow", priority = -2 }
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+too_many_arguments = "allow"
+cast_possible_truncation = "allow"
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+float_cmp = "allow"
