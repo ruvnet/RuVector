@@ -19,7 +19,8 @@
 //! [`crate::condense`] via [`crate::CondenseMethod::DiffMinCut`].
 
 use crate::cutloss::{
-    forward, loss_and_grad_wrt_soft, softmax_backprop, softmax_rows, CompactGraph,
+    as_matrix, as_matrix_minibatch, forward, loss_and_grad_with_as, softmax_backprop, softmax_rows,
+    CompactGraph,
 };
 use crate::error::{CondenseError, Result};
 use ruvector_mincut::{DynamicGraph, VertexId};
@@ -87,6 +88,18 @@ pub struct DiffCutConfig {
     pub init: InitStrategy,
     /// Number of independent restarts; the lowest-loss run wins (min 1).
     pub restarts: usize,
+    /// Early-stop when the loss improves by less than this between iterations
+    /// (`0.0` disables). Warm-start starts near the optimum, so this typically
+    /// cuts most of `iterations`.
+    pub tolerance: f64,
+    /// Use Rayon to parallelise the per-iteration `A·S` and parameter update.
+    /// Deterministic (row-parallel); pays off on large graphs, adds overhead on
+    /// tiny ones, so it defaults to `false`.
+    pub parallel: bool,
+    /// If `Some(b)`, estimate the gradient from `b` randomly sampled edges per
+    /// iteration (stochastic) instead of the full edge set — the lever for
+    /// million-edge graphs. `None` = full batch (exact).
+    pub minibatch_edges: Option<usize>,
     /// RNG seed (determinism).
     pub seed: u64,
 }
@@ -101,6 +114,9 @@ impl Default for DiffCutConfig {
             optimizer: Optimizer::default(),
             init: InitStrategy::default(),
             restarts: 1,
+            tolerance: 1e-6,
+            parallel: false,
+            minibatch_edges: None,
             seed: 0x0D1F_FC07,
         }
     }
@@ -124,6 +140,7 @@ pub struct DiffCutResult {
     vertices: Vec<VertexId>,
     k: usize,
     loss: MinCutLoss,
+    iterations_run: usize,
 }
 
 impl DiffCutResult {
@@ -135,6 +152,12 @@ impl DiffCutResult {
     /// Final (best-restart) loss.
     pub fn loss(&self) -> MinCutLoss {
         self.loss
+    }
+
+    /// Iterations actually run in the best restart (≤ `iterations`; lower when
+    /// early-stopping triggered).
+    pub fn iterations_run(&self) -> usize {
+        self.iterations_run
     }
 
     /// Borrow the soft assignment matrix (row-major `N×K`).
@@ -193,7 +216,7 @@ impl DiffCutCondenser {
         let (n, k) = (g.n, self.config.num_clusters);
         let restarts = self.config.restarts.max(1);
 
-        let mut best: Option<(Vec<f64>, MinCutLoss)> = None;
+        let mut best: Option<(Vec<f64>, MinCutLoss, usize)> = None;
         for r in 0..restarts {
             let seed = self
                 .config
@@ -204,53 +227,74 @@ impl DiffCutCondenser {
                 InitStrategy::Random => random_logits(n, k, &mut rng),
                 InitStrategy::WarmStart => warm_start_logits(&g, graph, k, &mut rng),
             };
-            self.optimize(&g, &mut theta, n, k);
+            let iters = self.optimize(&g, &mut theta, n, k, &mut rng);
             let soft = softmax_rows(&theta, n, k);
             let loss = forward(&g, &soft, k, self.config.ortho_weight);
-            if best.as_ref().map_or(true, |(_, b)| loss.total < b.total) {
-                best = Some((soft, loss));
+            if best.as_ref().map_or(true, |(_, b, _)| loss.total < b.total) {
+                best = Some((soft, loss, iters));
             }
         }
 
-        let (soft, loss) = best.expect("restarts >= 1");
+        let (soft, loss, iterations_run) = best.expect("restarts >= 1");
         Ok(DiffCutResult {
             soft,
             vertices: g.vertices,
             k,
             loss,
+            iterations_run,
         })
     }
 
-    /// Run the configured optimiser in place on `theta`.
-    fn optimize(&self, g: &CompactGraph, theta: &mut [f64], n: usize, k: usize) {
+    /// Run the configured optimiser in place on `theta`; returns the number of
+    /// iterations actually performed (early-stops on loss convergence). `rng`
+    /// drives edge-minibatch sampling when enabled.
+    fn optimize(
+        &self,
+        g: &CompactGraph,
+        theta: &mut [f64],
+        n: usize,
+        k: usize,
+        rng: &mut StdRng,
+    ) -> usize {
         let lr = self.config.learning_rate;
         let lambda = self.config.ortho_weight;
-        let grad = |theta: &[f64]| -> Vec<f64> {
-            let soft = softmax_rows(theta, n, k);
-            let (_, grad_s) = loss_and_grad_wrt_soft(g, &soft, k, lambda);
-            softmax_backprop(&soft, &grad_s, n, k)
-        };
+        let tol = self.config.tolerance;
+        let parallel = self.config.parallel;
+        let nnz = g.edges.len();
+        let minibatch = self.config.minibatch_edges.filter(|_| nnz > 0);
+        let mut prev = f64::INFINITY;
+        let mut vel = vec![0f64; n * k];
+        let mut m = vec![0f64; n * k];
+        let mut v = vec![0f64; n * k];
+        let mut iters_run = 0;
 
-        match self.config.optimizer {
-            Optimizer::Sgd { momentum } => {
-                let mut vel = vec![0f64; n * k];
-                for _ in 0..self.config.iterations {
-                    let gt = grad(theta);
+        for t in 1..=self.config.iterations {
+            let soft = softmax_rows(theta, n, k);
+            // A·S: full (parallel optional) or a stochastic edge minibatch.
+            let as_mat = match minibatch {
+                Some(b) => {
+                    let b = b.min(nnz);
+                    let sample: Vec<usize> = (0..b).map(|_| rng.gen_range(0..nnz)).collect();
+                    as_matrix_minibatch(g, &soft, n, k, &sample)
+                }
+                None => as_matrix(g, &soft, n, k, parallel),
+            };
+            // loss_and_grad gives the loss at the *current* theta for free.
+            let (loss, grad_s) = loss_and_grad_with_as(g, &soft, &as_mat, k, lambda, parallel);
+            let gt = softmax_backprop(&soft, &grad_s, n, k);
+
+            match self.config.optimizer {
+                Optimizer::Sgd { momentum } => {
                     for idx in 0..n * k {
                         vel[idx] = momentum * vel[idx] - lr * gt[idx];
                         theta[idx] += vel[idx];
                     }
                 }
-            }
-            Optimizer::Adam {
-                beta1,
-                beta2,
-                epsilon,
-            } => {
-                let mut m = vec![0f64; n * k];
-                let mut v = vec![0f64; n * k];
-                for t in 1..=self.config.iterations {
-                    let gt = grad(theta);
+                Optimizer::Adam {
+                    beta1,
+                    beta2,
+                    epsilon,
+                } => {
                     let bc1 = 1.0 - beta1.powi(t as i32);
                     let bc2 = 1.0 - beta2.powi(t as i32);
                     for idx in 0..n * k {
@@ -262,7 +306,14 @@ impl DiffCutCondenser {
                     }
                 }
             }
+
+            iters_run = t;
+            if tol > 0.0 && (prev - loss.total).abs() < tol {
+                break;
+            }
+            prev = loss.total;
         }
+        iters_run
     }
 }
 

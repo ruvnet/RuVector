@@ -153,11 +153,54 @@ fn bench_diffcut(c: &mut Criterion) {
     group.finish();
 }
 
+/// DiffMinCut optimisation levers on a larger graph: full-sequential vs
+/// full-parallel vs edge-minibatch (fixed 100 iterations, early-stop off).
+fn bench_diffcut_levers(c: &mut Criterion) {
+    let mut group = c.benchmark_group("condense_diffcut_levers");
+    group.sample_size(10);
+    let pp = planted(16, 64, 5); // 1024 nodes
+    let (graph, _f) = pp.generate();
+    let n = pp.total_vertices();
+    group.throughput(Throughput::Elements(n as u64));
+    let base = DiffCutConfig {
+        num_clusters: 16,
+        iterations: 100,
+        tolerance: 0.0,
+        seed: 1,
+        ..Default::default()
+    };
+    let variants = [
+        ("full_sequential", DiffCutConfig { ..base.clone() }),
+        (
+            "full_parallel",
+            DiffCutConfig {
+                parallel: true,
+                ..base.clone()
+            },
+        ),
+        (
+            "minibatch_2048",
+            DiffCutConfig {
+                minibatch_edges: Some(2048),
+                ..base.clone()
+            },
+        ),
+    ];
+    for (name, cfg) in variants {
+        let condenser = DiffCutCondenser::new(cfg);
+        group.bench_with_input(BenchmarkId::new(name, n), &(condenser, &graph), |b, (c, g)| {
+            b.iter(|| criterion::black_box(c.train(g).unwrap().loss().total));
+        });
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_scalable,
     bench_engine,
     bench_diffcut,
+    bench_diffcut_levers,
     bench_metrics
 );
 criterion_main!(benches);

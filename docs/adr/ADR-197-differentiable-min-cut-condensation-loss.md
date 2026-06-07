@@ -88,6 +88,28 @@ Result: on a 12-event WorldGraph (`examples/worldgraph.rs`) DiffMinCut reaches
 ~0.96 ms @ 64, ~6.4 ms @ 192 nodes). Tests `warm_start_recovers_many_clusters`
 (K=8, purity > 0.85) and `warm_start_beats_random_at_large_k` lock this in.
 
+### Scale levers (for large / million-node graphs)
+
+Three further levers, off by default, target very large graphs:
+
+4. **Early-stopping** (`tolerance`, default `1e-6`) — warm-start lands near the
+   optimum, so most iterations are wasted; stop when the loss plateaus. Test
+   `early_stopping_cuts_iterations`.
+5. **Parallelism** (`parallel`, Rayon) — the per-iteration `A·S` (CSR,
+   row-parallel) and the `O(N·K²)` `SᵀS` + ortho-gradient loops run in parallel.
+   **Deterministic / bit-identical to sequential** (both use the same chunked
+   partial-sum ordering), proven by `parallel_matches_sequential_exactly`.
+6. **Edge-minibatching** (`minibatch_edges`) — estimate the gradient from a
+   sampled subset of edges per step (`O(batch·K)` instead of `O(|E|·K)`); the
+   final reported loss is still computed full-batch (exact). Test
+   `minibatch_recovers_structure`.
+
+Bench (`condense_diffcut_levers`, 1024 nodes, 4 cores, 100 iters): sequential
+~95 ms, parallel ~83 ms (~1.15×), minibatch(2048) ~77 ms (~1.2×). Gains are
+modest at this size (Rayon dispatch overhead vs. small per-iteration work) and
+grow with `N`; the value is enabling graphs that do not fit a single-threaded
+full-batch budget, not speeding up small ones.
+
 ### Correctness
 
 The analytic `∂L/∂Θ` is verified against **central finite differences** in
@@ -97,8 +119,10 @@ The analytic `∂L/∂Θ` is verified against **central finite differences** in
 ### API and integration
 
 - `DiffCutConfig { num_clusters K, ortho_weight λ, learning_rate, iterations,
-  optimizer, init, restarts, seed }`; `DiffCutCondenser::train(&DynamicGraph) ->
-  DiffCutResult`. Default = Adam + warm-start, large-K-ready.
+  optimizer, init, restarts, tolerance, parallel, minibatch_edges, seed }`;
+  `DiffCutCondenser::train(&DynamicGraph) -> DiffCutResult`. Default = Adam +
+  warm-start + early-stop, large-K-ready. `DiffCutResult::iterations_run()`
+  reports how many iterations actually ran.
 - `DiffCutResult::soft_assignment()` (the `N×K` matrix) and `hard_regions()`
   (argmax grouping → `Vec<Vec<VertexId>>`).
 - `min_cut_loss(graph, soft, k, λ)` — public, evaluates the loss for any

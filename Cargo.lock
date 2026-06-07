@@ -9464,6 +9464,7 @@ version = "2.2.3"
 dependencies = [
  "criterion 0.5.1",
  "rand 0.8.5",
+ "rayon",
  "ruvector-mincut 2.2.3",
  "serde",
  "serde_json",

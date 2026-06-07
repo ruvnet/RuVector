@@ -166,6 +166,91 @@ fn determinism_same_seed_same_result() {
 }
 
 #[test]
+fn parallel_matches_sequential_exactly() {
+    // Row-parallel A·S is deterministic, so parallel must equal sequential
+    // bit-for-bit (same seed, same config otherwise).
+    let pp = PlantedPartition {
+        num_communities: 6,
+        community_size: 24,
+        dim: 8,
+        seed: 4,
+        ..Default::default()
+    };
+    let (g, _f) = pp.generate();
+    let base = DiffCutConfig {
+        num_clusters: 6,
+        iterations: 120,
+        seed: 2,
+        tolerance: 0.0, // disable early-stop so both run identical iterations
+        ..Default::default()
+    };
+    let seq = DiffCutCondenser::new(base.clone()).train(&g).unwrap();
+    let par = DiffCutCondenser::new(DiffCutConfig {
+        parallel: true,
+        ..base
+    })
+    .train(&g)
+    .unwrap();
+    assert_eq!(seq.soft_assignment(), par.soft_assignment());
+    assert_eq!(seq.loss(), par.loss());
+}
+
+#[test]
+fn minibatch_recovers_structure() {
+    // Stochastic edge-minibatch should still recover the planted communities
+    // (warm-start prior + refinement), at a fraction of the per-step edge cost.
+    let pp = PlantedPartition {
+        num_communities: 6,
+        community_size: 24,
+        dim: 8,
+        p_intra: 0.5,
+        p_inter: 0.002,
+        seed: 9,
+        ..Default::default()
+    };
+    let (g, _f) = pp.generate();
+    let res = DiffCutCondenser::new(DiffCutConfig {
+        num_clusters: 6,
+        minibatch_edges: Some(256),
+        iterations: 150,
+        seed: 1,
+        ..Default::default()
+    })
+    .train(&g)
+    .unwrap();
+    let pur = purity(&res.hard_regions(), pp.community_size as u64);
+    assert!(pur > 0.8, "minibatch purity too low: {pur}");
+}
+
+#[test]
+fn early_stopping_cuts_iterations() {
+    // Warm-start lands near the optimum, so early-stop should finish well under
+    // the iteration cap.
+    let pp = PlantedPartition {
+        num_communities: 6,
+        community_size: 20,
+        dim: 8,
+        seed: 6,
+        ..Default::default()
+    };
+    let (g, _f) = pp.generate();
+    let res = DiffCutCondenser::new(DiffCutConfig {
+        num_clusters: 6,
+        iterations: 1000,
+        tolerance: 1e-4,
+        seed: 1,
+        ..Default::default()
+    })
+    .train(&g)
+    .unwrap();
+    assert!(
+        res.iterations_run() < 1000,
+        "early-stop did not trigger: {}",
+        res.iterations_run()
+    );
+}
+
+#[test]
 fn empty_graph_errors() {
     let g = DynamicGraph::new();
     assert!(matches!(

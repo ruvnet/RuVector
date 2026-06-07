@@ -5,6 +5,7 @@
 //! separate from the optimiser/orchestration so each file stays small and the
 //! gradient-checked maths is isolated.
 
+use rayon::prelude::*;
 use ruvector_mincut::{DynamicGraph, VertexId};
 use std::collections::HashMap;
 
@@ -22,11 +23,18 @@ pub struct MinCutLoss {
 }
 
 /// Contiguous, index-mapped view of a graph for the loss maths.
+///
+/// Carries both an edge list (for minibatch scatter) and a CSR adjacency (for
+/// conflict-free, row-parallel `A·S`).
 pub(crate) struct CompactGraph {
     pub(crate) n: usize,
     pub(crate) degree: Vec<f64>,
     pub(crate) edges: Vec<(usize, usize, f64)>,
     pub(crate) vertices: Vec<VertexId>,
+    /// CSR row offsets, length `n + 1`.
+    nbr_off: Vec<usize>,
+    /// CSR neighbours `(col, weight)`, length `2 * num_edges`.
+    nbr: Vec<(usize, f64)>,
 }
 
 impl CompactGraph {
@@ -40,18 +48,36 @@ impl CompactGraph {
         let n = vertices.len();
         let mut degree = vec![0f64; n];
         let mut edges = Vec::with_capacity(graph.num_edges());
+        let mut deg_count = vec![0usize; n];
         for e in graph.edges() {
             let i = index[&e.source];
             let j = index[&e.target];
             edges.push((i, j, e.weight));
             degree[i] += e.weight;
             degree[j] += e.weight;
+            deg_count[i] += 1;
+            deg_count[j] += 1;
+        }
+        // Build CSR (both directions) from the edge list.
+        let mut nbr_off = vec![0usize; n + 1];
+        for i in 0..n {
+            nbr_off[i + 1] = nbr_off[i] + deg_count[i];
+        }
+        let mut cursor = nbr_off[..n].to_vec();
+        let mut nbr = vec![(0usize, 0f64); edges.len() * 2];
+        for &(i, j, w) in &edges {
+            nbr[cursor[i]] = (j, w);
+            cursor[i] += 1;
+            nbr[cursor[j]] = (i, w);
+            cursor[j] += 1;
         }
         Self {
             n,
             degree,
             edges,
             vertices,
+            nbr_off,
+            nbr,
         }
     }
 
@@ -84,9 +110,63 @@ pub(crate) fn softmax_rows(logits: &[f64], n: usize, k: usize) -> Vec<f64> {
     s
 }
 
-/// Forward-only loss.
+/// `A · S` (`N×K`) via CSR — each output row depends only on its node's
+/// neighbours, so it is conflict-free and row-parallel. Deterministic
+/// regardless of thread count (fixed row + neighbour order).
+pub(crate) fn as_matrix(g: &CompactGraph, s: &[f64], n: usize, k: usize, parallel: bool) -> Vec<f64> {
+    let mut as_mat = vec![0f64; n * k];
+    let row_fn = |i: usize, row: &mut [f64]| {
+        for idx in g.nbr_off[i]..g.nbr_off[i + 1] {
+            let (j, w) = g.nbr[idx];
+            let sj = &s[j * k..(j + 1) * k];
+            for c in 0..k {
+                row[c] += w * sj[c];
+            }
+        }
+    };
+    if parallel {
+        as_mat
+            .par_chunks_mut(k)
+            .enumerate()
+            .for_each(|(i, row)| row_fn(i, row));
+    } else {
+        as_mat
+            .chunks_mut(k)
+            .enumerate()
+            .for_each(|(i, row)| row_fn(i, row));
+    }
+    as_mat
+}
+
+/// Stochastic `A · S` estimate from a sampled subset of edges, scaled by
+/// `|E| / |sample|`. O(|sample|·K) per call — the lever for million-edge graphs.
+pub(crate) fn as_matrix_minibatch(
+    g: &CompactGraph,
+    s: &[f64],
+    n: usize,
+    k: usize,
+    sample: &[usize],
+) -> Vec<f64> {
+    let mut as_mat = vec![0f64; n * k];
+    if sample.is_empty() {
+        return as_mat;
+    }
+    let scale = g.edges.len() as f64 / sample.len() as f64;
+    for &e in sample {
+        let (i, j, w) = g.edges[e];
+        let ws = w * scale;
+        for c in 0..k {
+            as_mat[i * k + c] += ws * s[j * k + c];
+            as_mat[j * k + c] += ws * s[i * k + c];
+        }
+    }
+    as_mat
+}
+
+/// Forward-only loss (full-batch, sequential).
 pub(crate) fn forward(g: &CompactGraph, s: &[f64], k: usize, lambda: f64) -> MinCutLoss {
-    let (cut, _, ortho, _) = cut_and_ortho(g, s, k, false);
+    let as_mat = as_matrix(g, s, g.n, k, false);
+    let (cut, _, ortho, _) = cut_and_ortho(g, s, &as_mat, k, false, false);
     MinCutLoss {
         cut,
         ortho,
@@ -94,14 +174,30 @@ pub(crate) fn forward(g: &CompactGraph, s: &[f64], k: usize, lambda: f64) -> Min
     }
 }
 
-/// Loss and gradient w.r.t. the soft assignment `S`.
+/// Loss and gradient w.r.t. `S` (full-batch, sequential) — convenience used by
+/// the gradient-check test.
+#[cfg(test)]
 pub(crate) fn loss_and_grad_wrt_soft(
     g: &CompactGraph,
     s: &[f64],
     k: usize,
     lambda: f64,
 ) -> (MinCutLoss, Vec<f64>) {
-    let (cut, grad_cut, ortho, grad_ortho) = cut_and_ortho(g, s, k, true);
+    let as_mat = as_matrix(g, s, g.n, k, false);
+    loss_and_grad_with_as(g, s, &as_mat, k, lambda, false)
+}
+
+/// Loss and gradient given a precomputed `A·S`. `parallel` parallelises the
+/// heavy `O(N·K²)` loops (SᵀS build, ortho gradient) deterministically.
+pub(crate) fn loss_and_grad_with_as(
+    g: &CompactGraph,
+    s: &[f64],
+    as_mat: &[f64],
+    k: usize,
+    lambda: f64,
+    parallel: bool,
+) -> (MinCutLoss, Vec<f64>) {
+    let (cut, grad_cut, ortho, grad_ortho) = cut_and_ortho(g, s, as_mat, k, true, parallel);
     let n = g.n;
     let mut grad = grad_cut;
     for idx in 0..n * k {
@@ -117,39 +213,69 @@ pub(crate) fn loss_and_grad_wrt_soft(
     )
 }
 
-/// Shared core: (cut, grad_cut_wrt_S, ortho, grad_ortho_wrt_S). The gradient
-/// vectors are empty when `want_grad` is false.
+/// Rows per Rayon task — coarse enough to amortise dispatch overhead.
+fn rows_per_task(n: usize) -> usize {
+    (n / (rayon::current_num_threads() * 4)).max(1)
+}
+
+/// `P = SᵀS` (`K×K`). Both paths use the *same* chunked partial-sum ordering
+/// (parallel only changes who computes each chunk), so parallel is bit-identical
+/// to sequential — no float-reordering surprises.
+fn gram(s: &[f64], n: usize, k: usize, parallel: bool) -> Vec<f64> {
+    let chunk = rows_per_task(n) * k;
+    let acc_block = |block: &[f64]| -> Vec<f64> {
+        let mut local = vec![0f64; k * k];
+        for row in block.chunks(k) {
+            for a in 0..k {
+                let sa = row[a];
+                if sa != 0.0 {
+                    for b in 0..k {
+                        local[a * k + b] += sa * row[b];
+                    }
+                }
+            }
+        }
+        local
+    };
+    let partials: Vec<Vec<f64>> = if parallel {
+        s.par_chunks(chunk).map(acc_block).collect()
+    } else {
+        s.chunks(chunk).map(acc_block).collect()
+    };
+    let mut p = vec![0f64; k * k];
+    for part in partials {
+        for i in 0..k * k {
+            p[i] += part[i];
+        }
+    }
+    p
+}
+
+/// Shared core given a precomputed `A·S`: (cut, grad_cut, ortho, grad_ortho).
+/// The gradient vectors are empty when `want_grad` is false.
 fn cut_and_ortho(
     g: &CompactGraph,
     s: &[f64],
+    as_mat: &[f64],
     k: usize,
     want_grad: bool,
+    parallel: bool,
 ) -> (f64, Vec<f64>, f64, Vec<f64>) {
     let n = g.n;
 
-    // AS = A · S  (A symmetric, accumulate both directions).
-    let mut as_mat = vec![0f64; n * k];
-    for &(i, j, w) in &g.edges {
-        for c in 0..k {
-            as_mat[i * k + c] += w * s[j * k + c];
-            as_mat[j * k + c] += w * s[i * k + c];
-        }
-    }
-
-    // numer = Tr(SᵀAS), denom = Tr(SᵀDS).
+    // numer = Tr(SᵀAS), denom = Tr(SᵀDS)  (O(N·K), kept sequential).
     let mut numer = 0f64;
     for idx in 0..n * k {
         numer += s[idx] * as_mat[idx];
     }
     let mut denom = 0f64;
     for i in 0..n {
-        let di = g.degree[i];
         let mut s2 = 0f64;
         for c in 0..k {
             let v = s[i * k + c];
             s2 += v * v;
         }
-        denom += di * s2;
+        denom += g.degree[i] * s2;
     }
     let cut = if denom > EPS { -numer / denom } else { 0.0 };
 
@@ -157,30 +283,29 @@ fn cut_and_ortho(
     if want_grad {
         grad_cut = vec![0f64; n * k];
         if denom > EPS {
-            // ∂L_cut/∂S = -2/denom · (AS + L_cut·DS)
+            // ∂L_cut/∂S = -2/denom · (AS + L_cut·DS); rows are independent.
             let coef = -2.0 / denom;
-            for i in 0..n {
+            let row = |i: usize, gc: &mut [f64]| {
                 let di = g.degree[i];
                 for c in 0..k {
-                    let ds = di * s[i * k + c];
-                    grad_cut[i * k + c] = coef * (as_mat[i * k + c] + cut * ds);
+                    gc[c] = coef * (as_mat[i * k + c] + cut * di * s[i * k + c]);
                 }
+            };
+            if parallel {
+                grad_cut
+                    .par_chunks_mut(k)
+                    .enumerate()
+                    .for_each(|(i, gc)| row(i, gc));
+            } else {
+                grad_cut
+                    .chunks_mut(k)
+                    .enumerate()
+                    .for_each(|(i, gc)| row(i, gc));
             }
         }
     }
 
-    // P = SᵀS  (K×K).
-    let mut p = vec![0f64; k * k];
-    for i in 0..n {
-        for a in 0..k {
-            let sa = s[i * k + a];
-            if sa != 0.0 {
-                for b in 0..k {
-                    p[a * k + b] += sa * s[i * k + b];
-                }
-            }
-        }
-    }
+    let p = gram(s, n, k, parallel);
     let np = p.iter().map(|x| x * x).sum::<f64>().sqrt();
     let inv_sqrt_k = 1.0 / (k as f64).sqrt();
 
@@ -213,14 +338,26 @@ fn cut_and_ortho(
             for idx in 0..k * k {
                 gp[idx] = (q[idx] / ortho) / np - (dot / np3) * p[idx];
             }
-            for i in 0..n {
+            // ∂L/∂S row i = 2 · S[i] · G_P; rows independent.
+            let row = |s_row: &[f64], go: &mut [f64]| {
                 for kk in 0..k {
                     let mut acc = 0f64;
                     for b in 0..k {
-                        acc += s[i * k + b] * gp[b * k + kk];
+                        acc += s_row[b] * gp[b * k + kk];
                     }
-                    grad_ortho[i * k + kk] = 2.0 * acc;
+                    go[kk] = 2.0 * acc;
                 }
+            };
+            if parallel {
+                grad_ortho
+                    .par_chunks_mut(k)
+                    .zip(s.par_chunks(k))
+                    .for_each(|(go, s_row)| row(s_row, go));
+            } else {
+                grad_ortho
+                    .chunks_mut(k)
+                    .zip(s.chunks(k))
+                    .for_each(|(go, s_row)| row(s_row, go));
             }
         }
     }
