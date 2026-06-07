@@ -1,21 +1,15 @@
-//! Differentiable (relaxed) min-cut loss and a gradient-descent condenser.
+//! Differentiable (relaxed) min-cut loss and a gradient-descent condenser — the
+//! piece the 2024–2026 surveys flag as unpublished: a **differentiable min-cut /
+//! normalized-cut objective as the condensation mechanism** (spectral terms like
+//! SGDD's LED and GDEM's eigenbasis exist; a relaxed-min-cut loss does not).
 //!
-//! The piece the 2024–2026 graph-condensation surveys flag as genuinely
-//! unpublished: a **differentiable min-cut / normalized-cut objective used as the
-//! condensation mechanism** (spectral terms like SGDD's LED and GDEM's
-//! eigenbasis exist; an explicit relaxed-min-cut loss does not).
-//!
-//! ## The objective (after Bianchi et al., MinCutPool 2020)
-//!
-//! For a soft assignment `S ∈ R^{N×K}` (row-softmax of logits), weighted
-//! adjacency `A`, degree matrix `D = diag(A·1)`:
-//! `L_cut = -Tr(SᵀAS)/Tr(SᵀDS) ∈ [-1,0]` (relaxed normalized cut),
-//! `L_ortho = ‖SᵀS/‖SᵀS‖_F − I_K/√K‖_F ∈ [0,2]` (anti-collapse), and
-//! `L = L_cut + λ·L_ortho`. Logits are optimised by gradient descent with
-//! **analytic gradients** (all maths in `f64`, no autodiff dependency), verified
-//! against finite differences in the test module. Hardening the trained
-//! assignment (argmax) yields the regions consumed by [`crate::condense`] via
-//! [`crate::CondenseMethod::DiffMinCut`].
+//! After Bianchi et al. (MinCutPool 2020): for a soft assignment `S ∈ R^{N×K}`
+//! (row-softmax of logits), adjacency `A`, degree `D = diag(A·1)`:
+//! `L_cut = -Tr(SᵀAS)/Tr(SᵀDS) ∈ [-1,0]`, `L_ortho = ‖SᵀS/‖SᵀS‖_F − I_K/√K‖_F`
+//! (anti-collapse), `L = L_cut + λ·L_ortho`. Optimised by gradient descent with
+//! **analytic gradients** (`f64`, no autodiff), verified against finite
+//! differences. Hardening the assignment (argmax) yields regions consumed by
+//! [`crate::condense`] via [`crate::CondenseMethod::DiffMinCut`].
 
 use crate::error::{CondenseError, Result};
 use ruvector_mincut::{DynamicGraph, VertexId};
@@ -34,6 +28,9 @@ pub struct DiffCutConfig {
     pub ortho_weight: f64,
     /// Gradient-descent step size.
     pub learning_rate: f64,
+    /// Heavy-ball momentum in `[0, 1)`. `0.0` is plain GD; `~0.9` improves
+    /// convergence where plain GD stalls in poor local optima.
+    pub momentum: f64,
     /// Number of gradient-descent iterations.
     pub iterations: usize,
     /// RNG seed for logit initialisation (determinism).
@@ -46,6 +43,7 @@ impl Default for DiffCutConfig {
             num_clusters: 8,
             ortho_weight: 1.0,
             learning_rate: 0.3,
+            momentum: 0.0,
             iterations: 300,
             seed: 0x0D1F_FC07,
         }
@@ -155,21 +153,26 @@ impl DiffCutCondenser {
         let k = self.config.num_clusters;
 
         // Initialise logits with small random noise to break row symmetry.
+        // Unit-scale init: strong symmetry-breaking matters for K > 2.
         let mut rng = StdRng::seed_from_u64(self.config.seed);
         let mut theta = vec![0f64; n * k];
         for t in &mut theta {
-            *t = rng.gen_range(-0.1..0.1);
+            *t = rng.gen_range(-1.0..1.0);
         }
 
+        // Heavy-ball momentum: v ← μ·v − lr·∇ ; θ ← θ + v.
+        let lr = self.config.learning_rate;
+        let mu = self.config.momentum;
+        let mut velocity = vec![0f64; n * k];
         for _ in 0..self.config.iterations {
             let soft = softmax_rows(&theta, n, k);
             let (_, grad_s) = loss_and_grad_wrt_soft(&g, &soft, k, self.config.ortho_weight);
             let grad_theta = softmax_backprop(&soft, &grad_s, n, k);
             for idx in 0..n * k {
-                theta[idx] -= self.config.learning_rate * grad_theta[idx];
+                velocity[idx] = mu * velocity[idx] - lr * grad_theta[idx];
+                theta[idx] += velocity[idx];
             }
         }
-        // Final assignment and loss from the converged logits.
         let soft = softmax_rows(&theta, n, k);
         let loss = forward(&g, &soft, k, self.config.ortho_weight);
 
@@ -444,40 +447,40 @@ mod tests {
 
     #[test]
     fn gradient_matches_finite_differences() {
-        // The decisive test: analytic ∂L/∂Θ vs central finite differences.
+        // Decisive correctness test: analytic ∂L/∂Θ vs finite differences across
+        // several K (proves the K-general gradient formulas, not just K=2).
         let g = CompactGraph::from_graph(&barbell());
         let n = g.n;
-        let k = 2;
         let lambda = 1.0;
-
-        let mut rng = StdRng::seed_from_u64(99);
-        let mut theta = vec![0f64; n * k];
-        for t in &mut theta {
-            *t = rng.gen_range(-0.5..0.5);
-        }
-
-        // Analytic gradient w.r.t. theta.
-        let s = softmax_rows(&theta, n, k);
-        let (_, grad_s) = loss_and_grad_wrt_soft(&g, &s, k, lambda);
-        let analytic = softmax_backprop(&s, &grad_s, n, k);
-
-        // Central finite differences of `total` w.r.t. each theta entry.
         let h = 1e-6;
-        let mut max_abs_err = 0f64;
-        for idx in 0..n * k {
-            let mut tp = theta.clone();
-            tp[idx] += h;
-            let lp = forward(&g, &softmax_rows(&tp, n, k), k, lambda).total;
-            let mut tm = theta.clone();
-            tm[idx] -= h;
-            let lm = forward(&g, &softmax_rows(&tm, n, k), k, lambda).total;
-            let num = (lp - lm) / (2.0 * h);
-            max_abs_err = max_abs_err.max((num - analytic[idx]).abs());
+
+        for k in [2usize, 3, 4] {
+            let mut rng = StdRng::seed_from_u64(99 + k as u64);
+            let mut theta = vec![0f64; n * k];
+            for t in &mut theta {
+                *t = rng.gen_range(-0.5..0.5);
+            }
+
+            let s = softmax_rows(&theta, n, k);
+            let (_, grad_s) = loss_and_grad_wrt_soft(&g, &s, k, lambda);
+            let analytic = softmax_backprop(&s, &grad_s, n, k);
+
+            let mut max_abs_err = 0f64;
+            for idx in 0..n * k {
+                let mut tp = theta.clone();
+                tp[idx] += h;
+                let lp = forward(&g, &softmax_rows(&tp, n, k), k, lambda).total;
+                let mut tm = theta.clone();
+                tm[idx] -= h;
+                let lm = forward(&g, &softmax_rows(&tm, n, k), k, lambda).total;
+                let num = (lp - lm) / (2.0 * h);
+                max_abs_err = max_abs_err.max((num - analytic[idx]).abs());
+            }
+            assert!(
+                max_abs_err < 1e-5,
+                "k={k}: analytic vs numeric grad mismatch: {max_abs_err}"
+            );
         }
-        assert!(
-            max_abs_err < 1e-5,
-            "analytic vs numeric grad mismatch: {max_abs_err}"
-        );
     }
 
     #[test]
@@ -487,9 +490,8 @@ mod tests {
         let n = CompactGraph::from_graph(&g).n;
         let soft = vec![0.5f64; n * 2];
         let l = forward(&CompactGraph::from_graph(&g), &soft, 2, 1.0);
-        // A uniform assignment makes numer == denom, so the cut term hits its
-        // best value (-1) — it is "fooled". The orthogonality term is exactly
-        // what catches this collapse (SᵀS is far from identity), so it is large.
+        // Uniform makes numer==denom so the cut term is "fooled" to -1; the
+        // orthogonality term is what catches the collapse.
         assert!((l.cut + 1.0).abs() < 1e-9, "cut {}", l.cut);
         assert!(l.ortho > 0.5, "ortho {}", l.ortho);
         assert!((l.total - (l.cut + l.ortho)).abs() < 1e-12);

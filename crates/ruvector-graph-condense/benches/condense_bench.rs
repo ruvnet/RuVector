@@ -137,6 +137,7 @@ fn bench_diffcut(c: &mut Criterion) {
             num_clusters: communities,
             ortho_weight: 1.0,
             learning_rate: 0.3,
+            momentum: 0.0,
             iterations: 100,
             seed: 1,
         });

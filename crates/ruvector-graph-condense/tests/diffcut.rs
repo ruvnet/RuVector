@@ -27,6 +27,7 @@ fn loss_decreases_during_training() {
         num_clusters: 2,
         ortho_weight: 1.0,
         learning_rate: 0.3,
+        momentum: 0.0,
         iterations: 1,
         seed: 7,
     };
@@ -55,6 +56,7 @@ fn recovers_barbell_partition() {
         num_clusters: 2,
         ortho_weight: 1.0,
         learning_rate: 0.3,
+        momentum: 0.0,
         iterations: 400,
         seed: 1,
     })

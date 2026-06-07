@@ -67,13 +67,16 @@ is `O(N·K + K²)`. Optimisation is plain gradient descent on `Θ`.
 ### Correctness
 
 The analytic `∂L/∂Θ` is verified against **central finite differences** in
-`gradient_matches_finite_differences` (max abs error `< 1e-5`). This is the
-decisive test; it would catch any sign or chain-rule error.
+`gradient_matches_finite_differences` across **K = 2, 3, 4** (max abs error
+`< 1e-5`). This is the decisive test; it would catch any sign or chain-rule
+error and proves the K-general formulas, not just K=2.
 
 ### API and integration
 
-- `DiffCutConfig { num_clusters K, ortho_weight λ, learning_rate, iterations,
-  seed }`; `DiffCutCondenser::train(&DynamicGraph) -> DiffCutResult`.
+- `DiffCutConfig { num_clusters K, ortho_weight λ, learning_rate, momentum,
+  iterations, seed }`; `DiffCutCondenser::train(&DynamicGraph) -> DiffCutResult`.
+  Optimisation is heavy-ball momentum GD (`momentum 0` = plain GD) from
+  unit-scale random logits (strong symmetry-breaking matters for K > 2).
 - `DiffCutResult::soft_assignment()` (the `N×K` matrix) and `hard_regions()`
   (argmax grouping → `Vec<Vec<VertexId>>`).
 - `min_cut_loss(graph, soft, k, λ)` — public, evaluates the loss for any
@@ -102,8 +105,14 @@ seeded — same seed ⇒ identical result (tested).
   `K` must be chosen.
 - Gradient descent is `O(iterations · nnz · K)` and slower than `WeakBoundary`;
   it is opt-in, not the default. Benchmarked under `condense_diffcut`.
-- Plain GD with a fixed learning rate; no momentum/Adam, no convergence
-  guarantee — non-convex objective, sensitive to `λ` and `learning_rate`.
+- **Convergence is K-sensitive.** Heavy-ball momentum + unit-scale init help,
+  but there is no convergence guarantee (non-convex). Empirically it recovers
+  small/moderate-K dense graphs (the barbell exactly; ~86% activity purity on a
+  3-activity scene in `examples/worldgraph.rs`) but underperforms on large K —
+  on a 12-event WorldGraph it does far worse than the structure-aware
+  `WeakBoundary` default (which recovers it perfectly). This is the known
+  finickiness of MinCutPool-style optimisation and is precisely why
+  `WeakBoundary`, not `DiffMinCut`, is the default (ADR-196).
 - Topology-only objective: it optimises the structural cut, not feature/label
   matching, so it is not a substitute for supervised GCond-style accuracy
   matching.

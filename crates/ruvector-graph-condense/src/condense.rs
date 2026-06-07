@@ -253,7 +253,6 @@ mod tests {
     use super::*;
 
     fn two_triangles() -> (DynamicGraph, NodeFeatures) {
-        // Two triangles {0,1,2} and {3,4,5} joined by a weak bridge 2-3.
         let g = DynamicGraph::new();
         for &(u, v, w) in &[
             (0, 1, 1.0),
@@ -369,6 +368,7 @@ mod tests {
                 num_clusters: 2,
                 ortho_weight: 1.0,
                 learning_rate: 0.3,
+                momentum: 0.0,
                 iterations: 400,
                 seed: 1,
             }),
@@ -376,7 +376,6 @@ mod tests {
         })
         .condense(&g, &f)
         .unwrap();
-        // The trained cut recovers the two triangles with full provenance.
         assert_eq!(c.node_count(), 2);
         assert_eq!(c.total_weight(), 6);
         assert_eq!(c.nodes[0].members, vec![0, 1, 2]);

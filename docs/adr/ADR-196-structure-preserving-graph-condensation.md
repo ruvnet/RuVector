@@ -151,4 +151,7 @@ with true incremental updates left as future work.
   GDEM (ICML'24), DisCo (2024), CGC (2025), GCTD (WSDM'26).
 - Substrate: `ruvector-mincut` (`DynamicGraph`, `CommunityDetector`,
   `GraphPartitioner`, `MinCutBuilder`); RuView (github.com/ruvnet/RuView).
+- Example: `crates/ruvector-graph-condense/examples/worldgraph.rs` — a RuView
+  `WorldGraph → condense → OccWorld` demo (600 observations → 12 event
+  summaries at 50× reduction, 100% activity purity, cut preserved).
 - ADR-197 (differentiable min-cut loss).
