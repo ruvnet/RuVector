@@ -77,6 +77,7 @@
 #![forbid(unsafe_code)]
 
 pub mod condense;
+mod cutloss;
 pub mod diffcut;
 pub mod error;
 pub mod features;
@@ -87,7 +88,10 @@ pub mod stream;
 pub mod synthetic;
 
 pub use condense::{condense, CondenseConfig, CondenseMethod, GraphCondenser};
-pub use diffcut::{min_cut_loss, DiffCutCondenser, DiffCutConfig, DiffCutResult, MinCutLoss};
+pub use diffcut::{
+    min_cut_loss, DiffCutCondenser, DiffCutConfig, DiffCutResult, InitStrategy, MinCutLoss,
+    Optimizer,
+};
 pub use error::{CondenseError, Result};
 pub use features::NodeFeatures;
 pub use metrics::{cut_inflation, evaluate, evaluate_full, CondensationMetrics};

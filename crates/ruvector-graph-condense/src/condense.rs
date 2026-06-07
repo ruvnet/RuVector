@@ -366,11 +366,7 @@ mod tests {
         let c = GraphCondenser::new(CondenseConfig {
             method: CondenseMethod::DiffMinCut(DiffCutConfig {
                 num_clusters: 2,
-                ortho_weight: 1.0,
-                learning_rate: 0.3,
-                momentum: 0.0,
-                iterations: 400,
-                seed: 1,
+                ..Default::default()
             }),
             normalize_centroids: false,
         })

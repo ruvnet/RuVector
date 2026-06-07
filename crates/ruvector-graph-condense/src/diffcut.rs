@@ -1,39 +1,93 @@
-//! Differentiable (relaxed) min-cut loss and a gradient-descent condenser — the
-//! piece the 2024–2026 surveys flag as unpublished: a **differentiable min-cut /
-//! normalized-cut objective as the condensation mechanism** (spectral terms like
-//! SGDD's LED and GDEM's eigenbasis exist; a relaxed-min-cut loss does not).
+//! Trainable differentiable min-cut condenser — the relaxed normalized-cut
+//! objective (MinCutPool-style; loss + analytic gradients live in
+//! [`crate::cutloss`]) optimised into a cluster assignment.
 //!
-//! After Bianchi et al. (MinCutPool 2020): for a soft assignment `S ∈ R^{N×K}`
-//! (row-softmax of logits), adjacency `A`, degree `D = diag(A·1)`:
-//! `L_cut = -Tr(SᵀAS)/Tr(SᵀDS) ∈ [-1,0]`, `L_ortho = ‖SᵀS/‖SᵀS‖_F − I_K/√K‖_F`
-//! (anti-collapse), `L = L_cut + λ·L_ortho`. Optimised by gradient descent with
-//! **analytic gradients** (`f64`, no autodiff), verified against finite
-//! differences. Hardening the assignment (argmax) yields regions consumed by
+//! The 2024–2026 surveys flag a differentiable min-cut term in the condensation
+//! loss as unpublished. This module makes that objective practical **on large-K
+//! problems** with three standard-but-essential ingredients:
+//!
+//! - **Adam** (default) instead of plain GD — adaptive, robust on the
+//!   ill-conditioned, non-convex cut objective.
+//! - **Warm-start init** (default) — seed the logits from the cheap
+//!   [`crate::CondenseMethod::WeakBoundary`] structural prior and *refine* with
+//!   the differentiable objective, rather than descending from random noise.
+//!   This is the same coreset/K-Center idea GCond/SFGC use, and it is what makes
+//!   K ≫ 2 converge.
+//! - **Restarts** — keep the lowest-loss run.
+//!
+//! Hardening the trained assignment (argmax) yields the regions consumed by
 //! [`crate::condense`] via [`crate::CondenseMethod::DiffMinCut`].
 
+use crate::cutloss::{
+    forward, loss_and_grad_wrt_soft, softmax_backprop, softmax_rows, CompactGraph,
+};
 use crate::error::{CondenseError, Result};
 use ruvector_mincut::{DynamicGraph, VertexId};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::collections::HashMap;
 
-const EPS: f64 = 1e-12;
+pub use crate::cutloss::MinCutLoss;
 
-/// Configuration for the differentiable min-cut condenser.
+/// First-order optimiser used to minimise the loss.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Optimizer {
+    /// (Heavy-ball) stochastic gradient descent. `momentum = 0` is plain GD.
+    Sgd {
+        /// Momentum coefficient in `[0, 1)`.
+        momentum: f64,
+    },
+    /// Adam — adaptive moments; far more robust for large `K`.
+    Adam {
+        /// First-moment decay (typ. 0.9).
+        beta1: f64,
+        /// Second-moment decay (typ. 0.999).
+        beta2: f64,
+        /// Numerical-stability epsilon (typ. 1e-8).
+        epsilon: f64,
+    },
+}
+
+impl Default for Optimizer {
+    fn default() -> Self {
+        Optimizer::Adam {
+            beta1: 0.9,
+            beta2: 0.999,
+            epsilon: 1e-8,
+        }
+    }
+}
+
+/// How the cluster logits are initialised before optimisation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum InitStrategy {
+    /// Unit-scale random logits.
+    Random,
+    /// **Default.** Seed from the [`crate::CondenseMethod::WeakBoundary`]
+    /// structural prior, then refine — the key to large-K convergence.
+    #[default]
+    WarmStart,
+}
+
+/// Configuration for the differentiable min-cut condenser. `Default` is a
+/// large-K-ready setup: Adam + warm-start.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DiffCutConfig {
     /// Number of clusters `K` (upper bound on condensed super-nodes).
     pub num_clusters: usize,
     /// Weight `λ` on the orthogonality (anti-collapse) term.
     pub ortho_weight: f64,
-    /// Gradient-descent step size.
+    /// Optimiser step size (Adam likes ~0.05; SGD ~0.3).
     pub learning_rate: f64,
-    /// Heavy-ball momentum in `[0, 1)`. `0.0` is plain GD; `~0.9` improves
-    /// convergence where plain GD stalls in poor local optima.
-    pub momentum: f64,
-    /// Number of gradient-descent iterations.
+    /// Number of optimisation iterations per restart.
     pub iterations: usize,
-    /// RNG seed for logit initialisation (determinism).
+    /// Optimiser.
+    pub optimizer: Optimizer,
+    /// Logit initialisation strategy.
+    pub init: InitStrategy,
+    /// Number of independent restarts; the lowest-loss run wins (min 1).
+    pub restarts: usize,
+    /// RNG seed (determinism).
     pub seed: u64,
 }
 
@@ -42,9 +96,11 @@ impl Default for DiffCutConfig {
         Self {
             num_clusters: 8,
             ortho_weight: 1.0,
-            learning_rate: 0.3,
-            momentum: 0.0,
+            learning_rate: 0.05,
             iterations: 300,
+            optimizer: Optimizer::default(),
+            init: InitStrategy::default(),
+            restarts: 1,
             seed: 0x0D1F_FC07,
         }
     }
@@ -61,26 +117,12 @@ impl DiffCutConfig {
     }
 }
 
-/// The three components of the loss at a point.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct MinCutLoss {
-    /// Relaxed normalized-cut term in `[-1, 0]` (lower is better).
-    pub cut: f64,
-    /// Orthogonality / balance term in `[0, 2]` (lower is better).
-    pub ortho: f64,
-    /// `cut + λ·ortho`.
-    pub total: f64,
-}
-
 /// Result of training: the learned assignment plus provenance.
 #[derive(Debug, Clone)]
 pub struct DiffCutResult {
-    /// Row-softmax assignment matrix, row-major `N×K`.
     soft: Vec<f64>,
-    /// Graph vertices in row order (sorted ascending for determinism).
     vertices: Vec<VertexId>,
     k: usize,
-    /// Loss at the final iteration.
     loss: MinCutLoss,
 }
 
@@ -90,7 +132,7 @@ impl DiffCutResult {
         self.k
     }
 
-    /// Final loss.
+    /// Final (best-restart) loss.
     pub fn loss(&self) -> MinCutLoss {
         self.loss
     }
@@ -103,9 +145,8 @@ impl DiffCutResult {
     /// Hard regions: group vertices by argmax cluster. Empty clusters are
     /// dropped; every vertex is assigned exactly once.
     pub fn hard_regions(&self) -> Vec<Vec<VertexId>> {
-        let n = self.vertices.len();
         let mut buckets: HashMap<usize, Vec<VertexId>> = HashMap::new();
-        for i in 0..n {
+        for i in 0..self.vertices.len() {
             let row = &self.soft[i * self.k..(i + 1) * self.k];
             let mut best = 0usize;
             let mut best_v = row[0];
@@ -138,7 +179,7 @@ impl DiffCutCondenser {
         &self.config
     }
 
-    /// Train the soft assignment by gradient descent on the min-cut loss.
+    /// Train the soft assignment by minimising the min-cut loss.
     ///
     /// # Errors
     /// [`CondenseError::EmptyGraph`] for a graph with no vertices, or
@@ -149,33 +190,29 @@ impl DiffCutCondenser {
         if g.n == 0 {
             return Err(CondenseError::EmptyGraph);
         }
-        let n = g.n;
-        let k = self.config.num_clusters;
+        let (n, k) = (g.n, self.config.num_clusters);
+        let restarts = self.config.restarts.max(1);
 
-        // Initialise logits with small random noise to break row symmetry.
-        // Unit-scale init: strong symmetry-breaking matters for K > 2.
-        let mut rng = StdRng::seed_from_u64(self.config.seed);
-        let mut theta = vec![0f64; n * k];
-        for t in &mut theta {
-            *t = rng.gen_range(-1.0..1.0);
-        }
-
-        // Heavy-ball momentum: v ← μ·v − lr·∇ ; θ ← θ + v.
-        let lr = self.config.learning_rate;
-        let mu = self.config.momentum;
-        let mut velocity = vec![0f64; n * k];
-        for _ in 0..self.config.iterations {
+        let mut best: Option<(Vec<f64>, MinCutLoss)> = None;
+        for r in 0..restarts {
+            let seed = self
+                .config
+                .seed
+                .wrapping_add((r as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15));
+            let mut rng = StdRng::seed_from_u64(seed);
+            let mut theta = match self.config.init {
+                InitStrategy::Random => random_logits(n, k, &mut rng),
+                InitStrategy::WarmStart => warm_start_logits(&g, graph, k, &mut rng),
+            };
+            self.optimize(&g, &mut theta, n, k);
             let soft = softmax_rows(&theta, n, k);
-            let (_, grad_s) = loss_and_grad_wrt_soft(&g, &soft, k, self.config.ortho_weight);
-            let grad_theta = softmax_backprop(&soft, &grad_s, n, k);
-            for idx in 0..n * k {
-                velocity[idx] = mu * velocity[idx] - lr * grad_theta[idx];
-                theta[idx] += velocity[idx];
+            let loss = forward(&g, &soft, k, self.config.ortho_weight);
+            if best.as_ref().map_or(true, |(_, b)| loss.total < b.total) {
+                best = Some((soft, loss));
             }
         }
-        let soft = softmax_rows(&theta, n, k);
-        let loss = forward(&g, &soft, k, self.config.ortho_weight);
 
+        let (soft, loss) = best.expect("restarts >= 1");
         Ok(DiffCutResult {
             soft,
             vertices: g.vertices,
@@ -183,6 +220,95 @@ impl DiffCutCondenser {
             loss,
         })
     }
+
+    /// Run the configured optimiser in place on `theta`.
+    fn optimize(&self, g: &CompactGraph, theta: &mut [f64], n: usize, k: usize) {
+        let lr = self.config.learning_rate;
+        let lambda = self.config.ortho_weight;
+        let grad = |theta: &[f64]| -> Vec<f64> {
+            let soft = softmax_rows(theta, n, k);
+            let (_, grad_s) = loss_and_grad_wrt_soft(g, &soft, k, lambda);
+            softmax_backprop(&soft, &grad_s, n, k)
+        };
+
+        match self.config.optimizer {
+            Optimizer::Sgd { momentum } => {
+                let mut vel = vec![0f64; n * k];
+                for _ in 0..self.config.iterations {
+                    let gt = grad(theta);
+                    for idx in 0..n * k {
+                        vel[idx] = momentum * vel[idx] - lr * gt[idx];
+                        theta[idx] += vel[idx];
+                    }
+                }
+            }
+            Optimizer::Adam {
+                beta1,
+                beta2,
+                epsilon,
+            } => {
+                let mut m = vec![0f64; n * k];
+                let mut v = vec![0f64; n * k];
+                for t in 1..=self.config.iterations {
+                    let gt = grad(theta);
+                    let bc1 = 1.0 - beta1.powi(t as i32);
+                    let bc2 = 1.0 - beta2.powi(t as i32);
+                    for idx in 0..n * k {
+                        m[idx] = beta1 * m[idx] + (1.0 - beta1) * gt[idx];
+                        v[idx] = beta2 * v[idx] + (1.0 - beta2) * gt[idx] * gt[idx];
+                        let mhat = m[idx] / bc1;
+                        let vhat = v[idx] / bc2;
+                        theta[idx] -= lr * mhat / (vhat.sqrt() + epsilon);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Unit-scale random logits.
+fn random_logits(n: usize, k: usize, rng: &mut StdRng) -> Vec<f64> {
+    let mut theta = vec![0f64; n * k];
+    for t in &mut theta {
+        *t = rng.gen_range(-1.0..1.0);
+    }
+    theta
+}
+
+/// Warm-start logits from the WeakBoundary structural prior: each detected
+/// region is mapped to a cluster (largest regions get their own; overflow is
+/// distributed round-robin) and biased into the logits, plus small noise.
+fn warm_start_logits(g: &CompactGraph, graph: &DynamicGraph, k: usize, rng: &mut StdRng) -> Vec<f64> {
+    const BIAS: f64 = 4.0; // softmax(4 vs 0) ~ 0.98 mass on the seeded cluster
+    let index = g.index_map();
+
+    let mut regions = crate::regions::weak_boundary_regions(graph, 0.5);
+    // Deterministic order (weak_boundary_regions yields HashMap order): largest
+    // first, ties broken by smallest member id.
+    regions.sort_by(|a, b| {
+        b.len()
+            .cmp(&a.len())
+            .then_with(|| a.iter().min().cmp(&b.iter().min()))
+    });
+
+    let mut cluster_of = vec![0usize; g.n];
+    for (ri, region) in regions.iter().enumerate() {
+        let cluster = if ri < k { ri } else { ri % k };
+        for v in region {
+            if let Some(&row) = index.get(v) {
+                cluster_of[row] = cluster;
+            }
+        }
+    }
+
+    let mut theta = vec![0f64; g.n * k];
+    for row in 0..g.n {
+        for c in 0..k {
+            theta[row * k + c] = rng.gen_range(-0.1..0.1);
+        }
+        theta[row * k + cluster_of[row]] += BIAS;
+    }
+    theta
 }
 
 /// Evaluate the min-cut loss for an arbitrary soft assignment (row-major `N×K`,
@@ -207,229 +333,11 @@ pub fn min_cut_loss(
     Ok(forward(&g, soft, k, ortho_weight))
 }
 
-// ---------------------------------------------------------------------------
-// Internal compact graph + maths (all f64).
-// ---------------------------------------------------------------------------
-
-struct CompactGraph {
-    n: usize,
-    degree: Vec<f64>,
-    edges: Vec<(usize, usize, f64)>,
-    vertices: Vec<VertexId>,
-}
-
-impl CompactGraph {
-    fn from_graph(graph: &DynamicGraph) -> Self {
-        let mut vertices = graph.vertices();
-        vertices.sort_unstable(); // deterministic row order
-        let mut index: HashMap<VertexId, usize> = HashMap::with_capacity(vertices.len());
-        for (i, &v) in vertices.iter().enumerate() {
-            index.insert(v, i);
-        }
-        let n = vertices.len();
-        let mut degree = vec![0f64; n];
-        let mut edges = Vec::with_capacity(graph.num_edges());
-        for e in graph.edges() {
-            let i = index[&e.source];
-            let j = index[&e.target];
-            let w = e.weight;
-            edges.push((i, j, w));
-            degree[i] += w;
-            degree[j] += w;
-        }
-        Self {
-            n,
-            degree,
-            edges,
-            vertices,
-        }
-    }
-}
-
-fn softmax_rows(logits: &[f64], n: usize, k: usize) -> Vec<f64> {
-    let mut s = vec![0f64; n * k];
-    for i in 0..n {
-        let row = &logits[i * k..(i + 1) * k];
-        let max = row.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-        let mut sum = 0f64;
-        for c in 0..k {
-            let e = (row[c] - max).exp();
-            s[i * k + c] = e;
-            sum += e;
-        }
-        let inv = 1.0 / sum;
-        for c in 0..k {
-            s[i * k + c] *= inv;
-        }
-    }
-    s
-}
-
-/// Forward-only loss.
-fn forward(g: &CompactGraph, s: &[f64], k: usize, lambda: f64) -> MinCutLoss {
-    let (cut, _, ortho, _) = cut_and_ortho(g, s, k, /*want_grad=*/ false);
-    MinCutLoss {
-        cut,
-        ortho,
-        total: cut + lambda * ortho,
-    }
-}
-
-/// Loss and gradient w.r.t. the soft assignment `S`.
-fn loss_and_grad_wrt_soft(
-    g: &CompactGraph,
-    s: &[f64],
-    k: usize,
-    lambda: f64,
-) -> (MinCutLoss, Vec<f64>) {
-    let (cut, grad_cut, ortho, grad_ortho) = cut_and_ortho(g, s, k, true);
-    let n = g.n;
-    let mut grad = grad_cut;
-    for idx in 0..n * k {
-        grad[idx] += lambda * grad_ortho[idx];
-    }
-    (
-        MinCutLoss {
-            cut,
-            ortho,
-            total: cut + lambda * ortho,
-        },
-        grad,
-    )
-}
-
-/// Shared core: returns (cut, grad_cut_wrt_S, ortho, grad_ortho_wrt_S).
-/// When `want_grad` is false the gradient vectors are empty.
-fn cut_and_ortho(
-    g: &CompactGraph,
-    s: &[f64],
-    k: usize,
-    want_grad: bool,
-) -> (f64, Vec<f64>, f64, Vec<f64>) {
-    let n = g.n;
-
-    // AS = A · S  (A symmetric, accumulate both directions).
-    let mut as_mat = vec![0f64; n * k];
-    for &(i, j, w) in &g.edges {
-        for c in 0..k {
-            as_mat[i * k + c] += w * s[j * k + c];
-            as_mat[j * k + c] += w * s[i * k + c];
-        }
-    }
-
-    // numer = Tr(SᵀAS), denom = Tr(SᵀDS).
-    let mut numer = 0f64;
-    for idx in 0..n * k {
-        numer += s[idx] * as_mat[idx];
-    }
-    let mut denom = 0f64;
-    for i in 0..n {
-        let di = g.degree[i];
-        let mut s2 = 0f64;
-        for c in 0..k {
-            let v = s[i * k + c];
-            s2 += v * v;
-        }
-        denom += di * s2;
-    }
-    let cut = if denom > EPS { -numer / denom } else { 0.0 };
-
-    let mut grad_cut = Vec::new();
-    if want_grad {
-        grad_cut = vec![0f64; n * k];
-        if denom > EPS {
-            // ∂L_cut/∂S = -2/denom · (AS + L_cut·DS)
-            let coef = -2.0 / denom;
-            for i in 0..n {
-                let di = g.degree[i];
-                for c in 0..k {
-                    let ds = di * s[i * k + c];
-                    grad_cut[i * k + c] = coef * (as_mat[i * k + c] + cut * ds);
-                }
-            }
-        }
-    }
-
-    // P = SᵀS  (K×K).
-    let mut p = vec![0f64; k * k];
-    for i in 0..n {
-        for a in 0..k {
-            let sa = s[i * k + a];
-            if sa != 0.0 {
-                for b in 0..k {
-                    p[a * k + b] += sa * s[i * k + b];
-                }
-            }
-        }
-    }
-    let np = p.iter().map(|x| x * x).sum::<f64>().sqrt();
-    let inv_sqrt_k = 1.0 / (k as f64).sqrt();
-
-    let mut ortho = 0f64;
-    let mut q = vec![0f64; k * k];
-    if np > EPS {
-        let mut sq = 0f64;
-        for a in 0..k {
-            for b in 0..k {
-                let target = if a == b { inv_sqrt_k } else { 0.0 };
-                let qv = p[a * k + b] / np - target;
-                q[a * k + b] = qv;
-                sq += qv * qv;
-            }
-        }
-        ortho = sq.sqrt();
-    }
-
-    let mut grad_ortho = Vec::new();
-    if want_grad {
-        grad_ortho = vec![0f64; n * k];
-        if np > EPS && ortho > EPS {
-            // Gf = Q/ortho ; G_P = Gf/np − (⟨Gf,P⟩/np³)·P ; ∂L/∂S = 2·S·G_P
-            let mut dot = 0f64;
-            for idx in 0..k * k {
-                dot += (q[idx] / ortho) * p[idx];
-            }
-            let np3 = np * np * np;
-            let mut gp = vec![0f64; k * k];
-            for idx in 0..k * k {
-                gp[idx] = (q[idx] / ortho) / np - (dot / np3) * p[idx];
-            }
-            for i in 0..n {
-                for kk in 0..k {
-                    let mut acc = 0f64;
-                    for b in 0..k {
-                        acc += s[i * k + b] * gp[b * k + kk];
-                    }
-                    grad_ortho[i * k + kk] = 2.0 * acc;
-                }
-            }
-        }
-    }
-
-    (cut, grad_cut, ortho, grad_ortho)
-}
-
-/// Backprop a gradient w.r.t. `S` through the row-softmax to the logits `Θ`.
-fn softmax_backprop(s: &[f64], grad_s: &[f64], n: usize, k: usize) -> Vec<f64> {
-    let mut grad = vec![0f64; n * k];
-    for i in 0..n {
-        let mut dot = 0f64;
-        for c in 0..k {
-            dot += grad_s[i * k + c] * s[i * k + c];
-        }
-        for c in 0..k {
-            grad[i * k + c] = s[i * k + c] * (grad_s[i * k + c] - dot);
-        }
-    }
-    grad
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn barbell() -> DynamicGraph {
-        // Two triangles joined by a weak bridge — the cleanest cut.
         let g = DynamicGraph::new();
         for &(u, v, w) in &[
             (0, 1, 1.0),
@@ -446,54 +354,33 @@ mod tests {
     }
 
     #[test]
-    fn gradient_matches_finite_differences() {
-        // Decisive correctness test: analytic ∂L/∂Θ vs finite differences across
-        // several K (proves the K-general gradient formulas, not just K=2).
-        let g = CompactGraph::from_graph(&barbell());
-        let n = g.n;
-        let lambda = 1.0;
-        let h = 1e-6;
-
-        for k in [2usize, 3, 4] {
-            let mut rng = StdRng::seed_from_u64(99 + k as u64);
-            let mut theta = vec![0f64; n * k];
-            for t in &mut theta {
-                *t = rng.gen_range(-0.5..0.5);
-            }
-
-            let s = softmax_rows(&theta, n, k);
-            let (_, grad_s) = loss_and_grad_wrt_soft(&g, &s, k, lambda);
-            let analytic = softmax_backprop(&s, &grad_s, n, k);
-
-            let mut max_abs_err = 0f64;
-            for idx in 0..n * k {
-                let mut tp = theta.clone();
-                tp[idx] += h;
-                let lp = forward(&g, &softmax_rows(&tp, n, k), k, lambda).total;
-                let mut tm = theta.clone();
-                tm[idx] -= h;
-                let lm = forward(&g, &softmax_rows(&tm, n, k), k, lambda).total;
-                let num = (lp - lm) / (2.0 * h);
-                max_abs_err = max_abs_err.max((num - analytic[idx]).abs());
-            }
-            assert!(
-                max_abs_err < 1e-5,
-                "k={k}: analytic vs numeric grad mismatch: {max_abs_err}"
-            );
+    fn warm_start_seeds_a_good_partition() {
+        // Warm start alone (0 iterations) should already encode the 2 triangles.
+        let g = barbell();
+        let res = DiffCutCondenser::new(DiffCutConfig {
+            num_clusters: 2,
+            iterations: 0,
+            ..Default::default()
+        })
+        .train(&g)
+        .unwrap();
+        let mut regions = res.hard_regions();
+        for r in &mut regions {
+            r.sort_unstable();
         }
+        regions.sort_by_key(|r| r[0]);
+        assert_eq!(regions, vec![vec![0, 1, 2], vec![3, 4, 5]]);
     }
 
     #[test]
-    fn min_cut_loss_evaluates_uniform_assignment() {
-        // Uniform soft assignment: every node split 50/50 over 2 clusters.
+    fn adam_refines_to_low_cut() {
         let g = barbell();
-        let n = CompactGraph::from_graph(&g).n;
-        let soft = vec![0.5f64; n * 2];
-        let l = forward(&CompactGraph::from_graph(&g), &soft, 2, 1.0);
-        // Uniform makes numer==denom so the cut term is "fooled" to -1; the
-        // orthogonality term is what catches the collapse.
-        assert!((l.cut + 1.0).abs() < 1e-9, "cut {}", l.cut);
-        assert!(l.ortho > 0.5, "ortho {}", l.ortho);
-        assert!((l.total - (l.cut + l.ortho)).abs() < 1e-12);
+        let res = DiffCutCondenser::new(DiffCutConfig {
+            num_clusters: 2,
+            ..Default::default()
+        })
+        .train(&g)
+        .unwrap();
+        assert!(res.loss().cut < -0.9, "cut {}", res.loss().cut);
     }
 }

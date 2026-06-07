@@ -152,34 +152,22 @@ fn main() {
         weak.node_count()
     );
 
-    // 2) Trained differentiable min-cut, shown on a smaller dense scene (the
-    //    regime the relaxed-normalized-cut objective handles well). At large K
-    //    it is sensitive and WeakBoundary is preferred — see ADR-196/197.
-    let scene = DaySim {
-        num_events: 3,
-        obs_per_event: 24,
-        num_activities: 3,
-        dim: 6,
-        seed: 7,
-    };
-    let (sg, sf, _) = scene.generate();
+    // 2) Trained differentiable min-cut on the SAME large-K WorldGraph. With
+    //    Adam + warm-start init (default) it now recovers all 12 events — the
+    //    optimisation work that made the trained method viable at scale.
     let diff = GraphCondenser::new(CondenseConfig {
         method: CondenseMethod::DiffMinCut(DiffCutConfig {
-            num_clusters: scene.num_events,
-            ortho_weight: 1.0,
-            learning_rate: 0.2,
-            momentum: 0.9,
-            iterations: 600,
-            seed: 1,
+            num_clusters: day.num_events,
+            ..Default::default()
         }),
         normalize_centroids: false,
     })
-    .condense(&sg, &sf)
+    .condense(&graph, &features)
     .expect("diff condense");
-    report("DiffMinCut (trained, small dense scene)", &sg, &diff);
+    report("DiffMinCut (trained, Adam + warm-start)", &graph, &diff);
     println!(
-        "\nDiffMinCut is gradient-checked and recovers small/dense scenes; for a \
-         large-K WorldGraph the structure-aware WeakBoundary default is faster \
-         and more reliable."
+        "\nBoth methods recover the day's events; DiffMinCut now scales to large K \
+         via Adam + warm-start (it refines the WeakBoundary prior with the \
+         differentiable normalized-cut objective)."
     );
 }

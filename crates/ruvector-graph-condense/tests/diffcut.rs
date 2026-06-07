@@ -1,7 +1,9 @@
 //! Public-API integration tests for the differentiable min-cut condenser.
 //! (Internal gradient-check / maths tests live in the `diffcut` module itself.)
 
-use ruvector_graph_condense::{CondenseError, DiffCutCondenser, DiffCutConfig};
+use ruvector_graph_condense::{
+    CondenseError, DiffCutCondenser, DiffCutConfig, InitStrategy, Optimizer, PlantedPartition,
+};
 use ruvector_mincut::DynamicGraph;
 
 fn barbell() -> DynamicGraph {
@@ -22,19 +24,22 @@ fn barbell() -> DynamicGraph {
 
 #[test]
 fn loss_decreases_during_training() {
+    // From a *random* start with SGD, training must reduce the loss (a clean
+    // descent test, independent of the warm-start prior).
     let g = barbell();
-    let cfg = DiffCutConfig {
+    let base = DiffCutConfig {
         num_clusters: 2,
-        ortho_weight: 1.0,
         learning_rate: 0.3,
-        momentum: 0.0,
+        init: InitStrategy::Random,
+        optimizer: Optimizer::Sgd { momentum: 0.0 },
         iterations: 1,
         seed: 7,
+        ..Default::default()
     };
-    let early = DiffCutCondenser::new(cfg.clone()).train(&g).unwrap().loss();
+    let early = DiffCutCondenser::new(base.clone()).train(&g).unwrap().loss();
     let late = DiffCutCondenser::new(DiffCutConfig {
         iterations: 300,
-        ..cfg
+        ..base
     })
     .train(&g)
     .unwrap()
@@ -45,7 +50,6 @@ fn loss_decreases_during_training() {
         early.total,
         late.total
     );
-    // A clean two-cluster solution drives the cut term toward -1.
     assert!(late.cut < -0.7, "cut term {} not minimised", late.cut);
 }
 
@@ -54,11 +58,7 @@ fn recovers_barbell_partition() {
     let g = barbell();
     let res = DiffCutCondenser::new(DiffCutConfig {
         num_clusters: 2,
-        ortho_weight: 1.0,
-        learning_rate: 0.3,
-        momentum: 0.0,
-        iterations: 400,
-        seed: 1,
+        ..Default::default()
     })
     .train(&g)
     .unwrap();
@@ -68,6 +68,86 @@ fn recovers_barbell_partition() {
     }
     regions.sort_by_key(|r| r[0]);
     assert_eq!(regions, vec![vec![0, 1, 2], vec![3, 4, 5]]);
+}
+
+/// Weighted dominant-class purity of a hard assignment vs. ground-truth
+/// communities (vertex `v` belongs to community `v / community_size`).
+fn purity(regions: &[Vec<u64>], community_size: u64) -> f64 {
+    let mut correct = 0u64;
+    let mut total = 0u64;
+    for r in regions {
+        let mut counts: std::collections::HashMap<u64, u64> = std::collections::HashMap::new();
+        for &v in r {
+            *counts.entry(v / community_size).or_default() += 1;
+        }
+        correct += counts.values().copied().max().unwrap_or(0);
+        total += r.len() as u64;
+    }
+    correct as f64 / total.max(1) as f64
+}
+
+#[test]
+fn warm_start_recovers_many_clusters() {
+    // The headline "works on big problems" test: K = 8 on 8 planted communities.
+    let pp = PlantedPartition {
+        num_communities: 8,
+        community_size: 24,
+        dim: 8,
+        p_intra: 0.5,
+        p_inter: 0.002,
+        seed: 3,
+        ..Default::default()
+    };
+    let (g, _f) = pp.generate();
+    let res = DiffCutCondenser::new(DiffCutConfig {
+        num_clusters: 8,
+        ..Default::default() // Adam + warm-start
+    })
+    .train(&g)
+    .unwrap();
+    let pur = purity(&res.hard_regions(), pp.community_size as u64);
+    assert!(pur > 0.85, "warm-start purity at K=8 too low: {pur}");
+}
+
+#[test]
+fn warm_start_beats_random_at_large_k() {
+    // Same graph, same budget: warm-start should reach a lower (better) loss
+    // than random init at large K — the whole point of the optimisation work.
+    let pp = PlantedPartition {
+        num_communities: 8,
+        community_size: 20,
+        dim: 8,
+        p_intra: 0.5,
+        p_inter: 0.002,
+        seed: 11,
+        ..Default::default()
+    };
+    let (g, _f) = pp.generate();
+    let common = DiffCutConfig {
+        num_clusters: 8,
+        iterations: 200,
+        seed: 1,
+        ..Default::default()
+    };
+    let warm = DiffCutCondenser::new(common.clone()).train(&g).unwrap();
+    let rand = DiffCutCondenser::new(DiffCutConfig {
+        init: InitStrategy::Random,
+        ..common
+    })
+    .train(&g)
+    .unwrap();
+    assert!(
+        warm.loss().total <= rand.loss().total,
+        "warm-start ({}) not better than random ({})",
+        warm.loss().total,
+        rand.loss().total
+    );
+    let pur_warm = purity(&warm.hard_regions(), pp.community_size as u64);
+    let pur_rand = purity(&rand.hard_regions(), pp.community_size as u64);
+    assert!(
+        pur_warm >= pur_rand,
+        "warm purity {pur_warm} < random purity {pur_rand}"
+    );
 }
 
 #[test]

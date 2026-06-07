@@ -62,21 +62,43 @@ L       = L_cut + λ · L_ortho
 - Backprop through row-softmax: `∂L/∂Θ_il = S_il · (gS_il − Σ_k gS_ik S_ik)`
 
 `A S` is computed sparsely from the edge list (`O(nnz · K)` per step); the rest
-is `O(N·K + K²)`. Optimisation is plain gradient descent on `Θ`.
+is `O(N·K + K²)`. The loss + analytic gradients live in `cutloss.rs`; the
+optimiser and orchestration in `diffcut.rs`.
+
+### Optimisation (the part that makes large K work)
+
+Plain gradient descent stalls at large `K` (a known property of MinCutPool-style
+objectives). Three standard ingredients fix it, all defaults:
+
+1. **Adam** (`Optimizer::Adam`, default) — adaptive per-parameter moments; far
+   more robust than SGD on the ill-conditioned, non-convex cut objective.
+   `Optimizer::Sgd { momentum }` remains available.
+2. **Warm-start init** (`InitStrategy::WarmStart`, default) — seed the logits
+   from the cheap `WeakBoundary` structural prior (largest regions → own
+   clusters, overflow round-robin, +bias into the logits) and *refine* with the
+   differentiable objective, instead of descending from random noise. This is
+   the coreset/K-Center idea GCond/SFGC use, and it is what makes `K ≫ 2`
+   converge. `InitStrategy::Random` remains available.
+3. **Restarts** (`restarts`) — keep the lowest-loss run.
+
+Result: on a 12-event WorldGraph (`examples/worldgraph.rs`) DiffMinCut reaches
+**100% activity purity, cut preserved (inflation 1.000)** — matching
+`WeakBoundary` — where plain-GD/random scored ~30%. Training cost fell from
+~24 s (plain GD, 96 nodes) to milliseconds (Adam, `condense_diffcut` bench:
+~0.96 ms @ 64, ~6.4 ms @ 192 nodes). Tests `warm_start_recovers_many_clusters`
+(K=8, purity > 0.85) and `warm_start_beats_random_at_large_k` lock this in.
 
 ### Correctness
 
 The analytic `∂L/∂Θ` is verified against **central finite differences** in
 `gradient_matches_finite_differences` across **K = 2, 3, 4** (max abs error
-`< 1e-5`). This is the decisive test; it would catch any sign or chain-rule
-error and proves the K-general formulas, not just K=2.
+`< 1e-5`) — the decisive test, proving the K-general formulas, not just K=2.
 
 ### API and integration
 
-- `DiffCutConfig { num_clusters K, ortho_weight λ, learning_rate, momentum,
-  iterations, seed }`; `DiffCutCondenser::train(&DynamicGraph) -> DiffCutResult`.
-  Optimisation is heavy-ball momentum GD (`momentum 0` = plain GD) from
-  unit-scale random logits (strong symmetry-breaking matters for K > 2).
+- `DiffCutConfig { num_clusters K, ortho_weight λ, learning_rate, iterations,
+  optimizer, init, restarts, seed }`; `DiffCutCondenser::train(&DynamicGraph) ->
+  DiffCutResult`. Default = Adam + warm-start, large-K-ready.
 - `DiffCutResult::soft_assignment()` (the `N×K` matrix) and `hard_regions()`
   (argmax grouping → `Vec<Vec<VertexId>>`).
 - `min_cut_loss(graph, soft, k, λ)` — public, evaluates the loss for any
@@ -97,22 +119,18 @@ seeded — same seed ⇒ identical result (tested).
 - No new heavy dependency (no candle/burn/tch); pure Rust `f64` maths.
 - Gradient-checked, deterministic, label-free (uses topology only; features are
   applied later for centroids).
-- Recovers planted structure (e.g. the barbell → exactly two clusters, tested);
-  drives the cut term toward −1 on clean partitions.
+- Recovers planted structure at small *and* large K (barbell exactly; K=8/K=12
+  recovered via Adam + warm-start), and drives the cut term toward −1.
+- Fast: milliseconds per train (was tens of seconds under plain GD).
 
 **Negative / limitations**
 - `K` (cluster count) is a fixed hyperparameter; empty clusters are dropped but
   `K` must be chosen.
-- Gradient descent is `O(iterations · nnz · K)` and slower than `WeakBoundary`;
-  it is opt-in, not the default. Benchmarked under `condense_diffcut`.
-- **Convergence is K-sensitive.** Heavy-ball momentum + unit-scale init help,
-  but there is no convergence guarantee (non-convex). Empirically it recovers
-  small/moderate-K dense graphs (the barbell exactly; ~86% activity purity on a
-  3-activity scene in `examples/worldgraph.rs`) but underperforms on large K —
-  on a 12-event WorldGraph it does far worse than the structure-aware
-  `WeakBoundary` default (which recovers it perfectly). This is the known
-  finickiness of MinCutPool-style optimisation and is precisely why
-  `WeakBoundary`, not `DiffMinCut`, is the default (ADR-196).
+- Still slower than `WeakBoundary` (`O(restarts · iterations · nnz · K)`) and
+  non-convex with no formal convergence guarantee, so it is opt-in, not the
+  default. Large-K reliability leans on the warm-start prior; `InitStrategy::
+  Random` at large K remains hard (documented, and what `warm_start_beats_random`
+  measures). `WeakBoundary` stays the default (ADR-196) for speed/simplicity.
 - Topology-only objective: it optimises the structural cut, not feature/label
   matching, so it is not a substitute for supervised GCond-style accuracy
   matching.
