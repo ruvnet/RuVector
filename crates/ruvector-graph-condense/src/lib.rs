@@ -20,6 +20,13 @@
 //!   not k-means. No published method (as of 2026) uses graph-cut community
 //!   detection as the core condensation mechanism — the closest analogs are
 //!   CGC (generic clustering, 2025) and GCTD (tensor decomposition, 2025).
+//! - **A differentiable min-cut *loss*** ([`diffcut`], [`CondenseMethod::DiffMinCut`]).
+//!   A relaxed normalized-cut + orthogonality objective (MinCutPool-style) whose
+//!   region structure is *trained* by gradient descent to preserve the cut.
+//!   The surveys flag an explicit differentiable min-cut term in the
+//!   condensation loss as unpublished; only spectral terms (SGDD's LED, GDEM's
+//!   eigenbasis) exist. Gradients are analytic (no autodiff dependency) and
+//!   gradient-checked.
 //! - **Cuts preserved by construction.** Every original edge that crosses a
 //!   region boundary survives as a weighted super-edge, so the condensed graph
 //!   reproduces the source's cut structure instead of having to learn it. The
@@ -70,6 +77,7 @@
 #![forbid(unsafe_code)]
 
 pub mod condense;
+pub mod diffcut;
 pub mod error;
 pub mod features;
 pub mod metrics;
@@ -79,6 +87,7 @@ pub mod stream;
 pub mod synthetic;
 
 pub use condense::{condense, CondenseConfig, CondenseMethod, GraphCondenser};
+pub use diffcut::{min_cut_loss, DiffCutCondenser, DiffCutConfig, DiffCutResult, MinCutLoss};
 pub use error::{CondenseError, Result};
 pub use features::NodeFeatures;
 pub use metrics::{cut_inflation, evaluate, evaluate_full, CondensationMetrics};

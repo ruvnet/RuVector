@@ -12,6 +12,7 @@
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use ruvector_graph_condense::condense::{CondenseConfig, CondenseMethod, GraphCondenser};
+use ruvector_graph_condense::diffcut::{DiffCutCondenser, DiffCutConfig};
 use ruvector_graph_condense::metrics::evaluate_full;
 use ruvector_graph_condense::synthetic::PlantedPartition;
 
@@ -123,5 +124,41 @@ fn bench_metrics(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_scalable, bench_engine, bench_metrics);
+/// Differentiable min-cut training cost (gradient descent over the assignment).
+fn bench_diffcut(c: &mut Criterion) {
+    let mut group = c.benchmark_group("condense_diffcut");
+    group.sample_size(10);
+    for &(communities, size) in &[(4usize, 16usize), (8, 24)] {
+        let pp = planted(communities, size, 4);
+        let (graph, _features) = pp.generate();
+        let n = pp.total_vertices();
+        group.throughput(Throughput::Elements(n as u64));
+        let condenser = DiffCutCondenser::new(DiffCutConfig {
+            num_clusters: communities,
+            ortho_weight: 1.0,
+            learning_rate: 0.3,
+            iterations: 100,
+            seed: 1,
+        });
+        group.bench_with_input(
+            BenchmarkId::new("train", n),
+            &(condenser, &graph),
+            |b, (condenser, graph)| {
+                b.iter(|| {
+                    let r = condenser.train(graph).unwrap();
+                    criterion::black_box(r.loss().total)
+                });
+            },
+        );
+    }
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    bench_scalable,
+    bench_engine,
+    bench_diffcut,
+    bench_metrics
+);
 criterion_main!(benches);

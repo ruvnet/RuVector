@@ -8,6 +8,7 @@
 //! structure of the source graph. Boundary edges survive as weighted
 //! super-edges; cuts are preserved by construction rather than by training.
 
+use crate::diffcut::{DiffCutConfig, DiffCutCondenser};
 use crate::error::{CondenseError, Result};
 use crate::features::NodeFeatures;
 use crate::node::{CondensedEdge, CondensedGraph, CondensedNode};
@@ -29,34 +30,36 @@ pub enum CondenseMethod {
     /// edge weight`, then take the connected components of what remains. This
     /// is a one-shot approximation to removing the light min-cut boundaries:
     /// robust, deterministic, and effective whenever intra-community edges are
-    /// heavier than inter-community ones. With near-uniform weights it
-    /// degrades gracefully to [`CondenseMethod::ConnectedComponents`].
+    /// heavier than inter ones. With near-uniform weights it degrades gracefully
+    /// to [`CondenseMethod::ConnectedComponents`].
     WeakBoundary {
         /// Fraction of the mean edge weight below which an edge is treated as a
         /// boundary and removed. `0.5` is a sensible default.
         relative_threshold: f64,
     },
     /// Recursive min-cut community detection via
-    /// [`ruvector_mincut::CommunityDetector`]. Genuinely structure-aware for
-    /// graphs with clear bottlenecks (dense regions joined by light cuts), but
-    /// be aware that recursive *global* min cut tends to peel off single
-    /// low-degree vertices on graphs without sharp bottlenecks, producing many
-    /// tiny regions. Prefer [`CondenseMethod::WeakBoundary`] unless the graph
-    /// has well-separated dense clusters. `min_region_size` bounds recursion.
+    /// [`ruvector_mincut::CommunityDetector`]. Structure-aware for graphs with
+    /// clear bottlenecks, but recursive *global* min cut tends to peel off
+    /// single low-degree vertices otherwise (many tiny regions); prefer
+    /// [`CondenseMethod::WeakBoundary`]. `min_region_size` bounds recursion.
     MinCutCommunity {
         /// Recursion stops splitting regions at or below this size.
         min_region_size: usize,
     },
     /// Recursive bisection into up to `num_regions` regions via
-    /// [`ruvector_mincut::GraphPartitioner`], minimising edge cuts per split.
-    /// Effective on clustered graphs; on graphs without clear cuts the
-    /// underlying global-min-cut bisection can peel single vertices, so the
-    /// achieved reduction is graph-dependent (uncovered vertices become
-    /// singleton regions). Prefer [`CondenseMethod::WeakBoundary`] as default.
+    /// [`ruvector_mincut::GraphPartitioner`]. Effective on clustered graphs;
+    /// reduction is graph-dependent (the bisection can peel single vertices,
+    /// which become singleton regions). Prefer [`CondenseMethod::WeakBoundary`].
     Partition {
         /// Target number of regions.
         num_regions: usize,
     },
+    /// **Differentiable min-cut** (relaxed normalized cut, MinCutPool-style):
+    /// learns a soft `N×K` assignment by gradient descent on a cut +
+    /// orthogonality loss, then hardens it (argmax) into regions. The only
+    /// method whose regions are *trained* to preserve the cut — see
+    /// [`crate::diffcut`]. `K` upper-bounds the super-node count.
+    DiffMinCut(DiffCutConfig),
     /// Cheap baseline: one region per connected component.
     ConnectedComponents,
 }
@@ -231,6 +234,10 @@ impl GraphCondenser {
                 let partitioner = GraphPartitioner::new(arc, *num_regions);
                 Ok(partitioner.partition())
             }
+            CondenseMethod::DiffMinCut(cfg) => {
+                let result = DiffCutCondenser::new(cfg.clone()).train(graph)?;
+                Ok(result.hard_regions())
+            }
         }
     }
 }
@@ -351,6 +358,30 @@ mod tests {
         // exact community recovery is the default WeakBoundary method's job.
         assert_eq!(c.total_weight(), 6); // full coverage
         assert!(c.node_count() >= 2 && c.node_count() < 6); // runs + reduces
+    }
+
+    #[test]
+    fn diff_mincut_condenses_via_trained_assignment() {
+        use crate::diffcut::DiffCutConfig;
+        let (g, f) = two_triangles();
+        let c = GraphCondenser::new(CondenseConfig {
+            method: CondenseMethod::DiffMinCut(DiffCutConfig {
+                num_clusters: 2,
+                ortho_weight: 1.0,
+                learning_rate: 0.3,
+                iterations: 400,
+                seed: 1,
+            }),
+            normalize_centroids: false,
+        })
+        .condense(&g, &f)
+        .unwrap();
+        // The trained cut recovers the two triangles with full provenance.
+        assert_eq!(c.node_count(), 2);
+        assert_eq!(c.total_weight(), 6);
+        assert_eq!(c.nodes[0].members, vec![0, 1, 2]);
+        assert_eq!(c.nodes[1].members, vec![3, 4, 5]);
+        assert_eq!(c.edge_count(), 1); // the bridge -> one super-edge
     }
 
     #[test]
