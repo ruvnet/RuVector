@@ -235,6 +235,7 @@ members = [
     "crates/ruvector-rairs",
     # Structure-preserving graph condensation via dynamic min-cut communities
     "crates/ruvector-graph-condense",
+    "crates/ruvector-graph-condense-wasm",
 ]
 resolver = "2"
 

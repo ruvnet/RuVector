@@ -154,4 +154,15 @@ with true incremental updates left as future work.
 - Example: `crates/ruvector-graph-condense/examples/worldgraph.rs` — a RuView
   `WorldGraph → condense → OccWorld` demo (600 observations → 12 event
   summaries at 50× reduction, 100% activity purity, cut preserved).
+- **Accuracy validation** (`gnn_eval` module + `examples/accuracy_eval.rs` +
+  `tests/accuracy.rs`): a gradient-checked 2-layer GCN runs the field's standard
+  protocol (train on condensed, test on original held-out nodes). On a controlled
+  unweighted node-classification task, `DiffMinCut` condensing 360 → 18 nodes
+  (20×) reaches **100% accuracy retention**. Honest scope: controlled synthetic
+  data, not Cora/Citeseer; `WeakBoundary` needs weight contrast (it collapses on
+  uniform-weight graphs, which is why the accuracy path uses `DiffMinCut`).
+- **WASM deployment**: `crates/ruvector-graph-condense-wasm` exposes the
+  condenser to JS/browser/edge (`wasm32-unknown-unknown`, 667 KB release before
+  wasm-opt). The `parallel` (Rayon) feature is default-on for native and off for
+  wasm (no threads).
 - ADR-197 (differentiable min-cut loss).

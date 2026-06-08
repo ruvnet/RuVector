@@ -9472,6 +9472,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-graph-condense-wasm"
+version = "2.2.3"
+dependencies = [
+ "getrandom 0.2.17",
+ "ruvector-graph-condense",
+ "ruvector-mincut 2.2.3",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "ruvector-graph-node"
 version = "2.2.3"
 dependencies = [

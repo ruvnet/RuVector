@@ -5,6 +5,7 @@
 //! separate from the optimiser/orchestration so each file stays small and the
 //! gradient-checked maths is isolated.
 
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use ruvector_mincut::{DynamicGraph, VertexId};
 use std::collections::HashMap;
@@ -124,17 +125,19 @@ pub(crate) fn as_matrix(g: &CompactGraph, s: &[f64], n: usize, k: usize, paralle
             }
         }
     };
+    #[cfg(feature = "parallel")]
     if parallel {
         as_mat
             .par_chunks_mut(k)
             .enumerate()
             .for_each(|(i, row)| row_fn(i, row));
-    } else {
-        as_mat
-            .chunks_mut(k)
-            .enumerate()
-            .for_each(|(i, row)| row_fn(i, row));
+        return as_mat;
     }
+    let _ = parallel;
+    as_mat
+        .chunks_mut(k)
+        .enumerate()
+        .for_each(|(i, row)| row_fn(i, row));
     as_mat
 }
 
@@ -215,7 +218,11 @@ pub(crate) fn loss_and_grad_with_as(
 
 /// Rows per Rayon task — coarse enough to amortise dispatch overhead.
 fn rows_per_task(n: usize) -> usize {
-    (n / (rayon::current_num_threads() * 4)).max(1)
+    #[cfg(feature = "parallel")]
+    let threads = rayon::current_num_threads();
+    #[cfg(not(feature = "parallel"))]
+    let threads = 1usize;
+    (n / (threads * 4)).max(1)
 }
 
 /// `P = SᵀS` (`K×K`). Both paths use the *same* chunked partial-sum ordering
@@ -237,9 +244,15 @@ fn gram(s: &[f64], n: usize, k: usize, parallel: bool) -> Vec<f64> {
         }
         local
     };
+    #[cfg(feature = "parallel")]
     let partials: Vec<Vec<f64>> = if parallel {
         s.par_chunks(chunk).map(acc_block).collect()
     } else {
+        s.chunks(chunk).map(acc_block).collect()
+    };
+    #[cfg(not(feature = "parallel"))]
+    let partials: Vec<Vec<f64>> = {
+        let _ = parallel;
         s.chunks(chunk).map(acc_block).collect()
     };
     let mut p = vec![0f64; k * k];
@@ -291,6 +304,7 @@ fn cut_and_ortho(
                     gc[c] = coef * (as_mat[i * k + c] + cut * di * s[i * k + c]);
                 }
             };
+            #[cfg(feature = "parallel")]
             if parallel {
                 grad_cut
                     .par_chunks_mut(k)
@@ -302,6 +316,11 @@ fn cut_and_ortho(
                     .enumerate()
                     .for_each(|(i, gc)| row(i, gc));
             }
+            #[cfg(not(feature = "parallel"))]
+            grad_cut
+                .chunks_mut(k)
+                .enumerate()
+                .for_each(|(i, gc)| row(i, gc));
         }
     }
 
@@ -348,6 +367,7 @@ fn cut_and_ortho(
                     go[kk] = 2.0 * acc;
                 }
             };
+            #[cfg(feature = "parallel")]
             if parallel {
                 grad_ortho
                     .par_chunks_mut(k)
@@ -359,6 +379,11 @@ fn cut_and_ortho(
                     .zip(s.chunks(k))
                     .for_each(|(go, s_row)| row(s_row, go));
             }
+            #[cfg(not(feature = "parallel"))]
+            grad_ortho
+                .chunks_mut(k)
+                .zip(s.chunks(k))
+                .for_each(|(go, s_row)| row(s_row, go));
         }
     }
 
