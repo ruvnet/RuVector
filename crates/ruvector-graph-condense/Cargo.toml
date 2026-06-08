@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+readme = "README.md"
 description = "Structure-preserving graph condensation: collapse large feature graphs into small synthetic graphs using dynamic min-cut community boundaries"
 keywords = ["graph", "condensation", "distillation", "min-cut", "gnn"]
 categories = ["algorithms", "science", "mathematics"]

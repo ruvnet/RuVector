@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+readme = "README.md"
 description = "WASM bindings for ruvector-graph-condense: structure-preserving + differentiable-min-cut graph condensation in the browser / on the edge"
 
 [lib]
