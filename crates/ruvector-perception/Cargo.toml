@@ -15,7 +15,7 @@ crate-type = ["rlib"]
 
 [dependencies]
 # Boundary detection reuses the dynamic min-cut engine.
-ruvector-mincut = { version = "2.0.1", path = "../ruvector-mincut", default-features = false }
+ruvector-mincut = { version = "2.2.3", path = "../ruvector-mincut", default-features = false }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

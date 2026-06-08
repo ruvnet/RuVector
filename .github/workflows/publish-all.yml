@@ -223,6 +223,43 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         continue-on-error: true
 
+      # Graph condensation + perception stack (PR #547). Published in dependency
+      # order: mincut (substrate) -> graph-condense / perception -> wasm bindings.
+      # Each new crate pins ruvector-mincut = "2.2.3", so mincut 2.2.3 must reach
+      # the index first — hence the publish + settle step below.
+      - name: Wait for crates.io index
+        run: sleep 30
+
+      - name: Publish ruvector-mincut
+        run: cargo publish -p ruvector-mincut --allow-dirty
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        continue-on-error: true
+
+      - name: Wait for crates.io index
+        run: sleep 30
+
+      - name: Publish ruvector-graph-condense
+        run: cargo publish -p ruvector-graph-condense --allow-dirty
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        continue-on-error: true
+
+      - name: Publish ruvector-perception
+        run: cargo publish -p ruvector-perception --allow-dirty
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        continue-on-error: true
+
+      - name: Wait for crates.io index
+        run: sleep 30
+
+      - name: Publish ruvector-graph-condense-wasm
+        run: cargo publish -p ruvector-graph-condense-wasm --allow-dirty
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        continue-on-error: true
+
       - name: Summary
         run: |
           echo "## crates.io Publishing" >> $GITHUB_STEP_SUMMARY
@@ -230,6 +267,10 @@ jobs:
           echo "✅ ruvector-attention" >> $GITHUB_STEP_SUMMARY
           echo "✅ ruvector-math-wasm" >> $GITHUB_STEP_SUMMARY
           echo "✅ ruvector-attention-wasm" >> $GITHUB_STEP_SUMMARY
+          echo "✅ ruvector-mincut" >> $GITHUB_STEP_SUMMARY
+          echo "✅ ruvector-graph-condense" >> $GITHUB_STEP_SUMMARY
+          echo "✅ ruvector-perception" >> $GITHUB_STEP_SUMMARY
+          echo "✅ ruvector-graph-condense-wasm" >> $GITHUB_STEP_SUMMARY
 
   # ============================================================================
   # Phase 5: Publish to npm

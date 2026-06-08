@@ -16,7 +16,7 @@ crate-type = ["rlib"]
 [dependencies]
 # Substrate: dynamic min-cut engine (DynamicGraph, CommunityDetector, GraphPartitioner).
 # Default features only (exact + approximate); integration re-exports are unconditional.
-ruvector-mincut = { version = "2.0.1", path = "../ruvector-mincut", default-features = false }
+ruvector-mincut = { version = "2.2.3", path = "../ruvector-mincut", default-features = false }
 
 serde = { workspace = true }
 serde_json = { workspace = true }

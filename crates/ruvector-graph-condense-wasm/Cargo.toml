@@ -13,8 +13,8 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # Core condenser without the Rayon parallel feature (wasm32 has no threads).
-ruvector-graph-condense = { version = "2.0.1", path = "../ruvector-graph-condense", default-features = false }
-ruvector-mincut = { version = "2.0.1", path = "../ruvector-mincut", default-features = false, features = ["wasm"] }
+ruvector-graph-condense = { version = "2.2.3", path = "../ruvector-graph-condense", default-features = false }
+ruvector-mincut = { version = "2.2.3", path = "../ruvector-mincut", default-features = false, features = ["wasm"] }
 wasm-bindgen = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
