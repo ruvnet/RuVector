@@ -9896,6 +9896,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-perception"
+version = "2.2.3"
+dependencies = [
+ "ruvector-mincut 2.2.3",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ruvector-profiler"
 version = "2.2.3"
 dependencies = [

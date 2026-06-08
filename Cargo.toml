@@ -236,6 +236,8 @@ members = [
     # Structure-preserving graph condensation via dynamic min-cut communities
     "crates/ruvector-graph-condense",
     "crates/ruvector-graph-condense-wasm",
+    # Perception substrate: delta -> boundary -> coherence -> proof -> action
+    "crates/ruvector-perception",
 ]
 resolver = "2"
 
