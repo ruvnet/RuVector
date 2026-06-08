@@ -107,22 +107,45 @@ self-contained modules (each emits structure, not a label):
 - **`topology`** — Self-healing sensor topology: an EWMA agreement graph
   classifies each sensor Critical / Redundant / Noisy / Normal; Critical =
   articulation point (removal fragments the graph — the extreme single-edge cut).
+- **`swarm`** — Facility/swarm-scale fragility: rooms/machines/routers as a
+  coupling graph; global min-cut answers "where is the system structurally
+  closest to breaking?" Bottlenecks are derived from the weakest link (edge
+  weights), because the engine's min-cut *value* is reliable but its *partition*
+  is not.
+- **`custody`** — Sensor chain of custody: a tamper-evident, replayable ledger
+  of witnesses (chain-linkage verification over the SHA-256 evidence hashes;
+  honest scope — link integrity, not raw-signal re-hash).
+- **`reality`** — Reality-graph agent grounding: an agent *queries reality*
+  (presence / changed-since / which-untrusted / action-allowed) and gets answers
+  **backed by witness evidence hashes**, not prompt inference.
+- **`node`** — `NervousSystemNode`: the appliance facade wiring engine + reality
+  graph + custody ledger + boundary forecaster. Ingests readings, emits
+  deltas/boundaries/coherence/witnesses/forecasts (never raw signal), and answers
+  grounded queries.
 
 ## Future work (from the brief, not yet built)
 
-Swarm/facility-scale min-cut sensing, sensor chain-of-custody persistence, the
-reality-graph agent-grounding API, and the "ambient nervous system" hardware
-node. Modules above are mechanism demonstrations on synthetic signals
-(heuristics, not learned), consistent with the honest scope.
+The remaining items are out of pure-software scope: the physical "ambient
+nervous system" **hardware** node, and replacing the heuristic scorers
+(novelty / contradiction / coherence) with **learned** models validated on real
+CSI. Everything above is a mechanism demonstration on synthetic signals.
+
+Known limitation surfaced during testing: coherence boundary detection is
+ambiguous with exactly **two** zones (a single-edge min cut splits symmetrically;
+the minority side is arbitrary). Use ≥3 zones for a well-defined changed
+boundary — documented and reflected in the tests.
 
 ## Validation
 
-42 tests (38 unit + 2 integration + 2 doctest). Highlights: the brief's exact
-flagship scenario (inert object move → RF/vibration/acoustic support, thermal
-contradicts, novelty high, action = observe); the missing-routine-return absence
-signal; physical-CAPTCHA replay rejection; boundary forecast of a destabilising
-zone; identity drift on a tampered signature; ranked hypotheses (RealEvent /
-SensorDrift / AdversarialReplay first under the right evidence); and topology
-roles (bridge → Critical, near-duplicate → Redundant, lone-disagreer → Noisy).
-Built via a 5-agent parallel swarm, then integrated and validated. clippy clean;
-all source files < 500 lines.
+59 tests (54 unit + 2 integration + 3 doctest), deterministic across repeated
+runs. Highlights: the brief's exact flagship scenario (inert object move →
+RF/vibration/acoustic support, thermal contradicts, novelty high, action =
+observe); the missing-routine-return absence signal; physical-CAPTCHA replay
+rejection; boundary forecast of a destabilising zone; identity drift on a
+tampered signature; ranked hypotheses (RealEvent / SensorDrift / AdversarialReplay
+first under the right evidence); topology roles (bridge → Critical, near-duplicate
+→ Redundant, lone-disagreer → Noisy); facility fragility (weakest link found);
+custody chain verify + tamper detection; reality-graph grounded queries; and the
+end-to-end `NervousSystemNode` (witness chain + grounded query). Built across two
+parallel agent swarms, then integrated and validated. clippy clean; all source
+files < 500 lines.

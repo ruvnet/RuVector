@@ -60,24 +60,32 @@
 pub mod absence;
 pub mod captcha;
 pub mod coherence;
+pub mod custody;
 pub mod engine;
 pub mod hypothesis;
 pub mod identity;
 pub mod modality;
+pub mod node;
 pub mod predict;
+pub mod reality;
 pub mod state;
+pub mod swarm;
 pub mod topology;
 pub mod witness;
 
 pub use absence::{Absence, SequenceMonitor};
 pub use captcha::{CaptchaVerifier, ChallengeResponse, ObservedResponse, RealityProof, Stimulus};
 pub use coherence::{detect_boundary, Boundary};
+pub use custody::{CustodyError, CustodyLedger, CustodyRecord};
 pub use engine::{DeltaEngine, EngineConfig};
 pub use hypothesis::{rank_hypotheses, DisagreementInput, Hypothesis, RankedHypothesis};
 pub use identity::{IdentityDrift, IdentityMemory};
 pub use modality::{Modality, Physics};
+pub use node::{NervousSystemNode, NodeEvent};
 pub use predict::{BoundaryForecast, BoundaryObservation, BoundaryPredictor};
+pub use reality::{GroundedAnswer, Query, RealityGraph};
 pub use state::{Reading, WorldState};
+pub use swarm::{FacilityGraph, FragilityReport};
 pub use topology::{NodeAssessment, NodeRole, TopologyManager};
 pub use witness::{evidence_hash, novelty_level, Action, DeltaWitness, ProofGate};
 
