@@ -334,6 +334,13 @@ fn warm_start_logits(g: &CompactGraph, graph: &DynamicGraph, k: usize, rng: &mut
     let index = g.index_map();
 
     let mut regions = crate::regions::weak_boundary_regions(graph, 0.5);
+    // If the structural prior found no usable split (e.g. an unweighted graph,
+    // where WeakBoundary collapses to one component), warm-start would seed every
+    // node into one cluster and the optimiser would stay collapsed. Fall back to
+    // random init and let the min-cut objective do the partitioning.
+    if regions.len() < 2 {
+        return random_logits(g.n, k, rng);
+    }
     // Deterministic order (weak_boundary_regions yields HashMap order): largest
     // first, ties broken by smallest member id.
     regions.sort_by(|a, b| {

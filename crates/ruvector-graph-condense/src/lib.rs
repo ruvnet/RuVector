@@ -81,6 +81,7 @@ mod cutloss;
 pub mod diffcut;
 pub mod error;
 pub mod features;
+pub mod gnn_eval;
 pub mod metrics;
 pub mod node;
 mod regions;
