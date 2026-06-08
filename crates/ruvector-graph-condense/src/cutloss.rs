@@ -114,7 +114,13 @@ pub(crate) fn softmax_rows(logits: &[f64], n: usize, k: usize) -> Vec<f64> {
 /// `A · S` (`N×K`) via CSR — each output row depends only on its node's
 /// neighbours, so it is conflict-free and row-parallel. Deterministic
 /// regardless of thread count (fixed row + neighbour order).
-pub(crate) fn as_matrix(g: &CompactGraph, s: &[f64], n: usize, k: usize, parallel: bool) -> Vec<f64> {
+pub(crate) fn as_matrix(
+    g: &CompactGraph,
+    s: &[f64],
+    n: usize,
+    k: usize,
+    parallel: bool,
+) -> Vec<f64> {
     let mut as_mat = vec![0f64; n * k];
     let row_fn = |i: usize, row: &mut [f64]| {
         for idx in g.nbr_off[i]..g.nbr_off[i + 1] {

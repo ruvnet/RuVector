@@ -132,11 +132,19 @@ mod tests {
         assert!(node.verify_custody().is_ok());
 
         // The agent can query reality, grounded in a witness evidence hash.
-        let presence = node.query(&Query::Presence { zone: "zone_a".into() });
+        let presence = node.query(&Query::Presence {
+            zone: "zone_a".into(),
+        });
         assert!(presence.yes);
         assert!(!presence.evidence.is_empty());
         // A zone with no memory is honestly unknown.
-        assert!(!node.query(&Query::Presence { zone: "unknown".into() }).yes);
+        assert!(
+            !node
+                .query(&Query::Presence {
+                    zone: "unknown".into()
+                })
+                .yes
+        );
     }
 
     #[test]

@@ -75,11 +75,19 @@ impl IdentityMemory {
     pub fn observe(&mut self, id: &str, signature: &[f32]) -> IdentityDrift {
         let Some(stored) = self.signatures.get(id) else {
             self.signatures.insert(id.to_string(), signature.to_vec());
-            return IdentityDrift { id: id.to_string(), drift: 0.0, changed: false };
+            return IdentityDrift {
+                id: id.to_string(),
+                drift: 0.0,
+                changed: false,
+            };
         };
 
         if stored.len() != signature.len() {
-            return IdentityDrift { id: id.to_string(), drift: 1.0, changed: true };
+            return IdentityDrift {
+                id: id.to_string(),
+                drift: 1.0,
+                changed: true,
+            };
         }
 
         let drift = cosine_distance(stored, signature);
@@ -95,7 +103,11 @@ impl IdentityMemory {
             }
         }
 
-        IdentityDrift { id: id.to_string(), drift, changed }
+        IdentityDrift {
+            id: id.to_string(),
+            drift,
+            changed,
+        }
     }
 }
 
@@ -136,8 +148,15 @@ mod tests {
         // Tiny perturbation (sensor noise): same physical object.
         let result = mem.observe("pump-7", &[1.01, 1.99, 3.02, 3.98]);
 
-        assert!(!result.changed, "near-identical signature should be unchanged");
-        assert!(result.drift < 0.1, "drift should be low, got {}", result.drift);
+        assert!(
+            !result.changed,
+            "near-identical signature should be unchanged"
+        );
+        assert!(
+            result.drift < 0.1,
+            "drift should be low, got {}",
+            result.drift
+        );
         assert_eq!(result.id, "pump-7");
     }
 
@@ -150,7 +169,11 @@ mod tests {
         let result = mem.observe("panel-3", &[0.0, 1.0, 0.0, 0.0]);
 
         assert!(result.changed, "orthogonal signature should be a change");
-        assert!(result.drift > 0.2, "drift should be high, got {}", result.drift);
+        assert!(
+            result.drift > 0.2,
+            "drift should be high, got {}",
+            result.drift
+        );
         // Cosine distance of orthogonal vectors is exactly 1.0.
         assert!((result.drift - 1.0).abs() < 1e-6);
     }
@@ -164,7 +187,10 @@ mod tests {
 
         assert!(!result.changed);
         assert_eq!(result.drift, 0.0);
-        assert!(mem.contains("valve-1"), "observing unknown id should enroll it");
+        assert!(
+            mem.contains("valve-1"),
+            "observing unknown id should enroll it"
+        );
     }
 
     #[test]
@@ -205,7 +231,11 @@ mod tests {
         // Sudden large change — casing tampered: resonance inverts.
         let tampered = vec![-1.0, -1.0, -1.0, -1.0];
         let r = mem.observe("casing-9", &tampered);
-        assert!(r.changed, "sudden inversion should trip changed (drift {})", r.drift);
+        assert!(
+            r.changed,
+            "sudden inversion should trip changed (drift {})",
+            r.drift
+        );
         assert!(r.drift > 0.15);
     }
 }

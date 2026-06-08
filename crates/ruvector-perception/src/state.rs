@@ -19,7 +19,11 @@ pub struct Reading {
 impl Reading {
     /// Convenience constructor.
     pub fn new(zone: impl Into<String>, modality: Modality, value: f32) -> Self {
-        Self { zone: zone.into(), modality, value }
+        Self {
+            zone: zone.into(),
+            modality,
+            value,
+        }
     }
 }
 
@@ -38,7 +42,12 @@ struct Channel {
 
 impl Default for Channel {
     fn default() -> Self {
-        Self { baseline: 0.0, activity: 0.0, responsiveness: 0.0, seen: false }
+        Self {
+            baseline: 0.0,
+            activity: 0.0,
+            responsiveness: 0.0,
+            seen: false,
+        }
     }
 }
 
@@ -54,7 +63,11 @@ impl WorldState {
     /// New state. `alpha` is the EWMA factor (e.g. 0.3); `active_threshold` is
     /// the |delta| above which a channel is considered to have responded.
     pub fn new(alpha: f32, active_threshold: f32) -> Self {
-        Self { channels: HashMap::new(), alpha, active_threshold }
+        Self {
+            channels: HashMap::new(),
+            alpha,
+            active_threshold,
+        }
     }
 
     /// Current baseline for a channel (0 if unseen).

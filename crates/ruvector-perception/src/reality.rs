@@ -44,7 +44,13 @@ pub struct GroundedAnswer {
 
 impl GroundedAnswer {
     fn none(detail: impl Into<String>) -> Self {
-        Self { yes: false, detail: detail.into(), zones: Vec::new(), evidence: Vec::new(), coherence: 0.0 }
+        Self {
+            yes: false,
+            detail: detail.into(),
+            zones: Vec::new(),
+            evidence: Vec::new(),
+            coherence: 0.0,
+        }
     }
 }
 
@@ -180,7 +186,11 @@ mod tests {
             t,
             changed_boundary: zone.to_string(),
             supporting_modalities: vec![Modality::Rf, Modality::Vibration],
-            contradicting_modalities: if contradiction > 0.0 { vec![Modality::Thermal] } else { vec![] },
+            contradicting_modalities: if contradiction > 0.0 {
+                vec![Modality::Thermal]
+            } else {
+                vec![]
+            },
             novelty: 0.8,
             coherence: 0.9,
             contradiction,
@@ -194,11 +204,15 @@ mod tests {
     fn presence_is_grounded_in_a_witness() {
         let mut rg = RealityGraph::new();
         rg.ingest(&witness("kitchen", 5, Action::Alert, 0.0, "h1"));
-        let a = rg.query(&Query::Presence { zone: "kitchen".into() });
+        let a = rg.query(&Query::Presence {
+            zone: "kitchen".into(),
+        });
         assert!(a.yes);
         assert_eq!(a.evidence, vec!["h1".to_string()]);
         // A zone with no memory is honestly unknown, not hallucinated.
-        let b = rg.query(&Query::Presence { zone: "garage".into() });
+        let b = rg.query(&Query::Presence {
+            zone: "garage".into(),
+        });
         assert!(!b.yes);
         assert!(b.evidence.is_empty());
     }
@@ -211,8 +225,18 @@ mod tests {
         let untrusted = rg.query(&Query::WhichUntrusted);
         assert_eq!(untrusted.zones, vec!["door".to_string()]);
         // Contradicted zone: escalation denied. Clean zone: allowed.
-        assert!(!rg.query(&Query::ActionAllowed { zone: "door".into() }).yes);
-        assert!(rg.query(&Query::ActionAllowed { zone: "hall".into() }).yes);
+        assert!(
+            !rg.query(&Query::ActionAllowed {
+                zone: "door".into()
+            })
+            .yes
+        );
+        assert!(
+            rg.query(&Query::ActionAllowed {
+                zone: "hall".into()
+            })
+            .yes
+        );
     }
 
     #[test]

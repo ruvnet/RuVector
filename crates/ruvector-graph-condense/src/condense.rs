@@ -8,7 +8,7 @@
 //! structure of the source graph. Boundary edges survive as weighted
 //! super-edges; cuts are preserved by construction rather than by training.
 
-use crate::diffcut::{DiffCutConfig, DiffCutCondenser};
+use crate::diffcut::{DiffCutCondenser, DiffCutConfig};
 use crate::error::{CondenseError, Result};
 use crate::features::NodeFeatures;
 use crate::node::{CondensedEdge, CondensedGraph, CondensedNode};
@@ -201,7 +201,7 @@ impl GraphCondenser {
                 crossings: c,
             })
             .collect();
-        edges.sort_by(|a, b| (a.source, a.target).cmp(&(b.source, b.target)));
+        edges.sort_by_key(|e| (e.source, e.target));
 
         Ok(CondensedGraph {
             nodes,
@@ -489,7 +489,12 @@ mod tests {
         })
         .condense(&g, &f)
         .unwrap();
-        let norm: f32 = c.nodes[0].centroid.iter().map(|x| x * x).sum::<f32>().sqrt();
+        let norm: f32 = c.nodes[0]
+            .centroid
+            .iter()
+            .map(|x| x * x)
+            .sum::<f32>()
+            .sqrt();
         assert!((norm - 1.0).abs() < 1e-6);
     }
 }

@@ -351,17 +351,41 @@ mod tests {
         let hh = 1e-6;
         let mut max_err = 0f64;
         for idx in 0..f * h {
-            let mut mp = Gcn { w1: model.w1.clone(), w2: model.w2.clone(), f, h, c };
+            let mut mp = Gcn {
+                w1: model.w1.clone(),
+                w2: model.w2.clone(),
+                f,
+                h,
+                c,
+            };
             mp.w1[idx] += hh;
-            let mut mm_ = Gcn { w1: model.w1.clone(), w2: model.w2.clone(), f, h, c };
+            let mut mm_ = Gcn {
+                w1: model.w1.clone(),
+                w2: model.w2.clone(),
+                f,
+                h,
+                c,
+            };
             mm_.w1[idx] -= hh;
             let num = (loss(&mp) - loss(&mm_)) / (2.0 * hh);
             max_err = max_err.max((num - dw1[idx]).abs());
         }
         for idx in 0..h * c {
-            let mut mp = Gcn { w1: model.w1.clone(), w2: model.w2.clone(), f, h, c };
+            let mut mp = Gcn {
+                w1: model.w1.clone(),
+                w2: model.w2.clone(),
+                f,
+                h,
+                c,
+            };
             mp.w2[idx] += hh;
-            let mut mm_ = Gcn { w1: model.w1.clone(), w2: model.w2.clone(), f, h, c };
+            let mut mm_ = Gcn {
+                w1: model.w1.clone(),
+                w2: model.w2.clone(),
+                f,
+                h,
+                c,
+            };
             mm_.w2[idx] -= hh;
             let num = (loss(&mp) - loss(&mm_)) / (2.0 * hh);
             max_err = max_err.max((num - dw2[idx]).abs());

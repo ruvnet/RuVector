@@ -83,7 +83,10 @@ impl CustodyLedger {
                 expected,
             });
         }
-        self.records.push(CustodyRecord { witness, outcome: None });
+        self.records.push(CustodyRecord {
+            witness,
+            outcome: None,
+        });
         Ok(())
     }
 
@@ -202,7 +205,11 @@ mod tests {
         // prev_hash should be Some("h0"), but we link it to the wrong place.
         let err = ledger.append(witness(1, "h1", Some("WRONG"))).unwrap_err();
         match err {
-            CustodyError::BrokenChain { index, found, expected } => {
+            CustodyError::BrokenChain {
+                index,
+                found,
+                expected,
+            } => {
                 assert_eq!(index, 1);
                 assert_eq!(found, Some("WRONG".to_string()));
                 assert_eq!(expected, Some("h0".to_string()));
@@ -267,7 +274,11 @@ mod tests {
         ledger.records[1].witness.evidence_hash = "h1_tampered".to_string();
 
         match ledger.verify() {
-            Err(CustodyError::BrokenChain { index, found, expected }) => {
+            Err(CustodyError::BrokenChain {
+                index,
+                found,
+                expected,
+            }) => {
                 assert_eq!(index, 2);
                 assert_eq!(found, Some("h1".to_string()));
                 assert_eq!(expected, Some("h1_tampered".to_string()));

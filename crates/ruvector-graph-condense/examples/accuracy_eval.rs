@@ -12,13 +12,13 @@
 
 #![allow(clippy::needless_range_loop)] // index-heavy numeric example code
 
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
+use ruvector_graph_condense::gnn_eval::{accuracy, Gcn, GcnConfig, GcnGraph};
 use ruvector_graph_condense::{
     CondenseConfig, CondenseMethod, CondensedGraph, DiffCutConfig, GraphCondenser, NodeFeatures,
 };
-use ruvector_graph_condense::gnn_eval::{accuracy, Gcn, GcnConfig, GcnGraph};
 use ruvector_mincut::DynamicGraph;
-use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
 
 struct Task {
     classes: usize,
@@ -75,7 +75,11 @@ impl Task {
 }
 
 /// Extract contiguous `0..n` edge list / feature matrix from the graph.
-fn full_arrays(g: &DynamicGraph, f: &NodeFeatures, n: usize) -> (Vec<(usize, usize, f64)>, Vec<f64>) {
+fn full_arrays(
+    g: &DynamicGraph,
+    f: &NodeFeatures,
+    n: usize,
+) -> (Vec<(usize, usize, f64)>, Vec<f64>) {
     let edges = g
         .edges()
         .iter()
@@ -155,12 +159,28 @@ fn main() {
     println!("Protocol: train GNN on condensed graph -> test on original held-out nodes.\n");
 
     // Baseline: train on the FULL graph's train split.
-    let base = Gcn::train(&cfg, &full_graph, &x_full, task.dim, &labels, task.classes, &train);
+    let base = Gcn::train(
+        &cfg,
+        &full_graph,
+        &x_full,
+        task.dim,
+        &labels,
+        task.classes,
+        &train,
+    );
     let acc_full = accuracy(&base.predict(&full_graph, &x_full), &labels, &test);
-    println!("Baseline GNN (trained on full graph): test accuracy {:.1}%\n", acc_full * 100.0);
+    println!(
+        "Baseline GNN (trained on full graph): test accuracy {:.1}%\n",
+        acc_full * 100.0
+    );
 
     for (name, method) in [
-        ("WeakBoundary", CondenseMethod::WeakBoundary { relative_threshold: 0.5 }),
+        (
+            "WeakBoundary",
+            CondenseMethod::WeakBoundary {
+                relative_threshold: 0.5,
+            },
+        ),
         (
             "DiffMinCut",
             CondenseMethod::DiffMinCut(DiffCutConfig {
@@ -171,15 +191,22 @@ fn main() {
             }),
         ),
     ] {
-        let c = GraphCondenser::new(CondenseConfig { method, normalize_centroids: false })
-            .condense(&graph, &feats)
-            .unwrap();
+        let c = GraphCondenser::new(CondenseConfig {
+            method,
+            normalize_centroids: false,
+        })
+        .condense(&graph, &feats)
+        .unwrap();
         let (cg, x_cond, lab_cond) = condensed_arrays(&c);
         let all: Vec<usize> = (0..c.node_count()).collect();
         // Train on condensed, test on the ORIGINAL graph's test split.
         let model = Gcn::train(&cfg, &cg, &x_cond, task.dim, &lab_cond, task.classes, &all);
         let acc_cond = accuracy(&model.predict(&full_graph, &x_full), &labels, &test);
-        let retention = if acc_full > 0.0 { acc_cond / acc_full } else { 0.0 };
+        let retention = if acc_full > 0.0 {
+            acc_cond / acc_full
+        } else {
+            0.0
+        };
         println!(
             "{name:>12}: {} -> {} super-nodes ({:.0}x)  | test acc {:.1}%  | retention {:.1}%",
             n,

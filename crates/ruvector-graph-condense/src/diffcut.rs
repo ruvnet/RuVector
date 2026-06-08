@@ -23,9 +23,9 @@ use crate::cutloss::{
     CompactGraph,
 };
 use crate::error::{CondenseError, Result};
-use ruvector_mincut::{DynamicGraph, VertexId};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use ruvector_mincut::{DynamicGraph, VertexId};
 use std::collections::HashMap;
 
 pub use crate::cutloss::MinCutLoss;
@@ -329,7 +329,12 @@ fn random_logits(n: usize, k: usize, rng: &mut StdRng) -> Vec<f64> {
 /// Warm-start logits from the WeakBoundary structural prior: each detected
 /// region is mapped to a cluster (largest regions get their own; overflow is
 /// distributed round-robin) and biased into the logits, plus small noise.
-fn warm_start_logits(g: &CompactGraph, graph: &DynamicGraph, k: usize, rng: &mut StdRng) -> Vec<f64> {
+fn warm_start_logits(
+    g: &CompactGraph,
+    graph: &DynamicGraph,
+    k: usize,
+    rng: &mut StdRng,
+) -> Vec<f64> {
     const BIAS: f64 = 4.0; // softmax(4 vs 0) ~ 0.98 mass on the seeded cluster
     let index = g.index_map();
 

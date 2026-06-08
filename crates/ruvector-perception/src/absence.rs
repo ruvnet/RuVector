@@ -30,7 +30,13 @@ impl SequenceMonitor {
     /// New monitor for an ordered list of expected zone events, with a
     /// per-step deadline (in the same time units as observations).
     pub fn new(steps: Vec<String>, deadline: u64) -> Self {
-        Self { steps, deadline, pos: 0, last_t: None, started: false }
+        Self {
+            steps,
+            deadline,
+            pos: 0,
+            last_t: None,
+            started: false,
+        }
     }
 
     /// Whether the full sequence has completed.

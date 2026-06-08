@@ -38,7 +38,11 @@ pub fn detect_boundary(deltas: &[(String, Vec<f64>)]) -> Option<Boundary> {
 
     // Pairwise distances and the scale that maps distance -> coherence weight.
     let dist = |a: &[f64], b: &[f64]| -> f64 {
-        a.iter().zip(b).map(|(x, y)| (x - y) * (x - y)).sum::<f64>().sqrt()
+        a.iter()
+            .zip(b)
+            .map(|(x, y)| (x - y) * (x - y))
+            .sum::<f64>()
+            .sqrt()
     };
     let mut max_d = 0.0f64;
     for i in 0..k {
@@ -59,7 +63,11 @@ pub fn detect_boundary(deltas: &[(String, Vec<f64>)]) -> Option<Boundary> {
             edges.push((i as u64, j as u64, weight(&deltas[i].1, &deltas[j].1)));
         }
     }
-    let mincut = MinCutBuilder::new().exact().with_edges(edges).build().ok()?;
+    let mincut = MinCutBuilder::new()
+        .exact()
+        .with_edges(edges)
+        .build()
+        .ok()?;
     let result = mincut.min_cut();
     let (a, b) = result.partition?;
     // Changed side = the smaller partition (the part that broke away).
@@ -68,7 +76,10 @@ pub fn detect_boundary(deltas: &[(String, Vec<f64>)]) -> Option<Boundary> {
         return None;
     }
 
-    let side: Vec<String> = changed.iter().map(|&i| deltas[i as usize].0.clone()).collect();
+    let side: Vec<String> = changed
+        .iter()
+        .map(|&i| deltas[i as usize].0.clone())
+        .collect();
     // Headline zone = largest-magnitude delta on the changed side.
     let zone = changed
         .iter()
@@ -93,10 +104,18 @@ pub fn detect_boundary(deltas: &[(String, Vec<f64>)]) -> Option<Boundary> {
             }
         }
     }
-    let mean_cross = if cross_n > 0 { cross_sum / cross_n as f64 } else { 1.0 };
+    let mean_cross = if cross_n > 0 {
+        cross_sum / cross_n as f64
+    } else {
+        1.0
+    };
     let coherence = (1.0 - mean_cross).clamp(0.0, 1.0) as f32;
 
-    Some(Boundary { zone, side, coherence })
+    Some(Boundary {
+        zone,
+        side,
+        coherence,
+    })
 }
 
 #[cfg(test)]

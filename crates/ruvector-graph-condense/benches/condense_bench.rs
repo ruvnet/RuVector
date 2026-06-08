@@ -188,9 +188,13 @@ fn bench_diffcut_levers(c: &mut Criterion) {
     ];
     for (name, cfg) in variants {
         let condenser = DiffCutCondenser::new(cfg);
-        group.bench_with_input(BenchmarkId::new(name, n), &(condenser, &graph), |b, (c, g)| {
-            b.iter(|| criterion::black_box(c.train(g).unwrap().loss().total));
-        });
+        group.bench_with_input(
+            BenchmarkId::new(name, n),
+            &(condenser, &graph),
+            |b, (c, g)| {
+                b.iter(|| criterion::black_box(c.train(g).unwrap().loss().total));
+            },
+        );
     }
     group.finish();
 }

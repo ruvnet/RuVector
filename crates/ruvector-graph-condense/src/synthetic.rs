@@ -146,6 +146,10 @@ mod tests {
         assert!(c.node_count() >= 4);
         assert!(c.node_reduction_ratio() > 2.0);
         let m = crate::metrics::evaluate(&g, &c);
-        assert!(m.intra_weight_ratio > 0.8, "intra ratio {}", m.intra_weight_ratio);
+        assert!(
+            m.intra_weight_ratio > 0.8,
+            "intra ratio {}",
+            m.intra_weight_ratio
+        );
     }
 }

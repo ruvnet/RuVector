@@ -200,7 +200,12 @@ impl CaptchaVerifier {
     }
 
     /// Does `cr` contain a correct response for `modality` matching `exp`?
-    fn responded_correctly(&self, cr: &ChallengeResponse, modality: Modality, exp: &Expected) -> bool {
+    fn responded_correctly(
+        &self,
+        cr: &ChallengeResponse,
+        modality: Modality,
+        exp: &Expected,
+    ) -> bool {
         let floor = exp.magnitude * MAGNITUDE_FLOOR_FRACTION;
         cr.responses.iter().any(|r| {
             r.modality == modality
@@ -229,7 +234,11 @@ impl CaptchaVerifier {
             .expect("missing is non-empty here");
 
         let names: Vec<&str> = missing.iter().map(|m| m.name()).collect();
-        let prefix = if trusted { "degraded but trusted" } else { "rejected" };
+        let prefix = if trusted {
+            "degraded but trusted"
+        } else {
+            "rejected"
+        };
         format!(
             "{prefix}: missing high-spoof-resistance modality: {} (absent/out-of-tolerance: {})",
             worst.name(),
@@ -253,9 +262,21 @@ mod tests {
         ChallengeResponse {
             stimulus: Stimulus::AcousticChirp,
             responses: vec![
-                ObservedResponse { modality: Modality::Acoustic, delay: 0.030, magnitude: 1.0 },
-                ObservedResponse { modality: Modality::Vibration, delay: 0.050, magnitude: 0.8 },
-                ObservedResponse { modality: Modality::Rf, delay: 0.010, magnitude: 0.5 },
+                ObservedResponse {
+                    modality: Modality::Acoustic,
+                    delay: 0.030,
+                    magnitude: 1.0,
+                },
+                ObservedResponse {
+                    modality: Modality::Vibration,
+                    delay: 0.050,
+                    magnitude: 0.8,
+                },
+                ObservedResponse {
+                    modality: Modality::Rf,
+                    delay: 0.010,
+                    magnitude: 0.5,
+                },
             ],
         }
     }
@@ -269,10 +290,20 @@ mod tests {
         }
 
         let proof = v.verify(&good_chirp());
-        assert!(proof.trusted, "matching response should be trusted: {proof:?}");
-        assert!(proof.score > 0.99, "score should be near 1.0: {}", proof.score);
+        assert!(
+            proof.trusted,
+            "matching response should be trusted: {proof:?}"
+        );
+        assert!(
+            proof.score > 0.99,
+            "score should be near 1.0: {}",
+            proof.score
+        );
         assert!(proof.missing.is_empty());
-        assert_eq!(proof.reason, "all expected modalities responded within tolerance");
+        assert_eq!(
+            proof.reason,
+            "all expected modalities responded within tolerance"
+        );
     }
 
     #[test]
@@ -286,8 +317,16 @@ mod tests {
         let replay = ChallengeResponse {
             stimulus: Stimulus::AcousticChirp,
             responses: vec![
-                ObservedResponse { modality: Modality::Acoustic, delay: 0.0, magnitude: 1.0 },
-                ObservedResponse { modality: Modality::Rf, delay: 0.0, magnitude: 0.5 },
+                ObservedResponse {
+                    modality: Modality::Acoustic,
+                    delay: 0.0,
+                    magnitude: 1.0,
+                },
+                ObservedResponse {
+                    modality: Modality::Rf,
+                    delay: 0.0,
+                    magnitude: 0.5,
+                },
             ],
         };
 
@@ -333,14 +372,29 @@ mod tests {
         let attenuated = ChallengeResponse {
             stimulus: Stimulus::AcousticChirp,
             responses: vec![
-                ObservedResponse { modality: Modality::Acoustic, delay: 0.030, magnitude: 1.0 },
-                ObservedResponse { modality: Modality::Vibration, delay: 0.050, magnitude: 0.1 },
-                ObservedResponse { modality: Modality::Rf, delay: 0.010, magnitude: 0.5 },
+                ObservedResponse {
+                    modality: Modality::Acoustic,
+                    delay: 0.030,
+                    magnitude: 1.0,
+                },
+                ObservedResponse {
+                    modality: Modality::Vibration,
+                    delay: 0.050,
+                    magnitude: 0.1,
+                },
+                ObservedResponse {
+                    modality: Modality::Rf,
+                    delay: 0.010,
+                    magnitude: 0.5,
+                },
             ],
         };
 
         let proof = v.verify(&attenuated);
-        assert!(!proof.trusted, "weak vibration should fail high threshold: {proof:?}");
+        assert!(
+            !proof.trusted,
+            "weak vibration should fail high threshold: {proof:?}"
+        );
         assert!(proof.missing.contains(&Modality::Vibration));
     }
 }

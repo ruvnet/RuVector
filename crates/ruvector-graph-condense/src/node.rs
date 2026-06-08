@@ -109,7 +109,11 @@ impl CondensedGraph {
     /// Edge reduction factor (`source_edges / condensed_edges`).
     pub fn edge_reduction_ratio(&self) -> f64 {
         if self.edges.is_empty() {
-            return if self.source_edges == 0 { 1.0 } else { self.source_edges as f64 };
+            return if self.source_edges == 0 {
+                1.0
+            } else {
+                self.source_edges as f64
+            };
         }
         self.source_edges as f64 / self.edges.len() as f64
     }
@@ -207,8 +211,18 @@ mod tests {
         let g = CondensedGraph {
             nodes: vec![node(0, vec![]), node(1, vec![]), node(2, vec![])],
             edges: vec![
-                CondensedEdge { source: 0, target: 1, weight: 2.0, crossings: 1 },
-                CondensedEdge { source: 1, target: 2, weight: 3.0, crossings: 1 },
+                CondensedEdge {
+                    source: 0,
+                    target: 1,
+                    weight: 2.0,
+                    crossings: 1,
+                },
+                CondensedEdge {
+                    source: 1,
+                    target: 2,
+                    weight: 3.0,
+                    crossings: 1,
+                },
             ],
             source_nodes: 3,
             source_edges: 2,

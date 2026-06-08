@@ -43,8 +43,16 @@ fn inert_object_move_produces_structured_delta_witness() {
         Reading::new("table_left_zone", Modality::Vibration, bl_vib + 3.0),
         Reading::new("table_left_zone", Modality::Acoustic, bl_ac + 3.0),
         Reading::new("table_left_zone", Modality::Thermal, bl_th), // silent
-        Reading::new("table_right_zone", Modality::Rf, eng.state().baseline("table_right_zone", Modality::Rf)),
-        Reading::new("window_zone", Modality::Rf, eng.state().baseline("window_zone", Modality::Rf)),
+        Reading::new(
+            "table_right_zone",
+            Modality::Rf,
+            eng.state().baseline("table_right_zone", Modality::Rf),
+        ),
+        Reading::new(
+            "window_zone",
+            Modality::Rf,
+            eng.state().baseline("window_zone", Modality::Rf),
+        ),
     ];
 
     let prev = eng.state().baseline("table_left_zone", Modality::Rf); // touch state
@@ -68,7 +76,10 @@ fn inert_object_move_produces_structured_delta_witness() {
     assert_eq!(w.action, Action::Observe);
     // Auditable evidence chain.
     assert_eq!(w.evidence_hash.len(), 64);
-    assert!(w.prev_hash.is_some(), "witness should chain to the warmup history");
+    assert!(
+        w.prev_hash.is_some(),
+        "witness should chain to the warmup history"
+    );
 }
 
 #[test]

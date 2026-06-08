@@ -33,7 +33,12 @@ impl StreamingCondenser {
     /// `rebuild_interval` is the maximum number of mutations tolerated before
     /// [`StreamingCondenser::condensed`] forces a rebuild even if not otherwise
     /// read. Use `0` to rebuild only on explicit reads of a dirty state.
-    pub fn new(config: CondenseConfig, dim: usize, num_classes: usize, rebuild_interval: usize) -> Self {
+    pub fn new(
+        config: CondenseConfig,
+        dim: usize,
+        num_classes: usize,
+        rebuild_interval: usize,
+    ) -> Self {
         Self {
             graph: DynamicGraph::new(),
             features: NodeFeatures::new(dim, num_classes),
@@ -118,7 +123,8 @@ impl StreamingCondenser {
             self.dirty = false;
             return Ok(None);
         }
-        let interval_elapsed = self.rebuild_interval > 0 && self.ops_since_rebuild >= self.rebuild_interval;
+        let interval_elapsed =
+            self.rebuild_interval > 0 && self.ops_since_rebuild >= self.rebuild_interval;
         if self.dirty || interval_elapsed || self.cached.is_none() {
             self.rebuild()?;
         }

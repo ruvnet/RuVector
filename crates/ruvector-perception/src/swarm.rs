@@ -134,7 +134,11 @@ impl FacilityGraph {
             .map(|((u, v), w)| (id_of[u.as_str()], id_of[v.as_str()], *w))
             .collect();
 
-        let mincut = MinCutBuilder::new().exact().with_edges(edges).build().ok()?;
+        let mincut = MinCutBuilder::new()
+            .exact()
+            .with_edges(edges)
+            .build()
+            .ok()?;
         let result = mincut.min_cut();
         let min_cut = result.value;
 
@@ -145,10 +149,14 @@ impl FacilityGraph {
             _ => ((0..names.len() as u64).collect(), Vec::new()),
         };
 
-        let mut side_a: Vec<String> =
-            side_a_ids.iter().map(|&i| names[i as usize].clone()).collect();
-        let mut side_b: Vec<String> =
-            side_b_ids.iter().map(|&i| names[i as usize].clone()).collect();
+        let mut side_a: Vec<String> = side_a_ids
+            .iter()
+            .map(|&i| names[i as usize].clone())
+            .collect();
+        let mut side_b: Vec<String> = side_b_ids
+            .iter()
+            .map(|&i| names[i as usize].clone())
+            .collect();
         side_a.sort();
         side_b.sort();
 
@@ -173,7 +181,6 @@ impl FacilityGraph {
             bottlenecks: bottleneck_set.into_iter().collect(),
         })
     }
-
 }
 
 #[cfg(test)]
@@ -241,7 +248,11 @@ mod tests {
         let report = g.fragility().expect("clique -> a report");
 
         let isolation_cost = (nodes.len() as f64 - 1.0) * weight; // 4 * 2 = 8
-        assert!((report.min_cut - isolation_cost).abs() < 1e-6, "min_cut = {}", report.min_cut);
+        assert!(
+            (report.min_cut - isolation_cost).abs() < 1e-6,
+            "min_cut = {}",
+            report.min_cut
+        );
         assert!(report.min_cut > 0.0);
         assert!(!report.bottlenecks.is_empty());
     }
@@ -251,9 +262,13 @@ mod tests {
         let mut g = FacilityGraph::new();
         g.couple("x", "y", 1.5);
         g.couple("y", "x", 2.5); // same unordered pair, reversed
-        // Only one edge, so the only cut separates the two nodes: total = 4.0.
+                                 // Only one edge, so the only cut separates the two nodes: total = 4.0.
         let report = g.fragility().expect("two coupled nodes -> a report");
-        assert!((report.min_cut - 4.0).abs() < 1e-6, "min_cut = {}", report.min_cut);
+        assert!(
+            (report.min_cut - 4.0).abs() < 1e-6,
+            "min_cut = {}",
+            report.min_cut
+        );
         assert_eq!(g.len(), 2);
     }
 

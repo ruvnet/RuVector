@@ -165,7 +165,16 @@ mod tests {
         assert_eq!(a, b);
         assert_eq!(a.len(), 64);
         // Chaining changes the hash.
-        let c = evidence_hash(b"raw", b"feat", "zoneA", 0.9, 0.8, 0.1, Action::Alert, Some(&a));
+        let c = evidence_hash(
+            b"raw",
+            b"feat",
+            "zoneA",
+            0.9,
+            0.8,
+            0.1,
+            Action::Alert,
+            Some(&a),
+        );
         assert_ne!(a, c);
     }
 }

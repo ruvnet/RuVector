@@ -36,7 +36,10 @@ fn loss_decreases_during_training() {
         seed: 7,
         ..Default::default()
     };
-    let early = DiffCutCondenser::new(base.clone()).train(&g).unwrap().loss();
+    let early = DiffCutCondenser::new(base.clone())
+        .train(&g)
+        .unwrap()
+        .loss();
     let late = DiffCutCondenser::new(DiffCutConfig {
         iterations: 300,
         ..base

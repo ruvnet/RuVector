@@ -48,12 +48,36 @@ impl Modality {
     /// Typed physics metadata used to weight evidence.
     pub fn physics(self) -> Physics {
         match self {
-            Modality::Rf => Physics { latency: 0.01, decay: 0.2, spoof_resistance: 0.3 },
-            Modality::Vibration => Physics { latency: 0.05, decay: 0.5, spoof_resistance: 0.7 },
-            Modality::Acoustic => Physics { latency: 0.03, decay: 0.4, spoof_resistance: 0.6 },
-            Modality::Thermal => Physics { latency: 2.0, decay: 0.95, spoof_resistance: 0.8 },
-            Modality::Chemical => Physics { latency: 5.0, decay: 0.98, spoof_resistance: 0.9 },
-            Modality::Optical => Physics { latency: 0.005, decay: 0.1, spoof_resistance: 0.2 },
+            Modality::Rf => Physics {
+                latency: 0.01,
+                decay: 0.2,
+                spoof_resistance: 0.3,
+            },
+            Modality::Vibration => Physics {
+                latency: 0.05,
+                decay: 0.5,
+                spoof_resistance: 0.7,
+            },
+            Modality::Acoustic => Physics {
+                latency: 0.03,
+                decay: 0.4,
+                spoof_resistance: 0.6,
+            },
+            Modality::Thermal => Physics {
+                latency: 2.0,
+                decay: 0.95,
+                spoof_resistance: 0.8,
+            },
+            Modality::Chemical => Physics {
+                latency: 5.0,
+                decay: 0.98,
+                spoof_resistance: 0.9,
+            },
+            Modality::Optical => Physics {
+                latency: 0.005,
+                decay: 0.1,
+                spoof_resistance: 0.2,
+            },
         }
     }
 }
@@ -83,6 +107,8 @@ mod tests {
         }
         // Thermal is slower and harder to spoof than RF — a real physical prior.
         assert!(Modality::Thermal.physics().latency > Modality::Rf.physics().latency);
-        assert!(Modality::Thermal.physics().spoof_resistance > Modality::Rf.physics().spoof_resistance);
+        assert!(
+            Modality::Thermal.physics().spoof_resistance > Modality::Rf.physics().spoof_resistance
+        );
     }
 }

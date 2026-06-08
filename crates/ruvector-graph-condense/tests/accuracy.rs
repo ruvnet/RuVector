@@ -106,7 +106,10 @@ fn condensed_graph_trains_a_usable_classifier() {
     };
     let base = Gcn::train(&cfg, &full, &x_full, f.dim(), &labels, classes, &train);
     let acc_full = accuracy(&base.predict(&full, &x_full), &labels, &test);
-    assert!(acc_full > 0.7, "baseline too weak to be a fair test: {acc_full}");
+    assert!(
+        acc_full > 0.7,
+        "baseline too weak to be a fair test: {acc_full}"
+    );
 
     // Condense (DiffMinCut, a few super-nodes per class) and train on it.
     let c = GraphCondenser::new(CondenseConfig {

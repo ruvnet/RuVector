@@ -68,7 +68,10 @@ struct BuildArgs<'a> {
 }
 
 fn err_json(msg: &str) -> String {
-    format!("{{\"error\":{}}}", serde_json::to_string(msg).unwrap_or_default())
+    format!(
+        "{{\"error\":{}}}",
+        serde_json::to_string(msg).unwrap_or_default()
+    )
 }
 
 /// Condense with the default structure-preserving `WeakBoundary` method.
@@ -84,7 +87,14 @@ pub fn condense_weak(
 ) -> String {
     run(
         CondenseConfig::default(),
-        BuildArgs { n, src, dst, w, features, dim },
+        BuildArgs {
+            n,
+            src,
+            dst,
+            w,
+            features,
+            dim,
+        },
     )
 }
 
@@ -106,7 +116,17 @@ pub fn condense_diffmincut(
         }),
         normalize_centroids: false,
     };
-    run(cfg, BuildArgs { n, src, dst, w, features, dim })
+    run(
+        cfg,
+        BuildArgs {
+            n,
+            src,
+            dst,
+            w,
+            features,
+            dim,
+        },
+    )
 }
 
 /// Crate version (handy for cache-busting a deployed bundle).

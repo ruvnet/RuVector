@@ -210,15 +210,9 @@ mod tests {
         let mut p = BoundaryPredictor::new(5);
 
         // "kitchen" worsens: coherence and contradiction both climb.
-        for (i, (coh, con)) in [
-            (0.1, 0.0),
-            (0.3, 0.2),
-            (0.5, 0.4),
-            (0.7, 0.6),
-            (0.9, 0.8),
-        ]
-        .into_iter()
-        .enumerate()
+        for (i, (coh, con)) in [(0.1, 0.0), (0.3, 0.2), (0.5, 0.4), (0.7, 0.6), (0.9, 0.8)]
+            .into_iter()
+            .enumerate()
         {
             p.observe(&BoundaryObservation::new("kitchen", coh, con, i as u64));
         }

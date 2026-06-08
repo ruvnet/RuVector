@@ -330,7 +330,11 @@ mod tests {
         topo.record_agreement("n", "z", 0.1);
         let report = topo.assess();
 
-        assert_eq!(*role_of(&report, "n"), NodeRole::Noisy, "report: {report:?}");
+        assert_eq!(
+            *role_of(&report, "n"),
+            NodeRole::Noisy,
+            "report: {report:?}"
+        );
         // The well-corroborated nodes are not Noisy.
         assert_ne!(*role_of(&report, "x"), NodeRole::Noisy);
     }

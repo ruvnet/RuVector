@@ -80,6 +80,12 @@ ignore = [
     # incompatible. Dependabot tracking. Re-review on 2026-07-01.
     "RUSTSEC-2024-0370",
 
+    # proc-macro-error2 — the (also now unmaintained) fork of the above,
+    # pulled transitively via validator_derive -> validator (ruvector-scipix
+    # example). Same crate family as RUSTSEC-2024-0370, no maintained
+    # successor yet. Informational. Re-review on 2026-07-01.
+    "RUSTSEC-2026-0173",
+
     # number_prefix — unmaintained, used transitively by indicatif. No
     # known successor; indicatif itself is still maintained. Informational.
     "RUSTSEC-2025-0119",

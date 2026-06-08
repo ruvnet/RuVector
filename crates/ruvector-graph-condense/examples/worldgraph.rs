@@ -14,13 +14,13 @@
 //! the `EventSummary { embedding, confidence, ... }` shape from the design brief,
 //! realised as [`CondensedNode`]s with provenance.
 
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use ruvector_graph_condense::{
     condense, evaluate_full, CondenseConfig, CondenseMethod, DiffCutConfig, GraphCondenser,
     NodeFeatures,
 };
 use ruvector_mincut::DynamicGraph;
-use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
 
 /// A simulated "day": `num_events` activities, each spanning `obs_per_event`
 /// consecutive observations, joined by light transition edges.

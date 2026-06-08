@@ -114,7 +114,10 @@ mod tests {
         let err = f.set_embedding(2, vec![0.0, 1.0]).unwrap_err();
         assert!(matches!(
             err,
-            CondenseError::DimensionMismatch { expected: 3, got: 2 }
+            CondenseError::DimensionMismatch {
+                expected: 3,
+                got: 2
+            }
         ));
     }
 

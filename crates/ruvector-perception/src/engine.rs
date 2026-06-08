@@ -48,7 +48,12 @@ impl DeltaEngine {
     /// Create an engine.
     pub fn new(cfg: EngineConfig) -> Self {
         let state = WorldState::new(cfg.alpha, cfg.active_threshold);
-        Self { cfg, state, history: Vec::new(), prev_hash: None }
+        Self {
+            cfg,
+            state,
+            history: Vec::new(),
+            prev_hash: None,
+        }
     }
 
     /// Borrow the rolling world state (baselines, responsiveness).
@@ -61,7 +66,10 @@ impl DeltaEngine {
         // 1. Per-zone delta vectors over a fixed modality order.
         let mut by_zone: HashMap<String, HashMap<Modality, f32>> = HashMap::new();
         for r in readings {
-            by_zone.entry(r.zone.clone()).or_default().insert(r.modality, r.value);
+            by_zone
+                .entry(r.zone.clone())
+                .or_default()
+                .insert(r.modality, r.value);
         }
         let mut zones: Vec<String> = by_zone.keys().cloned().collect();
         zones.sort();
@@ -82,7 +90,10 @@ impl DeltaEngine {
         let boundary = detect_boundary(&deltas);
         let (changed, coherence, changed_vec) = match boundary {
             Some(b) => {
-                let v = deltas.iter().find(|(z, _)| z == &b.zone).map(|(_, v)| v.clone());
+                let v = deltas
+                    .iter()
+                    .find(|(z, _)| z == &b.zone)
+                    .map(|(_, v)| v.clone());
                 (b.zone, b.coherence, v.unwrap_or_default())
             }
             None => {
@@ -137,7 +148,11 @@ impl DeltaEngine {
         }
         let norm = |v: &[f64]| v.iter().map(|x| x * x).sum::<f64>().sqrt();
         let dist = |a: &[f64], b: &[f64]| -> f64 {
-            a.iter().zip(b).map(|(x, y)| (x - y) * (x - y)).sum::<f64>().sqrt()
+            a.iter()
+                .zip(b)
+                .map(|(x, y)| (x - y) * (x - y))
+                .sum::<f64>()
+                .sqrt()
         };
         let min_d = self
             .history
@@ -159,7 +174,9 @@ impl DeltaEngine {
         // Canonical raw + feature bytes for the evidence chain.
         let mut raw = String::new();
         let mut sorted: Vec<&Reading> = readings.iter().collect();
-        sorted.sort_by(|a, b| (a.zone.as_str(), a.modality.name()).cmp(&(b.zone.as_str(), b.modality.name())));
+        sorted.sort_by(|a, b| {
+            (a.zone.as_str(), a.modality.name()).cmp(&(b.zone.as_str(), b.modality.name()))
+        });
         for r in sorted {
             raw.push_str(&format!("{}:{}:{:.6};", r.zone, r.modality.name(), r.value));
         }
