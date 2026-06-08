@@ -58,17 +58,27 @@
 #![forbid(unsafe_code)]
 
 pub mod absence;
+pub mod captcha;
 pub mod coherence;
 pub mod engine;
+pub mod hypothesis;
+pub mod identity;
 pub mod modality;
+pub mod predict;
 pub mod state;
+pub mod topology;
 pub mod witness;
 
 pub use absence::{Absence, SequenceMonitor};
+pub use captcha::{CaptchaVerifier, ChallengeResponse, ObservedResponse, RealityProof, Stimulus};
 pub use coherence::{detect_boundary, Boundary};
 pub use engine::{DeltaEngine, EngineConfig};
+pub use hypothesis::{rank_hypotheses, DisagreementInput, Hypothesis, RankedHypothesis};
+pub use identity::{IdentityDrift, IdentityMemory};
 pub use modality::{Modality, Physics};
+pub use predict::{BoundaryForecast, BoundaryObservation, BoundaryPredictor};
 pub use state::{Reading, WorldState};
+pub use topology::{NodeAssessment, NodeRole, TopologyManager};
 pub use witness::{evidence_hash, novelty_level, Action, DeltaWitness, ProofGate};
 
 /// Crate version.

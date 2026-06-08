@@ -86,16 +86,43 @@ evidence_hash, prev_hash) — a structured delta, not a label.
   absence-sequence monitor. Boundary detection is O(zones²) edges + exact min cut
   (fine for rooms/facilities, not yet city-scale).
 
+## Capability modules (built on the substrate)
+
+Five further beyond-classification capabilities from the brief are implemented as
+self-contained modules (each emits structure, not a label):
+
+- **`captcha`** — Physical CAPTCHA: a learned per-stimulus multi-modal
+  challenge-response profile; a fresh response is verified within delay/magnitude
+  tolerance, weighted by spoof-resistance, yielding a `RealityProof`. Detects
+  replay/spoof (proof-of-real-physical-field).
+- **`predict`** — Boundary-first world model: forecasts *where coherence breaks
+  next* (`instability = coherence·(1+contradiction)`, level + least-squares
+  trend) rather than full future states.
+- **`identity`** — Resonant identity / continuity: per-object EWMA signature;
+  cosine-distance drift detection answers "is this still the same physical
+  thing?" (panel loosened, bearing worn, casing tampered).
+- **`hypothesis`** — Multi-modal disagreement engine: contradictions produce
+  *ranked hypotheses* (RealEvent / SensorDrift / SensorRelocation /
+  AdversarialReplay / EnvironmentalArtifact), not forced agreement.
+- **`topology`** — Self-healing sensor topology: an EWMA agreement graph
+  classifies each sensor Critical / Redundant / Noisy / Normal; Critical =
+  articulation point (removal fragments the graph — the extreme single-edge cut).
+
 ## Future work (from the brief, not yet built)
 
-Resonant identity / continuity recognition, physical CAPTCHA (challenge-response
-proof-of-reality), boundary-first prediction, self-healing sensor topology,
-swarm-scale min-cut, and the "ambient nervous system" hardware node. This ADR is
-the substrate those build on.
+Swarm/facility-scale min-cut sensing, sensor chain-of-custody persistence, the
+reality-graph agent-grounding API, and the "ambient nervous system" hardware
+node. Modules above are mechanism demonstrations on synthetic signals
+(heuristics, not learned), consistent with the honest scope.
 
 ## Validation
 
-11 tests (9 unit + 2 integration), including the brief's exact flagship scenario
-(inert object move → RF/vibration/acoustic support, thermal contradicts, novelty
-high, action = observe) and the missing-routine-return absence signal. clippy
-clean; all source files < 500 lines.
+42 tests (38 unit + 2 integration + 2 doctest). Highlights: the brief's exact
+flagship scenario (inert object move → RF/vibration/acoustic support, thermal
+contradicts, novelty high, action = observe); the missing-routine-return absence
+signal; physical-CAPTCHA replay rejection; boundary forecast of a destabilising
+zone; identity drift on a tampered signature; ranked hypotheses (RealEvent /
+SensorDrift / AdversarialReplay first under the right evidence); and topology
+roles (bridge → Critical, near-duplicate → Redundant, lone-disagreer → Noisy).
+Built via a 5-agent parallel swarm, then integrated and validated. clippy clean;
+all source files < 500 lines.
