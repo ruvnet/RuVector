@@ -238,6 +238,8 @@ members = [
     "crates/ruvector-graph-condense-wasm",
     # Perception substrate: delta -> boundary -> coherence -> proof -> action
     "crates/ruvector-perception",
+    # Agent memory compaction: coherence-gated graph clustering (ADR-199)
+    "crates/ruvector-memory-compact",
 ]
 resolver = "2"
 

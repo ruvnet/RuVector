@@ -9698,6 +9698,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-memory-compact"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "rayon",
+ "serde",
+]
+
+[[package]]
 name = "ruvector-metrics"
 version = "2.2.3"
 dependencies = [
