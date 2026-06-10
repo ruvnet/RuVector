@@ -1,0 +1,26 @@
+[package]
+name = "ruvector-late-interaction"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "ColBERT-style late interaction multi-vector search for RuVector (MaxSim scoring)"
+
+[dependencies]
+rand = { workspace = true }
+thiserror = { workspace = true }
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[lints.rust]
+unused_imports = "allow"
+dead_code = "allow"
+unused_variables = "allow"
+
+[lints.clippy]
+pedantic = { level = "allow", priority = -2 }
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }

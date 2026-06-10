@@ -238,6 +238,8 @@ members = [
     "crates/ruvector-graph-condense-wasm",
     # Perception substrate: delta -> boundary -> coherence -> proof -> action
     "crates/ruvector-perception",
+    # Late interaction multi-vector search: ColBERT-style MaxSim (ADR-199)
+    "crates/ruvector-late-interaction",
 ]
 resolver = "2"
 

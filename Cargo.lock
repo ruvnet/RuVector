@@ -9654,6 +9654,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-late-interaction"
+version = "2.2.3"
+dependencies = [
+ "rand 0.8.5",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ruvector-learning-wasm"
 version = "0.1.0"
 dependencies = [
