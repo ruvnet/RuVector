@@ -115,6 +115,43 @@ results.forEach(result => {
 });
 ```
 
+> ⚠️ **Read this before trusting the raw bindings.** Three behaviours of the
+> current WASM build differ from what the generated `.d.ts` advertises:
+>
+> 1. **HNSW is not active in the WASM build.** It compiles without the `hnsw`
+>    cargo feature and silently falls back to a brute-force flat index, so search
+>    is O(n), not O(log n). The HNSW win is latent until the WASM HNSW lands.
+> 2. **`result.score` is a cosine *distance* (lower is better)** — the ordering is
+>    correct, but it is *not* the "higher is better" similarity the `.d.ts`
+>    describes.
+> 3. **Metadata does not round-trip** — `search`/`get` return `{}`.
+>
+> Use the bundled **adapter** instead of the raw `VectorDB` to get these handled
+> correctly (see below).
+
+### Recommended: the corrected adapter
+
+`@ruvector/wasm/adapter` wraps `VectorDB` with a metadata sidecar and a real
+`similarity = 1 - distance` so the documented "higher is better" contract holds.
+
+```javascript
+import { RuvectorWasmAdapter } from '@ruvector/wasm/adapter';
+
+// Loads + inits the WASM module and constructs the VectorDB for you.
+const index = await RuvectorWasmAdapter.create({ dimensions: 384, metric: 'cosine' });
+
+index.insert({ id: 'doc_1', vector: embedding, metadata: { title: 'My Document' } });
+
+const results = index.search({ vector: query, k: 10 });
+results.forEach(r => {
+  console.log(r.id, r.similarity);   // similarity: higher is better
+  console.log(r.distance);           // raw distance: lower is better
+  console.log(r.metadata);           // round-trips correctly via the sidecar
+});
+
+console.log(index.indexType);        // 'flat' until WASM HNSW lands
+```
+
 ### React Integration
 
 ```typescript

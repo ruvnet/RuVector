@@ -4,8 +4,20 @@
   "description": "High-performance Rust vector database for browsers via WASM",
   "main": "pkg/ruvector_wasm.js",
   "types": "pkg/ruvector_wasm.d.ts",
+  "exports": {
+    ".": {
+      "types": "./pkg/ruvector_wasm.d.ts",
+      "default": "./pkg/ruvector_wasm.js"
+    },
+    "./adapter": {
+      "types": "./src/adapter.d.ts",
+      "default": "./src/adapter.js"
+    }
+  },
   "files": [
     "pkg",
+    "src/adapter.js",
+    "src/adapter.d.ts",
     "src/worker.js",
     "src/worker-pool.js",
     "src/indexeddb.js"
@@ -18,6 +30,7 @@
     "build:bundler": "wasm-pack build --target bundler --out-dir pkg-bundler --release",
     "build:all": "npm run build && npm run build:node && npm run build:bundler",
     "test": "wasm-pack test --headless --chrome",
+    "test:adapter": "node --test tests/adapter.test.mjs",
     "test:firefox": "wasm-pack test --headless --firefox",
     "test:node": "wasm-pack test --node",
     "size": "npm run build && gzip -c pkg/ruvector_wasm_bg.wasm | wc -c && echo 'bytes (gzipped)'",
