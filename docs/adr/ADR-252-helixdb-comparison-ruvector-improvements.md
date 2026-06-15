@@ -32,10 +32,30 @@ on branch `claude/helixdb-ruvector-comparison-qmsx42`:
   `search_then_traverse` operator (HelixQL's `SearchV<T>(q,k)::In/Out<E>`), with
   an optimized bounded-heap top-k selection (O(n log k)).
 
-Pure-Rust, no new dependencies, WASM-safe; **13 new unit tests pass, 148/148 lib
-tests green, clippy clean**. The remaining items (P3 in-query `embed()`, the
-single-statement hybrid query surface in Cypher, P5 benchmarks, P6 codegen, P7
-object-storage spike) remain authorized and will land under follow-up ADRs.
+Pure-Rust (rayon is already a crate dependency), WASM-safe schema layer;
+**14 new unit tests pass, 149/149 lib tests green, clippy clean**.
+
+A criterion benchmark (`crates/ruvector-graph/benches/typed_graph_bench.rs`,
+P5 seed) measures the operator and validation. After optimizing the hot path —
+**zero-copy borrow scoring** (`GraphDB::with_node`/`node_ids_by_label`, no node or
+embedding clones), a **single-pass fused cosine** (q·c and c·c in one read of the
+candidate), **query-norm hoisting**, a **bounded top-k heap** (O(n log k)), and a
+**rayon parallel scan** over `DashMap` for ≥4096 candidates — measured speedups
+over the first-cut implementation (128-dim, k=10):
+
+| candidates | before | after | speedup |
+|---|---|---|---|
+| 1,000 (serial) | 539 µs | 432 µs | 1.25× (fused cosine) |
+| 10,000 (parallel) | 7.20 ms | 3.08 ms | 2.34× |
+| 50,000 (parallel) | 74.3 ms | 28.5 ms | 2.61× |
+
+`validate_node` is 128 ns; `reciprocal_rank_fusion` over 2×1000 lists is 318 µs.
+The brute-force scan remains O(n) by design; the natural next optimization is
+HNSW push-down (use the existing `HybridIndex` to avoid the full-label scan),
+tracked as ADR-252 follow-up. The remaining items (P3 in-query `embed()`, the
+single-statement hybrid query surface in Cypher, P5 head-to-head benchmarks vs
+Neo4j/pgvector/Qdrant/HelixDB, P6 codegen, P7 object-storage spike) remain
+authorized and will land under follow-up ADRs.
 
 ## Context
 

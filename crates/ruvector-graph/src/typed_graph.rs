@@ -17,11 +17,40 @@ use crate::edge::Edge;
 use crate::error::{GraphError, Result};
 use crate::graph::GraphDB;
 use crate::node::Node;
-use crate::schema::{extract_vector, GraphSchema};
+use crate::schema::{score_property, GraphSchema};
 use crate::types::NodeId;
 use ordered_float::OrderedFloat;
+use rayon::prelude::*;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
+
+/// Below this candidate count the serial scan wins (rayon fork/join overhead
+/// exceeds the work). Above it, the parallel path engages.
+const PARALLEL_SCAN_THRESHOLD: usize = 4_096;
+
+type ScoredHeap = BinaryHeap<Reverse<(OrderedFloat<f32>, NodeId)>>;
+
+/// Keep only the top-`k` largest-scored entries in `heap`.
+#[inline]
+fn trim_to_k(heap: &mut ScoredHeap, k: usize) {
+    while heap.len() > k {
+        heap.pop(); // Reverse min-heap: pop() drops the smallest score.
+    }
+}
+
+/// Offer `(score, id)` to a bounded top-`k` heap, cloning `id` only if it wins a
+/// slot (avoids an allocation for the common losing candidate).
+#[inline]
+fn consider(heap: &mut ScoredHeap, k: usize, score: f32, id: &NodeId) {
+    if heap.len() < k {
+        heap.push(Reverse((OrderedFloat(score), id.clone())));
+    } else if let Some(Reverse((min, _))) = heap.peek() {
+        if OrderedFloat(score) > *min {
+            heap.pop();
+            heap.push(Reverse((OrderedFloat(score), id.clone())));
+        }
+    }
+}
 
 /// Traversal direction relative to the matched seed node.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -127,33 +156,52 @@ impl TypedGraph {
         k: usize,
         traverse: &TraverseSpec,
     ) -> Result<Vec<TraversalResult>> {
+        if k == 0 {
+            return Ok(Vec::new());
+        }
         let vs = self.schema.validate_vector_dims(vector_type, query)?;
         let metric = vs.metric;
         let property = vs.property.as_str();
+        // Hoist the query-side norm out of the per-candidate loop (cosine).
+        let query_norm = metric.query_norm(query);
+        let ids = self.graph.node_ids_by_label(&vs.label);
 
-        // Bounded min-heap of size k keyed by score: O(n log k) top-k selection.
-        let mut heap: BinaryHeap<Reverse<(OrderedFloat<f32>, NodeId)>> = BinaryHeap::new();
-        for node in self.graph.get_nodes_by_label(&vs.label) {
-            let Some(prop) = node.properties.get(property) else {
-                continue;
-            };
-            let Some(emb) = extract_vector(prop) else {
-                continue;
-            };
-            if emb.len() != query.len() {
-                continue; // skip malformed embeddings rather than failing the query
-            }
-            let score = metric.score(query, &emb);
-            let entry = Reverse((OrderedFloat(score), node.id.clone()));
-            if heap.len() < k {
-                heap.push(entry);
-            } else if let Some(Reverse((min_score, _))) = heap.peek() {
-                if OrderedFloat(score) > *min_score {
-                    heap.pop();
-                    heap.push(entry);
+        // Score one candidate id; `None` if missing or not vector-shaped.
+        let score_one = |id: &NodeId| -> Option<f32> {
+            self.graph
+                .with_node(id, |node| {
+                    node.properties
+                        .get(property)
+                        .and_then(|prop| score_property(metric, query, query_norm, prop))
+                })
+                .flatten()
+        };
+
+        // Bounded top-k via a min-heap: O(n log k). DashMap allows concurrent
+        // reads, so for large candidate sets we fan the scan across cores with
+        // per-thread heaps and a bounded merge.
+        let heap: ScoredHeap = if ids.len() >= PARALLEL_SCAN_THRESHOLD {
+            ids.par_iter()
+                .fold(ScoredHeap::new, |mut h, id| {
+                    if let Some(score) = score_one(id) {
+                        consider(&mut h, k, score, id);
+                    }
+                    h
+                })
+                .reduce(ScoredHeap::new, |mut a, b| {
+                    a.extend(b);
+                    trim_to_k(&mut a, k);
+                    a
+                })
+        } else {
+            let mut h = ScoredHeap::new();
+            for id in &ids {
+                if let Some(score) = score_one(id) {
+                    consider(&mut h, k, score, id);
                 }
             }
-        }
+            h
+        };
 
         // Drain heap into descending-score order.
         let mut hits: Vec<(f32, NodeId)> =
@@ -285,6 +333,58 @@ mod tests {
         let tg = TypedGraph::new(GraphDB::new(), schema()).unwrap();
         let err = tg.search_then_traverse("DocEmb", &[1.0, 2.0], 1, &TraverseSpec::out("ABOUT"));
         assert!(err.is_err());
+    }
+
+    #[test]
+    fn parallel_scan_matches_reference() {
+        // Exceed PARALLEL_SCAN_THRESHOLD so the rayon path runs, and check the
+        // top-k it returns equals an independent brute-force ranking.
+        let tg = TypedGraph::new(GraphDB::new(), schema()).unwrap();
+        let n = 5000usize;
+        let mut embs: Vec<(String, Vec<f32>)> = Vec::with_capacity(n);
+        for i in 0..n {
+            // Deterministic spread across the unit-ish cube.
+            let v = vec![
+                ((i * 7) % 100) as f32 / 100.0,
+                ((i * 13) % 100) as f32 / 100.0,
+                ((i * 29) % 100) as f32 / 100.0,
+            ];
+            let id = format!("d{i}");
+            tg.create_node(doc(&id, "t", v.clone())).unwrap();
+            embs.push((id, v));
+        }
+        let q = [1.0f32, 0.0, 0.0];
+        let k = 10;
+        let res = tg.search_then_traverse("DocEmb", &q, k, &TraverseSpec::out("ABOUT")).unwrap();
+
+        // Reference: cosine score, sort desc, take k ids.
+        let qn = (q[0] * q[0]) as f32;
+        let qn = qn.sqrt();
+        let mut reference: Vec<(f32, String)> = embs
+            .iter()
+            .map(|(id, v)| {
+                let dot: f32 = q.iter().zip(v).map(|(a, b)| a * b).sum();
+                let vn: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+                let s = if qn == 0.0 || vn == 0.0 { 0.0 } else { dot / (qn * vn) };
+                (s, id.clone())
+            })
+            .collect();
+        reference.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+
+        assert_eq!(res.len(), k);
+        for w in res.windows(2) {
+            assert!(w[0].score >= w[1].score);
+        }
+        // Ties (identical cosine scores) make exact id order ambiguous, so compare
+        // the top-k *scores* against the reference — these must match exactly.
+        for (got, want) in res.iter().zip(reference.iter()) {
+            assert!(
+                (got.score - want.0).abs() < 1e-5,
+                "score mismatch: {} vs {}",
+                got.score,
+                want.0
+            );
+        }
     }
 
     #[test]

@@ -67,23 +67,53 @@ pub enum DistanceMetric {
 }
 
 impl DistanceMetric {
-    /// Higher score == more similar, for any metric.
+    /// Higher score == more similar, for any metric. Convenience wrapper that
+    /// computes the query's norm inline; prefer [`DistanceMetric::query_norm`] +
+    /// [`DistanceMetric::score_pre`] in a scan loop to amortize the query norm.
     pub fn score(&self, a: &[f32], b: &[f32]) -> f32 {
+        self.score_pre(a, b, self.query_norm(a))
+    }
+
+    /// Precompute the query-side norm once per query. Only `Cosine` needs it;
+    /// the others return `1.0`.
+    #[inline]
+    pub fn query_norm(&self, q: &[f32]) -> f32 {
         match self {
-            DistanceMetric::DotProduct => dot(a, b),
+            DistanceMetric::Cosine => dot(q, q).sqrt(),
+            _ => 1.0,
+        }
+    }
+
+    /// Score `candidate` against `query`, reusing a precomputed `query_norm`.
+    /// Hoists the query norm out of the per-candidate hot loop.
+    #[inline]
+    pub fn score_pre(&self, query: &[f32], candidate: &[f32], query_norm: f32) -> f32 {
+        match self {
+            DistanceMetric::DotProduct => dot(query, candidate),
             DistanceMetric::Cosine => {
-                let na = dot(a, a).sqrt();
-                let nb = dot(b, b).sqrt();
-                if na == 0.0 || nb == 0.0 {
+                // Single fused pass: accumulate q·c and c·c together so the
+                // candidate slice is read once (half the memory traffic of two
+                // separate `dot` calls).
+                let n = query.len().min(candidate.len());
+                let mut qc = 0.0f32;
+                let mut cc = 0.0f32;
+                for i in 0..n {
+                    let c = candidate[i];
+                    qc += query[i] * c;
+                    cc += c * c;
+                }
+                let cn = cc.sqrt();
+                if query_norm == 0.0 || cn == 0.0 {
                     0.0
                 } else {
-                    dot(a, b) / (na * nb)
+                    qc / (query_norm * cn)
                 }
             }
             DistanceMetric::Euclidean => {
+                let n = query.len().min(candidate.len());
                 let mut sum = 0.0f32;
-                for i in 0..a.len().min(b.len()) {
-                    let d = a[i] - b[i];
+                for i in 0..n {
+                    let d = query[i] - candidate[i];
                     sum += d * d;
                 }
                 -sum.sqrt()
@@ -92,17 +122,45 @@ impl DistanceMetric {
     }
 }
 
+/// Score a vector-shaped property against a query without allocating in the
+/// common `FloatArray` case (zero-copy slice scoring). Returns `None` if the
+/// property is not vector-shaped or its dimension does not match the query.
+#[inline]
+pub fn score_property(
+    metric: DistanceMetric,
+    query: &[f32],
+    query_norm: f32,
+    value: &PropertyValue,
+) -> Option<f32> {
+    match value {
+        // Fast path: borrow the stored slice directly, no clone.
+        PropertyValue::FloatArray(v) => {
+            if v.len() == query.len() {
+                Some(metric.score_pre(query, v, query_norm))
+            } else {
+                None
+            }
+        }
+        // Slow path: heterogeneous numeric list must be materialized.
+        PropertyValue::Array(_) | PropertyValue::List(_) => {
+            let v = extract_vector(value)?;
+            if v.len() == query.len() {
+                Some(metric.score_pre(query, &v, query_norm))
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
 #[inline]
 fn dot(a: &[f32], b: &[f32]) -> f32 {
-    // Plain loop; the optimizer auto-vectorizes this. SIMD via `simsimd`/ruvector-core
-    // is a follow-up (ADR-252 P5) but is deliberately not a hard dependency here so
-    // the schema layer stays WASM- and no-feature-build-safe.
-    let n = a.len().min(b.len());
-    let mut acc = 0.0f32;
-    for i in 0..n {
-        acc += a[i] * b[i];
-    }
-    acc
+    // Iterator form so LLVM auto-vectorizes (SSE/AVX/NEON) without bounds checks.
+    // SIMD via `simsimd`/ruvector-core is a follow-up (ADR-252 P5) but is
+    // deliberately not a hard dependency here so the schema layer stays WASM- and
+    // no-feature-build-safe.
+    a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
 }
 
 /// Coerce a property value into a dense `Vec<f32>` if it is vector-shaped.
