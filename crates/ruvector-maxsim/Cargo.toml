@@ -1,0 +1,30 @@
+[package]
+name = "ruvector-maxsim"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "ColBERT-style multi-vector MaxSim late interaction search for ruvector: higher recall for multi-facet documents without single-embedding averaging loss"
+
+[[bin]]
+name = "maxsim-demo"
+path = "src/main.rs"
+
+[[bench]]
+name = "maxsim_bench"
+harness = false
+
+[dependencies]
+rand = { workspace = true, features = ["small_rng"] }
+rand_distr = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }

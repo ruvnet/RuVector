@@ -233,6 +233,8 @@ members = [
     "crates/ruvllm_retrieval_diffusion",
     # RAIRS IVF: Redundant Assignment + Amplified Inverse Residual (ADR-193)
     "crates/ruvector-rairs",
+    # Multi-vector MaxSim late interaction search (ADR-252, nightly 2026-06-15)
+    "crates/ruvector-maxsim",
     # Structure-preserving graph condensation via dynamic min-cut communities
     "crates/ruvector-graph-condense",
     "crates/ruvector-graph-condense-wasm",
