@@ -78,6 +78,9 @@ pub enum GraphError {
 
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
+
+    #[error("Schema violation: {0}")]
+    SchemaViolation(String),
 }
 
 impl From<anyhow::Error> for GraphError {

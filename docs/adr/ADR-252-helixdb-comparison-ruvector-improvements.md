@@ -12,13 +12,30 @@ tags: [ruvector, graph, vector, helixdb, query-language, schema, hnsw, storage, 
 
 ## Status
 
-**Proposed.** This is an analysis-and-direction ADR. It compares
-[HelixDB](https://github.com/HelixDB/helix-db) against RuVector's graph + vector
-stack (`crates/ruvector-core`, `crates/ruvector-graph`, `crates/ruvector-server`,
-and the `ruvector` npm package) and proposes a prioritized set of improvements
-that adopt HelixDB's strongest ideas where they fit RuVector's thesis. No code is
-changed by this ADR; it authorizes the work items in the Decision section, each
-of which will land under its own follow-up ADR.
+**Accepted — partially implemented.** This is an analysis-and-direction ADR. It
+compares [HelixDB](https://github.com/HelixDB/helix-db) against RuVector's graph +
+vector stack (`crates/ruvector-core`, `crates/ruvector-graph`,
+`crates/ruvector-server`, and the `ruvector` npm package) and proposes a
+prioritized set of improvements that adopt HelixDB's strongest ideas where they
+fit RuVector's thesis.
+
+The **cores of P1, P2, and P4 are now implemented natively** in `ruvector-graph`
+on branch `claude/helixdb-ruvector-comparison-qmsx42`:
+
+- `crates/ruvector-graph/src/schema.rs` — opt-in `GraphSchema` (node/edge/vector
+  type declarations, indexed properties, `from`/`to` edge constraints,
+  vector-type→label/property binding), load-time validation (`validate_self`,
+  `validate_node`, `validate_edge`, `validate_vector_dims`), higher-is-better
+  distance metrics, and `reciprocal_rank_fusion` (P4 core).
+- `crates/ruvector-graph/src/typed_graph.rs` — `TypedGraph` wrapper that validates
+  mutations before they touch storage and a fused, typed
+  `search_then_traverse` operator (HelixQL's `SearchV<T>(q,k)::In/Out<E>`), with
+  an optimized bounded-heap top-k selection (O(n log k)).
+
+Pure-Rust, no new dependencies, WASM-safe; **13 new unit tests pass, 148/148 lib
+tests green, clippy clean**. The remaining items (P3 in-query `embed()`, the
+single-statement hybrid query surface in Cypher, P5 benchmarks, P6 codegen, P7
+object-storage spike) remain authorized and will land under follow-up ADRs.
 
 ## Context
 
