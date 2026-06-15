@@ -83,6 +83,32 @@ fn bench_search_then_traverse(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_indexed_vs_scan(c: &mut Criterion) {
+    let dims = 128;
+    let n = 50_000usize;
+    let query = embedding(424242, dims);
+    let spec = TraverseSpec::out("ABOUT").target_label("Topic");
+
+    // Brute-force scan (no index).
+    let scan = build_graph(n, dims, 64);
+    // Same data, with an HNSW push-down index built.
+    let mut indexed = build_graph(n, dims, 64);
+    indexed.build_vector_index("DocEmb").unwrap();
+
+    let mut group = c.benchmark_group("search_50k_k10");
+    group.bench_function("brute_force_scan", |b| {
+        b.iter(|| {
+            black_box(scan.search_then_traverse(black_box("DocEmb"), black_box(&query), 10, &spec).unwrap());
+        });
+    });
+    group.bench_function("hnsw_pushdown", |b| {
+        b.iter(|| {
+            black_box(indexed.search_then_traverse(black_box("DocEmb"), black_box(&query), 10, &spec).unwrap());
+        });
+    });
+    group.finish();
+}
+
 fn bench_validation(c: &mut Criterion) {
     let schema = make_schema(128);
     let node = NodeBuilder::new()
@@ -104,5 +130,11 @@ fn bench_rrf(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_search_then_traverse, bench_validation, bench_rrf);
+criterion_group!(
+    benches,
+    bench_search_then_traverse,
+    bench_indexed_vs_scan,
+    bench_validation,
+    bench_rrf
+);
 criterion_main!(benches);

@@ -50,12 +50,26 @@ over the first-cut implementation (128-dim, k=10):
 | 50,000 (parallel) | 74.3 ms | 28.5 ms | 2.61× |
 
 `validate_node` is 128 ns; `reciprocal_rank_fusion` over 2×1000 lists is 318 µs.
-The brute-force scan remains O(n) by design; the natural next optimization is
-HNSW push-down (use the existing `HybridIndex` to avoid the full-label scan),
-tracked as ADR-252 follow-up. The remaining items (P3 in-query `embed()`, the
-single-statement hybrid query surface in Cypher, P5 head-to-head benchmarks vs
-Neo4j/pgvector/Qdrant/HelixDB, P6 codegen, P7 object-storage spike) remain
-authorized and will land under follow-up ADRs.
+
+**HNSW push-down (landed).** `search_then_traverse` now takes an opt-in ANN path:
+`TypedGraph::build_vector_index(vector_type)` builds a per-vector-type
+`HybridIndex` (HNSW under the `hnsw_rs` feature, exact `FlatIndex` otherwise),
+kept current incrementally on `create_node`. The query then does an ~O(log n)
+approximate search, **over-fetches** (`max(4k, k+32)`), and **rescores the
+candidates exactly** with the schema metric — so the ANN path returns *identical
+higher-is-better score semantics* to the brute-force path while skipping the
+full-label scan. Brute force remains the default (exact, no build step, no extra
+memory). Measured at 50k nodes / 128-dim / k=10:
+
+| backend | latency | vs parallel scan | vs first cut |
+|---|---|---|---|
+| brute-force parallel scan | 27.6 ms | 1× | 2.7× |
+| HNSW push-down | 1.05 ms | **26×** | **~70×** |
+
+The remaining items (P3 in-query `embed()`, the single-statement hybrid query
+surface in Cypher, P5 head-to-head benchmarks vs Neo4j/pgvector/Qdrant/HelixDB,
+P6 codegen, P7 object-storage spike) remain authorized and will land under
+follow-up ADRs.
 
 ## Context
 

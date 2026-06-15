@@ -4,29 +4,46 @@
 //! `TypedGraph` wraps a [`GraphDB`] with an optional [`GraphSchema`]. Mutations
 //! are validated against the schema before they touch storage, and the
 //! [`TypedGraph::search_then_traverse`] method expresses HelixQL's
-//! `SearchV<T>(q, k)::In<Edge>` pattern as a single fused operation: an ANN-style
+//! `SearchV<T>(q, k)::In<Edge>` pattern as a single fused operation: an ANN
 //! vector search over a bound node label, immediately traversed into the graph.
 //!
-//! The vector step is a brute-force scan over the bound label's nodes, with an
-//! optimized **bounded top-k heap** (O(n log k) instead of O(n log n) sort).
-//! Wiring this to the HNSW/`HybridIndex` path for large graphs is ADR-252 future
-//! work; the operator's *shape* (typed, single-call, push-down search before
-//! join) is the deliverable here.
+//! The vector step has two backends:
+//!
+//! - **Brute-force** (default): an optimized bounded-top-k scan over the bound
+//!   label's nodes — zero-copy borrow scoring, fused cosine, O(n log k) heap,
+//!   rayon-parallel above a threshold. Exact, no build step.
+//! - **HNSW push-down** (opt-in via [`TypedGraph::build_vector_index`]): an
+//!   ANN index ([`HybridIndex`]) per vector type. `search_then_traverse` then
+//!   does an ~O(log n) approximate search, **over-fetches**, and **rescores the
+//!   candidates exactly** with the schema metric — so results carry identical
+//!   higher-is-better score semantics to the brute-force path while skipping the
+//!   full-label scan.
 
 use crate::edge::Edge;
 use crate::error::{GraphError, Result};
 use crate::graph::GraphDB;
+use crate::hybrid::{EmbeddingConfig, HybridIndex, VectorIndexType};
 use crate::node::Node;
-use crate::schema::{score_property, GraphSchema};
+use crate::schema::{extract_vector, score_property, DistanceMetric, GraphSchema};
 use crate::types::NodeId;
 use ordered_float::OrderedFloat;
 use rayon::prelude::*;
 use std::cmp::Reverse;
-use std::collections::BinaryHeap;
+use std::collections::{BinaryHeap, HashMap};
 
 /// Below this candidate count the serial scan wins (rayon fork/join overhead
 /// exceeds the work). Above it, the parallel path engages.
 const PARALLEL_SCAN_THRESHOLD: usize = 4_096;
+
+/// Map a schema metric to the core index metric.
+fn to_core_metric(m: DistanceMetric) -> ruvector_core::types::DistanceMetric {
+    use ruvector_core::types::DistanceMetric as C;
+    match m {
+        DistanceMetric::Cosine => C::Cosine,
+        DistanceMetric::DotProduct => C::DotProduct,
+        DistanceMetric::Euclidean => C::Euclidean,
+    }
+}
 
 type ScoredHeap = BinaryHeap<Reverse<(OrderedFloat<f32>, NodeId)>>;
 
@@ -100,6 +117,9 @@ pub struct TraversalResult {
 pub struct TypedGraph {
     graph: GraphDB,
     schema: GraphSchema,
+    /// Optional ANN index per vector-type name (HNSW push-down). Each index holds
+    /// only the bound label's nodes, so searches are naturally label-scoped.
+    indexes: HashMap<String, HybridIndex>,
 }
 
 impl TypedGraph {
@@ -107,7 +127,7 @@ impl TypedGraph {
     /// up front (the HelixQL compile-time check).
     pub fn new(graph: GraphDB, schema: GraphSchema) -> Result<Self> {
         schema.validate_self()?;
-        Ok(Self { graph, schema })
+        Ok(Self { graph, schema, indexes: HashMap::new() })
     }
 
     pub fn schema(&self) -> &GraphSchema {
@@ -121,9 +141,73 @@ impl TypedGraph {
         &mut self.graph
     }
 
-    /// Validate a node against the schema, then create it.
+    /// Build (or rebuild) an ANN index for a declared vector type, populating it
+    /// from the nodes currently carrying that embedding. Subsequent
+    /// `create_node` calls keep the index current incrementally. Returns the
+    /// number of vectors indexed. Opting in switches `search_then_traverse` for
+    /// this vector type onto the HNSW push-down path.
+    pub fn build_vector_index(&mut self, vector_type: &str) -> Result<usize> {
+        let vs = self
+            .schema
+            .vector(vector_type)
+            .ok_or_else(|| GraphError::SchemaViolation(format!("unknown vector type '{vector_type}'")))?
+            .clone();
+
+        let config = EmbeddingConfig {
+            dimensions: vs.dimensions,
+            metric: to_core_metric(vs.metric),
+            embedding_property: vs.property.clone(),
+            ..Default::default()
+        };
+        let index = HybridIndex::new(config)?;
+        index.initialize_index(VectorIndexType::Node)?;
+
+        let mut count = 0usize;
+        for id in self.graph.node_ids_by_label(&vs.label) {
+            let emb = self
+                .graph
+                .with_node(&id, |n| n.properties.get(&vs.property).and_then(extract_vector))
+                .flatten();
+            if let Some(emb) = emb {
+                if emb.len() == vs.dimensions {
+                    index.add_node_embedding(id, emb)?;
+                    count += 1;
+                }
+            }
+        }
+        self.indexes.insert(vector_type.to_string(), index);
+        Ok(count)
+    }
+
+    /// Whether an ANN index is built for `vector_type`.
+    pub fn has_vector_index(&self, vector_type: &str) -> bool {
+        self.indexes.contains_key(vector_type)
+    }
+
+    /// Incrementally add a node to any ANN index whose vector type it matches.
+    fn index_node(&self, node: &Node) {
+        for (name, index) in &self.indexes {
+            let Some(vs) = self.schema.vector(name) else {
+                continue;
+            };
+            if !node.has_label(&vs.label) {
+                continue;
+            }
+            if let Some(emb) = node.properties.get(&vs.property).and_then(extract_vector) {
+                if emb.len() == vs.dimensions {
+                    // Best-effort: a failed index add must not fail the write.
+                    let _ = index.add_node_embedding(node.id.clone(), emb);
+                }
+            }
+        }
+    }
+
+    /// Validate a node against the schema, then create it (updating ANN indexes).
     pub fn create_node(&self, node: Node) -> Result<NodeId> {
         self.schema.validate_node(&node)?;
+        if !self.indexes.is_empty() {
+            self.index_node(&node);
+        }
         self.graph.create_node(node)
     }
 
@@ -146,8 +230,9 @@ impl TypedGraph {
     /// 1. Resolve `vector_type` to its bound label + property + metric (typed —
     ///    no string/property guessing).
     /// 2. Validate the query dimension.
-    /// 3. Scan the bound label's nodes, scoring with the declared metric, keeping
-    ///    the top `k` via a bounded heap.
+    /// 3. Find the top-`k` seeds: via the ANN index if one is built for this
+    ///    vector type ([`TypedGraph::build_vector_index`]), else a bounded-top-k
+    ///    scan. Either way, seeds carry an exact higher-is-better score.
     /// 4. Traverse from each seed along `traverse` and collect target nodes.
     pub fn search_then_traverse(
         &self,
@@ -164,11 +249,70 @@ impl TypedGraph {
         let property = vs.property.as_str();
         // Hoist the query-side norm out of the per-candidate loop (cosine).
         let query_norm = metric.query_norm(query);
-        let ids = self.graph.node_ids_by_label(&vs.label);
 
-        // Score one candidate id; `None` if missing or not vector-shaped.
+        let hits = match self.indexes.get(vector_type) {
+            Some(index) => self.rank_via_index(index, property, query, query_norm, metric, k)?,
+            None => self.rank_via_scan(&vs.label, property, query, query_norm, metric, k),
+        };
+
+        let mut out = Vec::with_capacity(hits.len());
+        for (score, seed_id) in hits {
+            let connected = self.traverse_from(&seed_id, traverse);
+            out.push(TraversalResult { seed_id, score, connected });
+        }
+        Ok(out)
+    }
+
+    /// HNSW push-down: approximate ANN search, over-fetch, then rescore the
+    /// candidates exactly so the returned scores match the brute-force path.
+    fn rank_via_index(
+        &self,
+        index: &HybridIndex,
+        property: &str,
+        query: &[f32],
+        query_norm: f32,
+        metric: DistanceMetric,
+        k: usize,
+    ) -> Result<Vec<(f32, NodeId)>> {
+        // Over-fetch to recover HNSW approximation, then rerank exactly.
+        let over = k.saturating_mul(4).max(k + 32);
+        let candidates = index.search_similar_nodes(query, over)?;
+        let mut scored: Vec<(f32, NodeId)> = candidates
+            .into_iter()
+            .filter_map(|(id, _approx)| {
+                let s = self
+                    .graph
+                    .with_node(&id, |node| {
+                        node.properties
+                            .get(property)
+                            .and_then(|p| score_property(metric, query, query_norm, p))
+                    })
+                    .flatten()?;
+                Some((s, id))
+            })
+            .collect();
+        scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+        scored.truncate(k);
+        Ok(scored)
+    }
+
+    /// Brute-force bounded-top-k scan over the bound label, returning seeds in
+    /// descending score order. Rayon-parallel above the threshold.
+    fn rank_via_scan(
+        &self,
+        label: &str,
+        property: &str,
+        query: &[f32],
+        query_norm: f32,
+        metric: DistanceMetric,
+        k: usize,
+    ) -> Vec<(f32, NodeId)> {
+        let ids = self.graph.node_ids_by_label(label);
+        // Capture `graph` (not `self`) so the parallel closure stays Send+Sync
+        // regardless of the ANN index's thread-safety bounds.
+        let graph = &self.graph;
         let score_one = |id: &NodeId| -> Option<f32> {
-            self.graph
+            graph
                 .with_node(id, |node| {
                     node.properties
                         .get(property)
@@ -203,17 +347,10 @@ impl TypedGraph {
             h
         };
 
-        // Drain heap into descending-score order.
         let mut hits: Vec<(f32, NodeId)> =
             heap.into_iter().map(|Reverse((s, id))| (s.into_inner(), id)).collect();
         hits.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-
-        let mut out = Vec::with_capacity(hits.len());
-        for (score, seed_id) in hits {
-            let connected = self.traverse_from(&seed_id, traverse);
-            out.push(TraversalResult { seed_id, score, connected });
-        }
-        Ok(out)
+        hits
     }
 
     /// Collect nodes reachable from `seed` along the traversal spec.
@@ -402,5 +539,53 @@ mod tests {
         for w in res.windows(2) {
             assert!(w[0].score >= w[1].score);
         }
+    }
+
+    #[test]
+    fn indexed_path_finds_top_result_and_traverses() {
+        // HNSW push-down: build an ANN index and confirm it returns the exact
+        // winner (over-fetch + exact rescore) with traversal still applied.
+        let mut tg = TypedGraph::new(GraphDB::new(), schema()).unwrap();
+        // Data on an arc of the unit circle so the nearest neighbour is on the
+        // manifold (the realistic, HNSW-friendly case). `winner` sits at angle 0,
+        // exactly aligned with the query; the rest fan out to larger angles.
+        tg.create_node(doc("winner", "t", vec![1.0, 0.0, 0.0])).unwrap();
+        for i in 0..300 {
+            let a = 0.2 + (i as f32 / 300.0) * 1.2; // 0.2 .. 1.4 rad
+            tg.create_node(doc(&format!("d{i}"), "t", vec![a.cos(), a.sin(), 0.0])).unwrap();
+        }
+        tg.create_node(NodeBuilder::new().id("ai").label("Topic").property("name", "ai").build())
+            .unwrap();
+        tg.create_edge(Edge::create("winner".into(), "ai".into(), "ABOUT")).unwrap();
+
+        let built = tg.build_vector_index("DocEmb").unwrap();
+        assert_eq!(built, 301);
+        assert!(tg.has_vector_index("DocEmb"));
+
+        let res = tg
+            .search_then_traverse("DocEmb", &[1.0, 0.0, 0.0], 5, &TraverseSpec::out("ABOUT").target_label("Topic"))
+            .unwrap();
+        assert_eq!(res.len(), 5);
+        assert_eq!(res[0].seed_id, "winner");
+        assert!((res[0].score - 1.0).abs() < 1e-5);
+        for w in res.windows(2) {
+            assert!(w[0].score >= w[1].score);
+        }
+        // Traversal still expands the seed.
+        assert_eq!(res[0].connected.iter().filter(|n| n.id == "ai").count(), 1);
+    }
+
+    #[test]
+    fn index_incrementally_picks_up_new_nodes() {
+        let mut tg = TypedGraph::new(GraphDB::new(), schema()).unwrap();
+        tg.create_node(doc("a", "t", vec![0.0, 1.0, 0.0])).unwrap();
+        tg.build_vector_index("DocEmb").unwrap();
+        // Inserted *after* the index is built — must be indexed incrementally.
+        tg.create_node(doc("b", "t", vec![1.0, 0.0, 0.0])).unwrap();
+        let res = tg
+            .search_then_traverse("DocEmb", &[1.0, 0.0, 0.0], 1, &TraverseSpec::out("ABOUT"))
+            .unwrap();
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].seed_id, "b");
     }
 }
