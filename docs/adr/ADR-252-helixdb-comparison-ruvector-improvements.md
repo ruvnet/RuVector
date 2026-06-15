@@ -19,21 +19,26 @@ vector stack (`crates/ruvector-core`, `crates/ruvector-graph`,
 prioritized set of improvements that adopt HelixDB's strongest ideas where they
 fit RuVector's thesis.
 
-The **cores of P1, P2, and P4 are now implemented natively** in `ruvector-graph`
+**P1, P2, P3, and P4 are now implemented natively** in `ruvector-graph`
 on branch `claude/helixdb-ruvector-comparison-qmsx42`:
 
-- `crates/ruvector-graph/src/schema.rs` — opt-in `GraphSchema` (node/edge/vector
+- `crates/ruvector-graph/src/schema.rs` (P1) — opt-in `GraphSchema` (node/edge/vector
   type declarations, indexed properties, `from`/`to` edge constraints,
   vector-type→label/property binding), load-time validation (`validate_self`,
   `validate_node`, `validate_edge`, `validate_vector_dims`), higher-is-better
   distance metrics, and `reciprocal_rank_fusion` (P4 core).
-- `crates/ruvector-graph/src/typed_graph.rs` — `TypedGraph` wrapper that validates
-  mutations before they touch storage and a fused, typed
+- `crates/ruvector-graph/src/typed_graph.rs` (P2) — `TypedGraph` wrapper that
+  validates mutations before they touch storage and a fused, typed
   `search_then_traverse` operator (HelixQL's `SearchV<T>(q,k)::In/Out<E>`), with
-  an optimized bounded-heap top-k selection (O(n log k)).
+  optimized bounded-heap top-k (O(n log k)), a rayon parallel scan, and an opt-in
+  HNSW push-down path.
+- `crates/ruvector-graph/src/embed.rs` (P3) — `Embedder` trait + `HashEmbedder`,
+  with inline `embed()` at insert/query on `TypedGraph`.
+- `crates/ruvector-graph/src/bm25.rs` (P4) — Okapi-BM25 index feeding the
+  tri-modal `hybrid_search_text` (vector + keyword + graph, RRF-fused).
 
-Pure-Rust (rayon is already a crate dependency), WASM-safe schema layer;
-**14 new unit tests pass, 149/149 lib tests green, clippy clean**.
+Pure-Rust (rayon already a crate dependency), WASM-safe schema/embed/BM25 layers;
+**38 new unit tests, 164/164 lib tests green, clippy clean**.
 
 A criterion benchmark (`crates/ruvector-graph/benches/typed_graph_bench.rs`,
 P5 seed) measures the operator and validation. After optimizing the hot path —
@@ -66,10 +71,31 @@ memory). Measured at 50k nodes / 128-dim / k=10:
 | brute-force parallel scan | 27.6 ms | 1× | 2.7× |
 | HNSW push-down | 1.05 ms | **26×** | **~70×** |
 
-The remaining items (P3 in-query `embed()`, the single-statement hybrid query
-surface in Cypher, P5 head-to-head benchmarks vs Neo4j/pgvector/Qdrant/HelixDB,
-P6 codegen, P7 object-storage spike) remain authorized and will land under
-follow-up ADRs.
+**Inline `embed()` (P3, landed).** `crates/ruvector-graph/src/embed.rs` adds a
+pluggable `Embedder` trait and a dependency-free, deterministic `HashEmbedder`
+(feature-hashing; lexical-overlap only — an *explicit* opt-in, never a silent
+fallback per ADR-194). `TypedGraph::with_embedder` attaches a model;
+`create_node_from_text` vectorizes a text field into the bound property at insert
+(HelixQL `AddN<T>({ embedding: Embed(text) })`) with dimension validation, and
+`search_text` embeds the query inline (`SearchV<T>(Embed(text), k)`). A real
+model (MiniLM/ONNX per ADR-210) plugs in via the trait.
+
+**Tri-modal hybrid query (P4, landed).** `crates/ruvector-graph/src/bm25.rs` is a
+self-contained Okapi-BM25 inverted index; `TypedGraph::hybrid_search_text` fuses
+**ANN vector similarity + BM25 keyword relevance + graph traversal** in one typed
+call, combining the vector and keyword rankings with `reciprocal_rank_fusion`
+(`rrf_k`, conventionally 60) before traversing the fused top-k. This tri-modal
+single-call fusion goes beyond HelixDB's current ANN+BM25 hybrid by folding the
+graph expansion into the same operation.
+
+Measured: `HashEmbedder` embed is 717 ns (256-dim); the full tri-modal hybrid
+(inline embed + HNSW + BM25 + RRF + traversal) over 10k docs is **1.63 ms** end
+to end.
+
+The remaining items (a single-statement hybrid surface in Cypher itself, P5
+head-to-head benchmarks vs Neo4j/pgvector/Qdrant/HelixDB, P6 schema-driven SDK
+codegen, P7 object-storage spike) remain authorized and will land under follow-up
+ADRs.
 
 ## Context
 

@@ -10,7 +10,8 @@ use ruvector_graph::schema::{
     PropertyType, VectorSchema,
 };
 use ruvector_graph::types::PropertyValue;
-use ruvector_graph::{Edge, GraphDB, NodeBuilder, TraverseSpec, TypedGraph};
+use ruvector_graph::{Edge, Embedder, GraphDB, HashEmbedder, NodeBuilder, TraverseSpec, TypedGraph};
+use std::sync::Arc;
 
 fn make_schema(dims: usize) -> GraphSchema {
     let mut s = GraphSchema::new();
@@ -109,6 +110,67 @@ fn bench_indexed_vs_scan(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_embed_and_hybrid(c: &mut Criterion) {
+    use ruvector_graph::{
+        DistanceMetric, EdgeSchema, GraphSchema, NodeSchema, PropertySchema, PropertyType,
+        VectorSchema,
+    };
+
+    let dims = 256;
+    let embedder = HashEmbedder::new(dims);
+    c.bench_function("hash_embed_256", |b| {
+        b.iter(|| black_box(embedder.embed(black_box("vector database semantic similarity search")).unwrap()));
+    });
+
+    // Build a 10k-doc tri-modal graph: text + inline embeddings + BM25 + ANN.
+    let n = 10_000usize;
+    let words = [
+        "vector", "database", "graph", "search", "embedding", "model", "index",
+        "neural", "semantic", "traversal", "cluster", "ranking", "query", "fusion",
+    ];
+    let text_for = |i: usize| -> String {
+        (0..6).map(|j| words[(i * 7 + j * 13) % words.len()]).collect::<Vec<_>>().join(" ")
+    };
+
+    let mut schema = GraphSchema::new();
+    schema.add_node(
+        NodeSchema::new("Doc")
+            .property(PropertySchema::new("body", PropertyType::String).required())
+            .property(PropertySchema::new("embedding", PropertyType::Vector)),
+    );
+    schema.add_node(NodeSchema::new("Topic"));
+    schema.add_edge(EdgeSchema::new("ABOUT", "Doc", "Topic"));
+    schema.add_vector(VectorSchema::new("DocEmb", "Doc", "embedding", dims, DistanceMetric::Cosine));
+
+    let mut tg = TypedGraph::new(GraphDB::new(), schema)
+        .unwrap()
+        .with_embedder(Arc::new(HashEmbedder::new(dims)));
+    for i in 0..n {
+        let body = text_for(i);
+        let node = NodeBuilder::new().id(format!("d{i}")).label("Doc").property("body", body.clone()).build();
+        tg.create_node_from_text(node, "DocEmb", &body).unwrap();
+    }
+    tg.build_vector_index("DocEmb").unwrap();
+    tg.build_text_index("Doc", "body").unwrap();
+
+    let spec = TraverseSpec::out("ABOUT");
+    c.bench_function("tri_modal_hybrid_10k_k10", |b| {
+        b.iter(|| {
+            black_box(
+                tg.hybrid_search_text(
+                    black_box("DocEmb"),
+                    "body",
+                    black_box("vector semantic search ranking"),
+                    10,
+                    60.0,
+                    &spec,
+                )
+                .unwrap(),
+            );
+        });
+    });
+}
+
 fn bench_validation(c: &mut Criterion) {
     let schema = make_schema(128);
     let node = NodeBuilder::new()
@@ -134,6 +196,7 @@ criterion_group!(
     benches,
     bench_search_then_traverse,
     bench_indexed_vs_scan,
+    bench_embed_and_hybrid,
     bench_validation,
     bench_rrf
 );

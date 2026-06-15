@@ -19,17 +19,23 @@
 //!   higher-is-better score semantics to the brute-force path while skipping the
 //!   full-label scan.
 
+use crate::bm25::{Bm25Index, Bm25Params};
 use crate::edge::Edge;
+use crate::embed::Embedder;
 use crate::error::{GraphError, Result};
 use crate::graph::GraphDB;
 use crate::hybrid::{EmbeddingConfig, HybridIndex, VectorIndexType};
 use crate::node::Node;
-use crate::schema::{extract_vector, score_property, DistanceMetric, GraphSchema};
-use crate::types::NodeId;
+use crate::schema::{
+    extract_vector, reciprocal_rank_fusion, score_property, DistanceMetric, GraphSchema,
+    VectorSchema,
+};
+use crate::types::{NodeId, PropertyValue};
 use ordered_float::OrderedFloat;
 use rayon::prelude::*;
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
+use std::sync::Arc;
 
 /// Below this candidate count the serial scan wins (rayon fork/join overhead
 /// exceeds the work). Above it, the parallel path engages.
@@ -120,6 +126,10 @@ pub struct TypedGraph {
     /// Optional ANN index per vector-type name (HNSW push-down). Each index holds
     /// only the bound label's nodes, so searches are naturally label-scoped.
     indexes: HashMap<String, HybridIndex>,
+    /// Optional BM25 keyword index per `"label::property"` (snapshot-built).
+    text_indexes: HashMap<String, Bm25Index>,
+    /// Optional text embedder for inline `embed()` at insert and query.
+    embedder: Option<Arc<dyn Embedder>>,
 }
 
 impl TypedGraph {
@@ -127,7 +137,70 @@ impl TypedGraph {
     /// up front (the HelixQL compile-time check).
     pub fn new(graph: GraphDB, schema: GraphSchema) -> Result<Self> {
         schema.validate_self()?;
-        Ok(Self { graph, schema, indexes: HashMap::new() })
+        Ok(Self {
+            graph,
+            schema,
+            indexes: HashMap::new(),
+            text_indexes: HashMap::new(),
+            embedder: None,
+        })
+    }
+
+    /// Attach a text embedder, enabling inline `embed()` at insert and query
+    /// (HelixQL `Embed()`). Builder-style.
+    pub fn with_embedder(mut self, embedder: Arc<dyn Embedder>) -> Self {
+        self.embedder = Some(embedder);
+        self
+    }
+
+    /// Embed `text` with the attached embedder. Errors explicitly if none is
+    /// attached — the typed graph never silently falls back (ADR-194).
+    pub fn embed(&self, text: &str) -> Result<Vec<f32>> {
+        let e = self.embedder.as_ref().ok_or_else(|| {
+            GraphError::SchemaViolation("no embedder attached (call with_embedder)".into())
+        })?;
+        e.embed(text)
+    }
+
+    /// Create a node, embedding `text` into the vector type's bound property
+    /// inline (HelixQL `AddN<T>({ embedding: Embed(text) })`). The embedding
+    /// dimension is validated against the vector type before the write.
+    pub fn create_node_from_text(
+        &self,
+        mut node: Node,
+        vector_type: &str,
+        text: &str,
+    ) -> Result<NodeId> {
+        let vs = self
+            .schema
+            .vector(vector_type)
+            .ok_or_else(|| GraphError::SchemaViolation(format!("unknown vector type '{vector_type}'")))?;
+        let property = vs.property.clone();
+        let dims = vs.dimensions;
+        let emb = self.embed(text)?;
+        if emb.len() != dims {
+            return Err(GraphError::SchemaViolation(format!(
+                "embedder produced dimension {} but vector type '{}' expects {}",
+                emb.len(),
+                vector_type,
+                dims
+            )));
+        }
+        node.set_property(property, PropertyValue::FloatArray(emb));
+        self.create_node(node)
+    }
+
+    /// Search by text: embed the query inline, then run the typed
+    /// search-then-traverse (HelixQL `SearchV<T>(Embed(text), k)::...`).
+    pub fn search_text(
+        &self,
+        vector_type: &str,
+        text: &str,
+        k: usize,
+        traverse: &TraverseSpec,
+    ) -> Result<Vec<TraversalResult>> {
+        let query = self.embed(text)?;
+        self.search_then_traverse(vector_type, &query, k, traverse)
     }
 
     pub fn schema(&self) -> &GraphSchema {
@@ -245,22 +318,113 @@ impl TypedGraph {
             return Ok(Vec::new());
         }
         let vs = self.schema.validate_vector_dims(vector_type, query)?;
+        let hits = self.rank_seeds(vs, query, k)?;
+        Ok(self.expand(hits, traverse))
+    }
+
+    /// Rank the top-`k` seeds for a vector type: ANN index if built, else the
+    /// optimized brute-force scan. Returns `(score, id)` descending.
+    fn rank_seeds(&self, vs: &VectorSchema, query: &[f32], k: usize) -> Result<Vec<(f32, NodeId)>> {
         let metric = vs.metric;
         let property = vs.property.as_str();
-        // Hoist the query-side norm out of the per-candidate loop (cosine).
         let query_norm = metric.query_norm(query);
-
-        let hits = match self.indexes.get(vector_type) {
+        Ok(match self.indexes.get(&vs.name) {
             Some(index) => self.rank_via_index(index, property, query, query_norm, metric, k)?,
             None => self.rank_via_scan(&vs.label, property, query, query_norm, metric, k),
-        };
+        })
+    }
 
+    /// Traverse from each ranked seed and assemble results.
+    fn expand(&self, hits: Vec<(f32, NodeId)>, traverse: &TraverseSpec) -> Vec<TraversalResult> {
         let mut out = Vec::with_capacity(hits.len());
         for (score, seed_id) in hits {
             let connected = self.traverse_from(&seed_id, traverse);
             out.push(TraversalResult { seed_id, score, connected });
         }
-        Ok(out)
+        out
+    }
+
+    /// Build (snapshot) a BM25 keyword index over a string property of `label`.
+    /// Rebuild to reflect later writes. Returns the number of documents indexed.
+    pub fn build_text_index(&mut self, label: &str, text_property: &str) -> Result<usize> {
+        let mut docs: Vec<(NodeId, String)> = Vec::new();
+        for id in self.graph.node_ids_by_label(label) {
+            let text = self
+                .graph
+                .with_node(&id, |n| match n.properties.get(text_property) {
+                    Some(PropertyValue::String(s)) => Some(s.clone()),
+                    _ => None,
+                })
+                .flatten();
+            if let Some(text) = text {
+                docs.push((id, text));
+            }
+        }
+        let count = docs.len();
+        let key = format!("{label}::{text_property}");
+        self.text_indexes.insert(key, Bm25Index::build(docs, Bm25Params::default()));
+        Ok(count)
+    }
+
+    /// Whether a BM25 index is built for `label::text_property`.
+    pub fn has_text_index(&self, label: &str, text_property: &str) -> bool {
+        self.text_indexes.contains_key(&format!("{label}::{text_property}"))
+    }
+
+    /// **Tri-modal hybrid query** (ADR-252 P4): fuse ANN vector similarity, BM25
+    /// keyword relevance, and graph traversal in a single typed call.
+    ///
+    /// The query `text` is embedded (inline `embed()`) for the vector arm and
+    /// tokenized for the BM25 arm; the two rankings are fused with Reciprocal
+    /// Rank Fusion (`rrf_k`, conventionally 60), and the fused top-`k` seeds are
+    /// traversed. Requires both an embedder and a BM25 index
+    /// ([`TypedGraph::build_text_index`]); an ANN index is optional (the vector
+    /// arm falls back to the exact scan). Result `score` is the fused RRF score.
+    pub fn hybrid_search_text(
+        &self,
+        vector_type: &str,
+        text_property: &str,
+        text: &str,
+        k: usize,
+        rrf_k: f32,
+        traverse: &TraverseSpec,
+    ) -> Result<Vec<TraversalResult>> {
+        if k == 0 {
+            return Ok(Vec::new());
+        }
+        let vs = self
+            .schema
+            .vector(vector_type)
+            .ok_or_else(|| GraphError::SchemaViolation(format!("unknown vector type '{vector_type}'")))?;
+
+        // Over-fetch each arm so fusion has depth to work with.
+        let over = k.saturating_mul(4).max(k + 32);
+
+        // Vector arm: embed inline, dimension-check, rank.
+        let qvec = self.embed(text)?;
+        if qvec.len() != vs.dimensions {
+            return Err(GraphError::SchemaViolation(format!(
+                "embedder produced dimension {} but vector type '{}' expects {}",
+                qvec.len(),
+                vector_type,
+                vs.dimensions
+            )));
+        }
+        let vec_hits = self.rank_seeds(vs, &qvec, over)?;
+
+        // Keyword arm: BM25 over the text property of the bound label.
+        let key = format!("{}::{}", vs.label, text_property);
+        let bm = self.text_indexes.get(&key).ok_or_else(|| {
+            GraphError::SchemaViolation(format!("BM25 index '{key}' not built (call build_text_index)"))
+        })?;
+        let kw_hits = bm.search(text, over);
+
+        // Fuse the two rank lists with RRF, then traverse the fused top-k.
+        let vec_ids: Vec<NodeId> = vec_hits.into_iter().map(|(_, id)| id).collect();
+        let kw_ids: Vec<NodeId> = kw_hits.into_iter().map(|(id, _)| id).collect();
+        let fused = reciprocal_rank_fusion(&[vec_ids, kw_ids], rrf_k);
+        let hits: Vec<(f32, NodeId)> = fused.into_iter().take(k).map(|(id, s)| (s, id)).collect();
+        Ok(self.expand(hits, traverse))
     }
 
     /// HNSW push-down: approximate ANN search, over-fetch, then rescore the
@@ -573,6 +737,130 @@ mod tests {
         }
         // Traversal still expands the seed.
         assert_eq!(res[0].connected.iter().filter(|n| n.id == "ai").count(), 1);
+    }
+
+    #[test]
+    fn embed_at_insert_and_query_roundtrip() {
+        use crate::embed::HashEmbedder;
+        // Schema vector dim must match the embedder dim.
+        let mut s = GraphSchema::new();
+        s.add_node(
+            NodeSchema::new("Doc")
+                .property(PropertySchema::new("title", PropertyType::String).required())
+                .property(PropertySchema::new("embedding", PropertyType::Vector)),
+        );
+        s.add_node(NodeSchema::new("Topic"));
+        s.add_edge(EdgeSchema::new("ABOUT", "Doc", "Topic"));
+        s.add_vector(VectorSchema::new("DocEmb", "Doc", "embedding", 128, DistanceMetric::Cosine));
+        let tg = TypedGraph::new(GraphDB::new(), s)
+            .unwrap()
+            .with_embedder(Arc::new(HashEmbedder::new(128)));
+
+        // Inline embed at insert — no caller-supplied vector.
+        for (id, text) in [
+            ("d1", "machine learning vector database"),
+            ("d2", "distributed systems consensus raft"),
+            ("d3", "italian pasta cooking recipe"),
+        ] {
+            let node = NodeBuilder::new().id(id).label("Doc").property("title", text).build();
+            tg.create_node_from_text(node, "DocEmb", text).unwrap();
+        }
+
+        // Query by text — closest doc to a lexically-overlapping query wins.
+        let res = tg
+            .search_text("DocEmb", "vector database machine learning", 1, &TraverseSpec::out("ABOUT"))
+            .unwrap();
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].seed_id, "d1");
+    }
+
+    #[test]
+    fn tri_modal_hybrid_fuses_vector_keyword_graph() {
+        use crate::embed::HashEmbedder;
+        let mut s = GraphSchema::new();
+        s.add_node(
+            NodeSchema::new("Doc")
+                .property(PropertySchema::new("body", PropertyType::String).required())
+                .property(PropertySchema::new("embedding", PropertyType::Vector)),
+        );
+        s.add_node(NodeSchema::new("Topic"));
+        s.add_edge(EdgeSchema::new("ABOUT", "Doc", "Topic"));
+        s.add_vector(VectorSchema::new("DocEmb", "Doc", "embedding", 256, DistanceMetric::Cosine));
+        let mut tg = TypedGraph::new(GraphDB::new(), s)
+            .unwrap()
+            .with_embedder(Arc::new(HashEmbedder::new(256)));
+
+        let docs = [
+            ("d1", "vector database for semantic similarity search"),
+            ("d2", "graph traversal and relationship queries"),
+            ("d3", "machine learning embedding models"),
+            ("d4", "italian cooking pasta tomato recipe"),
+            ("d5", "approximate nearest neighbour vector search index"),
+        ];
+        for (id, body) in docs {
+            let node = NodeBuilder::new().id(id).label("Doc").property("body", body).build();
+            tg.create_node_from_text(node, "DocEmb", body).unwrap();
+        }
+        // Topic + edge so traversal does work.
+        tg.create_node(NodeBuilder::new().id("t-search").label("Topic").build()).unwrap();
+        tg.create_edge(Edge::create("d1".into(), "t-search".into(), "ABOUT")).unwrap();
+
+        tg.build_text_index("Doc", "body").unwrap();
+        assert!(tg.has_text_index("Doc", "body"));
+
+        let res = tg
+            .hybrid_search_text(
+                "DocEmb",
+                "body",
+                "vector search",
+                3,
+                60.0,
+                &TraverseSpec::out("ABOUT").target_label("Topic"),
+            )
+            .unwrap();
+
+        assert_eq!(res.len(), 3);
+        // The fused top results must be the vector-search docs, not the recipe.
+        let top_ids: Vec<&str> = res.iter().map(|r| r.seed_id.as_str()).collect();
+        assert!(top_ids.contains(&"d1") || top_ids.contains(&"d5"));
+        assert!(!top_ids.contains(&"d4"));
+        // RRF scores are descending.
+        for w in res.windows(2) {
+            assert!(w[0].score >= w[1].score);
+        }
+        // Traversal applied for d1 if present.
+        if let Some(r) = res.iter().find(|r| r.seed_id == "d1") {
+            assert_eq!(r.connected.iter().filter(|n| n.id == "t-search").count(), 1);
+        }
+    }
+
+    #[test]
+    fn hybrid_requires_text_index() {
+        use crate::embed::HashEmbedder;
+        let tg = TypedGraph::new(GraphDB::new(), schema())
+            .unwrap()
+            .with_embedder(Arc::new(HashEmbedder::new(3)));
+        // No build_text_index → explicit error, no silent degradation.
+        let err = tg.hybrid_search_text("DocEmb", "title", "x", 1, 60.0, &TraverseSpec::out("ABOUT"));
+        assert!(err.is_err());
+    }
+
+    #[test]
+    fn embed_without_embedder_errors() {
+        let tg = TypedGraph::new(GraphDB::new(), schema()).unwrap();
+        assert!(tg.embed("anything").is_err());
+        assert!(tg.search_text("DocEmb", "x", 1, &TraverseSpec::out("ABOUT")).is_err());
+    }
+
+    #[test]
+    fn embed_dimension_mismatch_is_rejected() {
+        use crate::embed::HashEmbedder;
+        // Embedder dim (64) != schema vector dim (3 from `schema()`).
+        let tg = TypedGraph::new(GraphDB::new(), schema())
+            .unwrap()
+            .with_embedder(Arc::new(HashEmbedder::new(64)));
+        let node = NodeBuilder::new().id("d1").label("Doc").property("title", "x").build();
+        assert!(tg.create_node_from_text(node, "DocEmb", "some text").is_err());
     }
 
     #[test]
