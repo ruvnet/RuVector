@@ -36,9 +36,13 @@ on branch `claude/helixdb-ruvector-comparison-qmsx42`:
   with inline `embed()` at insert/query on `TypedGraph`.
 - `crates/ruvector-graph/src/bm25.rs` (P4) — Okapi-BM25 index feeding the
   tri-modal `hybrid_search_text` (vector + keyword + graph, RRF-fused).
+- `crates/ruvector-graph/src/codegen.rs` (P6) — schema-driven typed client
+  codegen: deterministic TypeScript interfaces, Python `TypedDict`s, and Rust
+  structs plus a vector-type manifest, carrying labels/property types/edge
+  `from`/`to`/vector dims across the language boundary.
 
-Pure-Rust (rayon already a crate dependency), WASM-safe schema/embed/BM25 layers;
-**38 new unit tests, 164/164 lib tests green, clippy clean**.
+Pure-Rust (rayon already a crate dependency), WASM-safe schema/embed/BM25/codegen
+layers; **42 new unit tests, 168/168 lib tests green, clippy clean**.
 
 A criterion benchmark (`crates/ruvector-graph/benches/typed_graph_bench.rs`,
 P5 seed) measures the operator and validation. After optimizing the hot path —
@@ -92,10 +96,17 @@ Measured: `HashEmbedder` embed is 717 ns (256-dim); the full tri-modal hybrid
 (inline embed + HNSW + BM25 + RRF + traversal) over 10k docs is **1.63 ms** end
 to end.
 
+**Schema-driven codegen (P6, landed).** `crates/ruvector-graph/src/codegen.rs`
+emits typed client stubs from a `GraphSchema` — `generate_typescript`,
+`generate_python`, `generate_rust` — with deterministic (sorted) output suitable
+for check-in. Node labels become interfaces/`TypedDict`s/structs with correctly
+typed + optional/required properties, edges carry `from`/`to` label constraints,
+and a vector-type manifest exports dimensions + metric. This closes HelixDB's
+`schema → typed SDK` DX advantage.
+
 The remaining items (a single-statement hybrid surface in Cypher itself, P5
-head-to-head benchmarks vs Neo4j/pgvector/Qdrant/HelixDB, P6 schema-driven SDK
-codegen, P7 object-storage spike) remain authorized and will land under follow-up
-ADRs.
+head-to-head benchmarks vs Neo4j/pgvector/Qdrant/HelixDB, P7 object-storage spike)
+remain authorized and will land under follow-up ADRs.
 
 ## Context
 

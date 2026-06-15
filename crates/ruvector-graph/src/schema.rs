@@ -338,6 +338,25 @@ impl GraphSchema {
         self.vectors.get(name)
     }
 
+    /// Node schemas sorted by label (deterministic — for codegen).
+    pub fn node_schemas_sorted(&self) -> Vec<&NodeSchema> {
+        let mut v: Vec<&NodeSchema> = self.nodes.values().collect();
+        v.sort_by(|a, b| a.label.cmp(&b.label));
+        v
+    }
+    /// Edge schemas sorted by edge type (deterministic — for codegen).
+    pub fn edge_schemas_sorted(&self) -> Vec<&EdgeSchema> {
+        let mut v: Vec<&EdgeSchema> = self.edges.values().collect();
+        v.sort_by(|a, b| a.edge_type.cmp(&b.edge_type));
+        v
+    }
+    /// Vector schemas sorted by name (deterministic — for codegen).
+    pub fn vector_schemas_sorted(&self) -> Vec<&VectorSchema> {
+        let mut v: Vec<&VectorSchema> = self.vectors.values().collect();
+        v.sort_by(|a, b| a.name.cmp(&b.name));
+        v
+    }
+
     /// Validate the schema's own internal consistency: every edge's `from`/`to`
     /// label and every vector's bound label must reference a declared node. Run
     /// this once after building the schema (HelixQL's compile-time check).

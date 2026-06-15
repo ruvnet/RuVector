@@ -4,6 +4,7 @@
 //! Supports property graphs, hypergraphs, Cypher queries, ACID transactions, and distributed queries.
 
 pub mod bm25;
+pub mod codegen;
 pub mod cypher;
 pub mod edge;
 pub mod embed;
