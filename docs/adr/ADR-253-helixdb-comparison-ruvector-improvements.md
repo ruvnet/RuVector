@@ -1,5 +1,5 @@
 ---
-adr: 252
+adr: 253
 title: "HelixDB vs RuVector — Comparative Analysis and Improvement Opportunities"
 status: proposed
 date: 2026-06-15
@@ -8,7 +8,7 @@ related: [ADR-001, ADR-193, ADR-194, ADR-195, ADR-210]
 tags: [ruvector, graph, vector, helixdb, query-language, schema, hnsw, storage, benchmarks, rag, dx, competitive-analysis]
 ---
 
-# ADR-252 — HelixDB vs RuVector: Comparative Analysis and Improvement Opportunities
+# ADR-253 — HelixDB vs RuVector: Comparative Analysis and Improvement Opportunities
 
 ## Status
 
