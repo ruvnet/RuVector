@@ -97,24 +97,31 @@ impl WriteGate for NullGate {
 /// delete any entry without invalidating all subsequent commitments.
 /// Verification is O(n): replay the chain from the beginning.
 ///
-/// Memory: 32 bytes per admitted write (stored for receipt verification).
+/// Memory: 64 bytes per admitted write (commitment + payload hash, both needed
+/// to cryptographically re-derive the chain).
 pub struct HashChainGate {
     seq: u64,
     prev_commitment: [u8; 32],
-    // Per-entry commitments stored for receipt verification.
+    // Per-entry chain commitments.
     chain: Vec<[u8; 32]>,
+    // Per-entry payload hashes — required to *re-derive* (not merely structurally
+    // scan) the chain in `verify_integrity`.
+    payload_hashes: Vec<[u8; 32]>,
 }
+
+/// Genesis seed = SHA256("ruvector-proof-gate-v1"). The re-derivation anchor.
+const GENESIS: [u8; 32] = *b"\xb7\x4c\x9b\x41\x3e\x27\x0e\x56\
+                            \xd3\x8a\x12\x9f\x6c\x3b\x4d\x8a\
+                            \x2f\x1e\x0c\x5a\x9d\x7b\xe4\xf2\
+                            \x6a\x8c\x3d\x0b\x5e\x9f\x2c\x47";
 
 impl HashChainGate {
     pub fn new() -> Self {
         Self {
             seq: 0,
-            // Genesis seed: SHA256("ruvector-proof-gate-v1")
-            prev_commitment: *b"\xb7\x4c\x9b\x41\x3e\x27\x0e\x56\
-                                \xd3\x8a\x12\x9f\x6c\x3b\x4d\x8a\
-                                \x2f\x1e\x0c\x5a\x9d\x7b\xe4\xf2\
-                                \x6a\x8c\x3d\x0b\x5e\x9f\x2c\x47",
+            prev_commitment: GENESIS,
             chain: Vec::new(),
+            payload_hashes: Vec::new(),
         }
     }
 
@@ -127,26 +134,27 @@ impl HashChainGate {
         h.finalize().into()
     }
 
-    /// Full chain integrity scan. Returns false if any link is broken.
+    /// Full cryptographic chain re-derivation. Re-computes every commitment from
+    /// the genesis seed and the stored payload hashes, comparing against the
+    /// stored chain. Returns false if ANY commitment fails to re-derive — i.e.
+    /// catches a tamper that mutates a commitment, a payload hash, or the order,
+    /// not just structurally-degenerate chains.
     pub fn verify_integrity(&self) -> bool {
-        let mut prev = *b"\xb7\x4c\x9b\x41\x3e\x27\x0e\x56\
-                          \xd3\x8a\x12\x9f\x6c\x3b\x4d\x8a\
-                          \x2f\x1e\x0c\x5a\x9d\x7b\xe4\xf2\
-                          \x6a\x8c\x3d\x0b\x5e\x9f\x2c\x47";
-        // We stored chain commitments; recompute requires payload hashes.
-        // Here we verify the chain is non-zero and monotonic (a structural
-        // check; full re-derivation would need stored payload hashes).
-        for (i, commitment) in self.chain.iter().enumerate() {
-            if commitment == &[0u8; 32] {
-                return false;
-            }
-            // Ensure each commitment differs from its predecessor.
-            if i > 0 && commitment == &self.chain[i - 1] {
+        if self.chain.len() != self.payload_hashes.len() {
+            return false;
+        }
+        let mut prev = GENESIS;
+        for (i, (commitment, payload_hash)) in
+            self.chain.iter().zip(self.payload_hashes.iter()).enumerate()
+        {
+            let expected = Self::compute_commitment(&prev, payload_hash, i as u64);
+            if &expected != commitment {
                 return false;
             }
             prev = *commitment;
         }
-        !self.chain.is_empty() && self.chain.last() == Some(&prev)
+        // Chain head must equal the last commitment (or genesis if empty).
+        self.prev_commitment == prev
     }
 }
 
@@ -163,6 +171,7 @@ impl WriteGate for HashChainGate {
         let commitment = Self::compute_commitment(&self.prev_commitment, &payload_hash, self.seq);
         self.prev_commitment = commitment;
         self.chain.push(commitment);
+        self.payload_hashes.push(payload_hash);
         let seq = self.seq;
         self.seq += 1;
         Ok(WriteReceipt {
@@ -323,5 +332,54 @@ impl WriteGate for MerkleGate {
 
     fn variant(&self) -> GateVariant {
         GateVariant::Merkle
+    }
+}
+
+#[cfg(test)]
+mod rederivation_tests {
+    use super::*;
+    use crate::WritePayload;
+
+    fn gate_with(n: u64) -> HashChainGate {
+        let mut g = HashChainGate::new();
+        for i in 0..n {
+            g.admit(&WritePayload::new(i, vec![i as f32, 1.0, -(i as f32)])).unwrap();
+        }
+        g
+    }
+
+    #[test]
+    fn clean_chain_reverifies() {
+        assert!(gate_with(8).verify_integrity());
+        assert!(HashChainGate::new().verify_integrity(), "empty chain is valid");
+    }
+
+    #[test]
+    fn tampered_commitment_detected() {
+        let mut g = gate_with(8);
+        g.chain[3][0] ^= 0xFF; // flip a byte of a stored commitment
+        assert!(!g.verify_integrity(), "mutated commitment must fail re-derivation");
+    }
+
+    #[test]
+    fn tampered_payload_hash_detected() {
+        let mut g = gate_with(8);
+        g.payload_hashes[2][0] ^= 0xFF; // poisoned write whose recorded hash no longer matches
+        assert!(!g.verify_integrity(), "mutated payload hash must fail re-derivation");
+    }
+
+    #[test]
+    fn reordered_entries_detected() {
+        let mut g = gate_with(8);
+        g.chain.swap(2, 5);
+        g.payload_hashes.swap(2, 5);
+        assert!(!g.verify_integrity(), "reordering entries must fail re-derivation");
+    }
+
+    #[test]
+    fn length_mismatch_detected() {
+        let mut g = gate_with(8);
+        g.payload_hashes.pop();
+        assert!(!g.verify_integrity());
     }
 }
