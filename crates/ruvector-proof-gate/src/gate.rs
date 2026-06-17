@@ -166,8 +166,8 @@ impl Default for HashChainGate {
 
 impl WriteGate for HashChainGate {
     fn admit(&mut self, payload: &WritePayload) -> Result<WriteReceipt, GateError> {
-        let bytes = payload.canonical_bytes();
-        let payload_hash: [u8; 32] = Sha256::digest(&bytes).into();
+        // Allocation-free payload hash (identical digest to hashing canonical_bytes).
+        let payload_hash: [u8; 32] = payload.payload_hash();
         let commitment = Self::compute_commitment(&self.prev_commitment, &payload_hash, self.seq);
         self.prev_commitment = commitment;
         self.chain.push(commitment);
@@ -302,8 +302,8 @@ impl Default for MerkleGate {
 
 impl WriteGate for MerkleGate {
     fn admit(&mut self, payload: &WritePayload) -> Result<WriteReceipt, GateError> {
-        let bytes = payload.canonical_bytes();
-        let payload_hash: [u8; 32] = Sha256::digest(&bytes).into();
+        // Allocation-free payload hash (identical digest to hashing canonical_bytes).
+        let payload_hash: [u8; 32] = payload.payload_hash();
         let leaf = Self::leaf_commit(&payload_hash, self.seq);
         self.leaves.push(leaf);
         self.append(leaf);

@@ -41,6 +41,25 @@ impl WritePayload {
         self
     }
 
+    /// SHA-256 of the canonical encoding, computed **without** allocating the
+    /// intermediate byte buffer — streams each field straight into the hasher.
+    /// Produces a digest identical to `Sha256::digest(self.canonical_bytes())`,
+    /// so it is a drop-in fast path (no on-disk/format change).
+    pub fn payload_hash(&self) -> [u8; 32] {
+        use sha2::{Digest, Sha256};
+        let mut h = Sha256::new();
+        h.update(self.id.to_le_bytes());
+        h.update((self.vector.len() as u32).to_le_bytes());
+        for f in &self.vector {
+            h.update(f.to_le_bytes());
+        }
+        h.update((self.metadata.len() as u32).to_le_bytes());
+        h.update(&self.metadata);
+        h.update(self.agent_id);
+        h.update(self.timestamp_ns.to_le_bytes());
+        h.finalize().into()
+    }
+
     /// Canonical byte representation used as hash preimage.
     ///
     /// Fixed-structure concatenation: prevents length-extension issues
