@@ -47,6 +47,7 @@ members = [
     "crates/ruvector-graph-node",
     "crates/ruvector-graph-wasm",
     "crates/ruvector-gnn",
+    "crates/ruvector-gnn-rerank",
     "crates/ruvector-gnn-node",
     "crates/ruvector-gnn-wasm",
     "crates/ruvector-attention",
