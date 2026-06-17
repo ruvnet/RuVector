@@ -1,0 +1,18 @@
+[package]
+name        = "ruvector-hybrid-fusion"
+version     = "0.1.0"
+edition     = "2021"
+description = "Hybrid sparse-dense fusion with coherence-adaptive weighting — per-query alpha tuning over BM25 and cosine ANN legs for ruvector"
+authors     = ["ruvnet", "claude-flow"]
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["hybrid-search", "bm25", "vector-search", "ann", "ruvector"]
+categories  = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "hybrid-fusion-demo"
+path = "src/main.rs"
+
+[dependencies]
+rand = "0.8"
+serde = { version = "1", features = ["derive"] }

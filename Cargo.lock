@@ -9471,6 +9471,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-hybrid-fusion"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "serde",
+]
+
+[[package]]
 name = "ruvector-hyperbolic-hnsw"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
