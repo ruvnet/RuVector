@@ -552,6 +552,39 @@ test('demo --help shows options', () => {
   assert(out.includes('demo'), 'Should show demo info');
 });
 
+// ---- Section 24: Harness router surface (ADR-256) ------------------------
+console.log('\n--- 24. Harness router surface (ADR-256) ---\n');
+
+test('harness --help describes the unified surface', () => {
+  const out = run('harness --help');
+  assert(out.includes('harness'), 'Should show harness command');
+  assert(/status/.test(out), 'Should list the status subcommand');
+});
+
+test('harness status --json returns a valid structured surface', () => {
+  const out = run('harness status --json');
+  const surface = JSON.parse(out);
+  assert(surface.adr === 'ADR-256', 'adr field should be ADR-256');
+  assert(surface.primitives && typeof surface.primitives === 'object', 'should have primitives');
+  // The router concepts ADR-256 borrows must be present
+  for (const key of ['costRouter', 'semanticRouter', 'hooksRouting', 'mcp', 'witness', 'memory']) {
+    assert(surface.primitives[key], `primitives.${key} should exist`);
+    assert(typeof surface.primitives[key].available === 'boolean', `${key}.available should be boolean`);
+    assert(typeof surface.primitives[key].role === 'string', `${key}.role should be a string`);
+  }
+  // Bundled primitives are always available regardless of optional deps
+  assert(surface.primitives.hooksRouting.available === true, 'hooks routing is bundled');
+  assert(surface.primitives.mcp.available === true, 'mcp server is bundled');
+  assert(surface.summary && surface.summary.total === Object.keys(surface.primitives).length,
+    'summary.total should match primitive count');
+});
+
+test('bare harness command prints status without crashing', () => {
+  const { code, stdout } = runSafe('harness');
+  assert(code === 0, 'bare harness should exit 0');
+  assert(/Harness Router/.test(stdout), 'should print the harness router header');
+});
+
 // ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------
