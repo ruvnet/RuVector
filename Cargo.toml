@@ -1,5 +1,5 @@
 [workspace]
-exclude = ["external/ruqu", "external/rvdna", "crates/micro-hnsw-wasm", "crates/ruvector-hyperbolic-hnsw", "crates/ruvector-hyperbolic-hnsw-wasm", "examples/ruvLLM/esp32", "examples/ruvLLM/esp32-flash", "examples/edge-net", "examples/data", "examples/ruvLLM", "examples/delta-behavior", "crates/rvf", "crates/rvf/*", "crates/rvf/*/*", "examples/rvf-desktop", "crates/mcp-brain-server",
+exclude = ["external/ruqu", "external/rvdna", "examples/OSpipe", "examples/rvf", "crates/micro-hnsw-wasm", "crates/ruvector-hyperbolic-hnsw", "crates/ruvector-hyperbolic-hnsw-wasm", "examples/ruvLLM/esp32", "examples/ruvLLM/esp32-flash", "examples/edge-net", "examples/data", "examples/ruvLLM", "examples/delta-behavior", "crates/rvf", "crates/rvf/*", "crates/rvf/*/*", "examples/rvf-desktop", "crates/mcp-brain-server",
     # ruvector-postgres is a pgrx-based PostgreSQL extension. Its build script
     # requires `$PGRX_HOME` set up via `cargo install cargo-pgrx --version 0.12.9`
     # and `cargo pgrx init`, which downloads and builds multiple Postgres
@@ -110,7 +110,6 @@ members = [
     "crates/ruvector-solver",
     "crates/ruvector-solver-wasm",
     "crates/ruvector-solver-node",
-    "examples/OSpipe",
     "crates/ruvector-coherence",
     "crates/ruvector-profiler",
     "crates/ruvector-attn-mincut",
