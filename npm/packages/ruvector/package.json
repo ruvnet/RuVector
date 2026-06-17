@@ -8,7 +8,7 @@
     "ruvector": "./bin/cli.js"
   },
   "scripts": {
-    "build": "tsc && mkdir -p dist/core/onnx && cp -r src/core/onnx/. dist/core/onnx/",
+    "build": "tsc && node -e \"require('fs').cpSync('src/core/onnx','dist/core/onnx',{recursive:true})\"",
     "verify-dist": "node scripts/verify-dist.js",
     "prepack": "npm run build && npm run verify-dist",
     "prepublishOnly": "npm run build && npm run verify-dist",
