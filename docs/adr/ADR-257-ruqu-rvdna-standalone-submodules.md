@@ -12,12 +12,13 @@ tags: [monorepo, submodules, ruqu, rvdna, quantum, genomics, cargo-workspace, np
 
 > **Decision in one line.** Split `ruqu` (both clusters) and `rvdna` out of the
 > ruvector monorepo into standalone `ruvnet/ruqu` and `ruvnet/rvdna` repos, and
-> re-reference them as **git submodules** mounted at their original paths. This
-> is feasible and keeps the superproject building — **but** because `rvdna` and
-> the `ruQu` min-cut crate depend on ~10 unpublished `ruvector-*` crates via
-> path deps, those two submodules build **only inside the superproject** until
-> their ruvector dependencies are published to crates.io. Only the quantum-sim
-> `ruqu-*` cluster is independently buildable today.
+> re-reference them as **git submodules** mounted at consolidated paths. This is
+> feasible and keeps the superproject building. `rvdna` and the `ruQu` min-cut
+> crate depend on `ruvector-*` crates, but **all of those are published on
+> crates.io** (the full closure is at `2.2.3` as of 2026-06-17 — see Update). So
+> the standalone repos **can build independently** once the extraction rewrites
+> their intra-workspace `path` deps to crates.io `version` deps — the one
+> required migration step for standalone buildability.
 
 ## Context
 
@@ -39,12 +40,16 @@ There are **two distinct `ruqu` projects**, plus `rvdna`:
 
 ### Coupling that constrains the design (evidence H)
 
-1. **Outbound (the hard constraint).** `rvdna` (`examples/dna`) path-depends on
-   nine `ruvector-*` crates; `ruQu` path-depends on `ruvector-mincut` (+1). **None
-   of those ruvector crates are published to crates.io** (verified: `ruvector-core`,
-   `ruvector-mincut`, `ruvector-gnn` → "NOT on crates.io"). A standalone repo for
-   `rvdna`/`ruQu` therefore **cannot build in isolation**; it builds only when its
-   path deps resolve into a ruvector checkout.
+1. **Outbound (now resolved).** `rvdna` (`examples/dna`) path-depends on nine
+   `ruvector-*` crates; `ruQu` path-depends on `ruvector-mincut` (+1). These deps
+   are declared in dual `{ version = "…", path = "…" }` form. **All of the
+   `ruvector-*` deps are published on crates.io** (the rvdna closure —
+   core/attention/gnn/graph/dag/math/filter/collections/solver + transitive
+   cluster/raft/replication — is at `2.2.3`; see Update). So a standalone repo
+   builds in isolation **once its `path =` keys are dropped** (leaving the
+   crates.io `version`), which the migration must do. (An earlier draft claimed
+   these were unpublished; that was a crates.io **API rate-limit** misread —
+   corrected here.)
 2. **Inbound.** `examples/OSpipe/Cargo.toml` and `examples/rvf/Cargo.toml`
    path-depend on `ruqu-core`/`ruqu-algorithms`. These stay in ruvector and must
    keep resolving the extracted crates.
@@ -82,11 +87,12 @@ Per the chosen scope (**both ruqu clusters**) and mechanism (**git submodules**)
    Rewrite the superproject references to the new paths (workspace `members`,
    the `OSpipe`/`rvf` path deps, the npm `workspaces` glob, CI shard paths).
 
-3. **Keep the superproject building** by having the submodules' internal
-   `Cargo.toml` path deps point back into the superproject's `crates/ruvector-*`
-   (relative paths that resolve when checked out under `external/…` in a ruvector
-   clone). This is the **"split-out but context-coupled"** state: the submodules
-   build inside ruvector immediately; they do **not** build standalone yet.
+3. **Make the submodules build standalone** by rewriting their intra-workspace
+   `ruvector-*`/`ruqu-*` deps from `{ version, path }` to **version-only**
+   (crates.io). Since the full closure is published at `2.2.3` (and rvdna pins
+   compatible `^2.0`), the extracted repos resolve their deps from crates.io and
+   `cargo build` on their own. Inside the superproject the pinned submodule
+   commit still builds reproducibly.
 
 4. **Accept the standalone-build limitation explicitly.** `ruvnet/rvdna` and the
    `ruvnet/ruqu` min-cut crate will not `cargo build` on their own until their
@@ -119,9 +125,10 @@ Per the chosen scope (**both ruqu clusters**) and mechanism (**git submodules**)
 - **Submodule friction**: contributors must `git clone --recursive` (or
   `git submodule update --init`); a plain clone yields empty `external/…` dirs
   and a failing workspace. CI must add a submodule-checkout step.
-- **rvdna / ruQu don't build standalone** until ~10 `ruvector-*` crates are
-  published — so for those two, "standalone repo" is aspirational until that
-  follow-up lands. Until then they are effectively develop-in-context repos.
+- **Dep deduplication**: the extracted repos pull `ruvector-*` from crates.io;
+  in-workspace edits to those crates won't reach a submodule pinned to a
+  published version until a new version is cut. (Acceptable — they are released
+  deps now, not local path deps.)
 - **Path churn**: moving from `crates/ruqu-*` to `external/ruqu/crates/ruqu-*`
   touches many references (workspace, CI, docs, two example crates).
 - Two-step commits across repos (change submodule, then bump the pointer here)
@@ -162,6 +169,21 @@ Per the chosen scope (**both ruqu clusters**) and mechanism (**git submodules**)
   history, delete the (empty-of-external-consumers) repos. The filtered repos can
   be archived rather than deleted.
 - Post-merge: revert the cutover commit and re-vendor from the submodule commit.
+
+## Update (2026-06-17) — dependency closure published to crates.io
+
+The `rvdna` Rust-crate dependency closure was synced to **`2.2.3`** on crates.io,
+removing the only real blocker to standalone builds:
+
+| Status | Crates |
+|---|---|
+| Published this change | `ruvector-collections`, `-filter`, `-math`, `-dag`, `-cluster`, `-raft`, `-replication`, `-gnn`, `-attention` (all `2.2.3`) |
+| Already at 2.2.3 | `ruvector-solver`, `ruvector-core`, `ruvector-graph` |
+
+All 12 crates in the closure are now at `2.2.3` (verified via the crates.io
+sparse index). Each was published **with its existing README** (cargo bundles
+`README.md` automatically). Remaining for standalone `rvdna`/`ruQu` builds: the
+mechanical `path =`→`version` rewrite in the extracted repos (migration step).
 
 ## Links
 - Reference sweep: root `Cargo.toml` (members 97, 109–112, 118),
