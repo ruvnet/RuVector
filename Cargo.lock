@@ -9762,6 +9762,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-proof-gate"
+version = "0.1.0"
+dependencies = [
+ "criterion 0.5.1",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ruvector-rabitq"
 version = "2.2.3"
 dependencies = [
