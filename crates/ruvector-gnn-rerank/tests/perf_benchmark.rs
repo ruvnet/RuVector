@@ -76,6 +76,7 @@ fn time_reranker<R: CandidateReranker>(r: &R, queries: &[Vec<f32>], sets: &[Vec<
 }
 
 #[test]
+#[ignore = "perf benchmark; run with: cargo test --release -- --ignored"]
 fn rerank_latency_throughput() {
     let (queries, sets) = build_candidate_sets();
     let noisy_us = time_reranker(&NoisyScoreReranker, &queries, &sets);

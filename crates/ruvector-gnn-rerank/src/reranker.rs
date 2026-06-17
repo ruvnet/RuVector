@@ -59,6 +59,24 @@ fn validate(candidates: &[Candidate], k: usize) -> Result<(), RerankerError> {
             n: candidates.len(),
         });
     }
+    // Reject untrusted input that would silently corrupt the ranking: all
+    // candidate vectors must share one dimension and contain only finite values,
+    // and scores must be finite. Fail-fast vs. producing a poisoned ranking.
+    let dim = candidates[0].vector.len();
+    for c in candidates {
+        if c.vector.len() != dim {
+            return Err(RerankerError::DimMismatch {
+                query: dim,
+                candidate: c.vector.len(),
+            });
+        }
+        if !c.noisy_score.is_finite() {
+            return Err(RerankerError::NonFinite { what: "candidate score" });
+        }
+        if c.vector.iter().any(|x| !x.is_finite()) {
+            return Err(RerankerError::NonFinite { what: "candidate vector" });
+        }
+    }
     Ok(())
 }
 
