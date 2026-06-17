@@ -27,3 +27,7 @@ crate-type = ["rlib"]
 dead_code        = "allow"
 unused_variables = "allow"
 unused_imports   = "allow"
+
+[dev-dependencies]
+rand = { workspace = true }
+rand_distr = { workspace = true }
