@@ -28,34 +28,41 @@ impl CandidateGraph {
     pub fn build(candidates: &[Candidate], k_graph: usize) -> Self {
         let n = candidates.len();
         let k = k_graph.min(n.saturating_sub(1));
-        let mut edges = vec![Vec::<(usize, f32)>::new(); n];
 
         // Pre-compute L2 norms to avoid recomputing in the inner loop.
         let norms: Vec<f32> = candidates.iter().map(|c| l2_norm(&c.vector)).collect();
 
+        // Cosine similarity is symmetric: sim(i,j) == sim(j,i). Compute each
+        // pair once (upper triangle) and push it into both neighbour lists,
+        // halving the dot-product work vs. the naive O(n²) double computation.
+        let mut sims: Vec<Vec<(usize, f32)>> =
+            vec![Vec::with_capacity(n.saturating_sub(1)); n];
         for i in 0..n {
-            let mut sims: Vec<(usize, f32)> = (0..n)
-                .filter(|&j| j != i)
-                .map(|j| {
-                    let dot: f32 = candidates[i]
-                        .vector
-                        .iter()
-                        .zip(candidates[j].vector.iter())
-                        .map(|(a, b)| a * b)
-                        .sum();
-                    let denom = norms[i] * norms[j];
-                    let sim = if denom < 1e-9 { 0.0 } else { dot / denom };
-                    (j, sim)
-                })
-                .collect();
-
-            // Sort descending by similarity; keep top-k.
-            sims.sort_unstable_by(|a, b| {
-                b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
-            });
-            sims.truncate(k);
-            edges[i] = sims;
+            let (vi, ni) = (&candidates[i].vector, norms[i]);
+            for j in (i + 1)..n {
+                let dot: f32 = vi
+                    .iter()
+                    .zip(candidates[j].vector.iter())
+                    .map(|(a, b)| a * b)
+                    .sum();
+                let denom = ni * norms[j];
+                let sim = if denom < 1e-9 { 0.0 } else { dot / denom };
+                sims[i].push((j, sim));
+                sims[j].push((i, sim));
+            }
         }
+
+        // Sort descending by similarity; keep top-k per row.
+        let edges = sims
+            .into_iter()
+            .map(|mut row| {
+                row.sort_unstable_by(|a, b| {
+                    b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
+                });
+                row.truncate(k);
+                row
+            })
+            .collect();
 
         Self { edges }
     }
