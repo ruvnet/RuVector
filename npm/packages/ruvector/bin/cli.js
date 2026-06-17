@@ -10177,11 +10177,12 @@ function buildHarnessSurface() {
     available: true,
   };
 
-  // Memory + learning loops — SONA / ReasoningBank
+  // Memory + learning loops — SONA / ReasoningBank (stable namespace, ADR-256 step 3)
   primitives.memory = {
     name: 'sona+reasoningbank',
     role: 'persistent memory + self-learning loops',
     available: true,
+    namespace: (process.env.RUVECTOR_MEMORY_NAMESPACE || 'ruvector').trim() || 'ruvector',
   };
 
   const values = Object.values(primitives);

@@ -120,6 +120,9 @@ npx ruvector harness status          # human-readable surface + availability
 npx ruvector harness status --json   # structured, for tooling/CI
 ```
 
+Memory + learning loops use a stable namespace (default `ruvector`), overridable per
+deployment with `RUVECTOR_MEMORY_NAMESPACE` and reported under `memory.namespace`.
+
 ### Brain AGI Commands
 
 Access all 8 AGI subsystems deployed at π.ruv.io:

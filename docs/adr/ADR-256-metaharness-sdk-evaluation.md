@@ -204,6 +204,23 @@ Items 2–4 reuse shipping primitives and are near-zero blast radius.
 4. **Gate for any `@metaharness/*` dep:** ≥1.0 + stable embeddable contract +
    benchmark beating Tiny Dancer; never bundled into the default load path.
 
+## Implementation status (as shipped)
+
+Tracked in issue #574 / PR #575 (branch `adr-256-harness-router`).
+
+| Rollout item | Status | Where |
+|---|---|---|
+| 0. Harness router surface | **Done** | `ruvector harness status [--json]` (`bin/cli.js`) — unifies cost router, semantic router, hooks routing, MCP, witness, memory; degrades gracefully |
+| 1. Default-deny MCP allowlist | **Done** | `bin/mcp-policy.js` + `mcp-server.js` gate; `RUVECTOR_MCP_ALLOW/DENY/PROFILE`; verified end-to-end over MCP stdio |
+| 3. Memory namespace | **Done** | `RUVECTOR_MEMORY_NAMESPACE` (default `ruvector`), surfaced as `memory.namespace` |
+| 4. Startup-budget guard | **Done** | `test/startup-budget.js` — abs ceiling + relative delta (harness adds ≈ +0–3ms) |
+| Benchmarked / verified | **Done** | full `npm test` green (cli 73/0, mcp-policy 8/0, startup 2/0, db-workflow, integration, sigterm) |
+| 2. Witness-signed releases | **Convention** | documented extension of the existing witness chain (ADR-103/ADR-134); no new signing engine built |
+| 5. Embedded `ruvector agent` loop | **Deferred** | optional future capability via Claude Agent SDK, per the decision |
+
+No `@metaharness/*` runtime dependency was added; the borrowed capabilities are
+delivered entirely by primitives ruvector already ships.
+
 ## Links
 - npm `metaharness` (v0.1.14, 2026-06-16, author rUv):
   https://registry.npmjs.org/metaharness/latest ·

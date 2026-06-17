@@ -577,6 +577,18 @@ test('harness status --json returns a valid structured surface', () => {
   assert(surface.primitives.mcp.available === true, 'mcp server is bundled');
   assert(surface.summary && surface.summary.total === Object.keys(surface.primitives).length,
     'summary.total should match primitive count');
+  // ADR-256 step 1 + 3: MCP access-control posture and a stable memory namespace
+  assert(typeof surface.primitives.mcp.accessControl === 'string', 'mcp.accessControl should be reported');
+  assert(surface.primitives.mcp.policy && typeof surface.primitives.mcp.policy.configured === 'boolean',
+    'mcp.policy.configured should be a boolean');
+  assert(typeof surface.primitives.memory.namespace === 'string' && surface.primitives.memory.namespace.length > 0,
+    'memory.namespace should default to a non-empty value');
+});
+
+test('harness honors RUVECTOR_MEMORY_NAMESPACE override', () => {
+  const out = run('harness status --json', { env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1', RUVECTOR_MEMORY_NAMESPACE: 'team-x' } });
+  const surface = JSON.parse(out);
+  assert(surface.primitives.memory.namespace === 'team-x', 'should reflect the namespace override');
 });
 
 test('bare harness command prints status without crashing', () => {
