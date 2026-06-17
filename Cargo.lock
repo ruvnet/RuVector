@@ -1374,24 +1374,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cognitum-gate-tilezero"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da5b7ca90d479824a5c134ba7eae332a24d43c28d29884bf662c52fa5416068a"
-dependencies = [
- "base64 0.22.1",
- "blake3",
- "ed25519-dalek",
- "hex",
- "rand 0.8.5",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "color_quant"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2148,17 +2130,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7cd812cc2bc1d69d4764bd80df88b4317eaef9e773c75226407d9bc0876b211c"
 dependencies = [
  "powerfmt",
-]
-
-[[package]]
-name = "derivative"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcc3dd5e9e9c0b295d6e1e4d811fb6f157d5ffd784b8d202fc62eac8035a770b"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -2922,34 +2893,6 @@ name = "fuchsia-cprng"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a06f77d526c1a601b7c4cdd98f54b5eaabffc14d5f2f0296febdc7f357c6d3ba"
-
-[[package]]
-name = "fusion-blossom"
-version = "0.2.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "433ca21f7f0bb35c06bdcdd8523e88ed2c81b44bafbbfa59a3f302db66d7d76d"
-dependencies = [
- "cc",
- "cfg-if 1.0.4",
- "chrono",
- "clap",
- "core_affinity",
- "derivative",
- "lazy_static",
- "libc",
- "nonzero",
- "parking_lot 0.12.5",
- "pbr",
- "petgraph",
- "priority-queue 1.4.0",
- "rand 0.8.5",
- "rand_xoshiro",
- "rayon",
- "serde",
- "serde_json",
- "urlencoding",
- "weak-table",
-]
 
 [[package]]
 name = "futures"
@@ -5096,7 +5039,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "base64 0.21.7",
- "cognitum-gate-tilezero 0.1.1",
+ "cognitum-gate-tilezero",
  "futures",
  "hex",
  "serde",
@@ -5857,18 +5800,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nonzero"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d9b9acd66930a3f7754cac98e17dbb17eb8018ad2c0b2e9ccccfbf23330127e"
-dependencies = [
- "num-traits",
- "proc-macro2",
- "quote",
- "syn 2.0.117",
-]
-
-[[package]]
 name = "nonzero_ext"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6338,6 +6269,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c87def4c32ab89d880effc9e097653c8da5d6ef28e6b539d313baaacfbafcbe"
 
 [[package]]
+name = "openssl-src"
+version = "300.6.1+3.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46eb8fb9fb3b61ce1c0f8a026c4c1a0714d3a9e138e7fbde78753ce2babc3846"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "openssl-sys"
 version = "0.9.112"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6345,6 +6285,7 @@ checksum = "57d55af3b3e226502be1526dfdba67ab0e9c96fc293004e79576b2b9edb0dbdb"
 dependencies = [
  "cc",
  "libc",
+ "openssl-src",
  "pkg-config",
  "vcpkg",
 ]
@@ -6555,17 +6496,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf9027960355bf3afff9841918474a81a5f972ac6d226d518060bba758b5ad57"
 dependencies = [
  "rustc_version",
-]
-
-[[package]]
-name = "pbr"
-version = "1.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed5827dfa0d69b6c92493d6c38e633bbaa5937c153d0d7c28bf12313f8c6d514"
-dependencies = [
- "crossbeam-channel",
- "libc",
- "winapi",
 ]
 
 [[package]]
@@ -7087,16 +7017,6 @@ dependencies = [
  "uuid",
  "wgpu",
  "wide",
-]
-
-[[package]]
-name = "priority-queue"
-version = "1.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0bda9164fe05bc9225752d54aae413343c36f684380005398a6a8fde95fe785"
-dependencies = [
- "autocfg 1.5.0",
- "indexmap 1.9.3",
 ]
 
 [[package]]
@@ -7820,15 +7740,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rand_xoshiro"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f97cdb2a36ed4183de61b2f824cc45c9f1037f28afe0a322e9fff4c108b5aaa"
-dependencies = [
- "rand_core 0.6.4",
-]
-
-[[package]]
 name = "range-alloc"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8326,82 +8237,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "ruqu"
-version = "2.2.3"
-dependencies = [
- "blake3",
- "cognitum-gate-tilezero 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "crc32fast",
- "criterion 0.5.1",
- "ed25519-dalek",
- "fusion-blossom",
- "petgraph",
- "proptest",
- "rand 0.8.5",
- "rayon",
- "ruvector-mincut 0.1.30",
- "ruvector-mincut-gated-transformer 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde",
- "serde_json",
- "subtle",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "ruqu-algorithms"
 version = "2.0.5"
 dependencies = [
- "approx",
- "criterion 0.5.1",
- "proptest",
  "rand 0.8.5",
  "ruqu-core",
- "serde",
  "thiserror 2.0.18",
- "tracing",
 ]
 
 [[package]]
 name = "ruqu-core"
 version = "2.0.5"
 dependencies = [
- "approx",
- "criterion 0.5.1",
- "proptest",
  "rand 0.8.5",
- "rayon",
- "serde",
  "thiserror 2.0.18",
- "tracing",
-]
-
-[[package]]
-name = "ruqu-exotic"
-version = "2.0.5"
-dependencies = [
- "approx",
- "rand 0.8.5",
- "ruqu-core",
- "serde",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "ruqu-wasm"
-version = "2.0.5"
-dependencies = [
- "getrandom 0.2.17",
- "js-sys",
- "ruqu-algorithms",
- "ruqu-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
- "wasm-bindgen-test",
 ]
 
 [[package]]
@@ -9174,7 +9023,7 @@ dependencies = [
  "criterion 0.6.0",
  "dashmap 6.1.0",
  "parking_lot 0.12.5",
- "priority-queue 2.7.0",
+ "priority-queue",
  "proptest",
  "rand 0.8.5",
  "rand_xorshift 0.3.0",
@@ -9796,22 +9645,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "ruvector-mincut-gated-transformer"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af87e661be104daa3061df958f1077c5b45adf183ffa5b0da0e9bab20620430e"
-dependencies = [
- "serde",
- "thiserror 2.0.18",
-]
-
-[[package]]
 name = "ruvector-mincut-gated-transformer-wasm"
 version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
  "js-sys",
- "ruvector-mincut-gated-transformer 0.1.0",
+ "ruvector-mincut-gated-transformer",
  "serde",
  "serde-wasm-bindgen",
  "wasm-bindgen",
@@ -11082,36 +10921,6 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
  "web-sys",
-]
-
-[[package]]
-name = "rvdna"
-version = "0.3.0"
-dependencies = [
- "anyhow",
- "bincode 2.0.1",
- "chrono",
- "criterion 0.5.1",
- "ndarray 0.16.1",
- "rand 0.8.5",
- "rand_distr 0.4.3",
- "ruvector-attention",
- "ruvector-collections",
- "ruvector-core 2.2.3",
- "ruvector-dag",
- "ruvector-filter",
- "ruvector-gnn",
- "ruvector-graph",
- "ruvector-math",
- "ruvector-solver",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "uuid",
 ]
 
 [[package]]
@@ -13673,12 +13482,6 @@ dependencies = [
  "indexmap 2.12.1",
  "semver",
 ]
-
-[[package]]
-name = "weak-table"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "323f4da9523e9a669e1eaf9c6e763892769b1d38c623913647bfdc1532fe4549"
 
 [[package]]
 name = "weather-boundary-discovery"
