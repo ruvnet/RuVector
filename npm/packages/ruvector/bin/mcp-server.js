@@ -26,6 +26,10 @@ const path = require('path');
 const fs = require('fs');
 const { execSync, execFileSync } = require('child_process');
 
+// ADR-256: default-deny MCP tool-access policy (RUVECTOR_MCP_ALLOW/DENY/PROFILE)
+const { buildToolPolicy, isToolAllowed, filterAllowedTools } = require('./mcp-policy.js');
+const MCP_TOOL_POLICY = buildToolPolicy(process.env);
+
 // ── Security Helpers ────────────────────────────────────────────────────────
 
 /**
@@ -1692,14 +1696,29 @@ const TOOLS = [
   }
 ];
 
-// List tools handler
+// List tools handler — only expose tools permitted by the access policy (ADR-256)
 server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return { tools: TOOLS };
+  return { tools: filterAllowedTools(TOOLS, MCP_TOOL_POLICY) };
 });
 
 // Call tool handler
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
+
+  // ADR-256 default-deny gate: refuse tools excluded by RUVECTOR_MCP_ALLOW/DENY/PROFILE
+  if (!isToolAllowed(name, MCP_TOOL_POLICY)) {
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          success: false,
+          error: `Tool '${name}' is denied by the MCP access policy (ADR-256). ` +
+            `Adjust RUVECTOR_MCP_ALLOW / RUVECTOR_MCP_DENY / RUVECTOR_MCP_PROFILE to permit it.`,
+        }, null, 2),
+      }],
+      isError: true,
+    };
+  }
 
   try {
     switch (name) {

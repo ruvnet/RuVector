@@ -10148,13 +10148,26 @@ function buildHarnessSurface() {
     usage: 'npx ruvector hooks route "<task>"',
   };
 
-  // Agentic tool surface — bundled MCP server
+  // Agentic tool surface — bundled MCP server (with ADR-256 default-deny policy)
   const mcpPath = path.join(__dirname, 'mcp-server.js');
+  let mcpPolicy = { configured: false };
+  try {
+    const { buildToolPolicy } = require('./mcp-policy.js');
+    const p = buildToolPolicy(process.env);
+    mcpPolicy = {
+      configured: p.configured,
+      profile: p.profile || null,
+      allow: p.allowSet ? p.allowSet.size : 0,
+      deny: p.deny.size,
+    };
+  } catch { /* policy module optional */ }
   primitives.mcp = {
     name: 'mcp-server',
     role: 'agentic tool surface (Model Context Protocol)',
     available: fs.existsSync(mcpPath),
     usage: 'npx ruvector mcp start',
+    policy: mcpPolicy,
+    accessControl: mcpPolicy.configured ? 'default-deny (configured)' : 'allow-all (set RUVECTOR_MCP_ALLOW/PROFILE)',
   };
 
   // Signed provenance — witness chain (ADR-103 / ADR-134)
