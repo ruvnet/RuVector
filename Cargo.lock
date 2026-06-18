@@ -9221,6 +9221,7 @@ dependencies = [
  "rand_distr 0.4.3",
  "rayon",
  "ruvector-core 2.2.3",
+ "ruvector-diskann",
  "serde",
  "serde_json",
  "tempfile",
