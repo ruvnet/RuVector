@@ -39,9 +39,9 @@ parking_lot = { workspace = true }
 [build-dependencies]
 napi-build = "2.1"
 
-[profile.release]
-lto = true
-strip = true
+# Note: release optimization (opt-level=3, lto="fat", codegen-units=1, strip)
+# is governed by the workspace-root [profile.release]. Cargo ignores profile
+# tables in non-root manifests, so none are defined here.
 
 # Workspace cleanup pass: research-tier crate, doc/style churn deferred. Correctness + suspicious lints stay denied.
 [lints.rust]

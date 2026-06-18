@@ -19,7 +19,7 @@ Core type definitions for the RuVector Format (RVF) binary container.
 
 ```toml
 [dependencies]
-rvf-types = "0.1"
+rvf-types = "0.2"
 ```
 
 ```rust

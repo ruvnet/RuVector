@@ -699,6 +699,76 @@ fn runtime_benchmarks(c: &mut Criterion) {
 }
 
 // =========================================================================
+// 6b. Runtime Query Benchmarks: brute-force vs HNSW index at 100k vectors
+// =========================================================================
+
+fn runtime_query_100k_benchmarks(c: &mut Criterion) {
+    use rvf_runtime::{QueryOptions, RvfOptions, RvfStore};
+    use tempfile::TempDir;
+
+    let mut group = c.benchmark_group("runtime_query_100k");
+    group.sample_size(10);
+
+    let dim = 64usize;
+    let n = 100_000usize;
+
+    // Build the store once: ingest 100k vectors, then run a single query to
+    // trigger the lazy HNSW build so both benchmarks measure steady state.
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("query100k.rvf");
+    let options = RvfOptions {
+        dimension: dim as u16,
+        ..Default::default()
+    };
+    let mut store = RvfStore::create(&path, options).unwrap();
+    let vecs = make_random_vectors(n, dim, 4242);
+    let vec_refs: Vec<&[f32]> = vecs.iter().map(|v| v.as_slice()).collect();
+    let ids: Vec<u64> = (0..n as u64).collect();
+    store.ingest_batch(&vec_refs, &ids, None).unwrap();
+
+    let queries = make_random_vectors(64, dim, 9001);
+    let indexed_opts = QueryOptions::default();
+    let exact_opts = QueryOptions {
+        force_exact: true,
+        ..Default::default()
+    };
+
+    // Warm-up: builds the HNSW index (excluded from measurements).
+    let _ = store.query(&queries[0], 10, &indexed_opts).unwrap();
+
+    group.bench_function("brute_force_k10", |b| {
+        let mut qi = 0usize;
+        b.iter(|| {
+            let q = &queries[qi % queries.len()];
+            qi += 1;
+            black_box(store.query(q, 10, &exact_opts).unwrap());
+        })
+    });
+
+    group.bench_function("hnsw_indexed_k10", |b| {
+        let mut qi = 0usize;
+        b.iter(|| {
+            let q = &queries[qi % queries.len()];
+            qi += 1;
+            black_box(store.query(q, 10, &indexed_opts).unwrap());
+        })
+    });
+
+    store.close().unwrap();
+
+    // Cold-open: time from open_readonly() to query-ready vector storage
+    // (loads every VEC_SEG plus the persisted INDEX_SEG for 100k vectors).
+    group.bench_function("cold_open", |b| {
+        b.iter(|| {
+            let store = RvfStore::open_readonly(&path).unwrap();
+            black_box(store.status().total_vectors);
+        })
+    });
+
+    group.finish();
+}
+
+// =========================================================================
 // 7. Crypto Benchmarks
 // =========================================================================
 
@@ -773,6 +843,7 @@ criterion_group!(
     quantization_benchmarks,
     manifest_benchmarks,
     runtime_benchmarks,
+    runtime_query_100k_benchmarks,
     crypto_benchmarks,
 );
 

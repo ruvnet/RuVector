@@ -132,6 +132,11 @@ impl<const MAX_CPUS: usize, const MAX_PARTITIONS: usize> Scheduler<MAX_CPUS, MAX
     ///
     /// Uses a binary max-heap for O(log n) insertion instead of O(n) sorted insert.
     /// In degraded mode (DC-6), `cut_pressure` is zeroed automatically.
+    ///
+    /// Returns `false` (rejecting the request) for an out-of-range CPU,
+    /// a full queue, or `PartitionId::HYPERVISOR`: the hypervisor id is
+    /// the empty-slot sentinel and is never schedulable — accepting it
+    /// would permanently wedge a queue slot.
     #[inline]
     pub fn enqueue(
         &mut self,
@@ -140,6 +145,11 @@ impl<const MAX_CPUS: usize, const MAX_PARTITIONS: usize> Scheduler<MAX_CPUS, MAX
         deadline_urgency: u16,
         cut_pressure: CutPressure,
     ) -> bool {
+        // Reject the empty-slot sentinel: enqueuing the hypervisor id
+        // would create an entry indistinguishable from an empty slot.
+        if partition_id.is_hypervisor() {
+            return false;
+        }
         if cpu >= MAX_CPUS || self.queue_lens[cpu] >= MAX_RUN_QUEUE {
             return false;
         }
@@ -192,11 +202,15 @@ impl<const MAX_CPUS: usize, const MAX_PARTITIONS: usize> Scheduler<MAX_CPUS, MAX
         let queue = &mut self.run_queues[cpu];
         let len = self.queue_lens[cpu];
 
-        // Extract the max (root of the heap).
+        // Extract the max (root of the heap). The sentinel can never be
+        // enqueued (see `enqueue`), so a sentinel root with len > 0 is
+        // corrupted state; we still remove it below (defensive cleanup)
+        // so the slot is not wedged forever.
         let entry = queue[0];
-        if entry.is_empty() {
-            return None;
-        }
+        debug_assert!(
+            !entry.is_empty(),
+            "sentinel entry in run queue with non-zero length (corrupted heap)"
+        );
 
         // Move the last element to the root and clear the vacated slot.
         if len > 1 {
@@ -226,6 +240,13 @@ impl<const MAX_CPUS: usize, const MAX_PARTITIONS: usize> Scheduler<MAX_CPUS, MAX
             } else {
                 break;
             }
+        }
+
+        if entry.is_empty() {
+            // Defensive cleanup path (release builds): the corrupt
+            // sentinel entry has been removed from the heap above, but
+            // we do not "switch" to the hypervisor sentinel.
+            return None;
         }
 
         let old = self.per_cpu[cpu].current;
@@ -345,10 +366,29 @@ mod tests {
     fn test_queue_full() {
         let mut sched: Scheduler<4, 256> = Scheduler::new();
         for i in 0..MAX_RUN_QUEUE {
-            assert!(sched.enqueue(0, pid(i as u32), 100, CutPressure::ZERO));
+            // Start at 1: partition 0 (HYPERVISOR) is never schedulable.
+            assert!(sched.enqueue(0, pid(i as u32 + 1), 100, CutPressure::ZERO));
         }
         // Queue is full.
         assert!(!sched.enqueue(0, pid(999), 100, CutPressure::ZERO));
+    }
+
+    #[test]
+    fn test_enqueue_hypervisor_sentinel_rejected() {
+        let mut sched: Scheduler<4, 256> = Scheduler::new();
+
+        // The hypervisor sentinel must be rejected and must not consume
+        // a queue slot.
+        assert!(!sched.enqueue(0, PartitionId::HYPERVISOR, 100, CutPressure::ZERO));
+        assert_eq!(sched.queue_len(0), 0);
+        assert!(sched.switch_next(0).is_none());
+
+        // The queue keeps working normally afterwards.
+        assert!(sched.enqueue(0, pid(1), 100, CutPressure::ZERO));
+        assert_eq!(sched.queue_len(0), 1);
+        let (_, new) = sched.switch_next(0).unwrap();
+        assert_eq!(new, pid(1));
+        assert_eq!(sched.queue_len(0), 0);
     }
 
     #[test]

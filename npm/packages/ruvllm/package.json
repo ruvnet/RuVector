@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/ruvllm",
-  "version": "2.5.5",
+  "version": "2.5.6",
   "description": "Self-learning LLM runtime — TurboQuant KV-cache (6-8x compression), SONA adaptive learning, FlashAttention, speculative decoding, GGUF inference",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",

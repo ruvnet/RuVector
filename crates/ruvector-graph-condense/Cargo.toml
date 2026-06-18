@@ -1,0 +1,42 @@
+[package]
+name = "ruvector-graph-condense"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme = "README.md"
+description = "Structure-preserving graph condensation: collapse large feature graphs into small synthetic graphs using dynamic min-cut community boundaries"
+keywords = ["graph", "condensation", "distillation", "min-cut", "gnn"]
+categories = ["algorithms", "science", "mathematics"]
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# Substrate: dynamic min-cut engine (DynamicGraph, CommunityDetector, GraphPartitioner).
+# Default features only (exact + approximate); integration re-exports are unconditional.
+ruvector-mincut = { version = "2.2.3", path = "../ruvector-mincut", default-features = false }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+rand = { workspace = true }
+rayon = { workspace = true, optional = true }
+
+[features]
+default = ["parallel"]
+# Rayon-based parallelism for the differentiable min-cut optimiser. Off for
+# targets without threads (e.g. wasm32-unknown-unknown).
+parallel = ["dep:rayon"]
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+name = "condense_bench"
+harness = false
+
+[lints]
+workspace = true

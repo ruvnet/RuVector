@@ -1,0 +1,27 @@
+[package]
+name = "ruvector-perception"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "The layer under classification: physical delta -> boundary -> coherence -> proof -> action. A trusted-physical-memory engine that emits structured delta witnesses, not class labels."
+keywords = ["sensing", "coherence", "min-cut", "edge-ai", "anomaly"]
+categories = ["algorithms", "science"]
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# Boundary detection reuses the dynamic min-cut engine.
+ruvector-mincut = { version = "2.2.3", path = "../ruvector-mincut", default-features = false }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sha2 = "0.10"
+
+[dev-dependencies]
+
+[lints]
+workspace = true

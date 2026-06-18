@@ -65,8 +65,11 @@ fn quality_envelope_returned_for_normal_query() {
         envelope.quality,
         ResponseQuality::Verified | ResponseQuality::Usable | ResponseQuality::Degraded
     ));
-    // Evidence must be populated.
-    assert!(envelope.evidence.layers_used.layer_a);
+    // Evidence must be honest: this 100-vector store is below the index
+    // activation threshold, so the brute-force scan serves the query and
+    // no index layer may be claimed (previously layer_a was fabricated).
+    assert!(!envelope.evidence.layers_used.layer_a);
+    assert!(!envelope.evidence.layers_used.layer_c);
     // Budget report must have non-zero total_us.
     assert!(envelope.budgets.total_us > 0 || envelope.results.is_empty());
 }

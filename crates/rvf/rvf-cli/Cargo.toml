@@ -16,7 +16,7 @@ name = "rvf"
 path = "src/main.rs"
 
 [dependencies]
-rvf-runtime = { version = "0.2.0", path = "../rvf-runtime" }
+rvf-runtime = { version = "0.3.0", path = "../rvf-runtime" }
 rvf-types = { version = "0.2.0", path = "../rvf-types", features = ["std"] }
 rvf-wire = { version = "0.1.0", path = "../rvf-wire" }
 rvf-manifest = { version = "0.1.0", path = "../rvf-manifest" }

@@ -1,0 +1,29 @@
+[package]
+name = "ruvector-graph-condense-wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme = "README.md"
+description = "WASM bindings for ruvector-graph-condense: structure-preserving + differentiable-min-cut graph condensation in the browser / on the edge"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Core condenser without the Rayon parallel feature (wasm32 has no threads).
+ruvector-graph-condense = { version = "2.2.3", path = "../ruvector-graph-condense", default-features = false }
+ruvector-mincut = { version = "2.2.3", path = "../ruvector-mincut", default-features = false, features = ["wasm"] }
+wasm-bindgen = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Force the JS RNG backend only on wasm (rand 0.8 -> getrandom 0.2); keeps the
+# `js` feature out of native builds / feature unification.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
+
+[lints]
+workspace = true

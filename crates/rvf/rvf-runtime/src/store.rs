@@ -7,6 +7,8 @@ use std::collections::BinaryHeap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 
 use rvf_types::dashboard::{DashboardHeader, DASHBOARD_MAGIC, DASHBOARD_MAX_SIZE};
 use rvf_types::ebpf::{EbpfHeader, EBPF_MAGIC};
@@ -21,9 +23,13 @@ use rvf_types::{
 use crate::cow::{CowEngine, CowStats};
 use crate::deletion::DeletionBitmap;
 use crate::filter::{self, metadata_value_to_filter, FilterExpr, FilterValue, MetadataStore};
+use crate::index_path::{
+    VectorIndex, INDEX_MAX_DELETED_FRACTION, INDEX_MIN_EF_SEARCH, INDEX_MIN_VECTORS,
+};
 use crate::locking::WriterLock;
 use crate::membership::MembershipFilter;
 use crate::options::*;
+use crate::rabitq_path::RabitqState;
 use crate::read_path::{self, VectorData};
 use crate::status::{CompactionState, StoreStatus};
 use crate::write_path::SegmentWriter;
@@ -68,6 +74,32 @@ pub struct RvfStore {
     /// Hash of the last witness entry, used to chain-link successive witnesses.
     /// All zeros when no witness has been written yet (genesis).
     last_witness_hash: [u8; 32],
+    /// In-memory HNSW index over the stored vectors (None until loaded
+    /// from an INDEX_SEG or built on the first eligible query). Guarded by
+    /// a Mutex so `query(&self)` can build/maintain it lazily.
+    index: Mutex<Option<VectorIndex>>,
+    /// True while one query thread is (re)building the HNSW index OUTSIDE
+    /// the `index` mutex. Other query threads fall back to the exact scan
+    /// instead of blocking behind an O(N log N) build (audit finding 5:
+    /// overwrite invalidation must not cause head-of-line blocking).
+    index_building: AtomicBool,
+    /// In-memory RaBitQ codes for the opt-in two-stage query path (None
+    /// until the first `QueryOptions::rabitq` query builds it lazily).
+    rabitq: Mutex<Option<RabitqState>>,
+    /// Same single-builder gate as `index_building`, for the RaBitQ code
+    /// book (its lazy build is an O(N) scan + encode).
+    rabitq_building: AtomicBool,
+}
+
+/// Clears an `AtomicBool` on drop, so a panicking index build can never
+/// leave the "building" gate latched (queries would silently fall back to
+/// the exact scan forever).
+struct ClearOnDrop<'a>(&'a AtomicBool);
+
+impl Drop for ClearOnDrop<'_> {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
+    }
 }
 
 impl RvfStore {
@@ -117,6 +149,10 @@ impl RvfStore {
             membership_filter: None,
             parent_path: None,
             last_witness_hash: [0u8; 32],
+            index: Mutex::new(None),
+            index_building: AtomicBool::new(false),
+            rabitq: Mutex::new(None),
+            rabitq_building: AtomicBool::new(false),
         };
 
         store.write_manifest()?;
@@ -167,6 +203,10 @@ impl RvfStore {
             membership_filter: None,
             parent_path: None,
             last_witness_hash: [0u8; 32],
+            index: Mutex::new(None),
+            index_building: AtomicBool::new(false),
+            rabitq: Mutex::new(None),
+            rabitq_building: AtomicBool::new(false),
         };
 
         store.boot()?;
@@ -213,6 +253,10 @@ impl RvfStore {
             membership_filter: None,
             parent_path: None,
             last_witness_hash: [0u8; 32],
+            index: Mutex::new(None),
+            index_building: AtomicBool::new(false),
+            rabitq: Mutex::new(None),
+            rabitq_building: AtomicBool::new(false),
         };
 
         store.boot()?;
@@ -290,7 +334,38 @@ impl RvfStore {
         ));
 
         for (vec_data, &vec_id) in valid_vectors.iter().zip(valid_ids.iter()) {
-            self.vectors.insert(vec_id, vec_data.to_vec());
+            self.vectors.insert_slice(vec_id, vec_data);
+        }
+
+        // Keep the in-memory HNSW index in sync with the new vectors.
+        {
+            let mut guard = self.index.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(idx) = guard.as_mut() {
+                if valid_ids.iter().any(|&id| idx.contains(id)) {
+                    // An existing ID was overwritten: the graph's edges for
+                    // that node are stale. Drop the index (it is rebuilt
+                    // lazily) and unlink any persisted INDEX_SEG so a
+                    // reopen does not load the stale graph.
+                    *guard = None;
+                    self.segment_dir
+                        .retain(|&(_, _, _, stype)| stype != SegmentType::Index as u8);
+                } else {
+                    let mut new_ids = valid_ids.clone();
+                    new_ids.sort_unstable();
+                    idx.insert_ids(&new_ids, &self.vectors, self.options.metric);
+                }
+            }
+        }
+
+        // RaBitQ codes for overwritten IDs are stale: drop the state (it
+        // is rebuilt lazily). New IDs are encoded lazily by sync_missing.
+        {
+            let mut guard = self.rabitq.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(state) = guard.as_ref() {
+                if valid_ids.iter().any(|&id| state.contains(id)) {
+                    *guard = None;
+                }
+            }
         }
 
         if let Some(meta_entries) = metadata {
@@ -330,26 +405,257 @@ impl RvfStore {
     }
 
     /// Query the store for the k nearest neighbors of the given vector.
+    ///
+    /// Routing: stores with at least `INDEX_MIN_VECTORS` vectors are served
+    /// by the HNSW index (loaded from an INDEX_SEG at open time, or built
+    /// on the first eligible query and maintained incrementally). Smaller
+    /// stores, filtered queries, COW/membership stores, and stores with a
+    /// high soft-deleted fraction use the exact brute-force scan.
     pub fn query(
         &self,
         vector: &[f32],
         k: usize,
         options: &QueryOptions,
     ) -> Result<Vec<SearchResult>, RvfError> {
+        self.query_routed(vector, k, options).map(|(r, _)| r)
+    }
+
+    /// Internal query entry point. Returns the results plus whether the
+    /// HNSW index actually served the query (for honest evidence reporting
+    /// in [`Self::query_with_envelope`]).
+    fn query_routed(
+        &self,
+        vector: &[f32],
+        k: usize,
+        options: &QueryOptions,
+    ) -> Result<(Vec<SearchResult>, bool), RvfError> {
         let dim = self.options.dimension as usize;
         if vector.len() != dim {
             return Err(err(ErrorCode::DimensionMismatch));
         }
 
         if self.vectors.len() == 0 {
-            return Ok(Vec::new());
+            return Ok((Vec::new(), false));
         }
 
+        // Opt-in RaBitQ two-stage path (binary candidate scan + exact
+        // rescore). Not an HNSW-index serve, so the flag stays false.
+        if self.rabitq_eligible(options) {
+            if let Some(results) = self.query_via_rabitq(vector, k, options) {
+                return Ok((results, false));
+            }
+        }
+
+        if self.index_eligible(options) {
+            if let Some(results) = self.query_via_index(vector, k, options) {
+                return Ok((results, true));
+            }
+        }
+
+        Ok((self.query_exact(vector, k, options), false))
+    }
+
+    /// Whether this query can be served by the opt-in RaBitQ two-stage
+    /// path. v1 supports the L2 metric; filtered queries and COW /
+    /// membership stores use the default routing.
+    fn rabitq_eligible(&self, options: &QueryOptions) -> bool {
+        options.rabitq
+            && !options.force_exact
+            && options.filter.is_none()
+            && self.membership_filter.is_none()
+            && self.cow_engine.is_none()
+            && self.options.metric == DistanceMetric::L2
+    }
+
+    /// Serve a query through the RaBitQ two-stage path, building the code
+    /// book on first use.
+    ///
+    /// Stage 1 scans the 1-bit codes with the asymmetric estimator and
+    /// collects `rabitq_oversample * k` live candidates; stage 2 rescores
+    /// them with exact f32 distances. Returns `None` when the candidate
+    /// set cannot supply `k` live results (caller falls back).
+    fn query_via_rabitq(
+        &self,
+        vector: &[f32],
+        k: usize,
+        options: &QueryOptions,
+    ) -> Option<Vec<SearchResult>> {
+        let mut guard = self.rabitq.lock().unwrap_or_else(|e| e.into_inner());
+        if guard.is_none() {
+            // Build OUTSIDE the lock so concurrent queries are not blocked
+            // behind the O(N) encode; only one thread builds, the others
+            // fall back to the default routing (audit finding 5 pattern).
+            drop(guard);
+            if self.rabitq_building.swap(true, Ordering::AcqRel) {
+                return None;
+            }
+            let _clear = ClearOnDrop(&self.rabitq_building);
+            let built = RabitqState::build(&self.vectors);
+            guard = self.rabitq.lock().unwrap_or_else(|e| e.into_inner());
+            if guard.is_none() {
+                *guard = built;
+            }
+        }
+        let state = guard.as_mut()?;
+        // Encode vectors ingested since the state was built.
+        state.sync_missing(&self.vectors);
+
+        let oversample = (options.rabitq_oversample.max(1)) as usize;
+        // Oversample for estimator error (floored so the candidate pool
+        // meets the >= 0.95 recall@10 contract, see RABITQ_MIN_CANDIDATES),
+        // plus headroom for soft-deleted hits the same way the HNSW path
+        // compensates.
+        let deleted = self.deletion_bitmap.count();
+        let k_fetch = k
+            .saturating_mul(oversample)
+            .max(crate::rabitq_path::RABITQ_MIN_CANDIDATES)
+            .saturating_add(deleted.min(2 * k + 16));
+
+        let candidates =
+            state.candidates(vector, k_fetch, |id| !self.deletion_bitmap.is_deleted(id));
+
+        // Stage 2: exact f32 rescore of the candidate set.
+        let mut results: Vec<SearchResult> = candidates
+            .into_iter()
+            .filter_map(|(id, _est)| {
+                self.vectors.get(id).map(|v| SearchResult {
+                    id,
+                    distance: compute_distance(vector, v, &self.options.metric, 0.0),
+                    retrieval_quality: rvf_types::quality::RetrievalQuality::Full,
+                })
+            })
+            .collect();
+        results.sort_by(|a, b| {
+            a.distance
+                .total_cmp(&b.distance)
+                .then_with(|| a.id.cmp(&b.id))
+        });
+        results.truncate(k);
+
+        let live = self.vectors.len().saturating_sub(deleted);
+        if results.len() < k.min(live) {
+            return None;
+        }
+        Some(results)
+    }
+
+    /// Whether this query can be served by the HNSW index path.
+    ///
+    /// Filtered queries, COW/membership stores, small stores, and stores
+    /// with a high deleted fraction always use the exact scan (which is
+    /// both correct and faster in those regimes).
+    fn index_eligible(&self, options: &QueryOptions) -> bool {
+        if options.force_exact || options.filter.is_some() {
+            return false;
+        }
+        if self.membership_filter.is_some() || self.cow_engine.is_some() {
+            return false;
+        }
+        let total = self.vectors.len();
+        if total < INDEX_MIN_VECTORS {
+            return false;
+        }
+        let deleted = self.deletion_bitmap.count();
+        (deleted as f64) <= (total as f64) * INDEX_MAX_DELETED_FRACTION
+    }
+
+    /// Serve a query through the HNSW index, building it on first use.
+    ///
+    /// Returns `None` when the index cannot supply `k` live results; the
+    /// caller then falls back to the exact scan.
+    fn query_via_index(
+        &self,
+        vector: &[f32],
+        k: usize,
+        options: &QueryOptions,
+    ) -> Option<Vec<SearchResult>> {
+        let mut guard = self.index.lock().unwrap_or_else(|e| e.into_inner());
+        if guard.is_none() {
+            // Audit finding 5: the O(N log N) build must not run under the
+            // query mutex (head-of-line blocking after an overwrite drops
+            // the index). Exactly one thread builds into a local index
+            // with NO lock held, then swaps it in; concurrent queries see
+            // `index_building` set and fall back to the exact scan, so
+            // queries keep serving throughout the rebuild.
+            drop(guard);
+            if self.index_building.swap(true, Ordering::AcqRel) {
+                return None;
+            }
+            let _clear = ClearOnDrop(&self.index_building);
+            let built = VectorIndex::build(
+                &self.vectors,
+                self.options.metric,
+                (self.options.m.max(2)) as usize,
+                (self.options.ef_construction.max(16)) as usize,
+            );
+            guard = self.index.lock().unwrap_or_else(|e| e.into_inner());
+            if guard.is_none() {
+                *guard = Some(built);
+            }
+        }
+        let idx = guard.as_mut()?;
+        // Insert vectors ingested since the index was built/loaded.
+        idx.sync_missing(&self.vectors, self.options.metric);
+
+        // Oversample to compensate for soft-deleted entries that may
+        // appear among the nearest graph hits.
+        let deleted = self.deletion_bitmap.count();
+        let live = self.vectors.len().saturating_sub(deleted);
+        let k_fetch = k.saturating_add(deleted.min(2 * k + 16));
+        // Floor ef_search so the index path meets the >=0.95 recall@10
+        // contract (see INDEX_MIN_EF_SEARCH); larger values are honored.
+        let ef = (options.ef_search as usize)
+            .max(k_fetch)
+            .max(INDEX_MIN_EF_SEARCH);
+
+        let hits = idx.search(vector, k_fetch, ef, &self.vectors, self.options.metric);
+        let mut results: Vec<SearchResult> = hits
+            .into_iter()
+            .filter(|&(id, _)| !self.deletion_bitmap.is_deleted(id))
+            .take(k)
+            .map(|(id, distance)| SearchResult {
+                id,
+                distance,
+                retrieval_quality: rvf_types::quality::RetrievalQuality::Full,
+            })
+            .collect();
+        if results.len() < k.min(live) {
+            // Not enough live hits after deletion filtering; let the exact
+            // scan answer instead of returning an under-filled result set.
+            return None;
+        }
+        // Preserve deterministic (distance, id) result ordering.
+        results.sort_by(|a, b| {
+            a.distance
+                .partial_cmp(&b.distance)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.id.cmp(&b.id))
+        });
+        Some(results)
+    }
+
+    /// Exact brute-force k-nearest-neighbor scan over all live vectors.
+    fn query_exact(&self, vector: &[f32], k: usize, options: &QueryOptions) -> Vec<SearchResult> {
         // Max-heap: peek() returns the largest (farthest) distance in our k set.
         // When a closer vector is found, evict the farthest.
         let mut heap: BinaryHeap<(OrderedFloat, u64)> = BinaryHeap::new();
 
-        for &vec_id in self.vectors.ids() {
+        // Precompute the query's squared norm once for the cosine metric
+        // instead of recomputing it for every stored vector in the scan.
+        let query_norm_sq = match self.options.metric {
+            DistanceMetric::Cosine => {
+                let mut norm = 0.0f32;
+                for x in vector {
+                    norm += x * x;
+                }
+                norm
+            }
+            _ => 0.0,
+        };
+
+        // Scan the contiguous slab in ordinal order (cache-friendly: rows
+        // are adjacent in memory, no per-vector pointer chase).
+        for (vec_id, stored_vec) in self.vectors.iter() {
             if self.deletion_bitmap.is_deleted(vec_id) {
                 continue;
             }
@@ -358,15 +664,15 @@ impl RvfStore {
                     continue;
                 }
             }
-            if let Some(stored_vec) = self.vectors.get(vec_id) {
-                let dist = compute_distance(vector, stored_vec, &self.options.metric);
-                if heap.len() < k {
+            let dist = compute_distance(vector, stored_vec, &self.options.metric, query_norm_sq);
+            if heap.len() < k {
+                heap.push((OrderedFloat(dist), vec_id));
+            } else if let Some(&(OrderedFloat(worst), worst_id)) = heap.peek() {
+                // Tie-break equal distances by smaller id so the selected
+                // k-set is independent of storage iteration order.
+                if dist < worst || (dist == worst && vec_id < worst_id) {
+                    heap.pop();
                     heap.push((OrderedFloat(dist), vec_id));
-                } else if let Some(&(OrderedFloat(worst), _)) = heap.peek() {
-                    if dist < worst {
-                        heap.pop();
-                        heap.push((OrderedFloat(dist), vec_id));
-                    }
                 }
             }
         }
@@ -384,8 +690,9 @@ impl RvfStore {
             a.distance
                 .partial_cmp(&b.distance)
                 .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.id.cmp(&b.id))
         });
-        Ok(results)
+        results
     }
 
     /// Query the store and return a full QualityEnvelope (ADR-033 §2.4).
@@ -415,8 +722,8 @@ impl RvfStore {
             _ => options.safety_net_budget,
         };
 
-        // Execute the base query.
-        let results = self.query(vector, k, options)?;
+        // Execute the base query, tracking whether the HNSW index served it.
+        let (results, index_used) = self.query_routed(vector, k, options)?;
         let hnsw_candidate_count = results.len() as u32;
 
         // Determine if safety net should activate.
@@ -429,16 +736,11 @@ impl RvfStore {
         let mut degradation: Option<DegradationReport> = None;
 
         if needs_safety_net && self.vectors.len() > 0 {
-            // Build vector refs for safety net scan.
+            // Build vector refs for safety net scan (slab rows, no copies).
             let vec_refs: Vec<(u64, &[f32])> = self
                 .vectors
-                .ids()
-                .filter_map(|&id| {
-                    if self.deletion_bitmap.is_deleted(id) {
-                        return None;
-                    }
-                    self.vectors.get(id).map(|v| (id, v))
-                })
+                .iter()
+                .filter(|&(id, _)| !self.deletion_bitmap.is_deleted(id))
                 .collect();
 
             let base_results: Vec<crate::options::SearchResult> = all_results.clone();
@@ -469,6 +771,7 @@ impl RvfStore {
                 a.distance
                     .partial_cmp(&b.distance)
                     .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| a.id.cmp(&b.id))
             });
             all_results.truncate(k);
         }
@@ -481,11 +784,13 @@ impl RvfStore {
             all_results.iter().map(|r| r.retrieval_quality).collect();
         let quality = derive_response_quality(&retrieval_qualities);
 
+        // Honest evidence: index layers are reported as used only when the
+        // HNSW index actually served the query (not on brute-force scans).
         let evidence = SearchEvidenceSummary {
             layers_used: IndexLayersUsed {
-                layer_a: true,
+                layer_a: index_used,
                 layer_b: false,
-                layer_c: false,
+                layer_c: index_used,
                 hot_cache: needs_safety_net,
             },
             n_probe_effective: 0,
@@ -676,7 +981,17 @@ impl RvfStore {
         for &id in &deleted_ids {
             self.vectors.remove(id);
         }
+        // Reclaim the tombstoned slab slots (the only point where slots
+        // are reused, so live rows never move between mutations).
+        self.vectors.compact_in_place();
         self.metadata.remove_ids(&deleted_ids);
+
+        // Compaction removes vectors, so the in-memory HNSW index is
+        // invalidated (rebuilt lazily). Persisted INDEX_SEGs are likewise
+        // dropped from the rewritten file below. The RaBitQ code book
+        // references removed IDs too, so it is dropped alongside.
+        *self.index.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        *self.rabitq.lock().unwrap_or_else(|e| e.into_inner()) = None;
 
         let segments_compacted = deleted_ids.len() as u32;
         let bytes_reclaimed = (deleted_ids.len() as u64) * (self.options.dimension as u64) * 4;
@@ -711,14 +1026,14 @@ impl RvfStore {
 
             let mut temp_writer = BufWriter::new(&temp_file);
 
-            let live_ids: Vec<u64> = self.vectors.ids().copied().collect();
-            let live_vecs: Vec<Vec<f32>> = live_ids
-                .iter()
-                .filter_map(|&id| self.vectors.get(id).map(|v| v.to_vec()))
-                .collect();
+            let mut live_ids: Vec<u64> = Vec::with_capacity(self.vectors.len());
+            let mut vec_refs: Vec<&[f32]> = Vec::with_capacity(self.vectors.len());
+            for (id, row) in self.vectors.iter() {
+                live_ids.push(id);
+                vec_refs.push(row);
+            }
 
             if !live_ids.is_empty() {
-                let vec_refs: Vec<&[f32]> = live_vecs.iter().map(|v| v.as_slice()).collect();
                 let (seg_id, offset) = seg_writer
                     .write_vec_seg(
                         &mut temp_writer,
@@ -739,6 +1054,12 @@ impl RvfStore {
             // newer format versions).
             let preserved = scan_preservable_segments(&original_bytes);
             for (orig_offset, seg_id, payload_len, seg_type) in &preserved {
+                // Drop INDEX_SEGs: compaction changes the vector set, so a
+                // preserved index would be stale. It is rebuilt from the
+                // live vectors on the next eligible query.
+                if *seg_type == SegmentType::Index as u8 {
+                    continue;
+                }
                 // Use checked arithmetic for bounds safety.
                 let total_bytes = match (*payload_len as usize).checked_add(SEGMENT_HEADER_SIZE) {
                     Some(t) => t,
@@ -845,7 +1166,13 @@ impl RvfStore {
     }
 
     /// Close the store, releasing the writer lock.
-    pub fn close(self) -> Result<(), RvfError> {
+    ///
+    /// If the in-memory HNSW index changed since it was last persisted,
+    /// it is written out as an INDEX_SEG so the next open can load it
+    /// instead of rebuilding from vectors.
+    pub fn close(mut self) -> Result<(), RvfError> {
+        self.persist_index()?;
+
         self.file
             .sync_all()
             .map_err(|_| err(ErrorCode::FsyncFailed))?;
@@ -855,6 +1182,65 @@ impl RvfStore {
         }
 
         Ok(())
+    }
+
+    /// True when an HNSW index is resident in memory (loaded from an
+    /// INDEX_SEG at open time or built by a previous query).
+    pub fn index_ready(&self) -> bool {
+        self.index
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some()
+    }
+
+    /// Persist the in-memory HNSW index as an INDEX_SEG if it has changed
+    /// since it was last persisted (or since it was built/loaded).
+    fn persist_index(&mut self) -> Result<(), RvfError> {
+        if self.read_only {
+            return Ok(());
+        }
+        let payload = {
+            let mut guard = self.index.lock().unwrap_or_else(|e| e.into_inner());
+            match guard.as_mut() {
+                Some(idx) if idx.is_dirty() && idx.node_count() > 0 => {
+                    let payload = idx.encode_payload();
+                    idx.mark_clean();
+                    payload
+                }
+                _ => return Ok(()),
+            }
+        };
+
+        let writer = self
+            .seg_writer
+            .as_mut()
+            .ok_or_else(|| err(ErrorCode::InvalidManifest))?;
+        let (seg_id, seg_offset) = {
+            let mut buf_writer = BufWriter::with_capacity(256 * 1024, &self.file);
+            buf_writer
+                .seek(SeekFrom::End(0))
+                .map_err(|_| err(ErrorCode::FsyncFailed))?;
+            writer
+                .write_index_seg(&mut buf_writer, &payload)
+                .map_err(|_| err(ErrorCode::FsyncFailed))?
+        };
+
+        // Newer INDEX_SEGs supersede older ones: keep only the latest
+        // entry in the manifest (orphaned bytes are reclaimed by compact).
+        self.segment_dir
+            .retain(|&(_, _, _, stype)| stype != SegmentType::Index as u8);
+        self.segment_dir.push((
+            seg_id,
+            seg_offset,
+            payload.len() as u64,
+            SegmentType::Index as u8,
+        ));
+
+        self.file
+            .sync_all()
+            .map_err(|_| err(ErrorCode::FsyncFailed))?;
+        self.epoch += 1;
+        self.write_manifest()
     }
 
     // -- Kernel / eBPF embedding API --
@@ -1647,6 +2033,10 @@ impl RvfStore {
             membership_filter: None,
             parent_path: Some(self.path.clone()),
             last_witness_hash: [0u8; 32],
+            index: Mutex::new(None),
+            index_building: AtomicBool::new(false),
+            rabitq: Mutex::new(None),
+            rabitq_building: AtomicBool::new(false),
         };
 
         store.write_manifest()?;
@@ -1767,7 +2157,12 @@ impl RvfStore {
         self.epoch = manifest.epoch;
         self.options.dimension = manifest.dimension;
         self.options.profile = manifest.profile_id;
-        self.vectors = VectorData::new(manifest.dimension);
+        // Pre-size the slab from the manifest so the cold-open load does a
+        // single allocation instead of growing through repeated doublings.
+        self.vectors = VectorData::with_capacity(
+            manifest.dimension,
+            usize::try_from(manifest.total_vectors).unwrap_or(0),
+        );
         self.deletion_bitmap = DeletionBitmap::from_ids(&manifest.deleted_ids);
 
         self.segment_dir = manifest
@@ -1789,9 +2184,16 @@ impl RvfStore {
                     .map_err(|_| err(ErrorCode::InvalidChecksum))?
             };
 
-            if let Some(vec_entries) = read_path::read_vec_seg_payload(&payload) {
-                for (vec_id, vec_data) in vec_entries {
-                    self.vectors.insert(vec_id, vec_data);
+            // Fast path: bulk-copy the segment's rows straight into the
+            // contiguous slab (no per-vector allocation). Falls back to
+            // the legacy parser for segments whose dimension differs from
+            // the manifest dimension (such rows are skipped by the slab,
+            // matching the layout invariant).
+            if self.vectors.load_from_vec_seg(&payload).is_none() {
+                if let Some(vec_entries) = read_path::read_vec_seg_payload(&payload) {
+                    for (vec_id, vec_data) in vec_entries {
+                        self.vectors.insert(vec_id, vec_data);
+                    }
                 }
             }
         }
@@ -1799,6 +2201,29 @@ impl RvfStore {
         // Restore FileIdentity from manifest if present
         if let Some(fi) = manifest.file_identity {
             self.file_identity = fi;
+        }
+
+        // Load the most recently persisted HNSW index, if any. A stale or
+        // corrupt INDEX_SEG is ignored; the index is then rebuilt from
+        // vectors on the first eligible query.
+        let index_entry = self
+            .segment_dir
+            .iter()
+            .rev()
+            .find(|&&(_, _, _, stype)| stype == SegmentType::Index as u8)
+            .copied();
+        if let Some((_, offset, _, _)) = index_entry {
+            let payload = {
+                let mut reader = BufReader::new(&self.file);
+                read_path::read_segment_payload(&mut reader, offset)
+                    .ok()
+                    .map(|(_, p)| p)
+            };
+            if let Some(payload) = payload {
+                if let Some(idx) = VectorIndex::decode_payload(&payload, &self.vectors) {
+                    *self.index.lock().unwrap_or_else(|e| e.into_inner()) = Some(idx);
+                }
+            }
         }
 
         if !self.read_only {
@@ -1868,7 +2293,11 @@ impl RvfStore {
     }
 }
 
-fn compute_distance(a: &[f32], b: &[f32], metric: &DistanceMetric) -> f32 {
+/// Compute the distance between query `a` and stored vector `b`.
+///
+/// `a_norm_sq` is the precomputed squared norm of `a`, used only by the
+/// cosine metric so the query norm is not recomputed per stored vector.
+fn compute_distance(a: &[f32], b: &[f32], metric: &DistanceMetric, a_norm_sq: f32) -> f32 {
     match metric {
         DistanceMetric::L2 => a
             .iter()
@@ -1884,14 +2313,12 @@ fn compute_distance(a: &[f32], b: &[f32], metric: &DistanceMetric) -> f32 {
         }
         DistanceMetric::Cosine => {
             let mut dot = 0.0f32;
-            let mut norm_a = 0.0f32;
             let mut norm_b = 0.0f32;
             for (x, y) in a.iter().zip(b.iter()) {
                 dot += x * y;
-                norm_a += x * x;
                 norm_b += y * y;
             }
-            let denom = (norm_a * norm_b).sqrt();
+            let denom = (a_norm_sq * norm_b).sqrt();
             if denom < f32::EPSILON {
                 1.0
             } else {
@@ -2138,6 +2565,71 @@ mod tests {
             assert_eq!(results.len(), 2);
             assert_eq!(results[0].id, 10);
             assert!(results[0].distance < f32::EPSILON);
+            store.close().unwrap();
+        }
+    }
+
+    #[test]
+    fn reopen_with_manifest_beyond_64kb_tail_window() {
+        // Regression test: find_latest_manifest used to scan only the final
+        // 64 KB of the file. A manifest larger than that (here, via a large
+        // deletion bitmap; the same happens after ~870 ingest batches as the
+        // segment directory grows) pushed the manifest header beyond the
+        // window and made the store unreadable on reopen.
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("big_manifest.rvf");
+
+        let options = RvfOptions {
+            dimension: 4,
+            metric: DistanceMetric::L2,
+            ..Default::default()
+        };
+
+        {
+            let mut store = RvfStore::create(&path, options).unwrap();
+
+            let vecs: Vec<Vec<f32>> = (0..10_000).map(|i| random_vector(4, i)).collect();
+            let vec_refs: Vec<&[f32]> = vecs.iter().map(|v| v.as_slice()).collect();
+            let ids: Vec<u64> = (0..10_000).collect();
+            store.ingest_batch(&vec_refs, &ids, None).unwrap();
+
+            // Deleting 9,000 vectors puts 72,000 bytes of deleted IDs into
+            // every subsequent manifest, so the latest manifest header sits
+            // more than 64 KB before EOF.
+            let del_ids: Vec<u64> = (0..9_000).collect();
+            let del_result = store.delete(&del_ids).unwrap();
+            assert_eq!(del_result.deleted, 9_000);
+
+            // One more small ingest so the file ends with a fresh large manifest.
+            let extra = random_vector(4, 99_999);
+            store
+                .ingest_batch(&[extra.as_slice()], &[20_000], None)
+                .unwrap();
+
+            store.close().unwrap();
+        }
+
+        // Sanity-check the premise: no manifest header exists within the
+        // final 64 KB of the file, so the old fixed-window scan would fail.
+        {
+            let data = std::fs::read(&path).unwrap();
+            assert!(data.len() > 65_536);
+            let tail = &data[data.len() - 65_536..];
+            let magic = SEGMENT_MAGIC.to_le_bytes();
+            let found = tail
+                .windows(6)
+                .any(|w| w[0..4] == magic && w[5] == SegmentType::Manifest as u8);
+            assert!(!found, "manifest header unexpectedly within 64 KB tail");
+        }
+
+        {
+            let store = RvfStore::open(&path).unwrap();
+            assert_eq!(store.status().total_vectors, 1_001);
+
+            let query = random_vector(4, 9_500);
+            let results = store.query(&query, 1, &QueryOptions::default()).unwrap();
+            assert_eq!(results.len(), 1);
+            assert_eq!(results[0].id, 9_500);
             store.close().unwrap();
         }
     }
@@ -2760,6 +3252,163 @@ mod tests {
             .unwrap();
         assert_eq!(count_witness_segments(&store), 1);
         assert_ne!(store.last_witness_hash(), &[0u8; 32]);
+
+        store.close().unwrap();
+    }
+
+    // ── Audit finding 5: index rebuild must not block queries ─────────
+
+    /// While one thread holds the `index_building` gate, other queries must
+    /// be served by the exact scan instead of blocking (and must not build
+    /// the index themselves).
+    #[test]
+    fn query_falls_back_to_exact_scan_while_index_is_building() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("building_fallback.rvf");
+
+        let options = RvfOptions {
+            dimension: 8,
+            metric: DistanceMetric::L2,
+            ..Default::default()
+        };
+        let mut store = RvfStore::create(&path, options).unwrap();
+
+        let n = (crate::index_path::INDEX_MIN_VECTORS + 64) as u64;
+        let vecs: Vec<Vec<f32>> = (0..n).map(|i| random_vector(8, i)).collect();
+        let refs: Vec<&[f32]> = vecs.iter().map(|v| v.as_slice()).collect();
+        let ids: Vec<u64> = (0..n).collect();
+        store.ingest_batch(&refs, &ids, None).unwrap();
+
+        // Simulate another thread mid-build: the gate is held.
+        store.index_building.store(true, Ordering::Release);
+        let q = random_vector(8, 17);
+        let results = store.query(&q, 10, &QueryOptions::default()).unwrap();
+        assert_eq!(results.len(), 10);
+        assert_eq!(results[0].id, 17);
+        // Nobody built the index under the latched gate.
+        assert!(!store.index_ready());
+
+        // Gate released: the next query builds and installs the index.
+        store.index_building.store(false, Ordering::Release);
+        let results = store.query(&q, 10, &QueryOptions::default()).unwrap();
+        assert_eq!(results.len(), 10);
+        assert_eq!(results[0].id, 17);
+        assert!(store.index_ready());
+
+        store.close().unwrap();
+    }
+
+    /// Interleaved overwrites (which drop the HNSW index) and concurrent
+    /// queries: queries must keep serving — no panic, no deadlock, full
+    /// result sets — while rebuilds happen outside the query mutex.
+    /// Timing is deliberately not asserted to avoid flakes; a deadlock
+    /// fails via the harness timeout.
+    #[test]
+    fn overwrite_invalidation_keeps_queries_serving() {
+        use std::sync::RwLock;
+
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("hot_overwrite.rvf");
+
+        let options = RvfOptions {
+            dimension: 8,
+            metric: DistanceMetric::L2,
+            ..Default::default()
+        };
+        let mut store = RvfStore::create(&path, options).unwrap();
+
+        let n = (crate::index_path::INDEX_MIN_VECTORS + 200) as u64;
+        let vecs: Vec<Vec<f32>> = (0..n).map(|i| random_vector(8, i)).collect();
+        let refs: Vec<&[f32]> = vecs.iter().map(|v| v.as_slice()).collect();
+        let ids: Vec<u64> = (0..n).collect();
+        store.ingest_batch(&refs, &ids, None).unwrap();
+
+        // Build the index once so the overwrites below actually invalidate it.
+        let warm = random_vector(8, 7_777);
+        store.query(&warm, 10, &QueryOptions::default()).unwrap();
+        assert!(store.index_ready());
+
+        let store = RwLock::new(store);
+        std::thread::scope(|scope| {
+            // Reader threads: concurrent queries throughout the overwrites.
+            for t in 0..4u64 {
+                let store = &store;
+                scope.spawn(move || {
+                    for i in 0..40u64 {
+                        let q = random_vector(8, 100_000 + t * 1_000 + i);
+                        let guard = store.read().unwrap();
+                        let results = guard.query(&q, 10, &QueryOptions::default()).unwrap();
+                        assert_eq!(results.len(), 10);
+                        for w in results.windows(2) {
+                            assert!(w[0].distance <= w[1].distance);
+                        }
+                    }
+                });
+            }
+            // Writer thread: repeatedly overwrite existing ids, each one
+            // dropping the in-memory index.
+            let store = &store;
+            scope.spawn(move || {
+                for i in 0..10u64 {
+                    let v = random_vector(8, 555_000 + i);
+                    let mut guard = store.write().unwrap();
+                    guard
+                        .ingest_batch(&[v.as_slice()], &[i % 50], None)
+                        .unwrap();
+                    drop(guard);
+                    std::thread::yield_now();
+                }
+            });
+        });
+
+        // Queries still serve after the dust settles, and the index can
+        // be rebuilt (possibly by this very query).
+        let store = store.into_inner().unwrap();
+        let results = store.query(&warm, 10, &QueryOptions::default()).unwrap();
+        assert_eq!(results.len(), 10);
+        let _ = store.query(&warm, 10, &QueryOptions::default()).unwrap();
+        store.close().unwrap();
+    }
+
+    /// Overwriting an existing id must still invalidate stale index state
+    /// and produce correct nearest-neighbor results afterwards.
+    #[test]
+    fn overwrite_returns_fresh_vector_via_index_path() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("overwrite_fresh.rvf");
+
+        let options = RvfOptions {
+            dimension: 8,
+            metric: DistanceMetric::L2,
+            ..Default::default()
+        };
+        let mut store = RvfStore::create(&path, options).unwrap();
+
+        let n = (crate::index_path::INDEX_MIN_VECTORS + 16) as u64;
+        let vecs: Vec<Vec<f32>> = (0..n).map(|i| random_vector(8, i)).collect();
+        let refs: Vec<&[f32]> = vecs.iter().map(|v| v.as_slice()).collect();
+        let ids: Vec<u64> = (0..n).collect();
+        store.ingest_batch(&refs, &ids, None).unwrap();
+
+        store
+            .query(&random_vector(8, 1), 5, &QueryOptions::default())
+            .unwrap();
+        assert!(store.index_ready());
+
+        // Overwrite id 3 with a far-away vector.
+        let far = vec![100.0f32; 8];
+        store.ingest_batch(&[far.as_slice()], &[3], None).unwrap();
+        assert!(!store.index_ready(), "overwrite must drop the stale index");
+
+        // Query at the new location must find the overwritten id first.
+        let results = store.query(&far, 1, &QueryOptions::default()).unwrap();
+        assert_eq!(results[0].id, 3);
+        assert!(results[0].distance < f32::EPSILON);
+
+        // And the old location must NOT return id 3 anymore.
+        let old_q = random_vector(8, 3);
+        let results = store.query(&old_q, 5, &QueryOptions::default()).unwrap();
+        assert!(results.iter().all(|r| r.id != 3 || r.distance > 1.0));
 
         store.close().unwrap();
     }

@@ -1,0 +1,180 @@
+name: SONA Drift Protection
+
+# Guards the three SONA implementations against behavioral drift
+# (issues #519/#553 — the same learn-from-feedback stub shipped in both
+# crates/sona and the ruvllm TS package). Three gates, in order:
+#   1. stub-tripwire  — static no-op seam detector (fast, fails early)
+#   2. harness        — behavioral parity across implementations
+#   3. rvf-fingerprint — output fingerprint vs committed reference.rvf
+# One Linux leg only — this is the drift gate, not a platform-parity matrix
+# (sona-napi.yml owns cross-platform builds).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/sona/**'
+      - 'npm/packages/sona/**'
+      - 'npm/packages/ruvllm/src/sona.ts'
+      - 'npm/packages/ruvllm/src/lora.ts'
+      - 'npm/packages/ruvllm/src/types.ts'
+      - 'npm/packages/ruvector/src/core/intelligence-engine.ts'
+      - 'scripts/sona-drift/**'
+      - '.github/workflows/sona-drift.yml'
+  pull_request:
+    paths:
+      - 'crates/sona/**'
+      - 'npm/packages/sona/**'
+      - 'npm/packages/ruvllm/src/sona.ts'
+      - 'npm/packages/ruvllm/src/lora.ts'
+      - 'npm/packages/ruvllm/src/types.ts'
+      - 'npm/packages/ruvector/src/core/intelligence-engine.ts'
+      - 'scripts/sona-drift/**'
+      - '.github/workflows/sona-drift.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  NO_COLOR: '1'
+
+jobs:
+  drift-gate:
+    name: Drift gate (parity + fingerprint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          # crates/sona is a root-workspace member, so napi's
+          # --cargo-cwd build lands in the shared ./target dir.
+          key: sona-drift
+
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-sona-drift-${{ runner.os }}-${{ hashFiles('npm/packages/sona/package-lock.json', 'npm/packages/ruvllm/package.json') }}
+          restore-keys: |
+            npm-sona-drift-${{ runner.os }}-
+
+      # ── Gate 1: static no-op seam detector (cheapest — fail before building) ──
+      - name: Stub tripwire (static no-op seam detector)
+        run: node scripts/sona-drift/stub-tripwire.mjs
+
+      # ── Build the two artifacts the harness compares ──
+      - name: Build SONA NAPI binding (crates/sona via napi)
+        working-directory: npm/packages/sona
+        run: |
+          npm install --workspaces=false --no-audit --no-fund
+          npm run build
+
+      - name: Build ruvllm dist (TS implementation)
+        working-directory: npm/packages/ruvllm
+        run: |
+          npm install --workspaces=false --no-audit --no-fund
+          npm run build
+
+      # The RVF fingerprint store needs the @ruvector/rvf-node native backend,
+      # which nothing else on this runner installs (first CI run failed with
+      # BackendNotFound — that was infra, not drift).
+      - name: Install RVF node backend (fingerprint store)
+        working-directory: npm/packages/rvf
+        run: npm install --workspaces=false --no-audit --no-fund
+
+      # ── Gate 2: behavioral parity harness ──
+      - name: Behavioral parity harness
+        id: harness
+        run: |
+          set -o pipefail
+          HARNESS_EXIT=0
+          node scripts/sona-drift/harness.mjs --json | tee sona-drift-report.json || HARNESS_EXIT=$?
+          if [ "$HARNESS_EXIT" -ne 0 ]; then
+            # Best-effort: name the drifted implementation + contract from the
+            # JSON report (schema-defensive — falls back to a generic message).
+            SUMMARY=$(node -e '
+              try {
+                const r = JSON.parse(require("fs").readFileSync("sona-drift-report.json", "utf8"));
+                const items = [].concat(r.failures || r.contracts || r.results || []);
+                const bad = items.filter(c => c && (c.pass === false || c.ok === false || c.status === "fail" || c.drifted === true));
+                if (bad.length) {
+                  console.log(bad.map(c =>
+                    (c.implementation || c.impl || c.name || "unknown implementation") +
+                    " drifted on " + (c.contract || c.test || c.id || "a contract")
+                  ).join("; "));
+                } else if (r.summary) {
+                  console.log(typeof r.summary === "string" ? r.summary : JSON.stringify(r.summary));
+                }
+              } catch (e) { /* report unparsable — generic message below */ }
+            ' || true)
+            echo "::error title=SONA behavioral drift::${SUMMARY:-Behavioral parity harness failed (see sona-drift-report artifact)} — the SONA implementations (crates/sona, npm/packages/ruvllm/src/sona.ts, npm/packages/sona, npm/packages/ruvector/src/core/intelligence-engine.ts) no longer agree. Fix the drifted implementation; if the behavior change is intentional: run node scripts/sona-drift/rvf-fingerprint.mjs --update and commit reference.rvf."
+            exit "$HARNESS_EXIT"
+          fi
+
+      - name: Upload parity report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sona-drift-report
+          path: sona-drift-report.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # ── Gate 3: RVF fingerprint vs committed reference ──
+      - name: RVF fingerprint validation
+        id: fingerprint
+        run: |
+          if ! node scripts/sona-drift/rvf-fingerprint.mjs; then
+            echo "::error title=SONA RVF fingerprint drift::Current SONA fingerprint diverged from committed scripts/sona-drift/reference.rvf — observable behavior of a SONA implementation changed. If intentional: run node scripts/sona-drift/rvf-fingerprint.mjs --update and commit reference.rvf."
+            # Regenerate the current fingerprint so it can be uploaded and
+            # diffed against the committed reference.
+            node scripts/sona-drift/rvf-fingerprint.mjs --update || true
+            cp scripts/sona-drift/reference.rvf sona-drift-current.rvf 2>/dev/null || true
+            exit 1
+          fi
+
+      - name: Upload current fingerprint (on drift)
+        if: failure() && steps.fingerprint.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sona-drift-current-fingerprint
+          path: sona-drift-current.rvf
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # ── Guard the guard: deleting the harness must fail CI, not disable it ──
+      # (same spirit as the artifact-presence guards in sona-napi.yml)
+      - name: Guard the guard — drift scripts and reference must exist
+        if: always()
+        run: |
+          fail=0
+          for f in scripts/sona-drift/harness.mjs \
+                   scripts/sona-drift/rvf-fingerprint.mjs \
+                   scripts/sona-drift/stub-tripwire.mjs; do
+            if [ ! -f "$f" ]; then
+              echo "::error file=$f::SONA drift-gate script is missing — the drift gate would be silently disabled. Restore it or remove this workflow deliberately."
+              fail=1
+            fi
+          done
+          if [ ! -s scripts/sona-drift/reference.rvf ]; then
+            echo "::error file=scripts/sona-drift/reference.rvf::reference.rvf is missing or empty — fingerprint validation has nothing to compare against. Run node scripts/sona-drift/rvf-fingerprint.mjs --update and commit it."
+            fail=1
+          fi
+          exit $fail

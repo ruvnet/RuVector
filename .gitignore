@@ -37,6 +37,10 @@ ui/**/adapter-node/
 *.node
 index.js
 index.d.ts
+# @ruvector/sona ships committed JS bindings: CI's napi CLI version drifts
+# (v3 emits no v2-style loader), which published an empty 0.1.6 (#516)
+!npm/packages/sona/index.js
+!npm/packages/sona/index.d.ts
 
 # Environment variables and secrets
 .env

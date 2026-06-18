@@ -32,8 +32,11 @@
 
 #![cfg(feature = "wasm")]
 
+use crate::trajectory::TrajectoryBuilder;
 use crate::{LearningSignal, SonaConfig, SonaEngine};
 use parking_lot::RwLock;
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 
@@ -43,6 +46,13 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 pub struct WasmSonaEngine {
     inner: Arc<RwLock<SonaEngine>>,
+    /// Active trajectory builders keyed by the ID handed to JS,
+    /// paired with the query embedding for step recording (fixes #519).
+    active_trajectories: RwLock<HashMap<u64, (TrajectoryBuilder, Vec<f32>)>>,
+    /// Last query embedding seen, used to synthesize feedback trajectories.
+    last_embedding: RwLock<Vec<f32>>,
+    /// Trajectory handle generator.
+    next_trajectory_id: AtomicU64,
 }
 
 #[wasm_bindgen]
@@ -63,6 +73,9 @@ impl WasmSonaEngine {
 
         Ok(Self {
             inner: Arc::new(RwLock::new(SonaEngine::new(hidden_dim))),
+            active_trajectories: RwLock::new(HashMap::new()),
+            last_embedding: RwLock::new(Vec::new()),
+            next_trajectory_id: AtomicU64::new(1),
         })
     }
 
@@ -96,6 +109,9 @@ impl WasmSonaEngine {
 
         Ok(Self {
             inner: Arc::new(RwLock::new(SonaEngine::with_config(config))),
+            active_trajectories: RwLock::new(HashMap::new()),
+            last_embedding: RwLock::new(Vec::new()),
+            next_trajectory_id: AtomicU64::new(1),
         })
     }
 
@@ -114,12 +130,18 @@ impl WasmSonaEngine {
     /// ```
     #[wasm_bindgen(js_name = startTrajectory)]
     pub fn start_trajectory(&self, query_embedding: Vec<f32>) -> u64 {
-        let engine = self.inner.read();
-        let builder = engine.begin_trajectory(query_embedding);
-        // Return simple counter ID since builder.id is private
-        use std::sync::atomic::{AtomicU64, Ordering};
-        static NEXT_ID: AtomicU64 = AtomicU64::new(1);
-        NEXT_ID.fetch_add(1, Ordering::Relaxed)
+        let builder = {
+            let engine = self.inner.read();
+            engine.begin_trajectory(query_embedding.clone())
+        };
+
+        *self.last_embedding.write() = query_embedding.clone();
+
+        let id = self.next_trajectory_id.fetch_add(1, Ordering::Relaxed);
+        self.active_trajectories
+            .write()
+            .insert(id, (builder, query_embedding));
+        id
     }
 
     /// Record a step in the trajectory
@@ -135,16 +157,18 @@ impl WasmSonaEngine {
     /// engine.record_step(trajectoryId, 42, 0.8, 1000);
     /// ```
     #[wasm_bindgen(js_name = recordStep)]
-    pub fn record_step(&self, trajectory_id: u64, node_id: u32, score: f32, latency_us: u64) {
-        // Note: This is a simplified version. In production, you'd want to maintain
-        // a map of active trajectory builders
-        web_sys::console::log_1(
-            &format!(
-                "Recording step: traj={}, node={}, score={}, latency={}us",
-                trajectory_id, node_id, score, latency_us
-            )
-            .into(),
-        );
+    pub fn record_step(&self, trajectory_id: u64, node_id: u32, score: f32, _latency_us: u64) {
+        let mut active = self.active_trajectories.write();
+        if let Some((builder, embedding)) = active.get_mut(&trajectory_id) {
+            // The query embedding is the only activation signal available at the
+            // JS boundary; node_id is preserved as the step's layer name.
+            builder.add_named_step(
+                &format!("node-{}", node_id),
+                embedding.clone(),
+                Vec::new(),
+                score,
+            );
+        }
     }
 
     /// End the trajectory and submit for learning
@@ -159,13 +183,15 @@ impl WasmSonaEngine {
     /// ```
     #[wasm_bindgen(js_name = endTrajectory)]
     pub fn end_trajectory(&self, trajectory_id: u64, final_score: f32) {
-        web_sys::console::log_1(
-            &format!(
-                "Ending trajectory: traj={}, score={}",
-                trajectory_id, final_score
-            )
-            .into(),
-        );
+        let entry = self.active_trajectories.write().remove(&trajectory_id);
+        if let Some((mut builder, embedding)) = entry {
+            // Ensure at least one step so a learning signal can be derived.
+            if builder.step_count() == 0 {
+                builder.add_step(embedding, Vec::new(), final_score);
+            }
+            let engine = self.inner.read();
+            engine.end_trajectory(builder, final_score);
+        }
     }
 
     /// Apply learning from user feedback
@@ -181,14 +207,31 @@ impl WasmSonaEngine {
     /// ```
     #[wasm_bindgen(js_name = learnFromFeedback)]
     pub fn learn_from_feedback(&self, success: bool, latency_ms: f32, quality: f32) {
+        let quality = quality.clamp(0.0, 1.0);
+        // Negative reward on failure flips the gradient direction (unlearn).
         let reward = if success { quality } else { -quality };
-        web_sys::console::log_1(
-            &format!(
-                "Feedback: success={}, latency={}ms, quality={}, reward={}",
-                success, latency_ms, quality, reward
-            )
-            .into(),
-        );
+
+        // Reuse the last query embedding so feedback is attributed to the most
+        // recent inference; fall back to a uniform unit vector otherwise.
+        let embedding = {
+            let last = self.last_embedding.read();
+            if last.is_empty() {
+                let dim = self.inner.read().config().hidden_dim;
+                vec![1.0 / (dim as f32).sqrt(); dim]
+            } else {
+                last.clone()
+            }
+        };
+
+        let engine = self.inner.read();
+        let mut builder = engine.begin_trajectory(embedding.clone());
+        builder.add_step(embedding, Vec::new(), reward);
+        let latency_us = (latency_ms.max(0.0) * 1000.0) as u64;
+        let trajectory = builder.build_with_latency(quality, latency_us);
+        engine.submit_trajectory(trajectory);
+        // Apply the accumulated micro-LoRA gradient immediately so a single
+        // feedback call produces an actual weight update (fixes #519).
+        engine.flush();
     }
 
     /// Apply LoRA transformation to input vector

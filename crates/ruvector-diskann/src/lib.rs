@@ -15,7 +15,12 @@ pub mod error;
 pub mod graph;
 pub mod index;
 pub mod pq;
+/// Fixed-topology reuse + periodic rebuild under metric drift (BET 1, ADR-200).
+#[cfg(feature = "reuse-under-drift")]
+pub mod reuse;
 
 pub use error::{DiskAnnError, Result};
 pub use index::{DiskAnnConfig, DiskAnnIndex};
 pub use pq::ProductQuantizer;
+#[cfg(feature = "reuse-under-drift")]
+pub use reuse::{DriftingIndex, RebuildPolicy, RecallTrigger};

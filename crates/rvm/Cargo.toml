@@ -4,6 +4,7 @@ members = [
     "crates/rvm-hal",
     "crates/rvm-cap",
     "crates/rvm-witness",
+    "crates/rvm-checkpoint",
     "crates/rvm-proof",
     "crates/rvm-partition",
     "crates/rvm-sched",
@@ -33,6 +34,7 @@ rvm-types = { path = "crates/rvm-types" }
 rvm-hal = { path = "crates/rvm-hal" }
 rvm-cap = { path = "crates/rvm-cap" }
 rvm-witness = { path = "crates/rvm-witness" }
+rvm-checkpoint = { path = "crates/rvm-checkpoint" }
 rvm-proof = { path = "crates/rvm-proof" }
 rvm-partition = { path = "crates/rvm-partition" }
 rvm-sched = { path = "crates/rvm-sched" }
@@ -45,6 +47,12 @@ rvm-kernel = { path = "crates/rvm-kernel" }
 
 # External dependencies
 lz4_flex = { version = "0.11.6", default-features = false }
+# blake3: keyed-mode hashing for witness v2 chain MACs (ADR-134 v2).
+# Chosen because keyed BLAKE3 gives a PRF in one compression for inputs
+# <= 64 bytes (~0.1-0.6us portable), vs HMAC-SHA256's 2+ compressions.
+# `pure` selects the portable Rust implementation (no C toolchain,
+# no_std compatible, deterministic across targets).
+blake3 = { version = "1.5", default-features = false, features = ["pure"] }
 hmac = { version = "0.12", default-features = false }
 sha2 = { version = "0.10", default-features = false }
 subtle = { version = "2.6", default-features = false }

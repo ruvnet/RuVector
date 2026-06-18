@@ -65,6 +65,12 @@ pub struct MinCutBridge<const N: usize> {
     pub compute_count: u32,
     /// Maximum iterations allowed per computation (budget proxy in `no_std`).
     max_iterations: u32,
+    /// Reusable adjacency working buffer for Stoer-Wagner. Built directly
+    /// from the graph each call (no separate copy) and consumed in place,
+    /// avoiding ~16 KB of per-call stack traffic.
+    scratch_adj: [[u64; MINCUT_MAX_NODES]; MINCUT_MAX_NODES],
+    /// Reusable super-node group-membership scratch buffer.
+    scratch_groups: [[bool; MINCUT_MAX_NODES]; MINCUT_MAX_NODES],
 }
 
 impl<const N: usize> MinCutBridge<N> {
@@ -82,6 +88,8 @@ impl<const N: usize> MinCutBridge<N> {
             budget_exceeded_count: 0,
             compute_count: 0,
             max_iterations,
+            scratch_adj: [[0u64; MINCUT_MAX_NODES]; MINCUT_MAX_NODES],
+            scratch_groups: [[false; MINCUT_MAX_NODES]; MINCUT_MAX_NODES],
         }
     }
 
@@ -112,10 +120,15 @@ impl<const N: usize> MinCutBridge<N> {
         let mut sub_nodes: [Option<(NodeIdx, PartitionId)>; MINCUT_MAX_NODES] =
             [None; MINCUT_MAX_NODES];
         let mut sub_count = 0usize;
+        // Membership bitmask over graph node indices (the graph enforces
+        // MAX_NODES <= 32 at compile time, so indices fit in a u64).
+        // Replaces the previous O(sub_count) duplicate scans.
+        let mut present: u64 = 0;
 
         // Add the target partition
         if let Some(root_idx) = graph.find_node(partition_id) {
             sub_nodes[0] = Some((root_idx, partition_id));
+            present |= 1u64 << root_idx;
             sub_count = 1;
 
             // Add neighbors
@@ -124,35 +137,31 @@ impl<const N: usize> MinCutBridge<N> {
                     if sub_count >= MINCUT_MAX_NODES {
                         break;
                     }
+                    if present & (1u64 << neighbor_idx) != 0 {
+                        continue;
+                    }
                     if let Some(npid) = graph.partition_at(neighbor_idx) {
-                        // Avoid duplicates
-                        let already_present = sub_nodes[..sub_count]
-                            .iter()
-                            .any(|s| matches!(s, Some((ni, _)) if *ni == neighbor_idx));
-                        if !already_present {
-                            sub_nodes[sub_count] = Some((neighbor_idx, npid));
-                            sub_count += 1;
-                        }
+                        sub_nodes[sub_count] = Some((neighbor_idx, npid));
+                        present |= 1u64 << neighbor_idx;
+                        sub_count += 1;
                     }
                 }
             }
 
-            // Also add nodes that have incoming edges to partition_id
-            for (eidx, from, to, _w) in graph.active_edges() {
-                let _ = eidx;
-                if to == root_idx {
-                    if sub_count >= MINCUT_MAX_NODES {
-                        break;
-                    }
-                    if let Some(fpid) = graph.partition_at(from) {
-                        let already_present = sub_nodes[..sub_count]
-                            .iter()
-                            .any(|s| matches!(s, Some((ni, _)) if *ni == from));
-                        if !already_present {
-                            sub_nodes[sub_count] = Some((from, fpid));
-                            sub_count += 1;
-                        }
-                    }
+            // Also add nodes that have incoming edges to partition_id,
+            // derived from the adjacency-matrix column (O(MAX_NODES))
+            // instead of scanning all active edges (O(MAX_EDGES)).
+            for from in graph.in_neighbors_of(root_idx) {
+                if sub_count >= MINCUT_MAX_NODES {
+                    break;
+                }
+                if present & (1u64 << from) != 0 {
+                    continue;
+                }
+                if let Some(fpid) = graph.partition_at(from) {
+                    sub_nodes[sub_count] = Some((from, fpid));
+                    present |= 1u64 << from;
+                    sub_count += 1;
                 }
             }
         }
@@ -171,42 +180,40 @@ impl<const N: usize> MinCutBridge<N> {
             return &self.last_known_cut;
         }
 
-        // Build a local adjacency weight matrix for the subgraph
-        let mut adj = [[0u64; MINCUT_MAX_NODES]; MINCUT_MAX_NODES];
+        // Build the local adjacency weight matrix for the subgraph
+        // directly into the reusable working buffer; Stoer-Wagner then
+        // consumes it in place (no separate copy). Only the upper-left
+        // sub_count x sub_count region is read, so the rest can stay stale.
         for i in 0..sub_count {
-            for j in 0..sub_count {
-                if i == j {
-                    continue;
-                }
-                if let (Some((ni, _)), Some((nj, _))) = (sub_nodes[i], sub_nodes[j]) {
-                    if let Some(pi) = graph.partition_at(ni) {
-                        if let Some(pj) = graph.partition_at(nj) {
-                            // Sum edges in both directions for undirected treatment
-                            adj[i][j] = graph.edge_weight_between(pi, pj);
-                        }
+            self.scratch_adj[i][i] = 0;
+            if let Some((_, pi)) = sub_nodes[i] {
+                for j in (i + 1)..sub_count {
+                    if let Some((_, pj)) = sub_nodes[j] {
+                        // Sum edges in both directions for undirected treatment
+                        let w = graph.edge_weight_between(pi, pj);
+                        self.scratch_adj[i][j] = w;
+                        self.scratch_adj[j][i] = w;
                     }
                 }
             }
         }
 
-        // Stoer-Wagner-like minimum cut on the local adjacency matrix
-        let result = stoer_wagner_mincut(
-            &adj,
+        // Stoer-Wagner-like minimum cut on the local adjacency matrix,
+        // writing the result directly into `last_known_cut` (avoids two
+        // ~600 B MinCutResult copies per call).
+        let within_budget = stoer_wagner_mincut(
+            &mut self.scratch_adj,
+            &mut self.scratch_groups,
             sub_count,
             &sub_nodes,
             self.max_iterations,
+            &mut self.last_known_cut,
         );
 
-        match result {
-            Ok(cut) => {
-                self.last_known_cut = cut;
-                self.compute_count += 1;
-            }
-            Err(partial) => {
-                self.last_known_cut = partial;
-                self.last_known_cut.within_budget = false;
-                self.budget_exceeded_count += 1;
-            }
+        if within_budget {
+            self.compute_count += 1;
+        } else {
+            self.budget_exceeded_count += 1;
         }
 
         &self.last_known_cut
@@ -221,31 +228,31 @@ impl<const N: usize> MinCutBridge<N> {
 
 /// Stoer-Wagner minimum cut on a small adjacency matrix.
 ///
-/// Returns `Ok(result)` if completed within the iteration budget,
-/// or `Err(partial)` if the budget was exceeded.
+/// Operates directly on the caller-provided working buffers: `w` is the
+/// adjacency matrix (consumed/mutated in place) and `groups` is the
+/// super-node membership scratch (re-initialized here). The result is
+/// written into `out`; the return value is `true` if the computation
+/// completed within the iteration budget, `false` if it was exceeded
+/// (in which case `out` holds the best partial result).
 fn stoer_wagner_mincut(
-    adj: &[[u64; MINCUT_MAX_NODES]; MINCUT_MAX_NODES],
+    w: &mut [[u64; MINCUT_MAX_NODES]; MINCUT_MAX_NODES],
+    groups: &mut [[bool; MINCUT_MAX_NODES]; MINCUT_MAX_NODES],
     n: usize,
     sub_nodes: &[Option<(NodeIdx, PartitionId)>; MINCUT_MAX_NODES],
     max_iterations: u32,
-) -> Result<MinCutResult, MinCutResult> {
+    out: &mut MinCutResult,
+) -> bool {
     if n < 2 {
-        return Ok(MinCutResult::empty());
+        *out = MinCutResult::empty();
+        return true;
     }
 
-    // Working copy of adjacency matrix
-    let mut w = [[0u64; MINCUT_MAX_NODES]; MINCUT_MAX_NODES];
+    // Re-initialize the group membership scratch for the region in use:
+    // each original node starts in its own super-node.
     for i in 0..n {
         for j in 0..n {
-            w[i][j] = adj[i][j];
+            groups[i][j] = i == j;
         }
-    }
-
-    // Track which original nodes each super-node contains
-    let mut groups: [[bool; MINCUT_MAX_NODES]; MINCUT_MAX_NODES] =
-        [[false; MINCUT_MAX_NODES]; MINCUT_MAX_NODES];
-    for i in 0..n {
-        groups[i][i] = true;
     }
 
     // Track which super-nodes are still active
@@ -263,15 +270,15 @@ fn stoer_wagner_mincut(
     while active_count > 1 {
         if iteration_count >= max_iterations {
             // Budget exceeded: build partial result from best so far
-            let mut result = build_result(sub_nodes, &groups, best_cut_node, n);
-            result.cut_weight = best_cut_weight;
-            result.within_budget = false;
-            return Err(result);
+            build_result(sub_nodes, groups, best_cut_node, n, out);
+            out.cut_weight = best_cut_weight;
+            out.within_budget = false;
+            return false;
         }
 
         // Minimum cut phase: find the most tightly connected pair
         let (s, t, cut_of_phase) =
-            minimum_cut_phase(&w, &active, active_count, n);
+            minimum_cut_phase(w, &active, active_count, n);
 
         if cut_of_phase < best_cut_weight {
             best_cut_weight = cut_of_phase;
@@ -298,10 +305,10 @@ fn stoer_wagner_mincut(
         iteration_count += 1;
     }
 
-    let mut result = build_result(sub_nodes, &groups, best_cut_node, n);
-    result.cut_weight = best_cut_weight;
-    result.within_budget = true;
-    Ok(result)
+    build_result(sub_nodes, groups, best_cut_node, n, out);
+    out.cut_weight = best_cut_weight;
+    out.within_budget = true;
+    true
 }
 
 /// Single phase of the Stoer-Wagner algorithm: maximum adjacency ordering.
@@ -360,14 +367,16 @@ fn minimum_cut_phase(
     (second_to_last, last, cut_weight)
 }
 
-/// Build the final `MinCutResult` from group membership.
+/// Build the final `MinCutResult` from group membership, writing into
+/// the caller-provided result slot (avoids a ~600 B return-value copy).
 fn build_result(
     sub_nodes: &[Option<(NodeIdx, PartitionId)>; MINCUT_MAX_NODES],
     groups: &[[bool; MINCUT_MAX_NODES]; MINCUT_MAX_NODES],
     cut_node: usize,
     n: usize,
-) -> MinCutResult {
-    let mut result = MinCutResult::empty();
+    result: &mut MinCutResult,
+) {
+    *result = MinCutResult::empty();
 
     // Nodes in the cut_node's group go to "left", rest go to "right"
     for i in 0..n {
@@ -385,8 +394,6 @@ fn build_result(
             }
         }
     }
-
-    result
 }
 
 #[cfg(test)]

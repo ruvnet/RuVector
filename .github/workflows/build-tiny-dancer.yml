@@ -36,18 +36,35 @@ jobs:
           - host: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             platform: linux-x64-gnu
+            extraFlags: ""
+          - host: ubuntu-22.04
+            target: x86_64-unknown-linux-musl
+            platform: linux-x64-musl
+            extraFlags: "--zig"
           - host: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
             platform: linux-arm64-gnu
+            extraFlags: ""
+          - host: ubuntu-22.04
+            target: aarch64-unknown-linux-musl
+            platform: linux-arm64-musl
+            extraFlags: "--zig"
           - host: macos-14
             target: x86_64-apple-darwin
             platform: darwin-x64
+            extraFlags: ""
           - host: macos-14
             target: aarch64-apple-darwin
             platform: darwin-arm64
+            extraFlags: ""
           - host: windows-2022
             target: x86_64-pc-windows-msvc
             platform: win32-x64-msvc
+            extraFlags: ""
+          - host: windows-2022
+            target: aarch64-pc-windows-msvc
+            platform: win32-arm64-msvc
+            extraFlags: ""
 
     name: Build Tiny Dancer ${{ matrix.settings.platform }}
     runs-on: ${{ matrix.settings.host }}
@@ -81,10 +98,16 @@ jobs:
         working-directory: npm/packages/tiny-dancer
         run: npm install --ignore-scripts --omit=optional --force
 
+      - name: Setup Zig (musl cross-compile)
+        if: contains(matrix.settings.extraFlags, '--zig')
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.13.0
+
       - name: Build native module
         working-directory: npm/packages/tiny-dancer
         run: |
-          npx napi build --platform --release --cargo-cwd ../../../crates/ruvector-tiny-dancer-node --target ${{ matrix.settings.target }}
+          npx napi build --platform --release --cargo-cwd ../../../crates/ruvector-tiny-dancer-node --target ${{ matrix.settings.target }} ${{ matrix.settings.extraFlags }}
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
@@ -155,7 +178,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          VERSION="0.1.15"
+          VERSION=$(node -p "require('./npm/packages/tiny-dancer/package.json').version")
           echo "Publishing version: $VERSION"
 
           for dir in artifacts/tiny-dancer-*/; do
@@ -179,9 +202,21 @@ jobs:
                 OS="linux"; CPU="x64"; LIBC='"libc": ["glibc"],'
                 NODE_NAME="ruvector-tiny-dancer.linux-x64-gnu.node"
                 ;;
+              linux-x64-musl)
+                OS="linux"; CPU="x64"; LIBC='"libc": ["musl"],'
+                NODE_NAME="ruvector-tiny-dancer.linux-x64-musl.node"
+                ;;
               linux-arm64-gnu)
                 OS="linux"; CPU="arm64"; LIBC='"libc": ["glibc"],'
                 NODE_NAME="ruvector-tiny-dancer.linux-arm64-gnu.node"
+                ;;
+              linux-arm64-musl)
+                OS="linux"; CPU="arm64"; LIBC='"libc": ["musl"],'
+                NODE_NAME="ruvector-tiny-dancer.linux-arm64-musl.node"
+                ;;
+              win32-arm64-msvc)
+                OS="win32"; CPU="arm64"; LIBC=""
+                NODE_NAME="ruvector-tiny-dancer.win32-arm64-msvc.node"
                 ;;
               darwin-x64)
                 OS="darwin"; CPU="x64"; LIBC=""
@@ -236,6 +271,20 @@ jobs:
             fi
           done
           ls -la npm/packages/tiny-dancer/*.node || true
+
+      - name: Lock optionalDependencies to package version
+        working-directory: npm/packages/tiny-dancer
+        run: |
+          node -e '
+            const fs = require("fs");
+            const p = require("./package.json");
+            const v = p.version;
+            for (const k of Object.keys(p.optionalDependencies || {})) {
+              p.optionalDependencies[k] = v;
+            }
+            fs.writeFileSync("./package.json", JSON.stringify(p, null, 2) + "\n");
+            console.log("Locked optionalDependencies to " + v);
+          '
 
       - name: Publish main package
         working-directory: npm/packages/tiny-dancer

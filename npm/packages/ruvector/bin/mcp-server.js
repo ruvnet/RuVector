@@ -26,6 +26,10 @@ const path = require('path');
 const fs = require('fs');
 const { execSync, execFileSync } = require('child_process');
 
+// ADR-256: default-deny MCP tool-access policy (RUVECTOR_MCP_ALLOW/DENY/PROFILE)
+const { buildToolPolicy, isToolAllowed, filterAllowedTools } = require('./mcp-policy.js');
+const MCP_TOOL_POLICY = buildToolPolicy(process.env);
+
 // ── Security Helpers ────────────────────────────────────────────────────────
 
 /**
@@ -107,6 +111,18 @@ try {
   // IntelligenceEngine not available
 }
 
+// ADR-210 D0: shared embedding-provenance invariant — the SAME dist module
+// bin/cli.js uses (loadProvenance there), so the MCP server's writes to
+// .ruvector/intelligence.json enforce the same contract instead of bypassing
+// it. When dist is missing, enforcement degrades exactly like the CLI:
+// pre-ADR-210 behavior.
+let provenanceMod = null;
+try {
+  provenanceMod = require('../dist/core/embedding-provenance.js');
+} catch (e) {
+  provenanceMod = null;
+}
+
 // Intelligence class with full RuVector stack support
 class Intelligence {
   constructor() {
@@ -169,10 +185,124 @@ class Intelligence {
   load() {
     try {
       if (fs.existsSync(this.intelPath)) {
-        return JSON.parse(fs.readFileSync(this.intelPath, 'utf-8'));
+        const data = JSON.parse(fs.readFileSync(this.intelPath, 'utf-8'));
+        // Untrusted on-disk input (ADR-210 security pass): a corrupted or
+        // hand-edited store must not crash array/object consumers.
+        if (data && typeof data === 'object' && !Array.isArray(data)) {
+          if (!Array.isArray(data.memories)) data.memories = [];
+          return data;
+        }
       }
     } catch {}
     return { patterns: {}, memories: [], trajectories: [], errors: {}, agents: {}, edges: [] };
+  }
+
+  // ==========================================================================
+  // ADR-210 D0: embedding-provenance invariant for intelligence.json writes.
+  // Same contract bin/cli.js enforces (this server previously bypassed it):
+  // mismatched vector writes are refused naming both sides, legacy stores
+  // (vectors without provenance) are read-only until `ruvector hooks reembed`,
+  // and degraded reads warn once per process.
+  // ==========================================================================
+
+  storedProvenance() {
+    const raw = this.data.embeddingProvenance || null;
+    if (!provenanceMod) return raw;
+    return provenanceMod.sanitizeProvenance(raw);
+  }
+
+  vectorMemoryCount() {
+    const mems = Array.isArray(this.data.memories) ? this.data.memories : [];
+    return mems.filter(m => m && Array.isArray(m.embedding) && m.embedding.length > 0).length;
+  }
+
+  /** Store predates ADR-210 (has vectors but no provenance record). */
+  isLegacyVectorStore() {
+    return !this.storedProvenance() && this.vectorMemoryCount() > 0;
+  }
+
+  /** Legacy default: hash, dimension inferred from the stored vectors. */
+  inferredLegacyProvenance() {
+    const mems = Array.isArray(this.data.memories) ? this.data.memories : [];
+    const first = mems.find(m => m && Array.isArray(m.embedding) && m.embedding.length > 0);
+    const dim = first ? first.embedding.length : 256;
+    if (provenanceMod) return provenanceMod.legacyHashProvenance(dim);
+    return { embedderKind: 'hash', modelId: null, dimension: dim, normalize: false, prefixPolicy: 'none' };
+  }
+
+  /** Provenance of the embedder that just produced `embedding`. */
+  activeWriteProvenance(embedding) {
+    if (this.engine && typeof this.engine.getActiveProvenance === 'function') {
+      try { return this.engine.getActiveProvenance(); } catch {}
+    }
+    return { embedderKind: 'hash', modelId: null, dimension: embedding.length, normalize: true, prefixPolicy: 'none' };
+  }
+
+  /**
+   * Gate a vector write (throws on refusal). Stamps provenance on the first
+   * write to a fresh store; refuses mismatched writes naming both sides;
+   * legacy stores are read-only until re-embedded.
+   */
+  checkVectorWrite(active) {
+    if (!provenanceMod || !active) return; // enforcement needs the dist module
+    if (this.isLegacyVectorStore()) {
+      const legacy = this.inferredLegacyProvenance();
+      const err = new Error(
+        `Vector store ${this.intelPath} predates embedding provenance (ADR-210) and is read-only for vector writes. ` +
+        `Stored vectors are treated as ${provenanceMod.describeProvenance(legacy)}; the active embedder is ` +
+        `${provenanceMod.describeProvenance(active)}. Run 'ruvector hooks reembed' to re-embed and unlock it.`
+      );
+      err.code = 'ERR_LEGACY_STORE_READONLY';
+      throw err;
+    }
+    const stored = this.storedProvenance();
+    if (!stored) {
+      this.data.embeddingProvenance = active;
+      return;
+    }
+    provenanceMod.assertProvenanceMatch(stored, active, this.intelPath);
+  }
+
+  /**
+   * Non-throwing write gate honoring RUVECTOR_REEMBED (D5): refuse (default)
+   * rethrows; warn skips the write with one stderr warning per process.
+   */
+  guardVectorWrite(active) {
+    try {
+      this.checkVectorWrite(active);
+      return { ok: true };
+    } catch (e) {
+      const policy = provenanceMod ? provenanceMod.resolveReembedPolicy() : 'refuse';
+      if (policy === 'warn') {
+        if (!Intelligence._reembedWarned) {
+          Intelligence._reembedWarned = true;
+          console.error(`ruvector: ${e.message} (RUVECTOR_REEMBED=warn: store stays read-only, write skipped)`);
+        }
+        return { ok: false, skipped: true, error: e.message };
+      }
+      if (policy === 'auto') e.message += ` (RUVECTOR_REEMBED=auto: run 'ruvector hooks reembed' — in-place re-embedding needs the CLI)`;
+      throw e;
+    }
+  }
+
+  /**
+   * ADR-210: reads stay allowed on legacy/mismatched stores, but similarity
+   * against differently-embedded vectors is meaningless — say so once.
+   */
+  warnRecallProvenance(active) {
+    if (!provenanceMod || !active || Intelligence._recallWarned) return;
+    let stored = this.storedProvenance();
+    if (!stored && this.isLegacyVectorStore()) stored = this.inferredLegacyProvenance();
+    if (!stored) return;
+    const mismatches = provenanceMod.compareProvenance(stored, active);
+    if (mismatches.length > 0) {
+      Intelligence._recallWarned = true;
+      console.error(
+        `ruvector: recall quality degraded — stored vectors are ${provenanceMod.describeProvenance(stored)} ` +
+        `but the query was embedded as ${provenanceMod.describeProvenance(active)} (differs on: ${mismatches.join(', ')}). ` +
+        `Run 'ruvector hooks reembed' to fix.`
+      );
+    }
   }
 
   save() {
@@ -207,6 +337,8 @@ class Intelligence {
           sonaEnabled: engineStats.sonaEnabled,
           attentionEnabled: engineStats.attentionEnabled,
           embeddingDim: engineStats.memoryDimensions,
+          // ADR-210 D1: which embedder actually serves embeds right now
+          embedderKind: engineStats.embedderKind,
           totalMemories: engineStats.totalMemories,
           totalEpisodes: engineStats.totalEpisodes,
           trajectoriesRecorded: engineStats.trajectoriesRecorded,
@@ -248,19 +380,31 @@ class Intelligence {
   async remember(content, type = 'general') {
     // Use engine if available (VectorDB storage)
     if (this.engine) {
+      let entry = null;
       try {
-        const entry = await this.engine.remember(content, type);
+        entry = await this.engine.remember(content, type);
+      } catch {}
+      if (entry) {
+        // ADR-210 D0: validate provenance BEFORE persisting. Refusals
+        // propagate as errors (the tool handler reports them) — no silent
+        // fallback into a mixed store.
+        const guard = this.guardVectorWrite(this.activeWriteProvenance(entry.embedding));
+        if (!guard.ok) return { stored: false, skipped: true, reason: guard.error };
         // Also store in legacy format
-        this.data.memories = this.data.memories || [];
+        this.data.memories = Array.isArray(this.data.memories) ? this.data.memories : [];
         this.data.memories.push({ content, type, created: new Date().toISOString(), embedding: entry.embedding });
         this.save();
         return { stored: true, total: this.data.memories.length, engineStored: true };
-      } catch {}
+      }
     }
 
     // Fallback
-    this.data.memories = this.data.memories || [];
-    this.data.memories.push({ content, type, created: new Date().toISOString(), embedding: this.embed(content) });
+    const embedding = this.embed(content);
+    // ADR-210 D0: same gate on the fallback hash path.
+    const guard = this.guardVectorWrite({ embedderKind: 'hash', modelId: null, dimension: embedding.length, normalize: true, prefixPolicy: 'none' });
+    if (!guard.ok) return { stored: false, skipped: true, reason: guard.error };
+    this.data.memories = Array.isArray(this.data.memories) ? this.data.memories : [];
+    this.data.memories.push({ content, type, created: new Date().toISOString(), embedding });
     this.save();
     return { stored: true, total: this.data.memories.length };
   }
@@ -270,6 +414,11 @@ class Intelligence {
     if (this.engine) {
       try {
         const results = await this.engine.recall(query, topK);
+        // ADR-210: after recall the engine's lazy init has settled, so the
+        // active provenance reflects the embedder that served the query.
+        if (typeof this.engine.getActiveProvenance === 'function') {
+          this.warnRecallProvenance(this.engine.getActiveProvenance());
+        }
         return results.map(r => ({
           content: r.content,
           type: r.type,
@@ -282,10 +431,12 @@ class Intelligence {
 
     // Fallback: brute-force
     const queryEmbed = this.embed(query);
-    const scored = (this.data.memories || []).map((m, i) => ({
+    this.warnRecallProvenance({ embedderKind: 'hash', modelId: null, dimension: queryEmbed.length, normalize: true, prefixPolicy: 'none' });
+    const mems = Array.isArray(this.data.memories) ? this.data.memories : [];
+    const scored = mems.map((m, i) => ({
       ...m,
       index: i,
-      score: this.similarity(queryEmbed, m.embedding)
+      score: this.similarity(queryEmbed, m && m.embedding)
     }));
     return scored.sort((a, b) => b.score - a.score).slice(0, topK);
   }
@@ -363,7 +514,7 @@ class Intelligence {
 const server = new Server(
   {
     name: 'ruvector',
-    version: '0.2.0',
+    version: '0.2.30',
   },
   {
     capabilities: {
@@ -1545,14 +1696,29 @@ const TOOLS = [
   }
 ];
 
-// List tools handler
+// List tools handler — only expose tools permitted by the access policy (ADR-256)
 server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return { tools: TOOLS };
+  return { tools: filterAllowedTools(TOOLS, MCP_TOOL_POLICY) };
 });
 
 // Call tool handler
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
+
+  // ADR-256 default-deny gate: refuse tools excluded by RUVECTOR_MCP_ALLOW/DENY/PROFILE
+  if (!isToolAllowed(name, MCP_TOOL_POLICY)) {
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          success: false,
+          error: `Tool '${name}' is denied by the MCP access policy (ADR-256). ` +
+            `Adjust RUVECTOR_MCP_ALLOW / RUVECTOR_MCP_DENY / RUVECTOR_MCP_PROFILE to permit it.`,
+        }, null, 2),
+      }],
+      isError: true,
+    };
+  }
 
   try {
     switch (name) {
@@ -1586,12 +1752,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'hooks_remember': {
+        // ADR-210 D0: provenance refusals throw and surface via the catch-all
+        // as isError; RUVECTOR_REEMBED=warn skips return { stored: false }.
         const result = await intel.remember(args.content, args.type || 'general');
         return {
           content: [{
             type: 'text',
             text: JSON.stringify({
-              success: true,
+              success: result.stored !== false,
               ...result
             }, null, 2)
           }]
@@ -1818,6 +1986,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
           }
           if (data.memories && Array.isArray(data.memories)) {
+            // ADR-210 D0: imported memories carrying vectors are a vector
+            // write — enforce the store's embedding provenance (this was a
+            // bypass before wave 2).
+            const withVectors = data.memories.filter(m => m && Array.isArray(m.embedding) && m.embedding.length > 0);
+            if (withVectors.length > 0 && provenanceMod) {
+              if (intel.isLegacyVectorStore()) {
+                const err = new Error(
+                  `Vector store ${intel.intelPath} predates embedding provenance (ADR-210) and is read-only for vector writes. ` +
+                  `Run 'ruvector hooks reembed' before importing vector memories.`
+                );
+                err.code = 'ERR_LEGACY_STORE_READONLY';
+                throw err;
+              }
+              const stored = intel.storedProvenance();
+              if (stored) {
+                const bad = withVectors.find(m => m.embedding.length !== stored.dimension);
+                if (bad) {
+                  throw new Error(
+                    `Import refused (ADR-210): ${intel.intelPath} records embedding provenance ` +
+                    `${provenanceMod.describeProvenance(stored)}, but imported memories contain ` +
+                    `${bad.embedding.length}-dimensional vectors with undeclared provenance. ` +
+                    `Mixed stores are never created — re-embed the data or the store.`
+                  );
+                }
+              }
+            }
             if (merge) {
               intel.data.memories = [...(intel.data.memories || []), ...data.memories];
             } else {
@@ -1848,7 +2042,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             content: [{
               type: 'text',
               text: JSON.stringify({ success: false, error: e.message }, null, 2)
-            }]
+            }],
+            isError: true
           };
         }
       }
@@ -3837,18 +4032,23 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 
 // Start server
 async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error('RuVector MCP server running on stdio');
-
   // Exit cleanly when the parent process closes the stdio pipe or sends a
   // termination signal. Without these handlers, the MCP server can survive
   // the parent's death (e.g. when the client is killed with SIGKILL) and
   // accumulate as an orphaned process under PPID=1, consuming RSS for the
-  // lifetime of the user session.
-  process.stdin.on('end', () => process.exit(0));
+  // lifetime of the user session. Registered BEFORE the (async) transport
+  // connect: a signal arriving during startup previously hit the default
+  // handler and died with a non-zero code — a race that made the
+  // sigterm-cleanup suite flaky (SIGTERM and SIGINT failed alternately on
+  // CI depending on which spawn won the 2s ready-wait).
   process.on('SIGINT', () => process.exit(0));
   process.on('SIGTERM', () => process.exit(0));
+
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error('RuVector MCP server running on stdio');
+
+  process.stdin.on('end', () => process.exit(0));
 }
 
 main().catch(console.error);

@@ -36,7 +36,7 @@ ruvector-router-core = { version = "2.0", path = "../../crates/ruvector-router-c
 ruvector-graph = { version = "2.0", path = "../../crates/ruvector-graph", default-features = false }
 ruvector-gnn = { version = "2.0", path = "../../crates/ruvector-gnn", default-features = false }
 cognitum-gate-kernel = { version = "0.1", path = "../../crates/cognitum-gate-kernel", default-features = true }
-ruqu-algorithms = { version = "2.0.5", path = "../../crates/ruqu-algorithms", default-features = false }
+ruqu-algorithms = { version = "2.0.5", path = "../../external/ruqu/crates/ruqu-algorithms", default-features = false }
 ruvector-attention = { version = "2.0", path = "../../crates/ruvector-attention", default-features = false }
 
 # HTTP server dependencies (native only)

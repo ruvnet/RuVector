@@ -57,6 +57,7 @@ extern crate std;
 pub mod adaptive;
 pub mod bridge;
 pub mod engine;
+pub mod fennel;
 pub mod graph;
 pub mod mincut;
 pub mod pressure;
@@ -67,7 +68,11 @@ use rvm_types::{CoherenceScore, PartitionId, PhiValue};
 // Re-exports for convenience.
 pub use adaptive::AdaptiveCoherenceEngine;
 pub use bridge::{CoherenceBackend, MinCutBackend};
-pub use engine::{CoherenceDecision, CoherenceEngine, DefaultCoherenceEngine};
+pub use engine::{
+    CoherenceDecision, CoherenceEngine, DefaultCoherenceEngine, SplitPlan, SplitSide,
+    CRITICAL_PRESSURE_BP, MAX_SPLIT_CONDUCTANCE_BP,
+};
+pub use fennel::{FennelPlacer, DEFAULT_ALPHA_MILLI};
 pub use graph::{CoherenceGraph, GraphError, NeighborIter};
 pub use mincut::{MinCutBridge, MinCutResult};
 pub use pressure::{

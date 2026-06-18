@@ -10,6 +10,7 @@ export * from './attention-fallbacks';
 export * from './agentdb-fast';
 export * from './sona-wrapper';
 export * from './intelligence-engine';
+export * from './embedding-provenance';
 export * from './onnx-embedder';
 export * from './onnx-optimized';
 export * from './parallel-intelligence';

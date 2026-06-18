@@ -1,0 +1,36 @@
+[package]
+name = "rvm-checkpoint"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "C2SP tlog-checkpoint export for RVM sealed witness segments (host-side, std)"
+keywords = ["transparency-log", "checkpoint", "signed-note", "witness", "ed25519"]
+categories = ["cryptography"]
+
+[lib]
+crate-type = ["rlib"]
+# All tests live under tests/ (unit.rs + conformance.rs) rather than in
+# #[cfg(test)] modules: Windows Defender's ML heuristic persistently
+# false-positives on the freshly linked lib unittest binary of this crate
+# (deleting it before execution, "Access is denied"), while the tests/
+# harness binaries with identical test content execute fine. Disabling the
+# empty lib harness keeps `cargo test -p rvm-checkpoint` green everywhere.
+test = false
+
+[dependencies]
+# Kernel-side witness types (SealedSegment). We only consume the public API.
+rvm-witness = { workspace = true, features = ["std"] }
+# Same Ed25519 implementation/version already used by rvm-proof (no second
+# Ed25519 crate in the workspace). Default features (std) are fine here:
+# this crate is host-side and never linked into the no_std kernel.
+ed25519-dalek = { version = "2.1" }
+sha2 = { workspace = true }
+
+# base64 is intentionally NOT a dependency: the workspace does not carry a
+# base64 crate, and the signed-note/checkpoint formats need only RFC 4648
+# standard-alphabet encode/decode with padding. A ~100-line audited local
+# implementation (src/base64.rs, canonical-encoding strict) avoids adding a
+# new external dependency to a transparency-log trust path.

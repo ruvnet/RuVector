@@ -9,11 +9,23 @@ use crate::error::ProofError;
 use crate::table::CapabilityTable;
 use rvm_types::CapRights;
 
-/// Nonce ring buffer size for replay prevention.
+/// Nonce table size for replay prevention.
 ///
-/// Increased from 64 to 4096 to prevent replay attacks that exploit
-/// the small ring buffer window (security finding: nonce ring too small).
-const NONCE_RING_SIZE: usize = 4096;
+/// 4096 slots of `u64` = 32 KiB. The previous design used two parallel
+/// 4096-entry arrays (ring + hash index, 64 KiB total) where a colliding
+/// nonce `B = A + k * 4096` evicted `A` from the hash index, re-admitting
+/// `A` for deliberate replay. The single open-addressed table below keeps
+/// the same 4096-nonce window at half the footprint and closes the
+/// collision-eviction replay hole via the watermark (see [`mark_nonce`]).
+const NONCE_TABLE_SIZE: usize = 4096;
+
+/// Maximum linear-probe distance in the nonce table.
+///
+/// Bounded probing keeps `check_nonce`/`mark_nonce` O(1) worst-case.
+/// When all probed slots are occupied, the oldest (smallest) nonce in
+/// the window is evicted and the watermark is raised to its value, so
+/// eviction can never re-admit a previously seen nonce.
+const NONCE_MAX_PROBES: usize = 8;
 
 /// Policy context for P2 validation.
 #[derive(Debug, Clone, Copy)]
@@ -40,16 +52,21 @@ pub struct PolicyContext {
 pub struct ProofVerifier<const N: usize> {
     /// Reference epoch for stale-handle detection.
     current_epoch: u32,
-    /// Nonce ring buffer for replay prevention.
-    nonce_ring: [u64; NONCE_RING_SIZE],
-    /// Hash-indexed nonce lookup: `nonce_hash[nonce % SIZE]` stores the
-    /// nonce value for O(1) replay detection instead of O(N) linear scan.
-    nonce_hash: [u64; NONCE_RING_SIZE],
-    /// Write position in the nonce ring.
-    nonce_write_pos: usize,
-    /// Monotonic watermark: any nonce below this value is rejected
-    /// outright, even if it has fallen off the ring buffer. This
-    /// prevents replaying very old nonces after ring eviction.
+    /// Open-addressed nonce table for replay prevention.
+    ///
+    /// Each slot stores the nonce value itself; `0` marks an empty slot
+    /// (safe because nonce == 0 is handled separately and never
+    /// inserted, see [`check_nonce`]/[`mark_nonce`]). Lookup and insert
+    /// use bounded linear probing ([`NONCE_MAX_PROBES`] slots starting
+    /// at `nonce % NONCE_TABLE_SIZE`).
+    nonce_table: [u64; NONCE_TABLE_SIZE],
+    /// Total number of nonces inserted (drives the periodic watermark
+    /// advance that replaces the old ring-wrap behaviour).
+    nonce_inserted: u64,
+    /// Monotonic watermark: any nonce at or below this value is rejected
+    /// outright, even if it is no longer present in the table. This
+    /// prevents replaying nonces that were evicted (probe-window
+    /// overflow) or that predate the current table window.
     nonce_watermark: u64,
     /// Whether nonce == 0 is allowed to bypass replay checks.
     ///
@@ -70,9 +87,8 @@ impl<const N: usize> ProofVerifier<N> {
     pub const fn new(epoch: u32) -> Self {
         Self {
             current_epoch: epoch,
-            nonce_ring: [0u64; NONCE_RING_SIZE],
-            nonce_hash: [0u64; NONCE_RING_SIZE],
-            nonce_write_pos: 0,
+            nonce_table: [0u64; NONCE_TABLE_SIZE],
+            nonce_inserted: 0,
             nonce_watermark: 0,
             allow_zero_nonce: false,
         }
@@ -299,47 +315,95 @@ impl<const N: usize> ProofVerifier<N> {
 
     /// Checks if a nonce has been used recently.
     ///
-    /// Rejects nonces that are below the monotonic watermark (very old
-    /// nonces that have already fallen off the ring) as well as nonces
-    /// still present in the ring buffer.
+    /// Rejects nonces that are at or below the monotonic watermark
+    /// (nonces that were evicted from the table or predate the current
+    /// window) as well as nonces still present in the table.
     ///
     /// Nonce == 0 is rejected unless `allow_zero_nonce` is set. This
     /// prevents callers from silently skipping replay protection by
-    /// passing a default/uninitialized nonce value.
+    /// passing a default/uninitialized nonce value (and keeps 0 free
+    /// to act as the empty-slot sentinel in the table).
+    ///
+    /// # Replay-protection guarantee
+    ///
+    /// Once a nonce has been marked via [`mark_nonce`], it is rejected
+    /// forever: either it is still in the table (probe hit), or it was
+    /// evicted — and eviction raises the watermark to at least its
+    /// value, so the watermark check rejects it. Unlike the previous
+    /// two-array design, a colliding nonce `B = A + k * NONCE_TABLE_SIZE`
+    /// can never silently re-admit `A`. The trade-off is fail-closed:
+    /// raising the watermark may also reject *never-seen* nonces that
+    /// are numerically at or below an evicted one.
     fn check_nonce(&self, nonce: u64) -> bool {
         if nonce == 0 {
             return self.allow_zero_nonce;
         }
-        // Watermark check: reject any nonce below the low-water mark.
+        // Watermark check: reject any nonce at or below the low-water mark.
         if nonce <= self.nonce_watermark {
             return false;
         }
-        // O(1) hash-indexed lookup instead of linear scan.
-        let hash_slot = (nonce as usize) % NONCE_RING_SIZE;
-        if self.nonce_hash[hash_slot] == nonce {
-            return false;
+        // Bounded linear probe from the nonce's home slot.
+        let home = (nonce as usize) % NONCE_TABLE_SIZE;
+        let mut i = 0;
+        while i < NONCE_MAX_PROBES {
+            if self.nonce_table[(home + i) % NONCE_TABLE_SIZE] == nonce {
+                return false;
+            }
+            i += 1;
         }
         true
     }
 
-    /// Records a nonce as used and advances the watermark.
+    /// Records a nonce as used, evicting (and permanently retiring via
+    /// the watermark) the oldest probe-window entry if necessary.
     fn mark_nonce(&mut self, nonce: u64) {
         if nonce == 0 {
             return;
         }
-        self.nonce_ring[self.nonce_write_pos] = nonce;
-        // Populate hash index for O(1) lookup.
-        let hash_slot = (nonce as usize) % NONCE_RING_SIZE;
-        self.nonce_hash[hash_slot] = nonce;
-        self.nonce_write_pos = (self.nonce_write_pos + 1) % NONCE_RING_SIZE;
-        // Advance watermark: the watermark tracks the minimum nonce
-        // that was evicted from the ring. When we wrap, the oldest
-        // entry is being overwritten, so we bump the watermark.
-        if self.nonce_write_pos == 0 {
-            // We just wrapped. Find the minimum value in the ring
-            // to set as the new watermark.
+
+        // Probe for an empty slot; track the oldest (smallest) live
+        // nonce in the window as the eviction candidate.
+        let home = (nonce as usize) % NONCE_TABLE_SIZE;
+        let mut oldest_slot = home;
+        let mut oldest_val = u64::MAX;
+        let mut stored = false;
+        let mut i = 0;
+        while i < NONCE_MAX_PROBES {
+            let slot = (home + i) % NONCE_TABLE_SIZE;
+            let val = self.nonce_table[slot];
+            if val == nonce {
+                // Already marked; nothing to do.
+                return;
+            }
+            if val == 0 {
+                self.nonce_table[slot] = nonce;
+                stored = true;
+                break;
+            }
+            if val < oldest_val {
+                oldest_val = val;
+                oldest_slot = slot;
+            }
+            i += 1;
+        }
+
+        if !stored {
+            // Probe window full: evict the oldest entry and raise the
+            // watermark to its value so the evicted nonce stays
+            // rejected forever (eviction can never re-admit a replay).
+            self.nonce_table[oldest_slot] = nonce;
+            if oldest_val != u64::MAX && oldest_val > self.nonce_watermark {
+                self.nonce_watermark = oldest_val;
+            }
+        }
+
+        // Periodic watermark advance, preserving the previous ring's
+        // wrap semantics: after a full table's worth of inserts,
+        // anything older than the minimum live nonce is rejected.
+        self.nonce_inserted += 1;
+        if self.nonce_inserted % (NONCE_TABLE_SIZE as u64) == 0 {
             let mut min_val = u64::MAX;
-            for entry in &self.nonce_ring {
+            for entry in &self.nonce_table {
                 if *entry != 0 && *entry < min_val {
                     min_val = *entry;
                 }
@@ -552,6 +616,52 @@ mod tests {
             verifier.verify_p2(&table, &tree, idx, gen, &ctx_old),
             Err(ProofError::PolicyViolation)
         );
+    }
+
+    /// Regression test for the collision-eviction replay hole.
+    ///
+    /// In the previous two-array design, `nonce_hash[nonce % 4096]` was
+    /// overwritten by any colliding nonce `B = A + k * 4096`, so after
+    /// inserting one collider, `check_nonce(A)` re-admitted `A` —
+    /// deliberate replay was possible.
+    ///
+    /// New design's guarantee (documented on `check_nonce`): once
+    /// marked, a nonce is rejected forever. While it survives in the
+    /// probe window it is rejected by the table lookup; when colliders
+    /// overflow the window and evict it, the watermark is raised to its
+    /// value, so the watermark check rejects it instead. There is no
+    /// state in which a marked nonce becomes acceptable again.
+    #[test]
+    fn test_colliding_nonces_cannot_replay_evicted_nonce() {
+        let mut verifier = ProofVerifier::<64>::new(0);
+
+        let a = 5000u64;
+        assert!(verifier.check_nonce(a), "fresh nonce must be accepted");
+        verifier.mark_nonce(a);
+        assert!(!verifier.check_nonce(a), "immediate replay rejected");
+
+        // Insert colliding nonces (same home slot: a + k * 4096). The
+        // first NONCE_MAX_PROBES - 1 fill the probe window alongside A;
+        // subsequent ones force evictions, starting with A (the oldest).
+        for k in 1..=16u64 {
+            let collider = a + k * 4096;
+            assert!(
+                verifier.check_nonce(collider),
+                "fresh collider {collider} must be accepted"
+            );
+            verifier.mark_nonce(collider);
+            // The original nonce must be rejected at EVERY point during
+            // the collision churn — in-table before eviction, via the
+            // watermark after.
+            assert!(
+                !verifier.check_nonce(a),
+                "nonce {a} re-admitted after {k} colliding inserts (replay hole)"
+            );
+        }
+
+        // Colliders themselves must also never be replayable.
+        assert!(!verifier.check_nonce(a + 4096));
+        assert!(!verifier.check_nonce(a + 16 * 4096));
     }
 
     #[test]

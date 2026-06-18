@@ -40,8 +40,9 @@ jobs:
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             node-file: sona.linux-arm64-gnu.node
-          # macOS x64
-          - os: macos-13
+          # macOS x64 — cross-compiled on Apple Silicon (macos-13 Intel runners are retired;
+          # jobs requesting that label queue forever)
+          - os: macos-14
             target: x86_64-apple-darwin
             node-file: sona.darwin-x64.node
           # macOS ARM64
@@ -195,6 +196,12 @@ jobs:
           cp ../../../artifacts/bindings-aarch64-pc-windows-msvc/*.node . 2>/dev/null || true
           cp ../../../artifacts/bindings-darwin-universal/*.node . 2>/dev/null || true
 
+          # index.js / index.d.ts are committed (CI napi CLI version drift
+          # produced no loader at all — see #516). Hard-fail if absent:
+          # npm publish silently skips missing `files` entries, which is
+          # exactly how the broken 0.1.6 tarball shipped.
+          test -f index.js -a -f index.d.ts || { echo "ERROR: index.js/index.d.ts missing"; exit 1; }
+
           echo "=== .node files in package ==="
           ls -la *.node
 
@@ -226,6 +233,8 @@ jobs:
               cd "npm/$dir_name"
               npm publish --access public || echo "Warning: $name may already exist"
               cd ../..
+            else
+              echo "ERROR: expected platform binary $node_file is missing"; exit 1
             fi
           }
 
@@ -266,6 +275,13 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          # Rename bundled binaries to the index.<target>.node names the
+          # committed loader (index.js) checks for. Must happen AFTER the
+          # platform packages are created from the sona.<target>.node names.
+          for f in sona.*.node; do
+            if [ -e "$f" ]; then mv "$f" "index.${f#sona.}"; fi
+          done
+
           echo "=== Main package contents ==="
           ls -la
 

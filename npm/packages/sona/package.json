@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/sona",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Self-Optimizing Neural Architecture (SONA) - Runtime-adaptive learning with LoRA, EWC++, and ReasoningBank for LLM routers and AI systems. Sub-millisecond learning overhead, WASM and Node.js support.",
   "main": "index.js",
   "types": "index.d.ts",
@@ -20,6 +20,7 @@
     "artifacts": "napi artifacts",
     "build": "napi build --platform --release -p ruvector-sona --cargo-cwd ../../../crates/sona --features napi",
     "build:debug": "napi build --platform -p ruvector-sona --cargo-cwd ../../../crates/sona --features napi",
+    "prepublishOnly": "node -e \"const fs=require('fs');const missing=['index.js','index.d.ts'].filter(f=>!fs.existsSync(f));if(missing.length){console.error('ERROR: cannot publish @ruvector/sona: missing build output: '+missing.join(', ')+'. Run npm run build first (napi build against crates/sona, requires cargo + @napi-rs/cli). npm silently skips missing files entries, which is how the broken 0.1.6 tarball shipped.');process.exit(1)}if(!fs.readdirSync('.').some(f=>f.endsWith('.node'))){console.warn('WARNING: no local .node binary found; installs will rely solely on @ruvector/sona-* optionalDependencies.')}\"",
     "test": "node --test",
     "universal": "napi universal",
     "version": "napi version"
@@ -71,12 +72,12 @@
     "*.node"
   ],
   "optionalDependencies": {
-    "@ruvector/sona-linux-x64-gnu": "0.1.4",
-    "@ruvector/sona-linux-x64-musl": "0.1.4",
-    "@ruvector/sona-linux-arm64-gnu": "0.1.4",
-    "@ruvector/sona-darwin-x64": "0.1.4",
-    "@ruvector/sona-darwin-arm64": "0.1.4",
-    "@ruvector/sona-win32-x64-msvc": "0.1.4",
-    "@ruvector/sona-win32-arm64-msvc": "0.1.4"
+    "@ruvector/sona-linux-x64-gnu": "0.1.5",
+    "@ruvector/sona-linux-x64-musl": "0.1.5",
+    "@ruvector/sona-linux-arm64-gnu": "0.1.5",
+    "@ruvector/sona-darwin-x64": "0.1.5",
+    "@ruvector/sona-darwin-arm64": "0.1.5",
+    "@ruvector/sona-win32-x64-msvc": "0.1.5",
+    "@ruvector/sona-win32-arm64-msvc": "0.1.5"
   }
 }

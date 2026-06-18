@@ -440,6 +440,42 @@ pub fn dev_measurement() -> [u8; 32] {
 }
 
 // ---------------------------------------------------------------------------
+// Witness v2 segment seal bridge (ADR-134 v2)
+// ---------------------------------------------------------------------------
+
+/// Adapter exposing any proof-crate [`WitnessSigner`] as a witness-crate
+/// [`rvm_witness::SegmentSealSigner`].
+///
+/// This lets the v2 witness log seal Merkle segment roots with the
+/// existing CT/QMDB-style signer infrastructure (HMAC-SHA256,
+/// dual-HMAC, Ed25519 `verify_strict`, or TEE-backed signers) without
+/// `rvm-witness` depending on `rvm-proof`. The seal digest already
+/// binds the root, first sequence, and count
+/// (see [`rvm_witness::seal_digest`]); the adapter signs that 32-byte
+/// digest directly.
+pub struct SealSignerAdapter<'a, S: WitnessSigner> {
+    inner: &'a S,
+}
+
+impl<'a, S: WitnessSigner> SealSignerAdapter<'a, S> {
+    /// Wrap a proof-crate signer for use as a segment seal signer.
+    #[must_use]
+    pub const fn new(inner: &'a S) -> Self {
+        Self { inner }
+    }
+}
+
+impl<S: WitnessSigner> rvm_witness::SegmentSealSigner for SealSignerAdapter<'_, S> {
+    fn sign_root(&self, digest: &[u8; 32]) -> [u8; 64] {
+        self.inner.sign(digest)
+    }
+
+    fn verify_root(&self, digest: &[u8; 32], signature: &[u8; 64]) -> bool {
+        self.inner.verify(digest, signature).is_ok()
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -859,6 +895,7 @@ mod tests {
 
     #[test]
     fn null_signer_default() {
+        #[allow(clippy::default_constructed_unit_structs)]
         let signer = NullSigner::default();
         assert_eq!(signer.sign(&[0u8; 32]), [0u8; 64]);
     }
@@ -1007,5 +1044,73 @@ mod tests {
         // The debug output should contain "BadSignature".
         let written = &buf.0[..buf.1];
         assert!(written.windows(12).any(|w| w == b"BadSignature"));
+    }
+
+    // -- SealSignerAdapter tests (ADR-134 v2 segment sealing) ---------------
+
+    #[cfg(feature = "crypto-sha256")]
+    mod seal_adapter_tests {
+        use super::*;
+        use rvm_types::WitnessRecordV2;
+        use rvm_witness::{verify_inclusion, verify_seal, WitnessLogV2};
+
+        #[test]
+        fn hmac_signer_seals_v2_segments() {
+            let log = WitnessLogV2::<64, 8>::new();
+            for i in 0..5u64 {
+                let mut r = WitnessRecordV2::zeroed();
+                r.target_object_id = i;
+                log.append(r);
+            }
+
+            let signer = HmacSha256WitnessSigner::new([0x5Au8; 32]);
+            let adapter = SealSignerAdapter::new(&signer);
+            let (sealed, acc) = log.seal_segment(&adapter).unwrap();
+
+            assert_eq!(sealed.first_sequence, 0);
+            assert_eq!(sealed.count, 5);
+            assert!(verify_seal(&sealed, &adapter));
+
+            // Inclusion proofs verify against the sealed root.
+            for seq in 0..5u64 {
+                let proof = acc.proof_for_sequence(seq).unwrap();
+                #[allow(clippy::cast_possible_truncation)]
+                let mac = acc.leaf(seq as usize).unwrap();
+                assert!(verify_inclusion(&sealed.root, &mac, &proof));
+            }
+        }
+
+        #[test]
+        fn seal_fails_with_wrong_key() {
+            let log = WitnessLogV2::<16, 8>::new();
+            let mut r = WitnessRecordV2::zeroed();
+            r.target_object_id = 1;
+            log.append(r);
+
+            let signer = HmacSha256WitnessSigner::new([0x5Au8; 32]);
+            let adapter = SealSignerAdapter::new(&signer);
+            let (sealed, _) = log.seal_segment(&adapter).unwrap();
+
+            let other = HmacSha256WitnessSigner::new([0x5Bu8; 32]);
+            let other_adapter = SealSignerAdapter::new(&other);
+            assert!(!verify_seal(&sealed, &other_adapter));
+        }
+
+        #[test]
+        fn dual_hmac_signer_seals_v2_segments() {
+            let log = WitnessLogV2::<16, 8>::new();
+            let mut r = WitnessRecordV2::zeroed();
+            r.target_object_id = 42;
+            log.append(r);
+
+            let signer = DualHmacSigner::new([0x77u8; 32]);
+            let adapter = SealSignerAdapter::new(&signer);
+            let (sealed, _) = log.seal_segment(&adapter).unwrap();
+            assert!(verify_seal(&sealed, &adapter));
+
+            let mut bad = sealed;
+            bad.root[0] ^= 1;
+            assert!(!verify_seal(&bad, &adapter));
+        }
     }
 }

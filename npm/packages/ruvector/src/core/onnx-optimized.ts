@@ -18,6 +18,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { pathToFileURL } from 'url';
+import { EmbedTextKind, PrefixPolicy, prefixText } from './embedding-provenance';
 
 // Force native dynamic import
 // eslint-disable-next-line @typescript-eslint/no-implied-eval
@@ -59,6 +60,10 @@ const QUANTIZED_MODELS: Record<string, {
   tokenizer: string;
   dimension: number;
   maxLength: number;
+  /** ADR-210 D4: query/passage prefix convention from the model card. */
+  prefixPolicy: PrefixPolicy;
+  queryPrefix: string;
+  passagePrefix: string;
 }> = {
   'all-MiniLM-L6-v2': {
     onnx: 'https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/onnx/model.onnx',
@@ -68,6 +73,9 @@ const QUANTIZED_MODELS: Record<string, {
     tokenizer: 'https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/tokenizer.json',
     dimension: 384,
     maxLength: 256,
+    prefixPolicy: 'none',
+    queryPrefix: '',
+    passagePrefix: '',
   },
   'bge-small-en-v1.5': {
     onnx: 'https://huggingface.co/BAAI/bge-small-en-v1.5/resolve/main/onnx/model.onnx',
@@ -76,6 +84,11 @@ const QUANTIZED_MODELS: Record<string, {
     tokenizer: 'https://huggingface.co/BAAI/bge-small-en-v1.5/resolve/main/tokenizer.json',
     dimension: 384,
     maxLength: 512,
+    // Query instruction recommended for short-query → long-passage retrieval;
+    // passages need no instruction (model card).
+    prefixPolicy: 'query-recommended',
+    queryPrefix: 'Represent this sentence for searching relevant passages: ',
+    passagePrefix: '',
   },
   'e5-small-v2': {
     onnx: 'https://huggingface.co/intfloat/e5-small-v2/resolve/main/onnx/model.onnx',
@@ -83,6 +96,10 @@ const QUANTIZED_MODELS: Record<string, {
     tokenizer: 'https://huggingface.co/intfloat/e5-small-v2/resolve/main/tokenizer.json',
     dimension: 384,
     maxLength: 512,
+    // The model card states quality degrades without these prefixes.
+    prefixPolicy: 'required',
+    queryPrefix: 'query: ',
+    passagePrefix: 'passage: ',
   },
 };
 
@@ -246,7 +263,10 @@ export class OptimizedOnnxEmbedder {
       // log a quantization (FP16/INT8) that is not actually applied. When the
       // loader gains variant support, thread the selected variant through to
       // loadModel() here instead of computing an unused URL.
-      const modelInfo = QUANTIZED_MODELS[this.config.modelId];
+      // Own-property lookup only ('__proto__'-style ids must miss, ADR-210).
+      const modelInfo = Object.prototype.hasOwnProperty.call(QUANTIZED_MODELS, this.config.modelId)
+        ? QUANTIZED_MODELS[this.config.modelId]
+        : undefined;
       if (modelInfo) {
         this.dimension = modelInfo.dimension;
       }
@@ -279,9 +299,30 @@ export class OptimizedOnnxEmbedder {
   }
 
   /**
-   * Embed a single text with caching
+   * Embed a single text with caching.
+   * Equivalent to `embedPassage()` — ADR-210 D4 (plain embed = passage path).
    */
   async embed(text: string): Promise<Float32Array> {
+    return this.embedKind('passage', text);
+  }
+
+  /** Embed a search query with the model's registered query prefix (D4). */
+  async embedQuery(text: string): Promise<Float32Array> {
+    return this.embedKind('query', text);
+  }
+
+  /** Embed a passage/document with the model's registered passage prefix (D4). */
+  async embedPassage(text: string): Promise<Float32Array> {
+    return this.embedKind('passage', text);
+  }
+
+  private async embedKind(kind: EmbedTextKind, text: string): Promise<Float32Array> {
+    // ADR-210 D4: prefix before tokenization (and before the cache key, so
+    // query and passage embeds of the same text never collide for E5/BGE).
+    return this.embedRaw(prefixText(this.config.modelId, kind, text));
+  }
+
+  private async embedRaw(text: string): Promise<Float32Array> {
     if (this.config.lazyInit && !this.initialized) {
       await this.init();
     }
@@ -325,17 +366,20 @@ export class OptimizedOnnxEmbedder {
       throw new Error('Embedder not initialized');
     }
 
-    const results: Float32Array[] = new Array(texts.length);
+    // ADR-210 D4: batch embedding is the passage path (embed() === embedPassage()).
+    const prepared = texts.map(t => prefixText(this.config.modelId, 'passage', t));
+
+    const results: Float32Array[] = new Array(prepared.length);
     const uncached: { index: number; text: string }[] = [];
 
     // Check cache first
-    for (let i = 0; i < texts.length; i++) {
-      const cacheKey = hashString(texts[i]);
+    for (let i = 0; i < prepared.length; i++) {
+      const cacheKey = hashString(prepared[i]);
       const cached = this.embeddingCache.get(cacheKey);
       if (cached) {
         results[i] = cached;
       } else {
-        uncached.push({ index: i, text: texts[i] });
+        uncached.push({ index: i, text: prepared[i] });
       }
     }
 

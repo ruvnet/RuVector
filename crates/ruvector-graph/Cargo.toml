@@ -157,6 +157,10 @@ path = "examples/test_cypher_parser.rs"
 name = "new_capabilities_bench"
 harness = false
 
+[[bench]]
+name = "typed_graph_bench"
+harness = false
+
 [lib]
 crate-type = ["rlib"]
 bench = false

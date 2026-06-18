@@ -1,6 +1,6 @@
 [package]
 name = "rvf-runtime"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "RuVector Format runtime -- RvfStore API, compaction, and streaming I/O"
 license = "MIT OR Apache-2.0"
@@ -20,6 +20,9 @@ ed25519 = ["rvf-types/ed25519"]
 
 [dependencies]
 rvf-types = { version = "0.2.0", path = "../rvf-types", features = ["std"] }
+rvf-index = { version = "0.2.0", path = "../rvf-index", features = ["std"] }
+rvf-quant = { version = "0.2.0", path = "../rvf-quant", features = ["std"] }
+crc32fast = "1"
 
 [dev-dependencies]
 tempfile = "3"

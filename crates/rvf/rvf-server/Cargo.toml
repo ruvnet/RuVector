@@ -16,7 +16,7 @@ name = "rvf-server"
 path = "src/main.rs"
 
 [dependencies]
-rvf-runtime = { version = "0.2.0", path = "../rvf-runtime" }
+rvf-runtime = { version = "0.3.0", path = "../rvf-runtime" }
 rvf-types = { version = "0.2.0", path = "../rvf-types" }
 tokio = { version = "1", features = ["full"] }
 axum = { version = "0.7", features = ["ws"] }

@@ -1,0 +1,29 @@
+[package]
+name = "ruvector-proof-gate"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT OR Apache-2.0"
+description = "Proof-gated vector writes with Merkle-accumulating witness logs for RuVector. Tamper-evident write receipts for agent memory substrates."
+readme = "README.md"
+repository = "https://github.com/ruvnet/ruvector"
+homepage = "https://github.com/ruvnet/ruvector"
+documentation = "https://docs.rs/ruvector-proof-gate"
+keywords = ["vector-database", "merkle", "proof", "witness", "agent-memory"]
+categories = ["cryptography", "database-implementations", "science"]
+
+[dependencies]
+sha2 = "0.10"
+thiserror = { workspace = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[features]
+default = []
+serde = ["dep:serde", "dep:serde_json"]
+
+[[example]]
+name = "benchmark"

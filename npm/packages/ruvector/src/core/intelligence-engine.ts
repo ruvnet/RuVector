@@ -13,7 +13,12 @@
 
 import { FastAgentDB, Episode, Trajectory, EpisodeSearchResult } from './agentdb-fast';
 import { SonaEngine, SonaConfig, LearnedPattern, SonaStats, isSonaAvailable } from './sona-wrapper';
-import { OnnxEmbedder, isOnnxAvailable, initOnnxEmbedder } from './onnx-embedder';
+import { OnnxEmbedder, OnnxEmbedderConfig, isOnnxAvailable, initOnnxEmbedder, getEmbedderProvenance, embedBulk, shutdownParallelEmbedder } from './onnx-embedder';
+import {
+  EmbeddingProvenance,
+  resolveEmbedderSelection,
+  warnHashFallbackOnce,
+} from './embedding-provenance';
 import { ParallelIntelligence, ParallelConfig, BatchEpisode, getParallelIntelligence } from './parallel-intelligence';
 
 // ============================================================================
@@ -67,6 +72,13 @@ export interface LearningStats {
 
   // ONNX stats
   onnxEnabled: boolean;
+  /**
+   * Which embedder actually serves embedAsync() right now (ADR-210 D1):
+   * 'onnx-minilm' once the model is loaded, 'hash-fallback' while ONNX is
+   * enabled but not (yet) loaded, 'hash' when ONNX is deliberately disabled
+   * (config or RUVECTOR_EMBEDDER=hash / RUVECTOR_ONNX=0).
+   */
+  embedderKind: 'onnx-minilm' | 'hash-fallback' | 'hash';
 
   // Parallel worker stats
   parallelEnabled: boolean;
@@ -86,8 +98,15 @@ export interface IntelligenceConfig {
   enableSona?: boolean;
   /** Enable attention mechanisms (default: true if available) */
   enableAttention?: boolean;
-  /** Enable ONNX semantic embeddings (default: false, opt-in for quality) */
+  /**
+   * Enable ONNX semantic embeddings (default: TRUE since ADR-210 D1 — the
+   * model loads lazily; until ready or when it cannot load, the hash
+   * fallback is used and loudly reported). RUVECTOR_EMBEDDER / RUVECTOR_ONNX
+   * environment variables override this config (D5).
+   */
   enableOnnx?: boolean;
+  /** Options forwarded to the ONNX embedder (model id, cache dir, ...). */
+  onnxConfig?: OnnxEmbedderConfig;
   /** SONA configuration */
   sonaConfig?: Partial<SonaConfig>;
   /** Storage path for persistence */
@@ -159,6 +178,10 @@ export class IntelligenceEngine {
   private attention: any = null;
   private onnxEmbedder: OnnxEmbedder | null = null;
   private onnxReady: boolean = false;
+  private onnxInitPromise: Promise<boolean> | null = null;
+  private onnxInitError: Error | null = null;
+  /** RUVECTOR_EMBEDDER=minilm: fail rather than fall back (ADR-210 D5). */
+  private onnxHardRequire: boolean = false;
   private parallel: ParallelIntelligence | null = null;
 
   // In-memory data structures
@@ -171,13 +194,36 @@ export class IntelligenceEngine {
 
   // Runtime state
   private currentTrajectoryId: number | null = null;
+  private currentTrajectoryContext: string | null = null;
+  private currentTrajectoryFile: string | undefined = undefined;
+  private currentTrajectoryAgent: string | null = null;
   private sessionStart: number = Date.now();
   private learningEnabled: boolean = true;
   private episodeBatchQueue: BatchEpisode[] = [];
 
   constructor(config: IntelligenceConfig = {}) {
+    // ADR-210 D1/D5: ONNX semantic embeddings are the default. Environment
+    // rollout flags override config: RUVECTOR_EMBEDDER=auto|minilm|hash wins
+    // over RUVECTOR_ONNX=0|1, which wins over config.enableOnnx.
+    const selection = resolveEmbedderSelection();
+    let useOnnx: boolean;
+    if (selection === 'hash') {
+      useOnnx = false;
+    } else if (selection === 'minilm') {
+      // Hard-require: init failure is an error, never a silent fallback.
+      if (!isOnnxAvailable()) {
+        throw new Error(
+          'RUVECTOR_EMBEDDER=minilm (or RUVECTOR_ONNX=1) hard-requires the ONNX embedder, ' +
+          'but the bundled WASM files are missing. Reinstall ruvector or unset the flag.'
+        );
+      }
+      useOnnx = true;
+      this.onnxHardRequire = true;
+    } else {
+      // auto: default-on — MiniLM when loadable, loud hash fallback otherwise.
+      useOnnx = (config.enableOnnx ?? true) && isOnnxAvailable();
+    }
     // If ONNX is enabled, use 384 dimensions (MiniLM default)
-    const useOnnx = !!(config.enableOnnx && isOnnxAvailable());
     const embeddingDim = useOnnx ? 384 : (config.embeddingDim ?? 256);
 
     this.config = {
@@ -187,6 +233,7 @@ export class IntelligenceEngine {
       enableSona: config.enableSona ?? true,
       enableAttention: config.enableAttention ?? true,
       enableOnnx: useOnnx,
+      onnxConfig: config.onnxConfig ?? {},
       sonaConfig: config.sonaConfig ?? {},
       storagePath: config.storagePath ?? '',
       learningRate: config.learningRate ?? 0.1,
@@ -202,9 +249,9 @@ export class IntelligenceEngine {
 
     // Initialize ONNX embedder if enabled
     if (this.config.enableOnnx) {
-      this.onnxEmbedder = new OnnxEmbedder();
+      this.onnxEmbedder = new OnnxEmbedder(this.config.onnxConfig);
       // Initialize async (don't block constructor)
-      this.initOnnx();
+      this.onnxInitPromise = this.initOnnx();
     }
 
     // Initialize SONA if enabled and available
@@ -233,15 +280,34 @@ export class IntelligenceEngine {
     this.initVectorDb();
   }
 
-  private async initOnnx(): Promise<void> {
-    if (!this.onnxEmbedder) return;
+  private async initOnnx(): Promise<boolean> {
+    if (!this.onnxEmbedder) return false;
     try {
       await this.onnxEmbedder.init();
       this.onnxReady = true;
-    } catch (e) {
-      console.warn('ONNX initialization failed, using fallback embeddings');
+      return true;
+    } catch (e: any) {
+      // Quiet here; the loud once-per-process notice fires on first
+      // fallback USE (ADR-210 D1 / acceptance gate 2).
+      this.onnxInitError = e instanceof Error ? e : new Error(String(e));
       this.onnxReady = false;
+      return false;
     }
+  }
+
+  /**
+   * Await lazy ONNX initialization. Resolves true once the model is loaded,
+   * false when it could not be (offline / restricted CI) — in which case
+   * stats().embedderKind reports 'hash-fallback' (ADR-210 D1).
+   */
+  async awaitOnnx(): Promise<boolean> {
+    if (!this.onnxInitPromise) return false;
+    return this.onnxInitPromise;
+  }
+
+  /** Why ONNX init failed, or null (ADR-210 D1 observability). */
+  getOnnxInitError(): Error | null {
+    return this.onnxInitError;
   }
 
   private async initVectorDb(): Promise<void> {
@@ -277,6 +343,12 @@ export class IntelligenceEngine {
   embed(text: string): number[] {
     const dim = this.config.embeddingDim;
 
+    // ADR-210 D1: ONNX was requested but the model could not load — the hash
+    // fallback now serves embeds. Report it loudly, exactly once per process.
+    if (this.config.enableOnnx && this.onnxInitError) {
+      warnHashFallbackOnce(this.onnxInitError.message);
+    }
+
     // Try to use attention-based embedding (best sync quality)
     if (this.attention?.DotProductAttention) {
       try {
@@ -291,24 +363,81 @@ export class IntelligenceEngine {
   }
 
   /**
-   * Async embedding with ONNX support (recommended for semantic quality)
+   * Async embedding with ONNX support (recommended for semantic quality).
+   *
+   * ADR-210 D1: when ONNX is enabled but the model cannot load, the hash
+   * fallback is used and reported (one stderr warning per process, and
+   * stats().embedderKind === 'hash-fallback'). Under RUVECTOR_EMBEDDER=minilm
+   * the failure is an error instead — no fallback (D5).
    */
   async embedAsync(text: string): Promise<number[]> {
     // Try ONNX first (best semantic quality)
     if (this.onnxEmbedder) {
       try {
         if (!this.onnxReady) {
-          await this.onnxEmbedder.init();
-          this.onnxReady = true;
+          const ok = this.onnxInitPromise ? await this.onnxInitPromise : await this.initOnnx();
+          if (!ok) throw this.onnxInitError ?? new Error('ONNX initialization failed');
         }
         return await this.onnxEmbedder.embed(text);
-      } catch {
+      } catch (e: any) {
+        if (this.onnxHardRequire) {
+          throw new Error(
+            `RUVECTOR_EMBEDDER=minilm hard-requires the ONNX embedder and fallback is disabled: ${e?.message ?? e}`
+          );
+        }
+        warnHashFallbackOnce(e?.message ?? String(e));
         // Fall through to sync methods
       }
     }
 
     // Fall back to sync embedding
     return this.embed(text);
+  }
+
+  /**
+   * Batch embedding for bulk ingest (ADR-210 D3). When the ONNX model is
+   * loaded, batches of 32+ texts route through the bundled parallel worker
+   * pool (parallel-fp32 — see embedBulk in onnx-embedder.ts for the int8
+   * status note); smaller batches use the single-threaded batch path. On
+   * fallback, semantics match embedAsync exactly: hash per-item with the
+   * loud once-per-process warning, or a hard error under
+   * RUVECTOR_EMBEDDER=minilm (D5). Texts are embedded as passages (D4).
+   *
+   * Callers that start the pool should call shutdownEmbedderPool() when the
+   * bulk work is done so worker threads do not keep the process alive.
+   */
+  async embedBatchAsync(texts: string[]): Promise<number[][]> {
+    if (!texts || texts.length === 0) return [];
+    if (this.onnxEmbedder) {
+      try {
+        if (!this.onnxReady) {
+          const ok = this.onnxInitPromise ? await this.onnxInitPromise : await this.initOnnx();
+          if (!ok) throw this.onnxInitError ?? new Error('ONNX initialization failed');
+        }
+        return await embedBulk(texts);
+      } catch (e: any) {
+        if (this.onnxHardRequire) {
+          throw new Error(
+            `RUVECTOR_EMBEDDER=minilm hard-requires the ONNX embedder and fallback is disabled: ${e?.message ?? e}`
+          );
+        }
+        warnHashFallbackOnce(e?.message ?? String(e));
+        // Fall through to sync methods
+      }
+    }
+    return texts.map(t => this.embed(t));
+  }
+
+  /**
+   * Shut down the bundled bulk-embed worker pool, releasing its threads
+   * (ADR-210 D3). Safe to call when the pool was never started.
+   */
+  async shutdownEmbedderPool(): Promise<void> {
+    try {
+      await shutdownParallelEmbedder();
+    } catch {
+      // Pool teardown is best-effort.
+    }
   }
 
   /**
@@ -638,6 +767,12 @@ export class IntelligenceEngine {
   beginTrajectory(context: string, file?: string): void {
     const embed = this.embed(context + ' ' + (file || ''));
 
+    // Remember the task context so endTrajectory() can write the routing
+    // outcome into the same state namespace route() reads (issue #517).
+    this.currentTrajectoryContext = context;
+    this.currentTrajectoryFile = file;
+    this.currentTrajectoryAgent = null;
+
     if (this.sona) {
       try {
         this.currentTrajectoryId = this.sona.beginTrajectory(embed);
@@ -678,13 +813,28 @@ export class IntelligenceEngine {
       }
     }
 
+    // Close the routing learning loop: if a route was chosen for this
+    // trajectory, record its outcome under the state key route() queries.
+    if (this.currentTrajectoryAgent && this.currentTrajectoryContext) {
+      this.recordRouteOutcome(
+        this.currentTrajectoryContext,
+        this.currentTrajectoryFile,
+        this.currentTrajectoryAgent,
+        q
+      );
+    }
+
     this.currentTrajectoryId = null;
+    this.currentTrajectoryContext = null;
+    this.currentTrajectoryFile = undefined;
+    this.currentTrajectoryAgent = null;
   }
 
   /**
    * Set the agent route for current trajectory
    */
   setTrajectoryRoute(agent: string): void {
+    this.currentTrajectoryAgent = agent;
     if (this.sona && this.currentTrajectoryId !== null) {
       try {
         this.sona.setRoute(this.currentTrajectoryId, agent);
@@ -692,6 +842,27 @@ export class IntelligenceEngine {
         // Ignore route errors
       }
     }
+  }
+
+  /**
+   * Record the outcome of an agent routing decision.
+   *
+   * This is the write-side counterpart of route(): it derives the state key
+   * with the exact same getState()/getExtension() logic route() uses for
+   * lookups, so learned agent outcomes actually influence future routing
+   * (fixes #517 — previously only command/edit outcome episodes were stored,
+   * under state keys route() never queries).
+   */
+  recordRouteOutcome(task: string, file: string | undefined, agent: string, reward: number): void {
+    if (!agent || agent === 'unknown') return;
+    const ext = file ? this.getExtension(file) : '';
+    const state = this.getState(task, ext);
+    if (!this.routingPatterns.has(state)) {
+      this.routingPatterns.set(state, new Map());
+    }
+    const patterns = this.routingPatterns.get(state)!;
+    const oldValue = patterns.get(agent) ?? 0.5;
+    patterns.set(agent, oldValue + this.config.learningRate * (reward - oldValue));
   }
 
   // =========================================================================
@@ -1003,11 +1174,41 @@ export class IntelligenceEngine {
 
       attentionEnabled: this.attention !== null,
       onnxEnabled: this.onnxReady,
+      embedderKind: this.config.enableOnnx
+        ? (this.onnxReady ? 'onnx-minilm' : 'hash-fallback')
+        : 'hash',
 
       parallelEnabled: parallelStats.enabled,
       parallelWorkers: parallelStats.workers,
       parallelBusy: parallelStats.busy,
       parallelQueued: parallelStats.queued,
+    };
+  }
+
+  /**
+   * Embedding provenance of vectors embedAsync() would produce right now
+   * (ADR-210 D0). Hash fallback embeds are 'hash' even while ONNX is enabled
+   * but not ready — provenance records what actually happened, not intent.
+   */
+  getActiveProvenance(): EmbeddingProvenance {
+    if (this.onnxReady) {
+      return (
+        getEmbedderProvenance() ?? {
+          embedderKind: 'onnx-minilm',
+          modelId: 'all-MiniLM-L6-v2',
+          dimension: 384,
+          normalize: true,
+          prefixPolicy: 'none',
+        }
+      );
+    }
+    return {
+      embedderKind: 'hash',
+      modelId: null,
+      dimension: this.config.embeddingDim,
+      // The engine's hash/attention embedders L2-normalize their output.
+      normalize: true,
+      prefixPolicy: 'none',
     };
   }
 
@@ -1023,6 +1224,7 @@ export class IntelligenceEngine {
       version: '2.0.0',
       exported: new Date().toISOString(),
       config: this.config,
+      embeddingProvenance: this.getActiveProvenance(),
 
       memories: Array.from(this.memories.values()),
 
@@ -1196,7 +1398,10 @@ export function createIntelligenceEngine(config?: IntelligenceConfig): Intellige
 }
 
 /**
- * Create a high-performance engine with all features enabled
+ * Create a high-performance engine with all features enabled.
+ * Note (ADR-210): with default-on ONNX the embedding space is 384-dim; the
+ * 512-dim setting only applies on the hash path (RUVECTOR_EMBEDDER=hash or
+ * ONNX unavailable). SONA dims follow the engine's actual embeddingDim.
  */
 export function createHighPerformanceEngine(): IntelligenceEngine {
   return new IntelligenceEngine({
@@ -1206,7 +1411,6 @@ export function createHighPerformanceEngine(): IntelligenceEngine {
     enableSona: true,
     enableAttention: true,
     sonaConfig: {
-      hiddenDim: 512,
       microLoraRank: 2,
       baseLoraRank: 16,
       patternClusters: 200,
@@ -1215,7 +1419,8 @@ export function createHighPerformanceEngine(): IntelligenceEngine {
 }
 
 /**
- * Create a lightweight engine for fast startup
+ * Create a lightweight engine for fast startup (hash embedder: no model load,
+ * no download — the deterministic no-model path stays available, ADR-210).
  */
 export function createLightweightEngine(): IntelligenceEngine {
   return new IntelligenceEngine({
@@ -1224,6 +1429,7 @@ export function createLightweightEngine(): IntelligenceEngine {
     maxEpisodes: 5000,
     enableSona: false,
     enableAttention: false,
+    enableOnnx: false,
   });
 }
 

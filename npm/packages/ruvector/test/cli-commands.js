@@ -552,6 +552,51 @@ test('demo --help shows options', () => {
   assert(out.includes('demo'), 'Should show demo info');
 });
 
+// ---- Section 24: Harness router surface (ADR-256) ------------------------
+console.log('\n--- 24. Harness router surface (ADR-256) ---\n');
+
+test('harness --help describes the unified surface', () => {
+  const out = run('harness --help');
+  assert(out.includes('harness'), 'Should show harness command');
+  assert(/status/.test(out), 'Should list the status subcommand');
+});
+
+test('harness status --json returns a valid structured surface', () => {
+  const out = run('harness status --json');
+  const surface = JSON.parse(out);
+  assert(surface.adr === 'ADR-256', 'adr field should be ADR-256');
+  assert(surface.primitives && typeof surface.primitives === 'object', 'should have primitives');
+  // The router concepts ADR-256 borrows must be present
+  for (const key of ['costRouter', 'semanticRouter', 'hooksRouting', 'mcp', 'witness', 'memory']) {
+    assert(surface.primitives[key], `primitives.${key} should exist`);
+    assert(typeof surface.primitives[key].available === 'boolean', `${key}.available should be boolean`);
+    assert(typeof surface.primitives[key].role === 'string', `${key}.role should be a string`);
+  }
+  // Bundled primitives are always available regardless of optional deps
+  assert(surface.primitives.hooksRouting.available === true, 'hooks routing is bundled');
+  assert(surface.primitives.mcp.available === true, 'mcp server is bundled');
+  assert(surface.summary && surface.summary.total === Object.keys(surface.primitives).length,
+    'summary.total should match primitive count');
+  // ADR-256 step 1 + 3: MCP access-control posture and a stable memory namespace
+  assert(typeof surface.primitives.mcp.accessControl === 'string', 'mcp.accessControl should be reported');
+  assert(surface.primitives.mcp.policy && typeof surface.primitives.mcp.policy.configured === 'boolean',
+    'mcp.policy.configured should be a boolean');
+  assert(typeof surface.primitives.memory.namespace === 'string' && surface.primitives.memory.namespace.length > 0,
+    'memory.namespace should default to a non-empty value');
+});
+
+test('harness honors RUVECTOR_MEMORY_NAMESPACE override', () => {
+  const out = run('harness status --json', { env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1', RUVECTOR_MEMORY_NAMESPACE: 'team-x' } });
+  const surface = JSON.parse(out);
+  assert(surface.primitives.memory.namespace === 'team-x', 'should reflect the namespace override');
+});
+
+test('bare harness command prints status without crashing', () => {
+  const { code, stdout } = runSafe('harness');
+  assert(code === 0, 'bare harness should exit 0');
+  assert(/Harness Router/.test(stdout), 'should print the harness router header');
+});
+
 // ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------

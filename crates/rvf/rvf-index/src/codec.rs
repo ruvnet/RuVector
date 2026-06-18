@@ -211,18 +211,27 @@ pub fn decode_index_seg(data: &[u8]) -> Result<IndexSegData, CodecError> {
         u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]);
     pos += 4;
 
+    // Bound the allocation before trusting `restart_count`: each restart
+    // offset occupies exactly 4 bytes, so a count larger than the remaining
+    // bytes can never decode and would otherwise drive a huge
+    // `Vec::with_capacity` (panic / OOM) on a crafted payload.
+    let restart_bytes = (restart_count as u64) * 4;
+    if restart_bytes > (data.len() - pos) as u64 {
+        return Err(CodecError::TooShort);
+    }
     let mut restart_offsets = Vec::with_capacity(restart_count as usize);
     for _ in 0..restart_count {
-        if pos + 4 > data.len() {
-            return Err(CodecError::TooShort);
-        }
         let offset = u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]);
         restart_offsets.push(offset);
         pos += 4;
     }
 
-    // Skip padding to 64-byte alignment.
+    // Skip padding to 64-byte alignment; the aligned offset may land past
+    // the end of a truncated payload.
     pos = align_up(pos, 64);
+    if pos > data.len() {
+        return Err(CodecError::TooShort);
+    }
 
     // 3. Parse adjacency data.
     let adj_start = pos;
@@ -239,6 +248,13 @@ pub fn decode_index_seg(data: &[u8]) -> Result<IndexSegData, CodecError> {
             decode_varint(&adj_data[adj_pos..]).ok_or(CodecError::InvalidVarint)?;
         adj_pos += consumed;
 
+        // Each layer carries at least a 1-byte neighbor-count varint, so a
+        // `layer_count` exceeding the remaining bytes is unsatisfiable.
+        // Reject before allocating (crafted counts up to u64::MAX would
+        // otherwise panic / OOM in `Vec::with_capacity`).
+        if layer_count > (adj_data.len() - adj_pos) as u64 {
+            return Err(CodecError::TooShort);
+        }
         let mut layers = Vec::with_capacity(layer_count as usize);
 
         for _ in 0..layer_count {
@@ -246,6 +262,10 @@ pub fn decode_index_seg(data: &[u8]) -> Result<IndexSegData, CodecError> {
                 decode_varint(&adj_data[adj_pos..]).ok_or(CodecError::InvalidVarint)?;
             adj_pos += consumed;
 
+            // Same bound: every neighbor is at least one varint byte.
+            if neighbor_count > (adj_data.len() - adj_pos) as u64 {
+                return Err(CodecError::TooShort);
+            }
             let mut neighbor_ids = Vec::with_capacity(neighbor_count as usize);
 
             if is_restart {
@@ -476,6 +496,83 @@ mod tests {
                 assert_eq!(*dl, sorted_orig);
             }
         }
+    }
+
+    /// 64-byte INDEX_SEG header for adversarial-decode tests.
+    fn header_bytes(node_count: u64) -> Vec<u8> {
+        let mut buf = vec![0u8; 64];
+        buf[0] = 0; // HNSW
+        buf[1] = 2; // Layer C
+        buf[2..4].copy_from_slice(&16u16.to_le_bytes());
+        buf[4..8].copy_from_slice(&200u32.to_le_bytes());
+        buf[8..16].copy_from_slice(&node_count.to_le_bytes());
+        buf
+    }
+
+    #[test]
+    fn decode_rejects_oversized_restart_count() {
+        // restart_count = u32::MAX with no offset bytes behind it must be
+        // rejected before allocation, not panic/OOM in with_capacity.
+        let mut data = header_bytes(0);
+        data.extend_from_slice(&64u32.to_le_bytes()); // restart_interval
+        data.extend_from_slice(&u32::MAX.to_le_bytes()); // restart_count
+        assert_eq!(decode_index_seg(&data), Err(CodecError::TooShort));
+    }
+
+    #[test]
+    fn decode_rejects_truncated_restart_padding() {
+        // restart_count = 0; aligning to the next 64-byte boundary lands
+        // past the end of the buffer. Must error, not panic on slicing.
+        let mut data = header_bytes(0);
+        data.extend_from_slice(&64u32.to_le_bytes());
+        data.extend_from_slice(&0u32.to_le_bytes());
+        assert_eq!(decode_index_seg(&data), Err(CodecError::TooShort));
+    }
+
+    #[test]
+    fn decode_rejects_oversized_layer_and_neighbor_counts() {
+        let restart_block = |data: &mut Vec<u8>| {
+            data.extend_from_slice(&64u32.to_le_bytes()); // restart_interval
+            data.extend_from_slice(&1u32.to_le_bytes()); // restart_count
+            data.extend_from_slice(&0u32.to_le_bytes()); // offset 0
+            while !data.len().is_multiple_of(64) {
+                data.push(0);
+            }
+        };
+
+        // layer_count = u64::MAX: unsatisfiable (each layer needs >= 1
+        // byte), must be rejected before Vec::with_capacity.
+        let mut data = header_bytes(1);
+        restart_block(&mut data);
+        encode_varint(u64::MAX, &mut data);
+        assert_eq!(decode_index_seg(&data), Err(CodecError::TooShort));
+
+        // neighbor_count = u64::MAX inside an otherwise valid node.
+        let mut data = header_bytes(1);
+        restart_block(&mut data);
+        encode_varint(1, &mut data); // layer_count
+        encode_varint(u64::MAX, &mut data); // neighbor_count
+        assert_eq!(decode_index_seg(&data), Err(CodecError::TooShort));
+
+        // Large-but-not-MAX counts are equally unsatisfiable.
+        let mut data = header_bytes(1);
+        restart_block(&mut data);
+        encode_varint(1 << 40, &mut data);
+        assert_eq!(decode_index_seg(&data), Err(CodecError::TooShort));
+    }
+
+    #[test]
+    fn decode_rejects_huge_node_count_with_empty_adjacency() {
+        // node_count = u64::MAX with zero adjacency bytes: the first
+        // varint read fails. Must error, never panic or loop unbounded.
+        let mut data = header_bytes(u64::MAX);
+        data.extend_from_slice(&64u32.to_le_bytes());
+        data.extend_from_slice(&1u32.to_le_bytes());
+        data.extend_from_slice(&0u32.to_le_bytes());
+        while !data.len().is_multiple_of(64) {
+            data.push(0);
+        }
+        assert_eq!(decode_index_seg(&data), Err(CodecError::InvalidVarint));
     }
 
     #[test]

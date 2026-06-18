@@ -392,3 +392,40 @@ jobs:
             done <<< "$entries"
           done < <(find npm/packages -name package.json -not -path '*/node_modules/*')
           exit $fail
+
+  # PR #547: the graph-condense + perception crates are workspace members, so
+  # `cargo check --workspace` builds them — but no job runs their unit tests,
+  # integration tests, or benches, so they can silently rot. Run them explicitly.
+  graph-condense-perception-tests:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo test graph-condense + perception
+        run: |
+          set -e
+          cargo test -p ruvector-graph-condense --all-features
+          cargo test -p ruvector-perception --all-features
+          # wasm crate: rlib path type-checks on host; the cdylib/getrandom-js
+          # path is exercised on wasm32 by the no-systemtime-in-wasm-crates job.
+          cargo check -p ruvector-graph-condense-wasm
+
+  # PR #547: these crates were built and tested against the local workspace
+  # ruvector-mincut (2.2.3, path dep). A `version = "2.0.x"` pin would resolve
+  # downstream to the stale published mincut 2.0.6 and could ship a crate that
+  # fails to compile for crates.io consumers. Forbid regressing the pin to 2.0.x.
+  mincut-pin-tracks-workspace-version:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: ruvector-mincut pin must not regress to 2.0.x
+        run: |
+          set -e
+          if grep -rnE 'ruvector-mincut[^#]*version *= *"[~^]?2\.0\.' \
+               crates/ruvector-graph-condense/Cargo.toml \
+               crates/ruvector-graph-condense-wasm/Cargo.toml \
+               crates/ruvector-perception/Cargo.toml ; then
+            echo "::error::ruvector-mincut pinned to 2.0.x but the workspace is 2.2.3 (regression of PR #547). A crates.io publish would resolve mincut to the stale published 2.0.6 and may not compile downstream. Keep the pin aligned with the workspace version."
+            exit 1
+          fi

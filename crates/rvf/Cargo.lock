@@ -1773,7 +1773,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-index"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "rand",
 ]
@@ -1838,7 +1838,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-quant"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "approx",
  "rand",
@@ -1847,9 +1847,12 @@ dependencies = [
 
 [[package]]
 name = "rvf-runtime"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
+ "crc32fast",
  "rand",
+ "rvf-index",
+ "rvf-quant",
  "rvf-types",
  "tempfile",
 ]
@@ -1887,7 +1890,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-types"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "ed25519-dalek",
  "rand_core",
@@ -1909,6 +1912,8 @@ version = "0.1.0"
 dependencies = [
  "crc32c",
  "rvf-types",
+ "sha3",
+ "subtle",
  "tempfile",
  "xxhash-rust",
 ]

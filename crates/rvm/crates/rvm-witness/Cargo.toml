@@ -15,6 +15,9 @@ crate-type = ["rlib"]
 
 [dependencies]
 rvm-types = { workspace = true }
+# Non-optional: the v2 witness format (keyed-BLAKE3 chain MACs and
+# Merkle segment sealing) is the only supported *write* format.
+blake3 = { workspace = true }
 hmac = { workspace = true, optional = true }
 sha2 = { workspace = true, optional = true }
 spin = { workspace = true, features = ["mutex", "spin_mutex"] }

@@ -47,7 +47,7 @@ pub mod tee_verifier;
 pub mod tee_signer;
 
 // Re-export signer traits and types for ergonomic access.
-pub use signer::{SignatureError, WitnessSigner};
+pub use signer::{SealSignerAdapter, SignatureError, WitnessSigner};
 #[cfg(feature = "crypto-sha256")]
 pub use signer::HmacSha256WitnessSigner;
 #[cfg(feature = "crypto-sha256")]

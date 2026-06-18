@@ -559,9 +559,18 @@ impl Kernel {
 
     /// Execute a coherence-driven partition split.
     ///
-    /// Creates a new "child" partition and emits a `StructuralSplit`
-    /// witness. The actual agent migration is the caller's responsibility;
-    /// this method handles the partition and coherence graph bookkeeping.
+    /// Creates a new "child" partition, then applies the mincut boundary
+    /// computed by the coherence engine: every neighbor on the far side
+    /// of the cut has its communication edges re-homed from `source` to
+    /// the child, so the post-split topology matches the computed cut
+    /// (not an arbitrary assignment). The plan cached by the epoch task
+    /// is reused when fresh; otherwise the (budgeted) mincut is computed
+    /// on demand -- both off the partition-switch hot path.
+    ///
+    /// Emits a `StructuralSplit` witness whose payload records the
+    /// number of re-homed neighbors. The actual agent migration is the
+    /// caller's responsibility; this method handles the partition and
+    /// coherence graph bookkeeping.
     ///
     /// Returns the new partition ID on success.
     pub fn execute_split(&mut self, source: PartitionId) -> RvmResult<PartitionId> {
@@ -570,6 +579,10 @@ impl Kernel {
         }
         let src = self.partitions.get(source).ok_or(RvmError::PartitionNotFound)?;
         let vcpu_count = src.vcpu_count;
+
+        // Resolve the cut boundary BEFORE mutating the graph: cached
+        // epoch plan if fresh, otherwise computed now.
+        let plan = self.coherence.split_plan_for(source);
 
         // Create the new partition (inherits source's vCPU count).
         let epoch = self.scheduler.current_epoch();
@@ -582,15 +595,35 @@ impl Kernel {
         // Register child in coherence graph.
         let _ = self.coherence.add_partition(child);
 
-        // Emit structural split witness.
+        // Re-home the far side of the cut to the child. Best-effort:
+        // an unusable plan (e.g., isolated source) moves nothing, which
+        // matches the previous "empty child" semantics.
+        let moved = self
+            .coherence
+            .apply_split_boundary(source, child, &plan)
+            .unwrap_or(0);
+
+        // Emit structural split witness (payload[0..2] = re-homed count).
         let mut record = WitnessRecord::zeroed();
         record.action_kind = ActionKind::StructuralSplit as u8;
         record.proof_tier = 1;
         record.actor_partition_id = source.as_u32();
         record.target_object_id = child.as_u32() as u64;
+        record.payload[0..2].copy_from_slice(&moved.to_le_bytes());
         self.witness_log.append(record);
 
         Ok(child)
+    }
+
+    /// HOT PATH placement hint: route a newly arriving partition to a
+    /// side of the current split boundary via O(degree) Fennel placement
+    /// (no mincut recomputation). Returns `None` when no epoch split
+    /// plan exists.
+    pub fn split_placement_hint(
+        &mut self,
+        id: PartitionId,
+    ) -> Option<rvm_coherence::SplitSide> {
+        self.coherence.place_incremental(id)
     }
 
     /// Execute a coherence-driven partition merge.
@@ -1682,6 +1715,108 @@ mod tests {
         assert_eq!(record.action_kind, ActionKind::StructuralSplit as u8);
         assert_eq!(record.actor_partition_id, source.as_u32());
         assert_eq!(record.target_object_id, child.as_u32() as u64);
+    }
+
+    /// Roadmap item 5: `execute_split` must assign neighbors to the two
+    /// sides according to the mincut boundary, not arbitrarily.
+    ///
+    /// Topology: S forms an obvious 2-cluster structure --
+    /// strongly coupled to A (kept), weakly coupled to the dense
+    /// {X, Y} cluster (peeled off). The mincut around S separates X,
+    /// so after the split X's edges must attach to the child while
+    /// A's stay with S.
+    #[test]
+    fn test_execute_split_respects_cut_boundary() {
+        let mut kernel = Kernel::with_defaults();
+        kernel.boot().unwrap();
+
+        let config = PartitionConfig::default();
+        let s = kernel.create_partition(&config).unwrap();
+        let a = kernel.create_partition(&config).unwrap();
+        let x = kernel.create_partition(&config).unwrap();
+        let y = kernel.create_partition(&config).unwrap();
+
+        // Keep cluster: S <-> A heavy. Move cluster: S <-> X weak,
+        // X <-> Y dense (X has its own cluster mass).
+        kernel.record_communication(s, s, 300).unwrap();
+        kernel.record_communication(s, a, 600).unwrap();
+        kernel.record_communication(a, s, 600).unwrap();
+        kernel.record_communication(s, x, 100).unwrap();
+        kernel.record_communication(x, s, 100).unwrap();
+        kernel.record_communication(x, y, 2000).unwrap();
+        kernel.record_communication(y, x, 2000).unwrap();
+
+        let child = kernel.execute_split(s).unwrap();
+        let graph = kernel.coherence_engine().graph();
+
+        // X (move side) is re-homed to the child.
+        assert_eq!(graph.edge_weight_between(s, x), 0, "S-X must be cut");
+        assert_eq!(graph.edge_weight_between(child, x), 200, "child inherits S-X");
+        // A (keep side) stays with the source.
+        assert_eq!(graph.edge_weight_between(s, a), 1200, "S-A must survive");
+        assert_eq!(graph.edge_weight_between(child, a), 0);
+        // The intra-cluster X-Y edges are untouched.
+        assert_eq!(graph.edge_weight_between(x, y), 4000);
+
+        // The witness payload records one re-homed neighbor.
+        let last = kernel.witness_log().get((kernel.witness_count() - 1) as usize).unwrap();
+        assert_eq!(last.action_kind, ActionKind::StructuralSplit as u8);
+        assert_eq!(u16::from_le_bytes([last.payload[0], last.payload[1]]), 1);
+    }
+
+    /// Epoch task vs hot path at the kernel boundary: after a tick has
+    /// produced an epoch split plan, a newly arriving partition gets an
+    /// O(degree) placement hint without recomputing the mincut.
+    #[test]
+    fn test_split_placement_hint_hot_path() {
+        let mut kernel = Kernel::with_defaults();
+        kernel.boot().unwrap();
+
+        let config = PartitionConfig::default();
+        let s = kernel.create_partition(&config).unwrap();
+        let a = kernel.create_partition(&config).unwrap();
+        let x = kernel.create_partition(&config).unwrap();
+        let y = kernel.create_partition(&config).unwrap();
+
+        // Same 2-cluster shape as above, with self-loops keeping the
+        // cluster members below the split threshold so S is the
+        // candidate.
+        kernel.record_communication(s, s, 300).unwrap();
+        kernel.record_communication(s, a, 600).unwrap();
+        kernel.record_communication(a, s, 600).unwrap();
+        kernel.record_communication(s, x, 100).unwrap();
+        kernel.record_communication(x, s, 100).unwrap();
+        kernel.record_communication(x, y, 2000).unwrap();
+        kernel.record_communication(y, x, 2000).unwrap();
+        kernel.record_communication(a, a, 2000).unwrap();
+        kernel.record_communication(x, x, 3000).unwrap();
+        kernel.record_communication(y, y, 3000).unwrap();
+
+        // No plan yet: hint unavailable.
+        let z = kernel.create_partition(&config).unwrap();
+        assert!(kernel.split_placement_hint(z).is_none());
+
+        // EPOCH TASK: tick computes the plan for S.
+        let epoch = kernel.tick().unwrap();
+        assert!(matches!(
+            epoch.decision,
+            CoherenceDecision::SplitRecommended { .. }
+        ));
+        let plan_epoch = kernel.coherence_engine().split_plan().unwrap().epoch;
+
+        // HOT PATH: Z communicates with the move-side cluster member X
+        // and is routed there incrementally.
+        kernel.record_communication(z, x, 500).unwrap();
+        kernel.record_communication(x, z, 500).unwrap();
+        assert_eq!(
+            kernel.split_placement_hint(z),
+            Some(rvm_coherence::SplitSide::MoveToChild)
+        );
+        // The epoch plan was not recomputed by the hot path.
+        assert_eq!(
+            kernel.coherence_engine().split_plan().unwrap().epoch,
+            plan_epoch
+        );
     }
 
     #[test]

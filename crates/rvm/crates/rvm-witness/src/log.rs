@@ -2,7 +2,7 @@
 //!
 //! Thread-safe via `spin::Mutex`. Designed for < 500 ns emission.
 
-use crate::hash::compute_chain_hash;
+use crate::hash::{compute_chain_hash, compute_record_hash};
 use rvm_types::WitnessRecord;
 use spin::Mutex;
 
@@ -29,6 +29,59 @@ struct WitnessLogInner<const N: usize> {
     chain_hash: u64,
     sequence: u64,
     total_emitted: u64,
+    /// Number of records silently overwritten by ring wrap-around.
+    ///
+    /// The ring overwrites the oldest record on overflow; this counter
+    /// makes that loss observable so callers can schedule drains before
+    /// audit records are dropped.
+    total_overwritten: u64,
+}
+
+impl<const N: usize> WitnessLogInner<N> {
+    /// Fill the chain fields of `record` from the current chain state.
+    ///
+    /// Sets `sequence`, `prev_hash`, and `record_hash`, and returns the
+    /// new chain hash value (to be committed via [`Self::store`]). The
+    /// `record_hash` is computed over the record's content bytes
+    /// (`[0..WitnessRecord::CONTENT_LEN]`, i.e. everything before the
+    /// chain fields), and the chain hash binds that content hash:
+    /// `chain = H(prev_chain || sequence || record_hash)`. Rewriting a
+    /// record's content therefore breaks both its self-integrity hash
+    /// and every subsequent chain link.
+    fn fill_chain_fields(&self, record: &mut WitnessRecord) -> u64 {
+        let seq = self.sequence;
+        let prev_hash = self.chain_hash;
+
+        record.sequence = seq;
+        record.prev_hash = fold_u64_to_u32(prev_hash);
+
+        // Self-integrity hash over the content bytes [0..44].
+        let record_hash =
+            compute_record_hash(&record.to_bytes()[..WitnessRecord::CONTENT_LEN]);
+        record.record_hash = fold_u64_to_u32(record_hash);
+
+        // Chain hash binds prev link, sequence, AND record content.
+        compute_chain_hash(prev_hash, seq, record_hash)
+    }
+
+    /// Store a fully-populated record and advance the chain state.
+    ///
+    /// Returns the sequence number assigned to the record.
+    fn store(&mut self, record: WitnessRecord, chain: u64) -> u64 {
+        let seq = self.sequence;
+        if self.total_emitted >= N as u64 {
+            // Ring is full: this write overwrites the oldest record.
+            self.total_overwritten += 1;
+        }
+        let pos = self.write_pos;
+        self.records[pos] = record;
+        self.write_pos = (pos + 1) % N;
+        self.chain_hash = chain;
+        self.sequence = seq.wrapping_add(1);
+        self.total_emitted += 1;
+
+        seq
+    }
 }
 
 impl<const N: usize> WitnessLog<N> {
@@ -57,18 +110,25 @@ impl<const N: usize> WitnessLog<N> {
                 chain_hash: 0,
                 sequence: 0,
                 total_emitted: 0,
+                total_overwritten: 0,
             }),
         }
     }
 
     /// Appends a pre-built witness record to the log.
     ///
-    /// Fills `sequence`, `prev_hash`, and `record_hash`. Returns the
-    /// sequence number.
+    /// Fills `sequence`, `prev_hash`, and `record_hash`, then stores the
+    /// record. Returns the sequence number.
+    ///
+    /// `record_hash` is the self-integrity hash of the record's content
+    /// bytes (`[0..WitnessRecord::CONTENT_LEN]`), and the chain hash
+    /// binds it: `chain = H(prev_chain || sequence || record_hash)`.
+    /// Tampering with any content field is therefore detected by
+    /// [`crate::replay::verify_chain`].
     ///
     /// # Hash truncation
     ///
-    /// The internal chain hash is a full 64-bit FNV-1a value, but the
+    /// The internal chain hash is a full 64-bit value, but the
     /// `WitnessRecord` fields `prev_hash` and `record_hash` are 32-bit
     /// (constrained by the 64-byte record layout, ADR-134). We use
     /// XOR-folding (`high32 ^ low32`) rather than simple `as u32`
@@ -79,23 +139,8 @@ impl<const N: usize> WitnessLog<N> {
     /// hash fields, which will require a witness format version bump.
     pub fn append(&self, mut record: WitnessRecord) -> u64 {
         let mut inner = self.inner.lock();
-        let seq = inner.sequence;
-        let prev_hash = inner.chain_hash;
-
-        record.sequence = seq;
-        record.prev_hash = fold_u64_to_u32(prev_hash);
-
-        let chain = compute_chain_hash(prev_hash, seq);
-        record.record_hash = fold_u64_to_u32(chain);
-
-        let pos = inner.write_pos;
-        inner.records[pos] = record;
-        inner.write_pos = (pos + 1) % N;
-        inner.chain_hash = chain;
-        inner.sequence = seq.wrapping_add(1);
-        inner.total_emitted += 1;
-
-        seq
+        let chain = inner.fill_chain_fields(&mut record);
+        inner.store(record, chain)
     }
 
     /// Appends a pre-built witness record with signing (ADR-142 Phase 4).
@@ -112,31 +157,36 @@ impl<const N: usize> WitnessLog<N> {
         signer: &S,
     ) -> u64 {
         let mut inner = self.inner.lock();
-        let seq = inner.sequence;
-        let prev_hash = inner.chain_hash;
-
-        record.sequence = seq;
-        record.prev_hash = fold_u64_to_u32(prev_hash);
-
-        let chain = compute_chain_hash(prev_hash, seq);
-        record.record_hash = fold_u64_to_u32(chain);
+        let chain = inner.fill_chain_fields(&mut record);
 
         // Sign the fully-populated record (all chain-hash fields set).
         record.aux = signer.sign(&record);
 
-        let pos = inner.write_pos;
-        inner.records[pos] = record;
-        inner.write_pos = (pos + 1) % N;
-        inner.chain_hash = chain;
-        inner.sequence = seq.wrapping_add(1);
-        inner.total_emitted += 1;
-
-        seq
+        inner.store(record, chain)
     }
 
     /// Returns the total number of records ever emitted.
     pub fn total_emitted(&self) -> u64 {
         self.inner.lock().total_emitted
+    }
+
+    /// Returns the number of records that have been silently overwritten
+    /// by ring wrap-around (i.e. audit records lost because no drain
+    /// happened in time).
+    pub fn total_overwritten(&self) -> u64 {
+        self.inner.lock().total_overwritten
+    }
+
+    /// Returns true when the number of used slots has reached `watermark`,
+    /// signaling that the log should be drained before wrap-around starts
+    /// (or continues) to overwrite records.
+    ///
+    /// `watermark` is a slot count, typically a fraction of the capacity
+    /// `N` (e.g. `(N * 3) / 4`). Once the ring has wrapped, the used
+    /// count is pinned at `N`, so any watermark `<= N` keeps reporting
+    /// `true` until a drain mechanism resets the log.
+    pub fn needs_drain(&self, watermark: usize) -> bool {
+        self.len() >= watermark
     }
 
     /// Returns the number of records currently in the buffer.
@@ -230,6 +280,59 @@ mod tests {
         }
         assert_eq!(log.total_emitted(), 10);
         assert_eq!(log.len(), 4);
+    }
+
+    #[test]
+    fn test_overwrite_counter() {
+        let log = WitnessLog::<4>::new();
+        // Filling the ring exactly does not overwrite anything.
+        for i in 0..4u64 {
+            log.append(make_record(ActionKind::SchedulerEpoch, 1, i, i * 100));
+        }
+        assert_eq!(log.total_overwritten(), 0);
+
+        // Every append past capacity overwrites the oldest record.
+        for i in 4..10u64 {
+            log.append(make_record(ActionKind::SchedulerEpoch, 1, i, i * 100));
+        }
+        assert_eq!(log.total_overwritten(), 6);
+        assert_eq!(log.total_emitted(), 10);
+    }
+
+    #[test]
+    fn test_overwrite_counter_signed_append() {
+        use crate::signer::default_signer;
+
+        let log = WitnessLog::<2>::new();
+        let signer = default_signer();
+        for i in 0..5u64 {
+            log.signed_append(
+                make_record(ActionKind::SchedulerEpoch, 1, i, i * 100),
+                &signer,
+            );
+        }
+        assert_eq!(log.total_overwritten(), 3);
+    }
+
+    #[test]
+    fn test_needs_drain_watermark() {
+        let log = WitnessLog::<8>::new();
+        assert!(!log.needs_drain(6));
+
+        for i in 0..5u64 {
+            log.append(make_record(ActionKind::SchedulerEpoch, 1, i, i * 100));
+        }
+        assert!(!log.needs_drain(6)); // 5 used < 6
+
+        log.append(make_record(ActionKind::SchedulerEpoch, 1, 5, 500));
+        assert!(log.needs_drain(6)); // 6 used >= 6
+
+        // Once wrapped, used count is pinned at capacity.
+        for i in 6..20u64 {
+            log.append(make_record(ActionKind::SchedulerEpoch, 1, i, i * 100));
+        }
+        assert!(log.needs_drain(6));
+        assert!(log.needs_drain(8));
     }
 
     #[test]

@@ -179,43 +179,43 @@ pub fn selective_safety_net_scan(
     }
 
     // Phase 2: HNSW neighbor expansion.
-    // Scan neighbors of existing candidates (approximate using vector proximity).
+    // Scan neighbors of existing candidates (approximate using vector
+    // proximity, simplified for runtime). A single pass over all_vectors
+    // gathers up to a few neighbors per candidate; membership is tracked in
+    // a HashSet to avoid O(k * N * |neighbors|) repeated linear scans.
     if !tracker.is_exceeded() && !hnsw_candidates.is_empty() {
         let expansion_budget = k.min(hnsw_candidates.len());
-        let mut neighbor_ids: Vec<u64> = Vec::new();
+        let max_neighbors = expansion_budget * 3;
+        let mut neighbor_ids: std::collections::HashSet<u64> = std::collections::HashSet::new();
 
-        for _existing in hnsw_candidates.iter().take(expansion_budget) {
+        for &(id, vec) in all_vectors.iter() {
             if tracker.is_exceeded() {
                 break;
             }
-            // Find nearby vectors as "neighbors" (simplified for runtime).
-            for &(id, vec) in all_vectors.iter() {
-                if tracker.is_exceeded() {
-                    break;
-                }
-                if existing_ids.contains(&id) || neighbor_ids.contains(&id) {
-                    continue;
-                }
-                if vec.len() != query.len() {
-                    continue;
-                }
-                let dist = l2_distance_sq(query, vec);
-                if !tracker.record_distance_op() {
-                    candidates.push(Candidate { id, distance: dist });
-                    neighbor_ids.push(id);
-                    break;
-                }
+            if existing_ids.contains(&id) || neighbor_ids.contains(&id) {
+                continue;
+            }
+            if vec.len() != query.len() {
+                continue;
+            }
+            let dist = l2_distance_sq(query, vec);
+            if !tracker.record_distance_op() {
                 candidates.push(Candidate { id, distance: dist });
-                neighbor_ids.push(id);
-                // Only take a few neighbors per candidate.
-                if neighbor_ids.len() >= expansion_budget * 3 {
-                    break;
-                }
+                neighbor_ids.insert(id);
+                break;
+            }
+            candidates.push(Candidate { id, distance: dist });
+            neighbor_ids.insert(id);
+            if neighbor_ids.len() >= max_neighbors {
+                break;
             }
         }
     }
 
-    // Phase 3: Recency window — scan most recently added vectors.
+    // Phase 3: Residual scan from the tail of `all_vectors`. Note this is
+    // only an approximation of a recency window: the slice order is whatever
+    // the caller provides (currently HashMap iteration order, which is
+    // arbitrary), not true insertion order.
     if !tracker.is_exceeded() {
         let recency_limit = (budget.max_scan_candidates - tracker.candidates_scanned)
             .min(all_vectors.len() as u64) as usize;

@@ -44,6 +44,9 @@ once_cell = { workspace = true }
 # Byte manipulation
 bytemuck = "1.18"
 
+# Model serialization
+safetensors = "0.4"
+
 [dev-dependencies]
 criterion = { workspace = true }
 proptest = { workspace = true }

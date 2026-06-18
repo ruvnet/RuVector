@@ -91,6 +91,38 @@ claude mcp add ruvector -- npx ruvector mcp start
 - `midstream_status`, `midstream_attractor`, `midstream_scheduler` — Streaming analysis
 - `midstream_benchmark`, `midstream_search`, `midstream_health` — Latency benchmarks + health
 
+**MCP tool-access policy (default-deny, ADR-256):** restrict the exposed/callable
+tool surface with environment variables — useful for least-privilege deployments.
+
+```bash
+# Only expose specific tools (everything else is denied)
+RUVECTOR_MCP_ALLOW="hooks_route,hooks_recall" npx ruvector mcp start
+
+# Block specific tools (deny wins over allow)
+RUVECTOR_MCP_DENY="hooks_force_learn" npx ruvector mcp start
+
+# Apply a curated read-only profile (safe, non-mutating subset)
+RUVECTOR_MCP_PROFILE=readonly npx ruvector mcp start
+```
+
+Precedence is **DENY > ALLOW/PROFILE > allow-all**. With no policy set, all tools
+are available (backward compatible). Inspect the active posture with
+`npx ruvector harness status --json` (see `mcp.accessControl`).
+
+### Harness Router (ADR-256)
+
+`ruvector harness` surfaces the unified routing/agentic primitives ruvector ships —
+cost-optimal model routing (Tiny Dancer), semantic routing, hooks routing, the MCP
+server, witness-signed provenance, and SONA memory — in one place:
+
+```bash
+npx ruvector harness status          # human-readable surface + availability
+npx ruvector harness status --json   # structured, for tooling/CI
+```
+
+Memory + learning loops use a stable namespace (default `ruvector`), overridable per
+deployment with `RUVECTOR_MEMORY_NAMESPACE` and reported under `memory.namespace`.
+
 ### Brain AGI Commands
 
 Access all 8 AGI subsystems deployed at π.ruv.io:

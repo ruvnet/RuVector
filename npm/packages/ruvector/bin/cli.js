@@ -183,42 +183,92 @@ program
   .command('insert <database> <file>')
   .description('Insert vectors from JSON file')
   .option('-b, --batch-size <number>', 'Batch size for insertion', '1000')
-  .action((dbPath, file, options) => {
+  .action(async (dbPath, file, options) => {
     requireRuvector();
     const spinner = ora('Loading database...').start();
 
     try {
-      // Read dimension from sidecar (avoids JSON-parsing binary redb)
+      // Read dimension + embedding provenance from sidecar (#508, ADR-210 D0).
+      // Sidecar JSON is untrusted on-disk input: malformed records are treated
+      // as absent (sanitizeDimension / sanitizeProvenanceSafe), never crash.
       let dimension = 384;
+      let storeProvenance = null;
       const metaPath = `${dbPath}.meta.json`;
       if (fs.existsSync(metaPath)) {
-        try { dimension = JSON.parse(fs.readFileSync(metaPath, 'utf8')).dimension || 384; } catch (_) {}
-      }
-
-      const db = new VectorDB({ dimensions: dimension, storagePath: dbPath });
-
-      if (fs.existsSync(dbPath)) {
-        db.load(dbPath);
+        try {
+          const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+          dimension = sanitizeDimension(meta.dimension, 384);
+          storeProvenance = sanitizeProvenanceSafe(meta.provenance);
+        } catch (_) {}
       }
 
       spinner.text = 'Reading vectors...';
       const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-      const vectors = Array.isArray(data) ? data : [data];
+      // Accept a plain array (raw vectors, no declared provenance) or the
+      // ADR-210 object form `{ provenance, vectors }` from embedding-path
+      // exporters. A malformed declared provenance is treated as undeclared
+      // (the dimension gate below still applies).
+      let declaredProvenance = null;
+      let vectors;
+      if (Array.isArray(data)) {
+        vectors = data;
+      } else if (data && Array.isArray(data.vectors)) {
+        vectors = data.vectors;
+        declaredProvenance = sanitizeProvenanceSafe(data.provenance);
+      } else {
+        vectors = [data];
+      }
+
+      // ADR-210 D0: a store stamped with embedding provenance refuses
+      // mismatched inserts — clear error naming both sides, no coercion.
+      if (storeProvenance) {
+        const provMod = loadProvenance();
+        const describe = provMod ? provMod.describeProvenance : (p) => JSON.stringify(p);
+        const badDim = vectors.find(v => v && Array.isArray(v.vector) && v.vector.length !== storeProvenance.dimension);
+        const provMismatch = declaredProvenance && provMod
+          ? provMod.compareProvenance(storeProvenance, declaredProvenance)
+          : [];
+        if (badDim || provMismatch.length > 0) {
+          const incoming = declaredProvenance
+            ? describe(declaredProvenance)
+            : `${badDim.vector.length}-dimensional vectors with undeclared provenance`;
+          spinner.fail(chalk.red(
+            `Insert refused (ADR-210): ${dbPath} records embedding provenance ${describe(storeProvenance)}, ` +
+            `but the incoming data is ${incoming}` +
+            (provMismatch.length ? ` (differs on: ${provMismatch.join(', ')})` : '') +
+            `. Mixed stores are never created — re-embed the data or the store.`
+          ));
+          process.exit(1);
+        }
+      }
+
+      // New database: derive dimension from the data and write the sidecar
+      // so later stats/search invocations open it correctly (#508). Declared
+      // provenance from the embedding path is stamped alongside (ADR-210 D0).
+      if (!fs.existsSync(dbPath) && vectors.length > 0 && Array.isArray(vectors[0].vector)) {
+        dimension = vectors[0].vector.length;
+        const meta = { dimension };
+        if (declaredProvenance) meta.provenance = declaredProvenance;
+        try { fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2)); } catch (_) {}
+      }
+
+      // The native binding loads/persists through storagePath itself —
+      // VectorDB has no load()/save() methods (#508).
+      const db = new VectorDB({ dimensions: dimension, storagePath: dbPath });
 
       spinner.text = `Inserting ${vectors.length} vectors...`;
       const batchSize = parseInt(options.batchSize);
 
       for (let i = 0; i < vectors.length; i += batchSize) {
         const batch = vectors.slice(i, i + batchSize);
-        db.insertBatch(batch);
+        await db.insertBatch(batch);
         spinner.text = `Inserted ${Math.min(i + batchSize, vectors.length)}/${vectors.length} vectors...`;
       }
 
-      db.save(dbPath);
       spinner.succeed(chalk.green(`Inserted ${vectors.length} vectors`));
 
-      const stats = db.stats();
-      console.log(chalk.gray(`  Total vectors: ${stats.count}`));
+      const count = await db.len();
+      console.log(chalk.gray(`  Total vectors: ${count}`));
     } catch (error) {
       spinner.fail(chalk.red('Failed to insert vectors'));
       console.error(chalk.red(error.message));
@@ -234,7 +284,7 @@ program
   .option('-k, --top-k <number>', 'Number of results', '10')
   .option('-t, --threshold <number>', 'Similarity threshold', '0.0')
   .option('-f, --filter <json>', 'Metadata filter as JSON')
-  .action((dbPath, options) => {
+  .action(async (dbPath, options) => {
     requireRuvector();
     const spinner = ora('Loading database...').start();
 
@@ -243,11 +293,16 @@ program
       let dimension = 384;
       const metaPath = `${dbPath}.meta.json`;
       if (fs.existsSync(metaPath)) {
-        try { dimension = JSON.parse(fs.readFileSync(metaPath, 'utf8')).dimension || 384; } catch (_) {}
+        try { dimension = sanitizeDimension(JSON.parse(fs.readFileSync(metaPath, 'utf8')).dimension, 384); } catch (_) {}
       }
 
+      if (!fs.existsSync(dbPath)) {
+        spinner.fail(chalk.red(`Database not found: ${dbPath}`));
+        process.exit(1);
+      }
+
+      // storagePath loads the existing store; VectorDB has no load() (#508).
       const db = new VectorDB({ dimensions: dimension, storagePath: dbPath });
-      db.load(dbPath);
 
       spinner.text = 'Searching...';
 
@@ -262,7 +317,7 @@ program
         query.filter = JSON.parse(options.filter);
       }
 
-      const results = db.search(query);
+      const results = await db.search(query);
       spinner.succeed(chalk.green(`Found ${results.length} results`));
 
       console.log(chalk.cyan('\nSearch Results:'));
@@ -284,34 +339,39 @@ program
 program
   .command('stats <database>')
   .description('Show database statistics')
-  .action((dbPath) => {
+  .action(async (dbPath) => {
     requireRuvector();
     const spinner = ora('Loading database...').start();
 
     try {
-      // Read dimension from sidecar (avoids JSON-parsing binary redb)
+      // Read dimension/metric from sidecar (avoids JSON-parsing binary redb)
       let dimension = 384;
+      let metric = 'cosine';
       const metaPath = `${dbPath}.meta.json`;
       if (fs.existsSync(metaPath)) {
-        try { dimension = JSON.parse(fs.readFileSync(metaPath, 'utf8')).dimension || 384; } catch (_) {}
+        try {
+          const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+          dimension = sanitizeDimension(meta.dimension, dimension);
+          metric = typeof meta.metric === 'string' ? meta.metric : metric;
+        } catch (_) {}
       }
 
-      const db = new VectorDB({ dimensions: dimension, storagePath: dbPath });
-      db.load(dbPath);
+      if (!fs.existsSync(dbPath)) {
+        spinner.fail(chalk.red(`Database not found: ${dbPath}`));
+        process.exit(1);
+      }
 
-      const stats = db.stats();
+      // storagePath loads the existing store; VectorDB exposes len(),
+      // not a stats() aggregate (#508).
+      const db = new VectorDB({ dimensions: dimension, storagePath: dbPath });
+      const count = await db.len();
       spinner.succeed(chalk.green('Database statistics'));
 
       console.log(chalk.cyan('\nDatabase Stats:'));
-      console.log(chalk.white(`  Vector Count: ${chalk.yellow(stats.count)}`));
-      console.log(chalk.white(`  Dimension: ${chalk.yellow(stats.dimension)}`));
-      console.log(chalk.white(`  Metric: ${chalk.yellow(stats.metric)}`));
+      console.log(chalk.white(`  Vector Count: ${chalk.yellow(count)}`));
+      console.log(chalk.white(`  Dimension: ${chalk.yellow(dimension)}`));
+      console.log(chalk.white(`  Metric: ${chalk.yellow(metric)}`));
       console.log(chalk.white(`  Implementation: ${chalk.yellow(getImplementationType())}`));
-
-      if (stats.memoryUsage) {
-        const mb = (stats.memoryUsage / (1024 * 1024)).toFixed(2);
-        console.log(chalk.white(`  Memory Usage: ${chalk.yellow(mb + ' MB')}`));
-      }
 
       const fileStats = fs.statSync(dbPath);
       const fileMb = (fileStats.size / (1024 * 1024)).toFixed(2);
@@ -1816,6 +1876,96 @@ program
   });
 
 // =============================================================================
+// Tiny Dancer - cost-optimal FastGRNN model router (train + route)
+// =============================================================================
+
+const tinyDancer = program
+  .command('tiny-dancer')
+  .alias('td')
+  .description('Cost-optimal FastGRNN model router — train from a DRACO dataset and route with it (requires @ruvector/tiny-dancer)');
+
+function loadTinyDancer() {
+  try {
+    return require('@ruvector/tiny-dancer');
+  } catch (e) {
+    console.error(chalk.red('\n  This command requires @ruvector/tiny-dancer'));
+    console.error(chalk.yellow('  Install it:  npm install @ruvector/tiny-dancer'));
+    console.error(chalk.dim('  (native router; ships for linux/macos/windows incl. musl + arm64)\n'));
+    process.exit(1);
+  }
+}
+
+tinyDancer
+  .command('train <draco>')
+  .description('Train a FastGRNN router from a DRACO dataset (rows of {embedding, scores}) into a .safetensors model')
+  .requiredOption('--out <path>', 'Output .safetensors model path')
+  .option('--input-dim <n>', 'Embedding/feature dimension (default: inferred from the first row)')
+  .option('--prices <json>', 'Price table as JSON or @file, e.g. \'{"haiku":1,"opus":15}\'')
+  .option('--epochs <n>', 'Training epochs', '40')
+  .option('--lr <n>', 'Learning rate', '0.05')
+  .option('--hidden <n>', 'Hidden dimension', '12')
+  .option('--tolerance <n>', 'Cheap-model "good enough" tolerance', '0.05')
+  .action(async (draco, options) => {
+    const td = loadTinyDancer();
+    const parsed = JSON.parse(fs.readFileSync(draco, 'utf8'));
+    const rows = Array.isArray(parsed) ? parsed : parsed.rows;
+    const prices = options.prices
+      ? JSON.parse(options.prices.startsWith('@') ? fs.readFileSync(options.prices.slice(1), 'utf8') : options.prices)
+      : (parsed.prices || {});
+    if (!Array.isArray(rows) || rows.length === 0) {
+      console.error(chalk.red('  DRACO file must contain rows of { embedding, scores }')); process.exit(1);
+    }
+    if (!prices || Object.keys(prices).length === 0) {
+      console.error(chalk.red('  Provide a price table via --prices or a "prices" field in the file')); process.exit(1);
+    }
+    const inputDim = options.inputDim ? parseInt(options.inputDim, 10) : (rows[0].embedding || []).length;
+    console.log(chalk.cyan(`\n  Training FastGRNN router: ${rows.length} rows, dim ${inputDim}`));
+    const res = await td.trainRouter(rows, prices, {
+      outputPath: options.out,
+      inputDim,
+      hiddenDim: parseInt(options.hidden, 10),
+      epochs: parseInt(options.epochs, 10),
+      learningRate: parseFloat(options.lr),
+      tolerance: parseFloat(options.tolerance),
+    });
+    console.log(chalk.green(`  ✓ trained: acc=${res.trainAccuracy.toFixed(3)} val=${res.valAccuracy.toFixed(3)} loss=${res.trainLoss.toFixed(4)}`));
+    console.log(chalk.white(`  ✓ saved:   ${res.modelPath} (${res.modelBytes} bytes, ${res.epochsRun} epochs)`));
+    console.log(chalk.gray(`  Load it:   new Router({ modelPath: '${res.modelPath}' })\n`));
+  });
+
+tinyDancer
+  .command('score <model>')
+  .description('Score a query embedding with a trained model. High = the cheap model is good enough (route cheap)')
+  .requiredOption('--query <json>', 'Query embedding as a JSON array or @file (length must match the model input dim)')
+  .option('--threshold <n>', 'Decision threshold for cheap-vs-strong', '0.5')
+  .action(async (model, options) => {
+    const td = loadTinyDancer();
+    const embedding = JSON.parse(options.query.startsWith('@') ? fs.readFileSync(options.query.slice(1), 'utf8') : options.query);
+    const s = await td.score(model, embedding);
+    const threshold = parseFloat(options.threshold);
+    console.log(chalk.cyan(`\n  score = ${s.toFixed(4)}`));
+    console.log(
+      s >= threshold
+        ? chalk.green('  → route to the CHEAP model (good enough)\n')
+        : chalk.yellow('  → route to a STRONGER model\n')
+    );
+  });
+
+tinyDancer
+  .command('info')
+  .description('Show tiny-dancer availability and version')
+  .action(() => {
+    try {
+      const td = require('@ruvector/tiny-dancer');
+      console.log(chalk.green(`\n  @ruvector/tiny-dancer ${td.version()} — ${td.hello()}`));
+      console.log(chalk.gray('  train:  npx ruvector tiny-dancer train <draco.json> --out model.safetensors'));
+      console.log(chalk.gray('  score:  npx ruvector tiny-dancer score <model.safetensors> --query <embedding.json>\n'));
+    } catch {
+      console.log(chalk.yellow('\n  @ruvector/tiny-dancer not installed.  npm install @ruvector/tiny-dancer\n'));
+    }
+  });
+
+// =============================================================================
 // Server Commands - HTTP/gRPC server
 // =============================================================================
 
@@ -1920,35 +2070,33 @@ program
     const spinner = ora('Exporting database...').start();
 
     try {
-      const outputFile = options.output || `${dbPath.replace(/\/$/, '')}_export.${options.format}`;
-
-      // Load database
-      const db = new VectorDB({ dimension: 384 }); // Will be overwritten by load
-      if (fs.existsSync(dbPath)) {
-        db.load(dbPath);
-      } else {
+      if (!fs.existsSync(dbPath)) {
         spinner.fail(chalk.red(`Database not found: ${dbPath}`));
         process.exit(1);
       }
 
-      const stats = db.getStats();
-      const data = {
-        version: packageJson.version,
-        exportedAt: new Date().toISOString(),
-        stats: stats,
-        vectors: [] // Would contain actual vector data
-      };
+      const outputFile = options.output || `${dbPath.replace(/\/$/, '')}_export.${options.format}`;
 
-      if (options.format === 'json') {
-        fs.writeFileSync(outputFile, JSON.stringify(data, null, 2));
-      } else {
-        spinner.fail(chalk.yellow(`Format '${options.format}' not yet supported. Using JSON.`));
-        fs.writeFileSync(outputFile.replace(/\.[^.]+$/, '.json'), JSON.stringify(data, null, 2));
+      // Read dimension/metric from sidecar; storagePath loads the store (#508)
+      let dimension = 384;
+      const metaPath = `${dbPath}.meta.json`;
+      if (fs.existsSync(metaPath)) {
+        try { dimension = sanitizeDimension(JSON.parse(fs.readFileSync(metaPath, 'utf8')).dimension, 384); } catch (_) {}
       }
+      const db = new VectorDB({ dimensions: dimension, storagePath: dbPath });
+      const count = await db.len();
 
-      spinner.succeed(chalk.green(`Exported to: ${outputFile}`));
-      console.log(chalk.gray(`  Vectors: ${stats.count || 0}`));
-      console.log(chalk.gray(`  Format: ${options.format}`));
+      // HONESTY: VectorDB has no enumeration API, so vector payloads cannot
+      // be exported yet — only metadata. Refuse to write a file that import
+      // would silently pretend to restore.
+      spinner.fail(chalk.yellow(
+        `Export is not supported yet: the database has ${count} vectors but ` +
+        `the VectorDB API has no enumeration method to read them back out. ` +
+        `The .db file itself is the portable artifact — copy it (with its ` +
+        `.meta.json sidecar) to back up or move the database.`
+      ));
+      console.log(chalk.gray(`  Requested output: ${outputFile} (not written)`));
+      process.exit(1);
     } catch (error) {
       spinner.fail(chalk.red('Export failed'));
       console.error(chalk.red(error.message));
@@ -1975,20 +2123,47 @@ program
       const data = JSON.parse(fs.readFileSync(file, 'utf8'));
       const dbPath = options.database || file.replace(/_export\.json$/, '');
 
-      spinner.text = 'Creating database...';
+      // A plain JSON array of {vector, metadata} entries is importable via
+      // the real API. The old _export.json format never contained vectors,
+      // so importing it would fabricate an empty database (#508).
+      const vectors = Array.isArray(data) ? data : null;
+      if (!vectors || vectors.length === 0 || !vectors[0].vector) {
+        spinner.fail(chalk.yellow(
+          'Import expects a JSON array of {vector, metadata} entries ' +
+          '(the same format `ruvector insert` accepts). Legacy _export.json ' +
+          'files contain no vector data and cannot be restored. To move a ' +
+          'database, copy the .db file and its .meta.json sidecar.'
+        ));
+        process.exit(1);
+      }
 
-      const db = new VectorDB({
-        dimension: data.stats?.dimension || 384,
-        path: dbPath,
-        autoPersist: true
-      });
+      spinner.text = `Importing ${vectors.length} vectors...`;
+      const dimension = vectors[0].vector.length;
 
-      // Would import actual vectors here
-      db.save(dbPath);
+      // ADR-210 D0: refuse mismatched imports into a provenance-stamped store.
+      const importMetaPath = `${dbPath}.meta.json`;
+      if (fs.existsSync(importMetaPath)) {
+        let targetProvenance = null;
+        try { targetProvenance = sanitizeProvenanceSafe(JSON.parse(fs.readFileSync(importMetaPath, 'utf8')).provenance); } catch (_) {}
+        if (targetProvenance && targetProvenance.dimension !== dimension) {
+          const provMod = loadProvenance();
+          const describe = provMod ? provMod.describeProvenance : (p) => JSON.stringify(p);
+          spinner.fail(chalk.red(
+            `Import refused (ADR-210): ${dbPath} records embedding provenance ${describe(targetProvenance)}, ` +
+            `but the incoming data is ${dimension}-dimensional with undeclared provenance. ` +
+            `Mixed stores are never created — re-embed the data or the store.`
+          ));
+          process.exit(1);
+        }
+      }
+
+      const db = new VectorDB({ dimensions: dimension, storagePath: dbPath });
+      await db.insertBatch(vectors);
+      const count = await db.len();
 
       spinner.succeed(chalk.green(`Imported to: ${dbPath}`));
-      console.log(chalk.gray(`  Source version: ${data.version}`));
-      console.log(chalk.gray(`  Exported at: ${data.exportedAt}`));
+      console.log(chalk.gray(`  Vectors imported: ${vectors.length} (db total: ${count})`));
+      console.log(chalk.gray(`  Dimension: ${dimension}`));
     } catch (error) {
       spinner.fail(chalk.red('Import failed'));
       console.error(chalk.red(error.message));
@@ -2572,7 +2747,11 @@ program
       const spinner = ora('Creating demo database...').start();
 
       try {
-        const db = new VectorDB({ dimensions: 4, distanceMetric: 'cosine' });
+        // Explicit path + sidecar so the stats/search/insert/export commands
+        // can open this database afterwards with the right dimension (#508).
+        const demoPath = './demo.db';
+        const db = new VectorDB({ dimensions: 4, distanceMetric: 'cosine', storagePath: demoPath });
+        fs.writeFileSync(`${demoPath}.meta.json`, JSON.stringify({ dimension: 4, metric: 'cosine' }, null, 2));
 
         spinner.text = 'Inserting vectors...';
         // VectorDBWrapper.insert takes a single object: { id?, vector, metadata? }.
@@ -2597,6 +2776,9 @@ program
         });
 
         console.log(chalk.green('\n  Demo complete!'));
+        console.log(chalk.cyan('\n  The database persists at ./demo.db — try:'));
+        console.log(chalk.white('    npx ruvector stats ./demo.db'));
+        console.log(chalk.white('    npx ruvector search ./demo.db --vector "[0.8, 0.6, 0, 0]"'));
       } catch (error) {
         spinner.fail(chalk.red('Demo failed'));
         console.error(chalk.red(error.message));
@@ -2797,6 +2979,44 @@ function loadIntelligenceEngine() {
   return IntelligenceEngine;
 }
 
+// ADR-210 D0: shared embedding-provenance invariant (compare/refuse logic,
+// legacy-default derivation, rollout-flag resolution). Lazy, same pattern as
+// the engine: when dist is missing the CLI degrades to pre-ADR-210 behavior.
+let provenanceMod = null;
+let provenanceLoadAttempted = false;
+function loadProvenance() {
+  if (provenanceLoadAttempted) return provenanceMod;
+  provenanceLoadAttempted = true;
+  try {
+    provenanceMod = require('../dist/core/embedding-provenance.js');
+  } catch (e) {
+    provenanceMod = null;
+  }
+  return provenanceMod;
+}
+
+/**
+ * Sanitize a provenance record read from disk (untrusted JSON, ADR-210
+ * security pass): malformed records are treated as ABSENT (null), never
+ * crash. Falls back to a minimal shape check when dist is missing.
+ */
+function sanitizeProvenanceSafe(value) {
+  const prov = loadProvenance();
+  if (prov && typeof prov.sanitizeProvenance === 'function') {
+    return prov.sanitizeProvenance(value);
+  }
+  return (
+    value && typeof value === 'object' && !Array.isArray(value) &&
+    typeof value.embedderKind === 'string' &&
+    Number.isInteger(value.dimension) && value.dimension > 0 && value.dimension <= 65536
+  ) ? value : null;
+}
+
+/** Bound a dimension read from an untrusted sidecar to a sane integer. */
+function sanitizeDimension(value, fallback) {
+  return (Number.isInteger(value) && value > 0 && value <= 65536) ? value : fallback;
+}
+
 class Intelligence {
   constructor(options = {}) {
     this.intelPath = this.getIntelPath();
@@ -2927,17 +3147,31 @@ class Intelligence {
     try {
       if (fs.existsSync(this.intelPath)) {
         const data = JSON.parse(fs.readFileSync(this.intelPath, 'utf-8'));
-        // Merge with defaults to ensure all fields exist
+        // Merge with defaults to ensure all fields exist. The file is
+        // untrusted on-disk input (ADR-210 security pass): shape-check each
+        // field so a hand-edited/corrupted store cannot crash later code
+        // that iterates arrays or spreads objects.
+        const asArray = (v, dflt) => (Array.isArray(v) ? v : dflt);
+        const asObject = (v, dflt) => (v && typeof v === 'object' && !Array.isArray(v) ? v : dflt);
         return {
-          patterns: data.patterns || defaults.patterns,
-          memories: data.memories || defaults.memories,
-          trajectories: data.trajectories || defaults.trajectories,
-          errors: data.errors || defaults.errors,
-          file_sequences: data.file_sequences || defaults.file_sequences,
-          agents: data.agents || defaults.agents,
-          edges: data.edges || defaults.edges,
-          stats: { ...defaults.stats, ...(data.stats || {}) },
-          // Preserve learning data if present
+          patterns: asObject(data.patterns, defaults.patterns),
+          memories: asArray(data.memories, defaults.memories),
+          trajectories: asArray(data.trajectories, defaults.trajectories),
+          errors: asObject(data.errors, defaults.errors),
+          file_sequences: asArray(data.file_sequences, defaults.file_sequences),
+          agents: asObject(data.agents, defaults.agents),
+          edges: asArray(data.edges, defaults.edges),
+          stats: { ...defaults.stats, ...asObject(data.stats, {}) },
+          // ADR-210 D0: embedding provenance of stored memory vectors
+          // (null = legacy store, read-only for vector writes until reembed).
+          // Malformed records are treated as absent (sanitized, never crash).
+          embeddingProvenance: sanitizeProvenanceSafe(data.embeddingProvenance),
+          // Preserve in-flight trajectories so trajectory-end (run in a later
+          // process) can find what trajectory-begin recorded (#517)
+          activeTrajectories: data.activeTrajectories || {},
+          // Preserve auxiliary learned data if present
+          coEditPatterns: data.coEditPatterns || undefined,
+          sequences: data.sequences || undefined,
           learning: data.learning || undefined
         };
       }
@@ -3004,11 +3238,145 @@ class Intelligence {
     return normA > 0 && normB > 0 ? dot / (normA * normB) : 0;
   }
 
+  // ========================================================================
+  // ADR-210 D0: embedding-provenance invariant for the intelligence store.
+  // Every memory write records/validates { embedderKind, modelId, dimension,
+  // normalize, prefixPolicy }; mismatched writes are refused, legacy stores
+  // (memories without provenance) are read-only until `hooks reembed`.
+  // ========================================================================
+
+  storedProvenance() { return this.data.embeddingProvenance || null; }
+
+  vectorMemoryCount() {
+    return (this.data.memories || []).filter(m => Array.isArray(m.embedding) && m.embedding.length > 0).length;
+  }
+
+  /** Store predates ADR-210 (has vectors but no provenance record). */
+  isLegacyVectorStore() {
+    return !this.storedProvenance() && this.vectorMemoryCount() > 0;
+  }
+
+  /** Legacy default: hash, dimension inferred from the stored vectors. */
+  inferredLegacyProvenance() {
+    const prov = loadProvenance();
+    const first = (this.data.memories || []).find(m => Array.isArray(m.embedding) && m.embedding.length > 0);
+    const dim = first ? first.embedding.length : 256;
+    if (prov) return prov.legacyHashProvenance(dim);
+    return { embedderKind: 'hash', modelId: null, dimension: dim, normalize: false, prefixPolicy: 'none' };
+  }
+
+  /** Provenance of an embedding produced by the wrapper's sync hash path. */
+  syncWriteProvenance(embedding) {
+    return { embedderKind: 'hash', modelId: null, dimension: embedding.length, normalize: true, prefixPolicy: 'none' };
+  }
+
+  /**
+   * Gate a vector write (throws on refusal). Stamps provenance on the first
+   * write to a fresh store; refuses mismatched writes naming both sides;
+   * legacy stores are read-only until re-embedded.
+   */
+  checkVectorWrite(active) {
+    const prov = loadProvenance();
+    if (!prov || !active) return; // enforcement needs the dist module
+    if (this.isLegacyVectorStore()) {
+      const legacy = this.inferredLegacyProvenance();
+      const err = new Error(
+        `Vector store ${this.intelPath} predates embedding provenance (ADR-210) and is read-only for vector writes. ` +
+        `Stored vectors are treated as ${prov.describeProvenance(legacy)}; the active embedder is ` +
+        `${prov.describeProvenance(active)}. Run 'ruvector hooks reembed' to re-embed and unlock it.`
+      );
+      err.code = 'ERR_LEGACY_STORE_READONLY';
+      throw err;
+    }
+    const stored = this.storedProvenance();
+    if (!stored) {
+      this.data.embeddingProvenance = active;
+      return;
+    }
+    prov.assertProvenanceMatch(stored, active, this.intelPath);
+  }
+
+  /**
+   * Non-throwing write gate honoring RUVECTOR_REEMBED (D5):
+   *   refuse (default) → rethrow; warn → skip the write with one stderr
+   *   warning per process; auto → handled by callers that can re-embed.
+   * Returns { ok } or { ok: false, skipped: true }.
+   */
+  guardVectorWrite(active) {
+    try {
+      this.checkVectorWrite(active);
+      return { ok: true };
+    } catch (e) {
+      const prov = loadProvenance();
+      const policy = prov ? prov.resolveReembedPolicy() : 'refuse';
+      if (policy === 'warn') {
+        if (!Intelligence._reembedWarned) {
+          Intelligence._reembedWarned = true;
+          console.error(`ruvector: ${e.message} (RUVECTOR_REEMBED=warn: store stays read-only, write skipped)`);
+        }
+        return { ok: false, skipped: true, error: e.message };
+      }
+      // 'auto' without an async re-embed path behaves like refuse, with a hint.
+      if (policy === 'auto') e.message += ` (RUVECTOR_REEMBED=auto: run 'ruvector hooks reembed' — in-place re-embedding needs the async path)`;
+      throw e;
+    }
+  }
+
+  /**
+   * Re-embed every stored memory with `embedFn` and stamp `provenance`.
+   * Requires retained source text; memories without text must be dropped
+   * explicitly (the command refuses otherwise — no fabricated vectors).
+   *
+   * ADR-210 D3: when `embedBatchFn` is provided and the store holds
+   * `batchThreshold` (32) or more re-embeddable memories, the whole corpus
+   * is embedded in one bulk call (the engine routes it through the bundled
+   * parallel worker pool); smaller stores embed per-item via `embedFn`.
+   */
+  async reembedAll(embedFn, provenance, { dropMissing = false, embedBatchFn = null, batchThreshold = 32 } = {}) {
+    const memories = Array.isArray(this.data.memories) ? this.data.memories : [];
+    const kept = [];
+    let dropped = 0;
+    for (const m of memories) {
+      if (m && typeof m.content === 'string' && m.content.length > 0) {
+        kept.push(m);
+      } else if (dropMissing) {
+        dropped++;
+      } else {
+        throw new Error('memory without retained source text encountered; rerun with --drop-missing');
+      }
+    }
+    let usedBulk = false;
+    if (embedBatchFn && kept.length >= batchThreshold) {
+      const vectors = await embedBatchFn(kept.map(m => m.content));
+      if (!Array.isArray(vectors) || vectors.length !== kept.length) {
+        throw new Error(`bulk embed returned ${vectors && vectors.length} vectors for ${kept.length} texts`);
+      }
+      for (let i = 0; i < kept.length; i++) kept[i].embedding = vectors[i];
+      usedBulk = true;
+    } else {
+      for (const m of kept) m.embedding = await embedFn(m.content);
+    }
+    this.data.memories = kept;
+    this.data.stats.total_memories = kept.length;
+    this.data.embeddingProvenance = provenance;
+    return { reembedded: kept.length, dropped, bulk: usedBulk };
+  }
+
   // Memory operations - use engine's VectorDB for semantic search
   async rememberAsync(memoryType, content, metadata = {}) {
     if (this.engine) {
+      let entry = null;
       try {
-        const entry = await this.engine.remember(content, memoryType);
+        entry = await this.engine.remember(content, memoryType);
+      } catch {}
+      if (entry) {
+        // ADR-210 D0: validate provenance BEFORE persisting; provenance
+        // refusals propagate (no silent fallback into a mixed store).
+        const active = typeof this.engine.getActiveProvenance === 'function'
+          ? this.engine.getActiveProvenance()
+          : this.syncWriteProvenance(entry.embedding);
+        const guard = this.guardVectorWrite(active);
+        if (!guard.ok) return null;
         // Also store in legacy format for compatibility
         this.data.memories.push({
           id: entry.id,
@@ -3021,7 +3389,7 @@ class Intelligence {
         if (this.data.memories.length > 5000) this.data.memories.splice(0, 1000);
         this.data.stats.total_memories = this.data.memories.length;
         return entry.id;
-      } catch {}
+      }
     }
     return this.remember(memoryType, content, metadata);
   }
@@ -3029,6 +3397,10 @@ class Intelligence {
   remember(memoryType, content, metadata = {}) {
     const id = `mem_${this.now()}`;
     const embedding = this.embed(content);
+    // ADR-210 D0: refuse mismatched/legacy vector writes (throws), or skip
+    // under RUVECTOR_REEMBED=warn (returns null).
+    const guard = this.guardVectorWrite(this.syncWriteProvenance(embedding));
+    if (!guard.ok) return null;
     this.data.memories.push({ id, memory_type: memoryType, content, embedding, metadata, timestamp: this.now() });
     if (this.data.memories.length > 5000) this.data.memories.splice(0, 1000);
     this.data.stats.total_memories = this.data.memories.length;
@@ -3042,10 +3414,52 @@ class Intelligence {
     return id;
   }
 
+  /**
+   * Best-effort remember for ambient learning hooks (post-edit/post-command):
+   * a provenance refusal must not fail the hook — note it once and move on.
+   */
+  tryRemember(memoryType, content, metadata = {}) {
+    try {
+      return this.remember(memoryType, content, metadata);
+    } catch (e) {
+      if (!Intelligence._rememberSkipNoted) {
+        Intelligence._rememberSkipNoted = true;
+        console.error(chalk.dim(`   (memory write skipped: ${e.message})`));
+      }
+      return null;
+    }
+  }
+
+  /**
+   * ADR-210: reads stay allowed on legacy/mismatched stores, but similarity
+   * against differently-embedded vectors is meaningless — say so once.
+   */
+  warnRecallProvenance(active) {
+    const prov = loadProvenance();
+    if (!prov || !active || Intelligence._recallWarned) return;
+    let stored = this.storedProvenance();
+    if (!stored && this.isLegacyVectorStore()) stored = this.inferredLegacyProvenance();
+    if (!stored) return;
+    const mismatches = prov.compareProvenance(stored, active);
+    if (mismatches.length > 0) {
+      Intelligence._recallWarned = true;
+      console.error(
+        `ruvector: recall quality degraded — stored vectors are ${prov.describeProvenance(stored)} ` +
+        `but the query was embedded as ${prov.describeProvenance(active)} (differs on: ${mismatches.join(', ')}). ` +
+        `Run 'ruvector hooks reembed' to fix.`
+      );
+    }
+  }
+
   async recallAsync(query, topK = 5) {
     if (this.engine) {
       try {
         const results = await this.engine.recall(query, topK);
+        // After recall: embedAsync has settled, so getActiveProvenance() now
+        // reflects the embedder that actually served the query.
+        if (typeof this.engine.getActiveProvenance === 'function') {
+          this.warnRecallProvenance(this.engine.getActiveProvenance());
+        }
         // Return same format as sync recall() - direct memory objects
         return results.map(r => ({
           id: r.id,
@@ -3061,6 +3475,7 @@ class Intelligence {
 
   recall(query, topK) {
     const queryEmbed = this.embed(query);
+    this.warnRecallProvenance(this.syncWriteProvenance(queryEmbed));
     return this.data.memories
       .map(m => ({ score: this.similarity(queryEmbed, m.embedding), memory: m }))
       .sort((a, b) => b.score - a.score).slice(0, topK).map(r => r.memory);
@@ -3091,6 +3506,48 @@ class Intelligence {
     if (eng) {
       eng.recordEpisode(state, action, reward, state, false).catch(() => {});
     }
+  }
+
+  // Canonical routing state key — MUST mirror IntelligenceEngine.getState()/
+  // getExtension() so patterns written here are found by engine.route() (#517).
+  routeState(task, file) {
+    const t = task || '';
+    const taskType = t.includes('fix') ? 'fix' :
+                     t.includes('test') ? 'test' :
+                     t.includes('refactor') ? 'refactor' :
+                     t.includes('document') ? 'docs' : 'edit';
+    let ext = '';
+    if (file) {
+      const idx = file.lastIndexOf('.');
+      ext = idx >= 0 ? file.slice(idx).toLowerCase() : '';
+    }
+    return `${taskType}:${ext || 'unknown'}`;
+  }
+
+  // Record an agent routing outcome under the state key route() reads.
+  // Uses the engine's Q-update semantics (0.5 baseline), so a single good
+  // outcome (reward > 0.5) is enough to beat the static default mapping.
+  recordRouteOutcome(task, file, agent, reward) {
+    if (!agent || agent === 'unknown') return null;
+    const state = this.routeState(task, file);
+    const key = `${state}|${agent}`;
+    if (!this.data.patterns) this.data.patterns = {};
+    if (!this.data.stats) this.data.stats = { total_patterns: 0, total_memories: 0, total_trajectories: 0, total_errors: 0, session_count: 0, last_session: 0 };
+    if (!this.data.patterns[key]) {
+      this.data.patterns[key] = { state, action: agent, q_value: 0.5, visits: 0, last_update: 0 };
+    }
+    const p = this.data.patterns[key];
+    p.q_value = p.q_value + this.alpha * (reward - p.q_value);
+    p.visits++;
+    p.last_update = this.now();
+    this.data.stats.total_patterns = Object.keys(this.data.patterns).length;
+
+    // Forward to engine if already initialized (don't trigger lazy load)
+    const eng = this.getEngineIfReady();
+    if (eng && typeof eng.recordRouteOutcome === 'function') {
+      try { eng.recordRouteOutcome(task, file, agent, reward); } catch {}
+    }
+    return key;
   }
 
   learn(state, action, outcome, reward) {
@@ -3145,7 +3602,10 @@ class Intelligence {
 
   route(task, file, crateName, operation = 'edit') {
     const fileType = file ? path.extname(file).slice(1) : 'unknown';
-    const state = `${operation}_${fileType}_in_${crateName ?? 'project'}`;
+    // Canonical state shared with the write side (recordRouteOutcome) and
+    // the engine's route() — previously this read `edit_ts_in_project`-style
+    // keys that no learning path ever wrote agent actions for (#517).
+    const state = this.routeState(task || operation, file);
     const agentMap = {
       rs: ['rust-developer', 'coder', 'reviewer', 'tester'],
       ts: ['typescript-developer', 'coder', 'frontend-dev'],
@@ -3159,7 +3619,16 @@ class Intelligence {
       yml: ['devops-engineer', 'coder'],
       yaml: ['devops-engineer', 'coder']
     };
-    const agents = agentMap[fileType] ?? ['coder', 'reviewer'];
+    const agents = (agentMap[fileType] ?? ['coder', 'reviewer']).slice();
+    // Include agents learned for this state (e.g. from trajectory outcomes)
+    // even if they are not in the static candidate list.
+    const prefix = `${state}|`;
+    for (const key of Object.keys(this.data.patterns || {})) {
+      if (key.startsWith(prefix)) {
+        const learned = key.slice(prefix.length);
+        if (learned && !agents.includes(learned)) agents.push(learned);
+      }
+    }
     const { action, confidence } = this.suggest(state, agents);
     const reason = confidence > 0.5 ? 'learned from past success' : confidence > 0 ? 'based on patterns' : `default for ${fileType} files`;
 
@@ -3282,6 +3751,8 @@ class Intelligence {
           sonaEnabled: engineStats.sonaEnabled,
           attentionEnabled: engineStats.attentionEnabled,
           embeddingDim: engineStats.memoryDimensions,
+          // ADR-210 D1: which embedder actually serves embeds right now
+          embedderKind: engineStats.embedderKind,
           totalMemories: engineStats.totalMemories,
           totalEpisodes: engineStats.totalEpisodes,
           trajectoriesRecorded: engineStats.trajectoriesRecorded,
@@ -4179,7 +4650,8 @@ hooksCmd.command('post-edit').description('Post-edit learning').argument('<file>
   const lastFile = intel.getLastEditedFile();
   if (lastFile && lastFile !== file) intel.recordFileSequence(lastFile, file);
   intel.learn(state, success ? 'successful-edit' : 'failed-edit', success ? 'completed' : 'failed', success ? 1.0 : -0.5);
-  intel.remember('edit', `${success ? 'successful' : 'failed'} edit of ${ext} in ${crate}`);
+  // Best-effort: a provenance-locked store (ADR-210) must not fail the hook
+  intel.tryRemember('edit', `${success ? 'successful' : 'failed'} edit of ${ext} in ${crate}`);
   intel.save();
   console.log(`📊 Learning recorded: ${success ? '✅' : '❌'} ${path.basename(file)}`);
   const test = intel.shouldTest(file);
@@ -4204,7 +4676,8 @@ hooksCmd.command('post-command').description('Post-command learning').argument('
   const success = opts.error ? false : (opts.success ?? true);
   const classification = intel.classifyCommand(cmd);
   intel.learn(`cmd_${classification.category}_${classification.subcategory}`, success ? 'success' : 'failure', success ? 'completed' : 'failed', success ? 0.8 : -0.3);
-  intel.remember('command', `${cmd} ${success ? 'succeeded' : 'failed'}`);
+  // Best-effort: a provenance-locked store (ADR-210) must not fail the hook
+  intel.tryRemember('command', `${cmd} ${success ? 'succeeded' : 'failed'}`);
   intel.save();
   console.log(`📊 Command ${success ? '✅' : '❌'} recorded`);
 });
@@ -4223,16 +4696,31 @@ hooksCmd.command('suggest-context').description('Suggest relevant context').acti
 
 hooksCmd.command('remember').description('Store in memory').requiredOption('-t, --type <type>', 'Memory type').option('--silent', 'Suppress output').option('--semantic', 'Use ONNX semantic embeddings (slower, better quality)').argument('<content...>', 'Content').action(async (content, opts) => {
   const intel = new Intelligence();
-  let id;
-  if (opts.semantic) {
-    // Use async ONNX embedding
-    id = await intel.rememberAsync(opts.type, content.join(' '));
-  } else {
-    id = intel.remember(opts.type, content.join(' '));
-  }
-  intel.save();
-  if (!opts.silent) {
-    console.log(JSON.stringify({ success: true, id, semantic: !!opts.semantic }));
+  try {
+    let id;
+    if (opts.semantic) {
+      // Use async ONNX embedding
+      id = await intel.rememberAsync(opts.type, content.join(' '));
+    } else {
+      id = intel.remember(opts.type, content.join(' '));
+    }
+    if (id === null) {
+      // RUVECTOR_REEMBED=warn: store is read-only, write skipped (ADR-210)
+      if (!opts.silent) {
+        console.log(JSON.stringify({ success: false, skipped: true, reason: 'store is read-only for vector writes (embedding provenance, ADR-210); run `ruvector hooks reembed`' }));
+      }
+      return;
+    }
+    intel.save();
+    if (!opts.silent) {
+      console.log(JSON.stringify({ success: true, id, semantic: !!opts.semantic }));
+    }
+  } catch (e) {
+    // ADR-210 D0: mismatched/legacy vector writes are refused, not coerced.
+    if (!opts.silent) {
+      console.log(JSON.stringify({ success: false, error: e.message, code: e.code || 'ERR_EMBEDDING_PROVENANCE' }));
+    }
+    process.exitCode = 1;
   }
 });
 
@@ -4246,6 +4734,113 @@ hooksCmd.command('recall').description('Search memory').argument('<query...>', '
   }
   console.log(JSON.stringify({ query: query.join(' '), semantic: !!opts.semantic, results: results.map(r => ({ type: r.memory_type || 'unknown', content: (r.content || '').slice(0, 200), timestamp: r.timestamp || '', score: r.score })) }, null, 2));
 });
+
+// ADR-210 D1: maintenance command — re-embed hash-era memories with the
+// active embedder and stamp embedding provenance, unlocking legacy stores.
+// Possible because hook memories retain their source text (`content`).
+hooksCmd.command('reembed')
+  .description('Re-embed stored memories with the active embedder and stamp embedding provenance (ADR-210)')
+  .option('--dry-run', 'Report what would change without writing')
+  .option('--drop-missing', 'Drop memories that no longer retain source text')
+  .action(async (opts) => {
+    const provMod = loadProvenance();
+    if (!provMod) {
+      console.log(JSON.stringify({ success: false, error: 'embedding-provenance module unavailable (dist not built)' }));
+      process.exitCode = 1;
+      return;
+    }
+    const intel = new Intelligence({ skipEngine: true }); // embedder chosen explicitly below
+    const memories = Array.isArray(intel.data.memories) ? intel.data.memories : [];
+    const missing = memories.filter(m => !(m && typeof m.content === 'string' && m.content.length > 0)).length;
+
+    if (missing > 0 && !opts.dropMissing) {
+      // Honest refusal: those vectors cannot be re-embedded (no source text),
+      // and keeping them would recreate a mixed store.
+      console.log(JSON.stringify({
+        success: false,
+        error: `${missing} of ${memories.length} memories have no retained source text and cannot be re-embedded`,
+        hint: 'rerun with --drop-missing to discard them, or leave the store read-only for vector writes',
+      }));
+      process.exitCode = 1;
+      return;
+    }
+
+    // Pick the target embedder per RUVECTOR_EMBEDDER (D5).
+    const selection = provMod.resolveEmbedderSelection();
+    let embedFn;
+    let embedBatchFn = null;
+    let shutdownPool = null;
+    let provenance;
+    if (selection === 'hash') {
+      // Deterministic, offline-safe: the wrapper's own hash embedder.
+      embedFn = async (t) => intel.embed(t);
+      provenance = { embedderKind: 'hash', modelId: null, dimension: intel.embed('probe').length, normalize: true, prefixPolicy: 'none' };
+    } else {
+      const EngineClass = loadIntelligenceEngine();
+      if (!EngineClass) {
+        console.log(JSON.stringify({ success: false, error: 'IntelligenceEngine unavailable (dist not built); cannot re-embed semantically' }));
+        process.exitCode = 1;
+        return;
+      }
+      let engine;
+      try {
+        engine = new EngineClass({ enableSona: false, enableAttention: false });
+      } catch (e) {
+        console.log(JSON.stringify({ success: false, error: e.message }));
+        process.exitCode = 1;
+        return;
+      }
+      const ready = typeof engine.awaitOnnx === 'function' ? await engine.awaitOnnx() : false;
+      if (!ready) {
+        // Honest failure: re-embedding with a fallback hash would defeat the
+        // point. Tell the operator what to do instead of fabricating quality.
+        console.log(JSON.stringify({
+          success: false,
+          error: `ONNX model could not be loaded (${engine.getOnnxInitError?.()?.message || 'offline?'}); semantic re-embedding is impossible right now`,
+          hint: 'retry with network access, or force the hash embedder with RUVECTOR_EMBEDDER=hash',
+        }));
+        process.exitCode = 1;
+        return;
+      }
+      embedFn = (t) => engine.embedAsync(t);
+      // ADR-210 D3: 32+ memories re-embed in one bulk call through the
+      // bundled parallel worker pool (parallel-fp32; see embedBulk for the
+      // int8 status). The pool's worker threads keep the process alive, so
+      // they are shut down once the bulk work completes.
+      if (typeof engine.embedBatchAsync === 'function') {
+        embedBatchFn = (texts) => engine.embedBatchAsync(texts);
+        shutdownPool = () => (typeof engine.shutdownEmbedderPool === 'function' ? engine.shutdownEmbedderPool() : Promise.resolve());
+      }
+      provenance = engine.getActiveProvenance();
+    }
+
+    if (opts.dryRun) {
+      console.log(JSON.stringify({
+        success: true,
+        dryRun: true,
+        wouldReembed: memories.length - missing,
+        wouldDrop: opts.dropMissing ? missing : 0,
+        targetProvenance: provenance,
+      }));
+      return;
+    }
+
+    try {
+      const startMs = Date.now();
+      const result = await intel.reembedAll(embedFn, provenance, { dropMissing: !!opts.dropMissing, embedBatchFn });
+      intel.save();
+      let parallelWorkers = 0;
+      try {
+        parallelWorkers = require('../dist/core/onnx-embedder.js').getParallelWorkerCount();
+      } catch (_) {}
+      console.log(JSON.stringify({ success: true, ...result, parallelWorkers, elapsedMs: Date.now() - startMs, provenance }));
+    } catch (e) {
+      console.log(JSON.stringify({ success: false, error: e.message }));
+      process.exitCode = 1;
+    } finally {
+      if (shutdownPool) await shutdownPool().catch(() => {});
+    }
+  });
 
 hooksCmd.command('pre-compact').description('Pre-compact hook').option('--auto', 'Auto mode').action(() => {
   const intel = new Intelligence();
@@ -4274,6 +4869,7 @@ hooksCmd.command('trajectory-begin')
   .description('Begin tracking a new execution trajectory')
   .requiredOption('-c, --context <context>', 'Task or operation context')
   .option('-a, --agent <agent>', 'Agent performing the task', 'unknown')
+  .option('-f, --file <file>', 'Primary file being worked on')
   .action((opts) => {
     const intel = new Intelligence({ skipEngine: true });  // Fast mode - no engine needed
     const trajId = `traj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -4282,6 +4878,7 @@ hooksCmd.command('trajectory-begin')
       id: trajId,
       context: opts.context,
       agent: opts.agent,
+      file: opts.file || null,
       steps: [],
       startTime: Date.now()
     };
@@ -4335,6 +4932,14 @@ hooksCmd.command('trajectory-end')
     if (!intel.data.trajectories) intel.data.trajectories = [];
     intel.data.trajectories.push(traj);
     delete trajectories[latestTrajId];
+
+    // Close the routing learning loop (#517): when the trajectory knows which
+    // agent did the work, record the outcome under the agent-routing state
+    // key that `hooks route` / engine.route() actually query.
+    let learnedRoute = null;
+    if (traj.agent && traj.agent !== 'unknown') {
+      learnedRoute = intel.recordRouteOutcome(traj.context, traj.file || undefined, traj.agent, quality);
+    }
     intel.save();
 
     console.log(JSON.stringify({
@@ -4342,7 +4947,8 @@ hooksCmd.command('trajectory-end')
       trajectory_id: latestTrajId,
       steps: traj.steps.length,
       duration_ms: traj.endTime - traj.startTime,
-      quality
+      quality,
+      ...(learnedRoute ? { learned_route: learnedRoute } : {})
     }));
   });
 
@@ -4416,9 +5022,30 @@ hooksCmd.command('error-suggest')
 hooksCmd.command('force-learn')
   .description('Force an immediate learning cycle')
   .action(() => {
-    const intel = new Intelligence({ skipEngine: true });  // Fast mode
-    intel.tick();
-    console.log(JSON.stringify({ success: true, result: 'Learning cycle triggered', stats: intel.stats() }));
+    try {
+      // Engine enabled: tick()/forceLearn() only exist on the native IntelligenceEngine,
+      // not on this lightweight Intelligence wrapper (see issue #529).
+      const intel = new Intelligence();
+      const eng = intel.getEngine();
+      let success = false;
+      let result;
+      if (eng && typeof eng.forceLearn === 'function') {
+        try {
+          const learnResult = eng.forceLearn();
+          if (typeof eng.tick === 'function') eng.tick();
+          result = learnResult || 'Engine learning cycle complete';
+          success = true;
+        } catch (e) {
+          result = `Engine learning failed: ${e.message}`;
+        }
+      } else {
+        result = 'Native intelligence engine unavailable; no learning cycle performed';
+      }
+      try { intel.save(); } catch {}
+      console.log(JSON.stringify({ success, engineEnabled: !!eng, result, stats: intel.stats() }));
+    } catch (e) {
+      console.log(JSON.stringify({ success: false, engineEnabled: false, result: `force-learn failed: ${e.message}` }));
+    }
   });
 
 // ============================================
@@ -9473,6 +10100,137 @@ const optimizeCmd = program.command('optimize')
     console.log(`\n  ${chalk.dim('Permission mode:')} ${result.permissionMode}`);
     console.log('');
   });
+
+// =============================================================================
+// Harness Commands - unified "harness router" surface (ADR-256)
+// Borrows metaharness concepts using primitives ruvector already ships:
+//   cost router (tiny-dancer) + semantic router + hooks routing + MCP + witness
+// Read-only status surface; degrades gracefully when optional deps are absent.
+// =============================================================================
+
+function buildHarnessSurface() {
+  const primitives = {};
+
+  // Cost-optimal model router — Tiny Dancer FastGRNN (ADR-252)
+  try {
+    const td = require('@ruvector/tiny-dancer');
+    primitives.costRouter = {
+      name: '@ruvector/tiny-dancer',
+      role: 'cost-optimal model routing (cheap vs strong)',
+      available: true,
+      version: typeof td.version === 'function' ? td.version() : null,
+      usage: 'npx ruvector tiny-dancer score <model> --query <embedding>',
+    };
+  } catch {
+    primitives.costRouter = {
+      name: '@ruvector/tiny-dancer',
+      role: 'cost-optimal model routing (cheap vs strong)',
+      available: false,
+      install: 'npm install @ruvector/tiny-dancer',
+    };
+  }
+
+  // Semantic intent router — @ruvector/router / ruvector-router-core
+  let semanticAvailable = false;
+  try { require.resolve('@ruvector/router'); semanticAvailable = true; } catch { semanticAvailable = false; }
+  primitives.semanticRouter = {
+    name: '@ruvector/router',
+    role: 'semantic intent routing',
+    available: semanticAvailable,
+    ...(semanticAvailable ? { usage: 'npx ruvector router --route "<text>"' } : { install: 'npm install @ruvector/router' }),
+  };
+
+  // Multi-tier intelligence routing — bundled (ADR-026)
+  primitives.hooksRouting = {
+    name: 'hooks route',
+    role: '3-tier task→agent/model routing (ADR-026)',
+    available: true,
+    usage: 'npx ruvector hooks route "<task>"',
+  };
+
+  // Agentic tool surface — bundled MCP server (with ADR-256 default-deny policy)
+  const mcpPath = path.join(__dirname, 'mcp-server.js');
+  let mcpPolicy = { configured: false };
+  try {
+    const { buildToolPolicy } = require('./mcp-policy.js');
+    const p = buildToolPolicy(process.env);
+    mcpPolicy = {
+      configured: p.configured,
+      profile: p.profile || null,
+      allow: p.allowSet ? p.allowSet.size : 0,
+      deny: p.deny.size,
+    };
+  } catch { /* policy module optional */ }
+  primitives.mcp = {
+    name: 'mcp-server',
+    role: 'agentic tool surface (Model Context Protocol)',
+    available: fs.existsSync(mcpPath),
+    usage: 'npx ruvector mcp start',
+    policy: mcpPolicy,
+    accessControl: mcpPolicy.configured ? 'default-deny (configured)' : 'allow-all (set RUVECTOR_MCP_ALLOW/PROFILE)',
+  };
+
+  // Signed provenance — witness chain (ADR-103 / ADR-134)
+  primitives.witness = {
+    name: 'witness-chain',
+    role: 'signed provenance / release signing (ADR-103, ADR-134)',
+    available: true,
+  };
+
+  // Memory + learning loops — SONA / ReasoningBank (stable namespace, ADR-256 step 3)
+  primitives.memory = {
+    name: 'sona+reasoningbank',
+    role: 'persistent memory + self-learning loops',
+    available: true,
+    namespace: (process.env.RUVECTOR_MEMORY_NAMESPACE || 'ruvector').trim() || 'ruvector',
+  };
+
+  const values = Object.values(primitives);
+  return {
+    adr: 'ADR-256',
+    decision: 'borrow metaharness concepts using primitives ruvector already ships',
+    primitives,
+    summary: {
+      available: values.filter((p) => p.available).length,
+      total: values.length,
+    },
+  };
+}
+
+const harnessCmd = program
+  .command('harness')
+  .description('Unified "harness router" surface — cost router + semantic router + hooks routing + MCP + witness (ADR-256)');
+
+function printHarnessStatus(opts) {
+  const surface = buildHarnessSurface();
+  if (opts && opts.json) {
+    console.log(JSON.stringify(surface, null, 2));
+    return;
+  }
+  console.log(chalk.cyan('\n═══════════════════════════════════════════════════════════════'));
+  console.log(chalk.cyan('              RuVector Harness Router (ADR-256)'));
+  console.log(chalk.cyan('═══════════════════════════════════════════════════════════════\n'));
+  console.log(chalk.gray('  ' + surface.decision + '\n'));
+  for (const p of Object.values(surface.primitives)) {
+    const badge = p.available ? chalk.green('● available') : chalk.yellow('○ optional ');
+    console.log(`  ${badge}  ${chalk.white(p.name)}${p.version ? chalk.dim(' v' + p.version) : ''}`);
+    console.log(`              ${chalk.dim(p.role)}`);
+    if (p.available && p.usage) console.log(`              ${chalk.dim(p.usage)}`);
+    if (!p.available && p.install) console.log(`              ${chalk.dim('install: ' + p.install)}`);
+  }
+  console.log('');
+  console.log(chalk.cyan(`  ${surface.summary.available}/${surface.summary.total} primitives available\n`));
+}
+
+harnessCmd
+  .command('status')
+  .alias('info')
+  .description('Show the unified harness routing surface and primitive availability')
+  .option('--json', 'Output as JSON')
+  .action((opts) => printHarnessStatus(opts));
+
+// Bare `ruvector harness` defaults to status
+harnessCmd.action(() => printHarnessStatus({}));
 
 program.parse();
 

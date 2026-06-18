@@ -123,13 +123,13 @@ The same `.rvf` file runs on servers, browsers (WASM), edge devices, TEE enclave
 
 | Crate | Version | Description |
 |-------|---------|-------------|
-| [`rvf-types`](https://crates.io/crates/rvf-types) | 0.2.0 | Segment types, 24 headers, quality, security, AGI container types (`no_std`) |
+| [`rvf-types`](https://crates.io/crates/rvf-types) | 0.2.1 | Segment types, 24 headers, quality, security, AGI container types (`no_std`) |
 | [`rvf-wire`](https://crates.io/crates/rvf-wire) | 0.1.0 | Wire format read/write (`no_std`) |
 | [`rvf-manifest`](https://crates.io/crates/rvf-manifest) | 0.1.0 | Two-level manifest, FileIdentity, COW pointers |
-| [`rvf-quant`](https://crates.io/crates/rvf-quant) | 0.1.0 | Scalar, product, and binary quantization |
-| [`rvf-index`](https://crates.io/crates/rvf-index) | 0.1.0 | HNSW progressive indexing (Layer A/B/C) |
+| [`rvf-quant`](https://crates.io/crates/rvf-quant) | 0.2.0 | Scalar, product, binary, and RaBitQ quantization |
+| [`rvf-index`](https://crates.io/crates/rvf-index) | 0.2.0 | HNSW progressive indexing (Layer A/B/C), Vamana alpha-pruning |
 | [`rvf-crypto`](https://crates.io/crates/rvf-crypto) | 0.2.0 | SHAKE-256, Ed25519, witness chains, seed crypto |
-| [`rvf-runtime`](https://crates.io/crates/rvf-runtime) | 0.2.0 | Full store API, COW engine, AGI containers, QR seeds, safety net |
+| [`rvf-runtime`](https://crates.io/crates/rvf-runtime) | 0.3.0 | Full store API, HNSW-backed queries, COW engine, AGI containers, QR seeds, safety net |
 | [`rvf-kernel`](https://crates.io/crates/rvf-kernel) | 0.1.0 | Linux kernel builder, initramfs, Docker pipeline |
 | [`rvf-ebpf`](https://crates.io/crates/rvf-ebpf) | 0.1.0 | BPF C compiler (XDP, socket filter, TC) |
 | [`rvf-launch`](https://crates.io/crates/rvf-launch) | 0.1.0 | QEMU microvm launcher, KVM/TCG, QMP |
@@ -142,9 +142,9 @@ The same `.rvf` file runs on servers, browsers (WASM), edge devices, TEE enclave
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf) | 0.1.0 | Unified TypeScript SDK |
-| [`@ruvector/rvf-node`](https://www.npmjs.com/package/@ruvector/rvf-node) | 0.1.0 | Node.js N-API native bindings |
-| [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm) | 0.1.0 | WASM browser package |
+| [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf) | 0.2.2 | Unified TypeScript SDK |
+| [`@ruvector/rvf-node`](https://www.npmjs.com/package/@ruvector/rvf-node) | 0.1.7 | Node.js N-API native bindings |
+| [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm) | 0.1.7 | WASM browser package |
 | [`@ruvector/rvf-mcp-server`](https://www.npmjs.com/package/@ruvector/rvf-mcp-server) | 0.1.0 | MCP server for AI agents |
 
 ### Platform Support
@@ -388,6 +388,9 @@ The same `.rvf` file format runs on cloud servers, Firecracker microVMs, TEE enc
 | **Progressive indexing** | Three-tier HNSW (Layer A/B/C). First query at 70% recall before full index loads. |
 | **Temperature-tiered quantization** | Hot vectors stay fp16, warm use product quantization, cold use binary &mdash; automatically. |
 | **Metadata filtering** | Filtered k-NN with boolean expressions (AND/OR/NOT/IN/RANGE). |
+| **HNSW query path** | Queries route through the persisted HNSW index when an INDEX_SEG is present (1.51 ms vs 21.7 ms brute force at 100k x 64-dim, recall@10 0.968). `QueryOptions::force_exact` keeps the exact scan. |
+| **RaBitQ opt-in queries** | `QueryOptions::rabitq` enables a two-stage path: 1-bit candidate scan (32x smaller codes) + exact f32 rescore. recall@10 0.972. L2 metric only; off by default. |
+| **Contiguous vector slab** | In-memory vectors live in one flat row-major slab (no per-vector allocation): brute scan 24.5 ms -> 3.8 ms, cold open -21.5% at 100k x 64-dim. |
 | **4 KB instant boot** | Root manifest fits in one page read. Cold boot < 5 ms. |
 | **24 segment types** | VEC, INDEX, MANIFEST, QUANT, WITNESS, CRYPTO, KERNEL, EBPF, WASM, COW_MAP, MEMBERSHIP, DELTA, TRANSFER_PRIOR, POLICY_KERNEL, COST_CURVE, and 9 more. |
 
@@ -500,6 +503,21 @@ An `.rvf` file is a sequence of 64-byte-aligned segments. Each segment has a sel
 | CowMap lookup | < 100 ns | **28 ns** |
 | Membership filter contains() | < 100 ns | **23-33 ns** |
 | Snapshot freeze | < 100 ns | **30-52 ns** |
+
+### Query Path (measured)
+
+Environment: Windows x64, criterion release builds, 100k vectors x 64 dims, k=10.
+
+| Benchmark | Baseline | Measured | Quality |
+|-----------|----------|----------|---------|
+| k-NN query via HNSW index | 21.7 ms (brute force) | **1.51 ms** | recall@10 0.968 |
+| Brute-force scan (contiguous slab) | 24.5 ms (per-vector heap allocs) | **3.8 ms** | exact |
+| Cold open (slab layout) | — | **-21.5%** open time | — |
+| RaBitQ two-stage query (`QueryOptions::rabitq`, opt-in) | f32 codes | 32x code compression | recall@10 0.972 |
+| HNSW build with Vamana alpha-pruning | recall 0.986 | recall **0.996** | at ef_search=30 |
+| Segment checksums (crc32fast) | software CRC | **~100x** faster | — |
+
+The HNSW path is used automatically when a persisted INDEX_SEG is present; `QueryOptions::force_exact` preserves the exact scan for ground-truth comparison. Index rebuilds after ingest/delete are non-blocking (queries fall back to the exact scan until the new index commits).
 
 ### Progressive Loading
 

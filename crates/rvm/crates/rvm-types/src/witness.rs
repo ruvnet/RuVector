@@ -57,9 +57,14 @@ pub struct WitnessRecord {
     /// - `PartitionSplit`: `new_id_a` in bytes \[0..4\], `new_id_b` in bytes \[4..8\].
     /// - `RegionTransfer`: `from_partition` in bytes \[0..4\], `to_partition` in bytes \[4..8\].
     pub payload: [u8; 8],
-    /// FNV-1a hash of the previous record (chain link for tamper evidence).
+    /// Folded hash of the previous record's chain value (chain link for
+    /// tamper evidence). The chain value binds the previous record's
+    /// content hash, sequence, and its own predecessor.
     pub prev_hash: u32,
-    /// FNV-1a hash of bytes \[0..44\] of this record (self-integrity).
+    /// Folded hash of bytes \[0..44\] of this record (self-integrity).
+    /// Covers all content fields: `sequence`, `timestamp_ns`,
+    /// `action_kind`, `proof_tier`, `flags`, `actor_partition_id`,
+    /// `target_object_id`, `capability_hash`, and `payload`.
     pub record_hash: u32,
     /// Secondary payload or TEE signature fragment.
     pub aux: [u8; 8],
@@ -73,6 +78,47 @@ const _: () = {
 };
 
 impl WitnessRecord {
+    /// Number of leading bytes of the serialized record that constitute
+    /// the record *content* (everything before `prev_hash`): `sequence`,
+    /// `timestamp_ns`, `action_kind`, `proof_tier`, `flags`, reserved,
+    /// `actor_partition_id`, `target_object_id`, `capability_hash`,
+    /// and `payload`. The self-integrity `record_hash` is computed over
+    /// exactly these bytes.
+    pub const CONTENT_LEN: usize = 44;
+
+    /// Number of leading bytes of the serialized record covered by a
+    /// signature (everything before `aux` and padding): the content
+    /// bytes plus `prev_hash` and `record_hash`.
+    pub const SIGNED_LEN: usize = 52;
+
+    /// Serialize the record's fields to a 64-byte little-endian array
+    /// in layout order.
+    ///
+    /// This is the canonical serialization used for both the
+    /// self-integrity `record_hash` (over `[..CONTENT_LEN]`) and witness
+    /// signatures (over `[..SIGNED_LEN]`). Fields are serialized
+    /// manually rather than via `repr(C)` transmutation to avoid
+    /// depending on padding semantics across platforms.
+    #[must_use]
+    pub fn to_bytes(&self) -> [u8; 64] {
+        let mut buf = [0u8; 64];
+        buf[0..8].copy_from_slice(&self.sequence.to_le_bytes());
+        buf[8..16].copy_from_slice(&self.timestamp_ns.to_le_bytes());
+        buf[16] = self.action_kind;
+        buf[17] = self.proof_tier;
+        buf[18] = self.flags;
+        buf[19] = self.reserved;
+        buf[20..24].copy_from_slice(&self.actor_partition_id.to_le_bytes());
+        buf[24..32].copy_from_slice(&self.target_object_id.to_le_bytes());
+        buf[32..36].copy_from_slice(&self.capability_hash.to_le_bytes());
+        buf[36..44].copy_from_slice(&self.payload);
+        buf[44..48].copy_from_slice(&self.prev_hash.to_le_bytes());
+        buf[48..52].copy_from_slice(&self.record_hash.to_le_bytes());
+        buf[52..60].copy_from_slice(&self.aux);
+        // buf[60..64] is pad, stays zero.
+        buf
+    }
+
     /// Create a zeroed witness record (genesis / placeholder).
     #[must_use]
     pub const fn zeroed() -> Self {
@@ -91,6 +137,272 @@ impl WitnessRecord {
             record_hash: 0,
             aux: [0; 8],
             pad: [0; 4],
+        }
+    }
+
+    /// Deserialize a record from its canonical 64-byte little-endian
+    /// wire form (inverse of [`Self::to_bytes`]).
+    ///
+    /// Used by versioned log readers that dispatch on the wire version
+    /// byte (offset [`WIRE_VERSION_OFFSET`]): v1 records carry `0`
+    /// there (the reserved byte), v2 records carry `2`.
+    #[must_use]
+    pub fn from_bytes(buf: &[u8; 64]) -> Self {
+        let mut u64_buf = [0u8; 8];
+        let mut u32_buf = [0u8; 4];
+        u64_buf.copy_from_slice(&buf[0..8]);
+        let sequence = u64::from_le_bytes(u64_buf);
+        u64_buf.copy_from_slice(&buf[8..16]);
+        let timestamp_ns = u64::from_le_bytes(u64_buf);
+        u32_buf.copy_from_slice(&buf[20..24]);
+        let actor_partition_id = u32::from_le_bytes(u32_buf);
+        u64_buf.copy_from_slice(&buf[24..32]);
+        let target_object_id = u64::from_le_bytes(u64_buf);
+        u32_buf.copy_from_slice(&buf[32..36]);
+        let capability_hash = u32::from_le_bytes(u32_buf);
+        let mut payload = [0u8; 8];
+        payload.copy_from_slice(&buf[36..44]);
+        u32_buf.copy_from_slice(&buf[44..48]);
+        let prev_hash = u32::from_le_bytes(u32_buf);
+        u32_buf.copy_from_slice(&buf[48..52]);
+        let record_hash = u32::from_le_bytes(u32_buf);
+        let mut aux = [0u8; 8];
+        aux.copy_from_slice(&buf[52..60]);
+        Self {
+            sequence,
+            timestamp_ns,
+            action_kind: buf[16],
+            proof_tier: buf[17],
+            flags: buf[18],
+            reserved: buf[19],
+            actor_partition_id,
+            target_object_id,
+            capability_hash,
+            payload,
+            prev_hash,
+            record_hash,
+            aux,
+            pad: [0; 4],
+        }
+    }
+}
+
+/// Byte offset of the wire format version discriminator, shared by all
+/// witness record versions.
+///
+/// In v1 records this is the `reserved` byte (always `0`); in v2 records
+/// it is the explicit `version` field (always `2`). A reader can
+/// therefore dispatch on `bytes[offset + WIRE_VERSION_OFFSET]` to decide
+/// whether the next record is 64 bytes (v1) or 96 bytes (v2).
+pub const WIRE_VERSION_OFFSET: usize = 19;
+
+/// A version-2 witness record. Exactly 96 bytes (ADR-134 v2).
+///
+/// The v2 format widens the tamper-evidence chain from the v1 32-bit
+/// folded links to full 128-bit keyed-BLAKE3 MACs, at the cost of
+/// growing the record from 64 to 96 bytes (+50%). The first 44 bytes
+/// (the *content* region) keep the exact v1 field order so emitters and
+/// audit queries port over unchanged; byte 19 is the version
+/// discriminator (`2` here, `0` in v1, see [`WIRE_VERSION_OFFSET`]).
+///
+/// # Layout (all little-endian)
+///
+/// | Offset | Size | Field                | Description |
+/// |--------|------|----------------------|-------------|
+/// | 0      | 8    | `sequence`           | Monotonic sequence number |
+/// | 8      | 8    | `timestamp_ns`       | Nanosecond timestamp |
+/// | 16     | 1    | `action_kind`        | Privileged action discriminant |
+/// | 17     | 1    | `proof_tier`         | Proof tier (1, 2, or 3) |
+/// | 18     | 1    | `flags`              | Action-specific flags |
+/// | 19     | 1    | `version`            | Format version, always `2` |
+/// | 20     | 4    | `actor_partition_id` | Actor partition |
+/// | 24     | 8    | `target_object_id`   | Target object |
+/// | 32     | 4    | `capability_hash`    | Truncated cap hash |
+/// | 36     | 8    | `payload`            | Action-specific data |
+/// | 44     | 8    | `aux`                | Secondary payload (not chained) |
+/// | 52     | 4    | `reserved`           | Reserved (must be zero) |
+/// | 56     | 16   | `prev_mac`           | Predecessor's `chain_mac` |
+/// | 72     | 16   | `chain_mac`          | Keyed-BLAKE3 chain MAC |
+/// | 88     | 8    | `pad`                | Padding to 96 bytes |
+///
+/// # Chain construction
+///
+/// `chain_mac = trunc128(BLAKE3_keyed(key, bytes[0..44] || prev_mac))`.
+/// The MAC input is 60 bytes, i.e. exactly one keyed BLAKE3 compression,
+/// and it binds **both** the record content (including `sequence`) and
+/// the full-width link to the predecessor. A single MAC therefore
+/// provides self-integrity *and* the chain link; v1 needed two hashes
+/// per record for a strictly weaker (32-bit folded) guarantee.
+#[derive(Debug, Clone, Copy)]
+#[repr(C, align(32))]
+pub struct WitnessRecordV2 {
+    /// Monotonic sequence number. Provides global ordering of all privileged actions.
+    pub sequence: u64,
+    /// Nanosecond timestamp from the system timer (`CNTVCT_EL0` / `rdtsc`).
+    pub timestamp_ns: u64,
+    /// Which privileged action was performed (see [`ActionKind`]).
+    pub action_kind: u8,
+    /// Which proof tier authorized this action (1 = P1, 2 = P2, 3 = P3).
+    pub proof_tier: u8,
+    /// Action-specific flags (interpretation varies by `action_kind`).
+    pub flags: u8,
+    /// Wire format version. Always [`Self::VERSION`] (`2`) for this type.
+    pub version: u8,
+    /// Partition that performed the action.
+    pub actor_partition_id: u32,
+    /// Object acted upon: partition, region, capability, etc.
+    pub target_object_id: u64,
+    /// Truncated FNV-1a hash of the capability used (not the full token).
+    pub capability_hash: u32,
+    /// Action-specific data, packed by kind.
+    pub payload: [u8; 8],
+    /// Secondary payload. **Not** covered by the chain MAC, mirroring
+    /// v1 where `aux` held an after-the-fact signature.
+    pub aux: [u8; 8],
+    /// Reserved for future use. Must be zero.
+    reserved: [u8; 4],
+    /// Full-width (128-bit) chain link: the predecessor's `chain_mac`,
+    /// or the log's genesis value for the first record.
+    pub prev_mac: [u8; 16],
+    /// Keyed-BLAKE3 MAC over `bytes[0..44] || prev_mac`, truncated to
+    /// 128 bits. Serves as both self-integrity hash and chain value.
+    pub chain_mac: [u8; 16],
+    /// Padding to guarantee 96-byte total size.
+    pad: [u8; 8],
+}
+
+// Compile-time size assertion: the v2 record MUST be exactly 96 bytes.
+const _: () = {
+    assert!(core::mem::size_of::<WitnessRecordV2>() == 96);
+};
+
+impl WitnessRecordV2 {
+    /// Wire format version discriminator stored at byte 19.
+    pub const VERSION: u8 = 2;
+
+    /// Serialized size in bytes.
+    pub const SIZE: usize = 96;
+
+    /// Number of leading bytes that constitute the record *content*
+    /// (same field order as v1): `sequence` through `payload`.
+    pub const CONTENT_LEN: usize = 44;
+
+    /// Length of the chain MAC input: `CONTENT_LEN` content bytes
+    /// followed by the 16-byte `prev_mac`. At 60 bytes this fits in a
+    /// single 64-byte BLAKE3 block, so each append costs exactly one
+    /// keyed compression.
+    pub const MAC_INPUT_LEN: usize = Self::CONTENT_LEN + 16;
+
+    /// Create a zeroed v2 record (version byte set, everything else zero).
+    #[must_use]
+    pub const fn zeroed() -> Self {
+        Self {
+            sequence: 0,
+            timestamp_ns: 0,
+            action_kind: 0,
+            proof_tier: 0,
+            flags: 0,
+            version: Self::VERSION,
+            actor_partition_id: 0,
+            target_object_id: 0,
+            capability_hash: 0,
+            payload: [0; 8],
+            aux: [0; 8],
+            reserved: [0; 4],
+            prev_mac: [0; 16],
+            chain_mac: [0; 16],
+            pad: [0; 8],
+        }
+    }
+
+    /// Build a v2 record from the content fields of a v1
+    /// [`WitnessRecord`] (the common emitter currency).
+    ///
+    /// Copies `timestamp_ns`, `action_kind`, `proof_tier`, `flags`,
+    /// `actor_partition_id`, `target_object_id`, `capability_hash`,
+    /// `payload`, and `aux`. The v1 chain fields (`sequence`,
+    /// `prev_hash`, `record_hash`) are **ignored**: the v2 log assigns
+    /// its own sequence and MACs on append.
+    #[must_use]
+    pub fn from_v1_content(record: &WitnessRecord) -> Self {
+        let mut out = Self::zeroed();
+        out.timestamp_ns = record.timestamp_ns;
+        out.action_kind = record.action_kind;
+        out.proof_tier = record.proof_tier;
+        out.flags = record.flags;
+        out.actor_partition_id = record.actor_partition_id;
+        out.target_object_id = record.target_object_id;
+        out.capability_hash = record.capability_hash;
+        out.payload = record.payload;
+        out.aux = record.aux;
+        out
+    }
+
+    /// Serialize to the canonical 96-byte little-endian wire form.
+    #[must_use]
+    pub fn to_bytes(&self) -> [u8; 96] {
+        let mut buf = [0u8; 96];
+        buf[0..8].copy_from_slice(&self.sequence.to_le_bytes());
+        buf[8..16].copy_from_slice(&self.timestamp_ns.to_le_bytes());
+        buf[16] = self.action_kind;
+        buf[17] = self.proof_tier;
+        buf[18] = self.flags;
+        buf[19] = self.version;
+        buf[20..24].copy_from_slice(&self.actor_partition_id.to_le_bytes());
+        buf[24..32].copy_from_slice(&self.target_object_id.to_le_bytes());
+        buf[32..36].copy_from_slice(&self.capability_hash.to_le_bytes());
+        buf[36..44].copy_from_slice(&self.payload);
+        buf[44..52].copy_from_slice(&self.aux);
+        buf[52..56].copy_from_slice(&self.reserved);
+        buf[56..72].copy_from_slice(&self.prev_mac);
+        buf[72..88].copy_from_slice(&self.chain_mac);
+        // buf[88..96] is pad, stays zero.
+        buf
+    }
+
+    /// Deserialize from the canonical 96-byte wire form (inverse of
+    /// [`Self::to_bytes`]). Does not validate the version byte; callers
+    /// performing verification must check `version == Self::VERSION`.
+    #[must_use]
+    pub fn from_bytes(buf: &[u8; 96]) -> Self {
+        let mut u64_buf = [0u8; 8];
+        let mut u32_buf = [0u8; 4];
+        u64_buf.copy_from_slice(&buf[0..8]);
+        let sequence = u64::from_le_bytes(u64_buf);
+        u64_buf.copy_from_slice(&buf[8..16]);
+        let timestamp_ns = u64::from_le_bytes(u64_buf);
+        u32_buf.copy_from_slice(&buf[20..24]);
+        let actor_partition_id = u32::from_le_bytes(u32_buf);
+        u64_buf.copy_from_slice(&buf[24..32]);
+        let target_object_id = u64::from_le_bytes(u64_buf);
+        u32_buf.copy_from_slice(&buf[32..36]);
+        let capability_hash = u32::from_le_bytes(u32_buf);
+        let mut payload = [0u8; 8];
+        payload.copy_from_slice(&buf[36..44]);
+        let mut aux = [0u8; 8];
+        aux.copy_from_slice(&buf[44..52]);
+        let mut reserved = [0u8; 4];
+        reserved.copy_from_slice(&buf[52..56]);
+        let mut prev_mac = [0u8; 16];
+        prev_mac.copy_from_slice(&buf[56..72]);
+        let mut chain_mac = [0u8; 16];
+        chain_mac.copy_from_slice(&buf[72..88]);
+        Self {
+            sequence,
+            timestamp_ns,
+            action_kind: buf[16],
+            proof_tier: buf[17],
+            flags: buf[18],
+            version: buf[19],
+            actor_partition_id,
+            target_object_id,
+            capability_hash,
+            payload,
+            aux,
+            reserved,
+            prev_mac,
+            chain_mac,
+            pad: [0; 8],
         }
     }
 }

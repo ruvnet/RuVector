@@ -64,8 +64,8 @@ pub use capability::{
 
 // --- Witness types ---
 pub use witness::{
-    ActionKind, WitnessHash, WitnessRecord, WITNESS_RECORD_SIZE, WITNESS_RING_CAPACITY, fnv1a_32,
-    fnv1a_64,
+    ActionKind, WitnessHash, WitnessRecord, WitnessRecordV2, WIRE_VERSION_OFFSET,
+    WITNESS_RECORD_SIZE, WITNESS_RING_CAPACITY, fnv1a_32, fnv1a_64,
 };
 
 // --- Coherence types ---
