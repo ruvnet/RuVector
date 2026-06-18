@@ -7,6 +7,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "GNN-enhanced candidate reranking for approximate ANN search in ruvector"
+readme = "README.md"
 keywords = ["vector-search", "ann", "gnn", "reranking", "rag"]
 categories = ["algorithms", "data-structures"]
 
