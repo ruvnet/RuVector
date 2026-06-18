@@ -1,0 +1,20 @@
+[package]
+name = "ruvector-shard"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Portable subgraph extraction from proximity graphs for edge deployment and agent memory"
+keywords = ["vector-search", "graph", "ann", "edge-ai", "agent-memory"]
+categories = ["algorithms", "data-structures"]
+
+[dependencies]
+thiserror = { workspace = true }
+serde = { workspace = true }
+rand = { workspace = true }
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
