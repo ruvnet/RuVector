@@ -90,8 +90,7 @@ pub async fn run(
         println!("  {} {}", style("Downloading:").yellow(), file_name);
 
         // Download with progress
-        let downloaded_path =
-            download_with_progress(&repo, file_name, &model_id, revision).await?;
+        let downloaded_path = download_with_progress(&repo, file_name, &model_id, revision).await?;
 
         // Copy to cache directory
         tokio::fs::copy(&downloaded_path, &target_path)
