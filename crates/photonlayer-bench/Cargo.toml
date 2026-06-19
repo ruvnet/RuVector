@@ -1,0 +1,30 @@
+[package]
+name = "photonlayer-bench"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "PhotonLayer reproducible benchmarks + in-Rust mask learner and digital decoder (ADR-260 Phase 4)"
+
+[dependencies]
+photonlayer-core = { version = "0.1.0", path = "../photonlayer-core" }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+[[bin]]
+name = "photonlayer-bench"
+path = "src/bin/bench.rs"
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", priority = -1 }
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+correctness = { level = "deny", priority = 0 }
+suspicious = { level = "deny", priority = 0 }
+pedantic = { level = "allow", priority = -2 }
+needless_range_loop = "allow"
+manual_range_contains = "allow"
+too_many_arguments = "allow"

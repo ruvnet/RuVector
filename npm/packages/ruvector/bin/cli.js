@@ -10101,6 +10101,137 @@ const optimizeCmd = program.command('optimize')
     console.log('');
   });
 
+// =============================================================================
+// Harness Commands - unified "harness router" surface (ADR-256)
+// Borrows metaharness concepts using primitives ruvector already ships:
+//   cost router (tiny-dancer) + semantic router + hooks routing + MCP + witness
+// Read-only status surface; degrades gracefully when optional deps are absent.
+// =============================================================================
+
+function buildHarnessSurface() {
+  const primitives = {};
+
+  // Cost-optimal model router — Tiny Dancer FastGRNN (ADR-252)
+  try {
+    const td = require('@ruvector/tiny-dancer');
+    primitives.costRouter = {
+      name: '@ruvector/tiny-dancer',
+      role: 'cost-optimal model routing (cheap vs strong)',
+      available: true,
+      version: typeof td.version === 'function' ? td.version() : null,
+      usage: 'npx ruvector tiny-dancer score <model> --query <embedding>',
+    };
+  } catch {
+    primitives.costRouter = {
+      name: '@ruvector/tiny-dancer',
+      role: 'cost-optimal model routing (cheap vs strong)',
+      available: false,
+      install: 'npm install @ruvector/tiny-dancer',
+    };
+  }
+
+  // Semantic intent router — @ruvector/router / ruvector-router-core
+  let semanticAvailable = false;
+  try { require.resolve('@ruvector/router'); semanticAvailable = true; } catch { semanticAvailable = false; }
+  primitives.semanticRouter = {
+    name: '@ruvector/router',
+    role: 'semantic intent routing',
+    available: semanticAvailable,
+    ...(semanticAvailable ? { usage: 'npx ruvector router --route "<text>"' } : { install: 'npm install @ruvector/router' }),
+  };
+
+  // Multi-tier intelligence routing — bundled (ADR-026)
+  primitives.hooksRouting = {
+    name: 'hooks route',
+    role: '3-tier task→agent/model routing (ADR-026)',
+    available: true,
+    usage: 'npx ruvector hooks route "<task>"',
+  };
+
+  // Agentic tool surface — bundled MCP server (with ADR-256 default-deny policy)
+  const mcpPath = path.join(__dirname, 'mcp-server.js');
+  let mcpPolicy = { configured: false };
+  try {
+    const { buildToolPolicy } = require('./mcp-policy.js');
+    const p = buildToolPolicy(process.env);
+    mcpPolicy = {
+      configured: p.configured,
+      profile: p.profile || null,
+      allow: p.allowSet ? p.allowSet.size : 0,
+      deny: p.deny.size,
+    };
+  } catch { /* policy module optional */ }
+  primitives.mcp = {
+    name: 'mcp-server',
+    role: 'agentic tool surface (Model Context Protocol)',
+    available: fs.existsSync(mcpPath),
+    usage: 'npx ruvector mcp start',
+    policy: mcpPolicy,
+    accessControl: mcpPolicy.configured ? 'default-deny (configured)' : 'allow-all (set RUVECTOR_MCP_ALLOW/PROFILE)',
+  };
+
+  // Signed provenance — witness chain (ADR-103 / ADR-134)
+  primitives.witness = {
+    name: 'witness-chain',
+    role: 'signed provenance / release signing (ADR-103, ADR-134)',
+    available: true,
+  };
+
+  // Memory + learning loops — SONA / ReasoningBank (stable namespace, ADR-256 step 3)
+  primitives.memory = {
+    name: 'sona+reasoningbank',
+    role: 'persistent memory + self-learning loops',
+    available: true,
+    namespace: (process.env.RUVECTOR_MEMORY_NAMESPACE || 'ruvector').trim() || 'ruvector',
+  };
+
+  const values = Object.values(primitives);
+  return {
+    adr: 'ADR-256',
+    decision: 'borrow metaharness concepts using primitives ruvector already ships',
+    primitives,
+    summary: {
+      available: values.filter((p) => p.available).length,
+      total: values.length,
+    },
+  };
+}
+
+const harnessCmd = program
+  .command('harness')
+  .description('Unified "harness router" surface — cost router + semantic router + hooks routing + MCP + witness (ADR-256)');
+
+function printHarnessStatus(opts) {
+  const surface = buildHarnessSurface();
+  if (opts && opts.json) {
+    console.log(JSON.stringify(surface, null, 2));
+    return;
+  }
+  console.log(chalk.cyan('\n═══════════════════════════════════════════════════════════════'));
+  console.log(chalk.cyan('              RuVector Harness Router (ADR-256)'));
+  console.log(chalk.cyan('═══════════════════════════════════════════════════════════════\n'));
+  console.log(chalk.gray('  ' + surface.decision + '\n'));
+  for (const p of Object.values(surface.primitives)) {
+    const badge = p.available ? chalk.green('● available') : chalk.yellow('○ optional ');
+    console.log(`  ${badge}  ${chalk.white(p.name)}${p.version ? chalk.dim(' v' + p.version) : ''}`);
+    console.log(`              ${chalk.dim(p.role)}`);
+    if (p.available && p.usage) console.log(`              ${chalk.dim(p.usage)}`);
+    if (!p.available && p.install) console.log(`              ${chalk.dim('install: ' + p.install)}`);
+  }
+  console.log('');
+  console.log(chalk.cyan(`  ${surface.summary.available}/${surface.summary.total} primitives available\n`));
+}
+
+harnessCmd
+  .command('status')
+  .alias('info')
+  .description('Show the unified harness routing surface and primitive availability')
+  .option('--json', 'Output as JSON')
+  .action((opts) => printHarnessStatus(opts));
+
+// Bare `ruvector harness` defaults to status
+harnessCmd.action(() => printHarnessStatus({}));
+
 program.parse();
 
 

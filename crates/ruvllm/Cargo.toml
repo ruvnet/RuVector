@@ -62,9 +62,15 @@ futures-core = "0.3"
 tokio-stream = { version = "0.1", optional = true }
 
 # Candle ML framework (optional)
-candle-core = { version = "0.8", optional = true }
-candle-nn = { version = "0.8", optional = true }
-candle-transformers = { version = "0.8", optional = true }
+# 0.9.x: uses cudarc 0.19 which supports CUDA 13.0 natively (no CUDA_HOME
+# workaround needed on RTX 5080 / SM 12.0 machines).
+candle-core = { version = "0.9", optional = true }
+candle-nn = { version = "0.9", optional = true }
+candle-transformers = { version = "0.9", optional = true }
+
+# Direct cudarc access for fused CUDA kernels (fused-act feature).
+# Upgraded to 0.19 alongside candle 0.9 — supports CUDA 13.0 natively.
+cudarc = { version = "0.19", optional = true, default-features = false, features = ["nvrtc", "driver", "std"] }
 
 # Tokenizers
 tokenizers = { version = "0.20", optional = true, default-features = false, features = ["onig"] }
@@ -164,6 +170,11 @@ metal-compute = ["dep:metal", "dep:objc"]
 # CUDA acceleration for NVIDIA GPUs
 cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
 
+# Fused CUDA kernel for the ACT halting step (requires cuda + nvrtc).
+# Collapses 6-8 per-iteration kernel launches into one via cudarc nvrtc JIT.
+# See ADR-258 (strategy 1, staging-buffer path).
+fused-act = ["cuda", "dep:cudarc"]
+
 # Full inference backend with Metal (recommended for Mac)
 inference-metal = ["candle", "metal"]
 
@@ -251,6 +262,11 @@ harness = false
 name = "turbo_quant_bench"
 harness = false
 required-features = ["quantize"]
+
+[[bench]]
+name = "recurrent_depth_bench"
+harness = false
+required-features = ["candle"]
 
 # Test configurations
 [[test]]

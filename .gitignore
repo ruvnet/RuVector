@@ -109,6 +109,9 @@ hive-mind-prompt-*.txt
 logs/
 data/
 
+# PhotonLayer MNIST cache (public dataset, fetched at bench time, never committed)
+crates/photonlayer-bench/data/
+
 # Large model files
 *.gguf
 test_models/*.gguf
