@@ -9736,6 +9736,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-lsm-index"
+version = "2.2.3"
+
+[[package]]
 name = "ruvector-math"
 version = "2.3.0"
 dependencies = [
