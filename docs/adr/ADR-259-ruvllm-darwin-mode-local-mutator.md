@@ -1,6 +1,29 @@
 # ADR-259: ruvllm as Local Mutator Backend for Darwin Mode
 
-**Status:** Proposed  
+**Status:** Implemented (code + unit tests + CLI; live-serve e2e blocked by a ruvllm download bug — see Implementation status)  
+
+## Implementation status (2026-06-18)
+
+Implemented in `agent-harness-generator` (`@metaharness/darwin`):
+- `src/ruvllm-mutator.ts` — `RuvllmMutator implements CodeGenerator`, OpenAI-compatible
+  `POST /v1/chat/completions`, safe no-op fallback if the server is unreachable. Exported from `index.ts`.
+- `src/cli.ts` — `--mutator deterministic|ruvllm` (+ `--ruvllm-url`/`--ruvllm-model`), wired to `config.generator`.
+- `__tests__/ruvllm-mutator.test.ts` — 4 tests vs a real `node:http` mock (success, fence-strip,
+  unreachable→no-op, malformed→no-op). Full darwin suite **354/354** green.
+
+**Honest gap:** the live-serve e2e (evolve against a real local model) is **blocked by a ruvllm
+2.1.0 download bug** — `ruvllm download phi` fails on `tokenizer_config.json` (the file is served
+via an HTTP 307 redirect that ruvllm does not follow; `curl -L` fetches it fine). So the HTTP
+*contract* is verified by unit tests, but an end-to-end run against a served model is pending a
+ruvllm fix (or manual model placement). Recommend fixing the redirect-follow in `ruvllm download`.
+
+**Value note (ADR-087):** the mutator is not the quality lever — deterministic and frontier-LLM
+mutators both hit the 0.985 scorer ceiling. RuvllmMutator's benefit is *operational* (fully local,
+air-gapped, zero API cost), not higher scores.
+
+---
+
+**Original status:** Proposed  
 **Date:** 2026-06-18  
 **Components:**
 - `crates/ruvllm` — local LLM inference runtime (RDT/OpenMythos/GGUF)
