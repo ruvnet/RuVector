@@ -70,7 +70,11 @@ mod tests {
     use crate::Document;
 
     fn doc(id: usize, v: Vec<f32>) -> Document {
-        Document { id, tokens: vec![], vector: v }
+        Document {
+            id,
+            tokens: vec![],
+            vector: v,
+        }
     }
 
     #[test]
@@ -87,8 +91,9 @@ mod tests {
 
     #[test]
     fn test_respects_k_limit() {
-        let docs: Vec<Document> =
-            (0..20).map(|i| doc(i, vec![1.0_f32 / (i as f32 + 1.0), 0.0])).collect();
+        let docs: Vec<Document> = (0..20)
+            .map(|i| doc(i, vec![1.0_f32 / (i as f32 + 1.0), 0.0]))
+            .collect();
         let idx = FlatDenseIndex::build(&docs);
         assert_eq!(idx.search(&[1.0, 0.0], 5).len(), 5);
     }

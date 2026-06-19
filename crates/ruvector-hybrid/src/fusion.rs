@@ -15,7 +15,9 @@
 
 use std::collections::HashMap;
 
-use crate::{Bm25Index, Document, FlatDenseIndex, HybridSearch, SearchResult, SparseSearch, DenseSearch};
+use crate::{
+    Bm25Index, DenseSearch, Document, FlatDenseIndex, HybridSearch, SearchResult, SparseSearch,
+};
 
 /// Constant used by RRF; 60 is the value proven optimal in the 2009 paper.
 const RRF_K: f32 = 60.0;
@@ -65,8 +67,7 @@ impl HybridSearch for ScoreFusionIndex {
         // Merge candidate sets
         let mut id_to_sparse: HashMap<usize, f32> =
             sparse.iter().map(|r| (r.id, r.score)).collect();
-        let mut id_to_dense: HashMap<usize, f32> =
-            dense.iter().map(|r| (r.id, r.score)).collect();
+        let mut id_to_dense: HashMap<usize, f32> = dense.iter().map(|r| (r.id, r.score)).collect();
 
         let all_ids: std::collections::HashSet<usize> = id_to_sparse
             .keys()
@@ -75,9 +76,15 @@ impl HybridSearch for ScoreFusionIndex {
             .collect();
 
         // Min-max normalize each signal independently
-        let s_max = id_to_sparse.values().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let s_max = id_to_sparse
+            .values()
+            .cloned()
+            .fold(f32::NEG_INFINITY, f32::max);
         let s_min = id_to_sparse.values().cloned().fold(f32::INFINITY, f32::min);
-        let d_max = id_to_dense.values().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let d_max = id_to_dense
+            .values()
+            .cloned()
+            .fold(f32::NEG_INFINITY, f32::max);
         let d_min = id_to_dense.values().cloned().fold(f32::INFINITY, f32::min);
 
         let s_range = (s_max - s_min).max(1e-10);
@@ -95,12 +102,17 @@ impl HybridSearch for ScoreFusionIndex {
             .map(|id| {
                 let s = id_to_sparse.get(&id).cloned().unwrap_or(0.0);
                 let d = id_to_dense.get(&id).cloned().unwrap_or(0.0);
-                SearchResult { id, score: self.alpha * d + (1.0 - self.alpha) * s }
+                SearchResult {
+                    id,
+                    score: self.alpha * d + (1.0 - self.alpha) * s,
+                }
             })
             .collect();
 
         combined.sort_by(|a, b| {
-            b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal)
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
         combined.truncate(k);
         combined
@@ -153,7 +165,9 @@ impl HybridSearch for RrfHybridIndex {
             .map(|(id, score)| SearchResult { id, score })
             .collect();
         merged.sort_by(|a, b| {
-            b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal)
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
         merged.truncate(k);
         merged
@@ -220,7 +234,9 @@ impl HybridSearch for RsfHybridIndex {
             .map(|(id, score)| SearchResult { id, score })
             .collect();
         merged.sort_by(|a, b| {
-            b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal)
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
         merged.truncate(k);
         merged
@@ -231,10 +247,19 @@ fn minmax_normalize(results: &[SearchResult]) -> HashMap<usize, f32> {
     if results.is_empty() {
         return HashMap::new();
     }
-    let min = results.iter().map(|r| r.score).fold(f32::INFINITY, f32::min);
-    let max = results.iter().map(|r| r.score).fold(f32::NEG_INFINITY, f32::max);
+    let min = results
+        .iter()
+        .map(|r| r.score)
+        .fold(f32::INFINITY, f32::min);
+    let max = results
+        .iter()
+        .map(|r| r.score)
+        .fold(f32::NEG_INFINITY, f32::max);
     let range = (max - min).max(1e-10);
-    results.iter().map(|r| (r.id, (r.score - min) / range)).collect()
+    results
+        .iter()
+        .map(|r| (r.id, (r.score - min) / range))
+        .collect()
 }
 
 #[cfg(test)]
@@ -303,7 +328,7 @@ mod tests {
 
     #[test]
     fn test_minmax_normalize_single() {
-        let r = vec![SearchResult { id: 7, score: 3.14 }];
+        let r = vec![SearchResult { id: 7, score: 3.0 }];
         let norm = minmax_normalize(&r);
         // single element → range = 0 → clamped to 1e-10 → score = 0.0
         assert_eq!(*norm.get(&7).unwrap(), 0.0);

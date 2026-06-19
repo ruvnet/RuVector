@@ -10,8 +10,8 @@
 //! Parameters: k1 = 1.2, b = 0.75 (Robertson defaults).
 //! IDF floor: +1 inside ln prevents negative IDF for very frequent terms.
 
-use std::collections::HashMap;
 use crate::{Document, SearchResult, SparseSearch};
+use std::collections::HashMap;
 
 const K1: f32 = 1.2;
 const B: f32 = 0.75;
@@ -61,8 +61,17 @@ impl Bm25Index {
             }
         }
 
-        let avg_dl = if n_docs > 0 { total_len as f32 / n_docs as f32 } else { 1.0 };
-        Self { inverted, doc_lengths, avg_dl, n_docs }
+        let avg_dl = if n_docs > 0 {
+            total_len as f32 / n_docs as f32
+        } else {
+            1.0
+        };
+        Self {
+            inverted,
+            doc_lengths,
+            avg_dl,
+            n_docs,
+        }
     }
 
     /// Number of documents in this index.
@@ -164,9 +173,7 @@ mod tests {
 
     #[test]
     fn test_bm25_respects_k_limit() {
-        let docs: Vec<Document> = (0..20)
-            .map(|i| make_doc(i, &["keyword"]))
-            .collect();
+        let docs: Vec<Document> = (0..20).map(|i| make_doc(i, &["keyword"])).collect();
         let index = Bm25Index::build(&docs);
         assert_eq!(index.search(&["keyword"], 5).len(), 5);
     }
@@ -179,7 +186,10 @@ mod tests {
         ];
         let index = Bm25Index::build(&docs);
         for r in index.search(&["alpha", "beta"], 5) {
-            assert!(r.score > 0.0, "BM25 scores must be positive for matched terms");
+            assert!(
+                r.score > 0.0,
+                "BM25 scores must be positive for matched terms"
+            );
         }
     }
 

@@ -19,12 +19,12 @@
 
 use std::time::Instant;
 
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 
 use ruvector_hybrid::{
-    Bm25Index, Document, FlatDenseIndex, HybridSearch, RrfHybridIndex, RsfHybridIndex,
-    ScoreFusionIndex, SearchResult, SparseSearch, DenseSearch, recall_at_k,
+    recall_at_k, Bm25Index, DenseSearch, Document, FlatDenseIndex, HybridSearch, RrfHybridIndex,
+    RsfHybridIndex, ScoreFusionIndex, SearchResult, SparseSearch,
 };
 
 // ── Dataset parameters ────────────────────────────────────────────────────────
@@ -45,7 +45,11 @@ fn cosine_score(a: &[f32], b: &[f32]) -> f32 {
     let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
     let na: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
     let nb: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-    if na == 0.0 || nb == 0.0 { 0.0 } else { dot / (na * nb) }
+    if na == 0.0 || nb == 0.0 {
+        0.0
+    } else {
+        dot / (na * nb)
+    }
 }
 
 fn compute_ground_truth(
@@ -58,11 +62,16 @@ fn compute_ground_truth(
     // BM25 scores (fetch full corpus to get max)
     let bm25_all = bm25.search(q_tokens, N_DOCS);
     let bm25_max = bm25_all.first().map(|r| r.score).unwrap_or(1.0).max(1e-10);
-    let bm25_map: std::collections::HashMap<usize, f32> =
-        bm25_all.iter().map(|r| (r.id, r.score / bm25_max)).collect();
+    let bm25_map: std::collections::HashMap<usize, f32> = bm25_all
+        .iter()
+        .map(|r| (r.id, r.score / bm25_max))
+        .collect();
 
     // Cosine scores for all docs
-    let cosines: Vec<f32> = docs.iter().map(|d| cosine_score(q_vec, &d.vector)).collect();
+    let cosines: Vec<f32> = docs
+        .iter()
+        .map(|d| cosine_score(q_vec, &d.vector))
+        .collect();
     let cos_min = cosines.iter().cloned().fold(f32::INFINITY, f32::min);
     let cos_max = cosines.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
     let cos_range = (cos_max - cos_min).max(1e-10);
@@ -94,10 +103,10 @@ fn generate_corpus(rng: &mut StdRng) -> Vec<Document> {
         .collect();
 
     let mut docs = Vec::with_capacity(N_DOCS);
-    for t in 0..N_TOPICS {
+    for (t, centre) in centres.iter().enumerate() {
         for d in 0..DOCS_PER_TOPIC {
             let id = t * DOCS_PER_TOPIC + d;
-            let vector: Vec<f32> = centres[t]
+            let vector: Vec<f32> = centre
                 .iter()
                 .map(|&c| c + rng.gen::<f32>() * 0.30 - 0.15)
                 .collect();
@@ -132,7 +141,11 @@ fn generate_queries(docs: &[Document], bm25: &Bm25Index, rng: &mut StdRng) -> Ve
                 .collect();
             let token_refs: Vec<&str> = tokens.iter().map(String::as_str).collect();
             let ground_truth = compute_ground_truth(docs, bm25, &token_refs, &vector, K);
-            Query { tokens, vector, ground_truth }
+            Query {
+                tokens,
+                vector,
+                ground_truth,
+            }
         })
         .collect()
 }
@@ -140,9 +153,8 @@ fn generate_queries(docs: &[Document], bm25: &Bm25Index, rng: &mut StdRng) -> Ve
 // ── Stats helpers ─────────────────────────────────────────────────────────────
 
 fn percentile(sorted: &[u128], p: f64) -> u128 {
-    let idx = ((sorted.len() as f64 * p / 100.0).ceil() as usize)
-        .min(sorted.len() - 1)
-        .max(0);
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let idx = ((sorted.len() as f64 * p / 100.0).ceil() as usize).min(sorted.len() - 1);
     sorted[idx]
 }
 
@@ -181,7 +193,10 @@ fn run_sparse(idx: &Bm25Index, queries: &[Query]) -> (Vec<SearchResult>, Vec<u12
     (last_results, latencies, recalls)
 }
 
-fn run_hybrid<H: HybridSearch>(idx: &H, queries: &[Query]) -> (Vec<SearchResult>, Vec<u128>, Vec<f32>) {
+fn run_hybrid<H: HybridSearch>(
+    idx: &H,
+    queries: &[Query],
+) -> (Vec<SearchResult>, Vec<u128>, Vec<f32>) {
     let mut recalls = Vec::with_capacity(queries.len());
     let mut latencies = Vec::with_capacity(queries.len());
     let mut last_results = Vec::new();
@@ -196,12 +211,7 @@ fn run_hybrid<H: HybridSearch>(idx: &H, queries: &[Query]) -> (Vec<SearchResult>
     (last_results, latencies, recalls)
 }
 
-fn print_row(
-    name: &str,
-    recalls: &[f32],
-    latencies_ns: &mut Vec<u128>,
-    mem_kb: usize,
-) {
+fn print_row(name: &str, recalls: &[f32], latencies_ns: &mut [u128], mem_kb: usize) {
     let recall_mean = recalls.iter().sum::<f32>() / recalls.len() as f32;
     latencies_ns.sort_unstable();
     let mean = mean_us(latencies_ns);
@@ -269,12 +279,15 @@ fn main() {
     // ── Memory estimates ──
     let bm25_mem_kb = bm25_idx.posting_bytes() / 1024;
     let dense_mem_kb = dense_idx.byte_size() / 1024;
-    let rrf_mem_kb = bm25_mem_kb + dense_mem_kb;   // stores both
+    let rrf_mem_kb = bm25_mem_kb + dense_mem_kb; // stores both
 
     println!();
     println!("Memory Estimates");
     println!("  BM25 postings : {} KB", bm25_mem_kb);
-    println!("  Dense vectors : {} KB ({} × {} × 4B)", dense_mem_kb, N_DOCS, DIM);
+    println!(
+        "  Dense vectors : {} KB ({} × {} × 4B)",
+        dense_mem_kb, N_DOCS, DIM
+    );
     println!("  Hybrid indices: {} KB each (BM25 + dense)", rrf_mem_kb);
 
     println!();
@@ -319,7 +332,9 @@ fn main() {
         ($cond:expr, $msg:expr) => {{
             let pass = $cond;
             println!("  {} ... {}", $msg, if pass { "PASS" } else { "FAIL" });
-            if !pass { all_pass = false; }
+            if !pass {
+                all_pass = false;
+            }
         }};
     }
 
@@ -329,24 +344,63 @@ fn main() {
     // of keyword-biased ground truth — see research document for full discussion.
 
     // BM25 captures keyword-biased GT well (expected ≥ 70%)
-    check!(sparse_recall >= 0.70, format!("BM25 recall@10 ≥ 70% (got {:.1}%)", sparse_recall * 100.0));
+    check!(
+        sparse_recall >= 0.70,
+        format!("BM25 recall@10 ≥ 70% (got {:.1}%)", sparse_recall * 100.0)
+    );
     // All hybrid variants beat dense alone (any keyword signal helps)
-    check!(rrf_recall > dense_recall, format!("RRF recall > dense recall ({:.1}% > {:.1}%)", rrf_recall * 100.0, dense_recall * 100.0));
-    check!(rsf_recall > dense_recall, format!("RSF recall > dense recall ({:.1}% > {:.1}%)", rsf_recall * 100.0, dense_recall * 100.0));
-    check!(sf_recall > dense_recall, format!("ScoreFusion recall > dense recall ({:.1}% > {:.1}%)", sf_recall * 100.0, dense_recall * 100.0));
+    check!(
+        rrf_recall > dense_recall,
+        format!(
+            "RRF recall > dense recall ({:.1}% > {:.1}%)",
+            rrf_recall * 100.0,
+            dense_recall * 100.0
+        )
+    );
+    check!(
+        rsf_recall > dense_recall,
+        format!(
+            "RSF recall > dense recall ({:.1}% > {:.1}%)",
+            rsf_recall * 100.0,
+            dense_recall * 100.0
+        )
+    );
+    check!(
+        sf_recall > dense_recall,
+        format!(
+            "ScoreFusion recall > dense recall ({:.1}% > {:.1}%)",
+            sf_recall * 100.0,
+            dense_recall * 100.0
+        )
+    );
     // RSF with equal weighting (α=0.5) recovers near-BM25 performance on keyword GT
-    check!(rsf_recall >= 0.65, format!("RSF recall@10 ≥ 65% (got {:.1}%)", rsf_recall * 100.0));
+    check!(
+        rsf_recall >= 0.65,
+        format!("RSF recall@10 ≥ 65% (got {:.1}%)", rsf_recall * 100.0)
+    );
     // RRF provides a robust minimum baseline (rank fusion, score-agnostic)
-    check!(rrf_recall >= 0.40, format!("RRF recall@10 ≥ 40% (got {:.1}%)", rrf_recall * 100.0));
+    check!(
+        rrf_recall >= 0.40,
+        format!("RRF recall@10 ≥ 40% (got {:.1}%)", rrf_recall * 100.0)
+    );
     // Sanity: no negative recalls
-    check!(sf_recall >= 0.0 && rrf_recall >= 0.0 && rsf_recall >= 0.0, "All recalls are non-negative");
+    check!(
+        sf_recall >= 0.0 && rrf_recall >= 0.0 && rsf_recall >= 0.0,
+        "All recalls are non-negative"
+    );
 
     // Key insight: RSF (Weaviate-style) with α=0.5 matches BM25 on keyword-heavy GT.
     // RRF (Qdrant-style, fixed k=60) is more conservative — better when GT is balanced.
     let rsf_gap = (sparse_recall - rsf_recall).abs();
-    println!("\n  Insight: RSF gap vs BM25 = {:.1}pp (smaller = RSF better matches BM25 quality)", rsf_gap * 100.0);
+    println!(
+        "\n  Insight: RSF gap vs BM25 = {:.1}pp (smaller = RSF better matches BM25 quality)",
+        rsf_gap * 100.0
+    );
     let rrf_gap = (sparse_recall - rrf_recall).abs();
-    println!("  Insight: RRF gap vs BM25 = {:.1}pp (larger gap = RRF is more conservative/balanced)", rrf_gap * 100.0);
+    println!(
+        "  Insight: RRF gap vs BM25 = {:.1}pp (larger gap = RRF is more conservative/balanced)",
+        rrf_gap * 100.0
+    );
 
     println!();
     if all_pass {
