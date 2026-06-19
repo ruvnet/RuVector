@@ -128,6 +128,20 @@ impl GraphDB {
         self.nodes.get(id.as_ref()).map(|entry| entry.clone())
     }
 
+    /// Borrow a node and apply `f` without cloning it.
+    ///
+    /// Hot-path accessor for scans that only need to read a node (e.g. vector
+    /// scoring). Avoids the full `Node` + embedding clone that `get_node`
+    /// incurs. Returns `None` if the node is absent.
+    pub fn with_node<R>(&self, id: &str, f: impl FnOnce(&Node) -> R) -> Option<R> {
+        self.nodes.get(id).map(|entry| f(entry.value()))
+    }
+
+    /// Node ids carrying `label`, straight from the label index (no node clones).
+    pub fn node_ids_by_label(&self, label: &str) -> Vec<NodeId> {
+        self.label_index.get_nodes_by_label(label)
+    }
+
     /// Delete a node
     pub fn delete_node(&self, id: impl AsRef<str>) -> Result<bool> {
         if let Some((_, node)) = self.nodes.remove(id.as_ref()) {

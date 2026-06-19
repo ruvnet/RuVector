@@ -1876,6 +1876,96 @@ program
   });
 
 // =============================================================================
+// Tiny Dancer - cost-optimal FastGRNN model router (train + route)
+// =============================================================================
+
+const tinyDancer = program
+  .command('tiny-dancer')
+  .alias('td')
+  .description('Cost-optimal FastGRNN model router — train from a DRACO dataset and route with it (requires @ruvector/tiny-dancer)');
+
+function loadTinyDancer() {
+  try {
+    return require('@ruvector/tiny-dancer');
+  } catch (e) {
+    console.error(chalk.red('\n  This command requires @ruvector/tiny-dancer'));
+    console.error(chalk.yellow('  Install it:  npm install @ruvector/tiny-dancer'));
+    console.error(chalk.dim('  (native router; ships for linux/macos/windows incl. musl + arm64)\n'));
+    process.exit(1);
+  }
+}
+
+tinyDancer
+  .command('train <draco>')
+  .description('Train a FastGRNN router from a DRACO dataset (rows of {embedding, scores}) into a .safetensors model')
+  .requiredOption('--out <path>', 'Output .safetensors model path')
+  .option('--input-dim <n>', 'Embedding/feature dimension (default: inferred from the first row)')
+  .option('--prices <json>', 'Price table as JSON or @file, e.g. \'{"haiku":1,"opus":15}\'')
+  .option('--epochs <n>', 'Training epochs', '40')
+  .option('--lr <n>', 'Learning rate', '0.05')
+  .option('--hidden <n>', 'Hidden dimension', '12')
+  .option('--tolerance <n>', 'Cheap-model "good enough" tolerance', '0.05')
+  .action(async (draco, options) => {
+    const td = loadTinyDancer();
+    const parsed = JSON.parse(fs.readFileSync(draco, 'utf8'));
+    const rows = Array.isArray(parsed) ? parsed : parsed.rows;
+    const prices = options.prices
+      ? JSON.parse(options.prices.startsWith('@') ? fs.readFileSync(options.prices.slice(1), 'utf8') : options.prices)
+      : (parsed.prices || {});
+    if (!Array.isArray(rows) || rows.length === 0) {
+      console.error(chalk.red('  DRACO file must contain rows of { embedding, scores }')); process.exit(1);
+    }
+    if (!prices || Object.keys(prices).length === 0) {
+      console.error(chalk.red('  Provide a price table via --prices or a "prices" field in the file')); process.exit(1);
+    }
+    const inputDim = options.inputDim ? parseInt(options.inputDim, 10) : (rows[0].embedding || []).length;
+    console.log(chalk.cyan(`\n  Training FastGRNN router: ${rows.length} rows, dim ${inputDim}`));
+    const res = await td.trainRouter(rows, prices, {
+      outputPath: options.out,
+      inputDim,
+      hiddenDim: parseInt(options.hidden, 10),
+      epochs: parseInt(options.epochs, 10),
+      learningRate: parseFloat(options.lr),
+      tolerance: parseFloat(options.tolerance),
+    });
+    console.log(chalk.green(`  ✓ trained: acc=${res.trainAccuracy.toFixed(3)} val=${res.valAccuracy.toFixed(3)} loss=${res.trainLoss.toFixed(4)}`));
+    console.log(chalk.white(`  ✓ saved:   ${res.modelPath} (${res.modelBytes} bytes, ${res.epochsRun} epochs)`));
+    console.log(chalk.gray(`  Load it:   new Router({ modelPath: '${res.modelPath}' })\n`));
+  });
+
+tinyDancer
+  .command('score <model>')
+  .description('Score a query embedding with a trained model. High = the cheap model is good enough (route cheap)')
+  .requiredOption('--query <json>', 'Query embedding as a JSON array or @file (length must match the model input dim)')
+  .option('--threshold <n>', 'Decision threshold for cheap-vs-strong', '0.5')
+  .action(async (model, options) => {
+    const td = loadTinyDancer();
+    const embedding = JSON.parse(options.query.startsWith('@') ? fs.readFileSync(options.query.slice(1), 'utf8') : options.query);
+    const s = await td.score(model, embedding);
+    const threshold = parseFloat(options.threshold);
+    console.log(chalk.cyan(`\n  score = ${s.toFixed(4)}`));
+    console.log(
+      s >= threshold
+        ? chalk.green('  → route to the CHEAP model (good enough)\n')
+        : chalk.yellow('  → route to a STRONGER model\n')
+    );
+  });
+
+tinyDancer
+  .command('info')
+  .description('Show tiny-dancer availability and version')
+  .action(() => {
+    try {
+      const td = require('@ruvector/tiny-dancer');
+      console.log(chalk.green(`\n  @ruvector/tiny-dancer ${td.version()} — ${td.hello()}`));
+      console.log(chalk.gray('  train:  npx ruvector tiny-dancer train <draco.json> --out model.safetensors'));
+      console.log(chalk.gray('  score:  npx ruvector tiny-dancer score <model.safetensors> --query <embedding.json>\n'));
+    } catch {
+      console.log(chalk.yellow('\n  @ruvector/tiny-dancer not installed.  npm install @ruvector/tiny-dancer\n'));
+    }
+  });
+
+// =============================================================================
 // Server Commands - HTTP/gRPC server
 // =============================================================================
 
@@ -10010,6 +10100,137 @@ const optimizeCmd = program.command('optimize')
     console.log(`\n  ${chalk.dim('Permission mode:')} ${result.permissionMode}`);
     console.log('');
   });
+
+// =============================================================================
+// Harness Commands - unified "harness router" surface (ADR-256)
+// Borrows metaharness concepts using primitives ruvector already ships:
+//   cost router (tiny-dancer) + semantic router + hooks routing + MCP + witness
+// Read-only status surface; degrades gracefully when optional deps are absent.
+// =============================================================================
+
+function buildHarnessSurface() {
+  const primitives = {};
+
+  // Cost-optimal model router — Tiny Dancer FastGRNN (ADR-252)
+  try {
+    const td = require('@ruvector/tiny-dancer');
+    primitives.costRouter = {
+      name: '@ruvector/tiny-dancer',
+      role: 'cost-optimal model routing (cheap vs strong)',
+      available: true,
+      version: typeof td.version === 'function' ? td.version() : null,
+      usage: 'npx ruvector tiny-dancer score <model> --query <embedding>',
+    };
+  } catch {
+    primitives.costRouter = {
+      name: '@ruvector/tiny-dancer',
+      role: 'cost-optimal model routing (cheap vs strong)',
+      available: false,
+      install: 'npm install @ruvector/tiny-dancer',
+    };
+  }
+
+  // Semantic intent router — @ruvector/router / ruvector-router-core
+  let semanticAvailable = false;
+  try { require.resolve('@ruvector/router'); semanticAvailable = true; } catch { semanticAvailable = false; }
+  primitives.semanticRouter = {
+    name: '@ruvector/router',
+    role: 'semantic intent routing',
+    available: semanticAvailable,
+    ...(semanticAvailable ? { usage: 'npx ruvector router --route "<text>"' } : { install: 'npm install @ruvector/router' }),
+  };
+
+  // Multi-tier intelligence routing — bundled (ADR-026)
+  primitives.hooksRouting = {
+    name: 'hooks route',
+    role: '3-tier task→agent/model routing (ADR-026)',
+    available: true,
+    usage: 'npx ruvector hooks route "<task>"',
+  };
+
+  // Agentic tool surface — bundled MCP server (with ADR-256 default-deny policy)
+  const mcpPath = path.join(__dirname, 'mcp-server.js');
+  let mcpPolicy = { configured: false };
+  try {
+    const { buildToolPolicy } = require('./mcp-policy.js');
+    const p = buildToolPolicy(process.env);
+    mcpPolicy = {
+      configured: p.configured,
+      profile: p.profile || null,
+      allow: p.allowSet ? p.allowSet.size : 0,
+      deny: p.deny.size,
+    };
+  } catch { /* policy module optional */ }
+  primitives.mcp = {
+    name: 'mcp-server',
+    role: 'agentic tool surface (Model Context Protocol)',
+    available: fs.existsSync(mcpPath),
+    usage: 'npx ruvector mcp start',
+    policy: mcpPolicy,
+    accessControl: mcpPolicy.configured ? 'default-deny (configured)' : 'allow-all (set RUVECTOR_MCP_ALLOW/PROFILE)',
+  };
+
+  // Signed provenance — witness chain (ADR-103 / ADR-134)
+  primitives.witness = {
+    name: 'witness-chain',
+    role: 'signed provenance / release signing (ADR-103, ADR-134)',
+    available: true,
+  };
+
+  // Memory + learning loops — SONA / ReasoningBank (stable namespace, ADR-256 step 3)
+  primitives.memory = {
+    name: 'sona+reasoningbank',
+    role: 'persistent memory + self-learning loops',
+    available: true,
+    namespace: (process.env.RUVECTOR_MEMORY_NAMESPACE || 'ruvector').trim() || 'ruvector',
+  };
+
+  const values = Object.values(primitives);
+  return {
+    adr: 'ADR-256',
+    decision: 'borrow metaharness concepts using primitives ruvector already ships',
+    primitives,
+    summary: {
+      available: values.filter((p) => p.available).length,
+      total: values.length,
+    },
+  };
+}
+
+const harnessCmd = program
+  .command('harness')
+  .description('Unified "harness router" surface — cost router + semantic router + hooks routing + MCP + witness (ADR-256)');
+
+function printHarnessStatus(opts) {
+  const surface = buildHarnessSurface();
+  if (opts && opts.json) {
+    console.log(JSON.stringify(surface, null, 2));
+    return;
+  }
+  console.log(chalk.cyan('\n═══════════════════════════════════════════════════════════════'));
+  console.log(chalk.cyan('              RuVector Harness Router (ADR-256)'));
+  console.log(chalk.cyan('═══════════════════════════════════════════════════════════════\n'));
+  console.log(chalk.gray('  ' + surface.decision + '\n'));
+  for (const p of Object.values(surface.primitives)) {
+    const badge = p.available ? chalk.green('● available') : chalk.yellow('○ optional ');
+    console.log(`  ${badge}  ${chalk.white(p.name)}${p.version ? chalk.dim(' v' + p.version) : ''}`);
+    console.log(`              ${chalk.dim(p.role)}`);
+    if (p.available && p.usage) console.log(`              ${chalk.dim(p.usage)}`);
+    if (!p.available && p.install) console.log(`              ${chalk.dim('install: ' + p.install)}`);
+  }
+  console.log('');
+  console.log(chalk.cyan(`  ${surface.summary.available}/${surface.summary.total} primitives available\n`));
+}
+
+harnessCmd
+  .command('status')
+  .alias('info')
+  .description('Show the unified harness routing surface and primitive availability')
+  .option('--json', 'Output as JSON')
+  .action((opts) => printHarnessStatus(opts));
+
+// Bare `ruvector harness` defaults to status
+harnessCmd.action(() => printHarnessStatus({}));
 
 program.parse();
 

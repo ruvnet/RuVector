@@ -284,3 +284,143 @@ pub fn version() -> String {
 pub fn hello() -> String {
     "Hello from Tiny Dancer Node.js bindings!".to_string()
 }
+
+/// One DRACO training row: a query embedding and the quality each model achieved
+/// on it (model id → quality, 0..1). Matches `@metaharness/router`'s row shape.
+#[napi(object)]
+pub struct DracoRowJs {
+    pub embedding: Vec<f64>,
+    pub scores: std::collections::HashMap<String, f64>,
+}
+
+/// Options for `trainRouter`.
+#[napi(object)]
+pub struct TrainRouterOptions {
+    /// Where to write the trained `.safetensors` model.
+    pub output_path: String,
+    /// Input feature dimension (must equal the embedding length).
+    pub input_dim: u32,
+    /// Hidden dimension (default 12).
+    pub hidden_dim: Option<u32>,
+    /// Training epochs (default 40).
+    pub epochs: Option<u32>,
+    /// Learning rate (default 0.05).
+    pub learning_rate: Option<f64>,
+    /// DRACO label tolerance: cheap model is "good enough" within this of the best
+    /// (default 0.05).
+    pub tolerance: Option<f64>,
+}
+
+/// Result of `trainRouter`.
+#[napi(object)]
+pub struct TrainRouterResult {
+    pub epochs_run: u32,
+    pub train_loss: f64,
+    pub train_accuracy: f64,
+    pub val_accuracy: f64,
+    pub model_path: String,
+    pub model_bytes: u32,
+}
+
+/// Train a FastGRNN router from a DRACO dataset and write it to a
+/// `.safetensors` file consumable by `new Router({ modelPath })`.
+///
+/// ```javascript
+/// const res = await trainRouter(rows, { haiku: 1, opus: 15 }, {
+///   outputPath: './router.safetensors', inputDim: 8, epochs: 40,
+/// });
+/// const router = new Router({ modelPath: res.modelPath });
+/// ```
+#[napi]
+pub async fn train_router(
+    rows: Vec<DracoRowJs>,
+    prices: std::collections::HashMap<String, f64>,
+    options: TrainRouterOptions,
+) -> Result<TrainRouterResult> {
+    use ruvector_tiny_dancer_core::model::{FastGRNN, FastGRNNConfig};
+    use ruvector_tiny_dancer_core::training::{
+        DracoRow, Trainer, TrainingConfig, TrainingDataset,
+    };
+
+    tokio::task::spawn_blocking(move || -> std::result::Result<TrainRouterResult, String> {
+        let core_rows: Vec<DracoRow> = rows
+            .into_iter()
+            .map(|r| DracoRow {
+                embedding: r.embedding.into_iter().map(|v| v as f32).collect(),
+                scores: r.scores.into_iter().map(|(k, v)| (k, v as f32)).collect(),
+            })
+            .collect();
+        let core_prices: std::collections::HashMap<String, f32> =
+            prices.into_iter().map(|(k, v)| (k, v as f32)).collect();
+
+        let tolerance = options.tolerance.unwrap_or(0.05) as f32;
+        let dataset = TrainingDataset::from_draco(&core_rows, &core_prices, tolerance)
+            .map_err(|e| format!("dataset: {e}"))?;
+
+        let model_config = FastGRNNConfig {
+            input_dim: options.input_dim as usize,
+            hidden_dim: options.hidden_dim.unwrap_or(12) as usize,
+            output_dim: 1,
+            ..Default::default()
+        };
+        let train_config = TrainingConfig {
+            learning_rate: options.learning_rate.unwrap_or(0.05) as f32,
+            epochs: options.epochs.unwrap_or(40) as usize,
+            early_stopping_patience: None,
+            l2_reg: 0.0,
+            ..Default::default()
+        };
+
+        let mut model =
+            FastGRNN::new(model_config.clone()).map_err(|e| format!("model: {e}"))?;
+        let metrics = Trainer::new(&model_config, train_config)
+            .train(&mut model, &dataset)
+            .map_err(|e| format!("train: {e}"))?;
+        model
+            .save(&options.output_path)
+            .map_err(|e| format!("save: {e}"))?;
+
+        let last = metrics.last().ok_or_else(|| "no metrics".to_string())?;
+        let model_bytes = std::fs::metadata(&options.output_path)
+            .map(|m| m.len() as u32)
+            .unwrap_or(0);
+
+        Ok(TrainRouterResult {
+            epochs_run: metrics.len() as u32,
+            train_loss: last.train_loss as f64,
+            train_accuracy: last.train_accuracy as f64,
+            val_accuracy: last.val_accuracy as f64,
+            model_path: options.output_path,
+            model_bytes,
+        })
+    })
+    .await
+    .map_err(|e| Error::from_reason(format!("Task failed: {}", e)))?
+    .map_err(Error::from_reason)
+}
+
+/// Score a query embedding with a trained FastGRNN model (raw forward pass).
+///
+/// Loads the `.safetensors` produced by {@link train_router} and runs the model
+/// directly on `embedding` (which must match the model's `input_dim`). Returns
+/// the sigmoid output in 0..1 — high means "the cheap model is good enough"
+/// (route to the cheaper model); low means route to a stronger model.
+///
+/// This is the inference path that matches `trainRouter` (trained on raw
+/// embeddings); it does not run `Router`'s feature engineering.
+#[napi]
+pub async fn score(model_path: String, embedding: Vec<f64>) -> Result<f64> {
+    use ruvector_tiny_dancer_core::model::FastGRNN;
+
+    tokio::task::spawn_blocking(move || -> std::result::Result<f64, String> {
+        let model = FastGRNN::load(&model_path).map_err(|e| format!("load: {e}"))?;
+        let feats: Vec<f32> = embedding.into_iter().map(|v| v as f32).collect();
+        let s = model
+            .forward(&feats, None)
+            .map_err(|e| format!("forward: {e}"))?;
+        Ok(s as f64)
+    })
+    .await
+    .map_err(|e| Error::from_reason(format!("Task failed: {}", e)))?
+    .map_err(Error::from_reason)
+}

@@ -1,18 +1,18 @@
 {
   "name": "ruvector",
-  "version": "0.2.30",
-  "description": "Self-learning vector database for Node.js — hybrid search, Graph RAG, FlashAttention-3, HNSW, 50+ attention mechanisms",
+  "version": "0.2.32",
+  "description": "Self-learning vector database for Node.js \u2014 hybrid search, Graph RAG, FlashAttention-3, HNSW, 50+ attention mechanisms",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
     "ruvector": "./bin/cli.js"
   },
   "scripts": {
-    "build": "tsc && mkdir -p dist/core/onnx && cp -r src/core/onnx/. dist/core/onnx/",
+    "build": "tsc && node -e \"require('fs').cpSync('src/core/onnx','dist/core/onnx',{recursive:true})\"",
     "verify-dist": "node scripts/verify-dist.js",
     "prepack": "npm run build && npm run verify-dist",
     "prepublishOnly": "npm run build && npm run verify-dist",
-    "test": "node test/integration.js && node test/cli-commands.js && node test/db-workflow.js && node test/sigterm-cleanup.js"
+    "test": "node test/integration.js && node test/cli-commands.js && node test/db-workflow.js && node test/sigterm-cleanup.js && node test/mcp-policy.js && node test/startup-budget.js"
   },
   "keywords": [
     "vector",
@@ -82,7 +82,8 @@
     "ora": "^5.4.1"
   },
   "optionalDependencies": {
-    "@ruvector/rvf": "^0.1.0"
+    "@ruvector/rvf": "^0.1.0",
+    "@ruvector/tiny-dancer": "^0.1.22"
   },
   "devDependencies": {
     "@types/node": "^20.10.5",

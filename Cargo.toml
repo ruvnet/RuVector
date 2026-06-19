@@ -1,5 +1,5 @@
 [workspace]
-exclude = ["crates/micro-hnsw-wasm", "crates/ruvector-hyperbolic-hnsw", "crates/ruvector-hyperbolic-hnsw-wasm", "examples/ruvLLM/esp32", "examples/ruvLLM/esp32-flash", "examples/edge-net", "examples/data", "examples/ruvLLM", "examples/delta-behavior", "crates/rvf", "crates/rvf/*", "crates/rvf/*/*", "examples/rvf-desktop", "crates/mcp-brain-server",
+exclude = ["external/ruqu", "external/rvdna", "examples/OSpipe", "examples/rvf", "crates/micro-hnsw-wasm", "crates/ruvector-hyperbolic-hnsw", "crates/ruvector-hyperbolic-hnsw-wasm", "examples/ruvLLM/esp32", "examples/ruvLLM/esp32-flash", "examples/edge-net", "examples/data", "examples/ruvLLM", "examples/delta-behavior", "crates/rvf", "crates/rvf/*", "crates/rvf/*/*", "examples/rvf-desktop", "crates/mcp-brain-server",
     # ruvector-postgres is a pgrx-based PostgreSQL extension. Its build script
     # requires `$PGRX_HOME` set up via `cargo install cargo-pgrx --version 0.12.9`
     # and `cargo pgrx init`, which downloads and builds multiple Postgres
@@ -18,8 +18,10 @@ exclude = ["crates/micro-hnsw-wasm", "crates/ruvector-hyperbolic-hnsw", "crates/
     # land in iters 92-97.
     "crates/ruos-thermal"]
 members = [
+    "crates/ruvector-temporal-coherence",
     "crates/ruvector-acorn",
     "crates/ruvector-acorn-wasm",
+    "crates/ruvector-coherence-hnsw",
     "crates/ruvector-rabitq",
     "crates/ruvector-rabitq-wasm",
     "crates/ruvector-rulake",
@@ -47,6 +49,8 @@ members = [
     "crates/ruvector-graph-node",
     "crates/ruvector-graph-wasm",
     "crates/ruvector-gnn",
+    "crates/ruvector-proof-gate",
+    "crates/ruvector-gnn-rerank",
     "crates/ruvector-gnn-node",
     "crates/ruvector-gnn-wasm",
     "crates/ruvector-attention",
@@ -94,7 +98,6 @@ members = [
     "crates/mcp-gate",
     "crates/mcp-brain",
     "crates/mcp-brain-server",
-    "crates/ruQu",
     "crates/ruvllm",
     "crates/ruvllm-cli",
     "crates/ruvllm-wasm",
@@ -106,17 +109,11 @@ members = [
     "crates/ruvector-delta-consensus",
     "crates/ruvector-crv",
     "crates/ruvector-temporal-tensor",
-    "crates/ruqu-core",
-    "crates/ruqu-algorithms",
-    "crates/ruqu-wasm",
-    "crates/ruqu-exotic",
     "crates/ruvector-domain-expansion",
     "crates/ruvector-domain-expansion-wasm",
     "crates/ruvector-solver",
     "crates/ruvector-solver-wasm",
     "crates/ruvector-solver-node",
-    "examples/dna",
-    "examples/OSpipe",
     "crates/ruvector-coherence",
     "crates/ruvector-profiler",
     "crates/ruvector-attn-mincut",
@@ -233,8 +230,8 @@ members = [
     "crates/ruvllm_retrieval_diffusion",
     # RAIRS IVF: Redundant Assignment + Amplified Inverse Residual (ADR-193)
     "crates/ruvector-rairs",
-    # Multi-vector MaxSim late interaction search (ADR-252, nightly 2026-06-15)
-    "crates/ruvector-maxsim",
+    # Hybrid sparse-dense search: BM25 + ANN + RRF / RSF / ScoreFusion (ADR-256)
+    "crates/ruvector-hybrid",
     # Structure-preserving graph condensation via dynamic min-cut communities
     "crates/ruvector-graph-condense",
     "crates/ruvector-graph-condense-wasm",
@@ -243,6 +240,12 @@ members = [
     # Calculus of emergent / relational time (Wheeler-DeWitt, Page-Wootters,
     # entropic, thermal) + Structural Proper Time for agentic systems.
     "crates/emergent-time",
+    # PhotonLayer: learned optical-frontend computing simulator (ADR-260)
+    "crates/photonlayer-core",
+    "crates/photonlayer-bench",
+    "crates/photonlayer-ruvector",
+    "crates/photonlayer-cli",
+    "crates/photonlayer-wasm",
 ]
 resolver = "2"
 

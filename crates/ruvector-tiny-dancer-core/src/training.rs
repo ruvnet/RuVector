@@ -10,11 +10,24 @@
 //! - Progress reporting and metrics tracking
 
 use crate::error::{Result, TinyDancerError};
-use crate::model::{FastGRNN, FastGRNNConfig};
+use crate::model::{FastGRNN, FastGRNNConfig, FastGRNNGradients};
 use ndarray::{Array1, Array2};
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::Path;
+
+/// One DRACO routing observation: a query embedding and the quality each model
+/// achieved on it. This is the neutral `{ embedding, scores }` shape that
+/// `@metaharness/router` (`fromExamples` / `trainRouter`) also consumes, so a
+/// single dataset seeds the k-NN/KRR router *and* trains the native FastGRNN.
+#[derive(Debug, Clone)]
+pub struct DracoRow {
+    /// Query embedding (used directly as the model's input features).
+    pub embedding: Vec<f32>,
+    /// model id → quality achieved on this query (0..1).
+    pub scores: HashMap<String, f32>,
+}
 
 /// Training hyperparameters
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,6 +116,63 @@ impl TrainingDataset {
             labels,
             soft_targets: None,
         })
+    }
+
+    /// Build a training dataset from DRACO routing rows + a per-model price table.
+    ///
+    /// For each row, the binary label answers "is a cheap model good enough here?"
+    /// — `1.0` if the cheapest priced model's quality is within `tolerance` of the
+    /// best model's quality, else `0.0` (route to a stronger model). The soft
+    /// target is the cheapest model's actual quality, so distillation can regress
+    /// toward the real achieved quality. Features are the query embeddings; the
+    /// `FastGRNNConfig.input_dim` must match the embedding length.
+    pub fn from_draco(
+        rows: &[DracoRow],
+        prices: &HashMap<String, f32>,
+        tolerance: f32,
+    ) -> Result<Self> {
+        if rows.is_empty() {
+            return Err(TinyDancerError::InvalidInput(
+                "DRACO dataset cannot be empty".to_string(),
+            ));
+        }
+
+        let mut features = Vec::with_capacity(rows.len());
+        let mut labels = Vec::with_capacity(rows.len());
+        let mut soft = Vec::with_capacity(rows.len());
+
+        for row in rows {
+            if row.scores.is_empty() {
+                return Err(TinyDancerError::InvalidInput(
+                    "DRACO row has no model scores".to_string(),
+                ));
+            }
+            // Cheapest model that appears in both the scores and the price table.
+            let cheapest = row
+                .scores
+                .keys()
+                .filter(|id| prices.contains_key(*id))
+                .min_by(|a, b| {
+                    prices[*a]
+                        .partial_cmp(&prices[*b])
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .ok_or_else(|| {
+                    TinyDancerError::InvalidInput(
+                        "DRACO row has no model present in the price table".to_string(),
+                    )
+                })?;
+
+            let best_q = row.scores.values().copied().fold(f32::MIN, f32::max);
+            let cheap_q = row.scores[cheapest];
+            let label = if cheap_q >= best_q - tolerance { 1.0 } else { 0.0 };
+
+            features.push(row.embedding.clone());
+            labels.push(label);
+            soft.push(cheap_q.clamp(0.0, 1.0));
+        }
+
+        Self::new(features, labels)?.with_soft_targets(soft)
     }
 
     /// Add soft targets from teacher model for knowledge distillation
@@ -476,7 +546,8 @@ impl Trainer {
         Ok(total_loss / n_batches as f32)
     }
 
-    /// Train on a single batch
+    /// Train on a single batch: forward-cached → analytic backward per sample,
+    /// mean-accumulate gradients, then one Adam step.
     fn train_batch(
         &mut self,
         model: &mut FastGRNN,
@@ -486,63 +557,118 @@ impl Trainer {
         learning_rate: f32,
     ) -> Result<f32> {
         let batch_size = features.len();
+        if batch_size == 0 {
+            return Ok(0.0);
+        }
         let mut total_loss = 0.0;
-
-        // Compute gradients (simplified - in practice would use BPTT)
-        // This is a placeholder for gradient computation
-        // In a real implementation, you would:
-        // 1. Forward pass with intermediate activations stored
-        // 2. Compute loss and output gradients
-        // 3. Backpropagate through time
-        // 4. Accumulate gradients
+        let mut grad_accum = FastGRNNGradients::zeros(model.config());
 
         for (i, feature) in features.iter().enumerate() {
-            let prediction = model.forward(feature, None)?;
-            let target = labels[i];
+            let (prediction, cache) = model.forward_cached(feature, None)?;
+            let hard = labels[i];
 
-            // Compute loss
-            let loss = if self.config.enable_distillation {
-                if let Some(soft_targets) = soft_targets {
-                    // Knowledge distillation loss
-                    let hard_loss = binary_cross_entropy(prediction, target);
-                    let soft_loss = binary_cross_entropy(prediction, soft_targets[i]);
-                    self.config.distillation_alpha * soft_loss
-                        + (1.0 - self.config.distillation_alpha) * hard_loss
+            // Loss and the effective target used for the gradient. For
+            // BCE-with-sigmoid, dL/d(logit) = prediction - target; distillation
+            // blends the hard label with the teacher's soft target.
+            let (loss, target_for_grad) = if self.config.enable_distillation {
+                if let Some(soft) = soft_targets {
+                    let s = soft[i];
+                    let hard_loss = binary_cross_entropy(prediction, hard);
+                    let soft_loss = binary_cross_entropy(prediction, s);
+                    let a = self.config.distillation_alpha;
+                    (a * soft_loss + (1.0 - a) * hard_loss, a * s + (1.0 - a) * hard)
                 } else {
-                    binary_cross_entropy(prediction, target)
+                    (binary_cross_entropy(prediction, hard), hard)
                 }
             } else {
-                binary_cross_entropy(prediction, target)
+                (binary_cross_entropy(prediction, hard), hard)
             };
 
             total_loss += loss;
 
-            // Compute gradient (simplified)
-            // In practice, this would involve full BPTT
-            // For now, we use a simple finite difference approximation
-            // This is for demonstration - real training would need proper backprop
+            let d_logit = prediction - target_for_grad;
+            let grads = model.backward(&cache, d_logit);
+            grad_accum.add_scaled(&grads, 1.0);
         }
 
-        // Apply gradients using Adam optimizer (placeholder)
-        self.apply_gradients(model, learning_rate)?;
+        // Mean gradient over the batch.
+        grad_accum.scale(1.0 / batch_size as f32);
+
+        // Adam step (L2 + global-norm clip + bias correction + update).
+        self.apply_gradients(model, &grad_accum, learning_rate)?;
 
         Ok(total_loss / batch_size as f32)
     }
 
-    /// Apply gradients using Adam optimizer
-    fn apply_gradients(&mut self, _model: &mut FastGRNN, _learning_rate: f32) -> Result<()> {
-        // Increment time step
+    /// Apply accumulated gradients with the Adam optimizer: L2 regularization,
+    /// global-norm gradient clipping, bias-corrected moments, parameter update.
+    fn apply_gradients(
+        &mut self,
+        model: &mut FastGRNN,
+        grads: &FastGRNNGradients,
+        learning_rate: f32,
+    ) -> Result<()> {
         self.optimizer.t += 1;
+        let t = self.optimizer.t as i32;
 
-        // In a complete implementation:
-        // 1. Update first moment: m = beta1 * m + (1 - beta1) * grad
-        // 2. Update second moment: v = beta2 * v + (1 - beta2) * grad^2
-        // 3. Bias correction: m_hat = m / (1 - beta1^t), v_hat = v / (1 - beta2^t)
-        // 4. Update parameters: param -= lr * m_hat / (sqrt(v_hat) + epsilon)
-        // 5. Apply gradient clipping
-        // 6. Apply L2 regularization
+        // Working copy so we can add L2 and clip without mutating the caller's grads.
+        let mut g = FastGRNNGradients::zeros(model.config());
+        g.add_scaled(grads, 1.0);
 
-        // This is a placeholder - full implementation would update model weights
+        // L2 regularization on weight matrices (not biases): grad += l2 * w.
+        let l2 = self.config.l2_reg;
+        if l2 > 0.0 {
+            let weights = model.weights_mut();
+            for k in 0..5 {
+                g.w[k] = &g.w[k] + &(&*weights[k] * l2);
+            }
+        }
+
+        // Global-norm gradient clipping.
+        if self.config.grad_clip > 0.0 {
+            let norm = g.global_norm();
+            if norm > self.config.grad_clip {
+                g.scale(self.config.grad_clip / norm);
+            }
+        }
+
+        let (b1, b2, eps) = (
+            self.optimizer.beta1,
+            self.optimizer.beta2,
+            self.optimizer.epsilon,
+        );
+        let bc1 = 1.0 - b1.powi(t);
+        let bc2 = 1.0 - b2.powi(t);
+
+        // Weight matrices.
+        {
+            let mut weights = model.weights_mut();
+            for (k, w) in weights.iter_mut().enumerate() {
+                let m = &mut self.optimizer.m_weights[k];
+                let v = &mut self.optimizer.v_weights[k];
+                *m = &*m * b1 + &(&g.w[k] * (1.0 - b1));
+                *v = &*v * b2 + &(g.w[k].mapv(|x| x * x) * (1.0 - b2));
+                let m_hat = &*m / bc1;
+                let v_hat = &*v / bc2;
+                let update = &m_hat * learning_rate / &(v_hat.mapv(|x| x.sqrt()) + eps);
+                **w = &**w - &update;
+            }
+        }
+
+        // Bias vectors.
+        {
+            let mut biases = model.biases_mut();
+            for (k, b) in biases.iter_mut().enumerate() {
+                let m = &mut self.optimizer.m_biases[k];
+                let v = &mut self.optimizer.v_biases[k];
+                *m = &*m * b1 + &(&g.b[k] * (1.0 - b1));
+                *v = &*v * b2 + &(g.b[k].mapv(|x| x * x) * (1.0 - b2));
+                let m_hat = &*m / bc1;
+                let v_hat = &*v / bc2;
+                let update = &m_hat * learning_rate / &(v_hat.mapv(|x| x.sqrt()) + eps);
+                **b = &**b - &update;
+            }
+        }
 
         Ok(())
     }
@@ -702,5 +828,95 @@ mod tests {
 
         // Higher temperature should make output closer to 0.5
         assert!((soft1 - 0.5).abs() > (soft2 - 0.5).abs());
+    }
+
+    /// End-to-end: training on a linearly-separable problem must reduce loss and
+    /// reach high accuracy — proves the gradient/Adam step actually learns.
+    #[test]
+    fn test_training_converges() {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+
+        // Label = 1 iff sum(features) > 0, with a margin. 4 features.
+        let n = 200;
+        let mut features = Vec::with_capacity(n);
+        let mut labels = Vec::with_capacity(n);
+        for _ in 0..n {
+            let f: Vec<f32> = (0..4).map(|_| rng.gen_range(-1.0..1.0)).collect();
+            let s: f32 = f.iter().sum();
+            if s.abs() < 0.15 {
+                continue; // drop ambiguous points near the boundary
+            }
+            labels.push(if s > 0.0 { 1.0 } else { 0.0 });
+            features.push(f);
+        }
+        let dataset = TrainingDataset::new(features, labels).unwrap();
+
+        let model_config = FastGRNNConfig {
+            input_dim: 4,
+            hidden_dim: 8,
+            output_dim: 1,
+            ..Default::default()
+        };
+        let train_config = TrainingConfig {
+            learning_rate: 0.05,
+            batch_size: 16,
+            epochs: 60,
+            validation_split: 0.2,
+            early_stopping_patience: None,
+            l2_reg: 0.0,
+            ..Default::default()
+        };
+        let mut model = FastGRNN::new(model_config.clone()).unwrap();
+        let mut trainer = Trainer::new(&model_config, train_config);
+        let metrics = trainer.train(&mut model, &dataset).unwrap();
+
+        let first = &metrics[0];
+        let last = &metrics[metrics.len() - 1];
+        assert!(
+            last.train_loss < first.train_loss,
+            "loss did not decrease: {} -> {}",
+            first.train_loss,
+            last.train_loss
+        );
+        assert!(
+            last.train_accuracy > 0.9,
+            "final train accuracy too low: {}",
+            last.train_accuracy
+        );
+    }
+
+    #[test]
+    fn test_from_draco() {
+        let prices: HashMap<String, f32> = [
+            ("haiku".to_string(), 1.0),
+            ("opus".to_string(), 15.0),
+        ]
+        .into_iter()
+        .collect();
+
+        // Row 1: cheap model (haiku) is as good as opus → label 1 (route light).
+        // Row 2: cheap model much worse than opus → label 0 (route heavy).
+        let rows = vec![
+            DracoRow {
+                embedding: vec![0.1, 0.2, 0.3],
+                scores: [("haiku".to_string(), 0.90), ("opus".to_string(), 0.92)]
+                    .into_iter()
+                    .collect(),
+            },
+            DracoRow {
+                embedding: vec![0.4, 0.5, 0.6],
+                scores: [("haiku".to_string(), 0.40), ("opus".to_string(), 0.95)]
+                    .into_iter()
+                    .collect(),
+            },
+        ];
+
+        let ds = TrainingDataset::from_draco(&rows, &prices, 0.05).unwrap();
+        assert_eq!(ds.labels, vec![1.0, 0.0]);
+        let soft = ds.soft_targets.as_ref().unwrap();
+        assert!((soft[0] - 0.90).abs() < 1e-6);
+        assert!((soft[1] - 0.40).abs() < 1e-6);
+        assert_eq!(ds.features[0].len(), 3);
     }
 }

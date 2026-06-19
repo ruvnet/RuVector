@@ -1,0 +1,32 @@
+[package]
+name = "photonlayer-cli"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "PhotonLayer command-line studio: run simulations, demos (barcode, edge, privacy gate), benchmarks, and verify receipts (ADR-260)"
+
+[[bin]]
+name = "photonlayer"
+path = "src/main.rs"
+
+[dependencies]
+photonlayer-core = { version = "0.1.0", path = "../photonlayer-core" }
+photonlayer-bench = { version = "0.1.0", path = "../photonlayer-bench" }
+photonlayer-ruvector = { version = "0.1.0", path = "../photonlayer-ruvector" }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", priority = -1 }
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+correctness = { level = "deny", priority = 0 }
+suspicious = { level = "deny", priority = 0 }
+pedantic = { level = "allow", priority = -2 }
+needless_range_loop = "allow"
+manual_range_contains = "allow"
+too_many_arguments = "allow"

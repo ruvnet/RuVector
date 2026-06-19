@@ -1,3 +1,9 @@
 [submodule "examples/vectorvroom"]
 	path = examples/vectorvroom
 	url = https://github.com/shaal/VectorVroom.git
+[submodule "external/ruqu"]
+	path = external/ruqu
+	url = https://github.com/ruvnet/ruqu.git
+[submodule "external/rvdna"]
+	path = external/rvdna
+	url = https://github.com/ruvnet/rvdna.git

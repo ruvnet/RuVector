@@ -3,16 +3,21 @@
 //! A high-performance graph database layer built on RuVector with Neo4j compatibility.
 //! Supports property graphs, hypergraphs, Cypher queries, ACID transactions, and distributed queries.
 
+pub mod bm25;
+pub mod codegen;
 pub mod cypher;
 pub mod edge;
+pub mod embed;
 pub mod error;
 pub mod executor;
 pub mod graph;
 pub mod hyperedge;
 pub mod index;
 pub mod node;
+pub mod schema;
 pub mod storage;
 pub mod transaction;
+pub mod typed_graph;
 pub mod types;
 
 // Performance optimization modules
@@ -30,7 +35,14 @@ pub use edge::{Edge, EdgeBuilder};
 pub use error::{GraphError, Result};
 pub use graph::GraphDB;
 pub use hyperedge::{Hyperedge, HyperedgeBuilder, HyperedgeId};
+pub use bm25::{Bm25Index, Bm25Params};
+pub use embed::{Embedder, HashEmbedder};
 pub use node::{Node, NodeBuilder};
+pub use schema::{
+    reciprocal_rank_fusion, DistanceMetric, EdgeSchema, GraphSchema, NodeSchema, PropertySchema,
+    PropertyType, VectorSchema,
+};
+pub use typed_graph::{Direction, TraversalResult, TraverseSpec, TypedGraph};
 #[cfg(feature = "storage")]
 pub use storage::GraphStorage;
 pub use transaction::{IsolationLevel, Transaction, TransactionManager};
