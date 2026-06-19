@@ -9766,6 +9766,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-lsm-ann"
+version = "2.2.3"
+dependencies = [
+ "criterion 0.5.1",
+ "rand 0.8.6",
+ "rand_distr 0.4.3",
+ "serde",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ruvector-math"
 version = "2.2.3"
 dependencies = [
