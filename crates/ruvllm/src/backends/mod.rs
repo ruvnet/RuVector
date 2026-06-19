@@ -73,6 +73,12 @@ mod candle_backend;
 #[cfg(feature = "candle")]
 pub use candle_backend::*;
 
+// Recurrent-depth (OpenMythos) backend
+#[cfg(feature = "candle")]
+mod recurrent_backend;
+#[cfg(feature = "candle")]
+pub use recurrent_backend::{CheckpointManifest, MythosTokenizer, RecurrentBackend};
+
 // Core ML backend for Apple Neural Engine (ANE) acceleration
 mod coreml_backend;
 pub use coreml_backend::{AneCapabilities, ComputeUnits, CoreMLBackend};

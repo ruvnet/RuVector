@@ -90,7 +90,7 @@ pub async fn run(
         println!("  {} {}", style("Downloading:").yellow(), file_name);
 
         // Download with progress
-        let downloaded_path = download_with_progress(&repo, file_name).await?;
+        let downloaded_path = download_with_progress(&repo, file_name, &model_id, revision).await?;
 
         // Copy to cache directory
         tokio::fs::copy(&downloaded_path, &target_path)
@@ -123,10 +123,18 @@ pub async fn run(
     Ok(())
 }
 
-/// Download a file with progress indication
+/// Download a file with progress indication.
+///
+/// Tries the `hf-hub` API first; on failure (e.g. the crate's HTTP client not
+/// following HuggingFace's 307 redirect to the LFS/CDN host — observed on aux files
+/// like `tokenizer_config.json` in 2.1.0), falls back to a redirect-following
+/// `curl -L --fail` from the HF resolve URL. curl is already the download mechanism
+/// in `hub/download.rs`, so this keeps the fix dependency-free and consistent.
 async fn download_with_progress(
     repo: &hf_hub::api::tokio::ApiRepo,
     file_name: &str,
+    model_id: &str,
+    revision: Option<&str>,
 ) -> Result<PathBuf> {
     // Create progress bar
     let pb = ProgressBar::new(100);
@@ -137,15 +145,48 @@ async fn download_with_progress(
             .progress_chars("#>-"),
     );
 
-    // Download file
-    let path = repo
-        .get(file_name)
-        .await
-        .context(format!("Failed to download {}", file_name))?;
+    // Download file (hf-hub API first, curl-redirect fallback on failure)
+    let path = match repo.get(file_name).await {
+        Ok(p) => p,
+        Err(e) => download_via_curl(model_id, revision, file_name)
+            .with_context(|| format!("Failed to download {} (hf-hub: {e})", file_name))?,
+    };
 
     pb.finish_and_clear();
 
     Ok(path)
+}
+
+/// Fallback download via `curl -L --fail` (follows HF's 307 redirect to the CDN).
+/// Writes to a temp file and returns its path; the caller copies it into the cache.
+fn download_via_curl(model_id: &str, revision: Option<&str>, file_name: &str) -> Result<PathBuf> {
+    let rev = revision.unwrap_or("main");
+    let url = format!("https://huggingface.co/{model_id}/resolve/{rev}/{file_name}");
+    let out = std::env::temp_dir().join(format!(
+        "ruvllm-dl-{}-{}",
+        std::process::id(),
+        file_name.replace('/', "_")
+    ));
+    let mut args = vec![
+        "-L".to_string(),     // follow redirects (the 307 hf-hub misses)
+        "--fail".to_string(), // non-zero exit on HTTP error
+        "-sS".to_string(),    // quiet but show errors
+        "-o".to_string(),
+        out.to_string_lossy().to_string(),
+    ];
+    if let Ok(token) = std::env::var("HF_TOKEN") {
+        args.push("-H".to_string());
+        args.push(format!("Authorization: Bearer {token}"));
+    }
+    args.push(url.clone());
+    let status = std::process::Command::new("curl")
+        .args(&args)
+        .status()
+        .with_context(|| format!("curl not available to fetch {url}"))?;
+    if !status.success() {
+        anyhow::bail!("curl fallback failed ({status}) for {url}");
+    }
+    Ok(out)
 }
 
 /// Get list of files to download for a model and quantization
