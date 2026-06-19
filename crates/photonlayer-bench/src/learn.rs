@@ -94,7 +94,13 @@ fn evaluate(
         margin += wrong - correct;
     }
     margin /= feats.len().max(1) as f32;
-    (ncc, Score { accuracy: acc, margin })
+    (
+        ncc,
+        Score {
+            accuracy: acc,
+            margin,
+        },
+    )
 }
 
 /// Train a phase mask + decoder on `train` via seeded block hill-climbing.

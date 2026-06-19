@@ -40,8 +40,14 @@ fn cached_propagator_is_bit_identical() {
     let via_struct = prop.propagate(&field).unwrap();
     let mut buf = field.data.clone();
     prop.propagate_into(&mut buf).unwrap();
-    assert_eq!(via_struct.data, reference.data, "Propagator::propagate must match free propagate");
-    assert_eq!(buf, reference.data, "propagate_into must be bit-identical to free propagate");
+    assert_eq!(
+        via_struct.data, reference.data,
+        "Propagator::propagate must match free propagate"
+    );
+    assert_eq!(
+        buf, reference.data,
+        "propagate_into must be bit-identical to free propagate"
+    );
 }
 
 /// Timing proof (M1). Release-only — wall-clock is meaningless in debug. Run:
@@ -187,7 +193,10 @@ fn fraunhofer_optab_is_faster() {
     prop.propagate_into(&mut new_buf).unwrap();
     let mut new_buf2 = field.data.clone();
     prop.propagate_into(&mut new_buf2).unwrap();
-    assert_eq!(new_buf, new_buf2, "new Fraunhofer path must be deterministic");
+    assert_eq!(
+        new_buf, new_buf2,
+        "new Fraunhofer path must be deterministic"
+    );
 
     let mut old_buf = field.data.clone();
     old_fraunhofer_into(&mut old_buf, N, N);

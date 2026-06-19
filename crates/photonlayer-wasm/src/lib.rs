@@ -23,8 +23,8 @@
 use wasm_bindgen::prelude::*;
 
 use photonlayer_core::prelude::{
-    ExperimentReceipt, InputImage, OpticalConfig, OpticalField, PhaseMask, ScalarSimulator,
-    verify_receipt,
+    verify_receipt, ExperimentReceipt, InputImage, OpticalConfig, OpticalField, PhaseMask,
+    ScalarSimulator,
 };
 
 // ─── Normalization helpers ────────────────────────────────────────────────────
@@ -133,11 +133,12 @@ pub fn run_trace(
     let config: OpticalConfig = if config_json.trim().is_empty() {
         OpticalConfig::demo(width, height)
     } else {
-        serde_json::from_str(config_json)
-            .map_err(|e| format!("config parse error: {e}"))?
+        serde_json::from_str(config_json).map_err(|e| format!("config parse error: {e}"))?
     };
     // Validate the (untrusted) config before it drives any allocation/FFT.
-    config.validate().map_err(|e| format!("invalid config: {e}"))?;
+    config
+        .validate()
+        .map_err(|e| format!("invalid config: {e}"))?;
 
     // Build input image.
     let img = InputImage::from_gray_u8(width, height, image_bytes)
@@ -314,16 +315,18 @@ pub fn default_config_json(width: u32, height: u32) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use photonlayer_core::prelude::{
-        build_receipt, MetricReport, Provenance,
-    };
+    use photonlayer_core::prelude::{build_receipt, MetricReport, Provenance};
 
     /// Build a small checkerboard image (power-of-two dimensions).
     fn checkerboard_u8(n: usize) -> Vec<u8> {
         (0..n * n)
             .map(|i| {
                 let (x, y) = (i % n, i / n);
-                if (x / 4 + y / 4) % 2 == 0 { 255u8 } else { 0u8 }
+                if (x / 4 + y / 4) % 2 == 0 {
+                    255u8
+                } else {
+                    0u8
+                }
             })
             .collect()
     }
@@ -371,9 +374,17 @@ mod tests {
         let result = run_trace(&img, n, n, "random", 42, 1.0, "").unwrap();
 
         let expected = result.width * result.height;
-        assert_eq!(result.incoming_buf.len(), expected, "incoming_buf wrong len");
+        assert_eq!(
+            result.incoming_buf.len(),
+            expected,
+            "incoming_buf wrong len"
+        );
         assert_eq!(result.mask_buf.len(), expected, "mask_buf wrong len");
-        assert_eq!(result.masked_intensity_buf.len(), expected, "masked_intensity_buf wrong len");
+        assert_eq!(
+            result.masked_intensity_buf.len(),
+            expected,
+            "masked_intensity_buf wrong len"
+        );
         assert_eq!(result.sensor_buf.len(), expected, "sensor_buf wrong len");
     }
 

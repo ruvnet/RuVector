@@ -98,7 +98,12 @@ impl ExperimentMemory {
         let mut scored: Vec<(f64, &str)> = self
             .records
             .iter()
-            .map(|r| (cosine_similarity(query_embedding, &r.embedding), r.id.as_str()))
+            .map(|r| {
+                (
+                    cosine_similarity(query_embedding, &r.embedding),
+                    r.id.as_str(),
+                )
+            })
             .collect();
         scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
         scored
@@ -145,7 +150,15 @@ mod tests {
         let cfg = OpticalConfig::demo(n, n);
         let frame = ScalarSimulator.simulate(&img, &mask, &cfg).unwrap();
         let metrics = MetricReport::default();
-        let receipt = build_receipt(id, &img, &mask, &cfg, &frame, &metrics, &Provenance::default());
+        let receipt = build_receipt(
+            id,
+            &img,
+            &mask,
+            &cfg,
+            &frame,
+            &metrics,
+            &Provenance::default(),
+        );
         let embedding = experiment_embedding(&mask, &frame);
         ExperimentRecord {
             id: id.to_owned(),
@@ -181,7 +194,11 @@ mod tests {
         let hits = mem.nearest(&query_emb, 3);
         // The exact stored embedding must score 1.0 at rank 0.
         assert_eq!(hits[0].id, "target");
-        assert!((hits[0].score - 1.0).abs() < 1e-5, "score = {}", hits[0].score);
+        assert!(
+            (hits[0].score - 1.0).abs() < 1e-5,
+            "score = {}",
+            hits[0].score
+        );
     }
 
     #[test]

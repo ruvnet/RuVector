@@ -45,7 +45,10 @@ pub fn optical_feature_set(
 }
 
 pub fn digital_feature_set(samples: &[Sample], feat_dim: usize) -> (Vec<Vec<f32>>, Vec<usize>) {
-    let feats = samples.iter().map(|s| digital_features(s, feat_dim)).collect();
+    let feats = samples
+        .iter()
+        .map(|s| digital_features(s, feat_dim))
+        .collect();
     let labels = samples.iter().map(|s| s.label).collect();
     (feats, labels)
 }

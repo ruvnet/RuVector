@@ -63,7 +63,11 @@ fn discriminability(pass_vals: &[f64], fail_vals: &[f64]) -> f64 {
     let spread = mad(pass_vals.iter().chain(fail_vals.iter()).copied(), all_mean);
     if spread < 1e-30 {
         // No within-group spread: if the means differ it is a perfect separator.
-        if diff > 1e-9 { 1e9 } else { 0.0 }
+        if diff > 1e-9 {
+            1e9
+        } else {
+            0.0
+        }
     } else {
         diff / spread
     }
@@ -162,19 +166,13 @@ pub fn explain_boundary(
             "propagation_mm",
             discriminability(&pass_prop_mm, &fail_prop_mm),
         ),
-        (
-            "wavelength_nm",
-            discriminability(&pass_wave, &fail_wave),
-        ),
+        ("wavelength_nm", discriminability(&pass_wave, &fail_wave)),
         (
             "detector.binning",
             discriminability(&pass_binning, &fail_binning),
         ),
         ("seed", discriminability(&pass_seed, &fail_seed)),
-        (
-            "propagation_mode",
-            discriminability(&pass_mode, &fail_mode),
-        ),
+        ("propagation_mode", discriminability(&pass_mode, &fail_mode)),
     ];
 
     let mut sorted = candidates.to_vec();
@@ -217,14 +215,27 @@ mod tests {
 
     use crate::{embedding::experiment_embedding, memory::ExperimentRecord};
 
-    fn make_record_with_cfg(id: &str, label: &str, cfg: OpticalConfig, seed: u64) -> ExperimentRecord {
+    fn make_record_with_cfg(
+        id: &str,
+        label: &str,
+        cfg: OpticalConfig,
+        seed: u64,
+    ) -> ExperimentRecord {
         let n = 16;
         let pixels: Vec<f32> = (0..n * n).map(|i| (i % n) as f32 / n as f32).collect();
         let img = InputImage::from_norm_f32(n, n, pixels).unwrap();
         let mask = PhaseMask::random(n, n, seed);
         let frame = ScalarSimulator.simulate(&img, &mask, &cfg).unwrap();
         let metrics = MetricReport::default();
-        let receipt = build_receipt(id, &img, &mask, &cfg, &frame, &metrics, &Provenance::default());
+        let receipt = build_receipt(
+            id,
+            &img,
+            &mask,
+            &cfg,
+            &frame,
+            &metrics,
+            &Provenance::default(),
+        );
         let embedding = experiment_embedding(&mask, &frame);
         ExperimentRecord {
             id: id.to_owned(),
@@ -266,8 +277,7 @@ mod tests {
 
         let report = explain_boundary(&mem, "pass", "fail");
         assert_eq!(
-            report.dominant_variable,
-            "propagation_mm",
+            report.dominant_variable, "propagation_mm",
             "expected propagation_mm, got: {:?}",
             report
         );

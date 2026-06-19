@@ -52,8 +52,8 @@ pub struct PrivacyReport {
 /// We solve each target column independently using Gauss-Jordan elimination
 /// on the (feat_dim × feat_dim) Gram matrix — safe for small feat_dim.
 fn ridge_least_squares(
-    x: &[f32],     // n × d
-    y: &[f32],     // n × t
+    x: &[f32], // n × d
+    y: &[f32], // n × t
     n: usize,
     d: usize,
     t: usize,
@@ -206,7 +206,9 @@ pub fn privacy_leakage(
     let t = img_dim * img_dim;
 
     // Train/test split: first 60% train.
-    let n_train = ((samples.len() as f32 * 0.6).ceil() as usize).max(1).min(samples.len() - 1);
+    let n_train = ((samples.len() as f32 * 0.6).ceil() as usize)
+        .max(1)
+        .min(samples.len() - 1);
     let n_test = samples.len() - n_train;
     if n_test == 0 {
         // Degenerate case: no test data.
@@ -229,12 +231,7 @@ pub fn privacy_leakage(
         for (j, &v) in feat.iter().enumerate() {
             x_train[k * d + j] = v;
         }
-        let target = downsample(
-            &s.image.pixels,
-            s.image.width,
-            s.image.height,
-            img_dim,
-        );
+        let target = downsample(&s.image.pixels, s.image.width, s.image.height, img_dim);
         for (j, &v) in target.iter().enumerate() {
             y_train[k * t + j] = v;
         }
@@ -261,12 +258,7 @@ pub fn privacy_leakage(
             y_hat[c] = v.clamp(0.0, 1.0);
         }
 
-        let target = downsample(
-            &s.image.pixels,
-            s.image.width,
-            s.image.height,
-            img_dim,
-        );
+        let target = downsample(&s.image.pixels, s.image.width, s.image.height, img_dim);
         total_psnr += psnr(&target, &y_hat, 1.0);
 
         // Also accumulate detector-vs-input similarity.

@@ -37,7 +37,10 @@ fn main() {
     }
     if mode == "compression" || mode == "all" {
         // Squeeze a 16x16 input down to a 2x2 (=4-pixel) sensor.
-        reports.push(("compression(2x2 sensor)".into(), run_compression(16, 10, 2, &lc)));
+        reports.push((
+            "compression(2x2 sensor)".into(),
+            run_compression(16, 10, 2, &lc),
+        ));
     }
 
     if json {

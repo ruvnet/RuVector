@@ -67,36 +67,82 @@ fn load_subsets(
 fn print_table(label: &str, r: &MnistBenchResult) {
     eprintln!("\n========= PhotonLayer MNIST optical-compression benchmark ({label}) =========");
     eprintln!("dataset       : MNIST handwritten digits (public IDX, ossci-datasets mirror)");
-    eprintln!("optics        : {0}x{0} field, 28->{1}x{1} digit, AngularSpectrum diffraction", r.grid, r.cell);
-    eprintln!("seed          : {:#x}  (mask init + hill-climb stream, fully deterministic)", r.seed);
-    eprintln!("train / test  : {} / {} images, balanced across 10 classes (blind test split)", r.train_size, r.test_size);
+    eprintln!(
+        "optics        : {0}x{0} field, 28->{1}x{1} digit, AngularSpectrum diffraction",
+        r.grid, r.cell
+    );
+    eprintln!(
+        "seed          : {:#x}  (mask init + hill-climb stream, fully deterministic)",
+        r.seed
+    );
+    eprintln!(
+        "train / test  : {} / {} images, balanced across 10 classes (blind test split)",
+        r.train_size, r.test_size
+    );
     eprintln!("Two masks, two objectives -- A proves task-useful compression (the product");
     eprintln!("claim); B isolates the differential-detection lever (the mechanism).");
     eprintln!("----------------------------------------------------------------------------");
-    eprintln!("[CONFIG A | decoder objective, seed {:#x}]  product/acceptance headline", r.seed);
+    eprintln!(
+        "[CONFIG A | decoder objective, seed {:#x}]  product/acceptance headline",
+        r.seed
+    );
     eprintln!("  same tiny centroid decoder, full image vs compressed optical read:");
-    eprintln!("    full-image baseline ({:>5} px, {:>5}-param decoder)   {:>7.4}", r.baseline_pixels, r.baseline_decoder_params, r.baseline_acc);
-    eprintln!("    optical compressed  ({:>5} px, {:>5}-param decoder)   {:>7.4}", r.optical_sensor_pixels, r.decoder_params, r.optical_acc);
+    eprintln!(
+        "    full-image baseline ({:>5} px, {:>5}-param decoder)   {:>7.4}",
+        r.baseline_pixels, r.baseline_decoder_params, r.baseline_acc
+    );
+    eprintln!(
+        "    optical compressed  ({:>5} px, {:>5}-param decoder)   {:>7.4}",
+        r.optical_sensor_pixels, r.decoder_params, r.optical_acc
+    );
     eprintln!("    optical - baseline                                   {:>+7.4}  (acceptance: >= -0.0200)", r.optical_acc - r.baseline_acc);
-    eprintln!("    learned-mask decoded vs random-mask decoded          {:>+7.4}  (WIN guard)", r.optical_acc - r.random_optical_acc);
+    eprintln!(
+        "    learned-mask decoded vs random-mask decoded          {:>+7.4}  (WIN guard)",
+        r.optical_acc - r.random_optical_acc
+    );
     eprintln!("  optics-only argmax floor on the SAME Config-A mask (no decoder):");
-    eprintln!("    plain argmax I+_k / differential argmax I+ - I-      {:>7.4} / {:.4}", r.optics_only_plain, r.optics_only_differential);
+    eprintln!(
+        "    plain argmax I+_k / differential argmax I+ - I-      {:>7.4} / {:.4}",
+        r.optics_only_plain, r.optics_only_differential
+    );
     eprintln!("    (Config A is trained for the decoder, not argmax, so this lever is small here)");
     eprintln!("----------------------------------------------------------------------------");
-    eprintln!("[CONFIG B | argmax-differential objective, seed {:#x}]  mechanism isolation", r.config_b_seed);
+    eprintln!(
+        "[CONFIG B | argmax-differential objective, seed {:#x}]  mechanism isolation",
+        r.config_b_seed
+    );
     eprintln!("  optics-only differential detection, NO decoder (Li/Ozcan arXiv:1906.03417):");
-    eprintln!("    plain  argmax I+_k                                   {:>7.4}", r.config_b_plain);
-    eprintln!("    differential argmax I+ - I-                          {:>7.4}", r.config_b_differential);
-    eprintln!("    differential lever delta                             {:>+7.4}  (diff - plain)", r.config_b_differential - r.config_b_plain);
-    eprintln!("    random-mask differential argmax (reference)          {:>7.4}", r.random_optics_only_differential);
+    eprintln!(
+        "    plain  argmax I+_k                                   {:>7.4}",
+        r.config_b_plain
+    );
+    eprintln!(
+        "    differential argmax I+ - I-                          {:>7.4}",
+        r.config_b_differential
+    );
+    eprintln!(
+        "    differential lever delta                             {:>+7.4}  (diff - plain)",
+        r.config_b_differential - r.config_b_plain
+    );
+    eprintln!(
+        "    random-mask differential argmax (reference)          {:>7.4}",
+        r.random_optics_only_differential
+    );
     eprintln!("    NOTE: absolute accuracy is single-layer optics-only (no decoder) and modest");
     eprintln!("    by construction; the +delta isolates the lever, it is NOT a headline accuracy.");
     eprintln!("----------------------------------------------------------------------------");
-    eprintln!("compression (A): {} input px -> {} optical sensor px = {:.1}x sensor reduction (>= 16x)",
-        r.baseline_pixels, r.optical_sensor_pixels, r.sensor_reduction_x);
-    eprintln!("digital MACs (A): {} (optical decoder) vs {} (baseline decoder) = {:.1}x fewer (>= 10x)",
-        r.optical_macs, r.baseline_macs, r.mac_reduction_x);
-    eprintln!("acceptance (A): {}", if r.acceptance_pass() { "PASS" } else { "FAIL" });
+    eprintln!(
+        "compression (A): {} input px -> {} optical sensor px = {:.1}x sensor reduction (>= 16x)",
+        r.baseline_pixels, r.optical_sensor_pixels, r.sensor_reduction_x
+    );
+    eprintln!(
+        "digital MACs (A): {} (optical decoder) vs {} (baseline decoder) = {:.1}x fewer (>= 10x)",
+        r.optical_macs, r.baseline_macs, r.mac_reduction_x
+    );
+    eprintln!(
+        "acceptance (A): {}",
+        if r.acceptance_pass() { "PASS" } else { "FAIL" }
+    );
     eprintln!("============================================================================\n");
 }
 
@@ -137,8 +183,16 @@ fn mnist_differential_smoke() {
         r.random_optics_only_differential
     );
     // Compression is structural (1024 -> 64), so it must always hold.
-    assert!(r.sensor_reduction_x >= 16.0, "sensor reduction {:.1}x below 16x", r.sensor_reduction_x);
-    assert!(r.mac_reduction_x >= 10.0, "MAC reduction {:.1}x below 10x", r.mac_reduction_x);
+    assert!(
+        r.sensor_reduction_x >= 16.0,
+        "sensor reduction {:.1}x below 16x",
+        r.sensor_reduction_x
+    );
+    assert!(
+        r.mac_reduction_x >= 10.0,
+        "MAC reduction {:.1}x below 10x",
+        r.mac_reduction_x
+    );
     // Config B (argmax-differential objective) is REPORTED at smoke scale but not
     // asserted: the differential-vs-plain lever is a full-scale phenomenon
     // (~+13pp at 600 iters / 4000 train) and is noisy at the few-iteration smoke
@@ -169,9 +223,15 @@ fn mnist_config_a_iteration_sweep() {
     let Some((train, test)) = load_subsets(&dir, 400, 200, base.cell, base.grid) else {
         panic!("MNIST cache not found at {}", dir.display());
     };
-    eprintln!("\n[Config-A iteration sweep] block={} sigma={} seed={:#x}", base.block, base.sigma, base.seed);
+    eprintln!(
+        "\n[Config-A iteration sweep] block={} sigma={} seed={:#x}",
+        base.block, base.sigma, base.seed
+    );
     for &iters in &[1500usize, 3000, 4500] {
-        let bcfg = MnistBenchConfig { iterations: iters, ..base };
+        let bcfg = MnistBenchConfig {
+            iterations: iters,
+            ..base
+        };
         let t0 = std::time::Instant::now();
         let (baseline, optical, sensor_x, mac_x) = run_mnist_config_a(&train, &test, &bcfg);
         let dt = t0.elapsed().as_secs_f32();
@@ -211,8 +271,16 @@ fn mnist_differential_full() {
         r.random_optical_acc
     );
     //  2. Structural compression bars (these hold by construction).
-    assert!(r.sensor_reduction_x >= 16.0, "sensor reduction {:.1}x < 16x", r.sensor_reduction_x);
-    assert!(r.mac_reduction_x >= 10.0, "MAC reduction {:.1}x < 10x", r.mac_reduction_x);
+    assert!(
+        r.sensor_reduction_x >= 16.0,
+        "sensor reduction {:.1}x < 16x",
+        r.sensor_reduction_x
+    );
+    assert!(
+        r.mac_reduction_x >= 10.0,
+        "MAC reduction {:.1}x < 10x",
+        r.mac_reduction_x
+    );
     //  3. Config B isolates the differential lever: a mask trained for the
     //     argmax-differential objective reads more accurately with the
     //     differential readout (I+ - I-) than the plain readout (I+). Measured

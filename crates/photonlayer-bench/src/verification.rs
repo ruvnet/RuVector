@@ -45,11 +45,7 @@ fn cosine_sim(a: &[f32], b: &[f32]) -> f32 {
 /// A pair whose score >= threshold is accepted as "same identity".
 /// FAR = impostor pairs accepted / total impostor pairs.
 /// FRR = genuine pairs rejected / total genuine pairs.
-fn far_frr(
-    genuine_scores: &[f32],
-    impostor_scores: &[f32],
-    threshold: f32,
-) -> (f32, f32) {
+fn far_frr(genuine_scores: &[f32], impostor_scores: &[f32], threshold: f32) -> (f32, f32) {
     let far = if impostor_scores.is_empty() {
         0.0
     } else {
@@ -72,11 +68,7 @@ fn compute_eer(genuine: &[f32], impostor: &[f32]) -> (f32, f32, f32, f32) {
     }
 
     // Build a sorted candidate threshold list from all unique scores.
-    let mut thresholds: Vec<f32> = genuine
-        .iter()
-        .chain(impostor.iter())
-        .cloned()
-        .collect();
+    let mut thresholds: Vec<f32> = genuine.iter().chain(impostor.iter()).cloned().collect();
     thresholds.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     thresholds.dedup();
 
@@ -138,8 +130,7 @@ pub fn verify_eer(
         }
     }
 
-    let (eer, far_at_eer, frr_at_eer, threshold) =
-        compute_eer(&genuine_scores, &impostor_scores);
+    let (eer, far_at_eer, frr_at_eer, threshold) = compute_eer(&genuine_scores, &impostor_scores);
 
     VerificationReport {
         eer,

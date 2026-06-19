@@ -102,6 +102,9 @@ mod tests {
         let b = mask_embedding(&PhaseMask::random(16, 16, 200));
         let dot: f32 = a.iter().zip(&b).map(|(x, y)| x * y).sum();
         // Different random masks should not be identical
-        assert!(dot < 0.9999, "embeddings unexpectedly identical: dot = {dot}");
+        assert!(
+            dot < 0.9999,
+            "embeddings unexpectedly identical: dot = {dot}"
+        );
     }
 }

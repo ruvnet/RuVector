@@ -39,7 +39,11 @@ pub struct Provenance {
 }
 
 pub fn hash_input(img: &InputImage) -> String {
-    hash_f32("photonlayer.input.v1", &[img.width, img.height], &img.pixels)
+    hash_f32(
+        "photonlayer.input.v1",
+        &[img.width, img.height],
+        &img.pixels,
+    )
 }
 
 pub fn hash_mask(mask: &PhaseMask) -> String {
@@ -147,7 +151,15 @@ mod tests {
         let out = propagate(&f2, &cfg).unwrap();
         let frame = capture(&out, &cfg);
         let metrics = MetricReport::default();
-        build_receipt("exp-1", &img, &mask, &cfg, &frame, &metrics, &Provenance::default())
+        build_receipt(
+            "exp-1",
+            &img,
+            &mask,
+            &cfg,
+            &frame,
+            &metrics,
+            &Provenance::default(),
+        )
     }
 
     #[test]

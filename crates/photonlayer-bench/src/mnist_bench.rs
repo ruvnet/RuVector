@@ -89,7 +89,9 @@ fn optical_feature_set(
     let feats = samples
         .iter()
         .map(|s| {
-            let frame = ScalarSimulator.simulate(&s.image, mask, cfg).expect("simulation");
+            let frame = ScalarSimulator
+                .simulate(&s.image, mask, cfg)
+                .expect("simulation");
             frame_features(&frame, sensor)
         })
         .collect();
@@ -114,7 +116,12 @@ fn decode_optical_acc(
 
 /// Pure optics-only argmax differential accuracy (no decoder) — a transparency
 /// floor showing what the optics alone achieve before the tiny decoder.
-fn argmax_diff_acc(samples: &[Sample], mask: &PhaseMask, cfg: &OpticalConfig, det: &DiffDetector) -> f32 {
+fn argmax_diff_acc(
+    samples: &[Sample],
+    mask: &PhaseMask,
+    cfg: &OpticalConfig,
+    det: &DiffDetector,
+) -> f32 {
     let mut correct = 0usize;
     for s in samples {
         let frame = ScalarSimulator.simulate(&s.image, mask, cfg).expect("sim");
@@ -125,7 +132,12 @@ fn argmax_diff_acc(samples: &[Sample], mask: &PhaseMask, cfg: &OpticalConfig, de
     correct as f32 / samples.len().max(1) as f32
 }
 
-fn argmax_plain_acc(samples: &[Sample], mask: &PhaseMask, cfg: &OpticalConfig, det: &DiffDetector) -> f32 {
+fn argmax_plain_acc(
+    samples: &[Sample],
+    mask: &PhaseMask,
+    cfg: &OpticalConfig,
+    det: &DiffDetector,
+) -> f32 {
     let mut correct = 0usize;
     for s in samples {
         let frame = ScalarSimulator.simulate(&s.image, mask, cfg).expect("sim");
@@ -278,9 +290,9 @@ pub fn run_mnist_config_a(
 }
 
 /// Train two masks with two objectives, then run the full acceptance comparison
-/// + differential-detection ablation on each. Determinism: every mask is born
-/// from a stated seed and the optimizer is seeded, so the whole run is bit-
-/// reproducible.
+/// and differential-detection ablation on each. Determinism: every mask is born
+/// from a stated seed and the optimizer is seeded, so the whole run is
+/// bit-reproducible.
 ///
 ///   * Config A (decoder objective, seed `bcfg.seed`) is the product/acceptance
 ///     headline: optics trained to make the compressed pooled readout separable
@@ -331,7 +343,9 @@ pub fn run_mnist_differential(
     // argmax_k (I+_k - I-_k) is the label. This isolates the differential lever;
     // plain vs differential argmax on the SAME Config-B mask shows its size.
     let config_b_seed = bcfg.seed ^ 0xB;
-    let mask_b = train_mask(bcfg, config_b_seed, |m| argmax_diff_acc(train, m, &cfg, &det));
+    let mask_b = train_mask(bcfg, config_b_seed, |m| {
+        argmax_diff_acc(train, m, &cfg, &det)
+    });
     let config_b_plain = argmax_plain_acc(test, &mask_b, &cfg, &det);
     let config_b_differential = argmax_diff_acc(test, &mask_b, &cfg, &det);
 

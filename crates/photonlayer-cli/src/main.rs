@@ -127,8 +127,11 @@ fn cmd_barcode() {
     let cfg = OpticalConfig::demo(N, N);
     let samples = make_dataset(N, PER_CLASS, 0xBAC0DE);
     // Simple 50/50 split.
-    let (train, test): (Vec<_>, Vec<_>) =
-        samples.iter().cloned().enumerate().partition(|(i, _)| i % 2 == 0);
+    let (train, test): (Vec<_>, Vec<_>) = samples
+        .iter()
+        .cloned()
+        .enumerate()
+        .partition(|(i, _)| i % 2 == 0);
     let train: Vec<_> = train.into_iter().map(|(_, s)| s).collect();
     let test: Vec<_> = test.into_iter().map(|(_, s)| s).collect();
 
@@ -166,7 +169,12 @@ fn cmd_barcode() {
         println!();
 
         // Render encoded detector frame.
-        render_ascii(&frame.intensity, frame.width, frame.height, "<-- optical detector frame");
+        render_ascii(
+            &frame.intensity,
+            frame.width,
+            frame.height,
+            "<-- optical detector frame",
+        );
         println!();
 
         let readable = if similarity.abs() > 0.4 {
@@ -217,7 +225,12 @@ fn cmd_edge() {
         println!();
         render_ascii(&sample.image.pixels, N, N, "<-- original");
         println!();
-        render_ascii(&frame.intensity, frame.width, frame.height, "<-- optical edge frame");
+        render_ascii(
+            &frame.intensity,
+            frame.width,
+            frame.height,
+            "<-- optical edge frame",
+        );
         println!();
         println!(
             "  input_frame_similarity = {:.3}",
@@ -276,19 +289,11 @@ fn cmd_privacy_gate() {
     println!("  {}", "-".repeat(60));
     println!(
         "  {:24} {:>8.3} {:>8.3} {:>8.3} {:>8.3}",
-        "random mask",
-        rnd_vr.eer,
-        rnd_vr.far_at_eer,
-        rnd_vr.frr_at_eer,
-        rnd_vr.threshold,
+        "random mask", rnd_vr.eer, rnd_vr.far_at_eer, rnd_vr.frr_at_eer, rnd_vr.threshold,
     );
     println!(
         "  {:24} {:>8.3} {:>8.3} {:>8.3} {:>8.3}",
-        "learned mask",
-        lrn_vr.eer,
-        lrn_vr.far_at_eer,
-        lrn_vr.frr_at_eer,
-        lrn_vr.threshold,
+        "learned mask", lrn_vr.eer, lrn_vr.far_at_eer, lrn_vr.frr_at_eer, lrn_vr.threshold,
     );
     println!();
 
@@ -321,15 +326,24 @@ fn cmd_privacy_gate() {
     println!("  {}", "-".repeat(70));
     println!(
         "  {:24} {:>14.2} {:>14.3} {:>14.3}",
-        "identity (no optics)", id_pr.reconstruction_psnr, id_pr.leakage_score, id_pr.frame_input_similarity
+        "identity (no optics)",
+        id_pr.reconstruction_psnr,
+        id_pr.leakage_score,
+        id_pr.frame_input_similarity
     );
     println!(
         "  {:24} {:>14.2} {:>14.3} {:>14.3}",
-        "random mask", rnd_pr.reconstruction_psnr, rnd_pr.leakage_score, rnd_pr.frame_input_similarity
+        "random mask",
+        rnd_pr.reconstruction_psnr,
+        rnd_pr.leakage_score,
+        rnd_pr.frame_input_similarity
     );
     println!(
         "  {:24} {:>14.2} {:>14.3} {:>14.3}",
-        "learned mask", lrn_pr.reconstruction_psnr, lrn_pr.leakage_score, lrn_pr.frame_input_similarity
+        "learned mask",
+        lrn_pr.reconstruction_psnr,
+        lrn_pr.leakage_score,
+        lrn_pr.frame_input_similarity
     );
     println!();
 
@@ -457,7 +471,10 @@ fn cmd_verify_receipt(path: &str) {
 // ---------------------------------------------------------------------------
 
 fn print_usage() {
-    println!("photonlayer {} (ADR-260 optical-computing simulator)", env!("CARGO_PKG_VERSION"));
+    println!(
+        "photonlayer {} (ADR-260 optical-computing simulator)",
+        env!("CARGO_PKG_VERSION")
+    );
     println!();
     println!("USAGE:");
     println!("  photonlayer <subcommand> [args...]");

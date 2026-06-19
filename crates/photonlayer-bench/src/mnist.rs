@@ -221,7 +221,9 @@ pub fn subset(raw: &RawMnist, per_class: usize, cell: usize, grid: usize) -> Vec
 /// (`CARGO_MANIFEST_DIR/data/mnist`). Tests use this so the path is stable
 /// regardless of the process working directory.
 pub fn default_cache_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("data").join("mnist")
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("data")
+        .join("mnist")
 }
 
 #[cfg(test)]

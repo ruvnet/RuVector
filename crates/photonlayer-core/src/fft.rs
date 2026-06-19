@@ -122,7 +122,10 @@ pub fn fft_1d_with(data: &mut [Complex], table: &TwiddleTable) {
 /// by column transforms (separable DFT).
 pub fn fft_2d(data: &mut [Complex], width: usize, height: usize, inverse: bool) {
     assert_eq!(data.len(), width * height, "buffer size mismatch");
-    assert!(is_pow2(width) && is_pow2(height), "dims must be power of two");
+    assert!(
+        is_pow2(width) && is_pow2(height),
+        "dims must be power of two"
+    );
 
     // Build each dimension's twiddle table once and reuse it across every
     // row / column transform (OPT-B) — angles are computed a single time.

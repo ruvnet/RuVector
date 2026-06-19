@@ -36,9 +36,9 @@ fn render(class: usize, n: usize, rng: &mut DeterministicRng) -> Vec<f32> {
             let fx = x as f32 - cx - jx;
             let fy = y as f32 - cy - jy;
             let v = match class {
-                0 => (fx.abs() < thick) as i32 as f32,            // vertical bar
-                1 => (fy.abs() < thick) as i32 as f32,            // horizontal bar
-                2 => ((fx - fy).abs() < thick) as i32 as f32,     // diagonal
+                0 => (fx.abs() < thick) as i32 as f32,        // vertical bar
+                1 => (fy.abs() < thick) as i32 as f32,        // horizontal bar
+                2 => ((fx - fy).abs() < thick) as i32 as f32, // diagonal
                 _ => {
                     // ring
                     let r = (fx * fx + fy * fy).sqrt();

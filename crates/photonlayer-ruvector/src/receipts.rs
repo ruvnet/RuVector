@@ -29,8 +29,7 @@ impl ReceiptStore {
     /// Returns an error string if serialisation fails (practically infallible
     /// for well-formed receipts).
     pub fn insert(&mut self, receipt: &ExperimentReceipt) -> Result<(), String> {
-        let json = serde_json::to_string(receipt)
-            .map_err(|e| format!("serialise failed: {e}"))?;
+        let json = serde_json::to_string(receipt).map_err(|e| format!("serialise failed: {e}"))?;
         self.store.insert(receipt.experiment_id.clone(), json);
         Ok(())
     }
@@ -106,7 +105,15 @@ mod tests {
         let cfg = OpticalConfig::demo(n, n);
         let frame = ScalarSimulator.simulate(&img, &mask, &cfg).unwrap();
         let metrics = MetricReport::default();
-        build_receipt(id, &img, &mask, &cfg, &frame, &metrics, &Provenance::default())
+        build_receipt(
+            id,
+            &img,
+            &mask,
+            &cfg,
+            &frame,
+            &metrics,
+            &Provenance::default(),
+        )
     }
 
     #[test]

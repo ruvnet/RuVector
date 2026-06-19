@@ -101,7 +101,12 @@ pub fn run_classification(grid: usize, per_class: usize, lc: &LearnConfig) -> Be
 /// class-discriminative structure, but a *learned* mask can diffract
 /// class-specific energy into the few remaining sensor cells — recovering
 /// accuracy with far fewer pixels.
-pub fn run_compression(grid: usize, per_class: usize, feat_dim: usize, lc: &LearnConfig) -> BenchReport {
+pub fn run_compression(
+    grid: usize,
+    per_class: usize,
+    feat_dim: usize,
+    lc: &LearnConfig,
+) -> BenchReport {
     let cfg = OpticalConfig::demo(grid, grid);
     let data = make_dataset(grid, per_class, 0xC0FFEE);
     let (train, test) = split(&data);
@@ -119,12 +124,26 @@ pub fn run_compression(grid: usize, per_class: usize, feat_dim: usize, lc: &Lear
     };
 
     let random_mask = PhaseMask::random(grid, grid, 0x5EED);
-    let random = eval_optical(&random_mask, &train, &test, &cfg, feat_dim, "random_mask_tiny");
+    let random = eval_optical(
+        &random_mask,
+        &train,
+        &test,
+        &cfg,
+        feat_dim,
+        "random_mask_tiny",
+    );
 
     let mut lc2 = *lc;
     lc2.feat_dim = feat_dim;
     let outcome = learn_mask(&train, &cfg, &lc2);
-    let learned = eval_optical(&outcome.mask, &train, &test, &cfg, feat_dim, "learned_mask_tiny");
+    let learned = eval_optical(
+        &outcome.mask,
+        &train,
+        &test,
+        &cfg,
+        feat_dim,
+        "learned_mask_tiny",
+    );
 
     BenchReport {
         grid,
@@ -145,8 +164,16 @@ mod tests {
             ..Default::default()
         };
         let report = run_classification(16, 8, &lc);
-        let random = report.variants.iter().find(|v| v.name == "random_mask").unwrap();
-        let learned = report.variants.iter().find(|v| v.name == "learned_mask").unwrap();
+        let random = report
+            .variants
+            .iter()
+            .find(|v| v.name == "random_mask")
+            .unwrap();
+        let learned = report
+            .variants
+            .iter()
+            .find(|v| v.name == "learned_mask")
+            .unwrap();
         assert!(
             learned.train_accuracy >= random.train_accuracy,
             "learned {} < random {}",
@@ -164,9 +191,21 @@ mod tests {
             ..Default::default()
         };
         let r = run_compression(16, 10, 2, &lc);
-        let dig = r.variants.iter().find(|v| v.name == "digital_tiny_sensor").unwrap();
-        let rnd = r.variants.iter().find(|v| v.name == "random_mask_tiny").unwrap();
-        let lrn = r.variants.iter().find(|v| v.name == "learned_mask_tiny").unwrap();
+        let dig = r
+            .variants
+            .iter()
+            .find(|v| v.name == "digital_tiny_sensor")
+            .unwrap();
+        let rnd = r
+            .variants
+            .iter()
+            .find(|v| v.name == "random_mask_tiny")
+            .unwrap();
+        let lrn = r
+            .variants
+            .iter()
+            .find(|v| v.name == "learned_mask_tiny")
+            .unwrap();
         assert!(lrn.test_accuracy > dig.test_accuracy, "learned !> digital");
         assert!(lrn.test_accuracy >= rnd.test_accuracy, "learned < random");
     }

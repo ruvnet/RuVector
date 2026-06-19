@@ -24,8 +24,14 @@ fn acc(report: &BenchReport, needle: &str) -> f32 {
 }
 
 fn print_report(title: &str, r: &BenchReport) {
-    println!("\n== {title} ==  grid={} feature_dim={}", r.grid, r.feature_dim);
-    println!("  {:<22} {:>8} {:>8} {:>10}", "variant", "train", "test", "dec.params");
+    println!(
+        "\n== {title} ==  grid={} feature_dim={}",
+        r.grid, r.feature_dim
+    );
+    println!(
+        "  {:<22} {:>8} {:>8} {:>10}",
+        "variant", "train", "test", "dec.params"
+    );
     for v in &r.variants {
         println!(
             "  {:<22} {:>8.3} {:>8.3} {:>10}",
@@ -36,11 +42,17 @@ fn print_report(title: &str, r: &BenchReport) {
 
 #[test]
 fn compression_sweep_more_data() {
-    let lc = LearnConfig { iterations: ITERS, ..Default::default() };
+    let lc = LearnConfig {
+        iterations: ITERS,
+        ..Default::default()
+    };
 
     // Sensor side -> pixel count: 1->1, 2->4, 3->9, 4->16 (input is 16x16 = 256 px).
     println!("\nPhotonLayer compression sweep (grid={GRID}, per_class={PER_CLASS}, iters={ITERS})");
-    println!("input pixels = {} ; learned vs random optical mask vs direct pixel read", GRID * GRID);
+    println!(
+        "input pixels = {} ; learned vs random optical mask vs direct pixel read",
+        GRID * GRID
+    );
 
     let mut learned_wins = 0;
     let sensors = [1usize, 2, 3, 4];
@@ -48,7 +60,10 @@ fn compression_sweep_more_data() {
         let r = run_compression(GRID, PER_CLASS, s, &lc);
         let px = s * s;
         let ratio = (GRID * GRID) as f32 / px as f32;
-        print_report(&format!("compression {s}x{s} sensor = {px}px ({ratio:.0}x reduction)"), &r);
+        print_report(
+            &format!("compression {s}x{s} sensor = {px}px ({ratio:.0}x reduction)"),
+            &r,
+        );
 
         let learned = acc(&r, "learn");
         let random = acc(&r, "random");
@@ -74,11 +89,19 @@ fn compression_sweep_more_data() {
 
 #[test]
 fn classification_more_data() {
-    let lc = LearnConfig { iterations: ITERS, ..Default::default() };
+    let lc = LearnConfig {
+        iterations: ITERS,
+        ..Default::default()
+    };
     let r = run_classification(GRID, PER_CLASS, &lc);
     print_report("classification (more data)", &r);
     let learned = acc(&r, "learn");
-    let baseline = acc(&r, "random").max(acc(&r, "direct")).max(acc(&r, "digital"));
+    let baseline = acc(&r, "random")
+        .max(acc(&r, "direct"))
+        .max(acc(&r, "digital"));
     println!("  -> learned={learned:.3}  best_baseline={baseline:.3}");
-    assert!(learned > 0.0, "learned variant must be present and produce a score");
+    assert!(
+        learned > 0.0,
+        "learned variant must be present and produce a score"
+    );
 }

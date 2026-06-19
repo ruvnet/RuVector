@@ -18,7 +18,11 @@ fn fftfreq(n: usize, d: f32) -> Vec<f32> {
     let inv = 1.0 / (n as f32 * d);
     let half = n.div_ceil(2);
     for (i, slot) in f.iter_mut().enumerate() {
-        let k = if i < half { i as i64 } else { i as i64 - n as i64 };
+        let k = if i < half {
+            i as i64
+        } else {
+            i as i64 - n as i64
+        };
         *slot = k as f32 * inv;
     }
     f
@@ -113,10 +117,18 @@ fn apply_transfer(field: &OpticalField, w: usize, h: usize, hk: &[Complex]) -> O
         *dv = *dv * *hv;
     }
     fft_2d(&mut data, w, h, true);
-    OpticalField { width: w, height: h, data }
+    OpticalField {
+        width: w,
+        height: h,
+        data,
+    }
 }
 
-fn transfer_fn(field: &OpticalField, config: &OpticalConfig, kind: TransferKind) -> Result<OpticalField> {
+fn transfer_fn(
+    field: &OpticalField,
+    config: &OpticalConfig,
+    kind: TransferKind,
+) -> Result<OpticalField> {
     let (w, h) = (field.width, field.height);
     let hk = transfer_kernel(w, h, config, kind);
     Ok(apply_transfer(field, w, h, &hk))
@@ -150,9 +162,12 @@ impl Propagator {
         }
         let kind = match config.propagation {
             PropagationMode::Fraunhofer => PropKind::Fraunhofer,
-            PropagationMode::Fresnel => {
-                PropKind::Transfer(transfer_kernel(width, height, config, TransferKind::Fresnel))
-            }
+            PropagationMode::Fresnel => PropKind::Transfer(transfer_kernel(
+                width,
+                height,
+                config,
+                TransferKind::Fresnel,
+            )),
             PropagationMode::AngularSpectrum => PropKind::Transfer(transfer_kernel(
                 width,
                 height,
@@ -160,7 +175,11 @@ impl Propagator {
                 TransferKind::AngularSpectrum,
             )),
         };
-        Ok(Self { width, height, kind })
+        Ok(Self {
+            width,
+            height,
+            kind,
+        })
     }
 
     /// Propagate a field through the precomputed operator.

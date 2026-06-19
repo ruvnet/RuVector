@@ -52,7 +52,8 @@ pub fn input_frame_similarity(input: &InputImage, frame: &OpticalFrame) -> f32 {
         for fx in 0..frame.width {
             let ix = fx * input.width / frame.width;
             let iy = fy * input.height / frame.height;
-            a[fy * frame.width + fx] = input.pixels[iy.min(input.height - 1) * input.width + ix.min(input.width - 1)];
+            a[fy * frame.width + fx] =
+                input.pixels[iy.min(input.height - 1) * input.width + ix.min(input.width - 1)];
         }
     }
     pearson(&a, &frame.intensity)

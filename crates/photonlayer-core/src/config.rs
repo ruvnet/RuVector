@@ -119,23 +119,33 @@ impl OpticalConfig {
             )));
         }
         if !(self.wavelength_nm.is_finite() && self.wavelength_nm > 0.0) {
-            return Err(PhotonError::InvalidConfig("wavelength_nm must be finite and > 0".into()));
+            return Err(PhotonError::InvalidConfig(
+                "wavelength_nm must be finite and > 0".into(),
+            ));
         }
         if !(self.pixel_pitch_um.is_finite() && self.pixel_pitch_um > 0.0) {
-            return Err(PhotonError::InvalidConfig("pixel_pitch_um must be finite and > 0".into()));
+            return Err(PhotonError::InvalidConfig(
+                "pixel_pitch_um must be finite and > 0".into(),
+            ));
         }
         if !self.propagation_mm.is_finite() {
-            return Err(PhotonError::InvalidConfig("propagation_mm must be finite".into()));
+            return Err(PhotonError::InvalidConfig(
+                "propagation_mm must be finite".into(),
+            ));
         }
         let d = &self.detector;
         if !(d.shot_noise_photons.is_finite()
             && d.read_noise_std.is_finite()
             && d.saturation.is_finite())
         {
-            return Err(PhotonError::InvalidConfig("detector noise/saturation must be finite".into()));
+            return Err(PhotonError::InvalidConfig(
+                "detector noise/saturation must be finite".into(),
+            ));
         }
         if d.binning == 0 {
-            return Err(PhotonError::InvalidConfig("detector.binning must be >= 1".into()));
+            return Err(PhotonError::InvalidConfig(
+                "detector.binning must be >= 1".into(),
+            ));
         }
         Ok(())
     }

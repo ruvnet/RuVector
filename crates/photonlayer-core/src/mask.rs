@@ -20,7 +20,12 @@ pub struct PhaseMask {
 }
 
 impl PhaseMask {
-    pub fn new(width: usize, height: usize, phase_radians: Vec<f32>, mask_id: impl Into<String>) -> Result<Self> {
+    pub fn new(
+        width: usize,
+        height: usize,
+        phase_radians: Vec<f32>,
+        mask_id: impl Into<String>,
+    ) -> Result<Self> {
         if phase_radians.len() != width * height {
             return Err(PhotonError::DimensionMismatch {
                 expected: width * height,
