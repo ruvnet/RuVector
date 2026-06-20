@@ -246,6 +246,8 @@ members = [
     "crates/photonlayer-ruvector",
     "crates/photonlayer-cli",
     "crates/photonlayer-wasm",
+    # Product Quantization with Asymmetric Distance Computation (ADR-264)
+    "crates/ruvector-pq-search",
 ]
 resolver = "2"
 

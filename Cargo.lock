@@ -9998,6 +9998,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-pq-search"
+version = "2.2.3"
+dependencies = [
+ "rand 0.8.6",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ruvector-profiler"
 version = "2.2.3"
 dependencies = [

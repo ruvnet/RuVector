@@ -1,0 +1,19 @@
+[package]
+name = "ruvector-pq-search"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Product Quantization with Asymmetric Distance Computation (ADC) for compressed approximate nearest-neighbor search — Flat PQ, IVF+PQ, and Residual-corrected PQ variants in safe Rust"
+
+[[bin]]
+name = "pq-benchmark"
+path = "src/main.rs"
+
+[dependencies]
+rand = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
