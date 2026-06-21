@@ -232,6 +232,8 @@ members = [
     "crates/ruvector-rairs",
     # Hybrid sparse-dense search: BM25 + ANN + RRF / RSF / ScoreFusion (ADR-256)
     "crates/ruvector-hybrid",
+    # LSM-ANN: write-optimized streaming vector index for agent memory (ADR-264)
+    "crates/ruvector-lsm-ann",
     # Structure-preserving graph condensation via dynamic min-cut communities
     "crates/ruvector-graph-condense",
     "crates/ruvector-graph-condense-wasm",
