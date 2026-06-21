@@ -246,6 +246,8 @@ members = [
     "crates/photonlayer-ruvector",
     "crates/photonlayer-cli",
     "crates/photonlayer-wasm",
+    # Matryoshka coarse-to-fine ANN search: three-variant funnel with recall/latency tradeoffs (ADR-264)
+    "crates/ruvector-matryoshka",
 ]
 resolver = "2"
 

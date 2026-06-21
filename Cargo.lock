@@ -9799,6 +9799,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-matryoshka"
+version = "2.2.3"
+dependencies = [
+ "rand 0.8.6",
+]
+
+[[package]]
 name = "ruvector-metrics"
 version = "2.2.3"
 dependencies = [
