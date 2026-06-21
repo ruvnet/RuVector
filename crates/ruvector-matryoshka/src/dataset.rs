@@ -40,7 +40,7 @@ pub fn generate_matryoshka_dataset(
     seed: u64,
 ) -> (Vec<Vec<f32>>, Vec<Vec<f32>>) {
     let mut rng = seed;
-    let num_clusters: usize = (n / 10).max(10).min(100);
+    let num_clusters: usize = (n / 10).clamp(10, 100);
 
     // Draw cluster centres in the signal subspace.
     let centres: Vec<Vec<f32>> = (0..num_clusters)
@@ -56,8 +56,8 @@ pub fn generate_matryoshka_dataset(
         let mut v: Vec<f32> = Vec::with_capacity(full_dim);
 
         // Signal dims: cluster centre + tight noise.
-        for d in 0..signal_dim {
-            v.push(centre[d] + lcg_uniform(rng) * 0.08);
+        for &c in centre {
+            v.push(c + lcg_uniform(rng) * 0.08);
         }
         // Remaining dims: moderate noise (no cluster structure).
         for _ in signal_dim..full_dim {

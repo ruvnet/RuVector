@@ -57,7 +57,7 @@ pub fn l2_sq(a: &[f32], b: &[f32]) -> f32 {
 }
 
 /// L2-normalise a vector in-place.
-pub fn l2_normalize(v: &mut Vec<f32>) {
+pub fn l2_normalize(v: &mut [f32]) {
     let norm = v.iter().map(|x| x * x).sum::<f32>().sqrt();
     if norm > 1e-10 {
         let inv = 1.0 / norm;

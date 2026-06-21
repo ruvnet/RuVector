@@ -23,7 +23,13 @@ pub struct HnswConfig {
 impl HnswConfig {
     pub fn new(dim: usize, m: usize, ef_construction: usize) -> Self {
         let ml = 1.0 / (m as f64).ln();
-        Self { dim, m, m0: m * 2, ef_construction, ml }
+        Self {
+            dim,
+            m,
+            m0: m * 2,
+            ef_construction,
+            ml,
+        }
     }
 }
 
@@ -61,7 +67,10 @@ impl PartialOrd for MinC {
 impl Ord for MinC {
     fn cmp(&self, o: &Self) -> Ordering {
         // Reverse dist order so BinaryHeap (max-heap) behaves as min-heap.
-        o.dist.partial_cmp(&self.dist).unwrap_or(Ordering::Equal).then(self.id.cmp(&o.id))
+        o.dist
+            .partial_cmp(&self.dist)
+            .unwrap_or(Ordering::Equal)
+            .then(self.id.cmp(&o.id))
     }
 }
 
@@ -87,7 +96,10 @@ impl PartialOrd for MaxC {
 impl Ord for MaxC {
     fn cmp(&self, o: &Self) -> Ordering {
         // Natural dist order so BinaryHeap pops the furthest element first.
-        self.dist.partial_cmp(&o.dist).unwrap_or(Ordering::Equal).then(o.id.cmp(&self.id))
+        self.dist
+            .partial_cmp(&o.dist)
+            .unwrap_or(Ordering::Equal)
+            .then(o.id.cmp(&self.id))
     }
 }
 
@@ -149,13 +161,21 @@ impl HnswGraph {
         for lc in (0..=level.min(top)).rev() {
             let ef_c = self.config.ef_construction;
             let cands = self.search_layer_id(ep, id, ef_c, lc);
-            let m_max = if lc == 0 { self.config.m0 } else { self.config.m };
+            let m_max = if lc == 0 {
+                self.config.m0
+            } else {
+                self.config.m
+            };
             let selected: Vec<u32> = cands.iter().take(m_max).map(|c| c.1).collect();
 
             self.layers[lc][id as usize] = selected.clone();
 
             for &nb in &selected {
-                let max_nb = if lc == 0 { self.config.m0 } else { self.config.m };
+                let max_nb = if lc == 0 {
+                    self.config.m0
+                } else {
+                    self.config.m
+                };
                 let nb_neighbours = self.layers[lc][nb as usize].clone();
                 if nb_neighbours.len() < max_nb {
                     self.layers[lc][nb as usize].push(id);
@@ -203,7 +223,11 @@ impl HnswGraph {
     // ────── internal helpers ──────────────────────────────────────────────────
 
     fn dist_id(&self, a: u32, b: u32) -> f32 {
-        l2_sq_prefix(&self.vecs[a as usize], &self.vecs[b as usize], self.config.dim)
+        l2_sq_prefix(
+            &self.vecs[a as usize],
+            &self.vecs[b as usize],
+            self.config.dim,
+        )
     }
     fn dist_qv(&self, query: &[f32], b: u32) -> f32 {
         l2_sq_prefix(query, &self.vecs[b as usize], self.config.dim)
@@ -222,7 +246,9 @@ impl HnswGraph {
                     improved = true;
                 }
             }
-            if !improved { break; }
+            if !improved {
+                break;
+            }
         }
         best
     }
@@ -240,7 +266,9 @@ impl HnswGraph {
                     improved = true;
                 }
             }
-            if !improved { break; }
+            if !improved {
+                break;
+            }
         }
         best
     }
@@ -264,8 +292,14 @@ impl HnswGraph {
         // max-heap: pop the furthest when over capacity, peek at worst result
         let mut results: BinaryHeap<MaxC> = BinaryHeap::new();
 
-        open.push(MinC { dist: ep_dist, id: ep });
-        results.push(MaxC { dist: ep_dist, id: ep });
+        open.push(MinC {
+            dist: ep_dist,
+            id: ep,
+        });
+        results.push(MaxC {
+            dist: ep_dist,
+            id: ep,
+        });
 
         while let Some(curr) = open.pop() {
             // If the closest unvisited candidate is farther than our worst
@@ -275,7 +309,10 @@ impl HnswGraph {
                 break;
             }
 
-            let neighbours = self.layers[lc].get(curr.id as usize).cloned().unwrap_or_default();
+            let neighbours = self.layers[lc]
+                .get(curr.id as usize)
+                .cloned()
+                .unwrap_or_default();
             for nb in neighbours {
                 if !visited.insert(nb) {
                     continue;
