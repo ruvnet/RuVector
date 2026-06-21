@@ -1,0 +1,36 @@
+[package]
+name = "photonlayer-core"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "PhotonLayer: pure-Rust differentiable-style optical computing simulator (learned optical frontend). See ADR-260."
+keywords = ["optics", "diffraction", "simulation", "computational-imaging", "fft"]
+categories = ["science", "simulation", "algorithms"]
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+blake3 = "1.8"
+thiserror = { workspace = true }
+
+[dev-dependencies]
+# Golden / determinism tests only use std.
+
+[features]
+default = ["std"]
+std = []
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", priority = -1 }
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+correctness = { level = "deny", priority = 0 }
+suspicious = { level = "deny", priority = 0 }
+pedantic = { level = "allow", priority = -2 }
+needless_range_loop = "allow"
+manual_range_contains = "allow"
+too_many_arguments = "allow"

@@ -17,6 +17,12 @@ import {
   LoRAConfig,
   Embedding,
 } from './types';
+import { LoraAdapter } from './lora';
+
+/** Embedding dimension used by the coordinator's hash embedder and micro-LoRA. */
+const MICRO_LORA_DIM = 64;
+/** Micro-LoRA rank: SONA's instant loop uses a tiny adapter (rank 1-2) by design. */
+const MICRO_LORA_RANK = 2;
 
 /**
  * Default SONA configuration
@@ -444,21 +450,33 @@ export class SonaCoordinator {
   private reasoningBank: ReasoningBank;
   private ewcManager: EwcManager;
   private signalBuffer: LearningSignal[] = [];
+  private microLora: LoraAdapter;
+  private microLoraUpdates = 0;
 
   constructor(config?: SonaConfig) {
     this.config = { ...DEFAULT_SONA_CONFIG, ...config };
     this.reasoningBank = new ReasoningBank(this.config.patternThreshold);
     this.ewcManager = new EwcManager(this.config.ewcLambda);
+    this.microLora = new LoraAdapter(
+      { rank: MICRO_LORA_RANK },
+      MICRO_LORA_DIM,
+      MICRO_LORA_DIM
+    );
   }
 
   /**
    * Record a learning signal
+   *
+   * Every signal drives the instant loop: quality above 0.5 reinforces the
+   * signal's direction in the micro-LoRA, quality below 0.5 unlearns it
+   * (previously only quality >= 0.8 was processed, so negative feedback
+   * never adapted anything).
    */
   recordSignal(signal: LearningSignal): void {
     this.signalBuffer.push(signal);
 
     // Instant loop - immediate learning
-    if (this.config.instantLoopEnabled && signal.quality >= 0.8) {
+    if (this.config.instantLoopEnabled) {
       this.processInstantLearning(signal);
     }
   }
@@ -529,18 +547,73 @@ export class SonaCoordinator {
     trajectoriesBuffered: number;
     patterns: ReturnType<ReasoningBank['stats']>;
     ewc: EwcStats;
+    microLora: { updates: number; deltaNorm: number };
   } {
     return {
       signalsReceived: this.signalBuffer.length,
       trajectoriesBuffered: this.trajectoryBuffer.length,
       patterns: this.reasoningBank.stats(),
       ewc: this.ewcManager.stats(),
+      microLora: {
+        updates: this.microLoraUpdates,
+        deltaNorm: this.microLoraDeltaNorm(),
+      },
     };
   }
 
+  /**
+   * Apply the micro-LoRA transformation learned from feedback.
+   *
+   * Input is truncated/zero-padded to the adapter dimension; the residual
+   * connection means an untrained adapter returns the input unchanged.
+   */
+  applyMicroLora(input: number[]): number[] {
+    return this.microLora.forward(input.slice(0, MICRO_LORA_DIM));
+  }
+
+  /**
+   * Frobenius norm of the micro-LoRA weight delta (scaling * A @ B).
+   *
+   * 0 means no adaptation has occurred (LoRA B is zero-initialized, so the
+   * delta is exactly zero until the first feedback update). Consumers can
+   * surface this directly (e.g. a statusline "delta LoRA" field) — see #553.
+   */
+  microLoraDeltaNorm(): number {
+    const { loraA, loraB, scaling } = this.microLora.getWeights();
+    const rank = loraB.length;
+    let sumSq = 0;
+    for (let i = 0; i < loraA.length; i++) {
+      for (let j = 0; j < MICRO_LORA_DIM; j++) {
+        let d = 0;
+        for (let r = 0; r < rank; r++) {
+          d += loraA[i][r] * loraB[r][j];
+        }
+        sumSq += scaling * d * (scaling * d);
+      }
+    }
+    return Math.sqrt(sumSq);
+  }
+
+  /**
+   * Instant-loop learning: a single feedback signal produces a real
+   * micro-LoRA weight update (fixes #553 — this was a no-op stub, so
+   * learn-from-feedback never changed any weight).
+   *
+   * REINFORCE-style with a fixed 0.5 baseline: reward = quality - 0.5.
+   * The gradient pushes the adapter output toward the signal's embedding
+   * direction for positive reward and away from it for negative reward
+   * (backward() applies `weights -= lr * grad`, hence the negated sign).
+   */
   private processInstantLearning(signal: LearningSignal): void {
-    // Immediate pattern reinforcement would happen here
-    // In full implementation, this updates LoRA weights
+    const reward = signal.quality - 0.5;
+    if (reward === 0) return;
+
+    const input = this.createEmbedding(
+      signal.correction ?? `${signal.requestId}:${signal.type}`
+    );
+    const gradOutput = input.map(x => -reward * x);
+    this.microLora.backward(input, gradOutput, this.config.loraLearningRate);
+    this.microLoraUpdates++;
   }
 
   private extractPatterns(trajectory: QueryTrajectory): number {

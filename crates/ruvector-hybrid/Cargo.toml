@@ -1,0 +1,20 @@
+[package]
+name        = "ruvector-hybrid"
+version     = "0.1.0"
+edition     = "2021"
+description = "Hybrid sparse-dense search: BM25 + ANN + Reciprocal Rank Fusion for ruvector"
+authors     = ["ruvnet", "claude-flow"]
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["hybrid-search", "bm25", "ann", "vector-search", "rrf"]
+categories  = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "hybrid-demo"
+path = "src/main.rs"
+
+[dependencies]
+rand = "0.8"
+
+[dev-dependencies]
+criterion = { version = "0.5" }

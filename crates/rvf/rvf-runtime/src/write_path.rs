@@ -56,6 +56,18 @@ impl SegmentWriter {
         payload.extend_from_slice(&vector_count.to_le_bytes());
         for (vec_data, &vec_id) in vectors.iter().zip(ids.iter()) {
             payload.extend_from_slice(&vec_id.to_le_bytes());
+            // On little-endian targets the in-memory f32 representation is
+            // already the wire format, so append the whole vector in one copy.
+            #[cfg(target_endian = "little")]
+            {
+                // SAFETY: f32 has no padding and any 4-byte pattern is a valid
+                // byte view; the slice covers exactly vec_data's allocation.
+                let bytes = unsafe {
+                    std::slice::from_raw_parts(vec_data.as_ptr() as *const u8, vec_data.len() * 4)
+                };
+                payload.extend_from_slice(bytes);
+            }
+            #[cfg(target_endian = "big")]
             for &val in *vec_data {
                 payload.extend_from_slice(&val.to_le_bytes());
             }
@@ -94,6 +106,18 @@ impl SegmentWriter {
         }
 
         let offset = self.write_segment(writer, SegmentType::Journal as u8, seg_id, &payload)?;
+        Ok((seg_id, offset))
+    }
+
+    /// Write an INDEX_SEG containing an encoded HNSW index payload
+    /// (codec payload + ID-mapping trailer; see `index_path`).
+    pub(crate) fn write_index_seg<W: Write + Seek>(
+        &mut self,
+        writer: &mut W,
+        payload: &[u8],
+    ) -> io::Result<(u64, u64)> {
+        let seg_id = self.alloc_seg_id();
+        let offset = self.write_segment(writer, SegmentType::Index as u8, seg_id, payload)?;
         Ok((seg_id, offset))
     }
 
@@ -414,9 +438,8 @@ impl SegmentWriter {
         let mut header = SegmentHeader::new(seg_type, seg_id);
         header.payload_length = payload.len() as u64;
 
-        // Compute a simple content hash (first 16 bytes of CRC-based hash).
-        let hash = content_hash(payload);
-        header.content_hash = hash;
+        // Content hash: single shared implementation (see crate::hashing).
+        header.content_hash = crate::hashing::legacy_content_hash(payload);
 
         // Write header as raw bytes.
         let header_bytes = header_to_bytes(&header);
@@ -453,34 +476,6 @@ fn header_to_bytes(h: &SegmentHeader) -> [u8; SEGMENT_HEADER_SIZE] {
     buf[0x38..0x3C].copy_from_slice(&h.uncompressed_len.to_le_bytes());
     buf[0x3C..0x40].copy_from_slice(&h.alignment_pad.to_le_bytes());
     buf
-}
-
-/// Compute a simple 16-byte content hash (CRC32-based, rotated for distinct bytes).
-fn content_hash(data: &[u8]) -> [u8; 16] {
-    let mut hash = [0u8; 16];
-    let crc = crc32_slice(data);
-    // Use different rotations of CRC to fill 16 bytes with distinct values.
-    for i in 0..4 {
-        let rotated = crc.rotate_left(i as u32 * 8);
-        hash[i * 4..(i + 1) * 4].copy_from_slice(&rotated.to_le_bytes());
-    }
-    hash
-}
-
-/// Simple CRC32 computation.
-fn crc32_slice(data: &[u8]) -> u32 {
-    let mut crc: u32 = 0xFFFFFFFF;
-    for &byte in data {
-        crc ^= byte as u32;
-        for _ in 0..8 {
-            if crc & 1 != 0 {
-                crc = (crc >> 1) ^ 0xEDB88320;
-            } else {
-                crc >>= 1;
-            }
-        }
-    }
-    !crc
 }
 
 #[cfg(test)]

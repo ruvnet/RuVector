@@ -417,6 +417,43 @@ mod tests {
     }
 
     #[test]
+    fn test_single_feedback_changes_lora_output() {
+        // Regression test for #519: a series of single-step, constant-reward
+        // feedback trajectories (what wasm learn_from_feedback synthesizes)
+        // must produce an actual micro-LoRA weight update, i.e. apply_micro_lora
+        // output must change.
+        let engine = SonaEngine::new(64);
+
+        let input = vec![1.0f32; 64];
+        let mut before = vec![0.0f32; 64];
+        engine.apply_micro_lora(&input, &mut before);
+
+        // Mirror WasmSonaEngine::learn_from_feedback
+        for _ in 0..5 {
+            let embedding = vec![1.0 / (64f32).sqrt(); 64];
+            let mut builder = engine.begin_trajectory(embedding.clone());
+            builder.add_step(embedding, vec![], 0.9);
+            let trajectory = builder.build_with_latency(0.9, 50_000);
+            engine.submit_trajectory(trajectory);
+            engine.flush();
+        }
+
+        let mut after = vec![0.0f32; 64];
+        engine.apply_micro_lora(&input, &mut after);
+
+        let delta: f32 = before
+            .iter()
+            .zip(after.iter())
+            .map(|(a, b)| (a - b).abs())
+            .sum();
+        assert!(
+            delta > 0.0,
+            "apply_micro_lora output unchanged after feedback (delta={})",
+            delta
+        );
+    }
+
+    #[test]
     fn test_disabled_engine() {
         let mut engine = SonaEngine::new(64);
         engine.set_enabled(false);

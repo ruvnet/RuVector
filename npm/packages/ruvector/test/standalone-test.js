@@ -176,7 +176,9 @@ try {
   const loaderContent = fs.readFileSync(path.join(__dirname, '../dist/index.js'), 'utf8');
 
   assert(loaderContent.includes('@ruvector/core'), 'Should try to load native');
-  assert(loaderContent.includes('@ruvector/wasm'), 'Should fallback to WASM');
+  // The second fallback moved from @ruvector/wasm to @ruvector/rvf (persistent
+  // store) — this assertion was stale against that rework and failed on main.
+  assert(loaderContent.includes('@ruvector/rvf'), 'Should fallback to RVF');
   assert(loaderContent.includes('getImplementationType'), 'Should export implementation type');
   assert(loaderContent.includes('isNative'), 'Should export isNative');
   assert(loaderContent.includes('isWasm'), 'Should export isWasm');

@@ -95,6 +95,33 @@ impl LearningSignal {
         let norm: f32 = gradient.iter().map(|x| x * x).sum::<f32>().sqrt();
         if norm > 1e-8 {
             gradient.iter_mut().for_each(|x| *x /= norm);
+            return gradient;
+        }
+
+        // Degenerate case (fixes #519): single-step trajectories, or trajectories
+        // where every step has the same reward, have zero advantage everywhere
+        // (reward - baseline == 0), which produced an exact-zero gradient and
+        // therefore no learning. Fall back to baseline-free REINFORCE
+        // (advantage = raw reward) so single-feedback trajectories still adapt.
+        // Tradeoff: without the baseline the estimate has higher variance, but
+        // it only applies when the baselined estimate is identically zero —
+        // multi-step varying-reward trajectories are unaffected.
+        let mut fallback = vec![0.0f32; dim];
+        for step in &trajectory.steps {
+            let activation_len = step.activations.len().min(dim);
+            for (grad, &act) in fallback
+                .iter_mut()
+                .zip(step.activations.iter())
+                .take(activation_len)
+            {
+                *grad += step.reward * act;
+            }
+        }
+
+        let fallback_norm: f32 = fallback.iter().map(|x| x * x).sum::<f32>().sqrt();
+        if fallback_norm > 1e-8 {
+            fallback.iter_mut().for_each(|x| *x /= fallback_norm);
+            return fallback;
         }
 
         gradient
@@ -528,6 +555,78 @@ mod tests {
         assert_eq!(signal.quality_score, 0.8);
         assert_eq!(signal.gradient_estimate.len(), 3);
         assert_eq!(signal.metadata.trajectory_id, 1);
+    }
+
+    #[test]
+    fn test_gradient_nonzero_for_single_step_trajectory() {
+        // Regression test for #519: single-step (or constant-reward)
+        // trajectories used to yield an exact-zero REINFORCE gradient
+        // (advantage = reward - baseline = 0), so feedback never learned.
+        let mut trajectory = QueryTrajectory::new(1, vec![0.1; 8]);
+        trajectory.add_step(TrajectoryStep::new(vec![0.5; 8], vec![], 0.9, 0));
+        trajectory.finalize(0.9, 1000);
+
+        let signal = LearningSignal::from_trajectory(&trajectory);
+        let norm: f32 = signal
+            .gradient_estimate
+            .iter()
+            .map(|x| x * x)
+            .sum::<f32>()
+            .sqrt();
+        assert!(
+            norm > 1e-6,
+            "Expected non-zero gradient for single-step trajectory, norm={}",
+            norm
+        );
+
+        // Negative reward should flip the gradient direction.
+        let mut neg = QueryTrajectory::new(2, vec![0.1; 8]);
+        neg.add_step(TrajectoryStep::new(vec![0.5; 8], vec![], -0.9, 0));
+        neg.finalize(0.9, 1000);
+        let neg_signal = LearningSignal::from_trajectory(&neg);
+        let dot: f32 = signal
+            .gradient_estimate
+            .iter()
+            .zip(neg_signal.gradient_estimate.iter())
+            .map(|(a, b)| a * b)
+            .sum();
+        assert!(
+            dot < 0.0,
+            "Negative reward should flip gradient, dot={}",
+            dot
+        );
+    }
+
+    #[test]
+    fn test_gradient_unchanged_for_varying_reward_trajectory() {
+        // The baselined REINFORCE path must remain in effect when step
+        // rewards vary (non-degenerate case).
+        let mut trajectory = QueryTrajectory::new(1, vec![0.1; 4]);
+        trajectory.add_step(TrajectoryStep::new(
+            vec![1.0, 0.0, 0.0, 0.0],
+            vec![],
+            0.2,
+            0,
+        ));
+        trajectory.add_step(TrajectoryStep::new(
+            vec![0.0, 1.0, 0.0, 0.0],
+            vec![],
+            0.8,
+            1,
+        ));
+        trajectory.finalize(0.8, 1000);
+
+        let signal = LearningSignal::from_trajectory(&trajectory);
+        // advantages: -0.3 and +0.3 -> gradient ∝ (-0.3, 0.3, 0, 0), normalized
+        assert!(signal.gradient_estimate[0] < 0.0);
+        assert!(signal.gradient_estimate[1] > 0.0);
+        let norm: f32 = signal
+            .gradient_estimate
+            .iter()
+            .map(|x| x * x)
+            .sum::<f32>()
+            .sqrt();
+        assert!((norm - 1.0).abs() < 1e-4);
     }
 
     #[test]

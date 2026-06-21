@@ -1,0 +1,93 @@
+name: emergent-time CI
+
+# Dedicated, fast gate for the dependency-free `emergent-time` crate. Runs its
+# full test suite, lints, and examples — and a guard that the falsifiability /
+# pre-registered-evaluation tests cannot be silently removed (these are the
+# checks that keep the crate's claims matched to its evidence; deleting one
+# would let a regression pass unnoticed).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/emergent-time/**'
+      - '.github/workflows/emergent-time-ci.yml'
+  pull_request:
+    paths:
+      - 'crates/emergent-time/**'
+      - '.github/workflows/emergent-time-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: emergent-time-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  emergent-time:
+    name: test + lint + examples
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: emergent-time
+
+      # ── Guard: the falsifiability / pre-registered tests must exist ──
+      # If any of these greps fail, a test that keeps a claim honest has been
+      # removed or renamed — fail loudly rather than let it slip.
+      - name: Guard — falsifiability tests present
+        run: |
+          cd crates/emergent-time
+          set -e
+          check() { grep -rq "$1" src/ examples/ || { echo "::error::missing required test/check: $1"; exit 1; }; }
+          # Wheeler–DeWitt: the discriminating test (a generic clock yields no kernel)
+          check "generic_clock_yields_empty_physical_space"
+          # Page–Wootters cached vs from-scratch equivalence (perf must not change physics)
+          check "cached_evolution_equals_from_scratch_propagator"
+          # Entropic time: rate checked against measured entropy, not its own definition
+          check "internal_time_spacing_tracks_measured_entropy_production"
+          # Agentic clock blinded to the error channel it predicts (no leakage)
+          check "contradiction_free_weights_blind_to_error_channel"
+          # Real-trace evaluation harness present
+          test -f examples/real_trace_eval.rs || { echo "::error::real_trace_eval.rs missing"; exit 1; }
+          echo "all falsifiability guards present"
+
+      - name: Format check
+        run: cargo fmt -p emergent-time -- --check
+
+      - name: Clippy (deny warnings)
+        run: cargo clippy -p emergent-time --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test -p emergent-time
+
+      - name: Build examples
+        run: cargo build -p emergent-time --examples
+
+      # The examples skip cleanly when their data files are absent (CI has none),
+      # so a clean exit here confirms they at least load and run their no-data path.
+      - name: Run examples (no-data path)
+        run: |
+          cargo run -p emergent-time --example emergent_time
+          cargo run -p emergent-time --example real_trace_eval
+          cargo run -p emergent-time --example train_model
+
+      # Belt-and-suspenders: the crate builds in isolation as it would on
+      # crates.io (zero runtime deps), so a publish can never ship broken.
+      - name: Package check (publish-equivalent build)
+        run: cargo package -p emergent-time --allow-dirty

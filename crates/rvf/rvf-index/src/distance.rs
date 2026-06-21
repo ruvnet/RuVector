@@ -303,6 +303,56 @@ mod neon {
 
 // ── Runtime dispatch ────────────────────────────────────────────────
 
+/// Signature shared by all distance kernels.
+type DistanceFn = fn(&[f32], &[f32]) -> f32;
+
+/// The set of distance kernels resolved for the current CPU.
+struct Kernels {
+    l2: DistanceFn,
+    cosine: DistanceFn,
+    dot: DistanceFn,
+}
+
+const SCALAR_KERNELS: Kernels = Kernels {
+    l2: l2_distance_scalar,
+    cosine: cosine_distance_scalar,
+    dot: dot_product_scalar,
+};
+
+/// Resolve the best kernels for this CPU once and cache them, so each
+/// distance call is a single indirect call instead of re-running CPU
+/// feature detection (atomic loads + branches) on every invocation.
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+fn kernels() -> &'static Kernels {
+    use std::sync::OnceLock;
+    static KERNELS: OnceLock<Kernels> = OnceLock::new();
+    KERNELS.get_or_init(|| {
+        #[cfg(target_arch = "x86_64")]
+        if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
+            return Kernels {
+                l2: |a, b| unsafe { avx2::l2_distance_avx2(a, b) },
+                cosine: |a, b| unsafe { avx2::cosine_distance_avx2(a, b) },
+                dot: |a, b| unsafe { avx2::dot_product_avx2(a, b) },
+            };
+        }
+        #[cfg(target_arch = "aarch64")]
+        if std::arch::is_aarch64_feature_detected!("neon") {
+            return Kernels {
+                l2: |a, b| unsafe { neon::l2_distance_neon(a, b) },
+                cosine: |a, b| unsafe { neon::cosine_distance_neon(a, b) },
+                dot: |a, b| unsafe { neon::dot_product_neon(a, b) },
+            };
+        }
+        SCALAR_KERNELS
+    })
+}
+
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+#[inline]
+fn kernels() -> &'static Kernels {
+    &SCALAR_KERNELS
+}
+
 /// Squared L2 (Euclidean) distance between two vectors.
 ///
 /// Returns the sum of squared differences. Does NOT take the square root
@@ -314,19 +364,7 @@ mod neon {
 /// - Fallback: scalar loop
 #[inline]
 pub fn l2_distance(a: &[f32], b: &[f32]) -> f32 {
-    #[cfg(target_arch = "x86_64")]
-    {
-        if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
-            return unsafe { avx2::l2_distance_avx2(a, b) };
-        }
-    }
-    #[cfg(target_arch = "aarch64")]
-    {
-        if std::arch::is_aarch64_feature_detected!("neon") {
-            return unsafe { neon::l2_distance_neon(a, b) };
-        }
-    }
-    l2_distance_scalar(a, b)
+    (kernels().l2)(a, b)
 }
 
 /// Cosine distance: `1 - cosine_similarity`.
@@ -337,19 +375,7 @@ pub fn l2_distance(a: &[f32], b: &[f32]) -> f32 {
 /// Automatically selects the best SIMD implementation at runtime.
 #[inline]
 pub fn cosine_distance(a: &[f32], b: &[f32]) -> f32 {
-    #[cfg(target_arch = "x86_64")]
-    {
-        if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
-            return unsafe { avx2::cosine_distance_avx2(a, b) };
-        }
-    }
-    #[cfg(target_arch = "aarch64")]
-    {
-        if std::arch::is_aarch64_feature_detected!("neon") {
-            return unsafe { neon::cosine_distance_neon(a, b) };
-        }
-    }
-    cosine_distance_scalar(a, b)
+    (kernels().cosine)(a, b)
 }
 
 /// Inner (dot) product distance: `-dot(a, b)`.
@@ -360,19 +386,7 @@ pub fn cosine_distance(a: &[f32], b: &[f32]) -> f32 {
 /// Automatically selects the best SIMD implementation at runtime.
 #[inline]
 pub fn dot_product(a: &[f32], b: &[f32]) -> f32 {
-    #[cfg(target_arch = "x86_64")]
-    {
-        if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
-            return unsafe { avx2::dot_product_avx2(a, b) };
-        }
-    }
-    #[cfg(target_arch = "aarch64")]
-    {
-        if std::arch::is_aarch64_feature_detected!("neon") {
-            return unsafe { neon::dot_product_neon(a, b) };
-        }
-    }
-    dot_product_scalar(a, b)
+    (kernels().dot)(a, b)
 }
 
 // ── SIMD feature-gated wrappers (backward compatibility) ────────────

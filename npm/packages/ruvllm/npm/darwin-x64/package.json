@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/ruvllm-darwin-x64",
-  "version": "2.5.3",
+  "version": "2.5.6",
   "description": "RuvLLM native bindings for macOS x64 (Intel)",
   "os": [
     "darwin"

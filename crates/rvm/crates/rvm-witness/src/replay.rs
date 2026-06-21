@@ -1,6 +1,6 @@
 //! Chain integrity verification and audit queries.
 
-use crate::hash::compute_chain_hash;
+use crate::hash::{compute_chain_hash, compute_record_hash};
 use crate::log::fold_u64_to_u32;
 use rvm_types::WitnessRecord;
 
@@ -33,6 +33,23 @@ impl core::fmt::Display for ChainIntegrityError {
 
 /// Verifies hash chain integrity of a contiguous slice of witness records.
 ///
+/// For each record this:
+/// 1. checks the chain link: `prev_hash` must equal the folded chain
+///    value of the preceding record;
+/// 2. recomputes the self-integrity hash over the record's content
+///    bytes (`[0..WitnessRecord::CONTENT_LEN]`) and compares it with
+///    the stored `record_hash`;
+/// 3. advances the chain: `chain = H(prev_chain || sequence || record_hash)`.
+///
+/// Because the chain hash binds the content hash, rewriting any
+/// record's content fields (`action_kind`, `actor_partition_id`,
+/// `target_object_id`, `payload`, `timestamp_ns`, ...) is detected
+/// either at step 2 (stale `record_hash`) or, if the attacker also
+/// recomputes `record_hash`, at step 1 of the *next* record (broken
+/// link). A full rewrite of the final record (content plus
+/// `record_hash`) has no following link; detecting that requires the
+/// optional record signature (`aux`, see `WitnessSigner`).
+///
 /// Returns `Ok(count)` if the chain is valid, or an error at the first
 /// broken link.
 ///
@@ -40,7 +57,8 @@ impl core::fmt::Display for ChainIntegrityError {
 ///
 /// Returns [`ChainIntegrityError::EmptyLog`] if the slice is empty.
 /// Returns [`ChainIntegrityError::ChainBreak`] if a chain link is broken.
-/// Returns [`ChainIntegrityError::RecordCorrupted`] if a record hash does not match.
+/// Returns [`ChainIntegrityError::RecordCorrupted`] if a record's content
+/// does not match its self-integrity hash.
 #[allow(clippy::cast_possible_truncation)]
 pub fn verify_chain(records: &[WitnessRecord]) -> Result<usize, ChainIntegrityError> {
     if records.is_empty() {
@@ -57,14 +75,17 @@ pub fn verify_chain(records: &[WitnessRecord]) -> Result<usize, ChainIntegrityEr
             });
         }
 
-        let chain = compute_chain_hash(prev_chain_hash, record.sequence);
-        if record.record_hash != fold_u64_to_u32(chain) {
+        // Recompute the self-integrity hash from the record's content
+        // bytes and compare with the stored (folded) record_hash.
+        let record_hash =
+            compute_record_hash(&record.to_bytes()[..WitnessRecord::CONTENT_LEN]);
+        if record.record_hash != fold_u64_to_u32(record_hash) {
             return Err(ChainIntegrityError::RecordCorrupted {
                 sequence: record.sequence,
             });
         }
 
-        prev_chain_hash = chain;
+        prev_chain_hash = compute_chain_hash(prev_chain_hash, record.sequence, record_hash);
     }
 
     Ok(records.len())
@@ -134,6 +155,74 @@ mod tests {
         let mut records = build_chain(5);
         records[3].prev_hash ^= 0xDEAD;
         assert!(matches!(verify_chain(&records), Err(ChainIntegrityError::ChainBreak { .. })));
+    }
+
+    // Regression test for the content-binding vulnerability: the chain
+    // previously hashed only (prev_hash, sequence), so arbitrarily
+    // rewritten record content passed verification.
+    #[test]
+    fn test_verify_tampered_payload_fails() {
+        let mut records = build_chain(5);
+        records[2].payload = [0xEE; 8];
+        assert_eq!(
+            verify_chain(&records),
+            Err(ChainIntegrityError::RecordCorrupted { sequence: 2 })
+        );
+    }
+
+    #[test]
+    fn test_verify_tampered_action_kind_fails() {
+        let mut records = build_chain(5);
+        records[1].action_kind = ActionKind::CapabilityGrant as u8;
+        assert_eq!(
+            verify_chain(&records),
+            Err(ChainIntegrityError::RecordCorrupted { sequence: 1 })
+        );
+    }
+
+    #[test]
+    fn test_verify_tampered_actor_and_target_fail() {
+        let mut records = build_chain(5);
+        records[3].actor_partition_id = 0xBAD;
+        assert!(matches!(
+            verify_chain(&records),
+            Err(ChainIntegrityError::RecordCorrupted { sequence: 3 })
+        ));
+
+        let mut records = build_chain(5);
+        records[0].target_object_id = 0xDEAD_BEEF;
+        assert!(matches!(
+            verify_chain(&records),
+            Err(ChainIntegrityError::RecordCorrupted { sequence: 0 })
+        ));
+
+        let mut records = build_chain(5);
+        records[4].timestamp_ns = 0;
+        assert!(matches!(
+            verify_chain(&records),
+            Err(ChainIntegrityError::RecordCorrupted { sequence: 4 })
+        ));
+    }
+
+    // Even if the attacker rewrites content AND recomputes record_hash
+    // to match, the chain link of the NEXT record breaks because the
+    // chain hash binds the content hash.
+    #[test]
+    fn test_verify_tampered_content_with_fixed_record_hash_fails() {
+        use crate::hash::compute_record_hash;
+        use crate::log::fold_u64_to_u32;
+
+        let mut records = build_chain(5);
+        records[2].payload = [0xEE; 8];
+        let forged = compute_record_hash(
+            &records[2].to_bytes()[..WitnessRecord::CONTENT_LEN],
+        );
+        records[2].record_hash = fold_u64_to_u32(forged);
+
+        assert_eq!(
+            verify_chain(&records),
+            Err(ChainIntegrityError::ChainBreak { sequence: 3 })
+        );
     }
 
     #[test]

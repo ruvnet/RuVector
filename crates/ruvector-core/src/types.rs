@@ -98,21 +98,28 @@ impl Default for HnswConfig {
     }
 }
 
-/// Quantization configuration
+/// Quantization configuration.
+///
+/// NOTE (issue #563): these variants are accepted, persisted, and restored, but
+/// quantization is **not yet applied** to the index/storage — vectors are stored
+/// in full precision regardless. The compression figures below describe the
+/// intended behavior once quantization is wired into the index; today they are a
+/// target, not a guarantee. `VectorDB::new` logs a warning when a non-`None`
+/// value is set so it is not silently ignored.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum QuantizationConfig {
     /// No quantization (full precision)
     None,
-    /// Scalar quantization to int8 (4x compression)
+    /// Scalar quantization to int8 (target: 4x compression — not yet applied)
     Scalar,
-    /// Product quantization
+    /// Product quantization (not yet applied)
     Product {
         /// Number of subspaces
         subspaces: usize,
         /// Codebook size (typically 256)
         k: usize,
     },
-    /// Binary quantization (32x compression)
+    /// Binary quantization (target: 32x compression — not yet applied)
     Binary,
 }
 
@@ -123,7 +130,10 @@ impl Default for DbOptions {
             distance_metric: DistanceMetric::Cosine,
             storage_path: "./ruvector.db".to_string(),
             hnsw_config: Some(HnswConfig::default()),
-            quantization: Some(QuantizationConfig::Scalar),
+            // Quantization is not yet applied to the index/storage (issue #563),
+            // so the default is `None` to avoid advertising a compression that
+            // does not happen. Set this explicitly once quantization is wired in.
+            quantization: None,
         }
     }
 }

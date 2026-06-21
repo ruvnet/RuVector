@@ -1,0 +1,19 @@
+[package]
+name        = "ruvector-agent-memory"
+version     = "0.1.0"
+edition     = "2021"
+description = "Coherence-weighted agent memory compaction for ruvector: retain important memories using recency, frequency, and semantic coherence"
+authors     = ["ruvnet", "claude-flow"]
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["agent-memory", "vector-search", "memory-management", "rag", "ruvector"]
+categories  = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "agent-memory-bench"
+path = "src/main.rs"
+
+[dependencies]
+rand = "0.8"
+
+[dev-dependencies]

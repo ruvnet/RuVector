@@ -18,6 +18,13 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { pathToFileURL } from 'url';
 import { createRequire } from 'module';
+import {
+  EmbeddingProvenance,
+  EmbedTextKind,
+  embedderKindForModel,
+  getModelPrefixSpec,
+  prefixText,
+} from './embedding-provenance';
 
 // Extend globalThis type for ESM require compatibility
 declare global {
@@ -95,6 +102,11 @@ let loadedModelBytes: Uint8Array | null = null;
 let loadedTokenizerJson: string | null = null;
 let loadedMaxLength = 256;
 let bundledPool: any = null;
+
+// ADR-210: identity of the loaded model, for prefix policies (D4) and the
+// embedding-provenance record (D0).
+let loadedModelId: string | null = null;
+let loadedNormalize = true;
 
 // Default model
 const DEFAULT_MODEL = 'all-MiniLM-L6-v2';
@@ -255,6 +267,8 @@ export async function initOnnxEmbedder(config: OnnxEmbedderConfig = {}): Promise
       loadedModelBytes = modelBytes;
       loadedTokenizerJson = tokenizerJson;
       loadedMaxLength = config.maxLength || modelConfig.maxLength || 256;
+      loadedModelId = modelId;
+      loadedNormalize = config.normalize !== false;
 
       // Create embedder with config
       const embedderConfig = new wasmModule.WasmEmbedderConfig()
@@ -305,10 +319,7 @@ export async function initOnnxEmbedder(config: OnnxEmbedderConfig = {}): Promise
   return isInitialized;
 }
 
-/**
- * Generate embedding for text
- */
-export async function embed(text: string): Promise<EmbeddingResult> {
+async function embedKind(kind: EmbedTextKind, text: string): Promise<EmbeddingResult> {
   if (!isInitialized) {
     await initOnnxEmbedder();
   }
@@ -316,8 +327,12 @@ export async function embed(text: string): Promise<EmbeddingResult> {
     throw new Error('ONNX embedder not initialized');
   }
 
+  // ADR-210 D4: apply the model's registered query/passage prefix. MiniLM has
+  // empty prefixes, so the default model's output is byte-identical to before.
+  const prepared = prefixText(loadedModelId ?? DEFAULT_MODEL, kind, text);
+
   const start = performance.now();
-  const embedding = embedder.embedOne(text);
+  const embedding = embedder.embedOne(prepared);
   const timeMs = performance.now() - start;
 
   return {
@@ -325,6 +340,24 @@ export async function embed(text: string): Promise<EmbeddingResult> {
     dimension: embedding.length,
     timeMs,
   };
+}
+
+/**
+ * Generate embedding for text. Equivalent to `embedPassage()` (ADR-210 D4):
+ * stored/passage text is the default; use `embedQuery()` for search queries.
+ */
+export async function embed(text: string): Promise<EmbeddingResult> {
+  return embedKind('passage', text);
+}
+
+/** Embed a search query, applying the model's registered query prefix (D4). */
+export async function embedQuery(text: string): Promise<EmbeddingResult> {
+  return embedKind('query', text);
+}
+
+/** Embed a passage/document, applying the model's registered passage prefix (D4). */
+export async function embedPassage(text: string): Promise<EmbeddingResult> {
+  return embedKind('passage', text);
 }
 
 /**
@@ -339,11 +372,14 @@ export async function embedBatch(texts: string[]): Promise<EmbeddingResult[]> {
     throw new Error('ONNX embedder not initialized');
   }
 
+  // ADR-210 D4: batch embedding is the passage path (embed() === embedPassage()).
+  const prepared = texts.map(t => prefixText(loadedModelId ?? DEFAULT_MODEL, 'passage', t));
+
   const start = performance.now();
 
   // Use parallel workers for large batches
-  if (parallelEnabled && parallelEmbedder && texts.length >= parallelThreshold) {
-    const batchResults = await parallelEmbedder.embedBatch(texts);
+  if (parallelEnabled && parallelEmbedder && prepared.length >= parallelThreshold) {
+    const batchResults = await parallelEmbedder.embedBatch(prepared);
     const totalTime = performance.now() - start;
     const dimension = parallelEmbedder.dimension || 384;
 
@@ -355,13 +391,13 @@ export async function embedBatch(texts: string[]): Promise<EmbeddingResult[]> {
   }
 
   // Sequential fallback
-  const batchEmbeddings = embedder.embedBatch(texts);
+  const batchEmbeddings = embedder.embedBatch(prepared);
   const totalTime = performance.now() - start;
 
   const dimension = embedder.dimension();
   const results: EmbeddingResult[] = [];
 
-  for (let i = 0; i < texts.length; i++) {
+  for (let i = 0; i < prepared.length; i++) {
     const embedding = batchEmbeddings.slice(i * dimension, (i + 1) * dimension);
     results.push({
       embedding: Array.from(embedding),
@@ -443,6 +479,27 @@ export function isOnnxInitialized(): boolean {
   return isInitialized;
 }
 
+/** Model id of the loaded model, or null before init (ADR-210). */
+export function getActiveModelId(): string | null {
+  return loadedModelId;
+}
+
+/**
+ * Embedding-provenance record (ADR-210 D0) describing vectors produced by the
+ * loaded ONNX embedder, or null before the model is initialized.
+ */
+export function getEmbedderProvenance(): EmbeddingProvenance | null {
+  if (!isInitialized) return null;
+  const modelId = loadedModelId ?? DEFAULT_MODEL;
+  return {
+    embedderKind: embedderKindForModel(modelId),
+    modelId,
+    dimension: getDimension(),
+    normalize: loadedNormalize,
+    prefixPolicy: getModelPrefixSpec(modelId).prefixPolicy,
+  };
+}
+
 /**
  * Get embedder stats including SIMD and parallel capabilities
  */
@@ -512,12 +569,63 @@ export async function initParallelEmbedder(numWorkers?: number): Promise<boolean
  */
 export async function embedBatchParallel(texts: string[]): Promise<number[][]> {
   if (!bundledPool) await initParallelEmbedder();
-  return bundledPool.embedBatch(texts);
+  // ADR-210 D4: bulk ingest is the passage path; MiniLM prefixes are empty.
+  const prepared = texts.map(t => prefixText(loadedModelId ?? DEFAULT_MODEL, 'passage', t));
+  return bundledPool.embedBatch(prepared);
 }
 
 /** Number of active pool workers (0 if the pool isn't started). */
 export function getParallelWorkerCount(): number {
   return bundledPool ? bundledPool.numWorkers : 0;
+}
+
+/** Batches at or above this size route through the worker pool (ADR-210 D3). */
+export const BULK_EMBED_THRESHOLD = 32;
+
+let bulkPoolFallbackWarned = false;
+
+/**
+ * Default bulk-embedding path (ADR-210 D3): batches of `threshold`
+ * (default 32) or more texts route through the bundled parallel worker pool
+ * — fp32 model bytes shared across workers via SharedArrayBuffer, vectors
+ * identical to the single-thread path. Smaller batches, and any batch when
+ * pool startup fails (no worker_threads, no SharedArrayBuffer), use the
+ * single-threaded batch path with one stderr note.
+ *
+ * INT8 STATUS (honest gap, ADR-210 D3): the registered int8 variants
+ * (QUANTIZED_MODELS in onnx-optimized.ts) cannot run on the bundled WASM
+ * runtime today — its graph analyzer rejects quantized MiniLM exports
+ * ("Failed analyse for node /Unsqueeze", verified against both
+ * Xenova/all-MiniLM-L6-v2 model_quantized.onnx and the official
+ * sentence-transformers model_quint8_avx2.onnx exports). Bulk ingest
+ * therefore defaults to parallel-fp32; int8 ingest needs a Rust-side
+ * runtime upgrade in the ruvector-onnx-embeddings-wasm crate (tracked as
+ * an ADR-210 follow-up). Single-query latency keeps fp32 either way.
+ */
+export async function embedBulk(
+  texts: string[],
+  opts: { threshold?: number } = {}
+): Promise<number[][]> {
+  if (!texts || texts.length === 0) return [];
+  const threshold = opts.threshold ?? BULK_EMBED_THRESHOLD;
+  if (!isInitialized) {
+    await initOnnxEmbedder();
+  }
+  if (texts.length >= threshold) {
+    try {
+      return await embedBatchParallel(texts);
+    } catch (e: any) {
+      if (!bulkPoolFallbackWarned) {
+        bulkPoolFallbackWarned = true;
+        console.error(
+          `ruvector: parallel bulk-embed pool unavailable (${e?.message ?? e}); ` +
+          `using single-threaded batch embedding.`
+        );
+      }
+    }
+  }
+  const results = await embedBatch(texts);
+  return results.map(r => r.embedding);
 }
 
 /** Shut down the bundled worker pool and release its threads. */
@@ -540,8 +648,21 @@ export class OnnxEmbedder {
     return initOnnxEmbedder(this.config);
   }
 
+  /** Equivalent to embedPassage() — ADR-210 D4. */
   async embed(text: string): Promise<number[]> {
     const result = await embed(text);
+    return result.embedding;
+  }
+
+  /** Embed a search query with the model's registered query prefix (D4). */
+  async embedQuery(text: string): Promise<number[]> {
+    const result = await embedQuery(text);
+    return result.embedding;
+  }
+
+  /** Embed a passage/document with the model's registered passage prefix (D4). */
+  async embedPassage(text: string): Promise<number[]> {
+    const result = await embedPassage(text);
     return result.embedding;
   }
 

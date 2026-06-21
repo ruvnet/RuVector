@@ -1,0 +1,21 @@
+[package]
+name = "ruvector-matryoshka"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Matryoshka-aware coarse-to-fine vector search: three-variant funnel ANN with measured recall and latency tradeoffs"
+keywords = ["vector-search", "ann", "matryoshka", "coarse-to-fine", "agent-memory"]
+categories = ["algorithms", "data-structures", "science"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+rand = { workspace = true }
+
+[lints.rust]
+dead_code = "allow"
+unused_variables = "allow"

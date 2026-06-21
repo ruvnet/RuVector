@@ -56,6 +56,27 @@ impl Edge {
     };
 }
 
+/// Maximum number of slots probed in the `id_to_node` open-addressing
+/// index before falling back to a full linear scan.
+const PROBE_LEN: usize = 8;
+
+/// Slot state for the open-addressed `id_to_node` index.
+///
+/// Distinguishing `Empty` (never used) from `Tombstone` (deleted) lets
+/// lookups prove absence early: a probe chain that reaches an `Empty`
+/// slot cannot have skipped a live entry, so the full-scan fallback is
+/// only needed when the probe window is exhausted inconclusively.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum IndexSlot {
+    /// Slot has never held an entry.
+    Empty,
+    /// Slot previously held an entry that was removed; probe chains
+    /// continue past it.
+    Tombstone,
+    /// Slot holds the node index for some partition.
+    Occupied(u8),
+}
+
 /// Result type for graph operations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GraphError {
@@ -85,13 +106,33 @@ const NODE_INDEX_SIZE: usize = 256;
 /// the generic `MAX_NODES` parameter (which must be <= this value).
 const ADJ_DIM: usize = 32;
 
+/// Compile-time guard: `id_to_node` stores node indices as `u8`, so the
+/// adjacency dimension (which bounds `MAX_NODES`) must never exceed 256.
+const _ASSERT_ADJ_DIM_FITS_U8_INDEX: () = assert!(
+    ADJ_DIM <= 256,
+    "ADJ_DIM must be <= 256: id_to_node stores node indices as u8"
+);
+
 /// Stack-allocated coherence graph tracking inter-partition communication weights.
+///
+/// # Compile-time invariants
+///
+/// `MAX_NODES` must be at most `ADJ_DIM` (32, the fixed adjacency-matrix
+/// dimension) and at most 256 (the `u8` width of the node index).
+/// Violating instantiations are rejected at compile time:
+///
+/// ```compile_fail
+/// use rvm_coherence::graph::CoherenceGraph;
+/// // 64 nodes exceeds the 32x32 adjacency matrix: fails to compile.
+/// let g = CoherenceGraph::<64, 256>::new();
+/// ```
 pub struct CoherenceGraph<const MAX_NODES: usize, const MAX_EDGES: usize> {
     nodes: [Node; MAX_NODES],
     edges: [Edge; MAX_EDGES],
-    /// Direct lookup: maps `PartitionId % NODE_INDEX_SIZE` to node index.
-    /// Enables O(1) `find_node` instead of O(MAX_NODES) linear scan.
-    id_to_node: [Option<u8>; NODE_INDEX_SIZE],
+    /// Open-addressed lookup: maps `PartitionId % NODE_INDEX_SIZE` (with
+    /// bounded linear probing) to node index. Enables O(1) expected
+    /// `find_node` instead of O(MAX_NODES) linear scan.
+    id_to_node: [IndexSlot; NODE_INDEX_SIZE],
     /// Adjacency matrix: `adj_matrix[from][to]` holds the sum of edge
     /// weights from node `from` to node `to`.  Provides O(1)
     /// `edge_weight_between` lookups instead of O(E) scans.
@@ -105,13 +146,34 @@ pub struct CoherenceGraph<const MAX_NODES: usize, const MAX_EDGES: usize> {
 }
 
 impl<const MAX_NODES: usize, const MAX_EDGES: usize> CoherenceGraph<MAX_NODES, MAX_EDGES> {
+    /// Compile-time assertion: `MAX_NODES` must fit the fixed
+    /// `ADJ_DIM x ADJ_DIM` adjacency matrix. Combined with
+    /// `_ASSERT_ADJ_DIM_FITS_U8_INDEX` (`ADJ_DIM <= 256`), this also
+    /// guarantees node indices fit the `u8` entries of `id_to_node`.
+    /// Referenced from [`Self::new`] so that violating instantiations
+    /// fail compilation instead of panicking at the 33rd node (same
+    /// pattern as `rvm-witness` `_ASSERT_N_NONZERO` and `rvm-partition`
+    /// `_CAPACITY_IS_POWER_OF_TWO`).
+    const _ASSERT_MAX_NODES_FITS: () = assert!(
+        MAX_NODES <= ADJ_DIM,
+        "CoherenceGraph MAX_NODES must be <= ADJ_DIM (32)"
+    );
+
     /// Create a new empty coherence graph.
+    ///
+    /// # Compile-time invariant
+    ///
+    /// `MAX_NODES` must be `<= ADJ_DIM` (32) and `<= 256`. Instantiating
+    /// a graph that violates this is a compile-time error.
     #[must_use]
     pub const fn new() -> Self {
+        // Reference the const so the compile-time check fires for every
+        // instantiation of this graph.
+        let () = Self::_ASSERT_MAX_NODES_FITS;
         Self {
             nodes: [Node::EMPTY; MAX_NODES],
             edges: [Edge::EMPTY; MAX_EDGES],
-            id_to_node: [None; NODE_INDEX_SIZE],
+            id_to_node: [IndexSlot::Empty; NODE_INDEX_SIZE],
             adj_matrix: [[0u64; ADJ_DIM]; ADJ_DIM],
             cached_outgoing: [0u64; ADJ_DIM],
             cached_incoming: [0u64; ADJ_DIM],
@@ -145,9 +207,19 @@ impl<const MAX_NODES: usize, const MAX_EDGES: usize> CoherenceGraph<MAX_NODES, M
                 node.partition = Some(partition_id);
                 node.first_edge = INVALID;
                 self.node_count += 1;
-                // Populate the direct lookup index.
+                // Populate the lookup index with bounded linear probing:
+                // place the entry in the first non-occupied slot of the
+                // probe window. If the window is fully occupied the node
+                // is simply not indexed; `find_node` falls back to the
+                // linear scan for it.
                 let hash = (partition_id.as_u32() as usize) % NODE_INDEX_SIZE;
-                self.id_to_node[hash] = Some(i as u8);
+                for k in 0..PROBE_LEN {
+                    let slot = (hash + k) % NODE_INDEX_SIZE;
+                    if !matches!(self.id_to_node[slot], IndexSlot::Occupied(_)) {
+                        self.id_to_node[slot] = IndexSlot::Occupied(i as u8);
+                        break;
+                    }
+                }
                 return Ok(i as NodeIdx);
             }
         }
@@ -168,10 +240,21 @@ impl<const MAX_NODES: usize, const MAX_EDGES: usize> CoherenceGraph<MAX_NODES, M
             }
         }
 
-        // Clear the direct lookup index.
+        // Tombstone the lookup index entry. The entry, if indexed, lives
+        // in the probe window; an `Empty` slot terminates the search since
+        // entries are always placed at the first non-occupied slot and
+        // slots never revert to `Empty`.
         let hash = (partition_id.as_u32() as usize) % NODE_INDEX_SIZE;
-        if self.id_to_node[hash] == Some(idx as u8) {
-            self.id_to_node[hash] = None;
+        for k in 0..PROBE_LEN {
+            let slot = (hash + k) % NODE_INDEX_SIZE;
+            match self.id_to_node[slot] {
+                IndexSlot::Occupied(stored) if stored as usize == idx as usize => {
+                    self.id_to_node[slot] = IndexSlot::Tombstone;
+                    break;
+                }
+                IndexSlot::Empty => break,
+                _ => {}
+            }
         }
         self.nodes[idx as usize].partition = None;
         self.nodes[idx as usize].first_edge = INVALID;
@@ -316,22 +399,16 @@ impl<const MAX_NODES: usize, const MAX_EDGES: usize> CoherenceGraph<MAX_NODES, M
     /// endpoints belong to the same logical group. In the single-partition
     /// case, this is self-loops. For multi-partition queries, callers
     /// should use `edge_weight_between`.
+    ///
+    /// O(1): the self-loop weight sum is maintained at
+    /// `adj_matrix[idx][idx]` by `add_edge`, `update_weight`,
+    /// `decay_weights`, and `remove_edge_by_index`.
     #[must_use]
     pub fn internal_weight(&self, partition_id: PartitionId) -> u64 {
-        let idx = match self.find_node(partition_id) {
-            Some(i) => i,
-            None => return 0,
-        };
-        let mut sum = 0u64;
-        for i in 0..MAX_EDGES {
-            if self.edges[i].active
-                && self.edges[i].from == idx
-                && self.edges[i].to == idx
-            {
-                sum = sum.saturating_add(self.edges[i].weight);
-            }
+        match self.find_node(partition_id) {
+            Some(idx) => self.adj_matrix[idx as usize][idx as usize],
+            None => 0,
         }
-        sum
     }
 
     /// Sum of edge weights between two specific partitions (in either direction).
@@ -381,19 +458,35 @@ impl<const MAX_NODES: usize, const MAX_EDGES: usize> CoherenceGraph<MAX_NODES, M
     }
 
     /// Get the node index for a partition, or `None` if not present.
-    /// O(1) via direct index with linear-scan fallback for hash collisions.
+    ///
+    /// O(1) expected via the open-addressed index with bounded linear
+    /// probing. A probe chain that reaches a never-used `Empty` slot
+    /// proves absence without scanning; the full linear scan only runs
+    /// when the probe window is exhausted inconclusively (all slots
+    /// occupied by colliding entries or tombstones).
     #[inline]
     #[must_use]
     pub fn find_node(&self, partition_id: PartitionId) -> Option<NodeIdx> {
-        // O(1) fast path via direct index.
         let hash = (partition_id.as_u32() as usize) % NODE_INDEX_SIZE;
-        if let Some(idx) = self.id_to_node[hash] {
-            let i = idx as usize;
-            if i < MAX_NODES && self.nodes[i].partition == Some(partition_id) {
-                return Some(i as NodeIdx);
+        for k in 0..PROBE_LEN {
+            let slot = (hash + k) % NODE_INDEX_SIZE;
+            match self.id_to_node[slot] {
+                IndexSlot::Occupied(idx) => {
+                    let i = idx as usize;
+                    if i < MAX_NODES && self.nodes[i].partition == Some(partition_id) {
+                        return Some(i as NodeIdx);
+                    }
+                    // Collision: keep probing.
+                }
+                // Never-used slot: the entry would have been placed here
+                // (or earlier) on insert, so the partition is absent.
+                IndexSlot::Empty => return None,
+                // Deleted slot: probe chains continue past it.
+                IndexSlot::Tombstone => {}
             }
         }
-        // Fallback: linear scan for hash collisions.
+        // Inconclusive probe chain: fall back to a linear scan (covers
+        // nodes that could not be indexed because their window was full).
         for (i, node) in self.nodes.iter().enumerate() {
             if node.partition == Some(partition_id) {
                 return Some(i as NodeIdx);
@@ -434,6 +527,25 @@ impl<const MAX_NODES: usize, const MAX_EDGES: usize> CoherenceGraph<MAX_NODES, M
             })
     }
 
+    /// Iterate over node indices that have a nonzero-weight edge into `to`.
+    ///
+    /// Reads the adjacency-matrix column in O(MAX_NODES) instead of
+    /// scanning all edges (O(MAX_EDGES)). Nodes connected to `to` only by
+    /// zero-weight edges are not yielded.
+    pub fn in_neighbors_of(&self, to: NodeIdx) -> impl Iterator<Item = NodeIdx> + '_ {
+        let ti = to as usize;
+        (0..MAX_NODES).filter_map(move |j| {
+            if ti < ADJ_DIM
+                && self.adj_matrix[j][ti] > 0
+                && self.nodes[j].partition.is_some()
+            {
+                Some(j as NodeIdx)
+            } else {
+                None
+            }
+        })
+    }
+
     /// Decay all edge weights by the given percentage (in basis points).
     ///
     /// `decay_bp` = 1000 means decay by 10% per call. Edges whose weight
@@ -467,6 +579,33 @@ impl<const MAX_NODES: usize, const MAX_EDGES: usize> CoherenceGraph<MAX_NODES, M
             }
         }
         pruned
+    }
+
+    /// Remove **all** directed edges from `from` to `to`, returning the
+    /// total weight removed.
+    ///
+    /// Used by the split executor to re-home a neighbor's edges across
+    /// a mincut boundary (remove from the source partition, re-add to
+    /// the child). O(MAX_EDGES) — epoch/split path only, not hot path.
+    pub fn remove_directed_edges(
+        &mut self,
+        from: PartitionId,
+        to: PartitionId,
+    ) -> Result<u64, GraphError> {
+        let from_idx = self.find_node(from).ok_or(GraphError::NodeNotFound)?;
+        let to_idx = self.find_node(to).ok_or(GraphError::NodeNotFound)?;
+
+        let mut total = 0u64;
+        for i in 0..MAX_EDGES {
+            if self.edges[i].active
+                && self.edges[i].from == from_idx
+                && self.edges[i].to == to_idx
+            {
+                total = total.saturating_add(self.edges[i].weight);
+                self.remove_edge_by_index(i as EdgeIdx);
+            }
+        }
+        Ok(total)
     }
 
     /// Allocate a free edge slot.
@@ -710,6 +849,138 @@ mod tests {
         let pruned = g.decay_weights(10_000); // 100% decay
         assert_eq!(pruned, 2);
         assert_eq!(g.edge_count(), 0);
+    }
+
+    #[test]
+    fn internal_weight_tracks_add_update_decay_remove() {
+        let mut g = CoherenceGraph::<8, 16>::new();
+        g.add_node(pid(1)).unwrap();
+        g.add_node(pid(2)).unwrap();
+
+        // Add: self-loop and an external edge.
+        let self_loop = g.add_edge(pid(1), pid(1), 1000).unwrap();
+        g.add_edge(pid(1), pid(2), 500).unwrap();
+        assert_eq!(g.internal_weight(pid(1)), 1000);
+        assert_eq!(g.internal_weight(pid(2)), 0);
+
+        // A second self-loop accumulates.
+        let self_loop2 = g.add_edge(pid(1), pid(1), 200).unwrap();
+        assert_eq!(g.internal_weight(pid(1)), 1200);
+
+        // Update: positive and negative deltas.
+        g.update_weight(self_loop, 300).unwrap();
+        assert_eq!(g.internal_weight(pid(1)), 1500);
+        g.update_weight(self_loop, -800).unwrap();
+        assert_eq!(g.internal_weight(pid(1)), 700);
+
+        // Decay 10%: each self-loop decays individually.
+        // self_loop: 500 -> 450, self_loop2: 200 -> 180.
+        g.decay_weights(1000);
+        assert_eq!(g.internal_weight(pid(1)), 630);
+
+        // Decay that prunes: drive self_loop2 to zero via updates first.
+        g.update_weight(self_loop2, -180).unwrap();
+        assert_eq!(g.internal_weight(pid(1)), 450);
+        // 100% decay prunes everything.
+        g.decay_weights(10_000);
+        assert_eq!(g.internal_weight(pid(1)), 0);
+
+        // Re-add and remove the node entirely.
+        g.add_edge(pid(1), pid(1), 77).unwrap();
+        assert_eq!(g.internal_weight(pid(1)), 77);
+        g.remove_node(pid(1)).unwrap();
+        assert_eq!(g.internal_weight(pid(1)), 0);
+    }
+
+    #[test]
+    fn find_node_with_index_collisions() {
+        // pid(1) and pid(257) hash to the same id_to_node slot
+        // (257 % 256 == 1). Bounded probing must resolve both.
+        let mut g = CoherenceGraph::<8, 16>::new();
+        let n0 = g.add_node(pid(1)).unwrap();
+        let n1 = g.add_node(pid(257)).unwrap();
+        let n2 = g.add_node(pid(513)).unwrap(); // also collides
+
+        assert_eq!(g.find_node(pid(1)), Some(n0));
+        assert_eq!(g.find_node(pid(257)), Some(n1));
+        assert_eq!(g.find_node(pid(513)), Some(n2));
+        // Colliding miss: hashes into the same chain but absent.
+        assert_eq!(g.find_node(pid(769)), None);
+    }
+
+    #[test]
+    fn remove_with_index_collisions_keeps_other_entries() {
+        let mut g = CoherenceGraph::<8, 16>::new();
+        g.add_node(pid(1)).unwrap();
+        let n1 = g.add_node(pid(257)).unwrap();
+
+        // Remove the first-inserted collider; the evicted-chain entry
+        // must still be found (tombstone is probed past).
+        g.remove_node(pid(1)).unwrap();
+        assert_eq!(g.find_node(pid(1)), None);
+        assert_eq!(g.find_node(pid(257)), Some(n1));
+
+        // Reinsert into the tombstoned chain and find both again.
+        let n0 = g.add_node(pid(1)).unwrap();
+        assert_eq!(g.find_node(pid(1)), Some(n0));
+        assert_eq!(g.find_node(pid(257)), Some(n1));
+    }
+
+    #[test]
+    fn in_neighbors_of_matches_incoming_edges() {
+        let mut g = CoherenceGraph::<8, 16>::new();
+        g.add_node(pid(1)).unwrap();
+        g.add_node(pid(2)).unwrap();
+        g.add_node(pid(3)).unwrap();
+        g.add_edge(pid(2), pid(1), 10).unwrap();
+        g.add_edge(pid(3), pid(1), 20).unwrap();
+        g.add_edge(pid(1), pid(2), 30).unwrap(); // outgoing, not incoming
+
+        let root = g.find_node(pid(1)).unwrap();
+        let mut found = [false; 8];
+        for j in g.in_neighbors_of(root) {
+            found[j as usize] = true;
+        }
+        assert!(found[g.find_node(pid(2)).unwrap() as usize]);
+        assert!(found[g.find_node(pid(3)).unwrap() as usize]);
+        assert!(!found[root as usize]);
+    }
+
+    #[test]
+    fn remove_directed_edges_returns_total_weight() {
+        let mut g = CoherenceGraph::<8, 16>::new();
+        g.add_node(pid(1)).unwrap();
+        g.add_node(pid(2)).unwrap();
+        // Two parallel directed edges 1->2, plus a reverse edge 2->1.
+        g.add_edge(pid(1), pid(2), 100).unwrap();
+        g.add_edge(pid(1), pid(2), 50).unwrap();
+        g.add_edge(pid(2), pid(1), 30).unwrap();
+
+        let removed = g.remove_directed_edges(pid(1), pid(2)).unwrap();
+        assert_eq!(removed, 150);
+        // Only the reverse edge remains.
+        assert_eq!(g.edge_count(), 1);
+        assert_eq!(g.edge_weight_between(pid(1), pid(2)), 30);
+        assert_eq!(g.total_weight(pid(1)), 30);
+        assert_eq!(g.total_weight(pid(2)), 30);
+    }
+
+    #[test]
+    fn remove_directed_edges_missing_node_fails() {
+        let mut g = CoherenceGraph::<8, 16>::new();
+        g.add_node(pid(1)).unwrap();
+        assert_eq!(
+            g.remove_directed_edges(pid(1), pid(99)),
+            Err(GraphError::NodeNotFound)
+        );
+    }
+
+    #[test]
+    fn remove_directed_edges_none_present_is_zero() {
+        let mut g = CoherenceGraph::<8, 16>::new();
+        g.add_node(pid(1)).unwrap();
+        g.add_node(pid(2)).unwrap();
+        assert_eq!(g.remove_directed_edges(pid(1), pid(2)), Ok(0));
     }
 
     #[test]

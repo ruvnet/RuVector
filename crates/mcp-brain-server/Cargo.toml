@@ -41,8 +41,11 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 # HTTP client (for Firestore/GCS REST APIs + Common Crawl)
-# Using native-tls for compatibility with servers that don't send TLS close_notify
-reqwest = { version = "0.12", features = ["json", "native-tls"], default-features = false }
+# Using native-tls for compatibility with servers that don't send TLS close_notify.
+# native-tls-vendored builds OpenSSL from source so the crate cross-compiles to
+# aarch64 (Pi 5) without target OpenSSL dev headers — same TLS behavior, just
+# statically linked. Without this, openssl-sys fails the aarch64 cross-build.
+reqwest = { version = "0.12", features = ["json", "native-tls-vendored"], default-features = false }
 
 # Crypto
 sha2 = "0.10"

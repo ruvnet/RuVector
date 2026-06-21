@@ -940,11 +940,30 @@ impl<'a> PolicyMemoryStore<'a> {
             .transpose()
     }
 
-    /// Update Q-value for a state-action pair
-    pub fn update_q_value(&self, policy_id: &str, _new_q_value: f64) -> Result<()> {
-        // Delete old entry and create new one with updated Q-value
-        // Note: In production, this should use an update mechanism
-        let _ = self.db.vector_db.delete(&format!("policy_{}", policy_id));
+    /// Update the Q-value for a stored policy, preserving its embedding and
+    /// other metadata.
+    ///
+    /// Returns [`RuvectorError::VectorNotFound`] if no policy with `policy_id`
+    /// exists, so callers no longer get a false success on a missing entry.
+    pub fn update_q_value(&self, policy_id: &str, new_q_value: f64) -> Result<()> {
+        let key = format!("policy_{}", policy_id);
+
+        // Fetch the existing policy so its state embedding + metadata survive.
+        let mut entry = self
+            .db
+            .vector_db
+            .get(&key)?
+            .ok_or_else(|| crate::error::RuvectorError::VectorNotFound(key.clone()))?;
+
+        // Update the Q-value in metadata; keep everything else intact.
+        let mut meta = entry.metadata.take().unwrap_or_default();
+        meta.insert("q_value".to_string(), serde_json::json!(new_q_value));
+        entry.metadata = Some(meta);
+
+        // Replace in place: delete the old entry, then re-insert the updated one
+        // under the same id so the index and storage stay consistent.
+        let _ = self.db.vector_db.delete(&key);
+        self.db.vector_db.insert(entry)?;
         Ok(())
     }
 }
@@ -1360,6 +1379,37 @@ mod tests {
         let episodes = db.retrieve_similar_episodes("math problem solving", 5)?;
         assert!(!episodes.is_empty());
         assert_eq!(episodes[0].id, id);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_update_q_value_preserves_entry() -> Result<()> {
+        // Regression test for #562: update_q_value must UPDATE the policy, not
+        // delete it and discard the new value.
+        let db = create_test_db()?;
+        let pm = db.policy_memory();
+        let emb = vec![0.1_f32; 128];
+
+        let id = pm.store_policy("state_1", emb.clone(), "shoot", 1.0, 0.5)?;
+
+        // Bump the Q-value 0.5 -> 0.9.
+        pm.update_q_value(&id, 0.9)?;
+
+        // The policy must still exist (not deleted) and carry the new Q-value.
+        let hits = pm.retrieve_similar_states(&emb, 5)?;
+        assert!(
+            !hits.is_empty(),
+            "policy was deleted by update_q_value (#562 regression)"
+        );
+        assert!(
+            hits.iter().any(|p| (p.action.q_value - 0.9).abs() < 1e-9),
+            "q_value not updated to 0.9; got {:?}",
+            hits.iter().map(|p| p.action.q_value).collect::<Vec<_>>()
+        );
+
+        // Updating a missing policy must error, not silently succeed.
+        assert!(pm.update_q_value("does_not_exist", 1.0).is_err());
 
         Ok(())
     }

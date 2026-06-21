@@ -7,6 +7,7 @@ RuVector Format runtime providing the RvfStore API, background compaction, and s
 `rvf-runtime` is the main entry point for applications that want to read and write RVF files:
 
 - **RvfStore** -- high-level API for storing and retrieving vectors
+- **HNSW query path** -- queries route through the persisted HNSW index when one is available
 - **Compaction** -- background merge of segments to reclaim space
 - **Streaming I/O** -- append-only writes with configurable flush policy
 
@@ -14,13 +15,51 @@ RuVector Format runtime providing the RvfStore API, background compaction, and s
 
 ```toml
 [dependencies]
-rvf-runtime = "0.1"
+rvf-runtime = "0.3"
 ```
 
 ## Features
 
 - `std` (default) -- enable `std` I/O support
 - `wasm` -- enable WASM-compatible runtime paths
+
+## Query Path
+
+`RvfStore::query` routes through the persisted HNSW index when an INDEX_SEG
+is present in the file; otherwise it falls back to an exact brute-force scan.
+
+- The index is persisted as an INDEX_SEG with a self-delimiting ID-mapping
+  trailer (`"RVIX"` magic). Readers that only understand the plain INDEX_SEG
+  codec ignore the trailer.
+- Index rebuilds after ingest/delete are **non-blocking**: queries serve from
+  the exact scan until the new index commits.
+- `QueryOptions::force_exact` forces the exact scan even when an index is
+  available (ground-truth comparison, benchmarking).
+- Result ordering uses deterministic `(distance, id)` tie-breaking.
+
+### RaBitQ opt-in (`QueryOptions::rabitq`)
+
+Setting `rabitq: true` enables a two-stage path: a 1-bit-code candidate scan
+(~32x smaller than f32) followed by an exact f32 rescore of the oversampled
+candidates (`rabitq_oversample`, default 4x). v1 serves the L2 metric only;
+other metrics and filtered/COW queries fall back to the default routing.
+
+### In-Memory Vector Slab
+
+In-memory vectors are stored in one contiguous row-major slab with an
+id -> ordinal map (no per-vector heap allocation). Removals tombstone in
+place; slots are reclaimed during compaction.
+
+### Measured Performance
+
+Environment: Windows x64, criterion release builds, 100k vectors x 64 dims, k=10.
+
+| Benchmark | Baseline | Measured | Quality |
+|-----------|----------|----------|---------|
+| k-NN query via HNSW index | 21.7 ms (brute force) | **1.51 ms** | recall@10 0.968 |
+| Brute-force scan (contiguous slab) | 24.5 ms (per-vector heap allocs) | **3.8 ms** | exact |
+| Cold open (slab layout) | — | **-21.5%** open time | — |
+| RaBitQ two-stage query (opt-in) | f32 codes | 32x code compression | recall@10 0.972 |
 
 ## Lineage Derivation
 

@@ -15,7 +15,7 @@ name = "rvf-import"
 path = "src/bin/rvf_import.rs"
 
 [dependencies]
-rvf-runtime = { version = "0.2.0", path = "../rvf-runtime", features = ["std"] }
+rvf-runtime = { version = "0.3.0", path = "../rvf-runtime", features = ["std"] }
 rvf-types = { version = "0.2.0", path = "../rvf-types", features = ["std"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

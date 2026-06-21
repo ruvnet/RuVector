@@ -7,7 +7,10 @@ use alloc::vec::Vec;
 ///
 /// Every quantizer can encode a float vector into a compact byte representation
 /// and decode it back to an approximate float vector.
-pub trait Quantizer {
+///
+/// The `Any` supertrait allows codecs to recover the concrete quantizer type
+/// (e.g. for serializing its parameters) via trait upcasting.
+pub trait Quantizer: core::any::Any {
     /// Encode a float vector into compact codes.
     fn encode(&self, vector: &[f32]) -> Vec<u8>;
 

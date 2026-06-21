@@ -7,7 +7,7 @@
 //! | Witness emission           | < 500 ns   |
 //! | P1 capability verification | < 1 us     |
 //! | P2 policy evaluation       | < 100 us   |
-//! | Partition switch (stub)    | < 10 us    |
+//! | Partition switch           | < 10 us — **NOT VALIDATED HERE** (see Benchmark 4) |
 //! | Coherence score            | budgeted   |
 //! | MinCut (16-node)           | < 50 us    |
 //! | Buddy alloc/free           | fast       |
@@ -150,13 +150,39 @@ fn bench_p2_verify(c: &mut Criterion) {
 }
 
 // ---------------------------------------------------------------------------
-// Benchmark 4: Partition switch context save/restore (stub)
-// Target: < 10 us
+// Benchmark 4: Partition switch — HONESTY NOTE (roadmap item 5)
+//
+// The < 10 us ADR-132 partition-switch target applies to the AArch64 EL2
+// hot path: MRS/MSR register save-restore + VTTBR_EL2 write + TLBI VMALLE1
+// + DSB/ISB barriers. That path is NOT implemented
+// (`rvm_sched::HARDWARE_SWITCH_IMPLEMENTED == false`), so NOTHING in this
+// file validates the < 10 us claim. The previous bench named
+// "partition_switch" measured run-queue bookkeeping plus a no-op stub and
+// effectively self-certified the target; it has been renamed.
+//
+// What IS measured, honestly labeled:
+//  - sched_switch_next_*: scheduler run-queue selection cost (the software
+//    bookkeeping that surrounds a switch).
+//  - partition_switch_context_copy: the real register-file save+restore
+//    data movement (~2x 288 B) — a LOWER BOUND on switch cost, excluding
+//    all privileged hardware operations.
+//  - partition_switch_validation_stub: the no-op validation stub, kept
+//    only to show what the old "partition_switch" number actually was.
 // ---------------------------------------------------------------------------
 fn bench_partition_switch(c: &mut Criterion) {
     use rvm_sched::Scheduler;
 
-    c.bench_function("partition_switch", |b| {
+    // Honesty gate: if the hardware path lands, this bench file must be
+    // rewritten to measure it.
+    #[allow(clippy::assertions_on_constants)]
+    {
+        assert!(
+            !rvm_sched::HARDWARE_SWITCH_IMPLEMENTED,
+            "hardware switch implemented: rewrite Benchmark 4 to measure it"
+        );
+    }
+
+    c.bench_function("sched_switch_next_2", |b| {
         let mut sched = Scheduler::<4, 256>::new();
         let pid1 = PartitionId::new(1);
         let pid2 = PartitionId::new(2);
@@ -170,7 +196,7 @@ fn bench_partition_switch(c: &mut Criterion) {
         });
     });
 
-    c.bench_function("partition_switch_with_pressure", |b| {
+    c.bench_function("sched_switch_next_8_with_pressure", |b| {
         let mut sched = Scheduler::<4, 256>::new();
 
         b.iter(|| {
@@ -185,6 +211,45 @@ fn bench_partition_switch(c: &mut Criterion) {
             for _ in 0..8 {
                 black_box(sched.switch_next(0));
             }
+        });
+    });
+
+    // Honest host-measurable component: the actual save/restore data
+    // movement of a context switch (excludes VTTBR/TLBI/barriers).
+    c.bench_function("partition_switch_context_copy", |b| {
+        use rvm_sched::{partition_switch_save_restore, SwitchContext};
+
+        let mut hw = SwitchContext::new();
+        hw.init(0x4000_0000, 0x8000, 1, 0x0001_0000_0000_0000);
+        let mut save_area = SwitchContext::new();
+        let mut target = SwitchContext::new();
+        target.init(0x8000_0000, 0xF000, 2, 0x0002_0000_0000_0000);
+
+        b.iter(|| {
+            black_box(
+                partition_switch_save_restore(
+                    black_box(&mut hw),
+                    black_box(&mut save_area),
+                    black_box(&target),
+                )
+                .unwrap(),
+            );
+        });
+    });
+
+    // The no-op validation stub the old "partition_switch" bench was
+    // actually certifying. Kept for transparency; its number is
+    // meaningless for the < 10 us target.
+    c.bench_function("partition_switch_validation_stub", |b| {
+        use rvm_sched::{partition_switch, SwitchContext};
+
+        let mut from = SwitchContext::new();
+        from.init(0x4000_0000, 0x8000, 1, 0x0001_0000_0000_0000);
+        let mut to = SwitchContext::new();
+        to.init(0x8000_0000, 0xF000, 2, 0x0002_0000_0000_0000);
+
+        b.iter(|| {
+            black_box(partition_switch(black_box(&mut from), black_box(&to)).unwrap());
         });
     });
 }

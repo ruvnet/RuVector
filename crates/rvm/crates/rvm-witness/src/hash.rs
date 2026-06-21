@@ -14,18 +14,25 @@ pub use rvm_types::fnv1a_64;
 
 /// Compute the chain hash using SHA-256, XOR-folded to u64.
 ///
+/// `chain = H(prev_hash || sequence || record_hash)` where `record_hash`
+/// is the self-integrity hash of the record's content bytes (see
+/// [`compute_record_hash`]). Binding the content hash into the chain
+/// means rewriting any record's content breaks every subsequent link,
+/// not just the sequence numbering.
+///
 /// This is stored in the next record's `prev_hash` field (truncated to u32
 /// by the caller per ADR-134's 64-byte record constraint). We compute the
 /// full 256-bit digest and XOR-fold into 8 bytes for maximum entropy
 /// preservation within the field-size budget.
 #[cfg(feature = "crypto-sha256")]
 #[must_use]
-pub fn compute_chain_hash(prev_hash: u64, sequence: u64) -> u64 {
+pub fn compute_chain_hash(prev_hash: u64, sequence: u64, record_hash: u64) -> u64 {
     use sha2::{Sha256, Digest};
 
     let mut hasher = Sha256::new();
     hasher.update(prev_hash.to_le_bytes());
     hasher.update(sequence.to_le_bytes());
+    hasher.update(record_hash.to_le_bytes());
     let digest = hasher.finalize();
 
     // XOR-fold 32 bytes (4 x u64) into a single u64
@@ -78,15 +85,20 @@ fn xor_fold_256_to_u64(digest: &[u8]) -> u64 {
 // FNV-1a fallback path (legacy, used when crypto-sha256 is disabled)
 // ---------------------------------------------------------------------------
 
-/// Compute the chain hash: FNV-1a of (`prev_hash` ++ sequence bytes).
+/// Compute the chain hash: FNV-1a of (`prev_hash` ++ sequence ++ `record_hash`).
+///
+/// `record_hash` is the self-integrity hash of the record's content
+/// bytes (see [`compute_record_hash`]), so the chain binds record
+/// content, not just ordering.
 ///
 /// This is stored in the next record's `prev_hash` field (truncated to u32).
 #[cfg(not(feature = "crypto-sha256"))]
 #[must_use]
-pub fn compute_chain_hash(prev_hash: u64, sequence: u64) -> u64 {
-    let mut buf = [0u8; 16];
+pub fn compute_chain_hash(prev_hash: u64, sequence: u64, record_hash: u64) -> u64 {
+    let mut buf = [0u8; 24];
     buf[..8].copy_from_slice(&prev_hash.to_le_bytes());
     buf[8..16].copy_from_slice(&sequence.to_le_bytes());
+    buf[16..24].copy_from_slice(&record_hash.to_le_bytes());
     fnv1a_64(&buf)
 }
 
@@ -128,22 +140,32 @@ mod tests {
 
     #[test]
     fn test_chain_hash_deterministic() {
-        let h1 = compute_chain_hash(0, 1);
-        let h2 = compute_chain_hash(0, 1);
+        let h1 = compute_chain_hash(0, 1, 7);
+        let h2 = compute_chain_hash(0, 1, 7);
         assert_eq!(h1, h2);
     }
 
     #[test]
     fn test_chain_hash_differs_by_sequence() {
-        let h1 = compute_chain_hash(0, 1);
-        let h2 = compute_chain_hash(0, 2);
+        let h1 = compute_chain_hash(0, 1, 7);
+        let h2 = compute_chain_hash(0, 2, 7);
         assert_ne!(h1, h2);
     }
 
     #[test]
     fn test_chain_hash_differs_by_prev() {
-        let h1 = compute_chain_hash(100, 1);
-        let h2 = compute_chain_hash(200, 1);
+        let h1 = compute_chain_hash(100, 1, 7);
+        let h2 = compute_chain_hash(200, 1, 7);
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn test_chain_hash_differs_by_record_hash() {
+        // The chain hash must bind record content: two records at the
+        // same position with different content hashes must produce
+        // different chain values.
+        let h1 = compute_chain_hash(100, 1, 7);
+        let h2 = compute_chain_hash(100, 1, 8);
         assert_ne!(h1, h2);
     }
 
@@ -171,10 +193,11 @@ mod tests {
     fn test_sha256_chain_hash_is_not_fnv() {
         // Verify that with crypto-sha256 enabled, the output differs
         // from what FNV-1a would produce (i.e., SHA-256 path is active).
-        let sha_h = compute_chain_hash(0, 1);
-        let mut buf = [0u8; 16];
+        let sha_h = compute_chain_hash(0, 1, 7);
+        let mut buf = [0u8; 24];
         buf[..8].copy_from_slice(&0u64.to_le_bytes());
         buf[8..16].copy_from_slice(&1u64.to_le_bytes());
+        buf[16..24].copy_from_slice(&7u64.to_le_bytes());
         let fnv_h = fnv1a_64(&buf);
         assert_ne!(sha_h, fnv_h, "SHA-256 path should produce different output than FNV-1a");
     }

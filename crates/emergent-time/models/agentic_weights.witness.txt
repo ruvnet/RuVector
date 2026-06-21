@@ -1,0 +1,11 @@
+# emergent-time trained model + witness chain
+[model]
+dim=6
+bias=0.000290
+coef=0.765235,0.607439,0.301707,0.280669,-0.007227,0.039656
+mean=0.348411,0.297289,0.148232,0.156949,-0.008836,-0.002080
+std=1.057942,1.047949,1.007804,1.013764,0.998482,0.993423
+[witness]
+# emergent-time witness chain
+# index|prev|data_hash|config_hash|model_hash|val_auc|single_auc|handset_auc|hash
+0|0000000000000000|00291849d1ef122c|dfc27d1920d87675|33fae008ca679df8|0.759042|0.681365|0.707503|61777cf8d6e7318d

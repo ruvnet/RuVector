@@ -7,8 +7,12 @@
 //! 4. On-demand: load cold segments as queries need them
 
 use rvf_types::{FileIdentity, SegmentHeader, SegmentType, SEGMENT_HEADER_SIZE, SEGMENT_MAGIC};
-use std::collections::HashMap;
 use std::io::{self, Read, Seek, SeekFrom};
+
+/// In-memory vector storage. The contiguous-slab implementation lives in
+/// [`crate::vector_slab`]; re-exported here so existing consumers
+/// (`store`, `index_path`, `rabitq_path`) keep their import path.
+pub(crate) use crate::vector_slab::VectorData;
 
 /// A parsed segment directory entry.
 #[derive(Clone, Debug)]
@@ -32,43 +36,6 @@ pub(crate) struct ParsedManifest {
     pub file_identity: Option<FileIdentity>,
 }
 
-/// In-memory vector storage loaded from VEC_SEGs.
-#[allow(dead_code)]
-pub(crate) struct VectorData {
-    /// Maps vector_id -> (dimension-sized f32 slice stored as Vec<f32>).
-    pub vectors: HashMap<u64, Vec<f32>>,
-    pub dimension: u16,
-}
-
-impl VectorData {
-    pub(crate) fn new(dimension: u16) -> Self {
-        Self {
-            vectors: HashMap::new(),
-            dimension,
-        }
-    }
-
-    pub(crate) fn get(&self, id: u64) -> Option<&[f32]> {
-        self.vectors.get(&id).map(|v| v.as_slice())
-    }
-
-    pub(crate) fn insert(&mut self, id: u64, data: Vec<f32>) {
-        self.vectors.insert(id, data);
-    }
-
-    pub(crate) fn remove(&mut self, id: u64) {
-        self.vectors.remove(&id);
-    }
-
-    pub(crate) fn len(&self) -> usize {
-        self.vectors.len()
-    }
-
-    pub(crate) fn ids(&self) -> impl Iterator<Item = &u64> {
-        self.vectors.keys()
-    }
-}
-
 /// Scan backwards from EOF to find and parse the latest valid manifest.
 ///
 /// Reads a tail chunk and scans byte-by-byte for the magic + manifest-type
@@ -81,9 +48,32 @@ pub(crate) fn find_latest_manifest<R: Read + Seek>(
         return Ok(None);
     }
 
-    // Read up to 64 KB from the tail of the file into memory for scanning.
-    // The manifest is typically ~4 KB, so 64 KB gives 16x headroom.
-    let scan_size = std::cmp::min(file_size, 65_536) as usize;
+    // The manifest grows with segment count, so it can extend arbitrarily far
+    // back from EOF. Progressively widen the backward scan window (64 KB ->
+    // 1 MB -> 16 MB -> whole file) until a valid manifest is found or the
+    // file start is reached.
+    const SCAN_WINDOWS: [u64; 4] = [64 << 10, 1 << 20, 16 << 20, u64::MAX];
+    let mut prev_scan_size = 0u64;
+    for window in SCAN_WINDOWS {
+        let scan_size = window.min(file_size);
+        if scan_size == prev_scan_size {
+            break; // Already scanned the whole file.
+        }
+        if let Some(manifest) = scan_tail_for_manifest(reader, file_size, scan_size as usize)? {
+            return Ok(Some(manifest));
+        }
+        prev_scan_size = scan_size;
+    }
+
+    Ok(None)
+}
+
+/// Scan the final `scan_size` bytes of the file for the latest valid manifest.
+fn scan_tail_for_manifest<R: Read + Seek>(
+    reader: &mut R,
+    file_size: u64,
+    scan_size: usize,
+) -> io::Result<Option<ParsedManifest>> {
     let scan_start = file_size - scan_size as u64;
     reader.seek(SeekFrom::Start(scan_start))?;
     let mut buf = vec![0u8; scan_size];
@@ -295,9 +285,15 @@ pub(crate) fn read_vec_seg_payload(payload: &[u8]) -> Option<Vec<(u64, Vec<f32>)
     let vector_count =
         u32::from_le_bytes([payload[2], payload[3], payload[4], payload[5]]) as usize;
 
-    let bytes_per_vec = dimension * 4;
-    let expected_size = 6 + vector_count * (8 + bytes_per_vec);
-    if payload.len() < expected_size {
+    // Checked u64 arithmetic: on 32-bit targets (wasm32) a crafted
+    // `vector_count` can wrap `vector_count * (8 + bytes_per_vec)` in
+    // usize, pass this length check, and panic on out-of-bounds reads in
+    // the loop below.
+    let bytes_per_vec = (dimension as u64) * 4;
+    let expected_size = (vector_count as u64)
+        .checked_mul(8 + bytes_per_vec)
+        .and_then(|v| v.checked_add(6))?;
+    if (payload.len() as u64) < expected_size {
         return None;
     }
 
@@ -455,31 +451,9 @@ pub(crate) fn read_segment_payload<R: Read + Seek>(
 }
 
 /// Compute a 16-byte content hash matching the write path's algorithm.
-/// Uses CRC32 with rotations to fill 16 bytes.
+/// Delegates to the single shared implementation in [`crate::hashing`].
 fn compute_content_hash(data: &[u8]) -> [u8; 16] {
-    let mut hash = [0u8; 16];
-    let crc = crc32_for_verify(data);
-    for i in 0..4 {
-        let rotated = crc.rotate_left(i as u32 * 8);
-        hash[i * 4..(i + 1) * 4].copy_from_slice(&rotated.to_le_bytes());
-    }
-    hash
-}
-
-/// Simple CRC32 computation (matches write_path::crc32_slice).
-fn crc32_for_verify(data: &[u8]) -> u32 {
-    let mut crc: u32 = 0xFFFF_FFFF;
-    for &byte in data {
-        crc ^= byte as u32;
-        for _ in 0..8 {
-            if crc & 1 != 0 {
-                crc = (crc >> 1) ^ 0xEDB8_8320;
-            } else {
-                crc >>= 1;
-            }
-        }
-    }
-    !crc
+    crate::hashing::legacy_content_hash(data)
 }
 
 #[cfg(test)]
@@ -515,5 +489,26 @@ mod tests {
         assert_eq!(result[0].1, vec![1.0, 2.0]);
         assert_eq!(result[1].0, 20);
         assert_eq!(result[1].1, vec![3.0, 4.0]);
+    }
+
+    #[test]
+    fn vec_seg_rejects_oversized_counts_without_panicking() {
+        // Maximal dimension and vector_count: the size product
+        // (~1.1e15 bytes) wraps a 32-bit usize. The checked u64 size
+        // computation must reject the payload (None), never pass the
+        // length check and read out of bounds.
+        let mut payload = Vec::new();
+        payload.extend_from_slice(&u16::MAX.to_le_bytes()); // dimension
+        payload.extend_from_slice(&u32::MAX.to_le_bytes()); // vector_count
+        payload.extend_from_slice(&[0u8; 32]); // a little body, far too short
+        assert!(read_vec_seg_payload(&payload).is_none());
+
+        // A count that wraps usize-32 to a tiny value (dim 0 -> 8 bytes
+        // per record; count * 8 wraps at 2^29 records on 32-bit).
+        let mut payload = Vec::new();
+        payload.extend_from_slice(&0u16.to_le_bytes());
+        payload.extend_from_slice(&(1u32 << 29).to_le_bytes());
+        payload.extend_from_slice(&[0u8; 64]);
+        assert!(read_vec_seg_payload(&payload).is_none());
     }
 }

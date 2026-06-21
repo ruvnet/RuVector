@@ -1,0 +1,24 @@
+[package]
+name = "ruvector-coherence-hnsw"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Coherence-gated HNSW search: traversal-direction pruning for faster beam search with maintained recall"
+keywords = ["vector-search", "hnsw", "ann", "coherence", "agent-memory"]
+categories = ["algorithms", "data-structures", "science"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+rand       = { workspace = true }
+rand_distr = { workspace = true }
+rayon      = { workspace = true }
+thiserror  = { workspace = true }
+serde      = { workspace = true }
+
+[dev-dependencies]

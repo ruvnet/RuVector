@@ -44,7 +44,7 @@ use rvm_types::{CapRights, CapToken, CapType, RvmError, RvmResult, WitnessHash};
 pub use attestation::{AttestationChain, AttestationReport, verify_attestation};
 pub use budget::{DmaBudget, ResourceQuota};
 pub use gate::{
-    GateRequest, GateResponse, P3WitnessChain, SecurityError, SecurityGate,
+    GateRequest, GateResponse, P3WitnessChain, SecurityError, SecurityGate, SecurityGateV2,
     SignedSecurityGate,
 };
 

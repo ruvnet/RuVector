@@ -1,0 +1,30 @@
+[package]
+name = "photonlayer-wasm"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "PhotonLayer WASM bindings for browser optics playback and receipt verification (ADR-260 Phase 3)"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+photonlayer-core = { version = "0.1.0", path = "../photonlayer-core" }
+wasm-bindgen = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", priority = -1 }
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+correctness = { level = "deny", priority = 0 }
+suspicious = { level = "deny", priority = 0 }
+pedantic = { level = "allow", priority = -2 }
+needless_range_loop = "allow"
+manual_range_contains = "allow"
+too_many_arguments = "allow"

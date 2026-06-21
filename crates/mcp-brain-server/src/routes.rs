@@ -413,9 +413,12 @@ pub async fn create_router() -> (Router, AppState) {
         .route("/v1/consciousness/status", get(consciousness_status))
         .layer({
             // CORS origins: configurable via CORS_ORIGINS env var (comma-separated).
-            // Falls back to safe defaults if unset.
+            // Falls back to safe defaults if unset. Explicit per-origin allowlist
+            // (not `*`) — callers authenticate with Bearer tokens, so credentials
+            // are not cookie-based, but an allowlist keeps the surface tight.
+            // conceptmapping.org origins added per issue #560.
             let origins: Vec<axum::http::HeaderValue> = std::env::var("CORS_ORIGINS")
-                .unwrap_or_else(|_| "https://brain.ruv.io,https://pi.ruv.io,http://localhost:8080,http://127.0.0.1:8080".to_string())
+                .unwrap_or_else(|_| "https://brain.ruv.io,https://pi.ruv.io,https://app.conceptmapping.org,https://conceptmapping.org,http://localhost:8080,http://127.0.0.1:8080".to_string())
                 .split(',')
                 .filter_map(|s| s.trim().parse::<axum::http::HeaderValue>().ok())
                 .collect();

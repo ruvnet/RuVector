@@ -13,6 +13,9 @@ pub enum QuantType {
     BinaryThreshold = 2,
     /// Residual product quantization.
     ResidualPq = 3,
+    /// RaBitQ-style binary quantization (centroid-centered, randomly
+    /// rotated sign bits plus per-vector correction scalars).
+    RaBitQ = 4,
 }
 
 impl TryFrom<u8> for QuantType {
@@ -24,6 +27,7 @@ impl TryFrom<u8> for QuantType {
             1 => Ok(Self::Product),
             2 => Ok(Self::BinaryThreshold),
             3 => Ok(Self::ResidualPq),
+            4 => Ok(Self::RaBitQ),
             other => Err(other),
         }
     }
@@ -35,7 +39,7 @@ mod tests {
 
     #[test]
     fn round_trip() {
-        for raw in 0..=3u8 {
+        for raw in 0..=4u8 {
             let qt = QuantType::try_from(raw).unwrap();
             assert_eq!(qt as u8, raw);
         }
@@ -43,7 +47,7 @@ mod tests {
 
     #[test]
     fn invalid_value() {
-        assert_eq!(QuantType::try_from(4), Err(4));
+        assert_eq!(QuantType::try_from(5), Err(5));
         assert_eq!(QuantType::try_from(255), Err(255));
     }
 }

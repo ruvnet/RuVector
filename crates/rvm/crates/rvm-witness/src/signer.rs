@@ -66,9 +66,9 @@ impl StrictSigner {
     /// We hash the first 52 bytes of the record (all content fields
     /// before `aux` and `pad`).
     fn compute_signature(record: &WitnessRecord) -> [u8; 8] {
-        let record_bytes = record_to_bytes(record);
+        let record_bytes = record.to_bytes();
         // Hash the first 52 bytes (everything before aux + pad).
-        let hash = fnv1a_64(&record_bytes[..52]);
+        let hash = rvm_types::fnv1a_64(&record_bytes[..WitnessRecord::SIGNED_LEN]);
         hash.to_le_bytes()
     }
 }
@@ -84,51 +84,16 @@ impl WitnessSigner for StrictSigner {
     }
 }
 
-/// Convert a `WitnessRecord`'s content fields to a byte array for hashing.
-///
-/// We manually serialise the fields in layout order to avoid depending
-/// on `repr(C)` padding semantics across platforms.
-fn record_to_bytes(r: &WitnessRecord) -> [u8; 64] {
-    let mut buf = [0u8; 64];
-    buf[0..8].copy_from_slice(&r.sequence.to_le_bytes());
-    buf[8..16].copy_from_slice(&r.timestamp_ns.to_le_bytes());
-    buf[16] = r.action_kind;
-    buf[17] = r.proof_tier;
-    buf[18] = r.flags;
-    buf[19] = 0; // reserved
-    buf[20..24].copy_from_slice(&r.actor_partition_id.to_le_bytes());
-    buf[24..32].copy_from_slice(&r.target_object_id.to_le_bytes());
-    buf[32..36].copy_from_slice(&r.capability_hash.to_le_bytes());
-    buf[36..44].copy_from_slice(&r.payload);
-    buf[44..48].copy_from_slice(&r.prev_hash.to_le_bytes());
-    buf[48..52].copy_from_slice(&r.record_hash.to_le_bytes());
-    buf[52..60].copy_from_slice(&r.aux);
-    // buf[60..64] is pad, stays zero.
-    buf
-}
-
-/// FNV-1a 64-bit hash.
-fn fnv1a_64(data: &[u8]) -> u64 {
-    const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
-    const FNV_PRIME: u64 = 0x0100_0000_01b3;
-
-    let mut hash = FNV_OFFSET;
-    for &byte in data {
-        hash ^= u64::from(byte);
-        hash = hash.wrapping_mul(FNV_PRIME);
-    }
-    hash
-}
-
 /// Compute a 32-byte SHA-256 digest of a witness record's content fields.
 ///
 /// Hashes the first 52 bytes of the serialized record (all fields before
-/// `aux` and `pad`). This digest can be fed to an HMAC signer or used
-/// as input to the proof-crate's 64-byte `WitnessSigner` trait.
+/// `aux` and `pad`, see [`WitnessRecord::to_bytes`]). This digest can be
+/// fed to an HMAC signer or used as input to the proof-crate's 64-byte
+/// `WitnessSigner` trait.
 #[cfg(feature = "crypto-sha256")]
 pub fn record_to_digest(record: &WitnessRecord) -> [u8; 32] {
-    let buf = record_to_bytes(record);
-    let hash = Sha256::digest(&buf[..52]);
+    let buf = record.to_bytes();
+    let hash = Sha256::digest(&buf[..WitnessRecord::SIGNED_LEN]);
     let mut out = [0u8; 32];
     out.copy_from_slice(&hash);
     out
@@ -157,6 +122,13 @@ pub fn record_to_digest(record: &WitnessRecord) -> [u8; 32] {
 #[derive(Clone)]
 pub struct HmacWitnessSigner {
     key: [u8; 32],
+    /// Pre-keyed HMAC state built once at construction.
+    ///
+    /// The HMAC key schedule costs two SHA-256 compressions; running it
+    /// per record doubles signing cost. Instead we build the keyed Mac
+    /// state once and `clone()` it per record (a cheap state copy),
+    /// producing byte-identical signatures.
+    mac_template: HmacSha256,
 }
 
 #[cfg(feature = "crypto-sha256")]
@@ -168,9 +140,14 @@ impl HmacWitnessSigner {
     const DEFAULT_KEY_INPUT: &'static [u8] = b"rvm-witness-default-key-v1";
 
     /// Create a new HMAC-SHA256 witness signer from a 32-byte key.
+    ///
+    /// The HMAC key schedule is run once here; per-record signing
+    /// clones the pre-keyed state instead of re-deriving it.
     #[must_use]
-    pub const fn new(key: [u8; 32]) -> Self {
-        Self { key }
+    pub fn new(key: [u8; 32]) -> Self {
+        let mac_template = <HmacSha256 as Mac>::new_from_slice(&key)
+            .expect("HMAC key length is 32 bytes");
+        Self { key, mac_template }
     }
 
     /// Create a signer using the compile-time default key.
@@ -182,15 +159,16 @@ impl HmacWitnessSigner {
         let hash = Sha256::digest(Self::DEFAULT_KEY_INPUT);
         let mut key = [0u8; 32];
         key.copy_from_slice(&hash);
-        Self { key }
+        Self::new(key)
     }
 
     /// Compute the raw 8-byte truncated HMAC-SHA256 signature.
     fn compute_signature(&self, record: &WitnessRecord) -> [u8; 8] {
-        let buf = record_to_bytes(record);
-        let mut mac = <HmacSha256 as Mac>::new_from_slice(&self.key)
-            .expect("HMAC key length is 32 bytes");
-        mac.update(&buf[..52]);
+        let buf = record.to_bytes();
+        // Clone the pre-keyed state: avoids re-running the HMAC key
+        // schedule (2 SHA-256 compressions) for every record.
+        let mut mac = self.mac_template.clone();
+        mac.update(&buf[..WitnessRecord::SIGNED_LEN]);
         let result = mac.finalize();
         let tag = result.into_bytes();
         let mut sig = [0u8; 8];
@@ -411,6 +389,30 @@ mod tests {
             record.aux = sig;
             record.sequence = 101; // tamper
             assert!(!signer.verify(&record));
+        }
+
+        /// Fixed-vector signature stability test.
+        ///
+        /// The expected bytes are HMAC-SHA256 computed independently
+        /// (Python `hmac`/`hashlib`) over the first 52 serialized bytes
+        /// of the record with key `SHA-256(b"rvm-witness-default-key-v1")`,
+        /// truncated to 8 bytes. This pins the wire format: any change
+        /// to record serialization or the HMAC construction (e.g. the
+        /// pre-keyed `mac_template` optimization) must keep producing
+        /// these exact bytes.
+        #[test]
+        fn hmac_signer_fixed_vector_stability() {
+            let signer = HmacWitnessSigner::with_default_key();
+            let mut record = WitnessRecord::zeroed();
+            record.sequence = 42;
+            record.action_kind = 0x01;
+
+            let sig = signer.sign(&record);
+            assert_eq!(
+                sig,
+                [0x91, 0x8a, 0x84, 0x19, 0xd6, 0x4c, 0xac, 0x77],
+                "HMAC signature output changed: wire-format regression"
+            );
         }
 
         #[test]

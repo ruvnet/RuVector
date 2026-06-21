@@ -1,0 +1,33 @@
+[package]
+name = "emergent-time"
+# Decoupled from the workspace version so the crate can be released
+# independently (workspace is at 2.2.3; 2.2.3 was published without a README).
+version = "2.2.4"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme = "README.md"
+description = "Calculus of emergent / relational time: Wheeler-DeWitt timeless constraint, Page-Wootters relational clocks, entropic time, Connes-Rovelli thermal time, and Structural Proper Time for agentic and quantum systems"
+keywords = ["time", "quantum-gravity", "relational", "thermodynamics", "agents"]
+categories = ["science", "simulation", "algorithms"]
+
+[dependencies]
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+name = "clocks"
+harness = false
+
+# Research-tier crate: keep correctness/suspicious lints denied, relax style churn.
+[lints.rust]
+dead_code = "allow"
+
+[lints.clippy]
+# Explicit index loops read more clearly in the dense numeric kernels (matmul,
+# Jacobi sweeps, nearest-keyframe search) than iterator chains would.
+needless_range_loop = "allow"
+manual_find = "allow"

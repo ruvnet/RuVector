@@ -97,6 +97,22 @@ impl VectorDB {
             Box::new(FlatIndex::new(options.dimensions, options.distance_metric))
         };
 
+        // `DbOptions.quantization` is persisted/restored but not yet applied to
+        // the index or storage representation (issue #563). Warn loudly rather
+        // than silently ignoring a requested quantization so callers don't
+        // assume a memory reduction that isn't happening.
+        if !matches!(
+            options.quantization,
+            None | Some(crate::types::QuantizationConfig::None)
+        ) {
+            tracing::warn!(
+                "DbOptions.quantization = {:?} is set but not yet applied — the \
+                 index is stored unquantized (no compression / memory reduction). \
+                 See issue #563.",
+                options.quantization
+            );
+        }
+
         // Rebuild index from persisted vectors if storage is not empty
         // This fixes the bug where search() returns empty results after restart
         #[cfg(feature = "storage")]

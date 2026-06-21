@@ -9,6 +9,9 @@
  */
 export const MODELS = {
     // Sentence Transformers - Small & Fast
+    // prefixPolicy / queryPrefix / passagePrefix (ADR-210 D4) encode each
+    // model card's query/passage convention: 'none' | 'required' |
+    // 'query-recommended'. MiniLM models take NO prefixes.
     'all-MiniLM-L6-v2': {
         name: 'all-MiniLM-L6-v2',
         dimension: 384,
@@ -17,6 +20,9 @@ export const MODELS = {
         description: 'Fast, general-purpose embeddings',
         model: 'https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/onnx/model.onnx',
         tokenizer: 'https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/tokenizer.json',
+        prefixPolicy: 'none',
+        queryPrefix: '',
+        passagePrefix: '',
     },
     'all-MiniLM-L12-v2': {
         name: 'all-MiniLM-L12-v2',
@@ -26,9 +32,13 @@ export const MODELS = {
         description: 'Better quality, balanced speed',
         model: 'https://huggingface.co/sentence-transformers/all-MiniLM-L12-v2/resolve/main/onnx/model.onnx',
         tokenizer: 'https://huggingface.co/sentence-transformers/all-MiniLM-L12-v2/resolve/main/tokenizer.json',
+        prefixPolicy: 'none',
+        queryPrefix: '',
+        passagePrefix: '',
     },
 
-    // BGE Models - State of the art
+    // BGE Models - State of the art. Query instruction recommended for
+    // short-query → long-passage retrieval; passages need no instruction.
     'bge-small-en-v1.5': {
         name: 'bge-small-en-v1.5',
         dimension: 384,
@@ -37,6 +47,9 @@ export const MODELS = {
         description: 'State-of-the-art small model',
         model: 'https://huggingface.co/BAAI/bge-small-en-v1.5/resolve/main/onnx/model.onnx',
         tokenizer: 'https://huggingface.co/BAAI/bge-small-en-v1.5/resolve/main/tokenizer.json',
+        prefixPolicy: 'query-recommended',
+        queryPrefix: 'Represent this sentence for searching relevant passages: ',
+        passagePrefix: '',
     },
     'bge-base-en-v1.5': {
         name: 'bge-base-en-v1.5',
@@ -46,9 +59,13 @@ export const MODELS = {
         description: 'Best overall quality',
         model: 'https://huggingface.co/BAAI/bge-base-en-v1.5/resolve/main/onnx/model.onnx',
         tokenizer: 'https://huggingface.co/BAAI/bge-base-en-v1.5/resolve/main/tokenizer.json',
+        prefixPolicy: 'query-recommended',
+        queryPrefix: 'Represent this sentence for searching relevant passages: ',
+        passagePrefix: '',
     },
 
-    // E5 Models - Microsoft
+    // E5 Models - Microsoft. The model card REQUIRES 'query: '/'passage: '
+    // prefixes; quality degrades without them.
     'e5-small-v2': {
         name: 'e5-small-v2',
         dimension: 384,
@@ -57,9 +74,12 @@ export const MODELS = {
         description: 'Excellent for search & retrieval',
         model: 'https://huggingface.co/intfloat/e5-small-v2/resolve/main/onnx/model.onnx',
         tokenizer: 'https://huggingface.co/intfloat/e5-small-v2/resolve/main/tokenizer.json',
+        prefixPolicy: 'required',
+        queryPrefix: 'query: ',
+        passagePrefix: 'passage: ',
     },
 
-    // GTE Models - Alibaba
+    // GTE Models - Alibaba (no prefixes documented)
     'gte-small': {
         name: 'gte-small',
         dimension: 384,
@@ -68,6 +88,9 @@ export const MODELS = {
         description: 'Good multilingual support',
         model: 'https://huggingface.co/thenlper/gte-small/resolve/main/onnx/model.onnx',
         tokenizer: 'https://huggingface.co/thenlper/gte-small/resolve/main/tokenizer.json',
+        prefixPolicy: 'none',
+        queryPrefix: '',
+        passagePrefix: '',
     },
 };
 
@@ -100,7 +123,11 @@ export class ModelLoader {
      * @returns {Promise<{modelBytes: Uint8Array, tokenizerJson: string, config: object}>}
      */
     async loadModel(modelName = DEFAULT_MODEL) {
-        const modelConfig = MODELS[modelName];
+        // Own-property lookup only: a hostile model name like '__proto__'
+        // must be rejected as unknown, not resolve to a prototype member.
+        const modelConfig = Object.prototype.hasOwnProperty.call(MODELS, modelName)
+            ? MODELS[modelName]
+            : undefined;
         if (!modelConfig) {
             throw new Error(`Unknown model: ${modelName}. Available: ${Object.keys(MODELS).join(', ')}`);
         }

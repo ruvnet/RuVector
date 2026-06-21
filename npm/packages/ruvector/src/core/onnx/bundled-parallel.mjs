@@ -122,30 +122,35 @@ export class ParallelEmbedder {
   }
 
   /**
-   * Embed many texts, sharded across workers. Returns number[][] in input order.
+   * Embed many texts across workers. Returns number[][] in input order.
+   *
+   * Texts are dispatched in bounded chunks (default 8) that workers pull as
+   * they finish (work-stealing), rather than one giant shard per worker:
+   * a large bulk batch (ADR-210 D3 ingest) would otherwise exceed the
+   * per-request timeout (~400ms/text in WASM x hundreds of texts), and a
+   * single slow worker would gate the whole batch.
    */
-  async embedBatch(texts) {
+  async embedBatch(texts, opts = {}) {
     if (!texts || texts.length === 0) return [];
-    const n = this._workers.length;
-    const shard = Math.ceil(texts.length / n);
-    const tasks = [];
-    const starts = [];
-    for (let i = 0; i < n; i++) {
-      const start = i * shard;
-      if (start >= texts.length) break;
-      const end = Math.min(texts.length, start + shard);
-      starts.push(start);
-      tasks.push(this._send(this._workers[i], texts.slice(start, end)));
+    const chunkSize = Math.max(1, opts.chunkSize ?? 8);
+    const chunks = [];
+    for (let start = 0; start < texts.length; start += chunkSize) {
+      chunks.push({ start, texts: texts.slice(start, start + chunkSize) });
     }
-    const results = await Promise.all(tasks);
     const out = new Array(texts.length);
-    for (let r = 0; r < results.length; r++) {
-      const { dim, count, flat } = results[r];
-      const start = starts[r];
-      for (let j = 0; j < count; j++) {
-        out[start + j] = Array.from(flat.subarray(j * dim, (j + 1) * dim));
+    let next = 0;
+    const drain = async (worker) => {
+      for (;;) {
+        const idx = next++;
+        if (idx >= chunks.length) return;
+        const { start, texts: chunkTexts } = chunks[idx];
+        const { dim, count, flat } = await this._send(worker, chunkTexts);
+        for (let j = 0; j < count; j++) {
+          out[start + j] = Array.from(flat.subarray(j * dim, (j + 1) * dim));
+        }
       }
-    }
+    };
+    await Promise.all(this._workers.map(drain));
     return out;
   }
 

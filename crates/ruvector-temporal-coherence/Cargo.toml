@@ -1,0 +1,24 @@
+[package]
+name        = "ruvector-temporal-coherence"
+version     = "0.1.0"
+edition     = "2021"
+description = "Temporal coherence decay for agent memory retrieval — three scored variants with graph-coherence gating"
+authors     = ["ruvnet", "claude-flow"]
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["agent-memory", "vector-search", "temporal", "coherence", "ruvector"]
+categories  = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "tcd-demo"
+path = "src/main.rs"
+
+[[bin]]
+name = "tcd-benchmark"
+path = "src/benchmark.rs"
+
+[dependencies]
+rand = { version = "0.8", features = ["small_rng"] }
+
+[dev-dependencies]
+rand = { version = "0.8", features = ["small_rng"] }
