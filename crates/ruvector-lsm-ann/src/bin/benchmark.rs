@@ -287,6 +287,7 @@ fn main() {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn print_row(
     name: &str,
     insert_rate: f64,

@@ -46,9 +46,8 @@ impl FrozenSegment {
             let vi = &data[i].1;
 
             // Find m exact nearest among already-inserted nodes 0..i-1.
-            let mut dists: Vec<(usize, f32)> = (0..i)
-                .map(|j| (j, sq_dist(vi, &data[j].1)))
-                .collect();
+            let mut dists: Vec<(usize, f32)> =
+                (0..i).map(|j| (j, sq_dist(vi, &data[j].1))).collect();
             dists.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
             let m_actual = m.min(dists.len());
             let neighbours = &dists[..m_actual];
@@ -187,8 +186,14 @@ fn greedy_search_internal(
     let mut frontier: BinaryHeap<ClosestFirst> = BinaryHeap::new();
     let mut best: BinaryHeap<FarthestFirst> = BinaryHeap::new();
 
-    frontier.push(ClosestFirst { neg_dist: -entry_dist, idx: entry });
-    best.push(FarthestFirst { dist: entry_dist, idx: entry });
+    frontier.push(ClosestFirst {
+        neg_dist: -entry_dist,
+        idx: entry,
+    });
+    best.push(FarthestFirst {
+        dist: entry_dist,
+        idx: entry,
+    });
 
     while let Some(curr) = frontier.pop() {
         let curr_dist = -curr.neg_dist;
@@ -208,8 +213,14 @@ fn greedy_search_internal(
             let worst = best.peek().map(|e| e.dist).unwrap_or(f32::MAX);
 
             if d < worst || best.len() < ef {
-                frontier.push(ClosestFirst { neg_dist: -d, idx: neighbour });
-                best.push(FarthestFirst { dist: d, idx: neighbour });
+                frontier.push(ClosestFirst {
+                    neg_dist: -d,
+                    idx: neighbour,
+                });
+                best.push(FarthestFirst {
+                    dist: d,
+                    idx: neighbour,
+                });
                 if best.len() > ef {
                     best.pop(); // evicts farthest — correct
                 }

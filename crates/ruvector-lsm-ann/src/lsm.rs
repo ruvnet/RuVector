@@ -87,8 +87,7 @@ impl TwoTierLsm {
 
     /// Total bytes used by vectors and graph edges across all tiers.
     pub fn memory_bytes(&self) -> usize {
-        self.table.memory_bytes()
-            + self.segment.as_ref().map_or(0, |s| s.memory_bytes())
+        self.table.memory_bytes() + self.segment.as_ref().map_or(0, |s| s.memory_bytes())
     }
 }
 
@@ -133,7 +132,7 @@ impl LsmIndex for TwoTierLsm {
         // Merge drained data with any existing segment data, then rebuild.
         let mut combined: Vec<(u64, Vec<f32>)> = drained;
         if let Some(seg) = self.segment.take() {
-            combined.extend(seg.vectors.into_iter());
+            combined.extend(seg.vectors);
         }
 
         if combined.len() >= 2 {
@@ -185,7 +184,11 @@ impl FullLsm {
     /// Total bytes used by vectors and graph edges across all tiers.
     pub fn memory_bytes(&self) -> usize {
         self.table.memory_bytes()
-            + self.l1_segments.iter().map(|s| s.memory_bytes()).sum::<usize>()
+            + self
+                .l1_segments
+                .iter()
+                .map(|s| s.memory_bytes())
+                .sum::<usize>()
             + self.l2_segment.as_ref().map_or(0, |s| s.memory_bytes())
     }
 
@@ -212,10 +215,10 @@ impl FullLsm {
         let mut combined: Vec<(u64, Vec<f32>)> = Vec::new();
 
         for seg in self.l1_segments.drain(..) {
-            combined.extend(seg.vectors.into_iter());
+            combined.extend(seg.vectors);
         }
         if let Some(l2) = self.l2_segment.take() {
-            combined.extend(l2.vectors.into_iter());
+            combined.extend(l2.vectors);
         }
 
         if combined.len() >= 2 {
