@@ -125,19 +125,26 @@ fn main() -> Result<()> {
             }
         }
 
-        // 2. matryoshka funnel (use highest ef for recall accuracy)
+        // 2. matryoshka funnel — MRL-structured dataset (fixes #597)
         if !args.no_matryoshka {
             let ef = *ef_values.last().unwrap_or(&400);
-            for s in run_matryoshka_suite(dataset, args.k, ef) {
-                match s {
-                    Ok(s) => {
-                        println!("  {:<26} | recall@10={:.4}  qps={:>8.0}  p99={:>6.1}µs  darwin={:.3}{}",
-                            s.index, s.recall.recall_at_10, s.qps, s.latency.p99_us,
-                            s.darwin_score, if s.sota { " ★SOTA" } else { "" });
-                        scores.push(s);
-                    }
-                    Err(e) => eprintln!("  ✗ matryoshka: {e}"),
-                }
+            for s in run_matryoshka_suite(
+                &dataset.name,
+                dataset.corpus.len(),
+                dataset.dims,
+                args.k,
+                ef,
+            ) {
+                println!(
+                    "  {:<26} | recall@10={:.4}  qps={:>8.0}  p99={:>6.1}µs  darwin={:.3}{}",
+                    s.index,
+                    s.recall.recall_at_10,
+                    s.qps,
+                    s.latency.p99_us,
+                    s.darwin_score,
+                    if s.sota { " ★SOTA" } else { "" }
+                );
+                scores.push(s);
             }
         }
 
