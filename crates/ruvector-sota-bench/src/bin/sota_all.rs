@@ -13,7 +13,7 @@ use anyhow::Result;
 use clap::Parser;
 use ruvector_sota_bench::{
     datasets::{ann_benchmark_synthetic, ci_smoke},
-    runners::{run_core_hnsw, run_matryoshka_suite, run_hybrid_suite, run_lsm_ann},
+    runners::{run_core_hnsw, run_lsm_ann, run_matryoshka_suite, run_hybrid_suite, run_rabitq_suite},
     report::BenchReport,
     BenchScore,
 };
@@ -54,6 +54,10 @@ struct Args {
     /// Skip LSM-ANN streaming runner
     #[arg(long)]
     no_lsm: bool,
+
+    /// Skip RaBitQ 1-bit compressed runners
+    #[arg(long)]
+    no_rabitq: bool,
 
     /// Output JSON report path
     #[arg(long)]
@@ -110,7 +114,22 @@ fn main() -> Result<()> {
             }
         }
 
-        // 3. LSM-ANN streaming index
+        // 3. RaBitQ 1-bit compressed ANN (primary SOTA claim vs IVF-PQ)
+        if !args.no_rabitq {
+            for s in run_rabitq_suite(dataset, args.k) {
+                match s {
+                    Ok(s) => {
+                        println!("  {:<26} | recall@10={:.4}  qps={:>8.0}  p99={:>6.1}µs  darwin={:.3}{}",
+                            s.index, s.recall.recall_at_10, s.qps, s.latency.p99_us,
+                            s.darwin_score, if s.sota { " ★SOTA" } else { "" });
+                        scores.push(s);
+                    }
+                    Err(e) => eprintln!("  ✗ rabitq: {e}"),
+                }
+            }
+        }
+
+        // 4. LSM-ANN streaming index
         if !args.no_lsm {
             match run_lsm_ann(dataset, args.k, 500) {
                 Ok(s) => {
