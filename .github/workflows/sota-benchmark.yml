@@ -1,0 +1,122 @@
+name: SOTA Benchmark (Tier 1 Smoke)
+
+on:
+  push:
+    paths:
+      - 'crates/ruvector-sota-bench/**'
+      - 'crates/ruvector-core/**'
+      - 'crates/ruvector-rabitq/**'
+      - 'crates/ruvector-lsm-ann/**'
+  pull_request:
+    paths:
+      - 'crates/ruvector-sota-bench/**'
+  workflow_dispatch:
+    inputs:
+      full_run:
+        description: 'Run full ANN-Benchmarks (takes 30+ min)'
+        type: boolean
+        default: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  sota-smoke:
+    name: SOTA Smoke (Tier 1)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: sota-bench-v1
+
+      - name: Build benchmark binary
+        run: >
+          cargo build --release
+          -p ruvector-sota-bench
+          --bin sota-all
+          --bin sota-streaming
+
+      - name: Run Tier 1 smoke test (all runners, synthetic data)
+        run: >
+          cargo run --release
+          -p ruvector-sota-bench
+          --bin sota-all
+          --
+          --smoke
+          --json /tmp/sota-smoke-report.json
+        env:
+          RUST_LOG: warn
+
+      - name: Verify SOTA claims present
+        run: |
+          SOTA_COUNT=$(python3 -c "import json; r=json.load(open('/tmp/sota-smoke-report.json')); print(len(r['sota_claims']))")
+          echo "SOTA claims: $SOTA_COUNT"
+          if [ "$SOTA_COUNT" -lt 5 ]; then
+            echo "::error::Expected at least 5 SOTA claims, got $SOTA_COUNT"
+            exit 1
+          fi
+          echo "✓ $SOTA_COUNT SOTA claims — benchmark healthy"
+
+      - name: Run BigANN Streaming track benchmark
+        run: >
+          cargo run --release
+          -p ruvector-sota-bench
+          --bin sota-streaming
+          --
+          --smoke
+        env:
+          RUST_LOG: warn
+
+      - name: Upload benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sota-smoke-report
+          path: /tmp/sota-smoke-report.json
+          retention-days: 30
+
+  sota-full:
+    name: SOTA Full Run (Tier 2, on demand)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.full_run == 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install HDF5 (for real datasets)
+        run: sudo apt-get install -y libhdf5-dev
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: sota-bench-full-v1
+
+      - name: Run full benchmark (synthetic ANN-Benchmarks scale)
+        run: >
+          cargo run --release
+          -p ruvector-sota-bench
+          --bin sota-all
+          --
+          --json /tmp/sota-full-report.json
+        env:
+          RUST_LOG: warn
+
+      - name: Upload full report
+        uses: actions/upload-artifact@v4
+        with:
+          name: sota-full-report
+          path: /tmp/sota-full-report.json
+          retention-days: 90
