@@ -9741,6 +9741,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-hnsw-repair"
+version = "2.2.3"
+dependencies = [
+ "rand 0.8.6",
+]
+
+[[package]]
 name = "ruvector-hybrid"
 version = "0.1.0"
 dependencies = [
@@ -10450,6 +10457,33 @@ dependencies = [
  "rand 0.8.6",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "ruvector-sota-bench"
+version = "2.2.3"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "csv",
+ "flate2",
+ "hdf5",
+ "rand 0.8.6",
+ "rand_distr 0.4.3",
+ "rayon",
+ "reqwest 0.12.28",
+ "ruvector-core 2.2.3",
+ "ruvector-diskann",
+ "ruvector-hnsw-repair",
+ "ruvector-hybrid",
+ "ruvector-lsm-ann",
+ "ruvector-matryoshka",
+ "ruvector-pq-search",
+ "ruvector-rabitq",
+ "serde",
+ "serde_json",
+ "tabled",
 ]
 
 [[package]]

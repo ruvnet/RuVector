@@ -1,0 +1,96 @@
+[package]
+name = "ruvector-sota-bench"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "SOTA benchmark suite: ANN-Benchmarks, BEIR, VectorDBBench, MTEB — proves RuVector against public leaderboards"
+readme = "README.md"
+keywords = ["vector-search", "ann", "benchmark", "sota", "leaderboard"]
+categories = ["algorithms", "science"]
+publish = false
+
+[[bin]]
+name = "sota-ann"
+path = "src/bin/sota_ann.rs"
+
+[[bin]]
+name = "sota-recall-sweep"
+path = "src/bin/sota_recall_sweep.rs"
+
+[[bin]]
+name = "sota-compression"
+path = "src/bin/sota_compression.rs"
+
+[[bin]]
+name = "sota-streaming"
+path = "src/bin/sota_streaming.rs"
+
+[[bin]]
+name = "sota-hybrid"
+path = "src/bin/sota_hybrid.rs"
+
+[[bin]]
+name = "sota-all"
+path = "src/bin/sota_all.rs"
+
+[lib]
+name = "ruvector_sota_bench"
+path = "src/lib.rs"
+
+[dependencies]
+# Core RuVector crates under test
+ruvector-core = { version = "2.0", path = "../ruvector-core", default-features = false, features = ["storage", "hnsw", "parallel", "simd"] }
+ruvector-rabitq = { path = "../ruvector-rabitq", optional = true }
+ruvector-diskann = { path = "../ruvector-diskann", optional = true }
+
+# New research crates (ADR-264)
+ruvector-matryoshka = { path = "../ruvector-matryoshka", optional = true }
+ruvector-pq-search = { path = "../ruvector-pq-search", optional = true }
+ruvector-hybrid = { path = "../ruvector-hybrid", optional = true }
+ruvector-lsm-ann = { path = "../ruvector-lsm-ann", optional = true }
+ruvector-hnsw-repair = { path = "../ruvector-hnsw-repair", optional = true }
+
+# Dataset / IO
+hdf5 = { version = "0.8", optional = true }           # ANN-Benchmarks HDF5 format
+reqwest = { version = "0.12", features = ["blocking", "json"], optional = true }
+flate2 = { version = "1.0", optional = true }           # .gz dataset downloads
+
+# Benchmark infrastructure
+clap = { version = "4", features = ["derive"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }
+rayon = { version = "1.10" }
+
+# Reporting
+csv = "1.3"
+tabled = "0.16"
+
+[features]
+default = ["synthetic-only"]
+
+# Only synthetic datasets (no external downloads)
+synthetic-only = []
+
+# Download + load real ANN-Benchmarks datasets (SIFT-128, GloVe-25/100, Deep96)
+real-datasets = ["dep:hdf5", "dep:reqwest", "dep:flate2"]
+
+# Enable all research index crates
+all-indexes = [
+    "dep:ruvector-matryoshka",
+    "dep:ruvector-pq-search",
+    "dep:ruvector-hybrid",
+    "dep:ruvector-lsm-ann",
+    "dep:ruvector-hnsw-repair",
+]
+
+# Full SOTA run (real datasets + all indexes)
+full-sota = ["real-datasets", "all-indexes", "dep:ruvector-rabitq", "dep:ruvector-diskann"]
+
+[dependencies.chrono]
+workspace = true

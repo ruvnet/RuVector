@@ -256,6 +256,8 @@ members = [
     "crates/ruvector-matryoshka",
     # PQ-ADC: Product Quantization with Asymmetric Distance Computation (64× compression)
     "crates/ruvector-pq-search",
+    # SOTA benchmark suite (ADR-265)
+    "crates/ruvector-sota-bench",
 ]
 resolver = "2"
 
