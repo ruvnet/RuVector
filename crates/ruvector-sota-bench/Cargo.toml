@@ -50,7 +50,7 @@ ruvector-diskann = { path = "../ruvector-diskann", optional = true }
 ruvector-matryoshka = { path = "../ruvector-matryoshka" }
 ruvector-hybrid = { path = "../ruvector-hybrid" }
 ruvector-pq-search = { path = "../ruvector-pq-search", optional = true }
-ruvector-lsm-ann = { path = "../ruvector-lsm-ann", optional = true }
+ruvector-lsm-ann = { path = "../ruvector-lsm-ann" }
 ruvector-hnsw-repair = { path = "../ruvector-hnsw-repair", optional = true }
 
 # Dataset / IO
@@ -84,7 +84,7 @@ real-datasets = ["dep:hdf5", "dep:reqwest", "dep:flate2"]
 all-indexes = [
     "dep:ruvector-pq-search",
     
-    "dep:ruvector-lsm-ann",
+    
     "dep:ruvector-hnsw-repair",
 ]
 

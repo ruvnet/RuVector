@@ -1,6 +1,8 @@
 pub mod core_hnsw;
 pub mod hybrid;
+pub mod lsm_ann;
 pub mod matryoshka;
 pub use core_hnsw::*;
 pub use hybrid::*;
+pub use lsm_ann::*;
 pub use matryoshka::*;
