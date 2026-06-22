@@ -47,7 +47,7 @@ ruvector-rabitq = { path = "../ruvector-rabitq", optional = true }
 ruvector-diskann = { path = "../ruvector-diskann", optional = true }
 
 # New research crates (ADR-264)
-ruvector-matryoshka = { path = "../ruvector-matryoshka", optional = true }
+ruvector-matryoshka = { path = "../ruvector-matryoshka" }
 ruvector-pq-search = { path = "../ruvector-pq-search", optional = true }
 ruvector-hybrid = { path = "../ruvector-hybrid", optional = true }
 ruvector-lsm-ann = { path = "../ruvector-lsm-ann", optional = true }
@@ -82,7 +82,6 @@ real-datasets = ["dep:hdf5", "dep:reqwest", "dep:flate2"]
 
 # Enable all research index crates
 all-indexes = [
-    "dep:ruvector-matryoshka",
     "dep:ruvector-pq-search",
     "dep:ruvector-hybrid",
     "dep:ruvector-lsm-ann",
