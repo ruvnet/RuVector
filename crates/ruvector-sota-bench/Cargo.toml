@@ -25,6 +25,10 @@ name = "sota-compression"
 path = "src/bin/sota_compression.rs"
 
 [[bin]]
+name = "sota-vdbbench"
+path = "src/bin/sota_vdbbench.rs"
+
+[[bin]]
 name = "sota-streaming"
 path = "src/bin/sota_streaming.rs"
 
