@@ -3,12 +3,12 @@
 //! Measures the hybrid search recall improvement over pure-dense baseline,
 //! directly targeting the BEIR MS MARCO scenario where hybrid fusion gives
 //! 80.8% recall vs 13.9% pure-dense (per deep-researcher report, ADR-265).
-use crate::{Dataset, BenchScore, claim_sota, darwin_score};
-use crate::metrics::{RecallMetrics, LatencyMetrics};
-use crate::runners::core_hnsw::{HNSW_BASELINE_QPS, HNSW_BASELINE_MEM_MB, HNSW_BASELINE_P99_MS};
+use crate::metrics::{LatencyMetrics, RecallMetrics};
+use crate::runners::core_hnsw::{HNSW_BASELINE_MEM_MB, HNSW_BASELINE_P99_MS, HNSW_BASELINE_QPS};
+use crate::{claim_sota, darwin_score, BenchScore, Dataset};
 use ruvector_hybrid::{
-    Document, HybridSearch, RrfHybridIndex, RsfHybridIndex, ScoreFusionIndex,
-    recall_at_k as hybrid_recall,
+    recall_at_k as hybrid_recall, Document, HybridSearch, RrfHybridIndex, RsfHybridIndex,
+    ScoreFusionIndex,
 };
 use std::time::Instant;
 
@@ -28,7 +28,11 @@ fn corpus_to_docs(dataset: &Dataset) -> Vec<Document> {
                 .enumerate()
                 .map(|(j, &x)| format!("t{}_{}", j, (x * 10.0) as i32))
                 .collect();
-            Document { id: i, tokens, vector: v.clone() }
+            Document {
+                id: i,
+                tokens,
+                vector: v.clone(),
+            }
         })
         .collect()
 }
@@ -42,12 +46,7 @@ fn query_tokens(query: &[f32]) -> Vec<String> {
         .collect()
 }
 
-fn bench_hybrid<H: HybridSearch>(
-    label: &str,
-    idx: &H,
-    dataset: &Dataset,
-    k: usize,
-) -> BenchScore {
+fn bench_hybrid<H: HybridSearch>(label: &str, idx: &H, dataset: &Dataset, k: usize) -> BenchScore {
     let mut latencies: Vec<u128> = Vec::with_capacity(dataset.queries.len());
     let mut r10s = Vec::new();
 
@@ -84,9 +83,13 @@ fn bench_hybrid<H: HybridSearch>(
         build_secs: 0.0,
         memory_mb,
         darwin_score: darwin_score(
-            mr10, qps, HNSW_BASELINE_QPS,
-            memory_mb, HNSW_BASELINE_MEM_MB,
-            p99_s, HNSW_BASELINE_P99_MS,
+            mr10,
+            qps,
+            HNSW_BASELINE_QPS,
+            memory_mb,
+            HNSW_BASELINE_MEM_MB,
+            p99_s,
+            HNSW_BASELINE_P99_MS,
         ),
         sota: claim_sota(mr10, qps, HNSW_BASELINE_QPS),
         params: [("fusion".to_string(), label.to_string())].into(),
@@ -104,10 +107,12 @@ pub fn run_hybrid_suite(dataset: &Dataset, k: usize) -> Vec<BenchScore> {
     let build_s = t0.elapsed().as_secs_f64();
 
     let mut out = vec![
-        bench_hybrid("hybrid-rrf",          &rrf,          dataset, k),
-        bench_hybrid("hybrid-rsf",          &rsf,          dataset, k),
+        bench_hybrid("hybrid-rrf", &rrf, dataset, k),
+        bench_hybrid("hybrid-rsf", &rsf, dataset, k),
         bench_hybrid("hybrid-score-fusion", &score_fusion, dataset, k),
     ];
-    for s in &mut out { s.build_secs = build_s / 3.0; }
+    for s in &mut out {
+        s.build_secs = build_s / 3.0;
+    }
     out
 }

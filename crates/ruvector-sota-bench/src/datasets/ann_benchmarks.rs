@@ -26,22 +26,22 @@ pub struct AnnDatasetSpec {
 pub const ANN_DATASETS: &[AnnDatasetSpec] = &[
     AnnDatasetSpec {
         name: "sift-128-euclidean",
-        url:  "https://ann-benchmarks.com/sift-128-euclidean.hdf5",
+        url: "https://ann-benchmarks.com/sift-128-euclidean.hdf5",
         dims: 128,
     },
     AnnDatasetSpec {
         name: "glove-25-angular",
-        url:  "https://ann-benchmarks.com/glove-25-angular.hdf5",
+        url: "https://ann-benchmarks.com/glove-25-angular.hdf5",
         dims: 25,
     },
     AnnDatasetSpec {
         name: "glove-100-angular",
-        url:  "https://ann-benchmarks.com/glove-100-angular.hdf5",
+        url: "https://ann-benchmarks.com/glove-100-angular.hdf5",
         dims: 100,
     },
     AnnDatasetSpec {
         name: "deep-image-96-angular",
-        url:  "https://ann-benchmarks.com/deep-image-96-angular.hdf5",
+        url: "https://ann-benchmarks.com/deep-image-96-angular.hdf5",
         dims: 96,
     },
 ];
@@ -49,7 +49,10 @@ pub const ANN_DATASETS: &[AnnDatasetSpec] = &[
 /// Download an ANN-Benchmarks HDF5 file to a local cache directory.
 /// Returns the local path.
 #[cfg(feature = "real-datasets")]
-pub fn download_dataset(spec: &AnnDatasetSpec, cache_dir: &std::path::Path) -> anyhow::Result<std::path::PathBuf> {
+pub fn download_dataset(
+    spec: &AnnDatasetSpec,
+    cache_dir: &std::path::Path,
+) -> anyhow::Result<std::path::PathBuf> {
     use std::io::Write;
 
     std::fs::create_dir_all(cache_dir)?;
@@ -57,7 +60,10 @@ pub fn download_dataset(spec: &AnnDatasetSpec, cache_dir: &std::path::Path) -> a
     let local = cache_dir.join(filename);
 
     if local.exists() {
-        println!("  [cache] {} already exists, skipping download", local.display());
+        println!(
+            "  [cache] {} already exists, skipping download",
+            local.display()
+        );
         return Ok(local);
     }
 
@@ -88,22 +94,18 @@ pub fn load_hdf5(
     let file = File::open(path)?;
 
     let train_ds = file.dataset("train")?;
-    let test_ds  = file.dataset("test")?;
-    let nn_ds    = file.dataset("neighbors")?;
+    let test_ds = file.dataset("test")?;
+    let nn_ds = file.dataset("neighbors")?;
 
     // Read corpus (capped for memory)
     let train_data: ndarray::Array2<f32> = train_ds.read_2d()?;
     let n_corpus = max_corpus.min(train_data.nrows());
-    let corpus: Vec<Vec<f32>> = (0..n_corpus)
-        .map(|i| train_data.row(i).to_vec())
-        .collect();
+    let corpus: Vec<Vec<f32>> = (0..n_corpus).map(|i| train_data.row(i).to_vec()).collect();
 
     // Read queries (capped)
     let test_data: ndarray::Array2<f32> = test_ds.read_2d()?;
     let n_queries = max_queries.min(test_data.nrows());
-    let queries: Vec<Vec<f32>> = (0..n_queries)
-        .map(|i| test_data.row(i).to_vec())
-        .collect();
+    let queries: Vec<Vec<f32>> = (0..n_queries).map(|i| test_data.row(i).to_vec()).collect();
 
     // Read ground-truth top-100 ids (int32 in the HDF5 format)
     let nn_data: ndarray::Array2<i32> = nn_ds.read_2d()?;
@@ -170,7 +172,11 @@ pub fn load_full_datasets(cache_dir: &std::path::Path) -> Vec<anyhow::Result<Dat
     ANN_DATASETS
         .iter()
         .map(|spec| {
-            let max_c = if spec.name.starts_with("deep-image") { 10_000_000 } else { 1_000_000 };
+            let max_c = if spec.name.starts_with("deep-image") {
+                10_000_000
+            } else {
+                1_000_000
+            };
             load_ann_dataset(spec, cache_dir, max_c, 10_000)
         })
         .collect()

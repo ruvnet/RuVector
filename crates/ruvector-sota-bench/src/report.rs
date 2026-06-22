@@ -33,7 +33,12 @@ impl BenchReport {
         let sota_claims: Vec<String> = scores
             .iter()
             .filter(|s| s.sota)
-            .map(|s| format!("{} on {}: recall@10={:.4} qps={:.0}", s.index, s.dataset, s.recall.recall_at_10, s.qps))
+            .map(|s| {
+                format!(
+                    "{} on {}: recall@10={:.4} qps={:.0}",
+                    s.index, s.dataset, s.recall.recall_at_10, s.qps
+                )
+            })
             .collect();
 
         // Sort into leaderboard by darwin_score descending
@@ -51,7 +56,9 @@ impl BenchReport {
             })
             .collect();
         leaderboard.sort_by(|a, b| b.recall_at_10.partial_cmp(&a.recall_at_10).unwrap());
-        for (i, row) in leaderboard.iter_mut().enumerate() { row.rank = i + 1; }
+        for (i, row) in leaderboard.iter_mut().enumerate() {
+            row.rank = i + 1;
+        }
 
         Self {
             generated_at: chrono::Utc::now().to_rfc3339(),
@@ -66,7 +73,10 @@ impl BenchReport {
         println!("\n╔══ RuVector SOTA Benchmark Report ══════════════════════════════════╗");
         println!("  Generated: {}  SHA: {}", self.generated_at, self.git_sha);
         println!("╠═══════════════════════════════════════════════════════════════════╣");
-        println!("  {:<24} {:<24} {:>10} {:>10} {:>9}", "Index", "Dataset", "Recall@10", "QPS", "p99 µs");
+        println!(
+            "  {:<24} {:<24} {:>10} {:>10} {:>9}",
+            "Index", "Dataset", "Recall@10", "QPS", "p99 µs"
+        );
         println!("  {}", "─".repeat(80));
         for s in &self.scores {
             let sota_mark = if s.sota { " ★SOTA" } else { "" };
@@ -80,7 +90,9 @@ impl BenchReport {
             println!("  No SOTA claims this run.");
         } else {
             println!("  SOTA claims (recall@10 ≥ 0.95 AND QPS ≥ 80% of HNSWlib):");
-            for c in &self.sota_claims { println!("    ★ {c}"); }
+            for c in &self.sota_claims {
+                println!("    ★ {c}");
+            }
         }
         println!("╚═══════════════════════════════════════════════════════════════════╝\n");
     }

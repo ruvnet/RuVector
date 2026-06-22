@@ -2,9 +2,9 @@
 //!
 //! Measures the recall@10 vs QPS tradeoff for FullDimIndex, TwoStageIndex,
 //! and ThreeStageIndex on synthetic datasets matching ANN-Benchmarks dims.
-use crate::{Dataset, BenchScore, claim_sota, darwin_score};
-use crate::metrics::{RecallMetrics, LatencyMetrics};
-use crate::runners::core_hnsw::{HNSW_BASELINE_QPS, HNSW_BASELINE_MEM_MB, HNSW_BASELINE_P99_MS};
+use crate::metrics::{LatencyMetrics, RecallMetrics};
+use crate::runners::core_hnsw::{HNSW_BASELINE_MEM_MB, HNSW_BASELINE_P99_MS, HNSW_BASELINE_QPS};
+use crate::{claim_sota, darwin_score, BenchScore, Dataset};
 use ruvector_matryoshka::{MatryoshkaConfig, Searcher};
 use std::time::Instant;
 
@@ -58,9 +58,13 @@ fn bench_searcher<S: Searcher>(
         build_secs,
         memory_mb,
         darwin_score: darwin_score(
-            mr10, qps, HNSW_BASELINE_QPS,
-            memory_mb, HNSW_BASELINE_MEM_MB,
-            p99_us / 1_000.0, HNSW_BASELINE_P99_MS,
+            mr10,
+            qps,
+            HNSW_BASELINE_QPS,
+            memory_mb,
+            HNSW_BASELINE_MEM_MB,
+            p99_us / 1_000.0,
+            HNSW_BASELINE_P99_MS,
         ),
         sota: claim_sota(mr10, qps, HNSW_BASELINE_QPS),
         params: [("ef".to_string(), ef.to_string())].into(),
@@ -80,22 +84,28 @@ pub fn run_matryoshka_suite(
     let mid = (dims / 2).max(coarse + 1);
     let candidates = ef * 4;
     let cfg_full = MatryoshkaConfig {
-        full_dim: dims, coarse_dim: dims, mid_dim: dims,
-        m: 16, ef_construction: 100,
+        full_dim: dims,
+        coarse_dim: dims,
+        mid_dim: dims,
+        m: 16,
+        ef_construction: 100,
         two_stage_candidates: candidates,
         three_stage_coarse_candidates: candidates,
         three_stage_mid_candidates: candidates / 2,
     };
     let cfg_two = MatryoshkaConfig {
-        full_dim: dims, coarse_dim: coarse, mid_dim: mid,
-        m: 16, ef_construction: 100,
+        full_dim: dims,
+        coarse_dim: coarse,
+        mid_dim: mid,
+        m: 16,
+        ef_construction: 100,
         two_stage_candidates: candidates,
         three_stage_coarse_candidates: candidates,
         three_stage_mid_candidates: candidates / 2,
     };
 
     vec![
-        bench_searcher::<FullDimIndex>("matryoshka-full",   &cfg_full, dataset, k, ef),
+        bench_searcher::<FullDimIndex>("matryoshka-full", &cfg_full, dataset, k, ef),
         bench_searcher::<TwoStageIndex>("matryoshka-funnel", &cfg_two, dataset, k, ef),
     ]
 }

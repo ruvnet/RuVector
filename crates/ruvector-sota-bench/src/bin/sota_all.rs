@@ -13,15 +13,19 @@ use anyhow::Result;
 use clap::Parser;
 use ruvector_sota_bench::{
     datasets::{ann_benchmark_synthetic, ci_smoke},
-    runners::{run_core_hnsw, run_lsm_ann, run_matryoshka_suite, run_hybrid_suite, run_rabitq_suite},
     report::BenchReport,
+    runners::{
+        run_core_hnsw, run_hybrid_suite, run_lsm_ann, run_matryoshka_suite, run_rabitq_suite,
+    },
     BenchScore,
 };
 use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "sota-all")]
-#[command(about = "RuVector SOTA master benchmark — proves recall/QPS/memory vs public leaderboards")]
+#[command(
+    about = "RuVector SOTA master benchmark — proves recall/QPS/memory vs public leaderboards"
+)]
 struct Args {
     /// Quick smoke-test datasets only (CI-safe, < 30s)
     #[arg(long)]
@@ -67,23 +71,46 @@ struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    let datasets = if args.smoke { ci_smoke() } else { ann_benchmark_synthetic() };
-    let ef_values: Vec<usize> = args.ef_search
+    let datasets = if args.smoke {
+        ci_smoke()
+    } else {
+        ann_benchmark_synthetic()
+    };
+    let ef_values: Vec<usize> = args
+        .ef_search
         .split(',')
         .filter_map(|s| s.trim().parse().ok())
         .collect();
 
     println!("RuVector SOTA Benchmark");
-    println!("  Mode:      {}", if args.smoke { "smoke (synthetic, fast)" } else { "full (synthetic ANN-Benchmarks scale)" });
-    println!("  Datasets:  {}", datasets.iter().map(|d| d.name.as_str()).collect::<Vec<_>>().join(", "));
+    println!(
+        "  Mode:      {}",
+        if args.smoke {
+            "smoke (synthetic, fast)"
+        } else {
+            "full (synthetic ANN-Benchmarks scale)"
+        }
+    );
+    println!(
+        "  Datasets:  {}",
+        datasets
+            .iter()
+            .map(|d| d.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
     println!("  ef_search: {:?}", ef_values);
     println!();
 
     let mut scores: Vec<BenchScore> = Vec::new();
 
     for dataset in &datasets {
-        println!("── Dataset: {} (n={}, dims={}) ──",
-            dataset.name, dataset.corpus.len(), dataset.dims);
+        println!(
+            "── Dataset: {} (n={}, dims={}) ──",
+            dataset.name,
+            dataset.corpus.len(),
+            dataset.dims
+        );
 
         // 1. core-hnsw sweep
         for &ef in &ef_values {
@@ -133,9 +160,15 @@ fn main() -> Result<()> {
         if !args.no_lsm {
             match run_lsm_ann(dataset, args.k, 500) {
                 Ok(s) => {
-                    println!("  {:<26} | recall@10={:.4}  qps={:>8.0}  p99={:>6.1}µs  darwin={:.3}{}",
-                        s.index, s.recall.recall_at_10, s.qps, s.latency.p99_us,
-                        s.darwin_score, if s.sota { " ★SOTA" } else { "" });
+                    println!(
+                        "  {:<26} | recall@10={:.4}  qps={:>8.0}  p99={:>6.1}µs  darwin={:.3}{}",
+                        s.index,
+                        s.recall.recall_at_10,
+                        s.qps,
+                        s.latency.p99_us,
+                        s.darwin_score,
+                        if s.sota { " ★SOTA" } else { "" }
+                    );
                     scores.push(s);
                 }
                 Err(e) => eprintln!("  ✗ lsm-ann: {e}"),
@@ -145,9 +178,15 @@ fn main() -> Result<()> {
         // 4. hybrid (BM25 + ANN fusion)
         if !args.no_hybrid {
             for s in run_hybrid_suite(dataset, args.k) {
-                println!("  {:<26} | recall@10={:.4}  qps={:>8.0}  p99={:>6.1}µs  darwin={:.3}{}",
-                    s.index, s.recall.recall_at_10, s.qps, s.latency.p99_us,
-                    s.darwin_score, if s.sota { " ★SOTA" } else { "" });
+                println!(
+                    "  {:<26} | recall@10={:.4}  qps={:>8.0}  p99={:>6.1}µs  darwin={:.3}{}",
+                    s.index,
+                    s.recall.recall_at_10,
+                    s.qps,
+                    s.latency.p99_us,
+                    s.darwin_score,
+                    if s.sota { " ★SOTA" } else { "" }
+                );
                 scores.push(s);
             }
         }
@@ -170,9 +209,14 @@ fn main() -> Result<()> {
     if !darwin_ranked.is_empty() {
         println!("\n── Darwin Mode Score Ranking (higher = better for evolution) ──");
         for (i, s) in darwin_ranked.iter().take(5).enumerate() {
-            println!("  #{} {:<30} darwin={:.4}  recall@10={:.4}  qps={:.0}",
-                i + 1, format!("{} on {}", s.index, s.dataset),
-                s.darwin_score, s.recall.recall_at_10, s.qps);
+            println!(
+                "  #{} {:<30} darwin={:.4}  recall@10={:.4}  qps={:.0}",
+                i + 1,
+                format!("{} on {}", s.index, s.dataset),
+                s.darwin_score,
+                s.recall.recall_at_10,
+                s.qps
+            );
         }
     }
 

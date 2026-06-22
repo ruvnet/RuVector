@@ -3,8 +3,8 @@
 //! Uses HnswIndex directly (bypassing VectorDB) so ef_search is honoured per
 //! query — VectorDB::search ignores SearchQuery::ef_search and always uses the
 //! config default. Direct index access fixes the recall stall at ~0.51.
-use crate::{Dataset, BenchScore, claim_sota, darwin_score};
-use crate::metrics::{RecallMetrics, LatencyMetrics};
+use crate::metrics::{LatencyMetrics, RecallMetrics};
+use crate::{claim_sota, darwin_score, BenchScore, Dataset};
 use ruvector_core::{
     index::{hnsw::HnswIndex, VectorIndex},
     types::HnswConfig,
@@ -25,7 +25,12 @@ pub fn run_core_hnsw(
     ef_search: usize,
     k: usize,
 ) -> anyhow::Result<BenchScore> {
-    let cfg = HnswConfig { m, ef_construction, ef_search, ..Default::default() };
+    let cfg = HnswConfig {
+        m,
+        ef_construction,
+        ef_search,
+        ..Default::default()
+    };
 
     // ── Build ─────────────────────────────────────────────────────────────────
     let t_build = Instant::now();
@@ -41,16 +46,20 @@ pub fn run_core_hnsw(
     // ── Query with explicit ef_search ─────────────────────────────────────────
     let fetch_k = k.max(100); // over-fetch for recall@100 measurement
     let mut latencies: Vec<u128> = Vec::with_capacity(dataset.queries.len());
-    let mut r1 = Vec::new(); let mut r10 = Vec::new(); let mut r100 = Vec::new();
+    let mut r1 = Vec::new();
+    let mut r10 = Vec::new();
+    let mut r100 = Vec::new();
 
     for (qi, q) in dataset.queries.iter().enumerate() {
         let t = Instant::now();
         // Use search_with_ef to honour the ef_search parameter
-        let results = idx.search_with_ef(q, fetch_k, ef_search)
+        let results = idx
+            .search_with_ef(q, fetch_k, ef_search)
             .map_err(|e| anyhow::anyhow!("search_with_ef: {e}"))?;
         latencies.push(t.elapsed().as_nanos());
 
-        let ids: Vec<u64> = results.iter()
+        let ids: Vec<u64> = results
+            .iter()
             .filter_map(|r| r.id.parse::<u64>().ok())
             .collect();
         r1.push(dataset.recall_at_k(qi, &ids, 1));
@@ -68,17 +77,21 @@ pub fn run_core_hnsw(
     let memory_mb = (dataset.corpus.len() * dataset.dims * 4) as f64 / (1024.0 * 1024.0) * 1.5;
 
     let score = darwin_score(
-        mr10, qps, HNSW_BASELINE_QPS,
-        memory_mb, HNSW_BASELINE_MEM_MB,
-        latency.p99_us / 1_000.0, HNSW_BASELINE_P99_MS,
+        mr10,
+        qps,
+        HNSW_BASELINE_QPS,
+        memory_mb,
+        HNSW_BASELINE_MEM_MB,
+        latency.p99_us / 1_000.0,
+        HNSW_BASELINE_P99_MS,
     );
 
     Ok(BenchScore {
         index: format!("core-hnsw(m={m},ef={ef_search})"),
         dataset: dataset.name.clone(),
         recall: RecallMetrics {
-            recall_at_1:   r1.iter().sum::<f64>()   / n_q,
-            recall_at_10:  mr10,
+            recall_at_1: r1.iter().sum::<f64>() / n_q,
+            recall_at_10: mr10,
             recall_at_100: r100.iter().sum::<f64>() / n_q,
         },
         latency,
@@ -91,6 +104,7 @@ pub fn run_core_hnsw(
             ("m".to_string(), m.to_string()),
             ("ef_construction".to_string(), ef_construction.to_string()),
             ("ef_search".to_string(), ef_search.to_string()),
-        ].into(),
+        ]
+        .into(),
     })
 }

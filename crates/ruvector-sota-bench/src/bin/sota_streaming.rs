@@ -15,14 +15,21 @@ use ruvector_sota_bench::{
 #[derive(Parser)]
 #[command(name = "sota-streaming")]
 struct Args {
-    #[arg(long)] smoke: bool,
-    #[arg(long, default_value = "10")] k: usize,
-    #[arg(long, default_value = "1000")] l0_max: usize,
+    #[arg(long)]
+    smoke: bool,
+    #[arg(long, default_value = "10")]
+    k: usize,
+    #[arg(long, default_value = "1000")]
+    l0_max: usize,
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    let datasets = if args.smoke { ci_smoke() } else { ann_benchmark_synthetic() };
+    let datasets = if args.smoke {
+        ci_smoke()
+    } else {
+        ann_benchmark_synthetic()
+    };
 
     println!("RuVector — BigANN Streaming Track Benchmark");
     println!("  NeurIPS'23 target: 0.887 averaged recall during active inserts");
@@ -32,15 +39,27 @@ fn main() -> Result<()> {
     let mut n_checkpoints = 0usize;
 
     for dataset in &datasets {
-        println!("── {} (n={}, dims={}) ──", dataset.name, dataset.corpus.len(), dataset.dims);
+        println!(
+            "── {} (n={}, dims={}) ──",
+            dataset.name,
+            dataset.corpus.len(),
+            dataset.dims
+        );
 
         // 1. Streaming checkpoints (recall at 25% / 50% / 100% fill)
         println!("  Streaming recall during insertion:");
         match run_lsm_streaming(dataset, args.k) {
             Ok(checkpoints) => {
                 for (fill_pct, recall, mem_mb) in &checkpoints {
-                    let status = if *recall >= 0.887 { "✓ beats NeurIPS target" } else { "✗ below target" };
-                    println!("    fill={:5.1}%  recall@10={:.4}  mem={:.1}MB  {}", fill_pct, recall, mem_mb, status);
+                    let status = if *recall >= 0.887 {
+                        "✓ beats NeurIPS target"
+                    } else {
+                        "✗ below target"
+                    };
+                    println!(
+                        "    fill={:5.1}%  recall@10={:.4}  mem={:.1}MB  {}",
+                        fill_pct, recall, mem_mb, status
+                    );
                     total_recall += recall;
                     n_checkpoints += 1;
                 }
@@ -51,9 +70,14 @@ fn main() -> Result<()> {
         // 2. Full build + query (post-compaction)
         println!("  Post-compaction (static) performance:");
         match run_lsm_ann(dataset, args.k, args.l0_max) {
-            Ok(s) => println!("    {}  recall@10={:.4}  qps={:.0}  mem={:.1}MB{}",
-                s.index, s.recall.recall_at_10, s.qps, s.memory_mb,
-                if s.sota { "  ★SOTA" } else { "" }),
+            Ok(s) => println!(
+                "    {}  recall@10={:.4}  qps={:.0}  mem={:.1}MB{}",
+                s.index,
+                s.recall.recall_at_10,
+                s.qps,
+                s.memory_mb,
+                if s.sota { "  ★SOTA" } else { "" }
+            ),
             Err(e) => eprintln!("  ✗ lsm static: {e}"),
         }
         println!();

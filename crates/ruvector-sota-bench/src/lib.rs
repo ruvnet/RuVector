@@ -23,7 +23,7 @@ pub mod metrics;
 pub mod report;
 pub mod runners;
 
-pub use metrics::{BenchScore, RecallMetrics, LatencyMetrics};
+pub use metrics::{BenchScore, LatencyMetrics, RecallMetrics};
 pub use report::{BenchReport, LeaderboardRow};
 
 use rand::SeedableRng;
@@ -66,15 +66,20 @@ impl Dataset {
             .map(|q| brute_force_top_k(&corpus, q, 100))
             .collect();
 
-        Dataset { name: name.to_string(), dims, corpus, queries, ground_truth }
+        Dataset {
+            name: name.to_string(),
+            dims,
+            corpus,
+            queries,
+            ground_truth,
+        }
     }
 
     /// Recall@k between a result set and the ground truth for query `qi`.
     pub fn recall_at_k(&self, qi: usize, result_ids: &[u64], k: usize) -> f64 {
         let gt: std::collections::HashSet<u64> =
             self.ground_truth[qi].iter().take(k).cloned().collect();
-        let res: std::collections::HashSet<u64> =
-            result_ids.iter().take(k).cloned().collect();
+        let res: std::collections::HashSet<u64> = result_ids.iter().take(k).cloned().collect();
         let hits = gt.intersection(&res).count();
         hits as f64 / k.min(gt.len()) as f64
     }
@@ -102,11 +107,11 @@ fn sq_dist(a: &[f32], b: &[f32]) -> f32 {
 /// Standard ANN-Benchmarks–compatible synthetic datasets.
 pub fn standard_synthetic_datasets() -> Vec<Dataset> {
     vec![
-        Dataset::synthetic("glove-25-angular",  100_000, 1_000,  25, 42),
+        Dataset::synthetic("glove-25-angular", 100_000, 1_000, 25, 42),
         Dataset::synthetic("glove-100-angular", 100_000, 1_000, 100, 43),
-        Dataset::synthetic("sift-128-euclidean",100_000, 1_000, 128, 44),
-        Dataset::synthetic("gist-960-euclidean",  5_000,   200, 960, 45),
-        Dataset::synthetic("deep-image-96",     100_000, 1_000,  96, 46),
+        Dataset::synthetic("sift-128-euclidean", 100_000, 1_000, 128, 44),
+        Dataset::synthetic("gist-960-euclidean", 5_000, 200, 960, 45),
+        Dataset::synthetic("deep-image-96", 100_000, 1_000, 96, 46),
     ]
 }
 
@@ -114,7 +119,7 @@ pub fn standard_synthetic_datasets() -> Vec<Dataset> {
 pub fn smoke_test_datasets() -> Vec<Dataset> {
     vec![
         Dataset::synthetic("smoke-128", 10_000, 100, 128, 99),
-        Dataset::synthetic("smoke-96",   5_000,  50,  96, 98),
+        Dataset::synthetic("smoke-96", 5_000, 50, 96, 98),
     ]
 }
 
@@ -127,13 +132,16 @@ pub fn smoke_test_datasets() -> Vec<Dataset> {
 /// Higher is better. Typically in [0, 1].
 pub fn darwin_score(
     recall_at_10: f64,
-    qps: f64,       baseline_qps: f64,
-    mem_mb: f64,    baseline_mem_mb: f64,
-    p99_ms: f64,    baseline_p99_ms: f64,
+    qps: f64,
+    baseline_qps: f64,
+    mem_mb: f64,
+    baseline_mem_mb: f64,
+    p99_ms: f64,
+    baseline_p99_ms: f64,
 ) -> f64 {
-    let qps_term   = ((qps / baseline_qps).ln().clamp(0.0, 1.0));
-    let mem_term   = (1.0 - mem_mb   / baseline_mem_mb).max(0.0);
-    let lat_term   = (1.0 - p99_ms   / baseline_p99_ms).max(0.0);
+    let qps_term = ((qps / baseline_qps).ln().clamp(0.0, 1.0));
+    let mem_term = (1.0 - mem_mb / baseline_mem_mb).max(0.0);
+    let lat_term = (1.0 - p99_ms / baseline_p99_ms).max(0.0);
     0.40 * recall_at_10 + 0.30 * qps_term + 0.20 * mem_term + 0.10 * lat_term
 }
 
