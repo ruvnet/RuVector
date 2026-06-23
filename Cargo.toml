@@ -262,6 +262,8 @@ members = [
     "crates/ruvector-pq-search",
     # SOTA benchmark suite (ADR-265)
     "crates/ruvector-sota-bench",
+    # Semantic query result cache: HNSW-backed cache with adaptive threshold (ADR-268)
+    "crates/ruvector-semantic-cache",
 ]
 resolver = "2"
 

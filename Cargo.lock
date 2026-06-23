@@ -10343,6 +10343,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-semantic-cache"
+version = "2.2.3"
+dependencies = [
+ "rand 0.8.6",
+]
+
+[[package]]
 name = "ruvector-server"
 version = "2.2.3"
 dependencies = [

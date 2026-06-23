@@ -1,0 +1,22 @@
+[package]
+name = "ruvector-semantic-cache"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Semantic query result cache for RAG and agent memory: HNSW-backed nearest-query cache with adaptive threshold and recall-preserving eviction"
+readme = "README.md"
+keywords = ["vector-search", "cache", "rag", "agent-memory", "semantic-cache"]
+categories = ["algorithms", "data-structures", "caching", "science"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+rand = { workspace = true }
+
+[lints.rust]
+dead_code = "allow"
+unused_variables = "allow"
