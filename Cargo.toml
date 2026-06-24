@@ -262,6 +262,8 @@ members = [
     "crates/ruvector-pq-search",
     # SOTA benchmark suite (ADR-265)
     "crates/ruvector-sota-bench",
+    # SPANN partition spilling for boundary-safe ANN (ADR-268)
+    "crates/ruvector-spann",
 ]
 resolver = "2"
 
