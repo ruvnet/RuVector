@@ -8,13 +8,13 @@
 //! - **Prelude → Recurrent → Coda** staging ([`OpenMythos::forward`]).
 //! - **LTI-constrained injection** `h_{t+1} = A·h_t + B·e + Transformer(h_t + e)`
 //!   with contractive diagonal `A = exp(-exp(log_dt + log_A)) ∈ (0,1)`
-//!   ([`recurrent::LtiInjection`]).
+//!   (`LtiInjection` in the `recurrent` module).
 //! - **Adaptive Computation Time** halting with remainder weighting and a
-//!   **loop-index positional embedding** ([`recurrent::RecurrentBlock`]).
+//!   **loop-index positional embedding** (`RecurrentBlock` in the `recurrent` module).
 //! - **Attention variants**: Grouped-Query and Multi-Latent (compressed KV),
 //!   both with incremental **KV-cache decode** ([`attention`]).
 //! - **Per-depth LoRA** adaptation in the recurrent loop
-//!   ([`DepthLora`]).
+//!   (`DepthLora`).
 //! - A **checkpoint loader** with the honest-boundary metadata gate
 //!   ([`validate_mythos_metadata`]).
 //!
