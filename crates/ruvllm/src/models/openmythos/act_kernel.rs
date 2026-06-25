@@ -369,10 +369,7 @@ impl FusedActKernel {
 ///
 /// # Safety
 /// Caller must ensure the tensor is contiguous, on CUDA, and dtype F32.
-pub unsafe fn with_tensor_f32_ptr<R, F: FnOnce(u64) -> R>(
-    tensor: &Tensor,
-    f: F,
-) -> Result<R> {
+pub unsafe fn with_tensor_f32_ptr<R, F: FnOnce(u64) -> R>(tensor: &Tensor, f: F) -> Result<R> {
     use candle_core::Storage;
     use cudarc::driver::DevicePtr;
 
@@ -399,10 +396,7 @@ pub unsafe fn with_tensor_f32_ptr<R, F: FnOnce(u64) -> R>(
 }
 
 /// Same callback pattern for BF16 tensors (pointer is `*const u16` equivalent).
-pub unsafe fn with_tensor_bf16_ptr<R, F: FnOnce(u64) -> R>(
-    tensor: &Tensor,
-    f: F,
-) -> Result<R> {
+pub unsafe fn with_tensor_bf16_ptr<R, F: FnOnce(u64) -> R>(tensor: &Tensor, f: F) -> Result<R> {
     use candle_core::Storage;
     use cudarc::driver::DevicePtr;
     use half::bf16;

@@ -322,6 +322,7 @@ fn train_nodeclass_trajectory(
             }
             let m = logits.iter().cloned().fold(f32::MIN, f32::max);
             let mut z = 0.0f32;
+            #[allow(clippy::needless_range_loop)]
             for c in 0..n_cls {
                 logits[c] = (logits[c] - m).exp();
                 z += logits[c];

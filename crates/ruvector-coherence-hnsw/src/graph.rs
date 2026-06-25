@@ -103,6 +103,7 @@ impl FlatGraph {
         if m_lj > 0 {
             let mut rng = StdRng::seed_from_u64(0xBAD_C0FFEEu64);
             let dist = Uniform::new(0usize, n);
+            #[allow(clippy::needless_range_loop)]
             for i in 0..n {
                 let mut added = 0usize;
                 let mut attempts = 0usize;

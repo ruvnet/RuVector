@@ -130,7 +130,7 @@ impl HashChainGate {
         h.update(b"ruvector:chain:");
         h.update(prev);
         h.update(payload_hash);
-        h.update(&seq.to_le_bytes());
+        h.update(seq.to_le_bytes());
         h.finalize().into()
     }
 
@@ -144,8 +144,11 @@ impl HashChainGate {
             return false;
         }
         let mut prev = GENESIS;
-        for (i, (commitment, payload_hash)) in
-            self.chain.iter().zip(self.payload_hashes.iter()).enumerate()
+        for (i, (commitment, payload_hash)) in self
+            .chain
+            .iter()
+            .zip(self.payload_hashes.iter())
+            .enumerate()
         {
             let expected = Self::compute_commitment(&prev, payload_hash, i as u64);
             if &expected != commitment {
@@ -251,7 +254,7 @@ impl MerkleGate {
         let mut h = Sha256::new();
         h.update(b"ruvector:leaf:");
         h.update(payload_hash);
-        h.update(&seq.to_le_bytes());
+        h.update(seq.to_le_bytes());
         h.finalize().into()
     }
 
@@ -343,7 +346,8 @@ mod rederivation_tests {
     fn gate_with(n: u64) -> HashChainGate {
         let mut g = HashChainGate::new();
         for i in 0..n {
-            g.admit(&WritePayload::new(i, vec![i as f32, 1.0, -(i as f32)])).unwrap();
+            g.admit(&WritePayload::new(i, vec![i as f32, 1.0, -(i as f32)]))
+                .unwrap();
         }
         g
     }
@@ -351,21 +355,30 @@ mod rederivation_tests {
     #[test]
     fn clean_chain_reverifies() {
         assert!(gate_with(8).verify_integrity());
-        assert!(HashChainGate::new().verify_integrity(), "empty chain is valid");
+        assert!(
+            HashChainGate::new().verify_integrity(),
+            "empty chain is valid"
+        );
     }
 
     #[test]
     fn tampered_commitment_detected() {
         let mut g = gate_with(8);
         g.chain[3][0] ^= 0xFF; // flip a byte of a stored commitment
-        assert!(!g.verify_integrity(), "mutated commitment must fail re-derivation");
+        assert!(
+            !g.verify_integrity(),
+            "mutated commitment must fail re-derivation"
+        );
     }
 
     #[test]
     fn tampered_payload_hash_detected() {
         let mut g = gate_with(8);
         g.payload_hashes[2][0] ^= 0xFF; // poisoned write whose recorded hash no longer matches
-        assert!(!g.verify_integrity(), "mutated payload hash must fail re-derivation");
+        assert!(
+            !g.verify_integrity(),
+            "mutated payload hash must fail re-derivation"
+        );
     }
 
     #[test]
@@ -373,7 +386,10 @@ mod rederivation_tests {
         let mut g = gate_with(8);
         g.chain.swap(2, 5);
         g.payload_hashes.swap(2, 5);
-        assert!(!g.verify_integrity(), "reordering entries must fail re-derivation");
+        assert!(
+            !g.verify_integrity(),
+            "reordering entries must fail re-derivation"
+        );
     }
 
     #[test]

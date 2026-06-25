@@ -1,0 +1,250 @@
+[package]
+name = "timesfm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "TimesFM 1.0 200M decoder-only patched time-series Transformer inference in Rust/candle (ADR-189/191)"
+keywords = ["timesfm", "transformer", "time-series", "forecasting", "candle"]
+categories = ["science", "algorithms"]
+readme = "README.md"
+publish = true
+
+[lib]
+name = "timesfm"
+path = "src/lib.rs"
+
+# Examples that drive the candle decoder unconditionally only compile with the
+# `candle` feature enabled. Gate them so stock `cargo build/clippy --workspace`
+# (no candle) skips them instead of failing on unresolved candle imports.
+# `parity` and `predictive_prune` already self-gate via `#[cfg(feature = "candle")]`.
+[[example]]
+name = "bench"
+required-features = ["candle"]
+
+[[example]]
+name = "bench24"
+required-features = ["candle"]
+
+[features]
+default = []
+# Activates the candle inference path (hand-rolled decoder + VarBuilder
+# safetensors loading). Off by default so stock `cargo build --workspace`
+# stays light, mirroring ruvector-hailo's `cpu-fallback`/`candle` pattern.
+candle = ["candle-core", "candle-nn", "candle-transformers", "tokenizers"]
+# Acceleration backends (opt-in alongside `candle`).
+metal = ["candle-core/metal", "candle-nn/metal"]
+cuda = ["candle-core/cuda", "candle-nn/cuda"]
+# HuggingFace download path (google/timesfm-1.0-200m safetensors).
+hub = ["hf-hub"]
+
+[dependencies]
+# Shared workspace deps.
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+# Candle ML framework (optional, behind the `candle` feature).
+# 0.9.x: cudarc 0.19 → native CUDA 13.0 on RTX 5080 / SM 12.0 (matches ruvllm).
+candle-core = { version = "0.9", optional = true }
+candle-nn = { version = "0.9", optional = true }
+candle-transformers = { version = "0.9", optional = true }
+
+# Tokenizers (kept parallel to ruvllm; not load-bearing for the numeric path).
+tokenizers = { version = "0.20", optional = true, default-features = false, features = ["onig"] }
+
+# HuggingFace Hub for model downloads (opt-in `hub` feature only).
+hf-hub = { version = "0.4", optional = true, default-features = false, features = ["tokio", "rustls-tls"] }
+
+[dev-dependencies]
+anyhow = { workspace = true }
+
+# Research-tier crate, doc/style churn deferred. Correctness + suspicious stay denied.
+[lints.rust]
+unexpected_cfgs = { level = "allow", priority = -1 }
+unused_imports = "allow"
+dead_code = "allow"
+unused_variables = "allow"
+unused_mut = "allow"
+unused_assignments = "allow"
+unused_must_use = "allow"
+missing_docs = "allow"
+unsafe_op_in_unsafe_fn = "allow"
+unused_parens = "allow"
+unused_comparisons = "allow"
+non_local_definitions = "allow"
+static_mut_refs = "allow"
+non_camel_case_types = "allow"
+deprecated = "allow"
+ambiguous_glob_reexports = "allow"
+non_upper_case_globals = "allow"
+unused_doc_comments = "allow"
+unused_unsafe = "allow"
+unreachable_patterns = "allow"
+suspicious_double_ref_op = "allow"
+
+[lints.clippy]
+pedantic = { level = "allow", priority = -2 }
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+needless_range_loop = "allow"
+needless_borrow = "allow"
+needless_borrows_for_generic_args = "allow"
+needless_update = "allow"
+needless_bool = "allow"
+needless_pass_by_value = "allow"
+manual_div_ceil = "allow"
+manual_is_multiple_of = "allow"
+manual_range_contains = "allow"
+manual_clamp = "allow"
+manual_checked_ops = "allow"
+manual_let_else = "allow"
+manual_memcpy = "allow"
+manual_repeat_n = "allow"
+manual_contains = "allow"
+manual_flatten = "allow"
+manual_abs_diff = "allow"
+manual_slice_size_calculation = "allow"
+redundant_closure = "allow"
+redundant_closure_for_method_calls = "allow"
+redundant_field_names = "allow"
+len_zero = "allow"
+get_first = "allow"
+useless_vec = "allow"
+too_many_arguments = "allow"
+derivable_impls = "allow"
+approx_constant = "allow"
+assertions_on_constants = "allow"
+field_reassign_with_default = "allow"
+nonminimal_bool = "allow"
+collapsible_if = "allow"
+collapsible_match = "allow"
+inconsistent_digit_grouping = "allow"
+unnecessary_sort_by = "allow"
+unnecessary_map_or = "allow"
+unnecessary_filter_map = "allow"
+unnecessary_lazy_evaluations = "allow"
+unnecessary_cast = "allow"
+unnecessary_to_owned = "allow"
+unnecessary_wraps = "allow"
+unnecessary_literal_unwrap = "allow"
+unnecessary_struct_initialization = "allow"
+should_implement_trait = "allow"
+ptr_arg = "allow"
+let_unit_value = "allow"
+let_and_return = "allow"
+type_complexity = "allow"
+identity_op = "allow"
+match_like_matches_macro = "allow"
+match_same_arms = "allow"
+match_single_binding = "allow"
+vec_init_then_push = "allow"
+absurd_extreme_comparisons = "allow"
+incompatible_msrv = "allow"
+unused_enumerate_index = "allow"
+unused_self = "allow"
+map_clone = "allow"
+map_unwrap_or = "allow"
+result_map_or_into_option = "allow"
+unusual_byte_groupings = "allow"
+if_same_then_else = "allow"
+unnested_or_patterns = "allow"
+uninlined_format_args = "allow"
+single_match_else = "allow"
+single_char_pattern = "allow"
+mixed_attributes_style = "allow"
+arc_with_non_send_sync = "allow"
+bool_assert_comparison = "allow"
+bool_comparison = "allow"
+bind_instead_of_map = "allow"
+cloned_ref_to_slice_refs = "allow"
+large_stack_arrays = "allow"
+implicit_saturating_sub = "allow"
+ignored_unit_patterns = "allow"
+explicit_iter_loop = "allow"
+elidable_lifetime_names = "allow"
+doc_markdown = "allow"
+doc_overindented_list_items = "allow"
+comparison_chain = "allow"
+clone_on_copy = "allow"
+items_after_statements = "allow"
+inline_always = "allow"
+format_push_string = "allow"
+format_collect = "allow"
+for_kv_map = "allow"
+float_cmp = "allow"
+if_not_else = "allow"
+return_self_not_must_use = "allow"
+missing_fields_in_debug = "allow"
+upper_case_acronyms = "allow"
+wildcard_imports = "allow"
+must_use_candidate = "allow"
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_precision_loss = "allow"
+cast_lossless = "allow"
+cast_sign_loss = "allow"
+unreadable_literal = "allow"
+struct_excessive_bools = "allow"
+trivially_copy_pass_by_ref = "allow"
+missing_safety_doc = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+similar_names = "allow"
+module_name_repetitions = "allow"
+assign_op_pattern = "allow"
+iter_cloned_collect = "allow"
+excessive_precision = "allow"
+await_holding_refcell_ref = "allow"
+unnecessary_unwrap = "allow"
+unit_arg = "allow"
+redundant_pattern_matching = "allow"
+question_mark = "allow"
+partialeq_to_none = "allow"
+new_without_default = "allow"
+map_flatten = "allow"
+manual_unwrap_or = "allow"
+len_without_is_empty = "allow"
+format_in_format_args = "allow"
+single_char_add_str = "allow"
+useless_conversion = "allow"
+useless_format = "allow"
+doc_lazy_continuation = "allow"
+manual_strip = "allow"
+double_ended_iterator_last = "allow"
+unwrap_or_default = "allow"
+single_component_path_imports = "allow"
+needless_return = "allow"
+int_plus_one = "allow"
+needless_lifetimes = "allow"
+explicit_counter_loop = "allow"
+unnecessary_mut_passed = "allow"
+module_inception = "allow"
+option_as_ref_deref = "allow"
+print_literal = "allow"
+explicit_auto_deref = "allow"
+manual_swap = "allow"
+writeln_empty_string = "allow"
+items_after_test_module = "allow"
+no_effect = "allow"
+non_canonical_partial_ord_impl = "allow"
+wildcard_in_or_patterns = "allow"
+large_enum_variant = "allow"
+not_unsafe_ptr_arg_deref = { level = "allow", priority = 1 }
+erasing_op = { level = "allow", priority = 1 }
+almost_swapped = { level = "allow", priority = 1 }
+cast_abs_to_unsigned = { level = "allow", priority = 1 }
+let_underscore_lock = { level = "allow", priority = 1 }
+no_effect_replace = { level = "allow", priority = 1 }
+await_holding_lock = { level = "allow", priority = 1 }
+needless_character_iteration = { level = "allow", priority = 1 }
+unnecessary_get_then_check = { level = "allow", priority = 1 }
+let_underscore_future = { level = "allow", priority = 1 }
+overly_complex_bool_expr = { level = "allow", priority = 1 }
+zombie_processes = { level = "allow", priority = 1 }
+repeat_vec_with_capacity = { level = "allow", priority = 1 }
+missing_transmute_annotations = { level = "allow", priority = 1 }

@@ -350,7 +350,7 @@ mod tests {
 
     #[test]
     fn normalize_uniform_gives_zeros() {
-        let v = vec![3.14f32; 8];
+        let v = vec![2.5f32; 8];
         let u = normalize_to_u8(&v);
         assert!(u.iter().all(|&b| b == 0));
     }

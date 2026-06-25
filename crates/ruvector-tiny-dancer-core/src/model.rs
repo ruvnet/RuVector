@@ -178,15 +178,47 @@ impl FastGRNN {
 
         // (name, shape, contiguous f32 data) for every parameter tensor.
         let params: Vec<(&str, Vec<usize>, Vec<f32>)> = vec![
-            ("w_reset", self.w_reset.shape().to_vec(), self.w_reset.iter().copied().collect()),
-            ("w_update", self.w_update.shape().to_vec(), self.w_update.iter().copied().collect()),
-            ("w_candidate", self.w_candidate.shape().to_vec(), self.w_candidate.iter().copied().collect()),
-            ("w_recurrent", self.w_recurrent.shape().to_vec(), self.w_recurrent.iter().copied().collect()),
-            ("w_output", self.w_output.shape().to_vec(), self.w_output.iter().copied().collect()),
+            (
+                "w_reset",
+                self.w_reset.shape().to_vec(),
+                self.w_reset.iter().copied().collect(),
+            ),
+            (
+                "w_update",
+                self.w_update.shape().to_vec(),
+                self.w_update.iter().copied().collect(),
+            ),
+            (
+                "w_candidate",
+                self.w_candidate.shape().to_vec(),
+                self.w_candidate.iter().copied().collect(),
+            ),
+            (
+                "w_recurrent",
+                self.w_recurrent.shape().to_vec(),
+                self.w_recurrent.iter().copied().collect(),
+            ),
+            (
+                "w_output",
+                self.w_output.shape().to_vec(),
+                self.w_output.iter().copied().collect(),
+            ),
             ("b_reset", vec![self.b_reset.len()], self.b_reset.to_vec()),
-            ("b_update", vec![self.b_update.len()], self.b_update.to_vec()),
-            ("b_candidate", vec![self.b_candidate.len()], self.b_candidate.to_vec()),
-            ("b_output", vec![self.b_output.len()], self.b_output.to_vec()),
+            (
+                "b_update",
+                vec![self.b_update.len()],
+                self.b_update.to_vec(),
+            ),
+            (
+                "b_candidate",
+                vec![self.b_candidate.len()],
+                self.b_candidate.to_vec(),
+            ),
+            (
+                "b_output",
+                vec![self.b_output.len()],
+                self.b_output.to_vec(),
+            ),
         ];
 
         // Own the byte buffers so the TensorViews can borrow them.
@@ -310,7 +342,19 @@ impl FastGRNN {
         let logit = output[0];
         let pred = sigmoid_scalar(logit);
 
-        Ok((pred, ForwardCache { x, h0, r, u, rh, c, h, logit }))
+        Ok((
+            pred,
+            ForwardCache {
+                x,
+                h0,
+                r,
+                u,
+                rh,
+                c,
+                h,
+                logit,
+            },
+        ))
     }
 
     /// Single-step backprop. `d_logit = dL/d(output_logit)`; for BCE-with-sigmoid
@@ -352,7 +396,13 @@ impl FastGRNN {
         let g_b_update = d_a_u.clone();
 
         FastGRNNGradients {
-            w: [g_w_reset, g_w_update, g_w_candidate, g_w_recurrent, g_w_output],
+            w: [
+                g_w_reset,
+                g_w_update,
+                g_w_candidate,
+                g_w_recurrent,
+                g_w_output,
+            ],
             b: [g_b_reset, g_b_update, g_b_candidate, g_b_output],
         }
     }
@@ -642,14 +692,20 @@ mod tests {
         };
         let model = FastGRNN::new(config).unwrap();
         let inputs = vec![vec![0.2; 6], vec![-0.4; 6], vec![0.7; 6]];
-        let before: Vec<f32> = inputs.iter().map(|x| model.forward(x, None).unwrap()).collect();
+        let before: Vec<f32> = inputs
+            .iter()
+            .map(|x| model.forward(x, None).unwrap())
+            .collect();
 
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("model.safetensors");
         model.save(&path).unwrap();
 
         let loaded = FastGRNN::load(&path).unwrap();
-        let after: Vec<f32> = inputs.iter().map(|x| loaded.forward(x, None).unwrap()).collect();
+        let after: Vec<f32> = inputs
+            .iter()
+            .map(|x| loaded.forward(x, None).unwrap())
+            .collect();
 
         for (b, a) in before.iter().zip(after.iter()) {
             assert!((b - a).abs() < 1e-6, "before={b} after={a}");

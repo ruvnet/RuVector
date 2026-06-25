@@ -10,7 +10,9 @@ use ruvector_graph::schema::{
     PropertyType, VectorSchema,
 };
 use ruvector_graph::types::PropertyValue;
-use ruvector_graph::{Edge, Embedder, GraphDB, HashEmbedder, NodeBuilder, TraverseSpec, TypedGraph};
+use ruvector_graph::{
+    Edge, Embedder, GraphDB, HashEmbedder, NodeBuilder, TraverseSpec, TypedGraph,
+};
 use std::sync::Arc;
 
 fn make_schema(dims: usize) -> GraphSchema {
@@ -20,9 +22,17 @@ fn make_schema(dims: usize) -> GraphSchema {
             .property(PropertySchema::new("title", PropertyType::String).required())
             .property(PropertySchema::new("embedding", PropertyType::Vector)),
     );
-    s.add_node(NodeSchema::new("Topic").property(PropertySchema::new("name", PropertyType::String)));
+    s.add_node(
+        NodeSchema::new("Topic").property(PropertySchema::new("name", PropertyType::String)),
+    );
     s.add_edge(EdgeSchema::new("ABOUT", "Doc", "Topic"));
-    s.add_vector(VectorSchema::new("DocEmb", "Doc", "embedding", dims, DistanceMetric::Cosine));
+    s.add_vector(VectorSchema::new(
+        "DocEmb",
+        "Doc",
+        "embedding",
+        dims,
+        DistanceMetric::Cosine,
+    ));
     s
 }
 
@@ -43,7 +53,11 @@ fn build_graph(n: usize, dims: usize, topics: usize) -> TypedGraph {
     let tg = TypedGraph::new(GraphDB::new(), make_schema(dims)).unwrap();
     for t in 0..topics {
         tg.create_node(
-            NodeBuilder::new().id(format!("t{t}")).label("Topic").property("name", format!("topic{t}")).build(),
+            NodeBuilder::new()
+                .id(format!("t{t}"))
+                .label("Topic")
+                .property("name", format!("topic{t}"))
+                .build(),
         )
         .unwrap();
     }
@@ -53,13 +67,26 @@ fn build_graph(n: usize, dims: usize, topics: usize) -> TypedGraph {
                 .id(format!("d{i}"))
                 .label("Doc")
                 .property("title", format!("doc{i}"))
-                .property("embedding", PropertyValue::FloatArray(embedding(i as u64, dims)))
+                .property(
+                    "embedding",
+                    PropertyValue::FloatArray(embedding(i as u64, dims)),
+                )
                 .build(),
         )
         .unwrap();
         // Two ABOUT edges per doc so traversal does real work.
-        tg.create_edge(Edge::create(format!("d{i}"), format!("t{}", i % topics), "ABOUT")).unwrap();
-        tg.create_edge(Edge::create(format!("d{i}"), format!("t{}", (i + 1) % topics), "ABOUT")).unwrap();
+        tg.create_edge(Edge::create(
+            format!("d{i}"),
+            format!("t{}", i % topics),
+            "ABOUT",
+        ))
+        .unwrap();
+        tg.create_edge(Edge::create(
+            format!("d{i}"),
+            format!("t{}", (i + 1) % topics),
+            "ABOUT",
+        ))
+        .unwrap();
     }
     tg
 }
@@ -75,7 +102,12 @@ fn bench_search_then_traverse(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, _| {
             b.iter(|| {
                 let res = tg
-                    .search_then_traverse(black_box("DocEmb"), black_box(&query), black_box(10), &spec)
+                    .search_then_traverse(
+                        black_box("DocEmb"),
+                        black_box(&query),
+                        black_box(10),
+                        &spec,
+                    )
                     .unwrap();
                 black_box(res);
             });
@@ -99,12 +131,19 @@ fn bench_indexed_vs_scan(c: &mut Criterion) {
     let mut group = c.benchmark_group("search_50k_k10");
     group.bench_function("brute_force_scan", |b| {
         b.iter(|| {
-            black_box(scan.search_then_traverse(black_box("DocEmb"), black_box(&query), 10, &spec).unwrap());
+            black_box(
+                scan.search_then_traverse(black_box("DocEmb"), black_box(&query), 10, &spec)
+                    .unwrap(),
+            );
         });
     });
     group.bench_function("hnsw_pushdown", |b| {
         b.iter(|| {
-            black_box(indexed.search_then_traverse(black_box("DocEmb"), black_box(&query), 10, &spec).unwrap());
+            black_box(
+                indexed
+                    .search_then_traverse(black_box("DocEmb"), black_box(&query), 10, &spec)
+                    .unwrap(),
+            );
         });
     });
     group.finish();
@@ -119,17 +158,38 @@ fn bench_embed_and_hybrid(c: &mut Criterion) {
     let dims = 256;
     let embedder = HashEmbedder::new(dims);
     c.bench_function("hash_embed_256", |b| {
-        b.iter(|| black_box(embedder.embed(black_box("vector database semantic similarity search")).unwrap()));
+        b.iter(|| {
+            black_box(
+                embedder
+                    .embed(black_box("vector database semantic similarity search"))
+                    .unwrap(),
+            )
+        });
     });
 
     // Build a 10k-doc tri-modal graph: text + inline embeddings + BM25 + ANN.
     let n = 10_000usize;
     let words = [
-        "vector", "database", "graph", "search", "embedding", "model", "index",
-        "neural", "semantic", "traversal", "cluster", "ranking", "query", "fusion",
+        "vector",
+        "database",
+        "graph",
+        "search",
+        "embedding",
+        "model",
+        "index",
+        "neural",
+        "semantic",
+        "traversal",
+        "cluster",
+        "ranking",
+        "query",
+        "fusion",
     ];
     let text_for = |i: usize| -> String {
-        (0..6).map(|j| words[(i * 7 + j * 13) % words.len()]).collect::<Vec<_>>().join(" ")
+        (0..6)
+            .map(|j| words[(i * 7 + j * 13) % words.len()])
+            .collect::<Vec<_>>()
+            .join(" ")
     };
 
     let mut schema = GraphSchema::new();
@@ -140,14 +200,24 @@ fn bench_embed_and_hybrid(c: &mut Criterion) {
     );
     schema.add_node(NodeSchema::new("Topic"));
     schema.add_edge(EdgeSchema::new("ABOUT", "Doc", "Topic"));
-    schema.add_vector(VectorSchema::new("DocEmb", "Doc", "embedding", dims, DistanceMetric::Cosine));
+    schema.add_vector(VectorSchema::new(
+        "DocEmb",
+        "Doc",
+        "embedding",
+        dims,
+        DistanceMetric::Cosine,
+    ));
 
     let mut tg = TypedGraph::new(GraphDB::new(), schema)
         .unwrap()
         .with_embedder(Arc::new(HashEmbedder::new(dims)));
     for i in 0..n {
         let body = text_for(i);
-        let node = NodeBuilder::new().id(format!("d{i}")).label("Doc").property("body", body.clone()).build();
+        let node = NodeBuilder::new()
+            .id(format!("d{i}"))
+            .label("Doc")
+            .property("body", body.clone())
+            .build();
         tg.create_node_from_text(node, "DocEmb", &body).unwrap();
     }
     tg.build_vector_index("DocEmb").unwrap();
@@ -180,7 +250,9 @@ fn bench_validation(c: &mut Criterion) {
         .property("embedding", PropertyValue::FloatArray(embedding(1, 128)))
         .build();
     c.bench_function("validate_node", |b| {
-        b.iter(|| black_box(schema.validate_node(black_box(&node)).unwrap()));
+        b.iter(|| {
+            schema.validate_node(black_box(&node)).unwrap();
+        });
     });
 }
 
@@ -188,7 +260,12 @@ fn bench_rrf(c: &mut Criterion) {
     let a: Vec<String> = (0..1000).map(|i| format!("id{i}")).collect();
     let b_list: Vec<String> = (0..1000).map(|i| format!("id{}", (i * 7) % 1000)).collect();
     c.bench_function("rrf_2x1000", |b| {
-        b.iter(|| black_box(reciprocal_rank_fusion(black_box(&[a.clone(), b_list.clone()]), 60.0)));
+        b.iter(|| {
+            black_box(reciprocal_rank_fusion(
+                black_box(&[a.clone(), b_list.clone()]),
+                60.0,
+            ))
+        });
     });
 }
 

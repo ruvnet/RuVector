@@ -70,8 +70,18 @@ impl Bm25Index {
         }
 
         let n = doc_ids.len().max(1) as f32;
-        let avgdl = if doc_ids.is_empty() { 0.0 } else { total_len as f32 / n };
-        Self { params, postings, doc_ids, doc_len, avgdl }
+        let avgdl = if doc_ids.is_empty() {
+            0.0
+        } else {
+            total_len as f32 / n
+        };
+        Self {
+            params,
+            postings,
+            doc_ids,
+            doc_len,
+            avgdl,
+        }
     }
 
     /// Number of indexed documents.
@@ -131,7 +141,10 @@ mod tests {
         vec![
             ("d1".into(), "the quick brown fox jumps over the lazy dog"),
             ("d2".into(), "machine learning models for vector search"),
-            ("d3".into(), "vector databases enable semantic search at scale"),
+            (
+                "d3".into(),
+                "vector databases enable semantic search at scale",
+            ),
             ("d4".into(), "a recipe for italian pasta with tomato sauce"),
         ]
     }

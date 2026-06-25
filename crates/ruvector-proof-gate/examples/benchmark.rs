@@ -27,6 +27,7 @@ struct BenchResult {
     variant: &'static str,
     n: usize,
     dims: usize,
+    #[allow(dead_code)]
     queries: usize,
     mean_ns: f64,
     p50_ns: u64,

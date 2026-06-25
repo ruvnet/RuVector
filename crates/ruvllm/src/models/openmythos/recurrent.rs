@@ -37,7 +37,10 @@ impl LtiInjection {
             .map_err(cand)?
             .exp()
             .map_err(cand)?;
-        Ok(Self { a_diag_cached, b_gain })
+        Ok(Self {
+            a_diag_cached,
+            b_gain,
+        })
     }
 
     /// Cached diagonal `A ∈ (0,1)^dim`.
@@ -85,7 +88,11 @@ impl DepthLora {
                 scale_t.broadcast_mul(&b_mat).map_err(cand) // [rank, dim]
             })
             .collect::<Result<Vec<_>>>()?;
-        Ok(Self { down, effective_w, rank: cfg.lora_rank })
+        Ok(Self {
+            down,
+            effective_w,
+            rank: cfg.lora_rank,
+        })
     }
 
     pub fn forward(&self, x: &Tensor, t: usize) -> Result<Tensor> {
