@@ -134,16 +134,14 @@ impl VariantStats {
     }
 
     fn print(&self) {
-        let mean_lat =
-            self.latencies.iter().sum::<Duration>() / self.latencies.len().max(1) as u32;
+        let mean_lat = self.latencies.iter().sum::<Duration>() / self.latencies.len().max(1) as u32;
         let p50 = percentile(self.latencies.clone(), 50.0);
         let p95 = percentile(self.latencies.clone(), 95.0);
         let total_secs = self.latencies.iter().sum::<Duration>().as_secs_f64();
         let throughput = self.latencies.len() as f64 / total_secs.max(1e-9);
         let mean_recall: f32 =
             self.cosine_recalls.iter().sum::<f32>() / self.cosine_recalls.len().max(1) as f32;
-        let mean_quality: f32 =
-            self.quality.iter().sum::<f32>() / self.quality.len().max(1) as f32;
+        let mean_quality: f32 = self.quality.iter().sum::<f32>() / self.quality.len().max(1) as f32;
         let mem_kb = self.memory_bytes / 1024;
 
         println!(
@@ -223,11 +221,7 @@ fn main() {
 
     let mut stat_flat = VariantStats::new("FlatSearch", "cosine_recall", mem_vec);
     let mut stat_temp = VariantStats::new("TemporalSearch", "recency", mem_vec);
-    let mut stat_coh = VariantStats::new(
-        "CoherenceSearch",
-        "coh_gate",
-        mem_vec + n * 4,
-    );
+    let mut stat_coh = VariantStats::new("CoherenceSearch", "coh_gate", mem_vec + n * 4);
 
     use rand::distributions::{Distribution, Uniform};
     let uni = Uniform::new(-1.0f32, 1.0);
