@@ -66,9 +66,8 @@ fn main() -> anyhow::Result<()> {
 
     // --- Build the candle model from the real weights. ---
     let cfg = TimesfmConfig::timesfm_1p0_200m();
-    let vb = unsafe {
-        VarBuilder::from_mmaped_safetensors(&[weights.clone()], DType::F32, &device)?
-    };
+    let vb =
+        unsafe { VarBuilder::from_mmaped_safetensors(&[weights.clone()], DType::F32, &device)? };
     let model = PatchedTimeSeriesDecoder::load(cfg.clone(), vb)?;
     eprintln!("loaded candle model from {weights}");
 
@@ -87,9 +86,7 @@ fn main() -> anyhow::Result<()> {
     let n_bad = candle_point.iter().filter(|x| !x.is_finite()).count();
     if n_bad > 0 {
         println!("================ TimesFM 1.0 200M PARITY ================");
-        println!(
-            "candle output has {n_bad}/{horizon} non-finite (NaN/Inf) values."
-        );
+        println!("candle output has {n_bad}/{horizon} non-finite (NaN/Inf) values.");
         println!("  candle[:5] = {:?}", &candle_point[..5.min(horizon)]);
         println!("VERDICT: FAIL (non-finite candle output)");
         std::process::exit(1);

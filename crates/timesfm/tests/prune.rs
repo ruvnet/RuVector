@@ -64,8 +64,14 @@ fn predictive_prune_doomed_vs_healthy() -> anyhow::Result<()> {
     );
 
     // Honesty guards: forecasts must be finite.
-    assert!(d_doomed.forecast_plateau.is_finite(), "doomed forecast non-finite");
-    assert!(d_healthy.forecast_plateau.is_finite(), "healthy forecast non-finite");
+    assert!(
+        d_doomed.forecast_plateau.is_finite(),
+        "doomed forecast non-finite"
+    );
+    assert!(
+        d_healthy.forecast_plateau.is_finite(),
+        "healthy forecast non-finite"
+    );
 
     // The decisions.
     assert!(

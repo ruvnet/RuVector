@@ -115,7 +115,10 @@ mod tests {
     #[test]
     fn case_insensitive_tokens() {
         let e = HashEmbedder::new(64);
-        assert_eq!(e.embed("Hello World").unwrap(), e.embed("hello world").unwrap());
+        assert_eq!(
+            e.embed("Hello World").unwrap(),
+            e.embed("hello world").unwrap()
+        );
     }
 
     #[test]

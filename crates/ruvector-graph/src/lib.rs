@@ -31,21 +31,21 @@ pub mod hybrid;
 pub mod distributed;
 
 // Core type re-exports
+pub use bm25::{Bm25Index, Bm25Params};
 pub use edge::{Edge, EdgeBuilder};
+pub use embed::{Embedder, HashEmbedder};
 pub use error::{GraphError, Result};
 pub use graph::GraphDB;
 pub use hyperedge::{Hyperedge, HyperedgeBuilder, HyperedgeId};
-pub use bm25::{Bm25Index, Bm25Params};
-pub use embed::{Embedder, HashEmbedder};
 pub use node::{Node, NodeBuilder};
 pub use schema::{
     reciprocal_rank_fusion, DistanceMetric, EdgeSchema, GraphSchema, NodeSchema, PropertySchema,
     PropertyType, VectorSchema,
 };
-pub use typed_graph::{Direction, TraversalResult, TraverseSpec, TypedGraph};
 #[cfg(feature = "storage")]
 pub use storage::GraphStorage;
 pub use transaction::{IsolationLevel, Transaction, TransactionManager};
+pub use typed_graph::{Direction, TraversalResult, TraverseSpec, TypedGraph};
 pub use types::{EdgeId, Label, NodeId, Properties, PropertyValue, RelationType};
 
 // Re-export hybrid query types when available

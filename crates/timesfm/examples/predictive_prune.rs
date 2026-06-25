@@ -47,7 +47,8 @@ fn main() -> anyhow::Result<()> {
 
     let device = Device::Cpu;
     let cfg = TimesfmConfig::timesfm_1p0_200m();
-    let vb = unsafe { VarBuilder::from_mmaped_safetensors(&[weights.clone()], DType::F32, &device)? };
+    let vb =
+        unsafe { VarBuilder::from_mmaped_safetensors(&[weights.clone()], DType::F32, &device)? };
     let model = PatchedTimeSeriesDecoder::load(cfg, vb)?;
     eprintln!("loaded TimesFM 1.0 200M from {weights}");
 
@@ -60,12 +61,11 @@ fn main() -> anyhow::Result<()> {
     let threshold = 0.05f32; // ship only if exploitability is <= 5%.
 
     // Helper: y(t) = floor + (y0 - floor) * exp(-t / tau).
-    let decay =
-        |floor: f32, tau: f32| -> Vec<f32> {
-            (0..k)
-                .map(|t| floor + (0.95f32 - floor) * (-(t as f32) / tau).exp())
-                .collect::<Vec<f32>>()
-        };
+    let decay = |floor: f32, tau: f32| -> Vec<f32> {
+        (0..k)
+            .map(|t| floor + (0.95f32 - floor) * (-(t as f32) / tau).exp())
+            .collect::<Vec<f32>>()
+    };
 
     // (a) DOOMED: plateaus HIGH at floor ~0.20 — best-so-far NEVER reaches the
     //     0.05 viability threshold, and TimesFM forecasts a tail far above it.
@@ -94,7 +94,10 @@ fn main() -> anyhow::Result<()> {
         let verdict = if d.prune { "PRUNE" } else { "CONTINUE" };
         let want = if expect_prune { "PRUNE" } else { "CONTINUE" };
         let ok = d.prune == expect_prune;
-        println!("  decision = {verdict}   (expected {want})  [{}]", if ok { "OK" } else { "MISMATCH" });
+        println!(
+            "  decision = {verdict}   (expected {want})  [{}]",
+            if ok { "OK" } else { "MISMATCH" }
+        );
         Ok(ok)
     };
 

@@ -382,13 +382,13 @@ impl PatchedTimeSeriesDecoder {
             }
         }
         let causal = Tensor::from_vec(causal, (1, 1, n, n), device)?; // [1,1,N,N]
-        // padding key mask [B,1,1,N]: `neg` where padded key, 0 elsewhere.
-        // padding is strictly 0/1 so `0 * neg = 0` (finite) — no NaN.
+                                                                      // padding key mask [B,1,1,N]: `neg` where padded key, 0 elsewhere.
+                                                                      // padding is strictly 0/1 so `0 * neg = 0` (finite) — no NaN.
         let pad = (patched_padding.to_dtype(DType::F32)? * neg)?; // [B,N]
         let pad_key = pad.reshape((b, 1, 1, n))?; // broadcasts over query dim
-        // merge_masks: minimum(padding_key_mask, causal). Broadcast both to
-        // [B,1,N,N] and take element-wise min (an additive mask where either
-        // term wanting `neg` wins).
+                                                  // merge_masks: minimum(padding_key_mask, causal). Broadcast both to
+                                                  // [B,1,N,N] and take element-wise min (an additive mask where either
+                                                  // term wanting `neg` wins).
         let causal_b = causal.broadcast_as((b, 1, n, n))?;
         let pad_b = pad_key.broadcast_as((b, 1, n, n))?;
         causal_b.minimum(&pad_b)

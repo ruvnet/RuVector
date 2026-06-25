@@ -46,7 +46,7 @@ fn make_series(i: usize, ctx: usize) -> (Vec<f32>, u32, String) {
     let trend = ((i % 5) as f32 - 2.0) * 0.01; // -0.02 .. +0.02 per step
     let amp = 0.5 + (i % 4) as f32 * 0.5; // 0.5 .. 2.0
     let noise = (i % 3) as f32 * 0.1; // 0, 0.1, 0.2
-    // freq_id: TimesFM buckets (0=high, 1=mid, 2=low frequency).
+                                      // freq_id: TimesFM buckets (0=high, 1=mid, 2=low frequency).
     let freq_id = (i % 3) as u32;
 
     let mut s = Vec::with_capacity(ctx);
@@ -91,11 +91,14 @@ fn main() -> anyhow::Result<()> {
 
     let cfg = TimesfmConfig::timesfm_1p0_200m();
     let load_t = Instant::now();
-    let vb = unsafe { VarBuilder::from_mmaped_safetensors(&[weights.clone()], DType::F32, &device)? };
+    let vb =
+        unsafe { VarBuilder::from_mmaped_safetensors(&[weights.clone()], DType::F32, &device)? };
     let model = PatchedTimeSeriesDecoder::load(cfg, vb)?;
     let load_ms = load_t.elapsed().as_secs_f64() * 1000.0;
 
-    let threads = std::thread::available_parallelism().map(|x| x.get()).unwrap_or(0);
+    let threads = std::thread::available_parallelism()
+        .map(|x| x.get())
+        .unwrap_or(0);
     eprintln!(
         "loaded TimesFM 1.0 200M in {load_ms:.0} ms ({threads} threads) — running {n_cases} cases (ctx={ctx}, horizon={horizon})"
     );

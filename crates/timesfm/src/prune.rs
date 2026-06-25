@@ -178,17 +178,10 @@ pub fn decide_prune(
     let horizon = target_horizon.saturating_sub(k).max(1);
     let plateau_window = (horizon / 4).max(1);
 
-    let best_so_far = partial
-        .iter()
-        .copied()
-        .fold(f32::INFINITY, f32::min);
-    let worst_so_far = partial
-        .iter()
-        .copied()
-        .fold(f32::NEG_INFINITY, f32::max);
+    let best_so_far = partial.iter().copied().fold(f32::INFINITY, f32::min);
+    let worst_so_far = partial.iter().copied().fold(f32::NEG_INFINITY, f32::max);
 
-    let (plateau, _forecast) =
-        forecast_plateau(model, partial, horizon, plateau_window, device)?;
+    let (plateau, _forecast) = forecast_plateau(model, partial, horizon, plateau_window, device)?;
 
     // Honesty guard: a broken (non-finite) forecast must NOT kill a run.
     if !plateau.is_finite() {

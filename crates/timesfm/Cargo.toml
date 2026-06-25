@@ -9,9 +9,8 @@ repository.workspace = true
 description = "TimesFM 1.0 200M decoder-only patched time-series Transformer inference in Rust/candle (ADR-189/191)"
 keywords = ["timesfm", "transformer", "time-series", "forecasting", "candle"]
 categories = ["science", "algorithms"]
-# Internal research crate. Not published — candle is not a workspace-pinned
-# dep, so this crate declares it directly below behind an opt-in feature.
-publish = false
+readme = "README.md"
+publish = true
 
 [lib]
 name = "timesfm"

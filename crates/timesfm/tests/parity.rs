@@ -69,7 +69,10 @@ fn timesfm_1p0_200m_weight_parity() -> anyhow::Result<()> {
 
     // Honesty guard: any non-finite output is an outright failure.
     let n_bad = candle_point.iter().filter(|x| !x.is_finite()).count();
-    assert_eq!(n_bad, 0, "candle produced {n_bad} non-finite forecast values");
+    assert_eq!(
+        n_bad, 0,
+        "candle produced {n_bad} non-finite forecast values"
+    );
 
     let mut max_abs = 0f32;
     let mut sum_abs = 0f64;
