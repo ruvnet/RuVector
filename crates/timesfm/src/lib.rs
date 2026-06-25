@@ -43,8 +43,15 @@ pub mod config;
 
 pub use config::{TimesfmConfig, QUANTILES};
 
+pub use prune::PruneDecision;
+
 #[cfg(feature = "candle")]
 pub mod model;
+
+/// Predictive pruning: forecast an optimization curve's plateau from its first
+/// K points and decide PRUNE vs CONTINUE (ADR-191 §2). The numeric path needs
+/// `candle`, but the [`prune::PruneDecision`] type is always available.
+pub mod prune;
 
 #[cfg(feature = "candle")]
 pub use model::{
