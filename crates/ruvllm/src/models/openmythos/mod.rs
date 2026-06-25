@@ -14,7 +14,7 @@
 //! - **Attention variants**: Grouped-Query and Multi-Latent (compressed KV),
 //!   both with incremental **KV-cache decode** ([`attention`]).
 //! - **Per-depth LoRA** adaptation in the recurrent loop
-//!   ([`recurrent::DepthLora`]).
+//!   ([`DepthLora`]).
 //! - A **checkpoint loader** with the honest-boundary metadata gate
 //!   ([`validate_mythos_metadata`]).
 //!
