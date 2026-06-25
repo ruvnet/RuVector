@@ -85,7 +85,7 @@ fn gen_corpus(
     n_docs: usize,
     tpd: usize,
     topics: &[Vec<f32>],
-    dims: usize,
+    _dims: usize,
     noise: f32,
 ) -> (Vec<MultiVecDoc>, Vec<Vec<usize>>) {
     let mut rng = rand::rngs::SmallRng::seed_from_u64(0xDEAD_BEEF);
@@ -144,21 +144,6 @@ fn gen_queries(
         q_topics.push(chosen);
     }
     (queries, q_topics)
-}
-
-// ── Ground truth ─────────────────────────────────────────────────────────────
-
-fn ground_truth(flat: &FlatMaxSim, queries: &[MultiVecQuery], k: usize) -> Vec<Vec<DocId>> {
-    queries
-        .iter()
-        .map(|q| {
-            flat.search(q, k)
-                .unwrap()
-                .into_iter()
-                .map(|r| r.doc_id)
-                .collect()
-        })
-        .collect()
 }
 
 fn recall_at_k(results: &[Vec<DocId>], ground: &[Vec<Vec<DocId>>], k: usize) -> f64 {

@@ -262,6 +262,8 @@ members = [
     "crates/ruvector-pq-search",
     # SOTA benchmark suite (ADR-265)
     "crates/ruvector-sota-bench",
+    # ColBERT-style multi-vector MaxSim late-interaction search
+    "crates/ruvector-maxsim",
     # TimesFM 1.0 200M decoder-only patched time-series Transformer (candle, ADR-189/191)
     "crates/timesfm",
 ]
