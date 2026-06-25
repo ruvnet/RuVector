@@ -70,7 +70,7 @@ fn merge_candidates(candidates: Vec<Vec<SearchResult>>, k: usize) -> Vec<SearchR
         }
     }
     // Dedup by id (keep lowest distance).
-    flat.sort_by(|a, b| a.id.cmp(&b.id));
+    flat.sort_by_key(|a| a.id);
     flat.dedup_by(|later, earlier| {
         if later.id == earlier.id {
             if later.distance < earlier.distance {

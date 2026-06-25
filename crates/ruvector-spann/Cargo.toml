@@ -1,6 +1,3 @@
-[workspace]
-members = ["."]
-
 [package]
 name = "ruvector-spann"
 version = "0.1.0"

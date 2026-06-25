@@ -162,7 +162,12 @@ fn main() {
         });
         let t = Instant::now();
         single.build(&corpus);
-        eprintln!("{}ms  ({} assignments, {:.2} MB)", t.elapsed().as_millis(), single.total_assignments(), single.memory_bytes() as f64 / (1024.0*1024.0));
+        eprintln!(
+            "{}ms  ({} assignments, {:.2} MB)",
+            t.elapsed().as_millis(),
+            single.total_assignments(),
+            single.memory_bytes() as f64 / (1024.0 * 1024.0)
+        );
 
         eprint!("  Building SpillPartition (ratio=1.20)... ");
         let mut spill = SpillPartition::new(SpillPartitionConfig {
@@ -173,11 +178,13 @@ fn main() {
         });
         let t = Instant::now();
         spill.build(&corpus);
-        eprintln!("{}ms  ({} assignments = {:.2}× overhead, {:.2} MB)",
+        eprintln!(
+            "{}ms  ({} assignments = {:.2}× overhead, {:.2} MB)",
             t.elapsed().as_millis(),
             spill.total_assignments(),
             spill.total_assignments() as f32 / single.total_assignments() as f32,
-            spill.memory_bytes() as f64 / (1024.0*1024.0));
+            spill.memory_bytes() as f64 / (1024.0 * 1024.0)
+        );
 
         eprint!("  Building CoherenceSpill (pct=0.30)... ");
         let mut coh = CoherenceSpill::new(CoherenceSpillConfig {
@@ -188,12 +195,14 @@ fn main() {
         });
         let t = Instant::now();
         coh.build(&corpus);
-        eprintln!("{}ms  ({} assignments = {:.2}× overhead, {:.2} MB, threshold={:.4})",
+        eprintln!(
+            "{}ms  ({} assignments = {:.2}× overhead, {:.2} MB, threshold={:.4})",
             t.elapsed().as_millis(),
             coh.total_assignments(),
             coh.total_assignments() as f32 / single.total_assignments() as f32,
-            coh.memory_bytes() as f64 / (1024.0*1024.0),
-            coh.derived_spill_threshold);
+            coh.memory_bytes() as f64 / (1024.0 * 1024.0),
+            coh.derived_spill_threshold
+        );
 
         // Sweep nprobe.
         let single_sweep = probe_sweep(&single, &queries, &gt, &nprobe_values, k);
