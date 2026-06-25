@@ -329,10 +329,22 @@ fn main() {
     println!("{}", "-".repeat(115));
 
     let flat_stats = run_variant("FlatMaxSim", &flat, &queries, &ground, cfg.k, flat_mem);
-    let bucket_fast_stats =
-        run_variant("BucketFast(os=50)", &bucket_fast, &queries, &ground, cfg.k, bucket_mem);
-    let bucket_quality_stats =
-        run_variant("BucketQual(os=500)", &bucket_quality, &queries, &ground, cfg.k, bucket_mem);
+    let bucket_fast_stats = run_variant(
+        "BucketFast(os=50)",
+        &bucket_fast,
+        &queries,
+        &ground,
+        cfg.k,
+        bucket_mem,
+    );
+    let bucket_quality_stats = run_variant(
+        "BucketQual(os=500)",
+        &bucket_quality,
+        &queries,
+        &ground,
+        cfg.k,
+        bucket_mem,
+    );
     let hnsw_stats = run_variant("HnswMaxSim", &hnsw, &queries, &ground, cfg.k, hnsw_mem);
 
     print_stats(&flat_stats);

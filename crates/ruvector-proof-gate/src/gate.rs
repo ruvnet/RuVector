@@ -130,7 +130,7 @@ impl HashChainGate {
         h.update(b"ruvector:chain:");
         h.update(prev);
         h.update(payload_hash);
-        h.update(&seq.to_le_bytes());
+        h.update(seq.to_le_bytes());
         h.finalize().into()
     }
 
@@ -254,7 +254,7 @@ impl MerkleGate {
         let mut h = Sha256::new();
         h.update(b"ruvector:leaf:");
         h.update(payload_hash);
-        h.update(&seq.to_le_bytes());
+        h.update(seq.to_le_bytes());
         h.finalize().into()
     }
 

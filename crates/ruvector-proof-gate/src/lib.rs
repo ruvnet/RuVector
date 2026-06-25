@@ -32,6 +32,7 @@ pub use gate::{HashChainGate, MerkleGate, NullGate, WriteGate};
 pub use payload::{GateError, GateVariant, WritePayload, WriteReceipt};
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod tests {
     use super::*;
     use crate::gate::{HashChainGate, MerkleGate, NullGate, WriteGate};

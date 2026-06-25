@@ -17,7 +17,7 @@ use ruvector_core::{
     types::HnswConfig,
     DistanceMetric,
 };
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 /// VDBBench scenario parameters.
 pub struct VdbBenchConfig {

@@ -250,7 +250,9 @@ fn bench_validation(c: &mut Criterion) {
         .property("embedding", PropertyValue::FloatArray(embedding(1, 128)))
         .build();
     c.bench_function("validate_node", |b| {
-        b.iter(|| black_box(schema.validate_node(black_box(&node)).unwrap()));
+        b.iter(|| {
+            schema.validate_node(black_box(&node)).unwrap();
+        });
     });
 }
 

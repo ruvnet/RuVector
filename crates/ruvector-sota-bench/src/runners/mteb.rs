@@ -15,15 +15,14 @@
 //! benchmarking. For real MTEB numbers, swap in OnnxEmbedding with the
 //! chosen model — the nDCG@10 formula is identical.
 
+use crate::darwin_score;
 use crate::metrics::{BenchScore, LatencyMetrics, RecallMetrics};
 use crate::runners::core_hnsw::{HNSW_BASELINE_MEM_MB, HNSW_BASELINE_P99_MS, HNSW_BASELINE_QPS};
-use crate::{claim_sota, darwin_score};
 use ruvector_core::{
     index::{hnsw::HnswIndex, VectorIndex},
     types::HnswConfig,
     DistanceMetric,
 };
-use std::collections::HashMap;
 use std::time::Instant;
 
 /// A single MTEB retrieval query with its relevant document ids.
