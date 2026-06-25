@@ -154,9 +154,14 @@ impl GqaAttention {
         // Accumulate KV: two paths depending on cache variant.
         let (k_full, v_full, new_cache) = match past {
             // Pre-allocated: scatter_set is O(new_data) not O(total); no new tensor.
-            Some(KvLayerCache::GqaPrealloc { k: buf_k, v: buf_v, seq_len, max_seq }) => {
-                let idx = Tensor::full(*seq_len as u32, k_cur.shape(), k_cur.device())
-                    .map_err(cand)?;
+            Some(KvLayerCache::GqaPrealloc {
+                k: buf_k,
+                v: buf_v,
+                seq_len,
+                max_seq,
+            }) => {
+                let idx =
+                    Tensor::full(*seq_len as u32, k_cur.shape(), k_cur.device()).map_err(cand)?;
                 buf_k.scatter_set(&idx, &k_cur, 2).map_err(cand)?;
                 buf_v.scatter_set(&idx, &v, 2).map_err(cand)?;
                 let new_seq = seq_len + seq;
@@ -174,11 +179,17 @@ impl GqaAttention {
             Some(KvLayerCache::Gqa { k: pk, v: pv }) => {
                 let k_f = Tensor::cat(&[pk, &k_cur], 2).map_err(cand)?;
                 let v_f = Tensor::cat(&[pv, &v], 2).map_err(cand)?;
-                let cache = KvLayerCache::Gqa { k: k_f.clone(), v: v_f.clone() };
+                let cache = KvLayerCache::Gqa {
+                    k: k_f.clone(),
+                    v: v_f.clone(),
+                };
                 (k_f, v_f, cache)
             }
             _ => {
-                let cache = KvLayerCache::Gqa { k: k_cur.clone(), v: v.clone() };
+                let cache = KvLayerCache::Gqa {
+                    k: k_cur.clone(),
+                    v: v.clone(),
+                };
                 (k_cur, v, cache)
             }
         };
@@ -204,10 +215,7 @@ impl GqaAttention {
             .reshape((b, seq, self.n_heads * self.head_dim))
             .map_err(cand)?;
         let out = self.o_proj.forward(&ctx).map_err(cand)?;
-        Ok((
-            out,
-            new_cache,
-        ))
+        Ok((out, new_cache))
     }
 }
 
@@ -352,13 +360,24 @@ impl MlaAttention {
 
         let (c_kv_full, k_rope_store, new_mla_cache) = match past {
             // Pre-allocated MLA: O(1) scatter_set vs O(N) cat.
-            Some(KvLayerCache::MlaPrealloc { c_kv: buf_ckv, k_rope: buf_rope, seq_len, max_seq }) => {
+            Some(KvLayerCache::MlaPrealloc {
+                c_kv: buf_ckv,
+                k_rope: buf_rope,
+                seq_len,
+                max_seq,
+            }) => {
                 let idx_ckv = Tensor::full(*seq_len as u32, c_kv_cur.shape(), c_kv_cur.device())
                     .map_err(cand)?;
                 buf_ckv.scatter_set(&idx_ckv, &c_kv_cur, 1).map_err(cand)?;
-                let idx_rope = Tensor::full(*seq_len as u32, k_rope_cur_store.shape(), k_rope_cur_store.device())
+                let idx_rope = Tensor::full(
+                    *seq_len as u32,
+                    k_rope_cur_store.shape(),
+                    k_rope_cur_store.device(),
+                )
+                .map_err(cand)?;
+                buf_rope
+                    .scatter_set(&idx_rope, &k_rope_cur_store, 1)
                     .map_err(cand)?;
-                buf_rope.scatter_set(&idx_rope, &k_rope_cur_store, 1).map_err(cand)?;
                 let new_seq = seq_len + seq;
                 let ckv_v = buf_ckv.narrow(1, 0, new_seq).map_err(cand)?;
                 let rope_v = buf_rope.narrow(1, 0, new_seq).map_err(cand)?;
@@ -373,11 +392,17 @@ impl MlaAttention {
             Some(KvLayerCache::Mla { c_kv, k_rope }) => {
                 let c = Tensor::cat(&[c_kv, &c_kv_cur], 1).map_err(cand)?;
                 let r = Tensor::cat(&[k_rope, &k_rope_cur_store], 1).map_err(cand)?;
-                let cache = KvLayerCache::Mla { c_kv: c.clone(), k_rope: r.clone() };
+                let cache = KvLayerCache::Mla {
+                    c_kv: c.clone(),
+                    k_rope: r.clone(),
+                };
                 (c, r, cache)
             }
             _ => {
-                let cache = KvLayerCache::Mla { c_kv: c_kv_cur.clone(), k_rope: k_rope_cur_store.clone() };
+                let cache = KvLayerCache::Mla {
+                    c_kv: c_kv_cur.clone(),
+                    k_rope: k_rope_cur_store.clone(),
+                };
                 (c_kv_cur, k_rope_cur_store, cache)
             }
         };

@@ -338,9 +338,7 @@ pub async fn train_router(
     options: TrainRouterOptions,
 ) -> Result<TrainRouterResult> {
     use ruvector_tiny_dancer_core::model::{FastGRNN, FastGRNNConfig};
-    use ruvector_tiny_dancer_core::training::{
-        DracoRow, Trainer, TrainingConfig, TrainingDataset,
-    };
+    use ruvector_tiny_dancer_core::training::{DracoRow, Trainer, TrainingConfig, TrainingDataset};
 
     tokio::task::spawn_blocking(move || -> std::result::Result<TrainRouterResult, String> {
         let core_rows: Vec<DracoRow> = rows
@@ -371,8 +369,7 @@ pub async fn train_router(
             ..Default::default()
         };
 
-        let mut model =
-            FastGRNN::new(model_config.clone()).map_err(|e| format!("model: {e}"))?;
+        let mut model = FastGRNN::new(model_config.clone()).map_err(|e| format!("model: {e}"))?;
         let metrics = Trainer::new(&model_config, train_config)
             .train(&mut model, &dataset)
             .map_err(|e| format!("train: {e}"))?;
