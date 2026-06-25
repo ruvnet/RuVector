@@ -81,7 +81,8 @@ impl PositionalEmbedding {
         let positions: Vec<f32> = (0..seq_len).map(|p| p as f32).collect();
         let positions = Tensor::from_vec(positions, (seq_len, 1), device)?;
         // inv_timescales [1, half]
-        let log_increment = (self.max_timescale / self.min_timescale).ln() / (half.max(1) as f64 - 1.0).max(1.0);
+        let log_increment =
+            (self.max_timescale / self.min_timescale).ln() / (half.max(1) as f64 - 1.0).max(1.0);
         let inv: Vec<f32> = (0..half)
             .map(|i| (self.min_timescale * (-(i as f64) * log_increment).exp()) as f32)
             .collect();
@@ -91,7 +92,7 @@ impl PositionalEmbedding {
         let sin = scaled.sin()?;
         let cos = scaled.cos()?;
         let pe = Tensor::cat(&[&sin, &cos], D::Minus1)?; // [seq_len, 2*half]
-        // pad a column if dim is odd (TimesFM dim is even so this is a no-op there).
+                                                         // pad a column if dim is odd (TimesFM dim is even so this is a no-op there).
         let pe = if 2 * half < self.dim {
             let pad = Tensor::zeros((seq_len, self.dim - 2 * half), DType::F32, device)?;
             Tensor::cat(&[&pe, &pad], D::Minus1)?
@@ -181,10 +182,10 @@ impl TimesFMAttention {
         let probs = ops::softmax_last_dim(&scores)?;
 
         let ctx = probs.matmul(&v)?; // [B, heads, N, hd]
-        let ctx = ctx
-            .transpose(1, 2)?
-            .contiguous()?
-            .reshape((b, n, self.num_heads * self.head_dim))?;
+        let ctx =
+            ctx.transpose(1, 2)?
+                .contiguous()?
+                .reshape((b, n, self.num_heads * self.head_dim))?;
         self.o_proj.forward(&ctx)
     }
 }
@@ -219,9 +220,12 @@ pub struct TransformerMLP {
 
 impl TransformerMLP {
     pub fn load(cfg: &TimesfmConfig, vb: VarBuilder) -> Result<Self> {
-        let layer_norm = candle_nn::layer_norm(cfg.hidden_size, cfg.rms_norm_eps, vb.pp("layer_norm"))?;
-        let gate_proj = candle_nn::linear(cfg.hidden_size, cfg.intermediate_size, vb.pp("gate_proj"))?;
-        let down_proj = candle_nn::linear(cfg.intermediate_size, cfg.hidden_size, vb.pp("down_proj"))?;
+        let layer_norm =
+            candle_nn::layer_norm(cfg.hidden_size, cfg.rms_norm_eps, vb.pp("layer_norm"))?;
+        let gate_proj =
+            candle_nn::linear(cfg.hidden_size, cfg.intermediate_size, vb.pp("gate_proj"))?;
+        let down_proj =
+            candle_nn::linear(cfg.intermediate_size, cfg.hidden_size, vb.pp("down_proj"))?;
         Ok(Self {
             layer_norm,
             gate_proj,
@@ -484,12 +488,12 @@ impl PatchedTimeSeriesDecoder {
         // qualifies[b, i] = 1 where the patch has >= 3 real values.
         let three = (Tensor::ones_like(&pad_sum)? * 3.0)?;
         let qualifies = pad_sum.ge(&three)?; // u8 [B, N], 1 where >= 3
-        // first qualifying patch index per row (argmax of the 0/1 mask).
+                                             // first qualifying patch index per row (argmax of the 0/1 mask).
         let qual_i = qualifies.to_dtype(DType::F32)?;
         let first_idx = qual_i.argmax(D::Minus1)?; // [B], = 0 if none qualify
         let row_has = qual_i.sum(D::Minus1)?; // [B], 0 => no patch qualifies
-        // Select per-row patch (Rust-side: batch is small and the choice is
-        // genuinely per-row, which candle's index_select can't express).
+                                              // Select per-row patch (Rust-side: batch is small and the choice is
+                                              // genuinely per-row, which candle's index_select can't express).
         let first_idx: Vec<u32> = first_idx.to_dtype(DType::U32)?.to_vec1()?;
         let row_has: Vec<f32> = row_has.to_vec1()?;
         let mut mus: Vec<f32> = Vec::with_capacity(b);
@@ -567,7 +571,7 @@ impl PatchedTimeSeriesDecoder {
 
         let point = Tensor::cat(&point_chunks, 1)?; // [B, num_decode*H]
         let full = Tensor::cat(&full_chunks, 1)?; // [B, num_decode*H, O]
-        // trim to exactly h.
+                                                  // trim to exactly h.
         let point = point.narrow(1, 0, h)?;
         let full = full.narrow(1, 0, h)?;
         Ok((point, full))
@@ -733,17 +737,9 @@ mod tests {
         let dev = dev();
         let cfg = TimesfmConfig::tiny();
         let model = PatchedTimeSeriesDecoder::load(cfg.clone(), vb(&dev))?;
-        let x = Tensor::from_vec(
-            vec![7f32, 7., 0., 0., 5., 5., 5., 5.],
-            (1, 2, 4),
-            &dev,
-        )?;
+        let x = Tensor::from_vec(vec![7f32, 7., 0., 0., 5., 5., 5., 5.], (1, 2, 4), &dev)?;
         // keep: patch 0 has 2 reals, patch 1 has 4 reals.
-        let keep = Tensor::from_vec(
-            vec![1f32, 1., 0., 0., 1., 1., 1., 1.],
-            (1, 2, 4),
-            &dev,
-        )?;
+        let keep = Tensor::from_vec(vec![1f32, 1., 0., 0., 1., 1., 1., 1.], (1, 2, 4), &dev)?;
         let (mu, _sigma) = model.masked_mean_std(&x, &keep)?;
         let mu_v = mu.to_vec1::<f32>()?[0];
         assert!(
