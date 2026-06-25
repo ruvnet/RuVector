@@ -19,12 +19,17 @@ fn payloads(n: usize) -> Vec<WritePayload> {
     (0..n)
         .map(|i| {
             let v: Vec<f32> = (0..DIM).map(|d| (i + d) as f32 * 0.5).collect();
-            WritePayload::new(i as u64, v).with_agent([7u8; 16]).with_timestamp(i as u64)
+            WritePayload::new(i as u64, v)
+                .with_agent([7u8; 16])
+                .with_timestamp(i as u64)
         })
         .collect()
 }
 
-fn time_admit<G: WriteGate>(mut gate: G, ps: &[WritePayload]) -> (f64, Vec<ruvector_proof_gate::WriteReceipt>) {
+fn time_admit<G: WriteGate>(
+    mut gate: G,
+    ps: &[WritePayload],
+) -> (f64, Vec<ruvector_proof_gate::WriteReceipt>) {
     // warm up
     for p in ps.iter().take(64) {
         let _ = gate.admit(p);
@@ -67,10 +72,22 @@ fn integrity_tax() {
     std::hint::black_box(ok);
 
     eprintln!("integrity tax (DIM={DIM}, N={N}):");
-    eprintln!("  NullGate.admit       {null_ns:8.1} ns/write   {:.2} M/s", 1e3 / null_ns.max(1e-6));
-    eprintln!("  HashChainGate.admit  {hash_ns:8.1} ns/write   {:.2} M/s", 1e3 / hash_ns);
-    eprintln!("  verify_receipt       {verify_ns:8.1} ns/op     {:.2} M/s", 1e3 / verify_ns.max(1e-6));
-    eprintln!("  integrity tax: {:.0} ns/write over the unguarded baseline", hash_ns - null_ns);
+    eprintln!(
+        "  NullGate.admit       {null_ns:8.1} ns/write   {:.2} M/s",
+        1e3 / null_ns.max(1e-6)
+    );
+    eprintln!(
+        "  HashChainGate.admit  {hash_ns:8.1} ns/write   {:.2} M/s",
+        1e3 / hash_ns
+    );
+    eprintln!(
+        "  verify_receipt       {verify_ns:8.1} ns/op     {:.2} M/s",
+        1e3 / verify_ns.max(1e-6)
+    );
+    eprintln!(
+        "  integrity tax: {:.0} ns/write over the unguarded baseline",
+        hash_ns - null_ns
+    );
 
     assert!(
         hash_ns < ADMIT_BUDGET_NS,

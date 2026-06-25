@@ -77,9 +77,15 @@ mod tests {
     #[test]
     fn hash_chain_verify_receipts() {
         let mut g = HashChainGate::new();
-        let receipts: Vec<_> = (0..20u64).map(|i| g.admit(&make_payload(i)).unwrap()).collect();
+        let receipts: Vec<_> = (0..20u64)
+            .map(|i| g.admit(&make_payload(i)).unwrap())
+            .collect();
         for r in &receipts {
-            assert!(g.verify_receipt(r), "receipt {} failed verification", r.sequence);
+            assert!(
+                g.verify_receipt(r),
+                "receipt {} failed verification",
+                r.sequence
+            );
         }
     }
 
@@ -119,7 +125,9 @@ mod tests {
     #[test]
     fn merkle_gate_verify_receipts() {
         let mut g = MerkleGate::new();
-        let receipts: Vec<_> = (0..20u64).map(|i| g.admit(&make_payload(i)).unwrap()).collect();
+        let receipts: Vec<_> = (0..20u64)
+            .map(|i| g.admit(&make_payload(i)).unwrap())
+            .collect();
         for r in &receipts {
             assert!(g.verify_receipt(r), "receipt {} failed", r.sequence);
         }
@@ -203,8 +211,16 @@ mod tests {
             merkle.admit(p).unwrap();
         }
         assert_eq!(null.chain_root(), [0u8; 32], "NullGate root must be zero");
-        assert_ne!(chain.chain_root(), [0u8; 32], "HashChain root must be non-zero");
-        assert_ne!(merkle.chain_root(), [0u8; 32], "Merkle root must be non-zero");
+        assert_ne!(
+            chain.chain_root(),
+            [0u8; 32],
+            "HashChain root must be non-zero"
+        );
+        assert_ne!(
+            merkle.chain_root(),
+            [0u8; 32],
+            "Merkle root must be non-zero"
+        );
         // HashChain and Merkle roots differ (different algorithms)
         assert_ne!(
             chain.chain_root(),
