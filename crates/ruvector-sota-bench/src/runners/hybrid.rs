@@ -6,10 +6,7 @@
 use crate::metrics::{LatencyMetrics, RecallMetrics};
 use crate::runners::core_hnsw::{HNSW_BASELINE_MEM_MB, HNSW_BASELINE_P99_MS, HNSW_BASELINE_QPS};
 use crate::{claim_sota, darwin_score, BenchScore, Dataset};
-use ruvector_hybrid::{
-    recall_at_k as hybrid_recall, Document, HybridSearch, RrfHybridIndex, RsfHybridIndex,
-    ScoreFusionIndex,
-};
+use ruvector_hybrid::{Document, HybridSearch, RrfHybridIndex, RsfHybridIndex, ScoreFusionIndex};
 use std::time::Instant;
 
 /// Convert a Dataset's corpus to ruvector-hybrid Documents.

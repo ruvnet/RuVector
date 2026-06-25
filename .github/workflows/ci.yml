@@ -252,6 +252,7 @@ jobs:
               --exclude ruvector-maxsim
               --exclude ruvector-postgres
               --exclude ruvector-decompiler
+              --exclude timesfm
               --exclude ruvllm
               --exclude ruvllm-cli
               --exclude ruvector-dag
@@ -313,7 +314,8 @@ jobs:
               --exclude ruvector-cnn-wasm
               --exclude ruvector-consciousness-wasm
               --exclude ruvector-dag-wasm
-              --exclude ruvector-decompiler-wasm
+              --exclude ruvector-decompiler
+              --exclude timesfm-wasm
               --exclude ruvector-delta-wasm
               --exclude ruvector-domain-expansion-wasm
               --exclude ruvector-economy-wasm
@@ -358,6 +360,10 @@ jobs:
 
       - name: Run tests (${{ matrix.name }})
         run: cargo nextest run --no-fail-fast ${{ matrix.packages }}
+
+      - name: Run timesfm tests (candle feature, research-nightly only)
+        if: matrix.name == 'research-nightly'
+        run: cargo nextest run --no-fail-fast -p timesfm --features candle
 
       - name: Run doctests (${{ matrix.name }})
         # nextest does not run doctests; do them in a separate step. Cheap

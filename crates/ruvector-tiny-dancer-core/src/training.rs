@@ -165,7 +165,11 @@ impl TrainingDataset {
 
             let best_q = row.scores.values().copied().fold(f32::MIN, f32::max);
             let cheap_q = row.scores[cheapest];
-            let label = if cheap_q >= best_q - tolerance { 1.0 } else { 0.0 };
+            let label = if cheap_q >= best_q - tolerance {
+                1.0
+            } else {
+                0.0
+            };
 
             features.push(row.embedding.clone());
             labels.push(label);
@@ -576,7 +580,10 @@ impl Trainer {
                     let hard_loss = binary_cross_entropy(prediction, hard);
                     let soft_loss = binary_cross_entropy(prediction, s);
                     let a = self.config.distillation_alpha;
-                    (a * soft_loss + (1.0 - a) * hard_loss, a * s + (1.0 - a) * hard)
+                    (
+                        a * soft_loss + (1.0 - a) * hard_loss,
+                        a * s + (1.0 - a) * hard,
+                    )
                 } else {
                     (binary_cross_entropy(prediction, hard), hard)
                 }
@@ -888,12 +895,9 @@ mod tests {
 
     #[test]
     fn test_from_draco() {
-        let prices: HashMap<String, f32> = [
-            ("haiku".to_string(), 1.0),
-            ("opus".to_string(), 15.0),
-        ]
-        .into_iter()
-        .collect();
+        let prices: HashMap<String, f32> = [("haiku".to_string(), 1.0), ("opus".to_string(), 15.0)]
+            .into_iter()
+            .collect();
 
         // Row 1: cheap model (haiku) is as good as opus → label 1 (route light).
         // Row 2: cheap model much worse than opus → label 0 (route heavy).

@@ -136,7 +136,7 @@ pub fn run_matryoshka_suite(
     let ds = MatryoshkaDataset::new(
         "matryoshka-mrl",
         corpus_n,
-        (corpus_n / 100).max(50).min(200),
+        (corpus_n / 100).clamp(50, 200),
         full_dim,
         signal_dim,
         0xDEAD_BEEF,

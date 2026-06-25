@@ -97,13 +97,25 @@ pub struct TraverseSpec {
 
 impl TraverseSpec {
     pub fn out(edge_type: impl Into<String>) -> Self {
-        Self { edge_type: edge_type.into(), direction: Direction::Out, target_label: None }
+        Self {
+            edge_type: edge_type.into(),
+            direction: Direction::Out,
+            target_label: None,
+        }
     }
     pub fn incoming(edge_type: impl Into<String>) -> Self {
-        Self { edge_type: edge_type.into(), direction: Direction::In, target_label: None }
+        Self {
+            edge_type: edge_type.into(),
+            direction: Direction::In,
+            target_label: None,
+        }
     }
     pub fn both(edge_type: impl Into<String>) -> Self {
-        Self { edge_type: edge_type.into(), direction: Direction::Both, target_label: None }
+        Self {
+            edge_type: edge_type.into(),
+            direction: Direction::Both,
+            target_label: None,
+        }
     }
     pub fn target_label(mut self, label: impl Into<String>) -> Self {
         self.target_label = Some(label.into());
@@ -171,10 +183,9 @@ impl TypedGraph {
         vector_type: &str,
         text: &str,
     ) -> Result<NodeId> {
-        let vs = self
-            .schema
-            .vector(vector_type)
-            .ok_or_else(|| GraphError::SchemaViolation(format!("unknown vector type '{vector_type}'")))?;
+        let vs = self.schema.vector(vector_type).ok_or_else(|| {
+            GraphError::SchemaViolation(format!("unknown vector type '{vector_type}'"))
+        })?;
         let property = vs.property.clone();
         let dims = vs.dimensions;
         let emb = self.embed(text)?;
@@ -223,7 +234,9 @@ impl TypedGraph {
         let vs = self
             .schema
             .vector(vector_type)
-            .ok_or_else(|| GraphError::SchemaViolation(format!("unknown vector type '{vector_type}'")))?
+            .ok_or_else(|| {
+                GraphError::SchemaViolation(format!("unknown vector type '{vector_type}'"))
+            })?
             .clone();
 
         let config = EmbeddingConfig {
@@ -239,7 +252,9 @@ impl TypedGraph {
         for id in self.graph.node_ids_by_label(&vs.label) {
             let emb = self
                 .graph
-                .with_node(&id, |n| n.properties.get(&vs.property).and_then(extract_vector))
+                .with_node(&id, |n| {
+                    n.properties.get(&vs.property).and_then(extract_vector)
+                })
                 .flatten();
             if let Some(emb) = emb {
                 if emb.len() == vs.dimensions {
@@ -339,7 +354,11 @@ impl TypedGraph {
         let mut out = Vec::with_capacity(hits.len());
         for (score, seed_id) in hits {
             let connected = self.traverse_from(&seed_id, traverse);
-            out.push(TraversalResult { seed_id, score, connected });
+            out.push(TraversalResult {
+                seed_id,
+                score,
+                connected,
+            });
         }
         out
     }
@@ -362,13 +381,15 @@ impl TypedGraph {
         }
         let count = docs.len();
         let key = format!("{label}::{text_property}");
-        self.text_indexes.insert(key, Bm25Index::build(docs, Bm25Params::default()));
+        self.text_indexes
+            .insert(key, Bm25Index::build(docs, Bm25Params::default()));
         Ok(count)
     }
 
     /// Whether a BM25 index is built for `label::text_property`.
     pub fn has_text_index(&self, label: &str, text_property: &str) -> bool {
-        self.text_indexes.contains_key(&format!("{label}::{text_property}"))
+        self.text_indexes
+            .contains_key(&format!("{label}::{text_property}"))
     }
 
     /// **Tri-modal hybrid query** (ADR-252 P4): fuse ANN vector similarity, BM25
@@ -392,10 +413,9 @@ impl TypedGraph {
         if k == 0 {
             return Ok(Vec::new());
         }
-        let vs = self
-            .schema
-            .vector(vector_type)
-            .ok_or_else(|| GraphError::SchemaViolation(format!("unknown vector type '{vector_type}'")))?;
+        let vs = self.schema.vector(vector_type).ok_or_else(|| {
+            GraphError::SchemaViolation(format!("unknown vector type '{vector_type}'"))
+        })?;
 
         // Over-fetch each arm so fusion has depth to work with.
         let over = k.saturating_mul(4).max(k + 32);
@@ -415,7 +435,9 @@ impl TypedGraph {
         // Keyword arm: BM25 over the text property of the bound label.
         let key = format!("{}::{}", vs.label, text_property);
         let bm = self.text_indexes.get(&key).ok_or_else(|| {
-            GraphError::SchemaViolation(format!("BM25 index '{key}' not built (call build_text_index)"))
+            GraphError::SchemaViolation(format!(
+                "BM25 index '{key}' not built (call build_text_index)"
+            ))
         })?;
         let kw_hits = bm.search(text, over);
 
@@ -511,8 +533,10 @@ impl TypedGraph {
             h
         };
 
-        let mut hits: Vec<(f32, NodeId)> =
-            heap.into_iter().map(|Reverse((s, id))| (s.into_inner(), id)).collect();
+        let mut hits: Vec<(f32, NodeId)> = heap
+            .into_iter()
+            .map(|Reverse((s, id))| (s.into_inner(), id))
+            .collect();
         hits.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
         hits
     }
@@ -558,7 +582,9 @@ impl TypedGraph {
 mod tests {
     use super::*;
     use crate::node::NodeBuilder;
-    use crate::schema::{DistanceMetric, EdgeSchema, NodeSchema, PropertySchema, PropertyType, VectorSchema};
+    use crate::schema::{
+        DistanceMetric, EdgeSchema, NodeSchema, PropertySchema, PropertyType, VectorSchema,
+    };
     use crate::types::PropertyValue;
 
     fn schema() -> GraphSchema {
@@ -568,9 +594,17 @@ mod tests {
                 .property(PropertySchema::new("title", PropertyType::String).required())
                 .property(PropertySchema::new("embedding", PropertyType::Vector)),
         );
-        s.add_node(NodeSchema::new("Topic").property(PropertySchema::new("name", PropertyType::String)));
+        s.add_node(
+            NodeSchema::new("Topic").property(PropertySchema::new("name", PropertyType::String)),
+        );
         s.add_edge(EdgeSchema::new("ABOUT", "Doc", "Topic"));
-        s.add_vector(VectorSchema::new("DocEmb", "Doc", "embedding", 3, DistanceMetric::Cosine));
+        s.add_vector(VectorSchema::new(
+            "DocEmb",
+            "Doc",
+            "embedding",
+            3,
+            DistanceMetric::Cosine,
+        ));
         s
     }
 
@@ -591,7 +625,11 @@ mod tests {
         assert!(tg.create_node(bad).is_err());
 
         tg.create_node(doc("d1", "a", vec![1.0, 0.0, 0.0])).unwrap();
-        let topic = NodeBuilder::new().id("t1").label("Topic").property("name", "ai").build();
+        let topic = NodeBuilder::new()
+            .id("t1")
+            .label("Topic")
+            .property("name", "ai")
+            .build();
         tg.create_node(topic).unwrap();
         // Wrong direction: Topic -> Doc on an ABOUT edge declared Doc -> Topic.
         let bad_edge = Edge::create("t1".into(), "d1".into(), "ABOUT");
@@ -604,19 +642,37 @@ mod tests {
     #[test]
     fn search_then_traverse_ranks_and_expands() {
         let tg = TypedGraph::new(GraphDB::new(), schema()).unwrap();
-        tg.create_node(doc("d1", "near", vec![1.0, 0.0, 0.0])).unwrap();
-        tg.create_node(doc("d2", "mid", vec![0.7, 0.7, 0.0])).unwrap();
-        tg.create_node(doc("d3", "far", vec![0.0, 0.0, 1.0])).unwrap();
+        tg.create_node(doc("d1", "near", vec![1.0, 0.0, 0.0]))
+            .unwrap();
+        tg.create_node(doc("d2", "mid", vec![0.7, 0.7, 0.0]))
+            .unwrap();
+        tg.create_node(doc("d3", "far", vec![0.0, 0.0, 1.0]))
+            .unwrap();
         for t in ["ai", "ml", "db"] {
-            tg.create_node(NodeBuilder::new().id(t).label("Topic").property("name", t).build()).unwrap();
+            tg.create_node(
+                NodeBuilder::new()
+                    .id(t)
+                    .label("Topic")
+                    .property("name", t)
+                    .build(),
+            )
+            .unwrap();
         }
-        tg.create_edge(Edge::create("d1".into(), "ai".into(), "ABOUT")).unwrap();
-        tg.create_edge(Edge::create("d1".into(), "ml".into(), "ABOUT")).unwrap();
-        tg.create_edge(Edge::create("d2".into(), "db".into(), "ABOUT")).unwrap();
+        tg.create_edge(Edge::create("d1".into(), "ai".into(), "ABOUT"))
+            .unwrap();
+        tg.create_edge(Edge::create("d1".into(), "ml".into(), "ABOUT"))
+            .unwrap();
+        tg.create_edge(Edge::create("d2".into(), "db".into(), "ABOUT"))
+            .unwrap();
 
         let q = [1.0f32, 0.0, 0.0];
         let res = tg
-            .search_then_traverse("DocEmb", &q, 2, &TraverseSpec::out("ABOUT").target_label("Topic"))
+            .search_then_traverse(
+                "DocEmb",
+                &q,
+                2,
+                &TraverseSpec::out("ABOUT").target_label("Topic"),
+            )
             .unwrap();
 
         // Top-k respected and ordered by similarity.
@@ -656,7 +712,9 @@ mod tests {
         }
         let q = [1.0f32, 0.0, 0.0];
         let k = 10;
-        let res = tg.search_then_traverse("DocEmb", &q, k, &TraverseSpec::out("ABOUT")).unwrap();
+        let res = tg
+            .search_then_traverse("DocEmb", &q, k, &TraverseSpec::out("ABOUT"))
+            .unwrap();
 
         // Reference: cosine score, sort desc, take k ids.
         let qn = (q[0] * q[0]) as f32;
@@ -666,7 +724,11 @@ mod tests {
             .map(|(id, v)| {
                 let dot: f32 = q.iter().zip(v).map(|(a, b)| a * b).sum();
                 let vn: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-                let s = if qn == 0.0 || vn == 0.0 { 0.0 } else { dot / (qn * vn) };
+                let s = if qn == 0.0 || vn == 0.0 {
+                    0.0
+                } else {
+                    dot / (qn * vn)
+                };
                 (s, id.clone())
             })
             .collect();
@@ -713,21 +775,35 @@ mod tests {
         // Data on an arc of the unit circle so the nearest neighbour is on the
         // manifold (the realistic, HNSW-friendly case). `winner` sits at angle 0,
         // exactly aligned with the query; the rest fan out to larger angles.
-        tg.create_node(doc("winner", "t", vec![1.0, 0.0, 0.0])).unwrap();
+        tg.create_node(doc("winner", "t", vec![1.0, 0.0, 0.0]))
+            .unwrap();
         for i in 0..300 {
             let a = 0.2 + (i as f32 / 300.0) * 1.2; // 0.2 .. 1.4 rad
-            tg.create_node(doc(&format!("d{i}"), "t", vec![a.cos(), a.sin(), 0.0])).unwrap();
+            tg.create_node(doc(&format!("d{i}"), "t", vec![a.cos(), a.sin(), 0.0]))
+                .unwrap();
         }
-        tg.create_node(NodeBuilder::new().id("ai").label("Topic").property("name", "ai").build())
+        tg.create_node(
+            NodeBuilder::new()
+                .id("ai")
+                .label("Topic")
+                .property("name", "ai")
+                .build(),
+        )
+        .unwrap();
+        tg.create_edge(Edge::create("winner".into(), "ai".into(), "ABOUT"))
             .unwrap();
-        tg.create_edge(Edge::create("winner".into(), "ai".into(), "ABOUT")).unwrap();
 
         let built = tg.build_vector_index("DocEmb").unwrap();
         assert_eq!(built, 301);
         assert!(tg.has_vector_index("DocEmb"));
 
         let res = tg
-            .search_then_traverse("DocEmb", &[1.0, 0.0, 0.0], 5, &TraverseSpec::out("ABOUT").target_label("Topic"))
+            .search_then_traverse(
+                "DocEmb",
+                &[1.0, 0.0, 0.0],
+                5,
+                &TraverseSpec::out("ABOUT").target_label("Topic"),
+            )
             .unwrap();
         assert_eq!(res.len(), 5);
         assert_eq!(res[0].seed_id, "winner");
@@ -751,7 +827,13 @@ mod tests {
         );
         s.add_node(NodeSchema::new("Topic"));
         s.add_edge(EdgeSchema::new("ABOUT", "Doc", "Topic"));
-        s.add_vector(VectorSchema::new("DocEmb", "Doc", "embedding", 128, DistanceMetric::Cosine));
+        s.add_vector(VectorSchema::new(
+            "DocEmb",
+            "Doc",
+            "embedding",
+            128,
+            DistanceMetric::Cosine,
+        ));
         let tg = TypedGraph::new(GraphDB::new(), s)
             .unwrap()
             .with_embedder(Arc::new(HashEmbedder::new(128)));
@@ -762,13 +844,22 @@ mod tests {
             ("d2", "distributed systems consensus raft"),
             ("d3", "italian pasta cooking recipe"),
         ] {
-            let node = NodeBuilder::new().id(id).label("Doc").property("title", text).build();
+            let node = NodeBuilder::new()
+                .id(id)
+                .label("Doc")
+                .property("title", text)
+                .build();
             tg.create_node_from_text(node, "DocEmb", text).unwrap();
         }
 
         // Query by text — closest doc to a lexically-overlapping query wins.
         let res = tg
-            .search_text("DocEmb", "vector database machine learning", 1, &TraverseSpec::out("ABOUT"))
+            .search_text(
+                "DocEmb",
+                "vector database machine learning",
+                1,
+                &TraverseSpec::out("ABOUT"),
+            )
             .unwrap();
         assert_eq!(res.len(), 1);
         assert_eq!(res[0].seed_id, "d1");
@@ -785,7 +876,13 @@ mod tests {
         );
         s.add_node(NodeSchema::new("Topic"));
         s.add_edge(EdgeSchema::new("ABOUT", "Doc", "Topic"));
-        s.add_vector(VectorSchema::new("DocEmb", "Doc", "embedding", 256, DistanceMetric::Cosine));
+        s.add_vector(VectorSchema::new(
+            "DocEmb",
+            "Doc",
+            "embedding",
+            256,
+            DistanceMetric::Cosine,
+        ));
         let mut tg = TypedGraph::new(GraphDB::new(), s)
             .unwrap()
             .with_embedder(Arc::new(HashEmbedder::new(256)));
@@ -798,12 +895,18 @@ mod tests {
             ("d5", "approximate nearest neighbour vector search index"),
         ];
         for (id, body) in docs {
-            let node = NodeBuilder::new().id(id).label("Doc").property("body", body).build();
+            let node = NodeBuilder::new()
+                .id(id)
+                .label("Doc")
+                .property("body", body)
+                .build();
             tg.create_node_from_text(node, "DocEmb", body).unwrap();
         }
         // Topic + edge so traversal does work.
-        tg.create_node(NodeBuilder::new().id("t-search").label("Topic").build()).unwrap();
-        tg.create_edge(Edge::create("d1".into(), "t-search".into(), "ABOUT")).unwrap();
+        tg.create_node(NodeBuilder::new().id("t-search").label("Topic").build())
+            .unwrap();
+        tg.create_edge(Edge::create("d1".into(), "t-search".into(), "ABOUT"))
+            .unwrap();
 
         tg.build_text_index("Doc", "body").unwrap();
         assert!(tg.has_text_index("Doc", "body"));
@@ -841,7 +944,8 @@ mod tests {
             .unwrap()
             .with_embedder(Arc::new(HashEmbedder::new(3)));
         // No build_text_index → explicit error, no silent degradation.
-        let err = tg.hybrid_search_text("DocEmb", "title", "x", 1, 60.0, &TraverseSpec::out("ABOUT"));
+        let err =
+            tg.hybrid_search_text("DocEmb", "title", "x", 1, 60.0, &TraverseSpec::out("ABOUT"));
         assert!(err.is_err());
     }
 
@@ -849,7 +953,9 @@ mod tests {
     fn embed_without_embedder_errors() {
         let tg = TypedGraph::new(GraphDB::new(), schema()).unwrap();
         assert!(tg.embed("anything").is_err());
-        assert!(tg.search_text("DocEmb", "x", 1, &TraverseSpec::out("ABOUT")).is_err());
+        assert!(tg
+            .search_text("DocEmb", "x", 1, &TraverseSpec::out("ABOUT"))
+            .is_err());
     }
 
     #[test]
@@ -859,8 +965,14 @@ mod tests {
         let tg = TypedGraph::new(GraphDB::new(), schema())
             .unwrap()
             .with_embedder(Arc::new(HashEmbedder::new(64)));
-        let node = NodeBuilder::new().id("d1").label("Doc").property("title", "x").build();
-        assert!(tg.create_node_from_text(node, "DocEmb", "some text").is_err());
+        let node = NodeBuilder::new()
+            .id("d1")
+            .label("Doc")
+            .property("title", "x")
+            .build();
+        assert!(tg
+            .create_node_from_text(node, "DocEmb", "some text")
+            .is_err());
     }
 
     #[test]

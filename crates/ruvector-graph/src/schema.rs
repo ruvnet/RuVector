@@ -436,7 +436,12 @@ impl GraphSchema {
     /// Validate an edge given the labels of its endpoints. Undeclared edge types
     /// pass through. Pass the actual from/to node labels so direction + endpoint
     /// types are checked.
-    pub fn validate_edge(&self, edge: &Edge, from_labels: &[String], to_labels: &[String]) -> Result<()> {
+    pub fn validate_edge(
+        &self,
+        edge: &Edge,
+        from_labels: &[String],
+        to_labels: &[String],
+    ) -> Result<()> {
         let Some(es) = self.edges.get(&edge.edge_type) else {
             return Ok(());
         };
@@ -516,13 +521,23 @@ mod tests {
         let mut s = GraphSchema::new();
         s.add_node(
             NodeSchema::new("Person")
-                .property(PropertySchema::new("name", PropertyType::String).required().indexed())
+                .property(
+                    PropertySchema::new("name", PropertyType::String)
+                        .required()
+                        .indexed(),
+                )
                 .property(PropertySchema::new("age", PropertyType::Integer))
                 .property(PropertySchema::new("embedding", PropertyType::Vector)),
         );
         s.add_node(NodeSchema::new("Company"));
         s.add_edge(EdgeSchema::new("WORKS_AT", "Person", "Company"));
-        s.add_vector(VectorSchema::new("PersonEmb", "Person", "embedding", 3, DistanceMetric::Cosine));
+        s.add_vector(VectorSchema::new(
+            "PersonEmb",
+            "Person",
+            "embedding",
+            3,
+            DistanceMetric::Cosine,
+        ));
         s
     }
 
@@ -539,24 +554,46 @@ mod tests {
     fn node_validation_required_and_types() {
         let s = person_schema();
         // Valid.
-        let ok = NodeBuilder::new().label("Person").property("name", "Alice").property("age", 30i64).build();
+        let ok = NodeBuilder::new()
+            .label("Person")
+            .property("name", "Alice")
+            .property("age", 30i64)
+            .build();
         assert!(s.validate_node(&ok).is_ok());
         // Missing required `name`.
-        let missing = NodeBuilder::new().label("Person").property("age", 30i64).build();
+        let missing = NodeBuilder::new()
+            .label("Person")
+            .property("age", 30i64)
+            .build();
         assert!(s.validate_node(&missing).is_err());
         // Wrong type for `age` (string where integer expected).
-        let wrong = NodeBuilder::new().label("Person").property("name", "Bob").property("age", "old").build();
+        let wrong = NodeBuilder::new()
+            .label("Person")
+            .property("name", "Bob")
+            .property("age", "old")
+            .build();
         assert!(s.validate_node(&wrong).is_err());
         // Undeclared label passes through (schemaless coexistence).
-        let other = NodeBuilder::new().label("Alien").property("planet", "Mars").build();
+        let other = NodeBuilder::new()
+            .label("Alien")
+            .property("planet", "Mars")
+            .build();
         assert!(s.validate_node(&other).is_ok());
     }
 
     #[test]
     fn strict_node_rejects_undeclared_props() {
         let mut s = GraphSchema::new();
-        s.add_node(NodeSchema::new("Tag").property(PropertySchema::new("name", PropertyType::String)).strict());
-        let bad = NodeBuilder::new().label("Tag").property("name", "x").property("extra", 1i64).build();
+        s.add_node(
+            NodeSchema::new("Tag")
+                .property(PropertySchema::new("name", PropertyType::String))
+                .strict(),
+        );
+        let bad = NodeBuilder::new()
+            .label("Tag")
+            .property("name", "x")
+            .property("extra", 1i64)
+            .build();
         assert!(s.validate_node(&bad).is_err());
     }
 
@@ -573,13 +610,17 @@ mod tests {
             .is_err());
         // Undeclared edge type passes through.
         let e2 = Edge::create("p1".into(), "p2".into(), "LIKES");
-        assert!(s.validate_edge(&e2, &["Person".into()], &["Person".into()]).is_ok());
+        assert!(s
+            .validate_edge(&e2, &["Person".into()], &["Person".into()])
+            .is_ok());
     }
 
     #[test]
     fn vector_dim_validation() {
         let s = person_schema();
-        assert!(s.validate_vector_dims("PersonEmb", &[1.0, 2.0, 3.0]).is_ok());
+        assert!(s
+            .validate_vector_dims("PersonEmb", &[1.0, 2.0, 3.0])
+            .is_ok());
         assert!(s.validate_vector_dims("PersonEmb", &[1.0, 2.0]).is_err());
         assert!(s.validate_vector_dims("Missing", &[1.0, 2.0, 3.0]).is_err());
     }
@@ -589,16 +630,26 @@ mod tests {
         let q = [1.0f32, 0.0, 0.0];
         let near = [0.9f32, 0.1, 0.0];
         let far = [0.0f32, 1.0, 0.0];
-        for m in [DistanceMetric::Cosine, DistanceMetric::DotProduct, DistanceMetric::Euclidean] {
+        for m in [
+            DistanceMetric::Cosine,
+            DistanceMetric::DotProduct,
+            DistanceMetric::Euclidean,
+        ] {
             assert!(m.score(&q, &near) > m.score(&q, &far), "{:?}", m);
         }
     }
 
     #[test]
     fn extract_vector_handles_shapes() {
-        assert_eq!(extract_vector(&PropertyValue::FloatArray(vec![1.0, 2.0])), Some(vec![1.0, 2.0]));
         assert_eq!(
-            extract_vector(&PropertyValue::Array(vec![PropertyValue::Integer(1), PropertyValue::Float(2.0)])),
+            extract_vector(&PropertyValue::FloatArray(vec![1.0, 2.0])),
+            Some(vec![1.0, 2.0])
+        );
+        assert_eq!(
+            extract_vector(&PropertyValue::Array(vec![
+                PropertyValue::Integer(1),
+                PropertyValue::Float(2.0)
+            ])),
             Some(vec![1.0, 2.0])
         );
         assert_eq!(extract_vector(&PropertyValue::String("x".into())), None);
@@ -617,8 +668,14 @@ mod tests {
     #[test]
     fn multi_label_node_validation() {
         let mut s = GraphSchema::new();
-        s.add_node(NodeSchema::new("A").property(PropertySchema::new("a", PropertyType::Integer).required()));
-        s.add_node(NodeSchema::new("B").property(PropertySchema::new("b", PropertyType::String).required()));
+        s.add_node(
+            NodeSchema::new("A")
+                .property(PropertySchema::new("a", PropertyType::Integer).required()),
+        );
+        s.add_node(
+            NodeSchema::new("B")
+                .property(PropertySchema::new("b", PropertyType::String).required()),
+        );
         let n = Node::new(
             "n1".into(),
             vec![Label::new("A"), Label::new("B")],

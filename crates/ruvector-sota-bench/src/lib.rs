@@ -28,7 +28,6 @@ pub use report::{BenchReport, LeaderboardRow};
 
 use rand::SeedableRng;
 use rand_distr::{Distribution, Normal};
-use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
 // Dataset descriptors
@@ -139,7 +138,7 @@ pub fn darwin_score(
     p99_ms: f64,
     baseline_p99_ms: f64,
 ) -> f64 {
-    let qps_term = ((qps / baseline_qps).ln().clamp(0.0, 1.0));
+    let qps_term = (qps / baseline_qps).ln().clamp(0.0, 1.0);
     let mem_term = (1.0 - mem_mb / baseline_mem_mb).max(0.0);
     let lat_term = (1.0 - p99_ms / baseline_p99_ms).max(0.0);
     0.40 * recall_at_10 + 0.30 * qps_term + 0.20 * mem_term + 0.10 * lat_term

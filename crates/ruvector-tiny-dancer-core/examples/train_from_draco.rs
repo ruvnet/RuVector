@@ -17,8 +17,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //    simple signal in the embedding; opus is reliably strong. Same shape as
     //    @metaharness/router's `fromExamples` / `trainRouter`.
     const DIM: usize = 8;
-    let prices: HashMap<String, f32> =
-        [("haiku".into(), 1.0_f32), ("opus".into(), 15.0_f32)].into_iter().collect();
+    let prices: HashMap<String, f32> = [("haiku".into(), 1.0_f32), ("opus".into(), 15.0_f32)]
+        .into_iter()
+        .collect();
 
     let mut rng_state = 0x1234_5678_u64;
     let mut next = || {
@@ -34,9 +35,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let easy = emb[0] + emb[1] > 0.0;
         let haiku_q = if easy { 0.9 } else { 0.5 };
         let opus_q = 0.93;
-        let scores: HashMap<String, f32> =
-            [("haiku".into(), haiku_q), ("opus".into(), opus_q)].into_iter().collect();
-        rows.push(DracoRow { embedding: emb, scores });
+        let scores: HashMap<String, f32> = [("haiku".into(), haiku_q), ("opus".into(), opus_q)]
+            .into_iter()
+            .collect();
+        rows.push(DracoRow {
+            embedding: emb,
+            scores,
+        });
     }
 
     let dataset = TrainingDataset::from_draco(&rows, &prices, 0.05)?;
@@ -69,7 +74,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let dir = std::env::temp_dir();
     let path = dir.join("tiny-dancer-router.safetensors");
     model.save(&path)?;
-    println!("saved -> {} ({} bytes)", path.display(), std::fs::metadata(&path)?.len());
+    println!(
+        "saved -> {} ({} bytes)",
+        path.display(),
+        std::fs::metadata(&path)?.len()
+    );
     let loaded = FastGRNN::load(&path)?;
 
     // 4. Route two new queries: "use light model?" = sigmoid score >= 0.5.
@@ -90,12 +99,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "route(easy) score={:.3} -> {}",
         s_easy,
-        if s_easy >= 0.5 { "haiku (cheap)" } else { "opus" }
+        if s_easy >= 0.5 {
+            "haiku (cheap)"
+        } else {
+            "opus"
+        }
     );
     println!(
         "route(hard) score={:.3} -> {}",
         s_hard,
-        if s_hard >= 0.5 { "haiku (cheap)" } else { "opus" }
+        if s_hard >= 0.5 {
+            "haiku (cheap)"
+        } else {
+            "opus"
+        }
     );
 
     Ok(())

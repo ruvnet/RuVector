@@ -85,7 +85,7 @@ fn gen_corpus(
     n_docs: usize,
     tpd: usize,
     topics: &[Vec<f32>],
-    dims: usize,
+    _dims: usize,
     noise: f32,
 ) -> (Vec<MultiVecDoc>, Vec<Vec<usize>>) {
     let mut rng = rand::rngs::SmallRng::seed_from_u64(0xDEAD_BEEF);
@@ -144,21 +144,6 @@ fn gen_queries(
         q_topics.push(chosen);
     }
     (queries, q_topics)
-}
-
-// ── Ground truth ─────────────────────────────────────────────────────────────
-
-fn ground_truth(flat: &FlatMaxSim, queries: &[MultiVecQuery], k: usize) -> Vec<Vec<DocId>> {
-    queries
-        .iter()
-        .map(|q| {
-            flat.search(q, k)
-                .unwrap()
-                .into_iter()
-                .map(|r| r.doc_id)
-                .collect()
-        })
-        .collect()
 }
 
 fn recall_at_k(results: &[Vec<DocId>], ground: &[Vec<Vec<DocId>>], k: usize) -> f64 {
@@ -344,10 +329,22 @@ fn main() {
     println!("{}", "-".repeat(115));
 
     let flat_stats = run_variant("FlatMaxSim", &flat, &queries, &ground, cfg.k, flat_mem);
-    let bucket_fast_stats =
-        run_variant("BucketFast(os=50)", &bucket_fast, &queries, &ground, cfg.k, bucket_mem);
-    let bucket_quality_stats =
-        run_variant("BucketQual(os=500)", &bucket_quality, &queries, &ground, cfg.k, bucket_mem);
+    let bucket_fast_stats = run_variant(
+        "BucketFast(os=50)",
+        &bucket_fast,
+        &queries,
+        &ground,
+        cfg.k,
+        bucket_mem,
+    );
+    let bucket_quality_stats = run_variant(
+        "BucketQual(os=500)",
+        &bucket_quality,
+        &queries,
+        &ground,
+        cfg.k,
+        bucket_mem,
+    );
     let hnsw_stats = run_variant("HnswMaxSim", &hnsw, &queries, &ground, cfg.k, hnsw_mem);
 
     print_stats(&flat_stats);

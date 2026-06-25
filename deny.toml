@@ -124,6 +124,12 @@ ignore = [
     # offline experiments only). No safe upgrade available. Re-review
     # 2026-08-01.
     "RUSTSEC-2026-0105",
+
+    # memmap2 0.9.x — unsound `Unchecked pointer offset` API (RUSTSEC-2026-0186,
+    # "unsound", not an exploitable vuln). Transitive via safetensors/candle
+    # mmap loading and other crates; no fixed release on the 0.9 line yet.
+    # We don't pass attacker-controlled offsets to memmap2. Re-review 2026-08-01.
+    "RUSTSEC-2026-0186",
 ]
 
 # ─────────────────────────────────────────────────────────────────────

@@ -8,13 +8,13 @@
 //! - **Prelude → Recurrent → Coda** staging ([`OpenMythos::forward`]).
 //! - **LTI-constrained injection** `h_{t+1} = A·h_t + B·e + Transformer(h_t + e)`
 //!   with contractive diagonal `A = exp(-exp(log_dt + log_A)) ∈ (0,1)`
-//!   ([`recurrent::LtiInjection`]).
+//!   (`LtiInjection` in the `recurrent` module).
 //! - **Adaptive Computation Time** halting with remainder weighting and a
-//!   **loop-index positional embedding** ([`recurrent::RecurrentBlock`]).
+//!   **loop-index positional embedding** (`RecurrentBlock` in the `recurrent` module).
 //! - **Attention variants**: Grouped-Query and Multi-Latent (compressed KV),
-//!   both with incremental **KV-cache decode** ([`attention`]).
+//!   both with incremental **KV-cache decode** (attention submodule).
 //! - **Per-depth LoRA** adaptation in the recurrent loop
-//!   ([`recurrent::DepthLora`]).
+//!   (`DepthLora`).
 //! - A **checkpoint loader** with the honest-boundary metadata gate
 //!   ([`validate_mythos_metadata`]).
 //!
@@ -102,14 +102,37 @@ impl MythosCache {
                 AttnType::Gqa => {
                     let kv_heads = cfg.n_kv_heads;
                     let head_dim = cfg.head_dim();
-                    let k = candle_core::Tensor::zeros((b, kv_heads, max_seq, head_dim), dtype, device)?;
-                    let v = candle_core::Tensor::zeros((b, kv_heads, max_seq, head_dim), dtype, device)?;
-                    Ok(Some(KvLayerCache::GqaPrealloc { k, v, seq_len: 0, max_seq }))
+                    let k = candle_core::Tensor::zeros(
+                        (b, kv_heads, max_seq, head_dim),
+                        dtype,
+                        device,
+                    )?;
+                    let v = candle_core::Tensor::zeros(
+                        (b, kv_heads, max_seq, head_dim),
+                        dtype,
+                        device,
+                    )?;
+                    Ok(Some(KvLayerCache::GqaPrealloc {
+                        k,
+                        v,
+                        seq_len: 0,
+                        max_seq,
+                    }))
                 }
                 AttnType::Mla => {
-                    let c_kv = candle_core::Tensor::zeros((b, max_seq, cfg.kv_lora_rank), dtype, device)?;
-                    let k_rope = candle_core::Tensor::zeros((b, max_seq, cfg.qk_rope_head_dim), dtype, device)?;
-                    Ok(Some(KvLayerCache::MlaPrealloc { c_kv, k_rope, seq_len: 0, max_seq }))
+                    let c_kv =
+                        candle_core::Tensor::zeros((b, max_seq, cfg.kv_lora_rank), dtype, device)?;
+                    let k_rope = candle_core::Tensor::zeros(
+                        (b, max_seq, cfg.qk_rope_head_dim),
+                        dtype,
+                        device,
+                    )?;
+                    Ok(Some(KvLayerCache::MlaPrealloc {
+                        c_kv,
+                        k_rope,
+                        seq_len: 0,
+                        max_seq,
+                    }))
                 }
             }
         };
@@ -120,7 +143,12 @@ impl MythosCache {
         let coda = (0..cfg.coda_layers)
             .map(|_| mk_buf(()))
             .collect::<candle_core::Result<Vec<_>>>()?;
-        Ok(Self { prelude, recurrent, coda, seq_len: 0 })
+        Ok(Self {
+            prelude,
+            recurrent,
+            coda,
+            seq_len: 0,
+        })
     }
 
     /// Clear all cached state.
@@ -303,14 +331,8 @@ impl OpenMythos {
             .map_err(cand)?;
 
         // Slice precomputed RoPE tables for positions offset..offset+seq.
-        let cos = self
-            .rope_cos
-            .narrow(0, offset, seq)
-            .map_err(cand)?;
-        let sin = self
-            .rope_sin
-            .narrow(0, offset, seq)
-            .map_err(cand)?;
+        let cos = self.rope_cos.narrow(0, offset, seq).map_err(cand)?;
+        let sin = self.rope_sin.narrow(0, offset, seq).map_err(cand)?;
         // Slice precomputed causal mask: rows offset..offset+seq, cols 0..offset+seq.
         let mask = self
             .causal_mask_cache
@@ -371,13 +393,11 @@ impl OpenMythos {
         if prompt_ids.is_empty() {
             return Err(RuvLLMError::Generation("empty prompt".into()));
         }
-        let mut cache =
-            MythosCache::with_prealloc(&self.cfg, 1, &self.device, self.dtype)
-                .unwrap_or_else(|_| MythosCache::new(&self.cfg));
+        let mut cache = MythosCache::with_prealloc(&self.cfg, 1, &self.device, self.dtype)
+            .unwrap_or_else(|_| MythosCache::new(&self.cfg));
 
         let prompt =
-            Tensor::from_slice(prompt_ids, (1, prompt_ids.len()), &self.device)
-                .map_err(cand)?;
+            Tensor::from_slice(prompt_ids, (1, prompt_ids.len()), &self.device).map_err(cand)?;
         let logits = self.forward_cached(&prompt, &mut cache, n_loops)?;
         let mut next = self.last_argmax(&logits)?;
 
@@ -412,17 +432,18 @@ impl OpenMythos {
         let is_greedy = sampling.temperature <= 0.0
             && ((sampling.repetition_penalty - 1.0).abs() <= f32::EPSILON
                 || sampling.repetition_window == 0);
-        let top_k_transfer =
-            if sampling.top_k > 0 { sampling.top_k } else { 512.min(self.cfg.vocab_size) };
+        let top_k_transfer = if sampling.top_k > 0 {
+            sampling.top_k
+        } else {
+            512.min(self.cfg.vocab_size)
+        };
         let mut sampler = Sampler::new(sampling);
-        let mut cache =
-            MythosCache::with_prealloc(&self.cfg, 1, &self.device, self.dtype)
-                .unwrap_or_else(|_| MythosCache::new(&self.cfg));
+        let mut cache = MythosCache::with_prealloc(&self.cfg, 1, &self.device, self.dtype)
+            .unwrap_or_else(|_| MythosCache::new(&self.cfg));
         let mut history: Vec<u32> = prompt_ids.to_vec();
 
         let prompt =
-            Tensor::from_slice(prompt_ids, (1, prompt_ids.len()), &self.device)
-                .map_err(cand)?;
+            Tensor::from_slice(prompt_ids, (1, prompt_ids.len()), &self.device).map_err(cand)?;
         let logits = self.forward_cached(&prompt, &mut cache, n_loops)?;
         let mut next = if is_greedy {
             self.last_argmax(&logits)?
@@ -471,17 +492,18 @@ impl OpenMythos {
         let is_greedy = sampling.temperature <= 0.0
             && ((sampling.repetition_penalty - 1.0).abs() <= f32::EPSILON
                 || sampling.repetition_window == 0);
-        let top_k_transfer =
-            if sampling.top_k > 0 { sampling.top_k } else { 512.min(self.cfg.vocab_size) };
+        let top_k_transfer = if sampling.top_k > 0 {
+            sampling.top_k
+        } else {
+            512.min(self.cfg.vocab_size)
+        };
         let mut sampler = Sampler::new(sampling);
-        let mut cache =
-            MythosCache::with_prealloc(&self.cfg, 1, &self.device, self.dtype)
-                .unwrap_or_else(|_| MythosCache::new(&self.cfg));
+        let mut cache = MythosCache::with_prealloc(&self.cfg, 1, &self.device, self.dtype)
+            .unwrap_or_else(|_| MythosCache::new(&self.cfg));
         let mut history: Vec<u32> = prompt_ids.to_vec();
 
         let prompt =
-            Tensor::from_slice(prompt_ids, (1, prompt_ids.len()), &self.device)
-                .map_err(cand)?;
+            Tensor::from_slice(prompt_ids, (1, prompt_ids.len()), &self.device).map_err(cand)?;
         let logits = self.forward_cached(&prompt, &mut cache, n_loops)?;
         let mut next = if is_greedy {
             self.last_argmax(&logits)?
@@ -549,11 +571,7 @@ impl OpenMythos {
     ///
     /// `k == 0` means "all vocab" (falls back to full transfer). Returns vectors
     /// sorted in **descending** logit order.
-    fn last_logits_topk(
-        &self,
-        logits: &Tensor,
-        k: usize,
-    ) -> Result<(Vec<f32>, Vec<u32>)> {
+    fn last_logits_topk(&self, logits: &Tensor, k: usize) -> Result<(Vec<f32>, Vec<u32>)> {
         let (_b, seq, vocab) = logits.dims3().map_err(cand)?;
         let last = logits
             .i((0, seq - 1))

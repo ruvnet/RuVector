@@ -143,6 +143,7 @@ fn probe_recall(idx: &DriftingIndex, emb: &Array2<f32>, flat: &FlatVectors, qs: 
 // ---------- variable-rate contrastive trajectory ----------
 
 /// `lr_at(epoch)` lets the caller impose a burst/calm schedule.
+#[allow(clippy::too_many_arguments)]
 fn train_variable_rate(
     e0: Array2<f32>,
     edges: &[(usize, usize)],
@@ -450,7 +451,7 @@ fn main() {
     // ---- Pareto frontier analysis: fewer rebuilds at equal-or-better recall wins ----
     // For each Recall-trigger config, find the cheapest Periodic/Frobenius config that
     // matches its recall (within 0.5%); the trigger wins if it used fewer rebuilds.
-    outcomes.sort_by(|a, b| a.rebuilds.cmp(&b.rebuilds));
+    outcomes.sort_by_key(|o| o.rebuilds);
     println!("\n=== GATE: does the recall trigger dominate the frontier? ===");
     let recalls: Vec<&Outcome> = outcomes
         .iter()

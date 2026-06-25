@@ -26,7 +26,11 @@ fn root_of(log: &[WritePayload]) -> [u8; 32] {
 #[test]
 fn deterministic_and_each_write_advances_root() {
     let log = base_log();
-    assert_eq!(root_of(&log), root_of(&log), "same log must yield the same root");
+    assert_eq!(
+        root_of(&log),
+        root_of(&log),
+        "same log must yield the same root"
+    );
 
     // The root must change after every admitted write (no silent no-ops).
     let mut g = HashChainGate::new();
@@ -47,7 +51,11 @@ fn mutation_changes_root() {
     // Tamper a single middle write's vector.
     let mut tampered = base.clone();
     tampered[2] = payload(2, 999.0);
-    assert_ne!(root_of(&tampered), root, "mutating any write must change the root");
+    assert_ne!(
+        root_of(&tampered),
+        root,
+        "mutating any write must change the root"
+    );
 }
 
 #[test]
@@ -81,12 +89,18 @@ fn receipts_verify_then_forgeries_rejected() {
     // Forge: flip a byte of the chain commitment → rejected.
     let mut forged = receipts[2].clone();
     forged.chain_commitment[0] ^= 0xFF;
-    assert!(!g.verify_receipt(&forged), "forged commitment must be rejected");
+    assert!(
+        !g.verify_receipt(&forged),
+        "forged commitment must be rejected"
+    );
 
     // Out-of-range sequence → rejected (no panic).
     let mut oob = receipts[0].clone();
     oob.sequence = 9_999;
-    assert!(!g.verify_receipt(&oob), "out-of-range receipt must be rejected");
+    assert!(
+        !g.verify_receipt(&oob),
+        "out-of-range receipt must be rejected"
+    );
 }
 
 #[test]
@@ -97,5 +111,8 @@ fn foreign_receipt_rejected() {
     let mut b = HashChainGate::new();
     let ra = a.admit(&payload(0, 1.0)).unwrap();
     let _rb = b.admit(&payload(0, 2.0)).unwrap(); // different payload → different commitment
-    assert!(!b.verify_receipt(&ra), "a receipt from chain A must not verify on chain B");
+    assert!(
+        !b.verify_receipt(&ra),
+        "a receipt from chain A must not verify on chain B"
+    );
 }

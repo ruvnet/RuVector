@@ -43,7 +43,9 @@ fn ts_property(p: &PropertySchema) -> String {
 /// Generate TypeScript interfaces + a vector-type manifest from the schema.
 pub fn generate_typescript(schema: &GraphSchema) -> String {
     let mut out = String::new();
-    out.push_str("// Auto-generated from RuVector GraphSchema (ADR-252 P6). Do not edit by hand.\n\n");
+    out.push_str(
+        "// Auto-generated from RuVector GraphSchema (ADR-252 P6). Do not edit by hand.\n\n",
+    );
 
     for n in schema.node_schemas_sorted() {
         out.push_str(&format!("export interface {} {{\n", n.label));
@@ -170,7 +172,9 @@ fn rust_field(p: &PropertySchema) -> String {
 /// Generate Rust structs from the schema (serde-ready).
 pub fn generate_rust(schema: &GraphSchema) -> String {
     let mut out = String::new();
-    out.push_str("// Auto-generated from RuVector GraphSchema (ADR-252 P6). Do not edit by hand.\n");
+    out.push_str(
+        "// Auto-generated from RuVector GraphSchema (ADR-252 P6). Do not edit by hand.\n",
+    );
     out.push_str("use serde::{Deserialize, Serialize};\n\n");
 
     for n in schema.node_schemas_sorted() {
@@ -183,9 +187,15 @@ pub fn generate_rust(schema: &GraphSchema) -> String {
     }
 
     for e in schema.edge_schemas_sorted() {
-        out.push_str(&format!("/// Edge {}: {} -> {}\n", e.edge_type, e.from_label, e.to_label));
+        out.push_str(&format!(
+            "/// Edge {}: {} -> {}\n",
+            e.edge_type, e.from_label, e.to_label
+        ));
         out.push_str("#[derive(Debug, Clone, Serialize, Deserialize)]\n");
-        out.push_str(&format!("pub struct {} {{\n    pub from: String,\n    pub to: String,\n", e.edge_type));
+        out.push_str(&format!(
+            "pub struct {} {{\n    pub from: String,\n    pub to: String,\n",
+            e.edge_type
+        ));
         for p in &e.properties {
             out.push_str(&rust_field(p));
         }
@@ -203,13 +213,23 @@ mod tests {
         let mut s = GraphSchema::new();
         s.add_node(
             NodeSchema::new("Person")
-                .property(PropertySchema::new("name", PropertyType::String).required().indexed())
+                .property(
+                    PropertySchema::new("name", PropertyType::String)
+                        .required()
+                        .indexed(),
+                )
                 .property(PropertySchema::new("age", PropertyType::Integer))
                 .property(PropertySchema::new("embedding", PropertyType::Vector)),
         );
         s.add_node(NodeSchema::new("Company"));
         s.add_edge(EdgeSchema::new("WORKS_AT", "Person", "Company"));
-        s.add_vector(VectorSchema::new("PersonEmb", "Person", "embedding", 384, DistanceMetric::Cosine));
+        s.add_vector(VectorSchema::new(
+            "PersonEmb",
+            "Person",
+            "embedding",
+            384,
+            DistanceMetric::Cosine,
+        ));
         s
     }
 

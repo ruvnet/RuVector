@@ -139,7 +139,7 @@ fn recall_at_k(results: &[ruvector_gnn_rerank::RankedResult], gt: &HashSet<usize
         / gt.len() as f64
 }
 
-fn percentile(values: &mut Vec<f64>, p: f64) -> f64 {
+fn percentile(values: &mut [f64], p: f64) -> f64 {
     values.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
     let idx = ((values.len() as f64 * p / 100.0) as usize).min(values.len() - 1);
     values[idx]

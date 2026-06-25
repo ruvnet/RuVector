@@ -178,6 +178,7 @@ struct BenchStats {
     p95_us: f64,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_strategy<D, P>(
     _name: &str,
     base: &HnswGraph,
@@ -295,7 +296,7 @@ fn mean_dur(v: &[Duration]) -> f64 {
     v.iter().map(|d| d.as_secs_f64()).sum::<f64>() / v.len() as f64
 }
 
-fn percentile_dur(v: &mut Vec<Duration>, p: usize) -> f64 {
+fn percentile_dur(v: &mut [Duration], p: usize) -> f64 {
     if v.is_empty() {
         return 0.0;
     }

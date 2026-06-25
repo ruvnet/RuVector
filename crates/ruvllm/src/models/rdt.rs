@@ -575,12 +575,16 @@ mod candle_impl {
             // Accumulate KV — two paths matching OpenMythos GqaPrealloc/Gqa.
             let (k, v, new_kv) = match past {
                 // Pre-allocated: scatter_set + skip repeat_kv on full history.
-                Some(RdtKvCache::Prealloc { k: buf_k, v: buf_v, seq_len, max_seq }) => {
+                Some(RdtKvCache::Prealloc {
+                    k: buf_k,
+                    v: buf_v,
+                    seq_len,
+                    max_seq,
+                }) => {
                     let k_cur_rep = repeat_kv(&k_cur, n_rep)?; // [b, n_heads, seq, hd]
                     let v_rep_new = repeat_kv(&v, n_rep)?;
-                    let idx =
-                        Tensor::full(*seq_len as u32, k_cur_rep.shape(), k_cur_rep.device())
-                            .map_err(cand)?;
+                    let idx = Tensor::full(*seq_len as u32, k_cur_rep.shape(), k_cur_rep.device())
+                        .map_err(cand)?;
                     buf_k.scatter_set(&idx, &k_cur_rep, 2).map_err(cand)?;
                     buf_v.scatter_set(&idx, &v_rep_new, 2).map_err(cand)?;
                     let new_seq = seq_len + seq;
@@ -697,14 +701,11 @@ mod candle_impl {
                 let inv_freq: Vec<f32> = (0..half)
                     .map(|i| (1.0 / theta.powf(2.0 * i as f64 / head_dim as f64)) as f32)
                     .collect();
-                let inv_freq =
-                    Tensor::from_vec(inv_freq, (1, half), &device).map_err(cand)?;
+                let inv_freq = Tensor::from_vec(inv_freq, (1, half), &device).map_err(cand)?;
                 let positions: Vec<f32> = (0..max_pos).map(|p| p as f32).collect();
-                let positions =
-                    Tensor::from_vec(positions, (max_pos, 1), &device).map_err(cand)?;
+                let positions = Tensor::from_vec(positions, (max_pos, 1), &device).map_err(cand)?;
                 let freqs = positions.matmul(&inv_freq).map_err(cand)?;
-                let freqs =
-                    Tensor::cat(&[&freqs, &freqs], D::Minus1).map_err(cand)?;
+                let freqs = Tensor::cat(&[&freqs, &freqs], D::Minus1).map_err(cand)?;
                 let cos = freqs.cos().map_err(cand)?.to_dtype(dtype).map_err(cand)?;
                 let sin = freqs.sin().map_err(cand)?.to_dtype(dtype).map_err(cand)?;
                 (cos, sin)
@@ -794,12 +795,10 @@ mod candle_impl {
             if prompt_ids.is_empty() {
                 return Err(RuvLLMError::Generation("empty prompt".into()));
             }
-            let mut cache =
-                RdtCache::with_prealloc(&self.cfg, 1, &self.device, self.dtype)
-                    .unwrap_or_else(|_| RdtCache::new());
-            let prompt =
-                Tensor::from_slice(prompt_ids, (1, prompt_ids.len()), &self.device)
-                    .map_err(cand)?;
+            let mut cache = RdtCache::with_prealloc(&self.cfg, 1, &self.device, self.dtype)
+                .unwrap_or_else(|_| RdtCache::new());
+            let prompt = Tensor::from_slice(prompt_ids, (1, prompt_ids.len()), &self.device)
+                .map_err(cand)?;
             let logits = self.forward_cached(&prompt, &mut cache)?;
             let mut next = last_argmax(&logits)?;
 
@@ -809,8 +808,7 @@ mod candle_impl {
                 if Some(next) == eos {
                     break;
                 }
-                let step =
-                    Tensor::from_slice(&[next], (1, 1), &self.device).map_err(cand)?;
+                let step = Tensor::from_slice(&[next], (1, 1), &self.device).map_err(cand)?;
                 let logits = self.forward_cached(&step, &mut cache)?;
                 next = last_argmax(&logits)?;
             }
@@ -835,14 +833,12 @@ mod candle_impl {
                 512.min(self.cfg.vocab_size)
             };
             let mut sampler = crate::models::sampling::Sampler::new(sampling);
-            let mut cache =
-                RdtCache::with_prealloc(&self.cfg, 1, &self.device, self.dtype)
-                    .unwrap_or_else(|_| RdtCache::new());
+            let mut cache = RdtCache::with_prealloc(&self.cfg, 1, &self.device, self.dtype)
+                .unwrap_or_else(|_| RdtCache::new());
             let mut history: Vec<u32> = prompt_ids.to_vec();
 
-            let prompt =
-                Tensor::from_slice(prompt_ids, (1, prompt_ids.len()), &self.device)
-                    .map_err(cand)?;
+            let prompt = Tensor::from_slice(prompt_ids, (1, prompt_ids.len()), &self.device)
+                .map_err(cand)?;
             let logits = self.forward_cached(&prompt, &mut cache)?;
             let (vals, idxs) = last_logits_topk(&logits, top_k_transfer, &self.device)?;
             let mut next = sampler.sample_topk(&vals, &idxs, &history);
@@ -854,11 +850,9 @@ mod candle_impl {
                 if Some(next) == eos {
                     break;
                 }
-                let step =
-                    Tensor::from_slice(&[next], (1, 1), &self.device).map_err(cand)?;
+                let step = Tensor::from_slice(&[next], (1, 1), &self.device).map_err(cand)?;
                 let logits = self.forward_cached(&step, &mut cache)?;
-                let (vals, idxs) =
-                    last_logits_topk(&logits, top_k_transfer, &self.device)?;
+                let (vals, idxs) = last_logits_topk(&logits, top_k_transfer, &self.device)?;
                 next = sampler.sample_topk(&vals, &idxs, &history);
             }
             Ok(out)
@@ -883,14 +877,12 @@ mod candle_impl {
                 512.min(self.cfg.vocab_size)
             };
             let mut sampler = crate::models::sampling::Sampler::new(sampling);
-            let mut cache =
-                RdtCache::with_prealloc(&self.cfg, 1, &self.device, self.dtype)
-                    .unwrap_or_else(|_| RdtCache::new());
+            let mut cache = RdtCache::with_prealloc(&self.cfg, 1, &self.device, self.dtype)
+                .unwrap_or_else(|_| RdtCache::new());
             let mut history: Vec<u32> = prompt_ids.to_vec();
 
-            let prompt =
-                Tensor::from_slice(prompt_ids, (1, prompt_ids.len()), &self.device)
-                    .map_err(cand)?;
+            let prompt = Tensor::from_slice(prompt_ids, (1, prompt_ids.len()), &self.device)
+                .map_err(cand)?;
             let logits = self.forward_cached(&prompt, &mut cache)?;
             let (vals, idxs) = last_logits_topk(&logits, top_k_transfer, &self.device)?;
             let mut next = sampler.sample_topk(&vals, &idxs, &history);
@@ -903,11 +895,9 @@ mod candle_impl {
                 if Some(next) == eos {
                     break;
                 }
-                let step =
-                    Tensor::from_slice(&[next], (1, 1), &self.device).map_err(cand)?;
+                let step = Tensor::from_slice(&[next], (1, 1), &self.device).map_err(cand)?;
                 let logits = self.forward_cached(&step, &mut cache)?;
-                let (vals, idxs) =
-                    last_logits_topk(&logits, top_k_transfer, &self.device)?;
+                let (vals, idxs) = last_logits_topk(&logits, top_k_transfer, &self.device)?;
                 next = sampler.sample_topk(&vals, &idxs, &history);
             }
             Ok(())
@@ -998,7 +988,6 @@ mod candle_impl {
             let kv = last_kv.expect("at least one loop iteration runs");
             Ok((hidden, kv))
         }
-
     }
 
     /// KV state for one RDT decode session.
@@ -1033,7 +1022,10 @@ mod candle_impl {
 
     impl Default for RdtCache {
         fn default() -> Self {
-            Self { kv: None, seq_len: 0 }
+            Self {
+                kv: None,
+                seq_len: 0,
+            }
         }
     }
 
@@ -1055,7 +1047,12 @@ mod candle_impl {
             let k = Tensor::zeros((b, n_heads, max_seq, head_dim), dtype, device).map_err(cand)?;
             let v = Tensor::zeros((b, n_heads, max_seq, head_dim), dtype, device).map_err(cand)?;
             Ok(Self {
-                kv: Some(RdtKvCache::Prealloc { k, v, seq_len: 0, max_seq }),
+                kv: Some(RdtKvCache::Prealloc {
+                    k,
+                    v,
+                    seq_len: 0,
+                    max_seq,
+                }),
                 seq_len: 0,
             })
         }

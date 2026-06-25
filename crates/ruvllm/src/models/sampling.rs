@@ -127,8 +127,7 @@ impl Sampler {
 
         // Softmax over candidates (already top-k truncated by caller).
         let max_l = cand.first().map(|&(_, l)| l).unwrap_or(0.0);
-        let mut probs: Vec<f32> =
-            cand.iter().map(|&(_, l)| (l - max_l).exp()).collect();
+        let mut probs: Vec<f32> = cand.iter().map(|&(_, l)| (l - max_l).exp()).collect();
         let sum: f32 = probs.iter().sum::<f32>().max(1e-9);
         for p in probs.iter_mut() {
             *p /= sum;
