@@ -12725,6 +12725,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "timesfm"
+version = "2.2.3"
+dependencies = [
+ "anyhow",
+ "candle-core 0.9.2",
+ "candle-nn 0.9.2",
+ "candle-transformers 0.9.2",
+ "hf-hub",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokenizers",
+ "tracing",
+]
+
+[[package]]
 name = "tinystr"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
