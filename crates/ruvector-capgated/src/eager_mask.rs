@@ -92,7 +92,7 @@ mod tests {
             vec![0.9, 0.9, 0.9, 0.9],
             vec![0.2, 0.1, 0.0, 0.0],
         ];
-        let caps = vec![
+        let caps = [
             CapMask::NONE,
             CapMask::single(0),
             CapMask::single(1),

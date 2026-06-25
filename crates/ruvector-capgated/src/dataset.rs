@@ -93,8 +93,8 @@ fn pick_caps(rng: &mut Lcg, n_caps: u8, k: u8) -> CapMask {
         bits.swap(i, j);
     }
     let mut mask = 0u64;
-    for i in 0..k as usize {
-        mask |= 1u64 << bits[i];
+    for &b in &bits[..k as usize] {
+        mask |= 1u64 << b;
     }
     CapMask(mask)
 }

@@ -18,7 +18,7 @@
 /// Build: O(n² · d) brute-force k-NN — fine for PoC, replace with HNSW for
 /// production.
 /// Search: O(ef · degree · d) where ef is the exploration frontier.
-use crate::{dist_sq, CapGatedIndex, CapMask, SearchResult, VecEntry};
+use crate::{dist_sq, CapGatedIndex, CapMask, SearchResult};
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashSet};
 
@@ -101,10 +101,7 @@ impl CapGraphIndex {
     /// Batch-insert all entries and build the graph once.
     ///
     /// Always prefer this over calling `insert` in a loop.
-    pub fn batch_build(
-        &mut self,
-        entries: impl IntoIterator<Item = (usize, Vec<f32>, CapMask)>,
-    ) {
+    pub fn batch_build(&mut self, entries: impl IntoIterator<Item = (usize, Vec<f32>, CapMask)>) {
         for (id, vector, required) in entries {
             assert_eq!(vector.len(), self.dims);
             self.vectors.push(vector);

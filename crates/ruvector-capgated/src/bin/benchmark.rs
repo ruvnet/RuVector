@@ -25,7 +25,7 @@ const N_QUERIES: usize = 200;
 const K: usize = 10;
 const GRAPH_DEGREE: usize = 12;
 const GRAPH_ENTRY_POINTS: usize = 8;
-const SEED: u64 = 0xc0ffee_1337;
+const SEED: u64 = 0x00c0_ffee_1337;
 
 // ─── scenario: access ratio ───────────────────────────────────────────────────
 
@@ -175,11 +175,7 @@ fn run_scenario(scenario: &Scenario) -> (bool, Vec<BenchResult>) {
     let build_start = Instant::now();
     let mut cg = CapGraphIndex::new(DIMS, GRAPH_DEGREE, GRAPH_ENTRY_POINTS);
     // Use batch_build to build the graph once (not O(n³) via per-insert rebuild)
-    cg.batch_build(
-        entries
-            .iter()
-            .map(|e| (e.id, e.vector.clone(), e.required)),
-    );
+    cg.batch_build(entries.iter().map(|e| (e.id, e.vector.clone(), e.required)));
     println!(
         "  Graph built in {:.2}s",
         build_start.elapsed().as_secs_f64()
