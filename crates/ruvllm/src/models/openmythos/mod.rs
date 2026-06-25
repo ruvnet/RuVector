@@ -12,7 +12,7 @@
 //! - **Adaptive Computation Time** halting with remainder weighting and a
 //!   **loop-index positional embedding** (`RecurrentBlock` in the `recurrent` module).
 //! - **Attention variants**: Grouped-Query and Multi-Latent (compressed KV),
-//!   both with incremental **KV-cache decode** ([`attention`]).
+//!   both with incremental **KV-cache decode** (attention submodule).
 //! - **Per-depth LoRA** adaptation in the recurrent loop
 //!   (`DepthLora`).
 //! - A **checkpoint loader** with the honest-boundary metadata gate
