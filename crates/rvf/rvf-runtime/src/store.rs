@@ -1883,7 +1883,9 @@ impl RvfStore {
     /// want owned data. For very large stores, prefer `iter_vectors` and batch
     /// at the call site to avoid materializing the whole set at once.
     pub fn read_all_vectors(&self) -> Vec<(u64, Vec<f32>)> {
-        self.iter_vectors().map(|(id, v)| (id, v.to_vec())).collect()
+        self.iter_vectors()
+            .map(|(id, v)| (id, v.to_vec()))
+            .collect()
     }
 
     /// Get the file identity (lineage metadata) for this store.
