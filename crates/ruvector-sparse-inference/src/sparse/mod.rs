@@ -3,9 +3,11 @@
 //! This module provides sparse implementations of neural network layers.
 
 mod ffn;
+mod ternary_ffn;
 
 pub use crate::config::ActivationType;
 pub use ffn::SparseFfn;
+pub use ternary_ffn::TernarySparseFfn;
 
 /// Trait for feed-forward network layers.
 pub trait FeedForward: Send + Sync {
