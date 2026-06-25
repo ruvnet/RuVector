@@ -225,7 +225,6 @@ jobs:
               -p ruvector-hnsw-repair
               -p ruvector-coherence-hnsw
               -p ruvector-maxsim
-              -p timesfm
               -p photonlayer-core
               -p photonlayer-bench
               -p photonlayer-cli
@@ -361,6 +360,10 @@ jobs:
 
       - name: Run tests (${{ matrix.name }})
         run: cargo nextest run --no-fail-fast ${{ matrix.packages }}
+
+      - name: Run timesfm tests (candle feature, research-nightly only)
+        if: matrix.name == 'research-nightly'
+        run: cargo nextest run --no-fail-fast -p timesfm --features candle
 
       - name: Run doctests (${{ matrix.name }})
         # nextest does not run doctests; do them in a separate step. Cheap
