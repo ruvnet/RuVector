@@ -16,6 +16,18 @@ publish = true
 name = "timesfm"
 path = "src/lib.rs"
 
+# Examples that drive the candle decoder unconditionally only compile with the
+# `candle` feature enabled. Gate them so stock `cargo build/clippy --workspace`
+# (no candle) skips them instead of failing on unresolved candle imports.
+# `parity` and `predictive_prune` already self-gate via `#[cfg(feature = "candle")]`.
+[[example]]
+name = "bench"
+required-features = ["candle"]
+
+[[example]]
+name = "bench24"
+required-features = ["candle"]
+
 [features]
 default = []
 # Activates the candle inference path (hand-rolled decoder + VarBuilder
