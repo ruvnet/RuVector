@@ -354,31 +354,44 @@ impl PatchedTimeSeriesDecoder {
         &self.cfg
     }
 
-    /// Build an additive causal mask `[B, 1, N, N]` merged with a per-patch
-    /// padding mask `patched_padding` `[B, N]` (1 = padded). Padded *key*
-    /// positions get `-inf`; the causal triangle is also `-inf` above the
-    /// diagonal.
+    /// Build an additive attention mask `[B, 1, N, N]` matching the reference
+    /// `merge_masks(convert_paddings_to_mask(...), causal_mask(...))`.
+    ///
+    /// CRITICAL: the reference uses a *large finite negative number*
+    /// (`-0.7 * f32::MAX`), NOT `-inf`. Using `-inf` here is a correctness bug:
+    /// the padding term is `padding * neg`, and with real (0/1) paddings
+    /// `0 * -inf = NaN`, which poisons the whole mask and makes softmax emit
+    /// NaN for every row. A large finite negative keeps `0 * neg = 0` (finite)
+    /// and `1 * neg = neg`, exactly as the reference does, while still driving
+    /// `exp()` to ~0 after softmax.
+    ///
+    /// Merge is element-wise minimum of the (broadcast) causal and padding
+    /// masks, matching the reference `merge_masks` (`torch.minimum`).
     fn build_mask(&self, patched_padding: &Tensor) -> Result<Tensor> {
         let (b, n) = patched_padding.dims2()?;
         let device = patched_padding.device();
-        let neg = f32::NEG_INFINITY;
-        // causal [N, N]: 0 on/below diagonal, -inf above.
+        // Reference: get_large_negative_number(float32) = -0.7 * finfo.max.
+        let neg = (-0.7f64) * (f32::MAX as f64);
+        // causal [1,1,N,N]: 0 on/below diagonal, `neg` above (row < col).
         let mut causal = vec![0f32; n * n];
         for i in 0..n {
             for j in 0..n {
                 if j > i {
-                    causal[i * n + j] = neg;
+                    causal[i * n + j] = neg as f32;
                 }
             }
         }
-        let causal = Tensor::from_vec(causal, (1, 1, n, n), device)?;
-        // padding [B,1,1,N]: -inf where padded key.
-        let pad = (patched_padding.to_dtype(DType::F32)? * (neg as f64))?;
-        // (0 * -inf would be NaN, but padding is 0/1 so 1*-inf = -inf, 0*-inf
-        // would be NaN — guard by replacing NaN with 0 via where on the 0 entries.)
-        let pad = nan_to_zero(&pad)?;
-        let pad = pad.reshape((b, 1, 1, n))?;
-        causal.broadcast_add(&pad)
+        let causal = Tensor::from_vec(causal, (1, 1, n, n), device)?; // [1,1,N,N]
+        // padding key mask [B,1,1,N]: `neg` where padded key, 0 elsewhere.
+        // padding is strictly 0/1 so `0 * neg = 0` (finite) — no NaN.
+        let pad = (patched_padding.to_dtype(DType::F32)? * neg)?; // [B,N]
+        let pad_key = pad.reshape((b, 1, 1, n))?; // broadcasts over query dim
+        // merge_masks: minimum(padding_key_mask, causal). Broadcast both to
+        // [B,1,N,N] and take element-wise min (an additive mask where either
+        // term wanting `neg` wins).
+        let causal_b = causal.broadcast_as((b, 1, n, n))?;
+        let pad_b = pad_key.broadcast_as((b, 1, n, n))?;
+        causal_b.minimum(&pad_b)
     }
 
     /// Forward over already-patched, RevIN-normalized inputs.
