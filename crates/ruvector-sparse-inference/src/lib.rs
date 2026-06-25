@@ -77,7 +77,7 @@ pub use precision::{
     Quantizer5Bit, Quantizer7Bit,
 };
 pub use predictor::{LowRankPredictor, Predictor};
-pub use sparse::{FeedForward, SparseFfn};
+pub use sparse::{FeedForward, SparseFfn, TernarySparseFfn};
 
 /// Sparse inference engine that coordinates prediction and computation
 pub struct SparseInferenceEngine {
@@ -89,7 +89,7 @@ pub struct SparseInferenceEngine {
 impl SparseInferenceEngine {
     /// Create a new sparse inference engine with sparsity
     ///
-    /// The sparsity_ratio determines what fraction of neurons are kept active (0.0-1.0)
+    /// The sparsity_ratio determines what fraction of neurons are kepped active (0.0-1.0)
     /// e.g., sparsity_ratio=0.3 means 30% of neurons are active (70% sparsity)
     pub fn new_sparse(input_dim: usize, hidden_dim: usize, sparsity_ratio: f32) -> Result<Self> {
         // Use top-K selection based on sparsity ratio for reliable activation
