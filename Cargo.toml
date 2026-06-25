@@ -264,6 +264,8 @@ members = [
     "crates/ruvector-sota-bench",
     # Capability-gated ANN: per-vector read access control with bitset tokens (ADR-268)
     "crates/ruvector-capgated",
+    # SPANN partition spilling for boundary-safe ANN (ADR-268)
+    "crates/ruvector-spann",
     # ColBERT-style multi-vector MaxSim late-interaction search
     "crates/ruvector-maxsim",
     # TimesFM 1.0 200M decoder-only patched time-series Transformer (candle, ADR-189/191)
