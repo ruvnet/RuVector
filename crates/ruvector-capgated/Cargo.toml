@@ -1,0 +1,21 @@
+[package]
+name = "ruvector-capgated"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Capability-gated ANN search for RuVector - per-vector read access control using bitset capability tokens with three measured retrieval variants"
+readme = "README.md"
+keywords = ["vector-search", "ann", "access-control", "agent-memory", "security"]
+categories = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+
+[lints.rust]
+dead_code = "allow"
+unused_variables = "allow"

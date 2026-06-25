@@ -8852,6 +8852,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-capgated"
+version = "2.2.3"
+
+[[package]]
 name = "ruvector-cli"
 version = "2.2.3"
 dependencies = [
