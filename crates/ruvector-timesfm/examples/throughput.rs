@@ -34,8 +34,16 @@ fn main() -> anyhow::Result<()> {
     }
 
     let device = timesfm::select_device()?;
-    let dev_label = std::env::var("TIMESFM_DEVICE").unwrap_or_else(|_| "cpu".into());
-    let f = Forecaster::load(&weights, device)?;
+    let prec = std::env::var("TIMESFM_PRECISION").unwrap_or_else(|_| "f32".into());
+    let dev_label = format!(
+        "{}/{prec}",
+        std::env::var("TIMESFM_DEVICE").unwrap_or_else(|_| "cpu".into())
+    );
+    let f = if prec == "f16" {
+        Forecaster::load_f16(&weights, device)?
+    } else {
+        Forecaster::load(&weights, device)?
+    };
 
     let batch_size = 32usize;
     let ctx = 256usize;

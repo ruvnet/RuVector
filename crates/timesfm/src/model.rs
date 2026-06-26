@@ -264,7 +264,9 @@ impl TimesFMAttention {
         // scores [B, heads, N, N]. q already carries the scaling, so no extra
         // 1/sqrt(d) factor here.
         let scores = q.matmul(&k.transpose(2, 3)?.contiguous()?)?;
-        let scores = scores.broadcast_add(mask)?;
+        // The additive mask is built in f32; coerce it to the score dtype so an
+        // f16 forward (f16 weights/activations) doesn't dtype-mismatch here.
+        let scores = scores.broadcast_add(&mask.to_dtype(scores.dtype())?)?;
         let probs = ops::softmax_last_dim(&scores)?;
 
         let ctx = probs.matmul(&v)?; // [B, heads, N, hd]
@@ -656,8 +658,10 @@ impl PatchedTimeSeriesDecoder {
                 first_idx[row]
             };
             // [P] for this row's chosen patch.
-            let arr = x.i((row, patch as usize, ..))?;
-            let msk = keep.i((row, patch as usize, ..))?;
+            // RevIN stats are computed in f32 via scalar extraction; coerce the
+            // slices so an f16 forward (f16 `x`/`keep`) doesn't trip to_scalar.
+            let arr = x.i((row, patch as usize, ..))?.to_dtype(DType::F32)?;
+            let msk = keep.i((row, patch as usize, ..))?.to_dtype(DType::F32)?;
             let cnt = msk.sum_all()?.to_scalar::<f32>()?.max(1.0);
             let sum = (arr.mul(&msk)?).sum_all()?.to_scalar::<f32>()?;
             let mu = sum / cnt;
@@ -715,7 +719,8 @@ impl PatchedTimeSeriesDecoder {
 
             // append the mean chunk to the context for the next step.
             context = Tensor::cat(&[&context, &mean], 1)?;
-            let new_pad = Tensor::zeros((b, output_patch_len), DType::F32, device)?;
+            // Match the running padding dtype (f32, or f16 for an f16 forward).
+            let new_pad = Tensor::zeros((b, output_patch_len), padding.dtype(), device)?;
             padding = Tensor::cat(&[&padding, &new_pad], 1)?;
         }
 

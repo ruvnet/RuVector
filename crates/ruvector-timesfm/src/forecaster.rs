@@ -40,6 +40,8 @@ impl Quant {
 pub struct Forecaster {
     model: PatchedTimeSeriesDecoder,
     device: Device,
+    /// Activation dtype the forward runs in (F32 by default, F16 for `load_f16`).
+    dtype: DType,
 }
 
 impl Forecaster {
@@ -75,7 +77,39 @@ impl Forecaster {
             )?
         };
         let model = PatchedTimeSeriesDecoder::load(cfg, vb)?;
-        Ok(Self { model, device })
+        Ok(Self {
+            model,
+            device,
+            dtype: DType::F32,
+        })
+    }
+
+    /// Load weights as **f16** and run the forward in f16. On GPU this can cut
+    /// latency; on CPU it is typically slower (f16 emulation). Forecasts match
+    /// f32 only to ~f16 precision (rel error ~1e-3).
+    pub fn load_f16(weights: impl AsRef<Path>, device: Device) -> Result<Self> {
+        let path = weights.as_ref();
+        if !path.exists() {
+            return Err(Error::Invalid(format!(
+                "weights file not found: {}",
+                path.display()
+            )));
+        }
+        let cfg = TimesfmConfig::timesfm_1p0_200m();
+        // SAFETY: see load_with_config. Weights are cast to f16 on load.
+        let vb = unsafe {
+            candle_nn::VarBuilder::from_mmaped_safetensors(
+                &[path.to_path_buf()],
+                DType::F16,
+                &device,
+            )?
+        };
+        let model = PatchedTimeSeriesDecoder::load(cfg, vb)?;
+        Ok(Self {
+            model,
+            device,
+            dtype: DType::F16,
+        })
     }
 
     /// Load with weights quantized to int8/int4 ([`Quant`]) — a ~4–7× smaller
@@ -99,7 +133,11 @@ impl Forecaster {
             )?
         };
         let model = PatchedTimeSeriesDecoder::load_quantized(cfg, vb, quant.dtype())?;
-        Ok(Self { model, device })
+        Ok(Self {
+            model,
+            device,
+            dtype: DType::F32,
+        })
     }
 
     /// The device this forecaster runs on.
@@ -136,8 +174,9 @@ impl Forecaster {
         }
 
         let k = series.len();
-        let input_ts = Tensor::from_vec(series.to_vec(), (1, k), &self.device)?;
-        let input_padding = Tensor::zeros((1, k), DType::F32, &self.device)?;
+        let input_ts =
+            Tensor::from_vec(series.to_vec(), (1, k), &self.device)?.to_dtype(self.dtype)?;
+        let input_padding = Tensor::zeros((1, k), self.dtype, &self.device)?;
         let freq = Tensor::from_vec(vec![freq_id], (1, 1), &self.device)?;
 
         // (point [1, h], full [1, h, num_outputs]); channel 0 = mean, 1..=9 = p10..p90.
@@ -145,8 +184,9 @@ impl Forecaster {
             .model
             .decode(&input_ts, &input_padding, &freq, horizon)?;
 
-        let point: Vec<f32> = point_t.i(0)?.to_vec1()?;
-        let full: Vec<Vec<f32>> = full_t.i(0)?.to_vec2()?; // [h][num_outputs]
+        // Outputs come back in the forward dtype; surface f32 to callers.
+        let point: Vec<f32> = point_t.i(0)?.to_dtype(DType::F32)?.to_vec1()?;
+        let full: Vec<Vec<f32>> = full_t.i(0)?.to_dtype(DType::F32)?.to_vec2()?; // [h][num_outputs]
 
         let quantiles: Vec<[f32; NUM_QUANTILES]> = full
             .iter()
@@ -191,13 +231,15 @@ impl Forecaster {
         }
         let b = series_batch.len();
         let flat: Vec<f32> = series_batch.iter().flatten().copied().collect();
-        let input_ts = Tensor::from_vec(flat, (b, k), &self.device)?;
-        let input_padding = Tensor::zeros((b, k), DType::F32, &self.device)?;
+        let input_ts = Tensor::from_vec(flat, (b, k), &self.device)?.to_dtype(self.dtype)?;
+        let input_padding = Tensor::zeros((b, k), self.dtype, &self.device)?;
         let freq = Tensor::from_vec(vec![freq_id; b], (b, 1), &self.device)?;
 
         let (point_t, full_t) = self
             .model
             .decode(&input_ts, &input_padding, &freq, horizon)?;
+        let point_t = point_t.to_dtype(DType::F32)?;
+        let full_t = full_t.to_dtype(DType::F32)?;
 
         let mut out = Vec::with_capacity(b);
         for row in 0..b {

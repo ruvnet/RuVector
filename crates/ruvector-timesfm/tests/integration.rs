@@ -138,6 +138,35 @@ mod real_model {
     }
 
     #[test]
+    fn f16_load_forecasts_close_to_f32() -> anyhow::Result<()> {
+        if skip() {
+            return Ok(());
+        }
+        let device = timesfm::select_device()?;
+        let series: Vec<f32> = (0..256)
+            .map(|t| (t as f32 / 13.0).sin() * 7.0 + 48.0)
+            .collect();
+        let f32m = Forecaster::load(WEIGHTS, device.clone())?;
+        let ref_fc = f32m.forecast(&series, 32)?;
+        let f16m = Forecaster::load_f16(WEIGHTS, device)?;
+        let f16_fc = f16m.forecast(&series, 32)?;
+        assert!(f16_fc.point.iter().all(|x| x.is_finite()), "f16 non-finite");
+        let scale = ref_fc.point.iter().fold(1e-6f32, |m, v| m.max(v.abs()));
+        let max_abs = ref_fc
+            .point
+            .iter()
+            .zip(f16_fc.point.iter())
+            .fold(0f32, |m, (a, b)| m.max((a - b).abs()));
+        // f16 has ~3 decimal digits; allow a loose relative bound.
+        assert!(
+            max_abs / scale < 2e-2,
+            "f16 diverged from f32: rel {:.3e}",
+            max_abs / scale
+        );
+        Ok(())
+    }
+
+    #[test]
     fn quantized_load_forecasts_close_to_f32() -> anyhow::Result<()> {
         if skip() {
             return Ok(());
