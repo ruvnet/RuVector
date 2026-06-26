@@ -118,6 +118,39 @@ mod real_model {
     }
 
     #[test]
+    fn quantized_load_forecasts_close_to_f32() -> anyhow::Result<()> {
+        if skip() {
+            return Ok(());
+        }
+        use ruvector_timesfm::Quant;
+        let device = timesfm::select_device()?;
+        let series: Vec<f32> = (0..256)
+            .map(|t| (t as f32 / 11.0).sin() * 9.0 + 45.0)
+            .collect();
+
+        let f32m = Forecaster::load(WEIGHTS, device.clone())?;
+        let ref_fc = f32m.forecast(&series, 32)?;
+
+        // Q8_0 stays close to f32 (relative error ~3e-3 measured); assert a
+        // generous bound and that every value is finite.
+        let q8 = Forecaster::load_quantized(WEIGHTS, device, Quant::Q8_0)?;
+        let q8_fc = q8.forecast(&series, 32)?;
+        let scale = ref_fc.point.iter().fold(1e-6f32, |m, v| m.max(v.abs()));
+        let max_abs = ref_fc
+            .point
+            .iter()
+            .zip(q8_fc.point.iter())
+            .fold(0f32, |m, (a, b)| m.max((a - b).abs()));
+        assert!(q8_fc.point.iter().all(|x| x.is_finite()), "Q8_0 non-finite");
+        assert!(
+            max_abs / scale < 5e-2,
+            "Q8_0 diverged from f32: rel {:.3e}",
+            max_abs / scale
+        );
+        Ok(())
+    }
+
+    #[test]
     fn batched_matches_per_series() -> anyhow::Result<()> {
         if skip() {
             return Ok(());

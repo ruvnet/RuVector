@@ -28,6 +28,10 @@ required-features = ["candle"]
 name = "bench24"
 required-features = ["candle"]
 
+[[example]]
+name = "quant_bench"
+required-features = ["candle"]
+
 [features]
 default = []
 # Activates the candle inference path (hand-rolled decoder + VarBuilder

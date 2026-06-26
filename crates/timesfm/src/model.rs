@@ -16,10 +16,75 @@
 //!     embedding (NOT RoPE);
 //!   * RevIN-style per-series instance normalization around the whole stack.
 
+use candle_core::quantized::{GgmlDType, QMatMul, QTensor};
 use candle_core::{DType, Device, IndexOp, Result, Tensor, D};
 use candle_nn::{ops, Embedding, LayerNorm, Linear, Module, RmsNorm, VarBuilder};
 
 use crate::config::TimesfmConfig;
+
+// ---------------------------------------------------------------------------
+// QLinear: a Linear that is either full-precision (f32) or quantized (the
+// weight matrix is stored as a ggml QTensor and matmul'd via QMatMul). Used to
+// thread optional int8/int4 weight quantization through the whole decoder
+// without changing any forward() math. Bias stays f32.
+// ---------------------------------------------------------------------------
+
+/// A linear layer that is either full-precision or weight-quantized.
+pub enum QLinear {
+    /// Full-precision `candle_nn::Linear` (`x·Wᵀ + b`).
+    Full(Linear),
+    /// Quantized weight (`QMatMul`) plus an optional f32 bias.
+    Quant {
+        /// Quantized weight matmul.
+        mm: QMatMul,
+        /// Optional f32 bias added after the matmul.
+        bias: Option<Tensor>,
+    },
+}
+
+impl QLinear {
+    /// Load a `[out_dim, in_dim]` weight (+ bias) from `vb`. When `quant` is
+    /// `Some`, the weight is quantized to that ggml dtype (e.g. `Q8_0`, `Q4_0`)
+    /// at load time; otherwise a full-precision `Linear` is built.
+    pub fn load(
+        in_dim: usize,
+        out_dim: usize,
+        vb: VarBuilder,
+        quant: Option<GgmlDType>,
+    ) -> Result<Self> {
+        match quant {
+            None => Ok(QLinear::Full(candle_nn::linear(in_dim, out_dim, vb)?)),
+            Some(dtype) => {
+                let w = vb.get((out_dim, in_dim), "weight")?;
+                let bias = vb.get(out_dim, "bias").ok();
+                // ggml block size is 32; every TimesFM-200M inner dim is a
+                // multiple of 32, but fall back to full precision rather than
+                // erroring if a future config violates that.
+                let mm = if in_dim % 32 == 0 {
+                    let qt = QTensor::quantize(&w, dtype)?;
+                    QMatMul::from_qtensor(qt)?
+                } else {
+                    QMatMul::Tensor(w)
+                };
+                Ok(QLinear::Quant { mm, bias })
+            }
+        }
+    }
+
+    /// `x·Wᵀ (+ b)`.
+    pub fn forward(&self, xs: &Tensor) -> Result<Tensor> {
+        match self {
+            QLinear::Full(l) => l.forward(xs),
+            QLinear::Quant { mm, bias } => {
+                let y = mm.forward(xs)?;
+                match bias {
+                    Some(b) => y.broadcast_add(b),
+                    None => Ok(y),
+                }
+            }
+        }
+    }
+}
 
 /// `1.442695041 = 1 / ln(2)`. Folded into the query scaling so the softmax runs
 /// in base-2 just like the reference implementation.
@@ -31,17 +96,28 @@ const LOG2_E: f64 = 1.442_695_041;
 
 /// `hidden = SiLU(hidden_layer(x)); out = output_layer(hidden) + residual_layer(x)`.
 pub struct ResidualBlock {
-    hidden_layer: Linear,
-    output_layer: Linear,
-    residual_layer: Linear,
+    hidden_layer: QLinear,
+    output_layer: QLinear,
+    residual_layer: QLinear,
 }
 
 impl ResidualBlock {
     pub fn load(in_dim: usize, hid_dim: usize, out_dim: usize, vb: VarBuilder) -> Result<Self> {
+        Self::load_quant(in_dim, hid_dim, out_dim, vb, None)
+    }
+
+    /// As [`Self::load`], optionally quantizing the three weight matrices.
+    pub fn load_quant(
+        in_dim: usize,
+        hid_dim: usize,
+        out_dim: usize,
+        vb: VarBuilder,
+        quant: Option<GgmlDType>,
+    ) -> Result<Self> {
         Ok(Self {
-            hidden_layer: candle_nn::linear(in_dim, hid_dim, vb.pp("hidden_layer"))?,
-            output_layer: candle_nn::linear(hid_dim, out_dim, vb.pp("output_layer"))?,
-            residual_layer: candle_nn::linear(in_dim, out_dim, vb.pp("residual_layer"))?,
+            hidden_layer: QLinear::load(in_dim, hid_dim, vb.pp("hidden_layer"), quant)?,
+            output_layer: QLinear::load(hid_dim, out_dim, vb.pp("output_layer"), quant)?,
+            residual_layer: QLinear::load(in_dim, out_dim, vb.pp("residual_layer"), quant)?,
         })
     }
 
@@ -108,8 +184,8 @@ impl PositionalEmbedding {
 // ---------------------------------------------------------------------------
 
 pub struct TimesFMAttention {
-    qkv_proj: Linear,
-    o_proj: Linear,
+    qkv_proj: QLinear,
+    o_proj: QLinear,
     /// Learnable per-head-dim scaling parameter, shape `[head_dim]`.
     scaling: Tensor,
     num_heads: usize,
@@ -120,11 +196,21 @@ pub struct TimesFMAttention {
 
 impl TimesFMAttention {
     pub fn load(cfg: &TimesfmConfig, vb: VarBuilder) -> Result<Self> {
-        let qkv_proj = candle_nn::linear(cfg.hidden_size, cfg.qkv_dim(), vb.pp("qkv_proj"))?;
-        let o_proj = candle_nn::linear(
+        Self::load_quant(cfg, vb, None)
+    }
+
+    /// As [`Self::load`], optionally quantizing the qkv/o projection weights.
+    pub fn load_quant(
+        cfg: &TimesfmConfig,
+        vb: VarBuilder,
+        quant: Option<GgmlDType>,
+    ) -> Result<Self> {
+        let qkv_proj = QLinear::load(cfg.hidden_size, cfg.qkv_dim(), vb.pp("qkv_proj"), quant)?;
+        let o_proj = QLinear::load(
             cfg.num_heads * cfg.head_dim,
             cfg.hidden_size,
             vb.pp("o_proj"),
+            quant,
         )?;
         let scaling = vb.get(cfg.head_dim, "scaling")?;
         Ok(Self {
@@ -214,18 +300,35 @@ fn softplus(x: &Tensor) -> Result<Tensor> {
 
 pub struct TransformerMLP {
     layer_norm: LayerNorm,
-    gate_proj: Linear,
-    down_proj: Linear,
+    gate_proj: QLinear,
+    down_proj: QLinear,
 }
 
 impl TransformerMLP {
     pub fn load(cfg: &TimesfmConfig, vb: VarBuilder) -> Result<Self> {
+        Self::load_quant(cfg, vb, None)
+    }
+
+    /// As [`Self::load`], optionally quantizing the gate/down projection weights.
+    pub fn load_quant(
+        cfg: &TimesfmConfig,
+        vb: VarBuilder,
+        quant: Option<GgmlDType>,
+    ) -> Result<Self> {
         let layer_norm =
             candle_nn::layer_norm(cfg.hidden_size, cfg.rms_norm_eps, vb.pp("layer_norm"))?;
-        let gate_proj =
-            candle_nn::linear(cfg.hidden_size, cfg.intermediate_size, vb.pp("gate_proj"))?;
-        let down_proj =
-            candle_nn::linear(cfg.intermediate_size, cfg.hidden_size, vb.pp("down_proj"))?;
+        let gate_proj = QLinear::load(
+            cfg.hidden_size,
+            cfg.intermediate_size,
+            vb.pp("gate_proj"),
+            quant,
+        )?;
+        let down_proj = QLinear::load(
+            cfg.intermediate_size,
+            cfg.hidden_size,
+            vb.pp("down_proj"),
+            quant,
+        )?;
         Ok(Self {
             layer_norm,
             gate_proj,
@@ -254,14 +357,23 @@ pub struct TimesFMDecoderLayer {
 
 impl TimesFMDecoderLayer {
     pub fn load(cfg: &TimesfmConfig, vb: VarBuilder) -> Result<Self> {
+        Self::load_quant(cfg, vb, None)
+    }
+
+    /// As [`Self::load`], optionally quantizing the attention/MLP weights.
+    pub fn load_quant(
+        cfg: &TimesfmConfig,
+        vb: VarBuilder,
+        quant: Option<GgmlDType>,
+    ) -> Result<Self> {
         Ok(Self {
             input_layernorm: candle_nn::rms_norm(
                 cfg.hidden_size,
                 cfg.rms_norm_eps,
                 vb.pp("input_layernorm"),
             )?,
-            self_attn: TimesFMAttention::load(cfg, vb.pp("self_attn"))?,
-            mlp: TransformerMLP::load(cfg, vb.pp("mlp"))?,
+            self_attn: TimesFMAttention::load_quant(cfg, vb.pp("self_attn"), quant)?,
+            mlp: TransformerMLP::load_quant(cfg, vb.pp("mlp"), quant)?,
         })
     }
 
@@ -287,9 +399,18 @@ pub struct StackedDecoder {
 
 impl StackedDecoder {
     pub fn load(cfg: &TimesfmConfig, vb: VarBuilder) -> Result<Self> {
+        Self::load_quant(cfg, vb, None)
+    }
+
+    /// As [`Self::load`], optionally quantizing every layer's weights.
+    pub fn load_quant(
+        cfg: &TimesfmConfig,
+        vb: VarBuilder,
+        quant: Option<GgmlDType>,
+    ) -> Result<Self> {
         let mut layers = Vec::with_capacity(cfg.num_layers);
         for i in 0..cfg.num_layers {
-            layers.push(TimesFMDecoderLayer::load(cfg, vb.pp(i))?);
+            layers.push(TimesFMDecoderLayer::load_quant(cfg, vb.pp(i), quant)?);
         }
         Ok(Self { layers })
     }
@@ -325,20 +446,36 @@ pub struct PatchedTimeSeriesDecoder {
 
 impl PatchedTimeSeriesDecoder {
     pub fn load(cfg: TimesfmConfig, vb: VarBuilder) -> Result<Self> {
-        let input_ff_layer = ResidualBlock::load(
+        Self::load_quant(cfg, vb, None)
+    }
+
+    /// Load with all weight matrices quantized to `dtype` (e.g.
+    /// [`GgmlDType::Q8_0`] for ~2× smaller / int8, [`GgmlDType::Q4_0`] for ~4×
+    /// smaller / int4). The patch-embed/output `ResidualBlock`s and the 20
+    /// transformer layers are quantized; the frequency embedding, layernorms and
+    /// the learnable attention scaling stay f32 (tiny + precision-sensitive).
+    pub fn load_quantized(cfg: TimesfmConfig, vb: VarBuilder, dtype: GgmlDType) -> Result<Self> {
+        Self::load_quant(cfg, vb, Some(dtype))
+    }
+
+    fn load_quant(cfg: TimesfmConfig, vb: VarBuilder, quant: Option<GgmlDType>) -> Result<Self> {
+        let input_ff_layer = ResidualBlock::load_quant(
             cfg.input_ff_in_dim(),
             cfg.hidden_size,
             cfg.hidden_size,
             vb.pp("input_ff_layer"),
+            quant,
         )?;
         let freq_emb = candle_nn::embedding(cfg.num_freq, cfg.hidden_size, vb.pp("freq_emb"))?;
         let position_emb = PositionalEmbedding::new(cfg.hidden_size);
-        let stacked_transformer = StackedDecoder::load(&cfg, vb.pp("stacked_transformer"))?;
-        let horizon_ff_layer = ResidualBlock::load(
+        let stacked_transformer =
+            StackedDecoder::load_quant(&cfg, vb.pp("stacked_transformer"), quant)?;
+        let horizon_ff_layer = ResidualBlock::load_quant(
             cfg.hidden_size,
             cfg.hidden_size,
             cfg.horizon_ff_out_dim(),
             vb.pp("horizon_ff_layer"),
+            quant,
         )?;
         Ok(Self {
             input_ff_layer,

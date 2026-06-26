@@ -2,6 +2,7 @@
 
 use std::path::Path;
 
+use candle_core::quantized::GgmlDType;
 use candle_core::{DType, Device, IndexOp, Tensor};
 use timesfm::config::TimesfmConfig;
 use timesfm::model::PatchedTimeSeriesDecoder;
@@ -9,6 +10,28 @@ use timesfm::prune::{decide_prune, PruneDecision};
 
 use crate::forecast_types::{Forecast, NUM_QUANTILES};
 use crate::{Error, Result};
+
+/// Weight quantization for loading. `Q8_0` (int8) shrinks the model ~4×
+/// (~212 MB) with good accuracy (rel error ~3e-3); `Q4_0` (int4) ~7× (~112 MB)
+/// with more error (~3e-2). These are **memory** wins for edge deployment — on a
+/// small-context model like TimesFM-200M, quantized CPU matmuls are *slower*
+/// than f32 (dequant overhead dominates), so prefer f32/GPU for latency.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Quant {
+    /// int8 weights — ~4× smaller, ~3e-3 relative error.
+    Q8_0,
+    /// int4 weights — ~7× smaller, ~3e-2 relative error.
+    Q4_0,
+}
+
+impl Quant {
+    fn dtype(self) -> GgmlDType {
+        match self {
+            Quant::Q8_0 => GgmlDType::Q8_0,
+            Quant::Q4_0 => GgmlDType::Q4_0,
+        }
+    }
+}
 
 /// A loaded TimesFM 1.0 200M forecaster bound to a compute device.
 ///
@@ -52,6 +75,30 @@ impl Forecaster {
             )?
         };
         let model = PatchedTimeSeriesDecoder::load(cfg, vb)?;
+        Ok(Self { model, device })
+    }
+
+    /// Load with weights quantized to int8/int4 ([`Quant`]) — a ~4–7× smaller
+    /// resident model for memory-constrained (edge/Pi) deployment. See [`Quant`]
+    /// for the accuracy/latency tradeoff.
+    pub fn load_quantized(weights: impl AsRef<Path>, device: Device, quant: Quant) -> Result<Self> {
+        let path = weights.as_ref();
+        if !path.exists() {
+            return Err(Error::Invalid(format!(
+                "weights file not found: {}",
+                path.display()
+            )));
+        }
+        let cfg = TimesfmConfig::timesfm_1p0_200m();
+        // SAFETY: see load_with_config.
+        let vb = unsafe {
+            candle_nn::VarBuilder::from_mmaped_safetensors(
+                &[path.to_path_buf()],
+                DType::F32,
+                &device,
+            )?
+        };
+        let model = PatchedTimeSeriesDecoder::load_quantized(cfg, vb, quant.dtype())?;
         Ok(Self { model, device })
     }
 

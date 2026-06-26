@@ -40,7 +40,7 @@ pub use forecast_types::Forecast;
 #[cfg(feature = "candle")]
 mod forecaster;
 #[cfg(feature = "candle")]
-pub use forecaster::Forecaster;
+pub use forecaster::{Forecaster, Quant};
 
 // Re-export the underlying model crate so callers can reach config/prune types
 // (and `select_device`) without a second dependency.
