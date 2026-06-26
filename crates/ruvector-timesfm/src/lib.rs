@@ -33,6 +33,7 @@
 
 pub mod anomaly;
 mod forecast_types;
+pub mod rebuild;
 pub mod sweep;
 
 pub use forecast_types::Forecast;

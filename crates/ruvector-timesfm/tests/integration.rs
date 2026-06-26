@@ -54,6 +54,26 @@ fn early_stopper_warms_up_before_deciding() {
     assert_eq!(EarlyStopper::default().confidence_gate, 0.6);
 }
 
+#[test]
+fn rebuild_advice_triggers_before_floor() {
+    use ruvector_timesfm::rebuild::advise_from_forecast;
+    // Recall (higher=better) declining: p50 crosses 0.90 floor at step 3, p10 at step 1.
+    let p10 = [0.92, 0.88, 0.85, 0.82, 0.80];
+    let p50 = [0.95, 0.93, 0.91, 0.89, 0.87];
+    let p90 = [0.98, 0.97, 0.96, 0.95, 0.94];
+    let f = forecast_from_bands(&p10, &p50, &p90);
+    // lead_steps=2: p10 dips below floor at step 1 (<=2) ⇒ rebuild now.
+    let a = advise_from_forecast(f, 0.95, 0.90, 2);
+    assert!(a.rebuild_now);
+    assert_eq!(a.steps_until_floor, Some(3));
+    assert_eq!(a.steps_until_floor_p10, Some(1));
+
+    // Healthy: recall holds above floor ⇒ no rebuild.
+    let f2 = forecast_from_bands(&[0.95; 5], &[0.97; 5], &[0.99; 5]);
+    let b = advise_from_forecast(f2, 0.97, 0.90, 2);
+    assert!(!b.rebuild_now && b.steps_until_floor.is_none());
+}
+
 #[cfg(feature = "candle")]
 mod real_model {
     use ruvector_timesfm::Forecaster;
