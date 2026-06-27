@@ -5,14 +5,15 @@
  * source (agent/harness.mjs). It evaluates the CURRENT genome over the frozen
  * Cue-Tag-Content corpus and returns a fitness in [0, 1]:
  *
- *   score = 0.70 × accuracy
- *         + 0.15 × (1 − avgLatencyMs / BASE_LATENCY).clamp(0,1)
+ *   score = 0.40 × accuracy            (helpfulness on answerable tasks)
+ *         + 0.30 × riskScore           (calibration: abstain, don't hallucinate)
+ *         + 0.12 × (1 − avgLatencyMs / BASE_LATENCY).clamp(0,1)
  *         + 0.10 × (1 − avgContext   / BASE_CONTEXT).clamp(0,1)
- *         + 0.05 × (1 − avgHops      / BASE_HOPS).clamp(0,1)
+ *         + 0.08 × (1 − avgHops      / BASE_HOPS).clamp(0,1)
  *
- * Accuracy dominates (a faster harness that answers wrong is worthless); the
- * remaining weight rewards cheaper reconstruction (lower latency, smaller
- * context, fewer hops) — the MRAgent "prune irrelevant paths" objective.
+ * Helpfulness AND calibration both dominate (a confident wrong answer is worse
+ * than an honest abstention); the rest rewards cheaper reconstruction — the
+ * MRAgent "prune irrelevant paths" objective.
  *
  * This mirrors crates/ruvector-sota-bench/harness/scorePolicy.ts so the same
  * Darwin tooling drives both the ANN benchmark and the MRAgent harness.
@@ -32,6 +33,7 @@ const BASE_HOPS = 2.0;
 
 interface Metrics {
   accuracy: number;
+  riskScore: number;
   avgLatencyMs: number;
   avgHops: number;
   avgContext: number;
@@ -42,7 +44,7 @@ function fitness(m: Metrics): number {
   const lat = Math.max(0, Math.min(1, 1 - m.avgLatencyMs / BASE_LATENCY));
   const ctx = Math.max(0, Math.min(1, 1 - m.avgContext / BASE_CONTEXT));
   const hop = Math.max(0, Math.min(1, 1 - m.avgHops / BASE_HOPS));
-  return 0.7 * m.accuracy + 0.15 * lat + 0.1 * ctx + 0.05 * hop;
+  return 0.4 * m.accuracy + 0.3 * m.riskScore + 0.12 * lat + 0.1 * ctx + 0.08 * hop;
 }
 
 /**

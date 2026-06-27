@@ -17,13 +17,18 @@
 // to a live RuVector deployment unchanged.
 
 import { createRequire } from "node:module";
+import { NUM_CONCEPTS, conceptOf, syn } from "./concepts.mjs";
 const require = createRequire(import.meta.url);
 
 // Runtime-optional production backend. The example never *requires* it.
 let RuVector = null;
 try { RuVector = require("ruvector"); } catch { /* deterministic fallback */ }
 
-export const EMBED_DIM = 96;
+// Dense embedding = concept-projected semantics + a small lexical hash tail.
+// The concept block (first NUM_CONCEPTS dims) makes paraphrases dense-close even
+// with zero shared tokens; the hash tail keeps unique tokens distinguishable.
+const HASH_TAIL = 64;
+export const EMBED_DIM = NUM_CONCEPTS + HASH_TAIL;
 export const usingRuVector = !!RuVector;
 
 const STOP = new Set(["the", "a", "an", "to", "of", "is", "are", "and", "in", "into", "does", "do", "what", "which", "how", "with", "from", "for", "that"]);
@@ -46,15 +51,22 @@ function hash32(str) {
   return h >>> 0;
 }
 
-// Deterministic bag-of-features embedding. Mirrors an ONNX MiniLM embedding's
-// role (dense semantic vector) without the 80MB model or native runtime.
+// Deterministic concept-projected embedding. Stands in for an ONNX MiniLM dense
+// vector: tokens sharing a concept (synonyms) land on the same concept dim, so
+// paraphrases are dense-close WITHOUT lexical overlap. Identifier-like tokens
+// only hit the hash tail, so they are semantically generic (sparse decides them).
 export function embed(text) {
   const v = new Float32Array(EMBED_DIM);
   const toks = tokenize(text);
   for (const t of toks) {
-    // two hashed projections per token → denser, less collision-prone vector
-    v[hash32(t) % EMBED_DIM] += 1;
-    v[hash32("salt:" + t) % EMBED_DIM] += 0.5;
+    const c = conceptOf(t);
+    if (c >= 0) {
+      v[c] += 1; // concept dimension (dense semantics)
+    } else {
+      // lexical-only token → hash tail (after the concept block)
+      v[NUM_CONCEPTS + (hash32(t) % HASH_TAIL)] += 0.6;
+      v[NUM_CONCEPTS + (hash32("salt:" + t) % HASH_TAIL)] += 0.3;
+    }
   }
   let norm = 0;
   for (let i = 0; i < EMBED_DIM; i++) norm += v[i] * v[i];
@@ -80,74 +92,119 @@ function sparseScore(queryToks, docToks) {
 
 // ── Graph builder ───────────────────────────────────────────────────────────
 // Builds the Cue-Tag-Content graph from the eval corpus, plus cross-task
-// distractor edges so traversal depth / fan-out / pruning all matter.
+// distractor cues/contents so every gene is load-bearing.
+//
+// Texts are SYNTHESIZED from each task's structured signal spec (concept names +
+// lexical identifiers) so that dense/sparse separation, ranking-distractors and
+// multi-hop bridges are guaranteed, not dependent on fragile English wording.
+//
+//   query        = qConcepts(variant0) + qLex
+//   correct cue  = cue.concepts(variant1) + cue.lex      (same concepts, diff tokens)
+//   correct text = qConcepts(variant0) + expected_fact + cue.lex
+//   distractor   = query echoed twice (out-ranks correct on raw sim, no fact)
+//   decoy cue    = decoy.concepts/lex → wrong tag → wrong content
 //
 // Edge model:
-//   Cue  -LINKED_TO->  Tag        (and Cue -LINKED_TO-> distractor Tags)
-//   Tag  -LINKED_TO->  bridgeTag  (intermediate hop; relevant Tag sits behind it)
-//   Tag  -REFERENCES-> Content
-export function buildGraph(tasks) {
-  const cues = new Map();    // id -> { id, text, vec, toks }
-  const tags = new Map();    // id -> { id, text, vec, toks, content: [contentIds], next: [tagIds] }
-  const content = new Map(); // id -> { id, text, vec, toks }
+//   Cue -LINKED_TO-> [bridge0 -> … ->] { relevantTag, corroborateTag }
+//   Tag -REFERENCES-> Content
+function synth(concepts = [], lex = [], variant = 0) {
+  return [...concepts.map((c) => syn(c, variant)), ...lex].join(" ");
+}
 
-  const protectedTags = new Set(); // relevant/bridge tags must not get filler content
-  const tagId = (name) => `tag:${name}`;
-  const ensureTag = (name) => {
-    const id = tagId(name);
-    if (!tags.has(id)) tags.set(id, { id, name, text: name.replace(/-/g, " "), toks: tokenize(name), vec: embed(name.replace(/-/g, " ")), content: [], next: [] });
-    return tags.get(id);
+/** Synthesize the query string for a task spec (used at retrieval time). */
+export function queryTextFor(spec) {
+  return synth(spec.qConcepts || [], spec.qLex || [], 0);
+}
+
+export function buildGraph(specs) {
+  const cues = new Map();
+  const tags = new Map();
+  const content = new Map();
+  const queries = new Map();
+
+  const mkTag = (name) => {
+    const id = `tag:${name}`;
+    const t = { id, name, text: name.replace(/-/g, " "), toks: tokenize(name), vec: embed(name.replace(/-/g, " ")), content: [], next: [] };
+    tags.set(id, t);
+    return t;
+  };
+  const mkContent = (id, text, taskId) => {
+    content.set(id, { id, text, toks: tokenize(text), vec: embed(text), taskId });
+    return id;
   };
 
-  for (const task of tasks) {
-    const cid = `content:${task.id}`;
-    content.set(cid, { id: cid, text: task.content, toks: tokenize(task.content), vec: embed(task.content), taskId: task.id });
+  for (const spec of specs) {
+    queries.set(spec.id, queryTextFor(spec));
 
-    // Relevant tag(s) reference the content node.
-    const relevantTags = (task.tags || []).map(ensureTag);
-    for (const t of relevantTags) { if (!t.content.includes(cid)) t.content.push(cid); protectedTags.add(t.id); }
+    // Unanswerable task: NO correct content exists — the only honest answer is to
+    // abstain. We still create the cue + decoys so the agent has something to chase
+    // and must judge that the reconstructed evidence is too weak (low confidence).
+    const answerable = spec.answerable !== false;
 
-    // Bridge tags chain the relevant tag behind N intermediate hops:
-    //   cue -> bridge0 -> bridge1 -> … -> relevantTag
-    // so a task with k bridge tags requires traversalDepth >= k+1. Tasks with 0
-    // bridges need depth 1; 1 bridge needs depth 2; 2 bridges need depth 3.
-    const bridges = (task.bridgeTags || []).map(ensureTag);
-    for (const b of bridges) protectedTags.add(b.id); // bridges are pure pass-through hops
-    for (let bi = 0; bi < bridges.length; bi++) {
-      const nextNodes = bi + 1 < bridges.length ? [bridges[bi + 1]] : relevantTags;
-      for (const t of nextNodes) if (!bridges[bi].next.includes(t.id)) bridges[bi].next.push(t.id);
+    let entry;
+    if (answerable) {
+      // Correct content: relevant to the query (shares query concepts) + the fact.
+      const cid = `content:${spec.id}`;
+      mkContent(cid, [synth(spec.qConcepts, [], 0), spec.expected_fact, ...(spec.cue?.lex || [])].join(" "), spec.id);
+
+      // Relevant tag references the correct content (+ ranking-distractor contents).
+      const rel = mkTag(`${spec.id}-rel`);
+      rel.content.push(cid);
+      for (let d = 0; d < (spec.distractors || 0); d++) {
+        // Echoes the query MORE than the correct content → higher raw sim, but no
+        // expected_fact. Only rerank (corroboration) or a wide window survives it.
+        const did = mkContent(`content:${spec.id}:d${d}`,
+          [synth(spec.qConcepts, spec.qLex, 0), synth(spec.qConcepts, [], 0), (spec.qLex || []).join(" ")].join(" "),
+          `${spec.id}-distractor`);
+        rel.content.push(did);
+      }
+
+      // Corroborating tag references the SAME correct content via a second path.
+      // Only surfaces with rerank="gnn" (corroboration boost) AND tagFanout>=2.
+      const tail = [rel];
+      if (spec.corroborate) {
+        const corr = mkTag(`${spec.id}-corr`);
+        corr.content.push(cid);
+        tail.push(corr);
+      }
+
+      // Bridge chain: cue -> b0 -> … -> tail. k bridges ⇒ need traversalDepth k+1.
+      const bridges = [];
+      for (let b = 0; b < (spec.bridges || 0); b++) bridges.push(mkTag(`${spec.id}-b${b}`));
+      for (let b = 0; b < bridges.length; b++) {
+        const nxt = b + 1 < bridges.length ? [bridges[b + 1]] : tail;
+        for (const t of nxt) bridges[b].next.push(t.id);
+      }
+      entry = bridges.length ? [bridges[0]] : tail;
+    } else {
+      // Only a weak tag with a low-similarity placeholder → confidence stays low.
+      const weak = mkTag(`${spec.id}-weak`);
+      const wid = mkContent(`content:${spec.id}:weak`, ["tangential unrelated note", spec.id].join(" "), `${spec.id}-none`);
+      weak.content.push(wid);
+      entry = [weak];
     }
 
-    // Distractor tags carry wrong content (a sibling task's content) so a too-loose
-    // prune threshold or too-large fan-out pollutes the reconstruction.
-    const distractors = (task.distractorTags || []).map(ensureTag);
+    // Correct cue (concepts via variant-1 surface tokens, so dense-close to query
+    // but lexically distinct; shares cue.lex with the query for the sparse signal).
+    mkCue(cues, `cue:${spec.id}:correct`,
+      synth(spec.cue?.concepts || [], spec.cue?.lex || [], 1), answerable ? spec.id : `${spec.id}-none`, entry.map((t) => t.id));
 
-    // Cue nodes: each cue links to the entry tag (first bridge, else the relevant
-    // tag) + distractors. The rest of the chain is reached only by traversal.
-    const entryTags = bridges.length ? [bridges[0]] : relevantTags;
-    for (const cueWord of task.cues) {
-      const id = `cue:${task.id}:${cueWord}`;
-      const text = `${cueWord} ${task.question}`;
-      const cue = { id, text, toks: tokenize(text), vec: embed(text), taskId: task.id, links: [] };
-      for (const t of entryTags) cue.links.push(t.id);
-      for (const d of distractors) cue.links.push(d.id);
-      cues.set(id, cue);
-    }
+    // Decoy cues → wrong tag → wrong content. Concepts use variant-2 surface tokens
+    // so a concept-decoy is dense-close to the query but shares NO token with it —
+    // the correct cue is only retrievable with the right fusion weight.
+    (spec.decoys || []).forEach((dec, di) => {
+      const wc = mkContent(`content:${spec.id}:w${di}`, ["wrong decoy", synth(dec.concepts || [], dec.lex || [], 2)].join(" "), `${spec.id}-decoy`);
+      const wt = mkTag(`${spec.id}-w${di}`);
+      wt.content.push(wc);
+      mkCue(cues, `cue:${spec.id}:decoy${di}`, synth(dec.concepts || [], dec.lex || [], 2), `${spec.id}-decoy`, [wt.id]);
+    });
   }
 
-  // Wire distractor tags to reference *some* content so traversal through them is
-  // non-empty (and therefore genuinely distracting). Each distractor references
-  // the content of a different task than the one that introduced it.
-  const allContentIds = [...content.keys()];
-  let i = 0;
-  for (const tag of tags.values()) {
-    if (tag.content.length === 0 && !protectedTags.has(tag.id)) {
-      tag.content.push(allContentIds[i % allContentIds.length]);
-      i++;
-    }
-  }
+  return { cues, tags, content, queries };
+}
 
-  return { cues, tags, content };
+function mkCue(cues, id, text, taskId, links) {
+  cues.set(id, { id, text, toks: tokenize(text), vec: embed(text), taskId, links });
 }
 
 // ── MemoryStore: hybrid cue search + bounded-depth reconstruction ─────────────
@@ -156,6 +213,11 @@ export class MemoryStore {
     this.tasks = tasks;
     this.graph = buildGraph(tasks);
     this.cueList = [...this.graph.cues.values()];
+  }
+
+  /** Synthesized query string for a task id (the text actually issued at search). */
+  queryText(taskId) {
+    return this.graph.queries.get(taskId) ?? "";
   }
 
   /**
@@ -188,17 +250,18 @@ export class MemoryStore {
    * below `pruneThreshold`, and collecting REFERENCES content (capped maxContent).
    * Returns ordered content + reconstruction stats.
    */
-  reconstruct(queryText, cueIds, { traversalDepth = 2, tagFanout = 4, pruneThreshold = 0.15, maxContent = 10, decay = 0.7 } = {}) {
+  reconstruct(queryText, cueIds, { traversalDepth = 2, tagFanout = 4, pruneThreshold = 0.15, maxContent = 10, decay = 0.7, haltConfidence = 1.1 } = {}) {
     const qVec = embed(queryText);
     const qTok = tokenize(queryText);
     const { tags, content } = this.graph;
 
-    const contentScore = new Map(); // contentId -> best evidence score
+    // Per content: best single-path score AND # of corroborating paths.
+    const acc = new Map(); // contentId -> { best, paths }
     let nodesVisited = 0;
     let hops = 0;
+    let halted = false;
     const seenTag = new Set();
 
-    // BFS frontier of { tagId, evidence } starting from cue-linked tags.
     let frontier = [];
     for (const cueId of cueIds) {
       const cue = this.graph.cues.get(cueId);
@@ -216,39 +279,40 @@ export class MemoryStore {
         if (!tag) continue;
         nodesVisited++;
 
-        // Cue→Tag links are ASSOCIATIVE (structural), not semantic — a Tag is a
-        // categorical label, so we do NOT score the Tag against the query. The
-        // path's strength is the carried cue evidence, decayed per hop.
+        // Cue→Tag links are ASSOCIATIVE (structural), not semantic. Path strength
+        // is the carried cue evidence, decayed per hop.
         const carried = evidence * decay ** depth;
 
-        // Collect referenced Content. Content DOES share query vocabulary, so the
-        // content↔query similarity (× carried evidence) is the path score we prune
-        // on. Irrelevant paths (distractor content, deep low-evidence hops) fall
-        // below pruneThreshold and are dropped — MRAgent's "prune irrelevant paths".
         for (const cid of tag.content) {
           const c = content.get(cid);
           if (!c) continue;
           const contentSim = 0.6 * cosine(qVec, c.vec) + 0.4 * sparseScore(qTok, c.toks);
           const pathScore = carried * contentSim;
           if (pathScore < pruneThreshold) continue; // prune irrelevant path
-          contentScore.set(cid, Math.max(contentScore.get(cid) ?? 0, pathScore));
+          const e = acc.get(cid) ?? { best: 0, paths: 0 };
+          e.best = Math.max(e.best, pathScore);
+          e.paths += 1; // corroboration: distinct paths reaching this content
+          acc.set(cid, e);
         }
 
-        // Expand to next-hop tags (bounded fan-out). Evidence carries forward and
-        // decays, so reaching content behind a bridge Tag requires traversalDepth>=2.
-        for (const nxt of tag.next.slice(0, tagFanout)) {
-          next.push({ tagId: nxt, evidence });
-        }
+        for (const nxt of tag.next.slice(0, tagFanout)) next.push({ tagId: nxt, evidence });
       }
       frontier = next;
+
+      // ADAPTIVE DEPTH (beyond MRAgent): halt once evidence is decisive enough,
+      // spending traversal only on hard queries (ACT-style adaptive computation).
+      let top = 0;
+      for (const e of acc.values()) top = Math.max(top, e.best);
+      if (top >= haltConfidence) { halted = true; break; }
     }
 
-    const ordered = [...contentScore.entries()]
-      .map(([id, score]) => ({ id, score, taskId: content.get(id)?.taskId, text: content.get(id)?.text }))
+    const ordered = [...acc.entries()]
+      .map(([id, e]) => ({ id, score: e.best, paths: e.paths, taskId: content.get(id)?.taskId, text: content.get(id)?.text }))
       .sort((a, b) => b.score - a.score)
       .slice(0, Math.max(1, maxContent));
 
-    return { content: ordered, stats: { hops, nodesVisited, candidates: contentScore.size } };
+    const confidence = ordered.length ? ordered[0].score : 0;
+    return { content: ordered, stats: { hops, nodesVisited, candidates: acc.size, halted, confidence } };
   }
 }
 

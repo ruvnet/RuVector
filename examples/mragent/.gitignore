@@ -1,2 +1,6 @@
 node_modules/
 *.report.json
+
+# Re-include the corpus (root .gitignore ignores data/ globally)
+!data/
+!data/eval-set.json

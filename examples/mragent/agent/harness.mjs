@@ -1,122 +1,131 @@
-// MRAgent EVOLVED HARNESS — this is the code surface Darwin Mode mutates.
+// MRAgent EVOLVED HARNESS (v2 — beyond the paper) — the surface Darwin mutates.
 //
-// Paper: "Memory is Reconstructed, Not Retrieved: Graph Memory for LLM Agents"
-// (MRAgent). Memory is a Cue-Tag-Content associative graph; answering a question
-// is an *active reconstruction* — search for cues, traverse cue→tag→content,
-// prune irrelevant paths, synthesize. The reconstruction dynamics live in the
-// GENOME below. The memory substrate (agent/memory.mjs) stays frozen.
+// MRAgent's contribution: memory is a Cue-Tag-Content graph, reconstructed (not
+// retrieved) by searching cues, traversing cue→tag→content, and pruning paths.
+// This v2 adds three mechanisms the paper does not have, each a tunable gene:
 //
-// Darwin edits the DARWIN_MUTABLE_BLOCK regions to maximize fitness (accuracy
-// minus reconstruction cost). Everything outside those blocks is structural.
+//   • ADAPTIVE DEPTH  (haltConfidence) — stop traversing once evidence is decisive,
+//                       so easy queries cost fewer hops (ACT-style adaptive compute).
+//   • ABSTENTION      (abstainThreshold) — answer "I don't know" when reconstructed
+//                       evidence is too weak, instead of confidently hallucinating.
+//   • CORROBORATION   (rerank=gnn) — boost content reached by MULTIPLE paths, so a
+//                       single high-similarity distractor cannot win.
+//
+// The memory substrate (agent/memory.mjs) stays frozen. Darwin edits only the
+// DARWIN_MUTABLE_BLOCK regions.
 
 import { MemoryStore } from "./memory.mjs";
 
 // ─── DARWIN_MUTABLE_BLOCK: reconstruction genome ────────────────────────────
-// These are the knobs Darwin evolves. Each maps to a real RuVector retrieval /
-// Cypher-traversal parameter, so an evolved genome transfers to production.
 export function baselineGenome() {
   return {
     // Stage 1 — hybrid cue search (RuVector hybridSearch).
-    cueK: 5,             // initial cue vectors fetched           [1..12]
+    cueK: 4,             // initial cue vectors fetched           [1..12]
     efSearch: 64,        // HNSW search depth / candidate pool     [16..256]
     hybridAlpha: 0.5,    // RRF weight: 0=sparse … 1=dense         [0..1]
     fusion: "rrf",       // rrf | linear | dbsf
 
     // Stage 2 — active reconstruction (Cypher LINKED_TO*1..N traversal).
     traversalDepth: 2,   // cue→tag→content hops                   [1..4]
-    tagFanout: 4,        // max tags expanded per frontier node    [1..8]
-    pruneThreshold: 0.15,// drop paths below this evidence score   [0..0.6]
-    maxContent: 10,      // content nodes handed to synthesis(LIMIT)[1..20]
+    tagFanout: 3,        // tags expanded per frontier node        [1..8]
+    pruneThreshold: 0.1, // drop paths below this evidence score   [0..0.6]
+    maxContent: 8,       // content nodes handed to synthesis(LIMIT)[1..20]
+    haltConfidence: 0.9, // adaptive-depth: stop when top≥this     [0.2..0.9]
 
-    // Stage 3 — synthesis (LLM prompt strategy for pruning/grounding).
-    rerank: "gnn",       // gnn | none  (self-learning GNN rerank)
+    // Stage 3 — synthesis (LLM prompt strategy + safety).
+    rerank: "gnn",       // gnn | none  (corroboration-aware rerank)
     promptStrategy: "evidence-first", // terse | evidence-first | prune-explicit
+    abstainThreshold: 0.0, // answer "I don't know" if top score < this [0..0.6]
   };
 }
 // ─── END DARWIN_MUTABLE_BLOCK ───────────────────────────────────────────────
 
-// Effective synthesis window per prompt strategy. A terse prompt only reads the
-// top of the reconstructed context; evidence-first reads the full LIMIT;
-// prune-explicit reads a middle window but is penalised if distractor content
-// outranks the answer (it instructs the LLM to prune, so a noisy top hurts).
-const STRATEGY_WINDOW = { terse: 3, "evidence-first": Infinity, "prune-explicit": 6 };
+const STRATEGY_WINDOW = { terse: 2, "evidence-first": Infinity, "prune-explicit": 5 };
 
-/**
- * Deterministic synthesis judge — stands in for the LLM call. Returns whether
- * the reconstructed context lets the model surface the expected fact, given the
- * prompt strategy's effective window. Deterministic so the eval is reproducible.
- */
-function synthesize(reconstructed, task, genome) {
-  const window = STRATEGY_WINDOW[genome.promptStrategy] ?? Infinity;
-  const visible = reconstructed.slice(0, window === Infinity ? reconstructed.length : window);
-  const hitIdx = visible.findIndex((c) => c.taskId === task.id);
-  if (hitIdx === -1) return { correct: false, answer: "I don't have that in memory." };
-
-  // prune-explicit: if 2+ distractor contents rank above the answer, the model
-  // is told to prune and may discard the (low-ranked) correct path.
-  if (genome.promptStrategy === "prune-explicit") {
-    const distractorsAbove = visible.slice(0, hitIdx).filter((c) => c.taskId !== task.id).length;
-    if (distractorsAbove >= 2) return { correct: false, answer: "Pruned: ambiguous evidence." };
-  }
-  return { correct: true, answer: task.content };
-}
-
-// Optional GNN rerank: nudge content that is corroborated by multiple high-score
-// paths upward (proximity-weighted). Frozen weights — this is a harness toggle,
-// not model training.
+// Corroboration-aware rerank: content reached by multiple distinct paths is
+// boosted, so a single high-similarity ranking-distractor cannot outrank a
+// well-corroborated answer. (rerank="none" leaves raw similarity order.)
 function gnnRerank(reconstructed) {
-  const boost = new Map();
-  for (const c of reconstructed) boost.set(c.taskId, (boost.get(c.taskId) ?? 0) + c.score);
   return [...reconstructed]
-    .map((c) => ({ ...c, score: 0.7 * c.score + 0.3 * (boost.get(c.taskId) ?? 0) }))
+    .map((c) => ({ ...c, score: c.score * (1 + 0.7 * ((c.paths ?? 1) - 1)) }))
     .sort((a, b) => b.score - a.score);
 }
 
 /**
- * The MRAgent reasoning loop for ONE question. Pure function of (question, store,
- * genome) → deterministic result with latency/hop telemetry for scoring.
+ * Synthesis judge — deterministic stand-in for the LLM. Decides: abstain, answer
+ * correctly, or answer wrongly, given the reconstructed context + confidence.
  */
-export function runReasoningLoop(question, store, genome, task) {
-  // 1. Hybrid search for entry cues.
-  const cueIds = store.hybridSearch(question, genome);
+function synthesize(reconstructed, task, genome, confidence) {
+  // ABSTENTION: weak evidence → refuse rather than hallucinate.
+  if (confidence < genome.abstainThreshold) return { abstained: true, correct: false, answer: "I don't know." };
 
-  // 2. Active reconstruction: traverse + prune the Cue-Tag-Content graph.
-  let { content, stats } = store.reconstruct(question, cueIds, genome);
+  const window = STRATEGY_WINDOW[genome.promptStrategy] ?? Infinity;
+  const visible = reconstructed.slice(0, window === Infinity ? reconstructed.length : window);
+  const hitIdx = visible.findIndex((c) => c.taskId === task.id);
 
-  // 3. Optional GNN rerank before synthesis.
+  if (hitIdx === -1) {
+    // Nothing correct in the window. If the top is a confident distractor, the LLM
+    // would emit it → a (wrong) answer; otherwise it produces an empty/no answer.
+    const wrong = visible.length > 0;
+    return { abstained: false, correct: false, answer: wrong ? "(distractor)" : "(no answer)" };
+  }
+
+  if (genome.promptStrategy === "prune-explicit") {
+    const distractorsAbove = visible.slice(0, hitIdx).filter((c) => c.taskId !== task.id).length;
+    if (distractorsAbove >= 2) return { abstained: false, correct: false, answer: "Pruned: ambiguous." };
+  }
+  return { abstained: false, correct: true, answer: task.expected_fact };
+}
+
+/** MRAgent reasoning loop for one task → deterministic result + telemetry. */
+export function runReasoningLoop(queryText, store, genome, task) {
+  const cueIds = store.hybridSearch(queryText, genome);
+  let { content, stats } = store.reconstruct(queryText, cueIds, genome);
   if (genome.rerank === "gnn") content = gnnRerank(content);
 
-  // 4. Synthesis.
-  const out = task ? synthesize(content, task, genome) : { correct: false, answer: "" };
+  const confidence = content.length ? content[0].score : 0;
+  const out = task ? synthesize(content, task, genome, confidence) : { abstained: false, correct: false };
 
-  // Deterministic latency proxy (µs-scale weights mirror RuVector cost drivers):
-  //   efSearch dominates stage-1, nodesVisited dominates traversal, maxContent
-  //   dominates the synthesis context cost.
   const latencyMs =
     0.02 * genome.efSearch +
     0.05 * stats.nodesVisited +
     0.30 * Math.min(content.length, genome.maxContent) +
     (genome.rerank === "gnn" ? 0.4 : 0);
 
-  return { ...out, latencyMs, hops: stats.hops, nodesVisited: stats.nodesVisited, contextSize: content.length, cueIds };
+  return { ...out, confidence, latencyMs, hops: stats.hops, halted: stats.halted, nodesVisited: stats.nodesVisited, contextSize: content.length };
 }
 
 /**
- * Evaluate a genome over the whole eval set → aggregate metrics. This is what
- * the Darwin scorePolicy and the benchmark consume.
+ * Evaluate a genome over the corpus. Reports raw accuracy AND a risk-adjusted
+ * utility that rewards correct answers, tolerates honest abstention, and PUNISHES
+ * confident hallucination — the calibration objective a 25-year-out memory system
+ * is graded on, not raw accuracy alone.
+ *
+ *   answerable:   correct → +1 | abstain → 0 | wrong → −1
+ *   unanswerable: abstain → +1 | any answer → −1
  */
 export function evaluate(genome, store, tasks) {
-  let correct = 0, latency = 0, hops = 0, ctx = 0;
+  let correct = 0, answerable = 0, hallucinations = 0, util = 0;
+  let latency = 0, hops = 0, ctx = 0;
   for (const task of tasks) {
-    const r = runReasoningLoop(task.question, store, genome, task);
-    if (r.correct) correct++;
-    latency += r.latencyMs;
-    hops += r.hops;
-    ctx += r.contextSize;
+    const isAnswerable = task.answerable !== false;
+    const r = runReasoningLoop(store.queryText(task.id), store, genome, task);
+    if (isAnswerable) {
+      answerable++;
+      if (r.correct) { correct++; util += 1; }
+      else if (r.abstained) { util += 0; }
+      else { util -= 1; }
+    } else {
+      if (r.abstained) { util += 1; }
+      else { util -= 1; hallucinations++; }
+    }
+    latency += r.latencyMs; hops += r.hops; ctx += r.contextSize;
   }
   const n = tasks.length || 1;
   return {
-    accuracy: correct / n,
+    accuracy: correct / (answerable || 1),       // helpfulness on answerable tasks
+    riskScore: (util / n + 1) / 2,               // risk-adjusted utility in [0,1]
+    hallucinationRate: hallucinations / n,
     avgLatencyMs: latency / n,
     avgHops: hops / n,
     avgContext: ctx / n,
@@ -125,8 +134,6 @@ export function evaluate(genome, store, tasks) {
 }
 
 // ─── DARWIN_MUTABLE_BLOCK: mutation operators ───────────────────────────────
-// Random mutation used as the deterministic fallback when no LLM write layer is
-// available. Each op respects the genome's declared ranges.
 const FUSIONS = ["rrf", "linear", "dbsf"];
 const RERANKS = ["gnn", "none"];
 const STRATEGIES = ["terse", "evidence-first", "prune-explicit"];
@@ -136,16 +143,18 @@ const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
 export function mutate(genome) {
   const g = { ...genome };
-  if (Math.random() < 0.5) g.cueK = clampI(g.cueK + (Math.random() * 4 - 2), 1, 12);
-  if (Math.random() < 0.5) g.efSearch = clampI(g.efSearch * (0.7 + Math.random() * 0.8), 16, 256);
+  if (Math.random() < 0.4) g.cueK = clampI(g.cueK + (Math.random() * 4 - 2), 1, 12);
+  if (Math.random() < 0.4) g.efSearch = clampI(g.efSearch * (0.7 + Math.random() * 0.8), 16, 256);
   if (Math.random() < 0.5) g.hybridAlpha = clamp(g.hybridAlpha + (Math.random() * 0.4 - 0.2), 0, 1);
   if (Math.random() < 0.3) g.fusion = pick(FUSIONS);
-  if (Math.random() < 0.5) g.traversalDepth = clampI(g.traversalDepth + (Math.random() < 0.5 ? 1 : -1), 1, 4);
+  if (Math.random() < 0.4) g.traversalDepth = clampI(g.traversalDepth + (Math.random() < 0.5 ? 1 : -1), 1, 4);
   if (Math.random() < 0.4) g.tagFanout = clampI(g.tagFanout + (Math.random() * 4 - 2), 1, 8);
-  if (Math.random() < 0.5) g.pruneThreshold = clamp(g.pruneThreshold + (Math.random() * 0.2 - 0.1), 0, 0.6);
-  if (Math.random() < 0.5) g.maxContent = clampI(g.maxContent + (Math.random() * 6 - 3), 1, 20);
+  if (Math.random() < 0.4) g.pruneThreshold = clamp(g.pruneThreshold + (Math.random() * 0.2 - 0.1), 0, 0.6);
+  if (Math.random() < 0.4) g.maxContent = clampI(g.maxContent + (Math.random() * 6 - 3), 1, 20);
+  if (Math.random() < 0.4) g.haltConfidence = clamp(g.haltConfidence + (Math.random() * 0.3 - 0.15), 0.2, 0.9);
   if (Math.random() < 0.3) g.rerank = pick(RERANKS);
   if (Math.random() < 0.3) g.promptStrategy = pick(STRATEGIES);
+  if (Math.random() < 0.4) g.abstainThreshold = clamp(g.abstainThreshold + (Math.random() * 0.2 - 0.1), 0, 0.6);
   return g;
 }
 // ─── END DARWIN_MUTABLE_BLOCK ───────────────────────────────────────────────
