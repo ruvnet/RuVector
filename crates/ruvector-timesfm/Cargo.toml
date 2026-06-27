@@ -1,6 +1,7 @@
 [package]
 name = "ruvector-timesfm"
-version.workspace = true
+# Tracks timesfm 2.2.4 (the version carrying the APIs this crate uses).
+version = "2.2.4"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -9,6 +10,7 @@ repository.workspace = true
 description = "RuVector integration for the TimesFM time-series foundation model: a high-level quantile Forecaster, forecast-band anomaly detection, and TimesFM-driven early-stopping for optimization sweeps (ADR-191)"
 keywords = ["timesfm", "forecasting", "time-series", "anomaly", "ruvector"]
 categories = ["science", "algorithms"]
+readme = "README.md"
 publish = true
 
 [lib]
@@ -39,7 +41,7 @@ cuda = ["candle", "timesfm/cuda", "candle-core/cuda", "candle-nn/cuda"]
 metal = ["candle", "timesfm/metal", "candle-core/metal", "candle-nn/metal"]
 
 [dependencies]
-timesfm = { path = "../timesfm", version = "2.2.3" }
+timesfm = { path = "../timesfm", version = "2.2.4" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

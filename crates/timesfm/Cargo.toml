@@ -1,6 +1,9 @@
 [package]
 name = "timesfm"
-version.workspace = true
+# Pinned ahead of the shared workspace version: this crate gained the
+# quantization / f16 / select_device APIs after timesfm 2.2.3 was published.
+# Only ruvector-timesfm depends on it (and tracks the same 2.2.4).
+version = "2.2.4"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
