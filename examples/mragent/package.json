@@ -1,0 +1,25 @@
+{
+  "name": "ruvector-mragent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MRAgent — Cue-Tag-Content graph memory over RuVector, with a Meta-Harness Darwin loop that evolves the reconstruction harness (freeze the model, evolve the harness).",
+  "scripts": {
+    "probe": "node probeDarwin.mjs",
+    "optimize": "node optimize.mjs",
+    "benchmark": "node benchmark.mjs",
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "keywords": ["ruvector", "mragent", "graph-memory", "metaharness", "darwin", "rag", "hnsw", "cypher"],
+  "license": "MIT",
+  "optionalDependencies": {
+    "@metaharness/darwin": "^0.3.1",
+    "ruvector": "^2.1.0"
+  },
+  "peerDependencies": {
+    "@metaharness/darwin": "^0.3.1"
+  },
+  "peerDependenciesMeta": {
+    "@metaharness/darwin": { "optional": true }
+  }
+}
