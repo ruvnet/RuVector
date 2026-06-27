@@ -52,7 +52,9 @@ Complementary, not competing: external-Darwin is the no-training counterpart to 
 
 ## Implementation status
 - ✅ EWC config evolution + weightAdapter gene (PR #615, `feat/sona-darwin-ewc-evolve`).
-- ⏳ darwin-guard reward-hacking module → per-task-category router → online auto-tuner (in progress).
+- ✅ darwin-guard reward-hacking module (`crates/sona/src/darwin_guard.rs`, 4 tests; wired into `darwin_ewc`).
+- ✅ per-task-category router (`examples/darwin_router.rs`): beats the single best global config on held-out (~2%), with the **data-efficiency caveat** — the gain *reverses* when per-class data is scarce (a specialized config overfits while the pooled global generalizes), so routing needs enough per-category samples (Ornith's regime).
+- ⏳ online auto-tuner with staleness-weighted replay `w(d_t)` (next).
 
 ## References
 - Ornith-1.0: "Self-Scaffolding LLMs for Agentic Coding", DeepReinforce, 2026-06.
