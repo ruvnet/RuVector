@@ -31,6 +31,7 @@
 
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use ruvector_sona::darwin_guard::{Guard, Verdict};
 use ruvector_sona::{EwcConfig, EwcPlusPlus};
 
 const PARAM_COUNT: usize = 128;
@@ -234,14 +235,29 @@ fn main() {
     let mut best = (baseline.clone(), fitness(&baseline, TRAIN_SEEDS));
 
     for gen in 0..GEN {
-        let mut scored: Vec<(Genome, f32)> = pop
-            .iter()
-            .map(|g| (g.clone(), fitness(g, TRAIN_SEEDS)))
-            .collect();
-        scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        // Reward-hacking guard (ADR-271): screen every candidate; non-finite or
+        // degenerate (collapsed zero-loss) configs are EXCLUDED from the ranking
+        // — not zero-scored — so a hack can neither win nor NaN-panic the sort.
+        let guard = Guard::deterministic();
+        let mut scored: Vec<(Genome, f32)> = Vec::new();
+        let mut rejected = 0usize;
+        for g in &pop {
+            let f = fitness(g, TRAIN_SEEDS);
+            let m = evaluate(g, TRAIN_SEEDS);
+            let finite = f.is_finite() && m.avg_final_loss.is_finite() && m.forgetting.is_finite();
+            match guard.screen(f, finite, true, m.avg_final_loss <= 0.0) {
+                Verdict::Accepted(_) => scored.push((g.clone(), f)),
+                Verdict::Rejected(_) => rejected += 1,
+            }
+        }
+        if scored.is_empty() {
+            scored.push(best.clone()); // never leave the population empty
+        }
+        scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         if scored[0].1 > best.1 {
             best = scored[0].clone();
         }
+        let _ = rejected;
         if gen % 3 == 0 || gen == GEN - 1 {
             let m = evaluate(&scored[0].0, TRAIN_SEEDS);
             println!(
