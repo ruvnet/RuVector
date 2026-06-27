@@ -1,6 +1,6 @@
 # ADR-271: Metaharness-Darwin for SONA Self-Improvement — EWC Config Evolution, the weightAdapter Gene, and Ornith-1.0 Reward-Hacking Defenses
 
-- **Status**: Proposed (partially implemented — PR #615)
+- **Status**: Proposed (all four components prototyped — PR #615)
 - **Date**: 2026-06-27
 - **Extends**: ADR-266 (metaharness-Darwin ANN optimization), ADR-269/270 (mragent graph-memory Darwin)
 - **External anchor**: Ornith-1.0 "Self-Scaffolding LLMs for Agentic Coding" (DeepReinforce, Jun 2026)
@@ -54,7 +54,7 @@ Complementary, not competing: external-Darwin is the no-training counterpart to 
 - ✅ EWC config evolution + weightAdapter gene (PR #615, `feat/sona-darwin-ewc-evolve`).
 - ✅ darwin-guard reward-hacking module (`crates/sona/src/darwin_guard.rs`, 4 tests; wired into `darwin_ewc`).
 - ✅ per-task-category router (`examples/darwin_router.rs`): beats the single best global config on held-out (~2%), with the **data-efficiency caveat** — the gain *reverses* when per-class data is scarce (a specialized config overfits while the pooled global generalizes), so routing needs enough per-category samples (Ornith's regime).
-- ⏳ online auto-tuner with staleness-weighted replay `w(d_t)` (next).
+- ✅ online auto-tuner with staleness-weighted replay `w(d_t)` (`crates/sona/src/auto_tuner.rs` — `StalenessSchedule`/`StalenessWindow`, 4 tests; `examples/darwin_autotuner.rs` — a (1+1)-ES that adapts a deployed config to workload drift, beating the static config ~3% post-drift). Modest margin on synthetic regimes; the durable win is the reusable staleness machinery + the online-adaptation principle (a fixed offline-tuned config goes stale under drift).
 
 ## References
 - Ornith-1.0: "Self-Scaffolding LLMs for Agentic Coding", DeepReinforce, 2026-06.
