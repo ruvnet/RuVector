@@ -289,8 +289,9 @@ export class MemoryStore {
           const contentSim = 0.6 * cosine(qVec, c.vec) + 0.4 * sparseScore(qTok, c.toks);
           const pathScore = carried * contentSim;
           if (pathScore < pruneThreshold) continue; // prune irrelevant path
-          const e = acc.get(cid) ?? { best: 0, paths: 0 };
-          e.best = Math.max(e.best, pathScore);
+          const e = acc.get(cid) ?? { best: 0, sim: 0, paths: 0 };
+          e.best = Math.max(e.best, pathScore);     // decayed — for ranking competition
+          e.sim = Math.max(e.sim, contentSim);      // raw relevance — for abstention confidence
           e.paths += 1; // corroboration: distinct paths reaching this content
           acc.set(cid, e);
         }
@@ -299,19 +300,24 @@ export class MemoryStore {
       }
       frontier = next;
 
-      // ADAPTIVE DEPTH (beyond MRAgent): halt once evidence is decisive enough,
-      // spending traversal only on hard queries (ACT-style adaptive computation).
+      // ADAPTIVE DEPTH (beyond MRAgent): halt once a genuinely relevant answer
+      // exists, spending traversal only on hard queries (ACT-style adaptive
+      // computation). Uses RAW relevance (sim), not the decayed score, so a deep-
+      // but-relevant answer can trigger halt while a mediocre shallow one cannot.
       let top = 0;
-      for (const e of acc.values()) top = Math.max(top, e.best);
+      for (const e of acc.values()) top = Math.max(top, e.sim);
       if (top >= haltConfidence) { halted = true; break; }
     }
 
     const ordered = [...acc.entries()]
-      .map(([id, e]) => ({ id, score: e.best, paths: e.paths, taskId: content.get(id)?.taskId, text: content.get(id)?.text }))
+      .map(([id, e]) => ({ id, score: e.best, sim: e.sim, paths: e.paths, taskId: content.get(id)?.taskId, text: content.get(id)?.text }))
       .sort((a, b) => b.score - a.score)
       .slice(0, Math.max(1, maxContent));
 
-    const confidence = ordered.length ? ordered[0].score : 0;
+    // Abstention confidence = the chosen content's RAW relevance to the query, not
+    // its decayed path score — so a deep-but-relevant answer is not mistaken for a
+    // weak one. This keeps the abstain threshold robust across traversal depths.
+    const confidence = ordered.length ? ordered[0].sim : 0;
     return { content: ordered, stats: { hops, nodesVisited, candidates: acc.size, halted, confidence } };
   }
 }

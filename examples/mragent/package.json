@@ -8,9 +8,19 @@
     "probe": "node probeDarwin.mjs",
     "optimize": "node optimize.mjs",
     "benchmark": "node benchmark.mjs",
-    "test": "node --test \"test/*.test.mjs\""
+    "test": "node --test \"test/*.test.mjs\"",
+    "gen-corpus": "node tools/genCorpus.mjs"
   },
-  "keywords": ["ruvector", "mragent", "graph-memory", "metaharness", "darwin", "rag", "hnsw", "cypher"],
+  "keywords": [
+    "ruvector",
+    "mragent",
+    "graph-memory",
+    "metaharness",
+    "darwin",
+    "rag",
+    "hnsw",
+    "cypher"
+  ],
   "license": "MIT",
   "optionalDependencies": {
     "@metaharness/darwin": "^0.3.1",
@@ -20,6 +30,8 @@
     "@metaharness/darwin": "^0.3.1"
   },
   "peerDependenciesMeta": {
-    "@metaharness/darwin": { "optional": true }
+    "@metaharness/darwin": {
+      "optional": true
+    }
   }
 }

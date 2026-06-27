@@ -18,7 +18,7 @@ const tasks = corpus.tasks;
 
 const baseline = baselineGenome();
 // Evolved genome: from a prior `npm run optimize`, else a calibrated reference.
-let evolved = { ...baseline, fusion: "linear", traversalDepth: 3, abstainThreshold: 0.36, haltConfidence: 0.5, maxContent: 4, tagFanout: 3 };
+let evolved = { ...baseline, fusion: "linear", traversalDepth: 3, abstainThreshold: 0.4, haltConfidence: 0.5, maxContent: 6, tagFanout: 3 };
 const reportPath = path.join(__dirname, "optimize.report.json");
 if (fs.existsSync(reportPath)) {
   try {

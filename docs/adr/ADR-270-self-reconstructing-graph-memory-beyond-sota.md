@@ -145,24 +145,72 @@ fitness = 0.40·accuracy + 0.30·riskScore
 
 ## Measured Results (deterministic, zero optional deps)
 
+In-sample, full 60-task corpus (baseline vs a fixed reference evolved genome;
+`npm run optimize` reaches higher — see Generalization below):
+
 ```
 config            accuracy  risk    halluc  latency  hops
-baseline           81.0%    0.708   0.13    2.62     1.17
-evolved           100.0%    1.000   0.00    1.22     1.33
-evolved+replay    100.0%    1.000   0.00    1.20     1.00
+baseline           50.0%    0.417   0.17    2.81     1.23
+evolved (ref)      70.0%    0.775   0.03    3.09     1.08
+evolved+replay     70.0%    0.775   0.03    3.16     1.00
 ```
 
-- **Accuracy** +19.0pt (81% → 100%).
-- **Calibration** risk 0.708 → 1.000; **hallucination 0.13 → 0.00** (every
-  unanswerable task is now abstained on).
-- **Consolidation** lays 21 shortcuts → **25% fewer hops at 100% accuracy**.
-- **Gene sensitivity** (1-D Δfit from baseline): traversalDepth 0.123, hybridAlpha
-  0.087, maxContent 0.089, cueK 0.069, abstainThreshold 0.063, haltConfidence
-  0.062, efSearch 0.059, pruneThreshold 0.047, fusion 0.031 (picks non-default
-  linear/dbsf); rerank/tagFanout/promptStrategy are load-bearing via interaction
-  (above). No dead genes remain.
+- **Calibration** risk 0.417 → 0.775; **hallucination 0.17 → 0.03**.
+- **Consolidation** lays graph shortcuts → fewer hops at equal accuracy.
+- **`npm run optimize`** (full GA + memetic polish) reaches **+33pt train accuracy
+  / risk 0.94**, and **generalizes to a held-out test split** (next section).
+- **No dead genes remain** — every gene is load-bearing, several via epistatic
+  interaction (above). All proven in `test/harness.test.mjs` (12 gates).
 
 ---
+
+## Generalization: train / test / cross-validation (added)
+
+The first cut of this ADR reported 100% accuracy by evolving and scoring on the
+**same** corpus — which cannot distinguish a genome that *solves* the task from one
+that *memorizes the eval set*. We added a proper generalization protocol, and it
+immediately earned its keep by catching a real overfit.
+
+**Protocol.** One memory holds all nodes (full cross-task cue competition). The
+corpus is scaled to **60 tasks** (10 per class) via a deterministic generator
+(`tools/genCorpus.mjs`) with **varied difficulty** (1-hop *and* 2-hop bridges, 1–3
+ranking-distractors). The optimizer evolves on a class-stratified **train** split,
+selects via **3-fold cross-validation with a variance penalty** (`mean − ½·range`
+across folds, so a knife-edge gene that wins one fold and collapses on another is
+rejected), and reports a **held-out test** split it never saw.
+
+**What overfitting looked like (and the fixes).**
+
+1. *Confidence depressed by depth.* Abstention used the decayed path score, so a
+   deep-but-relevant 2-hop-bridge answer (confidence ~0.39) looked as weak as an
+   unanswerable one (~0.33). A threshold tuned on shallow train bridges (~0.58)
+   then wrongly abstained on deep test bridges. **Fix:** derive abstention
+   confidence from the answer's **raw query relevance**, independent of traversal
+   depth (decay still governs pruning/ranking). Deep bridges now read ~0.79 and
+   abstention generalizes across depths.
+
+2. *Under-constrained genes shaved for cost.* With a tiny train set the cost terms
+   rewarded `maxContent→1`, `cueK→1` etc. — train-fine, test-fragile. **Fix:** a
+   larger, **difficulty-varied** corpus (2-hop bridges and multi-distractor tasks
+   in train forbid `depth<3` / `maxContent=1`) plus the CV variance penalty.
+
+3. *Single-split luck.* **Fix:** cross-validated selection + a generalization gate
+   that asks whether evolution *improves the unseen split*, not whether it hits an
+   absolute bar.
+
+**Result (held-out test, reproducible across runs):**
+
+```
+                 accuracy   risk    halluc
+baseline (test)   ~30%      ~0.25    0.17
+evolved  (test)   ~65%      ~0.81    0.04    →  +35pt acc, +0.56 risk
+```
+
+The evolved harness **transfers to unseen tasks**. It does not hit 100% on test —
+the synthetic concept embedding has per-instance noise, and a single global
+`hybridAlpha` provably cannot serve both dense- and sparse-keyed queries (ceiling
+~80%). The honest claim is *generalization*, not a saturated score; chasing 100%
+on the held-out split would be teaching to the test.
 
 ## The 25-year view (what this prototype is a seed of)
 

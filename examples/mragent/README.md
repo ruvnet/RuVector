@@ -49,12 +49,15 @@ Every gene is proven load-bearing in `test/harness.test.mjs` — some only via
 *interaction* (distractor tasks are solved by `evidence-first` **or** by
 `terse + gnn + fanout≥2`, an epistatic landscape).
 
-## The hardened corpus (24 tasks, 6 classes)
+## The hardened corpus (60 tasks, 6 classes, difficulty-varied)
 
-`data/eval-set.json` holds **structured signal specs**; `agent/memory.mjs`
-synthesizes the Cue/Tag/Content node texts so the difficulty is guaranteed, not
-dependent on fragile English. A **concept layer** (`agent/concepts.mjs`) gives the
-dense embedding real semantics decoupled from lexical overlap:
+`data/eval-set.json` is **generated** by `tools/genCorpus.mjs` (`npm run
+gen-corpus`) as **structured signal specs**; `agent/memory.mjs` synthesizes the
+Cue/Tag/Content node texts so difficulty is guaranteed, not dependent on fragile
+English. A **concept layer** (`agent/concepts.mjs`) gives the dense embedding real
+semantics decoupled from lexical overlap. 10 instances per class, with varied
+difficulty (1-hop AND 2-hop bridges, 1–3 ranking-distractors) so a train/test
+split constrains every gene:
 
 | Class | Stresses |
 |-------|----------|
@@ -65,30 +68,54 @@ dense embedding real semantics decoupled from lexical overlap:
 | distractor | `rerank` / `tagFanout` / `promptStrategy` (ranking-distractor content) |
 | unanswerable | `abstainThreshold` (no correct content exists → abstain) |
 
-## Results (zero optional deps, deterministic)
+## Generalization, not overfitting (train / test / CV)
+
+The optimizer **evolves on a train split and reports a held-out test split it
+never saw** — proving the genome generalizes rather than memorizing the eval set.
+Selection uses **3-fold cross-validation with a variance penalty** (mean − ½·range
+across folds) so a knife-edge gene that wins one fold but collapses on another is
+rejected. A subtle bug this surfaced — confidence was depressed by `decay^depth`,
+making deep-but-relevant answers look weak and breaking abstention across depths —
+is fixed by deriving **abstention confidence from the answer's raw relevance, not
+its decayed path score** (`agent/memory.mjs`).
+
+```
+                 accuracy   risk    halluc
+baseline (test)   ~30%      ~0.25    0.17
+evolved  (test)   ~65%      ~0.81    0.04      ← held out, never seen in evolution
+                  +35pt    +0.56  generalizes
+```
+
+(The synthetic toy embedding has per-instance noise, and one global `hybridAlpha`
+cannot perfectly serve both dense- and sparse-keyed queries, so the test ceiling
+is ~80%, not 100% — the gate asks whether **evolution transfers**, which it does.)
+
+## Results on the full corpus (zero optional deps, deterministic)
 
 ```
 config            accuracy  risk   halluc  latency  hops
-baseline           81.0%   0.708   0.13    2.62    1.17
-evolved           100.0%   1.000   0.00    1.22    1.33
-evolved+replay    100.0%   1.000   0.00    1.20    1.00
+baseline           50.0%   0.417   0.17    2.81    1.23
+evolved (ref)      70.0%   0.775   0.03    3.09    1.08
+evolved+replay     70.0%   0.775   0.03    3.16    1.00
 
-evolved vs baseline: accuracy +19.0pt · risk +0.292 · hallucination 0.13 → 0.00
-consolidation: 21 shortcuts → 25% fewer hops at 100% accuracy
+evolved vs baseline: accuracy +20.0pt · risk +0.358 · hallucination 0.17 → 0.03
+consolidation: shortcuts → fewer hops at equal accuracy
 ```
 
-The optimizer is **memetic**: a genetic loop (Darwin `mapLimit`/`paretoFront`)
-explores broadly, then deterministic coordinate descent refines narrow optima —
-notably the `abstainThreshold ∈ [0.34, 0.38]` band that catches every
-hallucination without abstaining on a single correct answer.
+`npm run optimize` (full GA + memetic polish) reaches **+33pt train accuracy /
+risk 0.94** and writes the evolved genome to `optimize.report.json`, which
+`npm run benchmark` then picks up. The optimizer is **memetic**: a genetic loop
+(Darwin `mapLimit`/`paretoFront`) explores broadly, then deterministic
+coordinate descent refines narrow optima (e.g. the abstention band).
 
 ## Run it
 
 ```bash
 cd examples/mragent
-npm test            # 11 deterministic gates, every gene proven load-bearing
+npm test            # 12 deterministic gates, every gene proven load-bearing
 npm run benchmark   # baseline vs evolved vs evolved+replay
-npm run optimize    # Darwin loop + memetic polish + consolidation
+npm run optimize    # Darwin loop + memetic polish + consolidation + held-out test
+npm run gen-corpus  # regenerate data/eval-set.json (deterministic)
 npm run probe       # inspect @metaharness/darwin exports (optional)
 ```
 
@@ -123,9 +150,10 @@ examples/mragent/
 │   ├── harness.mjs       # EVOLVED: 12-gene genome + reasoning loop
 │   └── consolidate.mjs   # replay → self-reorganizing topology
 ├── harness/scorePolicy.ts# Darwin fitness (accuracy + risk + cost)
-├── data/eval-set.json    # 24-task structured corpus (6 classes)
-├── optimize.mjs          # GA + memetic polish + consolidation
+├── data/eval-set.json    # 60-task structured corpus (generated)
+├── tools/genCorpus.mjs   # deterministic corpus generator
+├── optimize.mjs          # GA + CV + memetic polish + held-out test + consolidation
 ├── benchmark.mjs         # baseline vs evolved vs replay
 ├── probeDarwin.mjs       # probe optional @metaharness/darwin
-└── test/harness.test.mjs # 11 acceptance gates
+└── test/harness.test.mjs # 12 acceptance gates
 ```

@@ -83,7 +83,9 @@ export function runReasoningLoop(queryText, store, genome, task) {
   let { content, stats } = store.reconstruct(queryText, cueIds, genome);
   if (genome.rerank === "gnn") content = gnnRerank(content);
 
-  const confidence = content.length ? content[0].score : 0;
+  // Abstention confidence = chosen content's RAW relevance (depth-independent),
+  // not its decayed ranking score — robust across traversal depths.
+  const confidence = content.length ? (content[0].sim ?? content[0].score) : 0;
   const out = task ? synthesize(content, task, genome, confidence) : { abstained: false, correct: false };
 
   const latencyMs =
@@ -131,6 +133,46 @@ export function evaluate(genome, store, tasks) {
     avgContext: ctx / n,
     n,
   };
+}
+
+/**
+ * Deterministic, class-stratified train/test split. Within each class the first
+ * `trainFrac` (rounded, ≥1 each side when the class has ≥2) go to train, the rest
+ * to test. Used to prove the evolved genome GENERALIZES (we evolve on train, then
+ * report held-out test) rather than overfitting the eval set.
+ */
+export function splitByClass(tasks, trainFrac = 0.6) {
+  const byClass = new Map();
+  for (const t of tasks) {
+    const c = t.class ?? "default";
+    if (!byClass.has(c)) byClass.set(c, []);
+    byClass.get(c).push(t);
+  }
+  const train = [], test = [];
+  for (const group of byClass.values()) {
+    let nTrain = Math.round(group.length * trainFrac);
+    if (group.length >= 2) nTrain = Math.min(group.length - 1, Math.max(1, nTrain));
+    group.forEach((t, i) => (i < nTrain ? train : test).push(t));
+  }
+  return { train, test };
+}
+
+/**
+ * Deterministic, class-stratified k-fold partition. Each fold draws ~1/k of every
+ * class (round-robin), so folds are balanced. Used for cross-validated genome
+ * selection: scoring on mean-minus-variance across folds rejects genomes tuned to
+ * one split (e.g. a knife-edge abstainThreshold), which is what prevents overfit.
+ */
+export function kFoldByClass(tasks, k = 3) {
+  const byClass = new Map();
+  for (const t of tasks) {
+    const c = t.class ?? "default";
+    if (!byClass.has(c)) byClass.set(c, []);
+    byClass.get(c).push(t);
+  }
+  const folds = Array.from({ length: k }, () => []);
+  for (const group of byClass.values()) group.forEach((t, i) => folds[i % k].push(t));
+  return folds.filter((f) => f.length > 0);
 }
 
 // ─── DARWIN_MUTABLE_BLOCK: mutation operators ───────────────────────────────
