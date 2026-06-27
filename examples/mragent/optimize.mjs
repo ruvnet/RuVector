@@ -16,8 +16,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { MemoryStore, baselineGenome, mutate, evaluate, splitByClass, kFoldByClass } from "./agent/harness.mjs";
+import { MemoryStore, baselineGenome, mutate, evaluate, splitByClass, kFoldByClass, runReasoningLoop } from "./agent/harness.mjs";
 import { consolidate } from "./agent/consolidate.mjs";
+import { detectEndpoint, llmProposeGenomes } from "./agent/llmMutator.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -72,6 +73,15 @@ function objectives(m) {
 
 // ── Run ─────────────────────────────────────────────────────────────────────
 const { mapLimit, paretoFront, available } = await loadDarwin();
+
+// ── GPU LLM write-layer (opt-in): a local code model proposes genome leaps from
+//    failure traces, the directed-search layer the random GA lacks (ADR-260).
+//    Disabled with MRAGENT_LLM=off; otherwise auto-detects a local endpoint. ──
+const llm = process.env.MRAGENT_LLM === "off" ? null : await detectEndpoint();
+if (llm) console.log(`[llm] GPU write-layer: ${llm.model} @ ${llm.url}`);
+else console.log("[llm] no local LLM endpoint — GA-only (set MRAGENT_LLM_URL to enable)");
+let llmProposed = 0, llmEnteredElite = 0;
+
 const corpus = JSON.parse(fs.readFileSync(path.join(__dirname, "data", "eval-set.json"), "utf8"));
 const tasks = corpus.tasks;
 // ONE memory holds all nodes (full cross-task cue competition); we evolve on the
@@ -89,6 +99,24 @@ function cvScore(genome) {
   const range = Math.max(...fs2) - Math.min(...fs2);
   return mean - 0.5 * range;
 }
+
+// Compact failure trace for the LLM write-layer: tasks the genome gets wrong /
+// hallucinates, with its confidence (so the model can reason about thresholds).
+function failureTraces(genome, tasks, limit = 6) {
+  const out = [];
+  for (const t of tasks) {
+    if (out.length >= limit) break;
+    const isAns = t.answerable !== false;
+    const r = runReasoningLoop(store.queryText(t.id), store, genome, t);
+    if (isAns && !r.correct) {
+      out.push(`${t.id}[${t.class ?? "?"}]: ${r.abstained ? "abstained-on-answerable" : "wrong"} conf=${r.confidence.toFixed(2)}`);
+    } else if (!isAns && !r.abstained) {
+      out.push(`${t.id}[${t.class ?? "?"}]: hallucinated-on-unanswerable conf=${r.confidence.toFixed(2)}`);
+    }
+  }
+  return out.join("\n") || "none";
+}
+const llmGenomes = []; // every coerced LLM proposal, for end-of-run attribution
 
 const POP = 16, GENERATIONS = 12, ELITE = 5, CONCURRENCY = 4;
 const baseline = baselineGenome();
@@ -129,6 +157,21 @@ for (let gen = 0; gen < GENERATIONS; gen++) {
   // keep diversity (the built-in loop has no LLM write-layer to propose leaps).
   const elites = [...scored].sort((a, b) => b.score - a.score).slice(0, ELITE).map((e) => e.genome);
   const next = [...elites];
+
+  // GPU LLM write-layer: every 3rd generation, ask the local code model for
+  // directed genome leaps from the current winner's failure traces. Proposals
+  // are bounds-clamped in llmMutator, so they can only ever be safe genomes.
+  if (llm && gen % 3 === 0) {
+    const traces = failureTraces(winner.genome, train);
+    const props = await llmProposeGenomes({ url: llm.url, model: llm.model, baseline, current: winner.genome, failures: traces, n: 2 });
+    for (const g of props) {
+      llmGenomes.push(g);
+      llmProposed++;
+      if (next.length < POP) next.push(g);
+    }
+    if (props.length) console.log(`  [llm] gen ${gen}: +${props.length} GPU-proposed genome(s) injected`);
+  }
+
   const RESTARTS = 2;
   for (let r = 0; r < RESTARTS && next.length < POP; r++) {
     let g = baseline;
@@ -137,6 +180,19 @@ for (let gen = 0; gen < GENERATIONS; gen++) {
   }
   while (next.length < POP) next.push(mutate(elites[Math.floor(Math.random() * elites.length)]));
   population = next;
+}
+
+// Fold GPU-proposed genomes into the archive so they compete in polish +
+// acceptance on equal footing with GA candidates.
+let llmBest = -Infinity;
+for (const g of llmGenomes) {
+  const e = { genome: g, metrics: evaluate(g, store, train), score: cvScore(g) };
+  archive.push(e);
+  if (e.score > llmBest) llmBest = e.score;
+  if (e.score > best.score) { best = e; llmEnteredElite++; }
+}
+if (llm) {
+  console.log(`\n[llm] GPU write-layer: ${llmProposed} genome(s) proposed, best cv-score ${llmBest > -Infinity ? llmBest.toFixed(4) : "n/a"}${llmEnteredElite ? `, became GA-best ${llmEnteredElite}×` : ""}`);
 }
 
 // ── Memetic polish — deterministic coordinate descent over each gene ─────────
@@ -233,6 +289,9 @@ const report = {
   frozenModel: "RuVector Cue-Tag-Content graph memory (agent/memory.mjs)",
   darwinAvailable: available,
   primitivesUsed: ["mapLimit", "paretoFront"],
+  gpuWriteLayer: llm
+    ? { endpoint: llm.url, model: llm.model, proposed: llmProposed, bestCvScore: llmBest > -Infinity ? llmBest : null, becameBest: llmEnteredElite }
+    : { enabled: false },
   split: { train: train.length, test: test.length },
   baseline: { trainMetrics: baseMetrics, testMetrics: baseTest },
   evolved: { genome: accepted.genome, trainMetrics: accepted.metrics, testMetrics: evoTest, score: accepted.score },
