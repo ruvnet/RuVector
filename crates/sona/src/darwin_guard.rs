@@ -134,6 +134,72 @@ pub fn reject_summary(verdicts: &[Verdict]) -> [usize; 4] {
     c
 }
 
+// ---------------------------------------------------------------------------
+// Contamination guard (weight-eft / ADR-198 borrow). The training-data analog of
+// the reward-hacking monitor: training or selecting on instances that appear in
+// the eval holdout is *fake lift*. Enforce strict train/eval instance-ID
+// disjointness — and surface what was excluded, never silently.
+// ---------------------------------------------------------------------------
+
+use std::collections::HashSet;
+
+/// Train IDs that illegally appear in the eval holdout (the contamination set).
+#[must_use]
+pub fn contamination<'a>(
+    train_ids: impl IntoIterator<Item = &'a str>,
+    eval_holdout: &[&str],
+) -> Vec<String> {
+    let holdout: HashSet<&str> = eval_holdout.iter().copied().collect();
+    let mut bad: Vec<String> = train_ids
+        .into_iter()
+        .filter(|id| holdout.contains(id))
+        .map(str::to_string)
+        .collect();
+    bad.sort();
+    bad.dedup();
+    bad
+}
+
+/// `assertTrainEvalDisjoint` analog: `Err(overlapping_ids)` if any training
+/// instance is in the eval holdout, else `Ok(())`. Callers should treat `Err` as
+/// fatal — a contaminated training set produces fake held-out lift.
+///
+/// # Errors
+/// Returns the sorted, de-duplicated overlapping instance IDs.
+pub fn assert_train_eval_disjoint(
+    train_ids: &[&str],
+    eval_holdout: &[&str],
+) -> Result<(), Vec<String>> {
+    let bad = contamination(train_ids.iter().copied(), eval_holdout);
+    if bad.is_empty() {
+        Ok(())
+    } else {
+        Err(bad)
+    }
+}
+
+/// Exporter-style contamination filter: split `items` into
+/// `(kept, excluded_by_holdout)` by their instance id, so the training set is
+/// disjoint from the eval holdout by construction. Pair with the export report
+/// (`excluded.len()`), never drop silently.
+pub fn filter_holdout<T>(
+    items: Vec<T>,
+    id_of: impl Fn(&T) -> &str,
+    eval_holdout: &[&str],
+) -> (Vec<T>, Vec<T>) {
+    let holdout: HashSet<&str> = eval_holdout.iter().copied().collect();
+    let mut kept = Vec::new();
+    let mut excluded = Vec::new();
+    for it in items {
+        if holdout.contains(id_of(&it)) {
+            excluded.push(it);
+        } else {
+            kept.push(it);
+        }
+    }
+    (kept, excluded)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -199,5 +265,33 @@ mod tests {
             Verdict::Rejected(Reject::JudgeVeto)
         );
         assert_eq!(g.screen(1.0, true, true, false), Verdict::Accepted(1.0));
+    }
+
+    #[test]
+    fn disjoint_train_eval_ok_and_contamination_detected() {
+        let eval = ["i-3", "i-9"];
+        assert_eq!(assert_train_eval_disjoint(&["i-1", "i-2"], &eval), Ok(()));
+        // Overlap is fatal and reports the contaminated ids (sorted, deduped).
+        assert_eq!(
+            assert_train_eval_disjoint(&["i-1", "i-9", "i-3", "i-9"], &eval),
+            Err(vec!["i-3".to_string(), "i-9".to_string()])
+        );
+    }
+
+    #[test]
+    fn filter_holdout_partitions_by_id() {
+        let items = vec![("i-1", 10), ("i-3", 20), ("i-5", 30)];
+        let (kept, excluded) = filter_holdout(items, |x| x.0, &["i-3"]);
+        assert_eq!(
+            kept.iter().map(|x| x.0).collect::<Vec<_>>(),
+            vec!["i-1", "i-5"]
+        );
+        assert_eq!(
+            excluded.iter().map(|x| x.0).collect::<Vec<_>>(),
+            vec!["i-3"]
+        );
+        // The kept set is now disjoint from the holdout by construction.
+        let kept_ids: Vec<&str> = kept.iter().map(|x| x.0).collect();
+        assert!(assert_train_eval_disjoint(&kept_ids, &["i-3"]).is_ok());
     }
 }
