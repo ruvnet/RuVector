@@ -8200,7 +8200,7 @@ mcpCmd.command('info')
 
 mcpCmd.command('tools')
   .description('List all MCP tools with descriptions (JSON output)')
-  .option('--group <group>', 'Filter by group (hooks, workers, rvf, rvlite, brain, edge, identity)')
+  .option('--group <group>', 'Filter by group (hooks, workers, rvf, rvlite, brain, edge, identity, decompile)')
   .option('--json', 'JSON output')
   .action((opts) => {
     const tools = {
@@ -8322,6 +8322,14 @@ mcpCmd.command('tools')
       'identity': [
         { name: 'identity_generate', desc: 'Generate new pi key' },
         { name: 'identity_show', desc: 'Show current identity' },
+      ],
+      'decompile': [
+        { name: 'decompile_package', desc: 'Decompile an npm package + witness' },
+        { name: 'decompile_file', desc: 'Decompile a single file' },
+        { name: 'decompile_url', desc: 'Decompile from a URL' },
+        { name: 'decompile_diff', desc: 'Diff two decompiled artifacts' },
+        { name: 'decompile_search', desc: 'Search decompiled artifacts' },
+        { name: 'decompile_witness', desc: 'Verify decompile witness' },
       ],
     };
 

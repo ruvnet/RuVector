@@ -69,7 +69,7 @@ npx ruvector hooks init --pretrain --build-agents quality
 
 ### MCP Server Integration
 
-RuVector includes an MCP server for Claude Code with 103 tools:
+RuVector includes an MCP server for Claude Code with 97 tools:
 
 ```bash
 # Add to Claude Code
@@ -86,10 +86,11 @@ claude mcp add ruvector -- npx ruvector mcp start
 - `hooks_rag_context` — Semantic context retrieval
 - `hooks_attention_info`, `hooks_gnn_info` — Neural capabilities
 - `brain_search`, `brain_share`, `brain_status` — Shared brain knowledge
-- `brain_agi_status`, `brain_sona_stats`, `brain_temporal`, `brain_explore` — AGI diagnostics
-- `brain_midstream`, `brain_flags` — Midstream platform + feature flags
-- `midstream_status`, `midstream_attractor`, `midstream_scheduler` — Streaming analysis
-- `midstream_benchmark`, `midstream_search`, `midstream_health` — Latency benchmarks + health
+- `decompile_package`, `decompile_file`, `decompile_url` — Package/file decompilation + witness
+- `edge_status`, `edge_join`, `edge_balance` — Edge cluster coordination
+- `identity_generate`, `identity_show` — Agent identity
+
+See `npx ruvector mcp tools` for the full, authoritative tool list.
 
 **MCP tool-access policy (default-deny, ADR-256):** restrict the exposed/callable
 tool surface with environment variables — useful for least-privilege deployments.

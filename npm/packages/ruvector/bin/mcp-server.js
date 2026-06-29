@@ -514,7 +514,7 @@ class Intelligence {
 const server = new Server(
   {
     name: 'ruvector',
-    version: '0.2.30',
+    version: require('../package.json').version,
   },
   {
     capabilities: {
