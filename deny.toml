@@ -130,6 +130,14 @@ ignore = [
     # mmap loading and other crates; no fixed release on the 0.9 line yet.
     # We don't pass attacker-controlled offsets to memmap2. Re-review 2026-08-01.
     "RUSTSEC-2026-0186",
+
+    # anyhow 1.0.102 — unsoundness in `Error::downcast_mut()` (RUSTSEC-2026-0190,
+    # "unsound", not an exploitable vuln). Triggering it requires downcasting an
+    # `anyhow::Error` to a mismatched mutable type — a pattern we never use; our
+    # usage is construct/propagate/`Display`/read-only `downcast_ref`. Single
+    # version (1.0.102) in the tree. Bump to the patched anyhow once it ships and
+    # remove this entry. Re-review 2026-08-01.
+    "RUSTSEC-2026-0190",
 ]
 
 # ─────────────────────────────────────────────────────────────────────

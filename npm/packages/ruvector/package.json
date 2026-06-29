@@ -93,6 +93,7 @@
     "bin/",
     "dist/",
     "src/decompiler/",
+    "src/optimizer/",
     "wasm/",
     "README.md",
     "LICENSE"

@@ -41,6 +41,10 @@ index.d.ts
 # (v3 emits no v2-style loader), which published an empty 0.1.6 (#516)
 !npm/packages/sona/index.js
 !npm/packages/sona/index.d.ts
+# ruvector optimizer is a hand-written module (not a napi artifact); the bare
+# `index.js` rule above wrongly ignored it, so it was never committed and CI's
+# optimizer test could not resolve it.
+!npm/packages/ruvector/src/optimizer/index.js
 
 # Environment variables and secrets
 .env
