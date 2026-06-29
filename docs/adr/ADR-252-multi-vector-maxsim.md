@@ -186,6 +186,29 @@ Existing single-vector `ruvector-core` users can migrate by:
 
 ---
 
+## Update — 2026-06-29: `GraphMaxSim` variant
+
+A fourth index variant, **`GraphMaxSim`** (`crates/ruvector-maxsim/src/graph.rs`),
+was added. Unlike `HnswMaxSim` — which builds a navigable graph over *individual
+token vectors* — `GraphMaxSim` builds a greedy kNN graph over *per-document
+centroids*, runs a multi-seed beam search to select a candidate document set,
+and reranks it with the exact MaxSim kernel. One node per document (vs one per
+token) keeps the graph small for corpora with many tokens per document, trading
+a little recall for a smaller, faster-to-traverse structure.
+
+**Correctness finding — beam-search seeding.** Multi-seed beam search must seed
+its entry points from the **first `K` consecutive** centroids, *not* a
+strided/step-based sample (`step_by(N/K)`). When the step is a multiple of the
+underlying cluster count, every seed lands in the same cluster and recall
+collapses to a few percent. Consecutive seeding of the first `K ≥ N_CLUSTERS`
+documents guarantees cluster coverage for the common interleaved ordering
+(`doc i → cluster i % N_CLUSTERS`). This is a general hazard for any
+cluster-graph ANN seeding strategy, not just MaxSim. (Salvaged from nightly
+research PR #622, whose duplicate `ruvector-maxsim` crate was not merged; the
+public writeup is preserved as a gist linked from the 2026-06-29 nightly notes.)
+
+---
+
 ## Open Questions
 
 1. Should MaxSim be normalised by `|Q|` (number of query tokens) to make
