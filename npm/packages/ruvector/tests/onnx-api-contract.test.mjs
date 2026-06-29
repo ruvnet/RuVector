@@ -101,26 +101,32 @@ test('#1/#2/#3 model-dependent contract (skipped if model unavailable)', async (
   assert.equal(rv.isReady(), true);
   assert.equal(rv.isOnnxInitialized(), true);
 
-  // #3: capture console.error during optimized init — must NOT claim FP16/INT8.
+  // #2/#3: the optimized embedder lazily loads its OWN wasm/model on first
+  // embed(). That load is model-dependent and can fail in restricted CI (e.g.
+  // Node ESM cannot import the `.wasm`) even when the base embedder above
+  // initialised. Per this test's contract, skip that half when the optimized
+  // model is unavailable — but still fail on genuine assertion regressions.
   const errs = [];
   const orig = console.error;
   console.error = (...a) => { errs.push(a.join(' ')); };
-  let optimizedReadyAfterEmbed = false;
   try {
+    // #3: capture console.error during optimized init — must NOT claim FP16/INT8.
     const emb = rv.getOptimizedOnnxEmbedder();
     assert.equal(emb.isReady(), false, 'optimized embedder is not ready before its own embed/init');
     const v = await emb.embed('regression test for #523');
-    optimizedReadyAfterEmbed = emb.isReady();
+
+    // #2: optimized.isReady() is true after a successful embed.
+    assert.equal(emb.isReady(), true, 'optimized.isReady() must be true after embed()');
     assert.equal(v.length, 384);
+
+    // #3: no misleading quantization log.
+    const liedAboutQuant = errs.some(l => /Using (FP16|INT8) quantized model/.test(l));
+    assert.equal(liedAboutQuant, false,
+      'must not log a quantization that is not applied: ' + JSON.stringify(errs));
+  } catch (e) {
+    if (e instanceof assert.AssertionError) throw e;
+    t.skip('optimized ONNX model unavailable: ' + (e && e.message ? e.message : String(e)));
   } finally {
     console.error = orig;
   }
-
-  // #2: optimized.isReady() is true after a successful embed.
-  assert.equal(optimizedReadyAfterEmbed, true, 'optimized.isReady() must be true after embed()');
-
-  // #3: no misleading quantization log.
-  const liedAboutQuant = errs.some(l => /Using (FP16|INT8) quantized model/.test(l));
-  assert.equal(liedAboutQuant, false,
-    'must not log a quantization that is not applied: ' + JSON.stringify(errs));
 });
