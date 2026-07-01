@@ -206,6 +206,8 @@ jobs:
     needs: validate
     if: always() && (needs.validate.result == 'success' || needs.validate.result == 'skipped')
     uses: ./.github/workflows/build-native.yml
+    permissions:
+      contents: write
     with:
       skip_commit: true
 
