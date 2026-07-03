@@ -122,54 +122,36 @@ fn ruvector_register_hybrid(
     }
 }
 
-/// Update BM25 corpus statistics for a hybrid collection
+/// Update BM25 corpus statistics for a hybrid collection.
 ///
-/// Computes average document length, document count, and term frequencies.
-/// Should be run periodically or after bulk inserts.
+/// **Not implemented.** This is intended to recompute average document length,
+/// document count, and term frequencies, but the SQL computation is not wired
+/// yet. It returns `success: false` / `not_implemented` rather than pretending
+/// the stats refreshed. BM25/hybrid ranking uses the stats captured at
+/// registration until this is completed.
 #[pg_extern]
 fn ruvector_hybrid_update_stats(collection: &str) -> pgrx::JsonB {
     let (schema, table) = parse_collection_name(collection);
     let qualified_name = format!("{}.{}", schema, table);
 
     let registry = get_registry();
-    let config = match registry.get_by_name(&qualified_name) {
-        Some(c) => c,
-        None => {
-            return pgrx::JsonB(serde_json::json!({
-                "success": false,
-                "error": format!("Collection '{}' is not registered for hybrid search", collection)
-            }));
-        }
-    };
-
-    // In the actual extension, we would run SQL to compute stats:
-    // SELECT AVG(LENGTH(text_column)), COUNT(*) FROM table
-    // For now, we return a placeholder indicating the function works
-
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as i64;
-
-    let stats = CorpusStats {
-        avg_doc_length: config.corpus_stats.avg_doc_length,
-        doc_count: config.corpus_stats.doc_count,
-        total_terms: config.corpus_stats.total_terms,
-        last_update: now,
-    };
-
-    match registry.update_stats(config.collection_id, stats) {
-        Ok(_) => pgrx::JsonB(serde_json::json!({
-            "success": true,
-            "collection": collection,
-            "message": "Stats update initiated. In production, this would compute actual corpus statistics.",
-            "note": "Use Spi::run to execute SQL for actual stats computation"
-        })),
-        Err(e) => pgrx::JsonB(serde_json::json!({
+    if registry.get_by_name(&qualified_name).is_none() {
+        return pgrx::JsonB(serde_json::json!({
             "success": false,
-            "error": e.to_string()
-        })),
+            "error": format!("Collection '{}' is not registered for hybrid search", collection)
+        }));
     }
+
+    // Honest stub: corpus-statistics computation is not implemented. The prior
+    // version reused the existing stats and reported success, so BM25 stats
+    // never actually refreshed. Report not_implemented instead of faking
+    // success, so callers know avg_doc_length/doc_count are stale.
+    pgrx::JsonB(serde_json::json!({
+        "success": false,
+        "error": "not_implemented",
+        "collection": collection,
+        "message": "ruvector_hybrid_update_stats does not yet compute corpus statistics (avg_doc_length/doc_count are not recomputed via SQL). BM25/hybrid ranking uses the stats captured at registration until this is wired via Spi::run over the text column."
+    }))
 }
 
 /// Configure hybrid search settings for a collection

@@ -1,6 +1,25 @@
 //! Query analysis SQL functions for neural DAG learning
+//!
+//! **Experimental / placeholder.** The functions in this module currently return
+//! illustrative placeholder data that does **not** reflect the analysed query:
+//! `dag_analyze_plan` computes an `EXPLAIN` and then discards it, and the SONA
+//! learning feedback loop is not wired (see `dag/hooks.rs`). They emit a
+//! one-shot `WARNING` per backend so callers do not mistake the fabricated
+//! criticality/bottleneck/cost figures for real analysis. Treat this as a
+//! preview of the API surface, not a source of truth.
 
 use pgrx::prelude::*;
+
+/// One-shot, per-backend warning that DAG query-analysis returns placeholder data.
+fn warn_placeholder_dag_analysis() {
+    use std::sync::Once;
+    static WARN_ONCE: Once = Once::new();
+    WARN_ONCE.call_once(|| {
+        pgrx::warning!(
+            "ruvector: DAG query-analysis functions return placeholder/experimental data, not real per-query analysis (EXPLAIN output is discarded; SONA feedback not wired). Do not rely on the reported criticality/bottleneck/cost figures."
+        );
+    });
+}
 
 /// Analyze a query plan and return DAG insights
 #[pg_extern]
@@ -18,6 +37,7 @@ fn dag_analyze_plan(
         name!(child_ids, Vec<i32>),
     ),
 > {
+    warn_placeholder_dag_analysis();
     // Parse and plan the query using PostgreSQL's EXPLAIN
     // Note: plan_json is computed but not used in placeholder implementation
     let _plan_json: Result<pgrx::JsonB, String> = Spi::connect(|client| {
@@ -61,6 +81,7 @@ fn dag_critical_path(
         name!(attention_weight, f64),
     ),
 > {
+    warn_placeholder_dag_analysis();
     // Analyze query and compute critical path
     // This would use topological attention mechanism
     let results = vec![
@@ -87,6 +108,7 @@ fn dag_bottlenecks(
         name!(suggested_action, String),
     ),
 > {
+    warn_placeholder_dag_analysis();
     // Analyze query for bottlenecks
     // This would identify nodes with high cost relative to their position
     let all_results = vec![
@@ -136,6 +158,7 @@ fn dag_mincut_analysis(
         name!(parallelization_opportunity, bool),
     ),
 > {
+    warn_placeholder_dag_analysis();
     // Compute min-cut analysis to identify parallelization opportunities
     // This would use the mincut-gated attention mechanism
     let results = vec![
@@ -160,6 +183,7 @@ fn dag_suggest_optimizations(
         name!(confidence, f64),
     ),
 > {
+    warn_placeholder_dag_analysis();
     // Generate optimization suggestions using learned patterns
     // This would query the SONA engine's learned patterns
     let results = vec![
@@ -209,6 +233,7 @@ fn dag_estimate(
         name!(confidence, f64),
     ),
 > {
+    warn_placeholder_dag_analysis();
     // Compare PostgreSQL's estimates with neural predictions
     // This would use the SONA engine to predict actual runtime
     let results = vec![
@@ -224,6 +249,7 @@ fn dag_estimate(
 /// Compare actual execution with predictions and update learning
 #[pg_extern]
 fn dag_learn_from_execution(query_text: &str, actual_time_ms: f64, actual_rows: i64) -> String {
+    warn_placeholder_dag_analysis();
     // Record actual execution metrics for learning
     // This would update the SONA engine's patterns
 

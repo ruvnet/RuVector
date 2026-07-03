@@ -461,13 +461,16 @@ pub fn ruvector_bgworker_config(
 // Worker Registration
 // ============================================================================
 
-/// Register background worker with PostgreSQL
+/// Register background worker with PostgreSQL.
 ///
-/// This should be called from _PG_init()
+/// **Not implemented.** This should be called from `_PG_init()`, but it does not
+/// call `RegisterBackgroundWorker`, so no maintenance worker is actually
+/// registered. Emits a `WARNING` rather than an innocuous log so the no-op is
+/// visible.
 pub fn register_background_worker() {
-    // In production, use pg_sys::RegisterBackgroundWorker
-    // For now, just log
-    pgrx::log!("RuVector background worker registration placeholder");
+    pgrx::warning!(
+        "ruvector: register_background_worker() is a no-op placeholder — no PostgreSQL background worker is registered. Call RegisterBackgroundWorker in _PG_init to enable it."
+    );
 
     // Example registration (pseudo-code):
     // unsafe {

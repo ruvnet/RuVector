@@ -378,13 +378,19 @@ pub extern "C" fn healing_bgworker_main(_arg: pgrx::pg_sys::Datum) {
     worker.run();
 }
 
-/// Register the background worker with PostgreSQL
+/// Register the background worker with PostgreSQL.
+///
+/// **Not implemented.** No worker is actually registered — `RegisterBackgroundWorker`
+/// is not called, so the self-healing detector/engine/strategies never run
+/// autonomously. This emits a `WARNING` instead of a success-implying log so the
+/// no-op is visible. Wire `pg_sys::RegisterBackgroundWorker` in `_PG_init` (or
+/// drop the "self-healing" claim) to make this functional.
 pub fn register_healing_worker() {
-    pgrx::log!("Registering RuVector healing background worker");
+    pgrx::warning!(
+        "ruvector: register_healing_worker() is a no-op placeholder — no PostgreSQL background worker is registered, so autonomous self-healing does NOT run. Call RegisterBackgroundWorker in _PG_init to enable it."
+    );
 
-    // In production, use pg_sys::RegisterBackgroundWorker
-    // This is a placeholder for now
-    //
+    // Intended registration (not yet wired):
     // unsafe {
     //     let mut worker = pg_sys::BackgroundWorker::default();
     //     // Configure worker...

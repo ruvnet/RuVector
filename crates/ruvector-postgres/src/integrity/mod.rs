@@ -118,17 +118,19 @@ pub mod mincut;
 
 pub use mincut::{MincutConfig, MincutResult, WitnessEdge};
 
-/// Get current mincut for an index (used by gated_transformer module)
-pub fn get_current_mincut(_index_name: &str) -> Result<MincutResult, String> {
-    // TODO: Implement actual index mincut lookup
-    // For now, return a default result
-    Ok(MincutResult {
-        lambda_cut: 10.0,
-        lambda2: None,
-        witness_edges: vec![],
-        cut_partition: vec![],
-        computation_time_ms: 0,
-    })
+/// Get current mincut for an index (used by gated_transformer module).
+///
+/// **Unimplemented.** The index -> mincut lookup is not wired to the
+/// contracted-graph integrity system. This previously returned a fabricated
+/// constant (`lambda_cut = 10.0`), so gate decisions were made on fake state.
+/// It now returns an explicit error; callers must treat the mincut signal as
+/// unavailable (the gate fails open with a diagnostic) rather than gating on a
+/// hardcoded value.
+pub fn get_current_mincut(index_name: &str) -> Result<MincutResult, String> {
+    Err(format!(
+        "mincut lookup for index '{}' is not implemented (contracted-graph integrity system not yet wired); mincut gating is inert",
+        index_name
+    ))
 }
 
 pub fn stoer_wagner_mincut(n: usize, edges: &[(usize, usize, f64)]) -> f64 {

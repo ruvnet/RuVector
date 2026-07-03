@@ -1358,7 +1358,15 @@ unsafe extern "C" fn ivfflat_ambuildempty(index: Relation) {
     write_meta_page(index, &meta);
 }
 
-/// Insert a tuple into the index
+/// Insert a tuple into the index.
+///
+/// **Non-functional stub.** This access method reports success but does NOT
+/// index the inserted vector: it never extracts the datum, assigns a centroid,
+/// or writes an inverted-list entry — it only bumps a retrain counter. Because
+/// the pgrx AM callback must return `bool` (a C ABI contract), an error cannot
+/// be returned here; instead it emits a one-shot `WARNING` per backend so the
+/// silent index corruption is visible. Do not advertise the IVFFlat opclass as
+/// production-ready until `aminsert`/`ambuild`/dequantisation are implemented.
 #[pg_guard]
 unsafe extern "C" fn ivfflat_aminsert(
     index: Relation,
@@ -1383,10 +1391,20 @@ unsafe extern "C" fn ivfflat_aminsert(
         return false;
     }
 
-    // TODO: Extract vector from datum
-    // TODO: Find nearest centroid
-    // TODO: Insert into appropriate inverted list
-    // TODO: Update metadata counters
+    // NOT IMPLEMENTED: the vector is dropped, not indexed. Extraction, centroid
+    // assignment, inverted-list insertion and counter updates are all missing.
+    // Warn once per backend so this silent no-op is visible (the C ABI forces a
+    // bool return, so we cannot surface an error to the executor here).
+    {
+        use std::sync::Once;
+        static WARN_ONCE: Once = Once::new();
+        WARN_ONCE.call_once(|| {
+            pgrx::warning!(
+                "ruvector: IVFFlat aminsert is a non-functional stub — inserted vectors are NOT indexed (only a retrain counter is bumped). IVFFlat search results will be incomplete."
+            );
+        });
+    }
+    let _ = heap_tid;
 
     // Track insertions for retraining decision
     meta.insertions_since_retrain += 1;
