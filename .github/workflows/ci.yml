@@ -1,0 +1,108 @@
+name: CI
+
+# Closeout (2026-07-03) FINISH F1: prior to this workflow the full workspace
+# suite ran ONLY on release-tag push (release.yml), so it had not executed since
+# v0.1.16 despite active core changes. This workflow runs fmt + clippy + the full
+# workspace test suite on every PR and push to main so regressions are caught
+# before merge rather than at release time.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Primary gate: format, lint and test every crate that is a workspace member.
+  # Mirrors the command set from release.yml's validate job so the PR gate and
+  # the release gate stay in lock-step.
+  workspace:
+    name: Workspace (fmt + clippy + test)
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: 'v1-rust'
+          shared-key: 'ci-workspace'
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+      - name: Run workspace tests
+        run: cargo test --workspace --all-features
+        env:
+          RUST_TEST_THREADS: 2
+
+  # Advisory gate for the crates that are EXCLUDED from the root workspace
+  # (see the FREEZE note in the root Cargo.toml, 2026-07-03): the HNSW-variant
+  # crates and the rvf/ tree are experimental/unsupported and cannot regress
+  # under `cargo test --workspace`. This job exercises them DIRECTLY via
+  # --manifest-path so they are not silently untested, but it is advisory
+  # (continue-on-error) because they remain quarantined pending re-inclusion
+  # with first-class CI coverage. A red result here surfaces experimental-crate
+  # breakage without blocking merges of supported-crate changes.
+  excluded-crates:
+    name: Excluded crates (advisory)
+    runs-on: ubuntu-22.04
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Native crate with 5 test files — run its full test suite.
+          - name: ruvector-hyperbolic-hnsw
+            cmd: test
+            args: --manifest-path crates/ruvector-hyperbolic-hnsw/Cargo.toml --all-features
+          # rvf is its own workspace; test every native member. The two cdylib
+          # wasm crates and the eBPF crate are excluded because they do not
+          # compile for the host target (they have dedicated wasm/bpf targets).
+          - name: rvf
+            cmd: test
+            args: --manifest-path crates/rvf/Cargo.toml --workspace --exclude rvf-wasm --exclude rvf-solver-wasm --exclude rvf-ebpf
+          # cdylib WASM crates — verify they still build for their real target.
+          - name: micro-hnsw-wasm
+            cmd: build
+            args: --manifest-path crates/micro-hnsw-wasm/Cargo.toml --target wasm32-unknown-unknown --release
+          - name: ruvector-hyperbolic-hnsw-wasm
+            cmd: build
+            args: --manifest-path crates/ruvector-hyperbolic-hnsw-wasm/Cargo.toml --target wasm32-unknown-unknown --release
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: 'v1-rust'
+          shared-key: 'ci-excluded-${{ matrix.name }}'
+
+      - name: cargo ${{ matrix.cmd }} — ${{ matrix.name }}
+        run: cargo ${{ matrix.cmd }} ${{ matrix.args }}
