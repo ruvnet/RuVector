@@ -986,6 +986,15 @@ documents all three tiers as the target architecture.
 
 Algorithm router implemented with crossover analysis: Neumann for diag-dominant (fastest for well-conditioned), CG as gold-standard SPD fallback, Forward/Backward Push for PageRank, TRUE for large-scale Laplacian, BMSSP for multigrid. Router uses matrix characterization (size, density, diagonal dominance, symmetry) for automatic algorithm selection.
 
+> **Closeout caveat (2026-07-03).** Selection runs, but execution does not fully
+> honour it: for the `Ax=b` path the specialised Forward Push, Backward Push,
+> Hybrid Random Walk and BMSSP backends are **not** dispatched — the router
+> degrades to a Jacobi fallback (now labelled `Algorithm::Jacobi`, with a `WARN`).
+> Only Neumann, CG, TRUE and Dense have specialised `Ax=b` routing. The Tier-3
+> SONA adaptive routing is `enabled = false` (see Appendix A) and no
+> `SonaRouter`/adaptive code exists in `ruvector-solver`; adaptive selection is a
+> planned tier, not a shipped one.
+
 ---
 
 ## Appendix A: Router Configuration Schema

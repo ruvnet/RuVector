@@ -947,10 +947,13 @@ impl SolverOrchestrator {
     }
 
     /// Generic Jacobi-iteration fallback for algorithms whose specialised
-    /// backends are not yet implemented.
+    /// `Ax=b` backends are not yet implemented (`ForwardPush`, `BackwardPush`,
+    /// `HybridRandomWalk`, `BMSSP` and `GaussSeidel` all currently degrade here).
     ///
-    /// Tags the result with the requested `algorithm` label so callers see
-    /// the correct algorithm in the result.
+    /// The result is labelled [`Algorithm::Jacobi`] — the algorithm that
+    /// actually ran — NOT the requested `algorithm`, so callers are not misled
+    /// about the method or its complexity. A `WARN` is emitted whenever a
+    /// non-Jacobi algorithm is requested and silently degraded.
     fn solve_jacobi_fallback(
         &self,
         algorithm: Algorithm,
@@ -958,6 +961,13 @@ impl SolverOrchestrator {
         rhs: &[f64],
         budget: &ComputeBudget,
     ) -> Result<SolverResult, SolverError> {
+        if algorithm != Algorithm::Jacobi {
+            tracing::warn!(
+                "ruvector-solver: no specialised Ax=b backend for {:?}; degrading to Jacobi iteration. Result is labelled Jacobi, not {:?}.",
+                algorithm,
+                algorithm
+            );
+        }
         let n = matrix.rows;
         validate_square(matrix)?;
         validate_rhs_len(matrix, rhs)?;
@@ -1035,7 +1045,9 @@ impl SolverOrchestrator {
                     residual_norm,
                     wall_time: start.elapsed(),
                     convergence_history,
-                    algorithm,
+                    // Report the algorithm that actually ran (Jacobi), not the
+                    // requested one, so callers are not misled about complexity.
+                    algorithm: Algorithm::Jacobi,
                 });
             }
 

@@ -11,7 +11,14 @@
 
 This document surveys the state-of-the-art in sublinear-time algorithms as of February 2026, with focus on applicability to vector database operations, graph analytics, spectral methods, and neural network training. RuVector's integration of these algorithms represents a first-of-kind capability among vector databases — no competitor (Pinecone, Weaviate, Milvus, Qdrant, ChromaDB) offers integrated O(log n) solvers.
 
-As of February 2026, all 7 algorithms from the practical subset are fully implemented in the ruvector-solver crate (10,729 LOC, 241 tests) with SIMD acceleration, WASM bindings, and NAPI Node.js bindings.
+As of February 2026, all 7 algorithms from the practical subset are implemented as standalone solver modules in the ruvector-solver crate (10,729 LOC, 241 tests) with SIMD acceleration, WASM bindings, and NAPI Node.js bindings.
+
+> **Closeout caveat (2026-07-03).** "Implemented" here means the standalone
+> *graph-native* modules exist and pass their own tests. It does **not** mean the
+> `SolverOrchestrator` linear-solve (`Ax=b`) router uses them: for Forward Push,
+> Backward Push, Hybrid Random Walk and BMSSP the router currently degrades to a
+> Jacobi fallback (now labelled `Algorithm::Jacobi`, with a `WARN`). Only Neumann,
+> CG, TRUE and Dense have specialised `Ax=b` routing. See §13.
 
 ### Key Findings
 
@@ -547,7 +554,16 @@ All seven algorithms identified in the practical subset (Section 5) have been fu
 | Backward Push | `backward_push.rs` | 714 | 14 unit | Complete |
 | Hybrid Random Walk | `random_walk.rs` | 838 | 22 unit | Complete |
 | TRUE | `true_solver.rs` | 908 | 18 unit | Complete (JL + sparsify + Neumann) |
-| BMSSP | `bmssp.rs` | 1,151 | 16 unit | Complete (multigrid) |
+| BMSSP | `bmssp.rs` | 1,151 | 16 unit | Complete module; router `Ax=b` degrades to Jacobi* |
+
+> *The modules above are complete as *graph-native* solvers, but the
+> `SolverOrchestrator` linear-solve path (`solve()` for `Ax=b`) does **not**
+> dispatch to the specialised Forward Push, Backward Push, Hybrid Random Walk or
+> BMSSP backends — it falls through to a Jacobi iteration. As of the closeout fix
+> that fallback labels its result `Algorithm::Jacobi` (not the requested
+> algorithm) and emits a `WARN`. Only Neumann, CG, TRUE and Dense have
+> specialised `Ax=b` routing today; treat the four graph-native algorithms as
+> available via their standalone modules, not via the `Ax=b` router.
 
 **Supporting Infrastructure**:
 
