@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted — Implementation in progress
+Implemented (2026-07-03 closeout) — was "Accepted — Implementation in progress". `ruvector-postgres` ships at version 0.3.0 (control file `default_version` 0.3.0) with the v0.3 feature set (solver, math, TDA, extended attention, sona, domain expansion) exposed as SQL functions; `src/sona/operators.rs` provides the `ruvector_sona_*` surface. (Several individual functions remain stubs — see the crate's closeout WARN logs — but the extension itself is shipped, not in progress.)
 
 ## Context
 

@@ -1,9 +1,22 @@
 # ADR-007: Security Review & Technical Debt Remediation
 
-**Status:** Active
+**Status:** Stale — needs re-audit (closeout 2026-07-03; was Active)
 **Date:** 2026-01-19
 **Decision Makers:** Ruvector Architecture Team
 **Technical Area:** Security, Code Quality, Technical Debt Management
+
+> **Closeout note (2026-07-03): this tracker is stale.** Several "Tracked" items
+> point at file paths that no longer exist and are in fact resolved, so the
+> open/closed counts below are unreliable. Confirmed drift:
+> - **TD-004** (Metal shaders): now implemented (e.g. `attention.metal`, no
+>   placeholder markers) — listed as open, actually resolved.
+> - **TD-005**: cites `crates/ruvllm/src/model/loader.rs` (absent); GGUF loading
+>   now lives in `gguf/loader.rs` (~942 lines, no stubs) — resolved.
+> - **TD-006**: cites `crates/ruvllm/src/simd/neon.rs` (absent — there is no
+>   `simd/` directory).
+>
+> The 13 "High/Tracked" items must be re-audited against current paths before this
+> tracker is trusted. Do not treat the counts below as an accurate open-debt list.
 
 ---
 

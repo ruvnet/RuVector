@@ -1,5 +1,7 @@
 # ADR-017: Temporal Tensor Compression with Tiered Quantization
 
+> **Duplicate number (closeout 2026-07-03):** this is **ADR-017b**. ADR number 017 is also used by "Craftsman Ultra 30b 1bit — BitNet Integration" (ADR-017a). See `docs/adr/README.md`.
+
 **Status**: Proposed
 **Date**: 2026-02-06
 **Parent**: ADR-001 RuVector Core Architecture, ADR-004 KV Cache Management, ADR-005 WASM Runtime Integration

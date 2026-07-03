@@ -1,6 +1,6 @@
 # ADR-057: Federated RVF Format for Real-Time Transfer Learning
 
-**Status**: Proposed
+**Status**: Implemented (2026-07-03 closeout) — was Proposed. Realised by `crates/rvf/rvf-federation` (`aggregate`, `diff_privacy`, `pii_strip`, `federation`, `policy`, `types`; ~2362 LOC) with the ADR's privacy-budget and Byzantine-robust error variants (`PrivacyBudgetExhausted`, `ByzantineOutlier`). Note: the `mcp-federation` MCP-tool surface (e.g. `federation_status`) remains unbuilt (non-member, empty src) and is out of scope for this status.
 **Date**: 2026-02-26
 **Authors**: ruv.io, RuVector Architecture Team
 **Deciders**: Architecture Review Board

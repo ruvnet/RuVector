@@ -685,7 +685,7 @@ Unknown tags are ignored (forward-compatible).
 
 ### Implementation
 
-Types are fully implemented in `rvf-types/src/agi_container.rs` (972 lines, 24 tests).
+Types are fully implemented in `rvf-types/src/agi_container.rs` (962 lines, 28 tests). Note: this is the wire-format layer only; Phase 2 coherence gating, Phase 3 skill promotion, Phase 4 portable distribution and the MCP server remain unbuilt (Status: Partially Implemented).
 
 **Implemented types:**
 
@@ -745,4 +745,4 @@ Run the same RVF artifact on two separate machines owned by two separate teams.
 |---------|------|--------|---------|
 | 1.0 | 2026-02-15 | ruv.io | Initial proposal |
 | 1.1 | 2026-02-15 | architecture review | Resolved open questions (domain, authority, resource budgets, coherence thresholds). Added wire format section. Added cross-references to ADR-029/030/031/033. Added AuthorityLevel enum and resource budget types. Tightened ContainerSegments validation. |
-| 1.2 | 2026-02-16 | implementation review | Status updated to Partially Implemented. Documented full wire-format implementation in rvf-types/src/agi_container.rs (972 lines, 24 tests). All header types, enums, constants, and validators are implemented and exported. Domain expansion TLV tags (0x0112-0x0115) integrated. |
+| 1.2 | 2026-02-16 | implementation review | Status updated to Partially Implemented. Documented full wire-format implementation in rvf-types/src/agi_container.rs (962 lines, 28 tests; corrected 2026-07-03 from 972/24). All header types, enums, constants, and validators are implemented and exported. Domain expansion TLV tags (0x0112-0x0115) integrated. |

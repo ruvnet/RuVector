@@ -1,6 +1,6 @@
 # ADR-040: Causal Atlas RVF Runtime — Planet Detection & Life Candidate Scoring
 
-**Status:** Proposed
+**Status:** Implemented — Demonstrator (2026-07-03 closeout) — was Proposed. Ships as working examples (`examples/rvf/examples/{causal_atlas,causal_atlas_sealed,causal_atlas_dashboard,planet_detection,life_candidate}.rs`) plus `rvf-server` HTTP endpoints referencing the causal_atlas runtime. It is a demonstrator on the rvf-runtime, not a standalone productised crate/runtime member.
 **Date:** 2026-02-18
 **Author:** System Architect (AgentDB v3)
 **Supersedes:** None

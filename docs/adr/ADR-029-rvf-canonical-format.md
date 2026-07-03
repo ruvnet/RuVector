@@ -1,5 +1,7 @@
 # ADR-029: RVF as Canonical Binary Format Across All RuVector Libraries
 
+> **Duplicate number (closeout 2026-07-03):** this is **ADR-029a**. ADR number 029 is also used by "EXO-AI Multi-Paradigm Integration Architecture" (ADR-029b). See `docs/adr/README.md`.
+
 **Status**: Accepted
 **Date**: 2026-02-13
 **Authors**: ruv.io, RuVector Architecture Team

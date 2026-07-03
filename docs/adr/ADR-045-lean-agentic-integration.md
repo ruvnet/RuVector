@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Implemented (2026-07-03 closeout) — was Proposed. The pinned `lean-agentic = "=0.1.0"` workspace dependency and the `ruvector-verified` bridge crate this ADR decided to create both exist in the workspace and compile (`crates/ruvector-verified/src/{invariants,pipeline,proof_store,gated,vector_types}.rs`).
 
 ## Date
 

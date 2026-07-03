@@ -1,5 +1,7 @@
 # ADR-029: EXO-AI Multi-Paradigm Integration Architecture
 
+> **Duplicate number (closeout 2026-07-03):** this is **ADR-029b**. ADR number 029 is also used by "RVF as Canonical Binary Format" (ADR-029a). See `docs/adr/README.md`.
+
 **Status**: Proposed
 **Date**: 2026-02-27
 **Authors**: ruv.io, RuVector Architecture Team

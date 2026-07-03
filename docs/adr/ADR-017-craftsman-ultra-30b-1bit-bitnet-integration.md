@@ -1,5 +1,7 @@
 # ADR-017: Craftsman Ultra 30b 1bit — BitNet Integration with RuvLLM
 
+> **Duplicate number (closeout 2026-07-03):** this is **ADR-017a**. ADR number 017 is also used by "Temporal Tensor Compression" (ADR-017b). See `docs/adr/README.md`.
+
 **Status:** Proposed
 **Date:** 2026-02-03
 **Decision Makers:** Ruvector Architecture Team

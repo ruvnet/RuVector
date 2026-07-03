@@ -1,5 +1,7 @@
 # ADR-031: Vector-Native COW Branching (RVCOW) and Real Cognitive Containers
 
+> **Duplicate number (closeout 2026-07-03):** this is **ADR-031b**. ADR number 031 is also used by "RVF Example Repository" (ADR-031a). See `docs/adr/README.md`.
+
 | Field | Value |
 |-------|-------|
 | **Status** | Accepted |
