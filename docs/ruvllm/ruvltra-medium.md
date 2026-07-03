@@ -136,7 +136,7 @@ assert_eq!(config.sona_hooks.hnsw_ef_construction, 400);
 ```
 
 **Performance:**
-- Search: 150x-12,500x faster than brute-force
+- Search: ~100x faster than brute-force (measured at 10K vectors, 384D — see `bench_results/`; the 150x–12,500x figure is an aspirational target, not a measured result)
 - Insertion: O(log n) complexity
 - Memory: ~4 bytes per node per connection
 

@@ -342,9 +342,11 @@ The GNN doesn't run on your entire dataset. It only runs on the small subgraph o
 
 | Metric | Day 1 | After 1K Queries | After 100K Queries |
 |--------|-------|------------------|-------------------|
-| **Recall@10** | Baseline (HNSW only) | +5-8% | +12.4% |
+| **Recall@10** | Baseline (HNSW only) | improves* | improves* |
 | **Query latency** | ~0.8ms | ~0.7ms (hot paths cached) | ~0.5ms (optimized routing) |
 | **Relevance** | Distance-based only | Learns user preferences | Personalized per query pattern |
+
+> *Recall-over-query-count gains are the design intent of GNN re-ranking; the specific per-stage percentages are **not yet validated** by a committed benchmark. See `bench_results/` for the measured figures on the current synthetic corpus.
 
 ### Three GNN Architectures (Pick One or Stack Them)
 
@@ -418,7 +420,7 @@ npx ruvflo@latest swarm init --topology hierarchical --max-agents 8
 **Key Features:**
 - **SONA Learning**: Sub-50ms adaptive routing, learns optimal patterns over time
 - **Queen-led Swarms**: Byzantine fault-tolerant consensus with 5 protocols (Raft, Gossip, CRDT)
-- **HNSW Memory**: 150x-12,500x faster pattern retrieval via RuVector
+- **HNSW Memory**: ~100x faster pattern retrieval vs brute force via RuVector (10K vectors, 384D; see `bench_results/`)
 - **175+ MCP Tools**: Native Model Context Protocol integration
 - **Cost Optimization**: 3-tier routing extends Claude Code quota by 2.5x
 - **Security**: AIDefence threat detection (<10ms), prompt injection blocking
@@ -444,7 +446,7 @@ npm install agentic-flow
 - **213 MCP Tools**: Swarm management, memory, GitHub integration
 - **Agent Booster**: 352x faster code editing for simple transforms
 - **Multi-Provider**: Claude, GPT, Gemini, Cohere, local models with failover
-- **Graph Reasoning**: GNN query refinement with +12.4% recall improvement
+- **Graph Reasoning**: GNN query refinement (recall gains are design intent, not yet benchmark-validated)
 
 </details>
 
@@ -1081,7 +1083,7 @@ const response = await llm.generate(`Context: ${context}\n\nQ: ${question}`);
 
 | Use Case | What RuVector Does | Example |
 |----------|-------------------|---------|
-| **Semantic Search** | Sub-millisecond HNSW with SIMD acceleration — 80K QPS on 8 cores | Core feature |
+| **Semantic Search** | Sub-millisecond HNSW with SIMD acceleration — ~3.3K QPS on 8 cores (50K vectors, 384D; see `bench_results/latency_benchmark.csv`) | Core feature |
 | **Hybrid Search** | BM25 keywords + vector embeddings in one query, GNN reranking | [docs/api](./docs/api/) |
 | **Image / Audio / Video** | Any embedding model works — CLIP, Whisper, CLAP — with metadata filtering | [examples/wasm-react](./examples/wasm-react) |
 | **Code Search** | Local ONNX embeddings + graph queries find semantically similar code | [examples/nodejs](./examples/nodejs) |
@@ -1810,7 +1812,7 @@ cargo add ospipe                     # Rust crate
 
 | Feature | Description |
 |---------|-------------|
-| **HNSW Vector Search** | 61us p50 query latency via `ruvector-core` |
+| **HNSW Vector Search** | ~0.8ms p50 query latency via `ruvector-core` (10K vectors, 384D; see `bench_results/`) |
 | **Knowledge Graph** | Entity extraction (persons, URLs, emails, mentions) via `ruvector-graph` |
 | **Attention Reranking** | Content prioritization via `ruvector-attention` |
 | **Quantum Diversity** | MMR + quantum-inspired result selection via `ruqu-algorithms` |
@@ -1828,7 +1830,7 @@ cargo add ospipe                     # Rust crate
 | | Screenpipe (FTS5) | OSpipe (RuVector) |
 |---|---|---|
 | Search | Keyword (FTS5) | Semantic + Keyword + Graph + Temporal |
-| Latency | ~1ms (FTS5) | 61us (HNSW p50) |
+| Latency | ~1ms (FTS5) | ~0.8ms (HNSW p50) |
 | Relations | None | Knowledge Graph (Cypher) |
 | PII | Basic | Credit card, SSN, email redaction |
 | Dedup | None | Cosine similarity sliding window |
@@ -2519,7 +2521,7 @@ Edge-Net creates a **collective computing network** where participants share idl
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │  ┌──────────────────────┐  ┌──────────────────────┐  ┌─────────────────┐  │
 │  │   HNSW Vector Index  │  │  Federated Learning  │  │ ReasoningBank   │  │
-│  │   • 150x faster      │  │  • Byzantine tolerant│  │ • Pattern learn │  │
+│  │   • ~100x faster     │  │  • Byzantine tolerant│  │ • Pattern learn │  │
 │  │   • O(log N) search  │  │  • Diff privacy      │  │ • 87x energy    │  │
 │  └──────────────────────┘  └──────────────────────┘  └─────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -2529,7 +2531,7 @@ Edge-Net creates a **collective computing network** where participants share idl
 
 | Task Type | Use Case | Performance |
 |-----------|----------|-------------|
-| **Vector Search** | Find similar items | 150x speedup via HNSW |
+| **Vector Search** | Find similar items | ~100x speedup vs brute force via HNSW |
 | **Embeddings** | Text understanding | Semantic vectors |
 | **Semantic Match** | Intent detection | Classify meaning |
 | **LoRA Inference** | Task adaptation | <100µs forward |
@@ -3066,7 +3068,7 @@ A hybrid AI architecture combining **Spiking Neural Networks (SNN)**, **SIMD-opt
 | **Spiking Neural Networks** | 10-50x faster | LIF neurons + STDP learning with N-API SIMD |
 | **SIMD Vector Operations** | 5-54x faster | Loop-unrolled distance/dot product calculations |
 | **5 Attention Mechanisms** | Sub-millisecond | Multi-Head, Flash, Linear, Hyperbolic, MoE |
-| **Vector Search** | 150x faster | RuVector-powered semantic search |
+| **Vector Search** | ~100x faster | RuVector-powered semantic search |
 | **Meta-Cognition** | Autonomous | Self-discovering emergent capabilities |
 
 ### SIMD Performance
@@ -3369,7 +3371,7 @@ for result in results {
 
 | Metric | Target | Status |
 |--------|--------|--------|
-| HNSW Search Speedup | 150x vs brute force | Achieved |
+| HNSW Search Speedup | ~100x vs brute force (10K/384D) | Measured (bench_results/) |
 | Query Latency (p99) | < 50ms | Achieved |
 | Recall@10 | >= 0.95 | Achieved |
 | Embedding Throughput | > 100 segments/sec | Achieved |
@@ -3382,7 +3384,7 @@ for result in results {
 | `sevensense-core` | Species taxonomy, temporal types |
 | `sevensense-audio` | WAV/MP3/FLAC, Mel spectrograms |
 | `sevensense-embedding` | Perch 2.0 ONNX, 1536-dim vectors |
-| `sevensense-vector` | HNSW with 150x speedup |
+| `sevensense-vector` | HNSW with ~100x speedup |
 | `sevensense-learning` | GNN training, EWC regularization |
 | `sevensense-analysis` | HDBSCAN clustering, Markov models |
 | `sevensense-interpretation` | Evidence packs, species narratives |
@@ -3411,7 +3413,7 @@ let segments = processor.process_file("recording.wav").await?;
 let pipeline = EmbeddingPipeline::new(Default::default()).await?;
 let embeddings = pipeline.embed_segments(&segments).await?;
 
-// Search for similar calls (150x faster)
+// Search for similar calls (~100x faster vs brute force)
 let index = HnswIndex::new(Default::default());
 index.add_batch(&embeddings)?;
 let neighbors = index.search(&embeddings[0], 10)?;
