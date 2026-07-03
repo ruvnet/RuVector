@@ -134,12 +134,27 @@ mod placeholder {
     use super::*;
     use sha2::{Digest, Sha256};
 
+    /// One-shot, process-wide warning that non-secure placeholder ML-KEM is in use.
+    ///
+    /// Fires via `tracing` and stderr so a non-quantum-resistant key-exchange
+    /// deployment cannot be linked silently. Enable `production-crypto` for real ML-KEM-768.
+    fn warn_placeholder_crypto() {
+        use std::sync::Once;
+        static WARN_ONCE: Once = Once::new();
+        WARN_ONCE.call_once(|| {
+            const MSG: &str = "ruvector-dag: ML-KEM placeholder crypto in use (HKDF-SHA256) — NOT cryptographically secure and NOT quantum-resistant. Build with the `production-crypto` feature for real ML-KEM-768.";
+            tracing::warn!("{MSG}");
+            eprintln!("WARN {MSG}");
+        });
+    }
+
     impl MlKem768 {
         /// Generate a new keypair (PLACEHOLDER)
         ///
         /// # Security Warning
         /// This is a placeholder using random bytes, NOT real ML-KEM.
         pub fn generate_keypair() -> Result<(MlKem768PublicKey, MlKem768SecretKey), KemError> {
+            warn_placeholder_crypto();
             let mut pk = [0u8; ML_KEM_768_PUBLIC_KEY_SIZE];
             let mut sk = [0u8; ML_KEM_768_SECRET_KEY_SIZE];
 
@@ -154,6 +169,7 @@ mod placeholder {
         /// # Security Warning
         /// This is a placeholder using HKDF-SHA256, NOT real ML-KEM.
         pub fn encapsulate(pk: &MlKem768PublicKey) -> Result<EncapsulatedKey, KemError> {
+            warn_placeholder_crypto();
             let mut ephemeral = [0u8; 32];
             getrandom::getrandom(&mut ephemeral).map_err(|_| KemError::RngFailed)?;
 
@@ -185,6 +201,7 @@ mod placeholder {
             sk: &MlKem768SecretKey,
             ciphertext: &[u8; ML_KEM_768_CIPHERTEXT_SIZE],
         ) -> Result<[u8; SHARED_SECRET_SIZE], KemError> {
+            warn_placeholder_crypto();
             let sk_hash = Self::sha256(&sk.0[..64]);
             let mut ephemeral = [0u8; 32];
             for i in 0..32 {

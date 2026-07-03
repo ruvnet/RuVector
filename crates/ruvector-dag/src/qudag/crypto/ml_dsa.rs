@@ -114,12 +114,27 @@ mod placeholder {
     use super::*;
     use sha2::{Digest, Sha256};
 
+    /// One-shot, process-wide warning that non-secure placeholder ML-DSA is in use.
+    ///
+    /// Fires via `tracing` and stderr so a forgeable-signature deployment cannot
+    /// be linked silently. Enable the `production-crypto` feature for real ML-DSA-65.
+    fn warn_placeholder_crypto() {
+        use std::sync::Once;
+        static WARN_ONCE: Once = Once::new();
+        WARN_ONCE.call_once(|| {
+            const MSG: &str = "ruvector-dag: ML-DSA placeholder crypto in use (HMAC-SHA256) — NOT cryptographically secure and NOT quantum-resistant; signatures are forgeable from the public key alone. Build with the `production-crypto` feature for real ML-DSA-65.";
+            tracing::warn!("{MSG}");
+            eprintln!("WARN {MSG}");
+        });
+    }
+
     impl MlDsa65 {
         /// Generate a new signing keypair (PLACEHOLDER)
         ///
         /// # Security Warning
         /// This is a placeholder using random bytes, NOT real ML-DSA.
         pub fn generate_keypair() -> Result<(MlDsa65PublicKey, MlDsa65SecretKey), DsaError> {
+            warn_placeholder_crypto();
             let mut pk = [0u8; ML_DSA_65_PUBLIC_KEY_SIZE];
             let mut sk = [0u8; ML_DSA_65_SECRET_KEY_SIZE];
 
@@ -135,6 +150,7 @@ mod placeholder {
         /// This is a placeholder using HMAC-SHA256, NOT real ML-DSA.
         /// Provides basic integrity but NO quantum resistance.
         pub fn sign(sk: &MlDsa65SecretKey, message: &[u8]) -> Result<Signature, DsaError> {
+            warn_placeholder_crypto();
             let mut sig = [0u8; ML_DSA_65_SIGNATURE_SIZE];
 
             let hmac = Self::hmac_sha256(&sk.0[..32], message);
@@ -160,6 +176,7 @@ mod placeholder {
             message: &[u8],
             signature: &Signature,
         ) -> Result<bool, DsaError> {
+            warn_placeholder_crypto();
             let expected_key_hash = Self::sha256(&pk.0[..32]);
             let sig_key_hash = &signature.0[32..64];
 

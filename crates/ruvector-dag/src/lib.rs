@@ -10,7 +10,24 @@
 //! - **SONA Learning**: Self-Optimizing Neural Architecture with MicroLoRA adaptation (non-WASM only)
 //! - **MinCut Optimization**: Subpolynomial O(n^0.12) bottleneck detection
 //! - **Self-Healing**: Autonomous anomaly detection and repair (non-WASM only)
-//! - **QuDAG Integration**: Quantum-resistant distributed pattern learning (non-WASM only)
+//! - **QuDAG Integration**: Post-quantum distributed pattern learning (non-WASM only) —
+//!   quantum-resistant **only** with the `production-crypto` feature (see Security below)
+//!
+//! ## Security: placeholder crypto by default
+//!
+//! The default feature set (`full`) does **not** include `production-crypto`.
+//! Without it, the QuDAG identity and DAG-signature paths (`MlDsa65`, `MlKem768`,
+//! `QuDagIdentity`) use **forgeable HMAC/HKDF-SHA256 placeholders**, not real
+//! ML-DSA-65 / ML-KEM-768: signatures can be forged from the public key alone,
+//! and key exchange is not quantum-resistant. The placeholder paths emit a
+//! one-shot `WARN` (via `tracing` and stderr) on first use so a degraded
+//! deployment cannot be linked silently. **Build with `production-crypto`
+//! (`pqcrypto-dilithium` + `pqcrypto-kyber`) for any deployment that relies on
+//! these signatures for authentication.**
+//!
+//! ```toml
+//! ruvector-dag = { version = "0.1", features = ["production-crypto"] }
+//! ```
 //!
 //! ## Quick Start
 //!
