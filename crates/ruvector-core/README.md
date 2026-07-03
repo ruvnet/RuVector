@@ -40,6 +40,10 @@ ruvector-core = { version = "0.1.0", features = ["simd", "uuid-support"] }
 Available features:
 - `simd` (default): Enable SIMD-optimized distance calculations
 - `uuid-support` (default): Enable UUID generation for vector IDs
+- `api-embeddings` (default): Text embeddings via external API providers (`ApiEmbedding` — OpenAI, Cohere, Voyage); requires an API key and network access
+- `real-embeddings`: Opt-in flag for a local Candle embedding provider — **currently a stub that returns an error** (no MiniLM inference is implemented in-crate)
+
+> **Degraded embeddings default.** The `AgenticDB` compatibility layer defaults to a non-semantic **hash placeholder** (`HashEmbedding`), *not* MiniLM. "dog" and "cat" are not similar; "dog" and "god" are. `AgenticDB::new()` emits a one-shot `WARN` to flag this at runtime. For semantic search, supply a real provider via `AgenticDB::with_embedding_provider` (`ApiEmbedding`, or your own ONNX/Candle MiniLM wrapper).
 
 ## Key Features
 
@@ -50,7 +54,7 @@ Available features:
 | **Scalar Quantization** | Compress vectors to 8-bit integers (4x reduction) | Cut memory by 75% with 98% recall preserved |
 | **Product Quantization** | Split vectors into subspaces with codebooks (8-32x reduction) | Store millions of vectors on a single machine |
 | **Binary Quantization** | 1-bit representation (32x reduction) | Ultra-fast screening pass for massive datasets |
-| **SIMD Distance** | Hardware-accelerated distance via SimSIMD | Up to 80K QPS on 8 cores without code changes |
+| **SIMD Distance** | Hardware-accelerated distance via SimSIMD | Speeds up distance calculations transparently -- no code changes (see `bench_results/` for measured QPS) |
 | **Zero-Copy I/O** | Memory-mapped storage loads instantly | No deserialization step -- open a file and search immediately |
 | **Hybrid Search** | Combine dense vector similarity with sparse BM25 text scoring | One query handles both semantic and keyword matching |
 | **Metadata Filtering** | Apply key-value filters during search | No post-filtering needed -- results are already filtered |
@@ -334,6 +338,8 @@ Multi-Thread (8 cores)    ~50,000     <0.5ms
 With SIMD                 ~80,000     <0.3ms
 With Quantization         ~100,000    <0.2ms
 ```
+
+> The latency and throughput tables above are illustrative targets on unspecified hardware, not committed measurements. Measured figures on the repo's synthetic 384D corpus (`bench_results/`): ~0.8ms p50 at 10K vectors, ~1.35ms p50 at 50K; ~3.3K QPS multi-threaded (8 cores). Regenerate with `cargo bench` before quoting throughput.
 
 ## Configuration Guide
 

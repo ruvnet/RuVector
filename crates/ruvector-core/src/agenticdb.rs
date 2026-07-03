@@ -133,9 +133,30 @@ pub struct AgenticDB {
     embedding_provider: BoxedEmbeddingProvider,
 }
 
+/// Emit a one-shot, process-wide warning that the default AgenticDB embedding
+/// path is the non-semantic hash placeholder, not MiniLM.
+///
+/// Fires on stderr as well as via `tracing`, so the degraded default is
+/// unmissable even when no tracing subscriber is installed.
+fn warn_hash_embedding_degraded() {
+    use std::sync::Once;
+    static WARN_ONCE: Once = Once::new();
+    WARN_ONCE.call_once(|| {
+        const MSG: &str = "ruvector: semantic embeddings DEGRADED — hash placeholder in use, not MiniLM; HNSW recall is non-semantic. Pass a real EmbeddingProvider via AgenticDB::with_embedding_provider (ApiEmbedding, or an ONNX/Candle MiniLM) for semantic search.";
+        tracing::warn!("{MSG}");
+        eprintln!("WARN {MSG}");
+    });
+}
+
 impl AgenticDB {
-    /// Create a new AgenticDB with the given options and default hash-based embeddings
+    /// Create a new AgenticDB with the given options and default hash-based embeddings.
+    ///
+    /// **Degraded default:** this constructor wires the non-semantic
+    /// [`HashEmbedding`] provider (see the module-level warning) and emits a
+    /// one-shot `WARN` on first use. For semantic search, pass a real provider
+    /// via [`AgenticDB::with_embedding_provider`].
     pub fn new(options: DbOptions) -> Result<Self> {
+        warn_hash_embedding_degraded();
         let embedding_provider = Arc::new(HashEmbedding::new(options.dimensions));
         Self::with_embedding_provider(options, embedding_provider)
     }

@@ -24,6 +24,8 @@ The current implementation uses a simple hash function to generate embeddings, w
 
 See the module-level documentation in `agenticdb.rs` for integration examples.
 
+> **Runtime warning.** `AgenticDB::new()` emits a one-shot `WARN` (via `tracing` and stderr) the first time the hash-placeholder path engages, so operators cannot silently run degraded, non-semantic search. The Candle `real-embeddings` path is a stub that returns an error — MiniLM inference is not implemented in-crate. Supply a real provider through `AgenticDB::with_embedding_provider` (`ApiEmbedding`, or an ONNX/Candle MiniLM wrapper) for semantic recall.
+
 ---
 
 ## Phase 3 Implementation Complete ✅
