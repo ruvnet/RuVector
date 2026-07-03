@@ -1,4 +1,10 @@
 [workspace]
+# Closeout (2026-07-03) FREEZE: the excluded HNSW-variant crates
+# (micro-hnsw-wasm, ruvector-hyperbolic-hnsw, ruvector-hyperbolic-hnsw-wasm) and
+# the rvf tree are EXPERIMENTAL / UNSUPPORTED as workspace members. They are not
+# built or tested by `cargo build/test --workspace` and have no CI gate, so their
+# suites can never regress-check here. Treat them as experimental until they are
+# re-included with CI coverage (deferred). Do not advertise them as validated.
 exclude = ["crates/micro-hnsw-wasm", "crates/ruvector-hyperbolic-hnsw", "crates/ruvector-hyperbolic-hnsw-wasm", "examples/ruvLLM/esp32", "examples/ruvLLM/esp32-flash", "examples/edge-net", "examples/data", "examples/ruvLLM", "examples/delta-behavior", "crates/rvf", "examples/rvf-desktop"]
 members = [
     "crates/ruvector-core",

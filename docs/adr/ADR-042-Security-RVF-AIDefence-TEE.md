@@ -2,11 +2,20 @@
 
 | Field       | Value                                          |
 |-------------|------------------------------------------------|
-| Status      | Accepted                                       |
+| Status      | Accepted (spec) — TEE hardware layer not implemented |
 | Date        | 2025-02-21                                     |
 | Authors     | ruv                                            |
 | Supersedes  | —                                              |
 | Implements  | ADR-041 Tier 1 (Security Container)            |
+
+> **Closeout note (2026-07-03): TEE is software-only today.** The hardware root
+> of trust described below (SGX / SEV-SNP / TDX / ARM CCA enclaves, MRENCLAVE
+> quotes) has **no backend in the codebase** — a grep for `sgx`/`sev-snp`/`tdx`/
+> `enclave`/`remote_attest` matches only the software witness/proof layer
+> (`ruvector-verified`, graph-transformer proofs). What ships is **software
+> proof-attestation**, not hardware trusted execution. Treat the Layer 1 "Hardware
+> Root of Trust (TEE)" section as design intent until a real enclave backend is
+> added.
 
 ## Context
 
