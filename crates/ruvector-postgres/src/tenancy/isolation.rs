@@ -139,8 +139,8 @@ DROP POLICY IF EXISTS ruvector_admin_bypass ON {table};
 
 -- Create tenant isolation policy
 CREATE POLICY ruvector_tenant_isolation ON {table}
-    USING ({column} = current_setting('ruvector.tenant_id', true))
-    WITH CHECK ({column} = current_setting('ruvector.tenant_id', true));
+    USING ({column} = (select current_setting('ruvector.tenant_id', true)))
+    WITH CHECK ({column} = (select current_setting('ruvector.tenant_id', true)));
 
 -- Create admin bypass policy (for ruvector_admin role)
 CREATE POLICY ruvector_admin_bypass ON {table}
@@ -152,7 +152,7 @@ CREATE POLICY ruvector_admin_bypass ON {table}
 -- Create wildcard policy for admin queries
 CREATE POLICY ruvector_admin_wildcard ON {table}
     FOR SELECT
-    USING (current_setting('ruvector.tenant_id', true) = '*');
+    USING ((select current_setting('ruvector.tenant_id', true)) = '*');
 "#,
             table = quoted_table,
             column = quoted_column
