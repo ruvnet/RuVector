@@ -119,19 +119,19 @@ impl PolicyTemplate {
         match self {
             Self::Standard => {
                 format!(
-                    "{} = current_setting('ruvector.tenant_id', true)",
+                    "{} = (select current_setting('ruvector.tenant_id', true))",
                     tenant_column
                 )
             }
             Self::ReadSharedWriteOwn => {
                 format!(
-                    "{} = current_setting('ruvector.tenant_id', true) OR is_public = true",
+                    "{} = (select current_setting('ruvector.tenant_id', true)) OR is_public = true",
                     tenant_column
                 )
             }
             Self::Hierarchical { path_column } => {
                 format!(
-                    "{} LIKE current_setting('ruvector.tenant_id', true) || '%'",
+                    "{} LIKE (select current_setting('ruvector.tenant_id', true)) || '%'",
                     path_column
                 )
             }
@@ -140,7 +140,7 @@ impl PolicyTemplate {
                 retention_days,
             } => {
                 format!(
-                    "{} = current_setting('ruvector.tenant_id', true) AND {} > NOW() - INTERVAL '{} days'",
+                    "{} = (select current_setting('ruvector.tenant_id', true)) AND {} > NOW() - INTERVAL '{} days'",
                     tenant_column, time_column, retention_days
                 )
             }
@@ -153,13 +153,13 @@ impl PolicyTemplate {
         match self {
             Self::Standard | Self::ReadSharedWriteOwn => {
                 format!(
-                    "{} = current_setting('ruvector.tenant_id', true)",
+                    "{} = (select current_setting('ruvector.tenant_id', true))",
                     tenant_column
                 )
             }
             Self::Hierarchical { .. } => {
                 format!(
-                    "{} = current_setting('ruvector.tenant_id', true)",
+                    "{} = (select current_setting('ruvector.tenant_id', true))",
                     tenant_column
                 )
             }
@@ -168,7 +168,7 @@ impl PolicyTemplate {
                 retention_days: _,
             } => {
                 format!(
-                    "{} = current_setting('ruvector.tenant_id', true)",
+                    "{} = (select current_setting('ruvector.tenant_id', true))",
                     tenant_column
                 )
             }
@@ -198,14 +198,14 @@ impl RlsManager {
     pub fn generate_enable_rls_sql(&self, config: &RlsPolicyConfig) -> String {
         let using_clause = config.custom_using.clone().unwrap_or_else(|| {
             format!(
-                "{} = current_setting('ruvector.tenant_id', true)",
+                "{} = (select current_setting('ruvector.tenant_id', true))",
                 config.tenant_column
             )
         });
 
         let check_clause = config.custom_with_check.clone().unwrap_or_else(|| {
             format!(
-                "{} = current_setting('ruvector.tenant_id', true)",
+                "{} = (select current_setting('ruvector.tenant_id', true))",
                 config.tenant_column
             )
         });
@@ -258,7 +258,7 @@ CREATE POLICY {policy}_admin ON {table}
 -- Only applies when tenant_id is set to '*'
 CREATE POLICY {policy}_wildcard ON {table}
     FOR SELECT
-    USING (current_setting('ruvector.tenant_id', true) = '*');
+    USING ((select current_setting('ruvector.tenant_id', true)) = '*');
 "#,
                 table = config.table_name,
                 policy = config.policy_name
@@ -319,7 +319,7 @@ DROP POLICY IF EXISTS ruvector_tenant_isolation_wildcard ON {table};
 
     /// Generate SQL to get current tenant context
     pub fn generate_get_tenant_sql() -> String {
-        "SELECT current_setting('ruvector.tenant_id', true);".to_string()
+        "SELECT (select current_setting('ruvector.tenant_id', true));".to_string()
     }
 
     /// Register a policy configuration
@@ -437,7 +437,7 @@ DECLARE
     v_tenant_id TEXT;
 BEGIN
     -- Get current tenant context
-    v_tenant_id := current_setting('ruvector.tenant_id', true);
+    v_tenant_id := (select current_setting('ruvector.tenant_id', true));
 
     -- Validate context is set
     IF v_tenant_id IS NULL OR v_tenant_id = '' THEN
