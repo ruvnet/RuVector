@@ -50,6 +50,7 @@ var RvfErrorCode;
     RvfErrorCode[RvfErrorCode["BackendNotFound"] = 65280] = "BackendNotFound";
     RvfErrorCode[RvfErrorCode["BackendInitFailed"] = 65281] = "BackendInitFailed";
     RvfErrorCode[RvfErrorCode["StoreClosed"] = 65282] = "StoreClosed";
+    RvfErrorCode[RvfErrorCode["InvalidOptions"] = 65283] = "InvalidOptions";
 })(RvfErrorCode || (exports.RvfErrorCode = RvfErrorCode = {}));
 /** Human-readable labels for each error code. */
 const ERROR_MESSAGES = {
@@ -88,6 +89,7 @@ const ERROR_MESSAGES = {
     [RvfErrorCode.BackendNotFound]: 'No suitable backend found (install @ruvector/rvf-node or @ruvector/rvf-wasm)',
     [RvfErrorCode.BackendInitFailed]: 'Backend initialization failed',
     [RvfErrorCode.StoreClosed]: 'Store has been closed',
+    [RvfErrorCode.InvalidOptions]: 'Invalid store creation options',
 };
 /**
  * Custom error class for all RVF operations.

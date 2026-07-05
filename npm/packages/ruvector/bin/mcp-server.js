@@ -1275,9 +1275,10 @@ const TOOLS = [
       properties: {
         path: { type: 'string', description: 'File path for the new .rvf store' },
         dimension: { type: 'number', description: 'Vector dimensionality (e.g. 128, 384, 768, 1536)' },
+        dimensions: { type: 'number', description: 'Alias for dimension' },
         metric: { type: 'string', description: 'Distance metric: cosine, l2, or dotproduct', default: 'cosine' }
       },
-      required: ['path', 'dimension']
+      required: ['path']
     }
   },
   {
@@ -3257,12 +3258,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'rvf_create': {
         try {
           const safePath = validateRvfPath(args.path);
+          // The @ruvector/rvf SDK option is `dimensions` (plural); accept the
+          // singular `dimension` this tool has always advertised too (#641).
+          const dimensions = args.dimensions ?? args.dimension;
+          if (!Number.isInteger(dimensions) || dimensions <= 0) {
+            throw new Error(`Missing or invalid dimension: expected a positive integer, got ${JSON.stringify(dimensions)}`);
+          }
           const { createRvfStore } = require('../dist/core/rvf-wrapper.js');
-          const store = await createRvfStore(safePath, { dimension: args.dimension, metric: args.metric || 'cosine' });
-          const status = store.status ? await store.status() : { dimension: args.dimension };
+          const store = await createRvfStore(safePath, { dimensions, metric: args.metric || 'cosine' });
+          const status = store.status ? await store.status() : { dimensions };
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, path: safePath, ...status }, null, 2) }] };
         } catch (e) {
-          return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message, hint: 'Install @ruvector/rvf: npm install @ruvector/rvf' }, null, 2) }], isError: true };
+          // Only suggest installing the package when it is actually missing (#641).
+          const payload = { success: false, error: e.message };
+          if (/not installed|cannot find module/i.test(e.message)) {
+            payload.hint = 'Install @ruvector/rvf: npm install @ruvector/rvf';
+          }
+          return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }], isError: true };
         }
       }
 

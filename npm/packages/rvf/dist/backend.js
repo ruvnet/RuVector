@@ -684,10 +684,25 @@ function mapCompressionToNative(compression) {
             return 'None';
     }
 }
+/**
+ * Resolve the vector dimensionality from create options, accepting the
+ * documented `dimensions` (plural) as well as the `dimension` (singular)
+ * alias that mirrors the native field name. Throws a clear error naming
+ * the public option instead of letting the native layer report the
+ * internal `dimension` field (issue #641).
+ */
+function resolveDimensions(options) {
+    const dims = options.dimensions ?? options.dimension;
+    if (typeof dims !== 'number' || !Number.isInteger(dims) || dims <= 0) {
+        throw new errors_1.RvfError(errors_1.RvfErrorCode.InvalidOptions, `Missing or invalid \`dimensions\` option: expected a positive integer, got ${JSON.stringify(dims)}. ` +
+            'Pass { dimensions: N } (plural) to RvfDatabase.create().');
+    }
+    return dims;
+}
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapOptionsToNative(options) {
     return {
-        dimension: options.dimensions,
+        dimension: resolveDimensions(options),
         metric: mapMetricToNative(options.metric),
         profile: options.profile ?? 0,
         compression: mapCompressionToNative(options.compression),

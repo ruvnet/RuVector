@@ -38,7 +38,8 @@ export declare enum RvfErrorCode {
     AlgoUnsupported = 1283,
     BackendNotFound = 65280,
     BackendInitFailed = 65281,
-    StoreClosed = 65282
+    StoreClosed = 65282,
+    InvalidOptions = 65283
 }
 /**
  * Custom error class for all RVF operations.
