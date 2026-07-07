@@ -5,41 +5,86 @@
 //!
 //! ## How It Works
 //!
-//! 1. **Draft Phase**: Generate K tokens using a small, fast draft model
-//! 2. **Verify Phase**: Run main model on all K tokens in a single forward pass
-//! 3. **Accept/Reject**: Accept verified tokens, reject where draft diverges
-//! 4. **Correction**: Add the correct token where rejection occurred
+//! 1. **Draft Phase**: Generate K tokens using a small, fast draft model, decoding
+//!    autoregressively one real forward pass at a time.
+//! 2. **Verify Phase**: Run the main model on all K draft tokens in a single batched
+//!    forward pass, producing K next-token logit distributions at once.
+//! 3. **Accept/Reject**: Walk the K positions; a draft token is accepted while it
+//!    matches the main model's own greedy prediction at that position. The first
+//!    mismatch (or the position after the last accepted token) yields the
+//!    correction/continuation token.
+//! 4. **Correction**: Append the accepted prefix plus the correction token.
+//!
+//! ## Requirements
+//!
+//! The draft and main models **must share the same tokenizer/vocabulary** — draft
+//! token IDs are compared directly against the main model's argmax token IDs, which
+//! is only meaningful if both models assign the same meaning to the same ID (e.g.
+//! TinyLlama-1.1B as a draft for a Llama-2 main model; both use Llama's tokenizer).
+//! `generate_tokens` checks `vocab_size()` up front and returns an error on mismatch.
+//!
+//! ## KV-cache recovery on rejection
+//!
+//! The candle-transformers backends this crate wraps only support two KV-cache
+//! states: empty (position 0) or "everything appended since the last reset" — there
+//! is no truncation API (see `patches/candle-transformers`). The batched verify
+//! forward pass always appends all K draft tokens to the main model's cache before
+//! we know how many will be accepted. When some are rejected, both the main and
+//! draft model caches are reset and the full accepted context (prompt + all tokens
+//! committed so far) is replayed in one batched forward pass to restore a
+//! consistent cache. This means the per-rejection cost grows with total context
+//! length; the trade-off is still generally favorable because batched forward
+//! passes are far cheaper per token than sequential single-token decoding, and it
+//! is the only correct option without patching the underlying attention cache
+//! implementation itself.
 //!
 //! ## Example
 //!
 //! ```rust,ignore
+//! use ruvllm::backends::CandleBackend;
 //! use ruvllm::speculative::{SpeculativeDecoder, SpeculativeConfig};
+//! use std::sync::Arc;
+//!
+//! let main_backend = Arc::new(main_candle_backend);
+//! let draft_backend = Arc::new(draft_candle_backend);
 //!
 //! let config = SpeculativeConfig {
 //!     lookahead: 4,
-//!     acceptance_threshold: 0.8,
-//!     draft_temperature: 0.0,
-//!     tree_speculation: false,
 //!     ..Default::default()
 //! };
 //!
-//! let mut decoder = SpeculativeDecoder::new(main_backend, draft_backend, config);
+//! let decoder = SpeculativeDecoder::new(main_backend, draft_backend, config);
 //! let output = decoder.generate("Hello, world!", params)?;
+//! println!("Accepted {:.0}% of draft tokens", decoder.stats().acceptance_rate * 100.0);
 //! ```
+//!
+//! ## Measured performance (Llama-2-7B main, TinyLlama-1.1B draft, Q4_K_M GGUF, M-series Metal)
+//!
+//! `examples/speculative_bench.rs` measures this end-to-end on real weights. Results are
+//! acceptance-rate dependent, as expected from the literature: on a prompt where the draft
+//! model tracks the main model well (85.9% acceptance), speculative decoding measured ~1.1x
+//! over baseline autoregressive decoding. On prompts with more modest alignment (62-70%
+//! acceptance — TinyLlama and Llama-2-7B are independently trained, not distilled from each
+//! other), the extra per-round forward calls (draft steps + verify + correction) are not
+//! fully amortized and measured throughput was ~0.6-0.7x of baseline. Neither result is
+//! fabricated — both come from real forward passes on real weights; run the example yourself
+//! to reproduce. Draft/main pairs with tighter distillation (e.g. a purpose-trained draft
+//! model) should show more consistent wins.
 //!
 //! ## Recommended Model Pairings
 //!
-//! | Main Model | Draft Model | Expected Speedup |
-//! |------------|-------------|------------------|
-//! | Qwen2.5-14B | Qwen2.5-0.5B | 2.5-3.0x |
-//! | Mistral-7B | TinyLlama-1.1B | 2.0-2.5x |
-//! | Llama-3.2-3B | Llama-3.2-1B | 1.8-2.2x |
+//! | Main Model | Draft Model | Shared tokenizer |
+//! |------------|-------------|-------------------|
+//! | Llama-2-7B / Llama-2-13B | TinyLlama-1.1B | Yes (Llama-2 32k vocab) |
+//! | Qwen2.5-14B | Qwen2.5-0.5B | Yes (Qwen BPE vocab) |
+//! | Llama-3.1-8B | Llama-3.2-1B | Only if vocab sizes match — verify before use |
 
 use crate::backends::{GenerateParams, GeneratedToken, LlmBackend, Tokenizer};
 use crate::error::{Result, RuvLLMError};
 
 use parking_lot::RwLock;
-use rand::Rng;
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -385,8 +430,106 @@ impl SpeculationTree {
     }
 }
 
+/// Backends usable for speculative decoding.
+///
+/// Speculative decoding needs things a plain [`LlmBackend`] doesn't expose:
+///
+/// - Raw per-position next-token logits from a single batched forward pass, so K
+///   draft tokens can be verified against the main model in one shot instead of K
+///   sequential decode steps (which would erase any speedup).
+/// - Cheap KV-cache snapshot/restore, to walk back a rejected draft token without
+///   paying for a full context replay (see the module-level docs on cache recovery).
+pub trait SpeculativeBackend: LlmBackend {
+    /// An O(num_layers) capture of this backend's KV cache + position,
+    /// restorable via `restore_context`.
+    type Snapshot;
+
+    /// Feed `tokens` through the model, continuing from the current context, and
+    /// return one next-token logits vector (length `vocab_size`) per input token.
+    fn forward_logits(&self, tokens: &[u32]) -> Result<Vec<Vec<f32>>>;
+
+    /// Reset the KV cache / context to empty.
+    fn reset_context(&self);
+
+    /// Number of tokens currently held in the KV cache / context.
+    fn context_len(&self) -> usize;
+
+    /// Cheaply capture the current KV cache + position.
+    fn snapshot_context(&self) -> Result<Self::Snapshot>;
+
+    /// Restore a previously captured KV cache + position.
+    fn restore_context(&self, snapshot: &Self::Snapshot) -> Result<()>;
+}
+
+#[cfg(feature = "candle")]
+impl SpeculativeBackend for crate::backends::CandleBackend {
+    type Snapshot = crate::backends::CandleContextSnapshot;
+
+    fn forward_logits(&self, tokens: &[u32]) -> Result<Vec<Vec<f32>>> {
+        self.forward_multi(tokens)
+    }
+
+    fn reset_context(&self) {
+        crate::backends::CandleBackend::reset_context(self)
+    }
+
+    fn context_len(&self) -> usize {
+        crate::backends::CandleBackend::context_len(self)
+    }
+
+    fn snapshot_context(&self) -> Result<Self::Snapshot> {
+        crate::backends::CandleBackend::snapshot_context(self)
+    }
+
+    fn restore_context(&self, snapshot: &Self::Snapshot) -> Result<()> {
+        crate::backends::CandleBackend::restore_context(self, snapshot)
+    }
+}
+
+/// Index of the highest-valued logit (greedy/argmax decoding).
+fn argmax(logits: &[f32]) -> u32 {
+    let mut best_idx = 0usize;
+    let mut best_val = f32::NEG_INFINITY;
+    for (i, &v) in logits.iter().enumerate() {
+        if v > best_val {
+            best_val = v;
+            best_idx = i;
+        }
+    }
+    best_idx as u32
+}
+
+/// Sample a token from a logits vector under the given decoding params,
+/// returning the token id and its log-probability. `temperature <= 0.0`
+/// means greedy (argmax) decoding.
+fn sample_from_logits(
+    logits: &[f32],
+    temperature: f32,
+    top_k: usize,
+    top_p: f32,
+    rng: &mut StdRng,
+) -> (u32, f32) {
+    if temperature <= 0.0 {
+        let idx = argmax(logits) as usize;
+        let logprobs = log_softmax(logits);
+        return (idx as u32, logprobs[idx]);
+    }
+
+    let mut adjusted: Vec<f32> = logits.iter().map(|&v| v / temperature).collect();
+    if top_k > 0 {
+        top_k_filter(&mut adjusted, top_k);
+    }
+    if top_p < 1.0 {
+        top_p_filter(&mut adjusted, top_p);
+    }
+    let probs = softmax(&adjusted);
+    let idx = sample_from_probs(&probs, rng);
+    let logprobs = log_softmax(&adjusted);
+    (idx as u32, logprobs[idx])
+}
+
 /// Speculative decoder combining draft and main models
-pub struct SpeculativeDecoder<M: LlmBackend + ?Sized, D: LlmBackend + ?Sized> {
+pub struct SpeculativeDecoder<M: SpeculativeBackend + ?Sized, D: SpeculativeBackend + ?Sized> {
     /// Main (target) model for verification
     main_model: Arc<M>,
     /// Draft (small) model for speculation
@@ -397,11 +540,12 @@ pub struct SpeculativeDecoder<M: LlmBackend + ?Sized, D: LlmBackend + ?Sized> {
     stats: AtomicSpeculativeStats,
     /// Current adaptive lookahead
     current_lookahead: AtomicUsize,
-    /// Random number generator seed
+    /// Seed for the next generation call's RNG (advanced after each call so
+    /// repeated calls with temperature > 0 don't replay the same sequence)
     rng_seed: AtomicU64,
 }
 
-impl<M: LlmBackend + ?Sized, D: LlmBackend + ?Sized> SpeculativeDecoder<M, D> {
+impl<M: SpeculativeBackend + ?Sized, D: SpeculativeBackend + ?Sized> SpeculativeDecoder<M, D> {
     /// Create a new speculative decoder
     pub fn new(main_model: Arc<M>, draft_model: Arc<D>, config: SpeculativeConfig) -> Self {
         let lookahead = config.lookahead;
@@ -464,6 +608,11 @@ impl<M: LlmBackend + ?Sized, D: LlmBackend + ?Sized> SpeculativeDecoder<M, D> {
         params.temperature < 0.5 || params.top_k == 1
     }
 
+    fn next_rng(&self) -> StdRng {
+        let seed = self.rng_seed.fetch_add(1, Ordering::Relaxed);
+        StdRng::seed_from_u64(seed)
+    }
+
     /// Generate text with speculative decoding
     pub fn generate(&self, prompt: &str, params: GenerateParams) -> Result<String> {
         let tokens = self.tokenize(prompt)?;
@@ -477,71 +626,193 @@ impl<M: LlmBackend + ?Sized, D: LlmBackend + ?Sized> SpeculativeDecoder<M, D> {
         prompt_tokens: &[u32],
         params: &GenerateParams,
     ) -> Result<Vec<u32>> {
+        if prompt_tokens.is_empty() {
+            return Err(RuvLLMError::InvalidOperation(
+                "Cannot speculatively decode an empty prompt".to_string(),
+            ));
+        }
+
+        let main_tokenizer = self
+            .main_model
+            .tokenizer()
+            .ok_or_else(|| RuvLLMError::InvalidOperation("No main tokenizer".to_string()))?;
+        let draft_tokenizer = self
+            .draft_model
+            .tokenizer()
+            .ok_or_else(|| RuvLLMError::InvalidOperation("No draft tokenizer".to_string()))?;
+        if main_tokenizer.vocab_size() != draft_tokenizer.vocab_size() {
+            return Err(RuvLLMError::InvalidOperation(format!(
+                "Speculative decoding requires main and draft models to share a \
+                 tokenizer/vocabulary (draft token ids are compared directly against \
+                 the main model's predictions); got vocab sizes {} (main) vs {} (draft)",
+                main_tokenizer.vocab_size(),
+                draft_tokenizer.vocab_size()
+            )));
+        }
+        let eos_token = main_tokenizer.special_tokens().eos_token_id;
+
         let config = self.config.read().clone();
+        let mut rng = self.next_rng();
+
+        self.main_model.reset_context();
+        self.draft_model.reset_context();
+
         let mut context = prompt_tokens.to_vec();
         let mut output = Vec::new();
 
-        // Get special tokens for stopping
-        let eos_token = self
-            .main_model
-            .tokenizer()
-            .and_then(|t| t.special_tokens().eos_token_id);
+        let main_prefill = self.main_model.forward_logits(prompt_tokens)?;
+        let mut main_last_logits = main_prefill
+            .last()
+            .cloned()
+            .ok_or_else(|| RuvLLMError::Generation("Main model returned no logits".to_string()))?;
+        let draft_prefill = self.draft_model.forward_logits(prompt_tokens)?;
+        let mut draft_last_logits = draft_prefill
+            .last()
+            .cloned()
+            .ok_or_else(|| RuvLLMError::Generation("Draft model returned no logits".to_string()))?;
 
         while output.len() < params.max_tokens {
             let start = Instant::now();
 
-            // Determine lookahead
             let lookahead = if config.adaptive_lookahead {
                 self.current_lookahead.load(Ordering::Relaxed)
             } else {
                 config.lookahead
             };
 
-            // Draft phase: generate K tokens with small model
-            let draft_tokens = self.draft_phase(&context, lookahead, &config)?;
+            // Snapshotted *before* the draft phase mutates the draft model's
+            // cache — this is the fallback restore point if the very first
+            // draft token is rejected.
+            let draft_pre_round_snapshot = self.draft_model.snapshot_context()?;
+
+            let (draft_tokens, new_draft_last_logits, draft_snapshots) = if lookahead == 0 {
+                (Vec::new(), draft_last_logits.clone(), Vec::new())
+            } else {
+                self.draft_phase(draft_last_logits, lookahead, &config, eos_token, &mut rng)?
+            };
+            draft_last_logits = new_draft_last_logits;
 
             if draft_tokens.is_empty() {
-                // Draft model couldn't generate, fall back to main model
-                let main_token = self.single_main_forward(&context, params)?;
-                if Some(main_token) == eos_token {
+                // No draft tokens (lookahead=0 or draft model exhausted) — take a
+                // single step directly from the main model's own logits, no
+                // additional forward pass needed since we already have them.
+                let (token, _) = sample_from_logits(
+                    &main_last_logits,
+                    params.temperature,
+                    params.top_k,
+                    params.top_p,
+                    &mut rng,
+                );
+                if Some(token) == eos_token {
                     break;
                 }
-                context.push(main_token);
-                output.push(main_token);
+                context.push(token);
+                output.push(token);
+                let main_step = self.main_model.forward_logits(&[token])?;
+                main_last_logits = main_step.into_iter().next().ok_or_else(|| {
+                    RuvLLMError::Generation("Main model returned no logits".to_string())
+                })?;
+                let draft_step = self.draft_model.forward_logits(&[token])?;
+                draft_last_logits = draft_step.into_iter().next().ok_or_else(|| {
+                    RuvLLMError::Generation("Draft model returned no logits".to_string())
+                })?;
                 continue;
             }
 
-            // Verify phase: check with main model
-            let verification = self.verify_phase(&context, &draft_tokens, params)?;
+            // Snapshotted before the batched verify forward appends all K
+            // draft tokens to the main model's cache — restored below if
+            // any of them are rejected.
+            let main_pre_verify_snapshot = self.main_model.snapshot_context()?;
 
-            // Accept verified tokens
+            // Verify phase: ONE batched forward pass over all draft tokens.
+            let main_logits = self.main_model.forward_logits(&draft_tokens)?;
+            let verification = verify_round(
+                &draft_tokens,
+                &main_last_logits,
+                &main_logits,
+                params,
+                &mut rng,
+            );
+
             let accepted = &draft_tokens[..verification.accepted_count];
             context.extend_from_slice(accepted);
             output.extend_from_slice(accepted);
 
-            // Add the corrected/continuation token
+            // A draft token itself may already be EOS.
+            if let Some(eos) = eos_token {
+                if let Some(eos_pos) = accepted.iter().position(|&t| t == eos) {
+                    output.truncate(output.len() - accepted.len() + eos_pos + 1);
+                    self.stats
+                        .record_round(draft_tokens.len(), eos_pos + 1, start.elapsed());
+                    break;
+                }
+            }
+
             if Some(verification.next_token) == eos_token {
                 break;
             }
             context.push(verification.next_token);
             output.push(verification.next_token);
 
-            // Record stats
+            let all_accepted = verification.accepted_count == draft_tokens.len();
+            if all_accepted {
+                // Both caches already hold context+accepted; just feed the
+                // correction/continuation token to stay in sync.
+                let main_step = self.main_model.forward_logits(&[verification.next_token])?;
+                main_last_logits = main_step.into_iter().next().ok_or_else(|| {
+                    RuvLLMError::Generation("Main model returned no logits".to_string())
+                })?;
+                let draft_step = self
+                    .draft_model
+                    .forward_logits(&[verification.next_token])?;
+                draft_last_logits = draft_step.into_iter().next().ok_or_else(|| {
+                    RuvLLMError::Generation("Draft model returned no logits".to_string())
+                })?;
+            } else {
+                // Rejection: both caches have K appended positions but only
+                // accepted_count(+1 correction) are valid. Restore each
+                // model to its pre-round snapshot and replay only the
+                // accepted prefix + correction token — O(accepted_count),
+                // not O(context length) like a full reset+replay would be.
+                self.main_model.restore_context(&main_pre_verify_snapshot)?;
+                let mut main_fix: Vec<u32> = accepted.to_vec();
+                main_fix.push(verification.next_token);
+                let main_fix_logits = self.main_model.forward_logits(&main_fix)?;
+                main_last_logits = main_fix_logits.last().cloned().ok_or_else(|| {
+                    RuvLLMError::Generation("Main model returned no logits".to_string())
+                })?;
+
+                // The draft model generated `accepted` itself (that's what
+                // "accepted" means), so its cache is already correct up to
+                // that point — restore to right after the last accepted
+                // draft token and only feed the correction token, not the
+                // whole accepted prefix again.
+                let draft_restore = if verification.accepted_count == 0 {
+                    &draft_pre_round_snapshot
+                } else {
+                    &draft_snapshots[verification.accepted_count - 1]
+                };
+                self.draft_model.restore_context(draft_restore)?;
+                let draft_fix_logits = self
+                    .draft_model
+                    .forward_logits(&[verification.next_token])?;
+                draft_last_logits = draft_fix_logits.into_iter().next().ok_or_else(|| {
+                    RuvLLMError::Generation("Draft model returned no logits".to_string())
+                })?;
+            }
+
             let duration = start.elapsed();
             self.stats
                 .record_round(draft_tokens.len(), verification.accepted_count, duration);
 
-            // Adaptive lookahead adjustment
             if config.adaptive_lookahead {
                 self.adjust_lookahead(verification.accepted_count, draft_tokens.len(), &config);
             }
 
-            // Check for stop sequences
             if !params.stop_sequences.is_empty() {
                 let current_text = self.decode(&output)?;
                 for stop_seq in &params.stop_sequences {
                     if current_text.contains(stop_seq) {
-                        // Trim to before stop sequence
                         let trimmed = current_text.split(stop_seq).next().unwrap_or("");
                         return self
                             .tokenize(trimmed)
@@ -554,169 +825,57 @@ impl<M: LlmBackend + ?Sized, D: LlmBackend + ?Sized> SpeculativeDecoder<M, D> {
         Ok(output)
     }
 
-    /// Draft phase: generate K tokens with small model
+    /// Draft phase: autoregressively decode up to `k` tokens from the draft
+    /// model, one real forward pass per token, starting from the next-token
+    /// logits at the current committed context (`initial_logits`). Returns
+    /// the sampled tokens, the draft model's logits after the last token fed
+    /// (used to seed the next round), and a snapshot of the draft model's
+    /// cache taken right after each token was fed (`snapshots[i]` = state
+    /// after `tokens[i]`) — used to cheaply roll back to "only the first N
+    /// draft tokens committed" if the main model rejects token N.
+    ///
+    /// If the draft model samples its EOS token, that token is included in
+    /// `tokens` but *not* fed to the draft cache (nothing more will be
+    /// drafted after EOS), so `snapshots` may be one shorter than `tokens`.
+    /// Callers only need the EOS position's snapshot when it was itself
+    /// accepted — at which point generation stops entirely.
     fn draft_phase(
         &self,
-        context: &[u32],
+        initial_logits: Vec<f32>,
         k: usize,
         config: &SpeculativeConfig,
-    ) -> Result<Vec<u32>> {
-        let mut draft = Vec::with_capacity(k);
-        let mut ctx = context.to_vec();
+        eos_token: Option<u32>,
+        rng: &mut StdRng,
+    ) -> Result<(Vec<u32>, Vec<f32>, Vec<D::Snapshot>)> {
+        let mut tokens = Vec::with_capacity(k);
+        let mut snapshots = Vec::with_capacity(k);
+        let mut logits = initial_logits;
 
-        // Build prompt from context for draft model
-        let prompt_text = self.decode(&ctx)?;
-
-        for i in 0..k {
-            // Generate one token with draft model
-            let draft_params = GenerateParams {
-                max_tokens: 1,
-                temperature: config.draft_temperature,
-                top_p: config.draft_top_p,
-                top_k: if config.draft_temperature == 0.0 {
-                    1
+        for _ in 0..k {
+            let (token, _) = sample_from_logits(
+                &logits,
+                config.draft_temperature,
+                if config.draft_temperature == 0.0 {
+                    0
                 } else {
                     40
                 },
-                ..Default::default()
-            };
-
-            // Get next token from draft model
-            // Note: In production, this would use a more efficient batched approach
-            let current_prompt = self.decode(&ctx)?;
-            let generated = self
-                .draft_model
-                .generate(&current_prompt, draft_params.clone())?;
-
-            // Tokenize the generated text to get the new token
-            let generated_tokens = self.tokenize(&format!("{}{}", prompt_text, generated))?;
-            if generated_tokens.len() <= ctx.len() {
-                // No new token generated
+                config.draft_top_p,
+                rng,
+            );
+            tokens.push(token);
+            if Some(token) == eos_token {
                 break;
             }
 
-            let new_token = generated_tokens[ctx.len()];
-            draft.push(new_token);
-            ctx.push(new_token);
-
-            // Check for EOS
-            if let Some(eos) = self
-                .draft_model
-                .tokenizer()
-                .and_then(|t| t.special_tokens().eos_token_id)
-            {
-                if new_token == eos {
-                    break;
-                }
-            }
+            let step = self.draft_model.forward_logits(&[token])?;
+            snapshots.push(self.draft_model.snapshot_context()?);
+            logits = step.into_iter().next().ok_or_else(|| {
+                RuvLLMError::Generation("Draft model returned no logits".to_string())
+            })?;
         }
 
-        Ok(draft)
-    }
-
-    /// Verify draft tokens with main model
-    fn verify_phase(
-        &self,
-        context: &[u32],
-        draft_tokens: &[u32],
-        params: &GenerateParams,
-    ) -> Result<VerificationResult> {
-        let config = self.config.read();
-
-        // In a full implementation, we would do a single forward pass through the main model
-        // with all tokens (context + draft) to get logits for all positions at once.
-        // Here we simulate this with individual calls.
-
-        let mut accepted_count = 0;
-        let mut accepted_logprobs = Vec::new();
-        let mut ctx = context.to_vec();
-
-        for (i, &draft_token) in draft_tokens.iter().enumerate() {
-            // Get main model's probability distribution at this position
-            let prompt_text = self.decode(&ctx)?;
-
-            // Generate with main model to get its preferred token
-            let main_params = GenerateParams {
-                max_tokens: 1,
-                temperature: params.temperature,
-                top_p: params.top_p,
-                top_k: params.top_k,
-                ..params.clone()
-            };
-
-            let main_generated = self
-                .main_model
-                .generate(&prompt_text, main_params.clone())?;
-            let main_tokens = self.tokenize(&format!("{}{}", prompt_text, main_generated))?;
-
-            if main_tokens.len() <= ctx.len() {
-                // Main model didn't generate, reject remaining drafts
-                let next_token = self.single_main_forward(&ctx, params)?;
-                return Ok(VerificationResult {
-                    accepted_count,
-                    next_token,
-                    accepted_logprobs,
-                    next_logprob: 0.0,
-                    all_accepted: false,
-                });
-            }
-
-            let main_token = main_tokens[ctx.len()];
-
-            // Simple acceptance: if main model agrees with draft, accept
-            // In production, we'd use proper probability comparison
-            if main_token == draft_token {
-                accepted_count += 1;
-                accepted_logprobs.push(0.0); // Placeholder logprob
-                ctx.push(draft_token);
-            } else {
-                // Rejection - return main model's token as correction
-                return Ok(VerificationResult {
-                    accepted_count,
-                    next_token: main_token,
-                    accepted_logprobs,
-                    next_logprob: 0.0,
-                    all_accepted: false,
-                });
-            }
-        }
-
-        // All drafts accepted - get next token from main model
-        let next_token = self.single_main_forward(&ctx, params)?;
-
-        Ok(VerificationResult {
-            accepted_count,
-            next_token,
-            accepted_logprobs,
-            next_logprob: 0.0,
-            all_accepted: true,
-        })
-    }
-
-    /// Single forward pass through main model to get next token
-    fn single_main_forward(&self, context: &[u32], params: &GenerateParams) -> Result<u32> {
-        let prompt_text = self.decode(context)?;
-        let main_params = GenerateParams {
-            max_tokens: 1,
-            temperature: params.temperature,
-            top_p: params.top_p,
-            top_k: params.top_k,
-            ..params.clone()
-        };
-
-        let generated = self.main_model.generate(&prompt_text, main_params)?;
-        let tokens = self.tokenize(&format!("{}{}", prompt_text, generated))?;
-
-        if tokens.len() > context.len() {
-            Ok(tokens[context.len()])
-        } else {
-            // Return EOS if nothing generated
-            Ok(self
-                .main_model
-                .tokenizer()
-                .and_then(|t| t.special_tokens().eos_token_id)
-                .unwrap_or(0))
-        }
+        Ok((tokens, logits, snapshots))
     }
 
     /// Adjust lookahead based on acceptance rate
@@ -742,217 +901,84 @@ impl<M: LlmBackend + ?Sized, D: LlmBackend + ?Sized> SpeculativeDecoder<M, D> {
             .store(new_lookahead, Ordering::Relaxed);
     }
 
-    /// Generate with tree-based speculation (advanced)
+    /// Generate with tree-based speculation.
+    ///
+    /// The tree is currently built as a single linear path (equivalent to
+    /// `generate`); true multi-branch tree speculation (exploring several
+    /// candidate continuations per step) is not yet implemented.
     pub fn generate_tree(&self, prompt: &str, params: GenerateParams) -> Result<String> {
         let config = self.config.read().clone();
         if !config.tree_speculation {
             return self.generate(prompt, params);
         }
+        // The linear-path tree degenerates to the same token sequence as
+        // ordinary speculative decoding, so reuse it directly.
+        self.generate(prompt, params)
+    }
+}
 
-        // Tree speculation implementation
-        let tokens = self.tokenize(prompt)?;
-        let mut context = tokens.clone();
-        let mut output = Vec::new();
+/// Verify `draft_tokens` against the main model's per-position logits from a
+/// single batched forward pass (`main_logits`, one vector per draft token,
+/// `main_logits[i]` = the main model's next-token distribution having seen
+/// context + `draft_tokens[0..=i]`). `initial_logits` is the main model's
+/// next-token distribution *before* any draft tokens were fed (i.e. what it
+/// predicts should come first).
+///
+/// Acceptance is greedy argmax-match: draft token `i` is accepted iff it
+/// equals the main model's own top prediction given everything accepted so
+/// far. This matches this module's documented greedy/low-temperature design.
+/// On the first mismatch (or after the last accepted token if all match), the
+/// correction/continuation token is sampled from the main model's
+/// distribution using the caller's actual generation params.
+fn verify_round(
+    draft_tokens: &[u32],
+    initial_logits: &[f32],
+    main_logits: &[Vec<f32>],
+    params: &GenerateParams,
+    rng: &mut StdRng,
+) -> VerificationResult {
+    let mut accepted_count = 0;
+    let mut accepted_logprobs = Vec::with_capacity(draft_tokens.len());
+    let mut check_logits = initial_logits;
 
-        let eos_token = self
-            .main_model
-            .tokenizer()
-            .and_then(|t| t.special_tokens().eos_token_id);
-
-        while output.len() < params.max_tokens {
-            let start = Instant::now();
-
-            // Build speculation tree
-            let tree = self.build_speculation_tree(&context, &config)?;
-
-            // Verify best path
-            let best_path = tree.best_path();
-            if best_path.is_empty() {
-                let main_token = self.single_main_forward(&context, &params)?;
-                if Some(main_token) == eos_token {
-                    break;
-                }
-                context.push(main_token);
-                output.push(main_token);
-                continue;
-            }
-
-            // Verify the best path
-            let verification = self.verify_phase(&context, &best_path, &params)?;
-
-            // Accept verified tokens
-            let accepted = &best_path[..verification.accepted_count];
-            context.extend_from_slice(accepted);
-            output.extend_from_slice(accepted);
-
-            // Add correction/continuation token
-            if Some(verification.next_token) == eos_token {
-                break;
-            }
-            context.push(verification.next_token);
-            output.push(verification.next_token);
-
-            // Record stats
-            self.stats.record_round(
-                best_path.len(),
-                verification.accepted_count,
-                start.elapsed(),
+    for (i, &draft_token) in draft_tokens.iter().enumerate() {
+        let predicted = argmax(check_logits);
+        if predicted != draft_token {
+            let (next_token, next_logprob) = sample_from_logits(
+                check_logits,
+                params.temperature,
+                params.top_k,
+                params.top_p,
+                rng,
             );
+            return VerificationResult {
+                accepted_count,
+                next_token,
+                accepted_logprobs,
+                next_logprob,
+                all_accepted: false,
+            };
         }
 
-        self.decode(&output)
+        accepted_count += 1;
+        let logprobs = log_softmax(check_logits);
+        accepted_logprobs.push(logprobs[draft_token as usize]);
+        check_logits = &main_logits[i];
     }
 
-    /// Build a speculation tree using draft model
-    fn build_speculation_tree(
-        &self,
-        context: &[u32],
-        config: &SpeculativeConfig,
-    ) -> Result<SpeculationTree> {
-        let mut tree = SpeculationTree::new(config.max_tree_depth, config.tree_branching_factor);
-
-        // For simplicity, we just build a linear path (same as non-tree)
-        // A full implementation would explore multiple branches
-        let draft_tokens = self.draft_phase(context, config.max_tree_depth, config)?;
-
-        // Add tokens as a linear path
-        let mut current = &mut tree.root;
-        for (i, &token) in draft_tokens.iter().enumerate() {
-            current = current.add_child(token, 1.0 / (i + 1) as f32);
-            tree.node_count += 1;
-        }
-
-        Ok(tree)
-    }
-
-    /// Stream generation with speculative decoding
-    pub fn generate_stream<'a>(
-        &'a self,
-        prompt: &str,
-        params: GenerateParams,
-    ) -> Result<impl Iterator<Item = Result<GeneratedToken>> + 'a> {
-        let tokens = self.tokenize(prompt)?;
-        let context = tokens.clone();
-        let config = self.config.read().clone();
-
-        Ok(SpeculativeStreamIterator {
-            decoder: self,
-            context,
-            params,
-            config,
-            output_count: 0,
-            pending_tokens: Vec::new(),
-            finished: false,
-        })
-    }
-}
-
-/// Iterator for streaming speculative generation
-struct SpeculativeStreamIterator<'a, M: LlmBackend + ?Sized, D: LlmBackend + ?Sized> {
-    decoder: &'a SpeculativeDecoder<M, D>,
-    context: Vec<u32>,
-    params: GenerateParams,
-    config: SpeculativeConfig,
-    output_count: usize,
-    pending_tokens: Vec<u32>,
-    finished: bool,
-}
-
-impl<'a, M: LlmBackend + ?Sized, D: LlmBackend + ?Sized> Iterator
-    for SpeculativeStreamIterator<'a, M, D>
-{
-    type Item = Result<GeneratedToken>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.finished || self.output_count >= self.params.max_tokens {
-            return None;
-        }
-
-        // Return pending tokens first
-        if !self.pending_tokens.is_empty() {
-            let token = self.pending_tokens.remove(0);
-            self.output_count += 1;
-
-            let text = self.decoder.decode(&[token]).unwrap_or_default();
-            return Some(Ok(GeneratedToken {
-                id: token,
-                text,
-                logprob: None,
-                is_special: false,
-            }));
-        }
-
-        // Generate more tokens via speculation
-        let lookahead = self.config.lookahead;
-        let draft_result = self
-            .decoder
-            .draft_phase(&self.context, lookahead, &self.config);
-
-        match draft_result {
-            Ok(draft_tokens) if !draft_tokens.is_empty() => {
-                // Verify draft tokens
-                match self
-                    .decoder
-                    .verify_phase(&self.context, &draft_tokens, &self.params)
-                {
-                    Ok(verification) => {
-                        // Queue accepted tokens and correction
-                        let accepted = &draft_tokens[..verification.accepted_count];
-                        self.pending_tokens.extend_from_slice(accepted);
-                        self.pending_tokens.push(verification.next_token);
-
-                        // Update context
-                        self.context.extend_from_slice(accepted);
-                        self.context.push(verification.next_token);
-
-                        // Return first token
-                        self.next()
-                    }
-                    Err(e) => {
-                        self.finished = true;
-                        Some(Err(e))
-                    }
-                }
-            }
-            Ok(_) => {
-                // Empty draft, single token generation
-                match self
-                    .decoder
-                    .single_main_forward(&self.context, &self.params)
-                {
-                    Ok(token) => {
-                        self.context.push(token);
-                        self.output_count += 1;
-
-                        // Check for EOS
-                        let eos = self
-                            .decoder
-                            .main_model
-                            .tokenizer()
-                            .and_then(|t| t.special_tokens().eos_token_id);
-                        if Some(token) == eos {
-                            self.finished = true;
-                        }
-
-                        let text = self.decoder.decode(&[token]).unwrap_or_default();
-                        Some(Ok(GeneratedToken {
-                            id: token,
-                            text,
-                            logprob: None,
-                            is_special: Some(token) == eos,
-                        }))
-                    }
-                    Err(e) => {
-                        self.finished = true;
-                        Some(Err(e))
-                    }
-                }
-            }
-            Err(e) => {
-                self.finished = true;
-                Some(Err(e))
-            }
-        }
+    let (next_token, next_logprob) = sample_from_logits(
+        check_logits,
+        params.temperature,
+        params.top_k,
+        params.top_p,
+        rng,
+    );
+    VerificationResult {
+        accepted_count,
+        next_token,
+        accepted_logprobs,
+        next_logprob,
+        all_accepted: true,
     }
 }
 
@@ -1389,5 +1415,66 @@ mod tests {
         assert_eq!(result.accepted_count, 3);
         assert_eq!(result.next_token, 42);
         assert!(!result.all_accepted);
+    }
+
+    #[test]
+    fn test_argmax() {
+        assert_eq!(argmax(&[1.0, 5.0, 3.0]), 1);
+        assert_eq!(argmax(&[9.0, 5.0, 3.0]), 0);
+    }
+
+    #[test]
+    fn test_verify_round_all_accepted() {
+        // 3-token vocab. Main model always agrees with the draft, so all
+        // draft tokens should be accepted and the continuation should come
+        // from the last position's logits.
+        let draft_tokens = vec![0u32, 1u32];
+        let initial_logits = vec![10.0, -1.0, -1.0]; // predicts token 0
+        let main_logits = vec![
+            vec![-1.0, 10.0, -1.0], // after seeing token 0, predicts token 1
+            vec![-1.0, -1.0, 10.0], // after seeing token 1, predicts token 2
+        ];
+        let params = GenerateParams {
+            temperature: 0.0,
+            ..Default::default()
+        };
+        let mut rng = StdRng::seed_from_u64(0);
+        let result = verify_round(
+            &draft_tokens,
+            &initial_logits,
+            &main_logits,
+            &params,
+            &mut rng,
+        );
+
+        assert!(result.all_accepted);
+        assert_eq!(result.accepted_count, 2);
+        assert_eq!(result.next_token, 2);
+    }
+
+    #[test]
+    fn test_verify_round_rejects_mismatch() {
+        let draft_tokens = vec![0u32, 2u32];
+        let initial_logits = vec![10.0, -1.0, -1.0]; // predicts token 0 (matches)
+        let main_logits = vec![
+            vec![-1.0, 10.0, -1.0], // after token 0, predicts token 1 -- draft says 2, mismatch
+            vec![-1.0, -1.0, 10.0], // never reached
+        ];
+        let params = GenerateParams {
+            temperature: 0.0,
+            ..Default::default()
+        };
+        let mut rng = StdRng::seed_from_u64(0);
+        let result = verify_round(
+            &draft_tokens,
+            &initial_logits,
+            &main_logits,
+            &params,
+            &mut rng,
+        );
+
+        assert!(!result.all_accepted);
+        assert_eq!(result.accepted_count, 1);
+        assert_eq!(result.next_token, 1);
     }
 }

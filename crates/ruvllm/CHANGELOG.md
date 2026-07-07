@@ -5,6 +5,29 @@ All notable changes to the ruvllm crate will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Real speculative decoding: `speculative.rs`'s `SpeculativeDecoder` now drafts and
+  verifies against actual model logits (single batched forward pass per round to
+  verify K draft tokens) instead of the previous text-roundtrip stub. Requires a new
+  `SpeculativeBackend` trait (implemented for `CandleBackend`) exposing per-position
+  batched logits and cheap KV-cache snapshot/restore. See `examples/speculative_bench.rs`
+  for real measured tokens/sec on Llama-2-7B (main) + TinyLlama-1.1B (draft), GGUF.
+- `ruvllm_sparse_attention` integration: prompt-prefill attention in the GGUF
+  (`QuantizedLlama`) backend can now route through
+  `ruvllm_sparse_attention::SubquadraticSparseAttention` instead of dense causal
+  attention, via the new `sparse-attention` feature and
+  `CandleBackend::enable_sparse_attention`. See `examples/sparse_attention_check.rs`.
+- `patches/candle-transformers`: a patched copy of candle-transformers 0.9.2 (see
+  `patches/README.md`) adding `ModelWeights::forward_all_positions` (per-position
+  logits from a multi-token forward pass), `snapshot_kv_cache`/`restore_kv_cache`,
+  a fix for the causal mask when continuing a non-empty KV cache with more than one
+  new token, and (behind `sparse-attention`) `forward_sparse`/`forward_attn_sparse`.
+- `CandleBackend::forward_multi`, `reset_context`, `context_len`, `snapshot_context`,
+  `restore_context`, `vocab_size` — the primitives speculative decoding needs, usable
+  independently of it.
+
 ## [2.0.0] - 2025-01-19
 
 ### Added

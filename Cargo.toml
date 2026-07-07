@@ -369,5 +369,12 @@ debug = true
 
 # Patch hnsw_rs to use rand 0.8 instead of 0.9 for WASM compatibility
 # This resolves the getrandom version conflict (0.2 vs 0.3)
+#
+# Patch candle-transformers (0.9.2) to add ModelWeights::forward_all_positions,
+# which returns per-position logits for a multi-token forward pass instead of
+# only the last position. Needed by ruvllm's speculative decoding to verify
+# several draft tokens against the main model in a single batched forward
+# pass; upstream's `forward()` always slices to the final position.
 [patch.crates-io]
 hnsw_rs = { path = "./patches/hnsw_rs" }
+candle-transformers = { path = "./patches/candle-transformers" }
