@@ -505,31 +505,37 @@ println!("Batch utilization: {:.1}%", stats.avg_batch_utilization * 100.0);
 
 ## Speculative Decoding
 
-Accelerate generation with draft models:
+Accelerate generation with a small draft model, verified against the main model in
+batched forward passes. Main and draft models **must share a tokenizer/vocabulary**
+(e.g. TinyLlama-1.1B drafting for Llama-2-7B/13B, which use the same tokenizer) — see
+`src/speculative.rs` module docs for the full design, its KV-cache-recovery approach,
+and measured tokens/sec on real weights (`examples/speculative_bench.rs`).
 
 ```rust
 use ruvllm::speculative::{SpeculativeDecoder, SpeculativeConfig};
+use std::sync::Arc;
 
 let config = SpeculativeConfig {
-    draft_tokens: 4,           // Tokens to draft per step
-    acceptance_threshold: 0.8, // Min probability for acceptance
+    lookahead: 5,               // Draft tokens to speculate per round
     ..Default::default()
 };
 
 let decoder = SpeculativeDecoder::new(
-    target_model,
-    draft_model,
+    Arc::new(target_model),
+    Arc::new(draft_model),
     config,
-)?;
+);
 
-// Generate with speculation
+// Generate with speculation (greedy/low-temperature — see should_use_speculative)
 let output = decoder.generate(prompt, GenerateParams {
     max_tokens: 256,
+    temperature: 0.0,
     ..Default::default()
 })?;
 
-println!("Acceptance rate: {:.1}%", output.stats.acceptance_rate * 100.0);
-println!("Speedup: {:.2}x", output.stats.speedup);
+let stats = decoder.stats();
+println!("Acceptance rate: {:.1}%", stats.acceptance_rate * 100.0);
+println!("Avg tokens per main-model forward pass: {:.2}", stats.avg_tokens_per_main_pass);
 ```
 
 ## GGUF Model Loading

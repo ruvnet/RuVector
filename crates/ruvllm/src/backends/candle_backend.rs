@@ -131,6 +131,15 @@ mod candle_impl {
         QuantizedLlama(qlama::ModelWeights),
     }
 
+    /// A cheap, restorable capture of a `QuantizedLlama` backend's KV cache
+    /// and sequence position, taken by `CandleBackend::snapshot_context`.
+    /// The `Tensor`s inside are shared-storage clones (no data copy), so
+    /// snapshotting is O(num_layers) rather than O(context length).
+    pub struct CandleContextSnapshot {
+        pos: usize,
+        kv_cache: Vec<Option<(candle_core::Tensor, candle_core::Tensor)>>,
+    }
+
     /// Wrapper for loaded model state
     pub struct LoadedModel {
         /// Model inner variant (wrapped in Mutex for interior mutability)
@@ -204,6 +213,11 @@ mod candle_impl {
         current_pos: Mutex<usize>,
         /// SONA self-learning integration
         sona: Option<SonaIntegration>,
+        /// Optional sparse-attention backend for prompt prefill (see
+        /// `enable_sparse_attention`). `None` means dense causal attention
+        /// throughout, the pre-existing behavior.
+        #[cfg(feature = "sparse-attention")]
+        sparse_attention: Option<ruvllm_sparse_attention::SubquadraticSparseAttention>,
     }
 
     impl Default for CandleBackend {
@@ -218,6 +232,8 @@ mod candle_impl {
                 model_id: String::new(),
                 current_pos: Mutex::new(0),
                 sona: Some(SonaIntegration::new(SonaConfig::default())),
+                #[cfg(feature = "sparse-attention")]
+                sparse_attention: None,
             }
         }
     }
@@ -242,7 +258,42 @@ mod candle_impl {
                 model_id: String::new(),
                 current_pos: Mutex::new(0),
                 sona: Some(SonaIntegration::new(SonaConfig::default())),
+                #[cfg(feature = "sparse-attention")]
+                sparse_attention: None,
             })
+        }
+
+        /// Enable sparse attention for prompt-prefill forward passes on this
+        /// backend (see `patches/candle-transformers`'s `forward_sparse`).
+        /// Only affects GGUF (`QuantizedLlama`) models; a no-op check happens
+        /// lazily at forward time for other architectures. Incremental decode
+        /// steps are unaffected — they keep using dense/SDPA attention (see
+        /// module docs on why `SubquadraticSparseAttention::forward_gqa`
+        /// can't serve continuation steps).
+        #[cfg(feature = "sparse-attention")]
+        pub fn enable_sparse_attention(
+            &mut self,
+            config: ruvllm_sparse_attention::SparseAttentionConfig,
+        ) -> Result<()> {
+            let attn =
+                ruvllm_sparse_attention::SubquadraticSparseAttention::new(config).map_err(|e| {
+                    RuvLLMError::Config(format!("Invalid sparse attention config: {e}"))
+                })?;
+            self.sparse_attention = Some(attn);
+            Ok(())
+        }
+
+        /// Disable sparse attention, reverting to dense causal attention for
+        /// all forward passes (including prefill).
+        #[cfg(feature = "sparse-attention")]
+        pub fn disable_sparse_attention(&mut self) {
+            self.sparse_attention = None;
+        }
+
+        /// Whether sparse attention is currently enabled on this backend.
+        #[cfg(feature = "sparse-attention")]
+        pub fn sparse_attention_enabled(&self) -> bool {
+            self.sparse_attention.is_some()
         }
 
         /// Get SONA learning stats
@@ -978,6 +1029,17 @@ mod candle_impl {
             })?;
 
             let logits = match &mut *inner {
+                #[cfg(feature = "sparse-attention")]
+                LoadedModelInner::QuantizedLlama(m) if self.sparse_attention.is_some() => {
+                    let sparse = self
+                        .sparse_attention
+                        .as_ref()
+                        .expect("checked by match guard");
+                    m.forward_sparse(input_ids, current_pos, sparse)
+                        .map_err(|e| {
+                            RuvLLMError::Generation(format!("Forward pass failed: {}", e))
+                        })?
+                }
                 LoadedModelInner::QuantizedLlama(m) => m
                     .forward(input_ids, current_pos)
                     .map_err(|e| RuvLLMError::Generation(format!("Forward pass failed: {}", e)))?,
@@ -991,6 +1053,177 @@ mod candle_impl {
 
             *pos += seq_len;
             Ok(logits)
+        }
+
+        /// Forward pass returning logits for every input position, not just
+        /// the last one.
+        ///
+        /// Only `QuantizedLlama` (GGUF) models support this — it relies on
+        /// `forward_all_positions` from the patched `candle-transformers`
+        /// (see `patches/candle-transformers` at the workspace root).
+        /// Mistral/Llama safetensors variants only expose the upstream
+        /// last-position-only `forward()`.
+        fn forward_all(&self, input_ids: &Tensor, seq_len: usize) -> Result<Tensor> {
+            let model = self
+                .model
+                .as_ref()
+                .ok_or_else(|| RuvLLMError::InvalidOperation("No model loaded".to_string()))?;
+
+            let mut pos = self.current_pos.lock().expect("current_pos mutex poisoned");
+            let current_pos = *pos;
+
+            let mut inner = model.inner.lock().map_err(|e| {
+                RuvLLMError::Backend(format!("Failed to acquire model lock: {}", e))
+            })?;
+
+            let logits = match &mut *inner {
+                #[cfg(feature = "sparse-attention")]
+                LoadedModelInner::QuantizedLlama(m) if self.sparse_attention.is_some() => {
+                    let sparse = self
+                        .sparse_attention
+                        .as_ref()
+                        .expect("checked by match guard");
+                    m.forward_all_positions_sparse(input_ids, current_pos, sparse)
+                        .map_err(|e| {
+                            RuvLLMError::Generation(format!("Forward pass failed: {}", e))
+                        })?
+                }
+                LoadedModelInner::QuantizedLlama(m) => m
+                    .forward_all_positions(input_ids, current_pos)
+                    .map_err(|e| RuvLLMError::Generation(format!("Forward pass failed: {}", e)))?,
+                LoadedModelInner::Mistral(_) | LoadedModelInner::Llama(..) => {
+                    return Err(RuvLLMError::InvalidOperation(
+                        "Per-position batched logits are only supported for GGUF \
+                         (QuantizedLlama) models"
+                            .to_string(),
+                    ));
+                }
+            };
+
+            *pos += seq_len;
+            Ok(logits)
+        }
+
+        /// Feed one or more new tokens through the model, continuing from
+        /// wherever the KV cache currently is, and return the next-token
+        /// logits at *every* fed position (one `Vec<f32>` of length
+        /// `vocab_size` per input token).
+        ///
+        /// This is the primitive speculative decoding needs to verify K
+        /// draft tokens in a single forward pass instead of K sequential
+        /// decode steps. See `forward_all` for the backend-support caveat.
+        pub fn forward_multi(&self, tokens: &[u32]) -> Result<Vec<Vec<f32>>> {
+            if tokens.is_empty() {
+                return Ok(Vec::new());
+            }
+
+            let input_tensor = Tensor::new(tokens, &self.device)
+                .and_then(|t| t.unsqueeze(0))
+                .map_err(|e| RuvLLMError::Generation(e.to_string()))?;
+
+            let logits = self.forward_all(&input_tensor, tokens.len())?;
+
+            let logits = if logits.dims().len() == 3 {
+                logits.squeeze(0).map_err(|e| {
+                    RuvLLMError::Generation(format!("Failed to squeeze logits: {}", e))
+                })?
+            } else {
+                logits
+            };
+
+            let seq_len = logits
+                .dim(0)
+                .map_err(|e| RuvLLMError::Generation(format!("Failed to get seq_len: {}", e)))?;
+
+            let mut per_position = Vec::with_capacity(seq_len);
+            for i in 0..seq_len {
+                let row = logits
+                    .i(i)
+                    .map_err(|e| RuvLLMError::Generation(format!("Failed to index row: {}", e)))?;
+                let row_vec: Vec<f32> = row.to_vec1().map_err(|e| {
+                    RuvLLMError::Generation(format!("Failed to convert logits: {}", e))
+                })?;
+                per_position.push(row_vec);
+            }
+
+            Ok(per_position)
+        }
+
+        /// Reset the KV cache and sequence position, starting a fresh
+        /// context. Public wrapper around `clear_kv_cache` for callers
+        /// (like speculative decoding) that need to recover from a rejected
+        /// draft token by replaying context from scratch.
+        pub fn reset_context(&self) {
+            self.clear_kv_cache();
+        }
+
+        /// Current KV-cache position (number of tokens already fed through
+        /// the model in this context).
+        pub fn context_len(&self) -> usize {
+            *self.current_pos.lock().expect("current_pos mutex poisoned")
+        }
+
+        /// Vocabulary size of the loaded model, if any.
+        pub fn vocab_size(&self) -> Option<usize> {
+            self.model.as_ref().map(|m| m.info.vocab_size)
+        }
+
+        /// Snapshot the current KV cache + position so it can be restored
+        /// later via `restore_context`, without paying for a full reset and
+        /// replay. `Tensor` clones share underlying storage (they're not
+        /// data copies), so this is cheap — O(num_layers), not O(context
+        /// length). Only `QuantizedLlama` (GGUF) models support this.
+        pub fn snapshot_context(&self) -> Result<CandleContextSnapshot> {
+            let model = self
+                .model
+                .as_ref()
+                .ok_or_else(|| RuvLLMError::InvalidOperation("No model loaded".to_string()))?;
+            let pos = self.context_len();
+            let inner = model.inner.lock().map_err(|e| {
+                RuvLLMError::Backend(format!("Failed to acquire model lock: {}", e))
+            })?;
+            match &*inner {
+                LoadedModelInner::QuantizedLlama(m) => Ok(CandleContextSnapshot {
+                    pos,
+                    kv_cache: m.snapshot_kv_cache(),
+                }),
+                LoadedModelInner::Mistral(_) | LoadedModelInner::Llama(..) => {
+                    Err(RuvLLMError::InvalidOperation(
+                        "Context snapshot/restore is only supported for GGUF \
+                         (QuantizedLlama) models"
+                            .to_string(),
+                    ))
+                }
+            }
+        }
+
+        /// Restore a KV cache + position previously captured by
+        /// `snapshot_context`. Used by speculative decoding to walk back a
+        /// rejected draft token cheaply instead of resetting to position 0
+        /// and replaying the whole context.
+        pub fn restore_context(&self, snapshot: &CandleContextSnapshot) -> Result<()> {
+            let model = self
+                .model
+                .as_ref()
+                .ok_or_else(|| RuvLLMError::InvalidOperation("No model loaded".to_string()))?;
+            let mut inner = model.inner.lock().map_err(|e| {
+                RuvLLMError::Backend(format!("Failed to acquire model lock: {}", e))
+            })?;
+            match &mut *inner {
+                LoadedModelInner::QuantizedLlama(m) => {
+                    m.restore_kv_cache(&snapshot.kv_cache);
+                }
+                LoadedModelInner::Mistral(_) | LoadedModelInner::Llama(..) => {
+                    return Err(RuvLLMError::InvalidOperation(
+                        "Context snapshot/restore is only supported for GGUF \
+                         (QuantizedLlama) models"
+                            .to_string(),
+                    ));
+                }
+            }
+            drop(inner);
+            *self.current_pos.lock().expect("current_pos mutex poisoned") = snapshot.pos;
+            Ok(())
         }
 
         /// Clear the KV cache and reset position
@@ -1775,7 +2008,7 @@ mod stub_impl {
 // ============================================================================
 
 #[cfg(feature = "candle")]
-pub use candle_impl::{CandleBackend, CandleTokenizer};
+pub use candle_impl::{CandleBackend, CandleContextSnapshot, CandleTokenizer};
 
 #[cfg(not(feature = "candle"))]
 pub use stub_impl::{CandleBackend, CandleTokenizer};

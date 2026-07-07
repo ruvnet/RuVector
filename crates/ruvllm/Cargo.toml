@@ -68,6 +68,11 @@ candle-core = { version = "0.9", optional = true }
 candle-nn = { version = "0.9", optional = true }
 candle-transformers = { version = "0.9", optional = true }
 
+# Subquadratic sparse attention, optionally spliced into the candle-transformers
+# GGUF inference path (patches/candle-transformers) for prompt prefill. See the
+# `sparse-attention` feature below.
+ruvllm_sparse_attention = { path = "../ruvllm_sparse_attention", optional = true }
+
 # Direct cudarc access for fused CUDA kernels (fused-act feature).
 # Upgraded to 0.19 alongside candle 0.9 — supports CUDA 13.0 natively.
 cudarc = { version = "0.19", optional = true, default-features = false, features = ["nvrtc", "driver", "std"] }
@@ -155,6 +160,18 @@ parallel = ["dep:rayon"]
 # the openssl-sys-via-hf-hub-via-ureq cross-link mess. Local-path model
 # load works without it; HF Hub fetch needs `hub-download` feature.
 candle = ["candle-core", "candle-nn", "candle-transformers", "tokenizers"]
+
+# Route the candle GGUF backend's prompt-prefill attention through
+# ruvllm_sparse_attention::SubquadraticSparseAttention instead of dense O(n^2)
+# causal attention. See patches/candle-transformers's quantized_llama.rs
+# (forward_sparse / forward_attn_sparse) and CandleBackend::load_gguf's
+# `sparse_attention` config for the wiring; falls back to dense attention for
+# incremental decode steps, where prefill's forward_gqa contract doesn't apply.
+sparse-attention = [
+    "candle",
+    "candle-transformers/sparse-attention",
+    "dep:ruvllm_sparse_attention",
+]
 
 # Lattice backend for LLM inference (pure-Rust, Metal acceleration on Mac).
 # macOS-only today: the dependency is declared under
@@ -301,6 +318,16 @@ path = "examples/benchmark_model.rs"
 name = "run_eval"
 path = "examples/run_eval.rs"
 required-features = ["async-runtime"]
+
+[[example]]
+name = "speculative_bench"
+path = "examples/speculative_bench.rs"
+required-features = ["candle"]
+
+[[example]]
+name = "sparse_attention_check"
+path = "examples/sparse_attention_check.rs"
+required-features = ["sparse-attention"]
 
 # Lint configuration for the package
 [lints.clippy]
