@@ -25,6 +25,7 @@ members = [
     "crates/ruvector-temporal-coherence",
     "crates/ruvector-acorn",
     "crates/ruvector-acorn-wasm",
+    "crates/ruvector-sq-hnsw",
     "crates/ruvector-coherence-hnsw",
     "crates/ruvector-rabitq",
     "crates/ruvector-rabitq-wasm",

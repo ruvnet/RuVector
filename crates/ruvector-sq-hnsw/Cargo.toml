@@ -1,0 +1,20 @@
+[package]
+name = "ruvector-sq-hnsw"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Scalar-quantized HNSW with online calibration and approximate-then-rerank search — SQ8 int8 graph traversal with optional float32 reranking for 2-4x latency reduction"
+readme = "README.md"
+keywords = ["vector-search", "hnsw", "quantization", "ann", "approximate-search"]
+categories = ["algorithms", "data-structures", "science"]
+
+[[bin]]
+name = "sq-hnsw-benchmark"
+path = "src/main.rs"
+
+[dependencies]
+rand = { workspace = true }
+thiserror = { workspace = true }
