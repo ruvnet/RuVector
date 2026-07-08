@@ -1,0 +1,20 @@
+[package]
+name = "ruvector-slipstream"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Slipstream: warm-start streaming HNSW insertions exploiting inter-arrival spatial locality"
+keywords = ["vector-search", "hnsw", "streaming", "ann", "agent-memory"]
+categories = ["algorithms", "data-structures", "science"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+rand       = { workspace = true }
+rand_distr = { workspace = true }
+thiserror  = { workspace = true }

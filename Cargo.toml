@@ -26,6 +26,7 @@ members = [
     "crates/ruvector-acorn",
     "crates/ruvector-acorn-wasm",
     "crates/ruvector-coherence-hnsw",
+    "crates/ruvector-slipstream",
     "crates/ruvector-rabitq",
     "crates/ruvector-rabitq-wasm",
     "crates/ruvector-rulake",
