@@ -32,6 +32,7 @@ members = [
     "crates/ruvector-core",
     "crates/ruvector-node",
     "crates/ruvector-wasm",
+    "crates/ruvector-rvq",
     "crates/ruvector-cli",
     "crates/ruvector-bench",
     "crates/ruvector-metrics",
