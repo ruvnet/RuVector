@@ -8,6 +8,7 @@ import type {
   RvfCompactionResult,
   RvfStatus,
   RvfFilterExpr,
+  RvfFilterValue,
   RvfKernelData,
   RvfEbpfData,
   RvfSegmentInfo,
@@ -60,6 +61,11 @@ export interface RvfBackend {
   // Inspection
   segments(): Promise<RvfSegmentInfo[]>;
   dimension(): Promise<number>;
+  // Byte-level persistence (for backends with no file-based storage, e.g. WASM)
+  /** Serialize the store to an in-memory `.rvf` byte buffer. */
+  exportBytes(): Promise<Uint8Array>;
+  /** Load a store from an in-memory `.rvf` byte buffer. */
+  openBytes(bytes: Uint8Array): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -145,6 +151,7 @@ export class NodeBackend implements RvfBackend {
   async ingestBatch(entries: RvfIngestEntry[]): Promise<RvfIngestResult> {
     this.ensureHandle();
     try {
+      rejectUnsupportedMetadata(entries);
       // NAPI signature: ingestBatch(vectors: Float32Array, ids: i64[], metadata?)
       // Flatten individual vectors into a single contiguous Float32Array.
       const n = entries.length;
@@ -396,6 +403,20 @@ export class NodeBackend implements RvfBackend {
     }
   }
 
+  async exportBytes(): Promise<Uint8Array> {
+    throw new RvfError(
+      RvfErrorCode.BackendNotFound,
+      'exportBytes is not supported by the node backend — use a file path with create()/open() instead',
+    );
+  }
+
+  async openBytes(_bytes: Uint8Array): Promise<void> {
+    throw new RvfError(
+      RvfErrorCode.BackendNotFound,
+      'openBytes is not supported by the node backend — use a file path with open() instead',
+    );
+  }
+
   // ─── String ID ↔ Numeric Label mapping helpers ───
 
   /**
@@ -540,6 +561,7 @@ export class WasmBackend implements RvfBackend {
   async ingestBatch(entries: RvfIngestEntry[]): Promise<RvfIngestResult> {
     this.ensureHandle();
     try {
+      rejectUnsupportedMetadata(entries);
       const n = entries.length;
       if (n === 0) return { accepted: 0, rejected: 0, epoch: 0 };
       const dim = this.dim || (entries[0].vector instanceof Float32Array
@@ -685,6 +707,53 @@ export class WasmBackend implements RvfBackend {
     if (d < 0) throw new RvfError(RvfErrorCode.StoreClosed);
     return d;
   }
+
+  /**
+   * Serialize the in-memory store to `.rvf` bytes via the `rvf_store_export`
+   * C-ABI export. `rvf_store_export` follows a probe-then-write pattern:
+   * called with a too-small (or zero-length) buffer it returns the negated
+   * required size, so we probe first, allocate exactly that much, then
+   * write for real.
+   */
+  async exportBytes(): Promise<Uint8Array> {
+    this.ensureHandle();
+    try {
+      const probe = this.wasm.rvf_store_export(this.handle, 0, 0);
+      const size = probe < 0 ? -probe : probe;
+      if (size <= 0) return new Uint8Array(0);
+      const ptr = this.wasm.rvf_alloc(size);
+      try {
+        const written = this.wasm.rvf_store_export(this.handle, ptr, size);
+        if (written < 0) {
+          throw new Error(`rvf_store_export failed after size probe (size=${size})`);
+        }
+        return new Uint8Array(this.wasm.memory.buffer, ptr, written).slice();
+      } finally {
+        this.wasm.rvf_free(ptr, size);
+      }
+    } catch (err) {
+      throw RvfError.fromNative(err);
+    }
+  }
+
+  /** Load a store from `.rvf` bytes via the `rvf_store_open` C-ABI import. */
+  async openBytes(bytes: Uint8Array): Promise<void> {
+    await this.loadWasm();
+    try {
+      const ptr = this.wasm.rvf_alloc(bytes.byteLength);
+      try {
+        new Uint8Array(this.wasm.memory.buffer, ptr, bytes.byteLength).set(bytes);
+        const h = this.wasm.rvf_store_open(ptr, bytes.byteLength);
+        if (h <= 0) throw new Error('rvf_store_open returned ' + h);
+        this.handle = h;
+        this.dim = this.wasm.rvf_store_dimension(h);
+      } finally {
+        this.wasm.rvf_free(ptr, bytes.byteLength);
+      }
+    } catch (err) {
+      throw RvfError.fromNative(err);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -780,9 +849,92 @@ function mapQueryOptionsToNative(options: RvfQueryOptions): Record<string, any> 
   return {
     ef_search: options.efSearch ?? 100,
     // NAPI accepts the filter as a JSON string, not an object.
-    filter: options.filter ? JSON.stringify(options.filter) : undefined,
+    filter: options.filter ? JSON.stringify(filterToNativeJson(options.filter)) : undefined,
     timeout_ms: options.timeoutMs ?? 0,
   };
+}
+
+/**
+ * Infer the native `valueType` ("u64" | "i64" | "f64" | "string" | "bool")
+ * from a JS filter value and stringify it, matching what the N-API filter
+ * parser requires (`crates/rvf/rvf-node/src/lib.rs::parse_filter_value`).
+ * The public `RvfFilterExpr` type deliberately omits `valueType` — the SDK
+ * infers it here so callers don't have to know the native wire format
+ * (issue #704: the SDK previously omitted `valueType` entirely, which the
+ * native parser requires and rejects).
+ */
+function filterValueToNative(value: RvfFilterValue): { valueType: string; value: string } {
+  if (typeof value === 'boolean') {
+    return { valueType: 'bool', value: value ? 'true' : 'false' };
+  }
+  if (typeof value === 'string') {
+    return { valueType: 'string', value };
+  }
+  // number: integers map to u64/i64 (native has no single "number" type),
+  // non-integers map to f64.
+  if (!Number.isInteger(value)) {
+    return { valueType: 'f64', value: String(value) };
+  }
+  return { valueType: value >= 0 ? 'u64' : 'i64', value: String(value) };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function filterToNativeJson(expr: RvfFilterExpr): Record<string, any> {
+  switch (expr.op) {
+    case 'eq':
+    case 'ne':
+    case 'lt':
+    case 'le':
+    case 'gt':
+    case 'ge': {
+      const { valueType, value } = filterValueToNative(expr.value);
+      return { op: expr.op, fieldId: expr.fieldId, valueType, value };
+    }
+    case 'in': {
+      // valueType must be uniform across all values for a single 'in' filter.
+      const converted = expr.values.map(filterValueToNative);
+      const valueType = converted[0]?.valueType ?? 'string';
+      return {
+        op: 'in',
+        fieldId: expr.fieldId,
+        valueType,
+        values: converted.map((c) => c.value),
+      };
+    }
+    case 'range': {
+      const lo = filterValueToNative(expr.low);
+      const hi = filterValueToNative(expr.high);
+      return {
+        op: 'range',
+        fieldId: expr.fieldId,
+        valueType: lo.valueType,
+        low: lo.value,
+        high: hi.value,
+      };
+    }
+    case 'and':
+      return { op: 'and', children: expr.exprs.map(filterToNativeJson) };
+    case 'or':
+      return { op: 'or', children: expr.exprs.map(filterToNativeJson) };
+    case 'not':
+      return { op: 'not', child: filterToNativeJson(expr.expr) };
+  }
+}
+
+/**
+ * Immediate safety measure for issue #704: the SDK does not yet have a
+ * design for mapping arbitrary string metadata field names to the native
+ * layer's numeric `fieldId` + typed `value`, so silently accepting
+ * `RvfIngestEntry.metadata` would silently drop it (the original bug).
+ * Reject loudly instead until metadata ingestion is implemented.
+ */
+function rejectUnsupportedMetadata(entries: RvfIngestEntry[]): void {
+  const hasMetadata = entries.some(
+    (e) => e.metadata && Object.keys(e.metadata).length > 0,
+  );
+  if (hasMetadata) {
+    throw new RvfError(RvfErrorCode.MetadataNotSupported);
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

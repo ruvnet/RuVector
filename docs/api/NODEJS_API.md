@@ -607,10 +607,21 @@ interface QuantizationConfig {
 
 ## Advanced Features
 
-### HybridSearch
+> **Not yet available in the `ruvector` Node package.** `HybridSearch`,
+> `FilteredSearch`, and `MMRSearch` below exist in the Rust core
+> (`ruvector-core::advanced_features`) but are **not bound or exported** by
+> `crates/ruvector-node` / the published `ruvector` npm package — see
+> [#707](https://github.com/ruvnet/RuVector/issues/707). Importing any of
+> these names from `ruvector` in Node.js currently returns `undefined`.
+> If you need hybrid/keyword search from JavaScript today, use AgentDB's
+> `HybridSearch` / `KeywordIndex` (`ruvnet/agentdb`) instead. The snippets
+> below describe the intended shape of a future Node binding, not a
+> currently shipped API.
+
+### HybridSearch (Rust-only; not exported to Node)
 
 ```javascript
-const { HybridSearch } = require('ruvector');
+const { HybridSearch } = require('ruvector'); // NOT YET SHIPPED — see #707
 
 const hybrid = new HybridSearch(db, {
     vectorWeight: 0.7,
@@ -626,10 +637,10 @@ const results = await hybrid.search(
 );
 ```
 
-### FilteredSearch
+### FilteredSearch (Rust-only; not exported to Node)
 
 ```javascript
-const { FilteredSearch } = require('ruvector');
+const { FilteredSearch } = require('ruvector'); // NOT YET SHIPPED — see #707
 
 const filtered = new FilteredSearch(db, 'preFilter');
 
@@ -641,10 +652,10 @@ const results = await filtered.search(queryVector, 10, {
 });
 ```
 
-### MMRSearch
+### MMRSearch (Rust-only; not exported to Node)
 
 ```javascript
-const { MMRSearch } = require('ruvector');
+const { MMRSearch } = require('ruvector'); // NOT YET SHIPPED — see #707
 
 const mmr = new MMRSearch(db, {
     lambda: 0.5,

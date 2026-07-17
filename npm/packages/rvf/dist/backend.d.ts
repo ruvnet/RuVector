@@ -35,6 +35,10 @@ export interface RvfBackend {
     extractEbpf(): Promise<RvfEbpfData | null>;
     segments(): Promise<RvfSegmentInfo[]>;
     dimension(): Promise<number>;
+    /** Serialize the store to an in-memory `.rvf` byte buffer. */
+    exportBytes(): Promise<Uint8Array>;
+    /** Load a store from an in-memory `.rvf` byte buffer. */
+    openBytes(bytes: Uint8Array): Promise<void>;
 }
 /**
  * Backend that delegates to the `@ruvector/rvf-node` native N-API addon.
@@ -72,6 +76,8 @@ export declare class NodeBackend implements RvfBackend {
     extractEbpf(): Promise<RvfEbpfData | null>;
     segments(): Promise<RvfSegmentInfo[]>;
     dimension(): Promise<number>;
+    exportBytes(): Promise<Uint8Array>;
+    openBytes(_bytes: Uint8Array): Promise<void>;
     /**
      * Get or allocate a numeric label for a string ID.
      * If the ID was already seen, returns the existing label.
@@ -121,6 +127,16 @@ export declare class WasmBackend implements RvfBackend {
     extractEbpf(): Promise<RvfEbpfData | null>;
     segments(): Promise<RvfSegmentInfo[]>;
     dimension(): Promise<number>;
+    /**
+     * Serialize the in-memory store to `.rvf` bytes via the `rvf_store_export`
+     * C-ABI export. `rvf_store_export` follows a probe-then-write pattern:
+     * called with a too-small (or zero-length) buffer it returns the negated
+     * required size, so we probe first, allocate exactly that much, then
+     * write for real.
+     */
+    exportBytes(): Promise<Uint8Array>;
+    /** Load a store from `.rvf` bytes via the `rvf_store_open` C-ABI import. */
+    openBytes(bytes: Uint8Array): Promise<void>;
 }
 /**
  * Resolve a `BackendType` to a concrete `RvfBackend` instance.

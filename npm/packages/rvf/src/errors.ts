@@ -53,6 +53,7 @@ export enum RvfErrorCode {
   BackendInitFailed = 0xff01,
   StoreClosed = 0xff02,
   InvalidOptions = 0xff03,
+  MetadataNotSupported = 0xff04,
 }
 
 /** Human-readable labels for each error code. */
@@ -93,6 +94,9 @@ const ERROR_MESSAGES: Record<number, string> = {
   [RvfErrorCode.BackendInitFailed]: 'Backend initialization failed',
   [RvfErrorCode.StoreClosed]: 'Store has been closed',
   [RvfErrorCode.InvalidOptions]: 'Invalid store creation options',
+  [RvfErrorCode.MetadataNotSupported]:
+    'Per-vector metadata is not yet supported by this SDK (see issue #704) — ' +
+    'ingest without a metadata field, or wait for durable metadata support',
 };
 
 /**

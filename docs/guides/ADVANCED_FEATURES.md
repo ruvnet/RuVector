@@ -58,8 +58,14 @@ fn hybrid_search_example(db: &VectorDB) -> Result<(), Box<dyn std::error::Error>
 
 ### Node.js
 
+> **Not yet available in the `ruvector` Node package** — `HybridSearch` is
+> implemented in `ruvector-core` but is not bound/exported by
+> `crates/ruvector-node` yet ([#707](https://github.com/ruvnet/RuVector/issues/707)).
+> `require('ruvector').HybridSearch` is `undefined` today; use AgentDB's
+> `HybridSearch`/`KeywordIndex` from JavaScript in the meantime.
+
 ```javascript
-const { HybridSearch } = require('ruvector');
+const { HybridSearch } = require('ruvector'); // NOT YET SHIPPED — see #707
 
 const hybrid = new HybridSearch(db, {
     vectorWeight: 0.7,
@@ -153,8 +159,14 @@ FilterExpression::Not(Box::new(expr))
 
 ### Node.js
 
+> **Not yet available in the `ruvector` Node package** — `FilteredSearch` is
+> implemented in `ruvector-core` but is not bound/exported by
+> `crates/ruvector-node` yet ([#707](https://github.com/ruvnet/RuVector/issues/707)).
+> `require('ruvector').FilteredSearch` is `undefined` today. `VectorDB.search()`'s
+> built-in `filter` option covers basic pre-filtering in the meantime.
+
 ```javascript
-const { FilteredSearch } = require('ruvector');
+const { FilteredSearch } = require('ruvector'); // NOT YET SHIPPED — see #707
 
 const filtered = new FilteredSearch(db, 'preFilter');
 
@@ -203,8 +215,13 @@ fn mmr_example(db: &VectorDB) -> Result<(), Box<dyn std::error::Error>> {
 
 ### Node.js
 
+> **Not yet available in the `ruvector` Node package** — `MMRSearch` is
+> implemented in `ruvector-core` but is not bound/exported by
+> `crates/ruvector-node` yet ([#707](https://github.com/ruvnet/RuVector/issues/707)).
+> `require('ruvector').MMRSearch` is `undefined` today.
+
 ```javascript
-const { MMRSearch } = require('ruvector');
+const { MMRSearch } = require('ruvector'); // NOT YET SHIPPED — see #707
 
 const mmr = new MMRSearch(db, {
     lambda: 0.5,
@@ -322,8 +339,14 @@ fn conformal_prediction_example() -> Result<(), Box<dyn std::error::Error>> {
 
 ### Node.js
 
+> **Not yet available in the `ruvector` Node package** — `ConformalPredictor`
+> is implemented in `ruvector-core` but is not bound/exported by
+> `crates/ruvector-node` yet (same gap as [#707](https://github.com/ruvnet/RuVector/issues/707),
+> which covers `HybridSearch`/`FilteredSearch`/`MMRSearch`).
+> `require('ruvector').ConformalPredictor` is `undefined` today.
+
 ```javascript
-const { ConformalPredictor } = require('ruvector');
+const { ConformalPredictor } = require('ruvector'); // NOT YET SHIPPED
 
 const predictor = new ConformalPredictor({
     alpha: 0.1,           // 90% confidence

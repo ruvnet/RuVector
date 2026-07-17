@@ -25,14 +25,14 @@ test('Trajectory recording', () => {
   const engine = new SonaEngine(64);
   const queryEmbedding = Array(64).fill(0.1);
 
-  const builder = engine.beginTrajectory(queryEmbedding);
-  assert.ok(builder, 'TrajectoryBuilder should be created');
+  const trajectoryId = engine.beginTrajectory(queryEmbedding);
+  assert.strictEqual(typeof trajectoryId, 'number', 'beginTrajectory should return a trajectory id');
 
-  builder.addStep(Array(64).fill(0.5), Array(32).fill(0.4), 0.8);
-  builder.setRoute('test_route');
-  builder.addContext('test_context');
+  engine.addTrajectoryStep(trajectoryId, Array(64).fill(0.5), Array(32).fill(0.4), 0.8);
+  engine.setTrajectoryRoute(trajectoryId, 'test_route');
+  engine.addTrajectoryContext(trajectoryId, 'test_context');
 
-  engine.endTrajectory(builder, 0.85);
+  engine.endTrajectory(trajectoryId, 0.85);
 });
 
 test('Micro-LoRA application', () => {
@@ -53,14 +53,66 @@ test('Base-LoRA application', () => {
   assert.strictEqual(output.length, 64, 'Output should have same dimension as input');
 });
 
+// Regression tests for #706: the Rust LoRA forward pass has residual
+// semantics (it *adds* the learned delta into the provided output buffer),
+// so a cold, untrained engine must return the input unchanged rather than a
+// zero vector, and a trained engine must return input-plus-delta rather
+// than the bare delta.
+test('Micro-LoRA cold-start identity (#706)', () => {
+  const engine = new SonaEngine(64);
+  const input = Array(64).fill(1.0);
+
+  const output = engine.applyMicroLora(input);
+  assert.deepStrictEqual(
+    output,
+    input,
+    'Untrained engine must return the input unchanged, not a zero vector',
+  );
+});
+
+test('Base-LoRA cold-start identity (#706)', () => {
+  const engine = new SonaEngine(64);
+  const input = Array(64).fill(1.0);
+
+  const output = engine.applyBaseLora(0, input);
+  assert.deepStrictEqual(
+    output,
+    input,
+    'Untrained engine must return the input unchanged, not a zero vector',
+  );
+});
+
+test('Micro-LoRA post-feedback is input-plus-delta, not delta alone (#706)', () => {
+  const engine = new SonaEngine(64);
+  const input = Array(64).fill(1.0);
+
+  for (let i = 0; i < 5; i++) {
+    const embedding = Array(64).fill(1 / Math.sqrt(64));
+    const trajectoryId = engine.beginTrajectory(embedding);
+    engine.addTrajectoryStep(trajectoryId, embedding, [], 0.9);
+    engine.endTrajectory(trajectoryId, 0.9);
+  }
+  engine.flush();
+
+  const output = engine.applyMicroLora(input);
+  assert.notDeepStrictEqual(
+    output,
+    Array(64).fill(0),
+    'Post-feedback output collapsed to the bare delta (zero-seeded bug)',
+  );
+
+  const delta = output.reduce((acc, v, i) => acc + Math.abs(v - input[i]), 0);
+  assert.ok(delta > 0, 'Feedback should have produced a nonzero learned delta');
+});
+
 test('Pattern finding', () => {
   const engine = new SonaEngine(64);
 
   // Record some trajectories first
   for (let i = 0; i < 10; i++) {
-    const builder = engine.beginTrajectory(Array(64).fill(Math.random()));
-    builder.addStep(Array(64).fill(0.5), Array(32).fill(0.4), 0.8);
-    engine.endTrajectory(builder, 0.8);
+    const trajectoryId = engine.beginTrajectory(Array(64).fill(Math.random()));
+    engine.addTrajectoryStep(trajectoryId, Array(64).fill(0.5), Array(32).fill(0.4), 0.8);
+    engine.endTrajectory(trajectoryId, 0.8);
   }
 
   // Force learning to extract patterns
@@ -86,9 +138,9 @@ test('Force learning', () => {
 
   // Record trajectories
   for (let i = 0; i < 5; i++) {
-    const builder = engine.beginTrajectory(Array(64).fill(Math.random()));
-    builder.addStep(Array(64).fill(0.5), Array(32).fill(0.4), 0.8);
-    engine.endTrajectory(builder, 0.8);
+    const trajectoryId = engine.beginTrajectory(Array(64).fill(Math.random()));
+    engine.addTrajectoryStep(trajectoryId, Array(64).fill(0.5), Array(32).fill(0.4), 0.8);
+    engine.endTrajectory(trajectoryId, 0.8);
   }
 
   const result = engine.forceLearn();

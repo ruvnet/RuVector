@@ -249,7 +249,9 @@ impl WasmSonaEngine {
     /// ```
     #[wasm_bindgen(js_name = applyLora)]
     pub fn apply_lora(&self, input: Vec<f32>) -> Vec<f32> {
-        let mut output = vec![0.0; input.len()];
+        // Residual semantics: engine.apply_micro_lora adds the learned delta
+        // into `output`, so it must start as the input, not zeros.
+        let mut output = input.clone();
         let engine = self.inner.read();
         engine.apply_micro_lora(&input, &mut output);
         output
@@ -265,7 +267,8 @@ impl WasmSonaEngine {
     /// Transformed vector as Float32Array
     #[wasm_bindgen(js_name = applyLoraLayer)]
     pub fn apply_lora_layer(&self, layer_idx: usize, input: Vec<f32>) -> Vec<f32> {
-        let mut output = vec![0.0; input.len()];
+        // Same residual semantics as apply_lora — seed with input.
+        let mut output = input.clone();
         let engine = self.inner.read();
         engine.apply_base_lora(layer_idx, &input, &mut output);
         output

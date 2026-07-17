@@ -161,7 +161,16 @@ export interface RvfIngestEntry {
   id: string;
   /** The embedding vector (must match store dimensions). */
   vector: Float32Array | number[];
-  /** Optional per-vector metadata fields. */
+  /**
+   * Optional per-vector metadata fields.
+   *
+   * **Not yet implemented** (see issue #704): the native layer stores
+   * metadata by numeric `fieldId`, but there is no SDK-level design yet for
+   * mapping these string field names to native field IDs, or for persisting
+   * metadata durably across close/reopen. Passing a non-empty object here
+   * throws `RvfError` with code `MetadataNotSupported` rather than silently
+   * dropping the data (the original bug).
+   */
   metadata?: Record<string, RvfFilterValue>;
 }
 

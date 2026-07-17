@@ -78,7 +78,10 @@ impl SonaEngine {
     #[napi]
     pub fn apply_micro_lora(&self, input: Vec<f64>) -> Vec<f64> {
         let input_f32: Vec<f32> = input.iter().map(|&x| x as f32).collect();
-        let mut output = vec![0.0f32; input_f32.len()];
+        // The Rust LoRA forward pass has residual semantics (it adds the
+        // learned delta into `output`), so `output` must start as a clone
+        // of `input` — not zeros — or callers only ever see the delta.
+        let mut output = input_f32.clone();
         self.inner.apply_micro_lora(&input_f32, &mut output);
         output.iter().map(|&x| x as f64).collect()
     }
@@ -90,7 +93,8 @@ impl SonaEngine {
     #[napi]
     pub fn apply_base_lora(&self, layer_idx: u32, input: Vec<f64>) -> Vec<f64> {
         let input_f32: Vec<f32> = input.iter().map(|&x| x as f32).collect();
-        let mut output = vec![0.0f32; input_f32.len()];
+        // Same residual semantics as apply_micro_lora — seed with input.
+        let mut output = input_f32.clone();
         self.inner.apply_base_lora(layer_idx as usize, &input_f32, &mut output);
         output.iter().map(|&x| x as f64).collect()
     }

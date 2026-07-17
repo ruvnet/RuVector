@@ -29,11 +29,9 @@ Prerequisites:
   # or load from CDN (see script below)</pre>
 
   <script type="module">
-    // Import the WASM module
-    // Option 1: Local build
-    // import init, { WasmRvfStore } from '../../../npm/packages/rvf-wasm/pkg/rvf_runtime.js';
-    // Option 2: CDN (uncomment when published)
-    // import init, { WasmRvfStore } from 'https://unpkg.com/@ruvector/rvf-wasm/pkg/rvf_runtime.js';
+    // Import the SDK (wraps @ruvector/rvf-wasm's low-level C-ABI module —
+    // there is no WasmRvfStore class; see issue #705).
+    // import { RvfDatabase } from '@ruvector/rvf';
 
     const log = document.getElementById('log');
     function print(msg) { log.textContent += '\n' + msg; }
@@ -43,8 +41,7 @@ Prerequisites:
     window.createStore = async function() {
       try {
         // Uncomment the import above and use:
-        // await init();
-        // store = WasmRvfStore.create(128);
+        // const db = await RvfDatabase.create('unused-in-wasm', { dimensions: 128 }, 'wasm');
         // print('[1] Store created (128-dim, cosine)');
 
         // Demo fallback (no WASM loaded):
