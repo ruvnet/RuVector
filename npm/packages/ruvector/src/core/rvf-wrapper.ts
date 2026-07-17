@@ -159,6 +159,30 @@ export async function rvfDerive(
 }
 
 /**
+ * Create a full COW (Copy-on-Write) branch from a parent store.
+ * The child inherits all parent vectors — queries return parent ∪ child.
+ * Child overrides parent on id collision; deletes in child hide inherited vectors.
+ * Uses the Rust CowEngine with cluster-based COW and dual-graph ANN query merge.
+ * The parent should be frozen before branching for production data.
+ */
+export async function rvfBranch(
+  store: RvfStore,
+  childPath: string,
+): Promise<RvfStore> {
+  return store.branch(childPath);
+}
+
+/**
+ * Freeze (snapshot) a store, preventing further writes.
+ * Required before branching to guarantee parent immutability.
+ */
+export async function rvfFreeze(
+  store: RvfStore,
+): Promise<void> {
+  return store.freeze();
+}
+
+/**
  * Close the store, releasing the writer lock and flushing data.
  */
 export async function rvfClose(store: RvfStore): Promise<void> {

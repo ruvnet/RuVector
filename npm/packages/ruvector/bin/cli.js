@@ -8157,7 +8157,9 @@ mcpCmd.command('info')
     console.log(chalk.dim('  rvf_delete       - Delete vectors by ID'));
     console.log(chalk.dim('  rvf_status       - Get store status'));
     console.log(chalk.dim('  rvf_compact      - Compact store'));
-    console.log(chalk.dim('  rvf_derive       - COW-branch to child store'));
+    console.log(chalk.dim('  rvf_derive       - Lineage-only child (no COW)'));
+    console.log(chalk.dim('  rvf_branch       - Full COW branch with Rust CowEngine'));
+    console.log(chalk.dim('  rvf_freeze       - Freeze/snapshot store (read-only)'));
     console.log(chalk.dim('  rvf_segments     - List file segments'));
     console.log(chalk.dim('  rvf_examples     - List example .rvf files'));
 
@@ -8303,7 +8305,9 @@ mcpCmd.command('tools')
         { name: 'rvf_delete', desc: 'Delete vectors by ID' },
         { name: 'rvf_status', desc: 'Store status' },
         { name: 'rvf_compact', desc: 'Compact store' },
-        { name: 'rvf_derive', desc: 'COW-branch child store' },
+        { name: 'rvf_derive', desc: 'Lineage-only child (no COW)' },
+        { name: 'rvf_branch', desc: 'Full COW branch with Rust CowEngine' },
+        { name: 'rvf_freeze', desc: 'Freeze/snapshot store' },
         { name: 'rvf_segments', desc: 'List file segments' },
         { name: 'rvf_examples', desc: 'Example .rvf files' },
       ],

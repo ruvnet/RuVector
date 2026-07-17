@@ -1353,7 +1353,7 @@ const TOOLS = [
   },
   {
     name: 'rvf_derive',
-    description: 'Derive a child RVF store from a parent using copy-on-write branching',
+    description: 'Derive a child RVF store from a parent for lineage tracking (records parent hash and depth, no COW — child cannot see parent vectors). For full COW branching with parent inheritance, use rvf_branch.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1361,6 +1361,30 @@ const TOOLS = [
         child_path: { type: 'string', description: 'Path for the new child .rvf store' }
       },
       required: ['parent_path', 'child_path']
+    }
+  },
+  {
+    name: 'rvf_branch',
+    description: 'Create a full COW (Copy-on-Write) branch from a parent RVF store using the Rust CowEngine. The child inherits all parent vectors and queries return parent ∪ child. Re-ingested vectors in the child override parent on id collision; deletes in the child hide inherited vectors. The branch stores only its own edits on disk. The parent should be frozen first via rvf_freeze for production data.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        parent_path: { type: 'string', description: 'Path to parent .rvf store to branch from' },
+        child_path: { type: 'string', description: 'Path for the new branch .rvf store' },
+        label: { type: 'string', description: 'Optional human-readable branch label' }
+      },
+      required: ['parent_path', 'child_path']
+    }
+  },
+  {
+    name: 'rvf_freeze',
+    description: 'Freeze (snapshot) an RVF store, preventing further writes. Required before branching production data to guarantee parent immutability. Sets read_only flag and freezes the CowEngine epoch.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Path to .rvf store to freeze' }
+      },
+      required: ['path']
     }
   },
   {
@@ -3364,6 +3388,34 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           await rvfDerive(store, safeChild);
           await rvfClose(store);
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, parent: safeParent, child: safeChild }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
+        }
+      }
+
+      case 'rvf_branch': {
+        try {
+          const safeParent = validateRvfPath(args.parent_path);
+          const safeChild = validateRvfPath(args.child_path);
+          const { openRvfStore, rvfBranch, rvfClose } = require('../dist/core/rvf-wrapper.js');
+          const store = await openRvfStore(safeParent);
+          const childStore = await rvfBranch(store, safeChild);
+          const childStatus = await childStore.status();
+          await rvfClose(childStore);
+          return { content: [{ type: 'text', text: JSON.stringify({ success: true, parent: safeParent, child: safeChild, childStatus }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
+        }
+      }
+
+      case 'rvf_freeze': {
+        try {
+          const safePath = validateRvfPath(args.path);
+          const { openRvfStore, rvfFreeze, rvfClose } = require('../dist/core/rvf-wrapper.js');
+          const store = await openRvfStore(safePath);
+          await rvfFreeze(store);
+          await rvfClose(store);
+          return { content: [{ type: 'text', text: JSON.stringify({ success: true, path: safePath, readOnly: true }, null, 2) }] };
         } catch (e) {
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
         }
