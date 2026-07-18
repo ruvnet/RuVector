@@ -272,6 +272,8 @@ members = [
     "crates/timesfm",
     # RuVector integration for TimesFM: Forecaster + anomaly bands + sweep early-stopping
     "crates/ruvector-timesfm",
+    # Locality-Sensitive Fingerprinting for semantic near-duplicate detection in agent memory (ADR-272)
+    "crates/ruvector-lsf-dedup",
 ]
 resolver = "2"
 

@@ -1,0 +1,16 @@
+[package]
+name        = "ruvector-lsf-dedup"
+version     = "0.1.0"
+edition     = "2021"
+description = "Locality-Sensitive Fingerprinting for semantic near-duplicate detection in agent memory stores: SimHash, MinHash, and Hybrid approaches with proof-trail logging"
+authors     = ["ruvnet", "claude-flow"]
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["agent-memory", "deduplication", "simhash", "minhash", "vector-search"]
+categories  = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "lsf-dedup-bench"
+path = "src/main.rs"
+
+[dependencies]
