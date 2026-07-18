@@ -266,6 +266,8 @@ members = [
     "crates/ruvector-capgated",
     # SPANN partition spilling for boundary-safe ANN (ADR-268)
     "crates/ruvector-spann",
+    # Adaptive scalar quantization with coherence-precision routing (ADR-272)
+    "crates/ruvector-adaptive-sq",
     # ColBERT-style multi-vector MaxSim late-interaction search
     "crates/ruvector-maxsim",
     # TimesFM 1.0 200M decoder-only patched time-series Transformer (candle, ADR-189/191)

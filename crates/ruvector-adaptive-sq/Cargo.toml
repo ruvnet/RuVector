@@ -1,0 +1,21 @@
+[package]
+name = "ruvector-adaptive-sq"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Adaptive scalar quantization with coherence-precision routing: assign 8-bit or 16-bit SQ per vector based on local neighborhood density, trading memory footprint against recall quality in dense index regions."
+keywords = ["vector-search", "quantization", "ann", "agent-memory", "coherence"]
+categories = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+rand = { workspace = true }
+
+[lints.rust]
+dead_code = "allow"
+unused_variables = "allow"
