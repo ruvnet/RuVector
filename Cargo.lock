@@ -8784,6 +8784,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-adaptive-tiering"
+version = "2.3.0"
+dependencies = [
+ "rand 0.8.6",
+ "rand_distr 0.4.3",
+]
+
+[[package]]
 name = "ruvector-attention"
 version = "2.3.0"
 dependencies = [

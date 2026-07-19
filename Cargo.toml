@@ -272,6 +272,8 @@ members = [
     "crates/timesfm",
     # RuVector integration for TimesFM: Forecaster + anomaly bands + sweep early-stopping
     "crates/ruvector-timesfm",
+    # Adaptive semantic memory tiering: hot/warm/cold placement by temperature score (ADR-272)
+    "crates/ruvector-adaptive-tiering",
 ]
 resolver = "2"
 
