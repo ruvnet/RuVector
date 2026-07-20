@@ -1,0 +1,18 @@
+[package]
+name        = "ruvector-diverse-retrieval"
+version     = "0.1.0"
+edition     = "2021"
+description = "Partition-aware diverse ANN retrieval using graph-cut partitioning for semantically spread results"
+authors     = ["ruvnet", "claude-flow"]
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["ann", "diversity", "vector-search", "mmr", "graph-cut"]
+categories  = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "diverse-retrieval-bench"
+path = "src/main.rs"
+
+[dependencies]
+rand        = "0.8"
+rand_distr  = "0.4"

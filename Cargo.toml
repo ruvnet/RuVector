@@ -272,6 +272,8 @@ members = [
     "crates/timesfm",
     # RuVector integration for TimesFM: Forecaster + anomaly bands + sweep early-stopping
     "crates/ruvector-timesfm",
+    # Partition-aware diverse ANN retrieval: graph-cut partitioning + PartitionMMR (ADR-272)
+    "crates/ruvector-diverse-retrieval",
 ]
 resolver = "2"
 
