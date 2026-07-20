@@ -1,0 +1,19 @@
+[package]
+name = "ruvector-spectral-ivf"
+version = "0.1.0"
+edition = "2021"
+description = "Spectral IVF: graph-Laplacian (Fiedler) partitioned ANN for RuVector"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ruvnet/ruvector"
+keywords = ["vector-search", "ann", "graph", "spectral", "ivf"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[features]
+default = []
+
+[dependencies]
+
+[dev-dependencies]

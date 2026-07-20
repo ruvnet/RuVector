@@ -10637,6 +10637,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-spectral-ivf"
+version = "0.1.0"
+
+[[package]]
 name = "ruvector-temporal-coherence"
 version = "0.1.0"
 dependencies = [
