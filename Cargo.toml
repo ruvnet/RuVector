@@ -272,6 +272,8 @@ members = [
     "crates/timesfm",
     # RuVector integration for TimesFM: Forecaster + anomaly bands + sweep early-stopping
     "crates/ruvector-timesfm",
+    # Adaptive ef-search via UCB1 & ε-greedy bandit: online beam-width tuning (ADR-272)
+    "crates/ruvector-ef-bandit",
 ]
 resolver = "2"
 

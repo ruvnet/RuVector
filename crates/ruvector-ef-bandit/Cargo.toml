@@ -1,0 +1,26 @@
+[package]
+name = "ruvector-ef-bandit"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+license = "MIT OR Apache-2.0"
+authors = ["ruvnet", "claude-flow"]
+repository = "https://github.com/ruvnet/ruvector"
+description = "Adaptive ANN ef-search parameter tuning via UCB1 and ε-greedy bandit algorithms — learns optimal beam-width online without ground-truth labels"
+keywords = ["vector-search", "ann", "bandit", "adaptive", "hnsw"]
+categories = ["algorithms", "data-structures", "science"]
+
+[[bin]]
+name = "ef-bandit-bench"
+path = "src/main.rs"
+
+[dependencies]
+rand = { version = "0.8", features = ["small_rng"] }
+
+[dev-dependencies]
+rand = { version = "0.8", features = ["small_rng"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
