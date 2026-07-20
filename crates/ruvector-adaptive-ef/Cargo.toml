@@ -1,0 +1,20 @@
+[package]
+name = "ruvector-adaptive-ef"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Adaptive beam-width ANN search with query difficulty estimation for RuVector"
+keywords = ["vector-search", "ann", "hnsw", "adaptive", "agent-memory"]
+categories = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+
+[lints.rust]
+dead_code = "allow"
+unused_variables = "allow"
