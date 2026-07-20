@@ -1,0 +1,36 @@
+[package]
+name        = "ruvector-calyx"
+version     = "0.1.0"
+edition     = "2021"
+description = "Association-native memory layer for ruvector: multi-slot constellations measured through many frozen lenses, kept un-flattened, fused with reciprocal rank fusion, scored for cross-lens agreement and signal density, grounded against real-world anchors, gated by a fail-closed guard, and recorded in a hash-chained provenance ledger"
+authors     = ["ruvnet", "claude-flow"]
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["association", "vector-search", "rrf", "provenance", "ruvector"]
+categories  = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "calyx-bench"
+path = "src/main.rs"
+
+[[bin]]
+name = "calyx-routing-bench"
+path = "src/bin/routing_bench.rs"
+
+[[bin]]
+name = "calyx-novel-bench"
+path = "src/bin/novel_bench.rs"
+
+[[bin]]
+name = "calyx-real-bench"
+path = "src/bin/real_bench.rs"
+
+[lib]
+name = "ruvector_calyx"
+path = "src/lib.rs"
+
+# Intentionally dependency-free: the reference crate uses an inline deterministic
+# PRNG (see `src/rng.rs`) so it builds anywhere and benchmarks are reproducible.
+[dependencies]
+
+[dev-dependencies]

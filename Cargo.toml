@@ -272,6 +272,10 @@ members = [
     "crates/timesfm",
     # RuVector integration for TimesFM: Forecaster + anomaly bands + sweep early-stopping
     "crates/ruvector-timesfm",
+    # Calyx-inspired association-native memory layer: multi-slot constellations,
+    # lens manifests, RRF fusion, cross-lens agreement, grounding, fail-closed
+    # guard, hash-chained provenance ledger, reversible anneal optimizer (ADR-272)
+    "crates/ruvector-calyx",
 ]
 resolver = "2"
 
