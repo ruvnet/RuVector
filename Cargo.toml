@@ -22,6 +22,7 @@ exclude = ["external/ruqu", "external/rvdna", "examples/OSpipe", "examples/rvf",
     # land in iters 92-97.
     "crates/ruos-thermal"]
 members = [
+    "crates/ruvector-diversity-rerank",
     "crates/ruvector-temporal-coherence",
     "crates/ruvector-acorn",
     "crates/ruvector-acorn-wasm",

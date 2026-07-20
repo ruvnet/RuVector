@@ -9430,6 +9430,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-diversity-rerank"
+version = "2.2.3"
+dependencies = [
+ "rand 0.8.6",
+ "rand_distr 0.4.3",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ruvector-domain-expansion"
 version = "2.3.0"
 dependencies = [
