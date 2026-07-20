@@ -262,6 +262,8 @@ members = [
     "crates/ruvector-pq-search",
     # SOTA benchmark suite (ADR-265)
     "crates/ruvector-sota-bench",
+    # Adaptive ef-search control: multi-armed bandit and PID for self-tuning HNSW (ADR-272)
+    "crates/ruvector-adaptive-ef",
     # Capability-gated ANN: per-vector read access control with bitset tokens (ADR-268)
     "crates/ruvector-capgated",
     # SPANN partition spilling for boundary-safe ANN (ADR-268)

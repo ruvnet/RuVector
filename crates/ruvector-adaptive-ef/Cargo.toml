@@ -1,0 +1,17 @@
+[package]
+name = "ruvector-adaptive-ef"
+version = "0.1.0"
+edition = "2021"
+description = "Adaptive ef-search control for HNSW: multi-armed bandit and PID controller variants for self-tuning approximate nearest neighbour retrieval"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ruvnet/ruvector"
+keywords = ["vector-search", "hnsw", "ann", "adaptive", "ruvector"]
+categories = ["algorithms", "science", "database-implementations"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
