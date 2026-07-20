@@ -9958,6 +9958,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-mhgar"
+version = "2.2.3"
+dependencies = [
+ "rand 0.8.6",
+ "rand_distr 0.4.3",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ruvector-mincut"
 version = "0.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -272,6 +272,8 @@ members = [
     "crates/timesfm",
     # RuVector integration for TimesFM: Forecaster + anomaly bands + sweep early-stopping
     "crates/ruvector-timesfm",
+    # Multi-Hop Graph-Anchored Retrieval: coherence-gated graph traversal for improved ANN recall (ADR-272)
+    "crates/ruvector-mhgar",
 ]
 resolver = "2"
 
