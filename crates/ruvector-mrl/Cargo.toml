@@ -1,0 +1,17 @@
+[package]
+name        = "ruvector-mrl"
+version     = "0.1.0"
+edition     = "2021"
+description = "Matryoshka Resolution Index — prefix-dimensional two-stage ANN for MRL embeddings"
+authors     = ["ruvnet", "claude-flow"]
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["ann", "mrl", "matryoshka", "vector-search", "ruvector"]
+categories  = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "mrl-bench"
+path = "src/main.rs"
+
+[dependencies]
+rand = { workspace = true }
