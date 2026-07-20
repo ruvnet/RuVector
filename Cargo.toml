@@ -272,6 +272,8 @@ members = [
     "crates/timesfm",
     # RuVector integration for TimesFM: Forecaster + anomaly bands + sweep early-stopping
     "crates/ruvector-timesfm",
+    # Topology-Aware Quantization: hub nodes get SQ8, leaf nodes get SQ4 (ADR-272)
+    "crates/ruvector-taq",
 ]
 resolver = "2"
 

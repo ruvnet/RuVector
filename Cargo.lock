@@ -10637,6 +10637,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-taq"
+version = "2.2.3"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ruvector-temporal-coherence"
 version = "0.1.0"
 dependencies = [
