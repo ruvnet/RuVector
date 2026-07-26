@@ -12,7 +12,7 @@
     "verify-dist": "node scripts/verify-dist.js",
     "prepack": "npm run build && npm run verify-dist",
     "prepublishOnly": "npm run build && npm run verify-dist",
-    "test": "node test/integration.js && node test/cli-commands.js && node test/db-workflow.js && node test/sigterm-cleanup.js && node test/mcp-policy.js && node test/startup-budget.js"
+    "test": "node test/integration.js && node test/cli-commands.js && node test/db-workflow.js && node test/sigterm-cleanup.js && node test/mcp-policy.js && node test/mcp-handshake.js && node test/startup-budget.js"
   },
   "keywords": [
     "vector",
