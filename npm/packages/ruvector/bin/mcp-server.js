@@ -4087,5 +4087,9 @@ async function main() {
 if (require.main === module) {
   main().catch(console.error);
 } else {
-  module.exports = { loadBrainClient, BRAIN_MISSING_DEP_RESULT };
+  // `main` is exported so a parent module can start the server explicitly.
+  // `ruvector mcp start` require()s this file, which makes require.main the
+  // CLI rather than this module — so the branch above never fires and the
+  // transport is never connected. See bin/cli.js.
+  module.exports = { main, loadBrainClient, BRAIN_MISSING_DEP_RESULT };
 }

@@ -8144,7 +8144,14 @@ mcpCmd.command('start')
       console.error(chalk.red('Error: MCP server not found at'), mcpServerPath);
       process.exit(1);
     }
-    require(mcpServerPath);
+    // require() alone is not enough: mcp-server.js only self-starts under
+    // `require.main === module`, which is false when it is loaded from here.
+    // Start it explicitly, or the process comes up without ever connecting a
+    // transport and never answers `initialize`.
+    require(mcpServerPath).main().catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
   });
 
 mcpCmd.command('info')

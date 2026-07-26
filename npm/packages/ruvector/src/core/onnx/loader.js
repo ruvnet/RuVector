@@ -150,7 +150,7 @@ export class ModelLoader {
             }
         }
 
-        console.log(`Loading model: ${modelConfig.name} (${modelConfig.size})`);
+        console.error(`Loading model: ${modelConfig.name} (${modelConfig.size})`);
 
         const [modelBytes, tokenizerJson] = await Promise.all([
             this.fetchWithCache(modelConfig.model, `${modelName}-model.onnx`, 'arraybuffer'),
@@ -196,7 +196,7 @@ export class ModelLoader {
             const modelBytes = new Uint8Array(fs.readFileSync(modelPath));
             const tokenizerJson = fs.readFileSync(tokPath, 'utf8');
             if (modelBytes.length === 0 || tokenizerJson.length === 0) return null;
-            console.log(`  Disk cache hit: ${modelName}`);
+            console.error(`  Disk cache hit: ${modelName}`);
             return { modelBytes, tokenizerJson };
         } catch {
             return null;
@@ -274,7 +274,7 @@ export class ModelLoader {
                 const cache = await caches.open(this.cacheStorage);
                 const cached = await cache.match(cacheKey);
                 if (cached) {
-                    console.log(`  Cache hit: ${cacheKey}`);
+                    console.error(`  Cache hit: ${cacheKey}`);
                     return responseType === 'arraybuffer'
                         ? await cached.arrayBuffer()
                         : await cached.text();
@@ -285,7 +285,7 @@ export class ModelLoader {
         }
 
         // Fetch from network
-        console.log(`  Downloading: ${url}`);
+        console.error(`  Downloading: ${url}`);
         const response = await this.fetchWithProgress(url);
 
         if (!response.ok) {
@@ -365,7 +365,7 @@ export class ModelLoader {
     async clearCache() {
         if (typeof caches !== 'undefined') {
             await caches.delete(this.cacheStorage);
-            console.log('Model cache cleared');
+            console.error('Model cache cleared');
         }
     }
 
