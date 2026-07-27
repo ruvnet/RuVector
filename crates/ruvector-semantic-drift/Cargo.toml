@@ -1,0 +1,20 @@
+[package]
+name = "ruvector-semantic-drift"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+description = "Semantic drift detection for RuVector agent memory streams"
+license = "MIT"
+repository = "https://github.com/ruvnet/ruvector"
+
+[[bin]]
+name = "benchmark"
+path = "src/benchmark.rs"
+
+[dependencies]
+rand = { workspace = true }
+rand_distr = { workspace = true }
+
+[dev-dependencies]
+rand = { workspace = true }
+rand_distr = { workspace = true }
