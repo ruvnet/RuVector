@@ -29,6 +29,7 @@ members = [
     "crates/ruvector-coherence-hnsw",
     "crates/ruvector-rabitq",
     "crates/ruvector-rabitq-wasm",
+    "crates/ruvector-rvq",
     "crates/ruvector-rulake",
     "crates/ruvector-core",
     "crates/ruvector-node",

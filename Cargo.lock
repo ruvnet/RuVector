@@ -10394,6 +10394,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-rvq"
+version = "2.2.2"
+dependencies = [
+ "rand 0.8.5",
+ "rand_distr 0.4.3",
+ "rayon",
+ "serde",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ruvector-scipix"
 version = "2.3.0"
 dependencies = [
