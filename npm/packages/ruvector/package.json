@@ -71,7 +71,7 @@
     "directory": "npm/packages/ruvector"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@ruvector/attention": "^0.1.3",
     "@ruvector/core": "^0.1.25",
     "@ruvector/gnn": "^0.1.22",
