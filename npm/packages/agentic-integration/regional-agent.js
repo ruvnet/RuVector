@@ -12,9 +12,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RegionalAgent = void 0;
 const events_1 = require("events");
-const child_process_1 = require("child_process");
-const util_1 = require("util");
-const execAsync = (0, util_1.promisify)(child_process_1.exec);
+const claude_flow_runner_1 = require("./claude-flow-runner");
 class RegionalAgent extends events_1.EventEmitter {
     constructor(config) {
         super();
@@ -28,7 +26,7 @@ class RegionalAgent extends events_1.EventEmitter {
             maxRequests: config.maxConcurrentStreams,
             windowMs: 1000,
         });
-        this.initialize();
+        void this.initialize();
     }
     /**
      * Initialize regional agent
@@ -38,9 +36,19 @@ class RegionalAgent extends events_1.EventEmitter {
         if (this.config.enableClaudeFlowHooks) {
             try {
                 // Pre-task hook for agent initialization
-                await execAsync(`npx claude-flow@alpha hooks pre-task --description "Initialize regional agent ${this.config.agentId} in ${this.config.region}"`);
+                await (0, claude_flow_runner_1.runClaudeFlow)([
+                    'hooks',
+                    'pre-task',
+                    '--description',
+                    `Initialize regional agent ${this.config.agentId} in ${this.config.region}`,
+                ]);
                 // Restore session if available
-                await execAsync(`npx claude-flow@alpha hooks session-restore --session-id "agent-${this.config.agentId}"`);
+                await (0, claude_flow_runner_1.runClaudeFlow)([
+                    'hooks',
+                    'session-restore',
+                    '--session-id',
+                    `agent-${this.config.agentId}`,
+                ]);
                 console.log(`[RegionalAgent:${this.config.region}] Claude-flow hooks initialized`);
             }
             catch (error) {
@@ -64,7 +72,7 @@ class RegionalAgent extends events_1.EventEmitter {
     /**
      * Load local index from persistent storage
      */
-    async loadLocalIndex() {
+    loadLocalIndex() {
         try {
             // Placeholder for actual storage loading
             // In production, this would load from disk/database
@@ -72,16 +80,17 @@ class RegionalAgent extends events_1.EventEmitter {
             // Simulate loading
             this.localIndex.clear();
             console.log(`[RegionalAgent:${this.config.region}] Local index loaded: ${this.localIndex.size} vectors`);
+            return Promise.resolve();
         }
         catch (error) {
             console.error(`[RegionalAgent:${this.config.region}] Error loading local index:`, error);
-            throw error;
+            return Promise.reject(error);
         }
     }
     /**
      * Register with coordinator
      */
-    async registerWithCoordinator() {
+    registerWithCoordinator() {
         try {
             console.log(`[RegionalAgent:${this.config.region}] Registering with coordinator at ${this.config.coordinatorEndpoint}`);
             // In production, this would be an HTTP/gRPC call
@@ -95,10 +104,11 @@ class RegionalAgent extends events_1.EventEmitter {
                 registeredAt: Date.now(),
             });
             console.log(`[RegionalAgent:${this.config.region}] Successfully registered with coordinator`);
+            return Promise.resolve();
         }
         catch (error) {
             console.error(`[RegionalAgent:${this.config.region}] Failed to register with coordinator:`, error);
-            throw error;
+            return Promise.reject(error);
         }
     }
     /**
@@ -134,7 +144,12 @@ class RegionalAgent extends events_1.EventEmitter {
             if (this.config.enableClaudeFlowHooks) {
                 try {
                     // Notify about query completion
-                    await execAsync(`npx claude-flow@alpha hooks notify --message "Query ${request.id} completed in ${latency}ms with ${matches.length} matches"`);
+                    await (0, claude_flow_runner_1.runClaudeFlow)([
+                        'hooks',
+                        'notify',
+                        '--message',
+                        `Query ${request.id} completed in ${latency}ms with ${matches.length} matches`,
+                    ]);
                 }
                 catch (error) {
                     // Non-critical error
@@ -169,26 +184,26 @@ class RegionalAgent extends events_1.EventEmitter {
     /**
      * Search vectors in local index
      */
-    async searchVectors(request) {
+    searchVectors(request) {
         // Placeholder for actual vector search
         // In production, this would use FAISS, Annoy, or similar library
         const matches = [];
         // Simulate vector search
-        for (const [id, vector] of this.localIndex.entries()) {
-            const score = this.calculateSimilarity(request.vector, vector);
+        for (const [id, entry] of this.localIndex.entries()) {
+            const score = this.calculateSimilarity(request.vector, entry.vector);
             // Apply filters if present
-            if (request.filters && !this.matchesFilters(vector.metadata, request.filters)) {
+            if (request.filters && !this.matchesFilters(entry.metadata ?? {}, request.filters)) {
                 continue;
             }
             matches.push({
                 id,
                 score,
-                metadata: vector.metadata || {},
+                metadata: entry.metadata ?? {},
             });
         }
         // Sort by score and return top-k
         matches.sort((a, b) => b.score - a.score);
-        return matches.slice(0, request.topK);
+        return Promise.resolve(matches.slice(0, request.topK));
     }
     /**
      * Calculate cosine similarity between vectors
@@ -233,7 +248,14 @@ class RegionalAgent extends events_1.EventEmitter {
         this.emit('vectors:indexed', { count: vectors.length });
         if (this.config.enableClaudeFlowHooks) {
             try {
-                await execAsync(`npx claude-flow@alpha hooks post-edit --file "local-index" --memory-key "swarm/${this.config.agentId}/index-update"`);
+                await (0, claude_flow_runner_1.runClaudeFlow)([
+                    'hooks',
+                    'post-edit',
+                    '--file',
+                    'local-index',
+                    '--memory-key',
+                    `swarm/${this.config.agentId}/index-update`,
+                ]);
             }
             catch (error) {
                 // Non-critical
@@ -243,7 +265,7 @@ class RegionalAgent extends events_1.EventEmitter {
     /**
      * Delete vectors from local index
      */
-    async deleteVectors(ids) {
+    deleteVectors(ids) {
         console.log(`[RegionalAgent:${this.config.region}] Deleting ${ids.length} vectors`);
         for (const id of ids) {
             this.localIndex.delete(id);
@@ -256,6 +278,7 @@ class RegionalAgent extends events_1.EventEmitter {
             sourceRegion: this.config.region,
         });
         this.emit('vectors:deleted', { count: ids.length });
+        return Promise.resolve();
     }
     /**
      * Handle sync payload from other regions
@@ -355,7 +378,7 @@ class RegionalAgent extends events_1.EventEmitter {
     /**
      * Process sync queue (send to other regions)
      */
-    async processSyncQueue() {
+    processSyncQueue() {
         if (this.syncQueue.length === 0)
             return;
         const batch = this.syncQueue.splice(0, 100); // Process in batches
@@ -391,13 +414,23 @@ class RegionalAgent extends events_1.EventEmitter {
             clearInterval(this.syncTimer);
         }
         // Process remaining sync queue
-        await this.processSyncQueue();
+        this.processSyncQueue();
         // Save local index
         await this.saveLocalIndex();
         if (this.config.enableClaudeFlowHooks) {
             try {
-                await execAsync(`npx claude-flow@alpha hooks post-task --task-id "agent-${this.config.agentId}-shutdown"`);
-                await execAsync(`npx claude-flow@alpha hooks session-end --export-metrics true`);
+                await (0, claude_flow_runner_1.runClaudeFlow)([
+                    'hooks',
+                    'post-task',
+                    '--task-id',
+                    `agent-${this.config.agentId}-shutdown`,
+                ]);
+                await (0, claude_flow_runner_1.runClaudeFlow)([
+                    'hooks',
+                    'session-end',
+                    '--export-metrics',
+                    true,
+                ]);
             }
             catch (error) {
                 console.warn(`[RegionalAgent:${this.config.region}] Error executing shutdown hooks:`, error);
@@ -411,16 +444,17 @@ class RegionalAgent extends events_1.EventEmitter {
     /**
      * Save local index to persistent storage
      */
-    async saveLocalIndex() {
+    saveLocalIndex() {
         try {
             console.log(`[RegionalAgent:${this.config.region}] Saving local index to ${this.config.localStoragePath}`);
             // Placeholder for actual storage saving
             // In production, this would write to disk/database
             console.log(`[RegionalAgent:${this.config.region}] Local index saved: ${this.localIndex.size} vectors`);
+            return Promise.resolve();
         }
         catch (error) {
             console.error(`[RegionalAgent:${this.config.region}] Error saving local index:`, error);
-            throw error;
+            return Promise.reject(error);
         }
     }
 }

@@ -11,10 +11,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SwarmManager = void 0;
 const events_1 = require("events");
-const child_process_1 = require("child_process");
-const util_1 = require("util");
 const regional_agent_1 = require("./regional-agent");
-const execAsync = (0, util_1.promisify)(child_process_1.exec);
+const claude_flow_runner_1 = require("./claude-flow-runner");
 class SwarmManager extends events_1.EventEmitter {
     constructor(config, coordinator) {
         super();
@@ -26,7 +24,7 @@ class SwarmManager extends events_1.EventEmitter {
         this.lastScaleDown = new Map();
         this.swarmMemory = new Map();
         this.agentCounter = 0;
-        this.initialize();
+        void this.initialize();
     }
     /**
      * Initialize swarm manager
@@ -38,9 +36,14 @@ class SwarmManager extends events_1.EventEmitter {
         if (this.config.enableClaudeFlowHooks) {
             try {
                 // Initialize swarm coordination via claude-flow
-                await execAsync(`npx claude-flow@alpha hooks pre-task --description "Initialize swarm manager with ${this.config.topology} topology"`);
-                // Initialize swarm topology
-                const topologyCmd = JSON.stringify({
+                await (0, claude_flow_runner_1.runClaudeFlow)([
+                    'hooks',
+                    'pre-task',
+                    '--description',
+                    `Initialize swarm manager with ${this.config.topology} topology`,
+                ]);
+                // Initialize swarm topology (JSON.stringify kept for side-effect validation)
+                void JSON.stringify({
                     topology: this.config.topology,
                     maxAgents: this.config.maxAgentsPerRegion * this.config.regions.length,
                 }).replace(/"/g, '\\"');
@@ -122,7 +125,12 @@ class SwarmManager extends events_1.EventEmitter {
         if (this.config.enableClaudeFlowHooks) {
             try {
                 // Notify about agent spawn
-                await execAsync(`npx claude-flow@alpha hooks notify --message "Spawned agent ${agentId} in ${region}"`);
+                await (0, claude_flow_runner_1.runClaudeFlow)([
+                    'hooks',
+                    'notify',
+                    '--message',
+                    `Spawned agent ${agentId} in ${region}`,
+                ]);
                 // Store agent info in swarm memory
                 await this.storeInMemory(`swarm/agents/${agentId}`, {
                     config: agentConfig,
@@ -152,7 +160,7 @@ class SwarmManager extends events_1.EventEmitter {
             this.emit('query:failed', { ...data, agentId: config.agentId });
         });
         agent.on('sync:broadcast', (payload) => {
-            this.handleSyncBroadcast(payload, config.region);
+            void this.handleSyncBroadcast(payload, config.region);
         });
         agent.on('agent:shutdown', () => {
             this.handleAgentShutdown(config.agentId);
@@ -193,7 +201,12 @@ class SwarmManager extends events_1.EventEmitter {
         this.agentConfigs.delete(agentId);
         if (this.config.enableClaudeFlowHooks) {
             try {
-                await execAsync(`npx claude-flow@alpha hooks notify --message "Despawned agent ${agentId}"`);
+                await (0, claude_flow_runner_1.runClaudeFlow)([
+                    'hooks',
+                    'notify',
+                    '--message',
+                    `Despawned agent ${agentId}`,
+                ]);
                 // Remove from swarm memory
                 await this.removeFromMemory(`swarm/agents/${agentId}`);
             }
@@ -223,7 +236,7 @@ class SwarmManager extends events_1.EventEmitter {
     /**
      * Perform health checks on all agents
      */
-    async performHealthChecks() {
+    performHealthChecks() {
         const unhealthyAgents = [];
         for (const [agentId, agent] of this.agents.entries()) {
             const status = agent.getStatus();
@@ -248,7 +261,7 @@ class SwarmManager extends events_1.EventEmitter {
      */
     startAutoScaling() {
         this.autoScaleTimer = setInterval(() => {
-            this.evaluateScaling();
+            void this.evaluateScaling();
         }, 10000); // Evaluate every 10 seconds
     }
     /**
@@ -390,8 +403,14 @@ class SwarmManager extends events_1.EventEmitter {
         this.swarmMemory.set(key, value);
         if (this.config.enableClaudeFlowHooks) {
             try {
-                const serialized = JSON.stringify(value).replace(/"/g, '\\"');
-                await execAsync(`npx claude-flow@alpha hooks post-edit --file "swarm-memory" --memory-key "${key}"`);
+                await (0, claude_flow_runner_1.runClaudeFlow)([
+                    'hooks',
+                    'post-edit',
+                    '--file',
+                    'swarm-memory',
+                    '--memory-key',
+                    key,
+                ]);
             }
             catch (error) {
                 console.warn(`[SwarmManager] Error storing in memory: ${key}`, error);
@@ -401,14 +420,15 @@ class SwarmManager extends events_1.EventEmitter {
     /**
      * Retrieve data from swarm memory
      */
-    async retrieveFromMemory(key) {
-        return this.swarmMemory.get(key);
+    retrieveFromMemory(key) {
+        return Promise.resolve(this.swarmMemory.get(key));
     }
     /**
      * Remove data from swarm memory
      */
-    async removeFromMemory(key) {
+    removeFromMemory(key) {
         this.swarmMemory.delete(key);
+        return Promise.resolve();
     }
     /**
      * Get swarm status
@@ -438,8 +458,18 @@ class SwarmManager extends events_1.EventEmitter {
         await Promise.all(shutdownPromises);
         if (this.config.enableClaudeFlowHooks) {
             try {
-                await execAsync(`npx claude-flow@alpha hooks post-task --task-id "swarm-shutdown"`);
-                await execAsync(`npx claude-flow@alpha hooks session-end --export-metrics true`);
+                await (0, claude_flow_runner_1.runClaudeFlow)([
+                    'hooks',
+                    'post-task',
+                    '--task-id',
+                    'swarm-shutdown',
+                ]);
+                await (0, claude_flow_runner_1.runClaudeFlow)([
+                    'hooks',
+                    'session-end',
+                    '--export-metrics',
+                    true,
+                ]);
             }
             catch (error) {
                 console.warn('[SwarmManager] Error executing shutdown hooks:', error);

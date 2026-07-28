@@ -10,10 +10,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import { runClaudeFlow } from './claude-flow-runner';
 
 export interface RegionalAgentConfig {
   agentId: string;
@@ -88,14 +85,20 @@ export class RegionalAgent extends EventEmitter {
     if (this.config.enableClaudeFlowHooks) {
       try {
         // Pre-task hook for agent initialization
-        await execAsync(
-          `npx claude-flow@alpha hooks pre-task --description "Initialize regional agent ${this.config.agentId} in ${this.config.region}"`
-        );
+        await runClaudeFlow([
+          'hooks',
+          'pre-task',
+          '--description',
+          `Initialize regional agent ${this.config.agentId} in ${this.config.region}`,
+        ]);
 
         // Restore session if available
-        await execAsync(
-          `npx claude-flow@alpha hooks session-restore --session-id "agent-${this.config.agentId}"`
-        );
+        await runClaudeFlow([
+          'hooks',
+          'session-restore',
+          '--session-id',
+          `agent-${this.config.agentId}`,
+        ]);
 
         console.log(`[RegionalAgent:${this.config.region}] Claude-flow hooks initialized`);
       } catch (error) {
@@ -211,9 +214,12 @@ export class RegionalAgent extends EventEmitter {
       if (this.config.enableClaudeFlowHooks) {
         try {
           // Notify about query completion
-          await execAsync(
-            `npx claude-flow@alpha hooks notify --message "Query ${request.id} completed in ${latency}ms with ${matches.length} matches"`
-          );
+          await runClaudeFlow([
+            'hooks',
+            'notify',
+            '--message',
+            `Query ${request.id} completed in ${latency}ms with ${matches.length} matches`,
+          ]);
         } catch (error) {
           // Non-critical error
         }
@@ -333,9 +339,14 @@ export class RegionalAgent extends EventEmitter {
 
     if (this.config.enableClaudeFlowHooks) {
       try {
-        await execAsync(
-          `npx claude-flow@alpha hooks post-edit --file "local-index" --memory-key "swarm/${this.config.agentId}/index-update"`
-        );
+        await runClaudeFlow([
+          'hooks',
+          'post-edit',
+          '--file',
+          'local-index',
+          '--memory-key',
+          `swarm/${this.config.agentId}/index-update`,
+        ]);
       } catch (error) {
         // Non-critical
       }
@@ -536,12 +547,18 @@ export class RegionalAgent extends EventEmitter {
 
     if (this.config.enableClaudeFlowHooks) {
       try {
-        await execAsync(
-          `npx claude-flow@alpha hooks post-task --task-id "agent-${this.config.agentId}-shutdown"`
-        );
-        await execAsync(
-          `npx claude-flow@alpha hooks session-end --export-metrics true`
-        );
+        await runClaudeFlow([
+          'hooks',
+          'post-task',
+          '--task-id',
+          `agent-${this.config.agentId}-shutdown`,
+        ]);
+        await runClaudeFlow([
+          'hooks',
+          'session-end',
+          '--export-metrics',
+          true,
+        ]);
       } catch (error) {
         console.warn(`[RegionalAgent:${this.config.region}] Error executing shutdown hooks:`, error);
       }

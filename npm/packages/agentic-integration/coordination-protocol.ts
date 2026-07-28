@@ -9,10 +9,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import { runClaudeFlow } from './claude-flow-runner';
 
 export interface Message {
   id: string;
@@ -94,9 +91,12 @@ export class CoordinationProtocol extends EventEmitter {
 
     if (this.config.enableClaudeFlowHooks) {
       try {
-        await execAsync(
-          `npx claude-flow@alpha hooks pre-task --description "Initialize coordination protocol for node ${this.config.nodeId}"`
-        );
+        await runClaudeFlow([
+          'hooks',
+          'pre-task',
+          '--description',
+          `Initialize coordination protocol for node ${this.config.nodeId}`,
+        ]);
       } catch (error) {
         console.warn(`[CoordinationProtocol:${this.config.nodeId}] Claude-flow hooks not available`);
       }
@@ -755,9 +755,12 @@ export class CoordinationProtocol extends EventEmitter {
 
     if (this.config.enableClaudeFlowHooks) {
       try {
-        await execAsync(
-          `npx claude-flow@alpha hooks post-task --task-id "protocol-${this.config.nodeId}-shutdown"`
-        );
+        await runClaudeFlow([
+          'hooks',
+          'post-task',
+          '--task-id',
+          `protocol-${this.config.nodeId}-shutdown`,
+        ]);
       } catch (error) {
         console.warn(`[CoordinationProtocol:${this.config.nodeId}] Error executing shutdown hooks`);
       }

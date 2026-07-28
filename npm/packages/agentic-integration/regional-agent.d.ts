@@ -38,9 +38,14 @@ export interface QueryResult {
     latency: number;
     region: string;
 }
+export interface VectorEntry {
+    id: string;
+    vector: number[];
+    metadata?: Record<string, unknown>;
+}
 export interface SyncPayload {
     type: 'index' | 'update' | 'delete';
-    data: any;
+    data: VectorEntry[] | string[];
     timestamp: number;
     sourceRegion: string;
 }
@@ -90,11 +95,7 @@ export declare class RegionalAgent extends EventEmitter {
     /**
      * Add/update vectors in local index
      */
-    indexVectors(vectors: Array<{
-        id: string;
-        vector: number[];
-        metadata?: Record<string, any>;
-    }>): Promise<void>;
+    indexVectors(vectors: VectorEntry[]): Promise<void>;
     /**
      * Delete vectors from local index
      */

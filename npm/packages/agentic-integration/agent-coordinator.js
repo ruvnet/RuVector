@@ -12,9 +12,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AgentCoordinator = void 0;
 const events_1 = require("events");
-const child_process_1 = require("child_process");
-const util_1 = require("util");
-const execAsync = (0, util_1.promisify)(child_process_1.exec);
+const claude_flow_runner_1 = require("./claude-flow-runner");
 class AgentCoordinator extends events_1.EventEmitter {
     constructor(config) {
         super();
@@ -25,7 +23,7 @@ class AgentCoordinator extends events_1.EventEmitter {
         this.activeTasks = new Map();
         this.regionLoadIndex = new Map();
         this.circuitBreakers = new Map();
-        this.initializeCoordinator();
+        void this.initializeCoordinator();
     }
     /**
      * Initialize coordinator with claude-flow hooks
@@ -35,7 +33,12 @@ class AgentCoordinator extends events_1.EventEmitter {
         if (this.config.enableClaudeFlowHooks) {
             try {
                 // Pre-task hook for coordination initialization
-                await execAsync(`npx claude-flow@alpha hooks pre-task --description "Initialize agent coordinator"`);
+                await (0, claude_flow_runner_1.runClaudeFlow)([
+                    'hooks',
+                    'pre-task',
+                    '--description',
+                    'Initialize agent coordinator',
+                ]);
                 console.log('[AgentCoordinator] Claude-flow pre-task hook executed');
             }
             catch (error) {
@@ -51,12 +54,12 @@ class AgentCoordinator extends events_1.EventEmitter {
     /**
      * Register a new agent in the coordination system
      */
-    async registerAgent(registration) {
+    registerAgent(registration) {
         console.log(`[AgentCoordinator] Registering agent: ${registration.agentId} in ${registration.region}`);
         // Check if region has capacity
         const regionAgents = Array.from(this.agents.values()).filter(a => a.region === registration.region);
         if (regionAgents.length >= this.config.maxAgentsPerRegion) {
-            throw new Error(`Region ${registration.region} has reached max agent capacity`);
+            return Promise.reject(new Error(`Region ${registration.region} has reached max agent capacity`));
         }
         this.agents.set(registration.agentId, registration);
         // Initialize circuit breaker for agent
@@ -77,6 +80,7 @@ class AgentCoordinator extends events_1.EventEmitter {
         });
         this.emit('agent:registered', registration);
         console.log(`[AgentCoordinator] Agent ${registration.agentId} registered successfully`);
+        return Promise.resolve();
     }
     /**
      * Unregister an agent from the coordination system
@@ -100,7 +104,7 @@ class AgentCoordinator extends events_1.EventEmitter {
     /**
      * Submit a task for distributed execution
      */
-    async submitTask(task) {
+    submitTask(task) {
         const fullTask = {
             ...task,
             id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -111,13 +115,13 @@ class AgentCoordinator extends events_1.EventEmitter {
         // Add to queue based on priority
         this.insertTaskByPriority(fullTask);
         this.emit('task:submitted', fullTask);
-        return fullTask.id;
+        return Promise.resolve(fullTask.id);
     }
     /**
      * Insert task into queue maintaining priority order
      */
     insertTaskByPriority(task) {
-        let insertIndex = this.taskQueue.findIndex(t => t.priority < task.priority);
+        const insertIndex = this.taskQueue.findIndex(t => t.priority < task.priority);
         if (insertIndex === -1) {
             this.taskQueue.push(task);
         }
@@ -165,24 +169,24 @@ class AgentCoordinator extends events_1.EventEmitter {
     /**
      * Select best agent for task based on load balancing strategy
      */
-    async selectAgent(task) {
+    selectAgent(task) {
         const availableAgents = Array.from(this.agents.values()).filter(agent => {
             const metrics = this.agentMetrics.get(agent.agentId);
             return metrics?.healthy && (!task.region || agent.region === task.region);
         });
         if (availableAgents.length === 0)
-            return null;
+            return Promise.resolve(null);
         switch (this.config.loadBalancingStrategy) {
             case 'round-robin':
-                return this.selectAgentRoundRobin(availableAgents, task);
+                return Promise.resolve(this.selectAgentRoundRobin(availableAgents, task));
             case 'least-connections':
-                return this.selectAgentLeastConnections(availableAgents);
+                return Promise.resolve(this.selectAgentLeastConnections(availableAgents));
             case 'weighted':
-                return this.selectAgentWeighted(availableAgents);
+                return Promise.resolve(this.selectAgentWeighted(availableAgents));
             case 'adaptive':
-                return this.selectAgentAdaptive(availableAgents);
+                return Promise.resolve(this.selectAgentAdaptive(availableAgents));
             default:
-                return availableAgents[0];
+                return Promise.resolve(availableAgents[0]);
         }
     }
     /**
@@ -298,25 +302,28 @@ class AgentCoordinator extends events_1.EventEmitter {
     /**
      * Handle task failure
      */
-    async handleTaskFailure(task, error) {
+    handleTaskFailure(task, error) {
         this.activeTasks.delete(task.id);
+        const errorMessage = error instanceof Error ? error.message : String(error);
         this.emit('task:failed', {
             taskId: task.id,
-            error: error.message,
+            error: errorMessage,
             retries: task.retries,
         });
         // Could implement dead letter queue here
         console.error(`[AgentCoordinator] Task ${task.id} failed permanently:`, error);
+        return Promise.resolve();
     }
     /**
      * Redistribute task to another agent (failover)
      */
-    async redistributeTask(task) {
+    redistributeTask(task) {
         console.log(`[AgentCoordinator] Redistributing task ${task.id}`);
         // Remove region preference to allow any region
         const redistributedTask = { ...task, region: undefined };
         this.insertTaskByPriority(redistributedTask);
         this.emit('task:redistributed', { taskId: task.id });
+        return Promise.resolve();
     }
     /**
      * Failover task when agent is unavailable
@@ -355,7 +362,7 @@ class AgentCoordinator extends events_1.EventEmitter {
     /**
      * Perform health checks on all agents
      */
-    async performHealthChecks() {
+    performHealthChecks() {
         const now = Date.now();
         for (const [agentId, metrics] of this.agentMetrics.entries()) {
             // Check if metrics are stale (no update in 2x health check interval)
@@ -417,7 +424,12 @@ class AgentCoordinator extends events_1.EventEmitter {
         if (this.config.enableClaudeFlowHooks) {
             try {
                 // Post-task hook
-                await execAsync(`npx claude-flow@alpha hooks post-task --task-id "coordinator-shutdown"`);
+                await (0, claude_flow_runner_1.runClaudeFlow)([
+                    'hooks',
+                    'post-task',
+                    '--task-id',
+                    'coordinator-shutdown',
+                ]);
             }
             catch (error) {
                 console.warn('[AgentCoordinator] Error executing post-task hook:', error);

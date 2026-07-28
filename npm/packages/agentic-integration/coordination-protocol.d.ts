@@ -23,7 +23,7 @@ export interface ConsensusProposal {
     id: string;
     proposer: string;
     type: 'schema_change' | 'topology_change' | 'critical_operation';
-    data: any;
+    data: Record<string, unknown>;
     requiredVotes: number;
     deadline: number;
     votes: Map<string, boolean>;
@@ -64,16 +64,16 @@ export declare class CoordinationProtocol extends EventEmitter {
     /**
      * Send message to another node
      */
-    sendMessage(to: string, type: Message['type'], payload: any, options?: {
+    sendMessage(to: string, type: Message['type'], payload: Record<string, unknown> | unknown[], options?: {
         topic?: string;
         ttl?: number;
         priority?: number;
         expectResponse?: boolean;
-    }): Promise<any>;
+    }): Promise<Record<string, unknown> | undefined>;
     /**
      * Broadcast message to all nodes
      */
-    broadcastMessage(type: Message['type'], payload: any, options?: {
+    broadcastMessage(type: Message['type'], payload: Record<string, unknown>, options?: {
         topic?: string;
         ttl?: number;
         priority?: number;
@@ -89,7 +89,7 @@ export declare class CoordinationProtocol extends EventEmitter {
     /**
      * Send response to a request
      */
-    sendResponse(requestId: string, to: string, payload: any): Promise<void>;
+    sendResponse(requestId: string, to: string, payload: Record<string, unknown>): Promise<void>;
     /**
      * Handle response message
      */
@@ -101,7 +101,7 @@ export declare class CoordinationProtocol extends EventEmitter {
     /**
      * Propose consensus for critical operation
      */
-    proposeConsensus(type: ConsensusProposal['type'], data: any, requiredVotes?: number): Promise<boolean>;
+    proposeConsensus(type: ConsensusProposal['type'], data: Record<string, unknown>, requiredVotes?: number): Promise<boolean>;
     /**
      * Handle consensus message
      */
@@ -129,7 +129,7 @@ export declare class CoordinationProtocol extends EventEmitter {
     /**
      * Publish message to topic
      */
-    publishToTopic(topicName: string, payload: any): Promise<void>;
+    publishToTopic(topicName: string, payload: Record<string, unknown>): Promise<void>;
     /**
      * Deliver message to topic subscribers
      */

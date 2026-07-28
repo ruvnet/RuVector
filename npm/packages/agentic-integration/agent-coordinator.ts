@@ -10,10 +10,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import { runClaudeFlow } from './claude-flow-runner';
 
 export interface AgentMetrics {
   agentId: string;
@@ -81,9 +78,12 @@ export class AgentCoordinator extends EventEmitter {
     if (this.config.enableClaudeFlowHooks) {
       try {
         // Pre-task hook for coordination initialization
-        await execAsync(
-          `npx claude-flow@alpha hooks pre-task --description "Initialize agent coordinator"`
-        );
+        await runClaudeFlow([
+          'hooks',
+          'pre-task',
+          '--description',
+          'Initialize agent coordinator',
+        ]);
         console.log('[AgentCoordinator] Claude-flow pre-task hook executed');
       } catch (error) {
         console.warn('[AgentCoordinator] Claude-flow hooks not available:', error);
@@ -577,9 +577,12 @@ export class AgentCoordinator extends EventEmitter {
     if (this.config.enableClaudeFlowHooks) {
       try {
         // Post-task hook
-        await execAsync(
-          `npx claude-flow@alpha hooks post-task --task-id "coordinator-shutdown"`
-        );
+        await runClaudeFlow([
+          'hooks',
+          'post-task',
+          '--task-id',
+          'coordinator-shutdown',
+        ]);
       } catch (error) {
         console.warn('[AgentCoordinator] Error executing post-task hook:', error);
       }

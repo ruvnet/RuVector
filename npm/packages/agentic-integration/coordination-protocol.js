@@ -11,9 +11,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CoordinationProtocol = void 0;
 const events_1 = require("events");
-const child_process_1 = require("child_process");
-const util_1 = require("util");
-const execAsync = (0, util_1.promisify)(child_process_1.exec);
+const claude_flow_runner_1 = require("./claude-flow-runner");
 class CoordinationProtocol extends events_1.EventEmitter {
     constructor(config) {
         super();
@@ -26,7 +24,7 @@ class CoordinationProtocol extends events_1.EventEmitter {
         this.knownNodes = new Set();
         this.lastHeartbeat = new Map();
         this.messageCounter = 0;
-        this.initialize();
+        void this.initialize();
     }
     /**
      * Initialize coordination protocol
@@ -43,7 +41,12 @@ class CoordinationProtocol extends events_1.EventEmitter {
         this.startMessageProcessing();
         if (this.config.enableClaudeFlowHooks) {
             try {
-                await execAsync(`npx claude-flow@alpha hooks pre-task --description "Initialize coordination protocol for node ${this.config.nodeId}"`);
+                await (0, claude_flow_runner_1.runClaudeFlow)([
+                    'hooks',
+                    'pre-task',
+                    '--description',
+                    `Initialize coordination protocol for node ${this.config.nodeId}`,
+                ]);
             }
             catch (error) {
                 console.warn(`[CoordinationProtocol:${this.config.nodeId}] Claude-flow hooks not available`);
@@ -118,16 +121,16 @@ class CoordinationProtocol extends events_1.EventEmitter {
                 await this.handleRequest(message);
                 break;
             case 'response':
-                await this.handleResponse(message);
+                this.handleResponse(message);
                 break;
             case 'broadcast':
-                await this.handleBroadcast(message);
+                this.handleBroadcast(message);
                 break;
             case 'consensus':
                 await this.handleConsensusMessage(message);
                 break;
             default:
-                console.warn(`[CoordinationProtocol:${this.config.nodeId}] Unknown message type: ${message.type}`);
+                console.warn(`[CoordinationProtocol:${this.config.nodeId}] Unknown message type: ${String(message.type)}`);
         }
         // Update last contact time
         this.lastHeartbeat.set(message.from, Date.now());
@@ -152,38 +155,30 @@ class CoordinationProtocol extends events_1.EventEmitter {
      * Send response to a request
      */
     async sendResponse(requestId, to, payload) {
-        const response = {
-            id: `resp-${requestId}`,
-            type: 'response',
-            from: this.config.nodeId,
-            to,
-            payload: {
-                requestId,
-                ...payload,
-            },
-            timestamp: Date.now(),
-            ttl: this.config.messageTimeout,
-            priority: 1,
+        const responsePayload = {
+            requestId,
+            ...payload,
         };
-        await this.sendMessage(to, 'response', response.payload);
+        await this.sendMessage(to, 'response', responsePayload);
     }
     /**
      * Handle response message
      */
-    async handleResponse(message) {
-        const requestId = message.payload.requestId;
-        const pending = this.pendingResponses.get(requestId);
+    handleResponse(message) {
+        const typedPayload = message.payload;
+        const requestId = typedPayload.requestId;
+        const pending = this.pendingResponses.get(requestId ?? '');
         if (pending) {
             clearTimeout(pending.timeout);
             pending.resolve(message.payload);
-            this.pendingResponses.delete(requestId);
+            this.pendingResponses.delete(requestId ?? '');
         }
         this.emit('response:received', message);
     }
     /**
      * Handle broadcast message
      */
-    async handleBroadcast(message) {
+    handleBroadcast(message) {
         // If message has topic, deliver to topic subscribers
         if (message.topic) {
             const topic = this.pubSubTopics.get(message.topic);
@@ -251,7 +246,8 @@ class CoordinationProtocol extends events_1.EventEmitter {
      * Handle consensus message
      */
     async handleConsensusMessage(message) {
-        const { action, proposal, vote } = message.payload;
+        const typedPayload = message.payload;
+        const { action, proposal, vote } = typedPayload;
         switch (action) {
             case 'propose':
                 // New proposal received
@@ -259,21 +255,24 @@ class CoordinationProtocol extends events_1.EventEmitter {
                 break;
             case 'vote':
                 // Vote received for proposal
-                await this.handleConsensusVote(vote.proposalId, message.from, vote.approve);
+                if (vote) {
+                    this.handleConsensusVote(vote.proposalId, message.from, vote.approve);
+                }
                 break;
             default:
-                console.warn(`[CoordinationProtocol:${this.config.nodeId}] Unknown consensus action: ${action}`);
+                console.warn(`[CoordinationProtocol:${this.config.nodeId}] Unknown consensus action: ${String(action)}`);
         }
     }
     /**
      * Handle consensus proposal
      */
     async handleConsensusProposal(proposalData, from) {
-        console.log(`[CoordinationProtocol:${this.config.nodeId}] Received consensus proposal ${proposalData.id} from ${from}`);
+        const data = proposalData;
+        console.log(`[CoordinationProtocol:${this.config.nodeId}] Received consensus proposal ${data.id} from ${from}`);
         // Store proposal
         const proposal = {
-            ...proposalData,
-            votes: new Map([[proposalData.proposer, true]]),
+            ...data,
+            votes: new Map([[data.proposer, true]]),
             status: 'pending',
         };
         this.consensusProposals.set(proposal.id, proposal);
@@ -294,7 +293,7 @@ class CoordinationProtocol extends events_1.EventEmitter {
     /**
      * Handle consensus vote
      */
-    async handleConsensusVote(proposalId, voter, approve) {
+    handleConsensusVote(proposalId, voter, approve) {
         const proposal = this.consensusProposals.get(proposalId);
         if (!proposal || proposal.status !== 'pending') {
             return;
@@ -417,7 +416,7 @@ class CoordinationProtocol extends events_1.EventEmitter {
             this.messageQueue.pop();
         }
         // Insert message by priority
-        let insertIndex = this.messageQueue.findIndex(m => m.priority < message.priority);
+        const insertIndex = this.messageQueue.findIndex(m => m.priority < message.priority);
         if (insertIndex === -1) {
             this.messageQueue.push(message);
         }
@@ -436,7 +435,7 @@ class CoordinationProtocol extends events_1.EventEmitter {
     /**
      * Process queued messages
      */
-    async processMessages() {
+    processMessages() {
         while (this.messageQueue.length > 0) {
             const message = this.messageQueue.shift();
             // Check if message expired
@@ -453,7 +452,7 @@ class CoordinationProtocol extends events_1.EventEmitter {
      */
     startHeartbeat() {
         this.heartbeatTimer = setInterval(() => {
-            this.sendHeartbeat();
+            void this.sendHeartbeat();
             this.checkNodeHealth();
         }, this.config.heartbeatInterval);
     }
@@ -524,16 +523,21 @@ class CoordinationProtocol extends events_1.EventEmitter {
             clearInterval(this.messageProcessingTimer);
         }
         // Process remaining messages
-        await this.processMessages();
+        this.processMessages();
         // Clear pending responses
-        for (const [messageId, pending] of this.pendingResponses.entries()) {
+        for (const pending of this.pendingResponses.values()) {
             clearTimeout(pending.timeout);
             pending.reject(new Error('Protocol shutting down'));
         }
         this.pendingResponses.clear();
         if (this.config.enableClaudeFlowHooks) {
             try {
-                await execAsync(`npx claude-flow@alpha hooks post-task --task-id "protocol-${this.config.nodeId}-shutdown"`);
+                await (0, claude_flow_runner_1.runClaudeFlow)([
+                    'hooks',
+                    'post-task',
+                    '--task-id',
+                    `protocol-${this.config.nodeId}-shutdown`,
+                ]);
             }
             catch (error) {
                 console.warn(`[CoordinationProtocol:${this.config.nodeId}] Error executing shutdown hooks`);
