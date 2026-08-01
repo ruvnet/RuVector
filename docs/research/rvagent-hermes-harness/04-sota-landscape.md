@@ -358,7 +358,13 @@ subagent boundary as *a tool that spawns an isolated context and returns a
 String*, not as peers with a message bus. That buys nearly all demonstrated
 upside at a fraction of the complexity.
 
-### Phase 2 — gate the learning loop
+**Amended (ADR-278 §7).** The reviewer is **gated, not adopted**. metaharness
+ADR-226 is a gold-scored null on a closely related design. It gave its advisor
+the *full transcript* where this reviewer sees *only the diff*, so it does not
+refute the pattern — but it is the specific null the reviewer must beat before
+reaching the default path. The gatherer is unaffected and corroborated.
+
+### Phase 2 — gate the learning loop, and shift memory → policy
 
 "SONA on the default path" contradicts §5. Move behind a feature gate with the
 measurement apparatus (paired lift, previously-solved regression rate, control
@@ -366,6 +372,27 @@ arm) as the *precondition* for enabling it, not a follow-up.
 
 The existing exit gate (≥30% token reduction on a repeated task suite) is
 well-formed — keep it, and add the control arm.
+
+**Update (ADR-278).** The promotion apparatus does not need building:
+`@metaharness/flywheel` already implements a frozen fingerprinted conjunctive
+gate, holdout **plus** a never-optimized-against anchor, Ed25519 receipts,
+independent replay verification, and a compounding lineage DAG. Adopt it.
+
+More consequentially, metaharness's own measurements reframe the target.
+Self-learning splits into two objects with opposite evidence: **policy text**
+(GEPA-style; positive) and **episodic memory** (ReasoningBank/SONA; negative,
+per §5). RuVector's weight currently sits on the memory side. Move new effort to
+policy evolution.
+
+Two internal nulls to respect:
+
+- **ADR-226** — a read-only frontier advisor produced *zero* marginal
+  gold-scored resolves at **5.4× cost** while genuinely firing (33 advisories,
+  3 vetoes). Independently corroborates this document's +0.4 pp / 5.8× figure.
+- **ADR-236** — the flywheel mechanism was proven end-to-end on real SWE-bench
+  and still produced no compounding lift, because the base solver was too weak.
+  **A promotion engine cannot rescue an unreliable loop**, which confirms the
+  reliability-floor-first ordering above.
 
 ### Phase 3 — MCP spec migration is now urgent
 

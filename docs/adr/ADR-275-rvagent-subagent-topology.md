@@ -34,7 +34,7 @@ Two subagent roles are adopted; a third is deferred.
 
 | Role | Status | Shares context? | Writes? |
 |---|---|---|---|
-| Fresh-context reviewer | Adopt | **No** — deliberately | No |
+| Fresh-context reviewer | **Gated** (amended, see §3.1) | **No** — deliberately | No |
 | Read-only context-gatherer | Adopt | No | No |
 | Coordinator / manager | Defer | — | No |
 | Parallel writers | **Rejected** | — | — |
@@ -83,7 +83,7 @@ the *result* coherent. That is precisely the failure Cognition describes.
 
 ## 3. Adopted patterns
 
-### 3.1 Fresh-context reviewer
+### 3.1 Fresh-context reviewer — **GATED** (amended 2026-08-01, ADR-278 §7)
 
 Spawns with **no inherited conversation** — only the diff and the task
 statement. Returns findings as a string. Does not write.
@@ -91,6 +91,24 @@ statement. Returns findings as a string. Does not write.
 The counterintuitive part is load-bearing: do **not** pass the parent's
 context. The reviewer's value comes from evaluating the artifact without the
 parent's accumulated rationalizations, and from having a short, clean window.
+
+> **Amendment.** This was originally written as *adopted* on the strength of
+> Cognition's production data (~2 bugs/PR, 58% severe). That overstated the
+> evidence: **metaharness ADR-226 is a gold-scored null on a closely related
+> design** — a read-only strong advisor produced **zero marginal resolves at
+> 5.4× cost**, while being genuinely active (33 advisories, 3 vetoes). It was
+> not considered when this section was written.
+>
+> The distinction that may preserve this design: ADR-226's advisor received the
+> **full transcript**, whereas this reviewer receives **only the diff** — and the
+> Cognition finding is precisely that reviewers do better *without* shared
+> context. So ADR-226 does not refute §3.1, but it is the strongest nearby
+> negative result and cannot be ignored.
+>
+> **Status is therefore downgraded from adopted to gated.** The reviewer must
+> show marginal lift over a no-reviewer control on the same instances before it
+> reaches the default path, and ADR-226's configuration is the specific null it
+> must beat. §3.2 below is unaffected — ADR-226 independently corroborates it.
 
 ### 3.2 Read-only context-gatherer
 
@@ -103,6 +121,11 @@ Measured (SWE-Edit, Viewer + Editor split): **+2.1 pp resolve, −17.9% cost,
 **Use a cheap model here.** A specialized Qwen3-8B editor matched GPT-5-nano;
 putting GPT-5 in that slot gave **+0.4 pp at 5.8× cost.** Model tiering per
 subagent role is part of the design, not an optimization.
+
+This is now corroborated internally: metaharness ADR-226 measured **zero
+marginal lift at 5.4× cost** for a frontier model in a read-only slot. Two
+independent measurements, near-identical cost multiple — treat "no expensive
+model in a read-only slot" as established, not provisional.
 
 This is also the cleanest lever on ADR-274 §5 failure #1 (wasted-context
 accumulation): exploration output never enters the main window.
