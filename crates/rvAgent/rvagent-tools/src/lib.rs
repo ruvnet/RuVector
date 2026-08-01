@@ -3,6 +3,7 @@
 //! Provides the `Tool` trait, `BuiltinTool`/`AnyTool` enum dispatch,
 //! `ToolRuntime` context, and parallel execution (ADR-103 A2).
 
+pub mod edit_diag;
 pub mod edit_file;
 pub mod execute;
 pub mod glob;
@@ -20,6 +21,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 
+pub use edit_diag::diagnose_edit_failure;
 pub use edit_file::EditFileTool;
 pub use execute::ExecuteTool;
 pub use glob::GlobTool;

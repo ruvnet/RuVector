@@ -229,10 +229,12 @@ impl Backend for LocalFsBackend {
         };
         let count = content.matches(old_string).count();
         if count == 0 {
+            // Say why it failed, not just that it did (ADR-273 §3.1/§3.3).
             return WriteResult {
-                error: Some(format!(
-                    "Error: old_string not found in {}",
-                    target.display()
+                error: Some(crate::diagnose_edit_failure(
+                    &content,
+                    old_string,
+                    &target.display().to_string(),
                 )),
                 ..Default::default()
             };

@@ -603,6 +603,47 @@ async fn recall_returns_the_full_content_of_a_masked_observation() {
 }
 
 #[tokio::test]
+async fn failed_edit_explains_why_it_failed() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("code.rs"),
+        "fn main() {\n    let total = 1;\n}\n",
+    )
+    .unwrap();
+
+    let model = ScriptedModel::new(vec![
+        Message::ai_with_tools(
+            "",
+            vec![call(
+                "t1",
+                "edit_file",
+                // Wrong indentation (8 spaces, file has 4). Omitting the
+                // indent entirely would still match as a substring; supplying
+                // the wrong amount is the failure that actually happens.
+                serde_json::json!({
+                    "file_path": "code.rs",
+                    "old_string": "        let total = 1;",
+                    "new_string": "        let total = 2;"
+                }),
+            )],
+        ),
+        Message::ai("done"),
+    ]);
+    let graph = AgentGraph::new(model, RealToolExecutor::new(dir.path()));
+    let state = graph.run(AgentState::new()).await.unwrap();
+
+    let results = tool_results(&state);
+    assert_eq!(results.len(), 1);
+    // "not found" alone is useless — the model already believed it was there.
+    assert!(
+        results[0].contains("whitespace is ignored"),
+        "edit failure was not diagnosed: {}",
+        results[0]
+    );
+    assert!(results[0].contains("exact leading whitespace"));
+}
+
+#[tokio::test]
 async fn recall_with_an_unknown_id_is_actionable_not_fatal() {
     let dir = tempfile::tempdir().unwrap();
     let model = ScriptedModel::new(vec![
