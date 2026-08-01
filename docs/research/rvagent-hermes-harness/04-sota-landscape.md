@@ -420,9 +420,12 @@ apparatus — given §7, retraction discipline is the feature.
 
 ## 9. Open items
 
-- Benchmark/leaderboard sweep (current top scores by model+harness,
-  cost-normalized Pareto, credible-claim conformance criteria) is still
-  outstanding; §7 covers hygiene but not target selection.
+- ~~Benchmark/leaderboard sweep~~ **Resolved 2026-08-01.** Headline: **SWE-bench
+  Pro was retracted by OpenAI on 2026-07-08** (27.4% of public tasks flagged
+  broken automatically, 34.1% by human reviewers) — the obvious successor to
+  Verified is also gone. Terminal-Bench 2.1 is the only credible harness board;
+  no operating leaderboard reports cost, which makes a cost-normalized Pareto
+  uncontested ground. Full gate in ADR-277 §7.
 - `codex-rs` internals in §2 come from a third-party architecture writeup, not
   the repo. Worth reading `codex-rs/core/src/` directly before copying the
   `Op`/`EventMsg` design.

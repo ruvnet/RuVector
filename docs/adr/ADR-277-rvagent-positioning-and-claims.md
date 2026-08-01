@@ -202,14 +202,106 @@ gate is withdrawn without a replacement in hand (§7).
 community Rust harness" gap closes quickly. The moat must be the library API
 and replay, **not merely that a Rust harness exists.**
 
-## 7. Open
+## 7. The Phase 4 exit gate (resolved 2026-08-01)
 
-Benchmark target selection is unresolved. Required before Phase 4 can restate
-its gate: current top scores by model *and* harness, cost-normalized Pareto
-position, and conformance criteria for a credible 2026 claim on a
-non-saturated benchmark. Tracked in
-`04-sota-landscape.md` §9.
+§5.1 withdrew the SWE-bench-Verified gate without a replacement. This section
+supplies one.
 
-Also outstanding: read `codex-rs/core/src/` directly before adopting its
-`Op`/`EventMsg` submit/event design — the survey's account of it is
-third-party.
+**The obvious successor is also gone.** SWE-bench **Pro** was **retracted by
+OpenAI on 2026-07-08**: an audit of its 731 public tasks flagged **27.4%
+broken** automatically and **34.1%** by five independent human reviewers, the
+dominant failure being over-strict hidden tests enforcing unspecified
+implementation details. Two benchmark retractions in six months is the context
+every claim we publish now lands in.
+
+Also dead or unusable: SWE-Lancer (archived 2025-07-18), Aider polyglot (frozen
+2025-11-20, no 2026 models), LiveCodeBench (a *model* benchmark — a harness
+contributes nothing), OSWorld (self-reported rows, meeting-gated verification),
+bare GAIA (a documented **30–50 point** spread on identical tasks purely from
+scaffolding).
+
+### The gate — all four must pass
+
+**Gate 1 — Terminal-Bench 2.1 absolute.**
+**≥ 78.0% pass rate, 5 trials, bootstrap 95% CI half-width ≤ 1.5 pp, on a
+mid-tier model, team-verified.**
+
+Terminal-Bench 2.1 is the only board that is simultaneously team-verified,
+CI-reporting, adversarially audited during construction, and *structurally a
+harness comparison* (Claude Code, Codex, Terminus 2, Cursor CLI and
+mini-SWE-agent all appear on shared models).
+
+78.0% is deliberate. It sits mid-board and CI-disjoint above the weakest
+entries while explicitly **not** claiming to beat the leader at 83.8% ± 1.2.
+**78% on a mid-tier model is a stronger result than 84% on a frontier model**,
+and it is the honest version of our story. Claiming ≥84% would be overreach
+given the CI widths and the reward-hackability base rate.
+
+**Gate 2 — Fixed-model cross-harness delta.** *This is the actual harness claim.*
+**≥ +4.0 pp over Terminus 2 on the identical model, CI-disjoint, replicated on
+≥3 models spanning ≥2 vendors.**
+
+Absolute pass rate is a joint model×harness measurement; only the fixed-model
+delta is attributable to us. Cross-vendor is required — a single-vendor result
+is indistinguishable from prompt-fitting to one tokenizer.
+
+Baselines: **Terminus 2** (the reference scaffold) and **mini-SWE-agent** (the
+minimal-scaffold control). Both are on the current board, so the delta is
+directly auditable.
+
+Report per-task pass rates, bootstrap CIs, and a **variance decomposition
+separating harness-induced from model-induced variance** (arXiv 2605.23950,
+which documents model-ranking *reversals* under different harnesses).
+
+**Publish the falsification:** the model tier where our delta vanishes or
+inverts. A harness result with no stated inversion point reads as
+cherry-picked, and per §2 of ADR-273 the effect should shrink as model
+capability rises — if it does not, that is evidence something is wrong.
+
+**Gate 3 — Cost-normalized Pareto.** *Our differentiator.*
+**Match or beat the best open-scaffold entry's pass rate at ≤ 40% of its
+$/task; publish $/task, input+output tokens/task, and wall-clock/task for every
+cell of the fixed-model matrix.**
+
+Terminal-Bench publishes **no cost column at all**, and HAL — the only board
+that treats cost as a first-class axis — has **paused submissions**. There is
+currently *no* operating cost-normalized agentic-coding leaderboard. Publishing
+one in HAL's format is uncontested ground and is the natural claim for a Rust
+harness.
+
+The framing anchor is HAL's own finding: *agents can be 100× more expensive
+while being 1% better.* On SWE-bench-Verified-Mini its frontier runs from a
+$65.31 cost-efficient knee to a $1,351 point that scores **11 points lower**.
+A good harness on a cheap model dominating a mediocre harness on an expensive
+one is an existence proof, not a hope.
+
+**Gate 4 — Contamination-resistant corroboration.**
+**A SWE-rebench run on the current rolling window (not a frozen split),
+reporting resolved% ± CI and pass@5 on ≥2 of the fixed models.**
+
+The rolling window makes memorization structurally impossible. This proves the
+Terminal-Bench result is neither terminal-specific nor contaminated.
+
+### Required caveat language
+
+Every headline number ships with: model, harness, trial count, CI, verification
+status, and the fixed-model delta vs Terminus 2 — plus an explicit statement
+that absolute pass rate is a joint model×harness measurement and only the delta
+is attributable to the harness. Cite arXiv 2605.23950.
+
+This is cheap, and it is the single thing separating a defensible claim from
+the pattern that got two benchmarks retracted inside six months.
+
+### Data hygiene
+
+SEO aggregators are publishing leaderboard numbers that do not appear on
+primary boards (e.g. inflated Terminal-Bench and SWE-bench figures). Some use
+real model names, which makes them more dangerous rather than less. **Cite only
+primary leaderboards.**
+
+## 8. Still open
+
+Read `codex-rs/core/src/` directly before adopting its `Op`/`EventMsg`
+submit/event design — the survey's account is third-party. Note this session
+cannot attach `openai/codex` (cross-owner adds unsupported); fetch the files
+directly or read them in a session rooted on that repo.
