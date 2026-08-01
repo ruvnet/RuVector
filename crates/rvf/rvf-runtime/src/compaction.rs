@@ -197,8 +197,8 @@ mod tests {
     // evaluate_triggers, so they lock the WIRING -- the part that was missing -- and
     // not just the arithmetic, which the tests above already cover.
 
-    use crate::store::RvfStore;
     use crate::options::DistanceMetric;
+    use crate::store::RvfStore;
     use crate::RvfOptions;
     use tempfile::TempDir;
 
@@ -238,7 +238,10 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let store = store_with(&dir, "dirty.rvf", 10, 6);
 
-        assert!(store.status().dead_space_ratio > 0.20, "precondition: real dead space");
+        assert!(
+            store.status().dead_space_ratio > 0.20,
+            "precondition: real dead space"
+        );
         assert_eq!(store.should_compact(), CompactionDecision::Normal);
     }
 
@@ -278,7 +281,10 @@ mod tests {
             min_interval_secs: 0,
             emergency_ratio: 0.70,
         };
-        assert_eq!(store.should_compact_with(&eager), CompactionDecision::Normal);
+        assert_eq!(
+            store.should_compact_with(&eager),
+            CompactionDecision::Normal
+        );
     }
 
     #[test]
