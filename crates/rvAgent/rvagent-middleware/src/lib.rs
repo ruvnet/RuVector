@@ -18,7 +18,7 @@
 //! ## ADR-103 Learning Middleware (B5, B6)
 //!
 //! - [`sona`] — SONA Adaptive Learning with three loops (instant, background, deep)
-//! - [`hnsw`] — HNSW Semantic Retrieval for skills and memory (150x-12,500x faster)
+//! - [`hnsw`] — experimental in-process retrieval index (hash-embedding placeholder)
 
 pub mod filesystem;
 pub mod hitl;

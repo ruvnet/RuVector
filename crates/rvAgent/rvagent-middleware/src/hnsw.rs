@@ -12,7 +12,8 @@
 //!
 //! # Performance
 //!
-//! - 150x-12,500x faster than brute-force search
+//! - EXPERIMENTAL: uses a hash-based embedding placeholder (not semantic);
+//!   no retrieval performance claims until real embeddings are integrated
 //! - O(log n) search complexity
 //! - Sub-millisecond latency for 10k vectors
 
