@@ -173,6 +173,16 @@ pub struct PipelineConfig {
     pub enable_hnsw: bool,
     /// Enable Unicode security middleware (C7 - CVE mitigation).
     pub enable_unicode_security: bool,
+    /// Enable LLM summarization as the compaction strategy (ADR-274).
+    ///
+    /// **Off by default.** Observation masking in the agent loop is the default
+    /// strategy; measured comparisons put simple masking at or above LLM
+    /// summarization on solve rate at roughly half the cost, and show
+    /// summarization inflating trajectories 13–15% by destroying the stopping
+    /// signals an agent uses to notice it has finished. Enable only as a
+    /// deliberate fallback, and supply a preservation rubric when you do — the
+    /// rubric is the load-bearing part, not the summarizer.
+    pub enable_summarization: bool,
     /// Custom SONA configuration.
     pub sona_config: Option<sona::SonaMiddlewareConfig>,
     /// Custom HNSW configuration.
@@ -181,9 +191,10 @@ pub struct PipelineConfig {
     pub unicode_security_config: Option<UnicodeSecurityConfig>,
 }
 
-/// Build the default middleware pipeline per ADR-095 ordering:
-/// Todo -> HNSW -> Memory -> Skills -> Filesystem -> SubAgent -> Summarization
-/// -> PromptCaching -> PatchToolCalls -> UnicodeSecurityMiddleware -> SONA -> Witness -> ToolSanitizer -> HITL
+/// Build the default middleware pipeline (ADR-095 ordering, amended by ADR-274):
+/// Todo -> HNSW -> Memory -> Skills -> Filesystem -> SubAgent
+/// -> [Summarization, opt-in] -> PromptCaching -> PatchToolCalls
+/// -> UnicodeSecurityMiddleware -> SONA -> Witness -> ToolSanitizer -> HITL
 ///
 /// HNSW is early in the pipeline to augment context before other middleware.
 /// UnicodeSecurityMiddleware runs before SONA to sanitize inputs/outputs (C7).
@@ -211,9 +222,18 @@ pub fn build_default_pipeline(config: &PipelineConfig) -> MiddlewarePipeline {
 
     middlewares.push(Box::new(filesystem::FilesystemMiddleware::new()));
     middlewares.push(Box::new(subagents::SubAgentMiddleware::new()));
-    middlewares.push(Box::new(summarization::SummarizationMiddleware::new(
-        100_000, 0.85, 0.10,
-    )));
+
+    // Summarization is OFF by default (ADR-274). Observation masking in the
+    // agent loop is the default compaction strategy; this remains available as
+    // an explicit fallback. Trigger lowered from 0.85 to 0.75 when enabled:
+    // context degrades well before the nominal limit, so compacting at 85%
+    // leaves too little headroom to be selective rather than desperate.
+    if config.enable_summarization {
+        middlewares.push(Box::new(summarization::SummarizationMiddleware::new(
+            100_000, 0.75, 0.10,
+        )));
+    }
+
     middlewares.push(Box::new(prompt_caching::PromptCachingMiddleware::new()));
     middlewares.push(Box::new(patch_tool_calls::PatchToolCallsMiddleware::new()));
 
@@ -463,9 +483,9 @@ mod tests {
     fn test_build_default_pipeline_minimal() {
         let config = PipelineConfig::default();
         let pipeline = build_default_pipeline(&config);
-        // Should have: todo, filesystem, subagent, summarization, prompt_caching,
-        // patch_tool_calls, tool_sanitizer = 7
-        assert!(pipeline.len() >= 7);
+        // todo, filesystem, subagent, prompt_caching, patch_tool_calls,
+        // tool_sanitizer = 6. Summarization is opt-in (ADR-274).
+        assert!(pipeline.len() >= 6);
     }
 
     #[test]
@@ -478,14 +498,34 @@ mod tests {
             enable_sona: false,
             enable_hnsw: false,
             enable_unicode_security: false,
+            enable_summarization: false,
             sona_config: None,
             hnsw_config: None,
             unicode_security_config: None,
         };
         let pipeline = build_default_pipeline(&config);
-        // todo + memory + skills + filesystem + subagent + summarization + prompt_caching
-        // + patch_tool_calls + witness + tool_sanitizer + hitl = 11
-        assert_eq!(pipeline.len(), 11);
+        // todo + memory + skills + filesystem + subagent + prompt_caching
+        // + patch_tool_calls + witness + tool_sanitizer + hitl = 10.
+        // Summarization is absent by default (ADR-274).
+        assert_eq!(pipeline.len(), 10);
+    }
+
+    #[test]
+    fn test_summarization_is_absent_by_default_and_available_opt_in() {
+        // The default path must not carry summarization: masking in the agent
+        // loop is the decided strategy (ADR-274).
+        let default_len = build_default_pipeline(&PipelineConfig::default()).len();
+        let opted_in = build_default_pipeline(&PipelineConfig {
+            enable_summarization: true,
+            ..PipelineConfig::default()
+        });
+        assert_eq!(
+            opted_in.len(),
+            default_len + 1,
+            "enabling summarization must add exactly one middleware"
+        );
+        // And it must still be constructible by name, so the fallback is real.
+        assert!(middleware_by_name("summarization").is_some());
     }
 
     #[test]

@@ -37,7 +37,9 @@ const DEFAULT_MIDDLEWARE: &[&str] = &[
     "skills",
     "filesystem",
     "subagent",
-    "summarization",
+    // "summarization" removed (ADR-274): observation masking in the agent loop
+    // is the default compaction strategy. Still available opt-in via
+    // PipelineConfig::enable_summarization.
     "prompt_caching",
     "patch_tool_calls",
     "witness",
@@ -491,7 +493,18 @@ mod tests {
 
     #[test]
     fn test_default_middleware_count() {
-        assert_eq!(DEFAULT_MIDDLEWARE.len(), 11);
+        // 10 since ADR-274 demoted summarization to opt-in.
+        assert_eq!(DEFAULT_MIDDLEWARE.len(), 10);
+    }
+
+    #[test]
+    fn test_summarization_is_not_on_the_default_path() {
+        // The shipped default must match the decided strategy: masking in the
+        // agent loop, not LLM summarization.
+        assert!(
+            !DEFAULT_MIDDLEWARE.contains(&"summarization"),
+            "summarization is on the default path but ADR-274 decided against it"
+        );
     }
 
     #[test]
