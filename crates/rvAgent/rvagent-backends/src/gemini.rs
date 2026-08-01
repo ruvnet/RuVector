@@ -237,9 +237,14 @@ impl GeminiClient {
                     });
                 }
                 Message::Tool(t) => {
-                    let name = call_id_to_name
-                        .get(&t.tool_call_id)
-                        .cloned()
+                    // Prefer the tool name recorded on the message itself,
+                    // then the id→name map from the preceding AI turn. The
+                    // raw id is a last resort only (it is not a valid
+                    // function name and Gemini may reject it).
+                    let name = t
+                        .tool_name
+                        .clone()
+                        .or_else(|| call_id_to_name.get(&t.tool_call_id).cloned())
                         .unwrap_or_else(|| t.tool_call_id.clone());
                     contents.push(GeminiContent {
                         role: "user".to_string(),
@@ -287,9 +292,12 @@ impl GeminiClient {
 
     /// Send a request to the API with retry logic.
     async fn send_with_retry(&self, request_body: &GeminiRequest) -> Result<GeminiResponse> {
+        // The API key travels in the `x-goog-api-key` header, never in the
+        // URL query string — URLs end up in error messages, proxy logs, and
+        // tracing output, which must never contain credentials.
         let url = format!(
-            "{}/{}:generateContent?key={}",
-            GEMINI_API_BASE, self.config.model_id, self.api_key
+            "{}/{}:generateContent",
+            GEMINI_API_BASE, self.config.model_id
         );
 
         let mut last_err: Option<RvAgentError> = None;
@@ -310,6 +318,7 @@ impl GeminiClient {
             let result = self
                 .http
                 .post(&url)
+                .header("x-goog-api-key", &self.api_key)
                 .header("content-type", "application/json")
                 .body(body_json)
                 .send()
@@ -373,17 +382,22 @@ impl ChatModel for GeminiClient {
         let response = self.send_with_retry(&request).await?;
 
         // Collect text and function-call parts from the first candidate.
-        // Gemini does not assign tool-call IDs, so synthesize stable ones.
+        // Gemini does not assign tool-call IDs, so synthesize unique ones:
+        // a process-wide counter prevents id collisions across turns (the
+        // per-part index alone repeats every turn, which would let one
+        // turn's tool result satisfy another turn's call in id-keyed logic).
+        static CALL_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let mut text_parts: Vec<String> = Vec::new();
         let mut tool_calls: Vec<ToolCall> = Vec::new();
         if let Some(candidate) = response.candidates.first() {
-            for (idx, part) in candidate.content.parts.iter().enumerate() {
+            for part in &candidate.content.parts {
                 if let Some(text) = &part.text {
                     text_parts.push(text.clone());
                 }
                 if let Some(fc) = &part.function_call {
+                    let n = CALL_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     tool_calls.push(ToolCall {
-                        id: format!("gemini_call_{idx}_{}", fc.name),
+                        id: format!("gemini_call_{n}_{}", fc.name),
                         name: fc.name.clone(),
                         args: fc.args.clone(),
                     });
@@ -583,5 +597,31 @@ mod tests {
         let fr = tool_turn.parts[0].function_response.as_ref().unwrap();
         assert_eq!(fr.name, "read_file");
         assert_eq!(fr.response, serde_json::json!({"result": "contents"}));
+    }
+
+    #[test]
+    fn test_gemini_tool_result_prefers_recorded_tool_name() {
+        let config = ModelConfig {
+            provider: rvagent_core::models::Provider::Google,
+            model_id: "gemini-2.5-pro".to_string(),
+            api_key_source: ApiKeySource::None,
+            max_tokens: 1024,
+            temperature: 0.0,
+        };
+        let client = GeminiClient {
+            config,
+            http: reqwest::Client::new(),
+            api_key: "test".to_string(),
+        };
+
+        // Orphaned tool message (no preceding AI turn, e.g. after history
+        // trimming): the recorded tool_name must win over the raw id.
+        let messages = vec![
+            Message::human("read it"),
+            Message::tool_with_name("some_opaque_id", "contents", "read_file"),
+        ];
+        let req = client.build_request(&messages, &[]);
+        let fr = req.contents[1].parts[0].function_response.as_ref().unwrap();
+        assert_eq!(fr.name, "read_file");
     }
 }

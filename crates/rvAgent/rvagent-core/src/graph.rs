@@ -233,8 +233,22 @@ impl<M: ChatModel, T: ToolExecutor + 'static> AgentGraph<M, T> {
                                 let executor = Arc::clone(&executor);
                                 let exec_state = exec_state.clone();
                                 async move {
-                                    let result = executor.execute(&tc, &exec_state).await;
-                                    (tc.id, tc.name, result)
+                                    let id = tc.id.clone();
+                                    let name = tc.name.clone();
+                                    // Run the tool in its own task so a panicking
+                                    // tool surfaces as a tool error instead of
+                                    // crashing the whole agent loop.
+                                    let result = match tokio::spawn(async move {
+                                        executor.execute(&tc, &exec_state).await
+                                    })
+                                    .await
+                                    {
+                                        Ok(res) => res,
+                                        Err(join_err) => Err(RvAgentError::tool(format!(
+                                            "tool '{name}' execution task failed: {join_err}"
+                                        ))),
+                                    };
+                                    (id, name, result)
                                 }
                             },
                             self.config.max_parallel_tools.max(1),
@@ -401,6 +415,58 @@ mod tests {
 
         // system + ai_with_tools + tool_result + ai_final = 4
         assert_eq!(result.message_count(), 4);
+    }
+
+    /// A tool executor that panics on one tool and succeeds on others.
+    struct PanickyExecutor;
+
+    #[async_trait]
+    impl ToolExecutor for PanickyExecutor {
+        async fn execute(&self, call: &ToolCall, _state: &AgentState) -> Result<String> {
+            if call.name == "boom" {
+                panic!("tool panicked");
+            }
+            Ok(format!("result of {}", call.name))
+        }
+    }
+
+    #[tokio::test]
+    async fn test_parallel_tool_panic_is_contained() {
+        let model = MockModel::new(vec![
+            Message::ai_with_tools(
+                "",
+                vec![
+                    ToolCall {
+                        id: "tc1".into(),
+                        name: "boom".into(),
+                        args: serde_json::json!({}),
+                    },
+                    ToolCall {
+                        id: "tc2".into(),
+                        name: "ok_tool".into(),
+                        args: serde_json::json!({}),
+                    },
+                ],
+            ),
+            Message::ai("done"),
+        ]);
+        let graph = AgentGraph::new(model, PanickyExecutor);
+
+        let state = AgentState::new();
+        // Must not panic: the panicking tool becomes an error tool-result.
+        let result = graph.run(state).await.unwrap();
+
+        let contents: Vec<&str> = result
+            .messages
+            .iter()
+            .filter_map(|m| match m {
+                Message::Tool(t) => Some(t.content.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(contents.len(), 2);
+        assert!(contents[0].contains("Tool execution error"));
+        assert!(contents[1].contains("result of ok_tool"));
     }
 
     #[tokio::test]

@@ -12,11 +12,14 @@ use crate::{Middleware, ModelHandler, ModelRequest, ModelResponse};
 
 /// Determines whether a `ModelResponse` represents a transient error worth retrying.
 ///
-/// Heuristic: the response is considered an error if its content is empty or
-/// starts with the prefix `"error:"` (case-insensitive).
+/// Heuristic: the response is considered an error if its content starts with
+/// the prefix `"error:"` (case-insensitive), or if it is completely empty —
+/// no text AND no tool calls. A response with tool calls but no text is a
+/// perfectly valid tool-use turn and must never be retried.
 fn is_transient_error(response: &ModelResponse) -> bool {
     let content = response.content();
-    content.is_empty() || content.to_ascii_lowercase().starts_with("error:")
+    (content.is_empty() && response.tool_calls.is_empty())
+        || content.to_ascii_lowercase().starts_with("error:")
 }
 
 /// Retry middleware that wraps model calls with exponential backoff.
@@ -243,6 +246,18 @@ mod tests {
     fn test_is_transient_error_error_prefix() {
         let resp = ModelResponse::text("Error: something went wrong");
         assert!(is_transient_error(&resp));
+    }
+
+    #[test]
+    fn test_is_transient_error_empty_content_with_tool_calls() {
+        // A tool-use turn often has no text content — it is NOT an error.
+        let mut resp = ModelResponse::text("");
+        resp.tool_calls = vec![crate::ToolCall {
+            id: "tc1".into(),
+            name: "read_file".into(),
+            args: serde_json::json!({}),
+        }];
+        assert!(!is_transient_error(&resp));
     }
 
     #[test]
