@@ -19,9 +19,10 @@ use rvagent_middleware::patch_tool_calls::PatchToolCallsMiddleware;
 use rvagent_middleware::skills::{parse_skill_metadata, validate_skill_name, MAX_SKILL_FILE_SIZE};
 use rvagent_middleware::tool_sanitizer::ToolResultSanitizerMiddleware;
 use rvagent_middleware::witness::{WitnessBuilder, WitnessMiddleware};
+use async_trait::async_trait;
 use rvagent_middleware::{
-    AgentState, Message, Middleware, ModelHandler, ModelRequest, ModelResponse, Role,
-    RunnableConfig, Runtime, ToolCall,
+    AgentState, Message, Middleware, ModelHandler, ModelRequest, ModelResponse, RunnableConfig,
+    Runtime, ToolCall,
 };
 
 // ---------------------------------------------------------------------------
@@ -30,14 +31,16 @@ use rvagent_middleware::{
 
 /// Handler that captures the model request for inspection.
 struct CaptureHandler;
+
+#[async_trait]
 impl ModelHandler for CaptureHandler {
-    fn call(&self, request: ModelRequest) -> ModelResponse {
+    async fn call(&self, request: ModelRequest) -> ModelResponse {
         // Return the first tool message's content (for sanitizer tests)
         let tool_content = request
             .messages
             .iter()
-            .find(|m| m.role == Role::Tool)
-            .map(|m| m.content.clone())
+            .find(|m| matches!(m, Message::Tool(_)))
+            .map(|m| m.content().to_string())
             .unwrap_or_default();
         ModelResponse::text(tool_content)
     }
@@ -47,8 +50,10 @@ impl ModelHandler for CaptureHandler {
 struct ToolCallResponseHandler {
     tool_calls: Vec<ToolCall>,
 }
+
+#[async_trait]
 impl ModelHandler for ToolCallResponseHandler {
-    fn call(&self, _request: ModelRequest) -> ModelResponse {
+    async fn call(&self, _request: ModelRequest) -> ModelResponse {
         let mut response = ModelResponse::text("done");
         response.tool_calls = self.tool_calls.clone();
         response
@@ -59,20 +64,20 @@ impl ModelHandler for ToolCallResponseHandler {
 // test_tool_result_sanitizer_wraps_output
 // ===========================================================================
 
-#[test]
-fn test_tool_result_sanitizer_wraps_output() {
+#[tokio::test]
+async fn test_tool_result_sanitizer_wraps_output() {
     let mw = ToolResultSanitizerMiddleware::new();
 
     // Build a request with a tool message
     let request = ModelRequest::new(vec![
-        Message::user("read the file"),
-        Message::tool("fn main() { println!(\"hello\"); }", "call-42", "read_file"),
+        Message::human("read the file"),
+        Message::tool_with_name("call-42", "fn main() { println!(\"hello\"); }", "read_file"),
     ]);
 
-    let response = mw.wrap_model_call(request, &CaptureHandler);
+    let response = mw.wrap_model_call(request, &CaptureHandler).await;
 
     // The tool message content should now be wrapped in <tool_output> tags
-    let content = &response.message.content;
+    let content = response.content();
     assert!(
         content.starts_with("<tool_output"),
         "Sanitized output must start with <tool_output tag"
@@ -111,8 +116,8 @@ fn test_tool_result_sanitizer_wraps_output() {
 // test_witness_middleware_logs_tool_calls
 // ===========================================================================
 
-#[test]
-fn test_witness_middleware_logs_tool_calls() {
+#[tokio::test]
+async fn test_witness_middleware_logs_tool_calls() {
     let builder = Arc::new(Mutex::new(WitnessBuilder::new()));
     let mw = WitnessMiddleware::with_builder(builder.clone());
 
@@ -131,8 +136,8 @@ fn test_witness_middleware_logs_tool_calls() {
         ],
     };
 
-    let request = ModelRequest::new(vec![Message::user("build the project")]);
-    let _response = mw.wrap_model_call(request, &handler);
+    let request = ModelRequest::new(vec![Message::human("build the project")]);
+    let _response = mw.wrap_model_call(request, &handler).await;
 
     // Verify witness chain recorded both calls
     let chain = builder.lock().unwrap();
@@ -237,54 +242,58 @@ fn test_skill_file_size_limit() {
 // test_patch_tool_calls_validates_ids
 // ===========================================================================
 
-#[test]
-fn test_patch_tool_calls_validates_ids() {
+#[tokio::test]
+async fn test_patch_tool_calls_validates_ids() {
     let mw = PatchToolCallsMiddleware::new();
     let runtime = Runtime::new();
     let config = RunnableConfig::default();
 
+    fn state_with_messages(messages: Vec<Message>) -> AgentState {
+        let mut state = AgentState::new();
+        state.messages = std::sync::Arc::new(messages);
+        state
+    }
+
     // Scenario 1: Valid tool call ID with no response → should be patched
-    let mut msg_valid = Message::assistant("Using tool");
-    msg_valid.tool_calls.push(ToolCall {
-        id: "call-abc123".into(),
-        name: "read_file".into(),
-        args: serde_json::json!({"path": "test.txt"}),
-    });
+    let msg_valid = Message::ai_with_tools(
+        "Using tool",
+        vec![ToolCall {
+            id: "call-abc123".into(),
+            name: "read_file".into(),
+            args: serde_json::json!({"path": "test.txt"}),
+        }],
+    );
 
-    let state = AgentState {
-        messages: vec![
-            Message::user("help"),
-            msg_valid,
-            Message::user("changed my mind"),
-        ],
-        ..Default::default()
-    };
+    let state = state_with_messages(vec![
+        Message::human("help"),
+        msg_valid,
+        Message::human("changed my mind"),
+    ]);
 
-    let update = mw.before_agent(&state, &runtime, &config);
+    let update = mw.before_agent(&state, &runtime, &config).await;
     assert!(update.is_some(), "Dangling tool call must be patched");
     let messages = update.unwrap().messages.unwrap();
     // Should have: user, assistant, synthetic tool response, user
     assert_eq!(messages.len(), 4);
-    assert_eq!(messages[2].role, Role::Tool);
-    assert!(messages[2].content.contains("cancelled"));
+    assert!(matches!(&messages[2], Message::Tool(_)));
+    assert!(messages[2].content().contains("cancelled"));
 
     // Scenario 2: Tool call with existing response → no patching needed
-    let mut msg_with_response = Message::assistant("Using tool");
-    msg_with_response.tool_calls.push(ToolCall {
-        id: "call-xyz".into(),
-        name: "read_file".into(),
-        args: serde_json::json!({}),
-    });
+    let msg_with_response = Message::ai_with_tools(
+        "Using tool",
+        vec![ToolCall {
+            id: "call-xyz".into(),
+            name: "read_file".into(),
+            args: serde_json::json!({}),
+        }],
+    );
 
-    let state2 = AgentState {
-        messages: vec![
-            msg_with_response,
-            Message::tool("file contents", "call-xyz", "read_file"),
-        ],
-        ..Default::default()
-    };
+    let state2 = state_with_messages(vec![
+        msg_with_response,
+        Message::tool_with_name("call-xyz", "file contents", "read_file"),
+    ]);
 
-    let update2 = mw.before_agent(&state2, &runtime, &config);
+    let update2 = mw.before_agent(&state2, &runtime, &config).await;
     assert!(
         update2.is_none(),
         "Tool call with existing response must not be patched"
@@ -292,15 +301,15 @@ fn test_patch_tool_calls_validates_ids() {
 
     // Scenario 3: Empty messages → no update
     let state3 = AgentState::default();
-    assert!(mw.before_agent(&state3, &runtime, &config).is_none());
+    assert!(mw.before_agent(&state3, &runtime, &config).await.is_none());
 }
 
 // ===========================================================================
 // test_memory_trust_verification
 // ===========================================================================
 
-#[test]
-fn test_memory_trust_verification() {
+#[tokio::test]
+async fn test_memory_trust_verification() {
     // 1. Compute hash of known content
     let trusted_content = "# Agent Instructions\nBe helpful and accurate.";
     let hash = compute_sha3_256(trusted_content.as_bytes());
@@ -345,7 +354,7 @@ fn test_memory_trust_verification() {
     let state = AgentState::default();
     let runtime = Runtime::new();
     let config = RunnableConfig::default();
-    let update = mw_loaded.before_agent(&state, &runtime, &config);
+    let update = mw_loaded.before_agent(&state, &runtime, &config).await;
     assert!(update.is_some());
 
     // 7. Test content size limit
@@ -356,7 +365,7 @@ fn test_memory_trust_verification() {
         .with_security_policy(SecurityPolicy::Permissive)
         .with_preloaded(oversized_preloaded);
 
-    let update_big = mw_big.before_agent(&state, &runtime, &config);
+    let update_big = mw_big.before_agent(&state, &runtime, &config).await;
     // The update should exist but the oversized content should be filtered out
     assert!(update_big.is_some());
     let ext = &update_big.unwrap().extensions;

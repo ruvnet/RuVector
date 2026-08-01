@@ -26,8 +26,8 @@ use ruvector_sona::{
 };
 
 use crate::{
-    AgentState, AgentStateUpdate, AsyncModelHandler, Middleware, ModelHandler, ModelRequest,
-    ModelResponse, Role, RunnableConfig, Runtime,
+    AgentState, AgentStateUpdate, Message, Middleware, ModelHandler, ModelRequest, ModelResponse,
+    RunnableConfig, Runtime,
 };
 use async_trait::async_trait;
 use parking_lot::RwLock;
@@ -153,7 +153,7 @@ fn estimate_quality(_request: &ModelRequest, response: &ModelResponse) -> f32 {
     let mut quality = 0.5f32;
 
     // Longer responses often indicate more thorough answers
-    let response_len = response.message.content.len();
+    let response_len = response.content().len();
     if response_len > 100 {
         quality += 0.1;
     }
@@ -167,7 +167,7 @@ fn estimate_quality(_request: &ModelRequest, response: &ModelResponse) -> f32 {
     }
 
     // Check for error indicators
-    let content_lower = response.message.content.to_lowercase();
+    let content_lower = response.content().to_lowercase();
     if content_lower.contains("error") || content_lower.contains("failed") {
         quality -= 0.2;
     }
@@ -309,8 +309,8 @@ impl SonaState {
         let query_text = request
             .messages
             .iter()
-            .filter(|m| matches!(m.role, Role::User))
-            .map(|m| m.content.as_str())
+            .filter(|m| matches!(m, Message::Human(_)))
+            .map(|m| m.content())
             .collect::<Vec<_>>()
             .join(" ");
 
@@ -322,7 +322,7 @@ impl SonaState {
 
         // Add response as a step
         let response_embedding =
-            generate_embedding(&response.message.content, self.config.embedding_dim);
+            generate_embedding(response.content(), self.config.embedding_dim);
         let quality = estimate_quality(request, response);
 
         builder.add_step(response_embedding, vec![], quality);
@@ -630,7 +630,7 @@ impl Middleware for SonaMiddleware {
         "sona"
     }
 
-    fn before_agent(
+    async fn before_agent(
         &self,
         state: &AgentState,
         _runtime: &Runtime,
@@ -653,10 +653,10 @@ impl Middleware for SonaMiddleware {
             .messages
             .iter()
             .rev()
-            .find(|m| matches!(m.role, Role::User));
+            .find(|m| matches!(m, Message::Human(_)));
 
         if let Some(msg) = last_user_message {
-            let patterns = self.state.read().find_similar_patterns(&msg.content);
+            let patterns = self.state.read().find_similar_patterns(msg.content());
 
             if !patterns.is_empty() {
                 // Store patterns in extensions for potential use
@@ -674,29 +674,10 @@ impl Middleware for SonaMiddleware {
         None
     }
 
-    fn wrap_model_call(&self, request: ModelRequest, handler: &dyn ModelHandler) -> ModelResponse {
-        if !self.is_enabled() {
-            return handler.call(request);
-        }
-
-        let start = Instant::now();
-
-        // Call the underlying handler
-        let response = handler.call(request.clone());
-
-        // Record trajectory (Loop A - Instant Learning)
-        let latency = start.elapsed();
-        self.state
-            .read()
-            .record_trajectory(&request, &response, latency);
-
-        response
-    }
-
-    async fn awrap_model_call(
+    async fn wrap_model_call(
         &self,
         request: ModelRequest,
-        handler: &dyn AsyncModelHandler,
+        handler: &dyn ModelHandler,
     ) -> ModelResponse {
         if !self.is_enabled() {
             return handler.call(request).await;
@@ -781,7 +762,7 @@ mod tests {
 
     #[test]
     fn test_estimate_quality() {
-        let request = ModelRequest::new(vec![Message::user("test")]);
+        let request = ModelRequest::new(vec![Message::human("test")]);
 
         // Short response
         let short_response = ModelResponse::text("ok");
@@ -835,21 +816,23 @@ mod tests {
     }
 
     struct TestHandler;
+
+    #[async_trait]
     impl ModelHandler for TestHandler {
-        fn call(&self, _request: ModelRequest) -> ModelResponse {
+        async fn call(&self, _request: ModelRequest) -> ModelResponse {
             ModelResponse::text("Test response with some content for quality estimation")
         }
     }
 
-    #[test]
-    fn test_wrap_model_call() {
+    #[tokio::test]
+    async fn test_wrap_model_call() {
         let middleware = SonaMiddleware::default_config();
         let handler = TestHandler;
-        let request = ModelRequest::new(vec![Message::user("Hello")]);
+        let request = ModelRequest::new(vec![Message::human("Hello")]);
 
-        let response = middleware.wrap_model_call(request, &handler);
+        let response = middleware.wrap_model_call(request, &handler).await;
 
-        assert!(response.message.content.contains("Test response"));
+        assert!(response.content().contains("Test response"));
 
         #[cfg(feature = "sona")]
         {
@@ -858,17 +841,17 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_wrap_model_call_disabled() {
+    #[tokio::test]
+    async fn test_wrap_model_call_disabled() {
         let middleware = SonaMiddleware::default_config();
         middleware.set_enabled(false);
 
         let handler = TestHandler;
-        let request = ModelRequest::new(vec![Message::user("Hello")]);
+        let request = ModelRequest::new(vec![Message::human("Hello")]);
 
-        let response = middleware.wrap_model_call(request, &handler);
+        let response = middleware.wrap_model_call(request, &handler).await;
 
-        assert!(response.message.content.contains("Test response"));
+        assert!(response.content().contains("Test response"));
 
         // No recording when disabled
         let stats = middleware.stats();

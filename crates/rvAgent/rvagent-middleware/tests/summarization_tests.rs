@@ -5,8 +5,9 @@
 //! - UUID-based offload filenames (SEC-015)
 //! - File permission expectations (0600)
 
+use async_trait::async_trait;
 use rvagent_middleware::summarization::SummarizationMiddleware;
-use rvagent_middleware::{Message, Middleware, ModelHandler, ModelRequest, ModelResponse, Role};
+use rvagent_middleware::{Message, Middleware, ModelHandler, ModelRequest, ModelResponse};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -14,8 +15,10 @@ use rvagent_middleware::{Message, Middleware, ModelHandler, ModelRequest, ModelR
 
 /// Handler that captures the number of messages in the request.
 struct MessageCountHandler;
+
+#[async_trait]
 impl ModelHandler for MessageCountHandler {
-    fn call(&self, request: ModelRequest) -> ModelResponse {
+    async fn call(&self, request: ModelRequest) -> ModelResponse {
         ModelResponse::text(format!("count={}", request.messages.len()))
     }
 }
@@ -23,7 +26,7 @@ impl ModelHandler for MessageCountHandler {
 /// Generate N user messages with enough content to exceed a token threshold.
 fn generate_messages(n: usize, content_size: usize) -> Vec<Message> {
     (0..n)
-        .map(|i| Message::user(format!("Message {} {}", i, "x".repeat(content_size))))
+        .map(|i| Message::human(format!("Message {} {}", i, "x".repeat(content_size))))
         .collect()
 }
 
@@ -31,8 +34,8 @@ fn generate_messages(n: usize, content_size: usize) -> Vec<Message> {
 // test_auto_compact_triggers
 // ===========================================================================
 
-#[test]
-fn test_auto_compact_triggers() {
+#[tokio::test]
+async fn test_auto_compact_triggers() {
     // Create middleware with very low threshold: max_tokens=10, trigger at 50%
     // so trigger at 5 tokens. Even a single message will exceed this.
     let mw = SummarizationMiddleware::new(10, 0.5, 0.5);
@@ -54,9 +57,9 @@ fn test_auto_compact_triggers() {
     // With many messages that exceed the threshold, compaction should reduce count
     let messages = generate_messages(20, 100);
     let request = ModelRequest::new(messages);
-    let response = mw.wrap_model_call(request, &MessageCountHandler);
+    let response = mw.wrap_model_call(request, &MessageCountHandler).await;
 
-    let count_str = response.message.content.clone();
+    let count_str = response.content().to_string();
     let count: usize = count_str.strip_prefix("count=").unwrap().parse().unwrap();
     assert!(
         count < 20,
@@ -68,19 +71,19 @@ fn test_auto_compact_triggers() {
 
     // With a single short message below threshold, no compaction
     let mw_high = SummarizationMiddleware::new(100_000, 0.85, 0.10);
-    let short_request = ModelRequest::new(vec![Message::user("hello")]);
-    let short_response = mw_high.wrap_model_call(short_request, &MessageCountHandler);
+    let short_request = ModelRequest::new(vec![Message::human("hello")]);
+    let short_response = mw_high.wrap_model_call(short_request, &MessageCountHandler).await;
     assert_eq!(
-        short_response.message.content, "count=1",
+        short_response.content(), "count=1",
         "Short conversation must not be compacted"
     );
 
     // Edge case: single message above threshold should not compact (need >1 messages)
     let mw_tiny = SummarizationMiddleware::new(1, 0.1, 0.5);
-    let single_request = ModelRequest::new(vec![Message::user("a long message that exceeds")]);
-    let single_response = mw_tiny.wrap_model_call(single_request, &MessageCountHandler);
+    let single_request = ModelRequest::new(vec![Message::human("a long message that exceeds")]);
+    let single_response = mw_tiny.wrap_model_call(single_request, &MessageCountHandler).await;
     assert_eq!(
-        single_response.message.content, "count=1",
+        single_response.content(), "count=1",
         "Single message should not be compacted even above threshold"
     );
 }
@@ -182,8 +185,8 @@ fn test_offload_uses_uuid_filename() {
 // test_file_permissions
 // ===========================================================================
 
-#[test]
-fn test_file_permissions() {
+#[tokio::test]
+async fn test_file_permissions() {
     // This test validates the permission model at the design level.
     // The SummarizationMiddleware is expected to write offloaded history
     // with mode 0600 (owner read/write only) per SEC-015.
@@ -204,14 +207,16 @@ fn test_file_permissions() {
 
     // Use a handler that returns the first message's role info
     struct FirstMessageHandler;
+
+    #[async_trait]
     impl ModelHandler for FirstMessageHandler {
-        fn call(&self, request: ModelRequest) -> ModelResponse {
+        async fn call(&self, request: ModelRequest) -> ModelResponse {
             if let Some(first) = request.messages.first() {
-                let role = match first.role {
-                    Role::System => "system",
-                    Role::User => "user",
-                    Role::Assistant => "assistant",
-                    Role::Tool => "tool",
+                let role = match first {
+                    Message::System(_) => "system",
+                    Message::Human(_) => "user",
+                    Message::Ai(_) => "assistant",
+                    Message::Tool(_) => "tool",
                 };
                 ModelResponse::text(format!("first_role={}", role))
             } else {
@@ -221,13 +226,13 @@ fn test_file_permissions() {
     }
 
     let request = ModelRequest::new(messages);
-    let response = mw_compact.wrap_model_call(request, &FirstMessageHandler);
+    let response = mw_compact.wrap_model_call(request, &FirstMessageHandler).await;
 
     // When compaction triggers, the first message should be the summary (System role)
     assert!(
-        response.message.content.contains("first_role=system"),
+        response.content().contains("first_role=system"),
         "Compacted conversation must start with a system summary message, got: {}",
-        response.message.content
+        response.content()
     );
 
     // Verify that keep_fraction and trigger_fraction are clamped

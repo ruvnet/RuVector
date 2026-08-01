@@ -234,20 +234,28 @@ impl<M: ChatModel, T: ToolExecutor + 'static> AgentGraph<M, T> {
                                 let exec_state = exec_state.clone();
                                 async move {
                                     let result = executor.execute(&tc, &exec_state).await;
-                                    (tc.id, result)
+                                    (tc.id, tc.name, result)
                                 }
                             },
                             self.config.max_parallel_tools.max(1),
                         )
                         .await;
-                        for (id, result) in results {
-                            state.push_message(Message::tool(id, tool_result_content(result)));
+                        for (id, name, result) in results {
+                            state.push_message(Message::tool_with_name(
+                                id,
+                                tool_result_content(result),
+                                name,
+                            ));
                         }
                     } else {
                         // Sequential execution.
                         for tc in &tool_calls {
                             let result = self.tool_executor.execute(tc, &state).await;
-                            state.push_message(Message::tool(&tc.id, tool_result_content(result)));
+                            state.push_message(Message::tool_with_name(
+                                &tc.id,
+                                tool_result_content(result),
+                                &tc.name,
+                            ));
                         }
                     }
 

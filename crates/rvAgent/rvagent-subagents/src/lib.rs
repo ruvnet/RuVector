@@ -26,18 +26,20 @@ pub use crdt_merge::{merge_subagent_results, CrdtState, MergeError, VectorClock}
 pub use orchestrator::{spawn_parallel, SpawnError, SubAgentOrchestrator};
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
+use rvagent_core::messages::Message;
+
 // ---------------------------------------------------------------------------
-// AgentState (simplified, JSON-based for cross-crate compatibility)
+// AgentState — canonical typed state from rvagent-core (ADR-103 A1)
 // ---------------------------------------------------------------------------
 
-/// Agent state represented as a JSON map.
+/// Agent state — the canonical typed `rvagent_core::state::AgentState`.
 ///
-/// Matches `HashMap<String, serde_json::Value>` from ADR-097.
-/// Future work (ADR-103 A1) will replace this with a typed struct.
-pub type AgentState = HashMap<String, serde_json::Value>;
+/// Replaces the former `HashMap<String, serde_json::Value>` alias (ADR-097)
+/// per ADR-103 A1 / roadmap P0.1.
+pub use rvagent_core::state::AgentState;
 
 // ---------------------------------------------------------------------------
 // RvAgentConfig
@@ -226,39 +228,33 @@ pub const EXCLUDED_STATE_KEYS: &[&str] = &[
 
 /// Prepare a filtered state for subagent invocation.
 ///
-/// Strips excluded keys from the parent state, then injects a single
-/// human message containing the task description.
+/// State-isolation semantics (ADR-097) on the typed state: parent
+/// `messages`, `todos`, `memory_contents`, and `skills_metadata` are
+/// excluded; `files` pass through (O(1) Arc clone); a single human message
+/// containing the task description is injected.
 pub fn prepare_subagent_state(parent_state: &AgentState, task_description: &str) -> AgentState {
-    let mut state: AgentState = parent_state
-        .iter()
-        .filter(|(k, _)| !EXCLUDED_STATE_KEYS.contains(&k.as_str()))
-        .map(|(k, v)| (k.clone(), v.clone()))
-        .collect();
-
-    state.insert(
-        "messages".to_string(),
-        serde_json::json!([{"type": "human", "content": task_description}]),
-    );
-
+    let mut state = AgentState::new();
+    // Files are not in EXCLUDED_STATE_KEYS — they pass through to the child.
+    state.files = Arc::clone(&parent_state.files);
+    state.push_message(Message::human(task_description));
     state
 }
 
 /// Extract the final message from a subagent's result state.
 pub fn extract_result_message(result_state: &AgentState) -> Option<String> {
-    let messages = result_state.get("messages")?;
-    let arr = messages.as_array()?;
-    let last = arr.last()?;
-    last.get("content")
-        .and_then(|c| c.as_str())
-        .map(|s| s.trim_end().to_string())
+    result_state
+        .messages
+        .last()
+        .map(|m| m.content().trim_end().to_string())
 }
 
 /// Merge non-excluded state from subagent result back into parent state.
+///
+/// Only non-excluded state merges back: `files` (subagent wins on path
+/// conflict). Parent `messages` and `todos` are never overwritten.
 pub fn merge_subagent_state(parent: &mut AgentState, subagent_result: &AgentState) {
-    for (k, v) in subagent_result {
-        if !EXCLUDED_STATE_KEYS.contains(&k.as_str()) {
-            parent.insert(k.clone(), v.clone());
-        }
+    for (path, data) in subagent_result.files.iter() {
+        parent.set_file(path.clone(), data.clone());
     }
 }
 
@@ -309,48 +305,53 @@ mod tests {
         assert_eq!(back.tools.len(), 2);
     }
 
+    use rvagent_core::state::{FileData, TodoItem, TodoStatus};
+
+    fn file(content: &str) -> FileData {
+        FileData {
+            content: content.into(),
+            encoding: "utf-8".into(),
+            modified_at: None,
+        }
+    }
+
     #[test]
     fn test_state_isolation_prepare() {
         let mut parent = AgentState::new();
-        parent.insert(
-            "messages".into(),
-            serde_json::json!([{"type": "ai", "content": "secret"}]),
-        );
-        parent.insert("remaining_steps".into(), serde_json::json!(5));
-        parent.insert("task_completion".into(), serde_json::json!(false));
-        parent.insert("custom_key".into(), serde_json::json!("visible"));
-        parent.insert("todos".into(), serde_json::json!([]));
+        parent.push_message(Message::ai("secret"));
+        parent.push_todo(TodoItem {
+            content: "parent todo".into(),
+            status: TodoStatus::Pending,
+            active_form: String::new(),
+        });
+        parent.set_file("/src/main.rs", file("fn main() {}"));
+        parent.memory_contents = Some(std::sync::Arc::new(
+            [("AGENTS.md".to_string(), "secret memory".to_string())]
+                .into_iter()
+                .collect(),
+        ));
 
         let child = prepare_subagent_state(&parent, "Do X");
 
-        // Parent messages must NOT leak
-        let msgs = child.get("messages").unwrap().as_array().unwrap();
-        assert_eq!(msgs.len(), 1);
-        assert_eq!(msgs[0]["content"], "Do X");
-        assert_eq!(msgs[0]["type"], "human");
+        // Parent messages must NOT leak — child gets exactly one human message.
+        assert_eq!(child.message_count(), 1);
+        assert_eq!(child.messages[0].content(), "Do X");
+        assert!(matches!(child.messages[0], Message::Human(_)));
 
-        // Excluded keys must not appear (except messages which is replaced)
-        assert!(child.get("remaining_steps").is_none());
-        assert!(child.get("task_completion").is_none());
-        assert!(child.get("todos").is_none());
+        // Excluded state must not appear.
+        assert!(child.todos.is_empty());
+        assert!(child.memory_contents.is_none());
+        assert!(child.skills_metadata.is_none());
 
-        // Non-excluded keys must pass through
-        assert_eq!(
-            child.get("custom_key").unwrap(),
-            &serde_json::json!("visible")
-        );
+        // Files pass through (non-excluded state).
+        assert!(child.files.contains_key("/src/main.rs"));
     }
 
     #[test]
     fn test_extract_result_message() {
         let mut state = AgentState::new();
-        state.insert(
-            "messages".into(),
-            serde_json::json!([
-                {"type": "human", "content": "do X"},
-                {"type": "ai", "content": "Done with X.  "}
-            ]),
-        );
+        state.push_message(Message::human("do X"));
+        state.push_message(Message::ai("Done with X.  "));
         let msg = extract_result_message(&state).unwrap();
         assert_eq!(msg, "Done with X.");
     }
@@ -358,25 +359,28 @@ mod tests {
     #[test]
     fn test_merge_subagent_state() {
         let mut parent = AgentState::new();
-        parent.insert("messages".into(), serde_json::json!([]));
-        parent.insert("existing".into(), serde_json::json!(1));
+        parent.push_message(Message::human("parent message"));
+        parent.set_file("/existing.rs", file("existing"));
 
         let mut child_result = AgentState::new();
-        child_result.insert(
-            "messages".into(),
-            serde_json::json!([{"type": "ai", "content": "hi"}]),
-        );
-        child_result.insert("new_key".into(), serde_json::json!("added"));
-        child_result.insert("todos".into(), serde_json::json!(["leaked"]));
+        child_result.push_message(Message::ai("hi"));
+        child_result.push_todo(TodoItem {
+            content: "leaked".into(),
+            status: TodoStatus::Pending,
+            active_form: String::new(),
+        });
+        child_result.set_file("/new.rs", file("added"));
 
         merge_subagent_state(&mut parent, &child_result);
 
         // messages should NOT be overwritten (excluded)
-        assert_eq!(parent.get("messages").unwrap(), &serde_json::json!([]));
+        assert_eq!(parent.message_count(), 1);
+        assert_eq!(parent.messages[0].content(), "parent message");
         // todos should NOT leak
-        assert!(parent.get("todos").is_none());
-        // new non-excluded keys should merge
-        assert_eq!(parent.get("new_key").unwrap(), &serde_json::json!("added"));
+        assert!(parent.todos.is_empty());
+        // new non-excluded state (files) should merge
+        assert!(parent.files.contains_key("/new.rs"));
+        assert!(parent.files.contains_key("/existing.rs"));
     }
 
     #[test]

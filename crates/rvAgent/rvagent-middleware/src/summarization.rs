@@ -4,7 +4,7 @@
 use async_trait::async_trait;
 use uuid::Uuid;
 
-use crate::{Message, Middleware, ModelHandler, ModelRequest, ModelResponse, Role};
+use crate::{Message, Middleware, ModelHandler, ModelRequest, ModelResponse};
 
 /// Trigger configuration for auto-compaction.
 pub enum TriggerConfig {
@@ -44,7 +44,7 @@ impl SummarizationMiddleware {
     fn estimate_tokens(messages: &[Message]) -> u64 {
         messages
             .iter()
-            .map(|m| (m.content.len() as u64) / 4 + 1)
+            .map(|m| (m.content().len() as u64) / 4 + 1)
             .sum()
     }
 
@@ -69,11 +69,11 @@ impl SummarizationMiddleware {
         ));
 
         for msg in messages {
-            if msg.role == Role::User {
-                let preview = if msg.content.len() > 100 {
-                    format!("{}...", &msg.content[..100])
+            if let Message::Human(h) = msg {
+                let preview = if h.content.len() > 100 {
+                    format!("{}...", &h.content[..100])
                 } else {
-                    msg.content.clone()
+                    h.content.clone()
                 };
                 summary.push_str(&format!("- User: {}\n", preview));
             }
@@ -91,13 +91,13 @@ impl SummarizationMiddleware {
     fn format_for_offload(messages: &[Message]) -> String {
         let mut out = String::new();
         for msg in messages {
-            let role = match msg.role {
-                Role::System => "system",
-                Role::User => "user",
-                Role::Assistant => "assistant",
-                Role::Tool => "tool",
+            let role = match msg {
+                Message::System(_) => "system",
+                Message::Human(_) => "user",
+                Message::Ai(_) => "assistant",
+                Message::Tool(_) => "tool",
             };
-            out.push_str(&format!("## {}\n\n{}\n\n---\n\n", role, msg.content));
+            out.push_str(&format!("## {}\n\n{}\n\n---\n\n", role, msg.content()));
         }
         out
     }
@@ -109,7 +109,11 @@ impl Middleware for SummarizationMiddleware {
         "summarization"
     }
 
-    fn wrap_model_call(&self, request: ModelRequest, handler: &dyn ModelHandler) -> ModelResponse {
+    async fn wrap_model_call(
+        &self,
+        request: ModelRequest,
+        handler: &dyn ModelHandler,
+    ) -> ModelResponse {
         let token_count = Self::estimate_tokens(&request.messages);
         let threshold = self.threshold();
 
@@ -129,9 +133,9 @@ impl Middleware for SummarizationMiddleware {
             let mut compacted = vec![summary];
             compacted.extend_from_slice(to_keep);
 
-            handler.call(request.with_messages(compacted))
+            handler.call(request.with_messages(compacted)).await
         } else {
-            handler.call(request)
+            handler.call(request).await
         }
     }
 }
@@ -140,9 +144,13 @@ impl Middleware for SummarizationMiddleware {
 mod tests {
     use super::*;
 
+    use async_trait::async_trait;
+
     struct PassthroughHandler;
+
+    #[async_trait]
     impl ModelHandler for PassthroughHandler {
-        fn call(&self, request: ModelRequest) -> ModelResponse {
+        async fn call(&self, request: ModelRequest) -> ModelResponse {
             ModelResponse::text(format!("messages: {}", request.messages.len()))
         }
     }
@@ -162,7 +170,7 @@ mod tests {
 
     #[test]
     fn test_estimate_tokens() {
-        let messages = vec![Message::user("hello world")];
+        let messages = vec![Message::human("hello world")];
         let tokens = SummarizationMiddleware::estimate_tokens(&messages);
         assert!(tokens > 0);
     }
@@ -180,31 +188,30 @@ mod tests {
         assert_eq!(mw.keep_count(1), 1);
     }
 
-    #[test]
-    fn test_no_compaction_below_threshold() {
+    #[tokio::test]
+    async fn test_no_compaction_below_threshold() {
         let mw = SummarizationMiddleware::new(100_000, 0.85, 0.10);
-        let request = ModelRequest::new(vec![Message::user("short")]);
+        let request = ModelRequest::new(vec![Message::human("short")]);
         let handler = PassthroughHandler;
-        let response = mw.wrap_model_call(request, &handler);
-        assert!(response.message.content.contains("messages: 1"));
+        let response = mw.wrap_model_call(request, &handler).await;
+        assert!(response.content().contains("messages: 1"));
     }
 
-    #[test]
-    fn test_compaction_above_threshold() {
+    #[tokio::test]
+    async fn test_compaction_above_threshold() {
         let mw = SummarizationMiddleware::new(10, 0.5, 0.5);
         let mut messages = Vec::new();
         for i in 0..20 {
-            messages.push(Message::user(format!(
+            messages.push(Message::human(format!(
                 "message {} with enough content to trigger compaction when counted",
                 i
             )));
         }
         let request = ModelRequest::new(messages);
         let handler = PassthroughHandler;
-        let response = mw.wrap_model_call(request, &handler);
+        let response = mw.wrap_model_call(request, &handler).await;
         let count: usize = response
-            .message
-            .content
+            .content()
             .strip_prefix("messages: ")
             .unwrap()
             .parse()
@@ -224,18 +231,18 @@ mod tests {
     #[test]
     fn test_summarize() {
         let messages = vec![
-            Message::user("What is Rust?"),
-            Message::assistant("Rust is a systems programming language."),
+            Message::human("What is Rust?"),
+            Message::ai("Rust is a systems programming language."),
         ];
         let summary = SummarizationMiddleware::summarize(&messages);
-        assert_eq!(summary.role, Role::System);
-        assert!(summary.content.contains("2 messages"));
-        assert!(summary.content.contains("What is Rust?"));
+        assert!(matches!(summary, Message::System(_)));
+        assert!(summary.content().contains("2 messages"));
+        assert!(summary.content().contains("What is Rust?"));
     }
 
     #[test]
     fn test_format_for_offload() {
-        let messages = vec![Message::user("test content")];
+        let messages = vec![Message::human("test content")];
         let offloaded = SummarizationMiddleware::format_for_offload(&messages);
         assert!(offloaded.contains("## user"));
         assert!(offloaded.contains("test content"));

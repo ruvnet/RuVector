@@ -3,9 +3,16 @@
 //! Demonstrates comprehensive security checks against Unicode-based attacks.
 
 use rvagent_middleware::{
-    AgentState, Message, Middleware, PipelineConfig, RunnableConfig, Runtime, ToolCall,
-    UnicodeSecurityChecker, UnicodeSecurityConfig, UnicodeSecurityMiddleware,
+    AgentState, Message, Middleware, RunnableConfig, Runtime, ToolCall, UnicodeSecurityChecker,
+    UnicodeSecurityConfig, UnicodeSecurityMiddleware,
 };
+use std::sync::Arc;
+
+fn state_with_messages(messages: Vec<Message>) -> AgentState {
+    let mut state = AgentState::new();
+    state.messages = Arc::new(messages);
+    state
+}
 
 #[tokio::test]
 async fn test_real_world_bidi_attack() {
@@ -14,29 +21,25 @@ async fn test_real_world_bidi_attack() {
         .with_input_sanitization(true)
         .with_output_sanitization(true);
 
-    let state = AgentState {
-        messages: vec![
-            // Attacker tries to disguise evil.exe as safe.txt
-            Message::tool(
-                "Downloaded: safe\u{202E}exe.txt", // Displays as "safeexe.txt" (reversed)
-                "tc-1",
-                "filesystem",
-            ),
-        ],
-        todos: vec![],
-        extensions: Default::default(),
-    };
+    let state = state_with_messages(vec![
+        // Attacker tries to disguise evil.exe as safe.txt
+        Message::tool_with_name(
+            "tc-1",
+            "Downloaded: safe\u{202E}exe.txt", // Displays as "safeexe.txt" (reversed)
+            "filesystem",
+        ),
+    ]);
 
     let runtime = Runtime::new();
     let config = RunnableConfig::default();
 
-    let update = mw.abefore_agent(&state, &runtime, &config).await;
+    let update = mw.before_agent(&state, &runtime, &config).await;
     assert!(update.is_some());
 
     let new_msgs = update.unwrap().messages.unwrap();
     // BiDi should be stripped
-    assert!(!new_msgs[0].content.contains('\u{202E}'));
-    assert_eq!(new_msgs[0].content, "Downloaded: safeexe.txt");
+    assert!(!new_msgs[0].content().contains('\u{202E}'));
+    assert_eq!(new_msgs[0].content(), "Downloaded: safeexe.txt");
 }
 
 #[tokio::test]
@@ -70,23 +73,19 @@ async fn test_real_world_zero_width_steganography() {
         .with_input_sanitization(true);
 
     // User input with hidden zero-width characters encoding secret data
-    let state = AgentState {
-        messages: vec![Message::user(
-            "Innocent\u{200B}text\u{200C}with\u{200D}hidden\u{200B}data",
-        )],
-        todos: vec![],
-        extensions: Default::default(),
-    };
+    let state = state_with_messages(vec![Message::human(
+        "Innocent\u{200B}text\u{200C}with\u{200D}hidden\u{200B}data",
+    )]);
 
     let runtime = Runtime::new();
     let config = RunnableConfig::default();
 
-    let update = mw.abefore_agent(&state, &runtime, &config).await;
+    let update = mw.before_agent(&state, &runtime, &config).await;
     assert!(update.is_some());
 
     let new_msgs = update.unwrap().messages.unwrap();
     // All zero-width should be stripped
-    assert_eq!(new_msgs[0].content, "Innocenttextwithhiddendata");
+    assert_eq!(new_msgs[0].content(), "Innocenttextwithhiddendata");
 }
 
 #[tokio::test]
@@ -94,37 +93,32 @@ async fn test_tool_call_argument_sanitization() {
     // Test that tool call arguments are checked for Unicode attacks
     let mw = UnicodeSecurityMiddleware::strict();
 
-    let state = AgentState {
-        messages: vec![{
-            let mut msg = Message::assistant("");
-            msg.tool_calls = vec![
-                ToolCall {
-                    id: "tc-1".to_string(),
-                    name: "write_file".to_string(),
-                    args: serde_json::json!({
-                        "path": "safe\u{202E}exe.txt",
-                        "content": "malicious content"
-                    }),
-                },
-                ToolCall {
-                    id: "tc-2".to_string(),
-                    name: "browser_navigate".to_string(),
-                    args: serde_json::json!({
-                        "url": "pаypal.com" // Cyrillic 'а'
-                    }),
-                },
-            ];
-            msg
-        }],
-        todos: vec![],
-        extensions: Default::default(),
-    };
+    let state = state_with_messages(vec![Message::ai_with_tools(
+        "",
+        vec![
+            ToolCall {
+                id: "tc-1".to_string(),
+                name: "write_file".to_string(),
+                args: serde_json::json!({
+                    "path": "safe\u{202E}exe.txt",
+                    "content": "malicious content"
+                }),
+            },
+            ToolCall {
+                id: "tc-2".to_string(),
+                name: "browser_navigate".to_string(),
+                args: serde_json::json!({
+                    "url": "pаypal.com" // Cyrillic 'а'
+                }),
+            },
+        ],
+    )]);
 
     let runtime = Runtime::new();
     let config = RunnableConfig::default();
 
     // Should detect issues in tool call arguments (logs warnings)
-    let update = mw.abefore_agent(&state, &runtime, &config).await;
+    let update = mw.before_agent(&state, &runtime, &config).await;
     // With sanitize_inputs = true by default, this should be None
     // because sanitize() is only applied to message content, not tool args
     assert!(update.is_none());
@@ -152,20 +146,16 @@ async fn test_safe_multilingual_content_unmodified() {
     let mw = UnicodeSecurityMiddleware::new(UnicodeSecurityConfig::permissive())
         .with_output_sanitization(false);
 
-    let state = AgentState {
-        messages: vec![Message::tool(
-            "Hello, 世界! Привет! مرحبا", // Multi-script greeting
-            "tc-1",
-            "translator",
-        )],
-        todos: vec![],
-        extensions: Default::default(),
-    };
+    let state = state_with_messages(vec![Message::tool_with_name(
+        "tc-1",
+        "Hello, 世界! Привет! مرحبا", // Multi-script greeting
+        "translator",
+    )]);
 
     let runtime = Runtime::new();
     let config = RunnableConfig::default();
 
-    let update = mw.abefore_agent(&state, &runtime, &config).await;
+    let update = mw.before_agent(&state, &runtime, &config).await;
     // Permissive mode doesn't check mixed scripts or confusables
     assert!(update.is_none());
 }
@@ -193,30 +183,26 @@ async fn test_comprehensive_attack_scenario() {
         .with_user_input_check(true)
         .with_input_sanitization(true);
 
-    let state = AgentState {
-        messages: vec![
-            Message::user("Visit pаypal.com\u{200B}now!"), // Homoglyph + zero-width
-            Message::tool(
-                "Downloaded: evil\u{202E}txt.exe", // BiDi override
-                "tc-1",
-                "filesystem",
-            ),
-        ],
-        todos: vec![],
-        extensions: Default::default(),
-    };
+    let state = state_with_messages(vec![
+        Message::human("Visit pаypal.com\u{200B}now!"), // Homoglyph + zero-width
+        Message::tool_with_name(
+            "tc-1",
+            "Downloaded: evil\u{202E}txt.exe", // BiDi override
+            "filesystem",
+        ),
+    ]);
 
     let runtime = Runtime::new();
     let config = RunnableConfig::default();
 
-    let update = mw.abefore_agent(&state, &runtime, &config).await;
+    let update = mw.before_agent(&state, &runtime, &config).await;
     assert!(update.is_some());
 
     let new_msgs = update.unwrap().messages.unwrap();
     // User message: zero-width stripped
-    assert_eq!(new_msgs[0].content, "Visit pаypal.comnow!"); // Confusable remains
+    assert_eq!(new_msgs[0].content(), "Visit pаypal.comnow!"); // Confusable remains
                                                              // Tool message: BiDi stripped
-    assert_eq!(new_msgs[1].content, "Downloaded: eviltxt.exe");
+    assert_eq!(new_msgs[1].content(), "Downloaded: eviltxt.exe");
 }
 
 #[test]

@@ -3,7 +3,7 @@
 
 use async_trait::async_trait;
 
-use crate::{AgentState, AgentStateUpdate, Message, Middleware, Role, RunnableConfig, Runtime};
+use crate::{AgentState, AgentStateUpdate, Message, Middleware, RunnableConfig, Runtime};
 
 /// Maximum length for tool call IDs (ADR-103 C12).
 pub const MAX_TOOL_CALL_ID_LENGTH: usize = 128;
@@ -50,7 +50,7 @@ impl Middleware for PatchToolCallsMiddleware {
         "patch_tool_calls"
     }
 
-    fn before_agent(
+    async fn before_agent(
         &self,
         state: &AgentState,
         _runtime: &Runtime,
@@ -66,8 +66,8 @@ impl Middleware for PatchToolCallsMiddleware {
         for (i, msg) in state.messages.iter().enumerate() {
             patched.push(msg.clone());
 
-            if msg.role == Role::Assistant && !msg.tool_calls.is_empty() {
-                for tc in &msg.tool_calls {
+            if let Message::Ai(ai) = msg {
+                for tc in &ai.tool_calls {
                     // Validate tool call ID (ADR-103 C12)
                     if let Err(err) = validate_tool_call_id(&tc.id) {
                         tracing::warn!("Invalid tool call ID '{}': {}", tc.id, err);
@@ -75,16 +75,16 @@ impl Middleware for PatchToolCallsMiddleware {
                     }
 
                     let has_response = state.messages[i + 1..].iter().any(|m| {
-                        m.role == Role::Tool && m.tool_call_id.as_deref() == Some(&*tc.id)
+                        matches!(m, Message::Tool(t) if t.tool_call_id == tc.id)
                     });
 
                     if !has_response {
-                        patched.push(Message::tool(
+                        patched.push(Message::tool_with_name(
+                            &tc.id,
                             format!(
                                 "Tool call {} with id {} was cancelled — another message came in before it could be completed.",
                                 tc.name, tc.id
                             ),
-                            &tc.id,
                             &tc.name,
                         ));
                         modified = true;
@@ -107,6 +107,13 @@ impl Middleware for PatchToolCallsMiddleware {
 mod tests {
     use super::*;
     use crate::ToolCall;
+    use std::sync::Arc;
+
+    fn state_with_messages(messages: Vec<Message>) -> AgentState {
+        let mut state = AgentState::new();
+        state.messages = Arc::new(messages);
+        state
+    }
 
     #[test]
     fn test_middleware_name() {
@@ -147,109 +154,109 @@ mod tests {
         assert!(validate_tool_call_id("call/id").is_err());
     }
 
-    #[test]
-    fn test_no_patch_needed() {
+    #[tokio::test]
+    async fn test_no_patch_needed() {
         let mw = PatchToolCallsMiddleware::new();
-        let state = AgentState {
-            messages: vec![Message::user("hi"), Message::assistant("hello")],
-            ..Default::default()
-        };
+        let state = state_with_messages(vec![Message::human("hi"), Message::ai("hello")]);
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
-        assert!(mw.before_agent(&state, &runtime, &config).is_none());
+        assert!(mw.before_agent(&state, &runtime, &config).await.is_none());
     }
 
-    #[test]
-    fn test_patch_dangling_tool_call() {
+    #[tokio::test]
+    async fn test_patch_dangling_tool_call() {
         let mw = PatchToolCallsMiddleware::new();
 
-        let mut assistant_msg = Message::assistant("I'll use a tool");
-        assistant_msg.tool_calls.push(ToolCall {
-            id: "call-1".into(),
-            name: "read_file".into(),
-            args: serde_json::json!({"path": "test.txt"}),
-        });
+        let assistant_msg = Message::ai_with_tools(
+            "I'll use a tool",
+            vec![ToolCall {
+                id: "call-1".into(),
+                name: "read_file".into(),
+                args: serde_json::json!({"path": "test.txt"}),
+            }],
+        );
 
-        let state = AgentState {
-            messages: vec![
-                Message::user("help me"),
-                assistant_msg,
-                Message::user("never mind"),
-            ],
-            ..Default::default()
-        };
+        let state = state_with_messages(vec![
+            Message::human("help me"),
+            assistant_msg,
+            Message::human("never mind"),
+        ]);
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
-        let update = mw.before_agent(&state, &runtime, &config);
+        let update = mw.before_agent(&state, &runtime, &config).await;
         assert!(update.is_some());
 
         let messages = update.unwrap().messages.unwrap();
         assert_eq!(messages.len(), 4);
-        assert_eq!(messages[2].role, Role::Tool);
-        assert!(messages[2].content.contains("cancelled"));
-        assert_eq!(messages[2].tool_call_id.as_deref(), Some("call-1"));
+        match &messages[2] {
+            Message::Tool(t) => {
+                assert!(t.content.contains("cancelled"));
+                assert_eq!(t.tool_call_id, "call-1");
+            }
+            other => panic!("expected Tool message, got {:?}", other),
+        }
     }
 
-    #[test]
-    fn test_no_patch_when_response_exists() {
+    #[tokio::test]
+    async fn test_no_patch_when_response_exists() {
         let mw = PatchToolCallsMiddleware::new();
 
-        let mut assistant_msg = Message::assistant("Using tool");
-        assistant_msg.tool_calls.push(ToolCall {
-            id: "call-1".into(),
-            name: "read_file".into(),
-            args: serde_json::json!({}),
-        });
+        let assistant_msg = Message::ai_with_tools(
+            "Using tool",
+            vec![ToolCall {
+                id: "call-1".into(),
+                name: "read_file".into(),
+                args: serde_json::json!({}),
+            }],
+        );
 
-        let state = AgentState {
-            messages: vec![
-                assistant_msg,
-                Message::tool("file content", "call-1", "read_file"),
+        let state = state_with_messages(vec![
+            assistant_msg,
+            Message::tool_with_name("call-1", "file content", "read_file"),
+        ]);
+        let runtime = Runtime::new();
+        let config = RunnableConfig::default();
+        assert!(mw.before_agent(&state, &runtime, &config).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_patch_multiple_dangling() {
+        let mw = PatchToolCallsMiddleware::new();
+
+        let assistant_msg = Message::ai_with_tools(
+            "Using tools",
+            vec![
+                ToolCall {
+                    id: "call-1".into(),
+                    name: "read_file".into(),
+                    args: serde_json::json!({}),
+                },
+                ToolCall {
+                    id: "call-2".into(),
+                    name: "write_file".into(),
+                    args: serde_json::json!({}),
+                },
             ],
-            ..Default::default()
-        };
+        );
+
+        let state = state_with_messages(vec![assistant_msg]);
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
-        assert!(mw.before_agent(&state, &runtime, &config).is_none());
-    }
-
-    #[test]
-    fn test_patch_multiple_dangling() {
-        let mw = PatchToolCallsMiddleware::new();
-
-        let mut assistant_msg = Message::assistant("Using tools");
-        assistant_msg.tool_calls.push(ToolCall {
-            id: "call-1".into(),
-            name: "read_file".into(),
-            args: serde_json::json!({}),
-        });
-        assistant_msg.tool_calls.push(ToolCall {
-            id: "call-2".into(),
-            name: "write_file".into(),
-            args: serde_json::json!({}),
-        });
-
-        let state = AgentState {
-            messages: vec![assistant_msg],
-            ..Default::default()
-        };
-        let runtime = Runtime::new();
-        let config = RunnableConfig::default();
-        let update = mw.before_agent(&state, &runtime, &config);
+        let update = mw.before_agent(&state, &runtime, &config).await;
         assert!(update.is_some());
 
         let messages = update.unwrap().messages.unwrap();
         assert_eq!(messages.len(), 3);
-        assert_eq!(messages[1].role, Role::Tool);
-        assert_eq!(messages[2].role, Role::Tool);
+        assert!(matches!(&messages[1], Message::Tool(_)));
+        assert!(matches!(&messages[2], Message::Tool(_)));
     }
 
-    #[test]
-    fn test_empty_messages() {
+    #[tokio::test]
+    async fn test_empty_messages() {
         let mw = PatchToolCallsMiddleware::new();
         let state = AgentState::default();
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
-        assert!(mw.before_agent(&state, &runtime, &config).is_none());
+        assert!(mw.before_agent(&state, &runtime, &config).await.is_none());
     }
 }

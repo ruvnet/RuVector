@@ -170,6 +170,24 @@ fn default_backend_type() -> String {
 }
 
 // ---------------------------------------------------------------------------
+// Runnable config (per-run context — canonical definition, ADR-103 A1)
+// ---------------------------------------------------------------------------
+
+/// Configuration for a single runnable invocation (thread/run IDs, metadata).
+///
+/// This is the canonical definition shared by the middleware pipeline and any
+/// other layer that needs per-run context.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RunnableConfig {
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub run_id: Option<String>,
+    #[serde(default)]
+    pub metadata: std::collections::HashMap<String, serde_json::Value>,
+}
+
+// ---------------------------------------------------------------------------
 // Top-level config
 // ---------------------------------------------------------------------------
 

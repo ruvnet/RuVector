@@ -17,7 +17,7 @@ fn test_middleware_name() {
 fn test_default_cache_type_is_ephemeral() {
     let mw = PromptCachingMiddleware::new();
     let request =
-        ModelRequest::new(vec![Message::user("hi")]).with_system(Some("system prompt".into()));
+        ModelRequest::new(vec![Message::human("hi")]).with_system(Some("system prompt".into()));
 
     let modified = mw.modify_request(request);
     assert_eq!(modified.cache_control["system"].cache_type, "ephemeral");
@@ -27,7 +27,7 @@ fn test_default_cache_type_is_ephemeral() {
 fn test_custom_cache_type() {
     let mw = PromptCachingMiddleware::with_cache_type("persistent");
     let request =
-        ModelRequest::new(vec![Message::user("hi")]).with_system(Some("system prompt".into()));
+        ModelRequest::new(vec![Message::human("hi")]).with_system(Some("system prompt".into()));
 
     let modified = mw.modify_request(request);
     assert_eq!(modified.cache_control["system"].cache_type, "persistent");
@@ -46,7 +46,7 @@ fn test_default_trait_implementation() {
 #[test]
 fn test_adds_cache_control_for_system_message() {
     let mw = PromptCachingMiddleware::new();
-    let request = ModelRequest::new(vec![Message::user("hello")])
+    let request = ModelRequest::new(vec![Message::human("hello")])
         .with_system(Some("You are a helpful assistant.".into()));
 
     let modified = mw.modify_request(request);
@@ -61,7 +61,7 @@ fn test_adds_cache_control_for_system_message() {
 #[test]
 fn test_no_cache_control_without_system_message() {
     let mw = PromptCachingMiddleware::new();
-    let request = ModelRequest::new(vec![Message::user("hello")]);
+    let request = ModelRequest::new(vec![Message::human("hello")]);
 
     let modified = mw.modify_request(request);
 
@@ -78,11 +78,11 @@ fn test_no_cache_control_without_system_message() {
 #[test]
 fn test_adds_cache_control_for_tools() {
     let mw = PromptCachingMiddleware::new();
-    let mut request = ModelRequest::new(vec![Message::user("hello")]);
+    let mut request = ModelRequest::new(vec![Message::human("hello")]);
     request.tools.push(ToolDefinition {
         name: "read_file".into(),
         description: "Read a file".into(),
-        parameters: serde_json::json!({"type": "object"}),
+        input_schema: serde_json::json!({"type": "object"}),
     });
 
     let modified = mw.modify_request(request);
@@ -97,7 +97,7 @@ fn test_adds_cache_control_for_tools() {
 #[test]
 fn test_no_cache_control_without_tools() {
     let mw = PromptCachingMiddleware::new();
-    let request = ModelRequest::new(vec![Message::user("hello")]);
+    let request = ModelRequest::new(vec![Message::human("hello")]);
 
     let modified = mw.modify_request(request);
 
@@ -115,11 +115,11 @@ fn test_no_cache_control_without_tools() {
 fn test_both_system_and_tools_get_cache_control() {
     let mw = PromptCachingMiddleware::new();
     let mut request =
-        ModelRequest::new(vec![Message::user("hello")]).with_system(Some("system".into()));
+        ModelRequest::new(vec![Message::human("hello")]).with_system(Some("system".into()));
     request.tools.push(ToolDefinition {
         name: "ls".into(),
         description: "List files".into(),
-        parameters: serde_json::json!({}),
+        input_schema: serde_json::json!({}),
     });
 
     let modified = mw.modify_request(request);
@@ -144,11 +144,11 @@ fn test_neither_system_nor_tools_no_cache_control() {
 #[test]
 fn test_custom_cache_type_applies_to_both() {
     let mw = PromptCachingMiddleware::with_cache_type("long_lived");
-    let mut request = ModelRequest::new(vec![Message::user("hi")]).with_system(Some("sys".into()));
+    let mut request = ModelRequest::new(vec![Message::human("hi")]).with_system(Some("sys".into()));
     request.tools.push(ToolDefinition {
         name: "tool".into(),
         description: "desc".into(),
-        parameters: serde_json::json!({}),
+        input_schema: serde_json::json!({}),
     });
 
     let modified = mw.modify_request(request);
@@ -160,14 +160,14 @@ fn test_custom_cache_type_applies_to_both() {
 #[test]
 fn test_messages_are_preserved_after_modify() {
     let mw = PromptCachingMiddleware::new();
-    let request = ModelRequest::new(vec![Message::user("first"), Message::assistant("second")])
+    let request = ModelRequest::new(vec![Message::human("first"), Message::ai("second")])
         .with_system(Some("sys".into()));
 
     let modified = mw.modify_request(request);
 
     assert_eq!(modified.messages.len(), 2);
-    assert_eq!(modified.messages[0].content, "first");
-    assert_eq!(modified.messages[1].content, "second");
+    assert_eq!(modified.messages[0].content(), "first");
+    assert_eq!(modified.messages[1].content(), "second");
     assert_eq!(modified.system_message, Some("sys".to_string()));
 }
 
@@ -178,12 +178,12 @@ fn test_multiple_tools_get_single_cache_entry() {
     request.tools.push(ToolDefinition {
         name: "tool_a".into(),
         description: "a".into(),
-        parameters: serde_json::json!({}),
+        input_schema: serde_json::json!({}),
     });
     request.tools.push(ToolDefinition {
         name: "tool_b".into(),
         description: "b".into(),
-        parameters: serde_json::json!({}),
+        input_schema: serde_json::json!({}),
     });
 
     let modified = mw.modify_request(request);

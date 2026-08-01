@@ -49,6 +49,9 @@ pub struct ToolMessage {
     pub tool_call_id: String,
     /// The tool's output content.
     pub content: String,
+    /// Name of the tool that produced this result (when known).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_name: Option<String>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub metadata: HashMap<String, serde_json::Value>,
 }
@@ -103,6 +106,21 @@ impl Message {
         Self::Tool(ToolMessage {
             tool_call_id: tool_call_id.into(),
             content: content.into(),
+            tool_name: None,
+            metadata: HashMap::new(),
+        })
+    }
+
+    /// Create a tool result message that records the tool's name.
+    pub fn tool_with_name(
+        tool_call_id: impl Into<String>,
+        content: impl Into<String>,
+        tool_name: impl Into<String>,
+    ) -> Self {
+        Self::Tool(ToolMessage {
+            tool_call_id: tool_call_id.into(),
+            content: content.into(),
+            tool_name: Some(tool_name.into()),
             metadata: HashMap::new(),
         })
     }
@@ -115,6 +133,17 @@ impl Message {
             Self::Human(m) => &m.content,
             Self::Ai(m) => &m.content,
             Self::Tool(m) => &m.content,
+        }
+    }
+
+    /// Get a mutable reference to the text content of any message variant.
+    #[inline]
+    pub fn content_mut(&mut self) -> &mut String {
+        match self {
+            Self::System(m) => &mut m.content,
+            Self::Human(m) => &mut m.content,
+            Self::Ai(m) => &mut m.content,
+            Self::Tool(m) => &mut m.content,
         }
     }
 

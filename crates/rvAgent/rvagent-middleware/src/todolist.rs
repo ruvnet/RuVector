@@ -31,7 +31,7 @@ impl Middleware for TodoListMiddleware {
         "todolist"
     }
 
-    fn before_agent(
+    async fn before_agent(
         &self,
         state: &AgentState,
         _runtime: &Runtime,
@@ -67,8 +67,8 @@ fn format_todos(todos: &[TodoItem]) -> String {
             TodoStatus::Completed => "completed",
         };
         out.push_str(&format!(
-            "  <todo id=\"{}\" status=\"{}\">{}</todo>\n",
-            todo.id, status_str, todo.content
+            "  <todo status=\"{}\">{}</todo>\n",
+            status_str, todo.content
         ));
     }
     out.push_str("</todos>");
@@ -78,16 +78,17 @@ fn format_todos(todos: &[TodoItem]) -> String {
 /// Tool for writing/updating todo items.
 struct WriteTodosTool;
 
+#[async_trait]
 impl Tool for WriteTodosTool {
     fn name(&self) -> &str {
         "write_todos"
     }
 
     fn description(&self) -> &str {
-        "Create or update the todo list. Provide a complete list of todo items with id, content, and status (pending, in_progress, completed)."
+        "Create or update the todo list. Provide a complete list of todo items with content, status (pending, in_progress, completed), and optional active_form."
     }
 
-    fn parameters_schema(&self) -> serde_json::Value {
+    fn input_schema(&self) -> serde_json::Value {
         serde_json::json!({
             "type": "object",
             "properties": {
@@ -96,14 +97,14 @@ impl Tool for WriteTodosTool {
                     "items": {
                         "type": "object",
                         "properties": {
-                            "id": { "type": "string" },
                             "content": { "type": "string" },
                             "status": {
                                 "type": "string",
                                 "enum": ["pending", "in_progress", "completed"]
-                            }
+                            },
+                            "active_form": { "type": "string" }
                         },
-                        "required": ["id", "content", "status"]
+                        "required": ["content", "status"]
                     }
                 }
             },
@@ -111,7 +112,7 @@ impl Tool for WriteTodosTool {
         })
     }
 
-    fn invoke(&self, args: serde_json::Value) -> Result<String, String> {
+    async fn invoke(&self, args: serde_json::Value) -> Result<String, String> {
         let todos = args
             .get("todos")
             .and_then(|v| v.as_array())
@@ -120,10 +121,6 @@ impl Tool for WriteTodosTool {
         let count = todos.len();
         // Validate each item
         for item in todos {
-            let _id = item
-                .get("id")
-                .and_then(|v| v.as_str())
-                .ok_or("each todo must have an 'id' string")?;
             let _content = item
                 .get("content")
                 .and_then(|v| v.as_str())
@@ -146,6 +143,14 @@ impl Tool for WriteTodosTool {
 mod tests {
     use super::*;
 
+    fn todo(content: &str, status: TodoStatus) -> TodoItem {
+        TodoItem {
+            content: content.into(),
+            status,
+            active_form: String::new(),
+        }
+    }
+
     #[test]
     fn test_format_todos_empty() {
         let result = format_todos(&[]);
@@ -155,16 +160,8 @@ mod tests {
     #[test]
     fn test_format_todos() {
         let todos = vec![
-            TodoItem {
-                id: "1".into(),
-                content: "Do something".into(),
-                status: TodoStatus::Pending,
-            },
-            TodoItem {
-                id: "2".into(),
-                content: "Done".into(),
-                status: TodoStatus::Completed,
-            },
+            todo("Do something", TodoStatus::Pending),
+            todo("Done", TodoStatus::Completed),
         ];
         let result = format_todos(&todos);
         assert!(result.contains("status=\"pending\""));
@@ -172,27 +169,23 @@ mod tests {
         assert!(result.contains("Do something"));
     }
 
-    #[test]
-    fn test_before_agent_empty_todos() {
+    #[tokio::test]
+    async fn test_before_agent_empty_todos() {
         let mw = TodoListMiddleware::new();
         let state = AgentState::default();
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
-        assert!(mw.before_agent(&state, &runtime, &config).is_none());
+        assert!(mw.before_agent(&state, &runtime, &config).await.is_none());
     }
 
-    #[test]
-    fn test_before_agent_with_todos() {
+    #[tokio::test]
+    async fn test_before_agent_with_todos() {
         let mw = TodoListMiddleware::new();
         let mut state = AgentState::default();
-        state.todos.push(TodoItem {
-            id: "1".into(),
-            content: "Test task".into(),
-            status: TodoStatus::InProgress,
-        });
+        state.push_todo(todo("Test task", TodoStatus::InProgress));
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
-        let update = mw.before_agent(&state, &runtime, &config);
+        let update = mw.before_agent(&state, &runtime, &config).await;
         assert!(update.is_some());
         let update = update.unwrap();
         assert!(update.extensions.contains_key("todo_context"));
@@ -204,37 +197,37 @@ mod tests {
         assert_eq!(tool.name(), "write_todos");
     }
 
-    #[test]
-    fn test_write_todos_invoke_valid() {
+    #[tokio::test]
+    async fn test_write_todos_invoke_valid() {
         let tool = WriteTodosTool;
         let args = serde_json::json!({
             "todos": [
-                {"id": "1", "content": "task 1", "status": "pending"},
-                {"id": "2", "content": "task 2", "status": "completed"}
+                {"content": "task 1", "status": "pending"},
+                {"content": "task 2", "status": "completed"}
             ]
         });
-        let result = tool.invoke(args);
+        let result = tool.invoke(args).await;
         assert!(result.is_ok());
         assert!(result.unwrap().contains("2 todo items"));
     }
 
-    #[test]
-    fn test_write_todos_invoke_invalid_status() {
+    #[tokio::test]
+    async fn test_write_todos_invoke_invalid_status() {
         let tool = WriteTodosTool;
         let args = serde_json::json!({
-            "todos": [{"id": "1", "content": "task", "status": "invalid"}]
+            "todos": [{"content": "task", "status": "invalid"}]
         });
-        let result = tool.invoke(args);
+        let result = tool.invoke(args).await;
         assert!(result.is_err());
     }
 
-    #[test]
-    fn test_write_todos_invoke_missing_field() {
+    #[tokio::test]
+    async fn test_write_todos_invoke_missing_field() {
         let tool = WriteTodosTool;
         let args = serde_json::json!({
-            "todos": [{"id": "1"}]
+            "todos": [{"status": "pending"}]
         });
-        let result = tool.invoke(args);
+        let result = tool.invoke(args).await;
         assert!(result.is_err());
     }
 

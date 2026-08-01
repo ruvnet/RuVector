@@ -7,6 +7,8 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 
+use async_trait::async_trait;
+
 use rvagent_core::rvf_bridge::{GovernanceMode, PolicyCheck, TaskOutcome};
 use rvagent_middleware::skills::validate_skill_name;
 use rvagent_middleware::witness::{compute_arguments_hash, WitnessBuilder};
@@ -17,8 +19,10 @@ use rvagent_middleware::{
 
 /// A no-op handler that returns immediately.
 struct NoOpHandler;
+
+#[async_trait]
 impl ModelHandler for NoOpHandler {
-    fn call(&self, _request: ModelRequest) -> ModelResponse {
+    async fn call(&self, _request: ModelRequest) -> ModelResponse {
         ModelResponse::text("ok")
     }
 }
@@ -38,15 +42,20 @@ fn bench_full_pipeline(c: &mut Criterion) {
     };
     let pipeline = build_default_pipeline(&config);
     let handler = NoOpHandler;
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_time()
+        .build()
+        .unwrap();
 
     c.bench_function("full_11_middleware_pipeline", |b| {
         b.iter(|| {
             let request = ModelRequest::new(vec![
-                Message::user("Hello"),
-                Message::assistant("Hi there"),
-                Message::user("Write some code"),
+                Message::human("Hello"),
+                Message::ai("Hi there"),
+                Message::human("Write some code"),
             ]);
-            let response = pipeline.run_wrap_model_call(black_box(request), &handler);
+            let response =
+                rt.block_on(pipeline.run_wrap_model_call(black_box(request), &handler));
             black_box(response);
         });
     });
@@ -125,7 +134,7 @@ fn bench_pipeline_modify_request(c: &mut Criterion) {
 
     c.bench_function("pipeline_modify_request", |b| {
         b.iter(|| {
-            let request = ModelRequest::new(vec![Message::user("test")])
+            let request = ModelRequest::new(vec![Message::human("test")])
                 .with_system(Some("You are helpful.".into()));
             let modified = pipeline.run_modify_request(black_box(request));
             black_box(modified);

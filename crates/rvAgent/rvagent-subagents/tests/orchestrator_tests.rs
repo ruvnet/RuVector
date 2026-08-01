@@ -6,13 +6,23 @@
 //! - Result validation (max length, injection detection)
 //! - Parallel spawning
 
+use rvagent_core::messages::Message;
+use rvagent_core::state::{FileData, SkillMetadata, TodoItem, TodoStatus};
 use rvagent_subagents::builder::compile_subagents;
 use rvagent_subagents::orchestrator::{spawn_parallel, SubAgentOrchestrator};
 use rvagent_subagents::validator::{SubAgentResultValidator, DEFAULT_MAX_RESPONSE_LENGTH};
 use rvagent_subagents::{
     merge_subagent_state, prepare_subagent_state, AgentState, CompiledSubAgent, RvAgentConfig,
-    SubAgentSpec, EXCLUDED_STATE_KEYS,
+    SubAgentSpec,
 };
+
+fn file_data(content: &str) -> FileData {
+    FileData {
+        content: content.into(),
+        encoding: "utf-8".into(),
+        modified_at: None,
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -42,38 +52,26 @@ fn mock_compiled(name: &str) -> CompiledSubAgent {
 }
 
 fn parent_state_with_secrets() -> AgentState {
-    let mut state = AgentState::new();
-    state.insert(
-        "messages".into(),
-        serde_json::json!([
-            {"type": "system", "content": "You are a helpful assistant."},
-            {"type": "human", "content": "Help me refactor main.rs"},
-            {"type": "ai", "content": "I'll help you refactor."},
-        ]),
-    );
-    state.insert("remaining_steps".into(), serde_json::json!(42));
-    state.insert("task_completion".into(), serde_json::json!({"done": false}));
-    state.insert(
-        "todos".into(),
-        serde_json::json!([
-            {"id": "1", "content": "Fix bug", "status": "in_progress"}
-        ]),
-    );
-    state.insert(
-        "structured_response".into(),
-        serde_json::json!({"format": "markdown"}),
-    );
-    state.insert(
-        "skills_metadata".into(),
-        serde_json::json!([{"name": "coder"}]),
-    );
-    state.insert(
-        "memory_contents".into(),
-        serde_json::json!({"AGENTS.md": "secret"}),
-    );
-    // Non-excluded keys
-    state.insert("cwd".into(), serde_json::json!("/home/user/project"));
-    state.insert("project_config".into(), serde_json::json!({"lang": "rust"}));
+    let mut state = AgentState::with_system_message("You are a helpful assistant.");
+    state.push_message(Message::human("Help me refactor main.rs"));
+    state.push_message(Message::ai("I'll help you refactor."));
+    state.push_todo(TodoItem {
+        content: "Fix bug".into(),
+        status: TodoStatus::InProgress,
+        active_form: String::new(),
+    });
+    state.skills_metadata = Some(std::sync::Arc::new(vec![SkillMetadata {
+        name: "coder".into(),
+        description: "Writes code".into(),
+        parameters: serde_json::json!({}),
+    }]));
+    state.memory_contents = Some(std::sync::Arc::new(
+        [("AGENTS.md".to_string(), "secret".to_string())]
+            .into_iter()
+            .collect(),
+    ));
+    // Non-excluded state
+    state.set_file("/home/user/project/main.rs", file_data("fn main() {}"));
     state
 }
 
@@ -147,85 +145,58 @@ fn test_state_isolation() {
     // Prepare child state
     let child = prepare_subagent_state(&parent, "Refactor the auth module");
 
-    // ALL excluded keys must not appear in child state (except messages which is replaced)
-    for key in EXCLUDED_STATE_KEYS {
-        if *key == "messages" {
-            // Messages is replaced, not excluded entirely
-            continue;
-        }
-        assert!(
-            !child.contains_key(*key),
-            "Excluded key '{}' must not appear in child state",
-            key
-        );
-    }
-
-    // Verify specific excluded keys
-    assert!(!child.contains_key("remaining_steps"));
-    assert!(!child.contains_key("task_completion"));
-    assert!(!child.contains_key("todos"));
-    assert!(!child.contains_key("structured_response"));
-    assert!(!child.contains_key("skills_metadata"));
-    assert!(!child.contains_key("memory_contents"));
+    // Excluded state must not appear in child state
+    assert!(child.todos.is_empty(), "todos must not leak");
+    assert!(
+        child.skills_metadata.is_none(),
+        "skills_metadata must not leak"
+    );
+    assert!(
+        child.memory_contents.is_none(),
+        "memory_contents must not leak"
+    );
 
     // Messages must be replaced with task description
-    let child_msgs = child.get("messages").unwrap().as_array().unwrap();
-    assert_eq!(child_msgs.len(), 1, "Child must have exactly 1 message");
-    assert_eq!(child_msgs[0]["type"], "human");
-    assert!(child_msgs[0]["content"]
-        .as_str()
-        .unwrap()
+    assert_eq!(child.message_count(), 1, "Child must have exactly 1 message");
+    assert!(matches!(
+        child.messages[0],
+        rvagent_core::messages::Message::Human(_)
+    ));
+    assert!(child.messages[0]
+        .content()
         .contains("Refactor the auth module"));
 
-    // Non-excluded keys must pass through
-    assert_eq!(
-        child.get("cwd").unwrap(),
-        &serde_json::json!("/home/user/project")
-    );
-    assert_eq!(
-        child.get("project_config").unwrap(),
-        &serde_json::json!({"lang": "rust"})
-    );
+    // Non-excluded state (files) must pass through
+    assert!(child.files.contains_key("/home/user/project/main.rs"));
 
-    // Verify merge doesn't leak excluded keys back
+    // Verify merge doesn't leak excluded state back
     let mut parent_copy = parent_state_with_secrets();
-    let parent_msgs_before = parent_copy.get("messages").cloned();
+    let parent_msgs_before = parent_copy.message_count();
+    let parent_todo_before = parent_copy.todos[0].content.clone();
 
     let mut child_result = AgentState::new();
-    child_result.insert(
-        "messages".into(),
-        serde_json::json!([
-            {"type": "ai", "content": "Refactoring complete."}
-        ]),
-    );
-    child_result.insert(
-        "todos".into(),
-        serde_json::json!([
-            {"id": "child-1", "content": "leaked todo"}
-        ]),
-    );
-    child_result.insert("new_discovery".into(), serde_json::json!("found a bug"));
+    child_result.push_message(Message::ai("Refactoring complete."));
+    child_result.push_todo(TodoItem {
+        content: "leaked todo".into(),
+        status: TodoStatus::Pending,
+        active_form: String::new(),
+    });
+    child_result.set_file("/new_discovery.md", file_data("found a bug"));
 
     merge_subagent_state(&mut parent_copy, &child_result);
 
     // Parent messages must NOT be overwritten by child
-    assert_eq!(parent_copy.get("messages"), parent_msgs_before.as_ref());
+    assert_eq!(parent_copy.message_count(), parent_msgs_before);
 
     // Child's todos must NOT leak to parent
-    let parent_todos = parent_copy.get("todos").unwrap();
-    assert!(
-        parent_todos.as_array().unwrap()[0]["content"]
-            .as_str()
-            .unwrap()
-            .contains("Fix bug"),
+    assert_eq!(parent_copy.todos.len(), 1);
+    assert_eq!(
+        parent_copy.todos[0].content, parent_todo_before,
         "Parent todos must not be overwritten by child"
     );
 
-    // New non-excluded keys should merge
-    assert_eq!(
-        parent_copy.get("new_discovery"),
-        Some(&serde_json::json!("found a bug"))
-    );
+    // New non-excluded state should merge
+    assert!(parent_copy.files.contains_key("/new_discovery.md"));
 }
 
 // ===========================================================================

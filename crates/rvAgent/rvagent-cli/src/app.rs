@@ -665,7 +665,8 @@ impl App {
     /// Invoke the agent pipeline with the given state.
     ///
     /// Creates the appropriate model (real Anthropic client or stub) and
-    /// tool executor, builds an `AgentGraph`, and runs it to completion.
+    /// tool executor, wraps the model in the configured middleware pipeline
+    /// (`PipelineModel`), builds an `AgentGraph`, and runs it to completion.
     /// Returns the final AI message from the completed state.
     async fn invoke_agent(&self, initial_state: &AgentState) -> Result<Message> {
         info!(
@@ -734,9 +735,33 @@ impl App {
             CliModel::Stub(StubModel::new(&self.config.model))
         };
 
+        // Wire the middleware pipeline (P0.3): resolve the configured
+        // middleware names (DEFAULT_MIDDLEWARE) into instances — unknown
+        // names warn and are skipped — and run all model calls through it.
+        let middleware_names: Vec<&str> = self
+            .config
+            .middleware
+            .iter()
+            .map(|m| m.name.as_str())
+            .collect();
+        let pipeline = Arc::new(rvagent_middleware::build_pipeline_from_names(
+            &middleware_names,
+        ));
+        info!(middlewares = ?pipeline.names(), "middleware pipeline wired");
+
+        // Run before_agent hooks (state patching, context injection).
+        let mut state = initial_state.clone();
+        let mw_runtime = rvagent_middleware::Runtime::new();
+        let run_config = rvagent_middleware::RunnableConfig::default();
+        pipeline
+            .run_before_agent(&mut state, &mw_runtime, &run_config)
+            .await;
+
+        let model = rvagent_middleware::PipelineModel::new(model, Arc::clone(&pipeline));
+
         let graph = AgentGraph::new(model, tool_executor);
         let completed_state = graph
-            .run(initial_state.clone())
+            .run(state)
             .await
             .map_err(|e| anyhow::anyhow!("agent graph error: {}", e))?;
 

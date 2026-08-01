@@ -115,6 +115,7 @@ struct RvfToolAdapter {
     parameters_schema: serde_json::Value,
 }
 
+#[async_trait]
 impl Tool for RvfToolAdapter {
     fn name(&self) -> &str {
         &self.name
@@ -124,11 +125,11 @@ impl Tool for RvfToolAdapter {
         &self.description
     }
 
-    fn parameters_schema(&self) -> serde_json::Value {
+    fn input_schema(&self) -> serde_json::Value {
         self.parameters_schema.clone()
     }
 
-    fn invoke(&self, args: serde_json::Value) -> Result<String, String> {
+    async fn invoke(&self, args: serde_json::Value) -> Result<String, String> {
         // Without rvf-runtime, return a stub response indicating the tool is available
         // but actual execution requires the rvf-compat feature.
         Ok(format!(
@@ -148,7 +149,7 @@ impl Middleware for RvfManifestMiddleware {
         "rvf_manifest"
     }
 
-    fn before_agent(
+    async fn before_agent(
         &self,
         _state: &AgentState,
         _runtime: &Runtime,
@@ -272,14 +273,14 @@ mod tests {
         assert!(tools.iter().any(|t| t.name() == "rvf:format"));
     }
 
-    #[test]
-    fn test_tool_invoke() {
+    #[tokio::test]
+    async fn test_tool_invoke() {
         let mw = RvfManifestMiddleware::new(sample_config());
         mw.mount_package(sample_manifest());
 
         let tools = mw.tools();
         let lint = tools.iter().find(|t| t.name() == "rvf:lint").unwrap();
-        let result = lint.invoke(serde_json::json!({"path": "src/main.rs"}));
+        let result = lint.invoke(serde_json::json!({"path": "src/main.rs"})).await;
         assert!(result.is_ok());
         assert!(result.unwrap().contains("rvf:lint"));
     }
@@ -298,8 +299,8 @@ mod tests {
         assert!(tools.is_empty());
     }
 
-    #[test]
-    fn test_before_agent_injects_state() {
+    #[tokio::test]
+    async fn test_before_agent_injects_state() {
         let mw = RvfManifestMiddleware::new(sample_config());
         mw.mount_package(sample_manifest());
 
@@ -307,7 +308,7 @@ mod tests {
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
 
-        let update = mw.before_agent(&state, &runtime, &config);
+        let update = mw.before_agent(&state, &runtime, &config).await;
         assert!(update.is_some());
 
         let update = update.unwrap();
@@ -317,15 +318,15 @@ mod tests {
         assert_eq!(arr[0]["package"], "test-pkg");
     }
 
-    #[test]
-    fn test_before_agent_empty_table() {
+    #[tokio::test]
+    async fn test_before_agent_empty_table() {
         let mw = RvfManifestMiddleware::new(sample_config());
 
         let state = AgentState::default();
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
 
-        let update = mw.before_agent(&state, &runtime, &config);
+        let update = mw.before_agent(&state, &runtime, &config).await;
         assert!(update.is_none());
     }
 

@@ -201,13 +201,13 @@ impl Middleware for MemoryMiddleware {
         "memory"
     }
 
-    fn before_agent(
+    async fn before_agent(
         &self,
         state: &AgentState,
         _runtime: &Runtime,
         _config: &RunnableConfig,
     ) -> Option<AgentStateUpdate> {
-        if state.extensions.contains_key("memory_contents") {
+        if crate::json_extension(state, "memory_contents").is_some() {
             return None;
         }
 
@@ -231,7 +231,11 @@ impl Middleware for MemoryMiddleware {
         Some(update)
     }
 
-    fn wrap_model_call(&self, request: ModelRequest, handler: &dyn ModelHandler) -> ModelResponse {
+    async fn wrap_model_call(
+        &self,
+        request: ModelRequest,
+        handler: &dyn ModelHandler,
+    ) -> ModelResponse {
         let contents: HashMap<String, String> = request
             .extensions
             .get("memory_contents")
@@ -239,12 +243,12 @@ impl Middleware for MemoryMiddleware {
             .unwrap_or_default();
 
         if contents.is_empty() {
-            return handler.call(request);
+            return handler.call(request).await;
         }
 
         let memory_section = Self::format_agent_memory(&contents);
         let new_system = crate::append_to_system_message(&request.system_message, &memory_section);
-        handler.call(request.with_system(new_system))
+        handler.call(request.with_system(new_system)).await
     }
 }
 
@@ -252,9 +256,13 @@ impl Middleware for MemoryMiddleware {
 mod tests {
     use super::*;
 
+    use async_trait::async_trait;
+
     struct PassthroughHandler;
+
+    #[async_trait]
     impl ModelHandler for PassthroughHandler {
-        fn call(&self, request: ModelRequest) -> ModelResponse {
+        async fn call(&self, request: ModelRequest) -> ModelResponse {
             ModelResponse::text(request.system_message.unwrap_or_default())
         }
     }
@@ -338,20 +346,18 @@ mod tests {
         assert!(mw.validate_content("any.md", "anything").is_some());
     }
 
-    #[test]
-    fn test_before_agent_skip_if_loaded() {
+    #[tokio::test]
+    async fn test_before_agent_skip_if_loaded() {
         let mw = MemoryMiddleware::new(vec!["AGENTS.md".into()]);
         let mut state = AgentState::default();
-        state
-            .extensions
-            .insert("memory_contents".into(), serde_json::json!({}));
+        state.set_extension("memory_contents", serde_json::json!({}));
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
-        assert!(mw.before_agent(&state, &runtime, &config).is_none());
+        assert!(mw.before_agent(&state, &runtime, &config).await.is_none());
     }
 
-    #[test]
-    fn test_before_agent_loads() {
+    #[tokio::test]
+    async fn test_before_agent_loads() {
         let mut preloaded = HashMap::new();
         preloaded.insert("AGENTS.md".into(), "Memory content".into());
 
@@ -360,7 +366,7 @@ mod tests {
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
 
-        let update = mw.before_agent(&state, &runtime, &config);
+        let update = mw.before_agent(&state, &runtime, &config).await;
         assert!(update.is_some());
         assert!(update.unwrap().extensions.contains_key("memory_contents"));
     }
@@ -375,13 +381,13 @@ mod tests {
         assert!(formatted.contains("<memory_guidelines>"));
     }
 
-    #[test]
-    fn test_wrap_model_call_no_memory() {
+    #[tokio::test]
+    async fn test_wrap_model_call_no_memory() {
         let mw = MemoryMiddleware::new(vec![]);
         let request = ModelRequest::new(vec![]);
         let handler = PassthroughHandler;
-        let response = mw.wrap_model_call(request, &handler);
-        assert!(response.message.content.is_empty());
+        let response = mw.wrap_model_call(request, &handler).await;
+        assert!(response.content().is_empty());
     }
 
     #[test]

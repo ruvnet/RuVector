@@ -40,7 +40,7 @@ pub use agi_container::{
     OrchestratorConfig, ParsedContainer, SegmentType, SkillDefinition, ToolDefinition,
 };
 pub use budget::{BudgetEnforcer, BudgetError, BudgetUtilization};
-pub use config::{BackendConfig, ResourceBudget, RvAgentConfig, SecurityPolicy};
+pub use config::{BackendConfig, ResourceBudget, RunnableConfig, RvAgentConfig, SecurityPolicy};
 pub use cow_state::CowStateBackend;
 pub use error::{Result, RvAgentError};
 pub use graph::{AgentGraph, AgentNode, GraphConfig, ToolExecutor};

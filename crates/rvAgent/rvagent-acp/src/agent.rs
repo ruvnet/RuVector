@@ -194,20 +194,45 @@ impl AcpAgent {
 
         let user_msg = Message::human(&user_text);
 
-        // Run the prompt through an AgentGraph with a stub model.
+        // Run the prompt through an AgentGraph with a stub model wrapped in
+        // the middleware pipeline (P0.3 wiring).
         //
         // In production, the model would be resolved from `self.config`
-        // and real tools/middleware would be wired in. The stub model
-        // allows the server to run without an API key.
+        // and real tools would be wired in. The stub model allows the
+        // server to run without an API key.
         let graph_config = GraphConfig {
             max_iterations: 10,
             parallel_tools: false,
             ..GraphConfig::default()
         };
-        let graph = AgentGraph::with_config(StubModel, AcpToolExecutor, graph_config);
+
+        // Resolve the configured middleware names (unknown names warn and
+        // are skipped); an empty configuration gets the default pipeline.
+        let pipeline = if self.config.middleware.is_empty() {
+            rvagent_middleware::build_default_pipeline(&rvagent_middleware::PipelineConfig::default())
+        } else {
+            let names: Vec<&str> = self
+                .config
+                .middleware
+                .iter()
+                .map(|m| m.name.as_str())
+                .collect();
+            rvagent_middleware::build_pipeline_from_names(&names)
+        };
+        let pipeline = Arc::new(pipeline);
 
         let mut agent_state = AgentState::new();
         agent_state.push_message(user_msg.clone());
+
+        // Run before_agent hooks over the initial state.
+        let mw_runtime = rvagent_middleware::Runtime::new();
+        let run_config = rvagent_middleware::RunnableConfig::default();
+        pipeline
+            .run_before_agent(&mut agent_state, &mw_runtime, &run_config)
+            .await;
+
+        let model = rvagent_middleware::PipelineModel::new(StubModel, Arc::clone(&pipeline));
+        let graph = AgentGraph::with_config(model, AcpToolExecutor, graph_config);
 
         let final_state = graph
             .run(agent_state)

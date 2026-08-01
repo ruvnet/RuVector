@@ -59,7 +59,7 @@ impl Middleware for SubAgentMiddleware {
         "subagent"
     }
 
-    fn before_agent(
+    async fn before_agent(
         &self,
         _state: &AgentState,
         _runtime: &Runtime,
@@ -77,14 +77,18 @@ impl Middleware for SubAgentMiddleware {
         Some(update)
     }
 
-    fn wrap_model_call(&self, request: ModelRequest, handler: &dyn ModelHandler) -> ModelResponse {
+    async fn wrap_model_call(
+        &self,
+        request: ModelRequest,
+        handler: &dyn ModelHandler,
+    ) -> ModelResponse {
         if self.specs.is_empty() {
-            return handler.call(request);
+            return handler.call(request).await;
         }
 
         let descriptions = self.format_subagent_descriptions();
         let new_system = crate::append_to_system_message(&request.system_message, &descriptions);
-        handler.call(request.with_system(new_system))
+        handler.call(request.with_system(new_system)).await
     }
 
     fn tools(&self) -> Vec<Box<dyn Tool>> {
@@ -95,6 +99,7 @@ impl Middleware for SubAgentMiddleware {
 /// Tool for spawning subagents.
 struct TaskTool;
 
+#[async_trait]
 impl Tool for TaskTool {
     fn name(&self) -> &str {
         "task"
@@ -104,7 +109,7 @@ impl Tool for TaskTool {
         "Spawn a subagent to handle a specific task. The subagent runs independently and returns its result."
     }
 
-    fn parameters_schema(&self) -> serde_json::Value {
+    fn input_schema(&self) -> serde_json::Value {
         serde_json::json!({
             "type": "object",
             "properties": {
@@ -125,7 +130,7 @@ impl Tool for TaskTool {
         })
     }
 
-    fn invoke(&self, _args: serde_json::Value) -> Result<String, String> {
+    async fn invoke(&self, _args: serde_json::Value) -> Result<String, String> {
         Err("task tool must be invoked through the agent runtime".into())
     }
 }
@@ -148,17 +153,17 @@ mod tests {
         assert_eq!(tools[0].name(), "task");
     }
 
-    #[test]
-    fn test_before_agent_no_specs() {
+    #[tokio::test]
+    async fn test_before_agent_no_specs() {
         let mw = SubAgentMiddleware::new();
         let state = AgentState::default();
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
-        assert!(mw.before_agent(&state, &runtime, &config).is_none());
+        assert!(mw.before_agent(&state, &runtime, &config).await.is_none());
     }
 
-    #[test]
-    fn test_before_agent_with_specs() {
+    #[tokio::test]
+    async fn test_before_agent_with_specs() {
         let specs = vec![SubAgentSpec {
             name: "coder".into(),
             description: "A coding agent".into(),
@@ -170,7 +175,7 @@ mod tests {
         let state = AgentState::default();
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
-        let update = mw.before_agent(&state, &runtime, &config);
+        let update = mw.before_agent(&state, &runtime, &config).await;
         assert!(update.is_some());
         assert!(update.unwrap().extensions.contains_key("subagent_specs"));
     }
@@ -202,7 +207,7 @@ mod tests {
     #[test]
     fn test_task_tool_schema() {
         let tool = TaskTool;
-        let schema = tool.parameters_schema();
+        let schema = tool.input_schema();
         assert_eq!(schema["type"], "object");
         let required = schema["required"].as_array().unwrap();
         assert!(required.contains(&serde_json::json!("description")));

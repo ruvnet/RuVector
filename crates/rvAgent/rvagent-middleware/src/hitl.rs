@@ -48,8 +48,12 @@ impl Middleware for HumanInTheLoopMiddleware {
         "hitl"
     }
 
-    fn wrap_model_call(&self, request: ModelRequest, handler: &dyn ModelHandler) -> ModelResponse {
-        let mut response = handler.call(request);
+    async fn wrap_model_call(
+        &self,
+        request: ModelRequest,
+        handler: &dyn ModelHandler,
+    ) -> ModelResponse {
+        let mut response = handler.call(request).await;
 
         // Filter out tool calls that require approval
         let (needs_approval, approved): (Vec<ToolCall>, Vec<ToolCall>) = response
@@ -70,10 +74,11 @@ impl Middleware for HumanInTheLoopMiddleware {
                 pending_names
             );
 
-            if !response.message.content.is_empty() {
-                response.message.content.push_str("\n\n");
+            let content = response.message.content_mut();
+            if !content.is_empty() {
+                content.push_str("\n\n");
             }
-            response.message.content.push_str(&format!(
+            content.push_str(&format!(
                 "[HITL] Awaiting approval for: {}",
                 pending_names.join(", ")
             ));
@@ -89,8 +94,10 @@ mod tests {
     use crate::Message;
 
     struct EchoHandler;
+
+    #[async_trait]
     impl ModelHandler for EchoHandler {
-        fn call(&self, _request: ModelRequest) -> ModelResponse {
+        async fn call(&self, _request: ModelRequest) -> ModelResponse {
             let mut response = ModelResponse::text("response");
             response.tool_calls = vec![
                 ToolCall {
@@ -136,28 +143,28 @@ mod tests {
         assert!(!mw.should_interrupt("read_file"));
     }
 
-    #[test]
-    fn test_wrap_model_call_filters_tool_calls() {
+    #[tokio::test]
+    async fn test_wrap_model_call_filters_tool_calls() {
         let mw = HumanInTheLoopMiddleware::new(vec!["execute".into()]);
-        let request = ModelRequest::new(vec![Message::user("do something")]);
+        let request = ModelRequest::new(vec![Message::human("do something")]);
         let handler = EchoHandler;
-        let response = mw.wrap_model_call(request, &handler);
+        let response = mw.wrap_model_call(request, &handler).await;
 
         assert_eq!(response.tool_calls.len(), 1);
         assert_eq!(response.tool_calls[0].name, "read_file");
-        assert!(response.message.content.contains("[HITL]"));
-        assert!(response.message.content.contains("execute"));
+        assert!(response.content().contains("[HITL]"));
+        assert!(response.content().contains("execute"));
     }
 
-    #[test]
-    fn test_wrap_model_call_no_interrupt() {
+    #[tokio::test]
+    async fn test_wrap_model_call_no_interrupt() {
         let mw = HumanInTheLoopMiddleware::new(vec!["dangerous_tool".into()]);
-        let request = ModelRequest::new(vec![Message::user("safe")]);
+        let request = ModelRequest::new(vec![Message::human("safe")]);
         let handler = EchoHandler;
-        let response = mw.wrap_model_call(request, &handler);
+        let response = mw.wrap_model_call(request, &handler).await;
 
         assert_eq!(response.tool_calls.len(), 2);
-        assert!(!response.message.content.contains("[HITL]"));
+        assert!(!response.content().contains("[HITL]"));
     }
 
     #[test]

@@ -247,13 +247,13 @@ impl Middleware for SkillsMiddleware {
         "skills"
     }
 
-    fn before_agent(
+    async fn before_agent(
         &self,
         state: &AgentState,
         _runtime: &Runtime,
         _config: &RunnableConfig,
     ) -> Option<AgentStateUpdate> {
-        if state.extensions.contains_key("skills_metadata") {
+        if crate::json_extension(state, "skills_metadata").is_some() {
             return None;
         }
 
@@ -271,7 +271,11 @@ impl Middleware for SkillsMiddleware {
         Some(update)
     }
 
-    fn wrap_model_call(&self, request: ModelRequest, handler: &dyn ModelHandler) -> ModelResponse {
+    async fn wrap_model_call(
+        &self,
+        request: ModelRequest,
+        handler: &dyn ModelHandler,
+    ) -> ModelResponse {
         let skills: Vec<SkillMetadata> = request
             .extensions
             .get("skills_metadata")
@@ -279,7 +283,7 @@ impl Middleware for SkillsMiddleware {
             .unwrap_or_default();
 
         if skills.is_empty() {
-            return handler.call(request);
+            return handler.call(request).await;
         }
 
         let locations = self.format_skills_locations();
@@ -289,7 +293,7 @@ impl Middleware for SkillsMiddleware {
             .replace("{skills_list}", &skills_list);
 
         let new_system = crate::append_to_system_message(&request.system_message, &section);
-        handler.call(request.with_system(new_system))
+        handler.call(request.with_system(new_system)).await
     }
 }
 
@@ -400,16 +404,14 @@ mod tests {
         assert_eq!(mw.name(), "skills");
     }
 
-    #[test]
-    fn test_before_agent_skip_if_loaded() {
+    #[tokio::test]
+    async fn test_before_agent_skip_if_loaded() {
         let mw = SkillsMiddleware::new(vec![]);
         let mut state = AgentState::default();
-        state
-            .extensions
-            .insert("skills_metadata".into(), serde_json::json!([]));
+        state.set_extension("skills_metadata", serde_json::json!([]));
         let runtime = Runtime::new();
         let config = RunnableConfig::default();
-        assert!(mw.before_agent(&state, &runtime, &config).is_none());
+        assert!(mw.before_agent(&state, &runtime, &config).await.is_none());
     }
 
     #[test]
