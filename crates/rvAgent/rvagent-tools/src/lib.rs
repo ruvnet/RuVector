@@ -477,16 +477,35 @@ pub fn format_content_with_line_numbers(content: &str, start_line: usize) -> Str
         if i > 0 {
             out.push('\n');
         }
-        let truncated = &line[..line.len().min(MAX_LINE_LEN)];
         use std::fmt::Write;
-        write!(
-            out,
-            "{:>width$}\t{}",
-            start_line + i,
-            truncated,
-            width = LINE_NUMBER_WIDTH
-        )
-        .unwrap();
+        if line.len() <= MAX_LINE_LEN {
+            write!(
+                out,
+                "{:>width$}\t{}",
+                start_line + i,
+                line,
+                width = LINE_NUMBER_WIDTH
+            )
+            .unwrap();
+        } else {
+            // Walk back to a character boundary: slicing at a fixed byte offset
+            // panics when a multi-byte character straddles it.
+            let mut end = MAX_LINE_LEN;
+            while end > 0 && !line.is_char_boundary(end) {
+                end -= 1;
+            }
+            // Mark the cut. Silent truncation leaves the model believing it has
+            // seen the whole line, which is worse than showing less.
+            write!(
+                out,
+                "{:>width$}\t{}… [line truncated, {} more bytes]",
+                start_line + i,
+                &line[..end],
+                line.len() - end,
+                width = LINE_NUMBER_WIDTH
+            )
+            .unwrap();
+        }
     }
     out
 }
@@ -946,9 +965,31 @@ mod tests {
         let result = format_content_with_line_numbers(&long_line, 1);
         let lines: Vec<&str> = result.lines().collect();
         assert_eq!(lines.len(), 1);
-        // Extract the content after the line number and tab
         let content = lines[0].split('\t').nth(1).unwrap();
-        assert_eq!(content.len(), MAX_LINE_LEN);
+        // The cut must be visible: silent truncation leaves the model believing
+        // it saw the whole line.
+        assert!(content.starts_with(&"a".repeat(MAX_LINE_LEN)));
+        assert!(content.contains("[line truncated, 100 more bytes]"));
+    }
+
+    #[test]
+    fn test_format_line_truncation_is_char_boundary_safe() {
+        // A multi-byte character straddling the cut point used to panic on a
+        // raw byte slice.
+        let mut line = "a".repeat(MAX_LINE_LEN - 1);
+        line.push('é'); // 2 bytes, spanning MAX_LINE_LEN
+        line.push_str(&"b".repeat(50));
+        let result = format_content_with_line_numbers(&line, 1);
+        assert!(result.contains("[line truncated"));
+    }
+
+    #[test]
+    fn test_format_multibyte_line_does_not_panic() {
+        for pad in 0..4 {
+            let mut line = "a".repeat(MAX_LINE_LEN - pad);
+            line.push_str(&"🙂".repeat(10));
+            let _ = format_content_with_line_numbers(&line, 1);
+        }
     }
 
     #[test]

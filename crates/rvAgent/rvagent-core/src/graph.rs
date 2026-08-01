@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument, warn};
 
 use crate::error::{Result, RvAgentError};
+use crate::masking::{mask_observations, truncate_tool_result, MaskConfig};
 use crate::messages::{Message, ToolCall};
 use crate::models::{ChatModel, ToolDefinition};
 use crate::parallel::parallel_execute_limited;
@@ -79,6 +80,8 @@ pub struct GraphConfig {
     ///
     /// Set to 0 to disable loop detection entirely.
     pub loop_repeat_threshold: usize,
+    /// Observation masking and tool-output caps (ADR-274).
+    pub mask: MaskConfig,
 }
 
 impl Default for GraphConfig {
@@ -88,6 +91,7 @@ impl Default for GraphConfig {
             parallel_tools: true,
             max_parallel_tools: 8,
             loop_repeat_threshold: 3,
+            mask: MaskConfig::default(),
         }
     }
 }
@@ -271,10 +275,11 @@ impl<M: ChatModel, T: ToolExecutor + 'static> AgentGraph<M, T> {
                     iterations += 1;
                     debug!(iteration = iterations, "graph: invoking model");
 
-                    let response = self
-                        .model
-                        .complete(&state.messages, &tool_definitions)
-                        .await?;
+                    // The model sees a masked projection; `state.messages`
+                    // stays the complete log so elided content remains
+                    // addressable by tool_call_id (ADR-274).
+                    let outbound = mask_observations(&state.messages, &self.config.mask);
+                    let response = self.model.complete(&outbound, &tool_definitions).await?;
                     if let Some((input, output)) = usage_from_message(&response) {
                         total_input_tokens += input;
                         total_output_tokens += output;
@@ -363,13 +368,25 @@ impl<M: ChatModel, T: ToolExecutor + 'static> AgentGraph<M, T> {
                         )
                         .await;
                         for (id, _name, result) in results {
-                            executed.insert(id, tool_result_content(result));
+                            executed.insert(
+                                id,
+                                truncate_tool_result(
+                                    tool_result_content(result),
+                                    self.config.mask.max_tool_result_bytes,
+                                ),
+                            );
                         }
                     } else {
                         // Sequential execution.
                         for tc in &dispatch {
                             let result = self.tool_executor.execute(tc, &state).await;
-                            executed.insert(tc.id.clone(), tool_result_content(result));
+                            executed.insert(
+                                tc.id.clone(),
+                                truncate_tool_result(
+                                    tool_result_content(result),
+                                    self.config.mask.max_tool_result_bytes,
+                                ),
+                            );
                         }
                     }
 

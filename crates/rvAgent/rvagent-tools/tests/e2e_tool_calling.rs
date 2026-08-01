@@ -172,26 +172,6 @@ async fn schemas_are_sent_on_every_turn_including_after_tools() {
         Message::ai("read it"),
     ]));
 
-    // Share the model so the recorded observations survive the graph.
-    struct SharedModel(Arc<ScriptedModel>);
-    #[async_trait]
-    impl ChatModel for SharedModel {
-        async fn complete(
-            &self,
-            messages: &[Message],
-            tools: &[ToolDefinition],
-        ) -> Result<Message> {
-            self.0.complete(messages, tools).await
-        }
-        async fn stream(
-            &self,
-            messages: &[Message],
-            tools: &[ToolDefinition],
-        ) -> Result<Vec<Message>> {
-            self.0.stream(messages, tools).await
-        }
-    }
-
     let graph = AgentGraph::new(
         SharedModel(Arc::clone(&model)),
         RealToolExecutor::new(dir.path()),
@@ -447,6 +427,156 @@ async fn usage_metadata_is_aggregated() {
             )
         });
     assert_eq!(totals, (250, 50), "usage metadata was lost or miscounted");
+}
+
+// ---------------------------------------------------------------------------
+// ADR-274 — observation masking reaches the model
+// ---------------------------------------------------------------------------
+
+/// Shares one `ScriptedModel` so its recorded observations outlive the graph.
+struct SharedModel(Arc<ScriptedModel>);
+
+#[async_trait]
+impl ChatModel for SharedModel {
+    async fn complete(&self, messages: &[Message], tools: &[ToolDefinition]) -> Result<Message> {
+        self.0.complete(messages, tools).await
+    }
+    async fn stream(&self, messages: &[Message], tools: &[ToolDefinition]) -> Result<Vec<Message>> {
+        self.0.stream(messages, tools).await
+    }
+}
+
+#[tokio::test]
+async fn old_observations_are_masked_before_reaching_the_model() {
+    let dir = tempfile::tempdir().unwrap();
+    for i in 0..5 {
+        std::fs::write(
+            dir.path().join(format!("f{i}.txt")),
+            format!("UNIQUE-BODY-{i}"),
+        )
+        .unwrap();
+    }
+
+    // Five sequential read turns, then a final answer.
+    let mut responses: Vec<Message> = (0..5)
+        .map(|i| {
+            Message::ai_with_tools(
+                "",
+                vec![call(
+                    &format!("t{i}"),
+                    "read_file",
+                    serde_json::json!({ "file_path": format!("f{i}.txt") }),
+                )],
+            )
+        })
+        .collect();
+    responses.push(Message::ai("done"));
+
+    let model = Arc::new(ScriptedModel::new(responses));
+    let config = GraphConfig {
+        parallel_tools: false,
+        mask: rvagent_core::masking::MaskConfig {
+            keep_last_observations: 2,
+            ..Default::default()
+        },
+        ..GraphConfig::default()
+    };
+    let graph = AgentGraph::with_config(
+        SharedModel(Arc::clone(&model)),
+        RealToolExecutor::new(dir.path()),
+        config,
+    );
+    let state = graph.run(AgentState::new()).await.unwrap();
+
+    // What the model saw on the final turn: only the last 2 observations in
+    // full, the rest elided but still addressable.
+    let seen = model.last_messages.lock().unwrap().clone();
+    let seen_tools: Vec<&Message> = seen
+        .iter()
+        .filter(|m| matches!(m, Message::Tool(_)))
+        .collect();
+    assert_eq!(seen_tools.len(), 5, "every call still has a paired result");
+
+    for (i, msg) in seen_tools.iter().enumerate() {
+        let Message::Tool(t) = msg else { unreachable!() };
+        if i < 3 {
+            assert!(
+                t.content.contains("output elided"),
+                "observation {i} should have been masked: {}",
+                t.content
+            );
+            assert!(
+                t.content.contains(&format!("recall id t{i}")),
+                "masked observation {i} lost its recall handle: {}",
+                t.content
+            );
+            assert!(
+                !t.content.contains(&format!("UNIQUE-BODY-{i}")),
+                "masked observation {i} still carried its full body"
+            );
+        } else {
+            assert!(
+                t.content.contains(&format!("UNIQUE-BODY-{i}")),
+                "recent observation {i} must survive verbatim: {}",
+                t.content
+            );
+        }
+    }
+
+    // The stored log keeps everything — masking is a projection, not a
+    // mutation, which is what makes the elided content recoverable.
+    let stored = tool_results(&state);
+    assert_eq!(stored.len(), 5);
+    for (i, content) in stored.iter().enumerate() {
+        assert!(
+            content.contains(&format!("UNIQUE-BODY-{i}")),
+            "stored observation {i} was destroyed by masking: {content}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn oversized_tool_output_is_capped() {
+    let dir = tempfile::tempdir().unwrap();
+    // Many lines, so the total far exceeds the cap. (A single very long line
+    // would not: read_file truncates individual lines at its own limit.)
+    let body: String = (0..20_000).map(|i| format!("line {i}\n")).collect();
+    std::fs::write(dir.path().join("big.txt"), body).unwrap();
+
+    let model = ScriptedModel::new(vec![
+        Message::ai_with_tools(
+            "",
+            vec![call(
+                "t1",
+                "read_file",
+                serde_json::json!({"file_path": "big.txt", "limit": 100_000}),
+            )],
+        ),
+        Message::ai("done"),
+    ]);
+    let config = GraphConfig {
+        mask: rvagent_core::masking::MaskConfig {
+            max_tool_result_bytes: 4_000,
+            ..Default::default()
+        },
+        ..GraphConfig::default()
+    };
+    let graph = AgentGraph::with_config(model, RealToolExecutor::new(dir.path()), config);
+    let state = graph.run(AgentState::new()).await.unwrap();
+
+    let results = tool_results(&state);
+    assert_eq!(results.len(), 1);
+    assert!(
+        results[0].len() <= 4_000,
+        "tool output was not capped: {} bytes",
+        results[0].len()
+    );
+    assert!(
+        results[0].ends_with("[output truncated]"),
+        "truncation must be explicit so the model knows output was cut; got {} bytes: {:?}",
+        results[0].len(),
+        &results[0][..results[0].len().min(200)]
+    );
 }
 
 // ---------------------------------------------------------------------------

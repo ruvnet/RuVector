@@ -24,6 +24,7 @@ pub mod config;
 pub mod cow_state;
 pub mod error;
 pub mod graph;
+pub mod masking;
 pub mod messages;
 pub mod metrics;
 pub mod models;
