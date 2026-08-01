@@ -13,7 +13,7 @@ use tracing::{info, warn};
 use rvagent_core::config::{BackendConfig, MiddlewareConfig, RvAgentConfig, SecurityPolicy};
 use rvagent_core::graph::{AgentGraph, ToolExecutor};
 use rvagent_core::messages::{Message, ToolCall as CoreToolCall};
-use rvagent_core::models::{resolve_model, ChatModel};
+use rvagent_core::models::{resolve_model, ChatModel, ToolDefinition};
 use rvagent_core::prompt::BASE_AGENT_PROMPT;
 use rvagent_core::state::AgentState;
 
@@ -66,7 +66,11 @@ impl StubModel {
 
 #[async_trait]
 impl ChatModel for StubModel {
-    async fn complete(&self, _messages: &[Message]) -> rvagent_core::error::Result<Message> {
+    async fn complete(
+        &self,
+        _messages: &[Message],
+        _tools: &[ToolDefinition],
+    ) -> rvagent_core::error::Result<Message> {
         Ok(Message::ai(format!(
             "No API key configured for model '{}'. \
              Set the appropriate environment variable (e.g. ANTHROPIC_API_KEY) \
@@ -75,8 +79,12 @@ impl ChatModel for StubModel {
         )))
     }
 
-    async fn stream(&self, messages: &[Message]) -> rvagent_core::error::Result<Vec<Message>> {
-        let msg = self.complete(messages).await?;
+    async fn stream(
+        &self,
+        messages: &[Message],
+        tools: &[ToolDefinition],
+    ) -> rvagent_core::error::Result<Vec<Message>> {
+        let msg = self.complete(messages, tools).await?;
         Ok(vec![msg])
     }
 }
@@ -95,19 +103,27 @@ enum CliModel {
 
 #[async_trait]
 impl ChatModel for CliModel {
-    async fn complete(&self, messages: &[Message]) -> rvagent_core::error::Result<Message> {
+    async fn complete(
+        &self,
+        messages: &[Message],
+        tools: &[ToolDefinition],
+    ) -> rvagent_core::error::Result<Message> {
         match self {
-            CliModel::Stub(m) => m.complete(messages).await,
-            CliModel::Anthropic(m) => m.complete(messages).await,
-            CliModel::Gemini(m) => m.complete(messages).await,
+            CliModel::Stub(m) => m.complete(messages, tools).await,
+            CliModel::Anthropic(m) => m.complete(messages, tools).await,
+            CliModel::Gemini(m) => m.complete(messages, tools).await,
         }
     }
 
-    async fn stream(&self, messages: &[Message]) -> rvagent_core::error::Result<Vec<Message>> {
+    async fn stream(
+        &self,
+        messages: &[Message],
+        tools: &[ToolDefinition],
+    ) -> rvagent_core::error::Result<Vec<Message>> {
         match self {
-            CliModel::Stub(m) => m.stream(messages).await,
-            CliModel::Anthropic(m) => m.stream(messages).await,
-            CliModel::Gemini(m) => m.stream(messages).await,
+            CliModel::Stub(m) => m.stream(messages, tools).await,
+            CliModel::Anthropic(m) => m.stream(messages, tools).await,
+            CliModel::Gemini(m) => m.stream(messages, tools).await,
         }
     }
 }
@@ -150,6 +166,17 @@ impl ToolExecutor for CliToolExecutor {
             }
             None => Ok(format!("Error: tool '{}' not found", call.name)),
         }
+    }
+
+    fn definitions(&self) -> Vec<ToolDefinition> {
+        self.tools
+            .iter()
+            .map(|t| ToolDefinition {
+                name: t.name().to_string(),
+                description: t.description().to_string(),
+                input_schema: t.parameters_schema(),
+            })
+            .collect()
     }
 }
 

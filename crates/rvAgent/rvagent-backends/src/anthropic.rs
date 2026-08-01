@@ -13,7 +13,7 @@ use tracing::{debug, warn};
 
 use rvagent_core::error::{Result, RvAgentError};
 use rvagent_core::messages::{AiMessage, Message, ToolCall};
-use rvagent_core::models::{ApiKeySource, ChatModel, ModelConfig};
+use rvagent_core::models::{ApiKeySource, ChatModel, ModelConfig, ToolDefinition};
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -65,6 +65,24 @@ enum ContentBlock {
     },
 }
 
+/// A tool definition in the Anthropic Messages API format.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ApiTool {
+    name: String,
+    description: String,
+    input_schema: serde_json::Value,
+}
+
+impl From<&ToolDefinition> for ApiTool {
+    fn from(def: &ToolDefinition) -> Self {
+        Self {
+            name: def.name.clone(),
+            description: def.description.clone(),
+            input_schema: def.input_schema.clone(),
+        }
+    }
+}
+
 /// The request body sent to the Anthropic Messages API.
 #[derive(Debug, Serialize)]
 struct ApiRequest {
@@ -75,6 +93,8 @@ struct ApiRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     system: Option<String>,
     messages: Vec<ApiMessage>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    tools: Vec<ApiTool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     stream: Option<bool>,
 }
@@ -85,18 +105,14 @@ struct ApiResponse {
     content: Vec<ContentBlock>,
     #[allow(dead_code)]
     model: String,
-    #[allow(dead_code)]
     stop_reason: Option<String>,
-    #[allow(dead_code)]
     usage: Option<Usage>,
 }
 
 /// Token usage information.
 #[derive(Debug, Deserialize)]
 struct Usage {
-    #[allow(dead_code)]
     input_tokens: u64,
-    #[allow(dead_code)]
     output_tokens: u64,
 }
 
@@ -129,7 +145,7 @@ struct ApiErrorDetail {
 /// # async fn example() -> rvagent_core::error::Result<()> {
 /// let config = resolve_model("anthropic:claude-sonnet-4-20250514");
 /// let client = AnthropicClient::new(config)?;
-/// let response = client.complete(&[Message::human("Hello!")]).await?;
+/// let response = client.complete(&[Message::human("Hello!")], &[]).await?;
 /// println!("{}", response.content());
 /// # Ok(())
 /// # }
@@ -168,8 +184,8 @@ impl AnthropicClient {
         }
     }
 
-    /// Build the API request body from rvAgent messages.
-    fn build_request(&self, messages: &[Message], stream: bool) -> ApiRequest {
+    /// Build the API request body from rvAgent messages and tool definitions.
+    fn build_request(&self, messages: &[Message], tools: &[ToolDefinition], stream: bool) -> ApiRequest {
         let mut system_text: Option<String> = None;
         let mut api_messages: Vec<ApiMessage> = Vec::new();
 
@@ -240,6 +256,7 @@ impl AnthropicClient {
             },
             system: system_text,
             messages: api_messages,
+            tools: tools.iter().map(ApiTool::from).collect(),
             stream: if stream { Some(true) } else { None },
         }
     }
@@ -330,6 +347,9 @@ impl AnthropicClient {
     }
 
     /// Convert an API response into an rvAgent [`Message`].
+    ///
+    /// Token usage is attached to the message metadata under the `usage` key
+    /// so the agent loop and budget layers can account for it.
     fn parse_response(response: ApiResponse) -> Message {
         let mut text_parts: Vec<String> = Vec::new();
         let mut tool_calls: Vec<ToolCall> = Vec::new();
@@ -352,23 +372,36 @@ impl AnthropicClient {
 
         let content = text_parts.join("");
 
-        if tool_calls.is_empty() {
-            Message::ai(content)
-        } else {
-            Message::Ai(AiMessage {
-                content,
-                tool_calls,
-                metadata: HashMap::new(),
-            })
+        let mut metadata = HashMap::new();
+        if let Some(usage) = &response.usage {
+            metadata.insert(
+                "usage".to_string(),
+                serde_json::json!({
+                    "input_tokens": usage.input_tokens,
+                    "output_tokens": usage.output_tokens,
+                }),
+            );
         }
+        if let Some(stop_reason) = &response.stop_reason {
+            metadata.insert(
+                "stop_reason".to_string(),
+                serde_json::Value::String(stop_reason.clone()),
+            );
+        }
+
+        Message::Ai(AiMessage {
+            content,
+            tool_calls,
+            metadata,
+        })
     }
 }
 
 #[async_trait]
 impl ChatModel for AnthropicClient {
-    /// Send messages and receive a complete response.
-    async fn complete(&self, messages: &[Message]) -> Result<Message> {
-        let request_body = self.build_request(messages, false);
+    /// Send messages and the active tool set, receive a complete response.
+    async fn complete(&self, messages: &[Message], tools: &[ToolDefinition]) -> Result<Message> {
+        let request_body = self.build_request(messages, tools, false);
         let response = self
             .send_with_retry(&request_body, ANTHROPIC_API_URL)
             .await?;
@@ -379,8 +412,8 @@ impl ChatModel for AnthropicClient {
     ///
     /// True SSE streaming is not yet implemented; this method calls the non-streaming
     /// endpoint and returns a single-element vector containing the complete message.
-    async fn stream(&self, messages: &[Message]) -> Result<Vec<Message>> {
-        let msg = self.complete(messages).await?;
+    async fn stream(&self, messages: &[Message], tools: &[ToolDefinition]) -> Result<Vec<Message>> {
+        let msg = self.complete(messages, tools).await?;
         Ok(vec![msg])
     }
 }
@@ -452,7 +485,7 @@ mod tests {
             Message::system("You are helpful."),
             Message::human("Hello!"),
         ];
-        let req = client.build_request(&messages, false);
+        let req = client.build_request(&messages, &[], false);
 
         assert_eq!(req.model, "claude-sonnet-4-20250514");
         assert_eq!(req.max_tokens, 1024);
@@ -471,7 +504,7 @@ mod tests {
             Message::system("Second instruction."),
             Message::human("Go."),
         ];
-        let req = client.build_request(&messages, false);
+        let req = client.build_request(&messages, &[], false);
 
         assert_eq!(
             req.system,
@@ -495,7 +528,7 @@ mod tests {
             ),
             Message::tool("tc_1", "file contents here"),
         ];
-        let req = client.build_request(&messages, false);
+        let req = client.build_request(&messages, &[], false);
 
         assert_eq!(req.messages.len(), 3);
         assert_eq!(req.messages[0].role, "user");
@@ -512,11 +545,64 @@ mod tests {
     }
 
     #[test]
+    fn test_build_request_with_tool_definitions() {
+        let client =
+            AnthropicClient::with_http(test_config(), reqwest::Client::new(), "key".to_string());
+        let tools = vec![ToolDefinition {
+            name: "read_file".to_string(),
+            description: "Read a file from the workspace".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {"path": {"type": "string"}},
+                "required": ["path"]
+            }),
+        }];
+        let req = client.build_request(&[Message::human("read it")], &tools, false);
+
+        assert_eq!(req.tools.len(), 1);
+        assert_eq!(req.tools[0].name, "read_file");
+
+        // Wire format: tools must serialize with name/description/input_schema.
+        let json = serde_json::to_value(&req).unwrap();
+        assert_eq!(json["tools"][0]["name"], "read_file");
+        assert!(json["tools"][0]["input_schema"]["properties"]["path"].is_object());
+
+        // Empty tool set must omit the field entirely.
+        let req_no_tools = client.build_request(&[Message::human("hi")], &[], false);
+        let json_no_tools = serde_json::to_value(&req_no_tools).unwrap();
+        assert!(json_no_tools.get("tools").is_none());
+    }
+
+    #[test]
+    fn test_parse_response_attaches_usage_metadata() {
+        let response = ApiResponse {
+            content: vec![ContentBlock::Text {
+                text: "hi".to_string(),
+            }],
+            model: "claude-sonnet-4-20250514".to_string(),
+            stop_reason: Some("end_turn".to_string()),
+            usage: Some(Usage {
+                input_tokens: 11,
+                output_tokens: 7,
+            }),
+        };
+        let msg = AnthropicClient::parse_response(response);
+        if let Message::Ai(ai) = &msg {
+            let usage = ai.metadata.get("usage").expect("usage metadata");
+            assert_eq!(usage["input_tokens"], 11);
+            assert_eq!(usage["output_tokens"], 7);
+            assert_eq!(ai.metadata["stop_reason"], "end_turn");
+        } else {
+            panic!("expected Ai message");
+        }
+    }
+
+    #[test]
     fn test_build_request_stream_flag() {
         let client =
             AnthropicClient::with_http(test_config(), reqwest::Client::new(), "key".to_string());
         let messages = vec![Message::human("Hi")];
-        let req = client.build_request(&messages, true);
+        let req = client.build_request(&messages, &[], true);
         assert_eq!(req.stream, Some(true));
     }
 
@@ -642,14 +728,14 @@ mod tests {
     fn test_temperature_serialization() {
         let client =
             AnthropicClient::with_http(test_config(), reqwest::Client::new(), "key".to_string());
-        let req = client.build_request(&[Message::human("Hi")], false);
+        let req = client.build_request(&[Message::human("Hi")], &[], false);
         // temperature=0.0 => None (omitted)
         assert!(req.temperature.is_none());
 
         let mut config = test_config();
         config.temperature = 0.7;
         let client2 = AnthropicClient::with_http(config, reqwest::Client::new(), "key".to_string());
-        let req2 = client2.build_request(&[Message::human("Hi")], false);
+        let req2 = client2.build_request(&[Message::human("Hi")], &[], false);
         assert_eq!(req2.temperature, Some(0.7));
     }
 
@@ -664,6 +750,7 @@ mod tests {
                 role: "user".to_string(),
                 content: ApiContent::Text("Hello".to_string()),
             }],
+            tools: Vec::new(),
             stream: None,
         };
         let json = serde_json::to_value(&req).expect("serialization failed");
@@ -736,7 +823,7 @@ mod tests {
 
         let client = test_client(&server.url());
         let url = format!("{}/v1/messages", server.url());
-        let req = client.build_request(&[Message::human("Hello")], false);
+        let req = client.build_request(&[Message::human("Hello")], &[], false);
         let resp = client.send_with_retry(&req, &url).await;
 
         assert!(resp.is_ok());
@@ -768,7 +855,7 @@ mod tests {
 
         let client = test_client(&server.url());
         let url = format!("{}/v1/messages", server.url());
-        let req = client.build_request(&[Message::human("Search for Rust")], false);
+        let req = client.build_request(&[Message::human("Search for Rust")], &[], false);
         let resp = client.send_with_retry(&req, &url).await;
 
         assert!(resp.is_ok());
@@ -794,7 +881,7 @@ mod tests {
 
         let client = test_client(&server.url());
         let url = format!("{}/v1/messages", server.url());
-        let req = client.build_request(&[Message::human("Hi")], false);
+        let req = client.build_request(&[Message::human("Hi")], &[], false);
         let result = client.send_with_retry(&req, &url).await;
 
         assert!(result.is_err());
@@ -839,7 +926,7 @@ mod tests {
 
         let client = test_client(&server.url());
         let url = format!("{}/v1/messages", server.url());
-        let req = client.build_request(&[Message::human("Hi")], false);
+        let req = client.build_request(&[Message::human("Hi")], &[], false);
         let result = client.send_with_retry(&req, &url).await;
 
         assert!(result.is_ok());
@@ -869,7 +956,7 @@ mod tests {
 
         let client = test_client(&server.url());
         let url = format!("{}/v1/messages", server.url());
-        let req = client.build_request(&[Message::human("Hi")], false);
+        let req = client.build_request(&[Message::human("Hi")], &[], false);
         let result = client.send_with_retry(&req, &url).await;
 
         assert!(result.is_err());
@@ -902,7 +989,7 @@ mod tests {
 
         let client = test_client(&server.url());
         let url = format!("{}/v1/messages", server.url());
-        let req = client.build_request(&[Message::human("Hi")], false);
+        let req = client.build_request(&[Message::human("Hi")], &[], false);
         let result = client.send_with_retry(&req, &url).await;
 
         assert!(result.is_ok());

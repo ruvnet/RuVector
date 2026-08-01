@@ -13,7 +13,7 @@ use rvagent_core::config::RvAgentConfig;
 use rvagent_core::error::Result as CoreResult;
 use rvagent_core::graph::{AgentGraph, GraphConfig, ToolExecutor};
 use rvagent_core::messages::{Message, ToolCall};
-use rvagent_core::models::ChatModel;
+use rvagent_core::models::{ChatModel, ToolDefinition};
 use rvagent_core::state::AgentState;
 
 use crate::types::{
@@ -77,7 +77,11 @@ struct StubModel;
 
 #[async_trait]
 impl ChatModel for StubModel {
-    async fn complete(&self, messages: &[Message]) -> CoreResult<Message> {
+    async fn complete(
+        &self,
+        messages: &[Message],
+        _tools: &[ToolDefinition],
+    ) -> CoreResult<Message> {
         // Find the last human message and produce an intelligent echo.
         let user_text = messages
             .iter()
@@ -95,8 +99,12 @@ impl ChatModel for StubModel {
         Ok(Message::ai(response))
     }
 
-    async fn stream(&self, messages: &[Message]) -> CoreResult<Vec<Message>> {
-        let msg = self.complete(messages).await?;
+    async fn stream(
+        &self,
+        messages: &[Message],
+        tools: &[ToolDefinition],
+    ) -> CoreResult<Vec<Message>> {
+        let msg = self.complete(messages, tools).await?;
         Ok(vec![msg])
     }
 }
@@ -194,6 +202,7 @@ impl AcpAgent {
         let graph_config = GraphConfig {
             max_iterations: 10,
             parallel_tools: false,
+            ..GraphConfig::default()
         };
         let graph = AgentGraph::with_config(StubModel, AcpToolExecutor, graph_config);
 

@@ -2,13 +2,16 @@
 //!
 //! Implements the core agent loop: Agent → check tool_calls → execute tools → loop.
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument, warn};
 
 use crate::error::{Result, RvAgentError};
 use crate::messages::{Message, ToolCall};
-use crate::models::ChatModel;
+use crate::models::{ChatModel, ToolDefinition};
+use crate::parallel::parallel_execute_limited;
 use crate::state::AgentState;
 
 // ---------------------------------------------------------------------------
@@ -47,6 +50,15 @@ pub struct Edge {
 pub trait ToolExecutor: Send + Sync {
     /// Execute a single tool call and return the result content.
     async fn execute(&self, call: &ToolCall, state: &AgentState) -> Result<String>;
+
+    /// Schemas for the tools this executor can dispatch.
+    ///
+    /// These are advertised to the model on every completion. The default is
+    /// empty (pure-chat agents), but any executor that dispatches real tools
+    /// MUST override this — otherwise the model can never call them.
+    fn definitions(&self) -> Vec<ToolDefinition> {
+        Vec::new()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -60,6 +72,8 @@ pub struct GraphConfig {
     pub max_iterations: u32,
     /// Whether to execute tool calls in parallel (ADR-103 A2).
     pub parallel_tools: bool,
+    /// Maximum tool calls in flight at once when `parallel_tools` is set.
+    pub max_parallel_tools: usize,
 }
 
 impl Default for GraphConfig {
@@ -67,6 +81,7 @@ impl Default for GraphConfig {
         Self {
             max_iterations: 100,
             parallel_tools: true,
+            max_parallel_tools: 8,
         }
     }
 }
@@ -79,14 +94,16 @@ impl Default for GraphConfig {
 ///              ├── yes → Tools → Agent (loop)
 ///              └── no  → End
 /// ```
-pub struct AgentGraph<M: ChatModel, T: ToolExecutor> {
+pub struct AgentGraph<M: ChatModel, T: ToolExecutor + 'static> {
     model: M,
-    tool_executor: T,
+    // Arc so tool calls can be spawned onto the runtime for true parallel
+    // execution (ADR-103 A2) — spawned futures must be 'static.
+    tool_executor: Arc<T>,
     config: GraphConfig,
     edges: Vec<Edge>,
 }
 
-impl<M: ChatModel, T: ToolExecutor> AgentGraph<M, T> {
+impl<M: ChatModel, T: ToolExecutor + 'static> AgentGraph<M, T> {
     /// Create a new agent graph with the given model and tool executor.
     pub fn new(model: M, tool_executor: T) -> Self {
         Self::with_config(model, tool_executor, GraphConfig::default())
@@ -119,7 +136,7 @@ impl<M: ChatModel, T: ToolExecutor> AgentGraph<M, T> {
 
         Self {
             model,
-            tool_executor,
+            tool_executor: Arc::new(tool_executor),
             config,
             edges,
         }
@@ -139,8 +156,15 @@ impl<M: ChatModel, T: ToolExecutor> AgentGraph<M, T> {
     pub async fn run(&self, mut state: AgentState) -> Result<AgentState> {
         let mut current_node = AgentNode::Start;
         let mut iterations: u32 = 0;
+        // Tool schemas advertised to the model on every completion. Without
+        // these the model can never emit a tool call.
+        let tool_definitions = self.tool_executor.definitions();
+        // Cumulative token usage across the loop, aggregated from per-message
+        // usage metadata attached by provider backends.
+        let mut total_input_tokens: u64 = 0;
+        let mut total_output_tokens: u64 = 0;
 
-        info!(node = ?current_node, "graph: starting agent loop");
+        info!(node = ?current_node, tools = tool_definitions.len(), "graph: starting agent loop");
 
         loop {
             if iterations >= self.config.max_iterations {
@@ -161,7 +185,21 @@ impl<M: ChatModel, T: ToolExecutor> AgentGraph<M, T> {
                     iterations += 1;
                     debug!(iteration = iterations, "graph: invoking model");
 
-                    let response = self.model.complete(&state.messages).await?;
+                    let response = self
+                        .model
+                        .complete(&state.messages, &tool_definitions)
+                        .await?;
+                    if let Some((input, output)) = usage_from_message(&response) {
+                        total_input_tokens += input;
+                        total_output_tokens += output;
+                        debug!(
+                            input_tokens = input,
+                            output_tokens = output,
+                            total_input_tokens,
+                            total_output_tokens,
+                            "graph: turn usage"
+                        );
+                    }
                     let has_tool_calls = response.has_tool_calls();
                     state.push_message(response);
 
@@ -180,22 +218,36 @@ impl<M: ChatModel, T: ToolExecutor> AgentGraph<M, T> {
                     // Extract tool calls from the last AI message.
                     let tool_calls = self.extract_tool_calls(&state)?;
 
+                    // Tool failures are fed back to the model as tool results
+                    // rather than aborting the loop — the model must see the
+                    // error to recover from it (execution alignment).
                     if self.config.parallel_tools && tool_calls.len() > 1 {
-                        // Parallel execution (ADR-103 A2).
-                        let mut handles = Vec::with_capacity(tool_calls.len());
-                        for tc in &tool_calls {
-                            let result = self.tool_executor.execute(tc, &state).await;
-                            handles.push((tc.id.clone(), result));
-                        }
-                        for (id, result) in handles {
-                            let content = result?;
-                            state.push_message(Message::tool(id, content));
+                        // True parallel execution (ADR-103 A2): tasks are
+                        // spawned onto the runtime with bounded concurrency;
+                        // results are returned in input order.
+                        let executor = Arc::clone(&self.tool_executor);
+                        let exec_state = state.clone();
+                        let results = parallel_execute_limited(
+                            tool_calls.clone(),
+                            move |tc: ToolCall| {
+                                let executor = Arc::clone(&executor);
+                                let exec_state = exec_state.clone();
+                                async move {
+                                    let result = executor.execute(&tc, &exec_state).await;
+                                    (tc.id, result)
+                                }
+                            },
+                            self.config.max_parallel_tools.max(1),
+                        )
+                        .await;
+                        for (id, result) in results {
+                            state.push_message(Message::tool(id, tool_result_content(result)));
                         }
                     } else {
                         // Sequential execution.
                         for tc in &tool_calls {
-                            let content = self.tool_executor.execute(tc, &state).await?;
-                            state.push_message(Message::tool(&tc.id, content));
+                            let result = self.tool_executor.execute(tc, &state).await;
+                            state.push_message(Message::tool(&tc.id, tool_result_content(result)));
                         }
                     }
 
@@ -204,7 +256,10 @@ impl<M: ChatModel, T: ToolExecutor> AgentGraph<M, T> {
                 }
 
                 AgentNode::End => {
-                    info!(iterations, "graph: agent loop complete");
+                    info!(
+                        iterations,
+                        total_input_tokens, total_output_tokens, "graph: agent loop complete"
+                    );
                     return Ok(state);
                 }
             }
@@ -223,6 +278,30 @@ impl<M: ChatModel, T: ToolExecutor> AgentGraph<M, T> {
         Err(RvAgentError::state(
             "no tool calls found in recent AI message",
         ))
+    }
+}
+
+/// Convert a tool execution result into tool-message content.
+///
+/// Errors become visible tool output instead of aborting the loop — feeding
+/// the failure back to the model is the recovery path.
+fn tool_result_content(result: Result<String>) -> String {
+    match result {
+        Ok(content) => content,
+        Err(e) => format!("Tool execution error: {e}"),
+    }
+}
+
+/// Extract `(input_tokens, output_tokens)` from a message's usage metadata,
+/// as attached by provider backends under the `usage` key.
+fn usage_from_message(msg: &Message) -> Option<(u64, u64)> {
+    if let Message::Ai(ai) = msg {
+        let usage = ai.metadata.get("usage")?;
+        let input = usage.get("input_tokens").and_then(|v| v.as_u64())?;
+        let output = usage.get("output_tokens").and_then(|v| v.as_u64())?;
+        Some((input, output))
+    } else {
+        None
     }
 }
 
@@ -246,7 +325,11 @@ mod tests {
 
     #[async_trait]
     impl ChatModel for MockModel {
-        async fn complete(&self, _messages: &[Message]) -> Result<Message> {
+        async fn complete(
+            &self,
+            _messages: &[Message],
+            _tools: &[ToolDefinition],
+        ) -> Result<Message> {
             let mut resps = self.responses.lock().unwrap();
             if resps.is_empty() {
                 Ok(Message::ai("done"))
@@ -255,8 +338,12 @@ mod tests {
             }
         }
 
-        async fn stream(&self, messages: &[Message]) -> Result<Vec<Message>> {
-            let msg = self.complete(messages).await?;
+        async fn stream(
+            &self,
+            messages: &[Message],
+            tools: &[ToolDefinition],
+        ) -> Result<Vec<Message>> {
+            let msg = self.complete(messages, tools).await?;
             Ok(vec![msg])
         }
     }
@@ -328,6 +415,7 @@ mod tests {
         let config = GraphConfig {
             max_iterations: 3,
             parallel_tools: false,
+            ..GraphConfig::default()
         };
         let graph = AgentGraph::with_config(model, executor, config);
 
