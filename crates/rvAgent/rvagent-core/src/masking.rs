@@ -127,6 +127,70 @@ pub fn mask_observations(messages: &[Message], config: &MaskConfig) -> Vec<Messa
         .collect()
 }
 
+// ---------------------------------------------------------------------------
+// Addressable recall (ADR-274 §3.2)
+// ---------------------------------------------------------------------------
+
+/// The reserved tool name used to dereference a masked observation.
+///
+/// Handled by the agent loop itself rather than a `ToolExecutor`: recall reads
+/// the message log, which executors do not have, and reserving it in the loop
+/// means a workspace tool cannot shadow it.
+pub const RECALL_TOOL: &str = "recall";
+
+/// Schema for the recall tool, advertised whenever masking is active.
+pub fn recall_definition() -> crate::models::ToolDefinition {
+    crate::models::ToolDefinition {
+        name: RECALL_TOOL.to_string(),
+        description:
+            "Retrieve the full content of an earlier tool result that was elided from the \
+             conversation. Pass the recall id shown in the placeholder, e.g. \
+             '[read_file output elided: 2847 bytes, recall id tc7]' -> recall_id \"tc7\"."
+                .to_string(),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "properties": {
+                "recall_id": {
+                    "type": "string",
+                    "description": "The recall id from an elided observation placeholder."
+                }
+            },
+            "required": ["recall_id"]
+        }),
+    }
+}
+
+/// Dereference a recall id against the full message log.
+///
+/// `messages` must be the complete log, never a masked projection — recalling
+/// from a masked view would return the placeholder rather than the content.
+pub fn recall(messages: &[Message], recall_id: &str) -> String {
+    for msg in messages {
+        if let Message::Tool(t) = msg {
+            if t.tool_call_id == recall_id {
+                return t.content.clone();
+            }
+        }
+    }
+    // Actionable rather than opaque: tell the model where valid ids come from.
+    format!(
+        "Error: no observation found with recall id '{recall_id}'. Recall ids appear \
+         in elided-output placeholders in this conversation; they are not tool names \
+         or file paths."
+    )
+}
+
+/// Extract the `recall_id` argument from a recall tool call.
+pub fn recall_id_from_args(args: &serde_json::Value) -> Result<&str, String> {
+    args.get("recall_id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| {
+            "Error: recall requires a string 'recall_id' argument, taken from an \
+             elided-output placeholder."
+                .to_string()
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

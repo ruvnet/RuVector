@@ -536,6 +536,97 @@ async fn old_observations_are_masked_before_reaching_the_model() {
 }
 
 #[tokio::test]
+async fn recall_returns_the_full_content_of_a_masked_observation() {
+    let dir = tempfile::tempdir().unwrap();
+    for i in 0..4 {
+        std::fs::write(
+            dir.path().join(format!("f{i}.txt")),
+            format!("SECRET-BODY-{i}"),
+        )
+        .unwrap();
+    }
+
+    let mut responses: Vec<Message> = (0..4)
+        .map(|i| {
+            Message::ai_with_tools(
+                "",
+                vec![call(
+                    &format!("t{i}"),
+                    "read_file",
+                    serde_json::json!({ "file_path": format!("f{i}.txt") }),
+                )],
+            )
+        })
+        .collect();
+    // t0 has been masked out of the model's view by now; dereference it.
+    responses.push(Message::ai_with_tools(
+        "",
+        vec![call(
+            "r1",
+            "recall",
+            serde_json::json!({ "recall_id": "t0" }),
+        )],
+    ));
+    responses.push(Message::ai("done"));
+
+    let model = Arc::new(ScriptedModel::new(responses));
+    let config = GraphConfig {
+        parallel_tools: false,
+        mask: rvagent_core::masking::MaskConfig {
+            keep_last_observations: 2,
+            ..Default::default()
+        },
+        ..GraphConfig::default()
+    };
+    let graph = AgentGraph::with_config(
+        SharedModel(Arc::clone(&model)),
+        RealToolExecutor::new(dir.path()),
+        config,
+    );
+    let state = graph.run(AgentState::new()).await.unwrap();
+
+    // The recall tool must have been advertised, or the model could not call it.
+    let seen = model.seen_tools.lock().unwrap();
+    assert!(
+        seen.last().unwrap().iter().any(|d| d.name == "recall"),
+        "recall was not advertised while masking was active"
+    );
+    drop(seen);
+
+    // The recall result carries the content that was elided from the view.
+    let results = tool_results(&state);
+    let recalled = results.last().unwrap();
+    assert!(
+        recalled.contains("SECRET-BODY-0"),
+        "recall did not return the elided content: {recalled}"
+    );
+}
+
+#[tokio::test]
+async fn recall_with_an_unknown_id_is_actionable_not_fatal() {
+    let dir = tempfile::tempdir().unwrap();
+    let model = ScriptedModel::new(vec![
+        Message::ai_with_tools(
+            "",
+            vec![call(
+                "r1",
+                "recall",
+                serde_json::json!({ "recall_id": "nope" }),
+            )],
+        ),
+        Message::ai("done"),
+    ]);
+    let graph = AgentGraph::new(model, RealToolExecutor::new(dir.path()));
+    let state = graph.run(AgentState::new()).await.unwrap();
+
+    let results = tool_results(&state);
+    assert_eq!(results.len(), 1);
+    assert!(results[0].contains("no observation found"));
+    // Must tell the model where valid ids come from, not just that it failed.
+    assert!(results[0].contains("placeholders"));
+}
+
+#[tokio::test]
 async fn oversized_tool_output_is_capped() {
     let dir = tempfile::tempdir().unwrap();
     // Many lines, so the total far exceeds the cap. (A single very long line

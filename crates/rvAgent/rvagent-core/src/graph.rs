@@ -9,7 +9,10 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument, warn};
 
 use crate::error::{Result, RvAgentError};
-use crate::masking::{mask_observations, truncate_tool_result, MaskConfig};
+use crate::masking::{
+    mask_observations, recall, recall_definition, recall_id_from_args, truncate_tool_result,
+    MaskConfig, RECALL_TOOL,
+};
 use crate::messages::{Message, ToolCall};
 use crate::models::{ChatModel, ToolDefinition};
 use crate::parallel::parallel_execute_limited;
@@ -246,7 +249,12 @@ impl<M: ChatModel, T: ToolExecutor + 'static> AgentGraph<M, T> {
         let mut iterations: u32 = 0;
         // Tool schemas advertised to the model on every completion. Without
         // these the model can never emit a tool call.
-        let tool_definitions = self.tool_executor.definitions();
+        let mut tool_definitions = self.tool_executor.definitions();
+        // Masked observations are useless without a way to dereference them,
+        // so recall is advertised exactly when masking is active (ADR-274 §3.2).
+        if self.config.mask.masking_enabled() {
+            tool_definitions.push(recall_definition());
+        }
         // Cumulative token usage across the loop, aggregated from per-message
         // usage metadata attached by provider backends.
         let mut total_input_tokens: u64 = 0;
@@ -321,19 +329,36 @@ impl<M: ChatModel, T: ToolExecutor + 'static> AgentGraph<M, T> {
                             None
                         });
                     }
-                    // Only calls that cleared loop detection reach the executor.
+                    // Recall is served by the loop from the full log; it never
+                    // reaches the executor, so a workspace tool cannot shadow it.
+                    let mut handled: std::collections::HashMap<String, String> =
+                        std::collections::HashMap::new();
+                    for (tc, refused) in tool_calls.iter().zip(&looping) {
+                        if refused.is_none() && tc.name == RECALL_TOOL {
+                            let content = match recall_id_from_args(&tc.args) {
+                                Ok(id) => recall(&state.messages, id),
+                                Err(e) => e,
+                            };
+                            handled.insert(tc.id.clone(), content);
+                        }
+                    }
+
+                    // Only calls that cleared loop detection and were not
+                    // handled in-loop reach the executor.
                     let dispatch: Vec<ToolCall> = tool_calls
                         .iter()
                         .zip(&looping)
-                        .filter(|(_, refused)| refused.is_none())
+                        .filter(|(tc, refused)| {
+                            refused.is_none() && !handled.contains_key(&tc.id)
+                        })
                         .map(|(tc, _)| tc.clone())
                         .collect();
 
                     // Tool failures are fed back to the model as tool results
                     // rather than aborting the loop — the model must see the
                     // error to recover from it (execution alignment).
-                    let mut executed: std::collections::HashMap<String, String> =
-                        std::collections::HashMap::with_capacity(dispatch.len());
+                    let mut executed: std::collections::HashMap<String, String> = handled;
+                    executed.reserve(dispatch.len());
                     if self.config.parallel_tools && dispatch.len() > 1 {
                         // True parallel execution (ADR-103 A2): tasks are
                         // spawned onto the runtime with bounded concurrency;

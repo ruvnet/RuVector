@@ -192,10 +192,16 @@ impl Backend for LocalFsBackend {
                 };
             }
         }
-        match std::fs::write(&target, content) {
-            Ok(_) => WriteResult::default(),
-            Err(e) => WriteResult {
+        if let Err(e) = std::fs::write(&target, content) {
+            return WriteResult {
                 error: Some(format!("write '{}': {}", target.display(), e)),
+                ..Default::default()
+            };
+        }
+        match verify_written(&target, content) {
+            Ok(()) => WriteResult::default(),
+            Err(e) => WriteResult {
+                error: Some(e),
                 ..Default::default()
             },
         }
@@ -246,14 +252,20 @@ impl Backend for LocalFsBackend {
         } else {
             content.replacen(old_string, new_string, 1)
         };
-        match std::fs::write(&target, &new_content) {
-            Ok(_) => WriteResult {
+        if let Err(e) = std::fs::write(&target, &new_content) {
+            return WriteResult {
+                error: Some(format!("write '{}': {}", target.display(), e)),
+                ..Default::default()
+            };
+        }
+        match verify_written(&target, &new_content) {
+            Ok(()) => WriteResult {
                 error: None,
                 occurrences: Some(if replace_all { count } else { 1 }),
                 ..Default::default()
             },
             Err(e) => WriteResult {
-                error: Some(format!("write '{}': {}", target.display(), e)),
+                error: Some(e),
                 ..Default::default()
             },
         }
@@ -379,6 +391,35 @@ impl Backend for LocalFsBackend {
             output: combined,
             exit_code: output.status.code().unwrap_or(-1),
         })
+    }
+}
+
+/// Confirm a write actually landed, by reading the file back (ADR-273 §3.1).
+///
+/// `std::fs::write` returning `Ok` means the syscalls succeeded, not that the
+/// bytes are on disk and readable: a full filesystem, a quota, a racing writer,
+/// or an unusual mount can all produce a successful-looking write whose content
+/// differs. Reporting success in that case is the worst outcome, because the
+/// agent proceeds believing the edit is applied and every later step is built
+/// on a false premise — the exact failure mode that dominates harness ablations.
+///
+/// Costs one read per write, which is negligible against a model round trip.
+fn verify_written(target: &Path, expected: &str) -> Result<(), String> {
+    match std::fs::read(target) {
+        Ok(actual) if actual == expected.as_bytes() => Ok(()),
+        Ok(actual) => Err(format!(
+            "Error: write to '{}' did not verify — expected {} bytes, file now holds {}. \
+             The file may have been modified concurrently or the write was truncated. \
+             Re-read the file before making further changes.",
+            target.display(),
+            expected.len(),
+            actual.len()
+        )),
+        Err(e) => Err(format!(
+            "Error: write to '{}' could not be verified: {e}. \
+             Treat the file's contents as unknown and re-read it.",
+            target.display()
+        )),
     }
 }
 
@@ -512,6 +553,59 @@ mod tests {
         let result = backend.write("nested/dir/new.txt", "content");
         assert!(result.error.is_none(), "unexpected: {:?}", result.error);
         assert_eq!(backend.read("nested/dir/new.txt", 0, 10).unwrap(), "content");
+    }
+
+    #[test]
+    fn write_is_verified_by_reading_back() {
+        let (dir, backend) = backend();
+        let result = backend.write("verified.txt", "exact contents");
+        assert!(result.error.is_none());
+        // The verification path must accept a correct write, not just reject
+        // bad ones — otherwise it would be a permanent false alarm.
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("verified.txt")).unwrap(),
+            "exact contents"
+        );
+    }
+
+    #[test]
+    fn edit_is_verified_by_reading_back() {
+        let (dir, backend) = backend();
+        std::fs::write(dir.path().join("e.txt"), "alpha beta").unwrap();
+        let result = backend.edit("e.txt", "alpha", "gamma", false);
+        assert!(result.error.is_none(), "unexpected: {:?}", result.error);
+        assert_eq!(result.occurrences, Some(1));
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("e.txt")).unwrap(),
+            "gamma beta"
+        );
+    }
+
+    #[test]
+    fn verification_reports_a_content_mismatch() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("x.txt");
+        std::fs::write(&path, "actual").unwrap();
+        // Simulate the case the check exists for: what landed differs from
+        // what was asked for.
+        let err = verify_written(&path, "expected something longer").unwrap_err();
+        assert!(err.contains("did not verify"), "got: {err}");
+        assert!(err.contains("Re-read the file"), "must be actionable: {err}");
+    }
+
+    #[test]
+    fn verification_reports_an_unreadable_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let err = verify_written(&dir.path().join("missing.txt"), "anything").unwrap_err();
+        assert!(err.contains("could not be verified"), "got: {err}");
+        assert!(err.contains("re-read"), "must be actionable: {err}");
+    }
+
+    #[test]
+    fn verification_handles_empty_and_multibyte_content() {
+        let (_dir, backend) = backend();
+        assert!(backend.write("empty.txt", "").error.is_none());
+        assert!(backend.write("utf8.txt", "héllo 🙂 wörld").error.is_none());
     }
 
     #[test]
