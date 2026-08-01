@@ -20,10 +20,12 @@
 pub mod agi_container;
 pub mod arena;
 pub mod budget;
+pub mod bootstrap;
 pub mod config;
 pub mod cow_state;
 pub mod error;
 pub mod graph;
+pub mod invariants;
 pub mod masking;
 pub mod messages;
 pub mod metrics;

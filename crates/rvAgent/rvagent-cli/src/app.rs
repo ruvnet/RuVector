@@ -14,6 +14,7 @@ use rvagent_core::config::{BackendConfig, MiddlewareConfig, RvAgentConfig, Secur
 use rvagent_core::graph::{AgentGraph, ToolExecutor};
 use rvagent_core::messages::{Message, ToolCall as CoreToolCall};
 use rvagent_core::models::{resolve_model, ChatModel, ToolDefinition};
+use rvagent_core::bootstrap::EnvironmentSnapshot;
 use rvagent_core::prompt::BASE_AGENT_PROMPT;
 use rvagent_core::state::AgentState;
 
@@ -247,11 +248,18 @@ impl App {
             None => Session::new(model),
         };
 
+        // Environment bootstrap (ADR-273 §3.5): hand the agent the workspace
+        // facts up front so it does not spend its first turns discovering
+        // them. Filesystem-only, so this costs nothing measurable.
+        let snapshot =
+            EnvironmentSnapshot::collect(cwd, &rvagent_core::bootstrap::BootstrapConfig::default());
+        let system_prompt = snapshot.augment_prompt(BASE_AGENT_PROMPT);
+
         Ok(Self {
             config,
             session,
             cwd: cwd.to_path_buf(),
-            system_prompt: BASE_AGENT_PROMPT.to_string(),
+            system_prompt,
             mcp_registry: McpRegistry::new(),
         })
     }
