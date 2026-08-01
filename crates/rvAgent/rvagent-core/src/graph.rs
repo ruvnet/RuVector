@@ -74,6 +74,11 @@ pub struct GraphConfig {
     pub parallel_tools: bool,
     /// Maximum tool calls in flight at once when `parallel_tools` is set.
     pub max_parallel_tools: usize,
+    /// How many times an identical `(tool, args)` pair may repeat
+    /// consecutively before the call is refused instead of executed.
+    ///
+    /// Set to 0 to disable loop detection entirely.
+    pub loop_repeat_threshold: usize,
 }
 
 impl Default for GraphConfig {
@@ -82,8 +87,87 @@ impl Default for GraphConfig {
             max_iterations: 100,
             parallel_tools: true,
             max_parallel_tools: 8,
+            loop_repeat_threshold: 3,
         }
     }
+}
+
+/// Detects a stuck agent repeating the same tool call.
+///
+/// A stuck agent repeats one call forever; raising `max_iterations` only makes
+/// that more expensive. Refusing the repeat and telling the model *why* is what
+/// breaks the cycle.
+///
+/// Repeats are counted **consecutively**, not across a window. An agent that
+/// re-runs `cargo test` between edits is doing legitimate work, and refusing
+/// that would be worse than the loop it prevents — so only an unbroken run of
+/// identical calls trips the detector.
+///
+/// Known limitation: alternating cycles (A, B, A, B, ...) are not detected.
+/// `max_iterations` remains the backstop for those.
+#[derive(Debug)]
+struct LoopDetector {
+    last: Option<u64>,
+    consecutive: usize,
+    threshold: usize,
+}
+
+impl LoopDetector {
+    fn new(threshold: usize) -> Self {
+        Self {
+            last: None,
+            consecutive: 0,
+            threshold,
+        }
+    }
+
+    fn enabled(&self) -> bool {
+        self.threshold > 0
+    }
+
+    /// Fingerprint a call by name and arguments.
+    ///
+    /// Arguments are hashed via their JSON string, which is canonical for key
+    /// ordering because `serde_json` maps are `BTreeMap` by default — so
+    /// logically identical calls collide regardless of the order the model
+    /// emitted the keys in.
+    fn fingerprint(call: &ToolCall) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        call.name.hash(&mut hasher);
+        call.args.to_string().hash(&mut hasher);
+        hasher.finish()
+    }
+
+    /// Record a call and report whether it has now repeated too often.
+    fn observe(&mut self, call: &ToolCall) -> bool {
+        if !self.enabled() {
+            return false;
+        }
+        let fp = Self::fingerprint(call);
+        if self.last == Some(fp) {
+            self.consecutive += 1;
+        } else {
+            self.last = Some(fp);
+            self.consecutive = 1;
+        }
+        self.consecutive >= self.threshold
+    }
+}
+
+/// The message substituted for a call that tripped loop detection.
+///
+/// Tool errors must be actionable rather than opaque — the model has to be
+/// told what to do differently, or it repeats the call again.
+fn loop_break_message(call: &ToolCall, threshold: usize) -> String {
+    format!(
+        "Tool execution refused: this exact call to '{}' with identical \
+         arguments has already been made {} times without progress, so it was \
+         not executed again. Repeating it will not produce a different result. \
+         Change the arguments, use a different tool, or explain what is \
+         blocking you.",
+        call.name, threshold
+    )
 }
 
 /// The agent execution graph.
@@ -163,6 +247,8 @@ impl<M: ChatModel, T: ToolExecutor + 'static> AgentGraph<M, T> {
         // usage metadata attached by provider backends.
         let mut total_input_tokens: u64 = 0;
         let mut total_output_tokens: u64 = 0;
+        // Spans the whole run: a loop is only visible across iterations.
+        let mut loop_detector = LoopDetector::new(self.config.loop_repeat_threshold);
 
         info!(node = ?current_node, tools = tool_definitions.len(), "graph: starting agent loop");
 
@@ -218,17 +304,39 @@ impl<M: ChatModel, T: ToolExecutor + 'static> AgentGraph<M, T> {
                     // Extract tool calls from the last AI message.
                     let tool_calls = self.extract_tool_calls(&state)?;
 
+                    // Refuse calls that are repeating without progress. This
+                    // happens before dispatch so a stuck agent stops burning
+                    // tokens and side effects on the same call.
+                    let mut looping: Vec<Option<String>> = Vec::with_capacity(tool_calls.len());
+                    for tc in &tool_calls {
+                        looping.push(if loop_detector.observe(tc) {
+                            warn!(tool = %tc.name, "graph: loop detected, refusing repeated call");
+                            Some(loop_break_message(tc, self.config.loop_repeat_threshold))
+                        } else {
+                            None
+                        });
+                    }
+                    // Only calls that cleared loop detection reach the executor.
+                    let dispatch: Vec<ToolCall> = tool_calls
+                        .iter()
+                        .zip(&looping)
+                        .filter(|(_, refused)| refused.is_none())
+                        .map(|(tc, _)| tc.clone())
+                        .collect();
+
                     // Tool failures are fed back to the model as tool results
                     // rather than aborting the loop — the model must see the
                     // error to recover from it (execution alignment).
-                    if self.config.parallel_tools && tool_calls.len() > 1 {
+                    let mut executed: std::collections::HashMap<String, String> =
+                        std::collections::HashMap::with_capacity(dispatch.len());
+                    if self.config.parallel_tools && dispatch.len() > 1 {
                         // True parallel execution (ADR-103 A2): tasks are
                         // spawned onto the runtime with bounded concurrency;
                         // results are returned in input order.
                         let executor = Arc::clone(&self.tool_executor);
                         let exec_state = state.clone();
                         let results = parallel_execute_limited(
-                            tool_calls.clone(),
+                            dispatch,
                             move |tc: ToolCall| {
                                 let executor = Arc::clone(&executor);
                                 let exec_state = exec_state.clone();
@@ -254,23 +362,34 @@ impl<M: ChatModel, T: ToolExecutor + 'static> AgentGraph<M, T> {
                             self.config.max_parallel_tools.max(1),
                         )
                         .await;
-                        for (id, name, result) in results {
-                            state.push_message(Message::tool_with_name(
-                                id,
-                                tool_result_content(result),
-                                name,
-                            ));
+                        for (id, _name, result) in results {
+                            executed.insert(id, tool_result_content(result));
                         }
                     } else {
                         // Sequential execution.
-                        for tc in &tool_calls {
+                        for tc in &dispatch {
                             let result = self.tool_executor.execute(tc, &state).await;
-                            state.push_message(Message::tool_with_name(
-                                &tc.id,
-                                tool_result_content(result),
-                                &tc.name,
-                            ));
+                            executed.insert(tc.id.clone(), tool_result_content(result));
                         }
+                    }
+
+                    // Emit one tool result per call, in the model's original
+                    // call order, substituting the refusal for looping calls.
+                    for (tc, refused) in tool_calls.iter().zip(looping) {
+                        let content = match refused {
+                            Some(msg) => msg,
+                            None => executed.remove(&tc.id).unwrap_or_else(|| {
+                                // Defensive: a dispatched call must always
+                                // produce a result. Report rather than drop it,
+                                // since a missing tool result desyncs the
+                                // provider's tool_use/tool_result pairing.
+                                format!(
+                                    "Tool execution error: no result produced for '{}'",
+                                    tc.name
+                                )
+                            }),
+                        };
+                        state.push_message(Message::tool_with_name(&tc.id, content, &tc.name));
                     }
 
                     debug!("graph: Tools → Agent");
@@ -496,6 +615,203 @@ mod tests {
         let state = AgentState::new();
         let err = graph.run(state).await.unwrap_err();
         assert!(matches!(err, RvAgentError::Timeout(_)));
+    }
+
+    /// Counts how many times the executor was actually invoked.
+    struct CountingExecutor {
+        calls: Arc<std::sync::atomic::AtomicUsize>,
+    }
+
+    #[async_trait]
+    impl ToolExecutor for CountingExecutor {
+        async fn execute(&self, call: &ToolCall, _state: &AgentState) -> Result<String> {
+            self.calls
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(format!("result of {}", call.name))
+        }
+    }
+
+    fn repeated_call_model(n: usize, args: serde_json::Value) -> MockModel {
+        let mut responses: Vec<Message> = (0..n)
+            .map(|i| {
+                Message::ai_with_tools(
+                    "",
+                    vec![ToolCall {
+                        // Distinct ids, identical name+args — a real stuck loop
+                        // looks exactly like this.
+                        id: format!("tc{i}"),
+                        name: "noop".into(),
+                        args: args.clone(),
+                    }],
+                )
+            })
+            .collect();
+        responses.push(Message::ai("done"));
+        MockModel::new(responses)
+    }
+
+    #[tokio::test]
+    async fn test_repeated_identical_call_is_refused() {
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let graph = AgentGraph::with_config(
+            repeated_call_model(5, serde_json::json!({"x": 1})),
+            CountingExecutor {
+                calls: Arc::clone(&calls),
+            },
+            GraphConfig {
+                max_iterations: 20,
+                parallel_tools: false,
+                loop_repeat_threshold: 3,
+                ..GraphConfig::default()
+            },
+        );
+        let result = graph.run(AgentState::new()).await.unwrap();
+
+        // The 3rd identical call and everything after it must be refused, so
+        // the executor sees exactly 2 invocations.
+        assert_eq!(
+            calls.load(std::sync::atomic::Ordering::SeqCst),
+            2,
+            "loop detection did not stop execution"
+        );
+
+        let tool_msgs: Vec<&str> = result
+            .messages
+            .iter()
+            .filter_map(|m| match m {
+                Message::Tool(t) => Some(t.content.as_str()),
+                _ => None,
+            })
+            .collect();
+        // Every call still gets exactly one result — dropping one would desync
+        // the provider's tool_use/tool_result pairing.
+        assert_eq!(tool_msgs.len(), 5);
+        assert!(tool_msgs[0].contains("result of noop"));
+        assert!(tool_msgs[1].contains("result of noop"));
+        for refused in &tool_msgs[2..] {
+            assert!(
+                refused.contains("Tool execution refused"),
+                "expected refusal, got: {refused}"
+            );
+            // The refusal must tell the model what to do differently.
+            assert!(refused.contains("Change the arguments"));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_differing_args_are_not_treated_as_a_loop() {
+        // Same tool, different arguments each time: legitimate work.
+        let mut responses: Vec<Message> = (0..5)
+            .map(|i| {
+                Message::ai_with_tools(
+                    "",
+                    vec![ToolCall {
+                        id: format!("tc{i}"),
+                        name: "noop".into(),
+                        args: serde_json::json!({ "x": i }),
+                    }],
+                )
+            })
+            .collect();
+        responses.push(Message::ai("done"));
+
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let graph = AgentGraph::with_config(
+            MockModel::new(responses),
+            CountingExecutor {
+                calls: Arc::clone(&calls),
+            },
+            GraphConfig {
+                max_iterations: 20,
+                parallel_tools: false,
+                ..GraphConfig::default()
+            },
+        );
+        graph.run(AgentState::new()).await.unwrap();
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 5);
+    }
+
+    #[tokio::test]
+    async fn test_interleaved_repeats_are_not_refused() {
+        // The false positive that drove consecutive-only counting: re-running
+        // the same check between edits is legitimate and must not be blocked.
+        let check = ToolCall {
+            id: "c".into(),
+            name: "run_tests".into(),
+            args: serde_json::json!({}),
+        };
+        let mut responses = Vec::new();
+        for i in 0..4 {
+            responses.push(Message::ai_with_tools(
+                "",
+                vec![ToolCall {
+                    id: format!("e{i}"),
+                    name: "edit".into(),
+                    args: serde_json::json!({ "line": i }),
+                }],
+            ));
+            responses.push(Message::ai_with_tools(
+                "",
+                vec![ToolCall {
+                    id: format!("c{i}"),
+                    ..check.clone()
+                }],
+            ));
+        }
+        responses.push(Message::ai("done"));
+
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let graph = AgentGraph::with_config(
+            MockModel::new(responses),
+            CountingExecutor {
+                calls: Arc::clone(&calls),
+            },
+            GraphConfig {
+                max_iterations: 30,
+                parallel_tools: false,
+                ..GraphConfig::default()
+            },
+        );
+        graph.run(AgentState::new()).await.unwrap();
+        assert_eq!(
+            calls.load(std::sync::atomic::Ordering::SeqCst),
+            8,
+            "legitimate interleaved re-runs were refused"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_loop_detection_can_be_disabled() {
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let graph = AgentGraph::with_config(
+            repeated_call_model(4, serde_json::json!({})),
+            CountingExecutor {
+                calls: Arc::clone(&calls),
+            },
+            GraphConfig {
+                max_iterations: 20,
+                parallel_tools: false,
+                loop_repeat_threshold: 0,
+                ..GraphConfig::default()
+            },
+        );
+        graph.run(AgentState::new()).await.unwrap();
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 4);
+    }
+
+    #[test]
+    fn test_fingerprint_ignores_call_id_and_key_order() {
+        let a = ToolCall {
+            id: "one".into(),
+            name: "t".into(),
+            args: serde_json::json!({"a": 1, "b": 2}),
+        };
+        let b = ToolCall {
+            id: "two".into(),
+            name: "t".into(),
+            args: serde_json::json!({"b": 2, "a": 1}),
+        };
+        assert_eq!(LoopDetector::fingerprint(&a), LoopDetector::fingerprint(&b));
     }
 
     #[test]
