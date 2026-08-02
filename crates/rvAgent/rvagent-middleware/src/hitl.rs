@@ -1,5 +1,10 @@
-//! HumanInTheLoopMiddleware — intercepts tool calls matching interrupt patterns,
-//! pausing execution awaiting human approval.
+//! HumanInTheLoopMiddleware — intercepts tool calls matching interrupt
+//! patterns and drops them, reporting the block to the model.
+//!
+//! There is no approval channel yet: a blocked call is not queued for a human
+//! and never resumes. The middleware is a gate, not a pause, and the message it
+//! injects says so — telling the model to wait for an approval that cannot
+//! arrive is what turns a gate into a hang.
 
 use async_trait::async_trait;
 
@@ -15,8 +20,9 @@ pub enum ApprovalDecision {
 
 /// Middleware that intercepts tool calls matching configurable interrupt patterns.
 ///
-/// - `wrap_model_call`: after the model returns, checks if any tool calls match
-///   the interrupt patterns. If so, pauses execution awaiting human approval.
+/// - `wrap_model_call`: after the model returns, drops any tool calls matching
+///   the interrupt patterns and appends a note naming them, so the model can
+///   adapt rather than wait.
 pub struct HumanInTheLoopMiddleware {
     /// Tool name patterns that trigger human approval.
     interrupt_patterns: Vec<String>,
@@ -78,8 +84,16 @@ impl Middleware for HumanInTheLoopMiddleware {
             if !content.is_empty() {
                 content.push_str("\n\n");
             }
+            // State what actually happened: the calls were dropped, not queued.
+            // "Awaiting approval" implied something would come back for them and
+            // nothing does, which leaves the model waiting on a resolution that
+            // never arrives instead of adapting.
             content.push_str(&format!(
-                "[HITL] Awaiting approval for: {}",
+                "[HITL] Blocked tool call(s) requiring approval: {}. No approval \
+                 mechanism is wired in this runtime, so these calls were not \
+                 executed and will not be retried. Configure `interrupt_on` to \
+                 change which tools are gated (or set RVAGENT_AUTO_APPROVE=1 in \
+                 the CLI to run unattended).",
                 pending_names.join(", ")
             ));
         }
@@ -154,6 +168,31 @@ mod tests {
         assert_eq!(response.tool_calls[0].name, "read_file");
         assert!(response.content().contains("[HITL]"));
         assert!(response.content().contains("execute"));
+    }
+
+    #[tokio::test]
+    async fn test_block_message_states_reality_and_next_step() {
+        // The message is the model's only signal about what happened; if it
+        // says "awaiting" when nothing is coming, the model stalls.
+        let mw = HumanInTheLoopMiddleware::new(vec!["execute".into()]);
+        let response = mw
+            .wrap_model_call(ModelRequest::new(vec![Message::human("x")]), &EchoHandler)
+            .await;
+        let content = response.content().to_string();
+
+        assert!(content.contains("execute"), "must name the blocked call");
+        assert!(
+            !content.contains("Awaiting"),
+            "must not imply a pending approval that never resolves: {content}"
+        );
+        assert!(
+            content.contains("not be retried"),
+            "must tell the model the call is gone for good: {content}"
+        );
+        assert!(
+            content.contains("interrupt_on"),
+            "must name the knob that changes gating: {content}"
+        );
     }
 
     #[tokio::test]

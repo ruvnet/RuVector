@@ -265,14 +265,6 @@ impl<M: ChatModel, T: ToolExecutor + 'static> AgentGraph<M, T> {
         info!(node = ?current_node, tools = tool_definitions.len(), "graph: starting agent loop");
 
         loop {
-            if iterations >= self.config.max_iterations {
-                warn!(iterations, "graph: max iterations reached");
-                return Err(RvAgentError::timeout(format!(
-                    "agent loop exceeded {} iterations",
-                    self.config.max_iterations
-                )));
-            }
-
             match current_node {
                 AgentNode::Start => {
                     debug!("graph: Start → Agent");
@@ -280,6 +272,19 @@ impl<M: ChatModel, T: ToolExecutor + 'static> AgentGraph<M, T> {
                 }
 
                 AgentNode::Agent => {
+                    // The budget is checked here rather than at the top of the
+                    // loop so that reaching End *within* the budget completes
+                    // the run. Checking before every node discarded a finished
+                    // run whose last allowed iteration produced the answer —
+                    // with `max_iterations: 1`, every successful single-turn
+                    // run failed.
+                    if iterations >= self.config.max_iterations {
+                        warn!(iterations, "graph: max iterations reached");
+                        return Err(RvAgentError::timeout(format!(
+                            "agent loop exceeded {} iterations",
+                            self.config.max_iterations
+                        )));
+                    }
                     iterations += 1;
                     debug!(iteration = iterations, "graph: invoking model");
 
@@ -400,9 +405,26 @@ impl<M: ChatModel, T: ToolExecutor + 'static> AgentGraph<M, T> {
                             );
                         }
                     } else {
-                        // Sequential execution.
+                        // Sequential execution. Each call still runs in its own
+                        // task, so a panicking tool becomes a tool error here
+                        // exactly as it does on the parallel path — a panic on
+                        // the single-call path would otherwise take down the
+                        // whole agent loop.
                         for tc in &dispatch {
-                            let result = self.tool_executor.execute(tc, &state).await;
+                            let executor = Arc::clone(&self.tool_executor);
+                            let exec_state = state.clone();
+                            let call = tc.clone();
+                            let name = tc.name.clone();
+                            let result = match tokio::spawn(async move {
+                                executor.execute(&call, &exec_state).await
+                            })
+                            .await
+                            {
+                                Ok(res) => res,
+                                Err(join_err) => Err(RvAgentError::tool(format!(
+                                    "tool '{name}' execution task failed: {join_err}"
+                                ))),
+                            };
                             executed.insert(
                                 tc.id.clone(),
                                 truncate_tool_result(
@@ -626,6 +648,63 @@ mod tests {
         assert_eq!(contents.len(), 2);
         assert!(contents[0].contains("Tool execution error"));
         assert!(contents[1].contains("result of ok_tool"));
+    }
+
+    #[tokio::test]
+    async fn test_single_tool_panic_is_contained() {
+        // The single-call path runs sequentially even with parallel_tools on,
+        // so it needs its own containment — a panic here used to abort the run.
+        let model = MockModel::new(vec![
+            Message::ai_with_tools(
+                "",
+                vec![ToolCall {
+                    id: "tc1".into(),
+                    name: "boom".into(),
+                    args: serde_json::json!({}),
+                }],
+            ),
+            Message::ai("done"),
+        ]);
+        let graph = AgentGraph::with_config(
+            model,
+            PanickyExecutor,
+            GraphConfig {
+                parallel_tools: false,
+                ..GraphConfig::default()
+            },
+        );
+
+        let result = graph.run(AgentState::new()).await.unwrap();
+
+        let contents: Vec<&str> = result
+            .messages
+            .iter()
+            .filter_map(|m| match m {
+                Message::Tool(t) => Some(t.content.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(contents.len(), 1);
+        assert!(contents[0].contains("Tool execution error"));
+    }
+
+    #[tokio::test]
+    async fn test_max_iterations_of_one_allows_a_single_turn() {
+        // A run that answers on its last allowed iteration has not exceeded the
+        // budget; discarding it made max_iterations: 1 unusable.
+        let model = MockModel::new(vec![Message::ai("Hello!")]);
+        let graph = AgentGraph::with_config(
+            model,
+            MockToolExecutor,
+            GraphConfig {
+                max_iterations: 1,
+                ..GraphConfig::default()
+            },
+        );
+
+        let result = graph.run(AgentState::with_system_message("sys")).await;
+        let state = result.expect("single-turn run within budget must succeed");
+        assert!(matches!(state.messages.last(), Some(Message::Ai(_))));
     }
 
     #[tokio::test]

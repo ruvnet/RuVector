@@ -20,6 +20,11 @@ async-trait = "0.1"
 glob = "0.3"
 walkdir = "2.5"
 
+# Killing a timed-out command's whole process group needs kill(2) on a
+# negative pid, which std does not expose.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [dev-dependencies]
 criterion = { workspace = true }
 tokio = { workspace = true, features = ["test-util"] }

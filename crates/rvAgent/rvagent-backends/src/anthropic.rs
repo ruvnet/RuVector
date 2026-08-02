@@ -193,8 +193,19 @@ impl AnthropicClient {
     ) -> ApiRequest {
         let mut system_text: Option<String> = None;
         let mut api_messages: Vec<ApiMessage> = Vec::new();
+        // Anthropic expects every tool_result answering one assistant turn in
+        // a single user message; splitting them suppresses parallel tool
+        // calling. Buffer consecutive tool results and flush them together.
+        let mut pending_tool_results: Vec<ContentBlock> = Vec::new();
 
         for msg in messages {
+            if !matches!(msg, Message::Tool(_)) && !pending_tool_results.is_empty() {
+                api_messages.push(ApiMessage {
+                    role: "user".to_string(),
+                    content: ApiContent::Blocks(std::mem::take(&mut pending_tool_results)),
+                });
+            }
+
             match msg {
                 Message::System(s) => {
                     // Anthropic uses a top-level `system` field; merge multiple system messages.
@@ -240,15 +251,19 @@ impl AnthropicClient {
                     }
                 }
                 Message::Tool(t) => {
-                    api_messages.push(ApiMessage {
-                        role: "user".to_string(),
-                        content: ApiContent::Blocks(vec![ContentBlock::ToolResult {
-                            tool_use_id: t.tool_call_id.clone(),
-                            content: t.content.clone(),
-                        }]),
+                    pending_tool_results.push(ContentBlock::ToolResult {
+                        tool_use_id: t.tool_call_id.clone(),
+                        content: t.content.clone(),
                     });
                 }
             }
+        }
+
+        if !pending_tool_results.is_empty() {
+            api_messages.push(ApiMessage {
+                role: "user".to_string(),
+                content: ApiContent::Blocks(pending_tool_results),
+            });
         }
 
         ApiRequest {
@@ -546,6 +561,98 @@ mod tests {
                 assert_eq!(blocks.len(), 2); // text + tool_use
             }
             _ => panic!("expected Blocks content for assistant with tool calls"),
+        }
+    }
+
+    #[test]
+    fn test_build_request_groups_parallel_tool_results() {
+        let client =
+            AnthropicClient::with_http(test_config(), reqwest::Client::new(), "key".to_string());
+        let messages = vec![
+            Message::human("Read both files."),
+            Message::ai_with_tools(
+                "Reading them.",
+                vec![
+                    ToolCall {
+                        id: "tc_1".to_string(),
+                        name: "read_file".to_string(),
+                        args: json!({"path": "/tmp/a.txt"}),
+                    },
+                    ToolCall {
+                        id: "tc_2".to_string(),
+                        name: "read_file".to_string(),
+                        args: json!({"path": "/tmp/b.txt"}),
+                    },
+                ],
+            ),
+            Message::tool("tc_1", "a contents"),
+            Message::tool("tc_2", "b contents"),
+        ];
+        let req = client.build_request(&messages, &[], false);
+
+        // user + assistant + ONE user message holding both tool_results.
+        assert_eq!(req.messages.len(), 3);
+        assert_eq!(req.messages[2].role, "user");
+        match &req.messages[2].content {
+            ApiContent::Blocks(blocks) => {
+                assert_eq!(blocks.len(), 2);
+                match (&blocks[0], &blocks[1]) {
+                    (
+                        ContentBlock::ToolResult {
+                            tool_use_id: first, ..
+                        },
+                        ContentBlock::ToolResult {
+                            tool_use_id: second,
+                            ..
+                        },
+                    ) => {
+                        assert_eq!(first, "tc_1");
+                        assert_eq!(second, "tc_2");
+                    }
+                    _ => panic!("expected two tool_result blocks"),
+                }
+            }
+            _ => panic!("expected Blocks content for grouped tool results"),
+        }
+    }
+
+    #[test]
+    fn test_build_request_tool_results_flush_before_next_turn() {
+        let client =
+            AnthropicClient::with_http(test_config(), reqwest::Client::new(), "key".to_string());
+        // Results answering distinct assistant turns must stay separate.
+        let messages = vec![
+            Message::ai_with_tools(
+                "",
+                vec![ToolCall {
+                    id: "tc_1".to_string(),
+                    name: "first".to_string(),
+                    args: json!({}),
+                }],
+            ),
+            Message::tool("tc_1", "one"),
+            Message::ai_with_tools(
+                "",
+                vec![ToolCall {
+                    id: "tc_2".to_string(),
+                    name: "second".to_string(),
+                    args: json!({}),
+                }],
+            ),
+            Message::tool("tc_2", "two"),
+        ];
+        let req = client.build_request(&messages, &[], false);
+
+        assert_eq!(req.messages.len(), 4);
+        assert_eq!(req.messages[0].role, "assistant");
+        assert_eq!(req.messages[1].role, "user");
+        assert_eq!(req.messages[2].role, "assistant");
+        assert_eq!(req.messages[3].role, "user");
+        for idx in [1usize, 3] {
+            match &req.messages[idx].content {
+                ApiContent::Blocks(blocks) => assert_eq!(blocks.len(), 1),
+                _ => panic!("expected Blocks content at index {idx}"),
+            }
         }
     }
 

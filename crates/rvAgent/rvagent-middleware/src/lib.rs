@@ -267,11 +267,13 @@ pub fn build_default_pipeline(config: &PipelineConfig) -> MiddlewarePipeline {
         tool_sanitizer::ToolResultSanitizerMiddleware::new(),
     ));
 
-    if let Some(patterns) = &config.interrupt_on {
-        middlewares.push(Box::new(hitl::HumanInTheLoopMiddleware::new(
-            patterns.clone(),
-        )));
-    }
+    // Unconditional, and via the same fallback the by-name path uses: an
+    // unconfigured caller (the ACP agent reaches this with a default config)
+    // must not silently get an agent with no approval gate at all. An explicit
+    // `Some(vec![])` still opts out — it matches nothing.
+    middlewares.push(Box::new(hitl::HumanInTheLoopMiddleware::new(
+        interrupt_patterns(config),
+    )));
 
     MiddlewarePipeline::new(middlewares)
 }
@@ -280,55 +282,151 @@ pub fn build_default_pipeline(config: &PipelineConfig) -> MiddlewarePipeline {
 // Name-based middleware resolution (CLI wiring)
 // ---------------------------------------------------------------------------
 
-/// Resolve a middleware name (as used in `RvAgentConfig::middleware` /
-/// the CLI `DEFAULT_MIDDLEWARE` list) into a middleware instance.
+/// Tool-name patterns gated by HITL when no `interrupt_on` is configured.
 ///
-/// Returns `None` for unknown names — callers should warn and skip.
-pub fn middleware_by_name(name: &str) -> Option<Box<dyn Middleware>> {
-    match name {
-        "todo" | "todos" | "todolist" => Some(Box::new(todolist::TodoListMiddleware::new())),
-        "memory" => Some(Box::new(memory::MemoryMiddleware::new(vec![
-            "AGENTS.md".into()
-        ]))),
-        "skills" => Some(Box::new(skills::SkillsMiddleware::new(vec![
-            ".skills".into()
-        ]))),
-        "filesystem" => Some(Box::new(filesystem::FilesystemMiddleware::new())),
-        "subagent" | "subagents" => Some(Box::new(subagents::SubAgentMiddleware::new())),
-        "summarization" => Some(Box::new(summarization::SummarizationMiddleware::new(
-            100_000, 0.85, 0.10,
-        ))),
-        "prompt_caching" => Some(Box::new(prompt_caching::PromptCachingMiddleware::new())),
-        "patch_tool_calls" => Some(Box::new(patch_tool_calls::PatchToolCallsMiddleware::new())),
-        "witness" => Some(Box::new(witness::WitnessMiddleware::new())),
-        "tool_result_sanitizer" | "tool_sanitizer" => Some(Box::new(
-            tool_sanitizer::ToolResultSanitizerMiddleware::new(),
-        )),
-        // HITL with no interrupt patterns configured never interrupts.
-        "hitl" => Some(Box::new(hitl::HumanInTheLoopMiddleware::new(Vec::new()))),
-        "retry" => Some(Box::new(retry::RetryMiddleware::default())),
-        "hnsw" => Some(Box::new(hnsw::HnswMiddleware::default_config())),
-        "sona" => Some(Box::new(sona::SonaMiddleware::default_config())),
-        "unicode_security" => Some(Box::new(UnicodeSecurityMiddleware::strict())),
-        "mcp_bridge" => Some(Box::new(mcp_bridge::McpBridgeMiddleware::new())),
-        _ => None,
+/// Every pipeline builder falls back to this set: an approval gate that
+/// approves everything — or a pipeline with no gate at all — is worse than a
+/// real one, because it reads as protection that isn't there. Shell execution
+/// and file mutation are the irreversible operations, so those are what a
+/// caller who never configured `interrupt_on` gets gated on.
+///
+/// `write_todos` is deliberately absent — gating the agent's own scratchpad
+/// would interrupt every turn without protecting anything.
+pub const DEFAULT_INTERRUPT_PATTERNS: &[&str] = &[
+    // Shell / arbitrary command execution.
+    "execute",
+    "execute_command",
+    "shell*",
+    "bash*",
+    "run_command*",
+    // File mutation.
+    "write_file",
+    "edit_file",
+    "apply_patch",
+    "delete_file",
+    "move_file",
+];
+
+fn default_interrupt_patterns() -> Vec<String> {
+    DEFAULT_INTERRUPT_PATTERNS
+        .iter()
+        .map(|s| (*s).to_string())
+        .collect()
+}
+
+/// The HITL patterns `config` asks for, or the conservative built-in set.
+///
+/// Both pipeline builders resolve gating through here. The two paths having
+/// separate fallbacks is what produced an ACP agent with no gate at all while
+/// the CLI had one.
+fn interrupt_patterns(config: &PipelineConfig) -> Vec<String> {
+    config
+        .interrupt_on
+        .clone()
+        .unwrap_or_else(default_interrupt_patterns)
+}
+
+/// A middleware name that could not be resolved to an implementation.
+///
+/// Unknown names are fatal rather than skipped: a typo in the middleware list
+/// silently drops whatever that entry was supposed to do, and the entries most
+/// worth typo-ing are the security ones (`hitl`, `unicode_security`,
+/// `tool_result_sanitizer`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnknownMiddlewareError {
+    pub name: String,
+}
+
+impl fmt::Display for UnknownMiddlewareError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "unknown middleware '{}' (see rvagent_middleware::middleware_by_name for valid names)",
+            self.name
+        )
     }
 }
 
+impl std::error::Error for UnknownMiddlewareError {}
+
+/// Resolve a middleware name (as used in `RvAgentConfig::middleware` /
+/// the CLI `DEFAULT_MIDDLEWARE` list) into a middleware instance.
+///
+/// `config` supplies the same settings [`build_default_pipeline`] uses, so the
+/// two construction paths produce equivalently configured middleware.
+///
+/// Returns `Err` for unknown names.
+pub fn middleware_by_name(
+    name: &str,
+    config: &PipelineConfig,
+) -> std::result::Result<Box<dyn Middleware>, UnknownMiddlewareError> {
+    let mw: Box<dyn Middleware> = match name {
+        "todo" | "todos" | "todolist" => Box::new(todolist::TodoListMiddleware::new()),
+        "memory" => Box::new(memory::MemoryMiddleware::new(
+            config
+                .memory_sources
+                .clone()
+                .unwrap_or_else(|| vec!["AGENTS.md".into()]),
+        )),
+        "skills" => Box::new(skills::SkillsMiddleware::new(
+            config
+                .skill_sources
+                .clone()
+                .unwrap_or_else(|| vec![".skills".into()]),
+        )),
+        "filesystem" => Box::new(filesystem::FilesystemMiddleware::new()),
+        "subagent" | "subagents" => Box::new(subagents::SubAgentMiddleware::new()),
+        "summarization" => Box::new(summarization::SummarizationMiddleware::new(
+            100_000, 0.75, 0.10,
+        )),
+        "prompt_caching" => Box::new(prompt_caching::PromptCachingMiddleware::new()),
+        "patch_tool_calls" => Box::new(patch_tool_calls::PatchToolCallsMiddleware::new()),
+        "witness" => Box::new(witness::WitnessMiddleware::new()),
+        "tool_result_sanitizer" | "tool_sanitizer" => {
+            Box::new(tool_sanitizer::ToolResultSanitizerMiddleware::new())
+        }
+        "hitl" => Box::new(hitl::HumanInTheLoopMiddleware::new(interrupt_patterns(
+            config,
+        ))),
+        "retry" => Box::new(retry::RetryMiddleware::default()),
+        "hnsw" => Box::new(hnsw::HnswMiddleware::new(
+            config.hnsw_config.clone().unwrap_or_default(),
+        )),
+        "sona" => Box::new(sona::SonaMiddleware::new(
+            config.sona_config.clone().unwrap_or_default(),
+        )),
+        "unicode_security" => Box::new(
+            UnicodeSecurityMiddleware::new(
+                config
+                    .unicode_security_config
+                    .clone()
+                    .unwrap_or_else(UnicodeSecurityConfig::strict),
+            )
+            .with_input_sanitization(true)
+            .with_output_sanitization(false), // Log only by default
+        ),
+        "mcp_bridge" => Box::new(mcp_bridge::McpBridgeMiddleware::new()),
+        _ => {
+            return Err(UnknownMiddlewareError {
+                name: name.to_string(),
+            })
+        }
+    };
+    Ok(mw)
+}
+
 /// Build a pipeline from an ordered list of middleware names.
-/// Unknown names are logged (warn) and skipped.
-pub fn build_pipeline_from_names<S: AsRef<str>>(names: &[S]) -> MiddlewarePipeline {
+///
+/// An unknown name is an error, not a skip — see [`UnknownMiddlewareError`].
+pub fn build_pipeline_from_names<S: AsRef<str>>(
+    names: &[S],
+    config: &PipelineConfig,
+) -> std::result::Result<MiddlewarePipeline, UnknownMiddlewareError> {
     let mut pipeline = MiddlewarePipeline::empty();
     for name in names {
-        match middleware_by_name(name.as_ref()) {
-            Some(mw) => pipeline.push(mw),
-            None => tracing::warn!(
-                "unknown middleware '{}' — skipping (see rvagent_middleware::middleware_by_name)",
-                name.as_ref()
-            ),
-        }
+        pipeline.push(middleware_by_name(name.as_ref(), config)?);
     }
-    pipeline
+    Ok(pipeline)
 }
 
 // ---------------------------------------------------------------------------
@@ -484,8 +582,48 @@ mod tests {
         let config = PipelineConfig::default();
         let pipeline = build_default_pipeline(&config);
         // todo, filesystem, subagent, prompt_caching, patch_tool_calls,
-        // tool_sanitizer = 6. Summarization is opt-in (ADR-274).
-        assert!(pipeline.len() >= 6);
+        // tool_sanitizer, hitl = 7. Summarization is opt-in (ADR-274).
+        assert!(pipeline.len() >= 7);
+        assert!(pipeline.names().contains(&"hitl"));
+    }
+
+    #[tokio::test]
+    async fn test_build_default_pipeline_gates_execute_without_config() {
+        // rvagent-acp builds this pipeline with a default config whenever the
+        // agent config lists no middleware; it must not come out ungated.
+        let pipeline = build_default_pipeline(&PipelineConfig::default());
+        let response = pipeline
+            .run_wrap_model_call(
+                ModelRequest::new(vec![Message::human("go")]),
+                &DangerousCallHandler,
+            )
+            .await;
+
+        let survived: Vec<&str> = response
+            .tool_calls
+            .iter()
+            .map(|c| c.name.as_str())
+            .collect();
+        assert_eq!(survived, vec!["read_file"]);
+        assert!(response.content().contains("[HITL]"));
+    }
+
+    #[tokio::test]
+    async fn test_build_default_pipeline_explicit_empty_interrupt_on_disables_gating() {
+        // The documented opt-out for unattended runs must keep working.
+        let pipeline = build_default_pipeline(&PipelineConfig {
+            interrupt_on: Some(Vec::new()),
+            ..PipelineConfig::default()
+        });
+        let response = pipeline
+            .run_wrap_model_call(
+                ModelRequest::new(vec![Message::human("go")]),
+                &DangerousCallHandler,
+            )
+            .await;
+
+        assert_eq!(response.tool_calls.len(), 3);
+        assert!(!response.content().contains("[HITL]"));
     }
 
     #[test]
@@ -525,7 +663,7 @@ mod tests {
             "enabling summarization must add exactly one middleware"
         );
         // And it must still be constructible by name, so the fallback is real.
-        assert!(middleware_by_name("summarization").is_some());
+        assert!(middleware_by_name("summarization", &PipelineConfig::default()).is_ok());
     }
 
     #[test]
@@ -537,6 +675,7 @@ mod tests {
 
     #[test]
     fn test_middleware_by_name_known() {
+        let config = PipelineConfig::default();
         for name in [
             "todo",
             "memory",
@@ -551,18 +690,99 @@ mod tests {
             "hitl",
             "retry",
         ] {
-            assert!(middleware_by_name(name).is_some(), "should resolve {name}");
+            assert!(
+                middleware_by_name(name, &config).is_ok(),
+                "should resolve {name}"
+            );
         }
     }
 
     #[test]
     fn test_middleware_by_name_unknown() {
-        assert!(middleware_by_name("does_not_exist").is_none());
+        let err = middleware_by_name("does_not_exist", &PipelineConfig::default()).unwrap_err();
+        assert_eq!(err.name, "does_not_exist");
     }
 
     #[test]
-    fn test_build_pipeline_from_names_skips_unknown() {
-        let pipeline = build_pipeline_from_names(&["todo", "bogus", "filesystem"]);
-        assert_eq!(pipeline.len(), 2);
+    fn test_build_pipeline_from_names_rejects_unknown() {
+        // A typo must not silently drop a middleware — the ones most worth
+        // typo-ing are the security ones.
+        let err =
+            build_pipeline_from_names(&["todo", "bogus", "filesystem"], &PipelineConfig::default())
+                .err()
+                .expect("an unknown middleware name must fail the build");
+        assert_eq!(err.name, "bogus");
+    }
+
+    /// Returns one shell call and one read-only call, so an approval gate is
+    /// observable by which calls survive.
+    struct DangerousCallHandler;
+
+    #[async_trait]
+    impl ModelHandler for DangerousCallHandler {
+        async fn call(&self, _request: ModelRequest) -> ModelResponse {
+            let mut response = ModelResponse::text("");
+            response.tool_calls = vec![
+                ToolCall {
+                    id: "c1".into(),
+                    name: "execute".into(),
+                    args: serde_json::json!({"command": "rm -rf /"}),
+                },
+                ToolCall {
+                    id: "c2".into(),
+                    name: "write_file".into(),
+                    args: serde_json::json!({"path": "a.txt"}),
+                },
+                ToolCall {
+                    id: "c3".into(),
+                    name: "read_file".into(),
+                    args: serde_json::json!({"path": "a.txt"}),
+                },
+            ];
+            response
+        }
+    }
+
+    #[tokio::test]
+    async fn test_by_name_hitl_gates_shell_and_writes_without_config() {
+        // The unconfigured by-name path is what the CLI runs; an approval gate
+        // that approves everything would be worse than no gate at all.
+        let pipeline = build_pipeline_from_names(&["hitl"], &PipelineConfig::default()).unwrap();
+        let response = pipeline
+            .run_wrap_model_call(
+                ModelRequest::new(vec![Message::human("go")]),
+                &DangerousCallHandler,
+            )
+            .await;
+
+        let survived: Vec<&str> = response
+            .tool_calls
+            .iter()
+            .map(|c| c.name.as_str())
+            .collect();
+        assert_eq!(survived, vec!["read_file"]);
+        assert!(response.content().contains("[HITL]"));
+    }
+
+    #[tokio::test]
+    async fn test_by_name_hitl_honours_configured_interrupt_on() {
+        let config = PipelineConfig {
+            interrupt_on: Some(vec!["read_file".into()]),
+            ..PipelineConfig::default()
+        };
+        let pipeline = build_pipeline_from_names(&["hitl"], &config).unwrap();
+        let response = pipeline
+            .run_wrap_model_call(
+                ModelRequest::new(vec![Message::human("go")]),
+                &DangerousCallHandler,
+            )
+            .await;
+
+        let survived: Vec<&str> = response
+            .tool_calls
+            .iter()
+            .map(|c| c.name.as_str())
+            .collect();
+        assert_eq!(survived, vec!["execute", "write_file"]);
     }
 }

@@ -572,7 +572,7 @@ pub(crate) mod tests_common {
                     if offset >= lines.len() {
                         return Ok(String::new());
                     }
-                    let end = (offset + limit).min(lines.len());
+                    let end = offset.saturating_add(limit).min(lines.len());
                     Ok(lines[offset..end].join("\n"))
                 }
                 None => Err(format!("File not found: {}", path)),

@@ -409,17 +409,41 @@ impl App {
         };
 
         // Wire the middleware pipeline (P0.3): resolve the configured
-        // middleware names (DEFAULT_MIDDLEWARE) into instances — unknown
-        // names warn and are skipped — and run all model calls through it.
+        // middleware names (DEFAULT_MIDDLEWARE) into instances — an unknown
+        // name is fatal — and run all model calls through it.
+        //
+        // The pipeline config carries the settings the middleware need to be
+        // built correctly; leaving `interrupt_on` unset gives HITL its
+        // conservative built-in gate rather than an empty (approve-everything)
+        // pattern list. The CLI has no interactive approval prompt yet, so
+        // gated calls fail closed; RVAGENT_AUTO_APPROVE=1 is the explicit,
+        // logged opt-out for unattended use.
         let middleware_names: Vec<&str> = self
             .config
             .middleware
             .iter()
             .map(|m| m.name.as_str())
             .collect();
-        let pipeline = Arc::new(rvagent_middleware::build_pipeline_from_names(
-            &middleware_names,
-        ));
+        let mut pipeline_config = rvagent_middleware::PipelineConfig::default();
+        if matches!(
+            std::env::var("RVAGENT_AUTO_APPROVE").as_deref(),
+            Ok("1") | Ok("true") | Ok("yes")
+        ) {
+            // Straight to stderr, not just tracing: the TUI installs no
+            // subscriber and the non-TUI default is ERROR-only, so a `warn!`
+            // here is invisible in exactly the modes people run. A security
+            // downgrade the operator cannot see is one they cannot revoke.
+            eprintln!(
+                "warning: RVAGENT_AUTO_APPROVE set — HITL approval gate disabled; \
+                 all tool calls (including shell execution and file writes) run unattended"
+            );
+            warn!("RVAGENT_AUTO_APPROVE set: HITL approval gate disabled; all tool calls run unattended");
+            pipeline_config.interrupt_on = Some(Vec::new());
+        }
+        let pipeline = Arc::new(
+            rvagent_middleware::build_pipeline_from_names(&middleware_names, &pipeline_config)
+                .context("failed to build middleware pipeline")?,
+        );
         info!(middlewares = ?pipeline.names(), "middleware pipeline wired");
 
         // Run before_agent hooks (state patching, context injection).

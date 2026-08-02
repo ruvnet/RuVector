@@ -6,6 +6,20 @@ use uuid::Uuid;
 
 use crate::{Message, Middleware, ModelHandler, ModelRequest, ModelResponse};
 
+/// Bytes of each user message kept in a compaction summary preview.
+const PREVIEW_BYTES: usize = 100;
+
+/// Largest index `<= max` that starts a character, so slicing there can never
+/// split a multi-byte sequence. Conversation content is arbitrary user text,
+/// so a byte-index slice is a panic waiting for the first non-ASCII message.
+fn floor_char_boundary(s: &str, max: usize) -> usize {
+    let mut n = max.min(s.len());
+    while n > 0 && !s.is_char_boundary(n) {
+        n -= 1;
+    }
+    n
+}
+
 /// Trigger configuration for auto-compaction.
 pub enum TriggerConfig {
     /// Fraction of context window that triggers compaction.
@@ -70,8 +84,11 @@ impl SummarizationMiddleware {
 
         for msg in messages {
             if let Message::Human(h) = msg {
-                let preview = if h.content.len() > 100 {
-                    format!("{}...", &h.content[..100])
+                let preview = if h.content.len() > PREVIEW_BYTES {
+                    format!(
+                        "{}...",
+                        &h.content[..floor_char_boundary(&h.content, PREVIEW_BYTES)]
+                    )
                 } else {
                     h.content.clone()
                 };
@@ -238,6 +255,30 @@ mod tests {
         assert!(matches!(summary, Message::System(_)));
         assert!(summary.content().contains("2 messages"));
         assert!(summary.content().contains("What is Rust?"));
+    }
+
+    #[test]
+    fn test_summarize_does_not_split_multibyte_chars() {
+        // Byte 100 lands mid-character for a 3-byte-per-char message, which a
+        // plain `&content[..100]` would panic on.
+        let content = "日".repeat(200);
+        let messages = vec![Message::human(content.clone())];
+        let summary = SummarizationMiddleware::summarize(&messages);
+        let text = summary.content().to_string();
+        assert!(text.contains("..."));
+        // 100 / 3 = 33 whole characters fit.
+        assert!(text.contains(&"日".repeat(33)));
+        assert!(!text.contains(&"日".repeat(34)));
+    }
+
+    #[test]
+    fn test_summarize_preview_boundary_cases() {
+        for len in [98usize, 99, 100, 101, 150] {
+            let messages = vec![Message::human("é".repeat(len))];
+            // The assertion is that this does not panic and stays valid UTF-8.
+            let summary = SummarizationMiddleware::summarize(&messages);
+            assert!(summary.content().contains("User:"));
+        }
     }
 
     #[test]

@@ -22,6 +22,13 @@ fn is_transient_error(response: &ModelResponse) -> bool {
         || content.to_ascii_lowercase().starts_with("error:")
 }
 
+/// Upper bound on a single backoff delay (1 minute).
+///
+/// Doubling is unbounded by nature, so a caller-supplied `max_retries` of 63
+/// yields a sleep of ~584 million years — indistinguishable from a hang. The
+/// cap is what makes the backoff recoverable rather than terminal.
+pub const MAX_BACKOFF_MS: u64 = 60_000;
+
 /// Retry middleware that wraps model calls with exponential backoff.
 ///
 /// # Configuration
@@ -31,7 +38,8 @@ fn is_transient_error(response: &ModelResponse) -> bool {
 /// | `max_retries`      | 3       | Maximum number of retry attempts     |
 /// | `initial_delay_ms` | 100     | Delay before the first retry (ms)    |
 ///
-/// The delay doubles after each attempt: `initial_delay_ms * 2^attempt`.
+/// The delay doubles after each attempt: `initial_delay_ms * 2^attempt`,
+/// capped at [`MAX_BACKOFF_MS`].
 ///
 /// # Metrics
 ///
@@ -65,6 +73,16 @@ impl RetryMiddleware {
     /// Total number of individual retry attempts.
     pub fn total_retries(&self) -> u64 {
         self.total_retries.load(Ordering::Relaxed)
+    }
+
+    /// Backoff delay before retry `attempt` (0-based), capped and overflow-safe.
+    ///
+    /// Saturating arithmetic keeps `2^attempt` from panicking in debug builds;
+    /// the cap is what keeps the resulting sleep finite in practice.
+    fn backoff_ms(&self, attempt: u32) -> u64 {
+        self.initial_delay_ms
+            .saturating_mul(2u64.saturating_pow(attempt))
+            .min(MAX_BACKOFF_MS)
     }
 
     /// Reset all counters to zero.
@@ -101,7 +119,7 @@ impl Middleware for RetryMiddleware {
         self.retry_count.fetch_add(1, Ordering::Relaxed);
 
         for attempt in 0..self.max_retries {
-            let delay_ms = self.initial_delay_ms * 2u64.pow(attempt);
+            let delay_ms = self.backoff_ms(attempt);
             tokio::time::sleep(Duration::from_millis(delay_ms)).await;
 
             self.total_retries.fetch_add(1, Ordering::Relaxed);
@@ -127,6 +145,25 @@ mod tests {
     use super::*;
     use crate::{Message, ModelRequest, ModelResponse};
     use std::sync::atomic::AtomicU32;
+
+    #[test]
+    fn test_backoff_doubles_then_caps() {
+        let mw = RetryMiddleware::new(3, 100);
+        assert_eq!(mw.backoff_ms(0), 100);
+        assert_eq!(mw.backoff_ms(1), 200);
+        assert_eq!(mw.backoff_ms(2), 400);
+        // Doubling past the cap flattens instead of running away.
+        assert_eq!(mw.backoff_ms(20), MAX_BACKOFF_MS);
+    }
+
+    #[test]
+    fn test_backoff_survives_absurd_attempt_counts() {
+        // attempt 63 overflows `2^attempt` and, uncapped, sleeps ~584M years.
+        let mw = RetryMiddleware::new(u32::MAX, u64::MAX);
+        for attempt in [31u32, 63, 64, u32::MAX] {
+            assert_eq!(mw.backoff_ms(attempt), MAX_BACKOFF_MS, "attempt {attempt}");
+        }
+    }
 
     /// A handler that fails `n` times then succeeds.
     struct FailNHandler {

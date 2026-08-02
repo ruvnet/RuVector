@@ -11401,6 +11401,7 @@ dependencies = [
  "async-trait",
  "criterion 0.5.1",
  "glob",
+ "libc",
  "mockall",
  "rvagent-backends",
  "rvagent-core",

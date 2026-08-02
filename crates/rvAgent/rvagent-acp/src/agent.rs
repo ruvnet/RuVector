@@ -206,12 +206,11 @@ impl AcpAgent {
             ..GraphConfig::default()
         };
 
-        // Resolve the configured middleware names (unknown names warn and
-        // are skipped); an empty configuration gets the default pipeline.
+        // Resolve the configured middleware names (an unknown name is an
+        // error); an empty configuration gets the default pipeline.
+        let pipeline_config = rvagent_middleware::PipelineConfig::default();
         let pipeline = if self.config.middleware.is_empty() {
-            rvagent_middleware::build_default_pipeline(
-                &rvagent_middleware::PipelineConfig::default(),
-            )
+            rvagent_middleware::build_default_pipeline(&pipeline_config)
         } else {
             let names: Vec<&str> = self
                 .config
@@ -219,7 +218,8 @@ impl AcpAgent {
                 .iter()
                 .map(|m| m.name.as_str())
                 .collect();
-            rvagent_middleware::build_pipeline_from_names(&names)
+            rvagent_middleware::build_pipeline_from_names(&names, &pipeline_config)
+                .map_err(|e| e.to_string())?
         };
         let pipeline = Arc::new(pipeline);
 

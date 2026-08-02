@@ -60,18 +60,29 @@ pub fn truncate_tool_result(content: String, max_bytes: usize) -> String {
     }
     // Reserve room for the marker so the result still respects the budget.
     let marker = "\n... [output truncated]";
-    let budget = max_bytes.saturating_sub(marker.len());
 
-    // Walk back to a char boundary so we never split a multi-byte sequence.
-    let mut end = budget.min(content.len());
-    while end > 0 && !content.is_char_boundary(end) {
-        end -= 1;
+    // A cap smaller than the marker itself cannot carry the marker and stay
+    // within budget. The cap wins: it is what bounds context cost, and
+    // announcing the truncation is the part that can be given up.
+    if max_bytes < marker.len() {
+        return content[..floor_char_boundary(&content, max_bytes)].to_string();
     }
 
+    let end = floor_char_boundary(&content, max_bytes - marker.len());
     let mut out = String::with_capacity(end + marker.len());
     out.push_str(&content[..end]);
     out.push_str(marker);
     out
+}
+
+/// Largest index `<= max` that starts a character, so slicing there never
+/// splits a multi-byte sequence.
+fn floor_char_boundary(s: &str, max: usize) -> usize {
+    let mut n = max.min(s.len());
+    while n > 0 && !s.is_char_boundary(n) {
+        n -= 1;
+    }
+    n
 }
 
 /// The placeholder substituted for an elided observation.
@@ -312,11 +323,21 @@ mod tests {
     fn truncation_never_splits_a_multibyte_char() {
         // Every char is 4 bytes, so a naive byte cut would split one.
         let content = "🙂".repeat(100);
-        for cap in [10usize, 33, 50, 77, 99] {
+        for cap in [33usize, 50, 77, 99] {
             let out = truncate_tool_result(content.clone(), cap);
-            // The real assertion is simply that this did not panic and the
-            // result is valid UTF-8 by construction.
+            // The result is valid UTF-8 by construction; the assertion is that
+            // this did not panic and stayed inside the cap.
             assert!(out.ends_with("[output truncated]"), "cap {cap}");
+            assert!(out.len() <= cap, "cap {cap} exceeded: {} bytes", out.len());
+        }
+    }
+
+    #[test]
+    fn truncation_respects_caps_too_small_for_the_marker() {
+        // The cap bounds context cost, so it wins over announcing the cut.
+        for cap in [0usize, 1, 5, 10, 22] {
+            let out = truncate_tool_result("🙂".repeat(100), cap);
+            assert!(out.len() <= cap, "cap {cap} exceeded: {} bytes", out.len());
         }
     }
 }
