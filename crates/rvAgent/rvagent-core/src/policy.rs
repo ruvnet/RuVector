@@ -168,8 +168,16 @@ fn parse<T: std::str::FromStr>(lever: &str, value: &str) -> Result<T, PolicyErro
 pub const COST_PER_WIN_NO_WINS: f64 = f64::MAX;
 
 /// The outcome of one evaluated run.
-#[derive(Debug, Clone, PartialEq)]
+///
+/// Serializable so a headless run can emit it as JSON for the flywheel's
+/// `Evaluator` to aggregate — that boundary is a process boundary, not a
+/// function call.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RunOutcome {
+    /// Which suite item this run covers, so an aggregator can detect a
+    /// missing or duplicated item rather than silently averaging fewer runs.
+    #[serde(default)]
+    pub item_id: String,
     /// Did the run achieve the task (tests pass, issue resolved)?
     pub succeeded: bool,
     /// Did the run actually change anything?
@@ -177,10 +185,13 @@ pub struct RunOutcome {
     /// A run that ends without committing any change is a **no-op** even when
     /// it reports success — the agent talked itself to a stop. This is the
     /// signal `noop_rate` exists to catch.
+    #[serde(rename = "madeChanges")]
     pub made_changes: bool,
     /// Total cost in USD.
+    #[serde(rename = "costUsd")]
     pub cost_usd: f64,
     /// Hard safety or security regression. Any `true` blocks promotion.
+    #[serde(default)]
     pub regressed: bool,
 }
 
@@ -247,6 +258,7 @@ mod tests {
 
     fn run(succeeded: bool, made_changes: bool, cost_usd: f64) -> RunOutcome {
         RunOutcome {
+            item_id: String::new(),
             succeeded,
             made_changes,
             cost_usd,
@@ -406,6 +418,33 @@ mod tests {
         assert!(json.get("regressed").is_some());
     }
 
+
+    #[test]
+    fn run_outcome_round_trips_across_the_process_boundary() {
+        let outcome = RunOutcome {
+            item_id: "task-7".into(),
+            succeeded: true,
+            made_changes: true,
+            cost_usd: 0.42,
+            regressed: false,
+        };
+        let json = serde_json::to_string(&outcome).unwrap();
+        // Field names are the contract with the JS evaluator; renaming them
+        // silently would make every aggregated Score wrong rather than failing.
+        assert!(json.contains("\"madeChanges\""));
+        assert!(json.contains("\"costUsd\""));
+        assert!(json.contains("\"item_id\""));
+        let back: RunOutcome = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, outcome);
+    }
+
+    #[test]
+    fn run_outcome_tolerates_a_missing_regressed_flag() {
+        // An emitter that has nothing to report should not have to say so.
+        let json = r#"{"item_id":"a","succeeded":false,"madeChanges":false,"costUsd":0.0}"#;
+        let back: RunOutcome = serde_json::from_str(json).unwrap();
+        assert!(!back.regressed);
+    }
 
     #[test]
     fn every_known_lever_is_actually_applicable() {
