@@ -36,6 +36,7 @@ pub mod prompt;
 pub mod rvf_bridge;
 pub mod session_crypto;
 pub mod state;
+pub mod subagent;
 pub mod string_pool;
 
 // Re-export key types at crate root for convenience.
