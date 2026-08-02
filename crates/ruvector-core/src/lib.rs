@@ -39,6 +39,7 @@ pub mod distance;
 pub mod embeddings;
 pub mod error;
 pub mod index;
+pub mod pdx;
 pub mod quantization;
 
 // Storage backends - conditional compilation based on features

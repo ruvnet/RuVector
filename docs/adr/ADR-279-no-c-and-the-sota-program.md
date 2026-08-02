@@ -289,6 +289,49 @@ measurement you cannot trust makes every subsequent optimization unfalsifiable.
 and unreproduced. They are treated as hypotheses to re-measure under item 1,
 not as constants — the same evidence discipline applied in ADR-273.
 
+## 6.1 Measured: PDX layout did NOT reproduce (2026-08-02)
+
+A first implementation of the PDX vertical layout (`ruvector-core::pdx`) was
+built and benchmarked against the existing row-major batch path on this host
+(AVX-512, 4 cores). **The paper's ~2.0× did not reproduce.** Measured, both
+paths compiled with `-C target-cpu=native`, 4096 vectors:
+
+| n × dim | working set | row-major | PDX vertical | ratio |
+|---|---|---|---|---|
+| 256 × 768 | 0.75 MB | 13.73 µs | 19.52 µs | **0.70×** |
+| 512 × 768 | 1.5 MB | 29.78 µs | 45.59 µs | **0.65×** |
+| 1024 × 768 | 3 MB | 123.5 µs | 140.4 µs | 0.88× |
+| 4096 × 768 | 12 MB | 650.2 µs | 505.4 µs | 1.29× |
+| 4096 × 1536 | 25 MB | 1158 µs | 1065 µs | 1.09× |
+
+PDX **loses** on cache-resident working sets and wins only when streaming.
+
+Three caveats, stated because they bound what this measurement proves:
+
+1. **The first run was invalid.** It showed PDX 14–18× slower, because the
+   row-major path runtime-dispatches to AVX-512 via `is_x86_feature_detected!`
+   while the new code compiled for baseline x86-64 (SSE2). That was an ISA
+   comparison wearing a layout comparison's clothes. Fixed by building both
+   with `target-cpu=native`.
+2. **The remaining comparison is still confounded.** The row-major path takes
+   `Vec<&[f32]>` derived from `Vec<Vec<f32>>` — 4096 separate heap allocations,
+   so it pointer-chases — while `PdxIndex` is a single contiguous buffer. The
+   streaming win may be *allocation contiguity*, not vertical layout. A clean
+   experiment needs a contiguous row-major baseline.
+3. **The PDX kernel is autovectorized generic Rust**, competing against
+   hand-written AVX-512 intrinsics. That the naive version reaches parity at
+   all is notable, but it is not a like-for-like layout test.
+
+**Conclusion for now: do not adopt PDX layout on this evidence.** The honest
+reading is that at f32 precision these workloads are bandwidth-bound, so layout
+cannot help much — which *strengthens* the case for §5 item 2 (8-bit rotational
+quantization), since 4× less data to stream attacks the actual bottleneck.
+Revisit PDX for quantized codes, where the working set shrinks enough to become
+compute-bound.
+
+This is recorded rather than discarded because a negative result that cost a
+day is worth more written down than repeated.
+
 ## 7. Open
 
 - Third research thread (SIMD kernel evidence across FAISS/SimSIMD/usearch)
