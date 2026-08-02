@@ -55,8 +55,7 @@ fn bench_full_pipeline(c: &mut Criterion) {
                 Message::ai("Hi there"),
                 Message::human("Write some code"),
             ]);
-            let response =
-                rt.block_on(pipeline.run_wrap_model_call(black_box(request), &handler));
+            let response = rt.block_on(pipeline.run_wrap_model_call(black_box(request), &handler));
             black_box(response);
         });
     });

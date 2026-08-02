@@ -10,11 +10,11 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use tracing::{info, warn};
 
+use rvagent_core::bootstrap::EnvironmentSnapshot;
 use rvagent_core::config::{BackendConfig, MiddlewareConfig, RvAgentConfig, SecurityPolicy};
 use rvagent_core::graph::{AgentGraph, ToolExecutor};
 use rvagent_core::messages::{Message, ToolCall as CoreToolCall};
 use rvagent_core::models::{resolve_model, ChatModel, ToolDefinition};
-use rvagent_core::bootstrap::EnvironmentSnapshot;
 use rvagent_core::prompt::BASE_AGENT_PROMPT;
 use rvagent_core::state::AgentState;
 
@@ -145,8 +145,7 @@ struct CliToolExecutor {
 impl CliToolExecutor {
     fn new(cwd: &Path) -> Self {
         // Confined to `cwd`: tool-supplied paths cannot escape the workspace.
-        let backend: rvagent_tools::BackendRef =
-            Arc::new(rvagent_tools::LocalFsBackend::new(cwd));
+        let backend: rvagent_tools::BackendRef = Arc::new(rvagent_tools::LocalFsBackend::new(cwd));
         Self {
             tools: rvagent_tools::builtin_tools(),
             backend,

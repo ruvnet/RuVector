@@ -321,8 +321,7 @@ impl SonaState {
         let mut builder = TrajectoryBuilder::new(id, query_embedding);
 
         // Add response as a step
-        let response_embedding =
-            generate_embedding(response.content(), self.config.embedding_dim);
+        let response_embedding = generate_embedding(response.content(), self.config.embedding_dim);
         let quality = estimate_quality(request, response);
 
         builder.add_step(response_embedding, vec![], quality);

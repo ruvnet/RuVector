@@ -20,7 +20,13 @@ fn corpus(n: usize, dim: usize) -> Vec<Vec<f32>> {
 fn bench(c: &mut Criterion) {
     // 1536 is the OpenAI embedding width; 768 covers most sentence encoders.
     // (n, dim) pairs: the first three are cache-resident, the rest stream.
-    for (n, dim) in [(256usize, 768usize), (512, 768), (1024, 768), (4096, 768), (4096, 1536)] {
+    for (n, dim) in [
+        (256usize, 768usize),
+        (512, 768),
+        (1024, 768),
+        (4096, 768),
+        (4096, 1536),
+    ] {
         let vecs = corpus(n, dim);
         let refs: Vec<&[f32]> = vecs.iter().map(|v| v.as_slice()).collect();
         let query: Vec<f32> = (0..dim).map(|d| (d % 7) as f32 / 7.0).collect();

@@ -201,7 +201,7 @@ async fn test_comprehensive_attack_scenario() {
     let new_msgs = update.unwrap().messages.unwrap();
     // User message: zero-width stripped
     assert_eq!(new_msgs[0].content(), "Visit pаypal.comnow!"); // Confusable remains
-                                                             // Tool message: BiDi stripped
+                                                               // Tool message: BiDi stripped
     assert_eq!(new_msgs[1].content(), "Downloaded: eviltxt.exe");
 }
 

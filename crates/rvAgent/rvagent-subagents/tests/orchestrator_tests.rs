@@ -157,7 +157,11 @@ fn test_state_isolation() {
     );
 
     // Messages must be replaced with task description
-    assert_eq!(child.message_count(), 1, "Child must have exactly 1 message");
+    assert_eq!(
+        child.message_count(),
+        1,
+        "Child must have exactly 1 message"
+    );
     assert!(matches!(
         child.messages[0],
         rvagent_core::messages::Message::Human(_)

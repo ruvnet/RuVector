@@ -72,18 +72,24 @@ async fn test_auto_compact_triggers() {
     // With a single short message below threshold, no compaction
     let mw_high = SummarizationMiddleware::new(100_000, 0.85, 0.10);
     let short_request = ModelRequest::new(vec![Message::human("hello")]);
-    let short_response = mw_high.wrap_model_call(short_request, &MessageCountHandler).await;
+    let short_response = mw_high
+        .wrap_model_call(short_request, &MessageCountHandler)
+        .await;
     assert_eq!(
-        short_response.content(), "count=1",
+        short_response.content(),
+        "count=1",
         "Short conversation must not be compacted"
     );
 
     // Edge case: single message above threshold should not compact (need >1 messages)
     let mw_tiny = SummarizationMiddleware::new(1, 0.1, 0.5);
     let single_request = ModelRequest::new(vec![Message::human("a long message that exceeds")]);
-    let single_response = mw_tiny.wrap_model_call(single_request, &MessageCountHandler).await;
+    let single_response = mw_tiny
+        .wrap_model_call(single_request, &MessageCountHandler)
+        .await;
     assert_eq!(
-        single_response.content(), "count=1",
+        single_response.content(),
+        "count=1",
         "Single message should not be compacted even above threshold"
     );
 }
@@ -226,7 +232,9 @@ async fn test_file_permissions() {
     }
 
     let request = ModelRequest::new(messages);
-    let response = mw_compact.wrap_model_call(request, &FirstMessageHandler).await;
+    let response = mw_compact
+        .wrap_model_call(request, &FirstMessageHandler)
+        .await;
 
     // When compaction triggers, the first message should be the summary (System role)
     assert!(

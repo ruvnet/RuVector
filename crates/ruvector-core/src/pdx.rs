@@ -89,7 +89,12 @@ impl PdxBlock {
             vectors.len()
         );
         for (i, v) in vectors.iter().enumerate() {
-            assert_eq!(v.len(), dim, "vector {i} has length {}, expected {dim}", v.len());
+            assert_eq!(
+                v.len(),
+                dim,
+                "vector {i} has length {}, expected {dim}",
+                v.len()
+            );
         }
 
         let mut data = vec![0.0f32; dim * LANES];
@@ -175,7 +180,10 @@ impl PdxIndex {
     /// # Panics
     /// If `vectors` is empty, or any vector's length differs from the first.
     pub fn from_rows(vectors: &[&[f32]]) -> Self {
-        assert!(!vectors.is_empty(), "cannot build a PdxIndex from no vectors");
+        assert!(
+            !vectors.is_empty(),
+            "cannot build a PdxIndex from no vectors"
+        );
         let dim = vectors[0].len();
 
         let blocks = vectors

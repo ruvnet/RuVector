@@ -178,9 +178,7 @@ mod tests {
         let mut state = AgentState::default();
         let mut update = AgentStateUpdate::default();
         update.messages = Some(vec![Message::human("hi")]);
-        update
-            .extensions
-            .insert("k".into(), serde_json::json!("v"));
+        update.extensions.insert("k".into(), serde_json::json!("v"));
         update.apply_to(&mut state);
         assert_eq!(state.message_count(), 1);
         assert_eq!(json_extension(&state, "k"), Some(&serde_json::json!("v")));

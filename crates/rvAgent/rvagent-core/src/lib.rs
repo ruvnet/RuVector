@@ -19,8 +19,8 @@
 
 pub mod agi_container;
 pub mod arena;
-pub mod budget;
 pub mod bootstrap;
+pub mod budget;
 pub mod config;
 pub mod cow_state;
 pub mod error;
@@ -36,8 +36,8 @@ pub mod prompt;
 pub mod rvf_bridge;
 pub mod session_crypto;
 pub mod state;
-pub mod subagent;
 pub mod string_pool;
+pub mod subagent;
 
 // Re-export key types at crate root for convenience.
 pub use agi_container::{

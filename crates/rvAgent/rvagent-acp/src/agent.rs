@@ -209,7 +209,9 @@ impl AcpAgent {
         // Resolve the configured middleware names (unknown names warn and
         // are skipped); an empty configuration gets the default pipeline.
         let pipeline = if self.config.middleware.is_empty() {
-            rvagent_middleware::build_default_pipeline(&rvagent_middleware::PipelineConfig::default())
+            rvagent_middleware::build_default_pipeline(
+                &rvagent_middleware::PipelineConfig::default(),
+            )
         } else {
             let names: Vec<&str> = self
                 .config

@@ -348,9 +348,7 @@ impl<M: ChatModel, T: ToolExecutor + 'static> AgentGraph<M, T> {
                     let dispatch: Vec<ToolCall> = tool_calls
                         .iter()
                         .zip(&looping)
-                        .filter(|(tc, refused)| {
-                            refused.is_none() && !handled.contains_key(&tc.id)
-                        })
+                        .filter(|(tc, refused)| refused.is_none() && !handled.contains_key(&tc.id))
                         .map(|(tc, _)| tc.clone())
                         .collect();
 
@@ -667,8 +665,7 @@ mod tests {
     #[async_trait]
     impl ToolExecutor for CountingExecutor {
         async fn execute(&self, call: &ToolCall, _state: &AgentState) -> Result<String> {
-            self.calls
-                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             Ok(format!("result of {}", call.name))
         }
     }

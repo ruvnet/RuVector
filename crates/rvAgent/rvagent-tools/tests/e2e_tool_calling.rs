@@ -143,7 +143,11 @@ async fn schemas_reach_the_model() {
     assert!(defs.iter().any(|d| d.name == "read_file"));
     assert!(defs.iter().any(|d| d.name == "write_file"));
     for def in &defs {
-        assert!(!def.description.is_empty(), "{} has no description", def.name);
+        assert!(
+            !def.description.is_empty(),
+            "{} has no description",
+            def.name
+        );
         assert_eq!(
             def.input_schema.get("type").and_then(|v| v.as_str()),
             Some("object"),
@@ -167,7 +171,11 @@ async fn schemas_are_sent_on_every_turn_including_after_tools() {
     let model = Arc::new(ScriptedModel::new(vec![
         Message::ai_with_tools(
             "reading",
-            vec![call("t1", "read_file", serde_json::json!({"file_path": "f.txt"}))],
+            vec![call(
+                "t1",
+                "read_file",
+                serde_json::json!({"file_path": "f.txt"}),
+            )],
         ),
         Message::ai("read it"),
     ]));
@@ -286,10 +294,7 @@ async fn tool_error_feeds_back_and_loop_continues() {
 async fn unknown_tool_is_reported_not_fatal() {
     let dir = tempfile::tempdir().unwrap();
     let model = ScriptedModel::new(vec![
-        Message::ai_with_tools(
-            "",
-            vec![call("t1", "no_such_tool", serde_json::json!({}))],
-        ),
+        Message::ai_with_tools("", vec![call("t1", "no_such_tool", serde_json::json!({}))]),
         Message::ai("ok"),
     ]);
     let graph = AgentGraph::new(model, RealToolExecutor::new(dir.path()));
@@ -391,10 +396,8 @@ async fn usage_metadata_is_aggregated() {
     let dir = tempfile::tempdir().unwrap();
 
     // Two turns carrying provider usage metadata, as the backends attach it.
-    let mut first = Message::ai_with_tools(
-        "",
-        vec![call("t1", "ls", serde_json::json!({"path": "."}))],
-    );
+    let mut first =
+        Message::ai_with_tools("", vec![call("t1", "ls", serde_json::json!({"path": "."}))]);
     let mut second = Message::ai("done");
     for (msg, input, output) in [(&mut first, 100u64, 20u64), (&mut second, 150u64, 30u64)] {
         if let Message::Ai(ai) = msg {
@@ -419,7 +422,10 @@ async fn usage_metadata_is_aggregated() {
         })
         .fold((0, 0), |(i, o), usage| {
             (
-                i + usage.get("input_tokens").and_then(|v| v.as_u64()).unwrap_or(0),
+                i + usage
+                    .get("input_tokens")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0),
                 o + usage
                     .get("output_tokens")
                     .and_then(|v| v.as_u64())
@@ -498,7 +504,9 @@ async fn old_observations_are_masked_before_reaching_the_model() {
     assert_eq!(seen_tools.len(), 5, "every call still has a paired result");
 
     for (i, msg) in seen_tools.iter().enumerate() {
-        let Message::Tool(t) = msg else { unreachable!() };
+        let Message::Tool(t) = msg else {
+            unreachable!()
+        };
         if i < 3 {
             assert!(
                 t.content.contains("output elided"),
@@ -723,7 +731,11 @@ async fn path_escape_is_refused_through_the_loop() {
         Message::ai_with_tools(
             "exfiltrating",
             vec![
-                call("t1", "read_file", serde_json::json!({"file_path": "/etc/passwd"})),
+                call(
+                    "t1",
+                    "read_file",
+                    serde_json::json!({"file_path": "/etc/passwd"}),
+                ),
                 call(
                     "t2",
                     "read_file",

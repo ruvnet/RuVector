@@ -554,7 +554,10 @@ mod tests {
         let (_dir, backend) = backend();
         let result = backend.write("nested/dir/new.txt", "content");
         assert!(result.error.is_none(), "unexpected: {:?}", result.error);
-        assert_eq!(backend.read("nested/dir/new.txt", 0, 10).unwrap(), "content");
+        assert_eq!(
+            backend.read("nested/dir/new.txt", 0, 10).unwrap(),
+            "content"
+        );
     }
 
     #[test]
@@ -592,7 +595,10 @@ mod tests {
         // what was asked for.
         let err = verify_written(&path, "expected something longer").unwrap_err();
         assert!(err.contains("did not verify"), "got: {err}");
-        assert!(err.contains("Re-read the file"), "must be actionable: {err}");
+        assert!(
+            err.contains("Re-read the file"),
+            "must be actionable: {err}"
+        );
     }
 
     #[test]

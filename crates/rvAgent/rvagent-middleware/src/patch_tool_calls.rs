@@ -74,9 +74,9 @@ impl Middleware for PatchToolCallsMiddleware {
                         continue;
                     }
 
-                    let has_response = state.messages[i + 1..].iter().any(|m| {
-                        matches!(m, Message::Tool(t) if t.tool_call_id == tc.id)
-                    });
+                    let has_response = state.messages[i + 1..]
+                        .iter()
+                        .any(|m| matches!(m, Message::Tool(t) if t.tool_call_id == tc.id));
 
                     if !has_response {
                         patched.push(Message::tool_with_name(

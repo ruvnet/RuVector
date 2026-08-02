@@ -185,7 +185,12 @@ impl AnthropicClient {
     }
 
     /// Build the API request body from rvAgent messages and tool definitions.
-    fn build_request(&self, messages: &[Message], tools: &[ToolDefinition], stream: bool) -> ApiRequest {
+    fn build_request(
+        &self,
+        messages: &[Message],
+        tools: &[ToolDefinition],
+        stream: bool,
+    ) -> ApiRequest {
         let mut system_text: Option<String> = None;
         let mut api_messages: Vec<ApiMessage> = Vec::new();
 

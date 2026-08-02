@@ -144,7 +144,10 @@ mod tests {
         let content = "fn compute(a: u32, b: u32) -> u32 {\n    a + b\n}\n";
         // Same opening but a different signature — the most common real case.
         let msg = diagnose_edit_failure(content, "fn compute(a: u32) -> u32 {", "a.rs");
-        assert!(msg.contains("closest line in the file is line 1"), "got: {msg}");
+        assert!(
+            msg.contains("closest line in the file is line 1"),
+            "got: {msg}"
+        );
         assert!(msg.contains("fn compute(a: u32, b: u32)"), "got: {msg}");
     }
 
@@ -183,6 +186,10 @@ mod tests {
         let long = "x".repeat(500);
         let content = format!("prefix_{long}\n");
         let msg = diagnose_edit_failure(&content, &format!("prefix_{}", "y".repeat(20)), "a.txt");
-        assert!(msg.len() < 400, "diagnostic should stay compact: {}", msg.len());
+        assert!(
+            msg.len() < 400,
+            "diagnostic should stay compact: {}",
+            msg.len()
+        );
     }
 }

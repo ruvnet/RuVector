@@ -148,10 +148,13 @@ impl PolicyGenome {
 }
 
 fn parse<T: std::str::FromStr>(lever: &str, value: &str) -> Result<T, PolicyError> {
-    value.trim().parse::<T>().map_err(|_| PolicyError::BadValue {
-        lever: lever.to_string(),
-        value: value.to_string(),
-    })
+    value
+        .trim()
+        .parse::<T>()
+        .map_err(|_| PolicyError::BadValue {
+            lever: lever.to_string(),
+            value: value.to_string(),
+        })
 }
 
 // ---------------------------------------------------------------------------
@@ -380,7 +383,11 @@ mod tests {
     fn score_never_serializes_a_non_finite_number() {
         // JSON has no infinity: serde emits null, and the gate reads `null > n`
         // as false in JS, so a zero-win policy would pass the cost clause.
-        for runs in [vec![], vec![run(false, true, 5.0)], vec![run(true, true, 1.0)]] {
+        for runs in [
+            vec![],
+            vec![run(false, true, 5.0)],
+            vec![run(true, true, 1.0)],
+        ] {
             let json = serde_json::to_value(Score::from_runs(&runs)).unwrap();
             let cost = json.get("costPerWin").unwrap();
             assert!(
@@ -417,7 +424,6 @@ mod tests {
         assert!(json.get("costPerWin").is_some());
         assert!(json.get("regressed").is_some());
     }
-
 
     #[test]
     fn run_outcome_round_trips_across_the_process_boundary() {

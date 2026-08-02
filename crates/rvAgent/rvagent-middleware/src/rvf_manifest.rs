@@ -280,7 +280,9 @@ mod tests {
 
         let tools = mw.tools();
         let lint = tools.iter().find(|t| t.name() == "rvf:lint").unwrap();
-        let result = lint.invoke(serde_json::json!({"path": "src/main.rs"})).await;
+        let result = lint
+            .invoke(serde_json::json!({"path": "src/main.rs"}))
+            .await;
         assert!(result.is_ok());
         assert!(result.unwrap().contains("rvf:lint"));
     }
