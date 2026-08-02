@@ -8,6 +8,17 @@
 | **Reviewers** | Architecture Review Board |
 | **Supersedes** | - |
 | **Related** | ADR-003-mcp-protocol, ADR-005-cross-platform-bindings |
+| **Superseded by** | ADR-009-rvf-v1-wire-contract (wire layout sections only) |
+
+> **The wire layout sections of this ADR are superseded by
+> [ADR-009: RVF Version 1 Wire Contract](ADR-009-rvf-v1-wire-contract.md).**
+>
+> Sections 2.2 and 2.3 describe a fixed 64-byte file header at offset zero. That
+> design was never shipped. RVF v1 has no header at offset zero: a file is an
+> append-only stream of 64-byte-aligned segments, and readers discover the
+> Level-0 root manifest from the file's tail. These diagrams are retained as a
+> historical record and must not be used to implement a reader or a writer.
+> The motivation, use cases, and non-layout decisions below remain valid.
 
 ## 1. Context
 
@@ -60,6 +71,10 @@ We adopt RVF as the universal format for vector data with a segment-based archit
 
 ### 2.2 File Header (64 bytes)
 
+> **Historical — superseded by [ADR-009](ADR-009-rvf-v1-wire-contract.md).**
+> RVF v1 files have no header at offset zero. The struct below was never
+> written by any shipped writer, and no reader should look for it.
+
 ```rust
 #[repr(C)]
 pub struct RvfHeader {
@@ -77,6 +92,11 @@ pub struct RvfHeader {
 ```
 
 ### 2.3 Segment Header (64 bytes)
+
+> **Historical — superseded by [ADR-009](ADR-009-rvf-v1-wire-contract.md).**
+> The shipped v1 segment header has a different field layout and hashing
+> scheme; see `rvf_types::SegmentHeader` and the golden vectors in
+> `crates/rvf/rvf-wire/tests/wire_contract_golden.rs`.
 
 ```rust
 #[repr(C)]

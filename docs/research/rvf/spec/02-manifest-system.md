@@ -55,7 +55,8 @@ location: `seek(EOF - 4096)`.
 ```
 Offset  Size  Field                     Description
 ------  ----  -----                     -----------
-0x000   4     magic                     0x52564D30 ("RVM0")
+0x000   4     magic                     0x52564D30 (mnemonic "RVM0";
+                                        LE wire bytes 30 4D 56 52)
 0x004   2     version                   Root manifest version
 0x006   2     flags                     Root manifest flags
 0x008   8     l1_manifest_offset        Byte offset to Level 1 manifest segment
@@ -224,7 +225,8 @@ The MANIFEST_SEG payload structure is:
 
 Step 6 provides crash recovery. If the latest manifest write was interrupted,
 the previous manifest is still valid. Readers scan backward at 64-byte aligned
-boundaries looking for the RVFS magic + MANIFEST_SEG type.
+boundaries looking for the segment magic (wire bytes `53 46 56 52`) plus the
+MANIFEST_SEG type.
 
 ### Manifest Chain
 

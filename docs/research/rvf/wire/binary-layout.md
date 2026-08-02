@@ -1,5 +1,12 @@
 # RVF Wire Format Reference
 
+> Normative for RVF v1 alongside
+> [ADR-009: RVF Version 1 Wire Contract](../../../architecture/decisions/ADR-009-rvf-v1-wire-contract.md).
+> All multi-byte integers are little-endian. The magic mnemonics "RVFS" and
+> "RVM0" are big-endian renderings of the numeric constants; the bytes on the
+> wire are `53 46 56 52` and `30 4D 56 52` respectively. Never compare wire
+> bytes against the ASCII spelling of a mnemonic.
+
 ## 1. File Structure
 
 An RVF file is a byte stream with no fixed header at offset 0. All structure
@@ -78,7 +85,8 @@ is absolute (not delta-encoded).
 ```
 Offset  Type    Field              Notes
 ------  ----    -----              -----
-0x00    u32     magic              Always 0x52564653 ("RVFS")
+0x00    u32     magic              Always 0x52564653 (mnemonic "RVFS";
+                                   LE wire bytes 53 46 56 52)
 0x04    u8      version            Format version (1)
 0x05    u8      seg_type           Segment type enum
 0x06    u16     flags              See flags bitfield
@@ -413,10 +421,16 @@ segment share the same compression.
 def find_latest_manifest(file):
     file_size = file.seek(0, SEEK_END)
 
+    # Magic values are little-endian on the wire, so the bytes are the
+    # REVERSE of the "RVFS" / "RVM0" mnemonics. See ADR-009; in Rust, use
+    # rvf_types::SEGMENT_MAGIC_BYTES and ROOT_MANIFEST_MAGIC_BYTES.
+    SEGMENT_MAGIC_BYTES = bytes([0x53, 0x46, 0x56, 0x52])
+    ROOT_MANIFEST_MAGIC_BYTES = bytes([0x30, 0x4D, 0x56, 0x52])
+
     # Try fast path: last 4096 bytes
     file.seek(file_size - 4096)
     root = file.read(4096)
-    if root[0:4] == b'RVM0' and verify_crc(root):
+    if root[0:4] == ROOT_MANIFEST_MAGIC_BYTES and verify_crc(root):
         return parse_root_manifest(root)
 
     # Slow path: scan backward for MANIFEST_SEG header
@@ -424,7 +438,7 @@ def find_latest_manifest(file):
     while scan_pos >= 0:
         file.seek(scan_pos)
         header = file.read(64)
-        if (header[0:4] == b'RVFS' and
+        if (header[0:4] == SEGMENT_MAGIC_BYTES and
             header[5] == 0x05 and  # MANIFEST_SEG
             verify_segment_header(header)):
             return parse_manifest_segment(file, scan_pos)

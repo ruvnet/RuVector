@@ -1464,7 +1464,7 @@ let dist = hamming_distance(&bits_a, &bits_b);
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
-| 0x00 | 4 | `magic` | `0x52564653` ("RVFS") |
+| 0x00 | 4 | `magic` | `0x52564653` (mnemonic "RVFS"; LE wire bytes `53 46 56 52`) |
 | 0x04 | 1 | `version` | Format version (currently 1) |
 | 0x05 | 1 | `seg_type` | Segment type (see enum below) |
 | 0x06 | 2 | `flags` | Bitfield (COMPRESSED, ENCRYPTED, SIGNED, SEALED, ATTESTED, ...) |
@@ -1708,7 +1708,13 @@ Domain profiles optimize RVF behavior for specific data types:
 
 ### Magic Number
 
-`0x52564653` (ASCII: "RVFS")
+`0x52564653`. The mnemonic "RVFS" is the big-endian rendering of that number;
+because RVF serializes little-endian, the four bytes at the start of a segment
+are `53 46 56 52`. Compare against `rvf_types::SEGMENT_MAGIC_BYTES`, never
+against an ASCII literal. The Level-0 root manifest magic is `0x52564D30`
+(mnemonic "RVM0", wire bytes `30 4D 56 52`, exported as
+`rvf_types::ROOT_MANIFEST_MAGIC_BYTES`). See ADR-009 for the full v1 wire
+contract.
 
 ### Byte Order
 

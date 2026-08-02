@@ -107,7 +107,8 @@ fn write_u64_le(buf: &mut [u8], offset: usize, val: u64) {
 
 /// Read and parse a Level 0 root manifest from a 4096-byte slice.
 ///
-/// Validates the magic (`RVM0`) and CRC32C checksum.
+/// Validates the magic (`ROOT_MANIFEST_MAGIC`, mnemonic "RVM0", wire bytes
+/// `30 4D 56 52`) and the CRC32C checksum.
 ///
 /// # Errors
 ///

@@ -7,18 +7,18 @@
 use crate::reader::read_segment_header;
 use rvf_types::{
     ErrorCode, RvfError, SegmentHeader, SegmentType, ROOT_MANIFEST_MAGIC, ROOT_MANIFEST_SIZE,
-    SEGMENT_ALIGNMENT, SEGMENT_HEADER_SIZE, SEGMENT_MAGIC, SEGMENT_VERSION,
+    SEGMENT_ALIGNMENT, SEGMENT_HEADER_SIZE, SEGMENT_MAGIC, SEGMENT_MAGIC_BYTES, SEGMENT_VERSION,
 };
 
 /// Find the latest manifest segment in `data` by scanning from the tail.
 ///
 /// **Fast path**: check the last 4096 bytes for the root manifest magic
-/// (`RVM0`). If valid, scan backward from that point for the enclosing
-/// MANIFEST_SEG header.
+/// (mnemonic "RVM0", wire bytes `30 4D 56 52`). If valid, scan backward from
+/// that point for the enclosing MANIFEST_SEG header.
 ///
 /// **Slow path**: scan backward from the end of `data` at 64-byte aligned
-/// boundaries, looking for a segment header with magic `RVFS` and type
-/// `MANIFEST_SEG` (0x05).
+/// boundaries, looking for a segment header with the segment magic (mnemonic
+/// "RVFS", wire bytes `53 46 56 52`) and type `MANIFEST_SEG` (0x05).
 ///
 /// Returns `(byte_offset, SegmentHeader)` of the manifest segment.
 ///
@@ -31,7 +31,7 @@ pub fn find_latest_manifest(data: &[u8]) -> Result<(usize, SegmentHeader), RvfEr
         return Err(RvfError::Code(ErrorCode::TruncatedSegment));
     }
 
-    // Fast path: check last 4096 bytes for RVM0 magic
+    // Fast path: check last 4096 bytes for the root manifest magic
     if data.len() >= ROOT_MANIFEST_SIZE {
         let root_start = data.len() - ROOT_MANIFEST_SIZE;
         let root_slice = &data[root_start..];
@@ -65,12 +65,11 @@ pub fn find_latest_manifest(data: &[u8]) -> Result<(usize, SegmentHeader), RvfEr
         }
     }
 
-    // Slow path: scan backward using the first magic byte ('R' = 0x52) as
-    // an anchor. On aligned boundaries within the data, we search for the
-    // magic byte first (memchr-style) to skip large runs of non-magic data,
-    // then verify the full 4-byte magic + version + type.
-    let magic_le = SEGMENT_MAGIC.to_le_bytes();
-    let magic_first = magic_le[0]; // 'R' = 0x52
+    // Slow path: scan backward using the first byte of the little-endian magic
+    // (0x53) as an anchor. On aligned boundaries within the data, we search for
+    // that byte first (memchr-style) to skip large runs of non-magic data, then
+    // verify the full 4-byte magic + version + type.
+    let magic_first = SEGMENT_MAGIC_BYTES[0];
     let last_aligned = (data.len().saturating_sub(SEGMENT_ALIGNMENT)) & !(SEGMENT_ALIGNMENT - 1);
     let mut scan_pos = last_aligned;
     loop {

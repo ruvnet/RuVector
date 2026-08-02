@@ -1,0 +1,60 @@
+name: RVF Wire Contract
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/rvf/rvf-types/**'
+      - 'crates/rvf/rvf-wire/**'
+      - 'crates/rvf/README.md'
+      - 'docs/architecture/decisions/**'
+      - 'docs/research/rvf/**'
+      - '.github/workflows/rvf-wire-contract.yml'
+  pull_request:
+    paths:
+      - 'crates/rvf/rvf-types/**'
+      - 'crates/rvf/rvf-wire/**'
+      - 'crates/rvf/README.md'
+      - 'docs/architecture/decisions/**'
+      - 'docs/research/rvf/**'
+      - '.github/workflows/rvf-wire-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rvf-wire-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  wire-contract:
+    name: Verify RVF v1 wire contract
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: crates/rvf
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        with:
+          workspaces: crates/rvf -> target
+
+      - name: Check formatting
+        run: cargo fmt -p rvf-types -p rvf-wire -- --check
+
+      - name: Clippy
+        run: cargo clippy -p rvf-types -p rvf-wire --all-targets -- -D warnings
+
+      - name: Test (includes golden wire vectors)
+        run: cargo test -p rvf-types -p rvf-wire
