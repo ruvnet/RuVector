@@ -31,6 +31,7 @@ pub mod messages;
 pub mod metrics;
 pub mod models;
 pub mod parallel;
+pub mod policy;
 pub mod prompt;
 pub mod rvf_bridge;
 pub mod session_crypto;
