@@ -43,11 +43,12 @@ pub enum ResponseQuality {
 }
 
 /// Caller hint for quality vs latency trade-off.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u8)]
 pub enum QualityPreference {
     /// Runtime decides. Default. Fastest path that meets internal thresholds.
+    #[default]
     Auto = 0x00,
     /// Caller prefers quality over latency. Runtime may widen n_probe,
     /// extend budgets up to 4x, and block until Layer B loads.
@@ -58,12 +59,6 @@ pub enum QualityPreference {
     /// Caller explicitly accepts degraded results. Required to proceed
     /// when ResponseQuality would be Degraded or Unreliable under Auto.
     AcceptDegraded = 0x03,
-}
-
-impl Default for QualityPreference {
-    fn default() -> Self {
-        Self::Auto
-    }
 }
 
 /// Which index layers were available and used during a query.

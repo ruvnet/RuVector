@@ -8,7 +8,7 @@
 /// Controls how the runtime handles unsigned or invalid signatures
 /// when opening an RVF file. Default is `Strict` — no signature means
 /// no mount in production.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u8)]
 pub enum SecurityPolicy {
@@ -18,16 +18,11 @@ pub enum SecurityPolicy {
     WarnOnly = 0x01,
     /// Require valid signature on Level 0 manifest.
     /// DEFAULT for production.
+    #[default]
     Strict = 0x02,
     /// Require valid signatures on Level 0, Level 1, and all
     /// hotset-referenced segments. Full chain verification.
     Paranoid = 0x03,
-}
-
-impl Default for SecurityPolicy {
-    fn default() -> Self {
-        Self::Strict
-    }
 }
 
 impl SecurityPolicy {
@@ -403,6 +398,6 @@ mod tests {
     #[test]
     fn reserved_offset_fits() {
         // 109 + 96 = 205 <= 252 (reserved area size)
-        assert!(HardeningFields::RESERVED_OFFSET + 96 <= 252);
+        const { assert!(HardeningFields::RESERVED_OFFSET + 96 <= 252) };
     }
 }
