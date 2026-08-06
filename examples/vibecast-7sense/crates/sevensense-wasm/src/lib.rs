@@ -36,6 +36,16 @@ pub const SEGMENT_STRIDE: usize = 6;
 /// Values per neighbour in the [`knn_search`] result.
 pub const NEIGHBOUR_STRIDE: usize = 2;
 
+/// Values per event in the [`segmenter_push`] result.
+pub const EVENT_STRIDE: usize = 8;
+
+/// Event kind: a segment opened.
+pub const EVENT_OPENED: f32 = 0.0;
+/// Event kind: a segment closed and is ready for analysis.
+pub const EVENT_CLOSED: f32 = 1.0;
+/// Event kind: a candidate was discarded as too short.
+pub const EVENT_DISCARDED: f32 = 2.0;
+
 /// Cosine distance beyond which [`knn_search`] reports no confident match.
 ///
 /// ADR-013 sets this: returning a label for a sound unlike anything indexed is
@@ -45,6 +55,8 @@ pub const UNKNOWN_THRESHOLD: f32 = 0.55;
 
 /// Input was empty, too short, or otherwise unusable.
 const ERR_INVALID_INPUT: i32 = -1;
+/// The supplied segmenter handle does not refer to a live segmenter.
+const ERR_BAD_HANDLE: i32 = -3;
 /// Analysis failed for a reason reported by the underlying crate.
 const ERR_ANALYSIS_FAILED: i32 = -2;
 
@@ -54,6 +66,26 @@ const ERR_ANALYSIS_FAILED: i32 = -2;
 /// runs one instance per worker, and each call fully overwrites this before
 /// returning.
 static mut OUTPUT: Vec<f32> = Vec::new();
+
+/// Live streaming segmenters, addressed by handle.
+///
+/// A handle is an index plus one, so zero is never valid. Slots are reused
+/// after [`segmenter_destroy`], which keeps the vector bounded when a page
+/// starts and stops capture repeatedly.
+static mut SEGMENTERS: Vec<Option<StreamSegmenter>> = Vec::new();
+
+/// Borrows a segmenter by handle.
+///
+/// # Safety
+/// Callers must not hold two borrows at once; every use here is a single
+/// short-lived borrow inside one exported function.
+unsafe fn segmenter_mut(handle: u32) -> Option<&'static mut StreamSegmenter> {
+    if handle == 0 {
+        return None;
+    }
+    let slots = &mut *core::ptr::addr_of_mut!(SEGMENTERS);
+    slots.get_mut(handle as usize - 1)?.as_mut()
+}
 
 /// Replaces the output buffer and returns how many records it holds.
 fn publish(values: Vec<f32>, stride: usize) -> i32 {
@@ -552,6 +584,210 @@ pub unsafe extern "C" fn cosine_distance_of(a: *const f32, b: *const f32, dim: u
 #[no_mangle]
 pub extern "C" fn unknown_threshold() -> f32 {
     UNKNOWN_THRESHOLD
+}
+
+/// Creates a live streaming segmenter and returns its handle.
+///
+/// This is the incremental path from ADR-010: unlike [`detect_segments`],
+/// which consumes a whole recording, a segmenter created here accepts audio in
+/// arbitrary chunks and emits a segment as soon as it closes -- which is what
+/// a microphone requires, since the recording never ends.
+///
+/// Returns 0 if the sample rate is invalid. Release with
+/// [`segmenter_destroy`].
+#[no_mangle]
+pub extern "C" fn segmenter_create(sample_rate: u32) -> u32 {
+    if sample_rate == 0 {
+        return 0;
+    }
+    let Ok(segmenter) = StreamSegmenter::new(StreamSegmenterConfig {
+        sample_rate,
+        ..Default::default()
+    }) else {
+        return 0;
+    };
+
+    // Safety: single-threaded module, and no other borrow is live here.
+    unsafe {
+        let slots = &mut *core::ptr::addr_of_mut!(SEGMENTERS);
+        if let Some(index) = slots.iter().position(Option::is_none) {
+            slots[index] = Some(segmenter);
+            return index as u32 + 1;
+        }
+        slots.push(Some(segmenter));
+        slots.len() as u32
+    }
+}
+
+/// Releases a segmenter created by [`segmenter_create`].
+#[no_mangle]
+pub extern "C" fn segmenter_destroy(handle: u32) {
+    if handle == 0 {
+        return;
+    }
+    unsafe {
+        let slots = &mut *core::ptr::addr_of_mut!(SEGMENTERS);
+        if let Some(slot) = slots.get_mut(handle as usize - 1) {
+            *slot = None;
+        }
+    }
+}
+
+/// Packs segmenter events into the output buffer.
+fn publish_events(events: Vec<sevensense_audio::streaming::SegmentEvent>, sample_rate: u32) -> i32 {
+    use sevensense_audio::streaming::SegmentEvent;
+
+    let to_ms = |samples: u64| samples as f32 * 1000.0 / sample_rate as f32;
+    let mut packed = Vec::with_capacity(events.len() * EVENT_STRIDE);
+
+    for event in events {
+        match event {
+            SegmentEvent::Opened { start_sample } => {
+                packed.extend_from_slice(&[
+                    EVENT_OPENED,
+                    to_ms(start_sample),
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ]);
+            }
+            SegmentEvent::Closed(segment) => {
+                let start = to_ms(segment.start_sample);
+                let end = to_ms(segment.end_sample);
+                packed.extend_from_slice(&[
+                    EVENT_CLOSED,
+                    start,
+                    end,
+                    segment.peak_amplitude,
+                    segment.rms_energy,
+                    segment.snr_db(),
+                    f32::from(u8::from(segment.truncated)),
+                    end - start,
+                ]);
+            }
+            SegmentEvent::Discarded { duration_ms } => {
+                packed.extend_from_slice(&[
+                    EVENT_DISCARDED,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    duration_ms as f32,
+                ]);
+            }
+        }
+    }
+
+    publish(packed, EVENT_STRIDE)
+}
+
+/// Feeds audio into a live segmenter and returns the events it completed.
+///
+/// Packs [`EVENT_STRIDE`] values per event: kind, start and end time in
+/// milliseconds, peak amplitude, RMS energy, SNR in dB, a truncated flag, and
+/// duration. Times are relative to the start of the stream.
+///
+/// Chunk size is irrelevant to the result -- the segmenter buffers a partial
+/// frame across calls -- so a caller may pass whatever a capture callback
+/// hands it.
+///
+/// # Safety
+/// `ptr` must point to `len` readable floats.
+#[no_mangle]
+pub unsafe extern "C" fn segmenter_push(handle: u32, ptr: *const f32, len: usize) -> i32 {
+    if ptr.is_null() || len == 0 {
+        return ERR_INVALID_INPUT;
+    }
+    let Some(segmenter) = segmenter_mut(handle) else {
+        return ERR_BAD_HANDLE;
+    };
+    let sample_rate = segmenter.config().sample_rate;
+    let events = segmenter.push(std::slice::from_raw_parts(ptr, len));
+    publish_events(events, sample_rate)
+}
+
+/// Closes any segment still open, as at end of stream.
+///
+/// Packs the same layout as [`segmenter_push`].
+#[no_mangle]
+pub extern "C" fn segmenter_flush(handle: u32) -> i32 {
+    // Safety: single-threaded, single short-lived borrow.
+    let Some(segmenter) = (unsafe { segmenter_mut(handle) }) else {
+        return ERR_BAD_HANDLE;
+    };
+    let sample_rate = segmenter.config().sample_rate;
+    let events = segmenter.flush();
+    publish_events(events, sample_rate)
+}
+
+/// Current adaptive noise-floor estimate, in RMS amplitude.
+///
+/// Surfacing this makes the gate visible: a caller can show why a quiet call
+/// is not opening a segment rather than leaving the reader to guess.
+#[no_mangle]
+pub extern "C" fn segmenter_noise_floor(handle: u32) -> f32 {
+    // Safety: single-threaded, single short-lived borrow.
+    (unsafe { segmenter_mut(handle) }).map_or(f32::NAN, |segmenter| segmenter.noise_floor())
+}
+
+/// Whether a segment is currently open.
+#[no_mangle]
+pub extern "C" fn segmenter_in_segment(handle: u32) -> i32 {
+    // Safety: single-threaded, single short-lived borrow.
+    match unsafe { segmenter_mut(handle) } {
+        Some(segmenter) => i32::from(segmenter.in_segment()),
+        None => ERR_BAD_HANDLE,
+    }
+}
+
+/// Milliseconds of audio this segmenter has consumed since it was created.
+#[no_mangle]
+pub extern "C" fn segmenter_elapsed_ms(handle: u32) -> f32 {
+    // Safety: single-threaded, single short-lived borrow.
+    (unsafe { segmenter_mut(handle) }).map_or(f32::NAN, |segmenter| {
+        segmenter.samples_seen() as f32 * 1000.0 / segmenter.config().sample_rate as f32
+    })
+}
+
+/// Geodesic distance between two points in the Poincare ball.
+///
+/// # Safety
+/// Both pointers must reference `dim` readable floats.
+#[no_mangle]
+pub unsafe extern "C" fn poincare_distance_of(a: *const f32, b: *const f32, dim: usize) -> f32 {
+    if a.is_null() || b.is_null() || dim == 0 {
+        return f32::NAN;
+    }
+    sevensense_vector::poincare_distance(
+        std::slice::from_raw_parts(a, dim),
+        std::slice::from_raw_parts(b, dim),
+        -1.0,
+    )
+}
+
+/// Dominant modulation rate and magnitude of an arbitrary track.
+///
+/// Packs 2 values: rate in Hz and peak magnitude. `frame_rate` is the rate at
+/// which the track was sampled; the search band is capped at its Nyquist
+/// frequency, so a rate faster than half the frame rate cannot be measured.
+///
+/// # Safety
+/// `ptr` must point to `len` readable floats.
+#[no_mangle]
+pub unsafe extern "C" fn modulation_of(ptr: *const f32, len: usize, frame_rate: f32) -> i32 {
+    if ptr.is_null() || len == 0 || frame_rate <= 0.0 {
+        return ERR_INVALID_INPUT;
+    }
+    let (rate, magnitude) = sevensense_audio::features::dominant_modulation(
+        std::slice::from_raw_parts(ptr, len),
+        frame_rate,
+    );
+    publish(vec![rate, magnitude], 2)
 }
 
 /// Version of the analysis pipeline this module was built from.

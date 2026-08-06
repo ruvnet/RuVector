@@ -397,6 +397,83 @@
 
   .flags { display: flex; gap: 6px; flex-wrap: wrap; }
 
+  /* ── Live capture ─────────────────────────────────────────────────────── */
+  .live-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  .meter {
+    flex: 1 1 140px;
+    min-width: 110px;
+    height: 6px;
+    background: var(--panel-sunk);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+  }
+  .meter > i {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    transition: width .06s linear;
+  }
+  /* The noise floor is drawn onto the meter, so the gate a call must cross is
+     visible rather than implied. */
+  .meter > u {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    width: 2px;
+    background: var(--warm);
+  }
+  .live-state {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .live-state.armed { color: var(--good); }
+  .live-state.hot { color: var(--warm); }
+
+  .detections { max-height: 220px; overflow-y: auto; }
+  .detection {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: baseline;
+    gap: 10px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+  }
+  .detection:last-child { border-bottom: 0; }
+  .detection-time {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+  .detection-name { font-family: var(--serif); font-style: italic; }
+  .detection-name.unknown { font-family: var(--sans); font-style: normal; color: var(--warn); }
+  .detection-meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+  }
+  .empty {
+    padding: 14px;
+    color: var(--ink-faint);
+    font-size: 13px;
+  }
+
   /* ── Segments table ───────────────────────────────────────────────────── */
   .scroll { overflow-x: auto; }
   table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
@@ -581,6 +658,22 @@
 
       <section class="panel">
         <header>
+          <h2>Live input</h2>
+          <span class="note" id="live-note">microphone</span>
+        </header>
+        <div class="live-bar">
+          <button id="btn-listen">Listen</button>
+          <span class="meter" aria-hidden="true"><i id="meter-fill"></i><u id="meter-floor"></u></span>
+          <span class="live-state" id="live-state">idle</span>
+        </div>
+        <div class="detections" id="detections">
+          <p class="empty">Nothing captured yet. Listening runs the same streaming
+          segmenter as the corpus, then identifies each call against it.</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <header>
           <h2>Identification</h2>
           <span class="note">k-NN · open set</span>
         </header>
@@ -681,6 +774,8 @@ const SR = 32000;
 const FRAME_STRIDE = 10;
 const SEG_STRIDE = 6;
 const NEIGHBOUR_STRIDE = 2;
+const EVENT_STRIDE = 8;
+const EVENT_CLOSED = 1;
 const SPECTRO_MELS = 64;
 const SPECTRO_HOP = 256;
 // ADR-013 sets k = 25. With 21 same-archetype references available, this
@@ -841,13 +936,18 @@ function standardize(vectors) {
   for (const v of vectors) for (let d = 0; d < dim; d++) sd[d] += (v[d] - mean[d]) ** 2;
   for (let d = 0; d < dim; d++) sd[d] = Math.sqrt(sd[d] / n);
 
-  return vectors.map(v => {
-    const out = new Float32Array(dim);
-    // A descriptor with no spread carries no information; zero it rather than
-    // dividing by ~0 and manufacturing a huge value.
-    for (let d = 0; d < dim; d++) out[d] = sd[d] > 1e-6 ? (v[d] - mean[d]) / sd[d] : 0;
-    return out;
-  });
+  // The statistics come back with the vectors: a live sample must be
+  // standardised against the corpus, not against itself, or its coordinates
+  // would mean something different from every point it is compared to.
+  return { vectors: vectors.map(v => applyStandardization(v, mean, sd)), mean, sd };
+}
+
+function applyStandardization(v, mean, sd) {
+  const out = new Float32Array(v.length);
+  // A descriptor with no spread carries no information; zero it rather than
+  // dividing by ~0 and manufacturing a huge value.
+  for (let d = 0; d < v.length; d++) out[d] = sd[d] > 1e-6 ? (v[d] - mean[d]) / sd[d] : 0;
+  return out;
 }
 
 /* ── Analysis ──────────────────────────────────────────────────────────── */
@@ -856,6 +956,7 @@ let corpus = [];
 let standardized = [];
 let featureMatrix = new Float32Array(0);
 let featureDim = 0;
+let corpusStats = null;
 let projection = [];
 let variance = [0, 0, 0];
 let selected = 0;
@@ -868,12 +969,6 @@ function analyseCorpus(baseSeed) {
   ARCHETYPES.forEach((archetype, ai) => {
     for (let k = 0; k < CALLS_PER_ARCHETYPE; k++) {
       const samples = synthesise(archetype, baseSeed + ai * 977 + k * 31);
-
-      const summary = withSamples(samples, (ptr, len) => {
-        if (wasm.analyze_summary(ptr, len, SR) < 0) return null;
-        return readOut();
-      });
-      if (!summary) continue;
 
       const segments = withSamples(samples, (ptr, len) => {
         const count = wasm.detect_segments(ptr, len, SR);
@@ -890,13 +985,34 @@ function analyseCorpus(baseSeed) {
         return list;
       });
 
-      corpus.push({ archetype, ai, samples, summary, segments });
+      // Summarise the detected segment, not the padded clip.
+      // A live query is always a segment, and several descriptors -- voiced
+      // fraction above all -- depend on how much silence surrounds the call.
+      // Voiced has a corpus spread of about 0.04, so a query measured over a
+      // segment (voiced ~1.0) instead of a clip (voiced ~0.66) lands nine
+      // standard deviations out and swamps every other dimension. Reference
+      // and query must be measured over the same kind of extent.
+      const region = segments.length
+        ? samples.subarray(
+            Math.max(0, Math.round((segments[0].startMs / 1000) * SR)),
+            Math.min(samples.length, Math.round((segments[0].endMs / 1000) * SR)))
+        : samples;
+
+      const summary = withSamples(region, (ptr, len) => {
+        if (wasm.analyze_summary(ptr, len, SR) < 0) return null;
+        return readOut();
+      });
+      if (!summary) continue;
+
+      corpus.push({ archetype, ai, samples, region, summary, segments });
     }
   });
 
   // Standardise once; both the projection and the k-NN read these.
   featureDim = corpus[0].summary.length;
-  standardized = standardize(corpus.map(c => c.summary));
+  const scaled = standardize(corpus.map(c => c.summary));
+  standardized = scaled.vectors;
+  corpusStats = { mean: scaled.mean, sd: scaled.sd };
   featureMatrix = new Float32Array(corpus.length * featureDim);
   standardized.forEach((v, i) => featureMatrix.set(v, i * featureDim));
 
@@ -950,24 +1066,25 @@ function framesFor(call) {
    ADR-013: Perch emits embeddings rather than logits, and retrieval is
    open-set -- a call unlike anything indexed comes back as distant neighbours
    instead of being forced into the nearest class. */
-function identify(index) {
+/* Runs retrieval for a standardised query vector against the corpus.
+   `exclude` drops one corpus entry, used when the query *is* a corpus member
+   and would otherwise match itself at distance zero. */
+function identifyVector(queryVector, exclude) {
   const n = corpus.length;
-  if (n < 2) return null;
+  if (n < 2 || !queryVector) return null;
 
-  // Every other call acts as the labelled reference index. The query itself is
-  // excluded, or it would trivially match itself at distance zero.
   const refIndices = [];
-  const refs = new Float32Array((n - 1) * featureDim);
+  const refs = new Float32Array(n * featureDim);
   let cursor = 0;
   for (let i = 0; i < n; i++) {
-    if (i === index) continue;
+    if (i === exclude) continue;
     refs.set(standardized[i], cursor * featureDim);
     refIndices.push(i);
     cursor++;
   }
 
   const qPtr = wasm.alloc_f32(featureDim);
-  new Float32Array(wasm.memory.buffer, qPtr, featureDim).set(standardized[index]);
+  new Float32Array(wasm.memory.buffer, qPtr, featureDim).set(queryVector);
   const rPtr = wasm.alloc_f32(refs.length);
   new Float32Array(wasm.memory.buffer, rPtr, refs.length).set(refs);
 
@@ -1007,6 +1124,10 @@ function identify(index) {
   const unknown = nearest > wasm.unknown_threshold();
 
   return { candidates, neighbours, nearest, unknown };
+}
+
+function identify(index) {
+  return identifyVector(standardized[index], index);
 }
 
 function renderIdentification(index) {
@@ -1440,7 +1561,7 @@ function renderSelection() {
 
   document.getElementById('sel-name').textContent = call.archetype.name;
 
-  const quality = withSamples(call.samples, (ptr, len) => {
+  const quality = withSamples(call.region ?? call.samples, (ptr, len) => {
     if (wasm.quality_flags(ptr, len, SR) < 0) return null;
     return readOut();
   });
@@ -1554,6 +1675,254 @@ function renderRamp() {
   document.getElementById('ramp-lo').textContent = format(colourRange.lo);
   document.getElementById('ramp-hi').textContent = format(colourRange.hi);
 }
+
+/* ── Live capture ──────────────────────────────────────────────────────────
+   The microphone drives the same StreamSegmenter the corpus uses, through the
+   stateful handle API. Chunk size is whatever the audio callback hands us; the
+   segmenter buffers a partial frame across calls, so the result does not
+   depend on it. */
+const live = {
+  context: null,
+  stream: null,
+  processor: null,
+  source: null,
+  handle: 0,
+  rate: 0,
+  rateMatched: false,
+  ring: null,        // recent audio, so a closed segment can be re-read
+  ringSize: 0,
+  written: 0,        // absolute samples written, for mapping stream time
+  detections: [],
+  level: 0,
+};
+
+function setLiveState(text, cls) {
+  const el = document.getElementById('live-state');
+  el.textContent = text;
+  el.className = 'live-state' + (cls ? ' ' + cls : '');
+}
+
+/* Pulls a stream-time range out of the rolling buffer.
+   Returns null if the audio has already been overwritten, which is honest --
+   a segment longer than the buffer cannot be re-read. */
+function sliceRing(startSample, endSample) {
+  const oldest = Math.max(0, live.written - live.ringSize);
+  if (startSample < oldest || endSample > live.written || endSample <= startSample) return null;
+
+  const length = endSample - startSample;
+  const out = new Float32Array(length);
+  for (let i = 0; i < length; i++) {
+    out[i] = live.ring[(startSample + i) % live.ringSize];
+  }
+  return out;
+}
+
+function recordDetection(startMs, endMs, snr) {
+  const startSample = Math.round((startMs / 1000) * live.rate);
+  const endSample = Math.round((endMs / 1000) * live.rate);
+  const audio = sliceRing(startSample, endSample);
+
+  const entry = {
+    startMs,
+    durationMs: endMs - startMs,
+    snr,
+    verdict: 'unreadable',
+    score: 0,
+    unknown: true,
+  };
+
+  if (audio && audio.length > 1024) {
+    const summary = withSamples(audio, (ptr, len) => {
+      if (wasm.analyze_summary(ptr, len, live.rate) < 0) return null;
+      return readOut();
+    });
+
+    if (summary && corpusStats) {
+      // Standardised against the corpus, not itself: the reference index
+      // defines the coordinate system a query must be expressed in.
+      const query = applyStandardization(summary, corpusStats.mean, corpusStats.sd);
+      const result = identifyVector(query, -1);
+      if (result) {
+        entry.unknown = result.unknown;
+        entry.verdict = result.unknown ? 'Unknown' : result.candidates[0].archetype.name;
+        entry.score = result.unknown ? 0 : result.candidates[0].score;
+        entry.distance = result.nearest;
+      }
+    }
+  }
+
+  live.detections.unshift(entry);
+  live.detections = live.detections.slice(0, 12);
+  renderDetections();
+}
+
+function renderDetections() {
+  const host = document.getElementById('detections');
+  if (!live.detections.length) {
+    host.innerHTML = `<p class="empty">Listening. Nothing has crossed the noise
+      floor yet — whistle, or play a bird call near the microphone.</p>`;
+    return;
+  }
+
+  host.innerHTML = live.detections.map(d => {
+    const meta = d.verdict === 'unreadable'
+      ? `${Math.round(d.durationMs)} ms`
+      : `${Math.round(d.durationMs)} ms · ${d.snr.toFixed(0)} dB` +
+        (d.unknown ? ` · d=${(d.distance ?? 0).toFixed(2)}` : ` · ${(d.score * 100).toFixed(0)}%`);
+    return `<div class="detection">
+      <span class="detection-time">${(d.startMs / 1000).toFixed(1)}s</span>
+      <span class="detection-name${d.unknown ? ' unknown' : ''}">${d.verdict}</span>
+      <span class="detection-meta">${meta}</span>
+    </div>`;
+  }).join('');
+}
+
+function handleAudio(samples) {
+  // Level meter, computed before anything else so it stays responsive even if
+  // the segmenter rejects the audio.
+  let sum = 0;
+  for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
+  live.level = Math.sqrt(sum / samples.length);
+
+  // Ring buffer: the segmenter reports times, not audio, so we keep our own
+  // copy to re-read a closed segment from.
+  for (let i = 0; i < samples.length; i++) {
+    live.ring[(live.written + i) % live.ringSize] = samples[i];
+  }
+  live.written += samples.length;
+
+  const events = withSamples(samples, (ptr, len) => {
+    const count = wasm.segmenter_push(live.handle, ptr, len);
+    return count > 0 ? { count, data: readOut() } : null;
+  });
+
+  if (events) {
+    for (let i = 0; i < events.count; i++) {
+      const o = i * EVENT_STRIDE;
+      if (events.data[o] === EVENT_CLOSED) {
+        recordDetection(events.data[o + 1], events.data[o + 2], events.data[o + 5]);
+      }
+    }
+  }
+
+  const floor = wasm.segmenter_noise_floor(live.handle);
+  const open = wasm.segmenter_in_segment(live.handle) === 1;
+
+  document.getElementById('meter-fill').style.width =
+    `${Math.min(100, live.level * 320).toFixed(1)}%`;
+  document.getElementById('meter-floor').style.left =
+    `${Math.min(100, floor * live.handleOpenRatio * 320).toFixed(1)}%`;
+  setLiveState(open ? 'in call' : 'listening', open ? 'hot' : 'armed');
+}
+
+async function startListening() {
+  const button = document.getElementById('btn-listen');
+  button.disabled = true;
+  setLiveState('requesting…');
+
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error('This browser exposes no microphone API.');
+    }
+    live.stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+    });
+
+    // Ask for the corpus rate rather than accepting the device's.
+    // Several descriptors -- spread, crest, entropy -- are normalised over the
+    // FFT bin count, which changes with the sample rate: the same 4 kHz tone
+    // measures 18 Hz spread at 32 kHz and 27 Hz at 48 kHz. Comparing a live
+    // capture against a 32 kHz reference index therefore requires matching the
+    // rate, and letting the browser resample is both correct and free.
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    try {
+      live.context = new Ctor({ sampleRate: SR });
+    } catch {
+      live.context = new Ctor();
+    }
+    await live.context.resume();
+    live.rate = live.context.sampleRate;
+    live.rateMatched = Math.abs(live.rate - SR) < 1;
+
+    live.handle = wasm.segmenter_create(live.rate);
+    if (!live.handle) throw new Error('The segmenter rejected this sample rate.');
+
+    // Fifteen seconds of history: longer than max_segment_ms, so any segment
+    // the segmenter emits is still readable when it closes.
+    live.ringSize = Math.ceil(live.rate * 15);
+    live.ring = new Float32Array(live.ringSize);
+    live.written = 0;
+    live.detections = [];
+    // Matches StreamSegmenterConfig::open_ratio, for drawing the gate marker.
+    live.handleOpenRatio = 3.0;
+
+    live.source = live.context.createMediaStreamSource(live.stream);
+    // ScriptProcessor rather than AudioWorklet: a worklet needs a module URL,
+    // and this page runs under a CSP that blocks blob: workers.
+    live.processor = live.context.createScriptProcessor(4096, 1, 1);
+    live.processor.onaudioprocess = (e) => handleAudio(e.inputBuffer.getChannelData(0));
+    live.source.connect(live.processor);
+    // Routed to a muted gain node: ScriptProcessor only runs when connected to
+    // a destination, but we must not echo the microphone back out.
+    const mute = live.context.createGain();
+    mute.gain.value = 0;
+    live.processor.connect(mute);
+    mute.connect(live.context.destination);
+
+    // If the browser refused the requested rate, say so: identification still
+    // runs, but its distances are not strictly comparable to the corpus.
+    document.getElementById('live-note').textContent = live.rateMatched
+      ? `${(live.rate / 1000).toFixed(1)} kHz · 15 s buffer`
+      : `${(live.rate / 1000).toFixed(1)} kHz · rate differs from corpus`;
+    button.textContent = 'Stop';
+    setLiveState('listening', 'armed');
+    renderDetections();
+  } catch (err) {
+    // A blocked microphone is the common case in an embedded frame, so say so
+    // plainly rather than leaving the button spinning.
+    const denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
+    setLiveState(denied ? 'permission denied' : 'unavailable');
+    document.getElementById('live-note').textContent = denied
+      ? 'microphone blocked'
+      : (err?.message ?? 'microphone unavailable');
+    document.getElementById('detections').innerHTML =
+      `<p class="empty">${denied
+        ? 'This page cannot reach the microphone. Where the page is embedded, the frame may withhold microphone access; opening it directly usually restores it.'
+        : 'No microphone is available in this browser.'}</p>`;
+    stopListening(true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function stopListening(quiet) {
+  if (live.handle) {
+    const events = wasm.segmenter_flush(live.handle);
+    if (events > 0) {
+      const data = readOut();
+      for (let i = 0; i < events; i++) {
+        const o = i * EVENT_STRIDE;
+        if (data[o] === EVENT_CLOSED) recordDetection(data[o + 1], data[o + 2], data[o + 5]);
+      }
+    }
+    wasm.segmenter_destroy(live.handle);
+    live.handle = 0;
+  }
+  live.processor?.disconnect();
+  live.source?.disconnect();
+  live.stream?.getTracks().forEach(t => t.stop());
+  live.context?.close();
+  live.processor = live.source = live.stream = live.context = null;
+
+  document.getElementById('btn-listen').textContent = 'Listen';
+  document.getElementById('meter-fill').style.width = '0%';
+  if (!quiet) setLiveState('idle');
+}
+
+document.getElementById('btn-listen').addEventListener('click', () => {
+  if (live.handle) stopListening();
+  else startListening();
+});
 
 /* ── Interaction ───────────────────────────────────────────────────────── */
 manifold.addEventListener('pointerdown', (e) => {
