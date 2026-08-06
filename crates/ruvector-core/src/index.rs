@@ -23,6 +23,17 @@ pub trait VectorIndex: Send + Sync {
     /// Search for k nearest neighbors
     fn search(&self, query: &[f32], k: usize) -> Result<Vec<SearchResult>>;
 
+    /// Search for k nearest neighbors with a caller-supplied candidate-list
+    /// width. Indexes without a breadth parameter (e.g. brute force) ignore it.
+    fn search_with_ef(
+        &self,
+        query: &[f32],
+        k: usize,
+        _ef_search: usize,
+    ) -> Result<Vec<SearchResult>> {
+        self.search(query, k)
+    }
+
     /// Remove a vector from the index
     fn remove(&mut self, id: &VectorId) -> Result<bool>;
 

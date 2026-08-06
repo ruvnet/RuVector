@@ -492,3 +492,145 @@ fn cow_child_search_hits_reflect_overrides_and_tombstones() {
     let reopened_child = RvfStore::open_readonly(&child_path).unwrap();
     assert_child_hits(&reopened_child);
 }
+
+/// A soft delete tombstones the vector an identifier currently holds, not the
+/// identifier itself. Writing the identifier again therefore makes it live
+/// with the new vector and the new record: the query must return it, its
+/// metadata must be what the re-ingest supplied rather than what the delete
+/// removed, a reopen must agree, and `compact()` must not reclaim it as dead
+/// (issue #748).
+#[test]
+fn re_ingesting_a_deleted_id_makes_it_live_again() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("undelete_by_reingest.rvf");
+    let before = [1.0f32, 0.0];
+    let after = [0.0f32, 1.0];
+
+    let mut store = RvfStore::create(&path, make_options(2)).unwrap();
+    store
+        .ingest_batch_with_metadata(
+            &[&before],
+            &[42],
+            &[VectorMetadata {
+                vector_id: 42,
+                fields: vec![MetadataEntry {
+                    field_id: 1,
+                    value: MetadataValue::String("before-delete".into()),
+                }],
+                delete_record: false,
+            }],
+        )
+        .unwrap();
+    store.delete(&[42]).unwrap();
+    assert!(
+        store.get_metadata(42).is_none(),
+        "the delete must remove the record while the tombstone stands"
+    );
+
+    store
+        .ingest_batch_with_metadata(
+            &[&after],
+            &[42],
+            &[VectorMetadata {
+                vector_id: 42,
+                fields: vec![MetadataEntry {
+                    field_id: 1,
+                    value: MetadataValue::String("after-reingest".into()),
+                }],
+                delete_record: false,
+            }],
+        )
+        .unwrap();
+
+    let expected = vec![MetadataEntry {
+        field_id: 1,
+        value: MetadataValue::String("after-reingest".into()),
+    }];
+    let hits = store.query(&after, 1, &QueryOptions::default()).unwrap();
+    assert_eq!(
+        hits.iter().map(|hit| hit.id).collect::<Vec<_>>(),
+        vec![42],
+        "the re-ingested vector must be queryable"
+    );
+    assert_eq!(store.get_metadata(42).unwrap(), expected);
+
+    // Compaction reclaims what is still tombstoned at compact time, so the
+    // cleared identifier must survive it with its new payload intact.
+    store.compact().unwrap();
+    let hits = store.query(&after, 1, &QueryOptions::default()).unwrap();
+    assert_eq!(hits.iter().map(|hit| hit.id).collect::<Vec<_>>(), vec![42]);
+    store.close().unwrap();
+
+    let reopened = RvfStore::open_readonly(&path).unwrap();
+    assert_eq!(
+        reopened.get_metadata(42).unwrap(),
+        expected,
+        "the reopened store must serve the re-ingested record, not the deleted one"
+    );
+    let hits = reopened.query(&after, 1, &QueryOptions::default()).unwrap();
+    assert_eq!(hits.iter().map(|hit| hit.id).collect::<Vec<_>>(), vec![42]);
+}
+
+/// A `META_SEG` declares one schema entry per field id, so live records that
+/// give one field two different value types have no encodable full snapshot.
+/// Accepting such a batch acknowledges a write that fails later, at whichever
+/// unrelated commit happens to materialize a snapshot, so it is rejected on
+/// the call that introduces it (issue #772).
+#[test]
+fn conflicting_field_types_are_rejected_at_ingest() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("field_type_conflict.rvf");
+
+    fn typed(vector_id: u64, value: MetadataValue) -> VectorMetadata {
+        VectorMetadata {
+            vector_id,
+            fields: vec![MetadataEntry { field_id: 1, value }],
+            delete_record: false,
+        }
+    }
+
+    let mut store = RvfStore::create(&path, make_options(2)).unwrap();
+    store
+        .ingest_batch_with_metadata(&[&[1.0, 0.0]], &[1], &[typed(1, MetadataValue::U64(1))])
+        .unwrap();
+
+    // A second record typing field 1 as a string cannot share a snapshot with
+    // the first, so the ingest that would introduce it fails.
+    let error = store
+        .ingest_batch_with_metadata(
+            &[&[0.0, 1.0]],
+            &[2],
+            &[typed(2, MetadataValue::String("two".into()))],
+        )
+        .expect_err("a conflicting value type must be rejected at ingest");
+    assert!(
+        format!("{error:?}").contains("InvalidMetadata"),
+        "expected InvalidMetadata, got {error:?}"
+    );
+
+    // The rejected batch left nothing behind, and the agreed type still works.
+    assert!(store.get_metadata(2).is_none());
+    store
+        .ingest_batch_with_metadata(&[&[0.0, 1.0]], &[2], &[typed(2, MetadataValue::U64(2))])
+        .unwrap();
+    store.close().unwrap();
+
+    // The store stayed snapshot-encodable throughout, which is the property
+    // the rejection exists to preserve.
+    let mut reopened = RvfStore::open(&path).unwrap();
+    reopened.compact().unwrap();
+    assert_eq!(
+        reopened.get_metadata(1).unwrap(),
+        vec![MetadataEntry {
+            field_id: 1,
+            value: MetadataValue::U64(1),
+        }]
+    );
+    assert_eq!(
+        reopened.get_metadata(2).unwrap(),
+        vec![MetadataEntry {
+            field_id: 1,
+            value: MetadataValue::U64(2),
+        }]
+    );
+}

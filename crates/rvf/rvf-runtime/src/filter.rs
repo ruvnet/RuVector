@@ -60,29 +60,106 @@ impl FilterValue {
     }
 }
 
+/// The `META_SEG` schema type a stored value declares for its field, or `None`
+/// for values that constrain no type of their own.
+///
+/// Mirrors the mapping `build_metadata_schema` applies when it encodes a
+/// generation; the discriminant is `rvf_types::metadata::MetadataType as u8`.
+fn declared_type(value: &MetadataValue) -> Option<u8> {
+    use rvf_types::metadata::MetadataType;
+    Some(match value {
+        MetadataValue::Null | MetadataValue::DeleteField => return None,
+        MetadataValue::String(_) => MetadataType::String as u8,
+        MetadataValue::Bytes(_) => MetadataType::Bytes as u8,
+        MetadataValue::I64(_) => MetadataType::I64 as u8,
+        MetadataValue::U64(_) => MetadataType::U64 as u8,
+        MetadataValue::F64(_) => MetadataType::F64 as u8,
+        MetadataValue::Bool(_) => MetadataType::Bool as u8,
+    })
+}
+
 /// In-memory metadata store for filter evaluation.
 /// Maps vector IDs to their complete durable metadata record.
 #[derive(Clone)]
 pub(crate) struct MetadataStore {
     entries: std::collections::BTreeMap<u64, std::collections::BTreeMap<u16, MetadataValue>>,
+    /// How many live records declare each field id with each value type.
+    ///
+    /// A `META_SEG` declares one schema entry per field id, so a field carried
+    /// by two types at once cannot be encoded as a full snapshot. Maintaining
+    /// the counts as records are written makes that state detectable in
+    /// `O(fields)` at ingest time instead of requiring a full rescan of every
+    /// record on every commit (issue #772).
+    field_types: std::collections::BTreeMap<u16, std::collections::BTreeMap<u8, usize>>,
 }
 
 impl MetadataStore {
     pub(crate) fn new() -> Self {
         Self {
             entries: std::collections::BTreeMap::new(),
+            field_types: std::collections::BTreeMap::new(),
         }
+    }
+
+    /// Count `value` towards its field's live type set.
+    fn declare(&mut self, field_id: u16, value: &MetadataValue) {
+        let Some(value_type) = declared_type(value) else {
+            return;
+        };
+        *self
+            .field_types
+            .entry(field_id)
+            .or_default()
+            .entry(value_type)
+            .or_insert(0) += 1;
+    }
+
+    /// Discount a value that is no longer live, dropping the field's entry
+    /// once nothing declares it any more.
+    fn undeclare(&mut self, field_id: u16, value: &MetadataValue) {
+        let Some(value_type) = declared_type(value) else {
+            return;
+        };
+        let Some(counts) = self.field_types.get_mut(&field_id) else {
+            return;
+        };
+        if let Some(count) = counts.get_mut(&value_type) {
+            *count = count.saturating_sub(1);
+            if *count == 0 {
+                counts.remove(&value_type);
+            }
+        }
+        if counts.is_empty() {
+            self.field_types.remove(&field_id);
+        }
+    }
+
+    /// The lowest field id that two live records give different value types.
+    ///
+    /// `None` means the live records can be encoded as one full snapshot.
+    pub(crate) fn conflicting_field(&self) -> Option<u16> {
+        self.field_types
+            .iter()
+            .find(|(_, types)| types.len() > 1)
+            .map(|(&field_id, _)| field_id)
     }
 
     /// Add metadata for a vector. `fields` are (field_id, value) pairs.
     pub(crate) fn insert(&mut self, vector_id: u64, fields: Vec<(u16, MetadataValue)>) {
-        let record = self.entries.entry(vector_id).or_default();
+        self.entries.entry(vector_id).or_default();
         for (field_id, value) in fields {
-            if matches!(value, MetadataValue::DeleteField) {
-                record.remove(&field_id);
-            } else {
-                record.insert(field_id, value);
+            let previous = {
+                let record = self.entries.entry(vector_id).or_default();
+                if matches!(value, MetadataValue::DeleteField) {
+                    record.remove(&field_id)
+                } else {
+                    record.insert(field_id, value.clone())
+                }
+            };
+            if let Some(previous) = previous {
+                self.undeclare(field_id, &previous);
             }
+            self.declare(field_id, &value);
         }
     }
 
@@ -124,7 +201,13 @@ impl MetadataStore {
 
     /// Drop every record whose vector identifier fails `keep`.
     pub(crate) fn retain_ids(&mut self, keep: impl Fn(u64) -> bool) {
-        self.entries.retain(|&vector_id, _| keep(vector_id));
+        let dropped: Vec<u64> = self
+            .entries
+            .keys()
+            .copied()
+            .filter(|&vector_id| !keep(vector_id))
+            .collect();
+        self.remove_ids(&dropped);
     }
 
     pub(crate) fn decoded_size(&self, vector_id: u64) -> usize {
@@ -144,7 +227,12 @@ impl MetadataStore {
     /// Remove all metadata for the given vector IDs.
     pub(crate) fn remove_ids(&mut self, ids: &[u64]) {
         for id in ids {
-            self.entries.remove(id);
+            let Some(record) = self.entries.remove(id) else {
+                continue;
+            };
+            for (field_id, value) in record {
+                self.undeclare(field_id, &value);
+            }
         }
     }
 

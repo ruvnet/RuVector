@@ -187,7 +187,13 @@ impl VectorDB {
     /// Search for similar vectors
     pub fn search(&self, query: SearchQuery) -> Result<Vec<SearchResult>> {
         let index = self.index.read();
-        let mut results = index.search(&query.vector, query.k)?;
+        // Honour a per-query efSearch override; without this the field was
+        // accepted and silently discarded, so callers widening the search to
+        // chase missing rows saw no change at all (issue #773).
+        let mut results = match query.ef_search {
+            Some(ef_search) => index.search_with_ef(&query.vector, query.k, ef_search)?,
+            None => index.search(&query.vector, query.k)?,
+        };
 
         // Enrich results with full data if needed
         for result in &mut results {

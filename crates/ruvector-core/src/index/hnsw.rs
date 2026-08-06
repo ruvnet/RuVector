@@ -401,7 +401,16 @@ impl VectorIndex for HnswIndex {
 
     fn search(&self, query: &[f32], k: usize) -> Result<Vec<SearchResult>> {
         // Use configured ef_search
-        self.search_with_ef(query, k, self.config.ef_search)
+        HnswIndex::search_with_ef(self, query, k, self.config.ef_search)
+    }
+
+    fn search_with_ef(
+        &self,
+        query: &[f32],
+        k: usize,
+        ef_search: usize,
+    ) -> Result<Vec<SearchResult>> {
+        HnswIndex::search_with_ef(self, query, k, ef_search)
     }
 
     fn remove(&mut self, id: &VectorId) -> Result<bool> {
@@ -535,6 +544,114 @@ mod tests {
         let results = restored_index.search(&query, 5)?;
 
         assert!(!results.is_empty());
+
+        Ok(())
+    }
+
+    /// Deterministic unit vector, mirroring the generator used by the
+    /// `hnsw_completeness_test` integration tests.
+    fn seeded_unit_vector(seed: u64, dims: usize) -> Vec<f32> {
+        let mut x = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1;
+        let mut v = Vec::with_capacity(dims);
+        for _ in 0..dims {
+            x ^= x >> 12;
+            x ^= x << 25;
+            x ^= x >> 27;
+            let bits = x.wrapping_mul(0x2545_F491_4F6C_DD1D);
+            v.push((bits >> 40) as f32 / 8_388_608.0 - 1.0);
+        }
+        normalize_vector(&v)
+    }
+
+    /// Walk the layer-0 graph from the entry point and return the set of
+    /// external ids reachable, plus the total number of points in the graph.
+    ///
+    /// The entry point is the first point stored in the highest occupied
+    /// layer: `check_entry_point` only replaces the entry point on a strictly
+    /// greater level, and `points_by_layer` preserves insertion order.
+    fn layer0_reachable(index: &HnswIndex) -> (std::collections::HashSet<usize>, usize) {
+        use std::collections::HashSet;
+
+        let inner = index.inner.read();
+        let indexation = inner.hnsw.get_point_indexation();
+        let max_level = indexation.get_max_level_observed() as usize;
+        let total = indexation.get_nb_point();
+
+        let entry = indexation
+            .get_layer_iterator(max_level)
+            .next()
+            .expect("entry point");
+
+        // Map point id -> (origin id, layer-0 neighbour point ids) for the
+        // whole graph so the walk can follow edges without re-locking.
+        let mut adjacency = std::collections::HashMap::new();
+        for level in 0..=max_level {
+            for point in indexation.get_layer_iterator(level) {
+                let neighbours = point.get_neighborhood_id();
+                let layer0: Vec<_> = neighbours
+                    .first()
+                    .map(|n| n.iter().map(|nb| nb.p_id).collect())
+                    .unwrap_or_default();
+                adjacency.insert(point.get_point_id(), (point.get_origin_id(), layer0));
+            }
+        }
+
+        let mut reachable = HashSet::new();
+        let mut stack = vec![entry.get_point_id()];
+        let mut visited = HashSet::new();
+        while let Some(p_id) = stack.pop() {
+            if !visited.insert(p_id) {
+                continue;
+            }
+            if let Some((origin, neighbours)) = adjacency.get(&p_id) {
+                reachable.insert(*origin);
+                stack.extend(neighbours.iter().copied());
+            }
+        }
+
+        (reachable, total)
+    }
+
+    /// Every inserted point must be reachable from the entry point by
+    /// following layer-0 edges. A point with no layer-0 in-edge is an orphan:
+    /// no `efSearch` can recover it, because search widens the frontier but
+    /// never reaches a node nothing points at (issue #773).
+    #[test]
+    fn test_hnsw_layer0_reachability_invariant() -> Result<()> {
+        let config = HnswConfig {
+            m: 16,
+            ef_construction: 100,
+            ef_search: 100,
+            max_elements: 1_000,
+        };
+
+        // The failure is level-assignment dependent and hits a fraction of a
+        // percent of small graphs, so the sweep has to be wide enough that a
+        // regression cannot slip through on luck.
+        for trial in 0..1_500u64 {
+            for &rows in &[2usize, 3, 5, 9] {
+                let mut index = HnswIndex::new(64, DistanceMetric::Cosine, config.clone())?;
+                for i in 0..rows {
+                    index.add(
+                        format!("m{i}"),
+                        seeded_unit_vector(trial * 1_000 + i as u64, 64),
+                    )?;
+                }
+
+                let (reachable, total) = layer0_reachable(&index);
+                assert_eq!(total, rows, "trial {trial}: point count drifted");
+                assert_eq!(
+                    reachable.len(),
+                    rows,
+                    "trial {trial} rows={rows}: only {} of {rows} points are reachable \
+                     from the entry point on layer 0 (orphaned origin ids: {:?})",
+                    reachable.len(),
+                    (0..rows)
+                        .filter(|i| !reachable.contains(i))
+                        .collect::<Vec<_>>()
+                );
+            }
+        }
 
         Ok(())
     }

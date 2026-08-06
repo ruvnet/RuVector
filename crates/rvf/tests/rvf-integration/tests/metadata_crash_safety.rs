@@ -424,6 +424,77 @@ fn delete_metadata_commit_is_atomic_under_crash_injection() {
     assert_atomic_metadata_commit("delete", &all_ids, &[], &bytes_a, &bytes_b, &probe);
 }
 
+/// The runtime's segment content hash: an IEEE CRC32 of the payload rotated
+/// into four little-endian lanes (`rvf-runtime::hashing`). Rewriting a payload
+/// in place means repairing this, or the reader rejects the segment as damaged.
+fn legacy_content_hash(data: &[u8]) -> [u8; 16] {
+    let mut crc = 0xFFFF_FFFFu32;
+    for &byte in data {
+        crc ^= byte as u32;
+        for _ in 0..8 {
+            let mask = (crc & 1).wrapping_neg();
+            crc = (crc >> 1) ^ (0xEDB8_8320 & mask);
+        }
+    }
+    let crc = !crc;
+    let mut hash = [0u8; 16];
+    for lane in 0..4 {
+        hash[lane * 4..(lane + 1) * 4]
+            .copy_from_slice(&crc.rotate_left(lane as u32 * 8).to_le_bytes());
+    }
+    hash
+}
+
+/// Renumber the newest `META_SEG` of `path` to generation `u64::MAX`, so the
+/// next metadata commit has no generation number left to allocate.
+///
+/// The payload is decoded and re-encoded rather than patched byte-wise, so it
+/// stays a segment the reader accepts on its own terms; the generation is a
+/// fixed-width field, so the replacement is the same length and the
+/// append-only offsets the manifest records still hold.
+fn exhaust_metadata_generation(path: &std::path::Path) {
+    let mut bytes = fs::read(path).unwrap();
+    let mut meta: Option<(usize, usize)> = None;
+    let mut offset = 0usize;
+    while offset + SEGMENT_HEADER_SIZE <= bytes.len() {
+        if u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap()) != SEGMENT_MAGIC {
+            break;
+        }
+        let payload_len =
+            u64::from_le_bytes(bytes[offset + 0x10..offset + 0x18].try_into().unwrap()) as usize;
+        let end = match offset.checked_add(SEGMENT_HEADER_SIZE + payload_len) {
+            Some(end) if end <= bytes.len() => end,
+            _ => break,
+        };
+        if bytes[offset + 0x05] == rvf_types::SegmentType::Meta as u8 {
+            meta = Some((offset + SEGMENT_HEADER_SIZE, payload_len));
+        }
+        offset = end;
+    }
+    let (payload_start, payload_len) = meta.expect("the store must have written a META_SEG");
+
+    let mut segment = rvf_types::metadata::MetadataSegment::decode(
+        &bytes[payload_start..payload_start + payload_len],
+    )
+    .expect("the newest META_SEG must decode");
+    assert!(
+        segment.full_snapshot,
+        "the newest generation must be the child's first full snapshot"
+    );
+    segment.generation = u64::MAX;
+    let payload = segment.encode().unwrap();
+    assert_eq!(
+        payload.len(),
+        payload_len,
+        "renumbering must not change the encoded length"
+    );
+
+    bytes[payload_start..payload_start + payload_len].copy_from_slice(&payload);
+    let header = payload_start - SEGMENT_HEADER_SIZE;
+    bytes[header + 0x28..header + 0x38].copy_from_slice(&legacy_content_hash(&payload));
+    fs::write(path, &bytes).unwrap();
+}
+
 /// A `delete` that fails must leave no trace in memory. It tombstones vectors
 /// and prunes the membership filter before writing its metadata generation, so
 /// a rollback that restored only the metadata would leave the store claiming
@@ -431,11 +502,13 @@ fn delete_metadata_commit_is_atomic_under_crash_injection() {
 /// a manifest whose deleted set contradicts the committed metadata, which open
 /// rejects outright.
 ///
-/// The failure is injected through the encoder: a COW child inherits its
-/// parent's records in memory and commits them as one full snapshot on its
-/// first metadata write, and a snapshot that declares one field id with two
-/// different value types is not encodable. The parent itself never hits this,
-/// because each of its generations touches only one of the records.
+/// The failure is injected at the head of `write_metadata_generation`, which
+/// numbers the next generation with a checked increment: a chain whose newest
+/// generation is `u64::MAX` cannot be extended, so the commit fails after the
+/// tombstone and the membership prune have already been applied. Rewriting the
+/// generation number on disk is a self-contained way to reach that state --
+/// unlike an encoder-level failure it does not require the store to be left in
+/// a shape a write should have rejected in the first place (issue #772).
 #[test]
 fn failed_delete_leaves_no_uncommitted_tombstones() {
     let dir = TempDir::new().unwrap();
@@ -444,27 +517,36 @@ fn failed_delete_leaves_no_uncommitted_tombstones() {
     let dim: u16 = 2;
 
     let mut parent = RvfStore::create(&parent_path, make_options(dim)).unwrap();
-    for (id, value) in [
-        (1u64, MetadataValue::U64(1)),
-        (2, MetadataValue::String("two".into())),
-        (3, MetadataValue::U64(3)),
-    ] {
+    for id in [1u64, 2, 3] {
         parent
             .ingest_batch_with_metadata(
                 &[&[id as f32, 1.0]],
                 &[id],
                 &[VectorMetadata {
                     vector_id: id,
-                    fields: vec![MetadataEntry { field_id: 1, value }],
+                    fields: vec![MetadataEntry {
+                        field_id: 1,
+                        value: MetadataValue::U64(id),
+                    }],
                     delete_record: false,
                 }],
             )
             .unwrap();
     }
 
+    // The child commits the inherited records as one full snapshot on its
+    // first metadata write; that is the generation whose number is rewritten.
     let mut child = parent.branch(&child_path).unwrap();
-    // Deleting vector 3 leaves records 1 (u64) and 2 (string) to be written as
-    // the child's first full snapshot, which cannot be encoded.
+    child
+        .set_file_metadata("app.owner".into(), MetadataValue::String("catalog".into()))
+        .unwrap();
+    child.close().unwrap();
+    parent.close().unwrap();
+    exhaust_metadata_generation(&child_path);
+
+    let mut child = RvfStore::open(&child_path).unwrap();
+    // Vector 3 is inherited from the parent, so deleting it prunes the
+    // membership filter as well as tombstoning the record.
     let failure = child.delete(&[3]).expect_err("delete must fail to commit");
 
     // A later commit that writes no metadata generation still publishes a
@@ -473,7 +555,6 @@ fn failed_delete_leaves_no_uncommitted_tombstones() {
         .ingest_batch(&[&[4.0, 1.0]], &[4], None)
         .unwrap_or_else(|e| panic!("[{failure:?}] a later ingest must still commit: {e:?}"));
     child.close().unwrap();
-    parent.close().unwrap();
 
     let reopened = RvfStore::open_readonly(&child_path).unwrap_or_else(|e| {
         panic!("[{failure:?}] a rolled-back delete must not brick the artifact: {e:?}")
@@ -536,4 +617,144 @@ fn file_metadata_commit_is_atomic_under_crash_injection() {
         &bytes_b,
         &probe,
     );
+}
+
+/// A mutation that fails after its metadata generation is on disk must restore
+/// the segment directory it started from, not merely drop the entries it
+/// appended.
+///
+/// `write_metadata_generation` both prunes and appends when it re-anchors a
+/// recovered chain: it drops the generations replay could not reach and adds
+/// the snapshot that supersedes them. The directory therefore ends up *shorter*
+/// than it started, so a rollback that only trimmed back to the original length
+/// would keep every one of those edits -- publishing the uncommitted generation
+/// to the next commit, which then serves it as authoritative and loses whatever
+/// the failed mutation had removed (issue #771).
+///
+/// The failure is injected by removing the parent file of a COW child: the
+/// child's manifest write has to re-derive the relative parent reference, which
+/// is the first thing after the metadata generation that can fail on demand.
+#[test]
+fn failed_mutation_restores_the_pruned_segment_directory() {
+    for case in ["delete", "set_file_metadata"] {
+        let dir = TempDir::new().unwrap();
+        let parent_path = dir.path().join("rollback_parent.rvf");
+        let child_path = dir.path().join("rollback_child.rvf");
+        let dim: u16 = 2;
+
+        let mut parent = RvfStore::create(&parent_path, make_options(dim)).unwrap();
+        parent
+            .ingest_batch_with_metadata(
+                &[&[1.0, 0.0]],
+                &[1],
+                &[VectorMetadata {
+                    vector_id: 1,
+                    fields: vec![MetadataEntry {
+                        field_id: 1,
+                        value: MetadataValue::String("parent".into()),
+                    }],
+                    delete_record: false,
+                }],
+            )
+            .unwrap();
+
+        // Four child generations: a full snapshot of the inherited state plus
+        // three deltas, so damaging the third strands two of them.
+        let mut child = parent.branch(&child_path).unwrap();
+        for id in [11u64, 12, 13, 14] {
+            child
+                .ingest_batch_with_metadata(
+                    &[&[id as f32, 1.0]],
+                    &[id],
+                    &[VectorMetadata {
+                        vector_id: id,
+                        fields: vec![MetadataEntry {
+                            field_id: 1,
+                            value: MetadataValue::String(format!("child-{id}")),
+                        }],
+                        delete_record: false,
+                    }],
+                )
+                .unwrap();
+        }
+        child.close().unwrap();
+        parent.close().unwrap();
+        let parent_bytes = fs::read(&parent_path).unwrap();
+
+        // Damage the third generation so the child opens on a truncated chain
+        // with orphans for the next metadata write to prune.
+        let mut bytes = fs::read(&child_path).unwrap();
+        let mut meta_offsets = Vec::new();
+        let mut offset = 0usize;
+        while offset + SEGMENT_HEADER_SIZE <= bytes.len() {
+            if u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap()) != SEGMENT_MAGIC {
+                break;
+            }
+            let payload_len =
+                u64::from_le_bytes(bytes[offset + 0x10..offset + 0x18].try_into().unwrap())
+                    as usize;
+            let end = match offset.checked_add(SEGMENT_HEADER_SIZE + payload_len) {
+                Some(end) if end <= bytes.len() => end,
+                _ => break,
+            };
+            if bytes[offset + 0x05] == rvf_types::SegmentType::Meta as u8 {
+                meta_offsets.push((offset + SEGMENT_HEADER_SIZE, payload_len));
+            }
+            offset = end;
+        }
+        assert_eq!(meta_offsets.len(), 4, "[{case}]");
+        let (start, len) = meta_offsets[2];
+        bytes[start + len / 2] ^= 0xFF;
+        fs::write(&child_path, &bytes).unwrap();
+
+        let mut child = RvfStore::open(&child_path).unwrap();
+        assert_eq!(
+            child.metadata_recovery().dropped_generations,
+            2,
+            "[{case}] generations 3 and 4 must be the orphans the next write prunes"
+        );
+
+        // Removing the parent makes the child's manifest write fail, while the
+        // metadata generation before it still commits to the file.
+        fs::remove_file(&parent_path).unwrap();
+        let failure = match case {
+            "delete" => child.delete(&[11]).err(),
+            _ => child
+                .set_file_metadata("app.owner".into(), MetadataValue::String("catalog".into()))
+                .err(),
+        };
+        let failure = failure.unwrap_or_else(|| panic!("[{case}] the mutation must fail"));
+        fs::write(&parent_path, &parent_bytes).unwrap();
+
+        // A later commit that writes no metadata generation publishes whatever
+        // segment directory the rollback left behind.
+        child
+            .ingest_batch(&[&[99.0, 1.0]], &[99], None)
+            .unwrap_or_else(|e| panic!("[{case}] a later ingest must still commit: {e:?}"));
+        child.close().unwrap();
+
+        let reopened = RvfStore::open_readonly(&child_path).unwrap_or_else(|e| {
+            panic!("[{case}] a rolled-back mutation must not brick the artifact: {e:?}")
+        });
+        assert_eq!(
+            reopened.get_metadata(11).unwrap(),
+            vec![MetadataEntry {
+                field_id: 1,
+                value: MetadataValue::String("child-11".into()),
+            }],
+            "[{case}] [{failure:?}] the record the failed delete removed must survive"
+        );
+        assert_eq!(
+            reopened.get_metadata(12).unwrap(),
+            vec![MetadataEntry {
+                field_id: 1,
+                value: MetadataValue::String("child-12".into()),
+            }],
+            "[{case}] [{failure:?}] the recovered chain must still be the served state"
+        );
+        assert!(
+            reopened.get_file_metadata("app.owner").is_none(),
+            "[{case}] [{failure:?}] the failed set_file_metadata must not become visible"
+        );
+    }
 }

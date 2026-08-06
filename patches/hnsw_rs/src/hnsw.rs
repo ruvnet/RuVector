@@ -930,11 +930,17 @@ impl<'b, T: Clone + Send + Sync, D: Distance<T> + Send + Sync> Hnsw<'b, T, D> {
         // we will store positive distances in this one
         let mut return_points = BinaryHeap::<Arc<PointWithOrder<T>>>::with_capacity(skiplist_size);
         //
-        if self.layer_indexed_points.points_by_layer.read()[layer as usize].is_empty() {
-            // at the beginning we can have nothing in layer
-            trace!("search layer {:?}, empty layer", layer);
-            return return_points;
-        }
+        // NOTE: there used to be an early return here when
+        // `points_by_layer[layer]` was empty. That list only records points
+        // whose *maximum* level is `layer`, but a point of level L takes part
+        // in every layer 0..=L, so the list being empty does not mean the layer
+        // is. Bailing out made insert link the new point to nothing at that
+        // layer -- e.g. two points both entering at level 1 got no layer-0
+        // edges at all, leaving them unreachable to any later layer-0 search
+        // regardless of efSearch (issue #773). The caller always supplies a
+        // live entry point, and `Point::neighbours` is allocated for every
+        // layer, so searching an unpopulated layer is safe: it simply returns
+        // the entry point, which is exactly the link we want.
         if entry_point.p_id.1 < 0 {
             trace!("search layer negative point id : {:?}", entry_point.p_id);
             return return_points;
@@ -1240,9 +1246,15 @@ impl<'b, T: Clone + Send + Sync, D: Distance<T> + Send + Sync> Hnsw<'b, T, D> {
                     let q_point = &q.point_ref;
                     let mut q_point_neighbours = q_point.neighbours.write();
                     let n_to_add = PointWithOrder::<T>::new(&Arc::clone(&new_point), q.dist_to_ref);
-                    // must be sure that we add a point at the correct level. See the comment to search_layer!
-                    // this ensures that reverse updating do not add problems.
-                    let l_n = n_to_add.point_ref.p_id.0 as usize;
+                    // The reciprocal edge must land on the same layer as the forward
+                    // edge (Malkov Alg. 1: "add bidirectional connections ... at layer
+                    // lc"). Using new_point's own level here instead meant a point
+                    // entering at level >= 1 got its layer-0 back-edges filed under
+                    // that upper level, leaving it with no in-edge on layer 0. Once it
+                    // stopped being the entry point nothing on layer 0 pointed at it,
+                    // so search dropped it permanently and no efSearch could recover
+                    // it. See issue #773.
+                    let l_n = l as usize;
                     let already = q_point_neighbours[l_n]
                         .iter()
                         .position(|old| old.point_ref.p_id == new_point.p_id);

@@ -533,3 +533,71 @@ fn lifecycle_dimension_mismatch_rejected() {
 
     store.close().unwrap();
 }
+
+/// Durable configuration must survive a reopen. `open()` reconstructs the
+/// store from the file alone, so anything it fails to restore silently changes
+/// how the same bytes behave: a metric reset to L2 re-ranks every query, and a
+/// witness chain restarted at genesis breaks external verification across a
+/// close (issue #747).
+#[test]
+fn reopen_preserves_metric_and_witness_chain() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("reopen_options.rvf");
+
+    // Under cosine the aligned-but-distant vector 1 wins; under L2 the nearby
+    // but off-axis vector 2 does. The ranking is therefore evidence of which
+    // metric the reopened store is actually using.
+    let aligned = [10.0f32, 0.0, 0.0];
+    let nearby = [0.9f32, 0.4, 0.0];
+    let query = [1.0f32, 0.0, 0.0];
+
+    let options = RvfOptions {
+        dimension: 3,
+        metric: DistanceMetric::Cosine,
+        ..Default::default()
+    };
+
+    let mut store = RvfStore::create(&path, options).unwrap();
+    store
+        .ingest_batch(&[&aligned, &nearby], &[1, 2], None)
+        .unwrap();
+    let ranking: Vec<u64> = store
+        .query(&query, 2, &QueryOptions::default())
+        .unwrap()
+        .iter()
+        .map(|hit| hit.id)
+        .collect();
+    assert_eq!(
+        ranking,
+        vec![1, 2],
+        "cosine must prefer the aligned vector; the test is meaningless otherwise"
+    );
+    let witness = *store.last_witness_hash();
+    assert_ne!(
+        witness, [0u8; 32],
+        "the ingest must have extended the witness chain"
+    );
+    store.close().unwrap();
+
+    let reopened = RvfStore::open(&path).unwrap();
+    assert_eq!(
+        reopened.metric(),
+        DistanceMetric::Cosine,
+        "the configured metric must be restored from the manifest"
+    );
+    let reopened_ranking: Vec<u64> = reopened
+        .query(&query, 2, &QueryOptions::default())
+        .unwrap()
+        .iter()
+        .map(|hit| hit.id)
+        .collect();
+    assert_eq!(
+        reopened_ranking, ranking,
+        "a reopen must rank identically, not fall back to L2"
+    );
+    assert_eq!(
+        *reopened.last_witness_hash(),
+        witness,
+        "a reopen must continue the witness chain rather than restart it at genesis"
+    );
+}

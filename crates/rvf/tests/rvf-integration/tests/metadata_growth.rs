@@ -793,3 +793,178 @@ fn manifest_only_write_after_truncated_recovery_preserves_the_artifact() {
         }
     }
 }
+
+/// A damaged snapshot must not end the newest-first walk.
+///
+/// The replay budget bounds the chain that is actually *applied*, not the
+/// generations the scan had to walk past to find a readable base. Damage can
+/// push the newest usable snapshot arbitrarily far back while still leaving a
+/// short applied chain, so charging the scan refuses to open a file whose
+/// committed state replays in a handful of steps -- and because the failure is
+/// in `open` itself, `compact()` cannot repair it either (issue #770).
+#[test]
+fn walk_past_two_corrupt_snapshots_reaches_the_next_readable_one() {
+    use rvf_types::metadata::MetadataSegment;
+
+    // Full snapshots land at generations 1/34/67/100, i.e. segment indices
+    // 0/33/66/99. Corrupting the newest two leaves the walk to reach index 33
+    // after scanning 97 generations -- past the 64-delta replay budget.
+    const COMMITS: u64 = 130;
+    const CORRUPTED: [usize; 2] = [99, 66];
+    const SURVIVING_SNAPSHOT: usize = 33;
+    // Generation `g` commits record `g - 1`, so the snapshot at generation 34
+    // carries records 0..=33 and the deltas after it reach record 65 before
+    // the damaged generation 67 truncates the chain.
+    const LAST_SERVED_RECORD: u64 = 65;
+
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("two_corrupt_snapshots.rvf");
+    commit_metadata_history(&path, COMMITS);
+
+    let mut bytes = std::fs::read(&path).unwrap();
+    let segments = meta_segments(&bytes);
+    assert_eq!(segments.len() as u64, COMMITS);
+    for index in CORRUPTED.into_iter().chain([SURVIVING_SNAPSHOT]) {
+        let (start, len) = segments[index];
+        assert!(
+            MetadataSegment::decode(&bytes[start..start + len])
+                .unwrap()
+                .full_snapshot,
+            "segment {index} must be a full snapshot for this test to mean anything"
+        );
+    }
+    for index in CORRUPTED {
+        let (start, len) = segments[index];
+        bytes[start + len / 2] ^= 0xFF;
+    }
+    std::fs::write(&path, &bytes).unwrap();
+
+    for label in ["open_readonly", "open"] {
+        let store = if label == "open" {
+            RvfStore::open(&path)
+        } else {
+            RvfStore::open_readonly(&path)
+        }
+        .unwrap_or_else(|e| {
+            panic!("[{label}] two damaged snapshots must not make the artifact unopenable: {e:?}")
+        });
+
+        assert_eq!(
+            store.metadata_recovery().generation,
+            LAST_SERVED_RECORD + 1,
+            "[{label}] the served state must stop at the generation before the second damage"
+        );
+        for i in 0..=LAST_SERVED_RECORD {
+            assert_eq!(
+                store.get_metadata(i).unwrap(),
+                expected_record(i),
+                "[{label}] record {i} is reachable from the surviving snapshot"
+            );
+        }
+        for i in LAST_SERVED_RECORD + 1..COMMITS {
+            assert!(
+                store.get_metadata(i).is_none(),
+                "[{label}] record {i} came from a dropped generation"
+            );
+        }
+    }
+
+    // Recovery must converge: the next write re-anchors the chain, and
+    // `compact()` is reachable again because open no longer fails.
+    let mut store = RvfStore::open(&path).unwrap();
+    store
+        .ingest_batch_with_metadata(&[&[99.0, 1.0]], &[900], &[record(900, "after-recovery")])
+        .unwrap();
+    store.compact().unwrap();
+    store.close().unwrap();
+
+    let reopened = RvfStore::open_readonly(&path).unwrap();
+    assert_eq!(reopened.metadata_recovery().dropped_generations, 0);
+    assert_eq!(
+        reopened.get_metadata(900).unwrap(),
+        vec![record_entry("after-recovery")]
+    );
+    assert_eq!(reopened.get_metadata(0).unwrap(), expected_record(0));
+}
+
+/// `dropped_generations` is the number the CLI prints verbatim, so it must be
+/// the real count and not merely non-zero: every generation the applied chain
+/// no longer reaches is counted once (issue #771).
+///
+/// An eight-generation chain damaged at generation 5 loses exactly four: the
+/// damaged generation itself, and generations 6, 7 and 8, which are stranded
+/// behind the gap even though each of them decodes.
+#[test]
+fn dropped_generation_count_is_exact() {
+    const COMMITS: u64 = 8;
+    const CORRUPTED: usize = 4;
+
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("exact_dropped_count.rvf");
+    commit_metadata_history(&path, COMMITS);
+
+    let mut bytes = std::fs::read(&path).unwrap();
+    let segments = meta_segments(&bytes);
+    assert_eq!(segments.len() as u64, COMMITS);
+    let (start, len) = segments[CORRUPTED];
+    bytes[start + len / 2] ^= 0xFF;
+    std::fs::write(&path, &bytes).unwrap();
+
+    let reopened = RvfStore::open_readonly(&path).unwrap();
+    let recovery = reopened.metadata_recovery();
+    assert_eq!(
+        recovery.dropped_generations, 4,
+        "generations 5, 6, 7 and 8 are all unreachable"
+    );
+    assert_eq!(recovery.generation, CORRUPTED as u64);
+    assert_eq!(recovery.dropped_records, 0);
+}
+
+/// The re-anchoring snapshot must also *prune* the generations the recovered
+/// chain no longer reaches. Convergence alone does not prove it -- the orphans
+/// sit below the new snapshot, so a walk that stops at the newest snapshot
+/// never reads them either way -- but leaving them in the segment directory
+/// means the artifact keeps reporting and carrying segments nothing can use
+/// (issue #771).
+#[test]
+fn re_anchoring_write_prunes_the_orphaned_generations() {
+    const COMMITS: u64 = 6;
+    const CORRUPTED: usize = 3;
+    // Generations 4, 5 and 6 are stranded behind the damage.
+    const ORPHANS: u32 = 3;
+
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("re_anchor_prune.rvf");
+    commit_metadata_history(&path, COMMITS);
+
+    let mut bytes = std::fs::read(&path).unwrap();
+    let (start, len) = meta_segments(&bytes)[CORRUPTED];
+    bytes[start + len / 2] ^= 0xFF;
+    std::fs::write(&path, &bytes).unwrap();
+
+    let mut store = RvfStore::open(&path).unwrap();
+    assert_eq!(
+        store.metadata_recovery().dropped_generations,
+        ORPHANS as u64
+    );
+    let before = store.status().total_segments;
+
+    // One ingest appends four segments -- VEC, META, WITNESS, MANIFEST -- and
+    // its META is the re-anchoring full snapshot that supersedes the orphans.
+    store
+        .ingest_batch_with_metadata(&[&[42.0, 1.0]], &[42], &[record(42, "re-anchor")])
+        .unwrap();
+    assert_eq!(
+        store.status().total_segments,
+        before + 4 - ORPHANS,
+        "the re-anchoring commit must drop the orphaned META entries"
+    );
+    store.close().unwrap();
+
+    // The pruning is durable: the reopened directory does not carry them back.
+    // A manifest's directory does not list the manifest segment carrying it,
+    // so the reopened count is one below the in-memory count at commit time.
+    let reopened = RvfStore::open_readonly(&path).unwrap();
+    assert_eq!(reopened.status().total_segments, before + 4 - ORPHANS - 1);
+    assert_eq!(reopened.metadata_recovery().dropped_generations, 0);
+}

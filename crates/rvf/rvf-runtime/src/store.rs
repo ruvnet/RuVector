@@ -523,10 +523,26 @@ impl RvfStore {
         let old_metadata = self.metadata.clone();
         let old_chain = self.metadata_chain;
         let old_directory = self.segment_dir.clone();
+        let old_deletion_bitmap = self.deletion_bitmap.clone();
         let old_epoch = self.epoch;
         let old_witness_hash = self.last_witness_hash;
 
-        let candidate_metadata = self.build_ingest_metadata(&metadata, &valid_ids)?;
+        // Writing an identifier makes it live again: the tombstone described
+        // the vector this batch is replacing, not the identifier itself. It is
+        // cleared before the record is built and before the generation is
+        // encoded, so the new vector is queryable, carries the metadata this
+        // batch supplies rather than the record the delete removed, and
+        // survives the next `compact()` instead of being reclaimed as dead
+        // (issue #748).
+        self.deletion_bitmap.clear_ids(&valid_ids);
+
+        let candidate_metadata = match self.build_ingest_metadata(&metadata, &valid_ids) {
+            Ok(candidate) => candidate,
+            Err(error) => {
+                self.deletion_bitmap = old_deletion_bitmap;
+                return Err(error);
+            }
+        };
         let has_metadata = !matches!(metadata, IngestMetadata::None);
 
         let writer = self
@@ -607,6 +623,7 @@ impl RvfStore {
                 self.metadata_chain = old_chain;
                 self.vectors = old_vectors;
                 self.segment_dir = old_directory;
+                self.deletion_bitmap = old_deletion_bitmap;
                 *self.index.lock().unwrap_or_else(|e| e.into_inner()) = None;
                 *self.rabitq.lock().unwrap_or_else(|e| e.into_inner()) = None;
                 return Err(error);
@@ -618,6 +635,7 @@ impl RvfStore {
             self.metadata = old_metadata;
             self.metadata_chain = old_chain;
             self.segment_dir = old_directory;
+            self.deletion_bitmap = old_deletion_bitmap;
             *self.index.lock().unwrap_or_else(|e| e.into_inner()) = None;
             *self.rabitq.lock().unwrap_or_else(|e| e.into_inner()) = None;
             return Err(err(ErrorCode::FsyncFailed));
@@ -633,6 +651,7 @@ impl RvfStore {
                 self.metadata = old_metadata;
                 self.metadata_chain = old_chain;
                 self.segment_dir = old_directory;
+                self.deletion_bitmap = old_deletion_bitmap;
                 self.epoch = old_epoch;
                 self.last_witness_hash = old_witness_hash;
                 *self.index.lock().unwrap_or_else(|e| e.into_inner()) = None;
@@ -646,6 +665,7 @@ impl RvfStore {
             self.metadata = old_metadata;
             self.metadata_chain = old_chain;
             self.segment_dir = old_directory;
+            self.deletion_bitmap = old_deletion_bitmap;
             self.epoch = old_epoch;
             self.last_witness_hash = old_witness_hash;
             *self.index.lock().unwrap_or_else(|e| e.into_inner()) = None;
@@ -1828,8 +1848,12 @@ impl RvfStore {
         self.seg_writer = Some(seg_writer);
         self.last_compaction_time = now_secs();
 
-        // Reset witness chain after compaction (the file has been rewritten).
-        self.last_witness_hash = [0u8; 32];
+        // Compaction rewrites the file but preserves every witness segment
+        // byte-for-byte, so the chain the compacted file records is the one
+        // that was there before. Re-derive the tip from it rather than
+        // restarting at genesis, or the in-memory tip disagrees with what a
+        // reopen of the same file reconstructs (issue #747).
+        self.restore_witness_chain();
 
         // Append a witness entry recording this compact operation.
         if self.options.witness.witness_compact {
@@ -2761,6 +2785,17 @@ impl RvfStore {
                 }
             }
         }
+        // A `META_SEG` declares one schema entry per field id, so live records
+        // that give one field two different value types have no encodable full
+        // snapshot. Accepting such a batch acknowledges a write that fails
+        // later, at whichever unrelated commit happens to materialize a
+        // snapshot; reject it here so the error lands on the call that caused
+        // it (issue #772). A batch that *resolves* an existing conflict --
+        // rewriting the odd record with the agreed type, or deleting it -- is
+        // still accepted, so a store already in this state can be repaired.
+        if !matches!(metadata, IngestMetadata::None) && candidate.conflicting_field().is_some() {
+            return Err(err(ErrorCode::InvalidMetadata));
+        }
         Ok(candidate)
     }
 
@@ -3179,6 +3214,36 @@ impl RvfStore {
         Ok(())
     }
 
+    /// Restore the witness chain tip from the newest `WITNESS_SEG` on file.
+    ///
+    /// The bytes [`Self::append_witness`] hashes are the segment payload
+    /// verbatim, so the tip is the digest of the newest witness payload and no
+    /// replay of the whole log is needed. Without this a reopen restarts the
+    /// chain at genesis and the next entry links to zeros instead of to the
+    /// entry that precedes it on disk, which breaks external verification of
+    /// the chain across a close (issue #747).
+    ///
+    /// A witness segment that cannot be read leaves the chain at genesis
+    /// rather than failing the open: the witness log is an audit trail beside
+    /// the committed vector and metadata state, not part of it.
+    fn restore_witness_chain(&mut self) {
+        let newest = self
+            .segment_dir
+            .iter()
+            .rev()
+            .find(|&&(_, _, _, segment_type)| segment_type == SegmentType::Witness as u8)
+            .map(|&(_, offset, _, _)| offset);
+        let payload = newest.and_then(|offset| {
+            let mut reader = BufReader::new(&self.file);
+            read_path::read_segment_payload(&mut reader, offset)
+                .ok()
+                .map(|(_, payload)| payload)
+        });
+        self.last_witness_hash = payload
+            .map(|payload| simple_shake256_256(&payload))
+            .unwrap_or([0u8; 32]);
+    }
+
     fn boot(&mut self) -> Result<(), RvfError> {
         let own_path = fs::canonicalize(&self.path).map_err(|_| err(ErrorCode::InvalidManifest))?;
         let mut ancestry = HashSet::from([own_path]);
@@ -3255,6 +3320,7 @@ impl RvfStore {
 
         self.restore_metadata()?;
         self.restore_cow_state(ancestry)?;
+        self.restore_witness_chain();
 
         // Load the most recently persisted HNSW index, if any. A stale or
         // corrupt INDEX_SEG is ignored; the index is then rebuilt from
@@ -3890,8 +3956,10 @@ impl RvfStore {
     /// consecutive valid deltas that follow it. Replay therefore serves that
     /// longest complete prefix and reports what it had to drop through
     /// [`Self::metadata_recovery`], rather than refusing to open because one
-    /// byte of one delta went bad. Only a chain with no readable snapshot at
-    /// all is an error, since then nothing committed can be reconstructed.
+    /// byte of one delta went bad. That holds for a damaged snapshot too: the
+    /// walk continues past it to the next readable one however far back that
+    /// is. Only a chain with no readable snapshot at all is an error, since
+    /// then nothing committed can be reconstructed.
     fn restore_metadata(&mut self) -> Result<(), RvfError> {
         let meta_offsets: Vec<u64> = self
             .segment_dir
@@ -3903,9 +3971,13 @@ impl RvfStore {
             return Ok(());
         }
 
-        // Walk newest-first and stop at the first full snapshot: that is the
-        // newest one, and everything older than it is superseded history.
-        // Generations that cannot be read or decoded are collected as gaps.
+        // Walk newest-first and stop at the first *readable* full snapshot:
+        // that is the newest one still usable as a base, and everything older
+        // than it is superseded history. Generations that cannot be read or
+        // decoded are collected as gaps and walked past -- a damaged snapshot
+        // must not end the search while an intact older one is still reachable.
+        // Only the decoded-byte ceiling bounds the walk, because finding out
+        // whether a generation is a snapshot requires decoding it.
         let mut decoded_bytes = 0usize;
         let mut newest_first: Vec<(u64, usize, MetadataSegment)> = Vec::new();
         let mut visited: HashSet<u64> = HashSet::new();
@@ -3913,9 +3985,6 @@ impl RvfStore {
         let mut found_snapshot = false;
 
         for &offset in meta_offsets.iter().rev() {
-            if newest_first.len() > rvf_types::metadata::MAX_META_DELTAS {
-                return Err(err(ErrorCode::MetadataReplayLimitExceeded));
-            }
             let payload = {
                 let mut reader = BufReader::new(&self.file);
                 read_path::read_segment_payload(&mut reader, offset)
@@ -3982,6 +4051,16 @@ impl RvfStore {
         // Everything after the break is unreachable too, so it is dropped as
         // well and must be counted -- the CLI reports this number verbatim.
         damaged = damaged.saturating_add(remaining.count() as u64);
+        // The replay budget bounds the work an open actually performs, so it
+        // is enforced on the chain that was applied rather than on the
+        // generations the scan walked past. Scanning stops at the newest
+        // *readable* snapshot, and damage can push that arbitrarily far back
+        // while leaving a short applied chain; charging the scan would refuse
+        // to open a file whose committed state replays in a handful of steps
+        // (issue #770).
+        if applied.len().saturating_sub(1) > rvf_types::metadata::MAX_META_DELTAS {
+            return Err(err(ErrorCode::MetadataReplayLimitExceeded));
+        }
         let latest = applied
             .last()
             .map(|segment| segment.generation)
