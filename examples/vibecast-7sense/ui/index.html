@@ -238,6 +238,7 @@
      ours, and the browser hands them over. */
   #manifold { cursor: grab; aspect-ratio: 1 / 1; touch-action: pan-y; }
   #radar { aspect-ratio: 62 / 30; }
+  #spectro { aspect-ratio: 5 / 2; }
   #track { aspect-ratio: 62 / 22; }
   #manifold:active { cursor: grabbing; }
   #manifold:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
@@ -328,6 +329,74 @@
     color: var(--ink-faint);
   }
 
+  /* ── Identification ───────────────────────────────────────────────────── */
+  .verdict {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  .verdict-name {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 19px;
+    color: var(--ink);
+  }
+  .verdict-name.unknown {
+    color: var(--warn);
+    font-style: normal;
+    font-family: var(--sans);
+    font-size: 16px;
+  }
+  .verdict-meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .candidate {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 3px 10px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+  }
+  .candidate-name { font-family: var(--serif); font-style: italic; }
+  .candidate-score {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-soft);
+  }
+  /* The bar encodes the same number as the text beside it: one value you can
+     compare at a glance, one you can quote. */
+  .bar {
+    grid-column: 1 / -1;
+    height: 3px;
+    background: var(--panel-sunk);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .bar > i { display: block; height: 100%; background: var(--accent); }
+
+  .evidence {
+    padding: 9px 14px 11px;
+    border-top: 1px solid var(--line);
+    background: var(--panel-sunk);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    line-height: 1.9;
+  }
+  .evidence b { color: var(--ink-soft); font-weight: 600; }
+
+  .flags { display: flex; gap: 6px; flex-wrap: wrap; }
+
   /* ── Segments table ───────────────────────────────────────────────────── */
   .scroll { overflow-x: auto; }
   table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
@@ -359,6 +428,7 @@
   }
   .pill.ok    { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--good); }
   .pill.trunc { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warn); }
+  .pill.bad   { background: color-mix(in srgb, var(--crit) 18%, transparent); color: var(--crit); }
 
   /* ── Status strip ─────────────────────────────────────────────────────── */
   .status {
@@ -451,8 +521,9 @@
       <h1 class="wordmark">7sense <em>acoustic manifold</em></h1>
       <p class="standfirst">
         Synthesised vocalisations are analysed by the real Rust pipeline compiled to
-        WebAssembly — spectral descriptors, incremental segmentation, and a PCA
-        projection all run in this page. Nothing is precomputed.
+        WebAssembly — mel spectrograms, spectral descriptors, incremental
+        segmentation, nearest-neighbour identification, and the projection all run
+        in this page. Nothing is precomputed.
       </p>
     </div>
     <div class="build-tag">
@@ -466,11 +537,14 @@
     <span class="eyebrow">Corpus</span>
     <button id="btn-run" class="primary">Regenerate &amp; analyse</button>
     <button id="btn-spin" aria-pressed="true">Rotation</button>
+    <button id="btn-geometry" data-mode="pca">Euclidean</button>
     <span class="eyebrow" style="margin-left:auto">Colour</span>
     <button id="btn-colour" data-mode="centroid">Spectral centroid</button>
   </div>
 
   <div class="stage">
+
+    <div class="col">
 
     <section class="panel">
       <header>
@@ -490,7 +564,28 @@
       </div>
     </section>
 
+    <section class="panel">
+      <header>
+        <h2>Spectrogram</h2>
+        <span class="note" id="spectro-note">mel · 64 bands</span>
+      </header>
+      <div class="canvas-wrap">
+        <canvas id="spectro" width="1100" height="440"
+                role="img" aria-label="Mel spectrogram of the selected call"></canvas>
+      </div>
+    </section>
+
+    </div>
+
     <div class="col">
+
+      <section class="panel">
+        <header>
+          <h2>Identification</h2>
+          <span class="note">k-NN · open set</span>
+        </header>
+        <div id="ident"></div>
+      </section>
 
       <section class="panel">
         <header>
@@ -503,6 +598,7 @@
       <section class="panel">
         <header>
           <h2>Selected call</h2>
+          <span class="flags" id="sel-flags"></span>
           <span class="note selected-title" id="sel-name">—</span>
         </header>
         <dl class="readout" id="sel-readout"></dl>
@@ -553,12 +649,22 @@
   <p class="footnote">
     Each call is synthesised at 32 kHz, then handed to
     <code>analyze_summary</code> for a twelve-dimensional descriptor vector,
-    <code>detect_segments</code> for onset and offset boundaries, and
-    <code>project_pca</code> to place it in three dimensions. Position therefore
-    reflects measured acoustic structure rather than the label — archetypes
-    separate because they genuinely differ, not because they were told to.
-    Explained variance is reported above the plot: three components never capture
-    everything, and the figure says how much they miss.
+    <code>detect_segments</code> for boundaries, <code>compute_spectrogram</code>
+    for the mel view, and <code>project_pca</code> to place it in three
+    dimensions. The descriptors carry different units — centroid is thousands of
+    hertz, tonality is a ratio — so they are standardised before projection and
+    retrieval; without that, frequency alone would dominate every distance.
+    Position therefore reflects measured structure rather than the label:
+    archetypes separate because they genuinely differ.
+    <br><br>
+    Identification is <code>knn_search</code> against the rest of the corpus, not
+    a classifier. Perch emits embeddings rather than logits, and retrieval is
+    open set — a call unlike anything indexed is reported as unknown instead of
+    being forced into the nearest class. Votes are weighted by distance, so a few
+    close matches outrank many mediocre ones, and the neighbours that produced
+    each verdict are listed so it can be checked. Explained variance sits above
+    the plot: three components never capture everything, and the figure says how
+    much they miss.
   </p>
 
 </div>
@@ -574,6 +680,13 @@ const WASM_BASE64 = "%%WASM_BASE64%%";
 const SR = 32000;
 const FRAME_STRIDE = 10;
 const SEG_STRIDE = 6;
+const NEIGHBOUR_STRIDE = 2;
+const SPECTRO_MELS = 64;
+const SPECTRO_HOP = 256;
+// ADR-013 sets k = 25. With 21 same-archetype references available, this
+// forces genuine competition into the candidate list rather than a trivial
+// unanimous vote.
+const KNN_K = 25;
 
 /* ── Boot ──────────────────────────────────────────────────────────────── */
 function decodeBase64(b64) {
@@ -712,9 +825,37 @@ function synthesise(archetype, seed) {
   return out;
 }
 
+/* Z-scores each descriptor across the corpus.
+   The twelve descriptors carry different units -- centroid is thousands of Hz,
+   tonality is 0-1 -- so raw vectors let frequency dominate every distance and
+   every principal component. Standardising gives each descriptor equal say,
+   which is what makes both the projection and the k-NN meaningful. */
+function standardize(vectors) {
+  const n = vectors.length;
+  const dim = vectors[0].length;
+  const mean = new Float64Array(dim);
+  const sd = new Float64Array(dim);
+
+  for (const v of vectors) for (let d = 0; d < dim; d++) mean[d] += v[d];
+  for (let d = 0; d < dim; d++) mean[d] /= n;
+  for (const v of vectors) for (let d = 0; d < dim; d++) sd[d] += (v[d] - mean[d]) ** 2;
+  for (let d = 0; d < dim; d++) sd[d] = Math.sqrt(sd[d] / n);
+
+  return vectors.map(v => {
+    const out = new Float32Array(dim);
+    // A descriptor with no spread carries no information; zero it rather than
+    // dividing by ~0 and manufacturing a huge value.
+    for (let d = 0; d < dim; d++) out[d] = sd[d] > 1e-6 ? (v[d] - mean[d]) / sd[d] : 0;
+    return out;
+  });
+}
+
 /* ── Analysis ──────────────────────────────────────────────────────────── */
 const CALLS_PER_ARCHETYPE = 22;
 let corpus = [];
+let standardized = [];
+let featureMatrix = new Float32Array(0);
+let featureDim = 0;
 let projection = [];
 let variance = [0, 0, 0];
 let selected = 0;
@@ -753,24 +894,34 @@ function analyseCorpus(baseSeed) {
     }
   });
 
-  // Project the descriptor vectors. The trailing record holds explained
-  // variance, so it is stripped before the coordinates are used.
-  const dim = corpus[0].summary.length;
-  const flat = new Float32Array(corpus.length * dim);
-  corpus.forEach((c, i) => flat.set(c.summary, i * dim));
+  // Standardise once; both the projection and the k-NN read these.
+  featureDim = corpus[0].summary.length;
+  standardized = standardize(corpus.map(c => c.summary));
+  featureMatrix = new Float32Array(corpus.length * featureDim);
+  standardized.forEach((v, i) => featureMatrix.set(v, i * featureDim));
 
-  const ptr = wasm.alloc_f32(flat.length);
-  new Float32Array(wasm.memory.buffer, ptr, flat.length).set(flat);
-  const records = wasm.project_pca(ptr, corpus.length, dim, 3, 42);
+  computeProjection();
+  return performance.now() - started;
+}
+
+/* Projects the standardised corpus. The trailing record holds explained
+   variance, so it is stripped before the coordinates are used. */
+function computeProjection() {
+  const mode = document.getElementById('btn-geometry').dataset.mode;
+  const n = corpus.length;
+  const ptr = wasm.alloc_f32(featureMatrix.length);
+  new Float32Array(wasm.memory.buffer, ptr, featureMatrix.length).set(featureMatrix);
+
+  const records = mode === 'poincare'
+    ? wasm.project_poincare(ptr, n, featureDim, 3, 42, 1.1)
+    : wasm.project_pca(ptr, n, featureDim, 3, 42);
   const raw = readOut();
-  wasm.dealloc_f32(ptr, flat.length);
+  wasm.dealloc_f32(ptr, featureMatrix.length);
 
   if (records > 0) {
     projection = corpus.map((_, i) => [raw[i * 3], raw[i * 3 + 1], raw[i * 3 + 2]]);
-    variance = [raw[corpus.length * 3], raw[corpus.length * 3 + 1], raw[corpus.length * 3 + 2]];
+    variance = [raw[n * 3], raw[n * 3 + 1], raw[n * 3 + 2]];
   }
-
-  return performance.now() - started;
 }
 
 /* Per-frame descriptors, computed lazily for the selected call only. */
@@ -793,6 +944,172 @@ function framesFor(call) {
   });
   call._frames = frames;
   return frames;
+}
+
+/* Identifies the selected call by retrieval, not classification.
+   ADR-013: Perch emits embeddings rather than logits, and retrieval is
+   open-set -- a call unlike anything indexed comes back as distant neighbours
+   instead of being forced into the nearest class. */
+function identify(index) {
+  const n = corpus.length;
+  if (n < 2) return null;
+
+  // Every other call acts as the labelled reference index. The query itself is
+  // excluded, or it would trivially match itself at distance zero.
+  const refIndices = [];
+  const refs = new Float32Array((n - 1) * featureDim);
+  let cursor = 0;
+  for (let i = 0; i < n; i++) {
+    if (i === index) continue;
+    refs.set(standardized[i], cursor * featureDim);
+    refIndices.push(i);
+    cursor++;
+  }
+
+  const qPtr = wasm.alloc_f32(featureDim);
+  new Float32Array(wasm.memory.buffer, qPtr, featureDim).set(standardized[index]);
+  const rPtr = wasm.alloc_f32(refs.length);
+  new Float32Array(wasm.memory.buffer, rPtr, refs.length).set(refs);
+
+  const count = wasm.knn_search(qPtr, rPtr, refIndices.length, featureDim, KNN_K);
+  const raw = readOut();
+  wasm.dealloc_f32(qPtr, featureDim);
+  wasm.dealloc_f32(rPtr, refs.length);
+  if (count <= 0) return null;
+
+  const neighbours = [];
+  for (let i = 0; i < count; i++) {
+    const refIdx = refIndices[raw[i * NEIGHBOUR_STRIDE]];
+    neighbours.push({ index: refIdx, distance: raw[i * NEIGHBOUR_STRIDE + 1], call: corpus[refIdx] });
+  }
+
+  // Distance-weighted vote. Counting neighbours unweighted lets many mediocre
+  // matches outrank a few excellent ones, which is wrong whenever the
+  // reference set is unbalanced -- and reference sets always are.
+  const SIGMA = 0.35;
+  const tally = new Map();
+  for (const nb of neighbours) {
+    const weight = Math.exp(-(nb.distance ** 2) / (2 * SIGMA * SIGMA));
+    const key = nb.call.ai;
+    const entry = tally.get(key) || { ai: key, weight: 0, count: 0, minDistance: Infinity };
+    entry.weight += weight;
+    entry.count += 1;
+    entry.minDistance = Math.min(entry.minDistance, nb.distance);
+    tally.set(key, entry);
+  }
+
+  const total = [...tally.values()].reduce((a, e) => a + e.weight, 0) || 1;
+  const candidates = [...tally.values()]
+    .map(e => ({ ...e, score: e.weight / total, archetype: ARCHETYPES[e.ai] }))
+    .sort((a, b) => b.score - a.score);
+
+  const nearest = neighbours[0].distance;
+  const unknown = nearest > wasm.unknown_threshold();
+
+  return { candidates, neighbours, nearest, unknown };
+}
+
+function renderIdentification(index) {
+  const host = document.getElementById('ident');
+  const result = identify(index);
+  if (!result) { host.innerHTML = ''; return; }
+
+  const top = result.candidates[0];
+  const verdict = result.unknown
+    ? `<span class="verdict-name unknown">Unknown — no close reference</span>`
+    : `<span class="verdict-name">${top.archetype.name}</span>`;
+
+  const rows = result.candidates.slice(0, 4).map(c => `
+    <div class="candidate">
+      <span class="candidate-name">${c.archetype.name}</span>
+      <span class="candidate-score">${(c.score * 100).toFixed(0)}% · ${c.count}/${KNN_K} · d=${c.minDistance.toFixed(3)}</span>
+      <span class="bar"><i style="width:${(c.score * 100).toFixed(1)}%"></i></span>
+    </div>`).join('');
+
+  // Evidence is not optional: it is what makes the result checkable.
+  const evidence = result.neighbours.slice(0, 3).map(nb =>
+    `<b>${nb.call.archetype.label}</b> #${nb.index} · d=${nb.distance.toFixed(3)}`
+  ).join('<br>');
+
+  host.innerHTML = `
+    <div class="verdict">
+      ${verdict}
+      <span class="verdict-meta">nearest d=${result.nearest.toFixed(3)} · reject &gt;${wasm.unknown_threshold().toFixed(2)}</span>
+    </div>
+    ${rows}
+    <div class="evidence"><b>Nearest references</b><br>${evidence}</div>`;
+}
+
+/* ── Spectrogram ───────────────────────────────────────────────────────────
+   Painted through ImageData at the spectrogram's native resolution, then
+   scaled up. Drawing 64 x ~250 cells as individual rects would be far slower
+   and no sharper. */
+const spectro = document.getElementById('spectro');
+const sctx = spectro.getContext('2d');
+const spectroBuffer = document.createElement('canvas');
+const sbctx = spectroBuffer.getContext('2d');
+
+function drawSpectrogram(call) {
+  const k = fitCanvas(spectro);
+  sctx.clearRect(0, 0, spectro.width, spectro.height);
+  if (!call) return;
+
+  const frames = withSamples(call.samples, (ptr, len) =>
+    wasm.compute_spectrogram(ptr, len, SR, SPECTRO_MELS, SPECTRO_HOP));
+  if (frames <= 0) return;
+  const data = readOut();
+
+  spectroBuffer.width = frames;
+  spectroBuffer.height = SPECTRO_MELS;
+  const image = sbctx.createImageData(frames, SPECTRO_MELS);
+
+  for (let row = 0; row < SPECTRO_MELS; row++) {
+    // Mel band 0 is the lowest frequency; canvas row 0 is the top, so the
+    // rows are flipped to put high frequencies where a reader expects them.
+    const y = SPECTRO_MELS - 1 - row;
+    for (let col = 0; col < frames; col++) {
+      const value = data[row * frames + col];
+      const [r, g, b] = viridis(value);
+      const o = (y * frames + col) * 4;
+      image.data[o] = r; image.data[o + 1] = g; image.data[o + 2] = b; image.data[o + 3] = 255;
+    }
+  }
+  sbctx.putImageData(image, 0, 0);
+
+  const pad = { l: 40 * k, b: 20 * k, t: 4 * k, r: 4 * k };
+  const plotW = spectro.width - pad.l - pad.r;
+  const plotH = spectro.height - pad.t - pad.b;
+
+  sctx.imageSmoothingEnabled = true;
+  sctx.drawImage(spectroBuffer, pad.l, pad.t, plotW, plotH);
+
+  sctx.font = `${(10 * k).toFixed(1)}px ` + css('--mono');
+  sctx.fillStyle = css('--ink-faint');
+  sctx.textAlign = 'right';
+  sctx.textBaseline = 'middle';
+
+  // Bands are evenly spaced in mel, so a tick's vertical position is its mel
+  // fraction, not its frequency fraction. Labelling linearly put a 6 kHz trill
+  // on the 12 kHz gridline.
+  const toMel = hz => 2595 * Math.log10(1 + hz / 700);
+  const fMax = Math.min(SR / 2, 16000);
+  const melMin = toMel(0);
+  const melSpan = toMel(fMax) - melMin;
+  for (const hz of [0, 1000, 2000, 4000, 8000, 16000]) {
+    if (hz > fMax) continue;
+    const p = (toMel(hz) - melMin) / melSpan;
+    const y = pad.t + plotH * (1 - p);
+    sctx.fillText(hz >= 1000 ? `${hz / 1000}k` : '0', pad.l - 6 * k, y);
+  }
+  sctx.textAlign = 'left';
+  sctx.textBaseline = 'alphabetic';
+  const durationMs = (call.samples.length / SR) * 1000;
+  sctx.fillText('0 ms', pad.l, spectro.height - 6 * k);
+  sctx.textAlign = 'right';
+  sctx.fillText(`${Math.round(durationMs)} ms`, spectro.width - pad.r, spectro.height - 6 * k);
+
+  document.getElementById('spectro-note').textContent =
+    `mel · ${SPECTRO_MELS} bands · ${frames} frames`;
 }
 
 /* ── Colour ────────────────────────────────────────────────────────────────
@@ -1123,6 +1440,18 @@ function renderSelection() {
 
   document.getElementById('sel-name').textContent = call.archetype.name;
 
+  const quality = withSamples(call.samples, (ptr, len) => {
+    if (wasm.quality_flags(ptr, len, SR) < 0) return null;
+    return readOut();
+  });
+  const flags = [];
+  if (quality) {
+    if (quality[0] > 0.5) flags.push('<span class="pill bad">noise</span>');
+    if (quality[1] > 0.5) flags.push('<span class="pill bad">clipped</span>');
+    if (!flags.length) flags.push('<span class="pill ok">passes gate</span>');
+  }
+  document.getElementById('sel-flags').innerHTML = flags.join('');
+
   document.getElementById('sel-readout').innerHTML = [
     ['centroid', fmt(s[0] / 1000, 2), 'kHz'],
     ['spread',   fmt(s[2] / 1000, 2), 'kHz'],
@@ -1150,6 +1479,8 @@ function renderSelection() {
 
   drawRadar(call);
   drawTrack(call);
+  drawSpectrogram(call);
+  renderIdentification(selected);
   drawManifold();
 }
 
@@ -1196,9 +1527,15 @@ function renderStatus(elapsedMs) {
   document.getElementById('st-windows').textContent = stats ? stats[0] : '—';
   document.getElementById('st-dropped').textContent = stats ? stats[4] : '—';
 
-  document.getElementById('variance-note').textContent =
-    `PC1 ${(variance[0] * 100).toFixed(0)}% · PC2 ${(variance[1] * 100).toFixed(0)}% · PC3 ${(variance[2] * 100).toFixed(0)}%`;
+  renderVarianceNote();
   document.getElementById('tag-timing').textContent = `${elapsedMs.toFixed(0)} ms analysis`;
+}
+
+function renderVarianceNote() {
+  const mode = document.getElementById('btn-geometry').dataset.mode;
+  const pcs = `PC1 ${(variance[0] * 100).toFixed(0)}% · PC2 ${(variance[1] * 100).toFixed(0)}% · PC3 ${(variance[2] * 100).toFixed(0)}%`;
+  document.getElementById('variance-note').textContent =
+    mode === 'poincare' ? `Poincaré ball · ${pcs}` : pcs;
 }
 
 function renderRamp() {
@@ -1270,6 +1607,15 @@ document.getElementById('btn-spin').addEventListener('click', (e) => {
   e.currentTarget.setAttribute('aria-pressed', String(spinning));
 });
 
+document.getElementById('btn-geometry').addEventListener('click', (e) => {
+  const next = e.currentTarget.dataset.mode === 'pca' ? 'poincare' : 'pca';
+  e.currentTarget.dataset.mode = next;
+  e.currentTarget.textContent = next === 'poincare' ? 'Hyperbolic' : 'Euclidean';
+  computeProjection();
+  renderVarianceNote();
+  drawManifold();
+});
+
 document.getElementById('btn-colour').addEventListener('click', (e) => {
   const modes = ['centroid', 'tonality', 'energy'];
   const labels = { centroid: 'Spectral centroid', tonality: 'Tonality', energy: 'Energy' };
@@ -1295,7 +1641,12 @@ let resizeTimer = null;
 addEventListener('resize', () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
-    if (corpus.length) { drawRadar(corpus[selected]); drawTrack(corpus[selected]); drawManifold(); }
+    if (corpus.length) {
+      drawRadar(corpus[selected]);
+      drawTrack(corpus[selected]);
+      drawSpectrogram(corpus[selected]);
+      drawManifold();
+    }
   }, 120);
 });
 

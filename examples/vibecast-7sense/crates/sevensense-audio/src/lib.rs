@@ -18,7 +18,13 @@
 //!
 //! ## Example Usage
 //!
+//! The full pipeline below needs the `full` feature, which is on by default.
+//! Without it the crate still provides [`features`] and [`streaming`], which are
+//! pure computation and build for `wasm32-unknown-unknown`.
+//!
 //! ```rust,no_run
+//! # #[cfg(feature = "full")]
+//! # mod example {
 //! use sevensense_audio::application::AudioIngestionService;
 //! use sevensense_audio::infrastructure::{SymphoniaFileReader, RubatoResampler, EnergySegmenter};
 //! use std::path::Path;
@@ -41,6 +47,7 @@
 //! println!("Found {} call segments", segments.len());
 //! # Ok(())
 //! # }
+//! # }
 //! ```
 
 #![warn(missing_docs)]
@@ -58,8 +65,6 @@ pub mod domain;
 /// File decoding, resampling, and offline segmentation. Requires `full`.
 #[cfg(feature = "full")]
 pub mod infrastructure;
-/// Mel spectrograms for model input. Requires the `full` feature.
-#[cfg(feature = "full")]
 pub mod spectrogram;
 
 // Re-export main types
@@ -74,7 +79,6 @@ pub use features::{
     AcousticFeatures, FeatureConfig, FeatureExtractor, FeatureSummary, ModulationFeatures,
     SpectralFrame,
 };
-#[cfg(feature = "full")]
 pub use spectrogram::{MelSpectrogram, SpectrogramConfig};
 pub use streaming::{
     AnalysisWindow, AudioSource, MemorySource, RingBuffer, StreamConfig, StreamPipeline,

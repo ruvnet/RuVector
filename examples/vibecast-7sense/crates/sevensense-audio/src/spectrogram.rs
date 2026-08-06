@@ -4,6 +4,7 @@
 //! and mel-scale filterbanks, producing features suitable for ML models.
 
 use ndarray::{Array2, Axis};
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use realfft::RealFftPlanner;
 use std::f32::consts::PI;
@@ -212,45 +213,47 @@ impl MelSpectrogram {
         }
 
         let n_bins = n_fft / 2 + 1;
-        let mut planner = RealFftPlanner::<f32>::new();
-        let fft = planner.plan_fft_forward(n_fft);
+        // Planned once and shared. `RealToComplex` is Sync and `process_with_scratch`
+        // takes &self, so every frame can use this plan -- previously a fresh
+        // planner was constructed inside the loop, paying FFT planning cost per
+        // frame instead of once per call.
+        let fft = RealFftPlanner::<f32>::new().plan_fft_forward(n_fft);
 
         // Pre-compute Hann window
         let window: Vec<f32> = (0..n_fft)
             .map(|i| 0.5 * (1.0 - (2.0 * PI * i as f32 / n_fft as f32).cos()))
             .collect();
 
-        // Compute STFT frames in parallel
-        let frames: Vec<Vec<f32>> = (0..n_frames)
-            .into_par_iter()
-            .map(|frame_idx| {
-                let start = frame_idx * hop_length;
-                let mut input = vec![0.0f32; n_fft];
+        let compute_frame = |frame_idx: usize| -> Vec<f32> {
+            let start = frame_idx * hop_length;
+            let mut input = vec![0.0f32; n_fft];
 
-                // Copy and window the input
-                for (i, &w) in window.iter().enumerate() {
-                    if start + i < samples.len() {
-                        input[i] = samples[start + i] * w;
-                    }
+            // Copy and window the input
+            for (i, &w) in window.iter().enumerate() {
+                if start + i < samples.len() {
+                    input[i] = samples[start + i] * w;
                 }
+            }
 
-                // Perform FFT
-                let mut spectrum = fft.make_output_vec();
-                let mut scratch = fft.make_scratch_vec();
+            // Scratch is per-frame; the plan itself is shared.
+            let mut spectrum = fft.make_output_vec();
+            let mut scratch = fft.make_scratch_vec();
+            fft.process_with_scratch(&mut input, &mut spectrum, &mut scratch)
+                .ok();
 
-                // Clone fft for thread safety
-                let fft = RealFftPlanner::<f32>::new().plan_fft_forward(n_fft);
-                fft.process_with_scratch(&mut input, &mut spectrum, &mut scratch)
-                    .ok();
+            spectrum
+                .iter()
+                .take(n_bins)
+                .map(|c| (c.re * c.re + c.im * c.im).sqrt())
+                .collect()
+        };
 
-                // Compute magnitude spectrum
-                spectrum
-                    .iter()
-                    .take(n_bins)
-                    .map(|c| (c.re * c.re + c.im * c.im).sqrt())
-                    .collect()
-            })
-            .collect();
+        // wasm32 has no threads without the atomics proposal, so the parallel
+        // path is a feature rather than an assumption.
+        #[cfg(feature = "parallel")]
+        let frames: Vec<Vec<f32>> = (0..n_frames).into_par_iter().map(compute_frame).collect();
+        #[cfg(not(feature = "parallel"))]
+        let frames: Vec<Vec<f32>> = (0..n_frames).map(compute_frame).collect();
 
         // Assemble into 2D array
         let mut stft = Array2::zeros((n_bins, n_frames));
@@ -340,10 +343,20 @@ impl SpectrogramBatch {
         segments: &[Vec<f32>],
         config: &SpectrogramConfig,
     ) -> Result<Vec<MelSpectrogram>, AudioError> {
-        segments
-            .par_iter()
-            .map(|samples| MelSpectrogram::compute(samples, config.clone()))
-            .collect()
+        #[cfg(feature = "parallel")]
+        {
+            segments
+                .par_iter()
+                .map(|samples| MelSpectrogram::compute(samples, config.clone()))
+                .collect()
+        }
+        #[cfg(not(feature = "parallel"))]
+        {
+            segments
+                .iter()
+                .map(|samples| MelSpectrogram::compute(samples, config.clone()))
+                .collect()
+        }
     }
 }
 

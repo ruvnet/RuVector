@@ -17,6 +17,7 @@ tracing = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
 realfft = "3.3"
+ndarray = { workspace = true }
 
 # Native-only: async orchestration, file decoding, and the offline pipeline.
 # Gated behind the `full` feature so a browser build can opt out.
@@ -26,7 +27,6 @@ async-trait = { workspace = true, optional = true }
 hound = { workspace = true, optional = true }
 symphonia = { workspace = true, optional = true }
 rubato = { workspace = true, optional = true }
-ndarray = { workspace = true, optional = true }
 rayon = { version = "1.10", optional = true }
 
 [dev-dependencies]
@@ -47,12 +47,15 @@ default = ["full"]
 # offline segmentation, and the async ingestion service. Disabling it leaves
 # `features` and `streaming`, which are pure computation and build for wasm.
 full = [
+    "parallel",
     "dep:sevensense-core",
     "dep:tokio",
     "dep:async-trait",
     "dep:hound",
     "dep:symphonia",
     "dep:rubato",
-    "dep:ndarray",
-    "dep:rayon",
 ]
+
+# Multi-threaded STFT via rayon. Off for wasm32, which has no threads without
+# the atomics proposal; the sequential path produces identical output.
+parallel = ["dep:rayon"]
