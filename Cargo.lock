@@ -9021,6 +9021,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-cluster-rag"
+version = "2.3.0"
+
+[[package]]
 name = "ruvector-cnn"
 version = "2.3.0"
 dependencies = [
