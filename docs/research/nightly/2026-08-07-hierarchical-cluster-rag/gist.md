@@ -4,8 +4,8 @@
 
 A RAPTOR-inspired approach to fast, practical agent memory retrieval. All code is Rust, all benchmarks are real.
 
-GitHub: https://github.com/ruvnet/ruvector  
-Research branch: `research/nightly/2026-08-07-hierarchical-cluster-rag`  
+GitHub: https://github.com/ruvnet/ruvector
+Research branch: `research/nightly/2026-08-07-hierarchical-cluster-rag`
 Crate: `ruvector-cluster-rag`
 
 Decision record: [ADR-300](../../../adr/ADR-300-hierarchical-cluster-rag.md).
@@ -136,7 +136,7 @@ graph LR
 
 ## Benchmark results
 
-All numbers from `cargo run --release -p ruvector-cluster-rag --bin benchmark`.  
+All numbers from `cargo run --release -p ruvector-cluster-rag --bin benchmark`.
 Platform: x86_64 Linux, release build, 2026-08-08.
 No aspirational values; no invented competitor numbers.
 
@@ -150,9 +150,9 @@ Config: N=10000, DIM=128, NQ=500, K=10, K_CLUSTERS=40, NPROBE=20, LAMBDA=0.70
 | ClusterSearch | 10K | 128 | 500 | 330.9 | 304.9 | 447.2 | 3022 | 5.0 MB | 0.778 | ✅ PASS |
 | CoherenceTree | 10K | 128 | 500 | 336.4 | 309.7 | 469.1 | 2972 | 5.0 MB | 0.775 | ✅ PASS |
 
-**Hardware**: x86_64 Linux (cloud CI)  
-**OS**: linux  
-**Rust**: release profile, `cargo run --release`  
+**Hardware**: x86_64 Linux (cloud CI)
+**OS**: linux
+**Rust**: release profile, `cargo run --release`
 **Cargo command**: `cargo run --release -p ruvector-cluster-rag --bin benchmark`
 
 **Notes**:
@@ -206,7 +206,7 @@ RuVector's differentiator in this crate: Rust, zero dependencies, WASM-ready, co
 | RVM coherence domains | Each RVM domain maps to a cluster; cross-domain queries trigger explicit routing | RVM integration, domain coherence metrics | CoherenceTree with domain-gated nprobe | Combinatorial explosion in multi-domain queries |
 | Self-healing memory graph | Cohesion decay triggers autonomous re-clustering; stale clusters are evicted | ruFlo loop + cohesion monitoring | CoherenceTree + temporal-coherence + ruFlo | Re-clustering disrupts in-flight queries |
 | Bio-signal memory | Physiological sensor embeddings cluster by mental state; memory retrieval conditioned on current state | Multi-modal embedding, hardware sensor input | State-conditioned nprobe selection | Privacy, sensor calibration drift |
-| Swarm memory partitioning | Each agent in a swarm owns a cluster; global queries fan out to the relevant subset of agents | Multi-agent coordination protocol | Distributed ClusterTree with agent-scoped inverted lists | Network partition, quorum | 
+| Swarm memory partitioning | Each agent in a swarm owns a cluster; global queries fan out to the relevant subset of agents | Multi-agent coordination protocol | Distributed ClusterTree with agent-scoped inverted lists | Network partition, quorum |
 | Proof-gated cluster insert | New memories require cryptographic witness before entering a cluster | ruvector-proof-gate, witness log | ClusterTree with signed insert | Performance overhead of signature verification |
 | Dynamic world model shards | Agent world model partitioned semantically; each shard updated on independent cycle | World model embedding, semantic sharding | CoherenceTree over world-state vectors | Shard boundary ambiguity |
 | Space autonomy | Rover accumulates terrain observation embeddings; spatial queries retrieve nearby observations without ground link | Embedded Rust, WASM, no-std | ruvector-cluster-rag in no-std mode | Radiation, limited compute |

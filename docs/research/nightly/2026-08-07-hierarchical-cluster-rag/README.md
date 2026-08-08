@@ -20,7 +20,7 @@ Three variants are benchmarked on a deterministic synthetic corpus (n=10,000, di
 | ClusterSearch | **330.9** | **304.9** | **447.2** | **3022** | **5.0 MB** | **0.778** |
 | CoherenceTree | 336.4 | 309.7 | 469.1 | 2972 | 5.0 MB | 0.775 |
 
-Platform: x86_64 Linux, release build.  
+Platform: x86_64 Linux, release build.
 Config: k_clusters=40, nprobe=20 (50% of clusters), lambda=0.70.
 
 ---
