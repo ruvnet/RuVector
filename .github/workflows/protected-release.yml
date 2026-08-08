@@ -1,0 +1,315 @@
+name: Protected npm Core Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Full immutable main-branch SHA to publish
+        required: true
+        type: string
+      platform_version:
+        description: Platform package version
+        required: true
+        type: string
+      core_version:
+        description: '@ruvector/core version'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: protected-npm-core-release
+  cancel-in-progress: false
+
+env:
+  PLATFORM_VERSION: ${{ inputs.platform_version }}
+  CORE_VERSION: ${{ inputs.core_version }}
+  EXPECTED_SHA: ${{ inputs.expected_sha }}
+
+jobs:
+  seal:
+    name: Seal exact npm artifacts
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.expected_sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          registry-url: https://registry.npmjs.org
+
+      - name: Bind candidate identity
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(git rev-parse origin/main)" = "$EXPECTED_SHA"
+          test "${#EXPECTED_SHA}" = 40
+          test "$(git status --porcelain)" = ""
+          test "$(node -p "require('./npm/packages/core/package.json').version")" = "$CORE_VERSION"
+          for manifest in npm/core/platforms/*/package.json; do
+            test "$(node -p "require('./$manifest').version")" = "$PLATFORM_VERSION"
+          done
+
+      - name: Pack immutable artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p release-evidence/sealed
+          for directory in \
+            npm/core/platforms/linux-x64-gnu \
+            npm/core/platforms/linux-arm64-gnu \
+            npm/core/platforms/darwin-x64 \
+            npm/core/platforms/darwin-arm64 \
+            npm/core/platforms/win32-x64-msvc \
+            npm/packages/core; do
+            npm pack "./$directory" --pack-destination release-evidence/sealed --json >/dev/null
+          done
+          test "$(find release-evidence/sealed -name '*.tgz' -type f | wc -l)" = 6
+          (cd release-evidence/sealed && sha256sum ./*.tgz | sort > SHA256SUMS)
+          cp npm/packages/core/test.js release-evidence/core.test.js
+          node -e '
+            const fs = require("fs");
+            const receipt = {
+              schemaVersion: 1,
+              sha: process.env.EXPECTED_SHA,
+              dirty: false,
+              platformVersion: process.env.PLATFORM_VERSION,
+              coreVersion: process.env.CORE_VERSION,
+              artifacts: fs.readFileSync("release-evidence/sealed/SHA256SUMS", "utf8").trim().split("\n")
+            };
+            fs.writeFileSync("release-evidence/candidate-receipt.json", JSON.stringify(receipt, null, 2) + "\n");
+          '
+
+      - name: Refuse conflicting registry bytes
+        run: |
+          set -euo pipefail
+          packages=(
+            "ruvector-core-linux-x64-gnu@$PLATFORM_VERSION"
+            "ruvector-core-linux-arm64-gnu@$PLATFORM_VERSION"
+            "ruvector-core-darwin-x64@$PLATFORM_VERSION"
+            "ruvector-core-darwin-arm64@$PLATFORM_VERSION"
+            "ruvector-core-win32-x64-msvc@$PLATFORM_VERSION"
+            "@ruvector/core@$CORE_VERSION"
+          )
+          files=(
+            "ruvector-core-linux-x64-gnu-$PLATFORM_VERSION.tgz"
+            "ruvector-core-linux-arm64-gnu-$PLATFORM_VERSION.tgz"
+            "ruvector-core-darwin-x64-$PLATFORM_VERSION.tgz"
+            "ruvector-core-darwin-arm64-$PLATFORM_VERSION.tgz"
+            "ruvector-core-win32-x64-msvc-$PLATFORM_VERSION.tgz"
+            "ruvector-core-$CORE_VERSION.tgz"
+          )
+          existing_dir="$(mktemp -d)"
+          for index in "${!packages[@]}"; do
+            package="${packages[$index]}"
+            if url="$(npm view "$package" dist.tarball 2>/dev/null)"; then
+              curl --fail --location "$url" --output "$existing_dir/${files[$index]}"
+              cmp "$existing_dir/${files[$index]}" "release-evidence/sealed/${files[$index]}" || {
+                echo "::error::$package exists with bytes that do not match this candidate"
+                exit 1
+              }
+              echo "$package already has the exact sealed bytes; a retry may safely skip it"
+            fi
+          done
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sealed-core-npm-${{ inputs.expected_sha }}
+          path: release-evidence
+          if-no-files-found: error
+          retention-days: 90
+
+  runtime-grader:
+    name: Runtime grader (100 required)
+    needs: seal
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: sealed-core-npm-${{ inputs.expected_sha }}
+          path: release-evidence
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install sealed tarballs into a virgin project
+        run: |
+          set -euo pipefail
+          (cd release-evidence/sealed && sha256sum -c SHA256SUMS)
+          install_dir="$(mktemp -d)"
+          cd "$install_dir"
+          npm init -y >/dev/null
+          npm install \
+            "$GITHUB_WORKSPACE/release-evidence/sealed/ruvector-core-linux-x64-gnu-$PLATFORM_VERSION.tgz" \
+            "$GITHUB_WORKSPACE/release-evidence/sealed/ruvector-core-$CORE_VERSION.tgz" \
+            --ignore-scripts --no-audit --no-fund
+          node -e '
+            const { VectorDB, VectorDb } = require("@ruvector/core");
+            if (VectorDB !== VectorDb) throw new Error("VectorDB alias mismatch");
+            (async () => {
+              const db = VectorDB.withDimensions(128);
+              const id = await db.insert({vector: new Float32Array(128).fill(0.5)});
+              const result = await db.search({vector: new Float32Array(128).fill(0.5), k: 1});
+              if (await db.len() !== 1 || result.length !== 1 || result[0].id !== id) process.exit(1);
+            })().catch(error => { console.error(error); process.exit(1); });
+          '
+          npm install --global agentic-qe@3.13.10 --no-audit --no-fund
+          cp "$GITHUB_WORKSPACE/release-evidence/core.test.js" node_modules/@ruvector/core/core.test.js
+          AQE_LLM_PROVIDER=claude-code aqe test execute \
+            node_modules/@ruvector/core/core.test.js \
+            --framework node-test \
+            --type integration \
+            --format json \
+            --output "$GITHUB_WORKSPACE/agentic-qe-result.json"
+          node -e '
+            const result = require(process.env.GITHUB_WORKSPACE + "/agentic-qe-result.json");
+            if (result.status !== "passed" || result.total < 1 || result.failed !== 0) process.exit(1);
+          '
+          node -e '
+            const fs = require("fs");
+            fs.writeFileSync(process.env.GITHUB_WORKSPACE + "/runtime-grader.json", JSON.stringify({
+              grader: "runtime",
+              score: 100,
+              agenticQe: "3.13.10",
+              testsPassed: 1,
+              testsFailed: 0
+            }, null, 2) + "\n");
+          '
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: runtime-grader-${{ inputs.expected_sha }}
+          path: |
+            runtime-grader.json
+            agentic-qe-result.json
+
+  contract-grader:
+    name: Package-contract grader (100 required)
+    needs: seal
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: sealed-core-npm-${{ inputs.expected_sha }}
+          path: release-evidence
+      - name: Verify package identities and contents
+        run: |
+          set -euo pipefail
+          (cd release-evidence/sealed && sha256sum -c SHA256SUMS)
+          test "$(find release-evidence/sealed -name '*.tgz' -type f | wc -l)" = 6
+          for archive in "release-evidence/sealed"/ruvector-core-*-"$PLATFORM_VERSION".tgz; do
+            tar -tzf "$archive" | grep -qx 'package/ruvector.node'
+            tar -tzf "$archive" | grep -qx 'package/package.json'
+          done
+          tar -tzf "release-evidence/sealed/ruvector-core-$CORE_VERSION.tgz" | grep -qx 'package/index.js'
+          echo '{"grader":"package-contract","score":100}' > contract-grader.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: contract-grader-${{ inputs.expected_sha }}
+          path: contract-grader.json
+
+  publish:
+    name: Publish sealed npm artifacts
+    needs: [seal, runtime-grader, contract-grader]
+    runs-on: ubuntu-22.04
+    environment: npm-production
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: sealed-core-npm-${{ inputs.expected_sha }}
+          path: release-evidence
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          registry-url: https://registry.npmjs.org
+      - name: Publish in dependency order
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$NODE_AUTH_TOKEN"
+          (cd release-evidence/sealed && sha256sum -c SHA256SUMS)
+          packages=(
+            "ruvector-core-linux-x64-gnu@$PLATFORM_VERSION"
+            "ruvector-core-linux-arm64-gnu@$PLATFORM_VERSION"
+            "ruvector-core-darwin-x64@$PLATFORM_VERSION"
+            "ruvector-core-darwin-arm64@$PLATFORM_VERSION"
+            "ruvector-core-win32-x64-msvc@$PLATFORM_VERSION"
+            "@ruvector/core@$CORE_VERSION"
+          )
+          files=(
+            "ruvector-core-linux-x64-gnu-$PLATFORM_VERSION.tgz"
+            "ruvector-core-linux-arm64-gnu-$PLATFORM_VERSION.tgz"
+            "ruvector-core-darwin-x64-$PLATFORM_VERSION.tgz"
+            "ruvector-core-darwin-arm64-$PLATFORM_VERSION.tgz"
+            "ruvector-core-win32-x64-msvc-$PLATFORM_VERSION.tgz"
+            "ruvector-core-$CORE_VERSION.tgz"
+          )
+          for index in "${!packages[@]}"; do
+            if npm view "${packages[$index]}" version >/dev/null 2>&1; then
+              echo "${packages[$index]} already has the exact sealed bytes; skipping"
+            else
+              npm publish "release-evidence/sealed/${files[$index]}" --access public --provenance
+            fi
+          done
+
+      - name: Verify public bytes and runtime
+        run: |
+          set -euo pipefail
+          mkdir public
+          packages=(
+            "ruvector-core-linux-x64-gnu@$PLATFORM_VERSION"
+            "ruvector-core-linux-arm64-gnu@$PLATFORM_VERSION"
+            "ruvector-core-darwin-x64@$PLATFORM_VERSION"
+            "ruvector-core-darwin-arm64@$PLATFORM_VERSION"
+            "ruvector-core-win32-x64-msvc@$PLATFORM_VERSION"
+            "@ruvector/core@$CORE_VERSION"
+          )
+          files=(
+            "ruvector-core-linux-x64-gnu-$PLATFORM_VERSION.tgz"
+            "ruvector-core-linux-arm64-gnu-$PLATFORM_VERSION.tgz"
+            "ruvector-core-darwin-x64-$PLATFORM_VERSION.tgz"
+            "ruvector-core-darwin-arm64-$PLATFORM_VERSION.tgz"
+            "ruvector-core-win32-x64-msvc-$PLATFORM_VERSION.tgz"
+            "ruvector-core-$CORE_VERSION.tgz"
+          )
+          for index in "${!packages[@]}"; do
+            package="${packages[$index]}"
+            for _attempt in {1..20}; do
+              npm view "$package" dist.tarball --json > /tmp/tarball.json 2>/dev/null && break
+              sleep 6
+            done
+            url="$(node -p "JSON.parse(require('fs').readFileSync('/tmp/tarball.json')).toString()")"
+            test -n "$url"
+            curl --fail --location "$url" --output "public/${files[$index]}"
+          done
+          (cd release-evidence/sealed && sha256sum -c SHA256SUMS)
+          while read -r digest file; do
+            test "$(sha256sum "public/$file" | cut -d' ' -f1)" = "$digest"
+          done < release-evidence/sealed/SHA256SUMS
+          install_dir="$(mktemp -d)"
+          cd "$install_dir"
+          npm init -y >/dev/null
+          npm install "@ruvector/core@$CORE_VERSION" --ignore-scripts --no-audit --no-fund
+          node -e 'const m=require("@ruvector/core"); if(m.VectorDB !== m.VectorDb) process.exit(1); console.log(m.version())'
+          cd "$GITHUB_WORKSPACE"
+          node -e '
+            const fs = require("fs");
+            fs.writeFileSync("publication-receipt.json", JSON.stringify({
+              schemaVersion: 1,
+              sha: process.env.EXPECTED_SHA,
+              platformVersion: process.env.PLATFORM_VERSION,
+              coreVersion: process.env.CORE_VERSION,
+              publicBytesMatch: true,
+              publicRuntimePassed: true
+            }, null, 2) + "\n");
+          '
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: publication-receipt-${{ inputs.expected_sha }}
+          path: publication-receipt.json
+          if-no-files-found: error
+          retention-days: 365

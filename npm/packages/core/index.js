@@ -42,4 +42,12 @@ function loadNativeModule() {
   }
 }
 
-module.exports = loadNativeModule();
+const nativeModule = loadNativeModule();
+
+// Match index.d.ts and preserve the historical `VectorDB` spelling while
+// retaining the native NAPI-RS `VectorDb` export.
+if (nativeModule.VectorDb && !nativeModule.VectorDB) {
+  nativeModule.VectorDB = nativeModule.VectorDb;
+}
+
+module.exports = nativeModule;

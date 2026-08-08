@@ -1,6 +1,6 @@
 {
   "name": "ruvector-core-darwin-x64",
-  "version": "0.1.25",
+  "version": "0.1.30",
   "description": "macOS x64 (Intel) native binding for ruvector-core - High-performance vector database with HNSW indexing built in Rust",
   "main": "index.js",
   "type": "commonjs",
