@@ -11,7 +11,10 @@ Accepted
 
 Implementation correction: ring slots now use publication stamps around each
 sample, so a consumer detects and accounts for an overwrite that races the copy
-instead of silently accepting a value from a newer generation.
+instead of silently accepting a value from a newer generation. A gap detected
+after copying a contiguous prefix is reported in that same read, while the next
+read resumes after the gap. Publication positions are explicitly limited to
+`2^63 - 1` samples so generation stamps never wrap or alias an empty slot.
 
 ## Context
 

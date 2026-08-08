@@ -62,6 +62,13 @@ pub struct RingBuffer {
 }
 
 impl RingBuffer {
+    /// Maximum supported value of `write_pos`.
+    ///
+    /// Publication stamps reserve zero for empty slots and encode a logical
+    /// position as `(position + 1) * 2`, so positions must remain below this
+    /// bound to keep every stable stamp non-zero and unique.
+    const MAX_WRITE_POS: u64 = (1u64 << 63) - 1;
+
     /// Creates a ring buffer holding at least `capacity` samples.
     ///
     /// # Panics
@@ -121,8 +128,19 @@ impl RingBuffer {
     ///
     /// This is the only method the producer may call. It performs no allocation,
     /// so it is safe to invoke from a real-time audio callback.
+    ///
+    /// # Panics
+    ///
+    /// Panics before modifying any slot if this batch would advance the
+    /// publication counter beyond its supported `2^63 - 1` sample horizon.
     pub fn write(&self, samples: &[f32]) {
         let mut pos = self.write_pos.load(Ordering::Relaxed);
+        let sample_count = u64::try_from(samples.len()).expect("sample count must fit in u64");
+        let end = pos
+            .checked_add(sample_count)
+            .filter(|&end| end <= Self::MAX_WRITE_POS)
+            .expect("ring buffer publication counter exhausted");
+
         for &sample in samples {
             let slot = &self.slots[(pos as usize) & self.mask];
             let published = Self::published_stamp(pos);
@@ -142,6 +160,7 @@ impl RingBuffer {
             // a stale batch-level position.
             self.write_pos.store(pos, Ordering::Release);
         }
+        debug_assert_eq!(pos, end);
     }
 
     /// Reads up to `out.len()` samples.
@@ -152,12 +171,18 @@ impl RingBuffer {
     ///
     /// This is the only method the consumer may call.
     pub fn read(&self, out: &mut [f32]) -> (usize, u64) {
-        self.read_inner(out, |_| {})
+        self.read_inner(out, |_| {}, |_| {})
     }
 
-    fn read_inner<F>(&self, out: &mut [f32], mut after_stamp: F) -> (usize, u64)
+    fn read_inner<F, G>(
+        &self,
+        out: &mut [f32],
+        mut after_stamp: F,
+        mut after_sample: G,
+    ) -> (usize, u64)
     where
         F: FnMut(u64),
+        G: FnMut(u64),
     {
         let mut write = self.write_pos.load(Ordering::Acquire);
         let mut read = self.read_pos.load(Ordering::Relaxed);
@@ -189,6 +214,7 @@ impl RingBuffer {
 
             if before == expected {
                 let bits = slot.sample.load(Ordering::SeqCst);
+                after_sample(read);
                 let after = slot.stamp.load(Ordering::SeqCst);
                 if after == expected {
                     out[count] = f32::from_bits(bits);
@@ -207,8 +233,10 @@ impl RingBuffer {
             let oldest = write.saturating_sub(capacity);
             if read < oldest {
                 if count > 0 {
-                    // Keep each returned slice contiguous. The next read starts
-                    // at this cursor, reports the gap, and resumes at `oldest`.
+                    // Account for the known gap now, but return the contiguous
+                    // prefix already copied. The next read resumes at `oldest`.
+                    dropped += oldest - read;
+                    read = oldest;
                     break;
                 }
                 dropped += oldest - read;
@@ -225,9 +253,8 @@ impl RingBuffer {
 
     #[inline]
     const fn published_stamp(position: u64) -> u64 {
-        // Zero is reserved for an empty slot. Wrapping only matters after 2^63
-        // samples (more than nine million years at 32 kHz).
-        position.wrapping_add(1).wrapping_mul(2)
+        debug_assert!(position < Self::MAX_WRITE_POS);
+        (position + 1) * 2
     }
 
     #[cfg(test)]
@@ -235,7 +262,15 @@ impl RingBuffer {
     where
         F: FnMut(u64),
     {
-        self.read_inner(out, after_stamp)
+        self.read_inner(out, after_stamp, |_| {})
+    }
+
+    #[cfg(test)]
+    fn read_after_sample<F>(&self, out: &mut [f32], after_sample: F) -> (usize, u64)
+    where
+        F: FnMut(u64),
+    {
+        self.read_inner(out, |_| {}, after_sample)
     }
 
     /// Discards all buffered samples without reading them.
@@ -327,6 +362,77 @@ mod tests {
         assert_eq!(dropped, 1);
         assert_eq!(out, [1.0, 2.0, 3.0, 4.0]);
         assert_eq!(ring.dropped(), 1);
+    }
+
+    #[test]
+    fn overwrite_between_copy_and_second_validation_is_detected() {
+        let ring = RingBuffer::new(4);
+        ring.write(&[0.0, 1.0, 2.0, 3.0]);
+
+        let mut overwrote = false;
+        let mut out = [f32::NAN; 4];
+        let (count, dropped) = ring.read_after_sample(&mut out, |position| {
+            if position == 0 && !overwrote {
+                overwrote = true;
+                ring.write(&[4.0]);
+            }
+        });
+
+        assert_eq!(count, 4);
+        assert_eq!(dropped, 1);
+        assert_eq!(out, [1.0, 2.0, 3.0, 4.0]);
+        assert_eq!(ring.dropped(), 1);
+    }
+
+    #[test]
+    fn overwrite_after_a_prefix_reports_gap_without_mixing_slices() {
+        let ring = RingBuffer::new(4);
+        ring.write(&[0.0, 1.0, 2.0, 3.0]);
+
+        let mut overwrote = false;
+        let mut prefix = [f32::NAN; 4];
+        let (count, dropped) = ring.read_after_stamp(&mut prefix, |position| {
+            if position == 2 && !overwrote {
+                overwrote = true;
+                ring.write(&[4.0, 5.0, 6.0]);
+            }
+        });
+
+        assert_eq!(count, 2);
+        assert_eq!(dropped, 1);
+        assert_eq!(&prefix[..count], &[0.0, 1.0]);
+        assert_eq!(ring.dropped(), 1);
+
+        let mut suffix = [f32::NAN; 4];
+        let (count, dropped) = ring.read(&mut suffix);
+        assert_eq!(count, 4);
+        assert_eq!(dropped, 0, "the gap was already reported by the prior read");
+        assert_eq!(suffix, [3.0, 4.0, 5.0, 6.0]);
+        assert_eq!(ring.dropped(), 1, "the gap must not be counted twice");
+    }
+
+    #[test]
+    fn final_supported_publication_remains_readable() {
+        let ring = RingBuffer::new(4);
+        let final_position = RingBuffer::MAX_WRITE_POS - 1;
+        ring.write_pos.store(final_position, Ordering::Relaxed);
+        ring.read_pos.store(final_position, Ordering::Relaxed);
+
+        ring.write(&[42.0]);
+
+        let mut out = [f32::NAN; 1];
+        assert_eq!(ring.read(&mut out), (1, 0));
+        assert_eq!(out, [42.0]);
+        assert_eq!(ring.written(), RingBuffer::MAX_WRITE_POS);
+    }
+
+    #[test]
+    #[should_panic(expected = "ring buffer publication counter exhausted")]
+    fn publication_past_the_supported_horizon_is_rejected() {
+        let ring = RingBuffer::new(4);
+        ring.write_pos
+            .store(RingBuffer::MAX_WRITE_POS, Ordering::Relaxed);
+        ring.write(&[1.0]);
     }
 
     #[test]
