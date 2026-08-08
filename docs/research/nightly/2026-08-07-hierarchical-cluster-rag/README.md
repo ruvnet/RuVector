@@ -2,6 +2,8 @@
 
 **Nightly research · 2026-08-07 · crate: `ruvector-cluster-rag`**
 
+Decision record: [ADR-300](../../../adr/ADR-300-hierarchical-cluster-rag.md).
+
 > **150-char summary:** Two-level cluster tree over agent memory vectors: coherence-weighted scoring routes queries to tight, relevant clusters rather than all-or-nothing brute force.
 
 ---
@@ -14,9 +16,9 @@ Three variants are benchmarked on a deterministic synthetic corpus (n=10,000, di
 
 | Variant | Mean µs | p50 µs | p95 µs | QPS | Memory | Recall@10 |
 |---------|---------|--------|--------|-----|--------|-----------|
-| FlatBrute | 1490.9 | 1485.8 | 1567.7 | 671 | 4.9 MB | 1.000 |
-| ClusterSearch | 1034.9 | 1017.7 | 1270.1 | 966 | 5.0 MB | 0.779 |
-| CoherenceTree | **981.4** | **973.9** | **1070.6** | **1019** | **5.0 MB** | **0.776** |
+| FlatBrute | 501.5 | 479.8 | 611.7 | 1994 | 4.9 MB | 1.000 |
+| ClusterSearch | **330.9** | **304.9** | **447.2** | **3022** | **5.0 MB** | **0.778** |
+| CoherenceTree | 336.4 | 309.7 | 469.1 | 2972 | 5.0 MB | 0.775 |
 
 Platform: x86_64 Linux, release build.  
 Config: k_clusters=40, nprobe=20 (50% of clusters), lambda=0.70.
@@ -58,7 +60,7 @@ This research applies the same principle without requiring an LLM: centroids are
 
 ### Structured vs. Uniform Data
 
-A critical observation from this benchmark: on uniform random vectors (the default dataset), CoherenceTree achieves nearly identical recall to ClusterSearch (0.776 vs 0.779). This is expected — with uniform random data, every cluster has similar cohesion (~0.12 for 128-dim random vectors), so the weighting adds overhead without recall benefit.
+A critical observation from this benchmark: on uniform random vectors (the default dataset), CoherenceTree achieves nearly identical recall to ClusterSearch (0.775 vs 0.778). This is expected — with uniform random data, every cluster has similar cohesion (~0.12 for 128-dim random vectors), so the weighting adds overhead without recall benefit.
 
 The coherence advantage would emerge with **structured data** — real agent memory where topics cluster tightly (e.g., a cluster of code review memories vs. a cluster of meeting notes). On structured corpora, clusters vary significantly in cohesion (0.2–0.9), and the coherence signal genuinely differentiates routing quality. Measuring this on real embedding corpora is the primary next step.
 
@@ -229,14 +231,14 @@ Per-cluster cohesion is computed once at build time as the mean cosine similarit
 
 Limitations:
 - Uniform random data underestimates coherence benefit on structured corpora.
-- k-means build time (4s) is not reflected in per-query latency.
+- k-means build time (1.10s) is not reflected in per-query latency.
 - Single-threaded; no SIMD explicit intrinsics.
 
 ---
 
 ## Real Benchmark Results
 
-Captured from `cargo run --release -p ruvector-cluster-rag --bin benchmark` on 2026-08-07:
+Captured from `cargo run --release -p ruvector-cluster-rag --bin benchmark` on 2026-08-08:
 
 ```
 OS      : linux
@@ -252,23 +254,23 @@ Config
   LAMBDA      = 0.70  (CoherenceTree query-sim weight)
 
 Raw corpus memory: 4.9 MB
-k-means build time: 4.00s
+k-means build time: 1.10s
 
 Results  (n=10000, dim=128, nq=500, k=10, k_clusters=40, nprobe=20)
 
 Variant           Mean µs  p50 µs  p95 µs     QPS   Memory  Recall@10
-FlatBrute          1490.9  1485.8  1567.7     671    4.9 MB  1.000
-ClusterSearch      1034.9  1017.7  1270.1     966    5.0 MB  0.779
-CoherenceTree       981.4   973.9  1070.6    1019    5.0 MB  0.776
+FlatBrute           501.5   479.8   611.7    1994    4.9 MB  1.000
+ClusterSearch       330.9   304.9   447.2    3022    5.0 MB  0.778
+CoherenceTree       336.4   309.7   469.1    2972    5.0 MB  0.775
 
 Memory overhead (centroids + inverted lists): 2.0%
 ```
 
-**Acceptance result**: PASS — ClusterSearch 0.779 ≥ 0.70, CoherenceTree 0.776 ≥ 0.70.
+**Acceptance result**: PASS — ClusterSearch 0.778 ≥ 0.70, CoherenceTree 0.775 ≥ 0.70.
 
-**Speedup over FlatBrute**: ClusterSearch 1.44×, CoherenceTree 1.52× at 50% nprobe coverage.
+**Speedup over FlatBrute**: ClusterSearch 1.52×, CoherenceTree 1.49× at 50% nprobe coverage.
 
-Key observation: CoherenceTree achieves slightly higher QPS (1019 vs 966) than ClusterSearch in this run despite the additional cosine scoring — variance from OS scheduling. Across runs the difference is within noise. On uniform random data with near-equal cohesion values, both algorithms make the same routing decisions most of the time.
+Key observation: CoherenceTree and ClusterSearch remain within a few percent of each other in latency and recall. On uniform random data with near-equal cohesion values, both algorithms make the same routing decisions most of the time.
 
 ---
 

@@ -8,6 +8,8 @@ GitHub: https://github.com/ruvnet/ruvector
 Research branch: `research/nightly/2026-08-07-hierarchical-cluster-rag`  
 Crate: `ruvector-cluster-rag`
 
+Decision record: [ADR-300](../../../adr/ADR-300-hierarchical-cluster-rag.md).
+
 ---
 
 ## Introduction
@@ -31,8 +33,8 @@ The honest finding: on *uniform random data*, the coherence weighting adds no re
 | K-means cluster tree | Partitions corpus into k clusters at build time | Amortises scan cost over many queries | Implemented in PoC |
 | Per-cluster cohesion | Mean cosine sim of members to centroid | Proxy for cluster tightness / routing reliability | Measured |
 | FlatBrute (baseline) | Exhaustive L2 scan, recall=1.0 | Ground truth for recall measurement | Implemented in PoC |
-| ClusterSearch | Route to top-nprobe clusters by centroid L2 | 1.44× speedup at 50% coverage, 0.779 recall | Implemented in PoC |
-| CoherenceTree | Route by λ·sim(q,c) + (1-λ)·cohesion(c) | 1.52× speedup, 0.776 recall on uniform data | Implemented in PoC |
+| ClusterSearch | Route to top-nprobe clusters by centroid L2 | 1.52× speedup at 50% coverage, 0.778 recall | Implemented in PoC |
+| CoherenceTree | Route by λ·sim(q,c) + (1-λ)·cohesion(c) | 1.49× speedup, 0.775 recall on uniform data | Implemented in PoC |
 | Zero dependencies | No external crates in [dependencies] | Compiles to WASM; no build-script ceremony | Implemented in PoC |
 | Deterministic dataset | LCG-generated f32 corpus, seeded | Reproducible benchmarks; no external data needed | Implemented in PoC |
 | Acceptance gate | Binary exits 1 if recall < 0.70 | CI-runnable quality bar | Implemented in PoC |
@@ -135,7 +137,7 @@ graph LR
 ## Benchmark results
 
 All numbers from `cargo run --release -p ruvector-cluster-rag --bin benchmark`.  
-Platform: x86_64 Linux, release build, 2026-08-07.  
+Platform: x86_64 Linux, release build, 2026-08-08.
 No aspirational values; no invented competitor numbers.
 
 ```
@@ -144,9 +146,9 @@ Config: N=10000, DIM=128, NQ=500, K=10, K_CLUSTERS=40, NPROBE=20, LAMBDA=0.70
 
 | Variant | N | DIM | NQ | Mean µs | p50 µs | p95 µs | QPS | Memory | Recall@10 | Pass? |
 |---------|---|-----|----|---------|--------|--------|-----|--------|-----------|-------|
-| FlatBrute | 10K | 128 | 500 | 1490.9 | 1485.8 | 1567.7 | 671 | 4.9 MB | 1.000 | reference |
-| ClusterSearch | 10K | 128 | 500 | 1034.9 | 1017.7 | 1270.1 | 966 | 5.0 MB | 0.779 | ✅ PASS |
-| CoherenceTree | 10K | 128 | 500 | 981.4 | 973.9 | 1070.6 | 1019 | 5.0 MB | 0.776 | ✅ PASS |
+| FlatBrute | 10K | 128 | 500 | 501.5 | 479.8 | 611.7 | 1994 | 4.9 MB | 1.000 | reference |
+| ClusterSearch | 10K | 128 | 500 | 330.9 | 304.9 | 447.2 | 3022 | 5.0 MB | 0.778 | ✅ PASS |
+| CoherenceTree | 10K | 128 | 500 | 336.4 | 309.7 | 469.1 | 2972 | 5.0 MB | 0.775 | ✅ PASS |
 
 **Hardware**: x86_64 Linux (cloud CI)  
 **OS**: linux  
@@ -156,7 +158,7 @@ Config: N=10000, DIM=128, NQ=500, K=10, K_CLUSTERS=40, NPROBE=20, LAMBDA=0.70
 **Notes**:
 - nprobe=20 means 50% of clusters are searched per query.
 - On uniform random data, CoherenceTree ≈ ClusterSearch in recall. The coherence advantage appears on structured corpora where clusters vary in tightness.
-- k-means build time 4s is a one-time cost; not included in per-query latency.
+- k-means build time 1.10s is a one-time cost; not included in per-query latency.
 - Single-threaded; no explicit SIMD intrinsics.
 
 ---
@@ -217,7 +219,7 @@ RuVector's differentiator in this crate: Rust, zero dependencies, WASM-ready, co
 
 RAPTOR (ICLR 2024) demonstrates a 20%+ recall improvement for long-document RAG by searching at multiple tree levels rather than flat retrieval. The structural principle — intermediate cluster representations reduce scope without always losing recall — is validated. MUVERA (NeurIPS 2024) extends multi-vector aggregation at the cluster level, showing that cluster-level signals improve precision for complex multi-hop queries.
 
-Classical IVF (FAISS) is the standard for billion-scale retrieval and achieves 70–85% recall at 20% nprobe coverage on SIFT1M and similar benchmarks. Our measured 0.779 at 50% nprobe on random data is below the FAISS baseline on structured data — this is expected: random data is worst-case for IVF since nearest neighbours are not cluster-concentrated.
+Classical IVF (FAISS) is the standard for billion-scale retrieval and achieves 70–85% recall at 20% nprobe coverage on SIFT1M and similar benchmarks. Our measured 0.778 at 50% nprobe on random data is below the FAISS baseline on structured data — this is expected: random data is worst-case for IVF since nearest neighbours are not cluster-concentrated.
 
 ### What remains unsolved
 
@@ -259,12 +261,12 @@ OS      : linux
 Arch    : x86_64
 ...
 Variant           Mean µs  p50 µs  p95 µs     QPS   Memory  Recall@K
-FlatBrute          1490.9  1485.8  1567.7     671    4.9 MB     1.000
-ClusterSearch      1034.9  1017.7  1270.1     966    5.0 MB     0.779
-CoherenceTree       981.4   973.9  1070.6    1019    5.0 MB     0.776
+FlatBrute           501.5   479.8   611.7    1994    4.9 MB     1.000
+ClusterSearch       330.9   304.9   447.2    3022    5.0 MB     0.778
+CoherenceTree       336.4   309.7   469.1    2972    5.0 MB     0.775
 
-ACCEPTANCE PASS: ClusterSearch recall 0.779 ≥ 0.70
-ACCEPTANCE PASS: CoherenceTree recall 0.776 ≥ 0.70
+ACCEPTANCE PASS: ClusterSearch recall 0.778 ≥ 0.70
+ACCEPTANCE PASS: CoherenceTree recall 0.775 ≥ 0.70
 All acceptance criteria met.
 ```
 

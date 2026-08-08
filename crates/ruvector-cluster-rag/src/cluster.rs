@@ -20,24 +20,33 @@ pub struct KMeansResult {
 /// Run Lloyd's k-means for `iters` iterations.
 pub fn kmeans(vectors: &[Vec<f32>], k: usize, iters: usize) -> KMeansResult {
     let n = vectors.len();
+
+    if n == 0 {
+        assert_eq!(k, 0, "k must be 0 when clustering an empty dataset");
+        return KMeansResult {
+            centroids: Vec::new(),
+            assignments: Vec::new(),
+            cohesion: Vec::new(),
+            cluster_sizes: Vec::new(),
+        };
+    }
+
+    assert!(k > 0, "k must be greater than 0 for a non-empty dataset");
+    assert!(k <= n, "k must not exceed the number of vectors");
     let dim = vectors[0].len();
-    assert!(k <= n);
+    assert!(
+        vectors.iter().all(|vector| vector.len() == dim),
+        "all vectors must have the same dimension"
+    );
 
     // Initialise centroids from distinct points (deterministic k-means++ max-dist).
     let init_ids = crate::dataset::initial_centroid_indices(vectors, k);
     let mut centroids: Vec<Vec<f32>> = init_ids.iter().map(|&i| vectors[i].clone()).collect();
-    let mut assignments = vec![0usize; n];
+    let mut assignments;
 
     for _iter in 0..iters {
         // Assignment step.
-        for (i, vec) in vectors.iter().enumerate() {
-            let best = (0..k)
-                .map(|c| (c, l2_sq(vec, &centroids[c])))
-                .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
-                .map(|(c, _)| c)
-                .unwrap_or(0);
-            assignments[i] = best;
-        }
+        assignments = assign_to_nearest(vectors, &centroids);
 
         // Update step: recompute centroids as member means.
         let mut sums = vec![vec![0.0f32; dim]; k];
@@ -57,7 +66,13 @@ pub fn kmeans(vectors: &[Vec<f32>], k: usize, iters: usize) -> KMeansResult {
         }
     }
 
-    // Compute per-cluster cohesion after final assignment.
+    // The final Lloyd update moves centroids after the loop's assignment step.
+    // Reassign once more so every returned membership, cohesion value, and
+    // inverted-list entry is consistent with the returned centroids. This also
+    // gives zero-iteration runs valid assignments against initial centroids.
+    assignments = assign_to_nearest(vectors, &centroids);
+
+    // Compute per-cluster cohesion from final-centroid assignments.
     let cohesion = compute_cohesion(vectors, &assignments, &centroids, k);
     let cluster_sizes: Vec<usize> = (0..k)
         .map(|c| assignments.iter().filter(|&&a| a == c).count())
@@ -69,6 +84,26 @@ pub fn kmeans(vectors: &[Vec<f32>], k: usize, iters: usize) -> KMeansResult {
         cohesion,
         cluster_sizes,
     }
+}
+
+/// Assign every vector to its nearest centroid with deterministic tie-breaking.
+fn assign_to_nearest(vectors: &[Vec<f32>], centroids: &[Vec<f32>]) -> Vec<usize> {
+    debug_assert!(!centroids.is_empty());
+    vectors
+        .iter()
+        .map(|vector| {
+            let mut best = 0usize;
+            let mut best_dist = l2_sq(vector, &centroids[0]);
+            for (cluster, centroid) in centroids.iter().enumerate().skip(1) {
+                let dist = l2_sq(vector, centroid);
+                if dist < best_dist {
+                    best = cluster;
+                    best_dist = dist;
+                }
+            }
+            best
+        })
+        .collect()
 }
 
 /// Mean cosine similarity of each cluster's members to their centroid.
@@ -124,7 +159,7 @@ mod tests {
         let vecs = generate_vectors(200, 16, 2);
         let result = kmeans(&vecs, 5, 10);
         for &c in &result.cohesion {
-            assert!(c >= -1.0 && c <= 1.0, "cohesion out of range: {c}");
+            assert!((-1.0..=1.0).contains(&c), "cohesion out of range: {c}");
         }
     }
 
@@ -152,5 +187,50 @@ mod tests {
                 "expected high cohesion for tight clusters, got {c}"
             );
         }
+    }
+
+    #[test]
+    fn final_assignments_are_nearest_to_final_centroids() {
+        // After one update the centroids are 2.5 and 7.0. The point at 5.0
+        // belonged to centroid 0 before that update, but is nearest centroid 1
+        // afterwards. This specifically catches stale final assignments.
+        let vecs = vec![
+            vec![0.0],
+            vec![5.0],
+            vec![6.0],
+            vec![6.0],
+            vec![6.0],
+            vec![10.0],
+        ];
+        let result = kmeans(&vecs, 2, 1);
+
+        assert_eq!(result.assignments[1], 1, "point 5.0 must be reassigned");
+        for (vector, &assigned) in vecs.iter().zip(&result.assignments) {
+            let assigned_dist = l2_sq(vector, &result.centroids[assigned]);
+            for centroid in &result.centroids {
+                assert!(
+                    assigned_dist <= l2_sq(vector, centroid),
+                    "assignment {assigned} is not nearest for {vector:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn empty_dataset_with_zero_clusters_is_supported() {
+        let result = kmeans(&[], 0, 10);
+        assert!(result.centroids.is_empty());
+        assert!(result.assignments.is_empty());
+        assert!(result.cohesion.is_empty());
+        assert!(result.cluster_sizes.is_empty());
+    }
+
+    #[test]
+    fn zero_iterations_still_assigns_to_initial_centroids() {
+        let vecs = vec![vec![0.0], vec![2.0], vec![10.0]];
+        let result = kmeans(&vecs, 2, 0);
+
+        assert_eq!(result.assignments, vec![0, 0, 1]);
+        assert_eq!(result.cluster_sizes, vec![2, 1]);
     }
 }

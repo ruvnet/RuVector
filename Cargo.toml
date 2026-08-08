@@ -291,7 +291,7 @@ members = [
     "crates/ruvector-timesfm",
     # Speculative ANN search: draft-verify with adaptive candidate multiplier (ADR-272)
     "crates/ruvector-speculative-ann",
-    # Hierarchical cluster-summary RAG: RAPTOR-style two-level tree with coherence-weighted scoring (ADR-298)
+    # Hierarchical cluster-summary RAG: RAPTOR-style two-level tree with coherence-weighted scoring (ADR-300)
     "crates/ruvector-cluster-rag",
 ]
 resolver = "2"

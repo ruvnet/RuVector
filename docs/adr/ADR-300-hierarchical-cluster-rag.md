@@ -1,7 +1,8 @@
-# ADR-298: Hierarchical Cluster-Summary Retrieval for Agent Memory RAG
+# ADR-300: Hierarchical Cluster-Summary Retrieval for Agent Memory RAG
 
 - **Status**: Proposed
 - **Date**: 2026-08-07
+- **Updated**: 2026-08-08
 - **Author**: nightly research agent
 - **Crate**: `ruvector-cluster-rag`
 - **Related**: ADR-272 (speculative-ann), ADR-254 (turbovec), ADR-269 (agent-memory-compaction)
@@ -19,6 +20,11 @@ Agent memory corpora grow continuously. A corpus of 10K vectors (a single agent 
 4. Supports incremental inserts without graph maintenance.
 
 This ADR records the design decision for a two-level cluster-summary index (ClusterTree) and a coherence-weighted query routing variant (CoherenceTree), both benchmarked against brute-force baseline.
+
+**Correction (2026-08-08):** renumbered this Proposed decision from ADR-298
+to ADR-300 because ADR-298 is already accepted for namespace-merge routing.
+K-means now performs a final assignment pass against the returned centroids so
+cohesion and inverted lists cannot retain membership from the prior Lloyd step.
 
 ---
 
@@ -55,11 +61,11 @@ Introduce `ruvector-cluster-rag` as a standalone zero-dependency crate implement
 ### Positive
 
 - Zero external dependencies; compiles to WASM without changes.
-- 1.44–1.52× measured speedup over brute-force at 50% nprobe coverage.
+- 1.49–1.52× measured speedup over brute-force at 50% nprobe coverage.
 - 2% memory overhead over raw leaf storage.
 - Clean separation: `ClusterTree` is an immutable index; routing policy is pluggable.
 - Coherence scoring connects to the existing `ruvector-coherence` primitive set.
-- Build time (k-means, 4s for 10K vectors) amortises over many queries.
+- Build time (k-means, 1.10s for 10K vectors) amortises over many queries.
 
 ### Negative
 
@@ -109,14 +115,14 @@ Full RAPTOR builds cluster summaries using an LLM — the text summary becomes t
 ## Benchmark Evidence
 
 Run: `cargo run --release -p ruvector-cluster-rag --bin benchmark`
-Date: 2026-08-07, x86_64 Linux, release build.
+Date: 2026-08-08, x86_64 Linux, release build.
 Dataset: n=10,000, dim=128, k=10, 500 queries, k_clusters=40, nprobe=20.
 
 | Variant | Mean µs | p95 µs | QPS | Recall@10 |
 |---------|---------|--------|-----|-----------|
-| FlatBrute (ground truth) | 1490.9 | 1567.7 | 671 | 1.000 |
-| ClusterSearch (20% nprobe) | 1034.9 | 1270.1 | 966 | 0.779 |
-| CoherenceTree (20% nprobe) | 981.4 | 1070.6 | 1019 | 0.776 |
+| FlatBrute (ground truth) | 501.5 | 611.7 | 1994 | 1.000 |
+| ClusterSearch (50% nprobe) | 330.9 | 447.2 | 3022 | 0.778 |
+| CoherenceTree (50% nprobe) | 336.4 | 469.1 | 2972 | 0.775 |
 
 Memory overhead: 2.0% above raw leaf storage.
 Acceptance gate: PASS (both cluster variants ≥ 0.70 recall@10).
