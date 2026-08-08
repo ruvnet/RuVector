@@ -6,6 +6,13 @@ Accepted
 ## Date
 2026-08-03
 
+## Updated
+2026-08-08
+
+Implementation correction: ring slots now use publication stamps around each
+sample, so a consumer detects and accounts for an overwrite that races the copy
+instead of silently accepting a value from a newer generation.
+
 ## Context
 
 ADR-001 through ADR-009 describe an offline, file-oriented pipeline: a recording is

@@ -7,11 +7,30 @@
 //! audio callback causes device-level glitches, and in a monitoring deployment
 //! stale audio is worth less than current audio.
 //!
-//! Samples are stored as [`AtomicU32`] bit patterns rather than plain `f32`. A
-//! torn read is possible by construction under an overwrite policy, and going
-//! through atomics makes that a stale value rather than undefined behaviour.
+//! Each slot carries a monotonically increasing publication stamp around its
+//! [`AtomicU32`] sample. The stamp acts as a sequence lock: a consumer accepts a
+//! sample only when the slot still contains the exact logical position it asked
+//! for before and after the value load. That prevents a concurrent overwrite
+//! from being mistaken for an older sample.
 
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+
+#[derive(Debug)]
+struct Slot {
+    sample: AtomicU32,
+    /// Even values identify a stable logical position; odd values mean that
+    /// the producer is replacing this slot.
+    stamp: AtomicU64,
+}
+
+impl Slot {
+    const fn empty() -> Self {
+        Self {
+            sample: AtomicU32::new(0),
+            stamp: AtomicU64::new(0),
+        }
+    }
+}
 
 /// A bounded SPSC ring buffer that overwrites its oldest samples when full.
 ///
@@ -32,7 +51,7 @@ use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 /// ```
 #[derive(Debug)]
 pub struct RingBuffer {
-    slots: Box<[AtomicU32]>,
+    slots: Box<[Slot]>,
     mask: usize,
     /// Total samples ever written. Only the producer stores to this.
     write_pos: AtomicU64,
@@ -52,7 +71,7 @@ impl RingBuffer {
         assert!(capacity > 0, "ring buffer capacity must be non-zero");
         let capacity = capacity.next_power_of_two();
         let slots = (0..capacity)
-            .map(|_| AtomicU32::new(0))
+            .map(|_| Slot::empty())
             .collect::<Vec<_>>()
             .into_boxed_slice();
 
@@ -105,12 +124,24 @@ impl RingBuffer {
     pub fn write(&self, samples: &[f32]) {
         let mut pos = self.write_pos.load(Ordering::Relaxed);
         for &sample in samples {
-            self.slots[(pos as usize) & self.mask].store(sample.to_bits(), Ordering::Relaxed);
+            let slot = &self.slots[(pos as usize) & self.mask];
+            let published = Self::published_stamp(pos);
+
+            // All three slot operations are sequentially consistent. In
+            // particular, a consumer that observes the new sample must also
+            // observe either the in-progress marker or the new publication
+            // stamp on its validation load.
+            slot.stamp.store(published | 1, Ordering::SeqCst);
+            slot.sample.store(sample.to_bits(), Ordering::SeqCst);
+            slot.stamp.store(published, Ordering::SeqCst);
             pos += 1;
+
+            // Publish each completed sample independently. If a large callback
+            // batch laps the consumer, it can account for the loss while that
+            // callback is still running rather than seeing changed slots behind
+            // a stale batch-level position.
+            self.write_pos.store(pos, Ordering::Release);
         }
-        // Release so a consumer that observes this position also observes the
-        // sample stores above.
-        self.write_pos.store(pos, Ordering::Release);
     }
 
     /// Reads up to `out.len()` samples.
@@ -121,29 +152,90 @@ impl RingBuffer {
     ///
     /// This is the only method the consumer may call.
     pub fn read(&self, out: &mut [f32]) -> (usize, u64) {
-        let write = self.write_pos.load(Ordering::Acquire);
+        self.read_inner(out, |_| {})
+    }
+
+    fn read_inner<F>(&self, out: &mut [f32], mut after_stamp: F) -> (usize, u64)
+    where
+        F: FnMut(u64),
+    {
+        let mut write = self.write_pos.load(Ordering::Acquire);
         let mut read = self.read_pos.load(Ordering::Relaxed);
         let capacity = self.capacity() as u64;
 
         // If the producer has lapped us, skip forward to the oldest sample that
         // still exists. Reporting the gap is the point: a silent skip would look
         // like clean audio with a discontinuity in it.
-        let mut dropped = 0;
+        let mut dropped = 0u64;
         if write.saturating_sub(read) > capacity {
-            dropped = write - read - capacity;
-            read = write - capacity;
-            self.dropped.fetch_add(dropped, Ordering::Relaxed);
+            let oldest = write - capacity;
+            dropped += oldest - read;
+            read = oldest;
         }
 
-        let available = (write - read) as usize;
-        let count = available.min(out.len());
-        for (i, slot) in out.iter_mut().enumerate().take(count) {
-            let bits = self.slots[((read + i as u64) as usize) & self.mask].load(Ordering::Relaxed);
-            *slot = f32::from_bits(bits);
+        let mut count = 0;
+        while count < out.len() {
+            if read >= write {
+                write = self.write_pos.load(Ordering::Acquire);
+                if read >= write {
+                    break;
+                }
+            }
+
+            let slot = &self.slots[(read as usize) & self.mask];
+            let expected = Self::published_stamp(read);
+            let before = slot.stamp.load(Ordering::SeqCst);
+            after_stamp(read);
+
+            if before == expected {
+                let bits = slot.sample.load(Ordering::SeqCst);
+                let after = slot.stamp.load(Ordering::SeqCst);
+                if after == expected {
+                    out[count] = f32::from_bits(bits);
+                    count += 1;
+                    read += 1;
+                    continue;
+                }
+            }
+
+            // The producer touched this slot while it was being inspected. A
+            // newly published position tells us exactly how far the consumer
+            // was lapped. If publication is still in progress, return without
+            // consuming the ambiguous slot; the next call will retry it or
+            // account for it once the producer publishes.
+            write = self.write_pos.load(Ordering::Acquire);
+            let oldest = write.saturating_sub(capacity);
+            if read < oldest {
+                if count > 0 {
+                    // Keep each returned slice contiguous. The next read starts
+                    // at this cursor, reports the gap, and resumes at `oldest`.
+                    break;
+                }
+                dropped += oldest - read;
+                read = oldest;
+            } else {
+                break;
+            }
         }
 
-        self.read_pos.store(read + count as u64, Ordering::Release);
+        self.read_pos.store(read, Ordering::Release);
+        self.dropped.fetch_add(dropped, Ordering::Relaxed);
         (count, dropped)
+    }
+
+    #[inline]
+    const fn published_stamp(position: u64) -> u64 {
+        // Zero is reserved for an empty slot. Wrapping only matters after 2^63
+        // samples (more than nine million years at 32 kHz).
+        position.wrapping_add(1).wrapping_mul(2)
+    }
+
+    #[cfg(test)]
+    fn read_after_stamp<F>(&self, out: &mut [f32], after_stamp: F) -> (usize, u64)
+    where
+        F: FnMut(u64),
+    {
+        self.read_inner(out, after_stamp)
     }
 
     /// Discards all buffered samples without reading them.
@@ -215,6 +307,29 @@ mod tests {
     }
 
     #[test]
+    fn overwrite_between_slot_validation_and_copy_is_detected() {
+        let ring = RingBuffer::new(4);
+        ring.write(&[0.0, 1.0, 2.0, 3.0]);
+
+        let mut overwrote = false;
+        let mut out = [f32::NAN; 4];
+        let (count, dropped) = ring.read_after_stamp(&mut out, |position| {
+            if position == 0 && !overwrote {
+                overwrote = true;
+                // This is the precise race that position-only validation
+                // misses: the consumer already captured write_pos == 4 when
+                // the producer replaces logical position 0 with position 4.
+                ring.write(&[4.0]);
+            }
+        });
+
+        assert_eq!(count, 4);
+        assert_eq!(dropped, 1);
+        assert_eq!(out, [1.0, 2.0, 3.0, 4.0]);
+        assert_eq!(ring.dropped(), 1);
+    }
+
+    #[test]
     fn available_saturates_at_capacity() {
         let ring = RingBuffer::new(4);
         ring.write(&[0.0; 100]);
@@ -275,20 +390,26 @@ mod tests {
                 let mut out = vec![0.0f32; 256];
                 let mut seen = 0u64;
                 let mut lost = 0u64;
+                let mut next = 0u64;
                 loop {
                     let (count, dropped) = ring.read(&mut out);
                     seen += count as u64;
                     lost += dropped;
+                    next += dropped;
+                    for &sample in &out[..count] {
+                        assert_eq!(sample, next as f32, "samples must retain stream order");
+                        next += 1;
+                    }
                     if count == 0 && done.load(Ordering::Acquire) && ring.available() == 0 {
                         break;
                     }
                 }
-                (seen, lost)
+                (seen, lost, next)
             })
         };
 
         producer.join().unwrap();
-        let (seen, lost) = consumer.join().unwrap();
+        let (seen, lost, next) = consumer.join().unwrap();
 
         // Every sample is either consumed or accounted for as dropped. Nothing
         // may vanish silently, and nothing may be counted twice.
@@ -297,5 +418,6 @@ mod tests {
             TOTAL as u64,
             "consumed {seen} + dropped {lost} should equal {TOTAL}"
         );
+        assert_eq!(next, TOTAL as u64);
     }
 }
