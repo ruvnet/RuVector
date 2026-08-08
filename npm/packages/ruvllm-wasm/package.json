@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/ruvllm-wasm",
-  "version": "0.1.0",
+  "version": "2.0.2",
   "description": "WASM bindings for browser-based LLM inference - run AI models directly in the browser with WebGPU acceleration",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

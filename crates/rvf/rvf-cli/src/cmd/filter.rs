@@ -46,6 +46,7 @@ pub fn run(args: FilterArgs) -> Result<(), Box<dyn std::error::Error>> {
     // If output is different, derive first
     if target_path != args.file {
         let parent = RvfStore::open_readonly(Path::new(&args.file)).map_err(map_rvf_err)?;
+        crate::cmd::warn_on_metadata_recovery(&parent, &args.file);
         let child = parent
             .derive(
                 Path::new(target_path),
@@ -57,6 +58,7 @@ pub fn run(args: FilterArgs) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let store = RvfStore::open(Path::new(target_path)).map_err(map_rvf_err)?;
+    crate::cmd::warn_on_metadata_recovery(&store, target_path);
 
     // Build a simple bitmap filter
     let max_id = ids.iter().copied().max().unwrap_or(0);

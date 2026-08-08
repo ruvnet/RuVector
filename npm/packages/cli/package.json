@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/cli",
-  "version": "0.1.28",
+  "version": "0.1.29",
   "description": "Command-line interface for RuVector vector database with self-learning hooks",
   "main": "dist/cli.js",
   "types": "dist/cli.d.ts",

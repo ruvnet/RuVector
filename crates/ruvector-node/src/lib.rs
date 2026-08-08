@@ -69,6 +69,14 @@ impl From<JsQuantizationConfig> for QuantizationConfig {
                 k: config.k.unwrap_or(256) as usize,
             },
             "binary" => QuantizationConfig::Binary,
+            // Turbo4 (ADR-296): applied 4-bit quantization. Seed/multiplier
+            // use the core defaults; a full JS surface can extend this later.
+            "turbo4" => QuantizationConfig::Turbo4 {
+                rotation_seed: ruvector_core::types::default_turbo4_rotation_seed(),
+                rescore_multiplier: ruvector_core::types::default_turbo4_rescore_multiplier(),
+                policy: ruvector_core::types::SearchPolicy::default(),
+                search_quantization: ruvector_core::types::SearchQuantization::default(),
+            },
             _ => QuantizationConfig::Scalar,
         }
     }

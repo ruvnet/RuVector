@@ -3,6 +3,8 @@
 pub mod flat;
 #[cfg(feature = "hnsw")]
 pub mod hnsw;
+#[cfg(feature = "hnsw")]
+pub mod turbo4;
 
 use crate::error::Result;
 use crate::types::{SearchResult, VectorId};

@@ -1,0 +1,30 @@
+[package]
+name = "rvf-forge-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "RVForge packaging and verification library: inspection-only RVF reading, Ed25519 verification, canonical build manifests, and provenance (ADR-283, ADR-290, ADR-291)"
+
+# The RVF format crates live in the nested workspace at `crates/rvf`, which the
+# root workspace excludes. Path dependencies reach into it directly; they are
+# the canonical wire-format implementation and are not vendored or reimplemented.
+[dependencies]
+# NOTE: rvf-types' own `serde` feature does not compile (its SignatureFooter
+# holds a `[u8; 7856]`, which serde has no impls for). Forge defines its own
+# serializable mirror types instead of enabling it.
+rvf-types = { path = "../rvf/rvf-types", features = ["std", "ed25519"] }
+rvf-wire = { path = "../rvf/rvf-wire" }
+rvf-crypto = { path = "../rvf/rvf-crypto" }
+ed25519-dalek = "2"
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true

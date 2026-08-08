@@ -59,4 +59,9 @@ pub enum HailoError {
          the worker's model dir and restart"
     )]
     NoModelLoaded,
+
+    /// Complete ADR-281 artifact provenance was absent or disagreed with the
+    /// model bytes loaded by this backend.
+    #[error("embedding-space provenance error: {0}")]
+    EmbeddingProvenance(String),
 }

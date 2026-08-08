@@ -257,6 +257,7 @@ jobs:
 
           # Define publishing order (dependencies first)
           CRATES=(
+            "ruvector-turboquant"
             "ruvector-core"
             "ruvector-metrics"
             "ruvector-filter"
@@ -499,6 +500,7 @@ jobs:
           ## 📦 Packages Published
 
           ### Rust Crates (crates.io)
+          - \`ruvector-turboquant\` - Turbo4 packed-vector codec used by the core
           - \`ruvector-core\` - Core vector database functionality
           - \`ruvector-graph\` - Graph database capabilities
           - \`ruvector-gnn\` - Graph neural networks

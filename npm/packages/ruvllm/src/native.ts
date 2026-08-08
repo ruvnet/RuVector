@@ -42,7 +42,8 @@ interface NativeEngine {
   generate(prompt: string, config?: NativeGenConfig): string;
   route(text: string): NativeRoutingDecision;
   searchMemory(text: string, k?: number): NativeMemoryResult[];
-  addMemory(content: string, metadata?: string): number;
+  /** Current native builds return a UUID string; older ones returned a number. */
+  addMemory(content: string, metadata?: string): string | number;
   feedback(requestId: string, rating: number, correction?: string): boolean;
   stats(): NativeStats;
   forceLearn(): string;
@@ -60,26 +61,39 @@ interface NativeGenConfig {
   repetition_penalty?: number;
 }
 
+// napi-rs camelCases Rust struct fields when it builds the JS object, so the
+// real native shape is camelCase. These interfaces previously declared only
+// snake_case, which is why the wrapper's snake_case reads typechecked while
+// silently yielding undefined at runtime. Both spellings are declared —
+// camelCase required, snake_case optional — so older native builds still fit.
 interface NativeQueryResponse {
   text: string;
   confidence: number;
   model: string;
-  context_size: number;
-  latency_ms: number;
-  request_id: string;
+  contextSize: number;
+  latencyMs: number;
+  requestId: string;
+  context_size?: number;
+  latency_ms?: number;
+  request_id?: string;
 }
 
 interface NativeRoutingDecision {
   model: string;
-  context_size: number;
+  contextSize: number;
   temperature: number;
-  top_p: number;
+  top_p?: number;
+  topP: number;
   confidence: number;
+  context_size?: number;
 }
 
 interface NativeMemoryResult {
-  id: number;
-  score: number;
+  id: string | number;
+  /** Distance (smaller is closer) as reported by the current native build. */
+  distance?: number;
+  /** Similarity, emitted by older native builds. */
+  score?: number;
   content: string;
   metadata: string;
 }

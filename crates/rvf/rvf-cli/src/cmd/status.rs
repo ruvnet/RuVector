@@ -18,6 +18,7 @@ pub struct StatusArgs {
 
 pub fn run(args: StatusArgs) -> Result<(), Box<dyn std::error::Error>> {
     let store = RvfStore::open_readonly(Path::new(&args.path)).map_err(map_rvf_err)?;
+    crate::cmd::warn_on_metadata_recovery(&store, &args.path);
     let status = store.status();
 
     if args.json {

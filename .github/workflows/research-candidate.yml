@@ -1,0 +1,383 @@
+name: research-candidate
+run-name: research-candidate ${{ inputs.candidate_ref }}@${{ inputs.candidate_sha }}
+
+on:
+  workflow_call:
+    inputs:
+      candidate_ref:
+        description: Branch under research/candidate/ or research/nightly/
+        required: true
+        type: string
+      candidate_sha:
+        description: Immutable full candidate commit SHA
+        required: true
+        type: string
+      base_sha:
+        description: Exact current main commit used as the control base
+        required: true
+        type: string
+      override_run_id:
+        description: Successful research-gate-override run ID; empty for a green base
+        required: false
+        default: ""
+        type: string
+      manifest_path:
+        description: Candidate-relative research manifest path
+        required: false
+        default: research-manifest.json
+        type: string
+  workflow_dispatch:
+    inputs:
+      candidate_ref:
+        description: Branch under research/candidate/ or research/nightly/
+        required: true
+        type: string
+      candidate_sha:
+        description: Immutable full candidate commit SHA
+        required: true
+        type: string
+      base_sha:
+        description: Exact current main commit used as the control base
+        required: true
+        type: string
+      override_run_id:
+        description: Successful research-gate-override run ID; empty for a green base
+        required: false
+        default: ""
+        type: string
+      manifest_path:
+        description: Candidate-relative research manifest path
+        required: true
+        default: research-manifest.json
+        type: string
+
+concurrency:
+  group: research-candidate-${{ inputs.candidate_sha }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      attestations: read
+      checks: read
+      contents: read
+      statuses: read
+    steps:
+      - name: Validate immutable inputs
+        env:
+          CANDIDATE_REF: ${{ inputs.candidate_ref }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          MANIFEST_PATH: ${{ inputs.manifest_path }}
+        run: |
+          set -euo pipefail
+          [[ "$CANDIDATE_REF" =~ ^research/(candidate|nightly)/[A-Za-z0-9._/-]+$ ]]
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$MANIFEST_PATH" =~ ^[A-Za-z0-9._/-]+$ ]]
+          [[ "$MANIFEST_PATH" != /* && "$MANIFEST_PATH" != *".."* ]]
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: trusted
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.base_sha }}
+          path: base
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          path: candidate
+          persist-credentials: false
+      - name: Use a pinned interpreter rather than the PEP 668 system python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned trusted gate dependencies
+        run: |
+          set -euo pipefail
+          # Fully hashed lock: a substituted or tampered artifact fails the
+          # install rather than silently changing what the trusted gate accepts.
+          python3 -m pip install --disable-pip-version-check --no-input \
+            --require-hashes -r trusted/scripts/research-gate/requirements.txt
+      - name: Verify branch head and scan before execution
+        env:
+          CANDIDATE_REF: ${{ inputs.candidate_ref }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          MANIFEST_PATH: ${{ inputs.manifest_path }}
+        run: |
+          set -euo pipefail
+          remote_sha="$(git -C candidate ls-remote origin "refs/heads/$CANDIDATE_REF" | cut -f1)"
+          test "$remote_sha" = "$CANDIDATE_SHA"
+          test "$(git -C candidate rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git -C base rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git -C trusted ls-remote origin refs/heads/main | cut -f1)" = "$BASE_SHA"
+          # Both checkouts are depth-1, so the candidate clone has no object for
+          # the base commit and 'git diff base head' fails with "bad object".
+          # Copy the base commit in from the sibling checkout: no network, no
+          # credentials, and no full-history clone of a large repository.
+          git -C candidate fetch --no-tags --depth 1 "$GITHUB_WORKSPACE/base" HEAD
+          test "$(git -C candidate rev-parse FETCH_HEAD)" = "$BASE_SHA"
+          mkdir -p base-gate
+          python3 trusted/scripts/research-gate/preflight_scan.py \
+            --base base --candidate candidate --output base-gate/changed-files.txt
+          python3 trusted/scripts/research-gate/research_gate.py \
+            validate-manifest "candidate/$MANIFEST_PATH" --expect-sha "$CANDIDATE_SHA"
+      - name: Enforce green base or exact protected override
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          OVERRIDE_RUN_ID: ${{ inputs.override_run_id }}
+        run: |
+          set -euo pipefail
+          # --paginate is required: this repository routinely has more than one
+          # page of check runs per commit, and base_health.py fails closed if the
+          # entries it sees do not add up to the reported total_count.
+          gh api --paginate -H "Accept: application/vnd.github+json" \
+            "repos/$GH_REPO/commits/$BASE_SHA/check-runs?per_page=100" > check-runs.json
+          gh api --paginate "repos/$GH_REPO/commits/$BASE_SHA/status?per_page=100" > statuses.json
+          python3 trusted/scripts/research-gate/base_health.py \
+            --check-runs check-runs.json --statuses statuses.json \
+            --output failed-base-checks.json
+          failed_count="$(jq length failed-base-checks.json)"
+          mkdir -p base-gate
+          if [[ "$failed_count" = 0 ]]; then
+            test -z "$OVERRIDE_RUN_ID"
+            jq -n --arg base "$BASE_SHA" --arg head "$CANDIDATE_SHA" \
+              '{schema_version:1,base_sha:$base,head_sha:$head,state:"green",failed_checks:[],override_sha256:null}' \
+              > base-gate/base-gate.json
+          else
+            [[ "$OVERRIDE_RUN_ID" =~ ^[0-9]+$ ]]
+            test "$(gh run view "$OVERRIDE_RUN_ID" --repo "$GH_REPO" --json name,conclusion --jq '[.name,.conclusion] | join(":")')" = "research-gate-override:success"
+            gh run download "$OVERRIDE_RUN_ID" --repo "$GH_REPO" \
+              --name "research-gate-override-$CANDIDATE_SHA" --dir override-download
+            override_path="$(find override-download -name override.json -type f)"
+            test -n "$override_path"
+            gh attestation verify "$override_path" --repo "$GH_REPO" \
+              --signer-workflow "$GH_REPO/.github/workflows/research-gate-override.yml@refs/heads/main"
+            python3 trusted/scripts/research-gate/research_gate.py validate-override \
+              "$override_path" --base-sha "$BASE_SHA" --head-sha "$CANDIDATE_SHA" \
+              --failed-checks failed-base-checks.json
+            cp "$override_path" base-gate/override.json
+            override_sha="$(sha256sum base-gate/override.json | cut -d' ' -f1)"
+            jq -n --arg base "$BASE_SHA" --arg head "$CANDIDATE_SHA" \
+              --arg override_sha "$override_sha" --slurpfile failed failed-base-checks.json \
+              '{schema_version:1,base_sha:$base,head_sha:$head,state:"authorized-red",failed_checks:$failed[0],override_sha256:$override_sha}' \
+              > base-gate/base-gate.json
+          fi
+          python3 trusted/scripts/research-gate/research_gate.py validate-base-gate \
+            base-gate/base-gate.json --base-sha "$BASE_SHA" --head-sha "$CANDIDATE_SHA"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: research-base-gate-${{ inputs.candidate_sha }}
+          path: base-gate/
+          if-no-files-found: error
+          retention-days: 90
+
+  candidate:
+    needs: preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: trusted
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: research-base-gate-${{ inputs.candidate_sha }}
+          path: base-gate
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          path: candidate
+          persist-credentials: false
+      - name: Use a pinned interpreter rather than the PEP 668 system python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned trusted gate dependencies
+        run: |
+          set -euo pipefail
+          # Fully hashed lock: a substituted or tampered artifact fails the
+          # install rather than silently changing what the trusted gate accepts.
+          python3 -m pip install --disable-pip-version-check --no-input \
+            --require-hashes -r trusted/scripts/research-gate/requirements.txt
+      - name: Require pinned disposable sandbox image
+        env:
+          SANDBOX_IMAGE: ${{ vars.RESEARCH_SANDBOX_IMAGE }}
+        run: |
+          set -euo pipefail
+          [[ "$SANDBOX_IMAGE" =~ @sha256:[0-9a-f]{64}$ ]]
+          docker pull "$SANDBOX_IMAGE"
+      - name: Hydrate trusted default-branch lockfile only
+        env:
+          SANDBOX_IMAGE: ${{ vars.RESEARCH_SANDBOX_IMAGE }}
+        run: |
+          set -euo pipefail
+          mkdir cargo-home
+          docker run --rm \
+            --network bridge \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --mount type=bind,src="$PWD/trusted",dst=/workspace,readonly \
+            --mount type=bind,src="$PWD/cargo-home",dst=/cargo-home \
+            --env CARGO_HOME=/cargo-home \
+            --workdir /workspace \
+            "$SANDBOX_IMAGE" cargo fetch --locked
+          chmod -R a-w cargo-home
+      - name: Execute generated code in contained offline boundary
+        env:
+          SANDBOX_IMAGE: ${{ vars.RESEARCH_SANDBOX_IMAGE }}
+        run: |
+          set -euo pipefail
+          mkdir evidence
+          chmod 0777 evidence
+          container_id="$(
+            docker create \
+              --network none \
+              --read-only \
+              --user 65534:65534 \
+              --cap-drop ALL \
+              --security-opt no-new-privileges \
+              --pids-limit 512 \
+              --memory 16g \
+              --memory-swap 16g \
+              --cpus 4 \
+              --tmpfs /tmp:rw,noexec,nosuid,size=2g \
+              --tmpfs /target:rw,exec,nosuid,size=12g,mode=1777 \
+              --tmpfs /output:rw,noexec,nosuid,size=1g,mode=1777 \
+              --mount type=bind,src="$PWD/candidate",dst=/workspace,readonly \
+              --mount type=bind,src="$PWD/cargo-home",dst=/cargo-home,readonly \
+              --mount type=bind,src="$PWD/trusted/scripts/research-gate/sandbox_entrypoint.sh",dst=/trusted-entrypoint.sh,readonly \
+              --workdir /workspace \
+              --log-driver local \
+              --log-opt max-size=50m \
+              --log-opt max-file=1 \
+              "$SANDBOX_IMAGE" \
+              timeout --signal=KILL 85m bash /trusted-entrypoint.sh
+          )"
+          trap 'docker rm -f "$container_id" >/dev/null 2>&1 || true' EXIT
+          docker start --attach "$container_id"
+          test "$(docker inspect --format '{{.State.ExitCode}}' "$container_id")" = 0
+          docker cp "$container_id:/output/." evidence/
+          test "$(du -sb evidence | cut -f1)" -le 1073741824
+      - name: Trusted methodology evaluation
+        env:
+          MANIFEST_PATH: ${{ inputs.manifest_path }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          CANDIDATE_REF: ${{ inputs.candidate_ref }}
+          WORKFLOW_REVISION: ${{ github.workflow_sha }}
+        run: |
+          set -euo pipefail
+          cp "candidate/$MANIFEST_PATH" evidence/research-manifest.json
+          cp base-gate/base-gate.json evidence/base-gate.json
+          if [[ -f base-gate/override.json ]]; then cp base-gate/override.json evidence/override.json; fi
+          python3 trusted/scripts/research-gate/research_gate.py \
+            validate-manifest evidence/research-manifest.json --expect-sha "$CANDIDATE_SHA"
+          python3 trusted/scripts/research-gate/research_gate.py evaluate \
+            evidence/research-manifest.json evidence/raw-results.json \
+            --output evidence/evaluation.json
+          python3 trusted/scripts/research-gate/research_gate.py validate-report \
+            evidence/report.json \
+            --manifest evidence/research-manifest.json \
+            --evaluation evidence/evaluation.json
+          evaluator_version="$(
+            python3 -c 'import json; print(json.load(open("evidence/research-manifest.json"))["evaluator_version"])'
+          )"
+          artifacts=(research-manifest.json raw-results.json report.json evaluation.json base-gate.json)
+          if [[ -f evidence/override.json ]]; then artifacts+=(override.json); fi
+          python3 trusted/scripts/research-gate/build_artifact_index.py \
+            --root evidence \
+            --output evidence/artifact-index.json \
+            --commit "$CANDIDATE_SHA" \
+            --candidate-ref "$CANDIDATE_REF" \
+            --workflow-revision "$WORKFLOW_REVISION" \
+            --evaluator-version "$evaluator_version" \
+            --retention-class accepted \
+            "${artifacts[@]}"
+          python3 trusted/scripts/research-gate/research_gate.py validate-index \
+            evidence/artifact-index.json --root evidence
+      - name: Upload evidence for trusted attestation
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-evidence-${{ inputs.candidate_sha }}
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 90
+
+  attest:
+    needs: [preflight, candidate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: trusted
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: research-evidence-${{ inputs.candidate_sha }}
+          path: evidence
+      - name: Use a pinned interpreter rather than the PEP 668 system python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned trusted gate dependencies
+        run: |
+          set -euo pipefail
+          # Fully hashed lock: a substituted or tampered artifact fails the
+          # install rather than silently changing what the trusted gate accepts.
+          python3 -m pip install --disable-pip-version-check --no-input \
+            --require-hashes -r trusted/scripts/research-gate/requirements.txt
+      - name: Build trusted attestation subject
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          CANDIDATE_REF: ${{ inputs.candidate_ref }}
+          WORKFLOW_REVISION: ${{ github.workflow_sha }}
+        run: |
+          set -euo pipefail
+          evaluator_version="$(
+            python3 -c 'import json; print(json.load(open("evidence/research-manifest.json"))["evaluator_version"])'
+          )"
+          python3 trusted/scripts/research-gate/build_attestation_subject.py \
+            --artifact-index evidence/artifact-index.json \
+            --manifest evidence/research-manifest.json \
+            --base-gate evidence/base-gate.json \
+            --commit "$CANDIDATE_SHA" \
+            --candidate-ref "$CANDIDATE_REF" \
+            --workflow-revision "$WORKFLOW_REVISION" \
+            --evaluator-version "$evaluator_version" \
+            --required-check preflight=${{ needs.preflight.result }} \
+            --required-check contained-ci-methodology-confirmation=${{ needs.candidate.result }} \
+            --output evidence/attestation-subject.json
+      - name: Attest exact subject with trusted GitHub identity
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: evidence/attestation-subject.json
+      - name: Upload attested evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-evidence-attested-${{ inputs.candidate_sha }}
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 90

@@ -1,0 +1,28 @@
+[package]
+name = "rvforge-registry"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "RVForge file-backed content-addressed release registry: typed objects, publish rules, trust levels, revocation, and an append-only Merkle transparency log (ADR-294)"
+
+[dependencies]
+# Canonical JSON and the SCREAMING_SNAKE_CASE error-code pattern come from the
+# packaging library rather than being reimplemented here; a registry object and
+# a build manifest must hash identically or the two halves of the pipeline
+# disagree about what a release is.
+rvf-forge-core = { path = "../rvf-forge-core" }
+ed25519-dalek = "2"
+base64 = "0.22"
+sha2 = "0.10"
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true

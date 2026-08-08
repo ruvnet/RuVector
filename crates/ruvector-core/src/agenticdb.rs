@@ -24,12 +24,12 @@
 //! - causal_edges: Cause-effect relationships with hypergraphs
 //! - learning_sessions: RL training data
 
-use crate::embeddings::{BoxedEmbeddingProvider, HashEmbedding};
+use crate::embeddings::{BoxedEmbeddingProvider, EmbeddingSpaceAccess, HashEmbedding};
 use crate::error::{Result, RuvectorError};
 use crate::types::*;
 use crate::vector_db::VectorDB;
 use parking_lot::RwLock;
-use redb::{Database, TableDefinition};
+use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -39,6 +39,12 @@ const REFLEXION_TABLE: TableDefinition<&str, &[u8]> = TableDefinition::new("refl
 const SKILLS_TABLE: TableDefinition<&str, &[u8]> = TableDefinition::new("skills_library");
 const CAUSAL_TABLE: TableDefinition<&str, &[u8]> = TableDefinition::new("causal_edges");
 const LEARNING_TABLE: TableDefinition<&str, &[u8]> = TableDefinition::new("learning_sessions");
+/// ADR-281 §7: the embedding-space identity the corpus was written under.
+const EMBEDDING_SPACE_TABLE: TableDefinition<&str, &[u8]> =
+    TableDefinition::new("embedding_space_identity");
+/// Key for the identity in both the sidecar table and the vector store's
+/// shared config table, so it is namespaced like the other reserved keys there.
+const EMBEDDING_SPACE_KEY: &str = "__ruvector_embedding_space__";
 
 /// Reflexion episode for self-critique memory
 /// Note: Serialized using JSON (not bincode) due to serde_json::Value in metadata field
@@ -152,7 +158,8 @@ impl AgenticDB {
     /// options.dimensions = 1536; // OpenAI embedding dimensions
     /// options.storage_path = "agenticdb.db".to_string();
     ///
-    /// let provider = Arc::new(ApiEmbedding::openai("sk-...", "text-embedding-3-small"));
+    /// # let identity = todo!("load a pinned EmbeddingSpaceIdentity");
+    /// let provider = Arc::new(ApiEmbedding::openai("sk-...", "text-embedding-3-small", identity)?);
     /// let db = AgenticDB::with_embedding_provider(options, provider)?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
@@ -200,10 +207,92 @@ impl AgenticDB {
         // Initialize tables
         let write_txn = db.begin_write()?;
         {
-            let _ = write_txn.open_table(REFLEXION_TABLE)?;
-            let _ = write_txn.open_table(SKILLS_TABLE)?;
-            let _ = write_txn.open_table(CAUSAL_TABLE)?;
+            let reflexion = write_txn.open_table(REFLEXION_TABLE)?;
+            let skills = write_txn.open_table(SKILLS_TABLE)?;
+            let causal = write_txn.open_table(CAUSAL_TABLE)?;
             let _ = write_txn.open_table(LEARNING_TABLE)?;
+
+            // ADR-281 §7: dimension equality is never proof of embedding
+            // compatibility, so the corpus records the identity it was written
+            // under and refuses a provider from a different embedding space.
+            //
+            // The identity is written to two places. The authoritative copy
+            // lives in the vector store's own config table — the same file as
+            // the vectors, so it cannot be dropped without dropping the data it
+            // describes. The copy in this `.agentic` sidecar is a mirror for
+            // tools that only open the sidecar. The primary copy wins on
+            // disagreement, which is what closes the "delete the sidecar to
+            // downgrade the check" hole: removing `{path}.agentic` now loses
+            // the episodes and skills, not the compatibility gate.
+            let mut spaces = write_txn.open_table(EMBEDDING_SPACE_TABLE)?;
+            let active = embedding_provider.embedding_space();
+            let active_id = active.embedding_space_id()?;
+            let stored_json = match vector_db.load_config_value(EMBEDDING_SPACE_KEY)? {
+                Some(primary) => Some(primary),
+                None => spaces
+                    .get(EMBEDDING_SPACE_KEY)?
+                    .map(|value| {
+                        // Strict, not lossy: provenance bytes are never
+                        // silently rewritten to make them parse.
+                        String::from_utf8(value.value().to_vec())
+                            .map_err(|e| RuvectorError::SerializationError(e.to_string()))
+                    })
+                    .transpose()?,
+            };
+            match stored_json {
+                Some(json) => {
+                    let stored: crate::embeddings::EmbeddingSpaceIdentity =
+                        serde_json::from_str(&json)
+                            .map_err(|e| RuvectorError::SerializationError(e.to_string()))?;
+                    // AgenticDB is a text-embedding, corpus-mutating handle:
+                    // every method either embeds text or writes vectors, so
+                    // losing those two capabilities means the handle cannot be
+                    // opened at all. Vector-only readers (VectorDB) are
+                    // unaffected and keep working against the same store.
+                    let access = EmbeddingSpaceAccess::for_identities(&stored, active)?;
+                    if !access.text_embedding || !access.corpus_mutation {
+                        return Err(RuvectorError::EmbeddingSpaceMismatch {
+                            stored: stored.embedding_space_id()?,
+                            active: active_id,
+                        });
+                    }
+                    // Heal a store whose primary copy predates this check, or
+                    // whose sidecar was deleted, so the next open is gated by
+                    // both copies again.
+                    vector_db.save_config_value(EMBEDDING_SPACE_KEY, &json)?;
+                    spaces.insert(EMBEDDING_SPACE_KEY, json.as_bytes())?;
+                }
+                None => {
+                    // Pre-ADR-281 corpora carry no identity. Adopting the
+                    // active identity keeps that data usable (the alternative
+                    // would brick every existing store); the warning is the
+                    // only signal available that the adoption is unverified.
+                    //
+                    // "Has data" must include the vectors themselves: a corpus
+                    // whose sidecar was deleted still has every vector, and
+                    // that is exactly the case worth shouting about.
+                    let populated = !vector_db.is_empty()?
+                        || !reflexion.is_empty()?
+                        || !skills.is_empty()?
+                        || !causal.is_empty()?;
+                    if populated {
+                        tracing::warn!(
+                            embedding_space_id = %active_id,
+                            provider = %active.provider,
+                            model_id = %active.model_id,
+                            vectors = vector_db.len()?,
+                            "corpus holds data but has no recorded embedding-space identity \
+                             (pre-ADR-281 store, or its provenance was removed); adopting the \
+                             active provider's identity WITHOUT verification — vectors already \
+                             in this store may come from a different embedding space"
+                        );
+                    }
+                    let json = serde_json::to_string(active)
+                        .map_err(|e| RuvectorError::SerializationError(e.to_string()))?;
+                    vector_db.save_config_value(EMBEDDING_SPACE_KEY, &json)?;
+                    spaces.insert(EMBEDDING_SPACE_KEY, json.as_bytes())?;
+                }
+            }
         }
         write_txn.commit()?;
 
@@ -269,7 +358,7 @@ impl AgenticDB {
         let id = uuid::Uuid::new_v4().to_string();
 
         // Generate embedding from critique for similarity search
-        let embedding = self.generate_text_embedding(&critique)?;
+        let embedding = self.generate_passage_embedding(&critique)?;
 
         let episode = ReflexionEpisode {
             id: id.clone(),
@@ -315,7 +404,7 @@ impl AgenticDB {
         k: usize,
     ) -> Result<Vec<ReflexionEpisode>> {
         // Generate embedding for query
-        let query_embedding = self.generate_text_embedding(query)?;
+        let query_embedding = self.generate_query_embedding(query)?;
 
         // Search in vector DB
         let results = self.vector_db.search(SearchQuery {
@@ -364,7 +453,7 @@ impl AgenticDB {
         let id = uuid::Uuid::new_v4().to_string();
 
         // Generate embedding from description
-        let embedding = self.generate_text_embedding(&description)?;
+        let embedding = self.generate_passage_embedding(&description)?;
 
         let skill = Skill {
             id: id.clone(),
@@ -406,7 +495,7 @@ impl AgenticDB {
 
     /// Search skills by description
     pub fn search_skills(&self, query_description: &str, k: usize) -> Result<Vec<Skill>> {
-        let query_embedding = self.generate_text_embedding(query_description)?;
+        let query_embedding = self.generate_query_embedding(query_description)?;
 
         let results = self.vector_db.search(SearchQuery {
             vector: query_embedding,
@@ -478,7 +567,7 @@ impl AgenticDB {
         let id = uuid::Uuid::new_v4().to_string();
 
         // Generate embedding from context
-        let embedding = self.generate_text_embedding(&context)?;
+        let embedding = self.generate_passage_embedding(&context)?;
 
         let edge = CausalEdge {
             id: id.clone(),
@@ -527,7 +616,7 @@ impl AgenticDB {
         gamma: f64,
     ) -> Result<Vec<UtilitySearchResult>> {
         let start_time = std::time::Instant::now();
-        let query_embedding = self.generate_text_embedding(query)?;
+        let query_embedding = self.generate_query_embedding(query)?;
 
         // Get all causal edges
         let results = self.vector_db.search(SearchQuery {
@@ -749,15 +838,20 @@ impl AgenticDB {
     ///
     /// let mut options = DbOptions::default();
     /// options.dimensions = 1536;
-    /// let provider = Arc::new(ApiEmbedding::openai("sk-...", "text-embedding-3-small"));
+    /// # let identity = todo!("load a pinned EmbeddingSpaceIdentity");
+    /// let provider = Arc::new(ApiEmbedding::openai("sk-...", "text-embedding-3-small", identity)?);
     /// let db = AgenticDB::with_embedding_provider(options, provider)?;
     ///
     /// // Now embeddings will be semantic! (internal method)
     /// let embedding = db.generate_text_embedding("hello world")?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    fn generate_text_embedding(&self, text: &str) -> Result<Vec<f32>> {
-        self.embedding_provider.embed(text)
+    fn generate_query_embedding(&self, text: &str) -> Result<Vec<f32>> {
+        self.embedding_provider.embed_query(text)
+    }
+
+    fn generate_passage_embedding(&self, text: &str) -> Result<Vec<f32>> {
+        self.embedding_provider.embed_passage(text)
     }
 }
 
@@ -1016,7 +1110,7 @@ impl<'a> SessionStateIndex<'a> {
         let expires_at = timestamp + self.ttl_seconds;
 
         // Generate embedding for the content
-        let embedding = self.db.generate_text_embedding(content)?;
+        let embedding = self.db.generate_passage_embedding(content)?;
 
         // Store in vector DB
         self.db.vector_db.insert(VectorEntry {
@@ -1044,7 +1138,7 @@ impl<'a> SessionStateIndex<'a> {
 
     /// Find relevant past turns based on current context
     pub fn find_relevant_turns(&self, query: &str, k: usize) -> Result<Vec<SessionTurn>> {
-        let query_embedding = self.db.generate_text_embedding(query)?;
+        let query_embedding = self.db.generate_query_embedding(query)?;
         let current_time = chrono::Utc::now().timestamp();
 
         let results = self.db.vector_db.search(SearchQuery {
@@ -1216,7 +1310,7 @@ impl<'a> WitnessLog<'a> {
         // Generate embedding for semantic search
         let embedding = self
             .db
-            .generate_text_embedding(&format!("{} {} {}", agent_id, action_type, details))?;
+            .generate_passage_embedding(&format!("{} {} {}", agent_id, action_type, details))?;
 
         // Store in vector DB (append-only)
         self.db.vector_db.insert(VectorEntry {
@@ -1246,7 +1340,7 @@ impl<'a> WitnessLog<'a> {
 
     /// Search witness log semantically
     pub fn search(&self, query: &str, k: usize) -> Result<Vec<WitnessEntry>> {
-        let query_embedding = self.db.generate_text_embedding(query)?;
+        let query_embedding = self.db.generate_query_embedding(query)?;
 
         let results = self.db.vector_db.search(SearchQuery {
             vector: query_embedding,

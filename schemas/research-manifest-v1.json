@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ruvector.dev/schemas/research-manifest-v1.json",
+  "title": "ADR-282 research manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "commit", "revision", "phase", "claim",
+    "independent_variable", "decision_rule", "datasets", "embedding_space",
+    "exploration_seeds", "confirmation_seeds", "topology", "budget",
+    "memory_accounting", "environment", "commands", "evaluator_version",
+    "artifact_retention_class", "selection"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "revision": { "type": "integer", "minimum": 1 },
+    "phase": { "enum": ["exploration", "confirmation"] },
+    "claim": { "type": "string", "minLength": 1 },
+    "independent_variable": { "type": "string", "minLength": 1 },
+    "decision_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primary_metric", "minimum_meaningful_effect", "expected_direction",
+        "alpha", "comparison", "sample_size_or_power_rationale", "outcome_rules"
+      ],
+      "properties": {
+        "primary_metric": { "type": "string", "minLength": 1 },
+        "minimum_meaningful_effect": { "type": "number", "exclusiveMinimum": 0 },
+        "expected_direction": { "enum": ["greater", "less"] },
+        "alpha": { "const": 0.05 },
+        "comparison": { "const": "paired" },
+        "sample_size_or_power_rationale": { "type": "string", "minLength": 1 },
+        "outcome_rules": {
+          "const": {
+            "pass": "ci_lower_at_or_above_minimum_meaningful_effect",
+            "fail": "ci_upper_at_or_below_zero",
+            "inconclusive": "otherwise"
+          }
+        }
+      }
+    },
+    "datasets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "kind", "source", "sha256", "sampling"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "kind": { "const": "real" },
+          "source": { "type": "string", "minLength": 1 },
+          "sha256": { "$ref": "#/$defs/sha256" },
+          "sampling": { "type": "string", "minLength": 1 },
+          "held_out": { "type": "boolean" }
+        }
+      }
+    },
+    "embedding_space": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "embedding_space_id", "query_api", "passage_api"],
+      "properties": {
+        "identity": { "$ref": "embedding-space-identity-v1.json" },
+        "embedding_space_id": { "$ref": "#/$defs/sha256" },
+        "query_api": { "const": "embed_query" },
+        "passage_api": { "const": "embed_passage" }
+      }
+    },
+    "exploration_seeds": { "$ref": "#/$defs/seeds" },
+    "confirmation_seeds": { "$ref": "#/$defs/seeds" },
+    "topology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claimed", "implemented", "configuration"],
+      "properties": {
+        "claimed": { "type": "string", "minLength": 1 },
+        "implemented": { "type": "string", "minLength": 1 },
+        "configuration": { "type": "object" }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary_resource", "tolerance", "indivisible_allocation_unit", "secondary_resources"],
+      "properties": {
+        "primary_resource": {
+          "enum": ["resident_memory_bytes", "on_disk_bytes", "query_latency_ns", "search_effort", "build_time_ns", "cpu_seconds"]
+        },
+        "tolerance": { "type": "number", "minimum": 0, "maximum": 0.05 },
+        "indivisible_allocation_unit": { "type": "number", "minimum": 0 },
+        "secondary_resources": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "memory_accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["components", "peak_rss_protocol"],
+      "properties": {
+        "components": {
+          "type": "array",
+          "uniqueItems": true,
+          "allOf": [
+            { "contains": { "const": "encoded_payload_bytes" } },
+            { "contains": { "const": "index_graph_bytes" } },
+            { "contains": { "const": "codebooks_quantizer_bytes" } },
+            { "contains": { "const": "container_bookkeeping_bytes" } },
+            { "contains": { "const": "allocator_overhead_bytes" } },
+            { "contains": { "const": "temporary_build_bytes" } },
+            { "contains": { "const": "temporary_query_bytes" } },
+            { "contains": { "const": "process_peak_rss_bytes" } }
+          ],
+          "items": { "type": "string" }
+        },
+        "peak_rss_protocol": { "$ref": "#/$defs/memory_protocol" }
+      }
+    },
+    "environment": { "type": "object" },
+    "commands": { "type": "array", "items": { "type": "string" } },
+    "evaluator_version": { "type": "string", "minLength": 1 },
+    "artifact_retention_class": { "enum": ["candidate", "accepted", "publication"] },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_family", "selection_rule", "confirmation_error_control"],
+      "properties": {
+        "candidate_family": { "type": "string" },
+        "selection_rule": { "type": "string", "minLength": 1 },
+        "confirmation_error_control": { "enum": ["family-wise", "fdr", "single-candidate"] }
+      }
+    },
+    "new_crate_justification": { "type": "string" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "seeds": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": { "type": "integer" }
+    },
+    "memory_protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version", "isolation", "baseline_subtracted", "warmup_operations",
+        "sampling_interval_ms", "allocator", "cgroup_limit_bytes",
+        "page_size_bytes", "process_count", "thread_count",
+        "child_process_policy", "filesystem_cache_included", "cache_state",
+        "kernel", "alternating_order"
+      ],
+      "properties": {
+        "version": { "type": "string", "minLength": 1 },
+        "isolation": { "type": "string", "minLength": 1 },
+        "baseline_subtracted": { "const": true },
+        "warmup_operations": { "type": "integer", "minimum": 0 },
+        "sampling_interval_ms": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 },
+        "allocator": { "type": "string", "minLength": 1 },
+        "cgroup_limit_bytes": { "type": "integer", "minimum": 1 },
+        "page_size_bytes": { "type": "integer", "minimum": 1 },
+        "process_count": { "type": "integer", "minimum": 1 },
+        "thread_count": { "type": "integer", "minimum": 1 },
+        "child_process_policy": { "type": "string", "minLength": 1 },
+        "filesystem_cache_included": { "type": "boolean" },
+        "cache_state": { "enum": ["cold", "warm"] },
+        "kernel": { "type": "string", "minLength": 1 },
+        "alternating_order": { "const": true }
+      }
+    }
+  }
+}

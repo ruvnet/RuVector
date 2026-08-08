@@ -1523,15 +1523,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cc14f565cf027a105f7a44ccf9e5b424348421a1d8952a8fc9d499d313107789"
 
 [[package]]
-name = "concurrent-queue"
-version = "2.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ca0197aee26d1ae37445ee532fefce43251d24cc7c166799f4d46817f1d3973"
-dependencies = [
- "crossbeam-utils",
-]
-
-[[package]]
 name = "console"
 version = "0.15.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2677,11 +2668,10 @@ dependencies = [
 
 [[package]]
 name = "event-listener"
-version = "5.4.1"
+version = "5.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e13b66accf52311f30a0db42147dadea9850cb48cd070028831ae5f5d4b856ab"
+checksum = "5a23add41df1562121a9393cb065eab5146a1242410f23a644851e90cfd669d2"
 dependencies = [
- "concurrent-queue",
  "parking",
  "pin-project-lite",
 ]
@@ -8503,9 +8493,9 @@ dependencies = [
 
 [[package]]
 name = "rkyv"
-version = "0.8.16"
+version = "0.8.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73389e0c99e664f919275ab5b5b0471391fe9a8de61e1dff9b1eaf56a90f16e3"
+checksum = "d9776093b7ca170454ab1406954f7b7d97a57c51dc6c0642957fb2ef25c2d399"
 dependencies = [
  "bytecheck",
  "bytes",
@@ -8522,13 +8512,13 @@ dependencies = [
 
 [[package]]
 name = "rkyv_derive"
-version = "0.8.16"
+version = "0.8.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d2ed0b54125315fb36bd021e82d314d1c126548f871634b483f46b31d13cac6"
+checksum = "1c25ef604ac7dd839d44d64648952ea23c97866f124ff671b0ed2cf3ad9bb06e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.118",
+ "syn 3.0.3",
 ]
 
 [[package]]
@@ -9217,8 +9207,10 @@ dependencies = [
  "redb",
  "reqwest 0.12.28",
  "rkyv",
+ "ruvector-turboquant",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "simsimd",
  "tempfile",
  "thiserror 2.0.18",
@@ -9226,6 +9218,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "unicode-normalization",
  "uuid",
 ]
 
@@ -9804,6 +9797,7 @@ dependencies = [
  "ruvector-core 2.3.0",
  "serde_json",
  "sha2 0.10.9",
+ "tempfile",
  "thiserror 2.0.18",
  "tokenizers",
 ]
@@ -10583,6 +10577,7 @@ dependencies = [
  "csv",
  "flate2",
  "hdf5",
+ "ndarray 0.15.6",
  "rand 0.8.6",
  "rand_distr 0.4.3",
  "rayon",
@@ -10748,6 +10743,15 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
  "web-sys",
+]
+
+[[package]]
+name = "ruvector-turboquant"
+version = "2.3.0"
+dependencies = [
+ "criterion 0.5.1",
+ "serde",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -11461,6 +11465,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "rvf-forge-core"
+version = "2.3.0"
+dependencies = [
+ "ed25519-dalek",
+ "rvf-crypto",
+ "rvf-types",
+ "rvf-wire",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "rvf-index"
 version = "0.2.0"
 
@@ -11511,6 +11529,10 @@ dependencies = [
 [[package]]
 name = "rvf-types"
 version = "0.2.1"
+dependencies = [
+ "ed25519-dalek",
+ "rand_core 0.6.4",
+]
 
 [[package]]
 name = "rvf-wire"
@@ -11521,6 +11543,20 @@ dependencies = [
  "sha3",
  "subtle",
  "xxhash-rust",
+]
+
+[[package]]
+name = "rvforge-registry"
+version = "2.3.0"
+dependencies = [
+ "base64 0.22.1",
+ "ed25519-dalek",
+ "rvf-forge-core",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -12513,6 +12549,17 @@ name = "syn"
 version = "2.0.118"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b9ae57f904213ebb649ce6895b8a66c66f0203b9319718f69a5612a065b1422"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-ident",
+]
+
+[[package]]
+name = "syn"
+version = "3.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53e9bae58849f64dfa4f5d5ae372c8341f7305f82a3868709269343628b659a3"
 dependencies = [
  "proc-macro2",
  "quote",

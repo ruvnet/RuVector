@@ -77,9 +77,12 @@ export interface RoutingDecision {
 /**
  * Memory search result
  */
+/** Identifier for a stored memory node. */
+export type MemoryId = string | number;
+
 export interface MemoryResult {
-  /** Node ID */
-  id: number;
+  /** Node ID — a UUID string on current native builds, a number on older ones. */
+  id: MemoryId;
   /** Similarity score */
   score: number;
   /** Content text */

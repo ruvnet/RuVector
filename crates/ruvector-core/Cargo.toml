@@ -14,6 +14,9 @@ description = "High-performance Rust vector database core with HNSW indexing"
 redb = { workspace = true, optional = true }
 memmap2 = { workspace = true, optional = true }
 hnsw_rs = { workspace = true, optional = true }
+# Turbo4 codec + unified encoding plane (ADR-296/297). Dependency-free and
+# WASM-safe, so it is unconditional: the codec plane exists on every build.
+ruvector-turboquant = { version = "2.3.0", path = "../ruvector-turboquant" }
 simsimd = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
 crossbeam = { workspace = true, optional = true }
@@ -23,6 +26,8 @@ rkyv = { workspace = true }
 bincode = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = "0.10"
+unicode-normalization = "0.1"
 
 # Error handling
 thiserror = { workspace = true }

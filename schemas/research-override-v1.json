@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ruvector.dev/schemas/research-override-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "scope", "approver", "approval_source", "approver_permission",
+    "approver_in_research_gate_codeowners", "base_sha", "head_sha",
+    "failed_checks", "rationale", "approved_at", "expires_at"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "scope": { "const": "red-base-only" },
+    "approver": { "type": "string", "minLength": 1 },
+    "approval_source": { "const": "github-environment:research-gate-override" },
+    "approver_permission": { "enum": ["maintain", "admin"] },
+    "approver_in_research_gate_codeowners": { "const": true },
+    "base_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "head_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "failed_checks": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "rationale": { "type": "string", "minLength": 1 },
+    "approved_at": { "type": "string", "format": "date-time" },
+    "expires_at": { "type": "string", "format": "date-time" }
+  }
+}

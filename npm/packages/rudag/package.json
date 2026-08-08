@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/rudag",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Fast DAG (Directed Acyclic Graph) library with Rust/WASM. Topological sort, critical path, task scheduling, dependency resolution, workflow optimization. Self-learning ML attention. Browser & Node.js with auto-persistence.",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

@@ -262,6 +262,13 @@ fn run_benchmark(
         "none" => QuantizationConfig::None,
         "scalar" => QuantizationConfig::Scalar,
         "binary" => QuantizationConfig::Binary,
+        // Applied 4-bit quantization (ADR-296) with default seed/policy.
+        "turbo4" => QuantizationConfig::Turbo4 {
+            rotation_seed: ruvector_core::types::default_turbo4_rotation_seed(),
+            rescore_multiplier: ruvector_core::types::default_turbo4_rescore_multiplier(),
+            policy: Default::default(),
+            search_quantization: Default::default(),
+        },
         _ => QuantizationConfig::Scalar,
     };
 

@@ -28,6 +28,7 @@ pub fn run(args: DeleteArgs) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let mut store = RvfStore::open(Path::new(&args.path)).map_err(map_rvf_err)?;
+    crate::cmd::warn_on_metadata_recovery(&store, &args.path);
 
     let result = if let Some(ids_str) = &args.ids {
         let ids: Vec<u64> = ids_str

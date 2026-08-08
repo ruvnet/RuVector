@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/ospipe-wasm",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "OSpipe: RuVector-enhanced personal AI memory for browsers - WASM bindings",
   "main": "pkg/ospipe.js",

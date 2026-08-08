@@ -45,6 +45,19 @@ pub enum RuvectorError {
     #[error("Model inference error: {0}")]
     ModelInferenceError(String),
 
+    /// The loaded embedding provider cannot serve the requested retrieval role.
+    #[error("Embedding role unsupported: {0}")]
+    EmbeddingRoleUnsupported(String),
+
+    /// The active provider and persisted corpus use different embedding spaces.
+    #[error("Embedding space mismatch: stored {stored}, active {active}")]
+    EmbeddingSpaceMismatch {
+        /// Deterministic identity persisted by the store.
+        stored: String,
+        /// Deterministic identity of the active provider.
+        active: String,
+    },
+
     /// Index error
     #[error("Index error: {0}")]
     IndexError(String),

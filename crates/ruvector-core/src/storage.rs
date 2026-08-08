@@ -317,6 +317,32 @@ impl VectorStorage {
         Ok(Some(config))
     }
 
+    /// Store an arbitrary provenance value alongside the vectors themselves.
+    ///
+    /// Lives in the same file as the vectors on purpose: provenance that a
+    /// caller can delete without deleting the data it describes is not a
+    /// safety property. See [`AgenticDB::with_embedding_provider`](crate::AgenticDB::with_embedding_provider).
+    pub fn save_config_value(&self, key: &str, value: &str) -> Result<()> {
+        let write_txn = self.db.begin_write()?;
+        {
+            let mut table = write_txn.open_table(CONFIG_TABLE)?;
+            table.insert(key, value)?;
+        }
+        write_txn.commit()?;
+        Ok(())
+    }
+
+    /// Read a value written by [`save_config_value`](Self::save_config_value).
+    /// A database created before the key existed returns `None`.
+    pub fn load_config_value(&self, key: &str) -> Result<Option<String>> {
+        let read_txn = self.db.begin_read()?;
+        let table = match read_txn.open_table(CONFIG_TABLE) {
+            Ok(t) => t,
+            Err(_) => return Ok(None),
+        };
+        Ok(table.get(key)?.map(|v| v.value().to_string()))
+    }
+
     /// Get the stored dimensions
     pub fn dimensions(&self) -> usize {
         self.dimensions

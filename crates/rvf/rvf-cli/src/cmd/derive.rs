@@ -39,6 +39,7 @@ pub fn run(args: DeriveArgs) -> Result<(), Box<dyn std::error::Error>> {
     let dt = parse_derivation_type(&args.derivation_type)?;
 
     let parent = RvfStore::open_readonly(Path::new(&args.parent)).map_err(map_rvf_err)?;
+    crate::cmd::warn_on_metadata_recovery(&parent, &args.parent);
     let child = parent
         .derive(Path::new(&args.child), dt, None)
         .map_err(map_rvf_err)?;

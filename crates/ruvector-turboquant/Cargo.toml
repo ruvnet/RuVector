@@ -1,0 +1,20 @@
+[package]
+name = "ruvector-turboquant"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Turbo4: 4-bit Lloyd-Max quantized vector datatype with deterministic Hadamard rotation and direct packed SIMD scoring (ADR-296)"
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+name = "kernels"
+harness = false

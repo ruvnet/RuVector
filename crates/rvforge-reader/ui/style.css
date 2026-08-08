@@ -1,0 +1,470 @@
+:root {
+  --bg: #0f1115;
+  --surface: #171a21;
+  --surface-2: #1e222b;
+  --line: #2a2f3a;
+  --text: #e6e8ee;
+  --muted: #9aa2b1;
+  --accent: #5b8cff;
+  --grant: #57b894;
+  --deny: #d97a6c;
+  --radius: 8px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --surface-2: #f0f2f5;
+    --line: #d8dce3;
+    --text: #1b1f27;
+    --muted: #5b6270;
+    --accent: #2f5fd0;
+    --grant: #1f7a5c;
+    --deny: #b04434;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.chrome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+footer.chrome { border-bottom: none; border-top: 1px solid var(--line); margin-top: auto; }
+
+h1 { font-size: 15px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
+h2 { font-size: 20px; margin: 0 0 6px; }
+h3 { font-size: 14px; margin: 20px 0 8px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+
+main { padding: 24px 20px 32px; max-width: 900px; width: 100%; margin: 0 auto; }
+
+.screen { display: none; }
+.screen.active { display: block; }
+
+.lede { color: var(--muted); margin: 0 0 20px; max-width: 62ch; }
+.hint { color: var(--muted); font-size: 13px; margin: 0 0 10px; }
+
+.steps { display: flex; gap: 6px; }
+
+button {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 7px 14px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.step[aria-current="true"] { border-color: var(--accent); color: var(--accent); }
+
+input[type="text"] {
+  flex: 1;
+  min-width: 200px;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+}
+
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.row.end { justify-content: flex-end; margin-top: 20px; }
+.row.controls { gap: 8px; }
+
+.panel {
+  margin-top: 20px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 6px 16px;
+  margin: 0;
+}
+
+.facts dt { color: var(--muted); font-size: 13px; }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+
+.status-unverified { color: var(--deny); font-weight: 600; }
+.status-ok { color: var(--grant); font-weight: 600; }
+
+.notes { margin: 14px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
+.notes li { margin-bottom: 4px; }
+
+.contract { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+@media (max-width: 720px) {
+  .contract { grid-template-columns: 1fr; }
+  .facts { grid-template-columns: 1fr; }
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.card h3 { margin-top: 0; color: var(--text); }
+.card ul { margin: 0; padding-left: 20px; }
+.card li { margin-bottom: 6px; }
+.card .empty { color: var(--muted); list-style: none; margin-left: -20px; }
+
+.requests { border-left: 3px solid var(--grant); }
+.denials { border-left: 3px solid var(--deny); }
+
+.eval { width: 100%; border-collapse: collapse; font-size: 13px; }
+.eval th, .eval td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+.eval th { color: var(--muted); font-weight: 600; }
+.eval .yes { color: var(--grant); }
+.eval .no { color: var(--muted); }
+
+.banner { color: var(--muted); font-size: 12px; }
+
+.error {
+  margin: 0;
+  padding: 10px 20px;
+  background: var(--deny);
+  color: #fff;
+  font-size: 13px;
+}
+
+/* ---------------------------------------------------------------------------
+   Agent dock (ADR-295).
+
+   Two presentation systems, deliberately not interchangeable:
+
+   - System chrome (.pill, .state-chip, .ctl, .capcard) is opaque, square-
+     edged, system-font, and sits on --surface. It is drawn from Rust-owned
+     state.
+   - Agent content (.agent-region) is an inset, dashed, monospace region on a
+     tinted background, always preceded by a dock-drawn "Agent-reported"
+     label and clipped to one line. Nothing an agent can put in a string
+     reproduces the label, the inset, or the border, because the agent supplies
+     text through textContent and never markup.
+   --------------------------------------------------------------------------- */
+
+:root {
+  --agent-tint: #241f2e;
+  --agent-line: #4a3f63;
+  --state-idle: #7c8698;
+  --state-running: #4f9bd8;
+  --state-waiting: #d8a13c;
+  --state-paused: #8e7cc3;
+  --state-denied: #d4643c;
+  --state-error: #d94f4f;
+  --state-quarantined: #b03a86;
+  --state-completed: #57b894;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --agent-tint: #f3eefb;
+    --agent-line: #9d8dc4;
+    --state-idle: #667085;
+    --state-running: #1f6fae;
+    --state-waiting: #9a6b12;
+    --state-paused: #6a54a8;
+    --state-denied: #a8431f;
+    --state-error: #b02a2a;
+    --state-quarantined: #8a1f66;
+    --state-completed: #1f7a5c;
+  }
+}
+
+.dock-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.dock-empty { color: var(--muted); font-size: 13px; }
+
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 320px;
+  padding: 6px 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.pill-icon { font-size: 16px; color: var(--accent); }
+.pill-name { font-weight: 600; white-space: nowrap; }
+
+/* Agent-authored regions. */
+.agent-region {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  padding: 3px 10px;
+  background: var(--agent-tint);
+  border: 1px dashed var(--agent-line);
+  border-radius: 4px;
+}
+
+.agent-region.block { display: flex; margin: 0 0 6px; }
+
+.agent-label {
+  flex: none;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--agent-line);
+  font-family: system-ui, sans-serif;
+}
+
+.agent-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-region.suspicious { border-color: var(--deny); background: transparent; }
+.agent-region.suspicious .agent-text { color: var(--deny); font-style: italic; }
+.agent-region.suspicious .agent-label { color: var(--deny); }
+
+.pill-progress { display: flex; align-items: center; gap: 6px; flex: none; }
+.pill-progress progress { width: 90px; height: 6px; }
+
+.state-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--state-idle);
+  white-space: nowrap;
+}
+
+.state-glyph { font-size: 11px; }
+
+.state-chip.state-idle { background: var(--state-idle); }
+.state-chip.state-running { background: var(--state-running); }
+.state-chip.state-waiting { background: var(--state-waiting); }
+.state-chip.state-paused { background: var(--state-paused); }
+.state-chip.state-denied { background: var(--state-denied); }
+.state-chip.state-error { background: var(--state-error); }
+.state-chip.state-quarantined { background: var(--state-quarantined); }
+.state-chip.state-completed { background: var(--state-completed); }
+
+.ctl { flex: none; padding: 5px 12px; border-radius: 4px; }
+.ctl.stop { border-color: var(--deny); color: var(--deny); }
+
+.pill-secondary { display: flex; gap: 6px; }
+
+.secondary-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.secondary-icon .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--state-idle); }
+.secondary-icon .dot.state-idle { background: var(--state-idle); }
+.secondary-icon .dot.state-running { background: var(--state-running); }
+.secondary-icon .dot.state-waiting { background: var(--state-waiting); }
+.secondary-icon .dot.state-paused { background: var(--state-paused); }
+.secondary-icon .dot.state-denied { background: var(--state-denied); }
+.secondary-icon .dot.state-error { background: var(--state-error); }
+.secondary-icon .dot.state-quarantined { background: var(--state-quarantined); }
+.secondary-icon .dot.state-completed { background: var(--state-completed); }
+
+.overflow { padding: 5px 10px; font-size: 12px; }
+
+.dock-aggregate {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.approvals { color: var(--state-waiting); font-weight: 600; }
+
+.expanded-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+@media (max-width: 720px) {
+  .expanded-grid { grid-template-columns: 1fr; }
+  .dock-aggregate { margin-left: 0; }
+}
+
+.facts.compact { grid-template-columns: 130px 1fr; font-size: 13px; }
+
+.actions { margin: 0; padding-left: 18px; font-size: 13px; }
+.actions li { margin-bottom: 4px; }
+.actions li.agent-authored {
+  list-style: none;
+  margin-left: -18px;
+  padding: 2px 8px;
+  border-left: 2px dashed var(--agent-line);
+  background: var(--agent-tint);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.capcard { margin: 0; padding: 0; list-style: none; font-size: 13px; }
+.capcard li { display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.capcard .mark { flex: none; font-weight: 700; width: 1.2em; }
+.capcard .yes .mark { color: var(--grant); }
+.capcard .no .mark { color: var(--deny); }
+.capcard .detail { color: var(--muted); margin-left: auto; text-align: right; }
+
+input[type="text"].narrow { flex: none; width: 90px; min-width: 0; }
+
+/* Witness viewer (requirements P15.11).
+   -------------------------------------------------------------------------
+   System chrome throughout: no agent-authored string reaches this screen, so
+   there is no .agent-region here. Only a chain Rust reported as `valid` gets
+   the grant colour; every other label — broken, empty, unchained — takes the
+   deny colour, and a broken receipt is marked in place rather than the chain
+   being greyed out as a whole. */
+
+.wit-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin: 12px 0 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.wit-banner.ok { border-color: var(--grant); }
+.wit-banner.unverified { border-color: var(--deny); }
+
+.wit-chip {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--bg);
+  background: var(--deny);
+}
+.wit-chip.ok { background: var(--grant); }
+.wit-chip.unverified { background: var(--deny); }
+
+.wit-subject {
+  margin: 18px 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.wit-subject-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.wit-subject-head .hint { margin: 0; margin-left: auto; }
+
+.wit-chain { margin: 0; padding: 0 0 0 34px; }
+
+.wit-receipt {
+  padding: 10px 12px 10px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.wit-receipt:last-child { border-bottom: none; }
+/* The break is drawn on the receipt that failed: the ones above it verified. */
+.wit-receipt.broken {
+  border-left: 3px solid var(--deny);
+  margin-left: -3px;
+  background: var(--surface-2);
+}
+
+.wit-receipt-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.wit-receipt-head .hint { margin: 0; }
+.wit-receipt-head .id { margin-left: auto; color: var(--muted); }
+
+.wit-event { font-weight: 600; }
+.wit-outcome { font-size: 12px; font-weight: 700; }
+.wit-outcome.ok { color: var(--grant); }
+.wit-outcome.unverified { color: var(--deny); }
+
+.wit-detail { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+.wit-note { margin: 4px 0 0; font-size: 13px; color: var(--muted); font-style: italic; }
+.wit-break { margin: 6px 0 0; font-size: 13px; color: var(--deny); font-weight: 600; }
+
+/* Capability consent and the library (requirements P6, P7, P9).
+   A grant checkbox sits inside the sentence it governs, so what is being
+   cleared is never ambiguous. */
+label.inline {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: none;
+}
+label.inline input[type="checkbox"] { flex: none; }
+
+#cap-requests li { margin-bottom: 6px; }
+
+/* The action column wraps rather than forcing the table wide: every P7
+   operation stays visible without a horizontal scroll. */
+#lib-rows td:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+#lib-rows td { vertical-align: top; }
+#lib-rows .mono { font-size: 12px; }
+
+#lib-detail h4 { margin: 12px 0 4px; }

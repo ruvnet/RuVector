@@ -55,7 +55,9 @@ describe('RuvLLM', () => {
     const llm = new RuvLLM();
 
     const id = llm.addMemory('test content', { type: 'test' });
-    assert.ok(typeof id === 'number');
+    // Current native builds return a UUID string; older ones returned a number.
+    assert.ok(typeof id === 'string' || typeof id === 'number');
+    assert.ok(String(id).length > 0);
 
     const results = llm.searchMemory('test', 5);
     assert.ok(Array.isArray(results));

@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/ruvllm-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI for LLM inference, benchmarking, and model management - run local LLMs with Metal/CUDA acceleration",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

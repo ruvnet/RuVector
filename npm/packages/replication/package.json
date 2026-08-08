@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/replication",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Data replication and synchronization - multi-node replicas, conflict resolution with vector clocks, change data capture, and automatic failover",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

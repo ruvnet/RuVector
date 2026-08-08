@@ -1,0 +1,53 @@
+name: research-nightly-dispatch
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: research-nightly-dispatch
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  dispatch-trusted-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Discover and dispatch immutable candidate heads
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          base_sha="$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq .object.sha)"
+          [[ "$base_sha" =~ ^[0-9a-f]{40}$ ]]
+          gh api --paginate "repos/$GH_REPO/branches?per_page=100" \
+            --jq '.[].name | select(startswith("research/candidate/") or startswith("research/nightly/"))' \
+            > candidate-branches.txt
+          gh api --paginate "repos/$GH_REPO/actions/workflows/research-candidate.yml/runs?event=workflow_dispatch&per_page=100" \
+            --jq '.workflow_runs[].display_title' > dispatched-titles.txt
+          while IFS= read -r candidate_ref; do
+            [[ "$candidate_ref" =~ ^research/(candidate|nightly)/[A-Za-z0-9._/-]+$ ]]
+            candidate_sha="$(
+              gh api "repos/$GH_REPO/git/ref/heads/$candidate_ref" --jq .object.sha
+            )"
+            [[ "$candidate_sha" =~ ^[0-9a-f]{40}$ ]]
+            title="research-candidate $candidate_ref@$candidate_sha"
+            if grep -Fqx "$title" dispatched-titles.txt; then
+              continue
+            fi
+            gh workflow run research-candidate.yml \
+              --repo "$GH_REPO" \
+              --ref main \
+              -f "candidate_ref=$candidate_ref" \
+              -f "candidate_sha=$candidate_sha" \
+              -f "base_sha=$base_sha" \
+              -f "override_run_id=" \
+              -f "manifest_path=research-manifest.json"
+          done < candidate-branches.txt

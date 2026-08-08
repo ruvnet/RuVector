@@ -46,9 +46,16 @@ is functional before Level 1 is fully parsed.
 
 ## 2. Level 0: Root Manifest
 
-The root manifest is always the **last 4096 bytes** of the file (or the last
-4096 bytes of the most recent MANIFEST_SEG). Its fixed size enables instant
-location: `seek(EOF - 4096)`.
+> **Optional in v1.** Only wire containers (`rvf-wire`, `rvf-manifest`) emit a
+> Level 0 root manifest. Runtime containers — everything the `rvf` CLI writes —
+> carry none, and a file under 4096 bytes cannot carry one at all. Readers must
+> treat its absence as normal and fall back to the MANIFEST_SEG scan below.
+> See ADR-009 §2.1.
+
+Where present, the root manifest is the **last 4096 bytes** of the file (or the
+last 4096 bytes of the most recent MANIFEST_SEG). Its fixed size enables instant
+location: `seek(EOF - 4096)`, guarded by a check that the file is at least 4096
+bytes long.
 
 ### Binary Layout
 
@@ -197,10 +204,13 @@ Every mutation to the file produces a new MANIFEST_SEG appended at the tail:
 ```
 1. Compute new Level 1 manifest (segment directory + metadata)
 2. Write Level 1 as a MANIFEST_SEG payload
-3. Compute Level 0 root manifest pointing to Level 1
-4. Write Level 0 as the last 4096 bytes of the MANIFEST_SEG
+3. (Wire containers only) Compute Level 0 root manifest pointing to Level 1
+4. (Wire containers only) Write Level 0 as the last 4096 bytes of the MANIFEST_SEG
 5. fsync
 ```
+
+Steps 3 and 4 are what `rvf-runtime` omits: its MANIFEST_SEG payload is the
+Level 1 manifest alone.
 
 The MANIFEST_SEG payload structure is:
 
@@ -208,25 +218,30 @@ The MANIFEST_SEG payload structure is:
 +-----------------------------------+
 | Level 1 manifest (variable size)  |
 +-----------------------------------+
-| Level 0 root manifest (4096 B)   |  <-- Always the last 4096 bytes
+| Level 0 root manifest (4096 B)   |  <-- Optional; wire containers only
 +-----------------------------------+
 ```
 
 ### Reading the Manifest
 
 ```
-1. seek(EOF - 4096)
-2. Read 4096 bytes -> Level 0 root manifest
-3. Validate magic (0x52564D30) and checksum
-4. If valid: extract hotset pointers -> system is queryable
-5. Async: read Level 1 at l1_manifest_offset -> full directory
-6. If Level 0 is invalid: scan backward for previous MANIFEST_SEG
+1. If file_size >= 4096: seek(EOF - 4096) and read 4096 bytes
+2. Validate magic (LE wire bytes 30 4D 56 52) and checksum
+3. If valid: extract hotset pointers -> system is queryable
+4. Async: read Level 1 at l1_manifest_offset -> full directory
+5. If absent or invalid: scan backward for the newest MANIFEST_SEG
 ```
 
-Step 6 provides crash recovery. If the latest manifest write was interrupted,
-the previous manifest is still valid. Readers scan backward at 64-byte aligned
-boundaries looking for the segment magic (wire bytes `53 46 56 52`) plus the
-MANIFEST_SEG type.
+Step 5 is the normal path for runtime containers, and also provides crash
+recovery for wire containers: if the latest manifest write was interrupted, the
+previous manifest is still valid.
+
+The backward scan steps **one byte at a time**, looking for the segment magic
+(wire bytes `53 46 56 52`) plus the MANIFEST_SEG type, and takes the
+highest-offset candidate whose payload parses. It must not step at 64-byte
+boundaries: runtime containers do not pad segments, so an aligned stride misses
+the newest manifest and instead returns the epoch-0 manifest sitting at offset 0
+— reporting an empty store with no error.
 
 ### Manifest Chain
 

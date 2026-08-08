@@ -1,6 +1,6 @@
 {
   "name": "ruvector-core-win32-x64-msvc",
-  "version": "0.1.25",
+  "version": "0.1.30",
   "description": "Windows x64 MSVC native binding for ruvector-core - High-performance vector database with HNSW indexing built in Rust",
   "main": "index.js",
   "type": "commonjs",

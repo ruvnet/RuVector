@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/agentic-synth-examples",
-  "version": "0.1.0",
+  "version": "0.1.6",
   "description": "Production-ready examples for @ruvector/agentic-synth - DSPy training, multi-model benchmarking, and advanced synthetic data generation patterns",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

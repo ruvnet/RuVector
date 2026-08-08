@@ -1,0 +1,33 @@
+{
+  "name": "@ruvector/sota-metaharness",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "bin": {
+    "ruvector-metaharness": "./dist/src/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "check": "tsc --noEmit",
+    "test": "npm run build && node --test dist/test/*.test.js",
+    "doctor": "npm run build && node dist/src/cli.js doctor"
+  },
+  "dependencies": {
+    "@metaharness/darwin": "0.8.0",
+    "@metaharness/flywheel": "0.1.7",
+    "@metaharness/harness": "0.1.0",
+    "@metaharness/redblue": "0.1.4",
+    "@metaharness/router": "0.3.2",
+    "@metaharness/weight-eft": "0.1.1",
+    "@metaharness/workspace-lens": "0.1.1",
+    "@metaharness/workspace-probe": "0.1.1",
+    "metaharness": "0.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.30",
+    "typescript": "5.8.3"
+  }
+}

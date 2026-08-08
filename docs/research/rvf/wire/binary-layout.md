@@ -24,14 +24,32 @@ v                                                                      v
                                                                |       |
                                                         Level 1 Mfst   |
                                                                 Level 0
-                                                              (last 4KB)
+                                                        (last 4KB, optional)
 ```
+
+### Container Shapes
+
+V1 has two conformant container shapes, produced by two independent writer
+paths. See ADR-009 §2.1; the short version:
+
+| | Runtime container (`rvf-runtime`, `rvf` CLI) | Wire container (`rvf-wire`, `rvf-manifest`) |
+|---|---|---|
+| Segment padding | none — segments packed back to back | zero-padded to 64-byte boundary |
+| `alignment_pad` field | always 0 | pad length |
+| Level-0 root manifest | never emitted | may be present at the tail |
+| `checksum_algo` | `0` = legacy CRC32-rotation | `1` = XXH3-128, `2` = SHAKE-256/128 |
 
 ### Alignment Rule
 
-Every segment starts at a **64-byte aligned** boundary. If a segment's
-payload + footer does not end on a 64-byte boundary, zero-padding is inserted
-before the next segment header.
+In a **wire container**, every segment starts at a **64-byte aligned** boundary.
+If a segment's payload + footer does not end on a 64-byte boundary, zero-padding
+is inserted before the next segment header and its length is recorded in the
+header's `alignment_pad` field.
+
+In a **runtime container** there is no padding: each segment begins wherever the
+previous one ended, so in general only the segment at offset 0 is aligned. A
+reader must not require 64-byte alignment, and must not use alignment to
+validate or to locate a segment.
 
 ### Byte Order
 
@@ -324,6 +342,9 @@ Padded to 64B: 960 bytes per entry
 |     [8B aligned]                         |
 +------------------------------------------+
 | Level 0 Root Manifest (last 4096 bytes)  |
+|   OPTIONAL -- wire containers only.      |
+|   Absent in runtime containers, and      |
+|   impossible in files under 4096 bytes.  |
 |   (See 02-manifest-system.md for layout) |
 +------------------------------------------+
 ```
@@ -427,27 +448,44 @@ def find_latest_manifest(file):
     SEGMENT_MAGIC_BYTES = bytes([0x53, 0x46, 0x56, 0x52])
     ROOT_MANIFEST_MAGIC_BYTES = bytes([0x30, 0x4D, 0x56, 0x52])
 
-    # Try fast path: last 4096 bytes
-    file.seek(file_size - 4096)
-    root = file.read(4096)
-    if root[0:4] == ROOT_MANIFEST_MAGIC_BYTES and verify_crc(root):
-        return parse_root_manifest(root)
+    # Fast path: last 4096 bytes, IF the file is big enough to hold a root
+    # manifest at all. The root manifest is optional -- runtime containers
+    # never carry one -- so this path is expected to miss, not to be the norm.
+    if file_size >= 4096:
+        file.seek(file_size - 4096)
+        root = file.read(4096)
+        if root[0:4] == ROOT_MANIFEST_MAGIC_BYTES and verify_crc(root):
+            return parse_root_manifest(root)
 
-    # Slow path: scan backward for MANIFEST_SEG header
-    scan_pos = file_size - 64  # Start at last 64B boundary
+    # Fallback: scan backward for the newest MANIFEST_SEG header.
+    #
+    # Step ONE BYTE at a time. Runtime containers do not pad segments, so
+    # manifests routinely sit at unaligned offsets; a 64-byte stride walks
+    # past them and -- because a store's first manifest sits at offset 0 --
+    # returns that stale epoch-0 manifest instead of failing. That is a
+    # silently empty store, not an error.
+    scan_pos = file_size - 64
     while scan_pos >= 0:
         file.seek(scan_pos)
         header = file.read(64)
         if (header[0:4] == SEGMENT_MAGIC_BYTES and
             header[5] == 0x05 and  # MANIFEST_SEG
             verify_segment_header(header)):
-            return parse_manifest_segment(file, scan_pos)
-        scan_pos -= 64  # Previous 64B boundary
+            # A byte-wise scan can match magic bytes inside a payload, so a
+            # candidate is not a manifest until its payload parses: reject a
+            # declared length that runs past EOF, and reject a segment
+            # directory whose entry count cannot fit the declared payload.
+            manifest = try_parse_manifest_segment(file, scan_pos)
+            if manifest is not None:
+                return manifest
+        scan_pos -= 1
 
     raise CorruptFileError("No valid MANIFEST_SEG found")
 ```
 
-Worst case: full backward scan at 64B granularity. For a 4 GB file, this is
-67M checks — but each check is a 4-byte comparison, so it completes in ~100ms
-on a modern CPU with mmap. In practice, the fast path succeeds on the first try
-for non-corrupt files.
+Worst case: full backward byte-wise scan. Implementations bound this by scanning
+a widening tail window (64 KB, 1 MB, 16 MB, whole file) rather than the entire
+file up front, since the newest manifest is almost always within the first
+window. `rvf-runtime`'s `read_path::find_latest_manifest` does exactly this and
+additionally uses the first magic byte as a memchr-style anchor to skip runs of
+non-matching data.

@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/scipix",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "OCR client for scientific documents - extract LaTeX, MathML from equations, research papers, and technical diagrams",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

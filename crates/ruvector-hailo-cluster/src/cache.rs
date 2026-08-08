@@ -40,11 +40,25 @@ const SHARD_MASK: usize = SHARDS - 1;
 
 /// Single-process LRU cache keyed by `(fingerprint, text)`. Thread-safe
 /// via 16-way sharded Mutex. Optional TTL bounds entry lifetime.
+///
+/// # Sizing: capacity below 2×[`SHARDS`] degenerates
+/// Capacity is split across the 16 shards, so the per-shard cap is
+/// `ceil(capacity / SHARDS)` — which is 1 for **any** capacity from 1 to 16.
+/// At a per-shard cap of 1, two keys that hash to the same shard evict each
+/// other on every alternation, so a nominal capacity of 16 can behave like a
+/// cache of 1 for an unlucky pair of texts, and hit rate collapses well before
+/// the cache looks full. This is a sizing property, not a bug: the shard split
+/// is what removes lock contention at >4 threads.
+///
+/// Pick a capacity of at least `2 * SHARDS` (32), and realistically in the
+/// thousands, or set it to 0 to disable the cache outright. Capacities in
+/// between are legal but will not behave like an LRU of that size.
 pub struct EmbeddingCache {
     shards: Box<[Mutex<Shard>]>,
     /// Total capacity divided across shards. Each shard caps at
     /// `capacity / SHARDS + 1` so the global hard limit is approximately
-    /// honoured (within ±SHARDS-1 entries).
+    /// honoured (within ±SHARDS-1 entries). See the type-level note on
+    /// small-capacity degeneracy.
     capacity: usize,
     per_shard_capacity: usize,
     /// `None` ≡ no time-based expiry; entries live until LRU evicts them.
@@ -476,12 +490,23 @@ mod tests {
 
     #[test]
     fn ttl_insert_refreshes_timestamp() {
-        let c = EmbeddingCache::with_ttl(4, Some(Duration::from_millis(20)));
+        // Timing-robust by construction: seconds-scale TTL (sleep overshoot
+        // on a loaded machine is tens of ms, not hundreds), and the hit is
+        // only asserted if we reach get() within the TTL of the refresh —
+        // on a pathologically stalled machine the test skips rather than
+        // reporting a false failure. Without the refresh, total elapsed
+        // (~2.5s) exceeds the 2s TTL, so a hit still proves insert()
+        // resets the entry's timestamp.
+        let ttl = Duration::from_secs(2);
+        let c = EmbeddingCache::with_ttl(4, Some(ttl));
         c.insert("fp", "z", vec![5.0]);
-        std::thread::sleep(Duration::from_millis(10));
+        std::thread::sleep(Duration::from_millis(1000));
         c.insert("fp", "z", vec![5.0]);
-        std::thread::sleep(Duration::from_millis(15));
-        assert_eq!(c.get("fp", "z"), Some(vec![5.0]));
+        let refreshed_at = std::time::Instant::now();
+        std::thread::sleep(Duration::from_millis(1500));
+        if refreshed_at.elapsed() < ttl {
+            assert_eq!(c.get("fp", "z"), Some(vec![5.0]));
+        }
     }
 
     #[test]

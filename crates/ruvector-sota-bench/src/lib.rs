@@ -105,20 +105,30 @@ fn sq_dist(a: &[f32], b: &[f32]) -> f32 {
 
 /// Standard ANN-Benchmarks–compatible synthetic datasets.
 pub fn standard_synthetic_datasets() -> Vec<Dataset> {
+    standard_synthetic_datasets_with_seed(0)
+}
+
+/// Standard synthetic datasets with a deterministic experiment seed offset.
+pub fn standard_synthetic_datasets_with_seed(seed: u64) -> Vec<Dataset> {
     vec![
-        Dataset::synthetic("glove-25-angular", 100_000, 1_000, 25, 42),
-        Dataset::synthetic("glove-100-angular", 100_000, 1_000, 100, 43),
-        Dataset::synthetic("sift-128-euclidean", 100_000, 1_000, 128, 44),
-        Dataset::synthetic("gist-960-euclidean", 5_000, 200, 960, 45),
-        Dataset::synthetic("deep-image-96", 100_000, 1_000, 96, 46),
+        Dataset::synthetic("glove-25-angular", 100_000, 1_000, 25, 42 ^ seed),
+        Dataset::synthetic("glove-100-angular", 100_000, 1_000, 100, 43 ^ seed),
+        Dataset::synthetic("sift-128-euclidean", 100_000, 1_000, 128, 44 ^ seed),
+        Dataset::synthetic("gist-960-euclidean", 5_000, 200, 960, 45 ^ seed),
+        Dataset::synthetic("deep-image-96", 100_000, 1_000, 96, 46 ^ seed),
     ]
 }
 
 /// Minimal smoke-test datasets (fast, CI-safe).
 pub fn smoke_test_datasets() -> Vec<Dataset> {
+    smoke_test_datasets_with_seed(0)
+}
+
+/// Smoke datasets with a deterministic experiment seed offset.
+pub fn smoke_test_datasets_with_seed(seed: u64) -> Vec<Dataset> {
     vec![
-        Dataset::synthetic("smoke-128", 10_000, 100, 128, 99),
-        Dataset::synthetic("smoke-96", 5_000, 50, 96, 98),
+        Dataset::synthetic("smoke-128", 10_000, 100, 128, 99 ^ seed),
+        Dataset::synthetic("smoke-96", 5_000, 50, 96, 98 ^ seed),
     ]
 }
 
@@ -157,4 +167,19 @@ pub const SOTA_QPS_RATIO: f64 = 0.80;
 /// Claim SOTA if both recall and QPS thresholds are met.
 pub fn claim_sota(recall_at_10: f64, qps: f64, baseline_qps: f64) -> bool {
     recall_at_10 >= SOTA_RECALL_THRESHOLD && qps >= baseline_qps * SOTA_QPS_RATIO
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn experiment_seed_is_reproducible_and_changes_the_corpus() {
+        let a = smoke_test_datasets_with_seed(11);
+        let b = smoke_test_datasets_with_seed(11);
+        let anchor = smoke_test_datasets_with_seed(131);
+        assert_eq!(a[0].corpus[0], b[0].corpus[0]);
+        assert_ne!(a[0].corpus[0], anchor[0].corpus[0]);
+        assert_eq!(a[0].name, anchor[0].name);
+    }
 }

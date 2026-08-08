@@ -1,4 +1,8 @@
-const { VectorDB } = require('./index.js');
+const { VectorDB, VectorDb } = require('./index.js');
+
+if (VectorDB !== VectorDb) {
+  throw new Error('VectorDB compatibility alias does not match VectorDb');
+}
 
 async function test() {
   console.log('Testing native module...');

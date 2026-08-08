@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ruvector.dev/schemas/embedding-space-identity-v1.json",
+  "title": "RuVector Embedding Space Identity v1",
+  "description": "Canonical, complete identity of a query/passage retrieval vector space (ADR-281). All properties participate in embedding_space_id.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "provider",
+    "model_id",
+    "model_artifact_sha256",
+    "model_graph_sha256",
+    "tokenizer_sha256",
+    "prompt_template_sha256",
+    "pooling_strategy",
+    "normalize",
+    "truncation_tokens",
+    "output_dimension",
+    "output_dtype",
+    "runtime_revision",
+    "distance_metric",
+    "role_policy",
+    "prefix_policy",
+    "prefix_policy_version"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "provider": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "model_id": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "model_artifact_sha256": { "$ref": "#/$defs/sha256" },
+    "model_graph_sha256": { "$ref": "#/$defs/sha256" },
+    "tokenizer_sha256": { "$ref": "#/$defs/sha256" },
+    "prompt_template_sha256": { "$ref": "#/$defs/sha256" },
+    "pooling_strategy": {
+      "oneOf": [
+        { "enum": ["mean", "cls", "last-token", "weighted-mean"] },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["custom", "implementation_revision"],
+          "properties": {
+            "custom": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "implementation_revision": { "type": "string", "minLength": 1, "maxLength": 256 }
+          }
+        }
+      ]
+    },
+    "normalize": { "type": "boolean" },
+    "truncation_tokens": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+    "output_dimension": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+    "output_dtype": { "enum": ["f32", "f16", "bf16", "i8", "u8"] },
+    "runtime_revision": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "distance_metric": { "enum": ["cosine", "dot", "euclidean", "manhattan"] },
+    "role_policy": { "enum": ["symmetric", "asymmetric"] },
+    "prefix_policy": { "enum": ["none", "required", "query-recommended", "custom"] },
+    "prefix_policy_version": { "type": "integer", "minimum": 1, "maximum": 4294967295 }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

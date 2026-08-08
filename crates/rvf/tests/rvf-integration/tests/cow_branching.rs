@@ -600,10 +600,13 @@ fn branch_state_survives_reopen_and_relocation() {
     let relocated_child = relocated.join("child.rvf");
     let reopened = RvfStore::open_readonly(&relocated_child).unwrap();
     assert!(reopened.is_cow_child());
-    assert_eq!(
-        reopened.parent_path(),
-        Some(relocated.join("parent.rvf").as_path())
-    );
+    // `parent_path()` returns a canonicalized path (e.g. macOS resolves
+    // /var -> /private/var), so canonicalize both sides before comparing.
+    let reported_parent = reopened
+        .parent_path()
+        .map(|p| std::fs::canonicalize(p).unwrap());
+    let expected_parent = std::fs::canonicalize(relocated.join("parent.rvf")).unwrap();
+    assert_eq!(reported_parent, Some(expected_parent));
 
     let hits = reopened
         .query(&parent_vectors[0], 4, &QueryOptions::default())

@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "description": "RVForge <-> RVM runtime compatibility matrix (ADR-291). Forge rejects build/package combinations absent from this matrix. Canonical copy; the CLI vendors this file at build time.",
+  "updated": "2026-08-03",
+  "runtimeProfiles": {
+    "wasm": {
+      "status": "supported",
+      "isolationClaim": "wasm-sandbox",
+      "stateSchemaVersions": [1],
+      "witnessSchemaVersions": [1],
+      "platforms": [
+        { "os": "windows", "arch": ["x64", "arm64"], "min": "10" },
+        { "os": "macos", "arch": ["x64", "aarch64"], "min": "13" },
+        { "os": "linux", "arch": ["x64", "aarch64"], "min": "ubuntu-22.04|debian-12|appimage" },
+        { "os": "browser", "arch": ["wasm32"], "min": "wasm-component-model", "restrictions": ["no-filesystem", "no-native-acceleration"] }
+      ]
+    },
+    "os-isolation+wasm": {
+      "status": "supported",
+      "isolationClaim": "os-sandbox+wasm",
+      "note": "Hosted RVM: OS isolation plus WASM. MUST NOT be described as bare-metal isolation (ADR-285).",
+      "stateSchemaVersions": [1],
+      "witnessSchemaVersions": [1],
+      "platforms": [
+        { "os": "windows", "arch": ["x64", "arm64"], "min": "10", "mechanisms": ["job-objects", "restricted-tokens"] },
+        { "os": "macos", "arch": ["x64", "aarch64"], "min": "13", "mechanisms": ["app-sandbox", "hardened-runtime", "entitlements"] },
+        { "os": "linux", "arch": ["x64", "aarch64"], "min": "ubuntu-22.04", "mechanisms": ["namespaces", "cgroups", "seccomp", "network-namespaces"] }
+      ]
+    },
+    "linux-microvm": {
+      "status": "planned",
+      "isolationClaim": "microvm",
+      "note": "QEMU/KVM runtime-compatibility path; requires KVM-capable Linux host.",
+      "stateSchemaVersions": [1],
+      "witnessSchemaVersions": [1],
+      "platforms": [
+        { "os": "linux", "arch": ["x64", "aarch64"], "min": "kvm" }
+      ]
+    },
+    "rvm-native": {
+      "status": "planned",
+      "isolationClaim": "partition",
+      "note": "Bare-metal RVM coherence domains; seven-phase measured boot via rvm-boot (ADR-293). Blocked on rvm-rvf/rvm-host landing in ruvnet/rvm.",
+      "stateSchemaVersions": [1],
+      "witnessSchemaVersions": [1],
+      "platforms": [
+        { "os": "rvm", "arch": ["x64", "aarch64"], "min": "rvm-boot-7phase" }
+      ]
+    }
+  },
+  "packagingModes": {
+    "embedded": { "status": "supported", "targets": ["exe", "msi", "dmg", "deb", "rpm", "appimage"] },
+    "thin": { "status": "supported", "targets": ["exe", "msi", "dmg", "deb", "rpm", "appimage"] },
+    "shared-reader": { "status": "planned", "targets": ["file-association"] },
+    "enterprise-private": { "status": "planned", "targets": ["exe", "msi", "dmg", "deb", "rpm", "appimage"] }
+  },
+  "rvmOutputs": {
+    "Agent.rvf": { "status": "supported" },
+    "Agent.rvm.img": { "status": "planned", "requires": "rvm-native" },
+    "Agent.rvm.efi": { "status": "planned", "requires": "rvm-native" },
+    "Agent.qemu.img": { "status": "planned", "requires": "linux-microvm" },
+    "Agent.appliance.bundle": { "status": "planned", "requires": "rvm-native" }
+  },
+  "selectionOrder": ["rvm-native", "os-isolation+wasm", "wasm", "linux-microvm"],
+  "selectionOrderNote": "Strongest compatible runtime first (FR004); order changeable only by signed policy. 'unsupported' is the implicit terminal state.",
+  "rvm": {
+    "repo": "https://github.com/ruvnet/rvm",
+    "rvmVersionMin": null,
+    "rvmVersionMinNote": "Populated when rvm-rvf ships a versioned RVF execution contract (ADR-284)."
+  }
+}

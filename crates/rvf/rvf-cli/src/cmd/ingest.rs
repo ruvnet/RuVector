@@ -48,6 +48,7 @@ pub fn run(args: IngestArgs) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let mut store = RvfStore::open(Path::new(&args.path)).map_err(map_rvf_err)?;
+    crate::cmd::warn_on_metadata_recovery(&store, &args.path);
 
     let batch_size = args.batch_size.max(1);
     let mut total_accepted = 0u64;

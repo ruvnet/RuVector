@@ -34,6 +34,12 @@ pub enum ErrorCode {
     UnknownSegmentType = 0x0107,
     /// Data not at expected 64-byte boundary.
     AlignmentError = 0x0108,
+    /// Authoritative metadata payload or resulting vector binding is invalid.
+    InvalidMetadata = 0x0109,
+    /// Metadata replay exceeded the normal-open delta or byte ceiling.
+    MetadataReplayLimitExceeded = 0x010A,
+    /// Metadata base generations are missing, cyclic, or non-monotonic.
+    MetadataAncestryInvalid = 0x010B,
 
     // ---- Category 0x02: Query Errors ----
     /// Query vector dimension != index dimension.
@@ -48,6 +54,8 @@ pub enum ErrorCode {
     KTooLarge = 0x0204,
     /// Query exceeded time budget.
     Timeout = 0x0205,
+    /// Linear metadata filtering exceeded an explicit resource budget.
+    FilterBudgetExceeded = 0x0206,
 
     // ---- Category 0x03: Write Errors ----
     /// Another writer holds the lock.
@@ -193,6 +201,9 @@ impl TryFrom<u16> for ErrorCode {
             0x0106 => Ok(Self::ManifestNotFound),
             0x0107 => Ok(Self::UnknownSegmentType),
             0x0108 => Ok(Self::AlignmentError),
+            0x0109 => Ok(Self::InvalidMetadata),
+            0x010A => Ok(Self::MetadataReplayLimitExceeded),
+            0x010B => Ok(Self::MetadataAncestryInvalid),
 
             0x0200 => Ok(Self::DimensionMismatch),
             0x0201 => Ok(Self::EmptyIndex),
@@ -200,6 +211,7 @@ impl TryFrom<u16> for ErrorCode {
             0x0203 => Ok(Self::FilterParseError),
             0x0204 => Ok(Self::KTooLarge),
             0x0205 => Ok(Self::Timeout),
+            0x0206 => Ok(Self::FilterBudgetExceeded),
 
             0x0300 => Ok(Self::LockHeld),
             0x0301 => Ok(Self::LockStale),

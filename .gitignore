@@ -23,10 +23,20 @@ target
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+# Python bytecode and test caches from scripts/ (e.g. the ADR-282 research gate)
+scripts/**/__pycache__/
+scripts/**/*.py[cod]
+scripts/**/.pytest_cache/
+
 # Node.js
 **/node_modules/
 package-lock.json
 !npm/package-lock.json
+!crates/ruvector-sota-bench/harness/package-lock.json
+crates/ruvector-sota-bench/harness/dist/
+crates/ruvector-sota-bench/harness/metaharness-sbom.cdx.json
+.metaharness/
+**/.metaharness/
 
 # UI build artifacts
 ui/**/build/
@@ -149,6 +159,7 @@ examples/real-eeg-analysis/data/*.edf
 examples/real-eeg-multi-seizure/data/*.edf
 agentdb.rvf
 agentdb.rvf.lock
+agentdb.rvf.idmap.json
 .kalshi
 bench_data/
 
@@ -157,6 +168,19 @@ bench_data/
 # transient so any tree they land in should ignore them.
 acceleras.log
 hailo_sdk.client.log
+
+# Python virtualenvs for the Hailo SDK/DFC toolchains (recreate with
+# python -m venv; never committed)
+venv-hailo/
+venv-hailo-dfc/
+venv*/
+.venv/
+
+# RuvNet Brain per-tree scratch state
+**/.ruvnet-brain/
+
+# Test coverage output
+**/coverage/
 
 # Iter 228 — per-crate Cargo.lock files for the hailo workspace members
 # (post iter-219 workspace rejoin). The parent workspace's Cargo.lock

@@ -8,6 +8,7 @@ import {
   QueryResponse,
   RoutingDecision,
   MemoryResult,
+  MemoryId,
   RuvLLMStats,
   Feedback,
   Embedding,
@@ -108,13 +109,16 @@ export class RuvLLM {
   query(text: string, config?: GenerationConfig): QueryResponse {
     if (this.native) {
       const result = this.native.query(text, toNativeGenConfig(config));
+      // napi-rs camelCases Rust field names on the way out, so the native
+      // object carries `contextSize`/`latencyMs`/`requestId`. The snake_case
+      // reads are kept as a fallback for older native builds.
       return {
         text: result.text,
         confidence: result.confidence,
         model: result.model,
-        contextSize: result.context_size,
-        latencyMs: result.latency_ms,
-        requestId: result.request_id,
+        contextSize: result.contextSize ?? result.context_size,
+        latencyMs: result.latencyMs ?? result.latency_ms,
+        requestId: result.requestId ?? result.request_id,
       };
     }
 
@@ -169,9 +173,9 @@ This fallback provides routing, memory, and embedding features but not full text
       const result = this.native.route(text);
       return {
         model: result.model as any,
-        contextSize: result.context_size,
+        contextSize: result.contextSize ?? result.context_size,
         temperature: result.temperature,
-        topP: result.top_p,
+        topP: result.topP ?? result.top_p,
         confidence: result.confidence,
       };
     }
@@ -192,12 +196,25 @@ This fallback provides routing, memory, and embedding features but not full text
   searchMemory(text: string, k = 10): MemoryResult[] {
     if (this.native) {
       const results = this.native.searchMemory(text, k);
-      return results.map(r => ({
-        id: r.id,
-        score: r.score,
-        content: r.content,
-        metadata: JSON.parse(r.metadata || '{}'),
-      }));
+      return results.map(r => {
+        // The native side reports `distance` (smaller is closer). MemoryResult
+        // documents `score` as a similarity, so convert rather than passing a
+        // distance through under a similarity's name. Older builds that already
+        // emit `score` are used as-is.
+        const anyR = r as any;
+        const score =
+          typeof anyR.score === 'number'
+            ? anyR.score
+            : typeof anyR.distance === 'number'
+              ? 1 / (1 + Math.max(0, anyR.distance))
+              : 0;
+        return {
+          id: r.id,
+          score,
+          content: r.content,
+          metadata: JSON.parse(r.metadata || '{}'),
+        };
+      });
     }
 
     // Fallback - simple search
@@ -214,7 +231,7 @@ This fallback provides routing, memory, and embedding features but not full text
   /**
    * Add content to memory
    */
-  addMemory(content: string, metadata?: Record<string, unknown>): number {
+  addMemory(content: string, metadata?: Record<string, unknown>): MemoryId {
     if (this.native) {
       return this.native.addMemory(content, metadata ? JSON.stringify(metadata) : undefined);
     }
@@ -248,12 +265,16 @@ This fallback provides routing, memory, and embedding features but not full text
       // Map native stats (snake_case) to TypeScript interface (camelCase)
       // Handle both old and new field names for backward compatibility
       return {
-        totalQueries: s.total_queries ?? 0,
-        memoryNodes: s.memory_nodes ?? 0,
-        patternsLearned: s.patterns_learned ?? (s as any).training_steps ?? 0,
-        avgLatencyMs: s.avg_latency_ms ?? 0,
-        cacheHitRate: s.cache_hit_rate ?? 0,
-        routerAccuracy: s.router_accuracy ?? 0.5,
+        totalQueries: (s as any).totalQueries ?? s.total_queries ?? 0,
+        memoryNodes: (s as any).memoryNodes ?? s.memory_nodes ?? 0,
+        patternsLearned:
+          (s as any).trainingSteps ??
+          s.patterns_learned ??
+          (s as any).training_steps ??
+          0,
+        avgLatencyMs: (s as any).avgLatencyMs ?? s.avg_latency_ms ?? 0,
+        cacheHitRate: (s as any).cacheHitRate ?? s.cache_hit_rate ?? 0,
+        routerAccuracy: (s as any).routerAccuracy ?? s.router_accuracy ?? 0.5,
       };
     }
 
@@ -305,7 +326,11 @@ This fallback provides routing, memory, and embedding features but not full text
    */
   similarity(text1: string, text2: string): number {
     if (this.native) {
-      return this.native.similarity(text1, text2);
+      // f32 accumulation can land just outside the mathematical range — an
+      // identical pair measures 1.0000001 — which turns Math.acos(sim) into
+      // NaN downstream. Cosine similarity is defined on [-1, 1], so clamp.
+      const raw = this.native.similarity(text1, text2);
+      return Math.min(1, Math.max(-1, raw));
     }
 
     // Fallback - cosine similarity

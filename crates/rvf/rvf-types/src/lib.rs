@@ -34,6 +34,8 @@ pub mod kernel_binding;
 pub mod lineage;
 pub mod manifest;
 pub mod membership;
+#[cfg(feature = "alloc")]
+pub mod metadata;
 pub mod profile;
 pub mod qr_seed;
 pub mod quality;

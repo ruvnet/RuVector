@@ -74,13 +74,14 @@
 │ RUST CRATES            │           │ npm PACKAGES           │
 │                        │           │                        │
 │ Publishing Order:      │           │ Publishing Order:      │
-│ 1. ruvector-core       │           │ 1. Platform packages   │
-│ 2. ruvector-metrics    │           │    (@ruvector/core-*)  │
-│ 3. ruvector-filter     │           │ 2. @ruvector/wasm      │
-│ 4. ruvector-snapshot   │           │ 3. @ruvector/cli       │
-│ 5. ruvector-           │           │ 4. @ruvector/          │
-│    collections         │           │    extensions          │
-│ ... (26 total)         │           │ 5. @ruvector/core      │
+│ 1. ruvector-           │           │ 1. Platform packages   │
+│    turboquant          │           │    (@ruvector/core-*)  │
+│ 2. ruvector-core       │           │                        │
+│ 3. metrics             │           │ 2. @ruvector/wasm      │
+│ 4. filter              │           │ 3. @ruvector/cli       │
+│ 5. snapshot            │           │ 4. @ruvector/          │
+│ ... (27 total)         │           │    extensions          │
+│                        │           │ 5. @ruvector/core      │
 │                        │           │                        │
 │ Target: crates.io      │           │ Target: npmjs.com      │
 │ Auth: CARGO_REGISTRY_  │           │ Auth: NPM_TOKEN        │

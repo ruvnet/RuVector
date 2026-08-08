@@ -61,50 +61,97 @@ impl FilterValue {
 }
 
 /// In-memory metadata store for filter evaluation.
-/// Maps (vector_id, field_id) -> MetadataValue.
+/// Maps vector IDs to their complete durable metadata record.
+#[derive(Clone)]
 pub(crate) struct MetadataStore {
-    /// Entries indexed by vector position.
-    entries: Vec<Vec<(u16, FilterValue)>>,
-    /// Mapping from vector_id to position index.
-    id_to_pos: std::collections::HashMap<u64, usize>,
+    entries: std::collections::BTreeMap<u64, std::collections::BTreeMap<u16, MetadataValue>>,
 }
 
 impl MetadataStore {
     pub(crate) fn new() -> Self {
         Self {
-            entries: Vec::new(),
-            id_to_pos: std::collections::HashMap::new(),
+            entries: std::collections::BTreeMap::new(),
         }
     }
 
     /// Add metadata for a vector. `fields` are (field_id, value) pairs.
-    pub(crate) fn insert(&mut self, vector_id: u64, fields: Vec<(u16, FilterValue)>) {
-        let pos = self.entries.len();
-        self.id_to_pos.insert(vector_id, pos);
-        self.entries.push(fields);
+    pub(crate) fn insert(&mut self, vector_id: u64, fields: Vec<(u16, MetadataValue)>) {
+        let record = self.entries.entry(vector_id).or_default();
+        for (field_id, value) in fields {
+            if matches!(value, MetadataValue::DeleteField) {
+                record.remove(&field_id);
+            } else {
+                record.insert(field_id, value);
+            }
+        }
     }
 
     /// Get a field value for a vector.
-    pub(crate) fn get_field(&self, vector_id: u64, field_id: u16) -> Option<&FilterValue> {
-        let pos = self.id_to_pos.get(&vector_id)?;
+    pub(crate) fn get_field(&self, vector_id: u64, field_id: u16) -> Option<FilterValue> {
         self.entries
-            .get(*pos)?
-            .iter()
-            .find(|(fid, _)| *fid == field_id)
-            .map(|(_, v)| v)
+            .get(&vector_id)?
+            .get(&field_id)
+            .and_then(metadata_value_to_filter_option)
+    }
+
+    pub(crate) fn get(&self, vector_id: u64) -> Option<Vec<(u16, MetadataValue)>> {
+        self.entries.get(&vector_id).map(|fields| {
+            fields
+                .iter()
+                .map(|(&id, value)| (id, value.clone()))
+                .collect()
+        })
+    }
+
+    /// Fields of one record in ascending `field_id` order, borrowed so callers
+    /// that only compare values do not clone the record.
+    pub(crate) fn fields(
+        &self,
+        vector_id: u64,
+    ) -> Option<&std::collections::BTreeMap<u16, MetadataValue>> {
+        self.entries.get(&vector_id)
+    }
+
+    /// Vector identifiers carrying a record, in ascending order.
+    pub(crate) fn ids(&self) -> impl Iterator<Item = u64> + '_ {
+        self.entries.keys().copied()
+    }
+
+    /// True when no vector carries a record.
+    pub(crate) fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    /// Drop every record whose vector identifier fails `keep`.
+    pub(crate) fn retain_ids(&mut self, keep: impl Fn(u64) -> bool) {
+        self.entries.retain(|&vector_id, _| keep(vector_id));
+    }
+
+    pub(crate) fn decoded_size(&self, vector_id: u64) -> usize {
+        self.entries.get(&vector_id).map_or(0, |fields| {
+            fields.iter().fold(0usize, |size, (_, value)| {
+                size.saturating_add(2).saturating_add(match value {
+                    MetadataValue::Null | MetadataValue::DeleteField => 1,
+                    MetadataValue::U64(_) | MetadataValue::I64(_) | MetadataValue::F64(_) => 9,
+                    MetadataValue::Bool(_) => 2,
+                    MetadataValue::String(value) => 5usize.saturating_add(value.len()),
+                    MetadataValue::Bytes(value) => 5usize.saturating_add(value.len()),
+                })
+            })
+        })
     }
 
     /// Remove all metadata for the given vector IDs.
     pub(crate) fn remove_ids(&mut self, ids: &[u64]) {
         for id in ids {
-            self.id_to_pos.remove(id);
+            self.entries.remove(id);
         }
     }
 
     /// Return vector count tracked by the metadata store.
     #[allow(dead_code)]
     pub(crate) fn len(&self) -> usize {
-        self.id_to_pos.len()
+        self.entries.len()
     }
 }
 
@@ -113,11 +160,11 @@ pub(crate) fn evaluate(expr: &FilterExpr, vector_id: u64, meta: &MetadataStore) 
     match expr {
         FilterExpr::Eq(field_id, val) => meta
             .get_field(vector_id, *field_id)
-            .map(|v| v == val)
+            .map(|v| &v == val)
             .unwrap_or(false),
         FilterExpr::Ne(field_id, val) => meta
             .get_field(vector_id, *field_id)
-            .map(|v| v != val)
+            .map(|v| &v != val)
             .unwrap_or(true),
         FilterExpr::Lt(field_id, val) => meta
             .get_field(vector_id, *field_id)
@@ -141,7 +188,7 @@ pub(crate) fn evaluate(expr: &FilterExpr, vector_id: u64, meta: &MetadataStore) 
             .unwrap_or(false),
         FilterExpr::In(field_id, vals) => meta
             .get_field(vector_id, *field_id)
-            .map(|v| vals.contains(v))
+            .map(|v| vals.contains(&v))
             .unwrap_or(false),
         FilterExpr::Range(field_id, low, high) => meta
             .get_field(vector_id, *field_id)
@@ -169,6 +216,15 @@ pub(crate) fn metadata_value_to_filter(mv: &MetadataValue) -> FilterValue {
         MetadataValue::F64(v) => FilterValue::F64(*v),
         MetadataValue::String(v) => FilterValue::String(v.clone()),
         MetadataValue::Bytes(_) => FilterValue::String(String::new()),
+        MetadataValue::Bool(v) => FilterValue::Bool(*v),
+        MetadataValue::Null | MetadataValue::DeleteField => FilterValue::String(String::new()),
+    }
+}
+
+fn metadata_value_to_filter_option(mv: &MetadataValue) -> Option<FilterValue> {
+    match mv {
+        MetadataValue::Null | MetadataValue::DeleteField | MetadataValue::Bytes(_) => None,
+        value => Some(metadata_value_to_filter(value)),
     }
 }
 
@@ -181,22 +237,22 @@ mod tests {
         store.insert(
             0,
             vec![
-                (0, FilterValue::String("apple".into())),
-                (1, FilterValue::U64(100)),
+                (0, MetadataValue::String("apple".into())),
+                (1, MetadataValue::U64(100)),
             ],
         );
         store.insert(
             1,
             vec![
-                (0, FilterValue::String("banana".into())),
-                (1, FilterValue::U64(200)),
+                (0, MetadataValue::String("banana".into())),
+                (1, MetadataValue::U64(200)),
             ],
         );
         store.insert(
             2,
             vec![
-                (0, FilterValue::String("apple".into())),
-                (1, FilterValue::U64(300)),
+                (0, MetadataValue::String("apple".into())),
+                (1, MetadataValue::U64(300)),
             ],
         );
         store

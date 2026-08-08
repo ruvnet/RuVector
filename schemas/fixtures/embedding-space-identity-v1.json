@@ -1,0 +1,46 @@
+{
+  "base": {
+    "identity": {
+      "schema_version": 1,
+      "provider": "fixture",
+      "model_id": "fixture/model@revision",
+      "model_artifact_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "model_graph_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "tokenizer_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "prompt_template_sha256": "ddf842891370c9d6bf29b69df1286d7c69b6b82775fd7a0670a576467f397366",
+      "pooling_strategy": "mean",
+      "normalize": true,
+      "truncation_tokens": 512,
+      "output_dimension": 384,
+      "output_dtype": "f32",
+      "runtime_revision": "fixture-runtime@1",
+      "distance_metric": "cosine",
+      "role_policy": "asymmetric",
+      "prefix_policy": "required",
+      "prefix_policy_version": 1
+    },
+    "embedding_space_id": "cb5caec9f91070e9d7fe9f5f98987aa61ec676a854e36579a844a854c3c06750"
+  },
+  "changed_query_template": {
+    "identity": {
+      "schema_version": 1,
+      "provider": "fixture",
+      "model_id": "fixture/model@revision",
+      "model_artifact_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "model_graph_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "tokenizer_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "prompt_template_sha256": "de3f8fcda36d4ff443ccc975137f85bba6658954e456a0d8d86dd2f775f787dd",
+      "pooling_strategy": "mean",
+      "normalize": true,
+      "truncation_tokens": 512,
+      "output_dimension": 384,
+      "output_dtype": "f32",
+      "runtime_revision": "fixture-runtime@1",
+      "distance_metric": "cosine",
+      "role_policy": "asymmetric",
+      "prefix_policy": "required",
+      "prefix_policy_version": 2
+    },
+    "embedding_space_id": "48d5f816ec6b76dd8b7a83f5692fbf0380ae6cbe8b3837d48b99315def14ee1a"
+  }
+}

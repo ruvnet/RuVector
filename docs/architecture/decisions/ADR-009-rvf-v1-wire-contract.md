@@ -7,7 +7,7 @@
 | Authors | RuVector Architecture Team |
 | Reviewers | Repository maintainers |
 | Supersedes | Wire layout sections of ADR-004-rvf-format and ADR-005-rvf-cognitive-container |
-| Related | RVF research specification, rvf-types, rvf-wire, rvf-manifest |
+| Related | RVF research specification, rvf-types, rvf-wire, rvf-manifest, rvf-runtime |
 
 ## 1. Context
 
@@ -23,13 +23,19 @@ forward.
 
 The second is the layout that the shipped crates actually implement. An RVF
 file is an append-only stream of independently verifiable segments, each
-beginning with its own 64-byte header and each starting on a 64-byte boundary.
-There is no file-level header at offset zero at all. Instead, the file's
-identity and directory live in the newest MANIFEST_SEG, and a reader finds that
-segment by inspecting the file's *tail*: the Level-0 root manifest is exactly
-4096 bytes and occupies the final 4096 bytes of the newest manifest payload.
-This is what `rvf_wire::find_latest_manifest` does, and it is the layout every
-RVF artifact in the wild already uses.
+beginning with its own 64-byte header. There is no file-level header at offset
+zero at all. Instead, the file's identity and directory live in the newest
+MANIFEST_SEG, and a reader finds that segment by inspecting the file's *tail*.
+
+Within that second layout there are two variants, and the original text of this
+ADR described only one of them. `rvf-wire` and `rvf-manifest` pad every segment
+to a 64-byte boundary and can emit a 4096-byte Level-0 root manifest at the tail;
+`rvf-runtime` — the crate behind `rvf-cli`, and therefore the writer that
+produces most RVF files that exist — pads nothing and emits no root manifest at
+all. `rvf-runtime` depends on neither `rvf-wire` nor `rvf-manifest`; the two
+paths were built separately and never reconciled. Describing the wire variant as
+though it were the whole format made this ADR wrong about the files people
+actually have, which §2.1 now corrects.
 
 A second, subtler ambiguity compounds the first. The format's magic values are
 documented by their mnemonics, "RVFS" for segments and "RVM0" for the root
@@ -56,21 +62,70 @@ one.
 ### 2.1 Canonical file structure
 
 RVF version 1 has no fixed header at offset zero. A v1 file is a stream of
-independently verifiable segments, each beginning on a 64-byte-aligned boundary
-with its own 64-byte segment header. Segments are appended; earlier bytes are
-never rewritten in place.
+independently verifiable segments, each beginning with its own 64-byte segment
+header. Segments are appended; earlier bytes are never rewritten in place.
 
 The latest valid MANIFEST_SEG is the single source of truth for the file's
 contents. Older manifests remain in the file and remain parseable, but a reader
-that finds a newer valid manifest must prefer it.
+that finds a newer valid manifest must prefer it. Because the stream is
+append-only, "latest" means highest byte offset.
 
-The Level-0 root manifest is exactly 4096 bytes — one OS page — and occupies the
-final 4096 bytes of the latest manifest segment's payload. Readers therefore
-discover a file by inspecting its tail: read the last 4096 bytes, check for the
-root manifest magic, and verify the trailing CRC32C. If that fast path fails,
-fall back to scanning backward from the end of the file at 64-byte boundaries,
-looking for a segment header whose type is MANIFEST_SEG. A reader must not
-require, and must not assume the presence of, any structure at offset zero.
+**Two container shapes exist in v1, and both are conformant.** They are produced
+by two independent writer paths that share the segment header layout and the
+magic values but differ in padding, content-hash algorithm, and whether a
+Level-0 root manifest is emitted at all.
+
+*Runtime containers* are what the `rvf-runtime` crate writes, and therefore what
+the `rvf` CLI produces. Segments are packed back to back with no padding: each
+segment begins wherever the previous one ended, so in general only the segment at
+offset zero is 64-byte aligned. The header's `alignment_pad` field is zero. There
+is no Level-0 root manifest anywhere in the file. Content hashes use the
+runtime's legacy CRC32-rotation hash, labelled `checksum_algo = 0`.
+
+*Wire containers* are what the `rvf-wire` and `rvf-manifest` crates write. Every
+segment payload is zero-padded to the next 64-byte boundary and the pad length is
+recorded in `alignment_pad`, so every segment does start on a 64-byte boundary.
+Content hashes use the rvf-wire algorithm registry (`1` = XXH3-128,
+`2` = SHAKE-256/128). A wire container may additionally carry the Level-0 root
+manifest.
+
+The Level-0 root manifest is **optional in v1**. Where it is present it is
+exactly 4096 bytes — one OS page — and occupies the final 4096 bytes of the
+latest manifest segment's payload. A container shorter than 4096 bytes cannot
+carry one by construction: a freshly created store is 162 bytes, and a store of
+24 sixteen-dimension vectors is 2304 bytes, so small containers never have one
+regardless of which writer produced them.
+
+A conformant reader must therefore implement both discovery paths:
+
+1. **Root-manifest fast path.** If the file is at least 4096 bytes long, read the
+   final 4096 bytes and check for the root manifest magic `30 4D 56 52` and a
+   valid trailing CRC32C at offset `0xFFC`. If both hold, use it. Skip this step
+   entirely for files shorter than 4096 bytes rather than seeking to a negative
+   offset.
+2. **Manifest-segment fallback.** Otherwise — and whenever the fast path fails —
+   scan backward from the end of the file for a segment header whose magic is
+   `53 46 56 52` and whose type byte is MANIFEST_SEG (`0x05`), and take the
+   highest-offset candidate that parses.
+
+The backward scan must step **one byte at a time, not 64 bytes at a time**.
+A 64-byte stride finds manifests only in wire containers. In a runtime container
+it steps straight past the newest manifest, and if an older manifest happens to
+sit at offset zero — which it does in every store that has been written to more
+than once — the scan silently returns that stale manifest instead of failing.
+The reader then reports the store's first epoch, typically zero vectors, with no
+error. A wrong answer that looks like a right one is the worst available failure
+mode, and it is the one a 64-byte stride produces.
+
+Because a byte-wise scan can match magic bytes occurring inside a payload, a
+candidate is not a manifest until it parses. Reject a declared payload length
+that overflows or extends past the end of the file, reject a segment directory
+whose declared entry count cannot fit within the declared payload, and only then
+treat the record as authoritative.
+
+A reader must not require, and must not assume the presence of, any structure at
+offset zero, a Level-0 root manifest anywhere in the file, or 64-byte alignment
+of any segment other than the first.
 
 ### 2.2 Canonical byte order and magic values
 
@@ -113,9 +168,22 @@ The normative description of the RVF v1 wire format is, in order of precedence:
 1. This ADR.
 2. `docs/research/rvf/wire/binary-layout.md`.
 3. The exported constants and codecs in the `rvf-types`, `rvf-wire`, and
-   `rvf-manifest` crates.
-4. The golden byte-vector tests in `crates/rvf/rvf-wire/tests/wire_contract_golden.rs`
+   `rvf-manifest` crates, which define the wire-container shape and the Level-0
+   root manifest codec.
+4. The writer and reader in the `rvf-runtime` crate — `store.rs`,
+   `write_path.rs`, and `read_path.rs` — which define the runtime-container
+   shape. `rvf-runtime` is the writer behind `rvf-cli` and therefore the origin
+   of most RVF artifacts in existence. Any description of v1 that omits it does
+   not describe the files people actually have; omitting it here is what made
+   earlier revisions of this ADR misleading.
+5. The golden byte-vector tests in `crates/rvf/rvf-wire/tests/wire_contract_golden.rs`
    and the constant tests in `crates/rvf/rvf-types/src/constants.rs`.
+
+Sources 3 and 4 disagree on segment padding and on the `checksum_algo` registry.
+That disagreement is a fact about v1, not an error to be resolved by preferring
+one source: each is normative for the containers it produces, and a reader that
+handles only one of them is incomplete. Unifying the two paths would be a
+format-version change under §2.3, not a fix.
 
 The offset-zero header diagrams in ADR-004 and ADR-005 are historical records of
 a design that was not shipped. They must not be used to implement a reader or a
@@ -162,6 +230,13 @@ who reads them without the superseding note. The mnemonic-versus-wire-bytes
 distinction is genuinely counterintuitive and will keep needing to be explained;
 we accept that cost in exchange for not breaking deployed artifacts.
 
+The larger cost is that v1 is now documented as two container shapes rather than
+one, and every reader has to carry both discovery paths. That is a real tax on
+implementors, and it is the honest description of what shipped. Recording it is
+strictly better than the alternative this ADR previously chose, which was to
+document the shape one writer produced and leave implementors to discover the
+other by having their reader return an empty store.
+
 **Neutral.** The golden vectors pin `Level0Root::default()` and the canonical
 empty segment header specifically. Fields that a default root leaves zeroed are
 covered by the trailing CRC32C but are not independently pinned; extending
@@ -178,9 +253,14 @@ Before acting on any segment, a reader must validate, in this order: the format
 version (rejecting unsupported versions rather than guessing); the segment type
 (unknown types are preserved but not interpreted); every declared length against
 the actual remaining bytes, so a declared payload length can never induce a read
-past the end of the mapping; the 64-byte alignment of the segment start; the
-content hash over the payload, compared in constant time; and, where the segment
-carries one, the signature chain.
+past the end of the mapping; the content hash over the payload, computed with the
+algorithm named by `checksum_algo` and compared in constant time; and, where the
+segment carries one, the signature chain.
+
+Segment alignment must not be used as a validation criterion. Runtime containers
+pack segments without padding (§2.1), so rejecting an unaligned segment start
+rejects valid data. Alignment is a performance property of wire containers, not a
+security property of the format.
 
 For the Level-0 root manifest specifically, the CRC32C at offset `0xFFC` covers
 bytes `0x000..0xFFC` and must be verified before any offset or length in the
@@ -208,13 +288,25 @@ This ADR is satisfied when all of the following hold in CI:
 2. A golden byte-vector test serializes the default Level-0 root manifest and
    asserts that it is exactly 4096 bytes, that it begins
    `30 4D 56 52 01 00 00 00`, and that its trailing CRC32C at offset `0xFFC` is
-   `FF DD 18 14`.
+   `FF DD 18 14`. This pins the root manifest codec wherever a root manifest is
+   written; it does not assert that every container carries one.
 
-3. A tail-scanning test builds an RVF byte stream through the public writer API,
-   writes it to disk, and locates the root manifest through the reader's tail
-   discovery — while asserting that offset zero holds an ordinary segment and is
-   not parseable as a root manifest, demonstrating that no fixed offset-zero
-   header is required.
+3. For **wire containers**, a tail-scanning test builds an RVF byte stream
+   through the `rvf-wire` writer API, writes it to disk, and locates the root
+   manifest through the reader's tail discovery — while asserting that offset
+   zero holds an ordinary segment and is not parseable as a root manifest,
+   demonstrating that no fixed offset-zero header is required.
+   (`rvf-wire/tests/wire_contract_golden.rs::root_manifest_is_discovered_from_the_tail_without_an_offset_zero_header`.)
+
+3a. For **runtime containers**, reopen tests demonstrate that a store written by
+   `rvf-runtime` — which carries no root manifest and no segment padding — is
+   recovered through the byte-wise backward manifest-segment scan, including
+   when the newest manifest lies beyond the initial tail-scan window.
+   (`rvf-runtime/src/store.rs::reopen_with_manifest_beyond_64kb_tail_window`,
+   and the lifecycle tests in `crates/rvf/tests/rvf-integration/tests/`
+   `runtime_lifecycle.rs`, `e2e_store_lifecycle.rs`, and `rvf_cli_smoke.rs`.)
+   No test may assert that a runtime-produced container contains the root
+   manifest magic or that its segments are 64-byte aligned; neither is true.
 
 4. `rvf_types::SEGMENT_MAGIC_BYTES` and `rvf_types::ROOT_MANIFEST_MAGIC_BYTES`
    are exported, and their tests assert both the numeric constant and the exact
@@ -228,8 +320,16 @@ This ADR is satisfied when all of the following hold in CI:
 6. The wire-layout sections of ADR-004 and ADR-005 carry a prominent note
    marking them superseded by this ADR.
 
+7. No documentation describing the RVF v1 container layout — this ADR,
+   `docs/research/rvf/wire/binary-layout.md`, and `docs/research/rvf/spec/` —
+   presents the Level-0 root manifest as mandatory or universally present, and
+   no v1 reader pseudocode in those documents scans backward at a 64-byte stride
+   or seeks to `EOF - 4096` without first checking that the file is at least
+   4096 bytes long.
+
 ## 7. Revision history
 
 | Date | Change |
 |---|---|
 | 2026-08-02 | Codified the shipped append-only segment stream and tail-discovered manifest as the normative RVF v1 wire contract; exported exact magic byte constants; added golden byte vectors; superseded the wire-layout sections of ADR-004 and ADR-005. |
+| 2026-08-03 | Corrected §2.1 to describe both v1 container shapes: `rvf-runtime` containers, which carry no Level-0 root manifest and no segment padding, and `rvf-wire`/`rvf-manifest` containers, which carry both. Made the root manifest explicitly optional, noted that a container under 4096 bytes cannot carry one, and specified the two-path reader algorithm — including that the manifest-segment fallback must scan byte-wise rather than at a 64-byte stride, because a 64-byte stride silently returns a stale manifest in runtime containers. Removed segment alignment as a reader validation criterion (§5). Added `rvf-runtime` to the normative sources (§2.4). Split acceptance criterion 3 so it is true of each writer path, and added criteria 3a and 7. Raised by an external implementor building an independent RVF parser for the rvQR project against this ADR alone (issue #775): their reader found zero occurrences of the root manifest magic in a CLI-produced container. The spec's claims were only testable once someone implemented against it from outside, which is how the gap surfaced. |

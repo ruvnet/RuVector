@@ -20,7 +20,11 @@ exclude = ["external/ruqu", "external/rvdna", "examples/OSpipe", "examples/rvf",
     # ruos-thermal: Pi 5 thermal supervisor skeleton (ADR-174). Standalone
     # for now; joins workspace once daemon mode + Unix socket protocol
     # land in iters 92-97.
-    "crates/ruos-thermal"]
+    "crates/ruos-thermal",
+    # rvforge-reader: Tauri v2 desktop app (ADR-289). Standalone workspace —
+    # the webview/bundler dependency graph and its feature unification are
+    # app-specific and would be paid for by every `cargo build --workspace`.
+    "crates/rvforge-reader"]
 members = [
     "crates/ruvector-bounded-rag",
     "crates/ruvector-temporal-coherence",
@@ -30,6 +34,7 @@ members = [
     "crates/ruvector-rabitq",
     "crates/ruvector-rabitq-wasm",
     "crates/ruvector-turbovec",
+    "crates/ruvector-turboquant",
     "crates/ruvector-rulake",
     "crates/ruvector-core",
     "crates/ruvector-node",
@@ -102,6 +107,10 @@ members = [
     "crates/cognitum-gate-kernel",
     "crates/cognitum-gate-tilezero",
     "crates/mcp-gate",
+    "crates/rvf-forge-core",
+    # RVForge file-backed release registry: content-addressed objects, publish
+    # rules, trust ladder, revocation, Merkle transparency log (ADR-294).
+    "crates/rvforge-registry",
     "crates/mcp-brain",
     "crates/mcp-brain-server",
     "crates/ruvllm",

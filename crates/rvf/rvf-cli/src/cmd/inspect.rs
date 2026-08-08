@@ -44,6 +44,7 @@ fn segment_type_name(seg_type: u8) -> &'static str {
 
 pub fn run(args: InspectArgs) -> Result<(), Box<dyn std::error::Error>> {
     let store = RvfStore::open_readonly(Path::new(&args.path)).map_err(map_rvf_err)?;
+    crate::cmd::warn_on_metadata_recovery(&store, &args.path);
     let seg_dir = store.segment_dir();
     let dimension = store.dimension();
     let identity = store.file_identity();

@@ -28,6 +28,7 @@ pub fn run(args: CompactArgs) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let mut store = RvfStore::open(Path::new(&args.path)).map_err(map_rvf_err)?;
+    crate::cmd::warn_on_metadata_recovery(&store, &args.path);
 
     let status_before = store.status();
     let result = store.compact().map_err(map_rvf_err)?;

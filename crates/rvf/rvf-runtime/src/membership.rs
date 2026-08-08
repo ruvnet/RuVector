@@ -14,6 +14,7 @@ use rvf_types::membership::{FilterMode, MembershipHeader, MEMBERSHIP_MAGIC};
 use rvf_types::{ErrorCode, RvfError};
 
 /// Membership filter backed by a dense bitmap.
+#[derive(Clone)]
 pub struct MembershipFilter {
     /// Include or exclude mode.
     mode: FilterMode,

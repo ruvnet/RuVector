@@ -1,0 +1,149 @@
+name: research-gate-override
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_sha:
+        description: Exact red base commit SHA
+        required: true
+        type: string
+      candidate_ref:
+        description: Candidate branch under research/candidate/ or research/nightly/
+        required: true
+        type: string
+      candidate_sha:
+        description: Exact candidate commit SHA
+        required: true
+        type: string
+      failed_checks_json:
+        description: Exact JSON array emitted by the candidate base-health gate
+        required: true
+        type: string
+      rationale:
+        description: Why the base-only failure is safe to override
+        required: true
+        type: string
+      expires_at:
+        description: UTC ISO-8601 expiry, no more than 72 hours from approval
+        required: true
+        type: string
+
+concurrency:
+  group: research-gate-override-${{ inputs.base_sha }}-${{ inputs.candidate_sha }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  authorize:
+    environment: research-gate-override
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      attestations: write
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: trusted
+          persist-credentials: false
+      - name: Use a pinned interpreter rather than the PEP 668 system python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned trusted gate dependencies
+        run: |
+          set -euo pipefail
+          # Fully hashed lock: a substituted or tampered artifact fails the
+          # install rather than silently changing what the trusted gate accepts.
+          python3 -m pip install --disable-pip-version-check --no-input \
+            --require-hashes -r trusted/scripts/research-gate/requirements.txt
+      - name: Validate exact immutable scope
+        env:
+          BASE_SHA: ${{ inputs.base_sha }}
+          CANDIDATE_REF: ${{ inputs.candidate_ref }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          FAILED_CHECKS_JSON: ${{ inputs.failed_checks_json }}
+        run: |
+          set -euo pipefail
+          [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$CANDIDATE_REF" =~ ^research/(candidate|nightly)/[A-Za-z0-9._/-]+$ ]]
+          remote_base="$(git -C trusted ls-remote origin refs/heads/main | cut -f1)"
+          test "$remote_base" = "$BASE_SHA"
+          remote_head="$(git -C trusted ls-remote origin "refs/heads/$CANDIDATE_REF" | cut -f1)"
+          test "$remote_head" = "$CANDIDATE_SHA"
+          printf '%s\n' "$FAILED_CHECKS_JSON" > failed-checks.json
+          python3 - <<'PY'
+          import json
+          value = json.load(open("failed-checks.json"))
+          assert isinstance(value, list) and value
+          assert len(value) == len(set(value))
+          assert all(isinstance(item, str) and item.startswith("base/") for item in value)
+          PY
+      - name: Read protected-environment review history
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GH_REPO/actions/runs/$RUN_ID/approvals" > approvals.json
+          test "$(jq '[.[] | select(.state == "approved") | .environments[] | select(.name == "research-gate-override")] | length' approvals.json)" = 1
+      - name: Verify reviewer authorization and build override
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          RATIONALE: ${{ inputs.rationale }}
+          EXPIRES_AT: ${{ inputs.expires_at }}
+          RESEARCH_GATE_CODEOWNERS: ${{ vars.RESEARCH_GATE_CODEOWNERS }}
+          DISPATCH_ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        run: |
+          set -euo pipefail
+          approver="$(
+            jq -r '[.[] | select(.state == "approved" and any(.environments[]; .name == "research-gate-override"))][0].user.login' approvals.json
+          )"
+          # Two people, not one. GitHub's "Prevent self-review" setting is the
+          # primary control; this is the workflow-side check that fails loudly if
+          # the environment is ever reconfigured without it.
+          for principal in "$DISPATCH_ACTOR" "$TRIGGERING_ACTOR"; do
+            if [[ -n "$principal" && "${approver,,}" = "${principal,,}" ]]; then
+              echo "research-gate-override: approver '$approver' also started this run as '$principal'." >&2
+              echo "ADR-282 requires a second person to authorize a red base; refusing to issue an override." >&2
+              exit 1
+            fi
+          done
+          permission="$(
+            gh api "repos/$GH_REPO/collaborators/$approver/permission" --jq .permission
+          )"
+          [[ "$permission" = maintain || "$permission" = admin ]]
+          python3 trusted/scripts/research-gate/build_override.py \
+            --approvals approvals.json \
+            --permission "$permission" \
+            --codeowners "$RESEARCH_GATE_CODEOWNERS" \
+            --base-sha "$BASE_SHA" \
+            --head-sha "$CANDIDATE_SHA" \
+            --failed-checks failed-checks.json \
+            --rationale "$RATIONALE" \
+            --expires-at "$EXPIRES_AT" \
+            --output override.json
+          python3 trusted/scripts/research-gate/research_gate.py validate-override \
+            override.json --base-sha "$BASE_SHA" --head-sha "$CANDIDATE_SHA" \
+            --failed-checks failed-checks.json
+      - name: Attest protected-environment authorization
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: override.json
+      - name: Upload immutable override
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-gate-override-${{ inputs.candidate_sha }}
+          path: override.json
+          if-no-files-found: error
+          retention-days: 90

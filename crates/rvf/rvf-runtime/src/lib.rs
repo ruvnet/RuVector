@@ -56,8 +56,9 @@ pub use dos::{BudgetTokenBucket, NegativeCache, ProofOfWork, QuerySignature};
 pub use filter::FilterExpr;
 pub use membership::MembershipFilter;
 pub use options::{
-    CompactionResult, DeleteResult, IngestResult, MetadataEntry, MetadataValue, QualityEnvelope,
-    QueryOptions, RvfOptions, SearchResult, WitnessConfig,
+    CompactionResult, DeleteResult, EmbeddingCompatibility, IngestResult, MetadataEntry,
+    MetadataFilterStats, MetadataValue, QualityEnvelope, QueryOptions, RvfOptions, SearchResult,
+    VectorMetadata, WitnessConfig,
 };
 #[cfg(feature = "qr")]
 pub use qr_encode::{EcLevel, QrCode, QrEncoder, QrError};

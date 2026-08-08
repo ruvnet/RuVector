@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/ospipe",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "type": "module",
   "description": "OSpipe SDK - RuVector-enhanced personal AI memory system for Screenpipe pipes",
   "main": "dist/index.js",

@@ -6,6 +6,7 @@ use rvf_types::quality::{
     SearchEvidenceSummary,
 };
 use rvf_types::security::SecurityPolicy;
+use std::sync::{atomic::AtomicBool, Arc};
 
 /// Distance metric used for vector similarity search.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -156,6 +157,19 @@ pub struct QueryOptions {
     /// the 10k x 128 benchmark) before the exact rescore. Values below 1
     /// are treated as 1.
     pub rabitq_oversample: u16,
+    /// Maximum records evaluated by linear metadata fallback.
+    pub metadata_filter_max_records: u64,
+    /// Maximum estimated decoded metadata bytes evaluated by fallback.
+    pub metadata_filter_max_bytes: u64,
+    /// Cooperative cancellation flag checked between metadata records.
+    pub metadata_filter_cancel: Option<Arc<AtomicBool>>,
+    /// Return each hit's committed metadata in [`SearchResult::metadata`]
+    /// (ADR-280 §6). Default `false`: search returns identifiers and
+    /// distance only, avoiding metadata decode and allocation. When `true`,
+    /// the metadata is resolved from the same committed snapshot that
+    /// produced the hit list, so COW field overrides and record tombstones
+    /// are reflected exactly as [`RvfStore::get_metadata`] would report them.
+    pub include_metadata: bool,
 }
 
 impl Default for QueryOptions {
@@ -169,6 +183,10 @@ impl Default for QueryOptions {
             force_exact: false,
             rabitq: false,
             rabitq_oversample: 4,
+            metadata_filter_max_records: 1_000_000,
+            metadata_filter_max_bytes: 256 * 1024 * 1024,
+            metadata_filter_cancel: None,
+            include_metadata: false,
         }
     }
 }
@@ -182,6 +200,12 @@ pub struct SearchResult {
     pub distance: f32,
     /// Per-candidate retrieval quality (ADR-033).
     pub retrieval_quality: rvf_types::quality::RetrievalQuality,
+    /// Committed metadata for this hit, populated only when the query set
+    /// [`QueryOptions::include_metadata`] (ADR-280 §6). `None` when metadata
+    /// was not requested; `Some(vec![])` for a hit that has a present but
+    /// empty metadata record. Otherwise `None` also means the hit has no
+    /// metadata record at all.
+    pub metadata: Option<Vec<MetadataEntry>>,
 }
 
 /// The mandatory outer return type for all query APIs (ADR-033 §2.4).
@@ -235,7 +259,7 @@ pub struct CompactionResult {
 }
 
 /// A single metadata entry for a vector.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MetadataEntry {
     /// Metadata field identifier.
     pub field_id: u16,
@@ -244,11 +268,56 @@ pub struct MetadataEntry {
 }
 
 /// Metadata value types matching the spec.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MetadataValue {
+    Null,
     U64(u64),
     I64(i64),
     F64(f64),
     String(String),
     Bytes(Vec<u8>),
+    Bool(bool),
+    /// Delta-only marker that removes an inherited field.
+    DeleteField,
+}
+
+/// Metadata associated with one vector. Unlike the legacy flattened
+/// `ingest_batch` argument this supports unequal field counts.
+#[derive(Clone, Debug, PartialEq)]
+pub struct VectorMetadata {
+    pub vector_id: u64,
+    pub fields: Vec<MetadataEntry>,
+    pub delete_record: bool,
+}
+
+/// Compatibility state derived from the artifact's embedding-space identity.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EmbeddingCompatibility {
+    /// No expected identity was supplied by the caller.
+    Unchecked,
+    /// The expected identity matches the artifact.
+    Compatible,
+    /// Vector-only reads remain available; corpus mutation is disabled.
+    VectorReadOnly,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct MetadataFilterStats {
+    pub scanned_records: u64,
+    pub scanned_bytes: u64,
+    pub aborted_scans: u64,
+}
+
+/// Outcome of replaying the committed `META_SEG` chain at open (ADR-280 §5).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct MetadataRecovery {
+    /// Newest metadata generation the served snapshot reflects.
+    pub generation: u64,
+    /// Generations that could not be replayed and were dropped. Non-zero means
+    /// the artifact is damaged and later generations were discarded.
+    pub dropped_generations: u64,
+    /// Records the truncated replay resurrected -- their vectors are deleted or
+    /// absent in the committed vector state, because a dropped generation
+    /// carried the deletion. They are excluded from the served metadata.
+    pub dropped_records: u64,
 }

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ruvector.dev/schemas/research-artifact-index-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "candidate_commit", "candidate_ref", "workflow_revision",
+    "evaluator_version", "created_at", "retention_class", "retention_days",
+    "immutable_storage_required", "artifacts"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "candidate_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "candidate_ref": { "type": "string", "pattern": "^research/(candidate|nightly)/[A-Za-z0-9._/-]+$" },
+    "workflow_revision": { "type": "string", "minLength": 1 },
+    "evaluator_version": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "retention_class": { "enum": ["candidate", "accepted", "publication"] },
+    "retention_days": { "type": "integer", "minimum": -1 },
+    "immutable_storage_required": { "const": true },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256", "size_bytes"],
+        "properties": {
+          "path": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "size_bytes": { "type": "integer", "minimum": 0 }
+        }
+      }
+    }
+  }
+}
