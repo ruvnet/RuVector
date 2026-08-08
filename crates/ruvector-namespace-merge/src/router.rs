@@ -188,8 +188,27 @@ impl MinCutRoute {
     /// Capacities are normalised so the most relevant namespace always has
     /// S→ns capacity = `scale`, making the cut invariant to the absolute
     /// magnitude of cosine similarities (which depends on noise and dimension).
+    /// If every namespace has the same affinity, there is no evidence for
+    /// excluding any of them, so routing conservatively selects them all.
     fn route(&self, q_sim: &[f32]) -> Vec<bool> {
         let n = self.n_ns;
+        debug_assert_eq!(q_sim.len(), n);
+
+        if n == 0 {
+            return Vec::new();
+        }
+
+        let q_min = q_sim.iter().copied().fold(f32::INFINITY, f32::min);
+        let q_max = q_sim.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+        let range = q_max - q_min;
+
+        // A min-cut cannot make an evidence-based distinction when all
+        // affinities are equal (or invalid). AllSearch is deterministic and
+        // recall-preserving, which is the conservative behavior for this case.
+        if q_sim.iter().any(|value| !value.is_finite()) || range <= 1e-6 {
+            return vec![true; n];
+        }
+
         // Nodes: 0..n = namespaces, n = source (S), n+1 = sink (T)
         let s = n;
         let t = n + 1;
@@ -197,12 +216,8 @@ impl MinCutRoute {
 
         // Normalise q_sim into [0, 1] relative to its observed range so the
         // most-relevant namespace always receives full S→ns capacity.
-        let q_min = q_sim.iter().cloned().fold(f32::INFINITY, f32::min);
-        let q_max = q_sim.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
-        let range = (q_max - q_min).max(1e-6);
-
-        for i in 0..n {
-            let qs = ((q_sim[i] - q_min) / range).clamp(0.0, 1.0);
+        for (i, query_sim) in q_sim.iter().copied().enumerate() {
+            let qs = ((query_sim - q_min) / range).clamp(0.0, 1.0);
             let s_cap = (qs * self.scale as f32).round() as i64;
             let t_cap = ((1.0 - qs) * self.scale as f32).round() as i64;
             g.add_edge(s, i, s_cap);
@@ -211,7 +226,7 @@ impl MinCutRoute {
 
         for i in 0..n {
             for j in (i + 1)..n {
-                let sim = self.inter_sim[i * n + j].max(0.0).min(1.0);
+                let sim = self.inter_sim[i * n + j].clamp(0.0, 1.0);
                 let cap = (sim * self.scale as f32).round() as i64;
                 g.add_undirected(i, j, cap);
             }
@@ -220,7 +235,11 @@ impl MinCutRoute {
         g.max_flow(s, t);
         let side = g.source_side(s);
         // Only return namespace nodes (indices 0..n)
-        side[..n].to_vec()
+        let mut namespaces = side[..n].to_vec();
+        if !namespaces.iter().any(|&selected| selected) {
+            namespaces.fill(true);
+        }
+        namespaces
     }
 }
 

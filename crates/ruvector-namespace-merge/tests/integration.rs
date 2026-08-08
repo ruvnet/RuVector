@@ -1,5 +1,5 @@
 use ruvector_namespace_merge::{
-    dataset::{Dataset, DatasetConfig},
+    dataset::{Dataset, DatasetConfig, Namespace},
     recall_at_k,
     router::{AllSearch, CentroidFilter, MinCutRoute, NamespaceRouter},
 };
@@ -16,13 +16,53 @@ fn make_dataset() -> Dataset {
     })
 }
 
-fn make_dataset_64d() -> Dataset {
-    Dataset::generate(&DatasetConfig {
-        per_ns: 500,
-        dims: 64,
-        seed: SEED,
-        noise: 0.30,
-    })
+fn manual_dataset(vectors: &[&[f32]]) -> Dataset {
+    let dims = vectors.first().map_or(0, |vector| vector.len());
+    let namespaces = vectors
+        .iter()
+        .enumerate()
+        .map(|(id, vector)| Namespace::new(id, format!("ns-{id}"), vector.to_vec(), 1, dims))
+        .collect();
+
+    Dataset {
+        namespaces,
+        dims,
+        per_ns: 1,
+    }
+}
+
+#[test]
+fn mincut_single_namespace_remains_searchable() {
+    let ds = manual_dataset(&[&[1.0, 0.0]]);
+    let result = MinCutRoute::new(&ds).search(&ds, &[1.0, 0.0], 1);
+
+    assert_eq!(result.ns_searched, 1);
+    assert_eq!(result.dist_ops, 1);
+    assert_eq!(result.hits.len(), 1);
+}
+
+#[test]
+fn mincut_equal_similarities_searches_all_namespaces() {
+    let ds = manual_dataset(&[&[1.0, 0.0], &[1.0, 0.0], &[1.0, 0.0]]);
+    let result = MinCutRoute::new(&ds).search(&ds, &[0.0, 1.0], 3);
+
+    assert_eq!(result.ns_searched, 3);
+    assert_eq!(result.dist_ops, 3);
+    assert_eq!(result.hits.len(), 3);
+}
+
+#[test]
+fn mincut_empty_dataset_returns_empty_result() {
+    let ds = Dataset {
+        namespaces: Vec::new(),
+        dims: 2,
+        per_ns: 0,
+    };
+    let result = MinCutRoute::new(&ds).search(&ds, &[1.0, 0.0], 10);
+
+    assert!(result.hits.is_empty());
+    assert_eq!(result.ns_searched, 0);
+    assert_eq!(result.dist_ops, 0);
 }
 
 #[test]
@@ -125,8 +165,8 @@ fn flow_unit_two_cluster_query() {
     let mut g = FlowGraph::new(5);
 
     let q_sim = [0.60f32, 0.55f32, 0.02f32];
-    for i in 0..n {
-        let qs = q_sim[i].max(0.0).min(1.0);
+    for (i, query_sim) in q_sim.iter().copied().enumerate().take(n) {
+        let qs = query_sim.clamp(0.0, 1.0);
         g.add_edge(s, i, (qs * scale as f32).round() as i64);
         g.add_edge(i, t, ((1.0 - qs) * scale as f32).round() as i64);
     }

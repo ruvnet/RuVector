@@ -140,7 +140,7 @@ fn run_variant(
         recall,
         avg_ns_searched: avg_ns,
         avg_dist_ops: avg_ops,
-        memory_kb: (router.memory_bytes() + 1023) / 1024,
+        memory_kb: router.memory_bytes().div_ceil(1024),
         pass,
     }
 }

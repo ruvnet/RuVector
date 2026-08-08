@@ -2,6 +2,7 @@
 
 - **Status**: Accepted
 - **Date**: 2026-08-08
+- **Updated**: 2026-08-08
 - **Extends**: ADR-254 (turbovec), ADR-026 (tiered routing), ADR-297 (ACRP)
 - **Related crates**: `ruvector-namespace-merge`, `ruvector-agent-memory`, `ruvector-graph`, `ruvector-coherence-hnsw`, `rvf`
 
@@ -49,6 +50,12 @@ namespaces for this query).
 
 Run Edmonds-Karp max-flow on this graph. The source-side of the min-cut
 (nodes reachable from S in the residual graph) are the namespaces to search.
+
+**Correction (2026-08-08):** when all query affinities are equal (including a
+single-namespace dataset), relative normalisation contains no routing signal.
+`MinCutRoute` deterministically searches all namespaces in that case; an empty
+source-side cut also falls back to all namespaces to preserve recall. A dataset
+with no namespaces returns an empty result without constructing a flow graph.
 
 ### 2. Relative normalisation is non-negotiable
 
@@ -191,7 +198,7 @@ All acceptance criteria pass:
 - `MAX_DIST_OPS_CENTROID_FRAC=0.70` → actual 0.383 ✓
 - `MAX_DIST_OPS_MINCUT_FRAC=0.60` → actual 0.410 ✓
 
-All 6 tests pass (`cargo test -p ruvector-namespace-merge`).
+All 9 tests pass (`cargo test -p ruvector-namespace-merge`).
 
 ## Failure Modes
 
@@ -202,7 +209,7 @@ All 6 tests pass (`cargo test -p ruvector-namespace-merge`).
 | Stale centroids | Vectors inserted after `MinCutRoute::new()` | Rebuild router after bulk inserts; warn in docs |
 | Centroid collapse | Single-vector namespace | Centroid = that vector; routing still correct |
 | Flow overflow | N > 500 with SCALE=10000 | i64 capacity; N=500 gives max cap 10000×N²≈2.5×10⁹ < i64::MAX |
-| Identical q_sim values | Query equidistant from all centroids | range → 0; clamped by `max(range, 1e-6)`; all ns searched |
+| Identical q_sim values | Query equidistant from all centroids | Detect the degenerate range and deterministically search all namespaces |
 
 ## Security Considerations
 

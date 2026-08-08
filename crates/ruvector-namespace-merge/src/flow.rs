@@ -47,16 +47,16 @@ impl FlowGraph {
 
     /// BFS: find shortest augmenting path from `s` to `t`.
     /// Returns (parent array, flow pushed). 0 if no path found.
-    fn bfs(&self, s: usize, t: usize, parent: &mut Vec<usize>) -> i64 {
+    fn bfs(&self, s: usize, t: usize, parent: &mut [usize]) -> i64 {
         let n = self.n;
         parent.iter_mut().for_each(|p| *p = usize::MAX);
         parent[s] = s;
         let mut queue = VecDeque::new();
         queue.push_back((s, i64::MAX));
         while let Some((u, flow)) = queue.pop_front() {
-            for v in 0..n {
-                if parent[v] == usize::MAX && self.cap_at(u, v) > 0 {
-                    parent[v] = u;
+            for (v, parent_v) in parent.iter_mut().enumerate().take(n) {
+                if *parent_v == usize::MAX && self.cap_at(u, v) > 0 {
+                    *parent_v = u;
                     let new_flow = flow.min(self.cap_at(u, v));
                     if v == t {
                         return new_flow;
@@ -98,9 +98,9 @@ impl FlowGraph {
         visited[s] = true;
         queue.push_back(s);
         while let Some(u) = queue.pop_front() {
-            for v in 0..n {
-                if !visited[v] && self.cap_at(u, v) > 0 {
-                    visited[v] = true;
+            for (v, is_visited) in visited.iter_mut().enumerate().take(n) {
+                if !*is_visited && self.cap_at(u, v) > 0 {
+                    *is_visited = true;
                     queue.push_back(v);
                 }
             }

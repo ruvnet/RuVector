@@ -8,12 +8,11 @@
 //!
 //! 1. [`AllSearch`]      – baseline: scan every namespace unconditionally.
 //! 2. [`CentroidFilter`] – heuristic: skip namespaces whose centroid cosine
-//!                         similarity to the query falls below a threshold.
+//!    similarity to the query falls below a threshold.
 //! 3. [`MinCutRoute`]    – principled: build a flow graph where source→namespace
-//!                         capacity = query relevance, namespace→sink capacity =
-//!                         query irrelevance, and inter-namespace edges = semantic
-//!                         similarity. Find the min S-T cut; search namespaces on
-//!                         the source side.
+//!    capacity = query relevance, namespace→sink capacity = query irrelevance,
+//!    and inter-namespace edges = semantic similarity. Find the min S-T cut;
+//!    search namespaces on the source side.
 //!
 //! All three implement the [`NamespaceRouter`] trait so they can be swapped
 //! transparently by benchmark or production code.
