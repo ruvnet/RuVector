@@ -293,7 +293,7 @@ The 2% overhead is negligible. For edge/WASM deployments the centroid-only struc
 Search cost per query: O(k × d + nprobe × (n/k) × d)
 = O(d × (k + nprobe × n/k))
 
-Optimal nprobe balances the two terms. At k=40, n=10K, d=128, nprobe=20: this is 128 × (40 + 20 × 250) = 128 × 5040 ≈ 645K FLOP vs. FlatBrute's 128 × 10K = 1.28M FLOP — a theoretical 1.99× speedup. Measured speedup is 1.44–1.52×, consistent (remainder from sorting overhead and memory bandwidth).
+Optimal nprobe balances the two terms. At k=40, n=10K, d=128, nprobe=20: this is 128 × (40 + 20 × 250) = 128 × 5040 ≈ 645K FLOP vs. FlatBrute's 128 × 10K = 1.28M FLOP — a theoretical 1.99× speedup. Measured speedup is 1.49–1.52×, consistent (remainder from sorting overhead and memory bandwidth).
 
 ---
 

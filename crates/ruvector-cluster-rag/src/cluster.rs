@@ -38,6 +38,13 @@ pub fn kmeans(vectors: &[Vec<f32>], k: usize, iters: usize) -> KMeansResult {
         vectors.iter().all(|vector| vector.len() == dim),
         "all vectors must have the same dimension"
     );
+    assert!(
+        vectors
+            .iter()
+            .flatten()
+            .all(|coordinate| coordinate.is_finite()),
+        "all vector coordinates must be finite"
+    );
 
     // Initialise centroids from distinct points (deterministic k-means++ max-dist).
     let init_ids = crate::dataset::initial_centroid_indices(vectors, k);
@@ -232,5 +239,17 @@ mod tests {
 
         assert_eq!(result.assignments, vec![0, 0, 1]);
         assert_eq!(result.cluster_sizes, vec![2, 1]);
+    }
+
+    #[test]
+    #[should_panic(expected = "all vector coordinates must be finite")]
+    fn nan_coordinates_are_rejected() {
+        let _ = kmeans(&[vec![0.0], vec![f32::NAN]], 1, 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "all vector coordinates must be finite")]
+    fn infinite_coordinates_are_rejected() {
+        let _ = kmeans(&[vec![0.0], vec![f32::INFINITY]], 1, 1);
     }
 }

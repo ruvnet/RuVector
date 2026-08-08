@@ -12,19 +12,20 @@
 
 ## Context
 
-Agent memory corpora grow continuously. A corpus of 10K vectors (a single agent session) can be searched by brute force at ~670 QPS. At 1M vectors the same approach yields ~6 QPS — too slow for interactive use. RuVector needs a simple, zero-dependency cluster index that:
+Agent memory corpora grow continuously. In the refreshed synthetic benchmark, a corpus of 10K vectors is searched by brute force at ~2,000 QPS. Assuming linear scan scaling, 1M vectors would yield roughly 20 QPS — too slow for latency-sensitive interactive use. RuVector needs a simple, zero-dependency cluster index that:
 
 1. Reduces per-query scan cost without requiring a full HNSW graph.
 2. Integrates with the coherence primitives already in `ruvector-coherence`.
 3. Compiles to WASM for edge deployments.
 4. Supports incremental inserts without graph maintenance.
 
-This ADR records the design decision for a two-level cluster-summary index (ClusterTree) and a coherence-weighted query routing variant (CoherenceTree), both benchmarked against brute-force baseline.
+This Proposed ADR records a prototype for a two-level cluster-summary index (`ClusterTree`) and a coherence-weighted query routing variant (`CoherenceTree`), both benchmarked against a brute-force baseline. The decision remains Proposed until validation on a real embedding corpus is complete.
 
 **Correction (2026-08-08):** renumbered this Proposed decision from ADR-298
 to ADR-300 because ADR-298 is already accepted for namespace-merge routing.
-K-means now performs a final assignment pass against the returned centroids so
-cohesion and inverted lists cannot retain membership from the prior Lloyd step.
+The prototype K-means now performs a final assignment pass against the returned
+centroids so cohesion and inverted lists cannot retain membership from the prior
+Lloyd step.
 
 ---
 
@@ -102,7 +103,7 @@ Full RAPTOR builds cluster summaries using an LLM — the text summary becomes t
 
 ## Implementation Plan
 
-1. `ruvector-cluster-rag` crate: **done** (this ADR).
+1. `ruvector-cluster-rag` prototype crate: **done**; acceptance remains pending real-corpus validation.
 2. Validate on real embedding corpus: next step (ann-benchmarks SIFT1M or MS-MARCO embeddings).
 3. Online insert feature: buffer new vectors, absorb into nearest centroid after `N` inserts or `ttl` seconds.
 4. Adaptive nprobe controller: borrow ruFlo feedback loop from `ruvector-speculative-ann`.
@@ -112,7 +113,7 @@ Full RAPTOR builds cluster summaries using an LLM — the text summary becomes t
 
 ---
 
-## Benchmark Evidence
+## Prototype Benchmark Evidence
 
 Run: `cargo run --release -p ruvector-cluster-rag --bin benchmark`
 Date: 2026-08-08, x86_64 Linux, release build.
@@ -125,9 +126,11 @@ Dataset: n=10,000, dim=128, k=10, 500 queries, k_clusters=40, nprobe=20.
 | CoherenceTree (50% nprobe) | 336.4 | 469.1 | 2972 | 0.775 |
 
 Memory overhead: 2.0% above raw leaf storage.
-Acceptance gate: PASS (both cluster variants ≥ 0.70 recall@10).
+Synthetic prototype gate: PASS (both cluster variants ≥ 0.70 recall@10).
 
 All numbers are from a real `cargo run --release` invocation. No aspirational values.
+This evidence validates only the synthetic prototype gate; it does not accept the
+ADR or establish production readiness without the planned real-corpus validation.
 
 ---
 
