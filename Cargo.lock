@@ -8774,6 +8774,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-aq-search"
+version = "2.3.0"
+dependencies = [
+ "rand 0.8.6",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ruvector-attention"
 version = "2.3.0"
 dependencies = [

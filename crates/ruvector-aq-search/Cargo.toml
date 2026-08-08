@@ -1,0 +1,20 @@
+[package]
+name = "ruvector-aq-search"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Anisotropic Product Quantization (AQ) for high-recall angular ANN search — ScaNN-style directional penalty training in safe Rust"
+readme = "README.md"
+keywords = ["vector-search", "ann", "product-quantization", "anisotropic", "cosine-similarity"]
+categories = ["algorithms", "data-structures", "science"]
+
+[[bin]]
+name = "aq-benchmark"
+path = "src/main.rs"
+
+[dependencies]
+rand = { workspace = true }
+thiserror = { workspace = true }
