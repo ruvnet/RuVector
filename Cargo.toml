@@ -26,6 +26,7 @@ exclude = ["external/ruqu", "external/rvdna", "examples/OSpipe", "examples/rvf",
     # app-specific and would be paid for by every `cargo build --workspace`.
     "crates/rvforge-reader"]
 members = [
+    "crates/ruvector-namespace-merge",
     "crates/ruvector-bounded-rag",
     "crates/ruvector-temporal-coherence",
     "crates/ruvector-acorn",

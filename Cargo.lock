@@ -10096,6 +10096,10 @@ name = "ruvector-mmwave"
 version = "0.0.1"
 
 [[package]]
+name = "ruvector-namespace-merge"
+version = "2.3.0"
+
+[[package]]
 name = "ruvector-nervous-system"
 version = "2.3.0"
 dependencies = [
