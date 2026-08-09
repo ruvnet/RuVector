@@ -1,0 +1,20 @@
+[package]
+name = "ruvector-semantic-cache"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Semantic query cache for RuVector: ANN-accelerated result reuse for agent memory workloads, with linear-scan and LSH-sharded backends"
+readme = "README.md"
+keywords = ["vector-search", "semantic-cache", "agent-memory", "ann", "ruvector"]
+categories = ["algorithms", "data-structures", "caching"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+
+[lints.rust]
+dead_code = "allow"
