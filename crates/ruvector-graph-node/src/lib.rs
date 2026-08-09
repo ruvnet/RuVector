@@ -16,6 +16,24 @@ use ruvector_core::DistanceMetric;
 use ruvector_graph::cypher::{parse_cypher, Statement};
 use ruvector_graph::edge::Edge as GraphEdge;
 use ruvector_graph::hyperedge::Hyperedge as GraphHyperedge;
+
+/// Extract an f32 vector from a persisted property. Tolerates both the
+/// compact FloatArray form and the boxed Array/List form produced by the
+/// generic From<Vec<T>> impl (which older writes used).
+fn prop_to_f32_vec(p: Option<&PropertyValue>) -> Vec<f32> {
+    match p {
+        Some(PropertyValue::FloatArray(v)) => v.clone(),
+        Some(PropertyValue::Array(items)) | Some(PropertyValue::List(items)) => items
+            .iter()
+            .filter_map(|x| match x {
+                PropertyValue::Float(f) => Some(*f as f32),
+                PropertyValue::Integer(i) => Some(*i as f32),
+                _ => None,
+            })
+            .collect(),
+        _ => Vec::new(),
+    }
+}
 use ruvector_graph::node::NodeBuilder;
 use ruvector_graph::types::PropertyValue;
 use ruvector_graph::storage::GraphStorage;
@@ -85,7 +103,7 @@ fn register_node(
         }
     }
     // Persist the vector so hydrate_from_storage can rebuild the hypergraph index.
-    builder = builder.property("__embedding", embedding);
+    builder = builder.property("__embedding", PropertyValue::FloatArray(embedding));
     let graph_node = builder.build();
 
     // Persist to storage if enabled (mirrors create_node behaviour).
@@ -207,10 +225,7 @@ impl GraphDatabase {
             else {
                 continue;
             };
-            let embedding = match node.properties.get("__embedding") {
-                Some(PropertyValue::FloatArray(v)) => v.clone(),
-                _ => Vec::new(),
-            };
+            let embedding = prop_to_f32_vec(node.properties.get("__embedding"));
             hg.add_entity(node.id.clone(), embedding);
             gdb.create_node(node)
                 .map_err(|e| Error::from_reason(format!("hydrate node insert: {}", e)))?;
@@ -231,10 +246,7 @@ impl GraphDatabase {
                 Some(PropertyValue::FloatArray(v)) => v.first().copied().unwrap_or(1.0),
                 _ => 1.0,
             };
-            let embedding = match edge.properties.get("__embedding") {
-                Some(PropertyValue::FloatArray(v)) => v.clone(),
-                _ => Vec::new(),
-            };
+            let embedding = prop_to_f32_vec(edge.properties.get("__embedding"));
             let mut core_edge = CoreHyperedge::new(
                 vec![edge.from.clone(), edge.to.clone()],
                 edge.edge_type.clone(),
@@ -261,10 +273,7 @@ impl GraphDatabase {
             else {
                 continue;
             };
-            let embedding = match he.properties.get("__embedding") {
-                Some(PropertyValue::FloatArray(v)) => v.clone(),
-                _ => Vec::new(),
-            };
+            let embedding = prop_to_f32_vec(he.properties.get("__embedding"));
             let mut core_edge = CoreHyperedge::new(
                 he.nodes.clone(),
                 he.description.clone().unwrap_or_else(|| he.edge_type.clone()),
@@ -365,11 +374,11 @@ impl GraphDatabase {
             let mut props = std::collections::HashMap::new();
             props.insert(
                 "__confidence".to_string(),
-                PropertyValue::from(vec![confidence]),
+                PropertyValue::FloatArray(vec![confidence]),
             );
             props.insert(
                 "__embedding".to_string(),
-                PropertyValue::from(embedding_for_store),
+                PropertyValue::FloatArray(embedding_for_store),
             );
             let graph_edge = GraphEdge::new(edge_id.clone(), from, to, description, props);
             if let Some(storage_arc) = storage {
@@ -422,9 +431,9 @@ impl GraphDatabase {
                 let mut props = std::collections::HashMap::new();
                 props.insert(
                     "__confidence".to_string(),
-                    PropertyValue::from(vec![confidence]),
+                    PropertyValue::FloatArray(vec![confidence]),
                 );
-                props.insert("__embedding".to_string(), PropertyValue::from(embedding));
+                props.insert("__embedding".to_string(), PropertyValue::FloatArray(embedding));
                 let graph_hyperedge = GraphHyperedge {
                     id: edge_id.clone(),
                     nodes,
@@ -719,9 +728,9 @@ impl GraphDatabase {
                 let mut props = std::collections::HashMap::new();
                 props.insert(
                     "__confidence".to_string(),
-                    PropertyValue::from(vec![confidence]),
+                    PropertyValue::FloatArray(vec![confidence]),
                 );
-                props.insert("__embedding".to_string(), PropertyValue::from(embedding));
+                props.insert("__embedding".to_string(), PropertyValue::FloatArray(embedding));
                 let graph_edge = GraphEdge::new(
                     edge_id.clone(),
                     edge.from.clone(),
