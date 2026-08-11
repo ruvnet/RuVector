@@ -178,6 +178,15 @@ jobs:
             # iter-231 all cancelled at the timeout boundary). The wasm
             # crates are a natural sub-group: thin bindings on top of host
             # crates, easy to compile + test in isolation.
+            # Iter 233 — `ruvllm-wasm` excluded from native nextest:
+            # 11 of its 195 tests (sona_instant + workers::feature_detect)
+            # fail or SIGABRT on native because they're wasm-target
+            # specific (need wasm-bindgen-test). Surfaced by iter-232's
+            # split; previously masked by the iter-228..231 timeout
+            # cancellations of the megaShard. Tracking as workspace
+            # follow-up — fix is to gate the affected modules behind
+            # `#[cfg(target_arch = "wasm32")]` or migrate to
+            # wasm-bindgen-test runners.
             packages: >-
               -p neural-trader-wasm
               -p ruvector-acorn-wasm
@@ -207,15 +216,6 @@ jobs:
               -p ruvector-tiny-dancer-wasm
               -p ruvector-verified-wasm
               -p ruvector-wasm
-              # Iter 233 — `ruvllm-wasm` excluded from native nextest:
-              # 11 of its 195 tests (sona_instant + workers::feature_detect)
-              # fail or SIGABRT on native because they're wasm-target
-              # specific (need wasm-bindgen-test). Surfaced by iter-232's
-              # split; previously masked by the iter-228..231 timeout
-              # cancellations of the megaShard. Tracking as workspace
-              # follow-up — fix is to gate the affected modules behind
-              # `#[cfg(target_arch = "wasm32")]` or migrate to
-              # wasm-bindgen-test runners.
           - name: research-nightly
             # Nightly research PoC crates (iter 240+). Kept in a separate shard
             # so their compile + test time doesn't inflate core-and-rest.
@@ -239,9 +239,9 @@ jobs:
             # Everything else: core, delta, server/cluster, etc.
             # Uses --workspace + --exclude to subtract the groups above so we
             # don't have to enumerate ~100 crates by hand.
+            # Nightly research crates run in the research-nightly shard (iter 240+)
             packages: >-
               --workspace
-              # Nightly research crates run in the research-nightly shard (iter 240+)
               --exclude photonlayer-core
               --exclude photonlayer-bench
               --exclude photonlayer-cli
