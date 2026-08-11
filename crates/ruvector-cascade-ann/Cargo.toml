@@ -1,0 +1,21 @@
+[package]
+name = "ruvector-cascade-ann"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Graph-neighbour cascade ANN for RuVector: INT8 compressed first pass, graph-guided uncertain-zone expansion, exact f32 re-rank"
+readme = "README.md"
+keywords = ["vector-search", "ann", "cascade", "graph", "quantization"]
+categories = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+
+[lints.rust]
+dead_code = "allow"
+unused_variables = "allow"

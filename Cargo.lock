@@ -8927,6 +8927,10 @@ name = "ruvector-capgated"
 version = "2.3.0"
 
 [[package]]
+name = "ruvector-cascade-ann"
+version = "2.3.0"
+
+[[package]]
 name = "ruvector-cli"
 version = "2.3.0"
 dependencies = [

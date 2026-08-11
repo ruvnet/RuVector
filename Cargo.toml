@@ -291,6 +291,8 @@ members = [
     "crates/ruvector-timesfm",
     # Speculative ANN search: draft-verify with adaptive candidate multiplier (ADR-272)
     "crates/ruvector-speculative-ann",
+    # Graph-neighbour cascade ANN: INT8 scan + uncertain-zone graph expansion + exact f32 re-rank (ADR-273)
+    "crates/ruvector-cascade-ann",
 ]
 resolver = "2"
 
