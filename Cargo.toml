@@ -291,6 +291,8 @@ members = [
     "crates/ruvector-timesfm",
     # Speculative ANN search: draft-verify with adaptive candidate multiplier (ADR-272)
     "crates/ruvector-speculative-ann",
+    # Semantic query cache for ANN: HNSW-indexed cache layer, adaptive cosine threshold, invalidation (ADR-296)
+    "crates/ruvector-semantic-cache",
 ]
 resolver = "2"
 
