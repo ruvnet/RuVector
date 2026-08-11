@@ -17,6 +17,21 @@ env:
   CARGO_INCREMENTAL: 0
 
 jobs:
+  # Guards the defect fixed in this commit: a '#' written inside one of the
+  # 'packages: >-' block scalars below is NOT a YAML comment, so it reaches the
+  # shell through ${{ matrix.packages }} and comments out every flag after it.
+  # It is silent — the job still "runs", it just runs the wrong command — so it
+  # needs a check rather than a convention. Runs in seconds and gates nothing.
+  matrix-lint:
+    name: Test matrix lint
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: No '#' inside any matrix packages scalar
+        run: python3 .github/scripts/lint_test_matrix.py
+
   fmt:
     name: Rustfmt
     runs-on: ubuntu-22.04
@@ -178,6 +193,18 @@ jobs:
             # iter-231 all cancelled at the timeout boundary). The wasm
             # crates are a natural sub-group: thin bindings on top of host
             # crates, easy to compile + test in isolation.
+            #
+            # Iter 233 — ruvllm-wasm is deliberately absent from the list
+            # below: 11 of its 195 tests (sona_instant + workers::feature_detect)
+            # fail or SIGABRT on native because they are wasm-target specific
+            # (they need wasm-bindgen-test). Surfaced by iter-232's split;
+            # previously masked by the iter-228..231 timeout cancellations of
+            # the mega-shard. Tracking as a workspace follow-up — the fix is to
+            # gate the affected modules behind cfg(target_arch = "wasm32") or
+            # migrate them to wasm-bindgen-test runners.
+            #
+            # DO NOT put a '#' comment inside the block scalar below. See the
+            # core-and-rest entry for what that costs.
             packages: >-
               -p neural-trader-wasm
               -p ruvector-acorn-wasm
@@ -207,15 +234,6 @@ jobs:
               -p ruvector-tiny-dancer-wasm
               -p ruvector-verified-wasm
               -p ruvector-wasm
-              # Iter 233 — `ruvllm-wasm` excluded from native nextest:
-              # 11 of its 195 tests (sona_instant + workers::feature_detect)
-              # fail or SIGABRT on native because they're wasm-target
-              # specific (need wasm-bindgen-test). Surfaced by iter-232's
-              # split; previously masked by the iter-228..231 timeout
-              # cancellations of the megaShard. Tracking as workspace
-              # follow-up — fix is to gate the affected modules behind
-              # `#[cfg(target_arch = "wasm32")]` or migrate to
-              # wasm-bindgen-test runners.
           - name: research-nightly
             # Nightly research PoC crates (iter 240+). Kept in a separate shard
             # so their compile + test time doesn't inflate core-and-rest.
@@ -239,9 +257,19 @@ jobs:
             # Everything else: core, delta, server/cluster, etc.
             # Uses --workspace + --exclude to subtract the groups above so we
             # don't have to enumerate ~100 crates by hand.
+            #
+            # The photonlayer/ruvector-* research crates below run in the
+            # research-nightly shard (iter 240+).
+            #
+            # DO NOT put a '#' comment inside this block scalar. YAML does not
+            # treat '#' as a comment inside '>-', so it survives into the shell
+            # via ${{ matrix.packages }} and comments out every flag after it.
+            # That is exactly what happened between 578400d1d (2026-06-21) and
+            # this commit: all 99 --exclude flags were silently dropped, the
+            # shard ran a bare 'cargo nextest run --workspace', and it was
+            # cancelled at the timeout having never started a single test.
             packages: >-
               --workspace
-              # Nightly research crates run in the research-nightly shard (iter 240+)
               --exclude photonlayer-core
               --exclude photonlayer-bench
               --exclude photonlayer-cli
