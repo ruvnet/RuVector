@@ -291,6 +291,8 @@ members = [
     "crates/ruvector-timesfm",
     # Speculative ANN search: draft-verify with adaptive candidate multiplier (ADR-272)
     "crates/ruvector-speculative-ann",
+    # Bandit-Tuned ANN: UCB1/Thompson auto-tunes ef_search for optimal recall/latency (ADR-283)
+    "crates/ruvector-bandit-ann",
 ]
 resolver = "2"
 

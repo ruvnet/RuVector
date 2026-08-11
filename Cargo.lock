@@ -8844,6 +8844,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-bandit-ann"
+version = "2.3.0"
+dependencies = [
+ "rand 0.8.6",
+ "rand_distr 0.4.3",
+]
+
+[[package]]
 name = "ruvector-bench"
 version = "2.3.0"
 dependencies = [
