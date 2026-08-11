@@ -10378,6 +10378,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-rvq"
+version = "2.3.0"
+
+[[package]]
 name = "ruvector-scipix"
 version = "2.3.0"
 dependencies = [
