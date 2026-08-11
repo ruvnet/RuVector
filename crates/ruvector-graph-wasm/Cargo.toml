@@ -62,7 +62,16 @@ wasm-bindgen-test = "0.3"
 
 [features]
 default = []
+# On wasm32 this does not vectorize: ruvector-core gates its SimSIMD call sites
+# on `not(target_arch = "wasm32")` and takes the scalar arm there. Note it is the
+# call sites that are cfg'd out, not the crate — `simsimd` still resolves into
+# the wasm32 dependency graph.
 simd = ["ruvector-core/simd"]
+# Vectorized kernels that do reach wasm32, for both the core distance functions
+# and the graph schema scan path. Build with
+# `RUSTFLAGS="-C target-feature=+simd128"`; without that flag the kernels fall
+# back to scalar and this feature is a no-op.
+lattice-simd = ["ruvector-graph/lattice-simd"]
 
 # Ensure getrandom uses wasm_js/js features for WASM
 [target.'cfg(target_arch = "wasm32")'.dependencies]

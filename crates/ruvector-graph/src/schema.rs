@@ -19,6 +19,22 @@ use crate::types::PropertyValue;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Test-only witness for which cosine backend `score_pre` actually took. Lets a
+/// test assert *selection*, not just numerical agreement: a scalar reference
+/// can match the kernel's output by construction while the kernel call itself
+/// has been silently reverted to the fallback arm.
+///
+/// Per-thread (rather than a shared global) so that `cargo test`'s default
+/// one-thread-per-test execution can't let one test's cosine calls satisfy
+/// another test's assertion. Holds the actual value the lattice call
+/// returned (not just a flag), set only after that call returns, so the
+/// witness proves what came back rather than merely that a guarded branch
+/// was entered.
+#[cfg(all(test, feature = "lattice-simd"))]
+thread_local! {
+    static COSINE_LATTICE_ROUTE_HIT: std::cell::Cell<Option<f32>> = const { std::cell::Cell::new(None) };
+}
+
 /// Declared type of a node/edge property.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PropertyType {
@@ -91,6 +107,25 @@ impl DistanceMetric {
         match self {
             DistanceMetric::DotProduct => dot(query, candidate),
             DistanceMetric::Cosine => {
+                // Takes the precomputed `query_norm` rather than recomputing
+                // `‖query‖` per candidate, so the hoist this signature exists for
+                // survives, and a caller-supplied norm that differs from `‖query‖`
+                // rescales the result exactly as the scalar arm below does.
+                //
+                // Equal-length guard for the same reason as `dot`: the fused loop
+                // truncates to the shorter slice, the kernel returns 0.0.
+                #[cfg(feature = "lattice-simd")]
+                {
+                    if query.len() == candidate.len() {
+                        let result = lattice_embed::simd::cosine_similarity_pre_normalized(
+                            query, candidate, query_norm,
+                        );
+                        #[cfg(test)]
+                        COSINE_LATTICE_ROUTE_HIT.with(|hit| hit.set(Some(result)));
+                        return result;
+                    }
+                }
+
                 // Single fused pass: accumulate q·c and c·c together so the
                 // candidate slice is read once (half the memory traffic of two
                 // separate `dot` calls).
@@ -110,6 +145,15 @@ impl DistanceMetric {
                 }
             }
             DistanceMetric::Euclidean => {
+                // Same equal-length guard as `dot`: the loop below truncates to
+                // the shorter slice, the kernel does not.
+                #[cfg(feature = "lattice-simd")]
+                {
+                    if query.len() == candidate.len() {
+                        return -lattice_embed::simd::euclidean_distance(query, candidate);
+                    }
+                }
+
                 let n = query.len().min(candidate.len());
                 let mut sum = 0.0f32;
                 for i in 0..n {
@@ -156,10 +200,24 @@ pub fn score_property(
 
 #[inline]
 fn dot(a: &[f32], b: &[f32]) -> f32 {
+    // With `lattice-simd`, use explicit kernels rather than relying on
+    // autovectorization. This stays WASM-safe and no-feature-build-safe, the two
+    // properties that kept `simsimd` out of this layer: the dependency is
+    // optional, and its kernels compile to `simd128` on wasm32 — where the
+    // SimSIMD-backed paths are cfg'd out and fall back to scalar.
+    //
+    // The equal-length guard is required, not defensive. The iterator form below
+    // truncates to the shorter slice, while the kernel returns 0.0 on a length
+    // mismatch, so unequal inputs must keep taking the scalar path to preserve
+    // this function's existing behaviour.
+    #[cfg(feature = "lattice-simd")]
+    {
+        if a.len() == b.len() {
+            return lattice_embed::simd::dot_product(a, b);
+        }
+    }
+
     // Iterator form so LLVM auto-vectorizes (SSE/AVX/NEON) without bounds checks.
-    // SIMD via `simsimd`/ruvector-core is a follow-up (ADR-252 P5) but is
-    // deliberately not a hard dependency here so the schema layer stays WASM- and
-    // no-feature-build-safe.
     a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
 }
 
@@ -687,5 +745,170 @@ mod tests {
             .collect(),
         );
         assert!(s.validate_node(&n).is_ok());
+    }
+
+    /// Deterministic pseudo-random vectors, no dev-dependency needed.
+    fn vecs(dim: usize, seed: u32) -> (Vec<f32>, Vec<f32>) {
+        let mut s = seed.wrapping_mul(2_654_435_761).wrapping_add(1);
+        let mut next = || {
+            s ^= s << 13;
+            s ^= s >> 17;
+            s ^= s << 5;
+            (s as f32 / u32::MAX as f32) * 2.0 - 1.0
+        };
+        (
+            (0..dim).map(|_| next()).collect(),
+            (0..dim).map(|_| next()).collect(),
+        )
+    }
+
+    /// Whichever `dot` backend is compiled in must agree with a naive scalar sum.
+    ///
+    /// This is what catches a wrong kernel or a wrong adapter: swapping
+    /// `dot_product` for a different kernel, or dropping the negation on the
+    /// Euclidean arm, still compiles and fails here.
+    #[test]
+    fn test_score_pre_matches_scalar_reference() {
+        // Dimensions straddling 4/8/16-lane widths and their remainders.
+        for dim in [1usize, 3, 4, 7, 8, 15, 16, 17, 31, 64, 127, 384, 768] {
+            for seed in 0..4u32 {
+                let (q, c) = vecs(dim, seed);
+
+                let want_dot: f32 = q.iter().zip(&c).map(|(x, y)| x * y).sum();
+                let got_dot = DistanceMetric::DotProduct.score_pre(&q, &c, 0.0);
+                assert!(
+                    (got_dot - want_dot).abs() <= 1e-3 * want_dot.abs().max(1.0),
+                    "dot mismatch dim={dim} seed={seed}: got {got_dot}, want {want_dot}"
+                );
+
+                let want_euc = -q
+                    .iter()
+                    .zip(&c)
+                    .map(|(x, y)| (x - y) * (x - y))
+                    .sum::<f32>()
+                    .sqrt();
+                let got_euc = DistanceMetric::Euclidean.score_pre(&q, &c, 0.0);
+                assert!(
+                    (got_euc - want_euc).abs() <= 1e-3 * want_euc.abs().max(1.0),
+                    "euclidean mismatch dim={dim} seed={seed}: got {got_euc}, want {want_euc}"
+                );
+
+                let qn = DistanceMetric::Cosine.query_norm(&q);
+                let want_qn = q.iter().map(|x| x * x).sum::<f32>().sqrt();
+                assert!(
+                    (qn - want_qn).abs() <= 1e-3 * want_qn.abs().max(1.0),
+                    "query_norm mismatch dim={dim} seed={seed}: got {qn}, want {want_qn}"
+                );
+
+                // The cosine score itself, not just its hoisted norm. Reference is
+                // built from the naive sums rather than from `query_norm` above, so
+                // a norm that is wrong in the same direction on both sides cannot
+                // cancel out and pass.
+                let qc: f32 = q.iter().zip(&c).map(|(x, y)| x * y).sum();
+                let cn = c.iter().map(|y| y * y).sum::<f32>().sqrt();
+                let want_cos = if want_qn == 0.0 || cn == 0.0 {
+                    0.0
+                } else {
+                    qc / (want_qn * cn)
+                };
+                let got_cos = DistanceMetric::Cosine.score_pre(&q, &c, qn);
+                assert!(
+                    (got_cos - want_cos).abs() <= 1e-3 * want_cos.abs().max(1.0),
+                    "cosine mismatch dim={dim} seed={seed}: got {got_cos}, want {want_cos}"
+                );
+
+                // A caller-supplied norm that is not `‖query‖` must rescale the
+                // result, not be ignored. This is the property that made a plain
+                // two-argument kernel unusable for this signature, so it is
+                // asserted rather than assumed.
+                let scaled = DistanceMetric::Cosine.score_pre(&q, &c, qn * 2.0);
+                assert!(
+                    (scaled - want_cos / 2.0).abs() <= 1e-3 * (want_cos / 2.0).abs().max(1.0),
+                    "cosine ignored the supplied query_norm dim={dim} seed={seed}: \
+                     got {scaled}, want {}",
+                    want_cos / 2.0
+                );
+            }
+        }
+    }
+
+    /// Unequal lengths must keep the truncating scalar behaviour. The kernels
+    /// return 0.0 on a length mismatch, so a missing guard would show up here as
+    /// a zero instead of the truncated dot product.
+    #[test]
+    fn test_unequal_lengths_truncate_not_zero() {
+        let q = vec![1.0f32, 2.0, 3.0, 4.0];
+        let c = vec![1.0f32, 1.0, 1.0];
+
+        let got = DistanceMetric::DotProduct.score_pre(&q, &c, 0.0);
+        assert!(
+            (got - 6.0).abs() < 1e-5,
+            "expected truncated dot 6.0, got {got}"
+        );
+
+        let got = DistanceMetric::Euclidean.score_pre(&q, &c, 0.0);
+        let want = -(0.0f32 + 1.0 + 4.0).sqrt();
+        assert!(
+            (got - want).abs() < 1e-5,
+            "expected truncated euclidean {want}, got {got}"
+        );
+
+        // Cosine truncates too: q·c and ‖c‖ both over the first 3 lanes.
+        let qn = (1.0f32 + 4.0 + 9.0 + 16.0).sqrt();
+        let got = DistanceMetric::Cosine.score_pre(&q, &c, qn);
+        let want = 6.0f32 / (qn * 3.0f32.sqrt());
+        assert!(
+            (got - want).abs() < 1e-5,
+            "expected truncated cosine {want}, got {got}"
+        );
+    }
+
+    /// Guards *selection*, not just numerical agreement: reverting the
+    /// `lattice-simd` cosine arm to the scalar fallback still produces a
+    /// correct score (that's the point of the fallback), so
+    /// `test_score_pre_matches_scalar_reference` alone would keep passing.
+    ///
+    /// The witness is written only after
+    /// `lattice_embed::simd::cosine_similarity_pre_normalized` returns, and
+    /// this test cross-checks the recorded value bit-for-bit against a
+    /// second, independent direct call to that same kernel function. A
+    /// reversion that swaps the call for an inline scalar computation (even
+    /// one bound to the same local and stored the same way) still shows up
+    /// here: the scalar sum's rounding practically never matches the
+    /// kernel's, so the two values diverge. Reverting the whole arm instead
+    /// leaves the witness unset, which the `.expect` below catches.
+    #[cfg(feature = "lattice-simd")]
+    #[test]
+    fn test_cosine_equal_length_routes_through_lattice_backend() {
+        COSINE_LATTICE_ROUTE_HIT.with(|hit| hit.set(None));
+
+        // dim=17 straddles the 16-lane width with a one-element remainder,
+        // so the kernel's reduction order can't coincidentally match a
+        // sequential scalar sum.
+        let (q, c) = vecs(17, 5);
+        let qn = DistanceMetric::Cosine.query_norm(&q);
+        let got = DistanceMetric::Cosine.score_pre(&q, &c, qn);
+
+        let recorded = COSINE_LATTICE_ROUTE_HIT.with(|hit| hit.get()).expect(
+            "expected the equal-length cosine path to record a post-call \
+                 witness; the scalar fallback ran instead (or the lattice \
+                 arm never returned through the witnessed path)",
+        );
+        assert_eq!(
+            recorded.to_bits(),
+            got.to_bits(),
+            "witness value diverged from score_pre's own return value"
+        );
+
+        let direct = lattice_embed::simd::cosine_similarity_pre_normalized(&q, &c, qn);
+        assert_eq!(
+            recorded.to_bits(),
+            direct.to_bits(),
+            "expected the equal-length cosine path's witnessed value to \
+             bit-match a fresh, independent call into \
+             lattice_embed::simd::cosine_similarity_pre_normalized; got a \
+             different value, so the scan path did not actually return the \
+             kernel's result"
+        );
     }
 }

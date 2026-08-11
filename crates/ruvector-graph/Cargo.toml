@@ -23,6 +23,10 @@ hnsw_rs = { workspace = true, optional = true }
 
 # SIMD and performance
 simsimd = { workspace = true, optional = true }
+# Kernels only: `default-features = false` keeps `lattice-inference` and the
+# model/tokenizer/download stack out of the tree. Unlike simsimd, these kernels
+# build for wasm32, which is what lets the schema layer stay WASM-safe.
+lattice-embed = { version = "0.7.1", optional = true, default-features = false }
 rayon = { workspace = true }
 crossbeam = { workspace = true }
 num_cpus = "1.16"
@@ -111,6 +115,13 @@ full = ["simd", "storage", "async-runtime", "compression", "hnsw_rs", "ruvector-
 
 # SIMD optimizations
 simd = ["ruvector-core/simd", "simsimd"]
+
+# Explicit SIMD kernels for the schema-layer scan path, via lattice-embed.
+# Distinct from `simd` above in two ways: it reaches wasm32 (where simsimd is
+# unavailable, so `simd` leaves the scan scalar), and it carries no non-optional
+# dependency, so a no-feature build is unchanged. Raises the effective MSRV to
+# 1.93 for anyone who enables it. Off by default.
+lattice-simd = ["dep:lattice-embed"]
 
 # Storage backends
 storage = ["redb", "memmap2"]
