@@ -291,6 +291,8 @@ members = [
     "crates/ruvector-timesfm",
     # Speculative ANN search: draft-verify with adaptive candidate multiplier (ADR-272)
     "crates/ruvector-speculative-ann",
+    # Graph-Degree Adaptive Quantization: hub-aware mixed 8/4-bit compression (ADR-273)
+    "crates/ruvector-gdq",
 ]
 resolver = "2"
 

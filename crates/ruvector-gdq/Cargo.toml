@@ -1,0 +1,17 @@
+[package]
+name = "ruvector-gdq"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Graph-Degree Adaptive Quantization for RuVector: hub-aware mixed-precision vector storage"
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+rand = { workspace = true }
+rand_distr = { workspace = true }

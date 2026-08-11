@@ -9553,6 +9553,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-gdq"
+version = "2.3.0"
+dependencies = [
+ "rand 0.8.6",
+ "rand_distr 0.4.3",
+]
+
+[[package]]
 name = "ruvector-gnn"
 version = "2.3.0"
 dependencies = [
