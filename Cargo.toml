@@ -291,6 +291,8 @@ members = [
     "crates/ruvector-timesfm",
     # Speculative ANN search: draft-verify with adaptive candidate multiplier (ADR-272)
     "crates/ruvector-speculative-ann",
+    # Hot-Warm-Cold tiered vector quantization: access-pattern-driven precision tiers (ADR-273)
+    "crates/ruvector-tiered-quant",
 ]
 resolver = "2"
 

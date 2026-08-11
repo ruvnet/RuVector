@@ -10671,6 +10671,10 @@ name = "ruvector-temporal-tensor"
 version = "2.3.0"
 
 [[package]]
+name = "ruvector-tiered-quant"
+version = "2.3.0"
+
+[[package]]
 name = "ruvector-timesfm"
 version = "2.2.4"
 dependencies = [
