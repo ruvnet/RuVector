@@ -10451,6 +10451,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-semantic-drift"
+version = "2.3.0"
+dependencies = [
+ "rand 0.8.6",
+ "rand_distr 0.4.3",
+]
+
+[[package]]
 name = "ruvector-server"
 version = "2.3.0"
 dependencies = [

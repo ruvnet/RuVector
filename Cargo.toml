@@ -291,6 +291,8 @@ members = [
     "crates/ruvector-timesfm",
     # Speculative ANN search: draft-verify with adaptive candidate multiplier (ADR-272)
     "crates/ruvector-speculative-ann",
+    # Semantic drift detection for agent vector memory (ADR-273)
+    "crates/ruvector-semantic-drift",
 ]
 resolver = "2"
 

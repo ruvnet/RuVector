@@ -1,0 +1,22 @@
+[package]
+name = "ruvector-semantic-drift"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Semantic drift detection for agent vector memory: window-based distribution monitoring with MCP-ready drift events"
+readme = "README.md"
+keywords = ["vector-search", "drift-detection", "agent-memory", "streaming", "ruvector"]
+categories = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+rand = { workspace = true }
+rand_distr = { workspace = true }
+
+[lints.rust]
+dead_code = "allow"
