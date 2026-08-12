@@ -10190,6 +10190,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-query-cache"
+version = "2.3.0"
+dependencies = [
+ "rand 0.8.6",
+]
+
+[[package]]
 name = "ruvector-rabitq"
 version = "2.3.0"
 dependencies = [
