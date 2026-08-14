@@ -10709,6 +10709,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-structural-memory-merge"
+version = "0.1.0"
+dependencies = [
+ "emergent-time",
+]
+
+[[package]]
 name = "ruvector-temporal-coherence"
 version = "0.1.0"
 dependencies = [
