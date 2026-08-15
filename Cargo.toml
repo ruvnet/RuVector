@@ -302,6 +302,8 @@ members = [
     "crates/ruvector-streaming-qng",
     # Entropy-adaptive ANN beam search: live Shannon entropy gates beam width (ADR-303)
     "crates/ruvector-entropy-ann",
+    # Coherence-adaptive quantization: mutual-kNN boundary detection drives bit-width allocation (ADR-305)
+    "crates/ruvector-coherence-quant",
 ]
 resolver = "2"
 

@@ -1,0 +1,17 @@
+[package]
+name = "ruvector-coherence-quant"
+version = "0.1.0"
+edition = "2021"
+description = "Coherence-adaptive quantization: mutual-kNN boundary detection drives per-vector bit-width allocation for scalar vector quantization"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ruvnet/ruvector"
+keywords = ["ann", "quantization", "coherence", "vector-search", "compression"]
+categories = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
