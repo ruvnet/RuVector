@@ -259,7 +259,7 @@ async function tutorial() {
   const db = new VectorDb({
     dimensions: 128,           // Vector size - MUST match your embeddings
     maxElements: 10000,        // Maximum vectors (can grow automatically)
-    storagePath: './my-vectors.db'  // Persist to disk (omit for in-memory)
+    storagePath: './my-vectors.db'  // Explicit persistent identity for this schema
   });
 
   console.log('✅ Database created successfully');
@@ -1850,7 +1850,7 @@ PHASE 3: Reflection
 new VectorDb(options: {
   dimensions: number;        // Vector dimensionality (required)
   maxElements?: number;      // Max vectors (default: 10000)
-  storagePath?: string;      // Persistent storage path
+  storagePath?: string;      // Persistent path; defaults to ./ruvector.db
   ef_construction?: number;  // HNSW construction parameter (default: 200)
   m?: number;               // HNSW M parameter (default: 16)
   distanceMetric?: string;  // 'cosine', 'euclidean', or 'dot' (default: 'cosine')
@@ -1861,6 +1861,9 @@ new VectorDb(options: {
 
 #### insert(entry: VectorEntry): Promise<string>
 Insert a vector into the database.
+
+An explicit `id` is a single-value upsert. Reusing it replaces the searchable
+vector and metadata; it does not create another search result with the same ID.
 
 ```javascript
 const id = await db.insert({
@@ -1951,18 +1954,22 @@ const db3 = new VectorDb({
 ### Persistence
 
 ```javascript
-// Auto-save to disk
+// Prefer an explicit path for every durable vector schema.
 const persistent = new VectorDb({
   dimensions: 128,
   storagePath: './persistent.db'
 });
 
-// In-memory only (faster, but data lost on exit)
-const temporary = new VectorDb({
+// Omitting storagePath is still persistent and uses ./ruvector.db.
+const defaultPersistent = new VectorDb({
   dimensions: 128
-  // No storagePath = in-memory
 });
 ```
+
+The store retains its vector dimension. Reopening the same path for a different
+dimension preserves the existing data and rejects mismatched vector operations.
+Use a distinct explicit `storagePath` for each embedding model or schema.
+`VectorIndex` is the high-level isolated temporary-index API.
 
 ## 📦 Platform Support
 

@@ -142,13 +142,26 @@ function normalizeMetric(metric: string | undefined): string | undefined {
   }
 }
 
+interface VectorDBOptions {
+  dimensions?: number;
+  dimension?: number;
+  storagePath?: string;
+  distanceMetric?: string;
+  metric?: string;
+  hnswConfig?: any;
+}
+
 /**
  * Wrapper class that automatically handles metadata JSON conversion
  */
 class VectorDBWrapper {
   private db: any;
+  private readonly requestedDimensions: number;
+  private readonly usesImplicitStoragePath: boolean;
+  private implicitSchemaVerified = false;
+  private readonly idWriteTails = new Map<string, Promise<void>>();
 
-  constructor(options: { dimensions?: number; dimension?: number; storagePath?: string; distanceMetric?: string; metric?: string; hnswConfig?: any }) {
+  constructor(options: VectorDBOptions) {
     // Accept both `distanceMetric` (canonical) and `metric` (CLI shorthand).
     // Normalize to the PascalCase enum variant the native binding expects.
     const distanceMetric = normalizeMetric(options.distanceMetric ?? (options as any).metric);
@@ -156,6 +169,8 @@ class VectorDBWrapper {
     if (typeof dimensions !== 'number' || !Number.isInteger(dimensions) || dimensions <= 0) {
       throw new Error('Missing or invalid `dimensions` (the singular `dimension` alias is also accepted)');
     }
+    this.requestedDimensions = dimensions;
+    this.usesImplicitStoragePath = options.storagePath === undefined;
     const nativeOptions: any = {
       // The native N-API contract is plural even when callers use the public
       // singular alias. Keeping this mapping here prevents CLI/API drift.
@@ -182,12 +197,93 @@ class VectorDBWrapper {
   }
 
   /**
+   * The native backend persists to `./ruvector.db` when storagePath is omitted.
+   * On reopen it adopts the stored schema, so the mismatch is first observable
+   * when a caller submits a vector. Add storage identity without mislabelling a
+   * normal bad-vector error as a persisted-schema collision.
+   */
+  private rethrowWithStorageContext(error: unknown): never {
+    const message = error instanceof Error ? error.message : String(error);
+    const mismatch = message.match(/expected\s+(\d+)\s*,\s*(?:got|actual)\s+(\d+)/i);
+    const storedDimensions = mismatch ? Number(mismatch[1]) : undefined;
+    const submittedDimensions = mismatch ? Number(mismatch[2]) : undefined;
+
+    if (
+      this.usesImplicitStoragePath &&
+      storedDimensions !== undefined &&
+      submittedDimensions === this.requestedDimensions &&
+      storedDimensions !== this.requestedDimensions
+    ) {
+      const diagnosed = new Error(
+        `Vector schema collision at implicit persistent store "./ruvector.db": ` +
+        `the caller requested ${this.requestedDimensions} dimensions, but the existing store ` +
+        `expects ${storedDimensions}. Pass an explicit \`storagePath\` for each vector schema ` +
+        `or reopen this store with ${storedDimensions} dimensions. Original error: ${message}`
+      );
+      (diagnosed as any).cause = error;
+      throw diagnosed;
+    }
+
+    throw error;
+  }
+
+  private validateVector(vector: Float32Array): void {
+    if (vector.length !== this.requestedDimensions) {
+      throw new Error(
+        `Vector dimension mismatch: expected ${this.requestedDimensions}, got ${vector.length}`
+      );
+    }
+  }
+
+  /** Remove an existing index node before reusing its ID. */
+  private async deleteExisting(id: string): Promise<void> {
+    if (await this.db.get(id)) {
+      await this.db.delete(id);
+    }
+  }
+
+  /** Detect an implicit persisted-schema mismatch before any upsert deletes data. */
+  private async verifyImplicitSchema(vector: Float32Array): Promise<void> {
+    if (!this.usesImplicitStoragePath || this.implicitSchemaVerified) return;
+    try {
+      await this.db.search({ vector, k: 1 });
+    } catch (error) {
+      this.rethrowWithStorageContext(error);
+    }
+    this.implicitSchemaVerified = true;
+  }
+
+  /** Serialize only writes whose explicit ID sets overlap. */
+  private async withIdWriteLocks<T>(ids: string[], operation: () => Promise<T>): Promise<T> {
+    const reservations = [...new Set(ids)].sort().map(id => {
+      const previous = this.idWriteTails.get(id) ?? Promise.resolve();
+      let release!: () => void;
+      const gate = new Promise<void>(resolve => { release = resolve; });
+      const tail = previous.then(() => gate);
+      this.idWriteTails.set(id, tail);
+      return { id, previous, release, tail };
+    });
+
+    await Promise.all(reservations.map(({ previous }) => previous));
+    try {
+      return await operation();
+    } finally {
+      for (const { id, release, tail } of reservations) {
+        release();
+        if (this.idWriteTails.get(id) === tail) this.idWriteTails.delete(id);
+      }
+    }
+  }
+
+  /**
    * Insert a vector with optional metadata (objects are auto-converted to JSON)
    */
   async insert(entry: { id?: string; vector: Float32Array | number[]; metadata?: Record<string, any> }): Promise<string> {
+    const vector = entry.vector instanceof Float32Array ? entry.vector : new Float32Array(entry.vector);
+    this.validateVector(vector);
     const nativeEntry: any = {
       id: entry.id,
-      vector: entry.vector instanceof Float32Array ? entry.vector : new Float32Array(entry.vector),
+      vector,
     };
 
     // Auto-convert metadata object to JSON string
@@ -195,28 +291,89 @@ class VectorDBWrapper {
       nativeEntry.metadata = JSON.stringify(entry.metadata);
     }
 
-    return this.db.insert(nativeEntry);
+    await this.verifyImplicitSchema(vector);
+
+    return this.withIdWriteLocks(entry.id === undefined ? [] : [entry.id], async () => {
+      // Storage already treats an explicit ID as an upsert, but HNSW appends a
+      // second graph node. Deleting first keeps storage, get(), stats, and search
+      // on the same single-value semantics.
+      if (entry.id !== undefined) {
+        await this.deleteExisting(entry.id);
+      }
+
+      try {
+        return await this.db.insert(nativeEntry);
+      } catch (error) {
+        this.rethrowWithStorageContext(error);
+      }
+    });
   }
 
   /**
    * Insert multiple vectors in batch
    */
   async insertBatch(entries: Array<{ id?: string; vector: Float32Array | number[]; metadata?: Record<string, any> }>): Promise<string[]> {
-    const nativeEntries = entries.map(entry => ({
-      id: entry.id,
-      vector: entry.vector instanceof Float32Array ? entry.vector : new Float32Array(entry.vector),
-      metadata: entry.metadata ? JSON.stringify(entry.metadata) : undefined,
-    }));
+    if (entries.length === 0) return [];
 
-    return this.db.insertBatch(nativeEntries);
+    // Validate and serialize the complete batch before deleting an old value.
+    // Repeated explicit IDs use deterministic last-write-wins semantics.
+    const nativeEntries = entries.map(entry => {
+      const vector = entry.vector instanceof Float32Array
+        ? entry.vector
+        : new Float32Array(entry.vector);
+      this.validateVector(vector);
+      return {
+        id: entry.id,
+        vector,
+        metadata: entry.metadata ? JSON.stringify(entry.metadata) : undefined,
+      };
+    });
+    const lastIndexById = new Map<string, number>();
+    nativeEntries.forEach((entry, index) => {
+      if (entry.id !== undefined) lastIndexById.set(entry.id, index);
+    });
+
+    await this.verifyImplicitSchema(nativeEntries[0].vector);
+
+    const retainedIndexes = nativeEntries
+      .map((entry, index) => ({ entry, index }))
+      .filter(({ entry, index }) => entry.id === undefined || lastIndexById.get(entry.id) === index);
+
+    return this.withIdWriteLocks([...lastIndexById.keys()], async () => {
+      for (const id of lastIndexById.keys()) {
+        await this.deleteExisting(id);
+      }
+
+      let insertedIds: string[];
+      try {
+        insertedIds = await this.db.insertBatch(retainedIndexes.map(({ entry }) => entry));
+      } catch (error) {
+        this.rethrowWithStorageContext(error);
+      }
+
+      // Preserve the historical one-result-per-input return shape. Earlier
+      // duplicates resolve to the same explicit ID as their winning final value.
+      const ids = new Array<string>(entries.length);
+      retainedIndexes.forEach(({ index }, retainedIndex) => {
+        ids[index] = insertedIds[retainedIndex];
+      });
+      nativeEntries.forEach((entry, index) => {
+        if (ids[index] === undefined && entry.id !== undefined) ids[index] = entry.id;
+      });
+      return ids;
+    });
   }
 
   /**
    * Search for similar vectors (metadata is auto-parsed from JSON)
    */
   async search(query: { vector: Float32Array | number[]; k: number; filter?: Record<string, any>; efSearch?: number }): Promise<Array<{ id: string; score: number; vector?: Float32Array; metadata?: Record<string, any> }>> {
+    const vector = query.vector instanceof Float32Array
+      ? query.vector
+      : new Float32Array(query.vector);
+    this.validateVector(vector);
     const nativeQuery: any = {
-      vector: query.vector instanceof Float32Array ? query.vector : new Float32Array(query.vector),
+      vector,
       k: query.k,
       efSearch: query.efSearch,
     };
@@ -226,7 +383,12 @@ class VectorDBWrapper {
       nativeQuery.filter = JSON.stringify(query.filter);
     }
 
-    const results = await this.db.search(nativeQuery);
+    let results: any[];
+    try {
+      results = await this.db.search(nativeQuery);
+    } catch (error) {
+      this.rethrowWithStorageContext(error);
+    }
 
     // Auto-parse metadata JSON strings back to objects
     return results.map((r: any) => ({
@@ -284,20 +446,57 @@ export const NativeVectorDb = implementation.VectorDb;
 // Backwards-compat surface used by tests and older integrations
 // ────────────────────────────────────────────────────────────────────────────
 
-/** High-level index class compatible with the test-suite API. */
+export interface VectorIndexOptions {
+  dimension: number;
+  metric?: string;
+  indexType?: string;
+  hnswConfig?: any;
+}
+
+/**
+ * High-level index class compatible with the test-suite API.
+ *
+ * VectorIndex uses an isolated temporary store. Use VectorDb with an explicit
+ * storagePath when the storage identity must remain durable across processes.
+ */
 export class VectorIndex {
   private db: VectorDBWrapper;
-  private _dimension: number;
+  private readonly _dimension: number;
+  private readonly _metric?: string;
+  private readonly _indexType?: string;
+  private readonly _hnswConfig: any;
   private _storagePath: string;
 
-  constructor(opts: { dimension: number; metric?: string; indexType?: string }) {
+  constructor(opts: VectorIndexOptions) {
     if (opts.dimension <= 0) {
       throw new Error(`Invalid dimensions: must be positive, got ${opts.dimension}`);
     }
     this._dimension = opts.dimension;
+    this._metric = opts.metric;
+    this._indexType = opts.indexType?.toLowerCase();
+    // Passing null selects the native flat index. Undefined lets the wrapper
+    // apply its documented HNSW defaults.
+    this._hnswConfig = this._indexType === 'flat'
+      ? null
+      : opts.hnswConfig === undefined
+        ? undefined
+        : { ...opts.hnswConfig };
     // Use a unique temp path per instance to avoid cross-instance dimension conflicts
-    this._storagePath = require('os').tmpdir() + `/ruvector-idx-${Date.now()}-${Math.random().toString(36).slice(2)}.db`;
-    this.db = new VectorDBWrapper({ dimensions: opts.dimension, distanceMetric: opts.metric, storagePath: this._storagePath });
+    this._storagePath = this.createStoragePath();
+    this.db = this.createDatabase(this._storagePath);
+  }
+
+  private createStoragePath(): string {
+    return require('os').tmpdir() + `/ruvector-idx-${Date.now()}-${Math.random().toString(36).slice(2)}.db`;
+  }
+
+  private createDatabase(storagePath: string): VectorDBWrapper {
+    return new VectorDBWrapper({
+      dimensions: this._dimension,
+      distanceMetric: this._metric,
+      storagePath,
+      hnswConfig: this._hnswConfig,
+    });
   }
 
   async insert(entry: { id?: string; values: number[] }): Promise<string> {
@@ -340,10 +539,10 @@ export class VectorIndex {
   }
 
   async clear(): Promise<void> {
-    // Create a fresh db at a new temp path to reset state
-    const newPath = require('os').tmpdir() + `/ruvector-idx-${Date.now()}-${Math.random().toString(36).slice(2)}.db`;
+    // Create a fresh isolated store while retaining metric and index settings.
+    const newPath = this.createStoragePath();
     this._storagePath = newPath;
-    this.db = new VectorDBWrapper({ dimensions: this._dimension, storagePath: newPath });
+    this.db = this.createDatabase(newPath);
   }
 
   async optimize(): Promise<void> {
