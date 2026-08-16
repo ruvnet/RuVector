@@ -343,7 +343,7 @@ web-sys = { version = "0.3", features = ["Worker", "MessagePort", "console"] }
 getrandom = { version = "0.3", features = ["wasm_js"] }
 
 # Async runtime
-tokio = { version = "1.41", features = ["rt-multi-thread", "sync", "macros"] }
+tokio = { version = "1.41", features = ["rt-multi-thread", "sync", "macros", "io-std"] }
 futures = "0.3"
 
 # Error handling and utilities
