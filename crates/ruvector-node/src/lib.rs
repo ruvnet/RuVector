@@ -186,9 +186,7 @@ fn effective_options_to_js(options: &DbOptions) -> Result<EffectiveDbOptions> {
                     )
                 })?),
                 ef_search: Some(u32::try_from(config.ef_search).map_err(|_| {
-                    Error::from_reason(
-                        "Effective HNSW efSearch exceeds the JavaScript u32 range",
-                    )
+                    Error::from_reason("Effective HNSW efSearch exceeds the JavaScript u32 range")
                 })?),
                 max_elements: Some(u32::try_from(config.max_elements).map_err(|_| {
                     Error::from_reason(
@@ -252,7 +250,9 @@ mod effective_options_tests {
         let effective = effective_options_to_js(&options).expect("options should convert");
         assert_eq!(effective.distance_metric, "euclidean");
         assert_eq!(effective.index_type, "hnsw");
-        let hnsw = effective.hnsw_config.expect("HNSW config should be present");
+        let hnsw = effective
+            .hnsw_config
+            .expect("HNSW config should be present");
         assert_eq!(hnsw.m, Some(12));
         assert_eq!(hnsw.ef_construction, Some(80));
         assert_eq!(hnsw.ef_search, Some(40));

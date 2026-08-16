@@ -504,7 +504,11 @@ mod tests {
     #[test]
     fn options_report_persisted_configuration_after_reopen_override() -> Result<()> {
         let dir = tempdir().unwrap();
-        let storage_path = dir.path().join("effective-options.db").to_string_lossy().to_string();
+        let storage_path = dir
+            .path()
+            .join("effective-options.db")
+            .to_string_lossy()
+            .to_string();
 
         {
             let original = DbOptions {
