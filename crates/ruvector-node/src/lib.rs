@@ -140,6 +140,126 @@ impl From<JsDbOptions> for DbOptions {
     }
 }
 
+/// Effective database configuration after persisted options have been loaded.
+///
+/// Unlike constructor options, this object describes the index that native core
+/// actually created. Metric and index names use stable lowercase spellings so
+/// JavaScript wrappers can compare them without depending on N-API enum casing.
+#[napi(object)]
+#[derive(Debug)]
+pub struct EffectiveDbOptions {
+    /// Effective vector dimensions
+    pub dimensions: u32,
+    /// Effective distance metric: cosine, euclidean, dotproduct, or manhattan
+    pub distance_metric: String,
+    /// Effective storage identity
+    pub storage_path: String,
+    /// Effective HNSW configuration; absent means FlatIndex
+    pub hnsw_config: Option<JsHnswConfig>,
+    /// Effective index implementation: hnsw or flat
+    pub index_type: String,
+}
+
+fn canonical_metric_name(metric: DistanceMetric) -> &'static str {
+    match metric {
+        DistanceMetric::Euclidean => "euclidean",
+        DistanceMetric::Cosine => "cosine",
+        DistanceMetric::DotProduct => "dotproduct",
+        DistanceMetric::Manhattan => "manhattan",
+    }
+}
+
+fn effective_options_to_js(options: &DbOptions) -> Result<EffectiveDbOptions> {
+    let dimensions = u32::try_from(options.dimensions)
+        .map_err(|_| Error::from_reason("Effective dimensions exceed the JavaScript u32 range"))?;
+    let hnsw_config = options
+        .hnsw_config
+        .as_ref()
+        .map(|config| -> Result<JsHnswConfig> {
+            Ok(JsHnswConfig {
+                m: Some(u32::try_from(config.m).map_err(|_| {
+                    Error::from_reason("Effective HNSW m exceeds the JavaScript u32 range")
+                })?),
+                ef_construction: Some(u32::try_from(config.ef_construction).map_err(|_| {
+                    Error::from_reason(
+                        "Effective HNSW efConstruction exceeds the JavaScript u32 range",
+                    )
+                })?),
+                ef_search: Some(u32::try_from(config.ef_search).map_err(|_| {
+                    Error::from_reason(
+                        "Effective HNSW efSearch exceeds the JavaScript u32 range",
+                    )
+                })?),
+                max_elements: Some(u32::try_from(config.max_elements).map_err(|_| {
+                    Error::from_reason(
+                        "Effective HNSW maxElements exceeds the JavaScript u32 range",
+                    )
+                })?),
+            })
+        })
+        .transpose()?;
+
+    Ok(EffectiveDbOptions {
+        dimensions,
+        distance_metric: canonical_metric_name(options.distance_metric).to_string(),
+        storage_path: options.storage_path.clone(),
+        index_type: if hnsw_config.is_some() {
+            "hnsw".to_string()
+        } else {
+            "flat".to_string()
+        },
+        hnsw_config,
+    })
+}
+
+#[cfg(test)]
+mod effective_options_tests {
+    use super::*;
+
+    #[test]
+    fn reports_canonical_effective_flat_options() {
+        let options = DbOptions {
+            dimensions: 16,
+            distance_metric: DistanceMetric::DotProduct,
+            storage_path: "/tmp/effective.db".to_string(),
+            hnsw_config: None,
+            quantization: None,
+        };
+
+        let effective = effective_options_to_js(&options).expect("options should convert");
+        assert_eq!(effective.dimensions, 16);
+        assert_eq!(effective.distance_metric, "dotproduct");
+        assert_eq!(effective.storage_path, "/tmp/effective.db");
+        assert_eq!(effective.index_type, "flat");
+        assert!(effective.hnsw_config.is_none());
+    }
+
+    #[test]
+    fn reports_effective_hnsw_parameters() {
+        let options = DbOptions {
+            dimensions: 3,
+            distance_metric: DistanceMetric::Euclidean,
+            storage_path: "memory://effective".to_string(),
+            hnsw_config: Some(HnswConfig {
+                m: 12,
+                ef_construction: 80,
+                ef_search: 40,
+                max_elements: 5_000,
+            }),
+            quantization: None,
+        };
+
+        let effective = effective_options_to_js(&options).expect("options should convert");
+        assert_eq!(effective.distance_metric, "euclidean");
+        assert_eq!(effective.index_type, "hnsw");
+        let hnsw = effective.hnsw_config.expect("HNSW config should be present");
+        assert_eq!(hnsw.m, Some(12));
+        assert_eq!(hnsw.ef_construction, Some(80));
+        assert_eq!(hnsw.ef_search, Some(40));
+        assert_eq!(hnsw.max_elements, Some(5_000));
+    }
+}
+
 /// Vector entry
 #[napi(object)]
 pub struct JsVectorEntry {
@@ -274,6 +394,17 @@ impl VectorDB {
         Ok(Self {
             inner: Arc::new(RwLock::new(db)),
         })
+    }
+
+    /// Return the effective native configuration after persisted options have
+    /// overridden constructor input.
+    #[napi]
+    pub fn get_options(&self) -> Result<EffectiveDbOptions> {
+        let db = self
+            .inner
+            .read()
+            .map_err(|_| Error::from_reason("Vector database lock poisoned"))?;
+        effective_options_to_js(db.options())
     }
 
     /// Insert a vector entry into the database

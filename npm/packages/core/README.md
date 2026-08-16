@@ -113,6 +113,13 @@ new VectorDb(options: {
 - `delete(id: string): Promise<boolean>` - Remove a vector
 - `len(): Promise<number>` - Count total vectors
 - `get(id: string): Promise<VectorEntry | null>` - Retrieve vector by ID
+- `getOptions(): EffectiveDbOptions` - Read the authoritative effective
+  dimensions, lowercase distance metric, storage path, index type, and HNSW
+  settings after persisted configuration has been restored
+
+`getOptions()` reports native effective state, not merely constructor input.
+Use it when reopening a persistent store before claiming a particular metric or
+index implementation.
 
 ## Performance Benchmarks
 

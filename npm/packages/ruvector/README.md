@@ -1851,6 +1851,7 @@ new VectorDb(options: {
   dimensions: number;        // Vector dimensionality (required)
   maxElements?: number;      // Max vectors (default: 10000)
   storagePath?: string;      // Persistent path; defaults to ./ruvector.db
+  indexType?: 'hnsw' | 'flat'; // HNSW by default; flat for mutable IDs
   ef_construction?: number;  // HNSW construction parameter (default: 200)
   m?: number;               // HNSW M parameter (default: 16)
   distanceMetric?: string;  // 'cosine', 'euclidean', or 'dot' (default: 'cosine')
@@ -1864,6 +1865,12 @@ Insert a vector into the database.
 
 An explicit `id` is a single-value upsert. Reusing it replaces the searchable
 vector and metadata; it does not create another search result with the same ID.
+
+For `indexType: 'hnsw'`, replacing an ID or deleting a vector rebuilds the native
+HNSW graph from persistent storage. This is a correctness containment for the
+native backend's non-removable graph nodes and costs O(N) per replacement or
+successful delete. Use `indexType: 'flat'` for high-frequency mutable state. Flat
+updates in place, trading O(1) mutation for O(N) search.
 
 ```javascript
 const id = await db.insert({
@@ -1970,6 +1977,46 @@ The store retains its vector dimension. Reopening the same path for a different
 dimension preserves the existing data and rejects mismatched vector operations.
 Use a distinct explicit `storagePath` for each embedding model or schema.
 `VectorIndex` is the high-level isolated temporary-index API.
+
+Native core restores the configuration persisted inside an existing store,
+which may differ from new constructor options. The npm wrapper reads the
+authoritative native `getOptions()` result after open and requires its dimension,
+metric, index type, storage identity, and HNSW parameters to match. A mismatch
+fails closed before the wrapper accepts traffic.
+
+Older native binaries without `getOptions()` cannot certify effective persisted
+configuration. Conservative HNSW access remains available with
+`configurationVerified: false`; flat construction requires the coordinated core
+release that exposes the getter.
+
+### Mutable indexes
+
+```javascript
+const mutable = new VectorDb({
+  dimensions: 128,
+  storagePath: './mutable-field.db',
+  indexType: 'flat'
+});
+
+console.log(mutable.getIndexInfo());
+// {
+//   indexType: 'flat',
+//   dimensions: 128,
+//   distanceMetric: 'cosine',
+//   storagePath: '/absolute/path/mutable-field.db',
+//   mutationMode: 'in-place',
+//   configurationVerified: true
+// }
+```
+
+Use flat indexes for routing fields, centroids, configuration heads, and other
+records replaced frequently, but accept mutable traffic only when
+`configurationVerified === true`, `indexType === 'flat'`, and
+`mutationMode === 'in-place'`. Use HNSW for larger, predominantly append-only
+collections where sublinear search justifies the graph. HNSW mutation rebuilds
+require file-backed storage; a non-file storage URI fails clearly instead of
+silently serving a damaged graph. Public index info uses lowercase canonical
+metric names: `cosine`, `euclidean`, `dotproduct`, or `manhattan`.
 
 ## 📦 Platform Support
 

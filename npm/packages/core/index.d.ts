@@ -14,8 +14,27 @@ export interface SearchResult {
   score: number;
 }
 
+export type DistanceMetric = 'cosine' | 'euclidean' | 'dotproduct' | 'manhattan';
+export type IndexType = 'hnsw' | 'flat';
+
+export interface HnswConfig {
+  m?: number;
+  efConstruction?: number;
+  efSearch?: number;
+  maxElements?: number;
+}
+
+export interface EffectiveDbOptions {
+  dimensions: number;
+  distanceMetric: DistanceMetric;
+  storagePath: string;
+  hnswConfig?: HnswConfig;
+  indexType: IndexType;
+}
+
 export class VectorDb {
-  constructor(options: { dimensions: number; storagePath?: string; distanceMetric?: string; hnswConfig?: any });
+  constructor(options: { dimensions: number; storagePath?: string; distanceMetric?: string; hnswConfig?: HnswConfig });
+  getOptions(): EffectiveDbOptions;
   insert(entry: VectorEntry): Promise<string>;
   insertBatch(entries: VectorEntry[]): Promise<string[]>;
   search(query: SearchQuery): Promise<SearchResult[]>;
