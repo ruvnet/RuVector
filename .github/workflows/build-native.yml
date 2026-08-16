@@ -148,21 +148,41 @@ jobs:
           (matrix.settings.platform == 'darwin-x64' && runner.os == 'macOS' && runner.arch == 'X64') ||
           (matrix.settings.platform == 'darwin-arm64' && runner.os == 'macOS' && runner.arch == 'ARM64') ||
           (matrix.settings.platform == 'win32-x64-msvc' && runner.os == 'Windows')
-        continue-on-error: true
         shell: bash
         run: |
-          # Test the locally built .node file directly
+          # Test the locally built .node file directly. This is deliberately
+          # independent of installed @ruvector/core/platform packages so a PR
+          # cannot pass by loading older published bytes.
           NODE_FILE="npm/packages/core/index.${{ matrix.settings.platform }}.node"
-          if [ -f "$NODE_FILE" ]; then
-            echo "Testing native module: $NODE_FILE"
-            node -e "
-              const native = require('./$NODE_FILE');
-              console.log('Native module exports:', Object.keys(native));
-              console.log('✅ Native module loaded successfully');
-            "
-          else
-            echo "⚠️ Native module not found at $NODE_FILE - skipping test"
-          fi
+          test -f "$NODE_FILE"
+          echo "Testing native module: $NODE_FILE"
+          node -e "
+            const native = require('./$NODE_FILE');
+            if (typeof native.VectorDb !== 'function') {
+              throw new Error('Fresh native binary does not export VectorDb');
+            }
+            const storagePath = 'memory://native-effective-options-' + process.pid;
+            const db = new native.VectorDb({
+              dimensions: 4,
+              distanceMetric: 'Euclidean',
+              storagePath
+            });
+            if (typeof db.getOptions !== 'function') {
+              throw new Error('Fresh native binary does not export VectorDb.getOptions()');
+            }
+            const options = db.getOptions();
+            if (
+              options.dimensions !== 4 ||
+              options.distanceMetric !== 'euclidean' ||
+              options.storagePath !== storagePath ||
+              options.indexType !== 'flat' ||
+              options.hnswConfig != null
+            ) {
+              throw new Error('Unexpected effective options: ' + JSON.stringify(options));
+            }
+            console.log('Native effective options:', options);
+            console.log('✅ Fresh native getOptions() smoke passed');
+          "
 
       - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
