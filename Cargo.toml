@@ -28,6 +28,10 @@ exclude = ["external/ruqu", "external/rvdna", "examples/OSpipe", "examples/rvf",
 members = [
     "crates/ruvector-bounded-rag",
     "crates/ruvector-temporal-coherence",
+    # Coherence-weighted agent memory compaction (nightly 2026-06-14). Predates
+    # workspace wiring; added as a member so ruvector-partition-memory can
+    # depend on its CoherencePolicy baseline directly instead of duplicating it.
+    "crates/ruvector-agent-memory",
     "crates/ruvector-acorn",
     "crates/ruvector-acorn-wasm",
     "crates/ruvector-coherence-hnsw",
@@ -75,6 +79,7 @@ members = [
     "crates/ruvector-mincut-node",
     "crates/ruvector-mincut-gated-transformer",
     "crates/ruvector-mincut-gated-transformer-wasm",
+    "crates/ruvector-partition-memory",
     # NOTE: ruvector-postgres is in workspace `exclude` (pgrx env requirement).
     "crates/ruvector-nervous-system",
     # Iter 219 — hailo backend rejoined the workspace (closes

@@ -8788,6 +8788,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-agent-memory"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.6",
+]
+
+[[package]]
 name = "ruvector-attention"
 version = "2.3.0"
 dependencies = [
@@ -10172,6 +10179,18 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "ruvector-partition-memory"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.6",
+ "ruvector-agent-memory",
+ "ruvector-mincut 2.3.0",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
 ]
 
 [[package]]
