@@ -1,0 +1,6 @@
+n=500 ratio=0.5 partitions=4 sizes=[90, 75, 125, 210] purities=["1.00", "1.00", "1.00", "0.83"] us=480432
+n=500 ratio=0.35 partitions=4 sizes=[90, 75, 125, 210] purities=["1.00", "1.00", "1.00", "0.83"] us=524855
+n=500 ratio=0.2 partitions=2 sizes=[90, 410] purities=["1.00", "0.43"] us=315318
+n=4000 ratio=0.5 partitions=5 sizes=[200, 2000, 1000, 720, 80] purities=["1.00", "0.70", "1.00", "1.00", "1.00"] us=10784652
+n=4000 ratio=0.35 partitions=5 sizes=[200, 2000, 1000, 720, 80] purities=["1.00", "0.70", "1.00", "1.00", "1.00"] us=11097579
+n=4000 ratio=0.2 partitions=4 sizes=[2200, 1000, 720, 80] purities=["0.64", "1.00", "1.00", "1.00"] us=6667169

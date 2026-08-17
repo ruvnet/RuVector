@@ -1,0 +1,20 @@
+=== ruvector-partition-memory nightly benchmark ===
+n=500 dims=64 cluster_sizes=[175, 125, 90, 75, 25, 10] focus_cluster=0 target_size=250 (50% retention) queries=150
+params: floor_min=3 coherence_ratio=0.35 fixed_k=10 fixed_k_max_n=600
+corpus_gen_us=12962 knn_graph_us=35113 knn_edges=3572
+
+MincutFixedK partitions: 3 (K=10 requested) sizes=[1, 346, 153]
+MincutAdaptive partitions: 4 (coherence_ratio=0.35) sizes=[90, 75, 125, 210]
+MincutAdaptive witness: 7 split steps, chain_verify=true, head=11910bea6063621a4290554636dc218909bc4baa4812350f4ea4de56238a7a70
+
+variant          retained overall_recall worst_cluster_recall coverage partition_us retention_us
+GlobalTopScore   retained=250    overall_recall=0.3440 worst_cluster_recall=0.1000 coverage=1.000 partition_us=0          retention_us=1533    
+MincutFixedK     retained=250    overall_recall=0.4467 worst_cluster_recall=0.1800 coverage=1.000 partition_us=642943     retention_us=1681    
+MincutAdaptive   retained=250    overall_recall=0.3500 worst_cluster_recall=0.0000 coverage=0.833 partition_us=516739     retention_us=2514    
+
+per_cluster_recall GlobalTopScore  = [0.988, 0.2, 0.188, 0.3, 0.2879999999999999, 0.10000000000000003]
+per_cluster_recall MincutFixedK    = [0.848, 0.18, 0.34, 0.4640000000000001, 0.5479999999999999, 0.2999999999999999]
+per_cluster_recall MincutAdaptive  = [0.6039999999999999, 0.49199999999999994, 0.4040000000000001, 0.46, 0.14000000000000004, 0.0]
+
+acceptance: best_candidate=MincutFixedK worst_cluster_gain_pp=8.00 (threshold_pp=15.00) gain_ok=false overall_ok=true latency_ok=true witness_ok=true
+ACCEPTANCE_RESULT: REJECT

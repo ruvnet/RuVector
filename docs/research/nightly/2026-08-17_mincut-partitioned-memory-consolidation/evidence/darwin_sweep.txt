@@ -1,0 +1,8 @@
+parent partition (fixed for the whole sweep): 5 partitions, sizes=[200, 2000, 1000, 720, 80], correctness=1
+gen=1 candidates_per_generation=4
+floor_min=1   retained=2000  overall_recall=0.4880 worst_cluster_recall=0.1520 fitness=0.4224
+floor_min=3   retained=2000  overall_recall=0.4873 worst_cluster_recall=0.1520 fitness=0.4222
+floor_min=8   retained=2000  overall_recall=0.5000 worst_cluster_recall=0.1480 fitness=0.4240
+floor_min=15  retained=2000  overall_recall=0.5067 worst_cluster_recall=0.1480 fitness=0.4260
+winner: floor_min=15 fitness=0.4260 beats_parent(floor_min=3)=true
+DARWIN_RESULT: PROMOTE
