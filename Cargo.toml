@@ -62,6 +62,7 @@ members = [
     "crates/ruvector-gnn",
     "crates/ruvector-proof-gate",
     "crates/ruvector-retrieval-receipt",
+    "crates/ruvector-coherence-checkpoint",
     "crates/ruvector-gnn-rerank",
     "crates/ruvector-gnn-node",
     "crates/ruvector-gnn-wasm",
