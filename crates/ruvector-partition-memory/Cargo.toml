@@ -1,0 +1,24 @@
+[package]
+name        = "ruvector-partition-memory"
+version     = "0.1.0"
+edition     = "2021"
+description = "Mincut-partitioned agent-memory consolidation: coherence-graph clustering with floor-guaranteed retention to protect minority-topic memories, with a SHA-256 witness chain over partition decisions"
+authors     = ["ruvnet", "claude-flow"]
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["agent-memory", "graph-partitioning", "min-cut", "rag", "ruvector"]
+categories  = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "benchmark"
+path = "src/main.rs"
+
+[dependencies]
+ruvector-mincut = { path = "../ruvector-mincut", default-features = false, features = ["exact"] }
+ruvector-agent-memory = { path = "../ruvector-agent-memory" }
+rand = "0.8"
+sha2 = "0.10"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[dev-dependencies]

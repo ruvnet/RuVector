@@ -1,0 +1,18 @@
+=== ruvector-partition-memory nightly benchmark ===
+n=4000 dims=64 cluster_sizes=[1400, 1000, 720, 600, 200, 80] focus_cluster=0 target_size=2000 (50% retention) queries=150
+params: floor_min=3 coherence_ratio=0.35 fixed_k=10 fixed_k_max_n=600
+corpus_gen_us=119649 knn_graph_us=2691799 knn_edges=31061
+
+MincutFixedK: SKIPPED (n=4000 exceeds fixed_k_max_n=600; ruvector_mincut::GraphPartitioner measured at 8.4s for n=500 and did not finish in 5m42s for n=4000 during this nightly's development — see the research doc for the repro)
+MincutAdaptive partitions: 5 (coherence_ratio=0.35) sizes=[200, 2000, 1000, 720, 80]
+MincutAdaptive witness: 9 split steps, chain_verify=true, head=a15b77949d3d26928fc84cd89b0dcb749c4b16359b3caa08320967a8bffa8469
+
+variant          retained overall_recall worst_cluster_recall coverage partition_us retention_us
+GlobalTopScore   retained=2000   overall_recall=0.4193 worst_cluster_recall=0.1520 coverage=1.000 partition_us=0          retention_us=12948   
+MincutAdaptive   retained=2000   overall_recall=0.4873 worst_cluster_recall=0.1520 coverage=1.000 partition_us=11164029   retention_us=13482   
+
+per_cluster_recall GlobalTopScore  = [0.996, 0.15200000000000005, 0.21599999999999997, 0.31600000000000006, 0.39599999999999996, 0.44000000000000006]
+per_cluster_recall MincutAdaptive  = [0.7919999999999999, 0.38, 0.5040000000000001, 0.15200000000000002, 0.5559999999999999, 0.54]
+
+acceptance: best_candidate=MincutAdaptive worst_cluster_gain_pp=-0.00 (threshold_pp=15.00) gain_ok=false overall_ok=true latency_ok=true witness_ok=true
+ACCEPTANCE_RESULT: REJECT
