@@ -499,6 +499,47 @@ mod tests {
         assert_eq!(db.len().unwrap(), 1);
         assert!(!std::path::Path::new("memory:").exists());
     }
+
+    #[cfg(feature = "storage")]
+    #[test]
+    fn options_report_persisted_configuration_after_reopen_override() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let storage_path = dir
+            .path()
+            .join("effective-options.db")
+            .to_string_lossy()
+            .to_string();
+
+        {
+            let original = DbOptions {
+                dimensions: 2,
+                distance_metric: DistanceMetric::Euclidean,
+                storage_path: storage_path.clone(),
+                hnsw_config: None,
+                quantization: None,
+            };
+            let db = VectorDB::new(original)?;
+            assert_eq!(db.options().dimensions, 2);
+            assert_eq!(db.options().distance_metric, DistanceMetric::Euclidean);
+            assert!(db.options().hnsw_config.is_none());
+        }
+
+        let conflicting_reopen = DbOptions {
+            dimensions: 3,
+            distance_metric: DistanceMetric::Cosine,
+            storage_path: storage_path.clone(),
+            hnsw_config: Some(HnswConfig::default()),
+            quantization: None,
+        };
+        let reopened = VectorDB::new(conflicting_reopen)?;
+        let effective = reopened.options();
+        assert_eq!(effective.dimensions, 2);
+        assert_eq!(effective.distance_metric, DistanceMetric::Euclidean);
+        assert!(effective.hnsw_config.is_none());
+        assert_eq!(effective.storage_path, storage_path);
+        Ok(())
+    }
+
     use std::path::Path;
     use tempfile::tempdir;
 

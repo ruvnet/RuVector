@@ -8,6 +8,22 @@ async function test() {
   console.log('Testing native module...');
 
   try {
+    const configured = new VectorDB({
+      dimensions: 4,
+      distanceMetric: 'Euclidean',
+      storagePath: `memory://get-options-${process.pid}`
+    });
+    const effective = configured.getOptions();
+    if (
+      effective.dimensions !== 4 ||
+      effective.distanceMetric !== 'euclidean' ||
+      effective.indexType !== 'flat' ||
+      effective.hnswConfig != null
+    ) {
+      throw new Error(`Unexpected effective options: ${JSON.stringify(effective)}`);
+    }
+    console.log('✓ Effective configuration getter');
+
     // Create database
     const db = VectorDB.withDimensions(128);
     console.log('✓ Created database');
