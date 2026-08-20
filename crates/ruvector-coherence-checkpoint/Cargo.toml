@@ -1,0 +1,24 @@
+[package]
+name = "ruvector-coherence-checkpoint"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT OR Apache-2.0"
+description = "Coherence-drift-triggered snapshot scheduling for portable agent memory, witness-chained via ruvector-proof-gate."
+readme = "README.md"
+repository = "https://github.com/ruvnet/ruvector"
+homepage = "https://github.com/ruvnet/ruvector"
+documentation = "https://docs.rs/ruvector-coherence-checkpoint"
+keywords = ["agent-memory", "checkpoint", "witness", "coherence", "ruvector"]
+categories = ["algorithms", "data-structures"]
+
+[dependencies]
+ruvector-proof-gate = { path = "../ruvector-proof-gate" }
+ruvector-agent-memory = { path = "../ruvector-agent-memory" }
+rand = "0.8"
+sha2 = "0.10"
+
+[dev-dependencies]
+
+[[example]]
+name = "benchmark"
