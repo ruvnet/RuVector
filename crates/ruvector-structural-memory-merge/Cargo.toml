@@ -1,0 +1,19 @@
+[package]
+name        = "ruvector-structural-memory-merge"
+version     = "0.1.0"
+edition     = "2021"
+description = "Conflict resolution for concurrent multi-agent shared memory writes using emergent-time structural proper time plus coherence, instead of wall-clock or vector-clock last-write-wins"
+authors     = ["ruvnet", "claude-flow"]
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["agent-memory", "crdt", "structural-time", "coherence", "ruvector"]
+categories  = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "structural-memory-merge-bench"
+path = "src/main.rs"
+
+[dependencies]
+emergent-time = { path = "../emergent-time" }
+
+[dev-dependencies]

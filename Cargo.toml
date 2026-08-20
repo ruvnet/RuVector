@@ -302,6 +302,8 @@ members = [
     "crates/ruvector-streaming-qng",
     # Entropy-adaptive ANN beam search: live Shannon entropy gates beam width (ADR-303)
     "crates/ruvector-entropy-ann",
+    # Structural-time + coherence conflict resolution for concurrent multi-agent memory writes (ADR-305)
+    "crates/ruvector-structural-memory-merge",
 ]
 resolver = "2"
 
