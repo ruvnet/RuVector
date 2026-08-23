@@ -41,9 +41,9 @@ impl<'a> FilterEvaluator<'a> {
                 top_left,
                 bottom_right,
             } => self.evaluate_geo_bbox(field, *top_left, *bottom_right),
-            FilterExpression::And(filters) => self.evaluate_and(filters),
-            FilterExpression::Or(filters) => self.evaluate_or(filters),
-            FilterExpression::Not(filter) => self.evaluate_not(filter),
+            FilterExpression::And { exprs } => self.evaluate_and(exprs),
+            FilterExpression::Or { exprs } => self.evaluate_or(exprs),
+            FilterExpression::Not { expr } => self.evaluate_not(expr),
             FilterExpression::Exists { field } => self.evaluate_exists(field),
             FilterExpression::IsNull { field } => self.evaluate_is_null(field),
         }
@@ -103,9 +103,9 @@ impl<'a> FilterEvaluator<'a> {
             FilterExpression::Match { field, text } => Self::get_field_value(payload, field)
                 .and_then(|v| v.as_str())
                 .is_some_and(|s| s.to_lowercase().contains(&text.to_lowercase())),
-            FilterExpression::And(filters) => filters.iter().all(|f| self.matches(payload, f)),
-            FilterExpression::Or(filters) => filters.iter().any(|f| self.matches(payload, f)),
-            FilterExpression::Not(filter) => !self.matches(payload, filter),
+            FilterExpression::And { exprs } => exprs.iter().all(|f| self.matches(payload, f)),
+            FilterExpression::Or { exprs } => exprs.iter().any(|f| self.matches(payload, f)),
+            FilterExpression::Not { expr } => !self.matches(payload, expr),
             FilterExpression::Exists { field } => Self::get_field_value(payload, field).is_some(),
             FilterExpression::IsNull { field } => {
                 Self::get_field_value(payload, field).is_none_or(|v| v.is_null())
