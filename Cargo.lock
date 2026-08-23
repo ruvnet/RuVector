@@ -9355,6 +9355,7 @@ version = "2.3.2"
 dependencies = [
  "bincode 2.0.1",
  "bytemuck",
+ "criterion 0.5.1",
  "getrandom 0.2.17",
  "memmap2",
  "parking_lot 0.12.5",
