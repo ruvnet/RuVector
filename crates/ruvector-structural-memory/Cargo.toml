@@ -1,0 +1,26 @@
+[package]
+name        = "ruvector-structural-memory"
+version     = "0.1.0"
+edition     = "2021"
+description = "Structural-time agent memory decay: replaces wall-clock recency with emergent-time's StructuralProperTime (embedding-arc-length + entropy internal clock) for compaction retention scoring"
+authors     = ["ruvnet", "claude-flow"]
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/ruvnet/ruvector"
+keywords    = ["agent-memory", "emergent-time", "vector-search", "compaction", "ruvector"]
+categories  = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "benchmark"
+path = "src/main.rs"
+
+[dependencies]
+# ADR-251's calculus of emergent time: reused here (not reimplemented) for its
+# `Clock` trait / `StructuralProperTime` arc-length clock and Shannon entropy
+# helper, applied to a new domain (agent-memory compaction retention scoring).
+emergent-time = { version = "2.2.4", path = "../emergent-time" }
+
+[dev-dependencies]
+
+# Research-tier crate: keep correctness lints denied, relax style churn.
+[lints.rust]
+dead_code = "allow"
