@@ -267,7 +267,9 @@ The witness log integration path: each spill decision (vector id, primary partit
 
 ## Edge and WASM Implications
 
-`ruvector-spann` has zero external dependencies (`[dependencies]` is empty in `Cargo.toml`). Distance computation uses pure Rust scalar arithmetic. This makes it `no_std`-compatible with a static data source and suitable for WASM compilation via `wasm-pack`.
+`ruvector-spann`'s default feature configuration resolves no normal dependencies (`cargo tree -e normal` is a single node). Distance computation uses pure Rust scalar arithmetic in this configuration. The crate does not declare `#![no_std]` and uses `std::cmp::Ordering` in production code (`src/lib.rs`, `src/index.rs`), so it is not `no_std`-compatible today, and it has no tested `wasm-pack`/WASM build configuration; either would need to be added and verified before relying on them for edge deployment.
+
+The optional `lattice-simd` feature adds `lattice-embed` for runtime-dispatched SIMD distance kernels and requires Rust 1.93. The edge and WASM guidance above applies to the default (scalar) feature configuration; enabling `lattice-simd` pulls in that dependency's MSRV and its own WASM SIMD128 support, and should be evaluated separately for constrained deployment targets.
 
 For Cognitum Seed edge deployment: a pre-built index (centroid matrix + serialized partition lists) can be compiled into a WASM binary at deploy time and queried in the browser or on constrained hardware without any runtime index building. Build-time spilling means the edge device never needs to re-evaluate the spill condition — the partitions are pre-computed.
 

@@ -4886,6 +4886,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "lattice-embed"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a8471670d8eb3dc5b52b7c977f1be449a4d39404ebd47bd084a1e922fa6002e"
+dependencies = [
+ "async-trait",
+ "blake3",
+ "chrono",
+ "lru 0.16.4",
+ "parking_lot 0.12.5",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "lattice-inference"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9149,7 +9167,7 @@ dependencies = [
  "dashmap 6.2.1",
  "hf-hub",
  "hnsw_rs",
- "lattice-embed",
+ "lattice-embed 0.6.1",
  "memmap2",
  "mockall",
  "ndarray 0.16.1",
@@ -10577,6 +10595,9 @@ dependencies = [
 [[package]]
 name = "ruvector-spann"
 version = "0.1.0"
+dependencies = [
+ "lattice-embed 0.7.1",
+]
 
 [[package]]
 name = "ruvector-sparse-inference"
