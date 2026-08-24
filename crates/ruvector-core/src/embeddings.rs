@@ -712,6 +712,24 @@ pub trait EmbeddingProvider: Send + Sync {
         self.embed_batch_for(EmbeddingRole::Passage, texts)
     }
 
+    /// Generate an embedding for text that is a **search query**.
+    ///
+    /// Asymmetric embedding models encode queries and passages differently:
+    /// the query side carries an instruction prefix that the passage side must
+    /// not have. `bge-small-en-v1.5` prefixes queries with `"Represent this
+    /// sentence for searching relevant passages: "`, the E5 family uses
+    /// `"query: "` against `"passage: "`. Embedding a query through
+    /// [`embed`](EmbeddingProvider::embed) on such a model lowers
+    /// query-to-passage similarity: nothing errors, retrieval just gets worse.
+    ///
+    /// The default forwards to [`embed`](EmbeddingProvider::embed), which is
+    /// what a symmetric model wants, so existing providers keep their current
+    /// behaviour without changes. Providers backed by an asymmetric model
+    /// should override it.
+    fn embed_query(&self, text: &str) -> Result<Vec<f32>> {
+        self.embed(text)
+    }
+
     /// Get the dimensionality of embeddings produced by this provider
     fn dimensions(&self) -> usize;
 
@@ -1626,6 +1644,12 @@ pub mod lattice_native {
         // `request_tx` closes the channel, which ends the worker's `recv`
         // loop and lets the thread exit on its own.
         _worker: thread::JoinHandle<()>,
+        // Test-only observation seam: records which side (`"query"` /
+        // `"passage"`) each `send_request` call was for, so a test can prove
+        // that dispatch through `Arc<dyn EmbeddingProvider>::embed_query`
+        // reaches the query side instead of only comparing output vectors.
+        #[cfg(test)]
+        requested_sides: Arc<Mutex<Vec<&'static str>>>,
     }
 
     impl LatticeEmbedding {
@@ -1833,6 +1857,8 @@ pub mod lattice_native {
                 identity,
                 request_tx: Mutex::new(request_tx),
                 _worker: worker,
+                #[cfg(test)]
+                requested_sides: Arc::new(Mutex::new(Vec::new())),
             })
         }
 
@@ -1863,6 +1889,15 @@ pub mod lattice_native {
         /// reply. Never calls `block_on` on the caller's thread, so this is
         /// safe to invoke from inside an existing async runtime.
         fn send_request(&self, kind: EmbedKind, text: &str) -> Result<Vec<f32>> {
+            #[cfg(test)]
+            {
+                let side = match kind {
+                    EmbedKind::Query => "query",
+                    EmbedKind::Passage => "passage",
+                };
+                self.requested_sides.lock().unwrap().push(side);
+            }
+
             let (reply_tx, reply_rx) = mpsc::channel();
             let request = EmbedRequest {
                 kind,
@@ -1918,6 +1953,17 @@ pub mod lattice_native {
 
         fn embedding_space(&self) -> &EmbeddingSpaceIdentity {
             &self.identity
+        }
+
+        /// Embed **query** text, applying the model's query instruction when it
+        /// has one.
+        ///
+        /// This is what carries the asymmetry across the trait boundary. The
+        /// inherent [`LatticeEmbedding::embed_query`] is unreachable through an
+        /// `Arc<dyn EmbeddingProvider>`, so without this override every holder
+        /// of a boxed provider embeds queries as passages.
+        fn embed_query(&self, text: &str) -> Result<Vec<f32>> {
+            LatticeEmbedding::embed_query(self, text)
         }
 
         fn dimensions(&self) -> usize {
@@ -2175,6 +2221,36 @@ pub mod lattice_native {
                 );
             }
         }
+
+        /// Regression test for the trait-object bridge: a caller holding only
+        /// `Arc<dyn EmbeddingProvider>` (no concrete `LatticeEmbedding` type)
+        /// must still reach the query side when it calls `embed_query`. The
+        /// `SideRecordingProvider`-style tests elsewhere in the crate use a
+        /// fake provider, so they'd keep passing even if `LatticeEmbedding`'s
+        /// own `embed_query` override were deleted -- they never touch this
+        /// impl. This test uses the real provider and the `requested_sides`
+        /// observation seam so it fails if that override goes away and
+        /// `embed_query` silently falls back to the trait default (which
+        /// forwards to `embed`, the passage side).
+        #[test]
+        fn dyn_provider_embed_query_reaches_query_side() {
+            let lattice = LatticeEmbedding::from_pretrained("bge-small-en-v1.5")
+                .expect("bge-small-en-v1.5 is a native local model");
+            let requested_sides = Arc::clone(&lattice.requested_sides);
+
+            let provider: Arc<dyn EmbeddingProvider> = Arc::new(lattice);
+            provider
+                .embed_query("a trait-object dispatch regression test")
+                .expect("embed_query must succeed through the trait object");
+
+            assert_eq!(
+                *requested_sides.lock().unwrap(),
+                ["query"],
+                "Arc<dyn EmbeddingProvider>::embed_query must dispatch through \
+                 LatticeEmbedding's query-side override; if this fails, the override was \
+                 removed and calls are falling back to the passage side"
+            );
+        }
     }
 }
 
@@ -2272,6 +2348,21 @@ mod tests {
         assert_ne!(
             emb1, emb2,
             "Different text should produce different embeddings"
+        );
+    }
+
+    #[test]
+    fn embed_query_defaults_to_embed_for_symmetric_providers() {
+        // A provider that implements only `embed` must be unaffected by the
+        // addition of `embed_query`: the default forwards rather than leaving
+        // a hole. This is what makes the new trait method non-breaking for
+        // every existing implementor, in this crate and downstream.
+        let provider = HashEmbedding::new(128);
+
+        assert_eq!(
+            provider.embed("the cat sat on the mat").unwrap(),
+            provider.embed_query("the cat sat on the mat").unwrap(),
+            "the default embed_query must return exactly what embed returns"
         );
     }
 
