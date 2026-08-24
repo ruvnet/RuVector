@@ -322,9 +322,31 @@ let scores = model.forward_batch(&inputs)?;
 
 ### SIMD Acceleration
 
-Feature extraction uses `simsimd` for hardware-accelerated similarity:
-- Cosine similarity: **144ns** (384-dim vectors)
+Feature extraction's cosine similarity kernel is selected by Cargo feature:
+
+| Feature | Backend | Notes |
+|---------|---------|-------|
+| `simd-simsimd` (default) | `simsimd` | Unchanged default behavior; the 144ns benchmark below is this path. |
+| `lattice-simd` | `lattice-embed` | Opt-in. Wins at runtime if both features are enabled. Requires Rust >= 1.93; the default build stays on the workspace MSRV. |
+| *(no features)* | scalar fallback | `--no-default-features` with neither backend enabled. |
+
+- Cosine similarity: **144ns** (384-dim vectors, default `simd-simsimd` backend)
 - Batch processing: **Linear scaling** with candidate count
+
+```sh
+# Default: simd-simsimd
+cargo build -p ruvector-tiny-dancer-core
+
+# Opt into lattice-simd (still compiles simsimd into the dependency graph,
+# since features are additive; lattice wins the runtime selection)
+cargo build -p ruvector-tiny-dancer-core --features lattice-simd
+
+# Lattice only, with simsimd excluded from the dependency graph entirely
+cargo build -p ruvector-tiny-dancer-core --no-default-features --features lattice-simd
+
+# Scalar fallback, no SIMD backend compiled in
+cargo build -p ruvector-tiny-dancer-core --no-default-features
+```
 
 ### Zero-Copy Operations
 
