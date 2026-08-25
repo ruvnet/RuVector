@@ -335,6 +335,8 @@ members = [
     "crates/ruvector-streaming-qng",
     # Entropy-adaptive ANN beam search: live Shannon entropy gates beam width (ADR-303)
     "crates/ruvector-entropy-ann",
+    # Distance-adaptive beam search: (1+gamma)*d_k stopping rule for graph ANN traversal (ADR-340)
+    "crates/ruvector-dab-search",
     # PIR #859 workspace-membership sweep: these crates were dangling —
     # present under crates/ but neither in members nor exclude, so their
     # tests and lints never ran in CI.
