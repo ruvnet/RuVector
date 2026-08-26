@@ -447,10 +447,17 @@ impl DeltaHnsw {
                 if l < neighbor.neighbors.len() {
                     neighbor.neighbors[l].push(node_idx);
 
-                    // Prune if over limit
+                    // Prune if over limit. The neighbor's own vector must
+                    // come from the write guard we already hold — re-locking
+                    // self.nodes[neighbor_idx] here (as this branch used to)
+                    // self-deadlocks the inserting thread, because parking_lot
+                    // RwLock is not reentrant (#825). Splitting the borrow
+                    // lets prune mutate the list while reading the vector.
                     if neighbor.neighbors[l].len() > max_conn {
-                        let node_vec = self.nodes[neighbor_idx as usize].read().vector.clone();
-                        self.prune_neighbors(&mut neighbor.neighbors[l], &node_vec, max_conn);
+                        let HnswNode {
+                            vector, neighbors, ..
+                        } = &mut *neighbor;
+                        self.prune_neighbors(&mut neighbors[l], neighbor_idx, vector, max_conn);
                     }
                 }
             }
@@ -467,7 +474,19 @@ impl DeltaHnsw {
         let mut current = start;
         let mut current_dist = self.distance(query, current);
 
+        // Progress bound (#825): every accepted move strictly decreases
+        // current_dist, so a correct run can visit at most nodes.len()
+        // distinct nodes. A graph malformed enough to violate that (e.g.
+        // NaN-poisoned distances defeating the strict comparison) terminates
+        // at the bound with the best node found instead of hanging CI.
+        let mut remaining = self.nodes.len();
+
         loop {
+            if remaining == 0 {
+                debug_assert!(false, "greedy_search exceeded its progress bound");
+                break;
+            }
+            remaining -= 1;
             let node = self.nodes[current as usize].read();
             if level >= node.neighbors.len() {
                 break;
@@ -608,7 +627,19 @@ impl DeltaHnsw {
             .sqrt()
     }
 
-    fn prune_neighbors(&self, neighbors: &mut SmallVec<[u32; 32]>, node_vec: &[f32], max: usize) {
+    /// Prune `neighbors` (the list owned by node `owner_idx`) down to the
+    /// `max` closest entries. The caller holds the write lock on `owner_idx`,
+    /// so this must never lock that node again: `owner_vec` is passed in from
+    /// the caller's guard, and a self-loop entry is dropped up front rather
+    /// than measured via `self.distance` (which read-locks its argument).
+    fn prune_neighbors(
+        &self,
+        neighbors: &mut SmallVec<[u32; 32]>,
+        owner_idx: u32,
+        owner_vec: &[f32],
+        max: usize,
+    ) {
+        neighbors.retain(|n| *n != owner_idx);
         if neighbors.len() <= max {
             return;
         }
@@ -616,7 +647,7 @@ impl DeltaHnsw {
         // Sort by distance and keep closest
         let mut with_dist: Vec<(u32, f32)> = neighbors
             .iter()
-            .map(|&n| (n, self.distance(node_vec, n)))
+            .map(|&n| (n, self.distance(owner_vec, n)))
             .collect();
 
         with_dist.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -722,28 +753,64 @@ pub struct SearchResult {
 mod tests {
     use super::*;
 
-    fn random_vector(dim: usize) -> Vec<f32> {
+    // Seeded so every run exercises the same graph topology (#825): the
+    // insert-path deadlock this suite regressed on only fired for topologies
+    // dense enough to trigger neighbor pruning, so an unseeded thread_rng
+    // made the hang nondeterministic and unreproducible.
+    fn seeded_vectors(count: usize, dim: usize, seed: u64) -> Vec<Vec<f32>> {
         use rand::Rng;
-        let mut rng = rand::thread_rng();
-        (0..dim).map(|_| rng.gen()).collect()
+        let mut rng = XorShiftRng::seed_from_u64(seed);
+        (0..count)
+            .map(|_| (0..dim).map(|_| rng.gen()).collect())
+            .collect()
     }
 
     #[test]
     fn test_insert_and_search() {
         let mut index = DeltaHnsw::new(128, DeltaHnswConfig::default());
 
-        // Insert some vectors
-        for i in 0..100 {
-            let vec = random_vector(128);
-            index.insert(&format!("vec_{}", i), vec).unwrap();
+        let vectors = seeded_vectors(101, 128, 0xDE17A);
+        for (i, vec) in vectors[..100].iter().enumerate() {
+            index.insert(&format!("vec_{}", i), vec.clone()).unwrap();
         }
 
         assert_eq!(index.len(), 100);
 
-        // Search
-        let query = random_vector(128);
-        let results = index.search(&query, 10).unwrap();
+        let results = index.search(&vectors[100], 10).unwrap();
+        assert_eq!(results.len(), 10);
+    }
 
+    #[test]
+    fn insert_survives_neighbor_pruning_without_deadlock() {
+        // Regression test for #825: connect_node held a write lock on a
+        // neighbor while prune_neighbors re-locked the same node through
+        // self.distance(), deadlocking the inserting thread. The hang needs
+        // a node whose layer-0 neighbor list overflows m0, so insert enough
+        // vectors in a low dimension that pruning is guaranteed to run.
+        let mut index = DeltaHnsw::new(8, DeltaHnswConfig::default());
+
+        let vectors = seeded_vectors(400, 8, 0x825);
+        for (i, vec) in vectors.iter().enumerate() {
+            index.insert(&format!("vec_{}", i), vec.clone()).unwrap();
+        }
+        assert_eq!(index.len(), 400);
+
+        // Every layer-0 neighbor list must respect the m0 cap — pruning ran
+        // and produced a well-formed graph rather than hanging.
+        let max_layer0 = (0..index.len())
+            .map(|i| {
+                let node = index.nodes[i].read();
+                node.neighbors.first().map_or(0, |n| n.len())
+            })
+            .max()
+            .unwrap();
+        assert!(
+            max_layer0 <= index.config.m0,
+            "layer-0 neighbor list exceeds m0: {max_layer0} > {}",
+            index.config.m0
+        );
+
+        let results = index.search(&vectors[0], 10).unwrap();
         assert_eq!(results.len(), 10);
     }
 

@@ -342,15 +342,16 @@ jobs:
             # catch-all so its remaining core libraries compile within the
             # job timeout even on a cold cache.
             #
-            # `ruvector-delta-index` is deliberately absent: its
-            # `test_insert_and_search` hangs indefinitely in DeltaHnsw
-            # insert/search and burned 3h52m of this shard before the job
-            # timed out. Held out of CI entirely (also `--exclude`d from
-            # core-and-rest below) until fixed. See issue #825.
+            # `ruvector-delta-index` rejoined after the #825 fix: the hang
+            # was a self-deadlock in connect_node's prune branch (write lock
+            # held while re-read-locking the same node), fixed by borrowing
+            # the vector from the held guard. The suite now carries a seeded,
+            # prune-heavy regression test that completes in under a second.
             packages: >-
               -p mcp-brain-server
               -p mcp-gate
               -p ruvector-cli
+              -p ruvector-delta-index
               -p ruvector-cluster
               -p ruvector-cluster-rag
               -p ruvector-delta-consensus
@@ -385,8 +386,9 @@ jobs:
             # long-tail crates (core-and-rest-heavy), the domain shards
             # (vector-index, rvagent, ruvix, ml-research-*), and the wasm
             # crates (core-and-rest-wasm). `ruvector-postgres`, `timesfm`,
-            # `ruvllm-wasm`, the hailo crates, and `ruvector-delta-index`
-            # (hangs — issue #825) are held out of native nextest entirely.
+            # `ruvllm-wasm`, and the hailo crates are held out of native
+            # nextest entirely. `ruvector-delta-index` runs in core-platform
+            # again since the #825 deadlock fix.
             #
             # NOTE: every comment must stay above `packages:`. A `#` inside
             # the folded scalar is content, not a YAML comment — folding joins

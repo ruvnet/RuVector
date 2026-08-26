@@ -9077,6 +9077,7 @@ version = "2.3.0"
 dependencies = [
  "fs4",
  "libc",
+ "rustix 1.1.4",
  "ruvector-core 2.3.0",
  "serde",
  "serde_json",

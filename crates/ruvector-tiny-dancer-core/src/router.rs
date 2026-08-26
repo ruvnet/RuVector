@@ -95,6 +95,23 @@ impl Router {
                         .uncertainty_estimator
                         .estimate(&features.features, score);
 
+                    // A non-finite score or uncertainty is a model failure on
+                    // ANY path, not just the VoI-gated one: a NaN confidence
+                    // reaching the decision sort would panic partial_cmp, and
+                    // a panic in an inference-hot-path router takes down the
+                    // caller instead of letting it fall back. Reject here —
+                    // the single choke point both paths share — and trip the
+                    // circuit breaker, matching the gated path's contract.
+                    if !score.is_finite() || !uncertainty.is_finite() {
+                        if let Some(ref cb) = self.circuit_breaker {
+                            cb.record_failure();
+                        }
+                        return Err(TinyDancerError::InvalidInput(format!(
+                            "non-finite model output for candidate {}: score={score}, uncertainty={uncertainty}",
+                            candidate.id
+                        )));
+                    }
+
                     // Determine routing decision. With a VoI gate configured,
                     // escalation to the powerful model is an estimator
                     // purchase: buy it only when the expected quality gain
@@ -143,8 +160,10 @@ impl Router {
             }
         }
 
-        // Sort by confidence (descending)
-        decisions.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
+        // Sort by confidence (descending). total_cmp keeps the sort total as
+        // defense-in-depth — non-finite confidences are already rejected
+        // above, but a panic must never depend on that invariant holding.
+        decisions.sort_by(|a, b| b.confidence.total_cmp(&a.confidence));
 
         let inference_time_us = start.elapsed().as_micros() as u64;
 
@@ -314,6 +333,45 @@ mod tests {
         let router = gated_router(0.0, 0.0);
         let response = router.route(request(vec![candidate])).unwrap();
         assert!(!response.decisions[0].use_lightweight);
+    }
+
+    #[test]
+    fn nan_confidence_errors_instead_of_panicking_the_sort() {
+        // Regression test for #901: a NaN candidate confidence used to reach
+        // `decisions.sort_by(partial_cmp().unwrap())` and panic whenever two
+        // or more candidates were sorted. Poisoning the model weights with
+        // NaN reproduces the issue's failure scenario (a corrupted or badly
+        // quantized model emitting NaN scores) on the default, ungated path —
+        // route() must refuse with an error, never panic.
+        let router = Router::default().unwrap();
+        for w in router.model.write().weights_mut() {
+            w.fill(f32::NAN);
+        }
+
+        let candidate = |id: &str, fill: f32| Candidate {
+            id: id.to_string(),
+            embedding: vec![fill; 384],
+            metadata: HashMap::new(),
+            created_at: Utc::now().timestamp(),
+            access_count: 10,
+            success_rate: 0.9,
+        };
+
+        let request = RoutingRequest {
+            query_embedding: vec![0.5; 384],
+            candidates: vec![candidate("a", 0.5), candidate("b", 0.3)],
+            metadata: None,
+        };
+
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            router.route(request)
+        }));
+        let outcome = result.expect("route() must not panic on NaN confidence");
+        let err = outcome.expect_err("NaN confidence must be rejected with an error");
+        assert!(
+            matches!(err, TinyDancerError::InvalidInput(_)),
+            "expected InvalidInput, got: {err:?}"
+        );
     }
 
     #[test]

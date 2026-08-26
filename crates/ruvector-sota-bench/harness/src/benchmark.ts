@@ -171,11 +171,21 @@ async function environmentFingerprint(binary: string): Promise<Record<string, un
   };
 }
 
-function canonical(value: unknown): string {
+/**
+ * Canonical encoding for the benchmark cache key. Keys sort by CODE UNIT,
+ * never by `localeCompare`: locale collation is locale- and ICU-build-
+ * dependent, so the same payload would canonicalize (and therefore cache-key)
+ * differently on two machines with different LANG — a cache key must be
+ * reproducible across a heterogeneous fleet by construction, not by accident
+ * of which key sets happen to be fixed and ASCII (#903). Code-unit order is
+ * what RFC 8785 (JSON Canonicalization Scheme) specifies. Exported for the
+ * collation-independence regression test.
+ */
+export function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
   if (value && typeof value === "object") {
     return `{${Object.entries(value as Record<string, unknown>)
-      .sort(([a], [b]) => a.localeCompare(b))
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
       .map(([key, child]) => `${JSON.stringify(key)}:${canonical(child)}`).join(",")}}`;
   }
   return JSON.stringify(value);

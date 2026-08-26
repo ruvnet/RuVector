@@ -106,11 +106,28 @@ fn require_private_root(root: &Path) -> Result<()> {
     }
     #[cfg(unix)]
     {
+        use std::os::unix::fs::MetadataExt as _;
         use std::os::unix::fs::PermissionsExt as _;
         let mode = metadata.permissions().mode() & 0o777;
         if mode & 0o077 != 0 {
             return Err(ContextIndexError::InsecureRoot(format!(
                 "mode {mode:04o} grants access to other users"
+            )));
+        }
+        // Mode alone is not ownership: a 0700 directory owned by someone
+        // else passes the bit test while every operation inside it is at
+        // that other user's mercy (they can chmod it back open, or it can
+        // be a root substituted under us by whoever controls the parent).
+        // Requiring our own euid closes that: a substituted root would have
+        // to be both owned by us AND 0700, which an attacker cannot mint.
+        // Every root this newly rejects already failed later with a bare
+        // EACCES, so no working deployment changes behavior — the broken
+        // ones just fail earlier, with a diagnosable error.
+        let owner = metadata.uid();
+        let euid = rustix::process::geteuid().as_raw();
+        if owner != euid {
+            return Err(ContextIndexError::InsecureRoot(format!(
+                "owned by uid {owner}, but this process runs as uid {euid}"
             )));
         }
     }

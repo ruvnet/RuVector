@@ -3,7 +3,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
-import { runBenchmarkBatch, runObservedBenchmark } from "../src/benchmark.js";
+import { canonical, runBenchmarkBatch, runObservedBenchmark } from "../src/benchmark.js";
 
 const item = {
   seed: 11,
@@ -32,4 +32,29 @@ test("native sweep batches ef_search values and disk cache reuses exact evidence
   assert.equal(first.resources.cacheHit, false);
   assert.equal(cached.resources.cacheHit, true);
   assert.equal(cached.cacheKey, first.cacheKey);
+});
+
+test("cache-key canonicalization is locale-independent", () => {
+  // Regression test for #903: canonical() used to sort keys with
+  // localeCompare, so the benchmark cache key depended on the machine's
+  // locale and ICU build. localeCompare orders {z_metric, ä_metric, a_metric}
+  // as a,z,ä under sv_SE but a,ä,z under en_US — different bytes, different
+  // cache key. Code-unit order (RFC 8785) must hold even when the ambient
+  // collator actively disagrees with it.
+  const expected = canonical({ z_metric: 1, "ä_metric": 2, a_metric: 3 });
+  const original = Intl.Collator;
+  try {
+    // Force any locale-sensitive comparison to disagree with code-unit order.
+    (Intl as { Collator: unknown }).Collator = class {
+      compare = (a: string, b: string) => (a > b ? -1 : a < b ? 1 : 0);
+    };
+    assert.equal(canonical({ a_metric: 3, "ä_metric": 2, z_metric: 1 }), expected);
+  } finally {
+    (Intl as { Collator: unknown }).Collator = original;
+  }
+  assert.equal(
+    expected,
+    '{"a_metric":3,"z_metric":1,"ä_metric":2}',
+    "keys must serialize in code-unit order",
+  );
 });

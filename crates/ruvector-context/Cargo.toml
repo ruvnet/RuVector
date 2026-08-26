@@ -33,3 +33,7 @@ all = "deny"
 
 [target."cfg(unix)".dependencies]
 libc = "0.2"
+# geteuid without unsafe (this crate forbids unsafe_code, so libc::geteuid()
+# is out). Already in Cargo.lock transitively via fs4, so this adds no new
+# transitive dependency — see #908.
+rustix = { version = "1.1", default-features = false, features = ["process"] }

@@ -11,11 +11,14 @@ export interface PairedObservation {
   treatment: BenchmarkObservation;
 }
 
+// Keys sort by code unit (RFC 8785), never localeCompare: locale collation is
+// locale- and ICU-build-dependent, and this encoding feeds sha256 digests and
+// embeddingSpaceId, which must be reproducible across machines (#903).
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
   if (value && typeof value === "object") {
     return `{${Object.entries(value as Record<string, unknown>)
-      .sort(([a], [b]) => a.localeCompare(b))
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
       .map(([key, child]) => `${JSON.stringify(key)}:${canonical(child)}`).join(",")}}`;
   }
   return JSON.stringify(value);
