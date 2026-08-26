@@ -80,7 +80,17 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
-          toolchain: stable
+          # Pinned, not `stable` (#900): both sides of the zig cross-compile
+          # must move together. Stable 1.98.0 (2026-08-18) began emitting the
+          # Cortex-A53 erratum flag `--fix-cortex-a53-843419` for
+          # aarch64-unknown-linux-musl, which zig's linker rejects as an
+          # unsupported linker arg — verified against zig 0.13.0 through
+          # 0.16.0, so bumping zig instead is not an option today. 1.97.0 is
+          # the newest stable whose target spec predates the flag (verified by
+          # reproducing the failed link with 1.98.0 and re-linking cleanly
+          # with 1.97.0 against the same zig 0.13.0). When bumping this pin,
+          # re-check the aarch64-musl `--zig` job first.
+          toolchain: "1.97.0"
           targets: ${{ matrix.settings.target }}
 
       - name: Cache Rust
