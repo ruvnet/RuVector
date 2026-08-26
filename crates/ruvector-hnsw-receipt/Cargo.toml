@@ -1,0 +1,31 @@
+[package]
+name = "ruvector-hnsw-receipt"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT OR Apache-2.0"
+description = "Witness-chained retrieval receipts composed on top of a real multi-layer HNSW index — measures actual provenance overhead against approximate ANN search instead of brute force."
+readme = "README.md"
+repository = "https://github.com/ruvnet/ruvector"
+homepage = "https://github.com/ruvnet/ruvector"
+documentation = "https://docs.rs/ruvector-hnsw-receipt"
+keywords = ["vector-database", "hnsw", "merkle", "provenance", "agent-memory"]
+categories = ["cryptography", "database-implementations", "science"]
+
+[dependencies]
+ruvector-hnsw-repair = { path = "../ruvector-hnsw-repair" }
+ruvector-proof-gate = { path = "../ruvector-proof-gate" }
+ruvector-retrieval-receipt = { path = "../ruvector-retrieval-receipt" }
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[lints.rust]
+dead_code = "allow"
+unused_variables = "allow"
+
+[lints.clippy]
+pedantic = { level = "allow", priority = -2 }
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
