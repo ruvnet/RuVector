@@ -363,9 +363,8 @@ mod tests {
             metadata: None,
         };
 
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            router.route(request)
-        }));
+        let result =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| router.route(request)));
         let outcome = result.expect("route() must not panic on NaN confidence");
         let err = outcome.expect_err("NaN confidence must be rejected with an error");
         assert!(
