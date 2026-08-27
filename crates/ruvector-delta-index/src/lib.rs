@@ -443,14 +443,34 @@ impl DeltaHnsw {
 
             // Add reverse connections
             for &neighbor_idx in &selected {
-                let mut neighbor = self.nodes[neighbor_idx as usize].write();
-                if l < neighbor.neighbors.len() {
-                    neighbor.neighbors[l].push(node_idx);
+                // Take the write guard just long enough to push the new backlink and, if
+                // pruning is needed, copy out the adjacency list plus the neighbor's own
+                // vector. Reading that vector through a second `read()` on this same node
+                // deadlocked: parking_lot's RwLock is not reentrant. `prune_neighbors` is
+                // also called after the guard is dropped, since the `distance` calls it
+                // makes read every node in the list it is pruning, which would take the
+                // same lock again for any list that contains its own owner.
+                let to_prune = {
+                    let mut neighbor = self.nodes[neighbor_idx as usize].write();
+                    if l < neighbor.neighbors.len() {
+                        neighbor.neighbors[l].push(node_idx);
 
-                    // Prune if over limit
-                    if neighbor.neighbors[l].len() > max_conn {
-                        let node_vec = self.nodes[neighbor_idx as usize].read().vector.clone();
-                        self.prune_neighbors(&mut neighbor.neighbors[l], &node_vec, max_conn);
+                        if neighbor.neighbors[l].len() > max_conn {
+                            Some((neighbor.neighbors[l].clone(), neighbor.vector.clone()))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                };
+
+                if let Some((mut list, node_vec)) = to_prune {
+                    self.prune_neighbors(&mut list, &node_vec, max_conn);
+
+                    let mut neighbor = self.nodes[neighbor_idx as usize].write();
+                    if l < neighbor.neighbors.len() {
+                        neighbor.neighbors[l] = list;
                     }
                 }
             }
@@ -776,5 +796,49 @@ mod tests {
 
         let results = index.search(&[0.0, 1.0, 0.0, 0.0], 10).unwrap();
         assert!(results.iter().all(|r| r.id != "b"));
+    }
+
+    /// Regression test for a self-deadlock in `connect_node`'s reverse-connection loop.
+    /// Pruning a neighbour's adjacency list used to take a `read()` on the very node whose
+    /// write guard was still held on the same thread, and `parking_lot::RwLock` is not
+    /// reentrant, so that blocked forever. `m0 = 4` makes the sixth insert cross the
+    /// pruning threshold, so the branch is reached deterministically despite the random
+    /// vectors. The insert loop runs on a background thread behind a bounded receive, so
+    /// a regression fails the test instead of hanging the runner.
+    #[test]
+    fn test_connect_node_reverse_prune_no_deadlock() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        let (tx, rx) = mpsc::channel();
+        std::thread::spawn(move || {
+            let config = DeltaHnswConfig {
+                m: 4,
+                m0: 4,
+                ..DeltaHnswConfig::default()
+            };
+            let mut index = DeltaHnsw::new(8, config);
+
+            let result = (0..50).try_fold((), |(), i| {
+                index
+                    .insert(&format!("v{}", i), random_vector(8))
+                    .map_err(|e| e.to_string())
+            });
+
+            let _ = tx.send(result.map(|()| index.len()));
+        });
+
+        // A disconnected channel means the worker panicked, which is a different
+        // failure from the deadlock this test exists to catch. Report them apart.
+        let len = match rx.recv_timeout(Duration::from_secs(60)) {
+            Ok(Ok(len)) => len,
+            Ok(Err(e)) => panic!("insert failed: {}", e),
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                panic!("connect_node reverse-connection pruning did not finish in 60s")
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => panic!("insert worker panicked"),
+        };
+
+        assert_eq!(len, 50);
     }
 }
