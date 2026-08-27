@@ -92,6 +92,7 @@ members = [
     # (ADR-318, PIR WP16 ruvnet/RuVector#863).
     "crates/ruvector-staged-workspace",
     "crates/ruvector-retrieval-receipt",
+    "crates/ruvector-cdc-checkpoint",
     "crates/ruvector-gnn-rerank",
     "crates/ruvector-gnn-node",
     "crates/ruvector-gnn-wasm",
