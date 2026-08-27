@@ -88,8 +88,15 @@ mod tests {
 
     #[test]
     fn test_gather_metrics() {
+        // The metrics are `lazy_static`, so they register with the default
+        // Prometheus registry on first use. Touch one here rather than relying
+        // on another test in the same process having done it: each test gets
+        // its own process under a per-test runner, and this assertion then has
+        // an empty registry to read.
+        COLLECTIONS_TOTAL.set(0.0);
+
         let metrics = gather_metrics();
-        assert!(metrics.contains("ruvector"));
+        assert!(metrics.contains("ruvector_collections_total"));
     }
 
     #[test]
