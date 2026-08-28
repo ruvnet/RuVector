@@ -216,8 +216,8 @@ gguf-mmap = ["mmap"]
 # Apple Accelerate framework for BLAS operations (macOS only, ~2x GEMV speedup)
 accelerate = []
 
-# Apple Neural Engine via Core ML (macOS/iOS, optimal for small models and batch inference)
-# Provides 38 TOPS dedicated ML acceleration with 3-4x better power efficiency
+# Experimental Core ML backend. The implemented native path is macOS-gated;
+# iOS applications use the separately tested RuVectorAppleML Swift package.
 coreml = ["dep:objc2", "dep:objc2-foundation", "dep:objc2-core-ml", "dep:block2"]
 
 # Hybrid GPU+ANE pipeline (use ANE for MLP, GPU for attention)

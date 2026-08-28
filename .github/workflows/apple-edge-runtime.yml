@@ -1,0 +1,181 @@
+name: Apple Edge Runtime
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Package.swift'
+      - 'RuVectorAppleML.podspec'
+      - 'apple/RuVectorAppleML/**'
+      - 'crates/ruvector-apple-core/**'
+      - 'scripts/apple/**'
+      - '.github/workflows/apple-edge-runtime.yml'
+      - '.github/workflows/apple-edge-release.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Package.swift'
+      - 'RuVectorAppleML.podspec'
+      - 'apple/RuVectorAppleML/**'
+      - 'crates/ruvector-apple-core/**'
+      - 'scripts/apple/**'
+      - '.github/workflows/apple-edge-runtime.yml'
+      - '.github/workflows/apple-edge-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apple-edge-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package-security:
+    name: Package secret and file-boundary scan
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Reject secret-like material and symlinks
+        run: |
+          python3 - <<'PY'
+          import importlib.util
+          import os
+          import subprocess
+          from pathlib import Path
+
+          spec = importlib.util.spec_from_file_location(
+              "preflight_scan", "scripts/research-gate/preflight_scan.py"
+          )
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          roots = [
+              "Package.swift",
+              "RuVectorAppleML.podspec",
+              "apple/RuVectorAppleML",
+              "crates/ruvector-apple-core",
+              "scripts/apple",
+              ".github/workflows/apple-edge-runtime.yml",
+              ".github/workflows/apple-edge-release.yml",
+          ]
+          output = subprocess.check_output(
+              [
+                  "git", "ls-files", "-z", "--cached", "--others",
+                  "--exclude-standard", "--", *roots,
+              ]
+          )
+          offenders = []
+          for raw_path in output.split(b"\0"):
+              if not raw_path:
+                  continue
+              path = Path(os.fsdecode(raw_path))
+              if path.is_symlink():
+                  offenders.append(f"symlink: {path}")
+                  continue
+              data = path.read_bytes()
+              if len(data) > 10 * 1024 * 1024:
+                  offenders.append(f"oversized package file: {path}")
+                  continue
+              if any(pattern.search(data) for pattern in module.SECRET_PATTERNS):
+                  offenders.append(f"secret-like material: {path}")
+          if offenders:
+              raise SystemExit("package preflight failed:\n" + "\n".join(offenders))
+          print("Apple package preflight passed")
+          PY
+
+  swift:
+    name: Swift package and iOS SDKs
+    runs-on: macos-14
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app
+
+      - name: Test package
+        run: swift test
+
+      - name: Build from an external SwiftPM consumer
+        run: scripts/apple/smoke-swift-consumer.sh
+
+      - name: Build iOS Simulator package
+        run: >-
+          xcodebuild -scheme RuVectorAppleML
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath "$RUNNER_TEMP/ruvector-apple-simulator"
+          CODE_SIGNING_ALLOWED=NO build
+
+      - name: Build iPhoneOS package
+        run: >-
+          xcodebuild -scheme RuVectorAppleML
+          -destination 'generic/platform=iOS'
+          -derivedDataPath "$RUNNER_TEMP/ruvector-apple-device"
+          CODE_SIGNING_ALLOWED=NO build
+
+      - name: Validate privacy manifest
+        run: |
+          plutil -lint apple/RuVectorAppleML/Sources/RuVectorAppleML/PrivacyInfo.xcprivacy
+          pod ipc spec RuVectorAppleML.podspec > /dev/null
+
+      - name: Build from an isolated CocoaPods consumer
+        run: >-
+          pod lib lint RuVectorAppleML.podspec
+          --allow-warnings
+          --skip-tests
+          --platforms=ios
+
+  rust:
+    name: Rust core and Apple targets
+    runs-on: macos-14
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Install Rust Apple targets
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+          components: rustfmt, clippy, llvm-tools
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app
+
+      - name: Format
+        run: cargo fmt -p ruvector-apple-core -- --check
+
+      - name: Test and lint Apple core
+        run: |
+          cargo test -p ruvector-apple-core
+          cargo clippy -p ruvector-apple-core --all-targets -- -D warnings
+
+      - name: Verify C consumer and frozen ABI
+        run: |
+          cargo build -p ruvector-apple-core --release
+          scripts/apple/verify-apple-core-abi.sh \
+            crates/ruvector-apple-core/include/ruvector_apple_core.h \
+            target/release/libruvector_apple_core.a \
+            crates/ruvector-apple-core/include/ruvector_apple_core.abi-v1.symbols
+          clang -std=c11 -Wall -Wextra -Werror \
+            -Icrates/ruvector-apple-core/include \
+            crates/ruvector-apple-core/tests/c_consumer_smoke.c \
+            target/release/libruvector_apple_core.a \
+            -o "$RUNNER_TEMP/ruvector-apple-c-consumer"
+          "$RUNNER_TEMP/ruvector-apple-c-consumer"
+
+      - name: Cross-build Apple core
+        run: |
+          cargo build -p ruvector-apple-core --release --target aarch64-apple-ios
+          cargo build -p ruvector-apple-core --release --target aarch64-apple-ios-sim
+          iphone_sdk=$(xcrun --sdk iphoneos --show-sdk-path)
+          xcrun --sdk iphoneos clang -std=c11 -Wall -Wextra -Werror \
+            -target arm64-apple-ios16.0 -isysroot "$iphone_sdk" \
+            -Icrates/ruvector-apple-core/include \
+            crates/ruvector-apple-core/tests/c_consumer_smoke.c \
+            target/aarch64-apple-ios/release/libruvector_apple_core.a \
+            -o "$RUNNER_TEMP/ruvector-apple-c-consumer-ios"
+          file "$RUNNER_TEMP/ruvector-apple-c-consumer-ios" \
+            | grep -q 'Mach-O 64-bit executable arm64'

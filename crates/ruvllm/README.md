@@ -7,6 +7,15 @@
 
 **The local LLM inference engine that learns from every request -- Metal, CUDA, WebGPU, no cloud APIs.**
 
+> **Platform boundary:** the `ruvllm` crate and `@ruvector/ruvllm` package are
+> workstation/server runtimes and are not supported iOS libraries. Their
+> implemented Metal, Accelerate, Core ML and hybrid paths are currently
+> macOS-oriented, and several Core ML/hybrid generation paths remain
+> experimental. iOS applications should use the root `RuVectorAppleML` Swift
+> product for bounded MPSGraph training, Accelerate inference and
+> application-supplied Core ML models. See ADR-340. That package is not a full
+> mobile port of RuVLLM text generation.
+
 ```bash
 cargo add ruvllm
 ```
@@ -155,7 +164,7 @@ See [`ruvllm_sparse_attention`](../ruvllm_sparse_attention/README.md) for the fu
 | `metal` | Apple Silicon GPU acceleration via Candle |
 | `metal-compute` | Native Metal compute shaders (M4 Pro optimized) |
 | `cuda` | NVIDIA GPU acceleration |
-| `coreml` | Apple Neural Engine via Core ML |
+| `coreml` | Experimental macOS Core ML backend; not an iOS text-generation runtime |
 | `hybrid-ane` | GPU+ANE hybrid pipeline (recommended for Mac) |
 | `inference-metal` | Full Metal inference stack |
 | `inference-metal-native` | Metal + native shaders (best M4 Pro perf) |

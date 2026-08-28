@@ -8704,6 +8704,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-apple-core"
+version = "2.3.0"
+
+[[package]]
 name = "ruvector-attention"
 version = "2.3.0"
 dependencies = [

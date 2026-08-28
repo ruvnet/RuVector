@@ -1,0 +1,483 @@
+name: Protected Apple Edge Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Full immutable main-branch SHA to seal and publish
+        required: true
+        type: string
+      version:
+        description: SemVer matching Cargo.toml and RuVectorAppleML.podspec
+        required: true
+        type: string
+      publish:
+        description: Publish the GitHub release and CocoaPods specification
+        required: true
+        default: false
+        type: boolean
+      physical_evidence_sha256:
+        description: Reviewed physical-iPhone evidence digest; required to publish
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: protected-apple-edge-release
+  cancel-in-progress: false
+
+env:
+  EXPECTED_SHA: ${{ inputs.expected_sha }}
+  VERSION: ${{ inputs.version }}
+  PHYSICAL_EVIDENCE_SHA256: ${{ inputs.physical_evidence_sha256 }}
+
+jobs:
+  seal:
+    name: Seal exact Apple source and native artifacts
+    runs-on: macos-14
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.expected_sha }}
+          fetch-depth: 0
+
+      - name: Install Rust Apple targets
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+          components: rustfmt, clippy, llvm-tools
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app
+
+      - name: Bind candidate identity and release authority
+        env:
+          PUBLISH: ${{ inputs.publish }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          git fetch origin refs/heads/main:refs/remotes/origin/main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_SHA"
+          test -z "$(git status --porcelain)"
+          pod ipc spec RuVectorAppleML.podspec > "$RUNNER_TEMP/ruvector-apple-podspec.json"
+          test "$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV[0])).fetch("version")' "$RUNNER_TEMP/ruvector-apple-podspec.json")" = "$VERSION"
+          cargo metadata --locked --no-deps --format-version 1 > "$RUNNER_TEMP/cargo-metadata.json"
+          python3 - "$RUNNER_TEMP/cargo-metadata.json" "$VERSION" <<'PY'
+          import json
+          import sys
+
+          metadata = json.load(open(sys.argv[1], encoding="utf-8"))
+          versions = {
+              package["version"]
+              for package in metadata["packages"]
+              if package["name"] == "ruvector-apple-core"
+          }
+          if versions != {sys.argv[2]}:
+              raise SystemExit(f"ruvector-apple-core version mismatch: {versions}")
+          PY
+          if [ "$PUBLISH" = "true" ]; then
+            [[ "$PHYSICAL_EVIDENCE_SHA256" =~ ^[0-9a-fA-F]{64}$ ]]
+          fi
+
+      - name: Reject secret-like material and symlinks
+        run: |
+          python3 - <<'PY'
+          import importlib.util
+          import os
+          import subprocess
+          from pathlib import Path
+
+          spec = importlib.util.spec_from_file_location(
+              "preflight_scan", "scripts/research-gate/preflight_scan.py"
+          )
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          roots = [
+              "Package.swift",
+              "RuVectorAppleML.podspec",
+              "apple/RuVectorAppleML",
+              "crates/ruvector-apple-core",
+              "scripts/apple",
+              ".github/workflows/apple-edge-runtime.yml",
+              ".github/workflows/apple-edge-release.yml",
+          ]
+          output = subprocess.check_output(
+              [
+                  "git", "ls-files", "-z", "--cached", "--others",
+                  "--exclude-standard", "--", *roots,
+              ]
+          )
+          offenders = []
+          for raw_path in output.split(b"\0"):
+              if not raw_path:
+                  continue
+              path = Path(os.fsdecode(raw_path))
+              if path.is_symlink():
+                  offenders.append(f"symlink: {path}")
+                  continue
+              data = path.read_bytes()
+              if len(data) > 10 * 1024 * 1024:
+                  offenders.append(f"oversized package file: {path}")
+                  continue
+              if any(pattern.search(data) for pattern in module.SECRET_PATTERNS):
+                  offenders.append(f"secret-like material: {path}")
+          if offenders:
+              raise SystemExit("package preflight failed:\n" + "\n".join(offenders))
+          print("Apple package preflight passed")
+          PY
+
+      - name: Validate SwiftPM and CocoaPods consumers
+        run: |
+          set -euo pipefail
+          swift test
+          scripts/apple/smoke-swift-consumer.sh
+          xcodebuild -scheme RuVectorAppleML \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/ruvector-apple-simulator" \
+            CODE_SIGNING_ALLOWED=NO build
+          xcodebuild -scheme RuVectorAppleML \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/ruvector-apple-device" \
+            CODE_SIGNING_ALLOWED=NO build
+          plutil -lint apple/RuVectorAppleML/Sources/RuVectorAppleML/PrivacyInfo.xcprivacy
+          pod lib lint RuVectorAppleML.podspec \
+            --allow-warnings --skip-tests --platforms=ios
+
+      - name: Validate Rust core, C consumer and ABI
+        run: |
+          set -euo pipefail
+          cargo fmt -p ruvector-apple-core -- --check
+          cargo test -p ruvector-apple-core
+          cargo clippy -p ruvector-apple-core --all-targets -- -D warnings
+          cargo build -p ruvector-apple-core --release
+          scripts/apple/verify-apple-core-abi.sh \
+            crates/ruvector-apple-core/include/ruvector_apple_core.h \
+            target/release/libruvector_apple_core.a \
+            crates/ruvector-apple-core/include/ruvector_apple_core.abi-v1.symbols
+          clang -std=c11 -Wall -Wextra -Werror \
+            -Icrates/ruvector-apple-core/include \
+            crates/ruvector-apple-core/tests/c_consumer_smoke.c \
+            target/release/libruvector_apple_core.a \
+            -o "$RUNNER_TEMP/ruvector-apple-c-consumer"
+          "$RUNNER_TEMP/ruvector-apple-c-consumer"
+          cargo build -p ruvector-apple-core --release --target aarch64-apple-ios
+          cargo build -p ruvector-apple-core --release --target aarch64-apple-ios-sim
+          iphone_sdk=$(xcrun --sdk iphoneos --show-sdk-path)
+          xcrun --sdk iphoneos clang -std=c11 -Wall -Wextra -Werror \
+            -target arm64-apple-ios16.0 -isysroot "$iphone_sdk" \
+            -Icrates/ruvector-apple-core/include \
+            crates/ruvector-apple-core/tests/c_consumer_smoke.c \
+            target/aarch64-apple-ios/release/libruvector_apple_core.a \
+            -o "$RUNNER_TEMP/ruvector-apple-c-consumer-ios"
+          file "$RUNNER_TEMP/ruvector-apple-c-consumer-ios" \
+            | grep -q 'Mach-O 64-bit executable arm64'
+
+      - name: Seal release artifacts and receipt
+        env:
+          PUBLISH: ${{ inputs.publish }}
+        run: |
+          set -euo pipefail
+          sealed="$RUNNER_TEMP/sealed"
+          stage="$RUNNER_TEMP/stage"
+          mkdir -p "$sealed" "$stage"
+          git archive --format=tar.gz \
+            --prefix="RuVectorApple-$VERSION/" \
+            --output="$sealed/RuVectorApple-$VERSION-source.tar.gz" \
+            "$EXPECTED_SHA" -- \
+            Package.swift RuVectorAppleML.podspec LICENSE apple/RuVectorAppleML
+
+          for platform in iphoneos-arm64 iphonesimulator-arm64; do
+            mkdir -p "$stage/$platform/include" "$stage/$platform/lib"
+            cp crates/ruvector-apple-core/include/ruvector_apple_core.h \
+              crates/ruvector-apple-core/include/ruvector_apple_core.abi-v1.symbols \
+              "$stage/$platform/include/"
+          done
+          cp target/aarch64-apple-ios/release/libruvector_apple_core.a \
+            "$stage/iphoneos-arm64/lib/"
+          cp target/aarch64-apple-ios-sim/release/libruvector_apple_core.a \
+            "$stage/iphonesimulator-arm64/lib/"
+          COPYFILE_DISABLE=1 tar -czf \
+            "$sealed/ruvector-apple-core-$VERSION-iphoneos-arm64.tar.gz" \
+            -C "$stage" iphoneos-arm64
+          COPYFILE_DISABLE=1 tar -czf \
+            "$sealed/ruvector-apple-core-$VERSION-iphonesimulator-arm64.tar.gz" \
+            -C "$stage" iphonesimulator-arm64
+          cargo package -p ruvector-apple-core --locked
+          cp "target/package/ruvector-apple-core-$VERSION.crate" "$sealed/"
+          (cd "$sealed" && \
+            shasum -a 256 ./*.tar.gz ./*.crate | sort > SHA256SUMS)
+          python3 - "$sealed" "$PUBLISH" <<'PY'
+          import json
+          import os
+          import pathlib
+          import sys
+
+          sealed = pathlib.Path(sys.argv[1])
+          receipt = {
+              "schemaVersion": 1,
+              "sha": os.environ["EXPECTED_SHA"],
+              "version": os.environ["VERSION"],
+              "dirty": False,
+              "publicationRequested": sys.argv[2] == "true",
+              "physicalDeviceEvidenceSha256": (
+                  os.environ.get("PHYSICAL_EVIDENCE_SHA256") or None
+              ),
+              "claims": {
+                  "sourceAndSimulatorGates": "MEASURED_ON_CI",
+                  "physicalIPhonePerformance": "NOT_MEASURED_BY_THIS_WORKFLOW",
+              },
+              "artifacts": sealed.joinpath("SHA256SUMS").read_text().splitlines(),
+          }
+          sealed.joinpath("candidate-receipt.json").write_text(
+              json.dumps(receipt, indent=2) + "\n", encoding="utf-8"
+          )
+          PY
+          mkdir release-evidence
+          cp -R "$sealed" release-evidence/
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sealed-apple-edge-${{ inputs.expected_sha }}
+          path: release-evidence
+          if-no-files-found: error
+          retention-days: 90
+
+  attest:
+    name: Attest sealed Apple artifacts
+    needs: seal
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: sealed-apple-edge-${{ inputs.expected_sha }}
+          path: release-evidence
+
+      - name: Verify sealed inputs
+        run: |
+          set -euo pipefail
+          (cd release-evidence/sealed && sha256sum -c SHA256SUMS)
+
+      - name: Attest source and native archives
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
+        with:
+          subject-path: release-evidence/sealed/*
+
+  publish:
+    name: Publish sealed Apple source package
+    needs: [seal, attest]
+    if: inputs.publish
+    runs-on: macos-14
+    timeout-minutes: 20
+    environment: apple-production
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.expected_sha }}
+          fetch-depth: 0
+
+      - name: Install release Rust toolchain
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: sealed-apple-edge-${{ inputs.expected_sha }}
+          path: release-evidence
+
+      - name: Rebind identity and verify sealed bytes
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          git fetch origin refs/heads/main:refs/remotes/origin/main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_SHA"
+          [[ "$PHYSICAL_EVIDENCE_SHA256" =~ ^[0-9a-fA-F]{64}$ ]]
+          (cd release-evidence/sealed && shasum -a 256 -c SHA256SUMS)
+          tag="v$VERSION"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            git fetch --force origin "refs/tags/$tag:refs/tags/$tag"
+            test "$(git rev-list -n 1 "$tag")" = "$EXPECTED_SHA"
+          fi
+
+      - name: Refuse conflicting CocoaPods bytes
+        id: cocoapods
+        run: |
+          set -euo pipefail
+          pod ipc spec RuVectorAppleML.podspec > "$RUNNER_TEMP/local-podspec.json"
+          shard=$(ruby -rdigest -e 'value = Digest::MD5.hexdigest("RuVectorAppleML"); puts value[0,3].chars.join("/")')
+          url="https://cdn.cocoapods.org/Specs/$shard/RuVectorAppleML/$VERSION/RuVectorAppleML.podspec.json"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          if curl --fail --silent --show-error "$url" \
+              --output "$RUNNER_TEMP/remote-podspec.json"; then
+            ruby -rjson -e '
+              local = JSON.parse(File.read(ARGV[0]))
+              remote = JSON.parse(File.read(ARGV[1]))
+              abort "published CocoaPods specification differs" unless local == remote
+            ' "$RUNNER_TEMP/local-podspec.json" "$RUNNER_TEMP/remote-podspec.json"
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Refuse conflicting crates.io bytes
+        id: crates
+        run: |
+          set -euo pipefail
+          url="https://crates.io/api/v1/crates/ruvector-apple-core/$VERSION/download"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          if curl --fail --location --silent --show-error "$url" \
+              --output "$RUNNER_TEMP/remote-apple-core.crate"; then
+            cmp "$RUNNER_TEMP/remote-apple-core.crate" \
+              "release-evidence/sealed/ruvector-apple-core-$VERSION.crate" || {
+                echo "published crates.io archive differs from sealed candidate" >&2
+                exit 1
+              }
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Write bounded release notes
+        run: |
+          cat > "$RUNNER_TEMP/apple-release-notes.md" <<EOF
+          # RuVector Apple Edge Runtime v$VERSION
+
+          Reusable SwiftPM and CocoaPods sources for bounded Apple-native ML,
+          plus sealed arm64 iPhoneOS and iOS Simulator archives for the
+          dependency-free RuVector Apple C ABI.
+
+          Candidate commit: \`$EXPECTED_SHA\`
+
+          Physical-device evidence digest reviewed by the protected release
+          environment: \`$PHYSICAL_EVIDENCE_SHA256\`
+
+          CI builds and simulator results are not physical-iPhone performance
+          claims. See \`candidate-receipt.json\` for the evidence labels.
+          EOF
+
+      - name: Create or update the immutable GitHub release
+        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844
+        with:
+          tag_name: v${{ inputs.version }}
+          target_commitish: ${{ inputs.expected_sha }}
+          name: RuVector v${{ inputs.version }}
+          body_path: ${{ runner.temp }}/apple-release-notes.md
+          draft: false
+          prerelease: ${{ contains(inputs.version, '-') }}
+          files: |
+            release-evidence/sealed/*.tar.gz
+            release-evidence/sealed/*.crate
+            release-evidence/sealed/SHA256SUMS
+            release-evidence/sealed/candidate-receipt.json
+
+      - name: Publish Rust Apple core crate
+        if: steps.crates.outputs.already_published != 'true'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$CARGO_REGISTRY_TOKEN"
+          cargo package -p ruvector-apple-core --locked
+          cmp "target/package/ruvector-apple-core-$VERSION.crate" \
+            "release-evidence/sealed/ruvector-apple-core-$VERSION.crate"
+          cargo publish -p ruvector-apple-core --locked \
+            --token "$CARGO_REGISTRY_TOKEN"
+
+      - name: Publish CocoaPods specification
+        if: steps.cocoapods.outputs.already_published != 'true'
+        env:
+          COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$COCOAPODS_TRUNK_TOKEN"
+          pod trunk push RuVectorAppleML.podspec \
+            --allow-warnings --skip-tests
+
+      - name: Verify public CocoaPods and GitHub release bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PODSPEC_URL: ${{ steps.cocoapods.outputs.url }}
+          CRATE_URL: ${{ steps.crates.outputs.url }}
+        run: |
+          set -euo pipefail
+          for attempt in {1..20}; do
+            if curl --fail --silent --show-error "$PODSPEC_URL" \
+                --output "$RUNNER_TEMP/public-podspec.json"; then
+              break
+            fi
+            if [ "$attempt" -eq 20 ]; then
+              echo "CocoaPods CDN did not publish the sealed specification" >&2
+              exit 1
+            fi
+            sleep 6
+          done
+          pod ipc spec RuVectorAppleML.podspec > "$RUNNER_TEMP/local-podspec.json"
+          ruby -rjson -e '
+            local = JSON.parse(File.read(ARGV[0]))
+            remote = JSON.parse(File.read(ARGV[1]))
+            abort "public CocoaPods specification differs" unless local == remote
+          ' "$RUNNER_TEMP/local-podspec.json" "$RUNNER_TEMP/public-podspec.json"
+          for attempt in {1..20}; do
+            if curl --fail --location --silent --show-error "$CRATE_URL" \
+                --output "$RUNNER_TEMP/public-apple-core.crate"; then
+              break
+            fi
+            if [ "$attempt" -eq 20 ]; then
+              echo "crates.io did not publish the sealed archive" >&2
+              exit 1
+            fi
+            sleep 6
+          done
+          cmp "$RUNNER_TEMP/public-apple-core.crate" \
+            "release-evidence/sealed/ruvector-apple-core-$VERSION.crate"
+          mkdir "$RUNNER_TEMP/public-assets"
+          gh release download "v$VERSION" \
+            --dir "$RUNNER_TEMP/public-assets" \
+            --pattern '*.tar.gz' \
+            --pattern '*.crate'
+          (cd "$RUNNER_TEMP/public-assets" && \
+            shasum -a 256 -c "$GITHUB_WORKSPACE/release-evidence/sealed/SHA256SUMS")
+
+      - name: Record publication receipt
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+
+          receipt = {
+              "schemaVersion": 1,
+              "sha": os.environ["EXPECTED_SHA"],
+              "version": os.environ["VERSION"],
+              "tag": "v" + os.environ["VERSION"],
+              "physicalDeviceEvidenceSha256": os.environ["PHYSICAL_EVIDENCE_SHA256"],
+              "githubReleaseBytesMatch": True,
+              "cocoaPodsSpecificationMatches": True,
+              "cratesIoArchiveMatches": True,
+          }
+          with open("publication-receipt.json", "w", encoding="utf-8") as output:
+              json.dump(receipt, output, indent=2)
+              output.write("\n")
+          PY
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: apple-edge-publication-${{ inputs.expected_sha }}
+          path: publication-receipt.json
+          if-no-files-found: error
+          retention-days: 365

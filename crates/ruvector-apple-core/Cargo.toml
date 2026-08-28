@@ -1,0 +1,18 @@
+[package]
+name = "ruvector-apple-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Bounded, portable vector search core and stable C ABI for Apple applications"
+readme = "README.md"
+keywords = ["vector-search", "ios", "ffi", "apple", "embeddings"]
+categories = ["algorithms", "data-structures", "development-tools::ffi"]
+
+[lib]
+crate-type = ["rlib", "staticlib"]
+
+[lints]
+workspace = true
