@@ -131,6 +131,98 @@ and application-supplied Core ML inference, not a complete on-device LLM.
 No fixed throughput, ANE TOPS, speedup or iPhone 17 Pro advantage is part of
 this decision. Those are measurements, not architecture.
 
+## Hardware-Adaptive Execution Planner
+
+`RuVectorAppleML` includes an actor-isolated execution planner for choosing
+among application-supplied, numerically compatible implementations. It does
+not compile kernels, prove candidate equivalence, identify Apple's actual
+execution device, or execute the selected candidate. Those remain explicit
+application and backend responsibilities.
+
+The planner contract is:
+
+1. Each workload and candidate has a bounded stable identifier. A candidate
+   also carries a caller-owned implementation revision for its exact kernel or
+   model artifact and declares its backend, precision, layout, and batch size.
+   Supported backends are Accelerate CPU, explicit Metal GPU, and Core ML with
+   requested allowed compute units.
+2. Successful observations update bounded per-workload/per-candidate EWMA
+   profiles for measured latency and an optional non-negative, dimensionless
+   **relative energy proxy**. The proxy is comparable only within one caller's
+   instrumentation and is never reported as joules.
+3. Profiles are scoped to a non-unique local hardware/runtime fingerprint made
+   from platform class, `hw.machine`, OS version, processor count, a coarse
+   memory class, and planner schema. A required caller-owned optimization
+   context revision separately invalidates costs when instrumentation,
+   calibration, room policy, or scheduling policy changes. Serial numbers and
+   advertising or user identifiers are excluded.
+4. A cold planner selects the most conservative eligible caller-supplied route.
+   Under nominal foreground conditions, bounded deterministic exploration
+   samples alternatives. Exploration uses a workload-local selection clock, so
+   interleaved workloads cannot starve one another. Learned selection uses
+   normalized latency and energy-proxy costs, while hysteresis prevents small
+   estimated gains from causing route oscillation.
+5. Failed candidates enter a bounded workload-local selection-count cooldown.
+   Another healthy eligible candidate is preferred; if every candidate is
+   cooling down, the planner emits an explicit conservative fallback reason
+   rather than claiming an optimized route. Optional energy evidence also ages
+   on a workload-local operation clock, not unrelated traffic or wall time.
+6. Serious, critical, or unknown thermal state permits only strict CPU routes.
+   Fair thermal state, Low Power Mode, and background execution exclude
+   GPU-permitting routes. Training additionally requires foreground, nominal
+   thermal state, no Low Power Mode, and physical hardware by default.
+7. Snapshot restore requires an exact schema, fingerprint, optimization-context
+   revision, and planner-configuration match. A mismatch clears learned state.
+   Decoded snapshots are revalidated, duplicate and oversized profiles or
+   workload clocks are rejected, and bounded state uses deterministic
+   least-recently-touched eviction. Schema v3 invalidates v2 learned state.
+8. Multiple decisions for the same workload/candidate may be in flight and
+   complete out of order. Receipts are keyed by their unique selection sequence.
+   The pending set is bounded; reaching it refuses a new selection instead of
+   silently evicting any valid receipt. A later-issued failure cannot be cleared
+   by an older success that completes afterward, and consumed receipts cannot be
+   replayed.
+9. Applications own snapshot persistence and protection. The package performs
+   no I/O or synchronization and does not include sensor values in a profile.
+
+Core ML candidates are especially constrained in terminology. A
+`cpuAndNeuralEngine` candidate means the application requested that Core ML
+may use CPU and Neural Engine resources. It is not evidence that the Neural
+Engine executed the request. Likewise, `.all` is an allowed-unit request, not
+device telemetry. Adaptive sessions for `backgroundInference` accept only a
+requested `.cpuOnly` policy, matching the non-adaptive resource contract.
+Physical-device Instruments evidence is required for any backend-placement or
+energy claim.
+
+The planner's automated acceptance tests cover cold start, bounded EWMA
+learning, relative-energy weighting, workload-local exploration/energy age/
+cooldown, hysteresis, concurrent out-of-order receipt handling, replay and
+capacity refusal, all-candidates-cooling fallback, thermal/Low Power Mode/
+background gating, simulator training rejection, bounded eviction, decoded
+input validation, and fingerprint/context-bound snapshot invalidation. These
+are software behavior tests, not evidence of an iPhone performance or energy
+improvement.
+
+## RVM HostedIOS Integration Boundary
+
+The adaptive planner is a scheduling input to RVM's separate `HostedIOS`
+policy boundary; it is not itself an authority system. A consuming app maps a
+selected candidate to an already allowlisted typed Metal or Core ML request
+only after exact RVF identity, signer-bound capability, operator resource,
+current iOS permission, thermal, and budget checks pass. A learned choice can
+select among permitted routes but cannot grant a sensor, model, network, or
+accelerator capability and cannot bypass the app's recording indicator or stop
+control.
+
+The native app remains the integration authority for Apple frameworks,
+Keychain persistence, cancellation, and App Store consent UI. RVM operation
+receipts should bind the selected implementation revision and the app should
+include its RVF, model, room/calibration, instrumentation, and policy revisions
+in `AdaptiveOptimizationContextRevision`. Any change invalidates learned
+costs. Rust target compilation and simulator tests do not establish that the
+Swift/C bridge, Apple-framework behavior, or receipt persistence works on a
+physical iPhone.
+
 ## RuView Integration
 
 RuView replaces only the generic training, prediction and runtime-policy
@@ -182,6 +274,8 @@ full-rate sensor windows stay native.
 - `swift test` including tensor-shape, non-finite, decoding, concurrency,
   cancellation, MPSGraph execution, bounded Core ML features, signature,
   symbolic-link and tamper tests;
+- adaptive-planner tests on a booted iOS Simulator; MPSGraph execution remains
+  in the macOS lane until its simulator device initialization is made safe;
 - SwiftPM builds for generic arm64 iPhoneOS and arm64/x86_64 iOS Simulator;
 - Rust unit tests, formatting and Clippy with warnings denied;
 - Rust builds for `aarch64-apple-ios` and `aarch64-apple-ios-sim`;

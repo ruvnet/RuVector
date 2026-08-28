@@ -43,7 +43,7 @@ public enum RuntimeResourcePolicy {
                          reason: "Physical Apple hardware is required for governed training.",
                          thermalState: thermalState, lowPowerModeEnabled: lowPower, simulator: simulator)
         }
-        if info.thermalState == .critical || info.thermalState == .serious {
+        if matchesUnsafeThermalState(info.thermalState) {
             return .init(permitted: false, profile: .efficiency,
                          reason: "The device thermal state is \(thermalState).",
                          thermalState: thermalState, lowPowerModeEnabled: lowPower, simulator: simulator)
@@ -83,6 +83,14 @@ public enum RuntimeResourcePolicy {
         case .serious: return "serious"
         case .critical: return "critical"
         @unknown default: return "unknown"
+        }
+    }
+
+    private static func matchesUnsafeThermalState(_ state: ProcessInfo.ThermalState) -> Bool {
+        switch state {
+        case .nominal, .fair: return false
+        case .serious, .critical: return true
+        @unknown default: return true
         }
     }
 }

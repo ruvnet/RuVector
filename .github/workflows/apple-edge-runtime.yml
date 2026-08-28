@@ -96,7 +96,7 @@ jobs:
         run: sudo xcode-select -s /Applications/Xcode_16.2.app
 
       - name: Test package
-        run: swift test
+        run: swift test -Xswiftc -warnings-as-errors
 
       - name: Build from an external SwiftPM consumer
         run: scripts/apple/smoke-swift-consumer.sh
@@ -114,6 +114,17 @@ jobs:
           -destination 'generic/platform=iOS'
           -derivedDataPath "$RUNNER_TEMP/ruvector-apple-device"
           CODE_SIGNING_ALLOWED=NO build
+
+      - name: Execute adaptive planner tests on an available iPhone simulator
+        run: |
+          simulator_id=$(xcrun simctl list devices available \
+            | awk -F '[()]' '/iPhone/{print $2; exit}')
+          test -n "$simulator_id"
+          xcodebuild -scheme RuVectorApple-Package \
+            -destination "platform=iOS Simulator,id=$simulator_id" \
+            -derivedDataPath "$RUNNER_TEMP/ruvector-apple-simulator-tests" \
+            -only-testing:RuVectorAppleMLTests/AdaptiveExecutionPlannerTests \
+            CODE_SIGNING_ALLOWED=NO test
 
       - name: Validate privacy manifest
         run: |

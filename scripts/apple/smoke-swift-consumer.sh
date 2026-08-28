@@ -40,7 +40,35 @@ guard shape.inputCount == 6 else {
     fatalError("public model-shape contract is unavailable")
 }
 let decision = RuntimeResourcePolicy.decision(for: .interactiveInference)
-print("RuVectorAppleML consumer ready: \(shape.inputCount), \(decision.profile.rawValue)")
+let optimizationContext = try AdaptiveOptimizationContextRevision(
+    "consumer-measurement-v1|calibration-v1|policy-v1"
+)
+let planner = try AdaptiveExecutionPlanner(
+    optimizationContextRevision: optimizationContext,
+    configuration: .standard
+)
+let workload = try AdaptiveWorkloadDescriptor(
+    identifier: "consumer-smoke",
+    kind: .vectorSearch
+)
+let candidate = try AdaptiveExecutionCandidate(
+    identifier: "accelerate-smoke",
+    implementationRevision: "consumer-kernel-v1",
+    backend: .accelerateCPU
+)
+let runtimeState = AdaptiveRuntimeState(
+    thermalState: .nominal,
+    lowPowerModeEnabled: false,
+    appIsForeground: true,
+    simulator: false
+)
+_ = planner
+print(
+    "RuVectorAppleML consumer ready: \(shape.inputCount), "
+        + "\(decision.profile.rawValue), \(workload.identifier), "
+        + "\(candidate.implementationRevision), \(runtimeState.thermalState.rawValue), "
+        + optimizationContext.value
+)
 SWIFT_SOURCE
 
 swift run --package-path "$work_dir/consumer" Consumer

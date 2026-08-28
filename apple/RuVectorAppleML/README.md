@@ -10,6 +10,8 @@ The package provides:
 - full-window temporal projection training through MPSGraph and Metal;
 - low-allocation, lock-safe inference through Accelerate;
 - explicit thermal and Low Power Mode decisions;
+- bounded, actor-isolated hardware-adaptive route selection with runtime-scoped EWMA
+  latency and dimensionless relative-energy-proxy learning;
 - Core ML sessions with an explicit requested compute-unit policy and bounded
   feature types and counts; and
 - point-in-time verification of size- and digest-bound, Ed25519-signed
@@ -19,6 +21,40 @@ Applications own consent, feature semantics, dataset splits, selection gates,
 artifact retention, model promotion and rollback. In particular, this package
 does not make a model accurate, does not prove physical sensing through walls,
 and is not a complete mobile port of RuVLLM.
+
+## Adaptive execution
+
+`AdaptiveExecutionPlanner` chooses among caller-supplied implementations that
+must already be numerically compatible. It begins with the most conservative
+eligible caller-supplied route, learns bounded hardware/runtime-scoped EWMA
+costs from explicit observations, and can sample alternatives with deterministic
+exploration under nominal foreground conditions. Thermal state, Low Power Mode,
+background execution, failure cooldowns, and route hysteresis are part of every
+decision.
+
+Planner construction requires a bounded caller-owned
+`AdaptiveOptimizationContextRevision`. Applications must change it when their
+measurement method, calibration, room policy, or scheduling policy changes.
+Candidate implementation revisions separately identify exact kernels or model
+artifacts. Exploration, cooldown, and energy-evidence age use workload-local
+operation clocks, so unrelated workloads do not change another workload's
+learned policy.
+
+Multiple decisions for one workload/candidate may remain in flight and finish
+out of order. Outstanding receipts are bounded by `maximumProfiles`; selection
+refuses explicitly at that bound and never evicts a still-valid receipt.
+
+The optional `AdaptiveRelativeEnergyProxy` is dimensionless and meaningful
+only within one application's measurement method; it is never joules. Planner
+snapshots contain cost summaries, not sensor samples, and restore only when the
+non-unique hardware/runtime fingerprint, optimization-context revision, and
+configuration match exactly. Snapshot schema v3 invalidates v2 learned state;
+the application owns persistence.
+
+Core ML candidates declare requested allowed compute units. Apple controls the
+actual CPU, GPU, or Neural Engine placement, which remains opaque to this
+package. Selecting a `.cpuAndNeuralEngine` or `.all` candidate is not evidence
+that the Neural Engine ran the workload.
 
 ## Core ML and artifact provenance
 

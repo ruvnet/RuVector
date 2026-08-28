@@ -15,6 +15,9 @@ public actor CoreMLModelSession {
 
     public let workload: EdgeMLWorkload
     public let performanceProfile: EdgeMLPerformanceProfile
+    /// Requested allowed Core ML units for an adaptive session. Actual
+    /// placement remains opaque and must be measured separately.
+    public let requestedComputePolicy: AdaptiveCoreMLComputePolicy?
     private var model: MLModel?
 
     public init(
@@ -41,9 +44,75 @@ public actor CoreMLModelSession {
         model = loadedModel
         self.workload = workload
         self.performanceProfile = decision.profile
+        requestedComputePolicy = nil
+    }
+
+    /// Load a compiled model using an adaptive planner's requested compute set.
+    ///
+    /// The caller must provide current lifecycle/power/thermal state at load
+    /// time and again for every prediction. This method requests allowed Core
+    /// ML units; it does not prove actual CPU/GPU/Neural Engine placement.
+    public init(
+        compiledModelURL: URL,
+        workload: EdgeMLWorkload = .interactiveInference,
+        requestedComputePolicy: AdaptiveCoreMLComputePolicy,
+        runtimeState: AdaptiveRuntimeState
+    ) throws {
+        guard compiledModelURL.isFileURL else {
+            throw RuVectorEdgeMLError.invalidInput("Core ML model URL must be local")
+        }
+        guard Self.adaptivePolicyPermits(
+            requestedComputePolicy,
+            workload: workload,
+            runtimeState: runtimeState
+        ) else {
+            throw RuVectorEdgeMLError.resourceUnavailable(
+                "Adaptive Core ML compute policy is not permitted by current runtime state"
+            )
+        }
+        let configuration = MLModelConfiguration()
+        configuration.computeUnits = requestedComputePolicy.requestedMLComputeUnits
+        let loadedModel = try MLModel(contentsOf: compiledModelURL, configuration: configuration)
+        _ = try Self.validatedOutputNames(
+            Set(loadedModel.modelDescription.outputDescriptionsByName.keys)
+        )
+        model = loadedModel
+        self.workload = workload
+        performanceProfile = .automatic
+        self.requestedComputePolicy = requestedComputePolicy
     }
 
     public func prediction(features: [String: MLFeatureValue]) throws -> [String: MLFeatureValue] {
+        guard requestedComputePolicy == nil else {
+            throw RuVectorEdgeMLError.resourceUnavailable(
+                "Adaptive Core ML sessions require current runtime state for every prediction"
+            )
+        }
+        return try performPrediction(features: features)
+    }
+
+    /// Revalidate the adaptive compute policy immediately before inference.
+    public func prediction(
+        features: [String: MLFeatureValue],
+        runtimeState: AdaptiveRuntimeState
+    ) throws -> [String: MLFeatureValue] {
+        if let requestedComputePolicy {
+            guard Self.adaptivePolicyPermits(
+                requestedComputePolicy,
+                workload: workload,
+                runtimeState: runtimeState
+            ) else {
+                throw RuVectorEdgeMLError.resourceUnavailable(
+                    "Adaptive Core ML compute policy was revoked by current runtime state"
+                )
+            }
+        }
+        return try performPrediction(features: features)
+    }
+
+    private func performPrediction(
+        features: [String: MLFeatureValue]
+    ) throws -> [String: MLFeatureValue] {
         try Self.validateInputFeatures(features)
         guard let model else {
             throw RuVectorEdgeMLError.resourceUnavailable("Core ML session has been unloaded")
@@ -63,6 +132,22 @@ public actor CoreMLModelSession {
     }
 
     public func unload() { model = nil }
+
+    static func adaptivePolicyPermits(
+        _ policy: AdaptiveCoreMLComputePolicy,
+        workload: EdgeMLWorkload,
+        runtimeState: AdaptiveRuntimeState
+    ) -> Bool {
+        if workload == .backgroundInference, policy != .cpuOnly {
+            return false
+        }
+        return AdaptiveRuntimeEligibility.permits(
+            backend: .coreML(requestedComputeUnits: policy),
+            workload: workload == .training ? .modelTraining : .modelInference,
+            state: runtimeState,
+            allowSimulatorTraining: false
+        )
+    }
 
     static func validateInputFeatures(_ features: [String: MLFeatureValue]) throws {
         guard features.count <= 128 else {
