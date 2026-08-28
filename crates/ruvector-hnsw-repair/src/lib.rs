@@ -11,7 +11,9 @@ pub mod graph;
 pub mod strategy;
 
 pub use graph::{HnswConfig, HnswGraph};
-pub use strategy::{BatchRepair, DeleteResult, DeletionStrategy, EagerRepair, TombstoneOnly};
+pub use strategy::{
+    repair_one, BatchRepair, DeleteResult, DeletionStrategy, EagerRepair, TombstoneOnly,
+};
 
 /// Compute recall@k over a set of queries against ground truth.
 ///

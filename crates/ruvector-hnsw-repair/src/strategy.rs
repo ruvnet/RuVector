@@ -136,7 +136,11 @@ impl DeletionStrategy for EagerRepair {
 /// Repair the graph after node `id` has been marked deleted.
 ///
 /// Returns the number of new edges added.
-fn repair_one(graph: &mut HnswGraph, id: usize) -> usize {
+///
+/// `pub` so other crates (e.g. cut-guided repair strategies) can reuse the
+/// exact same reconnection logic that [`EagerRepair`] uses, instead of
+/// re-implementing it and risking behavioural drift between the two.
+pub fn repair_one(graph: &mut HnswGraph, id: usize) -> usize {
     if id >= graph.vectors.len() {
         return 0;
     }
