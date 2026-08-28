@@ -101,6 +101,7 @@ members = [
     "crates/ruvector-cnn",
     "crates/ruvector-cnn-wasm",
     "crates/ruvector-mincut",
+    "crates/ruvector-mincut-repair",
     "crates/ruvector-mincut-wasm",
     "crates/ruvector-mincut-node",
     "crates/ruvector-mincut-gated-transformer",

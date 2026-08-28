@@ -1,0 +1,26 @@
+[package]
+name = "ruvector-mincut-repair"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Local-min-cut-guided HNSW deletion repair — reconnects only structurally fragile neighbourhoods, tombstones the rest"
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+ruvector-hnsw-repair = { version = "2.3.0", path = "../ruvector-hnsw-repair" }
+ruvector-mincut = { version = "2.3.0", path = "../ruvector-mincut" }
+
+[lints.rust]
+dead_code = "allow"
+unused_variables = "allow"
+unused_imports = "allow"
+
+[lints.clippy]
+pedantic = { level = "allow", priority = -2 }
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }

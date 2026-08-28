@@ -10037,6 +10037,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-mincut-repair"
+version = "2.3.0"
+dependencies = [
+ "ruvector-hnsw-repair",
+ "ruvector-mincut 2.3.0",
+]
+
+[[package]]
 name = "ruvector-mincut-wasm"
 version = "2.3.0"
 dependencies = [
