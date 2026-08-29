@@ -209,7 +209,11 @@ factors defeat it here:
    with `self.graph.get_edge(u, v)`) would bring `find_cut` closer to its
    documented complexity bound and is worth a dedicated nightly with its
    own correctness verification, not a same-day patch bundled into a
-   rejected design's ADR.
+   rejected design's ADR. Tracked as
+   [issue #942](https://github.com/ruvnet/RuVector/issues/942), which
+   also states explicitly (per this ADR's own recommendation) that fixing
+   the defect must not be used to revive or claim acceptance of this
+   ADR's rejected design without a separate, preregistered experiment.
 4. If a future nightly wants to revisit graph-topology-aware repair
    triage after that fix lands, the honest next step is still a cost
    model native to small-world graphs (degree- or density-thresholded

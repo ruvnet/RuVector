@@ -350,8 +350,10 @@ This is why the sparse-fixture probe (m0=8: 222-418ms/call) and the
 real-density benchmark (m0=32: 24.8-158.0s/call) differ by roughly three
 orders of magnitude for the "same" operation: both factors scale with
 graph density, and `check_cut`'s O(m) behaviour scales with *total* graph
-edge count regardless of how local the search nominally is. Factor 2 is a
-fixable implementation defect, independent of this ADR's overall
+edge count regardless of how local the search nominally is. Factor 2 is
+tracked separately as
+[issue #942](https://github.com/ruvnet/RuVector/issues/942) — a fixable
+implementation defect, independent of this ADR's overall
 rejection (see the ADR's Implementation Plan); factor 1 is architectural
 and would survive that fix.
 
