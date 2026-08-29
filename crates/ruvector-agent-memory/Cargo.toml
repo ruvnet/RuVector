@@ -16,6 +16,10 @@ path = "src/main.rs"
 [dependencies]
 rand = "0.8"
 serde = { workspace = true }
+# Nightly research (2026-08-29, ADR-340): structural-time-gated compaction
+# reuses emergent-time's Structural Proper Time clock as the recency signal.
+# Dependency-free crate — no new transitive deps.
+emergent-time = { path = "../emergent-time" }
 # ADR-320 (PIR WP18): reuse the repo's SHA-256 (content addressing) and
 # RFC 8032 Ed25519 (per-observation signatures) for AtomicObservation — no new
 # hash or signature scheme (ADR-320 Security Gates). `ed25519` feature pulls in
