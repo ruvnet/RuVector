@@ -52,17 +52,28 @@ pub struct TwinKvRepair {
 pub enum TwinKvError {
     EmptyKeys,
     EmptyRetainedSet,
-    EmptyKeyVector { index: usize },
+    EmptyKeyVector {
+        index: usize,
+    },
     InconsistentKeyDimension {
         index: usize,
         expected: usize,
         actual: usize,
     },
-    NonFiniteKey { index: usize },
-    ZeroNormKey { index: usize },
+    NonFiniteKey {
+        index: usize,
+    },
+    ZeroNormKey {
+        index: usize,
+    },
     InvalidThreshold,
-    RetainedIndexOutOfRange { index: usize, key_count: usize },
-    DuplicateRetainedIndex { index: usize },
+    RetainedIndexOutOfRange {
+        index: usize,
+        key_count: usize,
+    },
+    DuplicateRetainedIndex {
+        index: usize,
+    },
 }
 
 impl Display for TwinKvError {
