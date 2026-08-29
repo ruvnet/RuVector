@@ -97,6 +97,7 @@
 pub mod metrics;
 pub mod realtime;
 pub mod sona_llm;
+pub mod twinkv;
 
 // Re-exports
 pub use metrics::{
@@ -109,4 +110,7 @@ pub use realtime::{
 pub use sona_llm::{
     AdaptationResult, ConsolidationStrategy, LearningLoopStats, OptimizationTrigger, SonaLlm,
     SonaLlmConfig, TrainingSample,
+};
+pub use twinkv::{
+    repair_retained_set, TwinKvConfig, TwinKvError, TwinKvRepair, TwinKvSwap,
 };
