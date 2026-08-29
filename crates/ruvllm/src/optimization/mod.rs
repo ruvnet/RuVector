@@ -111,6 +111,4 @@ pub use sona_llm::{
     AdaptationResult, ConsolidationStrategy, LearningLoopStats, OptimizationTrigger, SonaLlm,
     SonaLlmConfig, TrainingSample,
 };
-pub use twinkv::{
-    repair_retained_set, TwinKvConfig, TwinKvError, TwinKvRepair, TwinKvSwap,
-};
+pub use twinkv::{repair_retained_set, TwinKvConfig, TwinKvError, TwinKvRepair, TwinKvSwap};
