@@ -9792,6 +9792,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-hnsw-receipt"
+version = "0.1.0"
+dependencies = [
+ "ruvector-hnsw-repair",
+ "ruvector-proof-gate",
+ "ruvector-retrieval-receipt",
+]
+
+[[package]]
 name = "ruvector-hnsw-repair"
 version = "2.3.0"
 dependencies = [

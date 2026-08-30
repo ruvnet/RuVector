@@ -92,6 +92,11 @@ members = [
     # (ADR-318, PIR WP16 ruvnet/RuVector#863).
     "crates/ruvector-staged-workspace",
     "crates/ruvector-retrieval-receipt",
+    # Composes ruvector-retrieval-receipt's witness-chained receipts on top
+    # of ruvector-hnsw-repair's real multi-layer HNSW graph (nightly
+    # research 2026-08-26, follow-up to 2026-08-13-retrieval-receipts'
+    # "Next Research" item 1).
+    "crates/ruvector-hnsw-receipt",
     "crates/ruvector-gnn-rerank",
     "crates/ruvector-gnn-node",
     "crates/ruvector-gnn-wasm",
