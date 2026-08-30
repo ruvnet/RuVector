@@ -1,0 +1,41 @@
+╔══════════════════════════════════════════════════════════════╗
+║  Structural-Time Memory Compaction — Nightly Benchmark        ║
+║  ADR-340 / 2026-08-29                                          ║
+╚══════════════════════════════════════════════════════════════╝
+
+Platform : linux / x86_64
+
+Dataset
+  Memories            : 2000 (20 clusters x 100)
+  Dimensions          : 64
+  Recall clusters     : last 3 clusters before the gap/tail
+  Queries             : 60 (K=10)
+  Target size         : 700 (35% compaction)
+  Idle gap            : 500000 ticks (steady workload: 0)
+
+
+[bursty-idle]
+Policy                    Recall@10    Compaction (µs)
+--------------------------------------------------------
+LRU                           66.7%               296
+CoherenceWeighted             27.2%              7311
+StructuralTime                59.0%              6756
+GatedStructuralTime           59.0%              6798
+
+[steady (control)]
+Policy                    Recall@10    Compaction (µs)
+--------------------------------------------------------
+LRU                           66.7%                56
+CoherenceWeighted             59.0%              5893
+StructuralTime                59.0%              6722
+GatedStructuralTime           59.0%              6640
+
+Acceptance test (pre-registered thresholds)
+  [A] StructuralTime beats CoherenceWeighted by >= 3.0pp on bursty-idle: +31.8pp -> PASS
+  [B] GatedStructuralTime beats CoherenceWeighted by >= 3.0pp on bursty-idle: +31.8pp -> PASS
+  [C] StructuralTime does not regress > 1.0pp vs CoherenceWeighted on steady control: +0.0pp -> PASS
+
+  Verdict: ACCEPT
+
+Witness (FNV-1a over seed+params+rounded recall values): e0d3b9cf5b37176e
+  Reproduce with: cargo run --release -p ruvector-agent-memory --example temporal_compaction_bench

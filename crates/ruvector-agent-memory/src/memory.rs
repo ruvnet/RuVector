@@ -76,6 +76,15 @@ impl MemoryStore {
         self.clock
     }
 
+    /// Advance the logical clock by `ticks` without writing or accessing any
+    /// entry, simulating an idle period (e.g. the agent is waiting on a human,
+    /// a long tool call, or a scheduled pause). Subsequent inserts/accesses see
+    /// `last_accessed_at` values that jump by `ticks`, even though no memory
+    /// changed during the gap.
+    pub fn advance_clock(&mut self, ticks: u64) {
+        self.clock += ticks;
+    }
+
     /// Insert a new memory entry.  Returns the assigned id.
     pub fn insert(&mut self, vector: Vec<f32>) -> u64 {
         assert_eq!(vector.len(), self.dims, "dimension mismatch");
@@ -154,5 +163,21 @@ mod tests {
         store.access_by_index(0);
         assert_eq!(store.entries()[0].access_count, 1);
         assert!(store.entries()[0].last_accessed_at > store.entries()[0].created_at);
+    }
+
+    #[test]
+    fn advance_clock_skips_ticks_without_touching_entries() {
+        let mut store = MemoryStore::new(2);
+        let a = store.insert(vec![1.0, 0.0]);
+        store.advance_clock(1_000);
+        let b = store.insert(vec![0.0, 1.0]);
+        let created_a = store.entries()[a as usize].created_at;
+        let created_b = store.entries()[b as usize].created_at;
+        assert!(
+            created_b - created_a >= 1_000,
+            "idle gap should be reflected in the wall clock: {created_a} -> {created_b}"
+        );
+        // The idle gap must not itself register as an access on any entry.
+        assert_eq!(store.entries()[a as usize].access_count, 0);
     }
 }

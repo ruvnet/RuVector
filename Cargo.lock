@@ -8696,6 +8696,7 @@ dependencies = [
 name = "ruvector-agent-memory"
 version = "0.1.0"
 dependencies = [
+ "emergent-time",
  "rand 0.8.6",
  "ruvector-proof-gate",
  "rvf-types",

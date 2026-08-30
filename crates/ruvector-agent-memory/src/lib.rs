@@ -11,11 +11,20 @@
 //! | `LruPolicy` | Recency (`last_accessed_at`) | No — classical |
 //! | `LfuPolicy` | Frequency (`access_count`) | No — classical |
 //! | `CoherencePolicy` | Weighted score: recency + frequency + context coherence | **Yes** |
+//! | `StructuralTimePolicy` | `CoherencePolicy` weighting, recency from `emergent_time` Structural Proper Time | **Yes** |
+//! | `GatedStructuralTimePolicy` | Same, with a jitter gate on the structural clock | **Yes** |
 //!
 //! The `CoherencePolicy` is the core research contribution: it scores each stored
 //! memory vector against a *context window* — the embeddings of recent agent
 //! queries — and preferentially retains memories that are semantically aligned
 //! with the agent's current reasoning thread.
+//!
+//! The `temporal_compaction` module (nightly research, 2026-08-29, ADR-340)
+//! swaps `CoherencePolicy`'s wall-clock recency term for `emergent-time`'s
+//! Structural Proper Time — internal time driven by embedding movement, not
+//! ticks — so a long idle gap between memory-writing bursts no longer crushes
+//! every pre-gap memory's recency score toward zero. See
+//! `docs/research/nightly/2026-08-29-structural-time-memory-compaction/`.
 //!
 //! ## References
 //!
@@ -55,6 +64,7 @@ pub mod memory;
 pub mod observation;
 pub mod ops;
 pub mod scoring;
+pub mod temporal_compaction;
 
 pub use arbitration::{
     arbitrate, ArbitrationConfig, ArbitrationError, ArbitrationOutcome, ArbitrationVerdict,
@@ -80,6 +90,7 @@ pub use ops::{
     MemoryWitnessLog, NoopWitnessSink, TransitionKind, TransitionRecord, WitnessSink,
 };
 pub use scoring::{coherence_score, cosine_sim, normalize};
+pub use temporal_compaction::{GatedStructuralTimePolicy, StructuralTimePolicy};
 
 /// Compact `store` in-place using `policy`, retaining `target_size` entries.
 ///
