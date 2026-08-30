@@ -295,6 +295,9 @@ members = [
     # Calculus of emergent / relational time (Wheeler-DeWitt, Page-Wootters,
     # entropic, thermal) + Structural Proper Time for agentic systems.
     "crates/emergent-time",
+    # Structural-time agent memory decay: StructuralProperTime-based compaction
+    # retention scoring vs wall-clock recency (nightly 2026-08-24, ADR-340)
+    "crates/ruvector-structural-memory",
     # PhotonLayer: learned optical-frontend computing simulator (ADR-260)
     "crates/photonlayer-core",
     "crates/photonlayer-bench",
