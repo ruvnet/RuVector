@@ -9574,6 +9574,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-graft-gate"
+version = "0.1.0"
+
+[[package]]
 name = "ruvector-graph"
 version = "2.3.1"
 dependencies = [

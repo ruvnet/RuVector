@@ -92,6 +92,11 @@ members = [
     # (ADR-318, PIR WP16 ruvnet/RuVector#863).
     "crates/ruvector-staged-workspace",
     "crates/ruvector-retrieval-receipt",
+    # Mincut-gated proximity-graph insertion (ADR-340, nightly 2026-08-30):
+    # write-time structural defense against RAG corpus-poisoning insertions,
+    # complementing ruvector-proof-gate's write-honesty gating with a
+    # write-coherence gating layer.
+    "crates/ruvector-graft-gate",
     "crates/ruvector-gnn-rerank",
     "crates/ruvector-gnn-node",
     "crates/ruvector-gnn-wasm",
