@@ -52,11 +52,13 @@
 //! or receipt? See the module docs for the periodic-anchoring tradeoff this
 //! makes measurable.
 
+pub mod batch_fill;
 mod index;
 mod receipt;
 pub mod signing;
 pub mod state_anchor;
 
+pub use batch_fill::{BatchFillPolicy, BatchScheduler, PendingMember};
 pub use index::{synthetic_queries, ResultItem, RetrievalIndex};
 pub use receipt::{query_hash, MerkleReceipt, PerResultReceipt, ReceiptVariant};
 pub use signing::{

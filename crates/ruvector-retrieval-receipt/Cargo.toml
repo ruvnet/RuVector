@@ -21,3 +21,7 @@ rand = "0.8"
 [[bin]]
 name = "benchmark"
 path = "src/bin/benchmark.rs"
+
+[[bin]]
+name = "batch_latency"
+path = "src/bin/batch_latency.rs"
