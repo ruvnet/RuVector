@@ -314,6 +314,29 @@ pub async fn create_router() -> (Router, AppState) {
         response_queues: Arc::new(dashmap::DashMap::new()),
     };
 
+    // ── OAuth for the MCP connector flow (draft fix, see oauth.rs) ──
+    // Additive only: wraps the existing BRAIN_API_KEY/BRAIN_SYSTEM_KEY
+    // authority, does not replace or widen it. Merged in below, before
+    // `.with_state(state.clone())`, since it carries its own state type.
+    let oauth_state: crate::oauth::SharedOAuthState =
+        std::sync::Arc::new(crate::oauth::OAuthState::default());
+    let oauth_router = Router::new()
+        .route(
+            "/.well-known/oauth-authorization-server",
+            get(crate::oauth::authorization_server_metadata),
+        )
+        .route(
+            "/.well-known/oauth-protected-resource",
+            get(crate::oauth::protected_resource_metadata),
+        )
+        .route("/register", post(crate::oauth::register_client))
+        .route(
+            "/authorize",
+            get(crate::oauth::authorize_get).post(crate::oauth::authorize_post),
+        )
+        .route("/token", post(crate::oauth::token))
+        .with_state(oauth_state);
+
     let router = Router::new()
         .route("/", get(landing_page))
         .route("/robots.txt", get(robots_txt))
@@ -411,6 +434,8 @@ pub async fn create_router() -> (Router, AppState) {
         // ── Consciousness / IIT 4.0 ──
         .route("/v1/consciousness/compute", post(consciousness_compute))
         .route("/v1/consciousness/status", get(consciousness_status))
+        // OAuth for the MCP connector flow — draft fix, see oauth.rs module doc.
+        .merge(oauth_router)
         .layer({
             // CORS origins: configurable via CORS_ORIGINS env var (comma-separated).
             // Falls back to safe defaults if unset. Explicit per-origin allowlist
