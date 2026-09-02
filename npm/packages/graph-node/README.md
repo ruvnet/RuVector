@@ -6,7 +6,7 @@ Native Node.js bindings for RuVector Graph Database with hypergraph support, Cyp
 
 - **Native Performance**: Direct NAPI-RS bindings - no WASM overhead
 - **Hypergraph Support**: Multi-node relationships with vector embeddings
-- **Cypher Queries**: Neo4j-compatible query language
+- **Cypher Queries**: a practical subset of Cypher — see [Cypher support](#cypher-support)
 - **Persistence**: ACID-compliant storage with redb backend
 - **Vector Similarity Search**: Fast k-NN search on embeddings
 - **Graph Traversal**: k-hop neighbor discovery
@@ -80,6 +80,49 @@ const similar = await db.searchHyperedges({
 const stats = await db.stats();
 console.log(\`Nodes: \${stats.totalNodes}, Edges: \${stats.totalEdges}\`);
 ```
+
+## Cypher support
+
+`query()` and `querySync()` run a single-pattern matcher, not a full planner.
+Anything it cannot execute returns an **error naming what was refused** — it
+never returns an empty result set to mean "unsupported".
+
+Supported:
+
+```javascript
+await db.query('MATCH (n) RETURN n');                        // full scan
+await db.query('MATCH (n:Person) RETURN n');                 // label index
+await db.query("MATCH (n) WHERE n.id = 'alice' RETURN n");   // point lookup
+await db.query('MATCH (n:Person) WHERE n.age > 30 RETURN n');
+await db.query('MATCH (n) WHERE n.a > 1 AND n.b < 5 RETURN n');
+await db.query("MATCH (n {name: 'alice'}) RETURN n");        // inline props
+await db.query('MATCH (a)-[r:knows]->(b) RETURN a, r, b');   // typed edges
+await db.query('MATCH (a)-[r]->(b) RETURN r');               // any edge
+```
+
+`WHERE` handles `=`, `<>`, `<`, `<=`, `>`, `>=`, `AND`, `OR`, arithmetic, and
+property access. `n.id` resolves to the node's identity when no stored property
+shadows it. A missing property compares false rather than matching or throwing.
+
+Not supported — these **raise an error**, they do not silently return `[]`:
+
+| Construct | Use instead |
+|---|---|
+| `CREATE` / `SET` / `DELETE` via `query()` | `createNode()`, `createEdge()`, `deleteNode()` |
+| variable-length paths, `[*1..3]` | `kHopNeighbors()` |
+| chained patterns, `(a)-[]->(b)<-[]-(c)` | separate queries |
+| hyperedge patterns in `MATCH` | `searchHyperedges()` |
+
+Not supported at the parser level, so these fail to parse: `CONTAINS`,
+`STARTS WITH`, `ENDS WITH`, `IN`, `IS NULL`, `=~`. Aggregations (`count()`,
+`collect()`), `ORDER BY`, `SKIP` and `LIMIT` are parsed but not applied.
+
+Known defect: `NOT` binds tighter than comparison, so `NOT n.age = 30` parses
+as `(NOT n.age) = 30` and matches nothing. Use `<>`. Tracked in
+[#939](https://github.com/ruvnet/RuVector/issues/939).
+
+Internal properties (`__embedding`, `__confidence`) are not returned in result
+rows.
 
 ## Benchmarks
 

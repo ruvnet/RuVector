@@ -1,4 +1,4 @@
-# ADR-340: Correctness-Hardening Invariants for Hot-Path Primitives
+# ADR-341: Correctness-Hardening Invariants for Hot-Path Primitives
 
 **Status:** Accepted
 

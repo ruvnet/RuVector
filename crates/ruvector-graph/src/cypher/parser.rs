@@ -820,10 +820,10 @@ impl Parser {
     }
 
     fn parse_and(&mut self) -> ParseResult<Expression> {
-        let mut expr = self.parse_comparison()?;
+        let mut expr = self.parse_not()?;
 
         while self.match_token(&[TokenKind::And]) {
-            let right = self.parse_comparison()?;
+            let right = self.parse_not()?;
             expr = Expression::BinaryOp {
                 left: Box::new(expr),
                 op: BinaryOperator::And,
@@ -832,6 +832,18 @@ impl Parser {
         }
 
         Ok(expr)
+    }
+
+    fn parse_not(&mut self) -> ParseResult<Expression> {
+        if self.match_token(&[TokenKind::Not]) {
+            let operand = self.parse_not()?;
+            return Ok(Expression::UnaryOp {
+                op: UnaryOperator::Not,
+                operand: Box::new(operand),
+            });
+        }
+
+        self.parse_comparison()
     }
 
     fn parse_comparison(&mut self) -> ParseResult<Expression> {
@@ -922,14 +934,6 @@ impl Parser {
     }
 
     fn parse_unary(&mut self) -> ParseResult<Expression> {
-        if self.match_token(&[TokenKind::Not]) {
-            let operand = self.parse_unary()?;
-            return Ok(Expression::UnaryOp {
-                op: UnaryOperator::Not,
-                operand: Box::new(operand),
-            });
-        }
-
         if self.match_token(&[TokenKind::Minus]) {
             let operand = self.parse_unary()?;
             return Ok(Expression::UnaryOp {
@@ -1155,6 +1159,75 @@ mod tests {
         let query = "MATCH (n:Person) WHERE n.age > 30 RETURN n.name";
         let result = parse_cypher(query);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_not_binds_looser_than_comparison() {
+        let ast = parse_cypher("MATCH (n) WHERE NOT n.age = 30 RETURN n").unwrap();
+
+        let Statement::Match(match_clause) = &ast.statements[0] else {
+            panic!("expected MATCH statement");
+        };
+        let condition = &match_clause.where_clause.as_ref().unwrap().condition;
+        let Expression::UnaryOp {
+            op: UnaryOperator::Not,
+            operand,
+        } = condition
+        else {
+            panic!("expected NOT at the root, got {condition:?}");
+        };
+        let Expression::BinaryOp {
+            left,
+            op: BinaryOperator::Equal,
+            right,
+        } = operand.as_ref()
+        else {
+            panic!("expected comparison inside NOT, got {operand:?}");
+        };
+
+        assert!(matches!(
+            left.as_ref(),
+            Expression::Property { object, property }
+                if matches!(object.as_ref(), Expression::Variable(name) if name == "n")
+                    && property == "age"
+        ));
+        assert_eq!(right.as_ref(), &Expression::Integer(30));
+    }
+
+    #[test]
+    fn test_not_binds_tighter_than_and() {
+        let ast = parse_cypher("MATCH (n) WHERE NOT n.age = 30 AND n.active RETURN n").unwrap();
+
+        let Statement::Match(match_clause) = &ast.statements[0] else {
+            panic!("expected MATCH statement");
+        };
+        let condition = &match_clause.where_clause.as_ref().unwrap().condition;
+        let Expression::BinaryOp {
+            left,
+            op: BinaryOperator::And,
+            right,
+        } = condition
+        else {
+            panic!("expected AND at the root, got {condition:?}");
+        };
+
+        assert!(matches!(
+            left.as_ref(),
+            Expression::UnaryOp {
+                op: UnaryOperator::Not,
+                operand
+            } if matches!(
+                operand.as_ref(),
+                Expression::BinaryOp {
+                    op: BinaryOperator::Equal,
+                    ..
+                }
+            )
+        ));
+        assert!(matches!(
+            right.as_ref(),
+            Expression::Property { property, .. } if property == "active"
+        ));
     }
 
     #[test]

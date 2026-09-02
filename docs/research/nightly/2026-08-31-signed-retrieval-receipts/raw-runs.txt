@@ -1,0 +1,182 @@
+Raw output, 3 repeated process runs, unedited apart from stripping cargo's
+own build-progress lines (workspace member profile warnings and the
+"Compiling"/"Finished"/"Running" lines cargo prints before the program's
+own stdout). Command for each run:
+
+  cargo run --release -p ruvector-retrieval-receipt --bin benchmark -- 5000 128 10 200
+
+Hardware: 4 logical CPUs, rustc 1.94.1 (e408947bf 2026-03-25), cargo
+1.94.1 (29ea6fb6a 2026-03-24), release profile.
+
+===== RUN 1 =====
+=== ruvector-retrieval-receipt benchmark ===
+n=5000 dims=128 k=10 queries=200 tamper_trials_per_kind=50
+hardware: 4 logical CPUs (see `nproc`), rustc build profile: release-required for meaningful numbers
+ingest: 5000 vectors in 25.521 ms (195.9 writes/ms), index_state_root non-zero: true
+
+baseline brute-force search: mean=1021456ns p95=1082106ns over 200 queries
+
+variant               gen_mean_ns     gen_p95_ns  verify_worst_ns    proof_bytes   total_bytes_mean    tamper_detect
+NoReceipt                     118            140                0              0                0.0              n/a
+PerResultReceipt            16967          21561             7520            320              640.0          200/200
+MerkleReceipt               19428          27490             3874            160              352.0          200/200
+
+=== acceptance ===
+tamper detection 100% across all kinds: true
+merkle worst-case proof bytes (160) < per-result worst-case proof bytes (320): true
+generation overhead < 15% of baseline search: merkle=1.9% per_result=1.7% -> true
+
+ACCEPTANCE RESULT: ACCEPT
+
+=== signed anchoring benchmark (Ed25519 over MerkleReceipt roots) ===
+
+batch_size        sign_amort_ns    verify_naive_ns   verify_cached_ns sig_verify_once_ns    proof_bytes    tamper_detect
+1                       29185.0              78210                773              68465             96          100/100
+8                        5079.1              58101               3131              45014            192          150/150
+32                       2372.8              39676               4149              36668            256          150/150
+128                      1769.2              47953               5463              32248            320          150/150
+
+=== signed anchoring acceptance ===
+tamper detection 100% across all kinds and batch sizes: true
+amortized signing cost drops below 10% of per-query cost by batch=128: 6.1% -> true
+naive (uncached) per-query verify cost stays flat across batch sizes (batching does not help an uncaching verifier): true
+
+SIGNED ANCHORING ACCEPTANCE RESULT: ACCEPT
+
+===== RUN 2 =====
+=== ruvector-retrieval-receipt benchmark ===
+n=5000 dims=128 k=10 queries=200 tamper_trials_per_kind=50
+hardware: 4 logical CPUs (see `nproc`), rustc build profile: release-required for meaningful numbers
+ingest: 5000 vectors in 21.515 ms (232.4 writes/ms), index_state_root non-zero: true
+
+baseline brute-force search: mean=1023586ns p95=1157493ns over 200 queries
+
+variant               gen_mean_ns     gen_p95_ns  verify_worst_ns    proof_bytes   total_bytes_mean    tamper_detect
+NoReceipt                     136            171                0              0                0.0              n/a
+PerResultReceipt            17244          22741             8141            320              640.0          200/200
+MerkleReceipt               18663          24383             3753            160              352.0          200/200
+
+=== acceptance ===
+tamper detection 100% across all kinds: true
+merkle worst-case proof bytes (160) < per-result worst-case proof bytes (320): true
+generation overhead < 15% of baseline search: merkle=1.8% per_result=1.7% -> true
+
+ACCEPTANCE RESULT: ACCEPT
+
+=== signed anchoring benchmark (Ed25519 over MerkleReceipt roots) ===
+
+batch_size        sign_amort_ns    verify_naive_ns   verify_cached_ns sig_verify_once_ns    proof_bytes    tamper_detect
+1                       27829.6              75505                781              63479             96          100/100
+8                        4620.9              54347               2711              42803            192          150/150
+32                       2691.0              39602               4074              32273            256          150/150
+128                      1642.5              43804               5450              32450            320          150/150
+
+=== signed anchoring acceptance ===
+tamper detection 100% across all kinds and batch sizes: true
+amortized signing cost drops below 10% of per-query cost by batch=128: 5.9% -> true
+naive (uncached) per-query verify cost stays flat across batch sizes (batching does not help an uncaching verifier): true
+
+SIGNED ANCHORING ACCEPTANCE RESULT: ACCEPT
+
+===== RUN 3 =====
+=== ruvector-retrieval-receipt benchmark ===
+n=5000 dims=128 k=10 queries=200 tamper_trials_per_kind=50
+hardware: 4 logical CPUs (see `nproc`), rustc build profile: release-required for meaningful numbers
+ingest: 5000 vectors in 22.618 ms (221.1 writes/ms), index_state_root non-zero: true
+
+baseline brute-force search: mean=1020831ns p95=1102550ns over 200 queries
+
+variant               gen_mean_ns     gen_p95_ns  verify_worst_ns    proof_bytes   total_bytes_mean    tamper_detect
+NoReceipt                     128            176                0              0                0.0              n/a
+PerResultReceipt            17927          24415             8246            320              640.0          200/200
+MerkleReceipt               19299          26178             4318            160              352.0          200/200
+
+=== acceptance ===
+tamper detection 100% across all kinds: true
+merkle worst-case proof bytes (160) < per-result worst-case proof bytes (320): true
+generation overhead < 15% of baseline search: merkle=1.9% per_result=1.8% -> true
+
+ACCEPTANCE RESULT: ACCEPT
+
+=== signed anchoring benchmark (Ed25519 over MerkleReceipt roots) ===
+
+batch_size        sign_amort_ns    verify_naive_ns   verify_cached_ns sig_verify_once_ns    proof_bytes    tamper_detect
+1                       30112.1              77093                800              65067             96          100/100
+8                        5620.3              54680               3153              42815            192          150/150
+32                       2499.9              42687               4019              32233            256          150/150
+128                      1652.8              40419               5566              32492            320          150/150
+
+=== signed anchoring acceptance ===
+tamper detection 100% across all kinds and batch sizes: true
+amortized signing cost drops below 10% of per-query cost by batch=128: 5.5% -> true
+naive (uncached) per-query verify cost stays flat across batch sizes (batching does not help an uncaching verifier): true
+
+SIGNED ANCHORING ACCEPTANCE RESULT: ACCEPT
+
+===== First-attempt run (harness bug, not used in the README's reported numbers) =====
+
+This is the very first execution, before the RootSwap -> RootByte tamper
+fix described in the README's Failure Modes section. Kept verbatim as
+evidence of the bug, not folded into the "clean" 3-run set above.
+
+=== signed anchoring benchmark (Ed25519 over MerkleReceipt roots) ===
+
+batch_size        sign_amort_ns    verify_naive_ns   verify_cached_ns sig_verify_once_ns    proof_bytes    tamper_detect
+1                       28759.2              75148                761              63351             96           50/150
+8                        4735.4              47938               2779              41872            192          150/150
+32                       2444.2              40782               4083              36923            256          150/150
+128                      1650.2              45129               5663              32402            320          150/150
+
+=== signed anchoring acceptance ===
+tamper detection 100% across all kinds and batch sizes: false
+amortized signing cost drops below 10% of per-query cost by batch=128: 5.7% -> true
+naive (uncached) per-query verify cost stays flat across batch sizes (batching does not help an uncaching verifier): true
+
+SIGNED ANCHORING ACCEPTANCE RESULT: REJECT
+
+Root cause: at batch_size=1, the original RootSwap tamper computed
+`other = (idx + 1) % roots.len()`, which for a 1-element batch is
+`(idx + 1) % 1 == idx` -- a swap with itself, i.e. a no-op. All 100
+RootSwap trials at batch_size=1 therefore left the batch honest, and the
+verifier correctly verified it -- which the trial-counting code (looking
+for verification failure) recorded as "tamper not detected." The other
+two tamper kinds (SignatureByteFlip, ProofSiblingFlip) were unaffected;
+ProofSiblingFlip was itself later found to be inapplicable at
+batch_size=1 for an unrelated reason (no Merkle level exists for a
+single-leaf batch) and is now skipped at that batch size rather than
+silently miscounted -- see the README's Failure Modes section and
+`apply_sign_tamper` / the `batch_len == 1` guard in
+`crates/ruvector-retrieval-receipt/src/bin/benchmark.rs`.
+HARDENED SIGNED STATEMENT RERUN
+===============================
+Command: target/release/benchmark 5000 128 10 200
+Environment: 12 logical CPUs, rustc 1.94.1, release profile
+Warmup: 128 sign and strict verify operations before measurement
+
+Run 1
+batch_size        sign_amort_ns    verify_naive_ns   verify_cached_ns sig_verify_once_ns    proof_bytes    tamper_detect
+1                        9715.7              22869                246              21824            170          100/100
+8                        1951.9              23364               1123              25202            266          150/150
+32                        956.9              23238               1380              21387            330          150/150
+128                       637.7              23410               1834              22542            394          150/150
+SIGNED ANCHORING ACCEPTANCE RESULT: ACCEPT
+
+Run 2
+batch_size        sign_amort_ns    verify_naive_ns   verify_cached_ns sig_verify_once_ns    proof_bytes    tamper_detect
+1                       12208.2              28609                291              26683            170          100/100
+8                        2604.8              28561               1152              27360            266          150/150
+32                       1109.6              23292               1619              24994            330          150/150
+128                       707.7              29311               1851              21500            394          150/150
+SIGNED ANCHORING ACCEPTANCE RESULT: ACCEPT
+
+Run 3
+batch_size        sign_amort_ns    verify_naive_ns   verify_cached_ns sig_verify_once_ns    proof_bytes    tamper_detect
+1                       24868.6              57754                541              54858            170          100/100
+8                        4264.0              52918               2012              50590            266          150/150
+32                       1943.1              59653               3586              66869            330          150/150
+128                      1923.8              70935               4263              52188            394          150/150
+SIGNED ANCHORING ACCEPTANCE RESULT: ACCEPT
+
+The historical raw root-only signature runs follow. They are retained to
+show how the benchmark and security contract changed, but they do not
+support the hardened API numbers reported in the README and ADR.

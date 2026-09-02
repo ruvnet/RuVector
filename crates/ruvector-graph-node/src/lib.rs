@@ -21,8 +21,9 @@ use ruvector_graph::storage::GraphStorage;
 use ruvector_graph::types::PropertyValue;
 use ruvector_graph::GraphDB;
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 
+mod cypher_exec;
 mod streaming;
 mod transactions;
 mod types;
@@ -60,6 +61,9 @@ pub struct GraphDatabase {
     transaction_manager: Arc<RwLock<transactions::TransactionManager>>,
     /// Property graph database with Cypher support
     graph_db: Arc<RwLock<GraphDB>>,
+    /// Whether the durable store has been replayed into the in-memory indexes.
+    /// Set on first use rather than in the constructor — see [`hydrate_once`].
+    hydrated: Arc<Mutex<bool>>,
     /// Persistent storage backend (optional)
     storage: Option<Arc<RwLock<GraphStorage>>>,
     /// Path to storage file (if persisted)
@@ -117,6 +121,225 @@ fn register_node(
     Ok(())
 }
 
+/// Replay persisted records into the in-memory property and hypergraph indexes,
+/// exactly once per database handle.
+///
+/// This used to run synchronously inside the NAPI constructor, which blocked the
+/// Node event loop for the whole replay — about 15 seconds on the 154k-node graph
+/// in ruvnet/ruvector#826. Hydration is now deferred to the first operation that
+/// actually needs the in-memory indexes; every async entry point calls this from
+/// inside `spawn_blocking`, so the cost lands on the thread pool instead of the
+/// main thread. Construction is O(1) again.
+///
+/// The `hydrated` flag is held across the replay, so concurrent first-callers
+/// serialise here rather than each replaying the store into the same indexes.
+fn hydrate_once(
+    hydrated: &Arc<Mutex<bool>>,
+    storage: Option<&Arc<RwLock<GraphStorage>>>,
+    hypergraph: &Arc<RwLock<CoreHypergraphIndex>>,
+    graph_db: &Arc<RwLock<GraphDB>>,
+) -> Result<()> {
+    let mut done = hydrated.lock().expect("hydration Mutex poisoned");
+    if *done {
+        return Ok(());
+    }
+    hydrate_from_storage(storage, hypergraph, graph_db)?;
+    *done = true;
+    Ok(())
+}
+
+fn hydrate_from_storage(
+    storage: Option<&Arc<RwLock<GraphStorage>>>,
+    hypergraph: &Arc<RwLock<CoreHypergraphIndex>>,
+    graph_db: &Arc<RwLock<GraphDB>>,
+) -> Result<()> {
+    let Some(storage_arc) = storage else {
+        return Ok(());
+    };
+    let storage = storage_arc.read().expect("Storage RwLock poisoned");
+    let mut hg = hypergraph.write().expect("RwLock poisoned");
+    let gdb = graph_db.write().expect("RwLock poisoned");
+
+    for id in storage
+        .all_node_ids()
+        .map_err(|e| Error::from_reason(format!("hydrate nodes: {e}")))?
+    {
+        if let Some(node) = storage
+            .get_node(&id)
+            .map_err(|e| Error::from_reason(format!("hydrate node {id}: {e}")))?
+        {
+            let embedding = prop_to_f32_vec(node.properties.get("__embedding"));
+            hg.add_entity(node.id.clone(), embedding);
+            gdb.create_node(node)
+                .map_err(|e| Error::from_reason(format!("hydrate node insert: {e}")))?;
+        }
+    }
+
+    for id in storage
+        .all_edge_ids()
+        .map_err(|e| Error::from_reason(format!("hydrate edges: {e}")))?
+    {
+        if let Some(edge) = storage
+            .get_edge(&id)
+            .map_err(|e| Error::from_reason(format!("hydrate edge {id}: {e}")))?
+        {
+            let confidence = prop_to_f32_vec(edge.properties.get("__confidence"))
+                .first()
+                .copied()
+                .unwrap_or(1.0);
+            let embedding = prop_to_f32_vec(edge.properties.get("__embedding"));
+            let mut core_edge = CoreHyperedge::new(
+                vec![edge.from.clone(), edge.to.clone()],
+                edge.edge_type.clone(),
+                embedding,
+                confidence,
+            );
+            core_edge.id = edge.id.clone();
+            // A non-cascaded deletion deliberately leaves the durable edge,
+            // but neither in-memory index accepts an edge with a missing node.
+            if hg.add_hyperedge(core_edge).is_err() {
+                continue;
+            }
+            gdb.create_edge(edge)
+                .map_err(|e| Error::from_reason(format!("hydrate edge insert: {e}")))?;
+        }
+    }
+
+    for id in storage
+        .all_hyperedge_ids()
+        .map_err(|e| Error::from_reason(format!("hydrate hyperedges: {e}")))?
+    {
+        if let Some(hyperedge) = storage
+            .get_hyperedge(&id)
+            .map_err(|e| Error::from_reason(format!("hydrate hyperedge {id}: {e}")))?
+        {
+            let embedding = prop_to_f32_vec(hyperedge.properties.get("__embedding"));
+            let mut core_edge = CoreHyperedge::new(
+                hyperedge.nodes,
+                hyperedge
+                    .description
+                    .unwrap_or_else(|| hyperedge.edge_type.clone()),
+                embedding,
+                hyperedge.confidence,
+            );
+            core_edge.id = hyperedge.id;
+            // A non-cascaded deletion can deliberately leave this dangling.
+            let _ = hg.add_hyperedge(core_edge);
+        }
+    }
+
+    Ok(())
+}
+
+/// Parse and execute a Cypher statement against the in-memory graph.
+///
+/// Shared by `query()` and `querySync()` so the two cannot drift — before
+/// ruvnet/ruvector#879 they had entirely separate bodies, and `querySync()`
+/// never even parsed its argument.
+fn run_query(
+    cypher: &str,
+    graph_db: &Arc<RwLock<GraphDB>>,
+    hypergraph: &Arc<RwLock<CoreHypergraphIndex>>,
+) -> Result<JsQueryResult> {
+    let parsed = parse_cypher(cypher)
+        .map_err(|e| Error::from_reason(format!("Cypher parse error: {}", e)))?;
+
+    let gdb = graph_db.read().expect("RwLock poisoned");
+    let hg = hypergraph.read().expect("RwLock poisoned");
+
+    let mut result_nodes: Vec<JsNodeResult> = Vec::new();
+    let mut result_edges: Vec<JsEdgeResult> = Vec::new();
+    let mut unsupported: Vec<String> = Vec::new();
+
+    for statement in &parsed.statements {
+        match statement {
+            Statement::Match(match_clause) => {
+                let outcome = cypher_exec::execute_match(&gdb, match_clause);
+                unsupported.extend(outcome.unsupported);
+                for node in outcome.nodes {
+                    result_nodes.push(JsNodeResult {
+                        id: node.id.clone(),
+                        labels: node.labels.iter().map(|l| l.name.clone()).collect(),
+                        properties: node
+                            .properties
+                            .iter()
+                            .filter(|(k, _)| !is_internal_property(k))
+                            .map(|(k, v)| (k.clone(), property_to_string(v)))
+                            .collect(),
+                    });
+                }
+                for edge in outcome.edges {
+                    result_edges.push(JsEdgeResult {
+                        id: edge.id.clone(),
+                        from: edge.from.clone(),
+                        to: edge.to.clone(),
+                        edge_type: edge.edge_type.clone(),
+                        properties: edge
+                            .properties
+                            .iter()
+                            .filter(|(k, _)| !is_internal_property(k))
+                            .map(|(k, v)| (k.clone(), property_to_string(v)))
+                            .collect(),
+                    });
+                }
+            }
+            // Writes through `query()` were previously accepted and silently
+            // discarded. Refuse them instead — the typed builders are the
+            // supported path and a dropped write is worse than a loud error.
+            Statement::Create(_) => unsupported.push(
+                "CREATE via query() is not supported; use createNode()/createEdge()".to_string(),
+            ),
+            Statement::Return(_) => {}
+            _ => {}
+        }
+    }
+
+    if !unsupported.is_empty() {
+        unsupported.sort();
+        unsupported.dedup();
+        return Err(Error::from_reason(format!(
+            "Unsupported Cypher: {}",
+            unsupported.join("; ")
+        )));
+    }
+
+    let stats = hg.stats();
+    Ok(JsQueryResult {
+        nodes: result_nodes,
+        edges: result_edges,
+        stats: Some(JsGraphStats {
+            total_nodes: stats.total_entities as u32,
+            total_edges: stats.total_hyperedges as u32,
+            avg_degree: stats.avg_entity_degree as f64,
+        }),
+    })
+}
+
+/// Properties this binding stores for its own use rather than the caller's.
+///
+/// Embeddings and edge confidences are persisted as ordinary properties under a
+/// `__` prefix. Returning them would put a 384-element float dump in every
+/// result row's property map — invisible until #879 made `query()` return rows
+/// at all.
+fn is_internal_property(key: &str) -> bool {
+    key.starts_with("__")
+}
+
+/// Render a stored property for the string-valued JS result maps.
+///
+/// `format!("{:?}", v)` was used here, which surfaced `String("alice")` to
+/// JavaScript instead of `alice`. Scalars now render as their plain value.
+fn property_to_string(value: &PropertyValue) -> String {
+    match value {
+        PropertyValue::String(s) => s.clone(),
+        PropertyValue::Integer(i) => i.to_string(),
+        PropertyValue::Float(f) => f.to_string(),
+        PropertyValue::Boolean(b) => b.to_string(),
+        PropertyValue::Null => String::new(),
+        other => format!("{:?}", other),
+    }
+}
+
 #[napi]
 impl GraphDatabase {
     /// Create a new graph database
@@ -148,10 +371,10 @@ impl GraphDatabase {
             causal_memory: Arc::new(RwLock::new(CoreCausalMemory::new(core_metric))),
             transaction_manager: Arc::new(RwLock::new(transactions::TransactionManager::new())),
             graph_db: Arc::new(RwLock::new(GraphDB::new())),
+            hydrated: Arc::new(Mutex::new(false)),
             storage,
             storage_path,
         };
-        db.hydrate_from_storage()?;
         Ok(db)
     }
 
@@ -173,10 +396,10 @@ impl GraphDatabase {
             causal_memory: Arc::new(RwLock::new(CoreCausalMemory::new(metric))),
             transaction_manager: Arc::new(RwLock::new(transactions::TransactionManager::new())),
             graph_db: Arc::new(RwLock::new(GraphDB::new())),
+            hydrated: Arc::new(Mutex::new(false)),
             storage: Some(Arc::new(RwLock::new(storage))),
             storage_path: Some(path),
         };
-        db.hydrate_from_storage()?;
         Ok(db)
     }
 
@@ -199,86 +422,6 @@ impl GraphDatabase {
         self.storage_path.clone()
     }
 
-    /// Replay persisted records into the in-memory property and hypergraph indexes.
-    fn hydrate_from_storage(&self) -> Result<()> {
-        let Some(storage_arc) = self.storage.as_ref() else {
-            return Ok(());
-        };
-        let storage = storage_arc.read().expect("Storage RwLock poisoned");
-        let mut hg = self.hypergraph.write().expect("RwLock poisoned");
-        let gdb = self.graph_db.write().expect("RwLock poisoned");
-
-        for id in storage
-            .all_node_ids()
-            .map_err(|e| Error::from_reason(format!("hydrate nodes: {e}")))?
-        {
-            if let Some(node) = storage
-                .get_node(&id)
-                .map_err(|e| Error::from_reason(format!("hydrate node {id}: {e}")))?
-            {
-                let embedding = prop_to_f32_vec(node.properties.get("__embedding"));
-                hg.add_entity(node.id.clone(), embedding);
-                gdb.create_node(node)
-                    .map_err(|e| Error::from_reason(format!("hydrate node insert: {e}")))?;
-            }
-        }
-
-        for id in storage
-            .all_edge_ids()
-            .map_err(|e| Error::from_reason(format!("hydrate edges: {e}")))?
-        {
-            if let Some(edge) = storage
-                .get_edge(&id)
-                .map_err(|e| Error::from_reason(format!("hydrate edge {id}: {e}")))?
-            {
-                let confidence = prop_to_f32_vec(edge.properties.get("__confidence"))
-                    .first()
-                    .copied()
-                    .unwrap_or(1.0);
-                let embedding = prop_to_f32_vec(edge.properties.get("__embedding"));
-                let mut core_edge = CoreHyperedge::new(
-                    vec![edge.from.clone(), edge.to.clone()],
-                    edge.edge_type.clone(),
-                    embedding,
-                    confidence,
-                );
-                core_edge.id = edge.id.clone();
-                // A non-cascaded deletion deliberately leaves the durable edge,
-                // but neither in-memory index accepts an edge with a missing node.
-                if hg.add_hyperedge(core_edge).is_err() {
-                    continue;
-                }
-                gdb.create_edge(edge)
-                    .map_err(|e| Error::from_reason(format!("hydrate edge insert: {e}")))?;
-            }
-        }
-
-        for id in storage
-            .all_hyperedge_ids()
-            .map_err(|e| Error::from_reason(format!("hydrate hyperedges: {e}")))?
-        {
-            if let Some(hyperedge) = storage
-                .get_hyperedge(&id)
-                .map_err(|e| Error::from_reason(format!("hydrate hyperedge {id}: {e}")))?
-            {
-                let embedding = prop_to_f32_vec(hyperedge.properties.get("__embedding"));
-                let mut core_edge = CoreHyperedge::new(
-                    hyperedge.nodes,
-                    hyperedge
-                        .description
-                        .unwrap_or_else(|| hyperedge.edge_type.clone()),
-                    embedding,
-                    hyperedge.confidence,
-                );
-                core_edge.id = hyperedge.id;
-                // A non-cascaded deletion can deliberately leave this dangling.
-                let _ = hg.add_hyperedge(core_edge);
-            }
-        }
-
-        Ok(())
-    }
-
     /// Create a node in the graph
     ///
     /// # Example
@@ -299,7 +442,9 @@ impl GraphDatabase {
         let properties = node.properties.clone();
         let labels = node.labels.clone();
 
+        let hydrated = self.hydrated.clone();
         tokio::task::spawn_blocking(move || {
+            hydrate_once(&hydrated, storage.as_ref(), &hypergraph, &graph_db)?;
             let mut hg = hypergraph.write().expect("RwLock poisoned");
             let mut gdb = graph_db.write().expect("RwLock poisoned");
 
@@ -343,7 +488,9 @@ impl GraphDatabase {
         let embedding = edge.embedding.to_vec();
         let confidence = edge.confidence.unwrap_or(1.0) as f32;
 
+        let hydrated = self.hydrated.clone();
         tokio::task::spawn_blocking(move || {
+            hydrate_once(&hydrated, storage.as_ref(), &hypergraph, &graph_db)?;
             let core_edge =
                 CoreHyperedge::new(nodes, description.clone(), embedding.clone(), confidence);
             let edge_id = core_edge.id.clone();
@@ -402,7 +549,10 @@ impl GraphDatabase {
         let embedding = hyperedge.embedding.to_vec();
         let confidence = hyperedge.confidence.unwrap_or(1.0) as f32;
 
+        let graph_db = self.graph_db.clone();
+        let hydrated = self.hydrated.clone();
         tokio::task::spawn_blocking(move || {
+            hydrate_once(&hydrated, storage.as_ref(), &hypergraph, &graph_db)?;
             let core_edge = CoreHyperedge::new(
                 nodes.clone(),
                 description.clone(),
@@ -449,74 +599,12 @@ impl GraphDatabase {
     pub async fn query(&self, cypher: String) -> Result<JsQueryResult> {
         let graph_db = self.graph_db.clone();
         let hypergraph = self.hypergraph.clone();
+        let storage = self.storage.clone();
+        let hydrated = self.hydrated.clone();
 
         tokio::task::spawn_blocking(move || {
-            // Parse the Cypher query
-            let parsed = parse_cypher(&cypher)
-                .map_err(|e| Error::from_reason(format!("Cypher parse error: {}", e)))?;
-
-            let gdb = graph_db.read().expect("RwLock poisoned");
-            let hg = hypergraph.read().expect("RwLock poisoned");
-
-            let mut result_nodes: Vec<JsNodeResult> = Vec::new();
-            let mut result_edges: Vec<JsEdgeResult> = Vec::new();
-
-            // Execute each statement
-            for statement in &parsed.statements {
-                match statement {
-                    Statement::Match(match_clause) => {
-                        // Extract label from match patterns for query
-                        for pattern in &match_clause.patterns {
-                            if let ruvector_graph::cypher::ast::Pattern::Node(node_pattern) =
-                                pattern
-                            {
-                                for label in &node_pattern.labels {
-                                    let nodes = gdb.get_nodes_by_label(label);
-                                    for node in nodes {
-                                        result_nodes.push(JsNodeResult {
-                                            id: node.id.clone(),
-                                            labels: node
-                                                .labels
-                                                .iter()
-                                                .map(|l| l.name.clone())
-                                                .collect(),
-                                            properties: node
-                                                .properties
-                                                .iter()
-                                                .map(|(k, v)| (k.clone(), format!("{:?}", v)))
-                                                .collect(),
-                                        });
-                                    }
-                                }
-                                // If no labels specified, return all nodes (simplified)
-                                if node_pattern.labels.is_empty() && node_pattern.variable.is_some()
-                                {
-                                    // This would need iteration over all nodes - for now just stats
-                                }
-                            }
-                        }
-                    }
-                    Statement::Create(create_clause) => {
-                        // Handle CREATE - but we need mutable access, so skip in query
-                    }
-                    Statement::Return(_) => {
-                        // RETURN is handled implicitly
-                    }
-                    _ => {}
-                }
-            }
-
-            let stats = hg.stats();
-
-            Ok::<JsQueryResult, Error>(JsQueryResult {
-                nodes: result_nodes,
-                edges: result_edges,
-                stats: Some(JsGraphStats {
-                    total_nodes: stats.total_entities as u32,
-                    total_edges: stats.total_hyperedges as u32,
-                    avg_degree: stats.avg_entity_degree as f64,
-                }),
-            })
+            hydrate_once(&hydrated, storage.as_ref(), &hypergraph, &graph_db)?;
+            run_query(&cypher, &graph_db, &hypergraph)
         })
         .await
         .map_err(|e| Error::from_reason(format!("Task failed: {}", e)))?
@@ -524,25 +612,23 @@ impl GraphDatabase {
 
     /// Query the graph synchronously
     ///
+    /// Identical semantics to [`GraphDatabase::query`], but it runs on the
+    /// calling thread. On a persisted database the first call also pays for
+    /// hydration, so prefer the async `query()` on large graphs.
+    ///
     /// # Example
     /// ```javascript
     /// const results = db.querySync('MATCH (n) RETURN n LIMIT 10');
     /// ```
     #[napi]
     pub fn query_sync(&self, cypher: String) -> Result<JsQueryResult> {
-        let hg = self.hypergraph.read().expect("RwLock poisoned");
-        let stats = hg.stats();
-
-        // Simplified query result for now
-        Ok(JsQueryResult {
-            nodes: vec![],
-            edges: vec![],
-            stats: Some(JsGraphStats {
-                total_nodes: stats.total_entities as u32,
-                total_edges: stats.total_hyperedges as u32,
-                avg_degree: stats.avg_entity_degree as f64,
-            }),
-        })
+        hydrate_once(
+            &self.hydrated,
+            self.storage.as_ref(),
+            &self.hypergraph,
+            &self.graph_db,
+        )?;
+        run_query(&cypher, &self.graph_db, &self.hypergraph)
     }
 
     /// Search for similar hyperedges
@@ -563,7 +649,11 @@ impl GraphDatabase {
         let embedding = query.embedding.to_vec();
         let k = query.k as usize;
 
+        let graph_db = self.graph_db.clone();
+        let storage = self.storage.clone();
+        let hydrated = self.hydrated.clone();
         tokio::task::spawn_blocking(move || {
+            hydrate_once(&hydrated, storage.as_ref(), &hypergraph, &graph_db)?;
             let hg = hypergraph.read().expect("RwLock poisoned");
             let results = hg.search_hyperedges(&embedding, k);
 
@@ -592,7 +682,11 @@ impl GraphDatabase {
         let hypergraph = self.hypergraph.clone();
         let hops = k as usize;
 
+        let graph_db = self.graph_db.clone();
+        let storage = self.storage.clone();
+        let hydrated = self.hydrated.clone();
         tokio::task::spawn_blocking(move || {
+            hydrate_once(&hydrated, storage.as_ref(), &hypergraph, &graph_db)?;
             let hg = hypergraph.read().expect("RwLock poisoned");
             let neighbors = hg.k_hop_neighbors(start_node, hops);
             Ok::<Vec<String>, Error>(neighbors.into_iter().collect())
@@ -676,7 +770,9 @@ impl GraphDatabase {
         let nodes = batch.nodes;
         let edges = batch.edges;
 
+        let hydrated = self.hydrated.clone();
         tokio::task::spawn_blocking(move || {
+            hydrate_once(&hydrated, storage.as_ref(), &hypergraph, &graph_db)?;
             let mut hg = hypergraph.write().expect("RwLock poisoned");
             let mut gdb = graph_db.write().expect("RwLock poisoned");
             let mut node_ids = Vec::new();
@@ -765,7 +861,9 @@ impl GraphDatabase {
         let storage = self.storage.clone();
         let cascade = opts.and_then(|o| o.cascade).unwrap_or(false);
 
+        let hydrated = self.hydrated.clone();
         tokio::task::spawn_blocking(move || {
+            hydrate_once(&hydrated, storage.as_ref(), &hypergraph, &graph_db)?;
             let graph_edge_ids = if cascade {
                 let gdb = graph_db.read().expect("RwLock poisoned");
                 let mut ids: Vec<String> = gdb
@@ -867,7 +965,9 @@ impl GraphDatabase {
         let storage = self.storage.clone();
         let hypergraph = self.hypergraph.clone();
 
+        let hydrated = self.hydrated.clone();
         tokio::task::spawn_blocking(move || {
+            hydrate_once(&hydrated, storage.as_ref(), &hypergraph, &graph_db)?;
             let deleted_from_hypergraph = hypergraph
                 .write()
                 .expect("RwLock poisoned")
@@ -909,7 +1009,9 @@ impl GraphDatabase {
         let graph_db = self.graph_db.clone();
         let storage = self.storage.clone();
 
+        let hydrated = self.hydrated.clone();
         tokio::task::spawn_blocking(move || {
+            hydrate_once(&hydrated, storage.as_ref(), &hypergraph, &graph_db)?;
             let deleted_from_hypergraph = hypergraph
                 .write()
                 .expect("RwLock poisoned")
@@ -965,7 +1067,11 @@ impl GraphDatabase {
     pub async fn stats(&self) -> Result<JsGraphStats> {
         let hypergraph = self.hypergraph.clone();
 
+        let graph_db = self.graph_db.clone();
+        let storage = self.storage.clone();
+        let hydrated = self.hydrated.clone();
         tokio::task::spawn_blocking(move || {
+            hydrate_once(&hydrated, storage.as_ref(), &hypergraph, &graph_db)?;
             let hg = hypergraph.read().expect("RwLock poisoned");
             let stats = hg.stats();
 
@@ -1045,6 +1151,86 @@ mod tests {
             .await
             .expect("persist hyperedge");
         (db, edge_id, hyperedge_id)
+    }
+
+    /// Hydration is deferred to first use (ruvnet/ruvector#826), so the thing
+    /// that can now go wrong is replaying the store more than once and double
+    /// counting every record. Drive several entry points against one freshly
+    /// opened handle and assert the counts never move.
+    #[tokio::test]
+    async fn deferred_hydration_replays_exactly_once() {
+        let path = temp_storage_path("hydrate-once");
+        let (db, _, _) = create_persistent_fixture(&path).await;
+        drop(db);
+
+        let reopened = GraphDatabase::open(path.clone()).expect("reopen persisted database");
+        // First touch triggers the replay; every later one must be a no-op.
+        assert_eq!(reopened.stats().await.expect("stats").total_nodes, 2);
+        assert_eq!(reopened.stats().await.expect("stats").total_nodes, 2);
+        let rows = reopened
+            .query("MATCH (n) RETURN n".to_string())
+            .await
+            .expect("query");
+        assert_eq!(rows.nodes.len(), 2, "one row per persisted node, not two");
+        assert_eq!(
+            reopened
+                .k_hop_neighbors("a".to_string(), 1)
+                .await
+                .expect("khop")
+                .len(),
+            2
+        );
+        assert_eq!(reopened.stats().await.expect("stats").total_nodes, 2);
+        drop(reopened);
+        std::fs::remove_file(path).expect("remove test database");
+    }
+
+    /// The label-less `MATCH (n)` and `WHERE` shapes from #879, end to end
+    /// through the NAPI surface rather than just the executor.
+    #[tokio::test]
+    async fn query_returns_rows_for_label_less_match_and_where() {
+        let db = GraphDatabase::new(Some(JsGraphOptions {
+            distance_metric: Some(JsDistanceMetric::Cosine),
+            dimensions: Some(2),
+            storage_path: None,
+        }))
+        .expect("create database");
+        for id in ["n1", "n2"] {
+            db.create_node(JsNode {
+                id: id.to_string(),
+                embedding: Float32Array::new(vec![1.0, 0.0]),
+                labels: Some(vec!["Person".to_string()]),
+                properties: None,
+            })
+            .await
+            .expect("create node");
+        }
+
+        let all = db
+            .query("MATCH (n) RETURN n".to_string())
+            .await
+            .expect("label-less match");
+        assert_eq!(all.nodes.len(), 2);
+
+        let one = db
+            .query("MATCH (n) WHERE n.id = 'n1' RETURN n".to_string())
+            .await
+            .expect("point lookup");
+        assert_eq!(one.nodes.len(), 1);
+        assert_eq!(one.nodes[0].id, "n1");
+
+        // querySync used to ignore its argument entirely and always return [].
+        let sync = db
+            .query_sync("MATCH (n) WHERE n.id = 'n2' RETURN n".to_string())
+            .expect("sync point lookup");
+        assert_eq!(sync.nodes.len(), 1);
+        assert_eq!(sync.nodes[0].id, "n2");
+
+        // A write through query() is refused rather than silently dropped.
+        assert!(db
+            .query("CREATE (n:Person {name: 'x'})".to_string())
+            .await
+            .is_err());
     }
 
     #[tokio::test]

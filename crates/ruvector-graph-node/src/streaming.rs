@@ -22,17 +22,13 @@ impl QueryResultStream {
 
 #[napi]
 impl QueryResultStream {
-    /// Get the next result from the stream
+    /// Get the next result from the stream.
     ///
-    /// # Example
-    /// ```javascript
-    /// const stream = await db.queryStream('MATCH (n) RETURN n');
-    /// while (true) {
-    ///   const result = await stream.next();
-    ///   if (!result) break;
-    ///   console.log(result);
-    /// }
-    /// ```
+    /// **Not implemented.** This always returns `null`, and no method on
+    /// `GraphDatabase` returns a `QueryResultStream` in the first place — there
+    /// is no `db.queryStream()`. The previous doc comment here showed exactly
+    /// that call, which does not exist. Use `db.query()` until streaming is
+    /// built; this type is exported only to keep the shape reserved.
     #[napi]
     pub fn next(&mut self) -> Result<Option<JsQueryResult>> {
         // This would poll the stream in a real implementation
@@ -56,15 +52,11 @@ impl HyperedgeStream {
 
 #[napi]
 impl HyperedgeStream {
-    /// Get the next hyperedge result
+    /// Get the next hyperedge result.
     ///
-    /// # Example
-    /// ```javascript
-    /// const stream = await db.searchHyperedgesStream(query);
-    /// for await (const result of stream) {
-    ///   console.log(result);
-    /// }
-    /// ```
+    /// Note: no method on `GraphDatabase` returns a `HyperedgeStream` — there is
+    /// no `db.searchHyperedgesStream()`, which the previous doc example here
+    /// claimed. Use `db.searchHyperedges()`, which returns the full array.
     #[napi]
     pub fn next(&mut self) -> Result<Option<JsHyperedgeResult>> {
         if self.index < self.results.len() {

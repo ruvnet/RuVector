@@ -133,6 +133,23 @@ export const enum JsTemporalGranularity {
   Monthly = 'Monthly',
   Yearly = 'Yearly'
 }
+/** Options for deleteNode */
+export interface JsDeleteNodeOptions {
+  /** If true, all incident hyperedges are removed along with the node */
+  cascade?: boolean
+}
+/** Result of deleting a node (with optional cascade) */
+export interface JsDeleteNodeResult {
+  /** Whether the node existed and was deleted */
+  deletedNode: boolean
+  /** Number of incident edges/hyperedges removed (cascade only) */
+  deletedEdges: number
+}
+/** Result of deleting a single edge or hyperedge */
+export interface JsDeleteResult {
+  /** Whether the record existed and was deleted */
+  deleted: boolean
+}
 /** Temporal hyperedge */
 export interface JsTemporalHyperedge {
   /** Base hyperedge */
@@ -151,32 +168,24 @@ export declare function hello(): string
 /** Streaming query result iterator */
 export declare class QueryResultStream {
   /**
-   * Get the next result from the stream
+   * Get the next result from the stream.
    *
-   * # Example
-   * ```javascript
-   * const stream = await db.queryStream('MATCH (n) RETURN n');
-   * while (true) {
-   *   const result = await stream.next();
-   *   if (!result) break;
-   *   console.log(result);
-   * }
-   * ```
+   * **Not implemented.** This always returns `null`, and no method on
+   * `GraphDatabase` returns a `QueryResultStream` in the first place — there
+   * is no `db.queryStream()`. The previous doc comment here showed exactly
+   * that call, which does not exist. Use `db.query()` until streaming is
+   * built; this type is exported only to keep the shape reserved.
    */
   next(): JsQueryResult | null
 }
 /** Streaming hyperedge result iterator */
 export declare class HyperedgeStream {
   /**
-   * Get the next hyperedge result
+   * Get the next hyperedge result.
    *
-   * # Example
-   * ```javascript
-   * const stream = await db.searchHyperedgesStream(query);
-   * for await (const result of stream) {
-   *   console.log(result);
-   * }
-   * ```
+   * Note: no method on `GraphDatabase` returns a `HyperedgeStream` — there is
+   * no `db.searchHyperedgesStream()`, which the previous doc example here
+   * claimed. Use `db.searchHyperedges()`, which returns the full array.
    */
   next(): JsHyperedgeResult | null
   /** Collect all remaining results */
@@ -280,6 +289,10 @@ export declare class GraphDatabase {
   /**
    * Query the graph synchronously
    *
+   * Identical semantics to [`GraphDatabase::query`], but it runs on the
+   * calling thread. On a persisted database the first call also pays for
+   * hydration, so prefer the async `query()` on large graphs.
+   *
    * # Example
    * ```javascript
    * const results = db.querySync('MATCH (n) RETURN n LIMIT 10');
@@ -346,6 +359,36 @@ export declare class GraphDatabase {
    * ```
    */
   batchInsert(batch: JsBatchInsert): Promise<JsBatchResult>
+  /**
+   * Delete a node and optionally cascade to its incident hyperedges
+   *
+   * # Example
+   * ```javascript
+   * const result = await db.deleteNode('node1', { cascade: true });
+   * console.log(`Deleted: ${result.deletedNode}, edges removed: ${result.deletedEdges}`);
+   * ```
+   */
+  deleteNode(id: string, opts?: JsDeleteNodeOptions | undefined | null): Promise<JsDeleteNodeResult>
+  /**
+   * Delete an edge by ID
+   *
+   * # Example
+   * ```javascript
+   * const result = await db.deleteEdge('edge-id');
+   * console.log(`Deleted: ${result.deleted}`);
+   * ```
+   */
+  deleteEdge(id: string): Promise<JsDeleteResult>
+  /**
+   * Delete a hyperedge by ID
+   *
+   * # Example
+   * ```javascript
+   * const result = await db.deleteHyperedge('hyperedge-id');
+   * console.log(`Deleted: ${result.deleted}`);
+   * ```
+   */
+  deleteHyperedge(id: string): Promise<JsDeleteResult>
   /**
    * Subscribe to graph changes (returns a change stream)
    *

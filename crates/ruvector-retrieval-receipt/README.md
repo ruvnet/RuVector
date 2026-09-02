@@ -66,3 +66,58 @@ regression check rather than an empirical detection rate. Full methodology and r
 See [`ADR-304`](../../docs/adr/ADR-304-retrieval-receipts.md) for the design rationale,
 documented limitations (Merkle padding malleability), and rejection criteria for production
 promotion.
+
+## Signed anchoring (origin authentication)
+
+The variants above are unsigned: they detect tamper but do not authenticate an issuing key.
+The `signing` module adds typed and scoped Ed25519 root signing, either per query or
+amortized across a batch. Organizational identity still requires an external key registry,
+rotation policy, and revocation history.
+
+```rust
+use ruvector_retrieval_receipt::{
+    query_hash, verify_root, AnchorContext, AnchorPurpose, BatchAnchor, Issuer,
+    ReceiptVariant, RetrievalIndex, RetrievalReceipt,
+};
+
+let issuer = Issuer::generate();
+let index = RetrievalIndex::ingest(5_000, 128, 0xC0FF_EE01);
+let query = vec![0.1; 128];
+let results = index.search(&query, 10);
+let qh = query_hash(&query);
+let receipt = RetrievalReceipt::build(ReceiptVariant::Merkle, qh, index.index_state_root(), &results);
+let root = receipt.root().unwrap();
+let issued_at_unix_ms = 1_788_134_400_000;
+
+// Bind signatures to this index state so they cannot be replayed in another scope.
+let receipt_context = AnchorContext::new(AnchorPurpose::Receipt, index.index_state_root());
+let signed = issuer.sign_root(receipt_context, root, issued_at_unix_ms);
+assert!(verify_root(&issuer.verifying_key, receipt_context, &signed).is_some());
+
+// Batched: authenticate once, then cache the verified root for B proofs.
+let anchor = BatchAnchor::build(&[root]).unwrap();
+let batch_context = AnchorContext::new(AnchorPurpose::Batch, index.index_state_root());
+let signed_batch = issuer.sign_root(batch_context, anchor.root(), issued_at_unix_ms);
+let verified_batch = verify_root(&issuer.verifying_key, batch_context, &signed_batch).unwrap();
+let proof = anchor.proof_for(0).unwrap();
+assert!(BatchAnchor::verify_inclusion(root, &proof, &verified_batch));
+```
+
+Measured (n=5,000, dims=128, k=10, release build, mean of 3 warmed runs): per-query signing
+costs ≈15.6 µs amortized; batching to 128 queries per signature drops that to ≈1.1 µs/query
+(≈14x, 5.8–7.7% of per-query cost). An *uncaching* verifier — one that re-checks the batch
+signature on every query instead of once per batch — sees none of that benefit (mean naive
+verify cost stays in a ~35,000–41,000ns band across batch sizes), which is the deliberately
+checked "does batching game the benchmark" condition. 100% tamper detection
+(root/signature/inclusion-proof tamper) across all batch sizes in all 3 runs. Full methodology,
+raw output, and the
+benchmark-harness bug this run caught and fixed:
+[`docs/research/nightly/2026-08-31-signed-retrieval-receipts/README.md`](../../docs/research/nightly/2026-08-31-signed-retrieval-receipts/README.md).
+
+See [`ADR-340`](../../docs/adr/ADR-340-signed-retrieval-receipt-anchoring.md) for the design
+rationale, threat model, and rejection criteria.
+
+The signed statement covers a protocol version, purpose, SHA256 public key ID, scope hash,
+issuance time, and root. Verification uses strict Ed25519 checks. Batch construction and proof
+lookup return recoverable errors for empty or invalid input. A batch inclusion proof cannot be
+checked without the authenticated token returned by `verify_root`.

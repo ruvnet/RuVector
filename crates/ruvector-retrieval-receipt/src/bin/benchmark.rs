@@ -8,8 +8,11 @@
 use std::time::{Duration, Instant};
 
 use ruvector_retrieval_receipt::{
-    query_hash, synthetic_queries, ReceiptVariant, ResultItem, RetrievalIndex, RetrievalReceipt,
+    query_hash, synthetic_queries, verify_root, AnchorContext, AnchorPurpose, BatchAnchor, Issuer,
+    ReceiptVariant, ResultItem, RetrievalIndex, RetrievalReceipt, SignedRoot,
 };
+
+const BENCHMARK_ISSUED_AT_UNIX_MS: u64 = 1_788_134_400_000;
 
 fn percentile(sorted: &[Duration], pct: f64) -> Duration {
     if sorted.is_empty() {
@@ -165,6 +168,214 @@ fn run_variant(
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// Signed anchoring benchmark — candidate_A (per-query signing, batch=1) and
+// candidate_B (batched signing, batch>1) layered on top of MerkleReceipt.
+// ─────────────────────────────────────────────────────────────────────────
+
+#[derive(Clone, Copy)]
+enum SignTamperKind {
+    /// A receipt root is corrupted before being checked against its own
+    /// inclusion proof (a forged root citation).
+    RootByte,
+    /// One byte of the batch signature is flipped.
+    SignatureByte,
+    /// One byte of an inclusion-proof sibling hash is flipped.
+    ProofSibling,
+}
+
+struct SigningStats {
+    batch_size: usize,
+    sign_amortized_ns: f64,
+    /// Full cost of authenticating one query with no caching: a fresh
+    /// signature verify plus the inclusion-proof check, every query. This
+    /// is what a verifier pays if it does *not* trust batch membership
+    /// across queries.
+    verify_naive_mean_ns: f64,
+    /// Cost of authenticating one query when the batch signature has
+    /// already been verified once and the verifier trusts that result for
+    /// the rest of the batch: inclusion-proof check only.
+    verify_cached_mean_ns: f64,
+    /// One-time signature-verify cost per batch (not multiplied by
+    /// `batch_size`), reported separately so `verify_cached_mean_ns` is
+    /// not read as "free".
+    sig_verify_once_ns: f64,
+    proof_bytes_worst: usize,
+    tamper_trials: usize,
+    tamper_detected: usize,
+}
+
+fn apply_sign_tamper(
+    roots: &mut [[u8; 32]],
+    signed: &mut SignedRoot,
+    proofs: &mut [Vec<([u8; 32], bool)>],
+    kind: SignTamperKind,
+    rng: &mut Xorshift64,
+) -> usize {
+    let idx = rng.next_range(roots.len());
+    match kind {
+        SignTamperKind::RootByte => {
+            roots[idx][rng.next_range(32)] ^= 0xFF;
+        }
+        SignTamperKind::SignatureByte => {
+            signed.signature[rng.next_range(64)] ^= 0xFF;
+        }
+        SignTamperKind::ProofSibling => {
+            if let Some((sibling, _)) = proofs[idx].first_mut() {
+                sibling[0] ^= 0xFF;
+            }
+        }
+    }
+    idx
+}
+
+fn run_signing_batch(
+    issuer: &Issuer,
+    index: &RetrievalIndex,
+    queries: &[Vec<f32>],
+    k: usize,
+    index_root: [u8; 32],
+    batch_size: usize,
+    tamper_trials_per_kind: usize,
+) -> SigningStats {
+    let context = AnchorContext::new(AnchorPurpose::Batch, index_root);
+    let mut sign_latencies = Vec::new();
+    let mut verify_naive_latencies = Vec::new();
+    let mut verify_cached_latencies = Vec::new();
+    let mut sig_verify_once_latencies = Vec::new();
+    let mut proof_bytes_worst = 0usize;
+
+    for chunk in queries.chunks(batch_size) {
+        let roots: Vec<[u8; 32]> = chunk
+            .iter()
+            .map(|q| {
+                let results = index.search(q, k);
+                let qh = query_hash(q);
+                let receipt =
+                    RetrievalReceipt::build(ReceiptVariant::Merkle, qh, index_root, &results);
+                receipt.root().expect("Merkle receipt always has a root")
+            })
+            .collect();
+
+        let t0 = Instant::now();
+        let anchor = BatchAnchor::build(&roots).expect("benchmark batches are nonempty");
+        let signed = issuer.sign_root(context, anchor.root(), BENCHMARK_ISSUED_AT_UNIX_MS);
+        sign_latencies.push(t0.elapsed());
+
+        let worst = roots.len() - 1;
+        // SignedRoot is 170 canonical bytes including the root. Batch proof
+        // bytes include that same 32-byte root, so add the other 138 bytes.
+        proof_bytes_worst = proof_bytes_worst.max(
+            138 + anchor
+                .proof_bytes_for(worst)
+                .expect("worst index is in bounds"),
+        );
+
+        // naive: every query pays a full signature verify + inclusion check
+        for (i, root) in roots.iter().enumerate() {
+            let proof = anchor.proof_for(i).expect("enumerated index is in bounds");
+            let t1 = Instant::now();
+            let verified = verify_root(&issuer.verifying_key, context, &signed);
+            let incl_ok = verified
+                .as_ref()
+                .is_some_and(|trusted| BatchAnchor::verify_inclusion(*root, &proof, trusted));
+            verify_naive_latencies.push(t1.elapsed());
+            assert!(incl_ok, "honest batch member must verify (naive)");
+        }
+
+        // cached: signature verified once, reused for every query in the batch
+        let t2 = Instant::now();
+        let verified = verify_root(&issuer.verifying_key, context, &signed);
+        sig_verify_once_latencies.push(t2.elapsed());
+        let verified = verified.expect("honest batch signature must verify");
+        for (idx, root) in roots.iter().enumerate() {
+            let proof = anchor
+                .proof_for(idx)
+                .expect("enumerated index is in bounds");
+            let t3 = Instant::now();
+            let incl_ok = BatchAnchor::verify_inclusion(*root, &proof, &verified);
+            verify_cached_latencies.push(t3.elapsed());
+            assert!(incl_ok, "honest batch member must verify (cached)");
+        }
+    }
+
+    let mean_ns = |ds: &[Duration]| -> f64 {
+        if ds.is_empty() {
+            0.0
+        } else {
+            ds.iter().map(|d| d.as_nanos()).sum::<u128>() as f64 / ds.len() as f64
+        }
+    };
+
+    let total_sign_ns: f64 = sign_latencies.iter().map(|d| d.as_nanos() as f64).sum();
+    let total_queries = queries.len() as f64;
+    let sign_amortized_ns = total_sign_ns / total_queries;
+
+    // Tamper trials: rebuild a fresh honest batch per trial, corrupt one
+    // dimension of it, confirm the combined (signature + inclusion) check
+    // rejects it.
+    let mut tamper_trials = 0usize;
+    let mut tamper_detected = 0usize;
+    let kinds = [
+        SignTamperKind::RootByte,
+        SignTamperKind::SignatureByte,
+        SignTamperKind::ProofSibling,
+    ];
+    let mut rng = Xorshift64(0xABCD_EF01_2345_6789 ^ (batch_size as u64));
+    let batch_len = batch_size.min(queries.len()).max(1);
+    for kind in kinds {
+        // A batch of one has no Merkle level (root == leaf directly), so
+        // there is no inclusion-proof sibling to corrupt. Skip rather than
+        // silently count a no-op tamper as "not detected".
+        if batch_len == 1 && matches!(kind, SignTamperKind::ProofSibling) {
+            continue;
+        }
+        for trial in 0..tamper_trials_per_kind {
+            let start = (trial * batch_len) % queries.len().max(1);
+            let chunk: Vec<Vec<f32>> = (0..batch_len)
+                .map(|j| queries[(start + j) % queries.len()].clone())
+                .collect();
+            let mut roots: Vec<[u8; 32]> = chunk
+                .iter()
+                .map(|q| {
+                    let results = index.search(q, k);
+                    let qh = query_hash(q);
+                    let receipt =
+                        RetrievalReceipt::build(ReceiptVariant::Merkle, qh, index_root, &results);
+                    receipt.root().expect("Merkle receipt always has a root")
+                })
+                .collect();
+            let anchor = BatchAnchor::build(&roots).expect("benchmark batches are nonempty");
+            let mut signed = issuer.sign_root(context, anchor.root(), BENCHMARK_ISSUED_AT_UNIX_MS);
+            let mut proofs: Vec<Vec<([u8; 32], bool)>> = (0..roots.len())
+                .map(|i| anchor.proof_for(i).expect("enumerated index is in bounds"))
+                .collect();
+
+            let idx = apply_sign_tamper(&mut roots, &mut signed, &mut proofs, kind, &mut rng);
+            tamper_trials += 1;
+
+            let verified = verify_root(&issuer.verifying_key, context, &signed);
+            let accepted = verified.as_ref().is_some_and(|trusted| {
+                BatchAnchor::verify_inclusion(roots[idx], &proofs[idx], trusted)
+            });
+            if !accepted {
+                tamper_detected += 1;
+            }
+        }
+    }
+
+    SigningStats {
+        batch_size,
+        sign_amortized_ns,
+        verify_naive_mean_ns: mean_ns(&verify_naive_latencies),
+        verify_cached_mean_ns: mean_ns(&verify_cached_latencies),
+        sig_verify_once_ns: mean_ns(&sig_verify_once_latencies),
+        proof_bytes_worst,
+        tamper_trials,
+        tamper_detected,
+    }
+}
+
 fn variant_name(v: ReceiptVariant) -> &'static str {
     match v {
         ReceiptVariant::None => "NoReceipt",
@@ -302,4 +513,108 @@ fn main() {
         "REJECT"
     };
     println!("\nACCEPTANCE RESULT: {verdict}");
+
+    // ── Signed anchoring (candidate_A = batch_size 1, candidate_B = batch_size > 1) ──
+    println!("\n=== signed anchoring benchmark (Ed25519 over MerkleReceipt roots) ===");
+    let issuer = Issuer::generate();
+    let warmup_context = AnchorContext::new(AnchorPurpose::Batch, index_root);
+    for byte in 0u8..128 {
+        let signed = issuer.sign_root(warmup_context, [byte; 32], BENCHMARK_ISSUED_AT_UNIX_MS);
+        assert!(verify_root(&issuer.verifying_key, warmup_context, &signed).is_some());
+    }
+    let batch_sizes = [1usize, 8, 32, 128];
+    let sign_tamper_trials_per_kind = 50usize; // 3 kinds x 50 = 150 trials per batch size
+    let sign_stats: Vec<SigningStats> = batch_sizes
+        .iter()
+        .map(|&b| {
+            run_signing_batch(
+                &issuer,
+                &index,
+                &queries,
+                k,
+                index_root,
+                b,
+                sign_tamper_trials_per_kind,
+            )
+        })
+        .collect();
+
+    println!(
+        "\n{:<12} {:>18} {:>18} {:>18} {:>18} {:>14} {:>16}",
+        "batch_size",
+        "sign_amort_ns",
+        "verify_naive_ns",
+        "verify_cached_ns",
+        "sig_verify_once_ns",
+        "proof_bytes",
+        "tamper_detect"
+    );
+    for s in &sign_stats {
+        println!(
+            "{:<12} {:>18.1} {:>18.0} {:>18.0} {:>18.0} {:>14} {:>16}",
+            s.batch_size,
+            s.sign_amortized_ns,
+            s.verify_naive_mean_ns,
+            s.verify_cached_mean_ns,
+            s.sig_verify_once_ns,
+            s.proof_bytes_worst,
+            format!("{}/{}", s.tamper_detected, s.tamper_trials)
+        );
+    }
+
+    let per_query = &sign_stats[0]; // batch_size = 1
+    let largest_batch = sign_stats.last().unwrap(); // batch_size = 128
+
+    let all_sign_tamper_detected = sign_stats
+        .iter()
+        .all(|s| s.tamper_detected == s.tamper_trials);
+
+    // Hypothesis: batching amortizes signing cost roughly linearly with
+    // batch size. Fixed threshold decided before this run (see nightly
+    // research README): amortized signing cost at the largest batch size
+    // must drop below 10% of the per-query (batch=1) cost.
+    let amortization_threshold = 0.10;
+    let amortization_ratio = largest_batch.sign_amortized_ns / per_query.sign_amortized_ns;
+    let amortization_ok = amortization_ratio < amortization_threshold;
+
+    // Attack-pass check: does batching help a verifier that does *not*
+    // cache the signature check? It must not (naive verify cost is
+    // dominated by the O(1) Ed25519 verify regardless of batch size) —
+    // asserting the opposite would mean the benchmark is silently
+    // rewarding an unrealistic verifier.
+    let naive_verify_flat = {
+        let min_naive = sign_stats
+            .iter()
+            .map(|s| s.verify_naive_mean_ns)
+            .fold(f64::INFINITY, f64::min);
+        let max_naive = sign_stats
+            .iter()
+            .map(|s| s.verify_naive_mean_ns)
+            .fold(0.0, f64::max);
+        // "flat" = largest batch doesn't cut naive-verify cost by more than half;
+        // a strict drop there would indicate the benchmark accidentally
+        // amortizes something it claims not to.
+        max_naive / min_naive.max(1.0) < 2.0
+    };
+
+    println!("\n=== signed anchoring acceptance ===");
+    println!("tamper detection 100% across all kinds and batch sizes: {all_sign_tamper_detected}");
+    println!(
+        "amortized signing cost drops below {:.0}% of per-query cost by batch={}: {:.1}% -> {amortization_ok}",
+        amortization_threshold * 100.0,
+        largest_batch.batch_size,
+        amortization_ratio * 100.0
+    );
+    println!(
+        "naive (uncached) per-query verify cost stays flat across batch sizes (batching does not help an uncaching verifier): {naive_verify_flat}"
+    );
+
+    let sign_verdict = if all_sign_tamper_detected && amortization_ok && naive_verify_flat {
+        "ACCEPT"
+    } else if all_sign_tamper_detected {
+        "INCONCLUSIVE"
+    } else {
+        "REJECT"
+    };
+    println!("\nSIGNED ANCHORING ACCEPTANCE RESULT: {sign_verdict}");
 }

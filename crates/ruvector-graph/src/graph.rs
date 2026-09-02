@@ -274,6 +274,22 @@ impl GraphDB {
             .collect()
     }
 
+    /// Get every node in the graph.
+    ///
+    /// This is a full scan of the node map — it backs the label-less Cypher
+    /// pattern `MATCH (n)`, which has no index to consult by definition.
+    pub fn all_nodes(&self) -> Vec<Node> {
+        self.nodes.iter().map(|e| e.value().clone()).collect()
+    }
+
+    /// Get every edge in the graph.
+    ///
+    /// Full scan, for the same reason as [`GraphDB::all_nodes`]: a relationship
+    /// pattern with no type filter (`-[r]->`) cannot use the edge-type index.
+    pub fn all_edges(&self) -> Vec<Edge> {
+        self.edges.iter().map(|e| e.value().clone()).collect()
+    }
+
     /// Get nodes by property
     pub fn get_nodes_by_property(&self, key: &str, value: &PropertyValue) -> Vec<Node> {
         self.property_index
