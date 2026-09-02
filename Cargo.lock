@@ -9922,6 +9922,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-memory-admission"
+version = "2.3.0"
+
+[[package]]
 name = "ruvector-metrics"
 version = "2.3.0"
 dependencies = [

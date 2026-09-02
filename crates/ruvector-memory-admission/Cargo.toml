@@ -1,0 +1,21 @@
+[package]
+name = "ruvector-memory-admission"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Global min-cut gated write-time cluster admission for streaming agent memory in RuVector"
+readme = "README.md"
+keywords = ["vector-search", "agent-memory", "mincut", "streaming", "clustering"]
+categories = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+
+[lints.rust]
+dead_code = "allow"
+unused_variables = "allow"
