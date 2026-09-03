@@ -7,9 +7,11 @@
 
 use std::time::{Duration, Instant};
 
+use ruvector_proof_gate::{synthetic_payloads, HashChainGate, WriteGate};
 use ruvector_retrieval_receipt::{
-    query_hash, synthetic_queries, verify_root, AnchorContext, AnchorPurpose, BatchAnchor, Issuer,
-    ReceiptVariant, ResultItem, RetrievalIndex, RetrievalReceipt, SignedRoot,
+    query_hash, synthetic_queries, verify_root, verify_state_anchor, AnchorContext, AnchorPurpose,
+    BatchAnchor, Issuer, ReceiptVariant, ResultItem, RetrievalIndex, RetrievalReceipt, SignedRoot,
+    StateAnchorLog, StateAnchorPolicy,
 };
 
 const BENCHMARK_ISSUED_AT_UNIX_MS: u64 = 1_788_134_400_000;
@@ -376,6 +378,152 @@ fn run_signing_batch(
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// Independent, periodic index_state_root anchoring — decoupled from any
+// query. candidate_A = interval_writes=1 (sign every write, zero
+// staleness), candidate_B = interval_writes>1 (periodic, bounded
+// staleness). Operates directly over a HashChainGate: this is a write-path
+// concept, not tied to RetrievalIndex or any query.
+// ─────────────────────────────────────────────────────────────────────────
+
+#[derive(Clone, Copy)]
+enum StateAnchorTamperKind {
+    ClaimedRoot,
+    Signature,
+}
+
+struct StateAnchorStats {
+    interval_writes: u64,
+    anchors_taken: usize,
+    expected_anchors: usize,
+    sign_amortized_ns: f64,
+    max_staleness: u64,
+    anchor_verify_mean_ns: f64,
+    tamper_trials: usize,
+    tamper_detected: usize,
+}
+
+fn run_state_anchor_interval(
+    issuer: &Issuer,
+    n: u64,
+    interval_writes: u64,
+    scope_hash: [u8; 32],
+    tamper_trials_per_kind: usize,
+) -> StateAnchorStats {
+    let payloads = synthetic_payloads(n as usize, 8);
+    let mut gate = HashChainGate::new();
+    let policy = StateAnchorPolicy::new(interval_writes).expect("benchmark intervals are nonzero");
+    let mut log = StateAnchorLog::new(policy);
+
+    let mut sign_ns_total = 0f64;
+    let mut max_staleness = 0u64;
+    for payload in &payloads {
+        gate.admit(payload).expect("null-error gate never rejects");
+        let write_count = gate.len() as u64;
+        let t0 = Instant::now();
+        let anchored = log.observe_write(
+            issuer,
+            scope_hash,
+            gate.chain_root(),
+            write_count,
+            BENCHMARK_ISSUED_AT_UNIX_MS,
+        );
+        if anchored.is_some() {
+            sign_ns_total += t0.elapsed().as_nanos() as f64;
+        }
+        max_staleness = max_staleness.max(log.staleness_at(write_count));
+    }
+
+    let anchors_taken = log.anchors().len();
+    let expected_anchors = (n / interval_writes) as usize;
+    let sign_amortized_ns = sign_ns_total / n as f64;
+
+    // O(1) audit cost: verify every anchor taken, independent of any query
+    // or the write history itself.
+    let mut verify_ns = Vec::with_capacity(anchors_taken);
+    for anchor in log.anchors() {
+        let claimed_root = anchor.signed_root.statement.root;
+        let t1 = Instant::now();
+        let ok =
+            verify_state_anchor(&issuer.verifying_key, scope_hash, claimed_root, anchor).is_some();
+        verify_ns.push(t1.elapsed().as_nanos() as f64);
+        assert!(ok, "honest state anchor must verify");
+    }
+    let anchor_verify_mean_ns = if verify_ns.is_empty() {
+        0.0
+    } else {
+        verify_ns.iter().sum::<f64>() / verify_ns.len() as f64
+    };
+
+    // Tamper trials against sampled anchors: a corrupted claimed root, or a
+    // corrupted signature byte, must always be rejected.
+    let mut tamper_trials = 0usize;
+    let mut tamper_detected = 0usize;
+    if !log.anchors().is_empty() {
+        let mut rng = Xorshift64(0x5EED_1234_ABCD_0001 ^ interval_writes);
+        for kind in [
+            StateAnchorTamperKind::ClaimedRoot,
+            StateAnchorTamperKind::Signature,
+        ] {
+            for _ in 0..tamper_trials_per_kind {
+                let idx = rng.next_range(log.anchors().len());
+                let anchor = log.anchors()[idx];
+                let true_root = anchor.signed_root.statement.root;
+                tamper_trials += 1;
+                let accepted = match kind {
+                    StateAnchorTamperKind::ClaimedRoot => {
+                        let mut wrong_root = true_root;
+                        wrong_root[rng.next_range(32)] ^= 0xFF;
+                        verify_state_anchor(&issuer.verifying_key, scope_hash, wrong_root, &anchor)
+                            .is_some()
+                    }
+                    StateAnchorTamperKind::Signature => {
+                        let mut tampered = anchor;
+                        tampered.signed_root.signature[rng.next_range(64)] ^= 0xFF;
+                        verify_state_anchor(&issuer.verifying_key, scope_hash, true_root, &tampered)
+                            .is_some()
+                    }
+                };
+                if !accepted {
+                    tamper_detected += 1;
+                }
+            }
+        }
+    }
+
+    StateAnchorStats {
+        interval_writes,
+        anchors_taken,
+        expected_anchors,
+        sign_amortized_ns,
+        max_staleness,
+        anchor_verify_mean_ns,
+        tamper_trials,
+        tamper_detected,
+    }
+}
+
+/// Descriptive-only comparison (not gated): the O(n) cost of full write-chain
+/// re-derivation (`HashChainGate::verify_integrity`) as n grows, so the O(1)
+/// anchor-verify cost above is not read as a substitute for it.
+fn run_full_replay_scaling(sizes: &[u64]) -> Vec<(u64, f64)> {
+    sizes
+        .iter()
+        .map(|&n| {
+            let payloads = synthetic_payloads(n as usize, 8);
+            let mut gate = HashChainGate::new();
+            for p in &payloads {
+                gate.admit(p).expect("null-error gate never rejects");
+            }
+            let t0 = Instant::now();
+            let ok = gate.verify_integrity();
+            let elapsed_ns = t0.elapsed().as_nanos() as f64;
+            assert!(ok, "clean chain must re-derive");
+            (n, elapsed_ns)
+        })
+        .collect()
+}
+
 fn variant_name(v: ReceiptVariant) -> &'static str {
     match v {
         ReceiptVariant::None => "NoReceipt",
@@ -617,4 +765,125 @@ fn main() {
         "REJECT"
     };
     println!("\nSIGNED ANCHORING ACCEPTANCE RESULT: {sign_verdict}");
+
+    // ── Independent, periodic index_state_root anchoring (candidate_A = ──
+    // interval_writes=1, candidate_B = interval_writes>1) ───────────────
+    println!("\n=== state-anchor benchmark (periodic index_state_root anchoring, decoupled from any query) ===");
+    println!("n={n} writes, scope=index_root, tamper_trials_per_kind=40 (2 kinds)");
+    let state_scope = [0x51u8; 32];
+    let intervals = [1u64, 8, 32, 128, 512];
+    let state_tamper_trials_per_kind = 40usize;
+    let state_stats: Vec<StateAnchorStats> = intervals
+        .iter()
+        .map(|&w| {
+            run_state_anchor_interval(
+                &issuer,
+                n as u64,
+                w,
+                state_scope,
+                state_tamper_trials_per_kind,
+            )
+        })
+        .collect();
+
+    println!(
+        "\n{:<16} {:>14} {:>16} {:>18} {:>14} {:>20} {:>16}",
+        "interval_writes",
+        "anchors_taken",
+        "expected",
+        "sign_amort_ns",
+        "max_stale",
+        "anchor_verify_ns",
+        "tamper_detect"
+    );
+    for s in &state_stats {
+        println!(
+            "{:<16} {:>14} {:>16} {:>18.1} {:>14} {:>20.0} {:>16}",
+            s.interval_writes,
+            s.anchors_taken,
+            s.expected_anchors,
+            s.sign_amortized_ns,
+            s.max_staleness,
+            s.anchor_verify_mean_ns,
+            format!("{}/{}", s.tamper_detected, s.tamper_trials)
+        );
+    }
+
+    let signing_count_matches_theory = state_stats
+        .iter()
+        .all(|s| s.anchors_taken == s.expected_anchors);
+    let staleness_bound_exact = state_stats
+        .iter()
+        .all(|s| s.max_staleness == s.interval_writes - 1);
+    let all_state_tamper_detected = state_stats
+        .iter()
+        .all(|s| s.tamper_detected == s.tamper_trials);
+    let anchor_verify_flat = {
+        let min_v = state_stats
+            .iter()
+            .map(|s| s.anchor_verify_mean_ns)
+            .fold(f64::INFINITY, f64::min);
+        let max_v = state_stats
+            .iter()
+            .map(|s| s.anchor_verify_mean_ns)
+            .fold(0.0, f64::max);
+        max_v / min_v.max(1.0) < 2.0
+    };
+    let state_per_write = &state_stats[0]; // interval_writes = 1
+    let state_largest = state_stats.last().unwrap(); // interval_writes = 512
+    let state_amortization_threshold = 0.10;
+    let state_amortization_ratio =
+        state_largest.sign_amortized_ns / state_per_write.sign_amortized_ns;
+    let state_amortization_ok = state_amortization_ratio < state_amortization_threshold;
+
+    println!("\n=== state-anchor acceptance ===");
+    println!("anchor count matches n/interval_writes exactly at every interval: {signing_count_matches_theory}");
+    println!(
+        "max staleness equals interval_writes-1 exactly at every interval: {staleness_bound_exact}"
+    );
+    println!("tamper detection 100% across all kinds and intervals: {all_state_tamper_detected}");
+    println!("O(1) anchor-verify cost stays within 2x across intervals (independent of n or W): {anchor_verify_flat}");
+    println!(
+        "amortized signing cost drops below {:.0}% of per-write (interval=1) cost by interval={}: {:.1}% -> {state_amortization_ok}",
+        state_amortization_threshold * 100.0,
+        state_largest.interval_writes,
+        state_amortization_ratio * 100.0
+    );
+
+    let state_verdict = if signing_count_matches_theory
+        && staleness_bound_exact
+        && all_state_tamper_detected
+        && anchor_verify_flat
+        && state_amortization_ok
+    {
+        "ACCEPT"
+    } else if signing_count_matches_theory && staleness_bound_exact && all_state_tamper_detected {
+        "INCONCLUSIVE"
+    } else {
+        "REJECT"
+    };
+    println!("\nSTATE-ANCHOR ACCEPTANCE RESULT: {state_verdict}");
+
+    // Descriptive-only: O(n) full write-chain re-derivation cost, so the
+    // O(1) anchor-verify numbers above are never read as a substitute for
+    // full-history integrity checking when that history is available.
+    println!("\n=== full write-chain re-derivation cost (verify_integrity), descriptive only, not gated ===");
+    let replay_sizes = [625u64, 1250, 2500, 5000, 10000];
+    let replay = run_full_replay_scaling(&replay_sizes);
+    println!("{:>10} {:>18}", "n", "verify_integrity_ns");
+    for (rn, ns) in &replay {
+        println!("{:>10} {:>18.0}", rn, ns);
+    }
+    let smallest = replay.first().unwrap();
+    let largest = replay.last().unwrap();
+    println!(
+        "\nscaling: {}x more writes ({} -> {}) costs {:.1}x more verify_integrity time ({:.0}ns -> {:.0}ns); O(1) anchor verify above stays ~{:.0}ns regardless of n or W",
+        largest.0 / smallest.0,
+        smallest.0,
+        largest.0,
+        largest.1 / smallest.1.max(1.0),
+        smallest.1,
+        largest.1,
+        state_stats.iter().map(|s| s.anchor_verify_mean_ns).sum::<f64>() / state_stats.len() as f64
+    );
 }
