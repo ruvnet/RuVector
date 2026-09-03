@@ -37,6 +37,7 @@ use axum::{
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 
+const DEFAULT_BASE_URL: &str = "http://127.0.0.1:3000";
 const AUTH_CODE_TTL_SECS: u64 = 300; // 5 minutes, single use
 const ACCESS_TOKEN_TTL_SECS: u64 = 60 * 60 * 24 * 30; // 30 days, matches BRAIN_TIMEOUT-adjacent envs elsewhere in this crate
 
@@ -110,9 +111,16 @@ pub async fn protected_resource_metadata() -> impl IntoResponse {
     }))
 }
 
+/// Public base URL this server is reachable at, used to build the RFC 8414
+/// metadata document and the OAuth endpoint URLs inside it.
+///
+/// Deployment-specific and therefore configuration, never a compiled-in
+/// default: an operator sets `BRAIN_PUBLIC_URL` to whatever hostname their
+/// clients actually reach. Falls back to loopback so a local `cargo run` works
+/// out of the box and so a misconfigured deployment fails visibly against
+/// itself rather than silently advertising someone else's host.
 fn brain_base_url() -> String {
-    std::env::var("BRAIN_PUBLIC_URL")
-        .unwrap_or_else(|_| "https://ubuntu1.tail6b157c.ts.net".to_string())
+    std::env::var("BRAIN_PUBLIC_URL").unwrap_or_else(|_| DEFAULT_BASE_URL.to_string())
 }
 
 // ── RFC 7591 — Dynamic Client Registration ──────────────────────────────
