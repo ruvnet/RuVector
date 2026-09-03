@@ -31,6 +31,9 @@ pub const SIGNED_ROOT_VERSION: u8 = 1;
 pub enum AnchorPurpose {
     Receipt = 1,
     Batch = 2,
+    /// A periodic, query-independent anchor of `index_state_root` itself.
+    /// See [`crate::state_anchor`].
+    StateAnchor = 3,
 }
 
 /// Caller known verification context. `scope_hash` should identify the
@@ -113,11 +116,19 @@ impl VerifiedRoot {
     }
 }
 
-/// Recoverable errors for invalid batch construction and proof requests.
+/// Recoverable errors for invalid batch construction, proof requests, and
+/// state-anchor policy construction.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AnchorError {
     EmptyBatch,
-    IndexOutOfBounds { index: usize, len: usize },
+    IndexOutOfBounds {
+        index: usize,
+        len: usize,
+    },
+    /// A [`crate::state_anchor::StateAnchorPolicy`] was constructed with a
+    /// zero anchoring interval, which would divide by zero when deciding
+    /// whether a given write count lands on an anchor boundary.
+    InvalidInterval,
 }
 
 impl fmt::Display for AnchorError {
@@ -127,6 +138,7 @@ impl fmt::Display for AnchorError {
             Self::IndexOutOfBounds { index, len } => {
                 write!(f, "batch index {index} is out of bounds for length {len}")
             }
+            Self::InvalidInterval => write!(f, "state anchor interval_writes must be at least 1"),
         }
     }
 }

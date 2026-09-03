@@ -43,10 +43,19 @@
 //! key to an organization remains the responsibility of an external key
 //! registry and revocation policy. See [`RetrievalReceipt::root`] and the
 //! `signing` module docs.
+//!
+//! # Independent state-root anchoring
+//!
+//! Signed receipt roots (above) authenticate what a *specific query*
+//! returned. [`state_anchor`] answers a decoupled question: has
+//! `index_state_root` itself ever been attested, independent of any query
+//! or receipt? See the module docs for the periodic-anchoring tradeoff this
+//! makes measurable.
 
 mod index;
 mod receipt;
 pub mod signing;
+pub mod state_anchor;
 
 pub use index::{synthetic_queries, ResultItem, RetrievalIndex};
 pub use receipt::{query_hash, MerkleReceipt, PerResultReceipt, ReceiptVariant};
@@ -54,6 +63,7 @@ pub use signing::{
     verify_root, AnchorContext, AnchorError, AnchorPurpose, BatchAnchor, Issuer, RootStatement,
     SignedRoot, VerifiedRoot, SIGNED_ROOT_VERSION,
 };
+pub use state_anchor::{verify_state_anchor, StateAnchor, StateAnchorLog, StateAnchorPolicy};
 
 /// A built receipt for one query's result set, in whichever variant was
 /// requested. Carries enough state to answer `proof_bytes_for` /
