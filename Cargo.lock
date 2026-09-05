@@ -9193,6 +9193,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-dab-search"
+version = "0.1.0"
+
+[[package]]
 name = "ruvector-dag"
 version = "2.3.0"
 dependencies = [
