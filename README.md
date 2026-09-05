@@ -356,6 +356,10 @@ The workspace requires Rust 1.77 or newer. RVF and PostgreSQL have separate buil
 
 Contributions are welcome. Start with the [contribution guide](./docs/development/CONTRIBUTING.md). New capability claims should include an implementation link and reproducible evidence.
 
+## Related
+
+[`ruvnet/LatentMesh`](https://github.com/ruvnet/LatentMesh) — a research prototype for causally-verified latent agent communication; ADR-005 names RuVector as the store for its raw→compressed→prototype→symbolic latent-memory continuum (design-stage, not yet wired to a live RuVector instance).
+
 ## License
 
 RuVector is available under the [MIT License](./LICENSE).
