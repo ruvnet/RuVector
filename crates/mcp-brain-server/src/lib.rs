@@ -14,6 +14,7 @@ pub mod gist;
 pub mod graph;
 pub mod midstream;
 pub mod notify;
+pub mod oauth;
 pub mod optimizer;
 pub mod pipeline;
 pub mod pubmed;
