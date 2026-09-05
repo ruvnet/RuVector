@@ -9020,6 +9020,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-coherence-pages"
+version = "0.1.0"
+
+[[package]]
 name = "ruvector-collections"
 version = "2.3.0"
 dependencies = [
