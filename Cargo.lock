@@ -9922,6 +9922,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-memory-self-repair"
+version = "2.3.0"
+dependencies = [
+ "rand 0.8.6",
+ "ruvector-coherence",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "ruvector-metrics"
 version = "2.3.0"
 dependencies = [

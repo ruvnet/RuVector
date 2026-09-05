@@ -329,6 +329,7 @@ members = [
     "crates/ruvector-cluster-rag",
     # S-T mincut namespace routing for multi-namespace search (ADR-299)
     "crates/ruvector-namespace-merge",
+    "crates/ruvector-memory-self-repair",
     # Semantic query-result reuse for repeated agent-memory queries (ADR-301)
     "crates/ruvector-query-cache",
     # Reservoir-sampled adaptive product quantization under drift (ADR-302)

@@ -1,0 +1,62 @@
+{
+  "config": "SimConfig { dim: 24, n_topics: 8, total_steps: 3000, semantic_k: 5, embedding_noise: 0.12, compaction_interval: 25, compaction_evict_count: 3, drift_interval: 60, drift_decay_factor: 0.15, drift_max_edges_per_wave: 40, seed: 7 }",
+  "seed": 7,
+  "total_steps": 3000,
+  "baseline": {
+    "variant": "NoRepair",
+    "final_alive_nodes": 2643,
+    "final_edge_count": 14796,
+    "mean_recall_at_10": 0.7447237740533794,
+    "recall_queries_counted": 537,
+    "monitor_calls": 0,
+    "alert_steps": 0,
+    "repairs_triggered": 0,
+    "cumulative_edges_added": 0,
+    "repair_edge_fraction_of_final_graph": 0.0,
+    "wall_time_ms": 217.127,
+    "witness_chain_valid": null,
+    "witness_receipt_count": 0
+  },
+  "monitor_only": {
+    "variant": "MonitorOnly",
+    "final_alive_nodes": 2643,
+    "final_edge_count": 14796,
+    "mean_recall_at_10": 0.7447237740533794,
+    "recall_queries_counted": 537,
+    "monitor_calls": 299,
+    "alert_steps": 298,
+    "repairs_triggered": 0,
+    "cumulative_edges_added": 0,
+    "repair_edge_fraction_of_final_graph": 0.0,
+    "wall_time_ms": 3034.11,
+    "witness_chain_valid": true,
+    "witness_receipt_count": 0
+  },
+  "spectral_repair": {
+    "variant": "SpectralRepair",
+    "final_alive_nodes": 2643,
+    "final_edge_count": 15181,
+    "mean_recall_at_10": 0.7385455680399465,
+    "recall_queries_counted": 534,
+    "monitor_calls": 299,
+    "alert_steps": 298,
+    "repairs_triggered": 279,
+    "cumulative_edges_added": 448,
+    "repair_edge_fraction_of_final_graph": 0.02951057242605889,
+    "wall_time_ms": 7224.952,
+    "witness_chain_valid": true,
+    "witness_receipt_count": 279
+  },
+  "detection": {
+    "true_drift_events": 49,
+    "detected_within_window": 49,
+    "detection_recall": 1.0,
+    "alerts_total": 298,
+    "alerts_within_window_of_any_drift": 147,
+    "alert_precision": 0.49328859060402686
+  },
+  "recall_uplift_pp": -0.6178206013432885,
+  "acceptance_threshold_pp": 10.0,
+  "max_repair_edge_fraction": 0.08,
+  "acceptance_result": "REJECT (recall uplift below acceptance threshold)"
+}

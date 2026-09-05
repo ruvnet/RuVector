@@ -1,0 +1,32 @@
+[package]
+name = "ruvector-memory-self-repair"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Spectral drift detection and witness-gated targeted repair for agent memory graphs in RuVector"
+readme = "README.md"
+keywords = ["agent-memory", "coherence", "spectral", "self-healing", "witness"]
+categories = ["algorithms", "data-structures"]
+
+[lib]
+name = "ruvector_memory_self_repair"
+path = "src/lib.rs"
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+ruvector-coherence = { path = "../ruvector-coherence", features = ["spectral"] }
+rand       = { workspace = true }
+serde      = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sha2       = "0.10"
+
+[dev-dependencies]
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", priority = -1 }
