@@ -9428,6 +9428,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-drift-detect"
+version = "2.3.0"
+dependencies = [
+ "rand 0.8.6",
+ "rand_distr 0.4.3",
+]
+
+[[package]]
 name = "ruvector-economy-wasm"
 version = "0.1.0"
 dependencies = [

@@ -61,6 +61,7 @@ members = [
     "crates/ruvector-context",
     "crates/ruvector-node",
     "crates/ruvector-wasm",
+    "crates/ruvector-drift-detect",
     "crates/ruvector-cli",
     "crates/ruvector-bench",
     "crates/ruvector-metrics",

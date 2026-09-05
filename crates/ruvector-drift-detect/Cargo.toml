@@ -1,0 +1,23 @@
+[package]
+name = "ruvector-drift-detect"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Semantic drift detection for vector indexes — three measured variants: GlobalStats, CentroidDrift, NeighborhoodRecall"
+readme = "README.md"
+keywords = ["vector-search", "drift-detection", "agent-memory", "ann", "embedding"]
+categories = ["algorithms", "data-structures"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+rand = { version = "0.8", features = ["small_rng"] }
+rand_distr = "0.4"
+
+[lints.rust]
+dead_code = "allow"
+unused_variables = "allow"
