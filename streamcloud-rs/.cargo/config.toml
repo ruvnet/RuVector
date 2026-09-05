@@ -1,0 +1,9 @@
+# The parent repo's .cargo/config.toml forces the crates.io *git* protocol,
+# which routes through github.com and is blocked in the sandboxed build env.
+# The sparse protocol uses index.crates.io, which is allow-listed. This nested
+# config takes precedence when cargo is invoked from within streamcloud-rs.
+[registries.crates-io]
+protocol = "sparse"
+
+[net]
+git-fetch-with-cli = true

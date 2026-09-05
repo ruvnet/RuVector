@@ -1,0 +1,22 @@
+[package]
+name = "streamcloud-io"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Frame I/O for StreamCloud: PNG export + streaming H.264/MP4 encoding"
+
+[features]
+default = ["mp4"]
+# H.264/MP4 export via openh264 (bundled C source, built with cc) + mp4 muxer.
+# Gated so the crate builds without a C toolchain when only PNG is needed.
+mp4 = ["dep:openh264", "dep:mp4"]
+
+[dependencies]
+anyhow.workspace = true
+thiserror.workspace = true
+image = { version = "0.25", default-features = false, features = ["png"] }
+openh264 = { version = "0.6", optional = true }
+mp4 = { version = "0.14", optional = true }

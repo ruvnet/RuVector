@@ -1,0 +1,20 @@
+[package]
+name = "streamcloud-pipeline"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Streaming reconstruction pipeline: wires streamcloud-model + streamcloud-memory + streamcloud-io"
+
+[dependencies]
+streamcloud-model = { path = "../streamcloud-model" }
+streamcloud-memory = { path = "../streamcloud-memory" }
+streamcloud-io = { path = "../streamcloud-io", default-features = false }
+anyhow.workspace = true
+thiserror.workspace = true
+
+[features]
+default = []
+mp4 = ["streamcloud-io/mp4"]

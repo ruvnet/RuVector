@@ -1,0 +1,25 @@
+[package]
+name = "streamcloud-tensor"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Model config + safetensors weight loading for StreamCloud"
+
+[features]
+# candle backend is gated so the foundation builds fast in CI; enable for real
+# tensor ops + weight tensors.
+default = []
+candle = ["dep:candle-core", "dep:candle-nn"]
+
+[dependencies]
+anyhow.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+safetensors.workspace = true
+half.workspace = true
+candle-core = { workspace = true, optional = true }
+candle-nn = { workspace = true, optional = true }

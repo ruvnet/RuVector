@@ -1,0 +1,46 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/streamcloud-memory",
+    "crates/streamcloud-tensor",
+    "crates/streamcloud-model",
+    "crates/streamcloud-io",
+    "crates/streamcloud-pipeline",
+    "crates/streamcloud-cli",
+    "crates/streamcloud-wasm",
+]
+
+# Crates added in later iterations (kept out of `members` until they exist so
+# `cargo build` always succeeds):
+#   crates/streamcloud-model     - Geometric Context Transformer (candle)
+#   crates/streamcloud-io        - frame streaming, PNG + MP4 export
+#   crates/streamcloud-pipeline  - streaming inference orchestration
+#   crates/streamcloud-cli       - native demo binary (wgpu point-cloud viewer)
+#   crates/streamcloud-wasm      - WebGPU/WASM demo bindings
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "Apache-2.0"
+authors = ["RuVector Team"]
+repository = "https://github.com/ruvnet/ruvector"
+description = "StreamCloud: streaming feed-forward 3D reconstruction (Rust port of LingBot-Map)"
+
+[workspace.dependencies]
+anyhow = "1.0"
+thiserror = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tracing = "0.1"
+
+# Memory layer: the real ruvector-core API (in-memory, lock-free HNSW).
+# default-features=false drops redb persistence + avx512 (nightly) for a
+# portable, fast-building streaming memory pool.
+ruvector-core = { path = "../crates/ruvector-core", default-features = false, features = ["hnsw", "parallel"] }
+
+# Tensor backend (pure-Rust). Pinned to the workspace-wide candle 0.9.
+candle-core = "0.9"
+candle-nn = "0.9"
+safetensors = "0.4"
+half = "2"
