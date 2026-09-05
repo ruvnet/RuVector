@@ -1,0 +1,62 @@
+{
+ "test": "cross-station confirmation of the 27.7s line",
+ "window": "1996-02 (up to 12 days/station)",
+ "source": "IRIS/EarthScope FDSN",
+ "conclusion": "The 27.7s line is confirmed on an independent network (G.SSB, France) at the same frequency as GT.DBIC, ruling out a DBIC instrument artifact. Distant stations (ASCN, TAM) and the far control (ANMO) show only a marginal ~26.6s feature (~1.2x) that the control also shows, so no separate line is claimed from this short window.",
+ "dbic_freqHz": 0.03601,
+ "ssb_freqHz": 0.03613,
+ "freq_agreement_Hz": 0.00012,
+ "artifact_ruled_out": true,
+ "stations": [
+  {
+   "station": "DBIC",
+   "tag": "DBIC (source-proximal, Cote dIvoire)",
+   "days": 12,
+   "peakHz": 0.03601,
+   "peakS": 27.77,
+   "prominence": 2.07,
+   "prom_at_27_7s": 2.07,
+   "matches_dbic_line": true
+  },
+  {
+   "station": "ASCN",
+   "tag": "ASCN (Ascension I., S Atlantic, ~SW)",
+   "days": 12,
+   "peakHz": 0.0376,
+   "peakS": 26.6,
+   "prominence": 1.19,
+   "prom_at_27_7s": 1.04,
+   "matches_dbic_line": false
+  },
+  {
+   "station": "TAM",
+   "tag": "TAM (Tamanrasset, Sahara, ~N)",
+   "days": 12,
+   "peakHz": 0.03833,
+   "peakS": 26.09,
+   "prominence": 1.49,
+   "prom_at_27_7s": 1.23,
+   "matches_dbic_line": false
+  },
+  {
+   "station": "SSB",
+   "tag": "SSB (France, far N)",
+   "days": 10.8,
+   "peakHz": 0.03613,
+   "peakS": 27.68,
+   "prominence": 1.24,
+   "prom_at_27_7s": 0.91,
+   "matches_dbic_line": true
+  },
+  {
+   "station": "ANMO",
+   "tag": "ANMO (New Mexico, far control)",
+   "days": 12,
+   "peakHz": 0.0376,
+   "peakS": 26.6,
+   "prominence": 1.21,
+   "prom_at_27_7s": 1,
+   "matches_dbic_line": false
+  }
+ ]
+}

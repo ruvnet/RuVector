@@ -1,0 +1,81 @@
+{
+ "test": "search for the Bruland & Hadziioannou (2023) gliding tremors",
+ "record": "GT.DBIC 1995-01 (12d continuous) for the spectrogram; June-1996 3-comp for the coherence test",
+ "search_band_Hz": [
+  0.04,
+  0.095
+ ],
+ "naive_detector": {
+  "columns": 287,
+  "candidate_glides": 15,
+  "examples": [
+   {
+    "tStartH": 2,
+    "tEndH": 7,
+    "fStartHz": 0.0527,
+    "fEndHz": 0.0762,
+    "riseHz": 0.0234,
+    "durationH": 5
+   },
+   {
+    "tStartH": 20,
+    "tEndH": 24,
+    "fStartHz": 0.0596,
+    "fEndHz": 0.0664,
+    "riseHz": 0.0068,
+    "durationH": 4
+   },
+   {
+    "tStartH": 30,
+    "tEndH": 38,
+    "fStartHz": 0.0469,
+    "fEndHz": 0.0664,
+    "riseHz": 0.0195,
+    "durationH": 8
+   },
+   {
+    "tStartH": 40,
+    "tEndH": 46,
+    "fStartHz": 0.0537,
+    "fEndHz": 0.0664,
+    "riseHz": 0.0127,
+    "durationH": 6
+   },
+   {
+    "tStartH": 47,
+    "tEndH": 53,
+    "fStartHz": 0.0625,
+    "fEndHz": 0.0928,
+    "riseHz": 0.0303,
+    "durationH": 6
+   },
+   {
+    "tStartH": 62,
+    "tEndH": 68,
+    "fStartHz": 0.0449,
+    "fEndHz": 0.0713,
+    "riseHz": 0.0264,
+    "durationH": 6
+   }
+  ],
+  "dominant_feature": {
+   "periodS": 16.1,
+   "Q": 3.7,
+   "note": "low Q => BROAD => secondary microseism, not a narrow tremor line"
+  }
+ },
+ "contradiction_test_ADR004": {
+  "method": "a true tremor of the 26s source must share the fundamental back-azimuth (~95deg, Gulf of Guinea); the secondary microseism band does not",
+  "fundamental_band": {
+   "backAzimuth": 95,
+   "R": 0.76
+  },
+  "candidate_band": {
+   "backAzimuth": 269,
+   "R": 0.17
+  },
+  "confirmed": false,
+  "reason": "candidate band is not source-coherent (R=0.17 < 0.5) — consistent with the broad secondary microseism, not a fixed source"
+ },
+ "conclusion": "The naive spectrogram finds 15 apparent upward-gliding episodes, but the dominant 0.04-0.095 Hz feature is BROAD (Q~3.7, secondary microseism) and that band is NOT source-coherent (R 0.17) and arrives ~174deg from the fundamental. The candidates are therefore REJECTED as secondary-microseism frequency wander, not gliding tremors of the Gulf-of-Guinea source. Isolating the true gliding tremors needs array/beamforming methods (as in B&H 2023); single-station raw-count spectral analysis cannot separate them. Honest null."
+}

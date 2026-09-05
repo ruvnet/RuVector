@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "principle": "freeze-the-physics-evolve-the-harness",
+  "evolvable_surfaces": [
+    { "id": "feature_extractor", "file": "src/extract-features.ts", "why": "spectral windows, sub-band power, glide detection" },
+    { "id": "detector", "file": "src/detect-26s.ts", "why": "spectral band, coherence threshold, beamforming params" },
+    { "id": "embedding_schema", "file": "src/embed-events.ts", "why": "waveform/environment/source vector design and weighting" },
+    { "id": "retrieval", "file": "src/embed-events.ts", "why": "nearest-neighbor strategy: region + spectral similarity, k" },
+    { "id": "hypothesis_scorer", "file": "src/score-hypotheses.ts", "why": "discovery-score weights and ranking" },
+    { "id": "validator", "file": "src/validate.ts", "why": "holdout strategy, contradiction detector, promotion gate thresholds" }
+  ],
+  "forbidden_mutations": [
+    "fabricating or altering seismic, ocean, tide, or bathymetry observations",
+    "inventing citations or papers, or editing data/papers/* provenance",
+    "leaking test-window labels into training windows",
+    "promoting a hypothesis or claim without beating its baseline",
+    "adding new imports, network, filesystem, shell, env access, or dependencies",
+    "weakening the promotion gate to make a child pass"
+  ],
+  "mutator": {
+    "default": "deterministic",
+    "air_gapped": true,
+    "requires_api_key": false,
+    "validate_generated_code_gate": true
+  },
+  "sandbox": {
+    "mode": "real",
+    "promote_only_on_measured_improvement": true,
+    "guard_against_goodharting": true
+  }
+}

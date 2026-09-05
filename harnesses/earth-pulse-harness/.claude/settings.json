@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx earth-pulse-harness*)",
+      "mcp__earth-pulse-harness__*",
+      "mcp__code_index__*",
+      "Bash(npm test*)",
+      "Bash(npm run*)",
+      "Bash(git diff*)",
+      "Bash(git status*)",
+      "Bash(git log*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Bash(git push*)",
+      "Bash(rm -rf*)",
+      "Write(./data/**)"
+    ]
+  },
+  "mcpServers": {
+    "earth-pulse-harness": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "earth-pulse-harness@latest",
+        "mcp",
+        "start"
+      ]
+    },
+    "code_index": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "earth-pulse-harness@latest",
+        "mcp",
+        "index"
+      ]
+    }
+  }
+}

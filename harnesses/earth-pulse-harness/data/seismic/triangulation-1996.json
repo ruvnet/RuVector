@@ -1,0 +1,57 @@
+{
+ "test": "multi-station triangulation attempt for the 27.7s source",
+ "window": "1996 (June for DBIC; multi-day per station)",
+ "band_Hz": [
+  0.035,
+  0.0372
+ ],
+ "bearings": [
+  {
+   "name": "DBIC",
+   "lat": 6.67016,
+   "lon": -4.85656,
+   "backAzimuth": 101.2,
+   "R": 0.763,
+   "expected_to_source": 111,
+   "tracks_27_7s_source": true
+  },
+  {
+   "name": "TAM",
+   "lat": 22.79149,
+   "lon": 5.52838,
+   "backAzimuth": 233.5,
+   "R": 0.472,
+   "expected_to_source": 176,
+   "tracks_27_7s_source": false
+  },
+  {
+   "name": "ASCN",
+   "lat": -7.9327,
+   "lon": -14.3601,
+   "backAzimuth": 17.8,
+   "R": 0.416,
+   "expected_to_source": 66,
+   "tracks_27_7s_source": false
+  },
+  {
+   "name": "LBTB",
+   "lat": -25.0151,
+   "lon": 25.5966,
+   "backAzimuth": 144.6,
+   "R": 0.132,
+   "expected_to_source": 324,
+   "tracks_27_7s_source": false
+  },
+  {
+   "name": "SSB",
+   "lat": 45.279,
+   "lon": 4.542,
+   "backAzimuth": 315.8,
+   "R": 0.393,
+   "expected_to_source": 176,
+   "tracks_27_7s_source": false
+  }
+ ],
+ "conclusion": "Only the source-proximal GT.DBIC cleanly polarizes the 27.7 s line (R 0.76, baz ~100deg toward the Gulf of Guinea). At distant stations the long-period band is dominated by OTHER sources (TAM/ASCN peak near 26.1-26.6s; SSB polarization points NW/N to North Atlantic sources) with low concentration R and bearings that do not point at the Gulf of Guinea. A tight point-triangulation is therefore not achievable with the sparse 1996-era 3-component network; the source DIRECTION from DBIC is the robust constraint.",
+ "takeaway": "The 27.7 s line is regionally concentrated near its source; it is not a globally-dominant, cleanly-polarized teleseismic arrival — consistent with the multi-line long-period microseism picture."
+}

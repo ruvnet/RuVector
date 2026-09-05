@@ -1,0 +1,28 @@
+{
+  "name": "earth-pulse-causality-harness",
+  "description": "Evolve the investigation workflow for the 26-second microseism. Freeze the physics; evolve the harness.",
+  "maximize": [
+    "pulse_detection_f1",
+    "source_localization_stability",
+    "out_of_sample_amplitude_prediction",
+    "hypothesis_explanation_score"
+  ],
+  "minimize": [
+    "false_positive_rate",
+    "feature_cost_ms",
+    "data_leakage_risk",
+    "unexplained_variance"
+  ],
+  "promotion_gate": {
+    "pulse_detection_f1_delta_min": 0.03,
+    "false_positive_rate_delta_max": 0.0,
+    "held_out_prediction_error_improvement_min": 0.05,
+    "require_citation_grounding": true,
+    "require_no_test_window_leakage": true
+  },
+  "first_benchmark": {
+    "question": "Can the system predict the amplitude of the 26s pulse from ocean-state variables?",
+    "baseline": "seasonal_monthly_average_amplitude",
+    "acceptance": "beat seasonal baseline by >= 10% on held-out months"
+  }
+}

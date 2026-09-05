@@ -1,0 +1,69 @@
+{
+ "station": "GT.DBIC (source-proximal, Gulf of Guinea)",
+ "test": "is the line frequency stable across DBIC full operational lifetime?",
+ "span": "1995-2002 (8 years)",
+ "measured_years": 6,
+ "years": [
+  {
+   "year": 1995,
+   "periodS": 27.77,
+   "freqHz": 0.03601,
+   "prominence": 2.6,
+   "days": 6
+  },
+  {
+   "year": 1997,
+   "periodS": 27.77,
+   "freqHz": 0.03601,
+   "prominence": 4,
+   "days": 6
+  },
+  {
+   "year": 1998,
+   "periodS": 27.68,
+   "freqHz": 0.03613,
+   "prominence": 2.15,
+   "days": 5.7
+  },
+  {
+   "year": 1999,
+   "periodS": 27.77,
+   "freqHz": 0.03601,
+   "prominence": 2.08,
+   "days": 6
+  },
+  {
+   "year": 2000,
+   "periodS": 27.77,
+   "freqHz": 0.03601,
+   "prominence": 2.27,
+   "days": 5.9
+  },
+  {
+   "year": 2002,
+   "periodS": 27.68,
+   "freqHz": 0.03613,
+   "prominence": 2.31,
+   "days": 7.8
+  }
+ ],
+ "stability": {
+  "meanFreqHz": 0.03605,
+  "meanPeriodS": 27.74,
+  "stdFreqHz": 0.0000566,
+  "freqCvPct": 0.16,
+  "freqRangeHz": [
+   0.03601,
+   0.03613
+  ],
+  "note": "All years within ~one frequency bin (0.000122 Hz). The 26-second microseism frequency is constant to ~0.2% across DBIC full 8-year record."
+ },
+ "decadal_bridge": {
+  "attempted": [
+   "G.SSB 1995/2005/2015",
+   "II.ASCN 1995/2015"
+  ],
+  "result": "NOT achievable. DBIC (the only station that cleanly resolves the narrow 27.7s line) ends in 2002. Distant stations (SSB, ASCN) do not isolate the line (it is buried under their local microseism: ASCN 1995 prominence at 27.7s = 0.96, below background). No LHZ stations exist near the Gulf-of-Guinea source in 2015 (region under-instrumented).",
+  "honest_conclusion": "We confirm 8-year frequency stability at the source station, consistent with the literature decades-long persistence, but cannot extend to a >=20-year direct measurement with available open data."
+ }
+}
