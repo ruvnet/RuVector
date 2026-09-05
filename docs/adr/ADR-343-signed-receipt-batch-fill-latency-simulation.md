@@ -1,4 +1,4 @@
-# ADR-341: Signed-Receipt Batch-Fill Latency — A Bounded Alternative to Fixed-Size-Only Batching
+# ADR-343: Signed-Receipt Batch-Fill Latency — A Bounded Alternative to Fixed-Size-Only Batching
 
 ## Status
 

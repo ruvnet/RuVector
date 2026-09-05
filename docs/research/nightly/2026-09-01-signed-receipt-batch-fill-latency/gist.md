@@ -162,6 +162,6 @@ rather than claimed as already answered.
 ## References
 
 - ADR-340: Signed Retrieval-Receipt Anchoring (this repository).
-- ADR-341: Signed-Receipt Batch-Fill Latency (this run).
+- ADR-343: Signed-Receipt Batch-Fill Latency (this run).
 - 2026-08-31 nightly research report, whose "Next Research" item 1 is
   this experiment's direct origin.

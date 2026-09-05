@@ -10,7 +10,7 @@ Limitation that its benchmark assumed a batch was already fully assembled
 in memory — real batch-fill wait time was unmeasured. This run implements
 the direct follow-up its own "Next Research" section named: a batch-fill
 scheduling policy with a bounded fill-timeout (`BatchFillPolicy::hybrid`,
-ADR-341), and a discrete-event simulation that drives real query
+ADR-343), and a discrete-event simulation that drives real query
 arrivals — Poisson and bursty — through real signing operations to
 produce a genuine, measured end-to-end receipt-availability latency
 number, not a CPU-only proxy for one.
@@ -60,7 +60,7 @@ signing cost at the target-load regime staying within 2x of fixed-size-
 only's amortized cost at that same regime.
 ```
 
-Acceptance thresholds, fixed before this run (see ADR-341):
+Acceptance thresholds, fixed before this run (see ADR-343):
 
 1. 100% of closed batches verify, every regime and policy.
 2. Hybrid p99 latency ≤ 70ms at all three regimes.
@@ -133,7 +133,7 @@ its own Next Research items for whichever future run picks this back up.
 
 ## Why Darwin Matters
 
-Not run this cycle (see Darwin Evolution below) — the ADR-341 batch-fill
+Not run this cycle (see Darwin Evolution below) — the ADR-343 batch-fill
 scheduling policy is fixed-parameter (`max_wait_ns = 50ms`) and could be a
 legitimate future Darwin target: evolving `max_wait_ns` against a fitness
 function trading off amortization and tail latency across load regimes.
@@ -216,7 +216,7 @@ flowchart TD
         MR["MerkleReceipt::build\n-> root"]
     end
 
-    subgraph Scheduler["BatchScheduler (ADR-341, pure logic)"]
+    subgraph Scheduler["BatchScheduler (ADR-343, pure logic)"]
         AR["arrive(query_index, t)"]
         TO{"size reached\nOR timeout elapsed?"}
         CL["close_on_timeout() / arrive() returns Some"]
@@ -370,12 +370,12 @@ BATCH-FILL LATENCY ACCEPTANCE RESULT: ACCEPT
   arrival-rate arithmetic, a sanity check against a modeling bug.
 - Real signing cost (~0.9–6.1 μs/query amortized, all regimes) remains
   3+ orders of magnitude below every tested fill window (32ms–640ms
-  mean), confirming the single-serialized-signer assumption (ADR-341
+  mean), confirming the single-serialized-signer assumption (ADR-343
   Threat Model) held throughout this run's tested regimes.
 
 ## Failure Modes
 
-See ADR-341's Failure Modes section for the full list (signer-becomes-
+See ADR-343's Failure Modes section for the full list (signer-becomes-
 bottleneck at untested extreme rates, timeout mis-tuned too small/large,
 simulation-boundary flush). The one this run's own evidence makes
 concrete: **fixed-size-only batching is not just slower under light
@@ -386,7 +386,7 @@ fills waits forever, by construction).
 
 ## Rejected Alternatives
 
-See ADR-341's Alternatives Considered: an analytical queueing model
+See ADR-343's Alternatives Considered: an analytical queueing model
 (rejected as more effort than the simulation for no accuracy gain at this
 stage — a legitimate future cross-check, not implemented), an adaptive
 batch-size policy (rejected as out of scope for one nightly cycle), and
@@ -410,7 +410,7 @@ signing a batch proves.
 Experimental, matching ADR-304's and ADR-340's posture. `BatchFillPolicy::
 hybrid`'s `max_wait_ns` is a deployment-specific tuning parameter this
 run measured at one value (50ms) against synthetic traffic; production
-adoption requires evidence against real traffic, per ADR-341's Rejection
+adoption requires evidence against real traffic, per ADR-343's Rejection
 Criteria.
 
 ## MCP Implications
@@ -607,7 +607,7 @@ review of the fitness function.
 **Not promoted to any default code path** — matching ADR-304's and
 ADR-340's experimental posture. `batch_fill` and `batch_latency` are
 merged as an additive, tested, benchmarked crate extension available for
-a deployment to opt into, with the explicit gates in ADR-341's Rejection
+a deployment to opt into, with the explicit gates in ADR-343's Rejection
 Criteria left as open conditions for a future promotion decision (real
 traffic evidence, signer-throughput validation at higher rates).
 
@@ -636,7 +636,7 @@ traffic evidence, signer-throughput validation at higher rates).
    the Poisson/bursty generators) to derive a deployment-appropriate
    `max_wait_ns`.
 3. Validate the single-serialized-signer assumption holds at the
-   deployment's actual peak arrival rate (Open Question 3, ADR-341).
+   deployment's actual peak arrival rate (Open Question 3, ADR-343).
 4. Wire `BatchFillPolicy::hybrid` behind a feature flag in whatever
    service layer currently calls `Issuer::sign_root`/`BatchAnchor::build`
    directly (none does yet — ADR-340 remains unwired into any default
@@ -660,7 +660,7 @@ evidence.
 
 ## Limitations
 
-- **Single-serialized-signer assumption** (see ADR-341 Threat Model): not
+- **Single-serialized-signer assumption** (see ADR-343 Threat Model): not
   tested at arrival rates where signing itself would queue.
 - **Synthetic Poisson/bursty traffic**, not measured production traffic —
   the specific `max_wait_ns = 50ms` value is not a recommended default,
@@ -685,7 +685,7 @@ evidence.
    raising simulated arrival rate until real signing cost becomes
    comparable to the fill-timeout, per Open Question 3.
 3. Implement and benchmark an adaptive batch-size policy (Alternatives
-   Considered in ADR-341) against this run's fixed-hybrid baseline.
+   Considered in ADR-343) against this run's fixed-hybrid baseline.
 4. Evaluate BLS aggregate signatures (ADR-340's Next Research item 2,
    still open) against this run's batch-fill-latency methodology
    specifically — does aggregation eliminate the fill-timeout tradeoff
@@ -700,8 +700,8 @@ evidence.
   `index.rs` (unmodified).
 - ADR-304 (`docs/adr/ADR-304-retrieval-receipts.md`), ADR-340
   (`docs/adr/ADR-340-signed-retrieval-receipt-anchoring.md`), and this
-  run's ADR-341
-  (`docs/adr/ADR-341-signed-receipt-batch-fill-latency-simulation.md`).
+  run's ADR-343
+  (`docs/adr/ADR-343-signed-receipt-batch-fill-latency-simulation.md`).
 - 2026-08-31 nightly research README
   (`docs/research/nightly/2026-08-31-signed-retrieval-receipts/README.md`),
   whose Next Research item 1 is this run's direct origin.
