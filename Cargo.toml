@@ -17,6 +17,9 @@ exclude = ["external/ruqu", "external/rvdna", "examples/OSpipe", "examples/rvf",
     # stays opt-in (only `cargo build --features hailo,cpu-fallback`
     # pulls libhailort + candle), so workspace builds on stock x86
     # still compile without Pi-specific tooling.
+    # rvlite: WASM-only cdylib depending on web-sys/wasm-bindgen; not buildable
+    # in stock non-WASM CI environments. Build explicitly with wasm-pack.
+    "crates/rvlite",
     # ruos-thermal: Pi 5 thermal supervisor skeleton (ADR-174). Standalone
     # for now; joins workspace once daemon mode + Unix socket protocol
     # land in iters 92-97.
@@ -52,6 +55,7 @@ members = [
     "crates/ruvector-acorn",
     "crates/ruvector-acorn-wasm",
     "crates/ruvector-coherence-hnsw",
+    "crates/ruvector-anytime-ann",
     "crates/ruvector-rabitq",
     "crates/ruvector-rabitq-wasm",
     "crates/ruvector-turbovec",
@@ -120,7 +124,6 @@ members = [
     "examples/google-cloud",
     "examples/subpolynomial-time",
     "crates/sona",
-    "crates/rvlite",
     "crates/ruvector-nervous-system",
     "crates/ruvector-dag",
     "crates/ruvector-dag-wasm",
@@ -134,7 +137,6 @@ members = [
     "crates/ruvector-sparse-inference",
     "crates/ruvector-math",
     "crates/ruvector-math-wasm",
-    "examples/benchmarks",
     "crates/cognitum-gate-kernel",
     "crates/cognitum-gate-tilezero",
     "crates/mcp-gate",
@@ -143,7 +145,6 @@ members = [
     # rules, trust ladder, revocation, Merkle transparency log (ADR-294).
     "crates/rvforge-registry",
     "crates/mcp-brain",
-    "crates/mcp-brain-server",
     "crates/ruvllm",
     "crates/ruvllm-cli",
     "crates/ruvllm-wasm",
