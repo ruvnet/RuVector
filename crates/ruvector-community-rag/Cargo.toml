@@ -1,0 +1,24 @@
+[workspace]
+resolver = "2"
+members = ["."]
+
+[package]
+name = "ruvector-community-rag"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ruvnet/ruvector"
+description = "MinCut-partitioned community graph-RAG for coherent agent memory retrieval — FlatScan, GraphHop, CommunityRAG variants in safe Rust"
+readme = "README.md"
+keywords = ["vector-search", "graph-rag", "community-detection", "agent-memory", "ann"]
+categories = ["algorithms", "data-structures", "science"]
+
+[[bin]]
+name = "community-rag-benchmark"
+path = "src/main.rs"
+
+[dependencies]
+
+[lints.rust]
+dead_code = "allow"
+unused_variables = "allow"
