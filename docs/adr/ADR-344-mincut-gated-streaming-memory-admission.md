@@ -1,4 +1,4 @@
-# ADR-341: Global-Min-Cut Gated Streaming Memory Admission
+# ADR-344: Global-Min-Cut Gated Streaming Memory Admission
 
 ## Status
 

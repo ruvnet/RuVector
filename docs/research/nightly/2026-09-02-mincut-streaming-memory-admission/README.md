@@ -5,7 +5,7 @@
 **Date**: 2026-09-02
 **Crate**: `ruvector-memory-admission` (`crates/ruvector-memory-admission`)
 **Status**: PoC complete — **primary hypothesis (candidate A) ACCEPTED**; **secondary hypothesis (candidate B, self-calibration) REJECTED**
-**ADR**: [ADR-341](../../../adr/ADR-341-mincut-gated-streaming-memory-admission.md)
+**ADR**: [ADR-344](../../../adr/ADR-344-mincut-gated-streaming-memory-admission.md)
 **Related crates**: `ruvector-namespace-merge` (ADR-299), `ruvector-agent-memory`, `ruvector-mincut`, `ruvector-coherence`, `sona`
 
 ---

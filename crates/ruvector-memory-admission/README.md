@@ -35,5 +35,5 @@ cargo run --release -p ruvector-memory-admission --bin benchmark
 
 See `docs/research/nightly/2026-09-02-mincut-streaming-memory-admission/README.md`
 for the full hypothesis, methodology, and measured results, and
-`docs/adr/ADR-341-mincut-gated-streaming-memory-admission.md` for the
+`docs/adr/ADR-344-mincut-gated-streaming-memory-admission.md` for the
 architecture decision record.

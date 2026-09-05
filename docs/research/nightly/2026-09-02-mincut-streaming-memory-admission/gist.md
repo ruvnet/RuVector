@@ -165,4 +165,4 @@ enough on its own.
 
 Full methodology, benchmark hygiene notes, and the complete raw evidence
 trail: `docs/research/nightly/2026-09-02-mincut-streaming-memory-admission/README.md`.
-ADR: `docs/adr/ADR-341-mincut-gated-streaming-memory-admission.md`.
+ADR: `docs/adr/ADR-344-mincut-gated-streaming-memory-admission.md`.
