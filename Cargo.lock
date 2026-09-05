@@ -9020,6 +9020,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-cohomology"
+version = "0.1.0"
+dependencies = [
+ "ruvector-mincut 2.2.3",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ruvector-collections"
 version = "2.3.0"
 dependencies = [
