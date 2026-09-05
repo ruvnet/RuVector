@@ -10829,6 +10829,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-witnessed-evolution"
+version = "2.3.0"
+dependencies = [
+ "rand 0.8.6",
+ "ruvector-coherence-hnsw",
+ "ruvector-proof-gate",
+]
+
+[[package]]
 name = "ruvix-aarch64"
 version = "0.1.0"
 dependencies = [
