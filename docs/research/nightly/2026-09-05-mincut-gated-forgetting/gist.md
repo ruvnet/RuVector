@@ -160,7 +160,7 @@ in example scripts.
 - `docs/research/nightly/2026-09-05-mincut-gated-forgetting/README.md` — full
   methodology, complete raw output, and the "why RuVector" ecosystem
   analysis.
-- `docs/adr/ADR-341-mincut-gated-forgetting.md` — the architectural decision
+- `docs/adr/ADR-345-mincut-gated-forgetting.md` — the architectural decision
   record.
 - `docs/research/nightly/2026-06-14-agent-memory-compaction/README.md` — the
   original scalar-scoring baseline this work measured against.

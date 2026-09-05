@@ -1,5 +1,5 @@
 //! Witnessed compaction: certify every evicted entry with a chained
-//! [`LedgerWitnessRecord`] (ADR-341, PIR nightly 2026-09-05).
+//! [`LedgerWitnessRecord`] (ADR-345, PIR nightly 2026-09-05).
 //!
 //! [`crate::compaction`] and [`crate::ledger`] cover the two ends of a
 //! memory's lifecycle — proof-gated *admission* (`ledger::TransactionalLedger`)

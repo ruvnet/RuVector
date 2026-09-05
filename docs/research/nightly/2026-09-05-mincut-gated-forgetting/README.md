@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-05
 **Slug:** `mincut-gated-forgetting`
-**ADR:** [ADR-341](../../adr/ADR-341-mincut-gated-forgetting.md)
+**ADR:** [ADR-345](../../../adr/ADR-345-mincut-gated-forgetting.md)
 **Crate:** `ruvector-agent-memory` (`graph_forget` module, `mincut-forget` feature)
 **Acceptance:** **REJECT** (for production use as designed) — see [Acceptance](#acceptance-result)
 

@@ -1,4 +1,4 @@
-//! Nightly research benchmark (2026-09-05, ADR-341): mincut-gated forgetting.
+//! Nightly research benchmark (2026-09-05, ADR-345): mincut-gated forgetting.
 //!
 //! Hypothesis (fixed before this exact run of the benchmark; see
 //! docs/research/nightly/2026-09-05-mincut-gated-forgetting/README.md,
@@ -291,7 +291,7 @@ fn run_tamper_trials(seed: u64) -> (usize, usize) {
 fn main() {
     let seed: u64 = 341;
     println!("╔══════════════════════════════════════════════════════════════════╗");
-    println!("║  ruvector-agent-memory — Mincut-Gated Forgetting (ADR-341)        ║");
+    println!("║  ruvector-agent-memory — Mincut-Gated Forgetting (ADR-345)        ║");
     println!("╚══════════════════════════════════════════════════════════════════╝\n");
 
     println!("Platform  : {}", std::env::consts::OS);

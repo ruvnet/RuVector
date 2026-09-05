@@ -203,7 +203,7 @@ pub mod action_kind {
     pub const LEDGER_ACCEPT: u8 = 0xA5;
     /// Poisoning-containment demotion of a dependent entry.
     pub const LEDGER_DEPENDENT_DEMOTION: u8 = 0xA6;
-    /// A compaction pass evicted an entry (ADR-341 mincut-gated forgetting;
+    /// A compaction pass evicted an entry (ADR-345 mincut-gated forgetting;
     /// also applies to plain [`crate::compaction`] policies via
     /// [`crate::witnessed_compaction::compact_witnessed`]).
     pub const LEDGER_COMPACT_EVICT: u8 = 0xA7;

@@ -1,4 +1,4 @@
-# ADR-341: Mincut-Gated Forgetting — Structural Eviction Signal and Eviction Witnesses for Agent Memory
+# ADR-345: Mincut-Gated Forgetting — Structural Eviction Signal and Eviction Witnesses for Agent Memory
 
 ## Status
 

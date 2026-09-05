@@ -1,5 +1,5 @@
 //! Mincut-gated forgetting: a structural signal for agent-memory compaction
-//! (ADR-341, docs/research/nightly/2026-09-05-mincut-gated-forgetting).
+//! (ADR-345, docs/research/nightly/2026-09-05-mincut-gated-forgetting).
 //!
 //! [`crate::compaction::CoherencePolicy`] scores every memory *independently*:
 //! `I = alpha*recency + beta*frequency + gamma*coherence`. It has no notion of

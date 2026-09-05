@@ -25,7 +25,7 @@ rvf-types = { version = "0.2", path = "../rvf/rvf-types", features = ["ed25519"]
 # Existing ADR-194/047 proof-gated write machinery; adapts to the ledger's
 # ProofGate trait behind the `proof-gate` feature (see src/ledger.rs).
 ruvector-proof-gate = { path = "../ruvector-proof-gate", optional = true }
-# ADR-341 (PIR nightly 2026-09-05): reuse the crate's own subpolynomial
+# ADR-345 (PIR nightly 2026-09-05): reuse the crate's own subpolynomial
 # dynamic min-cut / vector-graph integration layer (`RuVectorGraphAnalyzer`)
 # for the `graph_forget` mincut-gated forgetting policy, instead of
 # reimplementing graph partitioning here.
