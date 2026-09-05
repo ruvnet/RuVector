@@ -10799,6 +10799,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-wal-ann"
+version = "2.3.0"
+dependencies = [
+ "rand 0.8.6",
+ "rand_distr 0.4.3",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ruvector-wasm"
 version = "2.3.0"
 dependencies = [
