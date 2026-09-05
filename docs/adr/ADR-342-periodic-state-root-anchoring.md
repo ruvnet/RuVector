@@ -1,4 +1,4 @@
-# ADR-341: Independent, Periodic `index_state_root` Anchoring
+# ADR-342: Independent, Periodic `index_state_root` Anchoring
 
 ## Status
 

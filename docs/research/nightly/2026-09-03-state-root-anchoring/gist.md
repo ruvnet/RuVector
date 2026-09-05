@@ -135,7 +135,7 @@ capability, a real, now-measured tradeoff a deployment can choose.
 ## RuVector Ecosystem Implications
 
 This is the fourth run in an unbroken thread: ADR-304 (unsigned receipts)
-→ ADR-340 (signed receipt roots) → this run, ADR-341 (independent periodic
+→ ADR-340 (signed receipt roots) → this run, ADR-342 (independent periodic
 state anchoring) — each nightly run finishing the previous one's named
 open question rather than starting a new island. It connects
 `ruvector-proof-gate` (the anchored root's source), `ruvector-retrieval-
@@ -162,7 +162,7 @@ mechanism this run built is exactly what such a workflow would call.
 - `crates/ruvector-retrieval-receipt/src/state_anchor.rs` (this repo, new).
 - ADR-304 (`docs/adr/ADR-304-retrieval-receipts.md`).
 - ADR-340 (`docs/adr/ADR-340-signed-retrieval-receipt-anchoring.md`).
-- ADR-341 (`docs/adr/ADR-341-periodic-state-root-anchoring.md`), this
+- ADR-342 (`docs/adr/ADR-342-periodic-state-root-anchoring.md`), this
   run's full design record.
 - Full research README and raw benchmark output:
   `docs/research/nightly/2026-09-03-state-root-anchoring/`.

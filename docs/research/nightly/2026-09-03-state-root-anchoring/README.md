@@ -10,7 +10,7 @@ tied to a specific query. An auditor with no receipt in hand has to replay
 the entire write-chain history — O(n) — to confirm the index was ever in a
 given state. This run implements and benchmarks the named fix: independent,
 periodic signing of `index_state_root` itself
-(`ruvector-retrieval-receipt::state_anchor`, ADR-341), reusing ADR-340's
+(`ruvector-retrieval-receipt::state_anchor`, ADR-342), reusing ADR-340's
 signing machinery unchanged via a third `AnchorPurpose`. It measures the
 exact signing-cost/staleness tradeoff a deployment faces when choosing an
 anchoring interval, and — honestly — how much cheaper the resulting O(1)
@@ -49,7 +49,7 @@ Acceptance thresholds, fixed before this run (identical structure to the
 5. Amortized signing cost at `W=512` < 10% of the `W=1` cost.
 
 Full formal statement, evidence, and verdict: `ACCEPT` in all 3 runs — see
-ADR-341 and Benchmark Results below.
+ADR-342 and Benchmark Results below.
 
 ## Why This Matters for RuVector
 
@@ -89,7 +89,7 @@ flowchart TD
         RR -->|Ed25519 sign, per query or batched| SA["signed receipt root\nAnchorPurpose::Receipt / Batch"]
     end
 
-    subgraph NewB["ADR-341 (this run): periodic, query-independent"]
+    subgraph NewB["ADR-342 (this run): periodic, query-independent"]
         R -->|"observe_write() every write"| L["StateAnchorLog"]
         L -->|"on interval boundary: sign chain_root"| SB["StateAnchor\nAnchorPurpose::StateAnchor"]
         SB -->|verify_state_anchor: O(1)| AUD["Auditor\n(no receipt, no full history needed)"]
@@ -261,7 +261,7 @@ hidden per-write overhead growing with `W`, as the implementation's O(1)
   (crash, misconfiguration), `staleness_at` for writes past the last real
   anchor grows without bound. Nothing in `state_anchor.rs` detects this
   automatically — an external monitor must alert on staleness exceeding
-  the declared policy (see ADR-341 Open Questions).
+  the declared policy (see ADR-342 Open Questions).
 - **Non-durable log.** `StateAnchorLog` is in-process; a crash between
   `observe_write` calls loses unpersisted anchors (the underlying write
   chain itself is unaffected).
@@ -280,7 +280,7 @@ hidden per-write overhead growing with `W`, as the implementation's O(1)
   workload-dependent guarantee), whereas write-count-based gives an exact,
   workload-independent bound (`W - 1` writes), which is what let
   Acceptance criteria 1–2 be exact-match rather than statistical checks.
-  Noted as future work in ADR-341.
+  Noted as future work in ADR-342.
 - **`MerkleGate`'s MMR instead of `HashChainGate`** as the anchored root
   source. Rejected: `RetrievalIndex::index_state_root()` already uses
   `HashChainGate::chain_root()`; anchoring a second, different write-chain
@@ -313,12 +313,12 @@ hidden per-write overhead growing with `W`, as the implementation's O(1)
 
 ## Security
 
-See ADR-341's Security section (identical content, kept in sync).
+See ADR-342's Security section (identical content, kept in sync).
 
 ## Governance
 
 Experimental, matching ADR-304/ADR-340's posture — not on any default
-write path. See ADR-341 Governance.
+write path. See ADR-342 Governance.
 
 ## MCP Implications
 
@@ -597,7 +597,7 @@ cost at `W=512` failing to drop below 10% of the `W=1` cost. None occurred.
 - ADR-340 (`docs/adr/ADR-340-signed-retrieval-receipt-anchoring.md`) and
   its Open Questions / Next Research, the direct origin of this run's
   hypothesis.
-- ADR-341 (`docs/adr/ADR-341-periodic-state-root-anchoring.md`), this
+- ADR-342 (`docs/adr/ADR-342-periodic-state-root-anchoring.md`), this
   run's design record.
 - 2026-08-31 nightly research README
   (`docs/research/nightly/2026-08-31-signed-retrieval-receipts/README.md`),
