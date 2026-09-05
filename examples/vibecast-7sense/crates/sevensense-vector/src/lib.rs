@@ -60,24 +60,39 @@
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::missing_panics_doc)]
 
+/// Application services. Requires the `native` feature.
+#[cfg(feature = "native")]
 pub mod application;
+/// Domain entities and repositories. Requires the `native` feature.
+#[cfg(feature = "native")]
 pub mod domain;
+/// HNSW indexing and persistence. Requires the `native` feature.
+#[cfg(feature = "native")]
 pub mod infrastructure;
 
 mod distance;
 mod hyperbolic;
+pub mod projection;
 
 // Re-export commonly used types
+#[cfg(feature = "native")]
 pub use application::services::{Neighbor, SearchOptions, VectorSpaceService};
 pub use distance::{cosine_distance, cosine_similarity, euclidean_distance, normalize_vector};
+#[cfg(feature = "native")]
 pub use domain::entities::{
     EdgeType, EmbeddingId, HnswConfig, SimilarityEdge, Timestamp, VectorIndex,
 };
+#[cfg(feature = "native")]
 pub use domain::repository::{GraphEdgeRepository, VectorIndexRepository};
 pub use hyperbolic::{exp_map, log_map, mobius_add, poincare_distance};
+pub use projection::{
+    normalize_coordinates, to_poincare_ball, PcaProjection, ProjectionError, ProjectionMethod,
+};
+#[cfg(feature = "native")]
 pub use infrastructure::hnsw_index::HnswIndex;
 
-/// Error types for vector operations
+/// Error types for vector operations. Requires the `native` feature.
+#[cfg(feature = "native")]
 pub mod error {
     pub use crate::domain::error::*;
 }
@@ -85,13 +100,20 @@ pub mod error {
 /// Prelude module for convenient imports
 pub mod prelude {
     //! Common imports for vector operations.
-    pub use crate::application::services::{Neighbor, SearchOptions, VectorSpaceService};
     pub use crate::distance::{cosine_distance, cosine_similarity, euclidean_distance};
+    pub use crate::projection::{normalize_coordinates, to_poincare_ball, PcaProjection};
+
+    #[cfg(feature = "native")]
+    pub use crate::application::services::{Neighbor, SearchOptions, VectorSpaceService};
+    #[cfg(feature = "native")]
     pub use crate::domain::entities::{
         EdgeType, EmbeddingId, HnswConfig, SimilarityEdge, VectorIndex,
     };
+    #[cfg(feature = "native")]
     pub use crate::domain::repository::{GraphEdgeRepository, VectorIndexRepository};
+    #[cfg(feature = "native")]
     pub use crate::error::VectorError;
+    #[cfg(feature = "native")]
     pub use crate::infrastructure::hnsw_index::HnswIndex;
 }
 

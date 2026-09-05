@@ -10,6 +10,7 @@ members = [
     "crates/sevensense-interpretation",
     "crates/sevensense-api",
     "crates/sevensense-benches",
+    "crates/sevensense-wasm",
     "tests",
 ]
 
