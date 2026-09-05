@@ -187,7 +187,7 @@ impl std::error::Error for LedgerError {}
 ///
 /// ADR-134's `ActionKind` enum assigns 0x90-0x9F to vector/graph mutations
 /// and leaves 0xA0+ unassigned; the schema is explicitly extensible without
-/// breaking the record layout. This block claims 0xA0-0xA6 for the ledger.
+/// breaking the record layout. This block claims 0xA0-0xA7 for the ledger.
 pub mod action_kind {
     /// `MemoryOp::Add` — statement admitted as `Pending`.
     pub const LEDGER_ADD: u8 = 0xA0;
@@ -203,6 +203,10 @@ pub mod action_kind {
     pub const LEDGER_ACCEPT: u8 = 0xA5;
     /// Poisoning-containment demotion of a dependent entry.
     pub const LEDGER_DEPENDENT_DEMOTION: u8 = 0xA6;
+    /// A compaction pass evicted an entry (ADR-341 mincut-gated forgetting;
+    /// also applies to plain [`crate::compaction`] policies via
+    /// [`crate::witnessed_compaction::compact_witnessed`]).
+    pub const LEDGER_COMPACT_EVICT: u8 = 0xA7;
 }
 
 /// Evidence grade for a witness record, using the three-value vocabulary of

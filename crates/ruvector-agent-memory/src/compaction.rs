@@ -129,6 +129,51 @@ impl CoherencePolicy {
     }
 }
 
+/// Per-entry weighted importance `I = alpha*recency + beta*frequency +
+/// gamma*coherence`, the scalar signal [`CoherencePolicy`] ranks on.
+///
+/// Factored out so other policies (e.g. `graph_forget::MincutGatedForgetting`)
+/// can layer a structural signal on top of the same scalar baseline instead
+/// of re-deriving it.
+pub fn weighted_importance(
+    entries: &[MemoryEntry],
+    weights: &CoherenceWeights,
+    context: &[Vec<f32>],
+) -> Vec<f32> {
+    if entries.is_empty() {
+        return Vec::new();
+    }
+
+    let max_time = entries
+        .iter()
+        .map(|e| e.last_accessed_at)
+        .max()
+        .unwrap_or(1);
+    let min_time = entries
+        .iter()
+        .map(|e| e.last_accessed_at)
+        .min()
+        .unwrap_or(0);
+    let time_range = (max_time - min_time).max(1) as f32;
+
+    let max_count = entries.iter().map(|e| e.access_count).max().unwrap_or(1);
+    let max_count_f = max_count.max(1) as f32;
+
+    entries
+        .iter()
+        .map(|e| {
+            let recency = (e.last_accessed_at - min_time) as f32 / time_range;
+            let frequency = e.access_count as f32 / max_count_f;
+            let coherence = if context.is_empty() {
+                0.0
+            } else {
+                coherence_score(&e.vector, context)
+            };
+            weights.alpha * recency + weights.beta * frequency + weights.gamma * coherence
+        })
+        .collect()
+}
+
 impl CompactionPolicy for CoherencePolicy {
     fn name(&self) -> &str {
         "CoherenceWeighted"
@@ -144,39 +189,8 @@ impl CompactionPolicy for CoherencePolicy {
             return Vec::new();
         }
 
-        // Normalisation anchors
-        let max_time = entries
-            .iter()
-            .map(|e| e.last_accessed_at)
-            .max()
-            .unwrap_or(1);
-        let min_time = entries
-            .iter()
-            .map(|e| e.last_accessed_at)
-            .min()
-            .unwrap_or(0);
-        let time_range = (max_time - min_time).max(1) as f32;
-
-        let max_count = entries.iter().map(|e| e.access_count).max().unwrap_or(1);
-        let max_count_f = max_count.max(1) as f32;
-
-        let w = &self.weights;
-
-        let mut scored: Vec<(usize, f32)> = entries
-            .iter()
-            .enumerate()
-            .map(|(i, e)| {
-                let recency = (e.last_accessed_at - min_time) as f32 / time_range;
-                let frequency = e.access_count as f32 / max_count_f;
-                let coherence = if context.is_empty() {
-                    0.0
-                } else {
-                    coherence_score(&e.vector, context)
-                };
-                let importance = w.alpha * recency + w.beta * frequency + w.gamma * coherence;
-                (i, importance)
-            })
-            .collect();
+        let importance = weighted_importance(entries, &self.weights, context);
+        let mut scored: Vec<(usize, f32)> = importance.into_iter().enumerate().collect();
 
         scored.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
         scored

@@ -50,17 +50,22 @@ pub mod arbitration;
 pub mod compaction;
 pub mod diagnostic;
 pub mod fusion;
+#[cfg(feature = "mincut-forget")]
+pub mod graph_forget;
 pub mod ledger;
 pub mod memory;
 pub mod observation;
 pub mod ops;
 pub mod scoring;
+pub mod witnessed_compaction;
 
 pub use arbitration::{
     arbitrate, ArbitrationConfig, ArbitrationError, ArbitrationOutcome, ArbitrationVerdict,
     EvidenceLineage, ReliabilityModel,
 };
-pub use compaction::{CoherencePolicy, CoherenceWeights, CompactionPolicy, LfuPolicy, LruPolicy};
+pub use compaction::{
+    weighted_importance, CoherencePolicy, CoherenceWeights, CompactionPolicy, LfuPolicy, LruPolicy,
+};
 pub use diagnostic::{
     apply_gated_promotion, diagnostic_coverage, evaluate_promotion, gate_and_apply,
     localized_stage, BlockReason, DiagnosticError, DiagnosticTrace, GatedPromotion, MemoryPolicy,
@@ -68,6 +73,8 @@ pub use diagnostic::{
     ProtectedSliceResult, RetrievalStrategy, StageSignal, LOCALIZATION_THRESHOLD,
 };
 pub use fusion::{CausalEpisodicGraph, ClusterId, FusedCluster, FusionError, NodeRef};
+#[cfg(feature = "mincut-forget")]
+pub use graph_forget::{ForgetMode, MincutGatedForgetting};
 #[cfg(feature = "proof-gate")]
 pub use ledger::WriteGateAdapter;
 pub use ledger::{replay_history, AlwaysAdmitGate, LedgerEntry, ProofGate, TransactionalLedger};
@@ -80,6 +87,7 @@ pub use ops::{
     MemoryWitnessLog, NoopWitnessSink, TransitionKind, TransitionRecord, WitnessSink,
 };
 pub use scoring::{coherence_score, cosine_sim, normalize};
+pub use witnessed_compaction::{compact_witnessed, EvictionWitnessChain};
 
 /// Compact `store` in-place using `policy`, retaining `target_size` entries.
 ///

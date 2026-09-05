@@ -25,10 +25,31 @@ rvf-types = { version = "0.2", path = "../rvf/rvf-types", features = ["ed25519"]
 # Existing ADR-194/047 proof-gated write machinery; adapts to the ledger's
 # ProofGate trait behind the `proof-gate` feature (see src/ledger.rs).
 ruvector-proof-gate = { path = "../ruvector-proof-gate", optional = true }
+# ADR-341 (PIR nightly 2026-09-05): reuse the crate's own subpolynomial
+# dynamic min-cut / vector-graph integration layer (`RuVectorGraphAnalyzer`)
+# for the `graph_forget` mincut-gated forgetting policy, instead of
+# reimplementing graph partitioning here.
+ruvector-mincut = { path = "../ruvector-mincut", optional = true }
 
 [features]
 default = []
 proof-gate = ["dep:ruvector-proof-gate"]
+mincut-forget = ["dep:ruvector-mincut"]
+
+[[example]]
+name = "mincut_gated_forgetting_bench"
+path = "examples/mincut_gated_forgetting_bench.rs"
+required-features = ["mincut-forget"]
+
+[[example]]
+name = "mincut_determinism_probe"
+path = "examples/mincut_determinism_probe.rs"
+required-features = ["mincut-forget"]
+
+[[example]]
+name = "mincut_scaling_probe"
+path = "examples/mincut_scaling_probe.rs"
+required-features = ["mincut-forget"]
 
 [dev-dependencies]
 serde_json = { workspace = true }
