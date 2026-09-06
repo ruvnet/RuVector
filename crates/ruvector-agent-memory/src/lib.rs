@@ -57,6 +57,7 @@ pub mod memory;
 pub mod observation;
 pub mod ops;
 pub mod scoring;
+pub mod structural_recency;
 pub mod witnessed_compaction;
 
 pub use arbitration::{
@@ -87,6 +88,14 @@ pub use ops::{
     MemoryWitnessLog, NoopWitnessSink, TransitionKind, TransitionRecord, WitnessSink,
 };
 pub use scoring::{coherence_score, cosine_sim, normalize};
+pub use structural_recency::{
+    dedup_gated_recency, weighted_importance_dedup, DedupGatedRecency, DedupGatedWeights,
+};
+#[cfg(feature = "structural-time")]
+pub use structural_recency::{
+    structural_recency, weighted_importance_structural, StructuralKeyframeRetention,
+    StructuralTimeRecency, StructuralTimeWeights,
+};
 pub use witnessed_compaction::{compact_witnessed, EvictionWitnessChain};
 
 /// Compact `store` in-place using `policy`, retaining `target_size` entries.
