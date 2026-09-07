@@ -27,6 +27,7 @@ use rvf_types::{
     SEGMENT_MAGIC,
 };
 
+use crate::compaction::{evaluate_triggers, CompactionDecision, CompactionThresholds};
 use crate::cow::{CowEngine, CowStats};
 use crate::cow_map::CowMap;
 use crate::deletion::DeletionBitmap;
@@ -1608,7 +1609,54 @@ impl RvfStore {
         }
     }
 
+    /// Evaluate the documented compaction triggers against this store's live state.
+    ///
+    /// Spec 10 §7 defines when compaction *should* run — dead space > 20%, segment
+    /// count > 32, at least 60s since the last run, with an emergency path above 70%.
+    /// [`crate::compaction::evaluate_triggers`] implements exactly that and was unit
+    /// tested, but had no caller outside its own tests, so the policy could not affect
+    /// anything. Every input it needs was already tracked here: `dead_space_ratio` and
+    /// `total_segments` are computed by [`Self::status`], and `last_compaction_time` is
+    /// stamped at the end of [`Self::compact`].
+    ///
+    /// This is a read-only query — it never compacts. Use it to decide, or call
+    /// [`Self::compact_if_needed`] to decide and act in one step.
+    pub fn should_compact(&self) -> CompactionDecision {
+        self.should_compact_with(&CompactionThresholds::default())
+    }
+
+    /// [`Self::should_compact`] against caller-supplied thresholds.
+    pub fn should_compact_with(&self, thresholds: &CompactionThresholds) -> CompactionDecision {
+        let status = self.status();
+        // Saturating: a clock that moved backwards must not wrap into a huge interval
+        // and make an over-eager compaction look policy-approved.
+        let secs_since_last = now_secs().saturating_sub(self.last_compaction_time);
+        evaluate_triggers(
+            status.dead_space_ratio,
+            status.total_segments,
+            secs_since_last,
+            thresholds,
+        )
+    }
+
+    /// Compact only if [`Self::should_compact`] says the policy is met.
+    ///
+    /// Returns `Ok(None)` when no compaction was needed — distinct from
+    /// `Ok(Some(result))` with zero reclaimed, which means compaction ran and found
+    /// nothing. Callers that want to compact regardless should call [`Self::compact`]
+    /// directly; that remains unconditional, because an explicit request is not a
+    /// policy decision.
+    pub fn compact_if_needed(&mut self) -> Result<Option<CompactionResult>, RvfError> {
+        match self.should_compact() {
+            CompactionDecision::None => Ok(None),
+            CompactionDecision::Normal | CompactionDecision::Emergency => self.compact().map(Some),
+        }
+    }
+
     /// Run compaction to reclaim dead space.
+    ///
+    /// Unconditional by design: this is an explicit request, not a scheduling
+    /// decision. For the documented policy, see [`Self::compact_if_needed`].
     ///
     /// Preserves all non-Vec, non-Manifest, non-Journal segments byte-for-byte
     /// to maintain forward compatibility with segment types this version does
