@@ -206,7 +206,8 @@ impl WitnessHandle {
         self.inner.hash
     }
 
-    /// Materialize full partition (U, V \ U)
+    /// Materialize full partition (U, V \ U), assuming a dense `0..=max(U)`
+    /// vertex universe.
     ///
     /// This is an expensive operation (O(|V|)) that converts the implicit
     /// representation into explicit sets. Use sparingly, primarily for
@@ -218,10 +219,19 @@ impl WitnessHandle {
     /// - `U` is the set of vertices in the cut
     /// - `V_minus_U` is the complement set
     ///
-    /// # Note
+    /// # Correctness warning
     ///
-    /// This method assumes vertices are numbered 0..max_vertex. For sparse
-    /// graphs, V \ U may contain vertex IDs that don't exist in the graph.
+    /// This method derives the complement's vertex universe from
+    /// `membership.max()` (the highest vertex ID *inside* `U`), not from the
+    /// graph's actual vertex set. Whenever `U` does not happen to contain the
+    /// graph's highest-numbered vertex -- the common case, since `U` is
+    /// typically the *small* side of an unbalanced minimum cut -- every
+    /// vertex numbered above `membership.max()` is silently dropped from
+    /// both returned sets rather than appearing in `V_minus_U`. Callers that
+    /// know the graph's real vertex set (or an upper bound on it) MUST use
+    /// [`Self::materialize_partition_within`] instead; this method is kept
+    /// only for callers that truly have no other vertex-universe information
+    /// and can tolerate a possibly-incomplete complement.
     ///
     /// # Examples
     ///
@@ -252,6 +262,48 @@ impl WitnessHandle {
             .filter(|&v| !self.inner.membership.contains(v as u32))
             .collect();
 
+        (u, v_minus_u)
+    }
+
+    /// Materialize the full partition `(U, V \ U)` against a caller-supplied
+    /// vertex universe, instead of guessing the universe from `membership`.
+    ///
+    /// This is the correct replacement for [`Self::materialize_partition`]
+    /// whenever the caller has access to the graph's actual vertex set (e.g.
+    /// via `DynamicGraph::vertices()`): every vertex in `universe` ends up in
+    /// exactly one of the two returned sets, regardless of whether it is the
+    /// membership set's own maximum element.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use ruvector_mincut::instance::witness::WitnessHandle;
+    /// use roaring::RoaringBitmap;
+    ///
+    /// let mut membership = RoaringBitmap::new();
+    /// membership.insert(0); // the found cut set is just {0} ...
+    ///
+    /// let witness = WitnessHandle::new(0, membership, 1);
+    /// // ... but the graph actually has 5 vertices, 3 of which (2,3,4) are
+    /// // numbered above membership.max() == 0.
+    /// let (u, v_minus_u) = witness.materialize_partition_within(&[0, 1, 2, 3, 4]);
+    ///
+    /// assert_eq!(u.len(), 1);
+    /// assert_eq!(v_minus_u.len(), 4); // materialize_partition() would give 0 here
+    /// ```
+    pub fn materialize_partition_within(
+        &self,
+        universe: &[VertexId],
+    ) -> (HashSet<VertexId>, HashSet<VertexId>) {
+        let mut u = HashSet::with_capacity(self.inner.membership.len() as usize);
+        let mut v_minus_u = HashSet::with_capacity(universe.len());
+        for &v in universe {
+            if self.contains(v) {
+                u.insert(v);
+            } else {
+                v_minus_u.insert(v);
+            }
+        }
         (u, v_minus_u)
     }
 
@@ -559,6 +611,50 @@ impl LazyWitnessBatch {
     /// Iterate over all lazy witnesses
     pub fn iter(&self) -> impl Iterator<Item = &LazyWitness> {
         self.witnesses.iter()
+    }
+}
+
+#[cfg(test)]
+mod witness_tests {
+    use super::*;
+
+    /// ADR-346 regression: `materialize_partition()` derives its complement
+    /// universe from `membership.max()`, so a small `U` that omits the
+    /// graph's true highest vertex silently drops trailing vertices from
+    /// `V \ U`. `materialize_partition_within` must not have this defect
+    /// when given the real vertex universe.
+    #[test]
+    fn materialize_partition_within_covers_full_universe() {
+        let mut membership = RoaringBitmap::new();
+        membership.insert(0);
+        let witness = WitnessHandle::new(0, membership, 1);
+
+        // Buggy behavior for comparison: 0..=0 minus membership = empty.
+        let (_buggy_u, buggy_v_minus_u) = witness.materialize_partition();
+        assert!(
+            buggy_v_minus_u.is_empty(),
+            "sanity check: materialize_partition() is documented to drop \
+             vertices above membership.max() in this scenario"
+        );
+
+        let universe = [0u64, 1, 2, 3, 4];
+        let (u, v_minus_u) = witness.materialize_partition_within(&universe);
+        assert_eq!(u, HashSet::from([0u64]));
+        assert_eq!(v_minus_u, HashSet::from([1u64, 2, 3, 4]));
+        assert_eq!(u.len() + v_minus_u.len(), universe.len());
+    }
+
+    #[test]
+    fn materialize_partition_within_handles_sparse_ids() {
+        let mut membership = RoaringBitmap::new();
+        membership.insert(100);
+        membership.insert(200);
+        let witness = WitnessHandle::new(100, membership, 2);
+
+        let universe = [5u64, 100, 200, 300];
+        let (u, v_minus_u) = witness.materialize_partition_within(&universe);
+        assert_eq!(u, HashSet::from([100u64, 200]));
+        assert_eq!(v_minus_u, HashSet::from([5u64, 300]));
     }
 }
 

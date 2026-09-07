@@ -209,8 +209,13 @@ impl BoundedInstance {
         // Build cluster hierarchy for strategic seed selection
         self.ensure_hierarchy(&graph);
 
-        // Determine seed vertices to try
-        let seed_vertices: Vec<VertexId> = if let Some(ref hierarchy) = self.cluster_hierarchy {
+        // Determine seed vertices to try. `HashSet` iteration order is
+        // randomized per-instance (`RandomState`), so every collection here
+        // is explicitly sorted before use -- otherwise the *order* in which
+        // seeds are tried varies run-to-run, and since `search` below
+        // returns the first in-range cut it finds, that flows into which
+        // (equally valid) witness gets returned. See ADR-346.
+        let mut seed_vertices: Vec<VertexId> = if let Some(ref hierarchy) = self.cluster_hierarchy {
             // Use cluster boundary vertices as strategic seeds
             let mut boundary_vertices = HashSet::new();
 
@@ -239,6 +244,7 @@ impl BoundedInstance {
             // No hierarchy - use all vertices
             self.vertices.iter().copied().collect()
         };
+        seed_vertices.sort_unstable();
 
         // Try different budgets within our range
         for budget in self.lambda_min..=self.lambda_max {
@@ -296,7 +302,17 @@ impl BoundedInstance {
             return None;
         }
 
-        let vertex_vec: Vec<_> = self.vertices.iter().copied().collect();
+        // Deterministic order: `self.vertices` is a `HashSet`, whose
+        // iteration order depends on `RandomState`'s per-instance random
+        // seed and therefore differs across otherwise-identical runs. Since
+        // ties in `boundary < min_cut` below are broken by "first subset
+        // seen wins", an unsorted `vertex_vec` makes the *specific* witness
+        // returned for a tied-optimal cut vary run-to-run even though the
+        // minimum cut *value* does not. Sorting fixes the bit-position ->
+        // vertex mapping, making mask iteration order (and thus the chosen
+        // witness) reproducible for a fixed graph. See ADR-346.
+        let mut vertex_vec: Vec<_> = self.vertices.iter().copied().collect();
+        vertex_vec.sort_unstable();
         let n = vertex_vec.len();
 
         if n <= 1 {

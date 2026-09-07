@@ -108,7 +108,14 @@ impl RuVectorGraphAnalyzer {
                 Some((Vec::new(), Vec::new()))
             }
             MinCutResult::Value { witness, .. } => {
-                let (side_a, side_b) = witness.materialize_partition();
+                // Use the graph's actual vertex set as the universe, not
+                // `witness.materialize_partition()`'s `0..=membership.max()`
+                // guess: `U` is typically the small side of an unbalanced
+                // cut, so it rarely contains the graph's highest vertex ID,
+                // and the naive guess silently drops every vertex above it
+                // from both returned sides. See ADR-346.
+                let universe = self.graph.vertices();
+                let (side_a, side_b) = witness.materialize_partition_within(&universe);
                 let partition = (side_a.into_iter().collect(), side_b.into_iter().collect());
                 self.cached_partition = Some(partition.clone());
                 Some(partition)
@@ -386,6 +393,65 @@ mod tests {
 
         let mut analyzer = RuVectorGraphAnalyzer::new(graph);
         assert_eq!(analyzer.min_cut(), 2);
+    }
+
+    /// Regression test for ADR-346: repeated `partition()` calls on a
+    /// byte-identical graph, each via a *fresh* analyzer (so no result
+    /// cache masks the bug), must return a partition that (a) covers every
+    /// graph vertex exactly once and (b) is identical across all trials.
+    ///
+    /// Before ADR-346's fix, `materialize_partition()`'s `0..=membership.max()`
+    /// guess silently dropped every vertex numbered above the found cut
+    /// set's own maximum -- which, for an unbalanced cut where the found
+    /// set `U` is small, is nearly always true. This graph is built so the
+    /// minimum cut isolates a single low-degree vertex (11, degree 1) from
+    /// a denser cluster (0..=10) that includes higher-numbered vertices
+    /// than 11 -- exactly the shape that triggered the bug.
+    #[test]
+    fn test_partition_deterministic_and_complete() {
+        let graph = Arc::new(DynamicGraph::new());
+        // Dense cluster 0..=10 (complete-ish graph via a cycle + chords)
+        for i in 0..=10u64 {
+            graph.insert_edge(i, (i + 1) % 11, 1.0).unwrap();
+            graph.insert_edge(i, (i + 3) % 11, 1.0).unwrap();
+        }
+        // Vertex 11 (numbered *above* several cluster vertices) hangs off
+        // the cluster by a single edge -- the true minimum cut.
+        graph.insert_edge(0, 11, 1.0).unwrap();
+
+        let n = graph.vertices().len();
+        let mut first: Option<(Vec<VertexId>, Vec<VertexId>)> = None;
+        for trial in 0..30 {
+            let mut analyzer = RuVectorGraphAnalyzer::new(Arc::clone(&graph));
+            let (mut a, mut b) = analyzer
+                .partition()
+                .expect("connected graph must produce a partition");
+            assert_eq!(
+                a.len() + b.len(),
+                n,
+                "trial {trial}: partition dropped vertices (a={a:?}, b={b:?}), n={n}"
+            );
+            assert!(
+                !a.is_empty() && !b.is_empty(),
+                "trial {trial}: degenerate side"
+            );
+            a.sort_unstable();
+            b.sort_unstable();
+            // Canonicalize side order (side_a/side_b are not semantically
+            // ordered) before comparing across trials.
+            let (lo, hi) = if a.first() <= b.first() {
+                (a, b)
+            } else {
+                (b, a)
+            };
+            match &first {
+                None => first = Some((lo, hi)),
+                Some((exp_lo, exp_hi)) => {
+                    assert_eq!(&lo, exp_lo, "trial {trial}: side mismatch vs trial 0");
+                    assert_eq!(&hi, exp_hi, "trial {trial}: side mismatch vs trial 0");
+                }
+            }
+        }
     }
 
     #[test]
