@@ -176,7 +176,7 @@ mistake.
 - `crates/ruvector-mincut/src/instance/witness.rs`,
   `src/integration/mod.rs`, `src/instance/bounded.rs`,
   `examples/determinism_probe.rs` (this run's changes).
-- ADR-346 (this run's architecture decision record, full evidence and
+- ADR-347 (this run's architecture decision record, full evidence and
   rationale).
 - The prior nightly's ADR and research README (root of the open question
   this run answers).

@@ -1,4 +1,4 @@
-Raw terminal transcripts backing ADR-346 / this nightly's README.md.
+Raw terminal transcripts backing ADR-347 / this nightly's README.md.
 Captured verbatim (only shell/build noise trimmed) during the 2026-09-07 run.
 Command shown per section; hardware: 4-core x86_64 Linux container,
 rustc 1.94.1, cargo 1.94.1, --release throughout.

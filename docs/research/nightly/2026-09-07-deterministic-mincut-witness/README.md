@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-07 (UTC) &middot; **Slug:** `deterministic-mincut-witness` &middot;
 **Starting commit:** `edaffffb3b85768eb1f3ec1f683b7f46f0506af4` &middot;
-**ADR:** [ADR-346](../../../adr/ADR-346-deterministic-mincut-witness-materialization.md) &middot;
+**ADR:** [ADR-347](../../../adr/ADR-347-deterministic-mincut-witness-materialization.md) &middot;
 **Crate:** `ruvector-mincut` (fix), `ruvector-agent-memory` (downstream regression check)
 
 ## Summary
@@ -53,7 +53,7 @@ larger ones).
 
 ## Hypothesis
 
-See ADR-346 for the full formal hypothesis. In short: applying (A) a
+See ADR-347 for the full formal hypothesis. In short: applying (A) a
 graph-aware witness-to-partition materialization and (B) deterministic
 vertex ordering in `BoundedInstance`'s tie-breaking paths reduces the
 measured empty/degenerate-partition rate to 0% and the count of distinct
@@ -124,7 +124,7 @@ was executed against this repository.
 ## Flywheel role
 
 No `ruvector harness flywheel` CLI surface was resolvable in this
-checkout (see above). This document, ADR-346, and the raw probe output
+checkout (see above). This document, ADR-347, and the raw probe output
 below serve as this run's flywheel record: hypothesis, evidence, decision,
 and the specific open questions (latency, `find_bridges()` cost) carried
 forward for a future run, exactly as ADR-345's evidence and open questions
@@ -150,7 +150,7 @@ flowchart TD
         A4 --> A5["degenerate/incomplete\npartition returned"]
     end
 
-    subgraph after["After (ADR-346 fix)"]
+    subgraph after["After (ADR-347 fix)"]
         B1["RuVectorGraphAnalyzer::partition()"] --> B2["graph.vertices()\n(real universe)"]
         B2 --> B3["witness.materialize_partition_within(universe)"]
         B3 --> B4["complete, deterministic\n(U, V\\U)"]
@@ -184,7 +184,7 @@ Four files changed in `crates/ruvector-mincut`:
   every number in this document, testing three topologies spanning both of
   `BoundedInstance`'s internal code paths.
 
-No new dependency. No feature flag (default-on fix). See ADR-346 for full
+No new dependency. No feature flag (default-on fix). See ADR-347 for full
 API shape and rationale on why `materialize_partition()` itself was left in
 place rather than changed or removed.
 
@@ -238,7 +238,7 @@ n=85 trials=200 empty_or_degenerate=0 (0%) distinct_partitions_seen=1 elapsed=1.
 plus the interim diagnostic run that uncovered the bug in the *original*
 (2026-09-05) probe's graph construction (a missing second gateway vector,
 which made the graph genuinely disconnected rather than merely
-witness-broken -- see ADR-346's "A trap in the original probe").
+witness-broken -- see ADR-347's "A trap in the original probe").
 
 ## Memory math
 
@@ -262,14 +262,14 @@ ADR's scope is correctness, not speed).
 
 ## Failure modes
 
-See ADR-346's "Failure Modes" section. Summary: the n=19 latency outlier
+See ADR-347's "Failure Modes" section. Summary: the n=19 latency outlier
 (~1.2s/call) is real, measured, and **not** fixed by this ADR -- it is
 ADR-345's other, independent rejection cause and remains open (see "Next
 Research").
 
 ## Rejected alternatives
 
-See ADR-346's "Alternatives Considered": in-place mutation of
+See ADR-347's "Alternatives Considered": in-place mutation of
 `materialize_partition()` (rejected, no graph access without a breaking
 signature change), `BTreeSet` refactor of `BoundedInstance::vertices`
 (rejected as unnecessarily wide a diff given sort-at-use is already
@@ -279,7 +279,7 @@ since `RuVectorGraphAnalyzer` has other live consumers).
 
 ## Security
 
-No new cryptographic primitive; see ADR-346. Fixing silent vertex loss is
+No new cryptographic primitive; see ADR-347. Fixing silent vertex loss is
 itself a hardening for any future witness-auditing code that expects
 `.partition()`'s two sides to sum to the graph's vertex count.
 
@@ -430,7 +430,7 @@ Not applicable -- no Darwin phase run this night (see "Darwin role" above).
 ## Promotion decision
 
 **ACCEPT.** Both fixes merged into `ruvector-mincut`'s default code path
-(no feature flag). See ADR-346's "Rejection Criteria" for the (unmet)
+(no feature flag). See ADR-347's "Rejection Criteria" for the (unmet)
 conditions that would have caused rejection.
 
 ## Witness evidence
@@ -450,7 +450,7 @@ conditions that would have caused rejection.
 - No cryptographic witness chain was generated for this run itself (no
   `ruvector harness flywheel`/`darwin` CLI surface was resolvable in this
   checkout -- see "MetaHarness role" / "Flywheel role" above); this
-  document plus ADR-346 plus the committed, reproducible probe source serve
+  document plus ADR-347 plus the committed, reproducible probe source serve
   as this run's evidence trail, in the same spirit as ADR-345's.
 
 ## Production path

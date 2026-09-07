@@ -113,7 +113,7 @@ impl RuVectorGraphAnalyzer {
                 // guess: `U` is typically the small side of an unbalanced
                 // cut, so it rarely contains the graph's highest vertex ID,
                 // and the naive guess silently drops every vertex above it
-                // from both returned sides. See ADR-346.
+                // from both returned sides. See ADR-347.
                 let universe = self.graph.vertices();
                 let (side_a, side_b) = witness.materialize_partition_within(&universe);
                 let partition = (side_a.into_iter().collect(), side_b.into_iter().collect());
@@ -395,12 +395,12 @@ mod tests {
         assert_eq!(analyzer.min_cut(), 2);
     }
 
-    /// Regression test for ADR-346: repeated `partition()` calls on a
+    /// Regression test for ADR-347: repeated `partition()` calls on a
     /// byte-identical graph, each via a *fresh* analyzer (so no result
     /// cache masks the bug), must return a partition that (a) covers every
     /// graph vertex exactly once and (b) is identical across all trials.
     ///
-    /// Before ADR-346's fix, `materialize_partition()`'s `0..=membership.max()`
+    /// Before ADR-347's fix, `materialize_partition()`'s `0..=membership.max()`
     /// guess silently dropped every vertex numbered above the found cut
     /// set's own maximum -- which, for an unbalanced cut where the found
     /// set `U` is small, is nearly always true. This graph is built so the

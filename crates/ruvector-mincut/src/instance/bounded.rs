@@ -214,7 +214,7 @@ impl BoundedInstance {
         // is explicitly sorted before use -- otherwise the *order* in which
         // seeds are tried varies run-to-run, and since `search` below
         // returns the first in-range cut it finds, that flows into which
-        // (equally valid) witness gets returned. See ADR-346.
+        // (equally valid) witness gets returned. See ADR-347.
         let mut seed_vertices: Vec<VertexId> = if let Some(ref hierarchy) = self.cluster_hierarchy {
             // Use cluster boundary vertices as strategic seeds
             let mut boundary_vertices = HashSet::new();
@@ -310,7 +310,7 @@ impl BoundedInstance {
         // returned for a tied-optimal cut vary run-to-run even though the
         // minimum cut *value* does not. Sorting fixes the bit-position ->
         // vertex mapping, making mask iteration order (and thus the chosen
-        // witness) reproducible for a fixed graph. See ADR-346.
+        // witness) reproducible for a fixed graph. See ADR-347.
         let mut vertex_vec: Vec<_> = self.vertices.iter().copied().collect();
         vertex_vec.sort_unstable();
         let n = vertex_vec.len();

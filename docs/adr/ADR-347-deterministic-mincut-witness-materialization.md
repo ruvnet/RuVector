@@ -1,4 +1,4 @@
-# ADR-346: Deterministic Minimum-Cut Witness Materialization
+# ADR-347: Deterministic Minimum-Cut Witness Materialization
 
 ## Status
 

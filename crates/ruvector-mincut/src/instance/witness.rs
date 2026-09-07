@@ -618,7 +618,7 @@ impl LazyWitnessBatch {
 mod witness_tests {
     use super::*;
 
-    /// ADR-346 regression: `materialize_partition()` derives its complement
+    /// ADR-347 regression: `materialize_partition()` derives its complement
     /// universe from `membership.max()`, so a small `U` that omits the
     /// graph's true highest vertex silently drops trailing vertices from
     /// `V \ U`. `materialize_partition_within` must not have this defect
