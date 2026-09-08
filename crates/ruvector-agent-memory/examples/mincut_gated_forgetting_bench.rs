@@ -1,4 +1,11 @@
-//! Nightly research benchmark (2026-09-05, ADR-345): mincut-gated forgetting.
+//! Nightly research benchmark. Original run: 2026-09-05, ADR-345
+//! (`Soft`/`Hard`, the `MincutEngine::Dynamic` path). Extended 2026-09-08 by
+//! a follow-up nightly (see
+//! docs/research/nightly/2026-09-08-static-mincut-forgetting/README.md) that
+//! adds `Soft-Static`/`Hard-Static` (`MincutEngine::Static`, deterministic
+//! Stoer-Wagner) rows to the *same* benchmark methodology, corpus, and
+//! acceptance thresholds, to test head-to-head whether the new engine clears
+//! the bar the original ADR-345 candidates were rejected on.
 //!
 //! Hypothesis (fixed before this exact run of the benchmark; see
 //! docs/research/nightly/2026-09-05-mincut-gated-forgetting/README.md,
@@ -32,6 +39,12 @@
 //! does not claim parity, and per the scaling probe above IS expected to
 //! fail at this corpus size), and (b) 100% tamper-detection across 20
 //! independent single-byte-flip trials against the eviction witness chain.
+//!
+//! The 2026-09-08 follow-up asks the same three questions of the two
+//! `-Static` rows, but with a *tighter* speed bar (10x, not 100x — see that
+//! nightly's README for why this specific number was chosen up front) since
+//! its entire premise is that the static engine is no longer merely "usable
+//! as a background job" but fast enough to be a foreground compaction path.
 //!
 //! Run:
 //!   cargo run --release -p ruvector-agent-memory --example mincut_gated_forgetting_bench --features mincut-forget
@@ -87,6 +100,10 @@ const N_TAMPER_TRIALS: usize = 20;
 // above; 1 keeps the whole nightly run in a practical wall-clock at this
 // corpus size, at the documented cost of slightly higher variance.
 const MINCUT_TRIALS: usize = 1;
+// 2026-09-08 follow-up (see module doc): the static engine's whole premise
+// is that it no longer needs the 100x "background job" allowance above, so
+// its two rows are held to a materially tighter bar, fixed before this run.
+const MAX_SLOWDOWN_VS_BASELINE_STATIC: f64 = 10.0;
 
 // ── Vector utilities (mirrors src/main.rs) ──────────────────────────────────
 
@@ -315,6 +332,14 @@ fn main() {
     soft.mincut_trials = MINCUT_TRIALS;
     let mut hard = MincutGatedForgetting::hard(CoherenceWeights::default(), PROTECT_FRACTION);
     hard.mincut_trials = MINCUT_TRIALS;
+    // 2026-09-08 follow-up rows: same Soft/Hard logic, deterministic static
+    // engine (ruvector_mincut::static_cut, Stoer-Wagner) instead of the
+    // dynamic bounded-instance ladder. `mincut_trials` is fixed at 1 by the
+    // constructor itself (the engine is deterministic, no retries needed).
+    let soft_static =
+        MincutGatedForgetting::soft_static(CoherenceWeights::default(), STRUCTURAL_BONUS);
+    let hard_static =
+        MincutGatedForgetting::hard_static(CoherenceWeights::default(), PROTECT_FRACTION);
 
     struct Row {
         name: String,
@@ -323,7 +348,13 @@ fn main() {
         micros: u128,
     }
     let mut rows = Vec::new();
-    for policy in [&cow as &dyn CompactionPolicy, &soft, &hard] {
+    for policy in [
+        &cow as &dyn CompactionPolicy,
+        &soft,
+        &hard,
+        &soft_static,
+        &hard_static,
+    ] {
         let (survival, recall, dur) = run_policy(policy, seed);
         rows.push(Row {
             name: policy.name().to_string(),
@@ -352,12 +383,14 @@ fn main() {
     let baseline = &rows[0];
     let soft_row = &rows[1];
     let hard_row = &rows[2];
+    let soft_static_row = &rows[3];
+    let hard_static_row = &rows[4];
 
     println!("Tamper-detection trials (eviction witness chain)");
     let (detected, total) = run_tamper_trials(seed + 1_000);
     println!("  Detected {detected}/{total} single-byte-flip tampers\n");
 
-    println!("Acceptance test");
+    println!("Acceptance test — Dynamic engine (2026-09-05, ADR-345 original)");
     let survival_gap_soft = (soft_row.survival - baseline.survival) * 100.0;
     let survival_gap_hard = (hard_row.survival - baseline.survival) * 100.0;
     let soft_gap_pass = survival_gap_soft >= BRIDGE_SURVIVAL_GAP_THRESHOLD_PP;
@@ -408,18 +441,91 @@ fn main() {
     );
     println!();
 
-    let all_pass = soft_gap_pass
+    println!("Acceptance test — Static engine (2026-09-08 follow-up)");
+    let survival_gap_soft_s = (soft_static_row.survival - baseline.survival) * 100.0;
+    let survival_gap_hard_s = (hard_static_row.survival - baseline.survival) * 100.0;
+    let soft_static_gap_pass = survival_gap_soft_s >= BRIDGE_SURVIVAL_GAP_THRESHOLD_PP;
+    let hard_static_gap_pass = survival_gap_hard_s >= BRIDGE_SURVIVAL_GAP_THRESHOLD_PP;
+    println!(
+        "  Soft-Static bridge-survival gap ({survival_gap_soft_s:+.1}pp) >= {BRIDGE_SURVIVAL_GAP_THRESHOLD_PP:.0}pp : {}",
+        if soft_static_gap_pass { "PASS" } else { "FAIL" }
+    );
+    println!(
+        "  Hard-Static bridge-survival gap ({survival_gap_hard_s:+.1}pp) >= {BRIDGE_SURVIVAL_GAP_THRESHOLD_PP:.0}pp : {}",
+        if hard_static_gap_pass { "PASS" } else { "FAIL" }
+    );
+
+    let recall_delta_soft_s = (soft_static_row.recall - baseline.recall).abs();
+    let recall_delta_hard_s = (hard_static_row.recall - baseline.recall).abs();
+    let soft_static_recall_pass = recall_delta_soft_s <= RECALL_TOLERANCE;
+    let hard_static_recall_pass = recall_delta_hard_s <= RECALL_TOLERANCE;
+    println!(
+        "  Soft-Static |recall delta| ({:.2}pp) <= {:.0}pp          : {}",
+        recall_delta_soft_s * 100.0,
+        RECALL_TOLERANCE * 100.0,
+        if soft_static_recall_pass {
+            "PASS"
+        } else {
+            "FAIL"
+        }
+    );
+    println!(
+        "  Hard-Static |recall delta| ({:.2}pp) <= {:.0}pp          : {}",
+        recall_delta_hard_s * 100.0,
+        RECALL_TOLERANCE * 100.0,
+        if hard_static_recall_pass {
+            "PASS"
+        } else {
+            "FAIL"
+        }
+    );
+
+    let slowdown_soft_s = soft_static_row.micros as f64 / baseline.micros.max(1) as f64;
+    let slowdown_hard_s = hard_static_row.micros as f64 / baseline.micros.max(1) as f64;
+    let soft_static_speed_pass = slowdown_soft_s <= MAX_SLOWDOWN_VS_BASELINE_STATIC;
+    let hard_static_speed_pass = slowdown_hard_s <= MAX_SLOWDOWN_VS_BASELINE_STATIC;
+    println!(
+        "  Soft-Static compaction slowdown ({slowdown_soft_s:.1}x) <= {MAX_SLOWDOWN_VS_BASELINE_STATIC:.0}x         : {}",
+        if soft_static_speed_pass { "PASS" } else { "FAIL" }
+    );
+    println!(
+        "  Hard-Static compaction slowdown ({slowdown_hard_s:.1}x) <= {MAX_SLOWDOWN_VS_BASELINE_STATIC:.0}x         : {}",
+        if hard_static_speed_pass { "PASS" } else { "FAIL" }
+    );
+    println!(
+        "  (for reference: Soft-Static is {:.1}x faster than Soft-Dynamic; Hard-Static is {:.1}x faster than Hard-Dynamic)",
+        soft_row.micros as f64 / soft_static_row.micros.max(1) as f64,
+        hard_row.micros as f64 / hard_static_row.micros.max(1) as f64,
+    );
+    println!();
+
+    let dynamic_all_pass = soft_gap_pass
         && hard_gap_pass
         && soft_recall_pass
         && hard_recall_pass
         && soft_speed_pass
         && hard_speed_pass
         && tamper_pass;
+    let static_all_pass = soft_static_gap_pass
+        && hard_static_gap_pass
+        && soft_static_recall_pass
+        && hard_static_recall_pass
+        && soft_static_speed_pass
+        && hard_static_speed_pass
+        && tamper_pass;
 
-    if all_pass {
-        println!("=> ACCEPT: mincut-gated forgetting protects structural bridges at no material recall or witness-integrity cost.");
+    if dynamic_all_pass {
+        println!("=> Dynamic engine: ACCEPT");
     } else {
-        println!("=> REJECT: one or more mandatory acceptance thresholds failed (see above).");
+        println!("=> Dynamic engine: REJECT (reproduces ADR-345's original result)");
+    }
+    if static_all_pass {
+        println!("=> Static engine:  ACCEPT — mincut-gated forgetting protects structural bridges at no material recall or witness-integrity cost, at a compaction cost cheap enough to be a foreground path.");
+    } else {
+        println!("=> Static engine:  REJECT (see FAIL rows above)");
+    }
+
+    if !static_all_pass {
         std::process::exit(1);
     }
 }

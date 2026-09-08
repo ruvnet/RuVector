@@ -137,6 +137,10 @@ pub mod localkcut;
 pub mod parallel;
 pub mod pool;
 pub mod sparsify;
+/// Deterministic static (one-shot, non-incremental) global min-cut via
+/// Stoer-Wagner. See module docs for why this exists alongside
+/// [`wrapper::MinCutWrapper`]'s dynamic bounded-instance engine.
+pub mod static_cut;
 pub mod tree;
 pub mod witness;
 pub mod wrapper;
@@ -271,6 +275,7 @@ pub use parallel::{
     SharedCoordinator, WorkItem, NUM_CORES, RANGES_PER_CORE, RANGE_FACTOR, TOTAL_RANGES,
 };
 pub use sparsify::{SparseGraph, SparsifyConfig};
+pub use static_cut::{stoer_wagner_min_cut, StaticCutResult};
 pub use subpolynomial::{
     HierarchyLevel, HierarchyStatistics, LevelExpander, MinCutQueryResult, RecourseStats,
     SubpolyConfig, SubpolynomialMinCut,
@@ -431,6 +436,7 @@ pub const NAME: &str = env!("CARGO_PKG_NAME");
 /// ```
 pub mod prelude {
 
+    pub use crate::stoer_wagner_min_cut;
     pub use crate::{
         compute_core_range,
         AlgorithmStats,
@@ -501,6 +507,7 @@ pub mod prelude {
         SharedCoordinator,
         SimTime,
         Spike,
+        StaticCutResult,
         StubInstance,
         SubpolyConfig,
         // Subpolynomial min-cut

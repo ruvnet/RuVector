@@ -46,6 +46,23 @@ pub enum ForgetMode {
     Hard,
 }
 
+/// Which `ruvector-mincut` code path computes the boundary signal.
+///
+/// Added by the 2026-09-08 nightly follow-up to ADR-345: [`Self::Dynamic`]
+/// reproduces the original (rejected-for-performance) candidate exactly,
+/// [`Self::Static`] routes through the new deterministic
+/// `RuVectorGraphAnalyzer::partition_static()` fast path
+/// (`ruvector_mincut::static_cut`, Stoer-Wagner) instead.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MincutEngine {
+    /// `RuVectorGraphAnalyzer::partition()` — the bounded-range dynamic
+    /// instance ladder (ADR-345's original, rejected-for-performance path).
+    Dynamic,
+    /// `RuVectorGraphAnalyzer::partition_static()` — deterministic O(V^3)
+    /// Stoer-Wagner, no retries needed (see [`MincutGatedForgetting::mincut_trials`]).
+    Static,
+}
+
 /// Mincut-gated forgetting compaction policy (candidates A/B of the nightly
 /// 2026-09-05 experiment).
 #[derive(Debug, Clone)]
@@ -65,12 +82,19 @@ pub struct MincutGatedForgetting {
     /// Number of times to recompute the min-cut partition on an unchanged
     /// graph, unioning the boundary vertices found each time (see the
     /// "Measured limitation" note on [`Self::boundary_indices`]). `1`
-    /// disables retrying.
+    /// disables retrying. Ignored when `engine == `[`MincutEngine::Static`]:
+    /// that path is deterministic, so a single call already returns the
+    /// same boundary set every retry would.
     pub mincut_trials: usize,
+    /// Which `ruvector-mincut` code path computes the boundary signal. See
+    /// [`MincutEngine`].
+    pub engine: MincutEngine,
 }
 
 impl MincutGatedForgetting {
-    /// [`ForgetMode::Soft`] with the given weights and bonus.
+    /// [`ForgetMode::Soft`] with the given weights and bonus, using the
+    /// original [`MincutEngine::Dynamic`] path (ADR-345's exact rejected
+    /// candidate — kept for reproducibility of that result).
     pub fn soft(weights: CoherenceWeights, structural_bonus: f32) -> Self {
         Self {
             weights,
@@ -80,10 +104,12 @@ impl MincutGatedForgetting {
             structural_bonus,
             protect_fraction: 0.0,
             mincut_trials: 3,
+            engine: MincutEngine::Dynamic,
         }
     }
 
-    /// [`ForgetMode::Hard`] with the given weights and protected fraction.
+    /// [`ForgetMode::Hard`] with the given weights and protected fraction,
+    /// using the original [`MincutEngine::Dynamic`] path (see [`Self::soft`]).
     pub fn hard(weights: CoherenceWeights, protect_fraction: f32) -> Self {
         Self {
             weights,
@@ -93,6 +119,28 @@ impl MincutGatedForgetting {
             structural_bonus: 0.0,
             protect_fraction,
             mincut_trials: 3,
+            engine: MincutEngine::Dynamic,
+        }
+    }
+
+    /// [`ForgetMode::Soft`] using the deterministic [`MincutEngine::Static`]
+    /// path (nightly 2026-09-08 follow-up to ADR-345): a single partition
+    /// call suffices, so `mincut_trials` is fixed at 1.
+    pub fn soft_static(weights: CoherenceWeights, structural_bonus: f32) -> Self {
+        Self {
+            engine: MincutEngine::Static,
+            mincut_trials: 1,
+            ..Self::soft(weights, structural_bonus)
+        }
+    }
+
+    /// [`ForgetMode::Hard`] using the deterministic [`MincutEngine::Static`]
+    /// path; see [`Self::soft_static`].
+    pub fn hard_static(weights: CoherenceWeights, protect_fraction: f32) -> Self {
+        Self {
+            engine: MincutEngine::Static,
+            mincut_trials: 1,
+            ..Self::hard(weights, protect_fraction)
         }
     }
 
@@ -166,19 +214,39 @@ impl MincutGatedForgetting {
             return HashSet::new();
         }
 
-        let mut boundary = HashSet::new();
-        for _ in 0..self.mincut_trials.max(1) {
-            boundary.extend(Self::boundary_from_one_partition(&neighbors));
+        match self.engine {
+            MincutEngine::Dynamic => {
+                let mut boundary = HashSet::new();
+                for _ in 0..self.mincut_trials.max(1) {
+                    boundary.extend(Self::boundary_from_one_partition(&neighbors, false));
+                }
+                boundary
+            }
+            // Deterministic: one call already returns whatever the union of
+            // `mincut_trials` retries would have (see `MincutEngine::Static` doc).
+            MincutEngine::Static => Self::boundary_from_one_partition(&neighbors, true),
         }
-        boundary
     }
 
-    /// One min-cut partition attempt over an already-built k-NN graph; see
-    /// [`Self::boundary_indices`]'s "Measured limitation" note for why this
-    /// is called more than once.
-    fn boundary_from_one_partition(neighbors: &[(usize, Vec<(usize, f64)>)]) -> HashSet<usize> {
-        let mut analyzer = RuVectorGraphAnalyzer::from_knn(neighbors);
-        let (side_a, side_b) = match analyzer.partition() {
+    /// One min-cut partition attempt over an already-built k-NN graph.
+    ///
+    /// `static_engine = false` uses [`RuVectorGraphAnalyzer::partition`]
+    /// (the original dynamic path — see [`Self::boundary_indices`]'s
+    /// "Measured limitation" note for why the caller retries this); `true`
+    /// uses the deterministic [`RuVectorGraphAnalyzer::partition_static`]
+    /// fast path added by the nightly 2026-09-08 follow-up to ADR-345.
+    fn boundary_from_one_partition(
+        neighbors: &[(usize, Vec<(usize, f64)>)],
+        static_engine: bool,
+    ) -> HashSet<usize> {
+        let analyzer = RuVectorGraphAnalyzer::from_knn(neighbors);
+        let partition = if static_engine {
+            analyzer.partition_static()
+        } else {
+            let mut analyzer = analyzer;
+            analyzer.partition()
+        };
+        let (side_a, side_b) = match partition {
             Some(p) => p,
             None => return HashSet::new(),
         };
@@ -356,6 +424,47 @@ mod tests {
             survivors.contains(&bridge_idx),
             "soft mincut-gated forgetting must retain the sole cross-cluster bridge"
         );
+    }
+
+    #[test]
+    fn soft_static_protects_the_structural_bridge_with_a_single_call() {
+        let (entries, bridge_idx) = bridge_dataset();
+        // Unlike the Dynamic-engine sibling test above, the Static engine
+        // (nightly 2026-09-08 follow-up to ADR-345) needs no retries: it is
+        // deterministic by construction, so `soft_static` fixes
+        // `mincut_trials = 1` and this still passes reliably.
+        let policy = MincutGatedForgetting::soft_static(CoherenceWeights::default(), 1.0);
+        assert_eq!(policy.mincut_trials, 1);
+        let survivors = policy.select_survivors(&entries, 16, &[]);
+        assert!(
+            survivors.contains(&bridge_idx),
+            "static-engine soft mincut-gated forgetting must retain the sole cross-cluster bridge"
+        );
+    }
+
+    #[test]
+    fn hard_static_reserves_budget_for_boundary_vertices() {
+        let (entries, bridge_idx) = bridge_dataset();
+        let policy = MincutGatedForgetting::hard_static(CoherenceWeights::default(), 0.3);
+        let survivors = policy.select_survivors(&entries, 16, &[]);
+        assert!(
+            survivors.contains(&bridge_idx),
+            "static-engine hard mincut-gated forgetting must protect the bridge within its reserved budget"
+        );
+    }
+
+    #[test]
+    fn static_engine_boundary_is_deterministic_across_repeated_calls() {
+        let (entries, _bridge_idx) = bridge_dataset();
+        let policy = MincutGatedForgetting::soft_static(CoherenceWeights::default(), 1.0);
+        let first = policy.boundary_indices(&entries);
+        for _ in 0..10 {
+            assert_eq!(
+                policy.boundary_indices(&entries),
+                first,
+                "static engine must return an identical boundary set on every call, unlike the dynamic engine (ADR-345 finding)"
+            );
+        }
     }
 
     #[test]
