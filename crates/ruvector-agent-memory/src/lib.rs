@@ -49,6 +49,7 @@
 pub mod arbitration;
 pub mod compaction;
 pub mod diagnostic;
+pub mod eviction_witness_signing;
 pub mod fusion;
 #[cfg(feature = "mincut-forget")]
 pub mod graph_forget;
@@ -71,6 +72,10 @@ pub use diagnostic::{
     localized_stage, BlockReason, DiagnosticError, DiagnosticTrace, GatedPromotion, MemoryPolicy,
     MemoryStage, PairedEvaluation, PairedOutcome, PolicySet, PromotionDecision,
     ProtectedSliceResult, RetrievalStrategy, StageSignal, LOCALIZATION_THRESHOLD,
+};
+pub use eviction_witness_signing::{
+    relink_tampered_suffix, sign_anchor, verify_anchor, verify_anchor_against_chain, AnchorError,
+    EvictionAnchorLog, EvictionAnchorPolicy, EvictionAnchorStatement, SignedEvictionAnchor,
 };
 pub use fusion::{CausalEpisodicGraph, ClusterId, FusedCluster, FusionError, NodeRef};
 #[cfg(feature = "mincut-forget")]
