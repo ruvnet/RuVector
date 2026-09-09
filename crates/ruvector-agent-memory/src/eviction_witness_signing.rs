@@ -334,7 +334,7 @@ mod tests {
                 max_seen = max_seen.max(alog.staleness_at(alog.record_count()));
             }
             assert!(
-                max_seen <= interval - 1,
+                max_seen < interval,
                 "interval={interval} max_staleness={max_seen}"
             );
         }
