@@ -74,7 +74,7 @@ pub use diagnostic::{
 };
 pub use fusion::{CausalEpisodicGraph, ClusterId, FusedCluster, FusionError, NodeRef};
 #[cfg(feature = "mincut-forget")]
-pub use graph_forget::{ForgetMode, MincutGatedForgetting};
+pub use graph_forget::{ForgetMode, MincutEngine, MincutGatedForgetting};
 #[cfg(feature = "proof-gate")]
 pub use ledger::WriteGateAdapter;
 pub use ledger::{replay_history, AlwaysAdmitGate, LedgerEntry, ProofGate, TransactionalLedger};
