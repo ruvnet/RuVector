@@ -341,4 +341,54 @@ mod tests {
             assert_eq!(r, &results[0], "static cut must be identical across independently-constructed, structurally-identical graphs");
         }
     }
+
+    /// Builds a fixed-degree ring k-NN graph: vertex `i` connects to the
+    /// next `k` vertices mod `n`, weight increasing with ring distance. Pure
+    /// function of `(n, k)` — no RNG, so two calls with the same arguments
+    /// always produce a structurally identical (if freshly-allocated, with
+    /// independent DashMap hash seeds) `DynamicGraph`. Same shape as
+    /// `ruvector-agent-memory`'s `examples/mincut_scaling_probe.rs`, reused
+    /// here as a frozen corpus definition rather than a throwaway probe.
+    fn frozen_ring_graph(n: usize, k: usize) -> Arc<DynamicGraph> {
+        let graph = Arc::new(DynamicGraph::new());
+        for i in 0..n {
+            for d in 1..=k {
+                let j = ((i + d) % n) as VertexId;
+                let _ = graph.insert_edge(i as VertexId, j, 0.1 + d as f64 * 0.01);
+            }
+        }
+        graph
+    }
+
+    /// Promotion-gate regression test (added in response to the 2026-09-09
+    /// review on PR #972, which found the single-fixture determinism check
+    /// insufficient evidence for "representative scaling" and asked for
+    /// "deterministic cut/value parity on a frozen multi-size corpus"
+    /// before promotion): a fixed, checked-in, non-random corpus definition
+    /// ([`frozen_ring_graph`]) at five sizes spanning two orders of
+    /// magnitude, each rebuilt from scratch (fresh `DynamicGraph`, fresh
+    /// `DashMap` hash seeds — exactly the non-determinism ADR-345 measured
+    /// in the dynamic engine) five independent times, asserting the full
+    /// `StaticCutResult` (cut value *and* both partition sides, in order)
+    /// is byte-identical across every rebuild at every size.
+    #[test]
+    fn frozen_multi_size_corpus_cut_value_and_partition_are_stable() {
+        const SIZES: [usize; 5] = [10, 19, 50, 100, 250];
+        const K: usize = 4;
+        const REBUILDS: usize = 5;
+
+        for &n in &SIZES {
+            let k = K.min(n - 1);
+            let first = stoer_wagner_min_cut(&frozen_ring_graph(n, k))
+                .unwrap_or_else(|| panic!("n={n} >= 2 always yields a cut"));
+            for trial in 1..REBUILDS {
+                let again = stoer_wagner_min_cut(&frozen_ring_graph(n, k))
+                    .unwrap_or_else(|| panic!("n={n} >= 2 always yields a cut"));
+                assert_eq!(
+                    again, first,
+                    "n={n}, rebuild #{trial}: cut value and partition must be identical across independently-constructed, structurally-identical graphs"
+                );
+            }
+        }
+    }
 }
