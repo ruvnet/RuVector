@@ -27,7 +27,12 @@ use ruvector_core::index::VectorIndex;
 use ruvector_core::types::{DistanceMetric, HnswConfig};
 
 fn wrapper_default_config() -> HnswConfig {
-    HnswConfig { m: 32, ef_construction: 200, ef_search: 100, max_elements: 10_000 }
+    HnswConfig {
+        m: 32,
+        ef_construction: 200,
+        ef_search: 100,
+        max_elements: 10_000,
+    }
 }
 
 /// Deterministic vectors; only the LEVELS stay random, which is the point.
@@ -41,7 +46,9 @@ fn unit_vector(seed: u64, dims: usize) -> Vec<f32> {
         norm += *slot * *slot;
     }
     let norm = norm.sqrt();
-    for slot in v.iter_mut() { *slot /= norm; }
+    for slot in v.iter_mut() {
+        *slot /= norm;
+    }
     v
 }
 
@@ -79,7 +86,10 @@ fn layer_invariants_hold_across_independent_draws() {
     for trial in 0..64 {
         let idx = build(6, 64);
         let (_above, unreachable) = idx.structural_violations();
-        assert!(unreachable.is_empty(), "trial {trial}: unreachable={unreachable:?}");
+        assert!(
+            unreachable.is_empty(),
+            "trial {trial}: unreachable={unreachable:?}"
+        );
     }
 }
 
@@ -93,5 +103,9 @@ fn the_structural_checks_are_not_vacuous() {
     assert!(unreachable.is_empty());
     // If the graph were empty the checks would pass while inspecting nothing;
     // prove they had material to inspect.
-    assert_eq!(idx.len(), 64, "the index under inspection must actually hold rows");
+    assert_eq!(
+        idx.len(),
+        64,
+        "the index under inspection must actually hold rows"
+    );
 }
