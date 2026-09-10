@@ -1292,6 +1292,99 @@ impl<'b, T: Clone + Send + Sync, D: Distance<T> + Send + Sync> Hnsw<'b, T, D> {
         //   println!("     exitingreverse update neighbourhood for  new point {:?} ", new_point.p_id);
     } // end of reverse_update_neighborhood_simple
 
+    // ── ruvnet/RuVector#773 structural diagnostics ─────────────────────────
+    //
+    // Exposed as public methods rather than unit tests because this crate is a
+    // `[patch.crates-io]` target, NOT a workspace member: `cargo test` at the
+    // root never descends into it and no workflow references it, so a test
+    // living here would be a test nothing runs. The assertions live in
+    // `crates/ruvector-core/tests/`, which CI does execute; these two methods
+    // are what make the invariant reachable from there.
+    //
+    // Both are exhaustive over the graph and hold for EVERY random level draw,
+    // so one index is a receipt — unlike a sampled `search()` trial, which can
+    // only ever be a probability.
+
+    /// Edges recorded on a layer that one of their endpoints does not occupy.
+    ///
+    /// The #773 defect stored every symmetric edge at `new_point.p_id.0` (the
+    /// new point's TOP level) instead of the layer the forward edge was built
+    /// on, so an edge could land above `q`'s own level. Returns descriptions
+    /// rather than a bool, so a failure names the offending edge.
+    pub fn edges_above_endpoint_level(&self) -> Vec<String> {
+        let indexation = self.get_point_indexation();
+        let mut bad = Vec::new();
+        let max = indexation.get_max_level_observed() as usize;
+        for top in 0..=max {
+            for point in indexation.get_layer_iterator(top) {
+                let p_top = point.get_point_id().0 as usize;
+                for (l, layer) in point.get_neighborhood_id().iter().enumerate() {
+                    for n in layer {
+                        let q_top = n.p_id.0 as usize;
+                        if l > p_top || l > q_top {
+                            bad.push(format!(
+                                "layer {} edge between p(level {}) and q(level {})",
+                                l, p_top, q_top
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        bad
+    }
+
+    /// Origin ids of points NOT reachable from the entry point over layer-0
+    /// edges alone.
+    ///
+    /// This is the invariant `search()` actually depends on. A point with no
+    /// layer-0 in-edge is not "found late" — it is unreachable, and no
+    /// `ef_search` recovers it, which is why #773 looked like silent data loss
+    /// while `get()` and `len()` still saw the row.
+    pub fn points_unreachable_at_layer0(&self) -> Vec<usize> {
+        use std::collections::{HashMap, HashSet};
+        let indexation = self.get_point_indexation();
+        let max = indexation.get_max_level_observed() as usize;
+        let mut all: Vec<usize> = Vec::new();
+        let mut out: HashMap<usize, Vec<usize>> = HashMap::new();
+        for top in 0..=max {
+            for point in indexation.get_layer_iterator(top) {
+                let id = point.get_origin_id();
+                all.push(id);
+                let nb = point.get_neighborhood_id();
+                let l0 = nb
+                    .first()
+                    .map(|v| v.iter().map(|n| n.get_origin_id()).collect::<Vec<_>>())
+                    .unwrap_or_default();
+                out.insert(id, l0);
+            }
+        }
+        let start = match indexation.entry_point.read().as_ref() {
+            Some(ep) => ep.get_origin_id(),
+            None => return Vec::new(), // empty index: nothing to reach
+        };
+        // Traversal needs an IN-edge, so walk the symmetric closure.
+        let mut back: HashMap<usize, Vec<usize>> = HashMap::new();
+        for (from, tos) in &out {
+            for to in tos {
+                back.entry(*to).or_default().push(*from);
+            }
+        }
+        let mut seen: HashSet<usize> = HashSet::new();
+        let mut stack = vec![start];
+        seen.insert(start);
+        while let Some(cur) = stack.pop() {
+            let fwd = out.get(&cur).into_iter().flatten();
+            let rev = back.get(&cur).into_iter().flatten();
+            for next in fwd.chain(rev) {
+                if seen.insert(*next) {
+                    stack.push(*next);
+                }
+            }
+        }
+        all.into_iter().filter(|id| !seen.contains(id)).collect()
+    }
+
     pub fn get_point_indexation(&self) -> &PointIndexation<'b, T> {
         &self.layer_indexed_points
     }

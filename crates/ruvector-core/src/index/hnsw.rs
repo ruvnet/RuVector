@@ -139,6 +139,24 @@ impl HnswIndex {
     }
 
     /// Get configuration
+    /// Structural violations of the layer invariants restored by the
+    /// ruvnet/RuVector#773 fix: `(edges above an endpoint's level, points
+    /// unreachable over layer-0 edges)`.
+    ///
+    /// Both are empty on a healthy index. Exposed so the regression suite can
+    /// assert the invariant EXHAUSTIVELY on any index, instead of sampling
+    /// `search()` results and arguing from probability — levels come from
+    /// `StdRng::from_entropy()`, so a sampled trial cannot be made
+    /// deterministic, while these hold for every draw.
+    #[doc(hidden)]
+    pub fn structural_violations(&self) -> (Vec<String>, Vec<usize>) {
+        let guard = self.inner.read();
+        (
+            guard.hnsw.edges_above_endpoint_level(),
+            guard.hnsw.points_unreachable_at_layer0(),
+        )
+    }
+
     pub fn config(&self) -> &HnswConfig {
         &self.config
     }
