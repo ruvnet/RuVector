@@ -1363,20 +1363,18 @@ impl<'b, T: Clone + Send + Sync, D: Distance<T> + Send + Sync> Hnsw<'b, T, D> {
             Some(ep) => ep.get_origin_id(),
             None => return Vec::new(), // empty index: nothing to reach
         };
-        // Traversal needs an IN-edge, so walk the symmetric closure.
-        let mut back: HashMap<usize, Vec<usize>> = HashMap::new();
-        for (from, tos) in &out {
-            for to in tos {
-                back.entry(*to).or_default().push(*from);
-            }
-        }
+        // DIRECTED, deliberately. `search_layer` advances by reading the
+        // CURRENT node's neighbour list, so a point is findable only if some
+        // reachable node LISTS it -- an in-edge. Walking the symmetric closure
+        // instead makes this vacuous: every point writes its own forward
+        // layer-0 out-edges, so undirected reachability is satisfied even with
+        // the #773 defect present. Measured: the symmetric version let the
+        // pre-fix mutant survive.
         let mut seen: HashSet<usize> = HashSet::new();
         let mut stack = vec![start];
         seen.insert(start);
         while let Some(cur) = stack.pop() {
-            let fwd = out.get(&cur).into_iter().flatten();
-            let rev = back.get(&cur).into_iter().flatten();
-            for next in fwd.chain(rev) {
+            for next in out.get(&cur).into_iter().flatten() {
                 if seen.insert(*next) {
                     stack.push(*next);
                 }
