@@ -52,6 +52,8 @@ pub mod diagnostic;
 pub mod fusion;
 #[cfg(feature = "mincut-forget")]
 pub mod graph_forget;
+#[cfg(feature = "mincut-forget-cactus")]
+pub mod graph_forget_cactus;
 pub mod ledger;
 pub mod memory;
 pub mod observation;
@@ -75,6 +77,8 @@ pub use diagnostic::{
 pub use fusion::{CausalEpisodicGraph, ClusterId, FusedCluster, FusionError, NodeRef};
 #[cfg(feature = "mincut-forget")]
 pub use graph_forget::{ForgetMode, MincutGatedForgetting};
+#[cfg(feature = "mincut-forget-cactus")]
+pub use graph_forget_cactus::CactusGatedForgetting;
 #[cfg(feature = "proof-gate")]
 pub use ledger::WriteGateAdapter;
 pub use ledger::{replay_history, AlwaysAdmitGate, LedgerEntry, ProofGate, TransactionalLedger};
