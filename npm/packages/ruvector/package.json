@@ -89,7 +89,7 @@
     "@metaharness/weight-eft": "^0.1.1",
     "@metaharness/workspace-lens": "^0.1.2",
     "@metaharness/workspace-probe": "^0.1.1",
-    "@ruvector/rvf": "^0.1.0",
+    "@ruvector/rvf": "^0.3.4",
     "@ruvector/tiny-dancer": "^0.1.22",
     "metaharness": "^0.4.7"
   },
