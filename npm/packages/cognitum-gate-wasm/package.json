@@ -73,7 +73,7 @@
     "jsdom": "^23.0.0",
     "tsup": "^8.0.0",
     "typescript": "^5.3.0",
-    "vitest": "^3.2.6"
+    "vitest": "^4.1.11"
   },
   "peerDependencies": {
     "claude-flow": ">=2.0.0"
