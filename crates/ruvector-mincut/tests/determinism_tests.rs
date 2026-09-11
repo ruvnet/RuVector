@@ -155,7 +155,10 @@ fn graph_vertices_and_edges_are_sorted() {
     let vertices = graph.vertices();
     let mut sorted = vertices.clone();
     sorted.sort_unstable();
-    assert_eq!(vertices, sorted, "vertices() must be returned in sorted order");
+    assert_eq!(
+        vertices, sorted,
+        "vertices() must be returned in sorted order"
+    );
 
     let edges = graph.edges();
     let ids: Vec<u64> = edges.iter().map(|e| e.id).collect();
