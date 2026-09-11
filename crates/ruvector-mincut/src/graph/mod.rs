@@ -260,8 +260,7 @@ impl DynamicGraph {
     /// a canonical order to be reproducible. Sorting here, once, at the graph
     /// boundary is cheaper than auditing every downstream consumer.
     pub fn vertices(&self) -> Vec<VertexId> {
-        let mut vertices: Vec<VertexId> =
-            self.adjacency.iter().map(|entry| *entry.key()).collect();
+        let mut vertices: Vec<VertexId> = self.adjacency.iter().map(|entry| *entry.key()).collect();
         vertices.sort_unstable();
         vertices
     }
