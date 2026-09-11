@@ -61,7 +61,7 @@
     "Federated learning with Byzantine fault tolerance",
     "Cryptographic witness chain integrity verification",
     "Graph neural network knowledge topology",
-    "MCP server with 91 tools for Claude Code",
+    "MCP server with 105 tools for Claude Code",
     "REST API with search, vote, and contribute endpoints",
     "Server-Sent Events for real-time streaming",
     "WASM executable knowledge nodes",
@@ -660,7 +660,7 @@ footer a:hover{color:var(--text2)}
         </div>
         <div style="background:var(--bg);padding:1.5rem">
           <h4 style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--glow);margin-bottom:0.5rem">MCP Protocol</h4>
-          <p style="color:var(--text2);font-size:0.75rem;line-height:1.7">Claude Code integration. 91 tools via npx (stdio), 21 brain tools via Cargo, or connect remotely via SSE at <span style="font-family:var(--mono);color:var(--glow)">mcp.pi.ruv.io</span>.</p>
+          <p style="color:var(--text2);font-size:0.75rem;line-height:1.7">Claude Code integration. 105 tools via npx (stdio), 42 brain tools via Cargo, or connect remotely via SSE at <span style="font-family:var(--mono);color:var(--glow)">mcp.pi.ruv.io</span>.</p>
         </div>
         <div style="background:var(--bg);padding:1.5rem">
           <h4 style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--glow);margin-bottom:0.5rem">Rust SDK</h4>
@@ -685,16 +685,16 @@ footer a:hover{color:var(--text2)}
 <span class="p">$</span> export BRAIN_URL="https://pi.ruv.io"
 
 <span class="c"># 2. Add &#x3C0; as an MCP server</span>
-<span class="c"># Recommended: SSE (remote — 21 brain tools, no install)</span>
+<span class="c"># Recommended: SSE (remote — 42 brain tools, no install)</span>
 <span class="p">$</span> claude mcp add pi-brain --transport sse https://mcp.pi.ruv.io
 
-<span class="c"># Alternative: NPX (Node.js — 91 tools, local stdio)</span>
+<span class="c"># Alternative: NPX (Node.js — 105 tools, local stdio)</span>
 <span class="p">$</span> claude mcp add ruvector -- npx ruvector mcp start
 
-<span class="c"># Alternative: Rust (Cargo — 21 brain tools, local stdio)</span>
+<span class="c"># Alternative: Rust (Cargo — 42 brain tools, local stdio)</span>
 <span class="p">$</span> claude mcp add pi-brain -- cargo run -p mcp-brain
 
-<span class="c"># 3. NPX: 91 tools / Cargo: 21 brain tools</span>
+<span class="c"># 3. NPX: 105 tools / Cargo: 42 brain tools</span>
 <span class="o">brain_share</span>         Share a learning
 <span class="o">brain_search</span>        Semantic search
 <span class="o">brain_vote</span>          Quality gate a memory
@@ -714,7 +714,7 @@ footer a:hover{color:var(--text2)}
 <span class="o">brain_node_list</span>     List WASM nodes</div>
       </div>
 
-      <div class="sh" style="margin-top:2rem;margin-bottom:1.5rem"><h3 style="font-size:1rem;font-weight:300">NPX CLI — <strong>91 tools</strong></h3></div>
+      <div class="sh" style="margin-top:2rem;margin-bottom:1.5rem"><h3 style="font-size:1rem;font-weight:300">NPX CLI — <strong>105 tools</strong></h3></div>
       <div class="term">
         <div class="term-bar">
           <div class="term-dot" style="background:#ff5f57"></div>
@@ -726,7 +726,7 @@ footer a:hover{color:var(--text2)}
 <span class="p">$</span> npx ruvector identity generate
 <span class="o">Pi Key: a1b2c3d4e5f6...  Pseudonym: 7f8e9d0c...</span>
 
-<span class="c"># Add 91 MCP tools to Claude Code</span>
+<span class="c"># Add 105 MCP tools to Claude Code</span>
 <span class="p">$</span> claude mcp add ruvector -- npx ruvector mcp start
 
 <span class="c"># Or use SSE transport for remote access</span>
@@ -945,7 +945,7 @@ footer a:hover{color:var(--text2)}
           <span style="color:var(--glow)">$</span> npx ruvector doctor
         </p>
         <p style="color:var(--text3);font-size:0.6rem;margin-top:0.5rem;font-family:var(--mono);letter-spacing:0.5px">
-          <a href="https://www.npmjs.com/package/ruvector" target="_blank" style="color:var(--glow);text-decoration:none">ruvector@0.2.2</a> &nbsp;&#x2022;&nbsp; 91 MCP tools &nbsp;&#x2022;&nbsp; 48 commands &nbsp;&#x2022;&nbsp; 12 groups
+          <a href="https://www.npmjs.com/package/ruvector" target="_blank" style="color:var(--glow);text-decoration:none">ruvector@0.3.0</a> &nbsp;&#x2022;&nbsp; 105 MCP tools &nbsp;&#x2022;&nbsp; 48 commands &nbsp;&#x2022;&nbsp; 12 groups
         </p>
       </div>
     </div>
@@ -1155,7 +1155,7 @@ footer a:hover{color:var(--text2)}
           <h3>Connect via SSE <span style="font-size:0.6rem;color:var(--glow);font-family:var(--mono);letter-spacing:1px;vertical-align:middle;margin-left:6px">RECOMMENDED</span></h3>
           <p>One command. No install. Connect to the live &#x3C0; brain directly via Server-Sent Events — works with Claude Code or any MCP client.</p>
           <div class="curl-block"><button class="curl-copy" onclick="copyCurl(this)">copy</button>claude mcp add pi-brain --transport sse https://mcp.pi.ruv.io</div>
-          <p style="color:var(--text3);font-size:0.6rem;margin-top:0.5rem;font-family:var(--mono)">21 brain tools. Zero dependencies. Always up-to-date.</p>
+          <p style="color:var(--text3);font-size:0.6rem;margin-top:0.5rem;font-family:var(--mono)">42 brain tools. Zero dependencies. Always up-to-date.</p>
         </div>
       </div>
       <div class="step-row">
@@ -1170,7 +1170,7 @@ footer a:hover{color:var(--text2)}
         <div class="step-n">3</div>
         <div>
           <h3>Use brain tools</h3>
-          <p>21 brain tools are now in your session. Share, search, vote, transfer — all through natural language.</p>
+          <p>42 brain tools are now in your session. Share, search, vote, transfer — all through natural language.</p>
           <div class="curl-block" style="color:var(--glow);font-size:0.6rem;line-height:2"><span style="color:var(--text3)">brain_share</span>     Share a learning
 <span style="color:var(--text3)">brain_search</span>    Semantic search
 <span style="color:var(--text3)">brain_vote</span>      Quality gate
@@ -1186,11 +1186,11 @@ footer a:hover{color:var(--text2)}
         <div class="step-n" style="font-size:0.5rem">alt</div>
         <div>
           <h3>Local install (optional)</h3>
-          <p>For 91 tools (hooks, workers, RVF, edge, identity) or offline use, install locally via npx or Cargo.</p>
-          <div class="curl-block"><button class="curl-copy" onclick="copyCurl(this)">copy</button><span style="color:var(--text3)"># NPX: 91 tools (local stdio)</span>
+          <p>For 105 tools (hooks, workers, RVF, edge, identity) or offline use, install locally via npx or Cargo.</p>
+          <div class="curl-block"><button class="curl-copy" onclick="copyCurl(this)">copy</button><span style="color:var(--text3)"># NPX: 105 tools (local stdio)</span>
 claude mcp add ruvector -- npx ruvector mcp start
 
-<span style="color:var(--text3)"># Cargo: 21 brain tools (local stdio)</span>
+<span style="color:var(--text3)"># Cargo: 42 brain tools (local stdio)</span>
 claude mcp add pi-brain -- cargo run -p mcp-brain</div>
         </div>
       </div>
@@ -1220,13 +1220,13 @@ npx ruvector identity show --json</div>
       <div class="step-row">
         <div class="step-n">3</div>
         <div>
-          <h3>Add 91 MCP tools to Claude Code</h3>
+          <h3>Add 105 MCP tools to Claude Code</h3>
           <p>One command registers the full &#x3C0; ecosystem — brain, hooks, workers, RVF, edge, identity — as MCP tools in your session.</p>
           <div class="curl-block"><button class="curl-copy" onclick="copyCurl(this)">copy</button>claude mcp add ruvector -- npx ruvector mcp start
 
 # Verify
 npx ruvector mcp test
-# Total: 91 tools registered</div>
+# Total: 105 tools registered</div>
         </div>
       </div>
       <div class="step-row" style="border-bottom:none">
