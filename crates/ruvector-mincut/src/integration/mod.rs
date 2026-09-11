@@ -108,8 +108,25 @@ impl RuVectorGraphAnalyzer {
                 Some((Vec::new(), Vec::new()))
             }
             MinCutResult::Value { witness, .. } => {
-                let (side_a, side_b) = witness.materialize_partition();
-                let partition = (side_a.into_iter().collect(), side_b.into_iter().collect());
+                // Deliberately not `witness.materialize_partition()`: it infers
+                // the graph's vertex range from `max(U)` (the cut side's own
+                // membership), not the graph's actual vertex set. Whenever U
+                // omits the graph's highest-numbered vertex (the common case —
+                // e.g. a 9-vertex cluster {0..=8} cut out of a 19-vertex graph
+                // whose other side is {9..=18}), that under-estimates the
+                // range and V\U comes back truncated or entirely empty. Build
+                // both sides from the real vertex list instead: O(|V|), same
+                // as `materialize_partition`, but correct for any V\U.
+                let mut side_a = Vec::new();
+                let mut side_b = Vec::new();
+                for v in self.graph.vertices() {
+                    if witness.contains(v) {
+                        side_a.push(v);
+                    } else {
+                        side_b.push(v);
+                    }
+                }
+                let partition = (side_a, side_b);
                 self.cached_partition = Some(partition.clone());
                 Some(partition)
             }
