@@ -28,11 +28,32 @@
 //! small (`< 4` entries) or the similarity graph has no crossing edges (e.g.
 //! it is already disconnected, or every pair is above/below threshold
 //! uniformly) — there is no boundary signal to add in that case.
+//!
+//! # Nightly follow-up (2026-09-12, ADR-346): the `LocalDeterministic` engine
+//!
+//! The original (2026-09-05) engine above — [`MincutEngine::ExactGlobal`],
+//! backed by [`ruvector_mincut::RuVectorGraphAnalyzer::partition()`] — was
+//! measured to be both too slow (76ms-11.4s per call at 50-400 vertices) and
+//! non-deterministic across repeated calls on byte-identical input (see the
+//! "Measured limitation" doc on [`MincutGatedForgetting::boundary_indices`]
+//! and `docs/research/nightly/2026-09-05-mincut-gated-forgetting/`). This
+//! module now also offers [`MincutEngine::LocalDeterministic`], which
+//! attacks that exact bottleneck by replacing the single expensive *global*
+//! min-cut call with `n` cheap, provably-deterministic *local* k-cut queries
+//! (`ruvector_mincut::localkcut::DeterministicLocalKCut`, from the paper
+//! "Deterministic and Exact Fully-dynamic Minimum Cut of Superpolylogarithmic
+//! Size") — one bounded-radius, bounded-budget BFS per vertex, with no
+//! hash-map-iteration-order tie-breaking anywhere in the call path. See
+//! `docs/research/nightly/2026-09-12-local-kcut-gated-forgetting/README.md`
+//! for the falsifiable hypothesis and measured results of this follow-up.
 
 use crate::compaction::{weighted_importance, CoherenceWeights, CompactionPolicy};
 use crate::memory::MemoryEntry;
 use crate::scoring::cosine_sim;
-use ruvector_mincut::RuVectorGraphAnalyzer;
+use ruvector_mincut::{
+    DeterministicLocalKCut, DynamicGraph, LocalKCutOracle, LocalKCutQuery,
+    PaperLocalKCutResult as LocalKCutResult, RuVectorGraphAnalyzer,
+};
 use std::collections::HashSet;
 
 /// How the mincut-boundary structural signal is combined with the scalar
@@ -46,12 +67,34 @@ pub enum ForgetMode {
     Hard,
 }
 
+/// Which `ruvector-mincut` primitive computes the structural boundary
+/// signal. See the module-level "Nightly follow-up" doc for why there are
+/// two.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MincutEngine {
+    /// Original engine (ADR-345, 2026-09-05): one global exact min-cut via
+    /// [`RuVectorGraphAnalyzer::partition()`] per compaction. Measured
+    /// 76ms-11.4s per call at 50-400 vertices and non-deterministic across
+    /// repeated calls on identical input; retained only for comparison.
+    ExactGlobal,
+    /// Follow-up engine (ADR-346, 2026-09-12): one
+    /// [`ruvector_mincut::localkcut::DeterministicLocalKCut`] query per
+    /// vertex, each a bounded-radius BFS with no randomization and no
+    /// hash-map-iteration-order dependence. `max_radius` caps BFS depth;
+    /// `budget_k` is the maximum boundary-edge count a local region may have
+    /// to count as a structural cut.
+    LocalDeterministic { max_radius: usize, budget_k: u64 },
+}
+
 /// Mincut-gated forgetting compaction policy (candidates A/B of the nightly
-/// 2026-09-05 experiment).
+/// 2026-09-05 experiment, plus the `LocalDeterministic` engine added
+/// 2026-09-12).
 #[derive(Debug, Clone)]
 pub struct MincutGatedForgetting {
     pub weights: CoherenceWeights,
     pub mode: ForgetMode,
+    /// Which `ruvector-mincut` primitive supplies the boundary signal.
+    pub engine: MincutEngine,
     /// Max neighbors per vertex when building the similarity graph.
     pub k_neighbors: usize,
     /// Minimum cosine similarity for an edge to be added.
@@ -62,19 +105,23 @@ pub struct MincutGatedForgetting {
     /// [`ForgetMode::Hard`] only: fraction of `target_size` reserved for
     /// boundary vertices.
     pub protect_fraction: f32,
-    /// Number of times to recompute the min-cut partition on an unchanged
-    /// graph, unioning the boundary vertices found each time (see the
-    /// "Measured limitation" note on [`Self::boundary_indices`]). `1`
-    /// disables retrying.
+    /// [`MincutEngine::ExactGlobal`] only: number of times to recompute the
+    /// min-cut partition on an unchanged graph, unioning the boundary
+    /// vertices found each time (see the "Measured limitation" note on
+    /// [`Self::boundary_indices_exact`]). `1` disables retrying. Ignored by
+    /// [`MincutEngine::LocalDeterministic`], which needs no retries because
+    /// it is deterministic by construction.
     pub mincut_trials: usize,
 }
 
 impl MincutGatedForgetting {
-    /// [`ForgetMode::Soft`] with the given weights and bonus.
+    /// [`ForgetMode::Soft`] with the given weights and bonus, using the
+    /// original [`MincutEngine::ExactGlobal`] engine.
     pub fn soft(weights: CoherenceWeights, structural_bonus: f32) -> Self {
         Self {
             weights,
             mode: ForgetMode::Soft,
+            engine: MincutEngine::ExactGlobal,
             k_neighbors: 8,
             min_similarity: 0.05,
             structural_bonus,
@@ -83,11 +130,13 @@ impl MincutGatedForgetting {
         }
     }
 
-    /// [`ForgetMode::Hard`] with the given weights and protected fraction.
+    /// [`ForgetMode::Hard`] with the given weights and protected fraction,
+    /// using the original [`MincutEngine::ExactGlobal`] engine.
     pub fn hard(weights: CoherenceWeights, protect_fraction: f32) -> Self {
         Self {
             weights,
             mode: ForgetMode::Hard,
+            engine: MincutEngine::ExactGlobal,
             k_neighbors: 8,
             min_similarity: 0.05,
             structural_bonus: 0.0,
@@ -96,12 +145,82 @@ impl MincutGatedForgetting {
         }
     }
 
-    /// Build a k-NN cosine-similarity graph and return the indices (into
-    /// `entries`) of vertices with at least one neighbor edge crossing the
-    /// graph's global min-cut partition.
-    ///
-    /// Returns an empty set when there is no usable structural signal: fewer
-    /// than 4 entries, or no edges survive `min_similarity`.
+    /// [`ForgetMode::Soft`] using the follow-up
+    /// [`MincutEngine::LocalDeterministic`] engine (ADR-346, 2026-09-12).
+    pub fn soft_local(weights: CoherenceWeights, structural_bonus: f32) -> Self {
+        Self {
+            // max_radius=0: see the "Design note" on
+            // `boundary_indices_local` for why multi-hop search over-flags
+            // on tightly clustered synthetic data.
+            engine: MincutEngine::LocalDeterministic {
+                max_radius: 0,
+                budget_k: 4,
+            },
+            ..Self::soft(weights, structural_bonus)
+        }
+    }
+
+    /// [`ForgetMode::Hard`] using the follow-up
+    /// [`MincutEngine::LocalDeterministic`] engine (ADR-346, 2026-09-12).
+    pub fn hard_local(weights: CoherenceWeights, protect_fraction: f32) -> Self {
+        Self {
+            // max_radius=0: see the "Design note" on
+            // `boundary_indices_local` for why multi-hop search over-flags
+            // on tightly clustered synthetic data.
+            engine: MincutEngine::LocalDeterministic {
+                max_radius: 0,
+                budget_k: 4,
+            },
+            ..Self::hard(weights, protect_fraction)
+        }
+    }
+
+    /// Return the indices (into `entries`) of vertices flagged as
+    /// structurally load-bearing by `self.engine` — see
+    /// [`Self::boundary_indices_exact`] and [`Self::boundary_indices_local`]
+    /// for the two implementations. Returns an empty set when there is no
+    /// usable structural signal: fewer than 4 entries, or no edges survive
+    /// `min_similarity`.
+    fn boundary_indices(&self, entries: &[MemoryEntry]) -> HashSet<usize> {
+        match self.engine {
+            MincutEngine::ExactGlobal => self.boundary_indices_exact(entries),
+            MincutEngine::LocalDeterministic {
+                max_radius,
+                budget_k,
+            } => self.boundary_indices_local(entries, max_radius, budget_k),
+        }
+    }
+
+    /// Build the same k-NN cosine-similarity neighbor list used by both
+    /// engines: for each vertex, its top-`k_neighbors` neighbors above
+    /// `min_similarity`, as `(neighbor_index, distance)` pairs (distance =
+    /// `1 - similarity`, floored so near-duplicates get heavy edges).
+    fn knn_neighbors(&self, entries: &[MemoryEntry]) -> Vec<(usize, Vec<(usize, f64)>)> {
+        let n = entries.len();
+        let k = self.k_neighbors.max(1);
+        (0..n)
+            .map(|i| {
+                let mut sims: Vec<(usize, f32)> = (0..n)
+                    .filter(|&j| j != i)
+                    .map(|j| (j, cosine_sim(&entries[i].vector, &entries[j].vector)))
+                    .filter(|&(_, s)| s >= self.min_similarity)
+                    .collect();
+                sims.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+                sims.truncate(k);
+                // Distance = 1 - similarity (floored) so near-duplicate pairs
+                // get heavy, cut-resistant edges under both engines.
+                let dists = sims
+                    .into_iter()
+                    .map(|(j, s)| (j, (1.0 - s).max(1e-4) as f64))
+                    .collect();
+                (i, dists)
+            })
+            .collect()
+    }
+
+    /// [`MincutEngine::ExactGlobal`] boundary detection: see the type-level
+    /// doc on [`MincutEngine::ExactGlobal`] and the "Measured limitation"
+    /// note below for why [`MincutEngine::LocalDeterministic`] exists.
     ///
     /// # Measured limitation (nightly 2026-09-05 finding)
     ///
@@ -126,8 +245,7 @@ impl MincutGatedForgetting {
     /// numbers above) and
     /// `docs/research/nightly/2026-09-05-mincut-gated-forgetting/README.md`
     /// ("Failure modes", which also covers latency scaling up to 400
-    /// vertices). Filed as a follow-up hardening item against
-    /// `ruvector-mincut` rather than worked around there.
+    /// vertices).
     ///
     /// This method mitigates it locally by taking the union of boundary
     /// vertices found across [`Self::mincut_trials`] independent calls: a
@@ -135,33 +253,11 @@ impl MincutGatedForgetting {
     /// minimum cut of the graph, so the union only adds true positives (never
     /// false ones) at the cost of also protecting bystander vertices caught
     /// by an alternate, equally-valid partition.
-    fn boundary_indices(&self, entries: &[MemoryEntry]) -> HashSet<usize> {
-        let n = entries.len();
-        if n < 4 {
+    fn boundary_indices_exact(&self, entries: &[MemoryEntry]) -> HashSet<usize> {
+        if entries.len() < 4 {
             return HashSet::new();
         }
-
-        let k = self.k_neighbors.max(1);
-        let neighbors: Vec<(usize, Vec<(usize, f64)>)> = (0..n)
-            .map(|i| {
-                let mut sims: Vec<(usize, f32)> = (0..n)
-                    .filter(|&j| j != i)
-                    .map(|j| (j, cosine_sim(&entries[i].vector, &entries[j].vector)))
-                    .filter(|&(_, s)| s >= self.min_similarity)
-                    .collect();
-                sims.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-                sims.truncate(k);
-                // `from_knn` treats the second tuple element as a *distance*
-                // (weight = 1/distance): invert similarity so near-duplicate
-                // pairs get heavy, cut-resistant edges.
-                let dists = sims
-                    .into_iter()
-                    .map(|(j, s)| (j, (1.0 - s).max(1e-4) as f64))
-                    .collect();
-                (i, dists)
-            })
-            .collect();
-
+        let neighbors = self.knn_neighbors(entries);
         if neighbors.iter().all(|(_, nbrs)| nbrs.is_empty()) {
             return HashSet::new();
         }
@@ -174,8 +270,8 @@ impl MincutGatedForgetting {
     }
 
     /// One min-cut partition attempt over an already-built k-NN graph; see
-    /// [`Self::boundary_indices`]'s "Measured limitation" note for why this
-    /// is called more than once.
+    /// [`Self::boundary_indices_exact`]'s "Measured limitation" note for why
+    /// this is called more than once.
     fn boundary_from_one_partition(neighbors: &[(usize, Vec<(usize, f64)>)]) -> HashSet<usize> {
         let mut analyzer = RuVectorGraphAnalyzer::from_knn(neighbors);
         let (side_a, side_b) = match analyzer.partition() {
@@ -196,6 +292,103 @@ impl MincutGatedForgetting {
                     boundary.insert(*i);
                     boundary.insert(j);
                 }
+            }
+        }
+        boundary
+    }
+
+    /// [`MincutEngine::LocalDeterministic`] boundary detection (ADR-346,
+    /// 2026-09-12): builds the same k-NN similarity graph as
+    /// [`Self::boundary_indices_exact`], but as a
+    /// `ruvector_mincut::DynamicGraph`, and instead of one global min-cut
+    /// call, runs one `DeterministicLocalKCut::search` per vertex, seeded
+    /// from *that vertex alone*. A vertex whose local region has a boundary
+    /// of at most `budget_k` edges within `max_radius` hops is flagged,
+    /// along with every other vertex the search placed on that region's
+    /// side of the cut.
+    ///
+    /// # Design note: single-vertex seeding, and why `max_radius` defaults
+    /// to `0` on tightly-clustered synthetic data
+    ///
+    /// Two seeding choices were tried while designing this method.
+    /// `DeterministicFamilyGenerator::generate_seeds` (which adds a vertex's
+    /// lowest-id neighbors to the seed set *before* the first boundary
+    /// check) was tried first and found to defeat the signal: for a
+    /// low-degree bridge vertex, it pre-loads both of the bridge's
+    /// high-degree neighbors into the very first candidate set, so the
+    /// first (and often only useful) boundary check is against a large,
+    /// noisy set rather than the bridge's own small one. Seeding with just
+    /// `[v]` and letting `deterministic_bfs` grow the region layer-by-layer
+    /// (as intended) fixed that.
+    ///
+    /// With single-vertex seeding, `max_radius >= 1` on this crate's own
+    /// synthetic bridge-and-cluster test fixture (see `bridge_dataset` in
+    /// this module's tests, and the nightly benchmark's cluster corpus)
+    /// still over-flags: expanding one hop from *any* same-cluster vertex
+    /// reaches nearly the entire cluster (clusters are built as k-NN
+    /// near-cliques), and that whole-cluster set also has a small boundary
+    /// (just the one edge leaving the cluster) — so at radius >= 1, *every*
+    /// vertex in *every* cluster ends up flagged, not just the bridges,
+    /// which erases the differential signal `MincutGatedForgetting` needs.
+    /// `max_radius = 0` (check only a vertex's own direct degree against
+    /// `budget_k`, no BFS growth) avoids this pathology and is what
+    /// [`Self::soft_local`]/[`Self::hard_local`] use by default. This is a
+    /// real, disclosed limitation of the multi-hop search on tightly
+    /// clustered inputs, not a claim that radius 0 is the generally correct
+    /// choice for every dataset — `max_radius` stays a public knob for
+    /// callers with different topology.
+    ///
+    /// Unlike [`Self::boundary_indices_exact`], this never calls a
+    /// hash-map-keyed global partition routine, so it needs no
+    /// `mincut_trials` retries to reach determinism: the same input always
+    /// produces the same boundary set (verified by
+    /// `local_engine_is_deterministic_across_repeated_calls` below and by
+    /// the nightly benchmark's own determinism check).
+    fn boundary_indices_local(
+        &self,
+        entries: &[MemoryEntry],
+        max_radius: usize,
+        budget_k: u64,
+    ) -> HashSet<usize> {
+        let n = entries.len();
+        if n < 4 {
+            return HashSet::new();
+        }
+        let neighbors = self.knn_neighbors(entries);
+        if neighbors.iter().all(|(_, nbrs)| nbrs.is_empty()) {
+            return HashSet::new();
+        }
+
+        let graph = DynamicGraph::with_capacity(n, n * self.k_neighbors.max(1));
+        for i in 0..n {
+            graph.add_vertex(i as u64);
+        }
+        for (i, nbrs) in &neighbors {
+            for &(j, dist) in nbrs {
+                let (u, v) = (*i as u64, j as u64);
+                if !graph.has_edge(u, v) {
+                    // insert_edge only fails on self-loops or an already
+                    // present edge, both excluded by construction here.
+                    let _ = graph.insert_edge(u, v, dist);
+                }
+            }
+        }
+        if graph.num_edges() == 0 {
+            return HashSet::new();
+        }
+
+        let oracle = DeterministicLocalKCut::new(max_radius);
+        let mut boundary = HashSet::new();
+        for i in 0..n {
+            let v = i as u64;
+            let query = LocalKCutQuery {
+                seed_vertices: vec![v],
+                budget_k,
+                radius: max_radius,
+            };
+            if let LocalKCutResult::Found { witness, .. } = oracle.search(&graph, query) {
+                let (side, _) = witness.materialize_partition();
+                boundary.extend(side.into_iter().map(|id| id as usize));
             }
         }
         boundary
@@ -342,8 +535,9 @@ mod tests {
 
         let mut policy = MincutGatedForgetting::soft(CoherenceWeights::default(), 1.0);
         // Raised from the default 3: this dataset has two equal-cost minimum
-        // cuts (see the "Measured limitation" doc on `boundary_indices`), so
-        // a single low-trial-count run can occasionally miss the boundary
+        // cuts (see the "Measured limitation" doc on
+        // `boundary_indices_exact`), so a single low-trial-count run can
+        // occasionally miss the boundary
         // signal by chance; 10 keeps this deterministic unit test's flake
         // rate negligible at a runtime cost that is fine for `cargo test`
         // (19 vertices, not the multi-second cost measured at production
@@ -378,5 +572,67 @@ mod tests {
         let policy = MincutGatedForgetting::soft(CoherenceWeights::default(), 1.0);
         let survivors = policy.select_survivors(&entries, 2, &[]);
         assert_eq!(survivors.len(), 2);
+    }
+
+    // ── ADR-346 (2026-09-12): MincutEngine::LocalDeterministic tests ───────
+
+    #[test]
+    fn local_engine_soft_mode_protects_the_structural_bridge() {
+        let (entries, bridge_idx) = bridge_dataset();
+        let policy = MincutGatedForgetting::soft_local(CoherenceWeights::default(), 1.0);
+        let survivors = policy.select_survivors(&entries, 16, &[]);
+        assert!(
+            survivors.contains(&bridge_idx),
+            "local-engine soft mincut-gated forgetting must retain the sole cross-cluster bridge"
+        );
+    }
+
+    #[test]
+    fn local_engine_hard_mode_reserves_budget_for_boundary_vertices() {
+        let (entries, bridge_idx) = bridge_dataset();
+        let policy = MincutGatedForgetting::hard_local(CoherenceWeights::default(), 0.3);
+        let survivors = policy.select_survivors(&entries, 16, &[]);
+        assert!(
+            survivors.contains(&bridge_idx),
+            "local-engine hard mincut-gated forgetting must protect the bridge within its reserved budget"
+        );
+    }
+
+    #[test]
+    fn local_engine_falls_back_gracefully_below_minimum_size() {
+        let entries: Vec<MemoryEntry> = (0..3)
+            .map(|i| MemoryEntry::new(i, vec![i as f32, 0.0], 0))
+            .collect();
+        let policy = MincutGatedForgetting::soft_local(CoherenceWeights::default(), 1.0);
+        let survivors = policy.select_survivors(&entries, 2, &[]);
+        assert_eq!(survivors.len(), 2);
+    }
+
+    /// The core falsifiable claim of ADR-346: unlike
+    /// `MincutEngine::ExactGlobal` (measured non-deterministic — 15/30 empty
+    /// results on identical input, nightly 2026-09-05), the
+    /// `LocalDeterministic` engine must return byte-identical boundary sets
+    /// across repeated calls on unchanged input, with zero retries.
+    #[test]
+    fn local_engine_is_deterministic_across_repeated_calls() {
+        let (entries, _bridge_idx) = bridge_dataset();
+        let policy = MincutGatedForgetting::soft_local(CoherenceWeights::default(), 1.0);
+
+        let MincutEngine::LocalDeterministic {
+            max_radius,
+            budget_k,
+        } = policy.engine
+        else {
+            unreachable!()
+        };
+        let first = policy.boundary_indices_local(&entries, max_radius, budget_k);
+        assert!(!first.is_empty(), "must find a boundary on this dataset");
+        for trial in 0..29 {
+            let repeat = policy.boundary_indices_local(&entries, max_radius, budget_k);
+            assert_eq!(
+                first, repeat,
+                "local engine returned a different boundary set on repeat #{trial} of an unchanged graph"
+            );
+        }
     }
 }
