@@ -1,0 +1,32 @@
+name: MinCut real data
+on:
+  pull_request:
+    paths:
+      - 'crates/ruvector-mincut/**'
+      - '.github/workflows/mincut-real-data.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-data:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+          components: rustfmt
+      - name: Prepare real graphs and independent igraph oracle
+        run: |
+          python3 -m pip install igraph==0.11.9
+          python3 crates/ruvector-mincut/benchmarks/prepare_real.py /tmp/mincut-real
+      - name: Measure current exact kernel
+        run: |
+          rustc --edition=2021 -O crates/ruvector-mincut/benchmarks/kernel_real.rs -o /tmp/mincut-real-bench
+          python3 crates/ruvector-mincut/benchmarks/run_real.py /tmp/mincut-real /tmp/mincut-real-bench current
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mincut-real-evidence
+          path: /tmp/mincut-real/*.json
