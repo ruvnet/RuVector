@@ -272,16 +272,14 @@ impl DynamicMinCut {
         self.epoch += 1;
         self.incremental_count += 1;
 
-        if self.cached_cut.is_some() && !self.dirty
+        if self.cached_cut.is_some()
+            && !self.dirty
             && self.inner.num_vertices() == previous_vertices
         {
             let u_in_source = self.source_side_set.contains(&u);
             let v_in_source = self.source_side_set.contains(&v);
 
-            if u_in_source == v_in_source {
-                // Both on same side -- cut value unchanged.
-                // The new edge doesn't cross the cut.
-            } else {
+            if u_in_source != v_in_source {
                 // Edge crosses the cut -- cut value increases.
                 // The cached cut may no longer be minimum.
                 self.dirty = true;
@@ -310,8 +308,12 @@ impl DynamicMinCut {
     pub fn apply_batch(&mut self, mutations: &[EdgeMutation]) -> crate::Result<()> {
         for mutation in mutations {
             match mutation {
-                EdgeMutation::Add(u, v, w) => { self.add_edge(*u, *v, *w)?; }
-                EdgeMutation::Remove(u, v) => { self.remove_edge(*u, *v)?; }
+                EdgeMutation::Add(u, v, w) => {
+                    self.add_edge(*u, *v, *w)?;
+                }
+                EdgeMutation::Remove(u, v) => {
+                    self.remove_edge(*u, *v)?;
+                }
             }
         }
         if self.config.staleness_threshold > 0

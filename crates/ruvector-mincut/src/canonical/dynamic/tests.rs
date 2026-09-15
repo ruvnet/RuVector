@@ -493,7 +493,10 @@ fn non_cut_deletion_exposes_smaller_cut() {
     assert_eq!(initial.lambda, FixedWeight::from_f64(2.0));
     assert!(!initial.cut_edges.contains(&(1, 2)));
     dmc.remove_edge(1, 2).unwrap();
-    assert_eq!(dmc.canonical_cut().unwrap().lambda, FixedWeight::from_f64(1.0));
+    assert_eq!(
+        dmc.canonical_cut().unwrap().lambda,
+        FixedWeight::from_f64(1.0)
+    );
 }
 
 #[test]
@@ -509,8 +512,13 @@ fn new_vertices_invalidate_canonical_cache() {
 fn failed_batch_keeps_successful_prefix_cache_consistent() {
     let mut dmc = make_dynamic_with_threshold(&[(0, 1, 1.0), (0, 2, 1.0), (1, 2, 10.0)], 0);
     dmc.canonical_cut().unwrap();
-    assert!(dmc.apply_batch(&[EdgeMutation::Remove(1, 2), EdgeMutation::Remove(8, 9)]).is_err());
+    assert!(dmc
+        .apply_batch(&[EdgeMutation::Remove(1, 2), EdgeMutation::Remove(8, 9)])
+        .is_err());
     assert_eq!(dmc.epoch(), 1);
     assert!(dmc.is_stale());
-    assert_eq!(dmc.canonical_cut().unwrap().lambda, FixedWeight::from_f64(1.0));
+    assert_eq!(
+        dmc.canonical_cut().unwrap().lambda,
+        FixedWeight::from_f64(1.0)
+    );
 }

@@ -20,8 +20,8 @@ use crate::error::{MinCutError, Result};
 use crate::graph::{DynamicGraph, Edge, EdgeId, VertexId, Weight};
 use crate::time_compat::PortableInstant;
 use parking_lot::RwLock;
-use std::sync::Arc;
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 /// Configuration for the minimum cut algorithm
 #[derive(Debug, Clone)]
@@ -94,7 +94,6 @@ pub struct DynamicMinCut {
     config: MinCutConfig,
     /// Statistics
     stats: Arc<RwLock<AlgorithmStats>>,
-
 }
 
 impl DynamicMinCut {
@@ -184,7 +183,9 @@ impl DynamicMinCut {
     /// Get the cut partition
     pub fn partition(&self) -> (Vec<VertexId>, Vec<VertexId>) {
         let graph = self.graph.read();
-        let (mut s, mut t): (Vec<_>, Vec<_>) = graph.vertices().into_iter()
+        let (mut s, mut t): (Vec<_>, Vec<_>) = graph
+            .vertices()
+            .into_iter()
             .partition(|v| self.cut_side.contains(v));
         s.sort_unstable();
         t.sort_unstable();
@@ -193,7 +194,11 @@ impl DynamicMinCut {
 
     /// Get edges crossing the cached minimum cut, without rebuilding a partition.
     pub fn cut_edges(&self) -> Vec<Edge> {
-        let mut edges: Vec<_> = self.graph.read().edges().into_iter()
+        let mut edges: Vec<_> = self
+            .graph
+            .read()
+            .edges()
+            .into_iter()
             .filter(|e| self.cut_side.contains(&e.source) != self.cut_side.contains(&e.target))
             .collect();
         edges.sort_unstable_by_key(|e| e.canonical_endpoints());
@@ -253,12 +258,15 @@ impl DynamicMinCut {
         let graph = self.graph.read();
         let mut vertices = graph.vertices();
         vertices.sort_unstable();
-        let indices: HashMap<_, _> = vertices.iter().enumerate()
-            .map(|(i, &v)| (v, i)).collect();
-        let mut edges: Vec<_> = graph.edges().into_iter().map(|edge| {
-            let (u, v) = edge.canonical_endpoints();
-            (indices[&u], indices[&v], edge.weight)
-        }).collect();
+        let indices: HashMap<_, _> = vertices.iter().enumerate().map(|(i, &v)| (v, i)).collect();
+        let mut edges: Vec<_> = graph
+            .edges()
+            .into_iter()
+            .map(|edge| {
+                let (u, v) = edge.canonical_endpoints();
+                (indices[&u], indices[&v], edge.weight)
+            })
+            .collect();
         edges.sort_unstable_by_key(|&(u, v, _)| (u, v));
         let (_, side) = exact::minimum_cut(vertices.len(), &edges);
         self.cut_side = side.into_iter().map(|i| vertices[i]).collect();
@@ -267,9 +275,13 @@ impl DynamicMinCut {
         self.current_min_cut = if vertices.len() < 2 {
             f64::INFINITY
         } else {
-            edges.iter().filter(|&&(u, v, _)| {
-                self.cut_side.contains(&vertices[u]) != self.cut_side.contains(&vertices[v])
-            }).map(|&(_, _, weight)| weight).sum()
+            edges
+                .iter()
+                .filter(|&&(u, v, _)| {
+                    self.cut_side.contains(&vertices[u]) != self.cut_side.contains(&vertices[v])
+                })
+                .map(|&(_, _, weight)| weight)
+                .sum()
         };
     }
 }

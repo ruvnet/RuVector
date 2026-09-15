@@ -61,9 +61,13 @@ pub(super) fn minimum_cut(n: usize, edges: &[(usize, usize, f64)]) -> (f64, Vec<
         return (0.0, component);
     }
     if edges.len() == n - 1 {
-        let &(u, v, weight) = edges.iter().min_by(|a, b| {
-            a.2.total_cmp(&b.2).then_with(|| (a.0, a.1).cmp(&(b.0, b.1)))
-        }).expect("connected tree has an edge");
+        let &(u, v, weight) = edges
+            .iter()
+            .min_by(|a, b| {
+                a.2.total_cmp(&b.2)
+                    .then_with(|| (a.0, a.1).cmp(&(b.0, b.1)))
+            })
+            .expect("connected tree has an edge");
         seen.fill(false);
         stack.push(u);
         seen[u] = true;
@@ -71,7 +75,9 @@ pub(super) fn minimum_cut(n: usize, edges: &[(usize, usize, f64)]) -> (f64, Vec<
         while let Some(x) = stack.pop() {
             component.push(x);
             for &y in adjacency[x].keys() {
-                if (x == u && y == v) || (x == v && y == u) { continue; }
+                if (x == u && y == v) || (x == v && y == u) {
+                    continue;
+                }
                 if !seen[y] {
                     seen[y] = true;
                     stack.push(y);
@@ -95,7 +101,10 @@ pub(super) fn minimum_cut(n: usize, edges: &[(usize, usize, f64)]) -> (f64, Vec<
         heap.clear();
         for v in 0..n {
             if active[v] {
-                heap.push(Candidate { weight: 0.0, vertex: v });
+                heap.push(Candidate {
+                    weight: 0.0,
+                    vertex: v,
+                });
             }
         }
         let mut previous = 0;
@@ -132,7 +141,10 @@ pub(super) fn minimum_cut(n: usize, edges: &[(usize, usize, f64)]) -> (f64, Vec<
             for (&neighbor, &weight) in &adjacency[v] {
                 if !added[neighbor] {
                     weights[neighbor] += weight;
-                    heap.push(Candidate { weight: weights[neighbor], vertex: neighbor });
+                    heap.push(Candidate {
+                        weight: weights[neighbor],
+                        vertex: neighbor,
+                    });
                 }
             }
             previous = v;

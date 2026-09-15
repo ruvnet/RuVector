@@ -4,10 +4,15 @@
 mod exact;
 
 fn oracle(n: usize, edges: &[(usize, usize, f64)]) -> f64 {
-    (1..(1usize << n) - 1).map(|mask| {
-        edges.iter().filter(|&&(u, v, _)| ((mask >> u) & 1) != ((mask >> v) & 1))
-            .map(|&(_, _, w)| w).sum::<f64>()
-    }).fold(f64::INFINITY, f64::min)
+    (1..(1usize << n) - 1)
+        .map(|mask| {
+            edges
+                .iter()
+                .filter(|&&(u, v, _)| ((mask >> u) & 1) != ((mask >> v) & 1))
+                .map(|&(_, _, w)| w)
+                .sum::<f64>()
+        })
+        .fold(f64::INFINITY, f64::min)
 }
 
 fn check(n: usize, edges: &[(usize, usize, f64)]) {
@@ -15,20 +20,27 @@ fn check(n: usize, edges: &[(usize, usize, f64)]) {
     assert_eq!(value, oracle(n, edges), "n={n}, edges={edges:?}");
     if n >= 2 {
         assert!(!side.is_empty() && side.len() < n);
-        let crossing: f64 = edges.iter()
+        let crossing: f64 = edges
+            .iter()
             .filter(|&&(u, v, _)| side.contains(&u) != side.contains(&v))
-            .map(|&(_, _, w)| w).sum();
+            .map(|&(_, _, w)| w)
+            .sum();
         assert_eq!(value, crossing);
     }
 }
 
 #[test]
 fn all_six_vertex_topologies() {
-    let pairs: Vec<_> = (0..6).flat_map(|u| (u + 1..6).map(move |v| (u, v))).collect();
+    let pairs: Vec<_> = (0..6)
+        .flat_map(|u| (u + 1..6).map(move |v| (u, v)))
+        .collect();
     for topology in 0..1usize << pairs.len() {
-        let edges: Vec<_> = pairs.iter().enumerate()
+        let edges: Vec<_> = pairs
+            .iter()
+            .enumerate()
             .filter(|(i, _)| topology & (1usize << *i) != 0)
-            .map(|(i, &(u, v))| (u, v, (i % 5) as f64 / 2.0)).collect();
+            .map(|(i, &(u, v))| (u, v, (i % 5) as f64 / 2.0))
+            .collect();
         check(6, &edges);
     }
 }
