@@ -68,6 +68,9 @@ fn main() {
     router.prepare(&landmarks, 100_000_000, || false).unwrap();
     let prepare_ms = start.elapsed().as_secs_f64() * 1000.;
     println!("{{\"type\":\"build\",\"nodes\":{n},\"arcs\":{m},\"build_ms\":{build},\"map_ms\":{map_ms},\"prepare_ms\":{prepare_ms}}}");
+    // Separate scratch state avoids charging Dijkstra cleanup to the ALT query.
+    // Process RSS includes both routers and is not per-algorithm memory.
+    let mut baseline = RoadRouter::new(n, arcs.clone(), vec![]).unwrap();
     for (i, &(s, t, expected)) in queries.iter().enumerate() {
         // Alternate execution order. Warm-up precedes three measured repetitions.
         for repeat in 0..4 {
@@ -77,7 +80,8 @@ fn main() {
                 [true, false]
             } {
                 let start = Instant::now();
-                let result = router.route(s, t, alt, 20_000_000, || false).unwrap();
+                let engine = if alt { &mut router } else { &mut baseline };
+                let result = engine.route(s, t, alt, 20_000_000, || false).unwrap();
                 let ns = start.elapsed().as_nanos();
                 assert_eq!(
                     result.as_ref().map(|r| r.cost as i64).unwrap_or(-1),
