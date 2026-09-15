@@ -8,9 +8,9 @@ on:
 permissions:
   contents: read
 jobs:
-  real-data:
+  prepare:
     runs-on: ubuntu-22.04
-    timeout-minutes: 35
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
@@ -19,14 +19,77 @@ jobs:
           components: rustfmt
       - name: Prepare real graphs and independent igraph oracle
         run: |
-          python3 -m pip install igraph==0.11.9
+          python3 -m pip install igraph==0.11.9 texttable==1.7.0
           python3 crates/ruvector-mincut/benchmarks/prepare_real.py /tmp/mincut-real
-      - name: Measure current exact kernel
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mincut-real-inputs
+          path: |
+            /tmp/mincut-real/*.edges
+            /tmp/mincut-real/manifest.json
+  kernels:
+    needs: prepare
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+      - uses: actions/download-artifact@v4
+        with:
+          name: mincut-real-inputs
+          path: /tmp/mincut-real
+      - name: Compare exact kernels on identical data and runner
         run: |
-          rustc --edition=2021 -O crates/ruvector-mincut/benchmarks/kernel_real.rs -o /tmp/mincut-real-bench
-          python3 crates/ruvector-mincut/benchmarks/run_real.py /tmp/mincut-real /tmp/mincut-real-bench current
+          rustc --edition=2021 -O crates/ruvector-mincut/benchmarks/kernel_real.rs -o /tmp/mincut-current
+          git fetch --depth=1 origin 93fdf5e576e8315fce695a76e604028983b1220d
+          cp crates/ruvector-mincut/src/algorithm/exact.rs /tmp/exact-current.rs
+          trap 'cp /tmp/exact-current.rs crates/ruvector-mincut/src/algorithm/exact.rs' EXIT
+          git show 93fdf5e576e8315fce695a76e604028983b1220d:crates/ruvector-mincut/src/algorithm/exact.rs > crates/ruvector-mincut/src/algorithm/exact.rs
+          rustc --edition=2021 -O crates/ruvector-mincut/benchmarks/kernel_real.rs -o /tmp/mincut-baseline
+          python3 crates/ruvector-mincut/benchmarks/run_real.py /tmp/mincut-real /tmp/mincut-baseline baseline
+          python3 crates/ruvector-mincut/benchmarks/run_real.py /tmp/mincut-real /tmp/mincut-current optimized
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: mincut-real-evidence
+          name: mincut-real-kernel-evidence
           path: /tmp/mincut-real/*.json
+  javascript:
+    needs: prepare
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        with:
+          key: mincut-javascript
+      - uses: actions/download-artifact@v4
+        with:
+          name: mincut-real-inputs
+          path: /tmp/mincut-real
+      - name: Build native and WASM bindings
+        run: |
+          cargo build -p ruvector-mincut-node --release
+          cp target/release/libruvector_mincut_node.so /tmp/mincut.node
+          cargo build -p ruvector-mincut-wasm --release --target wasm32-unknown-unknown
+          VERSION=$(awk '/^name = "wasm-bindgen"$/ {getline; gsub(/"/, "", $3); print $3; exit}' Cargo.lock)
+          cargo install wasm-bindgen-cli --version "$VERSION" --locked
+          wasm-bindgen target/wasm32-unknown-unknown/release/ruvector_mincut_wasm.wasm --target nodejs --out-dir /tmp/mincut-wasm
+      - name: Real graph construction, queries, updates and witness validation
+        run: |
+          MINCUT_ADDON=/tmp/mincut.node node crates/ruvector-mincut/benchmarks/real_runtime.cjs /tmp/mincut-real > /tmp/mincut-real/native.jsonl
+          MINCUT_WASM=/tmp/mincut-wasm/ruvector_mincut_wasm.js node crates/ruvector-mincut/benchmarks/real_runtime.cjs /tmp/mincut-real > /tmp/mincut-real/wasm.jsonl
+          cat /tmp/mincut-real/native.jsonl /tmp/mincut-real/wasm.jsonl
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mincut-real-runtime-evidence
+          path: /tmp/mincut-real/*.json*

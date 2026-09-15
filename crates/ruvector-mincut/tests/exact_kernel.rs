@@ -54,3 +54,31 @@ fn trivial_and_large_sparse_graphs() {
     assert_eq!(exact::minimum_cut(10000, &path).0, 1.0);
     assert_eq!(exact::minimum_cut(10001, &path).0, 0.0);
 }
+
+#[test]
+fn weighted_bridge_certificate_requires_the_lower_bound() {
+    // A heavy bridge must not hide a lighter cut inside a triangle.
+    let edges = vec![
+        (0, 1, 1.0),
+        (1, 2, 1.0),
+        (0, 2, 1.0),
+        (2, 3, 9.0),
+        (3, 4, 4.0),
+        (4, 5, 4.0),
+        (3, 5, 4.0),
+    ];
+    let (value, _) = exact::minimum_cut(6, &edges);
+    assert_eq!(value, 2.0);
+    let mut light_bridge = edges.clone();
+    light_bridge[3].2 = 1.5;
+    assert_eq!(exact::minimum_cut(6, &light_bridge).0, 1.5);
+}
+
+#[test]
+fn long_cycle_certificate_does_not_use_recursive_dfs() {
+    let n = 100_000;
+    let edges: Vec<_> = (0..n).map(|v| (v, (v + 1) % n, 1.0)).collect();
+    let (value, side) = exact::minimum_cut(n, &edges);
+    assert_eq!(value, 2.0);
+    assert_eq!(side.len(), 1);
+}
