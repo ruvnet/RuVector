@@ -31,6 +31,10 @@ test('worker routes, rejects bad input, and terminates on abort', async () => {
   await assert.rejects(RoutingWorker.create(2,U([0,1]),U([1_000_000_001])), /cost/);
   const router = await RoutingWorker.create(3,U([0,1,1,2]),U([2,3]));
   try {
+    await assert.rejects(router.route({ huge: [] }, 2), /arguments/);
+    await assert.rejects(router.nearest(Infinity, 0, 1), /query/);
+    await assert.rejects(router.update(new Uint32Array(new SharedArrayBuffer(4)), U([1])), /updates/);
+    await assert.rejects(router.route(0, 2, { signal: {} }), /signal/);
     await router.prepare(U([0]), { budget:1000 });
     assert.equal((await router.route(0,2)).cost,5);
     await router.setCoordinates(new Float64Array([0,0,1,1,2,2]));

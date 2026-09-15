@@ -1,3 +1,6 @@
+const boundedInteger = (value, max) => Number.isInteger(value) && value >= 0 && value <= max;
+const privateArray = (value, Type) => value instanceof Type && value.buffer instanceof ArrayBuffer;
+
 /** Dedicated WASM worker. Aborting any in-flight call terminates this instance
  * and rejects ALL pending work, including mutations; construct a new instance.
  * Arrays are cloned, not transferred. Never pass untrusted URLs to a worker.
@@ -28,8 +31,8 @@ export class RoutingWorker {
   }
   static async create(nodes, endpoints, costs, turns = new Uint32Array(), options = {}) {
     if (!Number.isInteger(nodes) || nodes < 1 || nodes > 1_000_000 ||
-        !(endpoints instanceof Uint32Array) || !(costs instanceof Uint32Array) ||
-        !(turns instanceof Uint32Array) || costs.length > 4_000_000 ||
+        !privateArray(endpoints, Uint32Array) || !privateArray(costs, Uint32Array) ||
+        !privateArray(turns, Uint32Array) || costs.length > 4_000_000 ||
         endpoints.length !== costs.length * 2 || turns.length % 2 || turns.length > 8_000_000) {
       throw new TypeError('Invalid graph arrays or size');
     }
@@ -49,6 +52,7 @@ export class RoutingWorker {
     if (this.#closed) return Promise.reject(new Error('Routing worker closed'));
     if (this.#pending.size >= 32) return Promise.reject(new Error('Routing queue full'));
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 300_000) return Promise.reject(new RangeError('Invalid timeout'));
+    if (signal && (typeof signal.addEventListener !== 'function' || typeof signal.removeEventListener !== 'function' || typeof signal.aborted !== 'boolean')) return Promise.reject(new TypeError('Invalid abort signal'));
     if (signal?.aborted) return Promise.reject(new Error('Routing request aborted'));
     // Bound cloned message bytes across the queue, independent of worker throughput.
     const bytes = args.reduce((sum, arg) => sum + (ArrayBuffer.isView(arg) ? arg.byteLength : 8), 0);
@@ -67,21 +71,25 @@ export class RoutingWorker {
     });
   }
   route(source, target, options = {}) {
+    if (!boundedInteger(source, 0xffffffff) || !boundedInteger(target, 0xffffffff) || !boundedInteger(options.budget ?? 5_000_000, 200_000_000) || typeof (options.landmarks ?? true) !== 'boolean') return Promise.reject(new TypeError('Invalid route arguments'));
     return this.#call('route', [source, target, options.landmarks ?? true, options.budget ?? 5_000_000], options);
   }
   prepare(landmarks, options = {}) {
-    if (!(landmarks instanceof Uint32Array) || landmarks.length > 16) return Promise.reject(new TypeError('Invalid landmarks'));
+    if (!privateArray(landmarks, Uint32Array) || landmarks.length > 16 || !boundedInteger(options.budget ?? 100_000_000, 200_000_000)) return Promise.reject(new TypeError('Invalid landmarks'));
     return this.#call('prepare', [landmarks, options.budget ?? 100_000_000], options);
   }
   update(ids, costs, options = {}) {
-    if (!(ids instanceof Uint32Array) || !(costs instanceof Uint32Array) || ids.length !== costs.length || ids.length > 4_000_000) return Promise.reject(new TypeError('Invalid updates'));
+    if (!privateArray(ids, Uint32Array) || !privateArray(costs, Uint32Array) || ids.length !== costs.length || ids.length > 4_000_000) return Promise.reject(new TypeError('Invalid updates'));
     return this.#call('update', [ids, costs], options);
   }
   setCoordinates(latLon, options = {}) {
-    if (!(latLon instanceof Float64Array) || latLon.length > 2_000_000) return Promise.reject(new TypeError('Invalid coordinates'));
+    if (!privateArray(latLon, Float64Array) || latLon.length > 2_000_000) return Promise.reject(new TypeError('Invalid coordinates'));
     return this.#call('setCoordinates', [latLon], options);
   }
-  nearest(lat, lon, radiusM, options = {}) { return this.#call('nearest', [lat, lon, radiusM], options); }
+  nearest(lat, lon, radiusM, options = {}) {
+    if (!Number.isFinite(lat) || Math.abs(lat)>90 || !Number.isFinite(lon) || Math.abs(lon)>180 || !Number.isFinite(radiusM) || radiusM<0) return Promise.reject(new TypeError('Invalid map query'));
+    return this.#call('nearest', [lat, lon, radiusM], options);
+  }
   close(reason = new Error('Routing worker closed')) {
     if (this.#closed) return;
     this.#closed = true;

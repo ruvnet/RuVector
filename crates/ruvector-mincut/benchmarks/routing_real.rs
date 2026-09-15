@@ -46,6 +46,18 @@ fn main() {
             (s, t, i64::from_le_bytes(b))
         })
         .collect();
+    let trace_count = u32r(&mut input);
+    assert!(trace_count <= 128);
+    let traces: Vec<_> = (0..trace_count)
+        .map(|_| {
+            let (s, t, id) = (u32r(&mut input), u32r(&mut input), u32r(&mut input));
+            let mut b = [0; 8];
+            input.read_exact(&mut b).unwrap();
+            let closed = i64::from_le_bytes(b);
+            input.read_exact(&mut b).unwrap();
+            (s, t, id, closed, i64::from_le_bytes(b))
+        })
+        .collect();
     let start = Instant::now();
     let mut router = RoadRouter::new(n, arcs.clone(), vec![]).unwrap();
     let build = start.elapsed().as_secs_f64() * 1000.;
@@ -93,30 +105,38 @@ fn main() {
             }
         }
     }
-    for &(s, t, _) in queries.iter().take(8) {
-        if let Some(route) = router.route(s, t, true, 20_000_000, || false).unwrap() {
-            if let Some(&id) = route.arcs.get(route.arcs.len() / 2) {
-                router.update(&[(id, None)]).unwrap();
-                let a = router.route(s, t, true, 20_000_000, || false).unwrap();
-                let b = router.route(s, t, false, 20_000_000, || false).unwrap();
-                assert_eq!(a.as_ref().map(|r| r.cost), b.as_ref().map(|r| r.cost));
-                if let Some(a) = a {
-                    assert!(!a.arcs.contains(&id));
-                }
-                router
-                    .update(&[(id, Some(arcs[id as usize].cost))])
-                    .unwrap();
-                assert_eq!(
-                    router
-                        .route(s, t, true, 20_000_000, || false)
-                        .unwrap()
-                        .unwrap()
-                        .cost,
-                    route.cost
-                );
+    for &(s, t, id, closed, original) in &traces {
+        router.prepare(&landmarks, 100_000_000, || false).unwrap();
+        router.update(&[(id, None)]).unwrap();
+        for alt in [true, false] {
+            let route = router.route(s, t, alt, 20_000_000, || false).unwrap();
+            assert_eq!(route.as_ref().map(|r| r.cost as i64).unwrap_or(-1), closed);
+            if let Some(route) = route {
+                assert!(!route.arcs.contains(&id));
             }
         }
+        router
+            .update(&[(id, Some(arcs[id as usize].cost))])
+            .unwrap();
+        assert_eq!(
+            router
+                .route(s, t, true, 20_000_000, || false)
+                .unwrap()
+                .unwrap()
+                .cost as i64,
+            original
+        );
     }
+    println!("{{\"type\":\"closures\",\"pairs\":{}}}", traces.len());
+    // Fair scan baseline: precompute the same unit-sphere representation once.
+    let projected: Vec<[f64; 3]> = coords
+        .chunks_exact(2)
+        .map(|c| {
+            let a = c[0].to_radians();
+            let b = c[1].to_radians();
+            [a.cos() * b.cos(), a.cos() * b.sin(), a.sin()]
+        })
+        .collect();
     let mut indexed = 0u128;
     let mut linear = 0u128;
     for i in 0..256 {
@@ -129,13 +149,10 @@ fn main() {
         let a = lat.to_radians();
         let b = lon.to_radians();
         let xyz = [a.cos() * b.cos(), a.cos() * b.sin(), a.sin()];
-        let expected = coords
-            .chunks_exact(2)
+        let expected = projected
+            .iter()
             .enumerate()
-            .map(|(id, c)| {
-                let a = c[0].to_radians();
-                let b = c[1].to_radians();
-                let p = [a.cos() * b.cos(), a.cos() * b.sin(), a.sin()];
+            .map(|(id, p)| {
                 let d = (0..3).map(|i| (xyz[i] - p[i]).powi(2)).sum::<f64>();
                 (id, d)
             })

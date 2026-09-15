@@ -85,6 +85,16 @@ def main():
             cost = graph.distances(source=[s], target=[t], weights='weight')[0][0]
             elapsed = time.perf_counter_ns() - begin
             queries.append((s, t, -1 if cost == float('inf') else int(cost), elapsed))
+        traces = []
+        for s,t,cost,_ in queries[:8]:
+            if cost < 0 or s == t: continue
+            route = graph.get_shortest_paths(s, to=t, weights='weight', output='epath')[0]
+            if not route: continue
+            arc = route[len(route)//2]
+            graph.es[arc]['weight'] = float('inf')
+            closed = graph.distances(source=[s], target=[t], weights='weight')[0][0]
+            graph.es[arc]['weight'] = weights[arc]
+            traces.append((s,t,arc,-1 if closed == float('inf') else int(closed),cost))
         path = args.output / f'{region}.roads'
         with path.open('wb') as out:
             out.write(struct.pack('<III', n, len(edges), len(queries)))
@@ -97,10 +107,12 @@ def main():
             out.write(struct.pack('<I', len(landmarks)))
             for v in landmarks: out.write(struct.pack('<I', v))
             for s,t,cost,_ in queries: out.write(struct.pack('<IIq',s,t,cost))
+            out.write(struct.pack('<I',len(traces)))
+            for s,t,arc,closed,original in traces: out.write(struct.pack('<IIIqq',s,t,arc,closed,original))
         item = {'name': region, 'role': 'development' if region == 'NY' else 'holdout',
                 'nodes': n, 'arcs': len(edges), 'sources': provenance,
                 'normalized_sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
-                'landmarks': landmarks, 'queries': queries,
+                'landmarks': landmarks, 'queries': queries, 'closure_traces': traces,
                 'query_mix': '64 uniform endpoints, 64 endpoints of 24-step directed random walks'}
         manifest['datasets'].append(item)
         print(json.dumps({k:v for k,v in item.items() if k not in ('queries','sources')}), flush=True)

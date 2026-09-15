@@ -105,3 +105,19 @@ jobs:
           npm install /tmp/ruvector-mincut-wasm-*.tgz --ignore-scripts
           cp "$GITHUB_WORKSPACE/npm/packages/mincut-wasm/test/"*.test.cjs .
           node --test *.test.cjs
+      - name: Complete native, WASM and worker road benchmarks
+        run: |
+          python -m pip install igraph==0.11.9 texttable==1.7.0
+          python crates/ruvector-mincut/benchmarks/prepare_roads.py --output /tmp/roads
+          ROADS_DIR=/tmp/roads MINCUT_ADDON=/tmp/mincut.node node crates/ruvector-mincut/benchmarks/routing_runtime.cjs native | tee /tmp/roads/native-runtime.jsonl
+          ROADS_DIR=/tmp/roads node crates/ruvector-mincut/benchmarks/routing_runtime.cjs wasm | tee /tmp/roads/wasm-runtime.jsonl
+          ROADS_DIR=/tmp/roads node crates/ruvector-mincut/benchmarks/routing_runtime.cjs worker | tee /tmp/roads/worker-runtime.jsonl
+      - name: Real browser module worker
+        run: |
+          npm install --prefix /tmp/mincut-browser --ignore-scripts playwright@1.62.1
+          /tmp/mincut-browser/node_modules/.bin/playwright install --with-deps chromium
+          NODE_PATH=/tmp/mincut-browser/node_modules node npm/packages/mincut-wasm/test/browser-routing.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mincut-road-runtime-evidence
+          path: /tmp/roads/*runtime.jsonl
