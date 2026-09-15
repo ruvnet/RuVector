@@ -13,9 +13,8 @@
 //!   If it does cross the cut, the cut value may increase but the cut
 //!   partition might no longer be minimum -- recompute.
 //!
-//! - **Edge deletion**: If the deleted edge is not in the current cut set,
-//!   the cut value is unchanged. If it is in the cut set, the cut value
-//!   decreases and we must recompute.
+//! - **Edge deletion**: Always invalidate. An edge outside the current cut
+//!   can expose a smaller competing cut or change canonical tie breaking.
 //!
 //! - **Staleness**: After many incremental updates, accumulated drift may
 //!   cause the cached cut to be incorrect. A configurable threshold
@@ -221,6 +220,7 @@ impl DynamicMinCut {
                 && self.incremental_count >= self.config.staleness_threshold
             {
                 self.force_recompute();
+                return self.cached_cut.clone();
             } else {
                 return self.cached_cut.clone();
             }
@@ -267,17 +267,20 @@ impl DynamicMinCut {
     /// If the edge crosses the cut, the cut value may increase and
     /// we must recompute.
     pub fn add_edge(&mut self, u: VertexId, v: VertexId, weight: Weight) -> crate::Result<f64> {
+        let previous_vertices = self.inner.num_vertices();
         let val = self.inner.insert_edge(u, v, weight)?;
         self.epoch += 1;
+        self.incremental_count += 1;
 
-        if self.cached_cut.is_some() && !self.dirty {
+        if self.cached_cut.is_some() && !self.dirty
+            && self.inner.num_vertices() == previous_vertices
+        {
             let u_in_source = self.source_side_set.contains(&u);
             let v_in_source = self.source_side_set.contains(&v);
 
             if u_in_source == v_in_source {
                 // Both on same side -- cut value unchanged.
                 // The new edge doesn't cross the cut.
-                self.incremental_count += 1;
             } else {
                 // Edge crosses the cut -- cut value increases.
                 // The cached cut may no longer be minimum.
@@ -290,80 +293,32 @@ impl DynamicMinCut {
         Ok(val)
     }
 
-    /// Remove an edge and incrementally update the canonical cut.
-    ///
-    /// If the edge is not in the current cut set, the cut value is
-    /// unchanged. If it is in the cut set, the cut value decreases
-    /// and we must recompute.
+    /// Remove an edge and invalidate the canonical cut. Even a non-crossing
+    /// deletion can create a cheaper competing cut or a new canonical tie.
     pub fn remove_edge(&mut self, u: VertexId, v: VertexId) -> crate::Result<f64> {
         let val = self.inner.delete_edge(u, v)?;
         self.epoch += 1;
-
-        if self.cached_cut.is_some() && !self.dirty {
-            let edge_key = normalize_edge(u, v);
-            if self.cut_edge_set.contains(&edge_key) {
-                // Edge is in the cut -- must recompute.
-                self.dirty = true;
-            } else {
-                // Edge not in the cut -- cut unchanged.
-                self.incremental_count += 1;
-            }
-        } else {
-            self.dirty = true;
-        }
-
+        self.incremental_count += 1;
+        self.dirty = true;
         Ok(val)
     }
 
-    /// Apply a batch of edge mutations and then recompute if needed.
+    /// Apply mutations in order, deferring canonical recomputation.
     ///
-    /// This is more efficient than individual mutations when many
-    /// edges change at once, because we defer the recomputation
-    /// decision until all mutations are applied.
+    /// On error, successful earlier mutations remain applied. Their epochs and
+    /// cache invalidation are committed immediately, so a later query is safe.
     pub fn apply_batch(&mut self, mutations: &[EdgeMutation]) -> crate::Result<()> {
-        let mut needs_recompute = self.dirty;
-
         for mutation in mutations {
             match mutation {
-                EdgeMutation::Add(u, v, w) => {
-                    self.inner.insert_edge(*u, *v, *w)?;
-                    self.epoch += 1;
-
-                    if !needs_recompute && self.cached_cut.is_some() {
-                        let u_in = self.source_side_set.contains(u);
-                        let v_in = self.source_side_set.contains(v);
-                        if u_in != v_in {
-                            needs_recompute = true;
-                        }
-                    }
-                }
-                EdgeMutation::Remove(u, v) => {
-                    self.inner.delete_edge(*u, *v)?;
-                    self.epoch += 1;
-
-                    if !needs_recompute && self.cached_cut.is_some() {
-                        let edge_key = normalize_edge(*u, *v);
-                        if self.cut_edge_set.contains(&edge_key) {
-                            needs_recompute = true;
-                        }
-                    }
-                }
+                EdgeMutation::Add(u, v, w) => { self.add_edge(*u, *v, *w)?; }
+                EdgeMutation::Remove(u, v) => { self.remove_edge(*u, *v)?; }
             }
         }
-
-        self.incremental_count += mutations.len() as u64;
-
-        if needs_recompute {
-            self.dirty = true;
-        }
-
-        // Check staleness threshold
         if self.config.staleness_threshold > 0
             && self.incremental_count >= self.config.staleness_threshold
         {
             self.force_recompute();
         }
-
         Ok(())
     }
 

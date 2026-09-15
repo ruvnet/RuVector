@@ -152,6 +152,13 @@ impl DynamicGraph {
             return Err(MinCutError::InvalidEdge(u, v));
         }
 
+        // Reject invalid capacities before creating vertices or consuming IDs.
+        if !weight.is_finite() || weight < 0.0 {
+            return Err(MinCutError::InvalidParameter(
+                "edge weight must be finite and nonnegative".to_owned(),
+            ));
+        }
+
         // Ensure both vertices exist
         self.add_vertex(u);
         self.add_vertex(v);
@@ -405,6 +412,11 @@ impl DynamicGraph {
 
     /// Update the weight of an existing edge
     pub fn update_edge_weight(&self, u: VertexId, v: VertexId, new_weight: Weight) -> Result<()> {
+        if !new_weight.is_finite() || new_weight < 0.0 {
+            return Err(MinCutError::InvalidParameter(
+                "edge weight must be finite and nonnegative".to_owned(),
+            ));
+        }
         let key = Self::canonical_key(u, v);
 
         let edge_id = self

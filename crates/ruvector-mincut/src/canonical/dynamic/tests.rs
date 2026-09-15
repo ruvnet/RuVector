@@ -142,8 +142,9 @@ fn test_remove_edge_not_in_cut() {
     // Remove edge within cluster (0,1) -- not in the cut set
     dmc.remove_edge(0, 1).unwrap();
 
-    // Should not be stale (edge wasn't in cut)
-    assert!(!dmc.is_stale());
+    // A non-cut deletion can expose a competing cut, so invalidate eagerly.
+    assert!(dmc.is_stale());
+    assert_eq!(dmc.canonical_cut().unwrap().lambda, cut1.lambda);
 }
 
 #[test]
@@ -483,4 +484,33 @@ fn test_dynamic_matches_full_recompute_after_deletions() {
         (None, None) => {}
         _ => panic!("Dynamic and fresh should agree"),
     }
+}
+
+#[test]
+fn non_cut_deletion_exposes_smaller_cut() {
+    let mut dmc = make_dynamic_with_threshold(&[(0, 1, 1.0), (0, 2, 1.0), (1, 2, 10.0)], 0);
+    let initial = dmc.canonical_cut().unwrap();
+    assert_eq!(initial.lambda, FixedWeight::from_f64(2.0));
+    assert!(!initial.cut_edges.contains(&(1, 2)));
+    dmc.remove_edge(1, 2).unwrap();
+    assert_eq!(dmc.canonical_cut().unwrap().lambda, FixedWeight::from_f64(1.0));
+}
+
+#[test]
+fn new_vertices_invalidate_canonical_cache() {
+    let mut dmc = make_dynamic_with_threshold(&[(0, 1, 1.0), (0, 2, 1.0), (1, 2, 10.0)], 0);
+    dmc.canonical_cut().unwrap();
+    dmc.add_edge(3, 4, 1.0).unwrap();
+    assert!(dmc.is_stale());
+    assert!(dmc.canonical_cut().is_none());
+}
+
+#[test]
+fn failed_batch_keeps_successful_prefix_cache_consistent() {
+    let mut dmc = make_dynamic_with_threshold(&[(0, 1, 1.0), (0, 2, 1.0), (1, 2, 10.0)], 0);
+    dmc.canonical_cut().unwrap();
+    assert!(dmc.apply_batch(&[EdgeMutation::Remove(1, 2), EdgeMutation::Remove(8, 9)]).is_err());
+    assert_eq!(dmc.epoch(), 1);
+    assert!(dmc.is_stale());
+    assert_eq!(dmc.canonical_cut().unwrap().lambda, FixedWeight::from_f64(1.0));
 }

@@ -1,0 +1,36 @@
+name: MinCut regression
+on:
+  pull_request:
+    paths:
+      - 'crates/ruvector-mincut/**'
+      - '.github/workflows/mincut-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  kernel:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+      - name: Exhaustive kernel oracle (32768 graph topologies)
+        run: |
+          rustc --edition=2021 -O --test crates/ruvector-mincut/tests/exact_kernel.rs -o /tmp/mincut-kernel-tests
+          /tmp/mincut-kernel-tests
+  public-api:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+      - name: Public API and canonical cache regressions
+        run: |
+          cargo test -p ruvector-mincut --features canonical --test exact_regression
+          cargo test -p ruvector-mincut --features canonical --lib
