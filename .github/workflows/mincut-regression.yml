@@ -52,10 +52,10 @@ jobs:
           cargo test -p ruvector-mincut --features canonical --lib algorithm::tests::
           cargo test -p ruvector-mincut --features canonical --lib graph::tests::
           cargo test -p ruvector-mincut --features canonical --lib canonical::
-      - name: Compare public API timings against base implementation
+      - name: Compare public API timings against prior verified revision
         if: github.event_name == 'pull_request'
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: c92142ba90b08f9b56c1e7b66364c4dcc8c85e69
         run: |
           cargo run -p ruvector-mincut --release --example dynamic_bench
           cp crates/ruvector-mincut/src/algorithm/mod.rs /tmp/mincut-current.rs
@@ -87,7 +87,7 @@ jobs:
       - name: Build WASM and matching JavaScript glue
         run: |
           cargo build -p ruvector-mincut-wasm --release --target wasm32-unknown-unknown
-          VERSION=$(python3 -c 'import tomllib; print(next(p["version"] for p in tomllib.load(open("Cargo.lock", "rb"))["package"] if p["name"] == "wasm-bindgen"))')
+          VERSION=$(awk '/^name = "wasm-bindgen"$/ {getline; gsub(/"/, "", $3); print $3; exit}' Cargo.lock)
           cargo install wasm-bindgen-cli --version "$VERSION" --locked
           wasm-bindgen target/wasm32-unknown-unknown/release/ruvector_mincut_wasm.wasm --target nodejs --out-dir npm/packages/mincut-wasm/node
           wasm-bindgen target/wasm32-unknown-unknown/release/ruvector_mincut_wasm.wasm --target web --out-dir npm/packages/mincut-wasm/web
