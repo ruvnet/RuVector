@@ -77,8 +77,11 @@ struct Stats {
 }
 
 fn vertex_number(value: f64) -> Result<u64, JsError> {
-    if !value.is_finite() || value < 0.0 || value.fract() != 0.0 || value > 9_007_199_254_740_991.0 {
-        return Err(JsError::new("Vertex IDs must be nonnegative safe integers; use BigInt methods for larger IDs"));
+    if !value.is_finite() || value < 0.0 || value.fract() != 0.0 || value > 9_007_199_254_740_991.0
+    {
+        return Err(JsError::new(
+            "Vertex IDs must be nonnegative safe integers; use BigInt methods for larger IDs",
+        ));
     }
     Ok(value as u64)
 }
@@ -288,7 +291,8 @@ impl WasmMinCut {
     /// The new minimum cut value after update
     #[wasm_bindgen(js_name = "updateEdge")]
     pub fn update_edge(&mut self, u: u64, v: u64, new_weight: f64) -> Result<f64, JsError> {
-        self.inner.update_edge(u, v, new_weight)
+        self.inner
+            .update_edge(u, v, new_weight)
             .map_err(|e| JsError::new(&e.to_string()))
     }
 
@@ -312,10 +316,14 @@ impl WasmMinCut {
 
         let mut batch = Vec::with_capacity(edges_vec.len());
         for edge in edges_vec {
-            if edge.len() != 3 { return Err(JsError::new("Each edge must be [u, v, weight]")); }
+            if edge.len() != 3 {
+                return Err(JsError::new("Each edge must be [u, v, weight]"));
+            }
             batch.push((vertex_number(edge[0])?, vertex_number(edge[1])?, edge[2]));
         }
-        self.inner.insert_edges(&batch).map_err(|e| JsError::new(&e.to_string()))
+        self.inner
+            .insert_edges(&batch)
+            .map_err(|e| JsError::new(&e.to_string()))
     }
 
     /// Batch delete multiple edges
@@ -338,22 +346,35 @@ impl WasmMinCut {
 
         let mut batch = Vec::with_capacity(edges_vec.len());
         for edge in edges_vec {
-            if edge.len() < 2 { return Err(JsError::new("Each edge must contain u and v")); }
+            if edge.len() < 2 {
+                return Err(JsError::new("Each edge must contain u and v"));
+            }
             batch.push((vertex_number(edge[0])?, vertex_number(edge[1])?));
         }
-        self.inner.delete_edges(&batch).map_err(|e| JsError::new(&e.to_string()))
+        self.inner
+            .delete_edges(&batch)
+            .map_err(|e| JsError::new(&e.to_string()))
     }
 
     /// Bulk insertion from Uint32Array endpoint pairs and Float64Array weights.
     /// wasm-bindgen copies these slices into WASM memory once per call.
     #[wasm_bindgen(js_name = "batchInsertTyped")]
-    pub fn batch_insert_typed(&mut self, endpoints: &[u32], weights: &[f64]) -> Result<f64, JsError> {
+    pub fn batch_insert_typed(
+        &mut self,
+        endpoints: &[u32],
+        weights: &[f64],
+    ) -> Result<f64, JsError> {
         if endpoints.len() / 2 != weights.len() || endpoints.len() % 2 != 0 {
             return Err(JsError::new("Expected two endpoints per weight"));
         }
-        let edges: Vec<_> = endpoints.chunks_exact(2).zip(weights)
-            .map(|(uv, &w)| (u64::from(uv[0]), u64::from(uv[1]), w)).collect();
-        self.inner.insert_edges(&edges).map_err(|e| JsError::new(&e.to_string()))
+        let edges: Vec<_> = endpoints
+            .chunks_exact(2)
+            .zip(weights)
+            .map(|(uv, &w)| (u64::from(uv[0]), u64::from(uv[1]), w))
+            .collect();
+        self.inner
+            .insert_edges(&edges)
+            .map_err(|e| JsError::new(&e.to_string()))
     }
 
     /// Clear all edges from the graph
