@@ -16,10 +16,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
           toolchain: stable
+          components: rustfmt
       - name: Exhaustive kernel oracle (32768 graph topologies)
         run: |
           rustc --edition=2021 -O --test crates/ruvector-mincut/tests/exact_kernel.rs -o /tmp/mincut-kernel-tests
           /tmp/mincut-kernel-tests
+      - name: Check formatting of changed Rust files
+        run: |
+          rustfmt --edition=2021 --config skip_children=true crates/ruvector-mincut/src/algorithm/exact.rs crates/ruvector-mincut/src/algorithm/mod.rs crates/ruvector-mincut/src/graph/mod.rs crates/ruvector-mincut/src/canonical/dynamic/mod.rs crates/ruvector-mincut/src/canonical/dynamic/tests.rs crates/ruvector-mincut/tests/exact_kernel.rs crates/ruvector-mincut/tests/exact_regression.rs crates/ruvector-mincut/examples/dynamic_bench.rs
+          git diff --exit-code -- crates/ruvector-mincut
   public-api:
     runs-on: ubuntu-22.04
     timeout-minutes: 25
@@ -30,7 +35,19 @@ jobs:
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
           toolchain: stable
+          components: rustfmt
       - name: Public API and canonical cache regressions
         run: |
           cargo test -p ruvector-mincut --features canonical --test exact_regression
           cargo test -p ruvector-mincut --features canonical --lib
+      - name: Compare public API timings against base implementation
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          cargo run -p ruvector-mincut --release --example dynamic_bench
+          cp crates/ruvector-mincut/src/algorithm/mod.rs /tmp/mincut-current.rs
+          trap 'cp /tmp/mincut-current.rs crates/ruvector-mincut/src/algorithm/mod.rs' EXIT
+          git fetch --depth=1 origin "$BASE_SHA"
+          git show "$BASE_SHA:crates/ruvector-mincut/src/algorithm/mod.rs" > crates/ruvector-mincut/src/algorithm/mod.rs
+          cargo run -p ruvector-mincut --release --example dynamic_bench
