@@ -41,7 +41,7 @@ for (const item of JSON.parse(readFileSync(join(root, 'manifest.json')))) {
         start = performance.now(); graph.insertEdge(u, v, edge.weight); updates.push(performance.now() - start);
         verify(item.oracle_cut);
       }
-    } finally { if (!native) graph.free(); }
+    } finally { if (native) graph.clear(); else graph.free(); }
   }
   console.log(JSON.stringify({name:item.name, runtime:native?'native':'wasm', vertices:item.vertices, edges:item.edges,
     buildMedianMs:quantile(build,.5), queryP50Ms:quantile(queries,.5), queryP95Ms:quantile(queries,.95), queryP99Ms:quantile(queries,.99),

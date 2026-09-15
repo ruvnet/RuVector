@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'crates/ruvector-mincut/**'
+      - 'crates/ruvector-mincut-node/**'
+      - 'crates/ruvector-mincut-wasm/**'
       - '.github/workflows/mincut-real-data.yml'
   workflow_dispatch:
 permissions:

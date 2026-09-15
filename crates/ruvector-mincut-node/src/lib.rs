@@ -296,6 +296,19 @@ impl MinCut {
         }
     }
 
+    /// Release graph storage and cached results while preserving configuration.
+    /// This also resets statistics and allows reuse without waiting for JS GC.
+    #[napi]
+    pub fn clear(&self) -> Result<()> {
+        let mut mincut = self
+            .inner
+            .lock()
+            .map_err(|e| Error::from_reason(e.to_string()))?;
+        let config = mincut.config().clone();
+        *mincut = DynamicMinCut::new(config);
+        Ok(())
+    }
+
     /// Reset statistics
     #[napi]
     pub fn reset_stats(&self) {
