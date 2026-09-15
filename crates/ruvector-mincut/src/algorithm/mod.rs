@@ -88,6 +88,9 @@ pub struct DynamicMinCut {
     graph: Arc<RwLock<DynamicGraph>>,
     /// One side of the same cut that supplies current_min_cut.
     cut_side: HashSet<VertexId>,
+    /// Sorted vertices and crossing edges from the same solver snapshot.
+    cut_vertices: Vec<VertexId>,
+    current_cut_edges: Vec<Edge>,
     /// Current minimum cut value
     current_min_cut: f64,
     /// Configuration
@@ -102,6 +105,8 @@ impl DynamicMinCut {
         Self {
             graph: Arc::new(RwLock::new(DynamicGraph::new())),
             cut_side: HashSet::new(),
+            cut_vertices: Vec::new(),
+            current_cut_edges: Vec::new(),
             current_min_cut: f64::INFINITY,
             config,
             stats: Arc::new(RwLock::new(AlgorithmStats::default())),
@@ -180,29 +185,17 @@ impl DynamicMinCut {
         }
     }
 
-    /// Get the cut partition
+    /// Get the cut partition in sorted vertex order.
     pub fn partition(&self) -> (Vec<VertexId>, Vec<VertexId>) {
-        let graph = self.graph.read();
-        let (mut s, mut t): (Vec<_>, Vec<_>) = graph
-            .vertices()
-            .into_iter()
-            .partition(|v| self.cut_side.contains(v));
-        s.sort_unstable();
-        t.sort_unstable();
-        (s, t)
+        self.cut_vertices
+            .iter()
+            .copied()
+            .partition(|v| self.cut_side.contains(v))
     }
 
-    /// Get edges crossing the cached minimum cut, without rebuilding a partition.
+    /// Get cached crossing edges without scanning graph adjacency again.
     pub fn cut_edges(&self) -> Vec<Edge> {
-        let mut edges: Vec<_> = self
-            .graph
-            .read()
-            .edges()
-            .into_iter()
-            .filter(|e| self.cut_side.contains(&e.source) != self.cut_side.contains(&e.target))
-            .collect();
-        edges.sort_unstable_by_key(|e| e.canonical_endpoints());
-        edges
+        self.current_cut_edges.clone()
     }
 
     /// Check if graph is connected
@@ -259,30 +252,30 @@ impl DynamicMinCut {
         let mut vertices = graph.vertices();
         vertices.sort_unstable();
         let indices: HashMap<_, _> = vertices.iter().enumerate().map(|(i, &v)| (v, i)).collect();
-        let mut edges: Vec<_> = graph
-            .edges()
-            .into_iter()
+        let mut original_edges = graph.edges();
+        original_edges.sort_unstable_by_key(|edge| edge.canonical_endpoints());
+        let edges: Vec<_> = original_edges
+            .iter()
             .map(|edge| {
                 let (u, v) = edge.canonical_endpoints();
                 (indices[&u], indices[&v], edge.weight)
             })
             .collect();
-        edges.sort_unstable_by_key(|&(u, v, _)| (u, v));
         let (_, side) = exact::minimum_cut(vertices.len(), &edges);
         self.cut_side = side.into_iter().map(|i| vertices[i]).collect();
-        // Sum in stable endpoint order on the original graph, so value and
-        // witness agree even when contraction summation rounds differently.
+        self.current_cut_edges = original_edges
+            .into_iter()
+            .filter(|edge| {
+                self.cut_side.contains(&edge.source) != self.cut_side.contains(&edge.target)
+            })
+            .collect();
+        // Sum the original weights in the same order returned to callers.
         self.current_min_cut = if vertices.len() < 2 {
             f64::INFINITY
         } else {
-            edges
-                .iter()
-                .filter(|&&(u, v, _)| {
-                    self.cut_side.contains(&vertices[u]) != self.cut_side.contains(&vertices[v])
-                })
-                .map(|&(_, _, weight)| weight)
-                .sum()
+            self.current_cut_edges.iter().map(|edge| edge.weight).sum()
         };
+        self.cut_vertices = vertices;
     }
 }
 
