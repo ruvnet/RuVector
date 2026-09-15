@@ -18,12 +18,17 @@
       "types": "./web/ruvector_mincut_wasm.d.ts",
       "default": "./web/ruvector_mincut_wasm.js"
     },
-    "./wasm": "./web/ruvector_mincut_wasm_bg.wasm"
+    "./wasm": "./web/ruvector_mincut_wasm_bg.wasm",
+    "./routing": {
+      "types": "./routing/client.d.ts",
+      "default": "./routing/client.mjs"
+    }
   },
   "files": [
     "node",
     "web",
-    "scripts/check-package.cjs"
+    "scripts/check-package.cjs",
+    "routing"
   ],
   "engines": {
     "node": ">=22"

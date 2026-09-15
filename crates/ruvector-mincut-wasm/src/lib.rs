@@ -34,6 +34,8 @@
 //! const cuts = lkcut.query(0);
 //! ```
 
+mod routing;
+
 use ruvector_mincut::cluster::hierarchy::{HierarchyConfig, ThreeLevelHierarchy};
 use ruvector_mincut::localkcut::deterministic::DeterministicLocalKCut;
 use ruvector_mincut::{DynamicGraph, DynamicMinCut, MinCutBuilder, MinCutConfig, MinCutWrapper};

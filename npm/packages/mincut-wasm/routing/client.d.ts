@@ -1,0 +1,16 @@
+export interface RequestOptions { signal?: AbortSignal; timeoutMs?: number; budget?: number }
+export interface RouteOptions extends RequestOptions { landmarks?: boolean }
+export interface RoadRoute { cost: number; nodes: number[]; arcs: number[]; settled: number }
+export interface RoadSnap { node: number; distanceM: number }
+/** Abort/timeout terminates this worker and rejects all pending requests. */
+export class RoutingWorker {
+  private constructor(worker: unknown);
+  static create(nodes: number, endpoints: Uint32Array, costs: Uint32Array, turns?: Uint32Array, options?: RequestOptions): Promise<RoutingWorker>;
+  route(source: number, target: number, options?: RouteOptions): Promise<RoadRoute | undefined>;
+  prepare(landmarks: Uint32Array, options?: RequestOptions): Promise<void>;
+  /** 0xffffffff closes an arc; other costs are integers <= 1e9. */
+  update(ids: Uint32Array, costs: Uint32Array, options?: RequestOptions): Promise<void>;
+  setCoordinates(latLon: Float64Array, options?: RequestOptions): Promise<void>;
+  nearest(lat: number, lon: number, radiusM: number, options?: RequestOptions): Promise<RoadSnap | undefined>;
+  close(reason?: Error): void;
+}

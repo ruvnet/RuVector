@@ -1,0 +1,52 @@
+name: MinCut road routing
+on:
+  pull_request:
+    paths:
+      - 'crates/ruvector-mincut/src/routing/**'
+      - 'crates/ruvector-mincut/tests/routing_kernel.rs'
+      - 'crates/ruvector-mincut/benchmarks/*roads*'
+      - 'crates/ruvector-mincut/benchmarks/routing*'
+      - 'crates/ruvector-mincut-node/src/routing.rs'
+      - 'crates/ruvector-mincut-wasm/src/routing.rs'
+      - 'npm/packages/mincut-wasm/routing/**'
+      - '.github/workflows/mincut-routing.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  roads:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+          components: rustfmt
+      - name: Independent directed and turn-state oracle tests
+        run: |
+          rustc --edition=2021 -O --test crates/ruvector-mincut/tests/routing_kernel.rs -o /tmp/routing-tests
+          /tmp/routing-tests
+          rustfmt --check --edition=2021 crates/ruvector-mincut/src/routing/mod.rs crates/ruvector-mincut-node/src/routing.rs crates/ruvector-mincut-wasm/src/routing.rs crates/ruvector-mincut/tests/routing_kernel.rs crates/ruvector-mincut/benchmarks/routing_real.rs
+      - name: Pinned real roads and independent igraph oracle
+        run: |
+          python -m pip install igraph==0.11.9 texttable==1.7.0
+          python crates/ruvector-mincut/benchmarks/prepare_roads.py --output /tmp/roads
+      - name: Paired exact routes, closure recovery and map lookup
+        run: |
+          rustc --edition=2021 -O crates/ruvector-mincut/benchmarks/routing_real.rs -o /tmp/routing-real
+          /usr/bin/time -v /tmp/routing-real /tmp/roads/NY.roads > /tmp/roads/NY-results.jsonl 2> /tmp/roads/NY-resource.txt
+          /usr/bin/time -v /tmp/routing-real /tmp/roads/BAY.roads > /tmp/roads/BAY-results.jsonl 2> /tmp/roads/BAY-resource.txt
+          python crates/ruvector-mincut/benchmarks/summarize_roads.py /tmp/roads
+          rustc --version > /tmp/roads/compiler.txt
+          lscpu > /tmp/roads/cpu.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mincut-road-evidence
+          path: |
+            /tmp/roads/*.json
+            /tmp/roads/*.jsonl
+            /tmp/roads/*-resource.txt
+            /tmp/roads/*.roads
+            /tmp/roads/compiler.txt
+            /tmp/roads/cpu.txt

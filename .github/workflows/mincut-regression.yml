@@ -82,7 +82,7 @@ jobs:
         run: |
           cargo build -p ruvector-mincut-node --release
           cp target/release/libruvector_mincut_node.so /tmp/mincut.node
-          MINCUT_ADDON=/tmp/mincut.node node --test crates/ruvector-mincut-node/tests/runtime.cjs
+          MINCUT_ADDON=/tmp/mincut.node node --test crates/ruvector-mincut-node/tests/runtime.cjs crates/ruvector-mincut-node/tests/routing.cjs
           MINCUT_ADDON=/tmp/mincut.node node npm/packages/mincut-wasm/bench/batch.cjs
       - name: Build WASM and matching JavaScript glue
         run: |
@@ -103,5 +103,5 @@ jobs:
           cd /tmp/mincut-consumer
           npm init -y
           npm install /tmp/ruvector-mincut-wasm-*.tgz --ignore-scripts
-          cp "$GITHUB_WORKSPACE/npm/packages/mincut-wasm/test/runtime.test.cjs" .
-          node --test runtime.test.cjs
+          cp "$GITHUB_WORKSPACE/npm/packages/mincut-wasm/test/"*.test.cjs .
+          node --test *.test.cjs

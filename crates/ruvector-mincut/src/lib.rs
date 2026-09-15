@@ -136,6 +136,7 @@ pub mod linkcut;
 pub mod localkcut;
 pub mod parallel;
 pub mod pool;
+pub mod routing;
 pub mod sparsify;
 pub mod tree;
 pub mod witness;

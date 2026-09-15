@@ -10,6 +10,8 @@
 //! - **LocalKCut**: Deterministic local k-cut discovery with 4-color coding
 //! - **MinCutWrapper**: Full API with connectivity curve analysis
 
+mod routing;
+
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use ruvector_mincut::cluster::hierarchy::{HierarchyConfig, ThreeLevelHierarchy as RustHierarchy};
