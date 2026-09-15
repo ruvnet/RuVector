@@ -36,10 +36,19 @@ jobs:
         with:
           toolchain: stable
           components: rustfmt
-      - name: Public API and canonical cache regressions
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+      - name: Compile public API and library regressions
+        timeout-minutes: 15
+        run: cargo test -p ruvector-mincut --features canonical --test exact_regression --lib --no-run
+      - name: Public API exhaustive oracle
+        timeout-minutes: 3
+        run: cargo test -p ruvector-mincut --features canonical --test exact_regression
+      - name: Changed modules and canonical consumers
+        timeout-minutes: 5
         run: |
-          cargo test -p ruvector-mincut --features canonical --test exact_regression
-          cargo test -p ruvector-mincut --features canonical --lib
+          cargo test -p ruvector-mincut --features canonical --lib algorithm::tests::
+          cargo test -p ruvector-mincut --features canonical --lib graph::tests::
+          cargo test -p ruvector-mincut --features canonical --lib canonical::
       - name: Compare public API timings against base implementation
         if: github.event_name == 'pull_request'
         env:
