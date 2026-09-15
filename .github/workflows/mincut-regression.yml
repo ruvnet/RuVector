@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - 'crates/ruvector-mincut/**'
+      - 'crates/ruvector-mincut-node/**'
+      - 'crates/ruvector-mincut-wasm/**'
+      - 'npm/packages/mincut-wasm/**'
       - '.github/workflows/mincut-regression.yml'
   workflow_dispatch:
 permissions:
@@ -23,8 +26,8 @@ jobs:
           /tmp/mincut-kernel-tests
       - name: Check formatting of changed Rust files
         run: |
-          rustfmt --edition=2021 --config skip_children=true crates/ruvector-mincut/src/algorithm/exact.rs crates/ruvector-mincut/src/algorithm/mod.rs crates/ruvector-mincut/src/graph/mod.rs crates/ruvector-mincut/src/canonical/dynamic/mod.rs crates/ruvector-mincut/src/canonical/dynamic/tests.rs crates/ruvector-mincut/tests/exact_kernel.rs crates/ruvector-mincut/tests/exact_regression.rs crates/ruvector-mincut/examples/dynamic_bench.rs
-          git diff --exit-code -- crates/ruvector-mincut
+          rustfmt --edition=2021 --config skip_children=true crates/ruvector-mincut/src/algorithm/exact.rs crates/ruvector-mincut/src/algorithm/mod.rs crates/ruvector-mincut/src/graph/mod.rs crates/ruvector-mincut/src/canonical/dynamic/mod.rs crates/ruvector-mincut/src/canonical/dynamic/tests.rs crates/ruvector-mincut/tests/exact_kernel.rs crates/ruvector-mincut/tests/exact_regression.rs crates/ruvector-mincut/examples/dynamic_bench.rs crates/ruvector-mincut-node/src/lib.rs crates/ruvector-mincut-wasm/src/lib.rs
+          git diff --exit-code -- crates/ruvector-mincut crates/ruvector-mincut-node crates/ruvector-mincut-wasm
   public-api:
     runs-on: ubuntu-22.04
     timeout-minutes: 25
@@ -60,3 +63,42 @@ jobs:
           git fetch --depth=1 origin "$BASE_SHA"
           git show "$BASE_SHA:crates/ruvector-mincut/src/algorithm/mod.rs" > crates/ruvector-mincut/src/algorithm/mod.rs
           cargo run -p ruvector-mincut --release --example dynamic_bench
+  javascript:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        with:
+          key: mincut-javascript
+      - name: Build and test native addon
+        run: |
+          cargo build -p ruvector-mincut-node --release
+          cp target/release/libruvector_mincut_node.so /tmp/mincut.node
+          MINCUT_ADDON=/tmp/mincut.node node --test crates/ruvector-mincut-node/tests/runtime.cjs
+      - name: Build WASM and matching JavaScript glue
+        run: |
+          cargo build -p ruvector-mincut-wasm --release --target wasm32-unknown-unknown
+          VERSION=$(python3 -c 'import tomllib; print(next(p["version"] for p in tomllib.load(open("Cargo.lock", "rb"))["package"] if p["name"] == "wasm-bindgen"))')
+          cargo install wasm-bindgen-cli --version "$VERSION" --locked
+          wasm-bindgen target/wasm32-unknown-unknown/release/ruvector_mincut_wasm.wasm --target nodejs --out-dir npm/packages/mincut-wasm/node
+          wasm-bindgen target/wasm32-unknown-unknown/release/ruvector_mincut_wasm.wasm --target web --out-dir npm/packages/mincut-wasm/web
+          echo '{"type":"commonjs"}' > npm/packages/mincut-wasm/node/package.json
+      - name: Test package exports and installed tarball
+        run: |
+          cd npm/packages/mincut-wasm
+          npm test
+          npm pack --pack-destination /tmp
+          mkdir /tmp/mincut-consumer
+          cd /tmp/mincut-consumer
+          npm init -y
+          npm install /tmp/ruvector-mincut-wasm-*.tgz --ignore-scripts
+          cp "$GITHUB_WORKSPACE/npm/packages/mincut-wasm/test/runtime.test.cjs" .
+          node --test runtime.test.cjs

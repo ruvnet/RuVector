@@ -150,6 +150,77 @@ impl DynamicMinCut {
         Ok(self.current_min_cut)
     }
 
+    /// Insert a batch with one final solve. Invalid input leaves the graph unchanged.
+    /// As with other updates, callers must not mutate graph() directly.
+    pub fn insert_edges(&mut self, edges: &[(VertexId, VertexId, Weight)]) -> Result<f64> {
+        let start = PortableInstant::now();
+        let mut preserves = true;
+        {
+            let graph = self.graph.write();
+            let mut seen = HashSet::with_capacity(edges.len());
+            for &(u, v, weight) in edges {
+                if u == v { return Err(MinCutError::InvalidEdge(u, v)); }
+                if !weight.is_finite() || weight < 0.0 {
+                    return Err(MinCutError::InvalidParameter("edge weight must be finite and nonnegative".into()));
+                }
+                if graph.has_edge(u, v) || !seen.insert((u.min(v), u.max(v))) {
+                    return Err(MinCutError::EdgeExists(u, v));
+                }
+                preserves &= graph.has_vertex(u) && graph.has_vertex(v)
+                    && self.cut_side.contains(&u) == self.cut_side.contains(&v);
+            }
+            for &(u, v, weight) in edges { graph.insert_edge(u, v, weight)?; }
+        }
+        if !preserves { self.recompute_min_cut(); }
+        self.record_batch(true, edges.len(), start.elapsed().as_secs_f64() * 1_000_000.0);
+        Ok(self.current_min_cut)
+    }
+
+    /// Delete a validated batch with one final solve; invalid input makes no changes.
+    pub fn delete_edges(&mut self, edges: &[(VertexId, VertexId)]) -> Result<f64> {
+        let start = PortableInstant::now();
+        {
+            let graph = self.graph.write();
+            let mut seen = HashSet::with_capacity(edges.len());
+            for &(u, v) in edges {
+                if !graph.has_edge(u, v) || !seen.insert((u.min(v), u.max(v))) {
+                    return Err(MinCutError::EdgeNotFound(u, v));
+                }
+            }
+            for &(u, v) in edges { graph.delete_edge(u, v)?; }
+        }
+        if !edges.is_empty() { self.recompute_min_cut(); }
+        self.record_batch(false, edges.len(), start.elapsed().as_secs_f64() * 1_000_000.0);
+        Ok(self.current_min_cut)
+    }
+
+    /// Set an edge weight, inserting a missing edge. Validation precedes mutation.
+    /// Increases inside the cached partition cannot change its optimality.
+    pub fn update_edge(&mut self, u: VertexId, v: VertexId, weight: Weight) -> Result<f64> {
+        let old = self.graph.read().edge_weight(u, v);
+        let Some(old) = old else { return self.insert_edge(u, v, weight); };
+        let start = PortableInstant::now();
+        self.graph.write().update_edge_weight(u, v, weight)?;
+        let preserves = weight == old || (weight > old
+            && self.cut_side.contains(&u) == self.cut_side.contains(&v));
+        if !preserves { self.recompute_min_cut(); }
+        // A replacement counts as a deletion and an insertion, as in the legacy bindings.
+        let elapsed = start.elapsed().as_secs_f64() * 1_000_000.0;
+        self.record_batch(false, 1, elapsed / 2.0);
+        self.record_batch(true, 1, elapsed / 2.0);
+        Ok(self.current_min_cut)
+    }
+
+    fn record_batch(&self, insertion: bool, count: usize, elapsed_us: f64) {
+        if count == 0 { return; }
+        let mut stats = self.stats.write();
+        let old_count = (stats.insertions + stats.deletions) as f64;
+        if insertion { stats.insertions += count as u64; }
+        else { stats.deletions += count as u64; }
+        stats.avg_update_time_us = (stats.avg_update_time_us * old_count + elapsed_us)
+            / (old_count + count as f64);
+    }
+
     /// Get the current minimum cut value (O(1))
     pub fn min_cut_value(&self) -> f64 {
         let start_time = PortableInstant::now();

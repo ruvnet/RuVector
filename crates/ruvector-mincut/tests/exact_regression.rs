@@ -144,3 +144,45 @@ fn internal_insertion_skips_full_recomputation() {
     assert!(solver.stats().restructures > before);
     check(&solver);
 }
+
+#[test]
+fn batches_validate_before_mutating_and_solve_once() {
+    let mut solver = DynamicMinCut::new(MinCutConfig::default());
+    assert!(solver.insert_edges(&[(0, 1, 1.0), (1, 0, 2.0)]).is_err());
+    assert_eq!(solver.num_vertices(), 0);
+    assert_eq!(solver.stats().insertions, 0);
+    solver.insert_edges(&[(0, 1, 2.0), (1, 2, 3.0), (2, 0, 4.0)]).unwrap();
+    assert_eq!(solver.stats().restructures, 1);
+    assert_eq!(solver.stats().insertions, 3);
+    check(&solver);
+    assert!(solver.delete_edges(&[(0, 1), (8, 9)]).is_err());
+    assert!(solver.delete_edges(&[(0, 1), (1, 0)]).is_err());
+    assert!(solver.insert_edges(&[(2, 3, 1.0), (3, 4, f64::NAN)]).is_err());
+    assert_eq!(solver.num_edges(), 3);
+    assert_eq!(solver.num_vertices(), 3);
+    solver.delete_edges(&[(0, 1), (1, 2)]).unwrap();
+    assert_eq!(solver.stats().restructures, 2);
+    assert_eq!(solver.stats().deletions, 2);
+    check(&solver);
+    solver.insert_edges(&[]).unwrap();
+    solver.delete_edges(&[]).unwrap();
+    assert_eq!(solver.stats().restructures, 2);
+}
+
+#[test]
+fn weight_updates_preserve_ids_and_reject_invalid_values() {
+    let mut solver = MinCutBuilder::new().with_edges(vec![(0, 1, 2.0), (1, 2, 3.0), (0, 2, 4.0)]).build().unwrap();
+    let id = solver.graph().read().get_edge(0, 1).unwrap().id;
+    for weight in [f64::NAN, f64::INFINITY, -1.0] {
+        assert!(solver.update_edge(0, 1, weight).is_err());
+        assert_eq!(solver.graph().read().edge_weight(0, 1), Some(2.0));
+        check(&solver);
+    }
+    for weight in [0.0, 8.0, 2.0] {
+        solver.update_edge(0, 1, weight).unwrap();
+        assert_eq!(solver.graph().read().get_edge(0, 1).unwrap().id, id);
+        check(&solver);
+    }
+    solver.update_edge(2, 3, 1.0).unwrap();
+    check(&solver);
+}

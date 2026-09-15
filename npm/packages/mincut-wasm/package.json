@@ -1,0 +1,40 @@
+{
+  "name": "@ruvector/mincut-wasm",
+  "version": "2.3.0",
+  "description": "Weighted dynamic minimum cut with validated typed-array batches",
+  "license": "MIT",
+  "type": "module",
+  "main": "./node/ruvector_mincut_wasm.js",
+  "types": "./web/ruvector_mincut_wasm.d.ts",
+  "exports": {
+    ".": {
+      "node": {
+        "types": "./node/ruvector_mincut_wasm.d.ts",
+        "default": "./node/ruvector_mincut_wasm.js"
+      },
+      "default": "./web/ruvector_mincut_wasm.js"
+    },
+    "./web": {
+      "types": "./web/ruvector_mincut_wasm.d.ts",
+      "default": "./web/ruvector_mincut_wasm.js"
+    },
+    "./wasm": "./web/ruvector_mincut_wasm_bg.wasm"
+  },
+  "files": [
+    "node",
+    "web",
+    "scripts/check-package.cjs"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.cjs",
+    "prepack": "node scripts/check-package.cjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/ruvector.git",
+    "directory": "npm/packages/mincut-wasm"
+  }
+}
