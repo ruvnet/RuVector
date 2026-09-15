@@ -271,14 +271,33 @@ impl MicroLoRA {
         (&self.down_proj, &self.up_proj)
     }
 
-    /// Set LoRA weights from external source (disk load, other system)
+    /// Set LoRA weights from external source (disk load, another system, etc.)
+    ///
+    /// Implements a **Transaction Pattern** for safe weight loading:
+    /// 1. **Validation Phase**: All checks (dimension + numerical integrity) run first
+    /// 2. **Commitment Phase**: Internal state updates ONLY if all validations pass
+    ///
+    /// This prevents "Model Explosion" — loading corrupted weights cannot corrupt
+    /// the internal state because validation happens before any mutation.
     ///
     /// # Arguments
-    /// * `down_proj` - Down projection weights (hidden_dim * rank)
-    /// * `up_proj` - Up projection weights (rank * hidden_dim)
+    /// * `down_proj` - Down projection matrix, shape `[hidden_dim * rank]`
+    /// * `up_proj` - Up projection matrix, shape `[rank * hidden_dim]`
     ///
     /// # Errors
-    /// Returns Err if dimensions don't match current rank/hidden_dim
+    /// Returns `Err` with descriptive message if:
+    /// - Dimension mismatch: `down_proj.len() != hidden_dim * rank`
+    /// - Dimension mismatch: `up_proj.len() != rank * hidden_dim`
+    /// - Numerical instability: `down_proj` contains `NaN` or `Inf`
+    /// - Numerical instability: `up_proj` contains `NaN` or `Inf`
+    ///
+    /// # Example
+    /// ```
+    /// let mut lora = MicroLoRA::new(64, 2);
+    /// let down = vec![0.1f32; 64 * 2];
+    /// let up = vec![0.2f32; 2 * 64];
+    /// assert!(lora.set_weights(down, up).is_ok());
+    /// ```
     pub fn set_weights(&mut self, down_proj: Vec<f32>, up_proj: Vec<f32>) -> Result<(), String> {
         let expected_down = self.hidden_dim * self.rank;
         if down_proj.len() != expected_down {
@@ -296,6 +315,16 @@ impl MicroLoRA {
                 expected_up,
                 up_proj.len()
             ));
+        }
+
+        // Prevent "Model Explosion": Ensure no NaN or Infinite values exist.
+        // This is crucial when loading weights from unverified external sources.
+        if down_proj.iter().any(|&x| x.is_nan() || x.is_infinite()) {
+            return Err("Numerical error: down_proj contains NaN or Inf".to_string());
+        }
+
+        if up_proj.iter().any(|&x| x.is_nan() || x.is_infinite()) {
+            return Err("Numerical error: up_proj contains NaN or Inf".to_string());
         }
 
         self.down_proj = down_proj;
@@ -582,5 +611,67 @@ mod tests {
         let result = lora.set_weights(down, wrong_up);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("up_proj dimension mismatch"));
+    }
+
+    #[test]
+    fn test_set_weights_nan_in_down_proj() {
+        let mut lora = MicroLoRA::new(64, 2);
+        let mut down = vec![1.0f32; 64 * 2];
+        down[10] = f32::NAN;
+        let up = vec![0.5f32; 2 * 64];
+
+        let result = lora.set_weights(down, up);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("NaN"));
+    }
+
+    #[test]
+    fn test_set_weights_inf_in_down_proj() {
+        let mut lora = MicroLoRA::new(64, 2);
+        let mut down = vec![1.0f32; 64 * 2];
+        down[5] = f32::INFINITY;
+        let up = vec![0.5f32; 2 * 64];
+
+        let result = lora.set_weights(down, up);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Inf"));
+    }
+
+    #[test]
+    fn test_set_weights_nan_in_up_proj() {
+        let mut lora = MicroLoRA::new(64, 2);
+        let down = vec![1.0f32; 64 * 2];
+        let mut up = vec![0.5f32; 2 * 64];
+        up[20] = f32::NAN;
+
+        let result = lora.set_weights(down, up);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("NaN"));
+    }
+
+    #[test]
+    fn test_set_weights_inf_in_up_proj() {
+        let mut lora = MicroLoRA::new(64, 2);
+        let down = vec![1.0f32; 64 * 2];
+        let mut up = vec![0.5f32; 2 * 64];
+        up[30] = f32::NEG_INFINITY;
+
+        let result = lora.set_weights(down, up);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Inf"));
+    }
+
+    #[test]
+    fn test_set_weights_preserves_original_on_validation_failure() {
+        let mut lora = MicroLoRA::new(64, 2);
+        let original_down = lora.get_weights().0.clone();
+        let original_up = lora.get_weights().1.clone();
+
+        let result = lora.set_weights(vec![1.0f32; 64 * 2], vec![0.5f32; 3 * 64]);
+        assert!(result.is_err());
+
+        let (down, up) = lora.get_weights();
+        assert_eq!(down, &original_down);
+        assert_eq!(up, &original_up);
     }
 }
