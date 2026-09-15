@@ -165,12 +165,12 @@ fn batches_validate_before_mutating_and_solve_once() {
     assert_eq!(solver.num_edges(), 3);
     assert_eq!(solver.num_vertices(), 3);
     solver.delete_edges(&[(0, 1), (1, 2)]).unwrap();
-    assert_eq!(solver.stats().restructures, 2);
+    assert_eq!(solver.stats().restructures, 1);
     assert_eq!(solver.stats().deletions, 2);
     check(&solver);
     solver.insert_edges(&[]).unwrap();
     solver.delete_edges(&[]).unwrap();
-    assert_eq!(solver.stats().restructures, 2);
+    assert_eq!(solver.stats().restructures, 1);
 }
 
 #[test]
@@ -191,5 +191,21 @@ fn weight_updates_preserve_ids_and_reject_invalid_values() {
         check(&solver);
     }
     solver.update_edge(2, 3, 1.0).unwrap();
+    check(&solver);
+}
+
+#[test]
+fn crossing_decreases_keep_the_witness_without_solving() {
+    let mut solver = MinCutBuilder::new()
+        .with_edges(vec![(0, 1, 2.0), (1, 2, 3.0), (0, 2, 4.0)])
+        .build()
+        .unwrap();
+    let edge = solver.cut_edges()[0].clone();
+    let solves = solver.stats().restructures;
+    solver.update_edge(edge.source, edge.target, 0.5).unwrap();
+    assert_eq!(solver.stats().restructures, solves);
+    check(&solver);
+    solver.delete_edge(edge.source, edge.target).unwrap();
+    assert_eq!(solver.stats().restructures, solves);
     check(&solver);
 }

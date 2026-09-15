@@ -140,12 +140,17 @@ impl DynamicMinCut {
         Ok(self.current_min_cut)
     }
 
-    /// Delete an edge. Deletions can expose a competing minimum cut, including
-    /// when the deleted edge does not cross the previously selected partition.
+    /// Delete an edge. Crossing deletions preserve the selected minimum cut;
+    /// non-crossing deletions can expose a smaller competing cut.
     pub fn delete_edge(&mut self, u: VertexId, v: VertexId) -> Result<f64> {
         let start_time = PortableInstant::now();
         self.graph.write().delete_edge(u, v)?;
-        self.recompute_min_cut();
+        if self.cut_side.contains(&u) != self.cut_side.contains(&v) {
+            // Every other cut loses at most this same weight. This cut remains optimal.
+            self.refresh_cut_edges();
+        } else {
+            self.recompute_min_cut();
+        }
         self.record_update(false, start_time.elapsed().as_secs_f64() * 1_000_000.0);
         Ok(self.current_min_cut)
     }
@@ -189,7 +194,7 @@ impl DynamicMinCut {
         Ok(self.current_min_cut)
     }
 
-    /// Delete a validated batch with one final solve; invalid input makes no changes.
+    /// Delete a validated batch with at most one solve; invalid input makes no changes.
     pub fn delete_edges(&mut self, edges: &[(VertexId, VertexId)]) -> Result<f64> {
         let start = PortableInstant::now();
         {
@@ -205,7 +210,14 @@ impl DynamicMinCut {
             }
         }
         if !edges.is_empty() {
-            self.recompute_min_cut();
+            if edges
+                .iter()
+                .all(|&(u, v)| self.cut_side.contains(&u) != self.cut_side.contains(&v))
+            {
+                self.refresh_cut_edges();
+            } else {
+                self.recompute_min_cut();
+            }
         }
         self.record_batch(
             false,
@@ -227,13 +239,32 @@ impl DynamicMinCut {
         let preserves = weight == old
             || (weight > old && self.cut_side.contains(&u) == self.cut_side.contains(&v));
         if !preserves {
-            self.recompute_min_cut();
+            if weight < old && self.cut_side.contains(&u) != self.cut_side.contains(&v) {
+                self.refresh_cut_edges();
+            } else {
+                self.recompute_min_cut();
+            }
         }
         // A replacement counts as a deletion and an insertion, as in the legacy bindings.
         let elapsed = start.elapsed().as_secs_f64() * 1_000_000.0;
         self.record_batch(false, 1, elapsed / 2.0);
         self.record_batch(true, 1, elapsed / 2.0);
         Ok(self.current_min_cut)
+    }
+
+    // Preserve the selected partition while refreshing only its crossing edges.
+    // Sum original weights again rather than subtracting deltas (which may drift).
+    fn refresh_cut_edges(&mut self) {
+        let graph = self.graph.read();
+        self.current_cut_edges = self
+            .current_cut_edges
+            .iter()
+            .filter_map(|edge| graph.get_edge(edge.source, edge.target))
+            .collect();
+        self.current_min_cut = self
+            .current_cut_edges
+            .iter()
+            .fold(0.0, |sum, edge| sum + edge.weight);
     }
 
     fn record_batch(&self, insertion: bool, count: usize, elapsed_us: f64) {
@@ -374,7 +405,9 @@ impl DynamicMinCut {
         self.current_min_cut = if vertices.len() < 2 {
             f64::INFINITY
         } else {
-            self.current_cut_edges.iter().fold(0.0, |sum, edge| sum + edge.weight)
+            self.current_cut_edges
+                .iter()
+                .fold(0.0, |sum, edge| sum + edge.weight)
         };
         self.cut_vertices = vertices;
     }
