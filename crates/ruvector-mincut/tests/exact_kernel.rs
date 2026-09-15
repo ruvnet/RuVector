@@ -82,3 +82,31 @@ fn long_cycle_certificate_does_not_use_recursive_dfs() {
     assert_eq!(value, 2.0);
     assert_eq!(side.len(), 1);
 }
+
+#[test]
+fn dense_weighted_graphs_match_exhaustive_oracle() {
+    let mut state = 0x5a17_u64;
+    for n in 2..=9 {
+        for _ in 0..128 {
+            let mut edges = Vec::new();
+            for u in 0..n {
+                for v in u + 1..n {
+                    state ^= state << 13;
+                    state ^= state >> 7;
+                    state ^= state << 17;
+                    if state % 5 != 0 {
+                        edges.push((u, v, ((state >> 8) % 97) as f64 / 4.0));
+                    }
+                }
+            }
+            let (value, side) = exact::minimum_cut(n, &edges);
+            assert_eq!(value, oracle(n, &edges));
+            let crossing: f64 = edges
+                .iter()
+                .filter(|(u, v, _)| side.contains(u) != side.contains(v))
+                .map(|e| e.2)
+                .sum();
+            assert_eq!(value, crossing);
+        }
+    }
+}
