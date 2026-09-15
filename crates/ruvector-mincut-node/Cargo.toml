@@ -2,6 +2,7 @@
 name = "ruvector-mincut-node"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 description = "Node.js bindings for subpolynomial-time dynamic minimum cut"
 license.workspace = true
 authors.workspace = true

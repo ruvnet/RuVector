@@ -2,6 +2,7 @@
 name = "ruvector-mincut-wasm"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 description = "WASM bindings for subpolynomial-time dynamic minimum cut"
 license.workspace = true
 authors.workspace = true
