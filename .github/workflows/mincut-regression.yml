@@ -107,6 +107,7 @@ jobs:
           node --test *.test.cjs
       - name: Complete native, WASM and worker road benchmarks
         run: |
+          set -euo pipefail
           python -m pip install igraph==0.11.9 texttable==1.7.0
           python crates/ruvector-mincut/benchmarks/prepare_roads.py --output /tmp/roads
           ROADS_DIR=/tmp/roads MINCUT_ADDON=/tmp/mincut.node node crates/ruvector-mincut/benchmarks/routing_runtime.cjs native | tee /tmp/roads/native-runtime.jsonl

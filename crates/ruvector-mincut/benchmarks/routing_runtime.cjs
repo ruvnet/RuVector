@@ -26,7 +26,7 @@ function data(name) {
 function summary(values){const a=[...values].sort((a,b)=>a-b);return {medianMs:(a[(a.length-1)>>1]+a[a.length>>1])/2,p95Ms:a[Math.ceil(a.length*.95)-1],samples:a.length};}
 async function main(){
   const kind=process.argv[2];assert(['native','wasm','worker'].includes(kind));
-  const packageRoot=process.env.MINCUT_WASM_PACKAGE || path.resolve(__dirname,'../../../..','npm/packages/mincut-wasm');
+  const packageRoot=process.env.MINCUT_WASM_PACKAGE || path.resolve(__dirname,'../../..','npm/packages/mincut-wasm');
   let Constructor,Worker;
   if(kind==='native')Constructor=require(process.env.MINCUT_ADDON).RoadRouter;
   if(kind==='wasm')Constructor=require(path.join(packageRoot,'node/ruvector_mincut_wasm.js')).WasmRoadRouter;
