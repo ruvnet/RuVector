@@ -48,6 +48,30 @@ export class RoutingWorker {
     catch (error) { client.close(error); throw error; }
     return client;
   }
+  static async createRuField(nodes, endpoints, costs, turns = new Uint32Array(), policy = {}, options = {}) {
+    if (!Number.isInteger(nodes) || nodes < 1 || nodes > 1_000_000 ||
+        !privateArray(endpoints, Uint32Array) || !privateArray(costs, Uint32Array) ||
+        !privateArray(turns, Uint32Array) || costs.length > 4_000_000 ||
+        endpoints.length !== costs.length * 2 || turns.length % 2 || turns.length > 8_000_000) {
+      throw new TypeError('Invalid graph arrays or size');
+    }
+    const values = [policy.maxPenalty ?? 60_000, policy.closeAtMillionths ?? 950_000,
+      policy.ttlNs ?? 2_000_000_000, policy.maxLatenessNs ?? 500_000_000];
+    if (!values.every((v, i) => boundedInteger(v, [1_000_000_000, 1_000_001, 3_600_000_000_000, 3_600_000_000_000][i]))) {
+      throw new TypeError('Invalid RuField policy');
+    }
+    let worker;
+    if (typeof process !== 'undefined' && process.versions?.node) {
+      const { Worker } = await import('node:worker_threads');
+      worker = new Worker(new URL('./worker.mjs', import.meta.url), { type: 'module' });
+    } else {
+      worker = new Worker(new URL('./worker.mjs', import.meta.url), { type: 'module' });
+    }
+    const client = new RoutingWorker(worker);
+    try { await client.#call('createRuField', [nodes, endpoints, costs, turns, ...values], options); }
+    catch (error) { client.close(error); throw error; }
+    return client;
+  }
   #call(operation, args, { signal, timeoutMs = 30_000 } = {}) {
     if (this.#closed) return Promise.reject(new Error('Routing worker closed'));
     if (this.#pending.size >= 32) return Promise.reject(new Error('Routing queue full'));
@@ -89,6 +113,23 @@ export class RoutingWorker {
   nearest(lat, lon, radiusM, options = {}) {
     if (!Number.isFinite(lat) || Math.abs(lat)>90 || !Number.isFinite(lon) || Math.abs(lon)>180 || !Number.isFinite(radiusM) || radiusM<0) return Promise.reject(new TypeError('Invalid map query'));
     return this.#call('nearest', [lat, lon, radiusM], options);
+  }
+  bindZone(zone, node, options = {}) {
+    if (typeof zone !== 'string' || zone.length === 0 || zone.length > 256 || !boundedInteger(node, 0xffffffff)) return Promise.reject(new TypeError('Invalid zone binding'));
+    return this.#call('bindZone', [zone, node], options);
+  }
+  bindCell(x, y, z, node, options = {}) {
+    if (![x,y,z].every(Number.isInteger) || !boundedInteger(node, 0xffffffff)) return Promise.reject(new TypeError('Invalid cell binding'));
+    return this.#call('bindCell', [x,y,z,node], options);
+  }
+  ingestRuField(event, verified, nowNs, options = {}) {
+    const json = typeof event === 'string' ? event : JSON.stringify(event);
+    if (typeof json !== 'string' || new TextEncoder().encode(json).byteLength > 256 * 1024 || typeof verified !== 'boolean' || !boundedInteger(nowNs, Number.MAX_SAFE_INTEGER)) return Promise.reject(new TypeError('Invalid RuField event'));
+    return this.#call('ingestRuField', [json, verified, nowNs], options);
+  }
+  expire(nowNs, options = {}) {
+    if (!boundedInteger(nowNs, Number.MAX_SAFE_INTEGER)) return Promise.reject(new TypeError('Invalid expiry time'));
+    return this.#call('expire', [nowNs], options);
   }
   close(reason = new Error('Routing worker closed')) {
     if (this.#closed) return;

@@ -8,6 +8,7 @@
 //! cost increases. Decreases/reopening discard them until explicitly rebuilt.
 //! No route cache survives an update. Coordinates only affect map lookup.
 
+pub mod rufield;
 mod spatial;
 pub use spatial::{MapIndex, Snap};
 use std::cmp::Reverse;

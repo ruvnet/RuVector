@@ -19,9 +19,9 @@ let router;
 handler = ({ id, operation, args }) => {
   try {
     let result;
-    if (operation === 'create') {
+    if (operation === 'create' || operation === 'createRuField') {
       if (router) throw new Error('Router already initialized');
-      router = new bindings.WasmRoadRouter(...args);
+      router = operation === 'create' ? new bindings.WasmRoadRouter(...args) : new bindings.WasmRuFieldRouter(...args);
     } else {
       if (!router) throw new Error('Router not initialized');
       switch (operation) {
@@ -30,6 +30,10 @@ handler = ({ id, operation, args }) => {
         case 'update': result = router.update(...args); break;
         case 'setCoordinates': result = router.setCoordinates(...args); break;
         case 'nearest': result = router.nearest(...args); break;
+        case 'bindZone': result = router.bindZone(...args); break;
+        case 'bindCell': result = router.bindCell(...args); break;
+        case 'ingestRuField': result = router.ingestRuField(...args); break;
+        case 'expire': result = router.expire(...args); break;
         default: throw new Error('Unknown operation');
       }
     }

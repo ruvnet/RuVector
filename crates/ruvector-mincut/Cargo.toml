@@ -282,3 +282,11 @@ mut_range_bound = "allow"
 unnecessary_sort_by = "allow"
 assign_op_pattern = "allow"
 unused_unit = "allow"
+
+[[example]]
+name = "routing_real"
+path = "benchmarks/routing_real.rs"
+
+[[example]]
+name = "rufield_real"
+path = "benchmarks/rufield_real.rs"

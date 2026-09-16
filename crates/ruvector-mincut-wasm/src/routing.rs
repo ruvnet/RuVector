@@ -107,3 +107,121 @@ impl WasmRoadRouter {
         .map_err(|e| JsError::new(&e.to_string()))
     }
 }
+
+use ruvector_mincut::routing::rufield::{AwarenessPolicy, RuFieldRouter as FieldRouter};
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FieldUpdate {
+    node: u32,
+    risk_millionths: u32,
+    changed_arcs: usize,
+    duplicate: bool,
+}
+/// RuField-aware route planner. Verify live event receipts before ingest.
+#[wasm_bindgen]
+pub struct WasmRuFieldRouter {
+    inner: FieldRouter,
+}
+#[wasm_bindgen]
+impl WasmRuFieldRouter {
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        nodes: f64,
+        endpoints: &[u32],
+        costs: &[u32],
+        turns: &[u32],
+        max_penalty: f64,
+        close_at_millionths: f64,
+        ttl_ns: f64,
+        max_lateness_ns: f64,
+    ) -> Result<Self, JsError> {
+        let road =
+            Router::from_arrays(integer(nodes, 1_000_000)? as usize, endpoints, costs, turns)
+                .map_err(|e| JsError::new(&e.to_string()))?;
+        let policy = AwarenessPolicy {
+            max_penalty: integer(max_penalty, 1_000_000_000)?,
+            close_at_millionths: integer(close_at_millionths, 1_000_001)?,
+            ttl_ns: integer64(ttl_ns, 3_600_000_000_000)?,
+            max_lateness_ns: integer64(max_lateness_ns, 3_600_000_000_000)?,
+        };
+        Ok(Self {
+            inner: FieldRouter::new(road, policy).map_err(|e| JsError::new(&e.to_string()))?,
+        })
+    }
+    #[wasm_bindgen(js_name=bindZone)]
+    pub fn bind_zone(&mut self, zone: String, node: f64) -> Result<(), JsError> {
+        self.inner
+            .bind_zone(zone, integer(node, u32::MAX)?)
+            .map_err(|e| JsError::new(&e.to_string()))
+    }
+    #[wasm_bindgen(js_name=bindCell)]
+    pub fn bind_cell(&mut self, x: i32, y: i32, z: i32, node: f64) -> Result<(), JsError> {
+        self.inner
+            .bind_cell([x, y, z], integer(node, u32::MAX)?)
+            .map_err(|e| JsError::new(&e.to_string()))
+    }
+    #[wasm_bindgen(js_name=ingestRuField)]
+    pub fn ingest_rufield(
+        &mut self,
+        json: &str,
+        verified: bool,
+        now_ns: f64,
+    ) -> Result<JsValue, JsError> {
+        let u = self
+            .inner
+            .ingest_json(
+                json.as_bytes(),
+                verified,
+                integer64(now_ns, 9_007_199_254_740_991)?,
+            )
+            .map_err(|e| JsError::new(&e.to_string()))?;
+        serde_wasm_bindgen::to_value(&FieldUpdate {
+            node: u.node,
+            risk_millionths: u.risk_millionths,
+            changed_arcs: u.changed_arcs,
+            duplicate: u.duplicate,
+        })
+        .map_err(|e| JsError::new(&e.to_string()))
+    }
+    pub fn expire(&mut self, now_ns: f64) -> Result<usize, JsError> {
+        self.inner
+            .expire(integer64(now_ns, 9_007_199_254_740_991)?)
+            .map_err(|e| JsError::new(&e.to_string()))
+    }
+    pub fn route(
+        &mut self,
+        source: f64,
+        target: f64,
+        use_landmarks: bool,
+        budget: f64,
+    ) -> Result<JsValue, JsError> {
+        let route = self
+            .inner
+            .route(
+                integer(source, u32::MAX)?,
+                integer(target, u32::MAX)?,
+                use_landmarks,
+                integer(budget, 200_000_000)? as usize,
+                || false,
+            )
+            .map_err(|e| JsError::new(&e.to_string()))?;
+        serde_wasm_bindgen::to_value(&route.map(|r| Route {
+            cost: r.cost as f64,
+            nodes: r.nodes,
+            arcs: r.arcs,
+            settled: r.settled,
+        }))
+        .map_err(|e| JsError::new(&e.to_string()))
+    }
+    #[wasm_bindgen(js_name=activeNodes)]
+    pub fn active_nodes(&self) -> usize {
+        self.inner.active_nodes()
+    }
+}
+fn integer64(v: f64, max: u64) -> Result<u64, JsError> {
+    if !v.is_finite() || v < 0.0 || v.fract() != 0.0 || v > max as f64 {
+        Err(JsError::new("expected bounded nonnegative integer"))
+    } else {
+        Ok(v as u64)
+    }
+}

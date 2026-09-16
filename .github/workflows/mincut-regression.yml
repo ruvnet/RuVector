@@ -26,7 +26,7 @@ jobs:
           /tmp/mincut-kernel-tests
       - name: Check formatting of changed Rust files
         run: |
-          rustfmt --edition=2021 --config skip_children=true crates/ruvector-mincut/src/algorithm/exact.rs crates/ruvector-mincut/src/algorithm/mod.rs crates/ruvector-mincut/src/graph/mod.rs crates/ruvector-mincut/src/canonical/dynamic/mod.rs crates/ruvector-mincut/src/canonical/dynamic/tests.rs crates/ruvector-mincut/tests/exact_kernel.rs crates/ruvector-mincut/tests/exact_regression.rs crates/ruvector-mincut/examples/dynamic_bench.rs crates/ruvector-mincut-node/src/lib.rs crates/ruvector-mincut-wasm/src/lib.rs
+          rustfmt --edition=2021 --config skip_children=true crates/ruvector-mincut/src/algorithm/exact.rs crates/ruvector-mincut/src/algorithm/mod.rs crates/ruvector-mincut/src/routing/mod.rs crates/ruvector-mincut/src/routing/rufield.rs crates/ruvector-mincut/src/routing/spatial.rs crates/ruvector-mincut/src/graph/mod.rs crates/ruvector-mincut/src/canonical/dynamic/mod.rs crates/ruvector-mincut/src/canonical/dynamic/tests.rs crates/ruvector-mincut/tests/exact_kernel.rs crates/ruvector-mincut/tests/exact_regression.rs crates/ruvector-mincut/examples/dynamic_bench.rs crates/ruvector-mincut-node/src/lib.rs crates/ruvector-mincut-wasm/src/lib.rs
           git diff --exit-code -- crates/ruvector-mincut crates/ruvector-mincut-node crates/ruvector-mincut-wasm
   public-api:
     runs-on: ubuntu-22.04

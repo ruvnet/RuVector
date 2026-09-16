@@ -64,3 +64,33 @@ test('worker queue bounds, timeout and postMessage errors release pending calls'
   await assert.rejects(router.route(0,1), /clone failure/);
   router.close();
 });
+
+test('RuField awareness replans, rejects unverified live events and expires risk', async () => {
+  const event = (id, timestamp, privacy='P2', synthetic=false) => JSON.stringify({
+    event_id:id,timestamp_ns:timestamp,
+    observation:{zone_id:'room-a',space_cell:null,confidence:1,features:{presence:1,motion_energy:1,transient:0},privacy_class:privacy},
+    provenance:{synthetic}
+  });
+  const router = new api.WasmRuFieldRouter(4,U([0,1,1,3,0,2,2,3]),U([10,10,30,30]),U([]),100,900000,100,10);
+  try {
+    router.bindZone('room-a',1);
+    assert.deepEqual(router.route(0,3,false,1000).nodes,[0,1,3]);
+    assert.throws(()=>router.ingestRuField(event('bad',100),false,100),/unverified/);
+    const update=router.ingestRuField(event('e1',100),true,100);
+    assert.equal(update.riskMillionths,1_000_000);assert.equal(update.changedArcs,2);
+    assert.deepEqual(router.route(0,3,false,1000).nodes,[0,2,3]);
+    assert.equal(router.ingestRuField(event('e1',100),true,100).duplicate,true);
+    assert.equal(router.expire(200),2);
+    assert.equal(router.route(0,3,false,1000).cost,20);
+  } finally {router.free();}
+
+  const { RoutingWorker } = await import('@ruvector/mincut-wasm/routing');
+  const worker=await RoutingWorker.createRuField(4,U([0,1,1,3,0,2,2,3]),U([10,10,30,30]),U([]),{maxPenalty:100,closeAtMillionths:900000,ttlNs:100,maxLatenessNs:10});
+  try {
+    await worker.bindZone('room-a',1);
+    await assert.rejects(worker.ingestRuField(JSON.parse(event('bad',100)),false,100),/unverified/);
+    assert.equal((await worker.ingestRuField(JSON.parse(event('e2',100)),true,100)).changedArcs,2);
+    assert.deepEqual((await worker.route(0,3,{landmarks:false,budget:1000})).nodes,[0,2,3]);
+    assert.equal(await worker.expire(200),2);
+  } finally {worker.close();}
+});
