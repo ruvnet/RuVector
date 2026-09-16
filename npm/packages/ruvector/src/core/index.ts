@@ -22,6 +22,7 @@ export * from './ast-parser';
 export * from './diff-embeddings';
 export * from './coverage-router';
 export * from './graph-algorithms';
+export * from './mincut-wasm-wrapper';
 export * from './tensor-compress';
 export * from './learning-engine';
 export * from './adaptive-embedder';
