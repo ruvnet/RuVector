@@ -235,12 +235,11 @@ fn field_event(
     id: &str,
     timestamp: u64,
     zone: &str,
-    confidence: f32,
-    presence: f32,
-    motion: f32,
+    signals: (f32, f32, f32),
     privacy: &str,
     synthetic: bool,
 ) -> Vec<u8> {
+    let (confidence, presence, motion) = signals;
     format!(r#"{{"event_id":"{id}","timestamp_ns":{timestamp},"observation":{{"zone_id":"{zone}","space_cell":null,"confidence":{confidence},"features":{{"presence":{presence},"motion_energy":{motion},"transient":0.0}},"privacy_class":"{privacy}"}},"provenance":{{"synthetic":{synthetic}}}}}"#).into_bytes()
 }
 fn field_event_sensor(
@@ -282,7 +281,7 @@ fn rufield_verified_events_replan_and_expire_without_compounding() {
     );
     let update = aware
         .ingest_json(
-            &field_event("e1", 100, "room-a", 1.0, 1.0, 1.0, "P2", false),
+            &field_event("e1", 100, "room-a", (1.0, 1.0, 1.0), "P2", false),
             true,
             100,
         )
@@ -301,7 +300,7 @@ fn rufield_verified_events_replan_and_expire_without_compounding() {
     );
     let duplicate = aware
         .ingest_json(
-            &field_event("e1", 100, "room-a", 1.0, 1.0, 1.0, "P2", false),
+            &field_event("e1", 100, "room-a", (1.0, 1.0, 1.0), "P2", false),
             true,
             100,
         )
@@ -333,24 +332,28 @@ fn rufield_trust_privacy_time_and_mapping_fail_closed() {
     aware.bind_zone("z".into(), 0).unwrap();
     assert!(aware
         .ingest_json(
-            &field_event("e", 10, "z", 1., 1., 0., "P2", false),
-            false,
-            10
-        )
-        .is_err());
-    assert!(aware
-        .ingest_json(&field_event("e", 10, "z", 1., 1., 0., "P4", true), true, 10)
-        .is_err());
-    assert!(aware
-        .ingest_json(
-            &field_event("e", 10, "missing", 1., 1., 0., "P2", true),
+            &field_event("e", 10, "z", (1., 1., 0.), "P2", false),
             false,
             10
         )
         .is_err());
     assert!(aware
         .ingest_json(
-            &field_event("e", 10, "z", f32::NAN, 1., 0., "P2", true),
+            &field_event("e", 10, "z", (1., 1., 0.), "P4", true),
+            true,
+            10
+        )
+        .is_err());
+    assert!(aware
+        .ingest_json(
+            &field_event("e", 10, "missing", (1., 1., 0.), "P2", true),
+            false,
+            10
+        )
+        .is_err());
+    assert!(aware
+        .ingest_json(
+            &field_event("e", 10, "z", (f32::NAN, 1., 0.), "P2", true),
             false,
             10
         )
@@ -383,7 +386,7 @@ fn rufield_trust_privacy_time_and_mapping_fail_closed() {
     );
     assert!(aware
         .ingest_json(
-            &field_event("future", 1000, "z", 1., 1., 0., "P2", true),
+            &field_event("future", 1000, "z", (1., 1., 0.), "P2", true),
             false,
             100
         )
