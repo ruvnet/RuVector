@@ -121,6 +121,26 @@ impl RuVectorGraphAnalyzer {
         self.min_cut() >= threshold
     }
 
+    /// Deterministic, one-shot static partition via Stoer-Wagner
+    /// ([`crate::static_cut`]), instead of [`Self::partition`]'s dynamic
+    /// bounded-instance engine ([`crate::wrapper::MinCutWrapper`]).
+    ///
+    /// Prefer this for "rebuild the graph fresh, ask once" call sites (a new
+    /// `RuVectorGraphAnalyzer` per query, as `from_knn` construction implies)
+    /// — see `crate::static_cut`'s module docs for why `partition()` is both
+    /// slow and non-deterministic in exactly that usage pattern. Not cached
+    /// (recomputes from `self.graph` on every call) and has no incremental
+    /// update path; use `partition()` for a long-lived graph under many
+    /// `add_edge`/`remove_edge` calls instead.
+    pub fn partition_static(&self) -> Option<(Vec<VertexId>, Vec<VertexId>)> {
+        crate::static_cut::stoer_wagner_min_cut(&self.graph).map(|r| (r.side_a, r.side_b))
+    }
+
+    /// Deterministic static min-cut value; see [`Self::partition_static`].
+    pub fn min_cut_static(&self) -> Option<u64> {
+        crate::static_cut::stoer_wagner_min_cut(&self.graph).map(|r| r.cut_value.round() as u64)
+    }
+
     /// Find bridge edges (edges whose removal disconnects graph)
     pub fn find_bridges(&self) -> Vec<EdgeId> {
         let mut bridges = Vec::new();
@@ -424,6 +444,46 @@ mod tests {
         // Partitioning may not cover all vertices if min-cut fails
         assert!(total_vertices <= 10);
         assert!(total_vertices > 0);
+    }
+
+    #[test]
+    fn test_partition_static_matches_dynamic_min_cut_on_triangle() {
+        let graph = Arc::new(DynamicGraph::new());
+        graph.insert_edge(0, 1, 1.0).unwrap();
+        graph.insert_edge(1, 2, 1.0).unwrap();
+        graph.insert_edge(2, 0, 1.0).unwrap();
+
+        let analyzer = RuVectorGraphAnalyzer::new(Arc::clone(&graph));
+        assert_eq!(analyzer.min_cut_static(), Some(2));
+
+        let (a, b) = analyzer.partition_static().unwrap();
+        assert_eq!(a.len() + b.len(), 3);
+        assert!(!a.is_empty() && !b.is_empty());
+    }
+
+    #[test]
+    fn test_partition_static_is_deterministic_across_fresh_from_knn_calls() {
+        // Same construction pattern ruvector-agent-memory's graph_forget
+        // module uses per compaction call: a brand new analyzer from a
+        // from_knn neighbor list every time.
+        let neighbors: Vec<(usize, Vec<(usize, f64)>)> = vec![
+            (0, vec![(1, 1.0), (2, 1.0)]),
+            (1, vec![(0, 1.0), (2, 1.0)]),
+            (2, vec![(0, 1.0), (1, 1.0)]),
+        ];
+
+        let mut first: Option<(Vec<VertexId>, Vec<VertexId>)> = None;
+        for _ in 0..20 {
+            let analyzer = RuVectorGraphAnalyzer::from_knn(&neighbors);
+            let partition = analyzer.partition_static().unwrap();
+            match &first {
+                None => first = Some(partition),
+                Some(f) => assert_eq!(
+                    &partition, f,
+                    "partition_static must be identical across independently-built analyzers"
+                ),
+            }
+        }
     }
 
     #[test]
