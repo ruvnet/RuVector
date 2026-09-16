@@ -13,6 +13,7 @@ import random
 import struct
 import sys
 import time
+import urllib.error
 import urllib.request
 import igraph
 
@@ -22,6 +23,19 @@ SOURCES = {
     'BAY': ['630c4a96869b3ecdd631ceb0f63923fb954ee4c7c26d983863612e2c4442462e',
             '67330855e3082dae03609f5b3012fe13ad2d982139d79c3040e77dad55ffd338'],
 }
+
+def download(url, limit, attempts=4):
+    error = None
+    request = urllib.request.Request(url, headers={'User-Agent': 'RuVector-benchmark/1'})
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                return response.read(limit + 1)
+        except (OSError, urllib.error.URLError) as exc:
+            error = exc
+            if attempt + 1 < attempts:
+                time.sleep(2 ** attempt)
+    raise RuntimeError(f'download failed after {attempts} attempts: {url}') from error
 
 def main():
     parser = argparse.ArgumentParser()
@@ -36,8 +50,7 @@ def main():
             path = args.output / name
             url = 'https://www.diag.uniroma1.it/challenge9/data/USA-road-d/' + name
             if not path.exists():
-                with urllib.request.urlopen(url, timeout=60) as response:
-                    data = response.read(20_000_001)
+                data = download(url, 20_000_000)
                 if len(data) > 20_000_000:
                     raise ValueError('Compressed source too large')
                 path.write_bytes(data)
