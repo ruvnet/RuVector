@@ -1,0 +1,27 @@
+{
+  "name": "ruvector-mincut-wasm",
+  "collaborators": [
+    "Ruvector Team"
+  ],
+  "description": "WASM bindings for subpolynomial-time dynamic minimum cut",
+  "version": "2.3.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/ruvector"
+  },
+  "files": [
+    "ruvector_mincut_wasm_bg.wasm",
+    "ruvector_mincut_wasm.js",
+    "ruvector_mincut_wasm.d.ts"
+  ],
+  "main": "ruvector_mincut_wasm.js",
+  "types": "ruvector_mincut_wasm.d.ts",
+  "keywords": [
+    "mincut",
+    "wasm",
+    "graph",
+    "algorithm",
+    "dynamic"
+  ]
+}
