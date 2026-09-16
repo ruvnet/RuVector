@@ -1,0 +1,97 @@
+Raw terminal transcripts backing ADR-347 / this nightly's README.md.
+Captured verbatim (only shell/build noise trimmed) during the 2026-09-07 run.
+Command shown per section; hardware: 4-core x86_64 Linux container,
+rustc 1.94.1, cargo 1.94.1, --release throughout.
+
+=====================================================================
+STEP 0: diagnostic run that found a bug in *this run's own* first
+draft of the probe graph (a single gateway vector instead of one per
+cluster axis, leaving one cluster genuinely disconnected). Included
+here for honesty/methodology -- not evidence for or against the
+ruvector-mincut defect itself. per_cluster=8 (n=18), uncorrected graph:
+
+$ TRIALS=100 ./target/release/examples/determinism_probe
+n=18 trials=100 empty_or_degenerate=100 (100%) distinct_partitions_seen=0 elapsed=0.01s avg_ms=0.1
+n=20 trials=100 empty_or_degenerate=100 (100%) distinct_partitions_seen=0 elapsed=0.01s avg_ms=0.1
+n=84 trials=100 empty_or_degenerate=100 (100%) distinct_partitions_seen=0 elapsed=0.06s avg_ms=0.6
+
+Diagnostic (crates/ruvector-mincut/examples/debug_mincut.rs, deleted
+after use, not shipped) on the n=18 case showed:
+  min_cut = 0
+  partition = Some((0, 0))
+  side_a = []
+  side_b = []
+i.e. RuVectorGraphAnalyzer::min_cut() correctly reported the graph as
+disconnected (MinCutResult::Disconnected), because the probe's own
+graph builder only created a gateway vector for one cluster axis, so
+the second cluster (v9..v16) had zero edges to the rest of the graph.
+This is a bug in the *first draft of this run's probe*, not in
+ruvector-mincut. Fixed by adding a second gateway vector (one per
+axis), matching the two-clique-plus-bridge topology's intent and the
+2026-09-05 nightly's original methodology.
+
+=====================================================================
+STEP 1: TRUE BASELINE -- unfixed ruvector-mincut (git stash of both
+fix commits), corrected probe graph, TRIALS=200:
+
+$ git stash push -- crates/ruvector-mincut/src/instance/witness.rs crates/ruvector-mincut/src/integration/mod.rs
+$ cargo build --release -p ruvector-mincut --example determinism_probe
+$ TRIALS=200 ./target/release/examples/determinism_probe
+n=19 trials=200 empty_or_degenerate=200 (100%) distinct_partitions_seen=0 elapsed=247.39s avg_ms=1236.9
+n=21 trials=200 empty_or_degenerate=200 (100%) distinct_partitions_seen=0 elapsed=0.05s avg_ms=0.2
+n=85 trials=200 empty_or_degenerate=198 (99%) distinct_partitions_seen=2 elapsed=1.16s avg_ms=5.8
+
+=====================================================================
+STEP 2: FIX A ONLY (materialize_partition_within + partition() using
+the graph's real vertex universe). git stash pop, TRIALS=200:
+
+$ git stash pop
+$ cargo build --release -p ruvector-mincut --example determinism_probe
+$ TRIALS=200 ./target/release/examples/determinism_probe
+n=19 trials=200 empty_or_degenerate=0 (0%) distinct_partitions_seen=2 elapsed=239.39s avg_ms=1196.9
+n=21 trials=200 empty_or_degenerate=0 (0%) distinct_partitions_seen=2 elapsed=0.04s avg_ms=0.2
+n=85 trials=200 empty_or_degenerate=0 (0%) distinct_partitions_seen=2 elapsed=1.08s avg_ms=5.4
+
+=====================================================================
+STEP 3: FIX A + FIX B (sorted vertex_vec in brute_force_min_cut,
+sorted seed_vertices in search_for_cuts, both in
+crates/ruvector-mincut/src/instance/bounded.rs), TRIALS=200:
+
+$ cargo build --release -p ruvector-mincut --example determinism_probe
+$ TRIALS=200 ./target/release/examples/determinism_probe
+n=19 trials=200 empty_or_degenerate=0 (0%) distinct_partitions_seen=1 elapsed=233.51s avg_ms=1167.6
+n=21 trials=200 empty_or_degenerate=0 (0%) distinct_partitions_seen=1 elapsed=0.04s avg_ms=0.2
+n=85 trials=200 empty_or_degenerate=0 (0%) distinct_partitions_seen=1 elapsed=1.07s avg_ms=5.4
+
+=====================================================================
+STEP 4: regression / correctness evidence, final state (fix A + fix B
++ new tests), formatted (`cargo fmt -p ruvector-mincut`):
+
+$ cargo test --release -p ruvector-mincut --lib
+test result: ok. 515 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 259.54s
+  (including, confirmed individually present and passing:)
+  test instance::witness::witness_tests::materialize_partition_within_covers_full_universe ... ok
+  test instance::witness::witness_tests::materialize_partition_within_handles_sparse_ids ... ok
+  test integration::tests::test_partition_deterministic_and_complete ... ok
+
+$ cargo test --release -p ruvector-mincut --doc
+test result: ok. 27 passed; 0 failed; 20 ignored; 0 measured; 0 filtered out; finished in 26.99s
+
+$ cargo test --release -p ruvector-agent-memory --features mincut-forget --lib
+test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 11.99s
+
+$ cargo test --release -p ruvector-agent-memory --features mincut-forget
+  (integration test binaries, beyond --lib above)
+  bench_tests: 1 passed
+  arbitration.rs: 10 passed
+  atomic_observation_fusion.rs: 8 passed
+  tarl_ledger.rs: 13 passed
+  (32 total integration tests, 0 failed)
+
+$ cargo clippy --release -p ruvector-mincut --lib
+  Finished `release` profile [optimized] target(s) in 17.02s -- no new warnings
+  (one unrelated pre-existing warning from ruvector-core: unknown lint
+  `clippy::manual_checked_ops`, not touched by this change)
+
+$ cargo fmt -p ruvector-mincut -- --check
+  FORMAT OK (after running `cargo fmt -p ruvector-mincut` once)
