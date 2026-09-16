@@ -57,6 +57,7 @@ pub mod memory;
 pub mod observation;
 pub mod ops;
 pub mod scoring;
+pub mod witness_signing;
 pub mod witnessed_compaction;
 
 pub use arbitration::{
@@ -87,6 +88,9 @@ pub use ops::{
     MemoryWitnessLog, NoopWitnessSink, TransitionKind, TransitionRecord, WitnessSink,
 };
 pub use scoring::{coherence_score, cosine_sim, normalize};
+pub use witness_signing::{
+    verify_signed_chain, SignPurpose, SignedSpan, SignedWitnessSink, SigningStrategy,
+};
 pub use witnessed_compaction::{compact_witnessed, EvictionWitnessChain};
 
 /// Compact `store` in-place using `policy`, retaining `target_size` entries.
