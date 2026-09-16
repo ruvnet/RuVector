@@ -28,8 +28,20 @@ if (rvfRequested) {
   // Explicit rvf backend requested - fail hard if not available
   try {
     implementation = require('@ruvector/rvf');
+    // @ruvector/rvf is a DIFFERENT module with a different surface: it exports
+    // RvfDatabase, never VectorDb. Accepting it unchecked produced
+    // "implementation.VectorDb is not a constructor" at first use, far from
+    // the real cause. Fail here, with the reason, instead.
+    if (typeof implementation?.VectorDb !== 'function') {
+      throw new Error(
+        '@ruvector/rvf does not provide a VectorDb class (it exports RvfDatabase).\n' +
+        '  It cannot back the VectorDB API. Install @ruvector/core instead:\n' +
+        '    npm install @ruvector/core'
+      );
+    }
     implementationType = 'rvf';
   } catch (e: any) {
+    if (e instanceof Error && e.message.includes('does not provide a VectorDb')) throw e;
     throw new Error(
       '@ruvector/rvf is not installed.\n' +
       '  Run: npm install @ruvector/rvf\n' +
@@ -47,9 +59,15 @@ if (rvfRequested) {
       throw new Error('Native module loaded but VectorDb class not found');
     }
   } catch (e: any) {
-    // Try rvf (persistent store) as second fallback
+    // Try rvf (persistent store) as second fallback. It only qualifies if it
+    // actually exposes VectorDb -- today it does not, so this correctly falls
+    // through to the stub rather than handing back an unusable module.
     try {
-      implementation = require('@ruvector/rvf');
+      const rvf = require('@ruvector/rvf');
+      if (typeof rvf?.VectorDb !== 'function') {
+        throw new Error('@ruvector/rvf exports no VectorDb class (it provides RvfDatabase)');
+      }
+      implementation = rvf;
       implementationType = 'rvf';
     } catch (rvfErr: any) {
       // Graceful fallback - don't crash, just warn
@@ -57,16 +75,26 @@ if (rvfRequested) {
       console.warn('[RuVector] RVF module not available:', rvfErr.message);
       console.warn('[RuVector] Vector operations will be limited. Install @ruvector/core or @ruvector/rvf for full functionality.');
 
-      // Create a stub implementation that provides basic functionality
+      // Stub of last resort. It deliberately reports its own emptiness
+      // truthfully (len 0, isEmpty true, search []) rather than pretending a
+      // write succeeded: `insert` used to return a plausible "stub-id-..."
+      // for data it silently discarded, so a caller storing vectors saw
+      // success and lost every one of them. Writes now throw.
+      const unavailable = () => new Error(
+        '[RuVector] No vector backend is available: @ruvector/core failed to load ' +
+        'and @ruvector/rvf cannot substitute for it.\n' +
+        '  Install the native module: npm install @ruvector/core\n' +
+        '  Reads return empty; writes are refused so data is not silently dropped.'
+      );
       implementation = {
         VectorDb: class StubVectorDb {
           constructor() {
             console.warn('[RuVector] Using stub VectorDb - install @ruvector/core for native performance');
           }
-          async insert() { return 'stub-id-' + Date.now(); }
-          async insertBatch(entries: any[]) { return entries.map(() => 'stub-id-' + Date.now()); }
+          async insert(): Promise<never> { throw unavailable(); }
+          async insertBatch(_entries: any[]): Promise<never> { throw unavailable(); }
+          async delete(): Promise<never> { throw unavailable(); }
           async search() { return []; }
-          async delete() { return true; }
           async get() { return null; }
           async len() { return 0; }
           async isEmpty() { return true; }
