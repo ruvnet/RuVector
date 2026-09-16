@@ -30,11 +30,16 @@ ruvector-proof-gate = { path = "../ruvector-proof-gate", optional = true }
 # for the `graph_forget` mincut-gated forgetting policy, instead of
 # reimplementing graph partitioning here.
 ruvector-mincut = { path = "../ruvector-mincut", optional = true }
+# 2026-09-06 nightly: reuse emergent-time's Structural Proper Time clock
+# (embedding + coherence arc length) as an alternative to raw per-event tick
+# recency in `weighted_importance` — see `src/structural_recency.rs`.
+emergent-time = { version = "2.2", path = "../emergent-time", optional = true }
 
 [features]
 default = []
 proof-gate = ["dep:ruvector-proof-gate"]
 mincut-forget = ["dep:ruvector-mincut"]
+structural-time = ["dep:emergent-time"]
 
 [[example]]
 name = "mincut_gated_forgetting_bench"
@@ -50,6 +55,11 @@ required-features = ["mincut-forget"]
 name = "mincut_scaling_probe"
 path = "examples/mincut_scaling_probe.rs"
 required-features = ["mincut-forget"]
+
+[[example]]
+name = "structural_time_recency_bench"
+path = "examples/structural_time_recency_bench.rs"
+required-features = ["structural-time"]
 
 [dev-dependencies]
 serde_json = { workspace = true }
