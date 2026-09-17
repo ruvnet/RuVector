@@ -525,6 +525,14 @@ impl<S: WitnessSink, G: ProofGate> TransactionalLedger<S, G> {
         &self.sink
     }
 
+    /// Consume the ledger and recover ownership of its witness sink, e.g.
+    /// to call `SignedWitnessSink::flush` and inspect signed spans once a
+    /// run is done. Ledger state (`entries`, `history`) is discarded; the
+    /// sink already holds everything durable.
+    pub fn into_witness_sink(self) -> S {
+        self.sink
+    }
+
     /// Read access to the acceptance gate (e.g. for offline receipt or
     /// chain-integrity verification).
     pub fn proof_gate(&self) -> &G {
