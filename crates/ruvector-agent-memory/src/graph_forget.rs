@@ -32,8 +32,32 @@
 use crate::compaction::{weighted_importance, CoherenceWeights, CompactionPolicy};
 use crate::memory::MemoryEntry;
 use crate::scoring::cosine_sim;
-use ruvector_mincut::RuVectorGraphAnalyzer;
+use ruvector_mincut::{DynamicGraph, MinCutBuilder, RuVectorGraphAnalyzer};
 use std::collections::HashSet;
+use std::sync::Arc;
+
+/// Which `ruvector-mincut` entry point computes the boundary partition.
+///
+/// Added by the 2026-09-17 nightly run (ADR-346), which follows up on the
+/// 2026-09-05 run's (ADR-345) "Next Research" item 1: does bypassing
+/// [`RuVectorGraphAnalyzer`] and using the lower-level [`DynamicMinCut`]
+/// (via [`MinCutBuilder`]) directly avoid the measured 1,800-2,700x
+/// per-call overhead? See
+/// `docs/research/nightly/2026-09-17-mincut-direct-backend/README.md`.
+///
+/// [`DynamicMinCut`]: ruvector_mincut::DynamicMinCut
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum MincutBackend {
+    /// `RuVectorGraphAnalyzer` (original 2026-09-05 implementation): rebuilds
+    /// a [`ruvector_mincut::MinCutWrapper`] and replays every edge into each
+    /// of its O(log range) bounded-range instances on every call.
+    #[default]
+    Wrapper,
+    /// [`ruvector_mincut::DynamicMinCut`] built fresh via [`MinCutBuilder`]:
+    /// one Stoer-Wagner-style exact global-min-cut solve per call, no
+    /// bounded-range instance replay.
+    Direct,
+}
 
 /// How the mincut-boundary structural signal is combined with the scalar
 /// [`crate::compaction::CoherencePolicy`] importance score.
@@ -67,6 +91,11 @@ pub struct MincutGatedForgetting {
     /// "Measured limitation" note on [`Self::boundary_indices`]). `1`
     /// disables retrying.
     pub mincut_trials: usize,
+    /// Which `ruvector-mincut` entry point computes the partition. Defaults
+    /// to [`MincutBackend::Wrapper`] (the original, measured-slow 2026-09-05
+    /// behavior) so existing callers and tests are unaffected; opt into
+    /// [`MincutBackend::Direct`] via [`Self::with_backend`].
+    pub backend: MincutBackend,
 }
 
 impl MincutGatedForgetting {
@@ -80,6 +109,7 @@ impl MincutGatedForgetting {
             structural_bonus,
             protect_fraction: 0.0,
             mincut_trials: 3,
+            backend: MincutBackend::Wrapper,
         }
     }
 
@@ -93,7 +123,15 @@ impl MincutGatedForgetting {
             structural_bonus: 0.0,
             protect_fraction,
             mincut_trials: 3,
+            backend: MincutBackend::Wrapper,
         }
+    }
+
+    /// Select which `ruvector-mincut` entry point computes the boundary
+    /// partition. See [`MincutBackend`].
+    pub fn with_backend(mut self, backend: MincutBackend) -> Self {
+        self.backend = backend;
+        self
     }
 
     /// Build a k-NN cosine-similarity graph and return the indices (into
@@ -168,17 +206,80 @@ impl MincutGatedForgetting {
 
         let mut boundary = HashSet::new();
         for _ in 0..self.mincut_trials.max(1) {
-            boundary.extend(Self::boundary_from_one_partition(&neighbors));
+            let sides = match self.backend {
+                MincutBackend::Wrapper => Self::partition_via_wrapper(&neighbors),
+                MincutBackend::Direct => Self::partition_via_direct(&neighbors),
+            };
+            boundary.extend(Self::boundary_from_sides(&neighbors, sides));
         }
         boundary
     }
 
-    /// One min-cut partition attempt over an already-built k-NN graph; see
-    /// [`Self::boundary_indices`]'s "Measured limitation" note for why this
-    /// is called more than once.
-    fn boundary_from_one_partition(neighbors: &[(usize, Vec<(usize, f64)>)]) -> HashSet<usize> {
-        let mut analyzer = RuVectorGraphAnalyzer::from_knn(neighbors);
-        let (side_a, side_b) = match analyzer.partition() {
+    /// Builds the same k-NN [`DynamicGraph`] both backends compute the
+    /// partition from (identical topology and edge weights: whichever
+    /// direction of a pair is inserted first wins, matching
+    /// [`RuVectorGraphAnalyzer::from_knn`]'s own construction, which this
+    /// duplicates rather than calls so [`MincutBackend::Direct`] can read
+    /// back the same edge list via [`DynamicGraph::edges`]).
+    fn build_knn_graph(neighbors: &[(usize, Vec<(usize, f64)>)]) -> Arc<DynamicGraph> {
+        let graph = Arc::new(DynamicGraph::new());
+        for (vertex, nbrs) in neighbors {
+            for &(neighbor, distance) in nbrs {
+                let weight = if distance > 0.0 { 1.0 / distance } else { 1.0 };
+                let _ = graph.insert_edge(*vertex as u64, neighbor as u64, weight);
+            }
+        }
+        graph
+    }
+
+    /// [`MincutBackend::Wrapper`]: the original 2026-09-05 path.
+    fn partition_via_wrapper(
+        neighbors: &[(usize, Vec<(usize, f64)>)],
+    ) -> Option<(Vec<u64>, Vec<u64>)> {
+        let graph = Self::build_knn_graph(neighbors);
+        let mut analyzer = RuVectorGraphAnalyzer::new(graph);
+        analyzer.partition()
+    }
+
+    /// [`MincutBackend::Direct`]: builds the identical graph, then solves it
+    /// with one [`ruvector_mincut::DynamicMinCut`] exact recompute instead of
+    /// replaying every edge into each of `MinCutWrapper`'s bounded-range
+    /// instances. A min-cut value of `0.0` means the graph is disconnected;
+    /// matched to `RuVectorGraphAnalyzer::partition()`'s
+    /// `MinCutResult::Disconnected => (vec![], vec![])` so the two backends
+    /// treat "no signal" identically rather than exposing Direct's (real,
+    /// but untested-by-this-hypothesis) ability to still report a nontrivial
+    /// split for a disconnected graph.
+    fn partition_via_direct(
+        neighbors: &[(usize, Vec<(usize, f64)>)],
+    ) -> Option<(Vec<u64>, Vec<u64>)> {
+        let graph = Self::build_knn_graph(neighbors);
+        let edges: Vec<(u64, u64, f64)> = graph
+            .edges()
+            .into_iter()
+            .map(|e| (e.source, e.target, e.weight))
+            .collect();
+        if edges.is_empty() {
+            return Some((Vec::new(), Vec::new()));
+        }
+        let mincut = match MinCutBuilder::new().with_edges(edges).build() {
+            Ok(m) => m,
+            Err(_) => return None,
+        };
+        if mincut.min_cut_value() <= 0.0 {
+            return Some((Vec::new(), Vec::new()));
+        }
+        Some(mincut.partition())
+    }
+
+    /// Shared boundary-extraction step: vertices with a neighbor edge
+    /// crossing the given partition. `None` or either side empty means "no
+    /// usable signal" for both backends.
+    fn boundary_from_sides(
+        neighbors: &[(usize, Vec<(usize, f64)>)],
+        sides: Option<(Vec<u64>, Vec<u64>)>,
+    ) -> HashSet<usize> {
+        let (side_a, side_b) = match sides {
             Some(p) => p,
             None => return HashSet::new(),
         };
