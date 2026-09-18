@@ -10,7 +10,7 @@ async fn test_live_anthropic_call() {
         return;
     }
 
-    let config = resolve_model("anthropic:claude-sonnet-4-20250514");
+    let config = resolve_model("anthropic:claude-sonnet-5");
     let client = AnthropicClient::new(config).expect("failed to create client");
 
     let messages = vec![Message::human("What is 2+2? Reply with just the number.")];
