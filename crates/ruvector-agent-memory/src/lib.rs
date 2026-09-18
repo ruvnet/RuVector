@@ -57,6 +57,8 @@ pub mod memory;
 pub mod observation;
 pub mod ops;
 pub mod scoring;
+#[cfg(feature = "structural-gate")]
+pub mod structural_gate;
 pub mod witnessed_compaction;
 
 pub use arbitration::{
@@ -87,6 +89,10 @@ pub use ops::{
     MemoryWitnessLog, NoopWitnessSink, TransitionKind, TransitionRecord, WitnessSink,
 };
 pub use scoring::{coherence_score, cosine_sim, normalize};
+#[cfg(feature = "structural-gate")]
+pub use structural_gate::{
+    CapacityTrigger, CompactionTrigger, FixedIntervalTrigger, StructuralGateTrigger,
+};
 pub use witnessed_compaction::{compact_witnessed, EvictionWitnessChain};
 
 /// Compact `store` in-place using `policy`, retaining `target_size` entries.

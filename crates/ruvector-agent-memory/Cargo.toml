@@ -30,11 +30,22 @@ ruvector-proof-gate = { path = "../ruvector-proof-gate", optional = true }
 # for the `graph_forget` mincut-gated forgetting policy, instead of
 # reimplementing graph partitioning here.
 ruvector-mincut = { path = "../ruvector-mincut", optional = true }
+# Nightly research 2026-09-18 (structural-time-gated-memory-compaction):
+# reuse the crate's own `StructuralProperTime` / `Clock` machinery as the
+# compaction *scheduling* signal, instead of reimplementing a drift clock
+# here.
+emergent-time = { path = "../emergent-time", optional = true }
 
 [features]
 default = []
 proof-gate = ["dep:ruvector-proof-gate"]
 mincut-forget = ["dep:ruvector-mincut"]
+structural-gate = ["dep:emergent-time"]
+
+[[example]]
+name = "structural_gated_compaction_bench"
+path = "examples/structural_gated_compaction_bench.rs"
+required-features = ["structural-gate"]
 
 [[example]]
 name = "mincut_gated_forgetting_bench"
