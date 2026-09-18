@@ -58,6 +58,15 @@ pub struct SearchResult {
 pub struct MemoryStore {
     entries: Vec<MemoryEntry>,
     clock: u64,
+    /// Next id to assign on insert. Monotonic and independent of
+    /// `entries.len()`: using the live length as the id (the prior scheme)
+    /// collides once compaction shrinks the store and a later insert reuses
+    /// an id already held by a surviving entry — silent under a single
+    /// terminal compaction (every existing benchmark's pattern) but a real
+    /// correctness bug once compaction and insertion interleave, as a
+    /// long-running trigger-gated compaction loop does (nightly research,
+    /// 2026-09-18, structural-time-gated-memory-compaction).
+    next_id: u64,
     pub dims: usize,
 }
 
@@ -66,6 +75,7 @@ impl MemoryStore {
         Self {
             entries: Vec::new(),
             clock: 0,
+            next_id: 0,
             dims,
         }
     }
@@ -80,7 +90,8 @@ impl MemoryStore {
     pub fn insert(&mut self, vector: Vec<f32>) -> u64 {
         assert_eq!(vector.len(), self.dims, "dimension mismatch");
         let now = self.tick();
-        let id = self.entries.len() as u64;
+        let id = self.next_id;
+        self.next_id += 1;
         self.entries.push(MemoryEntry::new(id, vector, now));
         id
     }
