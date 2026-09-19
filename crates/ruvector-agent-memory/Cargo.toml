@@ -51,5 +51,18 @@ name = "mincut_scaling_probe"
 path = "examples/mincut_scaling_probe.rs"
 required-features = ["mincut-forget"]
 
+# Nightly 2026-09-19 follow-up to ADR-345: attacks the RuVectorGraphAnalyzer
+# latency bottleneck the 2026-09-05 nightly measured, using ruvector-mincut's
+# own (until now unused here) ApproxMinCut entry point.
+[[example]]
+name = "approx_mincut_forgetting_bench"
+path = "examples/approx_mincut_forgetting_bench.rs"
+required-features = ["mincut-forget"]
+
+[[example]]
+name = "approx_mincut_partition_probe"
+path = "examples/approx_mincut_partition_probe.rs"
+required-features = ["mincut-forget"]
+
 [dev-dependencies]
 serde_json = { workspace = true }
