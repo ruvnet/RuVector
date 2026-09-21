@@ -60,6 +60,8 @@ index.d.ts
 # napi CLI output); package.json `files` lists them, so they must be committed.
 !npm/packages/typesafe/index.js
 !npm/packages/typesafe/index.d.ts
+!npm/packages/kge/index.js
+!npm/packages/kge/index.d.ts
 
 # Environment variables and secrets
 .env
