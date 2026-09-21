@@ -209,6 +209,8 @@ mod tests {
                 n_discordant_at_rejection: Some(38),
             },
             decision: GateDecision::Promote,
+            calibration_statistic: None,
+            promoted_by: None,
             model_id: "hole-d128".into(),
             head: Head::NearestPrototype,
             temperature: 1.0,
