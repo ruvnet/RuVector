@@ -10,7 +10,8 @@ use super::receipt::{KgeReceiptExtra, KgeReceiptLog};
 use super::{ArmOutcome, Evaluator};
 use ruvector_typesafe_core::loop_gate::{
     Budget, Campaign as TestTokens, Evidence, Gate, GateDecision, GateOutcome,
-    PairedSequentialTest, Proposal as TsProposal, ProposalKind, TransferHoldout,
+    PairedSequentialTest, PromotionCriterion, Proposal as TsProposal, ProposalKind,
+    TransferHoldout,
 };
 use ruvector_typesafe_core::receipt::{Metrics, Receipt, TestStatistic};
 use ruvector_typesafe_core::Head;
@@ -175,6 +176,10 @@ impl CampaignState<'_> {
     fn evidence(&self, p: &Proposal, out: &ArmOutcome) -> Evidence {
         Evidence {
             paired: out.val_paired.clone(),
+            // KGE pairs on per-query rank improvement; there is no per-item
+            // likelihood here, so the calibration criterion never applies and
+            // promotion is always by accuracy (typesafe ADR-004 §2b).
+            paired_nll: None,
             baseline_transfer_acc: out.transfer_baseline,
             champion_transfer_acc: out.transfer_candidate,
             transfer_n: out.transfer_n,
@@ -190,6 +195,7 @@ impl CampaignState<'_> {
     fn empty_evidence(&self, p: &Proposal) -> Evidence {
         Evidence {
             paired: Vec::new(),
+            paired_nll: None,
             baseline_transfer_acc: 0.0,
             champion_transfer_acc: 0.0,
             transfer_n: 0,
@@ -361,6 +367,10 @@ impl Campaign {
             test: Some(champion_test.clone()),
             statistic: test.statistic(),
             decision: final_decision,
+            // Promotion here is always on the accuracy (rank) criterion; the
+            // calibration criterion needs per-item likelihoods KGE does not have.
+            calibration_statistic: None,
+            promoted_by: Some(PromotionCriterion::Accuracy),
             model_id: scorer_model_id(&champ_proposal),
             head: SENTINEL_HEAD,
             temperature: champ_proposal.knobs.temperature,
