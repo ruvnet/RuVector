@@ -1,7 +1,7 @@
 # ADR-003: Training and evaluation
 
 ## Status
-Proposed
+Implemented and measured (2026-09-21); optimize campaign pending
 
 ## Date
 2026-09-21

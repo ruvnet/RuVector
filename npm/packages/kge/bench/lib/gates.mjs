@@ -97,7 +97,14 @@ function numericApplies(g, ctx) {
   if (!w) return { ok: true };
   if (w.startsWith('suite:')) {
     const want = w.slice('suite:'.length);
-    return ctx.suite === want ? { ok: true } : { ok: false, why: `suite is ${ctx.suite}, not ${want}` };
+    if (ctx.suite !== want) return { ok: false, why: `suite is ${ctx.suite}, not ${want}` };
+    // A --limit slice is a subgraph, not the full graph the cited baseline was
+    // measured on, so its MRR is not comparable — the link-prediction gate is
+    // informational on a slice, never a pass/fail.
+    if (typeof ctx.limit === 'number') {
+      return { ok: false, why: `subgraph slice (--limit ${ctx.limit}): informational, not comparable to the full-graph baseline` };
+    }
+    return { ok: true };
   }
   if (w === 'has_ann') return ctx.hasAnn ? { ok: true } : { ok: false, why: 'no --ann run' };
   if (w === 'has_adversarial') return ctx.hasAdversarial ? { ok: true } : { ok: false, why: 'no --adversarial run' };

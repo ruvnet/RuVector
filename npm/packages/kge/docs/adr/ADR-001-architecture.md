@@ -1,7 +1,7 @@
 # ADR-001: @ruvector/kge — architecture
 
 ## Status
-Proposed
+Implemented and measured (2026-09-21); optimize campaign pending
 
 ## Date
 2026-09-21

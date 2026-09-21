@@ -1,7 +1,7 @@
 # ADR-004: The self-optimization loop — HPO-weighted, gated, reversible
 
 ## Status
-Proposed
+Implemented and measured (2026-09-21); optimize campaign pending
 
 ## Date
 2026-09-21

@@ -1,7 +1,11 @@
 # Datasets are fetched at bench time and NEVER committed (ADR-005/006 — nothing
-# redistributed). The cache and run outputs stay local.
+# redistributed). The cache and ad-hoc run outputs stay local.
 .cache/
-results/
+results/*
+
+# Dated receipts ARE durable: a maintainer commits the signed measurement
+# receipts cited by the README/ADR (e.g. results/synthetic-hole-2026-09-21.json).
+!results/*-2026-*.json
 
 # The frozen synthetic fixture and its HASHES.json ARE committed (they are the
 # only frozen inputs) — do not ignore them.
