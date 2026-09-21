@@ -22,17 +22,30 @@ const platformMap = {
   },
 };
 
-function loadNative() {
-  const file = platformMap[process.platform] && platformMap[process.platform][process.arch];
-  if (!file) return null;
+// A missing artifact is not an error — we fall through to the next candidate.
+// A real dlopen/ABI failure is, and must surface rather than silently
+// downgrading a native install to wasm.
+function tryRequire(id) {
   try {
-    return require(path.join(__dirname, 'native', file));
+    return require(id);
   } catch (err) {
     if (err && err.code === 'MODULE_NOT_FOUND') return null;
-    // A real dlopen/ABI error should surface, not be silently swallowed.
     if (err && /not found|cannot open|no such file/i.test(String(err.message))) return null;
     throw err;
   }
+}
+
+function loadNative() {
+  const file = platformMap[process.platform] && platformMap[process.platform][process.arch];
+  if (!file) return null;
+  // 1. A binary bundled in or built into this package (local dev, and the
+  //    self-contained 0.1.x releases).
+  const local = tryRequire(path.join(__dirname, 'native', file));
+  if (local) return local;
+  // 2. The per-platform package, once the optionalDependencies bump lands
+  //    (ADR-001 §5: those packages must exist on npm before the meta package
+  //    declares them). Resolving it by name here keeps the loader ready.
+  return tryRequire(`@ruvector/kge-${file.slice('kge.'.length, -'.node'.length)}`);
 }
 
 function loadWasm() {
