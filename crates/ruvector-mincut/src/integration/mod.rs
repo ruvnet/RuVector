@@ -108,8 +108,27 @@ impl RuVectorGraphAnalyzer {
                 Some((Vec::new(), Vec::new()))
             }
             MinCutResult::Value { witness, .. } => {
-                let (side_a, side_b) = witness.materialize_partition();
-                let partition = (side_a.into_iter().collect(), side_b.into_iter().collect());
+                // Not `witness.materialize_partition()`: it fabricates the
+                // complement as `0..=max(membership)` minus membership, i.e.
+                // it assumes the graph's highest vertex ID is the highest ID
+                // *in the cut side*. Whenever the winning side happens not to
+                // contain the graph's actual highest-ID vertex (e.g. the
+                // lower-numbered side of an otherwise-valid cut), that
+                // complement silently truncates or comes back empty instead
+                // of covering the rest of the real graph. `self.graph` here
+                // has the true vertex set, so compute the complement against
+                // it directly. See
+                // `docs/research/nightly/2026-09-05-mincut-gated-forgetting/README.md`
+                // and `examples/mincut_determinism_probe.rs` (`ruvector-agent-memory`),
+                // whose "empty or degenerate" results this also explains.
+                let (side_a, _) = witness.materialize_partition();
+                let side_b: Vec<VertexId> = self
+                    .graph
+                    .vertices()
+                    .into_iter()
+                    .filter(|v| !side_a.contains(v))
+                    .collect();
+                let partition = (side_a.into_iter().collect(), side_b);
                 self.cached_partition = Some(partition.clone());
                 Some(partition)
             }

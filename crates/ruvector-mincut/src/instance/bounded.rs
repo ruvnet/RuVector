@@ -199,6 +199,17 @@ impl BoundedInstance {
     }
 
     /// Search for cuts using LocalKCut oracle
+    ///
+    /// # Determinism
+    ///
+    /// `seed_vertices` fixes the try-order for the first-match search below
+    /// (`for &seed in &seed_vertices { ... return Some(...) }` on the first
+    /// in-range cut). Both branches build it from `HashSet` iteration
+    /// (`self.vertices`/`boundary_vertices`), which is reseeded per instance
+    /// (see `brute_force_min_cut`'s doc comment) — so on a graph with more
+    /// than one valid in-range cut, repeated calls could return different
+    /// ones. Sorting makes the try-order, and therefore the result, a
+    /// function of the graph's content only.
     fn search_for_cuts(&mut self) -> Option<(u64, WitnessHandle)> {
         // Build a temporary graph for the oracle
         let graph = Arc::new(DynamicGraph::new());
@@ -210,7 +221,7 @@ impl BoundedInstance {
         self.ensure_hierarchy(&graph);
 
         // Determine seed vertices to try
-        let seed_vertices: Vec<VertexId> = if let Some(ref hierarchy) = self.cluster_hierarchy {
+        let mut seed_vertices: Vec<VertexId> = if let Some(ref hierarchy) = self.cluster_hierarchy {
             // Use cluster boundary vertices as strategic seeds
             let mut boundary_vertices = HashSet::new();
 
@@ -239,6 +250,7 @@ impl BoundedInstance {
             // No hierarchy - use all vertices
             self.vertices.iter().copied().collect()
         };
+        seed_vertices.sort_unstable();
 
         // Try different budgets within our range
         for budget in self.lambda_min..=self.lambda_max {
@@ -291,12 +303,28 @@ impl BoundedInstance {
     }
 
     /// Compute minimum cut (for small graphs or fallback)
+    ///
+    /// # Determinism
+    ///
+    /// `vertex_vec` assigns each vertex a bitmask position (`mask & (1 << i)`),
+    /// and the first subset to reach the minimum boundary wins ties
+    /// (`if boundary < min_cut`, strictly less-than). `self.vertices` is a
+    /// `HashSet`, whose iteration order depends on its `RandomState` hasher —
+    /// reseeded on every `BoundedInstance::new()` call, so byte-identical
+    /// graphs got a different bitmask assignment, and therefore a different
+    /// arbitrarily-tie-broken minimum cut, on every repeated call. Sorting
+    /// fixes the assignment to the graph's content instead of instance
+    /// construction order, making the choice among equal-cost minimum cuts
+    /// reproducible. See `examples/mincut_determinism_probe.rs` in
+    /// `ruvector-agent-memory` and
+    /// `docs/research/nightly/2026-09-05-mincut-gated-forgetting/README.md`.
     fn brute_force_min_cut(&self) -> Option<(u64, WitnessHandle)> {
         if self.vertices.len() >= 20 {
             return None;
         }
 
-        let vertex_vec: Vec<_> = self.vertices.iter().copied().collect();
+        let mut vertex_vec: Vec<_> = self.vertices.iter().copied().collect();
+        vertex_vec.sort_unstable();
         let n = vertex_vec.len();
 
         if n <= 1 {
