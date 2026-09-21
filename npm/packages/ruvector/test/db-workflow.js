@@ -94,6 +94,29 @@ test('VectorDB singular dimension alias maps to native dimensions', () => {
   );
 });
 
+test('documented `hnsw` / `path` aliases reach the native binding (not silently dropped)', () => {
+  // types.ts documented `hnsw: { m, efConstruction, efSearch }` and `path`
+  // while the wrapper only read `hnswConfig` / `storagePath`, so a caller
+  // following the published types got default HNSW settings with no error.
+  // The resolver is pure, so this pins the contract without a native call.
+  const { resolveVectorDbOptions } = require('../dist/index.js');
+  const r = resolveVectorDbOptions({ dimension: 384, metric: 'cosine', path: '/tmp/x.db', hnsw: { efSearch: 7 } });
+  assert.strictEqual(r.dimensions, 384, 'singular dimension alias');
+  assert.strictEqual(r.storagePath, '/tmp/x.db', 'path alias must map to storagePath');
+  assert.strictEqual(r.distanceMetric, 'Cosine', 'metric alias normalized to the native enum variant');
+  assert.deepStrictEqual(r.hnswConfig, { m: 32, efConstruction: 200, efSearch: 7, maxElements: 10_000_000 },
+    'a partial `hnsw` must merge over the defaults, changing only what was given');
+  // Canonical names win when both spellings are passed.
+  const c = resolveVectorDbOptions({ dimensions: 8, dimension: 4, hnswConfig: { m: 5 }, hnsw: { m: 9 }, storagePath: '/a', path: '/b' });
+  assert.strictEqual(c.dimensions, 8);
+  assert.deepStrictEqual(c.hnswConfig, { m: 5 });
+  assert.strictEqual(c.storagePath, '/a');
+  // Omitting both still yields the explicit HNSW defaults (never `undefined`,
+  // which the N-API binding would read as "use a flat index").
+  assert.deepStrictEqual(resolveVectorDbOptions({ dimensions: 3 }).hnswConfig, { m: 32, efConstruction: 200, efSearch: 100, maxElements: 10_000_000 });
+  assert.throws(() => resolveVectorDbOptions({ metric: 'cosine' }), /dimensions/, 'missing dimensions must throw, not default');
+});
+
 test('stats opens the demo db with the right dimension and count', () => {
   const r = run('stats ./demo.db', cwd);
   assert.strictEqual(r.code, 0, `stats exited ${r.code}: ${r.out.slice(-200)}`);

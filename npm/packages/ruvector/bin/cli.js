@@ -9991,7 +9991,14 @@ routeCmd.command('info')
   .option('--json', 'JSON output')
   .action(async (opts) => {
     let routerAvailable = false, routerVersion = 'N/A', metrics = {};
-    try { const router = require('@ruvector/router'); routerAvailable = true; routerVersion = router.version || '0.1.28'; const sr = new router.SemanticRouter({ dimension: 16 }); metrics = { distanceMetrics: Object.keys(router.DistanceMetric || {}), hasSemanticRouter: true }; } catch (e) { /* Not available */ }
+    try {
+      const router = require('@ruvector/router'); routerAvailable = true;
+      // @ruvector/router does not export a `version`, so the old `|| '0.1.28'`
+      // fallback printed 0.1.28 for every installed version. Read the package
+      // manifest instead; fall back to "unknown", never to a stale literal.
+      try { routerVersion = router.version || require('@ruvector/router/package.json').version || 'unknown'; } catch { routerVersion = router.version || 'unknown'; }
+      const sr = new router.SemanticRouter({ dimension: 16 }); metrics = { distanceMetrics: Object.keys(router.DistanceMetric || {}), hasSemanticRouter: true };
+    } catch (e) { /* Not available */ }
     const info = { package: '@ruvector/router', available: routerAvailable, version: routerVersion, backend: 'Rust NAPI (HNSW + SIMD)', features: ['Semantic intent matching', 'HNSW indexing', 'SIMD-accelerated search', 'Multiple distance metrics', 'Save/load state', 'Async embedding support'], ...metrics };
     if (opts.json) { console.log(JSON.stringify(info, null, 2)); return; }
     console.log(chalk.bold.cyan('\n  Semantic Router Information\n'));

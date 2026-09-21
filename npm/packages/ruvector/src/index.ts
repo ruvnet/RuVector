@@ -170,43 +170,63 @@ function normalizeMetric(metric: string | undefined): string | undefined {
   }
 }
 
+/** Options the public `VectorDB` constructor accepts (canonical names + aliases). */
+export interface VectorDbConstructorOptions {
+  dimensions?: number; dimension?: number;
+  storagePath?: string; path?: string;
+  distanceMetric?: string; metric?: string;
+  hnswConfig?: any; hnsw?: { m?: number; efConstruction?: number; efSearch?: number; maxElements?: number };
+}
+
+const HNSW_DEFAULTS = { m: 32, efConstruction: 200, efSearch: 100, maxElements: 10_000_000 };
+
+/**
+ * Resolve public constructor options (and their aliases) into exactly what the
+ * native N-API binding accepts. Exported and pure so the alias handling is
+ * unit-testable without a native binding.
+ *
+ * `DbOptions` in types.ts documented `hnsw: { m, efConstruction, efSearch }` and
+ * `path`, but the wrapper only ever read `hnswConfig` and `storagePath` — so a
+ * caller who followed the published types had their HNSW settings silently
+ * dropped and got the defaults (measured 2026-09-21: `hnsw.efSearch` had no
+ * effect at all). Both spellings are honoured; the canonical name wins when a
+ * caller passes both, and a partial `hnsw` is merged over the defaults so
+ * `{ hnsw: { efSearch: 200 } }` changes exactly that and nothing else.
+ */
+export function resolveVectorDbOptions(options: VectorDbConstructorOptions): {
+  dimensions: number; storagePath?: string; distanceMetric?: string; hnswConfig: any;
+} {
+  const dimensions = options.dimensions ?? options.dimension;
+  if (typeof dimensions !== 'number' || !Number.isInteger(dimensions) || dimensions <= 0) {
+    throw new Error('Missing or invalid `dimensions` (the singular `dimension` alias is also accepted)');
+  }
+  const out: { dimensions: number; storagePath?: string; distanceMetric?: string; hnswConfig: any } = {
+    dimensions,
+    storagePath: options.storagePath ?? options.path,
+    // The N-API binding maps an omitted hnswConfig to `None`, which selects
+    // FlatIndex and unintentionally overrides ruvector-core's HNSW default, so
+    // the documented defaults are always passed explicitly.
+    hnswConfig: options.hnswConfig !== undefined
+      ? options.hnswConfig
+      : options.hnsw !== undefined
+        ? { ...HNSW_DEFAULTS, ...options.hnsw }
+        : HNSW_DEFAULTS,
+  };
+  const distanceMetric = normalizeMetric(options.distanceMetric ?? options.metric);
+  if (distanceMetric !== undefined) out.distanceMetric = distanceMetric;
+  return out;
+}
+
 /**
  * Wrapper class that automatically handles metadata JSON conversion
  */
 class VectorDBWrapper {
   private db: any;
 
-  constructor(options: { dimensions?: number; dimension?: number; storagePath?: string; distanceMetric?: string; metric?: string; hnswConfig?: any }) {
-    // Accept both `distanceMetric` (canonical) and `metric` (CLI shorthand).
-    // Normalize to the PascalCase enum variant the native binding expects.
-    const distanceMetric = normalizeMetric(options.distanceMetric ?? (options as any).metric);
-    const dimensions = options.dimensions ?? options.dimension;
-    if (typeof dimensions !== 'number' || !Number.isInteger(dimensions) || dimensions <= 0) {
-      throw new Error('Missing or invalid `dimensions` (the singular `dimension` alias is also accepted)');
-    }
-    const nativeOptions: any = {
-      // The native N-API contract is plural even when callers use the public
-      // singular alias. Keeping this mapping here prevents CLI/API drift.
-      dimensions,
-      storagePath: options.storagePath,
-      // The N-API binding maps an omitted hnswConfig to `None`, which selects
-      // FlatIndex and unintentionally overrides ruvector-core's HNSW default.
-      // Pass the documented defaults explicitly so the high-level VectorDB
-      // remains an ANN database unless callers deliberately provide another
-      // HNSW configuration.
-      hnswConfig: options.hnswConfig === undefined
-        ? {
-            m: 32,
-            efConstruction: 200,
-            efSearch: 100,
-            maxElements: 10_000_000,
-          }
-        : options.hnswConfig,
-    };
-    if (distanceMetric !== undefined) {
-      nativeOptions.distanceMetric = distanceMetric;
-    }
-    this.db = new implementation.VectorDb(nativeOptions);
+  constructor(options: VectorDbConstructorOptions) {
+    // All alias handling lives in `resolveVectorDbOptions` (exported, pure,
+    // unit-tested) so the constructor and the CLI cannot drift apart again.
+    this.db = new implementation.VectorDb(resolveVectorDbOptions(options));
   }
 
   /**

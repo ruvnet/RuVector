@@ -65,6 +65,50 @@ impl Ord for Neighbor {
     }
 }
 
+/// HNSW neighbour selection heuristic (Malkov & Yashunin, Algorithm 4, with
+/// `keepPrunedConnections`). `candidates` carry their distance to the node
+/// being wired (the "base"); they are taken in ascending order, and one is
+/// kept only if it is closer to the base than to every neighbour already
+/// kept. Candidates the rule rejects are appended afterwards, closest first,
+/// until `m` are selected, so a node never ends up with fewer edges than the
+/// plain closest-`m` rule would give it.
+fn select_neighbors_heuristic<'a>(
+    candidates: impl Iterator<Item = (&'a str, f32)>,
+    m: usize,
+    vectors: &HashMap<String, Vec<f32>>,
+    metric: DistanceMetric,
+) -> Vec<String> {
+    let mut sorted: Vec<(&str, f32)> = candidates.collect();
+    sorted.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal));
+
+    let mut kept: Vec<(&str, &Vec<f32>)> = Vec::with_capacity(m);
+    let mut rejected: Vec<&str> = Vec::new();
+    for (cid, d_base) in &sorted {
+        if kept.len() >= m {
+            break;
+        }
+        let Some(cv) = vectors.get(*cid) else {
+            continue;
+        };
+        let dominated = kept
+            .iter()
+            .any(|(_, kv)| calculate_distance(cv, kv, metric).unwrap_or(f32::MAX) < *d_base);
+        if dominated {
+            rejected.push(cid);
+        } else {
+            kept.push((cid, cv));
+        }
+    }
+    let mut out: Vec<String> = kept.into_iter().map(|(cid, _)| cid.to_string()).collect();
+    for cid in rejected {
+        if out.len() >= m {
+            break;
+        }
+        out.push(cid.to_string());
+    }
+    out
+}
+
 /// Simplified HNSW index
 pub struct HnswIndex {
     config: HnswConfig,
@@ -128,28 +172,44 @@ impl HnswIndex {
         // distances during pruning without re-acquiring the lock per edge.
         let vectors_snapshot = self.vectors.read();
 
+        // Neighbour selection: the HNSW paper's heuristic (Algorithm 4), not
+        // "the m closest". On clustered data — which is what real embeddings
+        // are — taking the m closest candidates wires a node almost entirely
+        // into its own cluster and leaves the graph with few inter-cluster
+        // edges, so a single-entry-point greedy search stalls inside whichever
+        // cluster it starts in. Measured 2026-09-21 on 40 tight clusters with
+        // the #430 fixes but closest-m selection: recall@10 = 0.89 at defaults
+        // when clusters are inserted contiguously. The heuristic keeps a
+        // candidate only if it is closer to the new node than to every
+        // neighbour already kept, which preserves the long-range edges.
+        let selected = select_neighbors_heuristic(
+            neighbors.iter().map(|n| (n.id.as_str(), n.distance)),
+            self.config.m,
+            &vectors_snapshot,
+            self.config.metric,
+        );
+
         // Re-acquire graph lock for modifications
         let mut graph = self.graph.write();
 
-        // Connect to nearest neighbors (bidirectional)
-        for neighbor in neighbors.iter().take(self.config.m) {
+        // Connect to selected neighbors (bidirectional)
+        for neighbor_id in &selected {
             if let Some(connections) = graph.get_mut(&id) {
-                connections.push(neighbor.id.clone());
+                connections.push(neighbor_id.clone());
             }
 
-            if let Some(neighbor_connections) = graph.get_mut(&neighbor.id) {
+            if let Some(neighbor_connections) = graph.get_mut(neighbor_id) {
                 neighbor_connections.push(id.clone());
 
                 // Issue #430 (bug C): previously this branch trimmed the
                 // adjacency list via `drain(0..)`, which is FIFO — it dropped
-                // the OLDEST edges regardless of how close they were. Proper
-                // HNSW pruning keeps the m CLOSEST neighbours. We compute the
-                // pairwise distances using the vector for `neighbor.id`
-                // (which we just looked up successfully above) and keep the
-                // bottom-m by distance.
+                // the OLDEST edges regardless of how close they were. Pruning
+                // now uses the same diversity heuristic as selection, anchored
+                // on the overflowing node, so its kept edges stay navigable
+                // rather than collapsing onto its m nearest cluster-mates.
                 if neighbor_connections.len() > self.config.m * 2 {
-                    if let Some(anchor_vec) = vectors_snapshot.get(&neighbor.id) {
-                        let mut scored: Vec<(String, f32)> = neighbor_connections
+                    if let Some(anchor_vec) = vectors_snapshot.get(neighbor_id) {
+                        let scored: Vec<(String, f32)> = neighbor_connections
                             .drain(..)
                             .filter_map(|cid| {
                                 vectors_snapshot.get(&cid).map(|cv| {
@@ -159,9 +219,12 @@ impl HnswIndex {
                                 })
                             })
                             .collect();
-                        scored.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal));
-                        scored.truncate(self.config.m);
-                        *neighbor_connections = scored.into_iter().map(|(cid, _)| cid).collect();
+                        *neighbor_connections = select_neighbors_heuristic(
+                            scored.iter().map(|(cid, d)| (cid.as_str(), *d)),
+                            self.config.m,
+                            &vectors_snapshot,
+                            self.config.metric,
+                        );
                     } else {
                         // Fallback: shouldn't happen because `neighbor.id` came
                         // from the index, but keep the newest-m behavior so we
@@ -609,6 +672,130 @@ mod tests {
              newest-by-FIFO instead of closest. results={:?}",
             results.iter().map(|r| (&r.id, r.score)).collect::<Vec<_>>()
         );
+    }
+
+    /// Recall@10 against brute force on CLUSTERED data, which is what real
+    /// embeddings look like and what the recall@1-on-uniform-random test above
+    /// cannot see: uniform random vectors in 64+ dims are near-equidistant, so
+    /// a graph that only ever reaches the last-inserted region still "finds"
+    /// plausible-looking neighbours. Measured 2026-09-21 on 5,000 MiniLM
+    /// embeddings: published @ruvector/router 0.1.30 scored 3.6% recall@10
+    /// (80% of results from the last 500 inserted); this crate at HEAD scored
+    /// 96–99% at defaults. Pinned at 0.90 for both a cluster-sorted insertion
+    /// order (the pathological one) and a shuffled one.
+    #[test]
+    fn test_recall_at_10_on_clustered_data_vs_brute_force() {
+        let dims = 32;
+        let n_clusters = 40;
+        let per_cluster = 50;
+        let n = n_clusters * per_cluster;
+        let k = 10;
+        let mut state: u64 = 0x5EED_1234_ABCD_0001;
+        let mut next = || {
+            state = state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            ((state >> 33) as f32 / (1u64 << 31) as f32) - 0.5
+        };
+        // Cluster centres, then tight members around each centre.
+        let centres: Vec<Vec<f32>> = (0..n_clusters)
+            .map(|_| (0..dims).map(|_| next()).collect())
+            .collect();
+        let mut vectors: Vec<Vec<f32>> = Vec::with_capacity(n);
+        for c in &centres {
+            for _ in 0..per_cluster {
+                let mut v: Vec<f32> = c.iter().map(|x| x + 0.08 * next()).collect();
+                let norm = v.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-12);
+                for x in v.iter_mut() {
+                    *x /= norm;
+                }
+                vectors.push(v);
+            }
+        }
+        let brute = |q: &[f32]| -> HashSet<String> {
+            let mut scored: Vec<(f32, usize)> = vectors
+                .iter()
+                .enumerate()
+                .map(|(i, v)| (calculate_distance(q, v, DistanceMetric::Cosine).unwrap(), i))
+                .collect();
+            scored.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
+            scored
+                .iter()
+                .take(k)
+                .map(|(_, i)| format!("v{i}"))
+                .collect()
+        };
+        // Queries: perturbed members, so the true neighbours are a mix of the
+        // query's own cluster and whatever else the perturbation reaches.
+        let queries: Vec<Vec<f32>> = (0..200)
+            .map(|qi| {
+                let base = &vectors[(qi * 37) % n];
+                let mut v: Vec<f32> = base.iter().map(|x| x + 0.05 * next()).collect();
+                let norm = v.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-12);
+                for x in v.iter_mut() {
+                    *x /= norm;
+                }
+                v
+            })
+            .collect();
+
+        let mut shuffled: Vec<usize> = (0..n).collect();
+        for i in (1..n).rev() {
+            let j = (next().abs() * 1e6) as usize % (i + 1);
+            shuffled.swap(i, j);
+        }
+        for (label, order) in [
+            ("cluster-sorted", (0..n).collect::<Vec<_>>()),
+            ("shuffled", shuffled),
+        ] {
+            let index = HnswIndex::new(HnswConfig {
+                dimensions: dims,
+                ..HnswConfig::default()
+            });
+            for &i in &order {
+                index.insert(format!("v{i}"), vectors[i].clone()).unwrap();
+            }
+            let mut hits = 0usize;
+            let mut from_tail = 0usize;
+            let tail: HashSet<String> = order[n - 200..].iter().map(|i| format!("v{i}")).collect();
+            for q in &queries {
+                let truth = brute(q);
+                let res = index
+                    .search(&SearchQuery {
+                        vector: q.clone(),
+                        k,
+                        filters: None,
+                        threshold: None,
+                        ef_search: None,
+                    })
+                    .unwrap();
+                for r in &res {
+                    if truth.contains(&r.id) {
+                        hits += 1;
+                    }
+                    if tail.contains(&r.id) {
+                        from_tail += 1;
+                    }
+                }
+            }
+            let recall = hits as f32 / (queries.len() * k) as f32;
+            let tail_share = from_tail as f32 / (queries.len() * k) as f32;
+            // Visible with `--nocapture`, so a CI log shows the margin, not just pass/fail.
+            eprintln!(
+                "clustered recall@10 [{label}]: recall={recall:.4} tail_share={tail_share:.3}"
+            );
+            assert!(
+                recall >= 0.90,
+                "{label}: recall@10 vs brute force must be >= 0.90, got {recall:.4}"
+            );
+            // The #430 failure mode: results drawn from wherever insertion ended.
+            // 200/2000 = 10% is the uniform expectation; 0.5 is far outside it.
+            assert!(
+                tail_share < 0.5,
+                "{label}: {:.0}% of results came from the last 200 inserted — the graph is only reaching the insertion tail",
+                tail_share * 100.0
+            );
+        }
     }
 
     #[test]
