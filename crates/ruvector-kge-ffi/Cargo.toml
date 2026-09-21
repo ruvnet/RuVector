@@ -16,6 +16,7 @@ napi = { workspace = true }
 napi-derive = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = "0.10"
 
 [build-dependencies]
 napi-build = "2.1"

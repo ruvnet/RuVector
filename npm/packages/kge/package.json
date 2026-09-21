@@ -9,10 +9,29 @@
   "bin": { "kge": "bin/cli.js" },
   "files": ["dist", "bin", "index.js", "index.d.ts", "README.md", "docs/adr", "wasm", "native"],
   "engines": { "node": ">=18.0.0" },
+  "keywords": [
+    "knowledge-graph",
+    "embeddings",
+    "kge",
+    "hole",
+    "rotate",
+    "complex",
+    "link-prediction",
+    "relation-composition",
+    "holographic-embeddings",
+    "graph",
+    "ann",
+    "hnsw",
+    "ruvector",
+    "local-first"
+  ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.json",
     "build:napi": "napi build --platform --release --cargo-cwd ../../../crates/ruvector-kge-ffi",
+    "typecheck": "tsc --noEmit -p tsconfig.typetest.json",
     "test": "node --test test/*.test.mjs",
+    "test:all": "tsc -p tsconfig.json && tsc --noEmit -p tsconfig.typetest.json && node --test test/*.test.mjs",
+    "prepublishOnly": "tsc -p tsconfig.json",
     "bench": "node bench/run.mjs"
   },
   "devDependencies": { "@napi-rs/cli": "^2.18.0", "typescript": "^5.9.3" }

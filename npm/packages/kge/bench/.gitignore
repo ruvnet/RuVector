@@ -1,0 +1,10 @@
+# Datasets are fetched at bench time and NEVER committed (ADR-005/006 — nothing
+# redistributed). The cache and run outputs stay local.
+.cache/
+results/
+
+# The frozen synthetic fixture and its HASHES.json ARE committed (they are the
+# only frozen inputs) — do not ignore them.
+!fixtures/
+!fixtures/synthetic-kg.json
+!fixtures/HASHES.json
