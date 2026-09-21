@@ -1,0 +1,31 @@
+[package]
+name = "ruvector-typesafe-ffi"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "NAPI-RS bindings for ruvector-typesafe-core (@ruvector/typesafe native binary)"
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+default = []
+hash-embedder = ["ruvector-typesafe-core/hash-embedder"]
+
+[dependencies]
+ruvector-typesafe-core = { version = "2.0", path = "../ruvector-typesafe-core" }
+napi = { workspace = true }
+napi-derive = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[build-dependencies]
+napi-build = "2.1"
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+strip = true

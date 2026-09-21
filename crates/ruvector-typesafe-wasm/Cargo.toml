@@ -1,0 +1,31 @@
+[package]
+name = "ruvector-typesafe-wasm"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "wasm-bindgen build of ruvector-typesafe-core (@ruvector/typesafe WASM fallback)"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+hash-embedder = ["ruvector-typesafe-core/hash-embedder"]
+
+[dependencies]
+ruvector-typesafe-core = { version = "2.0", path = "../ruvector-typesafe-core" }
+wasm-bindgen = { workspace = true }
+js-sys = "0.3"
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"

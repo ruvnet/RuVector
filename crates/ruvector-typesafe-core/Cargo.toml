@@ -1,0 +1,24 @@
+[package]
+name = "ruvector-typesafe-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Typed-decision engine (choice / score / noul) over sentence embeddings — the core of @ruvector/typesafe. Target-independent: no embedder backend, no I/O."
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+default = []
+# Deterministic hashed bag-of-words embedder for tests, bindings smoke tests and CI — never for production decisions.
+hash-embedder = []
+
+[dependencies]
+ruvector-router-core = { version = "2.0", path = "../ruvector-router-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
