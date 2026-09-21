@@ -114,7 +114,12 @@ jobs:
 
       - name: Build native module (default features)
         working-directory: npm/packages/kge
+        # Windows defaults to PowerShell, where `rm -f` is Remove-Item and -f is
+        # ambiguous between -Filter and -Force. Without this the win32 leg dies
+        # with "parameter name 'f' is ambiguous".
+        shell: bash
         run: |
+          set -euo pipefail
           npx napi build --platform --release --cargo-cwd ../../../crates/ruvector-kge-ffi --target ${{ matrix.settings.target }} --js false --dts napi-generated.d.ts
           rm -f napi-generated.d.ts
           git checkout -- index.js index.d.ts
