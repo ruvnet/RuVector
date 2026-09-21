@@ -36,7 +36,11 @@ contains three partial answers that were never joined:
 
 2. **Promote `examples/onnx-embeddings` into the workspace as `ruvector-embed-core`**
    and make it the native implementation. It leaves `[workspace]` exclusion,
-   gains CI, and is pinned to a released `ort` (2.0.0-rc.12 or the first stable).
+   gains CI, and is pinned to `ort` 2.0.0-rc.13 — the newest release on crates.io as of
+   2026-09-21; no stable 2.0 exists yet. The example's `download-binaries` feature
+   fetches onnxruntime at build time; the workspace build keeps that feature but
+   pins the binary's hash through `ort`'s own verified download, and `load-dynamic`
+   is the documented alternative for environments without build-time network.
 
 3. **Bump the WASM path to `tract-onnx` 0.23** and re-run ADR-194's exact
    INT8 repro. This is a spike with a pass/fail outcome: if INT8 loads, WASM
@@ -54,7 +58,9 @@ contains three partial answers that were never joined:
    (`linux-x64-gnu`, `linux-arm64-gnu`, `darwin-x64`, `darwin-arm64`,
    `win32-x64-msvc`) as `optionalDependencies`, built by a `build-typesafe.yml`
    cloned from `build-router.yml`, guarded by the `optional-deps-resolvable-on-npm`
-   job (issue #411) copied verbatim. Version bumps land only *after* the
+   job (issue #411), which already enumerates *every* `package.json` in the repo —
+   so the first typesafe PR ships **without** platform `optionalDependencies`; they
+   are added in the bump PR after the platform packages are on npm. Version bumps land only *after* the
    platform packages exist on npm — the sequence the router's own 0.1.31 revert
    documented.
 
@@ -70,6 +76,12 @@ contains three partial answers that were never joined:
    pooled paths; a backend that cannot pass it does not ship.
 
 ## Consequences
+
+- The wasm32 build of the router crates is broken on main (issue #1006:
+  `uuid` v4 pulls `getrandom` without the `js` feature). `typesafe-wasm`
+  depends on `ruvector-router-core`, so the fix (a `[target.'cfg(target_arch =
+  "wasm32")'.dependencies]` section enabling `getrandom/js` and `uuid/js`) is a
+  prerequisite commit, not an afterthought.
 
 - Two runtimes to keep in step, mitigated by the parity gate and by keeping
   every non-embedding line of code shared.
