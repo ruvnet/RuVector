@@ -1,0 +1,255 @@
+{
+  "schema": "ruvector-kge-bench/receipt@1",
+  "generated_at": "2026-09-21T16:42:47.987Z",
+  "suite": "synthetic",
+  "scorer": "hole",
+  "config": {
+    "scorer": "hole",
+    "dims": 64,
+    "seed": 42,
+    "epochs": 30
+  },
+  "tie_break": "random",
+  "binding": {
+    "version": "2.3.0",
+    "backend": "native"
+  },
+  "binding_source": "/home/ruvultra/projects/ruvector-worktrees/feat-kge/npm/packages/kge/index.js",
+  "dataset": {
+    "hashes": {
+      "fixtures/synthetic-kg.json": "9ac6a12583dab85966cfbfc2cae51467d0dc0ee74997703c6485bd57f44cfd74"
+    },
+    "splits_hash": "81c2f4878cc25850c51fc840b51ab4a8fbce9d84a11e61827a5354c00d331bb4",
+    "counts": {
+      "train": 1627,
+      "valid": 402,
+      "transfer": 265,
+      "test": 391
+    }
+  },
+  "metrics": {
+    "valid": {
+      "mrr": 0.3637907803058624,
+      "mr": 88.0012435913086,
+      "hits": {
+        "1": 0.33208954334259033,
+        "3": 0.37064677476882935,
+        "10": 0.4079602062702179
+      },
+      "perSide": {
+        "head": {
+          "mrr": 0.36609622836112976,
+          "mr": 86.41790771484375,
+          "hits": {
+            "1": 0.33582088351249695,
+            "3": 0.3731343150138855,
+            "10": 0.40547263622283936
+          }
+        },
+        "tail": {
+          "mrr": 0.3614853620529175,
+          "mr": 89.58457946777344,
+          "hits": {
+            "1": 0.3283582031726837,
+            "3": 0.3681592047214508,
+            "10": 0.41044774651527405
+          }
+        }
+      },
+      "splitSource": "per-triple",
+      "filtered": true
+    },
+    "test": {
+      "mrr": 0.31126531958580017,
+      "mr": 96.58312225341797,
+      "hits": {
+        "1": 0.28388747572898865,
+        "3": 0.31457799673080444,
+        "10": 0.34143221378326416
+      },
+      "perSide": {
+        "head": {
+          "mrr": 0.30339762568473816,
+          "mr": 95.00255584716797,
+          "hits": {
+            "1": 0.27365729212760925,
+            "3": 0.3120204508304596,
+            "10": 0.33503836393356323
+          }
+        },
+        "tail": {
+          "mrr": 0.3191330134868622,
+          "mr": 98.16368103027344,
+          "hits": {
+            "1": 0.29411765933036804,
+            "3": 0.3171355426311493,
+            "10": 0.3478260934352875
+          }
+        }
+      },
+      "splitSource": "per-triple",
+      "filtered": true
+    },
+    "transfer": {
+      "mrr": 0.30500680208206177,
+      "mr": 103.14717102050781,
+      "hits": {
+        "1": 0.27547168731689453,
+        "3": 0.31698113679885864,
+        "10": 0.34339621663093567
+      },
+      "perSide": {
+        "head": {
+          "mrr": 0.30420103669166565,
+          "mr": 101.06037902832031,
+          "hits": {
+            "1": 0.27547168731689453,
+            "3": 0.324528306722641,
+            "10": 0.33207547664642334
+          }
+        },
+        "tail": {
+          "mrr": 0.3058125376701355,
+          "mr": 105.23396301269531,
+          "hits": {
+            "1": 0.27547168731689453,
+            "3": 0.3094339668750763,
+            "10": 0.3547169864177704
+          }
+        }
+      },
+      "splitSource": "per-triple",
+      "filtered": true
+    }
+  },
+  "ann": {
+    "recall_at_10": 0.9854219948849102,
+    "queries": 391,
+    "latency_ms": {
+      "n": 391,
+      "p50": 0.0707990000009886,
+      "p95": 0.07762000000002445,
+      "mean": 0.07166096163686714
+    }
+  },
+  "adversarial": {
+    "symmetric_relations": [
+      {
+        "fraction": 1,
+        "count": 694
+      }
+    ],
+    "inverse_pairs": [
+      {
+        "fraction": 1,
+        "count": 449
+      },
+      {
+        "fraction": 1,
+        "count": 449
+      }
+    ],
+    "targets": 20,
+    "targets_hash": "754e246ffd2a3e2ee72cedfdf709d5a52efb722fc973a62f147b474cda9dc445",
+    "decoys": 60,
+    "mean_confidence_before": 4.685909843444824,
+    "mean_confidence_after": 4.74537828117609,
+    "drop": -0.0594684377312662
+  },
+  "hard_negatives": null,
+  "tie_check": null,
+  "latency_ms": {
+    "n": 391,
+    "p50": 0.0707990000009886,
+    "p95": 0.07762000000002445,
+    "mean": 0.07166096163686714
+  },
+  "training": {
+    "epochs": 30,
+    "triplesPerSec": 113.78650784854571,
+    "loss": 1.9312843084335327,
+    "n3Penalty": 0.0151757150888443,
+    "batches": 7
+  },
+  "gates": {
+    "report_only": true,
+    "rows": [
+      {
+        "name": "link_prediction_fb15k237",
+        "status": "SKIP",
+        "detail": "suite is synthetic, not fb15k237",
+        "source": "LibKGE README ComplEx FB15k-237 filtered MRR 0.348 − 3pp margin (ADR-006); RANDOM tie-break"
+      },
+      {
+        "name": "link_prediction_wn18rr",
+        "status": "SKIP",
+        "detail": "suite is synthetic, not wn18rr",
+        "source": "LibKGE README ComplEx WN18RR filtered MRR 0.475 − 3pp margin (ADR-006); RANDOM tie-break"
+      },
+      {
+        "name": "tie_break_random",
+        "status": "SKIP",
+        "detail": "no --tie-check run (or binding lacks a constant scorer)",
+        "source": "Sun et al. 2020 arXiv:1911.03903; ADR-003 §5 / ADR-006 §protocol 2"
+      },
+      {
+        "name": "hole_complex_equiv",
+        "status": "SKIP",
+        "detail": "asserted by the ruvector-kge-core Rust unit test (both forms agree on random params to fp tolerance); it is a precondition for trusting the HolE gate number and is not JS-measurable here",
+        "source": "ADR-002 §HolE≡ComplEx unit test"
+      },
+      {
+        "name": "ann_recall10",
+        "status": "PASS",
+        "detail": "0.9854 >= 0.9",
+        "source": "ADR-006 §Release gates ANN recall floor (derived Q5 claim, measured); Budgeted MIPS arXiv:1610.03317"
+      },
+      {
+        "name": "adversarial_confidence_drop",
+        "status": "FAIL",
+        "detail": "-0.0595 > 0",
+        "source": "ADR-006 §protocol 5; Bhardwaj et al. 2021 arXiv:2111.06345"
+      },
+      {
+        "name": "loop_safety_transfer",
+        "status": "SKIP",
+        "detail": "no --baseline-receipt",
+        "source": "ADR-004 gate 3 (no transfer-split regression beyond 1 point)"
+      },
+      {
+        "name": "latency_predict_p95",
+        "status": "PASS",
+        "detail": "p95=0.0776ms <= 50ms (native)",
+        "source": "ADR-006 §protocol 7; thresholds set from bench/fft-spike-2026-09-21.json (native batch score+build ≈2.3ms at d=512/2000 entities; 50ms p95 leaves headroom to FB15k-237 scale). wasm32 is compile-only in the spike, so its threshold stays pending."
+      }
+    ],
+    "pass": false,
+    "anyFail": true,
+    "skipped": 5
+  },
+  "stats_json": {
+    "dims": 64,
+    "entities": 300,
+    "indexed": false,
+    "relations": 6,
+    "scorer": "hole",
+    "seed": 42,
+    "splits": {
+      "test": 391,
+      "train": 1687,
+      "transfer": 265,
+      "unlabelled": 0,
+      "valid": 402
+    },
+    "triples": 2745
+  },
+  "host": {
+    "node": "v22.23.2",
+    "platform": "linux",
+    "arch": "x64",
+    "cpus": 32,
+    "cpu_model": "AMD Ryzen 9 9950X 16-Core Processor",
+    "os_release": "6.17.0-20-generic",
+    "total_mem_mb": 126425
+  }
+}

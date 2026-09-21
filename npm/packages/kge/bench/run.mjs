@@ -262,7 +262,7 @@ export async function main(argv, deps = {}) {
       const ctx = {
         suite, hasAnn: !!(run.ann && !run.ann.skipped), hasAdversarial: !!(run.adversarial && !run.adversarial.skipped),
         hasBaselineReceipt: !!baselineReceipt, engineAvailable, tieCheck: run.tieCheck,
-        latencyP95: run.predictLatency?.p95, backend: run.binding?.backend,
+        latencyP95: run.predictLatency?.p95, backend: run.binding?.backend, limit: args.limit,
       };
       gateResult = evaluateGates(gateBag(run, baselineReceipt), ctx, loadGates());
       if (gateResult.anyFail) anyFail = true;

@@ -1,7 +1,7 @@
 # ADR-002: Scorers and math — HolE via FFT, one `Scorer` trait
 
 ## Status
-Proposed
+Implemented and measured (2026-09-21); optimize campaign pending
 
 ## Date
 2026-09-21
