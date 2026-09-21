@@ -21,7 +21,9 @@
     "README.md",
     "docs/adr",
     "wasm",
-    "native"
+    "native",
+    "scripts/fetch-models.mjs",
+    "models/manifest.json"
   ],
   "keywords": [
     "typesafe",
