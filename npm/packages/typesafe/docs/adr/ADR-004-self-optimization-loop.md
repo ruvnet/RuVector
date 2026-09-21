@@ -1,7 +1,7 @@
 # ADR-004: The self-optimization loop — governed, measured, reversible
 
 ## Status
-Proposed
+Implemented and measured (2026-09-21)
 
 ## Date
 2026-09-21

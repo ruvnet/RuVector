@@ -1,7 +1,7 @@
 # ADR-006: Benchmarks and release gates
 
 ## Status
-Proposed
+Implemented and measured (2026-09-21)
 
 ## Date
 2026-09-21
@@ -73,6 +73,27 @@ be designed against that.
 | Loop safety | no regression on the transfer split beyond 1 pp; control-arm drift alarm exercised in CI |
 | Security | ADR-005 CI assertions (no net symbols, no WASI fs/net imports, no shell) green |
 | Provenance | platform packages resolvable on npm before the meta-package bump (`optional-deps-resolvable-on-npm`) |
+
+### Measured 2026-09-21
+
+On the frozen tickets fixture (`department` choice; 137 usable training
+examples). Receipts: `bench/results/tickets-onnx-bge-2026-09-21.json` (16-shot),
+`bench/results/optimize-tickets-2026-09-21.json` + `optimize-receipts-2026-09-21.jsonl`
+(full-data campaign, four model arms).
+
+| configuration | accuracy | ECE | p95 ms | gate status |
+|---|---|---|---|---|
+| Jev replay (reference) | 85.3% | 0.073 | 231 | — |
+| bge-small, 16-shot | 80.0% | 0.075 | 10.0 | accuracy FAIL, ECE FAIL |
+| campaign champion bge-small (full data) | 83.3% | 0.068 | 10 | accuracy PASS, ECE FAIL |
+| campaign champion bge-small-int8 (full data) | 84.0% | 0.071 | 4 | accuracy PASS, ECE FAIL |
+| campaign champion MiniLM (full data) | 81.3% | 0.057 | — | ECE FAIL |
+
+`accuracy_vs_jev` passes with the full-data campaign champion (83.3 % ≥ 82.3 %);
+native latency passes (p95 ≤ 50 ms). `calibration_ece` does not pass in any
+regime (best 0.057 > 0.05), nor does accuracy in the 16-shot regime. All seven
+campaign promotions came through the calibration criterion (gate 2b); the
+accuracy paired test alone rejected each (best wealth 4.91 of the 20 threshold).
 
 ### Where it lives
 

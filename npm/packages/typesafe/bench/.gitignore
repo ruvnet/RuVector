@@ -1,5 +1,9 @@
 # Downloaded datasets and model weights are never committed (ADR-006):
 # the fetchers pull from canonical sources at bench time.
 .cache/
-# Per-run receipts are build artifacts, not source.
-results/
+# Per-run receipts are build artifacts, not source — except the dated
+# measured-baseline receipts (ADR-006), which are checked in as the record the
+# README and ADR-006 cite. Undated scratch runs (sweep-*.json) stay ignored.
+results/*
+!results/*-2026-09-21.json
+!results/*-2026-09-21.jsonl

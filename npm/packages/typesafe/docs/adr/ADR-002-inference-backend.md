@@ -1,7 +1,7 @@
 # ADR-002: Inference backend — `ort` native, `tract` WASM, one engine crate
 
 ## Status
-Proposed
+Implemented and measured (2026-09-21)
 
 ## Date
 2026-09-21

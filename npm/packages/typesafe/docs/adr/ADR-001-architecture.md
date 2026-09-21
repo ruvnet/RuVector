@@ -1,7 +1,7 @@
 # ADR-001: @ruvector/typesafe — architecture
 
 ## Status
-Proposed
+Implemented and measured (2026-09-21)
 
 ## Date
 2026-09-21

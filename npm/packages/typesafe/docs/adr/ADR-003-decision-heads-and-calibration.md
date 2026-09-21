@@ -1,7 +1,7 @@
 # ADR-003: Decision heads and calibrated confidence
 
 ## Status
-Proposed
+Implemented and measured (2026-09-21)
 
 ## Date
 2026-09-21

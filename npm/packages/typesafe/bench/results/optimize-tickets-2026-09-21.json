@@ -1,0 +1,226 @@
+{
+  "schema": "ruvector-typesafe-bench/optimize-campaign@1",
+  "generated_at": "2026-09-21T16:23:27.417Z",
+  "suite": "tickets",
+  "question": "department",
+  "splits_hash": "8acff22591749a518d5631ef86f9e9217396ab2f826cd05eb9f4c9019d21b195",
+  "counts": {
+    "train": 137,
+    "calibration": 37,
+    "validation": 150,
+    "transfer": 26,
+    "test": 150
+  },
+  "row_count": 500,
+  "budget": 64,
+  "jev_test": {
+    "choice_accuracy": 0.8533333333333334,
+    "ece": 0.07306666666666657
+  },
+  "arms": [
+    {
+      "model": "bge-small-en-v1.5",
+      "promotions": 1,
+      "budget_consumed": 8,
+      "baseline": {
+        "val": 0.81333333,
+        "transfer": 0.8076923,
+        "test": 0.7866667,
+        "test_ece": 0.050181508
+      },
+      "champion": {
+        "val": 0.86,
+        "transfer": 0.84615386,
+        "test": 0.8333333,
+        "test_ece": 0.068099074,
+        "options": {
+          "probeL2": 0.001,
+          "probeIterations": 400,
+          "probeLearningRate": 0.8,
+          "probeClassBalanced": true,
+          "notForLambda": 0.5,
+          "abstainTau": 0.35,
+          "abstainScale": 0.5,
+          "logitScale": 1,
+          "calibrationFraction": 0.2,
+          "minCalibration": 20,
+          "head": "auto"
+        }
+      },
+      "best_stat": {
+        "alpha": 0.05,
+        "lambda": 0.5,
+        "wealth": 3.2374103398069565,
+        "max_wealth": 4.9112713895738125,
+        "threshold": 19.99999970197678,
+        "n_champion_wins": 13,
+        "n_baseline_wins": 6,
+        "rejected": false
+      },
+      "val_n": 150,
+      "wallMs": 7128.919472
+    },
+    {
+      "model": "bge-small-en-v1.5-int8",
+      "promotions": 2,
+      "budget_consumed": 8,
+      "baseline": {
+        "val": 0.8066667,
+        "transfer": 0.7692308,
+        "test": 0.79333335,
+        "test_ece": 0.05731012
+      },
+      "champion": {
+        "val": 0.8466667,
+        "transfer": 0.8076923,
+        "test": 0.84,
+        "test_ece": 0.07053114,
+        "options": {
+          "probeL2": 0.001,
+          "probeIterations": 400,
+          "probeLearningRate": 0.8,
+          "probeClassBalanced": true,
+          "notForLambda": 0.5,
+          "abstainTau": 0.35,
+          "abstainScale": 0.5,
+          "logitScale": 1,
+          "calibrationFraction": 0.2,
+          "minCalibration": 20,
+          "head": "auto"
+        }
+      },
+      "best_stat": {
+        "alpha": 0.05,
+        "lambda": 0.5,
+        "wealth": 2.7625901566352695,
+        "max_wealth": 3.14321368932724,
+        "threshold": 19.99999970197678,
+        "n_champion_wins": 11,
+        "n_baseline_wins": 5,
+        "rejected": false
+      },
+      "val_n": 150,
+      "wallMs": 3660.5411729999996
+    },
+    {
+      "model": "all-MiniLM-L6-v2",
+      "promotions": 2,
+      "budget_consumed": 8,
+      "baseline": {
+        "val": 0.76666665,
+        "transfer": 0.7307692,
+        "test": 0.73333335,
+        "test_ece": 0.09640886
+      },
+      "champion": {
+        "val": 0.81333333,
+        "transfer": 0.8076923,
+        "test": 0.81333333,
+        "test_ece": 0.056557428,
+        "options": {
+          "probeL2": 0.001,
+          "probeIterations": 400,
+          "probeLearningRate": 0.8,
+          "probeClassBalanced": true,
+          "notForLambda": 0.5,
+          "abstainTau": 0.35,
+          "abstainScale": 0.5,
+          "logitScale": 20,
+          "calibrationFraction": 0.2,
+          "minCalibration": 20,
+          "head": "auto"
+        }
+      },
+      "best_stat": {
+        "alpha": 0.05,
+        "lambda": 0.5,
+        "wealth": 3.2374103398069565,
+        "max_wealth": 3.92901711165905,
+        "threshold": 19.99999970197678,
+        "n_champion_wins": 13,
+        "n_baseline_wins": 6,
+        "rejected": false
+      },
+      "val_n": 150,
+      "wallMs": 10189.681310000002
+    },
+    {
+      "model": "all-MiniLM-L6-v2-int8",
+      "promotions": 2,
+      "budget_consumed": 8,
+      "baseline": {
+        "val": 0.7,
+        "transfer": 0.65384614,
+        "test": 0.6666667,
+        "test_ece": 0.13754383
+      },
+      "champion": {
+        "val": 0.78,
+        "transfer": 0.9230769,
+        "test": 0.8,
+        "test_ece": 0.06221929,
+        "options": {
+          "probeL2": 0.001,
+          "probeIterations": 400,
+          "probeLearningRate": 0.8,
+          "probeClassBalanced": true,
+          "notForLambda": 0.5,
+          "abstainTau": 0.35,
+          "abstainScale": 0.5,
+          "logitScale": 1,
+          "calibrationFraction": 0.2,
+          "minCalibration": 20,
+          "head": "auto"
+        }
+      },
+      "best_stat": {
+        "alpha": 0.05,
+        "lambda": 0.5,
+        "wealth": 9.262305278225774,
+        "max_wealth": 10.538445116559103,
+        "threshold": 19.99999970197678,
+        "n_champion_wins": 19,
+        "n_baseline_wins": 7,
+        "rejected": false
+      },
+      "val_n": 150,
+      "wallMs": 5306.272385
+    }
+  ],
+  "champion": {
+    "model": "bge-small-en-v1.5",
+    "options": {
+      "probeL2": 0.001,
+      "probeIterations": 400,
+      "probeLearningRate": 0.8,
+      "probeClassBalanced": true,
+      "notForLambda": 0.5,
+      "abstainTau": 0.35,
+      "abstainScale": 0.5,
+      "logitScale": 1,
+      "calibrationFraction": 0.2,
+      "minCalibration": 20,
+      "head": "auto"
+    },
+    "test": {
+      "val": 0.86,
+      "transfer": 0.84615386,
+      "test": 0.8333333,
+      "test_ece": 0.068099074,
+      "options": {
+        "probeL2": 0.001,
+        "probeIterations": 400,
+        "probeLearningRate": 0.8,
+        "probeClassBalanced": true,
+        "notForLambda": 0.5,
+        "abstainTau": 0.35,
+        "abstainScale": 0.5,
+        "logitScale": 1,
+        "calibrationFraction": 0.2,
+        "minCalibration": 20,
+        "head": "auto"
+      }
+    }
+  },
+  "receipts_file": "optimize-receipts-2026-09-21.jsonl"
+}

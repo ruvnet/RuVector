@@ -10,7 +10,8 @@ It is a bounded classifier, not an LLM host: **no network by default, no
 per-token cost, no subprocess in the decision path.** A native (napi-rs) core
 does the deciding; a WASM build is the portable fallback. Latency targets are
 release gates (p95 ≤ 50 ms native, ≤ 150 ms WASM — ADR-006); the engine's own
-numbers are **to be measured by `typesafe bench`**, not asserted here.
+numbers are measured by `typesafe bench` and recorded under `bench/results/`
+(see [Measured](#measured)).
 
 - Drop-in for Jev callers: `POST /v1/systemone` body and response shape are
   accepted and returned unchanged (`typesafe serve`).
@@ -132,16 +133,22 @@ const ts = createTypesafe({ embedder: { kind: 'onnx', modelDir: './models/bge', 
 
 ## The self-optimization loop
 
-Improvement is **specified** as a governed, measured, reversible loop (ADR-004):
-four loops — example-bank growth, model-arm selection, speed tuning, and (v2)
-criteria mutation — each propose a change that must beat a frozen validation
-split under a paired anytime-valid test, must not regress a separate transfer
-split, and runs against a permanent 5% control arm, with an append-only receipt
-per promotion. The promise is "never worse on your frozen split, and every
-change explained", not "improves every hour".
+Improvement is a governed, measured, reversible loop (ADR-004): a proposal must
+beat a frozen validation split under a paired anytime-valid test, must not
+regress a separate transfer split, respects a per-day budget, and writes an
+append-only, hash-chained receipt per decision. Because an argmax-preserving
+change (a logit-scale prior, a temperature-floor tweak) carries no paired
+*accuracy* information, the gate runs a **second** paired test over per-item
+negative log-likelihood: a proposal promotes when the accuracy test rejects, or
+when accuracy is non-inferior and the NLL (calibration) test rejects — and the
+receipt records which criterion carried it. The promise is "never worse on your
+frozen split, and every change explained", not "improves every hour".
 
-**v0.1.0 ships `train` only** (loop 1's example admission); the promotion gate,
-receipts, and the other loops are specified but not yet implemented. See
+**Implemented and measured (2026-09-21):** `train` (bank-backed, append-only),
+`optimize` (the gate above), `export`/`import` of the example bank, and the
+`typesafe optimize` CLI. `Engine::optimize` / `ts.optimize` run a campaign over
+tunable `EngineOptions` for one embedder; the model arm is chosen by
+constructing one engine per model. See
 [ADR-004](docs/adr/ADR-004-self-optimization-loop.md).
 
 ## Security
@@ -164,9 +171,30 @@ A regression test (`test/security.test.mjs`) asserts the source contains no
 
 ## Measured
 
-These are the **only** measured numbers this package claims today. The
-typesafe engine's own accuracy and latency are **to be measured by
-`typesafe bench`** (ADR-006) — this release does not assert them.
+Measured 2026-09-21 on the frozen tickets fixture (8 departments; the training
+pool yields **137 usable examples** after the frozen split). Receipts are
+checked in under `bench/results/`.
+
+**typesafe engine (local, onnx)** — `department` choice question, from
+`bench/results/tickets-onnx-bge-2026-09-21.json` (16-shot) and
+`bench/results/optimize-tickets-2026-09-21.json` (full-data campaign; per-arm
+receipts in `bench/results/optimize-receipts-2026-09-21.jsonl`):
+
+| configuration | accuracy | ECE | p95 ms |
+|---|---|---|---|
+| Jev replay (reference) | 85.3% | 0.073 | 231 |
+| bge-small, 16-shot | 80.0% | 0.075 | 10.0 |
+| bge-small-int8, 64-shot | 77.3% | — | 4.1 |
+| campaign champion bge-small (full data) | 83.3% | 0.068 | 10 |
+| campaign champion bge-small-int8 (full data) | 84.0% | 0.071 | 4 |
+| campaign champion MiniLM (full data) | 81.3% | 0.057 | — |
+
+Gates (ADR-006): **`accuracy_vs_jev` passes** with the full-data campaign
+champion (83.3% ≥ 82.3%) and **native latency passes** (p95 ≤ 50 ms). Two do
+**not** pass: `calibration_ece` (best 0.057 > the 0.05 target) in every regime,
+and the accuracy gate in the **16-shot** regime (80.0% < 82.3%). All seven
+campaign promotions came through the calibration criterion — the accuracy paired
+test alone rejected each (best wealth 4.91 of the 20 threshold).
 
 **Jev (typesafe.ai) baseline**, from `bench/jev-baseline-2026-09-21.json`
 (500 synthetic support tickets, 8 departments, frozen 150-item **test** split,

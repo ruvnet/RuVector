@@ -1,7 +1,7 @@
 # ADR-005: Security model — a bounded classifier, not an LLM host
 
 ## Status
-Proposed
+Implemented and measured (2026-09-21)
 
 ## Date
 2026-09-21
