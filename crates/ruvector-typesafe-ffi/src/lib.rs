@@ -51,7 +51,34 @@ enum EmbedderSpec {
         model_dir: Option<String>,
         #[serde(default)]
         manifest: Option<String>,
+        /// Entry to pick when `manifest` is a `{"models":[...]}` collection;
+        /// defaults to the basename of `modelDir`, then the first entry.
+        #[serde(default)]
+        model: Option<String>,
     },
+}
+
+/// Parse a single-model manifest, or select one entry from a collection.
+#[cfg(feature = "native-onnx")]
+fn select_manifest(
+    json: &str,
+    model: Option<&str>,
+    dir: &str,
+) -> std::result::Result<ruvector_embed_core::ModelManifest, String> {
+    use ruvector_embed_core::{ManifestFile, ModelManifest};
+    if let Ok(m) = ModelManifest::from_json(json) {
+        return Ok(m);
+    }
+    let file = ManifestFile::from_json(json).map_err(|e| format!("manifest: {e}"))?;
+    let base = std::path::Path::new(dir)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("");
+    let want = model.unwrap_or(base);
+    file.get(want)
+        .or_else(|| file.models.first())
+        .cloned()
+        .ok_or_else(|| format!("manifest: no entry named {want:?} and the collection is empty"))
 }
 
 fn default_dims() -> usize {
@@ -89,7 +116,10 @@ fn build_embedder(opts: &EngineOptions) -> std::result::Result<Box<dyn Embedder>
             kind,
             model_dir,
             manifest,
-        } if kind == "onnx" => build_onnx(model_dir.as_deref(), manifest.as_deref()),
+            model,
+        } if kind == "onnx" => {
+            build_onnx(model_dir.as_deref(), manifest.as_deref(), model.as_deref())
+        }
         EmbedderSpec::Kinded { kind, .. } => Err(format!("unknown embedder kind \"{kind}\"")),
     }
 }
@@ -100,14 +130,14 @@ fn build_embedder(opts: &EngineOptions) -> std::result::Result<Box<dyn Embedder>
 fn build_onnx(
     model_dir: Option<&str>,
     manifest: Option<&str>,
+    model: Option<&str>,
 ) -> std::result::Result<Box<dyn Embedder>, String> {
-    use ruvector_embed_core::{ModelManifest, OrtEmbedder};
+    use ruvector_embed_core::OrtEmbedder;
     let dir = model_dir.ok_or("onnx embedder requires \"modelDir\"")?;
     let manifest_src = manifest.ok_or("onnx embedder requires \"manifest\"")?;
     let manifest_json =
         std::fs::read_to_string(manifest_src).unwrap_or_else(|_| manifest_src.to_string());
-    let manifest =
-        ModelManifest::from_json(&manifest_json).map_err(|e| format!("manifest: {e}"))?;
+    let manifest = select_manifest(&manifest_json, model, dir)?;
     let embedder =
         OrtEmbedder::from_manifest(dir, &manifest).map_err(|e| format!("onnx load: {e}"))?;
     Ok(Box::new(embedder))
@@ -117,6 +147,7 @@ fn build_onnx(
 fn build_onnx(
     _model_dir: Option<&str>,
     _manifest: Option<&str>,
+    _model: Option<&str>,
 ) -> std::result::Result<Box<dyn Embedder>, String> {
     Err("onnx embedder backend is not built into this binary \
          (rebuild with --features native-onnx)"

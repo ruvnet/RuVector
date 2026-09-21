@@ -48,6 +48,9 @@ export function parseArgs(argv) {
     if (t === '--suite') a.suite = next();
     else if (t === '--arm') a.arm = next();
     else if (t === '--embedder') a.embedder = next();
+    else if (t === '--model-dir') a.modelDir = next();
+    else if (t === '--model') a.model = next();
+    else if (t === '--manifest') a.manifest = next();
     else if (t === '--shots') a.shots = parseInt(next(), 10);
     else if (t === '--zero-shot') a.regime = 'zero-shot';
     else if (t === '--few-shot') a.regime = 'few-shot';
@@ -78,12 +81,26 @@ function resolveBinding(injected) {
 }
 
 /** Construct an Engine for a regime; returns { engine } or { error }. */
-function makeEngine(binding, embedder) {
+// `--embedder onnx` resolves to the manifest-pinned model under --model-dir
+// (default: the package's models/ root, entry --model, default bge-small).
+function embedderSpec(args) {
+  if (args.embedder !== 'onnx') return args.embedder;
+  const modelDir = args.modelDir || 'models';
+  return {
+    kind: 'onnx',
+    modelDir,
+    manifest: args.manifest || `${modelDir}/manifest.json`,
+    model: args.model || 'bge-small-en-v1.5',
+  };
+}
+
+function makeEngine(binding, embedder, args = {}) {
   if (!binding || typeof binding.Engine !== 'function') {
     return { error: 'binding has no Engine constructor' };
   }
   try {
-    return { engine: new binding.Engine(JSON.stringify({ embedder })) };
+    const spec = typeof embedder === 'string' && args.embedder === undefined ? embedder : embedderSpec({ ...args, embedder });
+    return { engine: new binding.Engine(JSON.stringify({ embedder: spec })) };
   } catch (e) {
     return { error: `new Engine failed: ${e && e.message}` };
   }
@@ -140,7 +157,7 @@ async function runTickets(args, deps) {
     localUnavailable = null;
   if (wantLocal) {
     const resolved = resolveBinding(deps.binding);
-    const { engine, error } = resolved.binding ? makeEngine(resolved.binding, args.embedder) : { error: resolved.error };
+    const { engine, error } = resolved.binding ? makeEngine(resolved.binding, args.embedder, args) : { error: resolved.error };
     if (error) {
       localUnavailable = error;
       binding = { unavailable: true, error };
@@ -300,7 +317,7 @@ async function runDataset(suite, args, deps) {
   const testItems = (ds.testItems ?? []).map(shape);
   // Non-tickets suites have no frozen Jev baseline: local arm only.
   const resolved = resolveBinding(deps.binding);
-  const { engine, error } = resolved.binding ? makeEngine(resolved.binding, args.embedder) : { error: resolved.error };
+  const { engine, error } = resolved.binding ? makeEngine(resolved.binding, args.embedder, args) : { error: resolved.error };
   const metrics = {};
   let binding, localUnavailable, training = null, stats = null;
   if (error) {
