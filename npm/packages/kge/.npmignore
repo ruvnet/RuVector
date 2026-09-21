@@ -1,0 +1,5 @@
+# Present so npm ignores .gitignore (which excludes the build artifacts we must
+# ship). The published surface is the "files" whitelist in package.json; this
+# file only trims what that whitelist would otherwise sweep in.
+models/*/
+*.tgz

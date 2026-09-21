@@ -1,0 +1,7 @@
+
+# Build artifacts: produced by scripts/build-native.sh and build-wasm.sh, and
+# by CI for the per-platform packages. Never committed — but they MUST ship in
+# the npm tarball, which is what .npmignore below guarantees: when .npmignore
+# exists npm stops consulting .gitignore, so these directories survive packing.
+native/
+wasm/
