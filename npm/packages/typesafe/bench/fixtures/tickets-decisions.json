@@ -1,0 +1,5551 @@
+{
+ "synthetic": true,
+ "seed": 1337,
+ "departments": [
+  "billing",
+  "technical",
+  "shipping",
+  "returns",
+  "account",
+  "sales",
+  "legal",
+  "feedback"
+ ],
+ "split": {
+  "train": [
+   {
+    "id": "t440",
+    "text": "Hi, Need a copy of last month's invoice. Also, locked out after too many attempts. Just flagging.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "account"
+   },
+   {
+    "id": "t62",
+    "text": "Quick one: Subpoena related to an account. Order was placed last Tuesday.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t203",
+    "text": "Quick one: Change my mind, want my money back for the item. Order was placed last Tuesday. Just flagging.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t53",
+    "text": "Not sure who handles this but Compare the plans for me. Also, the search feature is confusing. This happened on my work laptop. I am extremely angry about this.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": true,
+    "secondary": "feedback"
+   },
+   {
+    "id": "t103",
+    "text": "Hello there, The mobile app feels cluttered. Let me know what you need from me. Just flagging.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t354",
+    "text": "Writing again because Package hasn't arrived. This happened on my work laptop. I need this fixed within the hour. Second time I've had to write in.",
+    "label": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t20",
+    "text": "FYI Reset link never arrives. Getting a bit frustrated with this.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t9",
+    "text": "Writing again because Webhook never fires. I already checked the help center. I need this fixed within the hour. This is annoying, honestly.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t232",
+    "text": "Writing again because Receipt total doesn't match. This happened on my work laptop. Getting a bit frustrated with this.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t255",
+    "text": "Quick one: The search feature is confusing. This happened on my work laptop. Getting a bit frustrated with this.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t137",
+    "text": "Quick one: App crashes on launch. Also, the onboarding was great. This happened on my work laptop. Second time I've had to write in.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "feedback"
+   },
+   {
+    "id": "t276",
+    "text": "Not sure who handles this but Locked out after too many attempts. I've been a customer for two years. No rush.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t3",
+    "text": "Not sure who handles this but How do I get a return label. This happened on my work laptop.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t121",
+    "text": "Hi, Integration keeps failing. This happened on my work laptop. This is blocking my launch today. Getting a bit frustrated with this.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t452",
+    "text": "Reset link never arrives. I've been a customer for two years. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t248",
+    "text": "Hey team, Receipt total doesn't match.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t421",
+    "text": "Hello there, Do you offer a discount for annual plans. Let me know what you need from me. Second time I've had to write in.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t363",
+    "text": "Hi, How do I get a return label. Let me know what you need from me. This is blocking my launch today. Just flagging.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t129",
+    "text": "Webhook never fires. This happened on my work laptop.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t24",
+    "text": "Not sure who handles this but Charged twice. This is blocking my launch today.",
+    "label": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t73",
+    "text": "Writing again because API returns a 500 error. This is blocking my launch today. No rush.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t30",
+    "text": "Writing again because Need a signed DPA. No rush.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t429",
+    "text": "Hi, Can we get a custom contract. I already checked the help center. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t403",
+    "text": "Writing again because Ordered two and want to return one. Thanks in advance. This is annoying, honestly.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t163",
+    "text": "Change my mind, want my money back for the item. Let me know what you need from me. No rush.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t112",
+    "text": "Hello there, Need a copy of last month's invoice. I've been a customer for two years. Just flagging.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t244",
+    "text": "Quick one: Delete my profile permanently. I've been a customer for two years. This is blocking my launch today. No rush.",
+    "label": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t147",
+    "text": "Hey team, How do I get a return label. Just flagging.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t412",
+    "text": "Hello there, Reset link never arrives. I've been a customer for two years. Second time I've had to write in.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t196",
+    "text": "Hello there, Reset link never arrives. Also, do you have a SOC 2 report. I've been a customer for two years.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "legal"
+   },
+   {
+    "id": "t304",
+    "text": "Hi, Invoice shows the wrong amount. Please help ASAP. No rush.",
+    "label": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t322",
+    "text": "Carrier says it's lost. Order was placed last Tuesday. Second time I've had to write in.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t143",
+    "text": "Hi, Suggestion: add dark mode. Order was placed last Tuesday. I need this fixed within the hour. Absolutely ridiculous, I'm done being patient.",
+    "label": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t201",
+    "text": "Hey team, Webhook never fires. Also, subpoena related to an account. Thanks in advance. I need this fixed within the hour. Getting a bit frustrated with this.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "legal"
+   },
+   {
+    "id": "t328",
+    "text": "Writing again because Duplicate charge on my card. I've been a customer for two years. Getting a bit frustrated with this.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t312",
+    "text": "Hello there, Duplicate charge on my card. Also, locked out after too many attempts. I've been a customer for two years.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "account"
+   },
+   {
+    "id": "t274",
+    "text": "Hello there, Delivery was marked complete but nothing came. Please help ASAP. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t344",
+    "text": "Hi, Need a copy of last month's invoice. I already checked the help center. Getting a bit frustrated with this.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t348",
+    "text": "Quick one: Reset link never arrives. Also, how do I get a return label. Please help ASAP. No rush.",
+    "label": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "returns"
+   },
+   {
+    "id": "t130",
+    "text": "Not sure who handles this but Tracking number shows no movement. Also, dashboard won't load in the browser. Thanks in advance. Getting a bit frustrated with this.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "technical"
+   },
+   {
+    "id": "t465",
+    "text": "Hey team, Getting a timeout on every request. Thanks in advance. Getting a bit frustrated with this.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t224",
+    "text": "Quick one: Receipt total doesn't match. Thanks in advance.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t303",
+    "text": "Hello there, The onboarding was great. Let me know what you need from me. Just flagging.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t27",
+    "text": "FYI Ordered two and want to return one. Thanks in advance. This is blocking my launch today. I am extremely angry about this.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t233",
+    "text": "Not sure who handles this but API returns a 500 error. This happened on my work laptop. This is blocking my launch today. Getting a bit frustrated with this.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t230",
+    "text": "Hi, Do you have a SOC 2 report. Order was placed last Tuesday.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t120",
+    "text": "Not sure who handles this but Charged twice. Also, want to send this back. Order was placed last Tuesday. I need this fixed within the hour. No rush.",
+    "label": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "returns"
+   },
+   {
+    "id": "t211",
+    "text": "Not sure who handles this but How do I get a return label. Let me know what you need from me. No rush.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t140",
+    "text": "Hey team, Reset link never arrives. No rush.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t111",
+    "text": "FYI The mobile app feels cluttered. I already checked the help center. No rush.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t266",
+    "text": "Quick one: Box arrived crushed. Let me know what you need from me. Absolutely ridiculous, I'm done being patient.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t283",
+    "text": "Not sure who handles this but Defective on arrival, replace it. Also, need a signed DPA. I've been a customer for two years. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": true,
+    "secondary": "legal"
+   },
+   {
+    "id": "t34",
+    "text": "Hey team, Package hasn't arrived. No rush.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t212",
+    "text": "Need to change the email on my profile. Also, our counsel needs the terms of service. Let me know what you need from me. Getting a bit frustrated with this.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "legal"
+   },
+   {
+    "id": "t178",
+    "text": "Courier left it at the wrong address. Also, was billed after cancelling. Let me know what you need from me. Second time I've had to write in.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "billing"
+   },
+   {
+    "id": "t488",
+    "text": "Quick one: Invoice shows the wrong amount. Thanks in advance. No rush.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t428",
+    "text": "Hi, Need to change the email on my profile. This happened on my work laptop.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t271",
+    "text": "Please bring back the old editor. Let me know what you need from me. Absolutely ridiculous, I'm done being patient.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t287",
+    "text": "Writing again because Please bring back the old editor. Also, is there a trial for the pro tier. Let me know what you need from me. I need this fixed within the hour. Just flagging.",
+    "label": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "sales"
+   },
+   {
+    "id": "t319",
+    "text": "Quick one: Suggestion: add dark mode. Also, can we get a custom contract. I've been a customer for two years. Please help ASAP.",
+    "label": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "sales"
+   },
+   {
+    "id": "t4",
+    "text": "FYI Merge my two logins. I've been a customer for two years. No rush.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t487",
+    "text": "FYI Love the new layout. Also, renewal fee I never approved.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "billing"
+   },
+   {
+    "id": "t153",
+    "text": "Quick one: Integration keeps failing. I already checked the help center. This is annoying, honestly.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t273",
+    "text": "FYI Getting a timeout on every request. Thanks in advance. No rush.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t321",
+    "text": "Webhook never fires. This is blocking my launch today. Just flagging.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t490",
+    "text": "Tracking number shows no movement. I already checked the help center. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t395",
+    "text": "FYI Product doesn't match the listing. Please help ASAP. This is annoying, honestly.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t219",
+    "text": "Writing again because Want to send this back. Also, sync stopped working after the update. No rush.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "technical"
+   },
+   {
+    "id": "t125",
+    "text": "Hey team, Do you do non-profit pricing. This is blocking my launch today. Just flagging.",
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t96",
+    "text": "Quick one: Receipt total doesn't match. Let me know what you need from me. Just flagging.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t23",
+    "text": "Quick one: Suggestion: add dark mode. Let me know what you need from me. This is annoying, honestly.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t31",
+    "text": "Writing again because Please bring back the old editor. Also, how do I get a return label. No rush.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "returns"
+   },
+   {
+    "id": "t181",
+    "text": "Quick one: Can we get a custom contract. This happened on my work laptop.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t162",
+    "text": "Delivery was marked complete but nothing came. Let me know what you need from me. Second time I've had to write in.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t12",
+    "text": "Reset link never arrives. I've been a customer for two years.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t69",
+    "text": "Quick one: What does the enterprise tier cost. Also, the mobile app feels cluttered. I've been a customer for two years. This is annoying, honestly.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "feedback"
+   },
+   {
+    "id": "t281",
+    "text": "Hi, Getting a timeout on every request. This happened on my work laptop.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t285",
+    "text": "What does the enterprise tier cost. Thanks in advance. Urgent — losing sales right now. Just flagging.",
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t405",
+    "text": "Quick one: What does the enterprise tier cost. This happened on my work laptop.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t132",
+    "text": "Quick one: Update the name on the account. Order was placed last Tuesday. Getting a bit frustrated with this.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t85",
+    "text": "Quick one: Is there a trial for the pro tier. Order was placed last Tuesday. Getting a bit frustrated with this.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t310",
+    "text": "Writing again because Data residency requirements for the EU. I've been a customer for two years.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t353",
+    "text": "Hey team, Getting a timeout on every request. I've been a customer for two years.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t66",
+    "text": "Hello there, Carrier says it's lost.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t235",
+    "text": "Hello there, Ordered two and want to return one. I've been a customer for two years. Second time I've had to write in.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t432",
+    "text": "Hi, Invoice shows the wrong amount. Let me know what you need from me. No rush.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t325",
+    "text": "Hey team, Do you do non-profit pricing. Thanks in advance. Please help ASAP.",
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t1",
+    "text": "Hello there, Sync stopped working after the update. Thanks in advance. No rush.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t455",
+    "text": "FYI The mobile app feels cluttered. Thanks in advance. No rush.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t127",
+    "text": "Quick one: Suggestion: add dark mode. Please help ASAP.",
+    "label": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t379",
+    "text": "Hello there, Want to send this back. Also, need a quote for 50 seats. Thanks in advance.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "sales"
+   },
+   {
+    "id": "t122",
+    "text": "Hello there, Courier left it at the wrong address. Also, charged twice. I've been a customer for two years. Please help ASAP. I am extremely angry about this.",
+    "label": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 2
+    },
+    "ambiguous": true,
+    "secondary": "billing"
+   },
+   {
+    "id": "t8",
+    "text": "Writing again because Was billed after cancelling. I've been a customer for two years.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t186",
+    "text": "Not sure who handles this but Carrier says it's lost. Thanks in advance. Please help ASAP. Getting a bit frustrated with this.",
+    "label": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t102",
+    "text": "Quick one: Subpoena related to an account. No rush.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t385",
+    "text": "Hello there, API returns a 500 error. Also, compare the plans for me. Thanks in advance. This is blocking my launch today. This is annoying, honestly.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "sales"
+   },
+   {
+    "id": "t241",
+    "text": "Hi, API returns a 500 error. I need this fixed within the hour. No rush.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t106",
+    "text": "Hey team, Shipment stuck in customs. I already checked the help center. No rush.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t461",
+    "text": "Hi, Is there a trial for the pro tier. Thanks in advance. Please help ASAP.",
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t146",
+    "text": "Delivery was marked complete but nothing came. I've been a customer for two years. Second time I've had to write in.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t472",
+    "text": "Hi, Invoice shows the wrong amount. Thanks in advance. No rush.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t226",
+    "text": "Quick one: Carrier says it's lost. This happened on my work laptop. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t438",
+    "text": "Hi, Our counsel needs the terms of service. Thanks in advance. Urgent — losing sales right now.",
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t184",
+    "text": "Writing again because Duplicate charge on my card.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t414",
+    "text": "FYI Trademark use on your site. Also, courier left it at the wrong address. Let me know what you need from me.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "shipping"
+   },
+   {
+    "id": "t207",
+    "text": "Not sure who handles this but Love the new layout. Also, duplicate charge on my card. Let me know what you need from me. Getting a bit frustrated with this.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "billing"
+   },
+   {
+    "id": "t131",
+    "text": "Hey team, Product doesn't match the listing. Also, do you do non-profit pricing. Please help ASAP. No rush.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "sales"
+   },
+   {
+    "id": "t300",
+    "text": "Not sure who handles this but Can't log in. This is blocking my launch today. No rush.",
+    "label": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t168",
+    "text": "Need a copy of last month's invoice. I've been a customer for two years. No rush.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t116",
+    "text": "Hello there, Two-factor code isn't working. Also, product doesn't match the listing. Order was placed last Tuesday. Please help ASAP. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 2
+    },
+    "ambiguous": true,
+    "secondary": "returns"
+   },
+   {
+    "id": "t164",
+    "text": "Not sure who handles this but Delete my profile permanently. Urgent — losing sales right now. Getting a bit frustrated with this.",
+    "label": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t389",
+    "text": "Hi, Compare the plans for me. I've been a customer for two years. Second time I've had to write in.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t376",
+    "text": "FYI Receipt total doesn't match. Let me know what you need from me. Just flagging.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t323",
+    "text": "Hi, Defective on arrival, replace it. Let me know what you need from me.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t272",
+    "text": "Not sure who handles this but Receipt total doesn't match. I've been a customer for two years. This is annoying, honestly.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t216",
+    "text": "Not sure who handles this but Duplicate charge on my card. Order was placed last Tuesday. No rush.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t265",
+    "text": "FYI Sync stopped working after the update. Also, our counsel needs the terms of service. Thanks in advance. Getting a bit frustrated with this.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "legal"
+   },
+   {
+    "id": "t262",
+    "text": "FYI Do you have a SOC 2 report. I've been a customer for two years. This is annoying, honestly.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t142",
+    "text": "Quick one: Data residency requirements for the EU.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t333",
+    "text": "Hello there, Can we get a custom contract. I already checked the help center.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t494",
+    "text": "Quick one: Subpoena related to an account. Also, sync stopped working after the update. Thanks in advance.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "technical"
+   },
+   {
+    "id": "t87",
+    "text": "Hi, Suggestion: add dark mode. This is blocking my launch today.",
+    "label": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t368",
+    "text": "Hi, Receipt total doesn't match. Also, package hasn't arrived. Second time I've had to write in.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "shipping"
+   },
+   {
+    "id": "t141",
+    "text": "Can we get a custom contract. Absolutely ridiculous, I'm done being patient.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t486",
+    "text": "Not sure who handles this but Trademark use on your site. I already checked the help center.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t169",
+    "text": "Hello there, Webhook never fires. Thanks in advance. Please help ASAP. Getting a bit frustrated with this.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t346",
+    "text": "Box arrived crushed. Let me know what you need from me. Just flagging.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t210",
+    "text": "Quick one: Carrier says it's lost. Order was placed last Tuesday. Just flagging.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t183",
+    "text": "Hi, Suggestion: add dark mode. Let me know what you need from me. Just flagging.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t253",
+    "text": "Quick one: Which plan includes SSO.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t104",
+    "text": "Not sure who handles this but Credit card declined but still charged. This happened on my work laptop. Just flagging.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t268",
+    "text": "Not sure who handles this but Need to change the email on my profile. I already checked the help center.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t434",
+    "text": "Writing again because Shipment stuck in customs. Thanks in advance. Just flagging.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t401",
+    "text": "Hey team, Getting a timeout on every request. I already checked the help center.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t52",
+    "text": "Hi, Update the name on the account. Thanks in advance. Just flagging.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t497",
+    "text": "Hey team, API returns a 500 error. Also, is there a trial for the pro tier. This happened on my work laptop. Please help ASAP. Absolutely ridiculous, I'm done being patient.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 2
+    },
+    "ambiguous": true,
+    "secondary": "sales"
+   },
+   {
+    "id": "t88",
+    "text": "Writing again because Invoice shows the wrong amount. This happened on my work laptop. Second time I've had to write in.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t431",
+    "text": "Hi, The mobile app feels cluttered. This is blocking my launch today. Absolutely ridiculous, I'm done being patient.",
+    "label": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t495",
+    "text": "FYI The onboarding was great. Let me know what you need from me. This is blocking my launch today.",
+    "label": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t433",
+    "text": "Not sure who handles this but App crashes on launch. Also, receipt total doesn't match. Let me know what you need from me. Second time I've had to write in.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "billing"
+   },
+   {
+    "id": "t98",
+    "text": "Hello there, Tracking number shows no movement. Also, our counsel needs the terms of service. I've been a customer for two years. Absolutely ridiculous, I'm done being patient.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": true,
+    "secondary": "legal"
+   },
+   {
+    "id": "t398",
+    "text": "Hey team, Where is your privacy policy. Order was placed last Tuesday. No rush.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t481",
+    "text": "Writing again because Webhook never fires. Thanks in advance. Getting a bit frustrated with this.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t436",
+    "text": "Not sure who handles this but Merge my two logins. Getting a bit frustrated with this.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t446",
+    "text": "FYI Data residency requirements for the EU. I already checked the help center. No rush.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t469",
+    "text": "FYI Is there a trial for the pro tier. Order was placed last Tuesday. Please help ASAP. Just flagging.",
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t383",
+    "text": "Wish the export was faster. I've been a customer for two years. I need this fixed within the hour. Second time I've had to write in.",
+    "label": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t340",
+    "text": "Hello there, Merge my two logins. I've been a customer for two years. I am extremely angry about this.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t382",
+    "text": "Data residency requirements for the EU. Let me know what you need from me. Urgent — losing sales right now.",
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t198",
+    "text": "Not sure who handles this but Trademark use on your site. Order was placed last Tuesday.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t15",
+    "text": "Quick one: The search feature is confusing. Thanks in advance. This is annoying, honestly.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t294",
+    "text": "Hey team, Trademark use on your site. Thanks in advance. I need this fixed within the hour. Just flagging.",
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t238",
+    "text": "Hey team, Need a signed DPA. Second time I've had to write in.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t462",
+    "text": "Hello there, Request to delete my data under GDPR. I've been a customer for two years. Just flagging.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t331",
+    "text": "Not sure who handles this but Ordered two and want to return one. Thanks in advance. This is blocking my launch today. Getting a bit frustrated with this.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t166",
+    "text": "Hi, Trademark use on your site. I've been a customer for two years. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t337",
+    "text": "Not sure who handles this but App crashes on launch. Also, was billed after cancelling. Order was placed last Tuesday. No rush.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "billing"
+   },
+   {
+    "id": "t58",
+    "text": "Quick one: Box arrived crushed. Also, what does the enterprise tier cost. I've been a customer for two years. No rush.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "sales"
+   },
+   {
+    "id": "t394",
+    "text": "Writing again because Estimated arrival date keeps slipping. I need this fixed within the hour. Just flagging.",
+    "label": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t270",
+    "text": "Writing again because Subpoena related to an account. Thanks in advance.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t209",
+    "text": "FYI SDK throws an exception. Also, wish the export was faster. Let me know what you need from me. Urgent — losing sales right now. No rush.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "feedback"
+   },
+   {
+    "id": "t18",
+    "text": "Quick one: Package hasn't arrived. I've been a customer for two years. No rush.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t97",
+    "text": "Writing again because Integration keeps failing. Also, duplicate charge on my card. This happened on my work laptop. Getting a bit frustrated with this.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "billing"
+   },
+   {
+    "id": "t83",
+    "text": "Quick one: Ordered two and want to return one. I already checked the help center. I am extremely angry about this.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t387",
+    "text": "Hey team, Change my mind, want my money back for the item. This happened on my work laptop. Second time I've had to write in.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t309",
+    "text": "Quick one: Do you offer a discount for annual plans. Thanks in advance.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t95",
+    "text": "Writing again because The onboarding was great. Just flagging.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t491",
+    "text": "Not sure who handles this but Want to send this back. This happened on my work laptop. I am extremely angry about this.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t373",
+    "text": "Hello there, Compare the plans for me. I've been a customer for two years. Just flagging.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t100",
+    "text": "Writing again because Update the name on the account. Let me know what you need from me. No rush.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t79",
+    "text": "Not sure who handles this but The search feature is confusing. I've been a customer for two years. Please help ASAP. Just flagging.",
+    "label": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t275",
+    "text": "Hi, Product doesn't match the listing. I've been a customer for two years. Urgent — losing sales right now. No rush.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t411",
+    "text": "FYI Ordered two and want to return one. I already checked the help center. Urgent — losing sales right now.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t182",
+    "text": "Hello there, Our counsel needs the terms of service. This happened on my work laptop. No rush.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t202",
+    "text": "Not sure who handles this but Carrier says it's lost. This happened on my work laptop.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t48",
+    "text": "Writing again because Invoice shows the wrong amount. No rush.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t463",
+    "text": "Hello there, Wish the export was faster. Order was placed last Tuesday. Just flagging.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t284",
+    "text": "Not sure who handles this but Delete my profile permanently. This is annoying, honestly.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t460",
+    "text": "FYI Update the name on the account. No rush.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t282",
+    "text": "Hello there, Package hasn't arrived. Also, need a copy of last month's invoice. I already checked the help center. Urgent — losing sales right now. Getting a bit frustrated with this.",
+    "label": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "billing"
+   },
+   {
+    "id": "t296",
+    "text": "Charged twice.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t311",
+    "text": "Quick one: Wish the export was faster. No rush.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t220",
+    "text": "Quick one: Two-factor code isn't working. Also, renewal fee I never approved. Thanks in advance. No rush.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "billing"
+   },
+   {
+    "id": "t261",
+    "text": "Not sure who handles this but Do you do non-profit pricing. This happened on my work laptop. No rush.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t380",
+    "text": "Delete my profile permanently. This is annoying, honestly.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t41",
+    "text": "Quick one: Webhook never fires. This happened on my work laptop. Just flagging.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t206",
+    "text": "Not sure who handles this but Subpoena related to an account. Let me know what you need from me.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t423",
+    "text": "Hey team, Wish the export was faster. I've been a customer for two years. Second time I've had to write in.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t366",
+    "text": "Hello there, Need a signed DPA.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t410",
+    "text": "Hello there, Estimated arrival date keeps slipping. Also, want to send this back. I already checked the help center. This is annoying, honestly.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "returns"
+   },
+   {
+    "id": "t136",
+    "text": "Quick one: Was billed after cancelling. This is blocking my launch today. This is annoying, honestly.",
+    "label": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t152",
+    "text": "Quick one: Invoice shows the wrong amount. This happened on my work laptop. This is annoying, honestly.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t113",
+    "text": "Hello there, API returns a 500 error. Let me know what you need from me.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t56",
+    "text": "Quick one: Duplicate charge on my card. This is annoying, honestly.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t172",
+    "text": "Hello there, Need to change the email on my profile. Also, delivery was marked complete but nothing came. Let me know what you need from me.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "shipping"
+   },
+   {
+    "id": "t174",
+    "text": "FYI Request to delete my data under GDPR. Also, the onboarding was great. Let me know what you need from me. Just flagging.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "feedback"
+   },
+   {
+    "id": "t297",
+    "text": "Quick one: Webhook never fires. Let me know what you need from me. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t476",
+    "text": "Two-factor code isn't working. I already checked the help center. No rush.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t371",
+    "text": "Hi, Defective on arrival, replace it. Also, subpoena related to an account. Thanks in advance. I need this fixed within the hour. Getting a bit frustrated with this.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "legal"
+   },
+   {
+    "id": "t292",
+    "text": "Writing again because Need to change the email on my profile. This is blocking my launch today.",
+    "label": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   }
+  ],
+  "val": [
+   {
+    "id": "t444",
+    "text": "FYI Locked out after too many attempts. This happened on my work laptop. No rush.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t189",
+    "text": "Not sure who handles this but What does the enterprise tier cost. Thanks in advance. Getting a bit frustrated with this.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t386",
+    "text": "Quick one: Estimated arrival date keeps slipping. This happened on my work laptop.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t298",
+    "text": "Tracking number shows no movement. I already checked the help center. I need this fixed within the hour. No rush.",
+    "label": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t342",
+    "text": "Quick one: Trademark use on your site. Order was placed last Tuesday. This is blocking my launch today. This is annoying, honestly.",
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t109",
+    "text": "Hello there, Do you offer a discount for annual plans. No rush.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t51",
+    "text": "FYI Ordered two and want to return one. Thanks in advance. Urgent — losing sales right now. Second time I've had to write in.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t39",
+    "text": "Hey team, The mobile app feels cluttered. I already checked the help center. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t14",
+    "text": "Quick one: Subpoena related to an account. Also, was billed after cancelling. I already checked the help center. No rush.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "billing"
+   },
+   {
+    "id": "t176",
+    "text": "Hello there, Invoice shows the wrong amount. Order was placed last Tuesday. This is blocking my launch today.",
+    "label": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t269",
+    "text": "Hey team, What does the enterprise tier cost. Absolutely ridiculous, I'm done being patient.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t420",
+    "text": "Quick one: Merge my two logins. Getting a bit frustrated with this.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t317",
+    "text": "Hello there, Which plan includes SSO. Order was placed last Tuesday.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t126",
+    "text": "Writing again because Do you have a SOC 2 report. Thanks in advance. No rush.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t204",
+    "text": "Merge my two logins. Let me know what you need from me. I need this fixed within the hour. No rush.",
+    "label": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t19",
+    "text": "Hey team, Item is damaged and I want an exchange. Also, trademark use on your site. I've been a customer for two years.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "legal"
+   },
+   {
+    "id": "t157",
+    "text": "Hi, Do you do non-profit pricing. This happened on my work laptop. Urgent — losing sales right now. Just flagging.",
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t114",
+    "text": "Hey team, Box arrived crushed. Thanks in advance. Just flagging.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t259",
+    "text": "Not sure who handles this but Defective on arrival, replace it. Also, data residency requirements for the EU. Just flagging.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "legal"
+   },
+   {
+    "id": "t313",
+    "text": "Getting a timeout on every request. This happened on my work laptop. I need this fixed within the hour. Just flagging.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t445",
+    "text": "Hello there, Compare the plans for me. Let me know what you need from me. This is annoying, honestly.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t222",
+    "text": "Request to delete my data under GDPR. Order was placed last Tuesday. Please help ASAP.",
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t225",
+    "text": "Quick one: Getting a timeout on every request. I already checked the help center.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t345",
+    "text": "Hey team, Getting a timeout on every request. I already checked the help center. Just flagging.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t301",
+    "text": "Hi, Do you offer a discount for annual plans. Thanks in advance.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t498",
+    "text": "Hey team, Carrier says it's lost. I've been a customer for two years. Getting a bit frustrated with this.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t7",
+    "text": "Hey team, Suggestion: add dark mode. This happened on my work laptop. Please help ASAP.",
+    "label": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t293",
+    "text": "What does the enterprise tier cost. I already checked the help center. Just flagging.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t447",
+    "text": "Hi, The onboarding was great. Also, which plan includes SSO. Let me know what you need from me. Getting a bit frustrated with this.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "sales"
+   },
+   {
+    "id": "t165",
+    "text": "FYI What does the enterprise tier cost. This happened on my work laptop. Just flagging.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t299",
+    "text": "Hey team, Defective on arrival, replace it. This happened on my work laptop. This is blocking my launch today. Absolutely ridiculous, I'm done being patient.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t173",
+    "text": "Hey team, Which plan includes SSO. I've been a customer for two years.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t76",
+    "text": "Not sure who handles this but Need to change the email on my profile. This happened on my work laptop. No rush.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t82",
+    "text": "FYI Carrier says it's lost. Second time I've had to write in.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t57",
+    "text": "Hello there, Getting a timeout on every request. I already checked the help center.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t171",
+    "text": "Hi, Change my mind, want my money back for the item. I've been a customer for two years.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t135",
+    "text": "Hi, Your support team was excellent. I've been a customer for two years. This is annoying, honestly.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t426",
+    "text": "Quick one: Courier left it at the wrong address. I already checked the help center. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t205",
+    "text": "FYI Is there a trial for the pro tier. Let me know what you need from me. Just flagging.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t150",
+    "text": "Hello there, Our counsel needs the terms of service. I already checked the help center. Urgent — losing sales right now. I am extremely angry about this.",
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t123",
+    "text": "Hey team, How do I get a return label. I've been a customer for two years. This is blocking my launch today. Second time I've had to write in.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t360",
+    "text": "Hi, Invoice shows the wrong amount. Thanks in advance. This is blocking my launch today. No rush.",
+    "label": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t334",
+    "text": "Writing again because Do you have a SOC 2 report. Also, package hasn't arrived. I already checked the help center. No rush.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "shipping"
+   },
+   {
+    "id": "t63",
+    "text": "Hi, The search feature is confusing. This happened on my work laptop. Absolutely ridiculous, I'm done being patient.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t377",
+    "text": "Hi, Integration keeps failing. Also, carrier says it's lost. Getting a bit frustrated with this.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "shipping"
+   },
+   {
+    "id": "t464",
+    "text": "Writing again because Duplicate charge on my card. Just flagging.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t239",
+    "text": "Hello there, Wish the export was faster. Order was placed last Tuesday. Just flagging.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t90",
+    "text": "Quick one: Delivery was marked complete but nothing came. Order was placed last Tuesday. Second time I've had to write in.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t417",
+    "text": "Writing again because Webhook never fires. Let me know what you need from me. No rush.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t195",
+    "text": "Not sure who handles this but Defective on arrival, replace it. I've been a customer for two years. Please help ASAP. This is annoying, honestly.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t453",
+    "text": "Hey team, Need a quote for 50 seats. I already checked the help center. This is blocking my launch today. Just flagging.",
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t252",
+    "text": "Locked out after too many attempts. This happened on my work laptop. I need this fixed within the hour. No rush.",
+    "label": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t61",
+    "text": "Is there a trial for the pro tier. I've been a customer for two years. I need this fixed within the hour. Just flagging.",
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t194",
+    "text": "Hi, Estimated arrival date keeps slipping. Order was placed last Tuesday. Absolutely ridiculous, I'm done being patient.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t370",
+    "text": "Tracking number shows no movement. I already checked the help center. This is annoying, honestly.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t349",
+    "text": "Hello there, Do you offer a discount for annual plans. Let me know what you need from me. This is blocking my launch today. This is annoying, honestly.",
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t144",
+    "text": "Not sure who handles this but Renewal fee I never approved. Also, tracking number shows no movement. Order was placed last Tuesday. I need this fixed within the hour. Just flagging.",
+    "label": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "shipping"
+   },
+   {
+    "id": "t396",
+    "text": "Not sure who handles this but Can't log in. I've been a customer for two years. This is blocking my launch today. Getting a bit frustrated with this.",
+    "label": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t466",
+    "text": "FYI Tracking number shows no movement. I already checked the help center. Second time I've had to write in.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t156",
+    "text": "Quick one: Two-factor code isn't working. Thanks in advance. No rush.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t65",
+    "text": "Writing again because Dashboard won't load in the browser. I already checked the help center. Just flagging.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t347",
+    "text": "Not sure who handles this but Received the wrong size. I've been a customer for two years. Urgent — losing sales right now. This is annoying, honestly.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t231",
+    "text": "FYI The search feature is confusing. Order was placed last Tuesday. Just flagging.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t307",
+    "text": "Hi, Ordered two and want to return one.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t279",
+    "text": "Not sure who handles this but Your support team was excellent. Also, request to delete my data under GDPR. I've been a customer for two years. No rush.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "legal"
+   },
+   {
+    "id": "t402",
+    "text": "Writing again because Delivery was marked complete but nothing came. Absolutely ridiculous, I'm done being patient.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t399",
+    "text": "Writing again because Please bring back the old editor. Thanks in advance. Please help ASAP.",
+    "label": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t236",
+    "text": "Hey team, Merge my two logins. Let me know what you need from me. Just flagging.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t479",
+    "text": "The mobile app feels cluttered. Also, do you do non-profit pricing. Let me know what you need from me. Just flagging.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "sales"
+   },
+   {
+    "id": "t388",
+    "text": "Hi, Reset link never arrives. This happened on my work laptop. This is blocking my launch today.",
+    "label": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t46",
+    "text": "Writing again because Request to delete my data under GDPR. Let me know what you need from me. No rush.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t148",
+    "text": "FYI Locked out after too many attempts. No rush.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t357",
+    "text": "Hi, Need a quote for 50 seats. Also, integration keeps failing.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "technical"
+   },
+   {
+    "id": "t179",
+    "text": "Hello there, Received the wrong size. Order was placed last Tuesday.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t480",
+    "text": "Hi, Duplicate charge on my card. Also, what does the enterprise tier cost. I already checked the help center. Urgent — losing sales right now. Second time I've had to write in.",
+    "label": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "sales"
+   },
+   {
+    "id": "t214",
+    "text": "FYI Our counsel needs the terms of service. This happened on my work laptop. Just flagging.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t365",
+    "text": "Not sure who handles this but Can we get a custom contract. I already checked the help center. This is annoying, honestly.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t208",
+    "text": "Quick one: Renewal fee I never approved. Let me know what you need from me. I need this fixed within the hour. This is annoying, honestly.",
+    "label": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t339",
+    "text": "Not sure who handles this but Ordered two and want to return one. I already checked the help center. Urgent — losing sales right now. Just flagging.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t435",
+    "text": "FYI Want to send this back. This happened on my work laptop. This is blocking my launch today. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t68",
+    "text": "FYI Can't log in.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t213",
+    "text": "Hey team, Which plan includes SSO. Also, merge my two logins. This happened on my work laptop. This is annoying, honestly.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "account"
+   },
+   {
+    "id": "t483",
+    "text": "Writing again because Item is damaged and I want an exchange. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t81",
+    "text": "Quick one: Integration keeps failing. Second time I've had to write in.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t28",
+    "text": "Need to change the email on my profile. Thanks in advance. Second time I've had to write in.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t149",
+    "text": "Hello there, Can we get a custom contract. Absolutely ridiculous, I'm done being patient.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t492",
+    "text": "Hey team, Need to change the email on my profile. Thanks in advance. Just flagging.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t188",
+    "text": "Can't log in. This happened on my work laptop. Absolutely ridiculous, I'm done being patient.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t362",
+    "text": "FYI Estimated arrival date keeps slipping. Thanks in advance. Absolutely ridiculous, I'm done being patient.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t217",
+    "text": "Hi, API returns a 500 error. Thanks in advance.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t185",
+    "text": "Hi, App crashes on launch. Thanks in advance. I need this fixed within the hour. Second time I've had to write in.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t227",
+    "text": "Hey team, Want to send this back. Please help ASAP. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t288",
+    "text": "Renewal fee I never approved. I've been a customer for two years. Second time I've had to write in.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t308",
+    "text": "Hey team, Delete my profile permanently. This happened on my work laptop.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t305",
+    "text": "Writing again because SDK throws an exception. Also, box arrived crushed. This happened on my work laptop. Just flagging.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "shipping"
+   },
+   {
+    "id": "t442",
+    "text": "Hi, Box arrived crushed. Also, locked out after too many attempts. Let me know what you need from me. Getting a bit frustrated with this.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "account"
+   },
+   {
+    "id": "t133",
+    "text": "Hello there, Is there a trial for the pro tier. I already checked the help center. Getting a bit frustrated with this.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t0",
+    "text": "Quick one: Duplicate charge on my card. Thanks in advance. No rush.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t378",
+    "text": "Quick one: Box arrived crushed. Order was placed last Tuesday.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t240",
+    "text": "Writing again because Invoice shows the wrong amount. Also, shipment stuck in customs. I've been a customer for two years. No rush.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "shipping"
+   },
+   {
+    "id": "t341",
+    "text": "FYI Need a quote for 50 seats. Let me know what you need from me. Just flagging.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t154",
+    "text": "Quick one: Carrier says it's lost.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t425",
+    "text": "Quick one: API returns a 500 error. This happened on my work laptop. This is annoying, honestly.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t473",
+    "text": "Hi, Getting a timeout on every request. Let me know what you need from me. Please help ASAP. Getting a bit frustrated with this.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t118",
+    "text": "Need a signed DPA. Please help ASAP. I am extremely angry about this.",
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t474",
+    "text": "Quick one: Package hasn't arrived. This happened on my work laptop. Just flagging.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t70",
+    "text": "Request to delete my data under GDPR. This happened on my work laptop.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t441",
+    "text": "Hi, Webhook never fires. Order was placed last Tuesday. Getting a bit frustrated with this.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t448",
+    "text": "Quick one: Invoice shows the wrong amount. This is annoying, honestly.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t415",
+    "text": "Suggestion: add dark mode. Order was placed last Tuesday. Second time I've had to write in.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t243",
+    "text": "Not sure who handles this but Product doesn't match the listing. This happened on my work laptop. Please help ASAP. Just flagging.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t191",
+    "text": "Not sure who handles this but The search feature is confusing. Also, merge my two logins. This happened on my work laptop.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "account"
+   },
+   {
+    "id": "t32",
+    "text": "Hi, Need a copy of last month's invoice. Also, sync stopped working after the update. I already checked the help center. Second time I've had to write in.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "technical"
+   },
+   {
+    "id": "t416",
+    "text": "Hello there, Receipt total doesn't match. Let me know what you need from me. Please help ASAP. Just flagging.",
+    "label": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t160",
+    "text": "Not sure who handles this but Receipt total doesn't match. Also, sync stopped working after the update. Order was placed last Tuesday. Just flagging.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "technical"
+   },
+   {
+    "id": "t404",
+    "text": "Not sure who handles this but Update the name on the account. Also, how do I get a return label. Order was placed last Tuesday.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "returns"
+   },
+   {
+    "id": "t42",
+    "text": "Not sure who handles this but Shipment stuck in customs. I've been a customer for two years. Please help ASAP. Getting a bit frustrated with this.",
+    "label": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t117",
+    "text": "Writing again because Compare the plans for me. Let me know what you need from me. This is annoying, honestly.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t384",
+    "text": "FYI Charged twice. Also, reset link never arrives. Order was placed last Tuesday. Second time I've had to write in.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "account"
+   },
+   {
+    "id": "t290",
+    "text": "Hey team, Courier left it at the wrong address. Also, defective on arrival, replace it. I've been a customer for two years. I need this fixed within the hour.",
+    "label": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "returns"
+   },
+   {
+    "id": "t94",
+    "text": "Hey team, Trademark use on your site. Let me know what you need from me.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t228",
+    "text": "FYI Delete my profile permanently. Getting a bit frustrated with this.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t89",
+    "text": "Hello there, Dashboard won't load in the browser. No rush.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t77",
+    "text": "Hey team, What does the enterprise tier cost. Let me know what you need from me. This is blocking my launch today. No rush.",
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t267",
+    "text": "Writing again because How do I get a return label. Thanks in advance. No rush.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t489",
+    "text": "Hello there, Sync stopped working after the update. Also, two-factor code isn't working. This happened on my work laptop. Absolutely ridiculous, I'm done being patient.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": true,
+    "secondary": "account"
+   },
+   {
+    "id": "t332",
+    "text": "Hi, Merge my two logins. I've been a customer for two years. I need this fixed within the hour.",
+    "label": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t247",
+    "text": "Hey team, The mobile app feels cluttered. Let me know what you need from me. This is blocking my launch today. This is annoying, honestly.",
+    "label": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t170",
+    "text": "Hi, Courier left it at the wrong address. Order was placed last Tuesday.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t245",
+    "text": "Hi, What does the enterprise tier cost. I already checked the help center. No rush.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t29",
+    "text": "Quick one: Do you do non-profit pricing. Thanks in advance. Just flagging.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t352",
+    "text": "FYI Was billed after cancelling. I need this fixed within the hour. Second time I've had to write in.",
+    "label": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t134",
+    "text": "Hey team, Data residency requirements for the EU. This happened on my work laptop. Second time I've had to write in.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t439",
+    "text": "Writing again because Please bring back the old editor. Also, compare the plans for me. Just flagging.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "sales"
+   },
+   {
+    "id": "t237",
+    "text": "Writing again because Compare the plans for me. No rush.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t197",
+    "text": "FYI Need a quote for 50 seats. I've been a customer for two years. Urgent — losing sales right now. Just flagging.",
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t351",
+    "text": "Quick one: The onboarding was great. I already checked the help center. I am extremely angry about this.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t124",
+    "text": "Locked out after too many attempts. I've been a customer for two years. This is blocking my launch today. Getting a bit frustrated with this.",
+    "label": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t280",
+    "text": "Hello there, Renewal fee I never approved. Just flagging.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t256",
+    "text": "Hey team, Need a copy of last month's invoice. This happened on my work laptop. No rush.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t457",
+    "text": "Hey team, API returns a 500 error. Thanks in advance. This is annoying, honestly.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t419",
+    "text": "Hi, Received the wrong size.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t55",
+    "text": "Hello there, Suggestion: add dark mode. Also, received the wrong size. No rush.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "returns"
+   },
+   {
+    "id": "t484",
+    "text": "Hey team, Delete my profile permanently. Thanks in advance. No rush.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t437",
+    "text": "Hi, Is there a trial for the pro tier. Also, reset link never arrives. This happened on my work laptop. Just flagging.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "account"
+   },
+   {
+    "id": "t93",
+    "text": "FYI What does the enterprise tier cost. This happened on my work laptop. Absolutely ridiculous, I'm done being patient.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t499",
+    "text": "Hello there, Received the wrong size. I already checked the help center. Urgent — losing sales right now. Just flagging.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t295",
+    "text": "Hi, Suggestion: add dark mode. This happened on my work laptop. I need this fixed within the hour. No rush.",
+    "label": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t16",
+    "text": "Charged twice. Thanks in advance. Just flagging.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t158",
+    "text": "Quick one: Subpoena related to an account. Also, need a copy of last month's invoice. This is annoying, honestly.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "billing"
+   }
+  ],
+  "test": [
+   {
+    "id": "t451",
+    "text": "Not sure who handles this but Received the wrong size. I've been a customer for two years. Just flagging.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t408",
+    "text": "Quick one: Duplicate charge on my card. Let me know what you need from me. Second time I've had to write in.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t289",
+    "text": "Hello there, Webhook never fires. Let me know what you need from me. Just flagging.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t47",
+    "text": "Hi, The onboarding was great. This is annoying, honestly.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t302",
+    "text": "Writing again because Need a signed DPA. Also, need a copy of last month's invoice. I already checked the help center. Getting a bit frustrated with this.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "billing"
+   },
+   {
+    "id": "t260",
+    "text": "FYI Reset link never arrives. Order was placed last Tuesday. Just flagging.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t343",
+    "text": "Hello there, Wish the export was faster. I've been a customer for two years. Just flagging.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t263",
+    "text": "Hi, The onboarding was great. Also, where is your privacy policy. Thanks in advance.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "legal"
+   },
+   {
+    "id": "t175",
+    "text": "Quick one: The mobile app feels cluttered. This happened on my work laptop. Getting a bit frustrated with this.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t390",
+    "text": "Not sure who handles this but Data residency requirements for the EU. Thanks in advance. Second time I've had to write in.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t180",
+    "text": "Writing again because Reset link never arrives. Also, trademark use on your site. This happened on my work laptop. This is blocking my launch today. Getting a bit frustrated with this.",
+    "label": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "legal"
+   },
+   {
+    "id": "t467",
+    "text": "Hi, How do I get a return label. Also, can we get a custom contract. Just flagging.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "sales"
+   },
+   {
+    "id": "t277",
+    "text": "Not sure who handles this but Do you offer a discount for annual plans. This happened on my work laptop. This is blocking my launch today. Getting a bit frustrated with this.",
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t200",
+    "text": "Hey team, Need a copy of last month's invoice. I've been a customer for two years. Getting a bit frustrated with this.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t35",
+    "text": "Quick one: How do I get a return label. This happened on my work laptop. No rush.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t291",
+    "text": "Product doesn't match the listing. Also, do you do non-profit pricing. Order was placed last Tuesday. Please help ASAP.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "sales"
+   },
+   {
+    "id": "t187",
+    "text": "Quick one: Change my mind, want my money back for the item. Also, package hasn't arrived. This happened on my work laptop. Urgent — losing sales right now. No rush.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "shipping"
+   },
+   {
+    "id": "t485",
+    "text": "Not sure who handles this but What does the enterprise tier cost. Order was placed last Tuesday. I need this fixed within the hour.",
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t242",
+    "text": "FYI Box arrived crushed. Also, need a copy of last month's invoice. This happened on my work laptop. Second time I've had to write in.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "billing"
+   },
+   {
+    "id": "t458",
+    "text": "FYI Delivery was marked complete but nothing came. Order was placed last Tuesday. Urgent — losing sales right now. Absolutely ridiculous, I'm done being patient.",
+    "label": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t17",
+    "text": "Hey team, Webhook never fires. I've been a customer for two years. No rush.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t44",
+    "text": "Writing again because Reset link never arrives. Also, package hasn't arrived. Let me know what you need from me.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "shipping"
+   },
+   {
+    "id": "t459",
+    "text": "FYI Want to send this back. This happened on my work laptop. Just flagging.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t223",
+    "text": "Hi, Your support team was excellent. Also, was billed after cancelling. Let me know what you need from me. Getting a bit frustrated with this.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "billing"
+   },
+   {
+    "id": "t418",
+    "text": "Not sure who handles this but Box arrived crushed. This happened on my work laptop. Just flagging.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t306",
+    "text": "Quick one: Courier left it at the wrong address. This happened on my work laptop. Getting a bit frustrated with this.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t374",
+    "text": "Quick one: Trademark use on your site. Also, SDK throws an exception. I've been a customer for two years. This is blocking my launch today. No rush.",
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "technical"
+   },
+   {
+    "id": "t74",
+    "text": "Hi, Courier left it at the wrong address. Also, suggestion: add dark mode. I already checked the help center. Just flagging.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "feedback"
+   },
+   {
+    "id": "t78",
+    "text": "Not sure who handles this but Where is your privacy policy. This happened on my work laptop. This is annoying, honestly.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t107",
+    "text": "Product doesn't match the listing. Thanks in advance.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t454",
+    "text": "Hello there, Our counsel needs the terms of service. No rush.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t75",
+    "text": "Hi, Change my mind, want my money back for the item. Getting a bit frustrated with this.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t320",
+    "text": "Quick one: Credit card declined but still charged. Thanks in advance. This is blocking my launch today. Just flagging.",
+    "label": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t101",
+    "text": "Hey team, Do you do non-profit pricing. Second time I've had to write in.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t72",
+    "text": "Hey team, Renewal fee I never approved. Just flagging.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t45",
+    "text": "Quick one: Do you offer a discount for annual plans. This happened on my work laptop. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t326",
+    "text": "Quick one: Do you have a SOC 2 report. I already checked the help center. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t138",
+    "text": "Not sure who handles this but Tracking number shows no movement. I already checked the help center. Please help ASAP. Just flagging.",
+    "label": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t443",
+    "text": "Not sure who handles this but How do I get a return label. I already checked the help center. Just flagging.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t250",
+    "text": "Shipment stuck in customs. This happened on my work laptop. Urgent — losing sales right now. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "shipping",
+     "urgent": true,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t470",
+    "text": "Writing again because Where is your privacy policy. Also, item is damaged and I want an exchange. This happened on my work laptop. This is blocking my launch today. No rush.",
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "returns"
+   },
+   {
+    "id": "t397",
+    "text": "Do you offer a discount for annual plans. I've been a customer for two years. This is annoying, honestly.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t60",
+    "text": "Hi, Delete my profile permanently. I've been a customer for two years. I need this fixed within the hour.",
+    "label": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t234",
+    "text": "Not sure who handles this but Carrier says it's lost. Also, data residency requirements for the EU. I've been a customer for two years.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "legal"
+   },
+   {
+    "id": "t318",
+    "text": "Writing again because Where is your privacy policy. Thanks in advance.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t427",
+    "text": "Hey team, Change my mind, want my money back for the item. Thanks in advance. Urgent — losing sales right now.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t37",
+    "text": "FYI Do you offer a discount for annual plans. Thanks in advance. Please help ASAP. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t229",
+    "text": "Is there a trial for the pro tier. Please help ASAP. No rush.",
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t477",
+    "text": "FYI Need a quote for 50 seats. I already checked the help center. I am extremely angry about this.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t2",
+    "text": "Hi, Tracking number shows no movement. This happened on my work laptop. Getting a bit frustrated with this.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t193",
+    "text": "Not sure who handles this but Integration keeps failing. Let me know what you need from me. I need this fixed within the hour.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t249",
+    "text": "Hey team, Sync stopped working after the update. Let me know what you need from me. This is annoying, honestly.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t167",
+    "text": "Quick one: Please bring back the old editor. Let me know what you need from me. Just flagging.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t192",
+    "text": "Hi, Was billed after cancelling. Also, the onboarding was great. Let me know what you need from me. I need this fixed within the hour. Just flagging.",
+    "label": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "feedback"
+   },
+   {
+    "id": "t145",
+    "text": "Hello there, Integration keeps failing. Order was placed last Tuesday.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t92",
+    "text": "Update the name on the account. This happened on my work laptop. This is annoying, honestly.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t482",
+    "text": "Not sure who handles this but Tracking number shows no movement. Also, received the wrong size. Let me know what you need from me. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": true,
+    "secondary": "returns"
+   },
+   {
+    "id": "t251",
+    "text": "Hey team, Item is damaged and I want an exchange. Let me know what you need from me.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t40",
+    "text": "Hey team, Duplicate charge on my card. Let me know what you need from me. Getting a bit frustrated with this.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t400",
+    "text": "FYI Charged twice. I've been a customer for two years. This is annoying, honestly.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t218",
+    "text": "FYI Box arrived crushed. This happened on my work laptop. Getting a bit frustrated with this.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t409",
+    "text": "Hey team, Webhook never fires. Also, was billed after cancelling. Order was placed last Tuesday. Urgent — losing sales right now. No rush.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "billing"
+   },
+   {
+    "id": "t327",
+    "text": "FYI Love the new layout. This happened on my work laptop. I am extremely angry about this.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t493",
+    "text": "Hey team, Do you offer a discount for annual plans. This happened on my work laptop. Getting a bit frustrated with this.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t64",
+    "text": "Writing again because Receipt total doesn't match. Thanks in advance. This is annoying, honestly.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t67",
+    "text": "Quick one: Received the wrong size. Also, the mobile app feels cluttered. I've been a customer for two years. Just flagging.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "feedback"
+   },
+   {
+    "id": "t50",
+    "text": "Hi, Carrier says it's lost. I already checked the help center. No rush.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t128",
+    "text": "Not sure who handles this but Credit card declined but still charged. I've been a customer for two years. No rush.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t315",
+    "text": "How do I get a return label. Thanks in advance. No rush.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t21",
+    "text": "Writing again because Do you offer a discount for annual plans. Order was placed last Tuesday. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t356",
+    "text": "Writing again because Two-factor code isn't working. Also, package hasn't arrived.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "shipping"
+   },
+   {
+    "id": "t496",
+    "text": "Renewal fee I never approved. Also, need a signed DPA. Thanks in advance. Just flagging.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "legal"
+   },
+   {
+    "id": "t115",
+    "text": "Hello there, Defective on arrival, replace it. This happened on my work laptop.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t406",
+    "text": "Not sure who handles this but Our counsel needs the terms of service. Let me know what you need from me. This is blocking my launch today. No rush.",
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t278",
+    "text": "Not sure who handles this but Data residency requirements for the EU. Let me know what you need from me. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t108",
+    "text": "Not sure who handles this but Reset link never arrives. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t215",
+    "text": "Hi, Suggestion: add dark mode. Let me know what you need from me. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t350",
+    "text": "Hello there, Data residency requirements for the EU. I need this fixed within the hour. No rush.",
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t361",
+    "text": "Quick one: API returns a 500 error. Thanks in advance. This is blocking my launch today. This is annoying, honestly.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t355",
+    "text": "FYI Product doesn't match the listing. I already checked the help center. This is annoying, honestly.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t392",
+    "text": "Hello there, Credit card declined but still charged. Also, webhook never fires. Let me know what you need from me. Just flagging.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "technical"
+   },
+   {
+    "id": "t13",
+    "text": "Not sure who handles this but Which plan includes SSO. Thanks in advance. Second time I've had to write in.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t151",
+    "text": "Not sure who handles this but Suggestion: add dark mode. Order was placed last Tuesday.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t161",
+    "text": "Not sure who handles this but App crashes on launch. Order was placed last Tuesday.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t155",
+    "text": "Defective on arrival, replace it. I've been a customer for two years. This is blocking my launch today. No rush.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t159",
+    "text": "Quick one: Love the new layout. Also, renewal fee I never approved. I've been a customer for two years. This is blocking my launch today.",
+    "label": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "billing"
+   },
+   {
+    "id": "t393",
+    "text": "Hello there, Dashboard won't load in the browser. This is blocking my launch today. Just flagging.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t478",
+    "text": "Writing again because Our counsel needs the terms of service. Urgent — losing sales right now. Second time I've had to write in.",
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t25",
+    "text": "Quick one: Webhook never fires. Order was placed last Tuesday. Getting a bit frustrated with this.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t43",
+    "text": "Quick one: Ordered two and want to return one. Thanks in advance. This is blocking my launch today. Second time I've had to write in.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t424",
+    "text": "Not sure who handles this but Need a copy of last month's invoice. Let me know what you need from me. Please help ASAP.",
+    "label": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t391",
+    "text": "Hey team, Wish the export was faster. I need this fixed within the hour. Just flagging.",
+    "label": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t359",
+    "text": "Hey team, Wish the export was faster. Also, where is your privacy policy. I am extremely angry about this.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": true,
+    "secondary": "legal"
+   },
+   {
+    "id": "t22",
+    "text": "Hi, Trademark use on your site. Also, ordered two and want to return one. Thanks in advance. This is annoying, honestly.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "returns"
+   },
+   {
+    "id": "t430",
+    "text": "Request to delete my data under GDPR. No rush.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t407",
+    "text": "Hello there, Love the new layout. Order was placed last Tuesday. This is annoying, honestly.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t336",
+    "text": "Hello there, Was billed after cancelling. I've been a customer for two years. Just flagging.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t381",
+    "text": "Not sure who handles this but Can we get a custom contract. This happened on my work laptop. Please help ASAP. No rush.",
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t139",
+    "text": "Writing again because How do I get a return label. Let me know what you need from me. This is blocking my launch today. Second time I've had to write in.",
+    "label": {
+     "department": "returns",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t449",
+    "text": "Writing again because SDK throws an exception. Also, defective on arrival, replace it. I already checked the help center. This is annoying, honestly.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "returns"
+   },
+   {
+    "id": "t413",
+    "text": "FYI Is there a trial for the pro tier. Order was placed last Tuesday. Absolutely ridiculous, I'm done being patient.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t105",
+    "text": "Hello there, Sync stopped working after the update. Also, is there a trial for the pro tier. I already checked the help center. This is blocking my launch today. No rush.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "sales"
+   },
+   {
+    "id": "t338",
+    "text": "FYI Courier left it at the wrong address. I've been a customer for two years. Second time I've had to write in.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t80",
+    "text": "Hey team, Need a copy of last month's invoice.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t329",
+    "text": "Integration keeps failing. Thanks in advance. Urgent — losing sales right now. This is annoying, honestly.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t367",
+    "text": "Writing again because Suggestion: add dark mode. Also, trademark use on your site. Order was placed last Tuesday. No rush.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "legal"
+   },
+   {
+    "id": "t324",
+    "text": "Writing again because Locked out after too many attempts. Also, do you have a SOC 2 report. Thanks in advance. Second time I've had to write in.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "legal"
+   },
+   {
+    "id": "t6",
+    "text": "Not sure who handles this but Do you have a SOC 2 report. I've been a customer for two years.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t99",
+    "text": "Hello there, Product doesn't match the listing. Getting a bit frustrated with this.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t33",
+    "text": "Hello there, Webhook never fires. I need this fixed within the hour. No rush.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t258",
+    "text": "Hey team, Courier left it at the wrong address. I already checked the help center. No rush.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t119",
+    "text": "Hello there, The search feature is confusing. Thanks in advance. Second time I've had to write in.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t468",
+    "text": "Reset link never arrives. Second time I've had to write in.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t471",
+    "text": "Hi, Wish the export was faster. I already checked the help center.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t11",
+    "text": "Not sure who handles this but Ordered two and want to return one. Also, box arrived crushed. Let me know what you need from me. Second time I've had to write in.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "shipping"
+   },
+   {
+    "id": "t86",
+    "text": "FYI Where is your privacy policy. Also, is there a trial for the pro tier. Getting a bit frustrated with this.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "sales"
+   },
+   {
+    "id": "t358",
+    "text": "Writing again because Our counsel needs the terms of service. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t264",
+    "text": "Quick one: Duplicate charge on my card. Let me know what you need from me. Just flagging.",
+    "label": {
+     "department": "billing",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t36",
+    "text": "Hello there, Locked out after too many attempts. I already checked the help center. This is annoying, honestly.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t450",
+    "text": "Writing again because Package hasn't arrived. Getting a bit frustrated with this.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t364",
+    "text": "FYI Reset link never arrives. Order was placed last Tuesday.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t91",
+    "text": "Hey team, Defective on arrival, replace it. This happened on my work laptop. No rush.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t456",
+    "text": "Writing again because Was billed after cancelling. Also, which plan includes SSO. Thanks in advance. This is blocking my launch today. This is annoying, honestly.",
+    "label": {
+     "department": "billing",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": true,
+    "secondary": "sales"
+   },
+   {
+    "id": "t190",
+    "text": "Not sure who handles this but Need a signed DPA. No rush.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t316",
+    "text": "Hey team, Reset link never arrives. Urgent — losing sales right now. No rush.",
+    "label": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t422",
+    "text": "Hi, Request to delete my data under GDPR. Order was placed last Tuesday. This is blocking my launch today. Just flagging.",
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t257",
+    "text": "Hello there, Sync stopped working after the update. Second time I've had to write in.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t314",
+    "text": "Hello there, Shipment stuck in customs. This is unacceptable and I'm furious.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 2
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t54",
+    "text": "Quick one: Need a signed DPA. This happened on my work laptop. Urgent — losing sales right now.",
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t475",
+    "text": "Quick one: Item is damaged and I want an exchange. I've been a customer for two years.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t49",
+    "text": "Hi, SDK throws an exception. Order was placed last Tuesday. Just flagging.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t372",
+    "text": "Hey team, Reset link never arrives. Thanks in advance. Second time I've had to write in.",
+    "label": {
+     "department": "account",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t110",
+    "text": "Do you have a SOC 2 report. Let me know what you need from me. Getting a bit frustrated with this.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t84",
+    "text": "Two-factor code isn't working. This is blocking my launch today. Second time I've had to write in.",
+    "label": {
+     "department": "account",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t254",
+    "text": "FYI Trademark use on your site. I need this fixed within the hour. Second time I've had to write in.",
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t369",
+    "text": "Hello there, SDK throws an exception.",
+    "label": {
+     "department": "technical",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t221",
+    "text": "Not sure who handles this but Can we get a custom contract. This happened on my work laptop. Second time I've had to write in.",
+    "label": {
+     "department": "sales",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t246",
+    "text": "Hi, Trademark use on your site. Thanks in advance. Please help ASAP.",
+    "label": {
+     "department": "legal",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t330",
+    "text": "Hi, Courier left it at the wrong address. Let me know what you need from me. This is annoying, honestly.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t59",
+    "text": "FYI Received the wrong size. I already checked the help center. This is annoying, honestly.",
+    "label": {
+     "department": "returns",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t5",
+    "text": "Hey team, Which plan includes SSO. Also, invoice shows the wrong amount. I already checked the help center. This is blocking my launch today. No rush.",
+    "label": {
+     "department": "sales",
+     "urgent": true,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "billing"
+   },
+   {
+    "id": "t375",
+    "text": "Not sure who handles this but Your support team was excellent. I already checked the help center. No rush.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t38",
+    "text": "Hi, Do you have a SOC 2 report. Also, how do I get a return label. Thanks in advance. No rush.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": true,
+    "secondary": "returns"
+   },
+   {
+    "id": "t10",
+    "text": "FYI Tracking number shows no movement. This is annoying, honestly.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t199",
+    "text": "Hey team, The onboarding was great. No rush.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t71",
+    "text": "Hi, The onboarding was great. Order was placed last Tuesday. This is blocking my launch today. Getting a bit frustrated with this.",
+    "label": {
+     "department": "feedback",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t335",
+    "text": "Hi, The search feature is confusing. Thanks in advance. Just flagging.",
+    "label": {
+     "department": "feedback",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t26",
+    "text": "Hey team, Estimated arrival date keeps slipping. Just flagging.",
+    "label": {
+     "department": "shipping",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t286",
+    "text": "Where is your privacy policy. I already checked the help center. Just flagging.",
+    "label": {
+     "department": "legal",
+     "urgent": false,
+     "frustration": 0
+    },
+    "ambiguous": false,
+    "secondary": null
+   },
+   {
+    "id": "t177",
+    "text": "Hey team, Getting a timeout on every request. Order was placed last Tuesday. Please help ASAP. Second time I've had to write in.",
+    "label": {
+     "department": "technical",
+     "urgent": true,
+     "frustration": 1
+    },
+    "ambiguous": false,
+    "secondary": null
+   }
+  ]
+ },
+ "gen0_questions": {
+  "department": {
+   "type": "choice",
+   "instructions": "Which team should own this message",
+   "criteria": {
+    "billing": "Funds already collected from, or due to, the customer",
+    "technical": "Something in the software is broken or misbehaving",
+    "shipping": "Physical parcels that have not yet reached the customer",
+    "returns": "Goods the customer already holds and wants to hand over or swap",
+    "account": "Access to, or identity details of, the customer's own sign-in",
+    "sales": "Questions about purchasing, tiers or what things are priced at",
+    "legal": "Contracts, compliance, regulation or formal requests",
+    "feedback": "Opinions about the experience, with no defect to fix and no purchase to make"
+   }
+  },
+  "urgent": {
+   "type": "noul",
+   "instructions": "The sender needs a response very soon"
+  },
+  "frustration": {
+   "type": "score",
+   "instructions": "How upset the sender sounds",
+   "criteria": [
+    "Neutral or calm",
+    "Irritated but polite",
+    "Openly angry"
+   ]
+  }
+ }
+}

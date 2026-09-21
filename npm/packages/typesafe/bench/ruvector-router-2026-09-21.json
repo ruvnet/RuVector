@@ -1,0 +1,366 @@
+{
+ "system": "ruvector 0.2.25 (+ @ruvector/router 0.1.28)",
+ "dataset": {
+  "synthetic": true,
+  "seed": 20260921,
+  "docs": 5000,
+  "queries": 500,
+  "topics": 12,
+  "val_queries": 250,
+  "test_queries": 250,
+  "k": 10
+ },
+ "embedding": {
+  "model": "Xenova/all-MiniLM-L6-v2 (transformers.js, quantized)",
+  "dims": 384,
+  "texts": 5500,
+  "model_load_ms": 71.837174,
+  "embed_total_ms": 8337.180411,
+  "docs_per_s": 659.6954520431573,
+  "per_doc_ms_mean": 1.5158509838181817,
+  "batch": 32,
+  "batch_ms_p50": 48.357718,
+  "batch_ms_p95": 68.933918,
+  "finding": "ruvector's own `embed` fails in this install: 'ONNX WASM files not bundled' — embeddings for BOTH tracks come from transformers.js with the same MiniLM-L6-v2 model, so ruvector's numbers cover index + query only"
+ },
+ "exact_truth": {
+  "method": "brute-force cosine over all 5,000 docs per query",
+  "brute_force_ms": 1123.150452,
+  "per_query_ms": 2.2463009040000004
+ },
+ "protocol": {
+  "generations": 8,
+  "fitness": "recall@10 − 0.02 · p95_ms",
+  "search_space": {
+   "m": [
+    4,
+    8,
+    12,
+    16,
+    24,
+    32
+   ],
+   "efConstruction": [
+    50,
+    100,
+    200,
+    400
+   ],
+   "efSearch": [
+    8,
+    16,
+    32,
+    64,
+    100,
+    200,
+    400
+   ]
+  },
+  "baseline": {
+   "m": 16,
+   "efConstruction": 200,
+   "efSearch": 100
+  },
+  "promotion_rule": "child promoted only if fitness strictly exceeds champion; val/test query splits frozen"
+ },
+ "router": {
+  "baseline_test": {
+   "impl": "@ruvector/router VectorDb (sync)",
+   "cfg": {
+    "m": 16,
+    "efConstruction": 200,
+    "efSearch": 100
+   },
+   "build_ms": 1104.550503,
+   "inserts_per_s": 4526.728281250894,
+   "queries": 250,
+   "recall_at_10": 0.031999999999999966,
+   "latency_ms": {
+    "p50": 0.04854,
+    "p95": 0.06634,
+    "mean": 0.053610432
+   },
+   "qps_sequential": 18653.086026242057,
+   "score_semantics": "cosine distance (self = 0, lower is better)"
+  },
+  "defect_evidence": {
+   "finding": "@ruvector/router 0.1.28 VectorDb returns neighbours only from the most recently inserted region of the graph (ids d47xx–d49xx) regardless of the query; self-query works, kNN does not. Identical vectors in the native ruvector VectorDb score recall@10 = 1.0.",
+   "self_query_d0_top5": [
+    {
+     "id": "d0",
+     "distance": -1.1920928955078125e-7
+    },
+    {
+     "id": "d4944",
+     "distance": 0.21979796886444092
+    },
+    {
+     "id": "d4644",
+     "distance": 0.2510806918144226
+    },
+    {
+     "id": "d4752",
+     "distance": 0.2568739056587219
+    },
+    {
+     "id": "d24",
+     "distance": 0.3095092177391052
+    }
+   ],
+   "query_q0_returned": [
+    {
+     "id": "d4834",
+     "distance": 0.22096019983291626,
+     "exact_cosine": 0.7790395572185905
+    },
+    {
+     "id": "d4978",
+     "distance": 0.3002827763557434,
+     "exact_cosine": 0.6997172313630036
+    },
+    {
+     "id": "d4858",
+     "distance": 0.49343252182006836,
+     "exact_cosine": 0.5065673446055774
+    },
+    {
+     "id": "d4774",
+     "distance": 0.5106021165847778,
+     "exact_cosine": 0.4893977038828247
+    },
+    {
+     "id": "d4870",
+     "distance": 0.6057296395301819,
+     "exact_cosine": 0.3942702708456398
+    }
+   ],
+   "query_q0_exact_top5": [
+    {
+     "id": "d3226",
+     "exact_cosine": 0.8077150417920508
+    },
+    {
+     "id": "d3874",
+     "exact_cosine": 0.798128595159338
+    },
+    {
+     "id": "d4306",
+     "exact_cosine": 0.7954632239959002
+    },
+    {
+     "id": "d4834",
+     "exact_cosine": 0.7790395572185905
+    },
+    {
+     "id": "d790",
+     "exact_cosine": 0.7735432523765804
+    }
+   ],
+   "recall_at_10_on_test_queries": 0.031999999999999966
+  },
+  "optimized": false
+ },
+ "native": {
+  "baseline_test": {
+   "impl": "ruvector VectorDb native (async)",
+   "cfg": {
+    "m": 16,
+    "efConstruction": 200,
+    "efSearch": 100
+   },
+   "build_ms": 32.164297,
+   "inserts_per_s": 155451.86639707998,
+   "queries": 250,
+   "recall_at_10": 1,
+   "latency_ms": {
+    "p50": 5.84925,
+    "p95": 6.879739,
+    "mean": 5.989482208
+   },
+   "qps_sequential": 166.9593406028196,
+   "qps_pipelined_64": 654.6981884430418,
+   "payload_note": "each result carries its full 384-d vector; no include-vector flag in the typed API, so that payload is inside the measured latency"
+  },
+  "champion": {
+   "gen": 2,
+   "cfg": {
+    "m": 24,
+    "efConstruction": 400,
+    "efSearch": 100
+   },
+   "test": {
+    "impl": "ruvector VectorDb native (async)",
+    "cfg": {
+     "m": 24,
+     "efConstruction": 400,
+     "efSearch": 100
+    },
+    "build_ms": 39.481804,
+    "inserts_per_s": 126640.61652299375,
+    "queries": 250,
+    "recall_at_10": 1,
+    "latency_ms": {
+     "p50": 5.556741,
+     "p95": 6.17309,
+     "mean": 5.618717596000001
+    },
+    "qps_sequential": 177.97655477682417,
+    "qps_pipelined_64": 568.7861275884661,
+    "payload_note": "each result carries its full 384-d vector; no include-vector flag in the typed API, so that payload is inside the measured latency"
+   }
+  },
+  "loop": [
+   {
+    "gen": 0,
+    "parent": null,
+    "mutation": "library defaults",
+    "cfg": {
+     "m": 16,
+     "efConstruction": 200,
+     "efSearch": 100
+    },
+    "val_recall": 1,
+    "val_p95_ms": 6.343189,
+    "fitness": 0.87313622,
+    "promoted": true
+   },
+   {
+    "gen": 1,
+    "parent": 0,
+    "mutation": "gen 1: m 16 → 24",
+    "cfg": {
+     "m": 24,
+     "efConstruction": 200,
+     "efSearch": 100
+    },
+    "val_recall": 1,
+    "val_p95_ms": 6.30285,
+    "fitness": 0.873943,
+    "parent_fitness": 0.87313622,
+    "delta": 0.0008067800000000069,
+    "promoted": true
+   },
+   {
+    "gen": 2,
+    "parent": 1,
+    "mutation": "gen 2: efConstruction 200 → 400",
+    "cfg": {
+     "m": 24,
+     "efConstruction": 400,
+     "efSearch": 100
+    },
+    "val_recall": 1,
+    "val_p95_ms": 6.07261,
+    "fitness": 0.8785478,
+    "parent_fitness": 0.873943,
+    "delta": 0.0046047999999999645,
+    "promoted": true
+   },
+   {
+    "gen": 3,
+    "parent": 2,
+    "mutation": "gen 3: efSearch 100 → 200",
+    "cfg": {
+     "m": 24,
+     "efConstruction": 400,
+     "efSearch": 200
+    },
+    "val_recall": 1,
+    "val_p95_ms": 6.27365,
+    "fitness": 0.874527,
+    "parent_fitness": 0.8785478,
+    "delta": -0.0040207999999999355,
+    "promoted": false
+   },
+   {
+    "gen": 4,
+    "parent": 2,
+    "mutation": "gen 4: m 24 → 16",
+    "cfg": {
+     "m": 16,
+     "efConstruction": 400,
+     "efSearch": 100
+    },
+    "val_recall": 1,
+    "val_p95_ms": 6.287779,
+    "fitness": 0.87424442,
+    "parent_fitness": 0.8785478,
+    "delta": -0.004303379999999968,
+    "promoted": false
+   },
+   {
+    "gen": 5,
+    "parent": 2,
+    "mutation": "gen 5: efConstruction 400 → 200",
+    "cfg": {
+     "m": 24,
+     "efConstruction": 200,
+     "efSearch": 100
+    },
+    "val_recall": 1,
+    "val_p95_ms": 6.212889,
+    "fitness": 0.87574222,
+    "parent_fitness": 0.8785478,
+    "delta": -0.002805579999999974,
+    "promoted": false
+   },
+   {
+    "gen": 6,
+    "parent": 2,
+    "mutation": "gen 6: efSearch 100 → 64",
+    "cfg": {
+     "m": 24,
+     "efConstruction": 400,
+     "efSearch": 64
+    },
+    "val_recall": 1,
+    "val_p95_ms": 6.55879,
+    "fitness": 0.8688241999999999,
+    "parent_fitness": 0.8785478,
+    "delta": -0.009723600000000054,
+    "promoted": false
+   },
+   {
+    "gen": 7,
+    "parent": 2,
+    "mutation": "gen 7: m 24 → 32",
+    "cfg": {
+     "m": 32,
+     "efConstruction": 400,
+     "efSearch": 100
+    },
+    "val_recall": 1,
+    "val_p95_ms": 6.10334,
+    "fitness": 0.8779332,
+    "parent_fitness": 0.8785478,
+    "delta": -0.0006146000000000207,
+    "promoted": false
+   },
+   {
+    "gen": 8,
+    "parent": 2,
+    "mutation": "at edge of search space",
+    "promoted": false
+   }
+  ]
+ },
+ "vendor_reference": {
+  "command": "npx ruvector benchmark -d 384 -n 5000 -q 500",
+  "inserts_per_s": 62500,
+  "qps": 38462,
+  "avg_latency_ms": 0.03,
+  "caveat": "vendor-reported, synthetic random vectors, no recall measured, different code path — not on the same axis as the measured numbers",
+  "raw_tail": [
+   "✔ Completed 500 searches in 13ms",
+   "  Rate: 38462 queries/sec",
+   "  Avg Latency: 0.03ms",
+   "",
+   "Final Stats:",
+   "  Vector Count: 5000",
+   "  Dimension: 384",
+   "  Implementation: native"
+  ]
+ },
+ "wall_s": 21.098,
+ "generated_at": "2026-09-21T13:40:32.773Z"
+}
