@@ -148,6 +148,7 @@ members = [
     "crates/ruvllm-cli",
     "crates/ruvllm-wasm",
     "crates/prime-radiant",
+    "crates/ruvector-cohomology",
     "crates/ruvector-delta-core",
     "crates/ruvector-delta-wasm",
     "crates/ruvector-delta-index",
