@@ -37,7 +37,7 @@ fn load_fixtures(n: usize) -> Vec<String> {
         .collect()
 }
 
-/// Median ms per embed over `texts`, in chunks of `batch`. Cache is warmed by
+/// Mean ms per embed over `texts`, in chunks of `batch`. Cache is warmed by
 /// the caller first, so this measures inference, not model/plan build.
 fn time_ms_per_embed(emb: &dyn Embedder, texts: &[String], batch: usize) -> f64 {
     let refs: Vec<&str> = texts.iter().map(String::as_str).collect();

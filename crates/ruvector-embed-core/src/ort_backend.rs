@@ -42,25 +42,24 @@ impl OrtEmbedder {
     /// typed error and nothing is loaded (fail closed, ADR-005).
     pub fn from_manifest(dir: impl AsRef<Path>, manifest: &ModelManifest) -> Result<Self> {
         let dir = dir.as_ref();
-
-        let model_path = dir.join(&manifest.file);
-        let model_bytes = read_file(&model_path)?;
-        manifest.verify_model(&model_bytes)?;
-
-        let tok_path = dir.join(&manifest.tokenizer_file);
-        let tok_bytes = read_file(&tok_path)?;
-        manifest.verify_tokenizer(&tok_bytes)?;
-
+        let model_bytes = read_file(&dir.join(&manifest.file))?;
+        let tok_bytes = read_file(&dir.join(&manifest.tokenizer_file))?;
+        // Verification happens in `from_bytes` — one pass, one gate.
         Self::from_bytes(&model_bytes, &tok_bytes, manifest)
     }
 
-    /// Load from already-read + already-verified bytes. `from_manifest` calls
-    /// this after verification; exposed for tests that build synthetic inputs.
+    /// Load from in-memory bytes. Both are SHA-256 verified against the manifest
+    /// before anything is parsed; a mismatch is a typed error and nothing is
+    /// loaded (fail closed, ADR-005). This is the single verification gate for
+    /// the native path, mirroring `TractEmbedder::from_bytes`.
     pub fn from_bytes(
         model_bytes: &[u8],
         tok_bytes: &[u8],
         manifest: &ModelManifest,
     ) -> Result<Self> {
+        manifest.verify_model(model_bytes)?;
+        manifest.verify_tokenizer(tok_bytes)?;
+
         let session = Session::builder()
             .map_err(|e| EmbedError::Backend(e.to_string()))?
             .with_optimization_level(GraphOptimizationLevel::Level3)
@@ -260,5 +259,31 @@ mod tests {
         let data = vec![1.0, 0.0, 0.0];
         let err = pool_outputs(&data, &[1, 3], 1, 1, &[vec![1i64]], Pooling::Cls, 384).unwrap_err();
         assert!(matches!(err, EmbedError::Shape(_)));
+    }
+
+    #[test]
+    fn from_bytes_fails_closed_on_hash_mismatch_without_a_model() {
+        // The hash gate runs before any ONNX parse, so a mismatch is caught
+        // with bogus bytes and no model file present.
+        let m = crate::manifest::ModelManifest {
+            name: "bge-small-en-v1.5".into(),
+            file: "model.onnx".into(),
+            sha256: crate::manifest::sha256_hex(b"the real weights"),
+            dims: 384,
+            license: "MIT".into(),
+            source_url: String::new(),
+            added: String::new(),
+            review_by: String::new(),
+            pooling: Pooling::Cls,
+            tokenizer_file: "tokenizer.json".into(),
+            tokenizer_sha256: None,
+            max_tokens: 256,
+        };
+        // OrtEmbedder is not Debug, so match instead of unwrap_err().
+        match OrtEmbedder::from_bytes(b"tampered", b"tok", &m) {
+            Err(EmbedError::HashMismatch { .. }) => {}
+            Err(other) => panic!("expected HashMismatch, got {other:?}"),
+            Ok(_) => panic!("expected HashMismatch, model loaded"),
+        }
     }
 }

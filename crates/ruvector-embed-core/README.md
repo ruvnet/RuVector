@@ -66,11 +66,28 @@ Single-thread CPU, 100 fixture texts from `bench/fixtures/tickets-corpus.json`,
 ms per embed (cache warmed first, so timing is inference not model build). Full
 numbers in [`bench/embedder-spike-2026-09-21.json`](../../npm/packages/typesafe/bench/embedder-spike-2026-09-21.json).
 
-<!-- SPIKE-TABLE -->
+ms per embed (lower is better), one thread, x86_64 (2026-09-21):
 
-**INT8 on `tract` 0.23:** <!-- INT8-RESULT -->
+| Model | Prec | ort b1 | ort b32 | tract b1 | tract b32 |
+|---|---|---|---|---|---|
+| bge-small-en-v1.5 | FP32 | 6.49 | 5.81 | 6.06 | 7.76 |
+| bge-small-en-v1.5 | INT8 | 2.42 | 2.59 | *load fails* | — |
+| all-MiniLM-L6-v2 | FP32 | 14.00 | 14.20 | 14.83 | 15.10 |
+| all-MiniLM-L6-v2 | INT8 | 6.36 | 7.45 | *load fails* | — |
 
-**Parity:** <!-- PARITY-RESULT -->
+ort INT8 is ~2.2–2.7× faster than FP32, matching the ADR-002 expectation. `tract`
+runs rows one at a time, so its "b32" is not a throughput win; the FP32 numbers
+track ort closely. Plan caches are warmed before timing, so the numbers are
+inference, not model build.
+
+**INT8 on `tract` 0.23: still fails — INT8 is native-only.** Both quantized
+graphs fail at `into_optimized()` with
+`Failed analyse for node "/Unsqueeze" AddDims` — the *same* failure ADR-194 §5
+recorded on tract 0.21. The 0.23 bump does not fix it. WASM therefore ships
+**FP32**; INT8 is available only through the native `ort` backend (ADR-002 §3).
+
+**Parity (ADR-002 §7): pass.** Min cosine(ort, tract) over 50 FP32 texts is
+0.999999 for bge-small and 0.999999 for MiniLM, both ≥ 0.9999.
 
 Run it:
 

@@ -28,44 +28,60 @@ fn cosine(a: &[f32], b: &[f32]) -> f32 {
     a.iter().zip(b).map(|(x, y)| x * y).sum()
 }
 
-const PROBE: &[&str] = &[
-    "the invoice was paid late and flagged for review",
-    "a faint comet tail before the galaxy cluster changed",
-    "swap the worn gravel tire before the climbing section",
-    "the sourdough starter was whisked twice this morning",
-    "mortgage rates moved after the central bank statement",
-    "the medication dosage was adjusted by the attending",
-    "refactor the parser to avoid the quadratic backtrack",
-    "the flight was rebooked through a different hub",
-    "the statute of limitations had not yet expired",
-    "insulation reduced the building's winter heat loss",
-];
+/// First 50 distinct fixture texts from the ticket corpus (same source the
+/// spike uses), so the CI gate is 50 real texts, not repeats.
+fn fixtures_50() -> Vec<String> {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../npm/packages/typesafe/bench/fixtures/tickets-corpus.json");
+    let v: serde_json::Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    v["docs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|d| d["text"].as_str().map(str::to_string))
+        .take(50)
+        .collect()
+}
 
-#[test]
-#[ignore = "requires model files"]
-fn ort_tract_parity_bge_fp32() {
+fn parity_for(model_name: &str) {
     if skip_if_missing() {
         return;
     }
     let mf = manifest();
-    let m = mf.get("bge-small-en-v1.5").unwrap();
+    let m = mf.get(model_name).unwrap();
 
     let ort = OrtEmbedder::from_manifest(models_dir(), m).expect("ort load");
     let model_bytes = std::fs::read(models_dir().join(&m.file)).unwrap();
     let tok_bytes = std::fs::read(models_dir().join(&m.tokenizer_file)).unwrap();
     let tract = TractEmbedder::from_bytes(&model_bytes, &tok_bytes, m).expect("tract load");
 
-    // 5x the probe set = 50 texts.
-    let texts: Vec<&str> = PROBE.iter().cloned().cycle().take(50).collect();
-    let ov = ort.embed(&texts).expect("ort embed");
-    let tv = tract.embed(&texts).expect("tract embed");
+    let texts = fixtures_50();
+    let refs: Vec<&str> = texts.iter().map(String::as_str).collect();
+    let ov = ort.embed(&refs).expect("ort embed");
+    let tv = tract.embed(&refs).expect("tract embed");
     assert_eq!(ov.len(), tv.len());
+    assert_eq!(ov.len(), 50);
 
     let mut min_cos = f32::INFINITY;
     for (a, b) in ov.iter().zip(&tv) {
         min_cos = min_cos.min(cosine(a, b));
     }
-    assert!(min_cos >= 0.9999, "min cosine {min_cos} < 0.9999");
+    assert!(
+        min_cos >= 0.9999,
+        "{model_name}: min cosine {min_cos} < 0.9999"
+    );
+}
+
+#[test]
+#[ignore = "requires model files"]
+fn ort_tract_parity_bge_fp32() {
+    parity_for("bge-small-en-v1.5");
+}
+
+#[test]
+#[ignore = "requires model files"]
+fn ort_tract_parity_minilm_fp32() {
+    parity_for("all-MiniLM-L6-v2");
 }
 
 #[test]
