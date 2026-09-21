@@ -10078,6 +10078,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-kge"
+version = "2.3.0"
+dependencies = [
+ "ruvector-router-core",
+ "ruvector-typesafe-core",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "ruvector-kge-ffi"
+version = "2.3.0"
+dependencies = [
+ "napi",
+ "napi-build",
+ "napi-derive",
+ "ruvector-kge",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ruvector-kge-wasm"
+version = "2.3.0"
+dependencies = [
+ "js-sys",
+ "ruvector-kge",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "ruvector-learning-wasm"
 version = "0.1.0"
 dependencies = [

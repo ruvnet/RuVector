@@ -1,0 +1,21 @@
+[package]
+name = "ruvector-kge-ffi"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "NAPI-RS bindings for ruvector-kge (@ruvector/kge native binary)"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+ruvector-kge = { version = "2.0", path = "../ruvector-kge" }
+napi = { workspace = true }
+napi-derive = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[build-dependencies]
+napi-build = "2.1"
