@@ -111,10 +111,25 @@ jobs:
         run: |
           rm -f npm/packages/typesafe/*.node npm/packages/typesafe/native/*.node || true
 
+      # napi-rs emits its OWN index.js / index.d.ts into the output directory and
+      # will happily overwrite this package's hand-written platform loader with
+      # one that exports the bindings but no `backend` — which is exactly how
+      # every native leg failed: "binary loads OK" then "selected: undefined".
+      # --no-js suppresses the JS file; the d.ts is written to a scratch name and
+      # both tracked files are restored afterwards, so the build cannot clobber
+      # them whatever the CLI version decides to generate.
       - name: Build native module (default features — hash embedder only, no ONNX)
         working-directory: npm/packages/typesafe
+        shell: bash
         run: |
-          npx napi build --platform --release --cargo-cwd ../../../crates/ruvector-typesafe-ffi --target ${{ matrix.settings.target }}
+          set -euo pipefail
+          npx napi build --platform --release \
+            --cargo-cwd ../../../crates/ruvector-typesafe-ffi \
+            --target ${{ matrix.settings.target }} \
+            --no-js --dts napi-generated.d.ts
+          rm -f napi-generated.d.ts
+          git checkout -- index.js index.d.ts
+          node -e "const s=require('fs').readFileSync('index.js','utf8'); if(!/backend/.test(s)){console.error('index.js is not the hand-written loader after build');process.exit(1)}; console.log('loader intact after napi build')"
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
