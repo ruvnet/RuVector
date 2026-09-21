@@ -105,7 +105,7 @@ jobs:
         with:
           node-version: '20'
       - name: Install deps
-        run: npm install --no-audit --no-fund
+        run: npm install --no-audit --no-fund --no-workspaces --legacy-peer-deps
       - name: Type-check
         run: npx tsc
       - name: Verify frozen-fixture hashes (no rewrite)
@@ -131,7 +131,7 @@ jobs:
           node-version: '20'
       - name: Install deps
         working-directory: npm/packages/typesafe
-        run: npm install --no-audit --no-fund
+        run: npm install --no-audit --no-fund --no-workspaces --legacy-peer-deps
       # Build the native binding so the local arm is real once the core lands.
       # If the build fails, the harness still reports "engine unavailable" and
       # --report-only keeps the exit code 0 (gates are informational in CI).
