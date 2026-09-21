@@ -12,11 +12,13 @@ pub mod campaign;
 pub mod continual;
 pub mod proposals;
 pub mod receipt;
+pub mod trainer_eval;
 
 pub use campaign::{Campaign, CampaignReport, CampaignSpec, ProposalDecision};
 pub use continual::ContinualUpdate;
 pub use proposals::{HalvingResult, HpoGrid, KgeArm, Knobs, Loss, Optimizer, Proposal};
 pub use receipt::{KgeReceipt, KgeReceiptExtra, KgeReceiptLog};
+pub use trainer_eval::TrainerEvaluator;
 
 /// Scores one model on the frozen **test** split → `(accuracy_or_mrr, n)`.
 /// Called at most twice per campaign (baseline, champion) and only after a
@@ -29,9 +31,12 @@ pub type TestScoreFn = Box<dyn Fn() -> (f32, u32)>;
 /// closure.
 pub struct ArmOutcome {
     /// Per validation item, paired with the incumbent:
-    /// `(incumbent_correct, candidate_correct)`. "Correct" = the true entity
-    /// ranked within the Hits@k cutoff on the frozen validation split. Fed
-    /// straight into typesafe's `PairedSequentialTest`.
+    /// `(incumbent_correct, candidate_correct)`, fed straight into typesafe's
+    /// `PairedSequentialTest`. A stub may read "correct" as a Hits@k hit; the
+    /// real [`TrainerEvaluator`] instead encodes a per-query *rank improvement*
+    /// (candidate ranks the true entity above the incumbent), so its receipt
+    /// val accuracies are McNemar win-fractions, not Hits@k — see
+    /// [`trainer_eval`](crate::optimize::trainer_eval) for the exact mapping.
     pub val_paired: Vec<(bool, bool)>,
     /// Candidate filtered MRR on validation — the reward signal (ADR-004's
     /// cost-aware `MRR − λ·cost`).

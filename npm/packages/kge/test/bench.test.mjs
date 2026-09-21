@@ -217,6 +217,18 @@ test('run.mjs reports "engine unavailable" without crashing when the Model error
 // gate evaluator: latency gate activates from the spike, tie-break, SKIP logic
 // ---------------------------------------------------------------------------
 
+test('dataset link-prediction gate applies only without --limit', () => {
+  const gates = loadGates();
+  const bag = { mrr_test: 0.5 };
+  // full graph, on-suite → the gate evaluates (0.5 ≥ 0.318 PASS)
+  const full = evaluateGates(bag, { suite: 'fb15k237', engineAvailable: true }, gates).rows.find((r) => r.name === 'link_prediction_fb15k237');
+  assert.equal(full.status, 'PASS');
+  // subgraph slice → SKIP with the informational reason
+  const sliced = evaluateGates(bag, { suite: 'fb15k237', engineAvailable: true, limit: 2000 }, gates).rows.find((r) => r.name === 'link_prediction_fb15k237');
+  assert.equal(sliced.status, 'SKIP');
+  assert.match(sliced.detail, /subgraph slice \(--limit 2000\): informational, not comparable/);
+});
+
 test('latency gate: PASS under native threshold, FAIL over it, SKIP off-backend', () => {
   const gates = loadGates(); // the committed spike file exists, so the gate is live
   const base = { suite: 'synthetic', engineAvailable: true, hasAnn: true };

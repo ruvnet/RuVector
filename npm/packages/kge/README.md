@@ -29,13 +29,19 @@ arXiv:1902.10197), the one family member that represents relation
 - **No platform packages yet.** The first release ships the WASM fallback and
   builds the native addon locally; the five `optionalDependencies` platform
   packages are added in a later bump PR (ADR-001 §5).
-- **`predict`, `similarRelations`, `compose`, `train`, `eval` and `buildIndex`
-  all work today.** `predict` is exhaustive until you `buildIndex`, then
-  ANN-accelerated. Before `train`, the tables are the deterministic seed init,
-  so scores are structurally valid but not yet meaningful.
-- **`optimize` returns `{"error":{"kind":"unavailable"}}`** — the core
-  self-optimization `Campaign` needs an `Evaluator` the binding does not provide
-  yet (ADR-004).
+- **`predict`, `similarRelations`, `compose`, `train`, `eval`, `buildIndex` and
+  `optimize` all work today.** `predict` is exhaustive until you `buildIndex`,
+  then ANN-accelerated. Before `train`, the tables are the deterministic seed
+  init, so scores are structurally valid but not yet meaningful.
+- **`optimize` runs the ADR-004 self-optimization campaign.** It fits each HPO
+  and model arm on the frozen `train` split, gates it against the incumbent with
+  the paired anytime-valid test (a candidate wins a validation query when it
+  ranks the true entity above the incumbent), enforces the transfer-holdout
+  non-regression check, then installs the best promoted arm's exact trained
+  tables. It reports baseline-vs-champion validation, transfer and test MRR (the
+  test split scored exactly twice), the per-proposal decisions, and the
+  hash-chained receipt log. No numbers are invented — every MRR is measured on
+  the model's own splits.
 - **Composition is RotatE-only**; asking a HolE model to `compose` returns
   `{"error":{"kind":"unsupported"}}`.
 - **The ANN index and trained weights: growth-safe, index transient.** Adding
@@ -133,9 +139,16 @@ r.report.combined.mrr;
   split. With no tags, a `split` is a **derived** 80/10/10 partition, a smoke
   check only. `predict({..., useIndex:false})` forces exhaustive scoring even
   when an index exists (exact per-candidate scores).
-- `optimize(campaign)` / `kge optimize` — the self-optimization loop (ADR-004),
-  **not yet wired**: the core `Campaign` needs an `Evaluator` the binding does
-  not provide yet, so it returns `unavailable`.
+- `optimize(spec)` / `kge optimize --budget N [--receipts r.jsonl] [--out m.json]`
+  — the self-optimization loop (ADR-004). `spec` is all-optional
+  (`{budget, alpha, seed, splitRatios, transferTolerance, lambdaCost, grid}`);
+  the budget is capped at 64. It uses the model's **frozen per-triple split tags**
+  when present. With **untagged** triples it falls back to `split4`, whose
+  transfer holdout is a whole set of relations — with only a handful of relations
+  that transfer MRR is measured on never-trained relations and is noisy, so tag
+  your splits for a meaningful campaign. `optimize` installs the champion's
+  trained tables into the model (so `save()` afterwards persists the tuned
+  model) and returns an `OptimizeReport`.
 
 ## Security promises (ADR-005)
 

@@ -140,7 +140,33 @@ class Model {
     });
   }
   buildIndexJson() { return JSON.stringify({ built: true }); }
-  optimizeJson() { return JSON.stringify({ ok: true }); }
+  toJson() {
+    // A minimal envelope so client.save() works with the fake (the CLI writes it).
+    return JSON.stringify({ sha256: 'fake', model: { entities: this.entities.size, triples: this.nTriples } });
+  }
+  optimizeJson(json) {
+    // A plausible report shape (the fake does not run a real campaign) so the
+    // TS client and CLI can exercise the --receipts / --out paths without the
+    // native build.
+    const spec = JSON.parse(json || '{}');
+    const dims = this.cfg.dims ?? 256;
+    const scorer = this.cfg.scorer ?? 'hole';
+    const champion = {
+      dims, lr: 0.1, optimizer: 'adam', loss: 'cross-entropy',
+      neg_count: 100, temperature: 1.0, n3_lambda: 0.0, epochs: 20, scorer,
+    };
+    const receipts = JSON.stringify({ receipt: { seq: 0, decision: { decision: 'promote' } }, kge: { fake: true } });
+    return JSON.stringify({
+      champion, championId: 1, promoted: true, installed: true, paused: false,
+      budgetConsumed: Math.min(spec.budget ?? 16, 64), splitSource: 'per-triple',
+      proposalCount: 1,
+      proposals: [{ id: 1, parent: 0, arm: 'hpo', decision: { decision: 'promote' } }],
+      val: { baselineMrr: 0.20, championMrr: 0.50 },
+      transfer: { baselineMrr: 0.30, championMrr: 0.31 },
+      test: { baselineMrr: 0.25, championMrr: 0.45 },
+      scorer, dims, receiptsCount: 1, receipts,
+    });
+  }
   statsJson() { return JSON.stringify({ backend: 'fake', entities: this.entities.size, relations: this.relations.size, triples: this.nTriples }); }
 }
 

@@ -75,6 +75,94 @@ export interface Stats {
   splits: SplitCounts;
 }
 
+/** One training configuration (the HPO knobs), as an `optimize` report carries it. */
+export interface Knobs {
+  dims: number;
+  lr: number;
+  optimizer: 'adam' | 'adagrad';
+  loss: 'cross-entropy' | 'bce' | 'margin';
+  neg_count: number;
+  temperature: number;
+  n3_lambda: number;
+  epochs: number;
+  scorer: ScorerKind;
+}
+
+/** Optional HPO grid override for `optimize` (the axes are cartesian-producted). */
+export interface OptimizeGrid {
+  dims: number[];
+  lrs: number[];
+  losses: ('cross-entropy' | 'bce' | 'margin')[];
+  n3_lambdas: number[];
+}
+
+/** Options for a self-optimization campaign (ADR-004); every field is optional. */
+export interface OptimizeSpec {
+  /** Per-campaign gated-evaluation budget (capped at 64). Default 16. */
+  budget?: number;
+  /** Anytime paired-test type-I bound, in `(0, 1)`. Default 0.05. */
+  alpha?: number;
+  /** Seed for the split/train/eval RNGs; defaults to the model's seed. */
+  seed?: number;
+  /** `[train, valid, transfer, test]` ratios, used only when triples are untagged. */
+  splitRatios?: [number, number, number, number];
+  /** Transfer-split non-regression tolerance. Default 0.05. */
+  transferTolerance?: number;
+  /** Cost weight in the bandit reward `MRR − λ·cost`. Default 0.1. */
+  lambdaCost?: number;
+  /** Override the HPO grid; the default is the model's dims at two learning rates. */
+  grid?: OptimizeGrid;
+}
+
+/** A baseline-vs-champion MRR pair on one split. */
+export interface MrrPair {
+  baselineMrr: number;
+  championMrr: number;
+}
+
+/** One proposal's gate decision (mirrors the Rust receipt's tagged enum). */
+export type GateDecision =
+  | { decision: 'promote' }
+  | { decision: 'reject'; reason: string }
+  | { decision: 'paused'; reason: string };
+
+/** One proposal row in an `optimize` report. */
+export interface OptimizeProposal {
+  id: number;
+  parent: number | null;
+  arm: 'hpo' | 'model-arm' | 'continual';
+  decision: GateDecision;
+}
+
+/** Result of a self-optimization campaign (`optimize`). */
+export interface OptimizeReport {
+  /** The promoted (or, if nothing promoted, the retained baseline) knobs. */
+  champion: Knobs;
+  championId: number;
+  /** True when a proposal beat the baseline and was promoted. */
+  promoted: boolean;
+  /** True when the champion's trained tables were written into the model. */
+  installed: boolean;
+  /** True when the daily budget was exhausted mid-campaign. */
+  paused: boolean;
+  budgetConsumed: number;
+  /** `per-triple` when frozen split tags were used, else `split4`. */
+  splitSource: 'per-triple' | 'split4';
+  proposalCount: number;
+  proposals: OptimizeProposal[];
+  /** Filtered validation MRR, baseline vs champion (the reward signal). */
+  val: MrrPair;
+  /** Filtered transfer MRR, baseline vs champion (the non-regression check). */
+  transfer: MrrPair;
+  /** Filtered test MRR, scored exactly twice (baseline, champion). */
+  test: MrrPair;
+  scorer: ScorerKind;
+  dims: number;
+  receiptsCount: number;
+  /** The hash-chained receipt log, one JSON object per line (JSONL). */
+  receipts: string;
+}
+
 /** The closed set of request-error kinds. */
 export type KgeErrorKind =
   | 'limit'

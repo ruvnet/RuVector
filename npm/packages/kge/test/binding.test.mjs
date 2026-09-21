@@ -1,8 +1,6 @@
 // Binding smoke tests — run against both backends (node --test).
-// Wired methods (predict / similarRelations / compose) assert real payloads;
-// the not-yet-landed methods (train / eval / optimize / buildIndex) accept the
-// documented `unavailable` error JSON and tighten automatically when the core
-// modules land.
+// Every method is wired: predict / similarRelations / compose / train / eval /
+// buildIndex / optimize all assert real payloads.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -95,9 +93,46 @@ function runContract(mod, expectedBackend) {
   assert.equal(JSON.parse(model.predictJson('{"s":"Ada","r":"bornIn","k":0}')).error.kind, 'limit', 'k=0 -> limit');
   assert.equal(JSON.parse(model.predictJson('{"s":"Ada","r":"bornIn","k":2000}')).error.kind, 'limit', 'k>1000 -> limit');
 
-  // optimize is the one still-stubbed method.
-  assert.equal(JSON.parse(model.optimizeJson('{}')).error.kind, 'unavailable', 'optimize -> unavailable');
+  // optimize is wired: with only 3 untagged triples it cannot form a valid/test
+  // split, so it returns a request error — but never the old 'unavailable'.
+  const optTiny = JSON.parse(model.optimizeJson('{}'));
+  assert.notEqual(optTiny.error?.kind, 'unavailable', 'optimize is wired (not unavailable)');
 }
+
+// A ring KG with frozen split tags, big enough that optimize can fit and gate a
+// campaign and install a champion (the trained tables change the saved bytes).
+function ringTriples(n) {
+  const t = [];
+  for (let i = 0; i < n; i++) {
+    const a = `e${i}`;
+    const b = `e${(i + 1) % n}`;
+    const split = i % 5 === 0 ? 'valid' : i % 7 === 0 ? 'test' : i % 11 === 0 ? 'transfer' : 'train';
+    t.push({ s: a, r: 'ring', o: b, split });
+    t.push({ s: b, r: 'ring', o: a, split: 'train' }); // symmetric; keep in train for coverage
+  }
+  return t;
+}
+
+function runOptimizeCampaign(mod) {
+  const model = new mod.Model('{"scorer":"hole","dims":8,"seed":1}');
+  model.addTriplesJson(JSON.stringify(ringTriples(40)));
+  const before = model.toJson();
+
+  const report = JSON.parse(model.optimizeJson('{"budget":6,"seed":1}'));
+  assert.ok(!report.error, `optimize returned a report, not an error: ${JSON.stringify(report.error)}`);
+  assert.ok(Array.isArray(report.proposals) && report.proposals.length >= 1, 'at least one proposal gated');
+  assert.equal(typeof report.championId, 'number', 'report carries a champion id');
+  assert.equal(report.splitSource, 'per-triple', 'frozen tags drove the split');
+  assert.equal(typeof report.test.championMrr, 'number', 'test MRR reported');
+  // The receipt log is non-empty JSONL, one object per line.
+  assert.ok(report.receiptsCount >= report.proposals.length, 'a receipt per proposal (plus champion)');
+  assert.ok(report.receipts.split('\n').filter((l) => l.trim()).length === report.receiptsCount, 'receipts JSONL line count matches');
+
+  // The champion's trained tables were installed → the saved model changed.
+  assert.equal(report.installed, true, 'champion tables installed');
+  assert.notEqual(model.toJson(), before, 'installing the champion changed the saved model');
+}
+
 
 // train, the growth guarantee, and the ANN index — wired end to end.
 function runPipeline(mod) {
@@ -167,6 +202,14 @@ test('pipeline: train / growth / ANN index (native)', { skip: !nativeBuilt && 'n
 
 test('pipeline: train / growth / ANN index (wasm)', { skip: !wasmBuilt && 'wasm not built' }, () => {
   runPipeline(loadBackend('wasm'));
+});
+
+test('optimize: campaign gates arms and installs a champion (native)', { skip: !nativeBuilt && 'native not built' }, () => {
+  runOptimizeCampaign(loadBackend(undefined));
+});
+
+test('optimize: campaign gates arms and installs a champion (wasm)', { skip: !wasmBuilt && 'wasm not built' }, () => {
+  runOptimizeCampaign(loadBackend('wasm'));
 });
 
 // Frozen per-triple splits are honoured verbatim; useIndex forces exhaustion.

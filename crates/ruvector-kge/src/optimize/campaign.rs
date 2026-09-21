@@ -92,6 +92,15 @@ pub struct CampaignReport {
     /// Test-split metrics, scored exactly twice (baseline, champion).
     pub baseline_test: Metrics,
     pub champion_test: Metrics,
+    /// Filtered combined **validation** MRR of the baseline and the champion —
+    /// the reward signal behind the gate, reported so a caller can show the
+    /// tuning win without re-deriving it from the paired win-fractions.
+    pub baseline_val_mrr: f32,
+    pub champion_val_mrr: f32,
+    /// Filtered combined **transfer** MRR of the baseline and the champion (the
+    /// non-regression check's two numbers).
+    pub baseline_transfer_mrr: f32,
+    pub champion_transfer_mrr: f32,
     /// The dual hash-chained receipt log as JSONL (verifiable with
     /// [`KgeReceiptLog`]).
     pub receipts_jsonl: String,
@@ -366,6 +375,10 @@ impl Campaign {
             paused,
             baseline_test,
             champion_test,
+            baseline_val_mrr: baseline_out.val_mrr,
+            champion_val_mrr: champ_out.val_mrr,
+            baseline_transfer_mrr: baseline_out.transfer_candidate,
+            champion_transfer_mrr: champ_out.transfer_candidate,
             receipts_jsonl: log.to_jsonl(),
         }
     }

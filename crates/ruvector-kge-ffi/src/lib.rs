@@ -12,6 +12,7 @@
 
 mod model;
 mod ops;
+mod optimize;
 mod pipeline;
 
 use model::KgeModel;

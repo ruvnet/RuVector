@@ -37,10 +37,10 @@ eval:    --model <path> [--split test]
 predict: --model <path> (--s <label> | --o <label>) --r <label> [-k 10]
 compose: --model <path> --r1 <label> --r2 <label> --s <label> [-k 10]
 similar: --model <path> --r <label> [-k 10]
-optimize:--model <path> [--campaign <path.json>]
+optimize:--model <path> --budget <n> [--campaign <path.json>] [--receipts <path.jsonl>] [--out <path>]
 serve:   --model <path> [--port 8788] [--host 127.0.0.1]
 
-The engine makes no network requests and spawns no processes. import / train /
-eval / predict / compose / similar and the ANN index all work; only optimize
-reports {"error":{"kind":"unavailable"}} for now.
+The engine makes no network requests and spawns no processes. Every command —
+import / train / eval / predict / compose / similar / optimize and the ANN
+index — runs locally end to end.
 `;
