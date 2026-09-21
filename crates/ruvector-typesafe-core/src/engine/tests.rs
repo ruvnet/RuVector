@@ -455,7 +455,10 @@ impl Embedder for ProdLike {
 }
 
 fn many_examples() -> Vec<LabeledExample> {
-    // 120 examples so the every-5th calibration slice clears the 20-example floor.
+    // 120 examples so the every-5th calibration slice clears the 20-example
+    // floor. Texts must be UNIQUE: the bank is append-only and dedupes by
+    // content, so a repeated `(question,label,text)` never adds a second row.
+    // The trailing `number {i}` keeps every example distinct.
     let weather = ["rain", "storm", "sunny", "cloud", "snow", "wind"];
     let sports = ["goal", "match", "court", "score", "tackle", "serve"];
     let mut ex = Vec::new();
@@ -463,11 +466,11 @@ fn many_examples() -> Vec<LabeledExample> {
         let w = weather[i % weather.len()];
         let s = sports[i % sports.len()];
         ex.push(LabeledExample {
-            text: format!("{w} weather forecast today"),
+            text: format!("{w} weather forecast today number {i}"),
             label: "weather".into(),
         });
         ex.push(LabeledExample {
-            text: format!("{s} sports match play"),
+            text: format!("{s} sports match play number {i}"),
             label: "sports".into(),
         });
     }
@@ -496,4 +499,51 @@ fn calibration_runs_for_a_non_test_double_embedder() {
     assert!(!base_meta.calibrated, "test double must stay uncalibrated");
     // Temperature never changes the argmax.
     assert_eq!(prod_choice, base_choice);
+}
+
+#[test]
+fn bank_backed_train_keeps_splits_frozen_across_two_calls() {
+    // Training the same examples in one call vs two calls (same order) must
+    // yield the identical decision: the bank appends in insertion order and the
+    // Train/Calibration carve is positional over that order, so a call boundary
+    // does not move any example between splits.
+    let all = build_probe_training();
+    let (first, second) = all.split_at(all.len() / 2);
+
+    let mut one = Engine::new(HashEmbedder::new(DIMS));
+    one.train("q", &all).unwrap();
+
+    let mut two = Engine::new(HashEmbedder::new(DIMS));
+    two.train("q", first).unwrap();
+    let report2 = two.train("q", second).unwrap();
+    // The second call's provisional head matches the whole-bank state.
+    assert_eq!(report2.head, Head::LinearProbe);
+
+    let req = two_topic_request("storm rain and football goal");
+    let r_one = serde_json::to_string(&one.decide(&req).unwrap()).unwrap();
+    let r_two = serde_json::to_string(&two.decide(&req).unwrap()).unwrap();
+    assert_eq!(
+        r_one, r_two,
+        "split assignment must be call-boundary independent"
+    );
+
+    // Both banks hold every (deduplicated) example.
+    assert_eq!(one.bank_summary().total, all.len());
+    assert_eq!(two.bank_summary().total, all.len());
+}
+
+#[test]
+fn export_import_bank_round_trips_the_decision() {
+    let mut src = Engine::new(HashEmbedder::new(DIMS));
+    src.train("q", &build_probe_training()).unwrap();
+    let json = src.export_bank().unwrap();
+
+    let mut dst = Engine::new(HashEmbedder::new(DIMS));
+    dst.import_bank(&json).unwrap();
+
+    let req = two_topic_request("storm rain and football goal");
+    let a = serde_json::to_string(&src.decide(&req).unwrap()).unwrap();
+    let b = serde_json::to_string(&dst.decide(&req).unwrap()).unwrap();
+    assert_eq!(a, b, "an imported bank reproduces the exporter's decision");
+    assert_eq!(dst.bank_summary().total, src.bank_summary().total);
 }

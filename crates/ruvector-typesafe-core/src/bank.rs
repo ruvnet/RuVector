@@ -253,6 +253,47 @@ impl Bank {
         Admission::Accepted(id)
     }
 
+    /// Admit one example into an explicit `split`, bypassing ratio assignment.
+    /// Used by a campaign, whose validation/transfer/test membership is fixed by
+    /// the caller's frozen fixture (so the champion's "test" is exactly the
+    /// fixture's test ids), not re-derived from the content hash. Dedup and the
+    /// noisy-label filter still apply.
+    pub fn admit_into(
+        &mut self,
+        question: &str,
+        text: &str,
+        label: &str,
+        tier: TrustTier,
+        split: Split,
+    ) -> Admission {
+        let id = ExampleId(content_id(question, label, text));
+        if self.ids.contains(&id.0) {
+            return Admission::Duplicate(id);
+        }
+        let candidate = Example {
+            id,
+            question: question.to_string(),
+            text_hash: text_hash(text),
+            text_len: text.len() as u32,
+            label: label.to_string(),
+            split,
+            tier,
+            added_seq: self.next_seq,
+        };
+        if let Some(filter) = &self.noisy_label_filter {
+            if !filter(&candidate, text) {
+                return Admission::Quarantined("noisy-label filter disagreed".into());
+            }
+        }
+        self.ids.insert(id.0);
+        self.next_seq += 1;
+        self.entries.push(Entry {
+            example: candidate,
+            text: text.to_string(),
+        });
+        Admission::Accepted(id)
+    }
+
     /// Instance-ID disjointness of two splits (the idea from
     /// `sona::darwin_guard::assert_train_eval_disjoint`, reused not copied).
     /// `Ok(())` when disjoint; `Err(overlap)` names any id in both — which

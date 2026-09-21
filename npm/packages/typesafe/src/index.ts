@@ -51,6 +51,22 @@ export type {
   EngineOptions,
 } from './binding';
 
+export type {
+  ArmResult,
+  CampaignReport,
+  CampaignRow,
+  CampaignSpec,
+  EngineTuning,
+  GateDecision,
+  Metrics as CampaignMetrics,
+  PromotionCriterion,
+  Receipt,
+  ReceiptLog,
+  Split,
+  TestStatistic,
+  TrustTier,
+} from './optimize';
+
 export {
   accuracy,
   brier,

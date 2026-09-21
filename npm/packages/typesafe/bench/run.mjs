@@ -59,6 +59,7 @@ export function parseArgs(argv) {
     else if (t === '--gate') a.gate = true;
     else if (t === '--report-only') a.reportOnly = true;
     else if (t === '--baseline-receipt') a.baselineReceipt = next();
+    else if (t === '--engine-options') a.engineOptions = JSON.parse(next());
     else throw new Error(`unknown flag: ${t}`);
   }
   return a;
@@ -100,7 +101,11 @@ function makeEngine(binding, embedder, args = {}) {
   }
   try {
     const spec = typeof embedder === 'string' && args.embedder === undefined ? embedder : embedderSpec({ ...args, embedder });
-    return { engine: new binding.Engine(JSON.stringify({ embedder: spec })) };
+    const opts = { embedder: spec };
+    // `--engine-options '{...}'` applies champion / tuned EngineOptions (ADR-004),
+    // e.g. the confirming run after an optimize campaign.
+    if (args.engineOptions) opts.engine = args.engineOptions;
+    return { engine: new binding.Engine(JSON.stringify(opts)) };
   } catch (e) {
     return { error: `new Engine failed: ${e && e.message}` };
   }
@@ -289,7 +294,7 @@ export async function main(argv, deps = {}) {
       training: run.training,
       vocabGuard: run.vocab,
       stats: run.stats,
-      extra: run.localUnavailable ? { local_unavailable: run.localUnavailable } : undefined,
+      extra: buildExtra(run, args),
     });
     results.push({ suite, receipt, gateResult });
     printSuite(suite, run, receipt, gateResult, args);
@@ -386,6 +391,15 @@ function printSuite(suite, run, receipt, gateResult, args) {
 
 const pct = (x) => `${(x * 100).toFixed(1)}%`;
 const armList = (arm) => (arm === 'both' ? ['jev', 'local'] : [arm]);
+
+/** Receipt `extra`: records the tuned EngineOptions so a confirming run's
+ * numbers are reproducible (else it is indistinguishable from the default). */
+function buildExtra(run, args) {
+  const extra = {};
+  if (run.localUnavailable) extra.local_unavailable = run.localUnavailable;
+  if (args.engineOptions) extra.engine_options = args.engineOptions;
+  return Object.keys(extra).length ? extra : undefined;
+}
 const safeCall = (fn) => {
   try {
     return typeof fn === 'function' ? fn() : null;

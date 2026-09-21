@@ -12,6 +12,7 @@ import {
   toOptionsJson,
 } from './binding';
 import { isErrorShape, TypesafeError } from './errors';
+import type { CampaignReport, CampaignSpec } from './optimize';
 import type {
   AnswersOf,
   AnyQuestion,
@@ -88,6 +89,16 @@ export interface Typesafe {
   ): Promise<Array<DecisionResult<Q>>>;
   systemOne(body: SystemOneBody, opts?: SystemOneOptions): Promise<DecisionResponse>;
   train(questionId: string, examples: readonly LabeledExample[]): Promise<TrainReport>;
+  /**
+   * Run an optimize campaign (ADR-004) over `EngineTuning` for this engine's
+   * embedder: a gated grid search that promotes only through the paired
+   * anytime-valid test. Throws if the binding does not expose `optimizeJson`.
+   */
+  optimize(spec: CampaignSpec): Promise<CampaignReport>;
+  /** Export the full example bank JSON (the user's own examples, with text). */
+  exportBank(): string;
+  /** Replace the bank from a previously exported JSON (re-embeds every text). */
+  importBank(bankJson: string): void;
   stats(): Record<string, unknown>;
 }
 
@@ -254,6 +265,42 @@ export function createTypesafe(opts: TypesafeOptions = {}): Typesafe {
     return parsed as TrainReport;
   }
 
+  async function optimize(spec: CampaignSpec): Promise<CampaignReport> {
+    if (typeof engine.optimizeJson !== 'function') {
+      throw new TypesafeError(
+        'this binding does not expose optimizeJson — rebuild the native addon',
+        'embedder',
+      );
+    }
+    const parsed: unknown = JSON.parse(engine.optimizeJson(JSON.stringify(spec)));
+    if (isErrorShape(parsed)) {
+      throw new TypesafeError(parsed.error.message, parsed.error.kind);
+    }
+    return parsed as CampaignReport;
+  }
+
+  function exportBank(): string {
+    if (typeof engine.exportBankJson !== 'function') {
+      throw new TypesafeError('this binding does not expose exportBankJson', 'embedder');
+    }
+    const json = engine.exportBankJson();
+    const parsed: unknown = JSON.parse(json);
+    if (isErrorShape(parsed)) {
+      throw new TypesafeError(parsed.error.message, parsed.error.kind);
+    }
+    return json;
+  }
+
+  function importBank(bankJson: string): void {
+    if (typeof engine.importBankJson !== 'function') {
+      throw new TypesafeError('this binding does not expose importBankJson', 'embedder');
+    }
+    const parsed: unknown = JSON.parse(engine.importBankJson(bankJson));
+    if (isErrorShape(parsed)) {
+      throw new TypesafeError(parsed.error.message, parsed.error.kind);
+    }
+  }
+
   function stats(): Record<string, unknown> {
     return JSON.parse(engine.statsJson()) as Record<string, unknown>;
   }
@@ -265,6 +312,9 @@ export function createTypesafe(opts: TypesafeOptions = {}): Typesafe {
     decideMany,
     systemOne,
     train,
+    optimize,
+    exportBank,
+    importBank,
     stats,
   };
 }

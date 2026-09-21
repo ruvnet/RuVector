@@ -8,7 +8,23 @@
 # deterministic instead of depending on package.json's napi config (which is
 # owned by another agent). The hash embedder is the default feature, so no
 # extra flags are needed.
+#
+#   scripts/build-native.sh            # hash-only (default, shippable artifact)
+#   scripts/build-native.sh --onnx     # + native ONNX (bge/MiniLM) for the bench
+#
+# The --onnx build statically links ONNX Runtime, whose operator-schema docs
+# embed documentation URLs; check-security allowlists exactly those hosts
+# (ADR-005), so this script runs check-security on whichever binary it built.
 set -euo pipefail
+
+features=""
+label="hash-only"
+for arg in "$@"; do
+  case "$arg" in
+    --onnx) features="--features native-onnx"; label="native-onnx" ;;
+    *) echo "unknown flag: $arg" >&2; exit 1 ;;
+  esac
+done
 
 here="$(cd "$(dirname "$0")/.." && pwd)"          # npm/packages/typesafe
 root="$(cd "$here/../../.." && pwd)"              # repo root
@@ -26,11 +42,15 @@ case "$plat-$arch" in
   *) echo "unsupported platform: $plat-$arch" >&2; exit 1 ;;
 esac
 
-echo "building $crate (release) for $plat-$arch -> typesafe.$triple.node"
-cargo build -p "$crate" --release --manifest-path "$root/Cargo.toml"
+echo "building $crate ($label, release) for $plat-$arch -> typesafe.$triple.node"
+# shellcheck disable=SC2086
+cargo build -p "$crate" --release $features --manifest-path "$root/Cargo.toml"
 
 mkdir -p "$here/native"
 src="$root/target/release/$libname"
 dst="$here/native/typesafe.$triple.node"
 cp "$src" "$dst"
 echo "wrote $dst"
+
+echo "running check-security on the built binary"
+node "$here/scripts/check-security.mjs" --native "$dst"

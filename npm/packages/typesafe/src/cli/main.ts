@@ -12,6 +12,7 @@ import { CliContext, MainDeps, parseArgs } from './args';
 import { runDecide } from './decide';
 import { runEval } from './eval';
 import { HELP, VERSION } from './help';
+import { runOptimize } from './optimize';
 import { runServe } from './serveCmd';
 import { runTrain } from './train';
 
@@ -48,6 +49,8 @@ export async function main(
         return { code: await runTrain(parsed.flags, ctx) };
       case 'eval':
         return { code: await runEval(parsed.flags, ctx) };
+      case 'optimize':
+        return { code: await runOptimize(parsed.flags, ctx) };
       case 'serve':
         return { code: 0, serve: await runServe(parsed.flags, ctx) };
       case 'bench':

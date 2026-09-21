@@ -84,6 +84,26 @@ Four loops, each a *proposal* that must pass one promotion gate.
    2501.03982) on the validation split rejects "no improvement" — never on a
    single accept-if-better comparison. PACE reports this both removes false
    commits and cuts evaluation cost ~18 %.
+2b. **Calibration criterion (a second paired test).** The gate-2 test is over
+   per-item *correctness*, so it is blind to any change that leaves the argmax
+   fixed — a logit-scale prior, a temperature-floor tweak, a calibrated head —
+   because identical predictions make every pair concordant and carry zero
+   paired information. Those changes improve *calibration*, not accuracy, and
+   the loop must be able to promote them. So the gate runs a **second paired
+   anytime-valid test over per-item negative log-likelihood** (NLL): the
+   champion wins a discordant pair iff its NLL on that item is lower (ties
+   within 1e-6 skipped, McNemar structure as in gate 2). A proposal is promoted
+   when **either** (gate 2 rejects on accuracy) **or** (its validation accuracy
+   is non-inferior to the incumbent within a small tolerance **and** the NLL
+   test rejects). The NLL signal is denser than correctness, so it also rejects
+   genuine joint accuracy-and-calibration wins that gate 2's ~13-net-discordant
+   threshold misses on a small validation split. The transfer holdout, control
+   arm and budget (gates 3–5) apply unchanged, and the receipt records which
+   criterion carried the promotion plus **both** test statistics. Empirically
+   (tickets fixture): every promotion in the four-model campaign came through
+   this criterion — the class-balanced probe lifted bge-small from 78.7 % to
+   83.3 % test accuracy, a win the accuracy test alone (wealth 4.91 of 20) would
+   have rejected.
 3. **Transfer holdout.** A second, different-distribution split (ADR-276 §4)
    must not regress beyond a stated tolerance, so the loop cannot overfit the
    validation set's phrasing — the exact failure the Jev scorecard exhibited.

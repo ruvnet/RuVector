@@ -14,6 +14,7 @@ Commands:
   decide    Answer a question batch for one state and print the response JSON.
   train     Admit labeled examples for one question and print a TrainReport.
   eval      Score a labeled dataset: accuracy, macro-F1, ECE, Brier, latency.
+  optimize  Run a gated optimize campaign (ADR-004) and write receipts.
   bench     Run the benchmark harness (delegates to bench/run.mjs).
   serve     Start a Jev-compatible HTTP server (POST /v1/systemone, GET /healthz).
 
@@ -34,7 +35,17 @@ decide:
 train:
   --question <id>           Question id the examples label (required).
   --examples <path>         JSONL of {"text","label"} (required).
-  --bank <path>             Reserved for persisted banks (see README).
+  --bank <path>             Load (if present) and persist the example bank here.
+
+optimize:
+  --questions <path>        The question definition (a QuestionWire or a map).
+  --question <id>           Which question, when --questions is a map.
+  --dataset <path>          JSONL of {"text","label","split"?}; split inferred if absent.
+  --bank <path>             Also/instead take rows from an exported bank JSON.
+  --receipts <path>         Write the hash-chained receipts as JSONL.
+  --out <path>              Write the full CampaignReport JSON.
+  --budget <n>              Per-day evaluation budget (default 64).
+  --embedder hash|onnx      Embedder to use (default: hash).
 
 eval:
   --questions <path>        JSON map of questions, or omit to use a bundled set.

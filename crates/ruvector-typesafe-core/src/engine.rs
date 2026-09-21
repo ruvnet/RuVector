@@ -4,31 +4,30 @@
 //! is the contract the bindings compile against; two other agents compile
 //! against it, so `new`, `embedder`, `decide`, `train`, `LabeledExample` and
 //! `TrainReport` keep their exact shapes. Everything else is additive.
+//!
+//! Training now flows through the append-only [`Bank`](crate::bank) (ADR-004
+//! loop 1): `train` admits examples into the bank's frozen Train/Calibration
+//! splits, embeddings are cached by content id, and the head/calibration read
+//! those splits. `export_bank`/`import_bank` persist it. `with_options` and
+//! `optimize` add the campaign surface without changing the pinned methods.
 
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
 
-use crate::calibration::{fit_temperature, Platt};
-use crate::heads::logistic::{BinaryLogistic, LogisticConfig};
-use crate::heads::probe::{MultiProbe, ProbeConfig};
-use crate::heads::{
-    assemble_noul, build_compiled, geometry, question_texts, similarity_to_unit, ClassProtos,
-    Classified, Compiled,
-};
+use crate::bank::{Admission, Bank, Split, TrustTier};
+use crate::heads::{build_compiled, question_texts, ClassProtos, Compiled};
 use crate::{
     Answer, DecisionRequest, DecisionResponse, Embedder, Head, Question, Result, TypesafeError,
     Usage,
 };
 
-/// Fewest examples of a class (in the training slice) before the linear probe
-/// takes over from the nearest-prototype head (ADR-003).
-const MIN_EXAMPLES_PER_CLASS: usize = 4;
-/// Calibration slice size below which `confidence` stays uncalibrated (ADR-003;
-/// ADR-006 sets the floor). Temperature/Platt need a held-out slice this large.
-const MIN_CALIBRATION: usize = 20;
-/// Every Nth admitted example is reserved for the calibration slice, disjoint
-/// from the head's training examples.
-const CALIB_EVERY: usize = 5;
+pub mod fit;
+pub mod optimize;
+pub mod options;
+
+pub use options::{EngineOptions, HeadChoice};
+
+use fit::{Artifact, MIN_EXAMPLES_PER_CLASS};
 
 /// Labeled example used by `train` (text, option key / legend bucket / "yes"|"no").
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -46,34 +45,15 @@ pub struct TrainReport {
     pub calibrated: bool,
 }
 
-/// Admitted examples for one question id, in insertion order (deterministic).
-#[derive(Default)]
-struct QuestionTraining {
-    examples: Vec<(Vec<f32>, String)>,
-}
-
-/// A per-question trained artifact, cached by `(question content hash, train
-/// generation)` so a repeated request with unchanged training reuses it.
-enum Artifact {
-    Class {
-        probe: Option<MultiProbe>,
-        temperature: f32,
-        calibrated: bool,
-        head: Head,
-    },
-    Noul {
-        model: Option<BinaryLogistic>,
-        platt: Option<Platt>,
-        calibrated: bool,
-        head: Head,
-    },
-}
-
 pub struct Engine<E: Embedder> {
     embedder: E,
+    options: EngineOptions,
     compiled_cache: RwLock<BTreeMap<u64, Arc<Compiled>>>,
     artifact_cache: RwLock<BTreeMap<u64, Arc<Artifact>>>,
-    training: RwLock<BTreeMap<String, QuestionTraining>>,
+    /// Append-only example bank: raw text + frozen splits (ADR-004 loop 1).
+    bank: RwLock<Bank>,
+    /// Embedding cache keyed by `ExampleId.0`, so a bank example is embedded once.
+    embeds: RwLock<BTreeMap<u64, Vec<f32>>>,
     train_gen: RwLock<BTreeMap<String, u64>>,
 }
 
@@ -84,17 +64,33 @@ enum Slot {
 
 impl<E: Embedder> Engine<E> {
     pub fn new(embedder: E) -> Self {
+        Self::with_options(embedder, EngineOptions::default())
+    }
+
+    /// Construct with tunable [`EngineOptions`]. The bank's Train/Calibration
+    /// ratio follows `options.calibration_fraction`; the plain `train` path
+    /// carves only those two splits (validation/transfer/test come from a
+    /// campaign's explicit rows, never from `train` input).
+    pub fn with_options(embedder: E, options: EngineOptions) -> Self {
+        let ratios = options.train_ratios();
         Self {
             embedder,
+            options,
             compiled_cache: RwLock::new(BTreeMap::new()),
             artifact_cache: RwLock::new(BTreeMap::new()),
-            training: RwLock::new(BTreeMap::new()),
+            bank: RwLock::new(Bank::new(ratios)),
+            embeds: RwLock::new(BTreeMap::new()),
             train_gen: RwLock::new(BTreeMap::new()),
         }
     }
 
     pub fn embedder(&self) -> &E {
         &self.embedder
+    }
+
+    /// The engine's current tunable options.
+    pub fn options(&self) -> &EngineOptions {
+        &self.options
     }
 
     /// Answer every question in `req` against `req.state`. `state` is embedded
@@ -177,10 +173,12 @@ impl<E: Embedder> Engine<E> {
         })
     }
 
-    /// Admit labeled examples for one question (ADR-004 loop 1). Examples are
-    /// stored keyed by question id; criteria arrive only at `decide` time, so a
-    /// label that does not match any criterion is validated *lazily* there (it
-    /// is simply ignored by the head). Empty text/label pairs are rejected.
+    /// Admit labeled examples for one question into the bank (ADR-004 loop 1).
+    /// Examples are stored by content id in frozen Train/Calibration splits;
+    /// duplicates are deduplicated (append-only), empty pairs are rejected, and
+    /// their embeddings are cached so the head can be re-fit without re-embedding.
+    /// Criteria arrive only at `decide` time, so a label that matches no
+    /// criterion is simply ignored by the head then.
     pub fn train(&mut self, question: &str, examples: &[LabeledExample]) -> Result<TrainReport> {
         let valid = |e: &&LabeledExample| !e.text.trim().is_empty() && !e.label.trim().is_empty();
         let filtered: Vec<&LabeledExample> = examples.iter().filter(valid).collect();
@@ -196,12 +194,20 @@ impl<E: Embedder> Engine<E> {
             return Err(TypesafeError::Embedder("embedding count mismatch".into()));
         }
 
-        let accepted = filtered.len();
+        let mut accepted = 0usize;
         {
-            let mut training = self.training.write().unwrap();
-            let entry = training.entry(question.to_string()).or_default();
+            let mut bank = self.bank.write().unwrap();
+            let mut embeds = self.embeds.write().unwrap();
             for (e, emb) in filtered.iter().zip(embs) {
-                entry.examples.push((emb, e.label.clone()));
+                match bank.admit(question, &e.text, &e.label, TrustTier::A) {
+                    Admission::Accepted(id) => {
+                        embeds.insert(id.0, emb);
+                        accepted += 1;
+                    }
+                    // A duplicate is already stored (and embedded); a quarantine
+                    // is held out. Neither is a fresh accept.
+                    Admission::Duplicate(_) | Admission::Quarantined(_) => {}
+                }
             }
         }
         {
@@ -209,15 +215,52 @@ impl<E: Embedder> Engine<E> {
             *gens.entry(question.to_string()).or_insert(0) += 1;
         }
 
-        let training = self.training.read().unwrap();
-        let stored = &training.get(question).unwrap().examples;
         Ok(TrainReport {
             question: question.to_string(),
             accepted,
             rejected,
-            head: provisional_head(stored),
-            calibrated: provisional_calibrated(stored, self.embedder.id()),
+            head: self.provisional_head(question),
+            calibrated: self.provisional_calibrated(question),
         })
+    }
+
+    /// Full-fidelity bank JSON (the user's own examples) for `typesafe train
+    /// --bank bank.json`. Text included — never a receipt.
+    pub fn export_bank(&self) -> Result<String> {
+        self.bank.read().unwrap().to_json()
+    }
+
+    /// Replace the bank from JSON, re-embedding every stored text so the head
+    /// can be re-fit, and invalidating the artifact cache. Split assignments in
+    /// the JSON are authoritative (frozen).
+    pub fn import_bank(&mut self, json: &str) -> Result<()> {
+        let bank = Bank::from_json(json)?;
+        let items: Vec<(u64, String)> = bank
+            .iter()
+            .filter_map(|e| bank.text_of(e.id).map(|t| (e.id.0, t.to_string())))
+            .collect();
+        let texts: Vec<&str> = items.iter().map(|(_, t)| t.as_str()).collect();
+        let embs = if texts.is_empty() {
+            Vec::new()
+        } else {
+            self.embedder.embed(&texts)?
+        };
+        if embs.len() != items.len() {
+            return Err(TypesafeError::Embedder("embedding count mismatch".into()));
+        }
+        let mut embeds = BTreeMap::new();
+        for ((id, _), emb) in items.iter().zip(embs) {
+            embeds.insert(*id, emb);
+        }
+        *self.embeds.write().unwrap() = embeds;
+        *self.bank.write().unwrap() = bank;
+        self.artifact_cache.write().unwrap().clear();
+        Ok(())
+    }
+
+    /// Receipt-safe rollup of the bank (counts and hashes, never text).
+    pub fn bank_summary(&self) -> crate::bank::RedactedSummary {
+        self.bank.read().unwrap().redacted_summary()
     }
 
     fn artifact_for(&self, id: &str, hash: u64, compiled: &Compiled) -> Arc<Artifact> {
@@ -235,116 +278,114 @@ impl<E: Embedder> Engine<E> {
     }
 
     fn build_artifact(&self, id: &str, compiled: &Compiled) -> Artifact {
-        let training = self.training.read().unwrap();
-        let stored = training
-            .get(id)
-            .map(|t| t.examples.as_slice())
-            .unwrap_or(&[]);
-        let test_double = is_test_double(self.embedder.id());
+        let allow_calibration = !is_test_double(self.embedder.id());
+        let dims = self.embedder.dims();
         match compiled {
-            Compiled::Class(cp) => self.build_class_artifact(cp, stored, test_double),
-            Compiled::Noul { .. } => self.build_noul_artifact(stored, test_double),
+            Compiled::Class(cp) => {
+                let (train_ex, calib) = self.class_split_for(id, cp);
+                fit::fit_class_artifact(
+                    &self.options,
+                    cp,
+                    &train_ex,
+                    &calib,
+                    dims,
+                    allow_calibration,
+                )
+            }
+            Compiled::Noul { .. } => {
+                let (train_ex, calib) = self.noul_split_for(id);
+                fit::fit_noul_artifact(&self.options, &train_ex, &calib, dims, allow_calibration)
+            }
         }
     }
 
-    fn build_class_artifact(
+    /// The (train, calibration) class-example split for `question`: the bank's
+    /// `Train` examples in insertion order, class-mapped, with every
+    /// `calib_stride`-th one carved out for calibration (labels that match no
+    /// criterion are dropped, as before). The positional carve keeps the slice
+    /// class-stratified for small few-shot samples (bit-identical to the
+    /// original every-`N`th rule).
+    #[allow(clippy::type_complexity)]
+    fn class_split_for(
         &self,
+        question: &str,
         cp: &ClassProtos,
-        stored: &[(Vec<f32>, String)],
-        test_double: bool,
-    ) -> Artifact {
+    ) -> (Vec<(Vec<f32>, usize)>, Vec<(Vec<f32>, usize)>) {
         let index: BTreeMap<&str, usize> = cp
             .keys
             .iter()
             .enumerate()
             .map(|(i, k)| (k.as_str(), i))
             .collect();
-        let relevant: Vec<(&Vec<f32>, usize)> = stored
-            .iter()
-            .filter_map(|(emb, lab)| index.get(lab.as_str()).map(|&i| (emb, i)))
+        let bank = self.bank.read().unwrap();
+        let embeds = self.embeds.read().unwrap();
+        let relevant: Vec<(Vec<f32>, usize)> = bank
+            .iter_split(question, Split::Train)
+            .filter_map(|e| {
+                let ci = *index.get(e.label.as_str())?;
+                let emb = embeds.get(&e.id.0)?.clone();
+                Some((emb, ci))
+            })
             .collect();
-        let (train_ex, calib) = split_class(&relevant);
+        carve_calibration(relevant, self.options.calib_stride())
+    }
 
-        let mut counts = vec![0usize; cp.keys.len()];
-        for (_, ci) in &train_ex {
-            counts[*ci] += 1;
+    #[allow(clippy::type_complexity)]
+    fn noul_split_for(&self, question: &str) -> (Vec<(Vec<f32>, f32)>, Vec<(Vec<f32>, f32)>) {
+        let bank = self.bank.read().unwrap();
+        let embeds = self.embeds.read().unwrap();
+        let relevant: Vec<(Vec<f32>, f32)> = bank
+            .iter_split(question, Split::Train)
+            .filter_map(|e| {
+                let y = parse_noul_label(&e.label)?;
+                let emb = embeds.get(&e.id.0)?.clone();
+                Some((emb, y))
+            })
+            .collect();
+        carve_calibration(relevant, self.options.calib_stride())
+    }
+
+    /// The head a `TrainReport` announces, from the bank's Train split for this
+    /// question with the calibration positions excluded (matching the head
+    /// `decide` will pick under the current options).
+    fn provisional_head(&self, question: &str) -> Head {
+        let bank = self.bank.read().unwrap();
+        let stride = self.options.calib_stride();
+        let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+        for (i, e) in bank.iter_split(question, Split::Train).enumerate() {
+            if is_calib_pos(i, stride) {
+                continue;
+            }
+            *counts.entry(e.label.clone()).or_insert(0) += 1;
         }
-        let use_probe = cp.keys.len() >= 2 && counts.iter().all(|&c| c >= MIN_EXAMPLES_PER_CLASS);
-
-        let probe = if use_probe {
-            Some(MultiProbe::train(
-                &train_ex,
-                cp.keys.len(),
-                self.embedder.dims(),
-                &ProbeConfig::default(),
-            ))
-        } else {
-            None
+        if !counts.is_empty() && counts.keys().all(|k| parse_noul_label(k).is_some()) {
+            return Head::Logistic;
+        }
+        let counts_vec: Vec<usize> = counts.values().copied().collect();
+        let probe = match self.options.head {
+            HeadChoice::Prototype => false,
+            HeadChoice::Probe => counts.len() >= 2 && counts_vec.iter().all(|&c| c >= 1),
+            HeadChoice::Auto => {
+                counts.len() >= 2 && counts_vec.iter().all(|&c| c >= MIN_EXAMPLES_PER_CLASS)
+            }
         };
-        let head = if probe.is_some() {
+        if probe {
             Head::LinearProbe
         } else {
             Head::NearestPrototype
-        };
-
-        let (temperature, calibrated) = if calib.len() >= MIN_CALIBRATION && !test_double {
-            let mut logits = Vec::with_capacity(calib.len());
-            let mut labels = Vec::with_capacity(calib.len());
-            for (emb, ci) in &calib {
-                let row = match &probe {
-                    Some(p) => p.logits(emb),
-                    None => geometry(emb, cp).proto_scores,
-                };
-                logits.push(row);
-                labels.push(*ci);
-            }
-            (fit_temperature(&logits, &labels), true)
-        } else {
-            (1.0, false)
-        };
-
-        Artifact::Class {
-            probe,
-            temperature,
-            calibrated,
-            head,
         }
     }
 
-    fn build_noul_artifact(&self, stored: &[(Vec<f32>, String)], test_double: bool) -> Artifact {
-        let relevant: Vec<(Vec<f32>, f32)> = stored
-            .iter()
-            .filter_map(|(emb, lab)| parse_noul_label(lab).map(|y| (emb.clone(), y)))
-            .collect();
-        let (train_ex, calib) = split_noul(&relevant);
-        let has_pos = train_ex.iter().any(|(_, y)| *y >= 0.5);
-        let has_neg = train_ex.iter().any(|(_, y)| *y < 0.5);
-
-        if train_ex.is_empty() || !has_pos || !has_neg {
-            return Artifact::Noul {
-                model: None,
-                platt: None,
-                calibrated: false,
-                head: Head::SimilarityUncalibrated,
-            };
+    fn provisional_calibrated(&self, question: &str) -> bool {
+        if is_test_double(self.embedder.id()) {
+            return false;
         }
-
-        let model =
-            BinaryLogistic::train(&train_ex, self.embedder.dims(), &LogisticConfig::default());
-        let (platt, calibrated) = if calib.len() >= MIN_CALIBRATION && !test_double {
-            let scores: Vec<f32> = calib.iter().map(|(x, _)| model.raw(x)).collect();
-            let labels: Vec<f32> = calib.iter().map(|(_, y)| *y).collect();
-            (Some(Platt::fit(&scores, &labels)), true)
-        } else {
-            (None, false)
-        };
-
-        Artifact::Noul {
-            model: Some(model),
-            platt,
-            calibrated,
-            head: Head::Logistic,
-        }
+        let bank = self.bank.read().unwrap();
+        let stride = self.options.calib_stride();
+        let calib = (0..bank.iter_split(question, Split::Train).count())
+            .filter(|&i| is_calib_pos(i, stride))
+            .count();
+        calib >= self.options.min_calibration
     }
 
     fn assemble(
@@ -354,62 +395,16 @@ impl<E: Embedder> Engine<E> {
         state_emb: &[f32],
         model: &str,
     ) -> Answer {
-        match (compiled, art) {
-            (
-                Compiled::Class(cp),
-                Artifact::Class {
-                    probe,
-                    temperature,
-                    calibrated,
-                    head,
-                },
-            ) => {
-                let g = geometry(state_emb, cp);
-                let head_logits = match probe {
-                    Some(p) => p.logits(state_emb),
-                    None => g.proto_scores.clone(),
-                };
-                Classified {
-                    keys: &cp.keys,
-                    kind: cp.kind,
-                    head_logits,
-                    proto_scores: &g.proto_scores,
-                    abstain_logit: g.abstain_logit(),
-                    head: *head,
-                    temperature: *temperature,
-                    calibrated: *calibrated,
-                    model,
-                }
-                .into_answer()
-            }
-            (
-                Compiled::Noul { predicate },
-                Artifact::Noul {
-                    model: probe,
-                    platt,
-                    calibrated,
-                    head,
-                },
-            ) => {
-                let noul = match probe {
-                    Some(m) => match platt {
-                        Some(p) => p.apply(m.raw(state_emb)),
-                        None => m.prob(state_emb),
-                    },
-                    None => similarity_to_unit(crate::embedder::dot(state_emb, predicate)),
-                };
-                assemble_noul(noul, *head, *calibrated, model)
-            }
-            // Compiled/Artifact kinds are built together, so a mismatch is a bug.
-            _ => unreachable!("compiled and artifact kinds always agree"),
+        match compiled {
+            Compiled::Class(cp) => fit::class_answer(&self.options, cp, art, state_emb, model),
+            Compiled::Noul { predicate } => fit::noul_answer(art, predicate, state_emb, model),
         }
     }
 }
 
 mod support;
 use support::{
-    is_test_double, mix, parse_noul_label, provisional_calibrated, provisional_head, split_class,
-    split_noul, stable_hash,
+    carve_calibration, is_calib_pos, is_test_double, mix, parse_noul_label, stable_hash,
 };
 
 #[cfg(all(test, feature = "hash-embedder"))]

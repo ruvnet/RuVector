@@ -33,6 +33,7 @@ fn proposal() -> Proposal {
 fn evidence(paired: Vec<(bool, bool)>, base_t: f32, champ_t: f32) -> Evidence {
     Evidence {
         paired,
+        paired_nll: None,
         baseline_transfer_acc: base_t,
         champion_transfer_acc: champ_t,
         transfer_n: 100,
@@ -42,6 +43,18 @@ fn evidence(paired: Vec<(bool, bool)>, base_t: f32, champ_t: f32) -> Evidence {
         created_seq: 0,
         created: None,
     }
+}
+
+/// Evidence with per-item NLL for the calibration criterion (gate 2b).
+fn evidence_nll(
+    paired: Vec<(bool, bool)>,
+    paired_nll: Vec<(f32, f32)>,
+    base_t: f32,
+    champ_t: f32,
+) -> Evidence {
+    let mut e = evidence(paired, base_t, champ_t);
+    e.paired_nll = Some(paired_nll);
+    e
 }
 
 #[test]
@@ -172,4 +185,39 @@ fn campaign_mints_exactly_two_test_tokens() {
     assert!(campaign.test_token().is_some()); // baseline
     assert!(campaign.test_token().is_some()); // champion
     assert!(campaign.test_token().is_none()); // loop cannot score test again
+}
+
+#[test]
+fn calibration_only_proposal_promotes_via_the_nll_criterion() {
+    // Every validation pair is CONCORDANT (same argmax on both models), so the
+    // accuracy test carries zero information and can never reject. But the
+    // champion has a lower per-item NLL on every item, so the calibration test
+    // rejects and — accuracy being non-inferior — the arm promotes (gate 2b).
+    let paired: Vec<(bool, bool)> = (0..200).map(|_| (true, true)).collect();
+    let nll: Vec<(f32, f32)> = (0..200).map(|_| (1.0f32, 0.4f32)).collect();
+    let ev = evidence_nll(paired, nll, 0.80, 0.80);
+    let mut gate = Gate::new(Budget::new(100, "day-1"));
+    let out = gate.evaluate(proposal(), &ev, "day-1");
+    assert_eq!(out.decision, GateDecision::Promote);
+    assert_eq!(
+        out.receipt.promoted_by,
+        Some(PromotionCriterion::Calibration)
+    );
+    assert!(out.receipt.calibration_statistic.is_some());
+    // The accuracy test is present but did not reject (all concordant).
+    assert!(!out.receipt.statistic.rejected);
+}
+
+#[test]
+fn worse_accuracy_blocks_a_calibration_only_promotion() {
+    // The champion is better calibrated (lower NLL everywhere) BUT loses
+    // accuracy far beyond the non-inferiority tolerance (baseline wins every
+    // discordant accuracy pair). Calibration alone must NOT promote it.
+    let paired: Vec<(bool, bool)> = (0..200).map(|_| (true, false)).collect();
+    let nll: Vec<(f32, f32)> = (0..200).map(|_| (1.0f32, 0.4f32)).collect();
+    let ev = evidence_nll(paired, nll, 0.80, 0.80);
+    let mut gate = Gate::new(Budget::new(100, "day-1"));
+    let out = gate.evaluate(proposal(), &ev, "day-1");
+    assert!(matches!(out.decision, GateDecision::Reject(_)));
+    assert_eq!(out.receipt.promoted_by, None);
 }

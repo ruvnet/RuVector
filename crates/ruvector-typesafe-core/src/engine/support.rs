@@ -1,77 +1,34 @@
-//! Pure helpers for the engine: the calibration-slice split, the provisional
-//! `TrainReport` head/calibration rules, `noul` label parsing, and the stable
-//! content hash used for the compiled/artifact caches (no `RandomState`).
+//! Pure helpers for the engine: `noul` label parsing, the test-double check,
+//! and the stable content hash used for the compiled/artifact caches (no
+//! `RandomState`, deterministic across runs and targets).
 
-use super::*;
-
-/// A (training, calibration) split of class examples: `(embedding, class_idx)`.
-pub(super) type ClassSplit = (Vec<(Vec<f32>, usize)>, Vec<(Vec<f32>, usize)>);
-/// A (training, calibration) split of noul examples: `(embedding, label 0/1)`.
-pub(super) type NoulSplit = (Vec<(Vec<f32>, f32)>, Vec<(Vec<f32>, f32)>);
-
-/// Split relevant class examples into (training, calibration) — every Nth
-/// example (0-based `i % CALIB_EVERY == CALIB_EVERY - 1`) goes to calibration.
-pub(super) fn split_class(relevant: &[(&Vec<f32>, usize)]) -> ClassSplit {
-    let mut train = Vec::new();
-    let mut calib = Vec::new();
-    for (i, (emb, ci)) in relevant.iter().enumerate() {
-        let pair = ((*emb).clone(), *ci);
-        if i % CALIB_EVERY == CALIB_EVERY - 1 {
-            calib.push(pair);
-        } else {
-            train.push(pair);
-        }
-    }
-    (train, calib)
-}
-
-pub(super) fn split_noul(relevant: &[(Vec<f32>, f32)]) -> NoulSplit {
-    let mut train = Vec::new();
-    let mut calib = Vec::new();
-    for (i, pair) in relevant.iter().enumerate() {
-        if i % CALIB_EVERY == CALIB_EVERY - 1 {
-            calib.push(pair.clone());
-        } else {
-            train.push(pair.clone());
-        }
-    }
-    (train, calib)
-}
-
-/// The head a `TrainReport` announces, from example counts alone (criteria
-/// arrive at decide time). A yes/no label set implies the logistic head; ≥ 2
-/// classes each with ≥ 4 examples implies the probe; otherwise the prototype.
-/// Counts only the *training* slice (the calibration slice is excluded), so the
-/// report matches the head `decide` will actually pick.
-pub(super) fn provisional_head(examples: &[(Vec<f32>, String)]) -> Head {
-    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
-    for (_, l) in examples
-        .iter()
-        .enumerate()
-        .filter(|(i, _)| i % CALIB_EVERY != CALIB_EVERY - 1)
-        .map(|(_, e)| e)
-    {
-        *counts.entry(l.as_str()).or_insert(0) += 1;
-    }
-    if !counts.is_empty() && counts.keys().all(|k| parse_noul_label(k).is_some()) {
-        return Head::Logistic;
-    }
-    if counts.len() >= 2 && counts.values().all(|&c| c >= MIN_EXAMPLES_PER_CLASS) {
-        Head::LinearProbe
-    } else {
-        Head::NearestPrototype
-    }
-}
-
-pub(super) fn provisional_calibrated(examples: &[(Vec<f32>, String)], id: &str) -> bool {
-    let calib = (0..examples.len())
-        .filter(|i| i % CALIB_EVERY == CALIB_EVERY - 1)
-        .count();
-    calib >= MIN_CALIBRATION && !is_test_double(id)
-}
+use crate::{Question, Result, TypesafeError};
 
 pub(super) fn is_test_double(id: &str) -> bool {
     id.ends_with("@test-double")
+}
+
+/// Whether the `i`-th example (0-based, insertion order) is a calibration
+/// position: every `stride`-th one, i.e. `i % stride == stride - 1`. A
+/// `usize::MAX` stride (calibration disabled) selects nothing.
+pub(super) fn is_calib_pos(i: usize, stride: usize) -> bool {
+    stride != usize::MAX && stride >= 2 && i % stride == stride - 1
+}
+
+/// Split `items` (insertion order) into `(train, calibration)` by carving every
+/// `stride`-th element out for calibration — the class-stratified, reproducible
+/// slice the plain `train` path uses. Generic over the example payload.
+pub(super) fn carve_calibration<T: Clone>(items: Vec<T>, stride: usize) -> (Vec<T>, Vec<T>) {
+    let mut train = Vec::new();
+    let mut calib = Vec::new();
+    for (i, item) in items.into_iter().enumerate() {
+        if is_calib_pos(i, stride) {
+            calib.push(item);
+        } else {
+            train.push(item);
+        }
+    }
+    (train, calib)
 }
 
 /// Normalise a `noul` label to `1.0` / `0.0`, or `None` if it is neither.

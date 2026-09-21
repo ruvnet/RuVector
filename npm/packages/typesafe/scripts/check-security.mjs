@@ -121,10 +121,36 @@ function checkNative(nativePath) {
   }
   if (bytes.includes('/bin/sh')) violations.push({ file: nativePath, pattern: "native string '/bin/sh'" });
   if (bytes.includes('http://')) violations.push({ file: nativePath, pattern: "native string 'http://'" });
+  // ADR-005 ("no network in the decision path"): the engine makes NO network
+  // calls. The https strings below are STATIC rodata compiled into the binary —
+  // ONNX Runtime's operator-schema docs (which cite papers and vendor docs) and
+  // the Rust deps ORT links (getrandom, re2, ndarray) — never an egress target.
+  // curl/wget/http:///bin/sh above stay hard rejects; only this closed set of
+  // documentation hosts is tolerated, and any other https URL still fails.
+  const DOC_HOSTS = new Set([
+    'arxiv.org',
+    'onnx.ai',
+    'docs.nvidia.com',
+    'docs.rs',
+    'numpy.org',
+    'en.wikipedia.org',
+    'ieeexplore.ieee.org',
+    'tinyurl.com',
+  ]);
+  const GITHUB_DOC_ORGS = new Set(['ruvnet', 'microsoft', 'onnx', 'google']);
   for (const m of bytes.matchAll(/https:\/\/[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]*/g)) {
     const url = m[0];
-    // A github.com/ruvnet URL in a version/repository string is benign.
-    if (/^https:\/\/github\.com\/ruvnet(\/|$)/.test(url)) continue;
+    let host = '';
+    let org = '';
+    try {
+      const u = new URL(url);
+      host = u.host;
+      org = u.pathname.split('/')[1] || '';
+    } catch {
+      /* malformed slice from the binary — fall through to a violation */
+    }
+    if (DOC_HOSTS.has(host)) continue;
+    if (host === 'github.com' && GITHUB_DOC_ORGS.has(org)) continue;
     violations.push({ file: nativePath, pattern: `native string '${url.slice(0, 60)}'` });
   }
   return { scanned: 1, violations };

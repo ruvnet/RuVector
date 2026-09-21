@@ -10,7 +10,10 @@
 //! bad options JSON / unsupported embedder / failed model load throws (a JS
 //! exception from the constructor or `fromBytes`).
 
-use ruvector_typesafe_core::engine::{Engine as CoreEngine, LabeledExample};
+use ruvector_typesafe_core::engine::optimize::CampaignSpec;
+use ruvector_typesafe_core::engine::{
+    Engine as CoreEngine, EngineOptions as CoreEngineOptions, LabeledExample,
+};
 use ruvector_typesafe_core::hash_embedder::HashEmbedder;
 use ruvector_typesafe_core::{DecisionRequest, Embedder, TypesafeError};
 use serde::Deserialize;
@@ -31,6 +34,9 @@ struct EngineOptions {
     embedder: EmbedderSpec,
     #[serde(default = "default_dims")]
     dims: usize,
+    /// Tunable engine knobs (ADR-004): `{"engine":{...}}`. Absent → core defaults.
+    #[serde(default)]
+    engine: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize)]
@@ -73,9 +79,11 @@ impl Engine {
     pub fn new(options_json: &str) -> std::result::Result<Engine, JsValue> {
         let opts: EngineOptions = serde_json::from_str(options_json)
             .map_err(|e| JsValue::from_str(&format!("invalid options JSON: {e}")))?;
+        let core_opts = CoreEngineOptions::from_json_opt(opts.engine.as_ref())
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
         match opts.embedder {
             EmbedderSpec::Named(ref s) if s == "hash" => Ok(Engine {
-                inner: CoreEngine::new(Box::new(HashEmbedder::new(opts.dims))),
+                inner: CoreEngine::with_options(Box::new(HashEmbedder::new(opts.dims)), core_opts),
             }),
             EmbedderSpec::Kinded { ref kind } if kind == "onnx" => Err(JsValue::from_str(
                 "onnx embedder requires Engine.fromBytes(optionsJson, modelBytes, tokenizerBytes)",
@@ -139,18 +147,54 @@ impl Engine {
         }
     }
 
-    /// `{"embedderId","dims","questionsCompiled","examples"}` (counts are 0
-    /// until the core exposes them).
+    /// `{"embedderId","dims","examples","promotable"}` from the bank summary.
     #[wasm_bindgen(js_name = statsJson)]
     pub fn stats_json(&self) -> String {
         let embedder = self.inner.embedder();
+        let summary = self.inner.bank_summary();
         serde_json::json!({
             "embedderId": embedder.id(),
             "dims": embedder.dims(),
             "questionsCompiled": 0,
-            "examples": 0,
+            "examples": summary.total,
+            "promotable": summary.promotable,
         })
         .to_string()
+    }
+
+    /// Run an optimize campaign (ADR-004). `campaignJson` is a `CampaignSpec`;
+    /// returns a `CampaignReport` JSON or the documented error JSON.
+    #[wasm_bindgen(js_name = optimizeJson)]
+    pub fn optimize_json(&self, campaign_json: &str) -> String {
+        let spec: CampaignSpec = match serde_json::from_str(campaign_json) {
+            Ok(s) => s,
+            Err(e) => return invalid_json(&format!("campaign JSON parse error: {e}")),
+        };
+        match self.inner.optimize(&spec) {
+            Ok(report) => {
+                serde_json::to_string(&report).unwrap_or_else(|e| embedder_json(&e.to_string()))
+            }
+            Err(e) => error_json(&e),
+        }
+    }
+
+    /// Full-fidelity bank JSON (the user's own examples), or the error JSON.
+    #[wasm_bindgen(js_name = exportBankJson)]
+    pub fn export_bank_json(&self) -> String {
+        match self.inner.export_bank() {
+            Ok(s) => s,
+            Err(e) => error_json(&e),
+        }
+    }
+
+    /// Replace the bank from JSON (re-embeds every stored text). Returns
+    /// `{"ok":true}` or the documented error JSON.
+    #[wasm_bindgen(js_name = importBankJson)]
+    pub fn import_bank_json(&mut self, bank_json: &str) -> String {
+        match self.inner.import_bank(bank_json) {
+            Ok(()) => "{\"ok\":true}".to_string(),
+            Err(e) => error_json(&e),
+        }
     }
 }
 

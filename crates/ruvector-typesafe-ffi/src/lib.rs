@@ -13,7 +13,10 @@
 use napi::bindgen_prelude::*;
 use napi::Task;
 use napi_derive::napi;
-use ruvector_typesafe_core::engine::{Engine as CoreEngine, LabeledExample};
+use ruvector_typesafe_core::engine::optimize::CampaignSpec;
+use ruvector_typesafe_core::engine::{
+    Engine as CoreEngine, EngineOptions as CoreEngineOptions, LabeledExample,
+};
 use ruvector_typesafe_core::hash_embedder::HashEmbedder;
 use ruvector_typesafe_core::{DecisionRequest, Embedder, TypesafeError};
 use serde::Deserialize;
@@ -38,6 +41,10 @@ struct EngineOptions {
     embedder: EmbedderSpec,
     #[serde(default = "default_dims")]
     dims: usize,
+    /// Tunable engine knobs (ADR-004): `{"engine":{"logitScale":20.0,...}}`.
+    /// Absent → the core defaults.
+    #[serde(default)]
+    engine: Option<serde_json::Value>,
 }
 
 /// `"hash"` or `{"kind":"onnx","modelDir":"...","manifest":"..."}`.
@@ -105,7 +112,9 @@ struct ExampleInput {
 fn make_engine(options_json: &str) -> std::result::Result<BoxedEngine, String> {
     let opts: EngineOptions =
         serde_json::from_str(options_json).map_err(|e| format!("invalid options JSON: {e}"))?;
-    Ok(CoreEngine::new(build_embedder(&opts)?))
+    let core_opts =
+        CoreEngineOptions::from_json_opt(opts.engine.as_ref()).map_err(|e| e.to_string())?;
+    Ok(CoreEngine::with_options(build_embedder(&opts)?, core_opts))
 }
 
 fn build_embedder(opts: &EngineOptions) -> std::result::Result<Box<dyn Embedder>, String> {
@@ -221,19 +230,62 @@ impl Engine {
         }
     }
 
-    /// Introspection: `{"embedderId","dims","questionsCompiled","examples"}`.
-    /// The core does not yet expose compiled/example counts, so those are 0.
+    /// Introspection: `{"embedderId","dims","examples","promotable"}`. The
+    /// example counts come from the bank's redacted summary (no text).
     #[napi(js_name = "statsJson")]
     pub fn stats_json(&self) -> String {
         let guard = self.inner.read().unwrap_or_else(|p| p.into_inner());
         let embedder = guard.embedder();
+        let summary = guard.bank_summary();
         serde_json::json!({
             "embedderId": embedder.id(),
             "dims": embedder.dims(),
             "questionsCompiled": 0,
-            "examples": 0,
+            "examples": summary.total,
+            "promotable": summary.promotable,
         })
         .to_string()
+    }
+
+    /// Run an optimize campaign (ADR-004). `campaignJson` is a `CampaignSpec`;
+    /// returns a `CampaignReport` JSON, or the documented error JSON. The model
+    /// arm is chosen by constructing one engine per embedder — this campaign is
+    /// over `EngineOptions` for the engine's fixed embedder.
+    #[napi(js_name = "optimizeJson")]
+    pub fn optimize_json(&self, campaign_json: String) -> String {
+        let spec: CampaignSpec = match serde_json::from_str(&campaign_json) {
+            Ok(s) => s,
+            Err(e) => return invalid_json(&format!("campaign JSON parse error: {e}")),
+        };
+        let guard = self.inner.read().unwrap_or_else(|p| p.into_inner());
+        match guard.optimize(&spec) {
+            Ok(report) => {
+                serde_json::to_string(&report).unwrap_or_else(|e| embedder_json(&e.to_string()))
+            }
+            Err(e) => error_json(&e),
+        }
+    }
+
+    /// Full-fidelity bank JSON (the user's own examples) for `typesafe train
+    /// --bank bank.json`, or the documented error JSON.
+    #[napi(js_name = "exportBankJson")]
+    pub fn export_bank_json(&self) -> String {
+        let guard = self.inner.read().unwrap_or_else(|p| p.into_inner());
+        match guard.export_bank() {
+            Ok(s) => s,
+            Err(e) => error_json(&e),
+        }
+    }
+
+    /// Replace the bank from JSON (re-embeds every stored text). Returns
+    /// `{"ok":true}` or the documented error JSON.
+    #[napi(js_name = "importBankJson")]
+    pub fn import_bank_json(&self, bank_json: String) -> String {
+        let mut guard = self.inner.write().unwrap_or_else(|p| p.into_inner());
+        match guard.import_bank(&bank_json) {
+            Ok(()) => "{\"ok\":true}".to_string(),
+            Err(e) => error_json(&e),
+        }
     }
 }
 

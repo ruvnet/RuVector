@@ -10,6 +10,9 @@ pub(crate) struct ProbeConfig {
     pub lr: f32,
     pub l2: f32,
     pub iters: usize,
+    /// Weight each class to an equal total (like the binary head), so a skewed
+    /// few-shot sample does not bias the probe toward the majority classes.
+    pub class_balanced: bool,
 }
 
 impl Default for ProbeConfig {
@@ -18,6 +21,7 @@ impl Default for ProbeConfig {
             lr: 0.8,
             l2: 1e-3,
             iters: 400,
+            class_balanced: false,
         }
     }
 }
@@ -37,12 +41,16 @@ impl MultiProbe {
         let mut weights = vec![vec![0.0f32; dims]; k];
         let mut bias = vec![0.0f32; k];
         let n = examples.len().max(1) as f32;
+        // Per-example weight: 1.0 (unbalanced) or `total / (k · count[class])`,
+        // so every class contributes an equal share and the weights still sum to
+        // `total` (keeps the gradient scale, and thus `lr`, comparable).
+        let sample_weight = class_weights(examples, k, cfg.class_balanced);
 
         for _ in 0..cfg.iters {
             let mut grad_w = vec![vec![0.0f32; dims]; k];
             let mut grad_b = vec![0.0f32; k];
 
-            for (x, y) in examples {
+            for ((x, y), sw) in examples.iter().zip(&sample_weight) {
                 let logits: Vec<f32> = weights
                     .iter()
                     .zip(&bias)
@@ -50,7 +58,7 @@ impl MultiProbe {
                     .collect();
                 let probs = softmax(&logits);
                 for (c, (gw, gb)) in grad_w.iter_mut().zip(grad_b.iter_mut()).enumerate() {
-                    let err = probs[c] - if c == *y { 1.0 } else { 0.0 };
+                    let err = sw * (probs[c] - if c == *y { 1.0 } else { 0.0 });
                     *gb += err;
                     for (g, xi) in gw.iter_mut().zip(x) {
                         *g += err * xi;
@@ -78,6 +86,30 @@ impl MultiProbe {
             .map(|(w, b)| b + dot(w, x))
             .collect()
     }
+}
+
+/// Per-example weight vector. Unbalanced: all `1.0`. Balanced: each example of
+/// class `c` weighs `total / (k · count[c])`, so the weights sum to `total` and
+/// every present class carries an equal aggregate weight.
+fn class_weights(examples: &[(Vec<f32>, usize)], k: usize, balanced: bool) -> Vec<f32> {
+    if !balanced {
+        return vec![1.0; examples.len()];
+    }
+    let total = examples.len().max(1) as f32;
+    let mut counts = vec![0usize; k];
+    for (_, y) in examples {
+        if *y < k {
+            counts[*y] += 1;
+        }
+    }
+    let present = counts.iter().filter(|&&c| c > 0).count().max(1) as f32;
+    examples
+        .iter()
+        .map(|(_, y)| {
+            let c = counts.get(*y).copied().unwrap_or(0).max(1) as f32;
+            total / (present * c)
+        })
+        .collect()
 }
 
 fn dot(a: &[f32], b: &[f32]) -> f32 {

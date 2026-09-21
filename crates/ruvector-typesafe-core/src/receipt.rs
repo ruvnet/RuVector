@@ -13,7 +13,7 @@
 //! a `signature: Option<String>` slot that is excluded from the content hash so
 //! a later signature never invalidates the chain.
 
-use crate::loop_gate::{GateDecision, Proposal, ProposalKind};
+use crate::loop_gate::{GateDecision, PromotionCriterion, Proposal, ProposalKind};
 use crate::{Head, Result, TypesafeError};
 use serde::{Deserialize, Serialize};
 
@@ -89,6 +89,14 @@ pub struct Receipt {
     /// champion, never for a mid-loop proposal (see `Gate::score_test`).
     pub test: Option<Metrics>,
     pub statistic: TestStatistic,
+    /// The paired NLL (calibration) test statistic, present when the campaign
+    /// supplied per-item NLL (ADR-004 gate 2b). Additive — absent on the
+    /// accuracy-only path so older receipts hash unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub calibration_statistic: Option<TestStatistic>,
+    /// Which criterion carried a promotion (`None` for a reject/pause).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub promoted_by: Option<PromotionCriterion>,
     pub decision: GateDecision,
     pub model_id: String,
     pub head: Head,
@@ -272,6 +280,8 @@ mod tests {
                 rejected: true,
                 n_discordant_at_rejection: Some(38),
             },
+            calibration_statistic: None,
+            promoted_by: None,
             decision: GateDecision::Promote,
             model_id: "hash-bow-64@test-double".into(),
             head: Head::NearestPrototype,

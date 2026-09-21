@@ -22,13 +22,10 @@ use crate::embedder::{dot, l2_normalize};
 use crate::{Answer, AnswerMeta, Head, Question};
 use std::collections::BTreeMap;
 
-/// Penalty weight on the `not_for` hard-negative similarity (ADR-003).
-const LAMBDA_NOT_FOR: f32 = 0.5;
-/// Similarity below which a `state` starts to look out-of-scope. Heuristic; it
-/// sets the absolute level of the abstain logit, not the in/out-of-scope
-/// ordering (which holds for any positive `tau`/`scale`).
-const ABSTAIN_TAU: f32 = 0.35;
-const ABSTAIN_SCALE: f32 = 0.5;
+// Penalty weight on the `not_for` hard-negative similarity, the abstain
+// similarity threshold and its scale are now [`EngineOptions`] knobs
+// (`not_for_lambda`, `abstain_tau`, `abstain_scale`); their defaults reproduce
+// the original constants 0.5 / 0.35 / 0.5 (ADR-003).
 
 /// Whether a compiled class question is reported as `choice` or `score`.
 #[derive(Clone, Copy)]
@@ -159,7 +156,7 @@ pub(crate) struct Geometry {
     best_not_for: Option<f32>,
 }
 
-pub(crate) fn geometry(state: &[f32], cp: &ClassProtos) -> Geometry {
+pub(crate) fn geometry(state: &[f32], cp: &ClassProtos, not_for_lambda: f32) -> Geometry {
     let mut proto_scores = Vec::with_capacity(cp.protos.len());
     let mut max_sim = f32::NEG_INFINITY;
     let mut best_not_for: Option<f32> = None;
@@ -170,7 +167,7 @@ pub(crate) fn geometry(state: &[f32], cp: &ClassProtos) -> Geometry {
             Some(v) => {
                 let nfs = dot(state, v);
                 best_not_for = Some(best_not_for.map_or(nfs, |b: f32| b.max(nfs)));
-                LAMBDA_NOT_FOR * nfs
+                not_for_lambda * nfs
             }
             None => 0.0,
         };
@@ -188,8 +185,13 @@ impl Geometry {
     /// distance-to-nearest-prototype term. When no option carries a `not_for`,
     /// only the distance term contributes (never floored at zero, so the
     /// in-scope/out-of-scope contrast survives — ADR-003).
-    pub(crate) fn abstain_logit(&self) -> f32 {
-        let dist = (ABSTAIN_TAU - self.max_sim) / ABSTAIN_SCALE;
+    pub(crate) fn abstain_logit(&self, tau: f32, scale: f32) -> f32 {
+        let scale = if scale.abs() < f32::EPSILON {
+            0.5
+        } else {
+            scale
+        };
+        let dist = (tau - self.max_sim) / scale;
         match self.best_not_for {
             Some(nf) => nf.max(dist),
             None => dist,
@@ -208,17 +210,22 @@ pub(crate) struct Classified<'a> {
     pub abstain_logit: f32,
     pub head: Head,
     pub temperature: f32,
+    /// Inverse-temperature prior applied to every logit before temperature
+    /// scaling and the abstain softmax (ADR-004 `logitScale`). `1.0` is a no-op.
+    pub logit_scale: f32,
     pub calibrated: bool,
     pub model: &'a str,
 }
 
 impl Classified<'_> {
     fn shares_and_abstain(&self) -> (Vec<f32>, f32) {
-        let mut proto_full = self.proto_scores.to_vec();
-        proto_full.push(self.abstain_logit);
+        let s = self.logit_scale;
+        let mut proto_full: Vec<f32> = self.proto_scores.iter().map(|l| l * s).collect();
+        proto_full.push(self.abstain_logit * s);
         let proto_masses = softmax(&apply_temperature(&proto_full, self.temperature));
         let abstain = *proto_masses.last().unwrap_or(&0.0);
-        let shares = softmax(&apply_temperature(&self.head_logits, self.temperature));
+        let scaled: Vec<f32> = self.head_logits.iter().map(|l| l * s).collect();
+        let shares = softmax(&apply_temperature(&scaled, self.temperature));
         (shares, abstain)
     }
 

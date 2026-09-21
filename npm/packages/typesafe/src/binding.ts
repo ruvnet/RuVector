@@ -15,6 +15,12 @@ export interface EngineInstance {
   statsJson(): string;
   /** Optional async decision on the native path (used by the batch pool). */
   decide?(requestJson: string): Promise<string>;
+  /** Optional: run an optimize campaign — CampaignReport JSON or error JSON. */
+  optimizeJson?(campaignJson: string): string;
+  /** Optional: export the full example bank JSON (the user's own examples). */
+  exportBankJson?(): string;
+  /** Optional: replace the bank from JSON — `{"ok":true}` or error JSON. */
+  importBankJson?(bankJson: string): string;
 }
 
 export interface Binding {
@@ -22,6 +28,8 @@ export interface Binding {
   version(): string;
   backend: 'native' | 'wasm';
 }
+
+import type { EngineTuning } from './optimize';
 
 /** Embedder selection for the engine constructor (ADR-002). */
 export type EmbedderConfig =
@@ -37,15 +45,19 @@ export interface EngineOptions {
   embedder?: EmbedderConfig;
   /** Embedding width for the hash embedder (ignored by onnx). */
   dims?: number;
+  /** Tunable engine knobs (ADR-004). Absent → the core defaults. */
+  engine?: EngineTuning;
 }
 
 /** The JSON the binding's `Engine` constructor expects. */
 export function toOptionsJson(opts: EngineOptions): string {
   const embedder = opts.embedder ?? 'hash';
-  if (embedder === 'hash') {
-    return JSON.stringify({ embedder: 'hash', dims: opts.dims ?? 256 });
-  }
-  return JSON.stringify({ embedder });
+  const base: Record<string, unknown> =
+    embedder === 'hash'
+      ? { embedder: 'hash', dims: opts.dims ?? 256 }
+      : { embedder };
+  if (opts.engine) base.engine = opts.engine;
+  return JSON.stringify(base);
 }
 
 let cached: Binding | null | undefined;
