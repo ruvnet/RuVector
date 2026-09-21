@@ -43,6 +43,15 @@ tracing-subscriber = { workspace = true }
 name = "vector_search"
 harness = false
 
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# Issue #1006: rand 0.8 -> getrandom 0.2 has no wasm backend by default, and
+# uuid's v4 path needs a wasm RNG too. Enabling the "js" feature routes both
+# through the browser/Node crypto API so router-core (and everything that
+# depends on it, incl. ruvector-typesafe-{core,wasm}) builds on wasm32.
+getrandom = { version = "0.2", features = ["js"] }
+uuid = { version = "1.10", features = ["v4", "serde", "js"] }
+
 # Workspace cleanup pass: research-tier crate, doc/style churn deferred. Correctness + suspicious lints stay denied.
 [lints.rust]
 unexpected_cfgs = { level = "allow", priority = -1 }

@@ -11,15 +11,28 @@ description = "NAPI-RS bindings for ruvector-typesafe-core (@ruvector/typesafe n
 crate-type = ["cdylib"]
 
 [features]
-default = []
+# The hash embedder is the only backend wired today; it is the default so a
+# plain `cargo build -p ruvector-typesafe-ffi` produces a usable native binary
+# and `napi build` needs no extra flags.
+default = ["hash-embedder"]
 hash-embedder = ["ruvector-typesafe-core/hash-embedder"]
 
+# Pulls in the native ONNX backend (ort). Kept OUT of `default` so the standard
+# build stays hash-only and network-free (ort's `download-binaries` fetches
+# onnxruntime at build time). The dependency + feature are wired; the runtime
+# code path is still a TODO — it needs the core `Engine` to hold a
+# `Box<dyn Embedder>` instead of the monomorphized `HashEmbedder`, at which
+# point the onnx arm of the options JSON (currently rejected at the boundary,
+# see src/lib.rs) constructs an `OrtEmbedder`.
+native-onnx = ["dep:ruvector-embed-core", "ruvector-embed-core/native"]
+
 [dependencies]
-ruvector-typesafe-core = { version = "2.0", path = "../ruvector-typesafe-core" }
+ruvector-typesafe-core = { version = "2.3", path = "../ruvector-typesafe-core" }
 napi = { workspace = true }
 napi-derive = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+ruvector-embed-core = { version = "2.3", path = "../ruvector-embed-core", optional = true }
 
 [build-dependencies]
 napi-build = "2.1"

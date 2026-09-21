@@ -11,15 +11,31 @@ description = "wasm-bindgen build of ruvector-typesafe-core (@ruvector/typesafe 
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = []
+# The hash embedder is the only backend wired today; default so wasm-pack (and
+# a plain wasm32 cargo build) produce a usable module with no extra flags.
+default = ["hash-embedder"]
 hash-embedder = ["ruvector-typesafe-core/hash-embedder"]
 
+# Pulls in the WASM ONNX backend (tract). Kept OUT of `default`. The dependency
+# + feature are wired; the runtime code path is still a TODO — `Engine.fromBytes`
+# and the onnx options arm (currently returning an error JSON, see src/lib.rs)
+# will build a `TractEmbedder` once the core `Engine` holds a `Box<dyn Embedder>`.
+wasm-onnx = ["dep:ruvector-embed-core", "ruvector-embed-core/wasm"]
+
+# wasm-pack's bundled wasm-opt (binaryen) predates the WASM features recent
+# rustc emits by default for wasm32-unknown-unknown (bulk-memory, sign-ext,
+# non-trapping float->int). Enable them so the -Oz pass validates instead of
+# erroring; keeps the size optimization the ADR wants without pinning binaryen.
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ['-Oz', '--enable-bulk-memory', '--enable-sign-ext', '--enable-nontrapping-float-to-int']
+
 [dependencies]
-ruvector-typesafe-core = { version = "2.0", path = "../ruvector-typesafe-core" }
+ruvector-typesafe-core = { version = "2.3", path = "../ruvector-typesafe-core" }
 wasm-bindgen = { workspace = true }
 js-sys = "0.3"
 serde = { workspace = true }
 serde_json = { workspace = true }
+ruvector-embed-core = { version = "2.3", path = "../ruvector-embed-core", default-features = false, optional = true }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"

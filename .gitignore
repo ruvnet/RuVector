@@ -56,6 +56,11 @@ index.d.ts
 # optimizer test could not resolve it.
 !npm/packages/ruvector/src/optimizer/index.js
 
+# @ruvector/typesafe ships a hand-written platform loader + binding types (not
+# napi CLI output); package.json `files` lists them, so they must be committed.
+!npm/packages/typesafe/index.js
+!npm/packages/typesafe/index.d.ts
+
 # Environment variables and secrets
 .env
 **/.env
