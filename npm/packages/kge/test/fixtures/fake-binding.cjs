@@ -55,7 +55,7 @@ class Model {
       this.incident.set(`${o}|${r}`, (this.incident.get(`${o}|${r}`) ?? 0) + 1);
       this.nTriples++;
     }
-    return JSON.stringify({ added: arr.length });
+    return JSON.stringify({ added: arr.length, entities: this.entities.size, relations: this.relations.size, triples: this.nTriples });
   }
 
   _score(s, r, o) {
@@ -94,19 +94,22 @@ class Model {
     const { split, tieBreak = 'random' } = JSON.parse(json);
     const triples = this.bySplit[split] ?? [];
     const rng = mulberry32(this.seed ^ (tieBreak === 'top' ? 1 : tieBreak === 'bottom' ? 2 : 3));
-    const agg = (ranks) => {
+    const metricSet = (ranks) => {
       const n = ranks.length || 1;
       let mrr = 0, mr = 0, h1 = 0, h3 = 0, h10 = 0;
       for (const rk of ranks) { mrr += 1 / rk; mr += rk; if (rk <= 1) h1++; if (rk <= 3) h3++; if (rk <= 10) h10++; }
-      return { mrr: mrr / n, mr: mr / n, hits: { 1: h1 / n, 3: h3 / n, 10: h10 / n } };
+      return { count: ranks.length, mr: mr / n, mrr: mrr / n, hits1: h1 / n, hits3: h3 / n, hits10: h10 / n };
     };
     const tailRanks = [], headRanks = [];
     for (const t of triples) {
       tailRanks.push(this._rank(t.s, t.r, t.o, 'tail', tieBreak, rng));
       headRanks.push(this._rank(t.o, t.r, t.s, 'head', tieBreak, rng));
     }
-    const all = agg([...tailRanks, ...headRanks]);
-    return JSON.stringify({ mrr: all.mrr, mr: all.mr, hits: all.hits, perSide: { tail: agg(tailRanks), head: agg(headRanks) } });
+    return JSON.stringify({
+      report: { combined: metricSet([...tailRanks, ...headRanks]), head: metricSet(headRanks), tail: metricSet(tailRanks) },
+      evalTriples: triples.length, split, splitSource: 'ingested split tags', filtered: true,
+      note: 'fake double: filtered ranking over all entities with the requested tie-break',
+    });
   }
 
   predictJson(json) {
@@ -130,7 +133,11 @@ class Model {
 
   trainJson(json) {
     const c = JSON.parse(json || '{}');
-    return JSON.stringify({ epochs: c.epochs ?? this.epochs, triplesPerSec: 100000 });
+    return JSON.stringify({
+      epoch: c.epochs ?? this.epochs, epochs: c.epochs ?? this.epochs, batches: 1,
+      loss: 0.5, n3Penalty: 0.001, triplesPerSec: 100000,
+      triples: this.nTriples, entities: this.entities.size, relations: this.relations.size,
+    });
   }
   buildIndexJson() { return JSON.stringify({ built: true }); }
   optimizeJson() { return JSON.stringify({ ok: true }); }

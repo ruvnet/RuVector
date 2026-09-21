@@ -95,26 +95,46 @@ export function train(model, config = {}) {
   const t0 = performance.now();
   const r = callJson(model, 'trainJson', config);
   if (!r.available) return r;
+  const m = r.resp;
   return {
     available: true,
-    epochs: r.resp.epochs ?? config.epochs ?? null,
-    triplesPerSec: r.resp.triplesPerSec ?? null,
+    epochs: m.epochs ?? config.epochs ?? null,
+    triplesPerSec: m.triplesPerSec ?? null,
+    loss: m.loss ?? null,
+    n3Penalty: m.n3Penalty ?? null,
+    batches: m.batches ?? null,
     wallMs: performance.now() - t0,
-    raw: r.resp,
   };
 }
 
-/** Filtered MRR/Hits for a split at a tie-break mode. */
+/** Normalise a MetricSet ({mrr,mr,hits1/3/10} or {mrr,mr,hits:{...}}) to {mrr,mr,hits}. */
+function metricSet(m) {
+  if (!m) return null;
+  const hits = m.hits ?? { 1: m.hits1, 3: m.hits3, 10: m.hits10 };
+  return { mrr: m.mrr, mr: m.mr, hits };
+}
+
+/**
+ * Filtered MRR/Hits for a split at a tie-break mode. The binding returns
+ * `{report:{combined,head,tail}, split, splitSource, filtered}`; older stubs
+ * returned a flat `{mrr,mr,hits,perSide}`. Both are accepted.
+ */
 export function evalSplit(model, split, tieBreak) {
   const r = callJson(model, 'evalJson', { split, tieBreak });
   if (!r.available) return r;
   const m = r.resp;
+  const combined = m.report ? metricSet(m.report.combined) : metricSet(m);
+  const perSide = m.report
+    ? { head: metricSet(m.report.head), tail: metricSet(m.report.tail) }
+    : m.perSide ?? null;
   return {
     available: true,
-    mrr: m.mrr,
-    mr: m.mr,
-    hits: m.hits ?? {},
-    perSide: m.perSide ?? null,
+    mrr: combined?.mrr,
+    mr: combined?.mr,
+    hits: combined?.hits ?? {},
+    perSide,
+    splitSource: m.splitSource ?? null,
+    filtered: m.filtered ?? null,
   };
 }
 

@@ -35,6 +35,8 @@ export interface TailQuery<R extends string> {
   r: R;
   o?: never;
   k?: number;
+  /** Force exhaustive scoring even if an ANN index exists (default true). */
+  useIndex?: boolean;
 }
 /** Head query `(?, r, o)` — resolve the subject. */
 export interface HeadQuery<R extends string> {
@@ -42,6 +44,8 @@ export interface HeadQuery<R extends string> {
   r: R;
   s?: never;
   k?: number;
+  /** Force exhaustive scoring even if an ANN index exists (default true). */
+  useIndex?: boolean;
 }
 export type PredictQuery<R extends string> = TailQuery<R> | HeadQuery<R>;
 

@@ -126,10 +126,13 @@ r.report.combined.mrr;
 ```
 
 - `train(config)` / `kge train` — mini-batch training over the tables (ADR-003).
-- `evaluate(config)` / `kge eval` — filtered ranking metrics. A given `split`
-  partitions the triples 80/10/10; this is a **derived** split for a smoke
-  check, not the frozen content-hashed split ADR-006's gates require (that is
-  the bench harness's artifact).
+- `evaluate(config)` / `kge eval` — filtered ranking metrics. **Split tags are
+  honoured verbatim**: tag triples on ingest (`addTriples([{s,r,o,split:'test'}])`)
+  and `train` uses only the `train` split while `eval({split:'test'})` scores
+  exactly that subset — this is how the bench harness pins ADR-006's frozen
+  split. With no tags, a `split` is a **derived** 80/10/10 partition, a smoke
+  check only. `predict({..., useIndex:false})` forces exhaustive scoring even
+  when an index exists (exact per-candidate scores).
 - `optimize(campaign)` / `kge optimize` — the self-optimization loop (ADR-004),
   **not yet wired**: the core `Campaign` needs an `Evaluator` the binding does
   not provide yet, so it returns `unavailable`.
