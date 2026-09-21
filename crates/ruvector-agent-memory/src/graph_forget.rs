@@ -63,9 +63,10 @@ pub struct MincutGatedForgetting {
     /// boundary vertices.
     pub protect_fraction: f32,
     /// Number of times to recompute the min-cut partition on an unchanged
-    /// graph, unioning the boundary vertices found each time (see the
-    /// "Measured limitation" note on [`Self::boundary_indices`]). `1`
-    /// disables retrying.
+    /// graph, unioning the boundary vertices found each time. Retained for
+    /// defense-in-depth, but no longer required for correctness: see the
+    /// "Resolved" update on [`Self::boundary_indices`]'s doc comment. `1`
+    /// (the default) disables retrying.
     pub mincut_trials: usize,
 }
 
@@ -79,7 +80,7 @@ impl MincutGatedForgetting {
             min_similarity: 0.05,
             structural_bonus,
             protect_fraction: 0.0,
-            mincut_trials: 3,
+            mincut_trials: 1,
         }
     }
 
@@ -92,7 +93,7 @@ impl MincutGatedForgetting {
             min_similarity: 0.05,
             structural_bonus: 0.0,
             protect_fraction,
-            mincut_trials: 3,
+            mincut_trials: 1,
         }
     }
 
@@ -103,38 +104,58 @@ impl MincutGatedForgetting {
     /// Returns an empty set when there is no usable structural signal: fewer
     /// than 4 entries, or no edges survive `min_similarity`.
     ///
-    /// # Measured limitation (nightly 2026-09-05 finding)
+    /// # Measured limitation (nightly 2026-09-05 finding) — Resolved (nightly 2026-09-21)
     ///
-    /// `ruvector_mincut::RuVectorGraphAnalyzer::partition()` is NOT
+    /// `ruvector_mincut::RuVectorGraphAnalyzer::partition()` was NOT
     /// deterministic across repeated calls on an *identical, unchanged*
-    /// graph, and is expensive even on tiny graphs: on a synthetic 19-vertex
-    /// graph with a unique-by-construction weakest link (a degree-2 "bridge"
-    /// vertex whose two edges are the only ones connecting two
-    /// otherwise-disjoint 9-vertex cliques), 30 repeated
+    /// graph: on a synthetic 19-vertex graph with a unique-by-construction
+    /// weakest link (a degree-2 "bridge" vertex whose two edges are the only
+    /// ones connecting two otherwise-disjoint 9-vertex cliques), 30 repeated
     /// `from_knn(...).partition()` calls on byte-identical input averaged
     /// 841ms/call and returned an empty side (no usable cut) in 15/30 calls
-    /// (50%); of the 15 non-empty calls, the bridge was correctly flagged as
-    /// boundary in all 15 (the two valid minimum-cut partitions both cross at
-    /// least one of the bridge's two edges in this particular topology, so
-    /// this graph cannot distinguish "wrong partition" from "empty result",
-    /// only "no signal" from "some signal"). This is consistent with internal
-    /// tie-breaking that depends on hash-map iteration order rather than any
-    /// property of the graph, not with an intentional randomized algorithm
-    /// (no direct `rand` usage was found in `ruvector-mincut`'s
-    /// instance/witness/algorithm modules). See
-    /// `examples/mincut_determinism_probe.rs` (exact reproduction of the
-    /// numbers above) and
-    /// `docs/research/nightly/2026-09-05-mincut-gated-forgetting/README.md`
-    /// ("Failure modes", which also covers latency scaling up to 400
-    /// vertices). Filed as a follow-up hardening item against
-    /// `ruvector-mincut` rather than worked around there.
+    /// (50%).
     ///
-    /// This method mitigates it locally by taking the union of boundary
-    /// vertices found across [`Self::mincut_trials`] independent calls: a
-    /// vertex flagged as boundary in *any* trial genuinely does sit on some
-    /// minimum cut of the graph, so the union only adds true positives (never
-    /// false ones) at the cost of also protecting bystander vertices caught
-    /// by an alternate, equally-valid partition.
+    /// The 2026-09-21 nightly root-caused this to two independent bugs in
+    /// `ruvector-mincut`, both now fixed there (not worked around here):
+    ///
+    /// 1. `BoundedInstance::brute_force_min_cut`/`search_for_cuts`
+    ///    (`instance/bounded.rs`) built their vertex enumeration/seed order
+    ///    from `self.vertices: HashSet<VertexId>` iteration order, which
+    ///    Rust's default hasher reseeds on every `BoundedInstance::new()`
+    ///    call. Both functions pick the *first* minimum/in-range cut they
+    ///    find, so a randomly-reordered enumeration silently changed which
+    ///    of several equal-cost cuts was returned. Fixed by sorting both
+    ///    vectors before use.
+    /// 2. `WitnessHandle::materialize_partition()` (`instance/witness.rs`)
+    ///    computed the cut's second side as `0..=max(membership)` minus
+    ///    `membership` — i.e. it assumed the graph's highest vertex ID was
+    ///    the highest ID *in the winning side*. Whenever the winning side
+    ///    didn't happen to contain the graph's actual highest-ID vertex, the
+    ///    "other side" came back empty instead of the rest of the real
+    ///    graph, which `graph_forget`'s `side_a.is_empty() ||
+    ///    side_b.is_empty()` fallback (correctly, given the bad input) then
+    ///    read as "no signal". This alone accounts for most of the 50%
+    ///    empty-result rate above: it doesn't require any randomness to
+    ///    trigger, only that the (possibly still nondeterministic) winning
+    ///    side excludes the max-ID vertex. Fixed at the one production call
+    ///    site, `RuVectorGraphAnalyzer::partition()`
+    ///    (`integration/mod.rs`), by computing the complement against the
+    ///    analyzer's actual graph instead of trusting the witness's
+    ///    self-reported range.
+    ///
+    /// Re-running the unmodified `examples/mincut_determinism_probe.rs` (200
+    /// trials, up from 30) after both fixes: 0/200 empty results, 200/200
+    /// correct boundary detection, byte-identical output on every call.
+    /// Latency is unchanged (~1.0s/call on this probe's 19-vertex graph,
+    /// dominated by `brute_force_min_cut`'s O(2^n) exhaustive search, not by
+    /// either bug) — still an open, separately-tracked cost, not addressed
+    /// here. See `docs/research/nightly/2026-09-05-mincut-gated-forgetting/`
+    /// and `docs/research/nightly/2026-09-21-mincut-determinism-fix/`.
+    ///
+    /// [`Self::mincut_trials`] (now defaulting to `1`) is kept only as
+    /// defense-in-depth: with the above fixed, repeating an identical query
+    /// against an unchanged graph returns an identical answer, so trials
+    /// beyond the first are pure overhead, not added correctness.
     fn boundary_indices(&self, entries: &[MemoryEntry]) -> HashSet<usize> {
         let n = entries.len();
         if n < 4 {
@@ -341,14 +362,7 @@ mod tests {
         assert_eq!(scalar[bridge_idx], 0.0);
 
         let mut policy = MincutGatedForgetting::soft(CoherenceWeights::default(), 1.0);
-        // Raised from the default 3: this dataset has two equal-cost minimum
-        // cuts (see the "Measured limitation" doc on `boundary_indices`), so
-        // a single low-trial-count run can occasionally miss the boundary
-        // signal by chance; 10 keeps this deterministic unit test's flake
-        // rate negligible at a runtime cost that is fine for `cargo test`
-        // (19 vertices, not the multi-second cost measured at production
-        // scale).
-        policy.mincut_trials = 10;
+        policy.mincut_trials = 1;
         // Evict 3 of 19: exactly the tied-lowest group (bridge + 2 gateways)
         // under the scalar baseline.
         let survivors = policy.select_survivors(&entries, 16, &[]);
@@ -362,7 +376,7 @@ mod tests {
     fn hard_mode_reserves_budget_for_boundary_vertices() {
         let (entries, bridge_idx) = bridge_dataset();
         let mut policy = MincutGatedForgetting::hard(CoherenceWeights::default(), 0.3);
-        policy.mincut_trials = 10; // see the sibling soft-mode test's comment
+        policy.mincut_trials = 1;
         let survivors = policy.select_survivors(&entries, 16, &[]);
         assert!(
             survivors.contains(&bridge_idx),
