@@ -107,7 +107,7 @@ jobs:
       - name: Install deps
         run: npm install --no-audit --no-fund --no-workspaces --legacy-peer-deps
       - name: Type-check
-        run: npx tsc
+        run: npx -y -p typescript@5.9.3 tsc -p tsconfig.json && npx -y -p typescript@5.9.3 tsc --noEmit -p tsconfig.typetest.json
       - name: Verify frozen-fixture hashes (no rewrite)
         run: node scripts/hash-fixtures.mjs --check
       - name: Unit + integration tests
