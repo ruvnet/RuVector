@@ -155,7 +155,12 @@ jobs:
           mkdir -p native
           cp "$GITHUB_WORKSPACE/typesafe-artifacts/${{ matrix.settings.platform }}/typesafe.${{ matrix.settings.platform }}.node" \
              "native/typesafe.${{ matrix.settings.platform }}.node"
-          node -e "const m=require('./index.js'); if(m.backend!=='native'){console.error('loader did not select native backend, got: '+m.backend);process.exit(1)}; console.log('loader parity OK: backend=native version='+m.version)"
+          # Two separate assertions, so a failure says which half broke. Loading
+          # the binary directly proves the artifact itself is sound (on Windows a
+          # missing runtime DLL surfaces here as "The specified module could not
+          # be found"); only then is the loader's selection worth blaming.
+          node -e "const b=require('./native/typesafe.${{ matrix.settings.platform }}.node'); if(typeof b.version!=='function'){console.error('binary loaded but exports no version(): '+Object.keys(b).join(','));process.exit(1)}; console.log('binary loads OK: '+b.version())"
+          node -e "const m=require('./index.js'); if(m.backend!=='native'){console.error('binary loads, but the loader selected: '+m.backend);process.exit(1)}; console.log('loader parity OK: backend=native version='+m.version())"
 
       - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
