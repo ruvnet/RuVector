@@ -20,6 +20,9 @@ use serde::{Deserialize, Serialize};
 pub struct KgeReceiptExtra {
     pub scorer: ScorerKind,
     pub dims: usize,
+    /// The proposal's content-hash id, serialized as a JSON **string** so a JS
+    /// reader can match it against a `championId` without `u64` precision loss.
+    #[serde(with = "super::serde_ids::id_str")]
     pub knobs_hash: u64,
     /// EWC penalty weight — set only for continual-update receipts.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -254,6 +257,24 @@ mod tests {
         assert_ne!(tampered, jsonl);
         let reloaded = KgeReceiptLog::from_jsonl(&tampered).unwrap();
         assert_eq!(reloaded.verify_chain(), Err(1));
+    }
+
+    #[test]
+    fn knobs_hash_round_trips_through_json_as_a_string() {
+        // A full-range u64 id serialises as a JSON string and parses back to the
+        // exact same value — the property JS relies on to match a championId.
+        let big = 16_770_708_040_370_786_042u64; // > 2^53
+        let e = KgeReceiptExtra {
+            knobs_hash: big,
+            ..extra(128)
+        };
+        let json = serde_json::to_string(&e).unwrap();
+        assert!(
+            json.contains(&format!("\"knobs_hash\":\"{big}\"")),
+            "knobs_hash must be a JSON string: {json}"
+        );
+        let back: KgeReceiptExtra = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.knobs_hash, big, "string id round-trips losslessly");
     }
 
     #[test]

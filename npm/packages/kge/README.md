@@ -148,7 +148,10 @@ r.report.combined.mrr;
   that transfer MRR is measured on never-trained relations and is noisy, so tag
   your splits for a meaningful campaign. `optimize` installs the champion's
   trained tables into the model (so `save()` afterwards persists the tuned
-  model) and returns an `OptimizeReport`.
+  model) and returns an `OptimizeReport` whose ids (`championId`,
+  `proposals[].id`) are strings that match the receipts' `knobs_hash` exactly.
+  It runs **synchronously** on the calling thread (unlike `train`, which has a
+  native async form); at large `dims` a campaign can block for minutes.
 
 ## Security promises (ADR-005)
 

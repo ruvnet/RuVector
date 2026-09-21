@@ -150,7 +150,9 @@ impl KgeModel {
 
         serde_json::json!({
             "champion": champion,
-            "championId": report.champion_id,
+            // String id (full u64 would lose precision as a JS number), so it
+            // matches the receipts' `knobs_hash` and `proposals[].id` exactly.
+            "championId": report.champion_id.to_string(),
             "promoted": promoted,
             "installed": installed,
             "paused": report.paused,

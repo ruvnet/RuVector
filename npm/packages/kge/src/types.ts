@@ -126,10 +126,11 @@ export type GateDecision =
   | { decision: 'reject'; reason: string }
   | { decision: 'paused'; reason: string };
 
-/** One proposal row in an `optimize` report. */
+/** One proposal row in an `optimize` report. Ids are content hashes carried as
+ * strings (a full u64 would lose precision as a JS number). */
 export interface OptimizeProposal {
-  id: number;
-  parent: number | null;
+  id: string;
+  parent: string | null;
   arm: 'hpo' | 'model-arm' | 'continual';
   decision: GateDecision;
 }
@@ -138,7 +139,8 @@ export interface OptimizeProposal {
 export interface OptimizeReport {
   /** The promoted (or, if nothing promoted, the retained baseline) knobs. */
   champion: Knobs;
-  championId: number;
+  /** Content-hash id as a string; matches a receipt's `knobs_hash` exactly. */
+  championId: string;
   /** True when a proposal beat the baseline and was promoted. */
   promoted: boolean;
   /** True when the champion's trained tables were written into the model. */

@@ -155,12 +155,12 @@ class Model {
       dims, lr: 0.1, optimizer: 'adam', loss: 'cross-entropy',
       neg_count: 100, temperature: 1.0, n3_lambda: 0.0, epochs: 20, scorer,
     };
-    const receipts = JSON.stringify({ receipt: { seq: 0, decision: { decision: 'promote' } }, kge: { fake: true } });
+    const receipts = JSON.stringify({ receipt: { seq: 0, decision: { decision: 'promote' } }, kge: { knobs_hash: '1', fake: true } });
     return JSON.stringify({
-      champion, championId: 1, promoted: true, installed: true, paused: false,
+      champion, championId: '1', promoted: true, installed: true, paused: false,
       budgetConsumed: Math.min(spec.budget ?? 16, 64), splitSource: 'per-triple',
       proposalCount: 1,
-      proposals: [{ id: 1, parent: 0, arm: 'hpo', decision: { decision: 'promote' } }],
+      proposals: [{ id: '1', parent: '0', arm: 'hpo', decision: { decision: 'promote' } }],
       val: { baselineMrr: 0.20, championMrr: 0.50 },
       transfer: { baselineMrr: 0.30, championMrr: 0.31 },
       test: { baselineMrr: 0.25, championMrr: 0.45 },

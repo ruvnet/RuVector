@@ -12,6 +12,7 @@ pub mod campaign;
 pub mod continual;
 pub mod proposals;
 pub mod receipt;
+pub(crate) mod serde_ids;
 pub mod trainer_eval;
 
 pub use campaign::{Campaign, CampaignReport, CampaignSpec, ProposalDecision};
