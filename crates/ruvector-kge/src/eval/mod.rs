@@ -66,45 +66,10 @@ pub fn evaluate<S: Scorer + ?Sized>(
     let mut scores = vec![0.0f32; n];
 
     for &t in eval_triples {
-        let s = tables.entity(t.s)?;
-        let r = tables.relation(t.r)?;
-        let o = tables.entity(t.o)?;
-
-        // Tail: (s, r, ?) — vary the object.
-        for (e, slot) in scores.iter_mut().enumerate() {
-            *slot = scorer.score(s, r, tables.entity(e as u32)?);
-        }
-        let filt = if config.filtered {
-            filter_store.true_tails(t.s, t.r)
-        } else {
-            None
-        };
-        let mut rng = Rng::seeded(qseed(config.seed, t, 1));
-        tail.add(rank::rank_of(
-            &scores,
-            t.o,
-            filt,
-            config.tie_break,
-            &mut rng,
-        ));
-
-        // Head: (?, r, o) — vary the subject.
-        for (e, slot) in scores.iter_mut().enumerate() {
-            *slot = scorer.score(tables.entity(e as u32)?, r, o);
-        }
-        let filt = if config.filtered {
-            filter_store.true_heads(t.r, t.o)
-        } else {
-            None
-        };
-        let mut rng = Rng::seeded(qseed(config.seed, t, 0));
-        head.add(rank::rank_of(
-            &scores,
-            t.s,
-            filt,
-            config.tie_break,
-            &mut rng,
-        ));
+        let (tail_rank, head_rank) =
+            ranks_for_triple(tables, scorer, filter_store, t, config, &mut scores)?;
+        tail.add(tail_rank);
+        head.add(head_rank);
     }
 
     let mut combined = head.clone();
@@ -114,6 +79,75 @@ pub fn evaluate<S: Scorer + ?Sized>(
         tail: tail.finish(),
         combined: combined.finish(),
     })
+}
+
+/// Per-query **filtered integer ranks** for `eval_triples`, in a stable order:
+/// for each triple, its tail-query rank `(s, r, ?)` then its head-query rank
+/// `(?, r, o)`. The vector's length (`2 · eval_triples.len()`) and per-index
+/// meaning depend only on `eval_triples`, so two models scored over the *same*
+/// `eval_triples` produce element-aligned vectors — exactly what the
+/// self-optimization loop pairs candidate-vs-incumbent (ADR-004). Reciprocal
+/// ranks (`1 / rank`) recover MRR; the integers keep ties exact for pairing.
+pub fn evaluate_ranks<S: Scorer + ?Sized>(
+    tables: &Tables,
+    scorer: &S,
+    filter_store: &TripleStore,
+    eval_triples: &[Triple],
+    config: &EvalConfig,
+) -> Result<Vec<usize>> {
+    let n = tables.num_entities();
+    let mut scores = vec![0.0f32; n];
+    let mut out = Vec::with_capacity(eval_triples.len() * 2);
+    for &t in eval_triples {
+        let (tail_rank, head_rank) =
+            ranks_for_triple(tables, scorer, filter_store, t, config, &mut scores)?;
+        out.push(tail_rank);
+        out.push(head_rank);
+    }
+    Ok(out)
+}
+
+/// The one scoring loop both [`evaluate`] and [`evaluate_ranks`] share: filtered
+/// tail then head rank of one triple, reusing `scores` as scratch. Identical
+/// seeds and candidate ordering to the previous inline form, so reported
+/// metrics are unchanged.
+fn ranks_for_triple<S: Scorer + ?Sized>(
+    tables: &Tables,
+    scorer: &S,
+    filter_store: &TripleStore,
+    t: Triple,
+    config: &EvalConfig,
+    scores: &mut [f32],
+) -> Result<(usize, usize)> {
+    let s = tables.entity(t.s)?;
+    let r = tables.relation(t.r)?;
+    let o = tables.entity(t.o)?;
+
+    // Tail: (s, r, ?) — vary the object.
+    for (e, slot) in scores.iter_mut().enumerate() {
+        *slot = scorer.score(s, r, tables.entity(e as u32)?);
+    }
+    let filt = if config.filtered {
+        filter_store.true_tails(t.s, t.r)
+    } else {
+        None
+    };
+    let mut rng = Rng::seeded(qseed(config.seed, t, 1));
+    let tail_rank = rank::rank_of(scores, t.o, filt, config.tie_break, &mut rng);
+
+    // Head: (?, r, o) — vary the subject.
+    for (e, slot) in scores.iter_mut().enumerate() {
+        *slot = scorer.score(tables.entity(e as u32)?, r, o);
+    }
+    let filt = if config.filtered {
+        filter_store.true_heads(t.r, t.o)
+    } else {
+        None
+    };
+    let mut rng = Rng::seeded(qseed(config.seed, t, 0));
+    let head_rank = rank::rank_of(scores, t.s, filt, config.tie_break, &mut rng);
+
+    Ok((tail_rank, head_rank))
 }
 
 /// Well-mixed per-query seed so RANDOM tie-breaking is reproducible yet

@@ -4,9 +4,8 @@
 //!
 //! `train` and `eval` run over the current triples through the landed HolE /
 //! RotatE scorers (both `Differentiable`). `buildIndex` builds a
-//! `DistanceMetric::DotProduct` HNSW that `predict` then uses. `optimize` is
-//! still a stub — the core `Campaign` needs an `Evaluator` the binding does not
-//! provide yet.
+//! `DistanceMetric::DotProduct` HNSW that `predict` then uses. The
+//! self-optimization campaign lives in the sibling `optimize` module.
 
 use crate::model::{err_json, kge_error_json, KgeModel, SplitLabel};
 use ruvector_kge::scorer::{HolE, RotatE};
@@ -241,14 +240,5 @@ impl KgeModel {
             }
             Err(e) => kge_error_json(&e),
         }
-    }
-
-    /// Self-optimization campaign. Still a stub: the core `Campaign` needs an
-    /// `Evaluator` implementation the binding does not provide yet (ADR-004).
-    pub fn optimize_json(&mut self, _campaign_json: &str) -> String {
-        err_json(
-            "unavailable",
-            "optimize is unavailable: the core Campaign needs an Evaluator implementation the binding does not provide yet",
-        )
     }
 }

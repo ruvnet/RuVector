@@ -16,6 +16,8 @@ import { isErrorShape, KgeError } from './errors';
 import type { Schema } from './schema';
 import type {
   AddReport,
+  OptimizeReport,
+  OptimizeSpec,
   PredictResult,
   SimilarResult,
   Stats,
@@ -73,8 +75,11 @@ export interface Kge<R extends string = string> {
   train(config?: Record<string, unknown>): Promise<Record<string, unknown>>;
   /** Filtered evaluation over a (derived) split. */
   evaluate(config?: Record<string, unknown>): Record<string, unknown>;
-  /** Self-optimization campaign (throws `unavailable`: not yet wired). */
-  optimize(campaign?: Record<string, unknown>): Record<string, unknown>;
+  /**
+   * Run one self-optimization campaign (ADR-004): fit and gate the HPO/model
+   * arms over the model's splits, then install the champion's trained tables.
+   */
+  optimize(spec?: OptimizeSpec): OptimizeReport;
   /** Serialize to a hash-carrying envelope (pass to {@link loadKge}). */
   save(): string;
   /** Model introspection. */
@@ -110,8 +115,8 @@ function wrap<R extends string>(binding: Binding, model: ModelInstance): Kge<R> 
     },
     evaluate: (config) =>
       parse<Record<string, unknown>>(model.evalJson(JSON.stringify(config ?? {}))),
-    optimize: (campaign) =>
-      parse<Record<string, unknown>>(model.optimizeJson(JSON.stringify(campaign ?? {}))),
+    optimize: (spec) =>
+      parse<OptimizeReport>(model.optimizeJson(JSON.stringify(spec ?? {}))),
     save: () => model.toJson(),
     stats: () => parse<Stats>(model.statsJson()),
   };

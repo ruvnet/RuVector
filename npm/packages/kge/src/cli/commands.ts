@@ -4,7 +4,7 @@
  * network — only `node:fs` via the helpers in `args.ts`.
  */
 
-import type { Triple } from '../types';
+import type { OptimizeSpec, Triple } from '../types';
 import {
   CliContext,
   flagNumber,
@@ -97,14 +97,42 @@ export function runSimilar(flags: ParsedArgs['flags'], ctx: CliContext): number 
   return 0;
 }
 
-/** `optimize --model model.json [--campaign c.json]` */
+/**
+ * `optimize --model model.json --budget N [--campaign c.json] [--receipts r.jsonl] [--out m.json]`
+ *
+ * Runs the campaign, writes the hash-chained receipts to `--receipts` when
+ * given, persists the installed champion to `--out` (else back to `--model`),
+ * and prints a summary WITHOUT the (large) receipts blob.
+ */
 export function runOptimize(flags: ParsedArgs['flags'], ctx: CliContext): number {
   const kge = openKge(flags, ctx);
   const campaignPath = flags.campaign;
-  const campaign =
+  const base =
     typeof campaignPath === 'string'
-      ? readJsonFile<Record<string, unknown>>(campaignPath)
+      ? readJsonFile<OptimizeSpec>(campaignPath)
       : {};
-  ctx.out(JSON.stringify(kge.optimize(campaign)));
+  const budget = flagNumber(flags, 'budget');
+  const spec: OptimizeSpec = { ...base, ...(budget !== undefined && { budget }) };
+
+  const report = kge.optimize(spec);
+
+  const receiptsPath = typeof flags.receipts === 'string' ? flags.receipts : undefined;
+  if (receiptsPath) writeFile(receiptsPath, report.receipts);
+
+  const outPath =
+    (typeof flags.out === 'string' && flags.out) ||
+    (typeof flags.model === 'string' && flags.model) ||
+    undefined;
+  if (outPath) writeFile(outPath, kge.save());
+
+  const { receipts, ...summary } = report;
+  void receipts; // kept out of the printed summary; written to --receipts above
+  ctx.out(
+    JSON.stringify({
+      ...summary,
+      ...(receiptsPath && { receiptsWritten: receiptsPath }),
+      ...(outPath && { saved: outPath }),
+    }),
+  );
   return 0;
 }

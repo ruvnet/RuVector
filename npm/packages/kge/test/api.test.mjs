@@ -6,13 +6,30 @@ import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const pkgDir = join(testDir, '..');
 const distIndex = join(pkgDir, 'dist', 'index.js');
 const built = existsSync(distIndex);
 
+const require = createRequire(import.meta.url);
+const fakeBinding = require('./fixtures/fake-binding.cjs');
+
 const load = () => import(distIndex);
+
+/** A ring KG with frozen split tags, big enough for a real campaign. */
+function ringTriples(n) {
+  const t = [];
+  for (let i = 0; i < n; i++) {
+    const a = `e${i}`;
+    const b = `e${(i + 1) % n}`;
+    const split = i % 5 === 0 ? 'valid' : i % 7 === 0 ? 'test' : i % 11 === 0 ? 'transfer' : 'train';
+    t.push({ s: a, r: 'ring', o: b, split });
+    t.push({ s: b, r: 'ring', o: a, split: 'train' });
+  }
+  return t;
+}
 
 const FACTS = [
   { s: 'Ada', r: 'bornIn', o: 'London' },
@@ -66,7 +83,7 @@ test('save / loadKge round-trips', { skip: !built && 'not built' }, async () => 
   assert.deepEqual(b.candidates, a.candidates, 'predictions match after reload');
 });
 
-test('train / evaluate / buildIndex work; optimize is unavailable', { skip: !built && 'not built' }, async () => {
+test('train / evaluate / buildIndex / optimize all work', { skip: !built && 'not built' }, async () => {
   const { createKge, KgeError } = await load();
   const kge = createKge({ scorer: 'hole', dims: 8, seed: 4 });
   kge.addTriples(FACTS);
@@ -81,9 +98,37 @@ test('train / evaluate / buildIndex work; optimize is unavailable', { skip: !bui
   assert.equal(built2.indexed, true, 'buildIndex reports indexed');
   assert.equal(kge.predict({ s: 'Ada', r: 'bornIn', k: 2 }).ann, true, 'predict uses ANN after buildIndex');
 
+  // optimize is wired: on this tiny untagged set it cannot form the splits, so
+  // it throws a request error — but never the old 'unavailable'.
   assert.throws(
     () => kge.optimize({}),
-    (e) => e instanceof KgeError && e.kind === 'unavailable',
-    'optimize throws KgeError{unavailable}',
+    (e) => e instanceof KgeError && e.kind !== 'unavailable',
+    'optimize is wired (throws a real request error, not unavailable)',
   );
+});
+
+test('optimize runs a campaign and installs a champion (tagged KG)', { skip: !built && 'not built' }, async () => {
+  const { createKge } = await load();
+  const kge = createKge({ scorer: 'hole', dims: 8, seed: 1 });
+  kge.addTriples(ringTriples(40));
+  const before = kge.save();
+
+  const report = kge.optimize({ budget: 6, seed: 1 });
+  assert.ok(report.proposals.length >= 1, 'at least one proposal gated');
+  assert.equal(typeof report.championId, 'number', 'champion id present');
+  assert.equal(report.splitSource, 'per-triple', 'frozen tags drove the split');
+  assert.equal(typeof report.val.championMrr, 'number', 'validation MRR reported');
+  assert.equal(report.installed, true, 'champion installed');
+  assert.notEqual(kge.save(), before, 'the installed champion changed the saved model');
+});
+
+test('optimize via an injected binding returns a typed report', async () => {
+  const { createKge } = await load().catch(() => ({ createKge: undefined }));
+  if (!createKge) return; // needs dist
+  const kge = createKge({ scorer: 'hole', dims: 8, binding: fakeBinding });
+  kge.addTriples(FACTS);
+  const report = kge.optimize({ budget: 2 });
+  assert.equal(report.promoted, true, 'fake report parses through the typed client');
+  assert.equal(report.champion.scorer, 'hole', 'champion knobs carried through');
+  assert.ok(report.receipts.length > 0, 'receipts JSONL present');
 });

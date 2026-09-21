@@ -28,7 +28,7 @@ pub use ann::AnnIndex;
 pub use batch::BatchScorer;
 pub use data::{Split, Split4, TripleStore, Vocab};
 pub use error::{KgeError, Result};
-pub use eval::{evaluate, EvalConfig, EvalReport, MetricSet, TieBreak};
+pub use eval::{evaluate, evaluate_ranks, EvalConfig, EvalReport, MetricSet, TieBreak};
 pub use optimize::{
     ArmOutcome, Campaign, CampaignReport, CampaignSpec, ContinualUpdate, Evaluator,
 };
