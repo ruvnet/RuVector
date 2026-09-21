@@ -129,6 +129,14 @@ hive-mind-prompt-*.txt
 # Benchmark generated files
 logs/
 data/
+# ...but `data/` is unanchored, so it also swallows any SOURCE directory named
+# data — it hid crates/ruvector-kge/src/data/{rng,tests}.rs, which built fine
+# locally and failed CI with "failed to resolve mod `rng`". Rust and TS source
+# trees are never generated output:
+!crates/*/src/**/data/
+!crates/*/src/**/data/**
+!npm/packages/*/src/**/data/
+!npm/packages/*/src/**/data/**
 
 # PhotonLayer MNIST cache (public dataset, fetched at bench time, never committed)
 crates/photonlayer-bench/data/
