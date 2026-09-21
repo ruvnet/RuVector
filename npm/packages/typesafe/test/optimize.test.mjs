@@ -12,7 +12,16 @@ import { join } from 'node:path';
 const require = createRequire(import.meta.url);
 const { createTypesafe } = require('../dist/index.js');
 const { main } = require('../dist/cli/main.js');
-const realBinding = require('../index.js');
+
+// The loader needs a built backend. CI builds native and wasm in their own
+// jobs, so skip rather than fail when neither artifact is present here.
+const pkgDir = join(import.meta.dirname ?? new URL('.', import.meta.url).pathname, '..');
+const backendBuilt =
+  ['linux-x64-gnu', 'linux-arm64-gnu', 'darwin-x64', 'darwin-arm64', 'win32-x64-msvc'].some((t) =>
+    existsSync(join(pkgDir, 'native', `typesafe.${t}.node`)),
+  ) || existsSync(join(pkgDir, 'wasm', 'ruvector_typesafe_wasm.js'));
+const skip = backendBuilt ? false : 'no native or wasm backend built';
+const realBinding = backendBuilt ? require('../index.js') : null;
 
 const QUESTION = {
   type: 'choice',
@@ -54,7 +63,7 @@ function rows() {
   return out;
 }
 
-test('ts.optimize runs a gated campaign and scores test exactly twice', async () => {
+test('ts.optimize runs a gated campaign and scores test exactly twice', { skip }, async () => {
   const ts = createTypesafe({ binding: realBinding });
   const report = await ts.optimize({
     question: 'q',
@@ -73,7 +82,7 @@ test('ts.optimize runs a gated campaign and scores test exactly twice', async ()
   );
 });
 
-test('typesafe optimize CLI writes a hash-chained receipts JSONL', async () => {
+test('typesafe optimize CLI writes a hash-chained receipts JSONL', { skip }, async () => {
   const tmp = mkdtempSync(join(tmpdir(), 'ts-opt-'));
   const qpath = join(tmp, 'q.json');
   const dpath = join(tmp, 'data.jsonl');
@@ -98,7 +107,7 @@ test('typesafe optimize CLI writes a hash-chained receipts JSONL', async () => {
   }
 });
 
-test('train --bank persists and re-imports the example bank', async () => {
+test('train --bank persists and re-imports the example bank', { skip }, async () => {
   const tmp = mkdtempSync(join(tmpdir(), 'ts-bank-'));
   const bankPath = join(tmp, 'bank.json');
   const exPath = join(tmp, 'examples.jsonl');
