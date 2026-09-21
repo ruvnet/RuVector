@@ -138,7 +138,7 @@ jobs:
       - name: Build native binding
         working-directory: npm/packages/typesafe
         continue-on-error: true
-        run: npm run build:napi
+        run: bash scripts/build-native.sh
       - name: Tickets slice — jev replay + local, gates report-only
         working-directory: npm/packages/typesafe
         run: |

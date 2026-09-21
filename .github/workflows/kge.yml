@@ -134,7 +134,7 @@ jobs:
       - name: Build native binding
         working-directory: npm/packages/kge
         continue-on-error: true
-        run: npm run build:napi
+        run: bash scripts/build-native.sh
       - name: Synthetic suite — tie-break + ANN + adversarial, gates report-only
         working-directory: npm/packages/kge
         run: |
