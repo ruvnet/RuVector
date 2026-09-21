@@ -541,6 +541,26 @@ a narrower, now-confirmed reason.
 - The n=19 legacy-backend 91.4-second outlier was observed once (this
   probe does not repeat the scaling measurement at each size); it is
   reported as measured, not as a stable per-size expectation.
+- **No production caller.** Nothing in this codebase invokes
+  `MincutGatedForgetting` outside this run's own examples and unit tests;
+  the measured numbers describe the two engines in isolation, not the
+  policy under any real workload.
+- **Single seed, single corpus construction.** All results (determinism,
+  scaling, and the full benchmark) use one fixed seed (341) and one fixed
+  synthetic-corpus generator. No independent seeded or permuted holdout
+  was run, so the specific percentages above (e.g. 66.7% bridge survival)
+  should be read as this-seed evidence, not a distribution.
+- **No cross-process or cross-order qualification.** Probe 1's
+  determinism result (30/30 identical partitions) was measured within one
+  process across repeated in-memory calls on a fixed edge list; it does
+  not by itself establish determinism across separate process restarts or
+  across differently-ordered input construction of the same graph.
+- Consequently — and this is worth stating plainly rather than leaving
+  implicit — the speedup and determinism numbers above are bounded
+  implementation evidence for the canonical engine itself, not promotion
+  evidence for `MincutGatedForgetting` or for production use of this
+  path; the "Acceptance" section's REJECT verdict already reflects that,
+  and none of these gaps change it.
 
 ## Next research
 
@@ -560,3 +580,15 @@ a narrower, now-confirmed reason.
 4. **WASM build and benchmark** of the `canonical` feature path, to
    support the "edge cognition" long-horizon application concretely rather
    than by inference from the feature's dependency graph.
+5. **Independent seeded/permuted holdout.** Re-run Probe 3 (or its
+   successor from item 1) across multiple seeds and multiple corpus
+   permutations to turn this run's single-seed percentages into a
+   distribution, before any future promotion decision relies on them.
+6. **Cross-process/restart determinism qualification.** Extend Probe 1 to
+   verify the canonical backend's partition is identical not just across
+   repeated in-process calls but across separate process invocations and
+   differently-ordered input construction.
+7. **A real caller.** None of this run's evidence involves an actual
+   consumer of `MincutGatedForgetting`; wiring one in (even a synthetic
+   but realistic agent workload, not just this run's benchmark harness)
+   would be a precondition for any promotion discussion.

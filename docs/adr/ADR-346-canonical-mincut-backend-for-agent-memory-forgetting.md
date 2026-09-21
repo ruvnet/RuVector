@@ -204,6 +204,26 @@ tested; larger corpora, different topologies, or a local (rather than
 global) cut signal are explicitly out of scope and flagged as follow-ups,
 not claimed as covered.
 
+**Scope of the measured claims, made explicit per 2026-09-21 review
+feedback:** the 67x/62x-vs-2003x/1990x speedup and the 30/30 determinism
+result are bounded implementation evidence for the canonical backend
+itself (i.e. "this engine is faster and repeatable than that engine on
+these inputs"), not promotion evidence for `MincutGatedForgetting` or for
+any production use of this path. This ADR does not claim, and promotion
+would additionally require:
+
+- A production caller — nothing in this codebase invokes
+  `MincutGatedForgetting` (either backend) outside its own examples and
+  tests.
+- An independent seeded/permuted holdout — all results above use a single
+  fixed seed (341) and a single fixed corpus construction; no
+  cross-seed or permuted-order replication was run.
+- Restart/order qualification — determinism was measured within one
+  process across repeated in-memory calls (Probe 1), not across separate
+  process restarts or differently-ordered input construction.
+- Native/WASM/RVF parity — see "Open questions" item 4; no cross-target
+  build was exercised.
+
 ## Migration
 
 None required — fully additive, default behavior unchanged for all
