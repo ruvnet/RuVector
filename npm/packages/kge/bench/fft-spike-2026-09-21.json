@@ -1,0 +1,51 @@
+{
+  "date": "2026-09-21",
+  "fft_beats_direct_at_d512": true,
+  "fft_crate": "rustfft 6.4.1 (MIT OR Apache-2.0)",
+  "method": "median ns/op, black_box, 2000 reps (corr) / 200 reps (scoring); Fft::process allocates scratch per call",
+  "pass_criteria": "FFT beats direct at d=512 native AND rustfft compiles+runs on wasm32",
+  "results": [
+    {
+      "batch_build_ns": 514011.0,
+      "batch_plus_build_vs_triple_speedup": 1.018620426789105,
+      "batch_scores_ns": 55310.0,
+      "batch_scores_plus_build_ns": 569321.0,
+      "batch_vs_triple_speedup": 10.484939432290725,
+      "d": 128,
+      "direct_corr_ns": 17800.0,
+      "entities": 2000,
+      "fft_corr_ns": 250.0,
+      "fft_corr_speedup": 71.2,
+      "triple_scores_ns": 579922.0
+    },
+    {
+      "batch_build_ns": 1031302.0,
+      "batch_plus_build_vs_triple_speedup": 0.9891272321663457,
+      "batch_scores_ns": 109070.0,
+      "batch_scores_plus_build_ns": 1140372.0,
+      "batch_vs_triple_speedup": 10.341734665810947,
+      "d": 256,
+      "direct_corr_ns": 71900.0,
+      "entities": 2000,
+      "fft_corr_ns": 520.0,
+      "fft_corr_speedup": 138.26923076923077,
+      "triple_scores_ns": 1127973.0
+    },
+    {
+      "batch_build_ns": 2082825.0,
+      "batch_plus_build_vs_triple_speedup": 1.0621027448402272,
+      "batch_scores_ns": 214030.0,
+      "batch_scores_plus_build_ns": 2296855.0,
+      "batch_vs_triple_speedup": 11.39791617997477,
+      "d": 512,
+      "direct_corr_ns": 288271.0,
+      "entities": 2000,
+      "fft_corr_ns": 970.0,
+      "fft_corr_speedup": 297.1865979381443,
+      "triple_scores_ns": 2439496.0
+    }
+  ],
+  "spike": "ADR-002 §3 — FFT vs direct correlation, batch vs per-triple",
+  "target_native": "x86_64",
+  "wasm32_gate": "compile-only: cargo check --target wasm32-unknown-unknown passes"
+}

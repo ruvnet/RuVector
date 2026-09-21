@@ -19,3 +19,8 @@ ruvector-typesafe-core = { version = "2.0", path = "../ruvector-typesafe-core" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+# FFT backend for HolE circular correlation (ADR-002 §3). Pinned to the exact
+# version already resolved in the workspace lock (6.4.1) so no second copy is
+# pulled. Licence: MIT OR Apache-2.0 (deny.toml allow-list). Compiles and runs
+# on wasm32 — the ADR-002 hard gate — see the spike results in src/scorer/fft.rs.
+rustfft = "=6.4.1"

@@ -10081,6 +10081,7 @@ dependencies = [
 name = "ruvector-kge"
 version = "2.3.0"
 dependencies = [
+ "rustfft",
  "ruvector-router-core",
  "ruvector-typesafe-core",
  "serde",
@@ -10098,6 +10099,7 @@ dependencies = [
  "ruvector-kge",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
 ]
 
 [[package]]
@@ -10108,6 +10110,7 @@ dependencies = [
  "ruvector-kge",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "wasm-bindgen",
 ]
 

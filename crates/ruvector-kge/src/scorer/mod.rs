@@ -26,4 +26,24 @@ pub trait Scorer: Send + Sync {
 
     /// Stable identifier recorded in receipts, e.g. `hole-fft@d256`.
     fn id(&self) -> &str;
+
+    /// Whether the ANN dot product of [`Scorer::query_vector`] with
+    /// [`Scorer::index_vector`] equals the exact [`Scorer::score`]. HolE keeps
+    /// the default `true` (its Fourier index is an exact inner-product
+    /// factorisation). RotatE overrides to `false` — its appended-norm MIPS
+    /// form is order-preserving but not the score, so the exact rerank is
+    /// mandatory (ADR-002 §4). Provided method; adding it does not change any
+    /// pinned signature.
+    fn ann_exact(&self) -> bool {
+        true
+    }
 }
+
+#[cfg(test)]
+mod complex;
+pub mod fft;
+pub mod hole;
+pub mod rotate;
+
+pub use hole::HolE;
+pub use rotate::RotatE;
