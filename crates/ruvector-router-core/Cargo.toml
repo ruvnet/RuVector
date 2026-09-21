@@ -11,6 +11,17 @@ description = "Core vector database and neural routing inference engine"
 [lib]
 crate-type = ["lib", "staticlib"]
 
+[features]
+default = []
+# Route all four distance metrics through lattice-embed's runtime-dispatched
+# SIMD kernels instead of the scalar loops in distance.rs.
+#
+# Opt-in and off by default. lattice-embed requires Rust >= 1.93 (edition
+# 2024) and Cargo cannot express a per-feature `rust-version`, so enabling
+# this raises the effective MSRV for anyone who turns it on. The default
+# build is unaffected.
+lattice-simd = ["dep:lattice-embed"]
+
 [dependencies]
 # Workspace dependencies
 redb = { workspace = true }
@@ -23,6 +34,9 @@ bincode = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 simsimd = { workspace = true }
+# `default-features = false` keeps this to the SIMD kernels: lattice-embed's
+# model, tokenizer, and download stack sit behind its `native` feature.
+lattice-embed = { version = "0.7.1", optional = true, default-features = false }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
