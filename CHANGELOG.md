@@ -20,7 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (recall@10 0.89 at defaults with clusters inserted contiguously). Measured on
   5,000 real embeddings: recall@10 1.000 in every configuration tried (from
   0.96–0.99 at defaults and 0.88–0.92 at m=16), with lower query latency
-  (p95 0.58 ms vs 0.85 ms at defaults); inserts are ~25% slower.
+  (p95 0.58 ms vs 0.85 ms at defaults). Inserts are 25–30% slower: the
+  heuristic computes candidate-to-kept distances at selection and at each
+  overflow prune, a per-insert cost bounded by `ef_construction × m` that does
+  not grow with corpus size.
 - New regression test pins recall@10 ≥ 0.90 against brute force on clustered
   data in both contiguous and shuffled insertion order, and fails if results
   are drawn from the insertion tail — the failure mode uniform-random-vector
