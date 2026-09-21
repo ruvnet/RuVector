@@ -121,12 +121,18 @@ function runOptimizeCampaign(mod) {
   const report = JSON.parse(model.optimizeJson('{"budget":6,"seed":1}'));
   assert.ok(!report.error, `optimize returned a report, not an error: ${JSON.stringify(report.error)}`);
   assert.ok(Array.isArray(report.proposals) && report.proposals.length >= 1, 'at least one proposal gated');
-  assert.equal(typeof report.championId, 'number', 'report carries a champion id');
+  assert.equal(typeof report.championId, 'string', 'champion id is a string (no u64 precision loss)');
+  assert.equal(typeof report.proposals[0].id, 'string', 'proposal ids are strings');
   assert.equal(report.splitSource, 'per-triple', 'frozen tags drove the split');
   assert.equal(typeof report.test.championMrr, 'number', 'test MRR reported');
   // The receipt log is non-empty JSONL, one object per line.
+  const receiptLines = report.receipts.split('\n').filter((l) => l.trim());
   assert.ok(report.receiptsCount >= report.proposals.length, 'a receipt per proposal (plus champion)');
-  assert.ok(report.receipts.split('\n').filter((l) => l.trim()).length === report.receiptsCount, 'receipts JSONL line count matches');
+  assert.equal(receiptLines.length, report.receiptsCount, 'receipts JSONL line count matches');
+  // The championId matches the champion-confirmation receipt's knobs_hash EXACTLY
+  // (both strings) — the round-trip the string ids exist to guarantee.
+  const lastReceipt = JSON.parse(receiptLines[receiptLines.length - 1]);
+  assert.equal(lastReceipt.kge.knobs_hash, report.championId, 'championId matches the receipt knobs_hash exactly');
 
   // The champion's trained tables were installed → the saved model changed.
   assert.equal(report.installed, true, 'champion tables installed');

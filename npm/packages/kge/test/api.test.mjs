@@ -115,7 +115,7 @@ test('optimize runs a campaign and installs a champion (tagged KG)', { skip: !bu
 
   const report = kge.optimize({ budget: 6, seed: 1 });
   assert.ok(report.proposals.length >= 1, 'at least one proposal gated');
-  assert.equal(typeof report.championId, 'number', 'champion id present');
+  assert.equal(typeof report.championId, 'string', 'champion id is a string');
   assert.equal(report.splitSource, 'per-triple', 'frozen tags drove the split');
   assert.equal(typeof report.val.championMrr, 'number', 'validation MRR reported');
   assert.equal(report.installed, true, 'champion installed');

@@ -73,7 +73,11 @@ impl CampaignSpec {
 /// One row of the campaign report: the decision and the numbers behind it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ProposalDecision {
+    /// Content-hash id; serialized as a JSON **string** (full `u64` range would
+    /// lose precision as a JS number) so a `championId` matches exactly.
+    #[serde(with = "super::serde_ids::id_str")]
     pub id: u64,
+    #[serde(with = "super::serde_ids::opt_id_str")]
     pub parent: Option<u64>,
     pub arm: KgeArm,
     pub decision: GateDecision,
@@ -86,6 +90,8 @@ pub struct ProposalDecision {
 pub struct CampaignReport {
     pub proposals: Vec<ProposalDecision>,
     pub champion: Knobs,
+    /// Serialized as a JSON string (see [`ProposalDecision::id`]).
+    #[serde(with = "super::serde_ids::id_str")]
     pub champion_id: u64,
     pub budget_consumed: u32,
     pub paused: bool,
