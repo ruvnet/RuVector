@@ -43,15 +43,15 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
       - name: fmt --check
-        run: cargo fmt -p ruvector-kge-core -p ruvector-kge-ffi -p ruvector-kge-wasm --check
+        run: cargo fmt -p ruvector-kge -p ruvector-kge-ffi -p ruvector-kge-wasm --check
       - name: clippy
         run: |
-          cargo clippy -p ruvector-kge-core --all-targets -- -D warnings
+          cargo clippy -p ruvector-kge --all-targets -- -D warnings
           cargo clippy -p ruvector-kge-ffi --all-targets -- -D warnings
           cargo clippy -p ruvector-kge-wasm --all-targets -- -D warnings
       - name: cargo test
         run: |
-          cargo test -p ruvector-kge-core
+          cargo test -p ruvector-kge
           cargo test -p ruvector-kge-ffi
           cargo test -p ruvector-kge-wasm
 
@@ -90,6 +90,18 @@ jobs:
           node-version: '20'
       - name: Install deps
         run: npm install --no-audit --no-fund --no-workspaces --legacy-peer-deps
+      # The API/CLI suites drive the real binding, so one has to exist, or every
+      # one of them fails with "no @ruvector/kge binding found". The native
+      # addon is the cheap choice here: plain cargo, no wasm-pack (which the
+      # runners do not ship). This way CI exercises the tests rather than
+      # skipping them.
+      - name: Rust toolchain (for the test backend)
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+      - name: Build the native backend for the tests
+        run: bash scripts/build-native.sh
       - name: Type-check
         run: npx -y -p typescript@5.9.3 tsc -p tsconfig.json && npx -y -p typescript@5.9.3 tsc --noEmit -p tsconfig.typetest.json
       - name: Verify frozen-fixture hashes (no rewrite)
