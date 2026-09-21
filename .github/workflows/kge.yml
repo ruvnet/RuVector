@@ -1,0 +1,136 @@
+name: KGE CI
+
+# ADR-006: CI runs the frozen synthetic fixture with the tie-break, ANN-recall
+# and adversarial gates report-only on every PR; the full dataset suite +
+# provenance run nightly and before any publish. No publish job here.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/ruvector-kge*/**'
+      - 'crates/ruvector-gnn/**'
+      - 'npm/packages/kge/**'
+      - '.github/workflows/kge.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'crates/ruvector-kge*/**'
+      - 'crates/ruvector-gnn/**'
+      - 'npm/packages/kge/**'
+      - '.github/workflows/kge.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    name: Rust (fmt · clippy · test)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+      - name: fmt --check
+        run: cargo fmt -p ruvector-kge-core -p ruvector-kge-ffi -p ruvector-kge-wasm --check
+      - name: clippy
+        run: |
+          cargo clippy -p ruvector-kge-core --all-targets -- -D warnings
+          cargo clippy -p ruvector-kge-ffi --all-targets -- -D warnings
+          cargo clippy -p ruvector-kge-wasm --all-targets -- -D warnings
+      - name: cargo test
+        run: |
+          cargo test -p ruvector-kge-core
+          cargo test -p ruvector-kge-ffi
+          cargo test -p ruvector-kge-wasm
+
+  wasm:
+    name: WASM build + import audit
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Rust toolchain (wasm32)
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '20'
+      - name: Build wasm
+        run: cargo build -p ruvector-kge-wasm --target wasm32-unknown-unknown --release
+      - name: Audit wasm imports (no WASI / fs / net / fetch)
+        working-directory: npm/packages/kge
+        run: node scripts/check-wasm-imports.mjs ../../../target/wasm32-unknown-unknown/release/ruvector_kge_wasm.wasm
+
+  node:
+    name: Node (tsc · tests · security)
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: npm/packages/kge
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '20'
+      - name: Install deps
+        run: npm install --no-audit --no-fund
+      - name: Type-check
+        run: npx tsc
+      - name: Verify frozen-fixture hashes (no rewrite)
+        run: node scripts/hash-fixtures.mjs --check
+      - name: Unit + integration tests
+        run: node --test test/*.test.mjs
+      - name: ADR-005 security assertions
+        run: node scripts/check-security.mjs
+
+  bench-synthetic:
+    name: Bench synthetic (tie-break · ANN · adversarial, report-only gates)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '20'
+      - name: Install deps
+        working-directory: npm/packages/kge
+        run: npm install --no-audit --no-fund
+      # Build the native binding so the local arm is real once the core lands. If
+      # the build fails, the harness reports "engine unavailable" and
+      # --report-only keeps the exit code 0 (gates are informational in CI).
+      - name: Build native binding
+        working-directory: npm/packages/kge
+        continue-on-error: true
+        run: npm run build:napi
+      - name: Synthetic suite — tie-break + ANN + adversarial, gates report-only
+        working-directory: npm/packages/kge
+        run: |
+          node bench/run.mjs --suite synthetic --tie-check --ann --adversarial \
+            --gate --report-only --out bench/results/ci-synthetic.json
+      - name: Upload receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: bench-receipt-synthetic
+          path: npm/packages/kge/bench/results/ci-synthetic.json
+          if-no-files-found: warn

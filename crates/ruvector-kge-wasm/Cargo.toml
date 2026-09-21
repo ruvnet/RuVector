@@ -16,5 +16,14 @@ wasm-bindgen = { workspace = true }
 js-sys = "0.3"
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = "0.10"
+
+# wasm-pack's bundled wasm-opt (binaryen) predates the WASM features recent
+# rustc emits by default for wasm32-unknown-unknown (bulk-memory, sign-ext,
+# non-trapping float->int). Enable them so the -Oz pass validates instead of
+# erroring; keeps the size optimization without pinning binaryen. Mirrors
+# ruvector-typesafe-wasm.
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ['-Oz', '--enable-bulk-memory', '--enable-sign-ext', '--enable-nontrapping-float-to-int']
 
 

@@ -1,0 +1,71 @@
+{
+  "_comment": "Release gates (ADR-006 §Release gates). All must PASS to publish. --gate evaluates the applicable rows against a run's receipt; --report-only downgrades a failing run to a non-zero-free advisory (used in CI until the native binding + full datasets are wired). A gate whose precondition does not apply to the run (a link-prediction gate on the synthetic suite; ANN/adversarial without their flags; transfer without --baseline-receipt) is SKIP, never a silent pass. Every threshold carries a `source`; numbers are REPRODUCED baselines minus a stated margin, never invented.",
+  "margin_pp": 3.0,
+  "gates": {
+    "link_prediction_fb15k237": {
+      "kind": "numeric",
+      "metric": "mrr_test",
+      "op": ">=",
+      "threshold": 0.318,
+      "applies_when": "suite:fb15k237",
+      "source": "LibKGE README ComplEx FB15k-237 filtered MRR 0.348 − 3pp margin (ADR-006); RANDOM tie-break",
+      "description": "Filtered test MRR on FB15k-237 within 3pp of the reproduced LibKGE ComplEx baseline."
+    },
+    "link_prediction_wn18rr": {
+      "kind": "numeric",
+      "metric": "mrr_test",
+      "op": ">=",
+      "threshold": 0.445,
+      "applies_when": "suite:wn18rr",
+      "source": "LibKGE README ComplEx WN18RR filtered MRR 0.475 − 3pp margin (ADR-006); RANDOM tie-break",
+      "description": "Filtered test MRR on WN18RR within 3pp of the reproduced LibKGE ComplEx baseline."
+    },
+    "tie_break_random": {
+      "kind": "tie_break",
+      "tolerance_frac": 0.1,
+      "source": "Sun et al. 2020 arXiv:1911.03903; ADR-003 §5 / ADR-006 §protocol 2",
+      "description": "An all-tied scorer must give mean rank ≈ (|E|+1)/2 under RANDOM (not 1=TOP, not |E|=BOTTOM). SKIP if the binding cannot produce a constant scorer."
+    },
+    "hole_complex_equiv": {
+      "kind": "external",
+      "source": "ADR-002 §HolE≡ComplEx unit test",
+      "reason": "asserted by the ruvector-kge-core Rust unit test (both forms agree on random params to fp tolerance); it is a precondition for trusting the HolE gate number and is not JS-measurable here",
+      "description": "HolE ≡ ComplEx equivalence — verified in the crate test suite, reported here as an external precondition."
+    },
+    "ann_recall10": {
+      "kind": "numeric",
+      "metric": "ann_recall_at_10",
+      "op": ">=",
+      "threshold": 0.9,
+      "applies_when": "has_ann",
+      "source": "ADR-006 §Release gates ANN recall floor (derived Q5 claim, measured); Budgeted MIPS arXiv:1610.03317",
+      "description": "recall@10 of the DotProduct-HNSW + exact-rerank pipeline vs exhaustive scoring; SKIP without --ann."
+    },
+    "adversarial_confidence_drop": {
+      "kind": "numeric",
+      "metric": "adversarial_confidence_drop",
+      "op": ">",
+      "threshold": 0.0,
+      "applies_when": "has_adversarial",
+      "source": "ADR-006 §protocol 5; Bhardwaj et al. 2021 arXiv:2111.06345",
+      "description": "Mean confidence on targeted facts must DROP under the symmetry-decoy attack (the alarm is exercised); SKIP without --adversarial."
+    },
+    "loop_safety_transfer": {
+      "kind": "numeric",
+      "metric": "transfer_regression_pt",
+      "op": "<=",
+      "threshold": 1.0,
+      "applies_when": "has_baseline_receipt",
+      "source": "ADR-004 gate 3 (no transfer-split regression beyond 1 point)",
+      "description": "Transfer-split MRR must not regress beyond 1 point vs the --baseline-receipt; SKIP without one."
+    },
+    "latency_predict_p95": {
+      "kind": "latency",
+      "spike_file": "fft-spike-2026-09-21.json",
+      "native_p95_ms": 50,
+      "wasm_p95_ms": null,
+      "source": "ADR-006 §protocol 7; thresholds set from bench/fft-spike-2026-09-21.json (native batch score+build ≈2.3ms at d=512/2000 entities; 50ms p95 leaves headroom to FB15k-237 scale). wasm32 is compile-only in the spike, so its threshold stays pending.",
+      "description": "Predict p95 (from --ann) must be ≤ the native threshold once the ADR-002 spike exists. SKIP without the spike file, without a predict-latency measurement, or on a non-native backend (wasm threshold pending)."
+    }
+  }
+}
