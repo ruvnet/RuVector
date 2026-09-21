@@ -1,0 +1,20 @@
+[package]
+name = "ruvector-kge-wasm"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "wasm-bindgen build of ruvector-kge (@ruvector/kge WASM fallback)"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+ruvector-kge = { version = "2.0", path = "../ruvector-kge" }
+wasm-bindgen = { workspace = true }
+js-sys = "0.3"
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+
