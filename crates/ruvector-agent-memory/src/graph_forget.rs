@@ -32,8 +32,8 @@
 use crate::compaction::{weighted_importance, CoherenceWeights, CompactionPolicy};
 use crate::memory::MemoryEntry;
 use crate::scoring::cosine_sim;
-use ruvector_mincut::RuVectorGraphAnalyzer;
-use std::collections::HashSet;
+use ruvector_mincut::{MinCutBuilder, RuVectorGraphAnalyzer};
+use std::collections::{HashMap, HashSet};
 
 /// How the mincut-boundary structural signal is combined with the scalar
 /// [`crate::compaction::CoherencePolicy`] importance score.
@@ -44,6 +44,27 @@ pub enum ForgetMode {
     /// Reserve `protect_fraction` of the retained budget for the
     /// highest-scoring boundary vertices before ranking the rest.
     Hard,
+}
+
+/// Which `ruvector-mincut` API computes the boundary partition (nightly
+/// 2026-09-15 follow-up to ADR-345's "Next Research item 1":
+/// docs/research/nightly/2026-09-15-direct-mincut-bridge-detection).
+///
+/// ADR-345 measured [`Self::WrapperPartition`] (`RuVectorGraphAnalyzer::
+/// from_knn(...).partition()`) at ~841ms/call on a 19-vertex graph, scaling
+/// to seconds by n=400, and non-deterministic (empty result in 15/30 calls
+/// on an identical graph) — both traced to `MinCutWrapper::process_instances`
+/// replaying every edge into up to 100 geometrically-scaled `BoundedInstance`s
+/// per call. [`Self::DirectBuilder`] instead does one `MinCutBuilder::
+/// with_edges(...).build()` pass (a single `DynamicMinCut::from_graph`
+/// spanning-forest + tree-edge-cut computation, `algorithm::mod.rs`),
+/// bypassing `MinCutWrapper` entirely.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BoundaryMethod {
+    /// Candidate A (ADR-345, unchanged): `RuVectorGraphAnalyzer::from_knn(...).partition()`.
+    WrapperPartition,
+    /// Candidate B (this experiment): one-shot `MinCutBuilder::with_edges(...).build()`.
+    DirectBuilder,
 }
 
 /// Mincut-gated forgetting compaction policy (candidates A/B of the nightly
@@ -67,6 +88,12 @@ pub struct MincutGatedForgetting {
     /// "Measured limitation" note on [`Self::boundary_indices`]). `1`
     /// disables retrying.
     pub mincut_trials: usize,
+    /// Which `ruvector-mincut` API to call. Defaults to
+    /// [`BoundaryMethod::WrapperPartition`] (ADR-345's original candidate) in
+    /// [`Self::soft`]/[`Self::hard`] for backward compatibility; set to
+    /// [`BoundaryMethod::DirectBuilder`] to use the 2026-09-15 follow-up
+    /// candidate.
+    pub boundary_method: BoundaryMethod,
 }
 
 impl MincutGatedForgetting {
@@ -80,6 +107,7 @@ impl MincutGatedForgetting {
             structural_bonus,
             protect_fraction: 0.0,
             mincut_trials: 3,
+            boundary_method: BoundaryMethod::WrapperPartition,
         }
     }
 
@@ -93,6 +121,7 @@ impl MincutGatedForgetting {
             structural_bonus: 0.0,
             protect_fraction,
             mincut_trials: 3,
+            boundary_method: BoundaryMethod::WrapperPartition,
         }
     }
 
@@ -168,14 +197,20 @@ impl MincutGatedForgetting {
 
         let mut boundary = HashSet::new();
         for _ in 0..self.mincut_trials.max(1) {
-            boundary.extend(Self::boundary_from_one_partition(&neighbors));
+            let trial = match self.boundary_method {
+                BoundaryMethod::WrapperPartition => Self::boundary_from_one_partition(&neighbors),
+                BoundaryMethod::DirectBuilder => {
+                    Self::boundary_from_one_partition_direct(&neighbors)
+                }
+            };
+            boundary.extend(trial);
         }
         boundary
     }
 
-    /// One min-cut partition attempt over an already-built k-NN graph; see
-    /// [`Self::boundary_indices`]'s "Measured limitation" note for why this
-    /// is called more than once.
+    /// One min-cut partition attempt over an already-built k-NN graph via
+    /// [`BoundaryMethod::WrapperPartition`]; see [`Self::boundary_indices`]'s
+    /// "Measured limitation" note for why this is called more than once.
     fn boundary_from_one_partition(neighbors: &[(usize, Vec<(usize, f64)>)]) -> HashSet<usize> {
         let mut analyzer = RuVectorGraphAnalyzer::from_knn(neighbors);
         let (side_a, side_b) = match analyzer.partition() {
@@ -186,12 +221,71 @@ impl MincutGatedForgetting {
             return HashSet::new();
         }
         let side_a_set: HashSet<u64> = side_a.into_iter().collect();
+        Self::crossing_vertices(neighbors, &side_a_set)
+    }
 
+    /// One min-cut partition attempt via [`BoundaryMethod::DirectBuilder`]:
+    /// a single `MinCutBuilder::with_edges(...).build()` pass, bypassing
+    /// `RuVectorGraphAnalyzer`/`MinCutWrapper` entirely (nightly 2026-09-15,
+    /// ADR-345 follow-up item 1).
+    ///
+    /// The k-NN neighbor list is directed and can list `(i, j)` without
+    /// `(j, i)` (asymmetric top-k membership) even though `cosine_sim` is
+    /// symmetric, so edges are deduplicated by unordered pair before being
+    /// handed to `MinCutBuilder`, which expects a plain undirected edge list.
+    /// Edges are also sorted by vertex id for a deterministic build input,
+    /// independent of the k-NN computation's (parallelizable) output order.
+    fn boundary_from_one_partition_direct(
+        neighbors: &[(usize, Vec<(usize, f64)>)],
+    ) -> HashSet<usize> {
+        // `neighbors` stores raw cosine *distance* (see `boundary_indices`'s
+        // `from_knn` doc note). `MinCutBuilder::with_edges` takes an edge
+        // *weight* (capacity) directly, with no distance-to-weight
+        // conversion of its own — unlike `RuVectorGraphAnalyzer::from_knn`,
+        // which internally applies the same `1/distance` inversion applied
+        // here. Skipping this inversion would treat near-duplicate
+        // (low-distance) intra-cluster edges as the *cheapest* to cut,
+        // inverting the intended cut structure.
+        let mut edge_map: HashMap<(u64, u64), f64> = HashMap::new();
+        for (i, nbrs) in neighbors {
+            let iu = *i as u64;
+            for &(j, dist) in nbrs {
+                let ju = j as u64;
+                let weight = if dist > 0.0 { 1.0 / dist } else { 1.0 };
+                let key = if iu <= ju { (iu, ju) } else { (ju, iu) };
+                edge_map.entry(key).or_insert(weight);
+            }
+        }
+        if edge_map.is_empty() {
+            return HashSet::new();
+        }
+        let mut edges: Vec<(u64, u64, f64)> =
+            edge_map.into_iter().map(|((a, b), w)| (a, b, w)).collect();
+        edges.sort_unstable_by_key(|&(a, b, _)| (a, b));
+
+        let mincut = match MinCutBuilder::new().with_edges(edges).build() {
+            Ok(m) => m,
+            Err(_) => return HashSet::new(),
+        };
+        let (side_a, side_b) = mincut.partition();
+        if side_a.is_empty() || side_b.is_empty() {
+            return HashSet::new();
+        }
+        let side_a_set: HashSet<u64> = side_a.into_iter().collect();
+        Self::crossing_vertices(neighbors, &side_a_set)
+    }
+
+    /// Vertices (original `entries` indices) with at least one neighbor edge
+    /// crossing the given partition side.
+    fn crossing_vertices(
+        neighbors: &[(usize, Vec<(usize, f64)>)],
+        side_a: &HashSet<u64>,
+    ) -> HashSet<usize> {
         let mut boundary = HashSet::new();
         for (i, nbrs) in neighbors {
-            let i_in_a = side_a_set.contains(&(*i as u64));
+            let i_in_a = side_a.contains(&(*i as u64));
             for &(j, _) in nbrs {
-                let j_in_a = side_a_set.contains(&(j as u64));
+                let j_in_a = side_a.contains(&(j as u64));
                 if i_in_a != j_in_a {
                     boundary.insert(*i);
                     boundary.insert(j);
@@ -368,6 +462,47 @@ mod tests {
             survivors.contains(&bridge_idx),
             "hard mincut-gated forgetting must protect the bridge within its reserved budget"
         );
+    }
+
+    #[test]
+    fn direct_builder_soft_mode_protects_the_structural_bridge() {
+        let (entries, bridge_idx) = bridge_dataset();
+        let mut policy = MincutGatedForgetting::soft(CoherenceWeights::default(), 1.0);
+        policy.boundary_method = BoundaryMethod::DirectBuilder;
+        // Unlike WrapperPartition, DirectBuilder's underlying
+        // `DynamicMinCut::from_graph` does one deterministic pass with no
+        // observed empty-result rate (see the nightly determinism-probe
+        // evidence), so this does not need the WrapperPartition tests'
+        // raised trial count — kept at the `soft()` default (3) to actually
+        // exercise that claim rather than assume it.
+        let survivors = policy.select_survivors(&entries, 16, &[]);
+        assert!(
+            survivors.contains(&bridge_idx),
+            "direct-builder soft mincut-gated forgetting must retain the sole cross-cluster bridge"
+        );
+    }
+
+    #[test]
+    fn direct_builder_hard_mode_reserves_budget_for_boundary_vertices() {
+        let (entries, bridge_idx) = bridge_dataset();
+        let mut policy = MincutGatedForgetting::hard(CoherenceWeights::default(), 0.3);
+        policy.boundary_method = BoundaryMethod::DirectBuilder;
+        let survivors = policy.select_survivors(&entries, 16, &[]);
+        assert!(
+            survivors.contains(&bridge_idx),
+            "direct-builder hard mincut-gated forgetting must protect the bridge within its reserved budget"
+        );
+    }
+
+    #[test]
+    fn direct_builder_falls_back_gracefully_below_minimum_size() {
+        let entries: Vec<MemoryEntry> = (0..3)
+            .map(|i| MemoryEntry::new(i, vec![i as f32, 0.0], 0))
+            .collect();
+        let mut policy = MincutGatedForgetting::soft(CoherenceWeights::default(), 1.0);
+        policy.boundary_method = BoundaryMethod::DirectBuilder;
+        let survivors = policy.select_survivors(&entries, 2, &[]);
+        assert_eq!(survivors.len(), 2);
     }
 
     #[test]

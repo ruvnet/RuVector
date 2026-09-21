@@ -1,0 +1,172 @@
+Nightly RuVector research — raw evidence
+Topic: Direct MinCutBuilder bridge detection (ADR-345 follow-up item 1)
+Date (UTC): 2026-09-15T07:27:49Z
+rustc 1.94.1 (e408947bf 2026-03-25)
+cargo 1.94.1 (29ea6fb6a 2026-03-24)
+Platform: Linux vm 6.18.44-fc-v33 x86_64 x86_64 x86_64 GNU/Linux
+Starting commit: edaffffb3b85768eb1f3ec1f683b7f46f0506af4 (origin/main)
+
+All commands run from repo root. All binaries built with `--release`.
+
+====================================================================
+1. cargo test -p ruvector-agent-memory --features mincut-forget (release)
+====================================================================
+$ cargo test --release -p ruvector-agent-memory --features mincut-forget
+running 34 tests
+test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.21s
+(tests/bench_tests.rs)   1 passed
+(tests/arbitration.rs)  10 passed
+(tests/atomic_observation_fusion.rs) 8 passed
+(tests/tarl_ledger.rs)  13 passed
+Doc-tests: 0 passed
+TOTAL: 66 passed, 0 failed
+
+New tests added this run (all pass):
+  graph_forget::tests::direct_builder_soft_mode_protects_the_structural_bridge
+  graph_forget::tests::direct_builder_hard_mode_reserves_budget_for_boundary_vertices
+  graph_forget::tests::direct_builder_falls_back_gracefully_below_minimum_size
+
+cargo fmt -p ruvector-agent-memory -- --check : clean (0 diffs) after `cargo fmt` applied.
+cargo clippy -p ruvector-agent-memory --features mincut-forget --examples --tests : 0 warnings.
+
+====================================================================
+2. mincut_scaling_probe (ring k-NN graph, k=8, n in {19,50,100,200,400})
+   cargo run --release -p ruvector-agent-memory --example mincut_scaling_probe --features mincut-forget
+====================================================================
+Run A (first):
+n=19    wrapper_partition=   69663.873ms  direct_builder=       0.402ms  speedup=  173462.4x
+n=50    wrapper_partition=      86.802ms  direct_builder=       1.954ms  speedup=      44.4x
+n=100   wrapper_partition=     536.742ms  direct_builder=       4.008ms  speedup=     133.9x
+n=200   wrapper_partition=    2679.220ms  direct_builder=      28.971ms  speedup=      92.5x
+n=400   wrapper_partition=   11481.578ms  direct_builder=      22.401ms  speedup=     512.5x
+
+Run B (repeat, for variance):
+n=19    wrapper_partition=   68435.878ms  direct_builder=       0.362ms  speedup=  188893.9x
+n=50    wrapper_partition=      71.126ms  direct_builder=       1.171ms  speedup=      60.7x
+n=100   wrapper_partition=     410.441ms  direct_builder=       2.822ms  speedup=     145.4x
+n=200   wrapper_partition=    2408.215ms  direct_builder=       8.031ms  speedup=     299.8x
+n=400   wrapper_partition=   11069.999ms  direct_builder=      21.071ms  speedup=     525.4x
+
+Compare to ADR-345's original wrapper-only scaling table (n=19..400):
+  n=19: 69269.9ms | n=50: 76.8ms | n=100: 481.3ms | n=200: 2712.9ms | n=400: 11415.0ms
+  (docs/research/nightly/2026-09-05-mincut-gated-forgetting/README.md)
+=> wrapper_partition numbers reproduce ADR-345's table within run-to-run noise
+   (same order of magnitude, same n=19 multi-second-to->1-minute outlier).
+   direct_builder scales near-linearly (0.4ms -> ~22-29ms, n=19->400, ~55-70x
+   growth for a 21x increase in n) vs wrapper_partition's ~160x growth
+   (69.7s -> ... actually non-monotonic due to the n=19 outlier; excluding
+   that outlier, wrapper grows ~86.8ms -> 11481.6ms = ~132x for the same
+   21x increase in n, still worse than direct_builder's linear-ish growth).
+
+====================================================================
+3. mincut_determinism_probe (fixed 19-vertex two-clique+bridge graph, TRIALS=30)
+   TRIALS=30 cargo run --release -p ruvector-agent-memory --example mincut_determinism_probe --features mincut-forget
+====================================================================
+Run A:
+[wrapper_partition] trials=30 elapsed=25.78s avg_per_call=859.3ms empty_or_degenerate=17 (57%) bridge_detected_as_boundary=13 (43%)
+[direct_builder]    trials=30 elapsed=0.00s  avg_per_call=0.0ms  empty_or_degenerate=30 (100%) bridge_detected_as_boundary=0 (0%)
+  ^ direct_builder result INVALID in this run: probe script had a bug
+    (pushed both (i,j) and (j,i) into MinCutBuilder::with_edges without
+    dedup; DynamicGraph::insert_edge rejects the second insert of an
+    undirected pair with EdgeExists, so MinCutBuilder::build() errored
+    immediately on every trial -- hence the suspicious 0.0ms/100%-empty
+    reading). Fixed by deduplicating edges by unordered pair (matching
+    graph_forget.rs's own boundary_from_one_partition_direct) before
+    re-running below. Recorded here for the failure-mode record, per the
+    nightly harness's "never hide failures" rule.
+
+Run B (after dedup fix):
+[wrapper_partition] trials=30 elapsed=25.38s avg_per_call=846.1ms empty_or_degenerate=8 (27%) bridge_detected_as_boundary=22 (73%)
+[direct_builder]    trials=30 elapsed=0.00s  avg_per_call=0.2ms  empty_or_degenerate=0 (0%)  bridge_detected_as_boundary=30 (100%)
+
+Run C (repeat, for variance):
+[wrapper_partition] trials=30 elapsed=23.62s avg_per_call=787.4ms empty_or_degenerate=15 (50%) bridge_detected_as_boundary=15 (50%)
+[direct_builder]    trials=30 elapsed=0.00s  avg_per_call=0.2ms  empty_or_degenerate=0 (0%)  bridge_detected_as_boundary=30 (100%)
+
+ADR-345's original number (same probe topology, 30 trials): avg 841ms/call,
+empty in 15/30 (50%), bridge correctly flagged boundary in 15/15 of the
+non-empty calls (100% of non-empty, i.e. also 50% of all 30, since half
+were empty). Run C above (50% empty, 50% detected) is an exact reproduction.
+
+direct_builder across runs B and C: 0/60 empty, 60/60 (100%) correct bridge
+detection, ~0.2ms/call average (~4,000x faster than wrapper_partition's
+~800ms/call average on this topology).
+
+====================================================================
+4. mincut_direct_builder_bench (84-entry corpus, identical to ADR-345, seed=341)
+   cargo run --release -p ruvector-agent-memory --example mincut_direct_builder_bench --features mincut-forget
+====================================================================
+Policy columns: Bridge Surv. / Recall@10 / Compaction (us)
+
+Run 1:
+  CoherenceWeighted (baseline)                        66.7%  100.0%      30
+  MincutGatedForgetting-Soft (candidate A: wrapper)   66.7%  100.0%   73603
+  MincutGatedForgetting-Hard (candidate A: wrapper)   66.7%  100.0%   72159
+  MincutGatedForgetting-Soft (candidate B: direct)    50.0%  100.0%    2402
+  MincutGatedForgetting-Hard (candidate B: direct)    58.3%  100.0%    2228
+  Slowdowns: A-Soft=2453.4x FAIL, A-Hard=2405.3x FAIL, B-Soft=80.1x PASS, B-Hard=74.3x PASS
+
+Run 2:
+  CoherenceWeighted (baseline)                        66.7%  100.0%      33
+  MincutGatedForgetting-Soft (candidate A: wrapper)   66.7%  100.0%   90106
+  MincutGatedForgetting-Hard (candidate A: wrapper)   66.7%  100.0%   89095
+  MincutGatedForgetting-Soft (candidate B: direct)    50.0%  100.0%    3474
+  MincutGatedForgetting-Hard (candidate B: direct)    58.3%  100.0%    2640
+  Slowdowns: A-Soft=2730.5x FAIL, A-Hard=2699.8x FAIL, B-Soft=105.3x FAIL, B-Hard=80.0x PASS
+
+Run 3:
+  CoherenceWeighted (baseline)                        66.7%  100.0%      33
+  MincutGatedForgetting-Soft (candidate A: wrapper)   66.7%  100.0%   92401
+  MincutGatedForgetting-Hard (candidate A: wrapper)   66.7%  100.0%   91684
+  MincutGatedForgetting-Soft (candidate B: direct)    50.0%  100.0%    2751
+  MincutGatedForgetting-Hard (candidate B: direct)    58.3%  100.0%    2959
+  Slowdowns: A-Soft=2800.0x FAIL, A-Hard=2778.3x FAIL, B-Soft=83.4x PASS, B-Hard=89.7x PASS
+
+Run 4:
+  CoherenceWeighted (baseline)                        66.7%  100.0%      34
+  MincutGatedForgetting-Soft (candidate A: wrapper)   66.7%  100.0%   95016
+  MincutGatedForgetting-Hard (candidate A: wrapper)   66.7%  100.0%   92768
+  MincutGatedForgetting-Soft (candidate B: direct)    50.0%  100.0%    2908
+  MincutGatedForgetting-Hard (candidate B: direct)    58.3%  100.0%    3611
+  Slowdowns: A-Soft=2794.6x FAIL, A-Hard=2728.5x FAIL, B-Soft=85.5x PASS, B-Hard=106.2x FAIL
+
+Run 5:
+  CoherenceWeighted (baseline)                        66.7%  100.0%      34
+  MincutGatedForgetting-Soft (candidate A: wrapper)   66.7%  100.0%   83797
+  MincutGatedForgetting-Hard (candidate A: wrapper)   66.7%  100.0%   73538
+  MincutGatedForgetting-Soft (candidate B: direct)    50.0%  100.0%    2222
+  MincutGatedForgetting-Hard (candidate B: direct)    58.3%  100.0%    2449
+  Slowdowns: A-Soft=2464.6x FAIL, A-Hard=2162.9x FAIL, B-Soft=65.4x PASS, B-Hard=72.0x PASS
+
+Run 6:
+  CoherenceWeighted (baseline)                        66.7%  100.0%      35
+  MincutGatedForgetting-Soft (candidate A: wrapper)   66.7%  100.0%   91994
+  MincutGatedForgetting-Hard (candidate A: wrapper)   66.7%  100.0%   92361
+  MincutGatedForgetting-Soft (candidate B: direct)    50.0%  100.0%    2660
+  MincutGatedForgetting-Hard (candidate B: direct)    58.3%  100.0%    2797
+  Slowdowns: A-Soft=2628.4x FAIL, A-Hard=2638.9x FAIL, B-Soft=76.0x PASS, B-Hard=79.9x PASS
+
+Summary across 6 runs:
+  Candidate A (wrapper) Soft slowdown : min=2453.4x max=2800.0x mean~=2645x  (6/6 FAIL vs <=100x)
+  Candidate A (wrapper) Hard slowdown : min=2162.9x max=2778.3x mean~=2569x  (6/6 FAIL vs <=100x)
+  Candidate B (direct)  Soft slowdown : min=65.4x   max=105.3x  mean~=82.6x  (5/6 PASS, 1/6 FAIL vs <=100x)
+  Candidate B (direct)  Hard slowdown : min=72.0x   max=106.2x  mean~=83.7x  (5/6 PASS, 1/6 FAIL vs <=100x)
+  Speedup, candidate B vs candidate A : Soft 25.9x-33.6x, Hard 31.0x-33.7x (stable across all 6 runs)
+  Bridge survival: baseline/candidate A = 66.7% in all 6 runs (matches ADR-345
+    exactly: survival gap = 0.0pp). Candidate B: Soft = 50.0% and Hard = 58.3%
+    in ALL 6 runs -- fully deterministic and reproducible, but LOWER than
+    candidate A/baseline on this corpus (candidate B protects a different,
+    smaller boundary set than candidate A's non-deterministic wrapper calls
+    happened to find at MINCUT_TRIALS=1 on this specific seed).
+  Recall@10: 100.0% for every policy in every run (no regression).
+
+NOTE on the <=100x gate's reliability at this corpus size: the
+CoherenceWeighted baseline itself is only ~30-35 microseconds, so the
+"slowdown multiplier" is a noisy metric here -- a few hundred nanoseconds of
+allocator/scheduler jitter on either side moves the ratio by several x. The
+absolute compaction time for candidate B is consistently 2.2-3.6ms across
+all 6 runs (low relative variance on the numerator), but dividing by a
+~30us denominator makes the *ratio* cross the somewhat arbitrary 100x line
+in either direction run to run. This is reported as a measurement-precision
+caveat on the specific inherited gate, not as evidence against the
+underlying (very large, very consistent) absolute latency improvement.
