@@ -89,9 +89,9 @@ jobs:
         with:
           node-version: '20'
       - name: Install deps
-        run: npm install --no-audit --no-fund
+        run: npm install --no-audit --no-fund --no-workspaces --legacy-peer-deps
       - name: Type-check
-        run: npx tsc
+        run: npx -y -p typescript@5.9.3 tsc -p tsconfig.json && npx -y -p typescript@5.9.3 tsc --noEmit -p tsconfig.typetest.json
       - name: Verify frozen-fixture hashes (no rewrite)
         run: node scripts/hash-fixtures.mjs --check
       - name: Unit + integration tests
@@ -115,7 +115,7 @@ jobs:
           node-version: '20'
       - name: Install deps
         working-directory: npm/packages/kge
-        run: npm install --no-audit --no-fund
+        run: npm install --no-audit --no-fund --no-workspaces --legacy-peer-deps
       # Build the native binding so the local arm is real once the core lands. If
       # the build fails, the harness reports "engine unavailable" and
       # --report-only keeps the exit code 0 (gates are informational in CI).
