@@ -5,6 +5,7 @@
 // fallback. `KGE_BACKEND=wasm` forces the fallback. No `child_process`, no
 // `fetch`, no network — the module only ever `require()`s a local artifact.
 
+const fs = require('fs');
 const path = require('path');
 
 // process.platform + process.arch -> the .node filename build-native.sh writes.
@@ -30,7 +31,6 @@ function tryRequire(id) {
     return require(id);
   } catch (err) {
     if (err && err.code === 'MODULE_NOT_FOUND') return null;
-    if (err && /not found|cannot open|no such file/i.test(String(err.message))) return null;
     throw err;
   }
 }
@@ -40,8 +40,11 @@ function loadNative() {
   if (!file) return null;
   // 1. A binary bundled in or built into this package (local dev, and the
   //    self-contained 0.1.x releases).
-  const local = tryRequire(path.join(__dirname, 'native', file));
-  if (local) return local;
+  // If the file is THERE, any failure to load it is a real fault (a missing
+  // system library, an ABI mismatch) and must surface rather than silently
+  // downgrading to wasm. `KGE_BACKEND=wasm` is the documented escape.
+  const local = path.join(__dirname, 'native', file);
+  if (fs.existsSync(local)) return require(local);
   // 2. The per-platform package, once the optionalDependencies bump lands
   //    (ADR-001 §5: those packages must exist on npm before the meta package
   //    declares them). Resolving it by name here keeps the loader ready.
