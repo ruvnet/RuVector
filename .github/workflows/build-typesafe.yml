@@ -115,9 +115,11 @@ jobs:
       # will happily overwrite this package's hand-written platform loader with
       # one that exports the bindings but no `backend` — which is exactly how
       # every native leg failed: "binary loads OK" then "selected: undefined".
-      # --no-js suppresses the JS file; the d.ts is written to a scratch name and
-      # both tracked files are restored afterwards, so the build cannot clobber
-      # them whatever the CLI version decides to generate.
+      # `--js false` suppresses the JS file (the CLI has no --no-js, and the
+      # switch only applies when --target is given, which it always is here);
+      # the d.ts goes to a scratch name. Both tracked files are then restored
+      # and asserted, so the build cannot clobber them whatever a future CLI
+      # version decides to generate.
       - name: Build native module (default features — hash embedder only, no ONNX)
         working-directory: npm/packages/typesafe
         shell: bash
