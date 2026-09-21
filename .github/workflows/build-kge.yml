@@ -115,7 +115,7 @@ jobs:
       - name: Build native module (default features)
         working-directory: npm/packages/kge
         run: |
-          npx napi build --platform --release --cargo-cwd ../../../crates/ruvector-kge-ffi --target ${{ matrix.settings.target }} --no-js --dts napi-generated.d.ts
+          npx napi build --platform --release --cargo-cwd ../../../crates/ruvector-kge-ffi --target ${{ matrix.settings.target }} --js false --dts napi-generated.d.ts
           rm -f napi-generated.d.ts
           git checkout -- index.js index.d.ts
           node -e "const s=require('fs').readFileSync('index.js','utf8'); if(!/backend/.test(s)){console.error('index.js is not the hand-written loader after build');process.exit(1)}; console.log('loader intact after napi build')"
