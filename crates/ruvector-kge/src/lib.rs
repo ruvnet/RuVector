@@ -12,12 +12,27 @@
 //! - `data`, `train`, `eval`: triples, negative sampling, losses, filtered ranking
 //! - `optimize`: HPO/model-arm loop over typesafe-core's gate and receipts
 
+pub mod adversarial;
+pub mod ann;
+pub mod batch;
+pub mod data;
 pub mod error;
+pub mod eval;
+pub mod optimize;
 pub mod scorer;
 pub mod tables;
+pub mod train;
 pub mod types;
 
+pub use ann::AnnIndex;
+pub use batch::BatchScorer;
+pub use data::{Split, Split4, TripleStore, Vocab};
 pub use error::{KgeError, Result};
-pub use scorer::Scorer;
+pub use eval::{evaluate, EvalConfig, EvalReport, MetricSet, TieBreak};
+pub use optimize::{
+    ArmOutcome, Campaign, CampaignReport, CampaignSpec, ContinualUpdate, Evaluator,
+};
+pub use scorer::{HolE, RotatE, Scorer};
 pub use tables::Tables;
+pub use train::{Differentiable, LossKind, OptimKind, Progress, TrainConfig, Trainer};
 pub use types::*;
