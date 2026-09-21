@@ -158,6 +158,32 @@ jobs:
           VERSION=$(node -p "require('./npm/packages/router/package.json').version")
           echo "Publishing version: $VERSION"
 
+          # issue #1007: a failed publish (e.g. an auth failure returning E404 on
+          # PUT) must fail the job, not be swallowed. After each publish, poll the
+          # npm registry JSON until the exact version is resolvable (npm view can
+          # 404 during the minute or two of propagation), and fail if it never
+          # appears. A non-zero publish is not fatal on its own — an idempotent
+          # re-run hits a version conflict — so the registry check is the truth.
+          verify_on_registry() {
+            local pkg="$1" ver="$2"
+            local enc="${pkg//\//%2f}"
+            local url="https://registry.npmjs.org/${enc}"
+            local tmp="$RUNNER_TEMP/reg.json"
+            local i
+            for i in $(seq 1 18); do
+              if curl -sfL "$url" -o "$tmp"; then
+                if REG_JSON="$tmp" REG_VER="$ver" node -e 'const d=require(process.env.REG_JSON); process.exit(d.versions && d.versions[process.env.REG_VER] ? 0 : 1)'; then
+                  echo "verified ${pkg}@${ver} on the npm registry"
+                  return 0
+                fi
+              fi
+              echo "waiting for ${pkg}@${ver} to propagate (attempt ${i}/18)..."
+              sleep 10
+            done
+            echo "::error::${pkg}@${ver} did not appear on the npm registry within ~3 minutes of publish"
+            return 1
+          }
+
           for dir in artifacts/router-*/; do
             platform=$(basename "$dir" | sed 's/router-//')
             NODE_FILE=$(find "$dir" -name "*.node" | head -1)
@@ -220,10 +246,16 @@ jobs:
           }
           EOF
 
-            # Publish
-            cd "$PKG_DIR"
-            npm publish --access public || echo "Failed to publish @ruvector/router-${platform}"
-            cd ../..
+            # Publish, then verify on the registry (fail loudly if absent).
+            (
+              cd "$PKG_DIR"
+              if npm publish --access public; then
+                echo "npm publish returned success"
+              else
+                echo "npm publish returned non-zero — verifying on the registry anyway"
+              fi
+            )
+            verify_on_registry "@ruvector/router-${platform}" "$VERSION" || exit 1
           done
 
       - name: Copy binaries to main package
@@ -241,4 +273,33 @@ jobs:
         working-directory: npm/packages/router
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public || echo "Package may already exist"
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          # issue #1007: verify on the registry instead of swallowing a failed
+          # publish. If the version already exists (idempotent re-run), the
+          # registry check passes; if the publish truly failed, it fails the job.
+          verify_on_registry() {
+            local pkg="$1" ver="$2"
+            local enc="${pkg//\//%2f}"
+            local url="https://registry.npmjs.org/${enc}"
+            local tmp="$RUNNER_TEMP/reg.json"
+            local i
+            for i in $(seq 1 18); do
+              if curl -sfL "$url" -o "$tmp"; then
+                if REG_JSON="$tmp" REG_VER="$ver" node -e 'const d=require(process.env.REG_JSON); process.exit(d.versions && d.versions[process.env.REG_VER] ? 0 : 1)'; then
+                  echo "verified ${pkg}@${ver} on the npm registry"
+                  return 0
+                fi
+              fi
+              echo "waiting for ${pkg}@${ver} to propagate (attempt ${i}/18)..."
+              sleep 10
+            done
+            echo "::error::${pkg}@${ver} did not appear on the npm registry within ~3 minutes of publish"
+            return 1
+          }
+          if npm publish --access public; then
+            echo "npm publish returned success"
+          else
+            echo "npm publish returned non-zero — verifying on the registry anyway"
+          fi
+          verify_on_registry "@ruvector/router" "$VERSION" || exit 1
