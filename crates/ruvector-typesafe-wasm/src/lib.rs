@@ -7,14 +7,18 @@
 //!
 //! Error discipline: request-level failures are returned as
 //! `{"error":{"kind":"limit"|"invalid"|"embedder","message":"..."}}`; only a
-//! bad options JSON / unsupported embedder throws (a JS exception from the
-//! constructor).
+//! bad options JSON / unsupported embedder / failed model load throws (a JS
+//! exception from the constructor or `fromBytes`).
 
 use ruvector_typesafe_core::engine::{Engine as CoreEngine, LabeledExample};
 use ruvector_typesafe_core::hash_embedder::HashEmbedder;
 use ruvector_typesafe_core::{DecisionRequest, Embedder, TypesafeError};
 use serde::Deserialize;
 use wasm_bindgen::prelude::*;
+
+/// The engine over a runtime-chosen backend (hash today, onnx via `fromBytes`
+/// behind `wasm-onnx`).
+type BoxedEngine = CoreEngine<Box<dyn Embedder>>;
 
 /// Crate (== Cargo workspace) version.
 #[wasm_bindgen]
@@ -57,25 +61,25 @@ struct ExampleInput {
 /// held directly (no `Arc`/lock); `trainJson` takes `&mut self`.
 #[wasm_bindgen]
 pub struct Engine {
-    inner: CoreEngine<HashEmbedder>,
+    inner: BoxedEngine,
 }
 
 #[wasm_bindgen]
 impl Engine {
     /// `optionsJson`: `{"embedder":"hash","dims":256}`. The onnx arm
-    /// (`{"embedder":{"kind":"onnx",...}}`) is rejected until the tract backend
-    /// lands — use `Engine.fromBytes` for the eventual model-bytes path.
+    /// (`{"embedder":{"kind":"onnx",...}}`) needs model bytes, so it is rejected
+    /// here — use `Engine.fromBytes` instead.
     #[wasm_bindgen(constructor)]
     pub fn new(options_json: &str) -> std::result::Result<Engine, JsValue> {
         let opts: EngineOptions = serde_json::from_str(options_json)
             .map_err(|e| JsValue::from_str(&format!("invalid options JSON: {e}")))?;
         match opts.embedder {
             EmbedderSpec::Named(ref s) if s == "hash" => Ok(Engine {
-                inner: CoreEngine::new(HashEmbedder::new(opts.dims)),
+                inner: CoreEngine::new(Box::new(HashEmbedder::new(opts.dims))),
             }),
-            EmbedderSpec::Kinded { ref kind } if kind == "onnx" => {
-                Err(JsValue::from_str(&onnx_error_json()))
-            }
+            EmbedderSpec::Kinded { ref kind } if kind == "onnx" => Err(JsValue::from_str(
+                "onnx embedder requires Engine.fromBytes(optionsJson, modelBytes, tokenizerBytes)",
+            )),
             EmbedderSpec::Named(s) => Err(JsValue::from_str(&format!("unknown embedder \"{s}\""))),
             EmbedderSpec::Kinded { kind } => Err(JsValue::from_str(&format!(
                 "unknown embedder kind \"{kind}\""
@@ -83,16 +87,18 @@ impl Engine {
         }
     }
 
-    /// Construct an onnx-backed engine from in-memory model + tokenizer bytes.
-    /// Not yet implemented (needs ruvector-embed-core's tract backend); returns
-    /// the documented embedder error JSON as the thrown value.
+    /// Construct an onnx-backed engine (tract) from in-memory model + tokenizer
+    /// bytes. `optionsJson` carries the model `manifest` (a JSON string or an
+    /// inline object). Requires the `wasm-onnx` build feature; otherwise returns
+    /// the documented embedder error JSON as the thrown value. Throws on a hash
+    /// mismatch or a model tract cannot load (fail closed, ADR-005).
     #[wasm_bindgen(js_name = fromBytes)]
     pub fn from_bytes(
-        _options_json: &str,
-        _model_bytes: &[u8],
-        _tokenizer_bytes: &[u8],
+        options_json: &str,
+        model_bytes: &[u8],
+        tokenizer_bytes: &[u8],
     ) -> std::result::Result<Engine, JsValue> {
-        Err(JsValue::from_str(&onnx_error_json()))
+        build_onnx(options_json, model_bytes, tokenizer_bytes)
     }
 
     /// Returns a `DecisionResponse` JSON, or the documented error JSON.
@@ -148,8 +154,50 @@ impl Engine {
     }
 }
 
+/// Build the tract-backed engine from bytes + a manifest carried in the options.
+#[cfg(feature = "wasm-onnx")]
+#[derive(Deserialize)]
+struct FromBytesOptions {
+    /// The model manifest: a JSON string, or an inline object.
+    manifest: serde_json::Value,
+}
+
+#[cfg(feature = "wasm-onnx")]
+fn build_onnx(
+    options_json: &str,
+    model_bytes: &[u8],
+    tokenizer_bytes: &[u8],
+) -> std::result::Result<Engine, JsValue> {
+    use ruvector_embed_core::{ModelManifest, TractEmbedder};
+    let opts: FromBytesOptions = serde_json::from_str(options_json)
+        .map_err(|e| JsValue::from_str(&format!("invalid options JSON: {e}")))?;
+    let manifest_json = match opts.manifest {
+        serde_json::Value::String(s) => s,
+        other => other.to_string(),
+    };
+    let manifest = ModelManifest::from_json(&manifest_json)
+        .map_err(|e| JsValue::from_str(&format!("manifest: {e}")))?;
+    let embedder = TractEmbedder::from_bytes(model_bytes, tokenizer_bytes, &manifest)
+        .map_err(|e| JsValue::from_str(&format!("onnx load: {e}")))?;
+    Ok(Engine {
+        inner: CoreEngine::new(Box::new(embedder)),
+    })
+}
+
+#[cfg(not(feature = "wasm-onnx"))]
+fn build_onnx(
+    _options_json: &str,
+    _model_bytes: &[u8],
+    _tokenizer_bytes: &[u8],
+) -> std::result::Result<Engine, JsValue> {
+    Err(JsValue::from_str(&onnx_error_json()))
+}
+
+#[cfg(not(feature = "wasm-onnx"))]
 fn onnx_error_json() -> String {
-    embedder_json("onnx backend requires ruvector-embed-core (tract, wasm) — not yet integrated")
+    embedder_json(
+        "onnx backend requires ruvector-embed-core (tract, wasm) — rebuild with --features wasm-onnx",
+    )
 }
 
 fn error_json(e: &TypesafeError) -> String {

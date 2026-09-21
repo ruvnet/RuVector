@@ -70,7 +70,7 @@ impl NeuralInferrer {
 
     fn load_onnx(path: &Path) -> Result<Self, crate::error::DecompilerError> {
         let session = ort::session::Session::builder()
-            .and_then(|b| b.commit_from_file(path))
+            .and_then(|mut b| b.commit_from_file(path))
             .map_err(|e| {
                 crate::error::DecompilerError::ModelError(format!("failed to load ONNX model: {e}"))
             })?;

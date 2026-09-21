@@ -1,7 +1,6 @@
-//! Integration tests for the decision engine (ADR-003). All use the
-//! deterministic `HashEmbedder` behind `feature = "hash-embedder"`; one test
-//! wraps it in a renamed embedder to exercise the calibration path, which is
-//! gated off for `@test-double` ids.
+//! Integration tests for the decision engine (ADR-003), over the deterministic
+//! `HashEmbedder`; one test renames it to exercise the calibration path (gated
+//! off for `@test-double` ids).
 
 use super::*;
 use crate::embedder::Embedder;
@@ -83,8 +82,6 @@ fn topic_request(state: &str) -> DecisionRequest {
 
 #[test]
 fn engine_accepts_a_boxed_trait_object_embedder() {
-    // The bindings hold a runtime-chosen backend behind `Box<dyn Embedder>`;
-    // the blanket impl lets it satisfy `Engine<E: Embedder>` with no wrapper.
     let boxed: Box<dyn Embedder> = Box::new(HashEmbedder::new(DIMS));
     let engine = Engine::new(boxed);
     let resp = engine
@@ -142,9 +139,8 @@ fn out_of_scope_state_lowers_confidence_and_raises_abstain() {
 
 #[test]
 fn not_for_flips_a_near_tie() {
-    // Without `not_for`, alpha shares three tokens with the state and beta two,
-    // so alpha wins. A `not_for` on alpha that matches the state subtracts a
-    // large margin and hands the option to beta.
+    // alpha shares three tokens with the state, beta two, so alpha wins; a
+    // `not_for` on alpha matching the state subtracts enough to hand it to beta.
     let state = "apple banana cherry";
     let engine = Engine::new(HashEmbedder::new(DIMS));
 
@@ -305,9 +301,7 @@ fn linear_probe_beats_prototype_after_training() {
 
 #[test]
 fn score_returns_the_expected_bucket() {
-    // `score` is the expected bucket index under the distribution, rounded. A
-    // state matching the middle bucket puts symmetric mass on its neighbours,
-    // so the expectation lands squarely on the middle index.
+    // `score` is the rounded expected index; a middle-bucket state centres it.
     let mut questions = BTreeMap::new();
     questions.insert(
         "mood".to_string(),
@@ -461,8 +455,7 @@ impl Embedder for ProdLike {
 }
 
 fn many_examples() -> Vec<LabeledExample> {
-    // 120 examples across two classes so the calibration slice (every 5th)
-    // exceeds the 20-example floor.
+    // 120 examples so the every-5th calibration slice clears the 20-example floor.
     let weather = ["rain", "storm", "sunny", "cloud", "snow", "wind"];
     let sports = ["goal", "match", "court", "score", "tackle", "serve"];
     let mut ex = Vec::new();

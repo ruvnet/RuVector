@@ -1,0 +1,4 @@
+# Model weights are fetched by scripts/fetch-models.mjs and verified against
+# models/manifest.json (ADR-005). They are NOT committed; the manifest IS.
+models/*/
+!models/manifest.json

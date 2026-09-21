@@ -1,0 +1,49 @@
+[package]
+name = "ruvector-embed-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Sentence-embedding backends for @ruvector/typesafe: `ort` (native) and `tract` (wasm) implementations of the `Embedder` trait, with a hash-pinned model manifest (ADR-002, ADR-005)."
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+# Default build compiles NO onnxruntime and downloads nothing (ADR-002 §2).
+default = []
+native = ["dep:ort", "dep:tokenizers", "tokenizers/onig"]
+wasm = ["dep:tract-onnx", "dep:tract-core", "dep:tokenizers", "tokenizers/unstable_wasm"]
+
+[dependencies]
+ruvector-typesafe-core = { version = "2.3", path = "../ruvector-typesafe-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sha2 = "0.10"
+
+# Native ONNX (ADR-002 §2): `ort` pinned to the newest crates.io release (no stable 2.0 exists).
+ort = { version = "=2.0.0-rc.13", features = ["download-binaries", "half"], optional = true }
+
+# WASM ONNX (ADR-002 §3): tract, re-tested for INT8 on 0.23.
+tract-onnx = { version = "0.23", optional = true }
+tract-core = { version = "0.23", optional = true }
+
+# Tokenizer is shared; the regex backend differs per target (onig native, unstable_wasm wasm).
+tokenizers = { version = "0.20", default-features = false, optional = true }
+
+# tract-onnx pulls `rand` -> getrandom 0.4, which needs its wasm backend feature
+# on wasm32-unknown-unknown. This is distinct from ruvector-router-core's
+# getrandom 0.2 "js" gap (issue #1006, fixed elsewhere). Target-gated so native
+# builds never see it.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.4", features = ["wasm_js"] }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+# The spike needs both backends; native build of the wasm path is fine for timing.
+[[example]]
+name = "spike"
+required-features = ["native", "wasm"]

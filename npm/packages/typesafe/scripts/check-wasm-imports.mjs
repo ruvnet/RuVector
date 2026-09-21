@@ -5,16 +5,22 @@
 // logic in check-security.mjs. Exits non-zero on any forbidden import.
 
 import { existsSync, statSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { checkWasm } from './check-security.mjs';
 
+// Default to the package's wasm/ output dir so the no-arg CI form
+// (`node scripts/check-wasm-imports.mjs`) works alongside an explicit path.
+const DEFAULT_WASM_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'wasm');
+
 function findWasm(arg) {
-  if (arg && existsSync(arg)) {
-    if (statSync(arg).isDirectory()) {
-      const hit = readdirSync(arg).find((f) => f.endsWith('.wasm'));
-      return hit ? join(arg, hit) : null;
+  const path = arg || DEFAULT_WASM_DIR;
+  if (existsSync(path)) {
+    if (statSync(path).isDirectory()) {
+      const hit = readdirSync(path).find((f) => f.endsWith('.wasm'));
+      return hit ? join(path, hit) : null;
     }
-    return arg;
+    return path;
   }
   return null;
 }

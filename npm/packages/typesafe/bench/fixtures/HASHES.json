@@ -1,0 +1,12 @@
+{
+  "_comment": "sha256 of the raw bytes of each frozen bench fixture. The harness refuses to run on mismatch. Regenerate only on a deliberate re-freeze.",
+  "generated_by": "scripts/hash-fixtures.mjs",
+  "algorithm": "sha256",
+  "files": {
+    "jev-baseline-2026-09-21.json": "38373e41940619f940f0e5bb1178433344bbec510852e5e373a18e5a8e707af7",
+    "ruvector-router-2026-09-21.json": "d9cee65abda73b03fb7aaafd00cf1fc86bbd0c82db490d053cb4e5aaee21075a",
+    "fixtures/tickets-corpus.json": "a6d5992bcf84452b7901b052ed2ef13eb6cf173533dc65bed911f2f699b417ab",
+    "fixtures/tickets-decisions.json": "2ac87d9b00fb6fcee8a3cf3118577fbb4056f03f8feaecdce892d358d2bc99cd",
+    "fixtures/tickets-truth.json": "3784fae9ef1ce5e4842144b9e7eb1b0d289e4af3549e935bb2e27126b6cdc642"
+  }
+}

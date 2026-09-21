@@ -5,7 +5,8 @@
 //! Error discipline (spec + ADR-005): request-level failures never throw across
 //! the boundary — they are returned as `{"error":{"kind":"limit"|"invalid"|
 //! "embedder","message":"..."}}`. Only programmer errors (malformed options
-//! JSON, unsupported embedder) throw a JS `Error`.
+//! JSON, unsupported embedder, an onnx model that fails to load) throw a JS
+//! `Error`.
 
 #![deny(clippy::all)]
 
@@ -17,6 +18,12 @@ use ruvector_typesafe_core::hash_embedder::HashEmbedder;
 use ruvector_typesafe_core::{DecisionRequest, Embedder, TypesafeError};
 use serde::Deserialize;
 use std::sync::{Arc, RwLock};
+
+/// The engine over a runtime-chosen backend (hash today, onnx behind
+/// `native-onnx`). `Box<dyn Embedder>` is `Send + Sync` because the trait
+/// carries those supertraits, so the async path is sound.
+type BoxedEngine = CoreEngine<Box<dyn Embedder>>;
+type SharedEngine = Arc<RwLock<BoxedEngine>>;
 
 /// Crate (== Cargo workspace) version. Mirrors the router binding's `version()`.
 #[napi]
@@ -33,12 +40,18 @@ struct EngineOptions {
     dims: usize,
 }
 
-/// `"hash"` or `{"kind":"onnx", ...}`. onnx is parsed but rejected for now.
+/// `"hash"` or `{"kind":"onnx","modelDir":"...","manifest":"..."}`.
 #[derive(Deserialize)]
 #[serde(untagged)]
 enum EmbedderSpec {
     Named(String),
-    Kinded { kind: String },
+    Kinded {
+        kind: String,
+        #[serde(rename = "modelDir", default)]
+        model_dir: Option<String>,
+        #[serde(default)]
+        manifest: Option<String>,
+    },
 }
 
 fn default_dims() -> usize {
@@ -60,43 +73,77 @@ struct ExampleInput {
     label: String,
 }
 
+// ---- backend construction -------------------------------------------------
+
+fn make_engine(options_json: &str) -> std::result::Result<BoxedEngine, String> {
+    let opts: EngineOptions =
+        serde_json::from_str(options_json).map_err(|e| format!("invalid options JSON: {e}"))?;
+    Ok(CoreEngine::new(build_embedder(&opts)?))
+}
+
+fn build_embedder(opts: &EngineOptions) -> std::result::Result<Box<dyn Embedder>, String> {
+    match &opts.embedder {
+        EmbedderSpec::Named(s) if s == "hash" => Ok(Box::new(HashEmbedder::new(opts.dims))),
+        EmbedderSpec::Named(s) => Err(format!("unknown embedder \"{s}\"")),
+        EmbedderSpec::Kinded {
+            kind,
+            model_dir,
+            manifest,
+        } if kind == "onnx" => build_onnx(model_dir.as_deref(), manifest.as_deref()),
+        EmbedderSpec::Kinded { kind, .. } => Err(format!("unknown embedder kind \"{kind}\"")),
+    }
+}
+
+/// Construct the native ONNX embedder. `manifest` is read as a file path first,
+/// falling back to treating the string itself as inline manifest JSON.
+#[cfg(feature = "native-onnx")]
+fn build_onnx(
+    model_dir: Option<&str>,
+    manifest: Option<&str>,
+) -> std::result::Result<Box<dyn Embedder>, String> {
+    use ruvector_embed_core::{ModelManifest, OrtEmbedder};
+    let dir = model_dir.ok_or("onnx embedder requires \"modelDir\"")?;
+    let manifest_src = manifest.ok_or("onnx embedder requires \"manifest\"")?;
+    let manifest_json =
+        std::fs::read_to_string(manifest_src).unwrap_or_else(|_| manifest_src.to_string());
+    let manifest =
+        ModelManifest::from_json(&manifest_json).map_err(|e| format!("manifest: {e}"))?;
+    let embedder =
+        OrtEmbedder::from_manifest(dir, &manifest).map_err(|e| format!("onnx load: {e}"))?;
+    Ok(Box::new(embedder))
+}
+
+#[cfg(not(feature = "native-onnx"))]
+fn build_onnx(
+    _model_dir: Option<&str>,
+    _manifest: Option<&str>,
+) -> std::result::Result<Box<dyn Embedder>, String> {
+    Err("onnx embedder backend is not built into this binary \
+         (rebuild with --features native-onnx)"
+        .to_string())
+}
+
 // ---- the engine -----------------------------------------------------------
 
-/// A compiled decision engine over one embedder. `Send + Sync` (the core
-/// `Engine` is, and the hash embedder holds only a `usize` + `String`), so the
-/// async path can hand an `Arc` clone to the libuv thread pool. `train` needs
-/// `&mut`, hence the `RwLock`.
+/// A compiled decision engine. `train` needs `&mut`, hence the `RwLock`; the
+/// `Arc` lets the async path hand a clone to the libuv thread pool.
 #[napi]
 pub struct Engine {
-    inner: Arc<RwLock<CoreEngine<HashEmbedder>>>,
+    inner: SharedEngine,
 }
 
 #[napi]
 impl Engine {
     /// `optionsJson`: `{"embedder":"hash","dims":256}` or
-    /// `{"embedder":{"kind":"onnx",...}}` (onnx not yet built — throws).
-    /// Throws on malformed options JSON or an unsupported embedder.
+    /// `{"embedder":{"kind":"onnx","modelDir":"...","manifest":"..."}}` (onnx
+    /// requires the `native-onnx` build feature). Throws on malformed options
+    /// JSON, an unsupported embedder, or an onnx model that fails to load.
     #[napi(constructor)]
     pub fn new(options_json: String) -> Result<Self> {
-        let opts: EngineOptions = serde_json::from_str(&options_json)
-            .map_err(|e| Error::from_reason(format!("invalid options JSON: {e}")))?;
-        match opts.embedder {
-            EmbedderSpec::Named(ref s) if s == "hash" => {
-                let engine = CoreEngine::new(HashEmbedder::new(opts.dims));
-                Ok(Self {
-                    inner: Arc::new(RwLock::new(engine)),
-                })
-            }
-            EmbedderSpec::Kinded { ref kind } if kind == "onnx" => Err(Error::from_reason(
-                "onnx embedder backend is not built into this binary yet \
-                 (ruvector-embed-core integration pending)"
-                    .to_string(),
-            )),
-            EmbedderSpec::Named(s) => Err(Error::from_reason(format!("unknown embedder \"{s}\""))),
-            EmbedderSpec::Kinded { kind } => Err(Error::from_reason(format!(
-                "unknown embedder kind \"{kind}\""
-            ))),
-        }
+        let engine = make_engine(&options_json).map_err(Error::from_reason)?;
+        Ok(Self {
+            inner: Arc::new(RwLock::new(engine)),
+        })
     }
 
     /// Synchronous decide. Returns a `DecisionResponse` JSON, or the documented
@@ -161,7 +208,7 @@ impl Engine {
 
 /// The off-thread half of `Engine::decide`.
 pub struct DecideTask {
-    engine: Arc<RwLock<CoreEngine<HashEmbedder>>>,
+    engine: SharedEngine,
     request_json: String,
 }
 
@@ -181,7 +228,7 @@ impl Task for DecideTask {
 
 // ---- shared helpers -------------------------------------------------------
 
-fn decide_to_json(engine: &CoreEngine<HashEmbedder>, request_json: &str) -> String {
+fn decide_to_json(engine: &BoxedEngine, request_json: &str) -> String {
     let req: DecisionRequest = match serde_json::from_str(request_json) {
         Ok(r) => r,
         Err(e) => return invalid_json(&format!("request JSON parse error: {e}")),

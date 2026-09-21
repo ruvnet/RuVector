@@ -1,0 +1,213 @@
+# @ruvector/typesafe
+
+Local typed decisions over sentence embeddings, with the wire contract of Jev
+([typesafe.ai](https://typesafe.ai)) "System One". You send one text `state`
+plus a batch of questions — `choice`, `score`, `noul` — and get back per-question
+answers with a **calibrated** confidence, an abstain mass, and a receipt naming
+the head, model and temperature that produced each answer.
+
+It is a bounded classifier, not an LLM host: **no network by default, no
+per-token cost, no subprocess in the decision path.** A native (napi-rs) core
+does the deciding; a WASM build is the portable fallback. Latency targets are
+release gates (p95 ≤ 50 ms native, ≤ 150 ms WASM — ADR-006); the engine's own
+numbers are **to be measured by `typesafe bench`**, not asserted here.
+
+- Drop-in for Jev callers: `POST /v1/systemone` body and response shape are
+  accepted and returned unchanged (`typesafe serve`).
+- Type-safe questions: the answer to `choice({ billing, fraud })` is typed
+  `{ choice: "billing" | "fraud"; probabilities: Record<"billing"|"fraud", number> }`.
+- A governed self-optimization loop (ADR-004) that never gets worse on your
+  frozen split, and explains every change.
+
+Status: **v0.1.0.** The core and the TypeScript API are here. Platform binaries
+are not yet published to npm; the native addon must be built locally, and a WASM
+fallback ships. INT8 / ONNX embedder availability is per ADR-002's spike.
+
+## Install
+
+```sh
+npm install @ruvector/typesafe
+```
+
+The first release ships **no dependencies**. If no prebuilt native binary
+matches your platform, build the addon locally (`npm run build:napi`) or rely on
+the bundled WASM fallback.
+
+## Quick start (TypeScript)
+
+```ts
+import { createTypesafe, choice, score, noul } from '@ruvector/typesafe';
+
+const ts = createTypesafe(); // default embedder: "hash" (see "Embedders")
+
+const r = await ts.decide('my card was charged twice, fix it today', {
+  dept: choice({
+    billing: 'charges and refunds',
+    fraud: { what: 'unauthorised use', not_for: 'duplicate charges' },
+  }),
+  mood: score(['Calm', 'Irritated', 'Angry'] as const),
+  urgent: noul('the sender needs a response soon'),
+});
+
+r.dept.choice;            // "billing" | "fraud"   (typed from the criteria keys)
+r.dept.probabilities;     // Record<"billing" | "fraud", number>
+r.mood.legend;            // "Calm" | "Irritated" | "Angry"
+r.urgent.noul;            // number, 0..1
+r.dept.confidence;        // calibrated top-1 probability
+r.answers.dept.choice;    // same answer, also under .answers
+r.usage;                  // { embed_calls, texts_embedded, state_bytes }
+```
+
+`decide` batches N questions into one engine call. `decideMany(states, questions)`
+runs a list of states (with a small concurrency pool on the async native path).
+
+## Quick start (CLI)
+
+```sh
+# questions.json is a Jev-shaped question map
+typesafe decide --state "my card was charged twice" --questions questions.json
+echo "my card was charged twice" | typesafe decide --questions questions.json
+typesafe serve --port 8787            # Jev-compatible HTTP server on 127.0.0.1
+typesafe --help
+```
+
+## The three question types
+
+- **`choice`** — pick one of up to 255 options. Each option is a description
+  string, or `{ what, not_for, examples }`. `not_for` becomes a hard-negative:
+  a `state` that fits no option gets low `confidence` and high `abstain` rather
+  than a confident wrong answer (ADR-003).
+- **`score`** — an ordinal legend, e.g. `['Calm', 'Irritated', 'Angry']`. The
+  answer is the expected bucket index plus per-bucket probabilities.
+- **`noul`** — a 0–1 predicate ("the sender needs a response soon"). With no
+  labeled examples it falls back to a similarity score flagged
+  `calibrated: false`; it is never reported as a probability it has not earned.
+
+## Jev compatibility
+
+`systemOne` accepts exactly Jev's `POST /v1/systemone` body
+(`{ state, model?, questions: { id: { type, instructions, criteria | legend } } }`)
+and returns Jev's response shape plus five additive fields (`abstain`,
+`calibrated`, `head`, `model`, `temperature`). Pass `{ jevShapeOnly: true }` to
+strip those and get exactly Jev's shape.
+
+```ts
+const jev = await ts.systemOne(
+  { state, questions: { mood: { type: 'score', criteria: ['Calm', 'Angry'] } } },
+  { jevShapeOnly: true },
+);
+```
+
+The Jev `model` field is accepted for compatibility and ignored: the local
+engine selects its own model arm under the loop's governance (ADR-004).
+
+## Train, eval, serve
+
+```sh
+# Admit labeled examples for one question (JSONL of {"text","label"})
+typesafe train --question dept --examples examples.jsonl
+
+# Score a labeled dataset (a decisions JSON, or a JSONL of {text,label:{qid:..}})
+typesafe eval --dataset labeled.jsonl --questions questions.json --split test
+
+# Jev drop-in server
+typesafe serve --port 8787
+```
+
+`eval` computes accuracy, macro-F1, ECE (10 bins), Brier, mean confidence, mean
+abstain, and p50/p95 latency in JS from the responses. Example-bank persistence
+depends on the binding exposing it; `train` reports `in-memory only for this run`
+when it does not.
+
+### Embedders
+
+`createTypesafe()` defaults to the **`hash`** embedder: a deterministic
+bag-of-words test double that needs no weights and runs everywhere. Its answers
+are always reported `calibrated: false`. Production accuracy needs the ONNX
+embedder:
+
+```ts
+const ts = createTypesafe({ embedder: { kind: 'onnx', modelDir: './models/bge', manifest: './models/manifest.json' } });
+```
+
+## The self-optimization loop
+
+Improvement is **specified** as a governed, measured, reversible loop (ADR-004):
+four loops — example-bank growth, model-arm selection, speed tuning, and (v2)
+criteria mutation — each propose a change that must beat a frozen validation
+split under a paired anytime-valid test, must not regress a separate transfer
+split, and runs against a permanent 5% control arm, with an append-only receipt
+per promotion. The promise is "never worse on your frozen split, and every
+change explained", not "improves every hour".
+
+**v0.1.0 ships `train` only** (loop 1's example admission); the promotion gate,
+receipts, and the other loops are specified but not yet implemented. See
+[ADR-004](docs/adr/ADR-004-self-optimization-loop.md).
+
+## Security
+
+The engine takes untrusted text and returns typed decisions. Its runtime is
+deliberately boring (ADR-005):
+
+- **No network by default.** Models are bundled or loaded from a hash-pinned
+  local manifest.
+- **No subprocess in the decision path.** The CLI spawns nothing; helpers would
+  use argument arrays, never a shell.
+- **No logging of inputs.** `state` is never logged; receipts store hashes and
+  lengths, not text. The server's access log is method, path, status, ms only.
+- **Input limits** are rejected with a typed error, never silently truncated:
+  `state` ≤ 16 KiB, ≤ 255 options/choice, ≤ 64 questions/request.
+
+A regression test (`test/security.test.mjs`) asserts the source contains no
+`child_process`, no `fetch`/`http` client, and no logging of `state`/`request`/
+`body`. See [ADR-005](docs/adr/ADR-005-security-model.md).
+
+## Measured
+
+These are the **only** measured numbers this package claims today. The
+typesafe engine's own accuracy and latency are **to be measured by
+`typesafe bench`** (ADR-006) — this release does not assert them.
+
+**Jev (typesafe.ai) baseline**, from `bench/jev-baseline-2026-09-21.json`
+(500 synthetic support tickets, 8 departments, frozen 150-item **test** split,
+concurrency 4, latency includes the network round trip):
+
+| metric (test split) | Jev baseline | Jev after 8-gen loop |
+|---|---|---|
+| department accuracy (`choice`) | 85.3% | 90.0% |
+| urgent accuracy (`noul`) | 61.3% | 60.0% |
+| frustration accuracy (`score`) | 67.3% | 67.3% |
+| latency p50 / p95 (ms) | 184.8 / 233.0 | 178.5 / 215.6 |
+| ECE | 0.073 | 0.068 |
+
+Jev's `noul` urgency (61.3%) sits **below** a constant "not urgent" baseline of
+71.3% (107 of the 150 test tickets are not urgent, from `test_rows.baseline` in
+the same JSON), and its confidence is saturated (ECE 0.073) — the design reasons
+the abstain bucket and calibration layer exist (ADR-003).
+
+**ruvector substrate (index + query)**, from
+`bench/ruvector-router-2026-09-21.json` (5,000 docs, 384-d, 250 test queries,
+recall@10):
+
+| implementation | recall@10 | latency p50 / p95 (ms) |
+|---|---|---|
+| ruvector VectorDb (native) | 1.00 | 5.85 / 6.88 |
+| `@ruvector/router` 0.1.28 VectorDb | 0.032 | 0.05 / 0.07 |
+
+The core reuses `ruvector-router-core` directly (ADR-001). The native VectorDb
+returns exact neighbours; the `@ruvector/router` 0.1.28 kNN path returns
+neighbours only from the most recently inserted region (recall 0.032) — a
+documented defect in that file, called out here rather than papered over.
+
+## Architecture (ADRs)
+
+- [ADR-001 — architecture](docs/adr/ADR-001-architecture.md)
+- [ADR-002 — inference backend](docs/adr/ADR-002-inference-backend.md)
+- [ADR-003 — decision heads and calibration](docs/adr/ADR-003-decision-heads-and-calibration.md)
+- [ADR-004 — the self-optimization loop](docs/adr/ADR-004-self-optimization-loop.md)
+- [ADR-005 — security model](docs/adr/ADR-005-security-model.md)
+- [ADR-006 — benchmarks and release gates](docs/adr/ADR-006-benchmarks-and-release-gates.md)
+
+## License
+
+MIT

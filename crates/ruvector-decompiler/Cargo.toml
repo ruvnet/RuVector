@@ -20,7 +20,7 @@ thiserror = { workspace = true }
 once_cell = "1"
 rayon = { workspace = true, optional = true }
 memchr = "2"
-ort = { version = "=2.0.0-rc.10", optional = true, default-features = false, features = ["ndarray", "std"] }
+ort = { version = "=2.0.0-rc.13", optional = true, default-features = false, features = ["ndarray", "std"] }
 ndarray = { version = "0.16", optional = true }
 
 [features]

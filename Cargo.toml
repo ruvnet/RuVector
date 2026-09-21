@@ -72,6 +72,7 @@ members = [
     "crates/ruvector-typesafe-core",
     "crates/ruvector-typesafe-ffi",
     "crates/ruvector-typesafe-wasm",
+    "crates/ruvector-embed-core",
     "crates/ruvector-server",
     "crates/ruvector-snapshot",
     "crates/ruvector-tiny-dancer-core",

@@ -1,0 +1,5 @@
+# Downloaded datasets and model weights are never committed (ADR-006):
+# the fetchers pull from canonical sources at bench time.
+.cache/
+# Per-run receipts are build artifacts, not source.
+results/

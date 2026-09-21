@@ -42,4 +42,8 @@ wasm-pack build "$crate_dir" --release --target nodejs --out-dir "$here/wasm"
 echo "building ruvector-typesafe-wasm (bundler target) -> $here/wasm/bundler"
 wasm-pack build "$crate_dir" --release --target bundler --out-dir "$here/wasm/bundler"
 
+# ADR-005 (c) gate: fail the build if the module imports any WASI/fs/net symbol.
+echo "checking wasm imports (ADR-005)"
+node "$here/scripts/check-wasm-imports.mjs" "$here/wasm/ruvector_typesafe_wasm_bg.wasm"
+
 echo "wasm build complete"

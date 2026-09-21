@@ -1,0 +1,48 @@
+{
+  "_comment": "Release gates (ADR-006 §Release gates). All must PASS to publish. --gate evaluates the measurable rows against a run's receipt; --report-only downgrades a failing run to a non-zero-free advisory (used in CI until an ONNX embedder is present). A gate whose precondition does not apply to the run (e.g. OOS AUROC on the tickets suite, transfer regression with no --baseline-receipt) is SKIP, never a silent pass.",
+  "jev_reference": "baseline",
+  "jev_reference_note": "Jev's gen-0 (baseline) test_rows use the SAME gen0 criteria the local arm sends — apples-to-apples. The champion used mutated criteria whose examples are literal ticket texts (memorisation, ADR-004); it is reported as informational only.",
+  "gates": {
+    "accuracy_vs_jev": {
+      "metric": "choice_accuracy_test",
+      "op": ">=",
+      "reference": "jev_choice_accuracy_test",
+      "margin_pp": -3.0,
+      "description": "Local test accuracy within 3 pp of the Jev baseline (mean over Banking77/CLINC150/HWU64 in the full suite; department accuracy for tickets)."
+    },
+    "calibration_ece": {
+      "metric": "ece_test",
+      "op": "<=",
+      "threshold": 0.05,
+      "description": "Expected Calibration Error on test, 10 equal-width bins."
+    },
+    "oos_auroc": {
+      "metric": "oos_auroc",
+      "op": ">=",
+      "threshold": 0.85,
+      "applies_when": "has_oos",
+      "description": "Out-of-scope / noul AUROC on CLINC150 OOS; SKIP on suites without an OOS slice."
+    },
+    "latency_native_p95": {
+      "metric": "latency_p95_test",
+      "op": "<=",
+      "threshold": 50,
+      "applies_when": "embedder_native",
+      "description": "Native p95 per decision at concurrency 1 (bge-small INT8/FP32)."
+    },
+    "latency_wasm_p95": {
+      "metric": "latency_p95_test",
+      "op": "<=",
+      "threshold": 150,
+      "applies_when": "embedder_wasm",
+      "description": "WASM p95 per decision."
+    },
+    "transfer_regression": {
+      "metric": "transfer_regression_pp",
+      "op": "<=",
+      "threshold": 1.0,
+      "applies_when": "has_baseline_receipt",
+      "description": "Transfer-split accuracy must not regress beyond 1 pp vs the baseline receipt (ADR-004 gate 3); SKIP without --baseline-receipt."
+    }
+  }
+}
