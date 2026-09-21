@@ -8,7 +8,7 @@
 //! still a stub — the core `Campaign` needs an `Evaluator` the binding does not
 //! provide yet.
 
-use crate::model::{err_json, kge_error_json, KgeModel};
+use crate::model::{err_json, kge_error_json, KgeModel, SplitLabel};
 use ruvector_kge::scorer::{HolE, RotatE};
 use ruvector_kge::{
     evaluate, AnnIndex, EvalConfig, ScorerKind, TieBreak, TrainConfig, Trainer, Triple, TripleStore,
@@ -34,8 +34,9 @@ struct EvalCfgInput {
 impl KgeModel {
     /// Train the tables from the current triples. `configJson` is a
     /// [`TrainConfig`] (all fields optional); `dims` is forced to the model's.
-    /// Preserves the growth invariant by training in place, then drops any ANN
-    /// index (the tables changed).
+    /// If any triple carries a split tag, training uses ONLY the `train` split
+    /// (never valid/test/transfer). Trains in place (preserving the growth
+    /// invariant), then drops any ANN index (the tables changed).
     pub fn train_json(&mut self, config_json: &str) -> String {
         let mut cfg: TrainConfig = match serde_json::from_str(config_json) {
             Ok(c) => c,
@@ -45,7 +46,17 @@ impl KgeModel {
         if self.triples.is_empty() {
             return err_json("invalid", "no triples to train on");
         }
-        let store = match TripleStore::new(self.triples.clone()) {
+        // With ingested split tags, train ONLY on the "train" split — never on
+        // valid/test/transfer (no leakage, ADR-006). Untagged: train on all.
+        let train_triples = if self.has_split_tags() {
+            self.triples_with_split(SplitLabel::Train)
+        } else {
+            self.triples.clone()
+        };
+        if train_triples.is_empty() {
+            return err_json("invalid", "no 'train'-labelled triples to train on");
+        }
+        let store = match TripleStore::new(train_triples) {
             Ok(s) => s,
             Err(e) => return kge_error_json(&e),
         };
@@ -94,11 +105,12 @@ impl KgeModel {
         }
     }
 
-    /// Filtered ranking metrics: `{"split":"train|valid|test","filtered":true,
-    /// "seed":0,"tieBreak":"random|top|bottom"}`. When `split` is given the
-    /// triples are partitioned 80/10/10 — a *derived* split for a smoke check,
-    /// NOT the frozen content-hashed split ADR-006 requires (that is the bench
-    /// harness's artifact). Filtering is against the full triple set.
+    /// Filtered ranking metrics: `{"split":"train|valid|test|transfer",
+    /// "filtered":true,"seed":0,"tieBreak":"random|top|bottom"}`. If triples
+    /// carry ingested split tags the requested split is honoured VERBATIM (the
+    /// caller's frozen split, e.g. the bench harness's — ADR-006). Otherwise a
+    /// `split` is a *derived* 80/10/10 partition, a smoke check only. Filtering
+    /// is always against the full triple set.
     pub fn eval_json(&mut self, config_json: &str) -> String {
         let ec: EvalCfgInput = match serde_json::from_str(config_json) {
             Ok(c) => c,
@@ -117,19 +129,55 @@ impl KgeModel {
             Ok(s) => s,
             Err(e) => return kge_error_json(&e),
         };
-        let eval_triples: Vec<Triple> = match ec.split.as_deref() {
-            None => self.triples.clone(),
-            Some(name @ ("train" | "valid" | "test")) => {
-                match store.split(ec.seed, [0.8, 0.1, 0.1]) {
-                    Ok(sp) => match name {
-                        "train" => sp.train,
-                        "valid" => sp.valid,
-                        _ => sp.test,
-                    },
-                    Err(e) => return kge_error_json(&e),
+        let has_tags = self.has_split_tags();
+        // note is the report's split provenance: the frozen per-triple split
+        // when tags are present, else the derived-split disclaimer.
+        let (eval_triples, split_source, note): (Vec<Triple>, &str, &str) = match ec
+            .split
+            .as_deref()
+        {
+            None => (
+                self.triples.clone(),
+                "all triples",
+                "all known triples (no split requested)",
+            ),
+            Some(name) => {
+                let label = match SplitLabel::from_name(name) {
+                    Some(l) => l,
+                    None => return err_json("invalid", "split must be train|valid|test|transfer"),
+                };
+                if has_tags {
+                    (
+                        self.triples_with_split(label),
+                        "per-triple",
+                        "frozen per-triple split",
+                    )
+                } else {
+                    match name {
+                        "train" | "valid" | "test" => match store.split(ec.seed, [0.8, 0.1, 0.1]) {
+                            Ok(sp) => {
+                                let picked = match name {
+                                    "train" => sp.train,
+                                    "valid" => sp.valid,
+                                    _ => sp.test,
+                                };
+                                (
+                                            picked,
+                                            "derived",
+                                            "derived 80/10/10 split, not the ADR-006 frozen content-hashed split",
+                                        )
+                            }
+                            Err(e) => return kge_error_json(&e),
+                        },
+                        _ => {
+                            return err_json(
+                                "invalid",
+                                "split \"transfer\" requires ingested split tags",
+                            )
+                        }
+                    }
                 }
             }
-            Some(_) => return err_json("invalid", "split must be train|valid|test"),
         };
         if eval_triples.is_empty() {
             return err_json("invalid", "the requested split is empty");
@@ -158,8 +206,9 @@ impl KgeModel {
                 "report": r,
                 "evalTriples": eval_triples.len(),
                 "split": ec.split,
+                "splitSource": split_source,
                 "filtered": cfg.filtered,
-                "note": "derived 80/10/10 split, not the ADR-006 frozen content-hashed split",
+                "note": note,
             })
             .to_string(),
             Err(e) => kge_error_json(&e),

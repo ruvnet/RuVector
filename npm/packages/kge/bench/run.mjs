@@ -176,7 +176,13 @@ async function runSuite(suite, args, deps) {
   if (!added.available) return { ...loaded, config, binding: { unavailable: true, error: added.error }, bindingSource: resolved.source, unavailable: added.error };
   const training = train(model, config);
   const trainMeta = training.available
-    ? { epochs: training.epochs, triplesPerSec: training.triplesPerSec ?? ratePerSecond(loaded.counts.train, training.wallMs) }
+    ? {
+        epochs: training.epochs,
+        triplesPerSec: training.triplesPerSec ?? ratePerSecond(loaded.counts.train, training.wallMs),
+        loss: training.loss,
+        n3Penalty: training.n3Penalty,
+        batches: training.batches,
+      }
     : { unavailable: training.error };
 
   // filtered MRR/Hits (RANDOM tie-break) on valid + test (+ transfer)
@@ -186,7 +192,7 @@ async function runSuite(suite, args, deps) {
     if (!(loaded.splits[split] && loaded.splits[split].length)) continue;
     const e = evalSplit(model, split, 'random');
     if (!e.available) { unavailable = e.error; break; }
-    metrics[split] = { mrr: e.mrr, mr: e.mr, hits: e.hits, perSide: e.perSide };
+    metrics[split] = { mrr: e.mrr, mr: e.mr, hits: e.hits, perSide: e.perSide, splitSource: e.splitSource, filtered: e.filtered };
   }
   if (unavailable) {
     return { ...loaded, config, binding: { unavailable: true, error: unavailable }, bindingSource: resolved.source, unavailable };

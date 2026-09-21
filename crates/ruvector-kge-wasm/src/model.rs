@@ -128,9 +128,39 @@ pub struct KgeModel {
     pub entities: Vocab,
     pub relations: Vocab,
     pub triples: Vec<Triple>,
+    /// Split label per triple, parallel to `triples`. Lets a caller (e.g. the
+    /// bench harness) pin a frozen split so `train`/`eval` honour it instead of
+    /// deriving one.
+    #[serde(default)]
+    pub splits: Vec<SplitLabel>,
     pub tables: Option<Tables>,
     #[serde(skip)]
     pub ann: Option<AnnIndex>,
+}
+
+/// A triple's split membership (ADR-006 frozen splits).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SplitLabel {
+    Unlabelled,
+    Train,
+    Valid,
+    Transfer,
+    Test,
+}
+
+impl SplitLabel {
+    /// Parse a split name; `None` for an unknown name. `unlabelled` is internal
+    /// only — a triple gets it by omitting `split`, never by naming it.
+    pub(crate) fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "train" => Some(Self::Train),
+            "valid" => Some(Self::Valid),
+            "transfer" => Some(Self::Transfer),
+            "test" => Some(Self::Test),
+            _ => None,
+        }
+    }
 }
 
 impl KgeModel {
@@ -156,6 +186,7 @@ impl KgeModel {
             entities: Vocab::default(),
             relations: Vocab::default(),
             triples: Vec::new(),
+            splits: Vec::new(),
             tables: None,
             ann: None,
         })
@@ -200,6 +231,7 @@ impl KgeModel {
             "relations": self.relations.len(),
             "triples": self.triples.len(),
             "indexed": self.ann.is_some(),
+            "splits": self.split_counts(),
         })
         .to_string()
     }
@@ -229,6 +261,41 @@ impl KgeModel {
     /// Install a freshly built ANN index.
     pub(crate) fn set_index(&mut self, index: AnnIndex) {
         self.ann = Some(index);
+    }
+
+    /// Record a triple's split label (parallel to `triples`).
+    pub(crate) fn push_split(&mut self, label: SplitLabel) {
+        self.splits.push(label);
+    }
+
+    /// True if any triple carries a real (non-`Unlabelled`) split label.
+    pub(crate) fn has_split_tags(&self) -> bool {
+        self.splits.iter().any(|&l| l != SplitLabel::Unlabelled)
+    }
+
+    /// The triples labelled `label`.
+    pub(crate) fn triples_with_split(&self, label: SplitLabel) -> Vec<Triple> {
+        self.triples
+            .iter()
+            .zip(self.splits.iter())
+            .filter(|(_, &l)| l == label)
+            .map(|(t, _)| *t)
+            .collect()
+    }
+
+    /// `{train,valid,transfer,test,unlabelled}` triple counts.
+    pub(crate) fn split_counts(&self) -> serde_json::Value {
+        let mut c = [0usize; 5]; // Unlabelled, Train, Valid, Transfer, Test
+        for &l in &self.splits {
+            c[l as usize] += 1;
+        }
+        serde_json::json!({
+            "train": c[SplitLabel::Train as usize],
+            "valid": c[SplitLabel::Valid as usize],
+            "transfer": c[SplitLabel::Transfer as usize],
+            "test": c[SplitLabel::Test as usize],
+            "unlabelled": c[SplitLabel::Unlabelled as usize],
+        })
     }
 
     /// Grow the tables to the current vocab size, preserving existing rows

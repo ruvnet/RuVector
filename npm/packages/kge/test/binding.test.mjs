@@ -168,3 +168,53 @@ test('pipeline: train / growth / ANN index (native)', { skip: !nativeBuilt && 'n
 test('pipeline: train / growth / ANN index (wasm)', { skip: !wasmBuilt && 'wasm not built' }, () => {
   runPipeline(loadBackend('wasm'));
 });
+
+// Frozen per-triple splits are honoured verbatim; useIndex forces exhaustion.
+function runSplits(mod) {
+  const model = new mod.Model('{"scorer":"hole","dims":8,"seed":1}');
+  model.addTriplesJson(JSON.stringify([
+    { s: 'A', r: 'rel', o: 'B', split: 'train' },
+    { s: 'A', r: 'rel', o: 'C', split: 'train' },
+    { s: 'A', r: 'rel', o: 'D', split: 'test' },
+    { s: 'A', r: 'rel', o: 'E', split: 'transfer' },
+  ]));
+  assert.equal(JSON.parse(model.addTriplesJson('[{"s":"X","r":"rel","o":"Y","split":"nope"}]')).error.kind,
+    'invalid', 'an unknown split tag is rejected');
+
+  // statsJson carries per-split counts.
+  const splits = JSON.parse(model.statsJson()).splits;
+  assert.deepEqual(splits, { train: 2, valid: 0, transfer: 1, test: 1, unlabelled: 0 }, 'stats reports per-split counts');
+
+  model.trainJson('{"epochs":3,"lr":0.1}');
+  // eval on 'transfer' scores ONLY the labelled transfer triple.
+  const evT = JSON.parse(model.evalJson('{"split":"transfer"}'));
+  assert.equal(evT.evalTriples, 1, 'the transfer split is exactly the one labelled transfer triple');
+  assert.equal(evT.splitSource, 'per-triple', 'transfer eval source is per-triple');
+  assert.equal(evT.note, 'frozen per-triple split', 'note marks the frozen per-triple split');
+  const evTest = JSON.parse(model.evalJson('{"split":"test"}'));
+  assert.equal(evTest.evalTriples, 1, 'the test split is exactly the one labelled test triple');
+
+  model.buildIndexJson();
+  assert.equal(JSON.parse(model.predictJson('{"s":"A","r":"rel","k":2}')).ann, true, 'default predict uses the index');
+  assert.equal(JSON.parse(model.predictJson('{"s":"A","r":"rel","k":2,"useIndex":false}')).ann, false,
+    'useIndex:false forces the exhaustive path');
+}
+
+// With NO ingested tags, a requested split falls back to a derived partition.
+function runDerivedSplit(mod) {
+  const model = new mod.Model('{"scorer":"hole","dims":8,"seed":7}');
+  // 20 untagged triples so a derived 80/10/10 test split is non-empty.
+  const facts = Array.from({ length: 20 }, (_, i) => ({ s: `S${i}`, r: 'rel', o: `O${i}` }));
+  model.addTriplesJson(JSON.stringify(facts));
+  model.trainJson('{"epochs":2}');
+  const ev = JSON.parse(model.evalJson('{"split":"test"}'));
+  assert.equal(ev.splitSource, 'derived', 'untagged eval falls back to a derived split');
+  assert.match(ev.note, /derived 80\/10\/10 split/, 'derived note retains its disclaimer');
+  // transfer without tags is rejected (it has no derived form).
+  assert.equal(JSON.parse(model.evalJson('{"split":"transfer"}')).error.kind, 'invalid',
+    'transfer without ingested tags is rejected');
+}
+
+test('frozen per-triple splits + useIndex (wasm)', { skip: !wasmBuilt && 'wasm not built' }, () => runSplits(loadBackend('wasm')));
+test('frozen per-triple splits + useIndex (native)', { skip: !nativeBuilt && 'native not built' }, () => runSplits(loadBackend(undefined)));
+test('derived-split fallback when untagged (wasm)', { skip: !wasmBuilt && 'wasm not built' }, () => runDerivedSplit(loadBackend('wasm')));

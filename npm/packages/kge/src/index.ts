@@ -49,6 +49,8 @@ export type {
   RelationScore,
   ScorerKind,
   SimilarResult,
+  SplitCounts,
+  SplitTag,
   Stats,
   Triple,
 } from './types';

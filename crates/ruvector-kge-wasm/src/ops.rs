@@ -8,7 +8,7 @@
 //! `optimize` remains a stub (it needs an `Evaluator` the binding does not
 //! provide yet).
 
-use crate::model::{err_json, kge_error_json, KgeModel};
+use crate::model::{err_json, kge_error_json, KgeModel, SplitLabel};
 use ruvector_kge::scorer::{HolE, RotatE};
 use ruvector_kge::{AnnIndex, Scorer, ScorerKind, Side, Triple};
 use serde::Deserialize;
@@ -22,6 +22,10 @@ const MAX_K: usize = 1000;
 
 fn default_k() -> usize {
     10
+}
+
+fn default_true() -> bool {
+    true
 }
 
 fn check_k(k: usize) -> Option<String> {
@@ -80,6 +84,9 @@ struct TripleInput {
     s: String,
     r: String,
     o: String,
+    /// Optional split tag: train|valid|test|transfer (ADR-006 frozen splits).
+    #[serde(default)]
+    split: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -92,6 +99,10 @@ struct PredictQuery {
     o: Option<String>,
     #[serde(default = "default_k")]
     k: usize,
+    /// Force exhaustive scoring even when an ANN index exists (default true =
+    /// use the index if present). Bench uses `false` for exact-score reads.
+    #[serde(rename = "useIndex", default = "default_true")]
+    use_index: bool,
 }
 
 #[derive(Deserialize)]
@@ -119,6 +130,9 @@ impl KgeModel {
             Ok(v) => v,
             Err(e) => return err_json("invalid", &format!("triples JSON parse error: {e}")),
         };
+        // Validate labels and resolve each triple's split code up front, so a
+        // bad split rejects the whole batch before any mutation.
+        let mut labels: Vec<SplitLabel> = Vec::with_capacity(items.len());
         for t in &items {
             for label in [&t.s, &t.r, &t.o] {
                 if label.is_empty() {
@@ -128,9 +142,16 @@ impl KgeModel {
                     return err_json("limit", "triple label exceeds 1 KiB");
                 }
             }
+            match &t.split {
+                None => labels.push(SplitLabel::Unlabelled),
+                Some(name) => match SplitLabel::from_name(name) {
+                    Some(l) => labels.push(l),
+                    None => return err_json("invalid", "split must be train|valid|test|transfer"),
+                },
+            }
         }
         let mut added = 0usize;
-        for t in &items {
+        for (t, &label) in items.iter().zip(labels.iter()) {
             if self.entities.len().saturating_add(2) > MAX_ENTITIES {
                 return err_json("limit", "entity table would exceed 1,000,000");
             }
@@ -141,6 +162,7 @@ impl KgeModel {
             let o = self.intern_entity(&t.o);
             let r = self.intern_relation(&t.r);
             self.triples.push(Triple::new(s, r, o));
+            self.push_split(label);
             added += 1;
         }
         if added > 0 {
@@ -216,8 +238,9 @@ impl KgeModel {
             Side::Tail => scorer.score(a_vec, r_vec, tables.entity(e).unwrap()),
             Side::Head => scorer.score(tables.entity(e).unwrap(), r_vec, a_vec),
         };
-        // ANN path when an index is present; exhaustive otherwise.
-        let (ranked, ann_used): (Vec<(u32, f32)>, bool) = if let Some(index) = self.ann.as_ref() {
+        // ANN path when an index is present and not opted out; exhaustive otherwise.
+        let index_opt = if q.use_index { self.ann.as_ref() } else { None };
+        let (ranked, ann_used): (Vec<(u32, f32)>, bool) = if let Some(index) = index_opt {
             let query = scorer.query_vector(r_vec, a_vec, side);
             let ef = (k * 4).max(64);
             match index.candidates(&query, k, ef) {
