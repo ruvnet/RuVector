@@ -36,6 +36,12 @@ impl HnswConfig {
 }
 
 /// HNSW graph with deletion flags.
+///
+/// `Clone` is derived so that downstream experiments (e.g.
+/// `ruvector-erasure-audit`) can fork a prepared base index cheaply instead of
+/// rebuilding it per trial. Cloning copies the PRNG state as well, so a clone
+/// continues the same deterministic level sequence as the original.
+#[derive(Clone)]
 pub struct HnswGraph {
     pub config: HnswConfig,
     /// All inserted vectors (index = node id).
