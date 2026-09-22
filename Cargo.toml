@@ -349,6 +349,9 @@ members = [
     "crates/ruvector-bet4-ivf-bench",
     "crates/ruvector-hnsw-repair",
     "crates/ruvector-temporal-tensor-wasm",
+    # Black-box erasure-leak auditing for HNSW deletion strategies
+    # (ADR-346-erasure-audit-ann). Depends on ruvector-hnsw-repair.
+    "crates/ruvector-erasure-audit",
     # NOTE: ruvector-agent-memory is listed once, mid-list next to
     # ruvector-proof-gate (TARL ledger, PR #858); the duplicate entry the
     # #859 sweep added here as a merge hedge was dropped on merge.

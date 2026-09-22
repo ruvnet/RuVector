@@ -9678,6 +9678,13 @@ name = "ruvector-entropy-ann"
 version = "0.1.0"
 
 [[package]]
+name = "ruvector-erasure-audit"
+version = "2.3.0"
+dependencies = [
+ "ruvector-hnsw-repair",
+]
+
+[[package]]
 name = "ruvector-exotic-wasm"
 version = "2.3.0"
 dependencies = [
