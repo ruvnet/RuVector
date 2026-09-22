@@ -8,11 +8,17 @@
 [![npm all-time downloads](https://img.shields.io/npm/dt/ruvector.svg?label=all-time%20downloads)](https://www.npmjs.com/package/ruvector)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-## Persistent, adaptive memory for AI agents
+## High speed decisions and persistent memory for AI agents
 
-RuVector is a Rust native memory substrate for agents that need to remember across sessions. It combines local semantic embeddings, persistent vector retrieval, graph relationships, explicit feedback learning, memory lifecycle controls, and optional shared memory.
+RuVector is a Rust native substrate for fast local decisions and agent memory across sessions. It combines local semantic embeddings, persistent vector retrieval, graph relationships, explicit feedback learning, memory lifecycle controls, and optional shared memory.
 
 The default retrieval path runs locally. Learning happens from recorded outcomes and feedback, not from reads alone. Hosted services remain optional and create a separate data boundary.
+
+### High speed decision model
+
+[`@ruvector/typesafe`](./npm/packages/typesafe) turns text into typed `choice`, `score`, and `noul` decisions using local embeddings and native decision heads, with a WASM fallback. It returns confidence and abstention information, supports labeled examples and evaluation, and can serve a Jev-compatible HTTP API. Use it for bounded tasks such as ticket routing, intent classification, and urgency assessment where a full language model call is unnecessary. The decision engine is a separate package; installing the root `ruvector` package does not enable it automatically.
+
+On the [documented 150-ticket test split](./npm/packages/typesafe/README.md#measured), the local ONNX decision engine reports 4–10 ms p95 for its campaign configurations, with 77.3–84.0% department accuracy; the Jev replay reference reports 231 ms p95 and 85.3% accuracy. Those are workload-specific measurements, not a universal speed or quality guarantee. The default hash embedder is a test double and is not calibrated for production decisions. See the [typed decision quick start and benchmark details](./npm/packages/typesafe/README.md).
 
 ## Remember and recall in 30 seconds
 
