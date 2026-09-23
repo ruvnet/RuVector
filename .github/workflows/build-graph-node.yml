@@ -165,4 +165,31 @@ jobs:
         working-directory: npm/packages/graph-node
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public || echo "Package may already exist"
+        run: |
+          # Same class as #1007: never swallow a failed publish.
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "@ruvector/graph-node@${VERSION}" version >/dev/null 2>&1; then
+            echo "@ruvector/graph-node@${VERSION} already published"
+          else
+            npm publish --access public
+          fi
+
+      - name: Verify all packages are on the registry
+        working-directory: npm/packages/graph-node
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          for pkg in @ruvector/graph-node @ruvector/graph-node-linux-x64-gnu \
+                     @ruvector/graph-node-linux-arm64-gnu @ruvector/graph-node-darwin-x64 \
+                     @ruvector/graph-node-darwin-arm64 @ruvector/graph-node-win32-x64-msvc; do
+            ok=0
+            for i in $(seq 1 18); do
+              if npm view "${pkg}@${VERSION}" version >/dev/null 2>&1; then ok=1; break; fi
+              echo "waiting for ${pkg}@${VERSION} to propagate (attempt ${i}/18)..."
+              sleep 10
+            done
+            if [ "$ok" != 1 ]; then
+              echo "::error::${pkg}@${VERSION} is not resolvable on npm"
+              exit 1
+            fi
+            echo "verified ${pkg}@${VERSION}"
+          done
