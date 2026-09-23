@@ -11,7 +11,7 @@
 //! - `ruvllm serve <model>` - Start inference server
 //! - `ruvllm chat <model>` - Interactive chat mode
 //! - `ruvllm benchmark <model>` - Run performance benchmarks
-//! - `ruvllm quantize <model>` - Quantize model to GGUF format
+//! - `ruvllm quantize <model>` - Quantize model to GGUF format (not yet implemented; fails closed, #968)
 
 use clap::{Parser, Subcommand};
 use colored::Colorize;
@@ -177,14 +177,11 @@ enum Commands {
         format: String,
     },
 
-    /// Quantize a model to GGUF format
+    /// Quantize a model to GGUF format (NOT YET IMPLEMENTED)
     ///
-    /// Supports Q4_K_M (4-bit), Q5_K_M (5-bit), and Q8_0 (8-bit) quantization.
-    /// Optimized for Apple Neural Engine (ANE) inference on M4 Pro.
-    ///
-    /// Examples:
-    ///   ruvllm quantize --model qwen-0.5b --output ruvltra-small-q4.gguf --quant q4_k_m
-    ///   ruvllm quantize --model ./model.safetensors --quant q8_0 --ane-optimize
+    /// The GGUF tensor writer is not implemented yet: this command validates
+    /// its arguments and exits with an error without writing any output (#968).
+    /// Use llama.cpp's convert_hf_to_gguf.py + llama-quantize meanwhile.
     #[command(alias = "quant")]
     Quantize {
         /// Model to quantize (path or HuggingFace ID)
