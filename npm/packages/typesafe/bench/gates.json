@@ -16,6 +16,20 @@
       "threshold": 0.05,
       "description": "Expected Calibration Error on test, 10 equal-width bins."
     },
+    "urgent_vs_train_majority": {
+      "metric": "urgent_accuracy_test",
+      "op": ">=",
+      "reference": "urgent_train_majority_accuracy_test",
+      "applies_when": "has_secondary",
+      "description": "Ticket urgency accuracy must beat or match the constant label selected exclusively from the train split."
+    },
+    "frustration_vs_train_majority": {
+      "metric": "frustration_accuracy_test",
+      "op": ">=",
+      "reference": "frustration_train_majority_accuracy_test",
+      "applies_when": "has_secondary",
+      "description": "Ticket frustration accuracy must beat or match the constant label selected exclusively from the train split."
+    },
     "oos_auroc": {
       "metric": "oos_auroc",
       "op": ">=",

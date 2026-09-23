@@ -29,6 +29,12 @@ pub use options::{EngineOptions, HeadChoice};
 
 use fit::{Artifact, MIN_EXAMPLES_PER_CLASS};
 
+// Dynamic question criteria and repeated training must not grow the two
+// derived caches without bound. Both hold Arc values so evicting an entry
+// cannot invalidate a decision already in progress.
+const MAX_COMPILED_QUESTIONS: usize = 512;
+const MAX_FITTED_ARTIFACTS: usize = 512;
+
 /// Labeled example used by `train` (text, option key / legend bucket / "yes"|"no").
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct LabeledExample {
@@ -145,6 +151,9 @@ impl<E: Embedder> Engine<E> {
                 if let Some((start, len)) = pend {
                     let compiled = build_compiled(qs[i], &embs[start..start + len]);
                     let arc = Arc::new(compiled);
+                    if cache.len() >= MAX_COMPILED_QUESTIONS {
+                        cache.clear();
+                    }
                     cache.insert(hashes[i], arc.clone());
                     slots[i] = Slot::Cached(arc);
                 }
@@ -183,24 +192,47 @@ impl<E: Embedder> Engine<E> {
         let valid = |e: &&LabeledExample| !e.text.trim().is_empty() && !e.label.trim().is_empty();
         let filtered: Vec<&LabeledExample> = examples.iter().filter(valid).collect();
         let rejected = examples.len() - filtered.len();
+        // Embed each new content identity only once. Keep the original rows
+        // for admission below so the noisy-label filter sees every attempt in
+        // its original order, including retries after a quarantine.
+        let (unique, positions): (Vec<&LabeledExample>, BTreeMap<(&str, &str), usize>) = {
+            let bank = self.bank.read().unwrap();
+            let mut unique = Vec::new();
+            let mut positions = BTreeMap::new();
+            for &e in &filtered {
+                if !bank.contains(question, &e.text, &e.label) {
+                    let key = (e.text.as_str(), e.label.as_str());
+                    if let std::collections::btree_map::Entry::Vacant(slot) = positions.entry(key) {
+                        slot.insert(unique.len());
+                        unique.push(e);
+                    }
+                }
+            }
+            (unique, positions)
+        };
 
-        let refs: Vec<&str> = filtered.iter().map(|e| e.text.as_str()).collect();
+        let refs: Vec<&str> = unique.iter().map(|e| e.text.as_str()).collect();
         let embs = if refs.is_empty() {
             Vec::new()
         } else {
             self.embedder.embed(&refs)?
         };
-        if embs.len() != filtered.len() {
+        if embs.len() != unique.len() {
             return Err(TypesafeError::Embedder("embedding count mismatch".into()));
         }
+        let mut embs: Vec<Option<Vec<f32>>> = embs.into_iter().map(Some).collect();
 
         let mut accepted = 0usize;
         {
             let mut bank = self.bank.write().unwrap();
             let mut embeds = self.embeds.write().unwrap();
-            for (e, emb) in filtered.iter().zip(embs) {
+            for e in filtered {
                 match bank.admit(question, &e.text, &e.label, TrustTier::A) {
                     Admission::Accepted(id) => {
+                        let pos = positions[&(e.text.as_str(), e.label.as_str())];
+                        // A content identity can be accepted only once. Prior
+                        // attempts may have been quarantined by the filter.
+                        let emb = embs[pos].take().expect("accepted embedding available");
                         embeds.insert(id.0, emb);
                         accepted += 1;
                     }
@@ -210,9 +242,12 @@ impl<E: Embedder> Engine<E> {
                 }
             }
         }
-        {
+        if accepted > 0 {
             let mut gens = self.train_gen.write().unwrap();
             *gens.entry(question.to_string()).or_insert(0) += 1;
+            // Old generations are unreachable after training. Release them
+            // now rather than retaining fitted heads for every past update.
+            self.artifact_cache.write().unwrap().clear();
         }
 
         Ok(TrainReport {
@@ -270,10 +305,11 @@ impl<E: Embedder> Engine<E> {
             return a.clone();
         }
         let art = Arc::new(self.build_artifact(id, compiled));
-        self.artifact_cache
-            .write()
-            .unwrap()
-            .insert(akey, art.clone());
+        let mut cache = self.artifact_cache.write().unwrap();
+        if cache.len() >= MAX_FITTED_ARTIFACTS {
+            cache.clear();
+        }
+        cache.insert(akey, art.clone());
         art
     }
 

@@ -1,4 +1,76 @@
 use super::*;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+
+struct CountingEmbedder {
+    inner: HashEmbedder,
+    texts: Arc<AtomicUsize>,
+}
+
+impl Embedder for CountingEmbedder {
+    fn embed(&self, texts: &[&str]) -> crate::Result<Vec<Vec<f32>>> {
+        self.texts.fetch_add(texts.len(), Ordering::Relaxed);
+        self.inner.embed(texts)
+    }
+
+    fn dims(&self) -> usize {
+        self.inner.dims()
+    }
+
+    fn id(&self) -> &str {
+        self.inner.id()
+    }
+}
+
+#[test]
+fn training_embeds_each_new_identity_only_once() {
+    let count = Arc::new(AtomicUsize::new(0));
+    let mut engine = Engine::new(CountingEmbedder {
+        inner: HashEmbedder::new(DIMS),
+        texts: count.clone(),
+    });
+    let one = LabeledExample {
+        text: "rain storm".into(),
+        label: "weather".into(),
+    };
+    let two = LabeledExample {
+        text: "football goal".into(),
+        label: "sports".into(),
+    };
+
+    let first = engine.train("q", &[one.clone(), one.clone(), two.clone()]).unwrap();
+    assert_eq!(first.accepted, 2);
+    assert_eq!(count.load(Ordering::Relaxed), 2);
+    let generation = *engine.train_gen.read().unwrap().get("q").unwrap();
+
+    let repeat = engine.train("q", &[one.clone(), two.clone()]).unwrap();
+    assert_eq!(repeat.accepted, 0);
+    assert_eq!(count.load(Ordering::Relaxed), 2);
+    assert_eq!(*engine.train_gen.read().unwrap().get("q").unwrap(), generation);
+
+    let three = LabeledExample {
+        text: "fog tomorrow".into(),
+        label: "weather".into(),
+    };
+    let last = engine.train("q", &[one, three]).unwrap();
+    assert_eq!(last.accepted, 1);
+    assert_eq!(count.load(Ordering::Relaxed), 3);
+    assert_eq!(engine.bank_summary().total, 3);
+}
+
+#[test]
+fn dynamic_question_caches_remain_bounded() {
+    let engine = Engine::new(HashEmbedder::new(DIMS));
+    for i in 0..(MAX_COMPILED_QUESTIONS + 16) {
+        let mut req = two_topic_request("rain clouds storm");
+        let question = req.questions.remove("q").unwrap();
+        req.questions.insert(format!("q-{i}"), question);
+        let response = engine.decide(&req).unwrap();
+        assert!(response.answers.contains_key(&format!("q-{i}")));
+    }
+    assert!(engine.compiled_cache.read().unwrap().len() <= MAX_COMPILED_QUESTIONS);
+    assert!(engine.artifact_cache.read().unwrap().len() <= MAX_FITTED_ARTIFACTS);
+}
 
 #[test]
 fn linear_probe_beats_prototype_after_training() {

@@ -253,6 +253,13 @@ impl Bank {
         Admission::Accepted(id)
     }
 
+    /// Check whether an example is already stored before paying for its
+    /// embedding. Uses the same content identity as [`admit`](Self::admit).
+    #[must_use]
+    pub fn contains(&self, question: &str, text: &str, label: &str) -> bool {
+        self.ids.contains(&content_id(question, label, text))
+    }
+
     /// Admit one example into an explicit `split`, bypassing ratio assignment.
     /// Used by a campaign, whose validation/transfer/test membership is fixed by
     /// the caller's frozen fixture (so the champion's "test" is exactly the

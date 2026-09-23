@@ -6,9 +6,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync, mkdirSync, copyFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
 
 const require = createRequire(import.meta.url);
 const testDir = dirname(fileURLToPath(import.meta.url));
@@ -117,4 +119,50 @@ test('native async decide resolves to JSON', {
 test('wasm backend contract', { skip: !wasmBuilt && 'wasm module not built' }, () => {
   const mod = loadBackend('wasm');
   runContract(mod, 'wasm');
+});
+
+test('default binding preserves a present native binary load error and tolerates absent artifacts', {
+  skip: !({ linux: ['x64', 'arm64'], darwin: ['x64', 'arm64'], win32: ['x64'] }[process.platform]
+    ?.includes(process.arch)) && 'unsupported platform',
+}, () => {
+  const triple = {
+    linux: { x64: 'linux-x64-gnu', arm64: 'linux-arm64-gnu' },
+    darwin: { x64: 'darwin-x64', arm64: 'darwin-arm64' },
+    win32: { x64: 'win32-x64-msvc' },
+  }[process.platform][process.arch];
+  const temp = mkdtempSync(join(tmpdir(), 'typesafe-binding-'));
+  const nativeFile = join(temp, 'native', `typesafe.${triple}.node`);
+  const script = `
+    const { resolveDefaultBinding } = require('./dist/binding.js');
+    try {
+      process.stdout.write(JSON.stringify({ binding: resolveDefaultBinding() }));
+    } catch (error) {
+      process.stdout.write(JSON.stringify({ code: error.code, message: error.message }));
+    }
+  `;
+  const run = () => {
+    const child = spawnSync(process.execPath, ['-e', script], {
+      cwd: temp,
+      encoding: 'utf8',
+      env: { ...process.env, TYPESAFE_BACKEND: '' },
+    });
+    assert.equal(child.status, 0, child.stderr);
+    return JSON.parse(child.stdout);
+  };
+  try {
+    mkdirSync(join(temp, 'native'));
+    mkdirSync(join(temp, 'dist'));
+    copyFileSync(indexPath, join(temp, 'index.js'));
+    copyFileSync(join(pkgDir, 'dist', 'binding.js'), join(temp, 'dist', 'binding.js'));
+
+    writeFileSync(nativeFile, 'invalid native addon');
+    const broken = run();
+    assert.equal(broken.code, 'ERR_DLOPEN_FAILED');
+    assert.match(broken.message, /typesafe\..*\.node/);
+
+    rmSync(nativeFile);
+    assert.deepEqual(run(), { binding: null }, 'both missing artifacts are a normal absence');
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
+  }
 });

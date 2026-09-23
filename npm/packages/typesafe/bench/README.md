@@ -29,8 +29,10 @@ Flags: `--suite tickets|banking77|clinc150|hwu64|all` · `--arm jev|local|both` 
   probability, so urgent AUROC/Brier are not defined for the jev arm.
 - **local** — the ruvector binding (`../index.js`: `Engine`, `version`,
   `backend`). Builds one request per item and times `decideJson`. Supports
-  SetFit-style few-shot (train on the train split, N/class) and zero-shot,
-  reported separately. When the core is not built the arm reports
+  SetFit-style few-shot (train on the train split, N/class **per question**)
+  and zero-shot, reported separately. The tickets arm trains `department`,
+  `urgent`, and `frustration`, mapping the ordinal labels to the exact legend
+  strings and binary labels to `yes`/`no`. When the core is not built the arm reports
   "engine unavailable" rather than crashing.
 
 ## Guards (the harness refuses to run on failure)
@@ -43,12 +45,26 @@ Flags: `--suite tickets|banking77|clinc150|hwu64|all` · `--arm jev|local|both` 
   (`assertDisjoint`, ADR-004). For the single-dataset tickets suite the
   calibration and transfer splits are deterministic holdouts carved from the
   native train split; true cross-domain transfer uses a different `--suite`.
+  One frozen train row has text identical to a held-out row, despite distinct
+  IDs. That train row is excluded before any head samples examples; receipts
+  record `training.excludedHeldOutTexts`. Existing 2026-09-21 receipts include
+  the old sampling and are not a directly comparable baseline for this corrected
+  protocol. Frozen fixtures and Jev/local test IDs are unchanged.
 - **Vocabulary disjointness** — generator content words (the retrieval corpus's
   `topics`) must not leak into the gen-0 decision criteria (ADR-006 §4). The one
   reviewed benign overlap — "software", shared between a corpus topic and the
   plain-English `technical` criterion, from two unrelated generators — is
   recorded in `ACCEPTED_OVERLAPS`, so the guard fires on new leaks, not this
   one. A planted corpus-topic word in a criterion is caught.
+- **CLINC150 out-of-scope scoring** — both in-scope (`oos: false`) and OOS
+  (`oos: true`) rows contribute to abstain AUROC. Intent accuracy, macro-F1,
+  ECE, and Brier exclude OOS rows, which have no valid intent label. A declared
+  OOS suite with only one class fails its OOS gate.
+- **Secondary-head baselines** — the constant urgency and frustration labels
+  are selected by frequency in the filtered train pool only, with deterministic
+  tie-breaking. Their held-out test accuracy is reported next to each head and
+  each head must at least match it. The older `urgent_majority_rate` uses test
+  labels and remains informational; it is never used to set a threshold.
 
 ## Gates (`gates.json`, ADR-006)
 

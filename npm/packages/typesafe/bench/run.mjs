@@ -17,9 +17,9 @@ import { createRequire } from 'node:module';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, isAbsolute } from 'node:path';
-import { loadTickets, assertDisjoint, verifyFixtureHashes, BENCH_DIR, FIXTURE_DIR } from './lib/fixture.mjs';
+import { loadTickets, assertDisjoint, excludeHeldOutText, majorityLabelFromTrain, verifyFixtureHashes, BENCH_DIR, FIXTURE_DIR } from './lib/fixture.mjs';
 import { assertVocabDisjoint } from './lib/vocab-guard.mjs';
-import { replayJev, runLocal, trainFewShot } from './lib/arms.mjs';
+import { replayJev, runLocal, trainFewShot, trainTicketQuestions } from './lib/arms.mjs';
 import { scoreRecords, buildReceipt, readStats } from './lib/receipt.mjs';
 import { evaluateGates, gatesTable, loadGates } from './lib/gates.mjs';
 import { loadDataset } from './datasets/index.mjs';
@@ -112,7 +112,7 @@ function makeEngine(binding, embedder, args = {}) {
 }
 
 /** Score the local arm across the splits we need for metrics + gates. */
-function runLocalSplits(engine, bySplit, questions, departments, splitsToScore) {
+function runLocalSplits(engine, bySplit, questions, departments, splitsToScore, majorityLabels) {
   const out = {};
   let unavailable = null;
   for (const split of splitsToScore) {
@@ -123,7 +123,7 @@ function runLocalSplits(engine, bySplit, questions, departments, splitsToScore) 
       unavailable = res.error;
       break;
     }
-    out[split] = scoreRecords(res.records, { departments, wallMs: res.wallMs });
+    out[split] = scoreRecords(res.records, { departments, wallMs: res.wallMs, majorityLabels });
   }
   return { blocks: out, unavailable };
 }
@@ -134,6 +134,11 @@ async function runTickets(args, deps) {
   verifyFixtureHashes({ benchDir, fixtureDir });
   const tickets = loadTickets({ benchDir, fixtureDir });
   assertDisjoint(tickets.bySplit);
+  const trainPool = excludeHeldOutText(tickets.bySplit);
+  const majorityLabels = {
+    urgent: majorityLabelFromTrain(trainPool.trainItems, 'urgent'),
+    frustration: majorityLabelFromTrain(trainPool.trainItems, 'frustration'),
+  };
   const vocab = assertVocabDisjoint(tickets.questions, { fixtureDir });
 
   const jevBaseline = JSON.parse(readFileSync(join(benchDir, 'jev-baseline-2026-09-21.json'), 'utf8'));
@@ -173,7 +178,8 @@ async function runTickets(args, deps) {
         source: resolved.source,
       };
       if (args.regime === 'few-shot') {
-        training = trainFewShot(engine, tickets.bySplit.train, { shots: args.shots });
+        training = trainTicketQuestions(engine, trainPool.trainItems, tickets.questions, { shots: args.shots });
+        training.excludedHeldOutTexts = trainPool.excluded;
       }
       // test needs limit-subsetting to match jev's id set; other splits full.
       const testItems = typeof args.limit === 'number' ? tickets.bySplit.test.slice(0, args.limit) : tickets.bySplit.test;
@@ -182,7 +188,7 @@ async function runTickets(args, deps) {
         'test',
         'validation',
         'transfer',
-      ]);
+      ], majorityLabels);
       localUnavailable = local.unavailable;
       if (localUnavailable) binding.unavailable = true, (binding.error = localUnavailable);
       else metrics.local = local.blocks;
@@ -215,6 +221,10 @@ function gateMetricBag(run, args, baselineReceipt) {
   if (local) {
     bag.choice_accuracy_test = local.choice_accuracy;
     bag.ece_test = local.ece.ece;
+    bag.urgent_accuracy_test = local.urgent_accuracy;
+    bag.urgent_train_majority_accuracy_test = local.urgent_train_majority_accuracy;
+    bag.frustration_accuracy_test = local.frustration_accuracy;
+    bag.frustration_train_majority_accuracy_test = local.frustration_train_majority_accuracy;
     bag.latency_p95_test = local.latency_ms.p95;
     if (typeof local.oos_auroc === 'number') bag.oos_auroc = local.oos_auroc;
   }
@@ -270,6 +280,7 @@ export async function main(argv, deps = {}) {
         embedderKind: args.embedder,
         embedderTarget,
         hasOos: run.hasOos ?? false,
+        hasSecondary: suite === 'tickets',
         hasBaselineReceipt: !!baselineReceipt,
         engineAvailable: run.engineAvailable,
       };
@@ -312,12 +323,15 @@ export async function main(argv, deps = {}) {
 }
 
 async function runDataset(suite, args, deps) {
-  const ds = await loadDataset(suite, { limit: args.limit, cacheDir: deps.cacheDir });
+  const ds = await (deps.loadDataset ?? loadDataset)(suite, { limit: args.limit, cacheDir: deps.cacheDir });
   if (ds.skipped) return { skipped: ds.skipped };
   // Dataset items carry a flat string `label`; normalise to the tickets item
   // shape ({ label: { intent } }) so the shared arm/scoring code addresses the
   // `intent` choice question uniformly. The OOS flag is carried through.
-  const shape = (it) => ({ id: it.id, text: it.text, label: { intent: it.label }, oos: it.oos === true ? true : undefined });
+  const shape = (it) => ({
+    id: it.id, text: it.text, label: { intent: it.label },
+    oos: typeof it.oos === 'boolean' ? it.oos : undefined,
+  });
   const trainItems = (ds.trainItems ?? []).map(shape);
   const testItems = (ds.testItems ?? []).map(shape);
   // Non-tickets suites have no frozen Jev baseline: local arm only.
