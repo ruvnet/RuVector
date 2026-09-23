@@ -315,6 +315,30 @@ fn run_query(
     })
 }
 
+/// Build the stored property map for an edge: the caller's public `metadata`
+/// (#984 — it was previously dropped) plus this binding's internal `__` keys.
+/// Internal keys are inserted last so caller metadata can never spoof them.
+fn edge_properties(
+    metadata: Option<HashMap<String, String>>,
+    confidence: f32,
+    embedding: Vec<f32>,
+) -> HashMap<String, PropertyValue> {
+    let mut properties: HashMap<String, PropertyValue> = metadata
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(k, v)| (k, PropertyValue::String(v)))
+        .collect();
+    properties.insert(
+        "__confidence".to_string(),
+        PropertyValue::FloatArray(vec![confidence]),
+    );
+    properties.insert(
+        "__embedding".to_string(),
+        PropertyValue::FloatArray(embedding),
+    );
+    properties
+}
+
 /// Properties this binding stores for its own use rather than the caller's.
 ///
 /// Embeddings and edge confidences are persisted as ordinary properties under a
@@ -487,6 +511,7 @@ impl GraphDatabase {
         let description = edge.description.clone();
         let embedding = edge.embedding.to_vec();
         let confidence = edge.confidence.unwrap_or(1.0) as f32;
+        let metadata = edge.metadata;
 
         let hydrated = self.hydrated.clone();
         tokio::task::spawn_blocking(move || {
@@ -499,16 +524,7 @@ impl GraphDatabase {
                 .map_err(|e| Error::from_reason(format!("Failed to create edge: {}", e)))?;
             drop(hg);
 
-            let properties = HashMap::from([
-                (
-                    "__confidence".to_string(),
-                    PropertyValue::FloatArray(vec![confidence]),
-                ),
-                (
-                    "__embedding".to_string(),
-                    PropertyValue::FloatArray(embedding),
-                ),
-            ]);
+            let properties = edge_properties(metadata, confidence, embedding);
             let graph_edge = GraphEdge::new(edge_id.clone(), from, to, description, properties);
             if let Some(storage_arc) = storage {
                 storage_arc
@@ -548,6 +564,7 @@ impl GraphDatabase {
         let description = hyperedge.description.clone();
         let embedding = hyperedge.embedding.to_vec();
         let confidence = hyperedge.confidence.unwrap_or(1.0) as f32;
+        let metadata = hyperedge.metadata;
 
         let graph_db = self.graph_db.clone();
         let hydrated = self.hydrated.clone();
@@ -571,10 +588,18 @@ impl GraphDatabase {
                     nodes,
                     edge_type: "HYPEREDGE".to_string(),
                     description: Some(description),
-                    properties: HashMap::from([(
-                        "__embedding".to_string(),
-                        PropertyValue::FloatArray(embedding),
-                    )]),
+                    properties: {
+                        let mut props: HashMap<String, PropertyValue> = metadata
+                            .unwrap_or_default()
+                            .into_iter()
+                            .map(|(k, v)| (k, PropertyValue::String(v)))
+                            .collect();
+                        props.insert(
+                            "__embedding".to_string(),
+                            PropertyValue::FloatArray(embedding),
+                        );
+                        props
+                    },
                     confidence,
                 };
                 storage_arc
@@ -814,16 +839,7 @@ impl GraphDatabase {
                     edge.from,
                     edge.to,
                     edge.description,
-                    HashMap::from([
-                        (
-                            "__confidence".to_string(),
-                            PropertyValue::FloatArray(vec![confidence]),
-                        ),
-                        (
-                            "__embedding".to_string(),
-                            PropertyValue::FloatArray(embedding),
-                        ),
-                    ]),
+                    edge_properties(edge.metadata, confidence, embedding),
                 );
                 if let Some(storage_arc) = storage.as_ref() {
                     storage_arc
@@ -1254,6 +1270,109 @@ mod tests {
                 .len(),
             2
         );
+        drop(reopened);
+        std::fs::remove_file(path).expect("remove test database");
+    }
+
+    /// #984: public edge metadata from createEdge and batchInsert must be
+    /// stored, returned by query(), survive a reopen, and never override the
+    /// binding's internal `__` properties.
+    #[tokio::test]
+    async fn edge_metadata_round_trips_through_query_and_reopen() {
+        let path = temp_storage_path("edge-metadata");
+        let db = GraphDatabase::new(Some(JsGraphOptions {
+            distance_metric: Some(JsDistanceMetric::Cosine),
+            dimensions: Some(2),
+            storage_path: Some(path.clone()),
+        }))
+        .expect("create persistent database");
+        for id in ["a", "b", "c"] {
+            db.create_node(JsNode {
+                id: id.to_string(),
+                embedding: Float32Array::new(vec![1.0, 0.0]),
+                labels: None,
+                properties: None,
+            })
+            .await
+            .expect("create node");
+        }
+        let metadata = |edge: &str| {
+            HashMap::from([
+                ("sourceEdgeId".to_string(), edge.to_string()),
+                ("weight".to_string(), "0.8".to_string()),
+                ("note".to_string(), "témoin ✓".to_string()),
+                ("__confidence".to_string(), "spoofed".to_string()),
+            ])
+        };
+        db.create_edge(JsEdge {
+            from: "a".to_string(),
+            to: "b".to_string(),
+            description: "supports".to_string(),
+            embedding: Float32Array::new(vec![1.0, 0.0]),
+            confidence: Some(0.75),
+            metadata: Some(metadata("single")),
+        })
+        .await
+        .expect("create edge");
+        db.batch_insert(JsBatchInsert {
+            nodes: vec![],
+            edges: vec![JsEdge {
+                from: "a".to_string(),
+                to: "c".to_string(),
+                description: "supports".to_string(),
+                embedding: Float32Array::new(vec![1.0, 0.0]),
+                confidence: Some(0.75),
+                metadata: Some(metadata("batch")),
+            }],
+        })
+        .await
+        .expect("batch insert");
+
+        let check = |result: JsQueryResult| {
+            assert_eq!(result.edges.len(), 2, "both edges returned");
+            let mut seen: Vec<String> = result
+                .edges
+                .iter()
+                .map(|e| {
+                    assert_eq!(e.properties.get("weight").map(String::as_str), Some("0.8"));
+                    assert_eq!(
+                        e.properties.get("note").map(String::as_str),
+                        Some("témoin ✓")
+                    );
+                    assert!(!e.properties.contains_key("__confidence"));
+                    e.properties["sourceEdgeId"].clone()
+                })
+                .collect();
+            seen.sort();
+            assert_eq!(seen, vec!["batch".to_string(), "single".to_string()]);
+        };
+        check(
+            db.query("MATCH (a)-[r]->(b) RETURN a,r,b".to_string())
+                .await
+                .expect("query"),
+        );
+        drop(db);
+
+        let reopened = GraphDatabase::open(path.clone()).expect("reopen");
+        check(
+            reopened
+                .query("MATCH (a)-[r]->(b) RETURN a,r,b".to_string())
+                .await
+                .expect("query after reopen"),
+        );
+        // The spoofed key must not have replaced the real confidence.
+        let stored = reopened
+            .graph_db
+            .read()
+            .expect("graph lock")
+            .get_edges_by_type("supports");
+        assert_eq!(stored.len(), 2);
+        for edge in stored {
+            assert_eq!(
+                prop_to_f32_vec(edge.properties.get("__confidence")),
+                vec![0.75]
+            );
+        }
         drop(reopened);
         std::fs::remove_file(path).expect("remove test database");
     }
