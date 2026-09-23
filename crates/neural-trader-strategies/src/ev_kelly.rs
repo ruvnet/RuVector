@@ -4,8 +4,10 @@
 //! and a current market price `m` in cents (0..=100), the canonical
 //! fractional Kelly sizing for a YES bet is:
 //!
-//!     edge   = p - m / 100
-//!     kelly  = edge / (1 - m / 100)
+//! ```text
+//! edge   = p - m / 100
+//! kelly  = edge / (1 - m / 100)
+//! ```
 //!
 //! The strategy multiplies `kelly` by a conservative `kelly_fraction`
 //! (default 0.25) and by `intent.confidence`, then converts the resulting

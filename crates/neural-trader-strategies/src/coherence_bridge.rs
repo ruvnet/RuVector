@@ -8,7 +8,9 @@
 //!
 //! This module provides a thin wrapper so the full actuation path is:
 //!
-//!     Strategy → Intent → CoherenceChecker.check → RiskGate → Order
+//! ```text
+//! Strategy → Intent → CoherenceChecker.check → RiskGate → Order
+//! ```
 //!
 //! The wrapper is lightweight by design: operators may want to skip the
 //! coherence gate in paper-only flows (which they can, by not

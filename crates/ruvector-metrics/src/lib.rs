@@ -75,6 +75,12 @@ lazy_static! {
 
 /// Gather all metrics in Prometheus text format
 pub fn gather_metrics() -> String {
+    // The metrics are lazy statics, registered on first use. Initialize the
+    // unlabeled ones so a fresh process exports them (at zero) instead of an
+    // empty page until something happens to touch them.
+    lazy_static::initialize(&COLLECTIONS_TOTAL);
+    lazy_static::initialize(&MEMORY_USAGE_BYTES);
+    lazy_static::initialize(&UPTIME_SECONDS);
     let encoder = TextEncoder::new();
     let metric_families = prometheus::gather();
     let mut buffer = Vec::new();

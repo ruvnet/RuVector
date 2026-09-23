@@ -2,8 +2,15 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// Filter expression for querying vectors by payload
+///
+/// Serialized through [`FilterExpressionWire`]: logical operators use struct
+/// variants on the wire (`{"type":"and","filters":[...]}`,
+/// `{"type":"not","filter":{...}}`), while leaf variants keep their original
+/// shape. Deriving serde directly on this internally tagged enum made the
+/// recursive `And`/`Or`/`Not` newtype variants unserializable (serde cannot tag a
+/// sequence) and sent rustc into unbounded `TaggedSerializer` nesting (E0275).
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(into = "FilterExpressionWire", from = "FilterExpressionWire")]
 pub enum FilterExpression {
     // Comparison operators
     Eq {
@@ -75,6 +82,159 @@ pub enum FilterExpression {
     IsNull {
         field: String,
     },
+}
+
+/// Serde representation of [`FilterExpression`]; see its docs.
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum FilterExpressionWire {
+    Eq {
+        field: String,
+        value: Value,
+    },
+    Ne {
+        field: String,
+        value: Value,
+    },
+    Gt {
+        field: String,
+        value: Value,
+    },
+    Gte {
+        field: String,
+        value: Value,
+    },
+    Lt {
+        field: String,
+        value: Value,
+    },
+    Lte {
+        field: String,
+        value: Value,
+    },
+    Range {
+        field: String,
+        gte: Option<Value>,
+        lte: Option<Value>,
+    },
+    In {
+        field: String,
+        values: Vec<Value>,
+    },
+    Match {
+        field: String,
+        text: String,
+    },
+    GeoRadius {
+        field: String,
+        lat: f64,
+        lon: f64,
+        radius_m: f64,
+    },
+    GeoBoundingBox {
+        field: String,
+        top_left: (f64, f64),
+        bottom_right: (f64, f64),
+    },
+    And {
+        filters: Vec<FilterExpression>,
+    },
+    Or {
+        filters: Vec<FilterExpression>,
+    },
+    Not {
+        filter: Box<FilterExpression>,
+    },
+    Exists {
+        field: String,
+    },
+    IsNull {
+        field: String,
+    },
+}
+
+impl From<FilterExpression> for FilterExpressionWire {
+    fn from(e: FilterExpression) -> Self {
+        use FilterExpression as F;
+        match e {
+            F::Eq { field, value } => Self::Eq { field, value },
+            F::Ne { field, value } => Self::Ne { field, value },
+            F::Gt { field, value } => Self::Gt { field, value },
+            F::Gte { field, value } => Self::Gte { field, value },
+            F::Lt { field, value } => Self::Lt { field, value },
+            F::Lte { field, value } => Self::Lte { field, value },
+            F::Range { field, gte, lte } => Self::Range { field, gte, lte },
+            F::In { field, values } => Self::In { field, values },
+            F::Match { field, text } => Self::Match { field, text },
+            F::GeoRadius {
+                field,
+                lat,
+                lon,
+                radius_m,
+            } => Self::GeoRadius {
+                field,
+                lat,
+                lon,
+                radius_m,
+            },
+            F::GeoBoundingBox {
+                field,
+                top_left,
+                bottom_right,
+            } => Self::GeoBoundingBox {
+                field,
+                top_left,
+                bottom_right,
+            },
+            F::And(filters) => Self::And { filters },
+            F::Or(filters) => Self::Or { filters },
+            F::Not(filter) => Self::Not { filter },
+            F::Exists { field } => Self::Exists { field },
+            F::IsNull { field } => Self::IsNull { field },
+        }
+    }
+}
+
+impl From<FilterExpressionWire> for FilterExpression {
+    fn from(w: FilterExpressionWire) -> Self {
+        use FilterExpressionWire as W;
+        match w {
+            W::Eq { field, value } => Self::Eq { field, value },
+            W::Ne { field, value } => Self::Ne { field, value },
+            W::Gt { field, value } => Self::Gt { field, value },
+            W::Gte { field, value } => Self::Gte { field, value },
+            W::Lt { field, value } => Self::Lt { field, value },
+            W::Lte { field, value } => Self::Lte { field, value },
+            W::Range { field, gte, lte } => Self::Range { field, gte, lte },
+            W::In { field, values } => Self::In { field, values },
+            W::Match { field, text } => Self::Match { field, text },
+            W::GeoRadius {
+                field,
+                lat,
+                lon,
+                radius_m,
+            } => Self::GeoRadius {
+                field,
+                lat,
+                lon,
+                radius_m,
+            },
+            W::GeoBoundingBox {
+                field,
+                top_left,
+                bottom_right,
+            } => Self::GeoBoundingBox {
+                field,
+                top_left,
+                bottom_right,
+            },
+            W::And { filters } => Self::And(filters),
+            W::Or { filters } => Self::Or(filters),
+            W::Not { filter } => Self::Not(filter),
+            W::Exists { field } => Self::Exists { field },
+            W::IsNull { field } => Self::IsNull { field },
+        }
+    }
 }
 
 impl FilterExpression {
@@ -280,5 +440,33 @@ mod tests {
         let json = serde_json::to_string(&filter).unwrap();
         let deserialized: FilterExpression = serde_json::from_str(&json).unwrap();
         assert!(matches!(deserialized, FilterExpression::Eq { .. }));
+        // Leaf wire format is unchanged by the wire-enum indirection.
+        assert_eq!(
+            serde_json::to_value(&filter).unwrap(),
+            json!({"type": "eq", "field": "status", "value": "active"})
+        );
+    }
+
+    #[test]
+    fn test_serialization_of_logical_operators() {
+        let filter = FilterExpression::and(vec![
+            FilterExpression::eq("status", json!("active")),
+            FilterExpression::or(vec![
+                FilterExpression::gte("age", json!(18)),
+                FilterExpression::not(FilterExpression::exists("banned")),
+            ]),
+        ]);
+        let value = serde_json::to_value(&filter).unwrap();
+        assert_eq!(value["type"], "and");
+        assert_eq!(value["filters"][1]["type"], "or");
+        assert_eq!(value["filters"][1]["filters"][1]["type"], "not");
+        assert_eq!(
+            value["filters"][1]["filters"][1]["filter"]["type"],
+            "exists"
+        );
+
+        let back: FilterExpression = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(&back).unwrap(), value);
+        assert_eq!(back.get_fields(), vec!["age", "banned", "status"]);
     }
 }

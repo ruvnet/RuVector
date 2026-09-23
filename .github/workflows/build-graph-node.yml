@@ -182,9 +182,9 @@ jobs:
                      @ruvector/graph-node-linux-arm64-gnu @ruvector/graph-node-darwin-x64 \
                      @ruvector/graph-node-darwin-arm64 @ruvector/graph-node-win32-x64-msvc; do
             ok=0
-            for i in $(seq 1 18); do
+            for i in $(seq 1 72); do
               if npm view "${pkg}@${VERSION}" version >/dev/null 2>&1; then ok=1; break; fi
-              echo "waiting for ${pkg}@${VERSION} to propagate (attempt ${i}/18)..."
+              echo "waiting for ${pkg}@${VERSION} to propagate (attempt ${i}/72)..."
               sleep 10
             done
             if [ "$ok" != 1 ]; then

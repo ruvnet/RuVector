@@ -220,17 +220,17 @@ jobs:
             local url="https://registry.npmjs.org/${enc}"
             local tmp="$RUNNER_TEMP/reg.json"
             local i
-            for i in $(seq 1 18); do
+            for i in $(seq 1 72); do
               if curl -sfL "$url" -o "$tmp"; then
                 if REG_JSON="$tmp" REG_VER="$ver" node -e 'const d=require(process.env.REG_JSON); process.exit(d.versions && d.versions[process.env.REG_VER] ? 0 : 1)'; then
                   echo "verified ${pkg}@${ver} on the npm registry"
                   return 0
                 fi
               fi
-              echo "waiting for ${pkg}@${ver} to propagate (attempt ${i}/18)..."
+              echo "waiting for ${pkg}@${ver} to propagate (attempt ${i}/72)..."
               sleep 10
             done
-            echo "::error::${pkg}@${ver} did not appear on the npm registry within ~3 minutes of publish"
+            echo "::error::${pkg}@${ver} did not appear on the npm registry within ~12 minutes of publish"
             return 1
           }
           VERIFY
