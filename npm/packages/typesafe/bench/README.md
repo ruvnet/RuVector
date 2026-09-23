@@ -70,9 +70,10 @@ Flags: `--suite tickets|banking77|clinc150|hwu64|all` · `--arm jev|local|both` 
 
 `--gate` evaluates the measurable release gates and prints a PASS/FAIL/SKIP
 table; strict mode exits non-zero on any FAIL. `--report-only` keeps the exit
-code 0 (CI uses this until an ONNX embedder is present — the hash embedder is a
-placeholder, not the bge-small target the latency and accuracy gates assume). A
-gate whose precondition does not apply to the run (OOS AUROC on tickets;
+code 0 for advisory PR and push measurements against the native ONNX binary;
+manual publishing requires strict mode and a separately validated receipt.
+The hash embedder remains a test double and cannot satisfy the ONNX release
+gate. A gate whose precondition does not apply to the run (OOS AUROC on tickets;
 transfer regression with no `--baseline-receipt`) is SKIP, never a silent pass.
 
 ## Datasets
