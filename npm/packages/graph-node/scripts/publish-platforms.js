@@ -20,12 +20,31 @@ const version = require(path.join(rootDir, 'package.json')).version;
 
 console.log('Publishing @ruvector/graph-node platform packages v' + version + '\n');
 
+// A missing binary or a failed publish must fail the job: the main package's
+// optionalDependencies pin every platform at this exact version, so a skipped
+// or swallowed platform ships an uninstallable release (same class as #1007).
+const missing = platforms.filter((p) => !fs.existsSync(path.join(rootDir, p.nodeFile)));
+if (missing.length) {
+  console.error('Missing platform binaries: ' + missing.map((p) => p.nodeFile).join(', '));
+  process.exit(1);
+}
+
+function isPublished(pkgName) {
+  try {
+    execSync('npm view ' + pkgName + '@' + version + ' version', { stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+let failed = 0;
 for (const platform of platforms) {
   const pkgName = '@ruvector/graph-node-' + platform.name;
   const nodeFile = path.join(rootDir, platform.nodeFile);
 
-  if (!fs.existsSync(nodeFile)) {
-    console.log('Skipping ' + pkgName + ' - ' + platform.nodeFile + ' not found');
+  if (isPublished(pkgName)) {
+    console.log(pkgName + '@' + version + ' already on npm - skipping\n');
     continue;
   }
 
@@ -69,10 +88,15 @@ for (const platform of platforms) {
     console.log('Published ' + pkgName + '@' + version + '\n');
   } catch (e) {
     console.error('Failed to publish ' + pkgName + ': ' + e.message + '\n');
+    failed++;
   }
 
   // Cleanup
   fs.rmSync(tmpDir, { recursive: true, force: true });
 }
 
+if (failed) {
+  console.error(failed + ' platform package(s) failed to publish');
+  process.exit(1);
+}
 console.log('Done!');

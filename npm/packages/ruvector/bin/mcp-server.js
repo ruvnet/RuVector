@@ -200,6 +200,23 @@ try {
 }
 
 // Intelligence class with full RuVector stack support
+/**
+ * Write via temp file + rename so a concurrent reader (every Claude Code hook is
+ * a separate `ruvector hooks …` process reading the same store) sees either the
+ * old or the new file, never a torn one (#995; same as bin/cli.js, #634).
+ */
+function atomicWriteFileSync(filePath, data) {
+  const dir = path.dirname(filePath);
+  const tmp = path.join(dir, `.${path.basename(filePath)}.tmp.${process.pid}.${Date.now()}`);
+  try {
+    fs.writeFileSync(tmp, data);
+    fs.renameSync(tmp, filePath);
+  } catch (err) {
+    try { fs.rmSync(tmp, { force: true }); } catch { /* best-effort temp cleanup */ }
+    throw err;
+  }
+}
+
 class Intelligence {
   constructor() {
     this.intelPath = this.getIntelPath();
@@ -259,18 +276,35 @@ class Intelligence {
   }
 
   load() {
+    const defaults = () => ({ patterns: {}, memories: [], trajectories: [], errors: {}, agents: {}, edges: [] });
+    // A missing store is a legitimate fresh start.
+    if (!fs.existsSync(this.intelPath)) return defaults();
+    let data;
     try {
-      if (fs.existsSync(this.intelPath)) {
-        const data = JSON.parse(fs.readFileSync(this.intelPath, 'utf-8'));
-        // Untrusted on-disk input (ADR-210 security pass): a corrupted or
-        // hand-edited store must not crash array/object consumers.
-        if (data && typeof data === 'object' && !Array.isArray(data)) {
-          if (!Array.isArray(data.memories)) data.memories = [];
-          return data;
-        }
-      }
-    } catch {}
-    return { patterns: {}, memories: [], trajectories: [], errors: {}, agents: {}, edges: [] };
+      data = JSON.parse(fs.readFileSync(this.intelPath, 'utf-8'));
+    } catch (err) {
+      // #995: never swallow a corrupt read into empty defaults — the next save()
+      // would write the emptiness over the real store. Quarantine the file (same
+      // naming as bin/cli.js) so it is preserved, say so on stderr, and start
+      // fresh. Unlike the CLI we do not throw: a long-lived MCP server that
+      // refuses to start is worse than one that starts empty with the original
+      // data set aside for restore.
+      const quarantine = `${this.intelPath}.corrupt-${Date.now()}`;
+      let moved = false;
+      try { fs.renameSync(this.intelPath, quarantine); moved = true; } catch { /* reported below */ }
+      console.error(
+        `ruvector: intelligence store at ${this.intelPath} is corrupt (${err.message}); ` +
+        (moved
+          ? `quarantined to ${quarantine} — restore it or delete it. Starting with an empty store.`
+          : `could not quarantine it; starting with an empty store.`)
+      );
+      return defaults();
+    }
+    // Untrusted on-disk input (ADR-210 security pass): a corrupted or
+    // hand-edited store must not crash array/object consumers.
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return defaults();
+    if (!Array.isArray(data.memories)) data.memories = [];
+    return data;
   }
 
   // ==========================================================================
@@ -393,7 +427,7 @@ class Intelligence {
       } catch {}
     }
 
-    fs.writeFileSync(this.intelPath, JSON.stringify(this.data, null, 2));
+    atomicWriteFileSync(this.intelPath, JSON.stringify(this.data, null, 2));
   }
 
   stats() {
