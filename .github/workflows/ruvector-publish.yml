@@ -83,11 +83,11 @@ jobs:
         run: |
           # #1007: the job's conclusion must mean "it is on the registry".
           VERSION=$(node -p "require('./package.json').version")
-          for i in $(seq 1 18); do
+          for i in $(seq 1 72); do
             if npm view "ruvector@${VERSION}" version >/dev/null 2>&1; then
               echo "verified ruvector@${VERSION}"; exit 0
             fi
-            echo "waiting for ruvector@${VERSION} to propagate (attempt ${i}/18)..."
+            echo "waiting for ruvector@${VERSION} to propagate (attempt ${i}/72)..."
             sleep 10
           done
           echo "::error::ruvector@${VERSION} is not resolvable on npm"
