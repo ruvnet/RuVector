@@ -3,31 +3,23 @@
 //! entity's [`Scorer::index_vector`], retrieve candidates for a query, then
 //! exact-rerank with the true score.
 //!
-//! ## Why not `DistanceMetric::DotProduct` directly
+//! ## Why the MIPS→L2 route rather than `DistanceMetric::DotProduct`
 //!
-//! ADR-001 names a `DotProduct` HNSW, but router-core's `DotProduct` is a
-//! *similarity*, not a distance, and the index treats it as one incorrectly for
-//! MIPS. Two facts from `crates/ruvector-router-core/src/`:
+//! ADR-001 names a `DotProduct` HNSW. router-core's `DotProduct` is already a
+//! proper distance for that: `distance::dot_product` returns `-(a·b)`, so the
+//! index's smallest-distance-first search is a maximum-inner-product search.
+//! Do **not** negate the query on top of that — doing so searches for the
+//! *minimum* inner product (recall@10 = 0.000, as reported in #1009). With the
+//! query passed through unchanged the same table measures recall@10 = 1.000; see
+//! `dotproduct_recall_matches_mips`.
 //!
-//! - `distance.rs:18` returns the raw dot product for `DotProduct`, and
-//!   `index.rs`'s search/build keep the **smallest** "distance" (min-heap).
-//!   So a `DotProduct` index retrieves the *minimum* inner product, the
-//!   opposite of MIPS. Negating the query flips the search target but not the
-//!   graph: `insert` (`index.rs:135`) wires each node to its lowest-dot
-//!   neighbours, and that entity-to-entity orientation is symmetric under any
-//!   global sign flip — no vector transform fixes it.
-//!
-//! - The robust, exact fix is the standard MIPS→L2 reduction (Bachrach et al.
-//!   2014): append one coordinate so Euclidean nearest-neighbour equals maximum
-//!   inner product. With `φ² = max_e ‖x_e‖²`,
-//!   `x_e' = [x_e ; √(φ² − ‖x_e‖²)]` and `q' = [q ; 0]`, then
-//!   `‖q' − x_e'‖² = ‖q‖² + φ² − 2 q·x_e`, so minimising L2 maximises `q·x_e`.
-//!   Euclidean **is** a proper distance, so the HNSW graph is built and searched
-//!   consistently. This is the "handle it and document" path the task allows.
-//!
-//! For the record, a raw-`DotProduct`-with-negated-query index measured well
-//! below the L2 route on the same table — see the `#[ignore]`d
-//! `raw_dotproduct_recall_for_the_record` test.
+//! This module keeps the L2 reduction because Euclidean is a metric (non-negative,
+//! zero on identity), which the neighbour-selection heuristic's pruning
+//! comparisons are written against. The standard MIPS→L2 reduction (Bachrach
+//! et al. 2014) appends one coordinate so Euclidean nearest-neighbour equals
+//! maximum inner product. With `φ² = max_e ‖x_e‖²`,
+//! `x_e' = [x_e ; √(φ² − ‖x_e‖²)]` and `q' = [q ; 0]`, then
+//! `‖q' − x_e'‖² = ‖q‖² + φ² − 2 q·x_e`, so minimising L2 maximises `q·x_e`.
 
 use crate::scorer::Scorer;
 use crate::{Candidate, EntityId, KgeError, Result, Tables};
@@ -193,11 +185,10 @@ mod tests {
         assert!(recall >= 0.9, "recall@{k} = {recall:.4} < 0.9");
     }
 
-    /// Not a gate — records how the raw `DotProduct` + negated-query route does
-    /// on the same table, so the deviation to L2 is backed by a number.
+    /// Gate for #1009: router-core's `DotProduct` HNSW, queried with the
+    /// *unmodified* query vector, is a maximum-inner-product search.
     #[test]
-    #[ignore = "diagnostic: documents the rejected DotProduct route"]
-    fn raw_dotproduct_recall_for_the_record() {
+    fn dotproduct_recall_matches_mips() {
         use ruvector_router_core::index::{HnswConfig, HnswIndex};
         use ruvector_router_core::types::{DistanceMetric, SearchQuery};
 
@@ -238,11 +229,9 @@ mod tests {
                 Side::Tail,
             );
             let truth: Vec<EntityId> = batch.top_k(&q, k).into_iter().map(|c| c.entity).collect();
-            // Negate the query to turn the min-heap into a max-inner-product search.
-            let neg: Vec<f32> = q.iter().map(|x| -x).collect();
             let results = hnsw
                 .search(&SearchQuery {
-                    vector: neg,
+                    vector: q.clone(),
                     k: ef,
                     filters: None,
                     threshold: None,
@@ -266,6 +255,7 @@ mod tests {
             hits += truth.iter().filter(|e| got.contains(e)).count();
         }
         let recall = hits as f32 / (n_queries * k) as f32;
-        println!("RAW DotProduct+negated-query recall@{k} = {recall:.4} (rejected route)");
+        println!("DotProduct recall@{k} = {recall:.4}");
+        assert!(recall >= 0.9, "DotProduct recall@{k} = {recall:.4} < 0.9");
     }
 }
