@@ -482,12 +482,20 @@ fn test_flash_attention_memory_efficiency() {
 
     println!("FlashAttention 1024 seq_len: {:?}", elapsed);
 
-    // Should complete without OOM and in reasonable time
+    // Should complete without OOM. The wall-clock bound only means something
+    // for an optimized build: CI runs this unoptimized on shared runners, where
+    // 1024x1024 took 1.27s (run 35900536715).
     assert!(
-        elapsed.as_millis() < 1000,
-        "FlashAttention too slow: {:?}",
-        elapsed
+        output.iter().all(|x| x.is_finite()),
+        "non-finite attention output"
     );
+    if !cfg!(debug_assertions) {
+        assert!(
+            elapsed.as_millis() < 1000,
+            "FlashAttention too slow: {:?}",
+            elapsed
+        );
+    }
 }
 
 // ============================================================================
