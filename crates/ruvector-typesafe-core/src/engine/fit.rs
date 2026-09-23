@@ -8,16 +8,69 @@
 //! (train, calibration) example split; `class_answer` / `noul_answer` turn a
 //! state embedding into a Jev-shaped [`Answer`] under the same options.
 
-use crate::calibration::{fit_temperature, Platt};
+use crate::calibration::{apply_temperature, fit_temperature, Platt, T_MAX, T_MIN};
 use crate::engine::options::{EngineOptions, HeadChoice};
 use crate::heads::logistic::{BinaryLogistic, LogisticConfig};
 use crate::heads::probe::{MultiProbe, ProbeConfig};
-use crate::heads::{assemble_noul, geometry, similarity_to_unit, ClassProtos, Classified};
+use crate::heads::{assemble_noul, geometry, similarity_to_unit, softmax, ClassProtos, Classified};
 use crate::{Answer, Head};
 
 /// Fewest examples of a class (in the training slice) before the linear probe
 /// takes over from the nearest-prototype head (ADR-003).
 pub(crate) const MIN_EXAMPLES_PER_CLASS: usize = 4;
+
+/// The two distributions used at decision time form a K+1 distribution:
+/// `P(class) = P(class | in-scope) * (1 - P(abstain))`. Calibrating only the
+/// conditional head logits ignores the abstain mass and systematically
+/// miscalibrates the reported confidence.
+struct ClassCalibrationRow {
+    head_logits: Vec<f32>,
+    proto_logits: Vec<f32>,
+    abstain_logit: f32,
+    label: usize,
+}
+
+fn class_nll(rows: &[ClassCalibrationRow], temperature: f32) -> f32 {
+    let mut loss = 0.0;
+    for row in rows {
+        let shares = softmax(&apply_temperature(&row.head_logits, temperature));
+        let mut proto_full = row.proto_logits.clone();
+        proto_full.push(row.abstain_logit);
+        let proto_masses = softmax(&apply_temperature(&proto_full, temperature));
+        let in_scope = 1.0 - proto_masses.last().copied().unwrap_or(0.0);
+        let p = shares.get(row.label).copied().unwrap_or(0.0) * in_scope;
+        loss -= p.max(1e-9).ln();
+    }
+    loss / rows.len().max(1) as f32
+}
+
+/// Fit the temperature against the same in-scope class probability reported
+/// by `Classified`. All rows come from the disjoint calibration slice.
+fn fit_class_temperature(rows: &[ClassCalibrationRow]) -> f32 {
+    if rows.is_empty() {
+        return 1.0;
+    }
+    // Retain the old conditional optimum as a candidate in addition to the
+    // fixed log-spaced grid, so the new objective can never be worse than that
+    // temperature on the calibration rows due to grid resolution alone.
+    let head_logits: Vec<Vec<f32>> = rows.iter().map(|row| row.head_logits.clone()).collect();
+    let labels: Vec<usize> = rows.iter().map(|row| row.label).collect();
+    let mut best_t = fit_temperature(&head_logits, &labels);
+    let mut best_loss = class_nll(rows, best_t);
+    const GRID: usize = 120;
+    let ln_min = T_MIN.ln();
+    let ln_max = T_MAX.ln();
+    for i in 0..GRID {
+        let fraction = i as f32 / (GRID - 1) as f32;
+        let temperature = (ln_min + fraction * (ln_max - ln_min)).exp().clamp(T_MIN, T_MAX);
+        let loss = class_nll(rows, temperature);
+        if loss < best_loss {
+            best_loss = loss;
+            best_t = temperature;
+        }
+    }
+    best_t
+}
 
 /// A per-question trained artifact. `Class` covers `choice`/`score`; `Noul`
 /// covers the binary predicate. Built together with the matching [`Compiled`].
@@ -74,9 +127,8 @@ fn use_probe(opts: &EngineOptions, k: usize, counts: &[usize]) -> bool {
 }
 
 /// Fit a class head + temperature from a (train, calibration) split. The logit
-/// scale is applied consistently: temperature is fitted over `scale·logits`, so
-/// `class_answer` (which also scales before temperature) is calibrated on the
-/// same quantity.
+/// scale is applied consistently to both head and prototype logits, including
+/// the abstain logit, just as `class_answer` applies it at decision time.
 pub(crate) fn fit_class_artifact(
     opts: &EngineOptions,
     cp: &ClassProtos,
@@ -109,17 +161,22 @@ pub(crate) fn fit_class_artifact(
 
     let scale = opts.logit_scale;
     let (temperature, calibrated) = if calib.len() >= opts.min_calibration && allow_calibration {
-        let mut logits = Vec::with_capacity(calib.len());
-        let mut labels = Vec::with_capacity(calib.len());
+        let mut rows = Vec::with_capacity(calib.len());
         for (emb, ci) in calib {
-            let row = match &probe {
+            let g = geometry(emb, cp, opts.not_for_lambda);
+            let head_logits = match &probe {
                 Some(p) => p.logits(emb),
-                None => geometry(emb, cp, opts.not_for_lambda).proto_scores,
+                None => g.proto_scores.clone(),
             };
-            logits.push(row.iter().map(|l| l * scale).collect::<Vec<f32>>());
-            labels.push(*ci);
+            let abstain_logit = g.abstain_logit(opts.abstain_tau, opts.abstain_scale) * scale;
+            rows.push(ClassCalibrationRow {
+                head_logits: head_logits.into_iter().map(|l| l * scale).collect(),
+                proto_logits: g.proto_scores.into_iter().map(|l| l * scale).collect(),
+                abstain_logit,
+                label: *ci,
+            });
         }
-        (fit_temperature(&logits, &labels), true)
+        (fit_class_temperature(&rows), true)
     } else {
         (1.0, false)
     };
@@ -234,4 +291,66 @@ pub(crate) fn noul_answer(
         None => similarity_to_unit(crate::embedder::dot(state_emb, predicate)),
     };
     assemble_noul(noul, *head, *calibrated, model)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::heads::ClassKind;
+
+    #[test]
+    fn calibration_uses_reported_class_mass_including_abstain() {
+        let row = ClassCalibrationRow {
+            head_logits: vec![2.0, 0.5],
+            proto_logits: vec![0.5, 0.2],
+            abstain_logit: 0.1,
+            label: 0,
+        };
+        let keys = vec!["alpha".to_string(), "beta".to_string()];
+        let response = Classified {
+            keys: &keys,
+            kind: ClassKind::Choice,
+            head_logits: row.head_logits.clone(),
+            proto_scores: &row.proto_logits,
+            abstain_logit: row.abstain_logit,
+            head: Head::LinearProbe,
+            temperature: 1.7,
+            logit_scale: 1.0,
+            calibrated: true,
+            model: "test",
+        }
+        .into_answer();
+        let Answer::Choice { choice, meta, .. } = response else {
+            panic!("expected class answer")
+        };
+        assert_eq!(choice, "alpha");
+        let effective_probability = (-class_nll(&[row], 1.7)).exp();
+        assert!((effective_probability - meta.confidence).abs() < 1e-6);
+    }
+
+    #[test]
+    fn fitted_temperature_accounts_for_abstention_on_calibration_rows() {
+        // The head is right most of the time, but these in-scope examples look
+        // far from the prototypes. The conditional-only optimum overstates
+        // abstention; the fitted objective must include that lost class mass.
+        let rows: Vec<ClassCalibrationRow> = (0..24)
+            .map(|i| ClassCalibrationRow {
+                head_logits: vec![3.0, 0.0],
+                proto_logits: vec![0.0, -0.2],
+                abstain_logit: 2.0,
+                label: if i < 20 { 0 } else { 1 },
+            })
+            .collect();
+        let old_temperature = fit_temperature(
+            &rows.iter().map(|row| row.head_logits.clone()).collect::<Vec<_>>(),
+            &rows.iter().map(|row| row.label).collect::<Vec<_>>(),
+        );
+        let fitted = fit_class_temperature(&rows);
+        assert!(
+            class_nll(&rows, fitted) + 0.05 < class_nll(&rows, old_temperature),
+            "fitted={fitted}, conditional={old_temperature}"
+        );
+        assert!((T_MIN..=T_MAX).contains(&fitted));
+        assert_eq!(fit_class_temperature(&rows), fitted);
+    }
 }

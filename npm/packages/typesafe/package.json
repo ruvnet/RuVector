@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/typesafe",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local typed decisions (choice / score / noul) over sentence embeddings — a ruvector-powered, self-optimizing alternative to typesafe.ai's System One API. Native (napi-rs) with a WASM fallback; no network, no per-token cost.",
   "license": "MIT",
   "repository": {

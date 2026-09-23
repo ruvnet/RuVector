@@ -266,10 +266,9 @@ impl Classified<'_> {
 
     fn make_score(&self) -> Answer {
         let (shares, abstain) = self.shares_and_abstain();
-        let best = argmax(&shares);
-        let confidence = shares[best] * (1.0 - abstain);
         let expected: f32 = shares.iter().enumerate().map(|(i, p)| i as f32 * p).sum();
         let score = (expected.round() as usize).min(self.keys.len() - 1);
+        let confidence = shares[score] * (1.0 - abstain);
         Answer::Score {
             score,
             legend: self.keys[score].clone(),
@@ -306,4 +305,39 @@ pub(crate) fn argmax(v: &[f32]) -> usize {
     v.iter()
         .enumerate()
         .fold(0, |best, (i, &x)| if x > v[best] { i } else { best })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn score_confidence_describes_the_emitted_bucket() {
+        let keys = vec!["low".into(), "medium".into(), "high".into()];
+        let protos = vec![0.0; 3];
+        let answer = Classified {
+            keys: &keys,
+            kind: ClassKind::Score,
+            head_logits: vec![3.0, 0.0, 3.0],
+            proto_scores: &protos,
+            abstain_logit: 0.0,
+            head: Head::NearestPrototype,
+            temperature: 1.0,
+            logit_scale: 1.0,
+            calibrated: false,
+            model: "test",
+        }
+        .into_answer();
+        let Answer::Score {
+            score,
+            probabilities,
+            meta,
+            ..
+        } = answer
+        else {
+            panic!("expected score answer")
+        };
+        assert_eq!(score, 1, "rounded expected score differs from top class");
+        assert!((meta.confidence - probabilities[score] * (1.0 - meta.abstain)).abs() < 1e-6);
+    }
 }

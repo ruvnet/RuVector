@@ -38,7 +38,8 @@ function loadBackend(forced) {
 }
 
 const nativeBuilt = ['linux-x64-gnu', 'linux-arm64-gnu', 'darwin-x64', 'darwin-arm64', 'win32-x64-msvc']
-  .some((t) => existsSync(join(pkgDir, 'native', `typesafe.${t}.node`)));
+  .some((t) => existsSync(join(pkgDir, 'native', `typesafe.${t}.node`)) ||
+    existsSync(join(pkgDir, 'native', t, `typesafe.${t}.node`)));
 const wasmBuilt = existsSync(join(pkgDir, 'wasm', 'ruvector_typesafe_wasm.js'));
 
 const twoOptionRequest = JSON.stringify({
@@ -132,6 +133,7 @@ test('default binding preserves a present native binary load error and tolerates
   }[process.platform][process.arch];
   const temp = mkdtempSync(join(tmpdir(), 'typesafe-binding-'));
   const nativeFile = join(temp, 'native', `typesafe.${triple}.node`);
+  const pairedFile = join(temp, 'native', triple, `typesafe.${triple}.node`);
   const script = `
     const { resolveDefaultBinding } = require('./dist/binding.js');
     try {
@@ -159,6 +161,15 @@ test('default binding preserves a present native binary load error and tolerates
     const broken = run();
     assert.equal(broken.code, 'ERR_DLOPEN_FAILED');
     assert.match(broken.message, /typesafe\..*\.node/);
+
+    if (process.platform === 'linux') {
+      mkdirSync(dirname(pairedFile));
+      writeFileSync(pairedFile, 'invalid paired native addon');
+      const paired = run();
+      assert.equal(paired.code, 'ERR_DLOPEN_FAILED');
+      assert.match(paired.message, new RegExp(`native/${triple}/typesafe\\.${triple}\\.node`));
+      rmSync(pairedFile);
+    }
 
     rmSync(nativeFile);
     assert.deepEqual(run(), { binding: null }, 'both missing artifacts are a normal absence');

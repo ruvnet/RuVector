@@ -27,6 +27,9 @@ release is gated on the frozen real model benchmark. Model weights are separate,
 verified against `models/manifest.json`, and are never downloaded during a
 decision.
 
+The source package is version **0.1.1** for the next release. This version is
+not published until the native ONNX builds and strict release gates pass.
+
 ## Install
 
 ```sh

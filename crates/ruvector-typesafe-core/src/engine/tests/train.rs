@@ -38,7 +38,9 @@ fn training_embeds_each_new_identity_only_once() {
         label: "sports".into(),
     };
 
-    let first = engine.train("q", &[one.clone(), one.clone(), two.clone()]).unwrap();
+    let first = engine
+        .train("q", &[one.clone(), one.clone(), two.clone()])
+        .unwrap();
     assert_eq!(first.accepted, 2);
     assert_eq!(count.load(Ordering::Relaxed), 2);
     let generation = *engine.train_gen.read().unwrap().get("q").unwrap();
@@ -46,7 +48,10 @@ fn training_embeds_each_new_identity_only_once() {
     let repeat = engine.train("q", &[one.clone(), two.clone()]).unwrap();
     assert_eq!(repeat.accepted, 0);
     assert_eq!(count.load(Ordering::Relaxed), 2);
-    assert_eq!(*engine.train_gen.read().unwrap().get("q").unwrap(), generation);
+    assert_eq!(
+        *engine.train_gen.read().unwrap().get("q").unwrap(),
+        generation
+    );
 
     let three = LabeledExample {
         text: "fog tomorrow".into(),
@@ -59,8 +64,34 @@ fn training_embeds_each_new_identity_only_once() {
 }
 
 #[test]
+fn quarantined_duplicate_can_be_accepted_on_retry_without_reembedding() {
+    let texts = Arc::new(AtomicUsize::new(0));
+    let attempts = Arc::new(AtomicUsize::new(0));
+    let mut engine = Engine::new(CountingEmbedder {
+        inner: HashEmbedder::new(DIMS),
+        texts: texts.clone(),
+    });
+    let tries = attempts.clone();
+    *engine.bank.write().unwrap() = Bank::new(engine.options().train_ratios())
+        .with_noisy_label_filter(Box::new(move |_, _| {
+            tries.fetch_add(1, Ordering::Relaxed) > 0
+        }));
+    let example = LabeledExample {
+        text: "rain storm".into(),
+        label: "weather".into(),
+    };
+    let report = engine.train("q", &[example.clone(), example]).unwrap();
+    assert_eq!(report.accepted, 1);
+    assert_eq!(attempts.load(Ordering::Relaxed), 2);
+    assert_eq!(texts.load(Ordering::Relaxed), 1);
+    assert_eq!(engine.bank_summary().total, 1);
+}
+
+#[test]
 fn dynamic_question_caches_remain_bounded() {
     let engine = Engine::new(HashEmbedder::new(DIMS));
+    let req = two_topic_request("rain clouds storm");
+    let baseline = serde_json::to_string(&engine.decide(&req).unwrap()).unwrap();
     for i in 0..(MAX_COMPILED_QUESTIONS + 16) {
         let mut req = two_topic_request("rain clouds storm");
         let question = req.questions.remove("q").unwrap();
@@ -70,6 +101,11 @@ fn dynamic_question_caches_remain_bounded() {
     }
     assert!(engine.compiled_cache.read().unwrap().len() <= MAX_COMPILED_QUESTIONS);
     assert!(engine.artifact_cache.read().unwrap().len() <= MAX_FITTED_ARTIFACTS);
+    let after = serde_json::to_string(&engine.decide(&req).unwrap()).unwrap();
+    assert_eq!(
+        after, baseline,
+        "evicting a compiled question must not change its answer"
+    );
 }
 
 #[test]

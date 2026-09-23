@@ -101,7 +101,60 @@ jobs:
       - name: Clean any stale native artifacts (fresh, deterministic build)
         shell: bash
         run: |
-          rm -f npm/packages/typesafe/*.node npm/packages/typesafe/native/*.node || true
+          rm -f npm/packages/typesafe/*.node npm/packages/typesafe/native/*.node
+          rm -rf npm/packages/typesafe/native/linux-x64-gnu npm/packages/typesafe/native/linux-arm64-gnu
+
+      # Pyke's prebuilt ort-sys archives require newer glibc/libstdc++ than
+      # Ubuntu 22.04. Microsoft's ONNX Runtime 1.28.0 release archives have
+      # been checked against that baseline; pin their exact bytes here.
+      - name: Fetch pinned ONNX Runtime shared library (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          case '${{ matrix.settings.platform }}' in
+            linux-x64-gnu)
+              archive_name=onnxruntime-linux-x64-1.28.0.tgz
+              archive_sha=a3e1b79d7bb1bf09696ce675f49e4064e6c81f6202b8225624fff0e93f8d6407
+              ;;
+            linux-arm64-gnu)
+              archive_name=onnxruntime-linux-aarch64-1.28.0.tgz
+              archive_sha=e15ff8b5d85afe6c144d97c6fd432254bf76a219daaf17658087d6ecb3e8f0bb
+              ;;
+            *) exit 1 ;;
+          esac
+          archive="$RUNNER_TEMP/$archive_name"
+          curl --fail --location --retry 3 --output "$archive" \
+            "https://github.com/microsoft/onnxruntime/releases/download/v1.28.0/$archive_name"
+          printf '%s  %s\n' "$archive_sha" "$archive" | sha256sum --check --
+          mkdir -p "$RUNNER_TEMP/ort"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/ort" --strip-components=1
+          test -f "$RUNNER_TEMP/ort/lib/libonnxruntime.so.1"
+          test -f "$RUNNER_TEMP/ort/lib/libonnxruntime_providers_shared.so"
+          echo "ORT_LIB_PATH=$RUNNER_TEMP/ort/lib" >> "$GITHUB_ENV"
+          echo 'ORT_PREFER_DYNAMIC_LINK=1' >> "$GITHUB_ENV"
+          # The published .so sits next to its .node in both npm packages.
+          echo 'RUSTFLAGS=-C link-arg=-Wl,-rpath,$ORIGIN' >> "$GITHUB_ENV"
+
+      # ort-sys rc.13 has no macOS Intel download. Build the exact ORT source
+      # version it targets on a native x86_64 runner and link its archives.
+      - name: Build pinned ONNX Runtime from source (macOS Intel)
+        if: matrix.settings.platform == 'darwin-x64'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --recursive --branch v1.28.0 --single-branch --depth 1 \
+            https://github.com/microsoft/onnxruntime.git "$RUNNER_TEMP/onnxruntime"
+          test "$(git -C "$RUNNER_TEMP/onnxruntime" rev-parse HEAD)" = \
+            da9b5e364c465de65c49d91e696cd6485270757f
+          (
+            cd "$RUNNER_TEMP/onnxruntime"
+            ./build.sh --update --build --config Release --parallel 3 \
+              --skip_tests --compile_no_warning_as_error --skip_submodule_sync \
+              --cmake_extra_defines CMAKE_OSX_ARCHITECTURES=x86_64
+          )
+          test -f "$RUNNER_TEMP/onnxruntime/build/MacOS/Release/libonnxruntime_session.a"
+          echo "ORT_LIB_PATH=$RUNNER_TEMP/onnxruntime/build/MacOS/Release" >> "$GITHUB_ENV"
 
       # napi-rs emits its OWN index.js / index.d.ts into the output directory and
       # will happily overwrite this package's hand-written platform loader with
@@ -129,7 +182,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # index.js's platformMap loads native/typesafe.<platform>.node, so we
+          # index.js's platformMap selects typesafe.<platform>.node, so we
           # rename whatever napi emitted to that deterministic name here. The
           # find covers both the package dir (napi's default output) and the
           # crate dir, exactly as build-router.yml does.
@@ -144,6 +197,14 @@ jobs:
           echo "Built: $NODE_FILE"
           mkdir -p typesafe-artifacts/${{ matrix.settings.platform }}
           cp -v "$NODE_FILE" "typesafe-artifacts/${{ matrix.settings.platform }}/typesafe.${{ matrix.settings.platform }}.node"
+          if [ "$RUNNER_OS" = Linux ]; then
+            cp -L "$ORT_LIB_PATH/libonnxruntime.so.1" \
+              "typesafe-artifacts/${{ matrix.settings.platform }}/libonnxruntime.so.1"
+            # The ORT archive includes this companion; keep it adjacent in
+            # case an execution provider is loaded by name at runtime.
+            cp -L "$ORT_LIB_PATH/libonnxruntime_providers_shared.so" \
+              "typesafe-artifacts/${{ matrix.settings.platform }}/libonnxruntime_providers_shared.so"
+          fi
 
       # Run on each target's actual architecture, including Linux ARM64 and
       # Intel macOS. A skipped or broken binary must block the whole matrix.
@@ -152,24 +213,34 @@ jobs:
         working-directory: npm/packages/typesafe
         run: |
           set -euo pipefail
-          mkdir -p native
+          binary_dir=native
+          if [ "$RUNNER_OS" = Linux ]; then binary_dir="native/${{ matrix.settings.platform }}"; fi
+          mkdir -p "$binary_dir"
           cp "$GITHUB_WORKSPACE/typesafe-artifacts/${{ matrix.settings.platform }}/typesafe.${{ matrix.settings.platform }}.node" \
-             "native/typesafe.${{ matrix.settings.platform }}.node"
+             "$binary_dir/typesafe.${{ matrix.settings.platform }}.node"
+          export BINARY_PATH="$binary_dir/typesafe.${{ matrix.settings.platform }}.node"
+          if [ "$RUNNER_OS" = Linux ]; then
+            cp "$GITHUB_WORKSPACE/typesafe-artifacts/${{ matrix.settings.platform }}/"*.so* "$binary_dir/"
+            readelf -d "$BINARY_PATH" | grep -F 'libonnxruntime.so.1'
+            readelf -d "$BINARY_PATH" | grep -F '$ORIGIN'
+            ldd -r "$BINARY_PATH" | grep -F 'libonnxruntime.so.1'
+            unset LD_LIBRARY_PATH
+          fi
           node -e "const expected={'linux-x64-gnu':['linux','x64'],'linux-arm64-gnu':['linux','arm64'],'darwin-x64':['darwin','x64'],'darwin-arm64':['darwin','arm64'],'win32-x64-msvc':['win32','x64']}['${{ matrix.settings.platform }}']; if(!expected || process.platform!==expected[0] || process.arch!==expected[1]) throw new Error('matrix target is not the runner architecture')"
           # Two separate assertions, so a failure says which half broke. Loading
           # the binary directly proves the artifact itself is sound (on Windows a
           # missing runtime DLL surfaces here as "The specified module could not
           # be found"); only then is the loader's selection worth blaming.
-          node -e "const b=require('./native/typesafe.${{ matrix.settings.platform }}.node'); if(typeof b.version!=='function'){console.error('binary loaded but exports no version(): '+Object.keys(b).join(','));process.exit(1)}; console.log('binary loads OK: '+b.version())"
+          node -e "const b=require('./'+process.env.BINARY_PATH); if(typeof b.version!=='function'){console.error('binary loaded but exports no version(): '+Object.keys(b).join(','));process.exit(1)}; console.log('binary loads OK: '+b.version())"
           node -e "const p=require('path').resolve('./index.js'); const m=require(p); if(m.backend!=='native'){console.error('binary loads, but the loader selected: '+m.backend+'\n  resolved: '+p+'\n  exports: '+Object.keys(m).join(',')+'\n  cwd: '+process.cwd());process.exit(1)}; console.log('loader parity OK: backend=native version='+m.version())"
           node -e "const m=require('./index.js'); let err; try { new m.Engine(JSON.stringify({embedder:{kind:'onnx',modelDir:'__probe_absent__',manifest:'{\"models\":[]}'}})); } catch(e) { err=e; } if(!/manifest: no entry named/.test(String(err))){console.error('native binary lacks the ONNX path: '+err);process.exit(1)} console.log('native ONNX path present')"
-          node scripts/check-security.mjs --native "native/typesafe.${{ matrix.settings.platform }}.node"
+          node scripts/check-security.mjs --native "$BINARY_PATH"
 
       - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: typesafe-${{ matrix.settings.platform }}
-          path: typesafe-artifacts/${{ matrix.settings.platform }}/*.node
+          path: typesafe-artifacts/${{ matrix.settings.platform }}/*
           if-no-files-found: error
 
   release-bench:
@@ -190,9 +261,11 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: typesafe-linux-x64-gnu
-          path: npm/packages/typesafe/native
+          path: npm/packages/typesafe/native/linux-x64-gnu
       - name: Require the release binary to load as native
         run: |
+          test -f native/linux-x64-gnu/libonnxruntime.so.1
+          test -f native/linux-x64-gnu/libonnxruntime_providers_shared.so
           node -e "const m=require('./index.js'); if(m.backend!=='native'||typeof m.Engine!=='function'){throw new Error('release binary not loaded')}"
       - name: Reject changed release gates or unpinned model assets
         run: node scripts/verify-release-bench.mjs --preflight-models
@@ -312,6 +385,14 @@ jobs:
             PKG_DIR="npm-pkg/typesafe-${platform}"
             mkdir -p "$PKG_DIR"
             cp "$NODE_FILE" "$PKG_DIR/$NODE_NAME"
+            if [ "$OS" = linux ]; then
+              for lib in libonnxruntime.so.1 libonnxruntime_providers_shared.so; do
+                cp "artifacts/typesafe-${platform}/$lib" "$PKG_DIR/$lib"
+              done
+              PACKAGE_FILES="[\"${NODE_NAME}\", \"libonnxruntime.so.1\", \"libonnxruntime_providers_shared.so\"]"
+            else
+              PACKAGE_FILES="[\"${NODE_NAME}\"]"
+            fi
 
             cat > "$PKG_DIR/package.json" <<EOF
           {
@@ -321,7 +402,7 @@ jobs:
             "cpu": ["${CPU}"],
             ${LIBC}
             "main": "${NODE_NAME}",
-            "files": ["${NODE_NAME}"],
+            "files": ${PACKAGE_FILES},
             "description": "Local typed decisions over embeddings (@ruvector/typesafe) - ${platform} native binary",
             "keywords": ["ruvector", "typesafe", "decisions", "napi-rs"],
             "author": "ruv.io Team <info@ruv.io>",
@@ -360,20 +441,24 @@ jobs:
           source "$RUNNER_TEMP/verify.sh"
           VERSION=$(node -p "require('./npm/packages/typesafe/package.json').version")
 
-          # The loader (npm/packages/typesafe/index.js) has NO platform-package
-          # fallback: it only require()s native/typesafe.<platform>.node from the
-          # meta package itself. So the meta tarball must BUNDLE all five
-          # binaries; that is what makes the package load on every target today.
-          # (The follow-up optionalDependencies bump must ALSO add a
-          # require('@ruvector/typesafe-<platform>') fallback to index.js, or
-          # those deps ship dead.)
+          # The meta package has no optionalDependencies yet, so bundle all five
+          # binaries. Each Linux architecture gets its own directory because
+          # both libraries use the SONAME libonnxruntime.so.1; index.js selects
+          # the directory for the running architecture.
           mkdir -p npm/packages/typesafe/native
           for platform in linux-x64-gnu linux-arm64-gnu darwin-x64 darwin-arm64 win32-x64-msvc; do
+            out_dir=npm/packages/typesafe/native
+            if [[ "$platform" == linux-* ]]; then
+              out_dir="npm/packages/typesafe/native/$platform"
+              mkdir -p "$out_dir"
+              cp "artifacts/typesafe-${platform}/libonnxruntime.so.1" "$out_dir/"
+              cp "artifacts/typesafe-${platform}/libonnxruntime_providers_shared.so" "$out_dir/"
+            fi
             cp "artifacts/typesafe-${platform}/typesafe.${platform}.node" \
-               "npm/packages/typesafe/native/typesafe.${platform}.node"
+               "$out_dir/typesafe.${platform}.node"
           done
           echo "bundled native binaries:"
-          ls -la npm/packages/typesafe/native/*.node
+          find npm/packages/typesafe/native -name '*.node' -type f -print
 
           # Build dist/ (main = dist/index.js). Use the pinned tsc invocation the
           # package's CI uses; a bare `npx tsc` misbehaves in this monorepo.
@@ -387,7 +472,7 @@ jobs:
           if [ "$DRY_RUN" = "true" ]; then
             # Prove the tarball contains dist/index.js and all five binaries.
             npm publish --access public --dry-run --ignore-scripts 2>&1 | tee "$RUNNER_TEMP/pack.txt"
-            for f in dist/index.js native/typesafe.linux-x64-gnu.node native/typesafe.linux-arm64-gnu.node native/typesafe.darwin-x64.node native/typesafe.darwin-arm64.node native/typesafe.win32-x64-msvc.node; do
+            for f in dist/index.js native/linux-x64-gnu/typesafe.linux-x64-gnu.node native/linux-x64-gnu/libonnxruntime.so.1 native/linux-x64-gnu/libonnxruntime_providers_shared.so native/linux-arm64-gnu/typesafe.linux-arm64-gnu.node native/linux-arm64-gnu/libonnxruntime.so.1 native/linux-arm64-gnu/libonnxruntime_providers_shared.so native/typesafe.darwin-x64.node native/typesafe.darwin-arm64.node native/typesafe.win32-x64-msvc.node; do
               if ! grep -q "$f" "$RUNNER_TEMP/pack.txt"; then
                 echo "::error::dry-run tarball is missing $f"
                 exit 1

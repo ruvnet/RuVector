@@ -32,8 +32,10 @@ use fit::{Artifact, MIN_EXAMPLES_PER_CLASS};
 // Dynamic question criteria and repeated training must not grow the two
 // derived caches without bound. Both hold Arc values so evicting an entry
 // cannot invalidate a decision already in progress.
-const MAX_COMPILED_QUESTIONS: usize = 512;
-const MAX_FITTED_ARTIFACTS: usize = 512;
+// 128 holds two maximum-size (64 question) requests. At 255 options, 512
+// cached ONNX questions could otherwise retain hundreds of MB of vectors.
+const MAX_COMPILED_QUESTIONS: usize = 128;
+const MAX_FITTED_ARTIFACTS: usize = 128;
 
 /// Labeled example used by `train` (text, option key / legend bucket / "yes"|"no").
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -245,9 +247,6 @@ impl<E: Embedder> Engine<E> {
         if accepted > 0 {
             let mut gens = self.train_gen.write().unwrap();
             *gens.entry(question.to_string()).or_insert(0) += 1;
-            // Old generations are unreachable after training. Release them
-            // now rather than retaining fitted heads for every past update.
-            self.artifact_cache.write().unwrap().clear();
         }
 
         Ok(TrainReport {
