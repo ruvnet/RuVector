@@ -68,6 +68,16 @@ pub struct FirestoreClient {
     token_cache: RwLock<Option<TokenCache>>,
     /// Whether we're on GCE (metadata server available for token refresh)
     use_metadata_server: bool,
+    /// True once `load_from_firestore()` has finished (always true in local-only
+    /// mode). Hydration runs in the background and takes 2-50 min on Cloud Run
+    /// for ~60K memories; until it completes, the cache holds a partial view and
+    /// writes/training must not run against it.
+    hydrated: std::sync::atomic::AtomicBool,
+    /// Number of collections whose paginated LIST aborted early during hydration
+    /// (partial load). Non-zero means the cache is missing Firestore documents.
+    hydration_errors: std::sync::atomic::AtomicUsize,
+    /// Running count of LIST calls that ended with unrecovered page errors.
+    list_incomplete: std::sync::atomic::AtomicUsize,
 }
 
 impl FirestoreClient {
@@ -75,6 +85,7 @@ impl FirestoreClient {
         let base_url = std::env::var("FIRESTORE_URL").ok();
         let static_token = std::env::var("FIRESTORE_TOKEN").ok();
         let use_metadata_server = static_token.is_none() && base_url.is_some();
+        let persistent = base_url.is_some();
 
         if let Some(ref url) = base_url {
             if static_token.is_some() {
@@ -109,12 +120,32 @@ impl FirestoreClient {
             static_token,
             token_cache: RwLock::new(None),
             use_metadata_server,
+            hydrated: std::sync::atomic::AtomicBool::new(!persistent),
+            hydration_errors: std::sync::atomic::AtomicUsize::new(0),
+            list_incomplete: std::sync::atomic::AtomicUsize::new(0),
         }
     }
 
     /// Whether Firestore persistence is enabled
     pub fn is_persistent(&self) -> bool {
         self.base_url.is_some()
+    }
+
+    /// Whether startup hydration from Firestore has finished. Always true in
+    /// local-only mode.
+    pub fn is_hydrated(&self) -> bool {
+        self.hydrated.load(std::sync::atomic::Ordering::Acquire)
+    }
+
+    /// Collections that were only partially loaded during hydration.
+    pub fn hydration_errors(&self) -> usize {
+        self.hydration_errors
+            .load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_hydrated_for_test(&self, v: bool) {
+        self.hydrated.store(v, std::sync::atomic::Ordering::Release);
     }
 
     /// Rebuild vote tracker from persisted vote data on startup.
@@ -346,6 +377,7 @@ impl FirestoreClient {
         let mut consecutive_errors: usize = 0;
         // Track whether we're using offset-based fallback (after stale page token)
         let mut use_offset_fallback = false;
+        let mut pages: usize = 0;
 
         loop {
             let mut url = format!("{base}/{collection}?pageSize=300");
@@ -491,6 +523,17 @@ impl FirestoreClient {
                     }
                 }
             }
+            // Progress log: the completion line only appears once the whole
+            // collection is paged in (tens of minutes for brain_memories on a
+            // CPU-throttled Cloud Run instance), so without this an in-flight
+            // hydration is indistinguishable from one that never started.
+            pages += 1;
+            if pages % 20 == 0 {
+                tracing::info!(
+                    "Firestore LIST {collection}: {} documents so far ({pages} pages)",
+                    all_docs.len()
+                );
+            }
 
             // Check for next page
             match body.get("nextPageToken").and_then(|t| t.as_str()) {
@@ -514,6 +557,8 @@ impl FirestoreClient {
         }
 
         if consecutive_errors > 0 {
+            self.list_incomplete
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             tracing::warn!(
                 "Firestore LIST {collection}: loaded {} documents with {} error(s)",
                 all_docs.len(),
@@ -538,6 +583,9 @@ impl FirestoreClient {
             return;
         }
         tracing::info!("Loading state from Firestore...");
+        let incomplete_before = self
+            .list_incomplete
+            .load(std::sync::atomic::Ordering::Relaxed);
 
         // Load memories — normalize on ingest for fast cosine search
         let docs = self.firestore_list("brain_memories").await;
@@ -629,6 +677,22 @@ impl FirestoreClient {
             "Loaded from Firestore: {mem_count} memories, {contrib_count} contributors, {} pages, {node_count} nodes",
             self.page_status.len()
         );
+
+        let incomplete = self
+            .list_incomplete
+            .load(std::sync::atomic::Ordering::Relaxed)
+            .saturating_sub(incomplete_before);
+        self.hydration_errors
+            .store(incomplete, std::sync::atomic::Ordering::Relaxed);
+        if incomplete > 0 {
+            tracing::warn!(
+                "Firestore hydration PARTIAL: {incomplete} collection(s) aborted early; cache is missing documents"
+            );
+        }
+        // Mark hydrated even when partial so the instance can serve reads; the
+        // hydration_errors count is surfaced on /v1/status for the deploy gate.
+        self.hydrated
+            .store(true, std::sync::atomic::Ordering::Release);
     }
 
     /// Public Firestore write for cross-module persistence (e.g., LoRA store)
@@ -1426,4 +1490,53 @@ pub enum StoreError {
     Forbidden(String),
     #[error("Storage error: {0}")]
     Storage(String),
+}
+
+#[cfg(test)]
+mod hydration_tests {
+    use super::FirestoreClient;
+    use axum::http::StatusCode;
+
+    #[test]
+    fn local_only_client_is_hydrated_immediately() {
+        // Without FIRESTORE_URL there is nothing to hydrate, so writes must not
+        // be blocked. (If the test env sets FIRESTORE_URL, the client starts
+        // un-hydrated instead.)
+        let client = FirestoreClient::new();
+        assert_eq!(
+            client.is_hydrated(),
+            std::env::var("FIRESTORE_URL").is_err()
+        );
+        assert_eq!(client.hydration_errors(), 0);
+    }
+
+    #[test]
+    fn writes_are_refused_until_hydrated() {
+        let client = FirestoreClient::new();
+        client.set_hydrated_for_test(false);
+        let err = crate::routes::write_gate(false, client.is_hydrated()).unwrap_err();
+        assert_eq!(err.0, StatusCode::SERVICE_UNAVAILABLE);
+        assert!(err.1.contains("hydrating"), "unexpected message: {}", err.1);
+
+        client.set_hydrated_for_test(true);
+        assert!(crate::routes::write_gate(false, client.is_hydrated()).is_ok());
+    }
+
+    #[test]
+    fn read_only_still_wins_after_hydration() {
+        let err = crate::routes::write_gate(true, true).unwrap_err();
+        assert_eq!(err.0, StatusCode::SERVICE_UNAVAILABLE);
+        assert!(err.1.contains("read-only"));
+    }
+
+    #[tokio::test]
+    async fn load_from_firestore_without_backend_keeps_hydrated() {
+        if std::env::var("FIRESTORE_URL").is_ok() {
+            return; // would hit a real backend
+        }
+        let client = FirestoreClient::new();
+        client.load_from_firestore().await;
+        assert!(client.is_hydrated());
+        assert_eq!(client.memory_count(), 0);
+    }
 }

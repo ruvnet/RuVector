@@ -29,8 +29,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let tick_interval = std::time::Duration::from_secs(60); // 60s: lightweight cognitive tick
         let mut tick_count = 0u64;
 
-        // Wait 30s before first cycle (let startup finish, data load)
+        // Wait 30s before first cycle (let startup finish), then until the
+        // background Firestore hydration has finished. Previously this was a
+        // fixed 30s sleep, so the forced full bootstrap always ran on an empty
+        // or partial corpus ("processing all 0 memories") and then stamped
+        // last_full_retrain_at = now -- which made the incremental filter
+        // (created_at > cutoff) skip every hydrated memory until the next 24h
+        // periodic full retrain.
         tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+        let hydrate_deadline = std::time::Instant::now() + std::time::Duration::from_secs(90 * 60);
+        let mut waited_polls = 0u64;
+        while !train_state.store.is_hydrated() {
+            if std::time::Instant::now() >= hydrate_deadline {
+                tracing::warn!(
+                    "Cognitive bootstrap: Firestore hydration still running after 90 min ({} memories loaded); starting anyway",
+                    train_state.store.memory_count()
+                );
+                break;
+            }
+            waited_polls += 1;
+            if waited_polls % 12 == 0 {
+                tracing::info!(
+                    "Cognitive bootstrap waiting for Firestore hydration ({} memories so far)",
+                    train_state.store.memory_count()
+                );
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        }
 
         // Run an initial enhanced cycle on startup to bootstrap cognitive state (full retrain).
         // spawn_blocking avoids starving HTTP handlers during the CPU-intensive bootstrap.
