@@ -1,0 +1,31 @@
+[package]
+name = "ruvector-erasure-audit"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Black-box erasure-leak auditing for HNSW deletion strategies — does deleting a vector actually erase it from a query-only adversary's view?"
+
+[[bin]]
+name = "erasure-audit-bench"
+path = "src/bin/erasure_audit_bench.rs"
+
+[[bin]]
+name = "erasure-probe"
+path = "src/bin/erasure_probe.rs"
+
+[[bin]]
+name = "erasure-replicate"
+path = "src/bin/erasure_replicate.rs"
+
+[dependencies]
+ruvector-hnsw-repair = { path = "../ruvector-hnsw-repair" }
+
+[lints.rust]
+dead_code = "allow"
+
+[lints.clippy]
+pedantic = { level = "allow", priority = -2 }
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
