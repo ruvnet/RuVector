@@ -8,10 +8,19 @@ mod manager;
 mod snapshot;
 mod storage;
 
+#[cfg(feature = "cdc")]
+mod cdc_storage;
+
 pub use error::{Result, SnapshotError};
 pub use manager::SnapshotManager;
-pub use snapshot::{Snapshot, SnapshotData, SnapshotMetadata, VectorRecord};
+pub use snapshot::{
+    CollectionConfig, DistanceMetric, HnswConfig, Snapshot, SnapshotData, SnapshotMetadata,
+    VectorRecord,
+};
 pub use storage::{LocalStorage, SnapshotStorage};
+
+#[cfg(feature = "cdc")]
+pub use cdc_storage::CdcLocalStorage;
 
 #[cfg(test)]
 mod tests {

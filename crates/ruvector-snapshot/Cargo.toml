@@ -20,6 +20,15 @@ flate2 = "1.0"
 sha2 = "0.10"
 tokio = { workspace = true, features = ["fs", "io-util"] }
 async-trait = "0.1"
+ruvector-cdc-checkpoint = { path = "../ruvector-cdc-checkpoint", optional = true }
+
+[features]
+cdc = ["dep:ruvector-cdc-checkpoint"]
+
+[[bin]]
+name = "cdc_benchmark"
+path = "src/bin/cdc_benchmark.rs"
+required-features = ["cdc"]
 
 # Workspace cleanup pass: research-tier crate, doc/style churn deferred. Correctness + suspicious lints stay denied.
 [lints.rust]

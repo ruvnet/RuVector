@@ -9080,6 +9080,13 @@ name = "ruvector-capgated"
 version = "2.3.0"
 
 [[package]]
+name = "ruvector-cdc-checkpoint"
+version = "0.1.0"
+dependencies = [
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "ruvector-cli"
 version = "2.3.0"
 dependencies = [
@@ -10731,6 +10738,7 @@ dependencies = [
  "bincode 2.0.1",
  "chrono",
  "flate2",
+ "ruvector-cdc-checkpoint",
  "ruvector-core 2.3.0",
  "serde",
  "serde_json",

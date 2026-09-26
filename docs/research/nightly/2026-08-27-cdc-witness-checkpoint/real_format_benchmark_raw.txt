@@ -1,0 +1,44 @@
+==========================================================
+ ruvector-snapshot — CDC vs. real LocalStorage benchmark
+==========================================================
+OS               : linux
+Arch             : x86_64
+Workload         : n=20000 dim=128 seed=0xC0FFEE0012345678 rounds=30 (real SnapshotData/VectorRecord/bincode/gzip)
+Churn/round      : insert=40 delete=20 update=60 (of 20000 rows)
+
+round  0: local.size_bytes=   9247696  cdc.new_bytes_this_round=   9670707  cdc_dir_total=   9670707
+round  1: local.size_bytes=   9256967  cdc.new_bytes_this_round=    472117  cdc_dir_total=  10142824
+round  2: local.size_bytes=   9266323  cdc.new_bytes_this_round=    487433  cdc_dir_total=  10630257
+round  3: local.size_bytes=   9275585  cdc.new_bytes_this_round=    525887  cdc_dir_total=  11156144
+round  4: local.size_bytes=   9284791  cdc.new_bytes_this_round=    472535  cdc_dir_total=  11628679
+round  5: local.size_bytes=   9294101  cdc.new_bytes_this_round=    460171  cdc_dir_total=  12088850
+round  6: local.size_bytes=   9303315  cdc.new_bytes_this_round=    467586  cdc_dir_total=  12556436
+round  7: local.size_bytes=   9312634  cdc.new_bytes_this_round=    488169  cdc_dir_total=  13044605
+round  8: local.size_bytes=   9321913  cdc.new_bytes_this_round=    499898  cdc_dir_total=  13544503
+round  9: local.size_bytes=   9331190  cdc.new_bytes_this_round=    455428  cdc_dir_total=  13999931
+round 10: local.size_bytes=   9340490  cdc.new_bytes_this_round=    496791  cdc_dir_total=  14496722
+round 11: local.size_bytes=   9349693  cdc.new_bytes_this_round=    483520  cdc_dir_total=  14980242
+round 12: local.size_bytes=   9358896  cdc.new_bytes_this_round=    488624  cdc_dir_total=  15468866
+round 13: local.size_bytes=   9368188  cdc.new_bytes_this_round=    454275  cdc_dir_total=  15923141
+round 14: local.size_bytes=   9377512  cdc.new_bytes_this_round=    508467  cdc_dir_total=  16431608
+round 15: local.size_bytes=   9386720  cdc.new_bytes_this_round=    512333  cdc_dir_total=  16943941
+round 16: local.size_bytes=   9396008  cdc.new_bytes_this_round=    479176  cdc_dir_total=  17423117
+round 17: local.size_bytes=   9405208  cdc.new_bytes_this_round=    437226  cdc_dir_total=  17860343
+round 18: local.size_bytes=   9414456  cdc.new_bytes_this_round=    488031  cdc_dir_total=  18348374
+round 19: local.size_bytes=   9423749  cdc.new_bytes_this_round=    475329  cdc_dir_total=  18823703
+round 20: local.size_bytes=   9432948  cdc.new_bytes_this_round=    477066  cdc_dir_total=  19300769
+round 21: local.size_bytes=   9442122  cdc.new_bytes_this_round=    474928  cdc_dir_total=  19775697
+round 22: local.size_bytes=   9451364  cdc.new_bytes_this_round=    482562  cdc_dir_total=  20258259
+round 23: local.size_bytes=   9460599  cdc.new_bytes_this_round=    528140  cdc_dir_total=  20786399
+round 24: local.size_bytes=   9469790  cdc.new_bytes_this_round=    486592  cdc_dir_total=  21272991
+round 25: local.size_bytes=   9479149  cdc.new_bytes_this_round=    426628  cdc_dir_total=  21699619
+round 26: local.size_bytes=   9488375  cdc.new_bytes_this_round=    446019  cdc_dir_total=  22145638
+round 27: local.size_bytes=   9497654  cdc.new_bytes_this_round=    472873  cdc_dir_total=  22618511
+round 28: local.size_bytes=   9506946  cdc.new_bytes_this_round=    472877  cdc_dir_total=  23091388
+round 29: local.size_bytes=   9516141  cdc.new_bytes_this_round=    480050  cdc_dir_total=  23571438
+
+LocalStorage cumulative bytes written (30 rounds): 281460523
+CdcLocalStorage on-disk size after 30 rounds:       23571438
+ratio (cdc_dir_final / local_cumulative):              0.0837
+reconstruction correctness: 100% (asserted every round, both backends, real production decode path)
+==========================================================
