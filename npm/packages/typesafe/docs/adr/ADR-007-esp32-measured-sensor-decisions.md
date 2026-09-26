@@ -256,6 +256,51 @@ Reproduce with `python3 -m unittest tests.test_energy_provenance -v`, then
 Autogenous adapter command. Roll back the comparator to parent `21fd8753` while
 retaining the evaluator if any provenance or regression gate fails.
 
+## Follow up: enforce one transport query per firmware command
+
+The Python transport previously appended a newline without rejecting a query
+that already contained CR or LF. A caller could therefore write two firmware
+commands with one `query` call. The first reply was returned immediately and
+the second remained queued, so the following query silently received stale
+output. This could associate a benchmark step with the wrong firmware reply.
+It is a host protocol integrity defect, not a firmware execution or performance
+defect.
+
+Require every transport query to be one line. Reject CR or LF with
+`ValueError` before selecting or writing to either the subprocess or serial
+stream. Preserve spaces and tabs because valid firmware numeric commands may
+use them. Empty and otherwise invalid single-line commands remain firmware
+protocol concerns and still receive exactly one response.
+
+The independent evaluator was frozen against parent
+`b65e0c7cad47e5ad97ad64a55091797694967cff`. The three inputs containing LF
+wrote split commands on the parent and left a stale reply. Bare CR was ignored
+by the firmware parser, silently joining `alpha` and `beta` into
+`alphabeta`. The candidate rejects all four forbidden framing inputs before
+a write, leaves zero stale followups or command normalization and preserves the
+named single-line commands. Fresh integrated acceptance passed
+57 Rust tests, 47 Python tests and eleven exact native pairs. Firmware, model,
+quantization, compiler flags and target sources are unchanged, so target builds
+and physical measurements were not repeated and no MCU speed, energy or memory
+claim is made.
+
+Pinned MetaHarness `decidePromotion` at
+`d5833dc6512ac1adeeef91a331c29055cd8a4dbb` evaluated the observed fraction
+of four visible framing cases rejected. The adapter hard-vetoes any write,
+stale reply, valid-command regression, missing hash or lab failure and records
+`hiddenTestPassed=false`. Pinned Autogenous at
+`905aa6cbe213392f8b3cab5d4f17bc3a48e0a509` admitted the governed,
+reversible mutation, exercised six lineage, authority, rollback, invariant and
+expiry negatives, and confirmed that application code is not auto-promotable.
+No deployment fitness was invented. The previously recorded standalone RSI
+blocker is unchanged and was not queried again.
+
+Receipts are under `tests/evidence/transport-*`. Reproduce from the firmware
+directory with `python3 -m unittest tests.test_transport_boundary -v` and
+`python3 tools/lab.py`, then run the recorded MetaHarness and Autogenous
+commands. Roll back `tools/transport.py` to parent `b65e0c7` while retaining
+the evaluator if any framing or regression gate fails.
+
 ## Sources
 
 * https://archive.ics.uci.edu/dataset/357/occupancy+detection

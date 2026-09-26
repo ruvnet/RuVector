@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "accepted_for": "PR review only",
+  "promote": true,
+  "reasons": [
+    "MetaHarness promotion passed",
+    "record passed",
+    "schema passed",
+    "parent passed",
+    "evaluator_hash passed",
+    "tool_hashes passed",
+    "baseline_total passed",
+    "baseline_score passed",
+    "baseline_stale passed",
+    "baseline_cr_normalization passed",
+    "candidate_total passed",
+    "candidate_score passed",
+    "no_stale_followups passed",
+    "no_rejected_writes passed",
+    "valid_commands passed",
+    "lab passed"
+  ],
+  "decision": {
+    "promote": true,
+    "reasons": [
+      "mean score win: child 1.000000 > parent 0.000000 + 0",
+      "statistically real: lower95 1 > 0",
+      "verified-solve rate held: child 1.000000 >= parent 1.000000",
+      "zero child safety violations",
+      "regression rate not worse: child 0.000000 <= parent 0.000000",
+      "clean replay reproduced the result"
+    ],
+    "meanDelta": 1,
+    "lower95": 1,
+    "childMeanScore": 1,
+    "parentMeanScore": 0,
+    "childVerifiedSolveRate": 1,
+    "parentVerifiedSolveRate": 1,
+    "childRegressionRate": 0,
+    "parentRegressionRate": 0,
+    "childSafetyViolations": 0,
+    "cleanReplay": true,
+    "pValue": 0
+  },
+  "hard_vetoes": [
+    {
+      "name": "record",
+      "pass": true,
+      "reason": "evidence must be a JSON object"
+    },
+    {
+      "name": "schema",
+      "pass": true,
+      "reason": "schema_version must equal 1"
+    },
+    {
+      "name": "parent",
+      "pass": true,
+      "reason": "parent_sha must be a full 40-hex commit hash"
+    },
+    {
+      "name": "evaluator_hash",
+      "pass": true,
+      "reason": "evaluator_sha256 must be present"
+    },
+    {
+      "name": "tool_hashes",
+      "pass": true,
+      "reason": "tool_sha256 must contain at least one named SHA-256 digest"
+    },
+    {
+      "name": "baseline_total",
+      "pass": true,
+      "reason": "baseline framing_cases_total must equal 4"
+    },
+    {
+      "name": "baseline_score",
+      "pass": true,
+      "reason": "baseline rejected_before_write must equal 0"
+    },
+    {
+      "name": "baseline_stale",
+      "pass": true,
+      "reason": "baseline stale_followups must equal 3"
+    },
+    {
+      "name": "baseline_cr_normalization",
+      "pass": true,
+      "reason": "baseline carriage_return_normalizations must equal 1"
+    },
+    {
+      "name": "candidate_total",
+      "pass": true,
+      "reason": "candidate framing_cases_total must equal 4"
+    },
+    {
+      "name": "candidate_score",
+      "pass": true,
+      "reason": "candidate rejected_before_write must equal 4"
+    },
+    {
+      "name": "no_stale_followups",
+      "pass": true,
+      "reason": "candidate stale_followups must equal 0"
+    },
+    {
+      "name": "no_rejected_writes",
+      "pass": true,
+      "reason": "candidate write_count_for_rejected_inputs must equal 0"
+    },
+    {
+      "name": "valid_commands",
+      "pass": true,
+      "reason": "all named valid_command_regressions must pass"
+    },
+    {
+      "name": "lab",
+      "pass": true,
+      "reason": "lab.status must equal 'pass'"
+    }
+  ],
+  "policy": {
+    "schemaVersion": 1,
+    "framingCases": 4,
+    "baselineScore": 0,
+    "candidateScore": 1,
+    "minDelta": 0,
+    "seed": 20260926
+  },
+  "metaharness_commit": "d5833dc6512ac1adeeef91a331c29055cd8a4dbb",
+  "metaharness_source_sha256": {
+    "promotion": "828be79b48e94dd3bf9f0d51d5dbb60d53663d54bf40baae6991c522ba2b81af",
+    "stats": "4b23c82cf811e0546e37a45efa92505b6f8cf79260eb0d1e9df0267f4fea9bf2"
+  },
+  "evidence_sha256": "09eb4d35fd3db3bac0377fe5daba022d77274c3031bb749d1f158145c8a78732",
+  "parent_sha": "b65e0c7cad47e5ad97ad64a55091797694967cff",
+  "evaluator_sha256": "94741317f642a4aba29e5d724225e9b217cddf37e9328d88f80ab73ce432c82f",
+  "tool_sha256": {
+    "parent_transport": "c0f15d52f924b5db8b2f57921c3bbd2ad4c13938fbf49824ad071be2a634f917",
+    "candidate_transport": "dc9ce59bba35793427b2dba3b7e7bf58334742a2a8ed579bdc272f7d8713eb5f",
+    "transport_gate": "b06eff60404d20489f0633d7ce4b102b9165def5311946fb00cbfa03269990cd",
+    "metaharness_promotion": "828be79b48e94dd3bf9f0d51d5dbb60d53663d54bf40baae6991c522ba2b81af",
+    "metaharness_stats": "4b23c82cf811e0546e37a45efa92505b6f8cf79260eb0d1e9df0267f4fea9bf2",
+    "native_pair_report": "e3b1682139c6fb01a2987d0970a3aecd38a6ce9c011021211c04c7a0aec1a0cd",
+    "sensor_report": "176192d88ad2a753ac795c61f522f3ebacf2c9f40a492194b1a5731a97ad4812"
+  },
+  "hidden_labels_used": false,
+  "mappings": {
+    "finalScore": "Observed fraction of four forbidden CR/LF framing inputs rejected before a write; immutable baseline is 0 and required candidate is 1.",
+    "solved": "The corresponding visible framing input was rejected before write. No hidden labels were used.",
+    "regressionPassed": "Every named valid-command regression and the recorded software lab passed.",
+    "cleanReplay": "Every named valid-command regression and the recorded software lab passed."
+  },
+  "limitations": [
+    "Recorded software evidence only; no physical-hardware claim.",
+    "No hidden or unseen evaluation; hiddenTestPassed=false for every MetaHarness result.",
+    "The four deterministic framing cases are not independent random trials."
+  ]
+}

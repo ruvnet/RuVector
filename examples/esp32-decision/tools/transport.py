@@ -40,6 +40,8 @@ class Device:
             if line.startswith(b'{'):return json.loads(line)
         raise TimeoutError('firmware response deadline')
     def query(self,text):
+        if '\r' in text or '\n' in text:
+            raise ValueError('firmware command must be a single line')
         stream=self.proc.stdin if self.proc else self.serial
         stream.write((text+'\n').encode());stream.flush()
         return self.response()
