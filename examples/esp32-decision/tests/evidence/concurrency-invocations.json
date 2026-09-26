@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "campaign": "esp32-overnight-20260926",
+  "run": "esp32-slot02-20260926T0602Z",
+  "commands": [
+    {
+      "purpose": "focused frozen evaluator",
+      "cwd": "examples/esp32-decision",
+      "command": "python3 -m unittest tests.test_transport_concurrency -v",
+      "result": "6 passed; 8 of 8 controlled concurrent pairs correctly associated"
+    },
+    {
+      "purpose": "integrated software acceptance",
+      "cwd": "examples/esp32-decision",
+      "command": "python3 tools/lab.py",
+      "result": "57 Rust tests, 53 Python tests and 11 exact native pairs passed"
+    },
+    {
+      "purpose": "actual MetaHarness promotion entrypoint",
+      "cwd": "repository root",
+      "command": "node examples/esp32-decision/tools/concurrency_gate.mjs examples/esp32-decision /path/to/metaharness examples/esp32-decision/tests/evidence/concurrency-metaharness-gate.json",
+      "result": "promote true; mean delta 1; lower95 1; all hard vetoes passed",
+      "pinned_commit": "d5833dc6512ac1adeeef91a331c29055cd8a4dbb"
+    },
+    {
+      "purpose": "actual Autogenous typed mutation and negative gates",
+      "cwd": "repository root",
+      "command": "cargo run --locked --manifest-path examples/esp32-decision/tools/concurrency_autogenous_adapter/Cargo.toml -- examples/esp32-decision/tests/evidence/concurrency-autogenous-mutation.json 1790402940 examples/esp32-decision/tests/evidence/concurrency-autogenous-authority.json",
+      "result": "mutation admissible; application code auto promotion false; 6 negative admission gates passed",
+      "pinned_commit": "905aa6cbe213392f8b3cab5d4f17bc3a48e0a509"
+    },
+    {
+      "purpose": "Autogenous upstream API tests",
+      "cwd": "autogenous checkout",
+      "command": "cargo test -p agl-types",
+      "result": "10 passed",
+      "pinned_commit": "905aa6cbe213392f8b3cab5d4f17bc3a48e0a509"
+    }
+  ],
+  "notes": [
+    "Paths to separate pinned checkouts are environment specific.",
+    "No target build was required because the retained source change is host-only.",
+    "Physical acceptance was not performed."
+  ]
+}

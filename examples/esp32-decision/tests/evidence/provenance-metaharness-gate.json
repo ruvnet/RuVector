@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "campaign": "esp32-overnight-20260926",
+  "run": "esp32-slot00-20260926T0402Z",
+  "accepted_for": "PR review only",
+  "promote": true,
+  "physical_hardware": false,
+  "metaharness_commit": "d5833dc6512ac1adeeef91a331c29055cd8a4dbb",
+  "source_sha256": {
+    "promotion": "828be79b48e94dd3bf9f0d51d5dbb60d53663d54bf40baae6991c522ba2b81af",
+    "stats": "4b23c82cf811e0546e37a45efa92505b6f8cf79260eb0d1e9df0267f4fea9bf2"
+  },
+  "parent": "21fd8753ea1d54473ef797e9c6ebaaa62c7749bf",
+  "evaluator_sha256": "3b6bb51b5f28ad18b690be943ab5fcf5334f42cf4346c698647cb8d9032e45d3",
+  "candidate_sha256": "f7ae80bf9afaa603baaff21d771ead8e426762a130896b3963be6aa420d1176d",
+  "metric": "fraction of seven named provenance tamper cases rejected",
+  "parent_score": 0,
+  "candidate_score": 1,
+  "decision": {
+    "promote": true,
+    "reasons": [
+      "mean score win: child 1.000000 > parent 0.000000 + 0.05",
+      "statistically real: lower95 1 > 0",
+      "verified-solve rate held: child 1.000000 >= parent 1.000000",
+      "zero child safety violations",
+      "regression rate not worse: child 0.000000 <= parent 0.000000",
+      "clean replay reproduced the result"
+    ],
+    "meanDelta": 1,
+    "lower95": 1,
+    "childMeanScore": 1,
+    "parentMeanScore": 0,
+    "childVerifiedSolveRate": 1,
+    "parentVerifiedSolveRate": 1,
+    "childRegressionRate": 0,
+    "parentRegressionRate": 0,
+    "childSafetyViolations": 0,
+    "cleanReplay": true,
+    "pValue": 0
+  },
+  "negative": {
+    "replay": false,
+    "regression": false,
+    "safety": false
+  },
+  "mappings": {
+    "solved": "The frozen evaluator produced the expected reject or valid result.",
+    "regressionPassed": "The valid eleven pair result and integrated software lab passed.",
+    "cleanReplay": "An independent worker reproduced all evaluator and finite benchmark tests."
+  },
+  "limitations": [
+    "Synthetic tamper fixtures are software evidence, not physical energy measurements.",
+    "MetaHarness bootstrap scores are deterministic case outcomes, not paired device timing confidence.",
+    "hiddenTestPassed=false; no unseen dataset or deployment claim."
+  ]
+}

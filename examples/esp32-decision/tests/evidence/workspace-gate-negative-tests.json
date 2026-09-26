@@ -1,0 +1,27 @@
+[
+  {
+    "case": "missing_replay",
+    "rejected": true,
+    "reason": "Error: ENOENT: no such file or directory, open '/tmp/tmp62ohmwqs/build-workspace/host-tests.log'"
+  },
+  {
+    "case": "failed_replay",
+    "rejected": true,
+    "reason": "Error: Workspace tests missing or failed"
+  },
+  {
+    "case": "missing_emulator",
+    "rejected": true,
+    "reason": "Error: S3 exact emulator replay missing"
+  },
+  {
+    "case": "changed_image",
+    "rejected": true,
+    "reason": "Error: Artifact digest mismatch: merged-binary.bin"
+  },
+  {
+    "case": "changed_evaluator",
+    "rejected": true,
+    "reason": "Error: Frozen file changed: components/rvdecision/rvdecision.c"
+  }
+]

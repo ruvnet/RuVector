@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "campaign": "esp32-overnight-20260926",
+  "run": "esp32-slot01-20260926T0500Z",
+  "parent": {
+    "sha": "b65e0c7cad47e5ad97ad64a55091797694967cff",
+    "framing_inputs": 4,
+    "rejected_before_write": 0,
+    "stale_followups": 3,
+    "carriage_return_normalizations": 1
+  },
+  "candidate": {
+    "framing_inputs": 4,
+    "rejected_before_write": 4,
+    "stale_followups": 0,
+    "carriage_return_normalizations": 0,
+    "focused_tests": 5,
+    "focused_failures": 0
+  },
+  "integrated_lab": {
+    "software_acceptance": "pass",
+    "rust_tests": 57,
+    "python_tests": 47,
+    "exact_native_pairs": 11,
+    "native_report_sha256": "e3b1682139c6fb01a2987d0970a3aecd38a6ce9c011021211c04c7a0aec1a0cd",
+    "sensor_report_sha256": "176192d88ad2a753ac795c61f522f3ebacf2c9f40a492194b1a5731a97ad4812",
+    "built_targets": [],
+    "physical_acceptance": "not performed",
+    "coverage_candidate_retained": false
+  },
+  "evaluator_frozen_before_candidate": true,
+  "evaluator_sha256": "94741317f642a4aba29e5d724225e9b217cddf37e9328d88f80ab73ce432c82f",
+  "acceptance_command": "python3 tools/lab.py",
+  "rollback": "b65e0c7cad47e5ad97ad64a55091797694967cff",
+  "limitations": [
+    "No firmware or target flags changed, so ESP32 target builds were not repeated.",
+    "No physical board timing or energy measurement was performed."
+  ]
+}

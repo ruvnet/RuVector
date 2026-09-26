@@ -1,0 +1,21 @@
+{
+  "actual_unix": "1790391984",
+  "authority": [
+    "cargo",
+    "run",
+    "--locked",
+    "--offline",
+    "--manifest-path",
+    "/workspace/scratch/9a9902c5b8e1/harness-evidence/authority-adapter/Cargo.toml",
+    "--",
+    "/workspace/scratch/9a9902c5b8e1/harness-evidence/autogenous-mutation.json",
+    "1790391984"
+  ],
+  "metaharness": [
+    "node",
+    "/workspace/scratch/9a9902c5b8e1/harness-evidence/retention-gate.mjs",
+    "/workspace/scratch/9a9902c5b8e1/ruvector/examples/esp32-decision",
+    "/workspace/scratch/f324a824e528/esp32-harness-evidence/metaharness",
+    "/workspace/scratch/9a9902c5b8e1/harness-evidence/metaharness-gate.json"
+  ]
+}

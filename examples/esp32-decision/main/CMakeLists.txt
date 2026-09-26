@@ -1,0 +1,10 @@
+idf_component_register(SRCS "main.c" "app.c" "profile.c" "sensor.c" "ota.c" INCLUDE_DIRS "${RD_MODEL_DIR}" "."
+    REQUIRES rvdecision esp_timer esp_driver_uart esp_driver_gpio app_update esp_app_format mbedtls)
+if(CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG)
+    if(NOT RD_USB_SERIAL_JTAG)
+        message(FATAL_ERROR "USB-Serial/JTAG console selected; configure with -DRD_USB_SERIAL_JTAG=ON")
+    endif()
+    idf_component_get_property(rd_usb_lib esp_driver_usb_serial_jtag COMPONENT_LIB)
+    idf_component_get_property(rd_vfs_lib vfs COMPONENT_LIB)
+    target_link_libraries(${COMPONENT_LIB} PRIVATE ${rd_usb_lib} ${rd_vfs_lib})
+endif()

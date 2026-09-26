@@ -1,0 +1,23 @@
+{
+  "original_invocation": {
+    "retention-gate.mjs": "6204652dc5f9491a46865add71113ce5d841eeb0141971b3a97a1aabeca3f8fe",
+    "mutation_record.py": "2006393cf2a945ea251f8b81577ae5026d4c39044a4a67c3fd56d371e6d9dffb",
+    "authority-adapter/Cargo.toml": "77fa6e959d8052f45b28020910b4e9e565d9705e19276c4946c41819be4199cd",
+    "authority-adapter/Cargo.lock": "d4db60200437dcd7a543f59cbebfa6e6ca9afd9aa2c4919cd2403783b1136eff",
+    "authority-adapter/src/main.rs": "5a496517fb50290758bab0db26ca1c6133fad1e278b9ccdae5f37bbaa67ee02a",
+    "metaharness-gate.json": "72dd97f5fa75b861aba14b2b1bdead9ad42b08607cd0de204192d8985de82320",
+    "autogenous-mutation.json": "e079296397bd103d5a7ff2a79ac2d0258763920636172d5c556fea75cc111319",
+    "autogenous-authority.json": "9489d800072085971fce209061e9d3d851f605194355bb5a2b4f1c12a2fecec2",
+    "invocations.json": "c97342e82cea15283fae7deabfc9193fcb2a0eaf4770db6bf43386fc31570e8f"
+  },
+  "packaged_sources": {
+    "retention-gate.mjs": "6204652dc5f9491a46865add71113ce5d841eeb0141971b3a97a1aabeca3f8fe",
+    "README.md": "a5cba0509edcf743c8e5ad94545494fc9e5969d059f1f3614c1e2b6258fe3aa1",
+    "reproduce.py": "65619d3bba55e361b37339d578c57a764ae2e3ed9caa2dadc8e919575a6528aa",
+    "mutation_record.py": "2006393cf2a945ea251f8b81577ae5026d4c39044a4a67c3fd56d371e6d9dffb",
+    "authority-adapter/Cargo.lock": "d4db60200437dcd7a543f59cbebfa6e6ca9afd9aa2c4919cd2403783b1136eff",
+    "authority-adapter/Cargo.toml": "7193a4fa58908ab86bcbf587d847467fad468706b65f223dccb66a8fbfca1cfc",
+    "authority-adapter/src/main.rs": "5a496517fb50290758bab0db26ca1c6133fad1e278b9ccdae5f37bbaa67ee02a"
+  },
+  "packaged_authority_replayed": true
+}

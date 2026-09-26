@@ -1,0 +1,21 @@
+{
+  "authorized_delivery": "PR review only",
+  "auto_promotable": false,
+  "autogenous_commit": "905aa6cbe213392f8b3cab5d4f17bc3a48e0a509",
+  "deployment_promoted": false,
+  "evaluated_at_unix": 1790391984,
+  "fitness_vector_evaluated": false,
+  "limitations": [
+    "Structural admission does not verify declared invariant evidence.",
+    "Governed ceiling is limited here to the authorized PR workflow, not deployment.",
+    "No fitness safety, reliability or latency values invented; production hard gates not evaluated."
+  ],
+  "negative_checks": {
+    "authority_expansion": true,
+    "expiry_boundary": true,
+    "insufficient_scope_authority": true,
+    "invariant_regression": true,
+    "missing_rollback": true
+  },
+  "structural_admission": true
+}
