@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+
+[package]
+name = "ruvector-anytime-ann"
+version = "2.2.3"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT"
+authors = ["Ruvector Team"]
+repository = "https://github.com/ruvnet/ruvector"
+description = "Anytime ANN search with budget-aware early termination: three variants from fixed-ef to compute-budgeted to early-convergence stopping"
+keywords = ["vector-search", "ann", "hnsw", "anytime", "edge-ai"]
+categories = ["algorithms", "data-structures", "science"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+
+[lints.rust]
+dead_code = "allow"
