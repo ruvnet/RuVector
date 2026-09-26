@@ -1,63 +1,80 @@
 //! Ed25519 signing for the TARL witness chain — the ADR-134 §9
-//! `WitnessSigner` follow-up gate named (but not implemented) by
-//! [`crate::ops`]'s tamper-evidence note and [`crate::ledger`]'s WP8
-//! comment. Reuses this crate's existing `rvf-types` Ed25519 primitive
-//! (ADR-320) rather than adding a new signing dependency.
+//! `WitnessSigner` follow-up gate named by [`crate::ops`]'s tamper-evidence
+//! note and [`crate::ledger`]'s WP8 comment (ADR-347).
 //!
-//! ## What signing actually buys you here
+//! ## What is signed
 //!
-//! [`crate::ops::MemoryWitnessLog::verify_chain`] already walks the FNV-1a
-//! chain and catches any record whose stored bytes were edited without
-//! also consistently recomputing every `record_hash`/`prev_hash` downstream
-//! of it — call this a *naive* tamper. Its own doc comment is explicit
-//! that it does NOT catch a *diligent* tamper: an adversary with write
-//! access to the log who edits one record and then recomputes the whole
-//! downstream chain to match, producing an internally self-consistent but
-//! semantically different log. [`verify_signed_chain`] closes exactly that
-//! gap, IF AND ONLY IF the adversary cannot also forge a valid Ed25519
-//! signature over the tampered record's new `chain_hash` — which holds
-//! unconditionally under standard Ed25519 unforgeability, given the
-//! signing key stays secret.
+//! Records are grouped into *spans* of consecutive sequence numbers. For
+//! each span the signer computes
 //!
-//! What this module does NOT claim: it does not evaluate whether an
-//! adversary could instead find a *different* 64-byte record whose FNV-1a
-//! `chain_hash` collides with the original (a preimage attack on the
-//! per-record hash itself, independent of signing). `ops.rs` informally
-//! estimates that at "~2^32 work"; this nightly run did not attempt to
-//! reproduce or falsify that specific claim (see the research README's
-//! Next Research section) — a diligent forgery is defined here as one that
-//! changes the target record's `chain_hash` value, which is the case any
-//! such preimage attack would need to avoid.
+//! ```text
+//! records_digest = SHA-256(RECORDS_TAG || rec[from].to_bytes() || … || rec[to].to_bytes())
+//! message        = MSG_TAG || purpose || from || to || prev_link || records_digest
+//! link           = SHA-256(message)             // prev_link of the next span
+//! signature      = Ed25519(message)
+//! ```
 //!
-//! ## Two strategies
+//! Every record's full canonical 64-byte encoding is inside a SHA-256
+//! preimage, so the per-record keyless FNV-1a `record_hash` / `chain_hash`
+//! are NOT load-bearing for signed verification: forging a record means
+//! finding a SHA-256 collision or an Ed25519 forgery, not a 64-bit FNV
+//! collision. Each span also commits to the previous span's `link`
+//! (`[0; 32]` at genesis), so spans form their own SHA-256 chain and cannot
+//! be reordered, dropped from the middle, or spliced in from another log
+//! signed with the same key.
 //!
-//! - [`SigningStrategy::PerRecord`]: sign every witness record's own
-//!   `chain_hash` as it is emitted. Strongest coverage — a signature exists
-//!   the instant a record is durable — at the cost of one signature per
-//!   record.
-//! - [`SigningStrategy::BatchTail`]: sign only the last record's
-//!   `chain_hash` in every `batch_size`-record run, amortizing signing
-//!   cost. Because `chain_hash` embeds `prev_hash`, authenticating the tail
-//!   record transitively covers every record in the batch, PROVIDED the
-//!   verifier also runs `verify_chain` (which checks the walked chain
-//!   terminates at the log's actual newest record) — signing the tail
-//!   alone, without a full chain walk, would NOT catch a truncation of the
-//!   batch's own interior. The cost: records inside an unclosed batch have
-//!   no signature yet ([`SignedWitnessSink::flush`] closes a partial batch
-//!   at shutdown), and losing the signer mid-batch leaves the whole batch
-//!   unsigned rather than partially covered — see the research README's
-//!   Failure Modes section for the measured tradeoff.
+//! ## What [`verify_signed_chain`] guarantees
+//!
+//! Given a trusted public key and a trusted [`SignedAnchor`], `Ok(_)` means:
+//!
+//! 1. **Coverage.** The spans tile the log exactly: the first span starts
+//!    at sequence 0, each next span starts one past the previous span's
+//!    end, the last span ends at the newest record, and every record's
+//!    `sequence` equals its index. An empty or partial span list never
+//!    verifies a non-empty log.
+//! 2. **Integrity.** Every record's full 64 bytes match what the key holder
+//!    signed, and the span order is the order it signed them in.
+//! 3. **No unsigned tail.** A record not yet covered by a closed span makes
+//!    verification fail with [`SignedChainError::UnsignedTail`] — that
+//!    error is only returned after the signed prefix has fully verified,
+//!    so it precisely reports "prefix authentic, `unsigned` newest records
+//!    unauthenticated". Under [`SigningStrategy::BatchTail`] callers must
+//!    [`SignedWitnessSink::seal`] before verifying.
+//! 4. **Rollback floor.** The log is at least as long as the anchor and
+//!    the span ending at `anchor.record_count - 1` has exactly the anchor's
+//!    chained digest. Truncating the log together with its span list below
+//!    the anchor fails with [`SignedChainError::AnchorMismatch`].
+//!
+//! ## Limits (not guaranteed)
+//!
+//! - **Rollback above the anchor.** Records appended after the anchor was
+//!   captured can be truncated (log + spans together) without detection.
+//!   Callers must persist [`SignedChainReport::head`] (or
+//!   [`SignedWitnessSink::anchor`]) out-of-band after every verified run and
+//!   pass it as the next run's anchor. [`SignedAnchor::genesis`] disables
+//!   rollback protection entirely.
+//! - **Crash before seal.** Pending `BatchTail` state is in memory only; a
+//!   crash leaves the unsealed tail permanently unsigned, and only a key
+//!   holder can re-sign it. Verification fails closed in that case.
+//! - **Key compromise / key management** (generation, rotation, storage,
+//!   revocation) is out of scope. Anyone holding the signing key can sign
+//!   an arbitrary alternative history.
+//! - `evidence_grade` is not part of `to_bytes()`; it is bound to the
+//!   hashed `flags` nibble only by [`MemoryWitnessLog::verify_chain`], which
+//!   is why verification still runs the unsigned chain walk first.
 
 use crate::ops::{LedgerError, LedgerWitnessRecord, MemoryWitnessLog, WitnessSink};
-use rvf_types::ed25519::{ed25519_sign, ed25519_verify, Ed25519Keypair};
+use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
+use rvf_types::ed25519::Ed25519Keypair;
+use rvf_types::sha256::{sha256, Sha256};
 
-const DOMAIN_TAG: &[u8] = b"ruvector-agent-memory:witness-signer:v1:";
-/// `purpose` (1 byte) + `from`/`to`/`chain_hash` (3 × 8-byte LE `u64`).
-const MESSAGE_LEN: usize = DOMAIN_TAG.len() + 25;
+const MSG_TAG: &[u8] = b"ruvector-agent-memory:witness-signer:v2:span\0";
+const RECORDS_TAG: &[u8] = b"ruvector-agent-memory:witness-signer:v2:records\0";
+/// `purpose` (1) + `from`/`to` (2 × 8 LE) + `prev_link` (32) + `records_digest` (32).
+const MESSAGE_LEN: usize = MSG_TAG.len() + 1 + 16 + 32 + 32;
 
 /// Distinguishes a per-record signature from a batch-tail signature so a
-/// signature produced for one purpose can never be replayed as the other,
-/// even if the covered range and chain hash happened to coincide.
+/// signature produced for one purpose can never be replayed as the other.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum SignPurpose {
@@ -65,45 +82,80 @@ pub enum SignPurpose {
     BatchTail = 2,
 }
 
-/// One Ed25519-signed statement: "the witness records with sequence
-/// numbers `[covers_from_seq, covers_to_seq]` exist, and the record at
-/// `covers_to_seq` has `chain_hash`."
+/// One Ed25519-signed statement: "the witness records with sequence numbers
+/// `[covers_from_seq, covers_to_seq]` have SHA-256 digest `records_digest`,
+/// and they directly follow the span whose chained link is `prev_link`".
+/// `prev_link` is not stored: the verifier derives it from the preceding
+/// span, which is what makes the span list a chain.
 #[derive(Clone, Copy, Debug)]
 pub struct SignedSpan {
     pub purpose: SignPurpose,
     pub covers_from_seq: u64,
     pub covers_to_seq: u64,
-    pub chain_hash: u64,
+    pub records_digest: [u8; 32],
     pub signature: [u8; 64],
 }
 
 impl SignedSpan {
-    fn message(purpose: SignPurpose, from: u64, to: u64, chain_hash: u64) -> [u8; MESSAGE_LEN] {
+    fn message(
+        purpose: SignPurpose,
+        from: u64,
+        to: u64,
+        prev_link: &[u8; 32],
+        records_digest: &[u8; 32],
+    ) -> [u8; MESSAGE_LEN] {
         let mut m = [0u8; MESSAGE_LEN];
-        let mut off = 0;
-        m[off..off + DOMAIN_TAG.len()].copy_from_slice(DOMAIN_TAG);
-        off += DOMAIN_TAG.len();
+        let mut off = MSG_TAG.len();
+        m[..off].copy_from_slice(MSG_TAG);
         m[off] = purpose as u8;
         off += 1;
         m[off..off + 8].copy_from_slice(&from.to_le_bytes());
         off += 8;
         m[off..off + 8].copy_from_slice(&to.to_le_bytes());
         off += 8;
-        m[off..off + 8].copy_from_slice(&chain_hash.to_le_bytes());
+        m[off..off + 32].copy_from_slice(prev_link);
+        off += 32;
+        m[off..off + 32].copy_from_slice(records_digest);
         m
     }
+}
 
-    /// Verify this span's signature in isolation (does not check that
-    /// `chain_hash` matches any particular log's current content — use
-    /// [`verify_signed_chain`] for that).
-    pub fn verify(&self, public_key: &[u8; 32]) -> bool {
-        let msg = Self::message(
-            self.purpose,
-            self.covers_from_seq,
-            self.covers_to_seq,
-            self.chain_hash,
-        );
-        ed25519_verify(public_key, &msg, &self.signature)
+/// Streaming SHA-256 over the full 64-byte encodings of a span's records.
+struct RecordsHasher(Sha256);
+
+impl RecordsHasher {
+    fn new() -> Self {
+        let mut h = Sha256::new();
+        h.update(RECORDS_TAG);
+        Self(h)
+    }
+    fn push(&mut self, r: &LedgerWitnessRecord) {
+        self.0.update(&r.to_bytes());
+    }
+    fn finish(self) -> [u8; 32] {
+        self.0.finalize()
+    }
+}
+
+/// A trusted checkpoint of the signed chain: the number of records covered
+/// and the chained SHA-256 link of the span ending at `record_count - 1`.
+/// Persist it out-of-band (it is the signed analogue of
+/// [`MemoryWitnessLog::head_commitment`]) and pass it back to
+/// [`verify_signed_chain`] to detect rollback below it.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SignedAnchor {
+    pub record_count: u64,
+    pub head_digest: [u8; 32],
+}
+
+impl SignedAnchor {
+    /// The empty-chain anchor. Passing it to [`verify_signed_chain`]
+    /// explicitly opts OUT of rollback detection.
+    pub const fn genesis() -> Self {
+        Self {
+            record_count: 0,
+            head_digest: [0u8; 32],
+        }
     }
 }
 
@@ -111,47 +163,86 @@ impl SignedSpan {
 #[derive(Clone, Copy, Debug)]
 pub enum SigningStrategy {
     PerRecord,
-    /// Sign the last record's `chain_hash` once every `batch_size`
-    /// records. `batch_size` must be at least 1.
+    /// Sign once every `batch_size` records (and on [`SignedWitnessSink::seal`]).
+    /// `batch_size` must be at least 1.
     BatchTail {
         batch_size: usize,
     },
 }
 
-/// A [`WitnessSink`] decorator that signs every record (or amortized
-/// batch tail) it forwards to an inner sink. Still satisfies the
-/// `WitnessSink` contract unmodified: signing cannot cause `emit_batch` to
-/// fail (it is a deterministic, infallible local computation), so this
-/// wrapper neither weakens nor strengthens the ledger's "no witness, no
-/// mutation" guarantee — it only adds signatures alongside.
+/// Construction errors for [`SignedWitnessSink`].
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum WitnessSignerError {
+    ZeroBatchSize,
+}
+
+impl std::fmt::Display for WitnessSignerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ZeroBatchSize => write!(f, "BatchTail batch_size must be at least 1"),
+        }
+    }
+}
+
+impl std::error::Error for WitnessSignerError {}
+
+struct PendingSpan {
+    from: u64,
+    to: u64,
+    count: usize,
+    hasher: RecordsHasher,
+}
+
+/// A [`WitnessSink`] decorator that signs spans of the records it forwards
+/// to an inner sink. The inner sink commits first, so a refused batch is
+/// never signed; a batch whose sequence numbers do not continue the signed
+/// chain contiguously is refused before reaching the inner sink.
 pub struct SignedWitnessSink<S: WitnessSink> {
     inner: S,
-    keypair: Ed25519Keypair,
+    signing_key: SigningKey,
     strategy: SigningStrategy,
-    pending_from: Option<u64>,
-    pending_last: Option<(u64, u64)>, // (sequence, chain_hash) of the newest unsigned record
-    pending_count: usize,
+    next_seq: u64,
+    pending: Option<PendingSpan>,
+    head: SignedAnchor,
     spans: Vec<SignedSpan>,
 }
 
 impl<S: WitnessSink> SignedWitnessSink<S> {
-    pub fn new(inner: S, keypair: Ed25519Keypair, strategy: SigningStrategy) -> Self {
-        if let SigningStrategy::BatchTail { batch_size } = strategy {
-            assert!(batch_size >= 1, "batch_size must be at least 1");
+    pub fn new(
+        inner: S,
+        signing_key: SigningKey,
+        strategy: SigningStrategy,
+    ) -> Result<Self, WitnessSignerError> {
+        if let SigningStrategy::BatchTail { batch_size: 0 } = strategy {
+            return Err(WitnessSignerError::ZeroBatchSize);
         }
-        Self {
+        Ok(Self {
             inner,
-            keypair,
+            signing_key,
             strategy,
-            pending_from: None,
-            pending_last: None,
-            pending_count: 0,
+            next_seq: 0,
+            pending: None,
+            head: SignedAnchor::genesis(),
             spans: Vec::new(),
-        }
+        })
+    }
+
+    /// Convenience constructor from an `rvf-types` keypair; copies the
+    /// secret out exactly once (the sink then holds only a `SigningKey`).
+    pub fn from_keypair(
+        inner: S,
+        keypair: &Ed25519Keypair,
+        strategy: SigningStrategy,
+    ) -> Result<Self, WitnessSignerError> {
+        let mut secret = keypair.secret_key();
+        let signing_key = SigningKey::from_bytes(&secret);
+        secret.fill(0);
+        std::hint::black_box(&secret);
+        Self::new(inner, signing_key, strategy)
     }
 
     pub fn public_key(&self) -> [u8; 32] {
-        self.keypair.public_key()
+        self.signing_key.verifying_key().to_bytes()
     }
 
     /// Every span signed so far, in emission order.
@@ -163,58 +254,78 @@ impl<S: WitnessSink> SignedWitnessSink<S> {
         &self.inner
     }
 
-    fn sign_span(&mut self, purpose: SignPurpose, from: u64, to: u64, chain_hash: u64) {
-        let msg = SignedSpan::message(purpose, from, to, chain_hash);
-        let signature = ed25519_sign(&self.keypair.secret_key(), &msg);
+    /// The signed head: records covered by closed spans and the newest
+    /// span's chained link. Persist it out-of-band as the next anchor.
+    pub fn anchor(&self) -> SignedAnchor {
+        self.head
+    }
+
+    /// Records forwarded to the inner sink but not yet covered by a closed
+    /// span (always 0 under `PerRecord`).
+    pub fn unsigned_pending(&self) -> usize {
+        self.pending.as_ref().map_or(0, |p| p.count)
+    }
+
+    fn close(&mut self, purpose: SignPurpose, from: u64, to: u64, records_digest: [u8; 32]) {
+        let msg = SignedSpan::message(purpose, from, to, &self.head.head_digest, &records_digest);
+        let signature = self.signing_key.sign(&msg).to_bytes();
         self.spans.push(SignedSpan {
             purpose,
             covers_from_seq: from,
             covers_to_seq: to,
-            chain_hash,
+            records_digest,
             signature,
         });
+        self.head = SignedAnchor {
+            record_count: to + 1,
+            head_digest: sha256(&msg),
+        };
     }
 
-    /// Sign whatever `BatchTail` run is still open (end-of-run / shutdown).
-    /// A no-op under `PerRecord` (nothing is ever left pending) or when
-    /// nothing has been emitted since the last close.
-    pub fn flush(&mut self) {
-        if let (Some(from), Some((to, hash))) = (self.pending_from.take(), self.pending_last.take())
-        {
-            self.sign_span(SignPurpose::BatchTail, from, to, hash);
+    /// Sign whatever `BatchTail` span is still open. Must be called before
+    /// verification (e.g. at shutdown); a no-op when nothing is pending.
+    pub fn seal(&mut self) {
+        if let Some(p) = self.pending.take() {
+            self.close(SignPurpose::BatchTail, p.from, p.to, p.hasher.finish());
         }
-        self.pending_count = 0;
     }
 }
 
 impl<S: WitnessSink> WitnessSink for SignedWitnessSink<S> {
     fn emit_batch(&mut self, records: &[LedgerWitnessRecord]) -> Result<(), LedgerError> {
-        // Witness-first: the inner sink commits before anything is signed,
-        // so a refused batch is never signed either.
+        for (i, r) in records.iter().enumerate() {
+            let expected = self.next_seq + i as u64;
+            if r.sequence != expected {
+                return Err(LedgerError::WitnessRejected(format!(
+                    "witness signer: expected sequence {expected}, got {}",
+                    r.sequence
+                )));
+            }
+        }
+        // Witness-first: the inner sink commits before anything is signed.
         self.inner.emit_batch(records)?;
+        self.next_seq += records.len() as u64;
         match self.strategy {
             SigningStrategy::PerRecord => {
                 for r in records {
-                    self.sign_span(
-                        SignPurpose::PerRecord,
-                        r.sequence,
-                        r.sequence,
-                        r.chain_hash(),
-                    );
+                    let mut h = RecordsHasher::new();
+                    h.push(r);
+                    self.close(SignPurpose::PerRecord, r.sequence, r.sequence, h.finish());
                 }
             }
             SigningStrategy::BatchTail { batch_size } => {
                 for r in records {
-                    if self.pending_from.is_none() {
-                        self.pending_from = Some(r.sequence);
-                    }
-                    self.pending_last = Some((r.sequence, r.chain_hash()));
-                    self.pending_count += 1;
-                    if self.pending_count >= batch_size {
-                        let from = self.pending_from.take().expect("set above");
-                        let (to, hash) = self.pending_last.take().expect("set above");
-                        self.sign_span(SignPurpose::BatchTail, from, to, hash);
-                        self.pending_count = 0;
+                    let p = self.pending.get_or_insert_with(|| PendingSpan {
+                        from: r.sequence,
+                        to: r.sequence,
+                        count: 0,
+                        hasher: RecordsHasher::new(),
+                    });
+                    p.hasher.push(r);
+                    p.to = r.sequence;
+                    p.count += 1;
+                    if p.count >= batch_size {
+                        self.seal();
                     }
                 }
             }
@@ -223,177 +334,154 @@ impl<S: WitnessSink> WitnessSink for SignedWitnessSink<S> {
     }
 }
 
-/// Verify a signed witness log: the inner FNV-1a chain walk (catches a
-/// naive tamper — any edit not also consistently recomputed downstream),
-/// AND every signed span, cross-checked against what the log's record at
-/// `covers_to_seq` ACTUALLY hashes to right now (catches a diligent tamper
-/// — a fully self-consistent recompute that changes that record's
-/// `chain_hash`). A span whose covered sequence is missing from the log
-/// (e.g. a truncated tail) fails closed.
+/// Why a signed witness log failed verification.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SignedChainError {
+    InvalidPublicKey,
+    /// The unsigned FNV-1a chain walk / head commitment / evidence-grade
+    /// binding ([`MemoryWitnessLog::verify_chain`]) failed.
+    ChainWalkFailed,
+    /// The record at `index` carries a different `sequence`.
+    SequenceMismatch {
+        index: u64,
+        found: u64,
+    },
+    /// Span `span_index` does not start where the previous one ended
+    /// (or the first span does not start at 0).
+    CoverageGap {
+        span_index: usize,
+        expected_from: u64,
+    },
+    /// Span `span_index` is inverted, or a `PerRecord` span covers >1 record.
+    MalformedSpan {
+        span_index: usize,
+    },
+    /// Span `span_index` covers records the log does not contain.
+    SpanBeyondLog {
+        span_index: usize,
+        log_len: u64,
+    },
+    /// The log's records in span `span_index` do not hash to the signed digest.
+    RecordsMismatch {
+        span_index: usize,
+    },
+    /// Span `span_index`'s Ed25519 signature (strict verification) failed.
+    BadSignature {
+        span_index: usize,
+    },
+    /// No span boundary at the anchor, or its chained digest differs —
+    /// a rollback below the anchor, or an anchor from another chain.
+    AnchorMismatch,
+    /// The signed prefix (`signed` records) verified, but the newest
+    /// `unsigned` records are not covered by any span and are NOT
+    /// authenticated.
+    UnsignedTail {
+        signed: u64,
+        unsigned: u64,
+    },
+}
+
+impl std::fmt::Display for SignedChainError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "signed witness chain verification failed: {self:?}")
+    }
+}
+
+impl std::error::Error for SignedChainError {}
+
+/// Result of a successful [`verify_signed_chain`].
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SignedChainReport {
+    pub records_verified: u64,
+    pub spans_verified: usize,
+    /// The verified signed head; persist it as the next anchor.
+    pub head: SignedAnchor,
+}
+
+/// Verify a signed witness log against a trusted public key and a trusted
+/// anchor. See the module docs for exactly what `Ok` does and does not
+/// guarantee.
 pub fn verify_signed_chain(
     log: &MemoryWitnessLog,
     spans: &[SignedSpan],
     public_key: &[u8; 32],
-) -> bool {
+    anchor: &SignedAnchor,
+) -> Result<SignedChainReport, SignedChainError> {
+    use SignedChainError as E;
+    let vk = VerifyingKey::from_bytes(public_key).map_err(|_| E::InvalidPublicKey)?;
     if !log.verify_chain() {
-        return false;
+        return Err(E::ChainWalkFailed);
     }
-    for span in spans {
-        if !span.verify(public_key) {
-            return false;
-        }
-        let Some(rec) = log
-            .records
-            .iter()
-            .find(|r| r.sequence == span.covers_to_seq)
-        else {
-            return false;
-        };
-        if rec.chain_hash() != span.chain_hash {
-            return false;
+    for (i, r) in log.records.iter().enumerate() {
+        if r.sequence != i as u64 {
+            return Err(E::SequenceMismatch {
+                index: i as u64,
+                found: r.sequence,
+            });
         }
     }
-    true
+    let log_len = log.records.len() as u64;
+    let mut prev_link = [0u8; 32];
+    let mut next = 0u64;
+    let mut anchor_ok = anchor.record_count == 0 && anchor.head_digest == [0u8; 32];
+    for (k, span) in spans.iter().enumerate() {
+        let (from, to) = (span.covers_from_seq, span.covers_to_seq);
+        if from != next {
+            return Err(E::CoverageGap {
+                span_index: k,
+                expected_from: next,
+            });
+        }
+        if to < from || (span.purpose == SignPurpose::PerRecord && to != from) {
+            return Err(E::MalformedSpan { span_index: k });
+        }
+        if to >= log_len {
+            return Err(E::SpanBeyondLog {
+                span_index: k,
+                log_len,
+            });
+        }
+        let mut h = RecordsHasher::new();
+        for r in &log.records[from as usize..=to as usize] {
+            h.push(r);
+        }
+        let digest = h.finish();
+        if digest != span.records_digest {
+            return Err(E::RecordsMismatch { span_index: k });
+        }
+        let msg = SignedSpan::message(span.purpose, from, to, &prev_link, &digest);
+        let sig = Signature::from_bytes(&span.signature);
+        if vk.verify_strict(&msg, &sig).is_err() {
+            return Err(E::BadSignature { span_index: k });
+        }
+        prev_link = sha256(&msg);
+        next = to + 1;
+        if next == anchor.record_count {
+            if prev_link != anchor.head_digest {
+                return Err(E::AnchorMismatch);
+            }
+            anchor_ok = true;
+        }
+    }
+    if !anchor_ok {
+        return Err(E::AnchorMismatch);
+    }
+    if next < log_len {
+        return Err(E::UnsignedTail {
+            signed: next,
+            unsigned: log_len - next,
+        });
+    }
+    Ok(SignedChainReport {
+        records_verified: log_len,
+        spans_verified: spans.len(),
+        head: SignedAnchor {
+            record_count: next,
+            head_digest: prev_link,
+        },
+    })
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::ledger::TransactionalLedger;
-    use crate::ops::MemoryWitnessLog;
-
-    const TEST_SECRET: [u8; 32] = [7u8; 32];
-
-    fn keypair() -> Ed25519Keypair {
-        Ed25519Keypair::from_secret(&TEST_SECRET)
-    }
-
-    fn populated_sink(strategy: SigningStrategy, n: usize) -> SignedWitnessSink<MemoryWitnessLog> {
-        let sink = SignedWitnessSink::new(MemoryWitnessLog::default(), keypair(), strategy);
-        let mut ledger = TransactionalLedger::new(sink, crate::ledger::AlwaysAdmitGate::default());
-        for i in 0..n {
-            let id = ledger
-                .add(format!("memory {i}"), &[], "actor", "reason")
-                .expect("add succeeds");
-            ledger
-                .accept(id, "actor", "verified")
-                .expect("accept succeeds");
-        }
-        // TransactionalLedger owns the sink privately; reconstruct is not
-        // possible, so tests drive `SignedWitnessSink` directly instead of
-        // through the ledger for anything needing post-hoc access. See
-        // below: this helper only exists to prove the composition
-        // typechecks and produces a verifiable chain end-to-end.
-        let mut sink = TransactionalLedger::into_witness_sink(ledger);
-        sink.flush();
-        sink
-    }
-
-    #[test]
-    fn per_record_honest_chain_verifies() {
-        let sink = populated_sink(SigningStrategy::PerRecord, 12);
-        let pk = sink.public_key();
-        assert!(verify_signed_chain(sink.inner(), sink.spans(), &pk));
-        // Every accepted `add` emits at least the `Add` witness; `accept`
-        // adds one more, so PerRecord signs strictly more spans than there
-        // are ledger entries.
-        assert!(sink.spans().len() >= 12);
-    }
-
-    #[test]
-    fn batch_tail_honest_chain_verifies() {
-        let sink = populated_sink(SigningStrategy::BatchTail { batch_size: 5 }, 23);
-        let pk = sink.public_key();
-        assert!(verify_signed_chain(sink.inner(), sink.spans(), &pk));
-        // Amortization must actually reduce signature count vs PerRecord.
-        let per_record = populated_sink(SigningStrategy::PerRecord, 23);
-        assert!(sink.spans().len() < per_record.spans().len());
-    }
-
-    #[test]
-    fn wrong_public_key_fails_verification() {
-        let sink = populated_sink(SigningStrategy::PerRecord, 5);
-        let wrong_pk = Ed25519Keypair::from_secret(&[9u8; 32]).public_key();
-        assert!(!verify_signed_chain(sink.inner(), sink.spans(), &wrong_pk));
-    }
-
-    #[test]
-    fn naive_tamper_is_caught_by_chain_walk_alone() {
-        let sink = populated_sink(SigningStrategy::PerRecord, 10);
-        let mut forged = sink.inner().clone();
-        forged.records[3].payload ^= 1; // edit one record, fix nothing downstream
-        assert!(
-            !forged.verify_chain(),
-            "naive tamper must break the chain walk"
-        );
-    }
-
-    #[test]
-    fn diligent_forgery_defeats_chain_walk_alone_but_not_signatures() {
-        for strategy in [
-            SigningStrategy::PerRecord,
-            SigningStrategy::BatchTail { batch_size: 4 },
-        ] {
-            let sink = populated_sink(strategy, 16);
-            let pk = sink.public_key();
-            assert!(verify_signed_chain(sink.inner(), sink.spans(), &pk));
-
-            // A diligent adversary: edit one interior record's payload,
-            // then recompute record_hash/chain_hash forward through every
-            // subsequent record exactly as the ledger would, and fix up
-            // the head commitment. This produces a log that is internally
-            // self-consistent end to end.
-            let mut forged = sink.inner().clone();
-            let tamper_at = 6usize;
-            forged.records[tamper_at].payload ^= 0xDEAD_BEEF;
-            let mut prev_hash = if tamper_at == 0 {
-                0
-            } else {
-                forged.records[tamper_at - 1].chain_hash()
-            };
-            for r in forged.records.iter_mut().skip(tamper_at) {
-                r.prev_hash = prev_hash;
-                r.record_hash = r.compute_record_hash();
-                prev_hash = r.chain_hash();
-            }
-            forged.committed_head = prev_hash;
-            forged.committed_count = forged.records.len() as u64;
-
-            assert!(
-                forged.verify_chain(),
-                "a diligent, fully-recomputed forgery must pass the unsigned chain walk \
-                 (this is the documented residual gap `verify_chain` alone leaves open)"
-            );
-            assert!(
-                !verify_signed_chain(&forged, sink.spans(), &pk),
-                "signatures ({strategy:?}) must catch what the chain walk alone cannot"
-            );
-        }
-    }
-
-    #[test]
-    fn flush_signs_a_partial_batch_tail() {
-        let mut sink = SignedWitnessSink::new(
-            MemoryWitnessLog::default(),
-            keypair(),
-            SigningStrategy::BatchTail { batch_size: 100 },
-        );
-        let mut ledger = TransactionalLedger::new(sink, crate::ledger::AlwaysAdmitGate::default());
-        for i in 0..7 {
-            ledger.add(format!("m{i}"), &[], "a", "r").unwrap();
-        }
-        sink = TransactionalLedger::into_witness_sink(ledger);
-        assert!(
-            sink.spans().is_empty(),
-            "batch of 100 must not have closed yet"
-        );
-        sink.flush();
-        assert_eq!(
-            sink.spans().len(),
-            1,
-            "flush must close the partial batch exactly once"
-        );
-        let pk = sink.public_key();
-        assert!(verify_signed_chain(sink.inner(), sink.spans(), &pk));
-    }
-}
+#[path = "witness_signing_tests.rs"]
+mod tests;

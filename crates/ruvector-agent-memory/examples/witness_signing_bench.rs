@@ -17,8 +17,8 @@
 //!   cargo run --release -p ruvector-agent-memory --example witness_signing_bench
 
 use ruvector_agent_memory::{
-    verify_signed_chain, AlwaysAdmitGate, MemoryWitnessLog, SignedWitnessSink, SigningStrategy,
-    TransactionalLedger,
+    verify_signed_chain, AlwaysAdmitGate, MemoryWitnessLog, SignedAnchor, SignedWitnessSink,
+    SigningStrategy, TransactionalLedger,
 };
 use rvf_types::ed25519::Ed25519Keypair;
 use std::time::{Duration, Instant};
@@ -89,11 +89,12 @@ fn run_baseline() -> RunResult {
 }
 
 fn run_signed(label: &'static str, strategy: SigningStrategy) -> RunResult {
-    let sink = SignedWitnessSink::new(
+    let sink = SignedWitnessSink::from_keypair(
         MemoryWitnessLog::default(),
-        Ed25519Keypair::from_secret(&SECRET),
+        &Ed25519Keypair::from_secret(&SECRET),
         strategy,
-    );
+    )
+    .expect("valid strategy");
     let mut ledger = TransactionalLedger::new(sink, AlwaysAdmitGate::default());
     let mut per_op = Vec::with_capacity(N_ENTRIES);
     let t0 = Instant::now();
@@ -109,9 +110,10 @@ fn run_signed(label: &'static str, strategy: SigningStrategy) -> RunResult {
     }
     let total = t0.elapsed();
     let mut sink = ledger.into_witness_sink();
-    sink.flush();
+    sink.seal();
     let pk = sink.public_key();
-    let correctness_ok = verify_signed_chain(sink.inner(), sink.spans(), &pk);
+    let correctness_ok =
+        verify_signed_chain(sink.inner(), sink.spans(), &pk, &sink.anchor()).is_ok();
     RunResult {
         label,
         total,
@@ -126,18 +128,19 @@ fn run_signed(label: &'static str, strategy: SigningStrategy) -> RunResult {
 /// against a signed run and confirm it is rejected. Returns `true` iff the
 /// forgery is correctly rejected (the desired, secure outcome).
 fn diligent_forgery_is_rejected(strategy: SigningStrategy) -> bool {
-    let sink = SignedWitnessSink::new(
+    let sink = SignedWitnessSink::from_keypair(
         MemoryWitnessLog::default(),
-        Ed25519Keypair::from_secret(&SECRET),
+        &Ed25519Keypair::from_secret(&SECRET),
         strategy,
-    );
+    )
+    .expect("valid strategy");
     let mut ledger = TransactionalLedger::new(sink, AlwaysAdmitGate::default());
     for i in 0..200 {
         let id = ledger.add(format!("m{i}"), &[], "bench", "r").unwrap();
         ledger.accept(id, "bench", "r").unwrap();
     }
     let mut sink = ledger.into_witness_sink();
-    sink.flush();
+    sink.seal();
     let pk = sink.public_key();
 
     let mut forged = sink.inner().clone();
@@ -157,7 +160,8 @@ fn diligent_forgery_is_rejected(strategy: SigningStrategy) -> bool {
     forged.committed_count = forged.records.len() as u64;
 
     let chain_walk_alone_passes = forged.verify_chain();
-    let signed_check_passes = verify_signed_chain(&forged, sink.spans(), &pk);
+    let signed_check_passes =
+        verify_signed_chain(&forged, sink.spans(), &pk, &SignedAnchor::genesis()).is_ok();
     // The whole point of signing: the unsigned chain walk is fooled, the
     // signed check is not.
     chain_walk_alone_passes && !signed_check_passes

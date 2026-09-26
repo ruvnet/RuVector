@@ -170,7 +170,7 @@ now require zero new code, just wrapping the sink at the call site.
 ## References
 
 - `docs/adr/ADR-134-witness-schema-log-format.md`
-- `docs/adr/ADR-346-witness-signer-tarl-ledger.md` (this work's ADR)
+- `docs/adr/ADR-347-witness-signer-tarl-ledger.md` (this work's ADR)
 - `docs/research/nightly/2026-08-31-signed-retrieval-receipts/README.md`
 - `docs/research/nightly/2026-09-05-mincut-gated-forgetting/README.md`
 - Full methodology, benchmark reproduction command, and complete

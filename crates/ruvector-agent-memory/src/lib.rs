@@ -89,7 +89,8 @@ pub use ops::{
 };
 pub use scoring::{coherence_score, cosine_sim, normalize};
 pub use witness_signing::{
-    verify_signed_chain, SignPurpose, SignedSpan, SignedWitnessSink, SigningStrategy,
+    verify_signed_chain, SignPurpose, SignedAnchor, SignedChainError, SignedChainReport,
+    SignedSpan, SignedWitnessSink, SigningStrategy, WitnessSignerError,
 };
 pub use witnessed_compaction::{compact_witnessed, EvictionWitnessChain};
 
