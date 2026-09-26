@@ -107,7 +107,7 @@ def export(m, path, vectors=None, bits=16):
         out.append(f'static const rd_row rd_{name}[] = {{' + ','.join(descriptors) + '};')
     if m["bias"]: out.append('static const float rd_bias[] = {' + ','.join(map(number, m["bias"])) + '};')
     out.append('static const char *const rd_labels[] = {' + ','.join(map(cstring, m["labels"])) + '};')
-    out += [f'#define RD_MODEL_DIMS {m["dims"]}', f'#define RD_MODEL_HASH "{digest}"', f'#define RD_MODEL_ID {cstring(m["model_id"])}',
+    out += [f'#define RD_MODEL_DIMS {m["dims"]}', f'#define RD_MODEL_CLASSES {len(m["labels"])}', f'#define RD_MODEL_HASH "{digest}"', f'#define RD_MODEL_ID {cstring(m["model_id"])}',
             f'#define RD_QUESTION_ID {cstring(m["question_id"])}',
             f'#define RD_PARAMETER_BYTES {weight_bytes + len(m["bias"])*4}',
             f'#define RD_FLOAT_PARAMETER_BYTES {float_bytes + len(m["bias"])*4}']

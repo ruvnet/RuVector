@@ -15,6 +15,7 @@ static const rd_row rd_weights[] = {{rd_weights_0, 32, 9.88217507e-05f},{rd_weig
 static const float rd_bias[] = {0.01178673f,-0.0117494315f,-3.7348851e-05f};
 static const char *const rd_labels[] = {"\143\154\141\163\163\060","\143\154\141\163\163\061","\143\154\141\163\163\062"};
 #define RD_MODEL_DIMS 32
+#define RD_MODEL_CLASSES 3
 #define RD_MODEL_HASH "46d0aa27d851a3d77ec0609812718b465b45aa12766328b68f0b0fa90f812bf2"
 #define RD_MODEL_ID "\163\171\156\164\150\145\164\151\143\055\156\165\155\145\162\151\143\055\146\145\141\164\165\162\145\163\055\166\061"
 #define RD_QUESTION_ID "\144\145\143\151\163\151\157\156"

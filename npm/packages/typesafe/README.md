@@ -386,6 +386,31 @@ for an exact S3 replay and warmed heap check. The shipped production builds
 recover 16,384 static bytes and reduce application flash by 1,008 bytes on
 S3 and 1,040 bytes on C6 relative to the same model with full profiling.
 
+Firmware also defaults to `RD_MODEL_SIZED_WORKSPACE=ON`, sizing workspace
+and context to the immutable model. For the five feature occupancy model,
+workspace falls from 1,732 to 40 bytes and context from 32 to 20 bytes: another
+1,704 static bytes recovered on each MCU. Matching production images save
+1,008 additional flash bytes on S3 and 608 on C6. Generic library callers keep
+the original 768 feature / 16 class capacities. All firmware consumers receive
+identical capacity definitions; changing the model header triggers CMake
+reconfiguration. Legacy headers without class metadata keep 16 class slots.
+Use `-DRD_MODEL_SIZED_WORKSPACE=OFF` to restore generic firmware capacity.
+
+To reproduce the comparison, build two production images with the same model
+and target in separate directories, using `OFF` for `build-generic` and `ON`
+for `build-compact`, then run:
+
+```sh
+python3 tools/workspace_check.py --generic build-generic --compact build-compact \
+  --output build-compact/workspace.json
+# For S3, add --qemu /path/to/qemu-system-xtensa --vectors build-sensor/validation.json
+```
+
+The checker verifies linked storage and ABI definitions. Optional S3 replay
+requires exact replies and stable warmed heap. Run `python3 tools/lab.py` with
+GCC, Cargo and CMake on PATH for the complete host acceptance suite. Memory
+savings do not establish a physical speed, energy or deployment readiness gain.
+
 `python3 tools/coverage_lab.py` tests three fixed abstention settings using a
 separate 1,440-row calibration day. Training and preprocessing exclude this
 day. Selection requires useful coverage and accepted accuracy for both classes;

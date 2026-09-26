@@ -4,8 +4,21 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* These capacities are part of the ABI. Every translation unit using this
+ * header must receive the same definitions. Generic callers retain the full
+ * envelope; firmware may specialize to its immutable compiled model. */
+#ifndef RD_MAX_DIMS
 #define RD_MAX_DIMS 768
+#endif
+#ifndef RD_MAX_CLASSES
 #define RD_MAX_CLASSES 16
+#endif
+#if RD_MAX_DIMS < 1 || RD_MAX_DIMS > 768
+#error "RD_MAX_DIMS must be between 1 and 768"
+#endif
+#if RD_MAX_CLASSES < 1 || RD_MAX_CLASSES > 16
+#error "RD_MAX_CLASSES must be between 1 and 16"
+#endif
 #define RD_VERSION 1
 typedef enum { RD_CHOICE, RD_SCORE, RD_NOUL } rd_kind;
 typedef enum { RD_PROTOTYPE, RD_PROBE, RD_LOGISTIC, RD_SIMILARITY } rd_head;

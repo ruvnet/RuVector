@@ -1,0 +1,132 @@
+{
+  "execution": "linked ELF analysis",
+  "physical_hardware": false,
+  "generic": {
+    "target": "esp32c6",
+    "model_sha256": "2ee5358efb5ade96d6892b71ab1ffac4d0794704dfc5b6877fc3dd77fc0d69e4",
+    "image_sha256": "42a29b7f76c8a1bd4f630da3b2bc937b4736694822bf372cfc6559ea3e35a2da",
+    "application_bytes": 156288,
+    "elf_sha256": "bb839c224a71a83389b7cb94299ae6da9459f1088631b3bb75443629db34a843",
+    "profile_arrays": {},
+    "profile_buffer_bytes": 0,
+    "sections": {
+      ".rtc.text": 0,
+      ".rtc.force_fast": 0,
+      ".rtc_noinit": 0,
+      ".rtc.force_slow": 0,
+      ".rtc_reserved": 24,
+      ".iram0.text": 46294,
+      ".iram0.text_end": 2,
+      ".iram0.data": 8,
+      ".iram0.bss": 0,
+      ".dram0.data": 5349,
+      ".noinit": 3,
+      ".dram0.bss": 5720,
+      ".flash.text": 73536,
+      ".flash_rodata_dummy": 131072,
+      ".flash.appdesc": 256,
+      ".flash.rodata": 30740,
+      ".eh_frame_hdr": 0,
+      ".eh_frame": 0,
+      ".flash.tdata": 0,
+      ".dram0.heap_start": 8,
+      ".debug_aranges": 18832,
+      ".debug_info": 1452816,
+      ".debug_abbrev": 149384,
+      ".debug_line": 772668,
+      ".debug_frame": 74656,
+      ".debug_str": 216079,
+      ".debug_loc": 415899,
+      ".debug_ranges": 74256,
+      ".debug_line_str": 4923,
+      ".debug_loclists": 18091,
+      ".debug_rnglists": 1479,
+      ".comment": 47,
+      ".riscv.attributes": 106
+    },
+    "static_symbols": {
+      "ctx": 32,
+      "workspace": 1732
+    },
+    "consumer_capacities": {
+      "rvdecision.c": {},
+      "main.c": {},
+      "app.c": {},
+      "profile.c": {},
+      "sensor.c": {}
+    }
+  },
+  "compact": {
+    "target": "esp32c6",
+    "model_sha256": "2ee5358efb5ade96d6892b71ab1ffac4d0794704dfc5b6877fc3dd77fc0d69e4",
+    "image_sha256": "3bfe9d275bbe1426cca901fb91209f6e5400933f38462c4c951c4ccd3aee495a",
+    "application_bytes": 155680,
+    "elf_sha256": "306515332e6e9c1672c89afbc6bd55a893ee326ea1a7f29e266e93be5585f217",
+    "profile_arrays": {},
+    "profile_buffer_bytes": 0,
+    "sections": {
+      ".rtc.text": 0,
+      ".rtc.force_fast": 0,
+      ".rtc_noinit": 0,
+      ".rtc.force_slow": 0,
+      ".rtc_reserved": 24,
+      ".iram0.text": 46294,
+      ".iram0.text_end": 2,
+      ".iram0.data": 8,
+      ".iram0.bss": 0,
+      ".dram0.data": 5349,
+      ".noinit": 3,
+      ".dram0.bss": 4016,
+      ".flash.text": 73426,
+      ".flash_rodata_dummy": 131072,
+      ".flash.appdesc": 256,
+      ".flash.rodata": 30236,
+      ".eh_frame_hdr": 0,
+      ".eh_frame": 0,
+      ".flash.tdata": 0,
+      ".dram0.heap_start": 0,
+      ".debug_aranges": 18832,
+      ".debug_info": 1452729,
+      ".debug_abbrev": 149245,
+      ".debug_line": 773599,
+      ".debug_frame": 74572,
+      ".debug_str": 216079,
+      ".debug_loc": 416480,
+      ".debug_ranges": 74320,
+      ".debug_line_str": 4923,
+      ".debug_loclists": 18091,
+      ".debug_rnglists": 1479,
+      ".comment": 47,
+      ".riscv.attributes": 106
+    },
+    "static_symbols": {
+      "ctx": 20,
+      "workspace": 40
+    },
+    "consumer_capacities": {
+      "rvdecision.c": {
+        "RD_MAX_CLASSES": "2",
+        "RD_MAX_DIMS": "5"
+      },
+      "main.c": {
+        "RD_MAX_CLASSES": "2",
+        "RD_MAX_DIMS": "5"
+      },
+      "app.c": {
+        "RD_MAX_CLASSES": "2",
+        "RD_MAX_DIMS": "5"
+      },
+      "profile.c": {
+        "RD_MAX_CLASSES": "2",
+        "RD_MAX_DIMS": "5"
+      },
+      "sensor.c": {
+        "RD_MAX_CLASSES": "2",
+        "RD_MAX_DIMS": "5"
+      }
+    },
+    "model_configure_dependency_verified": true
+  },
+  "static_symbol_bytes_recovered": 1704,
+  "application_bytes_recovered": 608
+}

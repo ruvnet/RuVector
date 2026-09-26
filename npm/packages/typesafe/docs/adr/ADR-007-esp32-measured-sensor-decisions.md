@@ -124,6 +124,57 @@ It was rejected. The default model remains unchanged. A separate room/device
 dataset is required before any deployment claim. The lab removes stale
 candidate headers on rejection and records the rejection for future work.
 
+## Follow up: compile workspace capacity from the immutable model
+
+Firmware builds now default to `RD_MODEL_SIZED_WORKSPACE=ON`. Read literal
+`RD_MODEL_DIMS` and `RD_MODEL_CLASSES` exporter metadata and propagate bounded
+`RD_MAX_DIMS` / `RD_MAX_CLASSES` definitions through the component's PUBLIC
+interface. All consumers must share these values: workspace, result and
+context layouts are part of the ABI. Models still support at most 768 features
+and 16 classes. Generic C callers retain those original defaults. Legacy
+headers without class metadata retain 16 class slots. The model header is a
+CMake configure dependency, so replacing it refreshes the capacities.
+
+This changes storage layout only. Model digest, weights, preprocessing,
+thresholds and kernel arithmetic are unchanged. A model exceeding compiled
+capacity fails initialization before accessing its rows. Invalid or duplicate
+capacity metadata fails configuration. Rollback is an explicit
+`-DRD_MODEL_SIZED_WORKSPACE=OFF` rebuild with the same frozen model.
+
+For the five feature, two class INT8 occupancy model, workspace drops from
+1,732 to 40 bytes. Context drops from 32 to 20 bytes on both MCUs. Linked
+static symbols therefore recover 1,704 bytes per target in addition to the
+earlier optional profiling savings. With profiling disabled in both variants,
+application flash drops 1,008 bytes on S3 and 608 bytes on C6. Golden result
+storage also shrinks; this is not a change to model parameter bytes.
+
+Acceptance uses independent generic and compact executables because their
+public struct layouts differ. Require exact semantic replies for every head,
+INT8/INT16 fixtures, all three kernel profiles, and 574 occupancy regression
+rows; verify both target builds, every component's compile definitions and
+linked symbols. `tools/workspace_check.py` records images, sections, compiler
+propagation and optional S3 emulator replay with warmed heap checks. Static
+memory recovery is directly measurable without physical latency evidence.
+No new accuracy, calibration, speed or energy claim follows from this change.
+
+The immediate campaign also invoked the real MetaHarness `decidePromotion`
+entrypoint at commit `d5833dc6512ac1adeeef91a331c29055cd8a4dbb` through
+`tools/workspace_gate.mjs`. The explicit score is the fraction of linked
+workspace and context bytes removed, not accuracy or speed. The adapter checks
+frozen inputs, compiled artifact hashes, replay and lab receipts before calling
+the source gate, and rejects missing evidence. It sets `hiddenTestPassed=false`:
+existing regression data is not unseen evaluation. The upstream bootstrap
+wording does not turn deterministic linked sizes into a timing confidence
+interval. Source hashes pin the invoked functions.
+
+Autogenous at `905aa6cbe213392f8b3cab5d4f17bc3a48e0a509` passed 19 upstream
+host tests. Its actual `MutationScope::ApplicationCode.auto_promotable()`
+entrypoint returned false, preserving PR review as the delivery boundary.
+Firmware safety probabilities and real latency are unavailable, so its fitness
+hard gates were not populated with invented values. Neither harness result
+permits an automatic merge, flash or deployment. The standalone `ruvnet/rsi`
+repository remained unresolved; no standalone RSI invocation is claimed.
+
 ## Sources
 
 * https://archive.ics.uci.edu/dataset/357/occupancy+detection

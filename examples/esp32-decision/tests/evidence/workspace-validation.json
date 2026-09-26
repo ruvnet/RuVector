@@ -1,0 +1,37 @@
+{
+  "parent": "5ab62b70fddce9b3436b69f69bdc4e22e43b0227",
+  "physical_hardware": false,
+  "rust_tests_passed": 57,
+  "python_tests_passed": 27,
+  "workspace_fixture_profile_pairs": 24,
+  "exact_fixture_replay_rows": 24000,
+  "exact_sensor_replay_rows": 574,
+  "exact_s3_emulator_rows": 574,
+  "native_kernel_pairs": 11,
+  "target_builds": [
+    "esp32s3-generic",
+    "esp32s3-compact",
+    "esp32c6-generic",
+    "esp32c6-compact"
+  ],
+  "rust_fmt": "pass",
+  "rust_clippy": "pass",
+  "sanitizers": "address and undefined behavior enabled; leak sanitizer disabled because runtime uses ptrace",
+  "acceptance": "pass",
+  "retained_scope": "static workspace and context storage only; no model selection or arithmetic change",
+  "coverage_candidate_retained": false,
+  "rollback": "Rebuild same model with -DRD_MODEL_SIZED_WORKSPACE=OFF",
+  "logs_sha256": {
+    "lab.log": "b3572c8311769c9b96bf0560ed1f44dd84a76744d0646ee3975b3377b12d23a6",
+    "host-tests.log": "6677c8994b7277f2830103ee2026d6fadf48cdd56d8799ae665eaedb8b299012",
+    "qemu.log": "aafcbf12f18e2ad49e1f63555f10ffda45624b0e30958b2aee6e5f486e779994",
+    "fmt.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "clippy.log": "aa857ac6cd557760f27d74e15d4cbb8afc422cbf8861deb7b14f4271032d111e"
+  },
+  "source_sha256": {
+    "tools/workspace_check.py": "b88b45d98a0b920235e32e3ce7501eb980e05564b4088a434e01586e00b4cf53",
+    "tools/workspace_gate.mjs": "75c92dc2b54240fe042559f262e816c085af2397ea983bd0d68291e029dffa2c",
+    "tests/test_workspace.py": "c6c172f1c07a082255f890ba31b9a59f730ae36de8a53a0ef69d49760a34ed6e",
+    "components/rvdecision/model_capacity.cmake": "add780c43765970e618a669976283ba3075c3d54a30fea693bfef25302dbce34"
+  }
+}

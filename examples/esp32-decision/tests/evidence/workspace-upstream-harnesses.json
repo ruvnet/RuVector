@@ -1,0 +1,40 @@
+{
+  "kind": "upstream_offline_gate_verification",
+  "firmware_candidate_evaluated": false,
+  "metaharness": {
+    "repository": "https://github.com/ruvnet/metaharness",
+    "commit": "d5833dc6512ac1adeeef91a331c29055cd8a4dbb",
+    "command": "node metaharness-smoke.mjs",
+    "entrypoints": [
+      "packages/darwin-mode/src/bench/promotion.ts:decidePromotion",
+      "packages/darwin-mode/src/bench/gates.ts:evaluateGates"
+    ],
+    "checks_passed": 8,
+    "evidence": "metaharness-smoke.json"
+  },
+  "autogenous": {
+    "repository": "https://github.com/ruvnet/autogenous",
+    "commit": "905aa6cbe213392f8b3cab5d4f17bc3a48e0a509",
+    "command": "cargo test --locked --offline --manifest-path autogenous/Cargo.toml -p promotion -p agl-types",
+    "entrypoints": [
+      "crates/agl-types/src/lib.rs:FitnessVector::passes_hard_gates",
+      "crates/promotion/src/lib.rs:CanaryController::observe"
+    ],
+    "tests_passed": 19,
+    "tests_failed": 0,
+    "evidence": "autogenous-tests.log",
+    "source_sha256": {
+      "autogenous/crates/agl-types/src/lib.rs": "fca8685a02dd393eda713bb0b9f3163a00e2c92ac3e4d37dd1e78ed6dc850be5",
+      "autogenous/crates/promotion/src/lib.rs": "019a847596f33bf4abe7817009d8571e7150a71a52bf471f26feae0d44ae8946",
+      "autogenous/crates/promotion/tests/lifecycle.rs": "af56e6ccb7d9c0953744b1f17acee643e4f7e496dd52ddbb52946aad7318feb9",
+      "autogenous/Cargo.lock": "abc4fe99f2326072b7fb097993a73d701f0146a666944671767f2994b16817df"
+    }
+  },
+  "limitations": [
+    "No firmware candidate evaluated by this source smoke run.",
+    "MetaHarness stats bootstrap samples individual independent differences; it is not the campaign paired mean bootstrap.",
+    "Autogenous passes_hard_gates does not gate task_quality or reliability itself; caller needs explicit firmware quality and coverage gates.",
+    "Autogenous ApplicationCode scope is not auto promotable; deliver PR for review, no automatic production actuation.",
+    "Rollback smoke is upstream host simulation, not proof of firmware rollback on physical devices."
+  ]
+}

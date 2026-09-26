@@ -1,0 +1,24 @@
+{
+  "owner": "esp32-immediate-20260926T0216Z",
+  "parent": "5ab62b70fddce9b3436b69f69bdc4e22e43b0227",
+  "hypothesis": "Specializing workspace capacities to immutable model reduces linked static memory with exact decisions",
+  "selection": "one candidate, no training or threshold changes",
+  "gates": [
+    "same model digest",
+    "exact semantic replay",
+    "generic ABI defaults preserved",
+    "out of envelope capacities rejected",
+    "S3/C6 builds",
+    "linked workspace/context bytes reduced"
+  ],
+  "frozen": {
+    "components/rvdecision/rvdecision.c": "b9d41b7589740df3cd442ac1bf02ba0c52f98bda4aca58f979316e353bdd4d40",
+    "tools/e2e.py": "30ff546678ccac0bcf8ba7408e00d2f38fa1766fa57901f3c02d0438c4007df0",
+    "tools/sensor_lab.py": "13ee20840c518336723f6c653401325a4e209894763fbb68c993283ae5fb4f33",
+    "tools/coverage_lab.py": "aac32120275a75b554c4092fb5d1d9e851161cead381ab4b226fc9b378b40633",
+    "tools/rig.py": "e26b0edc46c1121e75aad9fbf1a2ec7a8bfccc9a2419b20a9027f39d0104bea8",
+    "tools/transport.py": "c0f15d52f924b5db8b2f57921c3bbd2ad4c13938fbf49824ad071be2a634f917",
+    "build-sensor/snapshot.json": "ef3849e5c06104976b61fe0c2cde506f4973f5f6699d904d1cda2686ad86f32c",
+    "build-sensor/validation.json": "527e020a648854ab35c6b07241ce091721bf413b1294c57dbfe3a11a0834d9ea"
+  }
+}
