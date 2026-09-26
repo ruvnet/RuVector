@@ -56,7 +56,11 @@ pub async fn create_router() -> (Router, AppState) {
     tokio::spawn(async move {
         store_hydrate.load_from_firestore().await;
         let count = store_hydrate.memory_count();
-        tracing::info!("Firestore hydration complete: {} memories", count);
+        tracing::info!(
+            "Firestore hydration complete: {} memories ({} partial collection(s))",
+            count,
+            store_hydrate.hydration_errors()
+        );
         if count > 0 {
             let mems = store_hydrate.all_memories();
             let mut g = graph_hydrate.write();
@@ -1407,10 +1411,48 @@ fn validate_nonce(state: &AppState, nonce: &Option<String>) -> Result<(), (Statu
 
 /// Guard: reject writes when the negative-cost fuse is tripped.
 fn check_read_only(state: &AppState) -> Result<(), (StatusCode, String)> {
-    if state.read_only.load(Ordering::Relaxed) {
+    write_gate(
+        state.read_only.load(Ordering::Relaxed),
+        state.store.is_hydrated(),
+        state.store.hydration_errors(),
+    )
+}
+
+/// Gate for every mutating endpoint.
+///
+/// Besides the explicit read-only switch, writes are refused while the
+/// background Firestore hydration is still running: the cache then holds only
+/// part of the corpus, and write-through paths such as
+/// `get_or_create_contributor` would PATCH cold-start documents over records
+/// that exist in Firestore but have not been loaded yet (contributors load
+/// after all ~60K memories). Training/optimize endpoints would likewise run on
+/// a partial corpus and persist the result (e.g. `brain_lora/consensus`).
+///
+/// A hydration that finished with aborted collections (`hydration_errors > 0`,
+/// e.g. brain_contributors loaded 0 docs after page errors) keeps writes
+/// closed for the life of the instance: a write-dead instance is recoverable
+/// by recycling it, an overwritten Firestore document is not.
+pub(crate) fn write_gate(
+    read_only: bool,
+    hydrated: bool,
+    hydration_errors: usize,
+) -> Result<(), (StatusCode, String)> {
+    if read_only {
         Err((
             StatusCode::SERVICE_UNAVAILABLE,
             "Server is in read-only mode".into(),
+        ))
+    } else if !hydrated {
+        Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Server is hydrating from Firestore; writes are disabled until it completes".into(),
+        ))
+    } else if hydration_errors > 0 {
+        Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            format!(
+                "Firestore hydration was partial ({hydration_errors} collection(s) incomplete); writes are disabled on this instance"
+            ),
         ))
     } else {
         Ok(())
@@ -2783,6 +2825,8 @@ async fn status(State(state): State<AppState>) -> Json<StatusResponse> {
 
     let resp = StatusResponse {
         total_memories: state.store.memory_count(),
+        hydrating: !state.store.is_hydrated(),
+        hydration_errors: state.store.hydration_errors(),
         total_contributors: state.store.contributor_count(),
         graph_nodes: graph.node_count(),
         graph_edges: graph.edge_count(),
