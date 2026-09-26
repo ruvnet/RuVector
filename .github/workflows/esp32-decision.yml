@@ -69,6 +69,14 @@ jobs:
           . /opt/esp/idf/export.sh
           idf.py -B build-${{ matrix.chip }} -DIDF_TARGET=${{ matrix.chip }} -DSDKCONFIG=sdkconfig.${{ matrix.chip }} build
           idf.py -B build-${{ matrix.chip }} merge-bin
+      - name: Build USB-Serial/JTAG console variant
+        if: contains(fromJSON('["esp32s3","esp32c3","esp32c6","esp32h2","esp32p4"]'), matrix.chip)
+        shell: bash
+        working-directory: examples/esp32-decision
+        run: |
+          . /opt/esp/idf/export.sh
+          idf.py -B build-usbjtag-${{ matrix.chip }} -DIDF_TARGET=${{ matrix.chip }} -DSDKCONFIG=build-usbjtag-${{ matrix.chip }}/sdkconfig -DRD_USB_SERIAL_JTAG=ON build merge-bin
+          grep -q '^CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y' build-usbjtag-${{ matrix.chip }}/sdkconfig
       - if: matrix.chip == 'esp32s3' || matrix.chip == 'esp32c6'
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -103,6 +111,7 @@ jobs:
             examples/esp32-decision/build-${{ matrix.chip }}/ruvector_decision.elf
             examples/esp32-decision/build-${{ matrix.chip }}/flasher_args.json
             examples/esp32-decision/build-${{ matrix.chip }}/ruvector_decision.bin
+            examples/esp32-decision/build-usbjtag-${{ matrix.chip }}/merged-binary.bin
             examples/esp32-decision/build-sensor-pair/*/merged-binary.bin
             examples/esp32-decision/build-sensor-pair/manifest.json
             examples/esp32-decision/build-production-${{ matrix.chip }}/merged-binary.bin

@@ -440,6 +440,27 @@ evidence is in `tests/evidence/hexinput-esp32c6-physical.json`. Hosts that
 need maximum request throughput should send `inferx` or `sensorx`. Decimal
 input remains for people typing commands by hand.
 
+## Follow up: USB-Serial/JTAG console for boards without a UART bridge
+
+Many S3, C3, C6, H2 and P4 boards have only the chip's built-in
+USB-Serial/JTAG port. Configuring with `-DRD_USB_SERIAL_JTAG=ON` adds the
+driver to the component list and applies `sdkconfig.usbjtag`. The command
+loop then installs the USB-Serial/JTAG driver, routes stdio through it, and
+reads commands from it instead of UART0. The protocol, OTA, model and kernel
+are unchanged. The option is opt-in because requiring the driver
+unconditionally cost UART builds 986 bytes of static DIRAM and about 2 KB of
+free heap on the C6. Kconfig values are not visible when IDF expands
+component requirements, so the driver is linked after registration. UART
+builds are byte-for-byte the previous configuration: the C6 has 76,791 DIRAM
+bytes, and the physical C6 reports 440,308 bytes of free heap, a 174.6 µs
+bench and a passing self-test.
+
+All five USB-capable targets build with the option in the pinned container,
+and CI builds them. **Hardware status:** none of these USB-console images has
+run on silicon. The attached C6 is connected only through its CP210x UART
+bridge, so this is build-only evidence until a board's native USB port is
+connected.
+
 ## Sources
 
 * https://archive.ics.uci.edu/dataset/357/occupancy+detection

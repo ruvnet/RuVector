@@ -1,5 +1,15 @@
 cmake_minimum_required(VERSION 3.16)
 set(COMPONENTS main)
+option(RD_USB_SERIAL_JTAG "Use the chip's built-in USB-Serial/JTAG port instead of UART0" OFF)
+if(RD_USB_SERIAL_JTAG)
+    # Boards without a USB-UART bridge (S3, C3, C6, H2, P4). UART builds do not
+    # link the driver, so their measured RAM footprint is unchanged.
+    list(APPEND COMPONENTS esp_driver_usb_serial_jtag vfs)
+    if(NOT SDKCONFIG_DEFAULTS)
+        set(SDKCONFIG_DEFAULTS "sdkconfig.defaults")
+    endif()
+    list(APPEND SDKCONFIG_DEFAULTS "sdkconfig.usbjtag")
+endif()
 set(RD_MODEL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/main" CACHE PATH "Directory containing model.h")
 set(RD_KERNEL_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/components/rvdecision/rvdecision.c" CACHE FILEPATH "Frozen kernel source for paired builds")
 option(RD_MODEL_SIZED_WORKSPACE "Size firmware workspace to the immutable model" ON)

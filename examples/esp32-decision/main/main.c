@@ -9,6 +9,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "sdkconfig.h"
+#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
+#include "driver/usb_serial_jtag.h"
+#include "driver/usb_serial_jtag_vfs.h"
+#endif
 #include <stdio.h>
 
 uint64_t rd_clock_us(void) { return (uint64_t)esp_timer_get_time(); }
@@ -38,10 +42,19 @@ void rd_marker(bool active) {
 }
 void app_main(void) {
     setvbuf(stdout, NULL, _IONBF, 0);
+#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
+    /* Boards without a USB-UART bridge: commands and replies use the chip's
+       built-in USB-Serial/JTAG port (S3, C3, C6, H2, P4). */
+    usb_serial_jtag_driver_config_t usb = USB_SERIAL_JTAG_DRIVER_CONFIG_DEFAULT();
+    usb.rx_buffer_size = 2048;
+    ESP_ERROR_CHECK(usb_serial_jtag_driver_install(&usb));
+    usb_serial_jtag_vfs_use_driver();
+#else
     /* UART0 115200 on the board's default TX/RX pins; USB-UART bridge.
        No Wi-Fi, PSRAM or external inference service required. */
     ESP_ERROR_CHECK(uart_driver_install(UART_NUM_0, 2048, 0, 0, NULL, 0));
     ESP_ERROR_CHECK(uart_set_baudrate(UART_NUM_0, 115200));
+#endif
     if(CONFIG_RD_BENCH_GPIO>=0) {
         ESP_ERROR_CHECK(gpio_reset_pin(CONFIG_RD_BENCH_GPIO));
         ESP_ERROR_CHECK(gpio_set_direction(CONFIG_RD_BENCH_GPIO,GPIO_MODE_OUTPUT));
@@ -52,7 +65,11 @@ void app_main(void) {
     if (!healthy) return;
     uint8_t bytes[128];
     for (;;) {
+#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
+        int n = usb_serial_jtag_read_bytes(bytes, sizeof(bytes), pdMS_TO_TICKS(50));
+#else
         int n = uart_read_bytes(UART_NUM_0, bytes, sizeof(bytes), pdMS_TO_TICKS(50));
+#endif
         for (int i = 0; i < n; ++i) {
             if (rd_ota_receiving()) rd_ota_byte(bytes[i]);
             else rd_app_byte(bytes[i]);
