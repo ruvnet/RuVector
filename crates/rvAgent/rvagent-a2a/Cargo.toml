@@ -8,8 +8,8 @@ repository = "https://github.com/ruvnet/RuVector"
 
 [dependencies]
 # Intra-workspace rvAgent crates
-rvagent-core = { path = "../rvagent-core" }
-rvagent-middleware = { path = "../rvagent-middleware" }
+rvagent-core = { version = "0.1.0", path = "../rvagent-core" }
+rvagent-middleware = { version = "0.1.0", path = "../rvagent-middleware" }
 
 # Workspace deps
 serde = { workspace = true }
