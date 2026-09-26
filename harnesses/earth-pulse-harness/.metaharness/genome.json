@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "repo_type": "research-harness",
+  "archetype": "causal-discovery-benchmark",
+  "domain": "geophysics/seismology",
+  "agent_topology": ["investigator", "feature-engineer", "hypothesis-scorer", "validator"],
+  "mcp_surface": "local_default_deny",
+  "risk_score": 0.31,
+  "test_confidence": 0.6,
+  "publish_readiness": 0.5,
+  "discovery_score_weights": {
+    "source_stability": 0.25,
+    "environmental_correlation": 0.20,
+    "out_of_sample_prediction": 0.20,
+    "contradiction_survival": 0.15,
+    "mechanistic_plausibility": 0.10,
+    "citation_grounding": 0.10
+  },
+  "baselines": [
+    "seasonal_monthly_average",
+    "swell_height_only",
+    "swell_direction_plus_shelf_normal",
+    "tide_phase_only",
+    "volcanic_proxy_to_glides"
+  ],
+  "default_hypotheses": [
+    "ocean-shelf-resonance",
+    "coupled-ocean-geology",
+    "volcanic-source",
+    "instrument-artifact"
+  ]
+}

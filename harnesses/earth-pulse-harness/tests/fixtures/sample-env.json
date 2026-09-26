@@ -1,0 +1,9 @@
+{
+  "swellHeightM": 2.4,
+  "swellPeriodS": 14,
+  "swellDirectionDeg": 210,
+  "tidePhase": 0.5,
+  "barometricGradient": 0.8,
+  "volcanicProxyScore": 0.1,
+  "sourceRegion": "Gulf of Guinea"
+}

@@ -1,0 +1,129 @@
+{
+ "station": "GT.DBIC",
+ "channel": "LHZ",
+ "source": "IRIS/EarthScope FDSN timeseries",
+ "precise_frequency": {
+  "method": "288h Jan-1995 median PSD, 16384-pt, wide-band 0.0340-0.0400 Hz, parabolic interpolation",
+  "f0_Hz": 0.03607,
+  "periodS": 27.72,
+  "prominence": 2.05,
+  "prominence_at_canonical_26s": 0.82,
+  "prominence_at_27_7s": 2.05,
+  "note": "Canonical 26.0 s shows no excess (<1x); dominant line is 27.7 s."
+ },
+ "replication_by_year": {
+  "1995": {
+   "n": 31,
+   "freqCvPct": 0.67,
+   "meanPeriodS": 27.77,
+   "amplitudeRange": 11.1,
+   "freqAmpCorr": 0.059,
+   "corr_line_secondary": -0.207,
+   "permutation_p": 0.257
+  },
+  "1996": {
+   "n": 28,
+   "freqCvPct": 0.64,
+   "meanPeriodS": 27.76,
+   "amplitudeRange": 13.6,
+   "freqAmpCorr": 0.081,
+   "corr_line_secondary": -0.143,
+   "permutation_p": 0.476
+  },
+  "1997": {
+   "n": 29,
+   "freqCvPct": 0.53,
+   "meanPeriodS": 27.71,
+   "amplitudeRange": 36.5,
+   "freqAmpCorr": 0.247,
+   "corr_line_secondary": 0.247,
+   "permutation_p": 0.178
+  },
+  "1998": {
+   "n": 23,
+   "freqCvPct": 0.65,
+   "meanPeriodS": 27.71,
+   "amplitudeRange": 5.2,
+   "freqAmpCorr": 0.028,
+   "corr_line_secondary": 0.116,
+   "permutation_p": 0.591
+  }
+ },
+ "gold_samples": {
+  "rule": "lineExcess top-third AND secondary bottom-third (strong 26s during quiet local seas)",
+  "count": 10,
+  "total": 111,
+  "windows": [
+   {
+    "date": "1995-06-14",
+    "periodS": 27.77,
+    "lineExcess": 82100,
+    "secondary": 1580000,
+    "snr": 9.5
+   },
+   {
+    "date": "1996-06-22",
+    "periodS": 27.77,
+    "lineExcess": 81400,
+    "secondary": 1840000,
+    "snr": 3.7
+   },
+   {
+    "date": "1995-08-14",
+    "periodS": 27.49,
+    "lineExcess": 60600,
+    "secondary": 1620000,
+    "snr": 7.2
+   },
+   {
+    "date": "1998-05-06",
+    "periodS": 27.77,
+    "lineExcess": 53600,
+    "secondary": 1510000,
+    "snr": 16.4
+   },
+   {
+    "date": "1995-11-22",
+    "periodS": 27.96,
+    "lineExcess": 40400,
+    "secondary": 2180000,
+    "snr": 2.6
+   },
+   {
+    "date": "1996-03-22",
+    "periodS": 27.96,
+    "lineExcess": 37000,
+    "secondary": 1980000,
+    "snr": 4.1
+   },
+   {
+    "date": "1996-09-06",
+    "periodS": 27.68,
+    "lineExcess": 36500,
+    "secondary": 1890000,
+    "snr": 2.3
+   },
+   {
+    "date": "1998-07-14",
+    "periodS": 27.68,
+    "lineExcess": 34200,
+    "secondary": 1550000,
+    "snr": 8.4
+   },
+   {
+    "date": "1996-08-06",
+    "periodS": 27.58,
+    "lineExcess": 33500,
+    "secondary": 1290000,
+    "snr": 8.2
+   },
+   {
+    "date": "1996-07-14",
+    "periodS": 27.68,
+    "lineExcess": 32300,
+    "secondary": 1640000,
+    "snr": 3.2
+   }
+  ]
+ }
+}

@@ -1,0 +1,3462 @@
+{
+  "station": "GT.DBIC",
+  "channel": "LHZ",
+  "segments": 252,
+  "resolutionHz": 0.0001220703125,
+  "band": [
+    0.033,
+    0.045
+  ],
+  "line": {
+    "periodS": 27.675675675675677,
+    "freqHz": 0.0361328125,
+    "prominence": 2.15893888831076,
+    "psd": 25241.048503467893
+  },
+  "spectrum": [
+    {
+      "freqHz": 0.02002,
+      "periodS": 49.951,
+      "psd": 3682.860147341729,
+      "prominence": 1.086
+    },
+    {
+      "freqHz": 0.020142,
+      "periodS": 49.648,
+      "psd": 3863.885215271006,
+      "prominence": 1.192
+    },
+    {
+      "freqHz": 0.020264,
+      "periodS": 49.349,
+      "psd": 3417.2961153602087,
+      "prominence": 1.054
+    },
+    {
+      "freqHz": 0.020386,
+      "periodS": 49.054,
+      "psd": 2887.93279898025,
+      "prominence": 0.862
+    },
+    {
+      "freqHz": 0.020508,
+      "periodS": 48.762,
+      "psd": 3467.01968062354,
+      "prominence": 1.069
+    },
+    {
+      "freqHz": 0.02063,
+      "periodS": 48.473,
+      "psd": 2990.475545328206,
+      "prominence": 0.926
+    },
+    {
+      "freqHz": 0.020752,
+      "periodS": 48.188,
+      "psd": 3242.2833544784216,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.020874,
+      "periodS": 47.906,
+      "psd": 3187.4241135591064,
+      "prominence": 0.983
+    },
+    {
+      "freqHz": 0.020996,
+      "periodS": 47.628,
+      "psd": 2732.3834867862925,
+      "prominence": 0.843
+    },
+    {
+      "freqHz": 0.021118,
+      "periodS": 47.353,
+      "psd": 2889.4895699818267,
+      "prominence": 0.891
+    },
+    {
+      "freqHz": 0.02124,
+      "periodS": 47.08,
+      "psd": 3779.587526764707,
+      "prominence": 1.166
+    },
+    {
+      "freqHz": 0.021362,
+      "periodS": 46.811,
+      "psd": 3565.815674872413,
+      "prominence": 1.096
+    },
+    {
+      "freqHz": 0.021484,
+      "periodS": 46.545,
+      "psd": 3392.488784413388,
+      "prominence": 1.042
+    },
+    {
+      "freqHz": 0.021606,
+      "periodS": 46.282,
+      "psd": 3028.768395189546,
+      "prominence": 0.931
+    },
+    {
+      "freqHz": 0.021729,
+      "periodS": 46.022,
+      "psd": 3185.719683854508,
+      "prominence": 0.951
+    },
+    {
+      "freqHz": 0.021851,
+      "periodS": 45.765,
+      "psd": 2875.0032759293026,
+      "prominence": 0.858
+    },
+    {
+      "freqHz": 0.021973,
+      "periodS": 45.511,
+      "psd": 2938.2693774596983,
+      "prominence": 0.903
+    },
+    {
+      "freqHz": 0.022095,
+      "periodS": 45.26,
+      "psd": 3132.421122207882,
+      "prominence": 0.966
+    },
+    {
+      "freqHz": 0.022217,
+      "periodS": 45.011,
+      "psd": 3350.125902232314,
+      "prominence": 1.037
+    },
+    {
+      "freqHz": 0.022339,
+      "periodS": 44.765,
+      "psd": 2953.8883785650505,
+      "prominence": 0.914
+    },
+    {
+      "freqHz": 0.022461,
+      "periodS": 44.522,
+      "psd": 3230.9153986934007,
+      "prominence": 1.014
+    },
+    {
+      "freqHz": 0.022583,
+      "periodS": 44.281,
+      "psd": 3915.17267374515,
+      "prominence": 1.226
+    },
+    {
+      "freqHz": 0.022705,
+      "periodS": 44.043,
+      "psd": 3541.121132557936,
+      "prominence": 1.109
+    },
+    {
+      "freqHz": 0.022827,
+      "periodS": 43.807,
+      "psd": 4377.546741512671,
+      "prominence": 1.355
+    },
+    {
+      "freqHz": 0.022949,
+      "periodS": 43.574,
+      "psd": 3254.4868435638737,
+      "prominence": 1.001
+    },
+    {
+      "freqHz": 0.023071,
+      "periodS": 43.344,
+      "psd": 3723.9270013378514,
+      "prominence": 1.144
+    },
+    {
+      "freqHz": 0.023193,
+      "periodS": 43.116,
+      "psd": 3760.445979895903,
+      "prominence": 1.155
+    },
+    {
+      "freqHz": 0.023315,
+      "periodS": 42.89,
+      "psd": 3401.483361121811,
+      "prominence": 1.046
+    },
+    {
+      "freqHz": 0.023438,
+      "periodS": 42.667,
+      "psd": 3440.760370757996,
+      "prominence": 1.065
+    },
+    {
+      "freqHz": 0.02356,
+      "periodS": 42.446,
+      "psd": 3439.1274241374895,
+      "prominence": 1.058
+    },
+    {
+      "freqHz": 0.023682,
+      "periodS": 42.227,
+      "psd": 2666.2598417568834,
+      "prominence": 0.819
+    },
+    {
+      "freqHz": 0.023804,
+      "periodS": 42.01,
+      "psd": 2415.561711239308,
+      "prominence": 0.729
+    },
+    {
+      "freqHz": 0.023926,
+      "periodS": 41.796,
+      "psd": 2857.394397033325,
+      "prominence": 0.853
+    },
+    {
+      "freqHz": 0.024048,
+      "periodS": 41.584,
+      "psd": 3039.5148983880254,
+      "prominence": 0.894
+    },
+    {
+      "freqHz": 0.02417,
+      "periodS": 41.374,
+      "psd": 3160.407432907906,
+      "prominence": 0.93
+    },
+    {
+      "freqHz": 0.024292,
+      "periodS": 41.166,
+      "psd": 2677.6048253899116,
+      "prominence": 0.788
+    },
+    {
+      "freqHz": 0.024414,
+      "periodS": 40.96,
+      "psd": 3193.439889235009,
+      "prominence": 0.939
+    },
+    {
+      "freqHz": 0.024536,
+      "periodS": 40.756,
+      "psd": 3250.7604129126175,
+      "prominence": 0.956
+    },
+    {
+      "freqHz": 0.024658,
+      "periodS": 40.554,
+      "psd": 4108.402655250296,
+      "prominence": 1.208
+    },
+    {
+      "freqHz": 0.02478,
+      "periodS": 40.355,
+      "psd": 3399.6946740263347,
+      "prominence": 0.999
+    },
+    {
+      "freqHz": 0.024902,
+      "periodS": 40.157,
+      "psd": 3311.298588547287,
+      "prominence": 0.963
+    },
+    {
+      "freqHz": 0.025024,
+      "periodS": 39.961,
+      "psd": 3803.8706013056776,
+      "prominence": 1.118
+    },
+    {
+      "freqHz": 0.025146,
+      "periodS": 39.767,
+      "psd": 3052.1370490165345,
+      "prominence": 0.897
+    },
+    {
+      "freqHz": 0.025269,
+      "periodS": 39.575,
+      "psd": 3060.524590916426,
+      "prominence": 0.89
+    },
+    {
+      "freqHz": 0.025391,
+      "periodS": 39.385,
+      "psd": 3762.0256137991855,
+      "prominence": 1.094
+    },
+    {
+      "freqHz": 0.025513,
+      "periodS": 39.196,
+      "psd": 3483.3662006161294,
+      "prominence": 1.025
+    },
+    {
+      "freqHz": 0.025635,
+      "periodS": 39.01,
+      "psd": 3673.9238797677353,
+      "prominence": 1.068
+    },
+    {
+      "freqHz": 0.025757,
+      "periodS": 38.825,
+      "psd": 3858.1125067670623,
+      "prominence": 1.117
+    },
+    {
+      "freqHz": 0.025879,
+      "periodS": 38.642,
+      "psd": 3864.9082856629957,
+      "prominence": 1.114
+    },
+    {
+      "freqHz": 0.026001,
+      "periodS": 38.46,
+      "psd": 3170.688051340536,
+      "prominence": 0.91
+    },
+    {
+      "freqHz": 0.026123,
+      "periodS": 38.28,
+      "psd": 3117.7141929000545,
+      "prominence": 0.878
+    },
+    {
+      "freqHz": 0.026245,
+      "periodS": 38.102,
+      "psd": 3438.509587774986,
+      "prominence": 0.952
+    },
+    {
+      "freqHz": 0.026367,
+      "periodS": 37.926,
+      "psd": 3629.8897470172064,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.026489,
+      "periodS": 37.751,
+      "psd": 4129.846425884318,
+      "prominence": 1.124
+    },
+    {
+      "freqHz": 0.026611,
+      "periodS": 37.578,
+      "psd": 4483.528957160805,
+      "prominence": 1.22
+    },
+    {
+      "freqHz": 0.026733,
+      "periodS": 37.406,
+      "psd": 4911.92798602955,
+      "prominence": 1.306
+    },
+    {
+      "freqHz": 0.026855,
+      "periodS": 37.236,
+      "psd": 3159.296556569987,
+      "prominence": 0.833
+    },
+    {
+      "freqHz": 0.026978,
+      "periodS": 37.068,
+      "psd": 3469.144487797908,
+      "prominence": 0.915
+    },
+    {
+      "freqHz": 0.0271,
+      "periodS": 36.901,
+      "psd": 3940.215244394569,
+      "prominence": 1.039
+    },
+    {
+      "freqHz": 0.027222,
+      "periodS": 36.735,
+      "psd": 3613.4775029185557,
+      "prominence": 0.938
+    },
+    {
+      "freqHz": 0.027344,
+      "periodS": 36.571,
+      "psd": 3198.017147857824,
+      "prominence": 0.829
+    },
+    {
+      "freqHz": 0.027466,
+      "periodS": 36.409,
+      "psd": 3965.080966130062,
+      "prominence": 1.026
+    },
+    {
+      "freqHz": 0.027588,
+      "periodS": 36.248,
+      "psd": 3454.7123429323974,
+      "prominence": 0.883
+    },
+    {
+      "freqHz": 0.02771,
+      "periodS": 36.088,
+      "psd": 3552.8486874832915,
+      "prominence": 0.902
+    },
+    {
+      "freqHz": 0.027832,
+      "periodS": 35.93,
+      "psd": 3853.0940171309903,
+      "prominence": 0.978
+    },
+    {
+      "freqHz": 0.027954,
+      "periodS": 35.773,
+      "psd": 3793.3022741517543,
+      "prominence": 0.957
+    },
+    {
+      "freqHz": 0.028076,
+      "periodS": 35.617,
+      "psd": 3987.3486135454586,
+      "prominence": 1.006
+    },
+    {
+      "freqHz": 0.028198,
+      "periodS": 35.463,
+      "psd": 4276.361959417945,
+      "prominence": 1.072
+    },
+    {
+      "freqHz": 0.02832,
+      "periodS": 35.31,
+      "psd": 4202.52036483008,
+      "prominence": 1.048
+    },
+    {
+      "freqHz": 0.028442,
+      "periodS": 35.159,
+      "psd": 4487.294872471735,
+      "prominence": 1.119
+    },
+    {
+      "freqHz": 0.028564,
+      "periodS": 35.009,
+      "psd": 3963.7217562196174,
+      "prominence": 0.988
+    },
+    {
+      "freqHz": 0.028687,
+      "periodS": 34.86,
+      "psd": 4370.080395830192,
+      "prominence": 1.096
+    },
+    {
+      "freqHz": 0.028809,
+      "periodS": 34.712,
+      "psd": 4024.3046127153557,
+      "prominence": 1.003
+    },
+    {
+      "freqHz": 0.028931,
+      "periodS": 34.565,
+      "psd": 3399.984524483878,
+      "prominence": 0.847
+    },
+    {
+      "freqHz": 0.029053,
+      "periodS": 34.42,
+      "psd": 4011.800734043978,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.029175,
+      "periodS": 34.276,
+      "psd": 4061.4666175941034,
+      "prominence": 1.009
+    },
+    {
+      "freqHz": 0.029297,
+      "periodS": 34.133,
+      "psd": 3910.7296858986365,
+      "prominence": 0.972
+    },
+    {
+      "freqHz": 0.029419,
+      "periodS": 33.992,
+      "psd": 4681.20801638967,
+      "prominence": 1.153
+    },
+    {
+      "freqHz": 0.029541,
+      "periodS": 33.851,
+      "psd": 4333.92317602378,
+      "prominence": 1.031
+    },
+    {
+      "freqHz": 0.029663,
+      "periodS": 33.712,
+      "psd": 3701.2800698208825,
+      "prominence": 0.872
+    },
+    {
+      "freqHz": 0.029785,
+      "periodS": 33.574,
+      "psd": 4242.420610793062,
+      "prominence": 0.998
+    },
+    {
+      "freqHz": 0.029907,
+      "periodS": 33.437,
+      "psd": 4272.065240236853,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.030029,
+      "periodS": 33.301,
+      "psd": 4562.663529132494,
+      "prominence": 1.067
+    },
+    {
+      "freqHz": 0.030151,
+      "periodS": 33.166,
+      "psd": 4252.507244947803,
+      "prominence": 0.988
+    },
+    {
+      "freqHz": 0.030273,
+      "periodS": 33.032,
+      "psd": 4460.568902024134,
+      "prominence": 1.029
+    },
+    {
+      "freqHz": 0.030396,
+      "periodS": 32.9,
+      "psd": 4726.889104720258,
+      "prominence": 1.091
+    },
+    {
+      "freqHz": 0.030518,
+      "periodS": 32.768,
+      "psd": 3644.7428288116316,
+      "prominence": 0.834
+    },
+    {
+      "freqHz": 0.03064,
+      "periodS": 32.637,
+      "psd": 4023.650443188471,
+      "prominence": 0.928
+    },
+    {
+      "freqHz": 0.030762,
+      "periodS": 32.508,
+      "psd": 3678.471362635448,
+      "prominence": 0.825
+    },
+    {
+      "freqHz": 0.030884,
+      "periodS": 32.379,
+      "psd": 3359.4459323575297,
+      "prominence": 0.748
+    },
+    {
+      "freqHz": 0.031006,
+      "periodS": 32.252,
+      "psd": 4670.241458642407,
+      "prominence": 1.038
+    },
+    {
+      "freqHz": 0.031128,
+      "periodS": 32.125,
+      "psd": 4304.667030202312,
+      "prominence": 0.944
+    },
+    {
+      "freqHz": 0.03125,
+      "periodS": 32,
+      "psd": 4498.787152673383,
+      "prominence": 0.987
+    },
+    {
+      "freqHz": 0.031372,
+      "periodS": 31.875,
+      "psd": 4757.121197304525,
+      "prominence": 1.057
+    },
+    {
+      "freqHz": 0.031494,
+      "periodS": 31.752,
+      "psd": 5331.259681412156,
+      "prominence": 1.17
+    },
+    {
+      "freqHz": 0.031616,
+      "periodS": 31.629,
+      "psd": 5333.702015402042,
+      "prominence": 1.17
+    },
+    {
+      "freqHz": 0.031738,
+      "periodS": 31.508,
+      "psd": 4695.014264308654,
+      "prominence": 1.03
+    },
+    {
+      "freqHz": 0.03186,
+      "periodS": 31.387,
+      "psd": 4558.174575706618,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.031982,
+      "periodS": 31.267,
+      "psd": 5156.404906402642,
+      "prominence": 1.131
+    },
+    {
+      "freqHz": 0.032104,
+      "periodS": 31.148,
+      "psd": 4890.787131939376,
+      "prominence": 1.06
+    },
+    {
+      "freqHz": 0.032227,
+      "periodS": 31.03,
+      "psd": 4491.4532113472915,
+      "prominence": 0.962
+    },
+    {
+      "freqHz": 0.032349,
+      "periodS": 30.913,
+      "psd": 5238.339025663224,
+      "prominence": 1.122
+    },
+    {
+      "freqHz": 0.032471,
+      "periodS": 30.797,
+      "psd": 4287.677501733072,
+      "prominence": 0.913
+    },
+    {
+      "freqHz": 0.032593,
+      "periodS": 30.682,
+      "psd": 5075.537614676784,
+      "prominence": 1.067
+    },
+    {
+      "freqHz": 0.032715,
+      "periodS": 30.567,
+      "psd": 5091.14534463543,
+      "prominence": 1.041
+    },
+    {
+      "freqHz": 0.032837,
+      "periodS": 30.454,
+      "psd": 5601.397592841958,
+      "prominence": 1.14
+    },
+    {
+      "freqHz": 0.032959,
+      "periodS": 30.341,
+      "psd": 5652.06578823939,
+      "prominence": 1.126
+    },
+    {
+      "freqHz": 0.033081,
+      "periodS": 30.229,
+      "psd": 4350.437289462877,
+      "prominence": 0.857
+    },
+    {
+      "freqHz": 0.033203,
+      "periodS": 30.118,
+      "psd": 4495.366985398818,
+      "prominence": 0.883
+    },
+    {
+      "freqHz": 0.033325,
+      "periodS": 30.007,
+      "psd": 5018.815148878002,
+      "prominence": 0.973
+    },
+    {
+      "freqHz": 0.033447,
+      "periodS": 29.898,
+      "psd": 4267.376941009517,
+      "prominence": 0.828
+    },
+    {
+      "freqHz": 0.033569,
+      "periodS": 29.789,
+      "psd": 4182.025026726402,
+      "prominence": 0.811
+    },
+    {
+      "freqHz": 0.033691,
+      "periodS": 29.681,
+      "psd": 4460.689234907655,
+      "prominence": 0.852
+    },
+    {
+      "freqHz": 0.033813,
+      "periodS": 29.574,
+      "psd": 4613.281245599621,
+      "prominence": 0.865
+    },
+    {
+      "freqHz": 0.033936,
+      "periodS": 29.468,
+      "psd": 4913.316191423458,
+      "prominence": 0.877
+    },
+    {
+      "freqHz": 0.034058,
+      "periodS": 29.362,
+      "psd": 5336.117797561492,
+      "prominence": 0.944
+    },
+    {
+      "freqHz": 0.03418,
+      "periodS": 29.257,
+      "psd": 6169.733496934998,
+      "prominence": 1.081
+    },
+    {
+      "freqHz": 0.034302,
+      "periodS": 29.153,
+      "psd": 5705.056490449145,
+      "prominence": 0.925
+    },
+    {
+      "freqHz": 0.034424,
+      "periodS": 29.05,
+      "psd": 7304.332210597712,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.034546,
+      "periodS": 28.947,
+      "psd": 7596.781402774032,
+      "prominence": 1.031
+    },
+    {
+      "freqHz": 0.034668,
+      "periodS": 28.845,
+      "psd": 7366.152319955949,
+      "prominence": 0.997
+    },
+    {
+      "freqHz": 0.03479,
+      "periodS": 28.744,
+      "psd": 7391.490013661315,
+      "prominence": 0.973
+    },
+    {
+      "freqHz": 0.034912,
+      "periodS": 28.643,
+      "psd": 8704.041889245571,
+      "prominence": 1.015
+    },
+    {
+      "freqHz": 0.035034,
+      "periodS": 28.544,
+      "psd": 9997.88649685578,
+      "prominence": 1.149
+    },
+    {
+      "freqHz": 0.035156,
+      "periodS": 28.444,
+      "psd": 8571.198952565966,
+      "prominence": 0.862
+    },
+    {
+      "freqHz": 0.035278,
+      "periodS": 28.346,
+      "psd": 9939.310138887337,
+      "prominence": 0.994
+    },
+    {
+      "freqHz": 0.0354,
+      "periodS": 28.248,
+      "psd": 12123.36197140018,
+      "prominence": 1.043
+    },
+    {
+      "freqHz": 0.035522,
+      "periodS": 28.151,
+      "psd": 12108.757119704414,
+      "prominence": 1.036
+    },
+    {
+      "freqHz": 0.035645,
+      "periodS": 28.055,
+      "psd": 16840.790168402535,
+      "prominence": 1.44
+    },
+    {
+      "freqHz": 0.035767,
+      "periodS": 27.959,
+      "psd": 19347.715147748924,
+      "prominence": 1.655
+    },
+    {
+      "freqHz": 0.035889,
+      "periodS": 27.864,
+      "psd": 20812.478847396636,
+      "prominence": 1.78
+    },
+    {
+      "freqHz": 0.036011,
+      "periodS": 27.769,
+      "psd": 21466.19096338993,
+      "prominence": 1.836
+    },
+    {
+      "freqHz": 0.036133,
+      "periodS": 27.676,
+      "psd": 25241.048503467893,
+      "prominence": 2.159
+    },
+    {
+      "freqHz": 0.036255,
+      "periodS": 27.582,
+      "psd": 17981.7132540387,
+      "prominence": 1.538
+    },
+    {
+      "freqHz": 0.036377,
+      "periodS": 27.49,
+      "psd": 16486.571194075266,
+      "prominence": 1.41
+    },
+    {
+      "freqHz": 0.036499,
+      "periodS": 27.398,
+      "psd": 18013.233713548856,
+      "prominence": 1.541
+    },
+    {
+      "freqHz": 0.036621,
+      "periodS": 27.307,
+      "psd": 14487.71626094986,
+      "prominence": 1.239
+    },
+    {
+      "freqHz": 0.036743,
+      "periodS": 27.216,
+      "psd": 13729.297621297319,
+      "prominence": 1.174
+    },
+    {
+      "freqHz": 0.036865,
+      "periodS": 27.126,
+      "psd": 11691.414073891408,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.036987,
+      "periodS": 27.036,
+      "psd": 11618.994313621622,
+      "prominence": 0.994
+    },
+    {
+      "freqHz": 0.037109,
+      "periodS": 26.947,
+      "psd": 11682.848745614818,
+      "prominence": 0.999
+    },
+    {
+      "freqHz": 0.037231,
+      "periodS": 26.859,
+      "psd": 12289.835326376633,
+      "prominence": 1.051
+    },
+    {
+      "freqHz": 0.037354,
+      "periodS": 26.771,
+      "psd": 12372.366249952083,
+      "prominence": 1.059
+    },
+    {
+      "freqHz": 0.037476,
+      "periodS": 26.684,
+      "psd": 12354.425396281518,
+      "prominence": 1.063
+    },
+    {
+      "freqHz": 0.037598,
+      "periodS": 26.597,
+      "psd": 8746.548367769698,
+      "prominence": 0.787
+    },
+    {
+      "freqHz": 0.03772,
+      "periodS": 26.511,
+      "psd": 9287.398057918188,
+      "prominence": 0.9
+    },
+    {
+      "freqHz": 0.037842,
+      "periodS": 26.426,
+      "psd": 11107.88557905452,
+      "prominence": 1.076
+    },
+    {
+      "freqHz": 0.037964,
+      "periodS": 26.341,
+      "psd": 10322.671430716644,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.038086,
+      "periodS": 26.256,
+      "psd": 9994.885567299969,
+      "prominence": 0.969
+    },
+    {
+      "freqHz": 0.038208,
+      "periodS": 26.173,
+      "psd": 7691.1926638292425,
+      "prominence": 0.746
+    },
+    {
+      "freqHz": 0.03833,
+      "periodS": 26.089,
+      "psd": 9635.118407074733,
+      "prominence": 0.934
+    },
+    {
+      "freqHz": 0.038452,
+      "periodS": 26.006,
+      "psd": 9181.369371154036,
+      "prominence": 0.89
+    },
+    {
+      "freqHz": 0.038574,
+      "periodS": 25.924,
+      "psd": 10314.479520616362,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.038696,
+      "periodS": 25.842,
+      "psd": 9964.473580934588,
+      "prominence": 0.966
+    },
+    {
+      "freqHz": 0.038818,
+      "periodS": 25.761,
+      "psd": 10037.795777124258,
+      "prominence": 0.973
+    },
+    {
+      "freqHz": 0.03894,
+      "periodS": 25.68,
+      "psd": 9955.285242163147,
+      "prominence": 0.965
+    },
+    {
+      "freqHz": 0.039063,
+      "periodS": 25.6,
+      "psd": 9997.839597791255,
+      "prominence": 0.969
+    },
+    {
+      "freqHz": 0.039185,
+      "periodS": 25.52,
+      "psd": 10284.314481123998,
+      "prominence": 0.997
+    },
+    {
+      "freqHz": 0.039307,
+      "periodS": 25.441,
+      "psd": 9091.713361155144,
+      "prominence": 0.881
+    },
+    {
+      "freqHz": 0.039429,
+      "periodS": 25.362,
+      "psd": 9113.874140902823,
+      "prominence": 0.884
+    },
+    {
+      "freqHz": 0.039551,
+      "periodS": 25.284,
+      "psd": 9933.661028738077,
+      "prominence": 0.962
+    },
+    {
+      "freqHz": 0.039673,
+      "periodS": 25.206,
+      "psd": 13214.551010504314,
+      "prominence": 1.242
+    },
+    {
+      "freqHz": 0.039795,
+      "periodS": 25.129,
+      "psd": 10652.965950279055,
+      "prominence": 1.001
+    },
+    {
+      "freqHz": 0.039917,
+      "periodS": 25.052,
+      "psd": 8919.054032255874,
+      "prominence": 0.837
+    },
+    {
+      "freqHz": 0.040039,
+      "periodS": 24.976,
+      "psd": 11865.09807055047,
+      "prominence": 1.097
+    },
+    {
+      "freqHz": 0.040161,
+      "periodS": 24.9,
+      "psd": 10816.226252420623,
+      "prominence": 0.977
+    },
+    {
+      "freqHz": 0.040283,
+      "periodS": 24.824,
+      "psd": 10639.051416467319,
+      "prominence": 0.929
+    },
+    {
+      "freqHz": 0.040405,
+      "periodS": 24.749,
+      "psd": 12495.386735612141,
+      "prominence": 1.053
+    },
+    {
+      "freqHz": 0.040527,
+      "periodS": 24.675,
+      "psd": 14534.210900792374,
+      "prominence": 1.163
+    },
+    {
+      "freqHz": 0.040649,
+      "periodS": 24.601,
+      "psd": 13868.060365870027,
+      "prominence": 1.049
+    },
+    {
+      "freqHz": 0.040771,
+      "periodS": 24.527,
+      "psd": 11069.337704985854,
+      "prominence": 0.798
+    },
+    {
+      "freqHz": 0.040894,
+      "periodS": 24.454,
+      "psd": 11449.909494896581,
+      "prominence": 0.817
+    },
+    {
+      "freqHz": 0.041016,
+      "periodS": 24.381,
+      "psd": 14022.942164935455,
+      "prominence": 0.965
+    },
+    {
+      "freqHz": 0.041138,
+      "periodS": 24.309,
+      "psd": 15899.493608594232,
+      "prominence": 1.011
+    },
+    {
+      "freqHz": 0.04126,
+      "periodS": 24.237,
+      "psd": 17239.371667731462,
+      "prominence": 1.084
+    },
+    {
+      "freqHz": 0.041382,
+      "periodS": 24.165,
+      "psd": 15723.15297758866,
+      "prominence": 0.974
+    },
+    {
+      "freqHz": 0.041504,
+      "periodS": 24.094,
+      "psd": 17210.013445197168,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.041626,
+      "periodS": 24.023,
+      "psd": 17589.950766394526,
+      "prominence": 1.02
+    },
+    {
+      "freqHz": 0.041748,
+      "periodS": 23.953,
+      "psd": 18920.553967572785,
+      "prominence": 1.076
+    },
+    {
+      "freqHz": 0.04187,
+      "periodS": 23.883,
+      "psd": 20088.42398762778,
+      "prominence": 1.118
+    },
+    {
+      "freqHz": 0.041992,
+      "periodS": 23.814,
+      "psd": 22051.587900880288,
+      "prominence": 1.165
+    },
+    {
+      "freqHz": 0.042114,
+      "periodS": 23.745,
+      "psd": 17974.996395260277,
+      "prominence": 0.895
+    },
+    {
+      "freqHz": 0.042236,
+      "periodS": 23.676,
+      "psd": 16144.512525089205,
+      "prominence": 0.764
+    },
+    {
+      "freqHz": 0.042358,
+      "periodS": 23.608,
+      "psd": 21340.566087383522,
+      "prominence": 1.002
+    },
+    {
+      "freqHz": 0.04248,
+      "periodS": 23.54,
+      "psd": 24917.08284527177,
+      "prominence": 1.168
+    },
+    {
+      "freqHz": 0.042603,
+      "periodS": 23.473,
+      "psd": 24266.391998406525,
+      "prominence": 1.1
+    },
+    {
+      "freqHz": 0.042725,
+      "periodS": 23.406,
+      "psd": 23386.72531935238,
+      "prominence": 1.044
+    },
+    {
+      "freqHz": 0.042847,
+      "periodS": 23.339,
+      "psd": 21124.465808997847,
+      "prominence": 0.928
+    },
+    {
+      "freqHz": 0.042969,
+      "periodS": 23.273,
+      "psd": 22771.355463552725,
+      "prominence": 0.974
+    },
+    {
+      "freqHz": 0.043091,
+      "periodS": 23.207,
+      "psd": 21296.35221947018,
+      "prominence": 0.878
+    },
+    {
+      "freqHz": 0.043213,
+      "periodS": 23.141,
+      "psd": 25362.507675665154,
+      "prominence": 1.018
+    },
+    {
+      "freqHz": 0.043335,
+      "periodS": 23.076,
+      "psd": 22390.599304121082,
+      "prominence": 0.892
+    },
+    {
+      "freqHz": 0.043457,
+      "periodS": 23.011,
+      "psd": 29272.14378614576,
+      "prominence": 1.165
+    },
+    {
+      "freqHz": 0.043579,
+      "periodS": 22.947,
+      "psd": 29873.89455655552,
+      "prominence": 1.178
+    },
+    {
+      "freqHz": 0.043701,
+      "periodS": 22.883,
+      "psd": 27561.600695160185,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.043823,
+      "periodS": 22.819,
+      "psd": 25111.682674191106,
+      "prominence": 0.905
+    },
+    {
+      "freqHz": 0.043945,
+      "periodS": 22.756,
+      "psd": 30908.439247902796,
+      "prominence": 1.109
+    },
+    {
+      "freqHz": 0.044067,
+      "periodS": 22.693,
+      "psd": 25116.80345082999,
+      "prominence": 0.882
+    },
+    {
+      "freqHz": 0.044189,
+      "periodS": 22.63,
+      "psd": 27751.56831888428,
+      "prominence": 0.948
+    },
+    {
+      "freqHz": 0.044312,
+      "periodS": 22.567,
+      "psd": 29739.70812113732,
+      "prominence": 1.01
+    },
+    {
+      "freqHz": 0.044434,
+      "periodS": 22.505,
+      "psd": 29434.4658625774,
+      "prominence": 0.99
+    },
+    {
+      "freqHz": 0.044556,
+      "periodS": 22.444,
+      "psd": 29914.151096215995,
+      "prominence": 1.001
+    },
+    {
+      "freqHz": 0.044678,
+      "periodS": 22.383,
+      "psd": 27877.911827629385,
+      "prominence": 0.932
+    },
+    {
+      "freqHz": 0.0448,
+      "periodS": 22.322,
+      "psd": 36202.540961206956,
+      "prominence": 1.171
+    },
+    {
+      "freqHz": 0.044922,
+      "periodS": 22.261,
+      "psd": 36074.648937797145,
+      "prominence": 1.146
+    },
+    {
+      "freqHz": 0.045044,
+      "periodS": 22.201,
+      "psd": 28466.026521242107,
+      "prominence": 0.81
+    },
+    {
+      "freqHz": 0.045166,
+      "periodS": 22.141,
+      "psd": 41783.738427556134,
+      "prominence": 1.158
+    },
+    {
+      "freqHz": 0.045288,
+      "periodS": 22.081,
+      "psd": 31486.780074141134,
+      "prominence": 0.87
+    },
+    {
+      "freqHz": 0.04541,
+      "periodS": 22.022,
+      "psd": 37989.665479382675,
+      "prominence": 1.042
+    },
+    {
+      "freqHz": 0.045532,
+      "periodS": 21.962,
+      "psd": 38115.06566861301,
+      "prominence": 1.003
+    },
+    {
+      "freqHz": 0.045654,
+      "periodS": 21.904,
+      "psd": 35143.02504883024,
+      "prominence": 0.922
+    },
+    {
+      "freqHz": 0.045776,
+      "periodS": 21.845,
+      "psd": 36473.92681987483,
+      "prominence": 0.942
+    },
+    {
+      "freqHz": 0.045898,
+      "periodS": 21.787,
+      "psd": 39689.83206527257,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.046021,
+      "periodS": 21.729,
+      "psd": 38706.36140183913,
+      "prominence": 0.954
+    },
+    {
+      "freqHz": 0.046143,
+      "periodS": 21.672,
+      "psd": 43094.43972479088,
+      "prominence": 1.031
+    },
+    {
+      "freqHz": 0.046265,
+      "periodS": 21.615,
+      "psd": 44976.69288755025,
+      "prominence": 1.044
+    },
+    {
+      "freqHz": 0.046387,
+      "periodS": 21.558,
+      "psd": 40576.965969265555,
+      "prominence": 0.923
+    },
+    {
+      "freqHz": 0.046509,
+      "periodS": 21.501,
+      "psd": 44221.958201315734,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.046631,
+      "periodS": 21.445,
+      "psd": 48456.50640763466,
+      "prominence": 1.077
+    },
+    {
+      "freqHz": 0.046753,
+      "periodS": 21.389,
+      "psd": 45435.588075908665,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.046875,
+      "periodS": 21.333,
+      "psd": 48567.810891313944,
+      "prominence": 1.026
+    },
+    {
+      "freqHz": 0.046997,
+      "periodS": 21.278,
+      "psd": 47742.50535647204,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.047119,
+      "periodS": 21.223,
+      "psd": 43964.42456567327,
+      "prominence": 0.907
+    },
+    {
+      "freqHz": 0.047241,
+      "periodS": 21.168,
+      "psd": 47334.53142018804,
+      "prominence": 0.975
+    },
+    {
+      "freqHz": 0.047363,
+      "periodS": 21.113,
+      "psd": 50228.146086504494,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.047485,
+      "periodS": 21.059,
+      "psd": 61873.6865609286,
+      "prominence": 1.115
+    },
+    {
+      "freqHz": 0.047607,
+      "periodS": 21.005,
+      "psd": 60736.23651772321,
+      "prominence": 1.052
+    },
+    {
+      "freqHz": 0.047729,
+      "periodS": 20.951,
+      "psd": 64283.63574863905,
+      "prominence": 1.109
+    },
+    {
+      "freqHz": 0.047852,
+      "periodS": 20.898,
+      "psd": 61117.687753313374,
+      "prominence": 1.011
+    },
+    {
+      "freqHz": 0.047974,
+      "periodS": 20.845,
+      "psd": 57739.96918040096,
+      "prominence": 0.951
+    },
+    {
+      "freqHz": 0.048096,
+      "periodS": 20.792,
+      "psd": 55478.02340113207,
+      "prominence": 0.911
+    },
+    {
+      "freqHz": 0.048218,
+      "periodS": 20.739,
+      "psd": 61808.29198944759,
+      "prominence": 1.011
+    },
+    {
+      "freqHz": 0.04834,
+      "periodS": 20.687,
+      "psd": 60879.7253146412,
+      "prominence": 0.985
+    },
+    {
+      "freqHz": 0.048462,
+      "periodS": 20.635,
+      "psd": 74858.24199116268,
+      "prominence": 1.21
+    },
+    {
+      "freqHz": 0.048584,
+      "periodS": 20.583,
+      "psd": 60472.74145049171,
+      "prominence": 0.941
+    },
+    {
+      "freqHz": 0.048706,
+      "periodS": 20.531,
+      "psd": 57991.09601461699,
+      "prominence": 0.886
+    },
+    {
+      "freqHz": 0.048828,
+      "periodS": 20.48,
+      "psd": 72982.2174427055,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.04895,
+      "periodS": 20.429,
+      "psd": 74068.3809072795,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.049072,
+      "periodS": 20.378,
+      "psd": 98086.7885465966,
+      "prominence": 1.31
+    },
+    {
+      "freqHz": 0.049194,
+      "periodS": 20.328,
+      "psd": 79661.63382714536,
+      "prominence": 1.045
+    },
+    {
+      "freqHz": 0.049316,
+      "periodS": 20.277,
+      "psd": 65430.99735236567,
+      "prominence": 0.855
+    },
+    {
+      "freqHz": 0.049438,
+      "periodS": 20.227,
+      "psd": 78765.43865841723,
+      "prominence": 1.003
+    },
+    {
+      "freqHz": 0.049561,
+      "periodS": 20.177,
+      "psd": 76520.92131450065,
+      "prominence": 0.972
+    },
+    {
+      "freqHz": 0.049683,
+      "periodS": 20.128,
+      "psd": 78698.65524377482,
+      "prominence": 0.999
+    },
+    {
+      "freqHz": 0.049805,
+      "periodS": 20.078,
+      "psd": 79492.01160203025,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.049927,
+      "periodS": 20.029,
+      "psd": 81303.24963485019,
+      "prominence": 1.021
+    },
+    {
+      "freqHz": 0.050049,
+      "periodS": 19.98,
+      "psd": 79716.44478405933,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.050171,
+      "periodS": 19.932,
+      "psd": 76216.34003218863,
+      "prominence": 0.937
+    },
+    {
+      "freqHz": 0.050293,
+      "periodS": 19.883,
+      "psd": 91678.68863854323,
+      "prominence": 1.123
+    },
+    {
+      "freqHz": 0.050415,
+      "periodS": 19.835,
+      "psd": 78546.41759349397,
+      "prominence": 0.926
+    },
+    {
+      "freqHz": 0.050537,
+      "periodS": 19.787,
+      "psd": 94149.54238582743,
+      "prominence": 1.033
+    },
+    {
+      "freqHz": 0.050659,
+      "periodS": 19.74,
+      "psd": 84804.82471399748,
+      "prominence": 0.925
+    },
+    {
+      "freqHz": 0.050781,
+      "periodS": 19.692,
+      "psd": 91106.64325348187,
+      "prominence": 0.968
+    },
+    {
+      "freqHz": 0.050903,
+      "periodS": 19.645,
+      "psd": 96033.29400432928,
+      "prominence": 1.015
+    },
+    {
+      "freqHz": 0.051025,
+      "periodS": 19.598,
+      "psd": 81639.04492945134,
+      "prominence": 0.863
+    },
+    {
+      "freqHz": 0.051147,
+      "periodS": 19.551,
+      "psd": 105833.75555572032,
+      "prominence": 1.115
+    },
+    {
+      "freqHz": 0.05127,
+      "periodS": 19.505,
+      "psd": 101123.13008018464,
+      "prominence": 1.056
+    },
+    {
+      "freqHz": 0.051392,
+      "periodS": 19.458,
+      "psd": 94622.34876846749,
+      "prominence": 0.985
+    },
+    {
+      "freqHz": 0.051514,
+      "periodS": 19.412,
+      "psd": 94917.67692444875,
+      "prominence": 0.959
+    },
+    {
+      "freqHz": 0.051636,
+      "periodS": 19.366,
+      "psd": 111164.70782164992,
+      "prominence": 1.099
+    },
+    {
+      "freqHz": 0.051758,
+      "periodS": 19.321,
+      "psd": 98947.0528725293,
+      "prominence": 0.97
+    },
+    {
+      "freqHz": 0.05188,
+      "periodS": 19.275,
+      "psd": 102046.28263008627,
+      "prominence": 0.964
+    },
+    {
+      "freqHz": 0.052002,
+      "periodS": 19.23,
+      "psd": 129880.68086899153,
+      "prominence": 1.212
+    },
+    {
+      "freqHz": 0.052124,
+      "periodS": 19.185,
+      "psd": 131618.17396631328,
+      "prominence": 1.221
+    },
+    {
+      "freqHz": 0.052246,
+      "periodS": 19.14,
+      "psd": 116888.61483835673,
+      "prominence": 1.084
+    },
+    {
+      "freqHz": 0.052368,
+      "periodS": 19.096,
+      "psd": 107913.26516749646,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.05249,
+      "periodS": 19.051,
+      "psd": 95799.1477522873,
+      "prominence": 0.862
+    },
+    {
+      "freqHz": 0.052612,
+      "periodS": 19.007,
+      "psd": 107824.64228288994,
+      "prominence": 0.936
+    },
+    {
+      "freqHz": 0.052734,
+      "periodS": 18.963,
+      "psd": 130665.26656054592,
+      "prominence": 1.118
+    },
+    {
+      "freqHz": 0.052856,
+      "periodS": 18.919,
+      "psd": 134983.838360992,
+      "prominence": 1.127
+    },
+    {
+      "freqHz": 0.052979,
+      "periodS": 18.876,
+      "psd": 107148.18107733908,
+      "prominence": 0.88
+    },
+    {
+      "freqHz": 0.053101,
+      "periodS": 18.832,
+      "psd": 115235.65955750307,
+      "prominence": 0.915
+    },
+    {
+      "freqHz": 0.053223,
+      "periodS": 18.789,
+      "psd": 133173.2241764865,
+      "prominence": 1.025
+    },
+    {
+      "freqHz": 0.053345,
+      "periodS": 18.746,
+      "psd": 125934.08541750778,
+      "prominence": 0.964
+    },
+    {
+      "freqHz": 0.053467,
+      "periodS": 18.703,
+      "psd": 121719.41655805029,
+      "prominence": 0.929
+    },
+    {
+      "freqHz": 0.053589,
+      "periodS": 18.661,
+      "psd": 119776.2230353316,
+      "prominence": 0.91
+    },
+    {
+      "freqHz": 0.053711,
+      "periodS": 18.618,
+      "psd": 158501.10575949264,
+      "prominence": 1.196
+    },
+    {
+      "freqHz": 0.053833,
+      "periodS": 18.576,
+      "psd": 147049.80249651655,
+      "prominence": 1.104
+    },
+    {
+      "freqHz": 0.053955,
+      "periodS": 18.534,
+      "psd": 148374.98178751147,
+      "prominence": 1.099
+    },
+    {
+      "freqHz": 0.054077,
+      "periodS": 18.492,
+      "psd": 106043.29982148248,
+      "prominence": 0.766
+    },
+    {
+      "freqHz": 0.054199,
+      "periodS": 18.45,
+      "psd": 131002.32229526559,
+      "prominence": 0.944
+    },
+    {
+      "freqHz": 0.054321,
+      "periodS": 18.409,
+      "psd": 132538.46293512563,
+      "prominence": 0.901
+    },
+    {
+      "freqHz": 0.054443,
+      "periodS": 18.368,
+      "psd": 154169.61648421787,
+      "prominence": 1.039
+    },
+    {
+      "freqHz": 0.054565,
+      "periodS": 18.327,
+      "psd": 172707.19840960472,
+      "prominence": 1.12
+    },
+    {
+      "freqHz": 0.054688,
+      "periodS": 18.286,
+      "psd": 155316.2113712412,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.05481,
+      "periodS": 18.245,
+      "psd": 164440.70967374835,
+      "prominence": 1.037
+    },
+    {
+      "freqHz": 0.054932,
+      "periodS": 18.204,
+      "psd": 167679.82111831073,
+      "prominence": 1.04
+    },
+    {
+      "freqHz": 0.055054,
+      "periodS": 18.164,
+      "psd": 138486.2866314067,
+      "prominence": 0.846
+    },
+    {
+      "freqHz": 0.055176,
+      "periodS": 18.124,
+      "psd": 138714.8793219922,
+      "prominence": 0.844
+    },
+    {
+      "freqHz": 0.055298,
+      "periodS": 18.084,
+      "psd": 171599.84841285436,
+      "prominence": 1.023
+    },
+    {
+      "freqHz": 0.05542,
+      "periodS": 18.044,
+      "psd": 180648.1102856666,
+      "prominence": 1.053
+    },
+    {
+      "freqHz": 0.055542,
+      "periodS": 18.004,
+      "psd": 163659.1536035199,
+      "prominence": 0.948
+    },
+    {
+      "freqHz": 0.055664,
+      "periodS": 17.965,
+      "psd": 161244.10472014372,
+      "prominence": 0.893
+    },
+    {
+      "freqHz": 0.055786,
+      "periodS": 17.926,
+      "psd": 191846.01921240834,
+      "prominence": 1.062
+    },
+    {
+      "freqHz": 0.055908,
+      "periodS": 17.886,
+      "psd": 222712.76205304463,
+      "prominence": 1.224
+    },
+    {
+      "freqHz": 0.05603,
+      "periodS": 17.847,
+      "psd": 181930.6938440465,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.056152,
+      "periodS": 17.809,
+      "psd": 181895.89100796322,
+      "prominence": 0.996
+    },
+    {
+      "freqHz": 0.056274,
+      "periodS": 17.77,
+      "psd": 211161.89752366574,
+      "prominence": 1.146
+    },
+    {
+      "freqHz": 0.056396,
+      "periodS": 17.732,
+      "psd": 209234.40350481158,
+      "prominence": 1.117
+    },
+    {
+      "freqHz": 0.056519,
+      "periodS": 17.693,
+      "psd": 246797.18353569612,
+      "prominence": 1.317
+    },
+    {
+      "freqHz": 0.056641,
+      "periodS": 17.655,
+      "psd": 225950.3982076735,
+      "prominence": 1.206
+    },
+    {
+      "freqHz": 0.056763,
+      "periodS": 17.617,
+      "psd": 273098.6013529643,
+      "prominence": 1.424
+    },
+    {
+      "freqHz": 0.056885,
+      "periodS": 17.579,
+      "psd": 205816.09962021338,
+      "prominence": 1.028
+    },
+    {
+      "freqHz": 0.057007,
+      "periodS": 17.542,
+      "psd": 211672.2832167996,
+      "prominence": 1.053
+    },
+    {
+      "freqHz": 0.057129,
+      "periodS": 17.504,
+      "psd": 241952.22613482794,
+      "prominence": 1.195
+    },
+    {
+      "freqHz": 0.057251,
+      "periodS": 17.467,
+      "psd": 226348.4962272519,
+      "prominence": 1.1
+    },
+    {
+      "freqHz": 0.057373,
+      "periodS": 17.43,
+      "psd": 187359.42243554024,
+      "prominence": 0.895
+    },
+    {
+      "freqHz": 0.057495,
+      "periodS": 17.393,
+      "psd": 182686.8120459498,
+      "prominence": 0.865
+    },
+    {
+      "freqHz": 0.057617,
+      "periodS": 17.356,
+      "psd": 175868.5719227837,
+      "prominence": 0.833
+    },
+    {
+      "freqHz": 0.057739,
+      "periodS": 17.319,
+      "psd": 184302.64453323447,
+      "prominence": 0.871
+    },
+    {
+      "freqHz": 0.057861,
+      "periodS": 17.283,
+      "psd": 202432.14832196163,
+      "prominence": 0.956
+    },
+    {
+      "freqHz": 0.057983,
+      "periodS": 17.246,
+      "psd": 200148.9264070926,
+      "prominence": 0.942
+    },
+    {
+      "freqHz": 0.058105,
+      "periodS": 17.21,
+      "psd": 231178.58260737237,
+      "prominence": 1.045
+    },
+    {
+      "freqHz": 0.058228,
+      "periodS": 17.174,
+      "psd": 201104.35023046075,
+      "prominence": 0.895
+    },
+    {
+      "freqHz": 0.05835,
+      "periodS": 17.138,
+      "psd": 179945.4563965904,
+      "prominence": 0.796
+    },
+    {
+      "freqHz": 0.058472,
+      "periodS": 17.102,
+      "psd": 170672.9615584311,
+      "prominence": 0.755
+    },
+    {
+      "freqHz": 0.058594,
+      "periodS": 17.067,
+      "psd": 221174.9917590649,
+      "prominence": 0.977
+    },
+    {
+      "freqHz": 0.058716,
+      "periodS": 17.031,
+      "psd": 211175.51265196886,
+      "prominence": 0.933
+    },
+    {
+      "freqHz": 0.058838,
+      "periodS": 16.996,
+      "psd": 212359.62057177885,
+      "prominence": 0.919
+    },
+    {
+      "freqHz": 0.05896,
+      "periodS": 16.961,
+      "psd": 246611.20296138094,
+      "prominence": 1.025
+    },
+    {
+      "freqHz": 0.059082,
+      "periodS": 16.926,
+      "psd": 240524.11299055454,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.059204,
+      "periodS": 16.891,
+      "psd": 260464.9668742428,
+      "prominence": 1.056
+    },
+    {
+      "freqHz": 0.059326,
+      "periodS": 16.856,
+      "psd": 261856.49610884645,
+      "prominence": 1.005
+    },
+    {
+      "freqHz": 0.059448,
+      "periodS": 16.821,
+      "psd": 224696.4754778173,
+      "prominence": 0.858
+    },
+    {
+      "freqHz": 0.05957,
+      "periodS": 16.787,
+      "psd": 272293.8435460345,
+      "prominence": 1.017
+    },
+    {
+      "freqHz": 0.059692,
+      "periodS": 16.753,
+      "psd": 291552.279632341,
+      "prominence": 1.075
+    },
+    {
+      "freqHz": 0.059814,
+      "periodS": 16.718,
+      "psd": 276457.46990771336,
+      "prominence": 1.015
+    },
+    {
+      "freqHz": 0.059937,
+      "periodS": 16.684,
+      "psd": 271095.4035548002,
+      "prominence": 0.981
+    },
+    {
+      "freqHz": 0.060059,
+      "periodS": 16.65,
+      "psd": 283097.3166376739,
+      "prominence": 1.024
+    },
+    {
+      "freqHz": 0.060181,
+      "periodS": 16.617,
+      "psd": 306774.95599689643,
+      "prominence": 1.11
+    },
+    {
+      "freqHz": 0.060303,
+      "periodS": 16.583,
+      "psd": 294962.09930081567,
+      "prominence": 1.061
+    },
+    {
+      "freqHz": 0.060425,
+      "periodS": 16.549,
+      "psd": 303705.54359972465,
+      "prominence": 1.073
+    },
+    {
+      "freqHz": 0.060547,
+      "periodS": 16.516,
+      "psd": 315377.75018785975,
+      "prominence": 1.113
+    },
+    {
+      "freqHz": 0.060669,
+      "periodS": 16.483,
+      "psd": 305778.1805062399,
+      "prominence": 1.08
+    },
+    {
+      "freqHz": 0.060791,
+      "periodS": 16.45,
+      "psd": 292141.3612563434,
+      "prominence": 1.031
+    },
+    {
+      "freqHz": 0.060913,
+      "periodS": 16.417,
+      "psd": 277963.15301178757,
+      "prominence": 0.955
+    },
+    {
+      "freqHz": 0.061035,
+      "periodS": 16.384,
+      "psd": 317935.03032207297,
+      "prominence": 1.09
+    },
+    {
+      "freqHz": 0.061157,
+      "periodS": 16.351,
+      "psd": 333814.3351569966,
+      "prominence": 1.143
+    },
+    {
+      "freqHz": 0.061279,
+      "periodS": 16.319,
+      "psd": 267731.73773215583,
+      "prominence": 0.916
+    },
+    {
+      "freqHz": 0.061401,
+      "periodS": 16.286,
+      "psd": 283244.6559340147,
+      "prominence": 0.97
+    },
+    {
+      "freqHz": 0.061523,
+      "periodS": 16.254,
+      "psd": 341099.0801089362,
+      "prominence": 1.157
+    },
+    {
+      "freqHz": 0.061646,
+      "periodS": 16.222,
+      "psd": 298627.1298103881,
+      "prominence": 1.012
+    },
+    {
+      "freqHz": 0.061768,
+      "periodS": 16.19,
+      "psd": 291137.0578548641,
+      "prominence": 0.987
+    },
+    {
+      "freqHz": 0.06189,
+      "periodS": 16.158,
+      "psd": 258117.84016250924,
+      "prominence": 0.875
+    },
+    {
+      "freqHz": 0.062012,
+      "periodS": 16.126,
+      "psd": 255822.8056208893,
+      "prominence": 0.867
+    },
+    {
+      "freqHz": 0.062134,
+      "periodS": 16.094,
+      "psd": 368550.97742693755,
+      "prominence": 1.25
+    },
+    {
+      "freqHz": 0.062256,
+      "periodS": 16.063,
+      "psd": 362087.9456455752,
+      "prominence": 1.239
+    },
+    {
+      "freqHz": 0.062378,
+      "periodS": 16.031,
+      "psd": 324794.97257986636,
+      "prominence": 1.116
+    },
+    {
+      "freqHz": 0.0625,
+      "periodS": 16,
+      "psd": 268111.58407190687,
+      "prominence": 0.921
+    },
+    {
+      "freqHz": 0.062622,
+      "periodS": 15.969,
+      "psd": 260003.7261016658,
+      "prominence": 0.912
+    },
+    {
+      "freqHz": 0.062744,
+      "periodS": 15.938,
+      "psd": 312483.4349133097,
+      "prominence": 1.103
+    },
+    {
+      "freqHz": 0.062866,
+      "periodS": 15.907,
+      "psd": 329304.9369361253,
+      "prominence": 1.155
+    },
+    {
+      "freqHz": 0.062988,
+      "periodS": 15.876,
+      "psd": 308185.33216999145,
+      "prominence": 1.088
+    },
+    {
+      "freqHz": 0.06311,
+      "periodS": 15.845,
+      "psd": 253715.60603376676,
+      "prominence": 0.896
+    },
+    {
+      "freqHz": 0.063232,
+      "periodS": 15.815,
+      "psd": 227351.5283045703,
+      "prominence": 0.803
+    },
+    {
+      "freqHz": 0.063354,
+      "periodS": 15.784,
+      "psd": 294846.7966009246,
+      "prominence": 1.042
+    },
+    {
+      "freqHz": 0.063477,
+      "periodS": 15.754,
+      "psd": 329277.8555943337,
+      "prominence": 1.164
+    },
+    {
+      "freqHz": 0.063599,
+      "periodS": 15.724,
+      "psd": 256497.06482749677,
+      "prominence": 0.911
+    },
+    {
+      "freqHz": 0.063721,
+      "periodS": 15.693,
+      "psd": 262779.224501104,
+      "prominence": 0.955
+    },
+    {
+      "freqHz": 0.063843,
+      "periodS": 15.663,
+      "psd": 285053.32077522035,
+      "prominence": 1.036
+    },
+    {
+      "freqHz": 0.063965,
+      "periodS": 15.634,
+      "psd": 281507.96295789746,
+      "prominence": 1.023
+    },
+    {
+      "freqHz": 0.064087,
+      "periodS": 15.604,
+      "psd": 259641.37013709132,
+      "prominence": 0.943
+    },
+    {
+      "freqHz": 0.064209,
+      "periodS": 15.574,
+      "psd": 275248.5509507421,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.064331,
+      "periodS": 15.545,
+      "psd": 294218.4790973377,
+      "prominence": 1.069
+    },
+    {
+      "freqHz": 0.064453,
+      "periodS": 15.515,
+      "psd": 282851.7089885947,
+      "prominence": 1.028
+    },
+    {
+      "freqHz": 0.064575,
+      "periodS": 15.486,
+      "psd": 266814.91839506425,
+      "prominence": 0.965
+    },
+    {
+      "freqHz": 0.064697,
+      "periodS": 15.457,
+      "psd": 289961.26211857755,
+      "prominence": 1.053
+    },
+    {
+      "freqHz": 0.064819,
+      "periodS": 15.427,
+      "psd": 264200.2876597546,
+      "prominence": 0.968
+    },
+    {
+      "freqHz": 0.064941,
+      "periodS": 15.398,
+      "psd": 303852.8801894815,
+      "prominence": 1.114
+    },
+    {
+      "freqHz": 0.065063,
+      "periodS": 15.37,
+      "psd": 248482.7364035625,
+      "prominence": 0.903
+    },
+    {
+      "freqHz": 0.065186,
+      "periodS": 15.341,
+      "psd": 266301.07853067934,
+      "prominence": 0.967
+    },
+    {
+      "freqHz": 0.065308,
+      "periodS": 15.312,
+      "psd": 320813.68401558034,
+      "prominence": 1.176
+    },
+    {
+      "freqHz": 0.06543,
+      "periodS": 15.284,
+      "psd": 272856.38282619545,
+      "prominence": 1.003
+    },
+    {
+      "freqHz": 0.065552,
+      "periodS": 15.255,
+      "psd": 250114.74342901324,
+      "prominence": 0.919
+    },
+    {
+      "freqHz": 0.065674,
+      "periodS": 15.227,
+      "psd": 240596.17202853947,
+      "prominence": 0.884
+    },
+    {
+      "freqHz": 0.065796,
+      "periodS": 15.199,
+      "psd": 237811.48913413595,
+      "prominence": 0.874
+    },
+    {
+      "freqHz": 0.065918,
+      "periodS": 15.17,
+      "psd": 288860.32280014094,
+      "prominence": 1.083
+    },
+    {
+      "freqHz": 0.06604,
+      "periodS": 15.142,
+      "psd": 307204.5437563701,
+      "prominence": 1.151
+    },
+    {
+      "freqHz": 0.066162,
+      "periodS": 15.114,
+      "psd": 276561.6630640426,
+      "prominence": 1.037
+    },
+    {
+      "freqHz": 0.066284,
+      "periodS": 15.087,
+      "psd": 226883.0309652429,
+      "prominence": 0.852
+    },
+    {
+      "freqHz": 0.066406,
+      "periodS": 15.059,
+      "psd": 276913.24333292316,
+      "prominence": 1.04
+    },
+    {
+      "freqHz": 0.066528,
+      "periodS": 15.031,
+      "psd": 221856.36423455607,
+      "prominence": 0.84
+    },
+    {
+      "freqHz": 0.06665,
+      "periodS": 15.004,
+      "psd": 272100.519330348,
+      "prominence": 1.03
+    },
+    {
+      "freqHz": 0.066772,
+      "periodS": 14.976,
+      "psd": 359598.5934275056,
+      "prominence": 1.419
+    },
+    {
+      "freqHz": 0.066895,
+      "periodS": 14.949,
+      "psd": 323324.8925161129,
+      "prominence": 1.285
+    },
+    {
+      "freqHz": 0.067017,
+      "periodS": 14.922,
+      "psd": 240817.1445582403,
+      "prominence": 0.957
+    },
+    {
+      "freqHz": 0.067139,
+      "periodS": 14.895,
+      "psd": 246910.97892976954,
+      "prominence": 0.987
+    },
+    {
+      "freqHz": 0.067261,
+      "periodS": 14.868,
+      "psd": 233013.06437961527,
+      "prominence": 0.944
+    },
+    {
+      "freqHz": 0.067383,
+      "periodS": 14.841,
+      "psd": 227534.9727236912,
+      "prominence": 0.94
+    },
+    {
+      "freqHz": 0.067505,
+      "periodS": 14.814,
+      "psd": 253500.2763407759,
+      "prominence": 1.051
+    },
+    {
+      "freqHz": 0.067627,
+      "periodS": 14.787,
+      "psd": 285030.2906081213,
+      "prominence": 1.182
+    },
+    {
+      "freqHz": 0.067749,
+      "periodS": 14.76,
+      "psd": 230007.2234764826,
+      "prominence": 0.954
+    },
+    {
+      "freqHz": 0.067871,
+      "periodS": 14.734,
+      "psd": 226442.17972757854,
+      "prominence": 0.94
+    },
+    {
+      "freqHz": 0.067993,
+      "periodS": 14.707,
+      "psd": 272988.88848135446,
+      "prominence": 1.138
+    },
+    {
+      "freqHz": 0.068115,
+      "periodS": 14.681,
+      "psd": 251671.02085396607,
+      "prominence": 1.075
+    },
+    {
+      "freqHz": 0.068237,
+      "periodS": 14.655,
+      "psd": 275965.08918261307,
+      "prominence": 1.179
+    },
+    {
+      "freqHz": 0.068359,
+      "periodS": 14.629,
+      "psd": 241943.88584725143,
+      "prominence": 1.038
+    },
+    {
+      "freqHz": 0.068481,
+      "periodS": 14.602,
+      "psd": 271316.6703672047,
+      "prominence": 1.164
+    },
+    {
+      "freqHz": 0.068604,
+      "periodS": 14.577,
+      "psd": 239982.40622400548,
+      "prominence": 1.036
+    },
+    {
+      "freqHz": 0.068726,
+      "periodS": 14.551,
+      "psd": 220014.67714209485,
+      "prominence": 0.957
+    },
+    {
+      "freqHz": 0.068848,
+      "periodS": 14.525,
+      "psd": 241138.41171923414,
+      "prominence": 1.06
+    },
+    {
+      "freqHz": 0.06897,
+      "periodS": 14.499,
+      "psd": 234040.1683096532,
+      "prominence": 1.034
+    },
+    {
+      "freqHz": 0.069092,
+      "periodS": 14.473,
+      "psd": 208685.06230938097,
+      "prominence": 0.931
+    },
+    {
+      "freqHz": 0.069214,
+      "periodS": 14.448,
+      "psd": 231745.5554597273,
+      "prominence": 1.047
+    },
+    {
+      "freqHz": 0.069336,
+      "periodS": 14.423,
+      "psd": 207159.73630064892,
+      "prominence": 0.942
+    },
+    {
+      "freqHz": 0.069458,
+      "periodS": 14.397,
+      "psd": 221250.63953125977,
+      "prominence": 1.056
+    },
+    {
+      "freqHz": 0.06958,
+      "periodS": 14.372,
+      "psd": 198678.08506320842,
+      "prominence": 0.952
+    },
+    {
+      "freqHz": 0.069702,
+      "periodS": 14.347,
+      "psd": 199649.7021963622,
+      "prominence": 0.964
+    },
+    {
+      "freqHz": 0.069824,
+      "periodS": 14.322,
+      "psd": 205953.2714779737,
+      "prominence": 0.994
+    },
+    {
+      "freqHz": 0.069946,
+      "periodS": 14.297,
+      "psd": 196224.13999119092,
+      "prominence": 0.947
+    },
+    {
+      "freqHz": 0.070068,
+      "periodS": 14.272,
+      "psd": 180738.29944160805,
+      "prominence": 0.877
+    },
+    {
+      "freqHz": 0.07019,
+      "periodS": 14.247,
+      "psd": 205351.0364567463,
+      "prominence": 0.997
+    },
+    {
+      "freqHz": 0.070313,
+      "periodS": 14.222,
+      "psd": 209542.61431636842,
+      "prominence": 1.019
+    },
+    {
+      "freqHz": 0.070435,
+      "periodS": 14.198,
+      "psd": 206075.46995369517,
+      "prominence": 1.004
+    },
+    {
+      "freqHz": 0.070557,
+      "periodS": 14.173,
+      "psd": 183517.37632594813,
+      "prominence": 0.914
+    },
+    {
+      "freqHz": 0.070679,
+      "periodS": 14.149,
+      "psd": 189003.79933470022,
+      "prominence": 0.942
+    },
+    {
+      "freqHz": 0.070801,
+      "periodS": 14.124,
+      "psd": 179805.81135351252,
+      "prominence": 0.898
+    },
+    {
+      "freqHz": 0.070923,
+      "periodS": 14.1,
+      "psd": 224145.41894188116,
+      "prominence": 1.123
+    },
+    {
+      "freqHz": 0.071045,
+      "periodS": 14.076,
+      "psd": 195273.81646716077,
+      "prominence": 0.983
+    },
+    {
+      "freqHz": 0.071167,
+      "periodS": 14.051,
+      "psd": 200295.74728226865,
+      "prominence": 1.021
+    },
+    {
+      "freqHz": 0.071289,
+      "periodS": 14.027,
+      "psd": 205664.4283980126,
+      "prominence": 1.053
+    },
+    {
+      "freqHz": 0.071411,
+      "periodS": 14.003,
+      "psd": 200803.1526135439,
+      "prominence": 1.062
+    },
+    {
+      "freqHz": 0.071533,
+      "periodS": 13.98,
+      "psd": 177085.95240855543,
+      "prominence": 0.965
+    },
+    {
+      "freqHz": 0.071655,
+      "periodS": 13.956,
+      "psd": 207254.04353978302,
+      "prominence": 1.147
+    },
+    {
+      "freqHz": 0.071777,
+      "periodS": 13.932,
+      "psd": 210937.5273653783,
+      "prominence": 1.173
+    },
+    {
+      "freqHz": 0.071899,
+      "periodS": 13.908,
+      "psd": 162663.91119759675,
+      "prominence": 0.919
+    },
+    {
+      "freqHz": 0.072021,
+      "periodS": 13.885,
+      "psd": 200550.48177083285,
+      "prominence": 1.178
+    },
+    {
+      "freqHz": 0.072144,
+      "periodS": 13.861,
+      "psd": 152825.72324740927,
+      "prominence": 0.94
+    },
+    {
+      "freqHz": 0.072266,
+      "periodS": 13.838,
+      "psd": 155499.1794851222,
+      "prominence": 0.966
+    },
+    {
+      "freqHz": 0.072388,
+      "periodS": 13.815,
+      "psd": 160999.15118426323,
+      "prominence": 1.021
+    },
+    {
+      "freqHz": 0.07251,
+      "periodS": 13.791,
+      "psd": 126485.55174170811,
+      "prominence": 0.813
+    },
+    {
+      "freqHz": 0.072632,
+      "periodS": 13.768,
+      "psd": 170306.96747497353,
+      "prominence": 1.098
+    },
+    {
+      "freqHz": 0.072754,
+      "periodS": 13.745,
+      "psd": 128919.8218289782,
+      "prominence": 0.837
+    },
+    {
+      "freqHz": 0.072876,
+      "periodS": 13.722,
+      "psd": 125076.23478842241,
+      "prominence": 0.815
+    },
+    {
+      "freqHz": 0.072998,
+      "periodS": 13.699,
+      "psd": 121141.35927025205,
+      "prominence": 0.793
+    },
+    {
+      "freqHz": 0.07312,
+      "periodS": 13.676,
+      "psd": 142967.1234782935,
+      "prominence": 0.951
+    },
+    {
+      "freqHz": 0.073242,
+      "periodS": 13.653,
+      "psd": 148998.44098050502,
+      "prominence": 0.993
+    },
+    {
+      "freqHz": 0.073364,
+      "periodS": 13.631,
+      "psd": 124353.77741024355,
+      "prominence": 0.835
+    },
+    {
+      "freqHz": 0.073486,
+      "periodS": 13.608,
+      "psd": 133542.26960981614,
+      "prominence": 0.896
+    },
+    {
+      "freqHz": 0.073608,
+      "periodS": 13.585,
+      "psd": 157631.39490394312,
+      "prominence": 1.058
+    },
+    {
+      "freqHz": 0.07373,
+      "periodS": 13.563,
+      "psd": 150290.80139261365,
+      "prominence": 1.017
+    },
+    {
+      "freqHz": 0.073853,
+      "periodS": 13.54,
+      "psd": 147795.31838676293,
+      "prominence": 1.005
+    },
+    {
+      "freqHz": 0.073975,
+      "periodS": 13.518,
+      "psd": 149987.38963924954,
+      "prominence": 1.049
+    },
+    {
+      "freqHz": 0.074097,
+      "periodS": 13.496,
+      "psd": 135268.72241188755,
+      "prominence": 0.947
+    },
+    {
+      "freqHz": 0.074219,
+      "periodS": 13.474,
+      "psd": 126541.04916565711,
+      "prominence": 0.89
+    },
+    {
+      "freqHz": 0.074341,
+      "periodS": 13.452,
+      "psd": 153528.9703269854,
+      "prominence": 1.097
+    },
+    {
+      "freqHz": 0.074463,
+      "periodS": 13.43,
+      "psd": 155053.00740439352,
+      "prominence": 1.108
+    },
+    {
+      "freqHz": 0.074585,
+      "periodS": 13.408,
+      "psd": 153980.06657260162,
+      "prominence": 1.106
+    },
+    {
+      "freqHz": 0.074707,
+      "periodS": 13.386,
+      "psd": 139983.05207997613,
+      "prominence": 1.006
+    },
+    {
+      "freqHz": 0.074829,
+      "periodS": 13.364,
+      "psd": 130367.76787183117,
+      "prominence": 0.937
+    },
+    {
+      "freqHz": 0.074951,
+      "periodS": 13.342,
+      "psd": 139164.37214359286,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.075073,
+      "periodS": 13.32,
+      "psd": 147080.8332554503,
+      "prominence": 1.087
+    },
+    {
+      "freqHz": 0.075195,
+      "periodS": 13.299,
+      "psd": 142132.22230677126,
+      "prominence": 1.064
+    },
+    {
+      "freqHz": 0.075317,
+      "periodS": 13.277,
+      "psd": 153544.32479319308,
+      "prominence": 1.15
+    },
+    {
+      "freqHz": 0.075439,
+      "periodS": 13.256,
+      "psd": 158514.91812411952,
+      "prominence": 1.216
+    },
+    {
+      "freqHz": 0.075562,
+      "periodS": 13.234,
+      "psd": 142828.86376759136,
+      "prominence": 1.114
+    },
+    {
+      "freqHz": 0.075684,
+      "periodS": 13.213,
+      "psd": 107035.15115646666,
+      "prominence": 0.846
+    },
+    {
+      "freqHz": 0.075806,
+      "periodS": 13.192,
+      "psd": 124932.53025894039,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.075928,
+      "periodS": 13.17,
+      "psd": 114515.50108738604,
+      "prominence": 0.917
+    },
+    {
+      "freqHz": 0.07605,
+      "periodS": 13.149,
+      "psd": 115360.98585079283,
+      "prominence": 0.935
+    },
+    {
+      "freqHz": 0.076172,
+      "periodS": 13.128,
+      "psd": 123383.9892394557,
+      "prominence": 1.001
+    },
+    {
+      "freqHz": 0.076294,
+      "periodS": 13.107,
+      "psd": 128164.72706212454,
+      "prominence": 1.051
+    },
+    {
+      "freqHz": 0.076416,
+      "periodS": 13.086,
+      "psd": 121917.205280292,
+      "prominence": 1.039
+    },
+    {
+      "freqHz": 0.076538,
+      "periodS": 13.065,
+      "psd": 113773.21487328585,
+      "prominence": 0.973
+    },
+    {
+      "freqHz": 0.07666,
+      "periodS": 13.045,
+      "psd": 124964.8849395167,
+      "prominence": 1.083
+    },
+    {
+      "freqHz": 0.076782,
+      "periodS": 13.024,
+      "psd": 98963.38471759917,
+      "prominence": 0.864
+    },
+    {
+      "freqHz": 0.076904,
+      "periodS": 13.003,
+      "psd": 109409.09154340203,
+      "prominence": 0.962
+    },
+    {
+      "freqHz": 0.077026,
+      "periodS": 12.983,
+      "psd": 98179.65357505271,
+      "prominence": 0.892
+    },
+    {
+      "freqHz": 0.077148,
+      "periodS": 12.962,
+      "psd": 110019.27947275876,
+      "prominence": 1.006
+    },
+    {
+      "freqHz": 0.077271,
+      "periodS": 12.942,
+      "psd": 123315.06354666894,
+      "prominence": 1.127
+    },
+    {
+      "freqHz": 0.077393,
+      "periodS": 12.921,
+      "psd": 116919.97828825537,
+      "prominence": 1.076
+    },
+    {
+      "freqHz": 0.077515,
+      "periodS": 12.901,
+      "psd": 107900.93023171576,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.077637,
+      "periodS": 12.881,
+      "psd": 117379.03174750911,
+      "prominence": 1.088
+    },
+    {
+      "freqHz": 0.077759,
+      "periodS": 12.86,
+      "psd": 108636.35432936935,
+      "prominence": 1.017
+    },
+    {
+      "freqHz": 0.077881,
+      "periodS": 12.84,
+      "psd": 104301.52556341016,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.078003,
+      "periodS": 12.82,
+      "psd": 75090.3916609917,
+      "prominence": 0.729
+    },
+    {
+      "freqHz": 0.078125,
+      "periodS": 12.8,
+      "psd": 98638.365688343,
+      "prominence": 0.984
+    },
+    {
+      "freqHz": 0.078247,
+      "periodS": 12.78,
+      "psd": 106839.87762828503,
+      "prominence": 1.071
+    },
+    {
+      "freqHz": 0.078369,
+      "periodS": 12.76,
+      "psd": 93354.91996037013,
+      "prominence": 0.943
+    },
+    {
+      "freqHz": 0.078491,
+      "periodS": 12.74,
+      "psd": 95496.02274051396,
+      "prominence": 0.965
+    },
+    {
+      "freqHz": 0.078613,
+      "periodS": 12.72,
+      "psd": 100260.52196429239,
+      "prominence": 1.016
+    },
+    {
+      "freqHz": 0.078735,
+      "periodS": 12.701,
+      "psd": 94558.66509301211,
+      "prominence": 0.963
+    },
+    {
+      "freqHz": 0.078857,
+      "periodS": 12.681,
+      "psd": 77513.60828412455,
+      "prominence": 0.797
+    },
+    {
+      "freqHz": 0.078979,
+      "periodS": 12.662,
+      "psd": 98951.87241064044,
+      "prominence": 1.036
+    },
+    {
+      "freqHz": 0.079102,
+      "periodS": 12.642,
+      "psd": 113874.05698132444,
+      "prominence": 1.204
+    },
+    {
+      "freqHz": 0.079224,
+      "periodS": 12.622,
+      "psd": 99734.18585905386,
+      "prominence": 1.068
+    },
+    {
+      "freqHz": 0.079346,
+      "periodS": 12.603,
+      "psd": 89330.87309057917,
+      "prominence": 0.957
+    },
+    {
+      "freqHz": 0.079468,
+      "periodS": 12.584,
+      "psd": 102989.0003040509,
+      "prominence": 1.152
+    },
+    {
+      "freqHz": 0.07959,
+      "periodS": 12.564,
+      "psd": 86780.08327847866,
+      "prominence": 0.971
+    },
+    {
+      "freqHz": 0.079712,
+      "periodS": 12.545,
+      "psd": 78625.80291297517,
+      "prominence": 0.906
+    },
+    {
+      "freqHz": 0.079834,
+      "periodS": 12.526,
+      "psd": 80320.02331825087,
+      "prominence": 0.926
+    },
+    {
+      "freqHz": 0.079956,
+      "periodS": 12.507,
+      "psd": 85411.82069820863,
+      "prominence": 0.984
+    },
+    {
+      "freqHz": 0.080078,
+      "periodS": 12.488,
+      "psd": 76397.81658311072,
+      "prominence": 0.881
+    },
+    {
+      "freqHz": 0.0802,
+      "periodS": 12.469,
+      "psd": 97304.5848319985,
+      "prominence": 1.122
+    },
+    {
+      "freqHz": 0.080322,
+      "periodS": 12.45,
+      "psd": 93300.69718052933,
+      "prominence": 1.076
+    },
+    {
+      "freqHz": 0.080444,
+      "periodS": 12.431,
+      "psd": 81754.20670984962,
+      "prominence": 0.957
+    },
+    {
+      "freqHz": 0.080566,
+      "periodS": 12.412,
+      "psd": 89375.86616737922,
+      "prominence": 1.083
+    },
+    {
+      "freqHz": 0.080688,
+      "periodS": 12.393,
+      "psd": 86738.18702047277,
+      "prominence": 1.061
+    },
+    {
+      "freqHz": 0.080811,
+      "periodS": 12.375,
+      "psd": 73819.66203356508,
+      "prominence": 0.903
+    },
+    {
+      "freqHz": 0.080933,
+      "periodS": 12.356,
+      "psd": 65125.99401554545,
+      "prominence": 0.803
+    },
+    {
+      "freqHz": 0.081055,
+      "periodS": 12.337,
+      "psd": 74891.70715823748,
+      "prominence": 0.932
+    },
+    {
+      "freqHz": 0.081177,
+      "periodS": 12.319,
+      "psd": 77829.43858374858,
+      "prominence": 0.973
+    },
+    {
+      "freqHz": 0.081299,
+      "periodS": 12.3,
+      "psd": 74310.47498444855,
+      "prominence": 0.932
+    },
+    {
+      "freqHz": 0.081421,
+      "periodS": 12.282,
+      "psd": 73707.8545927818,
+      "prominence": 0.937
+    },
+    {
+      "freqHz": 0.081543,
+      "periodS": 12.263,
+      "psd": 64099.59446172239,
+      "prominence": 0.824
+    },
+    {
+      "freqHz": 0.081665,
+      "periodS": 12.245,
+      "psd": 87998.90037246412,
+      "prominence": 1.152
+    },
+    {
+      "freqHz": 0.081787,
+      "periodS": 12.227,
+      "psd": 82533.42934053903,
+      "prominence": 1.102
+    },
+    {
+      "freqHz": 0.081909,
+      "periodS": 12.209,
+      "psd": 81080.79927350962,
+      "prominence": 1.091
+    },
+    {
+      "freqHz": 0.082031,
+      "periodS": 12.19,
+      "psd": 92288.32885939139,
+      "prominence": 1.25
+    },
+    {
+      "freqHz": 0.082153,
+      "periodS": 12.172,
+      "psd": 97927.07584987365,
+      "prominence": 1.329
+    },
+    {
+      "freqHz": 0.082275,
+      "periodS": 12.154,
+      "psd": 79998.20323332383,
+      "prominence": 1.165
+    },
+    {
+      "freqHz": 0.082397,
+      "periodS": 12.136,
+      "psd": 67748.26397091102,
+      "prominence": 0.992
+    },
+    {
+      "freqHz": 0.08252,
+      "periodS": 12.118,
+      "psd": 63780.04625138113,
+      "prominence": 0.934
+    },
+    {
+      "freqHz": 0.082642,
+      "periodS": 12.1,
+      "psd": 58403.15583262762,
+      "prominence": 0.857
+    },
+    {
+      "freqHz": 0.082764,
+      "periodS": 12.083,
+      "psd": 58768.747612276,
+      "prominence": 0.867
+    },
+    {
+      "freqHz": 0.082886,
+      "periodS": 12.065,
+      "psd": 68297.23860389143,
+      "prominence": 1.008
+    },
+    {
+      "freqHz": 0.083008,
+      "periodS": 12.047,
+      "psd": 79743.41902728559,
+      "prominence": 1.177
+    },
+    {
+      "freqHz": 0.08313,
+      "periodS": 12.029,
+      "psd": 68320.53568620927,
+      "prominence": 1.012
+    },
+    {
+      "freqHz": 0.083252,
+      "periodS": 12.012,
+      "psd": 68669.27596153648,
+      "prominence": 1.019
+    },
+    {
+      "freqHz": 0.083374,
+      "periodS": 11.994,
+      "psd": 68140.35993384851,
+      "prominence": 1.011
+    },
+    {
+      "freqHz": 0.083496,
+      "periodS": 11.977,
+      "psd": 67154.88594907262,
+      "prominence": 0.996
+    },
+    {
+      "freqHz": 0.083618,
+      "periodS": 11.959,
+      "psd": 64440.22419832913,
+      "prominence": 0.96
+    },
+    {
+      "freqHz": 0.08374,
+      "periodS": 11.942,
+      "psd": 62975.774971741135,
+      "prominence": 0.977
+    },
+    {
+      "freqHz": 0.083862,
+      "periodS": 11.924,
+      "psd": 63115.18823181538,
+      "prominence": 0.979
+    },
+    {
+      "freqHz": 0.083984,
+      "periodS": 11.907,
+      "psd": 61219.150133174975,
+      "prominence": 0.952
+    },
+    {
+      "freqHz": 0.084106,
+      "periodS": 11.89,
+      "psd": 64286.59077742159,
+      "prominence": 1.008
+    },
+    {
+      "freqHz": 0.084229,
+      "periodS": 11.872,
+      "psd": 59426.08743032052,
+      "prominence": 0.933
+    },
+    {
+      "freqHz": 0.084351,
+      "periodS": 11.855,
+      "psd": 67527.71170475139,
+      "prominence": 1.067
+    },
+    {
+      "freqHz": 0.084473,
+      "periodS": 11.838,
+      "psd": 63295.719955548586,
+      "prominence": 1.003
+    },
+    {
+      "freqHz": 0.084595,
+      "periodS": 11.821,
+      "psd": 67395.58876979054,
+      "prominence": 1.068
+    },
+    {
+      "freqHz": 0.084717,
+      "periodS": 11.804,
+      "psd": 67392.80299697575,
+      "prominence": 1.068
+    },
+    {
+      "freqHz": 0.084839,
+      "periodS": 11.787,
+      "psd": 75979.1450896448,
+      "prominence": 1.206
+    },
+    {
+      "freqHz": 0.084961,
+      "periodS": 11.77,
+      "psd": 63666.51972022792,
+      "prominence": 1.027
+    },
+    {
+      "freqHz": 0.085083,
+      "periodS": 11.753,
+      "psd": 59343.36452533751,
+      "prominence": 0.969
+    },
+    {
+      "freqHz": 0.085205,
+      "periodS": 11.736,
+      "psd": 61981.92090810034,
+      "prominence": 1.026
+    },
+    {
+      "freqHz": 0.085327,
+      "periodS": 11.72,
+      "psd": 48464.206111748856,
+      "prominence": 0.816
+    },
+    {
+      "freqHz": 0.085449,
+      "periodS": 11.703,
+      "psd": 58158.54490653082,
+      "prominence": 0.98
+    },
+    {
+      "freqHz": 0.085571,
+      "periodS": 11.686,
+      "psd": 59262.68962059198,
+      "prominence": 0.999
+    },
+    {
+      "freqHz": 0.085693,
+      "periodS": 11.67,
+      "psd": 64863.96949963318,
+      "prominence": 1.095
+    },
+    {
+      "freqHz": 0.085815,
+      "periodS": 11.653,
+      "psd": 58443.315716531215,
+      "prominence": 0.986
+    },
+    {
+      "freqHz": 0.085938,
+      "periodS": 11.636,
+      "psd": 60410.10972924761,
+      "prominence": 1.034
+    },
+    {
+      "freqHz": 0.08606,
+      "periodS": 11.62,
+      "psd": 47654.614518679504,
+      "prominence": 0.819
+    },
+    {
+      "freqHz": 0.086182,
+      "periodS": 11.603,
+      "psd": 56188.5522278524,
+      "prominence": 0.989
+    },
+    {
+      "freqHz": 0.086304,
+      "periodS": 11.587,
+      "psd": 55022.55850600374,
+      "prominence": 0.979
+    },
+    {
+      "freqHz": 0.086426,
+      "periodS": 11.571,
+      "psd": 54534.27803693116,
+      "prominence": 0.971
+    },
+    {
+      "freqHz": 0.086548,
+      "periodS": 11.554,
+      "psd": 52643.8336633573,
+      "prominence": 0.947
+    },
+    {
+      "freqHz": 0.08667,
+      "periodS": 11.538,
+      "psd": 51022.36989140288,
+      "prominence": 0.927
+    },
+    {
+      "freqHz": 0.086792,
+      "periodS": 11.522,
+      "psd": 49772.30481093704,
+      "prominence": 0.909
+    },
+    {
+      "freqHz": 0.086914,
+      "periodS": 11.506,
+      "psd": 56837.89813686877,
+      "prominence": 1.042
+    },
+    {
+      "freqHz": 0.087036,
+      "periodS": 11.489,
+      "psd": 55618.35836266194,
+      "prominence": 1.021
+    },
+    {
+      "freqHz": 0.087158,
+      "periodS": 11.473,
+      "psd": 54481.403938977965,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.08728,
+      "periodS": 11.457,
+      "psd": 51643.62254684513,
+      "prominence": 0.947
+    },
+    {
+      "freqHz": 0.087402,
+      "periodS": 11.441,
+      "psd": 59687.09975398828,
+      "prominence": 1.096
+    },
+    {
+      "freqHz": 0.087524,
+      "periodS": 11.425,
+      "psd": 49391.62330547484,
+      "prominence": 0.916
+    },
+    {
+      "freqHz": 0.087646,
+      "periodS": 11.409,
+      "psd": 61828.29421656739,
+      "prominence": 1.146
+    },
+    {
+      "freqHz": 0.087769,
+      "periodS": 11.394,
+      "psd": 48205.4360840908,
+      "prominence": 0.894
+    },
+    {
+      "freqHz": 0.087891,
+      "periodS": 11.378,
+      "psd": 53940.435649545616,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.088013,
+      "periodS": 11.362,
+      "psd": 49590.86848344958,
+      "prominence": 0.919
+    },
+    {
+      "freqHz": 0.088135,
+      "periodS": 11.346,
+      "psd": 54784.11631427374,
+      "prominence": 1.023
+    },
+    {
+      "freqHz": 0.088257,
+      "periodS": 11.331,
+      "psd": 57082.439295505086,
+      "prominence": 1.072
+    },
+    {
+      "freqHz": 0.088379,
+      "periodS": 11.315,
+      "psd": 53122.95605177962,
+      "prominence": 1
+    },
+    {
+      "freqHz": 0.088501,
+      "periodS": 11.299,
+      "psd": 50654.106635985256,
+      "prominence": 0.951
+    },
+    {
+      "freqHz": 0.088623,
+      "periodS": 11.284,
+      "psd": 53260.157555869446,
+      "prominence": 0.994
+    },
+    {
+      "freqHz": 0.088745,
+      "periodS": 11.268,
+      "psd": 49327.37339202624,
+      "prominence": 0.914
+    },
+    {
+      "freqHz": 0.088867,
+      "periodS": 11.253,
+      "psd": 45178.42798194,
+      "prominence": 0.838
+    },
+    {
+      "freqHz": 0.088989,
+      "periodS": 11.237,
+      "psd": 61680.25551494877,
+      "prominence": 1.143
+    },
+    {
+      "freqHz": 0.089111,
+      "periodS": 11.222,
+      "psd": 59668.420626561114,
+      "prominence": 1.114
+    },
+    {
+      "freqHz": 0.089233,
+      "periodS": 11.207,
+      "psd": 53557.478209137334,
+      "prominence": 0.993
+    },
+    {
+      "freqHz": 0.089355,
+      "periodS": 11.191,
+      "psd": 52451.47082698003,
+      "prominence": 0.972
+    },
+    {
+      "freqHz": 0.089478,
+      "periodS": 11.176,
+      "psd": 63278.75789709807,
+      "prominence": 1.157
+    },
+    {
+      "freqHz": 0.0896,
+      "periodS": 11.161,
+      "psd": 57981.3028576086,
+      "prominence": 1.075
+    },
+    {
+      "freqHz": 0.089722,
+      "periodS": 11.146,
+      "psd": 58355.71666960766,
+      "prominence": 1.082
+    },
+    {
+      "freqHz": 0.089844,
+      "periodS": 11.13,
+      "psd": 52459.49659365947,
+      "prominence": 0.959
+    },
+    {
+      "freqHz": 0.089966,
+      "periodS": 11.115,
+      "psd": 40197.118035384,
+      "prominence": 0.734
+    }
+  ]
+}

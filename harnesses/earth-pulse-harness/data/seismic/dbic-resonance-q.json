@@ -1,0 +1,23 @@
+{
+ "station": "GT.DBIC",
+ "window": "1995-01 (12d continuous)",
+ "sharpness": {
+  "f0Hz": 0.03607,
+  "periodS": 27.72,
+  "fwhmHz": 0.000549,
+  "q": 66,
+  "widthBins": 9,
+  "note": "Q is a LOWER bound: the 12-day-averaged line is broadened by slow frequency wander; the instantaneous resonance is sharper."
+ },
+ "temporal": {
+  "windows": 285,
+  "windowHours": 4,
+  "peakFreqCvPct": 2.6,
+  "periodRangeS": [
+   25.9,
+   29.3
+  ],
+  "longestMonotonicRunHours": 3,
+  "note": "No sustained gliding of the fundamental (longest monotonic run is noise-level). The gliding tremors of Bruland & Hadziioannou 2023 are separate companion signals that glide UP from this stable fundamental."
+ }
+}

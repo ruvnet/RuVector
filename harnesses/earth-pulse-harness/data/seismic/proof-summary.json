@@ -1,0 +1,67 @@
+{
+  "generatedFrom": "12 day(s) of GT.DBIC LHZ (boreal winter 1995, IRIS FDSN)",
+  "station": "GT.DBIC (Dimbokro, Côte d'Ivoire — Gulf of Guinea coast)",
+  "channel": "LHZ (1 sps, vertical)",
+  "windowDays": 12,
+  "totalSamples": 1036800,
+  "psd": {
+    "segments": 252,
+    "resolutionHz": 0.0001220703125,
+    "searchBandHz": [
+      0.033,
+      0.045
+    ]
+  },
+  "persistentLine": {
+    "periodS": 27.676,
+    "freqHz": 0.03613,
+    "whitenedProminence": 2.16
+  },
+  "harnessDetector": {
+    "periodS": 27.51,
+    "coherence": 0.906,
+    "confidence": 0.937
+  },
+  "memory": {
+    "backend": "agenticow (ruVector COW)",
+    "ingested": 6,
+    "nearest": {
+      "eventId": "GT.DBIC-1995-01-05-w0",
+      "distance": 0,
+      "branch": "base"
+    },
+    "baseStatus": {
+      "totalVectors": 0,
+      "totalSegments": 1,
+      "fileSize": 162,
+      "currentEpoch": 0,
+      "profileId": 0,
+      "compactionState": "idle",
+      "deadSpaceRatio": 0,
+      "readOnly": false,
+      "chainDepth": 2,
+      "dimension": 13,
+      "metric": "cosine"
+    },
+    "calmStatus": {
+      "totalVectors": 1,
+      "totalSegments": 4,
+      "fileSize": 660,
+      "currentEpoch": 1,
+      "profileId": 0,
+      "compactionState": "idle",
+      "deadSpaceRatio": 0,
+      "readOnly": false,
+      "chainDepth": 2,
+      "dimension": 13,
+      "metric": "cosine"
+    }
+  },
+  "partition": {
+    "backend": "ruvector-mincut-wasm",
+    "classes": 1,
+    "expanders": 2,
+    "vertices": 6,
+    "edges": 15
+  }
+}

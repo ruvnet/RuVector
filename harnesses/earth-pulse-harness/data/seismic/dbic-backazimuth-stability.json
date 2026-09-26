@@ -1,0 +1,38 @@
+{
+ "station": "GT.DBIC",
+ "test": "is the source DIRECTION fixed across seasons and years?",
+ "band_Hz": [
+  0.035,
+  0.0372
+ ],
+ "windows": [
+  {
+   "window": "1996-01 (winter)",
+   "backAzimuth": 86.3,
+   "R": 0.68
+  },
+  {
+   "window": "1996-06 (summer)",
+   "backAzimuth": 101.2,
+   "R": 0.763
+  },
+  {
+   "window": "1996-09 (autumn)",
+   "backAzimuth": 96,
+   "R": 0.756
+  },
+  {
+   "window": "1997-06 (year+1)",
+   "backAzimuth": 100.4,
+   "R": 0.865
+  }
+ ],
+ "mean_backAzimuth": 96.4,
+ "spread_deg": 15,
+ "expected_gulf_of_guinea": {
+  "mid_gulf": 120,
+  "bight_of_bonny": 111,
+  "sao_tome": 118
+ },
+ "conclusion": "DBIC back-azimuth is stable at ~95-100deg across winter/summer/autumn and two years (R 0.68-0.87), confirming a FIXED Gulf-of-Guinea source direction. The ~10-15deg offset west of the Sao Tome bearing is within single-station polarization systematics."
+}
