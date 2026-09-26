@@ -32,7 +32,7 @@
 use crate::compaction::{weighted_importance, CoherenceWeights, CompactionPolicy};
 use crate::memory::MemoryEntry;
 use crate::scoring::cosine_sim;
-use ruvector_mincut::RuVectorGraphAnalyzer;
+use ruvector_mincut::{RuVectorGraphAnalyzer, SourceAnchoredConfig, SourceAnchoredMinCut};
 use std::collections::HashSet;
 
 /// How the mincut-boundary structural signal is combined with the scalar
@@ -44,6 +44,34 @@ pub enum ForgetMode {
     /// Reserve `protect_fraction` of the retained budget for the
     /// highest-scoring boundary vertices before ranking the rest.
     Hard,
+}
+
+/// Which `ruvector-mincut` engine computes the boundary partition.
+///
+/// Added by the 2026-09-20 nightly follow-up to ADR-345, which attacked
+/// that experiment's two open findings against `MincutBackend::Legacy`
+/// (measured non-determinism, and a ~1,800-2,700x compaction slowdown vs.
+/// baseline that made the original hypothesis fail its acceptance
+/// thresholds): see
+/// `docs/research/nightly/2026-09-20_canonical-mincut-forgetting/README.md`
+/// and the crate's `examples/mincut_canonical_probe.rs`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum MincutBackend {
+    /// `ruvector_mincut::RuVectorGraphAnalyzer` (wraps `MinCutWrapper`).
+    /// Measured non-deterministic across repeated calls on an unchanged
+    /// graph; mitigated here via [`MincutGatedForgetting::mincut_trials`]
+    /// union-of-repeats. Kept as the default to preserve ADR-345's original,
+    /// already-rejected behavior unchanged.
+    #[default]
+    Legacy,
+    /// `ruvector_mincut::canonical::source_anchored::SourceAnchoredMinCut`
+    /// (ADR-117 pseudo-deterministic canonical min-cut). Measured
+    /// deterministic (identical partition across repeated calls on
+    /// byte-identical input) and substantially faster at every corpus size
+    /// tested; see the nightly doc above for raw numbers.
+    /// [`MincutGatedForgetting::mincut_trials`] is ignored in this mode
+    /// (a single call already returns the canonical, repeatable partition).
+    Canonical,
 }
 
 /// Mincut-gated forgetting compaction policy (candidates A/B of the nightly
@@ -65,12 +93,22 @@ pub struct MincutGatedForgetting {
     /// Number of times to recompute the min-cut partition on an unchanged
     /// graph, unioning the boundary vertices found each time (see the
     /// "Measured limitation" note on [`Self::boundary_indices`]). `1`
-    /// disables retrying.
+    /// disables retrying. Ignored when `backend` is
+    /// [`MincutBackend::Canonical`] (see that variant's doc).
     pub mincut_trials: usize,
+    /// Which `ruvector-mincut` engine computes the boundary partition.
+    /// Defaults to [`MincutBackend::Legacy`] to keep `soft()`/`hard()`
+    /// behavior-identical to ADR-345; use
+    /// [`Self::soft_canonical`]/[`Self::hard_canonical`] for the faster,
+    /// deterministic backend evaluated by the 2026-09-20 nightly follow-up.
+    pub backend: MincutBackend,
 }
 
 impl MincutGatedForgetting {
     /// [`ForgetMode::Soft`] with the given weights and bonus.
+    /// Uses [`MincutBackend::Legacy`] (ADR-345's original, rejected
+    /// configuration) — see [`Self::soft_canonical`] for the faster,
+    /// deterministic backend.
     pub fn soft(weights: CoherenceWeights, structural_bonus: f32) -> Self {
         Self {
             weights,
@@ -80,10 +118,14 @@ impl MincutGatedForgetting {
             structural_bonus,
             protect_fraction: 0.0,
             mincut_trials: 3,
+            backend: MincutBackend::Legacy,
         }
     }
 
     /// [`ForgetMode::Hard`] with the given weights and protected fraction.
+    /// Uses [`MincutBackend::Legacy`] (ADR-345's original, rejected
+    /// configuration) — see [`Self::hard_canonical`] for the faster,
+    /// deterministic backend.
     pub fn hard(weights: CoherenceWeights, protect_fraction: f32) -> Self {
         Self {
             weights,
@@ -93,6 +135,27 @@ impl MincutGatedForgetting {
             structural_bonus: 0.0,
             protect_fraction,
             mincut_trials: 3,
+            backend: MincutBackend::Legacy,
+        }
+    }
+
+    /// [`ForgetMode::Soft`] on [`MincutBackend::Canonical`] (2026-09-20
+    /// nightly follow-up to ADR-345).
+    pub fn soft_canonical(weights: CoherenceWeights, structural_bonus: f32) -> Self {
+        Self {
+            backend: MincutBackend::Canonical,
+            mincut_trials: 1,
+            ..Self::soft(weights, structural_bonus)
+        }
+    }
+
+    /// [`ForgetMode::Hard`] on [`MincutBackend::Canonical`] (2026-09-20
+    /// nightly follow-up to ADR-345).
+    pub fn hard_canonical(weights: CoherenceWeights, protect_fraction: f32) -> Self {
+        Self {
+            backend: MincutBackend::Canonical,
+            mincut_trials: 1,
+            ..Self::hard(weights, protect_fraction)
         }
     }
 
@@ -166,11 +229,20 @@ impl MincutGatedForgetting {
             return HashSet::new();
         }
 
-        let mut boundary = HashSet::new();
-        for _ in 0..self.mincut_trials.max(1) {
-            boundary.extend(Self::boundary_from_one_partition(&neighbors));
+        match self.backend {
+            MincutBackend::Legacy => {
+                let mut boundary = HashSet::new();
+                for _ in 0..self.mincut_trials.max(1) {
+                    boundary.extend(Self::boundary_from_one_partition(&neighbors));
+                }
+                boundary
+            }
+            // Deterministic backend: one call already returns the
+            // repeatable canonical partition, so retrying adds cost with no
+            // change in output (measured: 30/30 identical partitions on
+            // byte-identical input, see `examples/mincut_canonical_probe.rs`).
+            MincutBackend::Canonical => Self::boundary_from_canonical_partition(&neighbors),
         }
-        boundary
     }
 
     /// One min-cut partition attempt over an already-built k-NN graph; see
@@ -197,6 +269,56 @@ impl MincutGatedForgetting {
                     boundary.insert(j);
                 }
             }
+        }
+        boundary
+    }
+
+    /// Single-call boundary computation via
+    /// `ruvector_mincut::canonical::source_anchored::SourceAnchoredMinCut`
+    /// (ADR-117 pseudo-deterministic canonical min-cut), given the same k-NN
+    /// edge list used by [`Self::boundary_from_one_partition`]. See
+    /// [`MincutBackend::Canonical`].
+    fn boundary_from_canonical_partition(
+        neighbors: &[(usize, Vec<(usize, f64)>)],
+    ) -> HashSet<usize> {
+        // Same distance-to-weight convention as `RuVectorGraphAnalyzer::from_knn`
+        // (weight = 1/distance), deduplicated into an undirected edge list.
+        let mut seen: HashSet<(u64, u64)> = HashSet::new();
+        let mut edges: Vec<(u64, u64, f64)> = Vec::new();
+        for &(i, ref nbrs) in neighbors {
+            for &(j, dist) in nbrs {
+                let (u, v) = if i < j {
+                    (i as u64, j as u64)
+                } else {
+                    (j as u64, i as u64)
+                };
+                if seen.insert((u, v)) {
+                    let weight = if dist > 0.0 { 1.0 / dist } else { 1.0 };
+                    edges.push((u, v, weight));
+                }
+            }
+        }
+        if edges.is_empty() {
+            return HashSet::new();
+        }
+
+        let mut engine =
+            match SourceAnchoredMinCut::with_edges(edges, SourceAnchoredConfig::default()) {
+                Ok(engine) => engine,
+                Err(_) => return HashSet::new(),
+            };
+        let cut = match engine.canonical_cut() {
+            Some(cut) => cut,
+            None => return HashSet::new(),
+        };
+        if cut.side_vertices.is_empty() || cut.cut_edges.is_empty() {
+            return HashSet::new();
+        }
+
+        let mut boundary = HashSet::new();
+        for &(u, v) in &cut.cut_edges {
+            boundary.insert(u as usize);
+            boundary.insert(v as usize);
         }
         boundary
     }
@@ -378,5 +500,49 @@ mod tests {
         let policy = MincutGatedForgetting::soft(CoherenceWeights::default(), 1.0);
         let survivors = policy.select_survivors(&entries, 2, &[]);
         assert_eq!(survivors.len(), 2);
+    }
+
+    /// Canonical-backend counterpart of `soft_mode_protects_the_structural_bridge`:
+    /// unlike the legacy backend, a single call already suffices (no
+    /// `mincut_trials` retry needed — see `MincutBackend::Canonical`'s doc
+    /// and the 2026-09-20 nightly follow-up).
+    #[test]
+    fn soft_canonical_protects_the_structural_bridge() {
+        let (entries, bridge_idx) = bridge_dataset();
+        let policy = MincutGatedForgetting::soft_canonical(CoherenceWeights::default(), 1.0);
+        assert_eq!(policy.mincut_trials, 1);
+        let survivors = policy.select_survivors(&entries, 16, &[]);
+        assert!(
+            survivors.contains(&bridge_idx),
+            "canonical-backend soft mincut-gated forgetting must retain the sole cross-cluster bridge"
+        );
+    }
+
+    #[test]
+    fn hard_canonical_reserves_budget_for_boundary_vertices() {
+        let (entries, bridge_idx) = bridge_dataset();
+        let policy = MincutGatedForgetting::hard_canonical(CoherenceWeights::default(), 0.3);
+        let survivors = policy.select_survivors(&entries, 16, &[]);
+        assert!(
+            survivors.contains(&bridge_idx),
+            "canonical-backend hard mincut-gated forgetting must protect the bridge within its reserved budget"
+        );
+    }
+
+    /// The finding this backend was added to attack: repeated calls on
+    /// byte-identical input must return the identical boundary set (the
+    /// legacy backend measurably does not — see `boundary_indices`'s doc).
+    #[test]
+    fn canonical_backend_boundary_is_deterministic_across_repeated_calls() {
+        let (entries, _bridge_idx) = bridge_dataset();
+        let policy = MincutGatedForgetting::soft_canonical(CoherenceWeights::default(), 1.0);
+        let first = policy.boundary_indices(&entries);
+        for _ in 0..9 {
+            assert_eq!(
+                policy.boundary_indices(&entries),
+                first,
+                "canonical backend must return an identical boundary set on every call"
+            );
+        }
     }
 }

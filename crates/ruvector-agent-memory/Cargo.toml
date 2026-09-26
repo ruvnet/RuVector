@@ -29,7 +29,12 @@ ruvector-proof-gate = { path = "../ruvector-proof-gate", optional = true }
 # dynamic min-cut / vector-graph integration layer (`RuVectorGraphAnalyzer`)
 # for the `graph_forget` mincut-gated forgetting policy, instead of
 # reimplementing graph partitioning here.
-ruvector-mincut = { path = "../ruvector-mincut", optional = true }
+# `canonical` (ADR-117 pseudo-deterministic source-anchored min-cut) is
+# additionally enabled for the 2026-09-20 nightly follow-up, which attacks
+# ADR-345's two open findings (non-determinism, ~1800-2700x compaction
+# slowdown) by benchmarking that backend directly against
+# `RuVectorGraphAnalyzer`.
+ruvector-mincut = { path = "../ruvector-mincut", optional = true, features = ["canonical"] }
 
 [features]
 default = []
@@ -49,6 +54,16 @@ required-features = ["mincut-forget"]
 [[example]]
 name = "mincut_scaling_probe"
 path = "examples/mincut_scaling_probe.rs"
+required-features = ["mincut-forget"]
+
+[[example]]
+name = "mincut_canonical_probe"
+path = "examples/mincut_canonical_probe.rs"
+required-features = ["mincut-forget"]
+
+[[example]]
+name = "mincut_gated_forgetting_bench_canonical"
+path = "examples/mincut_gated_forgetting_bench_canonical.rs"
 required-features = ["mincut-forget"]
 
 [dev-dependencies]
