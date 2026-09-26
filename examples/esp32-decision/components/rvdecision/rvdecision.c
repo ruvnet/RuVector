@@ -38,6 +38,17 @@ rd_status rd_init(rd_context *ctx, const rd_model *m, float min_c, float max_a) 
             return RD_BAD_MODEL;
     }
     ctx->model = m; ctx->min_confidence = min_c; ctx->max_abstain = max_a;
+    ctx->logit_factor = m->logit_scale / m->temperature;
+    for (size_t i=0; i<m->classes; ++i) {
+        ctx->negative_source[i]=(uint8_t)i;
+        if (!m->negative_count || !m->negatives[i].values) continue;
+        for (size_t j=0; j<i; ++j) {
+            if (m->negatives[j].values == m->negatives[i].values &&
+                m->negatives[j].scale == m->negatives[i].scale) {
+                ctx->negative_source[i]=(uint8_t)j; break;
+            }
+        }
+    }
     return RD_OK;
 }
 
@@ -60,9 +71,33 @@ int64_t rd_dot_i16(const int16_t *a, const int16_t *b, size_t n) {
     for (size_t i = 0; i < n; ++i) sum += (int32_t)a[i] * (int32_t)b[i];
     return sum;
 }
+/* Activations b are in [-32767,32767], so two products fit INT32 even
+ * with full-range INT16 weights: 2*32768*32767 = 2147418112 < INT32_MAX.
+ * Accumulate pairs in INT64. Keep the public full-range helper unchanged. */
+#if defined(RD_PAIR_DOT) || defined(RD_TEST_HOOKS)
+static int64_t dot_i16_quantized(const int16_t *a, const int16_t *b, size_t n) {
+    int64_t sum=0;
+    size_t i=0;
+    for(; i+1<n; i+=2) {
+        int32_t pair=(int32_t)a[i]*b[i]+(int32_t)a[i+1]*b[i+1];
+        sum+=pair;
+    }
+    if(i<n) sum+=(int32_t)a[i]*b[i];
+    return sum;
+}
+#ifdef RD_TEST_HOOKS
+int64_t rd_test_dot_i16_quantized(const int16_t *a,const int16_t *b,size_t n) {
+    return dot_i16_quantized(a,b,n);
+}
+#endif
+#endif
 static float dot(const rd_row *r, const rd_workspace *w, uint8_t bits, float scale) {
     float sum = bits == 8 ? (float)rd_dot_i8(r->values, w->input.q8, r->length) :
+#ifdef RD_PAIR_DOT
+                           (float)dot_i16_quantized(r->values, w->input.q16, r->length);
+#else
                            (float)rd_dot_i16(r->values, w->input.q16, r->length);
+#endif
     return sum * r->scale * scale;
 }
 static void softmax(float *v, size_t n) {
@@ -71,6 +106,35 @@ static void softmax(float *v, size_t n) {
     for (size_t i = 0; i < n; ++i) { v[i] = expf(v[i] - max); sum += v[i]; }
     for (size_t i = 0; i < n; ++i) v[i] /= sum;
 }
+/* Only the abstain mass is consumed. Preserve the original summation order
+ * and one final division, without normalizing the unused class masses. */
+static float softmax_last(const float *v, size_t n) {
+    float max=v[0], sum=0, last=0;
+    for (size_t i=1; i<n; ++i) if(v[i]>max) max=v[i];
+    for (size_t i=0; i<n; ++i) { last=expf(v[i]-max); sum+=last; }
+    return last/sum;
+}
+/* Exact half-away-from-zero for finite IEEE binary32 in [-32767,32767].
+ * Every caller bounds the value before entry. Integer rounding avoids both
+ * roundf and float-to-int helper calls on the C6's software float target. */
+static int32_t round_quantized(float x) {
+#ifdef RD_LIBM_ROUND
+    return (int32_t)roundf(x);
+#else
+    _Static_assert(sizeof(float)==sizeof(uint32_t) && FLT_RADIX==2 && FLT_MANT_DIG==24,
+                   "binary32 required");
+    uint32_t bits; memcpy(&bits,&x,sizeof(bits));
+    uint32_t magnitude=bits & UINT32_C(0x7fffffff);
+    if(magnitude<UINT32_C(0x3f000000)) return 0;
+    unsigned shift=150-(magnitude>>23); /* 9..24 over the documented interval */
+    uint32_t mantissa=(magnitude & UINT32_C(0x7fffff)) | UINT32_C(0x800000);
+    int32_t q=(int32_t)((mantissa+(UINT32_C(1)<<(shift-1)))>>shift);
+    return bits>>31 ? -q : q;
+#endif
+}
+#ifdef RD_TEST_HOOKS
+int32_t rd_test_round_quantized(float x) { return round_quantized(x); }
+#endif
 rd_status rd_predict(const rd_context *ctx, const float *x, size_t n,
                      rd_workspace *w, rd_result *r) {
     if (!r) return RD_BAD_INPUT;
@@ -88,8 +152,8 @@ rd_status rd_predict(const rd_context *ctx, const float *x, size_t n,
     for (size_t i = 0; i < n; ++i) {
         float a = x[i] / max;
         norm2 += a * a;
-        if (m->quant_bits == 8) w->input.q8[i] = (int8_t)roundf(a*qmax);
-        else w->input.q16[i] = (int16_t)roundf(a*qmax);
+        if (m->quant_bits == 8) w->input.q8[i] = (int8_t)round_quantized(a*qmax);
+        else w->input.q16[i] = (int16_t)round_quantized(a*qmax);
     }
     float input_scale = 1.0f / (qmax * sqrtf(norm2));
     size_t k = m->classes;
@@ -105,12 +169,14 @@ rd_status rd_predict(const rd_context *ctx, const float *x, size_t n,
         r->confidence = fmaxf(p, 1-p); r->abstain = 0;
     } else {
         float max_sim = -FLT_MAX, best_neg = -FLT_MAX;
-        float factor = m->logit_scale / m->temperature;
+        float factor = ctx->logit_factor;
         for (size_t i = 0; i < k; ++i) {
             float sim = dot(&m->prototypes[i], w, m->quant_bits, input_scale), penalty = 0;
             max_sim = fmaxf(max_sim, sim);
             if (m->negative_count && m->negatives[i].values) {
-                float ns = dot(&m->negatives[i], w, m->quant_bits, input_scale);
+                size_t source=ctx->negative_source[i];
+                float ns = source==i ? dot(&m->negatives[i], w, m->quant_bits, input_scale) : w->negative_scores[source];
+                w->negative_scores[i]=ns;
                 best_neg = fmaxf(best_neg, ns); penalty = m->not_for_lambda * ns;
             }
             w->geometry[i] = (sim - penalty) * factor;
@@ -118,13 +184,14 @@ rd_status rd_predict(const rd_context *ctx, const float *x, size_t n,
                 (dot(&m->weights[i], w, m->quant_bits, input_scale) + m->bias[i]) * factor : w->geometry[i];
         }
         w->geometry[k] = fmaxf(best_neg, (m->abstain_tau-max_sim)/m->abstain_scale) * factor;
-        softmax(w->geometry, k+1); softmax(w->logits, k);
+        float abstain=softmax_last(w->geometry,k+1);
+        softmax(w->logits, k);
         size_t best = 0; float expected = 0;
         for (size_t i = 0; i < k; ++i) {
             r->probabilities[i] = w->logits[i]; expected += (float)i * w->logits[i];
             if (w->logits[i] > w->logits[best]) best = i;
         }
-        r->abstain = w->geometry[k];
+        r->abstain = abstain;
         r->confidence = w->logits[best] * (1-r->abstain);
         r->index = m->kind == RD_SCORE ? (uint16_t)fminf((float)(k-1), floorf(expected+0.5f)) : (uint16_t)best;
     }

@@ -22,16 +22,18 @@ CORE = ROOT/'components/rvdecision/rvdecision.c'
 def run(cmd, **kw):
     subprocess.run(list(map(str, cmd)), check=True, cwd=ROOT, **kw)
 
-def compile_host(model, scalar=False, bits=16):
+def compile_host(model, scalar=False, bits=16, profile='portable'):
     folder = BUILD/(model if bits == 16 else model+'-int8')
     folder.mkdir(exist_ok=True, parents=True)
     snapshot = json.loads((BUILD/f'fixtures/{model}.json').read_text())
     rows = json.loads((BUILD/f'fixtures/{model}.vectors.json').read_text())
     report = export(snapshot, folder/'model.h', rows, bits)
-    binary = folder/('firmware-scalar' if scalar else 'firmware')
+    binary = folder/('firmware-scalar' if scalar else 'firmware-'+profile)
     cmd = ['gcc','-std=c11','-O3','-fno-fast-math','-Wall','-Wextra','-Werror',
            '-I',folder,'-I',INCLUDE,'-I',ROOT/'main',CORE,ROOT/'main/app.c',ROOT/'tests/host_main.c','-lm','-o',binary]
     if scalar: cmd.insert(1,'-DRD_SCALAR_DOT')
+    if profile!='portable': cmd.insert(1,'-DRD_PAIR_DOT')
+    if profile=='esp32s3': cmd.insert(1,'-DRD_LIBM_ROUND')
     run(cmd)
     return binary, snapshot, rows, report
 
@@ -85,7 +87,14 @@ def host_test(name, bits=16):
     scalar_results = [json.loads(line) for line in ref_run.stdout.splitlines()]
     for optimized, reference in zip(results[3:3+len(rows)], scalar_results[3:3+len(rows)],strict=True):
         assert {k:v for k,v in optimized.items() if k!='inference_us'} == {k:v for k,v in reference.items() if k!='inference_us'}
-    return {**report,**parity,'host_benchmark':bench,'boot':results[0]}
+    for profile in ('esp32s3','esp32c6'):
+        target,_,_,_=compile_host(name,bits=bits,profile=profile)
+        proc=subprocess.run([target],input='\n'.join(commands[:3+len(rows)])+'\n',text=True,capture_output=True,check=True,timeout=30)
+        target_results=[json.loads(line) for line in proc.stdout.splitlines()]
+        for portable,actual in zip(results[3:3+len(rows)],target_results[3:3+len(rows)],strict=True):
+            assert {k:v for k,v in portable.items() if k!='inference_us'} == {k:v for k,v in actual.items() if k!='inference_us'}
+    return {**report,**parity,'host_benchmark':bench,'boot':results[0],
+            'bit_identical_kernel_profiles':['portable','scalar','esp32s3','esp32c6']}
 
 def hardware(port,name):
     import serial
@@ -127,7 +136,7 @@ def main():
         report=hardware(a.port,a.model)
         filename=f'hardware-{report["meta"]["target"]}.json'
     else:
-        run(['gcc','-std=c11','-g','-O1','-fsanitize=address,undefined','-fno-omit-frame-pointer','-Wall','-Wextra','-Werror','-I',INCLUDE,CORE,ROOT/'tests/test_kernel.c','-lm','-o',BUILD/'test-kernel'])
+        run(['gcc','-std=c11','-DRD_TEST_HOOKS','-DRD_PAIR_DOT','-g','-O1','-fsanitize=address,undefined','-fno-omit-frame-pointer','-Wall','-Wextra','-Werror','-I',INCLUDE,CORE,ROOT/'tests/test_kernel.c','-lm','-o',BUILD/'test-kernel'])
         run([BUILD/'test-kernel'])
         report={'hardware':False,'fixture_seed':a.seed,'models':{name:host_test(name) for name in ('prototype','probe','score','logistic','similarity','wide')}}
         report['int8_models'] = {name:host_test(name, 8) for name in ('prototype','similarity')}

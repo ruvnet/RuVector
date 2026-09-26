@@ -33,6 +33,7 @@ typedef struct {
     union { int8_t q8[RD_MAX_DIMS]; int16_t q16[RD_MAX_DIMS]; } input;
     float geometry[RD_MAX_CLASSES + 1];
     float logits[RD_MAX_CLASSES];
+    float negative_scores[RD_MAX_CLASSES];
 } rd_workspace;
 typedef struct {
     uint16_t index;
@@ -43,6 +44,8 @@ typedef struct {
 typedef struct {
     const rd_model *model;
     float min_confidence, max_abstain;
+    float logit_factor;
+    uint8_t negative_source[RD_MAX_CLASSES];
 } rd_context;
 
 /* Validate once at boot. Do not mutate the model after successful init. */

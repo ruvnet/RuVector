@@ -1,10 +1,11 @@
 {
   "hardware": false,
+  "fixture_seed": 987654321,
   "models": {
     "prototype": {
       "sha256": "8e6b65d94333dc77b8a6fb0a1a8ef599fe955ac2d7b87c0d8ce22ddb084fc013",
       "quant_bits": 16,
-      "quantized_parameter_bytes": 340,
+      "quantized_parameter_bytes": 276,
       "float_parameter_bytes": 640,
       "dims": 32,
       "classes": 3,
@@ -19,8 +20,8 @@
       "host_benchmark": {
         "benchmark": true,
         "runs": 1000,
-        "mean_us": 0.31,
-        "max_us": 45,
+        "mean_us": 0.194,
+        "max_us": 1,
         "free_heap": 0
       },
       "boot": {
@@ -31,20 +32,26 @@
         "quant_bits": 16,
         "dims": 32,
         "classes": 3,
-        "parameter_bytes": 340,
+        "parameter_bytes": 276,
         "float_parameter_bytes": 640,
-        "workspace_bytes": 1668,
-        "static_app_bytes": 23220,
+        "workspace_bytes": 1732,
+        "static_app_bytes": 2700,
         "free_heap": 0,
         "source_calibrated": false,
         "calibrated": false,
         "selftest_pass": true
-      }
+      },
+      "bit_identical_kernel_profiles": [
+        "portable",
+        "scalar",
+        "esp32s3",
+        "esp32c6"
+      ]
     },
     "probe": {
       "sha256": "46d0aa27d851a3d77ec0609812718b465b45aa12766328b68f0b0fa90f812bf2",
       "quant_bits": 16,
-      "quantized_parameter_bytes": 556,
+      "quantized_parameter_bytes": 492,
       "float_parameter_bytes": 1036,
       "dims": 32,
       "classes": 3,
@@ -59,8 +66,8 @@
       "host_benchmark": {
         "benchmark": true,
         "runs": 1000,
-        "mean_us": 0.285,
-        "max_us": 10,
+        "mean_us": 0.236,
+        "max_us": 15,
         "free_heap": 0
       },
       "boot": {
@@ -71,15 +78,21 @@
         "quant_bits": 16,
         "dims": 32,
         "classes": 3,
-        "parameter_bytes": 556,
+        "parameter_bytes": 492,
         "float_parameter_bytes": 1036,
-        "workspace_bytes": 1668,
-        "static_app_bytes": 23220,
+        "workspace_bytes": 1732,
+        "static_app_bytes": 2700,
         "free_heap": 0,
         "source_calibrated": true,
         "calibrated": false,
         "selftest_pass": true
-      }
+      },
+      "bit_identical_kernel_profiles": [
+        "portable",
+        "scalar",
+        "esp32s3",
+        "esp32c6"
+      ]
     },
     "score": {
       "sha256": "e16b22cc7b73706cbf19b5a287e6e9d360bb65ba4f71265c7462de4193b00e62",
@@ -99,7 +112,7 @@
       "host_benchmark": {
         "benchmark": true,
         "runs": 1000,
-        "mean_us": 0.289,
+        "mean_us": 0.236,
         "max_us": 1,
         "free_heap": 0
       },
@@ -113,13 +126,19 @@
         "classes": 3,
         "parameter_bytes": 420,
         "float_parameter_bytes": 780,
-        "workspace_bytes": 1668,
-        "static_app_bytes": 23220,
+        "workspace_bytes": 1732,
+        "static_app_bytes": 2700,
         "free_heap": 0,
         "source_calibrated": true,
         "calibrated": false,
         "selftest_pass": true
-      }
+      },
+      "bit_identical_kernel_profiles": [
+        "portable",
+        "scalar",
+        "esp32s3",
+        "esp32c6"
+      ]
     },
     "logistic": {
       "sha256": "ca0ce920e93f7cdc7adb91dfcf8ded695991beeebfdb8a0ed27b0a1f8716a443",
@@ -139,8 +158,8 @@
       "host_benchmark": {
         "benchmark": true,
         "runs": 1000,
-        "mean_us": 0.212,
-        "max_us": 29,
+        "mean_us": 0.16,
+        "max_us": 19,
         "free_heap": 0
       },
       "boot": {
@@ -153,13 +172,19 @@
         "classes": 1,
         "parameter_bytes": 140,
         "float_parameter_bytes": 260,
-        "workspace_bytes": 1668,
-        "static_app_bytes": 23220,
+        "workspace_bytes": 1732,
+        "static_app_bytes": 2700,
         "free_heap": 0,
         "source_calibrated": true,
         "calibrated": false,
         "selftest_pass": true
-      }
+      },
+      "bit_identical_kernel_profiles": [
+        "portable",
+        "scalar",
+        "esp32s3",
+        "esp32c6"
+      ]
     },
     "similarity": {
       "sha256": "69626f9ce55a6e1ded4190e07f3c1f6c586c60df92f04c341119b741fefb0066",
@@ -179,7 +204,7 @@
       "host_benchmark": {
         "benchmark": true,
         "runs": 1000,
-        "mean_us": 0.168,
+        "mean_us": 0.12,
         "max_us": 1,
         "free_heap": 0
       },
@@ -193,18 +218,24 @@
         "classes": 1,
         "parameter_bytes": 68,
         "float_parameter_bytes": 128,
-        "workspace_bytes": 1668,
-        "static_app_bytes": 23220,
+        "workspace_bytes": 1732,
+        "static_app_bytes": 2700,
         "free_heap": 0,
         "source_calibrated": false,
         "calibrated": false,
         "selftest_pass": true
-      }
+      },
+      "bit_identical_kernel_profiles": [
+        "portable",
+        "scalar",
+        "esp32s3",
+        "esp32c6"
+      ]
     },
     "wide": {
       "sha256": "b8f3ca29aa03d542b750ba6061b3a04814e4241ff9626ffeac529abc802929b7",
       "quant_bits": 16,
-      "quantized_parameter_bytes": 6188,
+      "quantized_parameter_bytes": 5420,
       "float_parameter_bytes": 12300,
       "dims": 384,
       "classes": 3,
@@ -219,8 +250,8 @@
       "host_benchmark": {
         "benchmark": true,
         "runs": 1000,
-        "mean_us": 2.131,
-        "max_us": 19,
+        "mean_us": 1.852,
+        "max_us": 143,
         "free_heap": 0
       },
       "boot": {
@@ -231,22 +262,28 @@
         "quant_bits": 16,
         "dims": 384,
         "classes": 3,
-        "parameter_bytes": 6188,
+        "parameter_bytes": 5420,
         "float_parameter_bytes": 12300,
-        "workspace_bytes": 1668,
-        "static_app_bytes": 23220,
+        "workspace_bytes": 1732,
+        "static_app_bytes": 12556,
         "free_heap": 0,
         "source_calibrated": true,
         "calibrated": false,
         "selftest_pass": true
-      }
+      },
+      "bit_identical_kernel_profiles": [
+        "portable",
+        "scalar",
+        "esp32s3",
+        "esp32c6"
+      ]
     }
   },
   "int8_models": {
     "prototype": {
       "sha256": "911aa2abcf8af4cf621886bc1689ef75285a85241c922a8c2eabe0439938c7e3",
       "quant_bits": 8,
-      "quantized_parameter_bytes": 180,
+      "quantized_parameter_bytes": 148,
       "float_parameter_bytes": 640,
       "dims": 32,
       "classes": 3,
@@ -261,7 +298,7 @@
       "host_benchmark": {
         "benchmark": true,
         "runs": 1000,
-        "mean_us": 0.306,
+        "mean_us": 0.356,
         "max_us": 1,
         "free_heap": 0
       },
@@ -273,15 +310,21 @@
         "quant_bits": 8,
         "dims": 32,
         "classes": 3,
-        "parameter_bytes": 180,
+        "parameter_bytes": 148,
         "float_parameter_bytes": 640,
-        "workspace_bytes": 1668,
-        "static_app_bytes": 23220,
+        "workspace_bytes": 1732,
+        "static_app_bytes": 2700,
         "free_heap": 0,
         "source_calibrated": false,
         "calibrated": false,
         "selftest_pass": true
-      }
+      },
+      "bit_identical_kernel_profiles": [
+        "portable",
+        "scalar",
+        "esp32s3",
+        "esp32c6"
+      ]
     },
     "similarity": {
       "sha256": "5e2b55984190646e9b131c2549b8b7bf7ae9ab971758caa244f61e2899502b65",
@@ -301,7 +344,7 @@
       "host_benchmark": {
         "benchmark": true,
         "runs": 1000,
-        "mean_us": 0.188,
+        "mean_us": 0.124,
         "max_us": 1,
         "free_heap": 0
       },
@@ -315,13 +358,19 @@
         "classes": 1,
         "parameter_bytes": 36,
         "float_parameter_bytes": 128,
-        "workspace_bytes": 1668,
-        "static_app_bytes": 23220,
+        "workspace_bytes": 1732,
+        "static_app_bytes": 2700,
         "free_heap": 0,
         "source_calibrated": false,
         "calibrated": false,
         "selftest_pass": true
-      }
+      },
+      "bit_identical_kernel_profiles": [
+        "portable",
+        "scalar",
+        "esp32s3",
+        "esp32c6"
+      ]
     }
   }
 }

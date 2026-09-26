@@ -5,12 +5,12 @@
     "esp32s3": {
       "files": {
         "ruvector_decision.bin": {
-          "bytes": 186224,
-          "sha256": "fa0bde8b11a5fd9d25e8f59c60c90cd845c6bc76a201d7cd8db91057e5823d9d"
+          "bytes": 186320,
+          "sha256": "612e99f99d7994530a4aa001640c66e0cec2690d167426785de8dcf8f5d83ffd"
         },
         "merged-binary.bin": {
-          "bytes": 251760,
-          "sha256": "44ac465560e918ff04b0e696b6dad6ef1af469900761e7f84f891bf8e599440c"
+          "bytes": 251856,
+          "sha256": "0a6d72028aab322385cb0654c21eaf9f2a4aeb940eed5a85e0b95c5d9fa91669"
         },
         "bootloader/bootloader.bin": {
           "bytes": 18800,
@@ -20,17 +20,21 @@
           "bytes": 3072,
           "sha256": "7f00b6c042a89b15b0cac534f82ed988caf29278ff5700b0c511eb1b5bb7c820"
         }
-      }
+      },
+      "kernel_defines": [
+        "RD_PAIR_DOT",
+        "RD_LIBM_ROUND"
+      ]
     },
     "esp32c6": {
       "files": {
         "ruvector_decision.bin": {
-          "bytes": 154512,
-          "sha256": "1426056e3fcc937f9cb6482ac39f0b88012efb67330ff04259f65011e77e339f"
+          "bytes": 154448,
+          "sha256": "11cdeb8c37075969874ef1937d2ca1096b9e3946fe5130ae62d6941075ad884c"
         },
         "merged-binary.bin": {
-          "bytes": 220048,
-          "sha256": "47afdb55b8c2b0bf5834725d231a8a825ddae02c5499b97d4b34b0049bc541fc"
+          "bytes": 219984,
+          "sha256": "7c0961457e449e790a5cb0d73ab4840c51f4eff494ba3ddec768ddb18723608c"
         },
         "bootloader/bootloader.bin": {
           "bytes": 19648,
@@ -40,16 +44,22 @@
           "bytes": 3072,
           "sha256": "7f00b6c042a89b15b0cac534f82ed988caf29278ff5700b0c511eb1b5bb7c820"
         }
-      }
+      },
+      "kernel_defines": [
+        "RD_PAIR_DOT"
+      ]
     }
   },
   "physical_hardware_tested": false,
   "model": "synthetic numeric fixture, 32 features, 3 classes",
   "quantization_bits": 16,
-  "parameters_bytes": 556,
+  "parameters_bytes": 492,
   "fp32_parameters_bytes": 1036,
-  "inference_workspace_bytes": 1668,
+  "inference_workspace_bytes": 1732,
   "default_flash_bytes": 4194304,
   "requires_psram": false,
-  "console": "UART0 115200 baud"
+  "console": "UART0 115200 baud",
+  "static_app_buffers_bytes": 2692,
+  "baseline_commit": "739a5621043f9b0f0ffc263c46d1d2f7aeb9495f",
+  "kernel_sha256": "b9d41b7589740df3cd442ac1bf02ba0c52f98bda4aca58f979316e353bdd4d40"
 }

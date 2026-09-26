@@ -274,6 +274,47 @@ checks the model digest, replay parity, heap stability and p99 below 100 ms.
 Host or emulator timing is not a physical board benchmark. Device firmware
 must be tested with the intended sensors and feature pipeline before deployment.
 
+The optimized kernel deduplicates constant rows, reuses identical negative
+similarities and computes only the required abstain softmax output. C6 uses
+exact integer activation rounding; S3 retains newlib rounding after it proved
+cheaper in instruction-count emulation. Both MCU targets pair INT16 products
+before widening the sum. Two products fit INT32 because activations are bounded
+to +/-32767; the total remains INT64. Native builds keep the vectorizable loop.
+
+The shipped INT16 parameters occupy 492 bytes, down from 556 (11.5% less).
+Inference workspace is 1,732 bytes and MCU application buffers total 2,692
+bytes, an 84-byte increase for cached negative scores and model factors.
+These counts exclude model descriptors, labels, protocol stack and ESP-IDF.
+
+Reproduce paired measurements against the pinned pre-optimization commit:
+
+```sh
+python3 tools/e2e.py --seed 20260926
+git fetch --depth=1 origin 739a5621043f9b0f0ffc263c46d1d2f7aeb9495f
+python3 tools/benchmark.py --output build-bench/results.json
+python3 tools/benchmark.py --verify-only --profile esp32s3
+python3 tools/benchmark.py --verify-only --profile esp32c6
+python3 tools/benchmark_qemu.py --qemu /path/to/qemu-system-xtensa \
+  --baseline-image /path/to/baseline-s3-merged.bin --icount
+```
+
+The native benchmark uses 11 alternating paired rounds of 2,048 calls,
+warmup, CPU affinity and 48 synthetic shapes, including absent, distinct and
+shared negatives. It also measures the exported 32- and 384-feature probes.
+`--profile` changes kernel flags only; execution still occurs on the host.
+Every profile passes 84,480 bit-for-bit comparisons against the pinned kernel.
+Separate Rust parity streams cover 12,000 INT16 decisions, all matching both
+decisions and acceptance with worst absolute probability error below 0.001.
+
+In S3 QEMU, the shipped fixture improves from 7.880 to 6.621 virtual microseconds
+per call with `-icount shift=0,sleep=off`, about 16% less instruction-clock time.
+This clock assigns one virtual nanosecond per emulated instruction; it does
+not model silicon cycles, caches or power. Realtime QEMU results are also saved
+and fluctuate with host scheduling. An early integer-rounding S3 variant used
+6% more virtual time and was rejected. Full samples, hashes and method details
+are under `examples/esp32-decision/tests/evidence/benchmark-*.json`.
+No physical S3 or C6 performance measurement has been made.
+
 ## Architecture (ADRs)
 
 - [ADR-001 — architecture](docs/adr/ADR-001-architecture.md)

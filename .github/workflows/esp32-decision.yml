@@ -32,6 +32,10 @@ jobs:
           cargo fmt --manifest-path tests/reference/Cargo.toml --check
           cargo clippy --locked --manifest-path tests/reference/Cargo.toml --all-targets --features hash-embedder -- -D warnings
           python3 tools/e2e.py
+          git fetch --depth=1 origin 739a5621043f9b0f0ffc263c46d1d2f7aeb9495f
+          python3 tools/benchmark.py --verify-only
+          python3 tools/benchmark.py --verify-only --profile esp32s3
+          python3 tools/benchmark.py --verify-only --profile esp32c6
           python3 tools/quantize.py build-host/fixtures/probe.json main/model.h --vectors build-host/fixtures/probe.vectors.json
           git diff --exit-code -- main/model.h
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

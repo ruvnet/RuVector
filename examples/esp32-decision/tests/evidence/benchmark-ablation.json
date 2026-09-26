@@ -1,0 +1,30 @@
+{
+  "purpose": "S3 rounding and accumulator ablation; virtual instruction clock only",
+  "baseline_commit": "739a5621043f9b0f0ffc263c46d1d2f7aeb9495f",
+  "variants": [
+    {
+      "variant": "integer rounding; simple INT16 sum",
+      "selected": false,
+      "candidate_image_sha256": "486cc26bb7169437ec3859538d97217e3e46c5358a6c1908066a7c2978c4946f",
+      "baseline_mean_virtual_us": 7.88,
+      "candidate_mean_virtual_us": 8.375,
+      "speedup": 0.9408955223880597
+    },
+    {
+      "variant": "newlib rounding; simple INT16 sum",
+      "selected": false,
+      "candidate_image_sha256": "0e6cb36aa11d787451a8c45f66570354ec4507ad927b98d993af51d1260d9713",
+      "baseline_mean_virtual_us": 7.88,
+      "candidate_mean_virtual_us": 7.25,
+      "speedup": 1.086896551724138
+    },
+    {
+      "variant": "newlib rounding; paired INT16 sum",
+      "selected": true,
+      "candidate_image_sha256": "0a6d72028aab322385cb0654c21eaf9f2a4aeb940eed5a85e0b95c5d9fa91669",
+      "baseline_mean_virtual_us": 7.88,
+      "candidate_mean_virtual_us": 6.621,
+      "speedup": 1.1901525449327894
+    }
+  ]
+}

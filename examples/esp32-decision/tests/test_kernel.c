@@ -6,8 +6,20 @@
 #include <string.h>
 
 static uint32_t rng = 719;
+int32_t rd_test_round_quantized(float);
+int64_t rd_test_dot_i16_quantized(const int16_t *,const int16_t *,size_t);
 static int8_t random_i8(void) { rng = rng*1664525u+1013904223u; return (int8_t)(rng >> 24); }
 int main(void) {
+    /* Every half boundary and both adjacent floats, including signs. */
+    for(int i=0;i<32767;++i) {
+        float half=(float)i+.5f;
+        float cases[]={half,-half,nextafterf(half,INFINITY),nextafterf(half,-INFINITY),
+                       nextafterf(-half,INFINITY),nextafterf(-half,-INFINITY)};
+        for(size_t j=0;j<sizeof(cases)/sizeof(cases[0]);++j)
+            assert(rd_test_round_quantized(cases[j])==(int32_t)roundf(cases[j]));
+    }
+    assert(rd_test_round_quantized(32767)==32767 && rd_test_round_quantized(-32767)==-32767);
+    assert(rd_test_round_quantized(0)==0 && rd_test_round_quantized(-0.0f)==0);
     int8_t a[RD_MAX_DIMS], b[RD_MAX_DIMS];
     for (size_t n = 1; n <= RD_MAX_DIMS; ++n) {
         int32_t expected = 0;
@@ -19,6 +31,12 @@ int main(void) {
     int16_t a16[RD_MAX_DIMS], b16[RD_MAX_DIMS];
     for (size_t i=0; i<RD_MAX_DIMS; ++i) a16[i]=b16[i]=-32768;
     assert(rd_dot_i16(a16,b16,RD_MAX_DIMS) == (int64_t)1073741824*RD_MAX_DIMS);
+    for(size_t i=0;i<RD_MAX_DIMS;++i) b16[i]=32767;
+    for(size_t n=1;n<=RD_MAX_DIMS;++n)
+        assert(rd_test_dot_i16_quantized(a16,b16,n)==-(int64_t)32768*32767*(int64_t)n);
+    for(size_t i=0;i<RD_MAX_DIMS;++i) b16[i]=-32767;
+    for(size_t n=1;n<=RD_MAX_DIMS;++n)
+        assert(rd_test_dot_i16_quantized(a16,b16,n)==(int64_t)32768*32767*(int64_t)n);
     const int8_t v0[] = {127,0,0}, v1[] = {0,127,0};
     rd_row rows[] = {{v0,3,1.0f/127},{v1,3,1.0f/127}};
     rd_model m = {.version=1,.quant_bits=8,.dims=3,.classes=2,.kind=RD_CHOICE,.head=RD_PROTOTYPE,
@@ -53,5 +71,5 @@ int main(void) {
     bad=m; bad.temperature=0; assert(rd_init(&ctx,&bad,.6f,.4f)==RD_BAD_MODEL);
     bad=m; bad.abstain_scale=NAN; assert(rd_init(&ctx,&bad,.6f,.4f)==RD_BAD_MODEL);
     rows[0].length=2; assert(rd_init(&ctx,&m,.6f,.4f)==RD_BAD_MODEL);
-    puts("kernel validation, overflow bounds, 768 dot products and fail-closed tests passed");
+    puts("196602 rounding boundary checks, kernel validation, overflow bounds, 768 dot products and fail-closed tests passed");
 }

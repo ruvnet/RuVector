@@ -5,6 +5,7 @@ python3 tools/qemu_e2e.py --qemu /path/to/qemu-system-xtensa
 Requires idf.py -B build-esp32s3 merge-bin and tools/e2e.py fixtures.
 """
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -57,7 +58,7 @@ def main():
         # after every replay value has been formatted, with no allowed loss.
         for row in rows[:50]: query('infer '+' '.join(map(str,row['features'])))
         final=query('meta'); assert final['free_heap']>=baseline, (baseline,final['free_heap'])
-        report={'emulator':'Espressif QEMU esp32s3','hardware':False,'boot':meta,**result,
+        report={'emulator':'Espressif QEMU esp32s3','hardware':False,'image_sha256':hashlib.sha256(image).hexdigest(),'boot':meta,**result,
                 'steady_state_baseline_heap':baseline,'final_free_heap':final['free_heap'],
                 'boot_to_warm_heap_delta':meta['free_heap']-baseline}
         (BUILD/'qemu-results.json').write_text(json.dumps(report,indent=2)+'\n')
