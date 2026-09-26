@@ -778,7 +778,13 @@ class WasmBackend {
         throw new errors_1.RvfError(errors_1.RvfErrorCode.BackendNotFound, 'deleteByFilter not supported in WASM backend');
     }
     async compact() {
-        return { segmentsCompacted: 0, bytesReclaimed: 0, epoch: 0 };
+        // There is no compaction export in the WASM C-ABI: `crates/rvf/rvf-wasm/src/lib.rs`
+        // runs `rvf_store_create` .. `rvf_store_close` with no `rvf_store_compact`. Returning
+        // `{segmentsCompacted: 0, bytesReclaimed: 0}` made "not implemented here" indistinguishable
+        // from "ran, and there was nothing to reclaim" — and the WASM store DOES retain
+        // soft-deleted entries (`export()` filters them), so a caller has real reason to expect
+        // reclamation. Throwing matches how this class reports every other unsupported operation.
+        throw new errors_1.RvfError(errors_1.RvfErrorCode.BackendNotFound, 'compact not supported in WASM backend');
     }
     async status() {
         this.ensureHandle();
@@ -788,15 +794,27 @@ class WasmBackend {
             const view = new DataView(this.wasm.memory.buffer);
             const totalVectors = view.getUint32(outPtr, true);
             const dim = view.getUint32(outPtr + 4, true);
+            // Offsets 12 and 16 were being allocated, written by WASM, and then discarded.
+            // `crates/rvf/rvf-wasm/src/store.rs` writes the 20-byte buffer as:
+            //   0 live · 4 dimension · 8 metric · 12 total entries · 16 deleted entries
+            // `deleted / total` IS the dead-space ratio, so reporting a constant 0 here left every
+            // caller that gates on the documented policy (dead_space_ratio > 0.20) permanently
+            // inert — silently, because the field was present and plausible.
+            const totalEntries = view.getUint32(outPtr + 12, true);
+            const deletedEntries = view.getUint32(outPtr + 16, true);
             this.wasm.rvf_free(outPtr, 20);
             return {
                 totalVectors,
+                // Still fixed: the status buffer carries no segment count, file size or epoch, and
+                // offset 12 is total VECTOR ENTRIES rather than segments. The in-memory WASM store
+                // exports as a single VEC_SEG, so 1 is the honest logical answer here; the other two
+                // remain limitations of this buffer, not values that could be derived from it.
                 totalSegments: 1,
                 fileSizeBytes: 0,
                 epoch: 0,
                 profileId: 0,
                 compactionState: 'idle',
-                deadSpaceRatio: 0,
+                deadSpaceRatio: totalEntries > 0 ? deletedEntries / totalEntries : 0,
                 readOnly: false,
             };
         }
