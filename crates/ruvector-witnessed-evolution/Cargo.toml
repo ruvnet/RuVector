@@ -1,0 +1,22 @@
+[package]
+name = "ruvector-witnessed-evolution"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Witness-chained provenance for evolutionary ANN parameter search: every genome, fitness score, and promotion decision committed to a replayable hash chain."
+keywords = ["vector-search", "evolution", "provenance", "merkle", "agent-memory"]
+categories = ["algorithms", "data-structures", "science"]
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+rand = { workspace = true }
+ruvector-proof-gate = { path = "../ruvector-proof-gate" }
+ruvector-coherence-hnsw = { path = "../ruvector-coherence-hnsw" }
+
+[dev-dependencies]
