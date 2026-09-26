@@ -212,6 +212,50 @@ claim nor a statistical device speedup. Sources and receipts are stored under
 the regression evidence. Reproduction: run `python3 tools/lab.py` from the
 firmware directory and the recorded harness commands in the evidence folder.
 
+## Follow up: bind energy evidence to exact rig rounds
+
+The energy comparator previously checked the rig report digest and model but
+did not prove that both arms came from the same named rig round. Reports from
+different rounds could be paired, a round could be reused with distinct trace
+hashes, and the report's target, kernel, image, decision count or scope could
+disagree with that round. All seven synthetic tamper cases reached retention.
+This was an offline evidence integrity defect, not a measured energy gain.
+
+Require exactly one baseline and candidate report for every rig round, in the
+recorded order. Each report must match the rig execution class, physical flag,
+model, arm target, kernel digest, complete image descriptor, energy batch run
+count and `kernel_batch` scope. Existing trace uniqueness, fixed workload and
+statistical retention gates remain additional checks. The rig report digest
+still binds every report to one correctness run. These checks detect stale or
+cross-paired evidence; they do not authenticate an actor able to rewrite the
+rig report, energy reports and traces together.
+
+An independent evaluator was frozen against parent
+`21fd8753ea1d54473ef797e9c6ebaaa62c7749bf`. The parent rejected zero of seven
+named tamper cases; the candidate rejects all seven and preserves the valid
+eleven-pair result. Fresh integrated acceptance passed 57 Rust tests, 42 Python
+tests, address/undefined checks and eleven exact native pairs. Firmware, model,
+quantization, compiler flags and target code are unchanged, so this experiment
+does not claim a new MCU build, silicon timing or joules per decision.
+
+Pinned MetaHarness `decidePromotion` at
+`d5833dc6512ac1adeeef91a331c29055cd8a4dbb` evaluated the observed fraction of
+tamper cases rejected and vetoed injected replay, regression and safety
+failures. Its deterministic case scores are not a physical timing confidence
+interval. Pinned Autogenous at
+`905aa6cbe213392f8b3cab5d4f17bc3a48e0a509` admitted the typed, reversible
+application-code mutation, rejected six authority, lineage, invariant, expiry
+and rollback violations, and confirmed that application code is not
+auto-promotable. Candidate production fitness was not invented and deployment
+remains false. The standalone `ruvnet/rsi` repository remains the previously
+recorded 404 blocker; no fresh standalone invocation is claimed.
+
+Receipts and exact source pins are under `tests/evidence/provenance-*`.
+Reproduce with `python3 -m unittest tests.test_energy_provenance -v`, then
+`python3 tools/lab.py`, the recorded MetaHarness adapter invocation and the
+Autogenous adapter command. Roll back the comparator to parent `21fd8753` while
+retaining the evaluator if any provenance or regression gate fails.
+
 ## Sources
 
 * https://archive.ics.uci.edu/dataset/357/occupancy+detection

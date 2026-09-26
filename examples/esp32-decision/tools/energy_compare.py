@@ -5,6 +5,31 @@ import json
 from pathlib import Path
 from rig import retention
 
+def validate_provenance(pairs,rig):
+    rig_rounds=rig.get('rounds')
+    if not isinstance(rig_rounds,list) or len(pairs)!=len(rig_rounds):
+        raise ValueError('energy pairs must cover every rig round exactly once')
+    for index,(pair,rig_round) in enumerate(zip(pairs,rig_rounds,strict=True)):
+        for arm in ('baseline','candidate'):
+            report=pair[arm];source=rig_round[arm];batch=source.get('energy_batch')
+            if report.get('round')!=index:raise ValueError('energy round mismatch')
+            if report.get('execution')!=rig.get('execution'):raise ValueError('execution provenance mismatch')
+            if report.get('physical_hardware') is not rig.get('physical_hardware'):
+                raise ValueError('hardware provenance mismatch')
+            if report.get('model_sha256')!=rig.get('model_sha256'):
+                raise ValueError('correctness model mismatch')
+            if report.get('kernel_sha256')!=source['meta'].get('kernel_sha256'):
+                raise ValueError('kernel provenance mismatch')
+            if report.get('target')!=source['meta'].get('target'):
+                raise ValueError('target provenance mismatch')
+            if report.get('image')!=source.get('image'):
+                raise ValueError('image provenance mismatch')
+            if not isinstance(batch,dict) or not batch.get('energy_batch'):
+                raise ValueError('rig round has no energy batch')
+            if report.get('decisions')!=batch.get('runs'):
+                raise ValueError('energy decision count mismatch')
+            if report.get('scope')!='kernel_batch':raise ValueError('energy scope mismatch')
+
 def compare_energy(pairs,correctness):
     rounds=[];seen=set();identity=None;physical=True
     for pair in pairs:
@@ -31,6 +56,7 @@ def main():
     a=p.parse_args();paths=json.loads(a.pairs.read_text())
     pairs=[{arm:json.loads(Path(pair[arm]).read_text()) for arm in ('baseline','candidate')} for pair in paths]
     rig=json.loads(a.rig_report.read_text())
+    validate_provenance(pairs,rig)
     for pair in pairs:
         for value in pair.values():
             if value['model_sha256']!=rig['model_sha256']:raise ValueError('correctness model mismatch')
