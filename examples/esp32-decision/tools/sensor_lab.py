@@ -9,11 +9,13 @@ from e2e import ROOT,INCLUDE,CORE,compare
 from quantize import export
 from sensor_data import prepare,metrics
 
-def compile_model(snapshot,rows,folder,bits,source=CORE,profile='portable',extra_sources=()):
+def compile_model(snapshot,rows,folder,bits,source=CORE,profile='portable',extra_sources=(),profile_samples=2048):
     folder.mkdir(parents=True,exist_ok=True)
     quant=export(snapshot,folder/'model.h',rows,bits)
     binary=folder/'firmware'
-    flags=[]
+    if type(profile_samples) is not int or not 0<=profile_samples<=2048:
+        raise ValueError('profile sample capacity must be between 0 and 2048')
+    flags=['-DRD_PROFILE_MAX='+str(profile_samples)]
     if profile!='portable':flags+=['-DRD_PAIR_DOT']
     if profile=='esp32s3':flags+=['-DRD_LIBM_ROUND']
     digest=hashlib.sha256(Path(source).read_bytes()).hexdigest()

@@ -89,6 +89,41 @@ The board driver overrides `rd_sensor_read` and `rd_sensor_name`; `sample`
 measures acquisition separately. Unconfigured and incomplete captures reject
 the request. Test capture adapters are explicitly identified as fixtures.
 
+## Follow-up: production memory and coverage experiments
+
+Percentile buffers are configurable from zero to 2,048 samples, at eight bytes
+per sample. `sdkconfig.production` sets zero, removing 16,384 static bytes.
+Inference, self-tests, `bench` and the GPIO `energy` command remain available;
+`profile` explicitly returns `profile_disabled`. Metadata reports actual
+capacity and storage. Paired performance builds must have matching capacities.
+This is a verified memory reduction, not a physical speed or energy claim.
+The production checker warms every replay input and both measured command
+paths before checking a second identical pass for stable heap. Newlib's float
+formatter can allocate caches when it first encounters a new numeric magnitude;
+the initial heap growth is retained in evidence rather than called a leak or
+hidden in the steady state check.
+
+The bounded coverage lab reserves the last training day (1,440 readings) for
+abstention selection and refits all preprocessing and prototypes on the
+remaining 6,129 rows. The original 574-row validation day is a fixed veto.
+Three predeclared abstention settings and both precisions use calibration only.
+Select the least relaxed setting that meets empirical quality and coverage
+requirements. Freeze this choice before final evaluation; never fall back to
+another arm after failure. Test data are already seen regression data, not a
+new generalization test. Minute readings are correlated, so support counts and
+empirical accuracy are not statistical coverage guarantees.
+
+Require >=95% overall accuracy, >=98% accepted accuracy, >=50% coverage,
+and per truth class >=95% accepted accuracy, >=20% coverage and >=16 accepted
+examples. Both classes must pass; a detector cannot succeed by accepting only
+empty rooms. Quantization retains the existing parity/error gates.
+
+The first frozen candidate passed calibration (99.65% accuracy, 71.94%
+coverage) but failed the next validation day (90.59% accuracy, zero coverage).
+It was rejected. The default model remains unchanged. A separate room/device
+dataset is required before any deployment claim. The lab removes stale
+candidate headers on rejection and records the rejection for future work.
+
 ## Sources
 
 * https://archive.ics.uci.edu/dataset/357/occupancy+detection

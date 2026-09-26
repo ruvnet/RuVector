@@ -18,9 +18,13 @@ struct Row {
 #[derive(Deserialize)]
 struct Input {
     train: Vec<Row>,
+    #[serde(default)]
+    calibration: Vec<Row>,
     validation: Vec<Row>,
     test: Vec<Row>,
     preprocessing: serde_json::Value,
+    #[serde(default)]
+    engine_options: Option<EngineOptions>,
 }
 struct Numeric {
     prototypes: Vec<Vec<f32>>,
@@ -73,10 +77,10 @@ fn main() {
     }
     let mut engine = Engine::with_options(
         Numeric { prototypes },
-        EngineOptions {
+        input.engine_options.unwrap_or(EngineOptions {
             logit_scale: 5.0,
             ..Default::default()
-        },
+        }),
     );
     let examples: Vec<_> = input
         .train
@@ -117,7 +121,11 @@ fn main() {
         serde_json::to_vec_pretty(&training).unwrap(),
     )
     .unwrap();
-    for (name, rows) in [("validation", input.validation), ("test", input.test)] {
+    for (name, rows) in [
+        ("calibration", input.calibration),
+        ("validation", input.validation),
+        ("test", input.test),
+    ] {
         let output: Vec<_> = rows.iter().map(|row| {
             let answer = engine.decide(&DecisionRequest {
                 state: text(&row.features), questions: BTreeMap::from([("occupancy".into(), question.clone())]),

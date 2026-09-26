@@ -48,8 +48,8 @@ static bool selftest(void) {
 #endif
 }
 static void meta(void) {
-    printf("{\"event\":\"ready\",\"target\":\"%s\",\"kernel_sha256\":\"%s\",\"cpu_hz\":%u,\"core\":%u,\"dynamic_frequency\":%s,\"fixed_affinity\":%s,\"marker_gpio\":%d,\"profile_buffer_bytes\":16384,\"sensor_pipeline\":%s,\"model_sha256\":\"%s\",\"model_id\":",
-           rd_target(),RD_KERNEL_SHA256,rd_cpu_hz(),rd_core_id(),rd_dynamic_frequency()?"true":"false",rd_fixed_affinity()?"true":"false",rd_marker_gpio(),RD_PREPROCESSING?"true":"false",RD_MODEL_HASH);
+    printf("{\"event\":\"ready\",\"target\":\"%s\",\"kernel_sha256\":\"%s\",\"cpu_hz\":%u,\"core\":%u,\"dynamic_frequency\":%s,\"fixed_affinity\":%s,\"marker_gpio\":%d,\"profile_buffer_bytes\":%u,\"profile_capacity\":%u,\"sensor_pipeline\":%s,\"model_sha256\":\"%s\",\"model_id\":",
+           rd_target(),RD_KERNEL_SHA256,rd_cpu_hz(),rd_core_id(),rd_dynamic_frequency()?"true":"false",rd_fixed_affinity()?"true":"false",rd_marker_gpio(),(unsigned)rd_profile_buffer_bytes(),rd_profile_capacity(),RD_PREPROCESSING?"true":"false",RD_MODEL_HASH);
     json_string(RD_MODEL_ID);
     printf(",\"capture_driver\":");json_string(rd_sensor_name());
     printf(",\"quant_bits\":%u,\"dims\":%u,\"classes\":%u,\"parameter_bytes\":%d,\"float_parameter_bytes\":%d,"
@@ -134,7 +134,9 @@ static void command(void) {
     else if (!strncmp(line, "infer ", 6)) infer(line+6,false);
     else if (!strncmp(line, "sensor ", 7)) infer(line+7,true);
     else if (!strncmp(line,"profile ",8) || !strncmp(line,"energy ",7)) {
-        bool energy=line[0]=='e';char *arg=line+(energy?7:8),*end;
+        bool energy=line[0]=='e';
+        if(!energy && !rd_profile_capacity()) { error("profile_disabled");return; }
+        char *arg=line+(energy?7:8),*end;
         errno=0;unsigned long runs=strtoul(arg,&end,10);
         if(errno || end==arg || *end || *arg=='-' || runs>2048) { error("profile_runs");return; }
 #if RD_GOLDEN_COUNT > 0

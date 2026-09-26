@@ -34,7 +34,8 @@ jobs:
           python3 tools/e2e.py
           git fetch --depth=1 origin 739a5621043f9b0f0ffc263c46d1d2f7aeb9495f
           python3 tools/sensor_lab.py
-          python3 -m unittest discover -s tests -p test_lab.py -v
+          python3 tools/coverage_lab.py
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
           python3 tools/prepare_pair.py --model-dir build-sensor/selected --output build-lab
           python3 tools/rig.py build-lab/manifest.json --vectors build-sensor/test.json --execution native --rounds 11 --limit 128 --output build-lab/native.json
           python3 tools/benchmark.py --verify-only
@@ -49,6 +50,7 @@ jobs:
             examples/esp32-decision/build-host/results.json
             examples/esp32-decision/build-sensor/report.json
             examples/esp32-decision/build-sensor/selected/model.h
+            examples/esp32-decision/build-coverage/report.json
             examples/esp32-decision/build-lab/native.json
   firmware:
     needs: reference
@@ -78,6 +80,17 @@ jobs:
           . /opt/esp/idf/export.sh
           git fetch --depth=1 origin 739a5621043f9b0f0ffc263c46d1d2f7aeb9495f
           python3 tools/prepare_pair.py --model-dir downloaded-lab/build-sensor/selected --output build-sensor-pair --targets ${{ matrix.chip }}
+      - name: Build sensor production image without percentile buffers
+        shell: bash
+        working-directory: examples/esp32-decision
+        run: |
+          . /opt/esp/idf/export.sh
+          idf.py -B build-production-${{ matrix.chip }} -DIDF_TARGET=${{ matrix.chip }} \
+            -DSDKCONFIG=build-production-${{ matrix.chip }}/sdkconfig \
+            '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.production' \
+            -DRD_MODEL_DIR="$PWD/downloaded-lab/build-sensor/selected" build merge-bin
+          python3 tools/production_check.py --full-build build-sensor-pair/${{ matrix.chip }}-candidate \
+            --production-build build-production-${{ matrix.chip }} --output build-production-${{ matrix.chip }}/footprint.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ruvector-decision-${{ matrix.chip }}
@@ -87,3 +100,5 @@ jobs:
             examples/esp32-decision/build-${{ matrix.chip }}/flasher_args.json
             examples/esp32-decision/build-sensor-pair/*/merged-binary.bin
             examples/esp32-decision/build-sensor-pair/manifest.json
+            examples/esp32-decision/build-production-${{ matrix.chip }}/merged-binary.bin
+            examples/esp32-decision/build-production-${{ matrix.chip }}/footprint.json

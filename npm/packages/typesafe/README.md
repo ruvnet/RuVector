@@ -365,6 +365,37 @@ without per-call timing, with an optional GPIO marker around the whole batch.
 The GPIO is disabled by default; select a free board pin with
 `CONFIG_RD_BENCH_GPIO` only when connecting a power analyzer.
 
+For production, `CONFIG_RD_PROFILE_SAMPLES=0` removes all 16,384 bytes of
+percentile storage while preserving inference, self-tests, `bench` and `energy`.
+The `profile` command returns `profile_disabled`; metadata reports actual
+capacity and bytes. Build in a separate directory so benchmark settings remain
+reproducible (substitute `esp32c6` for C6):
+
+```sh
+idf.py -B build-production-esp32s3 -DIDF_TARGET=esp32s3 \
+  -DSDKCONFIG=build-production-esp32s3/sdkconfig \
+  '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.production' \
+  -DRD_MODEL_DIR="$PWD/build-sensor/selected" build merge-bin
+```
+
+Verify the linked storage with `python3 tools/production_check.py
+--full-build build-rig/esp32s3-candidate --production-build
+build-production-esp32s3 --output build-production-esp32s3/footprint.json`.
+Add `--qemu /path/to/qemu-system-xtensa --vectors build-sensor/validation.json`
+for an exact S3 replay and warmed heap check. The shipped production builds
+recover 16,384 static bytes and reduce application flash by 1,008 bytes on
+S3 and 1,040 bytes on C6 relative to the same model with full profiling.
+
+`python3 tools/coverage_lab.py` tests three fixed abstention settings using a
+separate 1,440-row calibration day. Training and preprocessing exclude this
+day. Selection requires useful coverage and accepted accuracy for both classes;
+the following validation day can veto it without selecting another candidate.
+The initial candidate reached 99.65% calibration accuracy but only 90.59%
+validation accuracy and zero validation coverage, so it was rejected. The
+default model remains unchanged. This lab also runs in `tools/lab.py`. Its
+test data are previously seen regression data, and all results remain limited
+to one office. No deployment or statistical calibration claim is made.
+
 Build paired images after activating the ESP-IDF 5.4.4 environment:
 
 ```sh

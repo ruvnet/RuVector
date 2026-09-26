@@ -3,8 +3,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef ESP_PLATFORM
+#include "sdkconfig.h"
+#define RD_PROFILE_MAX CONFIG_RD_PROFILE_SAMPLES
+#endif
+#ifndef RD_PROFILE_MAX
 #define RD_PROFILE_MAX 2048
+#endif
+#if RD_PROFILE_MAX < 0 || RD_PROFILE_MAX > 2048
+#error "RD_PROFILE_MAX must be between 0 and 2048"
+#endif
+unsigned rd_profile_capacity(void) { return RD_PROFILE_MAX; }
+#if RD_PROFILE_MAX > 0
 static uint32_t times[RD_PROFILE_MAX],cycles[RD_PROFILE_MAX];
+size_t rd_profile_buffer_bytes(void) { return sizeof(times)+sizeof(cycles); }
 static int order(const void *a,const void *b) {
     uint32_t x=*(const uint32_t*)a,y=*(const uint32_t*)b;
     return (x>y)-(x<y);
@@ -12,6 +24,9 @@ static int order(const void *a,const void *b) {
 static unsigned percentile(const uint32_t *v,unsigned n,unsigned p) {
     return (unsigned)v[((size_t)n*p+99)/100-1];
 }
+#else
+size_t rd_profile_buffer_bytes(void) { return 0; }
+#endif
 bool rd_profile(const rd_context *ctx,rd_workspace *w,const float *inputs,
                 size_t input_count,unsigned runs,bool energy) {
     if(!runs || runs>(energy ? 256u : RD_PROFILE_MAX) || !input_count) return false;
@@ -26,19 +41,25 @@ bool rd_profile(const rd_context *ctx,rd_workspace *w,const float *inputs,
         if(dc<overhead_cycles) overhead_cycles=dc;
     }
     size_t heap=rd_free_heap(); unsigned core=rd_core_id(),hz=rd_cpu_hz();
+#if RD_PROFILE_MAX > 0
     uint64_t sum=0,csum=0;
+#endif
     rd_marker(energy);
     uint64_t batch_start=rd_clock_us();
     for(unsigned i=0;i<runs;++i) {
+#if RD_PROFILE_MAX > 0
         uint64_t start=energy ? 0 : rd_clock_us();
         uint32_t c=energy ? 0 : rd_clock_cycles();
+#endif
         rd_status status=rd_predict(ctx,inputs+(i%input_count)*ctx->model->dims,ctx->model->dims,w,&result);
         if(status!=RD_OK) { rd_marker(false);return false; }
+#if RD_PROFILE_MAX > 0
         if(!energy) {
             cycles[i]=rd_clock_cycles()-c; times[i]=(uint32_t)(rd_clock_us()-start);
             sum+=times[i];csum+=cycles[i];
             if(i%32==31) rd_yield();
         }
+#endif
     }
     uint64_t batch_us=rd_clock_us()-batch_start;
     rd_marker(false);
@@ -48,6 +69,7 @@ bool rd_profile(const rd_context *ctx,rd_workspace *w,const float *inputs,
                runs,(unsigned long long)batch_us,rd_marker_gpio());
         return true;
     }
+#if RD_PROFILE_MAX > 0
     qsort(times,runs,sizeof(times[0]),order);qsort(cycles,runs,sizeof(cycles[0]),order);
     printf("{\"profile\":true,\"runs\":%u,\"input_count\":%u,\"mean_us\":%.6f,\"p50_us\":%u,\"p95_us\":%u,\"p99_us\":%u,\"max_us\":%u,"
            "\"mean_cycles\":%.3f,\"p50_cycles\":%u,\"p95_cycles\":%u,\"p99_cycles\":%u,\"max_cycles\":%u,"
@@ -55,5 +77,8 @@ bool rd_profile(const rd_context *ctx,rd_workspace *w,const float *inputs,
            runs,(unsigned)input_count,(double)sum/runs,percentile(times,runs,50),percentile(times,runs,95),percentile(times,runs,99),(unsigned)times[runs-1],
            (double)csum/runs,percentile(cycles,runs,50),percentile(cycles,runs,95),percentile(cycles,runs,99),(unsigned)cycles[runs-1],
            (unsigned)overhead_us,(unsigned)overhead_cycles,hz,core,(unsigned)heap,(unsigned)rd_free_heap(),(unsigned)(sizeof(times)+sizeof(cycles)));
+#else
+    (void)heap;
+#endif
     return true;
 }

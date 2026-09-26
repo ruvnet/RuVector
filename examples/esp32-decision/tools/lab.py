@@ -16,6 +16,7 @@ def main():
     if a.qemu and 'esp32s3' not in a.targets:p.error('--qemu requires the S3 build')
     run('tools/e2e.py','--seed','987654321')
     run('tools/sensor_lab.py')
+    run('tools/coverage_lab.py')
     run('-m','unittest','discover','-s','tests','-p','test_*.py','-v')
     run('tools/prepare_pair.py','--model-dir','build-sensor/selected','--output','build-lab','--targets',*a.targets)
     run('tools/rig.py','build-lab/manifest.json','--vectors','build-sensor/test.json','--execution','native',
@@ -24,5 +25,6 @@ def main():
         run('tools/rig.py','build-lab/manifest.json','--vectors','build-sensor/test.json','--execution','emulator',
             '--qemu',a.qemu,'--rounds','1','--limit','1000','--output','build-lab/qemu.json')
     print(json.dumps({'software_acceptance':'pass','built_targets':a.targets,'physical_acceptance':'not performed',
+                      'coverage_candidate_retained':json.loads((ROOT/'build-coverage/report.json').read_text())['retained_for_demonstration'],
                       'sensor_report':'build-sensor/report.json','paired_report':'build-lab/native.json'}))
 if __name__=='__main__':main()

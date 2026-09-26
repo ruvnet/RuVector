@@ -134,7 +134,7 @@ def main():
         same=all(stable(x)==stable(y) for x,y in zip(answers['baseline'],answers['candidate'],strict=True))
         record['difference_examples']=[{'row':j,'baseline':stable(x),'candidate':stable(y)}
             for j,(x,y) in enumerate(zip(answers['baseline'],answers['candidate'],strict=True)) if stable(x)!=stable(y)][:5]
-        for key in ('cpu_hz','core','dims','classes','quant_bits'):
+        for key in ('cpu_hz','core','dims','classes','quant_bits','profile_buffer_bytes','profile_capacity'):
             if record['baseline']['meta'][key]!=record['candidate']['meta'][key]:
                 raise ValueError('paired environment mismatch: '+key)
         record['exact_replay_match']=same;report['rounds'].append(record)
