@@ -19,6 +19,7 @@ pub struct GcsPlan {
     pub bucket: String,
     pub signer_sa: String,
     pub project: String,
+    pub region: String,
     pub run_id: String,
 }
 
@@ -83,6 +84,7 @@ impl GcsPlan {
             &format!("--duration={secs}s"),
             "--headers=content-type=application/octet-stream",
             &format!("--impersonate-service-account={}", self.signer_sa),
+            &format!("--region={}", self.region),
             "--format=value(signed_url)",
             "--quiet",
         ])?;

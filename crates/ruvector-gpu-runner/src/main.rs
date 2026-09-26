@@ -112,6 +112,10 @@ struct LaunchArgs {
     bucket: String,
     #[arg(long, default_value = "ruv-dev")]
     gcp_project: String,
+    /// Bucket location. Passed to `sign-url` so the keyless signer SA (which
+    /// only holds objectCreator) never needs storage.buckets.get.
+    #[arg(long, default_value = "us-central1")]
+    bucket_region: String,
     #[arg(long, default_value = "rvgr-uploader@ruv-dev.iam.gserviceaccount.com")]
     signer_sa: String,
     /// Local clone used to check SHA reachability.
@@ -180,6 +184,7 @@ fn launch(a: LaunchArgs, audit: &Audit) -> Result<i32> {
             bucket: a.bucket,
             signer_sa: a.signer_sa,
             project: a.gcp_project,
+            region: a.bucket_region,
             run_id: run_id.clone(),
         },
         local_repo: a.local_repo,
