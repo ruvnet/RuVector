@@ -49,6 +49,7 @@ exclude = ["external/ruqu", "external/rvdna", "examples/OSpipe", "examples/rvf",
 members = [
     "crates/ruvector-bounded-rag",
     "crates/ruvector-temporal-coherence",
+    "crates/ruvector-wal-ann",
     "crates/ruvector-acorn",
     "crates/ruvector-acorn-wasm",
     "crates/ruvector-coherence-hnsw",
