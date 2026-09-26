@@ -60,6 +60,18 @@ static void meta(void) {
            (unsigned)sizeof(workspace), (unsigned)(sizeof(workspace)+sizeof(features)+sizeof(line)+sizeof(ctx)),
            (unsigned)rd_free_heap(), ctx.model->source_calibrated ? "true" : "false", ready ? "true" : "false");
 }
+/* "format compact" replies carry each float as its 8-hex-digit binary32 bit
+ * pattern and omit the label and timing fields; "format json" restores the
+ * default. Decisions are identical; only the encoding changes. */
+static bool compact;
+static void hex_float(float v) {
+    uint32_t bits; memcpy(&bits, &v, sizeof(bits));
+    static const char digits[] = "0123456789abcdef";
+    char out[11] = {'"'};
+    for (int i = 0; i < 8; ++i) out[1+i] = digits[(bits >> (28 - 4*i)) & 0xf];
+    out[9] = '"'; out[10] = 0;
+    fputs(out, stdout);
+}
 static void decide_features(size_t n,bool sensor,uint64_t parse_us,int64_t capture_us) {
     uint64_t pre_start=rd_clock_us();
     if(sensor) {
@@ -79,6 +91,19 @@ static void decide_features(size_t n,bool sensor,uint64_t parse_us,int64_t captu
     rd_status status = rd_predict(&ctx, features, n, &workspace, &r);
     uint64_t elapsed = rd_clock_us()-start;
     if (status != RD_OK) { error("invalid_input"); return; }
+    if (compact) {
+        /* Exact binary32 bit patterns; no float-to-decimal work on the MCU. */
+        printf("{\"i\":%u,\"a\":%d,\"p\":[", r.index, r.accepted ? 1 : 0);
+        for (size_t i = 0; i < ctx.model->classes; ++i) {
+            if (i) putchar(',');
+            hex_float(r.probabilities[i]);
+        }
+        printf("],\"c\":"); hex_float(r.confidence);
+        printf(",\"b\":"); hex_float(r.abstain);
+        printf(",\"n\":"); hex_float(r.noul);
+        printf("}\n");
+        return;
+    }
     printf("{\"index\":%u,\"label\":", r.index);
     json_string(ctx.model->kind == RD_NOUL ? (r.index ? "yes" : "no") : rd_labels[r.index]);
     printf(",\"probabilities\":[");
@@ -178,6 +203,10 @@ static void command(void) {
 #else
         error("no_profile_inputs");
 #endif
+    }
+    else if (!strcmp(line, "format compact") || !strcmp(line, "format json")) {
+        compact = line[7] == 'c';
+        printf("{\"format\":\"%s\"}\n", compact ? "compact" : "json");
     }
     else if (!rd_app_extension(line)) error("unknown_command");
 }

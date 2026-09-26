@@ -66,6 +66,28 @@ class HexInputTests(unittest.TestCase):
             self.assertEqual({k: v for k, v in text.items() if k not in timing},
                              {k: v for k, v in hexr.items() if k not in timing}, f'row {i // 2}')
 
+    def test_compact_format_encodes_the_same_result(self):
+        rng = random.Random(7)
+        rows = [[f32(rng.uniform(-1.5, 1.5)) for _ in range(self.dims)] for _ in range(200)]
+        commands = []
+        for row in rows:
+            commands.append('inferx ' + ' '.join(hexf(v) for v in row))
+        replies = self.run_commands(commands + ['format compact'] + commands + ['format json', commands[0], 'format bogus'])
+        full, switch, compact = replies[:200], replies[200], replies[201:401]
+        self.assertEqual(switch, {'format': 'compact'})
+        unhex = lambda h: struct.unpack('>f', bytes.fromhex(h))[0]
+        for f, c in zip(full, compact):
+            self.assertEqual(set(c), {'i', 'a', 'p', 'c', 'b', 'n'})
+            self.assertEqual(c['i'], f['index'])
+            self.assertEqual(bool(c['a']), f['accepted'])
+            self.assertEqual([unhex(h) for h in c['p']], [f32(p) for p in f['probabilities']])
+            self.assertEqual(unhex(c['c']), f32(f['confidence']))
+            self.assertEqual(unhex(c['b']), f32(f['abstain']))
+            self.assertEqual(unhex(c['n']), f32(f['noul']))
+        self.assertEqual(replies[401], {'format': 'json'})
+        self.assertIn('index', replies[402])
+        self.assertIn('error', replies[403])
+
     def test_rejects_malformed_and_non_finite_hex(self):
         ok = ' '.join(['3f800000'] * self.dims)
         bad = ['inferx ' + ok.replace('3f800000', '7fc00000', 1),        # NaN

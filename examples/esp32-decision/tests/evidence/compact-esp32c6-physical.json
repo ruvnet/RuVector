@@ -1,0 +1,42 @@
+{
+  "execution": "physical",
+  "board": "ESP32-C6 COM16 (CP210x)",
+  "image_sha256": "b7c3dc7a07460245b24ddeeea7608b3734d3be86dfb8cd4337344edcc86bc04a",
+  "rows": 1000,
+  "115200": {
+    "json": {
+      "p50_ms": 28.694,
+      "p99_ms": 29.025,
+      "max_ms": 29.24
+    },
+    "compact": {
+      "p50_ms": 15.784,
+      "p99_ms": 16.058,
+      "max_ms": 16.61
+    },
+    "identical_results": 1000,
+    "free_heap_after": 440784,
+    "reply_bytes_example": {
+      "json": 232,
+      "compact": 86
+    }
+  },
+  "921600": {
+    "json": {
+      "p50_ms": 5.585,
+      "p99_ms": 5.842,
+      "max_ms": 5.96
+    },
+    "compact": {
+      "p50_ms": 3.857,
+      "p99_ms": 4.212,
+      "max_ms": 4.53
+    },
+    "identical_results": 1000,
+    "free_heap_after": 440784,
+    "reply_bytes_example": {
+      "json": 232,
+      "compact": 86
+    }
+  }
+}

@@ -582,6 +582,38 @@ energy remain unmeasured, and CI cannot waive either gate. The evidence is in
 `tests/evidence/rig-esp32c6-physical-retained*.json`. To roll back, revert
 `components/rvdecision/rvdecision.c` to the previous commit.
 
+## Follow up: compact exact replies
+
+With a 921,600-baud link, the default JSON reply was the largest part of
+the round trip: about 232 bytes, plus six `%.9g` float-to-decimal
+conversions on a chip without an FPU. `format compact` switches the reply to
+`{"i":index,"a":accepted,"p":[...],"c":confidence,"b":abstain,"n":noul}`.
+Each float is its 8-hex-digit binary32 bit pattern, and the label and timing
+fields are omitted. `format json` restores the default, which is also the
+state after every reset. Decisions and values are unchanged; only the
+encoding differs.
+
+`tests/test_hex_input.py` decodes 200 compact replies and requires every
+field to equal the corresponding JSON reply bit for bit. On the physical C6,
+the occupancy model replayed 1,000 `sensorx` rows. At both link rates, all
+1,000 decoded compact results equalled the JSON results exactly, and free
+heap was unchanged. The example reply shrank from 232 to 86 bytes.
+Round-trip results:
+
+| Link | JSON median | Compact median | Speedup |
+|---|---|---|---|
+| 115,200 | 28.7 ms | 15.8 ms | 1.82 times |
+| 921,600 | 5.59 ms | 3.86 ms | 1.45 times |
+
+At 921,600 the compact p99 was 4.21 ms. The evidence is in
+`tests/evidence/compact-esp32c6-physical.json`.
+
+These changes combine on the C6. For the same occupancy decision, the host
+round trip was 80.2 ms at the start of this series: decimal input, JSON
+replies and a 115,200-baud link. With hex input, the fixed command loop, a
+921,600-baud link and compact replies, it is 3.86 ms, about 21 times faster.
+On-chip request time fell from 197.6 µs to about 92 µs.
+
 ## Sources
 
 * https://archive.ics.uci.edu/dataset/357/occupancy+detection
