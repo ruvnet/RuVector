@@ -1,0 +1,20 @@
+[package]
+name = "ruvector-gpu-runner"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Budget-capped, auto-destroying vast.ai GPU job runner for ruvector training jobs"
+publish = false
+
+[[bin]]
+name = "ruvector-gpu-runner"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+ureq = { version = "2.12", features = ["json"] }
+ctrlc = { version = "3.5", features = ["termination"] }

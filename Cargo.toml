@@ -98,6 +98,8 @@ members = [
     # StagedWorkspace (arXiv:2608.18050) content-hash state binding
     # (ADR-318, PIR WP16 ruvnet/RuVector#863).
     "crates/ruvector-staged-workspace",
+    # vast.ai GPU job runner with hard budget caps + auto-destroy (openjev).
+    "crates/ruvector-gpu-runner",
     "crates/ruvector-retrieval-receipt",
     "crates/ruvector-gnn-rerank",
     "crates/ruvector-gnn-node",

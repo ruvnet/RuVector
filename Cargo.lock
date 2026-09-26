@@ -9806,6 +9806,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-gpu-runner"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "ctrlc",
+ "serde",
+ "serde_json",
+ "ureq 2.12.1",
+]
+
+[[package]]
 name = "ruvector-graph"
 version = "2.3.1"
 dependencies = [
