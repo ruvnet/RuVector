@@ -47,6 +47,7 @@ exclude = ["external/ruqu", "external/rvdna", "examples/OSpipe", "examples/rvf",
     # dropped from InferenceConfig/ModelMetadata).
     "crates/ruvector-sparse-inference-wasm"]
 members = [
+    "crates/ruvector-coherence-pages",
     "crates/ruvector-bounded-rag",
     "crates/ruvector-temporal-coherence",
     "crates/ruvector-acorn",

@@ -1,0 +1,15 @@
+[package]
+name = "ruvector-coherence-pages"
+version = "0.1.0"
+edition = "2021"
+description = "Page-coherent agent memory: greedy coherence clustering for paged vector retrieval"
+license = "MIT"
+
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[dependencies]
+
+[profile.release]
+opt-level = 3
