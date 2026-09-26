@@ -4,6 +4,8 @@ exclude = ["external/ruqu", "external/rvdna", "examples/OSpipe", "examples/rvf",
     "crates/emergent-time-wasm",
     # sonic-ct crates: self-contained detached workspaces
     "crates/sonic-ct", "crates/sonic-ct-wasm",
+    # ruvector-community-rag: standalone nightly PoC (ADR-272), no external deps
+    "crates/ruvector-community-rag",
     # ruvector-postgres is a pgrx-based PostgreSQL extension. Its build script
     # requires `$PGRX_HOME` set up via `cargo install cargo-pgrx --version 0.12.9`
     # and `cargo pgrx init`, which downloads and builds multiple Postgres
