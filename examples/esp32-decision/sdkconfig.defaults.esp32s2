@@ -1,0 +1,2 @@
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+# ESP32-S2 is single-core Xtensa LX7 without an FPU; PSRAM is not required.

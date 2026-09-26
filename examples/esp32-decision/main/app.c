@@ -30,6 +30,7 @@ static void json_string(const char *s) {
     }
     putchar('"');
 }
+__attribute__((weak)) bool rd_app_extension(const char *line) { (void)line; return false; }
 static void error(const char *code) { printf("{\"error\":\"%s\",\"accepted\":false}\n", code); }
 static bool selftest(void) {
 #if RD_GOLDEN_COUNT == 0
@@ -145,7 +146,7 @@ static void command(void) {
         error("no_profile_inputs");
 #endif
     }
-    else error("unknown_command");
+    else if (!rd_app_extension(line)) error("unknown_command");
 }
 bool rd_app_init(void) {
     if (rd_init(&ctx, &rd_firmware_model, .6f, .4f) != RD_OK) { error("model"); return false; }

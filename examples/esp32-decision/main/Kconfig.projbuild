@@ -15,4 +15,11 @@ config RD_BENCH_GPIO
         Select a free output GPIO for an external power analyzer. The marker
         brackets only the energy command's inference batch. Validate pin
         availability for the connected board before enabling this option.
+config RD_OTA
+    bool "Serial OTA updates with A/B slots"
+    default y
+    help
+        Adds the "ota status" and "ota begin" commands on the same UART.
+        Requires the two-slot partitions.csv. With bootloader rollback enabled,
+        a new image is kept only after its model self-test passes.
 endmenu

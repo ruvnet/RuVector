@@ -1,4 +1,5 @@
 #include "app.h"
+#include "ota.h"
 #include "driver/uart.h"
 #include "esp_timer.h"
 #include "esp_system.h"
@@ -46,11 +47,17 @@ void app_main(void) {
         ESP_ERROR_CHECK(gpio_set_direction(CONFIG_RD_BENCH_GPIO,GPIO_MODE_OUTPUT));
         rd_marker(false);
     }
-    if (!rd_app_init()) return;
+    bool healthy = rd_app_init();
+    rd_ota_boot_check(healthy); /* rolls back an unverified OTA image on failure */
+    if (!healthy) return;
     uint8_t bytes[128];
     for (;;) {
         int n = uart_read_bytes(UART_NUM_0, bytes, sizeof(bytes), pdMS_TO_TICKS(50));
-        for (int i = 0; i < n; ++i) rd_app_byte(bytes[i]);
+        for (int i = 0; i < n; ++i) {
+            if (rd_ota_receiving()) rd_ota_byte(bytes[i]);
+            else rd_app_byte(bytes[i]);
+        }
+        rd_ota_poll();
         vTaskDelay(1);
     }
 }

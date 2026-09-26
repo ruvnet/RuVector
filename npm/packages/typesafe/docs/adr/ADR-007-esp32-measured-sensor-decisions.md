@@ -345,6 +345,68 @@ commands. Roll back `tools/transport.py` to parent `47b0428` while retaining
 the evaluator if any association or regression gate fails. A timed-out request,
 device restart or concurrent `close` remains a separate recovery problem.
 
+## Follow up: C6 physical rig, all ESP32 targets and serial OTA
+
+*Physical paired rig.* The occupancy pair was built in `espressif/idf:v5.4.4`
+from parent `19376a6` plus this change. Both arms share the app sources and
+differ only in the kernel. The rig ran on one ESP32-C6 (CP210x UART0, 160 MHz,
+fixed affinity) for 11 alternating rounds: 128 held-out test rows and 2,048
+profiled runs per arm. Every round replayed identical decisions, both arms
+matched the reference on all 128 rows, and warmed heap was stable. The mean
+kernel time fell from 76.69 µs to 72.63 µs (12,084 to 11,471 mean cycles). The
+median paired speedup was 1.056, with a bootstrap lower bound of 1.055. That
+is below the 1.10 retention rule, so `retain=false`: the C6 improvement is
+real but does not meet the gate. Replay stages show that UART text parsing
+(about 119 µs) costs more than inference (about 77 µs). Parsing, not the
+kernel, is the next C6 latency target. S3 physical rounds, energy traces and
+a real capture driver remain unmeasured. The evidence is in
+`tests/evidence/rig-esp32c6-physical*.json`. The manifest's image paths were
+made relative so the Windows host could replay it; the image digests are
+unchanged.
+
+*All ESP32 targets.* Adding per-target defaults lets the unchanged firmware
+build for ESP32, S2, S3, C2, C3, C6, H2 and P4. Each target uses its supported
+CPU clock, and the C2 uses 2 MB flash. CI now builds the default image for
+every target. Sensor pairs and production checks remain S3/C6 only, because
+only those two targets have measured baselines. All 16 images (full and
+production for each target) built in the pinned container; their digests are
+in `tests/evidence/release-builds.json`. Only the C6 ran on silicon. The other
+targets are cross-compiled only: no latency, memory or parity result is
+claimed for them.
+
+*Serial OTA.* The default partition table now holds two 960 KiB app slots and
+enables bootloader rollback. The app also adds an `ota status` command and an
+`ota begin <bytes> <sha256>` command. After `ota begin`, the host sends the
+raw image in 1 KiB acknowledged blocks. The firmware then checks the file
+digest, and `esp_ota_end` checks the image checksum, appended hash and chip
+id. Only then does the new slot become bootable. A new slot boots as
+PENDING_VERIFY. It is committed only if the model self-test passes; otherwise
+the board rolls back to the previous slot and reboots. OTA uses the existing
+UART, so it also works on H2 and P4, which have no Wi-Fi. It grants no
+authority beyond the ROM serial bootloader on the same port. It adds no
+network listener and no image signing. The core protocol is unchanged.
+`app.c` gains only a weak `rd_app_extension` hook that host builds leave as
+`unknown_command`.
+
+On the physical C6, with pinned images:
+- A 179,728-byte update transferred in about 21.5 s and was committed.
+- An image whose golden self-test was altered booted and failed its
+  self-test. The board rolled back to the previous valid slot on its own.
+- These inputs were all rejected without changing the running slot:
+  - wrong digest
+  - an ESP32-C3 image (`ESP_ERR_OTA_VALIDATE_FAILED`)
+  - a transfer cut off after 20 KiB (`ota_timeout`)
+  - an oversize image
+  - malformed and zero arguments
+- The production profile keeps its measured 16,384-byte heap gain (440,308
+  vs. 456,692 bytes free) and the same 174.5 µs default-model bench.
+
+`tests/test_ota_tool.py` checks the host protocol against a simulated board.
+In the pinned container, the software lab, 56 Python tests, 11 exact native
+pairs, benchmark verification and the committed model header all pass.
+Evidence: `tests/evidence/ota-esp32c6-physical.json`. Roll back to parent
+`19376a6`.
+
 ## Sources
 
 * https://archive.ics.uci.edu/dataset/357/occupancy+detection

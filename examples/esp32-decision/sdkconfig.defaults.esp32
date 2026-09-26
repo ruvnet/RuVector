@@ -1,0 +1,2 @@
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+# Classic ESP32 (Xtensa LX6). PSRAM is not required.

@@ -19,6 +19,8 @@ int rd_marker_gpio(void);
  * Fill exactly count raw measurements in the model's documented units/order. */
 bool rd_sensor_read(float *values,size_t count);
 const char *rd_sensor_name(void);
+/* Optional board-level commands (e.g. OTA). Return true when handled. */
+bool rd_app_extension(const char *line);
 bool rd_app_init(void);
 void rd_app_byte(unsigned char byte);
 #endif
