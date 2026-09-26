@@ -14,6 +14,8 @@
 #include "driver/usb_serial_jtag_vfs.h"
 #endif
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 uint64_t rd_clock_us(void) { return (uint64_t)esp_timer_get_time(); }
 const char *rd_target(void) { return CONFIG_IDF_TARGET; }
@@ -39,6 +41,61 @@ bool rd_fixed_affinity(void) {
 int rd_marker_gpio(void) { return CONFIG_RD_BENCH_GPIO; }
 void rd_marker(bool active) {
     if(CONFIG_RD_BENCH_GPIO>=0) gpio_set_level(CONFIG_RD_BENCH_GPIO,active);
+}
+/* Negotiated link speed. "baud <rate>" replies at the current rate, then
+ * switches; the host must send "baud ok" at the new rate within 2 s or the
+ * board returns to 115200 by itself, so a failed switch cannot strand it.
+ * Every reset starts at 115200. */
+#define RD_BAUD_DEFAULT 115200u
+#define RD_BAUD_CONFIRM_US 2000000ULL
+static uint32_t baud_now = RD_BAUD_DEFAULT;
+static bool baud_pending;
+static uint64_t baud_deadline_us;
+#if !CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
+static void set_baud(uint32_t rate) {
+    fflush(stdout);
+    uart_wait_tx_done(UART_NUM_0, pdMS_TO_TICKS(200));
+    uart_set_baudrate(UART_NUM_0, rate);
+    uart_flush_input(UART_NUM_0);
+    baud_now = rate;
+}
+#endif
+static void baud_command(const char *arg) {
+#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
+    (void)arg;
+    printf("{\"error\":\"baud_unsupported\",\"accepted\":false}\n");
+#else
+    if (!strcmp(arg, "ok")) {
+        if (!baud_pending) { printf("{\"error\":\"baud_not_pending\",\"accepted\":false}\n"); return; }
+        baud_pending = false;
+        printf("{\"baud\":%u,\"confirmed\":true}\n", (unsigned)baud_now);
+        return;
+    }
+    static const uint32_t allowed[] = {115200u, 230400u, 460800u, 921600u};
+    char *end; unsigned long rate = strtoul(arg, &end, 10);
+    bool ok = end != arg && !*end && *arg != '-';
+    bool listed = false;
+    for (size_t i = 0; ok && i < sizeof(allowed)/sizeof(allowed[0]); ++i) listed |= rate == allowed[i];
+    if (!ok || !listed) { printf("{\"error\":\"baud_rate\",\"accepted\":false}\n"); return; }
+    printf("{\"baud\":%lu,\"confirm\":\"baud ok\",\"within_ms\":%u}\n", rate, (unsigned)(RD_BAUD_CONFIRM_US/1000));
+    set_baud((uint32_t)rate);
+    baud_pending = rate != RD_BAUD_DEFAULT;
+    baud_deadline_us = (uint64_t)esp_timer_get_time() + RD_BAUD_CONFIRM_US;
+#endif
+}
+static void baud_poll(void) {
+#if !CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
+    if (baud_pending && (uint64_t)esp_timer_get_time() > baud_deadline_us) {
+        baud_pending = false;
+        set_baud(RD_BAUD_DEFAULT);
+        printf("{\"baud\":%u,\"reverted\":true}\n", (unsigned)RD_BAUD_DEFAULT);
+    }
+#endif
+}
+bool rd_app_extension(const char *line) {
+    if (rd_ota_command(line)) return true;
+    if (!strncmp(line, "baud ", 5)) { baud_command(line + 5); return true; }
+    return false;
 }
 void app_main(void) {
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -84,5 +141,6 @@ void app_main(void) {
             else rd_app_byte(bytes[i]);
         }
         rd_ota_poll();
+        baud_poll();
     }
 }

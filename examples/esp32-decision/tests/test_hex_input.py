@@ -79,11 +79,16 @@ class HexInputTests(unittest.TestCase):
                'inferx 3f800000',                                        # too few
                'inferx ',                                                # empty
                'sensorx ' + ok]                                          # no preprocessing in default model
-        replies = self.run_commands(bad + ['inferx ' + ok, 'selftest'])
+        tabs = 'inferx ' + '\t'.join(['3f800000'] * self.dims)
+        replies = self.run_commands(bad + ['inferx ' + ok, tabs, 'infer ' + ' '.join(['1'] * self.dims), 'selftest'])
         for command, reply in zip(bad, replies):
             self.assertIn('error', reply, command)
             self.assertFalse(reply['accepted'], command)
-        self.assertNotIn('error', replies[-2])
+        self.assertNotIn('error', replies[-4])
+        timing = ('inference_us', 'parse_us', 'preprocess_us')
+        strip = lambda r: {k: v for k, v in r.items() if k not in timing}
+        self.assertEqual(strip(replies[-4]), strip(replies[-3]), 'tab separators behave like spaces')
+        self.assertEqual(strip(replies[-4]), strip(replies[-2]), 'hex 3f800000 equals decimal 1')
         self.assertTrue(replies[-1]['selftest_pass'])
 
 

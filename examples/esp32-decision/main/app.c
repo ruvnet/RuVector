@@ -118,7 +118,7 @@ static void infer_hex(const char *p,bool sensor) {
     uint64_t request_start=rd_clock_us();
     size_t n=0;
     while(*p) {
-        while(*p==' ' || *p=='	')++p;
+        while(*p==' ' || *p=='\t')++p;
         if(!*p)break;
         if(n==ctx.model->dims) { error("dimension");return; }
         uint32_t bits=0;
@@ -128,7 +128,7 @@ static void infer_hex(const char *p,bool sensor) {
             bits=(bits<<4)|(uint32_t)d;
         }
         p+=8;
-        if(*p && *p!=' ' && *p!='	') { error("invalid_feature");return; }
+        if(*p && *p!=' ' && *p!='\t') { error("invalid_feature");return; }
         float value;memcpy(&value,&bits,sizeof(value));
         if(!isfinite(value)) { error("invalid_feature");return; }
         features[n++]=value;

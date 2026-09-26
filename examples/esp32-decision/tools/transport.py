@@ -5,8 +5,19 @@ import subprocess
 import threading
 import time
 
+def _drain(stream):
+    """Finish a write before waiting for the reply.
+
+    pyserial's Windows backend implements flush() as "sleep 50 ms while bytes
+    are queued", which added ~50 ms stalls to 1-5% of fast-link queries on a
+    physical C6. Its blocking write() already waits for the overlapped write to
+    complete, so nothing more is needed there. Every other stream (pipes,
+    POSIX tcdrain, test adapters) keeps its own flush()."""
+    if type(stream).__module__!='serial.serialwin32' or getattr(stream,'write_timeout',None)==0:
+        stream.flush()
+
 class Device:
-    def __init__(self,command=None,port=None):
+    def __init__(self,command=None,port=None,baud=None):
         self.proc=None;self.serial=None;self.pending=bytearray()
         self._query_lock=threading.Lock()
         if command:
@@ -25,6 +36,9 @@ class Device:
             time.sleep(2)
             self.serial.reset_input_buffer()
             self.meta=self.query('meta')
+            if baud and baud!=BAUD_DEFAULT:
+                with self._query_lock:
+                    negotiate_baud(self.serial,baud);self.pending.clear()
     def response(self,timeout=30):
         deadline=time.monotonic()+timeout
         while time.monotonic()<deadline:
@@ -45,7 +59,7 @@ class Device:
             raise ValueError('firmware command must be a single line')
         with self._query_lock:
             stream=self.proc.stdin if self.proc else self.serial
-            stream.write((text+'\n').encode());stream.flush()
+            stream.write((text+'\n').encode());_drain(stream)
             return self.response()
     def close(self):
         if self.proc:
@@ -54,5 +68,34 @@ class Device:
             except subprocess.TimeoutExpired:self.proc.kill();self.proc.wait()
             self.proc.stdin.close();self.proc.stdout.close()
         if self.serial:self.serial.close()
+
+BAUD_DEFAULT=115200
+BAUD_RATES=(115200,230400,460800,921600)
+
+def _json_lines(ser,deadline):
+    buf=bytearray()
+    while time.monotonic()<deadline:
+        buf.extend(ser.read_until(b'\n',4097))
+        if len(buf)>4096:buf.clear();continue
+        if not buf.endswith(b'\n'):continue
+        line=bytes(buf);buf.clear()
+        if line.startswith(b'{'):
+            try:yield json.loads(line)
+            except json.JSONDecodeError:continue
+
+def negotiate_baud(ser,rate,timeout=3.0):
+    """Switch a running board to `rate`; it reverts to 115200 unless confirmed.
+
+    The confirmation is preceded by a bare newline so any bytes garbled during
+    the switch end up in their own (rejected) line rather than in `baud ok`."""
+    if rate not in BAUD_RATES:raise ValueError('unsupported baud rate')
+    ser.reset_input_buffer();ser.write(f'baud {rate}\n'.encode());_drain(ser)
+    reply=next(_json_lines(ser,time.monotonic()+timeout),None)
+    if not reply or reply.get('baud')!=rate:raise RuntimeError(f'baud switch refused: {reply}')
+    time.sleep(0.05);ser.baudrate=rate;time.sleep(0.05);ser.reset_input_buffer()
+    ser.write(b'\nbaud ok\n');_drain(ser)
+    for msg in _json_lines(ser,time.monotonic()+timeout):
+        if msg.get('confirmed') and msg.get('baud')==rate:return rate
+    raise TimeoutError('baud confirmation not received; board reverts to 115200')
 
 def stable(answer):return {k:v for k,v in answer.items() if not k.endswith('_us')}

@@ -484,6 +484,54 @@ broken self-test image rolled back. Free heap held at 439,984 bytes across
 115,200-baud link, which spends about 29 ms moving a request and its reply.
 The evidence is in `tests/evidence/uartloop-esp32c6-physical.json`.
 
+## Follow up: negotiated link speed and a host flush stall
+
+After the loop fix, most of the round trip was the 115,200-baud link. The new
+`baud <rate>` command accepts 115,200, 230,400, 460,800 or 921,600. It
+replies at the current rate, then switches. The host must send `baud ok` at
+the new rate within 2 s, preceded by a bare newline so bytes garbled during
+the switch fall into a separate, rejected line. Otherwise the board reverts to
+115,200 by itself and reports it. Every reset starts at 115,200, so a failed
+switch cannot strand a board. USB-Serial/JTAG builds reject the command. The
+code adds 120 bytes of static DIRAM on the C6: 76,791 before, 76,911 after.
+`tools/transport.py` gains `negotiate_baud()` and `Device(baud=...)`, and
+`tools/ota.py` gains `--baud`. `tests/test_baud.py` covers the host contract:
+the switch sequence, refusal, missing confirmation and unlisted rates.
+
+The first physical run showed 50 ms outliers at every fast rate: 1 to 5
+percent of queries. Isolation experiments found the host was the cause.
+Waiting less on partial lines and routing stdout through the UART driver did
+not help, so both were reverted. A raw serial loop had no outliers, and
+pyserial's Windows `flush()` turned out to be `while out_waiting: sleep(0.05)`.
+Its blocking `write()` already completes the transfer, so the transport now
+skips that flush on the Windows backend only. POSIX `tcdrain`, pipes and the
+frozen concurrency evaluator's adapter still flush.
+
+On the physical C6 with the occupancy model, 1,000 `sensorx` rows gave
+identical replies at 115,200 and 921,600 (1,000 of 1,000). Round-trip
+results:
+
+| Link | Median | p99 |
+|---|---|---|
+| 115,200 | 28.7 ms | 29.1 ms |
+| 921,600 | 5.6 ms | 6.0 ms |
+
+The 921,600 link is 5.1 times faster at the median. With the host fix, runs
+of 1,000 requests had a worst case of 6.3 ms at 921,600 and 10.2 ms at
+460,800. Before the fix, the worst cases were 52.6 and 55.5 ms.
+
+Other physical checks:
+- Unlisted rates, malformed rates and an unexpected `baud ok` were rejected.
+- An unconfirmed switch reverted after 2.05 s, and the board then passed its
+  self-test.
+- A full OTA update took 3.7 s at 921,600, against 18.0 s at 115,200. Commit
+  and self-test rollback both behaved correctly at both rates.
+- Free heap stayed at 439,968 bytes across 2,000 warmed inferences at 921,600.
+
+The evidence is in `tests/evidence/baud-esp32c6-physical.json`. Other
+USB-UART bridges and other chips may support different rate sets. Only the
+C6 behind a CP210x bridge was measured.
+
 ## Sources
 
 * https://archive.ics.uci.edu/dataset/357/occupancy+detection

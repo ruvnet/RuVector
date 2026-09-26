@@ -138,7 +138,7 @@ static void flush_block(void) {
     esp_restart();
 }
 
-bool rd_app_extension(const char *line) {
+bool rd_ota_command(const char *line) {
     if (!strcmp(line, "ota status")) { status(); return true; }
     if (!strncmp(line, "ota begin ", 10)) {
         char args[96];
@@ -173,6 +173,7 @@ void rd_ota_boot_check(bool healthy) {
     }
 }
 #else
+bool rd_ota_command(const char *line) { (void)line; return false; }
 bool rd_ota_receiving(void) { return false; }
 void rd_ota_byte(unsigned char byte) { (void)byte; }
 void rd_ota_poll(void) {}
