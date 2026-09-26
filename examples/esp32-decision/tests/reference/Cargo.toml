@@ -1,0 +1,21 @@
+[package]
+name = "ruvector-embedded-reference"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Isolate the actual core source from the monorepo's unrelated native SDKs.
+# No copied implementation or stub engine: all core unit tests run here too.
+[workspace]
+[lib]
+name = "ruvector_typesafe_core"
+path = "../../../../crates/ruvector-typesafe-core/src/lib.rs"
+[features]
+hash-embedder = []
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+[[bin]]
+name = "export-reference"
+path = "main.rs"

@@ -67,6 +67,9 @@ pub(crate) struct Platt {
 }
 
 impl Platt {
+    pub(crate) fn parameters(&self) -> (f32, f32) {
+        (self.a, self.b)
+    }
     pub fn fit(scores: &[f32], labels: &[f32]) -> Self {
         let mut a = 1.0f32;
         let mut b = 0.0f32;

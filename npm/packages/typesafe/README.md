@@ -227,6 +227,53 @@ returns exact neighbours; the `@ruvector/router` 0.1.28 kNN path returns
 neighbours only from the most recently inserted region (recall 0.032) — a
 documented defect in that file, called out here rather than papered over.
 
+## ESP32 S3 and C6 firmware
+
+The [native decision firmware](../../../examples/esp32-decision) runs frozen
+`choice`, `score`, and `noul` heads on ESP32 S3 and C6 using ESP-IDF 5.4.4.
+It accepts numeric feature vectors produced by the same pipeline used during
+training. Text embedding remains on the host unless you separately implement
+and validate the identical embedder on the device. The included model is a
+synthetic numerical fixture, not a trained sensor or language model.
+
+Export a fitted Rust engine with `engine.export_embedded(question_id, &question)`
+and serialize the returned snapshot with `serde_json`. This exports real probe
+weights, prototypes, hard negatives, temperature and Platt coefficients; it is
+independent of the example bank export and RVF format.
+
+```sh
+cd examples/esp32-decision  # from the repository root
+python3 tools/e2e.py       # actual Rust core tests, export, quantize, C protocol tests
+python3 tools/quantize.py build-host/fixtures/probe.json main/model.h \
+  --vectors build-host/fixtures/probe.vectors.json --bits 16
+# Activate the ESP-IDF 5.4.4 environment first.
+idf.py -B build-esp32s3 -DIDF_TARGET=esp32s3 -DSDKCONFIG=sdkconfig.esp32s3 build
+idf.py -B build-esp32c6 -DIDF_TARGET=esp32c6 -DSDKCONFIG=sdkconfig.esp32c6 build
+idf.py -B build-esp32s3 -p /dev/ttyUSB0 flash
+python3 tools/e2e.py --port /dev/ttyUSB0 --model probe --skip-rust
+```
+
+Use the board's UART0 USB bridge at 115200 baud. The default build assumes
+4 MB flash and requires no PSRAM or network. For native USB-only boards, use
+an external UART adapter or explicitly adapt the console transport. Commands
+are newline terminated `meta`, `selftest`, `bench`, and `infer` followed by
+space separated numeric features. Replies are JSON. Sensor code can call
+`rd_init` once and `rd_predict` directly with one workspace per concurrent
+caller. No heap allocation occurs in the inference kernel. The envelope is
+768 features and 16 class options.
+
+INT16 is the default accuracy profile. INT8 is available with `--bits 8`, but
+must pass validation for the specific head: small errors can be amplified by
+sharp calibration. Fixed gates require at least 99% decision and acceptance
+agreement and at most 0.025 absolute probability error against Rust on unseen
+vectors. Quantization does not inherit a calibrated confidence claim: replies
+report `calibrated:false`, retaining `source_calibrated` in metadata.
+
+The firmware refuses inference when boot self-tests fail. The hardware runner
+checks the model digest, replay parity, heap stability and p99 below 100 ms.
+Host or emulator timing is not a physical board benchmark. Device firmware
+must be tested with the intended sensors and feature pipeline before deployment.
+
 ## Architecture (ADRs)
 
 - [ADR-001 — architecture](docs/adr/ADR-001-architecture.md)
