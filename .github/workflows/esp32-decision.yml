@@ -78,6 +78,7 @@ jobs:
         working-directory: examples/esp32-decision
         run: |
           . /opt/esp/idf/export.sh
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git fetch --depth=1 origin 739a5621043f9b0f0ffc263c46d1d2f7aeb9495f
           python3 tools/prepare_pair.py --model-dir downloaded-lab/build-sensor/selected --output build-sensor-pair --targets ${{ matrix.chip }}
       - name: Build sensor production image without percentile buffers
