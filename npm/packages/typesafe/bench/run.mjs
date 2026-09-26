@@ -9,6 +9,17 @@
 //                      [--shots 8] [--zero-shot] [--limit N]
 //                      [--out results/<name>-<date>.json]
 //                      [--gate] [--report-only] [--baseline-receipt PATH]
+//                      [--model NAME] [--model-dir DIR] [--manifest PATH]
+//                      [--train-hashes PATH] [--no-test] [--emit-records PATH]
+//
+// ONNX arms resolve to ONE sha256-verified manifest entry (lib/model-dir.mjs);
+// --model-dir may point at a staged candidate or a bare unpublished dir. A model
+// that ships train-text-hashes.txt (or --train-hashes) is leakage-checked
+// against the suite's held-out rows before anything is scored (ADR-007 §2
+// Assertion B); a hit refuses the run (exit 3). --no-test scores validation +
+// transfer only and never replays or scores the test split (selection runs).
+// Local-arm receipts carry per-item records (item_records) for paired tests;
+// --emit-records also writes the test records to their own file (bench/vs-jev.mjs).
 //
 // The harness never crashes on an unavailable engine: the local arm reports
 // "engine unavailable" and, under --report-only, the run still exits 0.
@@ -20,7 +31,9 @@ import { dirname, join, isAbsolute } from 'node:path';
 import { loadTickets, assertDisjoint, excludeHeldOutText, majorityLabelFromTrain, verifyFixtureHashes, BENCH_DIR, FIXTURE_DIR } from './lib/fixture.mjs';
 import { assertVocabDisjoint } from './lib/vocab-guard.mjs';
 import { replayJev, runLocal, trainFewShot, trainTicketQuestions } from './lib/arms.mjs';
-import { scoreRecords, buildReceipt, readStats } from './lib/receipt.mjs';
+import { scoreRecords, buildReceipt, readStats, toItemRecords, recordsDocument } from './lib/receipt.mjs';
+import { resolveLocalContext } from './lib/model-dir.mjs';
+import { leakageGate } from './lib/leakage.mjs';
 import { evaluateGates, gatesTable, loadGates } from './lib/gates.mjs';
 import { loadDataset } from './datasets/index.mjs';
 
@@ -60,6 +73,9 @@ export function parseArgs(argv) {
     else if (t === '--report-only') a.reportOnly = true;
     else if (t === '--baseline-receipt') a.baselineReceipt = next();
     else if (t === '--engine-options') a.engineOptions = JSON.parse(next());
+    else if (t === '--no-test') a.noTest = true;
+    else if (t === '--train-hashes') a.trainHashes = next();
+    else if (t === '--emit-records') a.emitRecords = next();
     else throw new Error(`unknown flag: ${t}`);
   }
   return a;
@@ -81,27 +97,20 @@ function resolveBinding(injected) {
   return { binding: null, error: 'no index.js / dist/index.js — core not built yet' };
 }
 
-/** Construct an Engine for a regime; returns { engine } or { error }. */
-// `--embedder onnx` resolves to the manifest-pinned model under --model-dir
-// (default: the package's models/ root, entry --model, default bge-small).
-function embedderSpec(args) {
-  if (args.embedder !== 'onnx') return args.embedder;
-  const modelDir = args.modelDir || 'models';
-  return {
-    kind: 'onnx',
-    modelDir,
-    manifest: args.manifest || `${modelDir}/manifest.json`,
-    model: args.model || 'bge-small-en-v1.5',
-  };
-}
-
-function makeEngine(binding, embedder, args = {}) {
+/** Construct an Engine; returns { engine } or { error }. For `--embedder onnx`
+ * the embedder is the single sha256-verified entry from resolveOnnxModel
+ * (ctx.onnx), passed inline so the binding cannot fall back to another entry. */
+function makeEngine(binding, args, ctx = {}) {
   if (!binding || typeof binding.Engine !== 'function') {
     return { error: 'binding has no Engine constructor' };
   }
+  let embedder = args.embedder;
+  if (args.embedder === 'onnx') {
+    if (!ctx.onnx || ctx.onnx.unavailable) return { error: `onnx model unavailable: ${ctx.onnx?.unavailable ?? 'not resolved'}` };
+    embedder = ctx.onnx.spec;
+  }
   try {
-    const spec = typeof embedder === 'string' && args.embedder === undefined ? embedder : embedderSpec({ ...args, embedder });
-    const opts = { embedder: spec };
+    const opts = { embedder };
     // `--engine-options '{...}'` applies champion / tuned EngineOptions (ADR-004),
     // e.g. the confirming run after an optimize campaign.
     if (args.engineOptions) opts.engine = args.engineOptions;
@@ -114,6 +123,7 @@ function makeEngine(binding, embedder, args = {}) {
 /** Score the local arm across the splits we need for metrics + gates. */
 function runLocalSplits(engine, bySplit, questions, departments, splitsToScore, majorityLabels) {
   const out = {};
+  const records = {};
   let unavailable = null;
   for (const split of splitsToScore) {
     const items = bySplit[split] ?? [];
@@ -124,11 +134,12 @@ function runLocalSplits(engine, bySplit, questions, departments, splitsToScore, 
       break;
     }
     out[split] = scoreRecords(res.records, { departments, wallMs: res.wallMs, majorityLabels });
+    records[split] = toItemRecords(res.records, { choiceKey: 'department' });
   }
-  return { blocks: out, unavailable };
+  return { blocks: out, records, unavailable };
 }
 
-async function runTickets(args, deps) {
+async function runTickets(args, deps, ctx = {}) {
   const fixtureDir = deps.fixtureDir ?? FIXTURE_DIR;
   const benchDir = deps.benchDir ?? BENCH_DIR;
   verifyFixtureHashes({ benchDir, fixtureDir });
@@ -144,8 +155,17 @@ async function runTickets(args, deps) {
   const jevBaseline = JSON.parse(readFileSync(join(benchDir, 'jev-baseline-2026-09-21.json'), 'utf8'));
   const departments = tickets.departments;
   const metrics = {};
-  const wantJev = args.arm === 'jev' || args.arm === 'both';
+  // --no-test: the jev arm only replays the test split, so it is skipped.
+  const wantJev = !args.noTest && (args.arm === 'jev' || args.arm === 'both');
   const wantLocal = args.arm === 'local' || args.arm === 'both';
+  // Assertion B before any engine is built or any split is scored.
+  const leakage = wantLocal
+    ? leakageGate(ctx.trainHashes, {
+      test: tickets.bySplit.test,
+      transfer: tickets.bySplit.transfer,
+      calibration: tickets.bySplit.calibration,
+    })
+    : null;
 
   // jev arm — replay frozen baseline on the test split (gen-0, apples-to-apples)
   let jevNote = null;
@@ -164,10 +184,11 @@ async function runTickets(args, deps) {
   let binding = null,
     training = null,
     stats = null,
-    localUnavailable = null;
+    localUnavailable = null,
+    itemRecords = null;
   if (wantLocal) {
     const resolved = resolveBinding(deps.binding);
-    const { engine, error } = resolved.binding ? makeEngine(resolved.binding, args.embedder, args) : { error: resolved.error };
+    const { engine, error } = resolved.binding ? makeEngine(resolved.binding, args, ctx) : { error: resolved.error };
     if (error) {
       localUnavailable = error;
       binding = { unavailable: true, error };
@@ -184,14 +205,14 @@ async function runTickets(args, deps) {
       // test needs limit-subsetting to match jev's id set; other splits full.
       const testItems = typeof args.limit === 'number' ? tickets.bySplit.test.slice(0, args.limit) : tickets.bySplit.test;
       const bySplit = { ...tickets.bySplit, test: testItems };
-      const local = runLocalSplits(engine, bySplit, tickets.questions, departments, [
-        'test',
-        'validation',
-        'transfer',
-      ], majorityLabels);
+      const splits = args.noTest ? ['validation', 'transfer'] : ['test', 'validation', 'transfer'];
+      const local = runLocalSplits(engine, bySplit, tickets.questions, departments, splits, majorityLabels);
       localUnavailable = local.unavailable;
       if (localUnavailable) binding.unavailable = true, (binding.error = localUnavailable);
-      else metrics.local = local.blocks;
+      else {
+        metrics.local = local.blocks;
+        itemRecords = { local: local.records };
+      }
       stats = readStats(engine);
     }
   }
@@ -209,6 +230,8 @@ async function runTickets(args, deps) {
     vocab: { ...vocab, note: jevNote },
     engineAvailable: !localUnavailable && wantLocal ? true : wantLocal ? false : null,
     localUnavailable,
+    leakage,
+    itemRecords,
   };
 }
 
@@ -243,6 +266,12 @@ export async function main(argv, deps = {}) {
   if (args.suite !== 'all' && !SUITES.includes(args.suite)) {
     throw new Error(`unknown suite '${args.suite}' (choose ${SUITES.join('|')}|all)`);
   }
+  if (args.noTest && args.gate) throw new Error('--no-test cannot be combined with --gate (every gate is scored on test)');
+  if (args.noTest && args.emitRecords) throw new Error('--emit-records writes test records; it cannot be combined with --no-test');
+  if (args.emitRecords && suites.length !== 1) throw new Error('--emit-records needs a single --suite');
+  if (args.noTest && args.arm === 'jev') throw new Error('--no-test with --arm jev scores nothing (the jev arm is test-only)');
+  if (args.noTest && suites.some((x) => x !== 'tickets')) throw new Error('--no-test applies to --suite tickets only (public suites have no validation split)');
+  const ctx = resolveLocalContext(args);
   const fixtureHashes = verifyFixtureHashes({
     benchDir: deps.benchDir ?? BENCH_DIR,
     fixtureDir: deps.fixtureDir ?? FIXTURE_DIR,
@@ -255,9 +284,9 @@ export async function main(argv, deps = {}) {
   for (const suite of suites) {
     let run;
     if (suite === 'tickets') {
-      run = await runTickets(args, deps);
+      run = await runTickets(args, deps, ctx);
     } else {
-      run = await runDataset(suite, args, deps);
+      run = await runDataset(suite, args, deps, ctx);
     }
     if (run.skipped) {
       results.push({ suite, skipped: run.skipped });
@@ -306,7 +335,17 @@ export async function main(argv, deps = {}) {
       vocabGuard: run.vocab,
       stats: run.stats,
       extra: buildExtra(run, args),
+      embedderModel: ctx.onnx?.record ?? (ctx.onnx?.unavailable ? { unavailable: ctx.onnx.unavailable } : undefined),
+      leakage: run.leakage ?? undefined,
+      itemRecords: run.itemRecords ?? undefined,
+      noTest: !!args.noTest,
     });
+    if (args.emitRecords) {
+      const outPath = isAbsolute(args.emitRecords) ? args.emitRecords : join(process.cwd(), args.emitRecords);
+      mkdirSync(dirname(outPath), { recursive: true });
+      writeFileSync(outPath, JSON.stringify(recordsDocument({ suite, args, run, embedderModel: ctx.onnx?.record }), null, 2) + '\n');
+      console.log(`records → ${outPath}`);
+    }
     results.push({ suite, receipt, gateResult });
     printSuite(suite, run, receipt, gateResult, args);
   }
@@ -322,7 +361,8 @@ export async function main(argv, deps = {}) {
   return { code: failExit ? 1 : 0, receipt: payload, results };
 }
 
-async function runDataset(suite, args, deps) {
+async function runDataset(suite, args, deps, ctx = {}) {
+  if (args.noTest) throw new Error(`--no-test: suite '${suite}' has only train/test splits — nothing to score without test`);
   const ds = await (deps.loadDataset ?? loadDataset)(suite, { limit: args.limit, cacheDir: deps.cacheDir });
   if (ds.skipped) return { skipped: ds.skipped };
   // Dataset items carry a flat string `label`; normalise to the tickets item
@@ -334,11 +374,13 @@ async function runDataset(suite, args, deps) {
   });
   const trainItems = (ds.trainItems ?? []).map(shape);
   const testItems = (ds.testItems ?? []).map(shape);
+  // Assertion B before any engine is built (public suites: the test split).
+  const leakage = leakageGate(ctx.trainHashes, { test: testItems });
   // Non-tickets suites have no frozen Jev baseline: local arm only.
   const resolved = resolveBinding(deps.binding);
-  const { engine, error } = resolved.binding ? makeEngine(resolved.binding, args.embedder, args) : { error: resolved.error };
+  const { engine, error } = resolved.binding ? makeEngine(resolved.binding, args, ctx) : { error: resolved.error };
   const metrics = {};
-  let binding, localUnavailable, training = null, stats = null;
+  let binding, localUnavailable, training = null, stats = null, itemRecords = null;
   if (error) {
     localUnavailable = error;
     binding = { unavailable: true, error };
@@ -349,7 +391,10 @@ async function runDataset(suite, args, deps) {
     }
     const res = runLocal(engine, testItems, ds.questions, { labelKey: 'intent' });
     if (!res.available) localUnavailable = res.error;
-    else metrics.local = { test: scoreRecords(res.records, { departments: ds.labels, wallMs: res.wallMs }) };
+    else {
+      metrics.local = { test: scoreRecords(res.records, { departments: ds.labels, wallMs: res.wallMs }) };
+      itemRecords = { local: { test: toItemRecords(res.records, { choiceKey: 'intent' }) } };
+    }
     stats = readStats(engine);
   }
   return {
@@ -366,6 +411,8 @@ async function runDataset(suite, args, deps) {
     hasOos: !!ds.hasOos,
     engineAvailable: !localUnavailable,
     localUnavailable,
+    leakage,
+    itemRecords,
   };
 }
 
@@ -376,8 +423,11 @@ async function runDataset(suite, args, deps) {
 function printSuite(suite, run, receipt, gateResult, args) {
   console.log(`\n## ${suite} — embedder=${args.embedder} regime=${args.regime}${args.limit ? ` limit=${args.limit}` : ''}`);
   const rows = [];
+  const shown = args.noTest ? 'validation' : 'test';
+  if (args.noTest) console.log('_--no-test: validation + transfer only; the test split was not scored._');
+  if (run.leakage) console.log(`_leakage (Assertion B): ${run.leakage.train_rows} train hashes vs held-out rows — intersection ${run.leakage.intersection}_`);
   for (const arm of ['jev', 'local']) {
-    const b = run.metrics[arm]?.test;
+    const b = run.metrics[arm]?.[shown];
     if (!b) {
       if ((arm === 'local' && run.localUnavailable)) rows.push([arm, 'engine unavailable', '', '', '', '']);
       continue;
@@ -434,7 +484,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   main(process.argv.slice(2))
     .then((r) => process.exit(r.code))
     .catch((e) => {
-      console.error(`bench failed: ${e && e.stack ? e.stack : e}`);
-      process.exit(2);
+      console.error(`bench failed: ${e && e.code === 'LEAKAGE' ? e.message : e && e.stack ? e.stack : e}`);
+      process.exit(e && e.code === 'LEAKAGE' ? 3 : 2);
     });
 }

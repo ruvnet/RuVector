@@ -84,3 +84,59 @@ to `{id, text, label}` plus a `label → description` criteria map. CLINC150's O
 slice is the abstain set for the OOS AUROC gate. Nothing is redistributed in the
 package; an unreachable source fails loudly with the URL and the suite is marked
 `skipped: unavailable`.
+
+## OpenJev harness (ADR-007, plan Step 1)
+
+Interfaces shared with the Rust trainer (`crates/ruvector-typesafe-train`).
+The golden files are the contract; change them only together.
+
+- **`norm` / `sha256Norm`** (`lib/norm.mjs`): Unicode NFKC → full Unicode
+  lowercase (JS `toLowerCase` / Rust `str::to_lowercase`, final sigma
+  included) → every maximal run of code points whose General_Category is not
+  `L*` or `N*` becomes one U+0020 → trim. `sha256Norm` = lowercase hex SHA-256
+  of the UTF-8 bytes. Rust: `unicode-normalization` `.nfkc()` →
+  `to_lowercase()` → `regex` `[^\p{L}\p{N}]+` → `" "` → trim. Not
+  `char::is_alphanumeric` (Alphabetic keeps Other_Alphabetic marks such as
+  Devanagari vowel signs, which are separators here). Golden vectors:
+  `test/norm-golden.json` (52 cases, cross-checked against that Rust recipe).
+- **`train-text-hashes.txt`** (shipped with the model, Assertion B,
+  `lib/leakage.mjs`): one `sha256Norm(text)` per training row, lowercase 64-hex,
+  LF only, sorted ascending, duplicates allowed, optional trailing LF, nothing
+  else (no blanks, no comments, no CR). Checked against tickets test + transfer
+  + calibration (public suites: test) before anything is scored; any hit
+  refuses the run (exit 3). The receipt records `leakage: {file, file_sha256,
+  train_rows, train_unique, intersection, splits: {split: {heldout_rows,
+  intersection, colliding_ids}}}`.
+- **Model dir** (`--model-dir DIR`, `lib/model-dir.mjs`): either `DIR/manifest.json`
+  with pinned entries (`sha256` and `tokenizer_sha256` required, optional
+  `train_hashes_file` + `train_hashes_sha256`; paths relative to `DIR`) — e.g.
+  `DIR/openjev-small-v0/{model.onnx,tokenizer.json,train-text-hashes.txt}` — or
+  a bare dir with `model.onnx` (or `onnx/model.onnx`) + `tokenizer.json`, for
+  which an entry is synthesized (384-d, CLS, 256 tokens) from hashes computed at
+  load. The bench selects the entry by name (never the binding's first-entry
+  fallback), verifies both hashes, passes that single entry inline to the
+  engine, and records it as `embedder_model` in the receipt. Train hashes:
+  `--train-hashes` > `train_hashes_file` > `<model file dir>/train-text-hashes.txt`;
+  `openjev*` models must have one.
+- **`--no-test`** (`run.mjs`, `optimize.mjs`): selection runs. `run.mjs`
+  scores validation + transfer only and skips the Jev replay; `optimize.mjs`
+  withholds the test rows from the campaign and records test fields as `null`.
+  Incompatible with `--gate` / `--emit-records`.
+- **Per-item records**: local-arm receipts carry `item_records.local.<split>`,
+  one `{id, predicted, truth, correct, confidence, abstain?, urgent_score?,
+  oos?}` per item (keys of `predicted`/`truth`/`correct`: `department`,
+  `urgent`, `frustration`; `intent` on public suites). `--emit-records PATH`
+  writes the test records as `ruvector-typesafe-bench/item-records@1`.
+- **`vs-jev.mjs --receipt|--records PATH [--out PATH] [--strict]`**: ADR-007
+  §1b tiers against `test_rows.baseline` and `test_rows.champion` with
+  `lib/paired.mjs` (port of `PairedSequentialTest`; `test/paired-golden.json`
+  holds wealth paths emitted by the Rust type), α = 0.05, λ = 0.5, test ids in
+  lexical order, on the full / novel (119) / template (31) slices. The slice is
+  frozen in `fixtures/novel-slice-2026-09-26.json`, pinned under
+  `HASHES.json` `derived` (never `files`, which must equal the release receipts'
+  fixture pin), and recomputed on every run.
+- **`scripts/fetch-models.mjs --add-openjev <40-hex HF commit>`** appends the
+  `openjev-small-v0` entry (`hf_repo`, `hf_revision`, empty pins) and
+  bootstraps its pins from `ruvnet/openjev-small-v0/resolve/<commit>/…`
+  (`onnx/model.onnx`, `tokenizer.json`, `train-text-hashes.txt`). Nothing is
+  committed to `models/manifest.json` before publication.

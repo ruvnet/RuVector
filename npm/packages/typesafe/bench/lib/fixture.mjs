@@ -51,6 +51,22 @@ export function verifyFixtureHashes({ benchDir = BENCH_DIR, fixtureDir = FIXTURE
 }
 
 /**
+ * Read a DERIVED fixture (HASHES.json `derived`, e.g. the ADR-007 novel slice)
+ * after verifying its sha256; refuses on a missing pin or a mismatch.
+ */
+export function loadDerivedFixture(rel, { benchDir = BENCH_DIR, fixtureDir = FIXTURE_DIR } = {}) {
+  const manifest = JSON.parse(readFileSync(join(fixtureDir, 'HASHES.json'), 'utf8'));
+  const expected = manifest.derived?.[rel];
+  if (!expected) throw new Error(`HASHES.json has no derived pin for ${rel}; run scripts/hash-fixtures.mjs`);
+  const bytes = readFileSync(join(benchDir, rel));
+  const actual = createHash('sha256').update(bytes).digest('hex');
+  if (actual !== expected) {
+    throw new Error(`derived fixture hash mismatch — refusing to run:\n  ${rel}\n    expected ${expected}\n    actual   ${actual}`);
+  }
+  return JSON.parse(bytes.toString('utf8'));
+}
+
+/**
  * Deterministic split assignment for one item id.
  * Native fixture splits anchor validation (`val`) and test; the training pool
  * is carved by sha256(id) into train / calibration / transfer so the loop has

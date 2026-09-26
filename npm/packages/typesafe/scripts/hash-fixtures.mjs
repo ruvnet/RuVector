@@ -30,10 +30,17 @@ export function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
+// Files DERIVED from the frozen inputs (ADR-007 §1b: the novel-composition
+// slice ids). Pinned under HASHES.json `derived`, deliberately NOT in `files`:
+// `files` must stay identical to the fixture pin recorded in the frozen
+// 2026-09-21 receipts (scripts/verify-release-bench.mjs asserts that), and
+// verifyFixtureHashes / receipts only cover FROZEN_FILES.
+export const DERIVED_FILES = ['fixtures/novel-slice-2026-09-26.json'];
+
 /** Hash every frozen file. Returns { relPath: sha256 }. Throws if one is absent. */
-export function computeHashes(benchDir = BENCH_DIR) {
+export function computeHashes(benchDir = BENCH_DIR, files = FROZEN_FILES) {
   const out = {};
-  for (const rel of FROZEN_FILES) {
+  for (const rel of files) {
     const abs = join(benchDir, rel);
     if (!existsSync(abs)) throw new Error(`frozen fixture missing: ${rel} (${abs})`);
     out[rel] = sha256(readFileSync(abs));
@@ -59,11 +66,19 @@ export function checkHashes() {
       drift++;
     }
   }
+  const expectedDerived = manifest.derived ?? {};
+  const actualDerived = computeHashes(BENCH_DIR, DERIVED_FILES);
+  for (const rel of DERIVED_FILES) {
+    if (expectedDerived[rel] !== actualDerived[rel]) {
+      console.error(`MISMATCH (derived) ${rel}\n  manifest ${expectedDerived[rel]}\n  actual   ${actualDerived[rel]}`);
+      drift++;
+    }
+  }
   if (drift) {
     console.error(`\n${drift} frozen fixture(s) drifted from HASHES.json — refusing.`);
     return 1;
   }
-  console.log(`frozen fixtures verified against HASHES.json (${FROZEN_FILES.length} files)`);
+  console.log(`frozen fixtures verified against HASHES.json (${FROZEN_FILES.length} files + ${DERIVED_FILES.length} derived)`);
   return 0;
 }
 
@@ -77,9 +92,10 @@ function main(argv) {
     generated_by: 'scripts/hash-fixtures.mjs',
     algorithm: 'sha256',
     files: hashes,
+    derived: computeHashes(BENCH_DIR, DERIVED_FILES),
   };
   writeFileSync(HASHES_PATH, JSON.stringify(doc, null, 2) + '\n');
-  for (const [k, v] of Object.entries(hashes)) console.log(`${v}  ${k}`);
+  for (const [k, v] of Object.entries({ ...hashes, ...doc.derived })) console.log(`${v}  ${k}`);
   console.log(`\nwrote ${HASHES_PATH}`);
 }
 

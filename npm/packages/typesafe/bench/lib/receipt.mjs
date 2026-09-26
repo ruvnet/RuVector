@@ -89,6 +89,56 @@ export function scoreRecords(records, { departments, wallMs, majorityLabels } = 
   return block;
 }
 
+/**
+ * Per-item records for paired tests (ADR-007 §1b): ids, predictions, truth,
+ * confidence and correctness — never item text. `choiceKey` names the choice
+ * question (`department` for tickets, `intent` for public suites); the
+ * secondary `urgent` / `frustration` questions appear when the arm answered
+ * them. Schema (one object per item):
+ *   { id, predicted: {q: …}, truth: {q: …}, correct: {q: bool}, confidence,
+ *     abstain, urgent_score?, oos? }
+ */
+export function toItemRecords(records, { choiceKey = 'department' } = {}) {
+  return records.map((r) => {
+    const predicted = { [choiceKey]: r.choice ?? null };
+    const truth = { [choiceKey]: r.trueChoice ?? null };
+    const correct = { [choiceKey]: !!r.correctChoice };
+    if (r.urgent) {
+      predicted.urgent = r.urgent.pred;
+      truth.urgent = r.urgent.label;
+      correct.urgent = !!r.urgent.correct;
+    }
+    if (r.frustration) {
+      predicted.frustration = r.frustration.pred;
+      truth.frustration = r.frustration.label;
+      correct.frustration = !!r.frustration.correct;
+    }
+    const out = { id: r.id, predicted, truth, correct, confidence: r.confidence ?? 0 };
+    if (typeof r.abstain === 'number') out.abstain = r.abstain;
+    if (r.urgent && typeof r.urgent.score === 'number') out.urgent_score = r.urgent.score;
+    if (typeof r.oos === 'boolean') out.oos = r.oos;
+    return out;
+  });
+}
+
+/** --emit-records document: the local arm's TEST records (bench/vs-jev.mjs input). */
+export function recordsDocument({ suite, args, run, embedderModel }) {
+  const records = run.itemRecords?.local?.test;
+  if (!records) throw new Error('--emit-records: the local arm produced no test records (engine unavailable?)');
+  return {
+    schema: 'ruvector-typesafe-bench/item-records@1',
+    generated_at: new Date().toISOString(),
+    suite,
+    arm: 'local',
+    split: 'test',
+    embedder: args.embedder,
+    embedder_model: embedderModel ?? null,
+    splits_hash: run.splitsHash ?? null,
+    limit: args.limit ?? null,
+    records,
+  };
+}
+
 /** Safe statsJson call — not part of the required binding contract. */
 export function readStats(engine) {
   if (!engine || typeof engine.statsJson !== 'function') return null;
@@ -135,6 +185,10 @@ export function buildReceipt({
   vocabGuard,
   stats,
   extra,
+  embedderModel,
+  leakage,
+  itemRecords,
+  noTest,
 }) {
   return {
     schema: 'ruvector-typesafe-bench/receipt@1',
@@ -158,6 +212,13 @@ export function buildReceipt({
     gates: gates ?? null,
     stats_json: stats ?? null,
     host: hostInfo(),
+    // Optional blocks (absent → key omitted, so older receipt shapes are unchanged):
+    // the sha256-verified ONNX entry actually loaded, the Assertion B leakage
+    // report, per-item records { arm: { split: [...] } }, and the --no-test flag.
+    ...(embedderModel ? { embedder_model: embedderModel } : {}),
+    ...(leakage ? { leakage } : {}),
+    ...(noTest ? { no_test: true } : {}),
+    ...(itemRecords ? { item_records: itemRecords } : {}),
     ...(extra ? { extra } : {}),
   };
 }
