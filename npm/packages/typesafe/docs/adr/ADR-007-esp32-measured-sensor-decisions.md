@@ -407,6 +407,39 @@ pairs, benchmark verification and the committed model header all pass.
 Evidence: `tests/evidence/ota-esp32c6-physical.json`. Roll back to parent
 `19376a6`.
 
+## Follow up: exact hex-float input removes the C6 parse bottleneck
+
+The physical C6 rig showed decimal parsing was more expensive than inference.
+The chip has no FPU, so newlib `strtof` cost about 22 µs per value, while
+inference took about 77 µs. `inferx` and `sensorx` now accept the same
+values as 8-hex-digit IEEE-754 binary32 bit patterns, separated by spaces or
+tabs. The MCU performs no decimal conversion, and the kernel receives exactly
+the host's float. The accepted syntax is exactly eight hex digits per value.
+Wrong length, non-hex characters, a `0x` prefix, NaN, infinities and a wrong
+value count all return the existing error replies. The decimal `infer` and
+`sensor` commands, the kernel and the reply format are unchanged.
+
+`tests/test_hex_input.py` sends 401 random binary32 rows both as `%.9g`
+decimal text, which round-trips exactly through `strtof`, and as hex. It
+requires identical replies apart from timing. It also requires 11 malformed or
+non-finite inputs to be rejected. On the physical C6, the pinned v5.4.4 image
+with the UCI occupancy model replayed 1,000 held-out rows, interleaving both
+commands row by row:
+- 1,000 of 1,000 replies were identical.
+- Both paths matched the reference equally: decision agreement 1.0 and
+  acceptance agreement 0.999.
+- Mean parse time fell from 110.3 µs to 8.0 µs, and the maximum from 575 µs
+  to 24 µs.
+- Mean on-chip request time (parse, preprocessing and inference) fell from
+  197.6 µs to 95.0 µs, 2.08 times faster.
+- The host round-trip median fell from 80.2 ms to 69.7 ms.
+
+The round trip is now dominated by 115,200-baud UART transfer and JSON reply
+formatting rather than MCU computation, so those are the next targets. The
+evidence is in `tests/evidence/hexinput-esp32c6-physical.json`. Hosts that
+need maximum request throughput should send `inferx` or `sensorx`. Decimal
+input remains for people typing commands by hand.
+
 ## Sources
 
 * https://archive.ics.uci.edu/dataset/357/occupancy+detection

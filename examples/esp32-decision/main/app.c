@@ -104,6 +104,37 @@ static void infer(char *input,bool sensor) {
     }
     decide_features(n,sensor,rd_clock_us()-request_start,-1);
 }
+/* Exact binary input: each value is the 8-hex-digit IEEE-754 binary32 bit
+ * pattern (e.g. 3f800000 for 1.0). No decimal conversion runs on the MCU, and
+ * the kernel receives exactly the host's float. Non-finite values are rejected
+ * exactly as in the decimal path. */
+static int hex_digit(char c) {
+    if(c>='0' && c<='9') return c-'0';
+    if(c>='a' && c<='f') return c-'a'+10;
+    if(c>='A' && c<='F') return c-'A'+10;
+    return -1;
+}
+static void infer_hex(const char *p,bool sensor) {
+    uint64_t request_start=rd_clock_us();
+    size_t n=0;
+    while(*p) {
+        while(*p==' ' || *p=='	')++p;
+        if(!*p)break;
+        if(n==ctx.model->dims) { error("dimension");return; }
+        uint32_t bits=0;
+        for(int i=0;i<8;++i) {
+            int d=hex_digit(p[i]);
+            if(d<0) { error("invalid_feature");return; }
+            bits=(bits<<4)|(uint32_t)d;
+        }
+        p+=8;
+        if(*p && *p!=' ' && *p!='	') { error("invalid_feature");return; }
+        float value;memcpy(&value,&bits,sizeof(value));
+        if(!isfinite(value)) { error("invalid_feature");return; }
+        features[n++]=value;
+    }
+    decide_features(n,sensor,rd_clock_us()-request_start,-1);
+}
 static void sample(void) {
     if(!RD_PREPROCESSING) { error("sensor_pipeline_unavailable");return; }
     for(size_t i=0;i<ctx.model->dims;++i)features[i]=NAN;
@@ -134,6 +165,8 @@ static void command(void) {
     else if (!strcmp(line,"sample")) sample();
     else if (!strncmp(line, "infer ", 6)) infer(line+6,false);
     else if (!strncmp(line, "sensor ", 7)) infer(line+7,true);
+    else if (!strncmp(line, "inferx ", 7)) infer_hex(line+7,false);
+    else if (!strncmp(line, "sensorx ", 8)) infer_hex(line+8,true);
     else if (!strncmp(line,"profile ",8) || !strncmp(line,"energy ",7)) {
         bool energy=line[0]=='e';
         if(!energy && !rd_profile_capacity()) { error("profile_disabled");return; }
