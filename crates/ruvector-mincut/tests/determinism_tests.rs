@@ -139,10 +139,11 @@ fn partition_is_stable_across_repeated_calls() {
     }
 }
 
-/// `DynamicGraph::vertices()`/`edges()` must return a canonical (sorted)
-/// order regardless of `DashMap`'s internal iteration order.
+/// `DynamicGraph::vertices()` must return a canonical (sorted) order
+/// regardless of `DashMap`'s internal iteration order. `edges()` is left
+/// unsorted on purpose (hot path in `LocalKCut::check_cut`, #942).
 #[test]
-fn graph_vertices_and_edges_are_sorted() {
+fn graph_vertices_are_sorted() {
     use ruvector_mincut::graph::DynamicGraph;
     use std::sync::Arc;
 
@@ -159,10 +160,5 @@ fn graph_vertices_and_edges_are_sorted() {
         vertices, sorted,
         "vertices() must be returned in sorted order"
     );
-
-    let edges = graph.edges();
-    let ids: Vec<u64> = edges.iter().map(|e| e.id).collect();
-    let mut sorted_ids = ids.clone();
-    sorted_ids.sort_unstable();
-    assert_eq!(ids, sorted_ids, "edges() must be returned in EdgeId order");
+    assert_eq!(graph.edges().len(), 5);
 }
