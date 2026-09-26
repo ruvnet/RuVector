@@ -11,6 +11,14 @@ description = "Production-grade AI agent routing system with FastGRNN neural inf
 [lib]
 crate-type = ["lib", "staticlib"]
 
+[features]
+# The cosine kernel behind candidate scoring. Exactly one backend compiles;
+# `lattice-simd` wins if both are on. `--no-default-features` leaves the scalar
+# path, which is also the reference the parity test checks the others against.
+default = ["simd-simsimd"]
+simd-simsimd = ["dep:simsimd"]
+lattice-simd = ["dep:lattice-embed"]
+
 [dependencies]
 # Workspace dependencies
 redb = { workspace = true }
@@ -20,7 +28,15 @@ crossbeam = { workspace = true }
 parking_lot = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-simsimd = { workspace = true }
+simsimd = { workspace = true, optional = true }
+# Pure-Rust SIMD kernels with runtime dispatch, and the only one of the three
+# backends that compiles for wasm32. `default-features = false` keeps this to
+# the kernels: the model, tokenizer and download stack stay out of the graph.
+#
+# NOTE: lattice-embed requires Rust >= 1.93. Cargo cannot express a per-feature
+# `rust-version`, so enabling `lattice-simd` raises the effective MSRV for
+# whoever turns it on. The default build is unaffected.
+lattice-embed = { version = "0.7.1", optional = true, default-features = false }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
