@@ -461,6 +461,29 @@ run on silicon. The attached C6 is connected only through its CP210x UART
 bridge, so this is build-only evidence until a board's native USB port is
 connected.
 
+## Follow up: remove idle latency from the command loop
+
+With hex input, the C6 computed a request in about 95 µs, but each host round
+trip still took about 70 ms. The loop called `uart_read_bytes` for a full
+128-byte buffer with a 50 ms timeout, so every shorter command waited out the
+timeout. It then called `vTaskDelay(1)`, adding one FreeRTOS tick. The loop now
+blocks for the first byte and drains the bytes already buffered without
+waiting. It still wakes every 50 ms, so OTA idle timeouts keep working. The
+USB-Serial/JTAG path uses the same pattern.
+
+On the physical C6, the pinned occupancy image replayed 1,000 `sensorx` rows
+on the old and new loops:
+- 1,000 of 1,000 replies were identical.
+- The host round-trip median fell from 70.0 ms to 28.7 ms, 2.44 times faster.
+- The p99 fell from 70.6 ms to 29.1 ms.
+- On-chip parse and inference time were unchanged.
+
+On the new loop, OTA to the production image committed in 21.5 s, and a
+broken self-test image rolled back. Free heap held at 439,984 bytes across
+2,000 warmed inferences. The remaining round trip mostly comes from the
+115,200-baud link, which spends about 29 ms moving a request and its reply.
+The evidence is in `tests/evidence/uartloop-esp32c6-physical.json`.
+
 ## Sources
 
 * https://archive.ics.uci.edu/dataset/357/occupancy+detection

@@ -65,16 +65,24 @@ void app_main(void) {
     if (!healthy) return;
     uint8_t bytes[128];
     for (;;) {
+        /* Block for the first byte (waking every 50 ms so OTA idle timeouts
+           still fire), then drain what is already buffered without waiting.
+           Waiting for a full buffer, or delaying a tick per chunk, added up
+           to ~60 ms of idle latency to every short command. */
 #if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
-        int n = usb_serial_jtag_read_bytes(bytes, sizeof(bytes), pdMS_TO_TICKS(50));
+        int n = usb_serial_jtag_read_bytes(bytes, 1, pdMS_TO_TICKS(50));
+        if (n > 0) n += usb_serial_jtag_read_bytes(bytes + 1, sizeof(bytes) - 1, 0);
 #else
-        int n = uart_read_bytes(UART_NUM_0, bytes, sizeof(bytes), pdMS_TO_TICKS(50));
+        int n = uart_read_bytes(UART_NUM_0, bytes, 1, pdMS_TO_TICKS(50));
+        if (n > 0) {
+            int more = uart_read_bytes(UART_NUM_0, bytes + 1, sizeof(bytes) - 1, 0);
+            if (more > 0) n += more;
+        }
 #endif
         for (int i = 0; i < n; ++i) {
             if (rd_ota_receiving()) rd_ota_byte(bytes[i]);
             else rd_app_byte(bytes[i]);
         }
         rd_ota_poll();
-        vTaskDelay(1);
     }
 }
