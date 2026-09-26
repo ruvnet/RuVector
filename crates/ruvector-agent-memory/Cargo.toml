@@ -51,5 +51,15 @@ name = "mincut_scaling_probe"
 path = "examples/mincut_scaling_probe.rs"
 required-features = ["mincut-forget"]
 
+# ADR-346 (nightly 2026-09-12, follow-up to ADR-345): benchmarks the
+# `MincutEngine::LocalDeterministic` boundary-detection engine (deterministic
+# local k-cut, one query per vertex) against the original `ExactGlobal`
+# engine (global partition, ADR-345) on latency, determinism, and structural
+# effectiveness.
+[[example]]
+name = "mincut_local_forgetting_bench"
+path = "examples/mincut_local_forgetting_bench.rs"
+required-features = ["mincut-forget"]
+
 [dev-dependencies]
 serde_json = { workspace = true }
