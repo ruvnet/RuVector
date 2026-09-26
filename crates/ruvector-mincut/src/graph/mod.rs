@@ -274,12 +274,11 @@ impl DynamicGraph {
 
     /// Get all edges
     ///
-    /// Returned in ascending `EdgeId` order — see [`Self::vertices`] for why
-    /// `DashMap` iteration order cannot be relied on to be deterministic.
+    /// Order is unspecified (`DashMap` iteration). Deliberately left unsorted:
+    /// this is called per boundary edge in `LocalKCut::check_cut` (#942), and
+    /// determinism of `partition()` comes from [`Self::vertices`] ordering.
     pub fn edges(&self) -> Vec<Edge> {
-        let mut edges: Vec<Edge> = self.edges.iter().map(|entry| *entry.value()).collect();
-        edges.sort_unstable_by_key(|e| e.id);
-        edges
+        self.edges.iter().map(|entry| *entry.value()).collect()
     }
 
     /// Get graph statistics
