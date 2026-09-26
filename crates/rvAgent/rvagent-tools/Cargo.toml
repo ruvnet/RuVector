@@ -7,8 +7,8 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/ruvnet/RuVector"
 
 [dependencies]
-rvagent-core = { path = "../rvagent-core" }
-rvagent-backends = { path = "../rvagent-backends" }
+rvagent-core = { version = "0.1.0", path = "../rvagent-core" }
+rvagent-backends = { version = "0.1.0", path = "../rvagent-backends" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
