@@ -319,7 +319,8 @@ export async function main(argv, deps = {}) {
 
     const receipt = buildReceipt({
       suite,
-      arms: armList(args.arm),
+      // --no-test skips the jev replay, so the receipt must not claim that arm.
+      arms: armList(args.arm).filter((a) => !(args.noTest && a === 'jev')),
       embedder: args.embedder,
       regime: args.regime,
       shots: args.shots,

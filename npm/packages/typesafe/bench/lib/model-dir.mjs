@@ -24,6 +24,9 @@
 // `train_hashes_file` (verified against `train_hashes_sha256` when pinned) >
 // `<dir of entry.file>/train-text-hashes.txt` when present. A model whose name
 // starts with `openjev` MUST resolve one.
+//
+// The receipt record carries names, manifest-relative paths and sha256s only —
+// never absolute filesystem paths.
 
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
@@ -59,7 +62,8 @@ export function safeJoin(dir, rel, what) {
 
 function readManifestSource(src) {
   // Same contract as the binding: a path, else inline JSON.
-  if (existsSync(src)) return { json: JSON.parse(readFileSync(src, 'utf8')), source: resolve(src), sha256: sha256File(src) };
+  // Receipts never carry absolute paths (ADR-005): the file name + sha256 identify it.
+  if (existsSync(src)) return { json: JSON.parse(readFileSync(src, 'utf8')), source: basename(src), sha256: sha256File(src) };
   return { json: JSON.parse(src), source: 'inline', sha256: createHash('sha256').update(src).digest('hex') };
 }
 
@@ -160,7 +164,6 @@ export function resolveOnnxModel({ modelDir, manifest, model, trainHashes } = {}
     record: {
       name: entry.name,
       id: `${entry.name}@${sha256.slice(0, 12)}`,
-      model_dir: dir,
       file: entry.file,
       sha256,
       tokenizer_file: entry.tokenizer_file,
@@ -170,7 +173,7 @@ export function resolveOnnxModel({ modelDir, manifest, model, trainHashes } = {}
       max_tokens: entry.max_tokens ?? null,
       source_url: entry.source_url ?? null,
       manifest: manifestInfo,
-      train_hashes: th ? { path: th.path, via: th.via } : null,
+      train_hashes: th ? { file: basename(th.path), via: th.via, sha256: sha256File(th.path) } : null,
     },
   };
 }

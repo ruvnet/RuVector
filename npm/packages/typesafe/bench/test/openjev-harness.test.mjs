@@ -187,6 +187,11 @@ test('run.mjs --no-test: validation + transfer only, no test block, no jev repla
     assert.equal(code, 0);
     assert.equal(receipt.no_test, true);
     assert.equal(receipt.metrics.jev, undefined);
+    assert.deepEqual(receipt.arms, ['local'], 'the skipped jev arm is not claimed');
+    assert.ok(!JSON.stringify(receipt).includes(dir), 'no absolute paths in the receipt');
+    assert.equal(receipt.leakage.file, 'train-text-hashes.txt');
+    assert.equal(receipt.embedder_model.train_hashes.via, 'model-dir');
+    assert.match(receipt.embedder_model.train_hashes.sha256, /^[0-9a-f]{64}$/);
     assert.deepEqual(Object.keys(receipt.metrics.local).sort(), ['transfer', 'validation']);
     assert.deepEqual(Object.keys(receipt.item_records.local).sort(), ['transfer', 'validation']);
     assert.ok(!JSON.stringify(receipt.metrics).includes('"test"'));
@@ -257,6 +262,22 @@ test('optimize.mjs --no-test --model-dir: test rows withheld, test fields null, 
     assert.equal(campaign.arms[0].embedder_model.sha256, sha('fake onnx bytes'));
     assert.equal(campaign.arms[0].leakage.intersection, 0);
     assert.equal(JSON.parse(seen.options[0].embedder.manifest).name, 'openjev-small-v0');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('optimize.mjs records an unfetched model as a per-arm error and continues', () => {
+  const dir = stageModel();
+  try {
+    rmSync(join(dir, 'openjev-small-v0', 'model.onnx'));
+    const { binding } = fakeBinding({ optimizeReport: OPT_REPORT });
+    const { campaign } = optimizeMain(
+      ['--models', 'openjev-small-v0', '--model-dir', dir, '--no-test', '--out', join(dir, 'c.json')],
+      { binding, resultsDir: dir },
+    );
+    assert.match(campaign.arms[0].error, /missing/);
+    assert.equal(campaign.champion, null);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -17,6 +17,7 @@
 
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { basename } from 'node:path';
 import { sha256Norm } from './norm.mjs';
 
 const HEX64 = /^[0-9a-f]{64}$/;
@@ -89,6 +90,7 @@ export function assertNoLeakage(report) {
  */
 export function leakageGate(trainHashes, heldOut) {
   if (!trainHashes) return null;
-  const report = { file: trainHashes.path, file_sha256: trainHashes.sha256, ...checkLeakage(trainHashes.hashes, heldOut) };
+  // File name + sha256 only: receipts never carry absolute paths.
+  const report = { file: basename(trainHashes.path), file_sha256: trainHashes.sha256, ...checkLeakage(trainHashes.hashes, heldOut) };
   return assertNoLeakage(report);
 }

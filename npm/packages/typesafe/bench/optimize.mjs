@@ -136,8 +136,18 @@ export function main(argv, deps = {}) {
   const allReceipts = [];
   for (const model of args.models) {
     let report;
-    // Model resolution/leakage errors are fatal (fail closed), not per-arm errors.
-    const { resolved, leakage } = prepareArm(args, model, tickets);
+    // An unfetched model is a per-arm error (as before); an unpinned or
+    // mismatched model, or a leak, is fatal (fail closed).
+    let prepared;
+    try {
+      prepared = prepareArm(args, model, tickets);
+    } catch (e) {
+      if (e.code !== 'MODEL_MISSING') throw e;
+      console.error(`arm ${model}: ${e.message}`);
+      arms.push({ model, error: e.message });
+      continue;
+    }
+    const { resolved, leakage } = prepared;
     const t0 = performance.now();
     try {
       const engine = engineFor(binding, resolved.spec);
