@@ -1,0 +1,2061 @@
+<title>7sense — Acoustic Manifold</title>
+
+<style>
+  /* ── Tokens ────────────────────────────────────────────────────────────
+     Neutrals carry a slight olive bias so they sit with the accent rather
+     than reading as default grey. Viridis (the data ramp) is semantic and
+     deliberately separate from the accent hue. */
+  :root {
+    color-scheme: light dark;
+
+    --ground:      #EFF0EA;
+    --panel:       #FAFAF6;
+    --panel-sunk:  #E4E6DC;
+    --line:        #D3D7C8;
+    --line-strong: #B4BAA6;
+    --ink:         #191D15;
+    --ink-soft:    #5B6353;
+    --ink-faint:   #868D7C;
+
+    --accent:      #5F7D34;
+    --accent-lift: #7A9E44;
+    --warm:        #B25F27;
+
+    --good:        #46764F;
+    --warn:        #9A7418;
+    --crit:        #A33B2A;
+
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --sans:  ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono:  ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+    --r: 3px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground:      #12150E;
+      --panel:       #1A1E15;
+      --panel-sunk:  #0D100A;
+      --line:        #2C3223;
+      --line-strong: #434B36;
+      --ink:         #E6E9DD;
+      --ink-soft:    #A2AB94;
+      --ink-faint:   #6E7663;
+
+      --accent:      #9BBF5E;
+      --accent-lift: #B4D677;
+      --warm:        #D98A47;
+
+      --good:        #7BAE7F;
+      --warn:        #D0A93F;
+      --crit:        #D97056;
+    }
+  }
+
+  /* The viewer's toggle stamps data-theme on the root and must win over the
+     media query in both directions. */
+  :root[data-theme="light"] {
+    --ground: #EFF0EA; --panel: #FAFAF6; --panel-sunk: #E4E6DC;
+    --line: #D3D7C8; --line-strong: #B4BAA6;
+    --ink: #191D15; --ink-soft: #5B6353; --ink-faint: #868D7C;
+    --accent: #5F7D34; --accent-lift: #7A9E44; --warm: #B25F27;
+    --good: #46764F; --warn: #9A7418; --crit: #A33B2A;
+  }
+  :root[data-theme="dark"] {
+    --ground: #12150E; --panel: #1A1E15; --panel-sunk: #0D100A;
+    --line: #2C3223; --line-strong: #434B36;
+    --ink: #E6E9DD; --ink-soft: #A2AB94; --ink-faint: #6E7663;
+    --accent: #9BBF5E; --accent-lift: #B4D677; --warm: #D98A47;
+    --good: #7BAE7F; --warn: #D0A93F; --crit: #D97056;
+  }
+
+  /* ── Base ─────────────────────────────────────────────────────────────── */
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    -webkit-text-size-adjust: 100%;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 28px 20px 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ── Masthead ─────────────────────────────────────────────────────────── */
+  .masthead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px 24px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--line-strong);
+  }
+
+  .wordmark {
+    font-family: var(--serif);
+    font-size: clamp(30px, 4.4vw, 44px);
+    line-height: 1;
+    margin: 0;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+  .wordmark em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .standfirst {
+    margin: 8px 0 0;
+    max-width: 60ch;
+    color: var(--ink-soft);
+    font-size: 14.5px;
+  }
+
+  .build-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    text-align: right;
+    line-height: 1.7;
+    white-space: nowrap;
+  }
+  .build-tag b { color: var(--accent); font-weight: 600; }
+
+  /* ── Controls ─────────────────────────────────────────────────────────── */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-right: 2px;
+  }
+
+  button {
+    font: inherit;
+    font-size: 13.5px;
+    color: var(--ink);
+    background: var(--panel);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r);
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: background .13s, border-color .13s, color .13s;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--ground);
+    font-weight: 600;
+  }
+  button.primary:hover:not(:disabled) {
+    background: var(--accent-lift);
+    border-color: var(--accent-lift);
+    color: var(--ground);
+  }
+
+  button[aria-pressed="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--ground);
+  }
+
+  /* ── Layout ───────────────────────────────────────────────────────────── */
+  .stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+  }
+  @media (max-width: 940px) {
+    .stage { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    overflow: hidden;
+  }
+
+  .panel > header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-sunk);
+  }
+
+  .panel h2 {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .panel .note {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    letter-spacing: 0.04em;
+  }
+
+  .canvas-wrap { position: relative; background: var(--panel-sunk); }
+  canvas { display: block; width: 100%; }
+  /* pan-y, not none: a vertical swipe must still scroll the page, or a
+     full-width plot becomes a scroll trap on a phone. Horizontal drags are
+     ours, and the browser hands them over. */
+  #manifold { cursor: grab; aspect-ratio: 1 / 1; touch-action: pan-y; }
+  #radar { aspect-ratio: 62 / 30; }
+  #spectro { aspect-ratio: 5 / 2; }
+  #track { aspect-ratio: 62 / 22; }
+  #manifold:active { cursor: grabbing; }
+  #manifold:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  .col { display: flex; flex-direction: column; gap: 18px; }
+
+  /* ── Readouts ─────────────────────────────────────────────────────────── */
+  .readout {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+    gap: 1px;
+    background: var(--line);
+  }
+  .cell { background: var(--panel); padding: 10px 12px; }
+  .cell dt {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 3px;
+  }
+  .cell dd {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 17px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+  .cell dd small {
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    margin-left: 2px;
+  }
+
+  /* ── Legend ───────────────────────────────────────────────────────────── */
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    letter-spacing: 0.05em;
+    flex-wrap: wrap;
+  }
+  .ramp {
+    flex: 1 1 120px;
+    min-width: 90px;
+    height: 8px;
+    border-radius: 1px;
+    border: 1px solid var(--line-strong);
+  }
+
+  /* ── Archetype key ────────────────────────────────────────────────────── */
+  .key { display: flex; flex-direction: column; }
+  .key-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+    text-align: left;
+    background: none;
+    border-left: 0; border-right: 0; border-top: 0;
+    border-radius: 0;
+    width: 100%;
+    cursor: pointer;
+  }
+  .key-row:last-child { border-bottom: 0; }
+  .key-row:hover { background: var(--panel-sunk); color: var(--ink); border-color: var(--line); }
+  .key-row[aria-pressed="true"] {
+    background: var(--panel-sunk);
+    color: var(--ink);
+    border-color: var(--line);
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+  .swatch { width: 9px; height: 9px; border-radius: 50%; }
+  .key-name { font-family: var(--serif); font-style: italic; font-size: 14.5px; }
+  .key-count {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-faint);
+  }
+
+  /* ── Identification ───────────────────────────────────────────────────── */
+  .verdict {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  .verdict-name {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 19px;
+    color: var(--ink);
+  }
+  .verdict-name.unknown {
+    color: var(--warn);
+    font-style: normal;
+    font-family: var(--sans);
+    font-size: 16px;
+  }
+  .verdict-meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .candidate {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 3px 10px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+  }
+  .candidate-name { font-family: var(--serif); font-style: italic; }
+  .candidate-score {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-soft);
+  }
+  /* The bar encodes the same number as the text beside it: one value you can
+     compare at a glance, one you can quote. */
+  .bar {
+    grid-column: 1 / -1;
+    height: 3px;
+    background: var(--panel-sunk);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .bar > i { display: block; height: 100%; background: var(--accent); }
+
+  .evidence {
+    padding: 9px 14px 11px;
+    border-top: 1px solid var(--line);
+    background: var(--panel-sunk);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    line-height: 1.9;
+  }
+  .evidence b { color: var(--ink-soft); font-weight: 600; }
+
+  .flags { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  /* ── Live capture ─────────────────────────────────────────────────────── */
+  .live-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  .meter {
+    flex: 1 1 140px;
+    min-width: 110px;
+    height: 6px;
+    background: var(--panel-sunk);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+  }
+  .meter > i {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    transition: width .06s linear;
+  }
+  /* The noise floor is drawn onto the meter, so the gate a call must cross is
+     visible rather than implied. */
+  .meter > u {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    width: 2px;
+    background: var(--warm);
+  }
+  .live-state {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .live-state.armed { color: var(--good); }
+  .live-state.hot { color: var(--warm); }
+
+  .detections { max-height: 220px; overflow-y: auto; }
+  .detection {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: baseline;
+    gap: 10px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+  }
+  .detection:last-child { border-bottom: 0; }
+  .detection-time {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+  .detection-name { font-family: var(--serif); font-style: italic; }
+  .detection-name.unknown { font-family: var(--sans); font-style: normal; color: var(--warn); }
+  .detection-meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+  }
+  .empty {
+    padding: 14px;
+    color: var(--ink-faint);
+    font-size: 13px;
+  }
+
+  /* ── Segments table ───────────────────────────────────────────────────── */
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th, td {
+    padding: 6px 12px;
+    text-align: right;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  th {
+    font-size: 9.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 600;
+  }
+  th:first-child, td:first-child { text-align: left; }
+  tbody tr:last-child td { border-bottom: 0; }
+
+  .pill {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .pill.ok    { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--good); }
+  .pill.trunc { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warn); }
+  .pill.bad   { background: color-mix(in srgb, var(--crit) 18%, transparent); color: var(--crit); }
+
+  /* ── Status strip ─────────────────────────────────────────────────────── */
+  .status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 22px;
+    padding: 11px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    background: var(--panel);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+  }
+  .status b { color: var(--ink); font-weight: 600; }
+  .status .dot {
+    display: inline-block; width: 6px; height: 6px;
+    border-radius: 50%; background: var(--good); margin-right: 6px;
+    vertical-align: middle;
+  }
+  .status .dot.err { background: var(--crit); }
+
+  .footnote {
+    font-size: 12.5px;
+    color: var(--ink-faint);
+    max-width: 78ch;
+    margin: 0;
+  }
+  .footnote code {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink-soft);
+  }
+
+  .selected-title {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 15px;
+    color: var(--ink);
+  }
+
+  /* ── Touch and small screens ──────────────────────────────────────────── */
+  @media (pointer: coarse) {
+    button { padding: 11px 16px; min-height: 44px; }
+    .key-row { padding: 12px 14px; min-height: 48px; }
+    th, td { padding: 10px 12px; }
+  }
+
+  @media (max-width: 620px) {
+    .shell { padding: 20px 14px 36px; gap: 16px; }
+
+    .masthead { align-items: flex-start; gap: 12px; }
+    /* Stranded in a right-aligned column once stacked; reads better as a row. */
+    .build-tag {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 16px;
+      text-align: left;
+      white-space: normal;
+    }
+    .build-tag br { display: none; }
+
+    .controls { gap: 8px; }
+    .controls .eyebrow { width: 100%; margin: 0; }
+
+    /* Two columns divide the eight descriptors evenly, so no orphan cell, and
+       the figures get room to stay legible. */
+    .readout { grid-template-columns: repeat(2, 1fr); }
+    .cell dd { font-size: 19px; }
+
+    /* A full-height square plot pushes everything below the fold. */
+    #manifold { aspect-ratio: 5 / 4; }
+
+    .legend { font-size: 10px; gap: 8px; }
+    .panel > header { padding: 10px 12px; }
+    .footnote { font-size: 13px; }
+    .status { gap: 6px 16px; font-size: 12px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <div>
+      <h1 class="wordmark">7sense <em>acoustic manifold</em></h1>
+      <p class="standfirst">
+        Synthesised vocalisations are analysed by the real Rust pipeline compiled to
+        WebAssembly — mel spectrograms, spectral descriptors, incremental
+        segmentation, nearest-neighbour identification, and the projection all run
+        in this page. Nothing is precomputed.
+      </p>
+    </div>
+    <div class="build-tag">
+      engine <b id="tag-version">—</b><br>
+      module <b id="tag-size">—</b><br>
+      <span id="tag-timing">—</span>
+    </div>
+  </header>
+
+  <div class="controls">
+    <span class="eyebrow">Corpus</span>
+    <button id="btn-run" class="primary">Regenerate &amp; analyse</button>
+    <button id="btn-spin" aria-pressed="true">Rotation</button>
+    <button id="btn-geometry" data-mode="pca">Euclidean</button>
+    <span class="eyebrow" style="margin-left:auto">Colour</span>
+    <button id="btn-colour" data-mode="centroid">Spectral centroid</button>
+  </div>
+
+  <div class="stage">
+
+    <div class="col">
+
+    <section class="panel">
+      <header>
+        <h2>Projection</h2>
+        <span class="note" id="variance-note">—</span>
+      </header>
+      <div class="canvas-wrap">
+        <canvas id="manifold" width="880" height="880"
+                tabindex="0" role="img"
+                aria-label="Three-dimensional scatter of analysed calls, rotatable by dragging"></canvas>
+      </div>
+      <div class="legend">
+        <span id="ramp-lo">0.0 kHz</span>
+        <span class="ramp" id="ramp"></span>
+        <span id="ramp-hi">16.0 kHz</span>
+        <span style="margin-left:auto" id="plot-hint">drag to rotate · click a point</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <header>
+        <h2>Spectrogram</h2>
+        <span class="note" id="spectro-note">mel · 64 bands</span>
+      </header>
+      <div class="canvas-wrap">
+        <canvas id="spectro" width="1100" height="440"
+                role="img" aria-label="Mel spectrogram of the selected call"></canvas>
+      </div>
+    </section>
+
+    </div>
+
+    <div class="col">
+
+      <section class="panel">
+        <header>
+          <h2>Live input</h2>
+          <span class="note" id="live-note">microphone</span>
+        </header>
+        <div class="live-bar">
+          <button id="btn-listen">Listen</button>
+          <span class="meter" aria-hidden="true"><i id="meter-fill"></i><u id="meter-floor"></u></span>
+          <span class="live-state" id="live-state">idle</span>
+        </div>
+        <div class="detections" id="detections">
+          <p class="empty">Nothing captured yet. Listening runs the same streaming
+          segmenter as the corpus, then identifies each call against it.</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <header>
+          <h2>Identification</h2>
+          <span class="note">k-NN · open set</span>
+        </header>
+        <div id="ident"></div>
+      </section>
+
+      <section class="panel">
+        <header>
+          <h2>Corpus</h2>
+          <span class="note">filter</span>
+        </header>
+        <div class="key" id="key"></div>
+      </section>
+
+      <section class="panel">
+        <header>
+          <h2>Selected call</h2>
+          <span class="flags" id="sel-flags"></span>
+          <span class="note selected-title" id="sel-name">—</span>
+        </header>
+        <dl class="readout" id="sel-readout"></dl>
+        <div class="canvas-wrap">
+          <canvas id="radar" width="620" height="300"
+                  role="img" aria-label="Radar plot of eight normalised acoustic descriptors"></canvas>
+        </div>
+      </section>
+
+      <section class="panel">
+        <header>
+          <h2>Frequency track</h2>
+          <span class="note">centroid · dominant</span>
+        </header>
+        <div class="canvas-wrap">
+          <canvas id="track" width="620" height="220"
+                  role="img" aria-label="Spectral centroid and dominant frequency over time"></canvas>
+        </div>
+      </section>
+
+      <section class="panel">
+        <header>
+          <h2>Segments</h2>
+          <span class="note">streaming segmenter</span>
+        </header>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Start</th><th>End</th><th>Peak</th><th>SNR</th><th>State</th></tr>
+            </thead>
+            <tbody id="seg-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <div class="status" id="status">
+    <span><span class="dot"></span><b id="st-state">initialising</b></span>
+    <span>calls <b id="st-calls">—</b></span>
+    <span>frames <b id="st-frames">—</b></span>
+    <span>segments <b id="st-segments">—</b></span>
+    <span>windows <b id="st-windows">—</b></span>
+    <span>dropped <b id="st-dropped">—</b></span>
+  </div>
+
+  <p class="footnote">
+    Each call is synthesised at 32 kHz, then handed to
+    <code>analyze_summary</code> for a twelve-dimensional descriptor vector,
+    <code>detect_segments</code> for boundaries, <code>compute_spectrogram</code>
+    for the mel view, and <code>project_pca</code> to place it in three
+    dimensions. The descriptors carry different units — centroid is thousands of
+    hertz, tonality is a ratio — so they are standardised before projection and
+    retrieval; without that, frequency alone would dominate every distance.
+    Position therefore reflects measured structure rather than the label:
+    archetypes separate because they genuinely differ.
+    <br><br>
+    Identification is <code>knn_search</code> against the rest of the corpus, not
+    a classifier. Perch emits embeddings rather than logits, and retrieval is
+    open set — a call unlike anything indexed is reported as unknown instead of
+    being forced into the nearest class. Votes are weighted by distance, so a few
+    close matches outrank many mediocre ones, and the neighbours that produced
+    each verdict are listed so it can be checked. Explained variance sits above
+    the plot: three components never capture everything, and the figure says how
+    much they miss.
+  </p>
+
+</div>
+
+<script type="module">
+'use strict';
+
+/* ══ WebAssembly module, inlined as a data URI ═══════════════════════════
+   A strict CSP blocks every external request, so the compiled pipeline
+   travels with the page rather than being fetched. */
+const WASM_BASE64 = "%%WASM_BASE64%%";
+
+const SR = 32000;
+const FRAME_STRIDE = 10;
+const SEG_STRIDE = 6;
+const NEIGHBOUR_STRIDE = 2;
+const EVENT_STRIDE = 8;
+const EVENT_CLOSED = 1;
+const SPECTRO_MELS = 64;
+const SPECTRO_HOP = 256;
+// ADR-013 sets k = 25. With 21 same-archetype references available, this
+// forces genuine competition into the candidate list rather than a trivial
+// unanimous vote.
+const KNN_K = 25;
+
+/* ── Boot ──────────────────────────────────────────────────────────────── */
+function decodeBase64(b64) {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+let wasm = null;
+let wasmBytes = 0;
+
+async function boot() {
+  const bytes = decodeBase64(WASM_BASE64);
+  wasmBytes = bytes.length;
+  const { instance } = await WebAssembly.instantiate(bytes, {});
+  wasm = instance.exports;
+}
+
+/* Reads the module's packed output buffer. A fresh view is taken every time
+   because growing the heap detaches any previously created one. */
+function readOut() {
+  return new Float32Array(wasm.memory.buffer, wasm.out_ptr(), wasm.out_len()).slice();
+}
+
+function withSamples(samples, fn) {
+  const ptr = wasm.alloc_f32(samples.length);
+  new Float32Array(wasm.memory.buffer, ptr, samples.length).set(samples);
+  try {
+    return fn(ptr, samples.length);
+  } finally {
+    wasm.dealloc_f32(ptr, samples.length);
+  }
+}
+
+/* ── Signal synthesis ──────────────────────────────────────────────────────
+   Five archetypes with genuinely different acoustic structure, so the
+   projection has something real to separate. Parameters jitter per call. */
+const TAU = Math.PI * 2;
+
+function mulberry(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const ARCHETYPES = [
+  {
+    id: 'pipit', name: 'Anthus trivialis', label: 'Tree pipit',
+    /* Descending trill: a falling carrier with a fast amplitude trill. */
+    build: (rnd) => {
+      const f0 = 6200 + rnd() * 900, f1 = 3100 + rnd() * 500;
+      const trill = 26 + rnd() * 10, dur = 1.5 + rnd() * 0.5;
+      return (t, T) => {
+        const p = t / T;
+        const f = f0 + (f1 - f0) * p;
+        const am = 0.5 + 0.5 * Math.sin(TAU * trill * t);
+        return { f, a: am * (1 - 0.25 * p), dur };
+      };
+    },
+    dur: () => 1.7
+  },
+  {
+    id: 'whistle', name: 'Pure whistle', label: 'Whistle',
+    build: (rnd) => {
+      const f0 = 3400 + rnd() * 1400, vib = 5 + rnd() * 4;
+      return (t) => ({ f: f0 + 90 * Math.sin(TAU * vib * t), a: 1, dur: 1.2 });
+    },
+    dur: () => 1.2
+  },
+  {
+    id: 'trill', name: 'Rapid trill', label: 'Trill',
+    build: (rnd) => {
+      const f0 = 4200 + rnd() * 1600, rate = 34 + rnd() * 14;
+      return (t) => ({ f: f0, a: Math.max(0, Math.sin(TAU * rate * t)) ** 0.6, dur: 1.3 });
+    },
+    dur: () => 1.3
+  },
+  {
+    id: 'sweep', name: 'Rising sweep', label: 'Sweep',
+    build: (rnd) => {
+      const f0 = 1900 + rnd() * 600, f1 = 8600 + rnd() * 1600;
+      return (t, T) => ({ f: f0 + (f1 - f0) * (t / T), a: 1, dur: 1.0 });
+    },
+    dur: () => 1.0
+  },
+  {
+    id: 'buzz', name: 'Broadband buzz', label: 'Buzz',
+    build: (rnd) => {
+      const centre = 5200 + rnd() * 1800, spread = 1500 + rnd() * 900;
+      return (t, T, noise) => ({ f: centre + spread * noise, a: 1, dur: 0.9 });
+    },
+    dur: () => 0.9
+  }
+];
+
+/* Renders one call: leading silence, the vocalisation, trailing silence.
+   The silence matters — it is what the segmenter's noise floor adapts to. */
+function synthesise(archetype, seed) {
+  const rnd = mulberry(seed);
+  const shape = archetype.build(rnd);
+  const body = archetype.dur();
+  const lead = 0.35, tail = 0.45;
+  const total = lead + body + tail;
+  const n = Math.round(total * SR);
+  const out = new Float32Array(n);
+
+  const gain = 0.34 + rnd() * 0.16;
+  let phase = 0;
+  let noiseState = rnd() * 1000;
+
+  for (let i = 0; i < n; i++) {
+    const t = i / SR - lead;
+    if (t < 0 || t > body) {
+      out[i] = (rnd() - 0.5) * 0.0016;   // faint room tone
+      continue;
+    }
+    noiseState = (noiseState * 16807) % 2147483647;
+    const noise = (noiseState / 2147483647) * 2 - 1;
+    const { f, a } = shape(t, body, noise);
+
+    phase += (TAU * f) / SR;
+    if (phase > TAU) phase -= TAU;
+
+    // Raised-cosine edges, so onsets are not clicks.
+    const edge = 0.05;
+    let env = 1;
+    if (t < edge) env = 0.5 * (1 - Math.cos((Math.PI * t) / edge));
+    else if (t > body - edge) env = 0.5 * (1 - Math.cos((Math.PI * (body - t)) / edge));
+
+    out[i] = gain * a * env * Math.sin(phase) + (rnd() - 0.5) * 0.004;
+  }
+  return out;
+}
+
+/* Z-scores each descriptor across the corpus.
+   The twelve descriptors carry different units -- centroid is thousands of Hz,
+   tonality is 0-1 -- so raw vectors let frequency dominate every distance and
+   every principal component. Standardising gives each descriptor equal say,
+   which is what makes both the projection and the k-NN meaningful. */
+function standardize(vectors) {
+  const n = vectors.length;
+  const dim = vectors[0].length;
+  const mean = new Float64Array(dim);
+  const sd = new Float64Array(dim);
+
+  for (const v of vectors) for (let d = 0; d < dim; d++) mean[d] += v[d];
+  for (let d = 0; d < dim; d++) mean[d] /= n;
+  for (const v of vectors) for (let d = 0; d < dim; d++) sd[d] += (v[d] - mean[d]) ** 2;
+  for (let d = 0; d < dim; d++) sd[d] = Math.sqrt(sd[d] / n);
+
+  // The statistics come back with the vectors: a live sample must be
+  // standardised against the corpus, not against itself, or its coordinates
+  // would mean something different from every point it is compared to.
+  return { vectors: vectors.map(v => applyStandardization(v, mean, sd)), mean, sd };
+}
+
+function applyStandardization(v, mean, sd) {
+  const out = new Float32Array(v.length);
+  // A descriptor with no spread carries no information; zero it rather than
+  // dividing by ~0 and manufacturing a huge value.
+  for (let d = 0; d < v.length; d++) out[d] = sd[d] > 1e-6 ? (v[d] - mean[d]) / sd[d] : 0;
+  return out;
+}
+
+/* ── Analysis ──────────────────────────────────────────────────────────── */
+const CALLS_PER_ARCHETYPE = 22;
+let corpus = [];
+let standardized = [];
+let featureMatrix = new Float32Array(0);
+let featureDim = 0;
+let corpusStats = null;
+let projection = [];
+let variance = [0, 0, 0];
+let selected = 0;
+let activeFilter = null;
+
+function analyseCorpus(baseSeed) {
+  const started = performance.now();
+  corpus = [];
+
+  ARCHETYPES.forEach((archetype, ai) => {
+    for (let k = 0; k < CALLS_PER_ARCHETYPE; k++) {
+      const samples = synthesise(archetype, baseSeed + ai * 977 + k * 31);
+
+      const segments = withSamples(samples, (ptr, len) => {
+        const count = wasm.detect_segments(ptr, len, SR);
+        if (count <= 0) return [];
+        const raw = readOut();
+        const list = [];
+        for (let s = 0; s < count; s++) {
+          const o = s * SEG_STRIDE;
+          list.push({
+            startMs: raw[o], endMs: raw[o + 1], peak: raw[o + 2],
+            rms: raw[o + 3], snr: raw[o + 4], truncated: raw[o + 5] > 0.5
+          });
+        }
+        return list;
+      });
+
+      // Summarise the detected segment, not the padded clip.
+      // A live query is always a segment, and several descriptors -- voiced
+      // fraction above all -- depend on how much silence surrounds the call.
+      // Voiced has a corpus spread of about 0.04, so a query measured over a
+      // segment (voiced ~1.0) instead of a clip (voiced ~0.66) lands nine
+      // standard deviations out and swamps every other dimension. Reference
+      // and query must be measured over the same kind of extent.
+      const region = segments.length
+        ? samples.subarray(
+            Math.max(0, Math.round((segments[0].startMs / 1000) * SR)),
+            Math.min(samples.length, Math.round((segments[0].endMs / 1000) * SR)))
+        : samples;
+
+      const summary = withSamples(region, (ptr, len) => {
+        if (wasm.analyze_summary(ptr, len, SR) < 0) return null;
+        return readOut();
+      });
+      if (!summary) continue;
+
+      corpus.push({ archetype, ai, samples, region, summary, segments });
+    }
+  });
+
+  // Standardise once; both the projection and the k-NN read these.
+  featureDim = corpus[0].summary.length;
+  const scaled = standardize(corpus.map(c => c.summary));
+  standardized = scaled.vectors;
+  corpusStats = { mean: scaled.mean, sd: scaled.sd };
+  featureMatrix = new Float32Array(corpus.length * featureDim);
+  standardized.forEach((v, i) => featureMatrix.set(v, i * featureDim));
+
+  computeProjection();
+  return performance.now() - started;
+}
+
+/* Projects the standardised corpus. The trailing record holds explained
+   variance, so it is stripped before the coordinates are used. */
+function computeProjection() {
+  const mode = document.getElementById('btn-geometry').dataset.mode;
+  const n = corpus.length;
+  const ptr = wasm.alloc_f32(featureMatrix.length);
+  new Float32Array(wasm.memory.buffer, ptr, featureMatrix.length).set(featureMatrix);
+
+  const records = mode === 'poincare'
+    ? wasm.project_poincare(ptr, n, featureDim, 3, 42, 1.1)
+    : wasm.project_pca(ptr, n, featureDim, 3, 42);
+  const raw = readOut();
+  wasm.dealloc_f32(ptr, featureMatrix.length);
+
+  if (records > 0) {
+    projection = corpus.map((_, i) => [raw[i * 3], raw[i * 3 + 1], raw[i * 3 + 2]]);
+    variance = [raw[n * 3], raw[n * 3 + 1], raw[n * 3 + 2]];
+  }
+}
+
+/* Per-frame descriptors, computed lazily for the selected call only. */
+function framesFor(call) {
+  if (call._frames) return call._frames;
+  const frames = withSamples(call.samples, (ptr, len) => {
+    const count = wasm.analyze_features(ptr, len, SR);
+    if (count <= 0) return [];
+    const raw = readOut();
+    const list = [];
+    for (let f = 0; f < count; f++) {
+      const o = f * FRAME_STRIDE;
+      list.push({
+        timeMs: raw[o], centroid: raw[o + 1], spread: raw[o + 2], rolloff: raw[o + 3],
+        tonality: raw[o + 4], crest: raw[o + 5], entropy: raw[o + 6],
+        dominant: raw[o + 7], energyDb: raw[o + 8], voiced: raw[o + 9] > 0.5
+      });
+    }
+    return list;
+  });
+  call._frames = frames;
+  return frames;
+}
+
+/* Identifies the selected call by retrieval, not classification.
+   ADR-013: Perch emits embeddings rather than logits, and retrieval is
+   open-set -- a call unlike anything indexed comes back as distant neighbours
+   instead of being forced into the nearest class. */
+/* Runs retrieval for a standardised query vector against the corpus.
+   `exclude` drops one corpus entry, used when the query *is* a corpus member
+   and would otherwise match itself at distance zero. */
+function identifyVector(queryVector, exclude) {
+  const n = corpus.length;
+  if (n < 2 || !queryVector) return null;
+
+  const refIndices = [];
+  const refs = new Float32Array(n * featureDim);
+  let cursor = 0;
+  for (let i = 0; i < n; i++) {
+    if (i === exclude) continue;
+    refs.set(standardized[i], cursor * featureDim);
+    refIndices.push(i);
+    cursor++;
+  }
+
+  const qPtr = wasm.alloc_f32(featureDim);
+  new Float32Array(wasm.memory.buffer, qPtr, featureDim).set(queryVector);
+  const rPtr = wasm.alloc_f32(refs.length);
+  new Float32Array(wasm.memory.buffer, rPtr, refs.length).set(refs);
+
+  const count = wasm.knn_search(qPtr, rPtr, refIndices.length, featureDim, KNN_K);
+  const raw = readOut();
+  wasm.dealloc_f32(qPtr, featureDim);
+  wasm.dealloc_f32(rPtr, refs.length);
+  if (count <= 0) return null;
+
+  const neighbours = [];
+  for (let i = 0; i < count; i++) {
+    const refIdx = refIndices[raw[i * NEIGHBOUR_STRIDE]];
+    neighbours.push({ index: refIdx, distance: raw[i * NEIGHBOUR_STRIDE + 1], call: corpus[refIdx] });
+  }
+
+  // Distance-weighted vote. Counting neighbours unweighted lets many mediocre
+  // matches outrank a few excellent ones, which is wrong whenever the
+  // reference set is unbalanced -- and reference sets always are.
+  const SIGMA = 0.35;
+  const tally = new Map();
+  for (const nb of neighbours) {
+    const weight = Math.exp(-(nb.distance ** 2) / (2 * SIGMA * SIGMA));
+    const key = nb.call.ai;
+    const entry = tally.get(key) || { ai: key, weight: 0, count: 0, minDistance: Infinity };
+    entry.weight += weight;
+    entry.count += 1;
+    entry.minDistance = Math.min(entry.minDistance, nb.distance);
+    tally.set(key, entry);
+  }
+
+  const total = [...tally.values()].reduce((a, e) => a + e.weight, 0) || 1;
+  const candidates = [...tally.values()]
+    .map(e => ({ ...e, score: e.weight / total, archetype: ARCHETYPES[e.ai] }))
+    .sort((a, b) => b.score - a.score);
+
+  const nearest = neighbours[0].distance;
+  const unknown = nearest > wasm.unknown_threshold();
+
+  return { candidates, neighbours, nearest, unknown };
+}
+
+function identify(index) {
+  return identifyVector(standardized[index], index);
+}
+
+function renderIdentification(index) {
+  const host = document.getElementById('ident');
+  const result = identify(index);
+  if (!result) { host.innerHTML = ''; return; }
+
+  const top = result.candidates[0];
+  const verdict = result.unknown
+    ? `<span class="verdict-name unknown">Unknown — no close reference</span>`
+    : `<span class="verdict-name">${top.archetype.name}</span>`;
+
+  const rows = result.candidates.slice(0, 4).map(c => `
+    <div class="candidate">
+      <span class="candidate-name">${c.archetype.name}</span>
+      <span class="candidate-score">${(c.score * 100).toFixed(0)}% · ${c.count}/${KNN_K} · d=${c.minDistance.toFixed(3)}</span>
+      <span class="bar"><i style="width:${(c.score * 100).toFixed(1)}%"></i></span>
+    </div>`).join('');
+
+  // Evidence is not optional: it is what makes the result checkable.
+  const evidence = result.neighbours.slice(0, 3).map(nb =>
+    `<b>${nb.call.archetype.label}</b> #${nb.index} · d=${nb.distance.toFixed(3)}`
+  ).join('<br>');
+
+  host.innerHTML = `
+    <div class="verdict">
+      ${verdict}
+      <span class="verdict-meta">nearest d=${result.nearest.toFixed(3)} · reject &gt;${wasm.unknown_threshold().toFixed(2)}</span>
+    </div>
+    ${rows}
+    <div class="evidence"><b>Nearest references</b><br>${evidence}</div>`;
+}
+
+/* ── Spectrogram ───────────────────────────────────────────────────────────
+   Painted through ImageData at the spectrogram's native resolution, then
+   scaled up. Drawing 64 x ~250 cells as individual rects would be far slower
+   and no sharper. */
+const spectro = document.getElementById('spectro');
+const sctx = spectro.getContext('2d');
+const spectroBuffer = document.createElement('canvas');
+const sbctx = spectroBuffer.getContext('2d');
+
+function drawSpectrogram(call) {
+  const k = fitCanvas(spectro);
+  sctx.clearRect(0, 0, spectro.width, spectro.height);
+  if (!call) return;
+
+  const frames = withSamples(call.samples, (ptr, len) =>
+    wasm.compute_spectrogram(ptr, len, SR, SPECTRO_MELS, SPECTRO_HOP));
+  if (frames <= 0) return;
+  const data = readOut();
+
+  spectroBuffer.width = frames;
+  spectroBuffer.height = SPECTRO_MELS;
+  const image = sbctx.createImageData(frames, SPECTRO_MELS);
+
+  for (let row = 0; row < SPECTRO_MELS; row++) {
+    // Mel band 0 is the lowest frequency; canvas row 0 is the top, so the
+    // rows are flipped to put high frequencies where a reader expects them.
+    const y = SPECTRO_MELS - 1 - row;
+    for (let col = 0; col < frames; col++) {
+      const value = data[row * frames + col];
+      const [r, g, b] = viridis(value);
+      const o = (y * frames + col) * 4;
+      image.data[o] = r; image.data[o + 1] = g; image.data[o + 2] = b; image.data[o + 3] = 255;
+    }
+  }
+  sbctx.putImageData(image, 0, 0);
+
+  const pad = { l: 40 * k, b: 20 * k, t: 4 * k, r: 4 * k };
+  const plotW = spectro.width - pad.l - pad.r;
+  const plotH = spectro.height - pad.t - pad.b;
+
+  sctx.imageSmoothingEnabled = true;
+  sctx.drawImage(spectroBuffer, pad.l, pad.t, plotW, plotH);
+
+  sctx.font = `${(10 * k).toFixed(1)}px ` + css('--mono');
+  sctx.fillStyle = css('--ink-faint');
+  sctx.textAlign = 'right';
+  sctx.textBaseline = 'middle';
+
+  // Bands are evenly spaced in mel, so a tick's vertical position is its mel
+  // fraction, not its frequency fraction. Labelling linearly put a 6 kHz trill
+  // on the 12 kHz gridline.
+  const toMel = hz => 2595 * Math.log10(1 + hz / 700);
+  const fMax = Math.min(SR / 2, 16000);
+  const melMin = toMel(0);
+  const melSpan = toMel(fMax) - melMin;
+  for (const hz of [0, 1000, 2000, 4000, 8000, 16000]) {
+    if (hz > fMax) continue;
+    const p = (toMel(hz) - melMin) / melSpan;
+    const y = pad.t + plotH * (1 - p);
+    sctx.fillText(hz >= 1000 ? `${hz / 1000}k` : '0', pad.l - 6 * k, y);
+  }
+  sctx.textAlign = 'left';
+  sctx.textBaseline = 'alphabetic';
+  const durationMs = (call.samples.length / SR) * 1000;
+  sctx.fillText('0 ms', pad.l, spectro.height - 6 * k);
+  sctx.textAlign = 'right';
+  sctx.fillText(`${Math.round(durationMs)} ms`, spectro.width - pad.r, spectro.height - 6 * k);
+
+  document.getElementById('spectro-note').textContent =
+    `mel · ${SPECTRO_MELS} bands · ${frames} frames`;
+}
+
+/* ── Colour ────────────────────────────────────────────────────────────────
+   Viridis: perceptually uniform and colourblind-safe, unlike the
+   blue-green-red ramp a naive HSV mapping produces. */
+const VIRIDIS = [
+  [68, 1, 84], [72, 40, 120], [62, 74, 137], [49, 104, 142],
+  [38, 130, 142], [31, 158, 137], [53, 183, 121], [110, 206, 88],
+  [181, 222, 43], [253, 231, 37]
+];
+
+function viridis(t) {
+  t = Math.max(0, Math.min(1, t));
+  const x = t * (VIRIDIS.length - 1);
+  const i = Math.min(Math.floor(x), VIRIDIS.length - 2);
+  const f = x - i;
+  const a = VIRIDIS[i], b = VIRIDIS[i + 1];
+  return [
+    Math.round(a[0] + (b[0] - a[0]) * f),
+    Math.round(a[1] + (b[1] - a[1]) * f),
+    Math.round(a[2] + (b[2] - a[2]) * f)
+  ];
+}
+const rgb = (c, alpha = 1) => `rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
+
+/* ── 3D scatter ────────────────────────────────────────────────────────────
+   Hand-written projection with a painter's-algorithm depth sort. A CDN is
+   unreachable under the artifact CSP, and for a few hundred instanced points
+   a 2D canvas is entirely sufficient. */
+const manifold = document.getElementById('manifold');
+const mctx = manifold.getContext('2d');
+let yaw = 0.6, pitch = -0.34, spinning = true, dragging = false, lastPointer = null;
+let hovered = -1;
+
+function css(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function projectPoint(p, w, h) {
+  const cy = Math.cos(yaw), sy = Math.sin(yaw);
+  const cp = Math.cos(pitch), sp = Math.sin(pitch);
+  let [x, y, z] = p;
+  // yaw about Y, then pitch about X
+  let x1 = x * cy - z * sy;
+  let z1 = x * sy + z * cy;
+  let y1 = y * cp - z1 * sp;
+  let z2 = y * sp + z1 * cp;
+
+  const dist = 3.4;
+  const scale = (Math.min(w, h) * 0.62) / (dist + z2 * 0.55);
+  // Perspective normalised to 1.0 at the origin. Radii are expressed in
+  // pixels and scaled by this, so they do not track the projection's own
+  // pixel scale -- which is ~80 and would produce blobs.
+  const perspective = dist / (dist + z2 * 0.55);
+  return { sx: w / 2 + x1 * scale, sy: h / 2 + y1 * scale, depth: z2, perspective };
+}
+
+const COLOUR_FIELD = { centroid: 0, tonality: 3, energy: 7 };
+let colourRange = { lo: 0, hi: 1 };
+
+function measureColourRange(mode) {
+  const field = COLOUR_FIELD[mode];
+  let lo = Infinity, hi = -Infinity;
+  for (const call of corpus) {
+    const v = call.summary[field];
+    if (!Number.isFinite(v)) continue;
+    lo = Math.min(lo, v);
+    hi = Math.max(hi, v);
+  }
+  if (!Number.isFinite(lo) || hi - lo < 1e-6) { lo = 0; hi = 1; }
+  colourRange = { lo, hi };
+}
+
+function colourFor(call, mode) {
+  const v = call.summary[COLOUR_FIELD[mode]];
+  return viridis((v - colourRange.lo) / (colourRange.hi - colourRange.lo));
+}
+
+function drawManifold() {
+  const k = fitCanvas(manifold);
+  const w = manifold.width, h = manifold.height;
+  const mode = document.getElementById('btn-colour').dataset.mode;
+  const lineCol = css('--line-strong');
+
+  mctx.clearRect(0, 0, w, h);
+
+  // Reference cage: a faint unit box, so rotation is legible.
+  const corners = [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
+  const edges = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+  mctx.strokeStyle = lineCol;
+  mctx.globalAlpha = 0.42;
+  mctx.lineWidth = k;
+  edges.forEach(([a, b]) => {
+    const pa = projectPoint(corners[a], w, h), pb = projectPoint(corners[b], w, h);
+    mctx.beginPath();
+    mctx.moveTo(pa.sx, pa.sy);
+    mctx.lineTo(pb.sx, pb.sy);
+    mctx.stroke();
+  });
+  mctx.globalAlpha = 1;
+
+  const order = projection
+    .map((p, i) => ({ i, ...projectPoint(p, w, h) }))
+    .sort((a, b) => b.depth - a.depth);
+
+  for (const item of order) {
+    const call = corpus[item.i];
+    const dimmed = activeFilter !== null && call.ai !== activeFilter;
+    const isSelected = item.i === selected;
+    const energy = Math.max(0, Math.min(1, (call.summary[7] + 60) / 50));
+    const radius = (2.6 + energy * 4.0) * item.perspective * k;
+
+    const colour = colourFor(call, mode);
+    const depthFade = 0.55 + 0.45 * (1 - Math.min(1, Math.max(0, (item.depth + 1.4) / 2.8)));
+    mctx.globalAlpha = dimmed ? 0.10 : 0.42 + 0.5 * depthFade;
+    mctx.beginPath();
+    mctx.arc(item.sx, item.sy, Math.max(1.4 * k, radius), 0, TAU);
+    mctx.fillStyle = rgb(colour);
+    mctx.fill();
+
+    if (isSelected && !dimmed) {
+      mctx.globalAlpha = 1;
+      mctx.strokeStyle = css('--ink');
+      mctx.lineWidth = 1.6 * k;
+      mctx.beginPath();
+      mctx.arc(item.sx, item.sy, Math.max(1.4 * k, radius) + 4.0 * k, 0, TAU);
+      mctx.stroke();
+    } else if (item.i === hovered && !dimmed) {
+      mctx.globalAlpha = 1;
+      mctx.strokeStyle = css('--accent');
+      mctx.lineWidth = 1.3 * k;
+      mctx.beginPath();
+      mctx.arc(item.sx, item.sy, Math.max(1.4 * k, radius) + 3.0 * k, 0, TAU);
+      mctx.stroke();
+    }
+  }
+  mctx.globalAlpha = 1;
+}
+
+function pickPoint(clientX, clientY) {
+  const rect = manifold.getBoundingClientRect();
+  const x = (clientX - rect.left) * (manifold.width / rect.width);
+  const y = (clientY - rect.top) * (manifold.height / rect.height);
+
+  const tolerance = 16 * Math.min(2, window.devicePixelRatio || 1);
+  let best = -1, bestDist = tolerance * tolerance;
+  projection.forEach((p, i) => {
+    if (activeFilter !== null && corpus[i].ai !== activeFilter) return;
+    const q = projectPoint(p, manifold.width, manifold.height);
+    const d = (q.sx - x) ** 2 + (q.sy - y) ** 2;
+    if (d < bestDist) { bestDist = d; best = i; }
+  });
+  return best;
+}
+
+/* ── Radar ─────────────────────────────────────────────────────────────────
+   Eight descriptors on shared normalised axes. The normalisation lives in the
+   Rust layer precisely so these can share a plot without per-axis rescaling
+   hiding cross-feature structure. */
+const radar = document.getElementById('radar');
+const rctx = radar.getContext('2d');
+
+const RADAR_AXES = [
+  { label: 'centroid',  get: s => s[0] / 12000 },
+  { label: 'spread',    get: s => s[2] / 6000 },
+  { label: 'tonality',  get: s => s[3] },
+  { label: 'crest',     get: s => s[4] },
+  { label: 'entropy',   get: s => s[5] },
+  { label: 'AM depth',  get: s => s[10] },
+  { label: 'FM extent', get: s => s[11] / 3000 },
+  { label: 'voiced',    get: s => s[8] }
+];
+
+/* Sizes a canvas's backing store to its displayed box at device resolution.
+   Without this the store keeps its authored dimensions, so any CSS that
+   changes the element's aspect ratio -- as the mobile layout does -- stretches
+   everything drawn into it. Returns the scale factor, which drawing code
+   applies to fonts, radii, and line widths so they stay constant in CSS
+   pixels. */
+function fitCanvas(canvas) {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width) return dpr;
+  const w = Math.round(rect.width * dpr);
+  const h = Math.round(rect.height * dpr);
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
+  }
+  return dpr;
+}
+
+function drawRadar(call) {
+  const k = fitCanvas(radar);
+  const w = radar.width, h = radar.height;
+  rctx.clearRect(0, 0, w, h);
+  if (!call) return;
+
+  const cx = w / 2, cy = h / 2 + 6 * k;
+  const R = Math.min(w, h) * 0.34;
+  const n = RADAR_AXES.length;
+
+  rctx.strokeStyle = css('--line');
+  rctx.fillStyle = css('--ink-faint');
+  rctx.lineWidth = k;
+  rctx.font = `${(10 * k).toFixed(1)}px ` + css('--mono');
+  rctx.textAlign = 'center';
+  rctx.textBaseline = 'middle';
+
+  for (const ring of [0.25, 0.5, 0.75, 1]) {
+    rctx.beginPath();
+    for (let i = 0; i <= n; i++) {
+      const a = (i / n) * TAU - Math.PI / 2;
+      const px = cx + Math.cos(a) * R * ring;
+      const py = cy + Math.sin(a) * R * ring;
+      i === 0 ? rctx.moveTo(px, py) : rctx.lineTo(px, py);
+    }
+    rctx.stroke();
+  }
+
+  RADAR_AXES.forEach((axis, i) => {
+    const a = (i / n) * TAU - Math.PI / 2;
+    rctx.beginPath();
+    rctx.moveTo(cx, cy);
+    rctx.lineTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R);
+    rctx.stroke();
+    rctx.fillText(axis.label, cx + Math.cos(a) * (R + 24 * k), cy + Math.sin(a) * (R + 15 * k));
+  });
+
+  const values = RADAR_AXES.map(ax => Math.max(0, Math.min(1, ax.get(call.summary) || 0)));
+  const accent = css('--accent');
+
+  rctx.beginPath();
+  values.forEach((v, i) => {
+    const a = (i / n) * TAU - Math.PI / 2;
+    const px = cx + Math.cos(a) * R * v;
+    const py = cy + Math.sin(a) * R * v;
+    i === 0 ? rctx.moveTo(px, py) : rctx.lineTo(px, py);
+  });
+  rctx.closePath();
+  rctx.fillStyle = accent;
+  rctx.globalAlpha = 0.19;
+  rctx.fill();
+  rctx.globalAlpha = 1;
+  rctx.strokeStyle = accent;
+  rctx.lineWidth = 1.7 * k;
+  rctx.stroke();
+
+  values.forEach((v, i) => {
+    const a = (i / n) * TAU - Math.PI / 2;
+    rctx.beginPath();
+    rctx.arc(cx + Math.cos(a) * R * v, cy + Math.sin(a) * R * v, 2.4 * k, 0, TAU);
+    rctx.fillStyle = accent;
+    rctx.fill();
+  });
+}
+
+/* ── Frequency track ───────────────────────────────────────────────────── */
+const track = document.getElementById('track');
+const tctx = track.getContext('2d');
+
+function drawTrack(call) {
+  const k = fitCanvas(track);
+  const w = track.width, h = track.height;
+  tctx.clearRect(0, 0, w, h);
+  if (!call) return;
+
+  const frames = framesFor(call);
+  if (!frames.length) return;
+
+  const pad = { l: 44 * k, r: 10 * k, t: 12 * k, b: 24 * k };
+  const plotW = w - pad.l - pad.r, plotH = h - pad.t - pad.b;
+  const maxHz = 12000;
+  const tMax = frames[frames.length - 1].timeMs;
+
+  tctx.strokeStyle = css('--line');
+  tctx.fillStyle = css('--ink-faint');
+  tctx.font = `${(10 * k).toFixed(1)}px ` + css('--mono');
+  tctx.lineWidth = k;
+  tctx.textAlign = 'right';
+  tctx.textBaseline = 'middle';
+
+  for (let khz = 0; khz <= 12; khz += 3) {
+    const y = pad.t + plotH * (1 - (khz * 1000) / maxHz);
+    tctx.beginPath();
+    tctx.moveTo(pad.l, y);
+    tctx.lineTo(w - pad.r, y);
+    tctx.stroke();
+    tctx.fillText(khz + 'k', pad.l - 6 * k, y);
+  }
+
+  // Voiced frames only: an unvoiced centroid is the noise floor's centroid,
+  // not the call's, and drawing it would imply a signal that is not there.
+  const drawSeries = (accessor, colour, width, alpha) => {
+    tctx.strokeStyle = colour;
+    tctx.lineWidth = width;
+    tctx.globalAlpha = alpha;
+    tctx.beginPath();
+    let pen = false;
+    frames.forEach(fr => {
+      if (!fr.voiced) { pen = false; return; }
+      const x = pad.l + plotW * (fr.timeMs / tMax);
+      const y = pad.t + plotH * (1 - Math.min(1, accessor(fr) / maxHz));
+      pen ? tctx.lineTo(x, y) : tctx.moveTo(x, y);
+      pen = true;
+    });
+    tctx.stroke();
+    tctx.globalAlpha = 1;
+  };
+
+  drawSeries(f => f.dominant, css('--warm'), 1.1 * k, 0.5);
+  drawSeries(f => f.centroid, css('--accent'), 1.9 * k, 1);
+
+  tctx.textAlign = 'left';
+  tctx.fillStyle = css('--ink-faint');
+  tctx.fillText('0 ms', pad.l, h - 10 * k);
+  tctx.textAlign = 'right';
+  tctx.fillText(Math.round(tMax) + ' ms', w - pad.r, h - 10 * k);
+}
+
+/* ── Panels ────────────────────────────────────────────────────────────── */
+const fmt = (v, d = 1) => Number.isFinite(v) ? v.toFixed(d) : '—';
+
+function renderSelection() {
+  const call = corpus[selected];
+  if (!call) return;
+  const s = call.summary;
+
+  document.getElementById('sel-name').textContent = call.archetype.name;
+
+  const quality = withSamples(call.region ?? call.samples, (ptr, len) => {
+    if (wasm.quality_flags(ptr, len, SR) < 0) return null;
+    return readOut();
+  });
+  const flags = [];
+  if (quality) {
+    if (quality[0] > 0.5) flags.push('<span class="pill bad">noise</span>');
+    if (quality[1] > 0.5) flags.push('<span class="pill bad">clipped</span>');
+    if (!flags.length) flags.push('<span class="pill ok">passes gate</span>');
+  }
+  document.getElementById('sel-flags').innerHTML = flags.join('');
+
+  document.getElementById('sel-readout').innerHTML = [
+    ['centroid', fmt(s[0] / 1000, 2), 'kHz'],
+    ['spread',   fmt(s[2] / 1000, 2), 'kHz'],
+    ['tonality', fmt(s[3], 2), ''],
+    ['entropy',  fmt(s[5], 2), ''],
+    ['AM rate',  fmt(s[9], 1), 'Hz'],
+    ['FM extent',fmt(s[11], 0), 'Hz'],
+    ['energy',   fmt(s[7], 1), 'dB'],
+    ['voiced',   fmt(s[8] * 100, 0), '%']
+  ].map(([k, v, u]) =>
+    `<div class="cell"><dt>${k}</dt><dd>${v}<small>${u}</small></dd></div>`
+  ).join('');
+
+  const rows = call.segments.map((seg, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${Math.round(seg.startMs)}</td>
+      <td>${Math.round(seg.endMs)}</td>
+      <td>${fmt(seg.peak, 2)}</td>
+      <td>${fmt(seg.snr, 0)} dB</td>
+      <td><span class="pill ${seg.truncated ? 'trunc' : 'ok'}">${seg.truncated ? 'truncated' : 'closed'}</span></td>
+    </tr>`).join('');
+  document.getElementById('seg-body').innerHTML = rows ||
+    '<tr><td colspan="6" style="color:var(--ink-faint)">no segment above the noise floor</td></tr>';
+
+  drawRadar(call);
+  drawTrack(call);
+  drawSpectrogram(call);
+  renderIdentification(selected);
+  drawManifold();
+}
+
+function renderKey() {
+  const counts = ARCHETYPES.map((_, ai) => corpus.filter(c => c.ai === ai).length);
+  document.getElementById('key').innerHTML = ARCHETYPES.map((a, ai) => {
+    const mean = corpus.filter(c => c.ai === ai)
+      .reduce((acc, c) => acc + c.summary[0], 0) / Math.max(1, counts[ai]);
+    const colour = rgb(viridis((mean - colourRange.lo) / (colourRange.hi - colourRange.lo)));
+    return `<button class="key-row" data-ai="${ai}" aria-pressed="${activeFilter === ai}">
+      <span class="swatch" style="background:${colour}"></span>
+      <span><span class="key-name">${a.name}</span> · ${a.label}</span>
+      <span class="key-count">${counts[ai]}</span>
+    </button>`;
+  }).join('');
+
+  document.querySelectorAll('.key-row').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ai = Number(btn.dataset.ai);
+      activeFilter = activeFilter === ai ? null : ai;
+      if (activeFilter !== null && corpus[selected].ai !== activeFilter) {
+        selected = corpus.findIndex(c => c.ai === activeFilter);
+        renderSelection();
+      }
+      renderKey();
+      drawManifold();
+    });
+  });
+}
+
+function renderStatus(elapsedMs) {
+  const totalFrames = corpus.reduce((a, c) => a + Math.round(c.samples.length / 320), 0);
+  const totalSegments = corpus.reduce((a, c) => a + c.segments.length, 0);
+
+  document.getElementById('st-state').textContent = 'ready';
+  document.getElementById('st-calls').textContent = corpus.length;
+  document.getElementById('st-frames').textContent = totalFrames.toLocaleString();
+  document.getElementById('st-segments').textContent = totalSegments;
+
+  const stats = withSamples(corpus[selected].samples, (ptr, len) => {
+    if (wasm.pipeline_stats(ptr, len, SR) < 0) return null;
+    return readOut();
+  });
+  document.getElementById('st-windows').textContent = stats ? stats[0] : '—';
+  document.getElementById('st-dropped').textContent = stats ? stats[4] : '—';
+
+  renderVarianceNote();
+  document.getElementById('tag-timing').textContent = `${elapsedMs.toFixed(0)} ms analysis`;
+}
+
+function renderVarianceNote() {
+  const mode = document.getElementById('btn-geometry').dataset.mode;
+  const pcs = `PC1 ${(variance[0] * 100).toFixed(0)}% · PC2 ${(variance[1] * 100).toFixed(0)}% · PC3 ${(variance[2] * 100).toFixed(0)}%`;
+  document.getElementById('variance-note').textContent =
+    mode === 'poincare' ? `Poincaré ball · ${pcs}` : pcs;
+}
+
+function renderRamp() {
+  const mode = document.getElementById('btn-colour').dataset.mode;
+  const stops = Array.from({ length: 10 }, (_, i) => rgb(viridis(i / 9))).join(',');
+  document.getElementById('ramp').style.background = `linear-gradient(90deg, ${stops})`;
+
+  // Labels report the corpus's measured range, so the ramp describes the data
+  // in front of the viewer rather than a nominal scale it may barely occupy.
+  measureColourRange(mode);
+  const format = {
+    centroid: v => (v / 1000).toFixed(1) + ' kHz',
+    tonality: v => v.toFixed(2),
+    energy:   v => v.toFixed(0) + ' dB'
+  }[mode];
+  document.getElementById('ramp-lo').textContent = format(colourRange.lo);
+  document.getElementById('ramp-hi').textContent = format(colourRange.hi);
+}
+
+/* ── Live capture ──────────────────────────────────────────────────────────
+   The microphone drives the same StreamSegmenter the corpus uses, through the
+   stateful handle API. Chunk size is whatever the audio callback hands us; the
+   segmenter buffers a partial frame across calls, so the result does not
+   depend on it. */
+const live = {
+  context: null,
+  stream: null,
+  processor: null,
+  source: null,
+  handle: 0,
+  rate: 0,
+  rateMatched: false,
+  ring: null,        // recent audio, so a closed segment can be re-read
+  ringSize: 0,
+  written: 0,        // absolute samples written, for mapping stream time
+  detections: [],
+  level: 0,
+};
+
+function setLiveState(text, cls) {
+  const el = document.getElementById('live-state');
+  el.textContent = text;
+  el.className = 'live-state' + (cls ? ' ' + cls : '');
+}
+
+/* Pulls a stream-time range out of the rolling buffer.
+   Returns null if the audio has already been overwritten, which is honest --
+   a segment longer than the buffer cannot be re-read. */
+function sliceRing(startSample, endSample) {
+  const oldest = Math.max(0, live.written - live.ringSize);
+  if (startSample < oldest || endSample > live.written || endSample <= startSample) return null;
+
+  const length = endSample - startSample;
+  const out = new Float32Array(length);
+  for (let i = 0; i < length; i++) {
+    out[i] = live.ring[(startSample + i) % live.ringSize];
+  }
+  return out;
+}
+
+function recordDetection(startMs, endMs, snr) {
+  const startSample = Math.round((startMs / 1000) * live.rate);
+  const endSample = Math.round((endMs / 1000) * live.rate);
+  const audio = sliceRing(startSample, endSample);
+
+  const entry = {
+    startMs,
+    durationMs: endMs - startMs,
+    snr,
+    verdict: 'unreadable',
+    score: 0,
+    unknown: true,
+  };
+
+  if (audio && audio.length > 1024) {
+    const summary = withSamples(audio, (ptr, len) => {
+      if (wasm.analyze_summary(ptr, len, live.rate) < 0) return null;
+      return readOut();
+    });
+
+    if (summary && corpusStats) {
+      // Standardised against the corpus, not itself: the reference index
+      // defines the coordinate system a query must be expressed in.
+      const query = applyStandardization(summary, corpusStats.mean, corpusStats.sd);
+      const result = identifyVector(query, -1);
+      if (result) {
+        entry.unknown = result.unknown;
+        entry.verdict = result.unknown ? 'Unknown' : result.candidates[0].archetype.name;
+        entry.score = result.unknown ? 0 : result.candidates[0].score;
+        entry.distance = result.nearest;
+      }
+    }
+  }
+
+  live.detections.unshift(entry);
+  live.detections = live.detections.slice(0, 12);
+  renderDetections();
+}
+
+function renderDetections() {
+  const host = document.getElementById('detections');
+  if (!live.detections.length) {
+    host.innerHTML = `<p class="empty">Listening. Nothing has crossed the noise
+      floor yet — whistle, or play a bird call near the microphone.</p>`;
+    return;
+  }
+
+  host.innerHTML = live.detections.map(d => {
+    const meta = d.verdict === 'unreadable'
+      ? `${Math.round(d.durationMs)} ms`
+      : `${Math.round(d.durationMs)} ms · ${d.snr.toFixed(0)} dB` +
+        (d.unknown ? ` · d=${(d.distance ?? 0).toFixed(2)}` : ` · ${(d.score * 100).toFixed(0)}%`);
+    return `<div class="detection">
+      <span class="detection-time">${(d.startMs / 1000).toFixed(1)}s</span>
+      <span class="detection-name${d.unknown ? ' unknown' : ''}">${d.verdict}</span>
+      <span class="detection-meta">${meta}</span>
+    </div>`;
+  }).join('');
+}
+
+function handleAudio(samples) {
+  // Level meter, computed before anything else so it stays responsive even if
+  // the segmenter rejects the audio.
+  let sum = 0;
+  for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
+  live.level = Math.sqrt(sum / samples.length);
+
+  // Ring buffer: the segmenter reports times, not audio, so we keep our own
+  // copy to re-read a closed segment from.
+  for (let i = 0; i < samples.length; i++) {
+    live.ring[(live.written + i) % live.ringSize] = samples[i];
+  }
+  live.written += samples.length;
+
+  const events = withSamples(samples, (ptr, len) => {
+    const count = wasm.segmenter_push(live.handle, ptr, len);
+    return count > 0 ? { count, data: readOut() } : null;
+  });
+
+  if (events) {
+    for (let i = 0; i < events.count; i++) {
+      const o = i * EVENT_STRIDE;
+      if (events.data[o] === EVENT_CLOSED) {
+        recordDetection(events.data[o + 1], events.data[o + 2], events.data[o + 5]);
+      }
+    }
+  }
+
+  const floor = wasm.segmenter_noise_floor(live.handle);
+  const open = wasm.segmenter_in_segment(live.handle) === 1;
+
+  document.getElementById('meter-fill').style.width =
+    `${Math.min(100, live.level * 320).toFixed(1)}%`;
+  document.getElementById('meter-floor').style.left =
+    `${Math.min(100, floor * live.handleOpenRatio * 320).toFixed(1)}%`;
+  setLiveState(open ? 'in call' : 'listening', open ? 'hot' : 'armed');
+}
+
+async function startListening() {
+  const button = document.getElementById('btn-listen');
+  button.disabled = true;
+  setLiveState('requesting…');
+
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error('This browser exposes no microphone API.');
+    }
+    live.stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+    });
+
+    // Ask for the corpus rate rather than accepting the device's.
+    // Several descriptors -- spread, crest, entropy -- are normalised over the
+    // FFT bin count, which changes with the sample rate: the same 4 kHz tone
+    // measures 18 Hz spread at 32 kHz and 27 Hz at 48 kHz. Comparing a live
+    // capture against a 32 kHz reference index therefore requires matching the
+    // rate, and letting the browser resample is both correct and free.
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    try {
+      live.context = new Ctor({ sampleRate: SR });
+    } catch {
+      live.context = new Ctor();
+    }
+    await live.context.resume();
+    live.rate = live.context.sampleRate;
+    live.rateMatched = Math.abs(live.rate - SR) < 1;
+
+    live.handle = wasm.segmenter_create(live.rate);
+    if (!live.handle) throw new Error('The segmenter rejected this sample rate.');
+
+    // Fifteen seconds of history: longer than max_segment_ms, so any segment
+    // the segmenter emits is still readable when it closes.
+    live.ringSize = Math.ceil(live.rate * 15);
+    live.ring = new Float32Array(live.ringSize);
+    live.written = 0;
+    live.detections = [];
+    // Matches StreamSegmenterConfig::open_ratio, for drawing the gate marker.
+    live.handleOpenRatio = 3.0;
+
+    live.source = live.context.createMediaStreamSource(live.stream);
+    // ScriptProcessor rather than AudioWorklet: a worklet needs a module URL,
+    // and this page runs under a CSP that blocks blob: workers.
+    live.processor = live.context.createScriptProcessor(4096, 1, 1);
+    live.processor.onaudioprocess = (e) => handleAudio(e.inputBuffer.getChannelData(0));
+    live.source.connect(live.processor);
+    // Routed to a muted gain node: ScriptProcessor only runs when connected to
+    // a destination, but we must not echo the microphone back out.
+    const mute = live.context.createGain();
+    mute.gain.value = 0;
+    live.processor.connect(mute);
+    mute.connect(live.context.destination);
+
+    // If the browser refused the requested rate, say so: identification still
+    // runs, but its distances are not strictly comparable to the corpus.
+    document.getElementById('live-note').textContent = live.rateMatched
+      ? `${(live.rate / 1000).toFixed(1)} kHz · 15 s buffer`
+      : `${(live.rate / 1000).toFixed(1)} kHz · rate differs from corpus`;
+    button.textContent = 'Stop';
+    setLiveState('listening', 'armed');
+    renderDetections();
+  } catch (err) {
+    // A blocked microphone is the common case in an embedded frame, so say so
+    // plainly rather than leaving the button spinning.
+    const denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
+    setLiveState(denied ? 'permission denied' : 'unavailable');
+    document.getElementById('live-note').textContent = denied
+      ? 'microphone blocked'
+      : (err?.message ?? 'microphone unavailable');
+    document.getElementById('detections').innerHTML =
+      `<p class="empty">${denied
+        ? 'This page cannot reach the microphone. Where the page is embedded, the frame may withhold microphone access; opening it directly usually restores it.'
+        : 'No microphone is available in this browser.'}</p>`;
+    stopListening(true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function stopListening(quiet) {
+  if (live.handle) {
+    const events = wasm.segmenter_flush(live.handle);
+    if (events > 0) {
+      const data = readOut();
+      for (let i = 0; i < events; i++) {
+        const o = i * EVENT_STRIDE;
+        if (data[o] === EVENT_CLOSED) recordDetection(data[o + 1], data[o + 2], data[o + 5]);
+      }
+    }
+    wasm.segmenter_destroy(live.handle);
+    live.handle = 0;
+  }
+  live.processor?.disconnect();
+  live.source?.disconnect();
+  live.stream?.getTracks().forEach(t => t.stop());
+  live.context?.close();
+  live.processor = live.source = live.stream = live.context = null;
+
+  document.getElementById('btn-listen').textContent = 'Listen';
+  document.getElementById('meter-fill').style.width = '0%';
+  if (!quiet) setLiveState('idle');
+}
+
+document.getElementById('btn-listen').addEventListener('click', () => {
+  if (live.handle) stopListening();
+  else startListening();
+});
+
+/* ── Interaction ───────────────────────────────────────────────────────── */
+manifold.addEventListener('pointerdown', (e) => {
+  dragging = true;
+  lastPointer = { x: e.clientX, y: e.clientY, moved: false };
+  manifold.setPointerCapture(e.pointerId);
+});
+
+manifold.addEventListener('pointermove', (e) => {
+  if (dragging && lastPointer) {
+    const dx = e.clientX - lastPointer.x;
+    const dy = e.clientY - lastPointer.y;
+    if (Math.abs(dx) + Math.abs(dy) > 2) lastPointer.moved = true;
+    yaw += dx * 0.008;
+    pitch = Math.max(-1.35, Math.min(1.35, pitch + dy * 0.008));
+    lastPointer.x = e.clientX;
+    lastPointer.y = e.clientY;
+    drawManifold();
+  } else {
+    const hit = pickPoint(e.clientX, e.clientY);
+    if (hit !== hovered) { hovered = hit; drawManifold(); }
+  }
+});
+
+manifold.addEventListener('pointerup', (e) => {
+  if (lastPointer && !lastPointer.moved) {
+    const hit = pickPoint(e.clientX, e.clientY);
+    if (hit >= 0) { selected = hit; renderSelection(); }
+  }
+  dragging = false;
+  lastPointer = null;
+});
+
+manifold.addEventListener('pointerleave', () => { hovered = -1; drawManifold(); });
+
+manifold.addEventListener('keydown', (e) => {
+  const step = e.shiftKey ? 0.24 : 0.08;
+  if (e.key === 'ArrowLeft')  { yaw -= step; drawManifold(); e.preventDefault(); }
+  if (e.key === 'ArrowRight') { yaw += step; drawManifold(); e.preventDefault(); }
+  if (e.key === 'ArrowUp')    { pitch = Math.max(-1.35, pitch - step); drawManifold(); e.preventDefault(); }
+  if (e.key === 'ArrowDown')  { pitch = Math.min(1.35, pitch + step); drawManifold(); e.preventDefault(); }
+  if (e.key === 'Enter' || e.key === ' ') {
+    selected = (selected + 1) % corpus.length;
+    renderSelection();
+    e.preventDefault();
+  }
+});
+
+document.getElementById('btn-spin').addEventListener('click', (e) => {
+  spinning = !spinning;
+  e.currentTarget.setAttribute('aria-pressed', String(spinning));
+});
+
+document.getElementById('btn-geometry').addEventListener('click', (e) => {
+  const next = e.currentTarget.dataset.mode === 'pca' ? 'poincare' : 'pca';
+  e.currentTarget.dataset.mode = next;
+  e.currentTarget.textContent = next === 'poincare' ? 'Hyperbolic' : 'Euclidean';
+  computeProjection();
+  renderVarianceNote();
+  drawManifold();
+});
+
+document.getElementById('btn-colour').addEventListener('click', (e) => {
+  const modes = ['centroid', 'tonality', 'energy'];
+  const labels = { centroid: 'Spectral centroid', tonality: 'Tonality', energy: 'Energy' };
+  const next = modes[(modes.indexOf(e.currentTarget.dataset.mode) + 1) % modes.length];
+  e.currentTarget.dataset.mode = next;
+  e.currentTarget.textContent = labels[next];
+  renderRamp();
+  drawManifold();
+});
+
+document.getElementById('btn-run').addEventListener('click', () => {
+  const btn = document.getElementById('btn-run');
+  btn.disabled = true;
+  document.getElementById('st-state').textContent = 'analysing';
+  // Yield once so the disabled state paints before the synchronous work.
+  setTimeout(() => {
+    run(Math.floor(Math.random() * 100000));
+    btn.disabled = false;
+  }, 16);
+});
+
+let resizeTimer = null;
+addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (corpus.length) {
+      drawRadar(corpus[selected]);
+      drawTrack(corpus[selected]);
+      drawSpectrogram(corpus[selected]);
+      drawManifold();
+    }
+  }, 120);
+});
+
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+function tick() {
+  if (spinning && !dragging && !reduceMotion.matches) {
+    yaw += 0.0022;
+    drawManifold();
+  }
+  requestAnimationFrame(tick);
+}
+
+/* ── Run ───────────────────────────────────────────────────────────────── */
+function run(seed) {
+  const elapsed = analyseCorpus(seed);
+  selected = 0;
+  activeFilter = null;
+  renderRamp();
+  renderKey();
+  renderSelection();
+  renderStatus(elapsed);
+}
+
+boot().then(() => {
+  const v = wasm.pipeline_version();
+  document.getElementById('tag-version').textContent =
+    `v${Math.floor(v / 10000)}.${Math.floor(v / 100) % 100}.${v % 100}`;
+  document.getElementById('tag-size').textContent = `${(wasmBytes / 1024).toFixed(0)} KB`;
+  if (matchMedia('(pointer: coarse)').matches) {
+    document.getElementById('plot-hint').textContent = 'swipe across to spin \u00b7 tap a point';
+  }
+  run(20260806);
+  if (reduceMotion.matches) {
+    spinning = false;
+    document.getElementById('btn-spin').setAttribute('aria-pressed', 'false');
+  }
+  tick();
+}).catch((err) => {
+  document.getElementById('st-state').textContent = 'engine failed to start';
+  document.querySelector('#status .dot').classList.add('err');
+  console.error(err);
+});
+</script>
