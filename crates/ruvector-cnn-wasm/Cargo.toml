@@ -19,7 +19,7 @@ default = ["console_error_panic_hook"]
 simd = []
 
 [dependencies]
-ruvector-cnn = { path = "../ruvector-cnn", default-features = false, features = ["std"] }
+ruvector-cnn = { version = "2.3.0", path = "../ruvector-cnn", default-features = false, features = ["std"] }
 wasm-bindgen = "0.2"
 js-sys = "0.3"
 console_error_panic_hook = { version = "0.1", optional = true }

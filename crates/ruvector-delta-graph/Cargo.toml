@@ -15,7 +15,7 @@ serde = ["dep:serde", "dep:serde_json"]
 
 [dependencies]
 # Core delta library
-ruvector-delta-core = { path = "../ruvector-delta-core" }
+ruvector-delta-core = { version = "0.1.0", path = "../ruvector-delta-core" }
 
 # Error handling
 thiserror = "2.0"

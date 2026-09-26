@@ -12,7 +12,7 @@ categories = ["database", "data-structures"]
 
 [dependencies]
 fs4 = { version = "1.1", default-features = false, features = ["sync"] }
-ruvector-core = { path = "../ruvector-core", default-features = false, features = ["storage", "hnsw"] }
+ruvector-core = { version = "2.3.0", path = "../ruvector-core", default-features = false, features = ["storage", "hnsw"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = "0.10"

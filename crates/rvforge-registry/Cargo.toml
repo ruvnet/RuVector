@@ -13,7 +13,7 @@ description = "RVForge file-backed content-addressed release registry: typed obj
 # packaging library rather than being reimplemented here; a registry object and
 # a build manifest must hash identically or the two halves of the pipeline
 # disagree about what a release is.
-rvf-forge-core = { path = "../rvf-forge-core" }
+rvf-forge-core = { version = "2.3.0", path = "../rvf-forge-core" }
 ed25519-dalek = "2"
 base64 = "0.22"
 sha2 = "0.10"

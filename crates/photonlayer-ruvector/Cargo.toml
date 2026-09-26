@@ -10,7 +10,7 @@ description = "PhotonLayer experiment memory on RuVector: mask/frame embeddings,
 
 [dependencies]
 photonlayer-core = { version = "0.1.0", path = "../photonlayer-core" }
-ruvector-coherence = { path = "../ruvector-coherence", features = ["spectral"] }
+ruvector-coherence = { version = "2.3.0", path = "../ruvector-coherence", features = ["spectral"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 

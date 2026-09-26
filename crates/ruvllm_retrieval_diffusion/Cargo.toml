@@ -17,7 +17,7 @@ default = ["std"]
 std = ["ruvllm_sparse_attention/std"]
 
 [dependencies]
-ruvllm_sparse_attention = { path = "../ruvllm_sparse_attention", default-features = false }
+ruvllm_sparse_attention = { version = "0.1.1", path = "../ruvllm_sparse_attention", default-features = false }
 
 [dev-dependencies]
 # Examples / tests only

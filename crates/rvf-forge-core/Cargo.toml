@@ -15,9 +15,9 @@ description = "RVForge packaging and verification library: inspection-only RVF r
 # NOTE: rvf-types' own `serde` feature does not compile (its SignatureFooter
 # holds a `[u8; 7856]`, which serde has no impls for). Forge defines its own
 # serializable mirror types instead of enabling it.
-rvf-types = { path = "../rvf/rvf-types", features = ["std", "ed25519"] }
-rvf-wire = { path = "../rvf/rvf-wire" }
-rvf-crypto = { path = "../rvf/rvf-crypto" }
+rvf-types = { version = "0.2.1", path = "../rvf/rvf-types", features = ["std", "ed25519"] }
+rvf-wire = { version = "0.1.0", path = "../rvf/rvf-wire" }
+rvf-crypto = { version = "0.2.0", path = "../rvf/rvf-crypto" }
 ed25519-dalek = "2"
 serde = { workspace = true }
 serde_json = { workspace = true }
