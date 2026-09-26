@@ -192,7 +192,7 @@ pub struct RunnableConfig {
 // ---------------------------------------------------------------------------
 
 /// Default model identifier.
-pub const DEFAULT_MODEL: &str = "anthropic:claude-sonnet-4-20250514";
+pub const DEFAULT_MODEL: &str = "anthropic:claude-sonnet-5";
 
 /// Top-level agent configuration.
 ///
