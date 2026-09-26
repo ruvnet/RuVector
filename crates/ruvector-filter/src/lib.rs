@@ -1,5 +1,3 @@
-#![recursion_limit = "4096"]
-
 //! # rUvector Filter
 //!
 //! Advanced payload indexing and filtering for rUvector.
