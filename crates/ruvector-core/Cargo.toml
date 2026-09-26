@@ -60,12 +60,20 @@ tokenizers = { version = "0.20", default-features = false, features = ["onig"], 
 # HuggingFace Hub for model downloads
 hf-hub = { version = "0.4", optional = true }
 
-# Native (pure-Rust) local embeddings via lattice-embed (not available in WASM).
-# NOTE: lattice-embed 0.6 requires Rust >= 1.93 (edition 2024). Cargo cannot
-# express a per-feature `rust-version`, so enabling the `lattice-embeddings`
-# feature raises the effective MSRV above this crate's workspace-inherited
-# 1.77 for anyone who turns it on. The default build is unaffected.
-lattice-embed = { version = "0.6.1", optional = true }
+# lattice-embed serves two independent features here, which is why it is pinned
+# with `default-features = false`:
+#   * `lattice-simd`        — SIMD distance kernels only. No model, no tokenizer,
+#                             no download stack. Works on wasm32.
+#   * `lattice-embeddings`  — local embedding models, which additionally need
+#                             `native` (and `download` for first-use fetches).
+# Turning default features off is what separates the two: `native` is what pulls
+# `lattice-inference`, so the kernels-only path does not drag in the model tree.
+#
+# NOTE: lattice-embed requires Rust >= 1.93 (edition 2024). Cargo cannot express
+# a per-feature `rust-version`, so enabling either feature raises the effective
+# MSRV above this crate's workspace-inherited 1.77 for anyone who turns it on,
+# the same way `simd-avx512` requires >= 1.89. The default build is unaffected.
+lattice-embed = { version = "0.7.1", optional = true, default-features = false }
 tokio = { workspace = true, optional = true }
 
 [dev-dependencies]
@@ -129,7 +137,22 @@ uuid-support = []  # Deprecated: uuid is now always included
 real-embeddings = []  # Feature flag for embedding provider API (use ApiEmbedding for production)
 api-embeddings = ["reqwest"]  # API-based embeddings (not available in WASM)
 onnx-embeddings = ["ort", "tokenizers", "hf-hub"]  # ONNX-based local embeddings (not available in WASM)
-lattice-embeddings = ["dep:lattice-embed", "dep:tokio"]  # Native pure-Rust local embeddings via lattice-embed (not available in WASM)
+# Native pure-Rust local embeddings via lattice-embed (not available in WASM).
+# Forwards `native`/`download` explicitly because the dependency is pinned with
+# `default-features = false`; this reproduces the previous default feature set.
+lattice-embeddings = [
+    "dep:lattice-embed",
+    "lattice-embed/native",
+    "lattice-embed/download",
+    "dep:tokio",
+]
+# Route the f32 distance kernels through lattice-embed instead of SimSIMD.
+# Unlike `simd`, this one covers wasm32 (via `simd128`): SimSIMD's call sites
+# are gated off on wasm32 (the simsimd dependency itself still resolves
+# there), so without this feature the generic distance path falls back to
+# scalar on wasm32. Takes precedence over `simd` where both are enabled. Off
+# by default.
+lattice-simd = ["dep:lattice-embed"]
 
 [lib]
 crate-type = ["rlib"]
