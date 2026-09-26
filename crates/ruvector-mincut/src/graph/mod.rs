@@ -258,11 +258,25 @@ impl DynamicGraph {
     }
 
     /// Get all vertices
+    ///
+    /// Returned in ascending `VertexId` order. `DashMap`'s default hasher is
+    /// randomly seeded per instance, so its iteration order is *not* stable
+    /// across process runs even for byte-identical insertion sequences; every
+    /// caller that uses this list to drive an algorithm with order-dependent
+    /// tie-breaking (seed selection, bitmask-to-vertex assignment, etc.) needs
+    /// a canonical order to be reproducible. Sorting here, once, at the graph
+    /// boundary is cheaper than auditing every downstream consumer.
     pub fn vertices(&self) -> Vec<VertexId> {
-        self.adjacency.iter().map(|entry| *entry.key()).collect()
+        let mut vertices: Vec<VertexId> = self.adjacency.iter().map(|entry| *entry.key()).collect();
+        vertices.sort_unstable();
+        vertices
     }
 
     /// Get all edges
+    ///
+    /// Order is unspecified (`DashMap` iteration). Deliberately left unsorted:
+    /// this is called per boundary edge in `LocalKCut::check_cut` (#942), and
+    /// determinism of `partition()` comes from [`Self::vertices`] ordering.
     pub fn edges(&self) -> Vec<Edge> {
         self.edges.iter().map(|entry| *entry.value()).collect()
     }
