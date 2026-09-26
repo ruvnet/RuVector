@@ -932,7 +932,7 @@ version = "0.1.0"
 dependencies = [
  "rand 0.8.6",
  "ruvector-coherence",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
 ]
 
 [[package]]
@@ -941,7 +941,7 @@ version = "0.1.0"
 dependencies = [
  "rand 0.8.6",
  "ruvector-coherence",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
 ]
 
 [[package]]
@@ -1421,7 +1421,7 @@ version = "0.1.0"
 dependencies = [
  "rand 0.8.6",
  "ruvector-coherence",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
 ]
 
 [[package]]
@@ -1456,7 +1456,7 @@ dependencies = [
  "criterion 0.5.1",
  "libm",
  "proptest",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
 ]
 
 [[package]]
@@ -2566,7 +2566,7 @@ version = "0.1.0"
 dependencies = [
  "rand 0.8.6",
  "ruvector-coherence",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
 ]
 
 [[package]]
@@ -3075,7 +3075,7 @@ version = "0.1.0"
 dependencies = [
  "rand 0.8.6",
  "ruvector-coherence",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
 ]
 
 [[package]]
@@ -4139,7 +4139,7 @@ version = "0.1.0"
 dependencies = [
  "rand 0.8.6",
  "ruvector-coherence",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
 ]
 
 [[package]]
@@ -4699,7 +4699,7 @@ version = "0.1.0"
 dependencies = [
  "rand 0.8.6",
  "ruvector-coherence",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
 ]
 
 [[package]]
@@ -5283,7 +5283,7 @@ version = "0.1.0"
 dependencies = [
  "rand 0.8.6",
  "ruvector-coherence",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
 ]
 
 [[package]]
@@ -5367,7 +5367,7 @@ dependencies = [
  "ruvector-consciousness",
  "ruvector-delta-core",
  "ruvector-domain-expansion",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
  "ruvector-nervous-system",
  "ruvector-solver",
  "ruvector-sona 0.2.1",
@@ -5736,7 +5736,7 @@ version = "0.1.0"
 dependencies = [
  "rand 0.8.6",
  "ruvector-coherence",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
 ]
 
 [[package]]
@@ -6751,7 +6751,7 @@ version = "0.1.0"
 dependencies = [
  "rand 0.8.6",
  "ruvector-coherence",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
 ]
 
 [[package]]
@@ -7429,7 +7429,7 @@ dependencies = [
  "ruvector-gnn",
  "ruvector-graph",
  "ruvector-hyperbolic-hnsw",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
  "ruvector-nervous-system",
  "ruvector-raft",
  "ruvector-sona 0.2.1",
@@ -8391,7 +8391,7 @@ version = "0.1.0"
 dependencies = [
  "rand 0.8.6",
  "ruvector-coherence",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
 ]
 
 [[package]]
@@ -8911,7 +8911,7 @@ name = "ruvector-agent-memory"
 version = "0.1.0"
 dependencies = [
  "rand 0.8.6",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
  "ruvector-proof-gate",
  "rvf-types",
  "serde",
@@ -9012,7 +9012,7 @@ dependencies = [
  "ruvector-cognitive-container",
  "ruvector-coherence",
  "ruvector-core 2.3.0",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
  "serde",
  "serde_json",
  "statistical",
@@ -9264,7 +9264,7 @@ dependencies = [
  "ruvector-cognitive-container",
  "ruvector-coherence",
  "ruvector-math",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
  "ruvector-solver",
  "ruvector-sparsifier",
  "serde",
@@ -9401,7 +9401,7 @@ dependencies = [
  "approx",
  "ruvector-attention",
  "ruvector-gnn",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
@@ -9454,7 +9454,7 @@ dependencies = [
  "ort",
  "rayon",
  "regex",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
  "serde",
  "serde_json",
  "sha3",
@@ -9873,7 +9873,7 @@ dependencies = [
  "criterion 0.5.1",
  "rand 0.8.6",
  "rayon",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -9885,7 +9885,7 @@ version = "2.3.0"
 dependencies = [
  "getrandom 0.2.17",
  "ruvector-graph-condense",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
  "serde",
  "serde_json",
  "wasm-bindgen",
@@ -9919,7 +9919,7 @@ dependencies = [
  "ruvector-attention",
  "ruvector-coherence",
  "ruvector-gnn",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
  "ruvector-solver",
  "ruvector-verified",
  "serde",
@@ -10250,7 +10250,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-mincut"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "anyhow",
  "criterion 0.5.1",
@@ -10304,7 +10304,7 @@ dependencies = [
  "napi",
  "napi-build",
  "napi-derive",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
  "serde",
  "serde_json",
 ]
@@ -10316,7 +10316,7 @@ dependencies = [
  "console_error_panic_hook",
  "getrandom 0.2.17",
  "js-sys",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -10389,7 +10389,7 @@ dependencies = [
 name = "ruvector-perception"
 version = "2.3.0"
 dependencies = [
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -11987,7 +11987,7 @@ version = "0.1.0"
 dependencies = [
  "rand 0.8.6",
  "ruvector-coherence",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
 ]
 
 [[package]]
@@ -11996,7 +11996,7 @@ version = "0.1.0"
 dependencies = [
  "rand 0.8.6",
  "ruvector-coherence",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
 ]
 
 [[package]]
@@ -12135,7 +12135,7 @@ version = "0.1.0"
 dependencies = [
  "rand 0.8.6",
  "ruvector-coherence",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
 ]
 
 [[package]]
@@ -12144,7 +12144,7 @@ version = "0.1.0"
 dependencies = [
  "rand 0.8.6",
  "ruvector-coherence",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
 ]
 
 [[package]]
@@ -12826,7 +12826,7 @@ name = "subpolynomial-time-mincut-demo"
 version = "0.1.0"
 dependencies = [
  "rand 0.8.6",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
 ]
 
 [[package]]
@@ -13033,7 +13033,7 @@ version = "0.1.0"
 dependencies = [
  "rand 0.8.6",
  "ruvector-coherence",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
 ]
 
 [[package]]
@@ -14373,7 +14373,7 @@ version = "0.1.0"
 dependencies = [
  "rand 0.8.6",
  "ruvector-coherence",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
 ]
 
 [[package]]
@@ -14590,7 +14590,7 @@ version = "0.1.0"
 dependencies = [
  "rand 0.8.6",
  "ruvector-coherence",
- "ruvector-mincut 2.3.0",
+ "ruvector-mincut 2.3.1",
 ]
 
 [[package]]
