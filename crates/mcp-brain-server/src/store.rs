@@ -76,8 +76,6 @@ pub struct FirestoreClient {
     /// Number of collections whose paginated LIST aborted early during hydration
     /// (partial load). Non-zero means the cache is missing Firestore documents.
     hydration_errors: std::sync::atomic::AtomicUsize,
-    /// Running count of LIST calls that ended with unrecovered page errors.
-    list_incomplete: std::sync::atomic::AtomicUsize,
 }
 
 impl FirestoreClient {
@@ -122,7 +120,6 @@ impl FirestoreClient {
             use_metadata_server,
             hydrated: std::sync::atomic::AtomicBool::new(!persistent),
             hydration_errors: std::sync::atomic::AtomicUsize::new(0),
-            list_incomplete: std::sync::atomic::AtomicUsize::new(0),
         }
     }
 
@@ -369,8 +366,14 @@ impl FirestoreClient {
     const MAX_PAGE_ERRORS: usize = 8;
 
     async fn firestore_list(&self, collection: &str) -> Vec<serde_json::Value> {
+        self.firestore_list_checked(collection).await.0
+    }
+
+    /// Like `firestore_list`, but also reports whether pagination ended with
+    /// unrecovered page errors (i.e. the returned set is a partial load).
+    async fn firestore_list_checked(&self, collection: &str) -> (Vec<serde_json::Value>, bool) {
         let Some(ref base) = self.base_url else {
-            return Vec::new();
+            return (Vec::new(), false);
         };
         let mut all_docs = Vec::new();
         let mut page_token: Option<String> = None;
@@ -557,8 +560,6 @@ impl FirestoreClient {
         }
 
         if consecutive_errors > 0 {
-            self.list_incomplete
-                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             tracing::warn!(
                 "Firestore LIST {collection}: loaded {} documents with {} error(s)",
                 all_docs.len(),
@@ -570,7 +571,7 @@ impl FirestoreClient {
                 all_docs.len()
             );
         }
-        all_docs
+        (all_docs, consecutive_errors > 0)
     }
 
     /// Hydrate in-memory cache from Firestore on startup.
@@ -583,12 +584,13 @@ impl FirestoreClient {
             return;
         }
         tracing::info!("Loading state from Firestore...");
-        let incomplete_before = self
-            .list_incomplete
-            .load(std::sync::atomic::Ordering::Relaxed);
+        // Collections whose LIST aborted early (tracked per call, so concurrent
+        // startup lists such as brain_votes/brain_lora cannot skew the count).
+        let mut incomplete = 0usize;
 
         // Load memories — normalize on ingest for fast cosine search
-        let docs = self.firestore_list("brain_memories").await;
+        let (docs, partial) = self.firestore_list_checked("brain_memories").await;
+        incomplete += usize::from(partial);
         let considered_mem = docs.len();
         let mut mem_count = 0usize;
         let mut mem_rejected_parse = 0usize;
@@ -614,7 +616,8 @@ impl FirestoreClient {
         );
 
         // Load contributors
-        let docs = self.firestore_list("brain_contributors").await;
+        let (docs, partial) = self.firestore_list_checked("brain_contributors").await;
+        incomplete += usize::from(partial);
         let considered_contrib = docs.len();
         let mut contrib_count = 0usize;
         let mut contrib_rejected_parse = 0usize;
@@ -632,7 +635,8 @@ impl FirestoreClient {
         );
 
         // Load page status
-        let docs = self.firestore_list("brain_page_status").await;
+        let (docs, partial) = self.firestore_list_checked("brain_page_status").await;
+        incomplete += usize::from(partial);
         let considered_pages = docs.len();
         let mut page_rejected = 0usize;
         for doc in docs {
@@ -656,7 +660,8 @@ impl FirestoreClient {
         );
 
         // Load WASM nodes
-        let docs = self.firestore_list("brain_nodes").await;
+        let (docs, partial) = self.firestore_list_checked("brain_nodes").await;
+        incomplete += usize::from(partial);
         let considered_nodes = docs.len();
         let mut node_count = 0usize;
         let mut node_rejected_parse = 0usize;
@@ -678,10 +683,6 @@ impl FirestoreClient {
             self.page_status.len()
         );
 
-        let incomplete = self
-            .list_incomplete
-            .load(std::sync::atomic::Ordering::Relaxed)
-            .saturating_sub(incomplete_before);
         self.hydration_errors
             .store(incomplete, std::sync::atomic::Ordering::Relaxed);
         if incomplete > 0 {
@@ -690,7 +691,8 @@ impl FirestoreClient {
             );
         }
         // Mark hydrated even when partial so the instance can serve reads; the
-        // hydration_errors count is surfaced on /v1/status for the deploy gate.
+        // hydration_errors count is surfaced on /v1/status for the deploy gate
+        // and keeps the write gate closed (see routes::write_gate).
         self.hydrated
             .store(true, std::sync::atomic::Ordering::Release);
     }
@@ -1514,17 +1516,27 @@ mod hydration_tests {
     fn writes_are_refused_until_hydrated() {
         let client = FirestoreClient::new();
         client.set_hydrated_for_test(false);
-        let err = crate::routes::write_gate(false, client.is_hydrated()).unwrap_err();
+        let err = crate::routes::write_gate(false, client.is_hydrated(), 0).unwrap_err();
         assert_eq!(err.0, StatusCode::SERVICE_UNAVAILABLE);
         assert!(err.1.contains("hydrating"), "unexpected message: {}", err.1);
 
         client.set_hydrated_for_test(true);
-        assert!(crate::routes::write_gate(false, client.is_hydrated()).is_ok());
+        assert!(crate::routes::write_gate(false, client.is_hydrated(), 0).is_ok());
+    }
+
+    #[test]
+    fn partial_hydration_keeps_writes_closed() {
+        // Observed on prod 2026-09-26: brain_memories stopped at 15,822 and
+        // brain_contributors loaded 0 docs after page errors, yet hydration
+        // was declared complete. Writes there would clobber contributors.
+        let err = crate::routes::write_gate(false, true, 2).unwrap_err();
+        assert_eq!(err.0, StatusCode::SERVICE_UNAVAILABLE);
+        assert!(err.1.contains("partial"), "unexpected message: {}", err.1);
     }
 
     #[test]
     fn read_only_still_wins_after_hydration() {
-        let err = crate::routes::write_gate(true, true).unwrap_err();
+        let err = crate::routes::write_gate(true, true, 0).unwrap_err();
         assert_eq!(err.0, StatusCode::SERVICE_UNAVAILABLE);
         assert!(err.1.contains("read-only"));
     }

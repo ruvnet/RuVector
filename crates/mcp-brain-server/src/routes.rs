@@ -1414,6 +1414,7 @@ fn check_read_only(state: &AppState) -> Result<(), (StatusCode, String)> {
     write_gate(
         state.read_only.load(Ordering::Relaxed),
         state.store.is_hydrated(),
+        state.store.hydration_errors(),
     )
 }
 
@@ -1426,7 +1427,16 @@ fn check_read_only(state: &AppState) -> Result<(), (StatusCode, String)> {
 /// that exist in Firestore but have not been loaded yet (contributors load
 /// after all ~60K memories). Training/optimize endpoints would likewise run on
 /// a partial corpus and persist the result (e.g. `brain_lora/consensus`).
-pub(crate) fn write_gate(read_only: bool, hydrated: bool) -> Result<(), (StatusCode, String)> {
+///
+/// A hydration that finished with aborted collections (`hydration_errors > 0`,
+/// e.g. brain_contributors loaded 0 docs after page errors) keeps writes
+/// closed for the life of the instance: a write-dead instance is recoverable
+/// by recycling it, an overwritten Firestore document is not.
+pub(crate) fn write_gate(
+    read_only: bool,
+    hydrated: bool,
+    hydration_errors: usize,
+) -> Result<(), (StatusCode, String)> {
     if read_only {
         Err((
             StatusCode::SERVICE_UNAVAILABLE,
@@ -1436,6 +1446,13 @@ pub(crate) fn write_gate(read_only: bool, hydrated: bool) -> Result<(), (StatusC
         Err((
             StatusCode::SERVICE_UNAVAILABLE,
             "Server is hydrating from Firestore; writes are disabled until it completes".into(),
+        ))
+    } else if hydration_errors > 0 {
+        Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            format!(
+                "Firestore hydration was partial ({hydration_errors} collection(s) incomplete); writes are disabled on this instance"
+            ),
         ))
     } else {
         Ok(())
