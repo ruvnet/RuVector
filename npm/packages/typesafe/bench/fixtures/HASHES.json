@@ -8,5 +8,8 @@
     "fixtures/tickets-corpus.json": "a6d5992bcf84452b7901b052ed2ef13eb6cf173533dc65bed911f2f699b417ab",
     "fixtures/tickets-decisions.json": "2ac87d9b00fb6fcee8a3cf3118577fbb4056f03f8feaecdce892d358d2bc99cd",
     "fixtures/tickets-truth.json": "3784fae9ef1ce5e4842144b9e7eb1b0d289e4af3549e935bb2e27126b6cdc642"
+  },
+  "derived": {
+    "fixtures/novel-slice-2026-09-26.json": "4e3716f827c4bfa3f1e2c619b85a7113dc17525884984b5b3f600ad95a5b635b"
   }
 }

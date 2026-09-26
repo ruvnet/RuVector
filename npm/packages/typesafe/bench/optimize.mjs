@@ -13,12 +13,25 @@
 // Usage:
 //   node bench/optimize.mjs [--models a,b,c] [--budget 64] [--limit N]
 //                           [--out results/<name>.json]
+//                           [--model-dir DIR] [--manifest PATH]
+//                           [--train-hashes PATH] [--no-test]
+//
+// Each model arm resolves to ONE sha256-verified manifest entry under
+// --model-dir (default models/; a staged candidate or bare unpublished dir works
+// too — lib/model-dir.mjs) and the verified entry is recorded per arm. A model
+// shipping train-text-hashes.txt is leakage-checked against the tickets
+// held-out rows before its campaign runs (ADR-007 §2 Assertion B, exit 3).
+// --no-test withholds the test rows from the engine entirely (the campaign then
+// has nothing to score on test), omits the Jev test comparison, and records
+// test fields as null — for selection/tuning runs (ADR-007 §1b, §1d).
 
 import { createRequire } from 'node:module';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, isAbsolute } from 'node:path';
 import { loadTickets, buildQuestions, BENCH_DIR, FIXTURE_DIR } from './lib/fixture.mjs';
+import { resolveOnnxModel } from './lib/model-dir.mjs';
+import { readTrainHashes, leakageGate } from './lib/leakage.mjs';
 import { scoreRecords } from './lib/receipt.mjs';
 import { replayJev } from './lib/arms.mjs';
 
@@ -31,8 +44,8 @@ const DEFAULT_MODELS = [
   'all-MiniLM-L6-v2-int8',
 ];
 
-function parseArgs(argv) {
-  const a = { models: DEFAULT_MODELS, budget: 64, limit: undefined, out: undefined, question: 'department' };
+export function parseArgs(argv) {
+  const a = { models: DEFAULT_MODELS, budget: 64, limit: undefined, out: undefined, question: 'department', noTest: false };
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i];
     if (t === '--models') a.models = argv[++i].split(',').map((s) => s.trim()).filter(Boolean);
@@ -40,6 +53,10 @@ function parseArgs(argv) {
     else if (t === '--limit') a.limit = parseInt(argv[++i], 10);
     else if (t === '--out') a.out = argv[++i];
     else if (t === '--question') a.question = argv[++i];
+    else if (t === '--model-dir') a.modelDir = argv[++i];
+    else if (t === '--manifest') a.manifest = argv[++i];
+    else if (t === '--train-hashes') a.trainHashes = argv[++i];
+    else if (t === '--no-test') a.noTest = true;
     else throw new Error(`unknown flag: ${t}`);
   }
   return a;
@@ -59,9 +76,10 @@ function resolveBinding() {
 }
 
 /** Every fixture item as a campaign row for the `department` choice question. */
-function campaignRows(tickets, question, limit) {
+export function campaignRows(tickets, question, limit, { noTest = false } = {}) {
   const rows = [];
-  for (const split of ['train', 'calibration', 'validation', 'transfer', 'test']) {
+  const splits = ['train', 'calibration', 'validation', 'transfer', 'test'].filter((s) => !(noTest && s === 'test'));
+  for (const split of splits) {
     const items = tickets.bySplit[split] ?? [];
     for (const it of items) {
       const label = it.label?.[question] ?? it.label?.department;
@@ -76,37 +94,63 @@ function campaignRows(tickets, question, limit) {
   return rows;
 }
 
-function engineFor(binding, model) {
-  const spec = {
-    embedder: { kind: 'onnx', modelDir: 'models', manifest: 'models/manifest.json', model },
-  };
-  return new binding.Engine(JSON.stringify(spec));
+/** Resolve + verify one model arm; leakage-check it when it ships train hashes. */
+function prepareArm(args, model, tickets) {
+  const resolved = resolveOnnxModel({ modelDir: args.modelDir, manifest: args.manifest, model, trainHashes: args.trainHashes });
+  const th = resolved.trainHashesPath ? readTrainHashes(resolved.trainHashesPath) : null;
+  const leakage = leakageGate(th, {
+    test: tickets.bySplit.test,
+    transfer: tickets.bySplit.transfer,
+    calibration: tickets.bySplit.calibration,
+  });
+  return { resolved, leakage };
 }
 
-const pct = (x) => `${(x * 100).toFixed(1)}%`;
+function engineFor(binding, spec) {
+  return new binding.Engine(JSON.stringify({ embedder: spec }));
+}
+
+const pct = (x) => (typeof x === 'number' ? `${(x * 100).toFixed(1)}%` : 'n/a');
 const f4 = (x) => (typeof x === 'number' ? x.toFixed(4) : 'n/a');
 
-function main(argv) {
+export function main(argv, deps = {}) {
   const args = parseArgs(argv);
-  const binding = resolveBinding();
+  const binding = deps.binding ?? resolveBinding();
   const tickets = loadTickets({ benchDir: BENCH_DIR, fixtureDir: FIXTURE_DIR });
   const questions = buildQuestions(tickets.questions);
   const questionDef = questions[args.question];
   if (!questionDef) throw new Error(`no question '${args.question}' in the fixture`);
-  const rows = campaignRows(tickets, args.question, args.limit);
+  const rows = campaignRows(tickets, args.question, args.limit, { noTest: args.noTest });
 
-  // Jev frozen baseline on the test split, for the side-by-side comparison.
-  const jevBaseline = JSON.parse(readFileSync(join(BENCH_DIR, 'jev-baseline-2026-09-21.json'), 'utf8'));
-  const jev = replayJev(jevBaseline, tickets.bySplit.test, { arm: 'baseline' });
-  const jevBlock = jev.available ? scoreRecords(jev.records, { departments: tickets.departments }) : null;
+  // Jev frozen baseline on the test split, for the side-by-side comparison
+  // (never under --no-test: it is test-split information).
+  let jevBlock = null;
+  if (!args.noTest) {
+    const jevBaseline = JSON.parse(readFileSync(join(BENCH_DIR, 'jev-baseline-2026-09-21.json'), 'utf8'));
+    const jev = replayJev(jevBaseline, tickets.bySplit.test, { arm: 'baseline' });
+    jevBlock = jev.available ? scoreRecords(jev.records, { departments: tickets.departments }) : null;
+  }
+  const testOr = (x) => (args.noTest ? null : x);
 
   const arms = [];
   const allReceipts = [];
   for (const model of args.models) {
     let report;
+    // An unfetched model is a per-arm error (as before); an unpinned or
+    // mismatched model, or a leak, is fatal (fail closed).
+    let prepared;
+    try {
+      prepared = prepareArm(args, model, tickets);
+    } catch (e) {
+      if (e.code !== 'MODEL_MISSING') throw e;
+      console.error(`arm ${model}: ${e.message}`);
+      arms.push({ model, error: e.message });
+      continue;
+    }
+    const { resolved, leakage } = prepared;
     const t0 = performance.now();
     try {
-      const engine = engineFor(binding, model);
+      const engine = engineFor(binding, resolved.spec);
       const spec = {
         question: args.question,
         question_def: questionDef,
@@ -118,12 +162,12 @@ function main(argv) {
       report = JSON.parse(raw);
     } catch (e) {
       console.error(`arm ${model}: ${e && e.message ? e.message : e}`);
-      arms.push({ model, error: String(e && e.message ? e.message : e) });
+      arms.push({ model, embedder_model: resolved.record, error: String(e && e.message ? e.message : e) });
       continue;
     }
     const wallMs = performance.now() - t0;
     if (report.error) {
-      arms.push({ model, error: report.error.message ?? JSON.stringify(report.error) });
+      arms.push({ model, embedder_model: resolved.record, error: report.error.message ?? JSON.stringify(report.error) });
       continue;
     }
     for (const r of report.receipts.receipts) allReceipts.push({ arm: model, ...r });
@@ -137,20 +181,22 @@ function main(argv) {
     ];
     arms.push({
       model,
+      embedder_model: resolved.record,
+      ...(leakage ? { leakage } : {}),
       promotions: report.promotions,
       promoted_via: promotedVia,
       budget_consumed: report.budget_consumed,
       baseline: {
         val: report.baseline_val.baseline_accuracy,
         transfer: report.baseline_transfer.baseline_accuracy,
-        test: report.baseline_test.baseline_accuracy,
-        test_ece: report.baseline_test.ece,
+        test: testOr(report.baseline_test.baseline_accuracy),
+        test_ece: testOr(report.baseline_test.ece),
       },
       champion: {
         val: report.champion_val.champion_accuracy,
         transfer: report.champion_transfer.champion_accuracy,
-        test: report.champion_test.champion_accuracy,
-        test_ece: report.champion_test.ece,
+        test: testOr(report.champion_test.champion_accuracy),
+        test_ece: testOr(report.champion_test.ece),
         options: report.champion_options,
       },
       best_stat: best ? best.statistic : null,
@@ -165,7 +211,7 @@ function main(argv) {
   const champion = ranked[0] ?? null;
 
   // ---- print ----
-  console.log(`\n## optimize campaign — tickets/${args.question} — ${arms.length} model arms`);
+  console.log(`\n## optimize campaign — tickets/${args.question} — ${arms.length} model arms${args.noTest ? ' (--no-test: test withheld)' : ''}`);
   console.log('| model | base val | champ val | base test | champ test | champ ECE | promo | maxWealth | budget |');
   console.log('|---|---|---|---|---|---|---|---|---|');
   for (const a of arms) {
@@ -181,11 +227,13 @@ function main(argv) {
     );
   }
   if (champion) {
-    console.log(`\n### champion arm: ${champion.model}`);
-    console.log('| arm | test acc | test ECE |');
-    console.log('|---|---|---|');
-    console.log(`| jev (frozen replay) | ${jevBlock ? pct(jevBlock.choice_accuracy) : 'n/a'} | ${jevBlock ? f4(jevBlock.ece.ece) : 'n/a'} |`);
-    console.log(`| local champion | ${pct(champion.champion.test)} | ${f4(champion.champion.test_ece)} |`);
+    console.log(`\n### champion arm: ${champion.model} (ranked by validation)`);
+    if (!args.noTest) {
+      console.log('| arm | test acc | test ECE |');
+      console.log('|---|---|---|');
+      console.log(`| jev (frozen replay) | ${jevBlock ? pct(jevBlock.choice_accuracy) : 'n/a'} | ${jevBlock ? f4(jevBlock.ece.ece) : 'n/a'} |`);
+      console.log(`| local champion | ${pct(champion.champion.test)} | ${f4(champion.champion.test_ece)} |`);
+    }
     console.log(`\nchampion options: ${JSON.stringify(champion.champion.options)}`);
     const s = champion.best_stat;
     if (s) {
@@ -199,8 +247,9 @@ function main(argv) {
 
   // ---- write receipts + campaign receipt ----
   const date = new Date().toISOString().slice(0, 10);
-  mkdirSync(RESULTS_DIR, { recursive: true });
-  const receiptsPath = join(RESULTS_DIR, `optimize-receipts-${date}.jsonl`);
+  const resultsDir = deps.resultsDir ?? RESULTS_DIR;
+  mkdirSync(resultsDir, { recursive: true });
+  const receiptsPath = join(resultsDir, `optimize-receipts-${date}.jsonl`);
   writeFileSync(receiptsPath, allReceipts.map((r) => JSON.stringify(r)).join('\n') + (allReceipts.length ? '\n' : ''));
 
   const campaign = {
@@ -212,6 +261,7 @@ function main(argv) {
     counts: tickets.counts,
     row_count: rows.length,
     budget: args.budget,
+    ...(args.noTest ? { no_test: true } : {}),
     jev_test: jevBlock ? { choice_accuracy: jevBlock.choice_accuracy, ece: jevBlock.ece.ece } : null,
     arms,
     champion: champion ? { model: champion.model, options: champion.champion.options, test: champion.champion } : null,
@@ -219,16 +269,18 @@ function main(argv) {
   };
   const outPath = args.out
     ? (isAbsolute(args.out) ? args.out : join(HERE, '..', args.out))
-    : join(RESULTS_DIR, `optimize-tickets-${date}.json`);
+    : join(resultsDir, `optimize-tickets-${date}.json`);
   writeFileSync(outPath, JSON.stringify(campaign, null, 2) + '\n');
   console.log(`\nreceipts → ${receiptsPath}`);
   console.log(`campaign receipt → ${outPath}`);
-  return 0;
+  return { code: 0, campaign, receiptsPath, outPath };
 }
 
-try {
-  process.exit(main(process.argv.slice(2)));
-} catch (e) {
-  console.error(`optimize bench failed: ${e && e.stack ? e.stack : e}`);
-  process.exit(2);
+if (import.meta.url === `file://${process.argv[1]}`) {
+  try {
+    process.exit(main(process.argv.slice(2)).code);
+  } catch (e) {
+    console.error(`optimize bench failed: ${e && e.code === 'LEAKAGE' ? e.message : e && e.stack ? e.stack : e}`);
+    process.exit(e && e.code === 'LEAKAGE' ? 3 : 2);
+  }
 }
