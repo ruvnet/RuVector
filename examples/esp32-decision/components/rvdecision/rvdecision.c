@@ -100,10 +100,15 @@ static float dot(const rd_row *r, const rd_workspace *w, uint8_t bits, float sca
 #endif
     return sum * r->scale * scale;
 }
+/* exp(v - max) for the maximum element is expf(+0) == 1.0f exactly, so it is
+ * returned without the call. Every other element, the summation order and the
+ * final division are unchanged, so results are bit-identical. On targets
+ * without an FPU each skipped expf is a large share of a small model's cost. */
+static inline float exp_shifted(float v, float max) { return v == max ? 1.0f : expf(v - max); }
 static void softmax(float *v, size_t n) {
     float max = v[0], sum = 0;
     for (size_t i = 1; i < n; ++i) if (v[i] > max) max = v[i];
-    for (size_t i = 0; i < n; ++i) { v[i] = expf(v[i] - max); sum += v[i]; }
+    for (size_t i = 0; i < n; ++i) { v[i] = exp_shifted(v[i], max); sum += v[i]; }
     for (size_t i = 0; i < n; ++i) v[i] /= sum;
 }
 /* Only the abstain mass is consumed. Preserve the original summation order
@@ -111,7 +116,7 @@ static void softmax(float *v, size_t n) {
 static float softmax_last(const float *v, size_t n) {
     float max=v[0], sum=0, last=0;
     for (size_t i=1; i<n; ++i) if(v[i]>max) max=v[i];
-    for (size_t i=0; i<n; ++i) { last=expf(v[i]-max); sum+=last; }
+    for (size_t i=0; i<n; ++i) { last=exp_shifted(v[i],max); sum+=last; }
     return last/sum;
 }
 /* Exact half-away-from-zero for finite IEEE binary32 in [-32767,32767].
@@ -142,15 +147,17 @@ rd_status rd_predict(const rd_context *ctx, const float *x, size_t n,
     if (!ctx || !ctx->model || !x || !w || n != ctx->model->dims) return RD_BAD_INPUT;
     const rd_model *m = ctx->model;
     float max = 0, norm2 = 0;
+    size_t imax = 0;
     for (size_t i = 0; i < n; ++i) {
         if (!isfinite(x[i])) return RD_BAD_INPUT;
-        if (fabsf(x[i]) > max) max = fabsf(x[i]);
+        if (fabsf(x[i]) > max) { max = fabsf(x[i]); imax = i; }
     }
     if (max < FLT_MIN) return RD_BAD_INPUT;
     /* Scaling before normalization avoids overflow and underflow in x*x. */
     float qmax = m->quant_bits == 8 ? 127.0f : 32767.0f;
     for (size_t i = 0; i < n; ++i) {
-        float a = x[i] / max;
+        /* x[imax]/max is exactly +-1: a sign copy replaces one software division. */
+        float a = i == imax ? copysignf(1.0f, x[i]) : x[i] / max;
         norm2 += a * a;
         if (m->quant_bits == 8) w->input.q8[i] = (int8_t)round_quantized(a*qmax);
         else w->input.q16[i] = (int16_t)round_quantized(a*qmax);

@@ -532,6 +532,56 @@ The evidence is in `tests/evidence/baud-esp32c6-physical.json`. Other
 USB-UART bridges and other chips may support different rate sets. Only the
 C6 behind a CP210x bridge was measured.
 
+## Follow up: exact kernel changes that pass the physical retention gate
+
+The first physical C6 rig measured 1.056 times, which did not meet the
+1.10 retention rule. A temporary on-chip cycle profile of the candidate
+kernel attributed each decision's cost as follows:
+
+| Stage | Share |
+|---|---|
+| Abstain `softmax_last` | 33% |
+| Class softmax | 24% |
+| Input normalisation (one software division per value) | 16% |
+| Dot products | 15% |
+
+Each remaining `expf` costs about 1,750 cycles on the C6, which has no FPU.
+The profile was never committed.
+
+Two changes are bit-identical by construction:
+- **Max-element exponential.** In both softmax loops, the element equal to
+  the maximum computes `expf(+0)`, which is exactly `1.0f`. It now returns
+  1.0f without the call. The summation order and the final division are
+  unchanged.
+- **Max-element division.** The first scan records the index of the maximum
+  magnitude. For that element, `x/max` is exactly plus or minus 1, so a sign
+  copy replaces its software division. An earlier variant compared each
+  value with `==`. On soft float those comparisons cost as much as the
+  division they saved, and the rig measured no gain, so it was rejected.
+
+A cheaper conversion for 32-bit-range dot products also produced no
+measurable gain and was rejected, following the retention rule.
+
+Validation:
+- The exact baseline differential passes for the portable, S3 and C6
+  profiles: 84,480 comparisons each, including invalid inputs.
+- The ASan/UBSan kernel suite passes, covering 196,602 rounding boundaries.
+- The pinned software lab passes 62 Python tests and 11 exact native pairs.
+
+The 11-round physical C6 rig used the pinned v5.4.4 occupancy pair, 128
+held-out rows per round and 2,048 profiled runs per arm:
+- Every round replayed identical decisions.
+- Both arms had 100% reference parity and stable warmed heap.
+- The baseline kernel took 76.59 µs (12,085 cycles). The candidate took
+  69.15 µs (10,876 cycles).
+- The median paired speedup was 1.108, with a bootstrap lower bound of 1.108.
+  That meets the 1.10 rule, so `retain=true`.
+
+This is the first physical retention for the C6 only. S3 physical rounds and
+energy remain unmeasured, and CI cannot waive either gate. The evidence is in
+`tests/evidence/rig-esp32c6-physical-retained*.json`. To roll back, revert
+`components/rvdecision/rvdecision.c` to the previous commit.
+
 ## Sources
 
 * https://archive.ics.uci.edu/dataset/357/occupancy+detection
