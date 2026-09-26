@@ -1,8 +1,8 @@
 name: Typesafe CI
 
-# ADR-006: CI runs the synthetic fixture and a hash-embedder slice on every PR;
-# gates are informational (report-only) until an ONNX embedder is in CI. No
-# publish job here — publishing is gated by the full nightly suite + provenance.
+# ADR-006: PRs run the frozen synthetic fixture with the hash test embedder.
+# Quality numbers here are advisory; build-typesafe.yml separately requires a
+# strict ONNX run against its actual release binary before any manual publish.
 
 on:
   push:
@@ -111,7 +111,7 @@ jobs:
       - name: Verify frozen-fixture hashes (no rewrite)
         run: node scripts/hash-fixtures.mjs --check
       - name: Unit + integration tests
-        run: node --test test/*.test.mjs
+        run: node --test test/*.test.mjs bench/test/*.test.mjs
       - name: ADR-005 security assertions
         run: node scripts/check-security.mjs
 
@@ -132,13 +132,15 @@ jobs:
       - name: Install deps
         working-directory: npm/packages/typesafe
         run: npm install --no-audit --no-fund --no-workspaces --legacy-peer-deps
-      # Build the native binding so the local arm is real once the core lands.
-      # If the build fails, the harness still reports "engine unavailable" and
-      # --report-only keeps the exit code 0 (gates are informational in CI).
+      # The hash benchmark is advisory, but a missing native arm must still
+      # fail CI rather than produce a misleading report-only green check.
       - name: Build native binding
         working-directory: npm/packages/typesafe
-        continue-on-error: true
         run: bash scripts/build-native.sh
+      - name: Assert native binding is actually selected
+        working-directory: npm/packages/typesafe
+        run: |
+          node -e "const b=require('./index.js'); if(b.backend!=='native'||typeof b.Engine!=='function'){throw new Error('native benchmark binding unavailable')}"
       - name: Tickets slice — jev replay + local, gates report-only
         working-directory: npm/packages/typesafe
         run: |

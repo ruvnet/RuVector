@@ -107,10 +107,13 @@ export function replayJev(jevBaseline, testItems, { arm = 'baseline', limit } = 
  * train items for a choice question keyed by `labelKey`. Records the effective
  * shot count per class (a class may hold < N).
  */
-export function fewShotExamples(trainItems, labelKey, shots) {
+export function fewShotExamples(trainItems, labelKey, shots, { labelMap } = {}) {
   const byClass = new Map();
   for (const it of trainItems) {
     const lab = it.label[labelKey];
+    if (lab === undefined || lab === null) {
+      throw new Error(`missing ${labelKey} label on train item ${it.id}`);
+    }
     if (!byClass.has(lab)) byClass.set(lab, []);
     byClass.get(lab).push(it);
   }
@@ -119,21 +122,25 @@ export function fewShotExamples(trainItems, labelKey, shots) {
   for (const [lab, items] of [...byClass.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0])))) {
     const picked = [...items].sort((a, b) => sha256hex(a.id).localeCompare(sha256hex(b.id))).slice(0, shots);
     effective[lab] = picked.length;
-    for (const it of picked) examples.push({ text: it.text, label: String(lab) });
+    const mapped = labelMap ? labelMap[String(lab)] : String(lab);
+    if (typeof mapped !== 'string' || !mapped.length) {
+      throw new Error(`no training label for ${labelKey}=${String(lab)}`);
+    }
+    for (const it of picked) examples.push({ text: it.text, label: mapped });
   }
   return { examples, effective };
 }
 
 /**
  * Train the engine for the few-shot regime, if it exposes trainJson. Trains the
- * `department` choice question on the train split. Returns training metadata
+ * named question on the train split. Returns training metadata
  * (never throws for a missing trainJson — zero-shot engines simply skip).
  */
-export function trainFewShot(engine, trainItems, { shots = 8, question = 'department', labelKey = 'department' } = {}) {
+export function trainFewShot(engine, trainItems, { shots = 8, question = 'department', labelKey = 'department', labelMap } = {}) {
   if (typeof engine.trainJson !== 'function') {
     return { trained: false, reason: 'engine has no trainJson' };
   }
-  const { examples, effective } = fewShotExamples(trainItems, labelKey, shots);
+  const { examples, effective } = fewShotExamples(trainItems, labelKey, shots, { labelMap });
   let out;
   try {
     out = engine.trainJson(JSON.stringify({ question, examples }));
@@ -148,6 +155,35 @@ export function trainFewShot(engine, trainItems, { shots = 8, question = 'depart
   }
   if (parsed && parsed.error) return { trained: false, error: parsed.error };
   return { trained: true, shots, shotsEffective: effective, examplesUsed: examples.length };
+}
+
+/** Train every frozen tickets question from the same train-only pool. The
+ * per-class shot cap applies independently to each head; score labels must be
+ * the actual legend strings, while noul needs positive/negative labels. */
+export function trainTicketQuestions(engine, trainItems, questionDefs, { shots = 8 } = {}) {
+  const legend = questionDefs.frustration?.criteria;
+  if (questionDefs.department?.type !== 'choice' ||
+      questionDefs.urgent?.type !== 'noul' ||
+      questionDefs.frustration?.type !== 'score' ||
+      !Array.isArray(legend) || legend.some((s) => typeof s !== 'string' || !s.length)) {
+    throw new Error('tickets fixture is missing a choice, noul, or score definition');
+  }
+  const questions = {
+    department: trainFewShot(engine, trainItems, { shots, question: 'department', labelKey: 'department' }),
+    urgent: trainFewShot(engine, trainItems, {
+      shots, question: 'urgent', labelKey: 'urgent', labelMap: { true: 'yes', false: 'no' },
+    }),
+    frustration: trainFewShot(engine, trainItems, {
+      shots, question: 'frustration', labelKey: 'frustration',
+      labelMap: Object.fromEntries(legend.map((label, index) => [String(index), label])),
+    }),
+  };
+  return {
+    trained: Object.values(questions).every((q) => q.trained),
+    shots,
+    examplesUsed: Object.values(questions).reduce((sum, q) => sum + (q.examplesUsed ?? 0), 0),
+    questions,
+  };
 }
 
 /**

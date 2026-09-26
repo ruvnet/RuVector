@@ -14,8 +14,10 @@ const sha256hex = (s) => createHash('sha256').update(String(s)).digest('hex');
  * Score a set of normalised records (from arms.mjs) into a metrics block.
  * `departments` fixes the label set so macro-F1/Brier are stable.
  */
-export function scoreRecords(records, { departments, wallMs } = {}) {
-  const scored = records.filter((r) => r.choice !== null && r.choice !== undefined);
+export function scoreRecords(records, { departments, wallMs, majorityLabels } = {}) {
+  // OOS rows have no valid intent label. Include them in abstain AUROC and
+  // latency, but never count their necessarily-wrong choice as intent accuracy.
+  const scored = records.filter((r) => r.oos !== true && r.choice !== null && r.choice !== undefined);
   const choicePred = scored.map((r) => r.choice);
   const choiceTrue = scored.map((r) => r.trueChoice);
   const choiceCorrect = scored.map((r) => r.correctChoice);
@@ -43,8 +45,11 @@ export function scoreRecords(records, { departments, wallMs } = {}) {
   if (oosFlagged.length) {
     const scores = oosFlagged.map((r) => r.abstain);
     const positive = oosFlagged.map((r) => r.oos === true);
-    block.oos_auroc = auroc(scores, positive);
+    block.oos_auroc = positive.some(Boolean) && positive.some((v) => !v)
+      ? auroc(scores, positive)
+      : null;
     block.n_oos = positive.filter(Boolean).length;
+    block.n_in_scope = positive.filter((v) => !v).length;
     block.oos_majority_rate = majorityBaselineRate(positive.map(Number));
   }
 
@@ -53,6 +58,12 @@ export function scoreRecords(records, { departments, wallMs } = {}) {
   if (urgentRecs.length) {
     block.urgent_accuracy = accuracy(urgentRecs.map((r) => r.urgent.correct));
     block.urgent_majority_rate = majorityBaselineRate(urgentRecs.map((r) => r.urgent.label));
+    if (majorityLabels && Object.hasOwn(majorityLabels, 'urgent')) {
+      block.urgent_train_majority_label = majorityLabels.urgent;
+      block.urgent_train_majority_accuracy = urgentRecs.length === records.length
+        ? accuracy(urgentRecs.map((r) => r.urgent.label === majorityLabels.urgent))
+        : null;
+    }
     // AUROC only when the arm exposes a continuous noul score (local arm).
     const withScore = urgentRecs.filter((r) => typeof r.urgent.score === 'number');
     if (withScore.length === urgentRecs.length && withScore.length) {
@@ -64,6 +75,12 @@ export function scoreRecords(records, { departments, wallMs } = {}) {
   const frRecs = records.filter((r) => r.frustration);
   if (frRecs.length) {
     block.frustration_accuracy = accuracy(frRecs.map((r) => r.frustration.correct));
+    if (majorityLabels && Object.hasOwn(majorityLabels, 'frustration')) {
+      block.frustration_train_majority_label = majorityLabels.frustration;
+      block.frustration_train_majority_accuracy = frRecs.length === records.length
+        ? accuracy(frRecs.map((r) => r.frustration.label === majorityLabels.frustration))
+        : null;
+    }
   }
 
   if (typeof wallMs === 'number' && wallMs > 0) {

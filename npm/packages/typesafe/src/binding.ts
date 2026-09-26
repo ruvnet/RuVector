@@ -63,9 +63,9 @@ export function toOptionsJson(opts: EngineOptions): string {
 let cached: Binding | null | undefined;
 
 /**
- * Resolve the default binding lazily. Returns `null` (never throws) when the
- * native addon and the WASM fallback are both absent, so a caller can surface a
- * clean "run npm run build" message instead of a require stack.
+ * Resolve the default binding lazily. Returns `null` when no artifact was
+ * built, so the caller can suggest a build. A present but broken addon must
+ * retain its load error (including its code and cause) for diagnosis.
  */
 export function resolveDefaultBinding(): Binding | null {
   if (cached !== undefined) return cached;
@@ -77,10 +77,26 @@ export function resolveDefaultBinding(): Binding | null {
       return cached;
     }
     cached = null;
-  } catch {
+  } catch (error) {
+    // The package loader falls back to WASM when no native artifact exists.
+    // Only its missing WASM module (or a missing loader during development) is
+    // an expected absence. In particular, ERR_DLOPEN_FAILED from a *present*
+    // native binary must not be misreported as "no binding found".
+    if (!isMissingArtifact(error)) throw error;
     cached = null;
   }
   return cached;
+}
+
+function isMissingArtifact(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null || !('code' in error) ||
+      error.code !== 'MODULE_NOT_FOUND' || !('message' in error) ||
+      typeof error.message !== 'string') {
+    return false;
+  }
+  const firstLine = error.message.split('\n', 1)[0];
+  return firstLine === "Cannot find module '../index.js'" ||
+    firstLine === "Cannot find module './wasm/ruvector_typesafe_wasm.js'";
 }
 
 /** Test hook: clear the memoised default binding. */

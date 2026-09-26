@@ -55,14 +55,19 @@ export function evaluateGates(metrics, ctx, gatesDoc = loadGates()) {
     }
     const actual = metrics[g.metric];
     if (actual === undefined || actual === null || Number.isNaN(actual)) {
-      rows.push({ name, status: 'SKIP', detail: `metric ${g.metric} not measured`, threshold: fmtThreshold(g), actual: null });
+      // A suite declaring an OOS slice cannot silently pass when its AUROC
+      // has only positive rows (or no prediction for either class).
+      const required = (name === 'oos_auroc' && ctx.hasOos) ||
+        (g.applies_when === 'has_secondary' && ctx.hasSecondary);
+      rows.push({ name, status: required ? 'FAIL' : 'SKIP', detail: `metric ${g.metric} not measured`, threshold: fmtThreshold(g), actual: null });
       continue;
     }
     let target;
     if (g.reference) {
       const ref = metrics[g.reference];
       if (ref === undefined || ref === null) {
-        rows.push({ name, status: 'SKIP', detail: `reference ${g.reference} not measured`, threshold: null, actual });
+        const required = g.applies_when === 'has_secondary' && ctx.hasSecondary;
+        rows.push({ name, status: required ? 'FAIL' : 'SKIP', detail: `reference ${g.reference} not measured`, threshold: null, actual });
         continue;
       }
       target = ref + (g.margin_pp ?? 0) / 100; // margin_pp is in percentage points
@@ -90,6 +95,8 @@ function gateApplies(g, ctx) {
       return { ok: true };
     case 'has_oos':
       return ctx.hasOos ? { ok: true } : { ok: false, why: 'no OOS slice in this suite' };
+    case 'has_secondary':
+      return ctx.hasSecondary ? { ok: true } : { ok: false, why: 'no secondary ticket heads in this suite' };
     case 'embedder_native':
       return ctx.embedderTarget === 'native'
         ? { ok: true }

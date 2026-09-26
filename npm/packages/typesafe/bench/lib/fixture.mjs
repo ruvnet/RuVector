@@ -131,6 +131,31 @@ export function assertDisjoint(bySplit) {
   return { disjoint: true, total: seen.size };
 }
 
+/** Remove exact-content collisions with held-out splits from the training
+ * pool. The frozen fixture is ID-disjoint, but one generated ticket text is
+ * identical across IDs; it must not become a few-shot example. */
+export function excludeHeldOutText(bySplit) {
+  const heldOut = new Set(SPLITS.filter((s) => s !== 'train')
+    .flatMap((s) => (bySplit[s] ?? []).map((it) => it.text)));
+  const trainItems = (bySplit.train ?? []).filter((it) => !heldOut.has(it.text));
+  return { trainItems, excluded: (bySplit.train ?? []).length - trainItems.length };
+}
+
+/** Pick a constant-classifier label using only the actual training pool.
+ * Stable lexical tie-breaking avoids accidental dependence on input order. */
+export function majorityLabelFromTrain(trainItems, labelKey) {
+  const counts = new Map();
+  for (const item of trainItems) {
+    const label = item.label?.[labelKey];
+    if (label === undefined || label === null) throw new Error(`missing train label ${labelKey}`);
+    const key = String(label);
+    const entry = counts.get(key);
+    counts.set(key, { label, n: (entry?.n ?? 0) + 1 });
+  }
+  if (counts.size === 0) throw new Error(`no train labels for ${labelKey}`);
+  return [...counts.entries()].sort((a, b) => b[1].n - a[1].n || a[0].localeCompare(b[0]))[0][1].label;
+}
+
 /**
  * Build the wire request `questions` object (ADR crate types) from the
  * fixture's gen0 question definitions. `choice` criteria pass through as text;

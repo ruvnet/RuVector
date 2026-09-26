@@ -3,7 +3,7 @@
 Local typed decisions over sentence embeddings, with the wire contract of Jev
 ([typesafe.ai](https://typesafe.ai)) "System One". You send one text `state`
 plus a batch of questions — `choice`, `score`, `noul` — and get back per-question
-answers with a **calibrated** confidence, an abstain mass, and a receipt naming
+answers with confidence, an abstain mass, and a receipt naming
 the head, model and temperature that produced each answer.
 
 It is a bounded classifier, not an LLM host: **no network by default, no
@@ -17,12 +17,18 @@ numbers are measured by `typesafe bench` and recorded under `bench/results/`
   accepted and returned unchanged (`typesafe serve`).
 - Type-safe questions: the answer to `choice({ billing, fraud })` is typed
   `{ choice: "billing" | "fraud"; probabilities: Record<"billing"|"fraud", number> }`.
-- A governed self-optimization loop (ADR-004) that never gets worse on your
-  frozen split, and explains every change.
+- A governed self-optimization loop (ADR-004) that checks proposals against
+  frozen validation and transfer splits, and explains every promotion.
 
-Status: **v0.1.0.** The core and the TypeScript API are here. Platform binaries
-are not yet published to npm; the native addon must be built locally, and a WASM
-fallback ships. INT8 / ONNX embedder availability is per ADR-002's spike.
+Status: **v0.1.0.** The current npm package includes native platform binaries
+with the hash test embedder and a WASM fallback. Native ONNX works when built
+from source with `scripts/build-native.sh --onnx`; a future ONNX capable npm
+release is gated on the frozen real model benchmark. Model weights are separate,
+verified against `models/manifest.json`, and are never downloaded during a
+decision.
+
+The source package is version **0.1.1** for the next release. This version is
+not published until the native ONNX builds and strict release gates pass.
 
 ## Install
 
@@ -30,9 +36,12 @@ fallback ships. INT8 / ONNX embedder availability is per ADR-002's spike.
 npm install @ruvector/typesafe
 ```
 
-The first release ships **no dependencies**. If no prebuilt native binary
-matches your platform, build the addon locally (`npm run build:napi`) or rely on
-the bundled WASM fallback.
+The published package ships **no runtime dependencies**. On a supported
+platform it loads the included native binary; otherwise it uses the bundled
+WASM fallback. Both currently use the hash test embedder. To evaluate real
+sentence embeddings from this source checkout, run `node scripts/fetch-models.mjs`
+and `bash scripts/build-native.sh --onnx` from `npm/packages/typesafe`, then
+select the model in `createTypesafe` (see [Embedders](#embedders)).
 
 ## Quick start (TypeScript)
 
@@ -54,7 +63,7 @@ r.dept.choice;            // "billing" | "fraud"   (typed from the criteria keys
 r.dept.probabilities;     // Record<"billing" | "fraud", number>
 r.mood.legend;            // "Calm" | "Irritated" | "Angry"
 r.urgent.noul;            // number, 0..1
-r.dept.confidence;        // calibrated top-1 probability
+r.dept.confidence;        // confidence; hash test embedder is not calibrated
 r.answers.dept.choice;    // same answer, also under .answers
 r.usage;                  // { embed_calls, texts_embedded, state_bytes }
 ```
@@ -171,9 +180,11 @@ A regression test (`test/security.test.mjs`) asserts the source contains no
 
 ## Measured
 
-Measured 2026-09-21 on the frozen tickets fixture (8 departments; the training
-pool yields **137 usable examples** after the frozen split). Receipts are
-checked in under `bench/results/`.
+The 2026-09-21 numbers below are exploratory historical receipts. The corrected
+harness trains all three heads and removes one exact training text shared with
+a held out split. Its new results must be measured separately and must clear
+the strict release gates before claiming a quality or speed improvement.
+The old receipts are checked in under `bench/results/`.
 
 **typesafe engine (local, onnx)** — `department` choice question, from
 `bench/results/tickets-onnx-bge-2026-09-21.json` (16-shot) and

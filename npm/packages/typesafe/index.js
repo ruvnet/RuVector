@@ -41,10 +41,17 @@ function tryRequire(id) {
 function loadNative() {
   const file = platformMap[process.platform] && platformMap[process.platform][process.arch];
   if (!file) return null;
-  // 1. A binary bundled in or built into this package (local dev, and the
-  //    self-contained 0.1.x releases). If the file is THERE, any failure to
-  //    load it is a real fault — a missing system library, an ABI mismatch —
-  //    so let it surface. `TYPESAFE_BACKEND=wasm` is the documented escape.
+  // Linux release binaries sit beside their matching ONNX Runtime shared
+  // libraries. Keep each architecture in its own directory: both libraries
+  // have the same SONAME and must never overwrite each other in the meta
+  // package. Local hash builds and older releases still use the flat path.
+  if (process.platform === 'linux') {
+    const platform = file.slice('typesafe.'.length, -'.node'.length);
+    const paired = path.join(__dirname, 'native', platform, file);
+    if (fs.existsSync(paired)) return require(paired);
+  }
+  // A present addon that fails to load is a real fault (missing shared library
+  // or ABI mismatch), so let that error surface instead of falling to WASM.
   const local = path.join(__dirname, 'native', file);
   if (fs.existsSync(local)) return require(local);
   // 2. The per-platform package, once the optionalDependencies bump lands

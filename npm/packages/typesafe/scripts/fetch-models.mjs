@@ -16,6 +16,7 @@
 // Usage:
 //   node scripts/fetch-models.mjs            # download + verify (or bootstrap)
 //   node scripts/fetch-models.mjs --check    # verify only; do not download
+//   node scripts/fetch-models.mjs --model bge-small-en-v1.5  # one pinned model
 
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile, stat } from 'node:fs/promises';
@@ -39,7 +40,23 @@ const PLAN = {
   'all-MiniLM-L6-v2/tokenizer.json': 'Xenova/all-MiniLM-L6-v2/resolve/main/tokenizer.json',
 };
 
-const checkOnly = process.argv.includes('--check');
+function parseArgs(argv) {
+  let checkOnly = false;
+  let modelName = null;
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--check') {
+      if (checkOnly) throw new Error('--check supplied twice');
+      checkOnly = true;
+    } else if (argv[i] === '--model') {
+      if (modelName !== null) throw new Error('--model supplied twice');
+      modelName = argv[++i];
+      if (!modelName || modelName.startsWith('--')) throw new Error('--model requires a model name');
+    } else {
+      throw new Error(`unknown argument: ${argv[i]}`);
+    }
+  }
+  return { checkOnly, modelName };
+}
 
 function sha256(buf) {
   return createHash('sha256').update(buf).digest('hex');
@@ -72,8 +89,20 @@ function filesFromManifest(manifest) {
 }
 
 async function main() {
+  const { checkOnly, modelName } = parseArgs(process.argv.slice(2));
   const manifest = JSON.parse(await readFile(MANIFEST, 'utf8'));
-  const files = filesFromManifest(manifest);
+  const matching = modelName === null ? manifest.models : manifest.models.filter((m) => m.name === modelName);
+  if (modelName !== null) {
+    if (matching.length !== 1) {
+      throw new Error(`--model ${modelName}: expected one manifest entry, found ${matching.length}`);
+    }
+    const [model] = matching;
+    if (!/^[0-9a-f]{64}$/.test(model.sha256) ||
+        !/^[0-9a-f]{64}$/.test(model.tokenizer_sha256)) {
+      throw new Error(`--model ${modelName}: model and tokenizer SHA-256 pins are required`);
+    }
+  }
+  const files = filesFromManifest({ models: matching });
   let bootstrapped = false;
   let failures = 0;
 

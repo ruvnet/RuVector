@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/typesafe",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local typed decisions (choice / score / noul) over sentence embeddings — a ruvector-powered, self-optimizing alternative to typesafe.ai's System One API. Native (napi-rs) with a WASM fallback; no network, no per-token cost.",
   "license": "MIT",
   "repository": {
@@ -47,8 +47,8 @@
     "build": "tsc -p tsconfig.json",
     "build:napi": "napi build --platform --release --cargo-cwd ../../../crates/ruvector-typesafe-ffi",
     "typecheck": "tsc --noEmit -p tsconfig.typetest.json",
-    "test": "node --test test/*.test.mjs",
-    "test:all": "tsc -p tsconfig.json && tsc --noEmit -p tsconfig.typetest.json && node --test test/*.test.mjs",
+    "test": "node --test test/*.test.mjs bench/test/*.test.mjs",
+    "test:all": "tsc -p tsconfig.json && tsc --noEmit -p tsconfig.typetest.json && node --test test/*.test.mjs bench/test/*.test.mjs",
     "prepublishOnly": "tsc -p tsconfig.json",
     "bench": "node bench/run.mjs"
   },

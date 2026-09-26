@@ -20,7 +20,7 @@ export async function load({ limit, cacheDir } = {}) {
   const data = JSON.parse(f.bytes.toString('utf8'));
 
   const trainItems = toItems(data.train, 'clinc-tr');
-  let inScope = toItems(data.test, 'clinc-te');
+  let inScope = toItems(data.test, 'clinc-te').map((it) => ({ ...it, oos: false }));
   let oos = toItems(data.oos_test, 'clinc-oos');
   if (typeof limit === 'number') {
     inScope = inScope.slice(0, limit);

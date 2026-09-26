@@ -1,22 +1,20 @@
 name: Build Typesafe Native Modules
 
 # Builds and publishes the five platform binaries for @ruvector/typesafe plus
-# the meta package. Modelled on build-router.yml — same runners, same pinned
-# action SHAs, same napi invocation, same platform matrix.
+# the meta package. Modelled on build-router.yml with native-architecture
+# runners for every platform, so each ONNX binary is loaded before publishing.
 #
 # Two deliberate deviations from build-router.yml, both called out in the PR:
 #   1. Publish is gated ONLY on a manual workflow_dispatch with `publish: true`
 #      (router also auto-publishes on a `v*` tag). @ruvector/typesafe ships from
 #      an explicit human dispatch, never as a side effect of tagging the repo.
-#   2. Publishing fails loudly and is verified on the registry (see below), where
-#      router swallowed failures with `|| echo` (issue #1007 — fixed in that file
-#      in this same PR).
+#   2. Publishing fails loudly and is verified on the registry (see below).
+#      An existing version cannot substitute older hash-only binary bytes.
 #
-# The napi cdylib is built WITH DEFAULT FEATURES (hash embedder only). We do NOT
-# enable `native-onnx`: `ort`'s `download-binaries` fetches the ONNX Runtime at
-# build time, which would add tens of MB per platform and a build-time network
-# dependency. ONNX stays an opt-in local/source build (scripts/build-native.sh
-# --onnx); the shipped platform binaries are hash-only and network-free.
+# Release binaries are built with native-onnx on every target. Manual publish
+# depends on a strict frozen ONNX ticket run against the linux-x64-gnu artifact
+# from this SAME build matrix. The model and tokenizer are hash-pinned, and
+# model bytes are downloaded only for the release check, never at runtime.
 
 on:
   push:
@@ -61,13 +59,13 @@ jobs:
           - host: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             platform: linux-x64-gnu
-          - host: ubuntu-22.04
+          - host: ubuntu-22.04-arm
             target: aarch64-unknown-linux-gnu
             platform: linux-arm64-gnu
-          - host: macos-14
+          - host: macos-15-intel
             target: x86_64-apple-darwin
             platform: darwin-x64
-          - host: macos-14
+          - host: macos-15
             target: aarch64-apple-darwin
             platform: darwin-arm64
           - host: windows-2022
@@ -83,7 +81,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
@@ -96,12 +94,6 @@ jobs:
         with:
           key: typesafe-${{ matrix.settings.target }}
 
-      - name: Install cross-compilation tools (Linux ARM64)
-        if: matrix.settings.platform == 'linux-arm64-gnu'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-
       - name: Install dependencies
         working-directory: npm/packages/typesafe
         run: npm install --ignore-scripts --omit=optional --force
@@ -109,7 +101,64 @@ jobs:
       - name: Clean any stale native artifacts (fresh, deterministic build)
         shell: bash
         run: |
-          rm -f npm/packages/typesafe/*.node npm/packages/typesafe/native/*.node || true
+          rm -f npm/packages/typesafe/*.node npm/packages/typesafe/native/*.node
+          rm -rf npm/packages/typesafe/native/linux-x64-gnu npm/packages/typesafe/native/linux-arm64-gnu
+
+      # Pyke's prebuilt ort-sys archives require newer glibc/libstdc++ than
+      # Ubuntu 22.04. Microsoft's ONNX Runtime 1.28.0 release archives have
+      # been checked against that baseline; pin their exact bytes here.
+      - name: Fetch pinned ONNX Runtime shared library (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          case '${{ matrix.settings.platform }}' in
+            linux-x64-gnu)
+              archive_name=onnxruntime-linux-x64-1.28.0.tgz
+              archive_sha=a3e1b79d7bb1bf09696ce675f49e4064e6c81f6202b8225624fff0e93f8d6407
+              ;;
+            linux-arm64-gnu)
+              archive_name=onnxruntime-linux-aarch64-1.28.0.tgz
+              archive_sha=e15ff8b5d85afe6c144d97c6fd432254bf76a219daaf17658087d6ecb3e8f0bb
+              ;;
+            *) exit 1 ;;
+          esac
+          archive="$RUNNER_TEMP/$archive_name"
+          curl --fail --location --retry 3 --output "$archive" \
+            "https://github.com/microsoft/onnxruntime/releases/download/v1.28.0/$archive_name"
+          printf '%s  %s\n' "$archive_sha" "$archive" | sha256sum --check --
+          mkdir -p "$RUNNER_TEMP/ort"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/ort" --strip-components=1
+          test -f "$RUNNER_TEMP/ort/lib/libonnxruntime.so.1"
+          test -f "$RUNNER_TEMP/ort/lib/libonnxruntime_providers_shared.so"
+          echo "ORT_LIB_PATH=$RUNNER_TEMP/ort/lib" >> "$GITHUB_ENV"
+          echo 'ORT_PREFER_DYNAMIC_LINK=1' >> "$GITHUB_ENV"
+          # The published .so sits next to its .node in both npm packages.
+          echo 'RUSTFLAGS=-C link-arg=-Wl,-rpath,$ORIGIN' >> "$GITHUB_ENV"
+
+      # ort-sys rc.13 has no macOS Intel download. Build the exact ORT source
+      # version it targets on a native x86_64 runner. Shared linking avoids
+      # rc.13's missing model_package.a entry in its custom static linker.
+      - name: Build pinned ONNX Runtime from source (macOS Intel)
+        if: matrix.settings.platform == 'darwin-x64'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --recursive --branch v1.28.0 --single-branch --depth 1 \
+            https://github.com/microsoft/onnxruntime.git "$RUNNER_TEMP/onnxruntime"
+          test "$(git -C "$RUNNER_TEMP/onnxruntime" rev-parse HEAD)" = \
+            da9b5e364c465de65c49d91e696cd6485270757f
+          (
+            cd "$RUNNER_TEMP/onnxruntime"
+            ./build.sh --update --build --config Release --parallel 3 \
+              --skip_tests --compile_no_warning_as_error --skip_submodule_sync \
+              --build_shared_lib \
+              --cmake_extra_defines CMAKE_OSX_ARCHITECTURES=x86_64
+          )
+          test -f "$RUNNER_TEMP/onnxruntime/build/MacOS/Release/libonnxruntime.dylib"
+          echo "ORT_LIB_PATH=$RUNNER_TEMP/onnxruntime/build/MacOS/Release" >> "$GITHUB_ENV"
+          echo 'ORT_PREFER_DYNAMIC_LINK=1' >> "$GITHUB_ENV"
+          echo 'RUSTFLAGS=-C link-arg=-Wl,-rpath,@loader_path' >> "$GITHUB_ENV"
 
       # napi-rs emits its OWN index.js / index.d.ts into the output directory and
       # will happily overwrite this package's hand-written platform loader with
@@ -120,26 +169,24 @@ jobs:
       # the d.ts goes to a scratch name. Both tracked files are then restored
       # and asserted, so the build cannot clobber them whatever a future CLI
       # version decides to generate.
-      - name: Build native module (default features — hash embedder only, no ONNX)
+      - name: Build native module (hash and native ONNX)
         working-directory: npm/packages/typesafe
         shell: bash
         run: |
           set -euo pipefail
-          npx napi build --platform --release \
+          npx napi build --platform --release --features native-onnx \
             --cargo-cwd ../../../crates/ruvector-typesafe-ffi \
             --target ${{ matrix.settings.target }} \
             --js false --dts napi-generated.d.ts
           rm -f napi-generated.d.ts
           git checkout -- index.js index.d.ts
           node -e "const s=require('fs').readFileSync('index.js','utf8'); if(!/backend/.test(s)){console.error('index.js is not the hand-written loader after build');process.exit(1)}; console.log('loader intact after napi build')"
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
       - name: Prepare artifact (rename to the loader's expected name)
         shell: bash
         run: |
           set -euo pipefail
-          # index.js's platformMap loads native/typesafe.<platform>.node, so we
+          # index.js's platformMap selects typesafe.<platform>.node, so we
           # rename whatever napi emitted to that deterministic name here. The
           # find covers both the package dir (napi's default output) and the
           # crate dir, exactly as build-router.yml does.
@@ -154,44 +201,131 @@ jobs:
           echo "Built: $NODE_FILE"
           mkdir -p typesafe-artifacts/${{ matrix.settings.platform }}
           cp -v "$NODE_FILE" "typesafe-artifacts/${{ matrix.settings.platform }}/typesafe.${{ matrix.settings.platform }}.node"
+          if [ "$RUNNER_OS" = Linux ]; then
+            cp -L "$ORT_LIB_PATH/libonnxruntime.so.1" \
+              "typesafe-artifacts/${{ matrix.settings.platform }}/libonnxruntime.so.1"
+            # The ORT archive includes this companion; keep it adjacent in
+            # case an execution provider is loaded by name at runtime.
+            cp -L "$ORT_LIB_PATH/libonnxruntime_providers_shared.so" \
+              "typesafe-artifacts/${{ matrix.settings.platform }}/libonnxruntime_providers_shared.so"
+          fi
+          if [ '${{ matrix.settings.platform }}' = darwin-x64 ]; then
+            # CMake gives the dylib a versioned @rpath install name. Derive
+            # its exact basename from the addon, then copy the real bytes
+            # under that name (GitHub artifacts and npm do not retain symlinks).
+            dylib_ref=$(otool -L "$NODE_FILE" | awk '$1 ~ /^@rpath\/libonnxruntime.*\.dylib$/ {print $1}')
+            test -n "$dylib_ref"
+            dylib_name="${dylib_ref##*/}"
+            test -f "$ORT_LIB_PATH/$dylib_name"
+            cp -L "$ORT_LIB_PATH/$dylib_name" \
+              "typesafe-artifacts/darwin-x64/$dylib_name"
+            otool -D "typesafe-artifacts/darwin-x64/$dylib_name" | grep -Fx "$dylib_ref"
+          fi
 
-      # Loader parity check on the native-arch legs: put the binary where the
-      # loader looks and prove index.js actually selects the native backend by
-      # that filename. NOT continue-on-error — a name mismatch fails the build.
-      # (linux-arm64 is cross-compiled, so it is not natively loadable here.)
-      - name: Verify loader picks the native binary
-        if: |
-          (matrix.settings.platform == 'linux-x64-gnu' && runner.os == 'Linux') ||
-          (matrix.settings.platform == 'darwin-x64' && runner.os == 'macOS' && runner.arch == 'X64') ||
-          (matrix.settings.platform == 'darwin-arm64' && runner.os == 'macOS' && runner.arch == 'ARM64') ||
-          (matrix.settings.platform == 'win32-x64-msvc' && runner.os == 'Windows')
+      # Run on each target's actual architecture, including Linux ARM64 and
+      # Intel macOS. A skipped or broken binary must block the whole matrix.
+      - name: Verify loader picks the native ONNX binary
         shell: bash
         working-directory: npm/packages/typesafe
         run: |
           set -euo pipefail
-          mkdir -p native
+          binary_dir=native
+          if [ "$RUNNER_OS" = Linux ]; then binary_dir="native/${{ matrix.settings.platform }}"; fi
+          mkdir -p "$binary_dir"
           cp "$GITHUB_WORKSPACE/typesafe-artifacts/${{ matrix.settings.platform }}/typesafe.${{ matrix.settings.platform }}.node" \
-             "native/typesafe.${{ matrix.settings.platform }}.node"
+             "$binary_dir/typesafe.${{ matrix.settings.platform }}.node"
+          export BINARY_PATH="$binary_dir/typesafe.${{ matrix.settings.platform }}.node"
+          if [ "$RUNNER_OS" = Linux ]; then
+            cp "$GITHUB_WORKSPACE/typesafe-artifacts/${{ matrix.settings.platform }}/"*.so* "$binary_dir/"
+            readelf -d "$BINARY_PATH" | grep -F 'libonnxruntime.so.1'
+            readelf -d "$BINARY_PATH" | grep -F '$ORIGIN'
+            ldd -r "$BINARY_PATH" | grep -F 'libonnxruntime.so.1'
+            unset LD_LIBRARY_PATH
+          fi
+          if [ '${{ matrix.settings.platform }}' = darwin-x64 ]; then
+            dylibs=("$GITHUB_WORKSPACE/typesafe-artifacts/darwin-x64/"libonnxruntime*.dylib)
+            test "${#dylibs[@]}" -eq 1 && test -f "${dylibs[0]}"
+            dylib_name="${dylibs[0]##*/}"
+            cp "${dylibs[0]}" "$binary_dir/"
+            otool -L "$BINARY_PATH" | grep -F "@rpath/$dylib_name"
+            otool -l "$BINARY_PATH" | awk '/cmd LC_RPATH/{in_path=1} in_path && /path @loader_path/{ok=1} END{exit !ok}'
+            otool -D "$binary_dir/$dylib_name" | grep -Fx "@rpath/$dylib_name"
+            unset DYLD_LIBRARY_PATH DYLD_FALLBACK_LIBRARY_PATH
+          fi
+          node -e "const expected={'linux-x64-gnu':['linux','x64'],'linux-arm64-gnu':['linux','arm64'],'darwin-x64':['darwin','x64'],'darwin-arm64':['darwin','arm64'],'win32-x64-msvc':['win32','x64']}['${{ matrix.settings.platform }}']; if(!expected || process.platform!==expected[0] || process.arch!==expected[1]) throw new Error('matrix target is not the runner architecture')"
           # Two separate assertions, so a failure says which half broke. Loading
           # the binary directly proves the artifact itself is sound (on Windows a
           # missing runtime DLL surfaces here as "The specified module could not
           # be found"); only then is the loader's selection worth blaming.
-          node -e "const b=require('./native/typesafe.${{ matrix.settings.platform }}.node'); if(typeof b.version!=='function'){console.error('binary loaded but exports no version(): '+Object.keys(b).join(','));process.exit(1)}; console.log('binary loads OK: '+b.version())"
+          node -e "const b=require('./'+process.env.BINARY_PATH); if(typeof b.version!=='function'){console.error('binary loaded but exports no version(): '+Object.keys(b).join(','));process.exit(1)}; console.log('binary loads OK: '+b.version())"
           node -e "const p=require('path').resolve('./index.js'); const m=require(p); if(m.backend!=='native'){console.error('binary loads, but the loader selected: '+m.backend+'\n  resolved: '+p+'\n  exports: '+Object.keys(m).join(',')+'\n  cwd: '+process.cwd());process.exit(1)}; console.log('loader parity OK: backend=native version='+m.version())"
+          node -e "const m=require('./index.js'); let err; try { new m.Engine(JSON.stringify({embedder:{kind:'onnx',modelDir:'__probe_absent__',manifest:'{\"models\":[]}'}})); } catch(e) { err=e; } if(!/manifest: no entry named/.test(String(err))){console.error('native binary lacks the ONNX path: '+err);process.exit(1)} console.log('native ONNX path present')"
+          node scripts/check-security.mjs --native "$BINARY_PATH"
 
       - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: typesafe-${{ matrix.settings.platform }}
-          path: typesafe-artifacts/${{ matrix.settings.platform }}/*.node
+          path: typesafe-artifacts/${{ matrix.settings.platform }}/*
           if-no-files-found: error
+
+  release-bench:
+    name: ONNX ticket evidence (strict for manual publish)
+    runs-on: ubuntu-22.04
+    needs: build
+    if: github.event_name != 'workflow_dispatch' || (github.ref == 'refs/heads/main' && inputs.publish == true)
+    defaults:
+      run:
+        working-directory: npm/packages/typesafe
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '20'
+      - name: Download the exact Linux binary to be published
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: typesafe-linux-x64-gnu
+          path: npm/packages/typesafe/native/linux-x64-gnu
+      - name: Require the release binary to load as native
+        run: |
+          test -f native/linux-x64-gnu/libonnxruntime.so.1
+          test -f native/linux-x64-gnu/libonnxruntime_providers_shared.so
+          node -e "const m=require('./index.js'); if(m.backend!=='native'||typeof m.Engine!=='function'){throw new Error('release binary not loaded')}"
+      - name: Reject changed release gates or unpinned model assets
+        run: node scripts/verify-release-bench.mjs --preflight-models
+      - name: Download and verify hash-pinned model assets
+        run: node scripts/fetch-models.mjs --model bge-small-en-v1.5
+      - name: Score full frozen ONNX tickets
+        run: |
+          args=(--suite tickets --arm both --embedder onnx \
+            --model bge-small-en-v1.5 --model-dir models --shots 8 \
+            --baseline-receipt bench/results/tickets-onnx-bge-2026-09-21.json \
+            --gate --out bench/results/ci-release-tickets-onnx.json)
+          # PR/push: report quality failures without hiding missing engines or
+          # incomplete results. Manual publish: run strict, fail on any gate.
+          if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then args+=(--report-only); fi
+          node bench/run.mjs "${args[@]}"
+      - name: Validate ONNX receipt and applicable gate results
+        run: |
+          args=()
+          if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then args+=(--advisory); fi
+          node scripts/verify-release-bench.mjs bench/results/ci-release-tickets-onnx.json "${args[@]}"
+      - name: Upload ONNX ticket receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: typesafe-onnx-ticket-receipt
+          path: npm/packages/typesafe/bench/results/ci-release-tickets-onnx.json
+          if-no-files-found: warn
 
   publish:
     name: Publish Typesafe Packages
     runs-on: ubuntu-22.04
-    needs: build
-    # Deviation from router: manual dispatch + publish:true only. No tag trigger.
-    if: github.event_name == 'workflow_dispatch' && inputs.publish == true
+    needs: [build, release-bench]
+    # Exact shipped binary and frozen ONNX ticket gates must pass first.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish == true
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -199,7 +333,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version: '18'
+          node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Download all artifacts
@@ -277,6 +411,20 @@ jobs:
             PKG_DIR="npm-pkg/typesafe-${platform}"
             mkdir -p "$PKG_DIR"
             cp "$NODE_FILE" "$PKG_DIR/$NODE_NAME"
+            if [ "$OS" = linux ]; then
+              for lib in libonnxruntime.so.1 libonnxruntime_providers_shared.so; do
+                cp "artifacts/typesafe-${platform}/$lib" "$PKG_DIR/$lib"
+              done
+              PACKAGE_FILES="[\"${NODE_NAME}\", \"libonnxruntime.so.1\", \"libonnxruntime_providers_shared.so\"]"
+            elif [ "$platform" = darwin-x64 ]; then
+              dylibs=(artifacts/typesafe-darwin-x64/libonnxruntime*.dylib)
+              test "${#dylibs[@]}" -eq 1 && test -f "${dylibs[0]}"
+              dylib_name="${dylibs[0]##*/}"
+              cp "${dylibs[0]}" "$PKG_DIR/$dylib_name"
+              PACKAGE_FILES="[\"${NODE_NAME}\", \"${dylib_name}\"]"
+            else
+              PACKAGE_FILES="[\"${NODE_NAME}\"]"
+            fi
 
             cat > "$PKG_DIR/package.json" <<EOF
           {
@@ -286,7 +434,7 @@ jobs:
             "cpu": ["${CPU}"],
             ${LIBC}
             "main": "${NODE_NAME}",
-            "files": ["${NODE_NAME}"],
+            "files": ${PACKAGE_FILES},
             "description": "Local typed decisions over embeddings (@ruvector/typesafe) - ${platform} native binary",
             "keywords": ["ruvector", "typesafe", "decisions", "napi-rs"],
             "author": "ruv.io Team <info@ruv.io>",
@@ -303,14 +451,9 @@ jobs:
               if [ "$DRY_RUN" = "true" ]; then
                 npm publish --access public --dry-run
               else
-                # Publish, then verify on the registry. A non-zero publish is not
-                # fatal on its own (an idempotent re-run hits a version conflict);
-                # the registry check is the source of truth.
-                if npm publish --access public; then
-                  echo "npm publish returned success"
-                else
-                  echo "npm publish returned non-zero — verifying on the registry anyway"
-                fi
+                # A version conflict is fatal: verifying only that the name and
+                # version exist could accept a prior hash-only binary release.
+                npm publish --access public
               fi
             )
             if [ "$DRY_RUN" != "true" ]; then
@@ -330,20 +473,29 @@ jobs:
           source "$RUNNER_TEMP/verify.sh"
           VERSION=$(node -p "require('./npm/packages/typesafe/package.json').version")
 
-          # The loader (npm/packages/typesafe/index.js) has NO platform-package
-          # fallback: it only require()s native/typesafe.<platform>.node from the
-          # meta package itself. So the meta tarball must BUNDLE all five
-          # binaries; that is what makes the package load on every target today.
-          # (The follow-up optionalDependencies bump must ALSO add a
-          # require('@ruvector/typesafe-<platform>') fallback to index.js, or
-          # those deps ship dead.)
+          # The meta package has no optionalDependencies yet, so bundle all five
+          # binaries and their runtime libraries. Each Linux architecture gets
+          # its own directory because both use the SONAME libonnxruntime.so.1;
+          # index.js selects the directory for the running architecture.
           mkdir -p npm/packages/typesafe/native
           for platform in linux-x64-gnu linux-arm64-gnu darwin-x64 darwin-arm64 win32-x64-msvc; do
+            out_dir=npm/packages/typesafe/native
+            if [[ "$platform" == linux-* ]]; then
+              out_dir="npm/packages/typesafe/native/$platform"
+              mkdir -p "$out_dir"
+              cp "artifacts/typesafe-${platform}/libonnxruntime.so.1" "$out_dir/"
+              cp "artifacts/typesafe-${platform}/libonnxruntime_providers_shared.so" "$out_dir/"
+            fi
             cp "artifacts/typesafe-${platform}/typesafe.${platform}.node" \
-               "npm/packages/typesafe/native/typesafe.${platform}.node"
+               "$out_dir/typesafe.${platform}.node"
+            if [ "$platform" = darwin-x64 ]; then
+              dylibs=(artifacts/typesafe-darwin-x64/libonnxruntime*.dylib)
+              test "${#dylibs[@]}" -eq 1 && test -f "${dylibs[0]}"
+              cp "${dylibs[0]}" "$out_dir/"
+            fi
           done
           echo "bundled native binaries:"
-          ls -la npm/packages/typesafe/native/*.node
+          find npm/packages/typesafe/native -name '*.node' -type f -print
 
           # Build dist/ (main = dist/index.js). Use the pinned tsc invocation the
           # package's CI uses; a bare `npx tsc` misbehaves in this monorepo.
@@ -357,7 +509,9 @@ jobs:
           if [ "$DRY_RUN" = "true" ]; then
             # Prove the tarball contains dist/index.js and all five binaries.
             npm publish --access public --dry-run --ignore-scripts 2>&1 | tee "$RUNNER_TEMP/pack.txt"
-            for f in dist/index.js native/typesafe.linux-x64-gnu.node native/typesafe.linux-arm64-gnu.node native/typesafe.darwin-x64.node native/typesafe.darwin-arm64.node native/typesafe.win32-x64-msvc.node; do
+            dylibs=(native/libonnxruntime*.dylib)
+            test "${#dylibs[@]}" -eq 1 && test -f "${dylibs[0]}"
+            for f in dist/index.js native/linux-x64-gnu/typesafe.linux-x64-gnu.node native/linux-x64-gnu/libonnxruntime.so.1 native/linux-x64-gnu/libonnxruntime_providers_shared.so native/linux-arm64-gnu/typesafe.linux-arm64-gnu.node native/linux-arm64-gnu/libonnxruntime.so.1 native/linux-arm64-gnu/libonnxruntime_providers_shared.so native/typesafe.darwin-x64.node "${dylibs[0]}" native/typesafe.darwin-arm64.node native/typesafe.win32-x64-msvc.node; do
               if ! grep -q "$f" "$RUNNER_TEMP/pack.txt"; then
                 echo "::error::dry-run tarball is missing $f"
                 exit 1
@@ -366,10 +520,6 @@ jobs:
             echo "dry-run tarball contains dist/index.js and all five native binaries"
           else
             # --ignore-scripts skips prepublishOnly's bare `tsc`; dist is already built.
-            if npm publish --access public --ignore-scripts; then
-              echo "npm publish returned success"
-            else
-              echo "npm publish returned non-zero — verifying on the registry anyway"
-            fi
+            npm publish --access public --ignore-scripts
             verify_on_registry "@ruvector/typesafe" "$VERSION" || exit 1
           fi
