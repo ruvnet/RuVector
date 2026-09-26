@@ -24,6 +24,100 @@ existing unsigned `verify_chain()` walk. Both signing strategies reject
 this forgery in every trial; the unsigned baseline (correctly, per its own
 documentation) does not.
 
+## Update (2026-09-26): Post-Review Hardening
+
+PR #989's review (`ruvnet`) found four HIGH-severity gaps in the design
+this document originally reported, plus several low-severity nits. All
+four are fixed in `crates/ruvector-agent-memory/src/witness_signing.rs`
+as of commit `01b939567`; the fix is summarized here so this document
+stays accurate, and the rest of the document below is left as originally
+written (including now-superseded numbers and claims) so the before/after
+is visible rather than silently rewritten.
+
+1. **Coverage was not checked.** The original `verify_signed_chain` looped
+   over whatever `spans` slice it was given and never confirmed the spans
+   actually covered the whole log — an empty or partial span list still
+   returned `true` against a forged log with zero real signature coverage.
+   Fixed: spans must now tile the log exactly from sequence 0 to the
+   newest record, with no gaps, or verification fails
+   (`SignedChainError::CoverageGap`).
+2. **The unsigned `BatchTail` tail was invisible to the check.** Records
+   not yet covered by a closed span were silently unauthenticated with no
+   signal. Fixed: `SignedChainError::UnsignedTail { signed, unsigned }`,
+   returned only after the signed prefix independently verified — callers
+   must call the renamed `SignedWitnessSink::seal` (was `flush`) before
+   verifying.
+3. **Rollback (truncating the log and its span list together) was
+   undetected.** Nothing anchored how many records *should* exist. Fixed:
+   `SignedAnchor { record_count, head_digest }`, a signed analogue of
+   `MemoryWitnessLog::head_commitment`, persisted out-of-band and passed
+   into `verify_signed_chain`; a truncation below the anchor now fails
+   with `SignedChainError::AnchorMismatch`.
+4. **The signed digest was the 64-bit FNV-1a `chain_hash`, not a
+   cryptographic hash.** This document's original "What This Run Does Not
+   Claim" section treated the crate's own "~2^32 work" FNV-1a
+   second-preimage estimate as an open question deliberately left
+   unverified. The review correctly identified that leaving it open was
+   itself the residual risk this design should not have accepted: FNV-1a's
+   `hash = (hash ^ byte) * PRIME mod 2^64` step is invertible (the prime is
+   odd, hence has a modular inverse), so an attacker with 8+ bytes of
+   freedom in a record (e.g. `payload`, `aux`) does not need a generic
+   2^64 brute-force preimage search at all — the invertibility gives a
+   direct algebraic construction, plausibly around the estimated 2^32
+   figure or cheaper depending on how many free bytes align, not a
+   brute-force floor. Fixed by removing FNV-1a from the signed path
+   entirely: each span now signs a SHA-256 digest (`rvf-types::sha256`)
+   over the full 64-byte encoding of every record it covers, chained
+   span-to-span via SHA-256 links. The per-record FNV-1a `chain_hash` is
+   no longer load-bearing for signed verification at all (only for the
+   pre-existing, independent, unsigned `verify_chain` walk, which still
+   runs first). This resolves Next Research item 2 below by design rather
+   than by measurement — the question "how cheap is an FNV-1a
+   second-preimage" no longer matters for this module's security, because
+   nothing security-relevant depends on the answer anymore.
+
+Also fixed (LOW): `SignedWitnessSink` now holds an `ed25519_dalek::SigningKey`
+directly instead of copying the 32-byte secret out on every signature;
+verification uses `verify_strict`; `SigningStrategy::BatchTail { batch_size: 0 }`
+is a constructor error (`WitnessSignerError::ZeroBatchSize`) instead of a
+panic; and `emit_batch` now refuses a non-contiguous sequence range before
+it reaches the inner sink.
+
+`verify_signed_chain`'s signature changed from `-> bool` to
+`-> Result<SignedChainReport, SignedChainError>`, and now takes an
+additional `anchor: &SignedAnchor` parameter
+(`SignedAnchor::genesis()` opts out of rollback protection for a
+first run). Six new regression tests cover each finding directly
+(`poc1_*`, `poc2_*`, `poc3_*` in `witness_signing_tests.rs`), alongside
+splice/reorder/positive-path cases. All 45 tests in the crate pass;
+`cargo clippy --all-targets` and `cargo fmt --check` are clean. The ADR
+was renumbered `ADR-346` → `ADR-347` (346 was independently allocated to
+the mincut ADR from PR #979) — see `docs/adr/ADR-347-witness-signer-tarl-ledger.md`.
+
+Re-running the benchmark below against the hardened implementation
+(`cargo run --release -p ruvector-agent-memory --example witness_signing_bench`,
+same `N_ENTRIES=20,000`, same deterministic key) gives:
+
+```
+baseline       total=   24.562ms  mean=   1.192us  p50=   0.833us  p95=   2.574us  p99=   4.076us  throughput=  814264.5 ops/s  signatures=      0  correctness=PASS
+candidate_a    total= 1588.032ms  mean=  79.348us  p50=  73.839us  p95=  98.675us  p99= 128.847us  throughput=   12594.2 ops/s  signatures=  40000  correctness=PASS
+candidate_b16  total=  140.925ms  mean=   7.006us  p50=   1.614us  p95=  38.224us  p99=  48.737us  throughput=  141919.1 ops/s  signatures=   2500  correctness=PASS
+candidate_b64  total=   66.008ms  mean=   3.263us  p50=   1.501us  p95=   3.605us  p99=  38.838us  throughput=  302994.6 ops/s  signatures=    625  correctness=PASS
+candidate_b256 total=   57.651ms  mean=   2.844us  p50=   1.445us  p95=   3.177us  p99=  21.642us  throughput=  346915.6 ops/s  signatures=    157  correctness=PASS
+
+Amortization: candidate_a mean/op = 79347.7ns, candidate_b64 mean/op = 3263.2ns, ratio = 24.32x
+```
+
+`candidate_a` (`PerRecord`) got *faster* (137.4µs → 79.3µs mean/op) despite
+adding a SHA-256 hash per record, because per-signature `Ed25519` cost
+(not hashing) always dominated, and the v2 message layout is a fixed-size
+stack array either way; `candidate_b64` is similarly faster (3.77µs →
+3.26µs). The amortization ratio (`PerRecord` vs `BatchTail{64}`) shifted
+from 36.4x to 24.3x, still a large, real, measured advantage for batching.
+All correctness gates still PASS, including the diligent-forgery
+rejection test, now run against the SHA-256/anchor design rather than the
+original FNV-based one. The acceptance result is unchanged: **ACCEPT.**
+
 ## Abstract
 
 We add `SignedWitnessSink<S: WitnessSink>`, wrapping any inner
@@ -706,8 +800,10 @@ This hypothesis would have been rejected if any of:
 - No WASM or embedded-hardware measurement (Next Research items 4/5).
 - No fault-injection measurement of the `BatchTail` blast-radius claim
   (Failure Modes item 3) — reasoned qualitatively, not measured.
-- The FNV-1a preimage-resistance question is explicitly out of scope
-  (see "What This Run Does Not Claim").
+- The FNV-1a preimage-resistance question, as originally scoped out (see
+  "What This Run Does Not Claim"), turned out to matter enough that the
+  post-review hardening removed the dependency on it entirely rather than
+  leaving it open — see "Update (2026-09-26)" above.
 - `batch_size` was swept at three fixed points, not continuously; the
   amortization curve's shape between 16 and 256 is interpolated, not
   measured at every value.
@@ -720,13 +816,16 @@ This hypothesis would have been rejected if any of:
    that crate as a dependency — port the pattern, not the code), so a
    deployment gets a bounded worst-case signature-availability latency
    instead of "whenever the batch happens to fill."
-2. Rigorously determine the actual cost of a chosen-target FNV-1a
-   second-preimage attack against a 64-byte `LedgerWitnessRecord` (the
-   "~2^32" figure this crate's own docs assert but no nightly run has
-   yet verified or falsified) — this run deliberately declined to
-   attempt this live (see "What This Run Does Not Claim") to avoid
-   reporting an under-verified cryptanalytic result; it deserves a
-   dedicated pass with adequate scope.
+2. ~~Rigorously determine the actual cost of a chosen-target FNV-1a
+   second-preimage attack against a 64-byte `LedgerWitnessRecord`~~ —
+   **resolved by design, not by measurement:** PR #989's review pointed
+   out that FNV-1a's `(hash ^ byte) * PRIME mod 2^64` step is invertible
+   (odd prime), so a record with 8+ attacker-controllable bytes doesn't
+   need generic brute force at all — the ~2^32 figure was plausibly an
+   *upper* bound, not a floor. See "Update (2026-09-26)" above: the
+   signed path no longer depends on FNV-1a at all (SHA-256 digests
+   instead), so this question no longer affects this module's security,
+   whatever the true answer turns out to be.
 3. Concurrent-writer and fault-injection hardening for both
    `TransactionalLedger` and `SignedWitnessSink` (mid-batch signer crash,
    the specific scenario named in Failure Modes item 3).
