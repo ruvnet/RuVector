@@ -8910,6 +8910,7 @@ dependencies = [
 name = "ruvector-agent-memory"
 version = "0.1.0"
 dependencies = [
+ "ed25519-dalek",
  "rand 0.8.6",
  "ruvector-mincut 2.3.1",
  "ruvector-proof-gate",

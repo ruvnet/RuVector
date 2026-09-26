@@ -22,6 +22,10 @@ serde = { workspace = true }
 # ed25519-dalek + rand_core; the always-compiled `sha256` module needs no
 # feature.
 rvf-types = { version = "0.2", path = "../rvf/rvf-types", features = ["ed25519"] }
+# ADR-347: hold an `ed25519_dalek::SigningKey` directly in `SignedWitnessSink`
+# (no per-signature secret copies) and use `verify_strict`. Same crate and
+# spec rvf-types already pulls in (2.2.x) — no new crate in the tree.
+ed25519-dalek = { version = "2", default-features = false, features = ["alloc"] }
 # Existing ADR-194/047 proof-gated write machinery; adapts to the ledger's
 # ProofGate trait behind the `proof-gate` feature (see src/ledger.rs).
 ruvector-proof-gate = { path = "../ruvector-proof-gate", optional = true }

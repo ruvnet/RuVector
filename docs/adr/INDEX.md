@@ -9,7 +9,7 @@
 > CI gate: `node scripts/adr-index.mjs --check`.
 
 - ADR files indexed: **376** (329 on the canonical counter, 47 in namespaced families)
-- Highest allocated number: **ADR-345**
+- Highest allocated number: **ADR-347**
 - Frozen duplicate numbers: **27** (spanning 61 files)
 
 | Number | Title | File | Last commit | Status | Duplicate |
@@ -344,6 +344,7 @@
 | ADR-344 | ADR-344: Global-Min-Cut Gated Streaming Memory Admission | [`ADR-344-mincut-gated-streaming-memory-admission.md`](./ADR-344-mincut-gated-streaming-memory-admission.md) | 2026-09-05 | Proposed. Experimental crate (`ruvector-memory-admission`), not wired into |  |
 | ADR-345 | ADR-345: Mincut-Gated Forgetting — Structural Eviction Signal and Eviction Witnesses for Agent Memory | [`ADR-345-mincut-gated-forgetting.md`](./ADR-345-mincut-gated-forgetting.md) | 2026-09-05 | Rejected (for production use as designed). Experimental crate addition |  |
 | ADR-346 | ADR-346: Deterministic, Non-Degenerate Witness Partitions in `ruvector-mincut` | [`ADR-346-deterministic-mincut-witness-partition.md`](./ADR-346-deterministic-mincut-witness-partition.md) | 2026-09-26 | Accepted. Non-breaking bug fix, merged into `ruvector-mincut` directly (no |  |
+| ADR-347 | ADR-347: Ed25519 `WitnessSigner` for the TARL Ledger's Witness Chain | [`ADR-347-witness-signer-tarl-ledger.md`](./ADR-347-witness-signer-tarl-ledger.md) | 2026-09-16 | Accepted. New, opt-in, non-default module |  |
 | ADR-CE-001 | ADR-CE-001: Sheaf Laplacian Defines Coherence Witness | [`coherence-engine/ADR-CE-001-sheaf-laplacian-coherence.md`](./coherence-engine/ADR-CE-001-sheaf-laplacian-coherence.md) | 2026-08-20 | Accepted |  |
 | ADR-CE-002 | ADR-CE-002: Incremental Coherence Computation | [`coherence-engine/ADR-CE-002-incremental-computation.md`](./coherence-engine/ADR-CE-002-incremental-computation.md) | 2026-08-20 | Accepted |  |
 | ADR-CE-003 | ADR-CE-003: PostgreSQL + Ruvector Unified Substrate | [`coherence-engine/ADR-CE-003-hybrid-storage.md`](./coherence-engine/ADR-CE-003-hybrid-storage.md) | 2026-08-20 | Accepted |  |
