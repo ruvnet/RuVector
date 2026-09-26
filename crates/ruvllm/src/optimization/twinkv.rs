@@ -115,15 +115,40 @@ impl Error for TwinKvError {}
 
 /// Repair an arbitrary KV eviction policy without changing its cache budget.
 ///
-/// The input `retained` set is treated as the wrapped policy's immutable
-/// decision. For every token we compute its best nonlocal cosine similarity to
-/// a surviving retained token. Evicted tokens below the threshold are orphans.
-/// Retained, unprotected tokens at or above the threshold are redundant donors.
-/// The most severe orphans replace the most redundant donors one for one.
+/// The input `retained` set is the wrapped policy's decision. Two tokens are
+/// *twins* when they are more than `local_window` positions apart and their
+/// key cosine similarity is at least the threshold. An evicted token with no
+/// retained twin is an *orphan*; a retained, unprotected token with at least
+/// one retained twin is a *donor*. The most severe orphans (lowest best
+/// surviving similarity) replace the most redundant donors one for one.
 ///
-/// This implementation computes only similarities against the retained set,
-/// reducing the repair specific work from a full pairwise matrix to O(n K d),
-/// where K is the retained budget and d is key dimension.
+/// Swaps are applied greedily against the *current* retained set, not the
+/// input snapshot. A per token count of retained twins is maintained
+/// incrementally, and each swap is only committed when, after admitting the
+/// orphan:
+///
+/// * the orphan still has no retained twin (an orphan already covered by an
+///   earlier admission is skipped),
+/// * the donor still has at least one retained twin (so mutual twins are
+///   never both evicted), and
+/// * no evicted token loses its last retained twin because of the eviction.
+///
+/// Consequently every evicted token that had a retained twin before a swap
+/// still has one after it, the evicted donor stays represented by a retained
+/// twin, and the admitted orphan's information is now retained directly.
+/// The pass is a single greedy sweep: a donor rejected by these checks is not
+/// reconsidered later, even if a subsequent admission would make it safe.
+///
+/// Complexity: normalization is O(n d); the initial audit is O(n K d) against
+/// the retained set; each committed swap costs O(n d) to update twin counts,
+/// and each donor candidate is examined at most once at O(n d). With at most
+/// K swaps and K donor candidates the whole pass is O(n K d), where n is the
+/// context length, K the retained budget, and d the key dimension. No full
+/// pairwise matrix is materialized; extra memory is O(n d + n).
+///
+/// Swap receipts report best surviving similarities measured against the
+/// input retained set; `orphan_count` and `donor_count` describe that initial
+/// audit.
 pub fn repair_retained_set(
     keys: &[Vec<f32>],
     retained: &[usize],
@@ -141,11 +166,136 @@ pub fn repair_retained_set(
         return Err(TwinKvError::InvalidThreshold);
     }
 
-    let dimension = keys[0].len();
-    if dimension == 0 {
-        return Err(TwinKvError::EmptyKeyVector { index: 0 });
+    let normalized = normalize_keys(keys)?;
+    let key_count = keys.len();
+
+    let mut retained_set = BTreeSet::new();
+    for &index in retained {
+        if index >= key_count {
+            return Err(TwinKvError::RetainedIndexOutOfRange { index, key_count });
+        }
+        if !retained_set.insert(index) {
+            return Err(TwinKvError::DuplicateRetainedIndex { index });
+        }
     }
 
+    let threshold = config.similarity_threshold;
+    let is_twin = |left: usize, right: usize| {
+        left.abs_diff(right) > config.local_window
+            && cosine_from_normalized(&normalized[left], &normalized[right]) >= threshold
+    };
+
+    // Initial audit against the input retained set: O(n K d).
+    let mut best_surviving = vec![-1.0_f32; key_count];
+    let mut twin_count = vec![0_usize; key_count];
+    for (index, key) in normalized.iter().enumerate() {
+        for &candidate in &retained_set {
+            if index.abs_diff(candidate) <= config.local_window {
+                continue;
+            }
+            let similarity = cosine_from_normalized(key, &normalized[candidate]);
+            best_surviving[index] = best_surviving[index].max(similarity);
+            if similarity >= threshold {
+                twin_count[index] += 1;
+            }
+        }
+    }
+
+    let mut orphans = (0..key_count)
+        .filter(|index| !retained_set.contains(index) && twin_count[*index] == 0)
+        .map(|index| (index, best_surviving[index]))
+        .collect::<Vec<_>>();
+    let mut donors = retained_set
+        .iter()
+        .copied()
+        .filter(|&index| !is_protected(index, key_count, config) && twin_count[index] > 0)
+        .map(|index| (index, best_surviving[index]))
+        .collect::<Vec<_>>();
+
+    orphans.sort_by(|a, b| a.1.total_cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
+    donors.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+
+    let swap_limit = config.max_swaps.unwrap_or(usize::MAX);
+    let mut repaired = retained_set;
+    let mut swaps = Vec::new();
+    let mut donor_cursor = 0;
+
+    // Increment (admit) or decrement (evict) the twin count of every twin of `pivot`.
+    let adjust_twins = |twin_count: &mut [usize], pivot: usize, admit: bool| {
+        for (index, count) in twin_count.iter_mut().enumerate() {
+            if is_twin(index, pivot) {
+                if admit {
+                    *count += 1;
+                } else {
+                    *count -= 1;
+                }
+            }
+        }
+    };
+
+    for &(orphan, orphan_similarity) in &orphans {
+        if swaps.len() >= swap_limit || donor_cursor >= donors.len() {
+            break;
+        }
+        if twin_count[orphan] > 0 {
+            // Covered by an orphan admitted earlier in this pass.
+            continue;
+        }
+
+        // Tentatively admit the orphan so its coverage counts when judging donors.
+        repaired.insert(orphan);
+        adjust_twins(&mut twin_count, orphan, true);
+
+        let mut chosen = None;
+        while donor_cursor < donors.len() {
+            let (donor, donor_similarity) = donors[donor_cursor];
+            donor_cursor += 1;
+            if twin_count[donor] == 0 {
+                continue;
+            }
+            let strands_evicted = (0..key_count).any(|index| {
+                !repaired.contains(&index) && twin_count[index] == 1 && is_twin(index, donor)
+            });
+            if !strands_evicted {
+                chosen = Some((donor, donor_similarity));
+                break;
+            }
+        }
+
+        let Some((donor, donor_similarity)) = chosen else {
+            // No safe donor remains; roll back the tentative admission.
+            adjust_twins(&mut twin_count, orphan, false);
+            repaired.remove(&orphan);
+            break;
+        };
+
+        repaired.remove(&donor);
+        adjust_twins(&mut twin_count, donor, false);
+        swaps.push(TwinKvSwap {
+            admitted_orphan: orphan,
+            evicted_donor: donor,
+            orphan_best_surviving_similarity: orphan_similarity,
+            donor_best_surviving_similarity: donor_similarity,
+        });
+    }
+
+    debug_assert_eq!(repaired.len(), retained.len());
+
+    Ok(TwinKvRepair {
+        retained: repaired.into_iter().collect(),
+        swaps,
+        orphan_count: orphans.len(),
+        donor_count: donors.len(),
+    })
+}
+
+/// Validate keys and scale each one to unit length.
+///
+/// The norm is computed after dividing by the largest absolute component, so
+/// finite keys never overflow or underflow the squared norm. Only an all zero
+/// key is rejected as `ZeroNormKey`.
+fn normalize_keys(keys: &[Vec<f32>]) -> Result<Vec<Vec<f32>>, TwinKvError> {
+    let dimension = keys[0].len();
     let mut normalized = Vec::with_capacity(keys.len());
     for (index, key) in keys.iter().enumerate() {
         if key.is_empty() {
@@ -162,90 +312,22 @@ pub fn repair_retained_set(
             return Err(TwinKvError::NonFiniteKey { index });
         }
 
-        let norm_sq = key.iter().map(|value| value * value).sum::<f32>();
-        if !norm_sq.is_finite() || norm_sq <= f32::EPSILON {
+        let max_abs = key.iter().fold(0.0_f32, |acc, value| acc.max(value.abs()));
+        if max_abs == 0.0 {
             return Err(TwinKvError::ZeroNormKey { index });
         }
-        let inv_norm = norm_sq.sqrt().recip();
-        normalized.push(key.iter().map(|value| value * inv_norm).collect::<Vec<_>>());
+        let scaled = key.iter().map(|value| value / max_abs).collect::<Vec<_>>();
+        // Every scaled component is in [-1, 1] and at least one is +/-1, so
+        // the squared norm lies in [1, d] and is always finite and nonzero.
+        let inv_norm = scaled
+            .iter()
+            .map(|value| value * value)
+            .sum::<f32>()
+            .sqrt()
+            .recip();
+        normalized.push(scaled.into_iter().map(|value| value * inv_norm).collect());
     }
-
-    let mut retained_set = BTreeSet::new();
-    for &index in retained {
-        if index >= keys.len() {
-            return Err(TwinKvError::RetainedIndexOutOfRange {
-                index,
-                key_count: keys.len(),
-            });
-        }
-        if !retained_set.insert(index) {
-            return Err(TwinKvError::DuplicateRetainedIndex { index });
-        }
-    }
-
-    let best_surviving = normalized
-        .iter()
-        .enumerate()
-        .map(|(index, key)| {
-            retained_set
-                .iter()
-                .copied()
-                .filter(|&candidate| {
-                    candidate != index && index.abs_diff(candidate) > config.local_window
-                })
-                .map(|candidate| cosine_from_normalized(key, &normalized[candidate]))
-                .fold(-1.0_f32, f32::max)
-        })
-        .collect::<Vec<_>>();
-
-    let mut orphans = (0..keys.len())
-        .filter(|index| !retained_set.contains(index))
-        .filter(|&index| best_surviving[index] < config.similarity_threshold)
-        .map(|index| (index, best_surviving[index]))
-        .collect::<Vec<_>>();
-
-    let mut donors = retained_set
-        .iter()
-        .copied()
-        .filter(|&index| !is_protected(index, keys.len(), config))
-        .filter(|&index| best_surviving[index] >= config.similarity_threshold)
-        .map(|index| (index, best_surviving[index]))
-        .collect::<Vec<_>>();
-
-    orphans.sort_by(|a, b| a.1.total_cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
-    donors.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-
-    let available_swaps = orphans.len().min(donors.len());
-    let swap_count = config
-        .max_swaps
-        .map(|limit| available_swaps.min(limit))
-        .unwrap_or(available_swaps);
-
-    let mut repaired = retained_set;
-    let mut swaps = Vec::with_capacity(swap_count);
-    for ((orphan, orphan_similarity), (donor, donor_similarity)) in orphans
-        .iter()
-        .take(swap_count)
-        .zip(donors.iter().take(swap_count))
-    {
-        repaired.remove(donor);
-        repaired.insert(*orphan);
-        swaps.push(TwinKvSwap {
-            admitted_orphan: *orphan,
-            evicted_donor: *donor,
-            orphan_best_surviving_similarity: *orphan_similarity,
-            donor_best_surviving_similarity: *donor_similarity,
-        });
-    }
-
-    debug_assert_eq!(repaired.len(), retained.len());
-
-    Ok(TwinKvRepair {
-        retained: repaired.into_iter().collect(),
-        swaps,
-        orphan_count: orphans.len(),
-        donor_count: donors.len(),
-    })
+    Ok(normalized)
 }
 
 fn cosine_from_normalized(left: &[f32], right: &[f32]) -> f32 {
@@ -382,5 +464,57 @@ mod tests {
                 key_count: 1,
             })
         );
+    }
+
+    fn unit(dimension: usize, axis: usize) -> Vec<f32> {
+        let mut key = vec![0.0; dimension];
+        key[axis] = 1.0;
+        key
+    }
+
+    #[test]
+    fn never_evicts_both_mutual_twins() {
+        // keys [x, y, y, z, w]: the two retained y copies are each other's only twin.
+        let keys = [0, 1, 1, 2, 3].map(|axis| unit(4, axis)).to_vec();
+        let result = repair_retained_set(&keys, &[0, 1, 2], &test_config()).unwrap();
+
+        assert_eq!(result.retained, vec![0, 2, 3]);
+        assert_eq!(result.swaps.len(), 1);
+        assert_eq!(result.swaps[0].evicted_donor, 1);
+    }
+
+    #[test]
+    fn skips_orphan_already_covered_by_an_earlier_admission() {
+        // keys [x, y, y, u, u, v, v]: both v copies are orphans and twins of each other.
+        let keys = [0, 1, 1, 2, 2, 3, 3].map(|axis| unit(4, axis)).to_vec();
+        let result = repair_retained_set(&keys, &[0, 1, 2, 3, 4], &test_config()).unwrap();
+
+        assert_eq!(result.orphan_count, 2);
+        assert_eq!(result.retained, vec![0, 2, 3, 4, 5]);
+        assert_eq!(result.swaps.len(), 1);
+    }
+
+    #[test]
+    fn never_strands_an_evicted_token_covered_only_by_the_donor() {
+        let angle = |degrees: f32| vec![degrees.to_radians().cos(), degrees.to_radians().sin()];
+        // t = 0, d = 20, e = 40 degrees: t~d and d~e are twins at 0.9, t~e is not.
+        let keys = vec![angle(0.0), angle(20.0), angle(40.0), vec![0.0, -1.0]];
+        let config = TwinKvConfig {
+            similarity_threshold: 0.9,
+            ..test_config()
+        };
+        let result = repair_retained_set(&keys, &[0, 1], &config).unwrap();
+
+        assert_eq!(result.orphan_count, 1);
+        assert_eq!(result.donor_count, 1);
+        assert_eq!(result.retained, vec![0, 1]);
+        assert!(result.swaps.is_empty());
+    }
+
+    #[test]
+    fn normalizes_extreme_but_finite_magnitudes() {
+        let keys = vec![vec![3.0e38, 3.0e38], vec![1.0e-40, 1.0e-40]];
+        let result = repair_retained_set(&keys, &[0], &test_config()).unwrap();
+        assert_eq!(result.orphan_count, 0);
     }
 }

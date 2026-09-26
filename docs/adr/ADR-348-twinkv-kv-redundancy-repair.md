@@ -1,4 +1,4 @@
-# ADR 330: KV redundancy repair as a composable cache optimization
+# ADR-348: KV redundancy repair as a composable cache optimization
 
 Status: Proposed
 
@@ -16,7 +16,7 @@ The originating team reports mixed but useful results across Qwen3 4B and Llama 
 
 Add an opt in TwinKV style repair primitive under `ruvllm::optimization`.
 
-The RuV implementation computes best surviving similarity directly against the retained set. This follows the repair equation while avoiding construction of the full pairwise similarity matrix. Repair specific work is O(n K d), where n is context length, K is retained budget, and d is key dimension.
+The RuV implementation computes best surviving similarity directly against the retained set. This follows the repair equation while avoiding construction of the full pairwise similarity matrix. Swaps are applied greedily against the current retained set: a per token count of retained twins is updated incrementally after every swap, an orphan already covered by an earlier admission is skipped, and a donor is evicted only if it still has a retained twin and no evicted token would lose its last retained twin. This prevents mutual twins from both being evicted. Repair specific work is O(n K d), where n is context length, K is retained budget, and d is key dimension.
 
 The primitive is policy agnostic. It accepts key vectors and a retained position set. It returns a repaired retained set plus explicit swap receipts. It does not own the underlying eviction score, cache allocation, model execution, or authority decisions.
 
@@ -25,10 +25,11 @@ The primitive is policy agnostic. It accepts key vectors and a retained position
 1. The retained budget is exactly preserved.
 2. Protected sink and recent positions are never selected as donors.
 3. Local neighbors inside the exclusion window cannot establish redundancy.
-4. Malformed, non finite, zero norm, inconsistent dimension, duplicate, and out of range inputs fail closed.
-5. Equal inputs produce deterministic retained sets and swap receipts.
-6. No model call or training step is introduced.
-7. The feature remains opt in until matched benchmark reproduction establishes a positive workload specific effect.
+4. A swap never removes the last retained twin of the evicted donor or of any other evicted token.
+5. Malformed, non finite, zero norm, inconsistent dimension, duplicate, and out of range inputs fail closed.
+6. Equal inputs produce deterministic retained sets and swap receipts.
+7. No model call or training step is introduced.
+8. The feature remains opt in until matched benchmark reproduction establishes a positive workload specific effect.
 
 ## Contradictions and limits
 
