@@ -108,7 +108,7 @@ objc = { version = "0.2", optional = true }
 
 # Lattice pure-Rust Qwen3.5 inference engine, Metal GPU forward pass
 # (macOS only, optional, default-OFF — see the `lattice` feature below).
-lattice-inference = { version = "0.6.1", optional = true, default-features = false, features = ["metal-gpu", "f16", "std"] }
+lattice-inference = { version = "0.7.1", optional = true, default-features = false, features = ["metal-gpu", "f16", "std"] }
 
 # Core ML bindings (macOS/iOS) - for Apple Neural Engine acceleration
 objc2 = { version = "0.6", optional = true }

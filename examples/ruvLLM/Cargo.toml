@@ -101,7 +101,7 @@ real-inference = ["candle-core", "candle-nn", "candle-transformers", "hf-hub", "
 # HuggingFace export for learned patterns and LoRA weights
 hf-export = ["ruvector-sona"]
 # Real pretrained sentence embeddings via lattice-embed (through ruvector-core).
-# Opt-in: enabling this raises the effective MSRV to Rust >= 1.93 (lattice-embed 0.6,
+# Opt-in: enabling this raises the effective MSRV to Rust >= 1.93 (lattice-embed 0.7,
 # edition 2024) and makes a pretrained model a runtime dependency. Off by default so the
 # base package keeps its current build/footprint; the embedder backend is selected at
 # runtime when this feature is compiled in.
