@@ -8,6 +8,7 @@ import time
 class Device:
     def __init__(self,command=None,port=None):
         self.proc=None;self.serial=None;self.pending=bytearray()
+        self._query_lock=threading.Lock()
         if command:
             self.proc=subprocess.Popen(command,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
             self.lines=queue.Queue(maxsize=256)
@@ -42,9 +43,10 @@ class Device:
     def query(self,text):
         if '\r' in text or '\n' in text:
             raise ValueError('firmware command must be a single line')
-        stream=self.proc.stdin if self.proc else self.serial
-        stream.write((text+'\n').encode());stream.flush()
-        return self.response()
+        with self._query_lock:
+            stream=self.proc.stdin if self.proc else self.serial
+            stream.write((text+'\n').encode());stream.flush()
+            return self.response()
     def close(self):
         if self.proc:
             self.proc.terminate()

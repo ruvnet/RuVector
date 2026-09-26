@@ -1,0 +1,79 @@
+{
+  "schema": 1,
+  "campaign": "esp32-overnight-20260926",
+  "run": "esp32-slot02-20260926T0602Z",
+  "parent_sha": "47b042815052be2263498d0ca9ae2ae1f31cd7e1",
+  "hypothesis": "Serializing each Device.query write and response transaction prevents concurrent callers from exchanging firmware replies.",
+  "declared_authority": "Governed pull request proposal only; no merge, flash or deployment authority.",
+  "seed": 20260926,
+  "genome": {
+    "hash": "47b042815052be2263498d0ca9ae2ae1f31cd7e1",
+    "identity": "repo/ruvnet/RuVector/esp32-decision",
+    "constitution": "bb8ad0c7c0861dc353d2bc8e493872f5f2f44a5f53ac0380883e29f41bb9ed1d",
+    "capability_ceiling": "governed",
+    "hard_invariants": [
+      {"name": "sequential query replies unchanged", "holds": true},
+      {"name": "single line framing contract preserved", "holds": true},
+      {"name": "frozen firmware arithmetic and default model", "holds": true},
+      {"name": "integrated software acceptance", "holds": true},
+      {"name": "no physical or deployment claim", "holds": true}
+    ],
+    "lineage": ["47b042815052be2263498d0ca9ae2ae1f31cd7e1"]
+  },
+  "mutation": {
+    "id": "host-transport-query-serialization",
+    "parent_genome_hash": "47b042815052be2263498d0ca9ae2ae1f31cd7e1",
+    "scope": "application_code",
+    "requested_authority": "governed",
+    "applicability": {
+      "workloads": ["ESP32 host and UART benchmark transport"],
+      "environments": ["Python host benchmark lab"],
+      "jurisdictions": []
+    },
+    "preserved_invariants": [
+      {"name": "sequential query replies unchanged", "holds": true},
+      {"name": "single line framing contract preserved", "holds": true},
+      {"name": "frozen firmware arithmetic and default model", "holds": true},
+      {"name": "integrated software acceptance", "holds": true},
+      {"name": "no physical or deployment claim", "holds": true}
+    ],
+    "rollback_target": "47b042815052be2263498d0ca9ae2ae1f31cd7e1",
+    "expires_at": 1790406540,
+    "signature": null
+  },
+  "scope": ["examples/esp32-decision/tools/transport.py"],
+  "supporting_scope": [
+    "examples/esp32-decision/tests/test_transport_concurrency.py",
+    "examples/esp32-decision/tools/concurrency_gate.mjs",
+    "examples/esp32-decision/tools/concurrency_autogenous_adapter/",
+    "examples/esp32-decision/tests/evidence/",
+    "npm/packages/typesafe/docs/adr/ADR-007-esp32-measured-sensor-decisions.md"
+  ],
+  "input_hashes": {
+    "evaluator_sha256": "3496a962085d6183b4823dd7642f14054af1e7eb81d4b6091ad10d22c3fb07f5",
+    "parent_transport_sha256": "dc9ce59bba35793427b2dba3b7e7bf58334742a2a8ed579bdc272f7d8713eb5f",
+    "candidate_transport_sha256": "21465fc62d47e0a84c0fe3a3e048d8896c497cc04955c393c21a2d62e3e8c4a2",
+    "autogenous_adapter_manifest_sha256": "27815bb2b1e82b580db3ab97287b78041f64c21141ab7023811db425f0987898",
+    "autogenous_adapter_lock_sha256": "75df3b80ec595db77e008b5d527c1aacd5b23d6513c1f068e6673d84e59b50e9",
+    "autogenous_adapter_source_sha256": "d6158ef1e8d6a48fd32c0000a86e412ec825f5b602f9aa0f9f5fea8406df4889",
+    "metaharness_commit": "d5833dc6512ac1adeeef91a331c29055cd8a4dbb",
+    "autogenous_commit": "905aa6cbe213392f8b3cab5d4f17bc3a48e0a509"
+  },
+  "tool_versions": {
+    "python": "3.12.14",
+    "node": "24.19.0",
+    "rustc": "1.85.1",
+    "cmake": "3.28.3",
+    "autogenous": "905aa6cbe213392f8b3cab5d4f17bc3a48e0a509"
+  },
+  "test_artifacts": [
+    "tests/evidence/concurrency-transport.json",
+    "tests/evidence/concurrency-validation.json",
+    "tests/evidence/concurrency-metaharness-gate.json",
+    "tests/evidence/concurrency-autogenous-authority.json"
+  ],
+  "failure_boundary": "Any concurrent response misassociation, sequential or framing regression, software lab failure, expired authority or missing rollback vetoes retention.",
+  "rollback": "Restore tools/transport.py from parent 47b0428 and retain the frozen evaluator as regression evidence.",
+  "fitness_vector": null,
+  "deployment_promoted": false
+}

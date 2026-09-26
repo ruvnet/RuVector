@@ -301,6 +301,50 @@ directory with `python3 -m unittest tests.test_transport_boundary -v` and
 commands. Roll back `tools/transport.py` to parent `b65e0c7` while retaining
 the evaluator if any framing or regression gate fails.
 
+## Follow up: serialize host transport transactions
+
+The host `Device` previously allowed two threads to write commands and wait for
+responses concurrently. The firmware protocol emits ordered JSON lines without
+request identifiers. If one caller paused after its write, another caller could
+consume the first reply and the first caller could then consume the second. A
+decision or benchmark result could therefore be attached to the wrong request
+even though both JSON responses were individually valid.
+
+Treat write, flush and response as one transaction protected by a per-device
+lock. Validate the single-line framing contract before acquiring the lock.
+Apply the same transaction boundary to subprocess and UART transports. This
+does not add parallel firmware execution: the line protocol and firmware
+command loop were already sequential.
+
+The independent evaluator was frozen against parent
+`47b042815052be2263498d0ca9ae2ae1f31cd7e1`. A controlled serial adapter
+paused the first caller after writing and reproduced exchanged replies in all
+eight parent pairs. The candidate correctly associates all eight pairs and
+preserves four sequential commands plus all four CR/LF framing rejections.
+Fresh integrated acceptance passed 57 Rust tests, 53 Python tests and eleven
+exact native pairs. Firmware, model, quantization, compiler flags and target
+sources are unchanged, so target builds and physical measurements were not
+repeated. No latency, energy, memory or deployment claim follows.
+
+Pinned MetaHarness `decidePromotion` at
+`d5833dc6512ac1adeeef91a331c29055cd8a4dbb` evaluated the visible fraction
+of eight correctly associated pairs and hard-vetoed any misassociation,
+sequential or framing regression, missing hash or lab failure. It records
+`hiddenTestPassed=false`; deterministic scheduling is not a physical timing
+confidence interval. Pinned Autogenous at
+`905aa6cbe213392f8b3cab5d4f17bc3a48e0a509` admitted the governed,
+reversible mutation, rejected six lineage, authority, rollback, invariant and
+expiry violations, and confirmed that application code is not auto-promotable.
+No deployment fitness was invented. The previously recorded standalone RSI
+blocker is unchanged and was not queried again.
+
+Receipts are under `tests/evidence/concurrency-*`. Reproduce from the firmware
+directory with `python3 -m unittest tests.test_transport_concurrency -v` and
+`python3 tools/lab.py`, then run the recorded MetaHarness and Autogenous
+commands. Roll back `tools/transport.py` to parent `47b0428` while retaining
+the evaluator if any association or regression gate fails. A timed-out request,
+device restart or concurrent `close` remains a separate recovery problem.
+
 ## Sources
 
 * https://archive.ics.uci.edu/dataset/357/occupancy+detection
