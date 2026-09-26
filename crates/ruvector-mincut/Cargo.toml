@@ -1,6 +1,6 @@
 [package]
 name = "ruvector-mincut"
-version.workspace = true
+version = "2.3.1"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
