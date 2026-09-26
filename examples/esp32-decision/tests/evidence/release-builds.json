@@ -10,98 +10,102 @@
     "esp32": {
       "full": {
         "ota_bytes": 206128,
-        "ota_sha256": "636ff7c665d326a666ea5db368bd567b326100a362af8f4099436ae6dd01ed5a",
-        "factory_sha256": "846d3043ca9d685464320fe60894c42b6303e9f866c42a6bced2c16163aca071"
+        "ota_sha256": "41af2fc21efe2678480b5c5b74a97fab752dc9bcf356c6d1debbdfebca921462",
+        "factory_sha256": "a37a221fe1dd7b6bb387c7e622c7540163261d1cff3640b97e055b2af1ff9985"
       },
       "production": {
         "ota_bytes": 205104,
-        "ota_sha256": "2de0cb9e6d37e166c9a05d658f53091ac01bad53bd413b3580506a69762e17f7",
-        "factory_sha256": "e07756d1ce6782d4c9218e2ec1a01bf76386e70bd2059040c07486129d228d0f"
+        "ota_sha256": "eb305ea3ca0b5d9fc5c2c96378ce5e2048a59de11c0b5ff32352ff70d9d511b3",
+        "factory_sha256": "e9c377db13545653ac8814a26a50d1cd589d1d1c734b8f0c8c0ed19ddd24a70c"
       }
     },
     "esp32s2": {
       "full": {
         "ota_bytes": 198624,
-        "ota_sha256": "863a9ba3ba101e5fedf3bbfbd1ef47c28fc8d632d1d1fd424c20883c5dfb9dea",
-        "factory_sha256": "23521778ce2f43ff96f62ddefc4b7d59f427f0a8c6eb4b29ddeb71cc1856fefc"
+        "ota_sha256": "31bf494fe3d3d0e2fbd5e09e9302de0317c667d72ebd6d26721dc3e90e7a8f27",
+        "factory_sha256": "00f27a795e505cdd09cfb29dc5841ce169e1c6daa788345945236f643bb259d4"
       },
       "production": {
         "ota_bytes": 197600,
-        "ota_sha256": "8741ab02062829242b631b600d4fcf1fa605c647c6835f58c2aaaba321bda6d0",
-        "factory_sha256": "8eeb34711782fd2cc92c6c61bdc053949e0864aab58cb2401fa0a490e412db23"
+        "ota_sha256": "920780091a43add1c69aa735768e5bf04dbd67cc2e22716c278e544f8121a11b",
+        "factory_sha256": "8e2167c61c412dcfbad8c6a2872d50b8a227f9c49b836a9d2dcfef4ba3e20f8c"
       }
     },
     "esp32s3": {
       "full": {
         "ota_bytes": 233936,
-        "ota_sha256": "ba4840c4d5f4a1ec86c6674e15410406e666b5168ca32a8bddb71c1ea4daf3a5",
-        "factory_sha256": "1e9052c19b02858e0bcb6f48862db6986a1ae727c42faf20f5e45a7b1c60b6a1"
+        "ota_sha256": "6853eb75f96643eb8812c9862272a0938f0358b11c7f0946036c36de9cd0b98c",
+        "factory_sha256": "67e77b8448a2ed263cd0ece08fd0be86aadda3c14762c43c1f060c92b9c12eab"
       },
       "production": {
         "ota_bytes": 232912,
-        "ota_sha256": "1699657eb0aabbff3f5fb9674b292ce7d0884f582d9877d82c37f4759467360a",
-        "factory_sha256": "0975c502d4946f1d101e23bdfa9ede3cff57b26021b98463261962f2b18e4dfd"
+        "ota_sha256": "3baff3f75cc9befcf75392dc467be3af9eb6c13cd262a4806e1cdcc5003ca5c0",
+        "factory_sha256": "fb6355d75aa15a16439c1d15f8a154e857d14842518d26073d93dcdd46e1b2c4"
       }
     },
     "esp32c2": {
       "full": {
         "ota_bytes": 143296,
-        "ota_sha256": "8a6949366149336bcc8e9ceed9ab66d7a71f4a88b438821b746a6e8d1073ec80",
-        "factory_sha256": "33aad142982a9a5c9b7dea5b11bf88951c26ff1e57c2c53d089f68560dd38d07"
+        "ota_sha256": "bce2773843ec246e8a80f7327e0f8401cb3f04e3c505f1dfa2422e3a6eff3e58",
+        "factory_sha256": "d82377e6dad08daf83f58e15db5bba79e5c70b1b0aaca091d6879d894d7b8030"
       },
       "production": {
         "ota_bytes": 142336,
-        "ota_sha256": "3585d8ed7be1bee9b462971db95770b8a469f3f8e02f615fa69a06e7bb2fc027",
-        "factory_sha256": "da42588258bbc2220641535111632380c082fb9bb6fefe9972160e1b0f7d87a8"
+        "ota_sha256": "7c2910a60b3465c19dc8f00213721e8463eea2afab87b3196d0f7d80053ef4d0",
+        "factory_sha256": "bfbc83905071249a5931823217d88087a268aa5ca0ec5c4719d23c6fb22ba772"
       }
     },
     "esp32c3": {
       "full": {
         "ota_bytes": 215392,
-        "ota_sha256": "016770b9fe72b9eb99f277dde33cbafb8b8fa0370f08292201671d83486735c9",
-        "factory_sha256": "1a9c3dc61db8dd54c4a35425d1cc67e7520ef900b0f149b8573a23896737013d"
+        "ota_sha256": "4175894fbdca200b46749edd471a1ee2706756024c594986aaf3857dfe50aa41",
+        "factory_sha256": "495e0b1478ffeed240b7cd6d5f06ef1a0bd4becabb13f7b92ed657605c1678f3"
       },
       "production": {
         "ota_bytes": 214416,
-        "ota_sha256": "fb6085a09621191abd5dce7e65963eebf55e8b014040c476f40b305d614d0bb4",
-        "factory_sha256": "499bc70e11984ee8012ac33ccaffeb13e9d935b4731d7492adf484993aa8fe01"
+        "ota_sha256": "e0d46dc254b4c94c5315f3cdab06896eaa2cadf78cf47c9ed66d63e9b82530a7",
+        "factory_sha256": "bc704ee18bfc85ba50a30e1d39d6ec6ab78009d85d33e9a3e827337ac891737b"
       }
     },
     "esp32c6": {
       "full": {
         "ota_bytes": 180704,
-        "ota_sha256": "3c0f0eda97479c91e6ecd5cbefbd80caf224f2bc2e0e67f741b6681613798bab",
-        "factory_sha256": "8e0d57ee5b94f927c410ceed143f3b868c8c1d01fbf929adf498c3e21ee3f330"
+        "ota_sha256": "c272b53e11722e9f13741428a8137b97e6b5427b2f4279a99ca51d2a6f905d05",
+        "factory_sha256": "7daf08ffe758de1ac8c216ac200d10ffd106f65b14637fba98c016094800e11a"
       },
       "production": {
         "ota_bytes": 179728,
-        "ota_sha256": "2bec1975228f4cbcdd5f7153797bd6871c928beee40dc6c4997b2ac8d419a902",
-        "factory_sha256": "639c61f054af804cc6f68fa2cd61eeb1408e5926e52b9fe423918c0cdd0b870f"
+        "ota_sha256": "b41e384a05213b50cfc07a74fbcbeac2a5f6c92bcaedb47bbcbb4acde35bb087",
+        "factory_sha256": "aee6ac6dcbb3642dd404c91006d5a5c693d7993589a25b8b80e6de1c24341dfc"
       }
     },
     "esp32h2": {
       "full": {
         "ota_bytes": 218304,
-        "ota_sha256": "8307862bcf9ac0e46718789bc18da8ed43b970c174d125c1a192da84ba984e18",
-        "factory_sha256": "1159159a29b7b4297dc56df85030044b222e406dcdefe2abea1b142c04a781cf"
+        "ota_sha256": "899e7747d4da9a809457d3e6babad01364eff003f5364f2fced086d154c23817",
+        "factory_sha256": "5168ba8696b181524b3f2d1aa7d04004b16e66f4565b2e0603b3c63c295e84a9"
       },
       "production": {
         "ota_bytes": 217344,
-        "ota_sha256": "d34443b57581de700130731b6faf7cb25d6949b87a57fcbc03246eb619cff2b1",
-        "factory_sha256": "edd940a8d50336e76983799156734e836ef8f1fd9caf789983486c2fd60cd846"
+        "ota_sha256": "8028c4bbe256c0b30f3a2226dff3807efd5b01d9246771dcf30de4eb9371caba",
+        "factory_sha256": "e067fc687b5abc5e533107cff8a1f38c0e05c9f26df59acac11d6af76d5b4bf4"
       }
     },
     "esp32p4": {
       "full": {
         "ota_bytes": 253568,
-        "ota_sha256": "1c93690e3f73efcb6142c32ac2c51fd4b7fe954a9c744c0b2d9fa067c32cff07",
-        "factory_sha256": "72d2cc9fcb6e3d7fb7ade0cda97d1f81e2a4ab144c0e2d839fae62e613dcf959"
+        "ota_sha256": "1eb7412dcb7d4607d4d843a3ba8f3155dd44616ab4a45b3c249ae8455d0582eb",
+        "factory_sha256": "3f0e661c66cee32cf7a788e53f47c9d4e646b876260f5b2c7ab14282ce06412d"
       },
       "production": {
         "ota_bytes": 252592,
-        "ota_sha256": "4e15997152d24689077668d1bcf3b1c2be4027608ad8c59b84ddeb571c3ca6da",
-        "factory_sha256": "47f2dcc88fb3e400f55bf06aa2ea46510d8caa59c78b80e9295a60205ae97fad"
+        "ota_sha256": "1e987176c6430119cdec91d33791c5e9a40411eb0c7ff2b335476858915ac6d5",
+        "factory_sha256": "7bd25396d933fc51230d06dff1e6be3596ea59450f523d51e9f93f6364923eb2"
       }
     }
+  },
+  "built_from": "88e5b134 (clean tree; app_version rvf-v0.3.4-321-g88e5b134)",
+  "physical_check": {
+    "esp32c6": "factory boot + selftest + bench 174.507 us; OTA to production committed (21.6 s); broken-selftest image rolled back"
   }
 }
