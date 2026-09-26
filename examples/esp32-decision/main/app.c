@@ -1,10 +1,17 @@
 #include "app.h"
+#include "profile.h"
 #include <model.h>
 #include <errno.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifndef RD_KERNEL_SHA256
+#define RD_KERNEL_SHA256 "unknown"
+#endif
+#ifndef RD_PREPROCESSING
+#define RD_PREPROCESSING 0
+#endif
 
 static rd_context ctx;
 static rd_workspace workspace;
@@ -41,8 +48,10 @@ static bool selftest(void) {
 #endif
 }
 static void meta(void) {
-    printf("{\"event\":\"ready\",\"target\":\"%s\",\"model_sha256\":\"%s\",\"model_id\":", rd_target(), RD_MODEL_HASH);
+    printf("{\"event\":\"ready\",\"target\":\"%s\",\"kernel_sha256\":\"%s\",\"cpu_hz\":%u,\"core\":%u,\"dynamic_frequency\":%s,\"fixed_affinity\":%s,\"marker_gpio\":%d,\"profile_buffer_bytes\":16384,\"sensor_pipeline\":%s,\"model_sha256\":\"%s\",\"model_id\":",
+           rd_target(),RD_KERNEL_SHA256,rd_cpu_hz(),rd_core_id(),rd_dynamic_frequency()?"true":"false",rd_fixed_affinity()?"true":"false",rd_marker_gpio(),RD_PREPROCESSING?"true":"false",RD_MODEL_HASH);
     json_string(RD_MODEL_ID);
+    printf(",\"capture_driver\":");json_string(rd_sensor_name());
     printf(",\"quant_bits\":%u,\"dims\":%u,\"classes\":%u,\"parameter_bytes\":%d,\"float_parameter_bytes\":%d,"
            "\"workspace_bytes\":%u,\"static_app_bytes\":%u,\"free_heap\":%u,\"source_calibrated\":%s,"
            "\"calibrated\":false,\"selftest_pass\":%s}\n",
@@ -50,19 +59,20 @@ static void meta(void) {
            (unsigned)sizeof(workspace), (unsigned)(sizeof(workspace)+sizeof(features)+sizeof(line)+sizeof(ctx)),
            (unsigned)rd_free_heap(), ctx.model->source_calibrated ? "true" : "false", ready ? "true" : "false");
 }
-static void infer(char *input) {
-    size_t n = 0; char *p = input;
-    while (*p) {
-        while (*p == ' ' || *p == '\t') ++p;
-        if (!*p) break;
-        if (n == ctx.model->dims) { error("dimension"); return; }
-        errno = 0; char *end;
-        float value = strtof(p, &end);
-        if (p == end || errno == ERANGE || !isfinite(value) || (*end && *end != ' ' && *end != '\t')) {
-            error("invalid_feature"); return;
+static void decide_features(size_t n,bool sensor,uint64_t parse_us,int64_t capture_us) {
+    uint64_t pre_start=rd_clock_us();
+    if(sensor) {
+#if RD_PREPROCESSING
+        if(n!=RD_MODEL_DIMS) { error("dimension");return; }
+        for(size_t i=0;i<n;++i) {
+            features[i]=(features[i]-rd_feature_mean[i])/rd_feature_std[i];
+            if(!isfinite(features[i])) { error("invalid_feature");return; }
         }
-        features[n++] = value; p = end;
+#else
+        error("sensor_pipeline_unavailable");return;
+#endif
     }
+    uint64_t preprocess_us=rd_clock_us()-pre_start;
     rd_result r;
     uint64_t start = rd_clock_us();
     rd_status status = rd_predict(&ctx, features, n, &workspace, &r);
@@ -72,8 +82,33 @@ static void infer(char *input) {
     json_string(ctx.model->kind == RD_NOUL ? (r.index ? "yes" : "no") : rd_labels[r.index]);
     printf(",\"probabilities\":[");
     for (size_t i = 0; i < ctx.model->classes; ++i) printf("%s%.9g", i ? "," : "", (double)r.probabilities[i]);
-    printf("],\"confidence\":%.9g,\"abstain\":%.9g,\"noul\":%.9g,\"accepted\":%s,\"inference_us\":%llu,\"calibrated\":false}\n",
-           (double)r.confidence, (double)r.abstain, (double)r.noul, r.accepted ? "true" : "false", (unsigned long long)elapsed);
+    printf("],\"confidence\":%.9g,\"abstain\":%.9g,\"noul\":%.9g,\"accepted\":%s,\"inference_us\":%llu,\"parse_us\":%llu,\"preprocess_us\":%llu,\"capture_us\":",
+           (double)r.confidence, (double)r.abstain, (double)r.noul, r.accepted ? "true" : "false", (unsigned long long)elapsed,
+           (unsigned long long)parse_us,(unsigned long long)preprocess_us);
+    if(capture_us<0) printf("null");else printf("%llu",(unsigned long long)capture_us);
+    printf(",\"calibrated\":false}\n");
+}
+static void infer(char *input,bool sensor) {
+    uint64_t request_start=rd_clock_us();
+    size_t n=0;char *p=input;
+    while(*p) {
+        while(*p==' ' || *p=='\t')++p;
+        if(!*p)break;
+        if(n==ctx.model->dims) { error("dimension");return; }
+        errno=0;char *end;float value=strtof(p,&end);
+        if(p==end || errno==ERANGE || !isfinite(value) || (*end && *end!=' ' && *end!='\t')) {
+            error("invalid_feature");return;
+        }
+        features[n++]=value;p=end;
+    }
+    decide_features(n,sensor,rd_clock_us()-request_start,-1);
+}
+static void sample(void) {
+    if(!RD_PREPROCESSING) { error("sensor_pipeline_unavailable");return; }
+    for(size_t i=0;i<ctx.model->dims;++i)features[i]=NAN;
+    uint64_t start=rd_clock_us();
+    if(!rd_sensor_read(features,ctx.model->dims)) { error("capture_unavailable");return; }
+    decide_features(ctx.model->dims,true,0,(int64_t)(rd_clock_us()-start));
 }
 static void benchmark(void) {
     for (size_t i = 0; i < ctx.model->dims; ++i)
@@ -95,7 +130,19 @@ static void command(void) {
     else if (!strcmp(line, "selftest")) printf("{\"selftest_pass\":%s,\"vectors\":%d}\n", selftest() ? "true" : "false", RD_GOLDEN_COUNT);
     else if (!ready) error("not_ready");
     else if (!strcmp(line, "bench")) benchmark();
-    else if (!strncmp(line, "infer ", 6)) infer(line+6);
+    else if (!strcmp(line,"sample")) sample();
+    else if (!strncmp(line, "infer ", 6)) infer(line+6,false);
+    else if (!strncmp(line, "sensor ", 7)) infer(line+7,true);
+    else if (!strncmp(line,"profile ",8) || !strncmp(line,"energy ",7)) {
+        bool energy=line[0]=='e';char *arg=line+(energy?7:8),*end;
+        errno=0;unsigned long runs=strtoul(arg,&end,10);
+        if(errno || end==arg || *end || *arg=='-' || runs>2048) { error("profile_runs");return; }
+#if RD_GOLDEN_COUNT > 0
+        if(!rd_profile(&ctx,&workspace,&rd_golden_inputs[0][0],RD_GOLDEN_COUNT,(unsigned)runs,energy)) error("profile_runs");
+#else
+        error("no_profile_inputs");
+#endif
+    }
     else error("unknown_command");
 }
 bool rd_app_init(void) {

@@ -315,6 +315,102 @@ and fluctuate with host scheduling. An early integer-rounding S3 variant used
 are under `examples/esp32-decision/tests/evidence/benchmark-*.json`.
 No physical S3 or C6 performance measurement has been made.
 
+The [sensor benchmark ADR](docs/adr/ADR-007-esp32-measured-sensor-decisions.md)
+defines a separate lab for real measurements and physical acceptance. Run its
+complete software gate from `examples/esp32-decision`:
+
+```sh
+python3 tools/lab.py
+```
+
+This downloads the SHA256-pinned UCI Occupancy Detection dataset, trains the
+actual Rust engine, tests INT8 and INT16, checks sensor preprocessing and
+profiling, and runs 11 paired native trials. It requires Python 3.10+, Rust,
+GCC and Git. The dataset is Luis Candanedo (2016), DOI
+[10.24432/C5X01N](https://doi.org/10.24432/C5X01N), licensed CC BY 4.0.
+No raw dataset is committed. Training uses 7,569 rows, validation uses the last
+574 training readings as a separate day, and test uses the supplied separate
+12,417 readings. Dates and row IDs are excluded from model features.
+
+The validation-selected INT8 model uses 44 decision-parameter bytes plus 40
+bytes of preprocessing coefficients. It scores 98.06% test accuracy versus
+98.24% for the 64-byte INT16 head. Quantization parity is 99.80% for decisions
+and 99.81% for acceptance, with maximum probability error 0.01652. Both pass
+the fixed numerical gates. These are measurements within one office, with no
+claim of transfer to other buildings or devices. Confidence acceptance covers
+only 51.98% of test readings and 1.57% of validation readings. The model is a
+benchmark demonstration and is explicitly marked unsuitable for automatic
+deployment pending useful coverage, calibration and physical validation.
+
+`build-sensor/selected/model.h` contains the frozen selected model. Input order
+for `sensor` is Celsius, relative humidity percent, lux, CO2 ppm, humidity ratio
+kg/kg. For example: `sensor 23.18 27.272 426 721.25 0.004792988`.
+The standardizer is fitted on training only and is part of the model digest.
+`infer` still accepts already standardized features. Replies expose `parse_us`,
+`preprocess_us`, `inference_us` and `capture_us` (null for external readings).
+
+To attach an actual driver, implement strong `rd_sensor_read(float*, size_t)`
+and `rd_sensor_name()` functions in a board source file, add it to the main
+component, and fill every requested value in the same units/order. The `sample`
+command times capture, preprocessing and inference. The default driver returns
+`capture_unavailable`; the test driver is explicitly labeled `test_fixture_only`.
+No sensor acquisition time has been measured on physical hardware.
+
+`profile N` supports 1 to 2,048 calls over eight golden inputs, reporting
+median, p95, p99, maximum, mean cycles, timer overhead, CPU/core and heap.
+Profiling adds 16,384 bytes of static sample storage, separate from inference
+workspace. Raw overhead is reported rather than silently subtracted. The
+existing `bench` command remains available. `energy N` supports 1 to 256 calls,
+without per-call timing, with an optional GPIO marker around the whole batch.
+The GPIO is disabled by default; select a free board pin with
+`CONFIG_RD_BENCH_GPIO` only when connecting a power analyzer.
+
+Build paired images after activating the ESP-IDF 5.4.4 environment:
+
+```sh
+python3 tools/prepare_pair.py --model-dir build-sensor/selected \
+  --output build-rig --targets esp32s3 esp32c6
+python3 tools/rig.py build-rig/manifest.json --vectors build-sensor/test.json \
+  --execution physical --chip esp32s3 --port PORT --flash \
+  --metric mean_cycles --rounds 11 --output build-rig/s3.json
+# Repeat with --chip esp32c6 and its serial port.
+```
+
+The physical runner intentionally flashes both supplied images repeatedly,
+alternating their order. Each image contains the same profiling harness and
+model; only the pinned kernel differs. The manifest records binary and source
+hashes. Fixed CPU frequency, affinity, matching target/model/kernel and exact
+paired replay output are checked. Use `--execution native` for host processes
+or `--execution emulator --qemu /path/to/qemu-system-xtensa --chip esp32s3`
+for S3 emulation. Neither execution mode can satisfy the physical retention
+gate. `--limit` defaults to 1,000 reference rows per image per round.
+Reports separate protocol round trip from kernel timing and store raw rounds.
+
+Export a power analyzer trace as CSV with `time_s,voltage_v,current_a,marker`.
+Include idle samples before and after one complete energy batch. `marker` must
+be 0 or 1. Associate it with the corresponding round and arm:
+
+```sh
+python3 tools/energy.py trace.csv --run-report build-rig/s3.json \
+  --round 0 --arm candidate --output build-rig/energy-candidate-0.json
+python3 tools/energy_compare.py pairs.json --rig-report build-rig/s3.json \
+  --output build-rig/energy-decision.json
+```
+
+`pairs.json` is an array of objects with `baseline` and `candidate` paths to
+energy reports. The analyzer integrates voltage times current and reports
+gross joules per decision, optional idle-adjusted energy, sample resolution,
+scope and provenance. Reused traces, incomplete marker windows and duration
+mismatches are rejected. No voltage/current measurement is synthesized from
+CPU timing. Retention requires at least 11 independent pairs, median speedup
+>=1.10, the bootstrap lower confidence bound >1.0, passing correctness and
+stable heap. Energy uses the same gate with gross joules per decision.
+Traces need at least ten sample intervals inside the marker window. Both
+kernels disable floating point contraction: S3 replay revealed tiny rounding
+differences with the compiler default that native tests had not exposed.
+Earlier `benchmark-*.json` files retain historical optimization evidence;
+`lab-*.json` records this sensor and measurement iteration.
+
 ## Architecture (ADRs)
 
 - [ADR-001 — architecture](docs/adr/ADR-001-architecture.md)
@@ -323,6 +419,7 @@ No physical S3 or C6 performance measurement has been made.
 - [ADR-004 — the self-optimization loop](docs/adr/ADR-004-self-optimization-loop.md)
 - [ADR-005 — security model](docs/adr/ADR-005-security-model.md)
 - [ADR-006 — benchmarks and release gates](docs/adr/ADR-006-benchmarks-and-release-gates.md)
+- [ADR-007 — ESP32 measured sensor decisions](docs/adr/ADR-007-esp32-measured-sensor-decisions.md)
 
 ## License
 

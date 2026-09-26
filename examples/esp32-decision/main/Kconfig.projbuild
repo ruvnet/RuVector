@@ -1,0 +1,10 @@
+menu "RuVector benchmark"
+config RD_BENCH_GPIO
+    int "Optional energy marker GPIO (-1 disables it)"
+    range -1 48
+    default -1
+    help
+        Select a free output GPIO for an external power analyzer. The marker
+        brackets only the energy command's inference batch. Validate pin
+        availability for the connected board before enabling this option.
+endmenu

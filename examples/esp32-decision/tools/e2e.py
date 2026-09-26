@@ -6,6 +6,7 @@ Optional --port /dev/ttyUSB0 --model probe tests already flashed hardware using
 the same held-out vectors. Never flashes or changes hardware automatically.
 """
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -29,8 +30,9 @@ def compile_host(model, scalar=False, bits=16, profile='portable'):
     rows = json.loads((BUILD/f'fixtures/{model}.vectors.json').read_text())
     report = export(snapshot, folder/'model.h', rows, bits)
     binary = folder/('firmware-scalar' if scalar else 'firmware-'+profile)
-    cmd = ['gcc','-std=c11','-O3','-fno-fast-math','-Wall','-Wextra','-Werror',
-           '-I',folder,'-I',INCLUDE,'-I',ROOT/'main',CORE,ROOT/'main/app.c',ROOT/'tests/host_main.c','-lm','-o',binary]
+    cmd = ['gcc','-std=c11','-O3','-fno-fast-math','-ffp-contract=off','-Wall','-Wextra','-Werror',
+           '-DRD_KERNEL_SHA256="'+hashlib.sha256(CORE.read_bytes()).hexdigest()+'"',
+           '-I',folder,'-I',INCLUDE,'-I',ROOT/'main',CORE,ROOT/'main/app.c',ROOT/'main/profile.c',ROOT/'main/sensor.c',ROOT/'tests/host_main.c','-lm','-o',binary]
     if scalar: cmd.insert(1,'-DRD_SCALAR_DOT')
     if profile!='portable': cmd.insert(1,'-DRD_PAIR_DOT')
     if profile=='esp32s3': cmd.insert(1,'-DRD_LIBM_ROUND')
@@ -86,13 +88,13 @@ def host_test(name, bits=16):
     ref_run = subprocess.run([scalar],input='\n'.join(commands[:3+len(rows)])+'\n',text=True,capture_output=True,check=True,timeout=30)
     scalar_results = [json.loads(line) for line in ref_run.stdout.splitlines()]
     for optimized, reference in zip(results[3:3+len(rows)], scalar_results[3:3+len(rows)],strict=True):
-        assert {k:v for k,v in optimized.items() if k!='inference_us'} == {k:v for k,v in reference.items() if k!='inference_us'}
+        assert {k:v for k,v in optimized.items() if not k.endswith('_us')} == {k:v for k,v in reference.items() if not k.endswith('_us')}
     for profile in ('esp32s3','esp32c6'):
         target,_,_,_=compile_host(name,bits=bits,profile=profile)
         proc=subprocess.run([target],input='\n'.join(commands[:3+len(rows)])+'\n',text=True,capture_output=True,check=True,timeout=30)
         target_results=[json.loads(line) for line in proc.stdout.splitlines()]
         for portable,actual in zip(results[3:3+len(rows)],target_results[3:3+len(rows)],strict=True):
-            assert {k:v for k,v in portable.items() if k!='inference_us'} == {k:v for k,v in actual.items() if k!='inference_us'}
+            assert {k:v for k,v in portable.items() if not k.endswith('_us')} == {k:v for k,v in actual.items() if not k.endswith('_us')}
     return {**report,**parity,'host_benchmark':bench,'boot':results[0],
             'bit_identical_kernel_profiles':['portable','scalar','esp32s3','esp32c6']}
 

@@ -1,4 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 set(COMPONENTS main)
+set(RD_MODEL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/main" CACHE PATH "Directory containing model.h")
+set(RD_KERNEL_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/components/rvdecision/rvdecision.c" CACHE FILEPATH "Frozen kernel source for paired builds")
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(ruvector_decision)

@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "baseline_commit": "739a5621043f9b0f0ffc263c46d1d2f7aeb9495f",
+  "model_sha256": "2ee5358efb5ade96d6892b71ab1ffac4d0794704dfc5b6877fc3dd77fc0d69e4",
+  "model_header_sha256": "3bbf23c984f692ef0b2d3d70b0986760c78ffc5177b5d6b69c9a24e066b77a11",
+  "model_dir": "/workspace/scratch/f324a824e528/ruvector/examples/esp32-decision/build-lab/frozen-model",
+  "kernel_flags": "-O3 -fno-fast-math -ffp-contract=off",
+  "variants": {
+    "baseline": {
+      "kernel_sha256": "95d5d9996d345316f4b0f7dca060c23abe4c4de4bda3cb42e8259a68094750eb",
+      "images": {},
+      "host_binary": "/workspace/scratch/f324a824e528/ruvector/examples/esp32-decision/build-lab/host-baseline",
+      "host_sha256": "f47c586e733c4b232bb2ff747f5770aef46fefeef7204945ac7e2e1628b88e07"
+    },
+    "candidate": {
+      "kernel_sha256": "b9d41b7589740df3cd442ac1bf02ba0c52f98bda4aca58f979316e353bdd4d40",
+      "images": {},
+      "host_binary": "/workspace/scratch/f324a824e528/ruvector/examples/esp32-decision/build-lab/host-candidate",
+      "host_sha256": "75fb08cd8054a389d5bb5e3a45158c766040ef9a62f8c7e3f7b6dee1f523f8de"
+    }
+  }
+}

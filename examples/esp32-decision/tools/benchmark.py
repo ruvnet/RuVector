@@ -35,7 +35,7 @@ def compile_pair(ref,profile):
     BUILD.mkdir(exist_ok=True)
     baseline=subprocess.check_output(['git','show',f'{ref}:{PATH}'],cwd=ROOT)
     (BUILD/'baseline.c').write_bytes(baseline)
-    common=['gcc','-std=c11','-O3','-fno-fast-math','-Wall','-Wextra','-Werror','-I',HEADER]
+    common=['gcc','-std=c11','-O3','-fno-fast-math','-ffp-contract=off','-Wall','-Wextra','-Werror','-I',HEADER]
     if profile!='portable': common+=['-DRD_PAIR_DOT']
     if profile=='esp32s3': common+=['-DRD_LIBM_ROUND']
     symbols=['rd_init','rd_predict','rd_dot_i8','rd_dot_i16']
@@ -72,7 +72,7 @@ def main():
         header=ROOT/'build-host'/name
         if not (header/'model.h').exists(): raise RuntimeError('Run tools/e2e.py to generate fixture headers first')
         binary=BUILD/f'benchmark-{name}'
-        run(['gcc','-std=c11','-O3','-fno-fast-math','-Wall','-Wextra','-Werror','-I',HEADER,'-I',header,
+        run(['gcc','-std=c11','-O3','-fno-fast-math','-ffp-contract=off','-Wall','-Wextra','-Werror','-I',HEADER,'-I',header,
              ROOT/'tests/benchmark_model.c',BUILD/'baseline.o',BUILD/'candidate.o','-lm','-o',binary])
         case=json.loads(run([binary],capture_output=True,text=True).stdout); case['fixture']=name
         case['header_sha256']=hashlib.sha256((header/'model.h').read_bytes()).hexdigest()
@@ -80,7 +80,7 @@ def main():
     result={'execution':'native host; not ESP32 silicon','platform':platform.platform(),'cpu_affinity':cpu,
             'kernel_profile':a.profile,
             'synthetic_seed':17,
-            'compiler_flags':'-std=c11 -O3 -fno-fast-math -Wall -Wextra -Werror; profile defines as selected',
+            'compiler_flags':'-std=c11 -O3 -fno-fast-math -ffp-contract=off -Wall -Wextra -Werror; profile defines as selected',
             'cpu_model':next((line.split(':',1)[1].strip() for line in Path('/proc/cpuinfo').read_text().splitlines()
                               if line.startswith('model name')),'unknown') if Path('/proc/cpuinfo').exists() else platform.processor(),
             'compiler':subprocess.check_output(['gcc','--version'],text=True).splitlines()[0],

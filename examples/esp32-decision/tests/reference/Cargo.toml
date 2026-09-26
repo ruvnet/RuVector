@@ -19,3 +19,6 @@ thiserror = "2"
 [[bin]]
 name = "export-reference"
 path = "main.rs"
+[[bin]]
+name = "train-sensor"
+path = "sensor.rs"

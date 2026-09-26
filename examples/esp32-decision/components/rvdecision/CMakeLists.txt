@@ -1,5 +1,7 @@
-idf_component_register(SRCS "rvdecision.c" INCLUDE_DIRS "include")
-target_compile_options(${COMPONENT_LIB} PRIVATE -O3 -fno-fast-math -Wall -Wextra)
+idf_component_register(SRCS "${RD_KERNEL_SOURCE}" INCLUDE_DIRS "include")
+file(SHA256 "${RD_KERNEL_SOURCE}" RD_KERNEL_HASH)
+target_compile_definitions(${COMPONENT_LIB} PUBLIC RD_KERNEL_SHA256="${RD_KERNEL_HASH}")
+target_compile_options(${COMPONENT_LIB} PRIVATE -O3 -fno-fast-math -ffp-contract=off -Wall -Wextra)
 # Halve wide accumulator additions on the 32-bit MCU targets. Native host
 # builds keep the simple loop, which GCC can vectorize more effectively.
 target_compile_definitions(${COMPONENT_LIB} PRIVATE RD_PAIR_DOT)
