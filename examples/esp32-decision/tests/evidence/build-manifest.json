@@ -1,0 +1,55 @@
+{
+  "idf_version": "v5.4.4",
+  "idf_commit": "296b6eab9445fd720e71aecab961e2d3fbca9944",
+  "targets": {
+    "esp32s3": {
+      "files": {
+        "ruvector_decision.bin": {
+          "bytes": 186224,
+          "sha256": "fa0bde8b11a5fd9d25e8f59c60c90cd845c6bc76a201d7cd8db91057e5823d9d"
+        },
+        "merged-binary.bin": {
+          "bytes": 251760,
+          "sha256": "44ac465560e918ff04b0e696b6dad6ef1af469900761e7f84f891bf8e599440c"
+        },
+        "bootloader/bootloader.bin": {
+          "bytes": 18800,
+          "sha256": "6c687e27164eeeda73e596d6037f744b1ab41b341f3dfdda2ab0aff664e15024"
+        },
+        "partition_table/partition-table.bin": {
+          "bytes": 3072,
+          "sha256": "7f00b6c042a89b15b0cac534f82ed988caf29278ff5700b0c511eb1b5bb7c820"
+        }
+      }
+    },
+    "esp32c6": {
+      "files": {
+        "ruvector_decision.bin": {
+          "bytes": 154512,
+          "sha256": "1426056e3fcc937f9cb6482ac39f0b88012efb67330ff04259f65011e77e339f"
+        },
+        "merged-binary.bin": {
+          "bytes": 220048,
+          "sha256": "47afdb55b8c2b0bf5834725d231a8a825ddae02c5499b97d4b34b0049bc541fc"
+        },
+        "bootloader/bootloader.bin": {
+          "bytes": 19648,
+          "sha256": "2e89578766894be8b2c0dd491331050b366e6d2bff3a396a58884b411c29d946"
+        },
+        "partition_table/partition-table.bin": {
+          "bytes": 3072,
+          "sha256": "7f00b6c042a89b15b0cac534f82ed988caf29278ff5700b0c511eb1b5bb7c820"
+        }
+      }
+    }
+  },
+  "physical_hardware_tested": false,
+  "model": "synthetic numeric fixture, 32 features, 3 classes",
+  "quantization_bits": 16,
+  "parameters_bytes": 556,
+  "fp32_parameters_bytes": 1036,
+  "inference_workspace_bytes": 1668,
+  "default_flash_bytes": 4194304,
+  "requires_psram": false,
+  "console": "UART0 115200 baud"
+}

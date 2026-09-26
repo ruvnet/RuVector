@@ -1,0 +1,30 @@
+{
+  "emulator": "Espressif QEMU esp32s3",
+  "hardware": false,
+  "boot": {
+    "event": "ready",
+    "target": "esp32s3",
+    "model_sha256": "46d0aa27d851a3d77ec0609812718b465b45aa12766328b68f0b0fa90f812bf2",
+    "model_id": "synthetic-numeric-features-v1",
+    "quant_bits": 16,
+    "dims": 32,
+    "classes": 3,
+    "parameter_bytes": 556,
+    "float_parameter_bytes": 1036,
+    "workspace_bytes": 1668,
+    "static_app_bytes": 2608,
+    "free_heap": 380716,
+    "source_calibrated": true,
+    "calibrated": false,
+    "selftest_pass": true
+  },
+  "vectors": 1000,
+  "decision_agreement": 1.0,
+  "max_probability_error": 0.0009105805787353871,
+  "acceptance_agreement": 1.0,
+  "accepted": 810,
+  "source_accepted": 810,
+  "steady_state_baseline_heap": 380004,
+  "final_free_heap": 380004,
+  "boot_to_warm_heap_delta": 712
+}
