@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 import random
 import statistics
@@ -31,15 +32,31 @@ def stage_summary(answers):
             'p95':values[(len(values)*95+99)//100-1],'p99':values[(len(values)*99+99)//100-1],'max':values[-1]}
     return result
 
+def positive_finite(value,label):
+    # JSON booleans are Python integers, but are never timing measurements.
+    # Preserve the original numeric value so valid integer ratios round just
+    # as before; float conversion would lose precision for large counters.
+    if type(value) not in (int,float):
+        raise ValueError('benchmark value must be a number: '+label)
+    try:finite=math.isfinite(value)
+    except OverflowError:finite=False
+    if not finite or value<=0:
+        raise ValueError('benchmark value must be finite and positive: '+label)
+    return value
+
 def retention(rounds,metric,execution,correctness):
+    if not rounds:raise ValueError('no paired measurements')
     ratios=[]
     for r in rounds:
-        a=r['baseline']['profile'][metric];b=r['candidate']['profile'][metric]
-        if a<=0 or b<=0:raise ValueError('timing resolution insufficient for selected metric')
-        ratios.append(a/b)
+        a=positive_finite(r['baseline']['profile'][metric],'baseline.'+metric)
+        b=positive_finite(r['candidate']['profile'][metric],'candidate.'+metric)
+        try:ratio=a/b
+        except OverflowError as error:raise ValueError('benchmark ratio overflow') from error
+        ratios.append(positive_finite(ratio,'paired speedup'))
     rng=random.Random(719)
-    boot=sorted(statistics.median(rng.choices(ratios,k=len(ratios))) for _ in range(2000))
-    median=statistics.median(ratios);lower=boot[50]
+    boot=sorted(positive_finite(statistics.median(rng.choices(ratios,k=len(ratios))),
+                               'bootstrap median') for _ in range(2000))
+    median=positive_finite(statistics.median(ratios),'median speedup');lower=boot[50]
     return {'metric':metric,'paired_speedups':ratios,'median_speedup':median,
             'bootstrap_95_lower':lower,'minimum_rounds':11,'required_speedup':1.10,
             'correctness_pass':correctness,'physical_execution':execution=='physical',

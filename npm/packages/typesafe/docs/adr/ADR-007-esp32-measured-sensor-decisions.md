@@ -175,6 +175,43 @@ hard gates were not populated with invented values. Neither harness result
 permits an automatic merge, flash or deployment. The standalone `ruvnet/rsi`
 repository remained unresolved; no standalone RSI invocation is claimed.
 
+## Follow up: finite benchmark evidence before retention
+
+The parent timing/energy retention function accepted infinite timing inputs,
+booleans and overflowing derived statistics. An eleven pair fixture with an
+infinite baseline produced an infinite speedup and `retain=true`. JSON numeric
+syntax such as `1e309` can decode to infinity without a JSON parsing error.
+This is an evidence validation defect, not an observed device performance gain.
+
+Require built in integer or float measurements that are positive and finite;
+booleans are not measurements. Reject integers outside the finite float range,
+nonfinite or underflowed ratios, and nonfinite median/bootstrap results before
+returning a retention decision. Preserve integer operands until division to
+avoid introducing an extra rounding step. The same function protects energy
+comparison. Pair count 11, required speedup 1.10, lower bound above 1.0, seed719,
+physical provenance and correctness vetoes remain unchanged.
+
+Treat the retention function as the product under test. Its independent
+acceptance evaluator was frozen before implementation, and all earlier model,
+kernel and acceptance fixture hashes were preserved. Seven named malformed
+cases now reject; five formerly produced false acceptance. Nine new test
+methods cover both arms, energy CLI overflow and fixed threshold behavior.
+An independent 96 case comparison preserved every valid finite parent result.
+The integrated lab passed 57 Rust tests, 36 Python tests, address/undefined
+checks and eleven exact native pairs. No target code or compiler flag changed;
+MCU rebuilds and physical measurements were not repeated for this host fix.
+
+Pinned MetaHarness `decidePromotion` evaluated observed malformed fixture
+rejection and verified regression vetoes. Autogenous `Mutation::admissible`
+checked the reversible, governed PR proposal, including authority, rollback,
+invariant and expiry negatives. Automatic application code promotion remains
+false. Public deterministic fixtures establish neither a new model quality
+claim nor a statistical device speedup. Sources and receipts are stored under
+`tests/evidence/finite-*`. Restore `tools/rig.py` from parent
+`6fdb5f12ac7fe16752eeb60405e52567081706db` to undo this change, while retaining
+the regression evidence. Reproduction: run `python3 tools/lab.py` from the
+firmware directory and the recorded harness commands in the evidence folder.
+
 ## Sources
 
 * https://archive.ics.uci.edu/dataset/357/occupancy+detection
