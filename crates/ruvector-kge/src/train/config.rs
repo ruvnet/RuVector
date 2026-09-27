@@ -63,6 +63,21 @@ pub enum Reduction {
     Mean,
 }
 
+/// Which [`OneToN`](super::OneToN) implementation the batched 1-vs-all path
+/// uses. Consulted only when the scorer is bilinear with an identity index
+/// (ComplEx) and the loss is [`LossKind::OneVsAll`]; every other scorer/loss
+/// ignores it, so HPO arms on HolE / RotatE never fail on it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OneNKernel {
+    /// [`NaiveOneToN`](super::NaiveOneToN): fixed-order reference loops.
+    #[default]
+    Naive,
+    /// [`GemmOneToN`](crate::kernel::GemmOneToN): three SGEMMs per batch,
+    /// multi-threaded under the `parallel` feature (plan M2).
+    Gemm,
+}
+
 /// Training hyperparameters. Every field has a serde default so a partial
 /// config deserializes (the HPO loop varies a subset per arm, ADR-004).
 ///
@@ -108,6 +123,9 @@ pub struct TrainConfig {
     /// Sparse (per-row map) or dense (flat) gradient and optimizer state.
     #[serde(default)]
     pub optim_state: StateLayout,
+    /// Batched 1-N kernel (`"naive"` | `"gemm"`); see [`OneNKernel`].
+    #[serde(default)]
+    pub one_n_kernel: OneNKernel,
 }
 
 fn dims_default() -> usize {
@@ -143,6 +161,7 @@ impl Default for TrainConfig {
             loss_reduction: Reduction::default(),
             rp_weight: 0.0,
             optim_state: StateLayout::default(),
+            one_n_kernel: OneNKernel::default(),
         }
     }
 }

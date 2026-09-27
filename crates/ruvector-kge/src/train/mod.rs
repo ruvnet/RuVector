@@ -19,7 +19,7 @@ pub mod optim;
 pub mod reciprocal;
 mod rp;
 
-pub use config::{LossKind, N3Form, Reduction, TrainConfig};
+pub use config::{LossKind, N3Form, OneNKernel, Reduction, TrainConfig};
 pub use grad::Differentiable;
 pub use init::Init;
 pub use one_to_n::{NaiveOneToN, OneToN};
@@ -52,6 +52,8 @@ pub struct Trainer;
 impl Trainer {
     /// Train `tables` on `store`'s triples with `scorer`, calling `callback`
     /// once per epoch. Returns after `config.epochs` epochs.
+    ///
+    /// The batched 1-N kernel is chosen by [`TrainConfig::one_n_kernel`].
     pub fn fit(
         tables: &mut Tables,
         scorer: &dyn Differentiable,
@@ -59,7 +61,15 @@ impl Trainer {
         config: &TrainConfig,
         callback: impl FnMut(&Progress),
     ) -> Result<()> {
-        Self::fit_with_kernel(tables, scorer, store, config, &NaiveOneToN, callback)
+        match config.one_n_kernel {
+            OneNKernel::Naive => {
+                Self::fit_with_kernel(tables, scorer, store, config, &NaiveOneToN, callback)
+            }
+            OneNKernel::Gemm => {
+                let kernel = crate::kernel::GemmOneToN::new();
+                Self::fit_with_kernel(tables, scorer, store, config, &kernel, callback)
+            }
+        }
     }
 
     /// [`Trainer::fit`] with an explicit batched 1-N kernel (used only when

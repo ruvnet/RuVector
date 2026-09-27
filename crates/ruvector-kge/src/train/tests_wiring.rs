@@ -52,6 +52,7 @@ fn recipe(optimizer: OptimKind) -> TrainConfig {
         loss_reduction: Reduction::Mean,
         rp_weight: 0.2,
         optim_state: StateLayout::Dense,
+        one_n_kernel: OneNKernel::Naive,
     }
 }
 

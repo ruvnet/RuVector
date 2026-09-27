@@ -419,6 +419,7 @@ fn complex_n3_reciprocal_recipe_lifts_mrr() {
         loss_reduction: Reduction::Mean,
         rp_weight: 0.05,
         optim_state: StateLayout::Dense,
+        one_n_kernel: OneNKernel::Naive,
     };
     let aug_store = augmented_store(&t, &store, ne, nr);
     let aug_test = reciprocal::augment(&t, &split.test).unwrap();

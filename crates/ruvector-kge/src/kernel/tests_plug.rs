@@ -125,3 +125,64 @@ fn fit_with_gemm_kernel_matches_naive_kernel() {
         1e-4,
     );
 }
+
+/// The `TrainConfig::one_n_kernel` switch: `{}` keeps the naive kernel,
+/// `"gemm"` selects `GemmOneToN`, and `Trainer::fit` routes to each exactly
+/// as `fit_with_kernel` does (bitwise, same kernel = same summation order).
+#[test]
+fn fit_routes_one_n_kernel_switch() {
+    use crate::data::TripleStore;
+    use crate::scorer::ComplEx;
+    use crate::train::{OneNKernel, TrainConfig, Trainer};
+    let empty: TrainConfig = serde_json::from_str("{}").unwrap();
+    assert_eq!(empty.one_n_kernel, OneNKernel::Naive);
+    assert_eq!(TrainConfig::default().one_n_kernel, OneNKernel::Naive);
+    let (ne, nr, d) = (30usize, 2usize, 8usize);
+    let triples: Vec<Triple> = (0..40u32)
+        .map(|i| Triple::new(i % ne as u32, i % nr as u32, (i * 11 + 1) % ne as u32))
+        .collect();
+    let store = TripleStore::with_counts(triples, Some(ne), Some(nr)).unwrap();
+    let cfg = |kernel: &str| -> TrainConfig {
+        serde_json::from_str(&format!(
+            r#"{{"loss":{{"kind":"one_vs_all"}},"reciprocal":true,"n3_form":"moduli",
+                "loss_reduction":"mean","init":{{"kind":"normal","scale":0.1}},
+                "optim_state":"dense","n3_lambda":0.01,"dims":{d},"epochs":3,
+                "batch_size":7,"lr":0.1,"seed":9,"one_n_kernel":"{kernel}"}}"#
+        ))
+        .unwrap()
+    };
+    let (gemm, naive) = (cfg("gemm"), cfg("naive"));
+    assert_eq!(gemm.one_n_kernel, OneNKernel::Gemm);
+    assert_eq!(naive.one_n_kernel, OneNKernel::Naive);
+    let sc = ComplEx::new(d).unwrap();
+    let fit = |c: &TrainConfig| {
+        let mut t = Tables::new(ne, 2 * nr, d, 4);
+        Trainer::fit(&mut t, &sc, &store, c, |_| {}).unwrap();
+        t
+    };
+    let explicit = |k: &dyn OneToN| {
+        let mut t = Tables::new(ne, 2 * nr, d, 4);
+        Trainer::fit_with_kernel(&mut t, &sc, &store, &gemm, k, |_| {}).unwrap();
+        t
+    };
+    let (tg, tn) = (fit(&gemm), fit(&naive));
+    let tg_explicit = explicit(&super::GemmOneToN::new());
+    let tn_explicit = explicit(&NaiveOneToN);
+    assert_eq!(tg.entities_raw(), tg_explicit.entities_raw(), "gemm routed");
+    assert_eq!(
+        tn.entities_raw(),
+        tn_explicit.entities_raw(),
+        "naive routed"
+    );
+    assert_ne!(
+        tg.entities_raw(),
+        tn.entities_raw(),
+        "switch changes kernel"
+    );
+    assert_close(
+        "gemm vs naive",
+        tg.entities_raw(),
+        &to64(tn.entities_raw()),
+        1e-4,
+    );
+}

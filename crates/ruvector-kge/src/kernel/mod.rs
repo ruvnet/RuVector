@@ -51,6 +51,8 @@ pub use plug::GemmOneToN;
 #[cfg(test)]
 mod bench;
 #[cfg(test)]
+mod sanity;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod tests_plug;

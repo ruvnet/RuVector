@@ -51,8 +51,8 @@ KGE_BENCH_BINDING=./test/fixtures/fake-binding.cjs \
 | Suite | Source | Licence stance | `--limit` |
 |---|---|---|---|
 | `synthetic` | frozen `fixtures/synthetic-kg.json` (committed) | n/a | n/a |
-| `fb15k237` | villmow/datasets_knowledge_embedding (standard splits) | Freebase-derived; follows source | subgraph |
-| `wn18rr` | same mirror (`WN18RR/text`) | WordNet-derived; follows source | subgraph |
+| `fb15k237` | DeepGraphLearning/KnowledgeGraphEmbedding@2e440e0f `data/FB15k-237` (byte-identical to the ConvE tarball) | Freebase-derived; follows source | subgraph |
+| `wn18rr` | DeepGraphLearning/KnowledgeGraphEmbedding@2e440e0f `data/wn18rr` (ConvE ids, 40,943 entities) | WordNet-derived; follows source | subgraph |
 | `codexm` | tsafavi/codex `data/triples/codex-m` + hard negatives | code MIT (root LICENSE, hashed); triples CC BY 4.0 per the paper | subgraph |
 | `yago310` | DeepGraphLearning/KnowledgeGraphEmbedding `data/YAGO3-10` (byte-identical to the ConvE tarball; lazy: only with `--suite yago310`) | YAGO-derived; follows source | subgraph |
 
