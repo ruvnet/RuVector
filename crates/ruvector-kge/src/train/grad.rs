@@ -11,6 +11,14 @@ pub trait Differentiable: Scorer {
     /// Gradient of `score(s, r, o)` w.r.t. each input vector, returned as
     /// `(d_score/d_s, d_score/d_r, d_score/d_o)`. No side effects.
     fn grad(&self, s: &[f32], r: &[f32], o: &[f32]) -> (Vec<f32>, Vec<f32>, Vec<f32>);
+
+    /// This scorer as a [`Bilinear`](crate::scorer::Bilinear) one, if its
+    /// score is an inner product in the open-slot entity. `Some` routes 1-vs-all
+    /// training through the batched 1-N path
+    /// ([`OneToN`](super::one_to_n::OneToN)). Provided: `None`.
+    fn as_bilinear(&self) -> Option<&dyn crate::scorer::Bilinear> {
+        None
+    }
 }
 
 #[cfg(test)]

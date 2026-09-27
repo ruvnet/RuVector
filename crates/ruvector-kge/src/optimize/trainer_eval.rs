@@ -285,6 +285,7 @@ fn train_config(knobs: &Knobs, seed: u64) -> TrainConfig {
         loss: loss_kind_of(knobs),
         n3_lambda: knobs.n3_lambda,
         seed,
+        ..TrainConfig::default()
     }
 }
 

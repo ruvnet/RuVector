@@ -1,103 +1,33 @@
-//! CPU mini-batch training over the embedding [`Tables`] (ADR-003 §4).
+//! CPU mini-batch training over the embedding [`Tables`] (ADR-003 §4,
+//! ADR-007 §3).
 //!
-//! Deterministic in `TrainConfig::seed`: own PRNG for shuffling and negative
-//! sampling (no `rand`), sparse per-row optimizer state, order-independent
-//! gradient application. The scorer is any [`Differentiable`]; training never
-//! special-cases a scorer.
+//! Deterministic in `TrainConfig::seed`: own PRNG for shuffling, negative
+//! sampling and initialisation (no `rand`), per-row optimizer state (sparse or
+//! dense, numerically identical), order-independent gradient application. The
+//! scorer is any [`Differentiable`]; training never special-cases a scorer —
+//! a scorer that is [`Bilinear`](crate::scorer::Bilinear) (reached through
+//! [`Differentiable::as_bilinear`]) takes the batched 1-N path
+//! ([`one_to_n`]) for 1-vs-all losses.
 
+mod config;
 pub mod grad;
+pub mod init;
 pub mod loss;
 mod negatives;
+pub mod one_to_n;
 pub mod optim;
+pub mod reciprocal;
+mod rp;
 
+pub use config::{LossKind, N3Form, Reduction, TrainConfig};
 pub use grad::Differentiable;
-pub use optim::OptimKind;
+pub use init::Init;
+pub use one_to_n::{NaiveOneToN, OneToN};
+pub use optim::{OptimKind, StateLayout};
 
 use crate::data::{Rng, TripleStore};
-use crate::{KgeError, Result, Tables};
+use crate::{KgeError, Result, Tables, Triple};
 use optim::{Grads, Optimizer};
-use serde::{Deserialize, Serialize};
-
-/// Which training regime to run (ADR-003 §1). A bandit arm, not hardcoded.
-#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum LossKind {
-    /// Self-adversarial negative sampling (RotatE).
-    SelfAdversarial {
-        #[serde(default = "neg_count_default")]
-        neg_count: usize,
-        #[serde(default = "temperature_default")]
-        temperature: f32,
-        #[serde(default = "margin_default")]
-        margin: f32,
-    },
-    /// 1-vs-all cross-entropy over every entity (ComplEx-N3), both sides.
-    #[default]
-    OneVsAll,
-}
-
-fn neg_count_default() -> usize {
-    16
-}
-fn temperature_default() -> f32 {
-    1.0
-}
-fn margin_default() -> f32 {
-    9.0
-}
-
-/// Training hyperparameters. Every field has a serde default so a partial
-/// config deserializes (the HPO loop varies a subset per arm, ADR-004).
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct TrainConfig {
-    #[serde(default = "dims_default")]
-    pub dims: usize,
-    #[serde(default = "epochs_default")]
-    pub epochs: usize,
-    #[serde(default = "batch_size_default")]
-    pub batch_size: usize,
-    #[serde(default = "lr_default")]
-    pub lr: f32,
-    #[serde(default)]
-    pub optimizer: OptimKind,
-    #[serde(default)]
-    pub loss: LossKind,
-    #[serde(default = "n3_lambda_default")]
-    pub n3_lambda: f32,
-    #[serde(default)]
-    pub seed: u64,
-}
-
-fn dims_default() -> usize {
-    128
-}
-fn epochs_default() -> usize {
-    100
-}
-fn batch_size_default() -> usize {
-    256
-}
-fn lr_default() -> f32 {
-    0.1
-}
-fn n3_lambda_default() -> f32 {
-    1e-3
-}
-
-impl Default for TrainConfig {
-    fn default() -> Self {
-        Self {
-            dims: dims_default(),
-            epochs: epochs_default(),
-            batch_size: batch_size_default(),
-            lr: lr_default(),
-            optimizer: OptimKind::default(),
-            loss: LossKind::default(),
-            n3_lambda: n3_lambda_default(),
-            seed: 0,
-        }
-    }
-}
 
 /// Per-epoch progress handed to the callback. Carries no clock or timestamp
 /// (ADR-005: no time in the core).
@@ -106,10 +36,13 @@ pub struct Progress {
     pub epoch: usize,
     pub epochs: usize,
     pub num_batches: usize,
-    /// Mean data-loss per positive over the epoch.
+    /// Mean data-loss per training example over the epoch (per positive; per
+    /// direction under `reciprocal`). Unaffected by `loss_reduction`.
     pub loss: f32,
-    /// Mean N3 penalty per positive over the epoch.
+    /// Mean N3 penalty per training example over the epoch.
     pub n3_penalty: f32,
+    /// Mean weighted relation-prediction loss per example (0 when off).
+    pub rp_loss: f32,
 }
 
 /// The trainer. `fit` is an associated function taking the tables by mutable
@@ -124,32 +57,80 @@ impl Trainer {
         scorer: &dyn Differentiable,
         store: &TripleStore,
         config: &TrainConfig,
+        callback: impl FnMut(&Progress),
+    ) -> Result<()> {
+        Self::fit_with_kernel(tables, scorer, store, config, &NaiveOneToN, callback)
+    }
+
+    /// [`Trainer::fit`] with an explicit batched 1-N kernel (used only when
+    /// the scorer is bilinear and the loss is 1-vs-all). The kernel lane plugs
+    /// its GEMM implementation in here.
+    pub fn fit_with_kernel(
+        tables: &mut Tables,
+        scorer: &dyn Differentiable,
+        store: &TripleStore,
+        config: &TrainConfig,
+        kernel: &dyn OneToN,
         mut callback: impl FnMut(&Progress),
     ) -> Result<()> {
         validate(tables, scorer, store, config)?;
+        init::apply_init(tables, config.init, config.seed);
 
-        let positives = store.triples().to_vec();
-        let n = positives.len();
+        let examples: Vec<Triple> = if config.reciprocal {
+            reciprocal::augment(tables, store.triples())?
+        } else {
+            store.triples().to_vec()
+        };
+        let n = examples.len();
         if n == 0 {
             return Ok(());
         }
         let num_batches = n.div_ceil(config.batch_size);
 
-        let mut opt = Optimizer::new(config.optimizer, config.lr);
+        let bilinear = match config.loss {
+            LossKind::OneVsAll => scorer.as_bilinear().filter(|b| b.index_is_identity()),
+            LossKind::SelfAdversarial { .. } => None,
+        };
+        let (ne, nr, d) = (tables.num_entities(), tables.num_relations(), config.dims);
+        // The batched path needs dense entity grads; dense vs sparse
+        // accumulation is bitwise identical, so this changes storage only.
+        let grad_layout = if bilinear.is_some() {
+            StateLayout::Dense
+        } else {
+            config.optim_state
+        };
+        let mut grads = Grads::with_layout(grad_layout, d, ne, nr);
+        let mut opt = Optimizer::new(config.optimizer, config.lr, config.optim_state, d, ne, nr);
         let mut sample_rng = Rng::seeded(config.seed ^ 0xA5A5_0F0F_1234_5678);
         let mut order: Vec<usize> = (0..n).collect();
         let mut n3_buf: Vec<f32> = Vec::new();
+        let mut batch_ex: Vec<Triple> = Vec::with_capacity(config.batch_size);
 
         for epoch in 0..config.epochs {
             shuffle(&mut order, config.seed, epoch);
-            let mut epoch_loss = 0.0f64;
-            let mut epoch_n3 = 0.0f64;
+            let (mut epoch_loss, mut epoch_n3, mut epoch_rp) = (0.0f64, 0.0f64, 0.0f64);
 
             for batch in order.chunks(config.batch_size) {
-                let mut grads = Grads::new(config.dims);
-                for &i in batch {
-                    let t = positives[i];
+                grads.clear();
+                if config.loss_reduction == Reduction::Mean {
+                    grads.set_scale(1.0 / batch.len() as f32);
+                }
+                batch_ex.clear();
+                batch_ex.extend(batch.iter().map(|&i| examples[i]));
+
+                if let Some(b) = bilinear {
+                    epoch_loss += one_to_n::batched_step(
+                        tables,
+                        b,
+                        kernel,
+                        &batch_ex,
+                        !config.reciprocal,
+                        &mut grads,
+                    )? as f64;
+                }
+                for &t in &batch_ex {
                     let data_loss = match config.loss {
+                        _ if bilinear.is_some() => 0.0,
                         LossKind::SelfAdversarial {
                             neg_count,
                             temperature,
@@ -164,12 +145,30 @@ impl Trainer {
                             &mut sample_rng,
                             &mut grads,
                         )?,
+                        LossKind::OneVsAll if config.reciprocal => {
+                            loss::one_vs_all_tail_step(tables, scorer, t, &mut grads)?
+                        }
                         LossKind::OneVsAll => loss::one_vs_all_step(tables, scorer, t, &mut grads)?,
                     };
                     epoch_loss += data_loss as f64;
+                    if config.rp_weight > 0.0 {
+                        epoch_rp += rp::relation_prediction_step(
+                            tables,
+                            scorer,
+                            t,
+                            config.rp_weight,
+                            &mut grads,
+                        )? as f64;
+                    }
                     if config.n3_lambda > 0.0 {
-                        epoch_n3 +=
-                            apply_n3(tables, t, config.n3_lambda, &mut grads, &mut n3_buf)? as f64;
+                        epoch_n3 += apply_n3(
+                            tables,
+                            t,
+                            config.n3_lambda,
+                            config.n3_form,
+                            &mut grads,
+                            &mut n3_buf,
+                        )? as f64;
                     }
                 }
                 if !grads.is_empty() {
@@ -183,6 +182,7 @@ impl Trainer {
                 num_batches,
                 loss: (epoch_loss / n as f64) as f32,
                 n3_penalty: (epoch_n3 / n as f64) as f32,
+                rp_loss: (epoch_rp / n as f64) as f32,
             };
             callback(&progress);
         }
@@ -224,24 +224,42 @@ fn validate(
             "tables have fewer relations than the store".into(),
         ));
     }
-    Ok(())
+    if config.reciprocal {
+        reciprocal::validate(tables, store)?;
+    }
+    if !(config.rp_weight.is_finite() && config.rp_weight >= 0.0) {
+        return Err(KgeError::Invalid(
+            "rp_weight must be finite and >= 0".into(),
+        ));
+    }
+    if config.n3_form == N3Form::Moduli && !config.dims.is_multiple_of(2) {
+        return Err(KgeError::Invalid(
+            "n3_form \"moduli\" needs even dims ([re; im] layout)".into(),
+        ));
+    }
+    config.init.validate()
 }
 
-/// Apply N3 to the three rows of a positive triple, accumulating gradients and
-/// returning the total penalty.
+/// Apply N3 to the three rows of a training example, accumulating gradients
+/// and returning the total penalty.
 fn apply_n3(
     tables: &Tables,
-    t: crate::Triple,
+    t: Triple,
     lambda: f32,
+    form: N3Form,
     grads: &mut Grads,
     buf: &mut Vec<f32>,
 ) -> Result<f32> {
+    let reg = match form {
+        N3Form::Elementwise => loss::n3_grad,
+        N3Form::Moduli => loss::n3_moduli_grad,
+    };
     let mut penalty = 0.0;
-    penalty += loss::n3_grad(tables.entity(t.s)?, lambda, buf);
+    penalty += reg(tables.entity(t.s)?, lambda, buf);
     grads.add_entity(t.s, buf);
-    penalty += loss::n3_grad(tables.relation(t.r)?, lambda, buf);
+    penalty += reg(tables.relation(t.r)?, lambda, buf);
     grads.add_relation(t.r, buf);
-    penalty += loss::n3_grad(tables.entity(t.o)?, lambda, buf);
+    penalty += reg(tables.entity(t.o)?, lambda, buf);
     grads.add_entity(t.o, buf);
     Ok(penalty)
 }
@@ -255,227 +273,8 @@ fn shuffle(order: &mut [usize], seed: u64, epoch: usize) {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::grad::testing::DistMult;
-    use super::*;
-    use crate::data::TripleStore;
-    use crate::{eval, Tables, Triple};
-
-    /// Synthetic KG: 200 entities in 10 clusters of 20, plus 4 dedicated
-    /// "tag" entities per cluster reused across relations. Relations are all
-    /// symmetric (same-cluster style) so a symmetric DistMult can fit them —
-    /// asymmetric relations (successor) are unlearnable by DistMult and would
-    /// only add noise to the margin check.
-    fn synthetic_kg() -> (TripleStore, usize, usize) {
-        let clusters = 5usize;
-        let per = 20usize;
-        let num_entities = clusters * per; // 100 — kept small so the 1-vs-all
-                                           // (O(|E|) per positive per side) test
-                                           // stays fast in debug.
-        let num_relations = 3;
-        let mut triples: Vec<Triple> = Vec::new();
-        for c in 0..clusters {
-            let base = (c * per) as u32;
-            for a in 0..per as u32 {
-                // r0: same-cluster neighbour (ring within the cluster).
-                let b = base + (a + 1) % per as u32;
-                triples.push(Triple::new(base + a, 0, b));
-                triples.push(Triple::new(b, 0, base + a)); // symmetric
-                                                           // r1: two-step neighbour.
-                let d = base + (a + 2) % per as u32;
-                triples.push(Triple::new(base + a, 1, d));
-                triples.push(Triple::new(d, 1, base + a));
-                // r2: cluster tag (the cluster's first member as anchor).
-                triples.push(Triple::new(base + a, 2, base));
-                triples.push(Triple::new(base, 2, base + a));
-            }
-        }
-        let store =
-            TripleStore::with_counts(triples, Some(num_entities), Some(num_relations)).unwrap();
-        (store, num_entities, num_relations)
-    }
-
-    fn train_store(split_train: &[Triple], ne: usize, nr: usize) -> TripleStore {
-        TripleStore::with_counts(split_train.to_vec(), Some(ne), Some(nr)).unwrap()
-    }
-
-    #[test]
-    fn train_lifts_filtered_mrr_over_random() {
-        let (store, ne, nr) = synthetic_kg();
-        let split = store.split(1, [0.85, 0.0, 0.15]).unwrap();
-        split.assert_disjoint().unwrap();
-        let train = train_store(&split.train, ne, nr);
-
-        let dims = 32;
-        let scorer = DistMult::new(dims);
-        let mut tables = Tables::new(ne, nr, dims, 42);
-
-        let cfg = TrainConfig {
-            dims,
-            epochs: 35,
-            batch_size: 100,
-            lr: 0.5,
-            optimizer: OptimKind::Adagrad { epsilon: 1e-8 },
-            loss: LossKind::OneVsAll,
-            n3_lambda: 5e-4,
-            seed: 7,
-        };
-
-        // Baseline MRR on random init (before training).
-        let ecfg = eval::EvalConfig::random(123);
-        let baseline = eval::evaluate(&tables, &scorer, &store, &split.test, &ecfg).unwrap();
-
-        let mut first_loss = None;
-        let mut last_loss = 0.0f32;
-        Trainer::fit(&mut tables, &scorer, &train, &cfg, |p| {
-            if first_loss.is_none() {
-                first_loss = Some(p.loss);
-            }
-            last_loss = p.loss;
-        })
-        .unwrap();
-
-        let trained = eval::evaluate(&tables, &scorer, &store, &split.test, &ecfg).unwrap();
-
-        let first = first_loss.unwrap();
-        println!(
-            "[train] loss {:.4} -> {:.4}; filtered MRR baseline {:.4} -> trained {:.4} (Hits@10 {:.3} -> {:.3})",
-            first, last_loss, baseline.combined.mrr, trained.combined.mrr,
-            baseline.combined.hits10, trained.combined.hits10
-        );
-
-        assert!(
-            last_loss < first,
-            "loss should decrease: {first} -> {last_loss}"
-        );
-        assert!(
-            trained.combined.mrr > baseline.combined.mrr + 0.2,
-            "trained MRR {:.4} should beat baseline {:.4} by > 0.2",
-            trained.combined.mrr,
-            baseline.combined.mrr
-        );
-        assert!(
-            trained.combined.mrr > 0.3,
-            "trained filtered MRR {:.4} should be well above the ~1/N random floor",
-            trained.combined.mrr
-        );
-    }
-
-    #[test]
-    fn train_deterministic_same_seed() {
-        let (store, ne, nr) = synthetic_kg();
-        let split = store.split(2, [0.9, 0.0, 0.1]).unwrap();
-        let train = train_store(&split.train, ne, nr);
-        let dims = 16;
-        let scorer = DistMult::new(dims);
-        let cfg = TrainConfig {
-            dims,
-            epochs: 10,
-            batch_size: 128,
-            lr: 0.3,
-            optimizer: OptimKind::Adam {
-                beta1: 0.9,
-                beta2: 0.999,
-                epsilon: 1e-8,
-            },
-            loss: LossKind::SelfAdversarial {
-                neg_count: 8,
-                temperature: 1.0,
-                margin: 6.0,
-            },
-            n3_lambda: 0.0,
-            seed: 99,
-        };
-        let mut a = Tables::new(ne, nr, dims, 5);
-        let mut b = Tables::new(ne, nr, dims, 5);
-        Trainer::fit(&mut a, &scorer, &train, &cfg, |_| {}).unwrap();
-        Trainer::fit(&mut b, &scorer, &train, &cfg, |_| {}).unwrap();
-        assert_eq!(a, b, "same seed must yield identical tables after training");
-    }
-
-    #[test]
-    fn train_self_adversarial_reduces_loss() {
-        let (store, ne, nr) = synthetic_kg();
-        let split = store.split(3, [0.9, 0.0, 0.1]).unwrap();
-        let train = train_store(&split.train, ne, nr);
-        let dims = 32;
-        let scorer = DistMult::new(dims);
-        let cfg = TrainConfig {
-            dims,
-            epochs: 40,
-            batch_size: 200,
-            lr: 0.05,
-            optimizer: OptimKind::Adagrad { epsilon: 1e-8 },
-            loss: LossKind::SelfAdversarial {
-                neg_count: 16,
-                temperature: 0.5,
-                margin: 3.0,
-            },
-            n3_lambda: 0.0,
-            seed: 11,
-        };
-        let mut tables = Tables::new(ne, nr, dims, 8);
-        let mut first = None;
-        let mut last = 0.0;
-        Trainer::fit(&mut tables, &scorer, &train, &cfg, |p| {
-            if first.is_none() {
-                first = Some(p.loss);
-            }
-            last = p.loss;
-        })
-        .unwrap();
-        let first = first.unwrap();
-        println!("[train/self-adv] loss {first:.4} -> {last:.4}");
-        assert!(
-            last < first,
-            "self-adversarial loss should drop: {first} -> {last}"
-        );
-    }
-
-    #[test]
-    fn train_validates_boundary() {
-        let (store, ne, nr) = synthetic_kg();
-        let scorer = DistMult::new(8);
-        let mut tables = Tables::new(ne, nr, 8, 1);
-        // dims mismatch
-        let bad = TrainConfig {
-            dims: 16,
-            ..Default::default()
-        };
-        assert!(matches!(
-            Trainer::fit(&mut tables, &scorer, &store, &bad, |_| {}),
-            Err(KgeError::Dims { .. })
-        ));
-        // batch_size 0
-        let bad2 = TrainConfig {
-            dims: 8,
-            batch_size: 0,
-            ..Default::default()
-        };
-        assert!(matches!(
-            Trainer::fit(&mut tables, &scorer, &store, &bad2, |_| {}),
-            Err(KgeError::Invalid(_))
-        ));
-    }
-
-    #[test]
-    fn train_config_partial_json_defaults() {
-        // An empty object deserializes to the full default config.
-        let c: TrainConfig = serde_json::from_str("{}").unwrap();
-        assert_eq!(c, TrainConfig::default());
-        // Internally-tagged enums fill their per-field defaults from the tag.
-        let c: TrainConfig = serde_json::from_str(
-            r#"{"loss":{"kind":"self_adversarial"},"optimizer":{"kind":"adam"}}"#,
-        )
-        .unwrap();
-        assert!(matches!(
-            c.loss,
-            LossKind::SelfAdversarial {
-                neg_count: 16,
-                margin,
-                ..
-            } if margin == 9.0
-        ));
-        assert!(matches!(c.optimizer, OptimKind::Adam { beta1, .. } if beta1 == 0.9));
-    }
-}
+mod tests;
+#[cfg(test)]
+mod tests_recipe;
+#[cfg(test)]
+mod tests_wiring;

@@ -31,7 +31,7 @@ fn log_sigmoid(x: f32) -> f32 {
 }
 
 /// Softmax in place (max-shifted). Returns nothing; `v` becomes probabilities.
-fn softmax_inplace(v: &mut [f32]) {
+pub(crate) fn softmax_inplace(v: &mut [f32]) {
     let m = v.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
     let mut sum = 0.0f32;
     for x in v.iter_mut() {
@@ -55,6 +55,26 @@ pub(crate) fn n3_grad(row: &[f32], lambda: f32, grad_out: &mut Vec<f32>) -> f32 
         let ax = x.abs();
         penalty += ax * ax * ax;
         grad_out.push(3.0 * lambda * x * ax);
+    }
+    lambda * penalty
+}
+
+/// N3 over complex moduli (Lacroix 2018) for one row in the split layout
+/// `[re(k); im(k)]`: penalty `= lambda * Σ_j m_j³` with
+/// `m_j = sqrt(re_j² + im_j²)`; gradient `∂/∂re_j = 3·lambda·m_j·re_j`
+/// (and likewise for `im_j`), which is 0 at `m_j = 0`. `row.len()` must be
+/// even (validated by the trainer). Fills `grad_out`; returns the penalty.
+pub(crate) fn n3_moduli_grad(row: &[f32], lambda: f32, grad_out: &mut Vec<f32>) -> f32 {
+    let k = row.len() / 2;
+    grad_out.clear();
+    grad_out.resize(row.len(), 0.0);
+    let (re, im) = row.split_at(k);
+    let mut penalty = 0.0f32;
+    for j in 0..k {
+        let m = (re[j] * re[j] + im[j] * im[j]).sqrt();
+        penalty += m * m * m;
+        grad_out[j] = 3.0 * lambda * m * re[j];
+        grad_out[k + j] = 3.0 * lambda * m * im[j];
     }
     lambda * penalty
 }
@@ -175,58 +195,88 @@ pub(crate) fn one_vs_all_step(
     t: Triple,
     grads: &mut Grads,
 ) -> Result<f32> {
+    let tail = one_side_ce(tables, scorer, t, Side::Tail, grads)?;
+    let head = one_side_ce(tables, scorer, t, Side::Head, grads)?;
+    Ok(tail + head)
+}
+
+/// Tail-only 1-vs-all cross-entropy `(s, r, ?)` — the reciprocal recipe
+/// (Lacroix 2018): every example, including the reciprocal `(o, r⁻¹, s)`,
+/// is answered as a tail query. Also the per-triple oracle for the batched
+/// 1-N path.
+pub(crate) fn one_vs_all_tail_step(
+    tables: &Tables,
+    scorer: &dyn Differentiable,
+    t: Triple,
+    grads: &mut Grads,
+) -> Result<f32> {
+    one_side_ce(tables, scorer, t, Side::Tail, grads)
+}
+
+/// Softmax cross-entropy over every entity for one open slot of `t`.
+/// `dL/df_e = p_e − 1{e == target}`, accumulated into the anchor, the
+/// relation (summed over candidates) and every candidate row.
+fn one_side_ce(
+    tables: &Tables,
+    scorer: &dyn Differentiable,
+    t: Triple,
+    side: Side,
+    grads: &mut Grads,
+) -> Result<f32> {
     let n = tables.num_entities();
     let s = tables.entity(t.s)?;
     let r = tables.relation(t.r)?;
     let o = tables.entity(t.o)?;
+    let target = match side {
+        Side::Tail => t.o,
+        Side::Head => t.s,
+    };
 
-    // ---- Tail side: classify the object among all entities. ----
     let mut probs: Vec<f32> = Vec::with_capacity(n);
     for e in 0..n as u32 {
-        probs.push(scorer.score(s, r, tables.entity(e)?));
+        let ee = tables.entity(e)?;
+        probs.push(match side {
+            Side::Tail => scorer.score(s, r, ee),
+            Side::Head => scorer.score(ee, r, o),
+        });
     }
     softmax_inplace(&mut probs);
-    let mut loss = -(probs[t.o as usize].max(1e-30)).ln();
-    // Gradients: dL/df_e = p_e - 1{e==o}. Accumulate into s, r (summed) and e.
-    let mut gs_acc = vec![0.0f32; scorer.dims()];
+    let loss = -(probs[target as usize].max(1e-30)).ln();
+
+    // Anchor (s for tail, o for head) and relation accumulators.
+    let mut ga_acc = vec![0.0f32; scorer.dims()];
     let mut gr_acc = vec![0.0f32; scorer.dims()];
     for e in 0..n as u32 {
-        let coeff = probs[e as usize] - if e == t.o { 1.0 } else { 0.0 };
+        let coeff = probs[e as usize] - if e == target { 1.0 } else { 0.0 };
         if coeff == 0.0 {
             continue;
         }
         let ee = tables.entity(e)?;
-        let (gs, gr, go) = scorer.grad(s, r, ee);
-        axpy(&mut gs_acc, coeff, &gs);
-        axpy(&mut gr_acc, coeff, &gr);
-        grads.add_entity(e, &scaled(coeff, &go));
-    }
-    grads.add_entity(t.s, &gs_acc);
-    grads.add_relation(t.r, &gr_acc);
-
-    // ---- Head side: classify the subject among all entities. ----
-    let mut probs_h: Vec<f32> = Vec::with_capacity(n);
-    for e in 0..n as u32 {
-        probs_h.push(scorer.score(tables.entity(e)?, r, o));
-    }
-    softmax_inplace(&mut probs_h);
-    loss += -(probs_h[t.s as usize].max(1e-30)).ln();
-    let mut gr_acc2 = vec![0.0f32; scorer.dims()];
-    let mut go_acc = vec![0.0f32; scorer.dims()];
-    for e in 0..n as u32 {
-        let coeff = probs_h[e as usize] - if e == t.s { 1.0 } else { 0.0 };
-        if coeff == 0.0 {
-            continue;
+        match side {
+            Side::Tail => {
+                let (gs, gr, go) = scorer.grad(s, r, ee);
+                axpy(&mut ga_acc, coeff, &gs);
+                axpy(&mut gr_acc, coeff, &gr);
+                grads.add_entity(e, &scaled(coeff, &go));
+            }
+            Side::Head => {
+                let (gs, gr, go) = scorer.grad(ee, r, o);
+                grads.add_entity(e, &scaled(coeff, &gs));
+                axpy(&mut gr_acc, coeff, &gr);
+                axpy(&mut ga_acc, coeff, &go);
+            }
         }
-        let ee = tables.entity(e)?;
-        let (gs, gr, go) = scorer.grad(ee, r, o);
-        grads.add_entity(e, &scaled(coeff, &gs));
-        axpy(&mut gr_acc2, coeff, &gr);
-        axpy(&mut go_acc, coeff, &go);
     }
-    grads.add_relation(t.r, &gr_acc2);
-    grads.add_entity(t.o, &go_acc);
-
+    match side {
+        Side::Tail => {
+            grads.add_entity(t.s, &ga_acc);
+            grads.add_relation(t.r, &gr_acc);
+        }
+        Side::Head => {
+            grads.add_relation(t.r, &gr_acc);
+            grads.add_entity(t.o, &ga_acc);
+        }
+    }
     Ok(loss)
 }
 
@@ -252,11 +302,11 @@ fn accumulate_triple_grad(
     grads.add_entity(o_id, &scaled(coeff, &go));
 }
 
-fn scaled(a: f32, v: &[f32]) -> Vec<f32> {
+pub(crate) fn scaled(a: f32, v: &[f32]) -> Vec<f32> {
     v.iter().map(|&x| a * x).collect()
 }
 
-fn axpy(dst: &mut [f32], a: f32, v: &[f32]) {
+pub(crate) fn axpy(dst: &mut [f32], a: f32, v: &[f32]) {
     for (d, &x) in dst.iter_mut().zip(v) {
         *d += a * x;
     }
