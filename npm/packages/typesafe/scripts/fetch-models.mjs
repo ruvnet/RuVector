@@ -18,10 +18,10 @@
 //   node scripts/fetch-models.mjs --check    # verify only; do not download
 //   node scripts/fetch-models.mjs --model bge-small-en-v1.5  # one pinned model
 //   node scripts/fetch-models.mjs --add-openjev <40-hex HF commit>
-//       # append the openjev-small-v0 entry (ADR-007 §6) with EMPTY pins and
+//       # append the openjev-small-v0 entry (ADR-008 §6) with EMPTY pins and
 //       # bootstrap them from that immutable revision (publish step, plan Step 7)
 //
-// OpenJev (ADR-007 §6): files come from HF `ruvnet/openjev-small-v0` at an
+// OpenJev (ADR-008 §6): files come from HF `ruvnet/openjev-small-v0` at an
 // immutable commit (`/resolve/<40-hex sha>/…`, never `main`). The revision is
 // carried by the manifest entry (`hf_revision`), so the download map below is
 // derived from the entry — a clean checkout reproduces the pinned hashes. No
@@ -71,7 +71,7 @@ export function assertHfRevision(rev) {
 }
 
 /**
- * The ADR-007 §6 manifest entry shape for OpenJev. Empty pins are the
+ * The ADR-008 §6 manifest entry shape for OpenJev. Empty pins are the
  * bootstrap state (filled by this script from the immutable revision).
  */
 export function openjevManifestEntry({ revision, sha256 = '', tokenizerSha256 = '', trainHashesSha256 = '', added, reviewBy } = {}) {
@@ -164,7 +164,7 @@ function filesFromManifest(manifest) {
     if (m.tokenizer_file && !seen.has(m.tokenizer_file)) {
       seen.set(m.tokenizer_file, { entry: m, kind: 'tokenizer' });
     }
-    // OpenJev ships the Assertion B input (ADR-007 §2); pinned like the weights.
+    // OpenJev ships the Assertion B input (ADR-008 §2); pinned like the weights.
     if (m.train_hashes_file && !seen.has(m.train_hashes_file)) {
       seen.set(m.train_hashes_file, { entry: m, kind: 'train_hashes' });
     }

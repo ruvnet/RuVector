@@ -30,7 +30,7 @@ export function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
-// Files DERIVED from the frozen inputs (ADR-007 §1b: the novel-composition
+// Files DERIVED from the frozen inputs (ADR-008 §1b: the novel-composition
 // slice ids). Pinned under HASHES.json `derived`, deliberately NOT in `files`:
 // `files` must stay identical to the fixture pin recorded in the frozen
 // 2026-09-21 receipts (scripts/verify-release-bench.mjs asserts that), and
