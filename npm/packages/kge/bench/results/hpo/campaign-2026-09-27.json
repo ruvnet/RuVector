@@ -1,0 +1,1515 @@
+{
+  "schema": "ruvector-kge-bench/hpo-campaign@1",
+  "campaign_id": "kge-hpo-2026-09-27",
+  "created_at": "2026-09-27T08:45:50Z",
+  "status": "PLANNED: no HPO result exists for any job below. Everything in protocol{} is fixed before the first launch.",
+  "spec": [
+    "npm/packages/kge/docs/adr/ADR-007-sota-training-and-brain-integration.md §3, §4",
+    "docs/research/kge/plan.md M4, M6, M7"
+  ],
+  "validation_only": "Every job scores VALID only (scripts/kge/vast-kge.sh has no --final path; collect runs the bench --hpo selection, which refuses any receipt that is not mode=valid with test_scored=false). Test is never read by this campaign.",
+  "git": {
+    "repo": "https://github.com/ruvnet/ruvector.git",
+    "ref": "feat/kge-bench",
+    "pin_policy": "launch pins HEAD of feat/kge-bench and refuses unless the worktree is clean, HEAD == origin/feat/kge-bench and this manifest is committed at HEAD; every later segment of a job (resume) reuses that job's original SHA and --threads. collect refuses a receipt whose provenance.git.sha differs or is dirty."
+  },
+  "protocol": {
+    "hpo_seed": 100,
+    "max_epochs": 100,
+    "early_stop": {
+      "metric": "valid MRR, Bottom (worst-rank) tie policy",
+      "patience": 5,
+      "patience_unit": "evaluations without a strictly better valid MRR",
+      "eval_every": 1,
+      "patience_status": "ASSUMED: ADR-007 §3 fixes early stop on valid MRR but no patience value; 5 is recorded here before any result. (The local M4 subset in hpo/wn18rr/ used 3; that run is not this campaign.)"
+    },
+    "selection": "valid-MRR argmax (Bottom) over all 8 configs per dataset, lowest config index on an exact tie; ADR-004 anytime test vs C1 at alpha/N = 0.05/8 reported beside it (crates/ruvector-kge-bench/src/selection.rs). A dataset's selection runs only when all 8 of its jobs are done.",
+    "grid": "ADR-007 §3 table, frozen in crates/ruvector-kge-bench/src/config.rs grid() (verified equal to the ADR table for all 3 datasets x C1..C8 on 2026-09-27)"
+  },
+  "datasets": {
+    "codexm": {
+      "results_dir": "npm/packages/kge/bench/results/hpo/codexm/campaign-2026-09-27"
+    },
+    "wn18rr": {
+      "results_dir": "npm/packages/kge/bench/results/hpo/wn18rr/campaign-2026-09-27"
+    },
+    "fb15k237": {
+      "results_dir": "npm/packages/kge/bench/results/hpo/fb15k237/campaign-2026-09-27"
+    }
+  },
+  "configs_check": {
+    "wn18rr/configs.json (HPO lane, 2026-09-27)": "DOES NOT MATCH the ADR campaign: it is a labelled local M4 subset (C1, C3, C2 only; max_epochs 6; patience 3; complete=false, explicitly not the M7 record). Left untouched as that run's pre-commitment. Its recipes are the frozen grid, so they do match the ADR table.",
+    "resolution": "Each dataset gets campaign-2026-09-27/{configs.json (HpoPlan: all of C1..C8, max_epochs 100, patience 5, eval_every 1), plan.json (pre-commit written now)}. A campaign-specific dir is required: bench --hpo refuses a results dir whose plan.json holds a different plan, and would overwrite hpo/wn18rr/receipts/C1..C3.json."
+  },
+  "budget": {
+    "campaign_cap_usd": 80,
+    "credit_at_creation_usd": 68.11,
+    "credit_reserve_usd": 10,
+    "effective_cap_usd": 58.11,
+    "gate": "Before every paid launch/resume: refuse if spent + worst(running) + this > campaign_cap_usd, or > credit_at_creation_usd - credit_reserve_usd, or if worst(running) + this > live credit - credit_reserve_usd.",
+    "worst_of_a_segment": "its --max-usd: the runner destroys the instance at 95% of --max-usd (and 95% of --max-hours).",
+    "spent": "max(sum of est_cost_usd over this campaign's runner destroy records in the audit log, credit_at_creation_usd - live credit). Orphans (launched, no destroy record) count at full --max-usd.",
+    "worst_case_total_usd": 552.42,
+    "expected_total_usd_100_epochs_no_margin": 126.85,
+    "verdict": "Neither the worst case nor the unmargined 100-epoch estimate fits the $58.11 effective cap. The gate makes progress safe (spent is actual, only running segments count at worst case); early stopping decides how far it gets. Waves are dataset-major, cheapest first, so an exhausted budget leaves complete selections rather than three partial ones."
+  },
+  "runner": {
+    "binary": "ruvector-gpu-runner (crates/ruvector-gpu-runner), launch --cpu-mode",
+    "bucket": "ruvector-openjev-artifacts",
+    "min_cpu_cores": 32,
+    "min_cpu_speed": 1.0,
+    "min_ram_gb": 16,
+    "max_dph": 0.20,
+    "disk_gb": 60,
+    "checkpoint_secs": 600,
+    "checkpoint_ring": 3,
+    "expected_upload_gb": 0.05,
+    "expected_download_gb": 3,
+    "segment_cap_hours": 11.5,
+    "watchdog_fraction": 0.95,
+    "threads": "--threads = the dry-run offer's cpu_cores_effective (floored), also passed as --min-cpu-cores; resume reuses it (the bench refuses a thread-count change).",
+    "job_command": "bash scripts/kge/vast-kge.sh --dataset <ds> --config-id <Ck> --seed 100 --max-epochs 100 --early-stop-patience 5 --eval-every 1 --threads <T>",
+    "datacenter": "not required: the 2026-09-27 survey of >=32-thread offers under $0.25/h had no datacenter host",
+    "unit": "systemd-run --user --unit=kge-hpo-<dataset>-<cfg> --collect (TimeoutStopSec=900 so a stop lets the runner destroy the instance)"
+  },
+  "measurements": {
+    "wn18rr_c1_vast": {
+      "label": "MEASURED",
+      "s_per_epoch": 552,
+      "host": "vast.ai AMD EPYC 7B13, 32 allocated threads (2026-09-27 smoke, scripts/kge/vast-kge.sh header)",
+      "caveat": "that smoke ran 256 rayon threads on the 32-thread allocation (oversubscribed), so it overstates the epoch time"
+    },
+    "local_16_threads": {
+      "label": "MEASURED",
+      "host": "ruvultra AMD Ryzen 9 9950X (16C/32T)",
+      "sha": "e76e8638bbf994cb178bbcaf77dcd3e1a772d910",
+      "build": "--release --features parallel, -C target-cpu=native",
+      "mode": "1 epoch, seed 100, valid only",
+      "runs": [
+        {
+          "dataset": "wn18rr",
+          "config": "C1",
+          "train_s": 155.6,
+          "peak_rss_gb": 2.0,
+          "checkpoint_gb": 0.98,
+          "contention": "solo"
+        },
+        {
+          "dataset": "fb15k237",
+          "config": "C1",
+          "train_s": 395.8,
+          "peak_rss_gb": 0.97,
+          "checkpoint_gb": 0.36,
+          "contention": "concurrent with the CoDEx-M run for its first ~125 s (2 x 16 threads on 16 cores)"
+        },
+        {
+          "dataset": "codexm",
+          "config": "C1",
+          "train_s": 123.7,
+          "peak_rss_gb": 0.95,
+          "checkpoint_gb": 0.41,
+          "contention": "fully concurrent with the FB15k-237 run"
+        },
+        {
+          "dataset": "fb15k237",
+          "config": "C6",
+          "train_s": 486.3,
+          "peak_rss_gb": null,
+          "checkpoint_gb": 0.36,
+          "contention": "solo"
+        }
+      ],
+      "total_wall_min": 17.5
+    },
+    "extrapolation": {
+      "label": "EXTRAPOLATED",
+      "vast_per_local_ratio": 3.548,
+      "ref32_ratio": 4.257,
+      "rule": "s/epoch at the reference offer (32 threads at runner speed factor 1.0 = EPYC Zen 2) = local 16-thread s/epoch x (552 / 155.6) x 1.2 (the 7B13 is Zen 3, factor 1.2; the runner admits only offers with >= 32 threads at factor >= 1.0, so no admitted offer is slower in the runner's model). WN18RR uses 552 x 1.2 directly. Contended local runs and the oversubscribed vast run both make this pessimistic.",
+      "checkpoint_gb": "measured checkpoint.bin + best/ x 1.1 (x2 for C8)"
+    }
+  },
+  "sizing": {
+    "margin": 1.5,
+    "train_hours_worst": "100 epochs x s/epoch(ref32) x factor x 1.5 / 3600",
+    "segment_usable_hours": "max_hours x 0.95 - (600 s + max(120 s, (0.05 + ckpt_gb) x 160 s)) / 3600 - 0.5 h build/toolchain/dataset overhead",
+    "resume_loss": "each extra segment re-trains up to one epoch plus one 600 s checkpoint interval",
+    "segment_max_usd": "(max_dph 0.20 + 0.03 storage) x max_hours + 0.04 $/GB x transfer_gb, transfer_gb = 0.05 + ckpt_gb x (floor(max_hours x 3600 / 600) + 1) + 3 GB download (+ one ckpt_gb on resume). 0.04 $/GB covers the highest inet cost in the 2026-09-27 survey (0.039).",
+    "expected_usd_100ep": "ESTIMATE, not a cap: 100 epochs at the unadjusted vast ratio (552/155.6) x factor, no margin, at $0.124/h (EPYC 7B13 32-thread offer, 2026-09-27) + 0.5 h per 10.2 h segment, + 0.026 $/GB x 100 epoch checkpoints"
+  },
+  "waves": [
+    {
+      "wave": 1,
+      "dataset": "codexm",
+      "rationale": "cheapest dataset (lowest expected $)"
+    },
+    {
+      "wave": 2,
+      "dataset": "wn18rr",
+      "rationale": "gate (b) dataset; middle cost"
+    },
+    {
+      "wave": 3,
+      "dataset": "fb15k237",
+      "rationale": "most expensive (largest s/epoch); last so the budget completes cheaper datasets first"
+    }
+  ],
+  "jobs": [
+    {
+      "id": "codexm-C1",
+      "dataset": "codexm",
+      "config": "C1",
+      "wave": 1,
+      "unit": "kge-hpo-codexm-C1",
+      "epoch_secs_ref32": 526.6,
+      "factor": 1.0,
+      "factor_basis": "same batch and rank as C1",
+      "epoch_secs_ref32_x_factor": 526.6,
+      "train_hours_worst": 21.94,
+      "expected_checkpoint_gb": 0.45,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 34.55,
+          "max_usd": 4.03
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 35,
+          "max_usd": 4.05
+        },
+        {
+          "seg": 3,
+          "max_hours": 3,
+          "transfer_gb": 12.05,
+          "max_usd": 1.18
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 35,
+        "max_usd": 4.05
+      },
+      "worst_usd": 9.26,
+      "expected_hours_100ep": 12.19,
+      "expected_usd_100ep": 2.81
+    },
+    {
+      "id": "codexm-C2",
+      "dataset": "codexm",
+      "config": "C2",
+      "wave": 1,
+      "unit": "kge-hpo-codexm-C2",
+      "epoch_secs_ref32": 526.6,
+      "factor": 1.0,
+      "factor_basis": "same batch and rank as C1",
+      "epoch_secs_ref32_x_factor": 526.6,
+      "train_hours_worst": 21.94,
+      "expected_checkpoint_gb": 0.45,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 34.55,
+          "max_usd": 4.03
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 35,
+          "max_usd": 4.05
+        },
+        {
+          "seg": 3,
+          "max_hours": 3,
+          "transfer_gb": 12.05,
+          "max_usd": 1.18
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 35,
+        "max_usd": 4.05
+      },
+      "worst_usd": 9.26,
+      "expected_hours_100ep": 12.19,
+      "expected_usd_100ep": 2.81
+    },
+    {
+      "id": "codexm-C3",
+      "dataset": "codexm",
+      "config": "C3",
+      "wave": 1,
+      "unit": "kge-hpo-codexm-C3",
+      "epoch_secs_ref32": 526.6,
+      "factor": 1.0,
+      "factor_basis": "same batch and rank as C1",
+      "epoch_secs_ref32_x_factor": 526.6,
+      "train_hours_worst": 21.94,
+      "expected_checkpoint_gb": 0.45,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 34.55,
+          "max_usd": 4.03
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 35,
+          "max_usd": 4.05
+        },
+        {
+          "seg": 3,
+          "max_hours": 3,
+          "transfer_gb": 12.05,
+          "max_usd": 1.18
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 35,
+        "max_usd": 4.05
+      },
+      "worst_usd": 9.26,
+      "expected_hours_100ep": 12.19,
+      "expected_usd_100ep": 2.81
+    },
+    {
+      "id": "codexm-C4",
+      "dataset": "codexm",
+      "config": "C4",
+      "wave": 1,
+      "unit": "kge-hpo-codexm-C4",
+      "epoch_secs_ref32": 526.6,
+      "factor": 1.0,
+      "factor_basis": "same batch and rank as C1",
+      "epoch_secs_ref32_x_factor": 526.6,
+      "train_hours_worst": 21.94,
+      "expected_checkpoint_gb": 0.45,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 34.55,
+          "max_usd": 4.03
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 35,
+          "max_usd": 4.05
+        },
+        {
+          "seg": 3,
+          "max_hours": 3,
+          "transfer_gb": 12.05,
+          "max_usd": 1.18
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 35,
+        "max_usd": 4.05
+      },
+      "worst_usd": 9.26,
+      "expected_hours_100ep": 12.19,
+      "expected_usd_100ep": 2.81
+    },
+    {
+      "id": "codexm-C5",
+      "dataset": "codexm",
+      "config": "C5",
+      "wave": 1,
+      "unit": "kge-hpo-codexm-C5",
+      "epoch_secs_ref32": 526.6,
+      "factor": 1.0,
+      "factor_basis": "same batch and rank as C1",
+      "epoch_secs_ref32_x_factor": 526.6,
+      "train_hours_worst": 21.94,
+      "expected_checkpoint_gb": 0.45,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 34.55,
+          "max_usd": 4.03
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 35,
+          "max_usd": 4.05
+        },
+        {
+          "seg": 3,
+          "max_hours": 3,
+          "transfer_gb": 12.05,
+          "max_usd": 1.18
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 35,
+        "max_usd": 4.05
+      },
+      "worst_usd": 9.26,
+      "expected_hours_100ep": 12.19,
+      "expected_usd_100ep": 2.81
+    },
+    {
+      "id": "codexm-C6",
+      "dataset": "codexm",
+      "config": "C6",
+      "wave": 1,
+      "unit": "kge-hpo-codexm-C6",
+      "epoch_secs_ref32": 526.6,
+      "factor": 1.0,
+      "factor_basis": "ASSUMED: larger batch than C1, not slower per epoch",
+      "epoch_secs_ref32_x_factor": 526.6,
+      "train_hours_worst": 21.94,
+      "expected_checkpoint_gb": 0.45,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 34.55,
+          "max_usd": 4.03
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 35,
+          "max_usd": 4.05
+        },
+        {
+          "seg": 3,
+          "max_hours": 3,
+          "transfer_gb": 12.05,
+          "max_usd": 1.18
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 35,
+        "max_usd": 4.05
+      },
+      "worst_usd": 9.26,
+      "expected_hours_100ep": 12.19,
+      "expected_usd_100ep": 2.81
+    },
+    {
+      "id": "codexm-C7",
+      "dataset": "codexm",
+      "config": "C7",
+      "wave": 1,
+      "unit": "kge-hpo-codexm-C7",
+      "epoch_secs_ref32": 526.6,
+      "factor": 1.5,
+      "factor_basis": "ASSUMED: batch 100 vs C1 batch 500; FB15k-237 batch 100 vs 1000 measured >= 1.23x (486.3 s solo vs 395.8 s contended), rounded up to 1.5",
+      "epoch_secs_ref32_x_factor": 789.9,
+      "train_hours_worst": 32.91,
+      "expected_checkpoint_gb": 0.45,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 34.55,
+          "max_usd": 4.03
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 35,
+          "max_usd": 4.05
+        },
+        {
+          "seg": 3,
+          "max_hours": 11.5,
+          "transfer_gb": 35,
+          "max_usd": 4.05
+        },
+        {
+          "seg": 4,
+          "max_hours": 4.5,
+          "transfer_gb": 16.1,
+          "max_usd": 1.68
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 35,
+        "max_usd": 4.05
+      },
+      "worst_usd": 13.81,
+      "expected_hours_100ep": 18.28,
+      "expected_usd_100ep": 3.56
+    },
+    {
+      "id": "codexm-C8",
+      "dataset": "codexm",
+      "config": "C8",
+      "wave": 1,
+      "unit": "kge-hpo-codexm-C8",
+      "epoch_secs_ref32": 526.6,
+      "factor": 2.0,
+      "factor_basis": "ASSUMED: complex_rank 2000 doubles dims, so the 1-N GEMM cost per epoch ~2x",
+      "epoch_secs_ref32_x_factor": 1053.2,
+      "train_hours_worst": 43.88,
+      "expected_checkpoint_gb": 0.9,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 66.05,
+          "max_usd": 5.29
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 66.95,
+          "max_usd": 5.33
+        },
+        {
+          "seg": 3,
+          "max_hours": 11.5,
+          "transfer_gb": 66.95,
+          "max_usd": 5.33
+        },
+        {
+          "seg": 4,
+          "max_hours": 11.5,
+          "transfer_gb": 66.95,
+          "max_usd": 5.33
+        },
+        {
+          "seg": 5,
+          "max_hours": 6,
+          "transfer_gb": 37.25,
+          "max_usd": 2.87
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 66.95,
+        "max_usd": 5.33
+      },
+      "worst_usd": 24.15,
+      "expected_hours_100ep": 24.38,
+      "expected_usd_100ep": 5.55
+    },
+    {
+      "id": "wn18rr-C1",
+      "dataset": "wn18rr",
+      "config": "C1",
+      "wave": 2,
+      "unit": "kge-hpo-wn18rr-C1",
+      "epoch_secs_ref32": 662.4,
+      "factor": 1.0,
+      "factor_basis": "same batch and rank as C1",
+      "epoch_secs_ref32_x_factor": 662.4,
+      "train_hours_worst": 27.6,
+      "expected_checkpoint_gb": 1.08,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 78.65,
+          "max_usd": 5.8
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 79.73,
+          "max_usd": 5.84
+        },
+        {
+          "seg": 3,
+          "max_hours": 9.25,
+          "transfer_gb": 64.61,
+          "max_usd": 4.72
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 79.73,
+        "max_usd": 5.84
+      },
+      "worst_usd": 16.36,
+      "expected_hours_100ep": 15.33,
+      "expected_usd_100ep": 4.83
+    },
+    {
+      "id": "wn18rr-C2",
+      "dataset": "wn18rr",
+      "config": "C2",
+      "wave": 2,
+      "unit": "kge-hpo-wn18rr-C2",
+      "epoch_secs_ref32": 662.4,
+      "factor": 1.0,
+      "factor_basis": "same batch and rank as C1",
+      "epoch_secs_ref32_x_factor": 662.4,
+      "train_hours_worst": 27.6,
+      "expected_checkpoint_gb": 1.08,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 78.65,
+          "max_usd": 5.8
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 79.73,
+          "max_usd": 5.84
+        },
+        {
+          "seg": 3,
+          "max_hours": 9.25,
+          "transfer_gb": 64.61,
+          "max_usd": 4.72
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 79.73,
+        "max_usd": 5.84
+      },
+      "worst_usd": 16.36,
+      "expected_hours_100ep": 15.33,
+      "expected_usd_100ep": 4.83
+    },
+    {
+      "id": "wn18rr-C3",
+      "dataset": "wn18rr",
+      "config": "C3",
+      "wave": 2,
+      "unit": "kge-hpo-wn18rr-C3",
+      "epoch_secs_ref32": 662.4,
+      "factor": 1.0,
+      "factor_basis": "same batch and rank as C1",
+      "epoch_secs_ref32_x_factor": 662.4,
+      "train_hours_worst": 27.6,
+      "expected_checkpoint_gb": 1.08,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 78.65,
+          "max_usd": 5.8
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 79.73,
+          "max_usd": 5.84
+        },
+        {
+          "seg": 3,
+          "max_hours": 9.25,
+          "transfer_gb": 64.61,
+          "max_usd": 4.72
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 79.73,
+        "max_usd": 5.84
+      },
+      "worst_usd": 16.36,
+      "expected_hours_100ep": 15.33,
+      "expected_usd_100ep": 4.83
+    },
+    {
+      "id": "wn18rr-C4",
+      "dataset": "wn18rr",
+      "config": "C4",
+      "wave": 2,
+      "unit": "kge-hpo-wn18rr-C4",
+      "epoch_secs_ref32": 662.4,
+      "factor": 1.0,
+      "factor_basis": "same batch and rank as C1",
+      "epoch_secs_ref32_x_factor": 662.4,
+      "train_hours_worst": 27.6,
+      "expected_checkpoint_gb": 1.08,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 78.65,
+          "max_usd": 5.8
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 79.73,
+          "max_usd": 5.84
+        },
+        {
+          "seg": 3,
+          "max_hours": 9.25,
+          "transfer_gb": 64.61,
+          "max_usd": 4.72
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 79.73,
+        "max_usd": 5.84
+      },
+      "worst_usd": 16.36,
+      "expected_hours_100ep": 15.33,
+      "expected_usd_100ep": 4.83
+    },
+    {
+      "id": "wn18rr-C5",
+      "dataset": "wn18rr",
+      "config": "C5",
+      "wave": 2,
+      "unit": "kge-hpo-wn18rr-C5",
+      "epoch_secs_ref32": 662.4,
+      "factor": 1.0,
+      "factor_basis": "same batch and rank as C1",
+      "epoch_secs_ref32_x_factor": 662.4,
+      "train_hours_worst": 27.6,
+      "expected_checkpoint_gb": 1.08,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 78.65,
+          "max_usd": 5.8
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 79.73,
+          "max_usd": 5.84
+        },
+        {
+          "seg": 3,
+          "max_hours": 9.25,
+          "transfer_gb": 64.61,
+          "max_usd": 4.72
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 79.73,
+        "max_usd": 5.84
+      },
+      "worst_usd": 16.36,
+      "expected_hours_100ep": 15.33,
+      "expected_usd_100ep": 4.83
+    },
+    {
+      "id": "wn18rr-C6",
+      "dataset": "wn18rr",
+      "config": "C6",
+      "wave": 2,
+      "unit": "kge-hpo-wn18rr-C6",
+      "epoch_secs_ref32": 662.4,
+      "factor": 1.0,
+      "factor_basis": "ASSUMED: larger batch than C1, not slower per epoch",
+      "epoch_secs_ref32_x_factor": 662.4,
+      "train_hours_worst": 27.6,
+      "expected_checkpoint_gb": 1.08,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 78.65,
+          "max_usd": 5.8
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 79.73,
+          "max_usd": 5.84
+        },
+        {
+          "seg": 3,
+          "max_hours": 9.25,
+          "transfer_gb": 64.61,
+          "max_usd": 4.72
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 79.73,
+        "max_usd": 5.84
+      },
+      "worst_usd": 16.36,
+      "expected_hours_100ep": 15.33,
+      "expected_usd_100ep": 4.83
+    },
+    {
+      "id": "wn18rr-C7",
+      "dataset": "wn18rr",
+      "config": "C7",
+      "wave": 2,
+      "unit": "kge-hpo-wn18rr-C7",
+      "epoch_secs_ref32": 662.4,
+      "factor": 1.0,
+      "factor_basis": "ASSUMED: larger batch than C1, not slower per epoch",
+      "epoch_secs_ref32_x_factor": 662.4,
+      "train_hours_worst": 27.6,
+      "expected_checkpoint_gb": 1.08,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 78.65,
+          "max_usd": 5.8
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 79.73,
+          "max_usd": 5.84
+        },
+        {
+          "seg": 3,
+          "max_hours": 9.25,
+          "transfer_gb": 64.61,
+          "max_usd": 4.72
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 79.73,
+        "max_usd": 5.84
+      },
+      "worst_usd": 16.36,
+      "expected_hours_100ep": 15.33,
+      "expected_usd_100ep": 4.83
+    },
+    {
+      "id": "wn18rr-C8",
+      "dataset": "wn18rr",
+      "config": "C8",
+      "wave": 2,
+      "unit": "kge-hpo-wn18rr-C8",
+      "epoch_secs_ref32": 662.4,
+      "factor": 2.0,
+      "factor_basis": "ASSUMED: complex_rank 2000 doubles dims, so the 1-N GEMM cost per epoch ~2x",
+      "epoch_secs_ref32_x_factor": 1324.8,
+      "train_hours_worst": 55.2,
+      "expected_checkpoint_gb": 2.16,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 154.25,
+          "max_usd": 8.82
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 156.41,
+          "max_usd": 8.91
+        },
+        {
+          "seg": 3,
+          "max_hours": 11.5,
+          "transfer_gb": 156.41,
+          "max_usd": 8.91
+        },
+        {
+          "seg": 4,
+          "max_hours": 11.5,
+          "transfer_gb": 156.41,
+          "max_usd": 8.91
+        },
+        {
+          "seg": 5,
+          "max_hours": 11.5,
+          "transfer_gb": 156.41,
+          "max_usd": 8.91
+        },
+        {
+          "seg": 6,
+          "max_hours": 8.5,
+          "transfer_gb": 117.53,
+          "max_usd": 6.66
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 156.41,
+        "max_usd": 8.91
+      },
+      "worst_usd": 51.12,
+      "expected_hours_100ep": 30.67,
+      "expected_usd_100ep": 9.67
+    },
+    {
+      "id": "fb15k237-C1",
+      "dataset": "fb15k237",
+      "config": "C1",
+      "wave": 3,
+      "unit": "kge-hpo-fb15k237-C1",
+      "epoch_secs_ref32": 1684.95,
+      "factor": 1.0,
+      "factor_basis": "same batch and rank as C1",
+      "epoch_secs_ref32_x_factor": 1684.95,
+      "train_hours_worst": 70.21,
+      "expected_checkpoint_gb": 0.4,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 31.05,
+          "max_usd": 3.89
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 3,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 4,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 5,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 6,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 7,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 8,
+          "max_hours": 4,
+          "transfer_gb": 13.45,
+          "max_usd": 1.46
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 31.45,
+        "max_usd": 3.91
+      },
+      "worst_usd": 28.81,
+      "expected_hours_100ep": 39,
+      "expected_usd_100ep": 6.12
+    },
+    {
+      "id": "fb15k237-C2",
+      "dataset": "fb15k237",
+      "config": "C2",
+      "wave": 3,
+      "unit": "kge-hpo-fb15k237-C2",
+      "epoch_secs_ref32": 1684.95,
+      "factor": 1.0,
+      "factor_basis": "same batch and rank as C1",
+      "epoch_secs_ref32_x_factor": 1684.95,
+      "train_hours_worst": 70.21,
+      "expected_checkpoint_gb": 0.4,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 31.05,
+          "max_usd": 3.89
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 3,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 4,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 5,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 6,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 7,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 8,
+          "max_hours": 4,
+          "transfer_gb": 13.45,
+          "max_usd": 1.46
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 31.45,
+        "max_usd": 3.91
+      },
+      "worst_usd": 28.81,
+      "expected_hours_100ep": 39,
+      "expected_usd_100ep": 6.12
+    },
+    {
+      "id": "fb15k237-C3",
+      "dataset": "fb15k237",
+      "config": "C3",
+      "wave": 3,
+      "unit": "kge-hpo-fb15k237-C3",
+      "epoch_secs_ref32": 1684.95,
+      "factor": 1.0,
+      "factor_basis": "same batch and rank as C1",
+      "epoch_secs_ref32_x_factor": 1684.95,
+      "train_hours_worst": 70.21,
+      "expected_checkpoint_gb": 0.4,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 31.05,
+          "max_usd": 3.89
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 3,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 4,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 5,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 6,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 7,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 8,
+          "max_hours": 4,
+          "transfer_gb": 13.45,
+          "max_usd": 1.46
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 31.45,
+        "max_usd": 3.91
+      },
+      "worst_usd": 28.81,
+      "expected_hours_100ep": 39,
+      "expected_usd_100ep": 6.12
+    },
+    {
+      "id": "fb15k237-C4",
+      "dataset": "fb15k237",
+      "config": "C4",
+      "wave": 3,
+      "unit": "kge-hpo-fb15k237-C4",
+      "epoch_secs_ref32": 1684.95,
+      "factor": 1.0,
+      "factor_basis": "same batch and rank as C1",
+      "epoch_secs_ref32_x_factor": 1684.95,
+      "train_hours_worst": 70.21,
+      "expected_checkpoint_gb": 0.4,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 31.05,
+          "max_usd": 3.89
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 3,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 4,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 5,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 6,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 7,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 8,
+          "max_hours": 4,
+          "transfer_gb": 13.45,
+          "max_usd": 1.46
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 31.45,
+        "max_usd": 3.91
+      },
+      "worst_usd": 28.81,
+      "expected_hours_100ep": 39,
+      "expected_usd_100ep": 6.12
+    },
+    {
+      "id": "fb15k237-C5",
+      "dataset": "fb15k237",
+      "config": "C5",
+      "wave": 3,
+      "unit": "kge-hpo-fb15k237-C5",
+      "epoch_secs_ref32": 1684.95,
+      "factor": 1.0,
+      "factor_basis": "same batch and rank as C1",
+      "epoch_secs_ref32_x_factor": 1684.95,
+      "train_hours_worst": 70.21,
+      "expected_checkpoint_gb": 0.4,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 31.05,
+          "max_usd": 3.89
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 3,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 4,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 5,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 6,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 7,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 8,
+          "max_hours": 4,
+          "transfer_gb": 13.45,
+          "max_usd": 1.46
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 31.45,
+        "max_usd": 3.91
+      },
+      "worst_usd": 28.81,
+      "expected_hours_100ep": 39,
+      "expected_usd_100ep": 6.12
+    },
+    {
+      "id": "fb15k237-C6",
+      "dataset": "fb15k237",
+      "config": "C6",
+      "wave": 3,
+      "unit": "kge-hpo-fb15k237-C6",
+      "epoch_secs_ref32": 2070.21,
+      "factor": 1.0,
+      "factor_basis": "MEASURED: FB15k-237 batch-100 epoch measured directly (C6, 486.3 s solo at 16 threads)",
+      "epoch_secs_ref32_x_factor": 2070.21,
+      "train_hours_worst": 86.26,
+      "expected_checkpoint_gb": 0.4,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 31.05,
+          "max_usd": 3.89
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 3,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 4,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 5,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 6,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 7,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 8,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 9,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 10,
+          "max_hours": 1.75,
+          "transfer_gb": 7.85,
+          "max_usd": 0.72
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 31.45,
+        "max_usd": 3.91
+      },
+      "worst_usd": 35.89,
+      "expected_hours_100ep": 47.92,
+      "expected_usd_100ep": 7.29
+    },
+    {
+      "id": "fb15k237-C7",
+      "dataset": "fb15k237",
+      "config": "C7",
+      "wave": 3,
+      "unit": "kge-hpo-fb15k237-C7",
+      "epoch_secs_ref32": 2070.21,
+      "factor": 1.0,
+      "factor_basis": "MEASURED: FB15k-237 batch-100 epoch measured directly (C6, 486.3 s solo at 16 threads)",
+      "epoch_secs_ref32_x_factor": 2070.21,
+      "train_hours_worst": 86.26,
+      "expected_checkpoint_gb": 0.4,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 31.05,
+          "max_usd": 3.89
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 3,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 4,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 5,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 6,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 7,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 8,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 9,
+          "max_hours": 11.5,
+          "transfer_gb": 31.45,
+          "max_usd": 3.91
+        },
+        {
+          "seg": 10,
+          "max_hours": 1.75,
+          "transfer_gb": 7.85,
+          "max_usd": 0.72
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 31.45,
+        "max_usd": 3.91
+      },
+      "worst_usd": 35.89,
+      "expected_hours_100ep": 47.92,
+      "expected_usd_100ep": 7.29
+    },
+    {
+      "id": "fb15k237-C8",
+      "dataset": "fb15k237",
+      "config": "C8",
+      "wave": 3,
+      "unit": "kge-hpo-fb15k237-C8",
+      "epoch_secs_ref32": 1684.95,
+      "factor": 2.0,
+      "factor_basis": "ASSUMED: complex_rank 2000 doubles dims, so the 1-N GEMM cost per epoch ~2x",
+      "epoch_secs_ref32_x_factor": 3369.9,
+      "train_hours_worst": 140.41,
+      "expected_checkpoint_gb": 0.79,
+      "segments": [
+        {
+          "seg": 1,
+          "max_hours": 11.5,
+          "transfer_gb": 58.35,
+          "max_usd": 4.98
+        },
+        {
+          "seg": 2,
+          "max_hours": 11.5,
+          "transfer_gb": 59.14,
+          "max_usd": 5.02
+        },
+        {
+          "seg": 3,
+          "max_hours": 11.5,
+          "transfer_gb": 59.14,
+          "max_usd": 5.02
+        },
+        {
+          "seg": 4,
+          "max_hours": 11.5,
+          "transfer_gb": 59.14,
+          "max_usd": 5.02
+        },
+        {
+          "seg": 5,
+          "max_hours": 11.5,
+          "transfer_gb": 59.14,
+          "max_usd": 5.02
+        },
+        {
+          "seg": 6,
+          "max_hours": 11.5,
+          "transfer_gb": 59.14,
+          "max_usd": 5.02
+        },
+        {
+          "seg": 7,
+          "max_hours": 11.5,
+          "transfer_gb": 59.14,
+          "max_usd": 5.02
+        },
+        {
+          "seg": 8,
+          "max_hours": 11.5,
+          "transfer_gb": 59.14,
+          "max_usd": 5.02
+        },
+        {
+          "seg": 9,
+          "max_hours": 11.5,
+          "transfer_gb": 59.14,
+          "max_usd": 5.02
+        },
+        {
+          "seg": 10,
+          "max_hours": 11.5,
+          "transfer_gb": 59.14,
+          "max_usd": 5.02
+        },
+        {
+          "seg": 11,
+          "max_hours": 11.5,
+          "transfer_gb": 59.14,
+          "max_usd": 5.02
+        },
+        {
+          "seg": 12,
+          "max_hours": 11.5,
+          "transfer_gb": 59.14,
+          "max_usd": 5.02
+        },
+        {
+          "seg": 13,
+          "max_hours": 11.5,
+          "transfer_gb": 59.14,
+          "max_usd": 5.02
+        },
+        {
+          "seg": 14,
+          "max_hours": 11.5,
+          "transfer_gb": 59.14,
+          "max_usd": 5.02
+        },
+        {
+          "seg": 15,
+          "max_hours": 11.5,
+          "transfer_gb": 59.14,
+          "max_usd": 5.02
+        },
+        {
+          "seg": 16,
+          "max_hours": 4.75,
+          "transfer_gb": 26.75,
+          "max_usd": 2.17
+        }
+      ],
+      "extra_segment": {
+        "seg": 2,
+        "max_hours": 11.5,
+        "transfer_gb": 59.14,
+        "max_usd": 5.02
+      },
+      "worst_usd": 77.43,
+      "expected_hours_100ep": 78.01,
+      "expected_usd_100ep": 12.22
+    }
+  ]
+}

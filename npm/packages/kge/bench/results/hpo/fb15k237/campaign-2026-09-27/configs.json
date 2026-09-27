@@ -1,0 +1,17 @@
+{
+  "dataset": "fb15k237",
+  "configs": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7",
+    "C8"
+  ],
+  "max_epochs": 100,
+  "early_stop_patience": 5,
+  "eval_every": 1,
+  "rationale": "M7 HPO campaign 2026-09-27 (manifest ../../campaign-2026-09-27.json), pre-committed before any result: ALL eight pre-registered ADR-007 §3 configs of this dataset (grid frozen in crates/ruvector-kge-bench/src/config.rs), HPO seed 100, <= 100 epochs, early stop on valid MRR (Bottom) after 5 evaluations without a strictly better value, valid evaluated every epoch. Patience 5 is ASSUMED: ADR-007 §3 fixes early stop on valid MRR but not the patience. Selection = valid-MRR argmax (Bottom); test is never scored by the HPO."
+}
