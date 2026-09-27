@@ -38,8 +38,58 @@ fn write(shared: &Shared) -> std::sync::RwLockWriteGuard<'_, KgeModel> {
     shared.write().unwrap_or_else(|p| p.into_inner())
 }
 
-/// A knowledge-graph embedding model. Mutating methods take an internal write
-/// lock so the async `train` task can share the instance across the libuv pool.
+/// Run begin/run/finish training against the shared model, holding the model
+/// lock only for the brief snapshot and swap phases (F2): `predict` & co. are
+/// served from the pre-training tables while the snapshot trains. A drop guard
+/// clears the single-flight flag if `run` panics, so a crashed job can never
+/// wedge the model in `{"status":"training"}`.
+///
+/// When a snapshot copy would not fit under the model's byte cap (F1: the copy
+/// doubles the table working set), `begin_train` hands back an in-place job:
+/// it trains the live tables under ONE continuous write lock (predict blocks
+/// for the run, as before F2) and never copies the tables.
+fn train_shared(shared: &Shared, config_json: &str) -> String {
+    let mut model = write(shared);
+    let mut job = match model.begin_train(config_json) {
+        Ok(job) => job,
+        Err(json) => return json,
+    };
+    if job.in_place() {
+        // No training flag was set, so a panic here cannot wedge the model.
+        let fit = match model.tables.as_mut() {
+            Some(tables) => job.run_in_place(tables),
+            None => Err(ruvector_kge::KgeError::Invalid("tables not built".into())),
+        };
+        return model.finish_train(job, fit);
+    }
+    drop(model);
+    let mut guard = AbortOnUnwind {
+        shared,
+        armed: true,
+    };
+    let fit = job.run();
+    guard.armed = false;
+    write(shared).finish_train(job, fit)
+}
+
+/// Clears the model's training flag if dropped while still armed (a panic).
+struct AbortOnUnwind<'a> {
+    shared: &'a Shared,
+    armed: bool,
+}
+
+impl Drop for AbortOnUnwind<'_> {
+    fn drop(&mut self) {
+        if self.armed {
+            write(self.shared).abort_train();
+        }
+    }
+}
+
+/// A knowledge-graph embedding model. Methods take the internal lock briefly;
+/// training holds it only to snapshot and to swap (see [`train_shared`]), so
+/// the async `train` task shares the instance across the libuv pool without
+/// blocking `predict`.
 #[napi]
 pub struct Model {
     inner: Shared,
@@ -103,9 +153,10 @@ impl Model {
     }
 
     /// Synchronous train. The async `train` runs the same work off-thread.
+    /// Single-flight with it: returns `{"status":"training"}` if one is running.
     #[napi(js_name = "trainJson")]
     pub fn train_json(&self, config_json: String) -> String {
-        write(&self.inner).train_json(&config_json)
+        train_shared(&self.inner, &config_json)
     }
 
     /// Filtered evaluation: `{"split":"test", ...}`.
@@ -128,7 +179,7 @@ impl Model {
 
     /// Native-only async training as a napi `AsyncTask` (ADR-003), so the CPU
     /// work runs off the JS thread. Resolves to the same JSON `trainJson`
-    /// returns.
+    /// returns (or `{"status":"training"}` if a run is already in flight).
     #[napi(ts_return_type = "Promise<string>")]
     pub fn train(&self, config_json: String) -> AsyncTask<TrainTask> {
         AsyncTask::new(TrainTask {
@@ -149,7 +200,7 @@ impl Task for TrainTask {
     type JsValue = String;
 
     fn compute(&mut self) -> Result<Self::Output> {
-        Ok(write(&self.model).train_json(&self.config_json))
+        Ok(train_shared(&self.model, &self.config_json))
     }
 
     fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
