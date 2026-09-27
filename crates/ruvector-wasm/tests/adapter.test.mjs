@@ -7,8 +7,8 @@
  *   2. `score` is a cosine *distance* (lower is better)
  *   3. metadata does not round-trip (search/get return `{}`)
  *
- * The adapter must hide all three: similarity higher-is-better with correct
- * ordering, and metadata round-tripped via the sidecar.
+ * The adapter reports legacy flat bindings honestly, converts similarity to
+ * higher-is-better, and restores metadata through the compatibility sidecar.
  *
  * Run: node --test crates/ruvector-wasm/tests/adapter.test.mjs
  */
@@ -156,10 +156,10 @@ test('filter is applied against sidecar metadata', () => {
   );
 });
 
-test('finding #1: index type reports flat (HNSW not active in WASM build)', () => {
+test('legacy bindings without indexType report flat conservatively', () => {
   const db = new FakeVectorDB();
   const adapter = new RuvectorWasmAdapter(db, { dimensions: 2 });
-  assert.equal(WASM_HNSW_AVAILABLE, false);
+  assert.equal(WASM_HNSW_AVAILABLE, true);
   assert.equal(adapter.usesHnsw, false);
   assert.equal(adapter.indexType, 'flat');
 });
@@ -173,4 +173,24 @@ test('delete drops sidecar metadata and updates length', () => {
   assert.equal(adapter.len(), 0);
   assert.equal(adapter.get('a'), null);
   assert.equal(adapter.isEmpty(), true);
+});
+
+test('binding indexType wins over caller hints', () => {
+  const db = new FakeVectorDB();
+  db.indexType = 'flat';
+  assert.equal(new RuvectorWasmAdapter(db, { usesHnsw: true }).usesHnsw, false);
+  db.indexType = 'hnsw';
+  assert.equal(new RuvectorWasmAdapter(db, { usesHnsw: false }).usesHnsw, true);
+});
+
+test('adapter frees WASM result handles after copying their values', () => {
+  let freed = 0;
+  const db = new FakeVectorDB();
+  db.search = () => [{ id: 'a', score: 0, metadata: { x: 1 }, free: () => { freed++; } }];
+  db.get = () => ({ id: 'a', vector: Float32Array.of(1, 0), metadata: { x: 1 }, free: () => { freed++; } });
+  const adapter = new RuvectorWasmAdapter(db);
+  assert.deepEqual(adapter.search({ vector: [1, 0], k: 1 })[0].metadata, { x: 1 });
+  assert.equal(freed, 1);
+  assert.deepEqual(Array.from(adapter.get('a').vector), [1, 0]);
+  assert.equal(freed, 2);
 });

@@ -35,7 +35,9 @@
     "test:node": "wasm-pack test --node",
     "size": "npm run build && gzip -c pkg/ruvector_wasm_bg.wasm | wc -c && echo 'bytes (gzipped)'",
     "optimize": "npm run build && wasm-opt -Oz pkg/ruvector_wasm_bg.wasm -o pkg/ruvector_wasm_bg.wasm",
-    "serve": "python3 -m http.server 8080"
+    "serve": "python3 -m http.server 8080",
+    "test:hnsw": "node --test tests/hnsw.test.mjs",
+    "benchmark:hnsw": "node scripts/benchmark-hnsw.mjs"
   },
   "keywords": [
     "vector",

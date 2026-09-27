@@ -9,7 +9,7 @@
 
 /**
  * Whether the published WASM build ships an active HNSW index.
- * `false` today: the WASM `VectorDB` falls back to a flat (brute-force) index.
+ * Inspect the running instance indexType for its actual backend.
  */
 export const WASM_HNSW_AVAILABLE: boolean;
 
@@ -38,6 +38,7 @@ export interface AdapterSearchResult {
 
 /** Minimal shape of the underlying WASM (or test-double) VectorDB. */
 export interface WasmVectorDBLike {
+  readonly indexType?: 'hnsw' | 'flat';
   insert(
     vector: Float32Array,
     id?: string,
@@ -73,7 +74,7 @@ export interface AdapterOptions {
   dimensions?: number;
   /** Distance metric the db was created with; controls similarity conversion. */
   metric?: string;
-  /** Override the index-type report. Defaults to {@link WASM_HNSW_AVAILABLE}. */
+  /** Deprecated and ignored. The running database reports its backend. */
   usesHnsw?: boolean;
 }
 
@@ -82,7 +83,7 @@ export interface CreateOptions {
   dimensions: number;
   /** Distance metric. Defaults to 'cosine'. */
   metric?: string;
-  /** Requested at the WASM layer (the build falls back to flat regardless). */
+  /** Use portable HNSW (default true); false selects exact flat search. */
   useHnsw?: boolean;
   /** Pre-imported WASM module; if omitted, `@ruvector/wasm` is imported. */
   module?: any;
@@ -94,7 +95,7 @@ export class RuvectorWasmAdapter {
 
   static create(options: CreateOptions): Promise<RuvectorWasmAdapter>;
 
-  /** `false` for the current WASM build — flat O(n) search. */
+  /** True only when the running database reports HNSW. */
   readonly usesHnsw: boolean;
   /** 'hnsw' | 'flat' — index type backing this adapter. */
   readonly indexType: 'hnsw' | 'flat';
