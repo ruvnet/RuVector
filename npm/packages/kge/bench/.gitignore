@@ -12,3 +12,7 @@ results/*
 !fixtures/
 !fixtures/synthetic-kg.json
 !fixtures/HASHES.json
+
+# The ADR-007 test-scoring ledger directory IS committed (append-only record;
+# see results/final/README.md).
+!results/final/

@@ -18,16 +18,18 @@ pub mod one_to_n;
 pub mod optim;
 pub mod reciprocal;
 mod rp;
+mod session;
 
 pub use config::{LossKind, N3Form, OneNKernel, Reduction, TrainConfig};
 pub use grad::Differentiable;
 pub use init::Init;
 pub use one_to_n::{NaiveOneToN, OneToN};
-pub use optim::{OptimKind, StateLayout};
+pub use optim::{OptimKind, OptimState, RowsState, StateLayout};
+pub use session::{TrainSession, TrainState};
 
 use crate::data::{Rng, TripleStore};
 use crate::{KgeError, Result, Tables, Triple};
-use optim::{Grads, Optimizer};
+use optim::Grads;
 
 /// Per-epoch progress handed to the callback. Carries no clock or timestamp
 /// (ADR-005: no time in the core).
@@ -75,6 +77,10 @@ impl Trainer {
     /// [`Trainer::fit`] with an explicit batched 1-N kernel (used only when
     /// the scorer is bilinear and the loss is 1-vs-all). The kernel lane plugs
     /// its GEMM implementation in here.
+    ///
+    /// A loop over [`TrainSession`]: the session carries every piece of state
+    /// between epochs, so a checkpointed-and-resumed session reproduces this
+    /// function bit for bit (plan M3).
     pub fn fit_with_kernel(
         tables: &mut Tables,
         scorer: &dyn Differentiable,
@@ -83,117 +89,12 @@ impl Trainer {
         kernel: &dyn OneToN,
         mut callback: impl FnMut(&Progress),
     ) -> Result<()> {
-        validate(tables, scorer, store, config)?;
-        init::apply_init(tables, config.init, config.seed);
-
-        let examples: Vec<Triple> = if config.reciprocal {
-            reciprocal::augment(tables, store.triples())?
-        } else {
-            store.triples().to_vec()
-        };
-        let n = examples.len();
-        if n == 0 {
+        let mut session = TrainSession::new(tables, scorer, store, config, kernel)?;
+        if session.num_examples() == 0 {
             return Ok(());
         }
-        let num_batches = n.div_ceil(config.batch_size);
-
-        let bilinear = match config.loss {
-            LossKind::OneVsAll => scorer.as_bilinear().filter(|b| b.index_is_identity()),
-            LossKind::SelfAdversarial { .. } => None,
-        };
-        let (ne, nr, d) = (tables.num_entities(), tables.num_relations(), config.dims);
-        // The batched path needs dense entity grads; dense vs sparse
-        // accumulation is bitwise identical, so this changes storage only.
-        let grad_layout = if bilinear.is_some() {
-            StateLayout::Dense
-        } else {
-            config.optim_state
-        };
-        let mut grads = Grads::with_layout(grad_layout, d, ne, nr);
-        let mut opt = Optimizer::new(config.optimizer, config.lr, config.optim_state, d, ne, nr);
-        let mut sample_rng = Rng::seeded(config.seed ^ 0xA5A5_0F0F_1234_5678);
-        let mut order: Vec<usize> = (0..n).collect();
-        let mut n3_buf: Vec<f32> = Vec::new();
-        let mut batch_ex: Vec<Triple> = Vec::with_capacity(config.batch_size);
-
-        for epoch in 0..config.epochs {
-            shuffle(&mut order, config.seed, epoch);
-            let (mut epoch_loss, mut epoch_n3, mut epoch_rp) = (0.0f64, 0.0f64, 0.0f64);
-
-            for batch in order.chunks(config.batch_size) {
-                grads.clear();
-                if config.loss_reduction == Reduction::Mean {
-                    grads.set_scale(1.0 / batch.len() as f32);
-                }
-                batch_ex.clear();
-                batch_ex.extend(batch.iter().map(|&i| examples[i]));
-
-                if let Some(b) = bilinear {
-                    epoch_loss += one_to_n::batched_step(
-                        tables,
-                        b,
-                        kernel,
-                        &batch_ex,
-                        !config.reciprocal,
-                        &mut grads,
-                    )? as f64;
-                }
-                for &t in &batch_ex {
-                    let data_loss = match config.loss {
-                        _ if bilinear.is_some() => 0.0,
-                        LossKind::SelfAdversarial {
-                            neg_count,
-                            temperature,
-                            margin,
-                        } => loss::self_adversarial_step(
-                            tables,
-                            scorer,
-                            t,
-                            neg_count,
-                            temperature,
-                            margin,
-                            &mut sample_rng,
-                            &mut grads,
-                        )?,
-                        LossKind::OneVsAll if config.reciprocal => {
-                            loss::one_vs_all_tail_step(tables, scorer, t, &mut grads)?
-                        }
-                        LossKind::OneVsAll => loss::one_vs_all_step(tables, scorer, t, &mut grads)?,
-                    };
-                    epoch_loss += data_loss as f64;
-                    if config.rp_weight > 0.0 {
-                        epoch_rp += rp::relation_prediction_step(
-                            tables,
-                            scorer,
-                            t,
-                            config.rp_weight,
-                            &mut grads,
-                        )? as f64;
-                    }
-                    if config.n3_lambda > 0.0 {
-                        epoch_n3 += apply_n3(
-                            tables,
-                            t,
-                            config.n3_lambda,
-                            config.n3_form,
-                            &mut grads,
-                            &mut n3_buf,
-                        )? as f64;
-                    }
-                }
-                if !grads.is_empty() {
-                    opt.apply(tables, &grads)?;
-                }
-            }
-
-            let progress = Progress {
-                epoch,
-                epochs: config.epochs,
-                num_batches,
-                loss: (epoch_loss / n as f64) as f32,
-                n3_penalty: (epoch_n3 / n as f64) as f32,
-                rp_loss: (epoch_rp / n as f64) as f32,
-            };
+        for _ in 0..config.epochs {
+            let progress = session.run_epoch(tables)?;
             callback(&progress);
         }
         Ok(())

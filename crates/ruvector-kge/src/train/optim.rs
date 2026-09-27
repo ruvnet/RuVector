@@ -17,6 +17,9 @@ use crate::{Result, Tables};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+mod state;
+pub use state::{OptimState, RowsState};
+
 /// Which optimizer a run uses. Betas/epsilon are carried here with defaults so
 /// the schedule is a single HPO arm (ADR-003 §3).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -270,6 +273,8 @@ pub(crate) struct Optimizer {
     kind: OptimKind,
     lr: f32,
     dims: usize,
+    entities: usize,
+    relations: usize,
     state: State,
 }
 
@@ -301,6 +306,8 @@ impl Optimizer {
             kind,
             lr,
             dims,
+            entities,
+            relations,
             state,
         }
     }

@@ -10110,6 +10110,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-kge-bench"
+version = "2.3.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "rayon",
+ "ruvector-kge",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "ureq 2.12.1",
+]
+
+[[package]]
 name = "ruvector-kge-ffi"
 version = "2.3.0"
 dependencies = [

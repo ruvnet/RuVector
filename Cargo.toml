@@ -76,6 +76,8 @@ members = [
     "crates/ruvector-kge",
     "crates/ruvector-kge-ffi",
     "crates/ruvector-kge-wasm",
+    # ADR-007 plan M3 native bench binary (publish = false).
+    "crates/ruvector-kge-bench",
     "crates/ruvector-server",
     "crates/ruvector-snapshot",
     "crates/ruvector-tiny-dancer-core",

@@ -50,3 +50,21 @@ impl Rng {
         self.below(m.saturating_add(1))
     }
 }
+
+impl Rng {
+    /// The raw generator state (checkpoints; plan M3).
+    pub(crate) fn state(&self) -> u64 {
+        self.state
+    }
+
+    /// Rebuild a generator from [`Rng::state`]. A zero state is rejected:
+    /// xorshift64 would emit zeros forever, and [`Rng::seeded`] never makes it.
+    pub(crate) fn from_state(state: u64) -> crate::Result<Self> {
+        if state == 0 {
+            return Err(crate::KgeError::Invalid(
+                "rng state must be non-zero".into(),
+            ));
+        }
+        Ok(Self { state })
+    }
+}
