@@ -63,7 +63,7 @@ seg_count() { local f; f=$(seg_file "$1"); [ -f "$f" ] && wc -l < "$f" | tr -d '
 seg_get() { sed -n "${2}p" "$(seg_file "$1")"; }
 # run_id of a segment: parsed from the runner's first stdout line.
 seg_run_id() { awk '/^run_id:/{print $2; exit}' "$STATE/jobs/$1/seg-$2.log" 2>/dev/null; }
-unit_active() { systemctl --user is-active --quiet "$(unit_of "$1")"; }
+unit_active() { systemctl --user is-active --quiet "$(unit_of "$1")" 2>/dev/null; }
 audit_event() { [ -f "$AUDIT" ] && jq -c --arg r "$1" --arg e "$2" 'select(.run_id==$r and .event==$e)' "$AUDIT" | tail -1; }
 
 # GCS markers for a run: prints DONE, FAILED or nothing; CKPT=1 when the run
@@ -206,4 +206,16 @@ pinned_head() {
 user_bus_ok() { systemctl --user show-environment >/dev/null 2>&1; }
 need_user_bus() {
   user_bus_ok || die "systemd --user manager unreachable (user@$(id -u).service down?). Start it first, e.g. 'sudo systemctl start user@$(id -u).service'; nothing launched"
+}
+
+# A job whose segments never produced a checkpoint (runner refused, or the
+# instance died before the first checkpoint) cannot be resumed: move its
+# segment records and logs to attempts/<n>/ so `launch` can start it afresh
+# (and a stale run_id cannot shadow the new one).
+archive_attempt() {
+  local d="$STATE/jobs/$1" n=1
+  while [ -e "$d/attempts/$n" ]; do n=$((n + 1)); done
+  mkdir -p "$d/attempts/$n"
+  mv "$d/segments.jsonl" "$d"/seg-*.log "$d/attempts/$n/" 2>/dev/null || true
+  log "$1: no checkpoint from previous attempt; archived to $d/attempts/$n"
 }

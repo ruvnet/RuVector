@@ -133,12 +133,19 @@ cmd_launch() {
   done
   [[ "$wave" =~ ^[1-9]$ ]] && [[ "$maxc" =~ ^[1-9][0-9]*$ ]] || die "launch needs --wave N --max-concurrent M"
   need_key; need_runner; need_user_bus
-  local sha job active rid rec cores thr
+  local sha job active rid rec cores thr st
   sha=$(pinned_head)
   for job in $(jobs_wave "$wave"); do
     active=$(for j in $(jobs_all); do unit_active "$j" && echo "$j"; done | wc -l)
     [ "$active" -lt "$maxc" ] || { log "max-concurrent $maxc reached; stopping"; break; }
-    [ "$(seg_count "$job")" = 0 ] || { log "$job: already launched ($(job_state "$job" | cut -d' ' -f1)); skip (use resume)"; continue; }
+    if [ "$(seg_count "$job")" != 0 ]; then
+      st=$(job_state "$job" | cut -d" " -f1)
+      if { [ "$st" = refused ] || [ "$st" = failed ]; } && ! latest_ckpt_run "$job" >/dev/null; then
+        archive_attempt "$job"
+      else
+        log "$job: already launched ($st); skip (use resume)"; continue
+      fi
+    fi
     # Dry-run first to learn the offer's allocated threads; launch then pins
     # --threads and --min-cpu-cores to it (a later resume must reuse it).
     build_args "$job" 1 "$sha" 32 "$(mf .runner.min_cpu_cores)" - 1 "$(any_running && echo 1 || echo 0)"
