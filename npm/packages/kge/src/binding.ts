@@ -42,6 +42,12 @@ export interface EngineOptions {
   dims?: number;
   /** Deterministic init seed. Default `42`. */
   seed?: number;
+  /**
+   * Reciprocal relations (ADR-007 §3): `2·R` relation rows, head queries
+   * answered as `(o, r⁻¹, ?)` by predict and eval. Fixed for the model's life.
+   * Default `false`.
+   */
+  reciprocal?: boolean;
 }
 
 /** The options JSON the binding's `Model` constructor expects. */
@@ -50,6 +56,8 @@ export function toOptionsJson(opts: EngineOptions): string {
     scorer: opts.scorer ?? 'hole',
     dims: opts.dims ?? 256,
     seed: opts.seed ?? 42,
+    // Only sent when set, so the default options JSON is unchanged.
+    ...(opts.reciprocal ? { reciprocal: true } : {}),
   });
 }
 

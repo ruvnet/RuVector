@@ -9,17 +9,17 @@
 //!     --lib kernel::sanity -- --ignored --nocapture
 //! ```
 //!
-//! Reciprocal evaluation (the recipe trains tail queries only): each valid
-//! triple `(s, r, o)` is ranked as the tail query `(s, r, ?)` and as
-//! `(o, r⁻¹, ?)`, the latter being the head query. Filtering uses train +
+//! Reciprocal evaluation (the recipe trains tail queries only) goes through
+//! `EvalConfig::reciprocal`: each valid triple `(s, r, o)` is ranked as the
+//! tail query `(s, r, ?)` and its head query as `(o, r⁻¹, ?)`. Filtering uses train +
 //! valid (no test), so it is slightly pessimistic against the usual
 //! train + valid + test filter. The entity count is padded to the canonical
 //! 40,943 (entities seen only in test are untrained candidate rows).
 
 use crate::data::{TripleStore, Vocab};
-use crate::eval::evaluate_rank_pair;
+use crate::eval::{evaluate_rank_pair_with, EvalConfig};
 use crate::scorer::ComplEx;
-use crate::train::{reciprocal, TrainConfig, Trainer};
+use crate::train::{TrainConfig, Trainer};
 use crate::{Tables, Triple};
 use std::time::Instant;
 
@@ -109,28 +109,21 @@ fn sanity_wn18rr_valid_complex_n3_r() {
 
     let mut all = train.clone();
     all.extend_from_slice(&valid);
-    let filter = TripleStore::with_counts(
-        reciprocal::augment(&tables, &all).unwrap(),
-        Some(ne),
-        Some(2 * nr),
-    )
-    .unwrap();
-    let queries = reciprocal::augment(&tables, &valid).unwrap();
+    // Base-id filter store: reciprocal eval maps the head query onto
+    // (o, r⁻¹, ?) itself (eval/counts.rs), batched on the GEMM kernel.
+    let filter = TripleStore::with_counts(all, Some(ne), Some(nr)).unwrap();
+    let ecfg = EvalConfig::random(42).with_reciprocal(true);
     let eval_start = Instant::now();
-    let chunk = queries.len().div_ceil(threads.max(1));
-    let parts: Vec<Vec<Triple>> = queries.chunks(chunk).map(|c| c.to_vec()).collect();
-    let pairs = pool(threads, || {
-        par_map(&parts, |c| {
-            evaluate_rank_pair(&tables, &sc, &filter, c, true, 42).unwrap()
-        })
+    let pair = pool(threads, || {
+        evaluate_rank_pair_with(&tables, &sc, &filter, &valid, &ecfg).unwrap()
     });
     let eval_s = eval_start.elapsed().as_secs_f64();
-    // Tail-side ranks only (even indices): forward = tail, inverse = head query.
-    let (mut bottom, mut random) = (Vec::new(), Vec::new());
-    for p in &pairs {
-        bottom.extend(p.bottom.iter().step_by(2).copied());
-        random.extend(p.random.iter().step_by(2).copied());
+    // Pair layout is [t0, h0, t1, h1, ..]: tails first, then heads.
+    fn sides(v: &[usize]) -> Vec<usize> {
+        let side = |k: usize| v.iter().skip(k).step_by(2).copied();
+        side(0).chain(side(1)).collect()
     }
+    let (bottom, random) = (sides(&pair.bottom), sides(&pair.random));
     assert_eq!(bottom.len(), 2 * valid.len());
     let mrr = |r: &[usize]| r.iter().map(|&k| 1.0 / k as f64).sum::<f64>() / r.len() as f64;
     let hits =
@@ -166,17 +159,5 @@ fn pool<R: Send>(t: usize, f: impl FnOnce() -> R + Send) -> R {
     {
         let _ = t;
         f()
-    }
-}
-
-fn par_map<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync + Send) -> Vec<R> {
-    #[cfg(feature = "parallel")]
-    {
-        use rayon::prelude::*;
-        items.par_iter().map(f).collect()
-    }
-    #[cfg(not(feature = "parallel"))]
-    {
-        items.iter().map(f).collect()
     }
 }

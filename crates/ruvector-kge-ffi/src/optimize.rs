@@ -67,6 +67,14 @@ impl KgeModel {
         if self.triples.is_empty() {
             return err_json("invalid", "no triples to optimize over");
         }
+        // The campaign's arms train and rank non-reciprocal tables (`R` rows);
+        // a champion could never be installed into a `2·R` reciprocal model.
+        if self.config.reciprocal {
+            return err_json(
+                "unsupported",
+                "optimize is not available for reciprocal models (its arms train non-reciprocal tables)",
+            );
+        }
         if spec.budget == 0 {
             return err_json("invalid", "budget must be >= 1");
         }

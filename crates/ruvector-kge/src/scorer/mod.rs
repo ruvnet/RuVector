@@ -37,6 +37,18 @@ pub trait Scorer: Send + Sync {
     fn ann_exact(&self) -> bool {
         true
     }
+
+    /// Whether evaluation may score every candidate of a query as one GEMM
+    /// over the **raw entity table**: true only when [`Scorer::index_vector`]
+    /// is the identity (`index_dims() == dims()`) and `score(s, r, o)` is the
+    /// dot product of [`Scorer::query_vector`] with that raw row (equal up to
+    /// floating-point reassociation). Provided: `false`, so every scorer keeps
+    /// the exact per-candidate `score` path unless it opts in. ComplEx opts in
+    /// (plan M2/M3 batched eval); HolE does not (its index is a transformed
+    /// spectrum, and its eval stays bit-identical).
+    fn eval_by_gemm(&self) -> bool {
+        false
+    }
 }
 
 /// A [`Differentiable`](crate::Differentiable) scorer whose score is a plain

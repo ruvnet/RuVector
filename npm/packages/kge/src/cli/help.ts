@@ -24,7 +24,7 @@ Global:
   --version, -v   Print version.
   --help, -h      Print this help.
   --model <path>  Load a saved model (import/train create one instead).
-  --scorer hole|rotate   Scorer for a fresh model (default: hole).
+  --scorer hole|rotate|complex  Scorer for a fresh model (default: hole).
   --dims <n>      Embedding width, even (default: 256).
   --seed <n>      Init seed (default: 42).
 

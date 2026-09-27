@@ -9,8 +9,8 @@ export function engineOptionsFromFlags(flags: ParsedArgs['flags']): EngineOption
   const opts: EngineOptions = {};
   const scorer = flagString(flags, 'scorer');
   if (scorer !== undefined) {
-    if (scorer !== 'hole' && scorer !== 'rotate') {
-      throw new Error(`unknown --scorer "${scorer}" (expected hole or rotate)`);
+    if (scorer !== 'hole' && scorer !== 'rotate' && scorer !== 'complex') {
+      throw new Error(`unknown --scorer "${scorer}" (expected hole, rotate or complex)`);
     }
     opts.scorer = scorer;
   }

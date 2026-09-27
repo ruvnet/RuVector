@@ -37,6 +37,9 @@ pub enum ScorerKind {
     Hole,
     /// Rotation in complex space — the composition-capable scorer.
     Rotate,
+    /// ComplEx (Trouillon 2016), the product scorer of the ComplEx-N3-R
+    /// recipe (ADR-007 §3); `dims = 2·complex_rank`.
+    Complex,
 }
 
 /// A ranked candidate for an open slot.

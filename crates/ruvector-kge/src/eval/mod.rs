@@ -1,13 +1,22 @@
-//! Filtered link-prediction evaluation (ADR-003 §5, ADR-006).
+//! Filtered link-prediction evaluation (ADR-003 §5, ADR-006, ADR-007 §3).
 //!
 //! For each test triple both the head `(?, r, o)` and the tail `(s, r, ?)`
-//! query are ranked by scoring every entity exactly (through [`Scorer::score`]),
-//! filtering out the *other* true entities, and breaking ties with a seeded
-//! RANDOM policy. Metrics are reported per side and combined.
+//! query are ranked by scoring every entity, filtering out the *other* true
+//! entities, and breaking ties with a seeded policy. Metrics are reported per
+//! side and combined.
+//!
+//! A reciprocal model ([`EvalConfig::reciprocal`]) answers the head query as
+//! the tail query `(o, r⁻¹, ?)`; a scorer with
+//! [`Scorer::eval_by_gemm`](crate::Scorer::eval_by_gemm) is scored in batches on
+//! the GEMM kernel. Both live in `counts.rs` / `gemm.rs`.
 
+mod counts;
+mod gemm;
 mod metrics;
 mod pair;
 mod rank;
+#[cfg(test)]
+mod tests_reciprocal;
 
 pub use metrics::MetricSet;
 pub use pair::{evaluate_rank_pair, evaluate_rank_pair_with, RankPair};
@@ -20,22 +29,36 @@ use serde::{Deserialize, Serialize};
 
 /// Evaluation options. `filtered` removes other true facts from the candidate
 /// set; `tie_break` picks the tie policy (ADR-007: BOTTOM for verdicts, RANDOM
-/// alongside — [`evaluate_rank_pair`] yields both). `seed` makes RANDOM reproducible.
+/// alongside — [`evaluate_rank_pair`] yields both). `seed` makes RANDOM
+/// reproducible. `reciprocal` must be set for a model trained with
+/// `TrainConfig::reciprocal` (`2·R` relation rows, row `r + R` = `r⁻¹`): its
+/// head queries are then scored as `(o, r⁻¹, ?)`. Filter stores and
+/// `eval_triples` always use base relation ids.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct EvalConfig {
     pub tie_break: TieBreak,
     pub filtered: bool,
     pub seed: u64,
+    pub reciprocal: bool,
 }
 
 impl EvalConfig {
-    /// The standard configuration: filtered ranking, RANDOM tie-break.
+    /// The standard configuration: filtered ranking, RANDOM tie-break, direct
+    /// (non-reciprocal) head queries.
     pub fn random(seed: u64) -> Self {
         Self {
             tie_break: TieBreak::Random,
             filtered: true,
             seed,
+            reciprocal: false,
         }
+    }
+
+    /// This configuration with reciprocal head queries on or off.
+    #[must_use]
+    pub fn with_reciprocal(mut self, on: bool) -> Self {
+        self.reciprocal = on;
+        self
     }
 }
 
@@ -62,18 +85,12 @@ pub fn evaluate<S: Scorer + ?Sized>(
     eval_triples: &[Triple],
     config: &EvalConfig,
 ) -> Result<EvalReport> {
-    let n = tables.num_entities();
     let mut head = Accum::default();
     let mut tail = Accum::default();
-    let mut scores = vec![0.0f32; n];
-
-    for &t in eval_triples {
-        let (tail_rank, head_rank) =
-            ranks_for_triple(tables, scorer, filter_store, t, config, &mut scores)?;
+    for (tail_rank, head_rank) in ranks(tables, scorer, filter_store, eval_triples, config)? {
         tail.add(tail_rank);
         head.add(head_rank);
     }
-
     let mut combined = head.clone();
     combined.merge(&tail);
     Ok(EvalReport {
@@ -97,75 +114,36 @@ pub fn evaluate_ranks<S: Scorer + ?Sized>(
     eval_triples: &[Triple],
     config: &EvalConfig,
 ) -> Result<Vec<usize>> {
-    let n = tables.num_entities();
-    let mut scores = vec![0.0f32; n];
     let mut out = Vec::with_capacity(eval_triples.len() * 2);
-    for &t in eval_triples {
-        let (tail_rank, head_rank) =
-            ranks_for_triple(tables, scorer, filter_store, t, config, &mut scores)?;
+    for (tail_rank, head_rank) in ranks(tables, scorer, filter_store, eval_triples, config)? {
         out.push(tail_rank);
         out.push(head_rank);
     }
     Ok(out)
 }
 
-/// The one scoring loop [`evaluate`], [`evaluate_ranks`] and
-/// [`evaluate_rank_pair`] share: filtered tail then head rank of one triple,
-/// reusing `scores` as scratch. Identical seeds and candidate ordering to the
-/// previous inline form, so reported metrics are unchanged.
-fn ranks_for_triple<S: Scorer + ?Sized>(
+/// `(tail, head)` rank of every triple under `config.tie_break`. The per-query
+/// seeds (`qseed(seed, t, 1)` tail, `qseed(seed, t, 0)` head) are unchanged
+/// from the pre-M3 inline loop, so reported metrics are unchanged.
+fn ranks<S: Scorer + ?Sized>(
     tables: &Tables,
     scorer: &S,
     filter_store: &TripleStore,
-    t: Triple,
+    eval_triples: &[Triple],
     config: &EvalConfig,
-    scores: &mut [f32],
-) -> Result<(usize, usize)> {
-    let [(tg, tt), (hg, ht)] =
-        counts_for_triple(tables, scorer, filter_store, t, config.filtered, scores)?;
-    let mut rng = Rng::seeded(qseed(config.seed, t, 1));
-    let tail_rank = rank::resolve(tg, tt, config.tie_break, &mut rng);
-    let mut rng = Rng::seeded(qseed(config.seed, t, 0));
-    let head_rank = rank::resolve(hg, ht, config.tie_break, &mut rng);
-    Ok((tail_rank, head_rank))
-}
-
-/// `[(greater, tied) tail, (greater, tied) head]` for one triple — the single
-/// scoring pass every tie policy is resolved from.
-fn counts_for_triple<S: Scorer + ?Sized>(
-    tables: &Tables,
-    scorer: &S,
-    filter_store: &TripleStore,
-    t: Triple,
-    filtered: bool,
-    scores: &mut [f32],
-) -> Result<[(usize, usize); 2]> {
-    let s = tables.entity(t.s)?;
-    let r = tables.relation(t.r)?;
-    let o = tables.entity(t.o)?;
-
-    // Tail: (s, r, ?) — vary the object.
-    for (e, slot) in scores.iter_mut().enumerate() {
-        *slot = scorer.score(s, r, tables.entity(e as u32)?);
-    }
-    let filt = if filtered {
-        filter_store.true_tails(t.s, t.r)
-    } else {
-        None
-    };
-    let tail = rank::counts_of(scores, t.o, filt)?;
-
-    // Head: (?, r, o) — vary the subject.
-    for (e, slot) in scores.iter_mut().enumerate() {
-        *slot = scorer.score(tables.entity(e as u32)?, r, o);
-    }
-    let filt = if filtered {
-        filter_store.true_heads(t.r, t.o)
-    } else {
-        None
-    };
-    let head = rank::counts_of(scores, t.s, filt)?;
-    Ok([tail, head])
+) -> Result<Vec<(usize, usize)>> {
+    let counts = counts::all_counts(tables, scorer, filter_store, eval_triples, config)?;
+    Ok(eval_triples
+        .iter()
+        .zip(counts)
+        .map(|(&t, [(tg, tt), (hg, ht)])| {
+            let mut rng = Rng::seeded(qseed(config.seed, t, 1));
+            let tail_rank = rank::resolve(tg, tt, config.tie_break, &mut rng);
+            let mut rng = Rng::seeded(qseed(config.seed, t, 0));
+            let head_rank = rank::resolve(hg, ht, config.tie_break, &mut rng);
+            (tail_rank, head_rank)
+        })
+        .collect())
 }
 
 /// Well-mixed per-query seed so RANDOM tie-breaking is reproducible yet
@@ -208,6 +186,7 @@ mod tests {
                 tie_break: TieBreak::Random,
                 filtered: false,
                 seed,
+                reciprocal: false,
             };
             let rep = evaluate(&tables, &scorer, &store, &test, &cfg).unwrap();
             mr_sum += rep.combined.mr;
@@ -229,6 +208,7 @@ mod tests {
                 tie_break: TieBreak::Top,
                 filtered: false,
                 seed: 0,
+                reciprocal: false,
             },
         )
         .unwrap();
@@ -242,6 +222,7 @@ mod tests {
                 tie_break: TieBreak::Bottom,
                 filtered: false,
                 seed: 0,
+                reciprocal: false,
             },
         )
         .unwrap();
@@ -289,6 +270,7 @@ mod tests {
                     tie_break,
                     filtered,
                     seed: 5,
+                    reciprocal: false,
                 };
                 let rep = evaluate(&tables, &NanScorer(4), &store, &test, &cfg);
                 match rep {
@@ -326,6 +308,7 @@ mod tests {
                 tie_break,
                 filtered: true,
                 seed,
+                reciprocal: false,
             };
             evaluate(&tables, &scorer, &store, &test, &cfg).unwrap()
         };
@@ -411,6 +394,7 @@ mod tests {
                 tie_break: TieBreak::Top,
                 filtered: false,
                 seed: 0,
+                reciprocal: false,
             },
         )
         .unwrap();
@@ -423,6 +407,7 @@ mod tests {
                 tie_break: TieBreak::Top,
                 filtered: true,
                 seed: 0,
+                reciprocal: false,
             },
         )
         .unwrap();

@@ -103,6 +103,12 @@ impl Scorer for ComplEx {
     fn id(&self) -> &str {
         &self.id
     }
+
+    /// The index is the raw row and the score an exact inner product with the
+    /// query, so evaluation batches candidates as a GEMM over the entity table.
+    fn eval_by_gemm(&self) -> bool {
+        true
+    }
 }
 
 impl Differentiable for ComplEx {

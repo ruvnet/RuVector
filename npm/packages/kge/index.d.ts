@@ -23,7 +23,7 @@ export interface KgeErrorJson {
 }
 
 /**
- * A knowledge-graph embedding model over one scorer (HolE or RotatE).
+ * A knowledge-graph embedding model over one scorer (HolE, RotatE or ComplEx).
  *
  * Every `*Json` method returns a JSON **string**: either the success payload or
  * a {@link KgeErrorJson}. They never throw for a request-level failure. The
@@ -31,7 +31,12 @@ export interface KgeErrorJson {
  * JSON, an odd/zero `dims`, a tampered model envelope).
  */
 export declare class Model {
-  /** @param optionsJson e.g. `{"scorer":"hole","dims":256,"seed":42}`. */
+  /**
+   * @param optionsJson e.g. `{"scorer":"hole","dims":256,"seed":42}`.
+   * `scorer` is `"hole" | "rotate" | "complex"`; `"reciprocal":true` (default
+   * false) builds `2·R` relation rows and answers head queries as
+   * `(o, r⁻¹, ?)` in predict and eval (ADR-007 §3). Fixed for the model's life.
+   */
   constructor(optionsJson: string);
 
   /** Rebuild from a `toJson` envelope; throws on a hash mismatch. */
@@ -55,7 +60,14 @@ export declare class Model {
   /** Build the ANN index over entities. */
   buildIndexJson(): string;
 
-  /** Train synchronously. Returns a report or error JSON. */
+  /**
+   * Train synchronously. `configJson` is the Rust `TrainConfig`, every field
+   * optional (`epochs`, `batch_size`, `lr`, `seed`, `optimizer`, `loss`,
+   * `n3_lambda`, `init`, `n3_form`, `loss_reduction`, `rp_weight`,
+   * `optim_state`, `one_n_kernel: "naive"|"gemm"`). `dims` is the model's;
+   * `reciprocal`, if given, must equal the constructor option (else `invalid`).
+   * Returns a report or error JSON.
+   */
   trainJson(configJson: string): string;
 
   /** Filtered evaluation: `{"split":"test", ...}`. */
@@ -64,7 +76,7 @@ export declare class Model {
   /** Self-optimization campaign. */
   optimizeJson(campaignJson: string): string;
 
-  /** `{scorer,dims,seed,entities,relations,triples,indexed,splits}` as JSON. */
+  /** `{scorer,dims,seed,entities,relations,triples,indexed,reciprocal,splits}` as JSON. */
   statsJson(): string;
 
   /**

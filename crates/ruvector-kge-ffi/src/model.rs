@@ -101,6 +101,10 @@ pub struct Config {
         skip_serializing_if = "Option::is_none"
     )]
     pub max_table_bytes: Option<u64>,
+    /// Reciprocal relations (ADR-007 §3, see `recip.rs`), fixed at construction.
+    /// Omitted from the serialized model when false (old models keep their hash).
+    #[serde(default, skip_serializing_if = "crate::recip::is_false")]
+    pub reciprocal: bool,
 }
 
 fn default_scorer() -> ScorerKind {
@@ -123,6 +127,8 @@ struct Options {
     seed: u64,
     #[serde(default, rename = "maxTableBytes")]
     max_table_bytes: Option<u64>,
+    #[serde(default)]
+    reciprocal: bool,
 }
 
 /// Allocation-free view of a serialized model: only the numbers that size the
@@ -146,6 +152,8 @@ struct HeadConfig {
     dims: usize,
     #[serde(default, rename = "maxTableBytes")]
     max_table_bytes: Option<u64>,
+    #[serde(default)]
+    reciprocal: bool,
 }
 #[derive(Deserialize)]
 struct HeadVocab {
@@ -170,7 +178,7 @@ fn precheck_model_size(json: &str) -> Result<(), String> {
     let m = head.model;
     let cap = m.config.max_table_bytes;
     let ne = m.entities.labels.len().max(1);
-    let nr = m.relations.labels.len().max(1);
+    let nr = crate::recip::rows_for(m.relations.labels.len(), m.config.reciprocal);
     check_table_size(ne, nr, m.config.dims, cap).map_err(|e| kge_error_json(&e))?;
     if let Some(t) = m.tables {
         if t.dims == 0 {
@@ -243,7 +251,8 @@ impl SplitLabel {
 }
 
 impl KgeModel {
-    /// `optionsJson`: `{"scorer":"hole"|"rotate","dims":256,"seed":42}`. Throws
+    /// `optionsJson`: `{"scorer":"hole"|"rotate"|"complex","dims":256,"seed":42,
+    /// "reciprocal":false}`. Throws
     /// (returns `Err`) on malformed JSON or a `dims` that is zero or odd —
     /// ADR-001 requires an even `d` for the HolE real-FFT pairing. A `dims`
     /// above `MAX_DIMS` or an unsatisfiable `maxTableBytes` also throws, with
@@ -259,7 +268,8 @@ impl KgeModel {
         }
         // F1: `dims` above MAX_DIMS (or a cap too small for even one row) is
         // a typed `limit` error; the thrown message is the error envelope.
-        check_table_size(1, 1, o.dims, o.max_table_bytes).map_err(|e| kge_error_json(&e))?;
+        let rows = crate::recip::rows_for(1, o.reciprocal);
+        check_table_size(1, rows, o.dims, o.max_table_bytes).map_err(|e| kge_error_json(&e))?;
         Ok(Self {
             version: SCHEMA_VERSION,
             config: Config {
@@ -267,6 +277,7 @@ impl KgeModel {
                 dims: o.dims,
                 seed: o.seed,
                 max_table_bytes: o.max_table_bytes,
+                reciprocal: o.reciprocal,
             },
             entities: Vocab::default(),
             relations: Vocab::default(),
@@ -325,6 +336,7 @@ impl KgeModel {
             "relations": self.relations.len(),
             "triples": self.triples.len(),
             "indexed": self.ann.is_some(),
+            "reciprocal": self.config.reciprocal,
             "splits": self.split_counts(),
         })
         .to_string()
@@ -335,7 +347,7 @@ impl KgeModel {
     pub fn ensure_built(&mut self) {
         if self.tables.is_none() {
             let ne = self.entities.len().max(1);
-            let nr = self.relations.len().max(1);
+            let nr = self.relation_rows();
             self.tables = Some(Tables::new(ne, nr, self.config.dims, self.config.seed));
         }
     }
@@ -359,13 +371,27 @@ impl KgeModel {
                 &format!("dims must be a positive even number, got {d}"),
             ));
         }
-        self.check_size(self.entities.len(), self.relations.len(), d)
+        self.check_size(self.entities.len(), self.relation_rows(), d)
             .map_err(|e| kge_error_json(&e))?;
         if let Some(t) = &self.tables {
             self.check_size(t.num_entities(), t.num_relations(), t.dims())
                 .map_err(|e| kge_error_json(&e))?;
+            // The [base | inverse] layout is positional: a reciprocal table
+            // with any other row count would pair relations with wrong rows.
+            if self.config.reciprocal && t.num_relations() != self.relation_rows() {
+                return Err(err_json(
+                    "invalid",
+                    "reciprocal model tables must hold 2 x relations rows",
+                ));
+            }
         }
         Ok(())
+    }
+
+    /// Relation rows the tables hold for the current vocab: `R` (at least 1),
+    /// or `2·R` for a reciprocal model (`[base 0..R | inverse R..2R]`).
+    pub(crate) fn relation_rows(&self) -> usize {
+        crate::recip::rows_for(self.relations.len(), self.config.reciprocal)
     }
 
     pub(crate) fn intern_entity(&mut self, label: &str) -> u32 {
@@ -451,20 +477,13 @@ impl KgeModel {
             return;
         };
         let ne = self.entities.len().max(1);
-        let nr = self.relations.len().max(1);
+        let nr = self.relation_rows();
         if old.num_entities() == ne && old.num_relations() == nr {
             self.tables = Some(old);
             return;
         }
         let mut grown = Tables::new(ne, nr, self.config.dims, self.config.seed);
-        for i in 0..old.num_entities() as u32 {
-            let src = old.entity(i).unwrap().to_vec();
-            grown.entity_mut(i).unwrap().copy_from_slice(&src);
-        }
-        for i in 0..old.num_relations() as u32 {
-            let src = old.relation(i).unwrap().to_vec();
-            grown.relation_mut(i).unwrap().copy_from_slice(&src);
-        }
+        crate::recip::copy_rows(&old, &mut grown, self.config.reciprocal);
         self.tables = Some(grown);
     }
 }

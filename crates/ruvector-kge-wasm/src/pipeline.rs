@@ -8,7 +8,7 @@
 //! self-optimization campaign lives in the sibling `optimize` module.
 
 use crate::model::{err_json, kge_error_json, KgeModel, SplitLabel};
-use ruvector_kge::scorer::{HolE, RotatE};
+use ruvector_kge::scorer::{ComplEx, HolE, RotatE};
 use ruvector_kge::{
     effective_max_bytes, evaluate, AnnIndex, EvalConfig, ScorerKind, Tables, TieBreak, TrainConfig,
     Trainer, Triple, TripleStore,
@@ -124,6 +124,8 @@ impl TrainJob {
                 .and_then(|sc| Trainer::fit(tables, &sc, &self.store, &self.cfg, &mut record)),
             ScorerKind::Rotate => RotatE::new(self.dims)
                 .and_then(|sc| Trainer::fit(tables, &sc, &self.store, &self.cfg, &mut record)),
+            ScorerKind::Complex => ComplEx::new(self.dims)
+                .and_then(|sc| Trainer::fit(tables, &sc, &self.store, &self.cfg, &mut record)),
         }
     }
 
@@ -172,9 +174,23 @@ impl KgeModel {
         if self.is_training() {
             return Err(serde_json::json!({ "status": "training" }).to_string());
         }
-        let mut cfg: TrainConfig = serde_json::from_str(config_json)
+        let raw: serde_json::Value = serde_json::from_str(config_json)
+            .map_err(|e| err_json("invalid", &format!("train config parse error: {e}")))?;
+        // The model's `reciprocal` (fixed at construction) is the source of
+        // truth, like `dims`: omitted = inherit; a contradicting value is an
+        // error rather than a silent retrain under the wrong row layout.
+        if let Some(v) = raw.get("reciprocal") {
+            if v.as_bool() != Some(self.config.reciprocal) {
+                return Err(err_json(
+                    "invalid",
+                    "train config \"reciprocal\" must match the model's (set it in the constructor options)",
+                ));
+            }
+        }
+        let mut cfg: TrainConfig = serde_json::from_value(raw)
             .map_err(|e| err_json("invalid", &format!("train config parse error: {e}")))?;
         cfg.dims = self.config.dims;
+        cfg.reciprocal = self.config.reciprocal;
         if self.triples.is_empty() {
             return Err(err_json("invalid", "no triples to train on"));
         }
@@ -267,17 +283,18 @@ impl KgeModel {
                 } else {
                     // Replay growth: trained rows for the snapshot ids, the
                     // live rows (seed-init) for ids interned while training ran.
+                    // Reciprocal: the inverse block moves to its new offset.
                     let mut merged = current;
-                    let d = job.dims;
-                    let ne = base_e.min(cur_e) * d;
-                    let nr = base_r.min(cur_r) * d;
-                    merged.entities_raw_mut()[..ne].copy_from_slice(&trained.entities_raw()[..ne]);
-                    merged.relations_raw_mut()[..nr]
-                        .copy_from_slice(&trained.relations_raw()[..nr]);
+                    crate::recip::copy_rows(&trained, &mut merged, self.config.reciprocal);
                     merged
                 };
                 self.replace_tables(merged);
-                (cur_e.saturating_sub(base_e), cur_r.saturating_sub(base_r))
+                // `replayed.relations` counts relations (labels), not rows.
+                let per = if self.config.reciprocal { 2 } else { 1 };
+                (
+                    cur_e.saturating_sub(base_e),
+                    cur_r.saturating_sub(base_r) / per,
+                )
             }
         };
         let replayed = serde_json::json!({ "entities": replayed_e, "relations": replayed_r });
@@ -396,6 +413,8 @@ impl KgeModel {
             tie_break: tie,
             filtered: ec.filtered,
             seed: ec.seed,
+            // A reciprocal model scores head queries as (o, r⁻¹, ?).
+            reciprocal: self.config.reciprocal,
         };
         self.ensure_built();
         let kind = self.config.scorer;
@@ -410,6 +429,10 @@ impl KgeModel {
                 Ok(sc) => evaluate(tables, &sc, &store, &eval_triples, &cfg),
                 Err(e) => return kge_error_json(&e),
             },
+            ScorerKind::Complex => match ComplEx::new(dims) {
+                Ok(sc) => evaluate(tables, &sc, &store, &eval_triples, &cfg),
+                Err(e) => return kge_error_json(&e),
+            },
         };
         match report {
             Ok(r) => serde_json::json!({
@@ -418,6 +441,7 @@ impl KgeModel {
                 "split": ec.split,
                 "splitSource": split_source,
                 "filtered": cfg.filtered,
+                "reciprocal": cfg.reciprocal,
                 "note": note,
             })
             .to_string(),
@@ -441,6 +465,9 @@ impl KgeModel {
             match kind {
                 ScorerKind::Hole => HolE::new(dims).and_then(|sc| AnnIndex::build(tables, &sc)),
                 ScorerKind::Rotate => RotatE::new(dims).and_then(|sc| AnnIndex::build(tables, &sc)),
+                ScorerKind::Complex => {
+                    ComplEx::new(dims).and_then(|sc| AnnIndex::build(tables, &sc))
+                }
             }
         };
         match build_result {

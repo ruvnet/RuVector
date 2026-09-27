@@ -9,7 +9,7 @@
 //! provide yet).
 
 use crate::model::{err_json, kge_error_json, KgeModel, SplitLabel};
-use ruvector_kge::scorer::{HolE, RotatE};
+use ruvector_kge::scorer::{ComplEx, HolE, RotatE};
 use ruvector_kge::{AnnIndex, Scorer, ScorerKind, Side, Triple};
 use serde::Deserialize;
 use std::collections::HashSet;
@@ -43,19 +43,23 @@ fn check_k(k: usize) -> Option<String> {
 /// constructor already prevents, so `predict` treats `None` as a `scorer`
 /// error, not a routine outcome. This is the single seam every scoring path
 /// goes through (ADR-002 §1).
-fn build_scorer(kind: ScorerKind, dims: usize) -> Option<Box<dyn Scorer>> {
+pub(crate) fn build_scorer(kind: ScorerKind, dims: usize) -> Option<Box<dyn Scorer>> {
     match kind {
         ScorerKind::Hole => HolE::new(dims).ok().map(|s| Box::new(s) as Box<dyn Scorer>),
         ScorerKind::Rotate => RotatE::new(dims)
             .ok()
             .map(|s| Box::new(s) as Box<dyn Scorer>),
+        ScorerKind::Complex => ComplEx::new(dims)
+            .ok()
+            .map(|s| Box::new(s) as Box<dyn Scorer>),
     }
 }
 
-fn scorer_name(kind: ScorerKind) -> &'static str {
+pub(crate) fn scorer_name(kind: ScorerKind) -> &'static str {
     match kind {
         ScorerKind::Hole => "hole",
         ScorerKind::Rotate => "rotate",
+        ScorerKind::Complex => "complex",
     }
 }
 
@@ -174,7 +178,8 @@ impl KgeModel {
         if nr > MAX_RELATIONS {
             return err_json("limit", "relation table would exceed 100,000");
         }
-        if let Err(e) = self.check_size(ne, nr, self.config.dims) {
+        let rows = crate::recip::rows_for(nr, self.config.reciprocal);
+        if let Err(e) = self.check_size(ne, rows, self.config.dims) {
             return kge_error_json(&e);
         }
         let mut added = 0usize;
@@ -251,6 +256,8 @@ impl KgeModel {
         };
         self.ensure_built();
         let tables = self.tables.as_ref().unwrap();
+        // A reciprocal model answers (?, r, o) as the tail query (o, r⁻¹, ?).
+        let (r_id, side) = crate::recip::query_route(tables, r_id, side, self.config.reciprocal);
         let r_vec = match tables.relation(r_id) {
             Ok(v) => v,
             Err(e) => return kge_error_json(&e),
@@ -308,7 +315,9 @@ impl KgeModel {
         self.ensure_built();
         let tables = self.tables.as_ref().unwrap();
         let base = tables.relation(r_id).unwrap();
-        let nr = tables.num_relations();
+        // Labelled (base) relations only: a reciprocal model's inverse rows
+        // `R..2R` have no label of their own.
+        let nr = self.relations.len().min(tables.num_relations());
         let mut scored: Vec<(u32, f32)> = Vec::new();
         for rr in 0..nr as u32 {
             if rr == r_id {
@@ -341,7 +350,7 @@ impl KgeModel {
         if let Some(e) = check_k(q.k) {
             return e;
         }
-        if matches!(self.config.scorer, ScorerKind::Hole) {
+        if !matches!(self.config.scorer, ScorerKind::Rotate) {
             return err_json(
                 "unsupported",
                 "compose is defined only for the rotate scorer (HolE/ComplEx cannot represent relation composition)",

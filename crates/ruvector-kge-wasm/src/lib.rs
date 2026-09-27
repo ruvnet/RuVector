@@ -20,6 +20,7 @@ mod model;
 mod ops;
 mod optimize;
 mod pipeline;
+mod recip;
 
 use model::KgeModel;
 use wasm_bindgen::prelude::*;

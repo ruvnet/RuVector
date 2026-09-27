@@ -16,6 +16,7 @@ mod model;
 mod ops;
 mod optimize;
 mod pipeline;
+mod recip;
 
 use model::KgeModel;
 use napi::bindgen_prelude::*;

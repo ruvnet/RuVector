@@ -128,6 +128,7 @@ fn scorer_model_id(p: &Proposal) -> String {
     let s = match p.knobs.scorer {
         crate::ScorerKind::Hole => "hole",
         crate::ScorerKind::Rotate => "rotate",
+        crate::ScorerKind::Complex => "complex",
     };
     format!("{s}-d{}", p.knobs.dims)
 }

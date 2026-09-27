@@ -21,6 +21,7 @@ import type {
   PredictResult,
   SimilarResult,
   Stats,
+  TrainConfig,
   Triple,
 } from './types';
 
@@ -71,8 +72,8 @@ export interface Kge<R extends string = string> {
   compose(query: ComposeQuery<R>): PredictResult;
   /** Build the ANN index over entities; `predict` then uses it. */
   buildIndex(): Record<string, unknown>;
-  /** Train the tables in place (mini-batch, ADR-003). */
-  train(config?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  /** Train the tables in place (mini-batch, ADR-003; recipe fields per {@link TrainConfig}). */
+  train(config?: TrainConfig & Record<string, unknown>): Promise<Record<string, unknown>>;
   /** Filtered evaluation over a (derived) split. */
   evaluate(config?: Record<string, unknown>): Record<string, unknown>;
   /**

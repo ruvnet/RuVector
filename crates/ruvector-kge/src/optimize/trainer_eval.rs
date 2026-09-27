@@ -35,7 +35,7 @@ use super::proposals::{Knobs, Loss, Optimizer, Proposal};
 use super::{ArmOutcome, Evaluator, TestScoreFn};
 use crate::data::{Split4, TripleStore};
 use crate::eval::{evaluate, evaluate_ranks, EvalConfig};
-use crate::scorer::{HolE, RotatE};
+use crate::scorer::{ComplEx, HolE, RotatE};
 use crate::train::{Differentiable, LossKind, OptimKind, TrainConfig, Trainer};
 use crate::{Result, ScorerKind, Tables, Triple};
 
@@ -136,6 +136,10 @@ impl TrainerEvaluator {
             }
             ScorerKind::Rotate => {
                 let sc = RotatE::new(knobs.dims)?;
+                self.fit_measure(&sc, tables, train_store, cfg, ecfg)
+            }
+            ScorerKind::Complex => {
+                let sc = ComplEx::new(knobs.dims)?;
                 self.fit_measure(&sc, tables, train_store, cfg, ecfg)
             }
         }
@@ -362,6 +366,10 @@ fn test_mrr(
             Err(e) => Err(e),
         },
         ScorerKind::Rotate => match RotatE::new(dims) {
+            Ok(sc) => evaluate(tables, &sc, filter, test, &ecfg),
+            Err(e) => Err(e),
+        },
+        ScorerKind::Complex => match ComplEx::new(dims) {
             Ok(sc) => evaluate(tables, &sc, filter, test, &ecfg),
             Err(e) => Err(e),
         },

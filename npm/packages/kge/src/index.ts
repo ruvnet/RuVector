@@ -59,5 +59,7 @@ export type {
   SplitCounts,
   SplitTag,
   Stats,
+  OneNKernel,
+  TrainConfig,
   Triple,
 } from './types';

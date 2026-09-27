@@ -6,7 +6,7 @@
 //! outrank the target, and `random[i] <= bottom[i]` holds for every query by
 //! construction — asserted in CI below.
 
-use super::{counts_for_triple, qseed, rank, EvalConfig, TieBreak};
+use super::{counts, qseed, rank, EvalConfig, TieBreak};
 use crate::data::{Rng, TripleStore};
 use crate::{Result, Scorer, Tables, Triple};
 use serde::{Deserialize, Serialize};
@@ -25,7 +25,9 @@ pub struct RankPair {
 }
 
 /// Rank both sides of every `eval_triples` triple once and resolve the ties
-/// both ways. `filtered` and `seed` mean what they do in [`EvalConfig`].
+/// both ways. `filtered` and `seed` mean what they do in [`EvalConfig`]; head
+/// queries are direct (a reciprocal model goes through
+/// [`evaluate_rank_pair_with`] with [`EvalConfig::reciprocal`] set).
 ///
 /// # Errors
 /// As [`super::evaluate_ranks`]: a non-finite target score is an error.
@@ -37,28 +39,13 @@ pub fn evaluate_rank_pair<S: Scorer + ?Sized>(
     filtered: bool,
     seed: u64,
 ) -> Result<RankPair> {
-    let mut scores = vec![0.0f32; tables.num_entities()];
-    let cap = eval_triples.len() * 2;
-    let mut out = RankPair {
-        bottom: Vec::with_capacity(cap),
-        random: Vec::with_capacity(cap),
-    };
-    for &t in eval_triples {
-        let counts = counts_for_triple(tables, scorer, filter_store, t, filtered, &mut scores)?;
-        // Tail uses side 1, head side 0 — the same seeds `ranks_for_triple` uses.
-        for ((greater, tied), side) in counts.into_iter().zip([1u64, 0]) {
-            let mut rng = Rng::seeded(qseed(seed, t, side));
-            out.bottom
-                .push(rank::resolve(greater, tied, TieBreak::Bottom, &mut rng));
-            out.random
-                .push(rank::resolve(greater, tied, TieBreak::Random, &mut rng));
-        }
-    }
-    Ok(out)
+    let mut config = EvalConfig::random(seed);
+    config.filtered = filtered;
+    evaluate_rank_pair_with(tables, scorer, filter_store, eval_triples, &config)
 }
 
-/// Convenience: the pair for an [`EvalConfig`] (its `tie_break` is ignored —
-/// both policies are always produced).
+/// The pair for an [`EvalConfig`] (its `tie_break` is ignored — both policies
+/// are always produced; `reciprocal` selects the head-query protocol).
 pub fn evaluate_rank_pair_with<S: Scorer + ?Sized>(
     tables: &Tables,
     scorer: &S,
@@ -66,14 +53,23 @@ pub fn evaluate_rank_pair_with<S: Scorer + ?Sized>(
     eval_triples: &[Triple],
     config: &EvalConfig,
 ) -> Result<RankPair> {
-    evaluate_rank_pair(
-        tables,
-        scorer,
-        filter_store,
-        eval_triples,
-        config.filtered,
-        config.seed,
-    )
+    let all = counts::all_counts(tables, scorer, filter_store, eval_triples, config)?;
+    let cap = eval_triples.len() * 2;
+    let mut out = RankPair {
+        bottom: Vec::with_capacity(cap),
+        random: Vec::with_capacity(cap),
+    };
+    for (&t, counts) in eval_triples.iter().zip(all) {
+        // Tail uses side 1, head side 0 — the same seeds `evaluate_ranks` uses.
+        for ((greater, tied), side) in counts.into_iter().zip([1u64, 0]) {
+            let mut rng = Rng::seeded(qseed(config.seed, t, side));
+            out.bottom
+                .push(rank::resolve(greater, tied, TieBreak::Bottom, &mut rng));
+            out.random
+                .push(rank::resolve(greater, tied, TieBreak::Random, &mut rng));
+        }
+    }
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -126,6 +122,7 @@ mod tests {
                     tie_break,
                     filtered,
                     seed,
+                    reciprocal: false,
                 };
                 let random =
                     evaluate_ranks(&tables, &scorer, &store, &test, &cfg(TieBreak::Random))

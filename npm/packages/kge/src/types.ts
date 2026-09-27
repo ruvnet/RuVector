@@ -4,8 +4,11 @@
  * mirror it exactly.
  */
 
-/** The two shipped scorers (ADR-002). */
-export type ScorerKind = 'hole' | 'rotate';
+/**
+ * The shipped scorers: HolE (default) and RotatE (ADR-002), and ComplEx — the
+ * product scorer of the ComplEx-N3-R recipe (ADR-007 §3; `dims = 2·rank`).
+ */
+export type ScorerKind = 'hole' | 'rotate' | 'complex';
 
 /** A split tag for a triple (ADR-006 frozen splits). */
 export type SplitTag = 'train' | 'valid' | 'test' | 'transfer';
@@ -71,6 +74,8 @@ export interface Stats {
   relations: number;
   triples: number;
   indexed: boolean;
+  /** True for a reciprocal-relations model (`2·R` relation rows, ADR-007 §3). */
+  reciprocal: boolean;
   /** Triple counts per split label. */
   splits: SplitCounts;
 }
@@ -179,4 +184,41 @@ export interface KgeErrorShape {
     kind: KgeErrorKind;
     message: string;
   };
+}
+
+/** 1-N kernel for the batched 1-vs-all path (ComplEx only). */
+export type OneNKernel = 'naive' | 'gemm';
+
+/**
+ * `train` config (the Rust `TrainConfig`). Every field is optional; omitted
+ * fields keep the trainer defaults, so older configs are unchanged. `dims` is
+ * always the model's, and `reciprocal` is fixed by the constructor option
+ * (omit it, or pass the model's value; a contradicting value is `invalid`).
+ * The ComplEx-N3-R recipe (ADR-007 §3) on a `{scorer:"complex",
+ * reciprocal:true}` model: `{loss:{kind:'one_vs_all'}, n3_form:'moduli',
+ * loss_reduction:'mean', init:{kind:'normal',scale:1e-3},
+ * optimizer:{kind:'adagrad'}, optim_state:'dense', lr:0.1, rp_weight:0.05,
+ * one_n_kernel:'gemm'}`.
+ */
+export interface TrainConfig {
+  epochs?: number;
+  batch_size?: number;
+  lr?: number;
+  seed?: number;
+  optimizer?:
+    | { kind: 'adagrad'; epsilon?: number }
+    | { kind: 'adam'; beta1?: number; beta2?: number; epsilon?: number };
+  loss?:
+    | { kind: 'one_vs_all' }
+    | { kind: 'self_adversarial'; neg_count?: number; temperature?: number; margin?: number };
+  n3_lambda?: number;
+  /** Must equal the model's constructor option when given. */
+  reciprocal?: boolean;
+  init?: { kind: 'keep' } | { kind: 'xavier' } | { kind: 'normal'; scale?: number };
+  n3_form?: 'elementwise' | 'moduli';
+  loss_reduction?: 'sum' | 'mean';
+  /** Relation-prediction auxiliary weight (Chen 2021); 0 = off. */
+  rp_weight?: number;
+  optim_state?: 'sparse' | 'dense';
+  one_n_kernel?: OneNKernel;
 }
