@@ -235,3 +235,104 @@ fn bench_fit_epoch_complex_fb15k237_k500() {
         );
     }
 }
+
+/// WN18RR C1 shape (|E|=40,943, 22 relations incl. reciprocals, complex rank
+/// 1000 → D=2000, B=100 rows): per-phase timings of one 1-N step (logits,
+/// softmax, grad_E, grad_Q, dense Adagrad apply, grad clear), then the whole
+/// recipe step (`Trainer::fit_with_kernel`, ComplEx-N3-R + RP, dense Adagrad)
+/// over 40 batches, projected to the 1,737 batches of a real epoch.
+#[test]
+#[ignore]
+fn bench_phases_wn18rr_c1() {
+    use super::gemm;
+    use crate::data::TripleStore;
+    use crate::scorer::ComplEx;
+    use crate::train::optim::{Grads, OptimKind, Optimizer, StateLayout};
+    use crate::train::{TrainConfig, TrainSession};
+    let (n, nr, dim, b) = (40_943usize, 22usize, 2000usize, 100usize);
+    let ents = Tables::new(n, 1, dim, 3).entities_raw().to_vec();
+    let q = Tables::new(b, 1, dim, 4).entities_raw().to_vec();
+    let targets: Vec<u32> = (0..b as u32).map(|i| i * 409 % n as u32).collect();
+    for t in [16usize, 8] {
+        let mut lg = vec![0.0f32; b * n];
+        let mut loss = vec![0.0f32; b];
+        let mut ge = vec![0.0f32; n * dim];
+        let mut gq = vec![0.0f32; b * dim];
+        let (fwd, sm, g_e, g_q) = with_threads(t, || {
+            let fwd = time_ms(5, || gemm::logits_nt(&q, &ents, b, n, dim, &mut lg));
+            let sm = time_ms(5, || {
+                super::softmax_ce_rows(&mut lg, n, &targets, 0.01, &mut loss)
+            });
+            let g_e = time_ms(5, || {
+                gemm::grad_entities_tn(&lg, &q, b, n, dim, 1.0, &mut ge)
+            });
+            let g_q = time_ms(5, || gemm::grad_queries_nn(&lg, &ents, b, n, dim, &mut gq));
+            (fwd, sm, g_e, g_q)
+        });
+        let mut tables = Tables::new(n, nr, dim, 5);
+        let mut opt = Optimizer::new(
+            OptimKind::Adagrad { epsilon: 1e-10 },
+            0.1,
+            StateLayout::Dense,
+            dim,
+            n,
+            nr,
+        );
+        let mut grads = Grads::with_layout(StateLayout::Dense, dim, n, nr);
+        let (apply, clear) = with_threads(t, || {
+            let apply = time_ms(5, || {
+                grads.dense_entities_mut().unwrap()[0] = 1e-3;
+                opt.apply(&mut tables, &grads).unwrap();
+            });
+            let clear = time_ms(5, || {
+                grads.dense_entities_mut();
+                grads.clear();
+            });
+            (apply, clear)
+        });
+        println!(
+            "BENCH phases wn18rr B={b} D={dim} threads={t}: logits {fwd:.1} ms, softmax {sm:.1}, \
+             grad_E {g_e:.1}, grad_Q {g_q:.1}, adagrad {apply:.1}, clear {clear:.1}"
+        );
+    }
+
+    let mut s = 0xC1u64;
+    let mut next = |m: usize| {
+        s ^= s << 13;
+        s ^= s >> 7;
+        s ^= s << 17;
+        (s % m as u64) as u32
+    };
+    let n_trip = 2000usize; // × 2 reciprocal rows = 40 batches of 100
+    let triples: Vec<Triple> = (0..n_trip)
+        .map(|_| Triple::new(next(n), next(nr / 2), next(n)))
+        .collect();
+    let store = TripleStore::with_counts(triples, Some(n), Some(nr / 2)).unwrap();
+    let cfg: TrainConfig = serde_json::from_str(&format!(
+        r#"{{"loss":{{"kind":"one_vs_all"}},"reciprocal":true,"n3_form":"moduli",
+            "loss_reduction":"mean","init":{{"kind":"normal","scale":0.001}},
+            "optim_state":"dense","n3_lambda":0.1,"rp_weight":0.05,"dims":{dim},
+            "epochs":1,"batch_size":{b},"lr":0.1,"seed":1}}"#
+    ))
+    .unwrap();
+    let sc = ComplEx::new(dim).unwrap();
+    let kernel = super::GemmOneToN::new();
+    for t in [16usize, 8] {
+        let mut tables = Tables::new(n, nr, dim, 7);
+        // Init (82M normal draws) and first-touch are outside the timed
+        // region: time one steady-state epoch of the session.
+        let secs = with_threads(t, || {
+            let mut sess = TrainSession::new(&mut tables, &sc, &store, &cfg, &kernel).unwrap();
+            sess.run_epoch(&mut tables).unwrap();
+            let start = Instant::now();
+            sess.run_epoch(&mut tables).unwrap();
+            start.elapsed().as_secs_f64()
+        });
+        let batches = (2 * n_trip).div_ceil(b) as f64;
+        println!(
+            "BENCH fit wn18rr C1 threads={t}: {:.1} ms/batch, projected epoch (1737 batches) {:.0} s",
+            secs * 1e3 / batches,
+            1737.0 * secs / batches
+        );
+    }
+}

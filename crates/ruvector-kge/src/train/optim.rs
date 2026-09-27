@@ -17,6 +17,7 @@ use crate::{Result, Tables};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+mod dense;
 mod state;
 pub use state::{OptimState, RowsState};
 
@@ -134,14 +135,7 @@ impl Rows {
     fn clear(&mut self, dims: usize) {
         match self {
             Rows::Sparse(m) => m.clear(),
-            Rows::Dense { buf, touched } => {
-                for (i, t) in touched.iter_mut().enumerate() {
-                    if *t {
-                        buf[i * dims..(i + 1) * dims].fill(0.0);
-                        *t = false;
-                    }
-                }
-            }
+            Rows::Dense { buf, touched } => dense::clear(buf, touched, dims),
         }
     }
 }
@@ -319,8 +313,12 @@ impl Optimizer {
         match (&self.kind, &mut self.state) {
             (OptimKind::Adagrad { epsilon }, State::Adagrad { ent, rel }) => {
                 let eps = *epsilon;
-                for (id, g) in grads.ent.iter(grads.dims) {
-                    adagrad_step(tables.entity_mut(id)?, g, ent.row_mut(id, d), lr, eps);
+                // Row-parallel when everything is dense (bitwise identical
+                // to the per-row loop; see `dense`).
+                if !dense::adagrad(tables.entities_raw_mut(), &grads.ent, ent, d, lr, eps) {
+                    for (id, g) in grads.ent.iter(grads.dims) {
+                        adagrad_step(tables.entity_mut(id)?, g, ent.row_mut(id, d), lr, eps);
+                    }
                 }
                 for (id, g) in grads.rel.iter(grads.dims) {
                     adagrad_step(tables.relation_mut(id)?, g, rel.row_mut(id, d), lr, eps);
@@ -352,9 +350,11 @@ impl Optimizer {
                     bc1,
                     bc2,
                 };
-                for (id, g) in grads.ent.iter(grads.dims) {
-                    let row = tables.entity_mut(id)?;
-                    adam_step(row, g, ent_m.row_mut(id, d), ent_v.row_mut(id, d), &h);
+                if !dense::adam(tables.entities_raw_mut(), &grads.ent, ent_m, ent_v, d, &h) {
+                    for (id, g) in grads.ent.iter(grads.dims) {
+                        let row = tables.entity_mut(id)?;
+                        adam_step(row, g, ent_m.row_mut(id, d), ent_v.row_mut(id, d), &h);
+                    }
                 }
                 for (id, g) in grads.rel.iter(grads.dims) {
                     let row = tables.relation_mut(id)?;

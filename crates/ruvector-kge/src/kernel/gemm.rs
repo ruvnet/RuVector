@@ -1,61 +1,141 @@
 //! The three SGEMMs of a 1-N step, on `matrixmultiply::sgemm` (plan M2).
 //!
 //! ```text
-//! logits  [B×N]   = Q  [B×D] · Eᵀ          (forward)
-//! grad_E  [N×D]   = dLᵀ[N×B] · Q  [B×D]    (backward to the entity table)
-//! grad_Q  [B×D]   = dL [B×N] · E  [N×D]    (backward to the queries)
+//! logits  [B×N]   = Q  [B×D] · Eᵀ          (forward;   reduces over D)
+//! grad_E  [N×D]   = dLᵀ[N×B] · Q  [B×D]    (backward;  reduces over B)
+//! grad_Q  [B×D]   = dL [B×N] · E  [N×D]    (backward;  reduces over N)
 //! ```
 //!
 //! Transposes are pure stride swaps — nothing is copied.
 //!
-//! **Determinism.** Every call is split into chunks of *output* rows or
-//! columns whose size is a compile-time constant, never a function of the
-//! thread count. Each output element is therefore produced by exactly one
-//! `sgemm` call, whose reduction over the inner dimension runs in a fixed
-//! order (fixed `kc` blocking, fixed micro-kernel). There is no cross-thread
-//! reduction anywhere, so results are bitwise identical for any thread count,
-//! with or without the `parallel` feature (asserted by the kernel tests).
-//! `matrixmultiply`'s own `threading` feature is not enabled.
+//! **Partitioning.** Work is split only along the two *output* axes of each
+//! product, never along its reduction axis:
+//!
+//! - `logits` and `grad_E` are tiled along the entity axis: each task owns a
+//!   block of entities (logits columns / grad_E rows) and writes it alone —
+//!   no reduction across tasks, no atomics.
+//! - `grad_Q` reduces over the entity axis, so splitting entities would need a
+//!   cross-task sum. It is instead tiled in 2-D over (query rows × embedding
+//!   columns). With small batches (WN18RR C1: B = 100) the old query-row-only
+//!   split gave 4 tasks for a third of the step's flops; column tiles give
+//!   every worker a share.
+//!
+//! **Determinism.** `sgemm` produces every output element with the same
+//! fixed-order reduction (fixed `kc` blocking along the reduction axis, one
+//! runtime-selected micro-kernel; masked edge tiles run the same kernel into a
+//! scratch tile) no matter how many rows/columns the call covers. Since tiles
+//! only ever cut the output axes, tile sizes may adapt to the shape and the
+//! current thread count and every output element is still computed by exactly
+//! one call in exactly one order: results are bitwise identical for any tile
+//! shape and any thread count, with or without the `parallel` feature
+//! (asserted by `tests_gemm.rs` against the fixed-chunk reference and by the
+//! kernel tests across pools of 1/3/16 threads). `matrixmultiply`'s own
+//! `threading` feature is not enabled.
 
 use matrixmultiply::sgemm;
 
-/// Entity-axis chunk (logits columns, grad_E rows). Fixed: see module docs.
-const ENTITY_CHUNK: usize = 512;
-/// Query-axis chunk (grad_Q rows). Fixed: see module docs.
-const QUERY_CHUNK: usize = 32;
+/// Upper bound of an entity tile (logits columns, grad_E rows).
+const ENTITY_TILE: usize = 512;
+/// Smallest entity tile (below this the per-call packing dominates).
+const ENTITY_TILE_MIN: usize = 64;
+/// Query rows per grad_Q tile.
+const QUERY_TILE: usize = 128;
+/// grad_Q column tiles are multiples of this (sgemm micro-tile width).
+const COL_ALIGN: usize = 8;
+/// Target tasks per worker thread (load balance vs per-call packing).
+const TASKS_PER_THREAD: usize = 2;
 
-/// A raw output pointer shared across chunk workers. Each worker writes a
+/// A raw output pointer shared across tile workers. Each worker writes a
 /// disjoint set of elements, so there is no data race.
 #[derive(Clone, Copy)]
 struct OutPtr(*mut f32);
-// SAFETY: workers write disjoint element sets (disjoint chunk ranges) and the
-// owning `&mut [f32]` outlives every worker (the dispatch below is scoped).
+// SAFETY: workers write disjoint element sets (disjoint tiles) and the owning
+// `&mut [f32]` outlives every worker (the dispatch below is scoped).
 unsafe impl Send for OutPtr {}
 unsafe impl Sync for OutPtr {}
 
-/// Run `f(start, end)` over `[0, total)` in fixed-size chunks — in parallel
+/// Worker threads available to the current dispatch (1 without `parallel`).
+fn threads() -> usize {
+    #[cfg(feature = "parallel")]
+    {
+        rayon::current_num_threads().max(1)
+    }
+    #[cfg(not(feature = "parallel"))]
+    {
+        1
+    }
+}
+
+/// Run `f(start, end)` over `[0, total)` in chunks of `chunk` — in parallel
 /// under the `parallel` feature (inside whatever rayon pool is current),
-/// sequentially otherwise. Chunk boundaries never depend on the thread count.
+/// sequentially otherwise.
 pub(crate) fn for_each_chunk<F>(total: usize, chunk: usize, f: F)
 where
     F: Fn(usize, usize) + Send + Sync,
 {
-    let n_chunks = total.div_ceil(chunk);
+    for_each_tile(1, 1, total, chunk, move |_, _, c0, c1| f(c0, c1));
+}
+
+/// Run `f(r0, r1, c0, c1)` over the `row_tile × col_tile` tiles covering
+/// `[0, rows) × [0, cols)`, in parallel under the `parallel` feature.
+fn for_each_tile<F>(rows: usize, row_tile: usize, cols: usize, col_tile: usize, f: F)
+where
+    F: Fn(usize, usize, usize, usize) + Send + Sync,
+{
+    let (nr, nc) = (rows.div_ceil(row_tile), cols.div_ceil(col_tile));
+    let tile = move |t: usize| {
+        let (r, c) = (t / nc, t % nc);
+        f(
+            r * row_tile,
+            ((r + 1) * row_tile).min(rows),
+            c * col_tile,
+            ((c + 1) * col_tile).min(cols),
+        )
+    };
     #[cfg(feature = "parallel")]
     {
         use rayon::prelude::*;
-        (0..n_chunks)
-            .into_par_iter()
-            .for_each(|c| f(c * chunk, ((c + 1) * chunk).min(total)));
+        (0..nr * nc).into_par_iter().for_each(tile);
     }
     #[cfg(not(feature = "parallel"))]
-    for c in 0..n_chunks {
-        f(c * chunk, ((c + 1) * chunk).min(total));
+    (0..nr * nc).for_each(tile);
+}
+
+/// Entity tile for `n` entities: at most [`ENTITY_TILE`], smaller when that
+/// would leave workers idle. (Output-axis only — numerically irrelevant.)
+pub(crate) fn entity_tile(n: usize) -> usize {
+    let want = threads() * TASKS_PER_THREAD;
+    n.div_ceil(want)
+        .next_multiple_of(ENTITY_TILE_MIN)
+        .clamp(ENTITY_TILE_MIN, ENTITY_TILE)
+}
+
+/// `(row_tile, col_tile)` for the `b × dim` grad_Q output: [`QUERY_TILE`]
+/// rows, and enough column tiles for ~[`TASKS_PER_THREAD`] tasks per worker.
+pub(crate) fn query_tiles(b: usize, dim: usize) -> (usize, usize) {
+    let t = threads();
+    if t == 1 || dim == 0 {
+        return (QUERY_TILE, dim.max(1));
     }
+    let col_tiles = (t * TASKS_PER_THREAD).div_ceil(b.div_ceil(QUERY_TILE).max(1));
+    let cols = dim.div_ceil(col_tiles).next_multiple_of(COL_ALIGN);
+    (QUERY_TILE, cols.min(dim))
 }
 
 /// `logits[b×n] = q[b×dim] · e[n×dim]ᵀ`, all row-major.
 pub(crate) fn logits_nt(q: &[f32], e: &[f32], b: usize, n: usize, dim: usize, out: &mut [f32]) {
+    logits_nt_tiled(q, e, b, n, dim, out, entity_tile(n));
+}
+
+pub(crate) fn logits_nt_tiled(
+    q: &[f32],
+    e: &[f32],
+    b: usize,
+    n: usize,
+    dim: usize,
+    out: &mut [f32],
+    tile: usize,
+) {
     assert!(q.len() >= b * dim && e.len() >= n * dim && out.len() >= b * n);
     if b == 0 || n == 0 {
         return;
@@ -65,11 +145,11 @@ pub(crate) fn logits_nt(q: &[f32], e: &[f32], b: usize, n: usize, dim: usize, ou
         e.as_ptr() as usize,
         OutPtr(out.as_mut_ptr()),
     );
-    for_each_chunk(n, ENTITY_CHUNK, move |j0, j1| {
+    for_each_chunk(n, tile, move |j0, j1| {
         let cp = cp;
         // SAFETY: bounds asserted above. A = q (b×dim, rs=dim, cs=1);
         // B = e[j0..j1]ᵀ (dim×(j1-j0), rs=1, cs=dim); C = out[:, j0..j1]
-        // (rs=n, cs=1). Chunks write disjoint column ranges of `out`.
+        // (rs=n, cs=1). Tiles write disjoint column ranges of `out`.
         unsafe {
             sgemm(
                 b,
@@ -103,6 +183,20 @@ pub(crate) fn grad_entities_tn(
     beta: f32,
     out: &mut [f32],
 ) {
+    grad_entities_tn_tiled(dl, q, b, n, dim, beta, out, entity_tile(n));
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn grad_entities_tn_tiled(
+    dl: &[f32],
+    q: &[f32],
+    b: usize,
+    n: usize,
+    dim: usize,
+    beta: f32,
+    out: &mut [f32],
+    tile: usize,
+) {
     assert!(dl.len() >= b * n && q.len() >= b * dim && out.len() >= n * dim);
     if n == 0 {
         return;
@@ -118,11 +212,11 @@ pub(crate) fn grad_entities_tn(
         q.as_ptr() as usize,
         OutPtr(out.as_mut_ptr()),
     );
-    for_each_chunk(n, ENTITY_CHUNK, move |i0, i1| {
+    for_each_chunk(n, tile, move |i0, i1| {
         let cp = cp;
         // SAFETY: A = dl[:, i0..i1]ᵀ ((i1-i0)×b, rs=1, cs=n); B = q (b×dim,
         // rs=dim, cs=1); C = out[i0..i1] ((i1-i0)×dim, rs=dim, cs=1).
-        // Chunks write disjoint row ranges of `out`.
+        // Tiles write disjoint row ranges of `out`.
         unsafe {
             sgemm(
                 i1 - i0,
@@ -153,8 +247,23 @@ pub(crate) fn grad_queries_nn(
     dim: usize,
     out: &mut [f32],
 ) {
+    let (rt, ct) = query_tiles(b, dim);
+    grad_queries_nn_tiled(dl, e, b, n, dim, out, rt, ct);
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn grad_queries_nn_tiled(
+    dl: &[f32],
+    e: &[f32],
+    b: usize,
+    n: usize,
+    dim: usize,
+    out: &mut [f32],
+    row_tile: usize,
+    col_tile: usize,
+) {
     assert!(dl.len() >= b * n && e.len() >= n * dim && out.len() >= b * dim);
-    if b == 0 {
+    if b == 0 || dim == 0 {
         return;
     }
     if n == 0 {
@@ -166,24 +275,26 @@ pub(crate) fn grad_queries_nn(
         e.as_ptr() as usize,
         OutPtr(out.as_mut_ptr()),
     );
-    for_each_chunk(b, QUERY_CHUNK, move |i0, i1| {
+    for_each_tile(b, row_tile, dim, col_tile, move |i0, i1, c0, c1| {
         let cp = cp;
-        // SAFETY: A = dl[i0..i1] ((i1-i0)×n, rs=n, cs=1); B = e (n×dim,
-        // rs=dim, cs=1); C = out[i0..i1] (rs=dim, cs=1). Disjoint rows.
+        // SAFETY: A = dl[i0..i1] ((i1-i0)×n, rs=n, cs=1); B = e[:, c0..c1]
+        // (n×(c1-c0), rs=dim, cs=1); C = out[i0..i1, c0..c1] (rs=dim, cs=1).
+        // Tiles write disjoint (row, column) blocks of `out`; the reduction
+        // over n runs whole inside one call.
         unsafe {
             sgemm(
                 i1 - i0,
                 n,
-                dim,
+                c1 - c0,
                 1.0,
                 (dp as *const f32).add(i0 * n),
                 n as isize,
                 1,
-                ep as *const f32,
+                (ep as *const f32).add(c0),
                 dim as isize,
                 1,
                 0.0,
-                cp.0.add(i0 * dim),
+                cp.0.add(i0 * dim + c0),
                 dim as isize,
                 1,
             );

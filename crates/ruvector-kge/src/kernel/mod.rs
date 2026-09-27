@@ -24,7 +24,8 @@
 //!   and both gradients are pulled back to the real `d`-vectors with one
 //!   inverse FFT per row (the adjoint of the index / query maps).
 //!
-//! **Determinism.** Fixed-size chunking of output rows/columns only; per-row
+//! **Determinism.** Work is split along GEMM output axes only (never a
+//! reduction axis — `gemm.rs`), softmax rows are independent, and per-row
 //! losses are summed sequentially in row order. Results are bitwise identical
 //! across runs and across thread counts (see `gemm.rs`, asserted in tests).
 //!
@@ -54,6 +55,8 @@ mod bench;
 mod sanity;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_gemm;
 #[cfg(test)]
 mod tests_plug;
 
@@ -94,9 +97,10 @@ impl Workspace {
     }
 }
 
-/// Rows per softmax work item (fixed — determinism does not depend on it,
-/// each row is independent, but keep it constant anyway).
-const SOFTMAX_ROWS: usize = 4;
+/// Rows per softmax work item (determinism does not depend on it — each row
+/// is independent). One row per item: with small batches (B = 100),
+/// four-row items left a 25-item queue for 16 workers.
+const SOFTMAX_ROWS: usize = 1;
 
 /// The kernel core: softmax cross-entropy of `B` query rows against all `N`
 /// entity rows, with gradients.
@@ -209,8 +213,18 @@ pub(crate) fn softmax_ce_core(
 
     let dl = &ws.logits[..b * n];
     let beta = if accumulate { 1.0 } else { 0.0 };
-    gemm::grad_entities_tn(dl, queries, b, n, dim, beta, grad_entities);
-    gemm::grad_queries_nn(dl, entities, b, n, dim, grad_queries);
+    // The two backward GEMMs read `dl` and write disjoint outputs; running
+    // them as one join lets each fill the other's tail imbalance.
+    #[cfg(feature = "parallel")]
+    rayon::join(
+        || gemm::grad_entities_tn(dl, queries, b, n, dim, beta, grad_entities),
+        || gemm::grad_queries_nn(dl, entities, b, n, dim, grad_queries),
+    );
+    #[cfg(not(feature = "parallel"))]
+    {
+        gemm::grad_entities_tn(dl, queries, b, n, dim, beta, grad_entities);
+        gemm::grad_queries_nn(dl, entities, b, n, dim, grad_queries);
+    }
     Ok(loss)
 }
 
