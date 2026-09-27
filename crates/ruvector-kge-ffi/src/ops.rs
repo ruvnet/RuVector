@@ -12,6 +12,7 @@ use crate::model::{err_json, kge_error_json, KgeModel, SplitLabel};
 use ruvector_kge::scorer::{HolE, RotatE};
 use ruvector_kge::{AnnIndex, Scorer, ScorerKind, Side, Triple};
 use serde::Deserialize;
+use std::collections::HashSet;
 
 // ---- ADR-005 input limits -------------------------------------------------
 
@@ -149,6 +150,32 @@ impl KgeModel {
                     None => return err_json("invalid", "split must be train|valid|test|transfer"),
                 },
             }
+        }
+        // F1 dry pass: size the vocab this batch would produce and reject the
+        // whole batch — before any interning or table growth — if the grown
+        // tables would break the row caps or the embedding byte cap.
+        let mut new_e: HashSet<&str> = HashSet::new();
+        let mut new_r: HashSet<&str> = HashSet::new();
+        for t in &items {
+            for l in [t.s.as_str(), t.o.as_str()] {
+                if self.entities.get(l).is_none() {
+                    new_e.insert(l);
+                }
+            }
+            if self.relations.get(&t.r).is_none() {
+                new_r.insert(t.r.as_str());
+            }
+        }
+        let ne = self.entities.len().saturating_add(new_e.len());
+        let nr = self.relations.len().saturating_add(new_r.len());
+        if ne > MAX_ENTITIES {
+            return err_json("limit", "entity table would exceed 1,000,000");
+        }
+        if nr > MAX_RELATIONS {
+            return err_json("limit", "relation table would exceed 100,000");
+        }
+        if let Err(e) = self.check_size(ne, nr, self.config.dims) {
+            return kge_error_json(&e);
         }
         let mut added = 0usize;
         for (t, &label) in items.iter().zip(labels.iter()) {

@@ -14,6 +14,8 @@
 
 #![deny(clippy::all)]
 
+#[cfg(test)]
+mod limits_tests;
 mod model;
 mod ops;
 mod optimize;

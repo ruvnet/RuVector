@@ -24,6 +24,7 @@ pub mod tables;
 pub mod train;
 pub mod types;
 
+pub use adversarial::MAX_DIMS;
 pub use ann::AnnIndex;
 pub use batch::BatchScorer;
 pub use data::{Split, Split4, TripleStore, Vocab};
@@ -33,6 +34,6 @@ pub use optimize::{
     ArmOutcome, Campaign, CampaignReport, CampaignSpec, ContinualUpdate, Evaluator,
 };
 pub use scorer::{HolE, RotatE, Scorer};
-pub use tables::Tables;
+pub use tables::{check_table_size, effective_max_bytes, Tables, MAX_TABLE_BYTES};
 pub use train::{Differentiable, LossKind, OptimKind, Progress, TrainConfig, Trainer};
 pub use types::*;

@@ -10,7 +10,8 @@
 //! errors (bad options JSON, odd/zero `dims`, a tampered model) surface as an
 //! `Err(String)` that the wrapper throws.
 
-use ruvector_kge::{AnnIndex, KgeError, ScorerKind, Tables, Triple};
+use ruvector_kge::{check_table_size, AnnIndex, KgeError, ScorerKind, Tables, Triple};
+use serde::de::IgnoredAny;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -91,6 +92,15 @@ pub struct Config {
     pub scorer: ScorerKind,
     pub dims: usize,
     pub seed: u64,
+    /// Optional per-model embedding byte cap; can only *lower*
+    /// `ruvector_kge::MAX_TABLE_BYTES`. Omitted from the serialized model when
+    /// unset, so models saved before this field existed keep their hash.
+    #[serde(
+        default,
+        rename = "maxTableBytes",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub max_table_bytes: Option<u64>,
 }
 
 fn default_scorer() -> ScorerKind {
@@ -111,6 +121,65 @@ struct Options {
     dims: usize,
     #[serde(default = "default_seed")]
     seed: u64,
+    #[serde(default, rename = "maxTableBytes")]
+    max_table_bytes: Option<u64>,
+}
+
+/// Allocation-free view of a serialized model: only the numbers that size the
+/// tables. Label lists and float arrays are skipped as `IgnoredAny` (a
+/// zero-sized type, so a `Vec` of them never allocates), letting `from_json`
+/// reject an oversized model before building anything proportional to it.
+#[derive(Deserialize)]
+struct HeadEnvelope {
+    model: HeadModel,
+}
+#[derive(Deserialize)]
+struct HeadModel {
+    config: HeadConfig,
+    entities: HeadVocab,
+    relations: HeadVocab,
+    #[serde(default)]
+    tables: Option<HeadTables>,
+}
+#[derive(Deserialize)]
+struct HeadConfig {
+    dims: usize,
+    #[serde(default, rename = "maxTableBytes")]
+    max_table_bytes: Option<u64>,
+}
+#[derive(Deserialize)]
+struct HeadVocab {
+    labels: Vec<IgnoredAny>,
+}
+#[derive(Deserialize)]
+struct HeadTables {
+    dims: usize,
+    entities: Vec<IgnoredAny>,
+    relations: Vec<IgnoredAny>,
+}
+
+/// F1 fast size gate for a serialized model; `Err` carries the `limit`
+/// envelope. Fails CLOSED: a payload whose header does not parse (malformed
+/// JSON, or a duplicated key, which the derived header rejects while a
+/// `serde_json::Value` would silently keep the last copy) is refused as
+/// `invalid`. `from_json` re-checks the model as actually parsed, so this pass
+/// is an early rejection, not the only gate.
+fn precheck_model_size(json: &str) -> Result<(), String> {
+    let head = serde_json::from_str::<HeadEnvelope>(json)
+        .map_err(|e| err_json("invalid", &format!("invalid model JSON: {e}")))?;
+    let m = head.model;
+    let cap = m.config.max_table_bytes;
+    let ne = m.entities.labels.len().max(1);
+    let nr = m.relations.labels.len().max(1);
+    check_table_size(ne, nr, m.config.dims, cap).map_err(|e| kge_error_json(&e))?;
+    if let Some(t) = m.tables {
+        if t.dims == 0 {
+            return Err(err_json("invalid", "table dims must be positive"));
+        }
+        let (te, tr) = (t.entities.len() / t.dims, t.relations.len() / t.dims);
+        check_table_size(te, tr, t.dims, cap).map_err(|e| kge_error_json(&e))?;
+    }
+    Ok(())
 }
 
 // ---- the model ------------------------------------------------------------
@@ -136,6 +205,16 @@ pub struct KgeModel {
     pub tables: Option<Tables>,
     #[serde(skip)]
     pub ann: Option<AnnIndex>,
+    /// Single-flight flag: set by `begin_train`, cleared by `finish_train` /
+    /// `abort_train`. Transient (not serialized, so the hash is unaffected).
+    #[serde(skip)]
+    training: bool,
+    /// Table generation: bumped whenever `tables` is replaced wholesale (a
+    /// training swap, an `optimize` champion install). Growth by `addTriples`
+    /// preserves rows and does NOT bump it. `finish_train` refuses a swap whose
+    /// snapshot generation is stale. Transient.
+    #[serde(skip)]
+    table_gen: u64,
 }
 
 /// A triple's split membership (ADR-006 frozen splits).
@@ -166,7 +245,9 @@ impl SplitLabel {
 impl KgeModel {
     /// `optionsJson`: `{"scorer":"hole"|"rotate","dims":256,"seed":42}`. Throws
     /// (returns `Err`) on malformed JSON or a `dims` that is zero or odd —
-    /// ADR-001 requires an even `d` for the HolE real-FFT pairing.
+    /// ADR-001 requires an even `d` for the HolE real-FFT pairing. A `dims`
+    /// above `MAX_DIMS` or an unsatisfiable `maxTableBytes` also throws, with
+    /// the `{"error":{"kind":"limit",...}}` envelope as the message (F1).
     pub fn new(options_json: &str) -> Result<Self, String> {
         let o: Options =
             serde_json::from_str(options_json).map_err(|e| format!("invalid options JSON: {e}"))?;
@@ -176,12 +257,16 @@ impl KgeModel {
                 o.dims
             ));
         }
+        // F1: `dims` above MAX_DIMS (or a cap too small for even one row) is
+        // a typed `limit` error; the thrown message is the error envelope.
+        check_table_size(1, 1, o.dims, o.max_table_bytes).map_err(|e| kge_error_json(&e))?;
         Ok(Self {
             version: SCHEMA_VERSION,
             config: Config {
                 scorer: o.scorer,
                 dims: o.dims,
                 seed: o.seed,
+                max_table_bytes: o.max_table_bytes,
             },
             entities: Vocab::default(),
             relations: Vocab::default(),
@@ -189,22 +274,31 @@ impl KgeModel {
             splits: Vec::new(),
             tables: None,
             ann: None,
+            training: false,
+            table_gen: 0,
         })
     }
 
     /// Parse a `{"sha256","model"}` envelope, fail closed on a hash mismatch
     /// (ADR-005 manifest discipline). The hash covers the canonical struct
     /// serialization, so any edit to the payload — or to the hash — throws.
+    /// An oversized model is also rejected (F1) as a `limit` envelope: first by
+    /// an allocation-free header pass (fail-closed), then again on the model as
+    /// actually parsed, so duplicate-key payloads cannot slip past the gate.
     pub fn from_json(json: &str) -> Result<Self, String> {
         #[derive(Deserialize)]
         struct Envelope {
             sha256: String,
             model: serde_json::Value,
         }
+        precheck_model_size(json)?;
         let env: Envelope =
             serde_json::from_str(json).map_err(|e| format!("invalid model JSON: {e}"))?;
         let mut model: KgeModel =
             serde_json::from_value(env.model).map_err(|e| format!("invalid model payload: {e}"))?;
+        // F1: re-check the model as actually parsed. The header pass above is
+        // only an early rejection; this is the gate `ensure_built` relies on.
+        model.validate_loaded()?;
         let body = serde_json::to_string(&model).map_err(|e| e.to_string())?;
         if sha256_hex(body.as_bytes()) != env.sha256 {
             return Err("model hash mismatch: payload is tampered or corrupt".to_string());
@@ -246,6 +340,34 @@ impl KgeModel {
         }
     }
 
+    /// F1 size gate for a prospective `ne x nr` table at `dims` under this
+    /// model's byte cap. Every path that sizes the tables (construction, load,
+    /// `addTriples` growth, an optimize grid) checks here first, so
+    /// `ensure_built` / `grow_tables` never reach an oversized allocation.
+    pub(crate) fn check_size(&self, ne: usize, nr: usize, dims: usize) -> Result<(), KgeError> {
+        check_table_size(ne.max(1), nr.max(1), dims, self.config.max_table_bytes)
+    }
+
+    /// F1 post-parse gate for a loaded model: even, positive `dims` (ADR-001)
+    /// and vocab-sized plus stored tables within the byte cap. `Err` is the
+    /// `invalid` / `limit` envelope.
+    pub(crate) fn validate_loaded(&self) -> Result<(), String> {
+        let d = self.config.dims;
+        if d == 0 || !d.is_multiple_of(2) {
+            return Err(err_json(
+                "invalid",
+                &format!("dims must be a positive even number, got {d}"),
+            ));
+        }
+        self.check_size(self.entities.len(), self.relations.len(), d)
+            .map_err(|e| kge_error_json(&e))?;
+        if let Some(t) = &self.tables {
+            self.check_size(t.num_entities(), t.num_relations(), t.dims())
+                .map_err(|e| kge_error_json(&e))?;
+        }
+        Ok(())
+    }
+
     pub(crate) fn intern_entity(&mut self, label: &str) -> u32 {
         self.entities.intern(label)
     }
@@ -256,6 +378,28 @@ impl KgeModel {
     /// Drop the ANN index (call whenever the tables change).
     pub(crate) fn invalidate_index(&mut self) {
         self.ann = None;
+    }
+
+    /// True while a `begin_train` job is outstanding (single-flight guard).
+    pub(crate) fn is_training(&self) -> bool {
+        self.training
+    }
+
+    pub(crate) fn set_training(&mut self, on: bool) {
+        self.training = on;
+    }
+
+    /// The current table generation (see the `table_gen` field).
+    pub(crate) fn table_gen(&self) -> u64 {
+        self.table_gen
+    }
+
+    /// Replace the tables wholesale: bumps the generation (so an in-flight
+    /// training swap against the old tables is refused) and drops the index.
+    pub(crate) fn replace_tables(&mut self, tables: Tables) {
+        self.tables = Some(tables);
+        self.table_gen = self.table_gen.wrapping_add(1);
+        self.invalidate_index();
     }
 
     /// Install a freshly built ANN index.

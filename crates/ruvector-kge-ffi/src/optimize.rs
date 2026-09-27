@@ -117,6 +117,12 @@ impl KgeModel {
         if let Some(msg) = validate_grid(&grid) {
             return err_json("invalid", &msg);
         }
+        // F1: every arm allocates its own tables — size-check each grid dim.
+        for &d in &grid.dims {
+            if let Err(e) = self.check_size(self.entities.len(), self.relations.len(), d) {
+                return crate::model::kge_error_json(&e);
+            }
+        }
 
         let campaign_spec = CampaignSpec {
             baseline,
@@ -199,8 +205,7 @@ impl KgeModel {
         }
         self.config.scorer = champion.scorer;
         self.config.dims = champion.dims;
-        self.tables = Some(Tables::clone(&tables));
-        self.invalidate_index();
+        self.replace_tables(Tables::clone(&tables));
         true
     }
 }
