@@ -8,6 +8,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+use crate::cpu_perf::{self, CpuPerf};
+
 /// Hard floor for host reliability. The CLI refuses anything lower.
 pub const RELIABILITY_FLOOR: f64 = 0.98;
 /// vast.ai `hosting_type` value used by datacenter hosts (verified against
@@ -68,6 +70,10 @@ pub struct Offer {
     pub cpu_ram: Option<f64>,
     #[serde(default)]
     pub cpu_name: Option<String>,
+    /// e.g. `amd64`. CPU mode requires amd64 when reported (the family
+    /// table and the `target-cpu=native` job assume x86-64).
+    #[serde(default)]
+    pub cpu_arch: Option<String>,
 }
 
 fn null_to_default<'de, D, T>(d: D) -> Result<T, D::Error>
@@ -93,6 +99,21 @@ impl Offer {
     /// Planning rate per effective core-hour (`None` without a core count).
     pub fn usd_per_core_hour(&self, cm: &CostModel) -> Option<f64> {
         Some(estimate(self, cm, 1.0).hourly_usd / self.effective_cores()?)
+    }
+    /// Family classification of `cpu_name` (see [`crate::cpu_perf`]).
+    pub fn cpu_perf(&self) -> CpuPerf {
+        cpu_perf::classify(self.cpu_name.as_deref())
+    }
+    /// Effective CPU throughput: allocated threads x per-thread family factor
+    /// (EPYC Zen 2 thread = 1.0). `None` without a core count.
+    pub fn cpu_throughput(&self) -> Option<f64> {
+        Some(self.effective_cores()? * self.cpu_perf().factor)
+    }
+    /// Planning rate per unit of effective throughput per hour. CPU mode ranks
+    /// on this; `None` without a core count or for a zero-factor (denied) CPU.
+    pub fn usd_per_throughput_hour(&self, cm: &CostModel) -> Option<f64> {
+        let t = self.cpu_throughput().filter(|t| *t > 0.0)?;
+        Some(estimate(self, cm, 1.0).hourly_usd / t)
     }
 }
 
@@ -151,6 +172,9 @@ pub struct OfferFilter {
     pub min_cpu_cores: f64,
     /// Minimum `cpu_ram` in GB (0 = no minimum).
     pub min_ram_gb: f64,
+    /// CPU mode: minimum per-thread family factor (`cpu_perf`, EPYC Zen 2 =
+    /// 1.0). Deny-listed families (Xeon Phi, Atom, ...) are refused regardless.
+    pub min_cpu_speed: f64,
 }
 
 impl OfferFilter {
@@ -211,6 +235,9 @@ impl OfferFilter {
         if !(self.min_ram_gb.is_finite() && self.min_ram_gb >= 0.0) {
             out.push("--min-ram-gb must be >= 0".into());
         }
+        if !(self.min_cpu_speed.is_finite() && self.min_cpu_speed >= 0.0) {
+            out.push("--min-cpu-speed must be >= 0".into());
+        }
         out
     }
 
@@ -238,6 +265,21 @@ impl OfferFilter {
         }
         if self.cpu_mode && o.effective_cores().is_none() {
             return Some("cpu_cores_effective unknown (CPU mode needs it)".into());
+        }
+        if self.cpu_mode {
+            if let Some(a) = o.cpu_arch.as_deref().filter(|a| *a != "amd64") {
+                return Some(format!("cpu_arch {a} (CPU mode needs amd64)"));
+            }
+            let p = o.cpu_perf();
+            if let Some(why) = p.denied {
+                return Some(why);
+            }
+            if p.factor < self.min_cpu_speed {
+                return Some(format!(
+                    "cpu speed factor {:.2} ({}) < --min-cpu-speed {:.2}",
+                    p.factor, p.family, self.min_cpu_speed
+                ));
+            }
         }
         let cores = o.effective_cores().unwrap_or(0.0);
         if cores < self.min_cpu_cores {
@@ -278,8 +320,9 @@ impl OfferFilter {
 /// Filter then rank. Returns (ranked acceptable offers, rejections).
 ///
 /// GPU mode: datacenter hosts first, then lowest planning rate, then highest
-/// reliability. CPU mode: lowest planning $/effective-core-hour first, then
-/// datacenter, then reliability (`--require-datacenter` still filters).
+/// reliability. CPU mode: lowest planning $ per effective-throughput-hour
+/// (threads x family factor, see [`crate::cpu_perf`]) first, then datacenter,
+/// then reliability (`--require-datacenter` still filters).
 pub fn rank(offers: &[Offer], f: &OfferFilter, cm: &CostModel) -> (Vec<Offer>, Vec<(u64, String)>) {
     let mut ok = Vec::new();
     let mut rejected = Vec::new();
@@ -290,11 +333,11 @@ pub fn rank(offers: &[Offer], f: &OfferFilter, cm: &CostModel) -> (Vec<Offer>, V
         }
     }
     if f.cpu_mode {
-        // reject_reason guarantees a core count in CPU mode.
-        let per_core = |o: &Offer| o.usd_per_core_hour(cm).unwrap_or(f64::INFINITY);
+        // reject_reason guarantees a core count and a non-denied family.
+        let per_tput = |o: &Offer| o.usd_per_throughput_hour(cm).unwrap_or(f64::INFINITY);
         ok.sort_by(|a, b| {
-            per_core(a)
-                .total_cmp(&per_core(b))
+            per_tput(a)
+                .total_cmp(&per_tput(b))
                 .then(b.is_datacenter().cmp(&a.is_datacenter()))
                 .then(
                     b.reliability2
@@ -339,6 +382,7 @@ mod tests {
             cpu_mode: false,
             min_cpu_cores: 0.0,
             min_ram_gb: 0.0,
+            min_cpu_speed: 0.0,
         }
     }
     pub(super) const CM: CostModel = CostModel {

@@ -119,6 +119,19 @@ fn print_offer(o: &Offer, e: &Estimate) {
             "  per core-hour   ${:.5} (planning rate / {c:.1} effective threads)",
             e.hourly_usd / c
         );
+        let p = o.cpu_perf();
+        println!(
+            "  cpu family      {} (speed x{:.2} per thread; throughput {:.1})",
+            p.family,
+            p.factor,
+            c * p.factor
+        );
+        if p.factor > 0.0 {
+            println!(
+                "  per tput-hour   ${:.5} (planning rate / throughput; CPU-mode rank key)",
+                e.hourly_usd / (c * p.factor)
+            );
+        }
     }
     println!("  transfer        ${:.4} (one-off)", e.bandwidth_usd);
     println!(
@@ -162,9 +175,12 @@ pub fn launch(cfg: &LaunchCfg, client: &Client, audit: &Audit) -> Result<i32> {
         let e = offer::estimate(o, &cfg.cost, 1.0);
         let cpu = match (cfg.filter.cpu_mode, o.effective_cores()) {
             (true, Some(c)) => format!(
-                " {c:.0}thr {:.0}GB ${:.5}/core-h",
+                " {c:.0}thr x{:.2} {:.0}GB ${:.5}/core-h ${:.5}/tput-h [{}]",
+                o.cpu_perf().factor,
                 o.cpu_ram.unwrap_or(0.0) / 1000.0,
-                e.hourly_usd / c
+                e.hourly_usd / c,
+                o.usd_per_throughput_hour(&cfg.cost).unwrap_or(f64::NAN),
+                o.cpu_name.as_deref().unwrap_or("?").trim()
             ),
             _ => String::new(),
         };
@@ -303,6 +319,8 @@ pub fn launch(cfg: &LaunchCfg, client: &Client, audit: &Audit) -> Result<i32> {
         "cpu_mode": cfg.filter.cpu_mode, "cpu_name": chosen.cpu_name,
         "cpu_cores_effective": chosen.cpu_cores_effective, "cpu_ram_mb": chosen.cpu_ram,
         "usd_per_core_hour": chosen.usd_per_core_hour(&cfg.cost),
+        "cpu_family": chosen.cpu_perf().family, "cpu_speed_factor": chosen.cpu_perf().factor,
+        "usd_per_throughput_hour": chosen.usd_per_throughput_hour(&cfg.cost),
         "checkpoint_secs": j.checkpoint_secs, "checkpoint_ring": j.checkpoint_ring,
         "checkpoint_dir": j.checkpoint_dir,
         "resume_from": resolved.as_ref().map(|r| r.gs_url.clone()),

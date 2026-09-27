@@ -7,6 +7,7 @@
 
 mod audit;
 mod budget;
+mod cpu_perf;
 mod gcs;
 mod job;
 mod offer;
@@ -89,6 +90,11 @@ struct LaunchArgs {
     /// Minimum RAM allocated to the offer, GB (`cpu_ram`).
     #[arg(long, default_value_t = 0.0)]
     min_ram_gb: f64,
+    /// CPU mode: minimum per-thread speed factor of the CPU family (EPYC
+    /// Zen 2 = 1.0; see README). Xeon Phi / Atom / Celeron / Pentium /
+    /// Opteron are refused regardless.
+    #[arg(long, default_value_t = cpu_perf::DEFAULT_MIN_CPU_SPEED)]
+    min_cpu_speed: f64,
     /// Allowed GPU model(s); repeatable. Default: RTX 4090, RTX A6000
     /// (GPU mode) or any (CPU mode).
     #[arg(long = "gpu")]
@@ -297,6 +303,7 @@ fn launch(a: LaunchArgs, audit: &Audit) -> Result<i32> {
             cpu_mode: a.cpu_mode,
             min_cpu_cores: a.min_cpu_cores,
             min_ram_gb: a.min_ram_gb,
+            min_cpu_speed: a.min_cpu_speed,
         },
         cost: offer::CostModel {
             disk_gb: a.disk_gb,

@@ -183,10 +183,19 @@ fn render_ckpt_fns(j: &JobSpec) -> String {
         r#"ckpt_upload() {{
   [ -f "$W/job.started" ] || return 0
   [ -n "$(ls -A {ck} 2>/dev/null)" ] || return 0
+  # Unchanged since the last checkpoint that landed: skip (a 1 GB checkpoint
+  # is not re-sent every tick). mtimes come from the coarse kernel clock, so
+  # sleep past the mark's tick before tar: a write in that same tick then
+  # precedes the tar and is captured, never silently skipped.
+  if [ -f "$W/ckpt.mark" ] && [ -z "$(find {ck} -newer "$W/ckpt.mark" -print -quit 2>/dev/null)" ]; then return 0; fi
+  touch "$W/ckpt.mark.new"; sleep 0.05
   local n slot v sum trc
   n=$(cat "$W/ckpt.seq" 2>/dev/null || echo 0); slot=$(( n % {ring} ))
   bounded tar -czf "$W/ckpt.tar.gz" -C {ck} . ; trc=$?
-  if [ "$trc" -gt 1 ]; then echo "[rvgr] checkpoint $n: tar failed/cut rc=$trc"; return 0; fi
+  # rc=1 means a file changed or vanished while tar read it (the job rotated a
+  # snapshot mid-tar): the tarball may mix states, so this tick fails and the
+  # next one retries.
+  if [ "$trc" -ne 0 ]; then echo "[rvgr] checkpoint $n: tar failed/cut rc=$trc"; return 0; fi
   sum=$(sha256sum "$W/ckpt.tar.gz" | cut -d' ' -f1)
   v="RVGR_URL_CKPT_$slot"
   put "$W/ckpt.tar.gz" "${{!v}}" || {{ echo "[rvgr] checkpoint $n: upload failed/cut"; return 0; }}
@@ -194,6 +203,7 @@ fn render_ckpt_fns(j: &JobSpec) -> String {
   # The tiny pointer is never cut: a slot is named only once fully uploaded.
   if put_raw "$W/ckpt-latest.json" "$RVGR_URL_CKPT_LATEST"; then
     echo $(( n + 1 )) > "$W/ckpt.seq"
+    mv -f "$W/ckpt.mark.new" "$W/ckpt.mark"
     echo "[rvgr] checkpoint $n -> ckpt-$slot.tar.gz sha256=$sum"
   else
     echo "[rvgr] checkpoint $n: pointer upload failed"

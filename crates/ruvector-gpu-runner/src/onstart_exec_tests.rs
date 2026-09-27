@@ -299,6 +299,7 @@ fn stop_cuts_in_flight_periodic_upload() {
     fs::write(sb.store().join("slow.once"), "ckpt-1.tar.gz").unwrap();
     let cmd = r#"echo a > "$RVGR_CHECKPOINT_DIR/state"
 for i in $(seq 1 100); do [ -f "$STORE/ckpt-latest.json" ] && break; sleep 0.1; done
+echo a2 > "$RVGR_CHECKPOINT_DIR/state"
 sleep 2.5
 echo b > "$RVGR_CHECKPOINT_DIR/state""#;
     let t = Instant::now();
@@ -341,4 +342,56 @@ fn same_dir_uploads_artifacts_once_at_the_end() {
     let up = sb.uploads();
     assert!(!up.iter().any(|n| n.starts_with("ckpt-")), "{up:?}");
     assert_eq!(up.iter().filter(|n| *n == "artifacts.tar.gz").count(), 1);
+}
+
+#[test]
+fn unchanged_checkpoint_is_not_reuploaded() {
+    let sb = Sandbox::new("unchanged");
+    // One write, then ~4 idle ticks, then one more write: exactly two
+    // checkpoint uploads (the idle ticks and the final one are skipped).
+    let cmd = r#"echo 1 > "$RVGR_CHECKPOINT_DIR/state"
+for i in $(seq 1 100); do [ -f "$STORE/ckpt-latest.json" ] && break; sleep 0.1; done
+sleep 4
+echo 2 > "$RVGR_CHECKPOINT_DIR/state.tmp"; mv "$RVGR_CHECKPOINT_DIR/state.tmp" "$RVGR_CHECKPOINT_DIR/state"
+sleep 2.5"#;
+    sb.run(&sb.spec(cmd));
+    assert!(sb.store().join("DONE").exists(), "log:\n{}", sb.log());
+    let up = sb.uploads();
+    let n = up.iter().filter(|n| *n == "ckpt-latest.json").count();
+    assert_eq!(n, 2, "{up:?}\n{}", sb.log());
+    assert_eq!(read_latest(&sb.store(), "state"), "2");
+}
+
+#[test]
+fn tar_rc1_tick_is_a_failed_checkpoint() {
+    let sb = Sandbox::new("tarrc1");
+    // A tar wrapper that reports rc=1 ("file changed as we read it") on the
+    // first checkpoint tar: that tick must not name a slot; a later one does.
+    let wrap = r#"#!/bin/bash
+/usr/bin/tar "$@"; rc=$?
+case " $* " in *ckpt.tar.gz*)
+  [ -f "$STORE/tar.flaked" ] || { touch "$STORE/tar.flaked"; exit 1; } ;;
+esac
+exit $rc
+"#;
+    let p = sb.p("bin/tar");
+    fs::write(&p, wrap).unwrap();
+    Command::new("chmod").arg("+x").arg(&p).status().unwrap();
+    let cmd = r#"echo 1 > "$RVGR_CHECKPOINT_DIR/state"
+for i in $(seq 1 100); do [ -f "$STORE/ckpt-latest.json" ] && break; sleep 0.1; done"#;
+    sb.run(&sb.spec(cmd));
+    assert!(sb.store().join("tar.flaked").exists());
+    assert!(
+        sb.log().contains("tar failed/cut rc=1"),
+        "log:\n{}",
+        sb.log()
+    );
+    // The flaked tick uploaded nothing and did not advance seq.
+    let up = sb.uploads();
+    assert_eq!(
+        up.iter().find(|n| n.starts_with("ckpt-")).unwrap(),
+        "ckpt-0.tar.gz",
+        "{up:?}"
+    );
+    assert_eq!(read_latest(&sb.store(), "state"), "1");
 }
