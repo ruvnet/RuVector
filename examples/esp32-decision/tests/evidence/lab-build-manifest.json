@@ -1,0 +1,211 @@
+{
+  "date": "2026-09-26",
+  "parent_source_commit": "824536fb4177d72403ef0c3bef4268b7d1f60891",
+  "source_snapshot": "This commit, identified by the file digests below. Images were linked before the evidence commit.",
+  "idf": "5.4.4",
+  "idf_commit": "296b6eab9445fd720e71aecab961e2d3fbca9944",
+  "compiler": "Espressif GCC 14.2.0",
+  "kernel_flags": "-O3 -fno-fast-math -ffp-contract=off",
+  "physical_hardware": false,
+  "images": [
+    {
+      "target": "esp32s3",
+      "model_variant": "synthetic",
+      "files": [
+        {
+          "path": "examples/esp32-decision/build-esp32s3/merged-binary.bin",
+          "sha256": "eb24bca2bed74cfb9fcf1fb25af26eacc000fd6a1852d6a4c5b19ec9de929ab8",
+          "bytes": 254320
+        },
+        {
+          "path": "examples/esp32-decision/build-esp32s3/ruvector_decision.bin",
+          "sha256": "22fe8746ab885e15b95085e14a2b1b84c2115ae40b3e71ed536f9aef6ea4ba36",
+          "bytes": 188784
+        },
+        {
+          "path": "examples/esp32-decision/build-esp32s3/bootloader/bootloader.bin",
+          "sha256": "6c687e27164eeeda73e596d6037f744b1ab41b341f3dfdda2ab0aff664e15024",
+          "bytes": 18800
+        },
+        {
+          "path": "examples/esp32-decision/build-esp32s3/partition_table/partition-table.bin",
+          "sha256": "7f00b6c042a89b15b0cac534f82ed988caf29278ff5700b0c511eb1b5bb7c820",
+          "bytes": 3072
+        }
+      ]
+    },
+    {
+      "target": "esp32s3",
+      "model_variant": "occupancy-baseline",
+      "files": [
+        {
+          "path": "examples/esp32-decision/build-rig-sensor/esp32s3-baseline/merged-binary.bin",
+          "sha256": "890a4e15690ea5ca990862785da3bcae59cf5adbacba3e5a47f8cbc7dae5e3ff",
+          "bytes": 253136
+        },
+        {
+          "path": "examples/esp32-decision/build-rig-sensor/esp32s3-baseline/ruvector_decision.bin",
+          "sha256": "c72ef86bd4c75db31a87eb1997a1a2a0076960440d3396c9c3e20933654f229a",
+          "bytes": 187600
+        },
+        {
+          "path": "examples/esp32-decision/build-rig-sensor/esp32s3-baseline/bootloader/bootloader.bin",
+          "sha256": "f54ec8191d89c3c3dac4c86fddacfc9569bc1d23fdc730d3da62f433f9fc5076",
+          "bytes": 18800
+        },
+        {
+          "path": "examples/esp32-decision/build-rig-sensor/esp32s3-baseline/partition_table/partition-table.bin",
+          "sha256": "7f00b6c042a89b15b0cac534f82ed988caf29278ff5700b0c511eb1b5bb7c820",
+          "bytes": 3072
+        }
+      ]
+    },
+    {
+      "target": "esp32s3",
+      "model_variant": "occupancy-candidate",
+      "files": [
+        {
+          "path": "examples/esp32-decision/build-rig-sensor/esp32s3-candidate/merged-binary.bin",
+          "sha256": "8cec202512bf90113921786e3850f96b2d07188e2c15daf35c67f938f9d1a7c0",
+          "bytes": 253296
+        },
+        {
+          "path": "examples/esp32-decision/build-rig-sensor/esp32s3-candidate/ruvector_decision.bin",
+          "sha256": "61ff3e3002d735aa25857b366d3c602b4e213e56050312c43dcf6a53668c9cf6",
+          "bytes": 187760
+        },
+        {
+          "path": "examples/esp32-decision/build-rig-sensor/esp32s3-candidate/bootloader/bootloader.bin",
+          "sha256": "39dda0d540990ff56313669a93a816f9d4beba3bbe04721db9a839d7460a7ef1",
+          "bytes": 18800
+        },
+        {
+          "path": "examples/esp32-decision/build-rig-sensor/esp32s3-candidate/partition_table/partition-table.bin",
+          "sha256": "7f00b6c042a89b15b0cac534f82ed988caf29278ff5700b0c511eb1b5bb7c820",
+          "bytes": 3072
+        }
+      ]
+    },
+    {
+      "target": "esp32c6",
+      "model_variant": "synthetic",
+      "files": [
+        {
+          "path": "examples/esp32-decision/build-esp32c6/merged-binary.bin",
+          "sha256": "3217b361c0732187af21b876cee5292554c4e3d0c6e111fd3bd35e8a03c433e0",
+          "bytes": 223568
+        },
+        {
+          "path": "examples/esp32-decision/build-esp32c6/ruvector_decision.bin",
+          "sha256": "340d7088ca59394891aec621d3edd123aafe890c558385345a68d69138939807",
+          "bytes": 158032
+        },
+        {
+          "path": "examples/esp32-decision/build-esp32c6/bootloader/bootloader.bin",
+          "sha256": "2e89578766894be8b2c0dd491331050b366e6d2bff3a396a58884b411c29d946",
+          "bytes": 19648
+        },
+        {
+          "path": "examples/esp32-decision/build-esp32c6/partition_table/partition-table.bin",
+          "sha256": "7f00b6c042a89b15b0cac534f82ed988caf29278ff5700b0c511eb1b5bb7c820",
+          "bytes": 3072
+        }
+      ]
+    },
+    {
+      "target": "esp32c6",
+      "model_variant": "occupancy-baseline",
+      "files": [
+        {
+          "path": "examples/esp32-decision/build-rig-sensor/esp32c6-baseline/merged-binary.bin",
+          "sha256": "dca31687b72048585d67d020c676977016b2fa699abdc561e0786e6c158d6b77",
+          "bytes": 222672
+        },
+        {
+          "path": "examples/esp32-decision/build-rig-sensor/esp32c6-baseline/ruvector_decision.bin",
+          "sha256": "af8a741323e5b2468976b9d3598d3f91a08d1652992944cdff186393ee4fb027",
+          "bytes": 157136
+        },
+        {
+          "path": "examples/esp32-decision/build-rig-sensor/esp32c6-baseline/bootloader/bootloader.bin",
+          "sha256": "f286816e9c2989e4c9b8a340158af346418228c8623bd2aacd43fc9cd9cf4074",
+          "bytes": 19648
+        },
+        {
+          "path": "examples/esp32-decision/build-rig-sensor/esp32c6-baseline/partition_table/partition-table.bin",
+          "sha256": "7f00b6c042a89b15b0cac534f82ed988caf29278ff5700b0c511eb1b5bb7c820",
+          "bytes": 3072
+        }
+      ]
+    },
+    {
+      "target": "esp32c6",
+      "model_variant": "occupancy-candidate",
+      "files": [
+        {
+          "path": "examples/esp32-decision/build-rig-sensor/esp32c6-candidate/merged-binary.bin",
+          "sha256": "6ea1d17c8f4ce4a81b5981ff3121a7a1b668a8d0c28b2db10874b0f007ababc2",
+          "bytes": 222752
+        },
+        {
+          "path": "examples/esp32-decision/build-rig-sensor/esp32c6-candidate/ruvector_decision.bin",
+          "sha256": "c5467a3559ff559f6d0e2a18269d6ff2f3d7d6b0b5a4f6564b2967d84dbd641c",
+          "bytes": 157216
+        },
+        {
+          "path": "examples/esp32-decision/build-rig-sensor/esp32c6-candidate/bootloader/bootloader.bin",
+          "sha256": "b5d9c5fc0c27993689fbdfe99cb1c1ee92bec982c11d3e5fb741d3434510dbb5",
+          "bytes": 19648
+        },
+        {
+          "path": "examples/esp32-decision/build-rig-sensor/esp32c6-candidate/partition_table/partition-table.bin",
+          "sha256": "7f00b6c042a89b15b0cac534f82ed988caf29278ff5700b0c511eb1b5bb7c820",
+          "bytes": 3072
+        }
+      ]
+    }
+  ],
+  "source_files": {
+    "examples/esp32-decision/main/Kconfig.projbuild": "622b37d799b451fd67ee070337d944c830f19a803e1fc182d069da43a3ce1eb6",
+    "examples/esp32-decision/main/profile.c": "2363eea9091f892fd44f39ff8be7e0a09623f213d5e60626f19ffc6b92bd62c7",
+    "examples/esp32-decision/main/profile.h": "c48bfec63f558481d3a52d7487e0777a1bd19b19b9e43e886585bdba7639c1b6",
+    "examples/esp32-decision/main/sensor.c": "9f9f6622fb03f4ec8e3382b01cbf615c1792a2e578536e83d3315c79aea26752",
+    "examples/esp32-decision/tests/reference/sensor.rs": "ef08ed1614000dcf3980615c9a14dfc370df20eeeec6960b53cb102abb23b61f",
+    "examples/esp32-decision/tests/test_lab.py": "e74c246f59cf2c60704d5b98cb0f672912a94cac60fc20954c9993add7e38cf1",
+    "examples/esp32-decision/tools/energy.py": "46e942e15c83415a14000c4b8f9acef94558a67f5feafa36c84c1a6ed81b0172",
+    "examples/esp32-decision/tools/energy_compare.py": "c74102159753d4aedf4b8a05293f48bc05a5c07f41947f54d4013b8e8d7afae4",
+    "examples/esp32-decision/tools/lab.py": "a7ab47fe763dc7069cae31340c642d816dba075ee515bdbb8a15d833e99db6df",
+    "examples/esp32-decision/tools/prepare_pair.py": "fce9dac53810e4824c9fcaa49cdb73a808409d64185771bd7b450fba5699534d",
+    "examples/esp32-decision/tools/rig.py": "494b235938eea5d156883bfead242fe885f51fb8a771c1b8fbbc8fe40ebdc20f",
+    "examples/esp32-decision/tools/sensor_data.py": "9946ef9a883c9251ca8dd4d2de04b01ee7ce96a6fe7140dd919c32d575b83a04",
+    "examples/esp32-decision/tools/sensor_lab.py": "cff40ee721241c61fa296f4012f7789e46523d2f5f1e532492d7aad3e726fedd",
+    "examples/esp32-decision/tools/transport.py": "c0f15d52f924b5db8b2f57921c3bbd2ad4c13938fbf49824ad071be2a634f917",
+    "examples/esp32-decision/.gitignore": "16f3f637f39f833a779d8aebb99b8a90f8269165900ead89437c5f6bbd6f9e17",
+    "examples/esp32-decision/CMakeLists.txt": "25725864e43866e77e8abf9b2be1470e1663ad1290014a7096ac28ae3fb9975a",
+    "examples/esp32-decision/components/rvdecision/CMakeLists.txt": "c3a58692b49fc07fcc5200a37f785fded973bae487c53aea9b904fcf36c202ce",
+    "examples/esp32-decision/components/rvdecision/include/rvdecision.h": "4af86350b589ce250b16e11bdf0b32a6784c382b9c3847810410e46fc947111f",
+    "examples/esp32-decision/components/rvdecision/rvdecision.c": "b9d41b7589740df3cd442ac1bf02ba0c52f98bda4aca58f979316e353bdd4d40",
+    "examples/esp32-decision/main/CMakeLists.txt": "03475cf854b81feba8ee7186e647ddfe8ef872e56f2a08eefc93a2670c54a2ed",
+    "examples/esp32-decision/main/app.c": "20195e6b55617d0251702284b9066bbe228c05d341ba2291f7df75fe6a4db850",
+    "examples/esp32-decision/main/app.h": "cac26ada519649f4e5cb3d600bf3c3de3a1429e7a567d568407ae169283bdaed",
+    "examples/esp32-decision/main/main.c": "bbee055e6fe7146def77859117052cae216995138287b440aedfab46c0ae3fab",
+    "examples/esp32-decision/main/model.h": "fb4331b7e1eedbd74ae1c17875439d26a40ef15dfd1a5ff6a8dbefa9b2196a65",
+    "examples/esp32-decision/sdkconfig.defaults": "a6a7aa22d8fb029e9c541692068aecf695383471fc9a3aae42931505a024503a",
+    "examples/esp32-decision/sdkconfig.defaults.esp32c6": "8a4f1c599d395762f1e09fa546446288930d994a2e553842a5ac77e0d03c0118",
+    "examples/esp32-decision/sdkconfig.defaults.esp32s3": "46a9cf3fe8e04a3611d9ff1175ce1aa40e52460154b2bdec1a747078dfc37496",
+    "examples/esp32-decision/tests/benchmark.c": "f9a7de9f351eb4344683d8287da0a67d13aba215c6dde9285ba774511e66dfa0",
+    "examples/esp32-decision/tests/benchmark_model.c": "a234d8f8d53e17dc11dc8b2fd8a6e49a0632ff88c05e76c8c1d27ff9846a09a4",
+    "examples/esp32-decision/tests/differential.c": "fa4da9c7b07e932eb265716d9013be89ea07ca19dbe119e8b9b4eced3d002c96",
+    "examples/esp32-decision/tests/host_main.c": "0e446523a015afef7786b3c605d742bbc6f62323057c0683f199718712867619",
+    "examples/esp32-decision/tests/reference/Cargo.lock": "5f296ed370e82b0844916021a0d84f29ade5c7baff9f8c8598a9d62b82cf663a",
+    "examples/esp32-decision/tests/reference/Cargo.toml": "802c13f6d4b109924c89315c62920203ffc0213684bac62e6266926ba3c89bfc",
+    "examples/esp32-decision/tests/reference/main.rs": "1be054e9c911baaf0eb507058f4d09a6f684c3ca48915fb445804a1e0ae725b9",
+    "examples/esp32-decision/tests/test_export.py": "5dc45d28317a9cd0a797d4577bc911becee46c7e1ec09d2440826789ce4a36ad",
+    "examples/esp32-decision/tests/test_kernel.c": "d507113848e26ad507df836e4830070eaa7f599f527f89f9ef4f3c3dc8cc687e",
+    "examples/esp32-decision/tools/benchmark.py": "b9c158d388cd11e26f2362434d173ce9f625a6c101e9ea4f80b620e0e8e0fff2",
+    "examples/esp32-decision/tools/benchmark_qemu.py": "9fb461b4781d1bf298fc63aa8a6f501dae11711c3b8f387f78e65f19fbabc8f6",
+    "examples/esp32-decision/tools/e2e.py": "30ff546678ccac0bcf8ba7408e00d2f38fa1766fa57901f3c02d0438c4007df0",
+    "examples/esp32-decision/tools/qemu_e2e.py": "b4995c757b4c873ace8d9cf5a89fa9b0a5cc7b048d3dbfb1fb0e7a5e528eb4d5",
+    "examples/esp32-decision/tools/quantize.py": "0d87460cdb68d6daf99b900c036244f300a626b25ae6e36f01143358a7f918cd"
+  }
+}

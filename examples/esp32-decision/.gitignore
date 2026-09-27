@@ -1,0 +1,8 @@
+build*/
+sdkconfig
+sdkconfig.old
+sdkconfig.esp32*
+managed_components/
+dependencies.lock
+__pycache__/
+tests/reference/target/

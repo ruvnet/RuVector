@@ -1,6 +1,6 @@
 [package]
 name = "ruvector-core"
-version.workspace = true
+version = "2.3.1"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -69,6 +69,9 @@ lattice-embed = { version = "0.6.1", optional = true }
 tokio = { workspace = true, optional = true }
 
 [dev-dependencies]
+# Self dev-dep: enables the patched-hnsw_rs diagnostics for this crate's own tests only.
+# Path-only, so `cargo publish` strips it from the packaged manifest.
+ruvector-core = { path = ".", features = ["hnsw-structural-diagnostics"] }
 criterion = { workspace = true }
 proptest = { workspace = true }
 mockall = { workspace = true }
@@ -130,6 +133,10 @@ real-embeddings = []  # Feature flag for embedding provider API (use ApiEmbeddin
 api-embeddings = ["reqwest"]  # API-based embeddings (not available in WASM)
 onnx-embeddings = ["ort", "tokenizers", "hf-hub"]  # ONNX-based local embeddings (not available in WASM)
 lattice-embeddings = ["dep:lattice-embed", "dep:tokio"]  # Native pure-Rust local embeddings via lattice-embed (not available in WASM)
+# Exposes HnswIndex::structural_violations() (issue #773 regression suite). Requires the
+# workspace [patch.crates-io] hnsw_rs (patches/hnsw_rs); NOT usable from crates.io, where
+# the upstream hnsw_rs lacks the diagnostic methods.
+hnsw-structural-diagnostics = ["hnsw"]
 
 [lib]
 crate-type = ["rlib"]

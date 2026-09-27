@@ -1,0 +1,4 @@
+# Applied by -DRD_USB_SERIAL_JTAG=ON for boards whose only USB port is the chip's
+# built-in USB-Serial/JTAG (ESP32-S3, C3, C6, H2, P4). Not available on ESP32,
+# S2 or C2.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y

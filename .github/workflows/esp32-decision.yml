@@ -1,0 +1,118 @@
+name: ESP32 decision firmware
+on:
+  pull_request:
+    paths:
+      - 'examples/esp32-decision/**'
+      - 'crates/ruvector-typesafe-core/**'
+      - '.github/workflows/esp32-decision.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'examples/esp32-decision/**'
+      - 'crates/ruvector-typesafe-core/**'
+      - '.github/workflows/esp32-decision.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: esp32-decision-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  reference:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+          components: rustfmt,clippy
+      - name: Lint and compare Rust to firmware
+        working-directory: examples/esp32-decision
+        run: |
+          cargo fmt --manifest-path tests/reference/Cargo.toml --check
+          cargo clippy --locked --manifest-path tests/reference/Cargo.toml --all-targets --features hash-embedder -- -D warnings
+          python3 tools/e2e.py
+          git fetch --depth=1 origin 739a5621043f9b0f0ffc263c46d1d2f7aeb9495f
+          python3 tools/sensor_lab.py
+          python3 tools/coverage_lab.py
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
+          python3 tools/prepare_pair.py --model-dir build-sensor/selected --output build-lab
+          python3 tools/rig.py build-lab/manifest.json --vectors build-sensor/test.json --execution native --rounds 11 --limit 128 --output build-lab/native.json
+          python3 tools/benchmark.py --verify-only
+          python3 tools/benchmark.py --verify-only --profile esp32s3
+          python3 tools/benchmark.py --verify-only --profile esp32c6
+          python3 tools/quantize.py build-host/fixtures/probe.json main/model.h --vectors build-host/fixtures/probe.vectors.json
+          git diff --exit-code -- main/model.h
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: decision-host-results
+          path: |
+            examples/esp32-decision/build-host/results.json
+            examples/esp32-decision/build-sensor/report.json
+            examples/esp32-decision/build-sensor/selected/model.h
+            examples/esp32-decision/build-coverage/report.json
+            examples/esp32-decision/build-lab/native.json
+  firmware:
+    needs: reference
+    runs-on: ubuntu-24.04
+    container: espressif/idf:v5.4.4
+    strategy:
+      fail-fast: false
+      matrix:
+        chip: [esp32,esp32s2,esp32s3,esp32c2,esp32c3,esp32c6,esp32h2,esp32p4]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Cross compile and merge bootable image
+        shell: bash
+        working-directory: examples/esp32-decision
+        run: |
+          . /opt/esp/idf/export.sh
+          idf.py -B build-${{ matrix.chip }} -DIDF_TARGET=${{ matrix.chip }} -DSDKCONFIG=sdkconfig.${{ matrix.chip }} build
+          idf.py -B build-${{ matrix.chip }} merge-bin
+      - name: Build USB-Serial/JTAG console variant
+        if: contains(fromJSON('["esp32s3","esp32c3","esp32c6","esp32h2","esp32p4"]'), matrix.chip)
+        shell: bash
+        working-directory: examples/esp32-decision
+        run: |
+          . /opt/esp/idf/export.sh
+          idf.py -B build-usbjtag-${{ matrix.chip }} -DIDF_TARGET=${{ matrix.chip }} -DSDKCONFIG=build-usbjtag-${{ matrix.chip }}/sdkconfig -DRD_USB_SERIAL_JTAG=ON build merge-bin
+          grep -q '^CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y' build-usbjtag-${{ matrix.chip }}/sdkconfig
+      - if: matrix.chip == 'esp32s3' || matrix.chip == 'esp32c6'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: decision-host-results
+          path: examples/esp32-decision/downloaded-lab
+      - name: Build real sensor model with both pinned kernels
+        if: matrix.chip == 'esp32s3' || matrix.chip == 'esp32c6'
+        shell: bash
+        working-directory: examples/esp32-decision
+        run: |
+          . /opt/esp/idf/export.sh
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git fetch --depth=1 origin 739a5621043f9b0f0ffc263c46d1d2f7aeb9495f
+          python3 tools/prepare_pair.py --model-dir downloaded-lab/build-sensor/selected --output build-sensor-pair --targets ${{ matrix.chip }}
+      - name: Build sensor production image without percentile buffers
+        if: matrix.chip == 'esp32s3' || matrix.chip == 'esp32c6'
+        shell: bash
+        working-directory: examples/esp32-decision
+        run: |
+          . /opt/esp/idf/export.sh
+          idf.py -B build-production-${{ matrix.chip }} -DIDF_TARGET=${{ matrix.chip }} \
+            -DSDKCONFIG=build-production-${{ matrix.chip }}/sdkconfig \
+            '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.production' \
+            -DRD_MODEL_DIR="$PWD/downloaded-lab/build-sensor/selected" build merge-bin
+          python3 tools/production_check.py --full-build build-sensor-pair/${{ matrix.chip }}-candidate \
+            --production-build build-production-${{ matrix.chip }} --output build-production-${{ matrix.chip }}/footprint.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ruvector-decision-${{ matrix.chip }}
+          path: |
+            examples/esp32-decision/build-${{ matrix.chip }}/merged-binary.bin
+            examples/esp32-decision/build-${{ matrix.chip }}/ruvector_decision.elf
+            examples/esp32-decision/build-${{ matrix.chip }}/flasher_args.json
+            examples/esp32-decision/build-${{ matrix.chip }}/ruvector_decision.bin
+            examples/esp32-decision/build-usbjtag-${{ matrix.chip }}/merged-binary.bin
+            examples/esp32-decision/build-sensor-pair/*/merged-binary.bin
+            examples/esp32-decision/build-sensor-pair/manifest.json
+            examples/esp32-decision/build-production-${{ matrix.chip }}/merged-binary.bin
+            examples/esp32-decision/build-production-${{ matrix.chip }}/footprint.json

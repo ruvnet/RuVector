@@ -802,4 +802,572 @@ mod tests {
         let bad_score = crate::midstream::solver_confidence_score(&bad_cert);
         assert_eq!(bad_score, 0.0, "gate_pass=false should give zero score");
     }
+
+    // -----------------------------------------------------------------------
+    // Digest rendering: UTF-8 boundary regression (the panic that took down
+    // the production `ruvbrain` service — routes.rs `notify_digest`)
+    // -----------------------------------------------------------------------
+
+    fn memory_with(title: &str, content: &str) -> crate::types::BrainMemory {
+        crate::types::BrainMemory {
+            id: uuid::Uuid::new_v4(),
+            category: crate::types::BrainCategory::Pattern,
+            title: title.to_string(),
+            content: content.to_string(),
+            tags: vec!["demo".to_string()],
+            code_snippet: None,
+            embedding: vec![0.0; 8],
+            contributor_id: "test".to_string(),
+            quality_score: crate::types::BetaParams::new(),
+            partition_id: None,
+            witness_hash: String::new(),
+            rvf_gcs_path: None,
+            redaction_log: None,
+            dp_proof: None,
+            witness_chain: None,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        }
+    }
+
+    /// Titles/contents whose byte budget (120 for title, 250 for content)
+    /// lands strictly inside a multi-byte character. Before the fix,
+    /// `&m.title[..120]` / `&m.content[..250]` panicked with
+    /// "byte index N is not a char boundary", aborting the request task.
+    #[test]
+    fn digest_rows_survive_multibyte_titles_at_the_truncation_boundary() {
+        let cases = vec![
+            // 2-byte char straddling the 120-byte title budget
+            memory_with(&format!("{}é tail", "a".repeat(119)), "short"),
+            // 3-byte CJK straddling the title budget
+            memory_with(&format!("{}中文", "a".repeat(119)), "short"),
+            // 4-byte emoji straddling the title budget (starts at byte 118)
+            memory_with(&format!("{}😀 more", "a".repeat(118)), "short"),
+            // 4-byte emoji straddling the 250-byte content budget
+            memory_with("ok", &format!("{}😀 rest of the content", "b".repeat(248))),
+            // 3-byte CJK straddling the content budget
+            memory_with("ok", &format!("{}中文内容", "b".repeat(249))),
+        ];
+
+        for m in &cases {
+            let rows = crate::routes::format_digest_rows(std::slice::from_ref(m));
+            assert!(
+                rows.contains("<tr"),
+                "expected a rendered row for title {:?}",
+                m.title
+            );
+        }
+
+        // Rendering them all together also works and yields one row each.
+        let rows = crate::routes::format_digest_rows(&cases);
+        assert_eq!(rows.matches("<tr").count(), cases.len());
+    }
+
+    /// The truncation must actually bound the output, not just avoid panicking.
+    #[test]
+    fn digest_rows_truncate_long_multibyte_fields() {
+        // 200 emoji = 800 bytes of title; must be cut to <= 120 bytes.
+        let m = memory_with(&"😀".repeat(200), &"中".repeat(400));
+        let rows = crate::routes::format_digest_rows(std::slice::from_ref(&m));
+
+        // 120 bytes / 4 bytes-per-emoji = exactly 30 emoji survive.
+        assert_eq!(rows.matches('😀').count(), 30);
+        // 250 bytes / 3 bytes-per-CJK = 83 chars (249 bytes), floor to boundary.
+        assert_eq!(rows.matches('中').count(), 83);
+    }
+
+    // -----------------------------------------------------------------------
+    // P1: pipeline injections must be removable by a system operator.
+    //
+    // `process_inject` stores `contributor_id = "pipeline:{source}"`, a value
+    // no contributor pseudonym can ever equal (pseudonyms are 32 hex chars),
+    // so the contributor-scoped delete could never remove an injected row.
+    // -----------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn pipeline_rows_are_undeletable_by_a_contributor_but_deletable_by_system() {
+        let store = crate::store::FirestoreClient::new();
+
+        let mut m = memory_with("injected", "body");
+        // Exactly what process_inject writes for an inject with source="pubmed".
+        m.contributor_id = "pipeline:pubmed".to_string();
+        let id = m.id;
+        store.store_memory(m).await.expect("store_memory");
+
+        // A real contributor pseudonym — 32 hex chars, never equal to
+        // "pipeline:...". The contributor-scoped delete must refuse.
+        let pseudonym = "0123456789abcdef0123456789abcdef";
+        let err = store.delete_memory(&id, pseudonym).await;
+        assert!(
+            matches!(err, Err(crate::store::StoreError::Forbidden(_))),
+            "contributor-scoped delete of a pipeline row should be Forbidden, got {err:?}"
+        );
+        assert!(
+            store.get_memory(&id).await.unwrap().is_some(),
+            "row must still be present after the refused delete"
+        );
+
+        // A BRAIN_SYSTEM_KEY holder can clean it up.
+        let deleted = store
+            .delete_memory_as(&id, "ruvector-seed", true)
+            .await
+            .expect("system delete should not error");
+        assert!(deleted, "system delete should report success");
+        assert!(
+            store.get_memory(&id).await.unwrap().is_none(),
+            "row must be gone after the system delete"
+        );
+    }
+
+    /// The system override must not turn every delete into a system delete:
+    /// a non-system caller still cannot touch another contributor's row.
+    #[tokio::test]
+    async fn system_override_does_not_leak_to_ordinary_contributors() {
+        let store = crate::store::FirestoreClient::new();
+        let mut m = memory_with("someone elses", "body");
+        m.contributor_id = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string();
+        let id = m.id;
+        store.store_memory(m).await.expect("store_memory");
+
+        let other = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        assert!(matches!(
+            store.delete_memory_as(&id, other, false).await,
+            Err(crate::store::StoreError::Forbidden(_))
+        ));
+        assert!(store.get_memory(&id).await.unwrap().is_some());
+
+        // The owner can still delete their own row.
+        let deleted = store
+            .delete_memory_as(&id, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", false)
+            .await
+            .expect("owner delete should not error");
+        assert!(deleted);
+    }
+
+    // -----------------------------------------------------------------------
+    // P2: `ranked_search` must not need a write lock.
+    //
+    // Every inject marks the CSR cache dirty; the next search rebuilt it.
+    // While `ranked_search` took `&mut self`, that rebuild happened under a
+    // write lock on the whole graph, so one search blocked every reader.
+    // -----------------------------------------------------------------------
+
+    fn graph_with_memories(n: usize) -> crate::graph::KnowledgeGraph {
+        let mut g = crate::graph::KnowledgeGraph::new();
+        for i in 0..n {
+            let mut m = memory_with(&format!("mem {i}"), "content");
+            // Embeddings close enough to clear the 0.55 similarity threshold
+            // so real edges exist and the CSR is non-empty.
+            let mut e = vec![0.9f32; 8];
+            e[i % 8] += 0.3;
+            crate::graph::normalize_embedding(&mut e);
+            m.embedding = e;
+            g.add_memory(&m);
+        }
+        g
+    }
+
+    /// The whole point of the change: a search runs with only a READ lock,
+    /// and two readers can hold that lock at the same time. Under the old
+    /// `&mut self` signature this did not compile; if it ever regresses to
+    /// needing a write lock, `.read()` below stops compiling again.
+    #[test]
+    fn ranked_search_runs_concurrently_under_shared_read_locks() {
+        let graph = std::sync::Arc::new(parking_lot::RwLock::new(graph_with_memories(24)));
+        let query = {
+            let mut q = vec![0.9f32; 8];
+            q[0] += 0.3;
+            crate::graph::normalize_embedding(&mut q);
+            q
+        };
+
+        // Hold a read guard on this thread for the whole test...
+        let held = graph.read();
+        let from_held = held.ranked_search(&query, 5);
+        assert!(!from_held.is_empty(), "search should return results");
+
+        // ...while another thread also takes a read guard and searches.
+        // This deadlocks (or fails to compile) if a write lock is required.
+        let g2 = std::sync::Arc::clone(&graph);
+        let q2 = query.clone();
+        let other = std::thread::spawn(move || g2.read().ranked_search(&q2, 5));
+        let from_other = other
+            .join()
+            .expect("concurrent reader panicked or deadlocked");
+
+        assert_eq!(
+            from_held.len(),
+            from_other.len(),
+            "both readers should see the same result set"
+        );
+        drop(held);
+    }
+
+    /// The lazy rebuild must still be correct: a search after an insert
+    /// reflects the new edges, i.e. there is no staleness window.
+    #[test]
+    fn ranked_search_after_insert_sees_the_rebuilt_csr() {
+        let mut g = graph_with_memories(12);
+        let query = {
+            let mut q = vec![0.9f32; 8];
+            q[3] += 0.3;
+            crate::graph::normalize_embedding(&mut q);
+            q
+        };
+
+        let before = g.ranked_search(&query, 20);
+
+        // Insert a new memory — this marks the CSR dirty.
+        let mut m = memory_with("fresh", "content");
+        let mut e = vec![0.9f32; 8];
+        e[3] += 0.3;
+        crate::graph::normalize_embedding(&mut e);
+        m.embedding = e;
+        let new_id = m.id;
+        g.add_memory(&m);
+
+        // A read-only search must already include it.
+        let after = (&g).ranked_search(&query, 20);
+        assert_eq!(after.len(), before.len() + 1, "new memory should be ranked");
+        assert!(
+            after.iter().any(|(id, _)| *id == new_id),
+            "the just-inserted memory must appear without an explicit rebuild"
+        );
+    }
+
+    /// Repeated searches with no intervening write are stable — the
+    /// double-checked rebuild must not clear or corrupt the cache.
+    #[test]
+    fn repeated_searches_are_stable_without_writes() {
+        let g = graph_with_memories(16);
+        let query = {
+            let mut q = vec![0.9f32; 8];
+            q[1] += 0.3;
+            crate::graph::normalize_embedding(&mut q);
+            q
+        };
+        let first = g.ranked_search(&query, 8);
+        for _ in 0..5 {
+            assert_eq!(g.ranked_search(&query, 8), first);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // P3: the cold-start sparsifier build must hold no lock.
+    //
+    // `spawn_blocking(|| graph.write().rebuild_sparsifier())` kept the tokio
+    // runtime free but held the write guard for the whole build. The build is
+    // now snapshot -> build off-lock -> guarded install.
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn sparsifier_builds_from_a_snapshot_with_no_graph_borrowed() {
+        let g = graph_with_memories(40);
+        let (entries, nodes, edges, gen) = g
+            .sparsifier_snapshot()
+            .expect("graph should yield a snapshot");
+        assert!(edges > 0 && nodes == 40);
+
+        // The build takes plain data — no `&self`, so nothing is locked. This
+        // is exactly the call the background task makes inside spawn_blocking.
+        let built = crate::graph::KnowledgeGraph::build_sparsifier_from(&entries, nodes);
+
+        let mut g = g;
+        if let Some(spar) = built {
+            assert!(
+                g.install_sparsifier(spar, nodes, edges, gen),
+                "install should succeed when the graph is unchanged"
+            );
+            assert!(g.sparsifier_stats().is_some());
+        }
+    }
+
+    /// Edges appended while the build runs must be replayed on install —
+    /// `add_memory` cannot feed a sparsifier that is still `None`.
+    #[test]
+    fn install_replays_edges_added_during_the_build() {
+        let mut g = graph_with_memories(40);
+        let (entries, nodes, edges, gen) = g.sparsifier_snapshot().unwrap();
+        let built = crate::graph::KnowledgeGraph::build_sparsifier_from(&entries, nodes);
+
+        // Simulate an inject landing mid-build.
+        let mut m = memory_with("mid-build", "content");
+        let mut e = vec![0.9f32; 8];
+        e[2] += 0.3;
+        crate::graph::normalize_embedding(&mut e);
+        m.embedding = e;
+        g.add_memory(&m);
+        let edges_after = g.edge_count();
+        assert!(edges_after > edges, "the inject should have added edges");
+
+        if let Some(spar) = built {
+            assert!(
+                g.install_sparsifier(spar, nodes, edges, gen),
+                "install should still succeed after a concurrent append"
+            );
+            let stats = g.sparsifier_stats().expect("stats after install");
+            assert_eq!(
+                stats.full_edges, edges_after,
+                "the installed sparsifier must account for every edge, including \
+                 the ones added during the build"
+            );
+        }
+    }
+
+    /// If the graph SHRANK during the build, node positions were reassigned by
+    /// `remove_memory` and the built sparsifier refers to the wrong nodes.
+    /// The install must refuse rather than silently corrupt analytics.
+    #[test]
+    fn install_refuses_when_the_graph_shrank_during_the_build() {
+        let mut g = graph_with_memories(40);
+        let (entries, nodes, edges, gen) = g.sparsifier_snapshot().unwrap();
+        let built = crate::graph::KnowledgeGraph::build_sparsifier_from(&entries, nodes);
+
+        // Simulate a delete landing mid-build. remove_memory reindexes every
+        // node position, which is exactly what invalidates the built matrix.
+        let to_remove = g.node_ids_snapshot()[0];
+        g.remove_memory(&to_remove);
+        assert!(g.edge_count() < edges || g.node_count() < nodes);
+
+        if let Some(spar) = built {
+            assert!(
+                !g.install_sparsifier(spar, nodes, edges, gen),
+                "install must refuse a sparsifier built against stale indices"
+            );
+            assert!(
+                g.sparsifier_stats().is_none(),
+                "no sparsifier should be installed after a refused install"
+            );
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // P4: list_memories must do work proportional to the page, not the corpus.
+    //
+    // It used to clone every matching BrainMemory (each carrying a 384-dim
+    // embedding), sort all of them, then throw away all but `limit`. The
+    // rewrite sorts 24-byte keys and clones only the returned rows, so these
+    // tests pin the ORDERING CONTRACT that rewrite has to preserve.
+    // -----------------------------------------------------------------------
+
+    /// Reference implementation: the old "clone everything, sort everything,
+    /// then paginate" behaviour, with the new deterministic id tie-break.
+    fn reference_page(
+        mut all: Vec<crate::types::BrainMemory>,
+        sort: &crate::types::ListSort,
+        limit: usize,
+        offset: usize,
+    ) -> Vec<uuid::Uuid> {
+        use crate::types::ListSort;
+        all.sort_by(|a, b| {
+            let (ka, kb) = match sort {
+                ListSort::UpdatedAt => (
+                    a.updated_at.timestamp_micros() as f64,
+                    b.updated_at.timestamp_micros() as f64,
+                ),
+                ListSort::Quality => (a.quality_score.mean(), b.quality_score.mean()),
+                ListSort::Votes => (
+                    a.quality_score.observations(),
+                    b.quality_score.observations(),
+                ),
+            };
+            kb.partial_cmp(&ka)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.id.cmp(&b.id))
+        });
+        all.into_iter()
+            .skip(offset)
+            .take(limit)
+            .map(|m| m.id)
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn list_memories_pagination_matches_a_full_sort_including_ties() {
+        use crate::types::ListSort;
+
+        let store = crate::store::FirestoreClient::new();
+        let mut all = Vec::new();
+
+        // Deliberately heavy tie density: only 4 distinct quality values and
+        // 3 distinct vote counts across 40 rows, so the tie-break path is
+        // exercised on every sort mode.
+        for i in 0..40u32 {
+            let mut m = memory_with(&format!("mem {i}"), "content");
+            m.quality_score = crate::types::BetaParams {
+                alpha: 1.0 + f64::from(i % 4),
+                beta: 1.0,
+            };
+            m.updated_at = chrono::Utc::now() - chrono::Duration::seconds(i64::from(i % 7));
+            all.push(m.clone());
+            store.store_memory(m).await.expect("store_memory");
+        }
+
+        for sort in [ListSort::UpdatedAt, ListSort::Quality, ListSort::Votes] {
+            for (limit, offset) in [
+                (5, 0),
+                (5, 10),
+                (1, 0),
+                (40, 0),
+                (10, 35),
+                (7, 39),
+                (5, 100),
+            ] {
+                let (page, total) = store
+                    .list_memories(None, None, limit, offset, &sort)
+                    .await
+                    .expect("list_memories");
+
+                assert_eq!(total, 40, "total_count must be the full match count");
+
+                let got: Vec<_> = page.iter().map(|m| m.id).collect();
+                let want = reference_page(all.clone(), &sort, limit, offset);
+                assert_eq!(
+                    got, want,
+                    "sort={sort:?} limit={limit} offset={offset}: page must match a full sort"
+                );
+            }
+        }
+    }
+
+    /// Identical requests must return identical pages. Before the rewrite,
+    /// rows with equal sort keys were ordered by DashMap iteration order.
+    #[tokio::test]
+    async fn list_memories_is_deterministic_across_identical_calls() {
+        use crate::types::ListSort;
+
+        let store = crate::store::FirestoreClient::new();
+        for i in 0..30u32 {
+            let mut m = memory_with(&format!("mem {i}"), "content");
+            // Every row has the SAME quality — pure tie-break territory.
+            m.quality_score = crate::types::BetaParams {
+                alpha: 2.0,
+                beta: 1.0,
+            };
+            store.store_memory(m).await.expect("store_memory");
+        }
+
+        let first: Vec<_> = store
+            .list_memories(None, None, 8, 4, &ListSort::Quality)
+            .await
+            .unwrap()
+            .0
+            .iter()
+            .map(|m| m.id)
+            .collect();
+
+        for _ in 0..6 {
+            let again: Vec<_> = store
+                .list_memories(None, None, 8, 4, &ListSort::Quality)
+                .await
+                .unwrap()
+                .0
+                .iter()
+                .map(|m| m.id)
+                .collect();
+            assert_eq!(
+                again, first,
+                "identical requests must return identical pages"
+            );
+        }
+    }
+
+    /// The count check alone is NOT sufficient. A remove followed by an add
+    /// restores both counts while `remove_memory` has shifted every node
+    /// position past the removed one — so a sparsifier built before the pair
+    /// describes the wrong nodes at the same cardinality. Only the
+    /// `index_generation` check catches this.
+    #[test]
+    fn install_refuses_after_a_remove_and_add_that_restores_the_counts() {
+        let mut g = graph_with_memories(40);
+        let (entries, nodes, edges, gen) = g.sparsifier_snapshot().unwrap();
+        let built = crate::graph::KnowledgeGraph::build_sparsifier_from(&entries, nodes);
+
+        // Remove one node (reindexes everything after it) ...
+        let victim = g.node_ids_snapshot()[5];
+        g.remove_memory(&victim);
+        // ... then add one back, restoring node_count and pushing edges back up.
+        for i in 0..3 {
+            let mut m = memory_with(&format!("replacement {i}"), "content");
+            let mut e = vec![0.9f32; 8];
+            e[i % 8] += 0.3;
+            crate::graph::normalize_embedding(&mut e);
+            m.embedding = e;
+            g.add_memory(&m);
+        }
+
+        assert!(
+            g.node_count() >= nodes && g.edge_count() >= edges,
+            "precondition: the counts must be restored, so only the generation \
+             check can reject this build (nodes {} vs {}, edges {} vs {})",
+            g.node_count(),
+            nodes,
+            g.edge_count(),
+            edges
+        );
+
+        if let Some(spar) = built {
+            assert!(
+                !g.install_sparsifier(spar, nodes, edges, gen),
+                "install must refuse after node positions were reassigned, even \
+                 though the counts recovered"
+            );
+            assert!(g.sparsifier_stats().is_none());
+        }
+    }
+
+    /// `rebuild_from_batch` reassigns every node position even for an
+    /// identical memory set (it walks a DashMap, whose order is arbitrary), so
+    /// a build that started before it must also be refused.
+    #[test]
+    fn install_refuses_after_a_full_rebuild_from_batch() {
+        let mut g = graph_with_memories(30);
+        let (entries, nodes, edges, gen) = g.sparsifier_snapshot().unwrap();
+        let built = crate::graph::KnowledgeGraph::build_sparsifier_from(&entries, nodes);
+
+        let memories: Vec<_> = (0..30)
+            .map(|i| {
+                let mut m = memory_with(&format!("mem {i}"), "content");
+                let mut e = vec![0.9f32; 8];
+                e[i % 8] += 0.3;
+                crate::graph::normalize_embedding(&mut e);
+                m.embedding = e;
+                m
+            })
+            .collect();
+        g.rebuild_from_batch(&memories);
+
+        if let Some(spar) = built {
+            assert!(
+                !g.install_sparsifier(spar, nodes, edges, gen),
+                "install must refuse after rebuild_from_batch reassigned positions"
+            );
+        }
+    }
+
+    /// A sparsifier installed by another path while this build ran must not be
+    /// clobbered by the older background build.
+    #[test]
+    fn install_refuses_to_overwrite_a_newer_sparsifier() {
+        let mut g = graph_with_memories(30);
+        let (entries, nodes, edges, gen) = g.sparsifier_snapshot().unwrap();
+        let built = crate::graph::KnowledgeGraph::build_sparsifier_from(&entries, nodes);
+
+        // The inline small-graph path (routes.rs) builds one directly.
+        g.rebuild_sparsifier();
+        if g.sparsifier_stats().is_none() {
+            return; // sparsifier unavailable in this environment; nothing to assert
+        }
+
+        if let Some(spar) = built {
+            assert!(
+                !g.install_sparsifier(spar, nodes, edges, gen),
+                "install must not overwrite a sparsifier built while this one ran"
+            );
+            assert!(
+                g.sparsifier_stats().is_some(),
+                "the newer sparsifier must survive the refused install"
+            );
+        }
+    }
 }

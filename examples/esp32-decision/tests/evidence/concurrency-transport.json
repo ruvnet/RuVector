@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "campaign": "esp32-overnight-20260926",
+  "run": "esp32-slot02-20260926T0602Z",
+  "parent_sha": "47b042815052be2263498d0ca9ae2ae1f31cd7e1",
+  "evaluator_sha256": "3496a962085d6183b4823dd7642f14054af1e7eb81d4b6091ad10d22c3fb07f5",
+  "tool_sha256": {
+    "parent_transport": "dc9ce59bba35793427b2dba3b7e7bf58334742a2a8ed579bdc272f7d8713eb5f",
+    "candidate_transport": "21465fc62d47e0a84c0fe3a3e048d8896c497cc04955c393c21a2d62e3e8c4a2",
+    "concurrency_gate": "72060562a92f38b9389f8cfee4a1792639ab1fcaf3729ec5f8190375c2ddcb12",
+    "metaharness_promotion": "828be79b48e94dd3bf9f0d51d5dbb60d53663d54bf40baae6991c522ba2b81af",
+    "metaharness_stats": "4b23c82cf811e0546e37a45efa92505b6f8cf79260eb0d1e9df0267f4fea9bf2",
+    "native_pair_report": "d5abfeb89908cb0e2d7cc03c3568c4246645fbfa4abd667c568344def8652fd6",
+    "sensor_report": "176192d88ad2a753ac795c61f522f3ebacf2c9f40a492194b1a5731a97ad4812"
+  },
+  "baseline": {
+    "pairs_total": 8,
+    "misassociated": 8
+  },
+  "candidate": {
+    "pairs_total": 8,
+    "misassociated": 0
+  },
+  "sequential_regressions": [
+    {"name": "alpha", "pass": true},
+    {"name": "beta", "pass": true},
+    {"name": "meta", "pass": true},
+    {"name": "predict_sample_7", "pass": true}
+  ],
+  "framing_regression": {
+    "pass": true,
+    "cases": 4
+  },
+  "lab": {
+    "status": "pass",
+    "rust_tests": 57,
+    "python_tests": 53,
+    "exact_native_pairs": 11,
+    "built_targets": [],
+    "physical_acceptance": "not performed"
+  },
+  "limitations": [
+    "Host transport software evidence only; no physical timing, energy or device claim.",
+    "The eight cases use deterministic scheduling to reproduce one race and are not independent random trials.",
+    "Firmware, model, quantization, compiler flags and target binaries were unchanged."
+  ]
+}

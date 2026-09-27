@@ -1,0 +1,75 @@
+{
+  "parent_sha": "6fdb5f12ac7fe16752eeb60405e52567081706db",
+  "candidate_sha256": "222e79c4f23d7b0742ca3ac12ea9ebed1025a99b42e477d054b6b307aabd49a1",
+  "evaluator_sha256": "cc5c17ecb2c9513167bb1a040c0e3854c063d5842578511d3c0985ecd70e498a",
+  "finite_legacy_equal": true,
+  "finite_parity_cases": 96,
+  "finite_parity_seed": 84491,
+  "finite_parity_kinds": [
+    "integer",
+    "float",
+    "large_safe_integer",
+    "tiny_float"
+  ],
+  "malformed": [
+    {
+      "name": "infinite_baseline",
+      "parent_rejected": false,
+      "parent_false_accept": true,
+      "candidate_rejected": true,
+      "candidate_false_accept": false,
+      "candidate_exception": "ValueError"
+    },
+    {
+      "name": "nan_baseline",
+      "parent_rejected": false,
+      "parent_false_accept": false,
+      "candidate_rejected": true,
+      "candidate_false_accept": false,
+      "candidate_exception": "ValueError"
+    },
+    {
+      "name": "boolean_baseline",
+      "parent_rejected": false,
+      "parent_false_accept": true,
+      "candidate_rejected": true,
+      "candidate_false_accept": false,
+      "candidate_exception": "ValueError"
+    },
+    {
+      "name": "ratio_overflow",
+      "parent_rejected": false,
+      "parent_false_accept": true,
+      "candidate_rejected": true,
+      "candidate_false_accept": false,
+      "candidate_exception": "ValueError"
+    },
+    {
+      "name": "ratio_underflow",
+      "parent_rejected": false,
+      "parent_false_accept": false,
+      "candidate_rejected": true,
+      "candidate_false_accept": false,
+      "candidate_exception": "ValueError"
+    },
+    {
+      "name": "huge_integer_ratio",
+      "parent_rejected": false,
+      "parent_false_accept": true,
+      "candidate_rejected": true,
+      "candidate_false_accept": false,
+      "candidate_exception": "ValueError"
+    },
+    {
+      "name": "even_median_overflow",
+      "parent_rejected": false,
+      "parent_false_accept": true,
+      "candidate_rejected": true,
+      "candidate_false_accept": false,
+      "candidate_exception": "ValueError"
+    }
+  ],
+  "lab_pass": null,
+  "note": "Synthetic software fixtures only. Lab and unittest results are separate receipts.",
+  "reproduction_script_sha256": "65619d3bba55e361b37339d578c57a764ae2e3ed9caa2dadc8e919575a6528aa"
+}

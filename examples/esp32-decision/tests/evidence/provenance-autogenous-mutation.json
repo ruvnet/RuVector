@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "campaign": "esp32-overnight-20260926",
+  "run": "esp32-slot00-20260926T0402Z",
+  "parent_sha": "21fd8753ea1d54473ef797e9c6ebaaa62c7749bf",
+  "hypothesis": "Exact rig round and artifact binding prevents invalid energy evidence from reaching retention.",
+  "declared_authority": "Governed pull request proposal only; no merge, flash or deployment authority.",
+  "seed": 719,
+  "genome": {
+    "hash": "21fd8753ea1d54473ef797e9c6ebaaa62c7749bf",
+    "identity": "repo/ruvnet/RuVector/esp32-decision",
+    "constitution": "bb8ad0c7c0861dc353d2bc8e493872f5f2f44a5f53ac0380883e29f41bb9ed1d",
+    "capability_ceiling": "governed",
+    "hard_invariants": [
+      {"name": "valid retention result unchanged", "holds": true},
+      {"name": "frozen firmware arithmetic and default model", "holds": true},
+      {"name": "fixed statistical retention gates", "holds": true},
+      {"name": "integrated software acceptance", "holds": true},
+      {"name": "no physical or deployment claim", "holds": true}
+    ],
+    "lineage": ["21fd8753ea1d54473ef797e9c6ebaaa62c7749bf"]
+  },
+  "mutation": {
+    "id": "energy-rig-round-artifact-binding",
+    "parent_genome_hash": "21fd8753ea1d54473ef797e9c6ebaaa62c7749bf",
+    "scope": "application_code",
+    "requested_authority": "governed",
+    "applicability": {"workloads": ["ESP32 offline energy evidence validation"], "environments": ["Python host benchmark lab"], "jurisdictions": []},
+    "preserved_invariants": [
+      {"name": "valid retention result unchanged", "holds": true},
+      {"name": "frozen firmware arithmetic and default model", "holds": true},
+      {"name": "fixed statistical retention gates", "holds": true},
+      {"name": "integrated software acceptance", "holds": true},
+      {"name": "no physical or deployment claim", "holds": true}
+    ],
+    "rollback_target": "21fd8753ea1d54473ef797e9c6ebaaa62c7749bf",
+    "expires_at": 1790398607,
+    "signature": null
+  },
+  "scope": ["examples/esp32-decision/tools/energy_compare.py"],
+  "supporting_scope": ["examples/esp32-decision/tests/test_energy_provenance.py", "examples/esp32-decision/tools/provenance_gate.mjs", "examples/esp32-decision/tests/evidence/", "npm/packages/typesafe/docs/adr/ADR-007-esp32-measured-sensor-decisions.md"],
+  "input_hashes": {
+    "evaluator_sha256": "3b6bb51b5f28ad18b690be943ab5fcf5334f42cf4346c698647cb8d9032e45d3",
+    "candidate_sha256": "f7ae80bf9afaa603baaff21d771ead8e426762a130896b3963be6aa420d1176d",
+    "dataset_sha256": "4ae3f46aa98eedff564a9f6924d1635173e2fd2c816004342a9be93076d3a81a",
+    "metaharness_commit": "d5833dc6512ac1adeeef91a331c29055cd8a4dbb",
+    "autogenous_commit": "905aa6cbe213392f8b3cab5d4f17bc3a48e0a509"
+  },
+  "tool_versions": {"python": "3.12", "node": "24.19.0", "rustc": "1.85.1", "autogenous": "905aa6cbe213392f8b3cab5d4f17bc3a48e0a509"},
+  "failure_boundary": "Any provenance tamper accepted, valid result change, frozen invariant change, software lab failure, expired authority or missing rollback vetoes retention.",
+  "rollback": "Restore tools/energy_compare.py from parent 21fd8753 and retain the frozen evaluator as regression evidence.",
+  "fitness_vector": null,
+  "deployment_promoted": false
+}

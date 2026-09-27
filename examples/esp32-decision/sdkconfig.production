@@ -1,0 +1,2 @@
+# Apply after sdkconfig.defaults in a separate build/config directory.
+CONFIG_RD_PROFILE_SAMPLES=0

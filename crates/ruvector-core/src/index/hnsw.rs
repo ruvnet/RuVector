@@ -149,6 +149,7 @@ impl HnswIndex {
     /// `StdRng::from_entropy()`, so a sampled trial cannot be made
     /// deterministic, while these hold for every draw.
     #[doc(hidden)]
+    #[cfg(feature = "hnsw-structural-diagnostics")]
     pub fn structural_violations(&self) -> (Vec<String>, Vec<usize>) {
         let guard = self.inner.read();
         (

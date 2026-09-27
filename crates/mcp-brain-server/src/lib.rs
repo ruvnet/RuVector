@@ -25,6 +25,7 @@ pub mod routes;
 pub mod store;
 pub mod symbolic;
 pub mod tests;
+pub mod text;
 pub mod trainer;
 pub mod types;
 pub mod verify;

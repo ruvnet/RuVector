@@ -1,6 +1,6 @@
 [package]
 name = "rvf-types"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 description = "RuVector Format core types -- segment headers, enums, flags"
 license = "MIT OR Apache-2.0"

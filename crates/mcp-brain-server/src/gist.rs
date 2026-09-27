@@ -9,6 +9,7 @@
 //! Each gist includes formal verification links, witness chain hashes,
 //! and links back to π.ruv.io for independent verification.
 
+use crate::text::truncate_at_char_boundary;
 use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
@@ -372,7 +373,7 @@ impl GistPublisher {
             return Err(format!(
                 "GitHub API {}: {}",
                 status,
-                &text[..text.len().min(200)]
+                truncate_at_char_boundary(&text, 200)
             ));
         }
 
@@ -457,7 +458,7 @@ fn format_academic_gist(d: &Discovery) -> String {
                 .chain(std::iter::repeat(&String::new())),
         )
         .map(|(id, hash)| {
-            let short = &id[..id.len().min(8)];
+            let short = truncate_at_char_boundary(id, 8);
             if hash.is_empty() {
                 format!(
                     "| [`{}`](https://pi.ruv.io/v1/memories/{}) | — |",
@@ -468,7 +469,7 @@ fn format_academic_gist(d: &Discovery) -> String {
                     "| [`{}`](https://pi.ruv.io/v1/memories/{}) | `{}` |",
                     short,
                     id,
-                    &hash[..hash.len().min(16)]
+                    truncate_at_char_boundary(hash, 16)
                 )
             }
         })
@@ -786,7 +787,7 @@ Write the article now:"#,
                                 brain_memories.push(format!(
                                     "- **{}**: {}",
                                     title,
-                                    &content[..content.len().min(200)]
+                                    truncate_at_char_boundary(content, 200)
                                 ));
                             }
                         }
@@ -886,7 +887,7 @@ async fn call_gemini(
         return Err(format!(
             "Gemini API {}: {}",
             status,
-            &text[..text.len().min(200)]
+            truncate_at_char_boundary(&text, 200)
         ));
     }
 

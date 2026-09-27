@@ -17,7 +17,7 @@ crate-type = ["cdylib", "rlib"]
 default = ["console_error_panic_hook"]
 
 [dependencies]
-ruvector-mincut-gated-transformer = { path = "../ruvector-mincut-gated-transformer", default-features = false, features = ["wasm"] }
+ruvector-mincut-gated-transformer = { version = "0.1.0", path = "../ruvector-mincut-gated-transformer", default-features = false, features = ["wasm"] }
 wasm-bindgen = { workspace = true }
 serde = { workspace = true }
 serde-wasm-bindgen = "0.6"

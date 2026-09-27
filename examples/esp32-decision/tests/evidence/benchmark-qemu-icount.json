@@ -1,0 +1,238 @@
+{
+  "execution": "Espressif QEMU esp32s3; not physical silicon",
+  "hardware": false,
+  "clock": "virtual instruction clock, 1 ns per instruction",
+  "qemu": "QEMU emulator version 9.2.2 (esp_develop_9.2.2_20250817)",
+  "method": "11 alternating paired batches of 1000 prototype-input inferences; one warmup batch per image",
+  "baseline_sha256": "44ac465560e918ff04b0e696b6dad6ef1af469900761e7f84f891bf8e599440c",
+  "candidate_sha256": "0a6d72028aab322385cb0654c21eaf9f2a4aeb940eed5a85e0b95c5d9fa91669",
+  "baseline_meta": {
+    "event": "ready",
+    "target": "esp32s3",
+    "model_sha256": "46d0aa27d851a3d77ec0609812718b465b45aa12766328b68f0b0fa90f812bf2",
+    "model_id": "synthetic-numeric-features-v1",
+    "quant_bits": 16,
+    "dims": 32,
+    "classes": 3,
+    "parameter_bytes": 556,
+    "float_parameter_bytes": 1036,
+    "workspace_bytes": 1668,
+    "static_app_bytes": 2608,
+    "free_heap": 380716,
+    "source_calibrated": true,
+    "calibrated": false,
+    "selftest_pass": true
+  },
+  "candidate_meta": {
+    "event": "ready",
+    "target": "esp32s3",
+    "model_sha256": "46d0aa27d851a3d77ec0609812718b465b45aa12766328b68f0b0fa90f812bf2",
+    "model_id": "synthetic-numeric-features-v1",
+    "quant_bits": 16,
+    "dims": 32,
+    "classes": 3,
+    "parameter_bytes": 492,
+    "float_parameter_bytes": 1036,
+    "workspace_bytes": 1732,
+    "static_app_bytes": 2692,
+    "free_heap": 380628,
+    "source_calibrated": true,
+    "calibrated": false,
+    "selftest_pass": true
+  },
+  "baseline_median_mean_us": 7.88,
+  "candidate_median_mean_us": 6.621,
+  "paired_median_speedup": 1.1901525449327894,
+  "paired_min_speedup": 1.1901525449327894,
+  "paired_max_speedup": 1.1901525449327894,
+  "rounds": [
+    {
+      "baseline": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 7.88,
+        "max_us": 8,
+        "free_heap": 380500
+      },
+      "candidate": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 6.621,
+        "max_us": 7,
+        "free_heap": 380412
+      },
+      "speedup": 1.1901525449327894
+    },
+    {
+      "baseline": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 7.88,
+        "max_us": 8,
+        "free_heap": 380500
+      },
+      "candidate": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 6.621,
+        "max_us": 7,
+        "free_heap": 380412
+      },
+      "speedup": 1.1901525449327894
+    },
+    {
+      "baseline": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 7.88,
+        "max_us": 8,
+        "free_heap": 380500
+      },
+      "candidate": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 6.621,
+        "max_us": 7,
+        "free_heap": 380412
+      },
+      "speedup": 1.1901525449327894
+    },
+    {
+      "baseline": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 7.88,
+        "max_us": 8,
+        "free_heap": 380500
+      },
+      "candidate": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 6.621,
+        "max_us": 7,
+        "free_heap": 380412
+      },
+      "speedup": 1.1901525449327894
+    },
+    {
+      "baseline": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 7.88,
+        "max_us": 8,
+        "free_heap": 380500
+      },
+      "candidate": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 6.621,
+        "max_us": 7,
+        "free_heap": 380412
+      },
+      "speedup": 1.1901525449327894
+    },
+    {
+      "baseline": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 7.88,
+        "max_us": 8,
+        "free_heap": 380500
+      },
+      "candidate": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 6.621,
+        "max_us": 7,
+        "free_heap": 380412
+      },
+      "speedup": 1.1901525449327894
+    },
+    {
+      "baseline": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 7.88,
+        "max_us": 8,
+        "free_heap": 380500
+      },
+      "candidate": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 6.621,
+        "max_us": 7,
+        "free_heap": 380412
+      },
+      "speedup": 1.1901525449327894
+    },
+    {
+      "baseline": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 7.88,
+        "max_us": 8,
+        "free_heap": 380500
+      },
+      "candidate": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 6.621,
+        "max_us": 7,
+        "free_heap": 380412
+      },
+      "speedup": 1.1901525449327894
+    },
+    {
+      "baseline": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 7.88,
+        "max_us": 8,
+        "free_heap": 380500
+      },
+      "candidate": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 6.621,
+        "max_us": 7,
+        "free_heap": 380412
+      },
+      "speedup": 1.1901525449327894
+    },
+    {
+      "baseline": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 7.88,
+        "max_us": 8,
+        "free_heap": 380500
+      },
+      "candidate": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 6.621,
+        "max_us": 7,
+        "free_heap": 380412
+      },
+      "speedup": 1.1901525449327894
+    },
+    {
+      "baseline": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 7.88,
+        "max_us": 8,
+        "free_heap": 380500
+      },
+      "candidate": {
+        "benchmark": true,
+        "runs": 1000,
+        "mean_us": 6.621,
+        "max_us": 7,
+        "free_heap": 380412
+      },
+      "speedup": 1.1901525449327894
+    }
+  ],
+  "interpretation": "Instruction-clock comparison only; not silicon cycles or latency."
+}

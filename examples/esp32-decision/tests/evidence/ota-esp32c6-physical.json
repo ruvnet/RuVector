@@ -1,0 +1,134 @@
+{
+  "schema": 1,
+  "execution": "physical",
+  "physical_hardware": true,
+  "board": {
+    "chip": "ESP32-C6FH4 rev v0.2",
+    "flash": "4MB",
+    "bridge": "CP210x (UART0)",
+    "host": "ruvzen COM16"
+  },
+  "toolchain": "espressif/idf:v5.4.4 container on ruvultra (Linux); flashed/driven from Windows",
+  "source_parent": "19376a638d2076f7f1bd2b32ba2fcc7abb5497c9",
+  "images": {
+    "factory": "ruvector-decision-esp32c6-full-factory.bin",
+    "factory_sha256": "8e0d57ee5b94f927c410ceed143f3b868c8c1d01fbf929adf498c3e21ee3f330",
+    "ota_production": "ruvector-decision-esp32c6-production-ota.bin",
+    "ota_production_sha256": "2bec1975228f4cbcdd5f7153797bd6871c928beee40dc6c4997b2ac8d419a902",
+    "wrong_chip": "ruvector-decision-esp32c3-full-ota.bin",
+    "wrong_chip_sha256": "016770b9fe72b9eb99f277dde33cbafb8b8fa0370f08292201671d83486735c9",
+    "broken_selftest_sha256": "1d45d06b7ad96194f0afccb26c45d615b547a76336ece5f70c93d1b212639597",
+    "broken_selftest_note": "probe model header with golden expected[0].index changed 0->1; built with the same pinned container"
+  },
+  "commit_update": {
+    "bytes": 179728,
+    "sha256": "2bec1975228f4cbcdd5f7153797bd6871c928beee40dc6c4997b2ac8d419a902",
+    "transfer_s": 21.5,
+    "outcome": "committed",
+    "switched": true,
+    "boot_selftest": true,
+    "before": {
+      "ota": "status",
+      "running": "ota_0",
+      "state": "valid",
+      "next_update": "ota_1",
+      "slot_bytes": 983040,
+      "rollback": true,
+      "app_version": "rvf-v0.3.4-320-g19376a63-dirty",
+      "idf": "v5.4.4",
+      "app_elf_sha256": "f6cabb61b5815bb59d4230dcc8b90621be7ed7b78e2b1d9ffc583311d5d8904e"
+    },
+    "after": {
+      "ota": "status",
+      "running": "ota_1",
+      "state": "valid",
+      "next_update": "ota_0",
+      "slot_bytes": 983040,
+      "rollback": true,
+      "app_version": "rvf-v0.3.4-320-g19376a63-dirty",
+      "idf": "v5.4.4",
+      "app_elf_sha256": "2e9819cb52f11f8a520ebe139231d40e2f70d300a351bf2179592e4cbb1b3d46"
+    }
+  },
+  "rollback_update": {
+    "bytes": 180704,
+    "sha256": "1d45d06b7ad96194f0afccb26c45d615b547a76336ece5f70c93d1b212639597",
+    "transfer_s": 21.8,
+    "outcome": "rollback",
+    "switched": false,
+    "boot_selftest": false,
+    "before": {
+      "ota": "status",
+      "running": "ota_1",
+      "state": "valid",
+      "next_update": "ota_0",
+      "slot_bytes": 983040,
+      "rollback": true,
+      "app_version": "rvf-v0.3.4-320-g19376a63-dirty",
+      "idf": "v5.4.4",
+      "app_elf_sha256": "2e9819cb52f11f8a520ebe139231d40e2f70d300a351bf2179592e4cbb1b3d46"
+    },
+    "after": {
+      "ota": "status",
+      "running": "ota_1",
+      "state": "valid",
+      "next_update": "ota_0",
+      "slot_bytes": 983040,
+      "rollback": true,
+      "app_version": "rvf-v0.3.4-320-g19376a63-dirty",
+      "idf": "v5.4.4",
+      "app_elf_sha256": "2e9819cb52f11f8a520ebe139231d40e2f70d300a351bf2179592e4cbb1b3d46"
+    }
+  },
+  "rejections": {
+    "bad_digest": {
+      "error": "ota_digest",
+      "sha256": "2bec1975228f4cbcdd5f7153797bd6871c928beee40dc6c4997b2ac8d419a902",
+      "accepted": false
+    },
+    "wrong_chip_c3": {
+      "error": "ota_verify",
+      "esp_err": "ESP_ERR_OTA_VALIDATE_FAILED",
+      "accepted": false
+    },
+    "interrupted": {
+      "error": "ota_timeout",
+      "esp_err": "ESP_ERR_TIMEOUT",
+      "accepted": false
+    },
+    "too_large": {
+      "error": "ota_too_large",
+      "esp_err": "ESP_ERR_INVALID_SIZE",
+      "accepted": false
+    },
+    "bad_args": {
+      "error": "ota_args",
+      "esp_err": "ESP_ERR_INVALID_ARG",
+      "accepted": false
+    },
+    "zero": {
+      "error": "ota_args",
+      "esp_err": "ESP_ERR_INVALID_ARG",
+      "accepted": false
+    },
+    "after_all_selftest": {
+      "selftest_pass": true,
+      "vectors": 8
+    },
+    "slot_unchanged": [
+      "ota_1",
+      "ota_1",
+      "valid"
+    ]
+  },
+  "production_memory": {
+    "full_free_heap": 440308,
+    "production_free_heap": 456692,
+    "difference_bytes": 16384,
+    "bench_mean_us": {
+      "full": 174.507,
+      "production": 174.455
+    }
+  },
+  "limits": "One physical chip family (C6). Other targets are cross-compiled only. Serial OTA; no network OTA or image signing."
+}

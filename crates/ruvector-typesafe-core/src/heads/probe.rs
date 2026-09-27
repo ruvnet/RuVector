@@ -35,6 +35,9 @@ pub(crate) struct MultiProbe {
 }
 
 impl MultiProbe {
+    pub(crate) fn parameters(&self) -> (&[Vec<f32>], &[f32]) {
+        (&self.weights, &self.bias)
+    }
     /// Train on `(embedding, class_index)` pairs over `k` classes. `dims` is
     /// the embedding width.
     pub fn train(examples: &[(Vec<f32>, usize)], k: usize, dims: usize, cfg: &ProbeConfig) -> Self {

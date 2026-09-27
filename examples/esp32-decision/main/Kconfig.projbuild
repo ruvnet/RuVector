@@ -1,0 +1,25 @@
+menu "RuVector benchmark"
+config RD_PROFILE_SAMPLES
+    int "Maximum percentile samples (0 removes profiling storage)"
+    range 0 2048
+    default 2048
+    help
+        Uses 8 bytes per sample. Set 0 for production builds to recover
+        16384 bytes of static RAM. Inference, selftest, bench and energy
+        remain available. Paired benchmark builds must use equal capacities.
+config RD_BENCH_GPIO
+    int "Optional energy marker GPIO (-1 disables it)"
+    range -1 48
+    default -1
+    help
+        Select a free output GPIO for an external power analyzer. The marker
+        brackets only the energy command's inference batch. Validate pin
+        availability for the connected board before enabling this option.
+config RD_OTA
+    bool "Serial OTA updates with A/B slots"
+    default y
+    help
+        Adds the "ota status" and "ota begin" commands on the same UART.
+        Requires the two-slot partitions.csv. With bootloader rollback enabled,
+        a new image is kept only after its model self-test passes.
+endmenu

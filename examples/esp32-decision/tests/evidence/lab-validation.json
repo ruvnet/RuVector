@@ -1,0 +1,45 @@
+{
+  "date": "2026-09-26",
+  "software_acceptance": "pass",
+  "rust_tests_passed": 57,
+  "python_tests_passed": 18,
+  "python_test_breakdown": {
+    "exporter": 5,
+    "sensor_rig_energy": 13
+  },
+  "kernel_sanitizers": {
+    "address": "pass",
+    "undefined_behavior": "pass",
+    "leak": "disabled because the environment is under ptrace",
+    "rounding_boundary_checks": 196602
+  },
+  "exact_differential_cases_per_profile": 84480,
+  "profiles": [
+    "native",
+    "esp32s3",
+    "esp32c6"
+  ],
+  "cross_built_images": 6,
+  "native_pairs": 11,
+  "s3_emulator_pairs": 1,
+  "s3_replay_rows_per_image": 1000,
+  "paired_output_equality": true,
+  "warmed_heap_stable": true,
+  "cargo_fmt": "pass",
+  "cargo_clippy": "pass",
+  "physical_ports_found": 0,
+  "physical_hardware_acceptance": "not performed",
+  "physical_latency": "not measured",
+  "physical_energy": "not measured",
+  "capture_driver": "unconfigured",
+  "quantized_calibration_validated": false,
+  "dataset_test_rows": 12417,
+  "test_data_used_for_selection": false,
+  "acceptance_limits": [
+    "One office dataset only",
+    "Quantized confidence not validated for deployment",
+    "Useful coverage not established",
+    "Physical S3 and C6 trials required before retaining an optimization"
+  ],
+  "logs_are_local_only": true
+}

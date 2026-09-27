@@ -1,0 +1,99 @@
+{
+  "execution": "physical",
+  "board": "ESP32-C6 COM16 (CP210x)",
+  "image_sha256": "94d56cf5cefbef31fa52683f992c9135675b677c609c4f7088644449fd48a813",
+  "baud_115200": {
+    "roundtrip_us_p50": 28713.05,
+    "roundtrip_us_p99": 29073.1,
+    "inference_us_mean": 76.73
+  },
+  "baud_921600": {
+    "roundtrip_us_p50": 5605.45,
+    "roundtrip_us_p99": 6018.6,
+    "inference_us_mean": 76.761,
+    "heap_after": 440688
+  },
+  "identical_replies": 1000,
+  "rejects": {
+    "baud 9600": {
+      "error": "baud_rate",
+      "accepted": false
+    },
+    "baud 2000000": {
+      "error": "baud_rate",
+      "accepted": false
+    },
+    "baud -115200": {
+      "error": "baud_rate",
+      "accepted": false
+    },
+    "baud abc": {
+      "error": "baud_rate",
+      "accepted": false
+    },
+    "baud ok": {
+      "error": "baud_not_pending",
+      "accepted": false
+    }
+  },
+  "unconfirmed": {
+    "switch_reply": {
+      "baud": 921600,
+      "confirm": "baud ok",
+      "within_ms": 2000
+    },
+    "revert_notice": {
+      "baud": 115200,
+      "reverted": true
+    },
+    "seconds": 2.04,
+    "meta_after_revert_selftest": true
+  },
+  "tail_latency_1000_each": {
+    "921600_selftest": {
+      "p50_ms": 3.38,
+      "over10ms": 0,
+      "max_ms": 4.0
+    },
+    "460800_sensorx": {
+      "p50_ms": 9.33,
+      "over10ms": 2,
+      "max_ms": 10.2
+    },
+    "921600_sensorx": {
+      "p50_ms": 5.59,
+      "over10ms": 0,
+      "max_ms": 6.3
+    },
+    "before_host_fix": {
+      "921600_sensorx": {
+        "over10ms": 11,
+        "max_ms": 52.6
+      },
+      "460800_sensorx": {
+        "over10ms": 46,
+        "max_ms": 55.5
+      },
+      "cause": "pyserial serialwin32.flush() sleeps 50 ms while out_waiting>0"
+    }
+  },
+  "ota_default_image": {
+    "115200": {
+      "commit_s": 18.0,
+      "rollback_s": 17.7
+    },
+    "921600": {
+      "commit_s": 3.7,
+      "rollback_s": 3.5
+    },
+    "outcomes": "committed and rolled back as expected at both rates"
+  },
+  "heap_921600_per_400_inferx": [
+    439968,
+    439968,
+    439968,
+    439968,
+    439968
+  ],
+  "uart_static_diram_bytes": 76911
+}

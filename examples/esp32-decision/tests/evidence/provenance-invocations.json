@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "campaign": "esp32-overnight-20260926",
+  "run": "esp32-slot00-20260926T0402Z",
+  "commands": {
+    "focused": "cd examples/esp32-decision && python3 -m unittest tests.test_energy_provenance tests.test_finite_benchmark -v",
+    "integrated": "cd examples/esp32-decision && ASAN_OPTIONS=detect_leaks=0 python3 tools/lab.py",
+    "metaharness": "cd examples/esp32-decision && node tools/provenance_gate.mjs . /path/to/metaharness@d5833dc tests/evidence/provenance-metaharness-gate.json",
+    "autogenous_adapter": "cargo run --locked --offline --manifest-path /tmp/autogenous-adapter/Cargo.toml -- tests/evidence/provenance-autogenous-mutation.json UNIX_SECONDS tests/evidence/provenance-autogenous-authority.json",
+    "autogenous_upstream": "cargo test --locked --manifest-path /path/to/autogenous@905aa6c/crates/agl-types/Cargo.toml"
+  },
+  "actual_tools": {"python": "3.12", "node": "24.19.0", "rustc": "1.85.1", "cargo": "1.85.1", "cmake": "3.28.3"},
+  "actual_results": {"focused_methods": 15, "focused_failures": 0, "rust_tests": 57, "python_tests": 42, "exact_native_pairs": 11, "autogenous_upstream_tests": 10, "metaharness_negative_gates": 3, "autogenous_admission_negative_gates": 6},
+  "source_commits": {"metaharness": "d5833dc6512ac1adeeef91a331c29055cd8a4dbb", "autogenous": "905aa6cbe213392f8b3cab5d4f17bc3a48e0a509"},
+  "sha256": {
+    "tools/energy_compare.py": "f7ae80bf9afaa603baaff21d771ead8e426762a130896b3963be6aa420d1176d",
+    "tests/test_energy_provenance.py": "3b6bb51b5f28ad18b690be943ab5fcf5334f42cf4346c698647cb8d9032e45d3",
+    "tools/provenance_gate.mjs": "1bf39f2eae333c36c18e787b26a2b02b6326e70971d0b025155f060e45e6be49",
+    "tests/evidence/provenance-experiment.json": "579643a10aaae93121d663de328627d5d1158278c3a86542790e04d6cbac4456",
+    "tests/evidence/provenance-validation.json": "de58576a0f085b865f1368b994ea256405ce610183c33d3f6d6ec653b51f621b",
+    "tests/evidence/provenance-metaharness-gate.json": "867a62fe67c8ac0dd8839eabf5cc6212fab75e96f2bbf6790154688406e9b0b2",
+    "tests/evidence/provenance-autogenous-mutation.json": "c4a63f377f084c7889e8bf5b53eb03f8f33a481ee5b0999801e857d0a040d0d3",
+    "tests/evidence/provenance-autogenous-authority.json": "dd70fe7c4042849d0868be7568d3b5e0f15ab415d9cf0ed1ac11c0075616d6f5"
+  },
+  "environment_notes": ["Workspace maintenance removed the prior toolchain. Rust 1.85.1 and CMake 3.28.3 were restored outside the repository before validation.", "The first lab attempt failed before tests because Cargo was absent; a second attempt with Rust 1.75 failed before tests on the locked dependency MSRV. Neither failure was a candidate code failure.", "LeakSanitizer was disabled for the ptrace runtime; address and undefined behavior checks remained active."],
+  "rsi": "No repeated lookup this run. The campaign's earlier exact ruvnet/rsi check returned 404; no standalone invocation is claimed."
+}

@@ -1,0 +1,43 @@
+{
+  "execution": "physical",
+  "board": "ESP32-C6 COM16",
+  "model_id": "uci-occupancy-standardize-f32-v1",
+  "model_sha256": "2ee5358efb5ade96d6892b71ab1ffac4d0794704dfc5b6877fc3dd77fc0d69e4",
+  "kernel_sha256": "b9d41b7589740df3cd442ac1bf02ba0c52f98bda4aca58f979316e353bdd4d40",
+  "rows": 1000,
+  "identical_replies": 1000,
+  "free_heap_after": 440400,
+  "meta_free_heap": 441124,
+  "text": {
+    "parse_us_mean": 110.326,
+    "parse_us_max": 575,
+    "preprocess_us_mean": 10.538,
+    "inference_us_mean": 76.749,
+    "roundtrip_us_p50": 80212.7,
+    "roundtrip_us_p99": 80777.3,
+    "reference_parity": {
+      "vectors": 1000,
+      "decision_agreement": 1.0,
+      "max_probability_error": 0.01118987808984373,
+      "acceptance_agreement": 0.999,
+      "accepted": 937,
+      "source_accepted": 938
+    }
+  },
+  "hex": {
+    "parse_us_mean": 8.036,
+    "parse_us_max": 24,
+    "preprocess_us_mean": 10.001,
+    "inference_us_mean": 76.936,
+    "roundtrip_us_p50": 69733.75,
+    "roundtrip_us_p99": 70359.0,
+    "reference_parity": {
+      "vectors": 1000,
+      "decision_agreement": 1.0,
+      "max_probability_error": 0.01118987808984373,
+      "acceptance_agreement": 0.999,
+      "accepted": 937,
+      "source_accepted": 938
+    }
+  }
+}

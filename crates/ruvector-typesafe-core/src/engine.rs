@@ -21,6 +21,7 @@ use crate::{
     Usage,
 };
 
+pub mod embedded;
 pub mod fit;
 pub mod optimize;
 pub mod options;

@@ -12,8 +12,8 @@ sona = ["ruvector-sona"]
 hnsw = []
 
 [dependencies]
-rvagent-core = { path = "../rvagent-core" }
-rvagent-backends = { path = "../rvagent-backends" }
+rvagent-core = { version = "0.1.0", path = "../rvagent-core" }
+rvagent-backends = { version = "0.1.0", path = "../rvagent-backends" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = "0.9"
@@ -31,7 +31,7 @@ sha3 = "0.10"
 crossbeam = "0.8"
 
 # Optional SONA integration (ADR-103 B5)
-ruvector-sona = { path = "../../sona", optional = true, features = ["serde-support"] }
+ruvector-sona = { version = "0.2.1", path = "../../sona", optional = true, features = ["serde-support"] }
 
 [dev-dependencies]
 criterion = { workspace = true }

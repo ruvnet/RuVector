@@ -29,6 +29,9 @@ pub(crate) struct BinaryLogistic {
 }
 
 impl BinaryLogistic {
+    pub(crate) fn parameters(&self) -> (&[f32], f32) {
+        (&self.weights, self.bias)
+    }
     /// Train on `(embedding, label)` with `label` in `{0.0, 1.0}`. The loss is
     /// class-balanced: each class contributes equally regardless of its count,
     /// so a skewed predicate does not collapse to the majority.

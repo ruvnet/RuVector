@@ -1,0 +1,167 @@
+{
+  "schema_version": 1,
+  "accepted_for": "PR review only",
+  "promote": true,
+  "reasons": [
+    "MetaHarness promotion passed",
+    "record passed",
+    "schema passed",
+    "parent passed",
+    "evaluator_hash passed",
+    "tool_hashes passed",
+    "candidate_source passed",
+    "gate_source passed",
+    "native_report passed",
+    "sensor_report passed",
+    "baseline_total passed",
+    "baseline_misassociated passed",
+    "candidate_total passed",
+    "candidate_misassociated passed",
+    "sequential_regressions passed",
+    "framing_regression passed",
+    "lab passed"
+  ],
+  "decision": {
+    "promote": true,
+    "reasons": [
+      "mean score win: child 1.000000 > parent 0.000000 + 0",
+      "statistically real: lower95 1 > 0",
+      "verified-solve rate held: child 1.000000 >= parent 1.000000",
+      "zero child safety violations",
+      "regression rate not worse: child 0.000000 <= parent 0.000000",
+      "clean replay reproduced the result"
+    ],
+    "meanDelta": 1,
+    "lower95": 1,
+    "childMeanScore": 1,
+    "parentMeanScore": 0,
+    "childVerifiedSolveRate": 1,
+    "parentVerifiedSolveRate": 1,
+    "childRegressionRate": 0,
+    "parentRegressionRate": 0,
+    "childSafetyViolations": 0,
+    "cleanReplay": true,
+    "pValue": 0
+  },
+  "hard_vetoes": [
+    {
+      "name": "record",
+      "pass": true,
+      "reason": "evidence must be a JSON object"
+    },
+    {
+      "name": "schema",
+      "pass": true,
+      "reason": "schema_version must equal 1"
+    },
+    {
+      "name": "parent",
+      "pass": true,
+      "reason": "parent_sha must equal the frozen parent"
+    },
+    {
+      "name": "evaluator_hash",
+      "pass": true,
+      "reason": "evaluator hash must equal the frozen digest and current evaluator file"
+    },
+    {
+      "name": "tool_hashes",
+      "pass": true,
+      "reason": "tool_sha256 must contain exactly the frozen named digests"
+    },
+    {
+      "name": "candidate_source",
+      "pass": true,
+      "reason": "candidate transport must match its frozen source digest"
+    },
+    {
+      "name": "gate_source",
+      "pass": true,
+      "reason": "concurrency gate must match its recorded source digest"
+    },
+    {
+      "name": "native_report",
+      "pass": true,
+      "reason": "native pair report must match its frozen digest"
+    },
+    {
+      "name": "sensor_report",
+      "pass": true,
+      "reason": "sensor report must match its frozen digest"
+    },
+    {
+      "name": "baseline_total",
+      "pass": true,
+      "reason": "baseline.pairs_total must equal 8"
+    },
+    {
+      "name": "baseline_misassociated",
+      "pass": true,
+      "reason": "baseline.misassociated must equal 8"
+    },
+    {
+      "name": "candidate_total",
+      "pass": true,
+      "reason": "candidate.pairs_total must equal 8"
+    },
+    {
+      "name": "candidate_misassociated",
+      "pass": true,
+      "reason": "candidate.misassociated must equal 0"
+    },
+    {
+      "name": "sequential_regressions",
+      "pass": true,
+      "reason": "sequential_regressions must contain exactly the four frozen named passing checks"
+    },
+    {
+      "name": "framing_regression",
+      "pass": true,
+      "reason": "framing_regression must pass exactly four cases"
+    },
+    {
+      "name": "lab",
+      "pass": true,
+      "reason": "lab must bind the exact 57 Rust, 53 Python and 11-pair software result with no target or physical run"
+    }
+  ],
+  "policy": {
+    "schemaVersion": 1,
+    "pairsTotal": 8,
+    "baselineMisassociated": 8,
+    "candidateMisassociated": 0,
+    "baselineScore": 0,
+    "candidateScore": 1,
+    "minDelta": 0,
+    "seed": 20260926
+  },
+  "metaharness_commit": "d5833dc6512ac1adeeef91a331c29055cd8a4dbb",
+  "metaharness_source_sha256": {
+    "promotion": "828be79b48e94dd3bf9f0d51d5dbb60d53663d54bf40baae6991c522ba2b81af",
+    "stats": "4b23c82cf811e0546e37a45efa92505b6f8cf79260eb0d1e9df0267f4fea9bf2"
+  },
+  "evidence_sha256": "21a686db4fb8c547118e77b19a8ebc5a72e45cfc979fb4d7c02268eca0015415",
+  "parent_sha": "47b042815052be2263498d0ca9ae2ae1f31cd7e1",
+  "evaluator_sha256": "3496a962085d6183b4823dd7642f14054af1e7eb81d4b6091ad10d22c3fb07f5",
+  "tool_sha256": {
+    "parent_transport": "dc9ce59bba35793427b2dba3b7e7bf58334742a2a8ed579bdc272f7d8713eb5f",
+    "candidate_transport": "21465fc62d47e0a84c0fe3a3e048d8896c497cc04955c393c21a2d62e3e8c4a2",
+    "concurrency_gate": "72060562a92f38b9389f8cfee4a1792639ab1fcaf3729ec5f8190375c2ddcb12",
+    "metaharness_promotion": "828be79b48e94dd3bf9f0d51d5dbb60d53663d54bf40baae6991c522ba2b81af",
+    "metaharness_stats": "4b23c82cf811e0546e37a45efa92505b6f8cf79260eb0d1e9df0267f4fea9bf2",
+    "native_pair_report": "d5abfeb89908cb0e2d7cc03c3568c4246645fbfa4abd667c568344def8652fd6",
+    "sensor_report": "176192d88ad2a753ac795c61f522f3ebacf2c9f40a492194b1a5731a97ad4812"
+  },
+  "hidden_labels_used": false,
+  "mappings": {
+    "finalScore": "Observed fraction of eight deterministic request/reply pairs correctly associated: baseline 0, candidate 1.",
+    "solved": "The deterministic evaluator ran for the corresponding visible pair; association quality is represented by finalScore.",
+    "regressionPassed": "Every named sequential regression, the framing regression, and the recorded software lab passed.",
+    "cleanReplay": "Every named sequential regression, the framing regression, and the recorded software lab passed."
+  },
+  "limitations": [
+    "Recorded software evidence only; no physical-hardware, timing, or energy claim.",
+    "No hidden or unseen evaluation; hiddenTestPassed=false for every MetaHarness result.",
+    "The eight deterministic request/reply cases are not independent statistical physical trials."
+  ]
+}

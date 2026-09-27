@@ -9,7 +9,7 @@ repository.workspace = true
 description = "WASM bindings for temporal tensor compression"
 
 [dependencies]
-ruvector-temporal-tensor = { path = "../ruvector-temporal-tensor", features = ["ffi"] }
+ruvector-temporal-tensor = { version = "2.3.0", path = "../ruvector-temporal-tensor", features = ["ffi"] }
 
 [lib]
 crate-type = ["cdylib"]

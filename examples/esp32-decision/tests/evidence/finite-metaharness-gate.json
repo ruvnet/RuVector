@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "parent_sha": "6fdb5f12ac7fe16752eeb60405e52567081706db",
+  "candidate_sha256": "222e79c4f23d7b0742ca3ac12ea9ebed1025a99b42e477d054b6b307aabd49a1",
+  "independent_receipt_sha256": "3bc1e9d2c6032a3a8f914796adbb39b59561e764290559e0fdb1ec527668b4c3",
+  "frozen_evaluator_sha256": "cc5c17ecb2c9513167bb1a040c0e3854c063d5842578511d3c0985ecd70e498a",
+  "experiment_sha256": "8bb61837efbb4f5b0143627908c20e535881f9e7e0fa995ad3c1d96bad5e507c",
+  "lab_sha256": "ac5a9c30aa93c75b1c598e425973900ca19e76d44aa5e9657457ab5eabe7eaee",
+  "lab_pass": true,
+  "metaharness_commit": "d5833dc6512ac1adeeef91a331c29055cd8a4dbb",
+  "source_sha256": {
+    "promotion": "828be79b48e94dd3bf9f0d51d5dbb60d53663d54bf40baae6991c522ba2b81af",
+    "stats": "4b23c82cf811e0546e37a45efa92505b6f8cf79260eb0d1e9df0267f4fea9bf2"
+  },
+  "seed": 719,
+  "decision": {
+    "promote": true,
+    "reasons": [
+      "mean score win: child 1.000000 > parent 0.000000 + 0.05",
+      "statistically real: lower95 1 > 0",
+      "verified-solve rate held: child 1.000000 >= parent 0.000000",
+      "zero child safety violations",
+      "regression rate not worse: child 0.000000 <= parent 0.000000",
+      "clean replay reproduced the result"
+    ],
+    "meanDelta": 1,
+    "lower95": 1,
+    "childMeanScore": 1,
+    "parentMeanScore": 0,
+    "childVerifiedSolveRate": 1,
+    "parentVerifiedSolveRate": 0,
+    "childRegressionRate": 0,
+    "parentRegressionRate": 0,
+    "childSafetyViolations": 0,
+    "cleanReplay": true,
+    "pValue": 0
+  },
+  "fixtures": 7,
+  "parent_rejected": 0,
+  "candidate_rejected": 7,
+  "negative_gates": {
+    "failed_replay_veto": true,
+    "regression_veto": true
+  },
+  "accepted_for": "PR review only",
+  "deployment_promoted": false,
+  "mappings": {
+    "finalScore": "Observed malformed fixture rejection: 1 rejected, 0 not rejected.",
+    "solved": "Correct fixture rejection only.",
+    "cleanReplay": "Independent finite legacy result equality.",
+    "regressionPassed": "Independent lab pass and finite legacy equality.",
+    "safetyViolations": "No observed violation of declared narrow fixture invariants; not deployment safety."
+  },
+  "limitations": [
+    "Public deterministic fixtures, not unseen generalization evidence.",
+    "MetaHarness bootstrap over fixture scores is not a timing confidence interval or broader statistical safety claim.",
+    "No physical hardware, speed, energy, model or quantization improvement measured.",
+    "Independent receipt claims must be checked against evaluator source and raw outputs by coordinator."
+  ]
+}

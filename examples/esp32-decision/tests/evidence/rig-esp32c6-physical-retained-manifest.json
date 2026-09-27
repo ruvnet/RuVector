@@ -1,0 +1,34 @@
+{
+ "schema": 1,
+ "baseline_commit": "739a5621043f9b0f0ffc263c46d1d2f7aeb9495f",
+ "model_sha256": "2ee5358efb5ade96d6892b71ab1ffac4d0794704dfc5b6877fc3dd77fc0d69e4",
+ "model_header_sha256": "3a518c3eff10762063ba57ebd6759a3ef1e0378cf53d012f8c37daab0507b8dc",
+ "model_dir": "/w/examples/esp32-decision/build-lab2/frozen-model",
+ "kernel_flags": "-O3 -fno-fast-math -ffp-contract=off",
+ "variants": {
+  "baseline": {
+   "kernel_sha256": "95d5d9996d345316f4b0f7dca060c23abe4c4de4bda3cb42e8259a68094750eb",
+   "images": {
+    "esp32c6": {
+     "file": "esp32c6-baseline/merged-binary.bin",
+     "sha256": "4ae62d8821ed4a9c886ec5574291a363c8ef1e3b2db5d6b7bd52e6572b146284",
+     "bytes": 247680
+    }
+   },
+   "host_binary": "/w/examples/esp32-decision/build-lab2/host-baseline",
+   "host_sha256": "55a20f52a15e95cbff1c83930e4a0b78378060577cb1a8785ddf40097e5c92d8"
+  },
+  "candidate": {
+   "kernel_sha256": "d8e595d031d03485be319d3731615b57232f6f8ac60b9356cc9d74a9c9831137",
+   "images": {
+    "esp32c6": {
+     "file": "esp32c6-candidate/merged-binary.bin",
+     "sha256": "f856cb3d4764be98ef4f1b3731cfbf0ab394514d0854e1c99ff9d01665ba7110",
+     "bytes": 248640
+    }
+   },
+   "host_binary": "/w/examples/esp32-decision/build-lab2/host-candidate",
+   "host_sha256": "b5c2cd252737877a159da6e909261b81b4874c068a14e3bce8d518d45b8907ce"
+  }
+ }
+}

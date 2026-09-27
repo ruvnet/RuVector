@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "baseline_commit": "739a5621043f9b0f0ffc263c46d1d2f7aeb9495f",
+  "model_sha256": "2ee5358efb5ade96d6892b71ab1ffac4d0794704dfc5b6877fc3dd77fc0d69e4",
+  "model_header_sha256": "3bbf23c984f692ef0b2d3d70b0986760c78ffc5177b5d6b69c9a24e066b77a11",
+  "model_dir": "/workspace/scratch/f324a824e528/ruvector/examples/esp32-decision/build-rig-sensor/frozen-model",
+  "kernel_flags": "-O3 -fno-fast-math -ffp-contract=off",
+  "variants": {
+    "baseline": {
+      "kernel_sha256": "95d5d9996d345316f4b0f7dca060c23abe4c4de4bda3cb42e8259a68094750eb",
+      "images": {
+        "esp32s3": {
+          "file": "/workspace/scratch/f324a824e528/ruvector/examples/esp32-decision/build-rig-sensor/esp32s3-baseline/merged-binary.bin",
+          "sha256": "7cfe3719abf26acae51725fb555ea642b3a84443642c4e2453507bd54ec9faf4",
+          "bytes": 253232
+        },
+        "esp32c6": {
+          "file": "/workspace/scratch/f324a824e528/ruvector/examples/esp32-decision/build-rig-sensor/esp32c6-baseline/merged-binary.bin",
+          "sha256": "e72f44640aaabbb82e77059d518b4feb301933ea65069a0de650fe986dfd5e17",
+          "bytes": 222784
+        }
+      },
+      "host_binary": "/workspace/scratch/f324a824e528/ruvector/examples/esp32-decision/build-rig-sensor/host-baseline",
+      "host_sha256": "8c1910da2c3ae93a279beb7c2924be0c2ca1893607261dbe64442ec700f9e10b"
+    },
+    "candidate": {
+      "kernel_sha256": "b9d41b7589740df3cd442ac1bf02ba0c52f98bda4aca58f979316e353bdd4d40",
+      "images": {
+        "esp32s3": {
+          "file": "/workspace/scratch/f324a824e528/ruvector/examples/esp32-decision/build-rig-sensor/esp32s3-candidate/merged-binary.bin",
+          "sha256": "960ea39ea9626dbb6e43490de1b8c3a0076a00909ccae3f13e6f77d1fd3000f0",
+          "bytes": 253392
+        },
+        "esp32c6": {
+          "file": "/workspace/scratch/f324a824e528/ruvector/examples/esp32-decision/build-rig-sensor/esp32c6-candidate/merged-binary.bin",
+          "sha256": "9308eaa3e2198d7643534608e7f75da9cc72bac8b3504a6d38afc84ebac633df",
+          "bytes": 222864
+        }
+      },
+      "host_binary": "/workspace/scratch/f324a824e528/ruvector/examples/esp32-decision/build-rig-sensor/host-candidate",
+      "host_sha256": "a69a56cf7df6abf3560780261c1d1a429d7a9a510d586a524d30e42396e0f0d4"
+    }
+  }
+}

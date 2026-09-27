@@ -1,0 +1,35 @@
+{
+  "campaign": "esp32-overnight-20260926",
+  "run": "esp32-slot23-20260926T0301Z",
+  "parent": "6fdb5f12ac7fe16752eeb60405e52567081706db",
+  "accepted": true,
+  "firmware_or_model_changed": false,
+  "physical_hardware": false,
+  "rust_tests": 57,
+  "python_tests": 36,
+  "new_test_methods": 9,
+  "parent_failing_subtests": 23,
+  "candidate_failing_subtests": 0,
+  "invalid_fixture_false_accepts": {
+    "parent": 5,
+    "candidate": 0
+  },
+  "malformed_rejections": {
+    "parent": 0,
+    "candidate": 7,
+    "cases": 7
+  },
+  "finite_exact_parity_cases": 96,
+  "native_exact_pairs": 11,
+  "sanitizers": "address and undefined behavior; leak sanitizer disabled under ptrace",
+  "target_builds": "not repeated; target source and flags unchanged",
+  "physical_performance": "not measured",
+  "coverage_candidate_retained": false,
+  "evaluator_frozen_before_candidate": true,
+  "evaluator_sha256": "cc5c17ecb2c9513167bb1a040c0e3854c063d5842578511d3c0985ecd70e498a",
+  "candidate_rig_sha256": "222e79c4f23d7b0742ca3ac12ea9ebed1025a99b42e477d054b6b307aabd49a1",
+  "lab_sha256": "ac5a9c30aa93c75b1c598e425973900ca19e76d44aa5e9657457ab5eabe7eaee",
+  "acceptance_command": "python3 tools/lab.py",
+  "rollback": "6fdb5f12ac7fe16752eeb60405e52567081706db",
+  "frozen_invariants_verified": true
+}

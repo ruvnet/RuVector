@@ -1,0 +1,40 @@
+{
+  "execution": "physical",
+  "board": "ESP32-C6 COM16",
+  "rows": 1000,
+  "command": "sensorx",
+  "before_loop": {
+    "image_sha256": "c48037ede6cef90068d1e3681cf331f101b384863a2b8f7ee8b4d829e0c86ec1",
+    "roundtrip_us_p50": 69988.20000000001,
+    "roundtrip_us_p99": 70602.3,
+    "roundtrip_us_mean": 69995.4205,
+    "inference_us_mean": 76.753,
+    "parse_us_mean": 8.016,
+    "free_heap_after": 440896
+  },
+  "after_loop": {
+    "image_sha256": "44f648f1512392a6987210e1178ade962ccb29c31bde3473d74596bf831c7e20",
+    "roundtrip_us_p50": 28712.45,
+    "roundtrip_us_p99": 29085.7,
+    "roundtrip_us_mean": 28696.9944,
+    "inference_us_mean": 76.794,
+    "parse_us_mean": 8.08,
+    "free_heap_after": 440800
+  },
+  "identical_replies": 1000,
+  "ota_after_change": {
+    "commit": "release production OTA image committed ota_0->ota_1, 21.5 s",
+    "rollback": "broken-selftest image rolled back, stayed ota_0 valid, 21.8 s"
+  },
+  "heap_stability": {
+    "free_heap_after_each_400_inferx": [
+      439984,
+      439984,
+      439984,
+      439984,
+      439984
+    ],
+    "selftest": true,
+    "bench_mean_us": 174.468
+  }
+}

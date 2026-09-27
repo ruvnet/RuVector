@@ -7,6 +7,7 @@
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
+use crate::text::truncate_at_char_boundary;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
@@ -265,8 +266,8 @@ impl ResendNotifier {
             id = tracking_id,
         );
         // Insert pixel before closing </div> and add unsubscribe
-        if html.ends_with("</div>") {
-            format!("{}{}{}", &html[..html.len() - 6], pixel, "</div>") + &unsub
+        if let Some(head) = html.strip_suffix("</div>") {
+            format!("{}{}{}", head, pixel, "</div>") + &unsub
         } else {
             format!("{}{}{}", html, pixel, unsub)
         }
@@ -675,11 +676,7 @@ Resend integration is working correctly.
     ) -> Result<String, String> {
         let mut rows = String::new();
         for (i, (title, content, score)) in results.iter().enumerate() {
-            let truncated = if content.len() > 200 {
-                &content[..200]
-            } else {
-                content
-            };
+            let truncated = truncate_at_char_boundary(content, 200);
             rows.push_str(&format!(
                 r#"<tr style="border-bottom:1px solid #222;">
 <td style="padding:8px 0;vertical-align:top;">

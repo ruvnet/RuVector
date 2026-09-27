@@ -6,7 +6,7 @@ description = "WASM bindings for ruvector-nervous-system bio-inspired AI compone
 license = "MIT"
 repository = "https://github.com/ruvnet/ruvector"
 documentation = "https://ruv.io/ruvector"
-keywords = ["wasm", "neural", "hdс", "btsp", "neuromorphic"]
+keywords = ["wasm", "neural", "hdc", "btsp", "neuromorphic"]
 categories = ["wasm", "science", "algorithms"]
 
 [lib]

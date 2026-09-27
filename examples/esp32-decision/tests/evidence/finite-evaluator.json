@@ -1,0 +1,79 @@
+{
+  "parent_sha": "6fdb5f12ac7fe16752eeb60405e52567081706db",
+  "evaluator_sha256": "cc5c17ecb2c9513167bb1a040c0e3854c063d5842578511d3c0985ecd70e498a",
+  "parent_test_methods": 9,
+  "parent_failing_subtests": 23,
+  "finite_legacy_equal": true,
+  "lab_pass": true,
+  "malformed": [
+    {
+      "name": "infinite_baseline",
+      "parent_rejected": false,
+      "parent_false_accept": true,
+      "candidate_rejected": true,
+      "candidate_false_accept": false,
+      "candidate_exception": "ValueError"
+    },
+    {
+      "name": "nan_baseline",
+      "parent_rejected": false,
+      "parent_false_accept": false,
+      "candidate_rejected": true,
+      "candidate_false_accept": false,
+      "candidate_exception": "ValueError"
+    },
+    {
+      "name": "boolean_baseline",
+      "parent_rejected": false,
+      "parent_false_accept": true,
+      "candidate_rejected": true,
+      "candidate_false_accept": false,
+      "candidate_exception": "ValueError"
+    },
+    {
+      "name": "ratio_overflow",
+      "parent_rejected": false,
+      "parent_false_accept": true,
+      "candidate_rejected": true,
+      "candidate_false_accept": false,
+      "candidate_exception": "ValueError"
+    },
+    {
+      "name": "ratio_underflow",
+      "parent_rejected": false,
+      "parent_false_accept": false,
+      "candidate_rejected": true,
+      "candidate_false_accept": false,
+      "candidate_exception": "ValueError"
+    },
+    {
+      "name": "huge_integer_ratio",
+      "parent_rejected": false,
+      "parent_false_accept": true,
+      "candidate_rejected": true,
+      "candidate_false_accept": false,
+      "candidate_exception": "ValueError"
+    },
+    {
+      "name": "even_median_overflow",
+      "parent_rejected": false,
+      "parent_false_accept": true,
+      "candidate_rejected": true,
+      "candidate_false_accept": false,
+      "candidate_exception": "ValueError"
+    }
+  ],
+  "note": "Synthetic numeric fixtures and real host software acceptance only; no physical measurements.",
+  "candidate_sha256": "222e79c4f23d7b0742ca3ac12ea9ebed1025a99b42e477d054b6b307aabd49a1",
+  "candidate_test_methods": 9,
+  "candidate_failing_subtests": 0,
+  "finite_parity_cases": 96,
+  "finite_parity_seed": 84491,
+  "finite_parity_kinds": [
+    "integer",
+    "float",
+    "large_safe_integer",
+    "tiny_float"
+  ],
+  "lab_sha256": "ac5a9c30aa93c75b1c598e425973900ca19e76d44aa5e9657457ab5eabe7eaee"
+}

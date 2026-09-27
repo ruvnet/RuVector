@@ -468,6 +468,11 @@ pub struct HealthResponse {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct StatusResponse {
+    /// True while the background Firestore hydration is still running; counts
+    /// below are partial until this is false.
+    pub hydrating: bool,
+    /// Collections only partially loaded during hydration (0 = complete).
+    pub hydration_errors: usize,
     pub total_memories: usize,
     pub total_contributors: usize,
     pub graph_nodes: usize,

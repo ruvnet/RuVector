@@ -11,7 +11,7 @@ keywords = ["decompiler", "javascript", "mincut", "source-map", "reverse-enginee
 categories = ["development-tools", "algorithms"]
 
 [dependencies]
-ruvector-mincut = { path = "../ruvector-mincut", default-features = false }
+ruvector-mincut = { version = "2.3.0", path = "../ruvector-mincut", default-features = false }
 sha3 = "0.10"
 serde = { workspace = true }
 serde_json = { workspace = true }

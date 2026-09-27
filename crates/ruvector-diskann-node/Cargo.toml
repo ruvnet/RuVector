@@ -11,7 +11,7 @@ description = "NAPI-RS bindings for ruvector-diskann"
 crate-type = ["cdylib"]
 
 [dependencies]
-ruvector-diskann = { path = "../ruvector-diskann" }
+ruvector-diskann = { version = "2.3.2", path = "../ruvector-diskann" }
 napi = { workspace = true }
 napi-derive = { workspace = true }
 serde = { workspace = true }

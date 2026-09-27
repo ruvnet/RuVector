@@ -238,6 +238,246 @@ returns exact neighbours; the `@ruvector/router` 0.1.28 kNN path returns
 neighbours only from the most recently inserted region (recall 0.032) — a
 documented defect in that file, called out here rather than papered over.
 
+## ESP32 S3 and C6 firmware
+
+The [native decision firmware](../../../examples/esp32-decision) runs frozen
+`choice`, `score`, and `noul` heads on ESP32 S3 and C6 using ESP-IDF 5.4.4.
+It accepts numeric feature vectors produced by the same pipeline used during
+training. Text embedding remains on the host unless you separately implement
+and validate the identical embedder on the device. The included model is a
+synthetic numerical fixture, not a trained sensor or language model.
+
+Export a fitted Rust engine with `engine.export_embedded(question_id, &question)`
+and serialize the returned snapshot with `serde_json`. This exports real probe
+weights, prototypes, hard negatives, temperature and Platt coefficients; it is
+independent of the example bank export and RVF format.
+
+```sh
+cd examples/esp32-decision  # from the repository root
+python3 tools/e2e.py       # actual Rust core tests, export, quantize, C protocol tests
+python3 tools/quantize.py build-host/fixtures/probe.json main/model.h \
+  --vectors build-host/fixtures/probe.vectors.json --bits 16
+# Activate the ESP-IDF 5.4.4 environment first.
+idf.py -B build-esp32s3 -DIDF_TARGET=esp32s3 -DSDKCONFIG=sdkconfig.esp32s3 build
+idf.py -B build-esp32c6 -DIDF_TARGET=esp32c6 -DSDKCONFIG=sdkconfig.esp32c6 build
+idf.py -B build-esp32s3 -p /dev/ttyUSB0 flash
+python3 tools/e2e.py --port /dev/ttyUSB0 --model probe --skip-rust
+```
+
+Use the board's UART0 USB bridge at 115200 baud. The default build assumes
+4 MB flash and requires no PSRAM or network. For native USB-only boards, use
+an external UART adapter or explicitly adapt the console transport. Commands
+are newline terminated `meta`, `selftest`, `bench`, and `infer` followed by
+space separated numeric features. Replies are JSON. Sensor code can call
+`rd_init` once and `rd_predict` directly with one workspace per concurrent
+caller. No heap allocation occurs in the inference kernel. The envelope is
+768 features and 16 class options.
+
+INT16 is the default accuracy profile. INT8 is available with `--bits 8`, but
+must pass validation for the specific head: small errors can be amplified by
+sharp calibration. Fixed gates require at least 99% decision and acceptance
+agreement and at most 0.025 absolute probability error against Rust on unseen
+vectors. Quantization does not inherit a calibrated confidence claim: replies
+report `calibrated:false`, retaining `source_calibrated` in metadata.
+
+The firmware refuses inference when boot self-tests fail. The hardware runner
+checks the model digest, replay parity, heap stability and p99 below 100 ms.
+Host or emulator timing is not a physical board benchmark. Device firmware
+must be tested with the intended sensors and feature pipeline before deployment.
+
+The optimized kernel deduplicates constant rows, reuses identical negative
+similarities and computes only the required abstain softmax output. C6 uses
+exact integer activation rounding; S3 retains newlib rounding after it proved
+cheaper in instruction-count emulation. Both MCU targets pair INT16 products
+before widening the sum. Two products fit INT32 because activations are bounded
+to +/-32767; the total remains INT64. Native builds keep the vectorizable loop.
+
+The shipped INT16 parameters occupy 492 bytes, down from 556 (11.5% less).
+Inference workspace is 1,732 bytes and MCU application buffers total 2,692
+bytes, an 84-byte increase for cached negative scores and model factors.
+These counts exclude model descriptors, labels, protocol stack and ESP-IDF.
+
+Reproduce paired measurements against the pinned pre-optimization commit:
+
+```sh
+python3 tools/e2e.py --seed 20260926
+git fetch --depth=1 origin 739a5621043f9b0f0ffc263c46d1d2f7aeb9495f
+python3 tools/benchmark.py --output build-bench/results.json
+python3 tools/benchmark.py --verify-only --profile esp32s3
+python3 tools/benchmark.py --verify-only --profile esp32c6
+python3 tools/benchmark_qemu.py --qemu /path/to/qemu-system-xtensa \
+  --baseline-image /path/to/baseline-s3-merged.bin --icount
+```
+
+The native benchmark uses 11 alternating paired rounds of 2,048 calls,
+warmup, CPU affinity and 48 synthetic shapes, including absent, distinct and
+shared negatives. It also measures the exported 32- and 384-feature probes.
+`--profile` changes kernel flags only; execution still occurs on the host.
+Every profile passes 84,480 bit-for-bit comparisons against the pinned kernel.
+Separate Rust parity streams cover 12,000 INT16 decisions, all matching both
+decisions and acceptance with worst absolute probability error below 0.001.
+
+In S3 QEMU, the shipped fixture improves from 7.880 to 6.621 virtual microseconds
+per call with `-icount shift=0,sleep=off`, about 16% less instruction-clock time.
+This clock assigns one virtual nanosecond per emulated instruction; it does
+not model silicon cycles, caches or power. Realtime QEMU results are also saved
+and fluctuate with host scheduling. An early integer-rounding S3 variant used
+6% more virtual time and was rejected. Full samples, hashes and method details
+are under `examples/esp32-decision/tests/evidence/benchmark-*.json`.
+No physical S3 or C6 performance measurement has been made.
+
+The [sensor benchmark ADR](docs/adr/ADR-007-esp32-measured-sensor-decisions.md)
+defines a separate lab for real measurements and physical acceptance. Run its
+complete software gate from `examples/esp32-decision`:
+
+```sh
+python3 tools/lab.py
+```
+
+This downloads the SHA256-pinned UCI Occupancy Detection dataset, trains the
+actual Rust engine, tests INT8 and INT16, checks sensor preprocessing and
+profiling, and runs 11 paired native trials. It requires Python 3.10+, Rust,
+GCC and Git. The dataset is Luis Candanedo (2016), DOI
+[10.24432/C5X01N](https://doi.org/10.24432/C5X01N), licensed CC BY 4.0.
+No raw dataset is committed. Training uses 7,569 rows, validation uses the last
+574 training readings as a separate day, and test uses the supplied separate
+12,417 readings. Dates and row IDs are excluded from model features.
+
+The validation-selected INT8 model uses 44 decision-parameter bytes plus 40
+bytes of preprocessing coefficients. It scores 98.06% test accuracy versus
+98.24% for the 64-byte INT16 head. Quantization parity is 99.80% for decisions
+and 99.81% for acceptance, with maximum probability error 0.01652. Both pass
+the fixed numerical gates. These are measurements within one office, with no
+claim of transfer to other buildings or devices. Confidence acceptance covers
+only 51.98% of test readings and 1.57% of validation readings. The model is a
+benchmark demonstration and is explicitly marked unsuitable for automatic
+deployment pending useful coverage, calibration and physical validation.
+
+`build-sensor/selected/model.h` contains the frozen selected model. Input order
+for `sensor` is Celsius, relative humidity percent, lux, CO2 ppm, humidity ratio
+kg/kg. For example: `sensor 23.18 27.272 426 721.25 0.004792988`.
+The standardizer is fitted on training only and is part of the model digest.
+`infer` still accepts already standardized features. Replies expose `parse_us`,
+`preprocess_us`, `inference_us` and `capture_us` (null for external readings).
+
+To attach an actual driver, implement strong `rd_sensor_read(float*, size_t)`
+and `rd_sensor_name()` functions in a board source file, add it to the main
+component, and fill every requested value in the same units/order. The `sample`
+command times capture, preprocessing and inference. The default driver returns
+`capture_unavailable`; the test driver is explicitly labeled `test_fixture_only`.
+No sensor acquisition time has been measured on physical hardware.
+
+`profile N` supports 1 to 2,048 calls over eight golden inputs, reporting
+median, p95, p99, maximum, mean cycles, timer overhead, CPU/core and heap.
+Profiling adds 16,384 bytes of static sample storage, separate from inference
+workspace. Raw overhead is reported rather than silently subtracted. The
+existing `bench` command remains available. `energy N` supports 1 to 256 calls,
+without per-call timing, with an optional GPIO marker around the whole batch.
+The GPIO is disabled by default; select a free board pin with
+`CONFIG_RD_BENCH_GPIO` only when connecting a power analyzer.
+
+For production, `CONFIG_RD_PROFILE_SAMPLES=0` removes all 16,384 bytes of
+percentile storage while preserving inference, self-tests, `bench` and `energy`.
+The `profile` command returns `profile_disabled`; metadata reports actual
+capacity and bytes. Build in a separate directory so benchmark settings remain
+reproducible (substitute `esp32c6` for C6):
+
+```sh
+idf.py -B build-production-esp32s3 -DIDF_TARGET=esp32s3 \
+  -DSDKCONFIG=build-production-esp32s3/sdkconfig \
+  '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.production' \
+  -DRD_MODEL_DIR="$PWD/build-sensor/selected" build merge-bin
+```
+
+Verify the linked storage with `python3 tools/production_check.py
+--full-build build-rig/esp32s3-candidate --production-build
+build-production-esp32s3 --output build-production-esp32s3/footprint.json`.
+Add `--qemu /path/to/qemu-system-xtensa --vectors build-sensor/validation.json`
+for an exact S3 replay and warmed heap check. The shipped production builds
+recover 16,384 static bytes and reduce application flash by 1,008 bytes on
+S3 and 1,040 bytes on C6 relative to the same model with full profiling.
+
+Firmware also defaults to `RD_MODEL_SIZED_WORKSPACE=ON`, sizing workspace
+and context to the immutable model. For the five feature occupancy model,
+workspace falls from 1,732 to 40 bytes and context from 32 to 20 bytes: another
+1,704 static bytes recovered on each MCU. Matching production images save
+1,008 additional flash bytes on S3 and 608 on C6. Generic library callers keep
+the original 768 feature / 16 class capacities. All firmware consumers receive
+identical capacity definitions; changing the model header triggers CMake
+reconfiguration. Legacy headers without class metadata keep 16 class slots.
+Use `-DRD_MODEL_SIZED_WORKSPACE=OFF` to restore generic firmware capacity.
+
+To reproduce the comparison, build two production images with the same model
+and target in separate directories, using `OFF` for `build-generic` and `ON`
+for `build-compact`, then run:
+
+```sh
+python3 tools/workspace_check.py --generic build-generic --compact build-compact \
+  --output build-compact/workspace.json
+# For S3, add --qemu /path/to/qemu-system-xtensa --vectors build-sensor/validation.json
+```
+
+The checker verifies linked storage and ABI definitions. Optional S3 replay
+requires exact replies and stable warmed heap. Run `python3 tools/lab.py` with
+GCC, Cargo and CMake on PATH for the complete host acceptance suite. Memory
+savings do not establish a physical speed, energy or deployment readiness gain.
+
+`python3 tools/coverage_lab.py` tests three fixed abstention settings using a
+separate 1,440-row calibration day. Training and preprocessing exclude this
+day. Selection requires useful coverage and accepted accuracy for both classes;
+the following validation day can veto it without selecting another candidate.
+The initial candidate reached 99.65% calibration accuracy but only 90.59%
+validation accuracy and zero validation coverage, so it was rejected. The
+default model remains unchanged. This lab also runs in `tools/lab.py`. Its
+test data are previously seen regression data, and all results remain limited
+to one office. No deployment or statistical calibration claim is made.
+
+Build paired images after activating the ESP-IDF 5.4.4 environment:
+
+```sh
+python3 tools/prepare_pair.py --model-dir build-sensor/selected \
+  --output build-rig --targets esp32s3 esp32c6
+python3 tools/rig.py build-rig/manifest.json --vectors build-sensor/test.json \
+  --execution physical --chip esp32s3 --port PORT --flash \
+  --metric mean_cycles --rounds 11 --output build-rig/s3.json
+# Repeat with --chip esp32c6 and its serial port.
+```
+
+The physical runner intentionally flashes both supplied images repeatedly,
+alternating their order. Each image contains the same profiling harness and
+model; only the pinned kernel differs. The manifest records binary and source
+hashes. Fixed CPU frequency, affinity, matching target/model/kernel and exact
+paired replay output are checked. Use `--execution native` for host processes
+or `--execution emulator --qemu /path/to/qemu-system-xtensa --chip esp32s3`
+for S3 emulation. Neither execution mode can satisfy the physical retention
+gate. `--limit` defaults to 1,000 reference rows per image per round.
+Reports separate protocol round trip from kernel timing and store raw rounds.
+
+Export a power analyzer trace as CSV with `time_s,voltage_v,current_a,marker`.
+Include idle samples before and after one complete energy batch. `marker` must
+be 0 or 1. Associate it with the corresponding round and arm:
+
+```sh
+python3 tools/energy.py trace.csv --run-report build-rig/s3.json \
+  --round 0 --arm candidate --output build-rig/energy-candidate-0.json
+python3 tools/energy_compare.py pairs.json --rig-report build-rig/s3.json \
+  --output build-rig/energy-decision.json
+```
+
+`pairs.json` is an array of objects with `baseline` and `candidate` paths to
+energy reports. The analyzer integrates voltage times current and reports
+gross joules per decision, optional idle-adjusted energy, sample resolution,
+scope and provenance. Reused traces, incomplete marker windows and duration
+mismatches are rejected. No voltage/current measurement is synthesized from
+CPU timing. Retention requires at least 11 independent pairs, median speedup
+>=1.10, the bootstrap lower confidence bound >1.0, passing correctness and
+stable heap. Energy uses the same gate with gross joules per decision.
+Traces need at least ten sample intervals inside the marker window. Both
+kernels disable floating point contraction: S3 replay revealed tiny rounding
+differences with the compiler default that native tests had not exposed.
+Earlier `benchmark-*.json` files retain historical optimization evidence;
+`lab-*.json` records this sensor and measurement iteration.
+
 ## Architecture (ADRs)
 
 - [ADR-001 — architecture](docs/adr/ADR-001-architecture.md)
@@ -246,6 +486,7 @@ documented defect in that file, called out here rather than papered over.
 - [ADR-004 — the self-optimization loop](docs/adr/ADR-004-self-optimization-loop.md)
 - [ADR-005 — security model](docs/adr/ADR-005-security-model.md)
 - [ADR-006 — benchmarks and release gates](docs/adr/ADR-006-benchmarks-and-release-gates.md)
+- [ADR-007 — ESP32 measured sensor decisions](docs/adr/ADR-007-esp32-measured-sensor-decisions.md)
 
 ## License
 

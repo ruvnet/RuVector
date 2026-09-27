@@ -1818,7 +1818,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-types"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "ed25519-dalek",
  "rand_core",
@@ -1836,7 +1836,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-wire"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "crc32c",
  "rvf-types",

@@ -1,0 +1,11 @@
+[package]
+name = "esp32-concurrency-autogenous-adapter"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+agl-types = { git = "https://github.com/ruvnet/autogenous", rev = "905aa6cbe213392f8b3cab5d4f17bc3a48e0a509" }
+serde_json = "1"
+
+[workspace]
