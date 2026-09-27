@@ -132,7 +132,7 @@ cmd_launch() {
     esac
   done
   [[ "$wave" =~ ^[1-9]$ ]] && [[ "$maxc" =~ ^[1-9][0-9]*$ ]] || die "launch needs --wave N --max-concurrent M"
-  need_key; need_runner
+  need_key; need_runner; need_user_bus
   local sha job active rid rec cores thr
   sha=$(pinned_head)
   for job in $(jobs_wave "$wave"); do
@@ -156,7 +156,7 @@ cmd_resume() {
   local job=${1:-} extra=0 n last st sha thr rid planned
   valid_job "$job" || die "resume: unknown job '$job'"
   [ "${2:-}" = --allow-extra ] && extra=1
-  need_key; need_runner
+  need_key; need_runner; need_user_bus
   n=$(seg_count "$job"); [ "$n" -gt 0 ] || die "$job was never launched (use launch)"
   st=$(seg_state "$job" "$n")
   case "${st%% *}" in
@@ -175,6 +175,7 @@ cmd_resume() {
 
 cmd_status() {
   local job st
+  user_bus_ok || log "WARNING: systemd --user manager unreachable; running segments show as orphan/failed"
   printf '%-16s %-5s %-4s %-13s %-34s %s\n' JOB WAVE SEGS STATE RUN_ID DETAIL
   for job in $(jobs_all); do
     st=$(job_state "$job")

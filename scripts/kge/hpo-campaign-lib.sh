@@ -199,3 +199,11 @@ pinned_head() {
   [ "$head" = "$remote" ] || die "HEAD $head != origin/$GIT_REF ${remote:-<missing>}; push first"
   echo "$head"
 }
+
+# The units need a live systemd --user manager (user@UID.service). If it is
+# down, systemctl --user cannot see units, so launching would leave instances
+# the status/gate logic could not track: refuse instead.
+user_bus_ok() { systemctl --user show-environment >/dev/null 2>&1; }
+need_user_bus() {
+  user_bus_ok || die "systemd --user manager unreachable (user@$(id -u).service down?). Start it first, e.g. 'sudo systemctl start user@$(id -u).service'; nothing launched"
+}
