@@ -1,29 +1,39 @@
 name: Build KGE Native Modules
 
-# DEPENDENCY: the @ruvector/kge package lives at npm/packages/kge on the
-# sibling branch feat/kge-package (stacked on feat/typesafe-package). This
-# workflow is a no-op until that branch merges — the `build` job will fail at
-# `npm install` because npm/packages/kge does not exist on this branch. It is
-# committed here so a single PR carries both platform-build workflows; do not
-# dispatch it until feat/kge-package has landed on main.
+# Builds the five @ruvector/kge platform binaries plus the wasm fallback and,
+# on an explicit human dispatch only, publishes them with npm provenance.
 #
-# Modelled on build-router.yml / build-typesafe.yml — same runners, same pinned
-# action SHAs, same napi invocation, same five-platform matrix.
+# Triggers:
+#   push / pull_request  -> build matrix + wasm build + loader checks. No
+#                           secrets, no publish, read-only token.
+#   workflow_dispatch    -> the same, plus (publish=true) a guarded release:
+#       preflight  refuses anything but refs/heads/main, and refuses a version
+#                  that already exists on npm (any of the six packages) or as a
+#                  git tag / GitHub release. Never republishes.
+#       publish    packs all six tarballs, writes SHA256SUMS over every built
+#                  artifact, then `npm publish <tgz> --provenance --access
+#                  public` (dry_run defaults to true -> `--dry-run`). The five
+#                  platform packages go first and are verified on the registry
+#                  before the meta package is published.
+#       release    (real publish only) creates GitHub release kge-v<version>
+#                  and attaches SHA256SUMS plus every hashed artifact.
 #
-# Deliberate deviations from build-router.yml (same as build-typesafe.yml):
-#   1. Publish is gated ONLY on a manual workflow_dispatch with `publish: true`
-#      (no `v*` tag auto-publish).
-#   2. Publishing fails loudly and is verified on the registry.
+# Meta-package shape: dist/ + index.js + wasm/ (the fallback), with the five
+# platform packages declared as exact-pinned optionalDependencies. Those
+# optionalDependencies are injected into the packed package.json here, at
+# publish time, and are NOT committed to npm/packages/kge/package.json yet:
+# regression-guard.yml (optional-deps-resolvable-on-npm) fails any committed
+# optionalDependency that is not on npm, and ADR-007 §5 / ADR-001 §5 defer the
+# committed declaration to a follow-up PR once the platform packages exist.
 #
-# The ruvector-kge-ffi crate has no optional features (no ONNX), so the default
-# napi build is the only build — nothing to gate off. The shipped binaries are
-# network-free.
+# Action SHAs match the rest of the repo (build-router.yml, build-typesafe.yml).
 
 on:
   push:
     branches: [main]
     paths:
       - 'crates/ruvector-kge-ffi/**'
+      - 'crates/ruvector-kge-wasm/**'
       - 'crates/ruvector-kge/**'
       - 'npm/packages/kge/**'
       - '.github/workflows/build-kge.yml'
@@ -31,18 +41,19 @@ on:
     branches: [main]
     paths:
       - 'crates/ruvector-kge-ffi/**'
+      - 'crates/ruvector-kge-wasm/**'
       - 'crates/ruvector-kge/**'
       - 'npm/packages/kge/**'
       - '.github/workflows/build-kge.yml'
   workflow_dispatch:
     inputs:
       publish:
-        description: 'Publish the platform + meta packages to npm'
+        description: 'Publish the platform + meta packages to npm (main only)'
         required: false
         type: boolean
         default: false
       dry_run:
-        description: 'Do everything except the real publish (npm publish --dry-run)'
+        description: 'Do everything except the real publish (npm publish --dry-run, no GitHub release)'
         required: false
         type: boolean
         default: true
@@ -52,6 +63,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  PLATFORMS: linux-x64-gnu linux-arm64-gnu darwin-x64 darwin-arm64 win32-x64-msvc
 
 jobs:
   build:
@@ -65,10 +77,10 @@ jobs:
           - host: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
             platform: linux-arm64-gnu
-          - host: macos-14
+          - host: macos-15-intel
             target: x86_64-apple-darwin
             platform: darwin-x64
-          - host: macos-14
+          - host: macos-15
             target: aarch64-apple-darwin
             platform: darwin-arm64
           - host: windows-2022
@@ -80,6 +92,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -115,8 +129,7 @@ jobs:
       - name: Build native module (default features)
         working-directory: npm/packages/kge
         # Windows defaults to PowerShell, where `rm -f` is Remove-Item and -f is
-        # ambiguous between -Filter and -Force. Without this the win32 leg dies
-        # with "parameter name 'f' is ambiguous".
+        # ambiguous between -Filter and -Force.
         shell: bash
         run: |
           set -euo pipefail
@@ -131,8 +144,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # index.js's platformMap loads native/kge.<platform>.node, so rename
-          # whatever napi emitted to that deterministic name here.
+          # index.js's platformMap names kge.<platform>.node, so rename whatever
+          # napi emitted to that deterministic name here.
           NODE_FILE=$(find npm/packages/kge -maxdepth 1 -name "*.node" -type f | head -1)
           if [ -z "$NODE_FILE" ]; then
             NODE_FILE=$(find crates/ruvector-kge-ffi -name "*.node" -type f | head -1)
@@ -144,10 +157,14 @@ jobs:
           echo "Built: $NODE_FILE"
           mkdir -p kge-artifacts/${{ matrix.settings.platform }}
           cp -v "$NODE_FILE" "kge-artifacts/${{ matrix.settings.platform }}/kge.${{ matrix.settings.platform }}.node"
+          # Log the digest so it can be matched against SHA256SUMS later.
+          (cd kge-artifacts/${{ matrix.settings.platform }} && { sha256sum ./*.node 2>/dev/null || shasum -a 256 ./*.node; })
 
-      # Loader parity check on native-arch legs — proves index.js selects the
-      # native backend by the published filename. linux-arm64 is cross-compiled.
-      - name: Verify loader picks the native binary
+      # Loader checks on native-arch legs (linux-arm64 is cross-compiled). Both
+      # resolution paths are exercised: a binary under native/ (local dev) and
+      # the per-platform package the published meta package pulls in through
+      # optionalDependencies.
+      - name: Verify loader picks the native binary (native/ and platform package)
         if: |
           (matrix.settings.platform == 'linux-x64-gnu' && runner.os == 'Linux') ||
           (matrix.settings.platform == 'darwin-x64' && runner.os == 'macOS' && runner.arch == 'X64') ||
@@ -155,13 +172,24 @@ jobs:
           (matrix.settings.platform == 'win32-x64-msvc' && runner.os == 'Windows')
         shell: bash
         working-directory: npm/packages/kge
+        env:
+          PLATFORM: ${{ matrix.settings.platform }}
         run: |
           set -euo pipefail
+          BIN="$GITHUB_WORKSPACE/kge-artifacts/${PLATFORM}/kge.${PLATFORM}.node"
+
           mkdir -p native
-          cp "$GITHUB_WORKSPACE/kge-artifacts/${{ matrix.settings.platform }}/kge.${{ matrix.settings.platform }}.node" \
-             "native/kge.${{ matrix.settings.platform }}.node"
-          node -e "const b=require('./native/kge.${{ matrix.settings.platform }}.node'); if(typeof b.version!=='function'){console.error('binary loaded but exports no version(): '+Object.keys(b).join(','));process.exit(1)}; console.log('binary loads OK: '+b.version())"
-          node -e "const m=require('./index.js'); if(m.backend!=='native'){console.error('binary loads, but the loader selected: '+m.backend);process.exit(1)}; console.log('loader parity OK: backend=native version='+m.version())"
+          cp "$BIN" "native/kge.${PLATFORM}.node"
+          node -e "const b=require('./native/kge.'+process.env.PLATFORM+'.node'); if(typeof b.version!=='function'){console.error('binary loaded but exports no version(): '+Object.keys(b).join(','));process.exit(1)}; console.log('binary loads OK: '+b.version())"
+          node -e "const m=require('./index.js'); if(m.backend!=='native'){console.error('native/: loader selected '+m.backend);process.exit(1)}; console.log('native/ path OK: backend=native version='+m.version())"
+          rm -rf native
+
+          PKG="node_modules/@ruvector/kge-${PLATFORM}"
+          mkdir -p "$PKG"
+          cp "$BIN" "$PKG/kge.${PLATFORM}.node"
+          printf '{"name":"@ruvector/kge-%s","version":"0.0.0","main":"kge.%s.node"}\n' "$PLATFORM" "$PLATFORM" > "$PKG/package.json"
+          node -e "const m=require('./index.js'); if(m.backend!=='native'){console.error('platform package: loader selected '+m.backend);process.exit(1)}; console.log('platform-package path OK: backend=native version='+m.version())"
+          rm -rf "$PKG"
 
       - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -170,36 +198,339 @@ jobs:
           path: kge-artifacts/${{ matrix.settings.platform }}/*.node
           if-no-files-found: error
 
-  publish:
-    name: Publish KGE Packages
+  wasm:
+    name: Build KGE wasm fallback
     runs-on: ubuntu-22.04
-    needs: build
-    if: github.event_name == 'workflow_dispatch' && inputs.publish == true
-
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version: '18'
+          node-version: '20'
+
+      - name: Setup Rust (wasm32)
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        with:
+          key: kge-wasm32
+
+      # The CLI must match the wasm-bindgen crate in Cargo.lock exactly; build
+      # it from crates.io with --locked (no curl|sh installer).
+      - name: Install wasm-bindgen-cli (version pinned by Cargo.lock)
+        shell: bash
+        run: |
+          set -euo pipefail
+          V=$(awk '/^name = "wasm-bindgen"$/{getline; gsub(/version = |"/,""); print; exit}' Cargo.lock)
+          test -n "$V"
+          echo "wasm-bindgen-cli $V"
+          cargo install wasm-bindgen-cli --version "$V" --locked
+
+      - name: Build wasm (nodejs + bundler), audit imports, smoke-load
+        working-directory: npm/packages/kge
+        run: bash scripts/build-wasm-release.sh
+
+      - name: Verify loader falls back to wasm when no native binary resolves
+        working-directory: npm/packages/kge
+        run: |
+          set -euo pipefail
+          rm -rf native node_modules/@ruvector/kge-*
+          node -e "const m=require('./index.js'); if(m.backend!=='wasm'){console.error('expected wasm fallback, got '+m.backend);process.exit(1)}; console.log('wasm fallback OK: version='+m.version())"
+          (cd wasm && find . -type f | sort | xargs sha256sum)
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: kge-wasm
+          path: npm/packages/kge/wasm/
+          if-no-files-found: error
+
+  # dist/ is compiled here, in a read-only job with no id-token, and handed to
+  # publish as an artifact. The publish job holds id-token: write, so it runs no
+  # dependency install and no lifecycle script that could mint an OIDC token or
+  # rewrite files before SHA256SUMS is computed. tsc needs no node_modules:
+  # tsconfig sets "types": [] and src/node-shims.d.ts declares the node: APIs.
+  dist:
+    name: Build KGE dist (tsc, no install)
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '20'
+
+      - name: Compile dist/ with pinned tsc
+        working-directory: npm/packages/kge
+        env:
+          npm_config_ignore_scripts: 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf dist node_modules
+          npx -y -p typescript@5.9.3 tsc -p tsconfig.json
+          test -f dist/index.js
+          test -f dist/index.d.ts
+          find dist -type f | LC_ALL=C sort | xargs sha256sum
+
+      - name: Upload dist
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: dist-kge
+          path: npm/packages/kge/dist/
+          if-no-files-found: error
+
+  preflight:
+    name: Publish preflight (main only, version must be new)
+    runs-on: ubuntu-22.04
+    if: github.event_name == 'workflow_dispatch' && inputs.publish == true
+    steps:
+      # A runtime assert rather than a job-level `if:` so a dispatch from any
+      # other ref fails red instead of silently skipping.
+      - name: Refuse any ref but main
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          if [ "$REF" != "refs/heads/main" ]; then
+            echo "::error::publish is only allowed from refs/heads/main (got $REF)"
+            exit 1
+          fi
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '20'
+
+      - name: Refuse a version that already exists anywhere
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./npm/packages/kge/package.json').version")
+          echo "candidate version: $VERSION"
+          fail=0
+          for pkg in @ruvector/kge $(for p in $PLATFORMS; do echo "@ruvector/kge-$p"; done); do
+            if out=$(npm view "${pkg}@${VERSION}" version 2>&1); then
+              if [ -n "$out" ]; then
+                echo "::error::${pkg}@${VERSION} is already on npm — bump npm/packages/kge/package.json; this workflow never republishes"
+                fail=1
+              else
+                echo "::error::npm view ${pkg}@${VERSION} returned nothing (ambiguous) — refusing to guess"
+                fail=1
+              fi
+            elif echo "$out" | grep -qE 'E404|is not in this registry'; then
+              echo "ok: ${pkg}@${VERSION} not on npm"
+            else
+              echo "::error::could not determine whether ${pkg}@${VERSION} exists (registry/network error): $out"
+              fail=1
+            fi
+          done
+          # --exit-code: 0 = tag exists, 2 = no such ref, anything else = error.
+          rc=0
+          git ls-remote --exit-code --tags origin "refs/tags/kge-v${VERSION}" >/dev/null 2>&1 || rc=$?
+          if [ "$rc" -eq 0 ]; then
+            echo "::error::git tag kge-v${VERSION} already exists"
+            fail=1
+          elif [ "$rc" -ne 2 ]; then
+            echo "::error::could not query tags on origin (git ls-remote exit $rc)"
+            fail=1
+          fi
+          exit $fail
+
+  publish:
+    name: Publish KGE packages (provenance)
+    runs-on: ubuntu-22.04
+    needs: [preflight, build, wasm, dist]
+    if: github.event_name == 'workflow_dispatch' && inputs.publish == true
+    concurrency:
+      group: build-kge-publish
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write   # npm --provenance (sigstore OIDC)
+
+    steps:
+      - name: Refuse any ref but main
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          if [ "$REF" != "refs/heads/main" ]; then
+            echo "::error::publish is only allowed from refs/heads/main (got $REF)"
+            exit 1
+          fi
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Download all artifacts
+      - name: Download native + wasm artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           path: artifacts
+          pattern: kge-*
 
-      - name: Write the registry-verify helper
+      - name: Download dist (built unprivileged in the dist job)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: dist-kge
+          path: dist-kge
+
+      - name: Assert five platform binaries and the wasm module
         shell: bash
         run: |
-          cat > "$RUNNER_TEMP/verify.sh" <<'VERIFY'
+          set -euo pipefail
+          for p in $PLATFORMS; do
+            f="artifacts/kge-${p}/kge.${p}.node"
+            [ -f "$f" ] || { echo "::error::missing binary for ${p} at ${f}"; exit 1; }
+          done
+          count=$(find artifacts -name "kge.*.node" -type f | wc -l | tr -d ' ')
+          if [ "$count" -ne 5 ]; then
+            echo "::error::expected 5 platform binaries, found $count — refusing to publish a partial set"
+            exit 1
+          fi
+          for f in ruvector_kge_wasm.js ruvector_kge_wasm_bg.wasm bundler/ruvector_kge_wasm.js bundler/ruvector_kge_wasm_bg.wasm; do
+            [ -f "artifacts/kge-wasm/$f" ] || { echo "::error::missing wasm artifact $f"; exit 1; }
+          done
+
+      - name: Pack the five platform packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./npm/packages/kge/package.json').version")
+          mkdir -p release
+          for platform in $PLATFORMS; do
+            case "$platform" in
+              linux-x64-gnu)   OS="linux";  CPU="x64";   LIBC='"libc": ["glibc"],' ;;
+              linux-arm64-gnu) OS="linux";  CPU="arm64"; LIBC='"libc": ["glibc"],' ;;
+              darwin-x64)      OS="darwin"; CPU="x64";   LIBC="" ;;
+              darwin-arm64)    OS="darwin"; CPU="arm64"; LIBC="" ;;
+              win32-x64-msvc)  OS="win32";  CPU="x64";   LIBC="" ;;
+            esac
+            NODE_NAME="kge.${platform}.node"
+            PKG_DIR="npm-pkg/kge-${platform}"
+            mkdir -p "$PKG_DIR"
+            cp "artifacts/kge-${platform}/${NODE_NAME}" "$PKG_DIR/${NODE_NAME}"
+            cp "artifacts/kge-${platform}/${NODE_NAME}" "release/${NODE_NAME}"
+            # repository.url must resolve to this repo or --provenance refuses.
+            cat > "$PKG_DIR/package.json" <<EOF
+          {
+            "name": "@ruvector/kge-${platform}",
+            "version": "${VERSION}",
+            "os": ["${OS}"],
+            "cpu": ["${CPU}"],
+            ${LIBC}
+            "main": "${NODE_NAME}",
+            "files": ["${NODE_NAME}"],
+            "description": "Holographic knowledge-graph embeddings (@ruvector/kge) - ${platform} native binary",
+            "keywords": ["ruvector", "kge", "knowledge-graph", "embeddings", "napi-rs"],
+            "author": "ruv.io Team <info@ruv.io>",
+            "license": "MIT",
+            "repository": {"type": "git", "url": "git+https://github.com/${GITHUB_REPOSITORY}.git"},
+            "engines": {"node": ">= 18"},
+            "publishConfig": {"registry": "https://registry.npmjs.org/", "access": "public"}
+          }
+          EOF
+            (cd "$PKG_DIR" && npm pack --ignore-scripts --pack-destination "$GITHUB_WORKSPACE/release")
+            test -f "release/ruvector-kge-${platform}-${VERSION}.tgz"
+          done
+
+      - name: Pack the meta package (dist + wasm, optionalDependencies injected)
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./npm/packages/kge/package.json').version")
+          cd npm/packages/kge
+          rm -rf native wasm dist
+          mkdir -p wasm dist
+          cp -R "$GITHUB_WORKSPACE/artifacts/kge-wasm/." wasm/
+          # No npm install and no compiler run here: this job holds id-token:
+          # write. dist/ comes pre-built from the unprivileged dist job.
+          cp -R "$GITHUB_WORKSPACE/dist-kge/." dist/
+          test -f dist/index.js
+          # Exact pins, all five. Injected into the packed manifest only — see
+          # the header for why the committed package.json does not carry them.
+          node scripts/set-optional-deps.mjs package.json "$VERSION"
+          npm pack --ignore-scripts --pack-destination "$GITHUB_WORKSPACE/release"
+          git checkout -- package.json
+
+          TGZ="$GITHUB_WORKSPACE/release/ruvector-kge-${VERSION}.tgz"
+          test -f "$TGZ"
+          tar -tzf "$TGZ" | sort > "$RUNNER_TEMP/meta-files.txt"
+          cat "$RUNNER_TEMP/meta-files.txt"
+          for f in package/package.json package/index.js package/index.d.ts package/dist/index.js package/bin/cli.js \
+                   package/wasm/ruvector_kge_wasm.js package/wasm/ruvector_kge_wasm_bg.wasm \
+                   package/wasm/bundler/ruvector_kge_wasm.js package/wasm/bundler/ruvector_kge_wasm_bg.wasm; do
+            grep -qx "$f" "$RUNNER_TEMP/meta-files.txt" || { echo "::error::meta tarball is missing $f"; exit 1; }
+          done
+          if grep -q '\.node$' "$RUNNER_TEMP/meta-files.txt"; then
+            echo "::error::meta tarball must not bundle native binaries (they ship as platform packages)"
+            exit 1
+          fi
+          tar -xzOf "$TGZ" package/package.json | EXPECT="$VERSION" PLATFORMS="$PLATFORMS" node -e '
+            let s=""; process.stdin.on("data",d=>s+=d).on("end",()=>{
+              const p=JSON.parse(s), od=p.optionalDependencies||{};
+              for (const pl of process.env.PLATFORMS.split(" ")) {
+                const n="@ruvector/kge-"+pl;
+                if (od[n]!==process.env.EXPECT) { console.error("bad optionalDependency "+n+"="+od[n]); process.exit(1); }
+              }
+              if (Object.keys(od).length!==5) { console.error("unexpected optionalDependencies: "+JSON.stringify(od)); process.exit(1); }
+              console.log("optionalDependencies pinned to "+process.env.EXPECT);
+            });'
+
+      - name: Write SHA256SUMS over every built artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./npm/packages/kge/package.json').version")
+          # Reproducible wasm bundle for the GitHub release (the raw files share
+          # basenames between nodejs/ and bundler/, so they ship as one tarball).
+          tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
+              -C artifacts/kge-wasm -cf - . | gzip -n > "release/kge-wasm-${VERSION}.tar.gz"
+          cd release
+          find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%f\n' | LC_ALL=C sort | xargs sha256sum > "$RUNNER_TEMP/SHA256SUMS"
+          mv "$RUNNER_TEMP/SHA256SUMS" SHA256SUMS
+          cat SHA256SUMS
+          sha256sum -c SHA256SUMS
+          test "$(wc -l < SHA256SUMS)" -eq 12   # 5 .node + 6 .tgz + wasm bundle
+
+      - name: Upload release bundle (SHA256SUMS + artifacts)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: kge-release
+          path: release/
+          if-no-files-found: error
+
+      - name: Write the registry helpers
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/registry.sh" <<'HELPERS'
           # verify_on_registry <pkg> <version>: poll the npm registry JSON until
-          # the exact version is resolvable, or fail after ~3 minutes.
+          # the exact version is resolvable (npm view can 404 during
+          # propagation), or fail after ~12 minutes.
           verify_on_registry() {
             local pkg="$1" ver="$2"
-            local enc="${pkg//\//%2f}"
-            local url="https://registry.npmjs.org/${enc}"
+            local url="https://registry.npmjs.org/${pkg//\//%2f}"
             local tmp="$RUNNER_TEMP/reg.json"
             local i
             for i in $(seq 1 72); do
@@ -215,19 +546,37 @@ jobs:
             echo "::error::${pkg}@${ver} did not appear on the npm registry within ~12 minutes of publish"
             return 1
           }
-          VERIFY
-
-      - name: Assert exactly five platform binaries were built
-        shell: bash
-        run: |
-          set -euo pipefail
-          count=$(find artifacts -name "kge.*.node" -type f | wc -l | tr -d ' ')
-          echo "found $count platform binaries"
-          find artifacts -name "kge.*.node" -type f
-          if [ "$count" -ne 5 ]; then
-            echo "::error::expected 5 platform binaries, found $count — refusing to publish a partial set"
-            exit 1
-          fi
+          # assert_unpublished <pkg> <version>: re-check immediately before each
+          # publish, so a version that appeared since preflight is never
+          # overwritten or double-published.
+          assert_unpublished() {
+            local out
+            if out=$(npm view "$1@$2" version 2>&1); then
+              echo "::error::$1@$2 appeared on npm since preflight — refusing to publish"
+              return 1
+            elif ! echo "$out" | grep -qE 'E404|is not in this registry'; then
+              echo "::error::could not confirm $1@$2 is unpublished: $out"
+              return 1
+            fi
+          }
+          # publish_tgz <tgz> <pkg> <version>: same flags for dry-run and real,
+          # except --dry-run.
+          publish_tgz() {
+            local tgz="$1" pkg="$2" ver="$3"
+            sha256sum "$tgz"
+            assert_unpublished "$pkg" "$ver" || return 1
+            if [ "$DRY_RUN" = "true" ]; then
+              npm publish "$tgz" --provenance --access public --ignore-scripts --dry-run
+            else
+              if npm publish "$tgz" --provenance --access public --ignore-scripts; then
+                echo "npm publish returned success"
+              else
+                echo "npm publish returned non-zero — verifying on the registry"
+              fi
+              verify_on_registry "$pkg" "$ver" || return 1
+            fi
+          }
+          HELPERS
 
       - name: Publish the five platform packages
         env:
@@ -236,67 +585,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          source "$RUNNER_TEMP/verify.sh"
+          source "$RUNNER_TEMP/registry.sh"
+          (cd release && sha256sum -c SHA256SUMS)
           VERSION=$(node -p "require('./npm/packages/kge/package.json').version")
-          echo "Publishing platform packages at version: $VERSION (dry_run=$DRY_RUN)"
-
-          for platform in linux-x64-gnu linux-arm64-gnu darwin-x64 darwin-arm64 win32-x64-msvc; do
-            NODE_FILE="artifacts/kge-${platform}/kge.${platform}.node"
-            if [ ! -f "$NODE_FILE" ]; then
-              echo "::error::missing binary for ${platform} at ${NODE_FILE}"
-              exit 1
-            fi
-
-            case "$platform" in
-              linux-x64-gnu)   OS="linux";  CPU="x64";   LIBC='"libc": ["glibc"],' ;;
-              linux-arm64-gnu) OS="linux";  CPU="arm64"; LIBC='"libc": ["glibc"],' ;;
-              darwin-x64)      OS="darwin"; CPU="x64";   LIBC="" ;;
-              darwin-arm64)    OS="darwin"; CPU="arm64"; LIBC="" ;;
-              win32-x64-msvc)  OS="win32";  CPU="x64";   LIBC="" ;;
-            esac
-
-            NODE_NAME="kge.${platform}.node"
-            PKG_DIR="npm-pkg/kge-${platform}"
-            mkdir -p "$PKG_DIR"
-            cp "$NODE_FILE" "$PKG_DIR/$NODE_NAME"
-
-            cat > "$PKG_DIR/package.json" <<EOF
-          {
-            "name": "@ruvector/kge-${platform}",
-            "version": "${VERSION}",
-            "os": ["${OS}"],
-            "cpu": ["${CPU}"],
-            ${LIBC}
-            "main": "${NODE_NAME}",
-            "files": ["${NODE_NAME}"],
-            "description": "Holographic knowledge-graph embeddings (@ruvector/kge) - ${platform} native binary",
-            "keywords": ["ruvector", "kge", "knowledge-graph", "embeddings", "napi-rs"],
-            "author": "ruv.io Team <info@ruv.io>",
-            "license": "MIT",
-            "repository": {"type": "git", "url": "https://github.com/ruvnet/ruvector"},
-            "engines": {"node": ">= 18"},
-            "publishConfig": {"registry": "https://registry.npmjs.org/", "access": "public"}
-          }
-          EOF
-
-            echo "=== @ruvector/kge-${platform}@${VERSION} ==="
-            (
-              cd "$PKG_DIR"
-              if [ "$DRY_RUN" = "true" ]; then
-                npm publish --access public --dry-run
-              else
-                if npm publish --access public; then
-                  echo "npm publish returned success"
-                else
-                  echo "npm publish returned non-zero — verifying on the registry anyway"
-                fi
-              fi
-            )
-            if [ "$DRY_RUN" != "true" ]; then
-              verify_on_registry "@ruvector/kge-${platform}" "$VERSION" || exit 1
-            fi
+          echo "publishing platform packages at ${VERSION} (dry_run=${DRY_RUN})"
+          for platform in $PLATFORMS; do
+            publish_tgz "release/ruvector-kge-${platform}-${VERSION}.tgz" "@ruvector/kge-${platform}" "$VERSION"
           done
-
           echo "all five platform packages handled"
 
       - name: Publish the meta package (only after all five platforms verified)
@@ -306,41 +601,53 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          source "$RUNNER_TEMP/verify.sh"
+          source "$RUNNER_TEMP/registry.sh"
+          (cd release && sha256sum -c SHA256SUMS)
           VERSION=$(node -p "require('./npm/packages/kge/package.json').version")
+          publish_tgz "release/ruvector-kge-${VERSION}.tgz" "@ruvector/kge" "$VERSION"
 
-          # The loader (npm/packages/kge/index.js) has NO platform-package
-          # fallback: it only require()s native/kge.<platform>.node from the meta
-          # package itself, so the meta tarball must BUNDLE all five binaries.
-          mkdir -p npm/packages/kge/native
-          for platform in linux-x64-gnu linux-arm64-gnu darwin-x64 darwin-arm64 win32-x64-msvc; do
-            cp "artifacts/kge-${platform}/kge.${platform}.node" \
-               "npm/packages/kge/native/kge.${platform}.node"
-          done
-          echo "bundled native binaries:"
-          ls -la npm/packages/kge/native/*.node
+  release:
+    name: GitHub release with SHA256SUMS
+    runs-on: ubuntu-22.04
+    needs: publish
+    if: github.event_name == 'workflow_dispatch' && inputs.publish == true && inputs.dry_run == false
+    permissions:
+      contents: write   # create the release + upload assets; nothing else
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
 
-          (
-            cd npm/packages/kge
-            npm install --no-audit --no-fund --no-workspaces --legacy-peer-deps
-            npx -y -p typescript@5.9.3 tsc -p tsconfig.json
-          )
+      - name: Download release bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: kge-release
+          path: release
 
-          cd npm/packages/kge
-          if [ "$DRY_RUN" = "true" ]; then
-            npm publish --access public --dry-run --ignore-scripts 2>&1 | tee "$RUNNER_TEMP/pack.txt"
-            for f in dist/index.js native/kge.linux-x64-gnu.node native/kge.linux-arm64-gnu.node native/kge.darwin-x64.node native/kge.darwin-arm64.node native/kge.win32-x64-msvc.node; do
-              if ! grep -q "$f" "$RUNNER_TEMP/pack.txt"; then
-                echo "::error::dry-run tarball is missing $f"
-                exit 1
-              fi
-            done
-            echo "dry-run tarball contains dist/index.js and all five native binaries"
-          else
-            if npm publish --access public --ignore-scripts; then
-              echo "npm publish returned success"
-            else
-              echo "npm publish returned non-zero — verifying on the registry anyway"
-            fi
-            verify_on_registry "@ruvector/kge" "$VERSION" || exit 1
+      - name: Create kge-v<version> and attach SHA256SUMS + artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd release && sha256sum -c SHA256SUMS)
+          VERSION=$(node -p "require('./npm/packages/kge/package.json').version")
+          TAG="kge-v${VERSION}"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::GitHub release $TAG already exists — refusing to overwrite"
+            exit 1
           fi
+          {
+            echo "@ruvector/kge ${VERSION} and its five platform packages, published from ${GITHUB_SHA} with npm provenance."
+            echo
+            echo "Verify downloads with: sha256sum -c SHA256SUMS"
+            echo
+            echo '```'
+            cat release/SHA256SUMS
+            echo '```'
+          } > "$RUNNER_TEMP/notes.md"
+          gh release create "$TAG" release/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "@ruvector/kge ${VERSION}" \
+            --notes-file "$RUNNER_TEMP/notes.md"

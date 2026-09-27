@@ -45,9 +45,11 @@ function loadNative() {
   // downgrading to wasm. `KGE_BACKEND=wasm` is the documented escape.
   const local = path.join(__dirname, 'native', file);
   if (fs.existsSync(local)) return require(local);
-  // 2. The per-platform package, once the optionalDependencies bump lands
-  //    (ADR-001 §5: those packages must exist on npm before the meta package
-  //    declares them). Resolving it by name here keeps the loader ready.
+  // 2. The per-platform package (@ruvector/kge-<platform>, main = the .node).
+  //    From 0.2.0 the published meta package ships no native/ and declares the
+  //    five platform packages as exact-pinned optionalDependencies (injected
+  //    at publish time by build-kge.yml, ADR-001 §5). npm installs only the one
+  //    whose os/cpu/libc match; a skipped or absent one falls through to wasm.
   return tryRequire(`@ruvector/kge-${file.slice('kge.'.length, -'.node'.length)}`);
 }
 
