@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Paired sequential comparison of a local run against the frozen Jev rows
-// (ADR-007 §1b). For each question (department / urgent / frustration) and each
+// (ADR-008 §1b). For each question (department / urgent / frustration) and each
 // Jev reference (`test_rows.baseline`, `test_rows.champion` in
 // jev-baseline-2026-09-21.json) it runs the campaign's anytime-valid paired
 // test (lib/paired.mjs — the Rust PairedSequentialTest, α = 0.05, λ = 0.5,

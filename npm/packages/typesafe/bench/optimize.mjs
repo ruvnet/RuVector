@@ -20,10 +20,10 @@
 // --model-dir (default models/; a staged candidate or bare unpublished dir works
 // too — lib/model-dir.mjs) and the verified entry is recorded per arm. A model
 // shipping train-text-hashes.txt is leakage-checked against the tickets
-// held-out rows before its campaign runs (ADR-007 §2 Assertion B, exit 3).
+// held-out rows before its campaign runs (ADR-008 §2 Assertion B, exit 3).
 // --no-test withholds the test rows from the engine entirely (the campaign then
 // has nothing to score on test), omits the Jev test comparison, and records
-// test fields as null — for selection/tuning runs (ADR-007 §1b, §1d).
+// test fields as null — for selection/tuning runs (ADR-008 §1b, §1d).
 
 import { createRequire } from 'node:module';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';

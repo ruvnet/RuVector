@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# OpenJev v0 training job (ADR-007, docs/research/openjev/v0-plan.md Step 6).
+# OpenJev v0 training job (ADR-008, docs/research/openjev/v0-plan.md Step 6).
 #
 # Runs INSIDE a ruvector-gpu-runner instance (repo checked out at the pinned SHA,
 # cwd = repo root, $RVGR_ARTIFACT_DIR set). Also runs locally for a dry pass:

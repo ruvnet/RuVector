@@ -1,5 +1,5 @@
 // Resolve an ONNX embedder arm to ONE sha256-verified manifest entry
-// (ADR-005 supply chain; ADR-007 §6, plan Step 4).
+// (ADR-005 supply chain; ADR-008 §6, plan Step 4).
 //
 // Why in JS: the binding accepts the manifest either as a path or as inline
 // JSON, and when handed a multi-entry manifest it silently falls back to the
@@ -16,7 +16,7 @@
 //      Entry `file` / `tokenizer_file` / `train_hashes_file` are relative to DIR.
 //   2. A bare, unpublished model dir with no manifest: DIR/model.onnx (or
 //      DIR/onnx/model.onnx) + DIR/tokenizer.json [+ DIR/train-text-hashes.txt].
-//      An entry is synthesized with the ADR-007 frozen shape (dims 384, CLS,
+//      An entry is synthesized with the ADR-008 frozen shape (dims 384, CLS,
 //      max_tokens 256); its pins are the hashes computed now, and the receipt
 //      marks it `synthesized: true`.
 //
@@ -36,7 +36,7 @@ import { readTrainHashes } from './leakage.mjs';
 const HEX64 = /^[0-9a-f]{64}$/;
 export const DEFAULT_MODEL = 'bge-small-en-v1.5';
 export const TRAIN_HASHES_NAME = 'train-text-hashes.txt';
-/** ADR-007 §3/§6 frozen shape used when synthesizing an entry for a bare dir. */
+/** ADR-008 §3/§6 frozen shape used when synthesizing an entry for a bare dir. */
 export const OPENJEV_SHAPE = { dims: 384, pooling: 'cls', max_tokens: 256 };
 
 const sha256File = (p) => createHash('sha256').update(readFileSync(p)).digest('hex');
@@ -156,7 +156,7 @@ export function resolveOnnxModel({ modelDir, manifest, model, trainHashes } = {}
   const tokenizerSha256 = verifyPinned(dir, entry, 'tokenizer_file', 'tokenizer_sha256');
   const th = resolveTrainHashes(dir, entry, trainHashes);
   if (!th && /^openjev/i.test(entry.name)) {
-    throw modelError(`${entry.name}: OpenJev models must ship ${TRAIN_HASHES_NAME} (or pass --train-hashes) — ADR-007 §2 Assertion B`, 'MODEL_INVALID');
+    throw modelError(`${entry.name}: OpenJev models must ship ${TRAIN_HASHES_NAME} (or pass --train-hashes) — ADR-008 §2 Assertion B`, 'MODEL_INVALID');
   }
   return {
     spec: { kind: 'onnx', modelDir: dir, manifest: JSON.stringify(entry), model: entry.name },

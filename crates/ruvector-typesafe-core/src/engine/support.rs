@@ -32,7 +32,7 @@ pub(super) fn carve_calibration<T: Clone>(items: Vec<T>, stride: usize) -> (Vec<
 }
 
 /// The (train, calibration) pair for a question: when the caller supplied an
-/// explicit calibration slice (bank `Calibration` split, ADR-007 §4) the head
+/// explicit calibration slice (bank `Calibration` split, ADR-008 §4) the head
 /// trains on every `Train` row and calibrates on exactly that slice; otherwise
 /// the positional carve applies, bit-identical to the original behaviour.
 pub(super) fn split_or_carve<T: Clone>(

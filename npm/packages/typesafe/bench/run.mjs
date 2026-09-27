@@ -12,12 +12,12 @@
 //                      [--model NAME] [--model-dir DIR] [--manifest PATH]
 //                      [--train-hashes PATH] [--no-test] [--emit-records PATH]
 //                      [--no-calibration-split]
-// Tickets calibrate on the fixture's held-out `calibration` split (ADR-007 §4);
+// Tickets calibrate on the fixture's held-out `calibration` split (ADR-008 §4);
 // --no-calibration-split restores the engine's positional carve (pre-v1).
 // ONNX arms resolve to ONE sha256-verified manifest entry (lib/model-dir.mjs);
 // --model-dir may point at a staged candidate or a bare unpublished dir. A model
 // that ships train-text-hashes.txt (or --train-hashes) is leakage-checked
-// against the suite's held-out rows before anything is scored (ADR-007 §2
+// against the suite's held-out rows before anything is scored (ADR-008 §2
 // Assertion B); a hit refuses the run (exit 3). --no-test scores validation +
 // transfer only and never replays or scores the test split (selection runs).
 // Local-arm receipts carry per-item records (item_records) for paired tests;

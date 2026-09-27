@@ -51,7 +51,7 @@ export function verifyFixtureHashes({ benchDir = BENCH_DIR, fixtureDir = FIXTURE
 }
 
 /**
- * Read a DERIVED fixture (HASHES.json `derived`, e.g. the ADR-007 novel slice)
+ * Read a DERIVED fixture (HASHES.json `derived`, e.g. the ADR-008 novel slice)
  * after verifying its sha256; refuses on a missing pin or a mismatch.
  */
 export function loadDerivedFixture(rel, { benchDir = BENCH_DIR, fixtureDir = FIXTURE_DIR } = {}) {

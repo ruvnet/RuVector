@@ -155,7 +155,7 @@ pub fn clinc150(data_full: &[u8]) -> Result<Public> {
     labels.sort();
     labels.dedup();
     let criteria = labels.iter().map(|l| (l.clone(), humanise(l))).collect();
-    // Official splits: CLINC150 uses its own `val` (ADR-007 §2).
+    // Official splits: CLINC150 uses its own `val` (ADR-008 §2).
     let mut train = mk(&d.train, "clinc-tr", false);
     train.extend(mk(&d.oos_train, "clinc-oostr", true));
     let mut val = mk(&d.val, "clinc-va", false);

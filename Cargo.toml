@@ -100,7 +100,7 @@ members = [
     "crates/ruvector-staged-workspace",
     # vast.ai GPU job runner with hard budget caps + auto-destroy (openjev).
     "crates/ruvector-gpu-runner",
-    # OpenJev v0 trainer (ADR-007): candle fine-tune + ONNX transplant (openjev).
+    # OpenJev v0 trainer (ADR-008): candle fine-tune + ONNX transplant (openjev).
     "crates/ruvector-typesafe-train",
     "crates/ruvector-retrieval-receipt",
     "crates/ruvector-gnn-rerank",

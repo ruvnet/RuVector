@@ -1,4 +1,4 @@
-// OpenJev v0 harness additions (ADR-007 plan Step 1): Assertion B leakage,
+// OpenJev v0 harness additions (ADR-008 plan Step 1): Assertion B leakage,
 // sha256-verified --model-dir resolution, --no-test, per-item records,
 // optimize.mjs flags, fetch-models OpenJev entries, derived fixture pins.
 // No network: a fake in-process binding stands in for the engine and the

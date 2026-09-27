@@ -90,7 +90,7 @@ export function scoreRecords(records, { departments, wallMs, majorityLabels } = 
 }
 
 /**
- * Per-item records for paired tests (ADR-007 §1b): ids, predictions, truth,
+ * Per-item records for paired tests (ADR-008 §1b): ids, predictions, truth,
  * confidence and correctness — never item text. `choiceKey` names the choice
  * question (`department` for tickets, `intent` for public suites); the
  * secondary `urgent` / `frustration` questions appear when the arm answered

@@ -1,4 +1,4 @@
-//! Text normalization + hashing shared with the JS bench (ADR-007 §2).
+//! Text normalization + hashing shared with the JS bench (ADR-008 §2).
 //!
 //! `norm`: Unicode NFKC → lowercase → every run of code points that are not
 //! `\p{L}` or `\p{N}` becomes one space → trim. This deliberately uses the

@@ -1,4 +1,4 @@
-// Novel-composition slice (ADR-007 §1b). The tickets generator is templated:
+// Novel-composition slice (ADR-008 §1b). The tickets generator is templated:
 // many test items are stitched from sentences that also occur in the train
 // pool. A test item is TEMPLATE if every one of its sentences occurs in the
 // gradient pool, NOVEL otherwise. Tiers are reported on both.

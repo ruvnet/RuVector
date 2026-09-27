@@ -1,5 +1,5 @@
 // Text normalization shared by the bench (JS) and the OpenJev trainer (Rust),
-// ADR-007 §2. Every leakage hash on both sides is sha256Norm(text), so the two
+// ADR-008 §2. Every leakage hash on both sides is sha256Norm(text), so the two
 // implementations MUST agree byte for byte. The contract is the golden file
 // bench/test/norm-golden.json (input → norm → sha256); the Rust `norm` runs the
 // same file.
@@ -28,7 +28,7 @@ import { createHash } from 'node:crypto';
 
 const NON_ALNUM_RUN = /[^\p{L}\p{N}]+/gu;
 
-/** ADR-007 §2 normalization. Throws on a non-string input (fail closed). */
+/** ADR-008 §2 normalization. Throws on a non-string input (fail closed). */
 export function norm(text) {
   if (typeof text !== 'string') throw new TypeError(`norm: expected a string, got ${typeof text}`);
   return text.normalize('NFKC').toLowerCase().replace(NON_ALNUM_RUN, ' ').trim();

@@ -1,4 +1,4 @@
-//! The shared JS/Rust norm contract (ADR-007 §2): every case in
+//! The shared JS/Rust norm contract (ADR-008 §2): every case in
 //! `npm/packages/typesafe/bench/test/norm-golden.json` must match exactly,
 //! both the normalized text and sha256(norm).
 

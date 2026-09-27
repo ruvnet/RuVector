@@ -1,4 +1,4 @@
-// Validation view of a public suite for `run.mjs --no-test` (ADR-007 §2,
+// Validation view of a public suite for `run.mjs --no-test` (ADR-008 §2,
 // v0-plan Step 1.2). Mirrors the OpenJev exporter (crates/ruvector-typesafe-train
 // src/prep/public.rs) so selection runs score exactly the rows the trainer used
 // for early stopping — never the test split:

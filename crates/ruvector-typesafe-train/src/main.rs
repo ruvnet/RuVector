@@ -10,7 +10,7 @@ use ruvector_typesafe_train::leakage::{LeakageError, LEAKAGE_EXIT};
 use ruvector_typesafe_train::{device, export, parity, pins, prep, train};
 
 #[derive(Parser)]
-#[command(name = "openjev", about = "OpenJev v0 trainer (ADR-007)")]
+#[command(name = "openjev", about = "OpenJev v0 trainer (ADR-008)")]
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,

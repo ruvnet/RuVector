@@ -1,4 +1,4 @@
-//! OpenJev v0 trainer (ADR-007, `docs/research/openjev/v0-plan.md`).
+//! OpenJev v0 trainer (ADR-008, `docs/research/openjev/v0-plan.md`).
 //!
 //! `prep` → `train` → `transplant` → `parity`. Rust only; candle for training,
 //! the engine's own `ort` path for the parity proof.

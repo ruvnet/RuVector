@@ -1,4 +1,4 @@
-//! Assertion A (ADR-007 §2): before the first optimizer step, every normalized
+//! Assertion A (ADR-008 §2): before the first optimizer step, every normalized
 //! train + validation text is hashed and intersected with the held-out hash set
 //! (tickets test/transfer/calibration, Banking77 test, CLINC150 test +
 //! oos_test, HWU64 test bucket). A non-empty intersection aborts with exit 3.

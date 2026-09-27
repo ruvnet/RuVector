@@ -1,4 +1,4 @@
-// Assertion B (ADR-007 §2): a model that ships `train-text-hashes.txt` must not
+// Assertion B (ADR-008 §2): a model that ships `train-text-hashes.txt` must not
 // have trained on any held-out text. The bench intersects the model's hashes
 // with sha256Norm of the suite's held-out rows and refuses to score on a hit.
 // Independent of the trainer — anyone can re-verify from the artifact alone.

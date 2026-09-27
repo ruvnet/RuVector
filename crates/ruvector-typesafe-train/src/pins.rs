@@ -1,4 +1,4 @@
-//! Every external input, pinned by immutable URL + sha256 (ADR-007 §8).
+//! Every external input, pinned by immutable URL + sha256 (ADR-008 §8).
 //!
 //! The dataset URLs and hashes are copied verbatim from the bench loaders
 //! (`bench/datasets/*.mjs`) so the trainer and the bench read identical bytes.
@@ -77,7 +77,7 @@ pub const DATASET_PINS: [Pin; 5] = [
 ];
 pub const MODEL_PINS: [Pin; 3] = [BASE_SAFETENSORS, TEMPLATE_ONNX, TOKENIZER];
 
-/// Supply-chain rule (ADR-007 §8): only these inputs may ever be loaded.
+/// Supply-chain rule (ADR-008 §8): only these inputs may ever be loaded.
 pub fn check_extension(path: &Path) -> Result<()> {
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
     let ok = name.ends_with(".safetensors")
@@ -88,7 +88,7 @@ pub fn check_extension(path: &Path) -> Result<()> {
         || name.ends_with(".txt");
     let banned = [".bin", ".pt", ".pth", ".pkl", ".pickle", ".ckpt"];
     if !ok || banned.iter().any(|b| name.ends_with(b)) {
-        bail!("refusing to load {name:?}: only safetensors/onnx/json/jsonl/csv/txt inputs are allowed (ADR-007 §8)");
+        bail!("refusing to load {name:?}: only safetensors/onnx/json/jsonl/csv/txt inputs are allowed (ADR-008 §8)");
     }
     Ok(())
 }

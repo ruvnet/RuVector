@@ -1,4 +1,4 @@
-// OpenJev v1 harness additions: the explicit calibration slice (ADR-007 §4) and
+// OpenJev v1 harness additions: the explicit calibration slice (ADR-008 §4) and
 // the public-suite validation view for --no-test selection runs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

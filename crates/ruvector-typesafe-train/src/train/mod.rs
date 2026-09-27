@@ -350,7 +350,7 @@ pub fn run(a: &TrainArgs) -> Result<serde_json::Value> {
         }
     }
     fs::write(a.out.join("heads-discarded.txt"),
-        "heads.safetensors holds the auxiliary multi-task heads. They only shape the embedding space and are NOT shipped (ADR-007 §3): the engine fits its own probe/logistic/temperature heads at bench time.\n")?;
+        "heads.safetensors holds the auxiliary multi-task heads. They only shape the embedding space and are NOT shipped (ADR-008 §3): the engine fits its own probe/logistic/temperature heads at bench time.\n")?;
     let enc_sha =
         sha256_hex(&fs::read(a.out.join("encoder.safetensors")).context("no checkpoint written")?);
     let record = json!({

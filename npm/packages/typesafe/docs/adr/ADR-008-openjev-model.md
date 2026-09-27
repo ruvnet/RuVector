@@ -1,9 +1,15 @@
-# ADR-007: OpenJev — an open-weight encoder that clears every frozen gate
+# ADR-008: OpenJev — an open-weight encoder that clears every frozen gate
 
 ## Status
-Proposed (2026-09-26). Nothing here has been trained or measured yet; every
-number below is either a measurement cited from ADR-006 receipts or a
-pre-registered target. Implementation plan: `docs/research/openjev/v0-plan.md`.
+Accepted (pipeline) / claim **not met** for v1 (2026-09-26). The sections below
+are the pre-registration as written before training. v1 was scored once on the
+frozen test split (seed 2): department 93.3% (non-inferior to Jev), urgent 92.7%
+and frustration 86.0% (both superior to Jev), p95 10.1 ms, zero leakage, but
+ECE 0.0543 fails the 0.05 gate and the primary claim (superior on all three) is
+not met. Per §6 the model is not published. Results:
+`docs/research/openjev/v1-results.md`; receipts in `bench/results/openjev/`.
+v2 will be judged on a fresh held-out ticket set with a matching Jev
+measurement. Implementation plan: `docs/research/openjev/v0-plan.md`.
 
 ## Date
 2026-09-26

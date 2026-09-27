@@ -1,12 +1,12 @@
 # OpenJev v1 — validation results
 
-Design and pre-registered gates: `npm/packages/typesafe/docs/adr/ADR-007-openjev-model.md`
+Design and pre-registered gates: `npm/packages/typesafe/docs/adr/ADR-008-openjev-model.md`
 (unchanged by this note). v0 plan: `docs/research/openjev/v0-plan.md`.
 Branch `feat/openjev-v1` (from `feat/openjev` @ `4560efa2a`).
 
 **Every number here is on the VALIDATION split** (`run.mjs --no-test`); the
 test split was never scored, replayed or passed to training. Validation is
-selection-biased for OpenJev (ADR-007 §1b), so none of these numbers is a
+selection-biased for OpenJev (ADR-008 §1b), so none of these numbers is a
 cross-arm claim.
 
 ## TL;DR
@@ -16,7 +16,7 @@ cross-arm claim.
   corrected harness configuration. All five seeds pass every gate that is
   evaluable on validation: ECE, urgent, frustration, native p95, CLINC150 OOS
   AUROC (0.966 ≥ 0.85), and no transfer regression vs base (84.6 % → 84.6–96.2 %).
-  `accuracy_vs_jev` and the ADR-007 §1b vs-Jev tiers need Jev's test rows and
+  `accuracy_vs_jev` and the ADR-008 §1b vs-Jev tiers need Jev's test rows and
   are test-only — untouched here.
 - **Urgent / frustration "failures" were a harness regime, not the model.**
   The quoted v0 numbers (urgent 49.3 %, frustration 50.0 %) came from the
@@ -24,7 +24,7 @@ cross-arm claim.
   (full data). Under full data the same v0 checkpoint scores urgent 84.0 % /
   frustration 80.7 % (engine carve calibration) — both gates pass.
 - **ECE needed two fixes**, neither a training change: (1) calibrate on the
-  fixture's held-out `calibration` split, as ADR-007 §4 says — the harness
+  fixture's held-out `calibration` split, as ADR-008 §4 says — the harness
   never did; (2) let the engine's linear probe converge
   (`probeIterations` 400 → 5000). (1) alone made ECE *worse*; see "What failed".
 - **Cost: $0.** All training on the local RTX 5080; vast.ai not used.
@@ -81,7 +81,7 @@ With full data the heads see the real prior and 136 examples. Evidence
 
 Gates: urgent ≥ 71.3 %, frustration ≥ 58.7 % (train-majority rates), ECE ≤ 0.05.
 
-**Correction to an ADR-007 premise (not edited in the ADR).** ADR-007
+**Correction to an ADR-008 premise (not edited in the ADR).** ADR-008
 Context point 1 says "frozen general-purpose embeddings carry no urgency
 signal (AUROC 0.51)". That was a 16-shot artifact: with full data, *base*
 bge-small reaches urgent AUROC 0.758 and passes both secondary gates on
@@ -97,7 +97,7 @@ encoder, so they are separated perfectly, the NLL-optimal temperature hits
 the floor `T_MIN = 0.1`, and validation gets confidence 0.9996 on 143/150
 items at 95.8 % accuracy (ECE 0.0537).
 
-Fix, per ADR-007 §4: fit temperature/Platt on the fixture `calibration`
+Fix, per ADR-008 §4: fit temperature/Platt on the fixture `calibration`
 split. The engine had no way to take an explicit calibration slice, so
 `ruvector-typesafe-core` gained `Engine::train_with_calibration` (bank
 `Calibration` split; with no explicit slice the carve is bit-identical —
@@ -180,7 +180,7 @@ dept 84.0, ECE 0.0387, urgent 78.0 (AUROC 0.831), frustration 76.7.
 | frustration | 50.0 % FAIL | 93.3 % PASS |
 | p95 | 9.4 ms | 9.4 ms (seed 2, idle; seed 1 17.0 ms under load) |
 
-### Claim checkpoint (ADR-007 §1d)
+### Claim checkpoint (ADR-008 §1d)
 
 Rule, fixed before any further scoring: the median of the trainer's
 pre-registered in-training selection metric `best_val_selection`
@@ -224,7 +224,7 @@ Seed-1-only probes along the way (validation):
 the engine trains on the suite's train rows minus the validation slice and is
 scored on the trainer's validation slice (Banking77 958, CLINC150 2 986
 in-scope + 100 OOS, HWU64 1 918). Base = bge-small-en-v1.5, same command.
-Accuracy is the engine's own head, as ADR-007 §1c requires.
+Accuracy is the engine's own head, as ADR-008 §1c requires.
 
 | suite | base bge-small | OpenJev s1 / s2 / s3 / s4 / s5 | OpenJev mean ± sd | Δ vs base |
 |---|---|---|---|---|
@@ -235,7 +235,7 @@ Accuracy is the engine's own head, as ADR-007 §1c requires.
 
 Read with these caveats:
 
-- **Not comparable to the ADR-007 §1c literature targets** (Banking77 ≥ 92.06,
+- **Not comparable to the ADR-008 §1c literature targets** (Banking77 ≥ 92.06,
   CLINC150 ≥ 95.31 on *test*). These are validation numbers from a head that
   is still under-converged at 77–150 classes: base bge-small on Banking77 goes
   60.1 % → 80.0 % from 400 → 5000 iterations (CLINC150 91.0 → 92.2 %), so
@@ -247,7 +247,7 @@ Read with these caveats:
   the whole question and the iteration budget is irrelevant (base identical at
   400 and 5000). That is why base is 55.9 % and ECE is ~0.43–0.47 for both
   arms; OpenJev's +33 pp there measures how much better its prototypes are,
-  not a probe-vs-probe gap. HWU64 is reported, not claimed (ADR-007 §1c).
+  not a probe-vs-probe gap. HWU64 is reported, not claimed (ADR-008 §1c).
 - CLINC150 OOS AUROC comes from the engine's abstain mass on the official
   `oos_val` (100 rows) vs in-scope `val`.
 - Cost of this harness at full data: one public-suite run peaks at 12–38 GB
@@ -320,9 +320,9 @@ Paired sequential test vs Jev (α=0.05, λ=0.5, lexical order):
 - department: **non-inferior** to both (20 / 8 vs baseline, max wealth 14.05 < 20).
 - Same tiers on the 119-item novel slice (department 91.6% vs 83.2%).
 
-**Verdict against ADR-007 §1:** secondary claim (non-inferior to Jev champion on
+**Verdict against ADR-008 §1:** secondary claim (non-inferior to Jev champion on
 all three) **holds**; primary claim (superior to Jev baseline on all three) is
 **not met** (department not significant at n=150), and the calibration gate
-fails by 0.0043. Per ADR-007 §6, v1 is **not published** to HF. The test split
+fails by 0.0043. Per ADR-008 §6, v1 is **not published** to HF. The test split
 has now been used for this claim; v2 must be judged on fresh held-out data
 (see v2 plan), not by re-scoring this split.

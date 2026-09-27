@@ -1,4 +1,4 @@
-//! Export: candle safetensors → the engine's pinned ONNX graph (ADR-007 §5).
+//! Export: candle safetensors → the engine's pinned ONNX graph (ADR-008 §5).
 //! INT8 (`quantize`) is a stretch goal and not implemented in v0.
 
 pub mod pbwalk;

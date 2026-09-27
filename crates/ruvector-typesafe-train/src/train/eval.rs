@@ -1,7 +1,7 @@
 //! In-training validation (plan Step 3 "in-training val metric"): mean of
 //! tickets department accuracy, urgent AUROC, frustration accuracy (heads on
 //! tickets validation) and head accuracy on each public validation slice.
-//! Selection only — cross-arm claims come from the bench (ADR-007 §1b).
+//! Selection only — cross-arm claims come from the bench (ADR-008 §1b).
 
 use std::collections::BTreeMap;
 

@@ -1,4 +1,4 @@
-//! ONNX initializer transplant (ADR-007 §5, plan Step 2 "Transplant mechanics").
+//! ONNX initializer transplant (ADR-008 §5, plan Step 2 "Transplant mechanics").
 //!
 //! 1. Decode the template `ModelProto` (tract_onnx::pb) for analysis only.
 //! 2. Map every float initializer to exactly one ORIGINAL base safetensors

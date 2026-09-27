@@ -85,7 +85,7 @@ slice is the abstain set for the OOS AUROC gate. Nothing is redistributed in the
 package; an unreachable source fails loudly with the URL and the suite is marked
 `skipped: unavailable`.
 
-## OpenJev harness (ADR-007, plan Step 1)
+## OpenJev harness (ADR-008, plan Step 1)
 
 Interfaces shared with the Rust trainer (`crates/ruvector-typesafe-train`).
 The golden files are the contract; change them only together.
@@ -127,7 +127,7 @@ The golden files are the contract; change them only together.
   CLINC150, held-out collisions dropped — the row set equals the trainer's
   `val.jsonl`); the engine trains on the remaining train rows and test rows are
   only hashed for Assertion B.
-- **Calibration slice** (ADR-007 §4): tickets runs admit the fixture's
+- **Calibration slice** (ADR-008 §4): tickets runs admit the fixture's
   `calibration` split (37 rows, never a training row for the engine or the
   trainer) as the engine's calibration slice (`trainJson` `calibration` field →
   `Engine::train_with_calibration`); temperature and Platt fit on exactly those
@@ -146,7 +146,7 @@ The golden files are the contract; change them only together.
   oos?}` per item (keys of `predicted`/`truth`/`correct`: `department`,
   `urgent`, `frustration`; `intent` on public suites). `--emit-records PATH`
   writes the test records as `ruvector-typesafe-bench/item-records@1`.
-- **`vs-jev.mjs --receipt|--records PATH [--out PATH] [--strict]`**: ADR-007
+- **`vs-jev.mjs --receipt|--records PATH [--out PATH] [--strict]`**: ADR-008
   §1b tiers against `test_rows.baseline` and `test_rows.champion` with
   `lib/paired.mjs` (port of `PairedSequentialTest`; `test/paired-golden.json`
   holds wealth paths emitted by the Rust type), α = 0.05, λ = 0.5, test ids in

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.88"
 license = "MIT"
-description = "OpenJev v0 trainer (ADR-007): fine-tunes bge-small-en-v1.5 in candle and transplants the weights into the pinned ONNX graph"
+description = "OpenJev v0 trainer (ADR-008): fine-tunes bge-small-en-v1.5 in candle and transplants the weights into the pinned ONNX graph"
 publish = false
 
 [[bin]]
@@ -20,7 +20,7 @@ cuda = ["candle-core/cuda", "candle-nn/cuda"]
 # candle is pinned to the exact version already in Cargo.lock (via crates/ruvllm).
 candle-core = "=0.9.2"
 candle-nn = "=0.9.2"
-# ONNX protobuf types only (ADR-007 §5); tract-transformers not needed.
+# ONNX protobuf types only (ADR-008 §5); tract-transformers not needed.
 tract-onnx = { version = "0.23", default-features = false }
 prost = "0.14"
 # Parity against the engine's own ort path, plus engine decisions.

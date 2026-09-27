@@ -141,7 +141,7 @@ export function trainFewShot(engine, trainItems, { shots = 8, question = 'depart
     return { trained: false, reason: 'engine has no trainJson' };
   }
   const { examples, effective } = fewShotExamples(trainItems, labelKey, shots, { labelMap });
-  // ADR-007 §4: an explicit held-out calibration slice (every row, no shot cap).
+  // ADR-008 §4: an explicit held-out calibration slice (every row, no shot cap).
   // Absent → the engine carves its calibration slice from `examples` (default).
   const calibration = calibrationItems?.length
     ? fewShotExamples(calibrationItems, labelKey, Infinity, { labelMap }).examples

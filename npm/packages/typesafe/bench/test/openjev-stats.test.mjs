@@ -1,4 +1,4 @@
-// OpenJev v0 statistics layer (ADR-007 §1b, §2): the shared norm() contract,
+// OpenJev v0 statistics layer (ADR-008 §1b, §2): the shared norm() contract,
 // the JS port of the Rust PairedSequentialTest, the frozen novel-composition
 // slice, and the vs-jev tiering. No network, no binding.
 
@@ -77,7 +77,7 @@ test('paired: reproduces the Rust wealth path of every golden case exactly', () 
   }
 });
 
-test('paired: ADR-007 power arithmetic — 14 straight wins reject, 13 do not; 18 wins + 3 losses reject', () => {
+test('paired: ADR-008 power arithmetic — 14 straight wins reject, 13 do not; 18 wins + 3 losses reject', () => {
   const run = (pairs) => PairedSequentialTest.standard().updateAll(pairs);
   assert.equal(run(Array(14).fill([false, true])), true);
   assert.equal(run(Array(13).fill([false, true])), false);

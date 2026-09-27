@@ -1,6 +1,6 @@
 // JS port of the campaign's anytime-valid paired test,
 // `PairedSequentialTest` in crates/ruvector-typesafe-core/src/loop_gate/sequential.rs
-// (ADR-004 gate 2; ADR-007 §1b). The Rust type is not exposed through the
+// (ADR-004 gate 2; ADR-008 §1b). The Rust type is not exposed through the
 // binding, so this is a line-for-line port — same parameters, same clamps, same
 // f32 rounding of alpha/lambda, same f64 wealth arithmetic — proven identical by
 // bench/test/paired-golden.json (wealth paths emitted by the Rust type itself).
@@ -9,7 +9,7 @@
 // W ← W·(1 + λ·(X − ½)), X = 1 iff the challenger ("champion") won the pair.
 // Concordant pairs are skipped. Rejection latches the first time the running
 // maximum of W reaches 1/α and never un-latches. α = 0.05, λ = 0.5 are fixed by
-// ADR-007 and never tuned.
+// ADR-008 and never tuned.
 
 const f32 = Math.fround;
 

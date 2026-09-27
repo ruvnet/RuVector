@@ -1,4 +1,4 @@
-//! `openjev parity` (ADR-007 §5 step 4): the transplanted ONNX run through the
+//! `openjev parity` (ADR-008 §5 step 4): the transplanted ONNX run through the
 //! engine's own `OrtEmbedder` must agree with the candle forward pass on the
 //! fine-tuned safetensors — cosine ≥ threshold per probe text — and an engine
 //! built on each must make identical `department` decisions.

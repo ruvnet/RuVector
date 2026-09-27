@@ -55,7 +55,7 @@ struct TrainInput {
     question: String,
     #[serde(default)]
     examples: Vec<ExampleInput>,
-    /// Optional held-out calibration slice (ADR-007 §4); when non-empty the
+    /// Optional held-out calibration slice (ADR-008 §4); when non-empty the
     /// head calibrates on exactly these rows instead of a carve of `examples`.
     #[serde(default)]
     calibration: Vec<ExampleInput>,

@@ -196,7 +196,7 @@ impl<E: Embedder> Engine<E> {
         Ok(self.report(question, accepted, rejected))
     }
 
-    /// [`train`](Self::train) plus an explicit calibration slice (ADR-007 §4),
+    /// [`train`](Self::train) plus an explicit calibration slice (ADR-008 §4),
     /// admitted into the bank's `Calibration` split: temperature / Platt then fit
     /// on exactly those rows and the head on all `Train` rows (no carve).
     pub fn train_with_calibration(
