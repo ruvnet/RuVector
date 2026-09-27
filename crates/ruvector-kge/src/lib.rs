@@ -18,6 +18,7 @@ pub mod batch;
 pub mod data;
 pub mod error;
 pub mod eval;
+pub mod kernel;
 pub mod optimize;
 pub mod scorer;
 pub mod tables;

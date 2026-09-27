@@ -12,6 +12,9 @@ crate-type = ["rlib"]
 
 [features]
 default = []
+# Multi-threaded 1-N kernel (plan M2). Off by default so the default build
+# stays wasm32-safe; rayon is the workspace pin (lock: 1.12.0), no new copy.
+parallel = ["dep:rayon"]
 
 [dependencies]
 ruvector-router-core = { version = "2.0", path = "../ruvector-router-core" }
@@ -24,3 +27,11 @@ thiserror = { workspace = true }
 # pulled. Licence: MIT OR Apache-2.0 (deny.toml allow-list). Compiles and runs
 # on wasm32 — the ADR-002 hard gate — see the spike results in src/scorer/fft.rs.
 rustfft = "=6.4.1"
+# SGEMM core of the batched 1-N kernel (plan M2, `src/kernel/`). Pinned to the
+# exact version already in the workspace lock (0.3.10) so no second copy is
+# pulled. Licence: MIT OR Apache-2.0 (deny.toml allow-list). Pure Rust with
+# runtime AVX/FMA dispatch; compiles on wasm32. Its own `threading` feature is
+# deliberately NOT enabled: threads come only from our `parallel` feature so the
+# reduction order stays fixed per output element (deterministic).
+matrixmultiply = "=0.3.10"
+rayon = { workspace = true, optional = true }

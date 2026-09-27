@@ -10099,6 +10099,8 @@ dependencies = [
 name = "ruvector-kge"
 version = "2.3.0"
 dependencies = [
+ "matrixmultiply",
+ "rayon",
  "rustfft",
  "ruvector-router-core",
  "ruvector-typesafe-core",
