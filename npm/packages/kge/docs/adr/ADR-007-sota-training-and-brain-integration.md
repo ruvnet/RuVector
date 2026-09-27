@@ -153,16 +153,35 @@ count, so both get the conservative value 1.
      FB15k-237, 210 in WN18RR, 0 in CoDEx-M), as LibKGE and PyKEEN do.
    - **WN18RR variant.** The anchors (ssl-RP README "#Ent 40,943" and
      `ComplEx(sizes=[40943,22,40943])`; kbc, IVR, DURA, LibKGE) use the
-     ID-based ConvE release. The current loader reads villmow `WN18RR/text`:
-     same 86,835/3,034/3,134 triples, but 41,105 entities (MEASURED), so a
-     different entity set and candidate count. M0 switches the loader to
-     villmow `WN18RR/original` (MEASURED 40,943 entities; sha256 pins in plan
-     M0). No WN18RR REA or "matches" claim is valid on the text variant.
+     ID-based ConvE release. The pre-M1 loader read villmow `WN18RR/text`:
+     same 86,835/3,034/3,134 triples, in the same order with the same
+     relations, but 41,105 entities (MEASURED). ConvE ids are WordNet offsets,
+     unique only per part of speech, so 161 ids each denote 2–3 synsets that
+     the text release names apart. That is a different entity set and
+     candidate count; no WN18RR REA or "matches" claim is valid on it. The
+     loader now reads the ConvE release (40,943 entities, 11 relations).
+   - **Sources (M1).** FB15k-237, WN18RR and YAGO3-10 are fetched from
+     `DeepGraphLearning/KnowledgeGraphEmbedding` pinned at commit `2e440e0f`,
+     and CoDEx-M from `tsafavi/codex` at `3132e426`. The URLs name a commit,
+     never a branch, and every file is sha256-pinned. The first three are
+     byte-identical to the members of the `TimDettmers/ConvE@f3c0eb28`
+     tarballs (MEASURED). ConvE's FB15k-237 files use CRLF line endings. The
+     earlier villmow FB15k-237 pins hash the same triples with LF endings, and
+     the parsed `splits_hash` is identical (full `e800ac1d…`; `--limit 500`
+     `57cd8b03…`, which reproduces the committed slice receipt). A reported
+     FB15k-237 "sha256 mismatch, got `b664af6c…`" was not upstream drift:
+     `b664af6c…` is sha256 of `a\tr\tb\n`, the tampered cache file written by
+     the M0 fail-closed test. The mismatch error now says whether the bytes
+     came from the cache or the network.
 5. **Leakage and identity.** The Rust bench asserts, by triple hash, that
    train ∩ (valid ∪ transfer ∪ test) = ∅ and that the filter set equals the
    four-split union. It asserts the entity count equals the anchor's
    (FB15k-237 14,541; WN18RR 40,943; CoDEx-M 17,050; ssl-RP README) and refuses
-   otherwise. It records all four split hashes and a hash of the sorted
+   otherwise. The JS loaders already assert this, together with split sizes and
+   relation counts (FB15k-237 272,115/17,535/20,466 and 237; WN18RR
+   86,835/3,034/3,134 and 11; CoDEx-M 185,584/10,310/10,311 and 51, plus
+   10,310/10,311 hard negatives; YAGO3-10 1,079,040/5,000/5,000, 123,182
+   entities and 37 relations). It records all four split hashes and a hash of the sorted
    entity-vocabulary order.
 6. **Test is read once, checked against origin (P0-5).**
    - Selection reads valid only. This amends ADR-006 Protocol 1 for benchmark claims.
@@ -457,7 +476,9 @@ These are deliverables of this campaign, not optional clean-ups.
   605 ns/score (BatchScorer); slice receipt
   `bench/results/fb15k237-500-hole-2026-09-21.json`; split sizes and
   unseen-entity counts (WN18RR on `original`); villmow WN18RR entities
-  `original` 40,943 vs `text` 41,105; vast.ai prices; /v1/status; RTX 5080
+  `original` 40,943 vs `text` 41,105 (161 merged offset ids); dataset source
+  byte-identity with the ConvE tarballs, and the FB15k-237 LF/CRLF
+  `splits_hash` equality; vast.ai prices; /v1/status; RTX 5080
   16,303 MiB.
 - **EXTRAPOLATED / ASSUMED.** Every full-dataset s/epoch figure and FLOP→time
   conversion of ours; δ (until M4); the W2 threshold; the W1 speed-up (M1).

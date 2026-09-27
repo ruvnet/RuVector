@@ -61,17 +61,29 @@ Plan of record for [ADR-007](../../../npm/packages/kge/docs/adr/ADR-007-sota-tra
 - `npm/packages/kge/bench/datasets/lib.mjs:139,145` and `codexm.mjs:84`: pass `transfer` into `graphCounts`.
 - `npm/packages/kge/bench/datasets/yago310.mjs:12`: sha256-pin YAGO3-10, or make it fail closed.
 - `npm/packages/kge/bench/datasets/wn18rr.mjs:11-17`: switch `BASE` from villmow
-  `WN18RR/text` (41,105 entities, MEASURED) to `WN18RR/original`, the ID-based
-  ConvE release the anchors use (ssl-RP README "#Ent 40,943",
-  `ComplEx(sizes=[40943,22,40943])`). Same 86,835/3,034/3,134 triples. New
-  pins (MEASURED 2026-09-26): train
+  `WN18RR/text` (41,105 entities, MEASURED) to the ID-based ConvE release the
+  anchors use (ssl-RP README "#Ent 40,943",
+  `ComplEx(sizes=[40943,22,40943])`). Same 86,835/3,034/3,134 triples. DONE in
+  M1 from `DeepGraphLearning/KnowledgeGraphEmbedding@2e440e0f` (byte-identical
+  to ConvE@f3c0eb28 `WN18RR.tar.gz` and to villmow `WN18RR/original`). Pins
+  (MEASURED 2026-09-26): train
   `038612e783c215ee5f3ca9fbfca27b8d0739be1028fe4ee7c174aecf0b83d5df`, valid
   `453ce7202afa58094a04d2b1560ee2b02660f1c260b32ce6651c8ccedd1028ab`, test
   `0383bceaaa1096cf3c03ec021ed0048068e2355dbfc0239b292cefdac821cec5`. Update
   the `lib.mjs:155` comment. Unseen-entity test triples become 210 (MEASURED).
 - **Entity-count identity assert** (JS loader and the M3 Rust loader, recorded
   in the manifest): FB15k-237 14,541, WN18RR 40,943, CoDEx-M 17,050 (ssl-RP
-  README). Any other count fails closed.
+  README). Any other count fails closed. JS side DONE in M1
+  (`assertCanonicalCounts`, also split sizes and relation counts;
+  `test/datasets.test.mjs`).
+- **Immutable sources (M1, DONE).** Every dataset URL names a git commit, not a
+  branch: FB15k-237, WN18RR and YAGO3-10 from
+  `DeepGraphLearning/KnowledgeGraphEmbedding@2e440e0f` (byte-identical to the
+  ConvE@f3c0eb28 tarball members), CoDEx-M from `tsafavi/codex@3132e426`.
+  FB15k-237 pins moved from the villmow LF copy to the ConvE CRLF bytes (train
+  `6e4c2782…`, valid `cf630901…`, test `5711cf41…`); `splits_hash` is unchanged.
+  Cache files carry the commit tag. The FB15k-237 "sha256 mismatch, got
+  `b664af6c…`" was the M0 tamper test's `a\tr\tb\n` cache file, not drift.
 - `npm/packages/kge/bench/lib/receipt.mjs`: add the crate git SHA, binary sha256 and receipt-body sha256, and drop the absolute `binding_source`.
 - `crates/ruvector-kge-{ffi,wasm}/src/model.rs` (byte-identical): add a zero-init option so `--tie-check` stops SKIPping.
 - **F1** (see the table above).

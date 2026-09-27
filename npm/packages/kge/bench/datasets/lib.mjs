@@ -24,7 +24,8 @@ export async function fetchCached(url, name, { cacheDir = DEFAULT_CACHE, knownSh
   mkdirSync(cacheDir, { recursive: true });
   const path = join(cacheDir, name);
   let bytes;
-  if (existsSync(path)) {
+  const cached = existsSync(path);
+  if (cached) {
     bytes = readFileSync(path);
   } else {
     if (typeof fetch !== 'function') throw new Error(`global fetch unavailable (Node < 18?) for ${url}`);
@@ -41,7 +42,11 @@ export async function fetchCached(url, name, { cacheDir = DEFAULT_CACHE, knownSh
   }
   const digest = sha256(bytes);
   if (knownSha256 && digest !== knownSha256) {
-    throw new Error(`sha256 mismatch for ${name}: expected ${knownSha256}, got ${digest} (source ${url})`);
+    // Say where the bytes came from. A cached file failing its pin is a local
+    // problem (tampered, truncated, or left by an older source), not upstream
+    // drift; the old message cited only the URL and was misread as drift.
+    const origin = cached ? `cached file ${path} (source ${url}); delete it to re-fetch` : `fetched from ${url}`;
+    throw new Error(`sha256 mismatch for ${name}: expected ${knownSha256}, got ${digest} — ${origin}`);
   }
   return { bytes, path, sha256: digest, pinned: !!knownSha256 };
 }
@@ -112,12 +117,37 @@ export function carveTransfer(valid, frac = 0.3) {
 }
 
 /**
+ * Cache file name for one split. `tag` (the pinned upstream commit) keeps bytes
+ * cached from an older source from colliding with the current pin.
+ */
+export const cacheFileName = (name, k, tag) => (tag ? `${name}@${tag}-${k}.txt` : `${name}-${k}.txt`);
+
+/**
+ * Fail closed unless the parsed, UNLIMITED dataset has exactly the canonical
+ * split sizes and entity/relation counts (ADR-007 M0 identity assert). Counted
+ * over the union of the raw splits; the transfer carve does not change it.
+ * `expected` = { train, valid, test, entities, relations }.
+ */
+export function assertCanonicalCounts(name, { train, valid, test }, expected) {
+  if (!expected) throw new Error(`${name}: no canonical counts declared — refusing to run`);
+  const c = graphCounts({ train, valid, test });
+  const bad = ['train', 'valid', 'test', 'entities', 'relations'].filter((k) => c[k] !== expected[k]);
+  if (bad.length) {
+    const d = bad.map((k) => `${k} ${c[k]} != ${expected[k]}`).join(', ');
+    throw new Error(`${name}: not the canonical dataset (${d})`);
+  }
+  return c;
+}
+
+/**
  * Fetch+parse a standard 3-file triples dataset (train/valid/test.txt),
  * entity-consistently apply `--limit`, carve a transfer split, and package it in
  * the shape the harness consumes. `sources` maps train/valid/test -> URL;
- * `pins` maps the same keys -> sha256 (null until pinned).
+ * `pins` maps the same keys -> sha256 (null until pinned). `expected` holds the
+ * canonical counts, asserted on the full data before any `--limit` slicing;
+ * `cacheTag` (upstream commit) namespaces the cache files.
  */
-export async function loadStandardTriples({ name, sources, pins = {}, limit, cacheDir, licence }) {
+export async function loadStandardTriples({ name, sources, pins = {}, limit, cacheDir, licence, cacheTag, expected }) {
   const opts = { cacheDir };
   // Fail closed (ADR-007 M0): a benchmark suite never runs on unpinned bytes.
   // An unpinned file used to be fetched and only its hash printed, so a drifted
@@ -128,12 +158,13 @@ export async function loadStandardTriples({ name, sources, pins = {}, limit, cac
   }
   const got = {};
   for (const k of ['train', 'valid', 'test']) {
-    got[k] = await fetchCached(sources[k], `${name}-${k}.txt`, { ...opts, knownSha256: pins[k] });
+    got[k] = await fetchCached(sources[k], cacheFileName(name, k, cacheTag), { ...opts, knownSha256: pins[k] });
   }
   reportPins(name, got);
   let train = parseTriplesTsv(got.train.bytes.toString('utf8'));
   let valid = parseTriplesTsv(got.valid.bytes.toString('utf8'));
   let test = parseTriplesTsv(got.test.bytes.toString('utf8'));
+  if (expected !== undefined) assertCanonicalCounts(name, { train, valid, test }, expected);
   if (typeof limit === 'number') ({ train, valid, test } = limitSubgraph({ train, valid, test }, limit));
   const carved = carveTransfer(valid);
   const splits = { train, valid: carved.valid, transfer: carved.transfer, test };
@@ -152,7 +183,8 @@ export async function loadStandardTriples({ name, sources, pins = {}, limit, cac
  * Count distinct entities/relations across ALL split arrays, transfer included
  * (ADR-007 M0): the transfer split is carved out of valid, so an entity that
  * only appears there is still in the binding's entity table and in the tie-check
- * expectation (|E|+1)/2. FB15k-237 = 14541, WN18RR = 41105 with it.
+ * expectation (|E|+1)/2. FB15k-237 = 14541, WN18RR = 40943 (ConvE release; the
+ * villmow `WN18RR/text` relabeling has 41105), CoDEx-M = 17050.
  */
 export function graphCounts({ train = [], valid = [], transfer = [], test = [] }) {
   const ent = new Set();

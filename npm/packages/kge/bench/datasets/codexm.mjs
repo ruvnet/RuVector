@@ -7,11 +7,25 @@
 // table at harness build (ADR-006) — not invented here; the gate SKIPs until a
 // maintainer records it with a source.
 
-import { fetchCached, parseTriplesTsv, limitSubgraph, carveTransfer, graphCounts, stableSplitHash, reportPins } from './lib.mjs';
+import {
+  fetchCached,
+  parseTriplesTsv,
+  limitSubgraph,
+  carveTransfer,
+  graphCounts,
+  stableSplitHash,
+  reportPins,
+  assertCanonicalCounts,
+} from './lib.mjs';
 
-const REPO = 'https://raw.githubusercontent.com/tsafavi/codex/master';
+// ADR-007 M1 (2026-09-27): pinned to a COMMIT instead of `master` (currently the
+// master head; the codex-m triples were last touched in 52cd0122, 2020-07-09).
+// Every file's sha256 at this commit equals the 2026-09-21 pins below.
+export const COMMIT = '3132e426c2a6b643b70bad679905a3a6270be440';
+const REPO = `https://raw.githubusercontent.com/tsafavi/codex/${COMMIT}`;
 const TRIP = `${REPO}/data/triples/codex-m`;
-const SOURCES = {
+export const CACHE_TAG = COMMIT.slice(0, 8);
+export const SOURCES = {
   train: `${TRIP}/train.txt`,
   valid: `${TRIP}/valid.txt`,
   test: `${TRIP}/test.txt`,
@@ -20,7 +34,7 @@ const SOURCES = {
   licence: `${REPO}/LICENSE`,
 };
 // Pinned after the first successful fetch (2026-09-21). Fails closed on drift.
-const PINS = {
+export const PINS = {
   train: 'd99c3437ab51690391a26d96976adf6e5494dba7ef6902e77000551bfa566556',
   valid: '11c323096367354940846b9ed940c5dabddc1d20a70474222babe7e7fd28b28d',
   test: '0575ce05e4ce915e395bb4f708e8df9547989dd4c8c71407cbfd78c19daffcf7',
@@ -28,6 +42,10 @@ const PINS = {
   test_neg: '7caaf71f7a85fbd915dce8199f5b1e1744ead58e0675549fcb01c60599944648',
   licence: '8a8d718d139b33e7f1938aaf5c2b724f3ae1930411ca9593339d87cd5740621e',
 };
+// Canonical counts (MEASURED; CoDEx paper/README, ssl-RP "#Ent 17,050"). One
+// hard negative per valid/test triple. Fails closed otherwise.
+export const EXPECTED = { train: 185584, valid: 10310, test: 10311, entities: 17050, relations: 51 };
+export const EXPECTED_NEGATIVES = { valid: 10310, test: 10311 };
 
 /** Best-effort SPDX detection from the LICENSE text. */
 function detectLicence(text) {
@@ -44,7 +62,7 @@ export async function load({ limit, cacheDir } = {}) {
   const opts = { cacheDir };
   const got = {};
   for (const k of Object.keys(SOURCES)) {
-    got[k] = await fetchCached(SOURCES[k], `codexm-${k}`, { ...opts, knownSha256: PINS[k] ?? null });
+    got[k] = await fetchCached(SOURCES[k], `codexm@${CACHE_TAG}-${k}`, { ...opts, knownSha256: PINS[k] ?? null });
   }
   reportPins('codexm', got);
 
@@ -53,6 +71,10 @@ export async function load({ limit, cacheDir } = {}) {
   let test = parseTriplesTsv(got.test.bytes.toString('utf8'));
   let validNeg = parseTriplesTsv(got.valid_neg.bytes.toString('utf8'));
   let testNeg = parseTriplesTsv(got.test_neg.bytes.toString('utf8'));
+  assertCanonicalCounts('codexm', { train, valid, test }, EXPECTED);
+  if (validNeg.length !== EXPECTED_NEGATIVES.valid || testNeg.length !== EXPECTED_NEGATIVES.test) {
+    throw new Error(`codexm: not the canonical hard negatives (valid ${validNeg.length}, test ${testNeg.length})`);
+  }
 
   if (typeof limit === 'number') {
     ({ train, valid, test } = limitSubgraph({ train, valid, test }, limit));

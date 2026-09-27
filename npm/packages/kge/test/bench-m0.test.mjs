@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { evaluateGates, loadGates } from '../bench/lib/gates.mjs';
 import { graphCounts, loadStandardTriples } from '../bench/datasets/lib.mjs';
 import { PINS as YAGO_PINS } from '../bench/datasets/yago310.mjs';
+import { cacheFile as FB_CACHE_FILE } from '../bench/datasets/fb15k237.mjs';
 import { zeroTablesText, zeroTableModel } from '../bench/lib/arms.mjs';
 import { verifyReceipt, sanitizeBindingSource, canonicalJson } from '../bench/lib/receipt.mjs';
 import { main, parseArgs, parseTrainConfig, baselineMismatch } from '../bench/run.mjs';
@@ -114,7 +115,7 @@ test('run.mjs: engine-down synthetic --gate exits 1; --report-only exits 0 but r
 test('run.mjs: a skipped suite (tampered sha256-pinned file) under --gate exits 1, not 0', async () => {
   // A tampered cached file: fetchCached reads it (no network) and the pin fails.
   const cacheDir = mkdtempSync(join(tmpdir(), 'kge-m0-cache-'));
-  for (const k of ['train', 'valid', 'test']) writeFileSync(join(cacheDir, `fb15k237-${k}.txt`), 'a\tr\tb\n');
+  for (const k of ['train', 'valid', 'test']) writeFileSync(join(cacheDir, FB_CACHE_FILE(k)), 'a\tr\tb\n');
   const deps = { binding: FAKE, git: GIT, cacheDir };
   const strict = await main(['--suite', 'fb15k237', '--gate', '--out', out()], deps);
   assert.equal(strict.code, 1, 'a suite that did not run must fail the gate');
