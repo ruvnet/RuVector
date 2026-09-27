@@ -265,10 +265,9 @@ impl Evaluator for TrainerEvaluator {
     }
 }
 
-/// Map [`Knobs`] onto a trainer [`TrainConfig`]. `CrossEntropy` is the trainer's
-/// 1-vs-all loss; `Bce`/`Margin` are the negative-sampling family, so both route
-/// to `SelfAdversarial` (`Knobs` has no per-loss margin, so the trainer default
-/// is used). `batch_size` is fixed ([`BATCH_SIZE`]); `dims` is set by the arm.
+/// Map [`Knobs`] onto a trainer [`TrainConfig`]. Each [`Loss`] arm maps to
+/// exactly one trainer [`LossKind`] (see [`loss_kind_of`]) — no aliasing.
+/// `batch_size` is fixed ([`BATCH_SIZE`]); `dims` is set by the arm.
 fn train_config(knobs: &Knobs, seed: u64) -> TrainConfig {
     TrainConfig {
         dims: knobs.dims,
@@ -283,16 +282,36 @@ fn train_config(knobs: &Knobs, seed: u64) -> TrainConfig {
             },
             Optimizer::Adagrad => OptimKind::Adagrad { epsilon: 1e-8 },
         },
-        loss: match knobs.loss {
-            Loss::CrossEntropy => LossKind::OneVsAll,
-            Loss::Bce | Loss::Margin => LossKind::SelfAdversarial {
-                neg_count: knobs.neg_count,
-                temperature: knobs.temperature,
-                margin: SELF_ADVERSARIAL_MARGIN,
-            },
-        },
+        loss: loss_kind_of(knobs),
         n3_lambda: knobs.n3_lambda,
         seed,
+    }
+}
+
+/// The one [`Loss`] → [`LossKind`] mapping. `SelfAdversarial` uses the
+/// trainer's default margin (`Knobs` has no per-loss margin).
+fn loss_kind_of(knobs: &Knobs) -> LossKind {
+    match knobs.loss {
+        Loss::CrossEntropy => LossKind::OneVsAll,
+        Loss::SelfAdversarial => LossKind::SelfAdversarial {
+            neg_count: knobs.neg_count,
+            temperature: knobs.temperature,
+            margin: SELF_ADVERSARIAL_MARGIN,
+        },
+    }
+}
+
+/// The trainer's serde tag for the [`LossKind`] a [`Loss`] arm runs
+/// (`"one_vs_all"` / `"self_adversarial"`), recorded on campaign receipts so a
+/// receipt names the loss that actually ran (ADR-007 M0).
+pub(crate) fn loss_kind_name(loss: Loss) -> &'static str {
+    let knobs = Knobs {
+        loss,
+        ..Knobs::default()
+    };
+    match loss_kind_of(&knobs) {
+        LossKind::OneVsAll => "one_vs_all",
+        LossKind::SelfAdversarial { .. } => "self_adversarial",
     }
 }
 

@@ -32,10 +32,12 @@ node run.mjs --suite wn18rr --limit 5000 --ann --gate --report-only
 
 Flags: `--suite synthetic|fb15k237|wn18rr|codexm|yago310|all`, `--scorer
 hole|rotate`, `--dims`, `--epochs`, `--limit N`, `--ann`, `--adversarial`,
-`--tie-check`, `--gate`, `--report-only`, `--baseline-receipt PATH`, `--out`.
+`--tie-check`, `--gate`, `--report-only`, `--baseline-receipt PATH`,
+`--train-config JSON`, `--out`, `--help`.
 
 The harness never crashes on an unavailable engine: each measured arm reports
-"engine unavailable" and, under `--report-only`, the run still exits 0. Every
+"engine unavailable". Under `--gate` that is a FAIL (exit 1), as is a run where
+every gate SKIPs; `--report-only` records the same FAIL verdict but exits 0. Every
 call into the Model binding goes through `lib/arms.mjs`. For a real synthetic
 run before `train`/`eval` land in the core, point the harness at the fake:
 
@@ -52,18 +54,20 @@ KGE_BENCH_BINDING=./test/fixtures/fake-binding.cjs \
 | `fb15k237` | villmow/datasets_knowledge_embedding (standard splits) | Freebase-derived; follows source | subgraph |
 | `wn18rr` | same mirror (`WN18RR/text`) | WordNet-derived; follows source | subgraph |
 | `codexm` | tsafavi/codex `data/triples/codex-m` + hard negatives | code MIT (root LICENSE, hashed); triples CC BY 4.0 per the paper | subgraph |
-| `yago310` | same mirror (lazy: only with `--suite yago310`) | YAGO-derived; follows source | subgraph |
+| `yago310` | DeepGraphLearning/KnowledgeGraphEmbedding `data/YAGO3-10` (byte-identical to the ConvE tarball; lazy: only with `--suite yago310`) | YAGO-derived; follows source | subgraph |
 
 `--limit N` keeps the top-N entities by train degree (tie-broken by id) and every
 triple across all splits whose head and tail both survive — a connected subgraph,
 so filtered ranking stays meaningful (a random-triple slice would orphan the
-filter sets). Fetched files are sha256-pinned after the first download; the
-fetcher prints the hash to record.
+filter sets). Every fetched file is sha256-pinned; a file without a pin, or
+whose bytes drift from it, fails closed (the suite is skipped as unavailable).
 
 ## Gates (ADR-006 §Release gates)
 
 `gates.json` — each threshold carries a `source`. Numeric gates apply only on
-their suite / when their flag is present; otherwise SKIP (never a silent pass).
+their suite / when their flag is present; otherwise SKIP. A requested
+`--tie-check` that cannot produce an all-tied model FAILs; the check zeroes the
+tables through `toJson`/`fromJson`, so it runs on the real binding.
 The synthetic suite exercises the tie-break, ANN-recall, adversarial and (native)
 latency gates so CI measures something on every PR.
 
@@ -71,6 +75,8 @@ latency gates so CI measures something on every PR.
 
 One `ruvector-kge-bench/receipt@1` per run: scorer, config, dataset/split
 hashes, metrics per split, tie-break mode, ANN recall, the adversarial report,
-predict latency, train throughput, host, and the binding's `statsJson`. It
-records **no entity or relation ids** and **no triple text** (ADR-005) — hashes
+predict latency, train throughput (`triple_epochs_per_sec`), host, the
+binding's `statsJson`, and `provenance` (git SHA, engine-source sha256, config
+sha256, dataset sha256, binding and native-binary sha256). `receipt_sha256`
+seals the canonical body (`verifyReceipt` in `lib/receipt.mjs`). It records **no entity or relation ids** and **no triple text** (ADR-005) — hashes
 and counts only.

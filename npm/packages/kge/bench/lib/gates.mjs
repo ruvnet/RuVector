@@ -87,8 +87,17 @@ export function evaluateGates(metrics, ctx, gatesDoc = loadGates()) {
     });
   }
 
-  const measured = rows.filter((r) => r.status !== 'SKIP');
-  const anyFail = measured.some((r) => r.status === 'FAIL');
+  // Fail closed (ADR-007 M0). Pre-M0, `pass = !anyFail` over measured rows
+  // only, so an engine-down synthetic `--gate` run (every row SKIP) printed
+  // PASS and exited 0. Now an unavailable engine, or a run where no gate was
+  // measured at all, is itself a visible FAIL row. `--report-only` still exits
+  // 0 (run.mjs), but the verdict it records is FAIL, never PASS.
+  if (engineDown) {
+    rows.push({ name: 'engine_available', status: 'FAIL', detail: 'engine unavailable — nothing was measured', source: 'ADR-007 M0' });
+  } else if (!rows.some((r) => r.status !== 'SKIP')) {
+    rows.push({ name: 'measured_rows', status: 'FAIL', detail: 'no gate was measured (every row SKIP)', source: 'ADR-007 M0' });
+  }
+  const anyFail = rows.some((r) => r.status === 'FAIL');
   return { rows, pass: !anyFail, anyFail, skipped: rows.filter((r) => r.status === 'SKIP').length };
 }
 
@@ -115,14 +124,18 @@ function numericApplies(g, ctx) {
 
 /**
  * The RANDOM tie-break assertion. PASS iff the model is provably all-tied (TOP
- * mean rank ≈ 1) AND the RANDOM mean rank ≈ (|E|+1)/2 within tolerance. If the
- * binding could not produce a constant scorer (top not ≈ 1, or no tie-check
- * run), SKIP with that reason.
+ * mean rank ≈ 1) AND the RANDOM mean rank ≈ (|E|+1)/2 within tolerance. SKIP
+ * only when no `--tie-check` was requested. Once it was requested, an
+ * unavailable check or a model that is not all-tied is a FAIL (ADR-007 M0) —
+ * pre-M0 both SKIPped, so the gate never actually ran on the real binding.
  */
 function tieBreakRow(name, g, ctx) {
   const tc = ctx.tieCheck;
-  if (!tc || !tc.available) {
-    return { name, status: 'SKIP', detail: tc?.reason ?? 'no --tie-check run (or binding lacks a constant scorer)' };
+  if (!tc) {
+    return { name, status: 'SKIP', detail: 'no --tie-check run' };
+  }
+  if (!tc.available) {
+    return { name, status: 'FAIL', detail: `tie-check requested but unavailable: ${tc.reason ?? 'unknown'}` };
   }
   const expected = (tc.nEntities + 1) / 2;
   const tol = g.tolerance_frac ?? 0.1;
@@ -130,8 +143,8 @@ function tieBreakRow(name, g, ctx) {
   if (!allTied) {
     return {
       name,
-      status: 'SKIP',
-      detail: `model not all-tied at epochs:0 (TOP MR=${fmtNum(tc.topMr)}≉1); cannot assert tie-break`,
+      status: 'FAIL',
+      detail: `tie-check model is not all-tied (TOP MR=${fmtNum(tc.topMr)}≉1); cannot assert tie-break`,
     };
   }
   const within = Math.abs(tc.randomMr - expected) <= tol * expected;

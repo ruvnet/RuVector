@@ -6,9 +6,11 @@
 //! RANDOM policy. Metrics are reported per side and combined.
 
 mod metrics;
+mod pair;
 mod rank;
 
 pub use metrics::MetricSet;
+pub use pair::{evaluate_rank_pair, evaluate_rank_pair_with, RankPair};
 pub use rank::TieBreak;
 
 use crate::data::{Rng, TripleStore};
@@ -17,8 +19,8 @@ use metrics::Accum;
 use serde::{Deserialize, Serialize};
 
 /// Evaluation options. `filtered` removes other true facts from the candidate
-/// set; `tie_break` must be [`TieBreak::Random`] for reported numbers
-/// (TOP/BOTTOM exist only for the CI gate). `seed` makes RANDOM reproducible.
+/// set; `tie_break` picks the tie policy (ADR-007: BOTTOM for verdicts, RANDOM
+/// alongside — [`evaluate_rank_pair`] yields both). `seed` makes RANDOM reproducible.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct EvalConfig {
     pub tie_break: TieBreak,
@@ -107,10 +109,10 @@ pub fn evaluate_ranks<S: Scorer + ?Sized>(
     Ok(out)
 }
 
-/// The one scoring loop both [`evaluate`] and [`evaluate_ranks`] share: filtered
-/// tail then head rank of one triple, reusing `scores` as scratch. Identical
-/// seeds and candidate ordering to the previous inline form, so reported
-/// metrics are unchanged.
+/// The one scoring loop [`evaluate`], [`evaluate_ranks`] and
+/// [`evaluate_rank_pair`] share: filtered tail then head rank of one triple,
+/// reusing `scores` as scratch. Identical seeds and candidate ordering to the
+/// previous inline form, so reported metrics are unchanged.
 fn ranks_for_triple<S: Scorer + ?Sized>(
     tables: &Tables,
     scorer: &S,
@@ -119,6 +121,25 @@ fn ranks_for_triple<S: Scorer + ?Sized>(
     config: &EvalConfig,
     scores: &mut [f32],
 ) -> Result<(usize, usize)> {
+    let [(tg, tt), (hg, ht)] =
+        counts_for_triple(tables, scorer, filter_store, t, config.filtered, scores)?;
+    let mut rng = Rng::seeded(qseed(config.seed, t, 1));
+    let tail_rank = rank::resolve(tg, tt, config.tie_break, &mut rng);
+    let mut rng = Rng::seeded(qseed(config.seed, t, 0));
+    let head_rank = rank::resolve(hg, ht, config.tie_break, &mut rng);
+    Ok((tail_rank, head_rank))
+}
+
+/// `[(greater, tied) tail, (greater, tied) head]` for one triple — the single
+/// scoring pass every tie policy is resolved from.
+fn counts_for_triple<S: Scorer + ?Sized>(
+    tables: &Tables,
+    scorer: &S,
+    filter_store: &TripleStore,
+    t: Triple,
+    filtered: bool,
+    scores: &mut [f32],
+) -> Result<[(usize, usize); 2]> {
     let s = tables.entity(t.s)?;
     let r = tables.relation(t.r)?;
     let o = tables.entity(t.o)?;
@@ -127,27 +148,24 @@ fn ranks_for_triple<S: Scorer + ?Sized>(
     for (e, slot) in scores.iter_mut().enumerate() {
         *slot = scorer.score(s, r, tables.entity(e as u32)?);
     }
-    let filt = if config.filtered {
+    let filt = if filtered {
         filter_store.true_tails(t.s, t.r)
     } else {
         None
     };
-    let mut rng = Rng::seeded(qseed(config.seed, t, 1));
-    let tail_rank = rank::rank_of(scores, t.o, filt, config.tie_break, &mut rng);
+    let tail = rank::counts_of(scores, t.o, filt)?;
 
     // Head: (?, r, o) — vary the subject.
     for (e, slot) in scores.iter_mut().enumerate() {
         *slot = scorer.score(tables.entity(e as u32)?, r, o);
     }
-    let filt = if config.filtered {
+    let filt = if filtered {
         filter_store.true_heads(t.r, t.o)
     } else {
         None
     };
-    let mut rng = Rng::seeded(qseed(config.seed, t, 0));
-    let head_rank = rank::rank_of(scores, t.s, filt, config.tie_break, &mut rng);
-
-    Ok((tail_rank, head_rank))
+    let head = rank::counts_of(scores, t.s, filt)?;
+    Ok([tail, head])
 }
 
 /// Well-mixed per-query seed so RANDOM tie-breaking is reproducible yet
@@ -231,6 +249,131 @@ mod tests {
             bottom.combined.mr, ne as f32,
             "BOTTOM tie-break must give mean rank |E|"
         );
+    }
+
+    /// A scorer that has diverged: every score is NaN.
+    struct NanScorer(usize);
+    impl Scorer for NanScorer {
+        fn dims(&self) -> usize {
+            self.0
+        }
+        fn score(&self, _s: &[f32], _r: &[f32], _o: &[f32]) -> f32 {
+            f32::NAN
+        }
+        fn query_vector(&self, _r: &[f32], anchor: &[f32], _side: crate::Side) -> Vec<f32> {
+            vec![f32::NAN; anchor.len()]
+        }
+        fn index_vector(&self, e: &[f32]) -> Vec<f32> {
+            vec![f32::NAN; e.len()]
+        }
+        fn index_dims(&self) -> usize {
+            self.0
+        }
+        fn id(&self) -> &str {
+            "nan-test"
+        }
+    }
+
+    /// ADR-007 M0: an all-NaN scorer must never produce MRR 1 (pre-M0 every
+    /// NaN target ranked 1). It must fail loudly instead, on every tie policy
+    /// and on both public entry points.
+    #[test]
+    fn all_nan_scorer_does_not_produce_mrr_one() {
+        let ne = 20usize;
+        let tables = Tables::new(ne, 2, 4, 7);
+        let test: Vec<Triple> = (0..10u32).map(|i| Triple::new(i, i % 2, i + 1)).collect();
+        let store = TripleStore::with_counts(test.clone(), Some(ne), Some(2)).unwrap();
+        for tie_break in [TieBreak::Random, TieBreak::Top, TieBreak::Bottom] {
+            for filtered in [true, false] {
+                let cfg = EvalConfig {
+                    tie_break,
+                    filtered,
+                    seed: 5,
+                };
+                let rep = evaluate(&tables, &NanScorer(4), &store, &test, &cfg);
+                match rep {
+                    Err(crate::KgeError::Scorer(_)) => {}
+                    Ok(r) => panic!(
+                        "all-NaN scorer reported MRR {} instead of an error",
+                        r.combined.mrr
+                    ),
+                    Err(e) => panic!("unexpected error kind: {e}"),
+                }
+                assert!(evaluate_ranks(&tables, &NanScorer(4), &store, &test, &cfg).is_err());
+            }
+        }
+    }
+
+    /// ADR-007 M0: the RANDOM tie-break under *filtered* ranking at |E| ≥ 1000.
+    /// Every query has exactly one other true entity filtered out, so the
+    /// candidate block is |E| − 1 and the expectations are exact for TOP (1)
+    /// and BOTTOM (|E| − 1), and ≈ |E|/2 for RANDOM (±10%, the gate tolerance).
+    #[test]
+    fn eval_filtered_tie_break_at_1000_entities() {
+        let ne = 1000usize;
+        let tables = Tables::new(ne, 1, 8, 3);
+        let scorer = Constant::new(8);
+        // test: (i, 0, i+1) for i in 1..=300; extra true facts (j, 0, j+2) for
+        // j in 0..=301 give each tail query (i,0,?) one other true tail (i+2)
+        // and each head query (?,0,i+1) one other true head (i-1).
+        let test: Vec<Triple> = (1..=300u32).map(|i| Triple::new(i, 0, i + 1)).collect();
+        let mut all = test.clone();
+        all.extend((0..=301u32).map(|j| Triple::new(j, 0, j + 2)));
+        let store = TripleStore::with_counts(all, Some(ne), Some(1)).unwrap();
+
+        let run = |tie_break, seed| {
+            let cfg = EvalConfig {
+                tie_break,
+                filtered: true,
+                seed,
+            };
+            evaluate(&tables, &scorer, &store, &test, &cfg).unwrap()
+        };
+        let block = (ne - 1) as f32; // candidates left after filtering one other
+        assert_eq!(run(TieBreak::Top, 0).combined.mr, 1.0);
+        assert_eq!(run(TieBreak::Bottom, 0).combined.mr, block);
+        let expected = (block + 1.0) / 2.0; // 500
+        let mut sum = 0.0f32;
+        for seed in [1u64, 2, 3] {
+            sum += run(TieBreak::Random, seed).combined.mr;
+        }
+        let mr = sum / 3.0;
+        assert!(
+            (mr - expected).abs() <= 0.1 * expected,
+            "filtered RANDOM MR {mr:.1} should be ≈ {expected:.1}"
+        );
+        // And it is not collapsing to either extreme.
+        assert!(mr > 0.25 * block && mr < 0.75 * block);
+    }
+
+    /// The bench tie-check (`bench/lib/arms.mjs` zeroTables) zeroes a model's
+    /// tables *textually* in the FFI `toJson` body and re-hashes it, because
+    /// `fromJson` verifies the hash over serde's re-serialization. That only
+    /// round-trips if serde_json writes a zero f32 as exactly `0.0` inside
+    /// `{"dims":D,"entities":[...],"relations":[...]}`. Pin that format here.
+    #[test]
+    fn zeroed_tables_serialize_as_literal_zero_point_zero() {
+        let mut t = Tables::new(3, 2, 4, 9);
+        for e in 0..3u32 {
+            t.entity_mut(e).unwrap().iter_mut().for_each(|x| *x = 0.0);
+        }
+        for r in 0..2u32 {
+            t.relation_mut(r).unwrap().iter_mut().for_each(|x| *x = 0.0);
+        }
+        let json = serde_json::to_string(&t).unwrap();
+        let zeros = |n: usize| vec!["0.0"; n].join(",");
+        assert_eq!(
+            json,
+            format!(
+                "{{\"dims\":4,\"entities\":[{}],\"relations\":[{}]}}",
+                zeros(12),
+                zeros(8)
+            )
+        );
+        // An all-zero HolE model scores every triple exactly 0 → all tied.
+        let sc = crate::HolE::new(4).unwrap();
+        let z = t.entity(0).unwrap();
+        assert_eq!(sc.score(z, t.relation(0).unwrap(), z), 0.0);
     }
 
     /// Filtered ranking must differ from raw when a true fact would outrank the

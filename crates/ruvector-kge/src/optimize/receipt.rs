@@ -36,8 +36,13 @@ pub struct KgeReceiptExtra {
     /// RVF lineage link (ADR-004 `lineage_depth`), when present.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lineage: Option<String>,
+    /// The trainer `LossKind` that actually ran for this proposal
+    /// (`"one_vs_all"` / `"self_adversarial"`, the trainer's serde tag) — ADR-007
+    /// M0: a receipt names the loss that ran, never an aliased HPO label.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub loss_kind: Option<String>,
     /// Self-adversarial sampling temperature (distinct from typesafe's
-    /// calibration temperature).
+    /// calibration temperature). Set only when the self-adversarial loss ran.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sampling_temperature: Option<f32>,
 }
@@ -232,6 +237,7 @@ mod tests {
             fisher_id: None,
             manifest_hash: None,
             lineage: None,
+            loss_kind: Some("self_adversarial".into()),
             sampling_temperature: Some(1.0),
         }
     }

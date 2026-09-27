@@ -4,12 +4,24 @@
 // time, nothing redistributed. LibKGE ComplEx MRR 0.551 is INFORMATIONAL only;
 // the latency/throughput gates are set after the ADR-002 spike. Fetched lazily —
 // the harness only pulls this suite with `--suite yago310`.
+//
+// Source (ADR-007 M0): the previous villmow mirror has no YAGO3-10 directory
+// (HTTP 404), and the pins were all null, so the suite failed open. It now reads
+// the plain-text copy in the RotatE repo (DeepGraphLearning/
+// KnowledgeGraphEmbedding). Verified 2026-09-26: all three files are
+// byte-identical (same sha256) to train/valid/test.txt inside the original
+// TimDettmers/ConvE YAGO3-10.tar.gz — 1,079,040 / 5,000 / 5,000 lines.
 
 import { loadStandardTriples } from './lib.mjs';
 
-const BASE = 'https://raw.githubusercontent.com/villmow/datasets_knowledge_embedding/master/YAGO3-10';
+const BASE = 'https://raw.githubusercontent.com/DeepGraphLearning/KnowledgeGraphEmbedding/master/data/YAGO3-10';
 const SOURCES = { train: `${BASE}/train.txt`, valid: `${BASE}/valid.txt`, test: `${BASE}/test.txt` };
-const PINS = { train: null, valid: null, test: null };
+// Pinned 2026-09-26. Integrity fails closed if the upstream file ever changes.
+export const PINS = {
+  train: 'afb9b51c68d1c997e85655477045b4c5146cd2a6b50b6eea5373383f35dcb12a',
+  valid: 'c9018b77ec77e99f8d48bc3258d404f10b2049a6c7b4ac6eb663697e799dc6f5',
+  test: '003887ca8a34c90fcaf9b0250b1c30a4b5f617f80f8cf0aeab9723333061598a',
+};
 
 export function load({ limit, cacheDir } = {}) {
   return loadStandardTriples({

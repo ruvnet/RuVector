@@ -3,9 +3,10 @@
 //! over a deliberately crippled baseline, the receipt chain verifies, and the
 //! test split is scored exactly twice.
 
-use super::{mrr_of, pair_ranks, TrainerEvaluator};
+use super::{loss_kind_name, mrr_of, pair_ranks, train_config, TrainerEvaluator};
 use crate::data::{Split4, TripleStore};
 use crate::optimize::{Campaign, CampaignSpec, HpoGrid, KgeReceiptLog, Knobs, Loss, Optimizer};
+use crate::train::LossKind;
 use crate::{ScorerKind, Triple};
 use ruvector_typesafe_core::loop_gate::GateDecision;
 
@@ -168,5 +169,53 @@ fn campaign_is_deterministic() {
     assert_eq!(
         a.2, b.2,
         "same inputs must produce a byte-identical receipt log"
+    );
+}
+
+/// ADR-007 M0: every `Loss` arm maps to exactly the trainer `LossKind` its name
+/// says — no arm silently runs a different loss — and the receipt label
+/// matches the kind that ran.
+#[test]
+fn loss_arms_map_to_the_loss_that_runs() {
+    let ce = Knobs {
+        loss: Loss::CrossEntropy,
+        ..Knobs::default()
+    };
+    assert_eq!(train_config(&ce, 1).loss, LossKind::OneVsAll);
+    assert_eq!(loss_kind_name(Loss::CrossEntropy), "one_vs_all");
+
+    let sa = Knobs {
+        loss: Loss::SelfAdversarial,
+        neg_count: 7,
+        temperature: 0.5,
+        ..Knobs::default()
+    };
+    match train_config(&sa, 1).loss {
+        LossKind::SelfAdversarial {
+            neg_count,
+            temperature,
+            ..
+        } => {
+            assert_eq!(neg_count, 7);
+            assert_eq!(temperature, 0.5);
+        }
+        other => panic!("SelfAdversarial arm ran {other:?}"),
+    }
+    assert_eq!(loss_kind_name(Loss::SelfAdversarial), "self_adversarial");
+}
+
+/// The removed aliases fail closed: a grid naming `bce`/`margin` is rejected
+/// rather than relabelled as a loss that never ran.
+#[test]
+fn legacy_bce_and_margin_labels_are_rejected() {
+    for legacy in ["\"bce\"", "\"margin\""] {
+        assert!(
+            serde_json::from_str::<Loss>(legacy).is_err(),
+            "{legacy} must not parse"
+        );
+    }
+    assert_eq!(
+        serde_json::from_str::<Loss>("\"self-adversarial\"").unwrap(),
+        Loss::SelfAdversarial
     );
 }

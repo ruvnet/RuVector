@@ -155,6 +155,13 @@ fn better_arm_promoted_noop_rejected_test_scored_twice_chain_verifies() {
     let log = KgeReceiptLog::from_jsonl(&report.receipts_jsonl).unwrap();
     assert!(log.verify_chain().is_ok());
     assert_eq!(log.len(), report.proposals.len() + 1);
+    // ADR-007 M0: every receipt names the trainer loss that actually ran (the
+    // grid here is cross-entropy only → 1-vs-all), and a 1-vs-all arm carries
+    // no self-adversarial sampling temperature.
+    for r in log.iter() {
+        assert_eq!(r.kge.loss_kind.as_deref(), Some("one_vs_all"));
+        assert_eq!(r.kge.sampling_temperature, None);
+    }
 }
 
 #[test]

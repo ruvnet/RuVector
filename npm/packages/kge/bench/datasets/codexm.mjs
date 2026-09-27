@@ -81,8 +81,7 @@ export async function load({ limit, cacheDir } = {}) {
     splits: { train, valid: carved.valid, transfer: carved.transfer, test },
     hardNegatives: { valid: validNeg, test: testNeg },
     counts: {
-      ...graphCounts({ train, valid: carved.valid, test }),
-      transfer: carved.transfer.length,
+      ...graphCounts({ train, valid: carved.valid, transfer: carved.transfer, test }),
       hard_negatives: { valid: validNeg.length, test: testNeg.length },
     },
     splitsHash: stableSplitHash([...train, ...carved.valid, ...carved.transfer, ...test]),

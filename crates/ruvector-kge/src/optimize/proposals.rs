@@ -23,16 +23,19 @@ pub enum Optimizer {
     Adagrad,
 }
 
-/// Loss arm (LibKGE's dominant three; ADR-004 loop 1).
+/// Loss arm (ADR-004 loop 1). Only losses the trainer actually implements are
+/// listed (ADR-007 M0): the former `Bce` and `Margin` arms both silently ran
+/// `SelfAdversarial`, so they were removed rather than left as aliases. A JSON
+/// grid naming `"bce"` or `"margin"` now fails to deserialize (fail closed)
+/// instead of being relabelled. Add BCE back only with a real BCE trainer loss.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Loss {
     /// Full softmax cross-entropy over all entities (1-vs-all).
     CrossEntropy,
-    /// Binary cross-entropy with negative sampling.
-    Bce,
-    /// Self-adversarial margin ranking.
-    Margin,
+    /// RotatE self-adversarial negative sampling with a margin
+    /// (`LossKind::SelfAdversarial`).
+    SelfAdversarial,
 }
 
 /// Which loop a proposal belongs to. Maps by **loop index** onto typesafe's
@@ -147,7 +150,7 @@ impl Default for HpoGrid {
         Self {
             dims: vec![128, 256],
             lrs: vec![0.001, 0.01],
-            losses: vec![Loss::CrossEntropy, Loss::Bce],
+            losses: vec![Loss::CrossEntropy, Loss::SelfAdversarial],
             n3_lambdas: vec![0.0, 1e-3],
         }
     }
@@ -288,7 +291,7 @@ mod tests {
         let g = HpoGrid {
             dims: vec![8, 16],
             lrs: vec![0.1],
-            losses: vec![Loss::Bce],
+            losses: vec![Loss::SelfAdversarial],
             n3_lambdas: vec![0.0, 1.0],
         };
         let cs = g.expand(&Knobs::default());
@@ -305,7 +308,7 @@ mod tests {
         let g = HpoGrid {
             dims: vec![8, 16, 32, 64],
             lrs: vec![0.1],
-            losses: vec![Loss::Bce],
+            losses: vec![Loss::SelfAdversarial],
             n3_lambdas: vec![0.0],
         };
         let cs = g.expand(&Knobs::default());

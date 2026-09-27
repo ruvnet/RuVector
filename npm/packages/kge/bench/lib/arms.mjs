@@ -21,6 +21,7 @@
 
 import { createRequire } from 'node:module';
 import { existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 
 /**
@@ -34,7 +35,7 @@ export function resolveBinding(pkgRoot, injected) {
   if (envPath) {
     try {
       const abs = envPath.startsWith('.') ? join(pkgRoot, envPath) : envPath;
-      return { binding: require(abs), source: `env:KGE_BENCH_BINDING(${envPath})` };
+      return { binding: require(abs), source: `env:KGE_BENCH_BINDING(${envPath})`, path: safeResolve(require, abs) };
     } catch (e) {
       return { binding: null, error: `require(${envPath}) failed: ${e && e.message}` };
     }
@@ -42,13 +43,22 @@ export function resolveBinding(pkgRoot, injected) {
   for (const p of [join(pkgRoot, 'index.js'), join(pkgRoot, 'dist', 'index.js')]) {
     if (existsSync(p)) {
       try {
-        return { binding: require(p), source: p };
+        return { binding: require(p), source: p, path: p };
       } catch (e) {
         return { binding: null, error: `require(${p}) failed: ${e && e.message}` };
       }
     }
   }
   return { binding: null, error: 'no index.js / dist/index.js — core not built yet' };
+}
+
+/** Absolute file a module id resolves to (for provenance hashing), or null. */
+function safeResolve(require, id) {
+  try {
+    return require.resolve(id);
+  } catch {
+    return null;
+  }
 }
 
 const parse = (raw) => (typeof raw === 'string' ? JSON.parse(raw) : raw);
@@ -190,3 +200,74 @@ export const safeVersion = (binding) => {
     return null;
   }
 };
+
+// ---------------------------------------------------------------------------
+// Tie-check model (ADR-007 M0). A zero-epoch real model still has Xavier-random
+// tables, so it is never all-tied and the RANDOM tie-break gate could never run
+// on the real binding. Instead we zero the tables of a built model through the
+// public toJson/fromJson envelope. `fromJson` verifies sha256 over serde_json's
+// RE-serialization of the parsed model, so the body must stay byte-identical
+// except for the table floats: we never JSON.parse/stringify it, we rewrite only
+// the number tokens of the two table arrays to `0.0` (serde's f32 zero — pinned
+// by the Rust test eval::tests::zeroed_tables_serialize_as_literal_zero_point_zero)
+// and re-hash. An all-zero HolE/RotatE model scores every triple exactly 0.
+// ---------------------------------------------------------------------------
+
+const TABLES_KEY = '"tables":{"dims":';
+const ENVELOPE_HEAD = /^\{"sha256":"[0-9a-f]{64}","model":/;
+
+/** Count the comma-separated tokens of an array body without materialising them. */
+function tokenCount(inner) {
+  if (inner.trim() === '') return 0;
+  let n = 1;
+  for (let i = 0; i < inner.length; i++) if (inner.charCodeAt(i) === 44) n++;
+  return n;
+}
+
+/**
+ * Rewrite the `entities`/`relations` float arrays of the (last) `"tables"`
+ * object in a serialized model body to all `0.0`. `tables` is the last
+ * serialized field of the FFI model, and an unescaped `"` cannot occur inside a
+ * JSON string, so `lastIndexOf` finds the real key. Returns { body } | { error }.
+ */
+export function zeroTablesText(body) {
+  const at = body.lastIndexOf(TABLES_KEY);
+  if (at < 0) return { error: 'model JSON has no built tables' };
+  let replaced = 0;
+  const tail = body.slice(at).replace(/("(?:entities|relations)":\[)([^\]]*)(\])/g, (_, open, inner, close) => {
+    replaced++;
+    const n = tokenCount(inner);
+    return open + (n ? '0.0,'.repeat(n - 1) + '0.0' : '') + close;
+  });
+  if (replaced !== 2) return { error: `expected 2 table arrays, found ${replaced}` };
+  return { body: body.slice(0, at) + tail };
+}
+
+/** True when the binding can round-trip a model through toJson/fromJson. */
+export function canZeroTables(binding, model) {
+  return typeof binding?.Model?.fromJson === 'function' && typeof model?.toJson === 'function';
+}
+
+/**
+ * A copy of `model` (tables already built) with every embedding zeroed, via the
+ * hash-carrying envelope. Returns { available:true, model } | { available:false, error }.
+ */
+export function zeroTableModel(binding, model) {
+  if (!canZeroTables(binding, model)) return { available: false, error: 'binding has no toJson/fromJson' };
+  let env;
+  try {
+    env = model.toJson();
+  } catch (e) {
+    return { available: false, error: `toJson threw: ${e && e.message ? e.message : e}` };
+  }
+  const head = typeof env === 'string' ? ENVELOPE_HEAD.exec(env) : null;
+  if (!head || !env.endsWith('}')) return { available: false, error: 'toJson envelope has an unexpected shape' };
+  const z = zeroTablesText(env.slice(head[0].length, -1));
+  if (z.error) return { available: false, error: z.error };
+  const digest = createHash('sha256').update(z.body).digest('hex');
+  try {
+    return { available: true, model: binding.Model.fromJson(`{"sha256":"${digest}","model":${z.body}}`) };
+  } catch (e) {
+    return { available: false, error: `fromJson rejected the zeroed model: ${e && e.message ? e.message : e}` };
+  }
+}

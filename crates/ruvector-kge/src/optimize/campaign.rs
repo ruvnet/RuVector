@@ -153,7 +153,11 @@ fn kge_extra(p: &Proposal) -> KgeReceiptExtra {
         fisher_id: None,
         manifest_hash: None,
         lineage: p.parent.map(|x| format!("{x:016x}")),
-        sampling_temperature: Some(p.knobs.temperature),
+        loss_kind: Some(super::trainer_eval::loss_kind_name(p.knobs.loss).to_string()),
+        // Temperature only shapes the self-adversarial loss; recording it for a
+        // 1-vs-all arm would imply a knob that never ran.
+        sampling_temperature: (p.knobs.loss == super::proposals::Loss::SelfAdversarial)
+            .then_some(p.knobs.temperature),
     }
 }
 

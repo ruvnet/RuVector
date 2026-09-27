@@ -119,9 +119,16 @@ export function carveTransfer(valid, frac = 0.3) {
  */
 export async function loadStandardTriples({ name, sources, pins = {}, limit, cacheDir, licence }) {
   const opts = { cacheDir };
+  // Fail closed (ADR-007 M0): a benchmark suite never runs on unpinned bytes.
+  // An unpinned file used to be fetched and only its hash printed, so a drifted
+  // or swapped upstream would have been scored silently.
+  const unpinned = ['train', 'valid', 'test'].filter((k) => !pins[k]);
+  if (unpinned.length) {
+    throw new Error(`${name}: no sha256 pin for ${unpinned.join(', ')} — refusing to run on unverified data`);
+  }
   const got = {};
   for (const k of ['train', 'valid', 'test']) {
-    got[k] = await fetchCached(sources[k], `${name}-${k}.txt`, { ...opts, knownSha256: pins[k] ?? null });
+    got[k] = await fetchCached(sources[k], `${name}-${k}.txt`, { ...opts, knownSha256: pins[k] });
   }
   reportPins(name, got);
   let train = parseTriplesTsv(got.train.bytes.toString('utf8'));
@@ -136,21 +143,33 @@ export async function loadStandardTriples({ name, sources, pins = {}, limit, cac
     sources: Object.fromEntries(Object.entries(sources)),
     fileHashes: Object.fromEntries(Object.entries(got).map(([k, v]) => [k, v.sha256])),
     splits,
-    counts: { ...graphCounts({ train, valid: carved.valid, test }), transfer: carved.transfer.length },
+    counts: graphCounts({ train, valid: carved.valid, transfer: carved.transfer, test }),
     splitsHash: stableSplitHash([...train, ...carved.valid, ...carved.transfer, ...test]),
   };
 }
 
-/** Count distinct entities/relations across split arrays. */
-export function graphCounts({ train = [], valid = [], test = [] }) {
+/**
+ * Count distinct entities/relations across ALL split arrays, transfer included
+ * (ADR-007 M0): the transfer split is carved out of valid, so an entity that
+ * only appears there is still in the binding's entity table and in the tie-check
+ * expectation (|E|+1)/2. FB15k-237 = 14541, WN18RR = 41105 with it.
+ */
+export function graphCounts({ train = [], valid = [], transfer = [], test = [] }) {
   const ent = new Set();
   const rel = new Set();
-  for (const arr of [train, valid, test]) {
+  for (const arr of [train, valid, transfer, test]) {
     for (const t of arr) {
       ent.add(t.s);
       ent.add(t.o);
       rel.add(t.r);
     }
   }
-  return { train: train.length, valid: valid.length, test: test.length, entities: ent.size, relations: rel.size };
+  return {
+    train: train.length,
+    valid: valid.length,
+    transfer: transfer.length,
+    test: test.length,
+    entities: ent.size,
+    relations: rel.size,
+  };
 }
