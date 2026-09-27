@@ -19,9 +19,13 @@ const HOURS_PER_MONTH: f64 = 720.0;
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Offer {
     pub id: u64,
+    /// Empty for a GPU-less offer (vast.ai may send null).
+    #[serde(default, deserialize_with = "null_to_default")]
     pub gpu_name: String,
+    #[serde(default, deserialize_with = "null_to_default")]
     pub num_gpus: u32,
     /// MiB.
+    #[serde(default, deserialize_with = "null_to_default")]
     pub gpu_ram: f64,
     pub dph_total: f64,
     #[serde(default)]
@@ -53,6 +57,25 @@ pub struct Offer {
     pub rentable: Option<bool>,
     #[serde(default)]
     pub rented: Option<bool>,
+    /// Host threads (may be far more than this offer gets).
+    #[serde(default)]
+    pub cpu_cores: Option<f64>,
+    /// Threads actually allocated to this offer. CPU mode ranks on this.
+    #[serde(default)]
+    pub cpu_cores_effective: Option<f64>,
+    /// MB (thousands-based, like `gpu_ram`) allocated to this offer.
+    #[serde(default)]
+    pub cpu_ram: Option<f64>,
+    #[serde(default)]
+    pub cpu_name: Option<String>,
+}
+
+fn null_to_default<'de, D, T>(d: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Default + Deserialize<'de>,
+{
+    Ok(Option::<T>::deserialize(d)?.unwrap_or_default())
 }
 
 impl Offer {
@@ -61,6 +84,15 @@ impl Offer {
     }
     pub fn is_verified(&self) -> bool {
         self.verification.as_deref() == Some("verified")
+    }
+    /// Effective (allocated) CPU threads, if the offer reports a positive count.
+    pub fn effective_cores(&self) -> Option<f64> {
+        self.cpu_cores_effective
+            .filter(|c| c.is_finite() && *c > 0.0)
+    }
+    /// Planning rate per effective core-hour (`None` without a core count).
+    pub fn usd_per_core_hour(&self, cm: &CostModel) -> Option<f64> {
+        Some(estimate(self, cm, 1.0).hourly_usd / self.effective_cores()?)
     }
 }
 
@@ -103,37 +135,83 @@ pub fn estimate(o: &Offer, cm: &CostModel, max_hours: f64) -> Estimate {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct OfferFilter {
+    /// GPU allow-list. Empty means any GPU (only allowed in CPU mode).
     pub gpu_names: Vec<String>,
+    /// Exact GPU count. 0 means any count, including GPU-less (CPU mode only).
     pub num_gpus: u32,
     pub min_gpu_ram_gb: f64,
+    /// 0 disables the check (a non-CUDA image in CPU mode).
     pub min_cuda: f64,
     pub max_dph: f64,
     pub min_reliability: f64,
     pub require_datacenter: bool,
+    /// Rank by $/effective-core-hour and relax the GPU constraints above.
+    pub cpu_mode: bool,
+    /// Minimum `cpu_cores_effective` (0 = no minimum).
+    pub min_cpu_cores: f64,
+    /// Minimum `cpu_ram` in GB (0 = no minimum).
+    pub min_ram_gb: f64,
 }
 
 impl OfferFilter {
-    /// Server-side pre-filter for `POST /bundles/`.
+    /// Server-side pre-filter for `POST /bundles/`. In CPU mode the GPU keys
+    /// are omitted when unconstrained. The server cannot order by $/core-hour,
+    /// so callers should raise `limit` in CPU mode and rank client-side.
     pub fn query_json(&self, disk_gb: f64, limit: u32) -> Value {
         let mut q = json!({
             "verified": {"eq": true},
             "rentable": {"eq": true},
             "rented": {"eq": false},
             "reliability2": {"gte": self.min_reliability},
-            "num_gpus": {"eq": self.num_gpus},
-            "gpu_name": {"in": self.gpu_names},
-            "gpu_ram": {"gte": self.min_gpu_ram_gb * 1000.0},
-            "cuda_max_good": {"gte": self.min_cuda},
             "dph_total": {"lte": self.max_dph},
             "disk_space": {"gte": disk_gb},
             "order": [["dph_total", "asc"]],
             "type": "on-demand",
             "limit": limit,
         });
+        if self.num_gpus > 0 {
+            q["num_gpus"] = json!({"eq": self.num_gpus});
+        }
+        if !self.gpu_names.is_empty() {
+            q["gpu_name"] = json!({"in": self.gpu_names});
+        }
+        if self.min_gpu_ram_gb > 0.0 {
+            q["gpu_ram"] = json!({"gte": self.min_gpu_ram_gb * 1000.0});
+        }
+        if self.min_cuda > 0.0 {
+            q["cuda_max_good"] = json!({"gte": self.min_cuda});
+        }
+        if self.min_cpu_cores > 0.0 {
+            q["cpu_cores_effective"] = json!({"gte": self.min_cpu_cores});
+        }
+        if self.min_ram_gb > 0.0 {
+            q["cpu_ram"] = json!({"gte": self.min_ram_gb * 1000.0});
+        }
         if self.require_datacenter {
             q["datacenter"] = json!({"eq": true});
         }
         q
+    }
+
+    /// Structural checks on the filter itself (empty = OK). GPU mode must pin
+    /// a GPU model list and count; only CPU mode may relax them.
+    pub fn problems(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        if !self.cpu_mode {
+            if self.gpu_names.is_empty() {
+                out.push("--gpu allow-list is empty (only allowed with --cpu-mode)".into());
+            }
+            if self.num_gpus == 0 {
+                out.push("--num-gpus 0 is only allowed with --cpu-mode".into());
+            }
+        }
+        if !(self.min_cpu_cores.is_finite() && self.min_cpu_cores >= 0.0) {
+            out.push("--min-cpu-cores must be >= 0".into());
+        }
+        if !(self.min_ram_gb.is_finite() && self.min_ram_gb >= 0.0) {
+            out.push("--min-ram-gb must be >= 0".into());
+        }
+        out
     }
 
     /// Client-side enforcement. `None` means the offer is acceptable.
@@ -150,11 +228,27 @@ impl OfferFilter {
                 self.min_reliability
             ));
         }
-        if !self.gpu_names.iter().any(|g| g == &o.gpu_name) {
+        if !(self.cpu_mode && self.gpu_names.is_empty())
+            && !self.gpu_names.iter().any(|g| g == &o.gpu_name)
+        {
             return Some(format!("gpu {} not in allow-list", o.gpu_name));
         }
-        if o.num_gpus != self.num_gpus {
+        if !(self.cpu_mode && self.num_gpus == 0) && o.num_gpus != self.num_gpus {
             return Some(format!("num_gpus {} != {}", o.num_gpus, self.num_gpus));
+        }
+        if self.cpu_mode && o.effective_cores().is_none() {
+            return Some("cpu_cores_effective unknown (CPU mode needs it)".into());
+        }
+        let cores = o.effective_cores().unwrap_or(0.0);
+        if cores < self.min_cpu_cores {
+            return Some(format!(
+                "cpu_cores_effective {cores:.1} < {}",
+                self.min_cpu_cores
+            ));
+        }
+        let ram_mb = o.cpu_ram.unwrap_or(0.0);
+        if self.min_ram_gb > 0.0 && ram_mb < self.min_ram_gb * 1000.0 {
+            return Some(format!("cpu_ram {ram_mb} MB < {} GB", self.min_ram_gb));
         }
         if o.gpu_ram < self.min_gpu_ram_gb * 1000.0 {
             return Some(format!(
@@ -181,8 +275,11 @@ impl OfferFilter {
     }
 }
 
-/// Filter then rank: datacenter hosts first, then lowest planning rate,
-/// then highest reliability. Returns (ranked acceptable offers, rejections).
+/// Filter then rank. Returns (ranked acceptable offers, rejections).
+///
+/// GPU mode: datacenter hosts first, then lowest planning rate, then highest
+/// reliability. CPU mode: lowest planning $/effective-core-hour first, then
+/// datacenter, then reliability (`--require-datacenter` still filters).
 pub fn rank(offers: &[Offer], f: &OfferFilter, cm: &CostModel) -> (Vec<Offer>, Vec<(u64, String)>) {
     let mut ok = Vec::new();
     let mut rejected = Vec::new();
@@ -191,6 +288,21 @@ pub fn rank(offers: &[Offer], f: &OfferFilter, cm: &CostModel) -> (Vec<Offer>, V
             None => ok.push(o.clone()),
             Some(r) => rejected.push((o.id, r)),
         }
+    }
+    if f.cpu_mode {
+        // reject_reason guarantees a core count in CPU mode.
+        let per_core = |o: &Offer| o.usd_per_core_hour(cm).unwrap_or(f64::INFINITY);
+        ok.sort_by(|a, b| {
+            per_core(a)
+                .total_cmp(&per_core(b))
+                .then(b.is_datacenter().cmp(&a.is_datacenter()))
+                .then(
+                    b.reliability2
+                        .unwrap_or(0.0)
+                        .total_cmp(&a.reliability2.unwrap_or(0.0)),
+                )
+        });
+        return (ok, rejected);
     }
     ok.sort_by(|a, b| {
         let ra = estimate(a, cm, 1.0).hourly_usd;
@@ -211,7 +323,7 @@ pub fn rank(offers: &[Offer], f: &OfferFilter, cm: &CostModel) -> (Vec<Offer>, V
 mod tests {
     use super::*;
 
-    fn fixture() -> Vec<Offer> {
+    pub(super) fn fixture() -> Vec<Offer> {
         let v: Value = serde_json::from_str(include_str!("../tests/fixtures/offers.json")).unwrap();
         serde_json::from_value(v["offers"].clone()).unwrap()
     }
@@ -224,9 +336,12 @@ mod tests {
             max_dph: 1.0,
             min_reliability: 0.98,
             require_datacenter: false,
+            cpu_mode: false,
+            min_cpu_cores: 0.0,
+            min_ram_gb: 0.0,
         }
     }
-    const CM: CostModel = CostModel {
+    pub(super) const CM: CostModel = CostModel {
         disk_gb: 60.0,
         upload_gb: 2.0,
         download_gb: 10.0,
@@ -288,3 +403,7 @@ mod tests {
         assert!(ok.is_empty());
     }
 }
+
+#[cfg(test)]
+#[path = "offer_cpu_tests.rs"]
+mod cpu_tests;

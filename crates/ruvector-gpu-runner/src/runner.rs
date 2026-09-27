@@ -10,8 +10,9 @@ use std::time::{Duration, Instant};
 use crate::audit::{self, Audit};
 use crate::budget::{self, Budget, Watch};
 use crate::gcs::{GcsPlan, MAX_SIGNED_HOURS};
-use crate::job::{self, JobSpec};
+use crate::job::{self, JobSpec, ResumeFetch};
 use crate::offer::{self, CostModel, Estimate, Offer, OfferFilter};
+use crate::resume::{self, ResumeSource};
 use crate::vast::{Client, LABEL_PREFIX};
 
 pub struct LaunchCfg {
@@ -20,6 +21,8 @@ pub struct LaunchCfg {
     pub budget: Budget,
     pub job: JobSpec,
     pub gcs: GcsPlan,
+    /// Checkpoint to restore before the command (resolved at launch).
+    pub resume: Option<ResumeSource>,
     pub local_repo: String,
     pub poll_secs: u64,
     pub startup_timeout_mins: f64,
@@ -99,11 +102,24 @@ fn print_offer(o: &Offer, e: &Estimate) {
         o.reliability2.unwrap_or(0.0)
     );
     println!("  cuda_max_good   {:?}", o.cuda_max_good);
+    println!(
+        "  cpu             {} | {:.1} effective threads (host {:?}) | {:.0} GB RAM",
+        o.cpu_name.as_deref().unwrap_or("?").trim(),
+        o.effective_cores().unwrap_or(0.0),
+        o.cpu_cores,
+        o.cpu_ram.unwrap_or(0.0) / 1000.0
+    );
     println!("cost estimate:");
     println!("  listed dph      ${:.4}/h", o.dph_total);
     println!("  compute         ${:.4}/h", e.compute_hourly_usd);
     println!("  disk storage    ${:.4}/h", e.storage_hourly_usd);
     println!("  planning rate   ${:.4}/h", e.hourly_usd);
+    if let Some(c) = o.effective_cores() {
+        println!(
+            "  per core-hour   ${:.5} (planning rate / {c:.1} effective threads)",
+            e.hourly_usd / c
+        );
+    }
     println!("  transfer        ${:.4} (one-off)", e.bandwidth_usd);
     println!(
         "  worst case      ${:.4} ({}h cap)",
@@ -118,8 +134,12 @@ pub fn launch(cfg: &LaunchCfg, client: &Client, audit: &Audit) -> Result<i32> {
         blockers.push(format!("--max-hours must be <= {}", MAX_SIGNED_HOURS - 0.5));
     }
 
-    // 1. Offers (live, read-only).
-    let q = cfg.filter.query_json(cfg.cost.disk_gb, 64);
+    blockers.extend(cfg.filter.problems());
+
+    // 1. Offers (live, read-only). The server cannot order by $/core-hour,
+    // so CPU mode pulls a wider page and ranks client-side.
+    let limit = if cfg.filter.cpu_mode { 512 } else { 64 };
+    let q = cfg.filter.query_json(cfg.cost.disk_gb, limit);
     let offers = client.search_offers(&q)?;
     let (ranked, rejected) = offer::rank(&offers, &cfg.filter, &cfg.cost);
     println!(
@@ -140,10 +160,23 @@ pub fn launch(cfg: &LaunchCfg, client: &Client, audit: &Audit) -> Result<i32> {
     };
     for o in ranked.iter().take(5) {
         let e = offer::estimate(o, &cfg.cost, 1.0);
+        let cpu = match (cfg.filter.cpu_mode, o.effective_cores()) {
+            (true, Some(c)) => format!(
+                " {c:.0}thr {:.0}GB ${:.5}/core-h",
+                o.cpu_ram.unwrap_or(0.0) / 1000.0,
+                e.hourly_usd / c
+            ),
+            _ => String::new(),
+        };
         println!(
-            "  candidate {} {} ${:.4}/h rel={:.4} dc={} {}",
+            "  candidate {} {} x{} ${:.4}/h{cpu} rel={:.4} dc={} {}",
             o.id,
-            o.gpu_name,
+            if o.gpu_name.is_empty() {
+                "no-gpu"
+            } else {
+                &o.gpu_name
+            },
+            o.num_gpus,
             e.hourly_usd,
             o.reliability2.unwrap_or(0.0),
             o.is_datacenter(),
@@ -190,25 +223,70 @@ pub fn launch(cfg: &LaunchCfg, client: &Client, audit: &Audit) -> Result<i32> {
     }
 
     // 5. GCS sink.
-    let gcs_problems = cfg.gcs.readiness();
+    let need_reader = cfg.resume.is_some();
+    let gcs_problems = cfg.gcs.readiness(need_reader);
     println!(
         "artifacts:        {}/{{artifacts.tar.gz,job.log,DONE,FAILED}}",
         cfg.gcs.prefix()
     );
+    if j.checkpointing() {
+        println!(
+            "checkpoints:      {} every {}s -> {}/ckpt-{{0..{}}}.tar.gz + {} ({:.1} GB transfer budgeted)",
+            j.checkpoint_dir,
+            j.checkpoint_secs,
+            cfg.gcs.prefix(),
+            j.checkpoint_ring - 1,
+            crate::gcs::CKPT_POINTER,
+            cfg.cost.upload_gb
+        );
+    } else {
+        println!("checkpoints:      off (--checkpoint-secs 0)");
+    }
     if !gcs_problems.is_empty() {
         println!(
             "GCS setup needed (not performed automatically):\n{}",
-            cfg.gcs.setup_commands()
+            cfg.gcs.setup_commands(need_reader)
         );
         blockers.extend(gcs_problems.into_iter().map(|p| format!("gcs: {p}")));
     }
 
+    // 6. Resume source (read-only, operator credentials).
+    let mut job = j.clone();
+    let mut resolved = None;
+    if let Some(src) = &cfg.resume {
+        match resume::resolve(src, &cfg.gcs) {
+            Ok(r) => {
+                println!(
+                    "resume from:      {} (sha256 {})",
+                    r.gs_url,
+                    r.sha256.as_deref().unwrap_or("not recorded")
+                );
+                job.resume = Some(ResumeFetch {
+                    sha256: r.sha256.clone(),
+                });
+                resolved = Some(r);
+            }
+            Err(e) => blockers.push(format!("resume: {e:#}")),
+        }
+    }
+    let j = &job;
+
     let onstart = job::render_onstart(j);
+    let placeholder: serde_json::Map<String, Value> = j
+        .url_env_names()
+        .into_iter()
+        .map(|n| {
+            let kind = if n == "RVGR_URL_RESUME" {
+                "<signed GET>"
+            } else {
+                "<signed PUT>"
+            };
+            (n, json!(kind))
+        })
+        .collect();
     let mut body = json!({
         "client_id": "me", "image": j.image, "disk": cfg.cost.disk_gb, "label": j.run_id,
-        "runtype": "ssh", "onstart": onstart,
-        "env": {"RVGR_URL_ARTIFACTS": "<signed PUT>", "RVGR_URL_LOG": "<signed PUT>",
-                "RVGR_URL_DONE": "<signed PUT>", "RVGR_URL_FAILED": "<signed PUT>"},
+        "runtype": "ssh", "onstart": onstart, "env": placeholder,
     });
     println!("image:            {}", j.image);
     println!(
@@ -222,6 +300,13 @@ pub fn launch(cfg: &LaunchCfg, client: &Client, audit: &Audit) -> Result<i32> {
         "max_usd": cfg.budget.max_usd, "max_hours": cfg.budget.max_hours,
         "image": j.image, "git_ref": j.git_ref, "git_sha": j.git_sha,
         "blockers": blockers, "dry_run": cfg.dry_run,
+        "cpu_mode": cfg.filter.cpu_mode, "cpu_name": chosen.cpu_name,
+        "cpu_cores_effective": chosen.cpu_cores_effective, "cpu_ram_mb": chosen.cpu_ram,
+        "usd_per_core_hour": chosen.usd_per_core_hour(&cfg.cost),
+        "checkpoint_secs": j.checkpoint_secs, "checkpoint_ring": j.checkpoint_ring,
+        "checkpoint_dir": j.checkpoint_dir,
+        "resume_from": resolved.as_ref().map(|r| r.gs_url.clone()),
+        "resume_sha256": resolved.as_ref().and_then(|r| r.sha256.clone()),
     });
 
     if cfg.dry_run {
@@ -255,11 +340,36 @@ pub fn launch(cfg: &LaunchCfg, client: &Client, audit: &Audit) -> Result<i32> {
         let s = stop.clone();
         ctrlc::set_handler(move || s.store(true, Ordering::SeqCst))?;
     }
+    let ring = if j.checkpointing() {
+        j.checkpoint_ring
+    } else {
+        0
+    };
     let urls = cfg
         .gcs
-        .sign_all((cfg.budget.max_hours + 0.5).min(MAX_SIGNED_HOURS))?;
-    body["env"] = json!({"RVGR_URL_ARTIFACTS": urls.artifacts, "RVGR_URL_LOG": urls.log,
+        .sign_all((cfg.budget.max_hours + 0.5).min(MAX_SIGNED_HOURS), ring)?;
+    let mut env = json!({"RVGR_URL_ARTIFACTS": urls.artifacts, "RVGR_URL_LOG": urls.log,
         "RVGR_URL_DONE": urls.done, "RVGR_URL_FAILED": urls.failed});
+    for (i, u) in urls.ckpt_slots.into_iter().enumerate() {
+        env[format!("RVGR_URL_CKPT_{i}")] = json!(u);
+    }
+    if let Some(u) = urls.ckpt_pointer {
+        env["RVGR_URL_CKPT_LATEST"] = json!(u);
+    }
+    if let Some(r) = &resolved {
+        // Short-lived: only needs to outlive boot + clone.
+        let hours = ((cfg.startup_timeout_mins + 30.0) / 60.0).min(MAX_SIGNED_HOURS);
+        env["RVGR_URL_RESUME"] = json!(cfg.gcs.sign_get(&r.gs_url, hours)?);
+    }
+    let missing: Vec<String> = j
+        .url_env_names()
+        .into_iter()
+        .filter(|n| env.get(n).is_none())
+        .collect();
+    if !missing.is_empty() {
+        bail!("internal: signed URLs missing for {missing:?}; nothing launched");
+    }
+    body["env"] = env;
     if stop.load(Ordering::SeqCst) {
         bail!("interrupted before create; nothing launched");
     }
