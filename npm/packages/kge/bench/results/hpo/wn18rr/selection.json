@@ -1,0 +1,414 @@
+{
+  "complete": false,
+  "complete_note": "complete = all 8 pre-registered configs ran to early stop or max_epochs. An incomplete selection is a local M4 measurement, NOT the M7 record pushed to kge-final-ledger.",
+  "configs": [
+    {
+      "best_epoch": 5,
+      "complex_rank": 1000,
+      "config_hash": "a3c2fb76487e30bc0ea719a7b97fe945f026fb9fd1172ac796d5ba9e40e0d937",
+      "config_id": "C1",
+      "delta_bottom": 0.0058931241072142275,
+      "delta_random": 0.005893124107205504,
+      "epochs_run": 6,
+      "gate_vs_c1": null,
+      "receipt_sha256": "a361fa0e47158a5250b55a0cd69b0389b218dc5b083704619b0e3908ec437342",
+      "recipe": {
+        "batch_size": 100,
+        "complex_rank": 1000,
+        "dims": 2000,
+        "init": {
+          "kind": "normal",
+          "scale": 0.0010000000474974513
+        },
+        "loss": {
+          "kind": "one_vs_all"
+        },
+        "loss_reduction": "mean",
+        "lr": 0.10000000149011612,
+        "n3_form": "moduli",
+        "n3_lambda": 0.10000000149011612,
+        "one_n_kernel": "gemm",
+        "optim_state": "dense",
+        "optimizer": {
+          "epsilon": 1.000000013351432e-10,
+          "kind": "adagrad"
+        },
+        "reciprocal": true,
+        "rp_weight": 0.05000000074505806,
+        "scorer": "complex"
+      },
+      "sd_rr_bottom": 0.4665627704878614,
+      "sd_rr_random": 0.4665627704871707,
+      "stopped": "max_epochs",
+      "valid_metrics": {
+        "bottom": {
+          "combined": {
+            "count": 4256,
+            "hits1": 0.41870300751879697,
+            "hits10": 0.5554511278195489,
+            "hits3": 0.48449248120300753,
+            "mr": 3589.7321428571427,
+            "mrr": 0.4653767083728928
+          },
+          "head": {
+            "count": 2128,
+            "hits1": 0.3975563909774436,
+            "hits10": 0.5361842105263158,
+            "hits3": 0.46099624060150374,
+            "mr": 4873.006109022556,
+            "mrr": 0.4440122157502666
+          },
+          "tail": {
+            "count": 2128,
+            "hits1": 0.4398496240601504,
+            "hits10": 0.5747180451127819,
+            "hits3": 0.5079887218045113,
+            "mr": 2306.4581766917295,
+            "mrr": 0.4867412009955229
+          }
+        },
+        "random": {
+          "combined": {
+            "count": 4256,
+            "hits1": 0.41870300751879697,
+            "hits10": 0.5554511278195489,
+            "hits3": 0.48449248120300753,
+            "mr": 3589.7309680451126,
+            "mrr": 0.46537670837360273
+          },
+          "head": {
+            "count": 2128,
+            "hits1": 0.3975563909774436,
+            "hits10": 0.5361842105263158,
+            "hits3": 0.46099624060150374,
+            "mr": 4873.00469924812,
+            "mrr": 0.4440122157511214
+          },
+          "tail": {
+            "count": 2128,
+            "hits1": 0.4398496240601504,
+            "hits10": 0.5747180451127819,
+            "hits3": 0.5079887218045113,
+            "mr": 2306.4572368421054,
+            "mrr": 0.48674120099608836
+          }
+        }
+      },
+      "valid_mrr_bottom": 0.4653767083728928,
+      "valid_mrr_random": 0.46537670837360273,
+      "valid_queries": 4256,
+      "wall_secs": 2493.100263519
+    },
+    {
+      "best_epoch": 5,
+      "complex_rank": 1000,
+      "config_hash": "e3b6815289e329e4b7b41328b9907b06f7e89d2e457add0b217fa3e10aab3681",
+      "config_id": "C2",
+      "delta_bottom": 0.00585467134519094,
+      "delta_random": 0.005854671345183068,
+      "epochs_run": 6,
+      "gate_vs_c1": {
+        "alpha": 0.0062500000931322575,
+        "lambda": 0.5,
+        "max_wealth": 10.480825708288993,
+        "n_baseline_wins": 1178,
+        "n_champion_wins": 1074,
+        "rejected": false,
+        "threshold": 159.99999761581424,
+        "wealth": 8.007966470481569e-44
+      },
+      "receipt_sha256": "6e790aff4cfd1c0162d133b4fdbfeb4826753082a4f4bddfb1a65b470ebb736e",
+      "recipe": {
+        "batch_size": 100,
+        "complex_rank": 1000,
+        "dims": 2000,
+        "init": {
+          "kind": "normal",
+          "scale": 0.0010000000474974513
+        },
+        "loss": {
+          "kind": "one_vs_all"
+        },
+        "loss_reduction": "mean",
+        "lr": 0.10000000149011612,
+        "n3_form": "moduli",
+        "n3_lambda": 0.10000000149011612,
+        "one_n_kernel": "gemm",
+        "optim_state": "dense",
+        "optimizer": {
+          "epsilon": 1.000000013351432e-10,
+          "kind": "adagrad"
+        },
+        "reciprocal": true,
+        "rp_weight": 0.0,
+        "scorer": "complex"
+      },
+      "sd_rr_bottom": 0.4635184383380373,
+      "sd_rr_random": 0.46351843833741413,
+      "stopped": "max_epochs",
+      "valid_metrics": {
+        "bottom": {
+          "combined": {
+            "count": 4256,
+            "hits1": 0.40789473684210525,
+            "hits10": 0.5531015037593985,
+            "hits3": 0.4828477443609023,
+            "mr": 3562.8919172932333,
+            "mrr": 0.4587076265155579
+          },
+          "head": {
+            "count": 2128,
+            "hits1": 0.39050751879699247,
+            "hits10": 0.5333646616541353,
+            "hits3": 0.4619360902255639,
+            "mr": 4816.186090225564,
+            "mrr": 0.43981162590958617
+          },
+          "tail": {
+            "count": 2128,
+            "hits1": 0.42528195488721804,
+            "hits10": 0.5728383458646616,
+            "hits3": 0.5037593984962406,
+            "mr": 2309.597744360902,
+            "mrr": 0.477603627121533
+          }
+        },
+        "random": {
+          "combined": {
+            "count": 4256,
+            "hits1": 0.40789473684210525,
+            "hits10": 0.5531015037593985,
+            "hits3": 0.4828477443609023,
+            "mr": 3562.8909774436092,
+            "mrr": 0.4587076265161902
+          },
+          "head": {
+            "count": 2128,
+            "hits1": 0.39050751879699247,
+            "hits10": 0.5333646616541353,
+            "hits3": 0.4619360902255639,
+            "mr": 4816.184680451128,
+            "mrr": 0.4398116259105658
+          },
+          "tail": {
+            "count": 2128,
+            "hits1": 0.42528195488721804,
+            "hits10": 0.5728383458646616,
+            "hits3": 0.5037593984962406,
+            "mr": 2309.59727443609,
+            "mrr": 0.47760362712181803
+          }
+        }
+      },
+      "valid_mrr_bottom": 0.4587076265155579,
+      "valid_mrr_random": 0.4587076265161902,
+      "valid_queries": 4256,
+      "wall_secs": 1851.121752153
+    },
+    {
+      "best_epoch": 5,
+      "complex_rank": 1000,
+      "config_hash": "6fd82792593d5e6d73d6327026bb664adb64f1260c425b61a03ec22087607bdf",
+      "config_id": "C3",
+      "delta_bottom": 0.005915281329350147,
+      "delta_random": 0.005915281329344907,
+      "epochs_run": 6,
+      "gate_vs_c1": {
+        "alpha": 0.0062500000931322575,
+        "lambda": 0.5,
+        "max_wealth": 1.46484375,
+        "n_baseline_wins": 1417,
+        "n_champion_wins": 889,
+        "rejected": false,
+        "threshold": 159.99999761581424,
+        "wealth": 1.3026021486233923e-91
+      },
+      "receipt_sha256": "5f72f092aa3036c864299f3a4597cb0c511f9bcf9eaa4e0707eec52b72229259",
+      "recipe": {
+        "batch_size": 100,
+        "complex_rank": 1000,
+        "dims": 2000,
+        "init": {
+          "kind": "normal",
+          "scale": 0.0010000000474974513
+        },
+        "loss": {
+          "kind": "one_vs_all"
+        },
+        "loss_reduction": "mean",
+        "lr": 0.10000000149011612,
+        "n3_form": "moduli",
+        "n3_lambda": 0.05000000074505806,
+        "one_n_kernel": "gemm",
+        "optim_state": "dense",
+        "optimizer": {
+          "epsilon": 1.000000013351432e-10,
+          "kind": "adagrad"
+        },
+        "reciprocal": true,
+        "rp_weight": 0.05000000074505806,
+        "scorer": "complex"
+      },
+      "sd_rr_bottom": 0.4683169733110115,
+      "sd_rr_random": 0.4683169733105967,
+      "stopped": "max_epochs",
+      "valid_metrics": {
+        "bottom": {
+          "combined": {
+            "count": 4256,
+            "hits1": 0.41541353383458646,
+            "hits10": 0.5425281954887218,
+            "hits3": 0.4743890977443609,
+            "mr": 3980.344454887218,
+            "mrr": 0.458691869029442
+          },
+          "head": {
+            "count": 2128,
+            "hits1": 0.3942669172932331,
+            "hits10": 0.525375939849624,
+            "hits3": 0.4558270676691729,
+            "mr": 5362.736372180451,
+            "mrr": 0.43926105567298623
+          },
+          "tail": {
+            "count": 2128,
+            "hits1": 0.43656015037593987,
+            "hits10": 0.5596804511278195,
+            "hits3": 0.49295112781954886,
+            "mr": 2597.9525375939847,
+            "mrr": 0.4781226823859034
+          }
+        },
+        "random": {
+          "combined": {
+            "count": 4256,
+            "hits1": 0.41541353383458646,
+            "hits10": 0.5425281954887218,
+            "hits3": 0.4743890977443609,
+            "mr": 3980.34375,
+            "mrr": 0.45869186902986875
+          },
+          "head": {
+            "count": 2128,
+            "hits1": 0.3942669172932331,
+            "hits10": 0.525375939849624,
+            "hits3": 0.4558270676691729,
+            "mr": 5362.734962406015,
+            "mrr": 0.4392610556738398
+          },
+          "tail": {
+            "count": 2128,
+            "hits1": 0.43656015037593987,
+            "hits10": 0.5596804511278195,
+            "hits3": 0.49295112781954886,
+            "mr": 2597.9525375939847,
+            "mrr": 0.4781226823859034
+          }
+        }
+      },
+      "valid_mrr_bottom": 0.458691869029442,
+      "valid_mrr_random": 0.45869186902986875,
+      "valid_queries": 4256,
+      "wall_secs": 2492.601808815
+    }
+  ],
+  "configs_run": [
+    "C1",
+    "C2",
+    "C3"
+  ],
+  "dataset": "wn18rr",
+  "decision_rule": {
+    "alpha_per_proposal": 0.00625,
+    "family_alpha": 0.05,
+    "gate": "ADR-004 anytime paired sequential test (betting) of each Ck vs anchor C1 on per-query valid Bottom ranks, dataset query order; reported, never overrides the argmax",
+    "lambda": 0.5,
+    "margin_over_c1_mrr_bottom": 0.0,
+    "n_preregistered": 8,
+    "selected_is_anchor": true,
+    "selected_passes_gate_vs_c1": null,
+    "selection": "argmax valid MRR (Bottom / worst-rank tie policy) over the configs run; exact ties -> lowest config index"
+  },
+  "delta": {
+    "definition": "delta = sd(RR_valid) / sqrt(n_test_queries), sample sd at the best-on-valid epoch; ADR-007 §1 item 4 (frozen at M5)",
+    "n_test_queries": 6268,
+    "selected_bottom": 0.0058931241072142275,
+    "selected_random": 0.005893124107205504
+  },
+  "generated_at": "2026-09-27T07:56:39Z",
+  "hpo_receipt_hashes": {
+    "C1": "a361fa0e47158a5250b55a0cd69b0389b218dc5b083704619b0e3908ec437342",
+    "C2": "6e790aff4cfd1c0162d133b4fdbfeb4826753082a4f4bddfb1a65b470ebb736e",
+    "C3": "5f72f092aa3036c864299f3a4597cb0c511f9bcf9eaa4e0707eec52b72229259"
+  },
+  "hpo_seed": 100,
+  "jobs": {
+    "C1": {
+      "exit": 0,
+      "status": "finished",
+      "wall_secs": 2495.070304701
+    },
+    "C2": {
+      "exit": 0,
+      "status": "finished",
+      "wall_secs": 1855.036621998
+    },
+    "C3": {
+      "exit": 0,
+      "status": "finished",
+      "wall_secs": 2495.069764812
+    }
+  },
+  "plan": {
+    "committed_at": "2026-09-27T06:44:09Z",
+    "hpo_seed": 100,
+    "parallel_jobs": 2,
+    "patience_status": "ASSUMED (ADR-007 fixes early stop on valid MRR but not the patience)",
+    "plan": {
+      "configs": [
+        "C1",
+        "C3",
+        "C2"
+      ],
+      "dataset": "wn18rr",
+      "early_stop_patience": 3,
+      "eval_every": 1,
+      "max_epochs": 6,
+      "rationale": "LOCAL M4 SUBSET, pre-committed 2026-09-27 before any HPO result. Measured smoke (C1, 8 threads, shared box): ~370 s/epoch train + ~1.5 s valid eval, so 8 configs x 100 epochs (~82 job-hours) cannot fit a ~90 min wall cap at 2 jobs x 8 threads. Run the anchor C1 plus its two closest single-axis WN18RR variants: C3 (lambda 0.10 -> 0.05, a 2x change on one axis) and C2 (w_rel 0.05 -> 0, RP off; the RP weight is already small so removing it is the smallest change in the loss). Excluded as farther from C1: C4 (lambda x5), C5 (w_rel x10), C6 (batch x10), C7 (two axes), C8 (rank x2, ~2x cost). max_epochs 6 so C1+C3 (parallel) then C2 finish inside ~90 min. Patience 3 evaluations is ASSUMED (ADR-007 does not fix it) and cannot fire before epoch 4. C4-C8 and the full 100-epoch runs are left for the vast campaign; this selection is complete=false and is NOT the M7 selection record."
+    },
+    "threads_per_job": 8,
+    "wall_cap_secs": 5400
+  },
+  "plan_sha256": "28d4215239e6c3eea6a3fb4b5a80b2d3f536d994f7d5c86942f84273e51a4ca1",
+  "provenance": {
+    "binary_sha256": "83e222a3470c05e0f6b584bdda0119fb5abe4c46f88ee9a7cd00270703fe09e8",
+    "crate": {
+      "name": "ruvector-kge-bench",
+      "version": "2.3.0"
+    },
+    "git": {
+      "dirty": true,
+      "sha": "167c830b031656de3c780155a33bee1965df81c4"
+    },
+    "host": {
+      "arch": "x86_64",
+      "available_parallelism": 32,
+      "cpu_model": "AMD Ryzen 9 9950X 16-Core Processor",
+      "os": "linux"
+    },
+    "hpo_wall_secs": 4350.145426707,
+    "parallel_jobs": 2,
+    "threads_per_job": 8
+  },
+  "schema": "ruvector-kge-bench/selection@1",
+  "selected": {
+    "config_hash": "a3c2fb76487e30bc0ea719a7b97fe945f026fb9fd1172ac796d5ba9e40e0d937",
+    "config_id": "C1",
+    "receipt_sha256": "a361fa0e47158a5250b55a0cd69b0389b218dc5b083704619b0e3908ec437342",
+    "valid_mrr_bottom": 0.4653767083728928,
+    "valid_mrr_random": 0.46537670837360273
+  },
+  "selection_sha256": "99755e4cfac77d3d5d2b4631ef49adc2e75debff0ab700f9d642d81ceb71dd9b",
+  "split": "valid",
+  "test_scored": false
+}

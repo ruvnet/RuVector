@@ -10118,6 +10118,7 @@ dependencies = [
  "clap",
  "rayon",
  "ruvector-kge",
+ "ruvector-typesafe-core",
  "serde",
  "serde_json",
  "sha2 0.10.9",

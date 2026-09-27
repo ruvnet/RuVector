@@ -6,6 +6,8 @@
 //! ruvector-kge-bench --verify-final FINAL_RECEIPT [--tables DIR] [--out FILE]
 //! ruvector-kge-bench --check-dataset NAME
 //! ruvector-kge-bench --validate-receipt RECEIPT
+//! ruvector-kge-bench --hpo --dataset NAME --configs PLAN.json --parallel-jobs J --threads-per-job T
+//!                    [--runs-dir DIR] [--out RESULTS_DIR] [--wall-cap-mins M]
 //! ```
 //!
 //! The default (`--config`) mode trains and scores **valid only**. Test is
@@ -73,6 +75,27 @@ struct Args {
     /// Repository for git provenance and the --final gate (default: cwd).
     #[arg(long, default_value = ".")]
     repo: PathBuf,
+    /// HPO over a pre-registered plan of C1..C8 (valid only; writes selection.json).
+    #[arg(long)]
+    hpo: bool,
+    /// Dataset for --hpo (must equal the plan's dataset).
+    #[arg(long)]
+    dataset: Option<String>,
+    /// HPO plan JSON: {dataset, configs, max_epochs, early_stop_patience, eval_every, rationale}.
+    #[arg(long)]
+    configs: Option<PathBuf>,
+    /// Concurrent HPO jobs.
+    #[arg(long, default_value_t = 2)]
+    parallel_jobs: usize,
+    /// Rayon threads per HPO job.
+    #[arg(long, default_value_t = 8)]
+    threads_per_job: usize,
+    /// Heavy per-config run dirs for --hpo (checkpoints, tables).
+    #[arg(long)]
+    runs_dir: Option<PathBuf>,
+    /// Kill running HPO jobs after M minutes (they stay resumable).
+    #[arg(long)]
+    wall_cap_mins: Option<f64>,
     /// Quiet: no per-epoch progress on stderr.
     #[arg(long)]
     quiet: bool,
@@ -91,9 +114,10 @@ fn main() -> Result<()> {
         a.verify_final.is_some(),
         a.check_dataset.is_some(),
         a.validate_receipt.is_some(),
+        a.hpo,
     ];
     if modes.iter().filter(|&&m| m).count() != 1 {
-        bail!("choose exactly one of --config, --final, --verify-final, --check-dataset, --validate-receipt (see --help)");
+        bail!("choose exactly one of --config, --final, --verify-final, --check-dataset, --validate-receipt, --hpo (see --help)");
     }
     let cache = a.cache_dir.clone().unwrap_or_else(default_cache_dir);
 
@@ -108,6 +132,47 @@ fn main() -> Result<()> {
     if let Some(p) = &a.validate_receipt {
         let mode = validate(&read_json(p)?)?;
         println!("receipt@1 OK (mode {mode})");
+        return Ok(());
+    }
+    if a.hpo {
+        let plan_path = a
+            .configs
+            .clone()
+            .context("--hpo needs --configs <plan.json>")?;
+        let plan: ruvector_kge_bench::hpo::HpoPlan = serde_json::from_value(read_json(&plan_path)?)
+            .with_context(|| format!("parse HPO plan {}", plan_path.display()))?;
+        let ds = a.dataset.clone().context("--hpo needs --dataset")?;
+        if ds != plan.dataset {
+            bail!("--dataset {ds} but the plan is for {}", plan.dataset);
+        }
+        let results_dir = a
+            .out
+            .clone()
+            .unwrap_or_else(|| PathBuf::from(format!("npm/packages/kge/bench/results/hpo/{ds}")));
+        let opts = ruvector_kge_bench::hpo::HpoOptions {
+            parallel_jobs: a.parallel_jobs,
+            threads_per_job: a.threads_per_job,
+            runs_dir: a
+                .runs_dir
+                .clone()
+                .unwrap_or_else(|| PathBuf::from(format!("target/kge-hpo/{ds}"))),
+            results_dir: results_dir.clone(),
+            wall_cap: a
+                .wall_cap_mins
+                .map(|m| std::time::Duration::from_secs_f64(m * 60.0)),
+            cache_dir: cache,
+            repo: a.repo.clone(),
+            exe: std::env::current_exe()?,
+            poll: std::time::Duration::from_secs(5),
+        };
+        let sel = ruvector_kge_bench::hpo::run(&plan, &opts)?;
+        eprintln!(
+            "selection: {} -> {} (valid MRR bottom {}, complete {})",
+            results_dir.join("selection.json").display(),
+            sel["selected"]["config_id"],
+            sel["selected"]["valid_mrr_bottom"],
+            sel["complete"]
+        );
         return Ok(());
     }
     if let Some(cfg_path) = &a.config {

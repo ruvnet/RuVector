@@ -1,0 +1,8 @@
+{
+  "dataset": "wn18rr",
+  "configs": ["C1", "C3", "C2"],
+  "max_epochs": 6,
+  "early_stop_patience": 3,
+  "eval_every": 1,
+  "rationale": "LOCAL M4 SUBSET, pre-committed 2026-09-27 before any HPO result. Measured smoke (C1, 8 threads, shared box): ~370 s/epoch train + ~1.5 s valid eval, so 8 configs x 100 epochs (~82 job-hours) cannot fit a ~90 min wall cap at 2 jobs x 8 threads. Run the anchor C1 plus its two closest single-axis WN18RR variants: C3 (lambda 0.10 -> 0.05, a 2x change on one axis) and C2 (w_rel 0.05 -> 0, RP off; the RP weight is already small so removing it is the smallest change in the loss). Excluded as farther from C1: C4 (lambda x5), C5 (w_rel x10), C6 (batch x10), C7 (two axes), C8 (rank x2, ~2x cost). max_epochs 6 so C1+C3 (parallel) then C2 finish inside ~90 min. Patience 3 evaluations is ASSUMED (ADR-007 does not fix it) and cannot fire before epoch 4. C4-C8 and the full 100-epoch runs are left for the vast campaign; this selection is complete=false and is NOT the M7 selection record."
+}

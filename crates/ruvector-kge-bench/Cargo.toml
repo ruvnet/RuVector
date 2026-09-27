@@ -25,6 +25,8 @@ parallel = ["ruvector-kge/parallel", "dep:rayon"]
 
 [dependencies]
 ruvector-kge = { version = "2.0", path = "../ruvector-kge" }
+# ADR-004 anytime paired sequential test, reused by the HPO selection gate.
+ruvector-typesafe-core = { version = "2.0", path = "../ruvector-typesafe-core" }
 serde = { workspace = true }
 # `float_roundtrip`: metrics restored from a checkpoint header must parse back
 # to the exact f64 (resume equivalence compares them bitwise).
