@@ -115,19 +115,17 @@ results.forEach(result => {
 });
 ```
 
-> ⚠️ **Read this before trusting the raw bindings.** Three behaviours of the
-> current WASM build differ from what the generated `.d.ts` advertises:
+> ⚠️ **Read this before trusting the raw bindings.**
 >
-> 1. **HNSW is not active in the WASM build.** It compiles without the `hnsw`
->    cargo feature and silently falls back to a brute-force flat index, so search
->    is O(n), not O(log n). The HNSW win is latent until the WASM HNSW lands.
-> 2. **`result.score` is a cosine *distance* (lower is better)** — the ordering is
->    correct, but it is *not* the "higher is better" similarity the `.d.ts`
->    describes.
-> 3. **Metadata does not round-trip** — `search`/`get` return `{}`.
+> 1. **Since 0.2.0, `useHnsw: true` (the default) builds a portable in-memory HNSW
+>    graph** (M=16, efConstruction=128, efSearch=64). Results are *approximate*;
+>    pass `useHnsw: false` for exact flat search. `hnswAvailable()` and each
+>    instance's `indexType` report the backend actually in use. Filtered queries
+>    are exact (O(n)); deletes and vector-changing updates rebuild the graph.
+> 2. **`result.score` is a raw *distance* (lower is better)** — the ordering is
+>    correct, but it is *not* a "higher is better" similarity.
 >
-> Use the bundled **adapter** instead of the raw `VectorDB` to get these handled
-> correctly (see below).
+> Use the bundled **adapter** to get a "higher is better" similarity (see below).
 
 ### Recommended: the corrected adapter
 
@@ -149,7 +147,7 @@ results.forEach(r => {
   console.log(r.metadata);           // round-trips correctly via the sidecar
 });
 
-console.log(index.indexType);        // 'flat' until WASM HNSW lands
+console.log(index.indexType);        // 'hnsw' ('flat' with useHnsw: false)
 ```
 
 ### React Integration

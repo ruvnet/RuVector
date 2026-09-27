@@ -95,6 +95,23 @@ for (const useHnsw of [true, false]) {
       assert.equal(readResults(db, vec(1, 0, 0), 1)[0].id, 'ok');
     } finally { db.free(); }
   });
+  test(`${useHnsw ? 'hnsw' : 'flat'} metadata-only update keeps the index intact`, () => {
+    const data = vectors(200, 8);
+    const queries = vectors(10, 8, 0x9001);
+    const db = new VectorDB(8, 'cosine', useHnsw);
+    try {
+      data.forEach((v, i) => db.insert(v, String(i), { version: 1 }));
+      const snapshot = () => queries.map(q => readResults(db, q, 10).map(r => `${r.id}:${r.score}`));
+      const before = snapshot();
+      db.insert(data[42], '42', { version: 2 });
+      assert.equal(db.len(), 200);
+      assert.deepEqual(snapshot(), before);
+      const hit = readResults(db, data[42], 1)[0];
+      assert.equal(hit.id, '42');
+      assert.deepEqual(hit.metadata, { version: 2 });
+      assert.deepEqual(readResults(db, data[42], 1, { version: 2 }).map(r => r.id), ['42']);
+    } finally { db.free(); }
+  });
 }
 
 for (const metric of ['euclidean', 'manhattan', 'dotproduct']) {

@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/wasm",
-  "version": "0.1.31",
+  "version": "0.2.0",
   "description": "High-performance Rust vector database for browsers via WASM",
   "main": "pkg/ruvector_wasm.js",
   "types": "pkg/ruvector_wasm.d.ts",

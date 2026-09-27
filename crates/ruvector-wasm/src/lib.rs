@@ -332,7 +332,8 @@ impl VectorDB {
             )));
         }
 
-        let metadata_filter = if let Some(f) = filter.filter(|v| !v.is_null() && !v.is_undefined()) {
+        let metadata_filter = if let Some(f) = filter.filter(|v| !v.is_null() && !v.is_undefined())
+        {
             Some(from_value(f).map_err(|e| JsValue::from_str(&format!("Invalid filter: {}", e)))?)
         } else {
             None

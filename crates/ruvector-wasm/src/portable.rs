@@ -1,13 +1,15 @@
 //! Portable HNSW: no mmap, filesystem, threads, native RNG or native HNSW dependency.
-//! Updates/deletes rebuild the graph; filtered queries use exact search for completeness.
+//! Deletes and vector-changing updates rebuild the graph; metadata-only updates are
+//! applied in place. Filtered queries use exact search for completeness.
 use ruvector_core::{
     distance::distance,
     error::{Result, RuvectorError},
     types::{DbOptions, DistanceMetric, SearchQuery, SearchResult, VectorEntry},
 };
 use std::{
+    cell::RefCell,
     cmp::{Ordering, Reverse},
-    collections::{BinaryHeap, HashMap, HashSet},
+    collections::{BinaryHeap, HashMap},
 };
 
 const M: usize = 16;
@@ -18,6 +20,8 @@ const MAX_LEVEL: usize = 16;
 #[derive(Clone)]
 struct Node {
     entry: VectorEntry,
+    /// L2 norm, cached for cosine so each comparison is a single dot product.
+    norm: f32,
     links: Vec<Vec<usize>>,
 }
 #[derive(Copy, Clone)]
@@ -44,6 +48,54 @@ impl Ord for Candidate {
     }
 }
 
+/// A vector paired with its cached norm.
+#[derive(Copy, Clone)]
+struct Query<'a> {
+    vector: &'a [f32],
+    norm: f32,
+}
+
+/// Epoch-stamped visited set, reused across searches to avoid per-query hashing.
+#[derive(Default)]
+struct Visited {
+    marks: Vec<u32>,
+    epoch: u32,
+}
+impl Visited {
+    fn reset(&mut self, len: usize) {
+        if self.marks.len() < len {
+            self.marks.resize(len, 0);
+        }
+        self.epoch = self.epoch.wrapping_add(1);
+        if self.epoch == 0 {
+            self.marks.fill(0);
+            self.epoch = 1;
+        }
+    }
+    fn insert(&mut self, index: usize) -> bool {
+        let fresh = self.marks[index] != self.epoch;
+        self.marks[index] = self.epoch;
+        fresh
+    }
+}
+
+// Sequential accumulation in the same order as `ruvector_core::distance`'s
+// wasm32 cosine fallback, so cached-norm distances are bit-identical to it.
+fn l2_norm(v: &[f32]) -> f32 {
+    let mut sq = 0.0f32;
+    for &x in v {
+        sq += x * x;
+    }
+    sq.sqrt()
+}
+fn dot(a: &[f32], b: &[f32]) -> f32 {
+    let mut sum = 0.0f32;
+    for (&x, &y) in a.iter().zip(b) {
+        sum += x * y;
+    }
+    sum
+}
+
 pub(crate) struct PortableDB {
     dimensions: usize,
     metric: DistanceMetric,
@@ -53,6 +105,7 @@ pub(crate) struct PortableDB {
     entry: Option<usize>,
     rng: u64,
     next_id: u64,
+    visited: RefCell<Visited>,
 }
 impl PortableDB {
     pub fn new(options: DbOptions) -> Result<Self> {
@@ -68,6 +121,7 @@ impl PortableDB {
             entry: None,
             rng: 0x9e3779b97f4a7c15,
             next_id: 0,
+            visited: RefCell::default(),
         })
     }
     pub fn index_type(&self) -> &'static str {
@@ -99,16 +153,44 @@ impl PortableDB {
         }
         Ok(())
     }
-    fn dist(&self, a: &[f32], b: &[f32]) -> f32 {
+    fn norm_of(&self, vector: &[f32]) -> f32 {
+        if self.metric == DistanceMetric::Cosine {
+            l2_norm(vector)
+        } else {
+            0.0
+        }
+    }
+    fn query<'a>(&self, vector: &'a [f32]) -> Query<'a> {
+        Query {
+            vector,
+            norm: self.norm_of(vector),
+        }
+    }
+    fn node_query(&self, index: usize) -> Query<'_> {
+        let node = &self.nodes[index];
+        Query {
+            vector: &node.entry.vector,
+            norm: node.norm,
+        }
+    }
+    fn candidate(&self, query: Query, index: usize) -> Candidate {
         // Core distances preserve the published lower-is-better contract.
         // Dimension equality is checked at insertion/query boundaries.
-        distance(a, b, self.metric).expect("validated dimensions")
-    }
-    fn candidate(&self, query: &[f32], index: usize) -> Candidate {
-        Candidate {
-            index,
-            distance: self.dist(query, &self.nodes[index].entry.vector),
-        }
+        let node = &self.nodes[index];
+        let distance = match self.metric {
+            DistanceMetric::Cosine => {
+                let denom = query.norm * node.norm;
+                if denom > 1e-8 {
+                    1.0 - dot(query.vector, &node.entry.vector) / denom
+                } else {
+                    1.0
+                }
+            }
+            metric => {
+                distance(query.vector, &node.entry.vector, metric).expect("validated dimensions")
+            }
+        };
+        Candidate { index, distance }
     }
     fn level(&mut self) -> usize {
         // Xorshift64 with nonzero seed; geometric P(level >= l) = M^-l.
@@ -124,7 +206,7 @@ impl PortableDB {
         }
         level
     }
-    fn greedy(&self, query: &[f32], start: usize, layer: usize) -> usize {
+    fn greedy(&self, query: Query, start: usize, layer: usize) -> usize {
         let mut best = self.candidate(query, start);
         loop {
             let before = best.index;
@@ -139,11 +221,13 @@ impl PortableDB {
             }
         }
     }
-    fn layer_search(&self, query: &[f32], start: usize, layer: usize, ef: usize) -> Vec<Candidate> {
+    fn layer_search(&self, query: Query, start: usize, layer: usize, ef: usize) -> Vec<Candidate> {
+        let mut seen = self.visited.borrow_mut();
+        seen.reset(self.nodes.len());
+        seen.insert(start);
         let first = self.candidate(query, start);
         let mut pending = BinaryHeap::from([Reverse(first)]);
         let mut best = BinaryHeap::from([first]);
-        let mut seen = HashSet::from([start]);
         while let Some(Reverse(current)) = pending.pop() {
             if best.len() >= ef && current > *best.peek().unwrap() {
                 break;
@@ -169,12 +253,11 @@ impl PortableDB {
         let mut selected = Vec::new();
         let mut rejected = Vec::new();
         for c in candidates {
-            if selected.iter().all(|&n: &usize| {
-                self.dist(
-                    &self.nodes[c.index].entry.vector,
-                    &self.nodes[n].entry.vector,
-                ) >= c.distance
-            }) {
+            let query = self.node_query(c.index);
+            if selected
+                .iter()
+                .all(|&n: &usize| self.candidate(query, n).distance >= c.distance)
+            {
                 selected.push(c.index);
                 if selected.len() == limit {
                     return selected;
@@ -190,8 +273,10 @@ impl PortableDB {
         let level = if self.hnsw { self.level() } else { 0 };
         let index = self.nodes.len();
         self.ids.insert(entry.id.clone().unwrap(), index);
+        let norm = self.norm_of(&entry.vector);
         self.nodes.push(Node {
             entry,
+            norm,
             links: vec![vec![]; level + 1],
         });
         let Some(mut ep) = self.entry else {
@@ -202,21 +287,26 @@ impl PortableDB {
             return;
         }
         let top = self.nodes[ep].links.len() - 1;
-        let query = self.nodes[index].entry.vector.clone();
+        let vector = self.nodes[index].entry.vector.clone();
+        let query = Query {
+            vector: &vector,
+            norm,
+        };
         for layer in ((level + 1)..=top).rev() {
-            ep = self.greedy(&query, ep, layer);
+            ep = self.greedy(query, ep, layer);
         }
         for layer in (0..=level.min(top)).rev() {
-            let candidates = self.layer_search(&query, ep, layer, EF_CONSTRUCTION);
+            let candidates = self.layer_search(query, ep, layer, EF_CONSTRUCTION);
             let limit = if layer == 0 { M * 2 } else { M };
             let neighbors = self.select(&candidates, M);
             self.nodes[index].links[layer] = neighbors.clone();
             for n in neighbors {
                 self.nodes[n].links[layer].push(index);
                 if self.nodes[n].links[layer].len() > limit {
+                    let owner = self.node_query(n);
                     let mut links: Vec<_> = self.nodes[n].links[layer]
                         .iter()
-                        .map(|&i| self.candidate(&self.nodes[n].entry.vector, i))
+                        .map(|&i| self.candidate(owner, i))
                         .collect();
                     links.sort_unstable();
                     self.nodes[n].links[layer] = self.select(&links, limit);
@@ -253,9 +343,14 @@ impl PortableDB {
         };
         entry.id = Some(id.clone());
         if let Some(&index) = self.ids.get(&id) {
-            let mut entries: Vec<_> = self.nodes.iter().map(|n| n.entry.clone()).collect();
-            entries[index] = entry;
-            self.rebuild(entries);
+            if self.nodes[index].entry.vector == entry.vector {
+                // Same vector: graph links stay valid, so only the entry changes.
+                self.nodes[index].entry = entry;
+            } else {
+                let mut entries: Vec<_> = self.nodes.iter().map(|n| n.entry.clone()).collect();
+                entries[index] = entry;
+                self.rebuild(entries);
+            }
         } else {
             self.add(entry);
         }
@@ -273,6 +368,7 @@ impl PortableDB {
         if k == 0 {
             return Ok(vec![]);
         }
+        let q = self.query(&query.vector);
         let has_filter = query.filter.as_ref().is_some_and(|f| !f.is_empty());
         let mut candidates = if !self.hnsw || has_filter || k == self.nodes.len() {
             self.nodes
@@ -285,15 +381,15 @@ impl PortableDB {
                         })
                     })
                 })
-                .map(|(i, _)| self.candidate(&query.vector, i))
+                .map(|(i, _)| self.candidate(q, i))
                 .collect::<Vec<_>>()
         } else {
             let mut ep = self.entry.unwrap();
             for layer in (1..self.nodes[ep].links.len()).rev() {
-                ep = self.greedy(&query.vector, ep, layer);
+                ep = self.greedy(q, ep, layer);
             }
             self.layer_search(
-                &query.vector,
+                q,
                 ep,
                 0,
                 query
