@@ -32,7 +32,7 @@
 use crate::compaction::{weighted_importance, CoherenceWeights, CompactionPolicy};
 use crate::memory::MemoryEntry;
 use crate::scoring::cosine_sim;
-use ruvector_mincut::RuVectorGraphAnalyzer;
+use ruvector_mincut::{DynamicGraph, DynamicMinCut, MinCutConfig, RuVectorGraphAnalyzer};
 use std::collections::HashSet;
 
 /// How the mincut-boundary structural signal is combined with the scalar
@@ -44,6 +44,46 @@ pub enum ForgetMode {
     /// Reserve `protect_fraction` of the retained budget for the
     /// highest-scoring boundary vertices before ranking the rest.
     Hard,
+}
+
+/// Which `ruvector-mincut` API computes the boundary partition.
+///
+/// # Background (nightly 2026-09-28, following up ADR-345 / ADR-346)
+///
+/// [`MincutBackend::GraphAnalyzer`] (the original, and still the default —
+/// changing the default is a separate decision from adding the option) uses
+/// [`RuVectorGraphAnalyzer`], which delegates to `MinCutWrapper`'s
+/// subpolynomial dynamic algorithm: a geometric ladder of `BoundedInstance`s
+/// sized for graphs under *repeated* edge insert/delete churn. Every
+/// `partition()` call here is a one-shot query against a graph built once
+/// and never mutated again, so that machinery's amortized-update guarantees
+/// buy nothing and its per-call setup cost (documented at ADR-345:
+/// 76ms-11.4s for 50-400 vertices, ~1,800-2,700x the scalar baseline at this
+/// module's own 84-entry benchmark corpus) is pure overhead here.
+///
+/// [`MincutBackend::DynamicMinCut`] instead uses the crate's *other*,
+/// lower-level exact solver: [`DynamicMinCut`]
+/// (`ruvector_mincut::algorithm::DynamicMinCut`), a sparse Stoer-Wagner
+/// implementation (`algorithm::exact::minimum_cut`, O(n) phases over a
+/// max-adjacency heap, O(n + m) storage) that computes its cut once at
+/// construction (`DynamicMinCut::from_graph`) and serves `partition()` from
+/// that cached result — no geometric instance ladder, and no `DashMap`
+/// iteration-order dependency (ADR-346 root-caused that determinism bug in
+/// the *`RuVectorGraphAnalyzer`* code path specifically: `DynamicGraph`'s
+/// `vertices()`/`edges()`; `DynamicMinCut::recompute_min_cut` separately
+/// sorts its vertex and edge lists before indexing them, so it does not
+/// inherit that bug even though it walks the same `DynamicGraph` type).
+/// See `examples/mincut_scaling_probe.rs` for a head-to-head latency
+/// comparison of both backends at matched graph sizes, and
+/// `docs/research/nightly/2026-09-28-mincut-backend-latency/README.md` for
+/// the full write-up.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum MincutBackend {
+    /// `RuVectorGraphAnalyzer` / `MinCutWrapper` (original ADR-345 backend).
+    #[default]
+    GraphAnalyzer,
+    /// `ruvector_mincut::DynamicMinCut` (sparse Stoer-Wagner, one-shot).
+    DynamicMinCut,
 }
 
 /// Mincut-gated forgetting compaction policy (candidates A/B of the nightly
@@ -67,6 +107,9 @@ pub struct MincutGatedForgetting {
     /// "Measured limitation" note on [`Self::boundary_indices`]). `1`
     /// disables retrying.
     pub mincut_trials: usize,
+    /// Which `ruvector-mincut` API computes the boundary partition. See
+    /// [`MincutBackend`].
+    pub backend: MincutBackend,
 }
 
 impl MincutGatedForgetting {
@@ -80,6 +123,7 @@ impl MincutGatedForgetting {
             structural_bonus,
             protect_fraction: 0.0,
             mincut_trials: 3,
+            backend: MincutBackend::default(),
         }
     }
 
@@ -93,7 +137,15 @@ impl MincutGatedForgetting {
             structural_bonus: 0.0,
             protect_fraction,
             mincut_trials: 3,
+            backend: MincutBackend::default(),
         }
+    }
+
+    /// Use `backend` for boundary-partition computation instead of the
+    /// default. See [`MincutBackend`].
+    pub fn with_backend(mut self, backend: MincutBackend) -> Self {
+        self.backend = backend;
+        self
     }
 
     /// Build a k-NN cosine-similarity graph and return the indices (into
@@ -135,6 +187,34 @@ impl MincutGatedForgetting {
     /// minimum cut of the graph, so the union only adds true positives (never
     /// false ones) at the cost of also protecting bystander vertices caught
     /// by an alternate, equally-valid partition.
+    /// Number of `entries` currently receiving the structural signal (i.e.
+    /// `self.boundary_indices(entries).len()`), exposed so a caller can
+    /// observe whether the k-NN graph produced *any* boundary at all before
+    /// relying on [`ForgetMode::Soft`]/[`ForgetMode::Hard`] to act on it.
+    ///
+    /// # Measured limitation (nightly 2026-09-28 finding, ADR-350)
+    ///
+    /// This is not a rare-edge-case concern: at the 84-entry benchmark
+    /// corpus in `examples/mincut_gated_forgetting_bench.rs`, the boundary
+    /// set is non-empty (6/84) but the bonus still moves zero survivors
+    /// relative to baseline. At 10x and 50x that corpus (840 and 4,200
+    /// entries, `examples/mincut_gated_forgetting_scale_probe.rs`, same
+    /// generator, same seed family, only feasible to test at all once the
+    /// [`MincutBackend::DynamicMinCut`] backend made the mincut call itself
+    /// cheap), the boundary set was empty at *every* sampled scale — not
+    /// because there is no cross-cluster structure to find, but because
+    /// [`Self::boundary_indices`] returns an empty set whenever the k-NN
+    /// graph as a whole is disconnected (an isolated low-degree bridge
+    /// vertex, whose nearest neighbors by cosine similarity all fall below
+    /// `min_similarity`, is a likely-enough event per bridge that a larger
+    /// bridge count makes it near-certain at least one occurs), silently
+    /// disabling the structural signal for the *entire* compaction pass,
+    /// not just the isolated vertex. See
+    /// `docs/research/nightly/2026-09-28-mincut-backend-latency/README.md`.
+    pub fn boundary_size(&self, entries: &[MemoryEntry]) -> usize {
+        self.boundary_indices(entries).len()
+    }
+
     fn boundary_indices(&self, entries: &[MemoryEntry]) -> HashSet<usize> {
         let n = entries.len();
         if n < 4 {
@@ -168,24 +248,67 @@ impl MincutGatedForgetting {
 
         let mut boundary = HashSet::new();
         for _ in 0..self.mincut_trials.max(1) {
-            boundary.extend(Self::boundary_from_one_partition(&neighbors));
+            boundary.extend(match self.backend {
+                MincutBackend::GraphAnalyzer => Self::boundary_from_one_partition(&neighbors),
+                MincutBackend::DynamicMinCut => Self::boundary_from_dynamic_mincut(&neighbors),
+            });
         }
         boundary
     }
 
-    /// One min-cut partition attempt over an already-built k-NN graph; see
-    /// [`Self::boundary_indices`]'s "Measured limitation" note for why this
-    /// is called more than once.
+    /// One min-cut partition attempt over an already-built k-NN graph using
+    /// [`RuVectorGraphAnalyzer`]; see [`Self::boundary_indices`]'s "Measured
+    /// limitation" note for why this is called more than once.
     fn boundary_from_one_partition(neighbors: &[(usize, Vec<(usize, f64)>)]) -> HashSet<usize> {
         let mut analyzer = RuVectorGraphAnalyzer::from_knn(neighbors);
         let (side_a, side_b) = match analyzer.partition() {
             Some(p) => p,
             None => return HashSet::new(),
         };
+        Self::boundary_from_sides(neighbors, side_a, side_b)
+    }
+
+    /// Same boundary computation as [`Self::boundary_from_one_partition`],
+    /// but via [`MincutBackend::DynamicMinCut`] — see that variant's doc
+    /// comment for why this is expected to be far cheaper for the one-shot,
+    /// never-mutated-again graphs this module builds per compaction call.
+    /// Builds its own `DynamicGraph` (mirroring exactly what
+    /// `RuVectorGraphAnalyzer::from_knn` does: one `insert_edge` per (i, j,
+    /// 1/distance) neighbor pair, duplicates silently dropped by
+    /// `DynamicGraph::insert_edge`'s own `EdgeExists` handling) rather than
+    /// reusing `RuVectorGraphAnalyzer::from_knn`'s construction, since
+    /// `DynamicMinCut::from_graph` takes an owned `DynamicGraph`, not the
+    /// `Arc<DynamicGraph>` `RuVectorGraphAnalyzer` holds.
+    fn boundary_from_dynamic_mincut(neighbors: &[(usize, Vec<(usize, f64)>)]) -> HashSet<usize> {
+        let graph = DynamicGraph::new();
+        for (i, nbrs) in neighbors {
+            for &(j, dist) in nbrs {
+                let weight = if dist > 0.0 { 1.0 / dist } else { 1.0 };
+                let _ = graph.insert_edge(*i as u64, j as u64, weight);
+            }
+        }
+        let mincut = match DynamicMinCut::from_graph(graph, MinCutConfig::default()) {
+            Ok(m) => m,
+            Err(_) => return HashSet::new(),
+        };
+        if !mincut.is_connected() {
+            return HashSet::new();
+        }
+        let (side_a, side_b) = mincut.partition();
+        Self::boundary_from_sides(neighbors, side_a, side_b)
+    }
+
+    /// Shared "which vertices touch a crossing edge" step for both backends.
+    fn boundary_from_sides(
+        neighbors: &[(usize, Vec<(usize, f64)>)],
+        side_a: Vec<u64>,
+        side_b: Vec<u64>,
+    ) -> HashSet<usize> {
         if side_a.is_empty() || side_b.is_empty() {
             return HashSet::new();
         }
         let side_a_set: HashSet<u64> = side_a.into_iter().collect();
+        let _ = side_b;
 
         let mut boundary = HashSet::new();
         for (i, nbrs) in neighbors {
@@ -368,6 +491,61 @@ mod tests {
             survivors.contains(&bridge_idx),
             "hard mincut-gated forgetting must protect the bridge within its reserved budget"
         );
+    }
+
+    /// Same scenario as [`soft_mode_protects_the_structural_bridge`], but
+    /// with [`MincutBackend::DynamicMinCut`] instead of the default
+    /// [`MincutBackend::GraphAnalyzer`] — confirms the new backend's
+    /// boundary detection is not silently empty (a real risk worth a
+    /// dedicated positive test, since `boundary_indices` treats "no signal"
+    /// and "not evicted anyway" identically at the `select_survivors` level,
+    /// which is exactly what the nightly 2026-09-28 acceptance benchmark's
+    /// 0.0pp gap on both backends could otherwise be confused with a
+    /// boundary-detection bug rather than a genuine "no effect at this
+    /// corpus" finding).
+    #[test]
+    fn soft_mode_dynamic_mincut_backend_protects_the_structural_bridge() {
+        let (entries, bridge_idx) = bridge_dataset();
+        let mut policy = MincutGatedForgetting::soft(CoherenceWeights::default(), 1.0)
+            .with_backend(MincutBackend::DynamicMinCut);
+        policy.mincut_trials = 10; // see the GraphAnalyzer-backend test's comment
+        let survivors = policy.select_survivors(&entries, 16, &[]);
+        assert!(
+            survivors.contains(&bridge_idx),
+            "DynamicMinCut-backed soft mincut-gated forgetting must retain the sole cross-cluster bridge"
+        );
+    }
+
+    /// Direct check that [`MincutGatedForgetting::boundary_indices`] returns
+    /// a *non-empty* boundary set containing the bridge under
+    /// [`MincutBackend::DynamicMinCut`] on a single deterministic trial (no
+    /// retry union) — isolates boundary detection itself from the
+    /// downstream ranking logic the two tests above also exercise.
+    #[test]
+    fn dynamic_mincut_backend_finds_nonempty_boundary_in_one_trial() {
+        let (entries, bridge_idx) = bridge_dataset();
+        let mut policy = MincutGatedForgetting::soft(CoherenceWeights::default(), 1.0)
+            .with_backend(MincutBackend::DynamicMinCut);
+        policy.mincut_trials = 1;
+        let boundary = policy.boundary_indices(&entries);
+        assert!(!boundary.is_empty(), "boundary set must not be empty");
+        assert!(
+            boundary.contains(&bridge_idx),
+            "the bridge vertex must be flagged as boundary"
+        );
+    }
+
+    #[test]
+    fn boundary_size_reports_the_same_count_boundary_indices_finds() {
+        let (entries, _bridge_idx) = bridge_dataset();
+        let mut policy = MincutGatedForgetting::soft(CoherenceWeights::default(), 1.0)
+            .with_backend(MincutBackend::DynamicMinCut);
+        policy.mincut_trials = 1;
+        assert_eq!(
+            policy.boundary_size(&entries),
+            policy.boundary_indices(&entries).len()
+        );
+        assert!(policy.boundary_size(&entries) > 0);
     }
 
     #[test]
