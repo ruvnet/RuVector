@@ -4,7 +4,12 @@
 //! determinism on a fixed, byte-identical 19-vertex graph (the same
 //! two-clique-plus-bridge topology as `graph_forget`'s unit tests) across
 //! repeated calls.
+//!
+//! Update (2026-09-28, ADR-350): also probes `DynamicMinCut` on the exact
+//! same graph and trial count, to compare determinism (not just latency,
+//! already covered by `mincut_scaling_probe.rs`) between backends.
 
+use ruvector_mincut::{DynamicGraph, DynamicMinCut, MinCutConfig};
 use std::collections::HashSet;
 use std::time::Instant;
 
@@ -98,11 +103,62 @@ fn main() {
         }
     }
     let elapsed = t0.elapsed();
+    println!("[GraphAnalyzer backend]");
     println!(
         "trials={trials} elapsed={:.2}s avg_per_call={:.1}ms empty_or_degenerate={empty} ({:.0}%) bridge_detected_as_boundary={bridge_detected_boundary} ({:.0}%)",
         elapsed.as_secs_f64(),
         elapsed.as_secs_f64() * 1000.0 / trials as f64,
         100.0 * empty as f64 / trials as f64,
         100.0 * bridge_detected_boundary as f64 / trials as f64,
+    );
+
+    // Same graph, same trial count, DynamicMinCut backend (ADR-350).
+    let mut dmc_empty = 0usize;
+    let mut dmc_bridge_detected = 0usize;
+    let mut distinct_partitions: HashSet<Vec<u64>> = HashSet::new();
+    let t1 = Instant::now();
+    for _ in 0..trials {
+        let graph = DynamicGraph::new();
+        for (i, nbrs) in &neighbors {
+            for &(j, dist) in nbrs {
+                let weight = if dist > 0.0 { 1.0 / dist } else { 1.0 };
+                let _ = graph.insert_edge(*i as u64, j as u64, weight);
+            }
+        }
+        let mincut = DynamicMinCut::from_graph(graph, MinCutConfig::default())
+            .expect("valid graph builds a DynamicMinCut");
+        let (a, b) = mincut.partition();
+        if a.is_empty() || b.is_empty() {
+            dmc_empty += 1;
+            continue;
+        }
+        let mut sorted_a = a.clone();
+        sorted_a.sort_unstable();
+        distinct_partitions.insert(sorted_a);
+
+        let a_set: HashSet<u64> = a.iter().copied().collect();
+        let mut boundary = false;
+        for (i, nbrs) in &neighbors {
+            let i_in_a = a_set.contains(&(*i as u64));
+            for &(j, _) in nbrs {
+                let j_in_a = a_set.contains(&(j as u64));
+                if i_in_a != j_in_a && (*i == bridge_idx || j == bridge_idx) {
+                    boundary = true;
+                }
+            }
+        }
+        if boundary {
+            dmc_bridge_detected += 1;
+        }
+    }
+    let dmc_elapsed = t1.elapsed();
+    println!("\n[DynamicMinCut backend]");
+    println!(
+        "trials={trials} elapsed={:.4}s avg_per_call={:.4}ms empty_or_degenerate={dmc_empty} ({:.0}%) bridge_detected_as_boundary={dmc_bridge_detected} ({:.0}%) distinct_partitions_seen={}",
+        dmc_elapsed.as_secs_f64(),
+        dmc_elapsed.as_secs_f64() * 1000.0 / trials as f64,
+        100.0 * dmc_empty as f64 / trials as f64,
+        100.0 * dmc_bridge_detected as f64 / trials as f64,
+        distinct_partitions.len(),
     );
 }
