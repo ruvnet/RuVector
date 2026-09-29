@@ -47,6 +47,18 @@ fn err(code: ErrorCode) -> RvfError {
     RvfError::Code(code)
 }
 
+fn witness_previous_hash(payload: &[u8]) -> Result<[u8; 32], RvfError> {
+    // type(1) | timestamp(8) | action_len(4) | action | prev_hash(32)
+    if payload.len() < 45 {
+        return Err(err(ErrorCode::InvalidManifest));
+    }
+    let action_len = u32::from_le_bytes(payload[9..13].try_into().unwrap()) as usize;
+    if action_len.checked_add(45) != Some(payload.len()) {
+        return Err(err(ErrorCode::InvalidManifest));
+    }
+    Ok(payload[payload.len() - 32..].try_into().unwrap())
+}
+
 const COW_STATE_FIXED_SIZE: usize = 64 + 4 + 1 + 4 + 4 + 4;
 const MAX_COW_LINEAGE_DEPTH: u32 = 1024;
 /// Bound dense membership bitmaps so a sparse, attacker-controlled vector ID
@@ -1828,9 +1840,6 @@ impl RvfStore {
         self.seg_writer = Some(seg_writer);
         self.last_compaction_time = now_secs();
 
-        // Reset witness chain after compaction (the file has been rewritten).
-        self.last_witness_hash = [0u8; 32];
-
         // Append a witness entry recording this compact operation.
         if self.options.witness.witness_compact {
             let action = format!(
@@ -3179,6 +3188,77 @@ impl RvfStore {
         Ok(())
     }
 
+    /// Recover the chain head from committed witnesses and any synced audit
+    /// witnesses appended after the latest manifest. Audited queries avoid a
+    /// manifest rewrite, so those tail entries must be included on reopen.
+    fn restore_witness_chain(&mut self, manifest_end: u64) -> Result<(), RvfError> {
+        if let Some(&(_, offset, _, _)) = self
+            .segment_dir
+            .iter()
+            .filter(|&&(_, _, _, kind)| kind == SegmentType::Witness as u8)
+            .max_by_key(|&&(_, offset, _, _)| offset)
+        {
+            let (header, payload) =
+                read_path::read_segment_payload(&mut BufReader::new(&self.file), offset)
+                    .map_err(|_| err(ErrorCode::InvalidChecksum))?;
+            if header.seg_type != SegmentType::Witness as u8 {
+                return Err(err(ErrorCode::InvalidManifest));
+            }
+            witness_previous_hash(&payload)?;
+            self.last_witness_hash = simple_shake256_256(&payload);
+        }
+
+        let file_len = self
+            .file
+            .metadata()
+            .map_err(|_| err(ErrorCode::InvalidManifest))?
+            .len();
+        let mut offset = manifest_end;
+        while let Some(header_end) = offset.checked_add(SEGMENT_HEADER_SIZE as u64) {
+            if header_end > file_len {
+                break; // An incomplete trailing header is an uncommitted write.
+            }
+            let mut reader = BufReader::new(&self.file);
+            reader
+                .seek(SeekFrom::Start(offset))
+                .map_err(|_| err(ErrorCode::InvalidManifest))?;
+            let mut header = [0u8; SEGMENT_HEADER_SIZE];
+            reader
+                .read_exact(&mut header)
+                .map_err(|_| err(ErrorCode::InvalidManifest))?;
+            if header[..4] != SEGMENT_MAGIC.to_le_bytes() {
+                break;
+            }
+            let payload_len = u64::from_le_bytes(header[0x10..0x18].try_into().unwrap());
+            let end = header_end
+                .checked_add(payload_len)
+                .ok_or_else(|| err(ErrorCode::InvalidManifest))?;
+            if end > file_len {
+                if header[0x05] == SegmentType::Witness as u8 {
+                    return Err(err(ErrorCode::InvalidChecksum));
+                }
+                break;
+            }
+            if header[0x05] == SegmentType::Witness as u8 {
+                let (segment, payload) = read_path::read_segment_payload(&mut reader, offset)
+                    .map_err(|_| err(ErrorCode::InvalidChecksum))?;
+                let prev_hash = witness_previous_hash(&payload)?;
+                if prev_hash != self.last_witness_hash {
+                    return Err(err(ErrorCode::InvalidChecksum));
+                }
+                self.last_witness_hash = simple_shake256_256(&payload);
+                self.segment_dir.push((
+                    segment.segment_id,
+                    offset,
+                    payload_len,
+                    SegmentType::Witness as u8,
+                ));
+            }
+            offset = end;
+        }
+        Ok(())
+    }
+
     fn boot(&mut self) -> Result<(), RvfError> {
         let own_path = fs::canonicalize(&self.path).map_err(|_| err(ErrorCode::InvalidManifest))?;
         let mut ancestry = HashSet::from([own_path]);
@@ -3192,7 +3272,7 @@ impl RvfStore {
                 .map_err(|_| err(ErrorCode::ManifestNotFound))?
         };
 
-        let manifest = match manifest {
+        let (manifest, manifest_end) = match manifest {
             Some(m) => m,
             None => return Err(err(ErrorCode::ManifestNotFound)),
         };
@@ -3220,6 +3300,7 @@ impl RvfStore {
             .iter()
             .map(|e| (e.seg_id, e.offset, e.payload_length, e.seg_type))
             .collect();
+        self.restore_witness_chain(manifest_end)?;
 
         let vec_seg_entries: Vec<_> = manifest
             .segment_dir
@@ -5100,6 +5181,135 @@ mod tests {
         assert_eq!(count_witness_segments(&store), 3);
 
         store.close().unwrap();
+    }
+
+    #[test]
+    fn witness_chain_tip_survives_reopen_and_links_the_next_entry() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("witness_reopen.rvf");
+        let mut store = RvfStore::create(
+            &path,
+            RvfOptions {
+                dimension: 2,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        store.ingest_batch(&[&[1.0, 0.0]], &[1], None).unwrap();
+        let first_tip = *store.last_witness_hash();
+        assert_ne!(first_tip, [0; 32]);
+        store.close().unwrap();
+
+        let mut reopened = RvfStore::open(&path).unwrap();
+        assert_eq!(*reopened.last_witness_hash(), first_tip);
+        reopened.ingest_batch(&[&[0.0, 1.0]], &[2], None).unwrap();
+        let second_tip = *reopened.last_witness_hash();
+        let (_, offset, _, _) = reopened
+            .segment_dir
+            .iter()
+            .filter(|&&(_, _, _, kind)| kind == SegmentType::Witness as u8)
+            .max_by_key(|&&(_, offset, _, _)| offset)
+            .copied()
+            .unwrap();
+        let (_, payload) =
+            read_path::read_segment_payload(&mut BufReader::new(&reopened.file), offset).unwrap();
+        assert_eq!(&payload[payload.len() - 32..], &first_tip);
+        reopened.close().unwrap();
+
+        let readonly = RvfStore::open_readonly(&path).unwrap();
+        assert_eq!(*readonly.last_witness_hash(), second_tip);
+    }
+
+    #[test]
+    fn unmanifested_audit_witness_survives_reopen() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("audited_reopen.rvf");
+        let mut store = RvfStore::create(
+            &path,
+            RvfOptions {
+                dimension: 2,
+                witness: WitnessConfig {
+                    audit_queries: true,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        store.ingest_batch(&[&[1.0, 0.0]], &[1], None).unwrap();
+        store
+            .query_audited(&[1.0, 0.0], 1, &QueryOptions::default())
+            .unwrap();
+        let audit_tip = *store.last_witness_hash();
+        store.close().unwrap();
+
+        let mut reopened = RvfStore::open(&path).unwrap();
+        assert_eq!(*reopened.last_witness_hash(), audit_tip);
+        reopened.ingest_batch(&[&[0.0, 1.0]], &[2], None).unwrap();
+        let next_tip = *reopened.last_witness_hash();
+        reopened.close().unwrap();
+        let readonly = RvfStore::open_readonly(&path).unwrap();
+        assert_eq!(*readonly.last_witness_hash(), next_tip);
+    }
+
+    #[test]
+    fn compact_witness_links_preserved_history() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("witness_compact_link.rvf");
+        let mut store = RvfStore::create(
+            &path,
+            RvfOptions {
+                dimension: 2,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        store.ingest_batch(&[&[1.0, 0.0]], &[1], None).unwrap();
+        let before_compact = *store.last_witness_hash();
+        store.compact().unwrap();
+        let compact_tip = *store.last_witness_hash();
+        let (_, offset, _, _) = store
+            .segment_dir
+            .iter()
+            .filter(|&&(_, _, _, kind)| kind == SegmentType::Witness as u8)
+            .max_by_key(|&&(_, offset, _, _)| offset)
+            .copied()
+            .unwrap();
+        let (_, payload) =
+            read_path::read_segment_payload(&mut BufReader::new(&store.file), offset).unwrap();
+        assert_eq!(&payload[payload.len() - 32..], &before_compact);
+        store.close().unwrap();
+        let readonly = RvfStore::open_readonly(&path).unwrap();
+        assert_eq!(*readonly.last_witness_hash(), compact_tip);
+    }
+
+    #[test]
+    fn corrupt_committed_witness_fails_closed_on_reopen() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("corrupt_witness.rvf");
+        let mut store = RvfStore::create(
+            &path,
+            RvfOptions {
+                dimension: 2,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        store.ingest_batch(&[&[1.0, 0.0]], &[1], None).unwrap();
+        let (_, offset, _, _) = store
+            .segment_dir
+            .iter()
+            .find(|&&(_, _, _, kind)| kind == SegmentType::Witness as u8)
+            .copied()
+            .unwrap();
+        store.close().unwrap();
+        let mut bytes = fs::read(&path).unwrap();
+        bytes[offset as usize + SEGMENT_HEADER_SIZE + 13] ^= 0xFF;
+        fs::write(&path, bytes).unwrap();
+        assert!(matches!(
+            RvfStore::open_readonly(&path),
+            Err(RvfError::Code(ErrorCode::InvalidChecksum))
+        ));
     }
 
     #[test]
