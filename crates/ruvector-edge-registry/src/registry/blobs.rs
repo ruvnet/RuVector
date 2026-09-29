@@ -61,6 +61,9 @@ impl<S: KvStore, C: Clock, E: EntropySource> Registry<S, C, E> {
         let cur = self.blob_ref(key)?;
         let stored = cur.is_some_and(|r| r.stored);
         let refs = cur.map_or(0, |r| r.refs).saturating_add(1);
+        // An existing record keeps its size: a session's declaration is not
+        // trusted over the one a successful finalize recorded.
+        let size = cur.map_or(size, |r| r.size);
         self.store.delete(&k_gc(key))?;
         self.save(&k_blob(key), &BlobRef { refs, size, stored })?;
         Ok(!stored)
