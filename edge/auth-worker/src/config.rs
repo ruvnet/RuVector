@@ -16,11 +16,11 @@ pub struct AuthConfig {
     /// This AS's issuer URL (canonical, no trailing slash).
     pub issuer: String,
     /// Resources tokens may be minted for (exact canonical URLs), each with
-    /// its own scope table (ADR-351 §5.3 grant rule).
+    /// its own scopes from one vocabulary family (ADR-351 §5.3 grant rule).
     pub resources: ResourceAllowlist,
     /// Scopes advertised and registrable: the ordered union of every
-    /// resource's scopes (derived, never a separate var that could drift),
-    /// always ⊆ the ADR-351 §5.3 vocabulary.
+    /// resource's scopes (derived, never a separate var that could drift):
+    /// `ruvector:*`, `team:*` and `offline_access` (ADR-351 §5.3).
     pub scopes_supported: Vec<String>,
     /// Upstream IdP (`auth.cognitum.one`) client configuration.
     pub upstream: UpstreamConfig,

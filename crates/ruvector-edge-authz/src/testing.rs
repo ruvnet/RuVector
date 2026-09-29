@@ -168,17 +168,17 @@ pub fn resource() -> ResourceUrl {
 }
 
 /// `RESOURCE` (`/v1/mcp`, no admin), `OTHER_RESOURCE` (`/v1`, with admin)
-/// and an adapter resource drawing on the same §5.3 vocabulary (ADR-351
-/// §5.3, §16.1: no `team:*` scopes, no admin).
+/// and the team.ruv.io adapter resource with its own `team:*` vocabulary
+/// (ADR-351 §5.3, §16.1).
 pub const ALLOWLIST_CONFIG: &str = "\
     https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1/mcp \
         ruvector:read ruvector:write offline_access, \
     https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1 \
         ruvector:read ruvector:write ruvector:admin offline_access, \
-    https://team.ruv.io/mcp ruvector:read ruvector:write offline_access";
+    https://team.ruv.io/mcp team:read team:write team:run offline_access";
 
 /// The adapter resource in [`ALLOWLIST_CONFIG`].
-pub const TEAM_RESOURCE: &str = "https://team.ruv.io/mcp";
+pub const TEAM_RESOURCE: &str = crate::resource::TEAM_RESOURCE_URL;
 
 pub fn allowlist() -> ResourceAllowlist {
     ResourceAllowlist::from_config(ALLOWLIST_CONFIG).unwrap()

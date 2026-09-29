@@ -271,7 +271,7 @@ every claim below is **required** and typed, except `act`, which appears only on
 | `aud` | string (never an array) | exactly one allowlisted canonical resource URL: `https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1` or `https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1/mcp`, or an adapter resource added per §16.1 (verified only by that adapter, never accepted by the gateway) |
 | `sub` | string | **edge subject** `"es1_" + base32lower(sha256("ruvector-edge/sub/v1\|" + upstream_iss + "\|" + upstream_sub))[0..26]` (30 chars). Stable across clients, sessions, refreshes and key rotation; changes only if the upstream `sub` does. One function, `ruvector-edge-auth` `subject::edge_subject` [V] tree, used by the AS and by the §5.5 mode. |
 | `client_id` | string | the edge DCR client id (`edc-` + random) |
-| `scope` | string | space-delimited subset of the §5.3 vocabulary |
+| `scope` | string | space-delimited subset of the `aud` resource's scopes (§5.3: `ruvector:*` for the gateway resources, `team:*` for team.ruv.io; plus `offline_access`) |
 | `jti` | string | 16 random bytes, base64url |
 | `iat` | integer | issue time |
 | `exp` | integer | `iat + 900` (15 min) |
@@ -288,23 +288,51 @@ grant, M1.)
 
 ### 5.3 Scope vocabulary and capability derivation
 
-The edge AS mints **only** these scopes (`scopes_supported` in RFC 8414 and DCR). `openid`,
-`profile` and `email` in a registration or authorization request are accepted and **dropped** (the
-edge AS issues no ID token); any other unknown scope is `invalid_scope`.
+The edge AS mints **only** the scopes below, and **each resource has its own vocabulary**: every
+`RESOURCE_ALLOWLIST` entry declares its scopes from exactly one family plus `offline_access` —
+`ruvector:*` for the two gateway resources, `team:*` for the RuFlo AI Team adapter resource
+`https://team.ruv.io/mcp` (§16.1) — and a mixed or unknown entry fails the config load [V] tree
+(`authz/resource.rs` `Vocabulary`, `ResourceEntry::new`). Which family a URL may carry is
+**compiled** (`resource::RESOURCE_VOCABULARIES`: `…/v1` and `…/v1/mcp` → `ruvector:*`,
+`https://team.ruv.io/mcp` → `team:*`) and enforced at load [V] tree: an uncompiled URL,
+`ruvector:*` for team.ruv.io or `team:*` for a gateway resource fails the load, so the mutable
+`RESOURCE_ALLOWLIST` var can narrow a resource's scopes but can neither add a resource nor mint an
+adapter-audience token carrying gateway scope names. The AS `scopes_supported` (RFC 8414 and
+the DCR registrable set) is the **union** of every resource's scopes, derived from the allowlist.
+`openid`, `profile` and `email` in a registration or authorization request are accepted and
+**dropped** (the edge AS issues no ID token); any other unknown scope is `invalid_scope`.
 
-| Scope | Grants (always ∩ role) | Role needed | Registrable by default (DCR without `scope`) | Granted by default (`/authorize` without `scope`) | PRM `scopes_supported` |
+| Scope | Grants (always ∩ role) | Role needed | Registrable by default (DCR without `scope`) | Granted by default (`/authorize` without `scope`) | Resource (PRM `scopes_supported`) |
 |---|---|---|---|---|---|
 | `ruvector:read` | read: list/get collections, query, fetch, usage, MCP read tools | viewer | yes | yes | `/v1`, `/v1/mcp` |
 | `ruvector:write` | write + create: upsert/delete vectors, create collections (drop: owner only), snapshots/imports, MCP mutating tools | editor (drop: owner) | yes | **no** — granted only when requested and shown on consent | `/v1`, `/v1/mcp` |
 | `ruvector:admin` | admin: members, tenant deny entries, client blocks, restore, audit (and `tenant:claim`, like `ruvector:write`) | owner (claim: unclaimed tenant) | no (request at DCR) | no | `/v1` only |
 | `ruvector:publish` | public registry publish | owner | no; not minted before M5 | no | `/v1` from M5 |
+| `team:read` | defined by the team.ruv.io adapter (read its MCP tools); nothing on the gateway | adapter-defined | **no** (request at DCR) | yes, on team.ruv.io | team.ruv.io only |
+| `team:write` | adapter-defined (mutating team tools) | adapter-defined | no (request at DCR) | no | team.ruv.io only |
+| `team:run` | adapter-defined (run team agents/jobs) | adapter-defined | no (request at DCR) | no | team.ruv.io only |
 | `offline_access` | accepted and echoed; refresh tokens follow the client's registered `refresh_token` grant, not this scope | — | yes | yes | all |
 
-- **Grant rule.** At `/authorize` the grant is requested ∩ client ceiling ∩ the resource's PRM
-  `scopes_supported` (so `ruvector:admin` is never minted for `/v1/mcp`); vocabulary scopes outside
-  it are **dropped**, not refused, and the token response `scope` reports what was granted (RFC
-  6749 §3.3). Only a request left with no `ruvector:*` scope is `invalid_scope`. Consent plus role,
-  not the DCR ceiling, is the control.
+- **Grant rule.** At `/authorize` the grant is requested ∩ client ceiling ∩ the resource's scopes
+  [V] tree (`resource::grant_scopes`), applied in this order: (1) a scope of **no** vocabulary →
+  `invalid_scope` ("unknown scope requested"); (2) a scope of **another resource's** vocabulary —
+  `ruvector:*` for team.ruv.io, `team:*` for `/v1` or `/v1/mcp` — is **dropped** (never minted:
+  the compiled binding keeps it out of every entry of the other family), so a client that requests
+  the AS-metadata `scopes_supported` union still gets its resource's share (Q16(b), closed);
+  (3) a scope of this resource's vocabulary that the resource or the client ceiling does not offer
+  (`ruvector:admin` for `/v1/mcp`, `ruvector:publish` before M5, `team:run` outside the ceiling)
+  is **dropped**, not refused, and the token response `scope` reports what was granted (RFC 6749
+  §3.3); (4) a request left with nothing but `offline_access` is `invalid_scope` ("no requested
+  scope can be granted for this resource"), e.g. `ruvector:read` alone for team.ruv.io. An omitted `scope` asks for the
+  resource's first scope plus `offline_access` (`ruvector:read`, or `team:read` on team.ruv.io).
+  Refresh may only narrow within the family's granted scopes, so it can never cross vocabularies.
+  Consent plus role, not the DCR ceiling, is the control.
+- **Client ceiling.** A DCR registration without `scope` gets `ruvector:read ruvector:write
+  offline_access` (compiled `DEFAULT_CLIENT_SCOPE`), i.e. the gateway only; `ruvector:admin`,
+  `ruvector:publish` and every `team:*` scope must be registered explicitly. A registration naming
+  scopes of several vocabularies gets their **union** as its ceiling (e.g. `ruvector:read team:read`
+  may authorise both `/v1/mcp` and team.ruv.io, one resource per grant). Consequence: a connector
+  that registers without `scope` cannot obtain a team.ruv.io token (Q16).
 - **Step-up.** A mutating call without `ruvector:write` gets HTTP **403** `WWW-Authenticate: Bearer
   error="insufficient_scope", scope="ruvector:read ruvector:write offline_access",
   resource_metadata="…"` — also for `tools/call` on `/v1/mcp` (an HTTP status, not a JSON-RPC
@@ -375,7 +403,8 @@ Such a client is registered at the upstream DCR with a loopback redirect (allowe
 
 **Configuration.** `ISSUER` and the upstream issuer, JWKS URL, authorize and token endpoints are
 release consts, as in §5.4 item 5 (vars today, §8 delta 6); `UPSTREAM_CLIENT_ID`,
-`RESOURCE_ALLOWLIST` and `MAX_CLIENTS` stay reviewed deploy config.
+`RESOURCE_ALLOWLIST` and `MAX_CLIENTS` stay reviewed deploy config (`RESOURCE_ALLOWLIST` only
+within the compiled URL → vocabulary bindings, §5.3).
 
 **Storage.** One global `AuthStore` DO (`idFromName("auth-store-v1")`): `meta`, `clients`, `codes`,
 `flows`, `refresh_tokens`, `refresh_families` [V] tree, plus `subjects(sub, upstream_iss,
@@ -388,8 +417,9 @@ JWKS need no DO hop; only login, token and DCR traffic reaches it (~500–1,000 
 **omitted → both** (deliberately not the RFC 7591 default, so connectors get refresh tokens);
 1–8 redirect URIs (≤ 512 bytes, no fragment/userinfo): `https` with a host, or `http` on
 `127.0.0.1`, `[::1]` or **`localhost`**, port-agnostic with path equality (RFC 8252 §7.3/§8.3;
-Claude Code and MCP Inspector use `http://localhost:<port>/…`); `scope` ⊆ vocabulary, **omitted →
-`ruvector:read ruvector:write offline_access`** (admin/publish only if requested here);
+Claude Code and MCP Inspector use `http://localhost:<port>/…`); `scope` ⊆ the union of the §5.3
+vocabularies, **omitted → `ruvector:read ruvector:write offline_access`** (admin/publish and any
+`team:*` scope only if requested here; the ceiling is the union of what was requested, §5.3);
 `client_name` ≤ 128 chars; body ≤ 16 KiB; ids `edc-` + random; cap `MAX_CLIENTS` (10,000) [V] tree;
 per-IP rate limit and 30-day idle expiry **[U]** (M0.5). Today: §8 delta 4. Connector-prefix
 (`chatgpt.com/connector/oauth/`, `chatgpt.com/aip/`, `claude.ai/api/mcp/`, `claude.com/api/mcp/`)
@@ -409,7 +439,9 @@ RFC 7523, per-adapter JWK), allowed only the exchange grant to `…/v1`.
   separately).
 - A valid request **stores the flow** (upstream `state`, `nonce`, PKCE verifier, sha256 of a fresh
   browser secret; `FLOW_TTL_SECS` 600) and renders the **consent page** (client name, redirect
-  host, resource, scopes), which sets `__Host-eaf-{state[0..16]}` = the browser secret (`Secure;
+  host, resource, scopes; for team.ruv.io, what each granted `team:read`/`team:write` also permits
+  on the user's ruvector data through the compiled exchange map, §16.1), which
+  sets `__Host-eaf-{state[0..16]}` = the browser secret (`Secure;
   HttpOnly; SameSite=Lax; Path=/; Max-Age=600`; one cookie per flow, so parallel logins do not
   collide). **Continue** links to the upstream authorize URL; Cancel returns `access_denied`. AS
   HTML responses send `X-Frame-Options: DENY`, CSP `default-src 'none'; frame-ancestors 'none';
@@ -455,8 +487,13 @@ scope **`openid profile email` only** — never `mcp:*` (§1.1; §8 delta 2).
   deprovisioning are seen only at the next login (§12).
 - `urn:ietf:params:oauth:grant-type:token-exchange` (RFC 8693, M1, adapter clients only):
   `subject_token` = the user's edge token for that adapter's own resource, `resource = …/v1`. The
-  result keeps `sub`, `upstream_iss`, `org_id`, `workspace_id`, `family_id`; `scope ⊆` and `exp ≤`
-  the subject token's; `act = {sub: <adapter client_id>}`, audited; no refresh token.
+  result keeps `sub`, `upstream_iss`, `org_id`, `workspace_id`, `family_id`; `exp ≤` the subject
+  token's; `scope` = the adapter resource's compiled **exchange map** applied to the subject
+  token's scopes, ∩ the adapter client's ceiling ∩ the `…/v1` scopes (an adapter vocabulary never
+  appears on a `…/v1` token; team.ruv.io: `team:read → ruvector:read`, `team:write →
+  ruvector:write`, `team:run → ∅`; nothing mapped → `invalid_scope`; the consent page
+  discloses the map for every mapped `team:*` grant it shows, so no consent predates it, §16.1);
+  `act = {sub: <adapter client_id>}`, audited; no refresh token.
 - Response: `access_token`, `token_type=Bearer`, `expires_in=900`, rotated `refresh_token` if the
   grant allows, `scope` (as granted); `Cache-Control: no-store`.
 
@@ -705,6 +742,9 @@ crates/ruvector-edge-auth/    [V] root member. RS verification: jws, jwks, claim
                               UpstreamFirstParty), audience (exact aud), resource (ResourceUrl, shared with
                               the AS), subject (edge_subject), scopes (Capability, ROUTE_TABLE), prm,
                               verifier, clock, error. M0 adds trust_root.rs.
+  fuzz/                       [V] tree: cargo-fuzz crate (own empty [workspace] + Cargo.lock +
+                              .gitignore target/ corpus/ artifacts/, like ruvector-core/fuzz; root
+                              Cargo.toml untouched): jws_compact, jwks_parse.
 crates/ruvector-edge-authz/   [V] root member. AS core over sync ports (Clock, Rng, Signer, Client/Code/
                               Refresh/FederationStore): client (DCR), authorize, pkce, code, federation,
                               token (RFC 9068 mint), grant (TokenEndpoint), params, refresh, revoke,
@@ -787,7 +827,8 @@ internal envs; fail if any secret name appears under `[vars]`.
      another state, two parallel flows, replayed `state`, upstream `aud`/`iss`/`typ` wrong, unknown
      upstream `kid` (refetch, accept, alert); code one-time, bound, consumed on failure, replay
      revokes; refresh inside grace → no revocation, after → family revoked; 90-day cap; revoke
-     silent 200; CORS scope; exchange (M1: adapter-only, `…/v1` only, narrowed, `act`); minted-token
+     silent 200; CORS scope; exchange (M1: adapter-only, `…/v1` only, scope mapped via the adapter's compiled exchange map
+     ∩ adapter ceiling ∩ `…/v1` scopes, `exp` narrowed, `act`); minted-token
      golden test; edge subject stable and collision-free (proptest).
    - **Capability / tenancy / store:** every route covered; scope without role and role without
      scope denied; concurrent claim → one owner; a tenant deny never crosses tenants; `tenant_key`
@@ -802,7 +843,14 @@ internal envs; fail if any secret name appears under `[vars]`.
    → consent → callback → token → `/v1/me` → claim (step-up to write) → CRUD; exchange → `/v1/ops`;
    cross-tenant negatives; DO restart; 429; 413; N shards per isolate.
 4. **Fuzzing:** JWS, JWKS, DCR JSON, `/token` form, `ResourceUrl`, index chunks (M2b), `rvf-wire`
-   (M3), `rbpx0001` (M4). **Live:** M0.5 acceptance.
+   (M3), `rbpx0001` (M4). [V] tree: `crates/ruvector-edge-auth/fuzz` targets `jws_compact` (raw
+   `Authorization` values through bearer → compact parse → payload → claims JSON → classify →
+   ES256 verify → audience → claims validation, plus fuzz-derived header/payload **validly
+   signed** with a fixed key so the post-signature checks see arbitrary JSON; accepted tokens must
+   satisfy the §5.2 `iss`/`aud`/lifetime invariants) and `jwks_parse` (`JwkSet::parse_usable`,
+   thumbprint and key round trip), run with `env -u RUSTFLAGS cargo +nightly fuzz run <t> --
+   -max_total_time=600`. DCR JSON, `/token` form and `ResourceUrl` targets are still owed.
+   **Live:** M0.5 acceptance.
 
 ## 10. Quotas and abuse controls
 
@@ -869,7 +917,7 @@ work units (§17); binary inputs are checked against quota before allocation.
 | **Adapter resource servers** | Adapter-hosted MCP endpoints (§16.1) cannot see the ruvector deny-list | JWKS replaced on every fetch (removed `kid` dead ≤ 10 min), last-good fallback ≤ 1 h there; everything they forward to `/v1/ops` is re-checked against the deny-list | Tenant/family/`sub` denies reach them only via ≤ 15 min token expiry |
 | **T**ampering: cross-tenant write | Crafted names/ids; routing bug; D1 query missing a filter | No tenant parameter; hashed DO names with `collection_uid`; in-DO assertion; per-tenant state in `TenantLedger`; typed D1 repository | — |
 | Tampering: import / restore injection | Another tenant's R2 object; malformed RVF | Server-minted `upload_id`; manifest `tenant_key`; per-segment sha256; fuzzed decoders; size checks first | — |
-| Tampering: `/v1/ops` misuse / token passthrough | An adapter forwards the user's adapter-audience token, or a captured op is replayed or retargeted | `/v1/ops` accepts only `aud = …/v1`; adapters get it by RFC 8693 exchange as confidential `private_key_jwt` clients, scope and `exp` narrowed, `act` audited; `target` and `tenant_key` echo checked; `op_id` idempotency; scope ∩ role (§16.3) | A compromised adapter holding its private key can exchange tokens it receives, within their scope and lifetime |
+| Tampering: `/v1/ops` misuse / token passthrough | An adapter forwards the user's adapter-audience token, or a captured op is replayed or retargeted | `/v1/ops` accepts only `aud = …/v1`; adapters get it by RFC 8693 exchange as confidential `private_key_jwt` clients, scope mapped via the adapter's compiled exchange map ∩ adapter ceiling ∩ `…/v1` scopes, `exp` narrowed, `act` audited; `target` and `tenant_key` echo checked; `op_id` idempotency; scope ∩ role (§16.3) | A compromised adapter holding its private key can exchange tokens it receives into the mapped `ruvector:*` scopes (`team:write` implies `ruvector:write`) within their lifetime; the consent page discloses this mapping (§16.1) |
 | **R**epudiation | "I didn't delete that" | `ops` + hash-chained audit with `sub`, `jti`, `family_id`, `approval_ref`; claims, invites, deny writes audited | Audit is per DO |
 | **I**nformation disclosure | Existence probing; log leakage; cache cross-hits | 404 for foreign resources; no tokens, upstream ids, vectors or clear IPs in logs; cache keys include `tenant_key`; redacted exports | — |
 | **D**oS: cross-tenant memory | One tenant's OOM/panic reinitialises the shared instance | Resident-set registry and caps; pre-sized slabs; no-unwrap lint; fuzzing; panic-unwind evaluation | A panic can cold-restart co-located shards until Q12 is resolved |
@@ -1050,9 +1098,9 @@ Audience: the ChatGPT coordinator (`integrations/cloudflare-chatgpt`, PR #1062, 
 | Token format | JWS, header `alg=ES256`, `typ=at+jwt`; claims exactly §5.2 (`act` only on exchanged tokens) |
 | Stable subject | `sub` = `"es1_" + base32lower(sha256("ruvector-edge/sub/v1\|" + upstream_iss + "\|" + upstream_sub))[0..26]` (`subject::edge_subject`). Key memberships on **(`iss`, `sub`)**; never on `client_id`, `jti` or email |
 | Tenant claims | `upstream_iss`, `org_id`, `workspace_id` → `tenant_key` (§4.1, formula §16.2); also returned by `GET /v1/me` |
-| Scope vocabulary | `ruvector:read`, `ruvector:write`, `ruvector:admin` (`/v1` only), `ruvector:publish` (M5), `offline_access`; default grant `ruvector:read`, write only when requested on consent; step-up via 403 `insufficient_scope` (§5.3) |
-| Canonical audiences | MCP `https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1/mcp`; REST and `/v1/ops` `…/v1`. An adapter that serves its **own** MCP endpoint gets its canonical URL added to `RESOURCE_ALLOWLIST` (reviewed AS config) and verifies inbound tokens exactly as §5.4 with that URL as `aud`; the gateway never accepts that audience |
-| Calling ruvector | Exchange (§5.6, M1): the adapter is an operator-registered **confidential** client (`private_key_jwt`, per-adapter public JWK, exchange grant only). `POST /token` `grant_type=urn:ietf:params:oauth:grant-type:token-exchange`, `subject_token=<user's token, aud = adapter resource>`, `subject_token_type=urn:ietf:params:oauth:token-type:access_token`, `resource=…/v1`, optional narrower `scope` → a `…/v1` token with the same `sub`/tenant claims, `scope ⊆`, `exp ≤` the subject token's, `act.sub` = adapter `client_id`. An adapter that is only an OAuth client (no own resource) requests `resource=…/v1` in its own flow instead |
+| Scope vocabulary | **Per resource** (§5.3). Gateway (`…/v1`, `…/v1/mcp`): `ruvector:read`, `ruvector:write`, `ruvector:admin` (`/v1` only), `ruvector:publish` (M5), `offline_access`; default grant `ruvector:read`, write only when requested on consent; step-up via 403 `insufficient_scope`. Adapter resource: its **own** vocabulary, never `ruvector:*` — `https://team.ruv.io/mcp` has `team:read`, `team:write`, `team:run`, `offline_access`, default grant `team:read` (+ `offline_access`); what each `team:*` scope permits is defined and enforced by the adapter. A scope of the other vocabulary is dropped, never minted (nothing left is `invalid_scope`); `team:*` must be registered explicitly at DCR (the default ceiling is `ruvector:*` only). A new adapter vocabulary or resource is a reviewed code change (`authz/resource.rs` `Vocabulary` and the compiled `RESOURCE_VOCABULARIES` URL binding, enforced at load) plus its allowlist entry |
+| Canonical audiences | MCP `https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1/mcp`; REST and `/v1/ops` `…/v1`. An adapter that serves its **own** MCP endpoint gets its canonical URL compiled into `resource::RESOURCE_VOCABULARIES` with its own vocabulary (reviewed code change) and added to `RESOURCE_ALLOWLIST` (reviewed AS config), and verifies inbound tokens exactly as §5.4 with that URL as `aud` and that vocabulary as `scope`; the gateway never accepts that audience (401 `invalid_token`, decided on `aud` before any scope). Registered today: `https://team.ruv.io/mcp` (RuFlo AI Team) |
+| Calling ruvector | Exchange (§5.6, M1): the adapter is an operator-registered **confidential** client (`private_key_jwt`, per-adapter public JWK, exchange grant only). `POST /token` `grant_type=urn:ietf:params:oauth:grant-type:token-exchange`, `subject_token=<user's token, aud = adapter resource>`, `subject_token_type=urn:ietf:params:oauth:token-type:access_token`, `resource=…/v1`, optional narrower `scope` → a `…/v1` token with the same `sub`/tenant claims, `exp ≤` the subject token's, `act.sub` = adapter `client_id`, and `scope` = the adapter's compiled **exchange map** of the subject token's scopes ∩ the adapter client's ceiling ∩ the `…/v1` scopes (∩ the requested `scope`, if sent). team.ruv.io map: `team:read → ruvector:read`, `team:write → ruvector:write`, `team:run → ∅` (run is an adapter capability; its jobs need `team:write` to write vectors), `offline_access` dropped; an empty result is `invalid_scope`. Because the subject token was consented as `team:*`, the consent page for team.ruv.io says, whenever it shows a `team:read`/`team:write` grant, that it also lets the team.ruv.io service read (`ruvector:read`) / add, change and delete (`ruvector:write`) the user's ruvector data, derived from the compiled map (`resource::TEAM_EXCHANGE_MAP`, `consent::ruvector_data_notice`) [V] tree. The disclosure ships in the same release that first allows `team:*` for team.ruv.io, so no `team:*` family predates it (until then team.ruv.io listed `ruvector:*`, and `/authorize` answers `temporarily_unavailable` until G1); the M1 exchange therefore needs no consent-version check on the family, and any later change to the map that widens it must add one (or re-consent). An adapter that is only an OAuth client (no own resource) requests `resource=…/v1` in its own flow instead |
 | Revocation | Adapter resource servers do not see the ruvector deny-list: `kid` removal (≤ 10 min) and token expiry (≤ 15 min) only (§5.8, §12) |
 | Host change | G6 changes the issuer and every audience; adapters pin them at build/deploy review (as §5.4), so a host change is a reviewed redeploy plus one re-login |
 
@@ -1192,6 +1240,14 @@ Design constraints the edge services must support for approval-safe clients:
 11. **Q15 Client ID Metadata Documents** (MCP 2025-11-25) — support URL `client_id`s (https only,
     SSRF guard, size cap, `redirect_uris` check, caching) and show "verified" only for CIMD ids on
     `chatgpt.com`, `claude.ai`, `claude.com`; narrows the open-DCR phishing surface (M5/M6).
+12. **Q16 Connectors on team.ruv.io and scope requests across vocabularies** **[U]** (M0.5 connector
+    checks). (a) A connector that registers **without** `scope` gets the `ruvector:*` default ceiling
+    and therefore `invalid_scope` on team.ruv.io; either team.ruv.io's docs tell connectors to
+    register `team:*`, or the default ceiling grows a per-resource default (reviewed change). (b) **Closed:** a
+    client that requests the AS-metadata `scopes_supported` (the union) instead of the PRM or
+    challenge `scope` gets its resource's share: rule (2) of the §5.3 grant rule drops the other
+    family's scopes instead of refusing them [V] tree (`team_vocabulary.rs`
+    `as_metadata_union_request_gets_each_resource_share`); only (a) remains open.
 
 ## References
 

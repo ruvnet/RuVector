@@ -10,6 +10,7 @@ mod grant;
 mod refresh;
 mod revoke;
 mod scope_grant;
+mod team_vocabulary;
 mod token;
 
 use crate::error::{OAuthError, OAuthErrorCode};

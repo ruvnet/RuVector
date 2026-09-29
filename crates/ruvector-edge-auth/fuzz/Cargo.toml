@@ -1,0 +1,36 @@
+# cargo-fuzz targets for the ruvector edge JWS/JWKS verification core
+# (ADR-351 §9, M0 fuzz criterion). Run with nightly:
+#   cd crates/ruvector-edge-auth/fuzz
+#   env -u RUSTFLAGS cargo +nightly fuzz run jws_compact -- -max_total_time=600
+#   env -u RUSTFLAGS cargo +nightly fuzz run jwks_parse  -- -max_total_time=600
+[package]
+name = "ruvector-edge-auth-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+ruvector-edge-auth = { path = ".." }
+p256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
+serde_json = "1"
+
+# Prevent this from being discovered as a workspace member
+[workspace]
+
+[[bin]]
+name = "jws_compact"
+path = "fuzz_targets/jws_compact.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "jwks_parse"
+path = "fuzz_targets/jwks_parse.rs"
+test = false
+doc = false
+bench = false

@@ -183,3 +183,109 @@ fn consent_discloses_long_lived_access_for_refresh_clients() {
     let html = String::from_utf8(page.body).unwrap();
     assert!(!html.contains("Stays signed in"), "{html}");
 }
+
+/// Shipped config, federation ready, and a client that registered both
+/// families: `(world, client_id, team resource URL)`.
+fn team_world() -> (World, String, String) {
+    let mut v = crate::config::tests::shipped_vars();
+    v.insert("UPSTREAM_CLIENT_ID", "dcr-edge-test".into());
+    v.insert(
+        "ACCEPTED_UPSTREAM_KIDS",
+        crate::config::tests::upstream_test_kid(),
+    );
+    let cfg = load(&v).unwrap();
+    let team = cfg.resources.entries()[2].url().as_str().to_string();
+    assert_eq!(team, "https://team.ruv.io/mcp");
+    let w = World::with_cfg(cfg);
+    let r = w.register(json!({
+        "redirect_uris": [REDIRECT],
+        "scope": "ruvector:read team:read team:write team:run offline_access",
+    }));
+    assert_eq!(r.status, 201, "{}", String::from_utf8_lossy(&r.body));
+    assert_eq!(
+        body_json(&r)["scope"],
+        "ruvector:read team:read team:write team:run offline_access"
+    );
+    let id = body_json(&r)["client_id"].as_str().unwrap().to_string();
+    (w, id, team)
+}
+
+/// `/authorize` query for `resource` with `scope` replaced.
+fn scoped_query(id: &str, resource: &str, scope: &str) -> String {
+    authorize_query(id, resource).replace(
+        "scope=ruvector%3Aread+offline_access",
+        &format!("scope={}", scope.replace(':', "%3A").replace(' ', "+")),
+    )
+}
+
+/// Consent page HTML for a request that must render (200).
+fn consent_html(w: &World, q: &str) -> String {
+    let page = authorize(&w.ctx(), Some(q));
+    assert_eq!(page.status, 200, "{}", String::from_utf8_lossy(&page.body));
+    String::from_utf8(page.body).unwrap()
+}
+
+/// Regression (ADR-351 §5.3 per-resource vocabularies) under the shipped
+/// config: a client that registers `team:*` explicitly gets it in its
+/// ceiling and a `team:*` consent for team.ruv.io; `ruvector:read` alone for
+/// the team resource grants nothing and is redirected back as
+/// `invalid_scope`; mixed with `team:*` it is dropped, never shown.
+#[test]
+fn shipped_config_team_resource_uses_team_scopes() {
+    let (w, id, team) = team_world();
+    let html = consent_html(&w, &scoped_query(&id, &team, "team:read team:run"));
+    assert!(html.contains("<li><code>team:read</code></li>"), "{html}");
+    assert!(html.contains("<li><code>team:run</code></li>"), "{html}");
+    assert!(
+        !html.contains("<li><code>ruvector:read</code></li>"),
+        "{html}"
+    );
+    let html = consent_html(&w, &scoped_query(&id, &team, "ruvector:read team:run"));
+    assert!(html.contains("<li><code>team:run</code></li>"), "{html}");
+    assert!(
+        !html.contains("<li><code>ruvector:read</code></li>"),
+        "{html}"
+    );
+    let r = authorize(&w.ctx(), Some(&scoped_query(&id, &team, "ruvector:read")));
+    let loc = r.header("Location").unwrap_or_default();
+    assert_eq!(r.status, 302, "{}", String::from_utf8_lossy(&r.body));
+    assert!(loc.contains("error=invalid_scope"), "{loc}");
+}
+
+/// Regression (ADR-351 §5.6, §16.1 consent before the M1 exchange): a
+/// team.ruv.io grant of `team:read`/`team:write` discloses on the consent
+/// page that it also reaches the user's ruvector data (the compiled exchange
+/// map), so a family consented now needs no new consent when M1 ships.
+/// `team:run` alone maps to nothing and a gateway grant shows no notice.
+#[test]
+fn team_consent_discloses_ruvector_data_access() {
+    let (w, id, team) = team_world();
+    let html = consent_html(&w, &scoped_query(&id, &team, "team:read team:write"));
+    assert!(html.contains("Includes your ruvector data"), "{html}");
+    assert!(
+        html.contains(
+            "<li><code>team:read</code> also lets it read your ruvector data \
+(<code>ruvector:read</code>)</li>"
+        ),
+        "{html}"
+    );
+    assert!(
+        html.contains("<code>team:write</code> also lets it add, change and delete"),
+        "{html}"
+    );
+    assert!(
+        html.contains("(<code>ruvector:write</code>)</li>"),
+        "{html}"
+    );
+    // Omitted scope = default grant team:read (+ offline_access): disclosed.
+    let omitted = authorize_query(&id, &team).replace("&scope=ruvector%3Aread+offline_access", "");
+    let html = consent_html(&w, &omitted);
+    assert!(html.contains("<li><code>team:read</code></li>"), "{html}");
+    assert!(html.contains("Includes your ruvector data"), "{html}");
+    assert!(!html.contains("<code>team:write</code> also"), "{html}");
+    let html = consent_html(&w, &scoped_query(&id, &team, "team:run offline_access"));
+    assert!(!html.contains("Includes your ruvector data"), "{html}");
+    let gw = crate::config::tests::RESOURCE;
+    let html = consent_html(&w, &scoped_query(&id, gw, "ruvector:read offline_access"));
+    assert!(!html.contains("Includes your ruvector data"), "{html}");
+}

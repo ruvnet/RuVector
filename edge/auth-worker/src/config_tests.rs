@@ -5,7 +5,8 @@ use super::*;
 use std::collections::HashMap;
 
 pub(crate) const ISSUER: &str = "https://ruvector-edge-auth.example.workers.dev";
-pub(crate) const RESOURCE: &str = "https://ruvector-edge-gateway.example.workers.dev/v1/mcp";
+pub(crate) const RESOURCE: &str =
+    "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1/mcp";
 
 pub(crate) fn vars() -> HashMap<&'static str, String> {
     HashMap::from([
@@ -13,7 +14,7 @@ pub(crate) fn vars() -> HashMap<&'static str, String> {
         (
             "RESOURCE_ALLOWLIST",
             format!(
-                "https://ruvector-edge-gateway.example.workers.dev/v1 \
+                "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1 \
                  ruvector:read ruvector:write ruvector:admin offline_access, \
                  {RESOURCE} ruvector:read ruvector:write offline_access"
             ),
@@ -109,9 +110,9 @@ fn shipped_wrangler_vars_are_valid_and_safe() {
 }
 
 /// Regression (ADR-351 §5.3, §5.7, §16.1): the shipped allowlist has exactly
-/// the two gateway resources and the team.ruv.io adapter, each with its own
-/// scopes drawn from the §5.3 vocabulary only; admin only on `/v1`, and
-/// `scopes_supported` is exactly §5.3 (no `team:*`).
+/// the two gateway resources (`ruvector:*`, admin only on `/v1`) and the
+/// team.ruv.io adapter (`team:*` only), and `scopes_supported` is the union
+/// of both vocabularies.
 #[test]
 fn shipped_allowlist_has_per_resource_scopes() {
     let c = load(&shipped_vars()).unwrap();
@@ -141,7 +142,7 @@ fn shipped_allowlist_has_per_resource_scopes() {
             ),
             want(
                 "https://team.ruv.io/mcp".into(),
-                &["ruvector:read", "ruvector:write", "offline_access"]
+                &["team:read", "team:write", "team:run", "offline_access"]
             ),
         ]
     );
@@ -154,6 +155,9 @@ fn shipped_allowlist_has_per_resource_scopes() {
             "ruvector:admin",
             "ruvector:read",
             "ruvector:write",
+            "team:read",
+            "team:run",
+            "team:write",
         ]
     );
     // G1 pending (console#605): no upstream client and no kid pin yet.
@@ -165,6 +169,38 @@ fn shipped_allowlist_has_per_resource_scopes() {
         ruvector_edge_authz::OAuthErrorCode::TemporarilyUnavailable
     );
     assert_eq!(e.error_description, FEDERATION_PENDING);
+}
+
+/// Regression (ADR-351 §5.3, §16.1): the URL → vocabulary binding is
+/// compiled, so the allowlist value deployed at M0.5 (team.ruv.io with
+/// `ruvector:*`), an adapter URL that is not compiled, or a gateway resource
+/// with `team:*` can no longer load through the mutable var.
+#[test]
+fn allowlist_var_cannot_rebind_a_resource_vocabulary() {
+    let gw = "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev";
+    let base = format!(
+        "{gw}/v1 ruvector:read ruvector:write ruvector:admin offline_access, \
+         {gw}/v1/mcp ruvector:read ruvector:write offline_access"
+    );
+    for tail in [
+        "https://team.ruv.io/mcp ruvector:read ruvector:write offline_access".to_string(),
+        "https://any-adapter.example/mcp ruvector:read ruvector:admin".to_string(),
+        "https://any-adapter.example/mcp team:read".to_string(),
+    ] {
+        let mut v = shipped_vars();
+        v.insert("RESOURCE_ALLOWLIST", format!("{base}, {tail}"));
+        assert!(load(&v).is_err(), "{tail} accepted");
+    }
+    let mut v = shipped_vars();
+    v.insert(
+        "RESOURCE_ALLOWLIST",
+        format!("{gw}/v1 team:read team:write offline_access"),
+    );
+    assert!(load(&v).is_err(), "/v1 with team:* accepted");
+    // Narrowing through the var is still possible.
+    let mut v = shipped_vars();
+    v.insert("RESOURCE_ALLOWLIST", format!("{gw}/v1/mcp ruvector:read"));
+    assert!(load(&v).is_ok());
 }
 
 #[test]
@@ -199,13 +235,26 @@ fn default_scope_is_the_compiled_ceiling() {
         load(&v).unwrap().dcr_policy().default_scope,
         vec!["ruvector:read", "offline_access"]
     );
-    // Scopes outside the §5.3 vocabulary (an adapter's own `team:*`) fail
-    // the load; so does an allowlist whose entries are all admin-only.
+    // A team-only allowlist loads its entry but leaves the compiled default
+    // ceiling empty, so it fails; a team entry mixing families fails as
+    // resource scopes; so does an allowlist whose entries are all admin-only.
     v.insert(
         "RESOURCE_ALLOWLIST",
         "https://team.ruv.io/mcp team:read".into(),
     );
-    assert!(load(&v).is_err(), "team:* is not edge vocabulary");
+    assert!(load(&v).is_err(), "no default-ceiling ruvector scope");
+    v.insert(
+        "RESOURCE_ALLOWLIST",
+        format!("{RESOURCE} ruvector:read, https://team.ruv.io/mcp team:read ruvector:write"),
+    );
+    assert!(load(&v).is_err(), "mixed vocabulary entry");
+    v.insert(
+        "RESOURCE_ALLOWLIST",
+        format!("{RESOURCE} ruvector:read, https://team.ruv.io/mcp team:read"),
+    );
+    let c = load(&v).unwrap();
+    assert_eq!(c.scopes_supported, vec!["ruvector:read", "team:read"]);
+    assert_eq!(c.dcr_policy().default_scope, vec!["ruvector:read"]);
     v.insert("RESOURCE_ALLOWLIST", format!("{RESOURCE} ruvector:admin"));
     assert!(load(&v).is_err(), "no default-ceiling ruvector scope");
 }

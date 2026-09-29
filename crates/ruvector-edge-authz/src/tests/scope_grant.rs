@@ -59,14 +59,15 @@ fn allowlist_carries_per_resource_scopes() {
     );
     assert_eq!(
         scopes(TEAM_RESOURCE),
-        s(&["ruvector:read", "ruvector:write", "offline_access"])
+        s(&["team:read", "team:write", "team:run", "offline_access"])
     );
     assert_eq!(
         a.resolve_entry(Some(TEAM_RESOURCE))
             .unwrap()
             .default_grant(),
-        "ruvector:read"
+        "team:read"
     );
+    // `scopes_supported` (RFC 8414 + DCR) is the union of the vocabularies.
     assert_eq!(
         a.scopes_supported(),
         s(&[
@@ -74,28 +75,35 @@ fn allowlist_carries_per_resource_scopes() {
             "ruvector:write",
             "offline_access",
             "ruvector:admin",
+            "team:read",
+            "team:write",
+            "team:run",
         ])
     );
 }
 
-/// Regression (§5.3): `scopes_supported` (RFC 8414 + DCR) is exactly the
-/// §5.3 vocabulary, so an allowlist entry with any other scope (e.g. an
-/// adapter's own `team:*`) does not load.
+/// Regression (§5.3): every entry draws on exactly one vocabulary family
+/// plus `offline_access`; unknown scopes, mixed families and an
+/// `offline_access` default do not load.
 #[test]
-fn allowlist_refuses_scopes_outside_the_edge_vocabulary() {
-    use crate::resource::ResourceAllowlist;
+fn allowlist_refuses_unknown_or_mixed_vocabulary() {
+    use crate::resource::{ResourceAllowlist, Vocabulary};
     for bad in [
-        "https://team.ruv.io/mcp team:read offline_access",
         "https://team.ruv.io/mcp ruvector:read team:run",
-        "https://gw.example/v1 ruvector:read mcp:invoke",
-        "https://gw.example/v1 ruvector:read openid",
+        "https://team.ruv.io/mcp team:read ruvector:write",
+        "https://team.ruv.io/mcp team:admin",
+        "https://team.ruv.io/mcp offline_access team:read",
+        "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1 ruvector:read mcp:invoke",
+        "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1 ruvector:read openid",
     ] {
         assert!(ResourceAllowlist::from_config(bad).is_err(), "{bad}");
     }
-    assert!(ResourceAllowlist::from_config(
-        "https://team.ruv.io/mcp ruvector:read ruvector:write offline_access"
-    )
-    .is_ok());
+    let a = ResourceAllowlist::from_config(&format!(
+        "https://team.ruv.io/mcp team:read offline_access, {OTHER_RESOURCE} ruvector:read"
+    ))
+    .unwrap();
+    let v: Vec<Vocabulary> = a.entries().iter().map(|e| e.vocabulary()).collect();
+    assert_eq!(v, [Vocabulary::Team, Vocabulary::Ruvector]);
 }
 
 /// Regression (§5.3): out-of-ceiling vocabulary scopes are dropped, not
@@ -143,7 +151,7 @@ fn admin_only_for_the_rest_resource() {
 /// intersected with the client ceiling.
 #[test]
 fn omitted_scope_grants_the_resource_default() {
-    for r in [RESOURCE, OTHER_RESOURCE, TEAM_RESOURCE] {
+    for r in [RESOURCE, OTHER_RESOURCE] {
         assert_eq!(
             authorize(&ALL_GW, r, None).unwrap(),
             s(&["ruvector:read", "offline_access"])
@@ -167,34 +175,6 @@ fn unknown_or_empty_grants_are_invalid_scope() {
     }
 }
 
-/// Regression (§5.3, §16.1): the adapter resource uses the `ruvector:*`
-/// vocabulary, so a default registration gets an adapter token whose scope
-/// a later exchange for `/v1` can keep (`scope ⊆` the subject token's);
-/// admin is never minted for it and `team:*` is not a scope at all.
-#[test]
-fn team_resource_uses_the_edge_vocabulary() {
-    let default: Vec<&str> = DEFAULT_CLIENT_SCOPE.to_vec();
-    assert_eq!(
-        authorize(&default, TEAM_RESOURCE, None).unwrap(),
-        s(&["ruvector:read", "offline_access"])
-    );
-    assert_eq!(
-        authorize(
-            &ALL_GW,
-            TEAM_RESOURCE,
-            Some("ruvector:write ruvector:admin offline_access")
-        )
-        .unwrap(),
-        s(&["ruvector:write", "offline_access"])
-    );
-    for bad in ["team:read", "ruvector:read team:run"] {
-        assert_code(
-            authorize(&default, TEAM_RESOURCE, Some(bad)),
-            C::InvalidScope,
-        );
-    }
-}
-
 #[test]
 fn grant_scopes_is_order_preserving_and_deduplicated() {
     let a = allowlist();
@@ -214,8 +194,8 @@ fn grant_scopes_is_order_preserving_and_deduplicated() {
 
 /// Regression (§5.3/§5.6): DCR without `scope` gets `ruvector:read
 /// ruvector:write offline_access`; admin only on request; not-yet-minted
-/// vocabulary is dropped; scopes outside §5.3 (`team:*`, `mcp:*`) are
-/// refused.
+/// vocabulary is dropped; scopes outside every vocabulary (`mcp:*`,
+/// `team:admin`) are refused. Team scopes: `team_vocabulary.rs`.
 #[test]
 fn dcr_defaults_and_explicit_scopes() {
     let reg = |scope: Option<&str>| {
@@ -228,7 +208,7 @@ fn dcr_defaults_and_explicit_scopes() {
         reg(Some("ruvector:read ruvector:admin")).unwrap().scope,
         s(&["ruvector:read", "ruvector:admin"])
     );
-    assert_code(reg(Some("team:read team:run")), C::InvalidClientMetadata);
+    assert_code(reg(Some("team:admin")), C::InvalidClientMetadata);
     assert_eq!(
         reg(Some("ruvector:publish ruvector:read")).unwrap().scope,
         s(&["ruvector:read"])

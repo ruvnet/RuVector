@@ -11,6 +11,7 @@ use crate::http::Reply;
 use ruvector_edge_authz::authorize::{redirect_is_verified, ValidatedAuthorization};
 use ruvector_edge_authz::client::{ClientRecord, GRANT_REFRESH};
 use ruvector_edge_authz::refresh::FAMILY_MAX_LIFETIME_SECS;
+use ruvector_edge_authz::resource::exchange_disclosure;
 
 /// Cookie-name prefix; the name is suffixed with a prefix of the upstream
 /// `state` so parallel logins in one browser do not clobber each other.
@@ -106,6 +107,40 @@ sign out or its access is revoked.</p>",
     )
 }
 
+/// Consent block disclosing what an adapter grant also permits on the
+/// gateway (ADR-351 §5.6, §16.1): every `team:*` scope granted for
+/// team.ruv.io that the compiled exchange map carries into a `…/v1` token is
+/// named with its `ruvector:*` effect, so a family consented now needs no new
+/// consent when the M1 exchange ships. Empty for every other grant.
+pub fn ruvector_data_notice(auth: &ValidatedAuthorization) -> String {
+    let pairs = exchange_disclosure(&auth.resource, &auth.scopes);
+    if pairs.is_empty() {
+        return String::new();
+    }
+    let items: String = pairs
+        .iter()
+        .map(|(team, rv)| {
+            let effect = match *rv {
+                "ruvector:read" => "read your ruvector data",
+                "ruvector:write" => {
+                    "add, change and delete your ruvector vectors and create collections"
+                }
+                _ => "use your ruvector data",
+            };
+            format!(
+                "<li><code>{}</code> also lets it {effect} (<code>{}</code>)</li>",
+                escape(team),
+                escape(rv)
+            )
+        })
+        .collect();
+    format!(
+        "<p class=\"w\"><strong>Includes your ruvector data.</strong> The team.ruv.io \
+service can use these permissions to access your ruvector data on your behalf:</p>\
+<ul>{items}</ul>"
+    )
+}
+
 /// Whether a client name could imitate another app (anything outside
 /// printable ASCII, e.g. Cyrillic homoglyphs of a Latin name).
 pub fn is_suspicious_name(name: &str) -> bool {
@@ -143,6 +178,7 @@ pub fn page(
     } else {
         String::new()
     };
+    let ruvector_data = ruvector_data_notice(auth);
     let mut warnings = String::new();
     if !redirect_is_verified(&auth.redirect_uri) {
         warnings.push_str(
@@ -173,7 +209,7 @@ background:#fdf2f2}}form{{display:inline}}\
 <p><strong>{name}</strong> wants to access <code>{resource}</code> as you.</p>\
 <p>After you sign in with Cognitum you will be sent back to \
 <strong>{host}</strong>. Continue only if you trust that site.</p>\
-<p>Requested permissions:</p><ul>{scopes}</ul>{offline}\
+<p>Requested permissions:</p><ul>{scopes}</ul>{ruvector_data}{offline}\
 <p><form method=\"post\" action=\"{action}\">\
 <input type=\"hidden\" name=\"flow\" value=\"{flow}\">\
 <input type=\"hidden\" name=\"consent\" value=\"{token}\">\

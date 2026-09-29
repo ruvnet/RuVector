@@ -46,16 +46,21 @@ ISSUER = "https://ruvector-edge-auth.cognitum-consulting-mail.workers.dev"
 # (ADR-351 §5.3 grant rule: requested ∩ client ceiling ∩ resource scopes).
 # Comma-separated entries `<exact canonical URL> <scope> <scope> ...`; the
 # FIRST scope of an entry (plus offline_access, if listed) is the grant of
-# an /authorize request without `scope`. Scopes must be the §5.3 vocabulary
-# (ruvector:read/write/admin/publish, offline_access); anything else fails
-# the load. `ruvector:admin` exists only for /v1 (never /v1/mcp). The
-# team.ruv.io entry is the RuFlo AI Team adapter resource (§16.1): it uses
-# the same ruvector:* scopes (no admin) so its tokens can be exchanged for a
-# /v1 token with scope ⊆ the subject token's; the gateway never accepts that
-# audience. A DCR registration without `scope` gets `ruvector:read
-# ruvector:write offline_access` (compiled). scopes_supported (RFC 8414 +
-# DCR) is derived as the union of these scopes.
-RESOURCE_ALLOWLIST = "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1 ruvector:read ruvector:write ruvector:admin offline_access, https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1/mcp ruvector:read ruvector:write offline_access, https://team.ruv.io/mcp ruvector:read ruvector:write offline_access"
+# an /authorize request without `scope`. Each entry draws on ONE vocabulary
+# family plus offline_access (§5.3): ruvector:read/write/admin/publish for
+# the gateway resources, team:read/write/run for the team.ruv.io adapter;
+# unknown or mixed scopes fail the load. The URL -> family binding is
+# COMPILED (authz resource::RESOURCE_VOCABULARIES) and enforced at load: an
+# uncompiled URL, ruvector:* for team.ruv.io or team:* for /v1 fails it, so
+# this var can narrow scopes but never add a resource or change a family.
+# `ruvector:admin` exists only for /v1 (never /v1/mcp). The team.ruv.io entry
+# is the RuFlo AI Team adapter resource (§16.1); the gateway never accepts
+# that audience, and a scope of one family requested for a resource of the
+# other is dropped (never minted; nothing left is invalid_scope). A DCR
+# registration without `scope` gets `ruvector:read ruvector:write
+# offline_access` (compiled); team:* must be registered explicitly.
+# scopes_supported (RFC 8414 + DCR) is derived as the union of these scopes.
+RESOURCE_ALLOWLIST = "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1 ruvector:read ruvector:write ruvector:admin offline_access, https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1/mcp ruvector:read ruvector:write offline_access, https://team.ruv.io/mcp team:read team:write team:run offline_access"
 UPSTREAM_ISSUER = "https://auth.cognitum.one"
 UPSTREAM_AUTHORIZATION_ENDPOINT = "https://auth.cognitum.one/oauth/authorize"
 UPSTREAM_TOKEN_ENDPOINT = "https://auth.cognitum.one/oauth/token"

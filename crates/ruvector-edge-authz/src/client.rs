@@ -29,10 +29,11 @@ pub const VERIFIED_REDIRECT_PREFIXES: [(&str, &str); 4] = [
 ];
 
 /// Scope ceiling of a registration that omits `scope` (ADR-351 §5.3/§5.6):
-/// read and write plus `offline_access`, on every resource that allows them
-/// (gateway and adapter resources alike). Admin and publish must be
-/// registered explicitly. Consent plus role, not this ceiling, is the
-/// control.
+/// `ruvector:read ruvector:write offline_access`, i.e. the gateway resources
+/// only. Admin and publish, and any other resource vocabulary (the
+/// team.ruv.io adapter's `team:*`), must be registered explicitly; a client
+/// that does so gets the union of the vocabularies it asked for. Consent
+/// plus role, not this ceiling, is the control.
 pub const DEFAULT_CLIENT_SCOPE: [&str; 3] = ["ruvector:read", "ruvector:write", "offline_access"];
 
 const GRANT_CODE: &str = "authorization_code";
@@ -283,9 +284,10 @@ fn validate_grants(grants: Option<&Vec<String>>) -> Result<Vec<String>, OAuthErr
 /// `authorization_code`/`refresh_token` and must include
 /// `authorization_code` (omitted -> both); `scope` minus the identity scopes
 /// (`openid profile email`, dropped): a scope outside
-/// `policy.scopes_supported` and the §5.3 `ruvector:*` vocabulary is
-/// `invalid_client_metadata`, a vocabulary scope not yet supported (e.g.
-/// `ruvector:publish`) is dropped (absent or nothing left ->
+/// `policy.scopes_supported` and every §5.3 vocabulary (`ruvector:*`,
+/// `team:*`, `offline_access`) is `invalid_client_metadata`, a vocabulary
+/// scope no resource offers yet (e.g. `ruvector:publish`) is dropped, and
+/// scopes of several vocabularies are all kept (absent or nothing left ->
 /// `policy.default_scope`, [`DEFAULT_CLIENT_SCOPE`] in production);
 /// `client_name` per [`is_display_name`].
 pub fn validate_registration(
@@ -330,16 +332,14 @@ pub fn validate_registration(
             let s = split_scope(s).map_err(|_| meta_err("malformed scope"))?;
             let s = strip_identity_scopes(s);
             let known = |t: &String| {
-                policy.scopes_supported.contains(t)
-                    || ruvector_edge_auth::scopes::SCOPE_TABLE
-                        .iter()
-                        .any(|(v, _)| v == t)
+                policy.scopes_supported.contains(t) || crate::resource::is_edge_vocabulary(t)
             };
             if !s.iter().all(known) {
                 return Err(meta_err("scope not registrable"));
             }
-            // §5.3 vocabulary not yet minted (e.g. `ruvector:publish`) is
-            // dropped, not refused.
+            // Vocabulary no resource offers yet (e.g. `ruvector:publish`) is
+            // dropped, not refused. Scopes of several families are kept: the
+            // ceiling is the union of the vocabularies the client asked for.
             let s: Vec<String> = s
                 .into_iter()
                 .filter(|t| policy.scopes_supported.contains(t))

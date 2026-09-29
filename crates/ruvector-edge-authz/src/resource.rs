@@ -1,13 +1,17 @@
-//! RFC 8707 resource allowlist with a **per-resource scope table**
+//! RFC 8707 resource allowlist with **per-resource scope vocabularies**
 //! (ADR-351 §5.3 grant rule, §5.7, §16.1). The minted `aud` is always one of
 //! these canonical URLs, and the minted `scope` is always a subset of that
-//! resource's scopes, e.g. `ruvector:admin` exists for
-//! `https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1`
-//! but never for `…/v1/mcp`. Every resource — including an adapter resource
-//! such as `https://team.ruv.io/mcp` — draws only on the §5.3 vocabulary
-//! (`ruvector:*` + `offline_access`): the edge AS mints nothing else, and a
-//! §16.1 exchange keeps `scope ⊆` the subject token's, so an adapter token
-//! must carry `ruvector:*` scopes to be exchangeable for a `/v1` token.
+//! resource's scopes. Each resource draws on exactly one [`Vocabulary`]
+//! (plus `offline_access`): the gateway resources on `ruvector:*`
+//! (`ruvector:admin` for `…/v1` only, never `…/v1/mcp`), the RuFlo AI Team
+//! adapter resource `https://team.ruv.io/mcp` on `team:*`. The URL → family
+//! binding is **compiled** ([`RESOURCE_VOCABULARIES`]) and enforced when the
+//! allowlist loads, so the `RESOURCE_ALLOWLIST` var can narrow a resource's
+//! scopes but can neither add a resource nor give it another family. A scope
+//! of another resource's vocabulary, or one that the resource or the client
+//! ceiling does not offer, is dropped (never minted); nothing left but
+//! `offline_access` is `invalid_scope`. `scopes_supported` is the union of
+//! every resource's scopes.
 
 use crate::error::{OAuthError, OAuthErrorCode};
 use crate::params::{split_scope, strip_identity_scopes};
@@ -15,10 +19,106 @@ use crate::refresh::OFFLINE_ACCESS;
 use ruvector_edge_auth::scopes::SCOPE_TABLE;
 use ruvector_edge_auth::{AuthError, ResourceUrl};
 
-/// Whether `scope` is in the ADR §5.3 vocabulary the edge AS mints:
-/// a [`SCOPE_TABLE`] `ruvector:*` scope or `offline_access`.
+/// The RuFlo AI Team adapter vocabulary (ADR-351 §5.3, §16.1). Minted only
+/// for a resource that declares it (`https://team.ruv.io/mcp`); the gateway
+/// never accepts such a token (its `aud` is never a gateway resource).
+pub const TEAM_SCOPES: [&str; 3] = ["team:read", "team:write", "team:run"];
+
+/// A scope vocabulary family (ADR-351 §5.3). Every allowlisted resource
+/// declares scopes from exactly one family, plus `offline_access`, which
+/// belongs to none and is valid everywhere.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Vocabulary {
+    /// `ruvector:read/write/admin/publish` ([`SCOPE_TABLE`]): the gateway.
+    Ruvector,
+    /// `team:read/write/run` ([`TEAM_SCOPES`]): the team.ruv.io adapter.
+    Team,
+}
+
+impl Vocabulary {
+    /// Every family the edge AS knows.
+    pub const ALL: [Vocabulary; 2] = [Vocabulary::Ruvector, Vocabulary::Team];
+
+    /// Whether `scope` belongs to this family.
+    pub fn contains(self, scope: &str) -> bool {
+        match self {
+            Vocabulary::Ruvector => SCOPE_TABLE.iter().any(|(s, _)| *s == scope),
+            Vocabulary::Team => TEAM_SCOPES.contains(&scope),
+        }
+    }
+
+    /// The family of `scope`; `None` for `offline_access` and unknown scopes.
+    pub fn of(scope: &str) -> Option<Vocabulary> {
+        Vocabulary::ALL.into_iter().find(|v| v.contains(scope))
+    }
+
+    /// The compiled family of canonical resource `url`
+    /// ([`RESOURCE_VOCABULARIES`]); `None` for any other URL.
+    pub fn for_resource(url: &ResourceUrl) -> Option<Vocabulary> {
+        RESOURCE_VOCABULARIES
+            .iter()
+            .find(|(u, _)| *u == url.as_str())
+            .map(|(_, v)| *v)
+    }
+}
+
+/// The RuFlo AI Team adapter resource (ADR-351 §16.1): `team:*` only.
+pub const TEAM_RESOURCE_URL: &str = "https://team.ruv.io/mcp";
+
+/// team.ruv.io's compiled exchange map (ADR-351 §5.6, §16.1): the
+/// `ruvector:*` scope an M1 token exchange derives from each `team:*` scope
+/// of the subject token (`team:run` and `offline_access` map to nothing).
+/// The consent page discloses exactly these entries whenever it shows a
+/// matching `team:*` grant, so no family is consented without it.
+pub const TEAM_EXCHANGE_MAP: [(&str, &str); 2] = [
+    ("team:read", "ruvector:read"),
+    ("team:write", "ruvector:write"),
+];
+
+/// The `(adapter scope, ruvector scope)` pairs of [`TEAM_EXCHANGE_MAP`]
+/// that `granted` scopes for `resource` would carry into a `…/v1` token;
+/// empty for every resource without an exchange map.
+pub fn exchange_disclosure<'a>(
+    resource: &ResourceUrl,
+    granted: &'a [String],
+) -> Vec<(&'a str, &'static str)> {
+    if resource.as_str() != TEAM_RESOURCE_URL {
+        return Vec::new();
+    }
+    granted
+        .iter()
+        .filter_map(|g| {
+            TEAM_EXCHANGE_MAP
+                .iter()
+                .find(|(t, _)| *t == g.as_str())
+                .map(|(_, r)| (g.as_str(), *r))
+        })
+        .collect()
+}
+
+/// Compiled resource → vocabulary bindings (ADR-351 §5.3, §16.1: an adapter
+/// resource has its own vocabulary, never `ruvector:*`; the gateway
+/// resources never carry an adapter vocabulary). [`ResourceEntry::new`]
+/// refuses any URL not listed here and any entry whose scopes are of another
+/// family, so a stale or overridden `RESOURCE_ALLOWLIST` fails the load
+/// instead of minting e.g. team.ruv.io tokens with `ruvector:admin`. A new
+/// resource or adapter is a reviewed code change here.
+pub const RESOURCE_VOCABULARIES: [(&str, Vocabulary); 3] = [
+    (
+        "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1",
+        Vocabulary::Ruvector,
+    ),
+    (
+        "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1/mcp",
+        Vocabulary::Ruvector,
+    ),
+    (TEAM_RESOURCE_URL, Vocabulary::Team),
+];
+
+/// Whether `scope` is edge vocabulary (ADR §5.3): a scope of some
+/// [`Vocabulary`] or `offline_access`. Anything else is unknown.
 pub fn is_edge_vocabulary(scope: &str) -> bool {
-    scope == OFFLINE_ACCESS || SCOPE_TABLE.iter().any(|(s, _)| *s == scope)
+    scope == OFFLINE_ACCESS || Vocabulary::of(scope).is_some()
 }
 
 /// Maximum scopes one resource may declare.
@@ -26,37 +126,61 @@ pub const MAX_RESOURCE_SCOPES: usize = 16;
 
 /// One allowlisted resource and the scopes a token for it may carry. The
 /// **first** scope is the default grant of an `/authorize` request that
-/// omits `scope` (ADR §5.3: `ruvector:read` for the gateway resources).
+/// omits `scope` (ADR §5.3: `ruvector:read` for the gateway resources,
+/// `team:read` for team.ruv.io).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceEntry {
     url: ResourceUrl,
+    vocabulary: Vocabulary,
     scopes: Vec<String>,
 }
 
 impl ResourceEntry {
     /// Build an entry.
     ///
-    /// Contract: 1..=[`MAX_RESOURCE_SCOPES`] distinct RFC 6749 scope tokens,
-    /// each in the §5.3 vocabulary ([`is_edge_vocabulary`]; e.g. `team:read`
-    /// is refused); the first (the default grant) is not `offline_access`.
-    /// Anything else is [`AuthError::InvalidConfig`].
+    /// Contract: 1..=[`MAX_RESOURCE_SCOPES`] distinct RFC 6749 scope tokens;
+    /// every one except `offline_access` from the **same** [`Vocabulary`]
+    /// (unknown scopes such as `mcp:invoke` and mixed entries such as
+    /// `ruvector:read team:run` are refused); that family is the one
+    /// compiled for `url` ([`RESOURCE_VOCABULARIES`]: an unlisted URL, or
+    /// `ruvector:*` for team.ruv.io, or `team:*` for `…/v1`, is refused); the
+    /// first (the default grant) is not `offline_access`. Anything else is
+    /// [`AuthError::InvalidConfig`].
     pub fn new(url: ResourceUrl, scopes: Vec<String>) -> Result<Self, AuthError> {
         let err = AuthError::InvalidConfig("resource scopes");
         let joined = scopes.join(" ");
         let parsed = split_scope(&joined).map_err(|_| err.clone())?;
-        if parsed.len() != scopes.len()
-            || scopes.len() > MAX_RESOURCE_SCOPES
-            || scopes.first().map_or(true, |s| s == OFFLINE_ACCESS)
-            || !scopes.iter().all(|s| is_edge_vocabulary(s))
+        if parsed.len() != scopes.len() || scopes.len() > MAX_RESOURCE_SCOPES {
+            return Err(err);
+        }
+        let vocabulary = match scopes.first() {
+            Some(s) if s != OFFLINE_ACCESS => Vocabulary::of(s).ok_or(err.clone())?,
+            _ => return Err(err),
+        };
+        if Vocabulary::for_resource(&url) != Some(vocabulary) {
+            return Err(AuthError::InvalidConfig("resource vocabulary"));
+        }
+        if !scopes
+            .iter()
+            .all(|s| s == OFFLINE_ACCESS || vocabulary.contains(s))
         {
             return Err(err);
         }
-        Ok(ResourceEntry { url, scopes })
+        Ok(ResourceEntry {
+            url,
+            vocabulary,
+            scopes,
+        })
     }
 
     /// The canonical resource URL (the future `aud`).
     pub fn url(&self) -> &ResourceUrl {
         &self.url
+    }
+
+    /// The vocabulary family this resource's scopes are drawn from.
+    pub fn vocabulary(&self) -> Vocabulary {
+        self.vocabulary
     }
 
     /// Scopes a token for this resource may carry.
@@ -155,10 +279,9 @@ impl ResourceAllowlist {
         self.resolve_entry(requested).map(|e| e.url.clone())
     }
 
-    /// Whether `scope` is part of the vocabulary this AS understands: the
-    /// §5.3 set ([`is_edge_vocabulary`], e.g. `ruvector:publish` before M5).
-    /// Such scopes are **dropped** when they fall outside a grant; anything
-    /// else is `invalid_scope`.
+    /// Whether `scope` is edge vocabulary ([`is_edge_vocabulary`]): some
+    /// resource family's scope (e.g. `ruvector:publish` before M5, or
+    /// `team:run`) or `offline_access`. Anything else is `invalid_scope`.
     pub fn is_vocabulary(&self, scope: &str) -> bool {
         is_edge_vocabulary(scope)
     }
@@ -169,12 +292,18 @@ impl ResourceAllowlist {
 /// Contract: `requested` is split per RFC 6749 §3.3 (malformed =>
 /// `invalid_scope`); identity scopes (`openid profile email`) are dropped;
 /// any remaining scope outside [`ResourceAllowlist::is_vocabulary`] =>
-/// `invalid_scope`; an omitted (or identity-only) request asks for the
-/// resource's [`ResourceEntry::default_grant`] plus `offline_access` when the
-/// resource allows it (§5.3 table: both "granted by default"). Vocabulary
-/// scopes outside the ceiling or the resource are **dropped**, not refused,
-/// keeping request order. A result without any `ruvector:*` scope =>
-/// `invalid_scope`.
+/// `invalid_scope` ("unknown"). An omitted (or identity-only) request asks
+/// for the resource's [`ResourceEntry::default_grant`] plus
+/// `offline_access` when the resource allows it (§5.3 table: both "granted
+/// by default"). Every other scope the ceiling or the resource does not
+/// offer is **dropped**, not refused, keeping request order: this
+/// resource's own family outside the ceiling or the resource (e.g.
+/// `ruvector:admin` for `…/v1/mcp`, `ruvector:publish` before M5) and any
+/// scope of **another resource's** [`Vocabulary`] (e.g. `ruvector:read` for
+/// team.ruv.io, `team:read` for `…/v1/mcp`; never in the entry, since
+/// [`ResourceEntry::new`] binds each URL to one family), so a client that
+/// asks for the AS-metadata union still gets its resource's share (Q16(b)).
+/// A result with nothing but `offline_access` => `invalid_scope`.
 pub fn grant_scopes(
     requested: Option<&str>,
     ceiling: &[String],
@@ -204,7 +333,7 @@ pub fn grant_scopes(
         .into_iter()
         .filter(|s| ceiling.contains(s) && entry.allows(s))
         .collect();
-    if !granted.iter().any(|s| s.starts_with("ruvector:")) {
+    if granted.iter().all(|s| s == OFFLINE_ACCESS) {
         return Err(OAuthError::new(
             OAuthErrorCode::InvalidScope,
             "no requested scope can be granted for this resource",

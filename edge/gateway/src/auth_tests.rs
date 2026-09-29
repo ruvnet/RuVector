@@ -309,17 +309,15 @@ fn only_audience_failures_are_described() {
     assert_eq!(d, audience_mismatch(REST_PRM));
 }
 
-/// Regression (ADR-351 §5.4 item 7, §16.1): a token minted for the
-/// team.ruv.io adapter resource is never accepted by the gateway — 401
-/// `invalid_token` "audience mismatch" with this route's challenge on both
-/// resources.
+/// Regression (ADR-351 §5.3, §5.4 item 7, §16.1): a token minted for the
+/// team.ruv.io adapter resource (its own `team:*` scopes) is never accepted
+/// by the gateway — 401 `invalid_token` "audience mismatch" with this
+/// route's challenge on both resources, decided on `aud` before any scope.
 #[test]
 fn team_adapter_audience_is_never_accepted() {
-    let t = token(
-        &key(1),
-        Some("at+jwt"),
-        edge_claims("https://team.ruv.io/mcp"),
-    );
+    let mut claims = edge_claims("https://team.ruv.io/mcp");
+    claims["scope"] = json!("team:read team:write team:run offline_access");
+    let t = token(&key(1), Some("at+jwt"), claims);
     let d = run(&cfg(true), Some(&t), edge_keys()).unwrap_err();
     assert_eq!(d, audience_mismatch(REST_PRM));
     let d = run_mcp(&cfg(true), Some(&t)).unwrap_err();
