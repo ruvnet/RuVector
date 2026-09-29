@@ -92,6 +92,7 @@ pub fn authorize<S: AuthStores, R: Rng, C: Clock, G: Signer>(
         flow: &flow,
         token: &token,
         upstream_origin: &upstream_origin,
+        issuer,
     };
     consent::page(
         &client,

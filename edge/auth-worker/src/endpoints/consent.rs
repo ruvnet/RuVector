@@ -8,10 +8,8 @@
 //! confused-deputy note in `federation`).
 
 use crate::http::Reply;
-use ruvector_edge_authz::authorize::{redirect_is_verified, ValidatedAuthorization};
-use ruvector_edge_authz::client::{ClientRecord, GRANT_REFRESH};
-use ruvector_edge_authz::refresh::FAMILY_MAX_LIFETIME_SECS;
-use ruvector_edge_authz::resource::exchange_disclosure;
+use ruvector_edge_authz::authorize::ValidatedAuthorization;
+use ruvector_edge_authz::client::ClientRecord;
 
 /// Cookie-name prefix; the name is suffixed with a prefix of the upstream
 /// `state` so parallel logins in one browser do not clobber each other.
@@ -77,9 +75,6 @@ pub fn escape(s: &str) -> String {
 
 /// Path of the consent form POST (continues to the upstream login).
 pub const CONSENT_PATH: &str = "/authorize/consent";
-/// Seconds the Continue button stays inert after the page renders (CSS
-/// only; blunts click-jacking and double-click tricks without script).
-const ARM_DELAY_SECS: u32 = 1;
 
 /// The consent form: `flow` is the upstream `state`, `token` the
 /// [`consent_token`](ruvector_edge_authz::authorize::consent_token) bound to
@@ -92,66 +87,15 @@ pub struct ConsentForm<'a> {
     pub token: &'a str,
     /// Origin of the upstream authorization endpoint.
     pub upstream_origin: &'a str,
+    /// This AS's issuer URL (its host is shown in the page footer).
+    pub issuer: &'a str,
 }
 
-/// Consent line disclosing long-lived access. Shown whenever the client
-/// registered the refresh grant — refresh tokens follow `grant_types`, not
-/// the `offline_access` scope (ADR-351 §5.3) — so the page always tells the
-/// user when access outlives the 15-minute access token.
-pub fn offline_access_notice() -> String {
-    format!(
-        "<p><strong>Stays signed in.</strong> This application will stay signed \
-in for up to {} days (<code>offline_access</code>, refresh token) unless you \
-sign out or its access is revoked.</p>",
-        FAMILY_MAX_LIFETIME_SECS / 86_400
-    )
-}
-
-/// Consent block disclosing what an adapter grant also permits on the
-/// gateway (ADR-351 §5.6, §16.1): every `team:*` scope granted for
-/// team.ruv.io that the compiled exchange map carries into a `…/v1` token is
-/// named with its `ruvector:*` effect, so a family consented now needs no new
-/// consent when the M1 exchange ships. Empty for every other grant.
-pub fn ruvector_data_notice(auth: &ValidatedAuthorization) -> String {
-    let pairs = exchange_disclosure(&auth.resource, &auth.scopes);
-    if pairs.is_empty() {
-        return String::new();
-    }
-    let items: String = pairs
-        .iter()
-        .map(|(team, rv)| {
-            let effect = match *rv {
-                "ruvector:read" => "read your ruvector data",
-                "ruvector:write" => {
-                    "add, change and delete your ruvector vectors and create collections"
-                }
-                _ => "use your ruvector data",
-            };
-            format!(
-                "<li><code>{}</code> also lets it {effect} (<code>{}</code>)</li>",
-                escape(team),
-                escape(rv)
-            )
-        })
-        .collect();
-    format!(
-        "<p class=\"w\"><strong>Includes your ruvector data.</strong> The team.ruv.io \
-service can use these permissions to access your ruvector data on your behalf:</p>\
-<ul>{items}</ul>"
-    )
-}
-
-/// Whether a client name could imitate another app (anything outside
-/// printable ASCII, e.g. Cyrillic homoglyphs of a Latin name).
-pub fn is_suspicious_name(name: &str) -> bool {
-    !name.bytes().all(|b| (0x20..0x7f).contains(&b))
-}
-
-/// Render the consent page. Continue is a same-origin POST carrying the
-/// consent token (a cross-site page cannot compute it without the
-/// `__Host-` cookie); `cancel_url` returns `access_denied` to the redirect
-/// URI. An unverified redirect host and a non-ASCII client name get explicit
-/// warnings (ADR-351 §5.6).
+/// Render the consent page ([`super::consent_view::render`]). Continue is a
+/// same-origin POST carrying the consent token (a cross-site page cannot
+/// compute it without the `__Host-` cookie); `cancel_url` returns
+/// `access_denied` to the redirect URI. An unverified redirect host and a
+/// non-ASCII client name get explicit warnings (ADR-351 §5.6).
 pub fn page(
     client: &ClientRecord,
     auth: &ValidatedAuthorization,
@@ -159,70 +103,15 @@ pub fn page(
     cancel_url: &str,
     set_cookie_value: String,
 ) -> Reply {
-    let name = client
-        .client_name
-        .as_deref()
-        .filter(|n| !n.trim().is_empty())
-        .unwrap_or("An unnamed application");
-    let host = url::Url::parse(&auth.redirect_uri)
-        .ok()
-        .and_then(|u| u.host_str().map(str::to_string))
-        .unwrap_or_default();
-    let scopes: String = auth
-        .scopes
-        .iter()
-        .map(|s| format!("<li><code>{}</code></li>", escape(s)))
-        .collect();
-    let offline = if client.allows_grant(GRANT_REFRESH) {
-        offline_access_notice()
-    } else {
-        String::new()
-    };
-    let ruvector_data = ruvector_data_notice(auth);
-    let mut warnings = String::new();
-    if !redirect_is_verified(&auth.redirect_uri) {
-        warnings.push_str(
-            "<p class=\"w\"><strong>Unverified application.</strong> Anyone can \
-register an application here; this one sends you back to a site that is \
-not a known connector. Continue only if you set it up yourself.</p>",
-        );
-    }
-    if is_suspicious_name(name) {
-        warnings.push_str(
-            "<p class=\"w\"><strong>Unusual characters.</strong> This application's \
-name contains characters outside plain ASCII and may imitate another app. \
-Check the site name below.</p>",
-        );
-    }
-    let html = format!(
-        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">\
-<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\
-<title>Authorize access</title><style>body{{font:16px/1.5 system-ui,sans-serif;\
-max-width:34rem;margin:3rem auto;padding:0 1rem}}.b{{display:inline-block;\
-padding:.6rem 1rem;border-radius:.4rem;border:1px solid #888;margin-right:.5rem;\
-text-decoration:none;font:inherit;cursor:pointer}}.p{{background:#1a56db;\
-color:#fff;border-color:#1a56db;animation:arm {delay}s steps(1,end)}}\
-@keyframes arm{{from{{pointer-events:none;opacity:.5}}to{{pointer-events:auto;\
-opacity:1}}}}.w{{border-left:4px solid #c81e1e;padding:.4rem .8rem;\
-background:#fdf2f2}}form{{display:inline}}\
-</style></head><body><h1>Authorize access</h1>{warnings}\
-<p><strong>{name}</strong> wants to access <code>{resource}</code> as you.</p>\
-<p>After you sign in with Cognitum you will be sent back to \
-<strong>{host}</strong>. Continue only if you trust that site.</p>\
-<p>Requested permissions:</p><ul>{scopes}</ul>{ruvector_data}{offline}\
-<p><form method=\"post\" action=\"{action}\">\
-<input type=\"hidden\" name=\"flow\" value=\"{flow}\">\
-<input type=\"hidden\" name=\"consent\" value=\"{token}\">\
-<button class=\"b p\" type=\"submit\">Continue to sign in</button></form>\
-<a class=\"b\" href=\"{cancel}\">Cancel</a></p></body></html>",
-        delay = ARM_DELAY_SECS,
-        name = escape(name),
-        resource = escape(auth.resource.as_str()),
-        host = escape(&host),
-        action = CONSENT_PATH,
-        flow = escape(form.flow),
-        token = escape(form.token),
-        cancel = escape(cancel_url),
+    let html = super::consent_view::render(
+        client,
+        auth,
+        &super::consent_view::ViewParams {
+            flow: form.flow,
+            token: form.token,
+            cancel_url,
+            issuer: form.issuer,
+        },
     );
     let mut r = Reply::empty(200);
     r.body = html.into_bytes();

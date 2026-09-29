@@ -166,10 +166,10 @@ fn consent_discloses_long_lived_access_for_refresh_clients() {
     assert_eq!(page.status, 200, "{}", String::from_utf8_lossy(&page.body));
     let html = String::from_utf8(page.body).unwrap();
     assert!(
-        !html.contains("<li><code>offline_access</code></li>"),
+        !html.contains("<span class=\"pt\">Offline access</span>"),
         "{html}"
     );
-    assert!(html.contains("Stays signed in"), "{html}");
+    assert!(html.contains("Stay signed in (up to 90 days)"), "{html}");
     assert!(html.contains("up to 90 days"), "{html}");
     assert!(html.contains("<code>offline_access</code>"), "{html}");
     let r = w.register(json!({
@@ -181,7 +181,8 @@ fn consent_discloses_long_lived_access_for_refresh_clients() {
     let page = authorize(&w.ctx(), Some(&read_only(&code_only)));
     assert_eq!(page.status, 200, "{}", String::from_utf8_lossy(&page.body));
     let html = String::from_utf8(page.body).unwrap();
-    assert!(!html.contains("Stays signed in"), "{html}");
+    assert!(!html.contains("Stay signed in (up to 90 days)"), "{html}");
+    assert!(!html.contains("data-scope=\"offline_access\""), "{html}");
 }
 
 /// Shipped config, federation ready, and a client that registered both
@@ -230,22 +231,29 @@ fn consent_html(w: &World, q: &str) -> String {
 /// ceiling and a `team:*` consent for team.ruv.io; `ruvector:read` alone for
 /// the team resource grants nothing and is redirected back as
 /// `invalid_scope`; mixed with `team:*` it is dropped, never shown.
+/// The `<li>` permission row for `scope`, if the page shows one.
+fn row_of<'a>(html: &'a str, scope: &str) -> Option<&'a str> {
+    let marker = format!("<li data-scope=\"{scope}\">");
+    html.split(&marker)
+        .nth(1)
+        .map(|rest| rest.split("</li>").next().unwrap())
+}
+
+/// Regression (ADR-351 §5.3 per-resource vocabularies) under the shipped
+/// config: a client that registers `team:*` explicitly gets it in its
+/// ceiling and a `team:*` consent for team.ruv.io; `ruvector:read` alone for
+/// the team resource grants nothing and is redirected back as
+/// `invalid_scope`; mixed with `team:*` it is dropped, never shown.
 #[test]
 fn shipped_config_team_resource_uses_team_scopes() {
     let (w, id, team) = team_world();
     let html = consent_html(&w, &scoped_query(&id, &team, "team:read team:run"));
-    assert!(html.contains("<li><code>team:read</code></li>"), "{html}");
-    assert!(html.contains("<li><code>team:run</code></li>"), "{html}");
-    assert!(
-        !html.contains("<li><code>ruvector:read</code></li>"),
-        "{html}"
-    );
+    assert!(row_of(&html, "team:read").is_some(), "{html}");
+    assert!(row_of(&html, "team:run").is_some(), "{html}");
+    assert!(row_of(&html, "ruvector:read").is_none(), "{html}");
     let html = consent_html(&w, &scoped_query(&id, &team, "ruvector:read team:run"));
-    assert!(html.contains("<li><code>team:run</code></li>"), "{html}");
-    assert!(
-        !html.contains("<li><code>ruvector:read</code></li>"),
-        "{html}"
-    );
+    assert!(row_of(&html, "team:run").is_some(), "{html}");
+    assert!(row_of(&html, "ruvector:read").is_none(), "{html}");
     let r = authorize(&w.ctx(), Some(&scoped_query(&id, &team, "ruvector:read")));
     let loc = r.header("Location").unwrap_or_default();
     assert_eq!(r.status, 302, "{}", String::from_utf8_lossy(&r.body));
@@ -254,38 +262,47 @@ fn shipped_config_team_resource_uses_team_scopes() {
 
 /// Regression (ADR-351 §5.6, §16.1 consent before the M1 exchange): a
 /// team.ruv.io grant of `team:read`/`team:write` discloses on the consent
-/// page that it also reaches the user's ruvector data (the compiled exchange
-/// map), so a family consented now needs no new consent when M1 ships.
-/// `team:run` alone maps to nothing and a gateway grant shows no notice.
+/// page — on the row itself and in an explicit statement — that it also
+/// reaches the user's RuVector data (the compiled exchange map), so a family
+/// consented now needs no new consent when M1 ships. `team:run` alone maps
+/// to nothing and a gateway grant shows no notice.
 #[test]
 fn team_consent_discloses_ruvector_data_access() {
+    const STATEMENT: &str = "The team.ruv.io service can access your RuVector data \
+on your behalf";
     let (w, id, team) = team_world();
     let html = consent_html(&w, &scoped_query(&id, &team, "team:read team:write"));
-    assert!(html.contains("Includes your ruvector data"), "{html}");
+    assert!(html.contains("Includes your RuVector data"), "{html}");
+    assert!(html.contains(STATEMENT), "{html}");
+    let read = row_of(&html, "team:read").unwrap();
     assert!(
-        html.contains(
-            "<li><code>team:read</code> also lets it read your ruvector data \
-(<code>ruvector:read</code>)</li>"
-        ),
-        "{html}"
+        read.contains("Also: read your RuVector data (<code>ruvector:read</code>)"),
+        "{read}"
     );
+    let write = row_of(&html, "team:write").unwrap();
     assert!(
-        html.contains("<code>team:write</code> also lets it add, change and delete"),
-        "{html}"
+        write
+            .contains("Also: add, change and delete vectors and collections in your RuVector data"),
+        "{write}"
     );
-    assert!(
-        html.contains("(<code>ruvector:write</code>)</li>"),
-        "{html}"
-    );
+    assert!(write.contains("(<code>ruvector:write</code>)"), "{write}");
     // Omitted scope = default grant team:read (+ offline_access): disclosed.
     let omitted = authorize_query(&id, &team).replace("&scope=ruvector%3Aread+offline_access", "");
     let html = consent_html(&w, &omitted);
-    assert!(html.contains("<li><code>team:read</code></li>"), "{html}");
-    assert!(html.contains("Includes your ruvector data"), "{html}");
-    assert!(!html.contains("<code>team:write</code> also"), "{html}");
+    assert!(
+        row_of(&html, "team:read").unwrap().contains("Also:"),
+        "{html}"
+    );
+    assert!(html.contains(STATEMENT), "{html}");
+    assert!(row_of(&html, "team:write").is_none(), "{html}");
     let html = consent_html(&w, &scoped_query(&id, &team, "team:run offline_access"));
-    assert!(!html.contains("Includes your ruvector data"), "{html}");
+    assert!(!html.contains("Includes your RuVector data"), "{html}");
+    assert!(!html.contains("Also:"), "{html}");
     let gw = crate::config::tests::RESOURCE;
     let html = consent_html(&w, &scoped_query(&id, gw, "ruvector:read offline_access"));
-    assert!(!html.contains("Includes your ruvector data"), "{html}");
+    assert!(!html.contains("Includes your RuVector data"), "{html}");
+    assert!(!html.contains("Also:"), "{html}");
 }
+
+#[path = "tests_consent_view.rs"]
+mod view;

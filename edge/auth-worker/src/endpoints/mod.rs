@@ -6,6 +6,7 @@
 pub mod authorize;
 pub mod callback;
 pub mod consent;
+pub mod consent_view;
 pub mod register;
 pub mod token;
 
