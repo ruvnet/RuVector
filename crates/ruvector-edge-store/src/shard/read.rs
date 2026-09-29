@@ -228,7 +228,7 @@ impl VectorShard {
         let len = self.slab.len() as u64;
         let rows = len.saturating_mul(v.filter.cost());
         let (scan, rerank) = match v.index {
-            IndexConfig::Flat => (rows, v.rerank as u64),
+            IndexConfig::Flat | IndexConfig::Rabitq => (rows, v.rerank as u64),
             IndexConfig::Hnsw { m, .. } => {
                 let beam = (v.ef as u64).saturating_mul(2 * u64::from(m));
                 if v.filter.is_empty() {

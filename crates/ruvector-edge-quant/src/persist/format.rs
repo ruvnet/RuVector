@@ -211,8 +211,13 @@ pub fn le_u64(b: &[u8]) -> u64 {
     u64::from_le_bytes(a)
 }
 
-const CRC_TABLE: [u32; 256] = {
-    let mut t = [0u32; 256];
+/// Slicing-by-8 tables: `CRC_TABLES[0]` is the classic byte table,
+/// `CRC_TABLES[k][i]` the CRC of byte `i` followed by `k` zero bytes. Eight
+/// bytes per step instead of one: the persist v2 checksums cover every
+/// snapshot byte (≈ 3 MB for 50k × 384) on both flush and cold load, and a
+/// Worker has ≈ 10 ms per turn on the Free plan. Same CRC-32 values.
+const CRC_TABLES: [[u32; 256]; 8] = {
+    let mut t = [[0u32; 256]; 8];
     let mut i = 0;
     while i < 256 {
         let mut c = i as u32;
@@ -225,8 +230,18 @@ const CRC_TABLE: [u32; 256] = {
             };
             k += 1;
         }
-        t[i] = c;
+        t[0][i] = c;
         i += 1;
+    }
+    let mut s = 1;
+    while s < 8 {
+        let mut i = 0;
+        while i < 256 {
+            let prev = t[s - 1][i];
+            t[s][i] = (prev >> 8) ^ t[0][(prev & 0xFF) as usize];
+            i += 1;
+        }
+        s += 1;
     }
     t
 };
@@ -241,9 +256,22 @@ impl Crc32 {
     }
     /// Absorb bytes.
     pub fn update(&mut self, data: &[u8]) {
+        let t = &CRC_TABLES;
         let mut c = self.0;
-        for &b in data {
-            c = CRC_TABLE[((c ^ u32::from(b)) & 0xFF) as usize] ^ (c >> 8);
+        let mut words = data.chunks_exact(8);
+        for w in words.by_ref() {
+            let lo = c ^ u32::from_le_bytes([w[0], w[1], w[2], w[3]]);
+            c = t[7][(lo & 0xFF) as usize]
+                ^ t[6][((lo >> 8) & 0xFF) as usize]
+                ^ t[5][((lo >> 16) & 0xFF) as usize]
+                ^ t[4][(lo >> 24) as usize]
+                ^ t[3][w[4] as usize]
+                ^ t[2][w[5] as usize]
+                ^ t[1][w[6] as usize]
+                ^ t[0][w[7] as usize];
+        }
+        for &b in words.remainder() {
+            c = t[0][((c ^ u32::from(b)) & 0xFF) as usize] ^ (c >> 8);
         }
         self.0 = c;
     }
@@ -291,5 +319,30 @@ mod tests {
     #[test]
     fn crc32_known_vector() {
         assert_eq!(crc32(b"123456789"), 0xCBF4_3926);
+    }
+
+    /// Slicing-by-8 equals the bytewise definition at every length and
+    /// split point (streaming updates of any size).
+    #[test]
+    fn crc32_slicing_matches_bytewise() {
+        let bytewise = |d: &[u8]| {
+            let mut c = !0u32;
+            for &b in d {
+                c = CRC_TABLES[0][((c ^ u32::from(b)) & 0xFF) as usize] ^ (c >> 8);
+            }
+            !c
+        };
+        let data: Vec<u8> = (0..300u32)
+            .map(|i| (i.wrapping_mul(2_654_435_761) >> 13) as u8)
+            .collect();
+        for len in 0..data.len() {
+            let d = &data[..len];
+            assert_eq!(crc32(d), bytewise(d), "len {len}");
+            let mut s = Crc32::new();
+            let (a, b) = d.split_at(len / 3);
+            s.update(a);
+            s.update(b);
+            assert_eq!(s.finish(), bytewise(d), "split {len}");
+        }
     }
 }

@@ -22,7 +22,8 @@ use serde_json::{json, Value as Json};
 /// Attempts at allocating a non-colliding uid before failing closed.
 pub const UID_ALLOC_ATTEMPTS: usize = 8;
 
-/// `POST /v1/collections` body (`index`: `flat` (default) or `hnsw`; no
+/// `POST /v1/collections` body (`index`: `flat` (default), `hnsw` or
+/// `rabitq` (M4 quant shard); no
 /// embedder before M3).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -70,6 +71,7 @@ impl CreateCollection {
     pub fn index_config(&self) -> Result<IndexConfig, OpError> {
         let cfg = match (self.index.as_deref().unwrap_or("flat"), self.hnsw) {
             ("flat", None) => IndexConfig::Flat,
+            ("rabitq", None) => IndexConfig::Rabitq,
             ("hnsw", h) => IndexConfig::Hnsw {
                 m: h.and_then(|h| h.m)
                     .unwrap_or(crate::shard::codec::HNSW_M_DEFAULT),
@@ -77,7 +79,9 @@ impl CreateCollection {
                     .and_then(|h| h.ef_construction)
                     .unwrap_or(crate::shard::codec::HNSW_EFC_DEFAULT),
             },
-            ("flat", Some(_)) => return Err(OpError::invalid("hnsw params need index hnsw")),
+            ("flat" | "rabitq", Some(_)) => {
+                return Err(OpError::invalid("hnsw params need index hnsw"))
+            }
             _ => return Err(OpError::invalid("index kind not available")),
         };
         if !cfg.in_range() {

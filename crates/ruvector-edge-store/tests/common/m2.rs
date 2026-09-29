@@ -72,7 +72,7 @@ pub fn ingest(
 ) -> Result<(), ErrorCode> {
     let batch = match cfg.index {
         IndexConfig::Hnsw { .. } => HNSW_SYNC_UPSERT,
-        IndexConfig::Flat => 500,
+        IndexConfig::Flat | IndexConfig::Rabitq => 500,
     };
     for chunk in d.chunks(batch) {
         let plan = s.plan_upsert(dm, cfg, rows(chunk)).map_err(|e| e.code)?;

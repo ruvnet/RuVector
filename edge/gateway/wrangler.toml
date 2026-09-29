@@ -87,7 +87,29 @@ class_name = "TenantLedger"
 name = "VECTOR_SHARD"
 class_name = "VectorShard"
 
+# ADR-351 M4 (§3 rv-quant / rv-graph / rv-mincut): same addressing rule
+# (idFromName of a name derived from the verified tenant key: QuantShard
+# DoMeta(service = quant), GraphStore / AnalyticsJob do_name(tenant,
+# graph | mincut, uid(name | job id), 0)); no public route reaches them.
+[[durable_objects.bindings]]
+name = "QUANT_SHARD"
+class_name = "QuantShard"
+
+[[durable_objects.bindings]]
+name = "GRAPH_STORE"
+class_name = "GraphStore"
+
+[[durable_objects.bindings]]
+name = "ANALYTICS_JOB"
+class_name = "AnalyticsJob"
+
 # Append-only: never edit or reorder an applied tag (ADR-351 §16.4).
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["TenantLedger", "VectorShard"]
+
+# M4 classes. The M3/M5 integration merges order their tags after this
+# file's history; this tag only ever adds these three classes.
+[[migrations]]
+tag = "v-m4-quant-graph"
+new_sqlite_classes = ["QuantShard", "GraphStore", "AnalyticsJob"]

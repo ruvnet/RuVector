@@ -23,6 +23,10 @@ ruvector-edge-tenancy = { workspace = true }
 # Storage core behind the TenantLedger / VectorShard Durable Objects
 # (ADR-351 §6, §16), consumed by path like the other cores.
 ruvector-edge-store = { path = "../../crates/ruvector-edge-store" }
+# M4 cores (ADR-351 §3 rv-quant / rv-mincut / rv-graph).
+ruvector-edge-quant = { workspace = true }
+ruvector-edge-analytics = { workspace = true }
+rvlite = { workspace = true }
 sha2 = { workspace = true }
 # Bounded body reads (ADR-351 §10 layer 1): stop at 1 MiB while streaming.
 futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
@@ -41,3 +45,5 @@ p256 = { workspace = true }
 # Cross-crate end-to-end tests: tokens minted and exchanged by the real AS
 # core are verified and served by the gateway (native only; never in wasm).
 ruvector-edge-authz = { workspace = true }
+# Real SQLite for the M4 quant-shard SQL (native tests only).
+rusqlite = { workspace = true }

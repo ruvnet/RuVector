@@ -54,6 +54,8 @@ pub struct World {
     pub limiter: Budgets,
     /// `Retry-After` of the last refused request.
     pub retry_after: Cell<Option<u32>>,
+    /// Entropy seed of the next min-cut job id.
+    pub jobs: Cell<u64>,
 }
 
 impl World {
@@ -64,6 +66,7 @@ impl World {
             b: MemBackend::new(),
             limiter: Budgets(None),
             retry_after: Cell::new(None),
+            jobs: Cell::new(1),
         }
     }
 
@@ -143,7 +146,12 @@ impl World {
         let (class, res) = if route == Route::Mcp {
             (Class::Mcp, &self.cfg.mcp_resource)
         } else {
-            (class_of(parse(&m, path).as_ref()), &self.cfg.rest_resource)
+            let g = crate::graph_routes::parse(&m, path);
+            let class = g.as_ref().map_or(
+                class_of(parse(&m, path).as_ref()),
+                crate::graph_routes::class,
+            );
+            (class, &self.cfg.rest_resource)
         };
         let md = prm::metadata_url(res);
         self.retry_after.set(None);
@@ -163,7 +171,15 @@ impl World {
             let md = prm::metadata_url(&self.cfg.mcp_resource);
             return block_on(crate::mcp::handle(&self.b, &c.ctx, &bytes, T0, &md));
         }
-        let api = parse(&m, path).expect(path);
+        let Some(api) = parse(&m, path) else {
+            // M4 graph / min-cut routes (`api::serve_graph`).
+            let g = crate::graph_routes::parse(&m, path).expect(path);
+            let entropy = crate::backend::mem::CounterEntropy(Cell::new(self.jobs.get()));
+            self.jobs.set(self.jobs.get() + 1);
+            return block_on(crate::graph_routes::handle(
+                &self.b, &c, &g, &bytes, T0, &md, &entropy,
+            ));
+        };
         block_on(data(&self.b, &self.cfg, &api, &c, &bytes, key, T0))
     }
 

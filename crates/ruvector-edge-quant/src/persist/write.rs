@@ -5,17 +5,28 @@ use crate::error::{QuantError, Result};
 use crate::shard::QuantShard;
 use std::io::Write;
 
-/// Serialise one section's elements into frames of `cap` payload bytes.
+/// Little-endian bytes of a section in one bulk pass (a per-byte iterator
+/// chain costs several ns/byte in a size-optimised wasm build).
+fn le_bytes<const W: usize, T: Copy>(xs: &[T], f: impl Fn(T) -> [u8; W]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(xs.len() * W);
+    for &x in xs {
+        out.extend_from_slice(&f(x));
+    }
+    out
+}
+
+/// Serialise one section's bytes into frames of `cap` payload bytes.
 fn push_section(
     frames: &mut Vec<Vec<u8>>,
     crcs: &mut Crc32,
     section: u8,
-    bytes: impl Iterator<Item = u8>,
+    bytes: &[u8],
     total: usize,
     cap: usize,
 ) {
-    let mut bytes = bytes;
+    debug_assert_eq!(bytes.len(), total);
     let mut left = total;
+    let mut off = 0;
     while left > 0 {
         let len = left.min(cap);
         let idx = frames.len() as u32 - 1; // frames[0] is the header
@@ -25,7 +36,8 @@ fn push_section(
         f.extend_from_slice(&[0, 0, 0]);
         f.extend_from_slice(&(len as u32).to_le_bytes());
         f.extend_from_slice(&[0; 4]); // crc placeholder
-        f.extend(bytes.by_ref().take(len));
+        f.extend_from_slice(&bytes[off..off + len]);
+        off += len;
         let mut c = Crc32::new();
         c.update(&f[0..12]);
         c.update(&f[FRAME_PREFIX_LEN..]);
@@ -67,30 +79,30 @@ pub fn save_frames(shard: &QuantShard, max_frame_bytes: usize) -> Result<Vec<Vec
     let mut frames = Vec::with_capacity(frames_n as usize + 2);
     frames.push(header.encode().to_vec());
     let mut crcs = Crc32::new();
-    let keys = shard.keys().iter().flat_map(|k| k.to_le_bytes());
+    let keys = le_bytes(shard.keys(), u64::to_le_bytes);
     push_section(
         &mut frames,
         &mut crcs,
         SECTION_KEYS,
-        keys,
+        &keys,
         lens[0] as usize,
         cap,
     );
-    let norms = shard.norms().iter().flat_map(|x| x.to_le_bytes());
+    let norms = le_bytes(shard.norms(), f32::to_le_bytes);
     push_section(
         &mut frames,
         &mut crcs,
         SECTION_NORMS,
-        norms,
+        &norms,
         lens[1] as usize,
         cap,
     );
-    let codes = shard.packed().iter().flat_map(|w| w.to_le_bytes());
+    let codes = le_bytes(shard.packed(), u64::to_le_bytes);
     push_section(
         &mut frames,
         &mut crcs,
         SECTION_CODES,
-        codes,
+        &codes,
         lens[2] as usize,
         cap,
     );

@@ -264,9 +264,14 @@ fn create_validation() {
             ..spec("x")
         },
         CreateCollection {
-            index: Some("rabitq".into()),
+            index: Some("ivf".into()),
             ..spec("x")
         },
+        // M4: `rabitq` is a kind, but takes no HNSW parameters.
+        serde_json::from_str::<CreateCollection>(
+            r#"{"name":"x","dim":4,"metric":"l2","index":"rabitq","hnsw":{"m":16}}"#,
+        )
+        .unwrap(),
         CreateCollection {
             embedder: Some("bge".into()),
             ..spec("x")

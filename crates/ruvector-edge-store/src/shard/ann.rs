@@ -159,7 +159,7 @@ pub enum Ann {
 pub fn hnsw_params(cfg: &ShardConfig) -> HnswParams {
     let (m, efc) = match cfg.index {
         IndexConfig::Hnsw { m, ef_construction } => (m, ef_construction),
-        IndexConfig::Flat => (16, 128),
+        IndexConfig::Flat | IndexConfig::Rabitq => (16, 128),
     };
     HnswParams {
         m,
@@ -175,7 +175,7 @@ pub fn hnsw_params(cfg: &ShardConfig) -> HnswParams {
 pub fn estimate_bytes(cfg: &ShardConfig, slots: u64) -> u64 {
     let (n, d) = (slots as usize, cfg.dim as usize);
     let b = match cfg.index {
-        IndexConfig::Flat => memory::flat_estimate_bytes(n, d),
+        IndexConfig::Flat | IndexConfig::Rabitq => memory::flat_estimate_bytes(n, d),
         IndexConfig::Hnsw { .. } => memory::hnsw_estimate_bytes(n, d, &hnsw_params(cfg)),
     };
     b as u64
@@ -193,7 +193,7 @@ impl Ann {
     pub fn new(cfg: &ShardConfig, quant: &QuantState, capacity: usize) -> Result<Ann, StoreError> {
         let q = quant.params.clone();
         Ok(match cfg.index {
-            IndexConfig::Flat => {
+            IndexConfig::Flat | IndexConfig::Rabitq => {
                 Ann::Flat(QuantFlatIndex::with_capacity(q, MAX_SLOTS, capacity).map_err(ix)?)
             }
             IndexConfig::Hnsw { .. } => {
@@ -317,7 +317,7 @@ impl Ann {
         max_payload: u64,
     ) -> Result<Ann, DecodeError> {
         Ok(match cfg.index {
-            IndexConfig::Flat => Ann::Flat(QuantFlatIndex::from_chunk_iter(
+            IndexConfig::Flat | IndexConfig::Rabitq => Ann::Flat(QuantFlatIndex::from_chunk_iter(
                 chunks,
                 Some(sha256),
                 max_payload,
@@ -373,7 +373,7 @@ const NODE_MS_BASE: f64 = 1.1;
 /// ≈ 4.0 ms/node; the model gives ≈ 4.8). `0` for flat.
 pub fn hnsw_node_ms(cfg: &ShardConfig) -> f64 {
     match cfg.index {
-        IndexConfig::Flat => 0.0,
+        IndexConfig::Flat | IndexConfig::Rabitq => 0.0,
         IndexConfig::Hnsw { m, ef_construction } => {
             let d = f64::from(cfg.dim) / 384.0;
             let w = f64::from(m) * f64::from(ef_construction) / 2048.0;

@@ -212,24 +212,26 @@ pub fn tools_list() -> Json {
             })
         })
         .collect();
+    let mut tools = tools;
+    tools.extend(crate::graph_mcp::tools());
     json!({ "tools": tools })
 }
 
-fn rpc_error(id: &Json, code: i64, message: &str) -> ApiReply {
+pub(crate) fn rpc_error(id: &Json, code: i64, message: &str) -> ApiReply {
     ApiReply::json(
         200,
         &json!({ "jsonrpc": "2.0", "id": id, "error": { "code": code, "message": message } }),
     )
 }
 
-fn rpc_result(id: &Json, result: Json) -> ApiReply {
+pub(crate) fn rpc_result(id: &Json, result: Json) -> ApiReply {
     ApiReply::json(
         200,
         &json!({ "jsonrpc": "2.0", "id": id, "result": result }),
     )
 }
 
-fn tool_error(e: &OpError) -> Json {
+pub(crate) fn tool_error(e: &OpError) -> Json {
     let body = json!({ "code": e.code.as_str(), "status": e.code.status(), "detail": e.detail });
     json!({ "content": [{ "type": "text", "text": body.to_string() }], "isError": true })
 }
@@ -323,7 +325,8 @@ async fn tools_call<B: Backend>(
         return rpc_error(id, -32602, "missing tool name");
     };
     let Some(tool) = TOOLS.iter().find(|t| t.name == name) else {
-        return rpc_error(id, -32602, "unknown tool");
+        // M4 graph / min-cut tools (`graph_mcp`), else unknown.
+        return crate::graph_mcp::tools_call(b, ctx, id, name, params, now, metadata_url).await;
     };
     let mut args: Map<String, Json> = match params.get("arguments") {
         None | Some(Json::Null) => Map::new(),

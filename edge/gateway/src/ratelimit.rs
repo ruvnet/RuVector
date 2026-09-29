@@ -93,11 +93,13 @@ pub fn class_of(route: Option<&ApiRoute>) -> Class {
 }
 
 /// Ops that write, by their `/v1/ops` `op` / MCP tool name.
-pub const MUTATING_OPS: [&str; 4] = [
+pub const MUTATING_OPS: [&str; 5] = [
     "collection_create",
     "vector_upsert",
     "vector_delete",
     "tenant_claim",
+    // M4 (`graph_mcp`).
+    "graph_mutate",
 ];
 
 /// The class a `/v1/ops` or `/v1/mcp` body is charged **in addition** to

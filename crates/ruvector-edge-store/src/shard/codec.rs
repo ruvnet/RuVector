@@ -169,6 +169,11 @@ pub enum IndexConfig {
         /// Construction beam (`32..=200`).
         ef_construction: u16,
     },
+    /// RaBitQ 1-bit codes in a `QuantShard` Durable Object (ADR-351 §3
+    /// rv-quant, M4). A `VectorShard` never serves it (the gateway routes
+    /// rabitq collections to the quant shard class); if one ever sees it,
+    /// it behaves as `flat`.
+    Rabitq,
 }
 
 impl IndexConfig {
@@ -183,13 +188,14 @@ impl IndexConfig {
         match self {
             IndexConfig::Flat => "flat",
             IndexConfig::Hnsw { .. } => "hnsw",
+            IndexConfig::Rabitq => "rabitq",
         }
     }
 
     /// `true` when the parameters are inside the ADR §7 ranges.
     pub fn in_range(self) -> bool {
         match self {
-            IndexConfig::Flat => true,
+            IndexConfig::Flat | IndexConfig::Rabitq => true,
             IndexConfig::Hnsw { m, ef_construction } => {
                 (8..=48).contains(&m) && (32..=200).contains(&ef_construction)
             }
@@ -201,6 +207,7 @@ impl IndexConfig {
         match self {
             IndexConfig::Flat => "flat".into(),
             IndexConfig::Hnsw { m, ef_construction } => format!("hnsw:{m}:{ef_construction}"),
+            IndexConfig::Rabitq => "rabitq".into(),
         }
     }
 
@@ -210,6 +217,7 @@ impl IndexConfig {
         let cfg = match (it.next()?, it.next(), it.next()) {
             ("flat", None, None) => IndexConfig::Flat,
             ("hnsw", None, None) => IndexConfig::HNSW_DEFAULT,
+            ("rabitq", None, None) => IndexConfig::Rabitq,
             ("hnsw", Some(m), Some(e)) => IndexConfig::Hnsw {
                 m: m.parse().ok()?,
                 ef_construction: e.parse().ok()?,
@@ -277,6 +285,7 @@ impl ShardConfig {
         let num = |k| get(k).and_then(|s| s.parse::<u16>().ok());
         let index = match get(keys::INDEX_KIND).unwrap_or("flat") {
             "flat" => IndexConfig::Flat,
+            "rabitq" => IndexConfig::Rabitq,
             "hnsw" => IndexConfig::Hnsw {
                 m: num(keys::HNSW_M).ok_or(StoreError::Corrupt("meta.hnsw_m"))?,
                 ef_construction: num(keys::HNSW_EFC).ok_or(StoreError::Corrupt("meta.hnsw_efc"))?,
@@ -341,7 +350,11 @@ mod tests {
 
     #[test]
     fn index_config_forms() {
-        for c in [IndexConfig::Flat, IndexConfig::HNSW_DEFAULT] {
+        for c in [
+            IndexConfig::Flat,
+            IndexConfig::HNSW_DEFAULT,
+            IndexConfig::Rabitq,
+        ] {
             assert_eq!(IndexConfig::from_catalog(&c.to_catalog()), Some(c));
         }
         assert_eq!(
