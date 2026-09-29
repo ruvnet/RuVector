@@ -7,12 +7,12 @@
   "worktree": "/home/ruvultra/projects/ruvector-edge",
   "repo": "ruvector-edge (off origin/main of ruvector)",
   "targetDate": null,
-  "currentMilestone": "M0",
+  "currentMilestone": "M0.5",
   "baseline_state": {
     "as_of": "2026-09-29",
     "adr_written": true,
     "adr_merged": false,
-    "cloudflare_resources_created": false,
+    "cloudflare_resources_created": true,
     "oauth_provider_changed": false,
     "scaffolded_crates": [
       "crates/ruvector-edge-auth (jws, jwks, claims, audience, resource, subject (edge_subject), scopes, prm, verifier, clock, error — RS verification core; M0 adds trust_root)",
@@ -20,7 +20,8 @@
       "crates/ruvector-edge-tenancy (context (from_verified(claims, role, surface), scope ∩ role), names (do_name by collection_uid), uid (v2, nonce), shard, meta, membership, lease, validate, quota, problem, error)"
     ],
     "edge_dir": "edge/ standalone workspace (worker =0.8.5, wasm-bindgen =0.2.125): edge/auth-worker (Worker ruvector-edge-auth: lib, config, platform, signer (EDGE_AUTH_SIGNING_JWK), store (AuthStore DO), sql + sql_ports (schema v1), upstream, http, endpoints/{authorize,consent,callback,register,token}; optional MAX_CLIENTS) and edge/gateway (Worker ruvector-edge-gateway: lib, config, routes, auth, keys, platform, respond; EDGE_AUTH Service Binding for the edge JWKS)",
-    "note": "ADR §8 deltas, status 2026-09-29 (working tree, uncommitted alignment pass). CLOSED: (1) scope vocabulary ruvector:read/write/admin/publish + offline_access (SCOPE_TABLE v3 incl. ruvector:publish; Admin and PublishPublic never on the MCP surface; Owner role ceiling includes Admin; per-document PRM scopes; 401 challenge scope \"ruvector:read offline_access\"); (4) per-resource grant rule requested ∩ client ceiling ∩ resource scopes (ResourceAllowlist entries carry scopes; admin only for /v1; out-of-ceiling vocabulary dropped, unknown invalid_scope), DCR default ceiling compiled DEFAULT_CLIENT_SCOPE = ruvector:read ruvector:write offline_access, /authorize default grant ruvector:read + offline_access (both 'granted by default' per the §5.3 table), omitted grant_types -> both, refresh follows registered grant_types not offline_access, client_name ASCII-only; (6) gateway trust root compiled (edge/gateway/src/trust_root.rs; vars only under dev-issuer; contradicting var -> 503 trust_root_mismatch; only UPSTREAM_FIRST_PARTY stays a var), edge lifetime cap 900 s, ACCEPTED_UPSTREAM_KIDS on both Workers (empty until G1); gateway fetches the edge JWKS only via the EDGE_AUTH Service Binding (no public fallback, 1042). Also: AccessTokenClaims carry act (exchanged only); TenantContext keys tenant_key on the token upstream_iss claim (§16.2); RESOURCE_ALLOWLIST adds https://team.ruv.io/mcp with ruvector:read ruvector:write offline_access (no team:* vocabulary, so a §16.1 exchange can keep scope ⊆ subject; gateway never accepts that aud); ResourceEntry refuses any scope outside the §5.3 vocabulary, so scopes_supported (derived from the allowlist) is exactly §5.3; consent page discloses 'stays signed in for up to 90 days' whenever the client registered the refresh grant; prm::step_up_scope(capability) builds the 403 challenge scope (wiring waits on the role source, open (1)); /authorize answers temporarily_unavailable with a static pending description while UPSTREAM_CLIENT_ID/ACCEPTED_UPSTREAM_KIDS are empty (G1, console#605). Earlier: (2) identity-only UPSTREAM_SCOPES, (5) PRM per resource + bare path 404 + Expose-Headers, (7) consent verified marker + upstream refresh revoke, (9) env -u RUSTFLAGS build; (10) every aud mismatch (other gateway resource, adapter resource, array) is 401 invalid_token with error_description=\"audience mismatch\" + this route's resource_metadata (sibling 403 carve-out removed; audience_not_allowed is only the log reason). STILL OPEN: (1) RouteSurface::Ops and role column in ROUTE_TABLE; (3) AuthStore subjects table (dcr_rate and redeemed_codes exist); (4) localhost loopback redirects; (6) auth-worker ISSUER/UPSTREAM_* still [vars] (not compiled); (8) version pins 0.8.5/0.2.125 recorded; (11) REFRESH_REUSE_GRACE_SECS; M1: token-exchange grant, private_key_jwt adapter clients."
+    "note": "ADR §8 deltas, status 2026-09-29 (working tree, uncommitted alignment pass). CLOSED: (1) scope vocabulary ruvector:read/write/admin/publish + offline_access (SCOPE_TABLE v3 incl. ruvector:publish; Admin and PublishPublic never on the MCP surface; Owner role ceiling includes Admin; per-document PRM scopes; 401 challenge scope \"ruvector:read offline_access\"); (4) per-resource grant rule requested ∩ client ceiling ∩ resource scopes (ResourceAllowlist entries carry scopes; admin only for /v1; out-of-ceiling vocabulary dropped, unknown invalid_scope), DCR default ceiling compiled DEFAULT_CLIENT_SCOPE = ruvector:read ruvector:write offline_access, /authorize default grant ruvector:read + offline_access (both 'granted by default' per the §5.3 table), omitted grant_types -> both, refresh follows registered grant_types not offline_access, client_name ASCII-only; (6) gateway trust root compiled (edge/gateway/src/trust_root.rs; vars only under dev-issuer; contradicting var -> 503 trust_root_mismatch; only UPSTREAM_FIRST_PARTY stays a var), edge lifetime cap 900 s, ACCEPTED_UPSTREAM_KIDS on both Workers (empty until G1); gateway fetches the edge JWKS only via the EDGE_AUTH Service Binding (no public fallback, 1042). Also: AccessTokenClaims carry act (exchanged only); TenantContext keys tenant_key on the token upstream_iss claim (§16.2); RESOURCE_ALLOWLIST adds https://team.ruv.io/mcp with ruvector:read ruvector:write offline_access (no team:* vocabulary, so a §16.1 exchange can keep scope ⊆ subject; gateway never accepts that aud); ResourceEntry refuses any scope outside the §5.3 vocabulary, so scopes_supported (derived from the allowlist) is exactly §5.3; consent page discloses 'stays signed in for up to 90 days' whenever the client registered the refresh grant; prm::step_up_scope(capability) builds the 403 challenge scope (wiring waits on the role source, open (1)); /authorize answers temporarily_unavailable with a static pending description while UPSTREAM_CLIENT_ID/ACCEPTED_UPSTREAM_KIDS are empty (G1, console#605). Earlier: (2) identity-only UPSTREAM_SCOPES, (5) PRM per resource + bare path 404 + Expose-Headers, (7) consent verified marker + upstream refresh revoke, (9) env -u RUSTFLAGS build; (10) every aud mismatch (other gateway resource, adapter resource, array) is 401 invalid_token with error_description=\"audience mismatch\" + this route's resource_metadata (sibling 403 carve-out removed; audience_not_allowed is only the log reason). STILL OPEN: (1) RouteSurface::Ops and role column in ROUTE_TABLE; (3) AuthStore subjects table (dcr_rate and redeemed_codes exist); (4) localhost loopback redirects; (6) auth-worker ISSUER/UPSTREAM_* still [vars] (not compiled); (8) version pins 0.8.5/0.2.125 recorded; (11) REFRESH_REUSE_GRACE_SECS; M1: token-exchange grant, private_key_jwt adapter clients.",
+    "cloudflare_resources": "2026-09-29: Workers ruvector-edge-auth (DO class AuthStore via migration v1 new_sqlite_classes; Rate Limiting DCR_RATE_LIMITER 35101, AUTHZ_RATE_LIMITER 35102; secret EDGE_AUTH_SIGNING_JWK) and ruvector-edge-gateway (EDGE_AUTH Service Binding) on workers.dev only; no routes, no custom domains, no KV/D1/R2. IP_HASH_SALT and DENY_GLOBAL not set."
   },
   "gates_registry": {
     "G1": "Register the edge AS as an upstream client at auth.cognitum.one via public DCR (authorised by rUv 2026-09-29): identity scopes only (openid profile email), redirect https://ruvector-edge-auth.cognitum-consulting-mail.workers.dev/callback. Precondition [V at console ce9ddca]: that redirect is not on the DCR allowlist, so G1 includes one exact ALLOWED_EXACT_REDIRECTS line (console review) or a hand-seeded client row — earliest M0.5",
@@ -34,19 +35,56 @@
     {
       "id": "M0",
       "name": "Cores including authz (no deploy, no Cloudflare or provider changes)",
-      "status": "in_progress",
+      "status": "done",
       "gated_on": null,
-      "criteria": "ruvector-edge-auth, ruvector-edge-authz and ruvector-edge-tenancy implemented per ADR §4-§5 and every §8 working-tree delta closed (M1-marked items excepted); native tests pass (minted-token golden test with the exact §5.2 claim set, refresh grace and reuse detection, code-replay revocation, flow-cookie binding, §5.3 scope grant rule, 401 on aud mismatch, upstream-mode ID-token and typ=inference cases, trust-root mismatch on both Workers); route-table gap test passes; both Workers build for wasm32 with env -u RUSTFLAGS; every file under 500 lines; JWS/JWKS/DCR/token-form/ResourceUrl fuzzers run 10 min with no panic."
+      "criteria": "ruvector-edge-auth, ruvector-edge-authz and ruvector-edge-tenancy implemented per ADR §4-§5 and every §8 working-tree delta closed (M1-marked items excepted); native tests pass (minted-token golden test with the exact §5.2 claim set, refresh grace and reuse detection, code-replay revocation, flow-cookie binding, §5.3 scope grant rule, 401 on aud mismatch, upstream-mode ID-token and typ=inference cases, trust-root mismatch on both Workers); route-table gap test passes; both Workers build for wasm32 with env -u RUSTFLAGS; every file under 500 lines; JWS/JWKS/DCR/token-form/ResourceUrl fuzzers run 10 min with no panic.",
+      "completed": "2026-09-29",
+      "commit": "94a4ce1a1",
+      "evidence": "Root crates 285/0 (auth 97, authz 112, tenancy 76); edge workspace 90/0 (auth-worker 63, gateway 27), gateway --features dev-issuer 27/0; fmt + clippy -D warnings clean (native and wasm32 edge); wasm32 cargo check clean with env -u RUSTFLAGS; wrangler deploy --dry-run exit 0 for both Workers; no file >= 500 lines.",
+      "criteria_exceptions": [
+        "The 10-minute JWS/JWKS/DCR/token-form/ResourceUrl fuzz runs were not performed: no fuzz targets exist in the tree at 94a4ce1a1. Marked done on the workflow instruction; the fuzz criterion remains owed."
+      ]
     },
     {
       "id": "M0.5",
       "name": "Deploy ruvector-edge-auth + gateway to workers.dev: upstream DCR, signing key as wrangler secret, live discovery + login round trip",
-      "status": "pending",
+      "status": "deployed_partial",
       "gated_on": [
         "G1",
         "G2"
       ],
-      "criteria": "Live: AS metadata, JWKS and both PRM documents (/v1, /v1/mcp) name the edge issuer, bare-origin PRM 404; POST /v1/mcp without a token returns the 401 challenge with the /v1/mcp resource_metadata; a browser user completes DCR -> consent -> upstream login -> callback -> token and GET /v1/me returns the edge sub and tenant_key; the token carries exactly the §5.2 claims; it is refused by the gateway's other resource (401 invalid_token + resource_metadata) and at api.cognitum.one/v1/mcp; replayed code, replayed state and mismatched flow cookie refused; refresh rotates, a concurrent refresh inside the 30 s grace does not revoke, reuse after it revokes the family, /revoke works; Claude.ai, ChatGPT, Claude Code (http://localhost) and MCP Inspector complete discovery -> DCR -> consent -> token for the /v1/mcp audience with a refresh token; no upstream token in storage or logs; M0.5 [U]s resolved (upstream iss parameter, connector scope/grant_types requests and step-up behaviour, DCR limits)."
+      "criteria": "Live: AS metadata, JWKS and both PRM documents (/v1, /v1/mcp) name the edge issuer, bare-origin PRM 404; POST /v1/mcp without a token returns the 401 challenge with the /v1/mcp resource_metadata; a browser user completes DCR -> consent -> upstream login -> callback -> token and GET /v1/me returns the edge sub and tenant_key; the token carries exactly the §5.2 claims; it is refused by the gateway's other resource (401 invalid_token + resource_metadata) and at api.cognitum.one/v1/mcp; replayed code, replayed state and mismatched flow cookie refused; refresh rotates, a concurrent refresh inside the 30 s grace does not revoke, reuse after it revokes the family, /revoke works; Claude.ai, ChatGPT, Claude Code (http://localhost) and MCP Inspector complete discovery -> DCR -> consent -> token for the /v1/mcp audience with a refresh token; no upstream token in storage or logs; M0.5 [U]s resolved (upstream iss parameter, connector scope/grant_types requests and step-up behaviour, DCR limits).",
+      "blocked_on": "G1 (upstream client registration at auth.cognitum.one, console#605): login round trip, token mint, /v1/me with a real token, refresh/revoke and connector checks cannot run until UPSTREAM_CLIENT_ID + ACCEPTED_UPSTREAM_KIDS are set",
+      "deployment": {
+        "date": "2026-09-29",
+        "source_commit": "94a4ce1a1",
+        "account": "501c77f558c68152352b8ddfade9b854",
+        "auth_url": "https://ruvector-edge-auth.cognitum-consulting-mail.workers.dev",
+        "gateway_url": "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev",
+        "signing_kid": "zEJuF9kW0cfGGwKeoDbPD8PCObKlOMlaXGwZQuoJBiM",
+        "auth_versions": {
+          "upload": "7c6b0a01-cb7a-4aa0-b323-d7339e108df0 (deployment 89e2dd67-1d4c-42ac-a5e1-ecd1b22b60a4)",
+          "secret": "a4afbec1-edd5-4968-a9f7-b64159ec24dd (deployment c852875a-e384-44c4-9efd-82549b42ef8e, live)"
+        },
+        "gateway_versions": {
+          "upload": "4a3d72ce-1b9e-4b81-8cb5-b7d464ea81eb (deployment dc0edf80-b221-4477-b99c-2b1faf546e1e, live)"
+        },
+        "bundle": "auth 852.51 KiB / 287.04 KiB gzip; gateway 605.26 KiB / 210.27 KiB gzip; startup 4 ms each"
+      },
+      "verification": [
+        "GET auth /.well-known/oauth-authorization-server -> 200; issuer exact https://ruvector-edge-auth.cognitum-consulting-mail.workers.dev; code_challenge_methods_supported [S256]; authorize/token/register/revoke/jwks endpoints on the issuer; scopes_supported [ruvector:read, ruvector:write, ruvector:admin, offline_access]; token_endpoint_auth_methods_supported [none]; authorization_response_iss_parameter_supported true",
+        "GET auth /.well-known/jwks.json -> 200; one EC P-256 key, alg ES256, use sig, kid = locally computed RFC 7638 thumbprint",
+        "POST auth /register (public client, redirect http://127.0.0.1:53682/callback) -> 201; default scope ruvector:read ruvector:write offline_access",
+        "GET auth /authorize for that client (resource /v1/mcp, S256) -> 302 to the redirect with error=temporarily_unavailable, the static pending description, state and iss (G1 pending, expected)",
+        "GET gateway /v1/health -> 200 {\"ok\":true}",
+        "GET gateway /.well-known/oauth-protected-resource/v1 and /v1/mcp -> 200; resource exact; authorization_servers [issuer]; /v1/mcp omits ruvector:admin",
+        "GET gateway /.well-known/oauth-protected-resource (bare origin) -> 404",
+        "GET gateway /v1/me without token -> 401, WWW-Authenticate Bearer resource_metadata=.../oauth-protected-resource/v1, scope=\"ruvector:read offline_access\"",
+        "POST gateway /v1/mcp without token -> 401 with resource_metadata=.../oauth-protected-resource/v1/mcp",
+        "GET gateway /v1/me with a garbage token -> 401 error=invalid_token",
+        "GET gateway /v1/me with a well-formed JWT using the live kid and a random signature -> 401 invalid_token (not 503 jwks_unavailable): the edge JWKS is reachable through the EDGE_AUTH Service Binding",
+        "cognitum-consultant-email-staging-* (7 scripts): modified_on identical before and after the deploy; both ruvector-edge-* scripts have no custom domains or routes"
+      ]
     },
     {
       "id": "M1",
@@ -142,6 +180,15 @@
       "date": "2026-09-29",
       "summary": "ADR-351 second review pass: OPS_AUDS removed in favour of an RFC 8693 exchange grant (confidential private_key_jwt adapter clients, act claim); aud mismatch -> 401 re-discovery; connector scope defaults and HTTP 403 step-up; localhost loopback; 30 s refresh grace; code-replay revocation; unpinned upstream keys on the AS login path (ACCEPTED_UPSTREAM_KIDS only for the flagged mode); trust roots of both Workers as consts; EDGE_AUTH_SIGNING_JWK with rotation by key order; bare PRM 404; CORS; /v1/mcp challenge at M0.5; CIMD as Q15; §8 re-verified against the working tree (eleven open deltas).",
       "next": "Close the eleven ADR §8 deltas (M1-marked excepted) and the M0 test matrix; prepare the G1 console change (exact redirect entry) for review; then M0.5."
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "M0 marked done at 94a4ce1a1 (the fuzz criterion is still owed, see criteria_exceptions). M0.5 deployed_partial: ruvector-edge-auth and ruvector-edge-gateway are live on workers.dev with the ES256 signing key secret; discovery, DCR, the G1-pending authorize answer and the gateway 401 challenges were verified live. G2 was exercised by this workflow run.",
+      "next": "G1: land the console#605 redirect entry, register the edge AS upstream, then set UPSTREAM_CLIENT_ID + ACCEPTED_UPSTREAM_KIDS and redeploy auth; then run the M0.5 login round trip, token-claim, refresh/revoke and connector checks. Add the M0 fuzz targets and run them."
     }
-  ]
+  ],
+  "gates_registry_status": {
+    "G1": "authorised by rUv 2026-09-29; NOT executed (console#605 pending): UPSTREAM_CLIENT_ID and ACCEPTED_UPSTREAM_KIDS are empty, so /authorize answers temporarily_unavailable",
+    "G2": "exercised 2026-09-29 by the M0.5 deploy workflow run (scope limited to the two ruvector-edge-* scripts, their DO/rate-limit bindings and the signing-key secret); no separate G2 approval line was recorded in this file before the run"
+  }
 }
