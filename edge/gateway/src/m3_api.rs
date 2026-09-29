@@ -191,6 +191,39 @@ pub fn text_marker(body: &[u8]) -> bool {
     body.windows(6).any(|w| w == b"\"text\"")
 }
 
+/// A field whose value is skipped, recording only that it was present
+/// (`null` included, as `Value::get(..).is_some()` would).
+#[derive(Default)]
+struct Present(bool);
+
+impl<'de> serde::Deserialize<'de> for Present {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> std::result::Result<Self, D::Error> {
+        serde::de::IgnoredAny::deserialize(d).map(|_| Present(true))
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct TextRow {
+    #[serde(default)]
+    text: Present,
+}
+
+#[derive(serde::Deserialize)]
+struct TextProbe {
+    #[serde(default)]
+    text: Present,
+    #[serde(default)]
+    vectors: Option<Vec<TextRow>>,
+}
+
+/// `true` when the body has a top-level `text` or a `text` on a
+/// `vectors[]` row, not merely `"text"` inside metadata. Every other value
+/// is skipped (no `Value` tree is built).
+pub fn has_text_field(body: &[u8]) -> bool {
+    serde_json::from_slice::<TextProbe>(body)
+        .is_ok_and(|p| p.text.0 || p.vectors.is_some_and(|v| v.iter().any(|r| r.text.0)))
+}
+
 /// Whether `dispatch` ships an event for this request: every write, but
 /// not a plain (no `text`) query — the M1 read hot path — nor the polled
 /// reads (job status, snapshot list: one queue message per poll would
@@ -298,14 +331,10 @@ async fn text_route<B: M3Backend, R: Blob, Q: Queues, E: EmbeddingPort>(
     } else {
         ApiRoute::Query(c.to_string())
     };
-    // Byte scan first: the M1 hot path never pays a second JSON parse.
-    let has_text = text_marker(&inp.body)
-        && serde_json::from_slice::<Json>(&inp.body).is_ok_and(|v| {
-            v.get("text").is_some()
-                || v.get("vectors")
-                    .and_then(Json::as_array)
-                    .is_some_and(|a| a.iter().any(|r| r.get("text").is_some()))
-        });
+    // Byte scan first: a body without `"text"` skips the probe; one with it
+    // (e.g. RAG metadata `{"text": …}`) pays a structural probe that builds
+    // no JSON tree before the M1 handler parses it.
+    let has_text = text_marker(&inp.body) && has_text_field(&inp.body);
     if !has_text {
         return rest::handle(m.b, caller, &api_route, &inp.body, inp.key, now, md).await;
     }

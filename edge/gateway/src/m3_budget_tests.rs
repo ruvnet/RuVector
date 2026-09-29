@@ -303,3 +303,36 @@ mod ingest {
         assert!(stored.meta.hash_pass.is_none() && !stored.meta.sha_verified);
     }
 }
+
+#[test]
+fn only_a_top_level_or_row_text_field_selects_the_embedding_path() {
+    use crate::m3_api::has_text_field;
+    let yes = |v: Json| has_text_field(v.to_string().as_bytes());
+    assert!(yes(json!({ "text": "q", "top_k": 3 })));
+    assert!(yes(json!({ "text": null })));
+    assert!(yes(
+        json!({ "vectors": [{ "id": "a", "values": [1.0] }, { "id": "b", "text": "t" }] })
+    ));
+    // RAG shape: `text` only inside metadata.
+    assert!(!yes(
+        json!({ "vectors": [{ "id": "a", "values": [1.0], "metadata": { "text": "t" } }] })
+    ));
+    assert!(!yes(
+        json!({ "vector": [1.0], "filter": { "text": { "$eq": "x" } } })
+    ));
+    assert!(!has_text_field(b"not json \"text\""));
+    // The plain M1 upsert with metadata text still stores via the M1 path.
+    let w = World::default();
+    let o = w.owner("org-a", "alice");
+    let body = json!({ "name": "docs", "dim": 2, "metric": "cosine" });
+    assert_eq!(w.req(&o, Method::Post, "/v1/collections", body).0, 201);
+    let rows =
+        json!({ "vectors": [{ "id": "a", "values": [1.0, 0.0], "metadata": { "text": "t" } }] });
+    let (s, v) = w.req(
+        &o,
+        Method::Post,
+        "/v1/collections/docs/vectors:upsert",
+        rows,
+    );
+    assert_eq!(s, 200, "{v}");
+}
