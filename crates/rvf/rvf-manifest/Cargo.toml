@@ -13,11 +13,11 @@ rust-version = "1.87"
 
 [features]
 default = ["std"]
-std = ["rvf-types/std"]
+std = ["rvf-types/std", "dep:crc32c"]
 
 [dependencies]
 rvf-types = { version = "0.2.0", path = "../rvf-types" }
-crc32c = "0.6"
+crc32c = { version = "0.6", optional = true }
 
 [dev-dependencies]
 tempfile = "3"
