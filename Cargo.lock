@@ -9797,6 +9797,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-edge-index"
+version = "2.3.0"
+dependencies = [
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "ruvector-edge-store"
 version = "2.3.0"
 dependencies = [

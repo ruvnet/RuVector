@@ -57,6 +57,7 @@ members = [
     "crates/ruvector-edge-tenancy",
     "crates/ruvector-edge-authz",
     "crates/ruvector-edge-store",
+    "crates/ruvector-edge-index",
     "crates/ruvector-bounded-rag",
     "crates/ruvector-temporal-coherence",
     "crates/ruvector-acorn",
@@ -460,6 +461,11 @@ opt-level = 0
 debug = true
 
 [profile.test]
+
+# ruvector-edge-index recall/persistence tests run 10k x 384 HNSW builds; at
+# opt-level 0 they take minutes. Optimise just this crate in dev/test builds.
+[profile.dev.package.ruvector-edge-index]
+opt-level = 3
 
 # Patch hnsw_rs to use rand 0.8 instead of 0.9 for WASM compatibility
 # This resolves the getrandom version conflict (0.2 vs 0.3)
