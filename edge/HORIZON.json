@@ -279,9 +279,41 @@
     {
       "id": "M5",
       "name": "rv-registry and the full rv-mcp tool set",
-      "status": "pending",
+      "status": "deployed_pending_G1",
       "gated_on": null,
-      "criteria": "Every mutating MCP tool needs ruvector:write + editor and honours dry_run; a /v1/mcp connector token gets 401 (audience mismatch) on /v1 REST; an RVF from the rvf CLI imports via upload_id and queries correctly; the Launch Doctor conformance checker (ADR §9.1) passes against the live hosts."
+      "criteria": "Every mutating MCP tool needs ruvector:write + editor and honours dry_run; a /v1/mcp connector token gets 401 (audience mismatch) on /v1 REST; an RVF from the rvf CLI imports via upload_id and queries correctly; the Launch Doctor conformance checker (ADR §9.1) passes against the live hosts.",
+      "deployment": {
+        "date": "2026-09-29",
+        "source_commits": [
+          "1536c8b16 (M5 feature branch feat/ruvector-edge-m5-int)",
+          "0948584ad (merge into feat/ruvector-edge-services)",
+          "06d6e510a (stepped finalize driven within one request; job kept on cancel)",
+          "dfdb783d0 (import charges one write token per upsert batch)",
+          "66ea39938 (CORS: PUT, ETag, X-RVF-Yanked, Retry-After)"
+        ],
+        "account": "501c77f558c68152352b8ddfade9b854",
+        "gateway": "ruvector-edge-gateway version f24ff298-2f61-4fdd-aefb-ff45a1d97b56 (deployment 352c51dc-624a-43bf-b484-b387d047805b, 100%); 2459.68 KiB / 754.12 KiB gzip; startup 3 ms; bindings TENANT_LEDGER, VECTOR_SHARD, REGISTRY_ROOT, REGISTRY_SCOPE, EDGE_DATA (R2 ruvector-edge-data), EDGE_AUTH, 8 Rate Limiting bindings; no [limits] block",
+        "migration": "live script migration_tag v1 before -> v2-registry after (Cloudflare API script list); v2-registry is additive: new_sqlite_classes [RegistryRoot, RegistryScope]",
+        "auth": "ruvector-edge-auth not redeployed (no auth-worker diff since 1446b9511)",
+        "precondition": "Workers Paid for registry writes: upload part hashing (<=16 MiB), inline finalize (<=32 MiB x 3 passes), stepped finalize steps (<=64 MiB) and import (<=32 MiB hash + validate per request) assume the Paid 30 s default CPU; Workers Free allows 10 ms per request (docs: workers/platform/limits), so these requests are expected to fail with exceeded-CPU (1102) on the current plan. Unauthenticated/auth surfaces are unaffected."
+      },
+      "live_verification_2026-09-29": [
+        "GET /v1/health -> 200 {\"ok\":true}",
+        "GET /v1/rvf/scopes, POST /v1/rvf/scopes/x, GET /v1/rvf/x/y, POST /v1/collections/c:import-rvf, PUT /v1/rvf/x/y/1.0.0/uploads/u/parts/1 without token -> 401 invalid_token, WWW-Authenticate resource_metadata=.../oauth-protected-resource/v1",
+        "M2 routes GET /v1/collections, GET /v1/tenant/members, POST /v1/tenant/deny, DELETE /v1/collections/x, POST /v1/ops -> 401 (resource_metadata .../v1); POST /v1/mcp -> 401 (.../v1/mcp)",
+        "PRMs /.well-known/oauth-protected-resource/v1 and /v1/mcp -> 200",
+        "OPTIONS preflight -> 204, Allow-Methods GET, POST, PUT, DELETE, OPTIONS; Expose-Headers WWW-Authenticate, Retry-After, ETag, X-RVF-Yanked",
+        "cognitum-consultant-email-staging-* (7 scripts): modified_on identical before and after the deploy (Cloudflare API list); ruvector-edge-gateway and ruvector-edge-auth: 0 custom domains"
+      ],
+      "evidence": {
+        "tests": "Root edge crates 512/0 (auth, authz, tenancy, store, index, registry); edge workspace 181/0 (gateway 111, auth-worker 70); cargo fmt --check clean; clippy -D warnings clean native (--all-targets) and wasm32-unknown-unknown; wrangler deploy --dry-run exit 0 (gateway, auth); no edited .rs file >= 500 lines (largest rvf_finalize_step.rs 490)",
+        "review_findings_fixed": [
+          "HIGH fixed: stepped finalize lost its live validator when RegistryScope hibernated between client-paced steps (>=10 s idle, e.g. Retry-After 10) or when a step was cancelled; one :finalize request now drives steps back to back (FINALIZE_STEPS 32, 202 only on no progress or cap) and a drop guard puts the job back on every non-consuming exit. Regression tests: one request commits a 4-step upload; cap answers 202 then commits; cancelled step keeps its job.",
+          "MEDIUM fixed: import upserted up to ~57k vectors per write token; now one write token per upsert batch (Backend::charge_writes), over budget -> 200 rate_limited:true with resumable next_offset. Regression test: 13 batches -> 11 imported (10 admitted + request token), resume completes.",
+          "LOW fixed: CORS preflight allows PUT; responses expose Retry-After, ETag, X-RVF-Yanked.",
+          "CRITICAL not fixable in code: Free-plan 10 ms CPU vs megabyte SHA-256; comments now state the Paid assumption; recorded as deploy precondition."
+        ]
+      }
     },
     {
       "id": "M6",
@@ -303,7 +335,8 @@
     "Several load-bearing facts are [U]: Rate Limiting locality, DO CPU-limit source, D1 size limits, upstream ID-token contents and RFC 9207 support, connector scope requests, HNSW warm p50 and the M6 latency targets.",
     "G4 upstream crate PRs gate M2b and M4; team tenancy (G5) still needs an upstream org selector or org-role claim.",
     "workers.dev hosts are the issuer and audiences until G6; moving hosts changes every aud and forces a re-login for all clients and adapters.",
-    "2026-09-29: the Workers API refused limits.cpu_ms with 'CPU limits are not supported for the Free plan' (code 100328): the account appears to be on Workers Free, whose per-invocation CPU limit is far below what an HNSW batch insert, a flush of a large shard or an alarm rebuild needs. G2 lists Workers Paid; confirm the plan before load-testing M2 live."
+    "2026-09-29: the Workers API refused limits.cpu_ms with 'CPU limits are not supported for the Free plan' (code 100328): the account appears to be on Workers Free, whose per-invocation CPU limit is far below what an HNSW batch insert, a flush of a large shard or an alarm rebuild needs. G2 lists Workers Paid; confirm the plan before load-testing M2 live.",
+    "2026-09-29 (M5): registry uploads/finalize/import hash up to 16-64 MiB per request and need Workers Paid (30 s default CPU); on the current Workers Free account (10 ms) they are expected to fail with 1102. Deployed anyway (unauthenticated surfaces verified); upgrade to Workers Paid before any live registry write or G1 load test. Free-plan DO CPU figure unverified."
   ],
   "drift_detection": {
     "scope_drift": "Flag if work expands beyond the edge AS, rv-gateway and the services in ADR §3 (rv-vector, TenantLedger, rv-snapshot, rv-embed, rv-ingest, rv-quant, rv-graph, rv-mincut, rv-registry, rv-mcp, /v1/results signed result pages) plus the §16 adapter contract (/v1/ops, RFC 8693 exchange for adapter clients), or touches Cloudflare resources/OAuth provider settings without a listed gate (G1-G6) being explicitly approved.",
@@ -347,6 +380,11 @@
       "date": "2026-09-29",
       "summary": "M2 review (13 findings verified: 12 real and fixed with regression tests, 1 partially corrected — the requantize-alarm rebuild is bounded to < ~2k rows): HNSW iid-gap (critical), request-path HNSW rebuild and sliced link repair (high), cap-blocking compaction, load-budget flush/node caps, rebase fallback copies, tombstone-first drop by uid with wiped marker, per-op write budget (medium), filtered-HNSW step charge, f32-only rebuild pages, query fan-out tokens, removal at the deny cap (low). Committed 49b002d91 + 4cd5e95a1 (limits.cpu_ms refused on the Free plan; HNSW rebuild budget 20 s instead) and deployed the gateway (5ac46dca, deployment a793c2c1; auth unchanged); unauthenticated surfaces verified live; staging scripts unchanged.",
       "next": "G1 for real tokens, then the live M1/M2 acceptance (recall, shards per isolate, lazy-load p95, 429); confirm the Workers plan (Paid) before live M2 load; reconcile 422 idempotency_mismatch vs 409 op_replayed; run the chunk-decode fuzz target."
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "M5 RVF registry merged into edge services (0948584ad), review fixes 06d6e510a (finalize driven in one request, job kept on cancel), dfdb783d0 (import write budget per batch), 66ea39938 (CORS); gateway deployed f24ff298 (deployment 352c51dc), migration v1 -> v2-registry applied; auth unchanged; unauthenticated surfaces verified live; staging scripts unchanged.",
+      "next": "Move the account to Workers Paid, then exercise a live registry upload/finalize/import (G1); merge M3 and M4 branches."
     }
   ],
   "gates_registry_status": {
