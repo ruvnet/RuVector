@@ -1,14 +1,14 @@
 //! Approximate Min-Cut for All Cut Sizes
 //!
-//! Implementation based on "Approximate Min-Cut in All Cut Sizes"
-//! (SODA 2025, arXiv:2412.15069).
+//! Experimental implementation inspired by "Approximate Min-Cut in All Cut Sizes"
+//! (SODA 2025, arXiv:2412.15069). It does not implement that paper's proved
+//! algorithm or provide a validated all-graph approximation guarantee.
 //!
 //! # Key Innovation
 //!
-//! Uses spectral sparsification with edge sampling to achieve (1+ε)-approximate
-//! minimum cuts for ANY cut size, not just small cuts.
+//! Uses heuristic resistance estimates and edge sampling before a cut solve.
 //!
-//! # Time Complexity
+//! # Illustrative Targets (Not Proven Bounds)
 //!
 //! - Preprocessing: O(m log² n / ε²)
 //! - Query: O(n polylog n / ε²)
@@ -101,9 +101,9 @@ impl SpectralSparsifier {
     }
 }
 
-/// Approximate minimum cut for all cut sizes
+/// Experimental sampled-graph minimum cut
 ///
-/// Achieves (1+ε)-approximation for any cut size using spectral sparsification.
+/// Experimental sampled-graph min-cut; no all-graph `(1+ε)` guarantee is established.
 ///
 /// # Example
 ///
@@ -154,9 +154,9 @@ pub struct ApproxMinCutStats {
 pub struct ApproxMinCutResult {
     /// Approximate minimum cut value
     pub value: f64,
-    /// Lower bound (value / (1+ε))
+    /// Heuristic lower endpoint (value / (1+ε)); not a certified lower bound.
     pub lower_bound: f64,
-    /// Upper bound (value * (1+ε))
+    /// Heuristic upper endpoint (value * (1+ε)); not a certified upper bound.
     pub upper_bound: f64,
     /// Partition achieving the cut
     pub partition: Option<(Vec<VertexId>, Vec<VertexId>)>,
