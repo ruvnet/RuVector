@@ -1852,10 +1852,22 @@ impl RvfStore {
 
     /// Close the store, releasing the writer lock.
     ///
-    /// If the in-memory HNSW index changed since it was last persisted,
-    /// it is written out as an INDEX_SEG so the next open can load it
-    /// instead of rebuilding from vectors.
+    /// Build and persist an HNSW index for an eligible store, even if it has
+    /// only been ingested and never queried. This makes the first query after
+    /// a read-only reopen use the persisted INDEX_SEG rather than building a
+    /// graph on the query path. Building a large graph can make close slow.
     pub fn close(mut self) -> Result<(), RvfError> {
+        if !self.read_only && self.index_eligible(&QueryOptions::default()) {
+            let mut guard = self.index.lock().unwrap_or_else(|e| e.into_inner());
+            if guard.is_none() {
+                *guard = Some(VectorIndex::build(
+                    &self.vectors,
+                    self.options.metric,
+                    self.options.m.max(2) as usize,
+                    self.options.ef_construction.max(16) as usize,
+                ));
+            }
+        }
         self.persist_index()?;
 
         self.file
