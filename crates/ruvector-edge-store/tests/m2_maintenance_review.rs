@@ -217,7 +217,11 @@ fn heavy_hnsw_configs_flush_sooner_and_cap_nodes_by_load_budget() {
     // measured ≈ 4 ms per insert (wasm) for this config.
     assert!((n + 64) as f64 * 4.0 < 500.0);
     let cap = hnsw_node_cap(&heavy);
-    assert!(cap < hnsw_node_cap(&default) && cap > 6_600, "{cap}");
+    // Below the 14 MB byte cap (≈ 6.6k nodes here): the rebuild budget binds.
+    assert!(
+        cap < hnsw_node_cap(&default) && (4_000..6_600).contains(&cap),
+        "{cap}"
+    );
     // The write path honours the lower threshold.
     let st = MemSqlStore::new();
     let mut s = VectorShard::open(&st).unwrap();

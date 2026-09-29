@@ -6,13 +6,6 @@ compatibility_date = "2026-09-01"
 account_id = "501c77f558c68152352b8ddfade9b854"
 workers_dev = true
 
-# ADR-351 §6.1: an HNSW shard with no usable index epoch is rebuilt in the
-# DO alarm, never on a request (requests answer 503 meanwhile); at the
-# 14 MB resident cap that build measured ~29 s of CPU (wasm), past the
-# default 30 s limit. Store REBUILD_BUDGET_MS (60 s) is half of this.
-[limits]
-cpu_ms = 120000
-
 [build]
 # Pinned: worker-build must match the worker crate (=0.8.5); an unpinned
 # install pulls the latest release.
