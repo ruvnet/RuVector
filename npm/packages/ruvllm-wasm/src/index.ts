@@ -1,8 +1,11 @@
 /**
- * @ruvector/ruvllm-wasm - Browser LLM Inference with WebAssembly
+ * @ruvector/ruvllm-wasm - browser LLM runtime (in progress)
  *
- * Run large language models directly in the browser using WebAssembly
- * with optional WebGPU acceleration for faster inference.
+ * Status: capability checks (WebGPU, SIMD, SharedArrayBuffer) and helpers work.
+ * Model loading and text generation are NOT implemented yet: `loadModel`,
+ * `generate` and `chat` throw `RuvLLMWasmNotImplementedError` (see
+ * `INFERENCE_AVAILABLE`) rather than returning placeholder text. The example
+ * below shows the intended API.
  *
  * @example
  * ```typescript
@@ -150,8 +153,33 @@ export function estimateMemory(fileSizeBytes: number): {
 }
 
 /**
- * RuvLLM WASM class placeholder
- * Full implementation requires WASM binary from ruvllm-wasm crate
+ * Whether this package can load models and generate text. `false`: model
+ * loading and text generation are not implemented in the WASM build yet.
+ * `loadModel`, `generate` and `chat` throw {@link RuvLLMWasmNotImplementedError}
+ * instead of returning placeholder output that could be mistaken for a model's.
+ */
+export const INFERENCE_AVAILABLE = false;
+
+/** Thrown by `loadModel`, `generate` and `chat` while inference is unavailable. */
+export class RuvLLMWasmNotImplementedError extends Error {
+  readonly code = 'RUVLLM_WASM_NOT_IMPLEMENTED';
+
+  constructor(method: string) {
+    super(
+      `\`${method}\` is not implemented: @ruvector/ruvllm-wasm cannot load models or ` +
+        'generate text yet. For GGUF inference use the Rust ruvllm crate (candle feature); the WASM crate ' +
+        '(crates/ruvllm-wasm) currently ships kernels, KV cache, chat templates, ' +
+        'MicroLoRA, SONA and the HNSW router.'
+    );
+    this.name = 'RuvLLMWasmNotImplementedError';
+    Object.setPrototypeOf(this, RuvLLMWasmNotImplementedError.prototype);
+  }
+}
+
+/**
+ * Browser LLM runtime facade. Capability checks and configuration work;
+ * model loading and generation fail closed until the WASM runtime lands
+ * (see {@link INFERENCE_AVAILABLE}).
  */
 export class RuvLLMWasm {
   private config: import('./types.js').WASMConfig;
@@ -205,26 +233,10 @@ export class RuvLLMWasm {
       onProgress?: import('./types.js').ProgressCallback;
     }
   ): Promise<import('./types.js').ModelMetadata> {
-    this.status = 'loading' as import('./types.js').LoadingStatus;
-
-    // Placeholder - actual implementation requires WASM binary
-    console.log('Loading model from:', typeof source === 'string' ? source : 'ArrayBuffer');
-    console.log('Note: Full model loading requires the ruvllm-wasm binary.');
-    console.log('Build from: crates/ruvllm-wasm');
-
-    this.status = 'ready' as import('./types.js').LoadingStatus;
-
-    return {
-      name: 'placeholder',
-      architecture: 'llama' as import('./types.js').ModelArchitecture,
-      parameters: '0B',
-      contextLength: 2048,
-      vocabSize: 32000,
-      embeddingDim: 2048,
-      numLayers: 22,
-      quantization: 'q4_k_m',
-      fileSize: 0,
-    };
+    void source;
+    void options;
+    this.status = 'error' as import('./types.js').LoadingStatus;
+    throw new RuvLLMWasmNotImplementedError('loadModel');
   }
 
   /**
@@ -235,21 +247,10 @@ export class RuvLLMWasm {
     config?: import('./types.js').GenerationConfig,
     onToken?: import('./types.js').TokenCallback
   ): Promise<import('./types.js').CompletionResult> {
-    console.log('Generating with prompt:', prompt.substring(0, 50) + '...');
-    console.log('Note: Full generation requires the ruvllm-wasm binary.');
-
-    return {
-      text: '[Placeholder - build ruvllm-wasm crate for actual inference]',
-      stats: {
-        tokensGenerated: 0,
-        timeToFirstToken: 0,
-        totalTime: 0,
-        tokensPerSecond: 0,
-        promptTokens: 0,
-        memoryUsed: 0,
-      },
-      finishReason: 'stop',
-    };
+    void prompt;
+    void config;
+    void onToken;
+    throw new RuvLLMWasmNotImplementedError('generate');
   }
 
   /**
@@ -260,11 +261,10 @@ export class RuvLLMWasm {
     config?: import('./types.js').GenerationConfig,
     onToken?: import('./types.js').TokenCallback
   ): Promise<import('./types.js').CompletionResult> {
-    const prompt = messages
-      .map(m => `${m.role}: ${m.content}`)
-      .join('\n');
-
-    return this.generate(prompt, config, onToken);
+    void messages;
+    void config;
+    void onToken;
+    throw new RuvLLMWasmNotImplementedError('chat');
   }
 
   /**

@@ -1,7 +1,7 @@
 {
   "name": "@ruvector/ruvllm-wasm",
   "version": "2.0.2",
-  "description": "WASM bindings for browser-based LLM inference - run AI models directly in the browser with WebGPU acceleration",
+  "description": "Browser capability checks and a (not yet implemented) LLM runtime facade for RuvLLM WASM; the published package is the wasm-pack build of crates/ruvllm-wasm",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -18,7 +18,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "node scripts/guard-publish.mjs && npm run build",
     "test": "node --test test/*.test.js",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"

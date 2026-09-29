@@ -6,9 +6,19 @@
 [![License](https://img.shields.io/npm/l/@ruvector/ruvllm-wasm.svg)](https://github.com/ruvnet/ruvector/blob/main/LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 
-**Run large language models directly in the browser** using WebAssembly with optional WebGPU acceleration for faster inference.
+**Browser runtime for RuvLLM (in progress).**
 
-## Features
+> **Status: model loading and text generation are not implemented yet.** The
+> package on npm is the wasm-pack build of
+> [`crates/ruvllm-wasm`](https://github.com/ruvnet/ruvector/tree/main/crates/ruvllm-wasm),
+> which ships building blocks: attention/matmul/norm kernels, KV cache, chat
+> templates, MicroLoRA, SONA and the HNSW router. The `RuvLLMWasm.loadModel`,
+> `generate` and `chat` API below is the planned interface; in this source tree
+> those methods throw `RuvLLMWasmNotImplementedError` (`INFERENCE_AVAILABLE` is
+> `false`) instead of returning placeholder text. For GGUF inference today use
+> the Rust [`ruvllm`](https://crates.io/crates/ruvllm) crate (`candle` feature).
+
+## Planned features
 
 - **Browser-Native** - No server required, runs entirely client-side
 - **WebGPU Acceleration** - 10-50x faster inference with GPU support
@@ -25,7 +35,7 @@
 npm install @ruvector/ruvllm-wasm
 ```
 
-## Quick Start
+## Quick Start (planned API)
 
 ```typescript
 import { RuvLLMWasm, checkWebGPU } from '@ruvector/ruvllm-wasm';
@@ -193,6 +203,8 @@ const llm = await RuvLLMWasm.create({
 
 ### `loadModel(source, options?)`
 
+> Not implemented yet: throws `RuvLLMWasmNotImplementedError`.
+
 Load a GGUF model.
 
 ```typescript
@@ -202,6 +214,8 @@ await llm.loadModel(url, {
 ```
 
 ### `generate(prompt, config?, onToken?)`
+
+> Not implemented yet: throws `RuvLLMWasmNotImplementedError`.
 
 Generate text completion.
 
@@ -218,6 +232,8 @@ const result = await llm.generate('Hello', {
 ```
 
 ### `chat(messages, config?, onToken?)`
+
+> Not implemented yet: throws `RuvLLMWasmNotImplementedError`.
 
 Chat completion with message history.
 
