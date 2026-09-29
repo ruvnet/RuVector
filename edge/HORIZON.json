@@ -841,7 +841,12 @@
           }
         ]
       },
-      "next": "Human-login G1 token drills, then the live Paid drills (owed); IP_HASH_SALT; RuVector#1084/#1085 follow-ups. PR #1098 stays open (not merged)."
+      "next": "Human-login G1 token drills, then the live Paid drills (owed); IP_HASH_SALT; RuVector#1084/#1085 follow-ups. PR #1098 stays open (not merged).",
+      "ops_2026_09_29_pm": {
+        "gateway_rate_limit_namespaces": "35101-35108 -> 35201-35208 (was sharing 35101/35102 with the auth worker)",
+        "gateway_version": "46fa927c-7385-4a1d-86a1-c29348fb4e07",
+        "ip_hash_salt": "set on ruvector-edge-auth via wrangler secret put (random 48 bytes, never printed)"
+      }
     }
   ],
   "gates_registry_status": {
@@ -855,13 +860,11 @@
   "open_gates": [
     "Workers Paid CLOSED 2026-09-29 (G2 precondition): rUv upgraded account 501c77f5 to Workers Paid; gateway [limits] cpu_ms = 30000 accepted (version 161567cc, a83f661da); Free-sized caps raised and deployed (24f37fab2, gateway version 1460504f-fb07-4779-a4ce-8d8f03130e30).",
     "G1 CLOSED 2026-09-29: console#605 merged (98e1615f8) + Identity published; edge AS registered upstream as dcr-0d64c5e883c74a3db49cbbb41e8dcaf0 (public, PKCE S256, openid profile email), ACCEPTED_UPSTREAM_KIDS=_jQ62WD8cCiIGkKNQB8Hg4El2TNU5rHIITV4h_ba4YM; auth version 24a2818e. Live: /authorize -> consent 200 -> 303 to auth.cognitum.one/oauth/authorize -> upstream login page 200. Remaining: a human browser login to complete callback + token drills.",
-    "IP_HASH_SALT secret set by the operator (G1 precondition)",
     "ChatGPT coordinator acceptance receipt for the ADR §16 adapter contract (Slack #swarm + x.ruv.io), then register its private_key_jwt client in CONFIDENTIAL_CLIENTS",
     "G5 (team tenancy: upstream org selector / org-role claim) and G6 (production hostname) for M6"
   ],
   "owed": [
     "Upstream: RuVector#1084 merge (then move rvlite from rev c6ece785 to main/release); RuVector#1085 (ApproxMinCut 0.10-0.33x exact; ruvector-mincut wasm32 clippy static_mut_refs/unused_unsafe) before serving approximate mode or dropping the analytics wasm32 clippy exception; RuVector#1063/#1064 (@ruvector/core VectorDb shares ./ruvector.db across tenants) before a RuFlo front end fronts multi-tenant data",
-    "Next approved gateway deploy: renumber gateway Rate Limiting namespace_ids (e.g. 35201-35208) and fix both wrangler comments (still owed: not done in the 2026-09-29 Workers Paid caps deploy 1460504f, which was scoped to code caps with no wrangler.toml change)",
     "M0.5 live verification left two public DCR clients on AuthStore (default scope with 127.0.0.1:53682 redirect; a team:read/team:write client); their client_ids were not recorded and purge_idle_clients runs only at MAX_CLIENTS; operator to list and delete them or accept them as test fixtures before G1",
     "M4 residuals: graph/job bytes not in tenant quota; no graph/job wipe on tenant removal (no tenant deletion at all); isolate-kill blast radius unverified; multi-second DO turns (job solve <= ~4.5 s, HNSW rebuild <= 20 s) block co-resident objects",
     "Code: dry_run on REST collection create, tenant claim, drop, member/deny, graph REST, rvf_import, M3, mincut jobs, registry; registry manifest mirror (designed, not written); fail-closed empty IP_HASH_SALT in release builds; ruvector:publish in the RESOURCE_ALLOWLIST; /v1/results; GET /v1/audit; global deny/D1",

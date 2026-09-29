@@ -27,7 +27,8 @@ new_sqlite_classes = ["AuthStore"]
 # AuthStore DO (ADR-351 §5.6). Keyed on a salted hash of CF-Connecting-IP.
 # `namespace_id` is an operator-chosen integer unique within the account
 # (Workers Rate Limiting); nothing is provisioned ahead of deploy. The ids
-# below are used only by this script. Optional at runtime: when a binding is
+# below (35101-35102) are used only by this script; the gateway uses
+# 35201-35208. Optional at runtime: when a binding is
 # absent or errors, the front skips it and the DO still enforces the durable
 # DCR_RATE_PER_HOUR window, so a rate-limit issue never blocks deploy or login.
 [[ratelimits]]
