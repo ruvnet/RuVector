@@ -16,7 +16,14 @@
 //! row `offset` of the id-ordered live rows, and answers `next_offset`
 //! (`null` once done); the client repeats with it. The order is a pure
 //! function of the package, and upserts are idempotent by id, so a retry
-//! from any offset is safe. Memory is bounded too: packages up to
+//! from any offset is safe. **Rate:** each upsert batch costs one §10
+//! write token, like a `vectors:upsert` of it (the request's own token
+//! pays the first); when the write budget runs out mid-window the reply
+//! is `200` with `rate_limited: true` and `next_offset` at the first row
+//! not imported, and the client resumes after `Retry-After`.
+//! **CPU: assumes Workers Paid** (30 s default): every request hashes and
+//! validates the whole package (≤ 32 MiB), far over the Free plan's 10 ms.
+//! Memory is bounded too: packages up to
 //! [`MAX_IMPORT_BYTES`] with at most [`MAX_IMPORT_RECORDS`] vector records;
 //! only a 16-byte index entry per record is held, and vectors are decoded
 //! for the current window only. Larger packages need M3's chunked
@@ -224,7 +231,18 @@ pub(crate) async fn import_budgeted<B: Backend, R: RegistryRpc, S: BlobStore>(
         .min(total);
     let dim = usize::from(v.dim);
     let mut imported = 0u64;
-    for chunk in index[start as usize..end as usize].chunks(MAX_UPSERT_BATCH as usize) {
+    let mut limited = false;
+    for (i, chunk) in index[start as usize..end as usize]
+        .chunks(MAX_UPSERT_BATCH as usize)
+        .enumerate()
+    {
+        // The request's own write token pays the first batch; each later
+        // one pays another, as a `vectors:upsert` of it would. Over budget:
+        // stop the window here and let the client resume.
+        if i > 0 && d.b.charge_writes(ctx, 1).await.is_err() {
+            limited = true;
+            break;
+        }
         let vectors: Vec<Json> = chunk
             .iter()
             .map(|&(id, s, k)| {
@@ -242,6 +260,7 @@ pub(crate) async fn import_budgeted<B: Backend, R: RegistryRpc, S: BlobStore>(
             })?;
         imported += chunk.len() as u64;
     }
+    let end = start + imported;
     Ok((
         200,
         json!({
@@ -255,6 +274,7 @@ pub(crate) async fn import_budgeted<B: Backend, R: RegistryRpc, S: BlobStore>(
             "offset": start,
             "imported": imported,
             "next_offset": (end < total).then_some(end),
+            "rate_limited": limited,
         }),
     ))
 }

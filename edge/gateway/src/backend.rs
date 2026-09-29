@@ -29,6 +29,13 @@ pub trait Backend {
         let _ = (ctx, extra);
         Ok(())
     }
+    /// ADR-351 §10 layer 2 for bulk writes: charge `extra` more write
+    /// tokens (an RVF import pays one per upsert batch beyond the first).
+    /// No limiter: always admitted.
+    async fn charge_writes(&self, ctx: &CallerContext, extra: u32) -> Result<(), OpError> {
+        let _ = (ctx, extra);
+        Ok(())
+    }
 }
 
 /// Why a shard call failed.
@@ -133,7 +140,8 @@ pub mod mem {
         entropy: CounterEntropy,
         /// When set, every shard call fails in transport.
         pub shard_down: Cell<bool>,
-        /// When set, query fan-out is charged here (§10 layer 2).
+        /// When set, query fan-out and import batches are charged here
+        /// (§10 layer 2).
         pub fanout_limiter: Option<crate::api::ratelimit::mem::CountingLimiter>,
     }
 
@@ -213,6 +221,20 @@ pub mod mem {
             use crate::api::ratelimit::{admit_n, Class};
             match &self.fanout_limiter {
                 Some(l) => admit_n(l, Class::Read, ctx, extra).await.map_err(|_| {
+                    OpError::new(ruvector_edge_store::ErrorCode::RateLimited, "rate limited")
+                }),
+                None => Ok(()),
+            }
+        }
+
+        async fn charge_writes(
+            &self,
+            ctx: &ruvector_edge_store::CallerContext,
+            extra: u32,
+        ) -> Result<(), OpError> {
+            use crate::api::ratelimit::{admit_n, Class};
+            match &self.fanout_limiter {
+                Some(l) => admit_n(l, Class::Write, ctx, extra).await.map_err(|_| {
                     OpError::new(ruvector_edge_store::ErrorCode::RateLimited, "rate limited")
                 }),
                 None => Ok(()),

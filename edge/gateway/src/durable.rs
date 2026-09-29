@@ -292,4 +292,15 @@ impl Backend for DoBackend<'_> {
             .await
             .map_err(|_| OpError::new(ruvector_edge_store::ErrorCode::RateLimited, "rate limited"))
     }
+
+    async fn charge_writes(
+        &self,
+        ctx: &ruvector_edge_store::CallerContext,
+        extra: u32,
+    ) -> std::result::Result<(), OpError> {
+        use crate::api::ratelimit::{admit_n, Class, EnvLimiter};
+        admit_n(&EnvLimiter(self.env), Class::Write, ctx, extra)
+            .await
+            .map_err(|_| OpError::new(ruvector_edge_store::ErrorCode::RateLimited, "rate limited"))
+    }
 }

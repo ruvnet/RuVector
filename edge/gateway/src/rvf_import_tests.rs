@@ -314,3 +314,54 @@ fn live_index_matches_the_reference_decoder_and_caps_records() {
     let e = crate::rvf_import::live_rows(&v, &bytes, 10).unwrap_err();
     assert_eq!(e.status, 413);
 }
+
+/// Regression (an import window upserted ~57k vectors for one write
+/// token): every upsert batch beyond the first pays a §10 write token;
+/// over budget the window stops with `rate_limited` and a resumable
+/// `next_offset`.
+#[test]
+fn import_charges_one_write_token_per_upsert_batch() {
+    let w = World {
+        b: crate::backend::mem::MemBackend::new().with_fanout_limiter(),
+        ..World::new()
+    };
+    let alice = w.owner("org-a", "alice");
+    w.claim(&alice, "acme");
+    // 6500 rows = 13 batches of 500; the user write budget is 10 / 10 s.
+    let bytes = rvf_export(6500, 8, 9, &[]).0;
+    assert_eq!(
+        w.push(&alice, "acme/big", "1.0.0", "tenant", &bytes, 2).0,
+        201
+    );
+    create(&w, &alice, "docs", 8, "cosine");
+    let (s, r) = import(&w, &alice, "docs", "@acme/big");
+    assert_eq!(s, 200, "{r}");
+    // Batch 1 rides on the request's token, batches 2-11 pay 10 tokens.
+    assert_eq!(
+        (&r["imported"], &r["next_offset"], &r["rate_limited"]),
+        (&json!(5500), &json!(5500), &json!(true))
+    );
+    let limiter = w.b.fanout_limiter.as_ref().unwrap();
+    let writes: u32 = limiter
+        .seen
+        .borrow()
+        .iter()
+        .filter(|((b, _), _)| b == "RL_WRITE_USER")
+        .map(|(_, n)| *n)
+        .sum();
+    assert_eq!(writes, 11, "10 admitted + 1 refused");
+    // Next window: resume at next_offset.
+    limiter.reset();
+    let body = json!({ "package": "@acme/big", "version": "1.0.0", "offset": 5500 });
+    let (s, r) = w.json(
+        &alice,
+        Method::Post,
+        "/v1/collections/docs:import-rvf",
+        body,
+    );
+    assert_eq!(s, 200, "{r}");
+    assert_eq!(
+        (&r["imported"], &r["next_offset"], &r["rate_limited"]),
+        (&json!(1000), &Json::Null, &json!(false))
+    );
+}
