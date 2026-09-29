@@ -114,7 +114,9 @@ new_sqlite_classes = ["RegistryRoot", "RegistryScope"]
 # ONE bucket binding for every server-derived key prefix (ADR-351 §6.3):
 # M5 RVF package blobs, registry upload staging (R2 multipart) and manifest
 # mirrors; M3 snapshots/, exports/, staging/ (import uploads) and audit/ per
-# tenant. Lifecycle: exports/ expire after 1 day, staging/ after 3 days.
+# tenant. Lifecycle (bucket rules): exports/ expire after 1 day, incomplete
+# multipart uploads abort after 7 days; staging/ has NO rule yet (it is
+# shared with the M5 registry sweep), so unconsumed M3 uploads stay.
 [[r2_buckets]]
 binding = "EDGE_DATA"
 bucket_name = "ruvector-edge-data"
