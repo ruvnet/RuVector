@@ -76,6 +76,12 @@ RuVector includes an MCP server for Claude Code with 97 tools:
 claude mcp add ruvector -- npx ruvector mcp start
 ```
 
+The MCP server keeps its native memory index beside its `intelligence.json`
+store as `vectors.db`, under the selected `.ruvector` directory. Set
+`RUVECTOR_STORAGE_PATH=/absolute/path/to/vectors.db` to choose a different
+database file. If another process holds that file, the server reports the
+lock error on stderr and `hooks_capabilities` reports the fallback index.
+
 **Available MCP Tools:**
 - `hooks_route`, `hooks_route_enhanced` — Agent routing with signals
 - `hooks_ast_analyze`, `hooks_ast_complexity` — Code structure analysis
