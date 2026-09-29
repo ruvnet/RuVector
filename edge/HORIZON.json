@@ -1,0 +1,147 @@
+{
+  "objective": "A family of multi-tenant ruvector services (rv-vector, rv-quant, rv-graph, rv-mincut, rv-registry, rv-mcp) on Cloudflare Workers + Durable Objects behind the ruvector-edge-auth edge authorization server, which federates login to auth.cognitum.one and mints its own ES256 access tokens with aud = the exact canonical resource URL. Cloudflare account 501c77f558c68152352b8ddfade9b854, workers.dev subdomain cognitum-consulting-mail, no custom domains. Rust/wasm32 (workers-rs) throughout; no Cloudflare resource or OAuth-provider change without a separate, explicit gate approval.",
+  "created": "2026-09-28",
+  "adr": "docs/adr/ADR-351-ruvector-edge-multitenant-services.md",
+  "adr_status": "Proposed (revised 2026-09-28; reconciled 2026-09-29 with the edge-AS decision) — moves to Accepted only at M6",
+  "branch": "feat/ruvector-edge-services",
+  "worktree": "/home/ruvultra/projects/ruvector-edge",
+  "repo": "ruvector-edge (off origin/main of ruvector)",
+  "targetDate": null,
+  "currentMilestone": "M0",
+  "baseline_state": {
+    "as_of": "2026-09-29",
+    "adr_written": true,
+    "adr_merged": false,
+    "cloudflare_resources_created": false,
+    "oauth_provider_changed": false,
+    "scaffolded_crates": [
+      "crates/ruvector-edge-auth (jws, jwks, claims, audience, resource, subject (edge_subject), scopes, prm, verifier, clock, error — RS verification core; M0 adds trust_root)",
+      "crates/ruvector-edge-authz (client (DCR), authorize, pkce, code (replay tombstones), federation, token (RFC 9068 mint with upstream_iss + edge sub), grant (TokenEndpoint), params, refresh, revoke, metadata, resource, ports, error — edge AS core)",
+      "crates/ruvector-edge-tenancy (context (from_verified(claims, role, surface), scope ∩ role), names (do_name by collection_uid), uid (v2, nonce), shard, meta, membership, lease, validate, quota, problem, error)"
+    ],
+    "edge_dir": "edge/ standalone workspace (worker =0.8.5, wasm-bindgen =0.2.125): edge/auth-worker (Worker ruvector-edge-auth: lib, config, platform, signer (EDGE_AUTH_SIGNING_JWK), store (AuthStore DO), sql + sql_ports (schema v1), upstream, http, endpoints/{authorize,consent,callback,register,token}; optional MAX_CLIENTS) and edge/gateway (Worker ruvector-edge-gateway: lib, config, routes, auth, keys, platform, respond; EDGE_AUTH Service Binding for the edge JWKS)",
+    "note": "ADR §8 lists eleven open deltas between the working tree and the ADR: (1) mcp:* scope vocabulary, Capability lacks Admin, ROUTE_TABLE has no role column/rows for tenant, ops, mcp; (2) mcp:read in UPSTREAM_SCOPES; (3) AuthStore lacks subjects/dcr_rate/redeemed-code store; (4) DCR default = full SCOPES_SUPPORTED, /authorize omitted scope = ceiling, ensure_subset refuses, grant_types default code-only, localhost refused; (5) bare PRM serves the /v1 document, one DEFAULT_SCOPES, no /v1/mcp route, no Expose-Headers; (6) trust roots of both Workers in [vars] (incl. PUBLIC_ORIGIN, FIRST_PARTY_AUDS), no ACCEPTED_UPSTREAM_KIDS, 3600 s lifetime default; (7) no verified/unverified consent marker, upstream refresh token not revoked; (8) version pins; (9) RUSTFLAGS build wrapper; (10) aud mismatch mapped to 403 instead of 401; (11) no refresh reuse grace (M1: token-exchange grant, private_key_jwt adapter clients, act). Closed since 2026-09-28: collection_uid DO names, upstream_iss + edge sub in minted tokens, scope ∩ role in from_verified, consent page + per-flow cookie binding, MAX_CLIENTS, AS CORS, code-replay family revocation."
+  },
+  "gates_registry": {
+    "G1": "Register the edge AS as an upstream client at auth.cognitum.one via public DCR (authorised by rUv 2026-09-29): identity scopes only (openid profile email), redirect https://ruvector-edge-auth.cognitum-consulting-mail.workers.dev/callback. Precondition [V at console ce9ddca]: that redirect is not on the DCR allowlist, so G1 includes one exact ALLOWED_EXACT_REDIRECTS line (console review) or a hand-seeded client row — earliest M0.5",
+    "G2": "Cloudflare resources in account 501c77f5…: Workers ruvector-edge-auth + ruvector-edge-gateway on workers.dev (gateway -> auth EDGE_AUTH Service Binding), DO namespaces AuthStore (M0.5), VectorShard/TenantLedger (M1), Rate Limiting, secrets EDGE_AUTH_SIGNING_JWK/IP_HASH_SALT/DENY_GLOBAL; Workers Paid; wrangler OAuth for operator deploys, scoped token for CI — earliest M0.5",
+    "G3": "R2 ruvector-edge-data, D1 ruvector-edge-control, Queues (jobs+DLQ, audit), Workers AI binding — required by M3",
+    "G4": "Upstream crate PRs: (a) rvf-index DistanceOracle/CSR/streaming/simd128 [G4a, needed M2b], (b) rvlite-core split/browser feature [G4b], (c) ruvector-rabitq persist v2 [G4c] — required by M2b, M4",
+    "G5": "Team tenancy only: upstream org selector and/or org-role claim (console repo). Former G5a (web client), G5b (RFC 8707 upstream) and G5c (ruvector:* upstream scopes) are withdrawn — the edge AS provides them — required by M6",
+    "G6": "Production hostname: zone/delegation (api.cognitum.one is not in this account) or a separate Cloudflare account; changes the edge issuer and every audience — required by M6"
+  },
+  "milestones": [
+    {
+      "id": "M0",
+      "name": "Cores including authz (no deploy, no Cloudflare or provider changes)",
+      "status": "in_progress",
+      "gated_on": null,
+      "criteria": "ruvector-edge-auth, ruvector-edge-authz and ruvector-edge-tenancy implemented per ADR §4-§5 and every §8 working-tree delta closed (M1-marked items excepted); native tests pass (minted-token golden test with the exact §5.2 claim set, refresh grace and reuse detection, code-replay revocation, flow-cookie binding, §5.3 scope grant rule, 401 on aud mismatch, upstream-mode ID-token and typ=inference cases, trust-root mismatch on both Workers); route-table gap test passes; both Workers build for wasm32 with env -u RUSTFLAGS; every file under 500 lines; JWS/JWKS/DCR/token-form/ResourceUrl fuzzers run 10 min with no panic."
+    },
+    {
+      "id": "M0.5",
+      "name": "Deploy ruvector-edge-auth + gateway to workers.dev: upstream DCR, signing key as wrangler secret, live discovery + login round trip",
+      "status": "pending",
+      "gated_on": [
+        "G1",
+        "G2"
+      ],
+      "criteria": "Live: AS metadata, JWKS and both PRM documents (/v1, /v1/mcp) name the edge issuer, bare-origin PRM 404; POST /v1/mcp without a token returns the 401 challenge with the /v1/mcp resource_metadata; a browser user completes DCR -> consent -> upstream login -> callback -> token and GET /v1/me returns the edge sub and tenant_key; the token carries exactly the §5.2 claims; it is refused by the gateway's other resource (401 invalid_token + resource_metadata) and at api.cognitum.one/v1/mcp; replayed code, replayed state and mismatched flow cookie refused; refresh rotates, a concurrent refresh inside the 30 s grace does not revoke, reuse after it revokes the family, /revoke works; Claude.ai, ChatGPT, Claude Code (http://localhost) and MCP Inspector complete discovery -> DCR -> consent -> token for the /v1/mcp audience with a refresh token; no upstream token in storage or logs; M0.5 [U]s resolved (upstream iss parameter, connector scope/grant_types requests and step-up behaviour, DCR limits)."
+    },
+    {
+      "id": "M1",
+      "name": "rv-vector MVP, exact flat scan, connectors end to end",
+      "status": "pending",
+      "gated_on": [
+        "G2 (DO namespaces)"
+      ],
+      "criteria": "Locally and live: login -> claim -> create -> upsert 1k x 384 -> exact top-10 equals native brute force; tenant B gets 404 on tenant A's names; non-member gets 403; no upsert without ruvector:write, even as owner; foreign-iss, wrong-aud, upstream (mode off) and ID tokens rejected; 413 at the shard cap, 429 at the rate limit; four 12 MB shards stay resident and a fifth evicts, not crashes; instantiate < 600 ms and lazy-load p95 < 1 s; Claude.ai and ChatGPT connectors run vector_query, step up to ruvector:write on consent (HTTP 403 insufficient_scope challenge) and run a dry_run vector_upsert; /v1/ops accepts only aud = …/v1 tokens obtained by the RFC 8693 exchange grant (confidential private_key_jwt adapter clients, act claim audited; an adapter-audience token gets 401), refuses a mismatched target or tenant_key and never applies an op_id twice."
+    },
+    {
+      "id": "M2a",
+      "name": "int8 flat scan with f32 rerank (today's crates)",
+      "status": "pending",
+      "gated_on": null,
+      "criteria": "recall@10 >= 0.95 against FlatIndex on 20k x 384 random vectors and one real-embedding set; >= 3 shards per isolate at the measured per-shard cap; a quantizer change re-encodes without blocking queries for more than one slice."
+    },
+    {
+      "id": "M2b",
+      "name": "HNSW (gated on G4a)",
+      "status": "pending",
+      "gated_on": [
+        "G4a"
+      ],
+      "criteria": "recall@10 >= 0.95 against FlatIndex; warm query p50 < 10 ms [U]; >= 2 full HNSW shards fit the isolate cap; lazy-load p95 < 1 s with <= 200-op replay; a corrupted chunk falls back with identical results; a gapped-iid encode fails loudly."
+    },
+    {
+      "id": "M3",
+      "name": "Durability, ingest, embeddings, control plane, result pages (gated on G3)",
+      "status": "pending",
+      "gated_on": [
+        "G3"
+      ],
+      "criteria": "A kill-and-restore drill returns byte-identical results; cross-tenant restore, a tampered snapshot and a foreign upload_id are refused; a 100k-vector import stays within quota and the isolate cap; a global deny takes effect within 60 s; usage reconciles within 1%; a signed result page's witness verifies offline and a redacted key is absent; fuzzers run 1 h clean."
+    },
+    {
+      "id": "M4",
+      "name": "rv-quant, rv-graph, rv-mincut (gated on G4b/G4c)",
+      "status": "pending",
+      "gated_on": [
+        "G4b",
+        "G4c"
+      ],
+      "criteria": "A 50k x 384 rabitq cold load fits the CPU and memory budgets; a viewer cannot run a mutating Cypher query; mincut on 50k edges equals the native crate; an exhausted budget returns 413, not 500."
+    },
+    {
+      "id": "M5",
+      "name": "rv-registry and the full rv-mcp tool set",
+      "status": "pending",
+      "gated_on": null,
+      "criteria": "Every mutating MCP tool needs ruvector:write + editor and honours dry_run; a /v1/mcp connector token gets 401 (audience mismatch) on /v1 REST; an RVF from the rvf CLI imports via upload_id and queries correctly; the Launch Doctor conformance checker (ADR §9.1) passes against the live hosts."
+    },
+    {
+      "id": "M6",
+      "name": "Hardening and GA (gated on G5 and G6)",
+      "status": "pending",
+      "gated_on": [
+        "G5",
+        "G6"
+      ],
+      "criteria": "No open high or critical pentest findings (incl. consent phishing, code injection, refresh theft, token-exchange abuse, upstream deprovisioning, key rotation, upstream-token replay); p50 query < 30 ms and p99 < 150 ms at the edge for single-shard 384-dim collections [U]; this ADR moves to Accepted."
+    }
+  ],
+  "risks": [
+    "ADR numbering collision: ADR-350/ADR-351 range has multiple open claimants; renumber if taken before merge.",
+    "G1 is on the M0.5 critical path and is a provider touch: at console ce9ddca the upstream DCR redirect allowlist refuses the edge callback, so one exact ALLOWED_EXACT_REDIRECTS line (or a hand-seeded client) must pass console review; ADR-124 does not pre-approve it.",
+    "Working-tree code deviates from the ADR in eleven places (ADR §8), notably UPSTREAM_SCOPES containing mcp:read (an upstream dcr-* token with mcp:* is a live credential at api.cognitum.one/v1/mcp), the mcp:* scope vocabulary, the DCR default granting every supported scope, and trust roots of both Workers in [vars]; M0 must close these before any deploy.",
+    "Open DCR at the edge AS accepts any https and loopback redirect: consent-page quality, the unverified-host marker, write only on explicit consented request, clickjacking headers and DCR rate limits are the phishing defence; upstream deprovisioning is not propagated (≤ 90 d without an operator action).",
+    "Single global AuthStore DO (~500-1,000 req/s) and a single ES256 signing key held as a wrangler secret: availability and key-compromise procedures must be exercised before GA.",
+    "Several load-bearing facts are [U]: Rate Limiting locality, DO CPU-limit source, D1 size limits, upstream ID-token contents and RFC 9207 support, connector scope requests, HNSW warm p50 and the M6 latency targets.",
+    "G4 upstream crate PRs gate M2b and M4; team tenancy (G5) still needs an upstream org selector or org-role claim.",
+    "workers.dev hosts are the issuer and audiences until G6; moving hosts changes every aud and forces a re-login for all clients and adapters."
+  ],
+  "drift_detection": {
+    "scope_drift": "Flag if work expands beyond the edge AS, rv-gateway and the services in ADR §3 (rv-vector, TenantLedger, rv-snapshot, rv-embed, rv-ingest, rv-quant, rv-graph, rv-mincut, rv-registry, rv-mcp, /v1/results signed result pages) plus the §16 adapter contract (/v1/ops, RFC 8693 exchange for adapter clients), or touches Cloudflare resources/OAuth provider settings without a listed gate (G1-G6) being explicitly approved.",
+    "timeline_drift": "Flag if milestone velocity suggests M6 (Accepted) will not land, or if a milestone is marked done without its acceptance criteria being verifiably met (milestones are binary, no partial credit).",
+    "approach_drift": "Flag if the Rust-only house rule is violated; if any resource server accepts anything but exact-aud edge tokens outside the flagged upstream mode (no second audience on /v1/ops — adapters must use the RFC 8693 exchange with act, the only non-user token path); if the edge AS requests non-identity upstream scopes or persists upstream tokens; if an aud mismatch returns anything but 401 with resource_metadata; or if per-shard/isolate caps are set without measurement.",
+    "dependency_drift": "Flag if G1 review stalls (blocks M0.5) or if the G4 upstream PRs stall or change shape (block M2b, M4).",
+    "priority_drift": "Flag if the effort loses cadence versus the /loop 5m cycle it was started under."
+  },
+  "sessions": [
+    {
+      "date": "2026-09-28",
+      "summary": "Horizon initialized from ADR-351 §15 Phased implementation plan. M0 set to in_progress; M1-M6 pending. Checkpoint written to ruvector-edge/edge/HORIZON.json.",
+      "next": "Drive M0 to completion: confirm native auth/tenancy test matrix green, wasm32 build clean, route-table gap test passing, all files <500 lines, and 10-minute JWS/JWKS fuzz runs clean; then flip M0 to done and advance currentMilestone to M1."
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "ADR-351 reconciled with the edge-AS decision (rUv): ruvector-edge-auth federates to auth.cognitum.one and mints resource-bound ES256 tokens; new M0.5 (deploy auth + gateway to workers.dev, upstream DCR, signing key secret, live login round trip); connectors end to end from M1; G5 reduced to team tenancy; G1 requires one upstream redirect-allowlist line; adapter contract (§16) and downstream products (§17) added.",
+      "next": "Close the ADR §8 code deltas (then nine; superseded by the 2026-09-29 second-pass list of eleven) and the M0 test matrix; prepare the G1 console change (exact redirect entry) for review; then M0.5."
+    },
+    {
+      "date": "2026-09-29",
+      "summary": "ADR-351 second review pass: OPS_AUDS removed in favour of an RFC 8693 exchange grant (confidential private_key_jwt adapter clients, act claim); aud mismatch -> 401 re-discovery; connector scope defaults and HTTP 403 step-up; localhost loopback; 30 s refresh grace; code-replay revocation; unpinned upstream keys on the AS login path (ACCEPTED_UPSTREAM_KIDS only for the flagged mode); trust roots of both Workers as consts; EDGE_AUTH_SIGNING_JWK with rotation by key order; bare PRM 404; CORS; /v1/mcp challenge at M0.5; CIMD as Q15; §8 re-verified against the working tree (eleven open deltas).",
+      "next": "Close the eleven ADR §8 deltas (M1-marked excepted) and the M0 test matrix; prepare the G1 console change (exact redirect entry) for review; then M0.5."
+    }
+  ]
+}
