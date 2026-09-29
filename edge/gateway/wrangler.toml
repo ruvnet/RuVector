@@ -1,0 +1,22 @@
+# rv-gateway (ADR-351 M1). workers.dev only: no routes, no custom domains.
+# Deploys are gated; this file is not deployed by the scaffold workflow.
+name = "ruvector-edge-gateway"
+main = "build/worker/shim.mjs"
+compatibility_date = "2026-09-01"
+account_id = "501c77f558c68152352b8ddfade9b854"
+workers_dev = true
+
+[build]
+command = "cargo install -q worker-build && worker-build --release"
+
+[vars]
+PUBLIC_ORIGIN = "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev"
+EDGE_ISSUER = "https://ruvector-edge-auth.cognitum-consulting-mail.workers.dev"
+# Must equal <EDGE_ISSUER> + ruvector_edge_authz::metadata::paths::JWKS.
+EDGE_JWKS_URL = "https://ruvector-edge-auth.cognitum-consulting-mail.workers.dev/.well-known/jwks.json"
+# Upstream auth.cognitum.one tokens for the first-party CLI (ADR §5.2).
+# Off by default; enabling requires FIRST_PARTY_AUDS to hold exact client ids.
+UPSTREAM_FIRST_PARTY = "false"
+UPSTREAM_ISSUER = "https://auth.cognitum.one"
+UPSTREAM_JWKS_URL = "https://auth.cognitum.one/.well-known/jwks.json"
+FIRST_PARTY_AUDS = ""

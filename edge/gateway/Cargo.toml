@@ -1,0 +1,27 @@
+[package]
+name = "ruvector-edge-gateway"
+description = "rv-gateway Worker (ADR-351 M1 router): /v1/health, RFC 9728 metadata, /v1/me; accepts only edge-auth-issued, resource-bound ES256 tokens."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+worker = { workspace = true }
+wasm-bindgen = { workspace = true }
+console_error_panic_hook = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+ruvector-edge-auth = { workspace = true }
+ruvector-edge-tenancy = { workspace = true }
+
+[features]
+default = []
+# Integration-test issuer override (ADR §9.3). Never enabled in release builds.
+dev-issuer = []

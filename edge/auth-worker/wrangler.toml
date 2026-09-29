@@ -1,0 +1,42 @@
+# ruvector-edge-auth: the edge OAuth 2.1 authorization server. Federates login
+# to auth.cognitum.one and mints ES256 access tokens with aud = the resource.
+# workers.dev only: no routes, no custom domains. Deploys are gated; this file
+# is not deployed by the scaffold workflow.
+name = "ruvector-edge-auth"
+main = "build/worker/shim.mjs"
+compatibility_date = "2026-09-01"
+account_id = "501c77f558c68152352b8ddfade9b854"
+workers_dev = true
+
+[build]
+command = "cargo install -q worker-build && worker-build --release"
+
+[[durable_objects.bindings]]
+name = "AUTH_STORE"
+class_name = "AuthStore"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["AuthStore"]
+
+[vars]
+ISSUER = "https://ruvector-edge-auth.cognitum-consulting-mail.workers.dev"
+# Exact canonical resource URLs tokens may be minted for (comma-separated).
+RESOURCE_ALLOWLIST = "https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1,https://ruvector-edge-gateway.cognitum-consulting-mail.workers.dev/v1/mcp"
+SCOPES_SUPPORTED = "mcp:read mcp:invoke"
+UPSTREAM_ISSUER = "https://auth.cognitum.one"
+UPSTREAM_AUTHORIZATION_ENDPOINT = "https://auth.cognitum.one/oauth/authorize"
+UPSTREAM_TOKEN_ENDPOINT = "https://auth.cognitum.one/oauth/token"
+UPSTREAM_JWKS_URL = "https://auth.cognitum.one/.well-known/jwks.json"
+# The edge AS's own client id at auth.cognitum.one. Registration is a gated,
+# operator-run step (not performed by this workflow); empty until then.
+# [U] OPEN: ADR-351 §1.1 [V] says upstream DCR accepts redirects only by
+# prefix (chatgpt/claude connector paths, http://127.0.0.1:, http://localhost:)
+# or three named hosts, so <ISSUER>/callback on workers.dev cannot be
+# registered via DCR as-is. Resolve (seeded client or allowlist entry) before
+# the federation leg can work end-to-end.
+UPSTREAM_CLIENT_ID = ""
+UPSTREAM_SCOPES = "openid profile email mcp:read"
+
+# Secret (not a var): SIGNING_KEY_P256 = base64url 32-byte P-256 scalar,
+# set with `wrangler secret put SIGNING_KEY_P256`.

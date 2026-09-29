@@ -1,0 +1,25 @@
+[package]
+name = "ruvector-edge-authz"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Core of the ruvector edge OAuth 2.1 authorization server: DCR (RFC 7591), PKCE S256, one-time codes, upstream auth.cognitum.one federation, resource-bound ES256 access tokens (RFC 8707/9068), refresh rotation with reuse detection, revocation (RFC 7009), RFC 8414 metadata. Pure Rust, wasm32 clean."
+
+[dependencies]
+ruvector-edge-auth = { path = "../ruvector-edge-auth" }
+p256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
+sha2 = "0.10"
+base64ct = { version = "1", features = ["alloc"] }
+subtle = "2.6"
+url = "2.5"
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+ruvector-edge-auth = { path = "../ruvector-edge-auth", features = ["test-util"] }
+mockall = { workspace = true }
+proptest = { workspace = true }

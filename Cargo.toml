@@ -45,8 +45,17 @@ exclude = ["external/ruqu", "external/rvdna", "examples/OSpipe", "examples/rvf",
     # against ruvector-sparse-inference (SparseModel is now an enum without
     # forward_embedding/sparsity_statistics/encode; serde derives were
     # dropped from InferenceConfig/ModelMetadata).
-    "crates/ruvector-sparse-inference-wasm"]
+    "crates/ruvector-sparse-inference-wasm",
+    # ruvector edge Workers (ADR-351): a separate cargo workspace of workers-rs
+    # cdylibs with its own Cargo.lock, so its wasm-bindgen/worker pins never
+    # unify with this workspace. The pure cores it wraps are members below.
+    "edge", "edge/*"]
 members = [
+    # ruvector edge pure-Rust cores (ADR-351): resource-server auth, tenancy,
+    # and the edge OAuth authorization server. wasm32-unknown-unknown clean.
+    "crates/ruvector-edge-auth",
+    "crates/ruvector-edge-tenancy",
+    "crates/ruvector-edge-authz",
     "crates/ruvector-bounded-rag",
     "crates/ruvector-temporal-coherence",
     "crates/ruvector-acorn",

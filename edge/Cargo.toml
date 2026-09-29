@@ -1,0 +1,46 @@
+# ruvector edge Workers (ADR-351 §8). A standalone cargo workspace, excluded
+# from the root workspace, with its own Cargo.lock so the workers-rs /
+# wasm-bindgen pins never unify with the root graph. The pure-Rust cores live
+# in the root workspace and are consumed here by path.
+#
+# Check:  cd edge && CARGO_TARGET_DIR=/data/scratch/ruvector-edge-target/edge \
+#           cargo check --target wasm32-unknown-unknown
+[workspace]
+resolver = "2"
+members = ["gateway", "auth-worker"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT"
+authors = ["Ruvector Team"]
+repository = "https://github.com/ruvnet/ruvector"
+publish = false
+
+[workspace.dependencies]
+# worker 0.8.5 requires wasm-bindgen ^0.2.125, the version the root workspace
+# lockfile pins; the exact pin keeps js-sys/web-sys at 0.3.102 as well.
+worker = { version = "=0.8.5" }
+wasm-bindgen = "=0.2.125"
+console_error_panic_hook = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+url = "2.5"
+sha2 = "0.10"
+base64ct = { version = "1", features = ["alloc"] }
+p256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
+# Only if a transitive dependency pulls getrandom 0.2 into the wasm graph.
+getrandom = { version = "0.2", features = ["js"] }
+
+ruvector-edge-auth = { path = "../crates/ruvector-edge-auth" }
+ruvector-edge-tenancy = { path = "../crates/ruvector-edge-tenancy" }
+ruvector-edge-authz = { path = "../crates/ruvector-edge-authz" }
+
+# ADR §8 release profile for Worker cdylibs.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

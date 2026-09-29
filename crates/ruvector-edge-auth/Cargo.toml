@@ -1,0 +1,32 @@
+[package]
+name = "ruvector-edge-auth"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "ruvector edge resource-server auth (ADR-351): ES256 JWT/JWKS verification, claims and audience policy, scope->capability table, RFC 9728 metadata. Pure Rust, wasm32-unknown-unknown clean."
+
+[features]
+default = []
+# Exposes `VerifiedClaims::for_tests` so downstream crates can build claims in
+# unit tests. Never enable in release Worker builds.
+test-util = []
+
+[dependencies]
+# ES256 only. `ecdsa` implies `arithmetic` + `sha256`. No `std` feature: it
+# turns on rand_core/getrandom. No RNG is needed to
+# verify (or to sign with RFC 6979), so getrandom never enters the wasm graph.
+p256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
+sha2 = "0.10"
+base64ct = { version = "1", features = ["alloc"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+mockall = { workspace = true }
+proptest = { workspace = true }
+# `futures::executor::block_on` for the async KeySource / Verifier tests.
+futures = { workspace = true }
