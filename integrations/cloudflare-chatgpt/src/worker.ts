@@ -170,13 +170,14 @@ export default {
     if (url.pathname === '/health' && request.method === 'GET') {
       return json({ name: 'RuVector Cloudflare', version: '0.1.0', authConfigured: authConfigured(env) }, 200);
     }
-    if (url.pathname === '/.well-known/oauth-protected-resource' && request.method === 'GET') {
+    if ((url.pathname === '/.well-known/oauth-protected-resource/mcp' ||
+      url.pathname === '/.well-known/oauth-protected-resource') && request.method === 'GET') {
       if (!authConfigured(env)) return json({ error: 'identity_provider_unconfigured' }, 503);
       return json({ resource: env.OAUTH_AUDIENCE, authorization_servers: [env.OAUTH_ISSUER], scopes_supported: ['ruvector.read', 'ruvector.write'] }, 200);
     }
     if (url.pathname !== '/mcp') return json({ error: 'not_found' }, 404);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { allow: 'GET, POST, DELETE, OPTIONS' } });
-    const metadata = `${url.origin}/.well-known/oauth-protected-resource`;
+    const metadata = `${url.origin}/.well-known/oauth-protected-resource/mcp`;
     try {
       const principal = await authenticate(request, env);
       if (await requestTooLarge(request)) return json({ error: 'request_too_large' }, 413);
