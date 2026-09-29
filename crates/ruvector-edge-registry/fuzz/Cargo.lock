@@ -355,6 +355,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-edge-index"
+version = "2.3.0"
+dependencies = [
+ "sha2",
+]
+
+[[package]]
 name = "ruvector-edge-registry"
 version = "2.3.0"
 dependencies = [
@@ -388,6 +395,7 @@ version = "2.3.0"
 dependencies = [
  "hex",
  "ruvector-edge-auth",
+ "ruvector-edge-index",
  "ruvector-edge-tenancy",
  "serde",
  "serde_json",

@@ -44,7 +44,7 @@ ruvector-edge-quant = { path = "../crates/ruvector-edge-quant" }
 ruvector-edge-analytics = { path = "../crates/ruvector-edge-analytics" }
 # Pure-Rust Cypher engine (ADR-351 M4 rv-graph); `browser` off = no
 # wasm-bindgen/IndexedDB glue of its own (PR #1084).
-rvlite = { git = "https://github.com/ruvnet/RuVector", branch = "feat/rvlite-browser-feature-gate", default-features = false }
+rvlite = { git = "https://github.com/ruvnet/RuVector", rev = "c6ece785bd6e544c89c8327b0c840c2df61b8dd8", default-features = false }
 
 # ADR §8 release profile for Worker cdylibs.
 [profile.release]

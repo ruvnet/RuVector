@@ -1348,7 +1348,7 @@ checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 [[package]]
 name = "ruvector-core"
 version = "2.3.1"
-source = "git+https://github.com/ruvnet/RuVector?branch=feat/rvlite-browser-feature-gate#c6ece785bd6e544c89c8327b0c840c2df61b8dd8"
+source = "git+https://github.com/ruvnet/RuVector?rev=c6ece785bd6e544c89c8327b0c840c2df61b8dd8#c6ece785bd6e544c89c8327b0c840c2df61b8dd8"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1570,7 +1570,7 @@ dependencies = [
 [[package]]
 name = "ruvector-turboquant"
 version = "2.3.0"
-source = "git+https://github.com/ruvnet/RuVector?branch=feat/rvlite-browser-feature-gate#c6ece785bd6e544c89c8327b0c840c2df61b8dd8"
+source = "git+https://github.com/ruvnet/RuVector?rev=c6ece785bd6e544c89c8327b0c840c2df61b8dd8#c6ece785bd6e544c89c8327b0c840c2df61b8dd8"
 dependencies = [
  "serde",
  "thiserror 2.0.21",
@@ -1615,7 +1615,7 @@ dependencies = [
 [[package]]
 name = "rvlite"
 version = "0.4.0"
-source = "git+https://github.com/ruvnet/RuVector?branch=feat/rvlite-browser-feature-gate#c6ece785bd6e544c89c8327b0c840c2df61b8dd8"
+source = "git+https://github.com/ruvnet/RuVector?rev=c6ece785bd6e544c89c8327b0c840c2df61b8dd8#c6ece785bd6e544c89c8327b0c840c2df61b8dd8"
 dependencies = [
  "anyhow",
  "getrandom 0.2.17",

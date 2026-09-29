@@ -12,8 +12,8 @@
 //!
 //! The ADR's per-version paths (`rvf/{tenant_key}/{name}/{version}`,
 //! `public/{publisher_tenant_key}/{name}/{version}`) hold the manifest JSON
-//! ([`manifest_key`]), a listable R2 mirror of the index; the bytes live
-//! once per dedupe domain.
+//! ([`manifest_key`]) as a designed listable R2 mirror, NOT yet written by the
+//! gateway (the index is the `RegistryScope` DO); bytes live once per domain.
 
 use crate::manifest::Visibility;
 use crate::name::{PackageName, Scope};
